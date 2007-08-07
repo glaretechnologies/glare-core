@@ -34,7 +34,7 @@ public:
 
 	virtual const std::string getExtensionType() const { return "ply"; }
 
-	virtual void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep);
+	virtual void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale);// throw (ModelFormatDecoderExcep);
 };
 
 

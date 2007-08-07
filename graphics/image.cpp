@@ -21,7 +21,8 @@
 #include <ImathBox.h>
 #endif
 
-#include "../lpng128/png.h"
+//#include "../lpng128/png.h"
+#include <png.h>
 extern "C"
 {
 #include "../hdr/rgbe.h"

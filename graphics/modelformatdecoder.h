@@ -47,7 +47,7 @@ public:
 	//void buildModel(const void* data, int datalen, const std::string& filename, CS::Model& model_out) throw (ModelFormatDecoderExcep);
 
 	//void streamModel(const void* data, int datalen, const std::string& filename, ModelLoadingStreamHandler& handler) throw (ModelFormatDecoderExcep);
-	void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep);
+	void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale);// throw (ModelFormatDecoderExcep);
 
 
 	//takes ownership of pointer

@@ -41,7 +41,7 @@ public:
 
 
 	//throws ModelFormatDecoderExcep
-	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep) = 0;
+	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale) = 0;// throw (ModelFormatDecoderExcep) = 0;
 
 protected:
 	//throws ModelFormatDecoderExcep

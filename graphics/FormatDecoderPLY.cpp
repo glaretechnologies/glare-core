@@ -106,7 +106,7 @@ static int face_callback(p_ply_argument argument)
 }
 
 
-void FormatDecoderPLY::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep)
+void FormatDecoderPLY::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	ply_scale = scale;
 

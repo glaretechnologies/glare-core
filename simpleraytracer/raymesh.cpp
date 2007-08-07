@@ -214,7 +214,7 @@ const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texco
 	const Vec2& v2tex = mesh.getVert( mesh.getTri(tri_index).vertex_indices[2] ).getTexCoords(texcoords_set);*/
 
 	return toVec2d(
-		v0tex*(1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y) + v1tex*hitinfo.tri_coords.x + v2tex*hitinfo.tri_coords.y);
+		v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 }
 
 
@@ -469,9 +469,9 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 	hitinfo_out.hittricoords.set(u, v);
 
 	return toVec3d(
-		triVertPos(tri_index, 0) * (1.0 - s) + 
-		triVertPos(tri_index, 1) * u + 
-		triVertPos(tri_index, 2) * v
+		triVertPos(tri_index, 0) * (float)(1.0 - s) + 
+		triVertPos(tri_index, 1) * (float)u + 
+		triVertPos(tri_index, 2) * (float)v
 		);
 
 	//return toVec3d(

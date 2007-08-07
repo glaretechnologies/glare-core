@@ -59,7 +59,7 @@ CSModelLoader::~CSModelLoader()
 {	
 }
 
-void CSModelLoader::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep)
+void CSModelLoader::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	//------------------------------------------------------------------------
 	//read model file from disk

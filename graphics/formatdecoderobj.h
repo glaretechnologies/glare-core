@@ -44,7 +44,7 @@ public:
 	//	CS::Model& model_out) throw (ModelFormatDecoderExcep);
 
 	virtual void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, 
-		float scale) throw (ModelFormatDecoderExcep);
+		float scale);// throw (ModelFormatDecoderExcep);
 
 
 private:

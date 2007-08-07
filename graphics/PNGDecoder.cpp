@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "PNGDecoder.h"
 
 
-#include "../lpng128/png.h"
+#include <png.h>
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
@@ -37,7 +37,7 @@ void pngdecoder_warning_func(png_structp png, const char* msg)
 	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
 }
 
-int offset = 0;//TEMP UNTHREADSAFE HACK
+static int offset = 0;//TEMP UNTHREADSAFE HACK
 
 void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
 {

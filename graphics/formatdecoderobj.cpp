@@ -79,7 +79,7 @@ public:
 //#define NON_COLLAPSED_VERTEX_LOAD 1
 
 void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, 
-		float scale) throw (ModelFormatDecoderExcep)
+		float scale)// throw (ModelFormatDecoderExcep)
 {
 	Timer load_timer;
 

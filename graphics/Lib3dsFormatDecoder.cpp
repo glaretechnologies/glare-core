@@ -7,8 +7,8 @@ Code By Nicholas Chapman.
 #include "Lib3dsFormatDecoder.h"
 
 
+#define LIB3DS_SUPPORT 1
 
-//TEMP #define LIB3DS_SUPPORT 1
 
 #ifdef LIB3DS_SUPPORT
 #include <lib3ds/file.h>
@@ -452,7 +452,7 @@ void Lib3dsFormatDecoder::buildModel(const void* data, int datalen, const std::s
 
 #ifdef LIB3DS_SUPPORT
 
-void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep)
+void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	handler.addUVSetExposition("albedo", 0);
 	handler.addUVSetExposition("default", 0);
@@ -466,7 +466,7 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 
 	MyBuf buf;
 	buf.data = &datavec[0];//data;
-	buf.datalen = datavec.size();//datalen;
+	buf.datalen = (int)datavec.size();//datalen;
 	buf.pos = 0;
 	buf.error = false;
 
@@ -500,7 +500,7 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 	//------------------------------------------------------------------------
 	//load the materials
 	//------------------------------------------------------------------------
-	std::map<std::string, int> mat_name_to_index;
+	std::map<std::string, size_t> mat_name_to_index;
 	int i=0;
 	Lib3dsMaterial* material = file->materials;
 	if(!material)
@@ -588,11 +588,11 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 			}
 
 			//find the part for this material
-			std::map<std::string, int>::iterator result = mat_name_to_index.find(facemat);
+			std::map<std::string, size_t>::iterator result = mat_name_to_index.find(facemat);
 			if(result != mat_name_to_index.end())//found the mat
 			{
 				//CS::ModelPart& part = model_out.model_parts[(*result).second];
-				const int material_index = (*result).second;
+				const size_t material_index = (*result).second;
 
 				//------------------------------------------------------------------------
 				//add verts
@@ -625,7 +625,7 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 				
 
 				const unsigned int vert_indices[3] = {num_verts_added, num_verts_added+1, num_verts_added+2};
-				handler.addTriangle(vert_indices, material_index);
+				handler.addTriangle(vert_indices, (int)material_index);
 
 				num_verts_added += 3;
 			}
@@ -647,7 +647,7 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 
 #else //LIB3DS_SUPPORT
 
-void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale) throw (ModelFormatDecoderExcep)
+void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	::fatalError("Lib3dsFormatDecoder::streamModel: LIB3DS_SUPPORT disabled.");
 }

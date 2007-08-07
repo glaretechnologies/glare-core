@@ -43,9 +43,9 @@ IPAddress::IPAddress(const std::string& addstring) throw (MalformedIPStringExcep
 
 	int a, b, c, d;
 
-	int nextstartpos;
+	size_t nextstartpos;
 	{
-	const int dotpos = addstring.find_first_of('.');
+	const size_t dotpos = addstring.find_first_of('.');
 	if(dotpos == std::string::npos)
 		throw MalformedIPStringExcep();
 
@@ -54,7 +54,7 @@ IPAddress::IPAddress(const std::string& addstring) throw (MalformedIPStringExcep
 	}
 
 	{
-	const int dotpos = addstring.find_first_of('.', nextstartpos);
+	const size_t dotpos = addstring.find_first_of('.', nextstartpos);
 	if(dotpos == std::string::npos)
 		throw MalformedIPStringExcep();
 
@@ -67,7 +67,7 @@ IPAddress::IPAddress(const std::string& addstring) throw (MalformedIPStringExcep
 	}
 
 	{
-	const int dotpos = addstring.find_first_of('.', nextstartpos);
+	const size_t dotpos = addstring.find_first_of('.', nextstartpos);
 	if(dotpos == std::string::npos)
 		throw MalformedIPStringExcep();
 

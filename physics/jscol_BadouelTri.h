@@ -95,6 +95,17 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	return hit;
 #elif defined(WIN64)
 	return unsigned int(alpha >= 0.0f && beta >= 0.0f && (alpha + beta) <= 1.0f);
+	
+	/*return _mm_and_ps( // (alpha >= 0.0) && (beta >= 0.0) && (alpha + beta <= 1.0) ? 0xFFFFFFFF : 0x0
+		_mm_and_ps( // (alpha >= 0.0) && (beta >= 0.0) ? 0xFFFFFFFF : 0x0
+			_mm_cmpge_ss(loadScalarLow(&alpha), zeroVec()), // alpha >= 0.0 ? 0xFFFFFFFF : 0x0
+			_mm_cmpge_ss(loadScalarLow(&beta), zeroVec()) // beta >= 0.0 ? 0xFFFFFFFF : 0x0
+			),
+		_mm_cmple_ss( // alpha + beta <= 1.0 ? 0xFFFFFFFF : 0x0
+			_mm_add_ss(loadScalarLow(&alpha), loadScalarLow(&beta)), //alpha + beta 
+			_mm_load_ps(one_4vec) // 1.0
+			)
+		).m128_u32[0];*/
 #else
 	TODO
 #endif
