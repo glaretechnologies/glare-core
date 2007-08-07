@@ -112,18 +112,18 @@ const Vec3d Camera::sampleSensor(const Vec2d& samples) const
 double Camera::sensorPDF(const Vec3d& pos) const
 {
 	const double A = sensor_width * sensor_height;
-	return 1.0f / A;
+	return 1.0 / A;
 }
 
-const Vec3d Camera::sampleLensPos(const Vec2d& samples/*, const Vec3d& sensorpos*/) const
+const Vec3d Camera::sampleLensPos(const Vec2d& samples) const
 {
-	const Vec2d discpos = MatUtils::sampleUnitDisc(samples) * lens_radius;
+	const Vec2d discpos = MatUtils::sampleUnitDisc(samples) * (double)lens_radius;
 	return lens_center + discpos.x * up + discpos.y * right;
 }
 
 double Camera::lensPosPDF(/*const Vec3d& sensorpos, */const Vec3d& lenspos) const
 {
-	assert(lens_radius > 0.0f);
+	assert(lens_radius > 0.0);
 	const double A = (double)NICKMATHS_PI * (double)lens_radius * (double)lens_radius;
 	return 1.0 / A;
 }

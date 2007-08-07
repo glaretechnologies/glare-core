@@ -72,9 +72,9 @@ const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 
 	//NOTE: not normalising, because a raymesh is always contained by a InstancedGeom geometry,
 	//which will normalise the normal.
-	return toVec3d(v0norm * (1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y) + 
-		(v1norm/* - v0norm*/)*hitinfo.tri_coords.x + //this->lasthit_triuvs.x + 
-		(v2norm/* - v0norm*/)*hitinfo.tri_coords.y);//this->lasthit_triuvs.y);
+	return toVec3d(v0norm * (1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + 
+		(v1norm/* - v0norm*/)*(float)hitinfo.tri_coords.x + //this->lasthit_triuvs.x + 
+		(v2norm/* - v0norm*/)*(float)hitinfo.tri_coords.y);//this->lasthit_triuvs.y);
 	/*Vec3 norm = v0norm;
 	Vec3 diff1 = v1norm;
 	diff1 -= v0norm;

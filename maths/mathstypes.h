@@ -177,7 +177,7 @@ inline Real logBase2(Real x)
 
 inline bool isNAN(float x)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return _isnan(x) != 0;
 #else
 	return isnan(x) != 0;
@@ -186,7 +186,7 @@ inline bool isNAN(float x)
 
 inline bool isNAN(double x)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return _isnan(x) != 0;
 #else
 	return isnan(x) != 0;
@@ -195,7 +195,7 @@ inline bool isNAN(double x)
 
 inline bool isFinite(float x)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return _finite(x) != 0;//hopefully this works for floats :)
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -204,7 +204,7 @@ inline bool isFinite(float x)
 
 inline bool isFinite(double x)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return _finite(x) != 0;
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -248,18 +248,23 @@ inline bool isDenormed(float x)
 template <class Real>
 inline int roundToInt(Real x)
 {	
-	int i;
+	
 #ifdef GCC
+	int i;
 	//NOTE: testme
 	 __asm__ __volatile__ ("fistpl %0" : "=m" (i) : "t" (x) : "st") ;
-#else
+	 return i
+#elif defined(WIN32)
+	int i;
 	_asm
 	{         
 		fld x		; Push x onto FP stack
 		fistp i;	; convert to integer and store in i.
 	}
-#endif
 	return i;
+#elif defined(WIN64)
+	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
+#endif
 }
 
 

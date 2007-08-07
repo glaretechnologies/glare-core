@@ -14,7 +14,7 @@
 
 #ifndef BASIC_IMAGE
 
-#define OPENEXR_SUPPORT 1
+//TEMP NO OPENEXR SUPPORT #define OPENEXR_SUPPORT 1
 
 #ifdef OPENEXR_SUPPORT
 #include <ImfRgbaFile.h>

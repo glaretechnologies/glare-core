@@ -11,9 +11,6 @@ You may *not* use this code for any commercial project.
 #ifndef __RAY_H_666_
 #define __RAY_H_666_
 
-
-
-#include "../maths/vec3.h"
 #include "../maths/PaddedVec3.h"
 #include "../maths/mathstypes.h"
 #include "../maths/SSE.h"

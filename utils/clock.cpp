@@ -10,7 +10,7 @@ You may *not* use this code for any commercial project.
 =====================================================================*/
 #include "clock.h"
 	
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 #else
 #include <sys/time.h>
@@ -23,7 +23,7 @@ You may *not* use this code for any commercial project.
 //returns current time in seconds
 double getCurTimeRealSec()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	/*static */LARGE_INTEGER li_net;
 	memset(&li_net, 0, sizeof(li_net));
 	BOOL b = QueryPerformanceCounter(&li_net); 

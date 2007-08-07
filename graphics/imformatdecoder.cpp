@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <math.h>
 
 //TEMP HACK:
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #define IMFMTDECDR_JPEG_SUPPORT
 #endif
 

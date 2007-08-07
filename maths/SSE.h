@@ -7,38 +7,29 @@ Code By Nicholas Chapman.
 #ifndef __SSE_H_666_
 #define __SSE_H_666_
 
-//#include "../utils/stringutils.h"//TEMP
-//#include "../indigo/globals.h"
 #include "../utils/platform.h"
 
-//inline void* myAlignedMalloc(unsigned int size, unsigned int alignment);
-//inline void myAlignedFree(void* mem);
 
 namespace SSE
 {
 	void checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present, bool& sse3_present);
 };
 
+
+
 #ifdef USE_SSE
 
-//#define USE_SSE2
+#include <xmmintrin.h> //SSE header file
 
-
-//#define __SSE__
-	//gcc seems to want this to enable SSE
-//#define __MMX__
-	//and this
-
-#include <xmmintrin.h>
 #ifdef USE_SSE2
-#include <emmintrin.h>//SSE 2
+#include <emmintrin.h> //SSE 2 header file
 #endif
-//<malloc.h>
 
 typedef __m128 SSE4Vec;//A vector of 4 single precision floats.  16 byte aligned by default.
 #ifdef USE_SSE2
 typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by default.
 #endif
+
 
 #ifdef COMPILER_MSVC
 #define SSE_ALIGN _MM_ALIGN16
@@ -47,9 +38,9 @@ typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by def
 #endif
 
 template <class T>
-inline bool isAlignedTo(T* ptr, unsigned int alignment)
+inline bool isAlignedTo(T* ptr, uintptr_t alignment)
 {
-	return ((uint64)ptr % alignment) == 0;
+	return (uintptr_t(ptr) % alignment) == 0;
 }
 
 template <class T>
@@ -60,19 +51,18 @@ inline bool isSSEAligned(T* ptr)
 
 #define assertSSEAligned(p) (assert(isSSEAligned((p))))
 
-inline void* alignedMalloc(unsigned int size, unsigned int alignment)
+inline void* alignedMalloc(size_t size, size_t alignment)
 {
 	return _aligned_malloc(size, alignment);
-
-	//void* p = myAlignedMalloc(size, alignment);
-	//assert(isAlignedTo(p, alignment));
-	//return p;
 }
 
-void alignedFree(void* mem);
+inline void alignedFree(void* mem)
+{
+	_aligned_free(mem);
+}
 
 
-inline void* alignedSSEMalloc(unsigned int size)
+inline void* alignedSSEMalloc(size_t size)
 {
 	return alignedMalloc(size, 16);
 }
@@ -84,15 +74,14 @@ inline void alignedSSEFree(T* t)
 }
 
 template <class T>
-inline void alignedSSEArrayMalloc(unsigned int numelems, T*& t_out)
+inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
 {
-	const unsigned int memsize = sizeof(T) * numelems;
+	const size_t memsize = sizeof(T) * numelems;
 	t_out = static_cast<T*>(alignedSSEMalloc(memsize));
-	//new(t_out) T[numelems];
 }
 
 template <class T>
-inline void alignedSSEArrayFree(/*unsigned int numelems, */T* t)
+inline void alignedSSEArrayFree(T* t)
 {
 	alignedSSEFree(t);
 
@@ -104,7 +93,11 @@ inline void alignedSSEArrayFree(/*unsigned int numelems, */T* t)
 
 
 
-//#define newSSE new(alignedMalloc(
+
+
+
+
+
 
 #define load4Vec(v) (_mm_load_ps(v))
 //Loads four single-precision, floating-point values. The address must be 16-byte aligned.
@@ -329,6 +322,7 @@ inline const SSE4Vec crossSSE(const SSE4Vec& v1, const SSE4Vec& v2)
 }
 			
 #else //else if not USE_SSE
+
 //------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------

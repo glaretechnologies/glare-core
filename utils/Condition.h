@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __CONDITION_H_666_
 
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 #include <process.h>
 #else
@@ -44,7 +44,7 @@ public:
 	///Resets condition so that threads will block on wait() again.
 	void resetToFalse();
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	HANDLE condition;
 #else
 	pthread_cond_t condition;

@@ -54,7 +54,7 @@ public:
 	virtual bool diskCachable() = 0;
 	virtual void buildFromStream(std::istream& stream) = 0;
 	virtual void saveTree(std::ostream& stream) = 0;
-	virtual unsigned int checksum() = 0;
+	virtual uint32 checksum() = 0;
 
 
 	//intersectable interface

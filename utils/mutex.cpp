@@ -17,7 +17,7 @@ Mutex::Mutex()
 {
 //	created = false;
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	InitializeCriticalSection(&mutex);
 #else
 	//int pthread_mutex_init (mutex, attr)
@@ -32,7 +32,7 @@ Mutex::~Mutex()
 {
 //	created = false;
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	DeleteCriticalSection(&mutex);
 #else
 	pthread_mutex_destroy(&mutex);//, NULL);
@@ -47,7 +47,7 @@ void Mutex::acquire()
 		::fatalError("tried to acquire an uninitialised mutex.");
 #endif*/
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	EnterCriticalSection(&mutex);
 #else
 	pthread_mutex_lock(&mutex);
@@ -62,7 +62,7 @@ void Mutex::release()
 		::fatalError("tried to release an uninitialised mutex.");
 #endif*/
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	LeaveCriticalSection(&mutex);
 #else
 	pthread_mutex_unlock(&mutex);

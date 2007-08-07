@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 //#include "mysocket.h"
 //#include "packet.h"
 #include "../utils/stringutils.h"
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <winsock.h>
 #else
 #include <netinet/in.h>

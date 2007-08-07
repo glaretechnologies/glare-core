@@ -84,16 +84,16 @@ void TreeTest::testBuildCorrect()
 	testAssert(bbox_ws.max_ == Vec3f(10.f, 1, 1));
 
 	testAssert(kdtree->getNodesDebug().size() == 3);
-	testAssert(!kdtree->getNodesDebug()[0].isLeafNode());
+	testAssert(!kdtree->getNodesDebug()[0].isLeafNode() != 0);
 	testAssert(kdtree->getNodesDebug()[0].getPosChildIndex() == 2);
 	testAssert(kdtree->getNodesDebug()[0].getSplittingAxis() == 0);
 	testAssert(kdtree->getNodesDebug()[0].data2.dividing_val == 1.0f);
 
-	testAssert(kdtree->getNodesDebug()[1].isLeafNode());
+	testAssert(kdtree->getNodesDebug()[1].isLeafNode() != 0);
 	testAssert(kdtree->getNodesDebug()[1].getLeafGeomIndex() == 0);
 	testAssert(kdtree->getNodesDebug()[1].getNumLeafGeom() == 1);
 
-	testAssert(kdtree->getNodesDebug()[2].isLeafNode());
+	testAssert(kdtree->getNodesDebug()[2].isLeafNode() != 0);
 	testAssert(kdtree->getNodesDebug()[2].getLeafGeomIndex() == 1);
 	testAssert(kdtree->getNodesDebug()[2].getNumLeafGeom() == 2);
 
@@ -156,11 +156,11 @@ void TreeTest::testBuildCorrect()
 	testAssert(kdtree->getNodesDebug()[0].getSplittingAxis() == 0);
 	testAssert(kdtree->getNodesDebug()[0].data2.dividing_val == 1.0f);
 
-	testAssert(kdtree->getNodesDebug()[1].isLeafNode());
+	testAssert(kdtree->getNodesDebug()[1].isLeafNode() != 0);
 	testAssert(kdtree->getNodesDebug()[1].getLeafGeomIndex() == 0);
 	testAssert(kdtree->getNodesDebug()[1].getNumLeafGeom() == 1);
 
-	testAssert(kdtree->getNodesDebug()[2].isLeafNode());
+	testAssert(kdtree->getNodesDebug()[2].isLeafNode() != 0);
 	testAssert(kdtree->getNodesDebug()[2].getLeafGeomIndex() == 1);
 	testAssert(kdtree->getNodesDebug()[2].getNumLeafGeom() == 3);
 

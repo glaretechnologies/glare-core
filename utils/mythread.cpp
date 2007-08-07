@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 #include "mythread.h"
 
 #include <assert.h>
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <process.h>
 #include <windows.h>
 
@@ -39,7 +39,7 @@ void MyThread::launch(bool autodelete_)
 	autodelete = autodelete_;
 
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 
 	const int stacksize = 0;//TEMP HACK
 
@@ -54,7 +54,7 @@ void MyThread::launch(bool autodelete_)
 	//return thread_handle;
 }
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	void 
 #else
 	void*

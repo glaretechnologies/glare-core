@@ -2,7 +2,7 @@
 #define PLATFORM_H_666
 
 
-#ifdef _WIN32
+#if defined(WIN32) || defined(WIN64)
 #define _FORCEINLINE __forceinline
 #else
 #define _FORCEINLINE __inline
@@ -25,9 +25,9 @@
 
 //Compiler Definitions
 //#define COMPILER_GCC
-#define COMPILER_MSVC 1
+//#define COMPILER_MSVC 1
 //#define COMPILER_MSVC_6
-#define COMPILER_MSVC_2003 1
+//#define COMPILER_MSVC_2003 1
 
 #ifdef _MSC_VER
 #define COMPILER_MSVC 1

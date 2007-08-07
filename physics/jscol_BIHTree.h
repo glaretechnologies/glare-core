@@ -41,7 +41,7 @@ public:
 	virtual bool diskCachable();
 	virtual void buildFromStream(std::istream& stream);
 	virtual void saveTree(std::ostream& stream);
-	virtual unsigned int checksum();
+	virtual uint32 checksum();
 
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
@@ -57,7 +57,7 @@ public:
 
 private:
 	//typedefs
-	typedef unsigned int TRI_INDEX;
+	typedef uint32 TRI_INDEX;
 	typedef std::vector<BIHTreeNode> NODE_VECTOR_TYPE;
 
 	

@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "fileutils.h"
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 #else
 
@@ -21,7 +21,7 @@ Code By Nicholas Chapman.
 namespace FileUtils
 {
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 const std::string PLATFORM_DIR_SEPARATOR = "\\";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 #else
@@ -128,7 +128,7 @@ void splitDirName(const std::string& dirname, std::string& rootdir_out,
 }
 	
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 bool createDir(const std::string& dirname)
 {
 	bool created_dir = false;
@@ -274,7 +274,7 @@ const std::string getFilename(const std::string& pathname)
 
 //creates the directory the file is in according to pathname
 //returns false if fails or directory already exists
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 bool createDirForPathname(const std::string& pathname)
 {
 	std::string dir = getDirectory(pathname);
@@ -294,7 +294,7 @@ bool createDirForPathname(const std::string& pathname)
 }
 #endif
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 bool dirExists(const std::string& dirname)
 {
 	WIN32_FIND_DATA find_data;
@@ -536,7 +536,7 @@ const std::string widenToTwoChars(const std::string& numeral)
 
 
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 const std::string getCurrentDir()
 {
 /*DWORD GetCurrentDirectory(
@@ -574,7 +574,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	if(!MoveFileEx(srcpath.c_str(), dstpath.c_str(), MOVEFILE_REPLACE_EXISTING))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #else
@@ -586,7 +586,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 
 bool isPathAbsolute(const std::string& p)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return (p.length() > 1 && hasPrefix(p.substr(1, p.length()-1), ":")) ||// e.g. C:/programming/
 		hasPrefix(p, "\\");//network share
 #else
@@ -598,7 +598,7 @@ bool isPathAbsolute(const std::string& p)
 
 void doUnitTests()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	assert(isPathAbsolute("C:/windows"));
 	assert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
 	assert(isPathAbsolute("a:\\dsfsdf"));

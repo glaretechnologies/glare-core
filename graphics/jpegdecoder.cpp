@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 
-#define LIBJPEG_SUPPORT 1
+//TEMP NO JPEG SUPPORT #define LIBJPEG_SUPPORT 1
 
 #ifdef LIBJPEG_SUPPORT
 extern "C"

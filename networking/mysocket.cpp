@@ -18,7 +18,7 @@ Code Copyright Nicholas Chapman 2005.
 #include "../utils/stringutils.h"
 //#include "../cyberspace/globals.h"
 //#include <winsock.h>
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 
 #else
 #include <netinet/in.h>
@@ -37,7 +37,7 @@ Code Copyright Nicholas Chapman 2005.
 #endif
 }*/
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
@@ -336,7 +336,7 @@ void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
 		if(Networking::getInstance().shouldSocketsShutDown())
 			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
-		const int num_ready = select(sockethandle+1, &sockset, NULL, NULL, &wait_period);
+		const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
 
 		if(Networking::getInstance().shouldSocketsShutDown())
 			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -437,7 +437,7 @@ void MySocket::close()
 		//-----------------------------------------------------------------
 		//close socket
 		//-----------------------------------------------------------------
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 		result = closesocket(sockethandle);
 #else
 		result = ::close(sockethandle);
@@ -499,7 +499,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac)
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
 			//get number of handles that are ready to write to
-			const int num_ready = select(sockethandle+1, NULL, &sockset, NULL, &wait_period);
+			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &sockset, NULL, &wait_period);
 
 			if(Networking::getInstance().shouldSocketsShutDown())
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -582,7 +582,7 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 	
 			//get number of handles that are ready to read from
-			const int num_ready = select(sockethandle+1, &sockset, NULL, NULL, &wait_period);
+			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
 
 			if(Networking::getInstance().shouldSocketsShutDown())
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -875,7 +875,7 @@ void MySocket::pollRead(std::string& data_out)
 
 bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	return handle != INVALID_SOCKET;
 #else
 	return handle >= 0;
@@ -884,7 +884,7 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 
 void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	BOOL enabled = enabled_;
 
 	::setsockopt(sockethandle, //socket handle

@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __TRIHASH_H_666_
 
 
+#include "../utils/Platform.h"
 
 
 
@@ -35,35 +36,35 @@ public:
 	~TriHash();
 
 	inline void clear();
-	inline unsigned int indexForTriIndex(unsigned int tri_index) const;
-	inline void addTriIndex(unsigned int tri_index);
-	inline bool containsTriIndex(unsigned int tri_index);
+	inline uint32 indexForTriIndex(uint32 tri_index) const;
+	inline void addTriIndex(uint32 tri_index);
+	inline bool containsTriIndex(uint32 tri_index);
 
 private:
-	static const unsigned int HASH_MASK = 0x0000000F;
-	static const unsigned int TABLE_SIZE = HASH_MASK + 1;//16;
+	static const uint32 HASH_MASK = 0x0000000F;
+	static const uint32 TABLE_SIZE = HASH_MASK + 1;//16;
 
-	unsigned int entries[TABLE_SIZE];
+	uint32 entries[TABLE_SIZE];
 };
 
 
 void TriHash::clear()
 {
-	for(unsigned int i=0; i<TABLE_SIZE; ++i)
+	for(uint32 i=0; i<TABLE_SIZE; ++i)
 		entries[i] = 0xFFFFFFFF;
 }
 
-inline unsigned int TriHash::indexForTriIndex(unsigned int tri_index) const
+inline uint32 TriHash::indexForTriIndex(uint32 tri_index) const
 {
 	return tri_index & HASH_MASK;
 }
 
-inline void TriHash::addTriIndex(unsigned int tri_index)
+inline void TriHash::addTriIndex(uint32 tri_index)
 {
 	entries[indexForTriIndex(tri_index)] = tri_index;
 }
 
-inline bool TriHash::containsTriIndex(unsigned int tri_index)
+inline bool TriHash::containsTriIndex(uint32 tri_index)
 {
 	return entries[indexForTriIndex(tri_index)] == tri_index;
 }

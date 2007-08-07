@@ -13,7 +13,7 @@ Code Copyright Nicholas Chapman 2005.
 
 #pragma warning(disable : 4786)//disable long debug name warning
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <winsock.h>
 #else
 
@@ -133,7 +133,7 @@ private:
 
 	void doConnect(const IPAddress& ipaddress, int port);
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #else

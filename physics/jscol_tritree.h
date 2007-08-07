@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../maths/PaddedVec3.h"
 #include "../utils/Vector.h"
+#include "../utils/Platform.h"
 #include <ostream>
 #include <vector>
 class RayMesh;
@@ -91,7 +92,7 @@ public:
 	virtual bool diskCachable();
 	virtual void buildFromStream(std::istream& stream);
 	virtual void saveTree(std::ostream& stream);
-	virtual unsigned int checksum();
+	virtual uint32 checksum();
 
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
@@ -108,37 +109,28 @@ public:
 	static const unsigned int MAX_KDTREE_DEPTH = 64;
 
 private:
-	void printTree(unsigned int currentnode, unsigned int depth, std::ostream& out);
-	void debugPrintTree(unsigned int cur, unsigned int depth);
-	void getTreeStats(TreeStats& stats_out, unsigned int cur = 0, unsigned int depth = 0);
-	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
-	unsigned int numTris() const;
-	void AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out);
-	void printTraceStats() const;
-	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
-	void postBuild() const;
-
-
 	//-----------------typedefs------------------------
-	typedef unsigned int TRI_INDEX;
+	typedef uint32 TRI_INDEX;
+	typedef uint32 NODE_INDEX;
 	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
 	//typedef std::vector<AABBox> TRIBOX_VECTOR_TYPE;
 	//typedef js::Vector<TreeNode> NODE_VECTOR_TYPE;
-	typedef js::Vector<AABBox> TRIBOX_VECTOR_TYPE;
+	//typedef js::Vector<AABBox> TRIBOX_VECTOR_TYPE;
 
 
 
-
-	void doBuild(unsigned int cur, 
-		//const std::vector<TRI_INDEX>& tris, 
+	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
+	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
+	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0);
+	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
+	TRI_INDEX numTris() const;
+	void printTraceStats() const;
+	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
+	void postBuild() const;
+	void doBuild(NODE_INDEX cur, 
 		std::vector<std::vector<TRI_INDEX> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<float>& upper, std::vector<float>& lower);
 
-	//float getCostForSplit(unsigned int cur, const std::vector<TRI_INDEX>& nodetris,
-	//				  unsigned int axis, float splitval, const AABBox& aabb);
-
-	//bool triIntersectsAABB(int triindex, const AABBox& aabb, int split_axis,
-	//							bool is_neg_child);
 
 
 
@@ -162,14 +154,14 @@ private:
 
 	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
 
-	unsigned int checksum_;
+	uint32 checksum_;
 	bool calced_checksum;
 
 	///tracing stats///
-	mutable double num_traces;
-	mutable double total_num_nodes_touched;
-	mutable double total_num_leafs_touched;
-	mutable double total_num_tris_intersected;
+	mutable uint64 num_traces;
+	mutable uint64 total_num_nodes_touched;
+	mutable uint64 total_num_leafs_touched;
+	mutable uint64 total_num_tris_intersected;
 };
 
 

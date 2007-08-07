@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "platformutils.h"
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 #else
 #include <time.h>
@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 //make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	::Sleep(x);
 #else
 	int numseconds = x / 1000;

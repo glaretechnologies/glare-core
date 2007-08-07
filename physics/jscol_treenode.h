@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __TREENODE_H_666_
 
 #include <assert.h>
+#include "../utils/platform.h"
 
 namespace js
 {
@@ -32,26 +33,26 @@ public:
 	inline TreeNode();
 	inline ~TreeNode();
 
-	inline int isLeafNode() const;
-	inline unsigned int getSplittingAxis() const;
-	inline unsigned int getLeafGeomIndex() const;
-	inline unsigned int getPosChildIndex() const;
-	inline unsigned int getNumLeafGeom() const;
+	inline uint32 isLeafNode() const;
+	inline uint32 getSplittingAxis() const;
+	inline uint32 getLeafGeomIndex() const;
+	inline uint32 getPosChildIndex() const;
+	inline uint32 getNumLeafGeom() const;
 
 	inline void setLeafNode(bool leafnode);
-	inline void setSplittingAxis(unsigned int axis);
-	inline void setLeafGeomIndex(unsigned int index);
-	inline void setPosChildIndex(unsigned int index);
-	inline void setNumLeafGeom(unsigned int num);
+	inline void setSplittingAxis(uint32 axis);
+	inline void setLeafGeomIndex(uint32 index);
+	inline void setPosChildIndex(uint32 index);
+	inline void setNumLeafGeom(uint32 num);
 
 	union
 	{
 		float dividing_val;
-		unsigned int numtris;//num triangles in leaf node
+		uint32 numtris;//num triangles in leaf node
 	} data2;
 
 private:
-	unsigned int data;
+	uint32 data;
 };
 
 TreeNode::TreeNode()
@@ -67,27 +68,27 @@ TreeNode::TreeNode()
 TreeNode::~TreeNode()
 {}
 
-int TreeNode::isLeafNode() const
+uint32 TreeNode::isLeafNode() const
 { 
 	return data & 0x00000001;
 }
 
-unsigned int TreeNode::getSplittingAxis() const
+uint32 TreeNode::getSplittingAxis() const
 { 
 	return (data & 0x00000006U) >> 1;
 }
 
-unsigned int TreeNode::getLeafGeomIndex() const
+uint32 TreeNode::getLeafGeomIndex() const
 { 
 	return data >> 3;
 }
 
-unsigned int TreeNode::getPosChildIndex() const
+uint32 TreeNode::getPosChildIndex() const
 { 
 	return data >> 3;
 }
 
-unsigned int TreeNode::getNumLeafGeom() const
+uint32 TreeNode::getNumLeafGeom() const
 {
 	return data2.numtris;
 }
@@ -101,13 +102,13 @@ void TreeNode::setLeafNode(bool leafnode)
 		data &= 0xFFFFFFFEU;
 }
 
-void TreeNode::setSplittingAxis(unsigned int axis)
+void TreeNode::setSplittingAxis(uint32 axis)
 {
 	data &= 0xFFFFFFF9U;//zero axis bits
 	data |= (axis << 1); 
 }
 
-void TreeNode::setLeafGeomIndex(unsigned int index)
+void TreeNode::setLeafGeomIndex(uint32 index)
 {
 	assert(index < (1 << 29));
 
@@ -115,7 +116,7 @@ void TreeNode::setLeafGeomIndex(unsigned int index)
 	data |= index << 3;
 }
 	
-void TreeNode::setPosChildIndex(unsigned int index)
+void TreeNode::setPosChildIndex(uint32 index)
 {
 	assert(index < (1 << 29));
 
@@ -123,7 +124,7 @@ void TreeNode::setPosChildIndex(unsigned int index)
 	data |= index << 3;
 }
 
-void TreeNode::setNumLeafGeom(unsigned int num)
+void TreeNode::setNumLeafGeom(uint32 num)
 {
 	data2.numtris = num;
 }

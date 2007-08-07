@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 
 Condition::Condition()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	condition = CreateEvent( 
         NULL,         // no security attributes
         TRUE,         // manual-reset event
@@ -31,7 +31,7 @@ Condition::Condition()
 
 Condition::~Condition()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	const HRESULT result = CloseHandle(condition);
 	assert(result == S_OK);
 #else
@@ -43,7 +43,7 @@ Condition::~Condition()
 ///Calling thread is suspended until conidition is met.
 void Condition::wait(Mutex& mutex)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 
 	///Release mutex///
 	mutex.release();
@@ -63,7 +63,7 @@ void Condition::wait(Mutex& mutex)
 ///Condition has been met: wake up one suspended thread.
 void Condition::notify()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	///set event to signalled state
 	SetEvent(condition);
 #else
@@ -75,7 +75,7 @@ void Condition::notify()
 
 void Condition::resetToFalse()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	///set event to non-signalled state
 	const BOOL result = ResetEvent(condition);
 	assert(result != FALSE);

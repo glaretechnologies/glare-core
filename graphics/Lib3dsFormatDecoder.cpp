@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 
-#define LIB3DS_SUPPORT 1
+//TEMP #define LIB3DS_SUPPORT 1
 
 #ifdef LIB3DS_SUPPORT
 #include <lib3ds/file.h>

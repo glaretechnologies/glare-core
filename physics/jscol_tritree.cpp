@@ -84,10 +84,10 @@ TriTree::TriTree(RayMesh* raymesh_)
 	assert(n.getSplittingAxis() == 2);*/
 	//---------------------------------
 
-	num_traces = 0.;
-	total_num_nodes_touched = 0.;
-	total_num_leafs_touched = 0.;
-	total_num_tris_intersected = 0.;
+	num_traces = 0;
+	total_num_nodes_touched = 0;
+	total_num_leafs_touched = 0;
+	total_num_tris_intersected = 0;
 }
 
 
@@ -107,9 +107,9 @@ TriTree::~TriTree()
 void TriTree::printTraceStats() const
 {
 	printVar(num_traces);
-	conPrint("av num nodes touched: " + toString(total_num_nodes_touched / num_traces));
-	conPrint("av num leaves touched: " + toString(total_num_leafs_touched / num_traces));
-	conPrint("av num tris tested: " + toString(total_num_tris_intersected / num_traces));
+	conPrint("av num nodes touched: " + toString((double)total_num_nodes_touched / (double)num_traces));
+	conPrint("av num leaves touched: " + toString((double)total_num_leafs_touched / (double)num_traces));
+	conPrint("av num tris tested: " + toString((double)total_num_tris_intersected / (double)num_traces));
 }
 
 //returns dist till hit tri, neg number if missed.
@@ -121,7 +121,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 	assert(ray_max_t >= 0);
 
 #ifdef RECORD_TRACE_STATS
-	this->num_traces += 1.;
+	this->num_traces++;
 #endif
 
 	
@@ -185,7 +185,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 		while(!nodes[current].isLeafNode())//while current node is not a leaf..
 		{
 #ifdef RECORD_TRACE_STATS
-			this->total_num_nodes_touched += 1.;
+			this->total_num_nodes_touched++;
 #endif
 			//prefetch child node memory
 #ifdef DO_PREFETCHING
@@ -227,7 +227,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 		//'current' is a leaf node..
 	
 #ifdef RECORD_TRACE_STATS
-		this->total_num_leafs_touched += 1.;
+		this->total_num_leafs_touched++;
 #endif
 		//prefetch all data
 		//for(int i=0; i<nodes[current].num_leaf_tris; ++i)
@@ -239,7 +239,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 #ifdef RECORD_TRACE_STATS
-			total_num_tris_intersected += 1.;
+			total_num_tris_intersected++;
 #endif
 			assert(leaf_geom_index < leafgeom.size());
 			const unsigned int triangle_index = leafgeom[leaf_geom_index];
@@ -591,7 +591,7 @@ unsigned int TriTree::numTris() const
 	return raymesh->getNumTris();
 }
 
-
+/*
 void TriTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
 {
 	aabbox_out.min_ = aabbox_out.max_ = triVertPos(tri_index, 0);//(*tris)[i].v0();
@@ -599,7 +599,8 @@ void TriTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
 	aabbox_out.enlargeToHoldPoint(triVertPos(tri_index, 2));//(*tris)[i].v2());
 
 	assert(aabbox_out.invariant());
-}
+}*/
+
 
 bool TriTree::diskCachable()
 {

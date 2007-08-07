@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 #ifndef __MYTHREAD_H_666_
 #define __MYTHREAD_H_666_
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 //#include "mutex.h"
 #else
@@ -48,7 +48,7 @@ public:
 
 private:
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	static void 
 #else
 	static void*
@@ -56,7 +56,7 @@ private:
 		/*_cdecl*/ threadFunction(void* the_thread);
 
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	HANDLE thread_handle;
 #else
 	 pthread_t thread_handle;

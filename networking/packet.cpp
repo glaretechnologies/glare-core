@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <winsock.h>//#include "winsock2.h"
 #else
 #include <netinet/in.h>
@@ -45,7 +45,7 @@ void Packet::write(float x)
 {
 	assert(sizeof(unsigned int) == sizeof(float));
 
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + sizeof(float));
 
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
@@ -53,7 +53,7 @@ void Packet::write(float x)
 
 void Packet::write(int x)
 {
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + sizeof(int));
 
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
@@ -61,7 +61,7 @@ void Packet::write(int x)
 
 void Packet::write(unsigned short x)
 {
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned short));
 
 	*(unsigned short*)(getData() + writeindex) = htons(x);
@@ -69,7 +69,7 @@ void Packet::write(unsigned short x)
 
 void Packet::write(unsigned char x)
 {
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned char));
 
 	*(unsigned char*)(getData() + writeindex) = x;
@@ -77,7 +77,7 @@ void Packet::write(unsigned char x)
 }
 void Packet::write(char x)
 {
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned char));
 
 	*(unsigned char*)(getData() + writeindex) = *((unsigned char*)&x);
@@ -93,7 +93,7 @@ void Packet::write(char x)
 
 void Packet::write(const void* src, int numbytes)
 {
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + numbytes);
 
 	for(int i=0; i<numbytes; ++i)
@@ -106,7 +106,7 @@ void Packet::write(const void* src, int numbytes)
 void Packet::write(const std::string& s)//writes null-terminated string
 {
 	//assert(index + s.size() + 1 <= MAX_PACKETSIZE);
-	const int writeindex = data.size();
+	const unsigned int writeindex = data.size();
 	data.resize(writeindex + s.size() + 1);
 
 

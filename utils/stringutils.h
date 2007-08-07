@@ -165,7 +165,7 @@ const std::string getTailSubString(const std::string& s, int first_char_index);
 const std::string forceCopyString(const std::string& s);
 
 //returns as 4.6MB etc.. instead of 46287567B
-const std::string getNiceByteSize(unsigned int x);
+const std::string getNiceByteSize(size_t x);
 
 const std::string getPrefixBeforeDelim(const std::string& s, char delim);
 

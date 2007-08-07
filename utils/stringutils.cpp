@@ -714,7 +714,7 @@ const std::string forceCopyString(const std::string& s)
 	return newstring;
 }
 
-const std::string getNiceByteSize(unsigned int x)
+const std::string getNiceByteSize(size_t x)
 {
 	assert(x >= 0);
 	if(x < 1024)

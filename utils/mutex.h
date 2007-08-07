@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __MUTEX_H_666_
 
 
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 #include <windows.h>
 #include <process.h>
 #else
@@ -36,7 +36,7 @@ public:
 	void release();
 
 //private:
-#ifdef WIN32
+#if defined(WIN32) || defined(WIN64)
 	CRITICAL_SECTION mutex;
 #else
 	pthread_mutex_t mutex;

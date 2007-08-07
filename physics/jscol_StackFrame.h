@@ -7,8 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __STACKFRAME_H_666_
 #define __STACKFRAME_H_666_
 
-
-
+#include "../utils/Platform.h"
 
 
 namespace js
@@ -19,14 +18,14 @@ class StackFrame
 {
 public:
 	StackFrame(){}
-	StackFrame(unsigned int node_, float tmin_, float tmax_)
+	StackFrame(uint32 node_, float tmin_, float tmax_)
 		:	node(node_), tmin(tmin_), tmax(tmax_) {}
 
-	unsigned int node;
+	uint32 node;
 	float tmin;
 	float tmax;
 
-	int padding;//to get to 16 bytes
+	uint32 padding;//to get to 16 bytes
 };
 
 } //end namespace js
