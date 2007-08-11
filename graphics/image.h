@@ -92,6 +92,8 @@ public:
 
 	unsigned int getByteSize() const;
 
+	float minLuminance() const;
+	float maxLuminance() const;
 	double averageLuminance() const;
 
 private:

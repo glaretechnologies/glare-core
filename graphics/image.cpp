@@ -1,33 +1,31 @@
+#include "image.h"
 
 #pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
 
-//#include "globals.h"
-//#include <windows.h>  
 #include <stdio.h>
 #include <fstream>
-#include "image.h"
-//#include "../simpleraytracer/nffio.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include <assert.h>
+#include <limits>
 
 #ifndef BASIC_IMAGE
 
-//TEMP NO OPENEXR SUPPORT #define OPENEXR_SUPPORT 1
+#if !defined(WIN64)
+#define OPENEXR_SUPPORT 1
+#endif
 
 #ifdef OPENEXR_SUPPORT
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #endif
 
-//#include "../lpng128/png.h"
 #include <png.h>
 extern "C"
 {
 #include "../hdr/rgbe.h"
 }
-
 #endif
 
 Image::Image()
@@ -921,6 +919,22 @@ unsigned int Image::getByteSize() const
 {
 	return numPixels() * 3 * sizeof(float);
 }
+
+float Image::minLuminance() const
+{
+	float minlum = std::numeric_limits<float>::max();
+	for(unsigned int i=0; i<numPixels(); ++i)
+		minlum = myMin(minlum, getPixel(i).luminance());
+	return minlum;
+}
+float Image::maxLuminance() const
+{
+	float maxlum = std::numeric_limits<float>::min();
+	for(unsigned int i=0; i<numPixels(); ++i)
+		maxlum = myMax(maxlum, getPixel(i).luminance());
+	return maxlum;
+}
+
 
 double Image::averageLuminance() const
 {

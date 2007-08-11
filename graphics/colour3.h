@@ -202,6 +202,7 @@ public:
 		return r == 0.0f && g == 0.0f && b == 0.0f;
 	}
 
+	//assuming in sRGB space
 	inline Real luminance() const
 	{
 		return 0.3f*r + 0.587f*g + 0.114f*b;//approx
