@@ -43,3 +43,12 @@ unsigned int PlatformUtils::getMaxWorkingSetSize()
 
 	return (unsigned int)max;
 }
+
+unsigned int PlatformUtils::getNumLogicalProcessors()
+{
+	SYSTEM_INFO system_info;
+	GetSystemInfo(&system_info);
+	return system_info.dwNumberOfProcessors;
+
+	//on linux: /proc/cpuinfo
+}

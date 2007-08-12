@@ -23,6 +23,8 @@ void Sleep(int x);//make current thread sleep for x milliseconds
 unsigned int getMinWorkingSetSize();
 unsigned int getMaxWorkingSetSize();
 
+unsigned int getNumLogicalProcessors();
+
 }//end namespace PlatformUtils
 
 
