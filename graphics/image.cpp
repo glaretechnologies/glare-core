@@ -12,7 +12,7 @@
 
 #ifndef BASIC_IMAGE
 
-#if !defined(WIN64)
+#if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
 #define OPENEXR_SUPPORT 1
 #endif
 

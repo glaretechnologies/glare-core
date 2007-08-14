@@ -127,7 +127,7 @@ void splitDirName(const std::string& dirname, std::string& rootdir_out,
 	return;
 }
 	
-
+/*
 #if defined(WIN32) || defined(WIN64)
 bool createDir(const std::string& dirname)
 {
@@ -141,7 +141,7 @@ bool createDir(const std::string& dirname)
 		
 		if(!dirExists(firstndirs))
 		{
-			const BOOL result = ::CreateDirectory(firstndirs.c_str(), NULL);
+			const BOOL result = ::CreateDirectoryA(firstndirs.c_str(), NULL);
 
 			assert(result);
 
@@ -152,7 +152,7 @@ bool createDir(const std::string& dirname)
 	return created_dir;
 }
 #endif
-
+*/
 
 
 
@@ -271,7 +271,7 @@ const std::string getFilename(const std::string& pathname)
 }
 
 
-
+/*
 //creates the directory the file is in according to pathname
 //returns false if fails or directory already exists
 #if defined(WIN32) || defined(WIN64)
@@ -293,12 +293,14 @@ bool createDirForPathname(const std::string& pathname)
 	}
 }
 #endif
+*/
 
+/*
 #if defined(WIN32) || defined(WIN64)
 bool dirExists(const std::string& dirname)
 {
 	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFile(dirname.c_str(), &find_data);
+	HANDLE search_handle = FindFirstFileA(dirname.c_str(), &find_data);
 
 	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
 
@@ -322,6 +324,7 @@ bool fileExists(const std::string& pathname)
 	return foundit;
 }
 #endif
+*/
 
 
 void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out)
@@ -547,7 +550,7 @@ const std::string getCurrentDir()
 
 	char buf[512];
 
-	GetCurrentDirectory(511, buf);
+	GetCurrentDirectoryA(511, buf);
 
 	return std::string(buf);
 }
@@ -575,7 +578,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!MoveFileEx(srcpath.c_str(), dstpath.c_str(), MOVEFILE_REPLACE_EXISTING))
+	if(!MoveFileExA(srcpath.c_str(), dstpath.c_str(), MOVEFILE_REPLACE_EXISTING))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #else
 	::fatalError("FileUtils::moveFile() not implemented.");

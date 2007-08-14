@@ -33,7 +33,7 @@ void DLLWrapper::load(const std::string& filename_) throw (DLLWrapperExcep)
 {
 	filename = filename_;
 
-	dll_handle = ::LoadLibrary(filename.c_str());
+	dll_handle = ::LoadLibraryA(filename.c_str());
 
 	if(dll_handle == NULL)
 	{
