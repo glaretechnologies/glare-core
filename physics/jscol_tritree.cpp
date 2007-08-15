@@ -1124,7 +1124,7 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
 					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
 					assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
-					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area));
+					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, 0.001f));
 
 
 					const float cost = traversal_cost + 
@@ -1191,7 +1191,7 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
 					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
 					assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
-					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area));
+					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, 0.001f));
 
 					const float cost = traversal_cost + 
 						((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * recip_aabb_surf_area * intersection_cost;

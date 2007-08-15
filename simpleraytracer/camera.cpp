@@ -52,7 +52,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	sensor_height = sensor_width / aspect_ratio;
 	lens_center = pos;
 	sensor_center = lens_center - forwards * sensor_to_lens_dist;
-	sensor_botleft = sensor_center - up * sensor_height * 0.5f - right * sensor_width * 0.5f;
+	sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
 
 	try
 	{
