@@ -83,6 +83,8 @@ public:
 	void blitToImage(Image& dest, int destx, int desty);
 	void addImage(const Image& dest, int destx, int desty);
 	void subImage(const Image& dest, int destx, int desty);
+	
+	void overwriteImage(const Image& src, int destx, int desty);
 
 	void scale(float factor);
 

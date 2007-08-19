@@ -486,6 +486,21 @@ void Image::subImage(const Image& img, int destx, int desty)
 		}
 }
 
+void Image::overwriteImage(const Image& img, int destx, int desty)
+{
+	for(int y=0; y<img.getHeight(); ++y)
+		for(int x=0; x<img.getWidth(); ++x)		
+		{
+			const int dx = x + destx;
+			const int dy = y + desty;
+			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+				setPixel(dx, dy, img.getPixel(x, y));
+		}
+}
+
+
+
+
 const Image::ColourType Image::sample(float u, float v) const
 {
 	int ut = (int)u;
