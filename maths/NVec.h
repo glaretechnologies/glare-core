@@ -42,11 +42,14 @@ public:
 
 	inline void setToMult(const NVec& other, RealType factor);
 	inline void addMult(const NVec& other, RealType factor);
+	inline void addLog(const NVec& other); // Add the log of the other components
+	inline void addExp(const NVec& other);
 
 	inline NVec& operator+=(const NVec& other);
 	inline NVec& operator*=(const NVec& other);
 	inline NVec& operator/=(const NVec& other);
 
+	inline NVec& operator+=(RealType x);
 	inline NVec& operator*=(RealType factor);
 	inline NVec& operator/=(RealType factor);
 
@@ -133,6 +136,25 @@ void NVec<N, RealType>::addMult(const NVec& other, RealType factor)
 }
 
 template <unsigned int N, class RealType>
+void NVec<N, RealType>::addLog(const NVec& other) // Add the log of the other components
+{
+	for(unsigned int i=0; i<N; ++i)
+	{
+		assert(other[i] > 0.0);
+		e[i] += log(other.e[i]);
+	}
+}
+template <unsigned int N, class RealType>
+void NVec<N, RealType>::addExp(const NVec& other) // Add the log of the other components
+{
+	for(unsigned int i=0; i<N; ++i)
+	{
+		e[i] += exp(other.e[i]);
+	}
+}
+
+
+template <unsigned int N, class RealType>
 NVec<N, RealType>& NVec<N, RealType>::operator+=(const NVec& other)
 {
 	for(unsigned int i=0; i<N; ++i)
@@ -154,6 +176,14 @@ NVec<N, RealType>& NVec<N, RealType>::operator/=(const NVec& other)
 	for(unsigned int i=0; i<N; ++i)
 		e[i] /= other.e[i];
 	return *this;
+}
+
+template <unsigned int N, class RealType>
+NVec<N, RealType>& NVec<N, RealType>::operator+=(RealType x)
+{
+	for(unsigned int i=0; i<N; ++i)
+		e[i] += x;
+	return *this;	
 }
 
 template <unsigned int N, class RealType>

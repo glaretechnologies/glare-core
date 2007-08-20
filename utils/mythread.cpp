@@ -7,8 +7,11 @@ Code By Nicholas Chapman.
 
 #include <assert.h>
 #if defined(WIN32) || defined(WIN64)
-#include <process.h>
+//NEW: stop windows.h from defining the min() and max() macros
+#define NOMINMAX
 #include <windows.h>
+#include <process.h>
+
 
 //TEMP HACK:
 //unsigned long _beginthread( void( __cdecl *start_address )( void * ),
