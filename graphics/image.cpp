@@ -944,7 +944,7 @@ float Image::minLuminance() const
 }
 float Image::maxLuminance() const
 {
-	float maxlum = std::numeric_limits<float>::min();
+	float maxlum = -std::numeric_limits<float>::max();
 	for(unsigned int i=0; i<numPixels(); ++i)
 		maxlum = myMax(maxlum, getPixel(i).luminance());
 	return maxlum;

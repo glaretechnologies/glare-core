@@ -1087,7 +1087,7 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		//Also the number of tris with upper bound <= current split val.
 		//which is the number of tris *not* in pos volume
 
-		float last_splitval = std::numeric_limits<float>::min(); //-1e20f;
+		float last_splitval = -std::numeric_limits<float>::max(); //-1e20f;
 		for(unsigned int i=0; i<numtris; ++i)
 		{
 			const float splitval = lower[i];
