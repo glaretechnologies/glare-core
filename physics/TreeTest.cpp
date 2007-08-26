@@ -43,7 +43,7 @@ void TreeTest::testBuildCorrect()
 	conPrint("TreeTest::testBuildCorrect()");
 
 	{
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	
 	const std::vector<Vec2f> texcoord_sets;
 
@@ -100,7 +100,7 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	
 	const std::vector<Vec2f> texcoord_sets;
 
@@ -305,7 +305,7 @@ void TreeTest::doTests()
 	//try building up a random set of triangles and inserting into a tree
 	//------------------------------------------------------------------------
 	{
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
@@ -327,7 +327,7 @@ void TreeTest::doTests()
 	//build a tree with lots of axis-aligned triangles - a trickier case
 	//------------------------------------------------------------------------
 	{
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
@@ -366,7 +366,7 @@ static const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstru
 void TreeTest::doSpeedTest()
 {
 	CSModelLoader model_loader;
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	try
 	{
 		model_loader.streamModel(BUNNY_PATH, raymesh, 1.0);
@@ -437,7 +437,7 @@ void TreeTest::buildSpeedTest()
 	conPrint("TreeTest::buildSpeedTest()");
 
 	CSModelLoader model_loader;
-	RayMesh raymesh(false);
+	RayMesh raymesh("raymesh", false);
 	try
 	{
 		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", raymesh, 1.0);

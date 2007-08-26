@@ -43,7 +43,7 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(bool enable_normal_smoothing);
+	RayMesh(const std::string& name, bool enable_normal_smoothing);
 
 	virtual ~RayMesh();
 
@@ -87,6 +87,7 @@ public:
 	inline const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
 	inline const Vec3f& triNormal(unsigned int triindex) const;
 	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
+	inline const unsigned int getNumVerts() const { return num_vertices; }
 	inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
@@ -95,14 +96,17 @@ public:
 	const js::Tree* getTreeDebug() const { return tritree.get(); }
 
 
+	const std::string& getName() const { return name; }
 
-	std::string name;
+	
 	std::map<std::string, int> uvset_name_to_index;
 	
 	//Map from material name to the index of the material in the final per-object material array
 	std::map<std::string, int> matname_to_index_map;
 private:
 	void doInitAsEmitter();
+
+	std::string name;
 
 	typedef js::Tree TREE_TYPE;
 

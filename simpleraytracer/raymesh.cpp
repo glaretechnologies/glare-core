@@ -17,8 +17,9 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../physics/jscol_tritree.h"
 #include <fstream>
 
-RayMesh::RayMesh(bool enable_normal_smoothing_)
-:	tritree(NULL),
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_)
+:	name(name_),
+	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_)
 {
 	num_texcoord_sets = 0;
