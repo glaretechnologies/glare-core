@@ -30,12 +30,12 @@ public:
 	MyFile();
 
 	//throws FileNotFoundExcep if fails to open file
-	MyFile(const std::string& filename, const char* openmode) throw(FileNotFoundExcep);
+	MyFile(const std::string& filename, const char* openmode);// throw(FileNotFoundExcep);
 	~MyFile();
 
 
 	//throws FileNotFoundExcep if fails to open file
-	void open(const std::string& filename, const char* openmode) throw(FileNotFoundExcep);
+	void open(const std::string& filename, const char* openmode);// throw(FileNotFoundExcep);
 
 	void close();
 

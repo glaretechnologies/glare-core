@@ -37,7 +37,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	glare_weight(glare_weight_),
 	glare_radius(glare_radius_),
 	glare_num_blades(glare_num_blades_),
-	exposure_duration(exposure_duration_)
+	exposure_duration(exposure_duration_),
+	colour_space_converter(NULL)
 	//film_sensitivity(film_sensitivity_)
 {
 //	containing_medium = NULL;
@@ -79,7 +80,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 
 Camera::~Camera()
 {
-	
+	delete colour_space_converter;
 }
 
 double Camera::distUpOnSensorFromCenter(const Vec3d& pos) const

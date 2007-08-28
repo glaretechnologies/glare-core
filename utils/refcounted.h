@@ -33,7 +33,8 @@ public:
 
 	virtual ~RefCounted()
 	{
-		//too much of hassle this assert for CountedHandle assert(refcount == 0);
+		//too much of hassle this assert for CountedHandle 
+		assert(refcount == 0);
 	}
 
 	void decRefCount()

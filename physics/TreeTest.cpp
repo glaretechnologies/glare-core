@@ -360,11 +360,13 @@ void TreeTest::doTests()
 
 }
 
-static const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply";
+
 
 
 void TreeTest::doSpeedTest()
 {
+	const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply";
+
 	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
 	try

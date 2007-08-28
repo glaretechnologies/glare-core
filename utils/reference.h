@@ -28,7 +28,11 @@ public:
 	---------
 	
 	=====================================================================*/
-	Reference(T* ob_)
+	Reference()
+	:	ob(NULL)
+	{}
+
+	explicit Reference(T* ob_)
 	{
 		ob = ob_;
 
@@ -78,10 +82,10 @@ public:
 	}
 
 	//equality is defined as equality of the pointed to objects
-	bool operator == (const Reference& other) const
+	/*bool operator == (const Reference& other) const
 	{
 		return *ob == *other.ob;
-	}
+	}*/
 
 	//less than is defined as less than for the pointed to objects
 	bool operator < (const Reference& other) const
@@ -90,48 +94,45 @@ public:
 	}
 
 
-	T& operator * ()
+	inline T& operator * ()
 	{
 		assert(ob);
 		return *ob;
 	}
 
-	T* operator -> ()
+	inline T* operator -> ()
 	{
 		assert(ob);
 		return ob;
 	}
 
-	const T& operator * () const
+	inline const T& operator * () const
 	{
 		assert(ob);
 		return *ob;
 	}
 
-	const T* operator -> () const
+	inline const T* operator -> () const
 	{
 		assert(ob);
 		return ob;
 	}
 
-	//operator bool is a BAD IDEA. cause mystream thinks refs are bools.
-	/*operator bool() const
-	{
-		return ob != NULL;
-	}*/
-
-	bool isNull() const
+	inline bool isNull() const
 	{
 		return ob == NULL;
 	}
+	inline bool nonNull() const
+	{
+		return ob != NULL;
+	}
 
-	//NOTE: this method is dangerous
-	T* getPointer()
+	inline T* getPointer()
 	{
 		return ob;
 	}
 	
-	const T* getPointer() const
+	inline const T* getPointer() const
 	{
 		return ob;
 	}

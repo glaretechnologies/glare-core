@@ -96,7 +96,7 @@ public:
 	opens up the file called 'filename',
 	reads in the keys + values, then closes the file.
 	========================================================================*/
-	IniFile(const std::string& filename) throw (IniFileExcep);
+	IniFile(const std::string& filename);// throw (IniFileExcep);
 
 	/*========================================================================
 	~IniFile
@@ -135,14 +135,14 @@ public:
 
 	throws exception if no such key found
 	========================================================================*/
-	const std::string& getValueForKey(const std::string& key) throw (IniFileExcep);
+	const std::string& getValueForKey(const std::string& key);// throw (IniFileExcep);
 
 
-	int getIntForKey(const std::string& key) throw (IniFileExcep);
+	int getIntForKey(const std::string& key);// throw (IniFileExcep);
 
-	float getFloatForKey(const std::string& key) throw (IniFileExcep);
-	double getDoubleForKey(const std::string& key) throw (IniFileExcep);
-	bool getBoolForKey(const std::string& key) throw (IniFileExcep);
+	float getFloatForKey(const std::string& key);// throw (IniFileExcep);
+	double getDoubleForKey(const std::string& key);// throw (IniFileExcep);
+	bool getBoolForKey(const std::string& key);// throw (IniFileExcep);
 
 	/*========================================================================
 	getFileName

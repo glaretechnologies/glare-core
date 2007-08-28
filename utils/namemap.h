@@ -48,7 +48,7 @@ public:
 
 	void remove(const std::string& key);
 
-	bool isInserted(const std::string& key);
+	bool isInserted(const std::string& key) const;
 
 	unsigned int size() const { return (unsigned int)namemap.size(); }
 
@@ -102,7 +102,7 @@ void NameMap<T>::remove(const std::string& key)
 }
 
 template <class T>
-bool NameMap<T>::isInserted(const std::string& key)
+bool NameMap<T>::isInserted(const std::string& key) const
 {
 	return namemap.find(key) != namemap.end();
 }
