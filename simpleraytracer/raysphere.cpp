@@ -44,6 +44,9 @@ RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 		);
 }
 
+RaySphere::~RaySphere()
+{
+}
 
 	//returns neg num if object not hit by the ray
 

@@ -27,41 +27,37 @@ public:
 	
 	=====================================================================*/
 	RefCounted()
+	:	refcount(0)
 	{
-		refcount = 0;
 	}
 
 	virtual ~RefCounted()
 	{
-		//too much of hassle this assert for CountedHandle 
 		assert(refcount == 0);
 	}
 
-	void decRefCount()
+	inline void decRefCount()
 	{ 
 		refcount--;
-
 		assert(refcount >= 0);
-
-		if(refcount == 0)
-			doNoRefsLeft();
+		//if(refcount == 0)
+		//	doNoRefsLeft();
 	}
 
-	void incRefCount()
+	inline void incRefCount()
 	{ 
 		assert(refcount >= 0);
-
 		refcount++; 
 	}
-	int getRefCount() const 
+
+	inline int getRefCount() const 
 	{ 
 		assert(refcount >= 0);
-
 		return refcount; 
 	}
 	
 private:
-	virtual void doNoRefsLeft(){}
+	//virtual void doNoRefsLeft(){}
 
 	int refcount;
 };

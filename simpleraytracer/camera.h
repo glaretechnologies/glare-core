@@ -7,7 +7,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #define __CAMERA_H_666_
 
 
-#include "../networking/mystream.h"
+//#include "../networking/mystream.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/matrix3.h"
@@ -15,7 +15,8 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../physics/jscol_aabbox.h"
 #include <vector>
 #include "geometry.h"
-#include "../indigo/ColourSpaceConverter.h"
+//#include "../indigo/ColourSpaceConverter.h"
+class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;
 class Image;
@@ -50,7 +51,7 @@ public:
 		float lens_radius, double focal_length, double aspect_ratio, double angle_of_view);*/
 	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double aspect_ratio, double sensor_width, double lens_sensor_dist, 
-		const std::string& white_balance, double bloom_weight, double bloom_radius, bool autofocus, double polarising_filter, 
+		const std::string& white_balance, double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/);
@@ -122,8 +123,8 @@ public:
 	//assuming the image plane is sampled uniformly
 	double getExitRaySolidAnglePDF(const Vec3d& dir) const;
 
-	void writeToStream(MyStream& stream) const;
-	void setFromStream(MyStream& stream);
+//	void writeToStream(MyStream& stream) const;
+//	void setFromStream(MyStream& stream);
 
 	static void unitTest();
 
@@ -132,7 +133,7 @@ public:
 	const Vec3d sRGBForXYZ(const Vec3d& XYZ) const;
 	void colourCorrect(Vec3d& sRGB) const;*/
 
-	void convertFromXYZToSRGB(Image& image);
+	void convertFromXYZToSRGB(Image& image) const;
 
 	double bloomRadius() const { return bloom_radius; }
 	double bloomWeight() const { return bloom_weight; }
@@ -221,7 +222,7 @@ private:
 };
 
 
-inline MyStream& operator << (MyStream& stream, const Camera& camera)
+/*inline MyStream& operator << (MyStream& stream, const Camera& camera)
 {
 	camera.writeToStream(stream);
 	return stream;
@@ -231,7 +232,7 @@ inline MyStream& operator >> (MyStream& stream, Camera& camera)
 {
 	camera.setFromStream(stream);
 	return stream;
-}
+}*/
 
 
 

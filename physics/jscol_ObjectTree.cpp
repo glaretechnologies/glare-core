@@ -50,8 +50,9 @@ ObjectTree::~ObjectTree()
 
 void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 {
+	intersectable->setObjectIndex((int)objects.size());
 	objects.push_back(intersectable);
-	intersectable->object_index = (int)objects.size() - 1;
+	//intersectable->object_index = (int)objects.size() - 1;
 }
 
 
@@ -179,12 +180,12 @@ double ObjectTree::traceRay(const Ray& ray,
 	
 			INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
 
-			assert(ob->object_index >= 0 && ob->object_index < (int)object_context.last_test_time.size());
+			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
 #ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
 #endif
 
-			if(object_context.last_test_time[ob->object_index] != object_context.time) //If this object has not already been intersected against during this traversal
+			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) //If this object has not already been intersected against during this traversal
 			{
 				const double dist = ob->traceRay(ray, closest_dist, tritree_context, ob_hit_info);
 #ifdef OBJECTTREE_VERBOSE
@@ -197,7 +198,7 @@ double ObjectTree::traceRay(const Ray& ray,
 					hitinfo_out = ob_hit_info;
 				}
 
-				object_context.last_test_time[ob->object_index] = object_context.time;
+				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
 			}
 			leaf_geom_index++;
 		}
@@ -335,8 +336,8 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 #ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
 #endif
-			assert(ob->object_index >= 0 && ob->object_index < (int)object_context.last_test_time.size());
-			if(object_context.last_test_time[ob->object_index] != object_context.time)
+			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
+			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time)
 			{
 #ifdef OBJECTTREE_VERBOSE
 				conPrint("Intersecting with object...");
@@ -344,7 +345,7 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 #endif
 				if(ob->doesFiniteRayHit(ray, raylength, tritree_context))
 					return true;
-				object_context.last_test_time[ob->object_index] = object_context.time;
+				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
 			}
 			leaf_geom_index++;
 		}

@@ -48,7 +48,8 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Object* ob = new Object(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05), Vec3d(0,0,0), Matrix3d::identity());
+		Reference<Geometry> raysphere(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05));
+		Object* ob = new Object(raysphere, Vec3d(0,0,0), Matrix3d::identity());
 		ob->build();
 		ob_tree.insertObject(ob); 
 	}
@@ -262,7 +263,11 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Object* ob = new Object(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05), Vec3d(0,0,0), Matrix3d::identity());
+		Object* ob = new Object(
+			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)), 
+			Vec3d(0,0,0), 
+			Matrix3d::identity()
+			);
 		ob->build();
 		ob_tree.insertObject(ob); 
 	}
@@ -340,10 +345,10 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//load bunny mesh
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
-	RayMesh raymesh("raymesh", false);
+	Reference<RayMesh> raymesh(new RayMesh("raymesh", false));
 	try
 	{
-		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", raymesh, 1.0);
+		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", *raymesh, 1.0);
 	}
 	catch(CSModelLoaderExcep& e)
 	{
@@ -353,7 +358,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//insert random instances
 	//------------------------------------------------------------------------
-	raymesh.build();
+	raymesh->build();
 
 	ObjectTree ob_tree;
 
@@ -364,7 +369,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		rot.scale(0.3);
 
-		Object* object = new Object(&raymesh, Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rot);
+		Object* object = new Object(Reference<Geometry>(raymesh.getPointer()), Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rot);
 		object->build();
 
 		ob_tree.insertObject(object);

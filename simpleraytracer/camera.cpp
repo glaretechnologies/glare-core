@@ -10,6 +10,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../maths/matrix2.h"
 #include "../raytracing/matutils.h"
 #include "../indigo/SingleFreq.h"
+#include "../indigo/ColourSpaceConverter.h"
 #include "../utils/stringutils.h"
 #include "../graphics/image.h"
 #include "../indigo/globals.h"
@@ -17,7 +18,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
 		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
 		const std::string& white_balance, double bloom_weight_, double bloom_radius_, bool autofocus_, 
-		double polarising_filter_, double polarising_angle_,
+		bool polarising_filter_, double polarising_angle_,
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_/*, float film_sensitivity_*/)
 :	pos(pos_),
@@ -324,7 +325,7 @@ double Camera::getExitRaySolidAnglePDF(const Vec3d& dir) const
 }
 
 
-void Camera::convertFromXYZToSRGB(Image& image)
+void Camera::convertFromXYZToSRGB(Image& image) const
 {
 	assert(colour_space_converter);
 	colour_space_converter->convertFromXYZToSRGB(image);

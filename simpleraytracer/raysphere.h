@@ -34,7 +34,7 @@ class RaySphere : public Geometry
 {
 public:
 	RaySphere(const Vec3d& pos_, double radius_);
-	~RaySphere(){}
+	virtual ~RaySphere();
 
 	
 	//intersectable interface
