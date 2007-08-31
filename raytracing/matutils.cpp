@@ -754,15 +754,16 @@ double MatUtils::solidAngleConePDF(double angle)
 
 double MatUtils::conductorFresnelReflectance(double n, double k, double cos_theta)
 {
+	assert(n >= 0.0 && k >= 0.0);
 	assert(cos_theta >= 0.0f);
 
 	const double n2_k2 = n*n + k*k;
 	const double costheta2 = cos_theta*cos_theta;
 
-	const double r_par = (n2_k2*costheta2 - 2*n*cos_theta + 1.0f) / (n2_k2*costheta2 + 2*n*cos_theta + 1.0f);
+	const double r_par = (n2_k2*costheta2 - 2*n*cos_theta + 1.0) / (n2_k2*costheta2 + 2*n*cos_theta + 1.0);
 	const double r_perp = (n2_k2 - 2*n*cos_theta + costheta2) / (n2_k2 + 2*n*cos_theta + costheta2);
 
-	return (r_par + r_perp) * 0.5f;
+	return (r_par + r_perp) * 0.5;
 }
 
 //NOTE TEMP: one of these is wrong, probably the polarised version

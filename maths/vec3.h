@@ -273,7 +273,10 @@ public:
 	}
 
 
-
+	inline const Vec3<Real> negated() const
+	{
+		return Vec3<Real>(-x, -y, -z);
+	}
 
 	inline Real length() const
 	{
