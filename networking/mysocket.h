@@ -14,6 +14,8 @@ Code Copyright Nicholas Chapman 2005.
 #pragma warning(disable : 4786)//disable long debug name warning
 
 #if defined(WIN32) || defined(WIN64)
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
 #include <winsock.h>
 #else
 

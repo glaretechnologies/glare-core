@@ -196,12 +196,20 @@ const std::string doubleToString(double d, int num_decimal_places)
 	//not static for thread-safety.
 	char buffer[512];//double can be up to ~1x10^38 :)
 
-	//sprintf(buffer, "%.15f", d);
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
-//	sprintf(buffer, std::string("%f").c_str(), d);
+	//sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
 
 	return std::string(buffer);
 }
+const std::string doubleToStringScientific(double d, int num_decimal_places)
+{
+	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
+	char buffer[512];//double can be up to ~1x10^38 :)
+	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
+	return std::string(buffer);
+}
+
+
 
 const std::string floatToString(float f, int num_decimal_places)
 {

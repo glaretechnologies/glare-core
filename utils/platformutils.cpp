@@ -7,6 +7,8 @@ Code By Nicholas Chapman.
 #include "platformutils.h"
 
 #if defined(WIN32) || defined(WIN64)
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <time.h>

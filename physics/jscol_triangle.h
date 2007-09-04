@@ -10,12 +10,6 @@
 namespace js
 {
 
-//#include <windows.h>
-//#include <GL/gl.h>
-//#include <GL/glu.h>
-
-//#include "visibleobject.h"
-
 class Triangle
 {
 public:

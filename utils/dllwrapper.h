@@ -15,6 +15,8 @@ http://homepages.paradise.net.nz/nickamy/
 //#pragma warning(disable : 4786)//disable long debug name warning
 
 #include <string>
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
 #include <windows.h>
 #include "platform.h"
 

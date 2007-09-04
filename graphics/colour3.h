@@ -202,10 +202,12 @@ public:
 		return r == 0.0f && g == 0.0f && b == 0.0f;
 	}
 
-	//assuming in sRGB space
+	//assuming in linear sRGB space
 	inline Real luminance() const
 	{
-		return 0.3f*r + 0.587f*g + 0.114f*b;//approx
+		//return 0.3f*r + 0.587f*g + 0.114f*b;//approx
+		// Note that the coefficients should add up to one.
+		return 0.2126f*r + 0.7152*g + 0.0722*b;
 	}
 
 	/*static inline const Colour3 randomColour3()

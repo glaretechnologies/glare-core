@@ -7,8 +7,10 @@ Code By Nicholas Chapman.
 #define __MYTHREAD_H_666_
 
 #if defined(WIN32) || defined(WIN64)
-//NEW: stop windows.h from defining the min() and max() macros
+
+// Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
+
 #include <windows.h>
 //#include "mutex.h"
 #else

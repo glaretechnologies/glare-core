@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/basis.h"
+#include "../indigo/FullHitInfo.h"
 //class Vec2d;
 //class Colour3;
 //class Basisd;
@@ -103,6 +104,9 @@ public:
 
 	inline static double pow5(double x);
 
+	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
+	inline static bool raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo);
+
 	static void unitTest();
 };
 
@@ -137,6 +141,44 @@ double MatUtils::pow5(double x)
 	const double x2 = x*x;
 	return x2*x2*x;
 	//return x*x*x*x*x;
+}
+
+//see Veach page 158
+double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint)
+{
+	/*the w_i.N_g factors in the denominators (extra from Veach) are to cancel with the same factor (cos theta) outside this call.
+
+	K(w_i, w_o) = fs(w_i, w_o) * w_i.N_s			[figure 5.6]
+	but K(w_i, w_o) = f-s(w_i, w_o) * w_i.N_g		[defn of K, 5.20]
+	therfore
+	f-s(w_i, w_o) * w_i.N_g = fs(w_i, w_o) * w_i.N_s
+	or
+	f-s(w_i, w_o) = fs(w_i, w_o) * w_i.N_s / w_i.N_g
+
+	for Adjoint:
+
+	K*(w_i, w_o) = fs(w_o, w_i) * w_o.N_s * w_i.N_g / w_o.N_g
+	but K*(w_i, w_o) = f-s*(w_i, w_o) * w_i.N_g					[defn of K*, 5.21]
+	therefore
+	f-s*(w_i, w_o) * w_i.N_g = fs(w_o, w_i) * w_o.N_s * w_i.N_g / w_o.N_g
+	or
+	f-s*(w_i, w_o) = fs(w_o, w_i) * w_o.N_s / w_o.N_g
+	*/
+
+/*	double geom_factor;
+	if(adjoint)
+		geom_factor = fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g()));
+	else
+		geom_factor = fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
+	return geom_factor;*/
+	return adjoint ? 
+		fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g())) : 
+		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
+}
+
+bool MatUtils::raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo)
+{
+	return dot(a, hitinfo.original_geometric_normal) * dot(b, hitinfo.original_geometric_normal) < 0.0;
 }
 
 #endif //__MATUTILS_H_666_

@@ -47,6 +47,7 @@ const std::string toHexString(unsigned long long i);//for 64 bit integers
 const std::string intToString(int i);
 const std::string floatToString(float f);
 const std::string doubleToString(double d, int num_decimal_places = 5);
+const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
 const std::string floatToString(float f, int num_decimal_places);
 
 //argument overloaded toString functions:

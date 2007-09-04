@@ -9,8 +9,10 @@ Code By Nicholas Chapman.
 
 
 #if defined(WIN32) || defined(WIN64)
-//NEW: stop windows.h from defining the min() and max() macros
+
+// Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
+
 #include <windows.h>
 #include <process.h>
 #else

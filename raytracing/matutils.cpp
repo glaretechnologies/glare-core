@@ -787,8 +787,8 @@ double MatUtils::dialetricFresnelReflectance(double n1, double n2, double cos_th
 	//get transmitted cos theta using Snell's law
 	//http://en.wikipedia.org/wiki/Snell%27s_law
 
-	const double sintheta = sqrt(1.0f - cos_theta_i*cos_theta_i);//get sin(theta_i)
-	const double sintheta_t = sintheta * n1 / n2;//use Snell's law to get sin(theta_t)
+	const double sintheta_i = sqrt(1.0 - cos_theta_i*cos_theta_i);//get sin(theta_i)
+	const double sintheta_t = sintheta_i * n1 / n2;//use Snell's law to get sin(theta_t)
 	if(sintheta_t >= 1.0)
 		return 1.0;//total internal reflection
 	const double costheta_t = sqrt(1.0 - sintheta_t*sintheta_t);//get cos(theta_t)

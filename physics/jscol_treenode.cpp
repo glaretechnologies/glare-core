@@ -6,19 +6,10 @@ File created by ClassTemplate on Fri Nov 05 01:54:56 2004Code By Nicholas Chapma
 #include "jscol_treenode.h"
 
 
-//#define OPENGL_DRAWABLE
-
-
 #include "../maths/mathstypes.h"
 #include "../simpleraytracer/ray.h"
 #include "jscol_aabbox.h"
 
-/*
-#ifdef OPENGL_DRAWABLE
-	#include <windows.h>
-	#include <GL/gl.h>
-#endif
-*/
 
 namespace js
 {

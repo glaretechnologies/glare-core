@@ -28,6 +28,7 @@ You may not use this code for any commercial project.
 #include <math.h>
 #include <float.h>
 #include <assert.h>
+#include <limits>
 
 const double NICKMATHS_EPSILON = 0.00001;
 
@@ -286,6 +287,21 @@ inline int roundToInt(double x)
 
 namespace Maths
 {
+
+static bool posUnderflowed(double x)
+{
+	assert(x >= 0.0);
+
+	//min returns the minimum normalised value for double.
+	return x != 0.0 && x < std::numeric_limits<double>::min();
+}
+static bool posOverflowed(double x)
+{
+	assert(x >= 0.0);
+
+	return x > std::numeric_limits<double>::max();
+}
+
 
 inline int floorToInt(float x)
 {
