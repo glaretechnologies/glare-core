@@ -111,7 +111,7 @@ void RayMesh::build(bool use_cached_trees)
 	//------------------------------------------------------------------------
 	conPrint("Building Mesh '" + name + "'...");
 	conPrint("\t" + toString(num_vertices) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
-	conPrint("\t" + toString(triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(SimpleIndexTri)) + ")");
+	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(SimpleIndexTri)) + ")");
 
 	if(RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
