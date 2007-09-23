@@ -10,8 +10,6 @@ You may not use this code for any commercial project.
 #ifndef __VEC3_H__
 #define __VEC3_H__
 
-
-
 /*=================================================================
 3 component vector class
 ------------------------
@@ -22,11 +20,6 @@ Coded by Nick Chapman in the year 2000-
 #include "mathstypes.h"
 #include <assert.h>
 #include <string>
-
-//#ifdef CYBERSPACE
-//#include "../networking/mystream.h"
-//#endif
-
 
 template <class Real>
 class Vec3
@@ -79,13 +72,13 @@ public:
 
 	inline Real& operator[] (int index)
 	{
-		//NOTE: no asserting
+		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];
 	}
 
 	inline const Real& operator[] (int index) const
 	{
-		//NOTE: no asserting
+		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];
 	}
 
@@ -104,8 +97,6 @@ public:
 	{	
 		return Vec3(x * rhs.x, y * rhs.y, z * rhs.z);
 	}
-
-
 
 	inline Vec3& operator += (const Vec3& rhs)
 	{		
@@ -133,12 +124,12 @@ public:
 
 	inline bool operator == (const Vec3& rhs) const
 	{
-		return ( (x == rhs.x) && (y == rhs.y) && (z == rhs.z) );
+		return (x == rhs.x) && (y == rhs.y) && (z == rhs.z);
 	}
 
 	inline bool operator != (const Vec3& rhs) const
 	{
-		return ( (x != rhs.x) || (y != rhs.y) || (z != rhs.z) );
+		return (x != rhs.x) || (y != rhs.y) || (z != rhs.z);
 	}
 
 	//for sorting Vec3's
@@ -163,34 +154,7 @@ public:
 
 	inline void normalise()
 	{
-		//if(!x && !y && !z)
-		//	return;
-
-		//Real inverselength = length();//will be inverted later
-
-		/*NEWCODE: don't check for zero length vector 
-		if(!inverselength)
-		{
-			x = 1;
-			y = 0;
-			z = 0;
-			return;
-		}*/
-
-		//inverselength = 1.0f / inverselength;//invert it
-
-
-		/*const Real len = length();
-		if(len == 0.0f)
-		{
-			x = 0;
-			y = 0;
-			z = 1;
-			return;
-		}	
-
-		const Real inverselength = 1.0f / len;*/
-		const Real inverselength = (Real)1.0 / length();
+		const Real inverselength = Real(1.0) / length();
 
 		x *= inverselength;
 		y *= inverselength;
@@ -198,7 +162,7 @@ public:
 	}
 
 
-	inline void fastNormalise()
+	/*inline void fastNormalise()
 	{
 		const Real inverselength = RSqrt( length2() );
 
@@ -208,20 +172,12 @@ public:
 		x *= inverselength;
 		y *= inverselength;
 		z *= inverselength;
-	}
+	}*/
 
 	inline Real normalise_ret_length()
 	{
-		//if(!x && !y && !z)
-		//	return 0.0f;
-
 		const Real len = length();
-
-		//NEWCODE: don't check for zero length vector
-		//if(!len)
-		//	return 0.00001f;
-
-		const Real inverselength = 1.0f / len;
+		const Real inverselength = 1.0 / len;
 
 		x *= inverselength;
 		y *= inverselength;
@@ -232,16 +188,8 @@ public:
 
 	inline Real normalise_ret_length(Real& inv_len_out)
 	{
-		//if(!x && !y && !z)
-		//	return 0.0f;
-
 		const Real len = length();
-
-		//NEWCODE: don't check for zero length vector
-		//if(!len)
-		//	return 0.00001f;
-
-		const Real inverselength = 1.0f / len;
+		const Real inverselength = 1.0 / len;
 
 		x *= inverselength;
 		y *= inverselength;
@@ -254,16 +202,8 @@ public:
 
 	inline Real normalise_ret_length2()
 	{
-		//if(!x && !y && !z)
-		//	return 0.0f;
-
 		const Real len2 = length2();
-
-		//NEWCODE: don't check for zero length vector
-		//if(!len2)
-		//	return 0.00001f;
-
-		const Real inverselength = 1.0f / sqrt(len2);
+		const Real inverselength = 1.0 / sqrt(len2);
 
 		x *= inverselength;
 		y *= inverselength;
@@ -305,18 +245,12 @@ public:
 
 	inline void setLength(Real newlength)
 	{
-		//const Real current_len = length();
-
-		//NEWCODE: don't check for zero length vector
-		//if(!current_len)
-		//	return;
-
 		scale(newlength / length());
 	}
 
 	inline Vec3& operator /= (Real divisor)
 	{
-		*this *= (1.0f / divisor);
+		*this *= (1.0 / divisor);
 		return *this;
 	}
 
@@ -334,9 +268,9 @@ public:
 
 	inline void zero()
 	{
-		x = 0.0f;
-		y = 0.0f;
-		z = 0.0f;
+		x = 0.0;
+		y = 0.0;
+		z = 0.0;
 	}
 
 	inline Real getDist(const Vec3& other) const
@@ -375,9 +309,9 @@ public:
 #ifdef DEBUG
 		const Real len = length();
 
-		const Real var = fabs(1.0f - len);
+		const Real var = fabs(1.0 - len);
 
-		const Real EPSILON_ = 0.001f;
+		const Real EPSILON_ = 0.001;
 
 		assert(var <= EPSILON_);
 #endif
@@ -503,7 +437,7 @@ public:
 	//will be in range [-Pi/2, Pi/2]
 	inline Real theta() const
 	{
-		return atan2(sqrtf(x*x + y*y), z);
+		return atan2(sqrt(x*x + y*y), z);
 	}
 	
 	inline Real phi() const
@@ -538,12 +472,6 @@ public:
 template <class Real>
 inline const Vec3<Real> normalise(const Vec3<Real>& v)
 {
-	/*const Real vlen = v.length();
-
-	if(!vlen)
-		return Vec3<Real>(1.0, 0.0, 0.0);
-
-	return v * (1.0 / vlen);*/
 	return v * ((Real)1.0 / v.length());
 }
 
@@ -593,9 +521,7 @@ inline Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)
 template <class Real>
 inline Real angleBetweenNormalized(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
-	const Real dp = dotProduct(v1, v2);
-
-	return acos(dp);
+	return acos(dotProduct(v1, v2));
 }
 
 
@@ -646,46 +572,6 @@ inline bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
 }
 
 
-/*inline std::ostream& operator << (std::ostream& stream, const Vec3& point)
-{
-	stream << point.x << " ";
-	stream << point.y << " ";	
-	stream << point.z << " ";
-
-	return stream;
-}
-
-inline std::istream& operator >> (std::istream& stream, Vec3& point)
-{
-	stream >> point.x;
-	stream >> point.y;	
-	stream >> point.z;
-
-	return stream;
-}*/
-
-//#ifdef CYBERSPACE
-
-/*
-inline MyStream& operator << (MyStream& stream, const Vec3& point)
-{
-	stream << point.x;
-	stream << point.y;	
-	stream << point.z;
-
-	return stream;
-}
-
-inline MyStream& operator >> (MyStream& stream, Vec3& point)
-{
-	stream >> point.x;
-	stream >> point.y;	
-	stream >> point.z;
-
-	return stream;
-}
-*/
-
 inline const Vec3<float> toVec3f(const Vec3<double>& v)
 {
 	return Vec3<float>((float)v.x, (float)v.y, (float)v.z);
@@ -699,6 +585,5 @@ inline const Vec3<double> toVec3d(const Vec3<float>& v)
 typedef Vec3<float> Vec3f;
 typedef Vec3<double> Vec3d;
 
-//#endif//CYBERSPACE
 
 #endif //__VEC3_H__

@@ -20,5 +20,5 @@ const std::string Vec2<float>::toString() const
 const std::string Vec2<double>::toString() const
 {
 	const int num_dec_places = 4;
-	return "(" + floatToString(x, num_dec_places) + "," + floatToString(y, num_dec_places) + ")";
+	return "(" + doubleToString(x, num_dec_places) + "," + doubleToString(y, num_dec_places) + ")";
 }

@@ -353,6 +353,13 @@ inline bool inRange(T x, T min, T max)
 	return x >= min && x <= max;
 }
 
+template <class T>
+inline T square(T x)
+{
+	return x * x;
+}
+
+
 }
 
 

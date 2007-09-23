@@ -104,7 +104,7 @@ public:
 
 	inline bool operator == (const Vec2& rhs) const
 	{
-		return ( (x == rhs.x) && (y == rhs.y) );
+		return (x == rhs.x) && (y == rhs.y);
 	}
 
 		//for sorting Vec2's
@@ -122,23 +122,23 @@ public:
 
 	inline void normalise()
 	{
-		if(!x && !y)
-			return;
+		//if(!x && !y)
+		//	return;
 
-		const float inverselength = 1.0f / length();
+		const Real inverselength = Real(1.0) / length();
 
 		x *= inverselength;
 		y *= inverselength;
 	}
 
-	inline float normalise_ret_length()
+	inline Real normalise_ret_length()
 	{
-		if(!x && !y)
-			return 0.0f;
+		//if(!x && !y)
+		//	return 0.0f;
 
-		const float len = length();
+		const Real len = length();
 
-		const float inverselength = 1.0f / len;
+		const Real inverselength = Real(1.0) / len;
 
 		x *= inverselength;
 		y *= inverselength;
@@ -156,9 +156,9 @@ public:
 		return x*x + y*y;
 	}
 
-	inline void setLength(float newlength)
+	inline void setLength(Real newlength)
 	{
-		const float current_len = length();
+		const Real current_len = length();
 
 		if(!current_len)
 			return;
@@ -166,53 +166,53 @@ public:
 		scale(newlength / current_len);
 	}
 
-	inline float getDist2(const Vec2& other) const
+	inline Real getDist2(const Vec2& other) const
 	{
 		const Vec2 dif = other - *this;
 		return dif.length2();
 	}
 
-	inline float getDist(const Vec2& other) const
+	inline Real getDist(const Vec2& other) const
 	{
 		const Vec2 dif = other - *this;
 		return dif.length();
 	}
 
-	inline void scale(float factor)
+	inline void scale(Real factor)
 	{
 		x *= factor;
 		y *= factor;
 	}
 
-	inline Vec2& operator *= (float factor)
+	inline Vec2& operator *= (Real factor)
 	{
 		x *= factor;
 		y *= factor;
 		return *this;
 	}
 
-	inline Vec2& operator /= (float divisor)
+	inline Vec2& operator /= (Real divisor)
 	{
-		*this *= (1.0f / divisor);
+		*this *= Real(1.0) / divisor;
 		return *this;
 	}
 
-	inline const Vec2 operator * (float factor) const
+	inline const Vec2 operator * (Real factor) const
 	{
 		return Vec2(x * factor, y * factor);
 	}
 
-	inline const Vec2 operator / (float divisor) const
+	inline const Vec2 operator / (Real divisor) const
 	{
-		const float inverse_d = (1.0f / divisor);
+		const Real inverse_d = Real(1.0) / divisor;
 
 		return Vec2(x * inverse_d, y * inverse_d);
 	}
 
 	inline void zero()
 	{
-		x = 0.0f;
-		y = 0.0f;
+		x = 0.0;
+		y = 0.0;
 	}
 
 	void print() const;
@@ -223,19 +223,19 @@ public:
 
 	Real x,y;
 
-	float dotProduct(const Vec2& rhs) const
+	Real dotProduct(const Vec2& rhs) const
 	{
 		return x*rhs.x + y*rhs.y;
 	}
 
-	float dot(const Vec2& rhs) const
+	Real dot(const Vec2& rhs) const
 	{
 		return dotProduct(rhs);
 	}
 
-	static const Vec2 randomVec(float component_lowbound, float component_highbound);
+	static const Vec2 randomVec(Real component_lowbound, Real component_highbound);
 
-	inline const float* data() const { return (float*)this; }
+	inline const Real* data() const { return (Real*)this; }
 
 	inline void sub(const Vec2& other)
 	{
@@ -243,7 +243,7 @@ public:
 		y -= other.y;
 	}
 
-	inline void subMult(const Vec2& other, float factor)
+	inline void subMult(const Vec2& other, Real factor)
 	{
 		x -= other.x * factor;
 		y -= other.y * factor;
@@ -296,22 +296,24 @@ inline Real dot(const Vec2<Real>& v1, const Vec2<Real>& v2)
 }*/
 
 template <class Real>
-inline float angleBetweenNormalized(const Vec2<Real>& v1, const Vec2<Real>& v2)
+inline Real angleBetweenNormalized(const Vec2<Real>& v1, const Vec2<Real>& v2)
 {
-	const float dp = dotProduct(v1, v2);
+	const Real dp = dotProduct(v1, v2);
 
-	return (float)acos(dp);
+	return (Real)acos(dp);
 }
 
 template <class Real>
 inline const Vec2<Real> normalise(const Vec2<Real>& v)
 {
-	const float vlen = v.length();
+	//const Real vlen = v.length();
 
-	if(!vlen)
-		return Vec2<Real>(1.0f, 0.0f);
+	//if(!vlen)
+	//	return Vec2<Real>(1.0f, 0.0f);
 
-	return v * (1.0f / vlen);
+	//return v * (1.0f / vlen);
+
+	return v / v.length();
 }
 
 template <class Real>

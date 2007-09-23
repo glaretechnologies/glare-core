@@ -13,7 +13,9 @@
 #ifndef BASIC_IMAGE
 
 #if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
+#if !defined(DEBUG)
 #define OPENEXR_SUPPORT 1
+#endif
 #endif
 
 #ifdef OPENEXR_SUPPORT
@@ -728,6 +730,24 @@ void Image::saveToPng(const std::string& pathname) const
 	   PNG_INTERLACE_NONE, //interlace type
 	   PNG_COMPRESSION_TYPE_BASE,//PNG_COMPRESSION_TYPE_DEFAULT, //compression type
 	   PNG_FILTER_TYPE_BASE);//PNG_FILTER_TYPE_DEFAULT);//filter method
+
+	/*
+	// TEMP TEST:
+	png_text txt[2];
+	memset(&txt, 0, sizeof(png_text)*2);
+	txt[0].compression = PNG_TEXT_COMPRESSION_NONE;
+	txt[0].key = "testkey";
+	const std::string testval = "test value";
+	txt[0].text = (char*)testval.c_str();
+	txt[0].text_length = testval.length();
+
+	txt[1].compression = PNG_TEXT_COMPRESSION_NONE;
+	txt[1].key = "Author";
+	const std::string author = "SOMEONE COOL";
+	txt[1].text = (char*)author.c_str();
+	txt[1].text_length = author.length();
+	
+	png_set_text(png, info, txt, 2);*/
 
 
 	//png_set_gAMA(png_ptr, info_ptr, 2.3);

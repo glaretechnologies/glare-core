@@ -7,7 +7,6 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #define __CAMERA_H_666_
 
 
-//#include "../networking/mystream.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/matrix3.h"
@@ -15,7 +14,6 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../physics/jscol_aabbox.h"
 #include <vector>
 #include "geometry.h"
-//#include "../indigo/ColourSpaceConverter.h"
 class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;
@@ -46,9 +44,6 @@ public:
 	------
 	
 	=====================================================================*/
-	/*Camera();
-	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
-		float lens_radius, double focal_length, double aspect_ratio, double angle_of_view);*/
 	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double aspect_ratio, double sensor_width, double lens_sensor_dist, 
 		const std::string& white_balance, double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
@@ -69,9 +64,6 @@ public:
 	const Vec3d lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) const;
 	const Vec3d sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3d& raydir, bool& hitsensor_out) const;
 
-	//const Vec3d sampleSensorExirDir(const Vec2d& samples, const Vec3d& pos);
-	//double sensorExitDirPDF(const Vec3d& pos, const Vec3d& exitdir);
-
 	const Vec2d imCoordsForSensorPos(const Vec3d& senserpos) const;
 	const Vec3d sensorPosForImCoords(const Vec2d& imcoords) const;
 
@@ -87,10 +79,6 @@ public:
 	
 	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
-
-	//virtual void getAllHits(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const;
-
-	//virtual void traceBundle(const RayBundle& raybundle, std::vector<FullHitInfo>& hitinfo_out);
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return forwards; }
@@ -123,15 +111,7 @@ public:
 	//assuming the image plane is sampled uniformly
 	double getExitRaySolidAnglePDF(const Vec3d& dir) const;
 
-//	void writeToStream(MyStream& stream) const;
-//	void setFromStream(MyStream& stream);
-
 	static void unitTest();
-
-	/*void setWhiteBalance(double srcx, double srcy, double dstx, double dsty);
-	//const Colour3 sRGBforSpectralRadiance(double wavelen_nm, const double sradiance) const;
-	const Vec3d sRGBForXYZ(const Vec3d& XYZ) const;
-	void colourCorrect(Vec3d& sRGB) const;*/
 
 	void convertFromXYZToSRGB(Image& image) const;
 
@@ -160,23 +140,17 @@ public:
 
 	virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
-	double sensor_to_lens_dist;
+	
 
-	//const Medium* containing_medium;
 	std::vector<const Medium*> containing_media;
-
-
 private:
-	const Vec3d whitepoint(const std::string& whitebalance);
-	double distUpOnSensorFromCenter(const Vec3d& pos) const;
-	double distRightOnSensorFromCenter(const Vec3d& pos) const;
-	double distUpOnLensFromCenter(const Vec3d& pos) const;
-	double distRightOnLensFromCenter(const Vec3d& pos) const;
+	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
+	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;
+	inline double distUpOnLensFromCenter(const Vec3d& pos) const;
+	inline double distRightOnLensFromCenter(const Vec3d& pos) const;
 
 	Vec3d pos;
 	Vec3d ws_up;
-	//Vec3d current_up;
-	//Vec3d rightdir;
 	Vec3d up;
 	Vec3d right;
 	Vec3d forwards;
@@ -194,13 +168,17 @@ private:
 	double focus_distance;
 	Vec3d sensor_center;
 	Vec3d sensor_botleft;
-	//Vec3d sensor_up;
-	//Vec3d sensor_right;
 	double sensor_width;
 	double sensor_height;
 	Vec3d lens_center;
-	//unit_lens_up;
-	//unit_lens_right;
+	double recip_sensor_width;
+	double recip_sensor_height;
+	double sensor_to_lens_dist;
+
+	double sensor_to_lens_dist_focus_dist_ratio;
+	double focus_dist_sensor_to_lens_dist_ratio;
+	double uniform_lens_pos_pdf;
+	double uniform_sensor_pos_pdf;
 	
 
 	double bloom_weight;
@@ -217,24 +195,30 @@ private:
 
 	ColourSpaceConverter* colour_space_converter;
 
-	double exposure_duration;//aka shutter speed
-	//double film_sensitivity;//aka ISO film sppeed
+	double exposure_duration; // aka shutter speed
+	//double film_sensitivity; // aka ISO film sppeed
 };
 
 
-/*inline MyStream& operator << (MyStream& stream, const Camera& camera)
+double Camera::distUpOnSensorFromCenter(const Vec3d& x) const
 {
-	camera.writeToStream(stream);
-	return stream;
+	return dot(x - sensor_center, up);
 }
 
-inline MyStream& operator >> (MyStream& stream, Camera& camera)
+double Camera::distRightOnSensorFromCenter(const Vec3d& x) const
 {
-	camera.setFromStream(stream);
-	return stream;
-}*/
+	return dot(x - sensor_center, right);
+}
 
+double Camera::distUpOnLensFromCenter(const Vec3d& x) const
+{
+	return dot(x - lens_center, up);
+}
 
+double Camera::distRightOnLensFromCenter(const Vec3d& x) const
+{
+	return dot(x - lens_center, right);
+}
 
 
 #endif //__CAMERA_H_666_

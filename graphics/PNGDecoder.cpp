@@ -54,8 +54,12 @@ void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
 
 void PNGDecoder::decode(const std::vector<unsigned char>& encoded_img, Bitmap& bitmap_out)
 {
-	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, (png_voidp)NULL,
-        pngdecoder_error_func, pngdecoder_warning_func);
+	png_structp png_ptr = png_create_read_struct(
+		PNG_LIBPNG_VER_STRING, 
+		(png_voidp)NULL,
+        pngdecoder_error_func, 
+		pngdecoder_warning_func
+		);
 
     if (!png_ptr)
         throw ImFormatExcep("Failed to create PNG struct.");
@@ -137,6 +141,12 @@ void PNGDecoder::decode(const std::vector<unsigned char>& encoded_img, Bitmap& b
 	{
 		png_read_row(png_ptr, bitmap_out.getPixel(0, y), NULL);
 	}
+
+	// Read the info at the end of the PNG file
+	png_read_end(png_ptr, end_info);
+
+	// Free structures
+	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 }
 
 
