@@ -359,6 +359,16 @@ inline T square(T x)
 	return x * x;
 }
 
+template <class T>
+inline T tanForCos(T cos_theta)
+{
+	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
+
+	//sin(theta)^2 + cos(theta)^2 + 1
+	//sin(theta) = sqrt(1 - cos(theta)^2)
+	return sqrt(1.0 - cos_theta*cos_theta) / cos_theta;
+}
+
 
 }
 

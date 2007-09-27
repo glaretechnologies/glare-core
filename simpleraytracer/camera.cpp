@@ -349,6 +349,10 @@ void Camera::convertFromXYZToSRGB(Image& image) const
 void Camera::setFocusDistance(double fd)
 {
 	this->focus_distance = fd;
+
+	// recompute precomputed constants
+	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
+	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
 }
 
 void Camera::emitterInit()
@@ -380,11 +384,11 @@ const Vec2d Camera::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoo
 	return Vec2d(0,0);
 }
 
-int Camera::UVSetIndexForName(const std::string& uvset_name) const
+/*int Camera::UVSetIndexForName(const std::string& uvset_name) const
 {
 	::fatalError("Camera::UVSetIndexForName");
 	return 0;
-}
+}*/
 
 
 void Camera::unitTest()

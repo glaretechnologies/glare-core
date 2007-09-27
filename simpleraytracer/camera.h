@@ -88,9 +88,9 @@ public:
 
 
 
-	void lookAt(const Vec3d& target);
-	void setForwardsDir(const Vec3d& forwards);
-	void setPos(const Vec3d& newpos) { pos = newpos; }
+	//void lookAt(const Vec3d& target);
+	//void setForwardsDir(const Vec3d& forwards);
+	//void setPos(const Vec3d& newpos) { pos = newpos; }
 
 	inline const Vec3d& getCurrentUpDir() const { return up; }
 	inline const Vec3d& getRightDir() const { return right; }
@@ -122,9 +122,11 @@ public:
 	int glareNumBlades() const { return glare_num_blades; }
 
 	bool isAutoFocus() const { return autofocus; }
+	// NOTE: non-const
 	void setFocusDistance(double fd);
 
 
+	// NOTE: non-const
 	virtual void emitterInit();
 	virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
 										  HitInfo& hitinfo_out) const;
@@ -138,7 +140,7 @@ public:
 	double getExposureDuration() const { return exposure_duration; }
 	//double getFilmSensitivity() const { return film_sensitivity; }
 
-	virtual int UVSetIndexForName(const std::string& uvset_name) const;
+	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
 	
 
