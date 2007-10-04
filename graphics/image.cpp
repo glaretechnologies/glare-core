@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <limits>
 
+
 #ifndef BASIC_IMAGE
 
 #if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
@@ -74,8 +75,27 @@ Image& Image::operator = (const Image& other)
 }
 
 
+// will throw ImageExcep if bytespp != 3
+void Image::setFromBitmap(const Bitmap& bmp) 
+{
+	if(bmp.getBytesPP() != 3)
+		throw ImageExcep("BytesPP != 3");
 
+	resize(bmp.getWidth(), bmp.getHeight());
 
+	const float factor = 1.0f / 255.0f;
+	for(int y=0; y<bmp.getHeight(); ++y)
+		for(int x=0; x<bmp.getWidth(); ++x)
+		{
+			setPixel(x, y, 
+				Colour3f(
+					(float)bmp.getPixel(x, y)[0] * factor,
+					(float)bmp.getPixel(x, y)[1] * factor,
+					(float)bmp.getPixel(x, y)[2] * factor
+					)
+				);
+		}
+}
 
 
 
@@ -476,6 +496,20 @@ void Image::addImage(const Image& img, int destx, int desty)
 		}
 }
 
+void Image::blendImage(const Image& img, int destx, int desty)
+{	
+	for(int y=0; y<img.getHeight(); ++y)
+		for(int x=0; x<img.getWidth(); ++x)		
+		{
+			int dx = x + destx;
+			int dy = y + desty;
+			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+			{
+				setPixel(dx, dy, Colour3f(1.0) * img.getPixel(x, y).r + getPixel(dx, dy) * (1.0 - img.getPixel(x, y).r));
+			}
+		}
+}
+
 void Image::subImage(const Image& img, int destx, int desty)
 {	
 	for(int y=0; y<img.getHeight(); ++y)
@@ -691,7 +725,7 @@ void warning_func(png_structp png, const char* msg)
 	throw ImageExcep("LibPNG warning: " + std::string(msg));
 }
 
-void Image::saveToPng(const std::string& pathname) const
+void Image::saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata) const
 {
 
 	// open the file
@@ -731,24 +765,25 @@ void Image::saveToPng(const std::string& pathname) const
 	   PNG_COMPRESSION_TYPE_BASE,//PNG_COMPRESSION_TYPE_DEFAULT, //compression type
 	   PNG_FILTER_TYPE_BASE);//PNG_FILTER_TYPE_DEFAULT);//filter method
 
-	/*
-	// TEMP TEST:
-	png_text txt[2];
-	memset(&txt, 0, sizeof(png_text)*2);
-	txt[0].compression = PNG_TEXT_COMPRESSION_NONE;
-	txt[0].key = "testkey";
-	const std::string testval = "test value";
-	txt[0].text = (char*)testval.c_str();
-	txt[0].text_length = testval.length();
-
-	txt[1].compression = PNG_TEXT_COMPRESSION_NONE;
-	txt[1].key = "Author";
-	const std::string author = "SOMEONE COOL";
-	txt[1].text = (char*)author.c_str();
-	txt[1].text_length = author.length();
-	
-	png_set_text(png, info, txt, 2);*/
-
+	//------------------------------------------------------------------------
+	// Write metadata pairs if present
+	//------------------------------------------------------------------------
+	if(metadata.size() > 0)
+	{
+		png_text* txt = new png_text[metadata.size()];
+		memset(txt, 0, sizeof(png_text)*metadata.size());
+		int c = 0;
+		for(std::map<std::string, std::string>::const_iterator i = metadata.begin(); i != metadata.end(); ++i)
+		{
+			txt[c].compression = PNG_TEXT_COMPRESSION_NONE;
+			txt[c].key = (png_charp)(*i).first.c_str();
+			txt[c].text = (png_charp)(*i).second.c_str();
+			txt[c].text_length = (*i).second.length();
+			c++;
+		}
+		png_set_text(png, info, txt, (int)metadata.size());
+		delete[] txt;
+	}
 
 	//png_set_gAMA(png_ptr, info_ptr, 2.3);
 

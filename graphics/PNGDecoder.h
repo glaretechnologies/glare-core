@@ -9,6 +9,8 @@ Code By Nicholas Chapman.
 
 
 #include <vector>
+#include <map>
+#include <string>
 class Bitmap;
 
 
@@ -32,12 +34,12 @@ public:
 
 
 	//these throw ImFormatExcep
-	static void decode(const std::vector<unsigned char>& encoded_img, Bitmap& bitmap_out);
+	static void decode(const std::string& path, /*const std::vector<unsigned char>& encoded_img, */Bitmap& bitmap_out);
 
 
 	//static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
 
-
+	static const std::map<std::string, std::string> getMetaData(const std::string& image_path);
 };
 
 

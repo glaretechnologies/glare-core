@@ -6,6 +6,8 @@
 #include "../utils/array2d.h"
 #include "assert.h"
 #include <string>
+#include <map>
+#include "bitmap.h"
 
 class ImageExcep
 {
@@ -31,6 +33,8 @@ public:
 	Image& operator = (const Image& other);
 
 	typedef Colour3f ColourType;
+
+	void setFromBitmap(const Bitmap& bmp); // will throw ImageExcep if bytespp != 3
 
 	inline int getHeight() const { return height; }
 	inline int getWidth() const { return width; }
@@ -68,7 +72,7 @@ public:
 	void saveToExr(const std::string& pathname) const;
 	void loadFromExr(const std::string& pathname);
 
-	void saveToPng(const std::string& pathname) const;
+	void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata) const;
 
 	void loadFromHDR(const std::string& pathname, int width, int height);
 
@@ -82,6 +86,7 @@ public:
 
 	void blitToImage(Image& dest, int destx, int desty);
 	void addImage(const Image& dest, int destx, int desty);
+	void blendImage(const Image& dest, int destx, int desty);
 	void subImage(const Image& dest, int destx, int desty);
 	
 	void overwriteImage(const Image& src, int destx, int desty);

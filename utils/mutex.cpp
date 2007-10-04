@@ -41,11 +41,7 @@ Mutex::~Mutex()
 
 void Mutex::acquire()
 {
-/*	assert(created);
-#ifdef CYBERSPACE
-	if(!created)
-		::fatalError("tried to acquire an uninitialised mutex.");
-#endif*/
+//	assert(created);
 
 #if defined(WIN32) || defined(WIN64)
 	EnterCriticalSection(&mutex);
@@ -56,11 +52,7 @@ void Mutex::acquire()
 
 void Mutex::release()
 {	
-/*	assert(created);
-#ifdef CYBERSPACE
-	if(!created)
-		::fatalError("tried to release an uninitialised mutex.");
-#endif*/
+//	assert(created);
 
 #if defined(WIN32) || defined(WIN64)
 	LeaveCriticalSection(&mutex);

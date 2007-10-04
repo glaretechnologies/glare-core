@@ -37,6 +37,7 @@ void pngdecoder_warning_func(png_structp png, const char* msg)
 	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
 }
 
+/*
 static int offset = 0;//TEMP UNTHREADSAFE HACK
 
 void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
@@ -49,10 +50,10 @@ void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
 
 	offset += length;
 }
+*/
 
 
-
-void PNGDecoder::decode(const std::vector<unsigned char>& encoded_img, Bitmap& bitmap_out)
+void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned char>& encoded_img*/, Bitmap& bitmap_out)
 {
 	png_structp png_ptr = png_create_read_struct(
 		PNG_LIBPNG_VER_STRING, 
@@ -81,13 +82,29 @@ void PNGDecoder::decode(const std::vector<unsigned char>& encoded_img, Bitmap& b
     }
 
 	/// Set read function ///
-	png_set_read_fn(png_ptr, (void*)&encoded_img[0], user_read_data_proc);
+	//png_set_read_fn(png_ptr, (void*)&encoded_img[0], user_read_data_proc);
 
 	//png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
 
 	//png_byte* row_pointers = png_get_rows(png_ptr, info_ptr);
 
+
+
+
+	// Open file and start reading from it.
+	FILE* fp = fopen(path.c_str(), "rb");
+	if(!fp)
+		 throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
+
+	png_init_io(png_ptr, fp);
+
+
+
 	png_read_info(png_ptr, info_ptr);
+
+
+
+
 
 	//png_get_IHDR(png_ptr, info_ptr, &width, &height,
      //  &bit_depth, &color_type, &interlace_type,
@@ -123,33 +140,109 @@ void PNGDecoder::decode(const std::vector<unsigned char>& encoded_img, Bitmap& b
         png_set_strip_alpha(png_ptr);
 
 	if(width <= 0 || width >= 1000000)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
 		throw ImFormatExcep("invalid width: " + toString(width));
+	}
 	if(height <= 0 || height >= 1000000)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
 		throw ImFormatExcep("invalid height: " + toString(height));
+	}
 
 	if(bit_depth != 8 && bit_depth != 16)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
 		throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
+	}
 
 	bitmap_out.resize(width, height);
 	bitmap_out.setBytesPP(3);
 
-	//png_byte* row_pointers[height];
-	
-	//png_read_image(png_ptr, row_pointers);
-	
+	// Read in actual image data
 	for(int y=0; y<height; ++y)
-	{
 		png_read_row(png_ptr, bitmap_out.getPixel(0, y), NULL);
-	}
 
 	// Read the info at the end of the PNG file
 	png_read_end(png_ptr, end_info);
 
 	// Free structures
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+
+	// Close file
+	fclose(fp);
 }
 
 
+const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::string& image_path)
+{
+	png_structp png_ptr = png_create_read_struct(
+		PNG_LIBPNG_VER_STRING, 
+		(png_voidp)NULL,
+        pngdecoder_error_func, 
+		pngdecoder_warning_func
+		);
+
+    if (!png_ptr)
+        throw ImFormatExcep("Failed to create PNG struct.");
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr)
+    {
+        png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
+
+        throw ImFormatExcep("Failed to create PNG info struct.");
+    }
+
+    png_infop end_info = png_create_info_struct(png_ptr);
+    if (!end_info)
+    {
+        png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+
+        throw ImFormatExcep("Failed to create PNG info struct.");
+    }
+
+
+	FILE* fp = fopen(image_path.c_str(), "rb");
+	if(!fp)
+		 throw ImFormatExcep("Failed to open file '" + image_path + "' for reading."); 
+
+	png_init_io(png_ptr, fp);
+
+	/// Set read function ///
+	//png_set_read_fn(png_ptr, (void*)&encoded_img[0], user_read_data_proc);
+
+	//png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+
+	//png_byte* row_pointers = png_get_rows(png_ptr, info_ptr);
+
+	png_read_info(png_ptr, info_ptr);
+
+
+	png_textp text_ptr;
+	const png_uint_32 num_comments = png_get_text(png_ptr, info_ptr, &text_ptr, NULL);
+
+
+	std::map<std::string, std::string> metadata;
+	for(png_uint_32 i=0; i<num_comments; ++i)
+		metadata[std::string(text_ptr[i].key)] = std::string(text_ptr[i].text);
+
+
+
+	// Read the info at the end of the PNG file
+	//png_read_end(png_ptr, end_info);
+
+	// Free structures
+	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+
+	// Close file
+	fclose(fp);
+
+	return metadata;
+}
 
 
 

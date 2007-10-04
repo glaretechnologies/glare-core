@@ -11,11 +11,6 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include <stdlib.h>//NULL seems to want this
 
-//if CYBERSPACE is defined, include globals.h for fatalError()
-#ifdef CYBERSPACE
-#include "../cyberspace/globals.h"
-#endif
-
 /*=====================================================================
 Singleton
 ---------
@@ -86,22 +81,7 @@ void Singleton<T>::destroyInstance()
 template <class T>
 T& Singleton<T>::getInstance()
 {
-	//if(!instance)
-	//	throw std::string("tried to access null singleton.");
-
 	assert(instance);
-
-	/*if(!instance)
-	{
-		#ifdef CYBERSPACE
-		::fatalError("tried to dereference null singleton.");
-		#endif
-
-		//At this point, you're pretty fucked.  So just throw an exception
-		//for want of anthing better to do.
-		throw std::exception();//"tried to dereference null singleton.");
-	}*/
-
 	return *instance;
 }
 

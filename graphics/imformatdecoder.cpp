@@ -103,7 +103,7 @@ void ImFormatDecoder::decodeImage(const std::vector<unsigned char>& encoded_imag
 	}
 	else if(hasExtension(imagename, "png"))
 	{
-		PNGDecoder::decode(encoded_image, bitmap_out);
+		PNGDecoder::decode(imagename, /*encoded_image,*/ bitmap_out);
 	}
 	else
 	{

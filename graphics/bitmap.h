@@ -48,6 +48,8 @@ public:
 
 	void raiseToPower(float exponent);
 
+	unsigned int checksum() const;
+
 
 private:
 	unsigned char* data;

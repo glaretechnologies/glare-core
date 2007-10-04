@@ -9,6 +9,8 @@ Code By Nicholas Chapman.
 
 #include <assert.h>
 #include <math.h>
+#include <zlib.h>
+
 
 Bitmap::Bitmap()
 {
@@ -93,6 +95,11 @@ void Bitmap::raiseToPower(float exponent)
 }
 
 
+unsigned int Bitmap::checksum() const
+{
+	const unsigned int initial_crc = crc32(0, 0, 0);
+	return crc32(initial_crc, data, width * height * bytespp);
+}
 
 
 
