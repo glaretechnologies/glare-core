@@ -26,7 +26,7 @@ You may not use this code for any commercial project.
 #define __MATRIX3_H__
 
 #include "vec3.h"
-#include "matrix2.h"
+#include "Matrix2.h"
 
 
 #include <stdio.h>//for readFromFile(), writeToFile()

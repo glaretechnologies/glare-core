@@ -19,7 +19,7 @@ You may *not* use this code for any commercial project.
 //#include "../maths/vec3.h"
 #include "../maths/vec2.h"
 #include "../maths/coordframe.h"
-#include "../physics/jscol_intersectable.h"
+#include "../physics/jscol_Intersectable.h"
 #include "../utils/refcounted.h"
 #include <vector>
 class Ray;

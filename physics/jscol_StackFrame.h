@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __STACKFRAME_H_666_
 #define __STACKFRAME_H_666_
 
-#include "../utils/Platform.h"
+#include "../utils/platform.h"
 
 
 namespace js
