@@ -29,7 +29,7 @@ public:
 	
 	=====================================================================*/
 	Reference()
-	:	ob(NULL)
+	:	ob(0)
 	{}
 
 	explicit Reference(T* ob_)
@@ -120,11 +120,11 @@ public:
 
 	inline bool isNull() const
 	{
-		return ob == NULL;
+		return ob == 0;
 	}
 	inline bool nonNull() const
 	{
-		return ob != NULL;
+		return ob != 0;
 	}
 
 	inline T* getPointer()

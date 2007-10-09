@@ -34,7 +34,7 @@ You may not use this code for any commercial project.
 
 
 
-IniFile::IniFile(const std::string& filename_) throw (IniFileExcep)
+IniFile::IniFile(const std::string& filename_)// throw (IniFileExcep)
 :	filename(filename_)//,
 //	file(filename_, "r")//open the file
 {
@@ -111,7 +111,7 @@ bool IniFile::reload(const std::string& newfilename)
 
 
 
-const std::string& IniFile::getValueForKey(const std::string& key) throw (IniFileExcep)
+const std::string& IniFile::getValueForKey(const std::string& key) //throw (IniFileExcep)
 {
 	//-----------------------------------------------------------------
 	//lookup the key in the map
@@ -130,23 +130,23 @@ const std::string& IniFile::getValueForKey(const std::string& key) throw (IniFil
 }
 
 
-int IniFile::getIntForKey(const std::string& key) throw (IniFileExcep)
+int IniFile::getIntForKey(const std::string& key) //throw (IniFileExcep)
 {
 	return stringToInt(getValueForKey(key));
 }
 
 
-float IniFile::getFloatForKey(const std::string& key) throw (IniFileExcep)
+float IniFile::getFloatForKey(const std::string& key) //throw (IniFileExcep)
 {
 	return stringToFloat(getValueForKey(key));
 }
 
-double IniFile::getDoubleForKey(const std::string& key) throw (IniFileExcep)
+double IniFile::getDoubleForKey(const std::string& key)// throw (IniFileExcep)
 {
 	return stringToDouble(getValueForKey(key));
 }
 
-bool IniFile::getBoolForKey(const std::string& key) throw (IniFileExcep)
+bool IniFile::getBoolForKey(const std::string& key) //throw (IniFileExcep)
 {
 	const std::string val = getValueForKey(key);
 	if(::toLowerCase(val) == "true")

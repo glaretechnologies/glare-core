@@ -11,8 +11,9 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"
 #include "../maths/vec2.h"
-#include "../maths/matrix2.h"
+#include "../maths/Matrix2.h"
 //#include "../utils/timer.h"
+#include "../maths/mathstypes.h"
 
 
 ImageFilter::ImageFilter()
@@ -388,12 +389,12 @@ static const Image::ColourType bilinearSampleImage(const Image& im, const Vec2f&
 	for(int y=min_y; y<=max_y; ++y)
 	{
 		const float d_y = pos.y - (float)y;
-		const float y_fac = myMax(0.f, 1.f - fabs(d_y));
+		const float y_fac = myMax(0.f, 1.f - (float)fabs(d_y));
 
 		for(int x=min_x; x<=max_x; ++x)
 		{
 			const float d_x = pos.x - (float)x;
-			const float x_fac = myMax(0.f, 1.f - fabs(d_x));
+			const float x_fac = myMax(0.f, 1.f - (float)fabs(d_x));
 
 			sum.addMult(im.getPixel(x, y), x_fac * y_fac);
 		}

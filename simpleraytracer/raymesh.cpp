@@ -13,7 +13,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/globals.h"
 #include "../indigo/RendererSettings.h"
-#include "../physics/jscol_BIHtree.h"
+#include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
 #include <fstream>
 

@@ -30,7 +30,7 @@ void PlatformUtils::Sleep(int x)
 #endif
 }
 
-
+/*
 unsigned int PlatformUtils::getMinWorkingSetSize()
 {
 	SIZE_T min, max;
@@ -45,12 +45,17 @@ unsigned int PlatformUtils::getMaxWorkingSetSize()
 
 	return (unsigned int)max;
 }
+*/
 
 unsigned int PlatformUtils::getNumLogicalProcessors()
 {
+#if defined(WIN32) || defined(WIN64)
 	SYSTEM_INFO system_info;
 	GetSystemInfo(&system_info);
 	return system_info.dwNumberOfProcessors;
-
+#else
 	//on linux: /proc/cpuinfo
+	return 1; // TEMP HACK
+#endif
 }
+

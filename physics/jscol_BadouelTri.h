@@ -53,6 +53,7 @@ const float BADOUEL_MIN_DIST = 0.00000001f;//this is to avoid denorms
 
 unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out)
 {
+#if defined(WIN32) || defined(WIN64)
 	const __m128 raydir = _mm_load_ps((const float*)&ray.unitDirF());
 	const __m128 n = _mm_load_ps((const float*)&normal);
 	const __m128 d = dotSSEIn4Vec(raydir, n);
@@ -92,7 +93,26 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	dist_out = raydist_v.m128_f32[0];
 	u_out = alpha;
 	v_out = beta;
+#else
+	const float denom = dot(ray.unitDirF(), this->normal);
+	if(denom == 0.0f)
+		return 0;
 
+	const float raydist = (this->dist - dot(ray.startPosF(), this->normal))/ denom; // signed distance until ray intersects triangle plane
+	if(raydist < BADOUEL_MIN_DIST || raydist >= ray_t_max) // if ray heading away form tri plane
+		return 0;
+
+	const float u = ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
+	const float v = ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
+	const float alpha = t11*u + t12*v;
+	const float beta = t21*u + t22*v;
+	assert(!isNAN(alpha) && !isNAN(beta));
+
+	const float one = 1.0;
+	dist_out = raydist;
+	u_out = alpha;
+	v_out = beta;
+#endif
 
 /*
 	const float denom = dot(ray.unitDirF(), this->normal);
@@ -151,7 +171,9 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 			)
 		).m128_u32[0];*/
 #else
-	TODO
+	// GCC
+	//return unsigned int(alpha >= 0.0f && beta >= 0.0f && (alpha + beta) <= 1.0f);
+	return (unsigned int)(alpha >= 0.0f && beta >= 0.0f && (alpha + beta) <= 1.0f); //TEMP
 #endif
 }
 

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/vec2.h"
-#include "../maths/matrix2.h"
+#include "../maths/Matrix2.h"
 #include "../raytracing/matutils.h"
 #include "../indigo/SingleFreq.h"
 #include "../indigo/ColourSpaceConverter.h"

@@ -19,7 +19,7 @@ MyFile::MyFile()
 }
 
 
-MyFile::MyFile(const std::string& filename, const char* openmode) throw(FileNotFoundExcep)
+MyFile::MyFile(const std::string& filename, const char* openmode)// throw(FileNotFoundExcep)
 {
 //	endoffile = false;
 	is_endoffile = false;
@@ -55,7 +55,7 @@ MyFile::~MyFile()
 }
 
 
-void MyFile::open(const std::string& filename, const char* openmode) throw(FileNotFoundExcep)
+void MyFile::open(const std::string& filename, const char* openmode)// throw(FileNotFoundExcep)
 {
 	assert(file == NULL && fileopen == false);
 

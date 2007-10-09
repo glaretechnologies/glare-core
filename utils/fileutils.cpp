@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #define NOMINMAX
 #include <windows.h>
 #else
-
+#include <stdio.h>
 #endif
 
 #include <assert.h>
@@ -583,7 +583,9 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 	if(!MoveFileExA(srcpath.c_str(), dstpath.c_str(), MOVEFILE_REPLACE_EXISTING))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #else
-	::fatalError("FileUtils::moveFile() not implemented.");
+	//::fatalError("FileUtils::moveFile() not implemented.");
+	if(rename(srcpath.c_str(), dstpath.c_str()) != 0)
+		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #endif
 }
 

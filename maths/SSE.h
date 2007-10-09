@@ -8,7 +8,11 @@ Code By Nicholas Chapman.
 #define __SSE_H_666_
 
 #include "../utils/platform.h"
-
+#include <assert.h>
+#ifdef COMPILER_GCC
+#include <stdlib.h>
+#include <inttypes.h>
+#endif
 
 namespace SSE
 {
@@ -53,12 +57,26 @@ inline bool isSSEAligned(T* ptr)
 
 inline void* alignedMalloc(size_t size, size_t alignment)
 {
+#ifdef COMPILER_MSVC
 	return _aligned_malloc(size, alignment);
+#else
+	void* mem_ptr;
+	const int result = posix_memalign(&mem_ptr, alignment, size);
+	assert(result == 0);
+	//TODO: handle fail here somehow.
+	return mem_ptr;
+#endif
 }
 
 inline void alignedFree(void* mem)
 {
+#ifdef COMPILER_MSVC
 	_aligned_free(mem);
+#else
+	// Apparently free() can handle aligned mem.
+	// see: http://www.opengroup.org/onlinepubs/000095399/functions/posix_memalign.html
+	free(mem);
+#endif
 }
 
 

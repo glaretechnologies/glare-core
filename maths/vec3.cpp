@@ -29,13 +29,14 @@ You may not use this code for any commercial project.
 #include <stdio.h>
 #include "../utils/random.h"
 #include "../utils/stringutils.h"
+#include <string>
 
 /*void Vec3::print() const
 {
 	printf("(%1.2f,		%1.2f,	%1.2f)\n", x, y, z);
 }*/
 
-//template <class doub>
+template <>
 const std::string Vec3<float>::toString() const
 {
 	//const int num_dec_places = 2;
@@ -43,6 +44,8 @@ const std::string Vec3<float>::toString() const
 	//	+ "," + floatToString(z, num_dec_places) + ")";
 	return "(" + ::toString(x) + "," + ::toString(y) + "," + ::toString(z) + ")";
 }
+
+template <>
 const std::string Vec3<double>::toString() const
 {
 	//const int num_dec_places = 2;

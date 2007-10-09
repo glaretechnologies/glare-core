@@ -15,7 +15,9 @@
 
 #if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
 #if !defined(DEBUG)
+#if !defined(COMPILER_GCC)
 #define OPENEXR_SUPPORT 1
+#endif
 #endif
 #endif
 

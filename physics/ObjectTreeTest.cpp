@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
 //#include "../indigo/InstancedGeom.h"
-#include "../simpleraytracer/CSModelLoader.h"
+#include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 
 

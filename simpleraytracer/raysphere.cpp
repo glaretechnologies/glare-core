@@ -332,6 +332,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test getAllHits()
 	//------------------------------------------------------------------------
+#ifndef COMPILER_GCC
 	std::vector<FullHitInfo> hitinfos;
 	sphere.getAllHits(ray, tree_context, hitinfos);
 	std::sort(hitinfos.begin(), hitinfos.end(), FullHitInfoComparisonPred);
@@ -351,6 +352,7 @@ void RaySphere::test()
 
 	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3d(1,0,0)));
 	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3d(1,0,0)));
+
 
 	//------------------------------------------------------------------------
 	//test doesFiniteRayHit()
@@ -378,7 +380,7 @@ void RaySphere::test()
 	testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(0.5, 0, 1)));
 
 
-
+#endif
 
 	//TODO: test normal stuff
 

@@ -25,7 +25,7 @@ You may not use this code for any commercial project.
 #include "matrix3.h"
 
 #include <stdio.h>
-#include "matrix2.h"
+#include "Matrix2.h"
 #include "mathstypes.h"
 #include "../indigo/TestUtils.h"
 
@@ -239,7 +239,7 @@ const Matrix3 Matrix3::buildMatrixFromRows(const Vec3& r0,
 
 }*/
 
-
+template <>
 void Matrix3<float>::test()
 {
 	const float e[9] = {1,2,3,-4,5,6,7,-8,9};

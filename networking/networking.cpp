@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <netinet/in.h>
 #include <netdb.h>//gethostbyname
 #include <string.h>//strerror_r
+#include <errno.h>
 #endif
 
 //#include "../cyberspace/globals.h"

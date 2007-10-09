@@ -446,12 +446,14 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 	if(ray_max_t <= aabb_enterdist)//if this ray finishes before we even enter the aabb...
 		return -1.0f;
 
-	unsigned int ray_child_indices[4][2];
-	TreeUtils::buildRayChildIndices(ray, ray_child_indices);
+	//unsigned int ray_child_indices[4][2];
+	//TreeUtils::buildRayChildIndices(ray, ray_child_indices);
+	SSE_ALIGN unsigned int ray_child_indices[8];
+	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 
-	assert(ray_child_indices[2][0] == 0 || ray_child_indices[2][0] == 1);
-	assert(ray_child_indices[2][1] == 0 || ray_child_indices[2][1] == 1);
+	//assert(ray_child_indices[2][0] == 0 || ray_child_indices[2][0] == 1);
+	//assert(ray_child_indices[2][1] == 0 || ray_child_indices[2][1] == 1);
 
 	assert(aabb_enterdist >= 0.0f);
 //TEMP as failing too much	assert(aabb_exitdist >= aabb_enterdist);
@@ -517,8 +519,8 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 	
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			assert(splitting_axis >= 0 && splitting_axis <= 2);
-			const REAL t_split_0 = (nodes[current].clip[ray_child_indices[splitting_axis][0]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for near child
-			const REAL t_split_1 = (nodes[current].clip[ray_child_indices[splitting_axis][1]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for far child
+			const REAL t_split_0 = (nodes[current].clip[ray_child_indices[splitting_axis]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for near child
+			const REAL t_split_1 = (nodes[current].clip[ray_child_indices[splitting_axis + 4]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for far child
 			const unsigned int child_nodes[2] = {nodes[current].childIndex(), nodes[current].childIndex() + 1};
 
 			const bool intersect_near = tmin <= t_split_0;
@@ -541,8 +543,8 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 			if(intersect_near && intersect_far)
 			{
 				//ray hits plane - double recursion, into both near and far cells.
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis][0]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis][1]];
+				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
 					
 				//push far node onto stack to process later
 				stacktop++;
@@ -558,12 +560,12 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 			}
 			else if(intersect_near)
 			{
-				current = child_nodes[ray_child_indices[splitting_axis][0]];//nearnode;
+				current = child_nodes[ray_child_indices[splitting_axis]];//nearnode;
 				tmax = myMin(tmax, t_split_0);
 			}
 			else if(intersect_far)
 			{
-				current = child_nodes[ray_child_indices[splitting_axis][1]];//farnode;
+				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
 				tmin = myMax(tmin, t_split_1);
 			}
 			else
@@ -701,8 +703,10 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	//if(ray_max_t <= aabb_enterdist)//if this ray finishes before we even enter the aabb...
 	//	return -1.0f;
 
-	unsigned int ray_child_indices[4][2];//first dimension is axis.
-	TreeUtils::buildRayChildIndices(ray, ray_child_indices);
+	//unsigned int ray_child_indices[4][2];//first dimension is axis.
+	//TreeUtils::buildRayChildIndices(ray, ray_child_indices);
+	SSE_ALIGN unsigned int ray_child_indices[8];
+	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 	assert(aabb_enterdist >= 0.0f);
 //TEMP as failing too much	assert(aabb_exitdist >= aabb_enterdist);
@@ -753,8 +757,8 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			assert(splitting_axis >= 0 && splitting_axis <= 2);
-			const REAL t_split_0 = (nodes[current].clip[ray_child_indices[splitting_axis][0]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for near child
-			const REAL t_split_1 = (nodes[current].clip[ray_child_indices[splitting_axis][1]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for far child
+			const REAL t_split_0 = (nodes[current].clip[ray_child_indices[splitting_axis]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for near child
+			const REAL t_split_1 = (nodes[current].clip[ray_child_indices[splitting_axis + 4]] - ray.startPosF()[splitting_axis]) * recip_unitraydir[splitting_axis];//clip plane for far child
 			const unsigned int child_nodes[2] = {nodes[current].childIndex(), nodes[current].childIndex() + 1};
 
 			const bool intersect_near = tmin <= t_split_0;
@@ -763,8 +767,8 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 			if(intersect_near && intersect_far)
 			{
 				//ray hits plane - double recursion, into both near and far cells.
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis][0]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis][1]];
+				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
 					
 				//push far node onto stack to process later
 				stacktop++;
@@ -780,12 +784,12 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 			}
 			else if(intersect_near)
 			{
-				current = child_nodes[ray_child_indices[splitting_axis][0]];//nearnode;
+				current = child_nodes[ray_child_indices[splitting_axis]];//nearnode;
 				tmax = myMin(tmax, t_split_0);
 			}
 			else if(intersect_far)
 			{
-				current = child_nodes[ray_child_indices[splitting_axis][1]];//farnode;
+				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
 				tmin = myMax(tmin, t_split_1);
 			}
 			else

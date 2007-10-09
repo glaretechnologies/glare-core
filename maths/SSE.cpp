@@ -6,7 +6,13 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "SSE.h"
 
+#include "../utils/platform.h"
+
+#ifdef COMPILER_MSVC
 #include <intrin.h>
+#else
+
+#endif
 
 
 /*
@@ -43,6 +49,8 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 	sse1_present = (cpeinfo & SSE_FLAG ) != 0;
 	sse2_present = (cpeinfo & SSE2_FLAG ) != 0;
 	sse3_present = (cpsse3 & SSE3_FLAG ) != 0;*/
+
+#ifdef COMPILER_MSVC
 	int CPUInfo[4];
 	__cpuid(
 		CPUInfo, 
@@ -57,6 +65,9 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 	sse1_present = (CPUInfo[3] & SSE_FLAG ) != 0;
 	sse2_present = (CPUInfo[3] & SSE2_FLAG ) != 0;
 	sse3_present = (CPUInfo[2] & SSE3_FLAG ) != 0;
+#else
+	mmx_present = sse1_present = sse2_present = sse3_present = true; //TEMP HACK
+#endif
 
 	//TODO: test this shit
 }

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __TRIHASH_H_666_
 
 
-#include "../utils/Platform.h"
+#include "../utils/platform.h"
 
 
 

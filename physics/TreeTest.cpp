@@ -10,16 +10,16 @@ Code By Nicholas Chapman.
 #include "jscol_BIHTree.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/MTwister.h"
-#include "../raytracing/HitInfo.h"
+#include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
 #include <algorithm>
-#include "../simpleraytracer/CSModelLoader.h"
+#include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/SphereUnitVecPool.h"
+#include "../utils/sphereunitvecpool.h"
 #include "../utils/timer.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/PlatformUtils.h"
+#include "../utils/platformutils.h"
 
 namespace js
 {
@@ -221,6 +221,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test getAllHits()
 		//------------------------------------------------------------------------
+#ifndef COMPILER_GCC
 		std::vector<FullHitInfo> hitinfos;
 		tritree.getAllHits(ray, tree_context, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), FullHitInfoComparisonPred);
@@ -263,7 +264,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			testAssert(hitinfos[z].hittri_index == hitinfos_bih[z].hittri_index);
 			testAssert(hitinfos[z].tri_coords == hitinfos_bih[z].tri_coords);
 		}
-
+#endif
 
 		//------------------------------------------------------------------------
 		//Test doesFiniteRayHit()

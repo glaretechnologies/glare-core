@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../maths/SSE.h"
-#include "../utils/PlatformUtils.h"
+#include "../utils/platformutils.h"
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
 #include <zlib.h>

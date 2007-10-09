@@ -37,16 +37,17 @@ public:
 
 
 
-	static inline void buildRayChildIndices(const Ray& ray, unsigned int ray_child_indices[4][2]);
+	//static inline void buildRayChildIndices(const Ray& ray, unsigned int ray_child_indices[4][2]);
 
 	static inline void buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_indices[8]);
 
 };
 
-
+#if 0
 void TreeUtils::buildRayChildIndices(const Ray& ray, unsigned int ray_child_indices[4][2])
 {
 //TEMP OLD WAY:///////
+
 	/*
 	ray_child_indices[0][0] = ray_child_indices[1][0] = ray_child_indices[2][0] = ray_child_indices[3][0] = 0;
 	ray_child_indices[0][1] = ray_child_indices[1][1] = ray_child_indices[2][1] = ray_child_indices[3][1] = 1;
@@ -56,8 +57,8 @@ void TreeUtils::buildRayChildIndices(const Ray& ray, unsigned int ray_child_indi
 	if(ray.unitDir().y < 0.0f) 
 		mySwap(ray_child_indices[1][0], ray_child_indices[1][1]);
 	if(ray.unitDir().z < 0.0f) 
-		mySwap(ray_child_indices[2][0], ray_child_indices[2][1]);
-		*/
+		mySwap(ray_child_indices[2][0], ray_child_indices[2][1]);*/
+
 ////////////////
 
 
@@ -92,6 +93,7 @@ void TreeUtils::buildRayChildIndices(const Ray& ray, unsigned int ray_child_indi
 
 	//const __m128 result = and4Vec(mask, _mm_load_ps((float*)one_int_array)); //result[i] = mask & 0x1 = (raydir[i] < 0.0) ? 1 : 0
 	const __m128 result = and4Vec(mask, _mm_set1_ps(one)); //result[i] = mask & 0x1 = (raydir[i] < 0.0) ? 1 : 0
+
 	
 	ray_child_indices[0][0] = result.m128_i32[0];
 	ray_child_indices[1][0] = result.m128_i32[1];
@@ -122,12 +124,15 @@ void TreeUtils::buildRayChildIndices(const Ray& ray, unsigned int ray_child_indi
 		assert(ray_child_indices[z][0] == ray_child_indices_d[z][0]);
 		assert(ray_child_indices[z][1] == ray_child_indices_d[z][1]);
 	}
+
 #endif
 }
+#endif
 
 
 void TreeUtils::buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_indices[8])
 {
+
 	/*ray_child_indices[0] = ray_child_indices[1] = ray_child_indices[2] = 0;
 	ray_child_indices[4] = ray_child_indices[5] = ray_child_indices[6] = 1;
 
