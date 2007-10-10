@@ -116,3 +116,4 @@ void Vector::draw(Graphics2d& graphics, int xpos, int ypos, int maxbaramp, float
 	graphics.drawLine(Vec2(xpos + width, ypos - maxbaramp), Vec2( xpos + width, ypos + maxbaramp), Vec3(0.3, 0.3, 0.3));
 }
 #endif
+
