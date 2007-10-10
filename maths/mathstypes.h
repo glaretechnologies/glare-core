@@ -249,7 +249,7 @@ inline bool isDenormed(float x)
 template <class Real>
 inline int roundToInt(Real x)
 {	
-	
+	assert(x >= (Real)0.0);
 #ifdef GCC
 	int i;
 	//NOTE: testme
@@ -369,6 +369,7 @@ inline T tanForCos(T cos_theta)
 	return sqrt(1.0 - cos_theta*cos_theta) / cos_theta;
 }
 
+void test();
 
 }
 
