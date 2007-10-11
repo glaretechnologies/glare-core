@@ -54,7 +54,7 @@ public:
 	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual const std::string debugName() const { return "RayMesh"; }
+	virtual const std::string debugName() const { return "RayMesh (name=" + name + ")"; }
 	
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const;

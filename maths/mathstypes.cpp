@@ -4,6 +4,7 @@
 
 void Maths::test()
 {
+	testAssert(true);
 	testAssert(roundToInt(0.0) == 0);
 	testAssert(roundToInt(0.1) == 0);
 	testAssert(roundToInt(0.5) == 0);

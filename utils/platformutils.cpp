@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #else
 #include <time.h>
+#include <unistd.h>
 #endif
 
 
@@ -55,7 +56,8 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 	return system_info.dwNumberOfProcessors;
 #else
 	//on linux: /proc/cpuinfo
-	return 1; // TEMP HACK
+	//return 1; // TEMP HACK
+	return sysconf(_SC_NPROCESSORS_CONF);
 #endif
 }
 

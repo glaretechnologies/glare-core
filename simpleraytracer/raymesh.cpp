@@ -353,7 +353,8 @@ void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv
 
 void RayMesh::addMaterialUsed(const std::string& material_name)
 {
-	this->matname_to_index_map[material_name] = (int)matname_to_index_map.size();
+	const unsigned int mat_index = (unsigned int)matname_to_index_map.size();
+	this->matname_to_index_map[material_name] = mat_index;
 }
 
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const

@@ -249,13 +249,8 @@ inline bool isDenormed(float x)
 template <class Real>
 inline int roundToInt(Real x)
 {	
-	assert(x >= (Real)0.0);
-#ifdef GCC
-	int i;
-	//NOTE: testme
-	 __asm__ __volatile__ ("fistpl %0" : "=m" (i) : "t" (x) : "st") ;
-	 return i
-#elif defined(WIN32)
+	assert(x >= (Real)0.0);	
+#if defined(WIN32)
 	int i;
 	_asm
 	{         
@@ -265,6 +260,13 @@ inline int roundToInt(Real x)
 	return i;
 #elif defined(WIN64)
 	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
+#else
+	//int i;
+	//NOTE: testme
+	//__asm__ __volatile__ ("fistpl %0" : "=m" (i) : "t" (x) : "st") ;
+	//return i;
+
+	return lrint(x);
 #endif
 }
 

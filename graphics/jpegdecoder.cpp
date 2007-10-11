@@ -22,7 +22,7 @@ extern "C"
 {
 #include <jpeglib.h>
 }
-#endif LIBJPEG_SUPPORT
+#endif // LIBJPEG_SUPPORT
 
 JPEGDecoder::JPEGDecoder()
 {
@@ -340,3 +340,4 @@ void * JPEGDecoder::Compress(const void *source,
 
 
 #endif
+
