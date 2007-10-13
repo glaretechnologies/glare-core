@@ -13,13 +13,13 @@
 
 #ifndef BASIC_IMAGE
 
-#if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
+/*#if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
 #if !defined(DEBUG)
 #if !defined(COMPILER_GCC)
 #define OPENEXR_SUPPORT 1
 #endif
 #endif
-#endif
+#endif*/
 
 #ifdef OPENEXR_SUPPORT
 #include <ImfRgbaFile.h>
@@ -678,6 +678,8 @@ void Image::loadFromExr(const std::string& pathname)
 		const int filewidth = dw.max.x - dw.min.x + 1;
 		const int fileheight = dw.max.y - dw.min.y + 1;
 
+		printVar(filewidth);//TEMP
+
 		this->resize(filewidth, fileheight);
 
 		std::vector<Imf::Rgba> data(filewidth * fileheight);
@@ -691,6 +693,13 @@ void Image::loadFromExr(const std::string& pathname)
 				this->getPixel(x, y).r = data[y*getWidth() + x].r;
 				this->getPixel(x, y).g = data[y*getWidth() + x].g;
 				this->getPixel(x, y).b = data[y*getWidth() + x].b;
+
+				this->getPixel(x, y).lowerClamp(0.0);//TEMP NEW
+
+				assert(this->getPixel(x, y).r >= 0.0);
+				//printVar(this->getPixel(x, y).g);
+				assert(this->getPixel(x, y).g >= 0.0);
+				assert(this->getPixel(x, y).b >= 0.0);
 			}
 	}
 	catch(const std::exception& e)

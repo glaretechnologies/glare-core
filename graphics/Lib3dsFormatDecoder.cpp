@@ -556,7 +556,8 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 		mat_to_part_map[srcmatname] = i++;*/
 		//handler.addMaterial(srcmatname, Colour3(material->diffuse[0], material->diffuse[1], material->diffuse[2]), 1.0f - material->transparency);
 
-		mat_name_to_index[srcmatname] = mat_name_to_index.size();
+		const unsigned int mat_index = mat_name_to_index.size();
+		mat_name_to_index[srcmatname] = mat_index;
 		handler.addMaterialUsed(srcmatname);
 	
 		material = material->next;
