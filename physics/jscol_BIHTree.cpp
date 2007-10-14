@@ -132,8 +132,8 @@ void BIHTree::build()
 
 
 	conPrint("\tBuild Stats:");
-	conPrint("\t\ttotal leafgeom size: " + ::toString(leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
-	conPrint("\t\ttotal nodes used: " + ::toString(nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(js::BIHTreeNode)) + ")");
+	conPrint("\t\ttotal leafgeom size: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
+	conPrint("\t\ttotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(js::BIHTreeNode)) + ")");
 	conPrint("\t\tnumInternalNodes: " + toString(numInternalNodes()));
 	conPrint("\t\tnumLeafNodes: " + toString(numLeafNodes()));
 	conPrint("\t\tnum_under_thresh_leafs: " + toString(num_under_thresh_leafs));

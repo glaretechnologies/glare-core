@@ -11,7 +11,7 @@ Code Copyright Nicholas Chapman 2005.
 #define __MYSOCKET_H_666_
 
 
-#pragma warning(disable : 4786)//disable long debug name warning
+//#pragma warning(disable : 4786)//disable long debug name warning
 
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
@@ -143,6 +143,7 @@ private:
 	SOCKETHANDLE_TYPE sockethandle;
 #endif
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
+	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
 	IPAddress otherend_ipaddr;
 	IPAddress thisend_ipaddr;

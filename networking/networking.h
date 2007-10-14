@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __NETWORKING_H_666_
 #define __NETWORKING_H_666_
 
-#pragma warning(disable : 4786)//disable long debug name warning
+//#pragma warning(disable : 4786)//disable long debug name warning
 
 #include "ipaddress.h"
 #include <vector>

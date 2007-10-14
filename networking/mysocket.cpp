@@ -25,6 +25,7 @@ Code Copyright Nicholas Chapman 2005.
 #include <unistd.h>//for close()
 #include <sys/time.h>//fdset
 #include <sys/types.h>//fdset
+#include <sys/select.h>
 #endif
 
 
@@ -44,6 +45,9 @@ typedef socklen_t SOCKLEN_TYPE;
 
 const int SOCKET_ERROR = -1;
 #endif
+
+
+
 
 MySocket::MySocket(const std::string hostname, int port)
 {
@@ -121,6 +125,7 @@ MySocket::MySocket()
 
 void MySocket::doConnect(const IPAddress& ipaddress, int port)
 {
+
 	otherend_ipaddr = ipaddress;//remember ip of other end
 
 	assert(port >= 0 && port <= 65536);
@@ -251,6 +256,7 @@ MySocket::~MySocket()
 
 void MySocket::bindAndListen(int port) throw (MySocketExcep)
 {
+
 	assert(Networking::isInited());
 
 	//-----------------------------------------------------------------
@@ -299,12 +305,14 @@ void MySocket::bindAndListen(int port) throw (MySocketExcep)
 		throw MySocketExcep("listen failed");
 
 	thisend_port = port;
+
 }
 
 
 
 void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
 {
+
 	assert(Networking::isInited());
 	sockaddr_in client_addr;//data struct to get the client IP
 	SOCKLEN_TYPE length = sizeof(client_addr);
@@ -326,8 +334,9 @@ void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
 	{
 		//has to be reset each iteration
 		fd_set sockset;
-		FD_ZERO(&sockset);
-		FD_SET(sockethandle, &sockset);
+		initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
+	//	FD_SET(sockethandle, &sockset);
+
 		//FD_SET fd_set;
 		//sockset.fd_count = 1;
 		//sockset.fd_array[0] = sockethandle;
@@ -492,8 +501,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac)
 		while(1)
 		{
 			fd_set sockset;
-			FD_ZERO(&sockset);
-			FD_SET(sockethandle, &sockset);
+			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
 			if(Networking::getInstance().shouldSocketsShutDown())
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -575,8 +583,7 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 		{
 			//FD_SET fd_set;
 			fd_set sockset;
-			FD_ZERO(&sockset);
-			FD_SET(sockethandle, &sockset);
+			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
 			if(Networking::getInstance().shouldSocketsShutDown())
 				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -831,8 +838,7 @@ void MySocket::pollRead(std::string& data_out)
 
 	//FD_SET fd_set;
 	fd_set sockset;
-	FD_ZERO(&sockset);
-	FD_SET(sockethandle, &sockset);
+	initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
 	if(Networking::getInstance().shouldSocketsShutDown())
 		throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -893,12 +899,23 @@ void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 		(const char*)&enabled,//value
 		sizeof(BOOL));//size of value buffer
 #else
-	int enabled = enabled_;
+	//int enabled = enabled_;
 	//TODO
+	assert(0);
 #endif
 }
 
-
+void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle)
+{
+	FD_ZERO(&sockset);
+	
+	//FD_SET doesn´t seem to work when targeting x64 in gcc.
+#ifdef COMPILER_GCC
+	sockset.fds_bits[0] = sockhandle;
+#else
+	FD_SET(sockhandle, &sockset);
+#endif
+}
 
 int MySocket::num_bytes_sent = 0;
 int MySocket::num_bytes_rcvd = 0;

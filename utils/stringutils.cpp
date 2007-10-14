@@ -726,7 +726,7 @@ const std::string getNiceByteSize(size_t x)
 {
 	assert(x >= 0);
 	if(x < 1024)
-		return ::toString(x) + " B";
+		return ::toString((unsigned int)x) + " B";
 	else if(x < 1048576)
 	{
 		const float kbsize = (float)x / 1024.0f;

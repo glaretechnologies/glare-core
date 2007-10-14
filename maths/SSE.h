@@ -64,6 +64,8 @@ inline void* alignedMalloc(size_t size, size_t alignment)
 	const int result = posix_memalign(&mem_ptr, alignment, size);
 	assert(result == 0);
 	//TODO: handle fail here somehow.
+	if(result != 0)
+		return (void*)0;
 	return mem_ptr;
 #endif
 }

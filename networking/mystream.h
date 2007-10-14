@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include <string>//get rid of this?
 
 
-#pragma warning (disable:4800)
+//#pragma warning (disable:4800)
 //disable "forcing value to bool 'true' or 'false' (performance warning)"
 
 

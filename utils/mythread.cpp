@@ -24,7 +24,7 @@ Code By Nicholas Chapman.
 
 MyThread::MyThread()
 {
-	thread_handle = NULL;
+	thread_handle = 0;//NULL;
 	autodelete = false;
 	commit_suicide = false;
 }
@@ -78,6 +78,10 @@ void MyThread::launch(bool autodelete_)
 		delete the_thread;
 
 	MyThread::decrNumAliveThreads();
+
+#if !(defined(WIN32) || defined(WIN64))
+	return NULL;
+#endif
 }
 
 void MyThread::killThread()

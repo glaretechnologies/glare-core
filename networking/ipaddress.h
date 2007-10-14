@@ -7,8 +7,8 @@ Code By Nicholas Chapman.
 #ifndef __IPADDRESS_H_666_
 #define __IPADDRESS_H_666_
 
-#pragma warning(disable : 4786)//disable long debug name warning
-#pragma warning(disable : 4290)//disable exception specification warning in VS2003
+//#pragma warning(disable : 4786)//disable long debug name warning
+//#pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
 #include "mystream.h"
 #include <string>

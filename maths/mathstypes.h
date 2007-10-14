@@ -290,14 +290,14 @@ inline int roundToInt(double x)
 namespace Maths
 {
 
-static bool posUnderflowed(double x)
+inline bool posUnderflowed(double x)
 {
 	assert(x >= 0.0);
 
 	//min returns the minimum normalised value for double.
 	return x != 0.0 && x < std::numeric_limits<double>::min();
 }
-static bool posOverflowed(double x)
+inline bool posOverflowed(double x)
 {
 	assert(x >= 0.0);
 

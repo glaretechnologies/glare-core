@@ -108,7 +108,7 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
 
-	const float one = 1.0;
+	//const float one = 1.0;
 	dist_out = raydist;
 	u_out = alpha;
 	v_out = beta;
