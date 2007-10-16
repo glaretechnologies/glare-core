@@ -40,8 +40,8 @@ class MyBuf
 {
 public:
 	const void* data;
-	int datalen;
-	int pos;
+	size_t datalen;
+	size_t pos;
 	bool error;
 };
 
@@ -57,8 +57,8 @@ my_fileio_error_func(void *self)
 }
 
 
-long
-my_fileio_seek_func(void *self, long offset, Lib3dsIoSeek origin)
+long int
+my_fileio_seek_func(void *self, long int offset, Lib3dsIoSeek origin)
 {
 	MyBuf* buf = (MyBuf*)self;
 	switch(origin)
@@ -99,7 +99,7 @@ my_fileio_seek_func(void *self, long offset, Lib3dsIoSeek origin)
   return (fseek(f, offset, o));*/
 
 
-long
+long int
 my_fileio_tell_func(void *self)
 {
 	MyBuf* buf = (MyBuf*)self;
@@ -110,8 +110,8 @@ my_fileio_tell_func(void *self)
 }
 
 
-static int
-my_fileio_read_func(void *self, Lib3dsByte *buffer, int size)
+static size_t
+my_fileio_read_func(void *self, void* buffer/*Lib3dsByte *buffer*/, size_t size)
 {
 	MyBuf* buf = (MyBuf*)self;
 
@@ -133,10 +133,10 @@ my_fileio_read_func(void *self, Lib3dsByte *buffer, int size)
 }
 
 
-int
-my_fileio_write_func(void *self, const Lib3dsByte *buffer, int size)
+size_t
+my_fileio_write_func(void *self, const void/*Lib3dsByte*/ *buffer, size_t size)
 {
-	MyBuf* buf = (MyBuf*)self;
+	//MyBuf* buf = (MyBuf*)self;
 
 	//don't do writing.
 	//memcpy(buf->data, buffer, size);
