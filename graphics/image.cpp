@@ -10,16 +10,7 @@
 #include <assert.h>
 #include <limits>
 
-
 #ifndef BASIC_IMAGE
-
-/*#if !defined(WIN64) && !defined(INDIGO_DLL_EXPORTS)
-#if !defined(DEBUG)
-#if !defined(COMPILER_GCC)
-#define OPENEXR_SUPPORT 1
-#endif
-#endif
-#endif*/
 
 #ifdef OPENEXR_SUPPORT
 #include <ImfRgbaFile.h>
@@ -678,8 +669,6 @@ void Image::loadFromExr(const std::string& pathname)
 		const int filewidth = dw.max.x - dw.min.x + 1;
 		const int fileheight = dw.max.y - dw.min.y + 1;
 
-		printVar(filewidth);//TEMP
-
 		this->resize(filewidth, fileheight);
 
 		std::vector<Imf::Rgba> data(filewidth * fileheight);
@@ -1049,3 +1038,4 @@ double Image::averageLuminance() const
 
 
 
+\

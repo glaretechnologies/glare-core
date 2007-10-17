@@ -55,8 +55,6 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 	GetSystemInfo(&system_info);
 	return system_info.dwNumberOfProcessors;
 #else
-	//on linux: /proc/cpuinfo
-	//return 1; // TEMP HACK
 	return sysconf(_SC_NPROCESSORS_CONF);
 #endif
 }

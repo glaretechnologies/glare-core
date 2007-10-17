@@ -47,8 +47,7 @@ public:
 
 
 
-Lib3dsBool
-my_fileio_error_func(void *self)
+static Lib3dsBool my_fileio_error_func(void *self)
 {
 	//FILE *f = (FILE*)self;
 	//return(ferror(f)!=0);
@@ -57,8 +56,7 @@ my_fileio_error_func(void *self)
 }
 
 
-long int
-my_fileio_seek_func(void *self, long int offset, Lib3dsIoSeek origin)
+static long int my_fileio_seek_func(void *self, long int offset, Lib3dsIoSeek origin)
 {
 	MyBuf* buf = (MyBuf*)self;
 	switch(origin)
@@ -99,8 +97,7 @@ my_fileio_seek_func(void *self, long int offset, Lib3dsIoSeek origin)
   return (fseek(f, offset, o));*/
 
 
-long int
-my_fileio_tell_func(void *self)
+static long int my_fileio_tell_func(void *self)
 {
 	MyBuf* buf = (MyBuf*)self;
 	return buf->pos;
@@ -110,8 +107,7 @@ my_fileio_tell_func(void *self)
 }
 
 
-static size_t
-my_fileio_read_func(void *self, void* buffer/*Lib3dsByte *buffer*/, size_t size)
+static int my_fileio_read_func(void *self, /*void* buffer*/Lib3dsByte *buffer, int size)
 {
 	MyBuf* buf = (MyBuf*)self;
 
@@ -133,8 +129,7 @@ my_fileio_read_func(void *self, void* buffer/*Lib3dsByte *buffer*/, size_t size)
 }
 
 
-size_t
-my_fileio_write_func(void *self, const void/*Lib3dsByte*/ *buffer, size_t size)
+static int my_fileio_write_func(void *self, const /*void*/Lib3dsByte *buffer, int size)
 {
 	//MyBuf* buf = (MyBuf*)self;
 
