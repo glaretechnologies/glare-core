@@ -1014,28 +1014,3 @@ double Image::averageLuminance() const
 	return sum / (double)numPixels();
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\
