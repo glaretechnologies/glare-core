@@ -36,6 +36,8 @@ Lib3dsFormatDecoder::~Lib3dsFormatDecoder()
 
 #ifdef LIB3DS_SUPPORT
 
+
+#if 0
 class MyBuf
 {
 public:
@@ -142,6 +144,7 @@ static int my_fileio_write_func(void *self, const /*void*/Lib3dsByte *buffer, in
 
 	return 0;
 }
+#endif
 
 #endif
 
@@ -453,10 +456,10 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 	handler.addUVSetExposition("default", 0);
 
 	Lib3dsFile* file = NULL;
-	Lib3dsIo *io = NULL;
+	//Lib3dsIo *io = NULL;
 
 	{
-	std::vector<unsigned char> datavec;
+	/*std::vector<unsigned char> datavec;
 	readEntireFile(filename, datavec);
 
 	MyBuf buf;
@@ -487,10 +490,12 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 	{
 		free(file);
 		throw ModelFormatDecoderExcep("3ds read failed.");
-	}
+	}*/
 	}
 
-	assert(file);
+	file = lib3ds_file_load(filename.c_str());
+	if(!file)
+		throw ModelFormatDecoderExcep("Failed to read 3ds file '" + filename + "'.");
 
 	//------------------------------------------------------------------------
 	//load the materials
@@ -637,7 +642,7 @@ void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const s
 	}
 
 	lib3ds_file_free(file);
-	lib3ds_io_free(io);
+	//lib3ds_io_free(io);
 }
 
 
