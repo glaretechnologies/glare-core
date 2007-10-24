@@ -36,77 +36,13 @@ Parser::~Parser()
 static const int ASCII_ZERO_INT = (int)'0';
 
 
-//[whitespace] [sign] [digits] [.digits] [ {d | D | e | E }[sign]digits]
+
 bool Parser::parseFloat(float& result_out)
 {
-	if(eof())
-		return false;
-	
-	/// Parse sign ///
-	double sign = 1.;
-	
-	if(parseChar('+'))
-	{}
-	else if(parseChar('-'))
-		sign = -1.;
-
-	if(eof())// || !isNumeric(current()))
-		return false;
-
-	/// Parse optional digits before decimal point ///
-	double x = 0.0;
-	while(notEOF() && isNumeric(current()))
-	{
-		//shift left (in base 10) and add new digit.
-		x = x * 10.0 + (double)((int)current() - ASCII_ZERO_INT);
-		currentpos++;
-	}
-
-	/// Parse optional decimal point + digits ///
-	if(parseChar('.'))
-	{
-		//parse digits to right of decimal point
-		double place_val = 0.1;
-		while(notEOF() && isNumeric(current()))
-		{
-			x += place_val * (double)((int)current() - ASCII_ZERO_INT);
-			currentpos++;
-			place_val *= 0.1;
-		}
-	}
-
-	/// Parse optional exponent ///
-	if(notEOF() && (current() == 'e' || current() == 'E' || current() == 'd' || current() == 'D'))
-	{
-		currentpos++;
-
-		//parse optional sign
-		double exponent_sign = 1.;
-		if(parseChar('+'))
-		{}
-		else if(parseChar('-'))
-			exponent_sign = -1.;
-
-		if(eof())
-			return false;
-
-		//parse exponent digits
-		int e = 0;
-		while(notEOF() && isNumeric(current()))
-		{
-			e = e * 10 + ((int)current() - ASCII_ZERO_INT);
-			currentpos++;
-		}
-
-		result_out = (float)(sign * x * pow(10.0, exponent_sign * (double)e));
-	}
-	else
-	{
-		//no exponent
-		result_out = (float)(sign * x);
-	}
-
-	return true;
+	double x;
+	const bool result = parseDouble(x);
+	result_out = x;
+	return result;
 
 
 
@@ -244,8 +180,81 @@ bool Parser::parseFloat(float& result_out)
 
 }
 
+//[whitespace] [sign] [digits] [.digits] [ {d | D | e | E }[sign]digits]
 
+//must be whitespace delimited
+bool Parser::parseDouble(double& result_out)
+{
+	if(eof())
+		return false;
+	
+	/// Parse sign ///
+	double sign = 1.;
+	
+	if(parseChar('+'))
+	{}
+	else if(parseChar('-'))
+		sign = -1.;
 
+	if(eof())// || !isNumeric(current()))
+		return false;
+
+	/// Parse optional digits before decimal point ///
+	double x = 0.0;
+	while(notEOF() && isNumeric(current()))
+	{
+		//shift left (in base 10) and add new digit.
+		x = x * 10.0 + (double)((int)current() - ASCII_ZERO_INT);
+		currentpos++;
+	}
+
+	/// Parse optional decimal point + digits ///
+	if(parseChar('.'))
+	{
+		//parse digits to right of decimal point
+		double place_val = 0.1;
+		while(notEOF() && isNumeric(current()))
+		{
+			x += place_val * (double)((int)current() - ASCII_ZERO_INT);
+			currentpos++;
+			place_val *= 0.1;
+		}
+	}
+
+	/// Parse optional exponent ///
+	if(notEOF() && (current() == 'e' || current() == 'E' || current() == 'd' || current() == 'D'))
+	{
+		currentpos++;
+
+		//parse optional sign
+		double exponent_sign = 1.;
+		if(parseChar('+'))
+		{}
+		else if(parseChar('-'))
+			exponent_sign = -1.;
+
+		if(eof())
+			return false;
+
+		//parse exponent digits
+		int e = 0;
+		while(notEOF() && isNumeric(current()))
+		{
+			e = e * 10 + ((int)current() - ASCII_ZERO_INT);
+			currentpos++;
+		}
+
+		result_out = sign * x * pow(10.0, exponent_sign * (double)e);
+	}
+	else
+	{
+		//no exponent
+		result_out = (sign * x);
+	}
+
+	return true;
+
+}
 
 bool Parser::parseAlphaToken(std::string& token_out)
 {

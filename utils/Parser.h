@@ -37,7 +37,9 @@ public:
 	//if not, it won't be moved.
 	inline bool parseChar(char target);
 	inline bool parseInt(unsigned int& result_out);
+	//inline bool parseInt(int& result_out);
 	bool parseFloat(float& result_out);//must be whitespace delimited
+	bool parseDouble(double& result_out);//must be whitespace delimited
 	inline bool parseWhiteSpace();
 	inline void parseSpacesAndTabs();
 	inline void advancePastLine();
