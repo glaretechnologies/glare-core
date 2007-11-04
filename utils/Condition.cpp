@@ -18,7 +18,7 @@ Condition::Condition()
         NULL,         // no security attributes
         TRUE,         // manual-reset event
         FALSE,//TRUE, // is initial state signaled?
-        NULL//"WriteEvent"  // object name
+        NULL          // object name
         ); 
 
 	assert(condition != NULL);
@@ -33,7 +33,12 @@ Condition::~Condition()
 {
 #if defined(WIN32) || defined(WIN64)
 	const HRESULT result = CloseHandle(condition);
-	assert(result == S_OK);
+	if(result == 0)//S_OK)
+	{
+		//Function failed.
+		assert(false);
+		const DWORD e = GetLastError();
+	}
 #else
 	pthread_cond_destroy(&condition);
 #endif

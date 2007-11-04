@@ -82,7 +82,7 @@ public:
 	virtual void write(char x);
 	virtual void write(unsigned char x);
 	//virtual void write(const Vec3& vec);
-	virtual void write(const std::string& s);//writes null-terminated string
+	virtual void write(const std::string& s); // Writes string
 
 	//-----------------------------------------------------------------
 	//if u use this directly u must do host->network and vice versa byte reordering yourself
@@ -101,7 +101,7 @@ public:
 	virtual void readTo(char& x);
 	virtual void readTo(unsigned char& x);
 	//virtual void readTo(Vec3& x);
-	virtual void readTo(std::string& x);
+	virtual void readTo(std::string& x, unsigned int maxlength); // read string, of up to maxlength chars
 	virtual void readTo(void* buffer, int numbytes);
 	void readTo(void* buffer, int numbytes, FractionListener* frac);
 

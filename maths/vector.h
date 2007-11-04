@@ -76,6 +76,7 @@ public:
 	//void draw(Graphics2d& graphics, int xpos, int ypos, int maxbaramp, float scale, 
 	//	float width, const Vec3& colour) const;
 
+	inline Real sum() const;
 	inline Real averageValue() const;
 	inline Real variance() const;
 
@@ -572,13 +573,20 @@ ConstVectorIterator Vector::const_end() const
 }
 */
 
+
+template <class Real>
+Real Vector<Real>::sum() const
+{
+	Real s = 0.0;
+	for(int i=0; i<dimension; ++i)
+		s += data[i];
+	return s;
+}
+
 template <class Real>
 Real Vector<Real>::averageValue() const
 {
-	Real sum = 0.0;
-	for(int i=0; i<dimension; ++i)
-		sum += data[i];
-	return sum / (Real)dimension;
+	return sum() / (Real)dimension;
 }
 
 

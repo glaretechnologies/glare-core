@@ -10,8 +10,8 @@ Code By Nicholas Chapman.
 #include "ipaddress.h"
 #include "packet.h"
 #include <assert.h>
-#include "../console/consolebool.h"
-#include "../cyberspace/globals.h"
+//#include "../console/consolebool.h"
+//#include "../cyberspace/globals.h"
 #include "../utils/lock.h"
 #include "../utils/inifile.h"
 #include "../utils/stringutils.h"
@@ -90,11 +90,13 @@ UDPSocket::~UDPSocket()
 		//------------------------------------------------------------------------
 		int result = shutdown(socket_handle, 1);
 
-		assert(result == 0);
+		
 		if(result)
 		{
+			const std::string e = Networking::getInstance().getError();
 			//::printWarning("Error while shutting down UDP socket: " + Networking::getError());
 		}
+		assert(result == 0);
 
 		//-----------------------------------------------------------------
 		//close socket
@@ -118,13 +120,13 @@ void UDPSocket::bindToPort(const Port& port)//listen on a particluar port
 	struct sockaddr_in my_addr;    // my address information
 
 	my_addr.sin_family = AF_INET;         
-   my_addr.sin_port = htons(port.getPort());     
-   my_addr.sin_addr.s_addr = INADDR_ANY; // accept on any network interface
+	my_addr.sin_port = htons(port.getPort());     
+	my_addr.sin_addr.s_addr = INADDR_ANY; // accept on any network interface
 	memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
 
 	if(bind(socket_handle, (struct sockaddr*)&my_addr, sizeof(struct sockaddr)) == -1) 
 	{
- 		throw UDPSocketExcep("error binding incoming socket to port " + port.toString());
+		throw UDPSocketExcep("error binding socket to port " + port.toString() + ": " + Networking::getInstance().getError());
 	}       
 
 	thisend_port = port;
@@ -155,6 +157,19 @@ void UDPSocket::bindToPort(const Port& port)//listen on a particluar port
 	}*/
 }
 
+void UDPSocket::enableBroadcast()
+{
+	const int optval = 1;
+	const int result = ::setsockopt(
+		socket_handle,
+		SOL_SOCKET, // level
+		SO_BROADCAST, // optname
+		(const char*)&optval, // optval
+		sizeof(optval) // optlen
+		);
+
+	assert(result == 0);
+}
 
 
 void UDPSocket::sendPacket(const Packet& packet, const IPAddress& dest_ip, const Port& destport)
@@ -202,7 +217,8 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 
 	if(numbytessent == SOCKET_ERROR)
 	{
-		throw UDPSocketExcep("error while sending bytes over socket.");
+		//const int socket_err_num = WSAGetLastError();
+		throw UDPSocketExcep("error while sending bytes over socket: " + Networking::getInstance().getError());
 	}
 
 	if(numbytessent < datalen)
@@ -248,8 +264,8 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	struct sockaddr_in from_address; // senders's address information
 
 	int flags = 0;
-	if(peek)
-		flags = MSG_PEEK;
+	//if(peek)
+	//	flags = MSG_PEEK;
 
 	int from_add_size = sizeof(struct sockaddr_in);
 	//-----------------------------------------------------------------

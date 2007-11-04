@@ -690,9 +690,15 @@ void MySocket::write(unsigned char x)
 	write(&x, sizeof(unsigned char));
 }
 
-void MySocket::write(const std::string& s)//writes null-terminated string
+void MySocket::write(const std::string& s) // writes string
 {
-	write(s.c_str(), s.size() + 1);
+	//write(s.c_str(), s.size() + 1);
+	
+	// Write length of string
+	write((int)s.length());
+
+	// Write string data
+	write(&(*s.begin()), s.length());
 }
 
 /*
@@ -777,9 +783,9 @@ void MySocket::readTo(Vec3& vec)
 	readTo(vec.z);
 }
 */
-void MySocket::readTo(std::string& s)
+void MySocket::readTo(std::string& s, unsigned int maxlength)
 {
-	std::vector<char> buffer(1000);
+	/*std::vector<char> buffer(1000);
 
 	int i = 0;
 	while(1)
@@ -794,7 +800,18 @@ void MySocket::readTo(std::string& s)
 		++i;
 	}
 
-	s = &(*buffer.begin());
+	s = &(*buffer.begin());*/
+
+	// Read length
+	int length;
+	readTo(length);
+	if(length < 0 || length > maxlength)
+		throw MySocketExcep("String was too long.");
+	//std::vector<char> buffer(length);
+	//readTo(buffer
+
+	s.resize(length);
+	readTo(&(*s.begin()), length, NULL);
 }
 
 void MySocket::readTo(std::string& x, int numchars, FractionListener* frac)

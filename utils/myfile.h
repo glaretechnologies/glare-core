@@ -92,7 +92,7 @@ public:
 	virtual void readTo(unsigned short& x);
 	virtual void readTo(char& x);
 	//virtual void readTo(Vec3& x);
-	virtual void readTo(std::string& x);
+	virtual void readTo(std::string& x, unsigned int maxlength);
 	virtual void readTo(void* buffer, int numbytes);
 
 private:

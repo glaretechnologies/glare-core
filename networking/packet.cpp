@@ -106,14 +106,20 @@ void Packet::write(const void* src, int numbytes)
 void Packet::write(const std::string& s)//writes null-terminated string
 {
 	//assert(index + s.size() + 1 <= MAX_PACKETSIZE);
-	const unsigned int writeindex = data.size();
+	/*const unsigned int writeindex = data.size();
 	data.resize(writeindex + s.size() + 1);
 
 
 	for(unsigned int i=0; i<s.size()+1; ++i)
 	{
 		*(getData() + writeindex + i) = s.c_str()[i];
-	}
+	}*/
+
+	// Write length of string
+	write((int)s.length());
+
+	// Write string data
+	write(&(*s.begin()), s.length());
 
 }
 	
@@ -165,9 +171,9 @@ void Packet::readTo(unsigned short& x)
 	readTo(vec.z);
 }*/
 
-void Packet::readTo(std::string& s)
+void Packet::readTo(std::string& s, unsigned int maxlength)
 {
-	std::vector<char> buffer(1000);
+	/*std::vector<char> buffer(1000);
 
 	int i = 0;
 	while(1)
@@ -182,7 +188,18 @@ void Packet::readTo(std::string& s)
 		++i;
 	}
 
-	s = &(*buffer.begin());
+	s = &(*buffer.begin());*/
+	//assert(0);
+
+	int length;
+	readTo(length);
+	if(length < 0 || length > maxlength)
+		throw MyStreamExcep("String was too long.");
+	//std::vector<char> buffer(length);
+	//readTo(buffer
+
+	s.resize(length);
+	readTo(&(*s.begin()), length);
 }
 
 void Packet::readTo(void* buffer, int numbytes)

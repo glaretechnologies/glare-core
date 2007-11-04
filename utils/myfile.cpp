@@ -398,9 +398,9 @@ void MyFile::readTo(char& x)
 	vec.z = readFloat();
 }*/
 
-void MyFile::readTo(std::string& x)
+void MyFile::readTo(std::string& x, unsigned int maxlength)
 {
-	std::vector<char> buffer(100);
+	/*std::vector<char> buffer(100);
 
 	int i = 0;
 	while(1)
@@ -415,5 +415,7 @@ void MyFile::readTo(std::string& x)
 		++i;
 	}
 
-	x = &(*buffer.begin());
+	x = &(*buffer.begin());*/
+
+	assert(0);
 }

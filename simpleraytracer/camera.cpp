@@ -16,6 +16,11 @@ Code By Nicholas Chapman.
 #include "../graphics/image.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/DiffractionFilter.h"
+#include "../graphics/PNGDecoder.h"
+#include "../graphics/bitmap.h"
+
+
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
 		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
@@ -39,7 +44,9 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	glare_radius(glare_radius_),
 	glare_num_blades(glare_num_blades_),
 	exposure_duration(exposure_duration_),
-	colour_space_converter(NULL)
+	colour_space_converter(NULL),
+	diffraction_filter(NULL),
+	aperture_image(NULL)
 	//film_sensitivity(film_sensitivity_)
 {
 	if(lens_radius <= 0.0)
@@ -77,6 +84,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	sensor_width = sensor_width_;
 	sensor_height = sensor_width / aspect_ratio;
 	lens_center = pos;
+	lens_botleft = pos - up * lens_radius - right * lens_radius;
 	sensor_center = lens_center - forwards * sensor_to_lens_dist;
 	sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
 	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
@@ -104,11 +112,27 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	const Vec2d components = Matrix2d::rotationMatrix(::degreeToRad(this->polarising_angle)) * Vec2d(1.0, 0.0);
 	this->polarising_vec = getRightDir() * components.x + getCurrentUpDir() * components.y;
 	assert(this->polarising_vec.isUnitLength());
+
+
+	//TEMP
+	//diffraction_filter = new DiffractionFilter(lens_radius, sensor_to_lens_dist);
+
+	//TEMP
+	/*Bitmap aperture_bitmap;
+	PNGDecoder::decode("aperture.png", aperture_bitmap);
+
+	aperture_image = new Array2d<float>(aperture_bitmap.getWidth(), aperture_bitmap.getHeight());
+
+	for(int y=0; y<aperture_bitmap.getHeight(); ++y)
+		for(int x=0; x<aperture_bitmap.getWidth(); ++x)
+			aperture_image->elem(x, y) = (float)aperture_bitmap.getPixel(x, y)[0] / 255.0f;
+*/
 }
 
 
 Camera::~Camera()
 {
+	delete diffraction_filter;
 	delete colour_space_converter;
 }
 
@@ -134,9 +158,18 @@ const Vec3d Camera::sampleLensPos(const Vec2d& samples) const
 
 double Camera::lensPosPDF(const Vec3d& lenspos) const
 {
-	assert(lens_radius > 0.0);
-	assert(epsEqual(uniform_lens_pos_pdf, 1.0 / (NICKMATHS_PI * lens_radius * lens_radius)));
-	return uniform_lens_pos_pdf;
+	if(aperture_image)
+	{
+		// Then the lens rectangle was sampled uniformly.
+		// so pdf = 1 / 2d
+		return 1.0 / (4.0 * lens_radius*lens_radius);
+	}
+	else
+	{
+		assert(lens_radius > 0.0);
+		assert(epsEqual(uniform_lens_pos_pdf, 1.0 / (NICKMATHS_PI * lens_radius * lens_radius)));
+		return uniform_lens_pos_pdf;
+	}
 }
 
 double Camera::lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const
@@ -174,6 +207,30 @@ const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) co
 
 	return normalise(target_point - lenspos);
 }
+
+double Camera::lensPosVisibility(const Vec3d& lenspos) const
+{
+	if(aperture_image)
+	{
+		const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
+
+		const int ap_image_x = (int)(normed_lenspoint.x * aperture_image->getWidth());
+		if(ap_image_x < 0 || ap_image_x >= aperture_image->getWidth())
+			return 0.0;
+
+		const int ap_image_y = (int)((1.0 - normed_lenspoint.y) * aperture_image->getHeight()); // y increases downwards in aperture_image
+		if(ap_image_y < 0 || ap_image_y >= aperture_image->getHeight())
+			return 0.0;
+
+		assert(Maths::inRange(aperture_image->elem(ap_image_x, ap_image_y), 0.f, 1.f));
+		return (double)aperture_image->elem(ap_image_x, ap_image_y);
+	}
+	else
+	{
+		return 1.0;
+	}
+}
+
 
 const Vec3d Camera::sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3d& raydir, bool& hitsensor_out) const
 {

@@ -73,6 +73,8 @@ public:
 		
 	void setBlocking(bool blocking);
 
+	void enableBroadcast();
+
 		//void setPacketHandler(UDPPacketHandler* handler);
 
 	//int getCSPort() const;

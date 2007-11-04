@@ -70,7 +70,7 @@ public:
 	virtual void readTo(unsigned short& x) = 0;
 	virtual void readTo(float& x) = 0;
 	virtual void readTo(int& x) = 0;
-	virtual void readTo(std::string& x) = 0;
+	virtual void readTo(std::string& x, unsigned int maxlength) = 0;
 	virtual void readTo(void* buffer, int numbytes) = 0;
 	//virtual void readTo(Vec3& x) = 0;
 
@@ -121,12 +121,12 @@ inline MyStream& operator << (MyStream& stream, const std::string& s)
 	return stream;
 }
 
-
+/*
 inline MyStream& operator >> (MyStream& stream, std::string& s)
 {
 	stream.readTo(s);
 	return stream;
-}
+}*/
 
 
 inline MyStream& operator << (MyStream& stream, bool x)

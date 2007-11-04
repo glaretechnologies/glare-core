@@ -14,11 +14,13 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../physics/jscol_aabbox.h"
 #include <vector>
 #include "geometry.h"
+#include "../graphics/image.h" //TEMP for diffraction
 class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;
 class Image;
 class Medium;
+class DiffractionFilter;
 
 class CameraExcep
 {
@@ -60,6 +62,7 @@ public:
 	const Vec3d sampleLensPos(const Vec2d& samples/*, const Vec3d& sensorpos*/) const;
 	double lensPosPDF(/*const Vec3d& sensorpos,*/ const Vec3d& lenspos) const;
 	double lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const;
+	double lensPosVisibility(const Vec3d& lenspos) const;
 
 	const Vec3d lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) const;
 	const Vec3d sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3d& raydir, bool& hitsensor_out) const;
@@ -142,7 +145,12 @@ public:
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
+	//TEMP:
+	//Image diffraction_image;
+
 	
+
+	DiffractionFilter* diffraction_filter;
 
 	std::vector<const Medium*> containing_media;
 private:
@@ -150,6 +158,11 @@ private:
 	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distUpOnLensFromCenter(const Vec3d& pos) const;
 	inline double distRightOnLensFromCenter(const Vec3d& pos) const;
+
+	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
+	inline const Vec2d normalisedLensPosForWSPoint(const Vec3d& pos) const;
+
+	Array2d<float>* aperture_image;
 
 	Vec3d pos;
 	Vec3d ws_up;
@@ -173,6 +186,7 @@ private:
 	double sensor_width;
 	double sensor_height;
 	Vec3d lens_center;
+	Vec3d lens_botleft;
 	double recip_sensor_width;
 	double recip_sensor_height;
 	double sensor_to_lens_dist;
@@ -199,6 +213,8 @@ private:
 
 	double exposure_duration; // aka shutter speed
 	//double film_sensitivity; // aka ISO film sppeed
+
+	
 };
 
 
@@ -221,6 +237,12 @@ double Camera::distRightOnLensFromCenter(const Vec3d& x) const
 {
 	return dot(x - lens_center, right);
 }
+
+const Vec2d Camera::normalisedLensPosForWSPoint(const Vec3d& pos) const
+{
+	return Vec2d(dot(right, pos) - dot(right, lens_botleft), dot(up, pos) - dot(up, lens_botleft)) / (2.0 * lens_radius);
+}
+
 
 
 #endif //__CAMERA_H_666_
