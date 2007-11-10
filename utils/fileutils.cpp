@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <stdio.h>
 #endif
 
+#include <zlib.h>
 #include <assert.h>
 #include "stringutils.h"
 //#include <sys/stat.h>
@@ -601,6 +602,14 @@ bool isPathAbsolute(const std::string& p)
 #endif
 }
 
+uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
+{
+	std::vector<unsigned char> contents;
+	readEntireFile(p, contents);
+
+	const unsigned int initial_crc = crc32(0, 0, 0);
+	return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
+}
 
 
 void doUnitTests()

@@ -90,6 +90,8 @@ void doUnitTests();
 
 bool isPathAbsolute(const std::string& p);
 
+uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep if file not found.
+
 } //end namespace FileUtils
 
 
