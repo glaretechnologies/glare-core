@@ -103,6 +103,8 @@ public:
 	float maxLuminance() const;
 	double averageLuminance() const;
 
+	void sprectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
+
 private:
 	int width;
 	int height;

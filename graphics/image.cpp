@@ -7,8 +7,10 @@
 #include <fstream>
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../maths/vec2.h"
 #include <assert.h>
 #include <limits>
+#include "../indigo/IndigoImage.h"
 
 #ifndef BASIC_IMAGE
 
@@ -556,6 +558,8 @@ const Image::ColourType Image::sample(float u, float v) const
 	colour_out.addMult(getPixel(ut+1, vt+1), ufrac * vfrac);
 	colour_out.addMult(getPixel(ut+1, vt), ufrac * onevfrac);
 
+	assert(colour_out.r >= 0.0 && colour_out.g >= 0.0 && colour_out.b >= 0.0);
+
 	return colour_out;
 }
 
@@ -1014,3 +1018,184 @@ double Image::averageLuminance() const
 	return sum / (double)numPixels();
 }
 
+void Image::sprectralConvolution(const Image& original_filter, const Vec3d& xyz_filter_scales, Image& result_out) const
+{
+	//const double red_wavelength = 650.0;
+	//const double green_wavelength = 550.0; 
+	//const double blue_wavelength = 450.0; 
+
+	const double max_scale = myMax(xyz_filter_scales.x, myMax(xyz_filter_scales.y, xyz_filter_scales.z));
+
+	const int new_filter_width = (int)((double)original_filter.getWidth() * max_scale);
+	const int new_filter_height = (int)((double)original_filter.getHeight() * max_scale);
+	Image filter(new_filter_width, new_filter_height);
+	//filter.zero();
+
+	const Vec3d scale_ratios(
+		max_scale / xyz_filter_scales.x,
+		max_scale / xyz_filter_scales.y,
+		max_scale / xyz_filter_scales.z
+		);
+
+//	assert(scale_ratios.inHalfClosedInterval(0.0, 1.0));
+
+	const int SS_RES = 30;
+	const double recip_ss_res = 1.0 / (double)SS_RES;
+	//const double ss_weight = recip_ss_res * recip_ss_res;
+
+	const Vec2d recip_filter_dimensions(1.0 / (double)filter.getWidth(), 1.0 / (double)filter.getHeight());
+
+	for(int c=0; c<3; ++c)
+	{
+		for(int y=0; y<filter.getHeight(); ++y)
+		{
+			for(int x=0; x<filter.getWidth(); ++x)
+			{
+				float sum = 0.0f;
+				for(int sy=0; sy<SS_RES; ++sy)
+				{
+					for(int sx=0; sx<SS_RES; ++sx)
+					{
+						const Vec2d normed_coords(
+							((double)x + ((double)sx * recip_ss_res)) * recip_filter_dimensions.x,
+							((double)y + ((double)sy * recip_ss_res)) * recip_filter_dimensions.y
+							);
+
+						assert(normed_coords.inHalfClosedInterval(0.0, 1.0));
+
+						const Vec2d scaled_normed_coords = Vec2d(0.5, 0.5) + (normed_coords - Vec2d(0.5, 0.5)) * scale_ratios[c];
+
+						if(scaled_normed_coords.inHalfClosedInterval(0.0, 1.0))
+						{
+							assert(scaled_normed_coords.inHalfClosedInterval(0.0, 1.0));
+									
+							sum += original_filter.sample(
+								scaled_normed_coords.x * (double)original_filter.getWidth(),
+								scaled_normed_coords.y * (double)original_filter.getHeight()
+								)[c];// * ss_weight;
+						}
+					}
+				}
+				filter.getPixel(x, y)[c] = sum;
+			}
+		}
+	}
+
+	// Re-normalise filter for each component
+	Vec3d sum(0,0,0);
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+		sum += Vec3d(
+			(double)filter.getPixel(i).r,
+			(double)filter.getPixel(i).g,
+			(double)filter.getPixel(i).b
+			);
+
+	const Vec3d scale_factors(1.0 / sum.x, 1.0 / sum.y, 1.0 / sum.z);
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+	{
+		filter.getPixel(i).r *= (float)scale_factors.x;
+		filter.getPixel(i).g *= (float)scale_factors.y;
+		filter.getPixel(i).b *= (float)scale_factors.z;
+	}
+
+#ifdef DEBUG
+	// Check normalised
+	sum.set(0,0,0);
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+	{
+		assert(filter.getPixel(i).r >= 0.0 && filter.getPixel(i).g >= 0.0 && filter.getPixel(i).b >= 0.0);
+		assert(isFinite(filter.getPixel(i).r) && isFinite(filter.getPixel(i).g) && isFinite(filter.getPixel(i).b));
+
+		sum += Vec3d(
+			(double)filter.getPixel(i).r,
+			(double)filter.getPixel(i).g,
+			(double)filter.getPixel(i).b
+			);
+	}
+	assert(epsEqual(sum.x, 1.0));
+	assert(epsEqual(sum.y, 1.0));
+	assert(epsEqual(sum.z, 1.0));
+#endif
+
+
+	{
+	Image temp = filter;
+	for(unsigned int i=0; i<temp.numPixels(); ++i)
+		temp.getPixel(i).g = temp.getPixel(i).b = 0.0;
+
+	IndigoImage igi;
+	igi.write(temp, 1, 1, "resized_filter_r.igi");
+	}
+	{
+	Image temp = filter;
+	for(unsigned int i=0; i<temp.numPixels(); ++i)
+		temp.getPixel(i).r = temp.getPixel(i).b = 0.0;
+
+	IndigoImage igi;
+	igi.write(temp, 1, 1, "resized_filter_g.igi");
+	}
+	{
+	Image temp = filter;
+	for(unsigned int i=0; i<temp.numPixels(); ++i)
+		temp.getPixel(i).r = temp.getPixel(i).g = 0.0;
+
+	IndigoImage igi;
+	igi.write(temp, 1, 1, "resized_filter_b.igi");
+	}
+
+	{
+	IndigoImage igi;
+	igi.write(filter, 1, 1, "resized_filter.igi");
+	}
+	//return;
+
+
+	result_out.resize(getWidth(), getHeight());
+
+	const int filter_w_2 = filter.getWidth() / 2;
+	const int filter_h_2 = filter.getHeight() / 2;
+
+	const int W = result_out.getWidth();
+	const int H = result_out.getHeight();
+
+	// For each pixel of result image
+	for(int y=0; y<H; ++y)
+	{
+		const int src_y_min = myMax(0, y - filter_h_2);
+		const int src_y_max = myMin(H, y + filter_h_2 - 1);
+
+		printVar(y);
+
+		for(int x=0; x<W; ++x)
+		{
+			const int src_x_min = myMax(0, x - filter_w_2);
+			const int src_x_max = myMin(W, x + filter_w_2 - 1);
+
+			Colour3f c(0.0f);
+
+			// For each pixel in filter support of source image
+			for(int sy=src_y_min; sy<src_y_max; ++sy)
+			{
+				const int filter_y = (sy - y) + filter_h_2;
+				assert(filter_y >= 0 && filter_y < filter.getHeight());		
+
+				for(int sx=src_x_min; sx<src_x_max; ++sx)
+				{
+					const int filter_x = (sx - x) + filter_w_2;
+					assert(filter_x >= 0 && filter_x < filter.getWidth());	
+
+					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
+					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
+
+					c.addMult(this->getPixel(sx, sy), filter.getPixel(filter_x, filter_y));
+				}
+			}
+
+
+			assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
+			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
+
+			result_out.setPixel(x, y, c);
+		}
+	}
+}

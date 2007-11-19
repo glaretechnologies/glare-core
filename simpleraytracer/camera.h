@@ -15,12 +15,14 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include <vector>
 #include "geometry.h"
 #include "../graphics/image.h" //TEMP for diffraction
+#include "../indigo/Spectral.h"
 class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;
 class Image;
 class Medium;
 class DiffractionFilter;
+class Distribution2;
 
 class CameraExcep
 {
@@ -51,7 +53,14 @@ public:
 		const std::string& white_balance, double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
-		double exposure_duration/*, double film_sensitivity*/);
+		double exposure_duration/*, double film_sensitivity*/,
+		bool circular_aperture,
+		const std::string& aperture_image, // "" if not used
+		int aperture_num_blades,
+		double blade_offset,
+		double blade_curvature_radius,
+		double start_angle
+		);
 
 	virtual ~Camera();
 
@@ -147,6 +156,7 @@ public:
 
 	//TEMP:
 	//Image diffraction_image;
+	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const;
 
 	
 
@@ -162,7 +172,8 @@ private:
 	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
 	inline const Vec2d normalisedLensPosForWSPoint(const Vec3d& pos) const;
 
-	Array2d<float>* aperture_image;
+	//Array2d<float>* aperture_image;
+	Distribution2* aperture_image;
 
 	Vec3d pos;
 	Vec3d ws_up;

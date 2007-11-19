@@ -157,6 +157,13 @@ public:
 		b += other.b * factor;
 	}
 
+	inline void addMult(const Colour3& other, const Colour3& factors)
+	{
+		r += other.r * factors.r;
+		g += other.g * factors.g;
+		b += other.b * factors.b;
+	}
+
 	inline void add(const Colour3& other)
 	{
 		r += other.r;

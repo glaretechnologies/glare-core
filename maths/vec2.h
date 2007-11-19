@@ -254,6 +254,12 @@ public:
 		subMult(unitdir, this->dot(unitdir));
 	}
 
+	// returns true if all components c satisfy c >= minval && c < maxval, i.e. c e [minval, maxval)
+	inline bool inHalfClosedInterval(Real minval, Real maxval) const
+	{
+		return Maths::inHalfClosedInterval(x, minval, maxval) && Maths::inHalfClosedInterval(y, minval, maxval);
+	}
+
 };
 
 
