@@ -158,6 +158,8 @@ public:
 	//Image diffraction_image;
 	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const;
 
+	void applyDiffractionFilterToImage(Image& image) const;
+
 	
 
 	DiffractionFilter* diffraction_filter;

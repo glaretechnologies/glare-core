@@ -816,6 +816,17 @@ void doStringUtilsUnitTests()
 	assert(rightPad("123", 'a', 5) == "123aa");
 	assert(rightPad("12345", 'a', 3) == "12345");
 
+
+
+	parts = split("a:b:c", ':');
+	assert(StringUtils::join(parts, ":") == "a:b:c");
+
+	parts = split("a", ':');
+	assert(StringUtils::join(parts, ":") == "a");
+
+	parts = split("", ':');
+	assert(StringUtils::join(parts, ":") == "");
+
 /*
 	assert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
 

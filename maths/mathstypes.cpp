@@ -35,4 +35,27 @@ void Maths::test()
 	testAssert(epsEqual(tanForCos(0.2), tan(acos(0.2))));
 
 
+	testAssert(!isPowerOfTwo((int)-4));
+	testAssert(!isPowerOfTwo((int)-3));
+	testAssert(!isPowerOfTwo((int)-2));
+	testAssert(!isPowerOfTwo((int)-1));
+	testAssert(!isPowerOfTwo((int)0));
+	testAssert(!isPowerOfTwo((unsigned int)-3));
+	testAssert(!isPowerOfTwo((unsigned int)-2));
+	testAssert(!isPowerOfTwo((unsigned int)-1));
+	testAssert(!isPowerOfTwo((unsigned int)0));
+
+	testAssert(isPowerOfTwo((int)1));
+	testAssert(isPowerOfTwo((int)2));
+	testAssert(isPowerOfTwo((int)4));
+	testAssert(isPowerOfTwo((int)65536));
+	testAssert(isPowerOfTwo((unsigned int)1));
+	testAssert(isPowerOfTwo((unsigned int)2));
+	testAssert(isPowerOfTwo((unsigned int)4));
+	testAssert(isPowerOfTwo((unsigned int)65536));
+
+	testAssert(!isPowerOfTwo((int)3));
+	testAssert(!isPowerOfTwo((int)9));
+	testAssert(!isPowerOfTwo((unsigned int)3));
+	testAssert(!isPowerOfTwo((unsigned int)9));
 }

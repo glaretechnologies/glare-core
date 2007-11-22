@@ -174,6 +174,22 @@ const std::vector<std::string> split(const std::string& s, char delim);
 
 const std::string rightPad(const std::string& s, char c, int minwidth);
 
+namespace StringUtils
+{
+template<class T>
+const std::string join(const T& iterable, const std::string joinstring)
+{
+	std::string s;
+	bool first_elem = true;
+	for(T::const_iterator i = iterable.begin(); i != iterable.end(); ++i)
+	{
+		s = s + (first_elem ? std::string("") : joinstring) + (*i);
+		first_elem = false;
+	}
+	return s;
+}
+};
+
 
 //NOTE: must be in debug mode for this to work
 void doStringUtilsUnitTests();

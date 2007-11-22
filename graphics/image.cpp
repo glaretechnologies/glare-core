@@ -1018,7 +1018,7 @@ double Image::averageLuminance() const
 	return sum / (double)numPixels();
 }
 
-void Image::sprectralConvolution(const Image& original_filter, const Vec3d& xyz_filter_scales, Image& result_out) const
+void Image::spectralConvolution(const Image& original_filter, const Vec3d& xyz_filter_scales, Image& result_out) const
 {
 	//const double red_wavelength = 650.0;
 	//const double green_wavelength = 550.0; 
@@ -1030,6 +1030,8 @@ void Image::sprectralConvolution(const Image& original_filter, const Vec3d& xyz_
 	const int new_filter_height = (int)((double)original_filter.getHeight() * max_scale);
 	Image filter(new_filter_width, new_filter_height);
 	//filter.zero();
+
+	printVar(new_filter_width);
 
 	const Vec3d scale_ratios(
 		max_scale / xyz_filter_scales.x,

@@ -85,7 +85,7 @@ public:
 	void gammaCorrect(float exponent);
 
 	void blitToImage(Image& dest, int destx, int desty);
-	void addImage(const Image& dest, int destx, int desty);
+	void addImage(const Image& other, int destx, int desty);
 	void blendImage(const Image& dest, int destx, int desty);
 	void subImage(const Image& dest, int destx, int desty);
 	
@@ -103,7 +103,7 @@ public:
 	float maxLuminance() const;
 	double averageLuminance() const;
 
-	void sprectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
+	void spectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
 
 private:
 	int width;

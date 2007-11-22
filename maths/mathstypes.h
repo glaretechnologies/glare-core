@@ -377,6 +377,13 @@ inline T tanForCos(T cos_theta)
 	return sqrt(1.0 - cos_theta*cos_theta) / cos_theta;
 }
 
+// from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
+template <class T>
+inline bool isPowerOfTwo(T x)
+{
+	return (x > 0) && ((x & (x - 1)) == 0);
+}
+
 void test();
 
 }
