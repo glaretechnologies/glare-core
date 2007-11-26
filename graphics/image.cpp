@@ -1018,30 +1018,24 @@ double Image::averageLuminance() const
 	return sum / (double)numPixels();
 }
 
-void Image::spectralConvolution(const Image& original_filter, const Vec3d& xyz_filter_scales, Image& result_out) const
-{
-	//const double red_wavelength = 650.0;
-	//const double green_wavelength = 550.0; 
-	//const double blue_wavelength = 450.0; 
 
-	const double max_scale = myMax(xyz_filter_scales.x, myMax(xyz_filter_scales.y, xyz_filter_scales.z));
+void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out)
+{
+	const double max_scale = myMax(filter_scales.x, myMax(filter_scales.y, filter_scales.z));
 
 	const int new_filter_width = (int)((double)original_filter.getWidth() * max_scale);
 	const int new_filter_height = (int)((double)original_filter.getHeight() * max_scale);
 	Image filter(new_filter_width, new_filter_height);
-	//filter.zero();
 
 	printVar(new_filter_width);
 
 	const Vec3d scale_ratios(
-		max_scale / xyz_filter_scales.x,
-		max_scale / xyz_filter_scales.y,
-		max_scale / xyz_filter_scales.z
+		max_scale / filter_scales.x,
+		max_scale / filter_scales.y,
+		max_scale / filter_scales.z
 		);
 
-//	assert(scale_ratios.inHalfClosedInterval(0.0, 1.0));
-
-	const int SS_RES = 30;
+	const int SS_RES = 4;
 	const double recip_ss_res = 1.0 / (double)SS_RES;
 	//const double ss_weight = recip_ss_res * recip_ss_res;
 
@@ -1051,6 +1045,8 @@ void Image::spectralConvolution(const Image& original_filter, const Vec3d& xyz_f
 	{
 		for(int y=0; y<filter.getHeight(); ++y)
 		{
+			printVar(y);
+
 			for(int x=0; x<filter.getWidth(); ++x)
 			{
 				float sum = 0.0f;
@@ -1120,7 +1116,7 @@ void Image::spectralConvolution(const Image& original_filter, const Vec3d& xyz_f
 #endif
 
 
-	{
+	/*{
 	Image temp = filter;
 	for(unsigned int i=0; i<temp.numPixels(); ++i)
 		temp.getPixel(i).g = temp.getPixel(i).b = 0.0;
@@ -1148,10 +1144,14 @@ void Image::spectralConvolution(const Image& original_filter, const Vec3d& xyz_f
 	{
 	IndigoImage igi;
 	igi.write(filter, 1, 1, "resized_filter.igi");
-	}
-	//return;
+	}*/
+
+	result_out = filter;
+}
 
 
+void Image::convolve(const Image& filter, Image& result_out) const
+{
 	result_out.resize(getWidth(), getHeight());
 
 	const int filter_w_2 = filter.getWidth() / 2;

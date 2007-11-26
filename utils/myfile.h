@@ -47,7 +47,7 @@ public:
 	//sets 'bytes_read_out to number of bytes in file.
 	//-----------------------------------------------------------------
 	void* readEntireFile(int& bytes_read_out);
-	void readEntireFile(Array<char>& data_out);
+	//void readEntireFile(Array<char>& data_out);
 	void readEntireFile(std::vector<char>& data_out);
 
 	void readFileAsString(std::string& file_out);

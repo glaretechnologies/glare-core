@@ -23,6 +23,7 @@ class Image;
 class Medium;
 class DiffractionFilter;
 class Distribution2;
+class Aperture;
 
 class CameraExcep
 {
@@ -54,12 +55,7 @@ public:
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
-		bool circular_aperture,
-		const std::string& aperture_image, // "" if not used
-		int aperture_num_blades,
-		double blade_offset,
-		double blade_curvature_radius,
-		double start_angle
+		Aperture* aperture
 		);
 
 	virtual ~Camera();
@@ -154,15 +150,13 @@ public:
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
-	//TEMP:
-	//Image diffraction_image;
 	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const;
 
 	void applyDiffractionFilterToImage(Image& image) const;
 
 	
 
-	DiffractionFilter* diffraction_filter;
+	
 
 	std::vector<const Medium*> containing_media;
 private:
@@ -175,7 +169,11 @@ private:
 	inline const Vec2d normalisedLensPosForWSPoint(const Vec3d& pos) const;
 
 	//Array2d<float>* aperture_image;
-	Distribution2* aperture_image;
+	//Distribution2* aperture_image;
+
+	std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
+	Aperture* aperture;
+	std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
 	Vec3d pos;
 	Vec3d ws_up;
@@ -206,8 +204,10 @@ private:
 
 	double sensor_to_lens_dist_focus_dist_ratio;
 	double focus_dist_sensor_to_lens_dist_ratio;
-	double uniform_lens_pos_pdf;
+	//double uniform_lens_pos_pdf;
 	double uniform_sensor_pos_pdf;
+
+	double recip_unoccluded_aperture_area;
 	
 
 	double bloom_weight;

@@ -127,32 +127,32 @@ void* MyFile::readEntireFile(int& bytes_read_out)
 	return buffer;
 }
 
-void MyFile::readEntireFile(Array<char>& data_out)
-{
-	assert(file && fileopen);
-	//int __cdecl fseek(FILE *, long, int);
-	//-----------------------------------------------------------------
-	//seek to end of file
-	//-----------------------------------------------------------------
-	fseek(file, 0, SEEK_END);
-
-	int bytes_moved = ftell(file);
-
-	//-----------------------------------------------------------------
-	//seek back to beginning
-	//-----------------------------------------------------------------
-	fseek(file, 0, SEEK_SET);
-
-	//-----------------------------------------------------------------
-	//alloc storage for data
-	//-----------------------------------------------------------------
-	data_out.resize(bytes_moved);
-
-	//-----------------------------------------------------------------
-	//read in file to buffer
-	//-----------------------------------------------------------------
-	fread(data_out.begin(), bytes_moved, 1, file);
-}
+//void MyFile::readEntireFile(Array<char>& data_out)
+//{
+//	assert(file && fileopen);
+//	//int __cdecl fseek(FILE *, long, int);
+//	//-----------------------------------------------------------------
+//	//seek to end of file
+//	//-----------------------------------------------------------------
+//	fseek(file, 0, SEEK_END);
+//
+//	int bytes_moved = ftell(file);
+//
+//	//-----------------------------------------------------------------
+//	//seek back to beginning
+//	//-----------------------------------------------------------------
+//	fseek(file, 0, SEEK_SET);
+//
+//	//-----------------------------------------------------------------
+//	//alloc storage for data
+//	//-----------------------------------------------------------------
+//	data_out.resize(bytes_moved);
+//
+//	//-----------------------------------------------------------------
+//	//read in file to buffer
+//	//-----------------------------------------------------------------
+//	fread(data_out.begin(), bytes_moved, 1, file);
+//}
 
 void MyFile::readEntireFile(std::vector<char>& data_out)
 {

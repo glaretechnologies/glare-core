@@ -20,7 +20,7 @@ Bitmap::Bitmap()
 	data = 0;
 }
 
-Bitmap::Bitmap(int width_, int height_, int bytespp_, const unsigned char* srcdata)
+Bitmap::Bitmap(unsigned int width_, unsigned int height_, unsigned int bytespp_, const unsigned char* srcdata)
 :	width(width_),
 	height(height_),
 	bytespp(bytespp_)
@@ -30,12 +30,12 @@ Bitmap::Bitmap(int width_, int height_, int bytespp_, const unsigned char* srcda
 
 	assert(sizeof(unsigned char) == 1);
 
-	const int datasize = width * height * bytespp;
+	const unsigned int datasize = width * height * bytespp;
 	data = new unsigned char[datasize];
 
 	if(srcdata)
 	{
-		for(int i=0; i<datasize; ++i)
+		for(unsigned int i=0; i<datasize; ++i)
 			data[i] = srcdata[i];
 	}
 }
@@ -47,7 +47,7 @@ Bitmap::~Bitmap()
 }
 
 
-void Bitmap::takePointer(int newwidth, int newheight, int newbytespp, unsigned char* srcdata)
+void Bitmap::takePointer(unsigned int newwidth, unsigned int newheight, unsigned int newbytespp, unsigned char* srcdata)
 {
 	assert(newwidth >= 0 && newheight >= 0);
 	assert(newbytespp >= 0);
@@ -62,7 +62,7 @@ void Bitmap::takePointer(int newwidth, int newheight, int newbytespp, unsigned c
 }
 
 
-void Bitmap::setBytesPP(const int new_bytes_pp)
+void Bitmap::setBytesPP(const unsigned int new_bytes_pp)
 {
 	assert(new_bytes_pp >= 0);
 
@@ -70,7 +70,7 @@ void Bitmap::setBytesPP(const int new_bytes_pp)
 }
 
 
-void Bitmap::resize(int newwidth, int newheight)
+void Bitmap::resize(unsigned int newwidth, unsigned int newheight)
 {
 	assert(newwidth >= 0 && newheight >= 0);
 

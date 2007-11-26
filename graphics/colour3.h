@@ -216,6 +216,11 @@ public:
 		// Note that the coefficients should add up to one.
 		return 0.2126f*r + 0.7152*g + 0.0722*b;
 	}
+	
+	inline Real averageVal() const
+	{
+		return (r + g + b) * 0.33333333333333333333333333f;
+	}
 
 	/*static inline const Colour3 randomColour3()
 	{

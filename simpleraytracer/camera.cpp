@@ -21,6 +21,8 @@ Code By Nicholas Chapman.
 #include "../graphics/bitmap.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/Distribution2.h"
+#include "../indigo/Aperture.h"
+#include "../indigo/CircularAperture.h"
 
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
@@ -29,12 +31,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		bool polarising_filter_, double polarising_angle_,
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_,
-		bool circular_aperture_,
-		const std::string& aperture_image_path_, // "" if not used
-		int aperture_num_blades_,
-		double blade_offset_,
-		double blade_curvature_radius_,
-		double start_angle_)
+		Aperture* aperture_)
 :	pos(pos_),
 	ws_up(ws_updir),
 	forwards(forwards_),
@@ -53,7 +50,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	exposure_duration(exposure_duration_),
 	colour_space_converter(NULL),
 	diffraction_filter(NULL),
-	aperture_image(NULL)
+	aperture(aperture_)
 {
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
@@ -97,8 +94,10 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
 	recip_sensor_width = 1.0 / sensor_width;
 	recip_sensor_height = 1.0 / sensor_height;
-	uniform_lens_pos_pdf = 1.0 / (NICKMATHS_PI * lens_radius * lens_radius);
+	//uniform_lens_pos_pdf = 1.0 / (NICKMATHS_PI * lens_radius * lens_radius);
 	uniform_sensor_pos_pdf = 1.0 / (sensor_width * sensor_height);
+
+	recip_unoccluded_aperture_area = 1.0 / (4.0 * lens_radius * lens_radius);
 
 	try
 	{
@@ -120,26 +119,23 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	assert(this->polarising_vec.isUnitLength());
 
 
-	//TEMP
-	try
+	// Calculate diffraction distribution if needed.
+	if(RendererSettings::getInstance().aperture_diffraction)
 	{
-		diffraction_filter = new DiffractionFilter(
-			lens_radius, 
-			sensor_to_lens_dist,
-			circular_aperture_,
-			aperture_image_path_,
-			aperture_num_blades_,
-			blade_offset_,
-			blade_curvature_radius_,
-			start_angle_
-			);
-	}
-	catch(DiffractionFilterExcep& e)
-	{
-		throw CameraExcep(e.what());
+		try
+		{
+			diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
+				lens_radius, 
+				*aperture
+				));
+		}
+		catch(DiffractionFilterExcep& e)
+		{
+			throw CameraExcep(e.what());
+		}
 	}
 
-	assert(!aperture_image);
+/*	assert(!aperture_image);
 	if(!circular_aperture_)
 	{
 		//TEMP
@@ -153,13 +149,75 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 				aperture_visibility.elem(x, y) = aperture_bitmap.getPixel(x, aperture_bitmap.getHeight() - 1 - y)[0] > 128 ? 1.0 : 0.0;//(float)aperture_bitmap.getPixel(x, y)[0] / 255.0f;
 
 		aperture_image = new Distribution2(aperture_visibility);
+	}*/
+	
+	// Save aperture preview to disk
+	{
+	
+	Array2d<double> ap_vis;
+	aperture->getVisibilityMap(ap_vis);
+
+	Image aperture_preview_image(ap_vis.getWidth(), ap_vis.getHeight());
+
+	for(unsigned int y=0; y<ap_vis.getHeight(); ++y)
+		for(unsigned int x=0; x<ap_vis.getWidth(); ++x)
+			aperture_preview_image.setPixel(x, y, Colour3f((float)ap_vis.elem(x, y)));
+
+
+	std::map<std::string, std::string> metadata;
+	try
+	{
+		aperture_preview_image.saveToPng("aperture_preview.png", metadata);
 	}
+	catch(ImageExcep& e)
+	{
+		conPrint("ImageExcep: " + e.what());
+	}
+	}
+
+
+	// Construct RGB diffraction filter image if needed
+	if(RendererSettings::getInstance().aperture_diffraction && RendererSettings::getInstance().post_process_diffraction)
+	{
+		conPrint("Creating diffraction filter image...");
+
+		// Copy scalar diffraction filter to 3-component image
+		Image filter(diffraction_filter->getDiffractionFilter().getWidth(), diffraction_filter->getDiffractionFilter().getHeight());
+
+		for(int y=0; y<filter.getHeight(); ++y)
+			for(int x=0; x<filter.getWidth(); ++x)
+				filter.setPixel(x, y, Colour3f((float)diffraction_filter->getDiffractionFilter().elem(x, y)));
+
+		const double red_wavelength_m = 700.0e-9;
+		const double green_wavelength_m = 550.0e-9; 
+		const double blue_wavelength_m = 400.0e-9; 
+
+		//void spectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
+
+		const int image_width = RendererSettings::getInstance().getWidth() * RendererSettings::getInstance().super_sample_factor; // TEMP PRETTY NASTY
+
+		const double pixel_scale_factor = this->sensor_to_lens_dist * (double)image_width / this->sensor_width;
+
+		diffraction_filter_image = std::auto_ptr<Image>(new Image());
+
+		Image::buildRGBFilter(
+			filter, // original filter
+			Vec3d(diffraction_filter->getXYScale(red_wavelength_m), diffraction_filter->getXYScale(green_wavelength_m), diffraction_filter->getXYScale(blue_wavelength_m)) * pixel_scale_factor / (double)filter.getWidth(),
+			*diffraction_filter_image // result_out
+			);
+
+		conPrint("\tDone.");
+	}
+
+
+	assert(aperture);
 }
 
 
 Camera::~Camera()
 {
-	delete diffraction_filter;
+	delete aperture;
+	//delete diffraction_filter;
 	delete colour_space_converter;
 }
 
@@ -179,7 +237,7 @@ double Camera::sensorPDF(const Vec3d& p) const
 
 const Vec3d Camera::sampleLensPos(const Vec2d& samples) const
 {
-	if(aperture_image)
+/*	if(aperture_image)
 	{
 		//const Vec2d offset = aperture_image->sample(samples) * lens_radius * 2.0;
 		const Vec2d normed_lenspos = aperture_image->sample(samples);
@@ -194,12 +252,20 @@ const Vec3d Camera::sampleLensPos(const Vec2d& samples) const
 	{
 		const Vec2d discpos = MatUtils::sampleUnitDisc(samples) * lens_radius;
 		return lens_center + up * discpos.y + right * discpos.x;
-	}
+	}*/
+
+	assert(aperture->sampleAperture(samples).inHalfClosedInterval(0.0, 1.0));
+
+	const Vec2d normed_lenspos = aperture->sampleAperture(samples);
+
+	return lens_center + 
+			up * (2.0 * normed_lenspos.y - 1.0) * lens_radius + 
+			right * (2.0 * normed_lenspos.x - 1.0) * lens_radius;
 }
 
 double Camera::lensPosPDF(const Vec3d& lenspos) const
 {
-	if(aperture_image)
+/*	if(aperture_image)
 	{
 		// Then the lens rectangle was sampled uniformly.
 		// so pdf = 1 / 2d
@@ -217,7 +283,18 @@ double Camera::lensPosPDF(const Vec3d& lenspos) const
 		assert(lens_radius > 0.0);
 		assert(epsEqual(uniform_lens_pos_pdf, 1.0 / (NICKMATHS_PI * lens_radius * lens_radius)));
 		return uniform_lens_pos_pdf;
-	}
+	}*/
+
+
+	const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
+	assert(normed_lenspoint.inHalfClosedInterval(0.0, 1.0));
+	
+	assert(aperture->pdf(normed_lenspoint) > 0.0);
+	assert(isFinite(aperture->pdf(normed_lenspoint)));
+
+	//return aperture->pdf(normed_lenspoint) / (4.0 * lens_radius * lens_radius); // TEMP TODO: precompute divide
+	assert(epsEqual(recip_unoccluded_aperture_area, 1.0 / (4.0 * lens_radius * lens_radius)));
+	return aperture->pdf(normed_lenspoint) * recip_unoccluded_aperture_area;
 }
 
 double Camera::lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const
@@ -258,7 +335,7 @@ const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) co
 
 double Camera::lensPosVisibility(const Vec3d& lenspos) const
 {
-	if(aperture_image)
+	/*if(aperture_image)
 	{
 		const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
 
@@ -268,22 +345,29 @@ double Camera::lensPosVisibility(const Vec3d& lenspos) const
 		assert(aperture_image->value(normed_lenspoint) == 0.0 || aperture_image->value(normed_lenspoint) == 1.0);
 		return aperture_image->value(normed_lenspoint);
 
-		/*const int ap_image_x = (int)(normed_lenspoint.x * aperture_image->getWidth());
-		if(ap_image_x < 0 || ap_image_x >= aperture_image->getWidth())
-			return 0.0;
+		//const int ap_image_x = (int)(normed_lenspoint.x * aperture_image->getWidth());
+		//if(ap_image_x < 0 || ap_image_x >= aperture_image->getWidth())
+		//	return 0.0;
 
-		const int ap_image_y = (int)((1.0 - normed_lenspoint.y) * aperture_image->getHeight()); // y increases downwards in aperture_image
-		if(ap_image_y < 0 || ap_image_y >= aperture_image->getHeight())
-			return 0.0;
+		//const int ap_image_y = (int)((1.0 - normed_lenspoint.y) * aperture_image->getHeight()); // y increases downwards in aperture_image
+		//if(ap_image_y < 0 || ap_image_y >= aperture_image->getHeight())
+		//	return 0.0;
 
-		assert(Maths::inRange(aperture_image->elem(ap_image_x, ap_image_y), 0.f, 1.f));
-		return (double)aperture_image->elem(ap_image_x, ap_image_y);*/
+		//assert(Maths::inRange(aperture_image->elem(ap_image_x, ap_image_y), 0.f, 1.f));
+		//return (double)aperture_image->elem(ap_image_x, ap_image_y);
 
 	}
 	else
 	{
 		return 1.0;
-	}
+	}*/
+
+	const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
+
+	if(normed_lenspoint.x < 0.0 || normed_lenspoint.x >= 1.0 || normed_lenspoint.y < 0.0 || normed_lenspoint.y >= 1.0)
+		return 0.0;
+
+	return aperture->visibility(normed_lenspoint);
 }
 
 
@@ -506,18 +590,21 @@ const Vec2d Camera::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoo
 
 const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const
 {
-	if(!this->diffraction_filter || !RendererSettings::getInstance().aperture_diffraction)
-	{
-		weights_out.set(1.0);
-		return dir;
-	}
+	assert(RendererSettings::getInstance().aperture_diffraction);
+	assert(diffraction_filter.get() != NULL);
+
+	//if(!this->diffraction_filter || !RendererSettings::getInstance().aperture_diffraction)
+	//{
+	//	weights_out.set(1.0);
+	//	return dir;
+	//}
 	
 	// Form a basis with k in direction of ray, using cam right as i
 	const Vec3d k = dir;
 	Vec3d i = getRightDir();
 	i.removeComponentInDir(k);
 	i.normalise();
-	Vec3d j = ::crossProduct(i, k);
+	const Vec3d j = ::crossProduct(i, k);
 
 	const Vec2d filterpos = diffraction_filter->sampleFilter(samples, wavelengths[PRIMARY_WAVELENGTH_INDEX]);
 
@@ -528,43 +615,30 @@ const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SP
 
 	diffraction_filter->evaluate(filterpos, wavelengths, weights_out);
 
-	const double pdf = (weights_out.sum() / (double)TOTAL_NUM_WAVELENGTHS);
-	weights_out /= pdf;//camera.diffraction_filter->filterPDF(filterpos, wavelengths[PRIMARY_WAVELENGTH_INDEX]);
+	//const double pdf = weights_out.sum() / (double)TOTAL_NUM_WAVELENGTHS;
+	//weights_out /= pdf;//camera.diffraction_filter->filterPDF(filterpos, wavelengths[PRIMARY_WAVELENGTH_INDEX]);
+	weights_out *= (double)TOTAL_NUM_WAVELENGTHS / weights_out.sum();
 
-	const Vec2d offset = filterpos;
+	//const Vec2d offset = filterpos;
 
-	const double z = sqrt(1.0 - offset.length2());
+	const double z = sqrt(1.0 - filterpos.length2());
 
 	// Generate scattered direction
-	const Vec3d out = i * offset.x * direction_sign + j * offset.y + k * z;
+	const Vec3d out = i * filterpos.x * direction_sign + j * filterpos.y + k * z;
 	assert(out.isUnitLength());
 	return out;
 }
 
 void Camera::applyDiffractionFilterToImage(Image& image) const
 {
-	conPrint("Camera::applyDiffractionFilterToImage()");
+	assert(this->diffraction_filter_image.get() != NULL);
 
-	Image out = image;
+	conPrint("Applying diffraction filter...");
 
-	Image filter(diffraction_filter->getDiffractionFilter().getWidth(), diffraction_filter->getDiffractionFilter().getHeight());
-
-	for(int y=0; y<filter.getHeight(); ++y)
-		for(int x=0; x<filter.getWidth(); ++x)
-			filter.setPixel(x, y, Colour3f((float)diffraction_filter->getDiffractionFilter().elem(x, y)));
-
-	const double red_wavelength_m = 620.0e-9;
-	const double green_wavelength_m = 550.0e-9; 
-	const double blue_wavelength_m = 470.0e-9; 
-
-	//void spectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
-
-	const double pixel_scale_factor = this->sensor_to_lens_dist * (double)image.getWidth() / this->sensor_width;
-
-	image.spectralConvolution(
-		filter,
-		Vec3d(diffraction_filter->getXYScale(red_wavelength_m), diffraction_filter->getXYScale(green_wavelength_m), diffraction_filter->getXYScale(blue_wavelength_m)) * pixel_scale_factor / (double)filter.getWidth(),
-		out
+	Image out;
+	image.convolve(
+		*diffraction_filter_image, // filter
+		out	// result out
 		);
 
 	image = out;
@@ -603,12 +677,7 @@ void Camera::unitTest()
 		5, //glare
 		1.f / 200.f, //shutter_open_duration
 		//800.f //film speed
-		true,
-		"",
-		0,
-		0.0,
-		0.0,
-		0.0
+		new CircularAperture(Array2d<float>())
 		);
 
 

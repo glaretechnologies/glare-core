@@ -25,26 +25,26 @@ public:
 	srcdata may be NULL.
 	=====================================================================*/
 	Bitmap();
-	Bitmap(int width, int height, int bytespp, const unsigned char* srcdata);
+	Bitmap(unsigned int width, unsigned int height, unsigned int bytespp, const unsigned char* srcdata);
 
 	~Bitmap();
 
 
-	void takePointer(int width, int height, int bytespp, unsigned char* srcdata);
+	void takePointer(unsigned int width, unsigned int height, unsigned int bytespp, unsigned char* srcdata);
 
 	const unsigned char* getData() const { return data; }
 	unsigned char* getData(){ return data; }
 
-	const int getWidth() const { return width; }
-	const int getHeight() const { return height; }
-	const int getBytesPP() const { return bytespp; }
+	const unsigned int getWidth() const { return width; }
+	const unsigned int getHeight() const { return height; }
+	const unsigned int getBytesPP() const { return bytespp; }
 
-	inline unsigned char* getPixel(int x, int y);
-	inline const unsigned char* getPixel(int x, int y) const;
+	inline unsigned char* getPixel(unsigned int x, unsigned int y);
+	inline const unsigned char* getPixel(unsigned int x, unsigned int y) const;
 
-	void setBytesPP(const int new_bytes_pp);
+	void setBytesPP(const unsigned int new_bytes_pp);
 
-	void resize(int newwidth, int newheight);
+	void resize(unsigned int newwidth, unsigned int newheight);
 
 	void raiseToPower(float exponent);
 
@@ -53,21 +53,21 @@ public:
 
 private:
 	unsigned char* data;
-	int width;
-	int height;
-	int bytespp;
+	unsigned int width;
+	unsigned int height;
+	unsigned int bytespp;
 };
 
 
 
-unsigned char* Bitmap::getPixel(int x, int y)
+unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y)
 {
 	assert(x >= 0 && x < width);
 	assert(y >= 0 && y < height);
 
 	return data + (y*width + x) * bytespp;
 }
-const unsigned char* Bitmap::getPixel(int x, int y) const
+const unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y) const
 {
 	assert(x >= 0 && x < width);
 	assert(y >= 0 && y < height);

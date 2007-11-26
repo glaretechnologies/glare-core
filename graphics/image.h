@@ -103,7 +103,8 @@ public:
 	float maxLuminance() const;
 	double averageLuminance() const;
 
-	void spectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
+	static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);
+	void convolve(const Image& filter, Image& result_out) const;
 
 private:
 	int width;

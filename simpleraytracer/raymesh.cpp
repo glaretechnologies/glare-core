@@ -16,6 +16,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
 #include <fstream>
+#include <algorithm>
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_)
 :	name(name_),

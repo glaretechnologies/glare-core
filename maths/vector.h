@@ -3,10 +3,11 @@
 
 #include <math.h>
 #include <assert.h>
+#include <vector>
 
 //class Graphics2d;
-class VectorIterator;
-class ConstVectorIterator;
+//class VectorIterator;
+//class ConstVectorIterator;
 //class Vec3;
 
 template <class Real>
@@ -63,13 +64,15 @@ public:
 	inline const Real* toReal() const;
 	inline Real* toReal();
 
-	typedef VectorIterator iterator;
-	inline VectorIterator begin();
-	inline VectorIterator end();
+	//typedef VectorIterator iterator;
+	typedef typename std::vector<Real>::iterator iterator;
+	inline iterator begin();
+	inline iterator end();
 
-	typedef ConstVectorIterator const_iterator;
-	inline ConstVectorIterator const_begin() const;
-	inline ConstVectorIterator const_end() const;
+	//typedef ConstVectorIterator const_iterator;
+	typedef typename std::vector<Real>::const_iterator const_iterator;
+	inline const_iterator const_begin() const;
+	inline const_iterator const_end() const;
 
 //	inline ConstVectorIterator const_begin() const; { return begin(); }
 
@@ -87,7 +90,8 @@ public:
 
 private:
 	int dimension;
-	Real* data;
+	//Real* data;
+	std::vector<Real> data;
 };
 
 
@@ -241,7 +245,8 @@ template <class Real>
 Vector<Real>::Vector(int dimension_)
 {
 	dimension = dimension_;
-	data = new Real[dimension];
+	//data = new Real[dimension];
+	data.resize(dimension);
 }
 
 template <class Real>
@@ -249,7 +254,8 @@ Vector<Real>::Vector(const Vector& rhs)
 {
 	dimension = rhs.dimension;
 
-	data = new Real[dimension];
+	//data = new Real[dimension];
+	data.resize(dimension);
 
 	for(int i=0; i<dimension; i++)
 		data[i] = rhs.data[i];
@@ -259,7 +265,7 @@ template <class Real>
 Vector<Real>::Vector()
 {
 	dimension = 0;
-	data = 0;
+	//data = 0;
 }
 
 template <class Real>
@@ -268,7 +274,8 @@ Vector<Real>::Vector(int dimension_, const Real* newdata)
 	assert(newdata);
 	dimension = dimension_;
 
-	data = new Real[dimension];
+	//data = new Real[dimension];
+	data.resize(dimension);
 
 	for(int i=0; i<dimension; i++)
 		data[i] = newdata[i];
@@ -282,7 +289,7 @@ Vector<Real>::Vector(int dimension_, const Real* newdata)
 template <class Real>
 Vector<Real>::~Vector()
 {
-	delete[] data;
+	//delete[] data;
 }
 
 
@@ -307,11 +314,12 @@ Vector<Real>& Vector<Real>::operator = (const Vector& rhs)
 {
 	if(dimension != rhs.dimension)
 	{
-		delete[] data;
+		//delete[] data;
 
 		dimension = rhs.dimension;
 
-		data = new Real[dimension];
+		//data = new Real[dimension];
+		data.resize(rhs.dimension);
 	}
 
 	for(int i=0; i<dimension; i++)
@@ -551,27 +559,30 @@ Real* Vector<Real>::toReal()
 
 
 
-/*
-VectorIterator Vector::begin() 
+template <class Real>
+typename Vector<Real>::iterator Vector<Real>::begin() 
 {
-	return VectorIterator(this, 0);
+	return data.begin();//VectorIterator(this, 0);
 }
 
-VectorIterator Vector::end()
+template <class Real>
+typename Vector<Real>::iterator Vector<Real>::end()
 {
-	return VectorIterator(this, dimension);
+	return data.end(); //VectorIterator(this, dimension);
 }
 
-ConstVectorIterator Vector::const_begin() const
+template <class Real>
+typename Vector<Real>::const_iterator Vector<Real>::const_begin() const
 {
-	return ConstVectorIterator(this, 0);
+	return data.begin(); //ConstVectorIterator(this, 0);
 }
 
-ConstVectorIterator Vector::const_end() const
+template <class Real>
+typename Vector<Real>::const_iterator Vector<Real>::const_end() const
 {
-	return ConstVectorIterator(this, dimension);
+	return data.end(); //ConstVectorIterator(this, dimension);
 }
-*/
+
 
 
 template <class Real>
