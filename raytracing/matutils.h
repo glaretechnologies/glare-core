@@ -104,8 +104,13 @@ public:
 
 	inline static double pow5(double x);
 
+
 	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
+	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
+
 	inline static bool raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo);
+	inline static bool MatUtils::raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng);
+
 
 	static void unitTest();
 };
@@ -176,9 +181,21 @@ double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, 
 		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
 }
 
+double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng)
+{
+	return adjoint ? 
+		fabs(dot(omega_out, hitinfo.N_s()) / out_dot_Ng) : 
+		fabs(dot(omega_in, hitinfo.N_s()) / in_dot_Ng);
+}
+
 bool MatUtils::raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo)
 {
 	return dot(a, hitinfo.original_geometric_normal) * dot(b, hitinfo.original_geometric_normal) < 0.0;
+}
+
+bool MatUtils::raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng)
+{
+	return a_dot_orig_Ng * b_dot_orig_Ng < 0.0;
 }
 
 #endif //__MATUTILS_H_666_

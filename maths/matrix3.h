@@ -166,8 +166,8 @@ public:
 
 	
 	void print() const;
-	void writeToFile(FILE* f) const;
-	void readFromFile(FILE* f);
+	//void writeToFile(FILE* f) const;
+	//void readFromFile(FILE* f);
 
 	inline const static Matrix3<Real> identity();
 	void openGLMult() const;

@@ -7,8 +7,6 @@ Code By Nicholas Chapman.
 #ifndef __BASIS_H_666_
 #define __BASIS_H_666_
 
-
-
 #include "matrix3.h"
 #include "vec3.h"
 
@@ -17,7 +15,17 @@ Code By Nicholas Chapman.
 Basis
 -----
 An orthonormal basis.
-The axis vectors i, j, k are the column vectors of mat.
+The axis vectors i, j, k are the column vectors of the 3x3 matrix.
+The matrix transforms column vectors from local to parent space.
+v' = A*v
+where v' vector in parent space.
+
+So to transform a column vector into parent space, form weighted linear
+combination of columns.  Or take the product A * v
+
+To transform column vector into this basis (project onto this basis), 
+take the product A_t * v.
+
 =====================================================================*/
 template <class Real>
 class Basis
@@ -36,8 +44,6 @@ public:
 
 	inline Basis& operator = (const Basis& other);
 
-	inline void init();
-
 	inline const Vec3<Real> i() const;
 	inline const Vec3<Real> j() const;
 	inline const Vec3<Real> k() const;
@@ -46,22 +52,6 @@ public:
 	inline const Vec3<Real> transformVectorToLocal(const Vec3<Real>& v) const;
 	inline const Vec3<Real> transformVectorToParent(const Vec3<Real>& v) const;
 
-	/*================================================================================
-	rotAroundAxis
-	-------------
-	rotates the matrix around the axis specified.
-
-	The rotation is counter-clockwise when looking along the axis towards the origin.  
-	All rotation angles are in radians.
-
-	The specified rotation axis should have length 1
-	================================================================================*/
-	void rotAroundAxis(const Vec3<Real>& axis, float angle);
-
-
-	const Basis getThisBasisWRTParent(const Basis& parent) const;
-
-	inline void invert();
 
 	inline const Matrix3<Real>& getMatrix() const;
 	inline Matrix3<Real>& getMatrix();
@@ -78,6 +68,14 @@ private:
 	Matrix3<Real> mat;
 };
 
+
+
+// Constructors
+template <class Real>
+Basis<Real>::Basis()
+{	//mat.init();
+}
+
 template <class Real>
 inline Basis<Real>::Basis(const Basis& other)
 :	mat(other.mat)
@@ -88,6 +86,13 @@ inline Basis<Real>::Basis(const Matrix3<Real>& mat_)
 :	mat(mat_)
 {}
 
+// Destructor
+template <class Real>
+Basis<Real>::~Basis()
+{
+}
+
+
 
 template <class Real>
 inline Basis<Real>& Basis<Real>::operator = (const Basis<Real>& other)
@@ -96,11 +101,14 @@ inline Basis<Real>& Basis<Real>::operator = (const Basis<Real>& other)
 	return *this;
 }
 
+
+/*
 template <class Real>
 void Basis<Real>::init()
 {
 	mat.init();
 }
+*/
 
 
 template <class Real>
@@ -118,13 +126,20 @@ const Vec3<Real> Basis<Real>::j() const
 template <class Real>
 const Vec3<Real> Basis<Real>::k() const
 {
-	return mat.getColumn2();
+	//return mat.getColumn2();
+	assert(epsEqual(mat.getColumn2(), Vec3<Real>(mat.e[2], mat.e[5], mat.e[8])));
+
+	return Vec3<Real>(mat.e[2], mat.e[5], mat.e[8]);
 }
 
 template <class Real>
 const Vec3<Real> Basis<Real>::transformVectorToLocal(const Vec3<Real>& v) const
 {
-	return Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v) );
+	//return Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v) );
+
+	assert(epsEqual(Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v),  mat.transposeMult(v))));
+
+	return mat.transposeMult(v);
 }
 
 
@@ -132,7 +147,11 @@ template <class Real>
 const Vec3<Real> Basis<Real>::transformVectorToParent(const Vec3<Real>& v) const
 {
 	//NOTE: assuming orthonormal basis here
-	return (i() * v.x) + (j() * v.y) + (k() * v.z);
+	//return (i() * v.x) + (j() * v.y) + (k() * v.z);
+	
+	assert(epsEqual((i() * v.x) + (j() * v.y) + (k() * v.z), mat * v));
+
+	return mat * v;
 }
 
 
@@ -154,17 +173,7 @@ inline Matrix3<Real>& Basis<Real>::getMatrix()
 	return mat;
 }
 
-template <class Real>
-Basis<Real>::Basis()
-{
-	mat.init();
-}
 
-template <class Real>
-Basis<Real>::~Basis()
-{
-	
-}
 
 /*
 
@@ -174,11 +183,14 @@ void Basis<Real>::rotAroundAxis(const Vec3<Real>& axis, Real angle)
 	mat.rotAroundAxis(axis, angle);
 }*/
 
+/*
 template <class Real>
 const Basis<Real> Basis<Real>::getThisBasisWRTParent(const Basis& parent) const
 {
 	return Basis<Real>(getMatrix() * parent.getMatrix());
 }
+
+*/
 
 template <class Real>
 void Basis<Real>::constructFromVector(const Vec3<Real>& vec)

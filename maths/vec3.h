@@ -346,13 +346,13 @@ public:
 	//static void setWsRight(const Vec3& vec){ ws_right = vec; }
 	//static void setWsForwards(const Vec3& vec){ ws_forwards = vec; }
 
-	Real getYaw() const { return x; }
+	/*Real getYaw() const { return x; }
 	Real getPitch() const { return y; }
 	Real getRoll() const { return z; }
 
 	void setYaw(Real newyaw){ x = newyaw; }
 	void setPitch(Real newpitch){ y = newpitch; }
-	void setRoll(Real newroll){ z = newroll; }
+	void setRoll(Real newroll){ z = newroll; }*/
 
 	/*==================================================================
 	getAngles
