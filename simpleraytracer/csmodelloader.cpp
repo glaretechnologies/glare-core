@@ -87,6 +87,10 @@ void CSModelLoader::streamModel(const std::string& pathname, ModelLoadingStreamH
 	{
 		throw CSModelLoaderExcep("ModelFormatDecoderExcep for model '" + pathname + "': " + e.what());
 	}
+	catch(ModelLoadingStreamHandlerExcep& e)
+	{
+		throw CSModelLoaderExcep("ModelLoadingStreamHandlerExcep for model '" + pathname + "': " + e.what());
+	}
 }
 
 

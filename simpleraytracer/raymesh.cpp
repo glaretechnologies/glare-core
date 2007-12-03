@@ -60,31 +60,28 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerT
 
 const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 {
-	const SimpleIndexTri& tri = triangles[hitinfo.hittri_index];//mesh.getTri(hitinfo.hittri_index);//this->lasthit_triindex);
+	const SimpleIndexTri& tri = triangles[hitinfo.hittri_index];
 
 	if(!this->enable_normal_smoothing)
-		return toVec3d(triNormal(hitinfo.hittri_index));//tri.normal;
+		return toVec3d(triNormal(hitinfo.hittri_index));
 
-	/*const Vec3& v0norm = mesh.getVert( tri.vertex_indices[0] ).normal;
-	const Vec3& v1norm = mesh.getVert( tri.vertex_indices[1] ).normal;
-	const Vec3& v2norm = mesh.getVert( tri.vertex_indices[2] ).normal;*/
 	const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
 	const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
 	const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
 
 	//NOTE: not normalising, because a raymesh is always contained by a InstancedGeom geometry,
 	//which will normalise the normal.
-	return toVec3d(v0norm * (1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + 
-		(v1norm/* - v0norm*/)*(float)hitinfo.tri_coords.x + //this->lasthit_triuvs.x + 
-		(v2norm/* - v0norm*/)*(float)hitinfo.tri_coords.y);//this->lasthit_triuvs.y);
-	/*Vec3 norm = v0norm;
-	Vec3 diff1 = v1norm;
-	diff1 -= v0norm;
-	Vec3 diff2 = v2norm;
-	diff2 -= v0norm;
-	norm.addMult(diff1, hitinfo.hittricoords.x);
-	norm.addMult(diff2, hitinfo.hittricoords.y);
-	return norm;*/
+	//return toVec3d(v0norm * (1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + 
+	//	(v1norm)*(float)hitinfo.tri_coords.x + 
+	//	(v2norm)*(float)hitinfo.tri_coords.y);
+
+	// Gratuitous removal of function calls
+	const double w = 1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y;
+	return Vec3d(
+		(double)v0norm.x * w + (double)v1norm.x * hitinfo.tri_coords.x + (double)v2norm.x * hitinfo.tri_coords.y,
+		(double)v0norm.y * w + (double)v1norm.y * hitinfo.tri_coords.x + (double)v2norm.y * hitinfo.tri_coords.y,
+		(double)v0norm.z * w + (double)v1norm.z * hitinfo.tri_coords.x + (double)v2norm.z * hitinfo.tri_coords.y
+		);
 }
 
 const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
@@ -103,9 +100,9 @@ void RayMesh::build(bool use_cached_trees)
 {
 	assert(!tritree.get());
 	if((int)triangles.size() >= RendererSettings::getInstance().bih_tri_threshold)
-		tritree = std::auto_ptr<TREE_TYPE>(new js::BIHTree(this));
+		tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
 	else
-		tritree = std::auto_ptr<TREE_TYPE>(new js::TriTree(this));
+		tritree = std::auto_ptr<js::Tree>(new js::TriTree(this));
 		
 	//------------------------------------------------------------------------
 	//print out our mem usage
@@ -205,18 +202,19 @@ void RayMesh::build(bool use_cached_trees)
 
 const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
 {
-	//const IndexTri& tri = mesh.getTri(tri_index);
-
 	const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
 	const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
 	const Vec2f& v2tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
 	
-	/*const Vec2& v0tex = mesh.getVert( mesh.getTri(tri_index).vertex_indices[0] ).getTexCoords(texcoords_set);
-	const Vec2& v1tex = mesh.getVert( mesh.getTri(tri_index).vertex_indices[1] ).getTexCoords(texcoords_set);
-	const Vec2& v2tex = mesh.getVert( mesh.getTri(tri_index).vertex_indices[2] ).getTexCoords(texcoords_set);*/
+	//return toVec2d(
+	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 
-	return toVec2d(
-		v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
+	// Gratuitous removal of function calls
+	const double w = 1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y;
+	return Vec2d(
+		(double)v0tex.x * w + (double)v1tex.x * hitinfo.tri_coords.x + (double)v2tex.x * hitinfo.tri_coords.y,
+		(double)v0tex.y * w + (double)v1tex.y * hitinfo.tri_coords.x + (double)v2tex.y * hitinfo.tri_coords.y
+		);
 }
 
 
@@ -302,9 +300,12 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 {
 	num_texcoord_sets = myMax(num_texcoord_sets, max_num_texcoord_sets);
 }
+
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets)
 {
-	assert(normal.isUnitLength());
+	//assert(normal.isUnitLength());
+	if(!normal.isUnitLength())
+		throw ModelLoadingStreamHandlerExcep("Normal was not unit length.");
 
 	unsigned int oldsize = (unsigned int)vertex_data.size();
 	vertex_data.resize(oldsize + vertSize());
@@ -323,26 +324,49 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector
 		oldsize += 2;
 	}
 }
+
+
+inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix3d& to_parent)
+{
+	const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
+	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
+	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);
+
+	return ::crossProduct(to_parent * toVec3d(v1 - v0), to_parent * toVec3d(v2 - v0)).length() * 0.5;
+}
+
+inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
+{
+	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
+}
+
+
 void RayMesh::addTriangle(const unsigned int* vertex_indices, unsigned int material_index)
 {
-	const unsigned int tri_index = (unsigned int)triangles.size();
+	// Check material index is in bounds
+	if(material_index >= matname_to_index_map.size())
+		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.");
+
+	// Check vertex indices are in bounds
+	for(unsigned int i=0; i<3; ++i)
+		if(vertex_indices[i] >= num_vertices)
+			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.");
+
+	// Check the area of the triangle
+	const float MIN_TRIANGLE_AREA = 1.0e-20f;
+	if(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2])) < MIN_TRIANGLE_AREA)
+	{
+		conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+		return;
+	}
+
+	// Push the triangle onto tri array.
 
 	triangles.push_back(SimpleIndexTri());
 	for(unsigned int i=0; i<3; ++i)
-	{
-		assert(vertex_indices[i] < num_vertices);
 		triangles.back().vertex_indices[i] = vertex_indices[i];
-	}
 
-	tri_mat_indices.push_back(material_index);
-
-	//------------------------------------------------------------------------
-	//add triangle to kdtree
-	//------------------------------------------------------------------------
-	/*tritree->insertTri(js::Triangle(
-		triVertPos(tri_index, 0),
-		triVertPos(tri_index, 1),
-		triVertPos(tri_index, 2)));*/
+	triangles.back().tri_mat_index = material_index;
 }
 
 
@@ -360,20 +384,13 @@ void RayMesh::addMaterialUsed(const std::string& material_name)
 
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
-	assert(tri_index < tri_mat_indices.size());
-	return this->tri_mat_indices[tri_index];
+	assert(tri_index < triangles.size());
+	return triangles[tri_index].tri_mat_index;
 }
 
 
 
-inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix3d& to_parent)
-{
-	const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
-	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
-	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);
 
-	return ::crossProduct(to_parent * toVec3d(v1 - v0), to_parent * toVec3d(v2 - v0)).length() * 0.5;
-}
 
 void RayMesh::doInitAsEmitter()
 {

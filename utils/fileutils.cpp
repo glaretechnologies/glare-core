@@ -298,7 +298,7 @@ bool createDirForPathname(const std::string& pathname)
 #endif
 */
 
-
+/*
 #if defined(WIN32) || defined(WIN64)
 bool dirExists(const std::string& dirname)
 {
@@ -327,7 +327,7 @@ bool fileExists(const std::string& pathname)
 	return foundit;
 }
 #endif
-
+*/
 
 
 void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out)

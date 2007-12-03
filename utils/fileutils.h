@@ -54,8 +54,8 @@ const std::string getFilename(const std::string& pathname);
 bool createDirForPathname(const std::string& pathname);
 
 
-bool dirExists(const std::string& dirname);
-bool fileExists(const std::string& pathname);//NOTE: untested
+//bool dirExists(const std::string& dirname);
+//bool fileExists(const std::string& pathname);//NOTE: untested
 
 void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out);
 

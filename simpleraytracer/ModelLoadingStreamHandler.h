@@ -14,6 +14,17 @@ Code By Nicholas Chapman.
 //class Colour3;
 
 
+class ModelLoadingStreamHandlerExcep
+{
+public:
+	ModelLoadingStreamHandlerExcep(const std::string& s_) : s(s_) {}
+	~ModelLoadingStreamHandlerExcep(){}
+	const std::string& what() const { return s; }
+private:
+	std::string s;
+};
+
+
 /*=====================================================================
 ModelLoadingStreamHandler
 -------------------------

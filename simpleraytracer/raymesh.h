@@ -20,14 +20,12 @@ Code By Nicholas Chapman.
 #include <map>
 namespace js{ class Triangle; }
 namespace js{ class EdgeTri; }
-class Image;
-class PhotonHit;
-
 
 class SimpleIndexTri
 {
 public:
 	unsigned int vertex_indices[3];
+	unsigned int tri_mat_index;
 };
 
 /*=====================================================================
@@ -88,7 +86,7 @@ public:
 	inline const Vec3f& triNormal(unsigned int triindex) const;
 	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	inline const unsigned int getNumVerts() const { return num_vertices; }
-	inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
+	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
 	
@@ -108,9 +106,7 @@ private:
 
 	std::string name;
 
-	typedef js::Tree TREE_TYPE;
-
-	std::auto_ptr<TREE_TYPE> tritree;
+	std::auto_ptr<js::Tree> tritree;
 
 	bool enable_normal_smoothing;
 
@@ -132,12 +128,12 @@ private:
 	inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
 	inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
+	inline const Vec3f& vertPos(unsigned int vertindex) const;
 
 	unsigned int num_texcoord_sets;
 	unsigned int num_vertices;
 	std::vector<float> vertex_data;
 	std::vector<SimpleIndexTri> triangles;
-	std::vector<unsigned int> tri_mat_indices;
 
 	//------------------------------------------------------------------------
 	//emitter stuff
@@ -147,6 +143,11 @@ private:
 	std::vector<double> cdf;
 };
 
+const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
+{
+	assert(vertindex < num_vertices);
+	return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
+}
 
 const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const
 {

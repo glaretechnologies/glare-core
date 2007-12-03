@@ -44,6 +44,7 @@ public:
 	inline static T& getInstance();
 
 	inline static bool isNull();
+	inline static bool isNonNull();
 
 private:
 	Singleton(const Singleton& other);
@@ -89,6 +90,12 @@ template <class T>
 bool Singleton<T>::isNull()
 {
 	return instance == NULL;
+}
+
+template <class T>
+bool Singleton<T>::isNonNull()
+{
+	return instance != NULL;
 }
 
 
