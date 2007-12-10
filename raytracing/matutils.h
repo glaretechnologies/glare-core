@@ -109,7 +109,7 @@ public:
 	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
 
 	inline static bool raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo);
-	inline static bool MatUtils::raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng);
+	inline static bool raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng);
 
 
 	static void unitTest();

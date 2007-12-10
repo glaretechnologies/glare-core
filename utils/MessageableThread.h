@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "mythread.h"
-#include "ThreadSafeQueue.h"
+#include "threadsafequeue.h"
 #include "ThreadMessage.h"
 class ThreadManager;
 

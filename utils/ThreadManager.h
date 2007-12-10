@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __THREADMANAGER_H_666_
 
 
-#include "ThreadSafeQueue.h"
+#include "threadsafequeue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
 #include "../utils/singleton.h"

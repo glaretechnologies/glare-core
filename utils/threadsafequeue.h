@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __THREADSAFEQUEUE_H_666_
 #define __THREADSAFEQUEUE_H_666_
 
-#pragma warning(disable : 4786)//disable long debug name warning
+// #pragma warning(disable : 4786)//disable long debug name warning
 
 #include "mutex.h"
 #include "lock.h"

@@ -6,19 +6,39 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "udpsocket.h"
 
-#include "networking.h"//just for the assert is inited
+#include "networking.h"
 #include "ipaddress.h"
 #include "packet.h"
 #include <assert.h>
-//#include "../console/consolebool.h"
-//#include "../cyberspace/globals.h"
 #include "../utils/lock.h"
 #include "../utils/inifile.h"
 #include "../utils/stringutils.h"
 
+#if defined(WIN32) || defined(WIN64)
 
-//ConsoleBool showsentpackets("showsentpackets", false);
+#else
+#include <netinet/in.h>
+#include <unistd.h>//for close()
+#include <sys/time.h>//fdset
+#include <sys/types.h>//fdset
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <errno.h>
+#endif
 
+
+#if defined(WIN32) || defined(WIN64)
+static bool isSocketError(int result)
+{
+	return result == SOCKET_ERROR;
+}
+#else
+static bool isSocketError(ssize_t result)
+{
+	return result == -1;
+}
+#endif
 
 
 
@@ -40,23 +60,19 @@ UDPSocket::UDPSocket()//create outgoing socket
 
 	socket_handle = socket(PF_INET, SOCK_DGRAM, DEFAULT_PROTOCOL);
 
-	if(socket_handle == INVALID_SOCKET)
-	{
+	if(!isSockHandleValid(socket_handle))
 		throw UDPSocketExcep("could not create a socket");
-	}
-
-
 
 	//-----------------------------------------------------------------
 	//get the interface of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	int length = sizeof(interface_addr);
+	socklen_t length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
 
-	if(result != SOCKET_ERROR)
+	if(isSockHandleValid(result))//NOTE: this correct? //result != SOCKET_ERROR)
 	{
 		//thisend_port = ntohs(interface_addr.sin_port);
 		//::debugPrint("UDPSocket socket thisend port: " + toString(thisend_port));
@@ -101,7 +117,11 @@ UDPSocket::~UDPSocket()
 		//-----------------------------------------------------------------
 		//close socket
 		//-----------------------------------------------------------------
+#if defined(WIN32) || defined(WIN64)
 		result = closesocket(socket_handle);
+#else
+		result = ::close(socket_handle);
+#endif
 		
 		assert(result == 0);
 		if(result)
@@ -215,7 +235,7 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 							(struct sockaddr*)&dest_address, sizeof(sockaddr));
 	
 
-	if(numbytessent == SOCKET_ERROR)
+	if(isSocketError(numbytessent)) // numbytessent == SOCKET_ERROR)
 	{
 		//const int socket_err_num = WSAGetLastError();
 		throw UDPSocketExcep("error while sending bytes over socket: " + Networking::getInstance().getError());
@@ -235,12 +255,12 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	int length = sizeof(interface_addr);
+	socklen_t length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
 
-	if(result != SOCKET_ERROR)
+	if(!isSocketError(result)) // result != SOCKET_ERROR)
 	{
 		IPAddress ip_used = interface_addr.sin_addr.s_addr; 
 		//NEWCODE removed htonl
@@ -267,7 +287,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	//if(peek)
 	//	flags = MSG_PEEK;
 
-	int from_add_size = sizeof(struct sockaddr_in);
+	socklen_t from_add_size = sizeof(struct sockaddr_in);
 	//-----------------------------------------------------------------
 	//get one packet.
 	//-----------------------------------------------------------------
@@ -275,8 +295,9 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 								(struct sockaddr*)&from_address, &from_add_size);
 
 
-	if(numbytesrcvd == SOCKET_ERROR)
+	if(isSocketError(numbytesrcvd)) // numbytesrcvd == SOCKET_ERROR)
 	{
+#if defined(WIN32) || defined(WIN64)
 		if(WSAGetLastError() == WSAEWOULDBLOCK)
 		{
 			//doesn't matter.
@@ -338,6 +359,12 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 
 			throw UDPSocketExcep("error while reading from socket: error code == " + errorstring);
 		}
+#else
+		if(errno == EAGAIN || errno == EWOULDBLOCK)
+			return 0; // Then socket was marked as non-blocking and there was no data to be read.
+		
+		throw UDPSocketExcep("error while reading from socket.  Error code == " + Networking::getError());
+#endif
 	}
 
 	UDPSocket::num_bytes_rcvd += numbytesrcvd;
@@ -355,12 +382,12 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	int length = sizeof(interface_addr);
+	socklen_t length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
 
-	if(result != SOCKET_ERROR)
+	if(!isSocketError(result)) // result != SOCKET_ERROR)
 	{
 		thisend_ip_out = interface_addr.sin_addr.s_addr; //NEWCODE removed htonl		
 	}
@@ -406,15 +433,30 @@ bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out,
 
 void UDPSocket::setBlocking(bool blocking)
 {
-	unsigned long b;
-	if(blocking)
-		b = 0;
-	else
-		b = 1;
+#if defined(WIN32) || defined(WIN64)
+	//unsigned long b;
+	//if(blocking)
+	//	b = 0;
+	//else
+	//	b = 1;
+	const unsigned long b = blocking ? 0 : 1;
 
 	const int result = ioctlsocket(socket_handle, FIONBIO, &b);
 
-	assert(result != SOCKET_ERROR); 
+	assert(result != SOCKET_ERROR);
+#else
+	const int current_flags = fcntl(socket_handle, F_GETFL);
+	int new_flags;
+	if(blocking)
+		new_flags = current_flags & ~O_NONBLOCK;
+	else
+		new_flags = current_flags | O_NONBLOCK;
+
+	const int result = fcntl(socket_handle, F_SETFL, new_flags);
+	assert(result != -1);
+#endif
+	if(isSocketError(result))
+		throw UDPSocketExcep("setBlocking() failed. Error code: " + Networking::getError());
 }
 
 
@@ -443,6 +485,15 @@ void UDPSocket::resetNumBytesRcvd()
 {
 	return ::getIniFile().getIntForKey("udp_port");
 }*/
+
+bool UDPSocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
+{
+#if defined(WIN32) || defined(WIN64)
+	return handle != INVALID_SOCKET;
+#else
+	return handle >= 0;
+#endif
+}
 
 
 int UDPSocket::num_bytes_sent = 0;

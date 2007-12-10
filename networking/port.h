@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __PORT_H_666_
 
 
-#pragma warning(disable : 4786)//disable long debug name warning
+// #pragma warning(disable : 4786)//disable long debug name warning
 
 
 

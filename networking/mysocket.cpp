@@ -10,8 +10,7 @@ Code Copyright Nicholas Chapman 2005.
 #include "mysocket.h"
 
 
-#include "networking.h"//just for the assert is inited
-
+#include "networking.h"
 #include "../maths/vec3.h"
 #include <vector>
 #include "fractionlistener.h"
@@ -27,6 +26,8 @@ Code Copyright Nicholas Chapman 2005.
 #include <sys/types.h>//fdset
 #include <sys/select.h>
 #endif
+
+#include <iostream> //TEMP
 
 
 /*inline void zeroHandle(SOCKETHANDLE_TYPE& sockhandle)
@@ -312,40 +313,32 @@ void MySocket::bindAndListen(int port) throw (MySocketExcep)
 
 void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
 {
-
 	assert(Networking::isInited());
-	sockaddr_in client_addr;//data struct to get the client IP
-	SOCKLEN_TYPE length = sizeof(client_addr);
 
-	memset(&client_addr, 0, length);
-
-	const float BLOCK_DURATION = 0.5f;
-	
-		/*struct timeval {
-        long    tv_sec;         // seconds 
-        long    tv_usec;        // and microseconds 
-		};*/
-
-	timeval wait_period;
-	wait_period.tv_sec = 0;
-	wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
-
+	// Wait until the accept() will succeed.
 	while(1)
 	{
-		//has to be reset each iteration
+		const double BLOCK_DURATION = 0.5; // in seconds
+		timeval wait_period;
+		wait_period.tv_sec = 0; // seconds 
+		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds 
+
+		// Create the file descriptor set
 		fd_set sockset;
-		initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
-	//	FD_SET(sockethandle, &sockset);
-
-		//FD_SET fd_set;
-		//sockset.fd_count = 1;
-		//sockset.fd_array[0] = sockethandle;
+		initFDSetWithSocket(sockset, sockethandle);
 	
-
 		if(Networking::getInstance().shouldSocketsShutDown())
 			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
-		const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
+		const int num_ready = select(
+			sockethandle + SOCKETHANDLE_TYPE(1), // nfds: range of file descriptors to test
+			&sockset, // read fds
+			NULL, // write fds
+			NULL, // error fds
+			&wait_period // timeout
+			);
+
+		//std::cout << "MySocket::acceptConnection(): num_ready: " << num_ready << std::endl;
 
 		if(Networking::getInstance().shouldSocketsShutDown())
 			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
@@ -354,7 +347,13 @@ void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
 			break;
 	}
 
-	//now this should accept() immediately .... :)
+	// Now this should accept() immediately .... :)
+
+	sockaddr_in client_addr;//data struct to get the client IP
+	SOCKLEN_TYPE length = sizeof(client_addr);
+
+	memset(&client_addr, 0, length);
+
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
 	if(!isSockHandleValid(newsockethandle))
@@ -493,13 +492,14 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac)
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or can write to socket
 		//------------------------------------------------------------------------
-		const float BLOCK_DURATION = 0.5f;
-		timeval wait_period;
-		wait_period.tv_sec = 0;
-		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
 
 		while(1)
 		{
+			const float BLOCK_DURATION = 0.5f;
+			timeval wait_period;
+			wait_period.tv_sec = 0;
+			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
+
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
@@ -574,13 +574,14 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or have incoming data
 		//------------------------------------------------------------------------
-		const float BLOCK_DURATION = 0.5f;
-		timeval wait_period;
-		wait_period.tv_sec = 0;
-		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
 
 		while(1)
 		{
+			const float BLOCK_DURATION = 0.5f;
+			timeval wait_period;
+			wait_period.tv_sec = 0;
+			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
+
 			//FD_SET fd_set;
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
@@ -928,11 +929,13 @@ void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandl
 	
 	//FD_SET doesn´t seem to work when targeting x64 in gcc.
 #ifdef COMPILER_GCC
-	sockset.fds_bits[0] = sockhandle;
+	//sockset.fds_bits[0] = sockhandle;
+	FD_SET(sockhandle, &sockset);
 #else
 	FD_SET(sockhandle, &sockset);
 #endif
 }
+
 
 int MySocket::num_bytes_sent = 0;
 int MySocket::num_bytes_rcvd = 0;

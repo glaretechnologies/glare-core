@@ -7,16 +7,21 @@ Code By Nicholas Chapman.
 #ifndef __UDPSOCKET_H_666_
 #define __UDPSOCKET_H_666_
 
-#pragma warning(disable : 4786)//disable long debug name warning
+// #pragma warning(disable : 4786)//disable long debug name warning
 
-//class UDPPacketHandler;
+#if defined(WIN32) || defined(WIN64)
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
 #include <winsock.h>
-//#include "winsock2.h"
-class IPAddress;
-class Packet;
+#else
+
+#endif
+
+#include "port.h"
 #include "../utils/mutex.h"
 #include <string>
-#include "port.h"
+class IPAddress;
+class Packet;
 
 class UDPSocketExcep
 {
@@ -97,9 +102,18 @@ private:
 		//UDPPacketHandler* handler;
 	//SOCKET insocket_handle;
 	//SOCKET outsocket_handle;
-	SOCKET socket_handle;
+
+#if defined(WIN32) || defined(WIN64)
+	typedef SOCKET SOCKETHANDLE_TYPE;
+	SOCKETHANDLE_TYPE sockethandle;
+#else
+	typedef int SOCKETHANDLE_TYPE;
+	SOCKETHANDLE_TYPE sockethandle;
+#endif
+	SOCKETHANDLE_TYPE socket_handle;
 
 
+	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 
 	Port thisend_port;
 

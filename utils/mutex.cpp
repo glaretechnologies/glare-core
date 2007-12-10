@@ -9,9 +9,6 @@ Code By Nicholas Chapman.
 
 #include <assert.h>
 
-/*#ifdef CYBERSPACE
-#include "../cyberspace/globals.h"
-#endif*/
 
 Mutex::Mutex()
 {
@@ -20,12 +17,13 @@ Mutex::Mutex()
 #if defined(WIN32) || defined(WIN64)
 	InitializeCriticalSection(&mutex);
 #else
-	const pthread_mutexattr_t mutex_attributes;
+	pthread_mutexattr_t mutex_attributes;
 	int result = pthread_mutexattr_init(&mutex_attributes);
 	assert(result == 0);
-	pthread_mutexattr_init.type = PTHREAD_MUTEX_RECURSIVE;
+	result = pthread_mutexattr_settype(&mutex_attributes, PTHREAD_MUTEX_RECURSIVE);
+	assert(result == 0);
 
-	result = pthread_mutex_init(&mutex, NULL);
+	result = pthread_mutex_init(&mutex, &mutex_attributes);
 	assert(result == 0);
 #endif
 //	created = true;

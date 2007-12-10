@@ -181,7 +181,7 @@ const std::string join(const T& iterable, const std::string joinstring)
 {
 	std::string s;
 	bool first_elem = true;
-	for(T::const_iterator i = iterable.begin(); i != iterable.end(); ++i)
+	for(typename T::const_iterator i = iterable.begin(); i != iterable.end(); ++i)
 	{
 		s = s + (first_elem ? std::string("") : joinstring) + (*i);
 		first_elem = false;
