@@ -44,6 +44,7 @@ void TreeTest::testBuildCorrect()
 
 	{
 	RayMesh raymesh("raymesh", false);
+	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
 
@@ -101,6 +102,7 @@ void TreeTest::testBuildCorrect()
 
 	{
 	RayMesh raymesh("raymesh", false);
+	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
 
@@ -307,6 +309,7 @@ void TreeTest::doTests()
 	//------------------------------------------------------------------------
 	{
 	RayMesh raymesh("raymesh", false);
+	raymesh.addMaterialUsed("dummy");
 	
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
@@ -329,6 +332,7 @@ void TreeTest::doTests()
 	//------------------------------------------------------------------------
 	{
 	RayMesh raymesh("raymesh", false);
+	raymesh.addMaterialUsed("dummy");
 	
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;

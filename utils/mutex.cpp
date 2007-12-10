@@ -20,10 +20,13 @@ Mutex::Mutex()
 #if defined(WIN32) || defined(WIN64)
 	InitializeCriticalSection(&mutex);
 #else
-	//int pthread_mutex_init (mutex, attr)
-	//pthread_mutex_t *mutex;
-	//pthread_mutexattr_t *attr;
-	pthread_mutex_init(&mutex, NULL);
+	const pthread_mutexattr_t mutex_attributes;
+	int result = pthread_mutexattr_init(&mutex_attributes);
+	assert(result == 0);
+	pthread_mutexattr_init.type = PTHREAD_MUTEX_RECURSIVE;
+
+	result = pthread_mutex_init(&mutex, NULL);
+	assert(result == 0);
 #endif
 //	created = true;
 }
