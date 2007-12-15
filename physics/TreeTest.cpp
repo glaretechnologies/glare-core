@@ -74,7 +74,10 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, 0);
 	}
 
-	raymesh.build(false);
+	raymesh.build(
+		".",
+		false // use cached trees
+		);
 
 	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
 	testAssert(kdtree != NULL);
@@ -142,7 +145,10 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, 0);
 	}
 
-	raymesh.build(false);
+	raymesh.build(
+		".",
+		false // use cached trees
+		);
 
 	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
 	testAssert(kdtree != NULL);
@@ -383,7 +389,10 @@ void TreeTest::doSpeedTest()
 		::fatalError(e.what());
 	}
 
-	raymesh.build(false);
+	raymesh.build(
+		".", // base indigo dir path
+		false // use cached trees
+		);
 
 	const Vec3d aabb_center(-0.016840, 0.110154, -0.001537);
 
@@ -455,7 +464,10 @@ void TreeTest::buildSpeedTest()
 	}
 
 	Timer timer;
-	raymesh.build(false);
+	raymesh.build(
+		".", // base indigo dir path
+		false // use cached trees
+		);
 
 	printVar(timer.getSecondsElapsed());
 

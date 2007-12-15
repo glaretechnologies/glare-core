@@ -45,7 +45,7 @@ public:
 
 	virtual ~RayMesh();
 
-	void build(bool use_cached_trees = true);
+	void build(const std::string& indigo_base_dir_path, bool use_cached_trees);
 
 	////////////////////// Geometry interface ///////////////////
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;

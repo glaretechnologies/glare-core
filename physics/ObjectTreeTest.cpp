@@ -358,7 +358,10 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//insert random instances
 	//------------------------------------------------------------------------
-	raymesh->build();
+	raymesh->build(
+		".", // base indigo dir path
+		true
+		);
 
 	ObjectTree ob_tree;
 

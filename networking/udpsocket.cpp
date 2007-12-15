@@ -40,6 +40,12 @@ static bool isSocketError(ssize_t result)
 }
 #endif
 
+#if defined(WIN32) || defined(WIN64)
+typedef int SOCKLEN_TYPE;
+#else
+typedef socklen_t SOCKLEN_TYPE;
+#endif
+
 
 
 UDPSocket::UDPSocket()//create outgoing socket
@@ -67,7 +73,7 @@ UDPSocket::UDPSocket()//create outgoing socket
 	//get the interface of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	socklen_t length = sizeof(interface_addr);
+	SOCKLEN_TYPE length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
@@ -255,7 +261,7 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	socklen_t length = sizeof(interface_addr);
+	SOCKLEN_TYPE length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
@@ -287,7 +293,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	//if(peek)
 	//	flags = MSG_PEEK;
 
-	socklen_t from_add_size = sizeof(struct sockaddr_in);
+	SOCKLEN_TYPE from_add_size = sizeof(struct sockaddr_in);
 	//-----------------------------------------------------------------
 	//get one packet.
 	//-----------------------------------------------------------------
@@ -382,7 +388,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
 	struct sockaddr_in interface_addr;
-	socklen_t length = sizeof(interface_addr);
+	SOCKLEN_TYPE length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
 	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
@@ -434,12 +440,8 @@ bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out,
 void UDPSocket::setBlocking(bool blocking)
 {
 #if defined(WIN32) || defined(WIN64)
-	//unsigned long b;
-	//if(blocking)
-	//	b = 0;
-	//else
-	//	b = 1;
-	const unsigned long b = blocking ? 0 : 1;
+
+	unsigned long b = blocking ? 0 : 1;
 
 	const int result = ioctlsocket(socket_handle, FIONBIO, &b);
 

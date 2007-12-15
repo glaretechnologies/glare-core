@@ -16,6 +16,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "geometry.h"
 #include "../graphics/image.h" //TEMP for diffraction
 #include "../indigo/Spectral.h"
+#include <string>
 class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;
@@ -55,7 +56,8 @@ public:
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
-		Aperture* aperture
+		Aperture* aperture,
+		const std::string& base_indigo_path
 		);
 
 	virtual ~Camera();

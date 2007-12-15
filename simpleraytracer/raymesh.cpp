@@ -15,6 +15,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/RendererSettings.h"
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
+#include "../utils/fileutils.h"
 #include <fstream>
 #include <algorithm>
 
@@ -96,7 +97,7 @@ const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 	tritree->insertTri(tri);
 }*/
 
-void RayMesh::build(bool use_cached_trees)
+void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_trees)
 {
 	assert(!tritree.get());
 	if((int)triangles.size() >= RendererSettings::getInstance().bih_tri_threshold)
@@ -121,7 +122,10 @@ void RayMesh::build(bool use_cached_trees)
 			//Load from disk
 			//------------------------------------------------------------------------
 			const unsigned int tree_checksum = tritree->checksum();
-			const std::string path = "tree_cache/" + toString(tree_checksum) + ".tre";
+			const std::string path = FileUtils::join(
+				indigo_base_dir_path, 
+				FileUtils::join("tree_cache", toString(tree_checksum) + ".tre")
+				);
 
 			std::ifstream file(path.c_str(), std::ifstream::binary);
 
@@ -153,7 +157,10 @@ void RayMesh::build(bool use_cached_trees)
 				//------------------------------------------------------------------------
 				//Save to disk
 				//------------------------------------------------------------------------
-				const std::string path = "tree_cache/" + toString(tritree->checksum()) + ".tre";
+				const std::string path = FileUtils::join(
+					indigo_base_dir_path, 
+					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
+					);
 
 				conPrint("\tSaving tree to '" + path + "'...");
 

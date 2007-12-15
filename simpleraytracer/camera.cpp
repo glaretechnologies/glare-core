@@ -23,7 +23,7 @@ Code By Nicholas Chapman.
 #include "../indigo/Distribution2.h"
 #include "../indigo/Aperture.h"
 #include "../indigo/CircularAperture.h"
-
+#include "../utils/fileutils.h"
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
 		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
@@ -31,7 +31,9 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		bool polarising_filter_, double polarising_angle_,
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_,
-		Aperture* aperture_)
+		Aperture* aperture_,
+		const std::string& base_indigo_path
+		)
 :	pos(pos_),
 	ws_up(ws_updir),
 	forwards(forwards_),
@@ -126,7 +128,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		{
 			diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
 				lens_radius, 
-				*aperture
+				*aperture,
+				base_indigo_path
 				));
 		}
 		catch(DiffractionFilterExcep& e)
@@ -167,7 +170,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	std::map<std::string, std::string> metadata;
 	try
 	{
-		aperture_preview_image.saveToPng("aperture_preview.png", metadata);
+		aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata);
 	}
 	catch(ImageExcep& e)
 	{
@@ -677,7 +680,8 @@ void Camera::unitTest()
 		5, //glare
 		1.f / 200.f, //shutter_open_duration
 		//800.f //film speed
-		new CircularAperture(Array2d<float>())
+		new CircularAperture(Array2d<float>()),
+		"." // base indigo path
 		);
 
 

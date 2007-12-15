@@ -65,7 +65,7 @@ public:
 
 	inline const char* getData() const { return &(*data.begin()); }
 	inline char* getData(){ return &(*data.begin()); }
-	inline int getPacketSize() const { return data.size(); }
+	inline int getPacketSize() const { return (int)data.size(); }
 
 	void writeToStreamSized(MyStream& stream);//write to stream with an int indicating the size first.
 	void readFromStreamSize(MyStream& stream);

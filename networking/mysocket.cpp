@@ -9,25 +9,21 @@ Code Copyright Nicholas Chapman 2005.
 =====================================================================*/
 #include "mysocket.h"
 
-
 #include "networking.h"
 #include "../maths/vec3.h"
 #include <vector>
 #include "fractionlistener.h"
 #include "../utils/stringutils.h"
-//#include "../cyberspace/globals.h"
-//#include <winsock.h>
 #if defined(WIN32) || defined(WIN64)
-
 #else
 #include <netinet/in.h>
-#include <unistd.h>//for close()
-#include <sys/time.h>//fdset
-#include <sys/types.h>//fdset
+#include <unistd.h> // for close()
+#include <sys/time.h> // fdset
+#include <sys/types.h> // fdset
 #include <sys/select.h>
 #endif
 
-#include <iostream> //TEMP
+//#include <iostream> //TEMP
 
 
 /*inline void zeroHandle(SOCKETHANDLE_TYPE& sockhandle)
