@@ -562,7 +562,7 @@ const std::string getCurrentDir()
 
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
-	std::string filecontents;
+	/*std::string filecontents;
 
 	std::ifstream infile(srcpath.c_str(), std::ios::in | std::ios::binary);
 
@@ -574,9 +574,40 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 	std::ofstream dstfile(dstpath.c_str(), std::ios::out | std::ios::binary);
 
 
-	dstfile.write(filecontents.c_str(), filecontents.length());
+	dstfile.write(filecontents.c_str(), filecontents.length());*/
 
+#if defined(WIN32) || defined(WIN64)
+	if(!CopyFile(
+		srcpath.c_str(), 
+		dstpath.c_str(), 
+		FALSE // fail if exists
+		))
+	{
+		throw FileUtilsExcep("Failed to copy file '" + srcpath + "' to '" + dstpath + "'.");
+	}
+	
+#else
+	assert(0);
+	throw FileUtilsExcep("copyFile() not implemented.");
+#endif
 }
+
+void deleteFile(const std::string& path)
+{
+#if defined(WIN32) || defined(WIN64)
+	if(!DeleteFile(
+		path.c_str()
+		))
+	{
+		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
+	}
+	
+#else
+	assert(0);
+	throw FileUtilsExcep("deleteFile() not implemented.");
+#endif
+}
+
 
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {

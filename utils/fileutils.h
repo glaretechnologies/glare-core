@@ -81,6 +81,9 @@ void copyFile(const std::string& srcpath, const std::string& dstpath);
 //throws FileUtilsExcep on failure
 void moveFile(const std::string& srcpath, const std::string& dstpath);
 
+void deleteFile(const std::string& path);
+
+
 //fle must be closed 'cause this function opens it
 //const std::string getAscTimeFileLastModified(const std::string& filename);
 
