@@ -40,7 +40,7 @@ public:
 	inline IPAddress(unsigned int address);//'address' must be in network byte order
 	//inline IPAddress(char* abcd);
 	//IPAddress(unsigned char a, unsigned char b, unsigned char c, unsigned char d);
-	IPAddress(const std::string& address) throw (MalformedIPStringExcep);//in form "255.255.255.255"
+	IPAddress(const std::string& address);// throw (MalformedIPStringExcep);//in form "255.255.255.255"
 
 	inline IPAddress(const IPAddress& other);
 

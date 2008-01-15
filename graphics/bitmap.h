@@ -19,12 +19,14 @@ Bitmap
 class Bitmap
 {
 public:
+	
+	Bitmap();
+
 	/*=====================================================================
 	Bitmap
 	------
 	srcdata may be NULL.
 	=====================================================================*/
-	Bitmap();
 	Bitmap(unsigned int width, unsigned int height, unsigned int bytespp, const unsigned char* srcdata);
 
 	~Bitmap();

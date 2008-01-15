@@ -36,6 +36,8 @@ public:
 
 	void setFromBitmap(const Bitmap& bmp); // will throw ImageExcep if bytespp != 3
 
+	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
+
 	inline int getHeight() const { return height; }
 	inline int getWidth() const { return width; }
 	inline unsigned int numPixels() const { return (unsigned int)(width * height); }
@@ -72,7 +74,7 @@ public:
 	void saveToExr(const std::string& pathname) const;
 	void loadFromExr(const std::string& pathname);
 
-	void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata) const;
+	//void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const;
 
 	void loadFromHDR(const std::string& pathname, int width, int height);
 
@@ -95,7 +97,8 @@ public:
 
 	void normalise();//make the average pixel luminance == 1
 
-	void collapseSize(int factor);
+	void collapseSizeBoxFilter(int factor, int border_width); // trims off border before collapsing
+	void collapseSizeMitchellNetravali(int factor, int border_width); // trims off border before collapsing
 
 	unsigned int getByteSize() const;
 

@@ -348,6 +348,66 @@ inline double eval2DGaussian(double dist2, double standard_dev)
 	return NICKMATHS_RECIP_2PI * recip_standard_dev_2 * exp(-0.5 * dist2 * recip_standard_dev_2);
 }
 
+
+
+inline double mitchellNetravali(double B, double C, double x)
+{
+	assert(x >= 0.0);
+
+	if(x >= 2.0)
+		return 0.0;
+	else if(x >= 1.0)
+	{
+		return (1.0 / 6.0) * ((-B - 6.0*C)*x*x*x + (6.0*B + 30*C)*x*x + (-12.0*B - 48.0*C)*x + (8.0*B + 24.0*C));
+	}
+	else
+	{
+		return (1.0 / 6.0) * ((12.0 - 9.0*B - 6.0*C)*x*x*x + (-18.0 + 12.0*B + 6.0*C)*x*x + (6.0 - 2.0*B));
+	}
+}
+
+// Returns B = C = 1/3 case
+inline double mitchellNetravali(double x)
+{
+	assert(x >= 0.0);
+
+	if(x >= 2.0)
+		return 0.0;
+	else if(x >= 1.0)
+	{
+		// 1.0 <= t < 2.0
+
+		assert(epsEqual((-7.0 / 18.0)*x*x*x + 2.0*x*x - (20.0 / 6.0)*x + (32.0 / 18.0), mitchellNetravali(1.0/3.0, 1.0/3.0, x)));
+		
+		return (-7.0 / 18.0)*x*x*x + 2.0*x*x - (20.0 / 6.0)*x + (32.0 / 18.0);
+	}
+	else
+	{
+		// t < 1.0
+		assert(epsEqual((7.0 / 6.0)*x*x*x - 2.0*x*x + (16.0 / 18.0), mitchellNetravali(1.0/3.0, 1.0/3.0, x)));
+
+		return (7.0 / 6.0)*x*x*x - 2.0*x*x + (16.0 / 18.0);
+	}
+}
+
+inline double oldMitchellNetravali(double t)
+{
+	assert(t >= 0.0);
+
+	if(t >= 2.0)
+		return 0.0;
+	else if(t >= 1.0)
+	{
+		const double two_t = 2.0 - t;
+		return (1.0 / 18.0) * (5.0 * two_t*two_t*two_t - 3.0 * two_t*two_t);
+	}
+	else
+	{
+		const double one_t = 1.0 - t;
+		return (1.0 / 18.0) * (-15.0 * one_t*one_t*one_t + 18.0 * one_t*one_t + 9.0 * one_t + 2.0);
+	}
+}
+
 //inclusive
 template <class T>
 inline bool inRange(T x, T min, T max)

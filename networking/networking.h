@@ -68,10 +68,10 @@ public:
 	//bool areEndPointsThisHosts(const IPAddress& ip
 
 	//throws NetworkingExcep
-	const std::vector<IPAddress> doDNSLookup(const std::string& hostname) throw (NetworkingExcep);
+	const std::vector<IPAddress> doDNSLookup(const std::string& hostname);// throw (NetworkingExcep);
 	
 	//throws NetworkingExcep
-	const std::string doReverseDNSLookup(const IPAddress& ipaddr) throw (NetworkingExcep);
+	const std::string doReverseDNSLookup(const IPAddress& ipaddr);// throw (NetworkingExcep);
 
 
 	//-----------------------------------------------------------------

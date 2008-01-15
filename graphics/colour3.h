@@ -214,7 +214,7 @@ public:
 	{
 		//return 0.3f*r + 0.587f*g + 0.114f*b;//approx
 		// Note that the coefficients should add up to one.
-		return 0.2126f*r + 0.7152*g + 0.0722*b;
+		return (Real)0.2126*r + (Real)0.7152*g + (Real)0.0722*b;
 	}
 	
 	inline Real averageVal() const

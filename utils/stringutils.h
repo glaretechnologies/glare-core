@@ -73,6 +73,8 @@ inline const std::string toString(uint64 x)
 	return toString((uint32)x);
 }
 
+const std::string boolToString(bool b);
+
 //get line, where the first line is line number 1!
 const std::string getLineFromText(int linenum, const char* textbuffer, int textbufferlength);
 

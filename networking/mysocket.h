@@ -65,10 +65,10 @@ public:
 
 	~MySocket();
 
-	void bindAndListen(int port) throw (MySocketExcep);
+	void bindAndListen(int port);// throw (MySocketExcep);
 
 
-	void acceptConnection(MySocket& new_socket) throw (MySocketExcep);
+	void acceptConnection(MySocket& new_socket);// throw (MySocketExcep);
 
 	void close();
 

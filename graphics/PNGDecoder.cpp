@@ -245,9 +245,135 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 }
 
 
+static void error_func(png_structp png, const char* msg)
+{
+	throw ImFormatExcep("LibPNG error: " + std::string(msg));
+
+}
+
+static void warning_func(png_structp png, const char* msg)
+{
+	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
+}
 
 
+void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& pathname)
+{
+	int colour_type;
+	if(bitmap.getBytesPP() == 3)
+		colour_type = PNG_COLOR_TYPE_RGB;
+	else if(bitmap.getBytesPP() == 4)
+		colour_type = PNG_COLOR_TYPE_RGB_ALPHA;
+	else
+		throw ImFormatExcep("Invalid bytes pp");
+		
 
+	// Open the file
+	FILE* fp = fopen(pathname.c_str(), "wb");
+	if(fp == NULL)
+		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
+	
+	//Create and initialize the png_struct with the desired error handler functions.
+	png_struct* png = png_create_write_struct(
+		PNG_LIBPNG_VER_STRING,
+		NULL, //const_cast<Image*>(this), // error user pointer
+		error_func, // error func
+		warning_func // warning func
+		);
+
+	if(!png)
+		throw ImFormatExcep("Failed to create PNG object.");
+
+	png_info* info = png_create_info_struct(png);
+
+	if(!info)
+	{
+		png_destroy_write_struct(&png, (png_infop*)NULL);//free png struct
+
+		throw ImFormatExcep("Failed to create PNG info object.");
+	}
+	
+	// set up the output control if you are using standard C stream
+	png_init_io(png, fp);
+
+	//------------------------------------------------------------------------
+	// Set some image info
+	//------------------------------------------------------------------------
+	png_set_IHDR(png, info, bitmap.getWidth(), bitmap.getHeight(),
+       8, // bit depth of each channel
+	   colour_type, // colour type
+	   PNG_INTERLACE_NONE, // interlace type
+	   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
+	   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
+	   );
+
+	//------------------------------------------------------------------------
+	// Write metadata pairs if present
+	//------------------------------------------------------------------------
+	if(metadata.size() > 0)
+	{
+		png_text* txt = new png_text[metadata.size()];
+		memset(txt, 0, sizeof(png_text)*metadata.size());
+		int c = 0;
+		for(std::map<std::string, std::string>::const_iterator i = metadata.begin(); i != metadata.end(); ++i)
+		{
+			txt[c].compression = PNG_TEXT_COMPRESSION_NONE;
+			txt[c].key = (png_charp)(*i).first.c_str();
+			txt[c].text = (png_charp)(*i).second.c_str();
+			txt[c].text_length = (*i).second.length();
+			c++;
+		}
+		png_set_text(png, info, txt, (int)metadata.size());
+		delete[] txt;
+	}
+
+	//png_set_gAMA(png_ptr, info_ptr, 2.3);
+
+	// Write info
+	png_write_info(png, info);
+
+
+	//------------------------------------------------------------------------
+	//write image rows
+	//------------------------------------------------------------------------
+	//std::vector<unsigned char> rowdata(bitmap.getWidth() * bitmap.getBytesPP());
+
+	for(unsigned int y=0; y<bitmap.getHeight(); ++y)
+	{
+		//------------------------------------------------------------------------
+		// copy floating point data to 8bpp format
+		//------------------------------------------------------------------------
+		//for(int x=0; x<bitmap.getWidth(); ++x)
+		//	for(int i=0; i<bitmap.getBytesPP(); ++i)
+		//		rowdata[x * bitmap.getBytesPP() + i] = (unsigned char)(bitmap.getPixel(x, y)[i] * 255.0f);
+
+		//------------------------------------------------------------------------
+		// write it
+		//------------------------------------------------------------------------
+		//png_bytep row_pointer = (png_bytep)bitmap.getPixel(0, y);  //(png_bytep)&(*rowdata.begin());
+
+		png_write_row(
+			png, 
+			(png_bytep)bitmap.getPixel(0, y) // Pointer to row data
+			);
+	}
+
+	//------------------------------------------------------------------------
+	//finish writing file
+	//------------------------------------------------------------------------
+	png_write_end(png, info);
+
+	//------------------------------------------------------------------------
+	//free structs
+	//------------------------------------------------------------------------
+	png_destroy_write_struct(&png, &info);
+
+	//------------------------------------------------------------------------
+	//close the file
+	//------------------------------------------------------------------------
+	fclose(fp);
+
+}
 
 
 

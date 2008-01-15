@@ -170,7 +170,10 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	std::map<std::string, std::string> metadata;
 	try
 	{
-		aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata);
+		//aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata, 0);
+		Bitmap ldr_image(aperture_preview_image.getWidth(), aperture_preview_image.getHeight(), 3, NULL);
+		aperture_preview_image.copyRegionToBitmap(ldr_image, 0, 0, aperture_preview_image.getWidth(), aperture_preview_image.getHeight());
+		PNGDecoder::write(ldr_image, metadata, FileUtils::join(base_indigo_path, "aperture_preview.png"));
 	}
 	catch(ImageExcep& e)
 	{

@@ -79,8 +79,8 @@ void Image::setFromBitmap(const Bitmap& bmp)
 	resize(bmp.getWidth(), bmp.getHeight());
 
 	const float factor = 1.0f / 255.0f;
-	for(int y=0; y<bmp.getHeight(); ++y)
-		for(int x=0; x<bmp.getWidth(); ++x)
+	for(unsigned int y=0; y<bmp.getHeight(); ++y)
+		for(unsigned int x=0; x<bmp.getWidth(); ++x)
 		{
 			setPixel(x, y, 
 				Colour3f(
@@ -92,6 +92,29 @@ void Image::setFromBitmap(const Bitmap& bmp)
 		}
 }
 
+// Will throw ImageExcep if bytespp != 3 && bytespp != 4
+void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const 
+{
+	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
+		throw ImageExcep("BytesPP != 3");
+
+	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > getWidth() || y2 > getHeight())
+		throw ImageExcep("Region coordinates are invalid");
+
+	const int out_width = x2 - x1;
+	const int out_height = y2 - y1;
+
+	bmp_out.resize(out_width, out_height);
+
+	for(unsigned int y=y1; y<y2; ++y)
+		for(unsigned int x=x1; x<x2; ++x)
+		{
+			unsigned char* pixel = bmp_out.getPixel(x - x1, y - y1);
+			pixel[0] = (unsigned char)(getPixel(x, y).r * 255.0f);
+			pixel[1] = (unsigned char)(getPixel(x, y).g * 255.0f);
+			pixel[2] = (unsigned char)(getPixel(x, y).b * 255.0f);
+		}
+}
 
 
 
@@ -718,6 +741,7 @@ void Image::loadFromExr(const std::string& pathname)
 
 
 //typedef void (PNGAPI *png_error_ptr) PNGARG((png_structp, png_const_charp));
+/*
 void error_func(png_structp png, const char* msg)
 {
 	throw ImageExcep("LibPNG error: " + std::string(msg));
@@ -729,8 +753,11 @@ void warning_func(png_structp png, const char* msg)
 	throw ImageExcep("LibPNG warning: " + std::string(msg));
 }
 
-void Image::saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata) const
+void Image::saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const
 {
+	assert(border_width >= 0);
+	assert(getWidth() >= border_width * 2);
+	assert(getHeight() >= border_width * 2);
 
 	// open the file
 	FILE* fp = fopen(pathname.c_str(), "wb");
@@ -762,7 +789,7 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 	//------------------------------------------------------------------------
 	//set some image info
 	//------------------------------------------------------------------------
-	png_set_IHDR(png, info, getWidth(), getHeight(),
+	png_set_IHDR(png, info, getWidth() - border_width*2, getHeight() - border_width*2,
        8, //bit depth of each channel
 	   PNG_COLOR_TYPE_RGB, //colour type
 	   PNG_INTERLACE_NONE, //interlace type
@@ -800,14 +827,14 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 	//------------------------------------------------------------------------
 	std::vector<unsigned char> rowdata(getWidth() * 3);
 
-	for(int y=0; y<getHeight(); ++y)
+	for(int y=border_width; y<getHeight() - border_width; ++y)
 	{
 		//------------------------------------------------------------------------
 		//copy floating point data to 8bpp format
 		//------------------------------------------------------------------------
-		for(int x=0; x<getWidth(); ++x)
+		for(int x=border_width; x<getWidth() - border_width; ++x)
 			for(int i=0; i<3; ++i)
-				rowdata[x*3 + i] = (unsigned char)(getPixel(x, y)[i] * 255.0f);
+				rowdata[(x - border_width)*3 + i] = (unsigned char)(getPixel(x, y)[i] * 255.0f);
 
 		//------------------------------------------------------------------------
 		//write it
@@ -831,7 +858,7 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 	//close the file
 	//------------------------------------------------------------------------
 	fclose(fp);
-}
+}*/
 
 #endif
 
@@ -969,20 +996,122 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 
 
 
-void Image::collapseSize(int factor)
+// trims off border before collapsing
+void Image::collapseSizeBoxFilter(int factor, int border_width)
 {
-	Image out(width/factor, height/factor);
+	assert(border_width >= 0);
+	assert(width > border_width * 2);
+	assert(width > border_width * 2);
+	assert((width - (border_width * 2)) % factor == 0);
+
+	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+
+	const float scale_factor = 1.0f / (float)(factor * factor);
 
 	for(int y=0; y<out.getHeight(); ++y)
 		for(int x=0; x<out.getWidth(); ++x)
 		{
-			out.getPixel(x, y).set(0.f, 0.f, 0.f);
+			Colour3f c(0.f, 0.f, 0.f);
+
 			for(int s=0; s<factor; ++s)
 				for(int t=0; t<factor; ++t)
-					out.getPixel(x, y) += getPixel(x*factor+s, y*factor+t);
-			out.getPixel(x, y) /= (float)(factor * factor);
-			//out.setPixel(x, y, (getPixel(x*factor, y*factor) + getPixel(x*factor+1, y*factor) + getPixel(x*factor, y*factor+1) + getPixel(x*factor+1, y*2+1)) * 0.25f);
+					c += getPixel(x*factor + s + border_width, y*factor + t + border_width);
+
+			out.getPixel(x, y) = c * scale_factor;
 		}
+
+	*this = out;
+}
+
+
+
+// trims off border before collapsing
+void Image::collapseSizeMitchellNetravali(int factor, int border_width)
+{
+	assert(border_width >= 0);
+	assert(width > border_width * 2);
+	assert(width > border_width * 2);
+	assert((width - (border_width * 2)) % factor == 0);
+
+	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+
+	const float scale_factor = 1.0f / (float)(factor * factor);
+
+	// Construct filter
+	//const int rad = 4;
+	const int filter_width = 5 * factor;//rad * factor + 1;
+	Array2d<float> filter(filter_width, filter_width);
+
+	// Filter center coordinates in big pixels
+	const double center_pos_x = 2.5; 
+	const double center_pos_y = 2.5;
+
+	for(int y=0; y<filter_width; ++y)
+	{
+		const double pos_y = ((double)y + 0.5) / (double)factor; // y coordinate in big pixels
+		const double abs_dy = fabs(pos_y - center_pos_y);
+
+		for(int x=0; x<filter_width; ++x)
+		{
+			const double pos_x = ((double)x + 0.5) / (double)factor; // y coordinate in big pixels
+			const double abs_dx = fabs(pos_x - center_pos_x);
+
+			filter.elem(x, y) = Maths::mitchellNetravali(abs_dx) * Maths::mitchellNetravali(abs_dy) * scale_factor;
+		}
+	}
+
+
+
+	const int rad = factor * 2;
+
+	// For each pixel of result image
+	for(int y=0; y<out.getHeight(); ++y)
+	{
+		const int src_y_center = y * factor;
+		const int src_y_min = myMax(0, src_y_center - (2 * factor));
+		const int src_y_max = myMin(this->getHeight(), src_y_center + (3 * factor));
+
+		//if(y % 50 == 0)
+		//	printVar(y);
+
+		for(int x=0; x<out.getWidth(); ++x)
+		{
+			const int src_x_center = x * factor; 
+			const int src_x_min = myMax(0, src_x_center - (2 * factor));
+			const int src_x_max = myMin(this->getWidth(), src_x_center + (3 * factor));
+
+			Colour3f c(0.0f);
+
+			// For each pixel in filter support of source image
+			for(int sy=src_y_min; sy<src_y_max; ++sy)
+			{
+				const int filter_y = (sy - src_y_center) + rad;
+				assert(filter_y >= 0 && filter_y < filter_width);		
+
+				for(int sx=src_x_min; sx<src_x_max; ++sx)
+				{
+					const int filter_x = (sx - src_x_center) + rad;
+					assert(filter_x >= 0 && filter_x < filter_width);	
+
+					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
+					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
+
+					c.addMult(this->getPixel(sx, sy), filter.elem(filter_x, filter_y));
+				}
+			}
+
+
+			//assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
+			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
+
+			// Make sure components can't go below zero
+			c.lowerClamp(0.0f);
+
+			out.setPixel(x, y, c);
+		}
+	}
+
+
 
 	*this = out;
 }

@@ -263,6 +263,11 @@ const std::string toString(unsigned int x)
 	return std::string(buffer);
 }
 
+const std::string boolToString(bool b)
+{
+	return b ? "true" : "false";
+}
+
 
 const std::string getLineFromText(int linenum, const char* textbuffer, int textbufferlength)
 {
