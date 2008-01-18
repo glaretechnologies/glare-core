@@ -106,8 +106,8 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 
 	bmp_out.resize(out_width, out_height);
 
-	for(unsigned int y=y1; y<y2; ++y)
-		for(unsigned int x=x1; x<x2; ++x)
+	for(int y=y1; y<y2; ++y)
+		for(int x=x1; x<x2; ++x)
 		{
 			unsigned char* pixel = bmp_out.getPixel(x - x1, y - y1);
 			pixel[0] = (unsigned char)(getPixel(x, y).r * 255.0f);
@@ -1105,7 +1105,7 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width)
 			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
 
 			// Make sure components can't go below zero
-			c.lowerClamp(0.0f);
+			c.clamp(0.0f, 1.0f);
 
 			out.setPixel(x, y, c);
 		}
@@ -1329,4 +1329,20 @@ void Image::convolve(const Image& filter, Image& result_out) const
 			result_out.setPixel(x, y, c);
 		}
 	}
+}
+
+float Image::minPixelComponent() const
+{
+	float x = std::numeric_limits<float>::max();
+	for(unsigned int i=0; i<numPixels(); ++i)
+		x = myMin(x, myMin(getPixel(i).r, myMin(getPixel(i).g, getPixel(i).b)));
+	return x;
+}
+
+float Image::maxPixelComponent() const
+{
+	float x = -std::numeric_limits<float>::max();
+	for(unsigned int i=0; i<numPixels(); ++i)
+		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
+	return x;
 }
