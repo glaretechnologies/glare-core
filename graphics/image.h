@@ -97,8 +97,15 @@ public:
 
 	void normalise();//make the average pixel luminance == 1
 
+	enum DOWNSIZE_FILTER
+	{
+		DOWNSIZE_FILTER_MN_CUBIC,
+		DOWNSIZE_FILTER_BOX
+	};
+
 	void collapseSizeBoxFilter(int factor, int border_width); // trims off border before collapsing
 	void collapseSizeMitchellNetravali(int factor, int border_width); // trims off border before collapsing
+	void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type);
 
 	unsigned int getByteSize() const;
 
@@ -111,6 +118,8 @@ public:
 
 	float minPixelComponent() const;
 	float maxPixelComponent() const;
+
+	
 
 private:
 	int width;

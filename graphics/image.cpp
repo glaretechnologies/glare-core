@@ -1117,6 +1117,18 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width)
 }
 
 
+void Image::collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type)
+{
+	if(filter_type == Image::DOWNSIZE_FILTER_BOX)
+		collapseSizeBoxFilter(factor, border_width);
+	else if(filter_type == Image::DOWNSIZE_FILTER_MN_CUBIC)
+		collapseSizeMitchellNetravali(factor, border_width);
+	else
+	{
+		assert(0);
+	}
+}
+
 
 unsigned int Image::getByteSize() const
 {

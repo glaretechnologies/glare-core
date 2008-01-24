@@ -577,7 +577,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 	dstfile.write(filecontents.c_str(), filecontents.length());*/
 
 #if defined(WIN32) || defined(WIN64)
-	if(!CopyFile(
+	if(!CopyFileA(
 		srcpath.c_str(), 
 		dstpath.c_str(), 
 		FALSE // fail if exists
@@ -595,7 +595,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 void deleteFile(const std::string& path)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!DeleteFile(
+	if(!DeleteFileA(
 		path.c_str()
 		))
 	{
