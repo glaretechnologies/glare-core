@@ -25,6 +25,7 @@ class Medium;
 class DiffractionFilter;
 class Distribution2;
 class Aperture;
+class MTwister;
 
 class CameraExcep
 {
@@ -57,7 +58,7 @@ public:
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
 		Aperture* aperture,
-		const std::string& base_indigo_path
+		const std::string& base_indigo_path	
 		);
 
 	virtual ~Camera();
@@ -158,6 +159,7 @@ public:
 
 	
 
+	void buildDiffractionFilterImage(int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path);
 	
 
 	std::vector<const Medium*> containing_media;

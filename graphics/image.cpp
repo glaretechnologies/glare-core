@@ -123,9 +123,9 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 typedef unsigned char BYTE;
 
 
-inline float byteToFloat(BYTE c)
+static inline float byteToFloat(BYTE c)
 {
-	return (float)c / 255.0f;
+	return (float)c * (1.0f / 255.0f);
 }
 
 
@@ -252,9 +252,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 			const float g = byteToFloat(data[i + 1]);
 			const float r = byteToFloat(data[i + 2]);
 
-			ColourType pixelcolour(r, g, b);
-
-			this->setPixel(x, y, pixelcolour);
+			this->setPixel(x, y, ColourType(r, g, b));
 
 			i += 3;
 		}
@@ -466,6 +464,13 @@ void Image::posClamp()
 		for(int y=0; y<height; ++y)
 			getPixel(x, y).positiveClipComponents();
 }
+
+void Image::clamp(float min, float max)
+{
+	for(unsigned int i=0; i<numPixels(); ++i)
+		getPixel(i).clamp(min, max);
+}
+
 
 void Image::gammaCorrect(float exponent)
 {
@@ -1290,7 +1295,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 	result_out = filter;
 }
 
-
+/*
 void Image::convolve(const Image& filter, Image& result_out) const
 {
 	result_out.resize(getWidth(), getHeight());
@@ -1342,6 +1347,7 @@ void Image::convolve(const Image& filter, Image& result_out) const
 		}
 	}
 }
+*/
 
 float Image::minPixelComponent() const
 {

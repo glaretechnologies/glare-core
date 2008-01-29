@@ -78,6 +78,7 @@ public:
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
 	virtual void addMaterialUsed(const std::string& material_name);
 	////////////////////////////////////////////////////////////////
+	bool isMaterialAlreadyUsed(const std::string& material_name);
 
 
 

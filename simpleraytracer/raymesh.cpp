@@ -385,6 +385,9 @@ void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv
 
 void RayMesh::addMaterialUsed(const std::string& material_name)
 {
+	// Material shouldn't already be listed as used
+	assert(this->matname_to_index_map.find(material_name) == matname_to_index_map.end());
+
 	const unsigned int mat_index = (unsigned int)matname_to_index_map.size();
 	this->matname_to_index_map[material_name] = mat_index;
 }
@@ -396,6 +399,12 @@ unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 }
 
 
+
+
+bool RayMesh::isMaterialAlreadyUsed(const std::string& material_name)
+{
+	return matname_to_index_map.find(material_name) != matname_to_index_map.end();
+}
 
 
 

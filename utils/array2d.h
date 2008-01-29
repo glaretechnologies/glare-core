@@ -45,6 +45,8 @@ public:
 	Array2d& operator = (const Array2d& rhs);
 	bool operator == (const Array2d& rhs) const;
 
+	inline void setAllElems(const Field& newval);
+
 	void resize(unsigned int newdim1, unsigned int newdim2);
 	inline void checkResize(unsigned int xindex, unsigned int yindex);
 
@@ -154,7 +156,13 @@ bool Array2d<Field>::operator == (const Array2d<Field>& rhs) const
 	return true;
 }
 
-
+template <class Field>
+void Array2d<Field>::setAllElems(const Field& newval)
+{
+	const unsigned int num_elems = dim1 * dim2;
+	for(unsigned int i=0; i<num_elems; ++i)
+		data[i] = newval;
+}
 
 
 template <class Field>

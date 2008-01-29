@@ -83,6 +83,7 @@ public:
 	void resize(int newwidth, int newheight);
 
 	void posClamp();
+	void clamp(float min, float max);
 
 	void gammaCorrect(float exponent);
 
@@ -114,7 +115,7 @@ public:
 	double averageLuminance() const;
 
 	static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);
-	void convolve(const Image& filter, Image& result_out) const;
+	//void convolve(const Image& filter, Image& result_out) const;
 
 	float minPixelComponent() const;
 	float maxPixelComponent() const;

@@ -14,6 +14,10 @@ Code By Nicholas Chapman.
 #include "../maths/Matrix2.h"
 //#include "../utils/timer.h"
 #include "../maths/mathstypes.h"
+#include "fft2d.h"
+
+// Defined in fft4f2d.c
+extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
 
 
 ImageFilter::ImageFilter()
@@ -479,7 +483,605 @@ void ImageFilter::glareFilter(const Image& in, Image& out, int num_blades, float
 	out.scale(1.f / (float)num_blades);
 }
 
+static int smallestPowerOf2GE(int x)
+{
+	int y = 1;
+	while(y < x)
+		y *= 2;
+	return y;
+}
 
+void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out)
+{
+	if((filter.getWidth() * filter.getHeight()) > 9)
+	{
+		convolveImageRobinDaviesFFT(in, filter, out);
+	}
+	else
+	{
+		convolveImageSpatial(in, filter, out);
+	}
+}
+
+void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Image& result_out)
+{
+	result_out.resize(in.getWidth(), in.getHeight());
+
+	const int filter_w_2 = filter.getWidth() / 2;
+	const int filter_h_2 = filter.getHeight() / 2;
+
+	const int W = result_out.getWidth();
+	const int H = result_out.getHeight();
+
+	// For each pixel of result image
+	for(int y=0; y<H; ++y)
+	{
+		const int src_y_min = myMax(0, y - filter_h_2);
+		const int src_y_max = myMin(H, y + filter_h_2 - 1);
+
+		printVar(y);
+
+		for(int x=0; x<W; ++x)
+		{
+			const int src_x_min = myMax(0, x - filter_w_2);
+			const int src_x_max = myMin(W, x + filter_w_2 - 1);
+
+			Colour3f c(0.0f);
+
+			// For each pixel in filter support of source image
+			for(int sy=src_y_min; sy<src_y_max; ++sy)
+			{
+				const int filter_y = (sy - y) + filter_h_2;
+				assert(filter_y >= 0 && filter_y < filter.getHeight());		
+
+				for(int sx=src_x_min; sx<src_x_max; ++sx)
+				{
+					const int filter_x = (sx - x) + filter_w_2;
+					assert(filter_x >= 0 && filter_x < filter.getWidth());	
+
+					assert(in.getPixel(sx, sy).r >= 0.0 && in.getPixel(sx, sy).g >= 0.0 && in.getPixel(sx, sy).b >= 0.0);
+					assert(isFinite(in.getPixel(sx, sy).r) && isFinite(in.getPixel(sx, sy).g) && isFinite(in.getPixel(sx, sy).b));
+
+					c.addMult(in.getPixel(sx, sy), filter.getPixel(filter_x, filter_y));
+				}
+			}
+
+
+			assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
+			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
+
+			result_out.setPixel(x, y, c);
+		}
+	}
+}
+
+void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Image& out)
+{
+	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()));
+	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()));
+
+	Array2d<double> padded_in(W, H);
+	Array2d<double> padded_filter(W, H);
+	Array2d<double> padded_convolution(W, H);
+
+	out.resize(in.getWidth(), in.getHeight());
+
+	for(int comp=0; comp<3; ++comp)
+	{
+		// Zero pad input
+		padded_in.setAllElems(0.0);
+
+		// Blit component of input to padded input
+		for(int y=0; y<in.getHeight(); ++y)
+			for(int x=0; x<in.getWidth(); ++x)
+				padded_in.elem(x, y) = in.getPixel(x, y)[comp];
+
+		// Zero pad filter
+		padded_filter.setAllElems(0.0);
+
+		// Blit component of filter to padded filter
+		for(int y=0; y<filter.getHeight(); ++y)
+			for(int x=0; x<filter.getWidth(); ++x)
+				padded_filter.elem(x, y) = filter.getPixel(x, y)[comp];
+
+		Array2d<Complexd> ft_in;
+		realFT(padded_in, ft_in);
+
+		Array2d<Complexd> ft_filter;
+		realFT(padded_filter, ft_filter);
+
+		Array2d<Complexd> product(W, H);
+
+		for(int y=0; y<H; ++y)
+			for(int x=0; x<W; ++x)
+				product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
+
+		realIFT(product, padded_convolution);
+
+		const double scale = 2.0 / (double)(W * H);
+
+		for(int y=0; y<out.getHeight(); ++y)
+			for(int x=0; x<out.getWidth(); ++x)
+				out.getPixel(x, y)[comp] = 
+					(float)(padded_convolution.elem(
+						(x - 1 + filter.getWidth()/2) % W,
+						(y - 1 + filter.getHeight()/2) % H
+						) * scale);
+	}
+}
+
+void ImageFilter::realFT(const Array2d<double>& data, Array2d<Complexd>& out)
+{
+	out.resize(data.getWidth(), data.getHeight());
+
+	const int n1 = data.getWidth();
+	const int n2 = data.getHeight();
+
+	for(int k1=0; k1<n1; ++k1)
+		for(int k2=0; k2<n2; ++k2)
+		{
+			double re_sum = 0.0;
+			double im_sum = 0.0;
+			for(int j1=0; j1<n1; ++j1)
+				for(int j2=0; j2<n2; ++j2)
+				{
+					const double phase = NICKMATHS_2PI*(double)j1*(double)k1/(double)n1 + NICKMATHS_2PI*(double)j2*(double)k2/(double)n2;
+
+					re_sum += data.elem(j1, j2) * cos(phase);
+					im_sum += data.elem(j1, j2) * sin(phase);
+				}
+			out.elem(k1, k2) = Complexd(re_sum, im_sum);
+		}
+}
+
+void ImageFilter::realIFT(const Array2d<Complexd>& data, Array2d<double>& real_out)
+{
+	real_out.resize(data.getWidth(), data.getHeight());
+
+	const int n1 = data.getWidth();
+	const int n2 = data.getHeight();
+
+	for(int k1=0; k1<n1; ++k1)
+		for(int k2=0; k2<n2; ++k2)
+		{
+			double re_sum = 0.0;
+			for(int j1=0; j1<n1; ++j1)
+				for(int j2=0; j2<n2; ++j2)
+				{
+					const double phase = NICKMATHS_2PI*(double)j1*(double)k1/(double)n1 + NICKMATHS_2PI*(double)j2*(double)k2/(double)n2;
+
+					re_sum += 
+						data.elem(j1, j2).re() * cos(phase) + 
+						data.elem(j1, j2).im() * sin(phase);
+				}
+			real_out.elem(k1, k2) = 0.5 * re_sum;
+		}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image& filter, Image& out)
+{
+	const int W = smallestPowerOf2GE(myMax(in_image.getWidth(), filter.getWidth()));
+	const int H = smallestPowerOf2GE(myMax(in_image.getHeight(), filter.getHeight()));
+
+	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
+
+	out.resize(in_image.getWidth(), in_image.getHeight());
+
+	rd::vector2d<std::complex<double> > in(W, H);
+	rd::vector2d<std::complex<double> > in_FT(W, H);
+	rd::vector2d<std::complex<double> > filter_FT(W, H);
+	//rd::vector2d<std::complex<double> > product_FT(W, H);
+
+	rd::Fft2D<double> fft2D(W, H);
+
+	for(int comp=0; comp<3; ++comp)
+	{
+		// Zero pad input
+		in.clear();
+		for(int y=0; y<in_image.getHeight(); ++y)
+			for(int x=0; x<in_image.getWidth(); ++x)
+				in.at(x, y) = in_image.getPixel(x, y)[comp];
+		
+		// Take FT of image
+		fft2D.apply(in, &in_FT);
+
+
+		// Zero pad filter
+		in.clear();
+		for(int y=0; y<filter.getHeight(); ++y)
+			for(int x=0; x<filter.getWidth(); ++x)
+				in.at(x, y) = filter.getPixel(x, y /*filter.getWidth() - x - 1, filter.getHeight() - y - 1*/)[comp];
+
+		// Take FT of filter
+		fft2D.apply(in, &filter_FT);
+		
+
+		// Multiply FTs
+		//for(int y=0; y<H; ++y)
+		//	for(int x=0; x<W; ++x)
+		//		product_FT.at(x, y) = in_FT.at(x, y) * filter_FT.at(x, y);
+		in_FT *= filter_FT;
+
+		// put IFT back in 'in'
+		fft2D.applyInverse(in_FT, &in);
+
+		const float scale = 0.25 * (float)(W * H);
+
+		for(int y=0; y<out.getHeight(); ++y)
+			for(int x=0; x<out.getWidth(); ++x)
+			{
+				//printVar(in.at(x, y).real());
+				out.getPixel(x, y)[comp] = in.at(x, y).real() * scale;
+			}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+inline double& a(Array2d<double>& data, int k1, int k2)
+{
+	return data.elem(k2, k1);
+}
+
+
+
+
+
+
+void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& out)
+{
+#ifdef DEBUG
+	for(unsigned int i=0; i<in.numPixels(); ++i)
+		assert(in.getPixel(i).isFinite());
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+		assert(filter.getPixel(i).isFinite());
+#endif
+
+	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()));
+	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()));
+
+	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
+
+	Array2d<double> padded_in(W, H);
+	Array2d<double> padded_filter(W, H);
+	Array2d<double> product(W, H);
+
+	out.resize(in.getWidth(), in.getHeight());
+	out.zero();//TEMP
+
+	// Alloc working arrays
+	const int n1 = H;
+	const int n2 = W;
+	double** indata = new double*[1000000/*TEMP H*/];
+
+	int* ip = new int[1000000];//TEMP 2 + (int)sqrt((double)myMax(n1, n2/2))];
+	ip[0] = 0; // ip[0] needs to be initialised to 0
+
+	double* work_area = new double[10000000];//TEMPmyMax(n1/2, n2/4) + n2/4];
+
+
+
+	for(int comp=0; comp<3; ++comp)
+	{
+		// Zero pad input
+		padded_in.setAllElems(0.0);
+
+		// Blit component of input to padded input
+		for(int y=0; y<in.getHeight(); ++y)
+			for(int x=0; x<in.getWidth(); ++x)
+				padded_in.elem(x, y) = in.getPixel(x, y)[comp];
+
+		// Zero pad filter
+		padded_filter.setAllElems(0.0);
+
+		// Blit component of filter to padded filter
+		for(int y=0; y<filter.getHeight(); ++y)
+			for(int x=0; x<filter.getWidth(); ++x)
+				padded_filter.elem(x, y) = filter.getPixel(x, y /*filter.getWidth() - x - 1, filter.getHeight() - y - 1*/)[comp];
+
+
+		//TEMP:
+		Array2d<Complexd> ft_in;
+		realFT(padded_in, ft_in);
+		Array2d<Complexd> ft_filter;
+		realFT(padded_filter, ft_filter);
+		// Compute slow reference product
+		Array2d<Complexd> ref_product(W, H);
+		for(int y=0; y<H; ++y)
+			for(int x=0; x<W; ++x)
+				ref_product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
+
+
+		// Compute FT of input
+		for(int y=0; y<H; ++y)
+			indata[y] = padded_in.rowBegin(y);
+
+		rdft2d(
+			n1, // input data length (dim1)
+			n2, // input data length (dim2)
+			1, // input sign (1 for FFT)
+			indata,
+			ip,
+			work_area
+			);
+
+		//Ok, now FT of input image should be in 'padded_in'.
+
+		// Compute FT of filter
+		for(int y=0; y<H; ++y)
+			indata[y] = padded_filter.rowBegin(y);
+
+		rdft2d(
+			n1, // input data length (dim1)
+			n2, // input data length (dim2)
+			1, // input sign (1 for FFT)
+			indata,
+			ip,
+			work_area
+			);
+
+		
+		conPrint("Padded in: ");
+		for(int y=0; y<H; ++y)
+		{
+			for(int x=0; x<W; ++x)
+			{
+				conPrintStr(" " + toString(padded_in.elem(x, y)));
+			}
+			conPrintStr("\n");
+		}
+
+		conPrint("-------------------------------");
+
+		for(int y=0; y<H; ++y)
+		{
+			for(int x=0; x<W; ++x)
+			{
+				conPrintStr(" (" + toString(ft_in.elem(x, y).re()) + ", " + toString(ft_in.elem(x, y).im()) + ")" );
+			}
+			conPrintStr("\n");
+		}
+			
+		//TEMP:
+		product.setAllElems(-666.0f);
+
+		//Handle k1=k2=0 case: has zero imaginary, so just multiply real components
+		a(product, 0, 0) = a(padded_in, 0, 0) * a(padded_filter, 0, 0);
+		//a(product, 0, 0) = 0.0;
+
+		a(product, 0, 1) = a(padded_in, 0, 1) * a(padded_filter, 0, 1);
+		a(product, n1/2, 0) = a(padded_in, n1/2, 0) * a(padded_filter, n1/2, 0);
+		a(product, n1/2, 1) = a(padded_in, n1/2, 1) * a(padded_filter, n1/2, 1);
+
+		{
+			printVar(a(product, 0, 1));
+			const Complexd complex = ref_product.elem(0, 0);
+			assert(epsEqual(complex.re(), a(product, 0, 0)));
+			//assert(epsEqual(complex.im(), a(product, 0, 1)));
+		}
+
+		// Handle k1 = 0, 0<k2<n2/2 case:
+		//	a[0][2*k2] = R[0][k2] = R[0][n2-k2], 
+        //  a[0][2*k2+1] = I[0][k2] = -I[0][n2-k2], 
+        //		0<k2<n2/2,
+		for(int k2=1; k2<n2/2; ++k2)
+		{
+			const double a_ = a(padded_in, 0, 2*k2);
+			const double b = a(padded_in, 0, 2*k2+1);
+
+			const double c = a(padded_filter, 0, 2*k2);
+			const double d = a(padded_filter, 0, 2*k2+1);
+
+			a(product, 0, 2*k2) = a_*c - b*d; // Re(out)
+			a(product, 0, 2*k2+1) = a_*d + b*c; // Im(out)
+		}
+
+		// Handle k2 == 0 && k1 > 0 cases
+		// This case is the first two columns (k2=0) of data in the FTs
+		for(int k1=1; k1<H/2; ++k1)
+		{
+			{
+			const double a_ = a(padded_in, k1, 0); //padded_in.elem(0, k1); // Re(in)
+			const double b = a(padded_in, k1, 1); //padded_in.elem(1, k1); // Im(in)
+
+			const double c = a(padded_filter, k1, 0); //padded_filter.elem(0, k1); // Re(filter)
+			const double d = a(padded_filter, k1, 1); //padded_filter.elem(1, k1); // Im(filter)
+
+			a(product, k1, 0) = a_*c - b*d; // Re(out)
+			a(product, k1, 1) = a_*d + b*c; // Im(out)
+
+
+			const Complexd complex = ref_product.elem(0, k1);
+			assert(epsEqual(complex.re(), a(product, k1, 0)));
+			assert(epsEqual(complex.im(), a(product, k1, 1)));
+			}
+
+			// bottom half of column
+			{
+			const double a_ = a(padded_in, n1-k1, 1); // Re(in)
+			const double b = -a(padded_in, n1-k1, 0); // Im(in)
+
+			const double c = a(padded_filter, n1-k1, 1); // Re(filter)
+			const double d = -a(padded_filter, n1-k1, 0); // Im(filter)
+
+			const double prod_re = a_*c - b*d;
+			const double prod_im = a_*d + b*c;
+
+			a(product, n1-k1, 1) = prod_re;
+			a(product, n1-k1, 0) = -prod_im;
+
+			const Complexd complex = ref_product.elem(n2/2, k1);
+			assert(epsEqual(complex.re(), prod_re));
+			assert(epsEqual(complex.im(), prod_im));
+			}
+		}
+
+		// Multiply the FT'd data
+		for(int k1=1; k1<n1; ++k1)
+		{
+			for(int k2=1; k2<n2/2; ++k2)
+			{
+ 				const double a_ = a(padded_in, k1, k2*2);
+				const double b = a(padded_in, k1, k2*2+1);
+
+				const double c = a(padded_filter, k1, k2*2);
+				const double d = a(padded_filter, k1, k2*2+1);
+
+				/*const Complexd complex = ft_in.elem(k2, k1);
+				assert(epsEqual(a, complex.re()));
+				assert(epsEqual(b, complex.im()));
+
+				const Complexd complex_f = ft_filter.elem(k2, k1);
+				assert(epsEqual(c, complex_f.re()));
+				assert(epsEqual(d, complex_f.im()));*/
+
+				a(product, k1, k2*2) = a_*c - b*d; // Re(out)
+				a(product, k1, k2*2+1) = a_*d + b*c; // Im(out)
+
+				const double re_out = product.elem(k2*2, k1);
+				const Complexd ref_complex = ref_product.elem(0, k1);
+				assert(epsEqual(ref_product.elem(k2, k1).re(), a(product, k1, k2*2)));
+				assert(epsEqual(ref_product.elem(k2, k1).im(), a(product, k1, k2*2+1)));
+			}
+		}
+
+		/*for(int k1=1; k1<n1; ++k1)
+		{
+			for(int k2=1; k2<n2/2; ++k2)
+			{
+ 				const double a = padded_in.elem(k2*2, k1);
+				//assert(&padded_in.elem(k2*2, k1) == &(padded_in.rowBegin(k1)[k2*2]));
+				const double b = padded_in.elem(k2*2 + 1, k1);
+
+				const double c = padded_filter.elem(k2*2, k1);
+				const double d = padded_filter.elem(k2*2 + 1, k1);
+
+				const Complexd complex = ft_in.elem(k2, k1);
+				assert(epsEqual(a, complex.re()));
+				assert(epsEqual(b, complex.im()));
+
+				const Complexd complex_f = ft_filter.elem(k2, k1);
+				assert(epsEqual(c, complex_f.re()));
+				assert(epsEqual(d, complex_f.im()));
+
+				product.elem(k2*2, k1) = a*c - b*d; // Re(out)
+				product.elem(k2*2 + 1, k1) = a*d + b*c; // Im(out)
+
+				const double re_out = product.elem(k2*2, k1);
+				const Complexd ref_complex = ref_product.elem(0, k1);
+				assert(epsEqual(ref_product.elem(k2, k1).re(), product.elem(k2*2, k1)));
+				assert(epsEqual(ref_product.elem(k2, k1).im(), product.elem(k2*2 + 1, k1)));
+			}
+		}*/
+
+		//TEMP: print out product
+		conPrint("----------------------Product:---------------------------");
+		for(int y=0; y<H; ++y)
+		{
+			for(int x=0; x<W; ++x)
+			{
+				conPrintStr(" " + toString(product.elem(x, y)));
+			}
+			conPrintStr("\n");
+		}
+
+		// Compute IFT of product
+		for(int y=0; y<H; ++y)
+			indata[y] = product.rowBegin(y);
+		
+		rdft2d(
+			n1, // input data length (dim1)
+			n2, // input data length (dim2)
+			-1, // input sign (-1 for IFFT)
+			indata,
+			ip,
+			work_area
+			);
+
+
+		
+
+		Array2d<double> reference_convolution(W, H);
+		realIFT(ref_product, reference_convolution);
+
+		conPrint("--------------reference_convolution-----------------");
+
+		for(int y=0; y<H; ++y)
+		{
+			for(int x=0; x<W; ++x)
+			{
+				conPrintStr(" " + toString(reference_convolution.elem(x, y)));
+			}
+			conPrintStr("\n");
+		}
+
+
+		for(int y=0; y<H; ++y)
+			for(int x=0; x<W; ++x)
+			{
+				assert(epsEqual(reference_convolution.elem(x, y), product.elem(x, y)));
+			}
+
+
+
+
+
+
+
+		const double scale = 2.0 / (double)(W * H);
+
+		// Read out real coefficients
+		//if(comp == 1)
+		//{
+		for(int y=0; y<out.getHeight(); ++y)
+			for(int x=0; x<out.getWidth(); ++x)
+				out.getPixel(x, y)[comp] = (float)(product.elem(
+					x, //(x + filter.getWidth()/2) % W, 
+					y //(y + filter.getHeight()/2) % H
+					) * scale);
+		//}
+	}
+
+	// Free working arrays
+	delete[] ip;
+	delete[] work_area;
+	delete[] indata;
+}
 
 
 

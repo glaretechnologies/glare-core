@@ -8,7 +8,8 @@ Code By Nicholas Chapman.
 #define __IMAGEFILTER_H_666_
 
 
-
+#include "../utils/array2d.h"
+#include "../maths/Complex.h"
 class Image;
 
 /*=====================================================================
@@ -39,6 +40,17 @@ public:
 	static void chromaticAberration(const Image& in, Image& out, float amount);
 
 	static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
+
+	// Chooses convolution technique depending on filter size etc..
+	static void convolveImage(const Image& in, const Image& filter, Image& out);
+	static void convolveImageSpatial(const Image& in, const Image& filter, Image& out);
+	static void convolveImageFFT(const Image& in, const Image& filter, Image& out);
+	static void convolveImageRobinDaviesFFT(const Image& in, const Image& filter, Image& out);
+	static void slowConvolveImageFFT(const Image& in, const Image& filter, Image& out);
+
+	static void realFT(const Array2d<double>& data, Array2d<Complexd>& out);
+	static void realIFT(const Array2d<Complexd>& data, Array2d<double>& real_out);
+
 private:
 	static void sampleImage(const Image& im);
 };
