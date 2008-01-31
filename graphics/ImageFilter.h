@@ -51,6 +51,10 @@ public:
 	static void realFT(const Array2d<double>& data, Array2d<Complexd>& out);
 	static void realIFT(const Array2d<Complexd>& data, Array2d<double>& real_out);
 
+	static void realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
+
+	static void test();
+
 private:
 	static void sampleImage(const Image& im);
 };

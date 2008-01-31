@@ -279,8 +279,8 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 	//assert(!diffraction_filter_image->get())
 
 	diffraction_filter_image = std::auto_ptr<Image>(new Image(
-		512, //diffraction_filter->getDiffractionFilter().getWidth(),
-		512 //diffraction_filter->getDiffractionFilter().getHeight()
+		513, //diffraction_filter->getDiffractionFilter().getWidth(),
+		513 //diffraction_filter->getDiffractionFilter().getHeight()
 		));
 	//diffraction_filter_image->zero();
 
@@ -332,7 +332,7 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 
 			// For each of a few wavelengths chosen over the visible range...
 			Vec3d sum(0.0, 0.0, 0.0);
-			const int NUM_WAVELENGTH_SAMPLES = 10;
+			const int NUM_WAVELENGTH_SAMPLES = 20;
 			for(int i=0; i<NUM_WAVELENGTH_SAMPLES; ++i)
 			{
 				// Sample a wavelength
@@ -445,10 +445,14 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 		diffraction_filter_image->getPixel(i).b *= Z_scale;
 	}
 
+	//TEMP HACK: move everything down to the right a bit
+	//Image temp = *diffraction_filter_image;
+	//diffraction_filter_image->zero();
+	//temp.blitToImage(*diffraction_filter_image, 1, 1);
 	
 	//TEMP HACK: 
 	//diffraction_filter_image->zero();
-	//diffraction_filter_image->setPixel(10, 10, Colour3f(1.0f));
+	//diffraction_filter_image->setPixel(255, 255, Colour3f(1.0f));
 
 	
 
@@ -908,10 +912,6 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 	conPrint("Applying diffraction filter...");
 
 	Image out;
-	/*image.convolve(
-		*diffraction_filter_image, // filter
-		out	// result out
-		);*/
 	ImageFilter::convolveImage(
 		image, // in
 		*diffraction_filter_image, //filter

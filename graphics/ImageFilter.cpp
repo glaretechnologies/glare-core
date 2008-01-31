@@ -14,7 +14,9 @@ Code By Nicholas Chapman.
 #include "../maths/Matrix2.h"
 //#include "../utils/timer.h"
 #include "../maths/mathstypes.h"
+#include "../utils/MTwister.h" // just for testing
 #include "fft2d.h"
+#include "../indigo/TestUtils.h"
 
 // Defined in fft4f2d.c
 extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
@@ -495,7 +497,7 @@ void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out
 {
 	if((filter.getWidth() * filter.getHeight()) > 9)
 	{
-		convolveImageRobinDaviesFFT(in, filter, out);
+		convolveImageFFT(in, filter, out);
 	}
 	else
 	{
@@ -507,8 +509,14 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 {
 	result_out.resize(in.getWidth(), in.getHeight());
 
-	const int filter_w_2 = filter.getWidth() / 2;
-	const int filter_h_2 = filter.getHeight() / 2;
+	const int rneg_x = (filter.getWidth() % 2 == 0) ? filter.getWidth() / 2 - 1 : filter.getWidth() / 2;
+	const int rneg_y = (filter.getHeight() % 2 == 0) ? filter.getHeight() / 2 - 1 : filter.getHeight() / 2;
+
+	const int rpos_x = filter.getWidth() - rneg_x;
+	const int rpos_y = filter.getHeight() - rneg_y;
+
+	assert(rneg_x + rpos_x == filter.getWidth());
+	assert(rneg_y + rpos_y == filter.getHeight());
 
 	const int W = result_out.getWidth();
 	const int H = result_out.getHeight();
@@ -516,27 +524,31 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 	// For each pixel of result image
 	for(int y=0; y<H; ++y)
 	{
-		const int src_y_min = myMax(0, y - filter_h_2);
-		const int src_y_max = myMin(H, y + filter_h_2 - 1);
+		const int unclipped_src_y_min = y - rneg_y;
+		const int src_y_min = myMax(0, y - rneg_y);
+		const int src_y_max = myMin(H, y + rpos_y);
 
-		printVar(y);
+		//printVar(y);
 
 		for(int x=0; x<W; ++x)
 		{
-			const int src_x_min = myMax(0, x - filter_w_2);
-			const int src_x_max = myMin(W, x + filter_w_2 - 1);
+			const int unclipped_src_x_min = x - rneg_x;
+			const int src_x_min = myMax(0, x - rneg_x);
+			const int src_x_max = myMin(W, x + rpos_x);
 
 			Colour3f c(0.0f);
 
 			// For each pixel in filter support of source image
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
 			{
-				const int filter_y = (sy - y) + filter_h_2;
+				//const int filter_y = (sy - y) + filter_h_2;
+				const int filter_y = sy - unclipped_src_y_min;
 				assert(filter_y >= 0 && filter_y < filter.getHeight());		
 
 				for(int sx=src_x_min; sx<src_x_max; ++sx)
 				{
-					const int filter_x = (sx - x) + filter_w_2;
+					//const int filter_x = (sx - x) + filter_w_2;
+					const int filter_x = sx - unclipped_src_x_min;
 					assert(filter_x >= 0 && filter_x < filter.getWidth());	
 
 					assert(in.getPixel(sx, sy).r >= 0.0 && in.getPixel(sx, sy).g >= 0.0 && in.getPixel(sx, sy).b >= 0.0);
@@ -545,7 +557,6 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 					c.addMult(in.getPixel(sx, sy), filter.getPixel(filter_x, filter_y));
 				}
 			}
-
 
 			assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
 			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
@@ -557,8 +568,11 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 
 void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Image& out)
 {
-	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()));
-	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()));
+	const int x_offset = filter.getWidth() / 2;
+	const int y_offset = filter.getHeight() / 2;
+
+	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
+	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
 
 	Array2d<double> padded_in(W, H);
 	Array2d<double> padded_filter(W, H);
@@ -574,7 +588,7 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 		// Blit component of input to padded input
 		for(int y=0; y<in.getHeight(); ++y)
 			for(int x=0; x<in.getWidth(); ++x)
-				padded_in.elem(x, y) = in.getPixel(x, y)[comp];
+				padded_in.elem(x, y) = (double)in.getPixel(x, y)[comp];
 
 		// Zero pad filter
 		padded_filter.setAllElems(0.0);
@@ -582,7 +596,7 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 		// Blit component of filter to padded filter
 		for(int y=0; y<filter.getHeight(); ++y)
 			for(int x=0; x<filter.getWidth(); ++x)
-				padded_filter.elem(x, y) = filter.getPixel(x, y)[comp];
+				padded_filter.elem(x, y) = (double)filter.getPixel(filter.getWidth() - 1 - x, filter.getHeight() - 1 - y)[comp];
 
 		Array2d<Complexd> ft_in;
 		realFT(padded_in, ft_in);
@@ -604,8 +618,8 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 			for(int x=0; x<out.getWidth(); ++x)
 				out.getPixel(x, y)[comp] = 
 					(float)(padded_convolution.elem(
-						(x - 1 + filter.getWidth()/2) % W,
-						(y - 1 + filter.getHeight()/2) % H
+						x + x_offset, //(x - 1 + filter.getWidth()/2) % W,
+						y + y_offset//(y - 1 + filter.getHeight()/2) % H
 						) * scale);
 	}
 }
@@ -657,7 +671,6 @@ void ImageFilter::realIFT(const Array2d<Complexd>& data, Array2d<double>& real_o
 			real_out.elem(k1, k2) = 0.5 * re_sum;
 		}
 }
-
 
 
 
@@ -753,12 +766,109 @@ void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image
 
 
 
-inline double& a(Array2d<double>& data, int k1, int k2)
+static inline double& a(Array2d<double>& data, int k1, int k2)
+{
+	return data.elem(k2, k1);
+}
+static inline double a(const Array2d<double>& data, int k1, int k2)
+{
+	return data.elem(k2, k1);
+}
+
+static inline Complexd& R(Array2d<Complexd>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
 }
 
 
+
+void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
+{
+	assert(Maths::isPowerOfTwo(input.getWidth()));
+	assert(Maths::isPowerOfTwo(input.getHeight()));
+
+	const int W = input.getWidth();
+	const int H = input.getHeight();
+
+	out.resize(W, H);
+
+	// Alloc working arrays
+	const int n1 = H;
+	const int n2 = W;
+	double** indata = new double*[H];
+
+	int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2/2))];
+	ip[0] = 0; // ip[0] needs to be initialised to 0
+
+	double* work_area = new double[myMax(n1/2, n2/4) + n2/4];
+
+	// Copy input data
+	Array2d<double> data = input;
+
+	// Compute FT of input
+	for(int y=0; y<H; ++y)
+		indata[y] = &data.elem(0, y);
+
+	rdft2d(
+		n1, // input data length (dim1)
+		n2, // input data length (dim2)
+		1, // input sign (1 for FFT)
+		indata,
+		ip,
+		work_area
+		);
+
+	// Now we need to decipher the output
+
+	//                    a[k1][2*k2] = R[k1][k2] = R[n1-k1][n2-k2], 
+	//                    a[k1][2*k2+1] = I[k1][k2] = -I[n1-k1][n2-k2], 
+	//                       0<k1<n1, 0<k2<n2/2, 
+	for(int k1=1; k1<n1; ++k1)
+		for(int k2=1; k2<n2/2; ++k2)
+		{
+			R(out, k1, k2) = Complexd(a(data, k1, 2*k2), a(data, k1, 2*k2+1));
+
+			R(out, n1-k1, n2-k2) = Complexd(a(data, k1, 2*k2), -a(data, k1, 2*k2+1));
+		}
+
+	//                    a[0][2*k2] = R[0][k2] = R[0][n2-k2], 
+    //                    a[0][2*k2+1] = I[0][k2] = -I[0][n2-k2], 
+    //                       0<k2<n2/2, 
+	for(int k2=1; k2<n2/2; ++k2)
+	{
+		R(out, 0, k2) = Complexd(a(data, 0, 2*k2), a(data, 0, 2*k2+1));
+		R(out, 0, n2-k2) = Complexd(a(data, 0, 2*k2), -a(data, 0, 2*k2+1));
+	}	
+
+    //                    a[k1][0] = R[k1][0] = R[n1-k1][0], 
+    //                    a[k1][1] = I[k1][0] = -I[n1-k1][0], 
+    //                    a[n1-k1][1] = R[k1][n2/2] = R[n1-k1][n2/2], 
+    //                    a[n1-k1][0] = -I[k1][n2/2] = I[n1-k1][n2/2], 
+    //                       0<k1<n1/2,
+
+	for(int k1=1; k1<n1/2; ++k1)
+	{
+		R(out, k1, 0) = Complexd(a(data, k1, 0), a(data, k1, 1));
+		R(out, n1-k1, 0) = Complexd(a(data, k1, 0), -a(data, k1, 1));
+
+		R(out, k1, n2/2) = Complexd(a(data, n1-k1, 1), -a(data, n1-k1, 0));
+		R(out, n1-k1, n2/2) = Complexd(a(data, n1-k1, 1), a(data, n1-k1, 0));
+	}
+
+    //                    a[0][0] = R[0][0], 
+    //                    a[0][1] = R[0][n2/2], 
+    //                    a[n1/2][0] = R[n1/2][0], 
+    //                    a[n1/2][1] = R[n1/2][n2/2]
+	R(out, 0, 0) =			Complexd(a(data, 0, 0), 0.0);
+	R(out, 0, n2/2) =		Complexd(a(data, 0, 1), 0.0);
+	R(out, n1/2, 0) =		Complexd(a(data, n1/2, 0), 0.0);
+	R(out, n1/2, n2/2) =	Complexd(a(data, n1/2, 1), 0.0);
+
+
+	delete[] work_area;
+	delete[] ip;
+	delete[] indata;
+}
 
 
 
@@ -771,29 +881,34 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 	for(unsigned int i=0; i<filter.numPixels(); ++i)
 		assert(filter.getPixel(i).isFinite());
 #endif
+	assert(filter.getWidth() >= 2);
+	assert(filter.getHeight() >= 2);
 
-	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()));
-	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()));
+	const int x_offset = filter.getWidth() / 2;
+	const int y_offset = filter.getHeight() / 2;
+
+	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
+	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
 
 	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
+	assert(W >= 2);
+	assert(H >= 2);
 
 	Array2d<double> padded_in(W, H);
 	Array2d<double> padded_filter(W, H);
 	Array2d<double> product(W, H);
 
 	out.resize(in.getWidth(), in.getHeight());
-	out.zero();//TEMP
 
 	// Alloc working arrays
 	const int n1 = H;
 	const int n2 = W;
-	double** indata = new double*[1000000/*TEMP H*/];
+	double** indata = new double*[H];
 
-	int* ip = new int[1000000];//TEMP 2 + (int)sqrt((double)myMax(n1, n2/2))];
+	int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2/2))];
 	ip[0] = 0; // ip[0] needs to be initialised to 0
 
-	double* work_area = new double[10000000];//TEMPmyMax(n1/2, n2/4) + n2/4];
-
+	double* work_area = new double[myMax(n1/2, n2/4) + n2/4];
 
 
 	for(int comp=0; comp<3; ++comp)
@@ -804,7 +919,7 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 		// Blit component of input to padded input
 		for(int y=0; y<in.getHeight(); ++y)
 			for(int x=0; x<in.getWidth(); ++x)
-				padded_in.elem(x, y) = in.getPixel(x, y)[comp];
+				padded_in.elem(x, y) = (double)in.getPixel(x, y)[comp];
 
 		// Zero pad filter
 		padded_filter.setAllElems(0.0);
@@ -812,19 +927,19 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 		// Blit component of filter to padded filter
 		for(int y=0; y<filter.getHeight(); ++y)
 			for(int x=0; x<filter.getWidth(); ++x)
-				padded_filter.elem(x, y) = filter.getPixel(x, y /*filter.getWidth() - x - 1, filter.getHeight() - y - 1*/)[comp];
+				padded_filter.elem(x, y) = (double)filter.getPixel(filter.getWidth() - x - 1, filter.getHeight() - y - 1)[comp]; // Note: rotating filter around center point here.
 
 
 		//TEMP:
-		Array2d<Complexd> ft_in;
-		realFT(padded_in, ft_in);
-		Array2d<Complexd> ft_filter;
-		realFT(padded_filter, ft_filter);
-		// Compute slow reference product
-		Array2d<Complexd> ref_product(W, H);
-		for(int y=0; y<H; ++y)
-			for(int x=0; x<W; ++x)
-				ref_product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
+		//Array2d<Complexd> ft_in;
+		//realFT(padded_in, ft_in);
+		//Array2d<Complexd> ft_filter;
+		//realFT(padded_filter, ft_filter);
+		//// Compute slow reference product
+		//Array2d<Complexd> ref_product(W, H);
+		//for(int y=0; y<H; ++y)
+		//	for(int x=0; x<W; ++x)
+		//		ref_product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
 
 
 		// Compute FT of input
@@ -856,7 +971,7 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			);
 
 		
-		conPrint("Padded in: ");
+		/*conPrint("Padded in: ");
 		for(int y=0; y<H; ++y)
 		{
 			for(int x=0; x<W; ++x)
@@ -875,25 +990,21 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 				conPrintStr(" (" + toString(ft_in.elem(x, y).re()) + ", " + toString(ft_in.elem(x, y).im()) + ")" );
 			}
 			conPrintStr("\n");
-		}
+		}*/
 			
-		//TEMP:
-		product.setAllElems(-666.0f);
 
-		//Handle k1=k2=0 case: has zero imaginary, so just multiply real components
+		//These cases have zero imaginary, so just multiply real components
 		a(product, 0, 0) = a(padded_in, 0, 0) * a(padded_filter, 0, 0);
-		//a(product, 0, 0) = 0.0;
-
 		a(product, 0, 1) = a(padded_in, 0, 1) * a(padded_filter, 0, 1);
 		a(product, n1/2, 0) = a(padded_in, n1/2, 0) * a(padded_filter, n1/2, 0);
 		a(product, n1/2, 1) = a(padded_in, n1/2, 1) * a(padded_filter, n1/2, 1);
 
-		{
-			printVar(a(product, 0, 1));
-			const Complexd complex = ref_product.elem(0, 0);
-			assert(epsEqual(complex.re(), a(product, 0, 0)));
-			//assert(epsEqual(complex.im(), a(product, 0, 1)));
-		}
+		//{
+		//	printVar(a(product, 0, 1));
+		//	const Complexd complex = ref_product.elem(0, 0);
+		//	assert(epsEqual(complex.re(), a(product, 0, 0)));
+		//	//assert(epsEqual(complex.im(), a(product, 0, 1)));
+		//}
 
 		// Handle k1 = 0, 0<k2<n2/2 case:
 		//	a[0][2*k2] = R[0][k2] = R[0][n2-k2], 
@@ -911,8 +1022,11 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			a(product, 0, 2*k2+1) = a_*d + b*c; // Im(out)
 		}
 
-		// Handle k2 == 0 && k1 > 0 cases
-		// This case is the first two columns (k2=0) of data in the FTs
+		// a[k1][0] = R[k1][0] = R[n1-k1][0], 
+        // a[k1][1] = I[k1][0] = -I[n1-k1][0], 
+        // a[n1-k1][1] = R[k1][n2/2] = R[n1-k1][n2/2], 
+        // a[n1-k1][0] = -I[k1][n2/2] = I[n1-k1][n2/2], 
+        //    0<k1<n1/2, 
 		for(int k1=1; k1<H/2; ++k1)
 		{
 			{
@@ -925,10 +1039,9 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			a(product, k1, 0) = a_*c - b*d; // Re(out)
 			a(product, k1, 1) = a_*d + b*c; // Im(out)
 
-
-			const Complexd complex = ref_product.elem(0, k1);
-			assert(epsEqual(complex.re(), a(product, k1, 0)));
-			assert(epsEqual(complex.im(), a(product, k1, 1)));
+			//const Complexd complex = ref_product.elem(0, k1);
+			//assert(epsEqual(complex.re(), a(product, k1, 0)));
+			//assert(epsEqual(complex.im(), a(product, k1, 1)));
 			}
 
 			// bottom half of column
@@ -945,13 +1058,15 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			a(product, n1-k1, 1) = prod_re;
 			a(product, n1-k1, 0) = -prod_im;
 
-			const Complexd complex = ref_product.elem(n2/2, k1);
-			assert(epsEqual(complex.re(), prod_re));
-			assert(epsEqual(complex.im(), prod_im));
+			//const Complexd complex = ref_product.elem(n2/2, k1);
+			//assert(epsEqual(complex.re(), prod_re));
+			//assert(epsEqual(complex.im(), prod_im));
 			}
 		}
 
-		// Multiply the FT'd data
+		// a[k1][2*k2] = R[k1][k2] = R[n1-k1][n2-k2], 
+        // a[k1][2*k2+1] = I[k1][k2] = -I[n1-k1][n2-k2], 
+        //     0<k1<n1, 0<k2<n2/2, 
 		for(int k1=1; k1<n1; ++k1)
 		{
 			for(int k2=1; k2<n2/2; ++k2)
@@ -962,55 +1077,19 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 				const double c = a(padded_filter, k1, k2*2);
 				const double d = a(padded_filter, k1, k2*2+1);
 
-				/*const Complexd complex = ft_in.elem(k2, k1);
-				assert(epsEqual(a, complex.re()));
-				assert(epsEqual(b, complex.im()));
-
-				const Complexd complex_f = ft_filter.elem(k2, k1);
-				assert(epsEqual(c, complex_f.re()));
-				assert(epsEqual(d, complex_f.im()));*/
-
 				a(product, k1, k2*2) = a_*c - b*d; // Re(out)
 				a(product, k1, k2*2+1) = a_*d + b*c; // Im(out)
 
-				const double re_out = product.elem(k2*2, k1);
-				const Complexd ref_complex = ref_product.elem(0, k1);
-				assert(epsEqual(ref_product.elem(k2, k1).re(), a(product, k1, k2*2)));
-				assert(epsEqual(ref_product.elem(k2, k1).im(), a(product, k1, k2*2+1)));
+				//const double re_out = product.elem(k2*2, k1);
+				//const Complexd ref_complex = ref_product.elem(0, k1);
+				//assert(epsEqual(ref_product.elem(k2, k1).re(), a(product, k1, k2*2)));
+				//assert(epsEqual(ref_product.elem(k2, k1).im(), a(product, k1, k2*2+1)));
 			}
 		}
 
-		/*for(int k1=1; k1<n1; ++k1)
-		{
-			for(int k2=1; k2<n2/2; ++k2)
-			{
- 				const double a = padded_in.elem(k2*2, k1);
-				//assert(&padded_in.elem(k2*2, k1) == &(padded_in.rowBegin(k1)[k2*2]));
-				const double b = padded_in.elem(k2*2 + 1, k1);
-
-				const double c = padded_filter.elem(k2*2, k1);
-				const double d = padded_filter.elem(k2*2 + 1, k1);
-
-				const Complexd complex = ft_in.elem(k2, k1);
-				assert(epsEqual(a, complex.re()));
-				assert(epsEqual(b, complex.im()));
-
-				const Complexd complex_f = ft_filter.elem(k2, k1);
-				assert(epsEqual(c, complex_f.re()));
-				assert(epsEqual(d, complex_f.im()));
-
-				product.elem(k2*2, k1) = a*c - b*d; // Re(out)
-				product.elem(k2*2 + 1, k1) = a*d + b*c; // Im(out)
-
-				const double re_out = product.elem(k2*2, k1);
-				const Complexd ref_complex = ref_product.elem(0, k1);
-				assert(epsEqual(ref_product.elem(k2, k1).re(), product.elem(k2*2, k1)));
-				assert(epsEqual(ref_product.elem(k2, k1).im(), product.elem(k2*2 + 1, k1)));
-			}
-		}*/
 
 		//TEMP: print out product
-		conPrint("----------------------Product:---------------------------");
+		/*conPrint("----------------------Product:---------------------------");
 		for(int y=0; y<H; ++y)
 		{
 			for(int x=0; x<W; ++x)
@@ -1018,7 +1097,7 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 				conPrintStr(" " + toString(product.elem(x, y)));
 			}
 			conPrintStr("\n");
-		}
+		}*/
 
 		// Compute IFT of product
 		for(int y=0; y<H; ++y)
@@ -1032,11 +1111,8 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			ip,
 			work_area
 			);
-
-
 		
-
-		Array2d<double> reference_convolution(W, H);
+		/*Array2d<double> reference_convolution(W, H);
 		realIFT(ref_product, reference_convolution);
 
 		conPrint("--------------reference_convolution-----------------");
@@ -1055,26 +1131,17 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			for(int x=0; x<W; ++x)
 			{
 				assert(epsEqual(reference_convolution.elem(x, y), product.elem(x, y)));
-			}
-
-
-
-
-
-
+			}*/
 
 		const double scale = 2.0 / (double)(W * H);
 
 		// Read out real coefficients
-		//if(comp == 1)
-		//{
 		for(int y=0; y<out.getHeight(); ++y)
 			for(int x=0; x<out.getWidth(); ++x)
 				out.getPixel(x, y)[comp] = (float)(product.elem(
-					x, //(x + filter.getWidth()/2) % W, 
-					y //(y + filter.getHeight()/2) % H
+					x + x_offset, //(x + filter.getWidth()/2) % W, 
+					y + y_offset //(y + filter.getHeight()/2) % H
 					) * scale);
-		//}
 	}
 
 	// Free working arrays
@@ -1085,5 +1152,129 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 
 
 
+static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
+{
+	conPrint("testWithDims()");
+	printVar(in_w);
+	printVar(in_h);
+	printVar(f_w);
+	printVar(f_h);
+
+	MTwister rng(2);
+
+	Image in(in_w, in_h);
+	for(unsigned int i=0; i<in.numPixels(); ++i)
+		in.getPixel(i).set(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
+	Image filter(f_w, f_h);
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+		filter.getPixel(i).set(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
+	// Fast FT convolution
+	Image fast_ft_out;
+	ImageFilter::convolveImageFFT(in, filter, fast_ft_out);
+
+	// Reference FT convolution
+	Image ref_ft_out;
+	ImageFilter::slowConvolveImageFFT(in, filter, ref_ft_out);
+
+	// Spatial convolution
+	Image spatial_convolution_out;
+	ImageFilter::convolveImageSpatial(in, filter, spatial_convolution_out);
 
 
+	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
+	testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
+	testAssert(spatial_convolution_out.getWidth() == in.getWidth() && spatial_convolution_out.getHeight() == in.getHeight());
+
+	for(unsigned int i=0; i<fast_ft_out.numPixels(); ++i)
+		for(unsigned int c=0; c<3; ++c)
+		{
+			testAssert(epsEqual(fast_ft_out.getPixel(i)[c], ref_ft_out.getPixel(i)[c]));
+
+			const float a = ref_ft_out.getPixel(i)[c];
+			const float b = spatial_convolution_out.getPixel(i)[c];
+			testAssert(epsEqual(spatial_convolution_out.getPixel(i)[c], ref_ft_out.getPixel(i)[c], 0.0001f));
+		}
+}
+
+
+static void testFT(int in_w, int in_h)
+{
+	conPrint("testFT()");
+	printVar(in_w);
+	printVar(in_h);
+
+	MTwister rng(1);
+
+	Array2d<double> in(in_w, in_h);
+	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
+		in.getData()[i] = rng.unitRandom();
+
+	// Fast FT convolution
+	Array2d<Complexd> fast_ft_out;
+	ImageFilter::realFFT(in, fast_ft_out);
+
+	// Reference FT convolution
+	Array2d<Complexd> ref_ft_out;
+	ImageFilter::realFT(in, ref_ft_out);
+
+
+	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
+	testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
+
+	conPrint("--------------Fast FT-----------------");
+	for(int y=0; y<in_h; ++y)
+	{
+		for(int x=0; x<in_w; ++x)
+		{
+			conPrintStr(" (" + toString(fast_ft_out.elem(x, y).re()) + ", " + toString(fast_ft_out.elem(x, y).im()) + ")" );
+		}
+		conPrintStr("\n");
+	}
+
+	conPrint("--------------Reference FT-----------------");
+	for(int y=0; y<in_h; ++y)
+	{
+		for(int x=0; x<in_w; ++x)
+		{
+			conPrintStr(" (" + toString(ref_ft_out.elem(x, y).re()) + ", " + toString(ref_ft_out.elem(x, y).im()) + ")" );
+		}
+		conPrintStr("\n");
+	}
+
+	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
+	{
+		const Complexd a = ref_ft_out.getData()[i];
+		const Complexd b = fast_ft_out.getData()[i];
+		
+		testAssert(epsEqual(a.re(), b.re()));
+	}
+}
+
+void ImageFilter::test()
+{
+	conPrint("ImageFilter::test()");
+
+	testFT(4, 4);
+
+	testFT(8, 8);
+
+	testFT(16, 16);
+
+	testFT(8, 16);
+
+	testFT(16, 4);
+
+	testConvolutionWithDims(2, 2, 2, 2);
+
+	testConvolutionWithDims(3, 3, 3, 3);
+
+	testConvolutionWithDims(16, 16, 16, 16);
+
+	testConvolutionWithDims(19, 6, 5, 3);
+
+	testConvolutionWithDims(32, 32, 6, 6);
+
+	testConvolutionWithDims(16, 16, 7, 7);
+}

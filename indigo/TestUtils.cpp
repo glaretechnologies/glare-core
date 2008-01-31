@@ -17,6 +17,7 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 	if(!expr)
 	{
 		conPrint("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test));
+		assert(0);
 		exit(0);
 	}
 }
