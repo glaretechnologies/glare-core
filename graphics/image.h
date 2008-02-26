@@ -8,6 +8,7 @@
 #include <string>
 #include <map>
 #include "bitmap.h"
+class FilterFunction;
 
 class ImageExcep
 {
@@ -105,8 +106,10 @@ public:
 	};
 
 	void collapseSizeBoxFilter(int factor, int border_width); // trims off border before collapsing
-	void collapseSizeMitchellNetravali(int factor, int border_width); // trims off border before collapsing
-	void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type);
+	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
+	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
+	
+	void collapseImage(int factor, int border_width, const FilterFunction& filter_function);
 
 	unsigned int getByteSize() const;
 

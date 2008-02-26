@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 //#include "../utils/timer.h"
 #include "../maths/mathstypes.h"
 #include "../utils/MTwister.h" // just for testing
-#include "fft2d.h"
+//#include "fft2d.h"
 #include "../indigo/TestUtils.h"
 
 // Defined in fft4f2d.c
@@ -686,6 +686,7 @@ void ImageFilter::realIFT(const Array2d<Complexd>& data, Array2d<double>& real_o
 
 void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image& filter, Image& out)
 {
+#if 0
 	const int W = smallestPowerOf2GE(myMax(in_image.getWidth(), filter.getWidth()));
 	const int H = smallestPowerOf2GE(myMax(in_image.getHeight(), filter.getHeight()));
 
@@ -740,6 +741,7 @@ void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image
 				out.getPixel(x, y)[comp] = in.at(x, y).real() * scale;
 			}
 	}
+#endif
 }
 
 

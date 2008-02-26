@@ -470,8 +470,8 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 	//TEMP: save diffraction image-------------------------------------------------------
 	Image save_image = *diffraction_filter_image;
 
-	IndigoImage igi;
-	igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
+	//IndigoImage igi;
+	//igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
 
 	//save_image.scale(100000.0f);
 	save_image.scale(100.0f / save_image.maxLuminance());

@@ -11,6 +11,8 @@
 #include <assert.h>
 #include <limits>
 #include "../indigo/IndigoImage.h"
+#include "MitchellNetravali.h"
+#include "BoxFilterFunction.h"
 
 #ifndef BASIC_IMAGE
 
@@ -999,6 +1001,11 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 	fclose(f);*/
 }
 
+/*void Image::collapseSizeBoxFilter(int factor, int border_width)
+{
+	BoxFilterFunction box_filter_func;
+	this->collapseImage(factor, border_width, box_filter_func);
+}*/
 
 
 // trims off border before collapsing
@@ -1028,15 +1035,20 @@ void Image::collapseSizeBoxFilter(int factor, int border_width)
 	*this = out;
 }
 
-
+/*
 
 // trims off border before collapsing
-void Image::collapseSizeMitchellNetravali(int factor, int border_width)
+void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B, double C)
 {
 	assert(border_width >= 0);
 	assert(width > border_width * 2);
 	assert(width > border_width * 2);
 	assert((width - (border_width * 2)) % factor == 0);
+
+	MitchellNetravali mn(
+		B, // B = blur
+		C // C = ring
+		);
 
 	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
 
@@ -1061,7 +1073,8 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width)
 			const double pos_x = ((double)x + 0.5) / (double)factor; // y coordinate in big pixels
 			const double abs_dx = fabs(pos_x - center_pos_x);
 
-			filter.elem(x, y) = Maths::mitchellNetravali(abs_dx) * Maths::mitchellNetravali(abs_dy) * scale_factor;
+			//filter.elem(x, y) = Maths::mitchellNetravali(abs_dx) * Maths::mitchellNetravali(abs_dy) * scale_factor;
+			filter.elem(x, y) = mn.eval(abs_dx) * mn.eval(abs_dy) * scale_factor;
 		}
 	}
 
@@ -1120,19 +1133,112 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width)
 
 	*this = out;
 }
+*/
 
 
-void Image::collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type)
+
+
+void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function)
+{
+	assert(border_width >= 0);
+	assert(width > border_width * 2);
+	assert(width > border_width * 2);
+	assert((width - (border_width * 2)) % factor == 0);
+
+	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+
+	const float scale_factor = 1.0f / (float)(factor * factor);
+
+	// Construct filter
+	const int filter_width = ((int)ceil(filter_function.supportRadius()) * 2 + 1) * factor;
+	Array2d<float> filter(filter_width, filter_width);
+
+	// Filter center coordinates in big pixels
+	const double center_pos_x = (double)(filter_width / 2) + 0.5; //2.5; 
+	const double center_pos_y = (double)(filter_width / 2) + 0.5; //2.5;
+
+	for(int y=0; y<filter_width; ++y)
+	{
+		const double pos_y = ((double)y + 0.5) / (double)factor; // y coordinate in big pixels
+		const double abs_dy = fabs(pos_y - center_pos_y);
+
+		for(int x=0; x<filter_width; ++x)
+		{
+			const double pos_x = ((double)x + 0.5) / (double)factor; // y coordinate in big pixels
+			const double abs_dx = fabs(pos_x - center_pos_x);
+
+			filter.elem(x, y) = filter_function.eval(abs_dx) * filter_function.eval(abs_dy) * scale_factor;
+		}
+	}
+
+
+
+	const int neg_rad = factor * (filter_width / 2);
+	const int pos_rad = factor * (filter_width / 2 + 1);
+
+	// For each pixel of result image
+	for(int y=0; y<out.getHeight(); ++y)
+	{
+		const int src_y_center = y * factor;
+		const int src_y_min = myMax(0, src_y_center - neg_rad);
+		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);
+
+		//if(y % 50 == 0)
+		//	printVar(y);
+
+		for(int x=0; x<out.getWidth(); ++x)
+		{
+			const int src_x_center = x * factor; 
+			const int src_x_min = myMax(0, src_x_center - neg_rad);
+			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);
+
+			Colour3f c(0.0f);
+
+			// For each pixel in filter support of source image
+			for(int sy=src_y_min; sy<src_y_max; ++sy)
+			{
+				const int filter_y = (sy - src_y_center) + neg_rad;
+				assert(filter_y >= 0 && filter_y < filter_width);		
+
+				for(int sx=src_x_min; sx<src_x_max; ++sx)
+				{
+					const int filter_x = (sx - src_x_center) + neg_rad;
+					assert(filter_x >= 0 && filter_x < filter_width);	
+
+					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
+					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
+
+					c.addMult(this->getPixel(sx, sy), filter.elem(filter_x, filter_y));
+				}
+			}
+
+
+			//assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
+			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
+
+			// Make sure components can't go below zero or above 1.0
+			c.clamp(0.0f, 1.0f);
+
+			out.setPixel(x, y, c);
+		}
+	}
+
+	*this = out;
+}
+
+
+/*
+void Image::collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C)
 {
 	if(filter_type == Image::DOWNSIZE_FILTER_BOX)
 		collapseSizeBoxFilter(factor, border_width);
 	else if(filter_type == Image::DOWNSIZE_FILTER_MN_CUBIC)
-		collapseSizeMitchellNetravali(factor, border_width);
+		collapseSizeMitchellNetravali(factor, border_width, mn_B, mn_C);
 	else
 	{
 		assert(0);
 	}
-}
+}*/
 
 
 unsigned int Image::getByteSize() const

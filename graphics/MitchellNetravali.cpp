@@ -9,7 +9,8 @@ Code By Nicholas Chapman.
 
 
 
-MitchellNetravali::MitchellNetravali(double B, double C)
+MitchellNetravali::MitchellNetravali(double B_, double C_)
+:	B(B_), C(C_)
 {
 	region_0_a = (12.0 - 9.0*B - 6.0*C) / 6.0;
 	region_0_b = (-18.0 + 12.0*B + 6.0*C) / 6.0;

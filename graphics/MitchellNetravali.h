@@ -32,10 +32,14 @@ public:
 	// require x >= 0
 	inline double eval(double x) const;
 
+	inline double getB() const { return B; }
+	inline double getC() const { return C; }
+
 
 private:
 	double region_0_a, region_0_b, region_0_d; // 0.0 <= x < 1.0
 	double region_1_a, region_1_b, region_1_c, region_1_d; // 1.0 <= x < 2.0
+	double B, C;
 };
 
 
