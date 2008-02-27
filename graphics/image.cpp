@@ -1009,30 +1009,37 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 
 
 // trims off border before collapsing
-void Image::collapseSizeBoxFilter(int factor, int border_width)
+void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 {
-	assert(border_width >= 0);
-	assert(width > border_width * 2);
-	assert(width > border_width * 2);
-	assert((width - (border_width * 2)) % factor == 0);
+	//assert(border_width >= 0);
+	//assert(width > border_width * 2);
+	//assert(width > border_width * 2);
+	//assert((width - (border_width * 2)) % factor == 0);
 
-	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
 
-	const float scale_factor = 1.0f / (float)(factor * factor);
+	//const float scale_factor = 1.0f / (float)(factor * factor);
 
-	for(int y=0; y<out.getHeight(); ++y)
-		for(int x=0; x<out.getWidth(); ++x)
-		{
-			Colour3f c(0.f, 0.f, 0.f);
+	//for(int y=0; y<out.getHeight(); ++y)
+	//	for(int x=0; x<out.getWidth(); ++x)
+	//	{
+	//		Colour3f c(0.f, 0.f, 0.f);
 
-			for(int s=0; s<factor; ++s)
-				for(int t=0; t<factor; ++t)
-					c += getPixel(x*factor + s + border_width, y*factor + t + border_width);
+	//		for(int s=0; s<factor; ++s)
+	//			for(int t=0; t<factor; ++t)
+	//				c += getPixel(x*factor + s + border_width, y*factor + t + border_width);
 
-			out.getPixel(x, y) = c * scale_factor;
-		}
+	//		out.getPixel(x, y) = c * scale_factor;
+	//	}
 
-	*this = out;
+	//*this = out;
+
+	BoxFilterFunction ff;
+	this->collapseImage(
+		factor,
+		0, // border
+		ff
+		);
 }
 
 /*
@@ -1147,20 +1154,60 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 
 	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
 
-	const float scale_factor = 1.0f / (float)(factor * factor);
+	//const double scale_factor = 1.0f / (float)(factor * factor);
 
 	// Construct filter
-	const int filter_width = ((int)ceil(filter_function.supportRadius()) * 2 + 1) * factor;
+	/*const int filter_width = ((int)ceil(filter_function.supportRadius()) * 2 + 1) * factor;
 	Array2d<float> filter(filter_width, filter_width);
 
 	// Filter center coordinates in big pixels
 	const double center_pos_x = (double)(filter_width / 2) + 0.5; //2.5; 
-	const double center_pos_y = (double)(filter_width / 2) + 0.5; //2.5;
+	const double center_pos_y = (double)(filter_width / 2) + 0.5; //2.5;*/
+
+	const double radius_src = filter_function.supportRadius() * (double)factor;
+
+	//const int neg_rad_src = (int)floor(radius_src);
+	//const int pos_rad_src = (int)ceil(radius_src);
+
+	const int filter_width = (int)ceil(radius_src * 2.0); // neg_rad_src + pos_rad_src;
+
+	Array2d<float> filter(filter_width, filter_width);
+
+	//double sum = 0.0;
 
 	for(int y=0; y<filter_width; ++y)
 	{
-		const double pos_y = ((double)y + 0.5) / (double)factor; // y coordinate in big pixels
-		const double abs_dy = fabs(pos_y - center_pos_y);
+		const double pos_y = (double)y + 0.5; // y coordinate in src pixels
+		const double abs_dy_src = fabs(pos_y - radius_src);
+
+		for(int x=0; x<filter_width; ++x)
+		{
+			const double pos_x = (double)x + 0.5; // y coordinate in src pixels
+			const double abs_dx_src = fabs(pos_x - radius_src);
+
+			filter.elem(x, y) = filter_function.eval(abs_dx_src / (double)factor) * filter_function.eval(abs_dy_src / (double)factor) / (float)(factor * factor);
+
+			//sum += (double)filter.elem(x, y);
+		}
+	}
+
+	//printVar(sum);
+
+	//TEMP:
+	/*for(int y=0; y<filter_width; ++y)
+	{
+		for(int x=0; x<filter_width; ++x)
+		{
+			conPrintStr(toString(filter.elem(x, y)) + " ");
+		}
+		conPrintStr("\n");
+	}*/
+
+
+	/*for(int y=0; y<filter_width; ++y)
+	{
+		//const double pos_y = ((double)y + 0.5) / (double)factor; // y coordinate in big pixels
+		//const double abs_dy = fabs(pos_y - center_pos_y);
 
 		for(int x=0; x<filter_width; ++x)
 		{
@@ -1169,40 +1216,51 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 
 			filter.elem(x, y) = filter_function.eval(abs_dx) * filter_function.eval(abs_dy) * scale_factor;
 		}
-	}
+	}*/
 
 
 
-	const int neg_rad = factor * (filter_width / 2);
-	const int pos_rad = factor * (filter_width / 2 + 1);
+	//const int neg_rad = factor * (filter_width / 2);
+	//const int pos_rad = factor * (filter_width / 2 + 1);
 
 	// For each pixel of result image
+	int support_y = (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
+
 	for(int y=0; y<out.getHeight(); ++y)
 	{
-		const int src_y_center = y * factor;
+		/*const int src_y_center = y * factor;
 		const int src_y_min = myMax(0, src_y_center - neg_rad);
-		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);
+		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);*/
+
+		const int src_y_min = myMax(0, support_y);
+		const int src_y_max = myMin(getHeight(), support_y + filter_width);
 
 		//if(y % 50 == 0)
 		//	printVar(y);
 
+
+		int support_x = (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
+
 		for(int x=0; x<out.getWidth(); ++x)
 		{
-			const int src_x_center = x * factor; 
+			/*const int src_x_center = x * factor; 
 			const int src_x_min = myMax(0, src_x_center - neg_rad);
-			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);
+			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);*/
+
+			const int src_x_min = myMax(0, support_x);
+			const int src_x_max = myMin(getWidth(), support_x + filter_width);
 
 			Colour3f c(0.0f);
 
 			// For each pixel in filter support of source image
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
 			{
-				const int filter_y = (sy - src_y_center) + neg_rad;
+				const int filter_y = sy - support_y; //(sy - src_y_center) + neg_rad;
 				assert(filter_y >= 0 && filter_y < filter_width);		
 
 				for(int sx=src_x_min; sx<src_x_max; ++sx)
 				{
-					const int filter_x = (sx - src_x_center) + neg_rad;
+					const int filter_x = sx - support_x; //(sx - src_x_center) + neg_rad;
 					assert(filter_x >= 0 && filter_x < filter_width);	
 
 					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
@@ -1220,7 +1278,11 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			c.clamp(0.0f, 1.0f);
 
 			out.setPixel(x, y, c);
+
+			support_x += factor;
 		}
+
+		support_y += factor;
 	}
 
 	*this = out;

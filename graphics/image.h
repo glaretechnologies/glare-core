@@ -105,7 +105,7 @@ public:
 		DOWNSIZE_FILTER_BOX
 	};
 
-	void collapseSizeBoxFilter(int factor, int border_width); // trims off border before collapsing
+	void collapseSizeBoxFilter(int factor); // trims off border before collapsing
 	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
 	
