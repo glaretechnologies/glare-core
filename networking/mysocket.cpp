@@ -251,7 +251,7 @@ MySocket::~MySocket()
 
 
 
-void MySocket::bindAndListen(int port) throw (MySocketExcep)
+void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 {
 
 	assert(Networking::isInited());
@@ -307,7 +307,7 @@ void MySocket::bindAndListen(int port) throw (MySocketExcep)
 
 
 
-void MySocket::acceptConnection(MySocket& new_socket) throw (MySocketExcep)
+void MySocket::acceptConnection(MySocket& new_socket) // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
 

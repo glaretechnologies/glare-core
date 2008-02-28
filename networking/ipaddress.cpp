@@ -34,7 +34,7 @@ IPAddress::~IPAddress()
 				(unsigned int)d;
 }*/
 
-IPAddress::IPAddress(const std::string& addstring) throw (MalformedIPStringExcep)//in form "255.255.255.255"
+IPAddress::IPAddress(const std::string& addstring)// throw (MalformedIPStringExcep)//in form "255.255.255.255"
 {
 	//nasty piece of code this, there is some library call to do it but..
 

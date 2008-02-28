@@ -255,7 +255,7 @@ const std::string Networking::getError()
 #endif
 }
 
-const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname) throw (NetworkingExcep)
+const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname) // throw (NetworkingExcep)
 {
 	//assert(isInited());
 
@@ -282,7 +282,7 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 }
 
 
-const std::string Networking::doReverseDNSLookup(const IPAddress& ipaddress) throw (NetworkingExcep)
+const std::string Networking::doReverseDNSLookup(const IPAddress& ipaddress) // throw (NetworkingExcep)
 {
 	assert(isInited());
 
