@@ -633,6 +633,7 @@ bool isPathAbsolute(const std::string& p)
 #endif
 }
 
+
 uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
 {
 	std::vector<unsigned char> contents;

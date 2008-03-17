@@ -21,7 +21,7 @@ DirIterator::DirIterator(const std::string& dir)
 	const std::string search_string = full_direc_name + "\\*";
 
 
-	search_handle = FindFirstFile(search_string.c_str(), &find_data);
+	search_handle = FindFirstFileA(search_string.c_str(), &find_data);
 
 	if(search_handle == INVALID_HANDLE_VALUE)
 		throw DirIteratorExcep("Could not find a file in direc '" + full_direc_name + "'");
@@ -82,7 +82,7 @@ void DirIterator::advance()
 	//-----------------------------------------------------------------
 	//advance to the next file
 	//-----------------------------------------------------------------
-	const bool found_file = FindNextFile(search_handle, &find_data);
+	const bool found_file = FindNextFileA(search_handle, &find_data) != 0;
 
 	if(!found_file)//no more files in this direc
 	{

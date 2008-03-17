@@ -46,6 +46,8 @@ public:
 
 	void killThread();
 
+	void waitForThread();
+
 	bool commit_suicide;
 
 	static int getNumAliveThreads();

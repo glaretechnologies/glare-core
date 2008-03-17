@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #ifndef __DIRITERATOR_H_666_
 #define __DIRITERATOR_H_666_
 
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
+
 #include "platform.h"
 #include <windows.h>
 #include <string>
@@ -88,7 +91,7 @@ private:
 	std::string current_filename;
 	bool finished;
 	HANDLE search_handle;
-	WIN32_FIND_DATA find_data;
+	WIN32_FIND_DATAA find_data;
 
 };
 

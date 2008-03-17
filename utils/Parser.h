@@ -37,6 +37,7 @@ public:
 	//if not, it won't be moved.
 	inline bool parseChar(char target);
 	inline bool parseInt(unsigned int& result_out);
+	inline bool parseNDigitUnsignedInt(unsigned int N, unsigned int& result_out);
 	//inline bool parseInt(int& result_out);
 	bool parseFloat(float& result_out);//must be whitespace delimited
 	bool parseDouble(double& result_out);//must be whitespace delimited
@@ -88,6 +89,15 @@ bool Parser::parseInt(unsigned int& result_out)
 	return currentpos - initial_currentpos > 0;
 }
 
+bool Parser::parseNDigitUnsignedInt(unsigned int N, unsigned int& result_out)
+{
+	unsigned int x = 0;
+	const int initial_currentpos = currentpos;
+	for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
+		x = 10*x + ((int)text[currentpos] - (int)'0');
+	result_out = x;
+	return currentpos - initial_currentpos == N;
+}
 
 bool Parser::parseWhiteSpace()
 {

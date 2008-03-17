@@ -292,7 +292,8 @@ bool Parser::parseNonWSToken(std::string& token_out)
 
 void Parser::doUnitTests()
 {
-#ifdef DEBUG
+#ifdef _DEBUG
+	{
 	std::string text = "-456.5456e21 673.234 -0.5e-53 .6 167/2/3 4/5/6";
 
 	Parser p((char*)text.c_str(), text.size());
@@ -340,7 +341,27 @@ void Parser::doUnitTests()
 	assert(!p.parseChar('/'));
 	assert(!p.parseInt(x));
 	assert(!p.parseWhiteSpace());
+	}
 
+
+	{
+	const std::string text = "123--456222";
+
+	Parser p((char*)text.c_str(), text.size());
+
+	unsigned int x;
+	assert(p.parseNDigitUnsignedInt(3, x));
+	assert(x == 123);
+	
+	assert(p.parseChar('-'));
+	assert(p.parseChar('-'));
+
+	assert(p.parseNDigitUnsignedInt(3, x));
+	assert(x == 456);
+
+	assert(p.parseNDigitUnsignedInt(3, x));
+	assert(x == 222);
+	}
 
 #endif
 }
