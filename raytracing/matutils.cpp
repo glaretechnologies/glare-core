@@ -568,6 +568,13 @@ void MatUtils::refractInSurface(const Vec3& surface_normal,
 	//			surface_normal * (n * c1 - c2);
 }*/
 
+double MatUtils::schlickFresnelReflectance(double R_0, double cos_theta)
+{
+	assert(Maths::inRange(cos_theta, 0.0, 1.0));
+	return R_0 + (1.0 - R_0) * MatUtils::pow5(1.0 - cos_theta);
+}
+
+
 /*
 double MatUtils::getFresnelReflForCosAngle(double cos_angle_incidence,
 				double fresnel_fraction)

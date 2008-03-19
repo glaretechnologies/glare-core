@@ -68,7 +68,9 @@ public:
 	static void getReflForCosAngleSchlick(double cos_angle_incidence,
 				const Colour3d& normal_reflectance, Colour3d& reflectance_out);*/
 
-	static double schlickFresnelFraction(double cos_angle_incidence);
+	//static double schlickFresnelFraction(double cos_angle_incidence);
+
+	static double schlickFresnelReflectance(double R_0, double cos_theta);
 
 
 
