@@ -6,6 +6,9 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "twister.h"
 
+
+#include <stdio.h>
+
 namespace Twister
 {
 
@@ -53,7 +56,7 @@ namespace Twister
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
 */
 
-#include <stdio.h>
+
 
 /* Period parameters */  
 #define N 624

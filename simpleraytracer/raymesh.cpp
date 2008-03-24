@@ -595,7 +595,15 @@ int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
 }
 
 
+void RayMesh::printTreeStats()
+{
+	tritree->printStats();
+}
 
+void RayMesh::printTraceStats()
+{
+	tritree->printTraceStats();
+}
 
 
 

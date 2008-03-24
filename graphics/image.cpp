@@ -1,6 +1,6 @@
 #include "image.h"
 
-#pragma warning(disable : 4290)//disable exception specification warning in VS2003
+//#pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
 
 #include <stdio.h>

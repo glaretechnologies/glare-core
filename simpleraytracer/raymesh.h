@@ -93,6 +93,8 @@ public:
 	
 	//Debugging:
 	const js::Tree* getTreeDebug() const { return tritree.get(); }
+	void printTreeStats();
+	void printTraceStats();
 
 
 	const std::string& getName() const { return name; }
