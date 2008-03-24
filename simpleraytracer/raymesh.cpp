@@ -16,6 +16,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
 #include "../utils/fileutils.h"
+#include "../utils/timer.h"
 #include <fstream>
 #include <algorithm>
 
@@ -108,6 +109,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	//------------------------------------------------------------------------
 	//print out our mem usage
 	//------------------------------------------------------------------------
+	Timer timer;
 	conPrint("Building Mesh '" + name + "'...");
 	conPrint("\t" + toString(num_vertices) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
 	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(SimpleIndexTri)) + ")");
@@ -187,7 +189,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	//if(emitter_init)
 	//	this->doInitAsEmitter();
 
-	conPrint("Done Building Mesh '" + name + "'.");
+	conPrint("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
 
 	//mesh.buildTriNormals();//NEWCODE
 	//------------------------------------------------------------------------

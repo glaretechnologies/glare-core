@@ -41,7 +41,7 @@ bool Parser::parseFloat(float& result_out)
 {
 	double x;
 	const bool result = parseDouble(x);
-	result_out = x;
+	result_out = (float)x;
 	return result;
 
 

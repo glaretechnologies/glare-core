@@ -116,7 +116,7 @@ public:
 	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
 	void getAllHitsAllTris(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const;
 	const std::vector<TreeNode>& getNodesDebug() const { return nodes; }
-	
+	static void test();	
 
 
 	static const unsigned int MAX_KDTREE_DEPTH = 64;
