@@ -20,36 +20,40 @@ Code By Nicholas Chapman.
 #include <zlib.h>
 #include <limits>
 #include <algorithm>
+#include "../graphics/TriBoxIntersection.h"
 
 #ifdef USE_SSE
 #define DO_PREFETCHING 1
 #endif
+
+
+
+namespace js
+{
 
 static void triTreeDebugPrint(const std::string& s)
 {
 	conPrint("\t" + s);
 }
 
-namespace js
-{
+#define RECORD_TRACE_STATS 1
+static const int TRI_CLIP_THRESHOLD = 0;//2e9;
 
-//#define RECORD_TRACE_STATS 1
+
 
 TriTree::TriTree(RayMesh* raymesh_)
 :	root_aabb(NULL)
 {
 //	nodes.setAlignment(8);
 
+	TriBoxIntersection::test(); // TEMP
+
 	checksum_ = 0;
 	calced_checksum = false;
-	nodestack_size = 0;
-#ifdef SSE_TRAVERSAL
-	bundlenodestack = NULL;
-	bundlenodestack_size = 0;
-#endif
 	intersect_tris = NULL;
 	num_intersect_tris = 0;
 	max_depth = 0;
+	num_cheaper_no_split_leafs = 0;
 	num_inseparable_tri_leafs = 0;
 	num_maxdepth_leafs = 0;
 	num_under_thresh_leafs = 0;
@@ -85,6 +89,7 @@ TriTree::TriTree(RayMesh* raymesh_)
 	//---------------------------------
 
 	num_traces = 0;
+	num_aabb_hits = 0;
 	total_num_nodes_touched = 0;
 	total_num_leafs_touched = 0;
 	total_num_tris_intersected = 0;
@@ -107,6 +112,7 @@ TriTree::~TriTree()
 void TriTree::printTraceStats() const
 {
 	printVar(num_traces);
+	conPrint("AABB hit fraction: " + toString((double)num_aabb_hits / (double)num_traces));
 	conPrint("av num nodes touched: " + toString((double)total_num_nodes_touched / (double)num_traces));
 	conPrint("av num leaves touched: " + toString((double)total_num_leafs_touched / (double)num_traces));
 	conPrint("av num tris tested: " + toString((double)total_num_tris_intersected / (double)num_traces));
@@ -124,12 +130,9 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 	this->num_traces++;
 #endif
 
-	
 	hitinfo_out.hittriindex = 0;
 	hitinfo_out.hittricoords.set(0.0, 0.0);
 
-
-	assert(nodestack_size > 0);
 	assert(!nodes.empty());
 	assert(root_aabb);
 	if(nodes.empty())
@@ -143,6 +146,10 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
 	//if(!root_aabb.TBPIntersect(ray.startpos, recip_unitraydir, aabb_enterdist, aabb_exitdist))
 		return -1.0; //missed aabbox
+
+#ifdef RECORD_TRACE_STATS
+	this->num_aabb_hits++;
+#endif
 
 	const float MIN_TMIN = 0.0;//0.00000001f;//above zero to avoid denorms
 	aabb_enterdist = myMax(aabb_enterdist, MIN_TMIN);
@@ -215,7 +222,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 					
 				//push far node onto stack to process later
 				stacktop++;
-				assert(stacktop < nodestack_size);
+				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 					
 				//process near child next
@@ -263,7 +270,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 					hitinfo_out.hittricoords.set(u, v);
 				}
 
-				//Add tri index to hash of tris already intersected against
+				// Add tri index to hash of tris already intersected against
 				context.tri_hash->addTriIndex(triangle_index);
 			}
 			leaf_geom_index++;
@@ -271,18 +278,11 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 		if(closest_dist <= tmax)
 		{
-			//If intersection point lies before ray exit from this leaf volume, then finished.
-#ifdef RECORD_TRACE_STATS
-			printTraceStats();
-#endif
+			// If intersection point lies before ray exit from this leaf volume, then finished.
 			return closest_dist;
 		}
 
 	}//end while stacktop >= 0
-
-#ifdef RECORD_TRACE_STATS
-	printTraceStats();
-#endif
 
 	if(closest_dist < std::numeric_limits<float>::max())
 		return closest_dist;
@@ -308,7 +308,6 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	assert(ray.builtRecipRayDir());
 	const SSE_ALIGN PaddedVec3& recip_unitraydir = ray.getRecipRayDirF();
 
-	assert(nodestack_size > 0);
 	assert(!nodes.empty());
 	assert(root_aabb);
 	//TEMP DODGY NO TESTS
@@ -396,7 +395,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 					
 					//push far node onto stack to process later
 					stacktop++;
-					assert(stacktop < nodestack_size);
+					assert(stacktop < context.nodestack_size);
 					context.nodestack[stacktop] = StackFrame(farnode, sgnd_dist_to_split, tmax);
 					
 					//process near child next
@@ -539,7 +538,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 					
 				//push far node onto stack to process later
 				stacktop++;
-				assert(stacktop < nodestack_size);
+				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 					
 				//process near child next
@@ -613,12 +612,55 @@ const js::AABBox& TriTree::getAABBoxWS() const
 	return *root_aabb;
 }
 
+static inline void getMinAndMax(float a, float b, float c, float& min_out, float& max_out)
+{
+	if(a <= b)
+	{
+		if(a <= c)
+		{
+			min_out = a;
+			max_out = b >= c ? b : c;
+		}
+		else //else c < a
+		{
+			min_out = c;
+			max_out = b;
+		}
+	}
+	else // else a > b == b < a
+	{
+		if(b <= c)
+		{
+			min_out = b;
+			max_out = a >= c ? a : c;
+		}
+		else //else c < b
+		{
+			min_out = c;
+			max_out = a;
+		}
+	}
+	assert(min_out == myMin(a, myMin(b, c)));
+	assert(max_out == myMax(a, myMax(b, c)));
+}
+
+static void getTriBounds(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, Vec3f& lower_out, Vec3f& upper_out)
+{
+	for(unsigned int c=0; c<3; ++c)
+		getMinAndMax(v0[c], v1[c], v2[c], lower_out[c], upper_out[c]);
+}
+
 
 void TriTree::build(/*RayMesh* raymesh_*/)
 {
 	//raymesh = raymesh_;
 
 	triTreeDebugPrint("TriTree::build()");
+
+	leaf_geom_counts = std::vector<unsigned int>(
+		10, // count
+		0 // val
+		);
 	//triTreeDebugPrint(::toString(tris->size()) + " tris.");
 
 	/*if(tris->empty())
@@ -670,22 +712,14 @@ void TriTree::build(/*RayMesh* raymesh_*/)
 	//------------------------------------------------------------------------
 	//const int numtris = tris->size();
 	//max_depth = (int)(2.0f + logBase2((float)numtris) * 1.2f);
-	max_depth = myMin(
+/*TEMP	max_depth = myMin(
 		(int)(2.0f + logBase2((float)numTris()) * 2.0f),
 		(int)MAX_KDTREE_DEPTH-1
-		);
+		);*/
+	max_depth = (int)MAX_KDTREE_DEPTH-1;
 
 	triTreeDebugPrint("max tree depth: " + ::toString(max_depth));
 
-	// Aalloc stack vector
-	nodestack_size = max_depth + 1;
-	//alignedSSEArrayMalloc(nodestack_size, nodestack);
-
-#ifdef SSE_TRAVERSAL
-	bundlenodestack_size = max_depth + 1;
-	alignedSSEArrayMalloc(bundlenodestack_size, bundlenodestack);
-#endif
-	
 	const int expected_numnodes = (int)((float)numTris() * 1.0f);
 	const int nodemem = expected_numnodes * sizeof(js::TreeNode);
 
@@ -739,14 +773,22 @@ void TriTree::build(/*RayMesh* raymesh_*/)
 	{
 	std::vector<float> lower(numTris());
 	std::vector<float> upper(numTris());
-	std::vector<std::vector<TRI_INDEX> > node_tri_layers(MAX_KDTREE_DEPTH);//1 list of tris for each depth
+	std::vector<std::vector<TriInfo> > node_tri_layers(MAX_KDTREE_DEPTH);//1 list of tris for each depth
 
 	//for(int t=0; t<MAX_KDTREE_DEPTH; ++t)//TEMP
 	//	node_tri_layers[t].reserve(1000);
 	
 	node_tri_layers[0].resize(numTris());
 	for(unsigned int i=0; i<numTris(); ++i)
-		node_tri_layers[0][i] = i;
+	{
+		node_tri_layers[0][i].tri_index = i;
+
+		getTriBounds(
+			triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2),
+			node_tri_layers[0][i].lower,
+			node_tri_layers[0][i].upper
+			);
+	}
 
 	doBuild(0, node_tri_layers, 0, max_depth, *root_aabb, lower, upper);
 	}
@@ -859,15 +901,6 @@ void TriTree::buildFromStream(std::istream& stream)
 
 	triTreeDebugPrint("max tree depth: " + ::toString(max_depth));
 
-	// Aalloc stack vector
-	nodestack_size = max_depth + 1;
-	//alignedSSEArrayMalloc(nodestack_size, nodestack);
-
-#ifdef SSE_TRAVERSAL
-	bundlenodestack_size = max_depth + 1;
-	alignedSSEArrayMalloc(bundlenodestack_size, bundlenodestack);
-#endif
-	
 	//------------------------------------------------------------------------
 	//read nodes
 	//------------------------------------------------------------------------
@@ -919,50 +952,9 @@ void TriTree::postBuild() const
 }
 
 
-static inline void getMinAndMax(float a, float b, float c, float& min_out, float& max_out)
-{
-	if(a <= b)
-	{
-		if(a <= c)
-		{
-			min_out = a;
-			max_out = b >= c ? b : c;
-		}
-		else //else c < a
-		{
-			min_out = c;
-			max_out = b;
-		}
-	}
-	else // else a > b == b < a
-	{
-		if(b <= c)
-		{
-			min_out = b;
-			max_out = a >= c ? a : c;
-		}
-		else //else c < b
-		{
-			min_out = c;
-			max_out = a;
-		}
-	}
-	assert(min_out == myMin(a, myMin(b, c)));
-	assert(max_out == myMax(a, myMax(b, c)));
-}
 
 
-//precondition: node_tri_layers[depth] is valid and contains all tris for this volume.
-
-void TriTree::doBuild(unsigned int cur, //index of current node getting built
-						//const std::vector<TRI_INDEX>& nodetris,//tris for current node
-						std::vector<std::vector<TRI_INDEX> >& node_tri_layers,
-						unsigned int depth, //depth of current node
-						unsigned int maxdepth, //max permissible depth
-						const AABBox& cur_aabb, //AABB of current node
-						std::vector<float>& upper, std::vector<float>& lower)
-{
-	//TEMP:
+/*
 #ifdef DEBUG
 	{
 	float minval, maxval;
@@ -974,30 +966,171 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	assert(minval == 1. && maxval == 3.);
 	}
 #endif
+*/
 
+
+
+/*
+static void triMinAndMaxAlongAAShaft(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const AABBox& aabb, unsigned int axis, unsigned int axis1, unsigned int axis2, float& min_out, float& max_out)
+{
+	assert(axis < 3 && axis1 < 3 && axis2 < 3);
+
+	//early out:
+	if(	v0[axis1] >= aabb.min_[axis1] && v0[axis1] <= aabb.max_[axis1] &&
+		v1[axis1] >= aabb.min_[axis1] && v1[axis1] <= aabb.max_[axis1] &&
+		v2[axis1] >= aabb.min_[axis1] && v2[axis1] <= aabb.max_[axis1] &&
+		v0[axis2] >= aabb.min_[axis2] && v0[axis2] <= aabb.max_[axis2] &&
+		v1[axis2] >= aabb.min_[axis2] && v1[axis2] <= aabb.max_[axis2] &&
+		v2[axis2] >= aabb.min_[axis2] && v2[axis2] <= aabb.max_[axis2])
+	{
+		getMinAndMax(
+			v0[axis],
+			v1[axis],
+			v2[axis], 
+			min_out, max_out);
+	}
+
+
+	Vec3f v_a[8] = {v0, v1, v2};
+	
+	Vec3f v_b[8];
+
+	unsigned int current_num_verts = 3;
+	TriBoxIntersection::clipPolyAgainstPlane(v_a, current_num_verts, axis1, -aabb.min_[axis1], -1.0f, v_b, current_num_verts);
+	assert(current_num_verts < 8);
+	TriBoxIntersection::clipPolyAgainstPlane(v_b, current_num_verts, axis1, aabb.max_[axis1], 1.0f, v_a, current_num_verts);
+	assert(current_num_verts < 8);
+	TriBoxIntersection::clipPolyAgainstPlane(v_a, current_num_verts, axis2, -aabb.min_[axis2], -1.0f, v_b, current_num_verts);
+	assert(current_num_verts < 8);
+	TriBoxIntersection::clipPolyAgainstPlane(v_b, current_num_verts, axis2, aabb.max_[axis2], 1.0f, v_a, current_num_verts);
+	assert(current_num_verts < 8);
+
+	// Ok, so final polygon vertices are in v_a.
+	min_out = v_a[0][axis];
+	max_out = v_a[0][axis];
+	for(unsigned int i=1; i<current_num_verts; ++i)
+	{
+		min_out = myMin(min_out, v_a[i][axis]);
+		max_out = myMax(max_out, v_a[i][axis]);
+	}
+}
+*/
+
+
+
+
+
+
+
+
+/*
+static void updateMinAndMax(const Vec3f& v_a, const Vec3f& v_b, unsigned int axis, unsigned int other_axis, float t_other, float& lower, float& upper)
+{
+	// Intersect edge against min plane on 'other_axis'
+	//const float t_other = cur_aabb.min_[other_axis];
+	const float f = ((t_other - v_a[other_axis]) / (v_b[other_axis] - v_a[other_axis])); // Fraction along edge where the edge intersects the AABB plane
+	
+	if(f >= 0.0 && f <= 1.0)
+	{
+		// Compute coordinate value along axis where triangle edge intersects AABB plane
+		const float t_axis = v_a[axis] + f * (v_b[axis] - v_a[axis]);
+
+		// Update min and max
+		lower = myMin(lower, t_axis);
+		upper = myMax(upper, t_axis);
+	}
+}*/
+
+
+
+
+
+
+static void clippedTriBounds(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const AABBox& aabb, Vec3f& lower_out, Vec3f& upper_out)
+{
+	//early out:
+	/*if(	v0[0] >= aabb.min_[0] && v0[0] <= aabb.max_[0] &&
+		v1[0] >= aabb.min_[0] && v1[0] <= aabb.max_[0] &&
+		v2[0] >= aabb.min_[0] && v2[0] <= aabb.max_[0] &&
+		v0[1] >= aabb.min_[1] && v0[1] <= aabb.max_[1] &&
+		v1[1] >= aabb.min_[1] && v1[1] <= aabb.max_[1] &&
+		v2[1] >= aabb.min_[1] && v2[1] <= aabb.max_[1]
+	{
+		getMinAndMax(
+			v0[axis],
+			v1[axis],
+			v2[axis], 
+			min_out, max_out);
+	}*/
+
+	Vec3f v_a[16] = {v0, v1, v2};
+	
+	Vec3f v_b[16];
+
+	unsigned int current_num_verts = 3;
+	for(unsigned int axis=0; axis<3; ++axis)
+	{
+		TriBoxIntersection::clipPolyAgainstPlane(v_a, current_num_verts, axis, -aabb.min_[axis], -1.0f, v_b, current_num_verts);
+		assert(current_num_verts < 8);
+		TriBoxIntersection::clipPolyAgainstPlane(v_b, current_num_verts, axis, aabb.max_[axis], 1.0f, v_a, current_num_verts);
+		assert(current_num_verts < 8);
+	}
+	
+	assert(current_num_verts < 8);
+
+	// Ok, so final polygon vertices are in v_a.
+	//lower_out[0] = lower_out[1] = lower_out[2] = std::numeric_limits<float>::max();
+	//upper_out[0] = upper_out[1] = upper_out[2] = -std::numeric_limits<float>::max();
+	lower_out = v_a[0];
+	upper_out = v_a[0];
+
+	for(unsigned int i=1; i<current_num_verts; ++i)
+		for(unsigned int axis=0; axis<3; ++axis)
+		{
+			lower_out[axis] = myMin(lower_out[axis], v_a[i][axis]);
+			upper_out[axis] = myMax(upper_out[axis], v_a[i][axis]);
+		}
+}
+
+
+
+
+//precondition: node_tri_layers[depth] is valid and contains all tris for this volume.
+
+void TriTree::doBuild(unsigned int cur, //index of current node getting built
+						//const std::vector<TRI_INDEX>& nodetris,//tris for current node
+						std::vector<std::vector<TriInfo> >& node_tri_layers,
+						unsigned int depth, //depth of current node
+						unsigned int maxdepth, //max permissible depth
+						const AABBox& cur_aabb, //AABB of current node
+						std::vector<float>& upper, std::vector<float>& lower)
+{
 	// Get the list of tris intersecting this volume
 	assert(depth < (unsigned int)node_tri_layers.size());
-	const std::vector<TRI_INDEX>& nodetris = node_tri_layers[depth];
+	const std::vector<TriInfo>& nodetris = node_tri_layers[depth];
 
 	assert(cur < (int)nodes.size());
+
+	// Print progress message
 	if(depth == 6)
 	{
 		triTreeDebugPrint(::toString(numnodesbuilt) + "/" + ::toString(1 << 6) + " nodes at depth 6 built.");
 		numnodesbuilt++;
 	}
 	
-	if(nodetris.size() == 0)
+	/*if(nodetris.size() == 0)
 	{
 		//no tris were allocated to this node, so make it a leaf node with 0 tris
 		nodes[cur].setLeafNode(true);
 		nodes[cur].setLeafGeomIndex(0);
 		nodes[cur].setNumLeafGeom(0);
 		return;
-	}
+	}*/
+
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
-	const int SPLIT_THRESHOLD = 2;//TEMP
+	const int SPLIT_THRESHOLD = 2;
 
 	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
 	{
@@ -1007,12 +1140,16 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		nodes[cur].setNumLeafGeom((unsigned int)nodetris.size());
 
 		for(unsigned int i=0; i<nodetris.size(); ++i)
-			leafgeom.push_back(nodetris[i]);
+			leafgeom.push_back(nodetris[i].tri_index);
 
+		// Do stats
 		if(depth >= maxdepth)
 			num_maxdepth_leafs++;
 		else
 			num_under_thresh_leafs++;
+
+		if(nodetris.size() < leaf_geom_counts.size())
+			leaf_geom_counts[nodetris.size()]++;
 
 		return;
 	}
@@ -1020,18 +1157,18 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	const float traversal_cost = 1.0f;
 	const float intersection_cost = 4.0f;
 	const float aabb_surface_area = cur_aabb.getSurfaceArea();
-	const float recip_aabb_surf_area = (1.0f / aabb_surface_area);
+	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
 
-	float smallest_cost = std::numeric_limits<float>::max();
 	int best_axis = -1;
-	float best_div_val = std::numeric_limits<float>::min();
+	float best_div_val = -std::numeric_limits<float>::max();
 	int best_num_in_neg = 0;
 	int best_num_in_pos = 0;
 
 	//------------------------------------------------------------------------
 	//compute non-split cost
 	//------------------------------------------------------------------------
-	smallest_cost = (float)nodetris.size() * intersection_cost;//NEW
+	float smallest_cost = (float)nodetris.size() * intersection_cost;
+
 	const unsigned int numtris = (unsigned int)nodetris.size();
 
 	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
@@ -1039,6 +1176,9 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	//std::vector<float> lower(numtris);
 	//std::vector<float> upper(numtris);
 
+	//------------------------------------------------------------------------
+	//Find Best axis and split plane value
+	//------------------------------------------------------------------------
 	for(int axis=0; axis<3; ++axis)
 	{
 		const unsigned int axis1 = nonsplit_axes[axis][0];
@@ -1051,35 +1191,27 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		//------------------------------------------------------------------------
 		for(unsigned int i=0; i<numtris; ++i)
 		{
-			/*const float v0 = triVertPos(nodetris[i], 0)[axis];
-			const float v1 = triVertPos(nodetris[i], 1)[axis];
-			const float v2 = triVertPos(nodetris[i], 2)[axis];
-			lower[i] = myMin(v0, myMin(v1, v2));
-			upper[i] = myMax(v0, myMax(v1, v2));*/
-			getMinAndMax(
-				triVertPos(nodetris[i], 0)[axis],
-				triVertPos(nodetris[i], 1)[axis],
-				triVertPos(nodetris[i], 2)[axis], 
-				lower[i], upper[i]);
-
-			/*if(upper[i] == lower[i])
-			{
-				//TEMP HACK!!!!!!!
-				//tri lies totally in the plane perpendicular to the current axis.
-				//So nudge up its upper bound a bit to force it into the positive volume.
-				float upperval = upper[i];
-				upper[i] += 0.000001f;
-				upperval = upper[i];
-				//TEMP fails on large values assert(upper[i] > lower[i]);
-			}*/
+			/*if(numtris <= TRI_CLIP_THRESHOLD)
+				triMinAndMaxAlongAAShaft(triVertPos(nodetris[i], 0), triVertPos(nodetris[i], 1), triVertPos(nodetris[i], 2),
+					cur_aabb, axis, nonsplit_axes[axis][0], nonsplit_axes[axis][1], lower[i], upper[i]);
+			else
+				getMinAndMax(
+					triVertPos(nodetris[i], 0)[axis],
+					triVertPos(nodetris[i], 1)[axis],
+					triVertPos(nodetris[i], 2)[axis], 
+					lower[i], 
+					upper[i]
+				);*/
+			lower[i] = nodetris[i].lower[axis];
+			upper[i] = nodetris[i].upper[axis];
 		}
 
 		//Note that we don't want to sort the whole buffers here, as we're only using the first numtris elements.
 		std::sort(lower.begin(), lower.begin() + numtris); //lower.end());
 		std::sort(upper.begin(), upper.begin() + numtris); //upper.end());
 
-		//Tris in contact with splitting plane will not imply tri is in either volme, except
-		//for tris lying totally on splitting plane which is considered to be in positive volume.
+		// Tris in contact with splitting plane will not imply tri is in either volume,
+		// except for tris lying totally on splitting plane which are considered to be in positive volume.
 
 		unsigned int upper_index = 0;
 		//Index of first triangle in upper volume
@@ -1087,14 +1219,14 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		//Also the number of tris with upper bound <= current split val.
 		//which is the number of tris *not* in pos volume
 
-		float last_splitval = -std::numeric_limits<float>::max(); //-1e20f;
+		float last_splitval = -std::numeric_limits<float>::max();
 		for(unsigned int i=0; i<numtris; ++i)
 		{
 			const float splitval = lower[i];
 
 			if(splitval != last_splitval)//only consider first tri seen with a given lower bound.
 			{
-				if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis])
+				if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis]) // If split val is actually in AABB
 				{
 					//advance upper index to maintain invariant above
 					//while(upper_index < numtris && upper[upper_index] < splitval) //<= splitval)
@@ -1119,7 +1251,10 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 					const int num_in_pos = num_coplanar_tris + numtris - upper_index;//numtris - i;
 					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
 					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
+#if ACCURATE_TRI_BOX_TEST
+#else
 					assert(num_in_neg + num_in_pos >= (int)numtris);
+#endif
 					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
 					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
@@ -1186,7 +1321,10 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 					const int num_in_pos = num_coplanar_tris + numtris - (i + 1);//numtris - lower_index;
 					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
 					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
+#if ACCURATE_TRI_BOX_TEST
+#else
 					assert(num_in_neg + num_in_pos >= (int)numtris);
+#endif
 					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
 					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area);
@@ -1230,15 +1368,13 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		nodes[cur].setNumLeafGeom((unsigned int)nodetris.size());
 
 		for(unsigned int i=0; i<nodetris.size(); ++i)
-			leafgeom.push_back(nodetris[i]);
+			leafgeom.push_back(nodetris[i].tri_index);
 
-		num_inseparable_tri_leafs++;
+		num_cheaper_no_split_leafs++;
 		return;
 	}
 
 	assert(best_axis >= 0 && best_axis <= 2);
-	assert(best_div_val != -666.0f);
-
 	assert(best_div_val >= cur_aabb.min_[best_axis]);
 	assert(best_div_val <= cur_aabb.max_[best_axis]);
 	
@@ -1248,26 +1384,24 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
 	//------------------------------------------------------------------------
-	assert(nodes[cur].getSplittingAxis() >= 0 && nodes[cur].getSplittingAxis() <= 2);
-
 	AABBox negbox(cur_aabb.min_, cur_aabb.max_);
-	negbox.max_[nodes[cur].getSplittingAxis()] = nodes[cur].data2.dividing_val;
+	negbox.max_[best_axis] = best_div_val;
 
 	AABBox posbox(cur_aabb.min_, cur_aabb.max_);
-	posbox.min_[nodes[cur].getSplittingAxis()] = nodes[cur].data2.dividing_val;
+	posbox.min_[best_axis] = best_div_val;
 
-	//NEW: moved this up here
-	//if(neg_tris.size() == nodetris.size() && pos_tris.size() == nodetris.size())
 	if(best_num_in_neg == numtris && best_num_in_pos == numtris)
 	{
-		//If we were unable to get a reduction in the number of tris in either of the children,
-		//then splitting is pointless.  So make this a leaf node.
+		// If we were unable to get a reduction in the number of tris in either of the children,
+		// then splitting is pointless.  So make this a leaf node.
 		nodes[cur].setLeafNode(true);
 		nodes[cur].setLeafGeomIndex((unsigned int)leafgeom.size());
 		nodes[cur].setNumLeafGeom((unsigned int)nodetris.size());
 
 		for(unsigned int i=0; i<(unsigned int)nodetris.size(); ++i)
-			leafgeom.push_back(nodetris[i]);
+			leafgeom.push_back(nodetris[i].tri_index);
+
+		num_inseparable_tri_leafs++;
 		return;
 	}
 
@@ -1319,35 +1453,12 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 		}
 	}*/
 
-	
-#if 0
-	/*	const int num_in_neg = (int)neg_tris.size();
-	const int num_in_pos = (int)pos_tris.size();
-	assert(num_in_neg == best_num_in_neg);
-	assert(num_in_pos == best_num_in_pos);
-	const int num_tris_in_both = neg_tris.size() + pos_tris.size() - numtris;
-*/
-	//::triTreeDebugPrint("split " + ::toString(nodetris.size()) + " tris: left: " + ::toString(neg_tris.size())
-	//	+ ", right: " + ::toString(pos_tris.size()) + ", both: " + ::toString(num_tris_in_both) );
-
-	if(neg_tris.size() == nodetris.size() && pos_tris.size() == nodetris.size())
-	{
-		//If we were unable to get a reduction in the number of tris in either of the children,
-		//then splitting is pointless.  So make this a leaf node.
-		nodes[cur].setLeafNode(true);
-		nodes[cur].setLeafGeomIndex(leafgeom.size());
-		nodes[cur].setNumLeafGeom(nodetris.size());
-
-		for(unsigned int i=0; i<nodetris.size(); ++i)
-			leafgeom.push_back(nodetris[i]);
-		return;
-	}
-#endif
-
 	assert(depth + 1 < (int)node_tri_layers.size());
-	std::vector<TRI_INDEX>& child_tris = node_tri_layers[depth + 1];
+	std::vector<TriInfo>& child_tris = node_tri_layers[depth + 1];
 
-	/// Build list of neg tris ///
+	//------------------------------------------------------------------------
+	// Build list of neg tris
+	//------------------------------------------------------------------------
 	child_tris.resize(0);
 	child_tris.reserve(myMax(best_num_in_neg, best_num_in_pos));
 
@@ -1357,26 +1468,44 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	for(unsigned int i=0; i<numtris; ++i)//for each tri
 	{
 		float tri_lower, tri_upper;
-		getMinAndMax(
+		/*if(numtris <= TRI_CLIP_THRESHOLD)
+			triMinAndMaxAlongAAShaft(triVertPos(nodetris[i], 0), triVertPos(nodetris[i], 1), triVertPos(nodetris[i], 2),
+					negbox, best_axis, nonsplit_axes[best_axis][0], nonsplit_axes[best_axis][1], tri_lower, tri_upper);
+		else
+			getMinAndMax(
 				triVertPos(nodetris[i], 0)[best_axis],
 				triVertPos(nodetris[i], 1)[best_axis],
 				triVertPos(nodetris[i], 2)[best_axis], 
-				tri_lower, tri_upper);
+				tri_lower, tri_upper);*/
+		tri_lower = nodetris[i].lower[best_axis];
+		tri_upper = nodetris[i].upper[best_axis];
 
 		if(tri_upper <= split)//does tri lie entirely in min volume (including splitting plane)?
 		{
-			//tri is either in neg box, or on splitting plane
+			// Tri is either in neg box, or on splitting plane
 			if(tri_lower < split)
 				child_tris.push_back(nodetris[i]);
 		}
-		else //else upper[i] > split
+		else // else tri_upper > split
 		{
 			if(tri_lower < split)
-				child_tris.push_back(nodetris[i]);//tri lies in both boxes
+			{
+				// Tri lies in both boxes
+				//child_tris.push_back(nodetris[i]);
+				child_tris.push_back(TriInfo());
+				child_tris.back().tri_index = nodetris[i].tri_index;
+				clippedTriBounds(
+					triVertPos(nodetris[i].tri_index, 0), triVertPos(nodetris[i].tri_index, 1), triVertPos(nodetris[i].tri_index, 2), 
+					negbox, 
+					child_tris.back().lower,
+					child_tris.back().upper
+					);
+			}
 		}
 	}
 
 	//conPrint("Finished binning neg tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
+	assert(child_tris.size() == best_num_in_neg);
 
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.
@@ -1388,24 +1517,29 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 	doBuild(
 		(unsigned int)nodes.size() - 1, //negchild_index, 
 		node_tri_layers, depth + 1, maxdepth, negbox, lower, upper);
-	//doBuild(negchild_index, neg_tris, depth + 1, maxdepth, negbox, lower, upper);
 
-	//Build list of positive tris
-	//std::vector<TRI_INDEX> pos_tris;
-	//pos_tris.reserve(best_num_in_pos);
+	//------------------------------------------------------------------------
+	// Build list of pos tris
+	//------------------------------------------------------------------------
 	child_tris.resize(0);
-	//child_tris.reserve(best_num_in_pos);
 
 	assert(numtris == nodetris.size());
 	assert(best_axis == nodes[cur].getSplittingAxis());
-	for(unsigned int i=0; i<numtris; ++i)//for each tri
+	for(unsigned int i=0; i<numtris; ++i) // For each tri
 	{
 		float tri_lower, tri_upper;
-		getMinAndMax(
-				triVertPos(nodetris[i], 0)[best_axis],
-				triVertPos(nodetris[i], 1)[best_axis],
-				triVertPos(nodetris[i], 2)[best_axis], 
-				tri_lower, tri_upper);
+		/*if(numtris <= TRI_CLIP_THRESHOLD)
+			triMinAndMaxAlongAAShaft(triVertPos(nodetris[i], 0), triVertPos(nodetris[i], 1), triVertPos(nodetris[i], 2),
+					negbox, best_axis, nonsplit_axes[best_axis][0], nonsplit_axes[best_axis][1], tri_lower, tri_upper);
+		else
+			getMinAndMax(
+					triVertPos(nodetris[i], 0)[best_axis],
+					triVertPos(nodetris[i], 1)[best_axis],
+					triVertPos(nodetris[i], 2)[best_axis], 
+					tri_lower, tri_upper);*/
+
+		tri_lower = nodetris[i].lower[best_axis];
+		tri_upper = nodetris[i].upper[best_axis];
 
 		if(tri_upper <= split)//does tri lie entirely in min volume (including splitting plane)?
 		{
@@ -1413,9 +1547,26 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 			if(tri_lower >= split)
 				child_tris.push_back(nodetris[i]);//tri lies entirely on splitting plane.  so assign it to positive half.
 		}
-		else //else upper[i] > split
-			child_tris.push_back(nodetris[i]);
+		else // else tri_upper > split
+		{
+			if(tri_lower < split)
+			{
+				// tri straddles splitting plane
+				child_tris.push_back(TriInfo());
+				child_tris.back().tri_index = nodetris[i].tri_index;
+				clippedTriBounds(
+					triVertPos(nodetris[i].tri_index, 0), triVertPos(nodetris[i].tri_index, 1), triVertPos(nodetris[i].tri_index, 2), 
+					posbox, 
+					child_tris.back().lower,
+					child_tris.back().upper
+					);
+			}
+			else
+				child_tris.push_back(nodetris[i]); // Tri lies totally in positive half
+		}
 	}
+
+	assert(child_tris.size() == best_num_in_pos);
 
 	//conPrint("Finished binning pos tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
 
@@ -1428,8 +1579,25 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 
 	//build right subtree
 	doBuild(nodes[cur].getPosChildIndex(), node_tri_layers, depth + 1, maxdepth, posbox, lower, upper);
-	//doBuild(nodes[cur].getPosChildIndex(), pos_tris, depth + 1, maxdepth, posbox, lower, upper);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 void TriTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
@@ -1491,7 +1659,7 @@ TreeStats::~TreeStats()
 {
 }
 
-void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int depth)
+void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int depth) const
 {
 	if(nodes.empty())
 		return;
@@ -1530,9 +1698,12 @@ void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int 
 		stats_out.leafgeom_indices_mem = stats_out.num_leaf_geom_tris * sizeof(TRI_INDEX);
 		stats_out.tri_mem = num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
 
+		stats_out.num_cheaper_no_split_leafs = this->num_cheaper_no_split_leafs;
 		stats_out.num_inseparable_tri_leafs = this->num_inseparable_tri_leafs;
 		stats_out.num_maxdepth_leafs = this->num_maxdepth_leafs;
 		stats_out.num_under_thresh_leafs = this->num_under_thresh_leafs;
+
+		stats_out.leaf_geom_counts = this->leaf_geom_counts;
 	}
 }
 
@@ -1634,6 +1805,53 @@ unsigned int TriTree::checksum()
 	return checksum_;
 }
 
+
+
+
+void TriTree::printStats() const
+{
+	TreeStats stats;
+	getTreeStats(stats);
+	stats.print();
+}
+
+
+void TreeStats::print()
+{
+	conPrint("Nodes");
+	conPrint("\tTotal num nodes: " + toString(total_num_nodes));
+	conPrint("\tTotal num interior nodes: " + toString(num_interior_nodes));
+	conPrint("\tTotal num leaf nodes: " + toString(num_leaf_nodes));
+
+	printVar(num_tris);
+	printVar(num_leaf_geom_tris);
+
+	printVar(total_node_mem);
+	printVar(leafgeom_indices_mem);
+	printVar(tri_mem);
+
+	conPrint("Build termination reasons:");
+	conPrint("\tCheaper to not split: " + toString(num_cheaper_no_split_leafs));
+	conPrint("\tInseperable: " + toString(num_inseparable_tri_leafs));
+	conPrint("\tReached max depth: " + toString(num_maxdepth_leafs));
+	conPrint("\t<=tris per leaf threshold: " + toString(num_under_thresh_leafs));
+
+	conPrint("Depth Statistics:");
+	conPrint("\tmax depth limit: " + toString(max_depth));
+	conPrint("\tAverage leaf depth: " + toString(average_leafnode_depth));
+
+
+	conPrint("Number of leaves with N triangles:");
+	int sum = 0;
+	for(int i=0; i<(int)leaf_geom_counts.size(); ++i)
+	{
+		sum += leaf_geom_counts[i];
+		conPrint("\tN=" + toString(i) + ": " + toString(leaf_geom_counts[i]));
+	}
+	conPrint("\tN>=" + toString((unsigned int)leaf_geom_counts.size()) + ": " + toString(num_leaf_nodes - sum));
+	conPrint("\tAverage N: " + toString(average_numgeom_per_leafnode));
+
+}
 
 
 } //end namespace jscol

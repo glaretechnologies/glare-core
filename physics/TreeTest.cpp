@@ -377,6 +377,7 @@ void TreeTest::doTests()
 void TreeTest::doSpeedTest()
 {
 	const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply";
+	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
@@ -389,10 +390,16 @@ void TreeTest::doSpeedTest()
 		::fatalError(e.what());
 	}
 
+	Timer buildtimer;
+
 	raymesh.build(
 		".", // base indigo dir path
 		false // use cached trees
 		);
+
+	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
+
+	raymesh.printTreeStats();
 
 	const Vec3d aabb_center(-0.016840, 0.110154, -0.001537);
 
@@ -400,6 +407,8 @@ void TreeTest::doSpeedTest()
 
 	HitInfo hitinfo;
 	js::TriTreePerThreadData tree_context;
+
+	conPrint("Running test...");
 
 	Timer testtimer;//start timer
 	int num_hits = 0;//number of rays that actually hit the model
@@ -446,6 +455,7 @@ void TreeTest::doSpeedTest()
 	printVar(fraction_hit);
 	printVar(traces_per_sec);
 
+	raymesh.printTraceStats();
 }
 
 void TreeTest::buildSpeedTest()

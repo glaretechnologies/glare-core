@@ -67,6 +67,9 @@ public:
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const = 0;
 
 	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const = 0;
+
+	virtual void printStats() const = 0;
+	virtual void printTraceStats() const = 0;
 };
 
 

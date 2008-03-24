@@ -51,6 +51,9 @@ public:
 
 	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const;
 
+	virtual void printStats() const {};
+	virtual void printTraceStats() const {};
+
 	double traceRayAgainstAllTris(const Ray& ray, double tmax, HitInfo& hitinfo_out) const;
 
 	typedef float REAL;

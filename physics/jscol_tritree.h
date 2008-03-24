@@ -62,10 +62,15 @@ public:
 	int tri_mem;
 
 	//build stats:
+	int num_cheaper_no_split_leafs;
 	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
 	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
 
+
+	std::vector<unsigned int> leaf_geom_counts;
+
+	void print();
 };
 
 
@@ -77,6 +82,9 @@ Kd-Tree
 =====================================================================*/
 class TriTree : public Tree
 {
+	friend class FastKDTreeBuilder;
+	friend class OldKDTreeBuilder;
+
 public:
 	/*=====================================================================
 	TriTree
@@ -101,41 +109,60 @@ public:
 
 	inline virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const; //slow
 
+	virtual void printStats() const;
+	virtual void printTraceStats() const;
+
 	//For Debugging:
 	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
 	void getAllHitsAllTris(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const;
 	const std::vector<TreeNode>& getNodesDebug() const { return nodes; }
+	
+
 
 	static const unsigned int MAX_KDTREE_DEPTH = 64;
 
+	typedef uint32 TRI_INDEX;
+	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
+	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
+
 private:
 	//-----------------typedefs------------------------
-	typedef uint32 TRI_INDEX;
+	//typedef uint32 TRI_INDEX;
 	typedef uint32 NODE_INDEX;
-	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
+	
 	//typedef std::vector<AABBox> TRIBOX_VECTOR_TYPE;
 	//typedef js::Vector<TreeNode> NODE_VECTOR_TYPE;
 	//typedef js::Vector<AABBox> TRIBOX_VECTOR_TYPE;
 
 
+	class TriInfo
+	{
+	public:
+		TRI_INDEX tri_index;
+		Vec3f lower;
+		Vec3f upper;
+	};
 
+
+	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
-	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0);
-	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
 	TRI_INDEX numTris() const;
-	void printTraceStats() const;
 	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 	void postBuild() const;
 	void doBuild(NODE_INDEX cur, 
-		std::vector<std::vector<TRI_INDEX> >& node_tri_layers,
+		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<float>& upper, std::vector<float>& lower);
+
+	void doBuildAccurateTriBox(NODE_INDEX cur, 
+		const std::vector<TRI_INDEX>& nodetris,
+		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb);
 
 
 
 
 	RayMesh* raymesh;
-	int nodestack_size;
+	//int nodestack_size;
 
 	NODE_VECTOR_TYPE nodes;//nodes of the tree
 
@@ -149,8 +176,10 @@ private:
 	unsigned int numnodesbuilt;
 	unsigned int max_depth;
 	unsigned int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
+	unsigned int num_cheaper_no_split_leafs;//num leafs formed when the cost function is cheaper to terminate splitting.
 	unsigned int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	unsigned int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
+	std::vector<unsigned int> leaf_geom_counts;
 
 	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
 
@@ -159,6 +188,7 @@ private:
 
 	///tracing stats///
 	mutable uint64 num_traces;
+	mutable uint64 num_aabb_hits;
 	mutable uint64 total_num_nodes_touched;
 	mutable uint64 total_num_leafs_touched;
 	mutable uint64 total_num_tris_intersected;

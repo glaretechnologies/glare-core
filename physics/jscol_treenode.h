@@ -38,6 +38,7 @@ public:
 	inline uint32 getLeafGeomIndex() const;
 	inline uint32 getPosChildIndex() const;
 	inline uint32 getNumLeafGeom() const;
+	//inline uint32 isSingleChildNode()
 
 	inline void setLeafNode(bool leafnode);
 	inline void setSplittingAxis(uint32 axis);
@@ -54,6 +55,8 @@ public:
 private:
 	uint32 data;
 };
+
+#define TREENODE_MAIN_DATA_OFFSET 3
 
 TreeNode::TreeNode()
 {
@@ -80,12 +83,12 @@ uint32 TreeNode::getSplittingAxis() const
 
 uint32 TreeNode::getLeafGeomIndex() const
 { 
-	return data >> 3;
+	return data >> TREENODE_MAIN_DATA_OFFSET;
 }
 
 uint32 TreeNode::getPosChildIndex() const
 { 
-	return data >> 3;
+	return data >> TREENODE_MAIN_DATA_OFFSET;
 }
 
 uint32 TreeNode::getNumLeafGeom() const
@@ -113,7 +116,7 @@ void TreeNode::setLeafGeomIndex(uint32 index)
 	assert(index < (1 << 29));
 
 	data &= 0x00000007U;//zero target bits
-	data |= index << 3;
+	data |= index << TREENODE_MAIN_DATA_OFFSET;
 }
 	
 void TreeNode::setPosChildIndex(uint32 index)
@@ -121,7 +124,7 @@ void TreeNode::setPosChildIndex(uint32 index)
 	assert(index < (1 << 29));
 
 	data &= 0x00000007U;//zero target bits
-	data |= index << 3;
+	data |= index << TREENODE_MAIN_DATA_OFFSET;
 }
 
 void TreeNode::setNumLeafGeom(uint32 num)
