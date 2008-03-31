@@ -67,7 +67,6 @@ double ObjectTree::traceRay(const Ray& ray,
 #endif
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
-	assert(ray.builtRecipRayDir());
 
 	object_context.time++;
 
@@ -231,7 +230,6 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 #endif
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
-	assert(ray.builtRecipRayDir());
 	assert(raylength > 0.0);
 	
 	object_context.time++;

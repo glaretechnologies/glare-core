@@ -307,8 +307,88 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 
 
+
+
+
+
+static void doEdgeCaseTests()
+{
+	conPrint("TreeTest::doEdgeCaseTests()");
+
+
+
+	{
+	RayMesh raymesh("raymesh", false);
+	raymesh.addMaterialUsed("dummy");
+	
+	const std::vector<Vec2f> texcoord_sets;
+
+	//x=0 tri
+	{
+	raymesh.addVertex(Vec3f(0,0,1), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,0), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,1), Vec3f(0,0,1), texcoord_sets);
+	const unsigned int vertex_indices[] = {0, 1, 2};
+	raymesh.addTriangle(vertex_indices, 0);
+	}
+
+	{
+	//x=1 tri
+	raymesh.addVertex(Vec3f(1.f,0,1), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,0), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,1), Vec3f(0,0,1), texcoord_sets);
+	const unsigned int vertex_indices[] = {3, 4, 5};
+	raymesh.addTriangle(vertex_indices, 0);
+	}
+	{
+	//x=10 tri
+	raymesh.addVertex(Vec3f(10.f,0,1), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,0), Vec3f(0,0,1), texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,1), Vec3f(0,0,1), texcoord_sets);
+	const unsigned int vertex_indices[] = {6, 7, 8};
+	raymesh.addTriangle(vertex_indices, 0);
+	}
+
+	raymesh.build(
+		".",
+		false // use cached trees
+		);
+
+	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
+	testAssert(kdtree != NULL);
+
+	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
+
+	testAssert(bbox_ws.min_ == Vec3f(0, 0, 0));
+	testAssert(bbox_ws.max_ == Vec3f(10.f, 1, 1));
+
+	testAssert(kdtree->getNodesDebug().size() == 3);
+	testAssert(!kdtree->getNodesDebug()[0].isLeafNode() != 0);
+	testAssert(kdtree->getNodesDebug()[0].getPosChildIndex() == 2);
+	testAssert(kdtree->getNodesDebug()[0].getSplittingAxis() == 0);
+	testAssert(kdtree->getNodesDebug()[0].data2.dividing_val == 1.0f);
+
+	js::TriTreePerThreadData tree_context;
+
+	const SSE_ALIGN Ray ray(Vec3d(1,0,-1), Vec3d(0,0,1));
+	HitInfo hitinfo;
+	const double dist = kdtree->traceRay(ray, 1.0e20f, tree_context, hitinfo);
+	}
+}
+
+
+
+
+
+
+
+
 void TreeTest::doTests()
 {
+	conPrint("TreeTest::doTests()");
+	doEdgeCaseTests();
+
+
 	MTwister rng(1);
 	//------------------------------------------------------------------------
 	//try building up a random set of triangles and inserting into a tree
@@ -452,11 +532,33 @@ void TreeTest::doSpeedTest()
 
 	const double traces_per_sec = (double)NUM_ITERS / timetaken;
 
+	printVar(timetaken);
 	printVar(fraction_hit);
 	printVar(traces_per_sec);
 
-	raymesh.printTraceStats();
-}
+	//raymesh.printTraceStats();
+	const double clock_freq = 2.4e9;
+
+	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
+
+	{
+	printVar(kdtree->num_traces);
+	conPrint("AABB hit fraction: " + toString((double)kdtree->num_root_aabb_hits / (double)kdtree->num_traces));
+	conPrint("av num nodes touched: " + toString((double)kdtree->total_num_nodes_touched / (double)kdtree->num_traces));
+	conPrint("av num leaves touched: " + toString((double)kdtree->total_num_leafs_touched / (double)kdtree->num_traces));
+	conPrint("av num tris tested: " + toString((double)kdtree->total_num_tris_intersected / (double)kdtree->num_traces));
+	const double cycles_per_trace = clock_freq * timetaken / (double)kdtree->num_traces;
+	printVar(cycles_per_trace);
+	}
+	
+	conPrint("Stats for rays that intersect root AABB:");
+	conPrint("av num nodes touched: " + toString((double)kdtree->total_num_nodes_touched / (double)kdtree->num_root_aabb_hits));
+	conPrint("av num leaves touched: " + toString((double)kdtree->total_num_leafs_touched / (double)kdtree->num_root_aabb_hits));
+	conPrint("av num tris tested: " + toString((double)kdtree->total_num_tris_intersected / (double)kdtree->num_root_aabb_hits));
+	const double cycles_per_trace = clock_freq * timetaken / (double)kdtree->num_root_aabb_hits;
+	printVar(cycles_per_trace);
+	}
+
 
 void TreeTest::buildSpeedTest()
 {
@@ -484,6 +586,23 @@ void TreeTest::buildSpeedTest()
 	PlatformUtils::Sleep(10000);
 }
 
+
+
+
+
+
+
+void TreeTest::doRayTests()
+{
+	Ray ray(Vec3d(0,0,0), Vec3d(0,0,1));
+
+	/*const float recip_x = ray.getRecipRayDirF().x;
+
+	testAssert(!isInf(recip_x));
+	testAssert(!isInf(ray.getRecipRayDirF().y));
+	testAssert(!isInf(ray.getRecipRayDirF().z));*/
+
+}
 
 
 } //end namespace js

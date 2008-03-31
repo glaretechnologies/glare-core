@@ -66,7 +66,7 @@ public:
 	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
 	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
-
+	int num_empty_space_cutoffs;
 
 	std::vector<unsigned int> leaf_geom_counts;
 
@@ -125,6 +125,14 @@ public:
 	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
 	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
 
+
+	///tracing stats///
+	mutable uint64 num_traces;
+	mutable uint64 num_root_aabb_hits;
+	mutable uint64 total_num_nodes_touched;
+	mutable uint64 total_num_leafs_touched;
+	mutable uint64 total_num_tris_intersected;
+
 private:
 	//-----------------typedefs------------------------
 	//typedef uint32 TRI_INDEX;
@@ -143,6 +151,11 @@ private:
 		Vec3f upper;
 	};
 
+	class SortedBoundInfo
+	{
+	public:
+		float lower, upper;
+	}
 
 	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
@@ -179,6 +192,7 @@ private:
 	unsigned int num_cheaper_no_split_leafs;//num leafs formed when the cost function is cheaper to terminate splitting.
 	unsigned int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	unsigned int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
+	int num_empty_space_cutoffs;
 	std::vector<unsigned int> leaf_geom_counts;
 
 	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
@@ -186,12 +200,7 @@ private:
 	uint32 checksum_;
 	bool calced_checksum;
 
-	///tracing stats///
-	mutable uint64 num_traces;
-	mutable uint64 num_aabb_hits;
-	mutable uint64 total_num_nodes_touched;
-	mutable uint64 total_num_leafs_touched;
-	mutable uint64 total_num_tris_intersected;
+
 };
 
 

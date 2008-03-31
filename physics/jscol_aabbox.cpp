@@ -317,7 +317,8 @@ int AABBox::triangleBoxOverlap(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 
 void AABBox::test()
 {
-	AABBox box(Vec3f(0,0,0), Vec3f(1,2,3));
+	{
+	SSE_ALIGN AABBox box(Vec3f(0,0,0), Vec3f(1,2,3));
 
 	testAssert(box == AABBox(Vec3f(0,0,0), Vec3f(1,2,3)));
 	testAssert(::epsEqual(box.getSurfaceArea(), 22.f));
@@ -333,8 +334,43 @@ void AABBox::test()
 	testAssert(box == AABBox(Vec3f(-10,-20,0), Vec3f(10,20,3)));
 
 
+	}
 	//TODO: test tracing rays
 
+	{
+	const SSE_ALIGN AABBox box(Vec3f(0,0,0), Vec3f(1,1,1));
+	const Vec3f dir = normalise(Vec3f(0.0f, 0.0f, 1.0f));
+	const SSE_ALIGN PaddedVec3 recip_dir(1.0f / dir.x, 1.0f / dir.y, 1.0f / dir.z);
+	const SSE_ALIGN PaddedVec3 raystart(0,0,-1.0f);
+	float near, far;
+	const int hit = box.rayAABBTrace(raystart, recip_dir, near, far);
+	testAssert(hit != 0);
+	testAssert(::epsEqual(near, 1.0f));
+	testAssert(::epsEqual(far, 2.0f));
+	}
+	{
+	const SSE_ALIGN AABBox box(Vec3f(0,0,0), Vec3f(1,1,1));
+	const Vec3f dir = normalise(Vec3f(0.0f, 0.0f, 1.0f));
+	const SSE_ALIGN PaddedVec3 recip_dir(1.0f / dir.x, 1.0f / dir.y, 1.0f / dir.z);
+	const SSE_ALIGN PaddedVec3 raystart(2.0,0,-1.0f);
+	float near, far;
+	const int hit = box.rayAABBTrace(raystart, recip_dir, near, far);
+	testAssert(hit == 0);
+	}
+
+	{
+	const SSE_ALIGN AABBox box(Vec3f(0,0,0), Vec3f(1,1,1));
+	const Vec3f dir = normalise(Vec3f(0.0f, 0.0f, 1.0f));
+	const SSE_ALIGN PaddedVec3 recip_dir(1.0f / dir.x, 1.0f / dir.y, 1.0f / dir.z);
+	const SSE_ALIGN PaddedVec3 raystart(1.0, 0, -1.0f);
+	float near, far;
+	const int hit = box.rayAABBTrace(raystart, recip_dir, near, far);
+	testAssert(hit != 0);
+	testAssert(::epsEqual(near, 1.0f));
+	testAssert(::epsEqual(far, 2.0f));
+	}
+
+	
 }
 
 

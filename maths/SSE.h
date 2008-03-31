@@ -114,7 +114,8 @@ inline void alignedSSEArrayFree(T* t)
 
 
 
-
+const SSE_ALIGN float zero_4vec[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 
 
@@ -341,6 +342,38 @@ inline const SSE4Vec crossSSE(const SSE4Vec& v1, const SSE4Vec& v2)
 	return sub4Vec( mult4Vec( shuffle4Vec(v1, v1, SHUF_Y, SHUF_Z, SHUF_X, 0), shuffle4Vec(v2, v2, SHUF_Z, SHUF_X, SHUF_Y, 0) ),
 					mult4Vec( shuffle4Vec(v1, v1, SHUF_Z, SHUF_X, SHUF_Y, 0), shuffle4Vec(v2, v2, SHUF_Y, SHUF_Z, SHUF_X, 0) ) );
 }
+
+inline void reciprocalSSE(const float* vec_in, float* reciprocal_out)
+{
+	assertSSEAligned(vec_in);
+	assertSSEAligned(reciprocal_out);
+
+	_mm_store_ps(
+		reciprocal_out,
+		_mm_div_ps(
+			_mm_load_ps(one_4vec),
+			_mm_load_ps(vec_in)
+			)
+		);
+}
+
+inline void addScaledVec4SSE(const float* a, const float* b, float scale, float* vec_out)
+{
+	assertSSEAligned(a);
+	assertSSEAligned(b);
+	assertSSEAligned(vec_out);
+
+	_mm_store_ps(
+		vec_out,
+		_mm_add_ps(
+			_mm_load_ps(a),
+			_mm_mul_ps(
+				_mm_load_ps(b),
+				_mm_load_ps1(&scale)
+				)
+			)
+		);
+}
 			
 #else //else if not USE_SSE
 
@@ -370,8 +403,7 @@ inline void* alignedMalloc(unsigned int size, unsigned int alignment)
 
 #endif //USE_SSE
 
-const SSE_ALIGN float zero_4vec[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
 
 
 
@@ -402,6 +434,9 @@ inline void myAlignedFree(void* mem)
 	char* original = (char*)(*(unsigned int*)mem);
 	free(original);
 }*/
+
+
+void SSETest();
 
 #endif //__SSE_H_666_
 

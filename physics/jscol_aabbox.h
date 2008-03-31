@@ -37,29 +37,21 @@ public:
 	inline bool operator == (const AABBox& rhs) const;
 
 	inline void enlargeToHoldPoint(const Vec3f& p);
+	inline void enlargeToHoldAlignedPoint(const PaddedVec3& p);
 	inline void enlargeToHoldAABBox(const AABBox& aabb);
+	inline bool containsAABBox(const AABBox& aabb) const;
 
 	DO_FORCEINLINE
 	int rayAABBTrace(const PaddedVec3& raystartpos, 
 		const PaddedVec3& recip_unitraydir, 
 		float& near_hitd_out, float& far_hitd_out) const;
 	
-	//bool slowRayAABBTrace(const Ray& ray, float& near_hitd_out, float& far_hitd_out) const;
-	//bool TBPIntersect(const Vec3f& raystartpos, const float* recip_unitraydir, float& near_hitd_out, float& far_hitd_out); 
-
 	inline float getSurfaceArea() const;
 	bool invariant();
 	static void test();
 
-	//void writeModel(std::ostream& stream, int& num_verts) const;
-
 	inline float axisLength(unsigned int axis) const { return max_[axis] - min_[axis]; }
 	inline unsigned int longestAxis() const;
-
-	// Moller's code:
-	// http://www.cs.lth.se/home/Tomas_Akenine_Moller/code/tribox3.txt
-	//int triBoxOverlap(float boxcenter[3], float boxhalfsize[3], float triverts[3][3]);
-	//int triangleBoxOverlap(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2) const;
 
 	SSE_ALIGN PaddedVec3 min_;
 	SSE_ALIGN PaddedVec3 max_;
@@ -82,27 +74,79 @@ AABBox::~AABBox()
 
 void AABBox::enlargeToHoldPoint(const Vec3f& p)
 {
-	for(unsigned int c=0; c<3; ++c)//for each component
+	/*for(unsigned int c=0; c<3; ++c)//for each component
 	{
 		if(p[c] < min_[c])
 			min_[c] = p[c];
 
 		if(p[c] > max_[c])
 			max_[c] = p[c];
-	}
+	}*/
+	min_.x = myMin(min_.x, p.x);
+	min_.y = myMin(min_.y, p.y);
+	min_.z = myMin(min_.z, p.z);
+
+	max_.x = myMax(max_.x, p.x);
+	max_.y = myMax(max_.y, p.y);
+	max_.z = myMax(max_.z, p.z);
+}
+
+void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3& p)
+{
+	_mm_store_ps(
+		&min_.x,
+		_mm_min_ps(
+			_mm_load_ps(&min_.x),
+			_mm_load_ps(&p.x)
+			)
+		);
+	_mm_store_ps(
+		&max_.x,
+		_mm_max_ps(
+			_mm_load_ps(&max_.x),
+			_mm_load_ps(&p.x)
+			)
+		);
 }
 
 void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 {
-	for(int unsigned c=0; c<3; ++c)//for each axis
+	/*for(int unsigned c=0; c<3; ++c)//for each axis
 	{
 		if(aabb.min_[c] < min_[c])
 			min_[c] = aabb.min_[c];
 
 		if(aabb.max_[c] > max_[c])
 			max_[c] = aabb.max_[c];
-	}
+	}*/
+
+	_mm_store_ps(
+		&min_.x,
+		_mm_min_ps(
+			_mm_load_ps(&min_.x),
+			_mm_load_ps(&aabb.min_.x)
+			)
+		);
+	_mm_store_ps(
+		&max_.x,
+		_mm_max_ps(
+			_mm_load_ps(&max_.x),
+			_mm_load_ps(&aabb.max_.x)
+			)
+		);
 }
+
+bool AABBox::containsAABBox(const AABBox& other) const
+{
+	return 
+		max_.x >= other.max_.x && 
+		max_.y >= other.max_.y && 
+		max_.z >= other.max_.z && 
+		min_.x <= other.min_.x && 
+		min_.y <= other.min_.y && 
+		min_.z <= other.min_.z;
+}
+
 
 /*
 float AABBox::getXDims() const
@@ -120,6 +164,7 @@ float AABBox::getZDims() const
 	return max.z - min.z;
 }*/
 
+// From http://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
 
 const float flt_plus_inf = -logf(0);	// let's keep C and C++ compilers happy.
 const float SSE_ALIGN
@@ -140,8 +185,6 @@ int AABBox::rayAABBTrace(const PaddedVec3& raystartpos, const PaddedVec3& recip_
 	assertSSEAligned(&min_);
 	assertSSEAligned(&max_);
 
-	//assert(::epsEqual(Vec3(1.0f / recip_unitraydir.x, 1.0f / recip_unitraydir.y, 1.0f / recip_unitraydir.z).length(), 1.0f));
-
 	// you may already have those values hanging around somewhere
 	const SSE4Vec
 		plus_inf	= load4Vec(ps_cst_plus_inf),
@@ -161,6 +204,11 @@ int AABBox::rayAABBTrace(const PaddedVec3& raystartpos, const PaddedVec3& recip_
 	// the order we use for those min/max is vital to filter out
 	// NaNs that happens when an inv_dir is +/- inf and
 	// (box_min - pos) is 0. inf * 0 = NaN
+
+	// Nick's notes:
+	// "Note that if only one value is a NaN for this instruction, the source operand (second operand) value 
+	// (either NaN or valid floating-point value) is written to the result."
+	// So if l1 is a NaN, then filtered_l1a := +Inf
 	const SSE4Vec filtered_l1a = min4Vec(l1, plus_inf);
 	const SSE4Vec filtered_l2a = min4Vec(l2, plus_inf);
 

@@ -153,9 +153,21 @@ inline const T& myMin(const T& x, const T& y)
 }
 
 template <class T>
+inline const T& myMin(const T& x, const T& y, const T& z)
+{
+	return myMin(x, myMin(y, z));
+}
+
+template <class T>
 inline const T& myMax(const T& x, const T& y)
 {
 	return x >= y ? x : y;
+}
+
+template <class T>
+inline const T& myMax(const T& x, const T& y, const T& z)
+{
+	return myMax(x, myMax(y, z));
 }
 
 template <class T>

@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #include "SSE.h"
 
 #include "../utils/platform.h"
+#include "../utils/timer.h" // just for testing
+#include "../indigo/globals.h" // just for testing
+#include "../utils/stringutils.h" // just for testing
 
 #ifdef COMPILER_MSVC
 #include <intrin.h>
@@ -73,3 +76,53 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 }
 
 
+void SSETest()
+{
+	conPrint("SSETest()");
+
+	const int N = 20000000 * 4;
+	float* data1 = (float*)alignedMalloc(sizeof(float) * N, 16);
+	float* data2 = (float*)alignedMalloc(sizeof(float) * N, 16);
+	float* res = (float*)alignedMalloc(sizeof(float) * N, 16);
+
+	for(int i=0; i<N; ++i)
+	{
+		data1[i] = 1.0;
+		data2[i] = (float)(i + 1);
+	}
+
+	conPrint("running divisions...");
+
+	Timer timer;
+
+	/*for(int i=0; i<N; ++i)
+	{
+		res[i] = data1[i] / data2[i];
+	}*/
+	for(int i=0; i<N; i+=4)
+	{
+		/*const __m128 d1 = _mm_load_ps(data1 + i);
+		const __m128 d2 = _mm_load_ps(data2 + i);
+		const __m128 r = _mm_div_ps(d1, d2);
+		_mm_store_ps(res + i, r);*/
+		store4Vec(div4Vec(load4Vec(data1 + i), load4Vec(data2 + i)), res + i);
+	}
+
+	const double elapsed_time = timer.getSecondsElapsed();
+	const double clock_freq = 2.4e9;
+	const double elapsed_cycles = elapsed_time * clock_freq;
+	const double cycles_per_iteration = elapsed_cycles / (double)N;
+
+	double sum = 0;
+	for(int i=0; i<N; ++i)
+		sum += (double)res[i];
+
+	printVar(sum);
+	printVar(elapsed_time);
+	printVar(elapsed_cycles);
+	printVar(cycles_per_iteration);
+
+	alignedFree(data1);
+	alignedFree(data2);
+	alignedFree(res);
+}

@@ -39,6 +39,7 @@ public:
 	static void doSpeedTest();
 	static void buildSpeedTest();
 	static void testBuildCorrect();
+	static void doRayTests();
 };
 
 
