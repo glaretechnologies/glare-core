@@ -138,10 +138,10 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 
 				assert(file_checksum == tree_checksum);
 
-				conPrint("\tLoading tree from disk cache...");
+				//conPrint("\tLoading tree from disk cache...");
 				tritree->buildFromStream(file);
 				built_from_cache = true;
-				conPrint("\tDone.");
+				//conPrint("\tDone.");
 			}
 			else
 			{
@@ -152,7 +152,14 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 		
 		if(!built_from_cache)
 		{
-			tritree->build();
+			try
+			{
+				tritree->build();
+			}
+			catch(js::TreeExcep& e)
+			{
+				throw RayMeshExcep(e.what());
+			}
 		
 			if(tritree->diskCachable())
 			{
@@ -182,7 +189,14 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	}
 	else
 	{
-		tritree->build();
+		try
+		{
+			tritree->build();
+		}
+		catch(js::TreeExcep& e)
+		{
+			throw RayMeshExcep(e.what());
+		}
 	}
 
 

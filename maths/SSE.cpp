@@ -80,6 +80,49 @@ void SSETest()
 {
 	conPrint("SSETest()");
 
+
+	// Test accuracy of divisions
+	const SSE_ALIGN float a[4] = {1.0e0, 1.0e-1, 1.0e-2, 1.0e-3};
+	const SSE_ALIGN float b[4] = {1.1,1.01,1.001,1.0001};
+	const SSE_ALIGN float c[4] = {0.99999999999,0.99999999,0.9999999,0.999999};
+	SSE_ALIGN float r1[4] = {1,1,1,1};
+	SSE_ALIGN float r2[4] = {1,1,1,1};
+
+	// r1 := a / (b-c)
+
+	_mm_store_ps(
+		r1,
+		_mm_div_ps(
+			_mm_load_ps(a),
+			_mm_sub_ps(
+				_mm_load_ps(b),
+				_mm_load_ps(c)
+				)
+			)
+		);
+
+	for(int z=0; z<4; ++z)
+	{
+		r2[z] = a[z] / (b[z] - c[z]);
+
+		conPrint(::floatToString(r1[z], 20));
+		conPrint(::floatToString(r2[z], 20));
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	const int N = 20000000 * 4;
 	float* data1 = (float*)alignedMalloc(sizeof(float) * N, 16);
 	float* data2 = (float*)alignedMalloc(sizeof(float) * N, 16);

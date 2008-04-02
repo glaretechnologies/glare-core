@@ -29,7 +29,7 @@ ObjectTree::ObjectTree()
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
 	assert(::isAlignedTo(root_aabb, sizeof(AABBox)));
 
-	nodes.push_back(TreeNode());//root node
+	nodes.push_back(ObjectTreeNode());//root node
 	assert((uint64)&nodes[0] % 8 == 0);//assert aligned
 
 	num_inseparable_tri_leafs = 0;
@@ -123,7 +123,7 @@ double ObjectTree::traceRay(const Ray& ray,
 
 		stacktop--;
 
-		while(!nodes[current].isLeafNode())
+		while(nodes[current].getNodeType() != ObjectTreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
 		{
 			//------------------------------------------------------------------------
 			//prefetch child node memory
@@ -249,7 +249,7 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
 		return false;//missed aabbox
 
-	const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
+	/*const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
 	//TEMP:
 	aabb_enterdist = myMax(aabb_enterdist, MIN_TMIN);
 
@@ -258,12 +258,17 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 
 	if(aabb_enterdist > raylength)
 		return false;
-	aabb_exitdist = myMin(aabb_exitdist, (float)raylength);
+	aabb_exitdist = myMin(aabb_exitdist, (float)raylength);*/
+
+	const float root_t_min = myMax(0.0f, aabb_enterdist);
+	const float root_t_max = myMin((float)raylength, aabb_exitdist);
+	if(root_t_min > root_t_max)
+		return false; // Ray interval does not intersect AABB
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
-	object_context.nodestack[0] = StackFrame(0, aabb_enterdist, aabb_exitdist);
+	object_context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -276,7 +281,7 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 
 		stacktop--;
 
-		while(!nodes[current].isLeafNode())
+		while(nodes[current].getNodeType() != ObjectTreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
 		{
 			//------------------------------------------------------------------------
 			//prefetch child node memory
@@ -403,7 +408,7 @@ void ObjectTree::build()
 	//alignedSSEArrayMalloc(nodestack_size, nodestack);
 	
 	const int expected_numnodes = (int)((float)numtris * 1.0);
-	const int nodemem = expected_numnodes * sizeof(js::TreeNode);
+	const int nodemem = expected_numnodes * sizeof(js::ObjectTreeNode);
 
 	obTreeDebugPrint("reserving N nodes: " + ::toString(expected_numnodes) + "(" 
 		+ ::getNiceByteSize(nodemem) + ")");
@@ -421,14 +426,14 @@ void ObjectTree::build()
 
 	if(!nodes.empty())
 	{
-		assert(isAlignedTo(&nodes[0], sizeof(js::TreeNode)));
+		assert(isAlignedTo(&nodes[0], sizeof(js::ObjectTreeNode)));
 	}
 
 	const uint64 numnodes = nodes.size();
 	const uint64 leafgeomsize = leafgeom.size();
 
 	obTreeDebugPrint("total nodes used: " + ::toString(numnodes) + " (" + 
-		::getNiceByteSize((int)numnodes * sizeof(js::TreeNode)) + ")");
+		::getNiceByteSize((int)numnodes * sizeof(js::ObjectTreeNode)) + ")");
 
 	obTreeDebugPrint("total leafgeom size: " + ::toString(leafgeomsize) + " (" + 
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
@@ -452,9 +457,10 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	{
 		//no tris were allocated to this node.
 		//so make it a leaf node with 0 tris
-		nodes[cur].setLeafNode(true);
-		nodes[cur].setLeafGeomIndex(0);
-		nodes[cur].setNumLeafGeom(0);
+		nodes[cur] = ObjectTreeNode(
+			0,
+			0
+			);
 		return;
 	}
 	//------------------------------------------------------------------------
@@ -464,9 +470,10 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	if(nodeobjs.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
 	{
-		nodes[cur].setLeafNode(true);
-		nodes[cur].setLeafGeomIndex((uint32)leafgeom.size());
-		nodes[cur].setNumLeafGeom((uint32)nodeobjs.size());
+		nodes[cur] = ObjectTreeNode(
+			(uint32)leafgeom.size(),
+			(uint32)nodeobjs.size()
+			);
 
 		for(unsigned int i=0; i<nodeobjs.size(); ++i)
 			leafgeom.push_back(nodeobjs[i]);
@@ -634,15 +641,15 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	if(best_axis == -1)
 	{
 		//if the least cost is to not split the node...
-		nodes[cur].setLeafNode(true);
-		nodes[cur].setLeafGeomIndex((uint32)leafgeom.size());
-		nodes[cur].setNumLeafGeom((uint32)nodeobjs.size());
+		nodes[cur] = ObjectTreeNode(
+			(uint32)leafgeom.size(),
+			(uint32)nodeobjs.size()
+			);
 
 		for(unsigned int i=0; i<nodeobjs.size(); ++i)
 			leafgeom.push_back(nodeobjs[i]);
 
 		num_inseparable_tri_leafs++;
-
 		return;
 	}
 	
@@ -651,20 +658,21 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	assert(best_div_val >= cur_aabb.min_[best_axis]);
 	assert(best_div_val <= cur_aabb.max_[best_axis]);
-	
-	nodes[cur].setSplittingAxis(best_axis);
-	nodes[cur].data2.dividing_val = best_div_val;
+
+	//::fatalError("TEMP");
+//	nodes[cur].setSplittingAxis(best_axis);
+//	nodes[cur].data2.dividing_val = best_div_val;
 
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
 	//------------------------------------------------------------------------
-	assert(nodes[cur].getSplittingAxis() >= 0 && nodes[cur].getSplittingAxis() <= 2);
+	assert(best_axis >= 0 && best_axis <= 2);
 
 	AABBox negbox(cur_aabb.min_, cur_aabb.max_);
-	negbox.max_[nodes[cur].getSplittingAxis()] = nodes[cur].data2.dividing_val;
+	negbox.max_[best_axis] = best_div_val;
 
 	AABBox posbox(cur_aabb.min_, cur_aabb.max_);
-	posbox.min_[nodes[cur].getSplittingAxis()] = nodes[cur].data2.dividing_val;
+	posbox.min_[best_axis] = best_div_val;
 
 	//------------------------------------------------------------------------
 	//assign tris to neg and pos child node bins
@@ -708,20 +716,20 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	{
 		//If we were unable to get a reduction in the number of tris in either of the children,
 		//then splitting is pointless.  So make this a leaf node.
-		nodes[cur].setLeafNode(true);
-		nodes[cur].setLeafGeomIndex((uint32)leafgeom.size());
-		nodes[cur].setNumLeafGeom((uint32)nodeobjs.size());
+		nodes[cur] = ObjectTreeNode(
+			(uint32)leafgeom.size(),
+			(uint32)nodeobjs.size()
+			);
 
 		for(unsigned int i=0; i<nodeobjs.size(); ++i)
 			leafgeom.push_back(nodeobjs[i]);
-
 		return;
 	}
 
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.
 	//------------------------------------------------------------------------
-	nodes.push_back(TreeNode());
+	nodes.push_back(ObjectTreeNode());
 	const int negchild_index = (int)nodes.size() - 1;
 
 	//build left subtree, recursive call.
@@ -730,8 +738,15 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//------------------------------------------------------------------------
 	//create positive child
 	//------------------------------------------------------------------------
-	nodes.push_back(TreeNode());
-	nodes[cur].setPosChildIndex((int)nodes.size() - 1);//positive_child = new TreeNode(depth + 1);
+	nodes.push_back(ObjectTreeNode());
+	
+	// Set details for current node
+	//nodes[cur].setPosChildIndex((int)nodes.size() - 1);//positive_child = new TreeNode(depth + 1);
+	nodes[cur] = ObjectTreeNode(
+		best_axis, // splitting axis
+		best_div_val, // split
+		(int)nodes.size() - 1 // right child node index
+		);
 
 	//build right subtree
 	doBuild(nodes[cur].getPosChildIndex(), pos_objs, depth + 1, maxdepth, posbox);
@@ -891,7 +906,7 @@ void ObjectTree::writeAABBModel(const AABBox& aabb, std::ostream& stream, int& n
 void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 {
 
-	if(nodes[cur].isLeafNode())
+	if(nodes[cur].getNodeType() == ObjectTreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
 	{
 		for(int i=0; i<depth; ++i)
 			out << "  ";
@@ -956,7 +971,7 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 	if(nodes.empty())
 		return;
 
-	if(nodes[cur].isLeafNode())
+	if(nodes[cur].getNodeType() == ObjectTreeNode::NODE_TYPE_LEAF)// nodes[cur].isLeafNode())
 	{
 		stats_out.num_leaf_nodes++;
 		stats_out.num_leaf_geom_tris += (int)nodes[cur].getNumLeafGeom();
@@ -986,7 +1001,7 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 	
 		stats_out.max_depth = max_depth;
 
-		stats_out.total_node_mem = (int)nodes.size() * sizeof(TreeNode);
+		stats_out.total_node_mem = (int)nodes.size() * sizeof(ObjectTreeNode);
 		stats_out.leafgeom_indices_mem = stats_out.num_leaf_geom_tris * sizeof(INTERSECTABLE_TYPE*);
 		stats_out.tri_mem = (int)objects.size() * sizeof(INTERSECTABLE_TYPE*);
 

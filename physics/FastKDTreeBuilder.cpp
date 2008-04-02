@@ -234,9 +234,14 @@ void FastKDTreeBuilder::buildSubTree(
 	if(min_bounds[0].size() <= SPLIT_THRESHOLD || depth >= maxdepth)
 	{
 		// Make this node a leaf node.
-		nodes_out.back().setLeafNode(true);
+		/*nodes_out.back().setLeafNode(true);
 		nodes_out.back().setLeafGeomIndex((unsigned int)leaf_tri_indices_out.size());
-		nodes_out.back().setNumLeafGeom((unsigned int)min_bounds[0].size());
+		nodes_out.back().setNumLeafGeom((unsigned int)min_bounds[0].size());*/
+		nodes_out.back() = TreeNode(
+			(unsigned int)leaf_tri_indices_out.size(),
+			(unsigned int)min_bounds[0].size()
+			);
+
 
 		for(unsigned int i=0; i<min_bounds[0].size(); ++i)
 			leaf_tri_indices_out.push_back(min_bounds[0][i].tri_index);
@@ -299,9 +304,9 @@ void FastKDTreeBuilder::buildSubTree(
 	if(best_axis == -1)
 	{
 		// Make this node a leaf node.
-		nodes_out.back().setLeafNode(true);
-		nodes_out.back().setLeafGeomIndex((unsigned int)leaf_tri_indices_out.size());
-		nodes_out.back().setNumLeafGeom((unsigned int)min_bounds[0].size());
+		//nodes_out.back().setLeafNode(true);
+		//nodes_out.back().setLeafGeomIndex((unsigned int)leaf_tri_indices_out.size());
+		//TEMP nodes_out.back().setNumLeafGeom((unsigned int)min_bounds[0].size());
 
 		for(unsigned int i=0; i<min_bounds[0].size(); ++i)
 			leaf_tri_indices_out.push_back(min_bounds[0][i].tri_index);

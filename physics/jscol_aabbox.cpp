@@ -164,7 +164,7 @@ bool_t AABBox::ray_box_intersects_slabs_geimer_muller_sse_ss(const rt::ray_t &ra
 
 
 
-bool AABBox::invariant()
+bool AABBox::invariant() const
 {
 	return max_.x >= min_.x && max_.y >= min_.y && max_.z >= min_.z;
 }

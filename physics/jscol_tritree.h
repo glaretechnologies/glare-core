@@ -21,9 +21,9 @@ Code By Nicholas Chapman.
 #include "../utils/platform.h"
 #include <ostream>
 #include <vector>
+#include <map>
 class RayMesh;
 class Ray;
-class RayBundle;
 class HitInfo;
 class FullHitInfo;
 namespace js 
@@ -68,7 +68,8 @@ public:
 	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
 	int num_empty_space_cutoffs;
 
-	std::vector<unsigned int> leaf_geom_counts;
+	//std::vector<unsigned int> leaf_geom_counts;
+	std::map<int, int> leaf_geom_counts;
 
 	void print();
 };
@@ -96,9 +97,9 @@ public:
 
 	typedef float REAL;
 
-	virtual void build();
+	virtual void build(); // throws TreeExcep
 	virtual bool diskCachable();
-	virtual void buildFromStream(std::istream& stream);
+	virtual void buildFromStream(std::istream& stream); // throws TreeExcep
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
@@ -132,6 +133,13 @@ public:
 	mutable uint64 total_num_nodes_touched;
 	mutable uint64 total_num_leafs_touched;
 	mutable uint64 total_num_tris_intersected;
+	mutable uint64 total_num_tris_considered;
+
+	class SortedBoundInfo
+	{
+	public:
+		float lower, upper;
+	};
 
 private:
 	//-----------------typedefs------------------------
@@ -151,12 +159,8 @@ private:
 		Vec3f upper;
 	};
 
-	class SortedBoundInfo
-	{
-	public:
-		float lower, upper;
-	}
-
+	
+	unsigned int calcMaxDepth() const;
 	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
@@ -165,7 +169,7 @@ private:
 	void postBuild() const;
 	void doBuild(NODE_INDEX cur, 
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
-		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<float>& upper, std::vector<float>& lower);
+		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower);
 
 	void doBuildAccurateTriBox(NODE_INDEX cur, 
 		const std::vector<TRI_INDEX>& nodetris,
@@ -187,13 +191,14 @@ private:
 	js::Vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
 
 	unsigned int numnodesbuilt;
-	unsigned int max_depth;
+	//unsigned int max_depth;
 	unsigned int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
 	unsigned int num_cheaper_no_split_leafs;//num leafs formed when the cost function is cheaper to terminate splitting.
 	unsigned int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	unsigned int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
 	int num_empty_space_cutoffs;
-	std::vector<unsigned int> leaf_geom_counts;
+	//std::vector<unsigned int> leaf_geom_counts;
+	//std::map<unsigned int, unsigned int> leaf_geom_counts;
 
 	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
 

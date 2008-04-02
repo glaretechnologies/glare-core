@@ -47,7 +47,7 @@ public:
 		float& near_hitd_out, float& far_hitd_out) const;
 	
 	inline float getSurfaceArea() const;
-	bool invariant();
+	bool invariant() const;
 	static void test();
 
 	inline float axisLength(unsigned int axis) const { return max_[axis] - min_[axis]; }

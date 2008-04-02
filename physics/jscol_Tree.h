@@ -50,9 +50,9 @@ public:
 
 	virtual ~Tree();
 
-	virtual void build() = 0;
+	virtual void build() = 0; // throws TreeExcep
 	virtual bool diskCachable() = 0;
-	virtual void buildFromStream(std::istream& stream) = 0;
+	virtual void buildFromStream(std::istream& stream) = 0; // throws TreeExcep
 	virtual void saveTree(std::ostream& stream) = 0;
 	virtual uint32 checksum() = 0;
 

@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../indigo/object.h"
 #include "jscol_Intersectable.h"
-#include "jscol_treenode.h"
+#include "ObjectTreeNode.h"
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"
 namespace js{ class TriTreePerThreadData; }
@@ -107,7 +107,7 @@ private:
 	int max_depth;
 	int nodestack_size;
 
-	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
+	typedef std::vector<ObjectTreeNode> NODE_VECTOR_TYPE;
 	NODE_VECTOR_TYPE nodes;//nodes of the tree
 
 	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris

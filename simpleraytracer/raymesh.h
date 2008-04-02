@@ -28,6 +28,16 @@ public:
 	unsigned int tri_mat_index;
 };
 
+class RayMeshExcep
+{
+public:
+	RayMeshExcep(const std::string& s_) : s(s_) {}
+	~RayMeshExcep(){}
+	const std::string& what() const { return s; }
+private:
+	std::string s;
+};
+
 /*=====================================================================
 RayMesh
 -------
@@ -45,7 +55,7 @@ public:
 
 	virtual ~RayMesh();
 
-	void build(const std::string& indigo_base_dir_path, bool use_cached_trees);
+	void build(const std::string& indigo_base_dir_path, bool use_cached_trees); // throws RayMeshExcep
 
 	////////////////////// Geometry interface ///////////////////
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
