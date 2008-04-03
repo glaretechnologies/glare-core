@@ -140,6 +140,7 @@ public:
 	public:
 		float lower, upper;
 	};
+	unsigned int calcMaxDepth() const;
 
 private:
 	//-----------------typedefs------------------------
@@ -160,7 +161,6 @@ private:
 	};
 
 	
-	unsigned int calcMaxDepth() const;
 	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
@@ -170,13 +170,6 @@ private:
 	void doBuild(NODE_INDEX cur, 
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower);
-
-	void doBuildAccurateTriBox(NODE_INDEX cur, 
-		const std::vector<TRI_INDEX>& nodetris,
-		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb);
-
-
-
 
 	RayMesh* raymesh;
 	//int nodestack_size;
