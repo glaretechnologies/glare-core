@@ -22,6 +22,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/timer.h" // TEMP
 
 #ifdef USE_SSE
 #define DO_PREFETCHING 1
@@ -197,9 +198,6 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
-				if(current == 106 && t_split >= 72 && t_split < 74 && tmax > 72 && tmax < 74)
-					int b = 9;
-
 				current = child_nodes[ray_child_indices[splitting_axis]];
 			}
 			else if(tmin > t_split) // whole interval is on far cell.
@@ -980,9 +978,13 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 			upper[i].upper = nodetris[i].upper[axis];
 		}
 
+		Timer sort_timer;
+
 		//Note that we don't want to sort the whole buffers here, as we're only using the first numtris elements.
 		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred); //lower.end());
 		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred); //upper.end());
+
+		conPrint("sort took " + toString(sort_timer.getSecondsElapsed()));
 
 		// Try explicit 'Early empty-space cutoff', see section 4.4 of Havran's thesis
 		// 'Construction of Kd-Trees with Utilization of Empty Spatial Regions'
@@ -1021,6 +1023,15 @@ void TriTree::doBuild(unsigned int cur, //index of current node getting built
 			const float splitval = lower[i].lower;
 			//assert(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]);
 
+			/*int num_on_splitting_plane = 0;
+			while(i<numtris && lower[i].lower == splitval)
+			{
+				// If the tri has zero extent along the current axis
+				if(lower[i].upper == splitval)
+					num_on_splitting_plane++;
+
+				i++;
+			}*/
 
 			if(splitval != last_splitval)//only consider first tri seen with a given lower bound.
 			{
