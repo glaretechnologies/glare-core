@@ -46,7 +46,7 @@ public:
 
 	void killThread();
 
-	void waitForThread();
+	//void waitForThread();
 
 	bool commit_suicide;
 

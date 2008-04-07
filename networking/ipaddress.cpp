@@ -41,64 +41,72 @@ IPAddress::IPAddress(const std::string& addstring)// throw (MalformedIPStringExc
 	if(addstring.size() == 0)
 		throw MalformedIPStringExcep();
 
-	int a, b, c, d;
-
-	size_t nextstartpos;
+	try
 	{
-	const size_t dotpos = addstring.find_first_of('.');
-	if(dotpos == std::string::npos)
-		throw MalformedIPStringExcep();
 
-	a = stringToInt(addstring.substr(0, dotpos));
-	nextstartpos = dotpos + 1;
+		int a, b, c, d;
+
+		size_t nextstartpos;
+		{
+		const size_t dotpos = addstring.find_first_of('.');
+		if(dotpos == std::string::npos)
+			throw MalformedIPStringExcep();
+
+		a = stringToInt(addstring.substr(0, dotpos));
+		nextstartpos = dotpos + 1;
+		}
+
+		{
+		const size_t dotpos = addstring.find_first_of('.', nextstartpos);
+		if(dotpos == std::string::npos)
+			throw MalformedIPStringExcep();
+
+		const int byte_len = dotpos - nextstartpos;
+		if(byte_len < 1 || byte_len > 3)
+			throw MalformedIPStringExcep();
+
+		b = stringToInt(addstring.substr(nextstartpos, byte_len));
+		nextstartpos = dotpos + 1;
+		}
+
+		{
+		const size_t dotpos = addstring.find_first_of('.', nextstartpos);
+		if(dotpos == std::string::npos)
+			throw MalformedIPStringExcep();
+
+		const int byte_len = dotpos - nextstartpos;
+		if(byte_len < 1 || byte_len > 3)
+			throw MalformedIPStringExcep();
+
+		c = stringToInt(addstring.substr(nextstartpos, byte_len));
+		nextstartpos = dotpos + 1;
+		}
+
+		{
+		const int byte_len = addstring.size() - nextstartpos;
+		if(byte_len < 1 || byte_len > 3)
+			throw MalformedIPStringExcep();
+
+		d = stringToInt(addstring.substr(nextstartpos, byte_len));
+		}
+
+		if(a < 0 || a > 255 || b < 0 || b > 255 || c < 0 || c > 255 || d < 0 || d > 255)
+			throw MalformedIPStringExcep();
+
+
+		//address = ((unsigned int)a << 24) + //make a most significant byte etc...
+		//			((unsigned int)b << 16) + 
+		//			((unsigned int)c << 8) + 
+		//			(unsigned int)d;
+		((unsigned char*)&address)[0] = (unsigned char)a;
+		((unsigned char*)&address)[1] = (unsigned char)b;
+		((unsigned char*)&address)[2] = (unsigned char)c;
+		((unsigned char*)&address)[3] = (unsigned char)d;
 	}
-
+	catch(StringUtilsExcep&)
 	{
-	const size_t dotpos = addstring.find_first_of('.', nextstartpos);
-	if(dotpos == std::string::npos)
 		throw MalformedIPStringExcep();
-
-	const int byte_len = dotpos - nextstartpos;
-	if(byte_len < 1 || byte_len > 3)
-		throw MalformedIPStringExcep();
-
-	b = stringToInt(addstring.substr(nextstartpos, byte_len));
-	nextstartpos = dotpos + 1;
 	}
-
-	{
-	const size_t dotpos = addstring.find_first_of('.', nextstartpos);
-	if(dotpos == std::string::npos)
-		throw MalformedIPStringExcep();
-
-	const int byte_len = dotpos - nextstartpos;
-	if(byte_len < 1 || byte_len > 3)
-		throw MalformedIPStringExcep();
-
-	c = stringToInt(addstring.substr(nextstartpos, byte_len));
-	nextstartpos = dotpos + 1;
-	}
-
-	{
-	const int byte_len = addstring.size() - nextstartpos;
-	if(byte_len < 1 || byte_len > 3)
-		throw MalformedIPStringExcep();
-
-	d = stringToInt(addstring.substr(nextstartpos, byte_len));
-	}
-
-	if(a < 0 || a > 255 || b < 0 || b > 255 || c < 0 || c > 255 || d < 0 || d > 255)
-		throw MalformedIPStringExcep();
-
-
-	//address = ((unsigned int)a << 24) + //make a most significant byte etc...
-	//			((unsigned int)b << 16) + 
-	//			((unsigned int)c << 8) + 
-	//			(unsigned int)d;
-	((unsigned char*)&address)[0] = (unsigned char)a;
-	((unsigned char*)&address)[1] = (unsigned char)b;
-	((unsigned char*)&address)[2] = (unsigned char)c;
-	((unsigned char*)&address)[3] = (unsigned char)d;
 
 	//-----------------------------------------------------------------
 	//convert to network byte order for 'address'

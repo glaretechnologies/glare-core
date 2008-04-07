@@ -8,11 +8,8 @@ Code By Nicholas Chapman.
 #define __PARSER_H_666_
 
 
-
-#include <string>
 #include "../utils/stringutils.h"
-
-#define PARSER_TMP_BUF_SIZE 1023
+#include <string>
 
 
 /*=====================================================================
@@ -28,7 +25,7 @@ public:
 	------
 	
 	=====================================================================*/
-	Parser(char* text, unsigned int textsize);//const std::string& text);
+	Parser(const char* text, unsigned int textsize);
 
 	~Parser();
 
@@ -36,15 +33,15 @@ public:
 	//if it was, currentpos will be pointing to the next character.
 	//if not, it won't be moved.
 	inline bool parseChar(char target);
-	inline bool parseInt(unsigned int& result_out);
+	bool parseInt(int& result_out);
+	inline bool parseUnsignedInt(unsigned int& result_out);
 	inline bool parseNDigitUnsignedInt(unsigned int N, unsigned int& result_out);
-	//inline bool parseInt(int& result_out);
-	bool parseFloat(float& result_out);//must be whitespace delimited
-	bool parseDouble(double& result_out);//must be whitespace delimited
+	bool parseFloat(float& result_out);
+	bool parseDouble(double& result_out);
 	inline bool parseWhiteSpace();
 	inline void parseSpacesAndTabs();
 	inline void advancePastLine();
-	bool parseString(const std::string& s);
+	//bool parseString(const std::string& s);
 	bool parseAlphaToken(std::string& token_out);
 	bool parseNonWSToken(std::string& token_out);
 
@@ -57,17 +54,14 @@ public:
 	inline bool notEOF();
 	inline void advance();
 private:
-	char* text;
+	const char* text;
 	unsigned int currentpos;
-	//const std::string& text;
 	unsigned int textsize;
-	std::string temp;
-	char tmp[PARSER_TMP_BUF_SIZE+1];
 };
 
 
 
-	
+
 bool Parser::parseChar(char target)
 {
 	if(currentpos < textsize && text[currentpos] == target)
@@ -79,7 +73,8 @@ bool Parser::parseChar(char target)
 		return false;
 }
 
-bool Parser::parseInt(unsigned int& result_out)
+
+bool Parser::parseUnsignedInt(unsigned int& result_out)
 {
 	unsigned int x = 0;
 	const int initial_currentpos = currentpos;
@@ -164,10 +159,12 @@ bool Parser::eof()
 {
 	return currentpos >= textsize;
 }
+
 bool Parser::notEOF()
 {
 	return currentpos < textsize;
 }
+
 void Parser::advance()
 {
 	currentpos++;

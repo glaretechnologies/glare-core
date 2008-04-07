@@ -41,7 +41,7 @@ public:
 
 	Locks the queue.
 	=====================================================================*/
-	inline void enqueue(T& t);
+	inline void enqueue(const T& t);
 
 
 	inline Mutex& getMutex();
@@ -96,7 +96,7 @@ ThreadSafeQueue<T>::~ThreadSafeQueue()
 }
 
 template <class T>
-void ThreadSafeQueue<T>::enqueue(T& t)
+void ThreadSafeQueue<T>::enqueue(const T& t)
 {	
 	Lock lock(mutex);//lock the queue
 

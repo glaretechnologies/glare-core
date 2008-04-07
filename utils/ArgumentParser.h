@@ -33,18 +33,41 @@ ArgumentParser
 class ArgumentParser
 {
 public:
+
+
+	enum ArgumentType
+	{
+		ArgumentType_string,
+		ArgumentType_int,
+		ArgumentType_double
+	};
+
+	class ParsedArg
+	{
+	public:
+		ParsedArg() : double_val(-666.0), int_val(-666) {};
+		~ParsedArg(){}
+
+		std::string string_val;
+		double double_val;
+		int int_val;
+		ArgumentType type;
+	};
+	
+
 	/*=====================================================================
 	ArgumentParser
 	--------------
 	
 	=====================================================================*/
-	ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, int>& syntax);
+	ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax);
 
 	~ArgumentParser();
 
 
 	bool isArgPresent(const std::string& name) const { return parsed_args.find(name) != parsed_args.end(); }
-	const std::string getArgValue(const std::string& name, unsigned int value_index = 0) const;
+	
+	const std::string getArgStringValue(const std::string& name, unsigned int value_index = 0) const;
 	int getArgIntValue(const std::string& name, unsigned int value_index = 0) const;
 	double getArgDoubleValue(const std::string& name, unsigned int value_index = 0) const;
 
@@ -54,8 +77,8 @@ public:
 
 private:
 	std::vector<std::string> args;
-	std::map<std::string, int> syntax;
-	std::map<std::string, std::vector<std::string> > parsed_args;
+	std::map<std::string, std::vector<ArgumentType> > syntax;
+	std::map<std::string, std::vector<ParsedArg> > parsed_args;
 	std::string unnamed_arg;
 };
 

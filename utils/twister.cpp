@@ -6,7 +6,6 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "twister.h"
 
-
 #include <stdio.h>
 
 namespace Twister

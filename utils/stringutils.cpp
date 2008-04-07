@@ -1,6 +1,44 @@
 #include "stringutils.h"
 
+
+#include "../maths/mathstypes.h"
 #include <stdarg.h>//NOTE: fixme
+#include <stdlib.h>
+
+
+
+
+
+float stringToFloat(const std::string& s) // throws StringUtilsExcep
+{
+	char* end_ptr = NULL;
+	const float ret = (float)strtod(s.c_str(), &end_ptr);
+	if(end_ptr == s.c_str())
+		throw StringUtilsExcep("Failed to convert '" + s + "' to a float.");
+	return ret;
+}
+
+double stringToDouble(const std::string& s) // throws StringUtilsExcep
+{
+	char* end_ptr = NULL;
+	const double ret = strtod(s.c_str(), &end_ptr);
+	if(end_ptr == s.c_str())
+		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
+	return ret;
+}
+
+int stringToInt(const std::string& s) // throws StringUtilsExcep
+{
+	char* end_ptr = NULL;
+	const int ret = strtol(s.c_str(), &end_ptr, 
+		10 // base
+		);
+	if(end_ptr == s.c_str())
+		throw StringUtilsExcep("Failed to convert '" + s + "' to an int.");
+	return ret;
+}
+
+
 
 unsigned int hexStringToUInt(const std::string& s)
 {
@@ -838,6 +876,54 @@ void doStringUtilsUnitTests()
 
 	parts = split("", ':');
 	assert(StringUtils::join(parts, ":") == "");
+
+
+
+	assert(epsEqual(stringToFloat("1.4"), 1.4f));
+
+	try
+	{
+		stringToFloat("bleh");
+		assert(false);
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	assert(epsEqual(stringToDouble("-631.3543e52"), -631.3543e52));
+
+	try
+	{
+		stringToFloat("-z631.3543");
+		assert(false);
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat("");
+		assert(false);
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat(" ");
+		assert(false);
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	assert(epsEqual((double)stringToInt("-631"), (double)-631));
+
+	try
+	{
+		stringToInt("dfgg");
+		assert(false);
+	}
+	catch(StringUtilsExcep& )
+	{}
 
 /*
 	assert(::toUpperCase("meh666XYZ") == "MEH666XYZ");

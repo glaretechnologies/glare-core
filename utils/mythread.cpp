@@ -110,7 +110,7 @@ void MyThread::decrNumAliveThreads()
 	assert(num_alive_threads >= 0);
 }
 
-void MyThread::waitForThread()
+/*void MyThread::waitForThread()
 {
 	const DWORD result = WaitForSingleObject(
 		thread_handle,
@@ -118,7 +118,7 @@ void MyThread::waitForThread()
 		);
 
 	assert(result != WAIT_FAILED);
-}
+}*/
 
 //Mutex MyThread::alivecount_mutex;
 int MyThread::num_alive_threads = 0;

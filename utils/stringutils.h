@@ -17,22 +17,22 @@ nickamy@paradise.net.nz
 
 //const std::string buildString(const char* text, ...); 
 
-
-
-inline float stringToFloat(const std::string& s)
+class StringUtilsExcep
 {
-	return (float)atof(s.c_str());
-}
+public:
+	StringUtilsExcep(const std::string& s_) : s(s_) {}
+	~StringUtilsExcep(){}
 
-inline int stringToInt(const std::string& s)
-{
-	return atoi(s.c_str());
-}
+	const std::string& what() const { return s; }
+private:
+	std::string s;
+};
 
-inline double stringToDouble(const std::string& s)
-{
-	return atof(s.c_str());
-}
+
+float stringToFloat(const std::string& s); // throws StringUtilsExcep
+double stringToDouble(const std::string& s); // throws StringUtilsExcep
+int stringToInt(const std::string& s); // throws StringUtilsExcep
+
 
 inline const std::string toString(char c)
 {

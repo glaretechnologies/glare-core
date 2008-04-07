@@ -267,7 +267,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 				bool got_normal = false;
 
 				//Read vertex position index
-				if(parser.parseInt(vert_pos_index))
+				if(parser.parseUnsignedInt(vert_pos_index))
 				{
 					numfaceverts++;
 
@@ -286,7 +286,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 						if(vert_texcoord_index == 0 || vert_texcoord_index > texcoords.size())
 							throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(vert_texcoord_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						*/
-						if(parser.parseInt(vert_texcoord_index))
+						if(parser.parseUnsignedInt(vert_texcoord_index))
 						{
 							if(vert_texcoord_index == 0 || vert_texcoord_index > texcoords.size())
 								throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(vert_texcoord_index) + "' out of bounds, on line " + toString(linenum) + ")");
@@ -298,7 +298,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 						//Try and read vertex normal index
 						if(parser.parseChar('/'))
 						{
-							if(!parser.parseInt(vert_normal_index))
+							if(!parser.parseUnsignedInt(vert_normal_index))
 								throw ModelFormatDecoderExcep("syntax error: no integer following '/' (line " + toString(linenum) + ")");
 						
 							if(vert_normal_index == 0 || vert_normal_index > normals.size())
