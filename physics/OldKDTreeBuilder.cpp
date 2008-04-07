@@ -26,7 +26,16 @@ OldKDTreeBuilder::OldKDTreeBuilder()
 	num_empty_space_cutoffs = 0;
 }
 
-
+/*
+class BuildTask
+{
+public:
+	ThreadedKDTreeBuilder* builder;
+	std::vector<TriInfo> tris;
+	TriTree::NODE_VECTOR_TYPE nodes_out;
+	js::Vector<TriTree::TRI_INDEX> leaf_tri_indices_out;
+};
+*/
 OldKDTreeBuilder::~OldKDTreeBuilder()
 {
 	
@@ -59,9 +68,19 @@ void OldKDTreeBuilder::build(TriTree& tree, const AABBox& root_aabb, TriTree::NO
 			node_tri_layers[0][i].upper = tri_aabb.max_;
 		}
 
+
+		// Create thread pool
+		// Add X threads (X = number of cores)
+
+
 		std::vector<SortedBoundInfo> lower(tree.numTris());
 		std::vector<SortedBoundInfo> upper(tree.numTris());
-		doBuild(tree, 0, node_tri_layers, 0, max_depth, root_aabb, lower, upper, leaf_tri_indices_out, nodes_out);
+		doBuild(
+			tree, 
+			TriTree::ROOT_NODE_INDEX, 
+			node_tri_layers, 
+			0,
+			max_depth, root_aabb, lower, upper, leaf_tri_indices_out, nodes_out);
 	}
 }
 
@@ -79,6 +98,28 @@ static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundI
 {
    return a.upper < b.upper;
 }
+
+/* 
+buildSubtree
+
+	if num tris < threshold
+		build subtree directly in this thread
+	else
+		Make a subtree task object
+		Put it in the queue
+	end
+
+
+	Acquire lock on main node and leafgeom arrays
+	Copy local nodes and leafgeom to main arrays, while converting relative to absolute indices
+	Release lock
+end
+
+
+
+
+
+*/
 
 void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
@@ -106,7 +147,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
-	const int SPLIT_THRESHOLD = 2;
+	const int SPLIT_THRESHOLD = 1;
 	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
 	{
 		// Make this node a leaf node.
@@ -647,20 +688,28 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.
 	//------------------------------------------------------------------------
-	nodes.push_back(TreeNode());
+	const unsigned int actual_num_neg_tris = (unsigned int)child_tris.size();
+	//if(actual_num_neg_tris > 0)
+	//{
+		// Add left child node
+		const unsigned int left_child_index = (unsigned int)nodes.size();
+		nodes.push_back(TreeNode());
 
-	doBuild(
-		tree,
-		(unsigned int)nodes.size() - 1, // current index
-		node_tri_layers, 
-		depth + 1, 
-		maxdepth, 
-		negbox, 
-		lower, 
-		upper,
-		leaf_tri_indices_out,
-		nodes
-		);
+		// Build left subtree
+		doBuild(
+			tree,
+			left_child_index,
+			node_tri_layers, 
+			depth + 1, 
+			maxdepth, 
+			negbox, 
+			lower, 
+			upper,
+			leaf_tri_indices_out,
+			nodes
+			);
+	//}
+
 
 	//------------------------------------------------------------------------
 	// Build list of pos tris
@@ -748,28 +797,103 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	//------------------------------------------------------------------------
 	//create positive child
 	//------------------------------------------------------------------------
-	nodes.push_back(TreeNode());
+	const unsigned int actual_num_pos_tris = (unsigned int)child_tris.size();
+	if(actual_num_pos_tris > 0)
+	{
+		const unsigned int right_child_index = (unsigned int)nodes.size();
+		nodes.push_back(TreeNode());
 	
-	// Set details of current node
-	nodes[cur] = TreeNode(
-		best_axis, // split axis
-		best_div_val, // split value
-		(unsigned int)nodes.size() - 1 // right child index
+		// Set details of current node
+		nodes[cur] = TreeNode(
+			actual_num_neg_tris > 0 ? TreeNode::NODE_TYPE_TWO_CHILDREN : TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
+			best_axis, // split axis
+			best_div_val, // split value
+			right_child_index // right child index
 		);
 
-	// Build right subtree
-	doBuild(
-		tree,
-		nodes[cur].getPosChildIndex(), 
-		node_tri_layers, 
-		depth + 1, 
-		maxdepth, 
-		posbox, 
-		lower, 
-		upper,
-		leaf_tri_indices_out,
-		nodes
+		// Build right subtree
+		doBuild(
+			tree,
+			nodes[cur].getPosChildIndex(), 
+			node_tri_layers, 
+			depth + 1, 
+			maxdepth, 
+			posbox, 
+			lower, 
+			upper,
+			leaf_tri_indices_out,
+			nodes
+			);
+
+		/*if(actual_num_neg_tris > 0)
+		{
+			// The current node has two children
+			nodes.push_back(TreeNode());
+	
+			// Set details of current node
+			nodes[cur] = TreeNode(
+				TreeNode::NODE_TYPE_TWO_CHILDREN,
+				best_axis, // split axis
+				best_div_val, // split value
+				(unsigned int)nodes.size() - 1 // right child index
+				);
+
+			// Build right subtree
+			doBuild(
+				tree,
+				nodes[cur].getPosChildIndex(), 
+				node_tri_layers, 
+				depth + 1, 
+				maxdepth, 
+				posbox, 
+				lower, 
+				upper,
+				leaf_tri_indices_out,
+				nodes
+				);
+		}
+		else
+		{
+			// The current node only has the positive child
+			nodes.push_back(TreeNode()); // Add child node, adjacent to current node
+			assert((unsigned int)nodes.size() == cur + 2);
+	
+			// Set details of current node
+			nodes[cur] = TreeNode(
+				TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
+				best_axis, // split axis
+				best_div_val, // split value
+				(unsigned int)nodes.size() - 1 // right child index
+				);
+
+			// Build right subtree
+			doBuild(
+				tree,
+				nodes[cur].getPosChildIndex(), 
+				node_tri_layers, 
+				depth + 1, 
+				maxdepth, 
+				posbox, 
+				lower, 
+				upper,
+				leaf_tri_indices_out,
+				nodes
+				);
+		}*/
+	}
+	else
+	{
+		// Right child is empty, so don't actually add it.
+		// Set details of current node
+		nodes[cur] = TreeNode(
+			TreeNode::NODE_TYPE_LEFT_CHILD_ONLY,
+			best_axis, // split axis
+			best_div_val, // split value
+			TriTree::DEFAULT_EMPTY_LEAF_NODE_INDEX // right child index
 		);
+	}
+
+	assert(actual_num_neg_tris + actual_num_pos_tris > 0);
 }
 
 

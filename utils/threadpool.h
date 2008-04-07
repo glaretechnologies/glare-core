@@ -9,8 +9,9 @@ Code By Nicholas Chapman.
 
 
 #include "threadsafequeue.h"
-#include "tsobjectmanager.h"
+//#include "tsset.h"
 #include "mythread.h"
+#include <vector>
 
 /*=====================================================================
 ThreadPool
@@ -19,7 +20,7 @@ ThreadPool
 =====================================================================*/
 //template <class ThreadType, class Task>
 template <class Task>
-class ThreadPool : public TSObjectManager<MyThread>
+class ThreadPool// : public TSObjectManager<MyThread>
 {
 public:
 	/*=====================================================================
@@ -39,10 +40,24 @@ public:
 
 	//worker thread API
 	bool pollDequeueTask(Task& task_out);
+	void insertFinishedTasks(Task& finished_task);
+	
+	//void committingSuicide(MyThread* thread);
+
+	void addThread(MyThread* thread);
+
+	ThreadSafeQueue<Task> taskqueue;
+
+	void waitForThreadTermination();
 
 
 private:
-	ThreadSafeQueue<Task> taskqueue;
+
+	//TSSet<MyThread*> threads;
+	Mutex mutex;
+	std::vector<MyThread*> threads;
+
+	
 };
 
 
@@ -75,7 +90,7 @@ ThreadPool<Task>::~ThreadPool()
 	//clear set of threads, but don't delete threads as they will 
 	//hopefully have already autodeleted themselves.
 	//-----------------------------------------------------------------
-	this->clearObjects();
+	//this->clearObjects();
 }
 
 
@@ -100,15 +115,39 @@ bool ThreadPool<Task>::pollDequeueTask(Task& task_out)
 	return taskqueue.pollDequeueLocked(task_out);
 }
 
+template <class Task>
+void ThreadPool<Task>::insertFinishedTasks(Task& finished_task)
+{
+	for(unsigned int i=0; i<threads.size(); ++i)
+		taskqueue.enqueue(finished_task);
+}
+
+template <class Task>
+void ThreadPool<Task>::addThread(MyThread* thread)
+{
+	threads.push_back(thread);
+}
+
+template <class Task>
+void ThreadPool<Task>::waitForThreadTermination()
+{
+	// TEMP: inefficient way
+	for(unsigned int i=0; i<threads.size(); ++i)
+	{
+		threads[i]->waitForThread();
+	}
+}
+
 
 template <class TheadType, class Task>
-void spawnThreads(ThreadPool<Task>& threadpool, int numthreadstospawn, float poll_period)
+void spawnThreads(ThreadPool<Task>& threadpool, int numthreadstospawn)
 {
 	for(int i=0; i<numthreadstospawn; ++i)
 	{
-		TheadType* thread = new TheadType(&threadpool, poll_period);
+		TheadType* thread = new TheadType(&threadpool);
 
-		threadpool.insertObject(thread);
+		//threadpool.insertObject(thread);
+		threadpool.addThread(thread);
 
 		thread->launch(true);
 	}

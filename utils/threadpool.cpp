@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 
-ThreadPool::ThreadPool()
+/*ThreadPool::ThreadPool()
 {
 	
 }
@@ -18,7 +18,7 @@ ThreadPool::ThreadPool()
 ThreadPool::~ThreadPool()
 {
 	
-}
+}*/
 
 
 

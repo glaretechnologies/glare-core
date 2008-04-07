@@ -85,6 +85,7 @@ class TriTree : public Tree
 {
 	friend class FastKDTreeBuilder;
 	friend class OldKDTreeBuilder;
+	friend class ThreadedKDTreeBuilder;
 
 public:
 	/*=====================================================================
@@ -121,6 +122,9 @@ public:
 
 
 	static const unsigned int MAX_KDTREE_DEPTH = 64;
+
+	static const unsigned int DEFAULT_EMPTY_LEAF_NODE_INDEX = 0;
+	static const unsigned int ROOT_NODE_INDEX = 1;
 
 	typedef uint32 TRI_INDEX;
 	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
@@ -161,7 +165,7 @@ private:
 	};
 
 	
-	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = 0, unsigned int depth = 0) const;
+	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = ROOT_NODE_INDEX, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
 	TRI_INDEX numTris() const;

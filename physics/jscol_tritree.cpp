@@ -39,7 +39,8 @@ static void triTreeDebugPrint(const std::string& s)
 }
 
 //#define RECORD_TRACE_STATS 1
-#define USE_LETTERBOX 1
+//#define USE_LETTERBOX 1
+
 
 
 TriTree::TriTree(RayMesh* raymesh_)
@@ -65,7 +66,14 @@ TriTree::TriTree(RayMesh* raymesh_)
 
 	assert(isAlignedTo(root_aabb, sizeof(AABBox)));
 
-	nodes.push_back(TreeNode());//root node
+	// Insert DEFAULT_EMPTY_LEAF_NODE_INDEX node
+	nodes.push_back(TreeNode(
+		0,
+		0
+		));
+	// Insert root node
+	nodes.push_back(TreeNode());
+
 	assert((uint64)&nodes[0] % 8 == 0);//assert aligned
 
 	numnodesbuilt = 0;
@@ -96,6 +104,10 @@ void TriTree::printTraceStats() const
 	conPrint("av num tris considered: " + toString((double)total_num_tris_considered / (double)num_traces));
 	conPrint("av num tris tested: " + toString((double)total_num_tris_intersected / (double)num_traces));
 }
+
+
+
+
 
 //returns dist till hit tri, neg number if missed.
 double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
@@ -142,7 +154,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 	REAL closest_dist = std::numeric_limits<float>::max();
 
-	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
+	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -158,25 +170,14 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 		stacktop--;
 
 		//tmax = myMin(tmax, closest_dist);
-
-		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)//nodes[current].isLeafNode())//while current node is not a leaf..
+		
+		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
 		{
-#ifdef RECORD_TRACE_STATS
-			this->total_num_nodes_touched++;
-#endif
-			//prefetch child node memory
 #ifdef DO_PREFETCHING
-			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
-			//_mm_prefetch((const char *)(&nodes[current+2]), _MM_HINT_T0);	
-			//_mm_prefetch((const char *)(&nodes[current+3]), _MM_HINT_T0);	
-			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-			//_mm_prefetch((const char *)(node_zero_addr + nodes[current].getPosChildIndex()), _MM_HINT_T0);	
+//			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
 #endif			
-	
-			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			//const REAL t_split_old = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
 
-			//TEMP:
+			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			const SSE4Vec t = mult4Vec(
 				sub4Vec(
 					loadScalarCopy(&nodes[current].data2.dividing_val), 
@@ -184,17 +185,21 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 					), 
 				load4Vec(&ray.getRecipRayDirF().x)
 				);
-
 			const float t_split = t.m128_f32[splitting_axis];
-		
-			//const float diff = t_split_old - t_split;
-
-			//assert(diff == 0.0f);
-
-			
-
+	
 
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			/*unsigned int child_nodes[2];
+			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY)
+			{
+				child_nodes[0] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
+				child_nodes[1] = current + 1;
+			}
+			else
+			{
+				child_nodes[0] = current + 1;
+				child_nodes[1] = nodes[current].getPosChildIndex(); 
+			}*/
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -290,7 +295,212 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 
 
+#if 0
 
+//returns dist till hit tri, neg number if missed.
+double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+{
+	assertSSEAligned(&ray);
+	assert(ray.unitDir().isUnitLength());
+	assert(ray_max_t >= 0.0);
+
+#ifdef RECORD_TRACE_STATS
+	this->num_traces++;
+#endif
+
+	hitinfo_out.hittriindex = 0;
+	hitinfo_out.hittricoords.set(0.0, 0.0);
+
+	assert(!nodes.empty());
+	assert(root_aabb);
+
+#ifdef DO_PREFETCHING
+	// Prefetch first node
+	// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);	
+#endif
+
+	float aabb_enterdist, aabb_exitdist;
+	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
+		return -1.0; // Ray missed aabbox
+	assert(aabb_enterdist <= aabb_exitdist);
+
+#ifdef RECORD_TRACE_STATS
+	this->num_root_aabb_hits++;
+#endif
+
+	const float root_t_min = myMax(0.0f, aabb_enterdist);
+	const float root_t_max = myMin((float)ray_max_t, aabb_exitdist);// * (1.1f + (float)NICKMATHS_EPSILON));
+	if(root_t_min > root_t_max)
+		return -1.0; // Ray interval does not intersect AABB
+
+#ifdef USE_LETTERBOX
+	context.tri_hash->clear();
+#endif
+
+	SSE_ALIGN unsigned int ray_child_indices[8];
+	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
+
+	REAL closest_dist = std::numeric_limits<float>::max();
+
+	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
+
+	int stacktop = 0;//index of node on top of stack
+	
+	while(stacktop >= 0)
+	{
+		//pop node off stack
+		unsigned int current = context.nodestack[stacktop].node;
+		assert(current < nodes.size());
+		float tmin = context.nodestack[stacktop].tmin;
+		float tmax = context.nodestack[stacktop].tmax;
+		assert(tmax >= tmin);
+
+		stacktop--;
+
+		//tmax = myMin(tmax, closest_dist);
+		
+		
+		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
+		{
+		
+			if(nodes[current].getNodeType() == TreeNode::NODE_SINGLE_CHILD)
+			{
+				// Then the next node will be placed at the next index
+				current++;
+			}
+			else
+			{
+				// Node has two children...
+
+		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)//nodes[current].isLeafNode())//while current node is not a leaf..
+		{
+#ifdef RECORD_TRACE_STATS
+			this->total_num_nodes_touched++;
+#endif
+			//prefetch child node memory
+#ifdef DO_PREFETCHING
+			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
+			//_mm_prefetch((const char *)(&nodes[current+2]), _MM_HINT_T0);	
+			//_mm_prefetch((const char *)(&nodes[current+3]), _MM_HINT_T0);	
+			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
+			//_mm_prefetch((const char *)(node_zero_addr + nodes[current].getPosChildIndex()), _MM_HINT_T0);	
+#endif			
+	
+			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
+			//const REAL t_split_old = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
+
+			//TEMP:
+			const SSE4Vec t = mult4Vec(
+				sub4Vec(
+					loadScalarCopy(&nodes[current].data2.dividing_val), 
+					load4Vec(&ray.startPosF().x)
+					), 
+				load4Vec(&ray.getRecipRayDirF().x)
+				);
+
+			const float t_split = t.m128_f32[splitting_axis];
+		
+			//const float diff = t_split_old - t_split;
+
+			//assert(diff == 0.0f);
+
+			
+
+			
+
+			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+
+			if(t_split > tmax) // whole interval is on near cell	
+			{
+				current = child_nodes[ray_child_indices[splitting_axis]];
+			}
+			else if(tmin > t_split) // whole interval is on far cell.
+			{
+				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
+			}
+			else // ray hits plane - double recursion, into both near and far cells.
+			{
+				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
+					
+				//push far node onto stack to process later
+				stacktop++;
+				assert(stacktop < context.nodestack_size);
+				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+					
+				//process near child next
+				current = nearnode;
+				tmax = t_split;
+			}
+		}//end while current node is not a leaf..
+
+		//'current' is a leaf node..
+	
+#ifdef RECORD_TRACE_STATS
+		this->total_num_leafs_touched++;
+#endif
+		//prefetch all data
+		//for(int i=0; i<nodes[current].num_leaf_tris; ++i)
+		//	_mm_prefetch((const char *)(leafgeom[nodes[current].positive_child + i]), _MM_HINT_T0);		
+
+		unsigned int leaf_geom_index = nodes[current].getLeafGeomIndex();
+		const unsigned int num_leaf_tris = nodes[current].getNumLeafGeom();
+
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+#ifdef RECORD_TRACE_STATS
+			total_num_tris_considered++;
+#endif
+			assert(leaf_geom_index < leafgeom.size());
+			const unsigned int triangle_index = leafgeom[leaf_geom_index];
+
+#ifdef USE_LETTERBOX
+			if(!context.tri_hash->containsTriIndex(triangle_index)) //If this tri has not already been intersected against
+			{
+#endif
+#ifdef RECORD_TRACE_STATS
+				total_num_tris_intersected++;
+#endif
+				// Try prefetching next tri.
+				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);		
+
+				float u, v, raydist;
+				if(intersect_tris[triangle_index].rayIntersect(
+					ray, 
+					closest_dist, //max t NOTE: because we're using the tri hash, this can't just be the current leaf volume interval.
+					raydist, //distance out
+					u, v)) //hit uvs out
+				{
+					assert(raydist < closest_dist);
+
+					closest_dist = raydist;
+					hitinfo_out.hittriindex = triangle_index;
+					hitinfo_out.hittricoords.set(u, v);
+				}
+
+#ifdef USE_LETTERBOX
+				// Add tri index to hash of tris already intersected against
+				context.tri_hash->addTriIndex(triangle_index);
+			}
+#endif
+			leaf_geom_index++;
+		}
+
+		if(closest_dist <= tmax)
+		{
+			// If intersection point lies before ray exit from this leaf volume, then finished.
+			return closest_dist;
+		}
+
+	}//end while stacktop >= 0
+
+	//assert(closest_dist == std::numeric_limits<float>::max());
+	//return -1.0; // Missed all tris
+	//assert(closest_dist == std::numeric_limits<float>::max() || Maths::inRange(closest_dist, aabb_exitdist, aabb_exitdist + (float)NICKMATHS_EPSILON));
+	return closest_dist < std::numeric_limits<float>::max() ? closest_dist : -1.0;
+		
+}
+#endif
 
 void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
 {
@@ -309,6 +519,8 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	context.tri_hash->clear();
 #endif
 
+	SSE_ALIGN unsigned int ray_child_indices[8];
+	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 
 	//const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
@@ -328,7 +540,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	//const REAL initial_closest_dist = aabb_exitdist + 0.01f;
 	//REAL closest_dist = initial_closest_dist;//(REAL)2.0e9;//closest hit on a tri so far.
 
-	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
+	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -341,69 +553,63 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 
 		stacktop--;
 
-		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
+		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
 		{
-			//------------------------------------------------------------------------
-			//prefetch child node memory
-			//------------------------------------------------------------------------
 #ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
 #endif			
-			//while current node is not a leaf..
-	
+
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
+			const SSE4Vec t = mult4Vec(
+				sub4Vec(
+					loadScalarCopy(&nodes[current].data2.dividing_val), 
+					load4Vec(&ray.startPosF().x)
+					), 
+				load4Vec(&ray.getRecipRayDirF().x)
+				);
+			const float t_split = t.m128_f32[splitting_axis];
+	
 
-			//signed dist to split plane along ray direction from ray origin
-			const REAL axis_sgnd_dist = nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis];
-			const REAL sgnd_dist_to_split = axis_sgnd_dist * ray.getRecipRayDirF()[splitting_axis];			
-
-			//nearnode is the halfspace that the ray origin is in
-			unsigned int nearnode;
-			unsigned int farnode;
-			if(axis_sgnd_dist > (REAL)0.0)
+			//const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			unsigned int child_nodes[2];
+			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_LEFT_CHILD_ONLY)
 			{
-				nearnode = current + 1;//= neg child index
-				farnode = nodes[current].getPosChildIndex();
+				child_nodes[0] = current + 1;
+				child_nodes[1] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
+			}
+			else if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY)
+			{
+				child_nodes[0] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
+				child_nodes[1] = current + 1;
 			}
 			else
 			{
-				nearnode = nodes[current].getPosChildIndex();
-				farnode = current + 1;//= neg child index
+				child_nodes[0] = current + 1;
+				child_nodes[1] = nodes[current].getPosChildIndex();
 			}
 
-//TEMP WAS FAILING TOO MUCH			assert(tmin >= 0.0f);
-
-			if(sgnd_dist_to_split < (REAL)0.0 || //if heading away from split
-				sgnd_dist_to_split > tmax)//or ray segment ends b4 split
+			if(t_split > tmax) // whole interval is on near cell	
 			{
-				//whole interval is on near cell	
-				
+				current = child_nodes[ray_child_indices[splitting_axis]];
+			}
+			else if(tmin > t_split) // whole interval is on far cell.
+			{
+				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
+			}
+			else // ray hits plane - double recursion, into both near and far cells.
+			{
+				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
+					
+				//push far node onto stack to process later
+				stacktop++;
+				assert(stacktop < context.nodestack_size);
+				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+					
 				//process near child next
 				current = nearnode;
+				tmax = t_split;
 			}
-			else
-			{
-				if(tmin > sgnd_dist_to_split)//else if ray seg starts after split
-				{
-					//whole interval is on far cell.
-					current = farnode;
-				}
-				else
-				{
-					//ray hits plane - double recursion, into both near and far cells.
-					
-					//push far node onto stack to process later
-					stacktop++;
-					assert(stacktop < context.nodestack_size);
-					context.nodestack[stacktop] = StackFrame(farnode, sgnd_dist_to_split, tmax);
-					
-					//process near child next
-					current = nearnode;			
-
-					tmax = sgnd_dist_to_split;
-				}
-			}
-
 		}//end while current node is not a leaf..
 
 		//'current' is a leaf node..
@@ -499,7 +705,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 	context.tri_hash->clear();
 #endif
 
-	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
+	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
 	int stacktop = 0; // index of node on top of stack
 
 	while(stacktop >= 0)
@@ -515,7 +721,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 		{
 #ifdef DO_PREFETCHING
 			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
-			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
+//			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
 #endif			
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			//const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
@@ -528,7 +734,23 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 				);
 
 			const float t_split = t.m128_f32[splitting_axis];
-			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			//const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			unsigned int child_nodes[2];
+			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_LEFT_CHILD_ONLY)
+			{
+				child_nodes[0] = current + 1;
+				child_nodes[1] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
+			}
+			else if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY)
+			{
+				child_nodes[0] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
+				child_nodes[1] = current + 1;
+			}
+			else
+			{
+				child_nodes[0] = current + 1;
+				child_nodes[1] = nodes[current].getPosChildIndex();
+			}
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -947,7 +1169,9 @@ void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int 
 		//recurse to children
 		//------------------------------------------------------------------------
 		this->getTreeStats(stats_out, cur + 1, depth + 1);
-		this->getTreeStats(stats_out, nodes[cur].getPosChildIndex(), depth + 1);
+		//if(nodes[cur].getNodeType() == TreeNode::NODE_TYPE_TWO_CHILDREN)
+
+			this->getTreeStats(stats_out, nodes[cur].getPosChildIndex(), depth + 1);
 	}
 
 	if(cur == 0)
@@ -1092,12 +1316,14 @@ void TriTree::test()
 
 	{
 	TreeNode n(
+		TreeNode::NODE_TYPE_TWO_CHILDREN,
 		2, //axis
 		666.0, //split
 		43 // right child index
 		);
 
-	testAssert(n.getNodeType() != TreeNode::NODE_TYPE_LEAF);
+	testAssert(n.getNodeType() == TreeNode::NODE_TYPE_TWO_CHILDREN);
+	//testAssert(n.getNodeType() != TreeNode::NODE_TYPE_LEAF);
 	testAssert(n.getSplittingAxis() == 2);
 	testAssert(n.data2.dividing_val == 666.0);
 	testAssert(n.getPosChildIndex() == 43);

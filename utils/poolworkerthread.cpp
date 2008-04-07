@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 
-PoolWorkerThread::PoolWorkerThread()
+/*PoolWorkerThread::PoolWorkerThread()
 {
 	
 }
@@ -19,7 +19,7 @@ PoolWorkerThread::~PoolWorkerThread()
 {
 	
 }
-
+*/
 
 
 
