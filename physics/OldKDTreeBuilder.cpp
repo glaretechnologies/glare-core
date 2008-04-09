@@ -14,6 +14,7 @@ namespace js
 {
 
 //#define CLIP_TRIANGLES 1
+const static bool DO_EMPTY_SPACE_CUTOFF = false;
 
 
 OldKDTreeBuilder::OldKDTreeBuilder()
@@ -26,20 +27,12 @@ OldKDTreeBuilder::OldKDTreeBuilder()
 	num_empty_space_cutoffs = 0;
 }
 
-/*
-class BuildTask
-{
-public:
-	ThreadedKDTreeBuilder* builder;
-	std::vector<TriInfo> tris;
-	TriTree::NODE_VECTOR_TYPE nodes_out;
-	js::Vector<TriTree::TRI_INDEX> leaf_tri_indices_out;
-};
-*/
+
 OldKDTreeBuilder::~OldKDTreeBuilder()
 {
 	
 }
+
 
 void OldKDTreeBuilder::build(TriTree& tree, const AABBox& root_aabb, TriTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out)
 {
@@ -99,33 +92,12 @@ static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundI
    return a.upper < b.upper;
 }
 
-/* 
-buildSubtree
 
-	if num tris < threshold
-		build subtree directly in this thread
-	else
-		Make a subtree task object
-		Put it in the queue
-	end
-
-
-	Acquire lock on main node and leafgeom arrays
-	Copy local nodes and leafgeom to main arrays, while converting relative to absolute indices
-	Release lock
-end
-
-
-
-
-
-*/
-
-void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of current node getting built
+void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
-						unsigned int depth, //depth of current node
-						unsigned int maxdepth, //max permissible depth
-						const AABBox& cur_aabb, //AABB of current node
+						unsigned int depth, // depth of current node
+						unsigned int maxdepth, // max permissible depth
+						const AABBox& cur_aabb, // AABB of current node
 						std::vector<SortedBoundInfo>& upper, 
 						std::vector<SortedBoundInfo>& lower,
 						js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out,
@@ -232,23 +204,26 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 
 		// Try explicit 'Early empty-space cutoff', see section 4.4 of Havran's thesis
 		// 'Construction of Kd-Trees with Utilization of Empty Spatial Regions'
-		const float lower_cutoff_frac = myClamp((lower[0].lower - cur_aabb.min_[axis]) / cur_aabb.axisLength(axis), 0.f, 1.f);
-		const float upper_cutoff_frac = myClamp((cur_aabb.max_[axis] - upper[numtris-1].upper) / cur_aabb.axisLength(axis), 0.f, 1.f);
-		assert(Maths::inRange(lower_cutoff_frac, 0.0f, 1.0f));
-		assert(Maths::inRange(upper_cutoff_frac, 0.0f, 1.0f));
-		if(lower_cutoff_frac > best_cutoff_frac)
+		if(DO_EMPTY_SPACE_CUTOFF)
 		{
-			best_cutoff_frac = lower_cutoff_frac;
-			best_cutoff_splitval = lower[0].lower;
-			best_cutoff_axis = axis;
-			best_cutoff_push_right = true;
-		}
-		if(upper_cutoff_frac > best_cutoff_frac)
-		{
-			best_cutoff_frac = upper_cutoff_frac;
-			best_cutoff_splitval = upper[numtris-1].upper;
-			best_cutoff_axis = axis;
-			best_cutoff_push_right = false;
+			const float lower_cutoff_frac = myClamp((lower[0].lower - cur_aabb.min_[axis]) / cur_aabb.axisLength(axis), 0.f, 1.f);
+			const float upper_cutoff_frac = myClamp((cur_aabb.max_[axis] - upper[numtris-1].upper) / cur_aabb.axisLength(axis), 0.f, 1.f);
+			assert(Maths::inRange(lower_cutoff_frac, 0.0f, 1.0f));
+			assert(Maths::inRange(upper_cutoff_frac, 0.0f, 1.0f));
+			if(lower_cutoff_frac > best_cutoff_frac)
+			{
+				best_cutoff_frac = lower_cutoff_frac;
+				best_cutoff_splitval = lower[0].lower;
+				best_cutoff_axis = axis;
+				best_cutoff_push_right = true;
+			}
+			if(upper_cutoff_frac > best_cutoff_frac)
+			{
+				best_cutoff_frac = upper_cutoff_frac;
+				best_cutoff_splitval = upper[numtris-1].upper;
+				best_cutoff_axis = axis;
+				best_cutoff_push_right = false;
+			}
 		}
 
 
@@ -540,7 +515,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	}
 
 	// TEMP NEW: Do empty space cutoff
-	if(best_cutoff_frac > 0.4f)
+	if(DO_EMPTY_SPACE_CUTOFF && best_cutoff_frac > 0.4f)
 	{
 		best_axis = best_cutoff_axis;
 		best_div_val = best_cutoff_splitval;
@@ -693,6 +668,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	//{
 		// Add left child node
 		const unsigned int left_child_index = (unsigned int)nodes.size();
+		assert(left_child_index == cur + 1);
 		nodes.push_back(TreeNode());
 
 		// Build left subtree

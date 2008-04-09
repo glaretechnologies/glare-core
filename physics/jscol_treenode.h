@@ -83,6 +83,8 @@ TreeNode::TreeNode()
 
 TreeNode::TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index) // Interior node constructor
 {
+	assert(axis < 3);
+
 	data2.dividing_val = split;
 	//data = 0x00000001U | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
 
