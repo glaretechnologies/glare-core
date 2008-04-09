@@ -39,15 +39,16 @@ class TreeNode
 {
 public:
 	inline TreeNode();
-	inline TreeNode(uint32 node_type, uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
+	inline TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
 	inline TreeNode(uint32 leaf_grom_index, uint32 num_leaf_geom); // Leaf constructor
 	inline ~TreeNode();
 	
 	static const uint32 NODE_TYPE_LEAF = 0;
-	static const uint32 NODE_TYPE_LEFT_CHILD_ONLY = 1;
-	static const uint32 NODE_TYPE_RIGHT_CHILD_ONLY = 2;
+	static const uint32 NODE_TYPE_INTERIOR = 1;
+	//static const uint32 NODE_TYPE_LEFT_CHILD_ONLY = 1;
+	//static const uint32 NODE_TYPE_RIGHT_CHILD_ONLY = 2;
 	//static const uint32 NODE_SINGLE_CHILD = 2;
-	static const uint32 NODE_TYPE_TWO_CHILDREN = 3;
+	//static const uint32 NODE_TYPE_TWO_CHILDREN = 3;
 
 	inline uint32 getNodeType() const;
 	//inline uint32 isLeafNode() const;
@@ -74,20 +75,22 @@ private:
 	uint32 data;
 };
 
-#define TREENODE_MAIN_DATA_OFFSET 4
-#define TREENODE_AXIS_OFFSET 2
+#define TREENODE_MAIN_DATA_OFFSET 3
+#define TREENODE_AXIS_OFFSET 1
 
 TreeNode::TreeNode()
 {}
 
-TreeNode::TreeNode(uint32 node_type, uint32 axis, float split, uint32 right_child_node_index) // Interior node constructor
+TreeNode::TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index) // Interior node constructor
 {
 	data2.dividing_val = split;
 	//data = 0x00000001U | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
 
-	assert(node_type == NODE_TYPE_LEFT_CHILD_ONLY || node_type == NODE_TYPE_RIGHT_CHILD_ONLY || node_type == NODE_TYPE_TWO_CHILDREN);
-	
-	data = node_type | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
+	//assert(node_type == NODE_TYPE_LEFT_CHILD_ONLY || node_type == NODE_TYPE_RIGHT_CHILD_ONLY || node_type == NODE_TYPE_TWO_CHILDREN);
+	//assert(node_type == NODE_TYPE_INTERIOR);
+
+	data = NODE_TYPE_INTERIOR | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
+	//data = node_type | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
 }
 
 TreeNode::TreeNode(uint32 leaf_grom_index, uint32 num_leaf_geom) // Leaf constructor
@@ -102,8 +105,7 @@ TreeNode::~TreeNode()
 
 uint32 TreeNode::getNodeType() const
 {
-	//return data & 0x00000001;
-	return data & 0x00000003;
+	return data & 0x00000001;
 }
 
 uint32 TreeNode::getSplittingAxis() const

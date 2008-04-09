@@ -30,6 +30,9 @@ Code By Nicholas Chapman.
 #endif
 
 
+const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
+const uint32 TREE_CACHE_VERSION = 1;
+
 namespace js
 {
 
@@ -141,7 +144,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 #endif
 
 	const float root_t_min = myMax(0.0f, aabb_enterdist);
-	const float root_t_max = myMin((float)ray_max_t, aabb_exitdist);// * (1.1f + (float)NICKMATHS_EPSILON));
+	const float root_t_max = myMin((float)ray_max_t, aabb_exitdist);
 	if(root_t_min > root_t_max)
 		return -1.0; // Ray interval does not intersect AABB
 
@@ -570,8 +573,8 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 			const float t_split = t.m128_f32[splitting_axis];
 	
 
-			//const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
-			unsigned int child_nodes[2];
+			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			/*unsigned int child_nodes[2];
 			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_LEFT_CHILD_ONLY)
 			{
 				child_nodes[0] = current + 1;
@@ -586,7 +589,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 			{
 				child_nodes[0] = current + 1;
 				child_nodes[1] = nodes[current].getPosChildIndex();
-			}
+			}*/
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -734,8 +737,8 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 				);
 
 			const float t_split = t.m128_f32[splitting_axis];
-			//const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
-			unsigned int child_nodes[2];
+			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
+			/*unsigned int child_nodes[2];
 			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_LEFT_CHILD_ONLY)
 			{
 				child_nodes[0] = current + 1;
@@ -750,7 +753,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 			{
 				child_nodes[0] = current + 1;
 				child_nodes[1] = nodes[current].getPosChildIndex();
-			}
+			}*/
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -962,6 +965,25 @@ void TriTree::buildFromStream(std::istream& stream)
 	try
 	{
 		triTreeDebugPrint("Loading kd-tree from cache...");
+
+		// Read magic number
+		uint32 magic_number;
+		stream.read((char*)&magic_number, sizeof(magic_number));
+		if(magic_number != TREE_CACHE_MAGIC_NUMBER)
+			throw TreeExcep("Invalid file magic number.");
+
+		// Read file version
+		uint32 version;
+		stream.read((char*)&version, sizeof(version));
+		if(version != TREE_CACHE_VERSION)
+			throw TreeExcep("Cached tree file is wrong version.");
+
+		// Read checksum
+		uint32 checksum_from_file;
+		stream.read((char*)&checksum_from_file, sizeof(checksum_from_file));
+		if(checksum_from_file != this->checksum())
+			throw TreeExcep("Checksum mismatch");
+
 
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
@@ -1257,6 +1279,12 @@ js::TriTreePerThreadData* allocPerThreadData()
 
 void TriTree::saveTree(std::ostream& stream)
 {
+	// Write file format magic number
+	stream.write((const char*)&TREE_CACHE_MAGIC_NUMBER, sizeof(TREE_CACHE_MAGIC_NUMBER));
+
+	// Write file format version
+	stream.write((const char*)&TREE_CACHE_VERSION, sizeof(TREE_CACHE_VERSION));
+
 	// Write checksum
 	const unsigned int the_checksum = checksum();
 	stream.write((const char*)&the_checksum, sizeof(unsigned int));
@@ -1316,13 +1344,13 @@ void TriTree::test()
 
 	{
 	TreeNode n(
-		TreeNode::NODE_TYPE_TWO_CHILDREN,
+		//TreeNode::NODE_TYPE_INTERIOR, //TreeNode::NODE_TYPE_TWO_CHILDREN,
 		2, //axis
 		666.0, //split
 		43 // right child index
 		);
 
-	testAssert(n.getNodeType() == TreeNode::NODE_TYPE_TWO_CHILDREN);
+	testAssert(n.getNodeType() == TreeNode::NODE_TYPE_INTERIOR); // TreeNode::NODE_TYPE_TWO_CHILDREN);
 	//testAssert(n.getNodeType() != TreeNode::NODE_TYPE_LEAF);
 	testAssert(n.getSplittingAxis() == 2);
 	testAssert(n.data2.dividing_val == 666.0);

@@ -76,7 +76,7 @@ inline Real absoluteVal(Real x)
 }*/
 
 
-inline float raiseBy2toN(float x, int n)
+/*inline float raiseBy2toN(float x, int n)
 {
 	//-----------------------------------------------------------------
 	//isolate exponent bits
@@ -99,7 +99,7 @@ inline float raiseBy2toN(float x, int n)
 	*((int*)&x) &= exponent_bits;
 
 	return x;
-}
+}*/
 
 
 
@@ -108,7 +108,7 @@ inline float raiseBy2toN(float x, int n)
 // Fast reciprocal square root
 //posted by DarkWIng on Flipcode
 
-__inline float RSqrt( float number ) 
+/*__inline float RSqrt( float number ) 
 {
 	long i;
 	float x2, y;
@@ -122,7 +122,7 @@ __inline float RSqrt( float number )
 	y  = y * (threehalfs - (x2 * y * y));   // 1st iteration
 
 	return y;
-}
+}*/
 
 template <class T>
 inline T myClamp(T x, T lowerbound, T upperbound)
@@ -248,13 +248,13 @@ inline bool isPosInf(double x)
 	return isInf(x) && x > 0.0f;
 }
 
-inline bool isDenormed(float x)
+/*inline bool isDenormed(float x)
 {
 	//denormed floats have a zeroed exponent field and a non-zero fractional field
 
 	//TODO: test
 	return (*(unsigned int*)(&x) & 0x7F800000) == 0 && (*(unsigned int*)(&x) & 0x7FFFFF) != 0;
-}
+}*/
 
 
 //see http://mega-nerd.com/FPcast/

@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 namespace js
 {
 
-#define CLIP_TRIANGLES 1
+//#define CLIP_TRIANGLES 1
 
 
 OldKDTreeBuilder::OldKDTreeBuilder()
@@ -805,7 +805,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 	
 		// Set details of current node
 		nodes[cur] = TreeNode(
-			actual_num_neg_tris > 0 ? TreeNode::NODE_TYPE_TWO_CHILDREN : TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
+			//TreeNode::NODE_TYPE_INTERIOR,//actual_num_neg_tris > 0 ? TreeNode::NODE_TYPE_TWO_CHILDREN : TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
 			best_axis, // split axis
 			best_div_val, // split value
 			right_child_index // right child index
@@ -814,7 +814,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 		// Build right subtree
 		doBuild(
 			tree,
-			nodes[cur].getPosChildIndex(), 
+			right_child_index, // nodes[cur].getPosChildIndex(), 
 			node_tri_layers, 
 			depth + 1, 
 			maxdepth, 
@@ -886,7 +886,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, //index of curre
 		// Right child is empty, so don't actually add it.
 		// Set details of current node
 		nodes[cur] = TreeNode(
-			TreeNode::NODE_TYPE_LEFT_CHILD_ONLY,
+			//TreeNode::NODE_TYPE_INTERIOR, //TreeNode::NODE_TYPE_LEFT_CHILD_ONLY,
 			best_axis, // split axis
 			best_div_val, // split value
 			TriTree::DEFAULT_EMPTY_LEAF_NODE_INDEX // right child index
