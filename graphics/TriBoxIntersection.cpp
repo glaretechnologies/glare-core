@@ -152,10 +152,613 @@ void TriBoxIntersection::slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1,
 
 
 
+class Edge
+{
+public:
+	SSE_ALIGN PaddedVec3 start;
+	SSE_ALIGN PaddedVec3 end;
+};
+
+
+void checkEdges(Edge* edges)
+{
+	assert(epsEqual(edges[0].end, edges[1].start));
+	assert(epsEqual(edges[1].end, edges[2].start));
+	assert(epsEqual(edges[2].end, edges[0].start));
+}
+
+void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out)
+{
+	assert(aabb.invariant());
+	
+	SSE_ALIGN Edge edges[3];
+
+	edges[0].start = v0;
+	edges[0].end = v1;
+
+	edges[1].start = v1;
+	edges[1].end = v2;
+
+	edges[2].start = v2;
+	edges[2].end = v0;
+
+	checkEdges(edges);
+
+
+	for(unsigned int axis=0; axis<3; ++axis)
+	{
+		/// Clip against min plane ///
+
+		int fully_outside_edge_index = -1; // There should be at most 1 edges fully outside the plane
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+		
+			if(edge.end[axis] < aabb.min_[axis]) // If end is outside halfspace
+			{
+				if(edge.start[axis] >= aabb.min_[axis]) // If start is inside
+				{
+					// Then edge straddles clipping plane.  So clip off edge outside plane, by moving the end point towards the start point.
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3 recip_edge;
+					reciprocalSSE(&edgevec.x, &recip_edge.x);
+
+					const float t = (aabb.min_[axis] - edge.start[axis]) * recip_edge[axis];
+					assert(Maths::inRange(t, 0.f, 1.f));
+
+					//edge.end = edge.start + (edge.end - edge.start) * t;
+					addScaledVec4SSE(&edge.start.x, &edgevec.x, t, &edge.end.x);
+
+					assert(epsEqual(edge.end[axis], aabb.min_[axis])); // Check edge end lies on plane
+				}
+				else
+				{
+					// Both start and end are outside halfspace
+					assert(fully_outside_edge_index == -1);
+					fully_outside_edge_index = e;
+				}
+			}
+			else
+			{
+				// Else end is inside halfspace
+
+				if(edge.start[axis] < aabb.min_[axis]) // If start is outside
+				{
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3 recip_edge;
+					reciprocalSSE(&edgevec.x, &recip_edge.x);
+
+					const float neg_t = (aabb.min_[axis] - edge.end[axis]) * recip_edge[axis];
+					assert(Maths::inRange(neg_t, -1.f, 0.f));
+
+					//edge.start = edge.end + (edge.end - edge.start) * neg_t;
+					addScaledVec4SSE(&edge.end.x, &edgevec.x, neg_t, &edge.start.x);
+
+					assert(epsEqual(edge.start[axis], aabb.min_[axis])); // Check edge start lies on plane
+				}
+				// Else both start and end are inside, no clipping needed
+			}
+		}
+
+		if(fully_outside_edge_index != -1)
+		{
+			Edge& edge = edges[fully_outside_edge_index];
+
+			assert(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis]);
+			
+			// Move the edge, by using the new vertices from the prev and next edges
+			/*const Edge& next_edge = edges[(fully_outside_edge_index + 1) % 3];
+			const Edge& prev_edge = edges[(fully_outside_edge_index + 2) % 3];
+			edge.start = prev_edge.end;
+			edge.end = next_edge.start;*/
+			edge.start[axis] = aabb.min_[axis];
+			edge.end[axis] = aabb.min_[axis];
+
+			assert(epsEqual(edge.start[axis], aabb.min_[axis]) && epsEqual(edge.end[axis], aabb.min_[axis])); // Check edge lies on plane	
+		}
+		//checkEdges(edges);
+
+		/// Clip against max plane ///
+
+		fully_outside_edge_index = -1;
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+
+			if(edge.end[axis] > aabb.max_[axis]) // If end is outside halfspace
+			{
+				if(edge.start[axis] <= aabb.max_[axis]) // If start is inside
+				{
+					// Get edgevec
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3 recip_edge;
+					reciprocalSSE(&edgevec.x, &recip_edge.x);
+
+					const float t = (aabb.max_[axis] - edge.start[axis]) * recip_edge[axis];
+					assert(Maths::inRange(t, 0.f, 1.f));
+
+					//edge.end = edge.start + (edge.end - edge.start) * t;
+					addScaledVec4SSE(&edge.start.x, &edgevec.x, t, &edge.end.x);
+
+					assert(epsEqual(edge.end[axis], aabb.max_[axis])); // Check edge end lies on plane
+				}
+				else
+				{
+					assert(fully_outside_edge_index == -1);
+					fully_outside_edge_index = e;
+				}
+			}
+			else
+			{
+				// Else end is inside halfspace
+			
+				if(edge.start[axis] > aabb.max_[axis]) // If start is outside
+				{
+					// Get edgevec
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3 recip_edge;
+					reciprocalSSE(&edgevec.x, &recip_edge.x);
+
+					const float neg_t = (aabb.max_[axis] - edge.end[axis]) * recip_edge[axis];
+					assert(Maths::inRange(neg_t, -1.f, 0.f));
+
+					//edge.start = edge.end + (edge.end - edge.start) * neg_t;
+					addScaledVec4SSE(&edge.end.x, &edgevec.x, neg_t, &edge.start.x);
+
+					assert(epsEqual(edge.start[axis], aabb.max_[axis])); // Check edge start lies on plane
+				}
+			}
+		}
+
+		if(fully_outside_edge_index != -1)
+		{
+			Edge& edge = edges[fully_outside_edge_index];
+
+			assert(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis]);
+
+			// Move the edge, by using the new vertices from the prev and next edges
+			/*const Edge& next_edge = edges[(fully_outside_edge_index + 1) % 3];
+			const Edge& prev_edge = edges[(fully_outside_edge_index + 2) % 3];
+			edge.start = prev_edge.end;
+			edge.end = next_edge.start;*/
+
+			edge.start[axis] = aabb.min_[axis];
+			edge.end[axis] = aabb.min_[axis];
+
+			assert(epsEqual(edge.start[axis], aabb.max_[axis]) && epsEqual(edge.end[axis], aabb.max_[axis])); // Check edge lies on plane	
+		}
+		//checkEdges(edges);
+	}
+/*SSE_ALIGN Edge edges[3];
+	{
+	edges[0].start = v0;
+	edges[0].end = v1;
+	SSE_ALIGN PaddedVec3 edgevec = v1 - v0;
+	reciprocalSSE(&edgevec.x, &edges[0].recip_edge.x);
+
+	edges[1].start = v1;
+	edges[1].end = v2;
+	edgevec = v2 - v1;
+	reciprocalSSE(&edgevec.x, &edges[1].recip_edge.x);
+
+	edges[2].start = v2;
+	edges[2].end = v0;
+	edgevec = v0 - v2;
+	reciprocalSSE(&edgevec.x, &edges[2].recip_edge.x);
+	}
+
+	for(unsigned int axis=0; axis<3; ++axis)
+	{
+		/// Clip against min plane ///
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			if(edge.end[axis] < aabb.min_[axis]) // If end is outside
+				if(edge.start[axis] >= aabb.min_[axis]) // If start is inside
+				{
+					const float t = (aabb.min_[axis] - edge.start[axis]) * edge.recip_edge[axis];
+					
+					//const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					//addScaledVec4SSE(&edge.start.x, &edgevec.x, t, &edge.end.x);
+
+					edge.end = edge.start + (edge.end - edge.start) * t;
+
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+				}
+			
+			if(edge.start[axis] < aabb.min_[axis]) // If start is outside
+				if(edge.end[axis] >= aabb.min_[axis]) // If end is inside
+				{
+					const float neg_t = (aabb.min_[axis] - edge.end[axis]) * edge.recip_edge[axis];
+					
+					//const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					//addScaledVec4SSE(&edge.end.x, &edgevec.x, neg_t, &edge.start.x);
+
+					edge.start = edge.end + (edge.end - edge.start) * neg_t;
+
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+				}
+		}
+
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			// If both verts are outside plane...
+			if(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis])
+			{
+				// Move the edge, by using the new vertices from the prev and next edges
+				const Edge& next_edge = edges[(e + 1) % 3];
+				const Edge& prev_edge = edges[e == 0 ? 2 : e - 1];
+				edge.start = prev_edge.end;
+				edge.end = next_edge.start;
+				// Compute new unit_edge and recip_unit_edge
+				//TEMP:
+				//edge.unit_edge = normalise(edge.end - edge.start);
+				const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+				reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+			}
+		}
+
+		/// Clip against max plane ///
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			if(edge.end[axis] > aabb.max_[axis]) // If end is outside
+				if(edge.start[axis] <= aabb.max_[axis]) // If start is inside
+				{
+					const float t = (aabb.max_[axis] - edge.start[axis]) * edge.recip_edge[axis];
+					
+					edge.end = edge.start + (edge.end - edge.start) * t;
+					
+					//addScaledVec4SSE(&edge.start.x, &edge.unit_edge.x, t, &edge.end.x);
+
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+				}
+			
+			if(edge.start[axis] > aabb.max_[axis]) // If start is outside
+				if(edge.end[axis] <= aabb.max_[axis]) // If end is inside
+				{
+					const float neg_t = (aabb.max_[axis] - edge.end[axis]) * edge.recip_edge[axis];
+					
+					edge.start = edge.end + (edge.end - edge.start) * neg_t;
+					
+					//addScaledVec4SSE(&edge.end.x, &edge.unit_edge.x, neg_t, &edge.start.x);
+
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+				}
+		}
+
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			// If both verts are outside plane...
+			if(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis])
+			{
+				// Move the edge, by using the new vertices from the prev and next edges
+				const Edge& next_edge = edges[(e + 1) % 3];
+				const Edge& prev_edge = edges[e == 0 ? 2 : e - 1];
+				edge.start = prev_edge.end;
+				edge.end = next_edge.start;
+				// Compute new unit_edge and recip_unit_edge
+				//TEMP:
+				const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+				reciprocalSSE(&edgevec.x, &edge.recip_edge.x);
+			}
+		}
+	}*/
+/*
+	SSE_ALIGN Edge edges[3];
+	// Fill in edges
+	edges[0].start = v0;
+	edges[0].end = v1;
+	//edges[0].unit_edge = normalise(v1 - v0);
+	//edges[0].recip_unit_edge.set(1.0f / edges[0].unit_edge.x, 1.0f / edges[0].unit_edge.y, 1.0f / edges[0].unit_edge.z);
+	SSE_ALIGN PaddedVec3 edge = v1 - v0;
+	reciprocalSSE(&edges[0].unit_edge.x, &edges[0].recip_unit_edge.x);
+
+	edges[1].start = v1;
+	edges[1].end = v2;
+	edges[1].unit_edge = normalise(v2 - v1);
+	//edges[1].recip_unit_edge.set(1.0f / edges[1].unit_edge.x, 1.0f / edges[1].unit_edge.y, 1.0f / edges[1].unit_edge.z);
+	reciprocalSSE(&edges[1].unit_edge.x, &edges[1].recip_unit_edge.x);
+
+	edges[2].start = v2;
+	edges[2].end = v0;
+	edges[2].unit_edge = normalise(v0 - v2);
+	//edges[2].recip_unit_edge.set(1.0f / edges[2].unit_edge.x, 1.0f / edges[2].unit_edge.y, 1.0f / edges[2].unit_edge.z);
+	reciprocalSSE(&edges[2].unit_edge.x, &edges[2].recip_unit_edge.x);
+
+	for(unsigned int axis=0; axis<3; ++axis)
+	{
+		/// Clip against min plane ///
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			if(edge.end[axis] < aabb.min_[axis]) // If end is outside
+				if(edge.start[axis] >= aabb.min_[axis]) // If start is inside
+				{
+					const float t = (aabb.min_[axis] - edge.start[axis]) * edge.recip_unit_edge[axis];
+					//edge.end = edge.start + edge.unit_edge * t;
+					addScaledVec4SSE(&edge.start.x, &edge.unit_edge.x, t, &edge.end.x);
+				}
+			
+			if(edge.start[axis] < aabb.min_[axis]) // If start is outside
+				if(edge.end[axis] >= aabb.min_[axis]) // If end is inside
+				{
+					const float neg_t = (aabb.min_[axis] - edge.end[axis]) * edge.recip_unit_edge[axis];
+					//edge.start = edge.end + edge.unit_edge * neg_t;
+					addScaledVec4SSE(&edge.end.x, &edge.unit_edge.x, neg_t, &edge.start.x);
+				}
+		}
+
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			// If both verts are outside plane...
+			if(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis])
+			{
+				// Move the edge, by using the new vertices from the prev and next edges
+				const Edge& next_edge = edges[(e + 1) % 3];
+				const Edge& prev_edge = edges[e == 0 ? 2 : e - 1];
+				edge.start = prev_edge.end;
+				edge.end = next_edge.start;
+				// Compute new unit_edge and recip_unit_edge
+				//TEMP:
+				edge.unit_edge = normalise(edge.end - edge.start);
+				reciprocalSSE(&edge.unit_edge.x, &edge.recip_unit_edge.x);
+			}
+		}
+
+		/// Clip against max plane ///
+
+		// For each edge...
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			if(edge.end[axis] > aabb.max_[axis]) // If end is outside
+				if(edge.start[axis] <= aabb.max_[axis]) // If start is inside
+				{
+					const float t = (aabb.max_[axis] - edge.start[axis]) * edge.recip_unit_edge[axis];
+					//edge.end = edge.start + edge.unit_edge * t;
+					addScaledVec4SSE(&edge.start.x, &edge.unit_edge.x, t, &edge.end.x);
+				}
+			
+			if(edge.start[axis] > aabb.max_[axis]) // If start is outside
+				if(edge.end[axis] <= aabb.max_[axis]) // If end is inside
+				{
+					const float neg_t = (aabb.max_[axis] - edge.end[axis]) * edge.recip_unit_edge[axis];
+					//edge.start = edge.end + edge.unit_edge * neg_t;
+					addScaledVec4SSE(&edge.end.x, &edge.unit_edge.x, neg_t, &edge.start.x);
+				}
+		}
+
+		for(unsigned int e=0; e<3; ++e)
+		{
+			Edge& edge = edges[e];
+			
+			// If both verts are outside plane...
+			if(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis])
+			{
+				// Move the edge, by using the new vertices from the prev and next edges
+				const Edge& next_edge = edges[(e + 1) % 3];
+				const Edge& prev_edge = edges[e == 0 ? 2 : e - 1];
+				edge.start = prev_edge.end;
+				edge.end = next_edge.start;
+				// Compute new unit_edge and recip_unit_edge
+				//TEMP:
+				edge.unit_edge = normalise(edge.end - edge.start);
+				reciprocalSSE(&edge.unit_edge.x, &edge.recip_unit_edge.x);
+			}
+		}
+	}
+*/
+
+	// Build final AABB
+	/*clipped_tri_aabb_out.min_ = edges[0].start;
+	clipped_tri_aabb_out.max_ = edges[0].start;
+
+	clipped_tri_aabb_out.enlargeToHoldAlignedPoint(edges[0].end);
+	clipped_tri_aabb_out.enlargeToHoldAlignedPoint(edges[1].start);
+	clipped_tri_aabb_out.enlargeToHoldAlignedPoint(edges[1].end);
+	clipped_tri_aabb_out.enlargeToHoldAlignedPoint(edges[2].start);
+	clipped_tri_aabb_out.enlargeToHoldAlignedPoint(edges[2].end);*/
+
+
+
+	__m128 clipped_aabb_min = _mm_load_ps(&edges[0].start.x);
+	__m128 clipped_aabb_max = clipped_aabb_min;
+
+	__m128 v = _mm_load_ps(&edges[0].end.x);
+	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
+	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+
+	v = _mm_load_ps(&edges[1].start.x);
+	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
+	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+	v = _mm_load_ps(&edges[1].end.x);
+	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
+	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+
+	v = _mm_load_ps(&edges[2].start.x);
+	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
+	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+	v = _mm_load_ps(&edges[2].end.x);
+	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
+	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+
+	// Make sure the clipped_tri_aabb_out doesn't extend past aabb, due to numerical errors
+	/*_mm_store_ps(
+		&clipped_tri_aabb_out.min_.x,
+		_mm_max_ps(
+			clipped_aabb_min,
+			_mm_load_ps(&aabb.min_.x)
+			)
+		);
+	_mm_store_ps(
+		&clipped_tri_aabb_out.max_.x,
+		//_mm_max_ps(
+		//	clipped_aabb_min, // We want the max to be at least as large as the min bound.
+			_mm_min_ps(
+				clipped_aabb_max,
+				_mm_load_ps(&aabb.max_.x)
+				)
+		//	)
+		);*/
+
+	_mm_store_ps(&clipped_tri_aabb_out.min_.x, clipped_aabb_min);
+	_mm_store_ps(&clipped_tri_aabb_out.max_.x, clipped_aabb_max);
+
+
+
+	assert(aabb.containsAABBox(clipped_tri_aabb_out));
+	assert(clipped_tri_aabb_out.invariant());
 
 
 
 
+
+
+
+
+/*
+
+
+			Edge& edge = edges[e];
+			Edge& next_edge = edges[(e + 1) % 3];
+			Edge& prev_edge = edges[e == 0 ? 2 : e - 1];
+
+			//Vec3f& edge_end = edge_ends[edge];
+			//Vec3f& edge_start = edge_starts[edge];
+			// Compute signed distance to plane for edge start vertex
+			// Compute signed distance to plane for edge end vertex
+
+
+			// If both verts are outside plane...
+			if(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis])
+			{
+				// Compute new start position for this edge
+				const float prev_t = (aabb.min_[axis] - prev_edge.start[axis]) * prev_edge.recip_unit_edge[axis];
+				edge.start = prev_edge.start + prev_edge.unit_edge * prev_t;
+
+				// Compute new end position for this edge
+				const float next_neg_t = (aabb.min_[axis] - next_edge.end[axis]) * next_edge.recip_unit_edge[axis];
+				edge.end = next_edge.end + next_edge.unit_edge * next_neg_t;
+
+				// Compute new unit_edge and recip_unit_edge
+				//TEMP:
+				edge.unit_edge = normalise(edge.end - edge.start);
+				edge.recip_unit_edge.set(1.0f / edge.unit_edge.x, 1.0f / edge.unit_edge.y, 1.0f / edge.unit_edge.z);
+			}
+			else if(edge.start[axis] >= aabb.min_[axis] && edge.end[axis] >= aabb.min_[axis]) // Else if both verts are inside plane
+			{
+				// just keep edge as it is
+			}
+			else if(edge.end[axis] >= aabb.min_[axis]) // Else end is outside
+			{
+				const float t = (aabb.min_[axis] - edge.start[axis]) * edge.recip_unit_edge[axis];
+				
+				edge.end = edge.start + edge.unit_edge * t;
+			}
+			else // Else start is outside
+			{
+				const float neg_t = (aabb.min_[axis] - edge.end[axis]) * edge.recip_unit_edge[axis];
+				
+				edge.end = edge.start + edge.unit_edge * neg_t;
+			}
+		} // End for edge edge
+
+		// max plane //
+	}
+*/
+
+
+
+
+	/*clipped_tri_aabb_out = js::AABBox(
+		Vec3f(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()),
+		Vec3f(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max())
+		);
+
+	const Vec3f verts[3] = {v0, v1, v2};
+
+	for(int i=0; i<3; ++i)
+	{
+		const Vec3f& v_start = verts[i];
+		const Vec3f& v_end = verts[(i + 1) % 3];
+
+		const Vec3f edge = v_end - v_start;
+
+		const Vec3f t_min(
+			(aabb.min_.x - v_start.x) / edge.x,
+			(aabb.min_.y - v_start.y) / edge.y,
+			(aabb.min_.z - v_start.z) / edge.z
+			);
+
+		const Vec3f t_max(
+			(aabb.max_.x - v_start.x) / edge.x,
+			(aabb.max_.y - v_start.y) / edge.y,
+			(aabb.max_.z - v_start.z) / edge.z
+			);
+
+		const Vec3f t_near(
+			myMin(t_min.x, t_max.x),
+			myMin(t_min.y, t_max.y),
+			myMin(t_min.z, t_max.z)
+			);
+
+		const Vec3f t_far(
+			myMax(t_min.x, t_max.x),
+			myMax(t_min.y, t_max.y),
+			myMax(t_min.z, t_max.z)
+			);
+
+		const float neg_inf = logf(0.0);
+		const float pos_inf = -neg_inf;
+	
+		const float t_lower = myMax(
+			isNAN(t_near.x) ? neg_inf : t_near.x, 
+			isNAN(t_near.y) ? neg_inf : t_near.y,
+			isNAN(t_near.z) ? neg_inf : t_near.z
+			);
+		const float t_upper = myMin(
+			isNAN(t_far.x) ? pos_inf : t_far.x, 
+			isNAN(t_far.y) ? pos_inf : t_far.y, 
+			isNAN(t_far.z) ? pos_inf : t_far.z
+			);
+
+		if(t_lower <= t_upper)
+		{
+			// We have an intersection with the AABB
+			SSE_ALIGN js::AABBox edge_intersection_aabb(v_start + edge * t_lower, v_start + edge * t_upper);
+			clipped_tri_aabb_out.enlargeToHoldAABBox(edge_intersection_aabb);
+		}
+	}*/
+}
+
+
+
+#if 0
 
 class Edge
 {
@@ -335,7 +938,7 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 	{
 		/// Clip against min plane ///
 
-		int fully_outside_edge_index = -1;
+		int fully_outside_edge_index = -1; // There should be at most 1 edges fully outside the plane
 
 		// For each edge...
 		for(unsigned int e=0; e<3; ++e)
@@ -346,50 +949,61 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 			{
 				if(edge.start[axis] >= aabb.min_[axis]) // If start is inside
 				{
-					SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					// Then edge straddles clipping plane.  So clip off edge outside plane, by moving the end point towards the start point.
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
 					SSE_ALIGN PaddedVec3 recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float t = (aabb.min_[axis] - edge.start[axis]) * recip_edge[axis];
 					assert(Maths::inRange(t, 0.f, 1.f));
+
 					//edge.end = edge.start + (edge.end - edge.start) * t;
 					addScaledVec4SSE(&edge.start.x, &edgevec.x, t, &edge.end.x);
 				}
 				else
+				{
+					assert(fully_outside_edge_index == e || fully_outside_edge_index == -1);
 					fully_outside_edge_index = e;
+				}
 			}
 			
 			if(edge.start[axis] < aabb.min_[axis]) // If start is outside
 			{
 				if(edge.end[axis] >= aabb.min_[axis]) // If end is inside
 				{
-					SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
 					SSE_ALIGN PaddedVec3 recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float neg_t = (aabb.min_[axis] - edge.end[axis]) * recip_edge[axis];
 					assert(Maths::inRange(neg_t, -1.f, 0.f));
+
 					//edge.start = edge.end + (edge.end - edge.start) * neg_t;
 					addScaledVec4SSE(&edge.end.x, &edgevec.x, neg_t, &edge.start.x);
 				}
 				else
+				{
+					assert(fully_outside_edge_index == e || fully_outside_edge_index == -1);
 					fully_outside_edge_index = e;
+				}
 			}
 		}
 
 		if(fully_outside_edge_index != -1)
 		{
 			Edge& edge = edges[fully_outside_edge_index];
+
+			assert(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis]);
 			
 			// If both verts are outside plane...
-			if(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis])
-			{
+			//if(edge.start[axis] < aabb.min_[axis] && edge.end[axis] < aabb.min_[axis])
+			//{
 				// Move the edge, by using the new vertices from the prev and next edges
 				const Edge& next_edge = edges[(fully_outside_edge_index + 1) % 3];
 				const Edge& prev_edge = edges[(fully_outside_edge_index + 2) % 3];
 				edge.start = prev_edge.end;
 				edge.end = next_edge.start;
-			}
+			//}
 		}
 
 		/// Clip against max plane ///
@@ -406,17 +1020,21 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				if(edge.start[axis] <= aabb.max_[axis]) // If start is inside
 				{
 					// Get edgevec
-					SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
 					SSE_ALIGN PaddedVec3 recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float t = (aabb.max_[axis] - edge.start[axis]) * recip_edge[axis];
 					assert(Maths::inRange(t, 0.f, 1.f));
+
 					//edge.end = edge.start + (edge.end - edge.start) * t;
 					addScaledVec4SSE(&edge.start.x, &edgevec.x, t, &edge.end.x);
 				}
 				else
+				{
+					assert(fully_outside_edge_index == e || fully_outside_edge_index == -1);
 					fully_outside_edge_index = e;
+				}
 			}
 			
 			if(edge.start[axis] > aabb.max_[axis]) // If start is outside
@@ -424,33 +1042,39 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				if(edge.end[axis] <= aabb.max_[axis]) // If end is inside
 				{
 					// Get edgevec
-					SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
+					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
 					SSE_ALIGN PaddedVec3 recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float neg_t = (aabb.max_[axis] - edge.end[axis]) * recip_edge[axis];
 					assert(Maths::inRange(neg_t, -1.f, 0.f));
+
 					//edge.start = edge.end + (edge.end - edge.start) * neg_t;
 					addScaledVec4SSE(&edge.end.x, &edgevec.x, neg_t, &edge.start.x);
 				}
 				else
+				{
+					assert(fully_outside_edge_index == e || fully_outside_edge_index == -1);
 					fully_outside_edge_index = e;
+				}
 			}
 		}
 
 		if(fully_outside_edge_index != -1)
 		{
 			Edge& edge = edges[fully_outside_edge_index];
-			
+
+			assert(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis]);
+
 			// If both verts are outside plane...
-			if(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis])
-			{
+			//if(edge.start[axis] > aabb.max_[axis] && edge.end[axis] > aabb.max_[axis])
+			//{
 				// Move the edge, by using the new vertices from the prev and next edges
 				const Edge& next_edge = edges[(fully_outside_edge_index + 1) % 3];
 				const Edge& prev_edge = edges[(fully_outside_edge_index + 2) % 3];
 				edge.start = prev_edge.end;
 				edge.end = next_edge.start;
-			}
+			//}
 		}
 	}
 /*SSE_ALIGN Edge edges[3];
@@ -712,12 +1336,14 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 	__m128 v = _mm_load_ps(&edges[0].end.x);
 	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
 	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+
 	v = _mm_load_ps(&edges[1].start.x);
 	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
 	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
 	v = _mm_load_ps(&edges[1].end.x);
 	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
 	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
+
 	v = _mm_load_ps(&edges[2].start.x);
 	clipped_aabb_min = _mm_min_ps(clipped_aabb_min, v);
 	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
@@ -726,7 +1352,7 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 	clipped_aabb_max = _mm_max_ps(clipped_aabb_max, v);
 
 	// Make sure the clipped_tri_aabb_out doesn't extend past aabb, due to numerical errors
-	_mm_store_ps(
+	/*_mm_store_ps(
 		&clipped_tri_aabb_out.min_.x,
 		_mm_max_ps(
 			clipped_aabb_min,
@@ -742,7 +1368,10 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				_mm_load_ps(&aabb.max_.x)
 				)
 		//	)
-		);
+		);*/
+
+	_mm_store_ps(&clipped_tri_aabb_out.min_.x, clipped_aabb_min);
+	_mm_store_ps(&clipped_tri_aabb_out.max_.x, clipped_aabb_max);
 
 
 
@@ -957,7 +1586,7 @@ void TriBoxIntersection::getClippedTriAABB_SSE(const Vec3f& v0_, const Vec3f& v1
 	//store4Vec( min4Vec( load4Vec(&aabb.max_.x), load4Vec(&clipped_tri_aabb_out.max_.x)), &clipped_tri_aabb_out.max_.x);
 }
 
-
+#endif
 
 
 
@@ -1027,14 +1656,14 @@ void TriBoxIntersection::test()
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
 	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
 
-	getClippedTriAABB_SSE(
+	/*getClippedTriAABB_SSE(
 		v0, v1, v2,
 		js::AABBox(Vec3f(-1., 1., 0.), Vec3f(3., 3., 0.)),
 		bounds_a
 		);
 
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
-	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
+	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));*/
 
 	// Do speed test
 	const int N = 1000000;
@@ -1070,7 +1699,7 @@ void TriBoxIntersection::test()
 	}
 	printVar(timer.getSecondsElapsed());
 	}
-	{
+	/*{
 	Timer timer;
 	for(int i=0; i<N; ++i)
 	{
@@ -1091,7 +1720,7 @@ void TriBoxIntersection::test()
 	printVar(elapsed_time);
 	printVar(elapsed_cycles);
 	printVar(cycles_per_iteration);
-	}
+	}*/
 
 
 }

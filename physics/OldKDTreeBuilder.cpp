@@ -13,8 +13,8 @@ Code By Nicholas Chapman.
 namespace js
 {
 
-//#define CLIP_TRIANGLES 1
-const static bool DO_EMPTY_SPACE_CUTOFF = false;
+#define CLIP_TRIANGLES 1
+const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
 
 OldKDTreeBuilder::OldKDTreeBuilder()
@@ -630,7 +630,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 					child_tris.back().tri_index = nodetris[i].tri_index;
 
 					SSE_ALIGN AABBox clipped_tri_aabb;
-					TriBoxIntersection::getClippedTriAABB(
+					TriBoxIntersection::slowGetClippedTriAABB(
 						tree.triVertPos(nodetris[i].tri_index, 0), tree.triVertPos(nodetris[i].tri_index, 1), tree.triVertPos(nodetris[i].tri_index, 2),
 						negbox,
 						clipped_tri_aabb
@@ -739,7 +739,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 					child_tris.back().tri_index = nodetris[i].tri_index;
 
 					SSE_ALIGN AABBox clipped_tri_aabb;
-					TriBoxIntersection::getClippedTriAABB(
+					TriBoxIntersection::slowGetClippedTriAABB(
 						tree.triVertPos(nodetris[i].tri_index, 0), tree.triVertPos(nodetris[i].tri_index, 1), tree.triVertPos(nodetris[i].tri_index, 2),
 						posbox,
 						clipped_tri_aabb
@@ -777,6 +777,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	if(actual_num_pos_tris > 0)
 	{
 		const unsigned int right_child_index = (unsigned int)nodes.size();
+		assert(right_child_index > cur);
 		nodes.push_back(TreeNode());
 	
 		// Set details of current node
@@ -828,7 +829,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 				nodes
 				);
 		}
-		else
+	else
 		{
 			// The current node only has the positive child
 			nodes.push_back(TreeNode()); // Add child node, adjacent to current node
@@ -860,9 +861,9 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	else
 	{
 		// Right child is empty, so don't actually add it.
+
 		// Set details of current node
 		nodes[cur] = TreeNode(
-			//TreeNode::NODE_TYPE_INTERIOR, //TreeNode::NODE_TYPE_LEFT_CHILD_ONLY,
 			best_axis, // split axis
 			best_div_val, // split value
 			TriTree::DEFAULT_EMPTY_LEAF_NODE_INDEX // right child index

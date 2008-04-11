@@ -24,6 +24,7 @@ Code By Nicholas Chapman.
 #include "../graphics/TriBoxIntersection.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h" // TEMP
+#include <iostream> // TEMP
 
 #ifdef USE_SSE
 #define DO_PREFETCHING 1
@@ -71,9 +72,10 @@ TriTree::TriTree(RayMesh* raymesh_)
 
 	// Insert DEFAULT_EMPTY_LEAF_NODE_INDEX node
 	nodes.push_back(TreeNode(
-		0,
-		0
+		0, // leaf tri index
+		0 // num leaf tris
 		));
+
 	// Insert root node
 	nodes.push_back(TreeNode());
 
@@ -109,18 +111,16 @@ void TriTree::printTraceStats() const
 }
 
 
-int bleh = 0;
+//int bleh = 0;
 
 
 //returns dist till hit tri, neg number if missed.
 double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
 {
-	bleh++;
-
+	/*bleh++;
 	if(bleh == 12452)
 		int sdf  = 5647;
-
-	conPrint(toString(bleh));
+	conPrint(toString(bleh));*/
 
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -229,7 +229,10 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 
-				// TODO: try prefetching pushed child
+				// Prefetch pushed child
+#ifdef DO_PREFETCHING
+				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
+#endif	
 					
 				//process near child next
 				current = nearnode;
@@ -755,6 +758,9 @@ void TriTree::build()
 	{
 		throw TreeExcep("Memory allocation failed while building kd-tree");
 	}
+
+	//TEMP:
+//	printTree(ROOT_NODE_INDEX, 0, std::cout);
 }
 
 
@@ -926,19 +932,22 @@ void TriTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
 	{
 		for(unsigned int i=0; i<depth; ++i)
 			out << "  ";
-//		out << "leaf node (num leaf tris: " << nodes[cur].num_leaf_tris << ")\n";
+		out << cur << " LEAF (num tris: " << nodes[cur].getNumLeafGeom() << ")\n";
 	}
 	else
 	{	
-		//process neg child
-		this->printTree(cur + 1, depth + 1, out);
 
 		for(unsigned int i=0; i<depth; ++i)
 			out << "  ";
-//		out << "interior node (split axis: "  << nodes[cur].dividing_axis << ", split val: "
-//				<< nodes[cur].dividing_val << ")\n";
+		//out << cur << " INTERIOR (split axis: "  << nodes[cur].getSplittingAxis() << ", split val: " << nodes[cur].data2.dividing_val << ")\n";
+		out << cur << "\n";
+
+		//process neg child
+		this->printTree(cur + 1, depth + 1, out);
+
 		//process pos child
 		this->printTree(nodes[cur].getPosChildIndex(), depth + 1, out);
+		out << "\n";
 	}
 }
 

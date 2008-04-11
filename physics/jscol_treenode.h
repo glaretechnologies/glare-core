@@ -17,6 +17,40 @@ namespace js
 TreeNode
 --------
 negative child is implicitly defined as the next node in the array.
+
+
+
+
+Layout
+------
+
+Interior Node Layout
+--------------------
+float dividing_val
+
+data layout:
+bit 31:
+	1 = interior node
+bits 29 - 30: 
+	splitting axis
+bits 0 - 28: 
+	index of right child node
+
+
+Leaf Node Layout
+----------------
+uint32 numtris
+
+data layout:
+bit 31:
+	0 = leafnode
+bits 0 - 31:
+	index into leaf tri index array
+
+
+
+
+OLD:
 8 Byte layout:
 
 float dividing_val or uint32 numtris
@@ -40,7 +74,7 @@ class TreeNode
 public:
 	inline TreeNode();
 	inline TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
-	inline TreeNode(uint32 leaf_grom_index, uint32 num_leaf_geom); // Leaf constructor
+	inline TreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom); // Leaf constructor
 	inline ~TreeNode();
 	
 	static const uint32 NODE_TYPE_LEAF = 0;
@@ -51,19 +85,14 @@ public:
 	//static const uint32 NODE_TYPE_TWO_CHILDREN = 3;
 
 	inline uint32 getNodeType() const;
-	//inline uint32 isLeafNode() const;
-	inline uint32 getSplittingAxis() const;
-	inline uint32 getLeafGeomIndex() const;
-	inline uint32 getPosChildIndex() const;
-	inline uint32 getNumLeafGeom() const;
-	//inline uint32 isSingleChildNode()
 
-	/*inline void setNodeType(uint32 t);
-	//inline void setLeafNode(bool leafnode);
-	inline void setSplittingAxis(uint32 axis);
-	inline void setLeafGeomIndex(uint32 index);
-	inline void setPosChildIndex(uint32 index);
-	inline void setNumLeafGeom(uint32 num);*/
+
+	inline uint32 getSplittingAxis() const;
+	inline uint32 getPosChildIndex() const;
+
+	inline uint32 getLeafGeomIndex() const;
+	inline uint32 getNumLeafGeom() const;
+
 
 	union
 	{
@@ -77,6 +106,7 @@ private:
 
 #define TREENODE_MAIN_DATA_OFFSET 3
 #define TREENODE_AXIS_OFFSET 1
+#define TREENODE_LEAF_DATA_OFFSET 1
 
 TreeNode::TreeNode()
 {}
@@ -95,12 +125,12 @@ TreeNode::TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_
 	//data = node_type | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
 }
 
-TreeNode::TreeNode(uint32 leaf_grom_index, uint32 num_leaf_geom) // Leaf constructor
+TreeNode::TreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom) // Leaf constructor
 {
 	data2.numtris = num_leaf_geom;
-	data = leaf_grom_index << TREENODE_MAIN_DATA_OFFSET;
+	assert(NODE_TYPE_LEAF == 0);
+	data = leaf_geom_index << TREENODE_LEAF_DATA_OFFSET;
 }
-
 
 TreeNode::~TreeNode()
 {}
@@ -110,16 +140,12 @@ uint32 TreeNode::getNodeType() const
 	return data & 0x00000001;
 }
 
+
+
 uint32 TreeNode::getSplittingAxis() const
 { 
 	//return (data & 0x00000006U) >> TREENODE_AXIS_OFFSET;
-	//return (data & 0x00000006U) >> TREENODE_AXIS_OFFSET;
 	return (data >> TREENODE_AXIS_OFFSET) & 0x00000003; 
-}
-
-uint32 TreeNode::getLeafGeomIndex() const
-{ 
-	return data >> TREENODE_MAIN_DATA_OFFSET;
 }
 
 uint32 TreeNode::getPosChildIndex() const
@@ -127,53 +153,19 @@ uint32 TreeNode::getPosChildIndex() const
 	return data >> TREENODE_MAIN_DATA_OFFSET;
 }
 
+
+
+
+uint32 TreeNode::getLeafGeomIndex() const
+{ 
+	return data >> TREENODE_LEAF_DATA_OFFSET;
+}
+
 uint32 TreeNode::getNumLeafGeom() const
 {
 	return data2.numtris;
 }
 
-/*
-void TreeNode::setLeafNode(bool leafnode)
-{
-	if(leafnode)
-		data |= 0x00000001U;
-	else
-		data &= 0xFFFFFFFEU;
-}*/
-
-
-/*void TreeNode::setNodeType(uint32 t)
-{
-	//data &= 0xFFFFFFF9U;//zero type bits
-	//data |= 0x00000001U;
-	data = (data & 0xFFFFFFFCU) | t;
-}
-void TreeNode::setSplittingAxis(uint32 axis)
-{
-	data &= 0xFFFFFFF9U;//zero axis bits
-	data |= (axis << 1); 
-}
-
-void TreeNode::setLeafGeomIndex(uint32 index)
-{
-	assert(index < (1 << 29));
-
-	data &= 0x00000007U;//zero target bits
-	data |= index << TREENODE_MAIN_DATA_OFFSET;
-}
-	
-void TreeNode::setPosChildIndex(uint32 index)
-{
-	assert(index < (1 << 29));
-
-	data &= 0x00000007U;//zero target bits
-	data |= index << TREENODE_MAIN_DATA_OFFSET;
-}
-
-void TreeNode::setNumLeafGeom(uint32 num)
-{
-	data2.numtris = num;
-}*/
 
 
 

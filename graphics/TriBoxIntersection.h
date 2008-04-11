@@ -39,7 +39,7 @@ public:
 
 	static void slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
 	static void getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
-	static void getClippedTriAABB_SSE(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
+	//static void getClippedTriAABB_SSE(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
 
 
 	static void test();
