@@ -111,17 +111,9 @@ void TriTree::printTraceStats() const
 }
 
 
-//int bleh = 0;
-
-
-//returns dist till hit tri, neg number if missed.
+// Returns dist till hit tri, neg number if missed.
 double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
 {
-	/*bleh++;
-	if(bleh == 12452)
-		int sdf  = 5647;
-	conPrint(toString(bleh));*/
-
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
@@ -197,19 +189,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 				);
 			const float t_split = t.m128_f32[splitting_axis];
 	
-
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
-			/*unsigned int child_nodes[2];
-			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY)
-			{
-				child_nodes[0] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
-				child_nodes[1] = current + 1;
-			}
-			else
-			{
-				child_nodes[0] = current + 1;
-				child_nodes[1] = nodes[current].getPosChildIndex(); 
-			}*/
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -228,12 +208,11 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 				stacktop++;
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
-
-				// Prefetch pushed child
+	
 #ifdef DO_PREFETCHING
+				// Prefetch pushed child
 				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-#endif	
-					
+#endif					
 				//process near child next
 				current = nearnode;
 				tmax = t_split;
@@ -413,6 +392,11 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 				stacktop++;
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+
+#ifdef DO_PREFETCHING
+				// Prefetch pushed child
+				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
+#endif
 					
 				//process near child next
 				current = nearnode;
@@ -543,22 +527,6 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 
 			const float t_split = t.m128_f32[splitting_axis];
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
-			/*unsigned int child_nodes[2];
-			if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_LEFT_CHILD_ONLY)
-			{
-				child_nodes[0] = current + 1;
-				child_nodes[1] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
-			}
-			else if(nodes[current].getNodeType() == TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY)
-			{
-				child_nodes[0] = DEFAULT_EMPTY_LEAF_NODE_INDEX;
-				child_nodes[1] = current + 1;
-			}
-			else
-			{
-				child_nodes[0] = current + 1;
-				child_nodes[1] = nodes[current].getPosChildIndex();
-			}*/
 
 			if(t_split > tmax) // whole interval is on near cell	
 			{
@@ -577,6 +545,11 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 				stacktop++;
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+
+#ifdef DO_PREFETCHING
+				// Prefetch pushed child
+				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
+#endif
 					
 				// process near child next
 				current = nearnode;
@@ -892,24 +865,6 @@ void TriTree::postBuild() const
 	printVar((uint64)&root_aabb[0]);
 	printVar((uint64)&root_aabb[0] % 32);*/
 }
-
-
-
-static inline bool SortedBoundInfoLowerPred(const TriTree::SortedBoundInfo& a, const TriTree::SortedBoundInfo& b)
-{
-   return a.lower < b.lower;
-}
-
-static inline bool SortedBoundInfoUpperPred(const TriTree::SortedBoundInfo& a, const TriTree::SortedBoundInfo& b)
-{
-   return a.upper < b.upper;
-}
-
-
-
-
-
-
 
 
 
