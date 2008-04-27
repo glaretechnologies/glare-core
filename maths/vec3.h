@@ -70,13 +70,13 @@ public:
 		z = newz;
 	}
 
-	inline Real& operator[] (int index)
+	inline Real& operator[] (unsigned int index)
 	{
 		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];
 	}
 
-	inline const Real& operator[] (int index) const
+	inline const Real& operator[] (unsigned int index) const
 	{
 		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];

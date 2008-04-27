@@ -659,10 +659,6 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	assert(best_div_val >= cur_aabb.min_[best_axis]);
 	assert(best_div_val <= cur_aabb.max_[best_axis]);
 
-	//::fatalError("TEMP");
-//	nodes[cur].setSplittingAxis(best_axis);
-//	nodes[cur].data2.dividing_val = best_div_val;
-
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
 	//------------------------------------------------------------------------

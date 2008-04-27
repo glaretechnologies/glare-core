@@ -120,6 +120,18 @@ public:
 		}
 	}
 
+	inline Real& operator[] (unsigned int index)
+	{
+		assert(index < 3);
+		return ((Real*)(&x))[index];
+	}
+
+	inline const Real& operator[] (unsigned int index) const
+	{
+		assert(index < 3);
+		return ((Real*)(&x))[index];
+	}
+
 	inline void normalise()
 	{
 		//if(!x && !y)
