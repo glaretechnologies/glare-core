@@ -27,6 +27,7 @@ You may not use this code for any commercial project.
 #include "ray.h"
 #include "../raytracing/RayBundle.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 #include "../raytracing/hitinfo.h"
 
 
@@ -84,7 +85,7 @@ bool RayPlane::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePer
 	}
 }*/
 
-void RayPlane::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void RayPlane::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	HitInfo hitinfo;
 	const double dist = traceRay(ray, 1.0e20f, context, hitinfo);

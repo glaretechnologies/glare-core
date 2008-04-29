@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <ostream>
 class RayMesh;
 class FullHitInfo;
+class DistanceFullHitInfo;
 
 
 
@@ -63,7 +64,7 @@ public:
 	virtual const std::string debugName() const { return "kd-tree"; }
 	//end
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const = 0;
 
 	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const = 0;

@@ -49,7 +49,7 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 	return tritree->getAABBoxWS();
 }
 
-void RayMesh::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	return tritree->getAllHits(ray, context, hitinfos_out);
 }

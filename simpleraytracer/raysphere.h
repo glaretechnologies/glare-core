@@ -41,7 +41,7 @@ public:
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const { return aabbox; }
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const;

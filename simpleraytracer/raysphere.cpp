@@ -26,6 +26,7 @@ You may not use this code for any commercial project.
 
 #include "ray.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/TestUtils.h"
 #include "../physics/jscol_TriTreePerThreadData.h"
@@ -176,7 +177,7 @@ const Vec3d RaySphere::getGeometricNormal(const FullHitInfo& hitinfo) const
 }
 
 //TODO: test
-void RaySphere::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -201,7 +202,7 @@ void RaySphere::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, st
 	
 	if(dist_to_rayclosest + a > 0.0)
 	{
-		hitinfos_out.push_back(FullHitInfo());
+		hitinfos_out.push_back(DistanceFullHitInfo());
 		hitinfos_out.back().dist = dist_to_rayclosest + a;
 		hitinfos_out.back().hitpos = ray.startPos();
 		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
@@ -209,7 +210,7 @@ void RaySphere::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, st
 
 	if(dist_to_rayclosest - a > 0.0)
 	{
-		hitinfos_out.push_back(FullHitInfo());
+		hitinfos_out.push_back(DistanceFullHitInfo());
 		hitinfos_out.back().dist = dist_to_rayclosest - a;
 		hitinfos_out.back().hitpos = ray.startPos();
 		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
@@ -333,9 +334,9 @@ void RaySphere::test()
 	//test getAllHits()
 	//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
-	std::vector<FullHitInfo> hitinfos;
+	std::vector<DistanceFullHitInfo> hitinfos;
 	sphere.getAllHits(ray, tree_context, hitinfos);
-	std::sort(hitinfos.begin(), hitinfos.end(), FullHitInfoComparisonPred);
+	std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
 
 	testAssert(hitinfos.size() == 2);
 

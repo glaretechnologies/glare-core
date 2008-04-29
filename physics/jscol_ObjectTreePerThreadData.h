@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 class StackFrame;
 #include "jscol_tritree.h"
 #include <vector>
-#include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 
 namespace js
 {
@@ -39,7 +39,7 @@ public:
 
 	std::vector<int> last_test_time;
 
-	std::vector<FullHitInfo> hits;
+	std::vector<DistanceFullHitInfo> hits;
 
 	int time;
 };

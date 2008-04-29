@@ -1647,14 +1647,14 @@ void TriBoxIntersection::test()
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
 	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
 
-	getClippedTriAABB(
+	/*getClippedTriAABB(
 		v0, v1, v2,
 		js::AABBox(Vec3f(-1., 1., 0.), Vec3f(3., 3., 0.)),
 		bounds_a
 		);
 
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
-	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
+	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));*/
 
 	/*getClippedTriAABB_SSE(
 		v0, v1, v2,
@@ -1683,7 +1683,7 @@ void TriBoxIntersection::test()
 	}
 	printVar(timer.getSecondsElapsed());
 	}
-	{
+	/*{
 	Timer timer;
 	for(int i=0; i<N; ++i)
 	{
@@ -1698,7 +1698,7 @@ void TriBoxIntersection::test()
 		testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
 	}
 	printVar(timer.getSecondsElapsed());
-	}
+	}*/
 	/*{
 	Timer timer;
 	for(int i=0; i<N; ++i)

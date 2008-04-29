@@ -719,7 +719,7 @@ const js::AABBox& Camera::getAABBoxWS() const
 }
 
 
-void Camera::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void Camera::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	return;
 }

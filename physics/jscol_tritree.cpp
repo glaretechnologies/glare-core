@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 #include "../maths/SSE.h"
 #include "../utils/platformutils.h"
 #include "../simpleraytracer/raymesh.h"
@@ -289,7 +290,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 
 
-void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 
@@ -435,7 +436,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 
 					if(!already_got_hit)
 					{
-						hitinfos_out.push_back(FullHitInfo());
+						hitinfos_out.push_back(DistanceFullHitInfo());
 						hitinfos_out.back().hittri_index = leafgeom[triindex];
 						hitinfos_out.back().tri_coords.set(u, v);
 						hitinfos_out.back().dist = raydist;
@@ -1020,7 +1021,7 @@ double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& 
 	return closest_dist;
 }
 
-void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const
+void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
@@ -1029,7 +1030,7 @@ void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<FullHitInfo>& hitinf
 				
 		if(intersect_tris[i].rayIntersect(ray, std::numeric_limits<float>::max(), raydist, u, v))
 		{			
-			hitinfos_out.push_back(FullHitInfo());
+			hitinfos_out.push_back(DistanceFullHitInfo());
 			hitinfos_out.back().dist = raydist;
 			hitinfos_out.back().hittri_index = i;
 			hitinfos_out.back().tri_coords.set(u, v);

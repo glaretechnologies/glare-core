@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 #include <algorithm>
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
@@ -306,9 +307,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//test getAllHits()
 		//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
-		std::vector<FullHitInfo> hitinfos;
+		std::vector<DistanceFullHitInfo> hitinfos;
 		tritree.getAllHits(ray, tree_context, hitinfos);
-		std::sort(hitinfos.begin(), hitinfos.end(), FullHitInfoComparisonPred);
+		std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
 
 		if(dist > 0.0)
 		{
@@ -320,9 +321,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		}
 
 		// Do a check against all tris
-		std::vector<FullHitInfo> hitinfos_d;
+		std::vector<DistanceFullHitInfo> hitinfos_d;
 		tritree.getAllHitsAllTris(ray, hitinfos_d);
-		std::sort(hitinfos_d.begin(), hitinfos_d.end(), FullHitInfoComparisonPred);
+		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceFullHitInfoComparisonPred);
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_d.size());
@@ -336,9 +337,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test getAllHits() on BIH
 		//------------------------------------------------------------------------
-		std::vector<FullHitInfo> hitinfos_bih;
+		std::vector<DistanceFullHitInfo> hitinfos_bih;
 		bih_tree.getAllHits(ray, tree_context, hitinfos_bih);
-		std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), FullHitInfoComparisonPred);
+		std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), distanceFullHitInfoComparisonPred);
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_bih.size());

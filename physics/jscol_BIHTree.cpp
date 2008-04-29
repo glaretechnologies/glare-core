@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/DistanceFullHitInfo.h"
 #include "../utils/timer.h"
 #include "../utils/random.h"
 #include <limits>
@@ -667,7 +668,7 @@ const js::AABBox& BIHTree::getAABBoxWS() const
 
 
 
-void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const
+void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 	//assert(ray_max_t >= 0.0f);
@@ -842,7 +843,7 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 					
 					if(!already_added)
 					{
-						hitinfos_out.push_back(FullHitInfo());
+						hitinfos_out.push_back(DistanceFullHitInfo());
 						hitinfos_out.back().hittri_index = leafgeom[leaf_geom_index];
 						hitinfos_out.back().tri_coords.set(u, v);
 						hitinfos_out.back().dist = raydist;

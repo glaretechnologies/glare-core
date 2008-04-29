@@ -106,7 +106,7 @@ public:
 
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
 
 	inline virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const; //slow
@@ -116,7 +116,7 @@ public:
 
 	//For Debugging:
 	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
-	void getAllHitsAllTris(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const;
+	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
 	const std::vector<TreeNode>& getNodesDebug() const { return nodes; }
 	static void test();	
 

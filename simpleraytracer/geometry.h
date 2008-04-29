@@ -29,6 +29,7 @@ class PointTree;
 class PhotonHit;
 class HitInfo;
 class FullHitInfo;
+class DistanceFullHitInfo;
 class PerThreadData;
 
 /*=====================================================================
@@ -54,7 +55,7 @@ public:
 	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const = 0;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const = 0;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const = 0;
