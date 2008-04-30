@@ -88,7 +88,8 @@ public:
 
 	void gammaCorrect(float exponent);
 
-	void blitToImage(Image& dest, int destx, int desty);
+	void blitToImage(Image& dest, int destx, int desty) const;
+	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image& dest, int destx, int desty) const;
 	void addImage(const Image& other, int destx, int desty);
 	void blendImage(const Image& dest, int destx, int desty);
 	void subImage(const Image& dest, int destx, int desty);

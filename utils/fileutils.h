@@ -69,6 +69,7 @@ void readEntireFile(std::ifstream& file, std::string& filecontents_out);
 void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontents_out);
 
 //throws FileUtilsExcep
+void readEntireFile(const std::string& pathname, std::string& filecontents_out);
 void readEntireFile(const std::string& pathname, std::vector<unsigned char>& filecontents_out);
 //throws FileUtilsExcep
 void writeEntireFile(const std::string& pathname, const std::vector<unsigned char>& filecontents);

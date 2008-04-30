@@ -464,6 +464,18 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 	file.read((char*)&(*filecontents_out.begin()), filesize);
 }
 
+
+void readEntireFile(const std::string& pathname, 
+					std::string& filecontents_out)
+{
+	std::ifstream infile(pathname.c_str(), std::ios::binary);
+
+	if(!infile)
+		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
+	
+	readEntireFile(infile, filecontents_out);
+}
+
 void readEntireFile(const std::string& pathname, 
 					std::vector<unsigned char>& filecontents_out)
 {
