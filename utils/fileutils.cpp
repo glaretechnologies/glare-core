@@ -314,20 +314,26 @@ bool dirExists(const std::string& dirname)
 	return foundit;
 
 }
-
+#endif
+*/
 bool fileExists(const std::string& pathname)
 {
+#if defined(WIN32) || defined(WIN64)
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(pathname.c_str(), &find_data);
 
 	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
 
-	FindClose(search_handle);
+	if(foundit)
+		FindClose(search_handle);
 
 	return foundit;
-}
+#else
+	#error to be implemented
 #endif
-*/
+}
+
+
 
 
 void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out)

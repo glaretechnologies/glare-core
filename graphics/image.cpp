@@ -106,12 +106,12 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 	const int out_width = x2 - x1;
 	const int out_height = y2 - y1;
 
-	bmp_out.resize(out_width, out_height);
+	bmp_out.resize(out_width, out_height, bmp_out.getBytesPP());
 
 	for(int y=y1; y<y2; ++y)
 		for(int x=x1; x<x2; ++x)
 		{
-			unsigned char* pixel = bmp_out.getPixel(x - x1, y - y1);
+			unsigned char* pixel = bmp_out.getPixelNonConst(x - x1, y - y1);
 			pixel[0] = (unsigned char)(getPixel(x, y).r * 255.0f);
 			pixel[1] = (unsigned char)(getPixel(x, y).g * 255.0f);
 			pixel[2] = (unsigned char)(getPixel(x, y).b * 255.0f);

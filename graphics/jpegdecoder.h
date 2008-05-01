@@ -35,7 +35,7 @@ public:
 
 //	static void* decode(const void* image, int numimagebytes, //size of encoded image
 //					int& bpp_out, int& width_out, int& height_out);
-	static void decode(const std::vector<unsigned char>& srcdata, const std::string& path, Bitmap& img_out);
+	static void decode(const std::string& path, Bitmap& img_out);
 
 
 

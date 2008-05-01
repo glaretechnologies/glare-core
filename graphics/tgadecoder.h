@@ -26,15 +26,10 @@ public:
 	----------
 	
 	=====================================================================*/
-
 	~TGADecoder();
 
-	//static void* decode(const void* image, int numimagebytes, //size of encoded image
-	//				int& bpp_out, int& width_out, int& height_out);
-
 	//these throw ImFormatExcep
-	static void decode(const std::vector<unsigned char>& encoded_img,//const void* encoded_image, int numencodedimagebytes,
-						Bitmap& bitmap_out);
+	static void decode(const std::string& path, Bitmap& bitmap_out);
 
 
 	static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);

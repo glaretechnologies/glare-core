@@ -29,8 +29,7 @@ public:
 	~BMPDecoder();
 
 	//these throw ImFormatExcep
-	static void decode(const std::vector<unsigned char>& encoded_img,//const void* encoded_image, int numencodedimagebytes,
-						Bitmap& bitmap_out);
+	static void decode(const std::string& path, Bitmap& bitmap_out);
 
 
 	static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);

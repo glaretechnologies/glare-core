@@ -42,7 +42,7 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
-void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, const std::string& path, Bitmap& img_out)
+void JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const std::string& path, Bitmap& img_out)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -78,11 +78,12 @@ void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, const std::s
 
 	jpeg_start_decompress(&cinfo);
 
-	if(cinfo.num_components != 3)
-		throw ImFormatExcep("Only 3 component JPEGs are currently supported.");
+	if(!(cinfo.num_components == 1 || cinfo.num_components == 3))
+		throw ImFormatExcep("Only 1 or 3 component JPEGs are currently supported.");
 
-	img_out.setBytesPP(3);
-	img_out.resize(cinfo.output_width, cinfo.output_height);
+	//img_out.setBytesPP(cinfo.num_components);
+	//img_out.resize(cinfo.output_width, cinfo.output_height);
+	img_out.resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
 
 
 	//------------------------------------------------------------------------
@@ -113,7 +114,7 @@ void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, const std::s
 		/* Assume put_scanline_someplace wants a pointer and sample count. */
 		//put_scanline_someplace(buffer[0], row_stride);
 
-		memcpy(img_out.getPixel(0, y), buffer[0], row_stride);
+		memcpy(img_out.rowPointer(y), buffer[0], row_stride);
 		++y;
   }
 

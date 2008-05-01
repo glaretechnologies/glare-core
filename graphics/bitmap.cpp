@@ -17,7 +17,6 @@ Bitmap::Bitmap()
 	width = 0;
 	height = 0;
 	bytespp = 3;
-	data = 0;
 }
 
 Bitmap::Bitmap(unsigned int width_, unsigned int height_, unsigned int bytespp_, const unsigned char* srcdata)
@@ -31,61 +30,36 @@ Bitmap::Bitmap(unsigned int width_, unsigned int height_, unsigned int bytespp_,
 	assert(sizeof(unsigned char) == 1);
 
 	const unsigned int datasize = width * height * bytespp;
-	data = new unsigned char[datasize];
+	data.resize(datasize);
 
 	if(srcdata)
-	{
 		for(unsigned int i=0; i<datasize; ++i)
 			data[i] = srcdata[i];
-	}
+
 }
 
 
 Bitmap::~Bitmap()
 {
-	delete[] data;
+
 }
 
 
-void Bitmap::takePointer(unsigned int newwidth, unsigned int newheight, unsigned int newbytespp, unsigned char* srcdata)
+void Bitmap::resize(unsigned int newwidth, unsigned int newheight, unsigned int new_bytes_pp)
 {
-	assert(newwidth >= 0 && newheight >= 0);
-	assert(newbytespp >= 0);
-
-	width = newwidth;
-	height = newheight;
-	bytespp = newbytespp;
-
-	delete[] data;
-
-	data = srcdata;
+	if(width != newwidth || height != newheight || bytespp != new_bytes_pp)
+	{
+		width = newwidth;
+		height = newheight;
+		bytespp = new_bytes_pp;
+		data.resize(newwidth * newheight * new_bytes_pp);
+	}
 }
 
-
-void Bitmap::setBytesPP(const unsigned int new_bytes_pp)
-{
-	assert(new_bytes_pp >= 0);
-
-	bytespp = new_bytes_pp;
-}
-
-
-void Bitmap::resize(unsigned int newwidth, unsigned int newheight)
-{
-	assert(newwidth >= 0 && newheight >= 0);
-
-	delete[] data;
-
-	width = newwidth;
-	height = newheight;
-
-	const int datasize = width * height * bytespp;
-	data = new unsigned char[datasize];
-}
 
 void Bitmap::raiseToPower(float exponent)
 {
-	const int datasize = width * height * bytespp;
+	const int datasize = data.size();
 	for(int i=0; i<datasize; ++i)
 	{
 		const unsigned char c = data[i];
@@ -98,8 +72,6 @@ void Bitmap::raiseToPower(float exponent)
 unsigned int Bitmap::checksum() const
 {
 	const unsigned int initial_crc = crc32(0, 0, 0);
-	return crc32(initial_crc, data, width * height * bytespp);
+	return crc32(initial_crc, &data[0], width * height * bytespp);
 }
-
-
 

@@ -81,16 +81,6 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
         throw ImFormatExcep("Failed to create PNG info struct.");
     }
 
-	/// Set read function ///
-	//png_set_read_fn(png_ptr, (void*)&encoded_img[0], user_read_data_proc);
-
-	//png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
-
-	//png_byte* row_pointers = png_get_rows(png_ptr, info_ptr);
-
-
-
-
 	// Open file and start reading from it.
 	FILE* fp = fopen(path.c_str(), "rb");
 	if(!fp)
@@ -98,37 +88,22 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
 
 	png_init_io(png_ptr, fp);
 
-
-
 	png_read_info(png_ptr, info_ptr);
 
-
-
-
-
-	//png_get_IHDR(png_ptr, info_ptr, &width, &height,
-     //  &bit_depth, &color_type, &interlace_type,
-    //   &compression_type, &filter_method);
-
-	
     const int width = (int)png_get_image_width(png_ptr, info_ptr);
     const int height = (int)png_get_image_height(png_ptr, info_ptr);
 	const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 	const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
+	const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
 
 	if(color_type == PNG_COLOR_TYPE_PALETTE)
 	{
 		 png_set_palette_to_rgb(png_ptr);
 	}
-	/*else if(color_type == PNG_COLOR_TYPE_RGB)
-	{
-		int a =9;
-	}
-	else if(color_type == PNG_COLOR_TYPE_RGB_ALPHA)
-	{
-		int a =9;
-	}*/
+
+	if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
+		throw ImFormatExcep("PNG has unsupported colour type.");
 
 	//PNG can have files with 16 bits per channel.  If you only can handle
 	//8 bits per channel, this will strip the pixels down to 8 bit.
@@ -159,12 +134,14 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
 		throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
 	}
 
-	bitmap_out.resize(width, height);
-	bitmap_out.setBytesPP(3);
+	if(!(num_channels == 1 || num_channels == 3))
+		throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1 or 3 channels supported.");
+
+	bitmap_out.resize(width, height, num_channels);
 
 	// Read in actual image data
 	for(int y=0; y<height; ++y)
-		png_read_row(png_ptr, bitmap_out.getPixel(0, y), NULL);
+		png_read_row(png_ptr, bitmap_out.rowPointer(y), NULL);
 
 	// Read the info at the end of the PNG file
 	png_read_end(png_ptr, end_info);

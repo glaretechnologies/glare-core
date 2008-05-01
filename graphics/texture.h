@@ -32,6 +32,10 @@ public:
 
 	// X and Y are normalised image coordinates.  col_out components will be in range [0, 1]
 	void sampleTiled(double x, double y, Colour3d& col_out) const;
+
+private:
+	void sampleTiled3BytesPP(double x, double y, Colour3d& col_out) const;
+	void sampleTiled1BytePP(double x, double y, Colour3d& col_out) const;
 };
 
 

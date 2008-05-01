@@ -11,6 +11,8 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include <assert.h>
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
+
 
 BMPDecoder::BMPDecoder()
 {
@@ -53,12 +55,21 @@ typedef struct {
 #pragma pack (pop)
 
 
-	//these throw ImFormatExcep
-void BMPDecoder::decode(const std::vector<unsigned char>& encoded_img,//const void* encoded_image, int numencodedimagebytes,
-						Bitmap& bitmap_out)
+//these throw ImFormatExcep
+void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 {
+	// Read file into memory
+	std::vector<unsigned char> encoded_img;
+	try
+	{
+		FileUtils::readEntireFile(path, encoded_img);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
 
-	int srcindex = 0;
+	unsigned int srcindex = 0;
 	//-----------------------------------------------------------------
 	//read bitmap header
 	//-----------------------------------------------------------------
@@ -67,8 +78,7 @@ void BMPDecoder::decode(const std::vector<unsigned char>& encoded_img,//const vo
 
 
 	BITMAP_HEADER header;
-	const int header_size = sizeof(BITMAP_HEADER);
-	assert(header_size == 14);
+	assert(sizeof(BITMAP_HEADER) == 14);
 
 	memcpy(&header, &encoded_img[srcindex], sizeof(BITMAP_HEADER));
 	srcindex += sizeof(BITMAP_HEADER);
@@ -86,17 +96,21 @@ void BMPDecoder::decode(const std::vector<unsigned char>& encoded_img,//const vo
 	memcpy(&infoheader, &encoded_img[srcindex], sizeof(BITMAP_INFOHEADER));
 	srcindex += sizeof(BITMAP_INFOHEADER);
 
+	// Move to image data offset
+	srcindex = header.offset;
+	if(srcindex < (sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER)) || srcindex >= encoded_img.size())
+		throw ImFormatExcep("Invalid offset");
 
 
-	if(infoheader.bits != 24)
+	if(!(infoheader.bits == 8 || infoheader.bits == 24))
 		throw ImFormatExcep("unsupported bitdepth of " + ::toString(infoheader.bits));
 
-//	debugPrint("number of planes: %i\n", infoheader.planes);
-//	debugPrint("compression mode: %i\n", infoheader.compression);
+	if(infoheader.compression != 0)
+		throw ImFormatExcep("Only uncompressed BMPs supported.");
 
 	const int width = infoheader.width;
 	const int height = infoheader.height;
-	const int bytespp = 3;
+	const int bytespp = infoheader.bits / 8;
 
 	const int MAX_DIMS = 10000;
 	if(width < 0 || width > MAX_DIMS) 
@@ -104,10 +118,9 @@ void BMPDecoder::decode(const std::vector<unsigned char>& encoded_img,//const vo
 	if(height < 0 || height > MAX_DIMS) 
 		throw ImFormatExcep("bad image height.");
 
-	bitmap_out.setBytesPP(bytespp);
-	bitmap_out.resize(width, height);
+	bitmap_out.resize(width, height, bytespp);
 
-	int rowpaddingbytes = 4 - ((width*3) % 4);
+	int rowpaddingbytes = 4 - ((width * bytespp) % 4);
 	if(rowpaddingbytes == 4)
 		rowpaddingbytes = 0;
 
@@ -117,20 +130,40 @@ void BMPDecoder::decode(const std::vector<unsigned char>& encoded_img,//const vo
 	//int i = 0;
 	for(int y=infoheader.height-1; y>=0; --y)
 	{
-		int i = y * width * bytespp;//destination pixel index at start of row
+		// Make sure we're not going to read past end of encoded_img
+		if(srcindex + infoheader.width * bytespp > (int)encoded_img.size())
+			throw ImFormatExcep("Error while parsing BMP");
+
+		//int i = y * width * bytespp;//destination pixel index at start of row
 		for(int x=0; x<infoheader.width; ++x)
 		{
-			assert(srcindex >= 0 && srcindex + 2 < (int)encoded_img.size());
-			assert(i >= 0 && i + 2 < bitmap_out.getWidth() * bitmap_out.getHeight() * bitmap_out.getBytesPP());
+			//assert(srcindex >= 0 && srcindex + 2 < (int)encoded_img.size());
+			//assert(i >= 0 && i < (int)(bitmap_out.getWidth() * bitmap_out.getHeight() * bitmap_out.getBytesPP()));
 
-			unsigned char r, g, b;
-			b = encoded_img[srcindex++];
-			g = encoded_img[srcindex++];
-			r = encoded_img[srcindex++];
+			if(bytespp == 1)
+			{
+				//bitmap_out.getData()[i++] = encoded_img[srcindex++];
+				//*bitmap_out.getPixel(x, y) = encoded_img[srcindex++];
+				assert(srcindex < encoded_img.size());
+				bitmap_out.setPixelComp(x, y, 0, encoded_img[srcindex++]);
+			}
+			else
+			{
+				assert(srcindex + 2 < encoded_img.size());
 
-			bitmap_out.getData()[i++] = r;
-			bitmap_out.getData()[i++] = g;
-			bitmap_out.getData()[i++] = b;
+				unsigned char r, g, b;
+				b = encoded_img[srcindex++];
+				g = encoded_img[srcindex++];
+				r = encoded_img[srcindex++];
+
+				/*bitmap_out.getData()[i++] = r;
+				bitmap_out.getData()[i++] = g;
+				bitmap_out.getData()[i++] = b;*/
+
+				bitmap_out.setPixelComp(x, y, 0, r);
+				bitmap_out.setPixelComp(x, y, 1, g);
+				bitmap_out.setPixelComp(x, y, 2, b);
+			}
 			/*bitmap_out.getData()[i++] = encoded_img[srcindex++];
 			bitmap_out.getData()[i++] = encoded_img[srcindex++];
 			bitmap_out.getData()[i++] = encoded_img[srcindex++];*/

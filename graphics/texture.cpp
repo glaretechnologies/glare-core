@@ -23,6 +23,103 @@ Texture::~Texture()
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
 void Texture::sampleTiled(double u, double v, Colour3d& colour_out) const
 {
+	if(getBytesPP() == 1)
+		sampleTiled1BytePP(u, v, colour_out);
+	else if(getBytesPP() == 3)
+		sampleTiled3BytesPP(u, v, colour_out);
+	else
+	{
+		assert(0);
+		colour_out = Colour3d(1,0,0);
+	}
+}
+
+
+// u and v are normalised image coordinates.  U goes across image, v goes up image.
+void Texture::sampleTiled1BytePP(double u, double v, Colour3d& colour_out) const
+{
+	assert(getBytesPP() == 1);
+
+	double intpart; // not used
+	double u_frac_part = modf(u, &intpart);
+	double v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+
+	if(u_frac_part < 0.0)
+		u_frac_part = 1.0 + u_frac_part;
+	if(v_frac_part < 0.0)
+		v_frac_part = 1.0 + v_frac_part;
+
+	assert(Maths::inHalfClosedInterval(u_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(v_frac_part, 0.0, 1.0));
+
+	// Convert from normalised image coords to pixel coordinates
+	const double u_pixels = u_frac_part * (double)getWidth();
+	const double v_pixels = v_frac_part * (double)getHeight();
+
+	assert(Maths::inHalfClosedInterval(u_pixels, 0.0, (double)getWidth()));
+	assert(Maths::inHalfClosedInterval(v_pixels, 0.0, (double)getHeight()));
+
+	const unsigned int ut = (unsigned int)u_pixels;
+	const unsigned int vt = (unsigned int)v_pixels;
+
+	assert(ut >= 0 && ut < getWidth());
+	assert(vt >= 0 && vt < getHeight());
+
+	const unsigned int ut_1 = (ut + 1) % getWidth();
+	const unsigned int vt_1 = (vt + 1) % getHeight();
+
+	const double ufrac = u_pixels - (double)ut;
+	const double vfrac = v_pixels - (double)vt;
+	const double oneufrac = 1.0 - ufrac;
+	const double onevfrac = 1.0 - vfrac;
+
+	double colour_result;
+
+	// Top left pixel
+	{
+	const unsigned char* pixel = getPixel(ut, vt);
+	const double factor = oneufrac * onevfrac;
+	colour_result = (double)pixel[0] * factor;
+	}
+
+
+	// Top right pixel
+	{
+	const unsigned char* pixel = getPixel(ut_1, vt);
+	const double factor = ufrac * onevfrac;
+	colour_result += (double)pixel[0] * factor;
+	}
+
+	
+	// Bottom left pixel
+	{
+	const unsigned char* pixel = getPixel(ut, vt_1);
+	const double factor = oneufrac * vfrac;
+	colour_result += (double)pixel[0] * factor;
+	}
+
+
+	// Bottom right pixel
+	{
+	const unsigned char* pixel = getPixel(ut_1, vt_1);
+	const double factor = ufrac * vfrac;
+	colour_result += (double)pixel[0] * factor;
+	}
+
+	// Copy red to G and B
+	colour_out.set(colour_result, colour_result, colour_result);
+
+	colour_out *= (1.0 / 255.0);
+}
+
+
+
+
+// u and v are normalised image coordinates.  U goes across image, v goes up image.
+void Texture::sampleTiled3BytesPP(double u, double v, Colour3d& colour_out) const
+{
+	assert(getBytesPP() == 3);
+
 	// Convert from normalised image coords into pixel coordinates
 	//double u_pixels = u * (double)getWidth();
 	//double v_pixels = (1.0 - v) * (double)getHeight(); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.

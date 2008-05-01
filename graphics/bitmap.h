@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include <assert.h>
-
+#include <vector>
 
 /*=====================================================================
 Bitmap
@@ -31,22 +31,21 @@ public:
 
 	~Bitmap();
 
+	void resize(unsigned int newwidth, unsigned int newheight, unsigned int new_bytes_pp);
 
-	void takePointer(unsigned int width, unsigned int height, unsigned int bytespp, unsigned char* srcdata);
-
-	const unsigned char* getData() const { return data; }
-	unsigned char* getData(){ return data; }
+	//const unsigned char* getData() const { return data; }
+	//unsigned char* getData(){ return data; }
 
 	const unsigned int getWidth() const { return width; }
 	const unsigned int getHeight() const { return height; }
 	const unsigned int getBytesPP() const { return bytespp; }
 
-	inline unsigned char* getPixel(unsigned int x, unsigned int y);
+	inline unsigned char* rowPointer(unsigned int y);
+
+	inline unsigned char* getPixelNonConst(unsigned int x, unsigned int y);
 	inline const unsigned char* getPixel(unsigned int x, unsigned int y) const;
 
-	void setBytesPP(const unsigned int new_bytes_pp);
-
-	void resize(unsigned int newwidth, unsigned int newheight);
+	inline void setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval);
 
 	void raiseToPower(float exponent);
 
@@ -54,7 +53,7 @@ public:
 
 
 private:
-	unsigned char* data;
+	std::vector<unsigned char> data;
 	unsigned int width;
 	unsigned int height;
 	unsigned int bytespp;
@@ -62,19 +61,39 @@ private:
 
 
 
-unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y)
+unsigned char* Bitmap::getPixelNonConst(unsigned int x, unsigned int y)
 {
-	assert(x >= 0 && x < width);
-	assert(y >= 0 && y < height);
+	assert(x < width);
+	assert(y < height);
+	assert((y*width + x) * bytespp < data.size());
 
-	return data + (y*width + x) * bytespp;
+	return &data[(y*width + x) * bytespp];
 }
+
+unsigned char* Bitmap::rowPointer(unsigned int y)
+{
+	assert(y < height);
+
+	return &data[y * width * bytespp];
+}
+
 const unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y) const
 {
-	assert(x >= 0 && x < width);
-	assert(y >= 0 && y < height);
+	assert(x < width);
+	assert(y < height);
+	assert((y*width + x) * bytespp < data.size());
 
-	return data + (y*width + x) * bytespp;
+	//return data + (y*width + x) * bytespp;
+	return &data[(y*width + x) * bytespp];
+}
+
+void Bitmap::setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval)
+{
+	assert(x < width);
+	assert(y < height);
+	assert(c < bytespp);
+
+	data[(y*width + x) * bytespp + c] = newval;
 }
 
 
