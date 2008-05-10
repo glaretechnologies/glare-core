@@ -58,7 +58,8 @@ public:
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
 		Aperture* aperture,
-		const std::string& base_indigo_path	
+		const std::string& base_indigo_path,
+		double lens_shift_up_distance
 		);
 
 	virtual ~Camera();
@@ -84,12 +85,12 @@ public:
 	//------------------------------------------------------------------------
 	//Geometry Interface
 	//------------------------------------------------------------------------
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
+	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "Camera"; }
 	
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return forwards; }
@@ -231,7 +232,7 @@ private:
 	double exposure_duration; // aka shutter speed
 	//double film_sensitivity; // aka ISO film sppeed
 
-	
+	double lens_shift_up_distance;
 };
 
 
@@ -255,9 +256,10 @@ double Camera::distRightOnLensFromCenter(const Vec3d& x) const
 	return dot(x - lens_center, right);
 }
 
-const Vec2d Camera::normalisedLensPosForWSPoint(const Vec3d& pos) const
+const Vec2d Camera::normalisedLensPosForWSPoint(const Vec3d& x) const
 {
-	return Vec2d(dot(right, pos) - dot(right, lens_botleft), dot(up, pos) - dot(up, lens_botleft)) / (2.0 * lens_radius);
+	return Vec2d(dot(right, x) - dot(right, lens_botleft), dot(up, x) - dot(up, lens_botleft)) / (2.0 * lens_radius);
+	//return Vec2d(dot(right, pos) - dot(right, lens_botleft), dot(up, pos) - dot(up, lens_botleft)) / (2.0 * lens_radius);
 }
 
 

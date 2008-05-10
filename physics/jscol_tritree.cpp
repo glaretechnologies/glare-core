@@ -113,7 +113,7 @@ void TriTree::printTraceStats() const
 
 
 // Returns dist till hit tri, neg number if missed.
-double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -259,9 +259,12 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 				{
 					assert(raydist < closest_dist);
 
-					closest_dist = raydist;
-					hitinfo_out.hittriindex = triangle_index;
-					hitinfo_out.hittricoords.set(u, v);
+					if(!object || object->isNonNullAtHit(triangle_index, u, v)) // Do visiblity check for null materials etc..
+					{
+						closest_dist = raydist;
+						hitinfo_out.hittriindex = triangle_index;
+						hitinfo_out.hittricoords.set(u, v);
+					}
 				}
 
 #ifdef USE_LETTERBOX
@@ -290,7 +293,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 
 
-void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 
@@ -436,12 +439,15 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 
 					if(!already_got_hit)
 					{
-						hitinfos_out.push_back(DistanceFullHitInfo());
-						hitinfos_out.back().hittri_index = leafgeom[triindex];
-						hitinfos_out.back().tri_coords.set(u, v);
-						hitinfos_out.back().dist = raydist;
-						hitinfos_out.back().hitpos = ray.startPos();
-						hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
+						if(!object || object->isNonNullAtHit(leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
+						{
+							hitinfos_out.push_back(DistanceFullHitInfo());
+							hitinfos_out.back().hittri_index = leafgeom[triindex];
+							hitinfos_out.back().tri_coords.set(u, v);
+							hitinfos_out.back().dist = raydist;
+							hitinfos_out.back().hitpos = ray.startPos();
+							hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
+						}
 					}
 
 					//NOTE: this looks fully bogus :(
@@ -475,7 +481,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 
 
 
-bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -579,7 +585,10 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 					(float)raylength, // raylength is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
 					dummy_hitdist, u, v))
 				{
-					return true;
+					if(!object || object->isNonNullAtHit(triangle_index, u, v)) // Do visiblity check for null materials etc..
+					{
+						return true;
+					}
 				}
 				
 #ifdef USE_LETTERBOX

@@ -39,9 +39,9 @@ RayMesh::~RayMesh()
 
 
 //returns negative number if object not hit by the ray
-double RayMesh::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+double RayMesh::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
-	return tritree->traceRay(ray, max_t, context, hitinfo_out);
+	return tritree->traceRay(ray, max_t, context, object, hitinfo_out);
 }
 
 const js::AABBox& RayMesh::getAABBoxWS() const
@@ -49,14 +49,14 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 	return tritree->getAABBoxWS();
 }
 
-void RayMesh::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
-	return tritree->getAllHits(ray, context, hitinfos_out);
+	return tritree->getAllHits(ray, context, object, hitinfos_out);
 }
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
-	return tritree->doesFiniteRayHit(ray, raylength, context);
+	return tritree->doesFiniteRayHit(ray, raylength, context, object);
 }
 
 

@@ -58,9 +58,9 @@ public:
 	void build(const std::string& indigo_base_dir_path, bool use_cached_trees); // throws RayMeshExcep
 
 	////////////////////// Geometry interface ///////////////////
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
+	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "RayMesh (name=" + name + ")"; }
 	

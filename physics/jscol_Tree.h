@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 class RayMesh;
 class FullHitInfo;
 class DistanceFullHitInfo;
-
+class Object;
 
 
 namespace js
@@ -57,15 +57,17 @@ public:
 	virtual void saveTree(std::ostream& stream) = 0;
 	virtual uint32 checksum() = 0;
 
+	typedef Object OPACITY_TEST_TYPE; // type that implements isOpaque()
+
 
 	//intersectable interface
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const = 0;
+	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 	virtual const std::string debugName() const { return "kd-tree"; }
 	//end
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const = 0;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const = 0;
 
 	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const = 0;
 

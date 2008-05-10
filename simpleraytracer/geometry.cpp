@@ -10,10 +10,10 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "../indigo/globals.h"
 
-bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, context, hitinfo);
+	const double hitdist = traceRay(ray, raylength, context, object, hitinfo);
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }

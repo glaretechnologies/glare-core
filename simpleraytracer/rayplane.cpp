@@ -55,7 +55,7 @@ const js::AABBox& RayPlane::getAABBoxWS() const
 	return aabbox;
 }
 
-double RayPlane::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+double RayPlane::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.hittriindex = 0;
 	//NOTE: deal with div by 0?
@@ -64,10 +64,10 @@ double RayPlane::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData
 			-dot(plane.getNormal(), ray.unitDir());
 }
 
-bool RayPlane::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool RayPlane::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, context, hitinfo);
+	const double hitdist = traceRay(ray, raylength, context, object, hitinfo);
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }
@@ -85,10 +85,10 @@ bool RayPlane::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePer
 	}
 }*/
 
-void RayPlane::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RayPlane::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	HitInfo hitinfo;
-	const double dist = traceRay(ray, 1.0e20f, context, hitinfo);
+	const double dist = traceRay(ray, 1.0e20f, context, object, hitinfo);
 	if(dist >= 0.f)
 	{
 		//TEMP: this is more or less a total hack, need to fill out all info

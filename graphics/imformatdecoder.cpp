@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "tgadecoder.h"
 #include "bmpdecoder.h"
 #include "PNGDecoder.h"
+#include "TIFFDecoder.h"
 
 
 ImFormatDecoder::ImFormatDecoder()
@@ -46,6 +47,10 @@ void ImFormatDecoder::decodeImage(const std::string& path, Bitmap& bitmap_out) /
 	else if(hasExtension(path, "png"))
 	{
 		PNGDecoder::decode(path, bitmap_out);
+	}
+	else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
+	{
+		TIFFDecoder::decode(path, bitmap_out);
 	}
 	else
 	{

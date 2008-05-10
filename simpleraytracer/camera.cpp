@@ -36,7 +36,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_,
 		Aperture* aperture_,
-		const std::string& base_indigo_path
+		const std::string& base_indigo_path,
+		double lens_shift_up_distance_
 		)
 :	pos(pos_),
 	ws_up(ws_updir),
@@ -56,7 +57,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	exposure_duration(exposure_duration_),
 	colour_space_converter(NULL),
 	diffraction_filter(NULL),
-	aperture(aperture_)
+	aperture(aperture_),
+	lens_shift_up_distance(lens_shift_up_distance_)
 {
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
@@ -92,9 +94,11 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 
 	sensor_width = sensor_width_;
 	sensor_height = sensor_width / aspect_ratio;
-	lens_center = pos;
-	lens_botleft = pos - up * lens_radius - right * lens_radius;
-	sensor_center = lens_center - forwards * sensor_to_lens_dist;
+
+	lens_center = pos + up * lens_shift_up_distance;
+	lens_botleft = pos + up * (lens_shift_up_distance - lens_radius) - right * lens_radius;
+
+	sensor_center = pos - forwards * sensor_to_lens_dist;
 	sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
 	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
 	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
@@ -474,7 +478,7 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 	//igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
 
 	//save_image.scale(100000.0f);
-	save_image.scale(100.0f / save_image.maxLuminance());
+	save_image.scale(10000.0f / save_image.maxLuminance());
 	save_image.posClamp();
 
 	try
@@ -593,13 +597,13 @@ double Camera::lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos
 
 const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) const
 {
-	//The target point can be found by following the line from sensorpos, through the lens center,
-	//and for a distance of focus_distance.
+	// The target point can be found by following the line from sensorpos, through the lens center,
+	// and for a distance of focus_distance.
 
 	const double sensor_up = distUpOnSensorFromCenter(sensorpos);
 	const double sensor_right = distRightOnSensorFromCenter(sensorpos);
 
-	const double target_up_dist = -sensor_up * focus_dist_sensor_to_lens_dist_ratio;
+	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
 	const double target_right_dist = -sensor_right * focus_dist_sensor_to_lens_dist_ratio;
 
 	const Vec3d target_point = lens_center + forwards * focus_distance + 
@@ -670,7 +674,7 @@ const Vec3d Camera::sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3
 	const double target_right = lens_right - dot(raydir, right) * ray_dist_to_target_plane;
 
 	// Compute corresponding sensorpos
-	const double sensor_up = -target_up * sensor_to_lens_dist_focus_dist_ratio;
+	const double sensor_up = -target_up * sensor_to_lens_dist_focus_dist_ratio + lens_shift_up_distance;
 	const double sensor_right = -target_right * sensor_to_lens_dist_focus_dist_ratio;
 
 	if(fabs(sensor_up) > sensor_height * 0.5 || fabs(sensor_right) > sensor_width * 0.5)
@@ -706,7 +710,7 @@ const Vec3d Camera::sensorPosForImCoords(const Vec2d& imcoords) const
 
 
 
-double Camera::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+double Camera::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -719,11 +723,11 @@ const js::AABBox& Camera::getAABBoxWS() const
 }
 
 
-void Camera::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void Camera::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	return;
 }
-bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
 	return false;
 }
@@ -956,7 +960,8 @@ void Camera::unitTest()
 		1.f / 200.f, //shutter_open_duration
 		//800.f //film speed
 		new CircularAperture(Array2d<float>()),
-		"." // base indigo path
+		".", // base indigo path
+		0.0 // lens_shift_up_distance
 		);
 
 

@@ -38,11 +38,11 @@ public:
 
 	
 	//intersectable interface
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const;
+	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const { return aabbox; }
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const;

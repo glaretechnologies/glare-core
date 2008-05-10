@@ -49,7 +49,12 @@ void ObjectTreeTest::doTests()
 	for(int i=0; i<N; ++i)
 	{
 		Reference<Geometry> raysphere(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05));
-		Object* ob = new Object(raysphere, Vec3d(0,0,0), Matrix3d::identity());
+		Object* ob = new Object(
+			raysphere, 
+			Vec3d(0,0,0), 
+			Matrix3d::identity(),
+			std::vector<Material*>()
+			);
 		ob->build();
 		ob_tree.insertObject(ob); 
 	}
@@ -266,7 +271,8 @@ void ObjectTreeTest::doSpeedTest()
 		Object* ob = new Object(
 			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)), 
 			Vec3d(0,0,0), 
-			Matrix3d::identity()
+			Matrix3d::identity(),
+			std::vector<Material*>()
 			);
 		ob->build();
 		ob_tree.insertObject(ob); 
@@ -372,7 +378,12 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		rot.scale(0.3);
 
-		Object* object = new Object(Reference<Geometry>(raymesh.getPointer()), Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rot);
+		Object* object = new Object(
+			Reference<Geometry>(raymesh.getPointer()), 
+			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), 
+			rot,
+			std::vector<Material*>()
+			);
 		object->build();
 
 		ob_tree.insertObject(object);

@@ -411,7 +411,7 @@ void BIHTree::doBuild(const AABBox& aabb_, const AABBox& tri_aabb, std::vector<T
 
 
 
-double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const
+double BIHTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	assertSSEAligned(&ray);
 	assert(ray_max_t >= 0.0f);
@@ -668,7 +668,7 @@ const js::AABBox& BIHTree::getAABBoxWS() const
 
 
 
-void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 	//assert(ray_max_t >= 0.0f);
@@ -874,11 +874,11 @@ void BIHTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std:
 	else
 		return -1.0f;//missed all tris*/
 }
-bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context) const
+bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
 {
 	//NOTE: can speed this up
 	HitInfo hitinfo;
-	const float dist = traceRay(ray, raylength, context, hitinfo);
+	const float dist = traceRay(ray, raylength, context, object, hitinfo);
 	return dist >= 0.0f && dist < raylength;
 }
 

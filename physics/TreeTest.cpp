@@ -92,7 +92,7 @@ void TreeTest::testBuildCorrect()
 	const SSE_ALIGN Ray ray(Vec3d(0,-2,0), Vec3d(0,1,0));
 	HitInfo hitinfo;
 	js::TriTreePerThreadData tree_context;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.hittriindex == 0);
 	}
@@ -101,7 +101,7 @@ void TreeTest::testBuildCorrect()
 	const SSE_ALIGN Ray ray(Vec3d(9,0,0), Vec3d(0,1,0));
 	HitInfo hitinfo;
 	js::TriTreePerThreadData tree_context;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.hittriindex == 3);
 	}
@@ -289,14 +289,14 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		js::TriTreePerThreadData tree_context;
 
 		dist = tritree.traceRayAgainstAllTris(ray, max_t, hitinfo);
-		dist2 = tritree.traceRay(ray, max_t, tree_context, hitinfo2);
+		dist2 = tritree.traceRay(ray, max_t, tree_context, NULL, hitinfo2);
 		
 		testAssert(dist == dist2);
 		testAssert(hitinfo == hitinfo2);
 
 		HitInfo hitinfo3, hitinfo4;
 		dist3 = bih_tree.traceRayAgainstAllTris(ray, max_t, hitinfo3);
-		dist4 = bih_tree.traceRay(ray, max_t, tree_context, hitinfo4);
+		dist4 = bih_tree.traceRay(ray, max_t, tree_context, NULL, hitinfo4);
 
 		testAssert(dist2 == dist3);
 		testAssert(dist3 == dist4);
@@ -308,7 +308,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
 		std::vector<DistanceFullHitInfo> hitinfos;
-		tritree.getAllHits(ray, tree_context, hitinfos);
+		tritree.getAllHits(ray, tree_context, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
 
 		if(dist > 0.0)
@@ -338,7 +338,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//test getAllHits() on BIH
 		//------------------------------------------------------------------------
 		std::vector<DistanceFullHitInfo> hitinfos_bih;
-		bih_tree.getAllHits(ray, tree_context, hitinfos_bih);
+		bih_tree.getAllHits(ray, tree_context, NULL, hitinfos_bih);
 		std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), distanceFullHitInfoComparisonPred);
 
 		// Compare results
@@ -355,8 +355,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
 		const double testlength = rng.unitRandom() * 2.0;
-		bool kd_hit = tritree.doesFiniteRayHit(ray, testlength, tree_context);
-		bool bih_hit = bih_tree.doesFiniteRayHit(ray, testlength, tree_context);
+		bool kd_hit = tritree.doesFiniteRayHit(ray, testlength, tree_context, NULL);
+		bool bih_hit = bih_tree.doesFiniteRayHit(ray, testlength, tree_context, NULL);
 		testAssert(kd_hit == bih_hit);
 		if(dist > 0.0)
 		{
@@ -370,12 +370,12 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		if(dist > 0.0)
 		{
 			//try with the testlength just on either side of the first hit dist
-			kd_hit = tritree.doesFiniteRayHit(ray, dist + 0.0001, tree_context);
-			bih_hit = bih_tree.doesFiniteRayHit(ray, dist + 0.0001, tree_context);
+			kd_hit = tritree.doesFiniteRayHit(ray, dist + 0.0001, tree_context, NULL);
+			bih_hit = bih_tree.doesFiniteRayHit(ray, dist + 0.0001, tree_context, NULL);
 			testAssert(kd_hit == bih_hit);
 
-			kd_hit = tritree.doesFiniteRayHit(ray, dist - 0.0001, tree_context);
-			bih_hit = bih_tree.doesFiniteRayHit(ray, dist - 0.0001, tree_context);
+			kd_hit = tritree.doesFiniteRayHit(ray, dist - 0.0001, tree_context, NULL);
+			bih_hit = bih_tree.doesFiniteRayHit(ray, dist - 0.0001, tree_context, NULL);
 			testAssert(kd_hit == bih_hit);
 		}
 	}
@@ -449,7 +449,7 @@ static void doEdgeCaseTests()
 
 	const SSE_ALIGN Ray ray(Vec3d(1,0,-1), Vec3d(0,0,1));
 	HitInfo hitinfo;
-	const double dist = kdtree->traceRay(ray, 1.0e20f, tree_context, hitinfo);
+	const double dist = kdtree->traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	}
 }
 
@@ -602,7 +602,7 @@ void TreeTest::doSpeedTest()
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, hitinfo);
+		const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.

@@ -96,14 +96,21 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
 	const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
 	const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
+	unsigned int bitmap_num_bytes_pp = num_channels;
 
 	if(color_type == PNG_COLOR_TYPE_PALETTE)
 	{
 		 png_set_palette_to_rgb(png_ptr);
+
+		 assert(bitmap_num_bytes_pp == 1);
+		 bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
 	}
 
-	if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
-		throw ImFormatExcep("PNG has unsupported colour type.");
+	 
+
+	// actually pretty much every colour type is supported :)
+	//if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
+	//	throw ImFormatExcep("PNG has unsupported colour type.");
 
 	//PNG can have files with 16 bits per channel.  If you only can handle
 	//8 bits per channel, this will strip the pixels down to 8 bit.
@@ -112,7 +119,12 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
 
 	///Remove alpha channel///
 	if(color_type & PNG_COLOR_MASK_ALPHA)
+	{
         png_set_strip_alpha(png_ptr);
+
+		assert(bitmap_num_bytes_pp == 4);
+		bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
+	}
 
 	if(width <= 0 || width >= 1000000)
 	{
@@ -134,10 +146,11 @@ void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned ch
 		throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
 	}
 
-	if(!(num_channels == 1 || num_channels == 3))
-		throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1 or 3 channels supported.");
+	// num_channels == 4 case should be stripped alpha case.
+	if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
+		throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 3 or 4 channels supported.");
 
-	bitmap_out.resize(width, height, num_channels);
+	bitmap_out.resize(width, height, bitmap_num_bytes_pp);
 
 	// Read in actual image data
 	for(int y=0; y<height; ++y)

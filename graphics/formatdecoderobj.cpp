@@ -120,6 +120,8 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	//char tmp[2048];
 
+	int num_bad_normals = 0;
+
 	//Timer timer;
 	int linenum = 0;
 	std::string token;
@@ -187,9 +189,26 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 				throw ModelFormatDecoderExcep("Parse error while reading normal on line " + toString(linenum));
 
 			if(!normal.isUnitLength())
-			{
-				conPrint("Warning: normal does not have unit length; normalising.");
-				normal.normalise();
+			{	
+				const int MAX_NUM_ERROR_MESSAGES = 100;
+				if(num_bad_normals == MAX_NUM_ERROR_MESSAGES)
+					conPrint("WARNING: Reached max num bad normal error messages for mesh.  Bad mesh!!!");
+
+				
+				if(normal == Vec3f(0.f, 0.f, 0.f))
+				{
+					if(num_bad_normals < MAX_NUM_ERROR_MESSAGES)
+						conPrint("WARNING: normal was zero, setting to (0,0,1).");
+					normal = Vec3f(0.f, 0.f, 1.0f);
+				}
+				else
+				{
+					if(num_bad_normals < MAX_NUM_ERROR_MESSAGES)
+						conPrint("WARNING: normal does not have unit length; normalising.");
+					normal.normalise();
+				}
+
+				num_bad_normals++;
 			}
 			normals.push_back(normal);
 		}

@@ -695,7 +695,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 			inserted = true;
 		}
 
-		assert(inserted);	//check we haven't 'lost' any tris
+//		assert(inserted);	//check we haven't 'lost' any tris
 	}
 
 	const int num_in_neg = (int)neg_objs.size();

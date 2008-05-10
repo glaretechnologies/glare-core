@@ -31,6 +31,7 @@ class HitInfo;
 class FullHitInfo;
 class DistanceFullHitInfo;
 class PerThreadData;
+class Object;
 
 /*=====================================================================
 Geometry
@@ -50,12 +51,12 @@ public:
 
 
 	/// intersectable interface ///
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, HitInfo& hitinfo_out) const = 0;
+	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context) const = 0;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const = 0;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const = 0;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const = 0;

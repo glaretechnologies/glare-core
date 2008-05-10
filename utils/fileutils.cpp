@@ -17,8 +17,6 @@ Code By Nicholas Chapman.
 #include <zlib.h>
 #include <assert.h>
 #include "stringutils.h"
-//#include <sys/stat.h>
-//#include "../WebServer/date.h"
 
 
 namespace FileUtils
@@ -316,6 +314,7 @@ bool dirExists(const std::string& dirname)
 }
 #endif
 */
+
 bool fileExists(const std::string& pathname)
 {
 #if defined(WIN32) || defined(WIN64)
