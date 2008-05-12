@@ -250,7 +250,7 @@ public:
 
 	inline Vec3& operator /= (Real divisor)
 	{
-		*this *= (1.0 / divisor);
+		*this *= ((Real)1.0 / divisor);
 		return *this;
 	}
 

@@ -20,12 +20,30 @@ Code By Nicholas Chapman.
 #include <map>
 namespace js{ class Triangle; }
 namespace js{ class EdgeTri; }
+class Material;
 
 class SimpleIndexTri
 {
 public:
+	SimpleIndexTri(){}
+	SimpleIndexTri(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex)
+	{
+		vertex_indices[0] = v0_;
+		vertex_indices[1] = v1_;
+		vertex_indices[2] = v2_;
+	}
 	unsigned int vertex_indices[3];
 	unsigned int tri_mat_index;
+};
+
+class SubDVertex
+{
+public:
+	SubDVertex(){}
+	SubDVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) {}
+	Vec3f pos;
+	Vec3f normal;
+	Vec2f texcoords[4];
 };
 
 class RayMeshExcep
@@ -51,11 +69,17 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(const std::string& name, bool enable_normal_smoothing);
+	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions);
 
 	virtual ~RayMesh();
 
 	void build(const std::string& indigo_base_dir_path, bool use_cached_trees); // throws RayMeshExcep
+
+
+	
+	void subdivide();
+
+	void displace(const std::vector<Material*>& materials);
 
 	////////////////////// Geometry interface ///////////////////
 	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
@@ -96,7 +120,10 @@ public:
 	inline const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
 	inline const Vec3f& triNormal(unsigned int triindex) const;
 	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
-	inline const unsigned int getNumVerts() const { return num_vertices; }
+	//inline const unsigned int getNumVerts() const { return num_vertices; }
+
+	inline const unsigned int getNumVerts() const { return vertices.size(); }
+
 	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
@@ -116,6 +143,13 @@ public:
 	std::map<std::string, int> matname_to_index_map;
 private:
 	void doInitAsEmitter();
+	static void linearSubdivision(const std::vector<SimpleIndexTri>& tris_in, 
+								const std::vector<SubDVertex>& verts_in, 
+								std::vector<SimpleIndexTri>& tris_out, 
+								std::vector<SubDVertex>& verts_out);
+	static void averagePass(const std::vector<SimpleIndexTri>& tris, const std::vector<SubDVertex>& verts, std::vector<SubDVertex>& new_verts_out);
+
+	unsigned int num_subdivisions;
 
 	std::string name;
 
@@ -137,6 +171,9 @@ private:
 
 		for a total size of num_vertices * (num_texcoord_sets*2 + 6) * sizeof(float)
 	*/
+
+	
+
 	inline unsigned int vertSize() const;
 	inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
@@ -144,8 +181,9 @@ private:
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
 
 	unsigned int num_texcoord_sets;
-	unsigned int num_vertices;
-	std::vector<float> vertex_data;
+	//unsigned int num_vertices;
+	//std::vector<float> vertex_data;
+	std::vector<SubDVertex> vertices;
 	std::vector<SimpleIndexTri> triangles;
 
 	//------------------------------------------------------------------------
@@ -158,16 +196,19 @@ private:
 
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
 {
-	assert(vertindex < num_vertices);
-	return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
+	return vertices[vertindex].pos;
+	//assert(vertindex < num_vertices);
+	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }
 
 const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const
 {
-	//return tritree->triVertPos(triindex, vertindex);
+	
 	const unsigned int vertindex = triangles[triindex].vertex_indices[vertindex_in_tri];
-	assert(vertindex < num_vertices);
-	return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
+	
+	return vertices[vertindex].pos;
+	//assert(vertindex < num_vertices);
+	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }
 
 
@@ -179,7 +220,7 @@ const Vec3f& RayMesh::triNormal(unsigned int triindex) const
 
 
 
-unsigned int RayMesh::vertSize() const
+/*unsigned int RayMesh::vertSize() const
 {
 	return num_texcoord_sets*2 + 6;
 }
@@ -188,19 +229,22 @@ unsigned int RayMesh::vertOffset(unsigned int vertindex) const //in units of flo
 {
 	assert(vertindex < num_vertices);
 	return vertSize() * vertindex;
-}
+}*/
 	
 const Vec3f& RayMesh::vertNormal(unsigned int vertindex) const
 {
-	assert(vertindex < num_vertices);
-	return *((const Vec3f*)&vertex_data[vertOffset(vertindex) + 3]);
+	return vertices[vertindex].normal;
+	//assert(vertindex < num_vertices);
+	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex) + 3]);
 }
 
 const Vec2f& RayMesh::vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const
 {
-	assert(vertindex < num_vertices);
-	assert(texcoord_set_index < num_texcoord_sets);
-	return *((const Vec2f*)&vertex_data[vertOffset(vertindex) + 6 + texcoord_set_index*2]);
+	return vertices[vertindex].texcoords[texcoord_set_index];
+
+	//assert(vertindex < num_vertices);
+	//assert(texcoord_set_index < num_texcoord_sets);
+	//return *((const Vec2f*)&vertex_data[vertOffset(vertindex) + 6 + texcoord_set_index*2]);
 }
 
 #endif //__RAYMESH_H_666_

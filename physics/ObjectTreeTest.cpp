@@ -351,7 +351,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//load bunny mesh
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
-	Reference<RayMesh> raymesh(new RayMesh("raymesh", false));
+	Reference<RayMesh> raymesh(new RayMesh("raymesh", false, 0));
 	try
 	{
 		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", *raymesh, 1.0);
