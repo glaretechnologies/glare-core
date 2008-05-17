@@ -55,7 +55,7 @@ void ObjectTreeTest::doTests()
 			Matrix3d::identity(),
 			std::vector<Material*>()
 			);
-		ob->build();
+		ob->build("", false);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -64,8 +64,9 @@ void ObjectTreeTest::doTests()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	TriTreePerThreadData tritree_context;
-	ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	//TriTreePerThreadData tritree_context;
+	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	ObjectTreePerThreadData obtree_context(true);
 
 	
 
@@ -83,9 +84,9 @@ void ObjectTreeTest::doTests()
 		//do traceRay() test
 		//------------------------------------------------------------------------
 		HitInfo hitinfo, hitinfo2;
-		js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
-		const double t = ob_tree.traceRay(ray, tritree_context, *obtree_context, hitob, hitinfo);
-		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, tritree_context, *obtree_context, hitob, hitinfo2);
+		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
+		const double t = ob_tree.traceRay(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo);
+		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
 		testAssert(t > 0.0 == t2 > 0.0);
@@ -101,8 +102,8 @@ void ObjectTreeTest::doTests()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHitAnything(ray, len, tritree_context, *obtree_context);
-		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, tritree_context, *obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
+		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, /*tritree_context,*/ obtree_context);
 		testAssert(a == b);
 
 		if(t >= 0.0)//if the trace hit something after distance t
@@ -274,7 +275,7 @@ void ObjectTreeTest::doSpeedTest()
 			Matrix3d::identity(),
 			std::vector<Material*>()
 			);
-		ob->build();
+		ob->build("", false);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -283,8 +284,9 @@ void ObjectTreeTest::doSpeedTest()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	TriTreePerThreadData tritree_context;
-	ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	//TriTreePerThreadData tritree_context;
+	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	ObjectTreePerThreadData obtree_context(true);
 
 	{
 	Timer testtimer;//start timer
@@ -304,8 +306,8 @@ void ObjectTreeTest::doSpeedTest()
 		//do traceRay() test
 		//------------------------------------------------------------------------
 		HitInfo hitinfo;
-		js::ObjectTree::INTERSECTABLE_TYPE* hitob;
-		const double t = ob_tree.traceRay(ray, tritree_context, *obtree_context, hitob, hitinfo);
+		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
+		const double t = ob_tree.traceRay(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -331,7 +333,7 @@ void ObjectTreeTest::doSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHitAnything(ray, len, tritree_context, *obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -351,7 +353,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//load bunny mesh
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
-	Reference<RayMesh> raymesh(new RayMesh("raymesh", false, 0));
+	Reference<RayMesh> raymesh(new RayMesh("raymesh", false));
 	try
 	{
 		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", *raymesh, 1.0);
@@ -384,7 +386,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			rot,
 			std::vector<Material*>()
 			);
-		object->build();
+		object->build("", false);
 
 		ob_tree.insertObject(object);
 	}
@@ -397,8 +399,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	TriTreePerThreadData tritree_context;
-	ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	//TriTreePerThreadData tritree_context;
+	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
+	ObjectTreePerThreadData obtree_context(true);
 
 
 	//------------------------------------------------------------------------
@@ -426,7 +429,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = start.getDist(end);//rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHitAnything(ray, len, tritree_context, *obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
 		if(a)
 			num_hits++;
 	}

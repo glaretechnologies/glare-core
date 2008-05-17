@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "geometry.h"
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
+#include "../physics/jscol_ObjectTree.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include <string>
@@ -22,11 +23,11 @@ namespace js{ class Triangle; }
 namespace js{ class EdgeTri; }
 class Material;
 
-class SimpleIndexTri
+class RayMeshTriangle
 {
 public:
-	SimpleIndexTri(){}
-	SimpleIndexTri(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex)
+	RayMeshTriangle(){}
+	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -36,11 +37,11 @@ public:
 	unsigned int tri_mat_index;
 };
 
-class SubDVertex
+class RayMeshVertex
 {
 public:
-	SubDVertex(){}
-	SubDVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) {}
+	RayMeshVertex(){}
+	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) { texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); }
 	Vec3f pos;
 	Vec3f normal;
 	Vec2f texcoords[4];
@@ -56,6 +57,9 @@ private:
 	std::string s;
 };
 
+#define SUB_D_TREE 1
+
+
 /*=====================================================================
 RayMesh
 -------
@@ -69,22 +73,15 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions);
+	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 8.0);
 
 	virtual ~RayMesh();
 
-	void build(const std::string& indigo_base_dir_path, bool use_cached_trees); // throws RayMeshExcep
-
-
-	
-	void subdivide();
-
-	void displace(const std::vector<Material*>& materials);
 
 	////////////////////// Geometry interface ///////////////////
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const;
+	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "RayMesh (name=" + name + ")"; }
 	
@@ -101,9 +98,13 @@ public:
 	virtual double surfaceArea(const Matrix3d& to_parent) const;
 
 	virtual int UVSetIndexForName(const std::string& uvset_name) const;
+	
+	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials);
+	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees);
+	virtual const std::string getName() const { return name; }
 	//////////////////////////////////////////////////////////
 
-	
+
 
 	////////// ModelLoadingStreamHandler interface /////////////
 	virtual void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
@@ -128,28 +129,20 @@ public:
 	////////////////////////////////////////////////////////////////////////////
 
 	
+	
 	//Debugging:
+
 	const js::Tree* getTreeDebug() const { return tritree.get(); }
+
 	void printTreeStats();
 	void printTraceStats();
 
 
-	const std::string& getName() const { return name; }
 
-	
-	std::map<std::string, int> uvset_name_to_index;
-	
-	//Map from material name to the index of the material in the final per-object material array
-	std::map<std::string, int> matname_to_index_map;
 private:
 	void doInitAsEmitter();
-	static void linearSubdivision(const std::vector<SimpleIndexTri>& tris_in, 
-								const std::vector<SubDVertex>& verts_in, 
-								std::vector<SimpleIndexTri>& tris_out, 
-								std::vector<SubDVertex>& verts_out);
-	static void averagePass(const std::vector<SimpleIndexTri>& tris, const std::vector<SubDVertex>& verts, std::vector<SubDVertex>& new_verts_out);
 
-	unsigned int num_subdivisions;
+	const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
 
 	std::string name;
 
@@ -183,8 +176,11 @@ private:
 	unsigned int num_texcoord_sets;
 	//unsigned int num_vertices;
 	//std::vector<float> vertex_data;
-	std::vector<SubDVertex> vertices;
-	std::vector<SimpleIndexTri> triangles;
+	std::vector<RayMeshVertex> vertices;
+	std::vector<RayMeshTriangle> triangles;
+
+	unsigned int num_subdivisions;
+	double subdivide_pixel_threshold;
 
 	//------------------------------------------------------------------------
 	//emitter stuff
@@ -214,9 +210,9 @@ const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_i
 
 const Vec3f& RayMesh::triNormal(unsigned int triindex) const
 {
-	//return triangles[triindex].getNormal();
 	return tritree->triGeometricNormal(triindex);
 }
+
 
 
 

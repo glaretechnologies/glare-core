@@ -59,9 +59,13 @@ void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 
 //returns dist till hit tri, neg number if missed.
 double ObjectTree::traceRay(const Ray& ray, 
-						   js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context, 
-						   INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
+						   //js::TriTreePerThreadData& tritree_context, 
+						   js::ObjectTreePerThreadData& object_context, 
+						   const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
 {
+	if(object_context.last_test_time.size() < objects.size())
+		object_context.last_test_time.resize(objects.size());
+
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::traceRay()-----------------------------");
 #endif
@@ -177,7 +181,7 @@ double ObjectTree::traceRay(const Ray& ray,
 		{
 			assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
 	
-			INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
+			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
 
 			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
 #ifdef OBJECTTREE_VERBOSE
@@ -186,7 +190,13 @@ double ObjectTree::traceRay(const Ray& ray,
 
 			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) //If this object has not already been intersected against during this traversal
 			{
-				const double dist = ob->traceRay(ray, closest_dist, tritree_context, ob_hit_info);
+				//assert(object_context.object_context != NULL);
+				const double dist = ob->traceRay(
+					ray, 
+					closest_dist,
+					object_context.object_context ? *object_context.object_context : object_context, 
+					ob_hit_info
+					);
 #ifdef OBJECTTREE_VERBOSE
 				conPrint("Ran intersection, dist=" + toString(dist));
 #endif
@@ -215,19 +225,26 @@ double ObjectTree::traceRay(const Ray& ray,
 
 
 //for debugging
-bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context) const
+bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, 
+													//js::TriTreePerThreadData& tritree_context, 
+													js::ObjectTreePerThreadData& object_context) const
 {
-	INTERSECTABLE_TYPE* hitob = NULL;
+	const INTERSECTABLE_TYPE* hitob = NULL;
 	HitInfo hitinfo;
-	const double dist = this->traceRayAgainstAllObjects(ray, tritree_context, object_context, hitob, hitinfo);
+	const double dist = this->traceRayAgainstAllObjects(ray, /*tritree_context,*/ object_context, hitob, hitinfo);
 	return dist >= 0.0 && dist < length;
 }
 
-bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context) const
+bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength, 
+								  //js::TriTreePerThreadData& tritree_context, 
+								  js::ObjectTreePerThreadData& object_context) const
 {
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::doesFiniteRayHitAnything()-----------------------------");
 #endif
+	if(object_context.last_test_time.size() < objects.size())
+		object_context.last_test_time.resize(objects.size());
+
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(raylength > 0.0);
@@ -346,7 +363,8 @@ bool ObjectTree::doesFiniteRayHitAnything(const Ray& ray, double raylength, js::
 				conPrint("Intersecting with object...");
 				conPrint(ob->doesFiniteRayHit(ray, raylength, tritree_context) ? "\tHIT" : "\tMISSED");
 #endif
-				if(ob->doesFiniteRayHit(ray, raylength, tritree_context))
+				//assert(object_context.object_context != NULL);
+				if(ob->doesFiniteRayHit(ray, raylength, *object_context.object_context))
 					return true;
 				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
 			}
@@ -929,8 +947,9 @@ void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 
 	//just for debugging
 double ObjectTree::traceRayAgainstAllObjects(const Ray& ray, 
-											js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context,
-											INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
+											//js::TriTreePerThreadData& tritree_context, 
+											js::ObjectTreePerThreadData& object_context,
+											const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
 	hitinfo_out.hittriindex = 0;
@@ -940,7 +959,7 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 	for(unsigned int i=0; i<objects.size(); ++i)
 	{
 		HitInfo hitinfo;
-		const double dist = objects[i]->traceRay(ray, 1e9f, tritree_context, hitinfo);
+		const double dist = objects[i]->traceRay(ray, 1e9f, *object_context.object_context, hitinfo);
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;
@@ -953,11 +972,12 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 }
 
 
-js::ObjectTreePerThreadData* ObjectTree::allocContext() const
+/*js::ObjectTreePerThreadData* ObjectTree::allocContext() const
 {
 	assert(nodestack_size > 0);//will fail if not built
 	return new js::ObjectTreePerThreadData((int)this->objects.size(), nodestack_size);
 }
+*/
 
 
 

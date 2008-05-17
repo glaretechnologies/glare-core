@@ -44,7 +44,7 @@ void TreeTest::testBuildCorrect()
 	conPrint("TreeTest::testBuildCorrect()");
 
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
@@ -91,7 +91,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec3d(0,-2,0), Vec3d(0,1,0));
 	HitInfo hitinfo;
-	js::TriTreePerThreadData tree_context;
+	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.hittriindex == 0);
@@ -100,7 +100,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec3d(9,0,0), Vec3d(0,1,0));
 	HitInfo hitinfo;
-	js::TriTreePerThreadData tree_context;
+	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.hittriindex == 3);
@@ -118,7 +118,7 @@ void TreeTest::testBuildCorrect()
 
 
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
@@ -156,8 +156,8 @@ void TreeTest::testBuildCorrect()
 
 
 	raymesh.printTreeStats();
-	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
-	testAssert(kdtree != NULL);
+	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
+	//testAssert(kdtree != NULL);
 
 	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
 
@@ -181,7 +181,7 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
@@ -227,8 +227,8 @@ void TreeTest::testBuildCorrect()
 		false // use cached trees
 		);
 
-	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
-	testAssert(kdtree != NULL);
+	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
+	//testAssert(kdtree != NULL);
 
 	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
 
@@ -395,7 +395,7 @@ static void doEdgeCaseTests()
 
 
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const std::vector<Vec2f> texcoord_sets;
@@ -431,8 +431,8 @@ static void doEdgeCaseTests()
 		false // use cached trees
 		);
 
-	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
-	testAssert(kdtree != NULL);
+	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
+	//testAssert(kdtree != NULL);
 
 	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
 
@@ -449,7 +449,7 @@ static void doEdgeCaseTests()
 
 	const SSE_ALIGN Ray ray(Vec3d(1,0,-1), Vec3d(0,0,1));
 	HitInfo hitinfo;
-	const double dist = kdtree->traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
+	//const double dist = kdtree->traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
 	}
 }
 
@@ -476,7 +476,7 @@ void TreeTest::doTests()
 	//try building up a random set of triangles and inserting into a tree
 	//------------------------------------------------------------------------
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const int NUM_TRIS = 1000;
@@ -499,7 +499,7 @@ void TreeTest::doTests()
 	//build a tree with lots of axis-aligned triangles - a trickier case
 	//------------------------------------------------------------------------
 	{
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
 	
 	const int NUM_TRIS = 1000;
@@ -542,7 +542,7 @@ void TreeTest::doSpeedTest()
 	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
 
 	CSModelLoader model_loader;
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	try
 	{
 		model_loader.streamModel(BUNNY_PATH, raymesh, 1.0);
@@ -568,7 +568,8 @@ void TreeTest::doSpeedTest()
 	SphereUnitVecPool vecpool;//create pool of random points
 
 	HitInfo hitinfo;
-	js::TriTreePerThreadData tree_context;
+	//js::TriTreePerThreadData tree_context;
+	js::ObjectTreePerThreadData context(true);
 
 	conPrint("Running test...");
 
@@ -602,7 +603,7 @@ void TreeTest::doSpeedTest()
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, tree_context, NULL, hitinfo);
+		const double dist = raymesh.traceRay(ray, 1.0e20f, context, NULL, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.
@@ -621,6 +622,8 @@ void TreeTest::doSpeedTest()
 	//raymesh.printTraceStats();
 	const double clock_freq = 2.4e9;
 
+	/*
+	TEMP COMMENTED OUT WHILE DOING SUBDIVISION STUFFS
 	const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
 
 	{
@@ -642,6 +645,9 @@ void TreeTest::doSpeedTest()
 	const double cycles_per_trace = clock_freq * timetaken / (double)kdtree->num_root_aabb_hits;
 	printVar(cycles_per_trace);
 	}
+	*/
+}
+
 
 
 void TreeTest::buildSpeedTest()
@@ -649,7 +655,7 @@ void TreeTest::buildSpeedTest()
 	conPrint("TreeTest::buildSpeedTest()");
 
 	CSModelLoader model_loader;
-	RayMesh raymesh("raymesh", false, 0);
+	RayMesh raymesh("raymesh", false);
 	try
 	{
 		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", raymesh, 1.0);

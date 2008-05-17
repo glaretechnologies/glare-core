@@ -137,7 +137,7 @@ const Vec3<Real> Basis<Real>::transformVectorToLocal(const Vec3<Real>& v) const
 {
 	//return Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v) );
 
-	assert(epsEqual(Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v),  mat.transposeMult(v))));
+//	assert(epsEqual(Vec3<Real>( dot(i(), v), dot(j(), v), dot(k(), v),  mat.transposeMult(v))));
 
 	return mat.transposeMult(v);
 }

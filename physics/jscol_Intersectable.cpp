@@ -16,8 +16,8 @@ namespace js
 
 
 Intersectable::Intersectable()
+:	object_index(-1)
 {
-	object_index = -1;
 }
 /*
 
@@ -26,7 +26,13 @@ Intersectable::~Intersectable()
 	
 }*/
 
+void Intersectable::setObjectIndex(int i)
+{
+	assert(object_index == -1);
+	assert(i >= 0);
 
+	object_index = i; 
+}
 
 
 

@@ -10,7 +10,9 @@ Code By Nicholas Chapman.
 class StackFrame;
 #include "jscol_tritree.h"
 #include <vector>
+#include <map>
 #include "../indigo/DistanceFullHitInfo.h"
+#include "jscol_TriTreePerThreadData.h"
 
 namespace js
 {
@@ -28,7 +30,7 @@ public:
 	-----------------------
 	
 	=====================================================================*/
-	ObjectTreePerThreadData(int numobjects, int stacksize);
+	ObjectTreePerThreadData(bool root/*int numobjects, int stacksize*/);
 
 	~ObjectTreePerThreadData();
 
@@ -42,6 +44,14 @@ public:
 	std::vector<DistanceFullHitInfo> hits;
 
 	int time;
+
+
+
+	TriTreePerThreadData tritree_context;
+	
+	ObjectTreePerThreadData* object_context;
+
+	//std::map<int, ObjectTreePerThreadData> object_data;
 };
 
 

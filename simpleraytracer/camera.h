@@ -85,12 +85,12 @@ public:
 	//------------------------------------------------------------------------
 	//Geometry Interface
 	//------------------------------------------------------------------------
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual const std::string debugName() const { return "Camera"; }
+	virtual const std::string getName() const { return "Camera"; }
 	
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const;
+	virtual void getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return forwards; }
@@ -161,6 +161,9 @@ public:
 	
 
 	void buildDiffractionFilterImage(int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path);
+
+	double sensorHeight() const { return sensor_height; }
+	double sensorLensDist() const { return sensor_to_lens_dist; }
 	
 
 	std::vector<const Medium*> containing_media;

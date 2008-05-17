@@ -67,24 +67,25 @@ public:
 
 	typedef float REAL;
 
-	typedef Object INTERSECTABLE_TYPE;
-	//typedef Intersectable INTERSECTABLE_TYPE;
+	//typedef Object INTERSECTABLE_TYPE;
+	typedef Intersectable INTERSECTABLE_TYPE;
 
 
 	void insertObject(INTERSECTABLE_TYPE* intersectable);
 	void build();
 
-	js::ObjectTreePerThreadData* allocContext() const;
+	//js::ObjectTreePerThreadData* allocContext() const;
 
 	//returns dist till hit or negative if missed
-	double traceRay(const Ray& ray, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context, INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	double traceRay(const Ray& ray, /*js::TriTreePerThreadData& tritree_context, */js::ObjectTreePerThreadData& object_context, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHitAnything(const Ray& ray, double length, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context) const;
+	bool doesFiniteRayHit(const Ray& ray, double length, /*js::TriTreePerThreadData& tritree_context, */js::ObjectTreePerThreadData& object_context) const;
 
+	const js::AABBox& getAABBoxWS() const { return *root_aabb; }
 
 	///-------- debugging methods ---------///
-	double traceRayAgainstAllObjects(const Ray& ray, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context, INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
-	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, js::TriTreePerThreadData& tritree_context, js::ObjectTreePerThreadData& object_context) const;
+	double traceRayAgainstAllObjects(const Ray& ray, /*js::TriTreePerThreadData& tritree_context, */js::ObjectTreePerThreadData& object_context, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, /*js::TriTreePerThreadData& tritree_context, */js::ObjectTreePerThreadData& object_context) const;
 	void writeTreeModel(std::ostream& stream);
 	void printTree(int currentnode, int depth, std::ostream& out);
 	void getTreeStats(ObjectTreeStats& stats_out, int cur = 0, int depth = 0);

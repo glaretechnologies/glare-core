@@ -16,7 +16,7 @@ class RayMesh;
 class FullHitInfo;
 class DistanceFullHitInfo;
 class Object;
-
+namespace js { class TriTreePerThreadData; };
 
 namespace js
 {
@@ -39,7 +39,7 @@ Tree
 ----
 
 =====================================================================*/
-class Tree : public Intersectable
+class Tree/* : public Intersectable*/
 {
 public:
 	/*=====================================================================

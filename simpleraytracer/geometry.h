@@ -19,7 +19,8 @@ You may *not* use this code for any commercial project.
 //#include "../maths/vec3.h"
 #include "../maths/vec2.h"
 #include "../maths/coordframe.h"
-#include "../physics/jscol_Intersectable.h"
+//#include "../physics/jscol_Intersectable.h"
+#include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/refcounted.h"
 #include <vector>
 class Ray;
@@ -38,7 +39,7 @@ Geometry
 --------
 interface that represents the shape of an object
 =====================================================================*/
-class Geometry : public js::Intersectable, public RefCounted
+class Geometry : /*public js::Intersectable, */public RefCounted
 {
 public:
 	/*=====================================================================
@@ -51,12 +52,13 @@ public:
 
 
 	/// intersectable interface ///
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const = 0;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const = 0;
+	virtual const std::string getName() const = 0;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const = 0;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const = 0;
@@ -71,7 +73,17 @@ public:
 	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const = 0; // PDF with respect to surface area metric, in parent space
 	virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
 
+	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials){}
+	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees){}
+
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;
+
+
+
+	std::map<std::string, int> uvset_name_to_index;
+	
+	//Map from material name to the index of the material in the final per-object material array
+	std::map<std::string, int> matname_to_index_map;
 private:
 };
 

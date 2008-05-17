@@ -11,20 +11,24 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../graphics/image.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../indigo/RendererSettings.h"
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
+#include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/fileutils.h"
 #include "../utils/timer.h"
+#include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>
 
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_)
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_)
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
-	num_subdivisions(num_subdivisions_)
+	num_subdivisions(num_subdivisions_),
+	subdivide_pixel_threshold(subdivide_pixel_threshold_)
 {
 	num_texcoord_sets = 0;
 //	num_vertices = 0;
@@ -40,9 +44,15 @@ RayMesh::~RayMesh()
 
 
 //returns negative number if object not hit by the ray
-double RayMesh::traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double RayMesh::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
-	return tritree->traceRay(ray, max_t, context, object, hitinfo_out);
+	return tritree->traceRay(
+		ray, 
+		max_t, 
+		context.tritree_context, 
+		object, 
+		hitinfo_out
+		);
 }
 
 const js::AABBox& RayMesh::getAABBoxWS() const
@@ -50,23 +60,33 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 	return tritree->getAABBoxWS();
 }
 
-void RayMesh::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
-	return tritree->getAllHits(ray, context, object, hitinfos_out);
+	tritree->getAllHits(
+		ray, // ray 
+		context.tritree_context, // tri tree context
+		object, // object context
+		hitinfos_out
+		);
 }
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
 {
-	return tritree->doesFiniteRayHit(ray, raylength, context, object);
+	return tritree->doesFiniteRayHit(
+		ray, 
+		raylength, 
+		context.tritree_context,
+		object
+		);
 }
 
 
 const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 {
-	const SimpleIndexTri& tri = triangles[hitinfo.hittri_index];
-
 	if(!this->enable_normal_smoothing)
-		return toVec3d(triNormal(hitinfo.hittri_index));
+		return computeTriGeometricNormal(hitinfo);//toVec3d(triNormal(hitinfo.hittri_index));
+
+	const RayMeshTriangle& tri = triangles[hitinfo.hittri_index];
 
 	const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
 	const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
@@ -89,20 +109,45 @@ const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 
 const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 {
-	//return mesh.getTri(hitinfo.hittri_index).getNormal();
-	//return triangles[hitinfo.hittri_index].getNormal();
+#ifdef SUB_D_TREE
+	return computeTriGeometricNormal(hitinfo);
+#else
 	return toVec3d(triNormal(hitinfo.hittri_index));
+#endif
 }
 
-/*void RayMesh::insertTri(js::Triangle& tri)
+void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials)
 {
-	tritree->insertTri(tri);
-}*/
+	std::vector<RayMeshTriangle> temp_tris;
+	std::vector<RayMeshVertex> temp_verts;
+
+	DisplacementUtils::subdivideAndDisplace(
+		materials,
+		camera_coordframe_os, 
+		pixel_height_at_dist_one,
+		subdivide_pixel_threshold,
+		num_subdivisions,
+		triangles,
+		vertices,
+		temp_tris,
+		temp_verts
+		);
+
+	triangles = temp_tris;
+	vertices = temp_verts;
+
+	/*DisplacementUtils::displace(
+		materials,
+		triangles,
+		vertices
+		);*/
+}
+
 
 void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_trees)
 {
-	//TEMP:
-	subdivide();
+	Timer timer;
+
 
 	assert(!tritree.get());
 	if((int)triangles.size() >= RendererSettings::getInstance().bih_tri_threshold)
@@ -113,11 +158,11 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	//------------------------------------------------------------------------
 	//print out our mem usage
 	//------------------------------------------------------------------------
-	Timer timer;
+	
 	conPrint("Building Mesh '" + name + "'...");
-	conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(SubDVertex)) + ")");
+	conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
 	//conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
-	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(SimpleIndexTri)) + ")");
+	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
 
 	if(RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
@@ -211,300 +256,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 		}
 	}
 
-
-	//if(emitter_init)
-	//	this->doInitAsEmitter();
-
 	conPrint("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
-
-	//mesh.buildTriNormals();//NEWCODE
-	//------------------------------------------------------------------------
-	//copy triangle normals
-	//------------------------------------------------------------------------
-	//for(unsigned int i=0; i<triangles.size(); ++i)
-	//	triangles[i].normal = triNormal(i)
-
-	//TEMP:
-	/*js::TreeStats stats;
-	tritree->getTreeStats(stats);
-
-	if(diffuse_reflector)
-	{
-
-	}*/
-}
-
-
-class VertIndexPair
-{
-public:
-	VertIndexPair(){}
-	VertIndexPair(unsigned int v_a_, unsigned int v_b_) : v_a(v_a_), v_b(v_b_) {}
-
-	//bool operator < (const VertIndexPair& other)
-	//{}
-
-	unsigned int v_a, v_b;
-};
-
-inline bool operator < (const VertIndexPair& a, const VertIndexPair& b)
-{
-	if(a.v_a < b.v_a)
-		return true;
-	else if(a.v_a > b.v_a)
-		return false;
-	else	//else a.v_a = b.v_a
-	{
-		return a.v_b < b.v_b;
-	}
-}
-
-void RayMesh::linearSubdivision(const std::vector<SimpleIndexTri>& tris_in,
-								const std::vector<SubDVertex>& verts_in, 
-								std::vector<SimpleIndexTri>& tris_out, 
-								std::vector<SubDVertex>& verts_out)
-{
-
-	std::map<VertIndexPair, unsigned int> edge_to_new_vert_map;
-
-
-	// Copy over original vertices
-	verts_out = verts_in;
-
-	tris_out.resize(0);
-
-	// For each triangle
-	for(unsigned int t=0; t<tris_in.size(); ++t)
-	{
-		// Get triangle centroid
-		//Vec3f centroid(0.f, 0.f, 0.f);
-		//for(unsigned int v=0; v<3; ++v)
-		//	centroid += verts_in[tris_in[t].vertex_indices[v]].pos;
-
-		// Add vertex 'c' at center at the centroid of the triangle
-		//const unsigned int c_index = verts_out.size();
-		//verts_out.push_back(SubDVertex(
-		//	centroid
-		//	));
-
-		// Add original vertices
-		//const unsigned int new_v = verts_out.size();
-		//for(unsigned int v=0; v<3; ++v)
-		//	verts_out.push_back(verts_in[tris_in[t].vertex_indices[v]]);
-
-		unsigned int e[3];
-
-		// For each edge v_i, v_i+1
-		for(unsigned int v=0; v<3; ++v)
-		{
-			const unsigned int v_i = tris_in[t].vertex_indices[v];
-			const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
-
-			// Get vertex along this edge, or create it if it doesn't exist yet.
-
-			const VertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1));
-
-			const std::map<VertIndexPair, unsigned int>::iterator result = edge_to_new_vert_map.find(edge);
-			if(result == edge_to_new_vert_map.end())
-			{
-				// Create new vertex
-				e[v] = verts_out.size();
-
-				verts_out.push_back(SubDVertex(
-					(verts_in[v_i].pos + verts_in[v_i1].pos) * 0.5f,
-					(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
-					));
-
-				for(unsigned int z=0; z<4; ++z)
-					verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
-
-				// Add to map
-				edge_to_new_vert_map.insert(std::make_pair(
-					edge,
-					e[v]
-					));
-			}
-			else
-				e[v] = (*result).second;
-		}
-
-		tris_out.push_back(SimpleIndexTri(
-				tris_in[t].vertex_indices[0],
-				e[0],
-				e[2],
-				tris_in[t].tri_mat_index
-		));
-
-		tris_out.push_back(SimpleIndexTri(
-				tris_in[t].vertex_indices[1],
-				e[1],
-				e[0],
-				tris_in[t].tri_mat_index
-		));
-
-		tris_out.push_back(SimpleIndexTri(
-				tris_in[t].vertex_indices[2],
-				e[2],
-				e[1],
-				tris_in[t].tri_mat_index
-		));
-
-		tris_out.push_back(SimpleIndexTri(
-				e[0],
-				e[1],
-				e[2],
-				tris_in[t].tri_mat_index
-		));
-
-		
-	}
-}
-
-static float w(unsigned int n_t, unsigned int n_q)
-{
-	if(n_q == 0 && n_t == 3)
-		return 1.5f;
-	else
-		return 12.0f / (3.0f * (float)n_q + 2.0f * (float)n_t);
-}
-
-void RayMesh::averagePass(const std::vector<SimpleIndexTri>& tris, const std::vector<SubDVertex>& verts, std::vector<SubDVertex>& new_verts_out)
-{
-	new_verts_out = std::vector<SubDVertex>(verts.size(), SubDVertex(
-		Vec3f(0.0f, 0.0f, 0.0f), // pos
-		Vec3f(0.0f ,0.0f, 0.0f) // normal
-		)); // new vertices
-
-	//std::vector<unsigned int> dim(verts.size(), 0); // array containing dimension of each vertex
-	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
-	std::vector<unsigned int> n_t(verts.size(), 0); // array containing number of triangles touching each vertex
-	//std::vector<unsigned int> n_q(verts.size(), 0); // array containing number of quads touching each vertex
-
-
-	// Initialise n_t
-	for(unsigned int t=0; t<tris.size(); ++t)
-		for(unsigned int v=0; v<3; ++v)
-			n_t[tris[t].vertex_indices[v]]++;
-
-
-	for(unsigned int t=0; t<tris.size(); ++t)
-	{
-		for(unsigned int v=0; v<3; ++v)
-		{
-			const unsigned int v_i = tris[t].vertex_indices[v];
-			const unsigned int v_i_plus_1 = tris[t].vertex_indices[(v + 1) % 3];
-			const unsigned int v_i_minus_1 = tris[t].vertex_indices[(v + 2) % 3];
-
-
-			const Vec3f cent = verts[v_i].pos * (1.0f / 4.0f) + (verts[v_i_plus_1].pos + verts[v_i_minus_1].pos) * (3.0f / 8.0f);
-			const float weight = (float)NICKMATHS_PI / 3.0f;
-
-			total_weight[v_i] += weight;
-			new_verts_out[v_i].pos += cent * weight;
-			new_verts_out[v_i].normal += (verts[v_i].normal * (1.0f / 4.0f) + (verts[v_i_plus_1].normal + verts[v_i_minus_1].normal) * (3.0f / 8.0f)) * weight;
-
-			for(unsigned int z=0; z<4; ++z)
-				new_verts_out[v_i].texcoords[z] += (verts[v_i].texcoords[z] * (1.0f / 4.0f) + (verts[v_i_plus_1].texcoords[z] + verts[v_i_minus_1].texcoords[z]) * (3.0f / 8.0f)) * weight;
-
-		}
-	}
-
-	for(unsigned int v=0; v<new_verts_out.size(); ++v)
-	{
-		new_verts_out[v].pos /= total_weight[v];
-		new_verts_out[v].pos = verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w(n_t[v], 0);
-
-		new_verts_out[v].normal /= total_weight[v];
-		new_verts_out[v].normal = verts[v].normal + (new_verts_out[v].normal - verts[v].normal) * w(n_t[v], 0);
-		new_verts_out[v].normal.normalise();
-
-		for(unsigned int z=0; z<4; ++z)
-		{
-			new_verts_out[v].texcoords[z] /= total_weight[v];
-			new_verts_out[v].texcoords[z] = verts[v].texcoords[z] + (new_verts_out[v].texcoords[z] - verts[v].texcoords[z]) * w(n_t[v], 0);
-		}
-	}
-}
-
-
-
-inline bool operator < (const SubDVertex& a, const SubDVertex& b)
-{
-	return a.pos < b.pos;
-}
-
-void RayMesh::subdivide()
-{
-	conPrint("Subdividing mesh '" + this->getName() + "', num subdivisions = " + toString(num_subdivisions) + "...");
-
-	//TEMP: merge vertices sharing the same position
-	std::map<SubDVertex, unsigned int> new_vert_indices;
-	std::vector<SubDVertex> newverts;
-	for(unsigned int t=0; t<triangles.size(); ++t)
-	{
-		for(unsigned int i=0; i<3; ++i)
-		{
-			const SubDVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
-
-			unsigned int new_vert_index;
-			if(new_vert_indices.find(old_vert) == new_vert_indices.end())
-			{
-				new_vert_index = newverts.size();
-				newverts.push_back(old_vert);
-				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
-			}
-			else
-				new_vert_index = new_vert_indices[old_vert];
-
-			triangles[t].vertex_indices[i] = new_vert_index;
-		}
-	}
-
-	vertices = newverts;
-
-
-	std::vector<SimpleIndexTri> temp_tris;
-	std::vector<SubDVertex> temp_verts;
-
-	for(unsigned int i=0; i<num_subdivisions; ++i)
-	{
-		linearSubdivision(triangles, vertices, temp_tris, temp_verts);
-		averagePass(temp_tris, temp_verts, vertices);
-
-		//vertices = temp_verts;
-		triangles = temp_tris;
-	}
-
-	conPrint("\tDone.");
-}
-
-void RayMesh::displace(const std::vector<Material*>& materials)
-{
-	std::vector<bool> vert_displaced(vertices.size(), false);
-
-	for(unsigned int t=0; t<triangles.size(); ++t)
-	{
-		const Material* material = materials[triangles[t].tri_mat_index]; // Get the material assigned to this triangle
-
-		if(material->displacing())
-		{
-			const int uv_set_index = material->getDisplacementTextureUVSetIndex();
-			assert(uv_set_index >= 0 && uv_set_index < 4);
-
-			for(unsigned int i=0; i<3; ++i)
-			{
-				if(!vert_displaced[triangles[t].vertex_indices[i]])
-				{
-					vertices[triangles[t].vertex_indices[i]].pos += vertices[triangles[t].vertex_indices[i]].normal * (float)material->displacement(
-						vertices[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
-						vertices[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
-						);
-
-					vert_displaced[triangles[t].vertex_indices[i]] = true;
-				}
-			}
-		}
-	}
 }
 
 
@@ -615,7 +367,7 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector
 	if(!normal.isUnitLength())
 		throw ModelLoadingStreamHandlerExcep("Normal was not unit length.");
 
-	vertices.push_back(SubDVertex(pos, normal));
+	vertices.push_back(RayMeshVertex(pos, normal));
 	for(unsigned int i=0; i<texcoord_sets.size(); ++i)
 		vertices.back().texcoords[i] = texcoord_sets[i];
 
@@ -674,7 +426,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, unsigned int mater
 
 	// Push the triangle onto tri array.
 
-	triangles.push_back(SimpleIndexTri());
+	triangles.push_back(RayMeshTriangle());
 	for(unsigned int i=0; i<3; ++i)
 		triangles.back().vertex_indices[i] = vertex_indices[i];
 
@@ -699,8 +451,12 @@ void RayMesh::addMaterialUsed(const std::string& material_name)
 
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
+//#ifdef SUB_D_TREE
+	//const int use_tri_index = tri_index
+//#else
 	assert(tri_index < triangles.size());
 	return triangles[tri_index].tri_mat_index;
+//#endif
 }
 
 
@@ -791,8 +547,6 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 	assert(xsample >= 0.0 && xsample <= 1.0);
 	assert(tri_index >= 0 && tri_index < getNumTris());
 
-	normal_out = toVec3d(triNormal(tri_index));//tri.getNormal();
-	assert(normal_out.isUnitLength());
 
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
@@ -808,6 +562,13 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 
 	hitinfo_out.hittriindex = tri_index;
 	hitinfo_out.hittricoords.set(u, v);
+
+	FullHitInfo hitinfo;
+	hitinfo.hittri_index = tri_index;
+	hitinfo.tri_coords.set(u, v);
+	normal_out = computeTriGeometricNormal(hitinfo);//toVec3d(triNormal(tri_index));//tri.getNormal();
+	assert(normal_out.isUnitLength());
+
 
 	return toVec3d(
 		triVertPos(tri_index, 0) * (float)(1.0 - s) + 
@@ -902,14 +663,24 @@ int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
 
 void RayMesh::printTreeStats()
 {
+#ifndef SUB_D_TREE
 	tritree->printStats();
+#endif
 }
 
 void RayMesh::printTraceStats()
 {
+#ifndef SUB_D_TREE
 	tritree->printTraceStats();
+#endif
 }
 
+const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
+{
+	//assert(hitinfo.hittri_index < triangles.size());
+	//return toVec3d(subdivided_tris[hitinfo.hittri_index]->getGeometricNormal(Vec2f((float)hitinfo.tri_coords.x, (float)hitinfo.tri_coords.y)));
+	return toVec3d(this->triNormal(hitinfo.hittri_index));
+}
 
 
 
