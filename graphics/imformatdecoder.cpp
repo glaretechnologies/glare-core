@@ -16,6 +16,8 @@ Code By Nicholas Chapman.
 #include "bmpdecoder.h"
 #include "PNGDecoder.h"
 #include "TIFFDecoder.h"
+#include "../graphics/Map2D.h"
+
 
 
 ImFormatDecoder::ImFormatDecoder()
@@ -30,9 +32,38 @@ ImFormatDecoder::~ImFormatDecoder()
 }
 
 
-void ImFormatDecoder::decodeImage(const std::string& path, Bitmap& bitmap_out) // throws ImFormatExcep on failure
+Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws ImFormatExcep on failure
 {
 	if(hasExtension(path, "jpg") || hasExtension(path, "jpeg"))
+	{
+		return JPEGDecoder::decode(path);
+	}
+	else if(hasExtension(path, "tga"))
+	{
+		return TGADecoder::decode(path);
+	}
+	else if(hasExtension(path, "bmp"))
+	{
+		return BMPDecoder::decode(path);
+	}
+	else if(hasExtension(path, "png"))
+	{
+		return PNGDecoder::decode(path);
+	}
+	/*else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
+	{
+		return TIFFDecoder::decode(path);
+	}*/
+	/*else if(hasExtension(path, "exr"))
+	{
+		return EXRDecoder::decode(path);
+	}*/
+	else
+	{
+		throw ImFormatExcep("unhandled format ('" + path + "'");
+	}
+
+	/*if(hasExtension(path, "jpg") || hasExtension(path, "jpeg"))
 	{
 		JPEGDecoder::decode(path, bitmap_out);
 	}
@@ -55,6 +86,6 @@ void ImFormatDecoder::decodeImage(const std::string& path, Bitmap& bitmap_out) /
 	else
 	{
 		throw ImFormatExcep("unhandled format ('" + path + "'");
-	}
+	}*/
 }
 

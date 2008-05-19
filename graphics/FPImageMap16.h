@@ -1,49 +1,43 @@
 /*=====================================================================
-bmpdecoder.h
-------------
-File created by ClassTemplate on Mon May 02 22:00:30 2005
+FPImageMap16.h
+--------------
+File created by ClassTemplate on Sun May 18 21:48:49 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BMPDECODER_H_666_
-#define __BMPDECODER_H_666_
+#ifndef __FPIMAGEMAP16_H_666_
+#define __FPIMAGEMAP16_H_666_
 
 
-
+#include <half.h>
 #include <vector>
-#include "../utils/reference.h"
-class Map2D;
-//class Bitmap;
+
 
 /*=====================================================================
-BMPDecoder
-----------
+FPImageMap16
+------------
 
 =====================================================================*/
-class BMPDecoder
+class FPImageMap16
 {
 public:
 	/*=====================================================================
-	BMPDecoder
-	----------
+	FPImageMap16
+	------------
 	
 	=====================================================================*/
+	FPImageMap16();
 
-	~BMPDecoder();
-
-	//these throw ImFormatExcep
-	static Reference<Map2D> decode(const std::string& path);
+	~FPImageMap16();
 
 
-	//static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
 
 private:
-	BMPDecoder();
-
+	std::vector<half> data;
 };
 
 
 
-#endif //__BMPDECODER_H_666_
+#endif //__FPIMAGEMAP16_H_666_
 
 
 

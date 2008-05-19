@@ -33,7 +33,7 @@ You may not use this code for any commercial project.
 class RayPlane : public Geometry
 {
 public:
-	RayPlane(const Plane& plane);
+	RayPlane(const Plane<double>& plane);
 	~RayPlane(){}
 
 	/// intersectable interface ///
@@ -58,7 +58,7 @@ public:
 
 	virtual const std::string getName() const { return "RayPlane"; }
 private:
-	Plane plane;
+	Plane<double> plane;
 	Vec2d uvs;
 	js::AABBox aabbox;
 };

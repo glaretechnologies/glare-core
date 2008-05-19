@@ -44,13 +44,13 @@ public:
 
 	void scale(float scalefactor);
 
-	bool onFrontSideOfPlane(const Plane& plane) const;
+	bool onFrontSideOfPlane(const Plane<double>& plane) const;
 		//returns true if all corners on front side of plane
 
 	void setToLargeBox();
 
 	//returns 0 if point in box
-	float getDistToPoint(const Vec3d& point) const;
+	double getDistToPoint(const Vec3d& point) const;
 
 	bool pointInBox(const Vec3d& point) const;
 

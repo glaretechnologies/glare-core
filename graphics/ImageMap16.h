@@ -1,49 +1,42 @@
 /*=====================================================================
-bmpdecoder.h
+ImageMap16.h
 ------------
-File created by ClassTemplate on Mon May 02 22:00:30 2005
+File created by ClassTemplate on Sun May 18 21:48:12 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BMPDECODER_H_666_
-#define __BMPDECODER_H_666_
+#ifndef __IMAGEMAP16_H_666_
+#define __IMAGEMAP16_H_666_
 
 
 
-#include <vector>
-#include "../utils/reference.h"
-class Map2D;
-//class Bitmap;
+
 
 /*=====================================================================
-BMPDecoder
+ImageMap16
 ----------
 
 =====================================================================*/
-class BMPDecoder
+class ImageMap16
 {
 public:
 	/*=====================================================================
-	BMPDecoder
+	ImageMap16
 	----------
 	
 	=====================================================================*/
+	ImageMap16();
 
-	~BMPDecoder();
-
-	//these throw ImFormatExcep
-	static Reference<Map2D> decode(const std::string& path);
+	~ImageMap16();
 
 
-	//static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
 
-private:
-	BMPDecoder();
+
 
 };
 
 
 
-#endif //__BMPDECODER_H_666_
+#endif //__IMAGEMAP16_H_666_
 
 
 

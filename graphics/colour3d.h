@@ -11,7 +11,7 @@ You may *not* use this code for any commercial project.
 #ifndef __COLOUR3D_H__
 #define __COLOUR3D_H__
 
-NOTUSED
+#error NOTUSED: use colour3.h instead
 
 #include "../maths/mathstypes.h"
 #include "../maths/vec3.h"

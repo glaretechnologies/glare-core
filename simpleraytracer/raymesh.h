@@ -57,8 +57,6 @@ private:
 	std::string s;
 };
 
-#define SUB_D_TREE 1
-
 
 /*=====================================================================
 RayMesh
@@ -99,7 +97,11 @@ public:
 
 	virtual int UVSetIndexForName(const std::string& uvset_name) const;
 	
-	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials);
+	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
+		const std::vector<Plane<float> >& camera_clip_planes
+		//double camera_horizontal_aov,
+		//double camera_vertical_aov
+		);
 	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees);
 	virtual const std::string getName() const { return name; }
 	//////////////////////////////////////////////////////////
@@ -142,7 +144,7 @@ public:
 private:
 	void doInitAsEmitter();
 
-	const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
+	//const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
 
 	std::string name;
 
@@ -167,8 +169,8 @@ private:
 
 	
 
-	inline unsigned int vertSize() const;
-	inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
+	//inline unsigned int vertSize() const;
+	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
 	inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
@@ -200,9 +202,9 @@ const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
 const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const
 {
 	
-	const unsigned int vertindex = triangles[triindex].vertex_indices[vertindex_in_tri];
+	//const unsigned int vertindex = triangles[triindex].vertex_indices[vertindex_in_tri];
 	
-	return vertices[vertindex].pos;
+	return vertices[triangles[triindex].vertex_indices[vertindex_in_tri]].pos;
 	//assert(vertindex < num_vertices);
 	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }

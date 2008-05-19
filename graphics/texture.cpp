@@ -21,22 +21,48 @@ Texture::~Texture()
 }
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
-void Texture::sampleTiled(double u, double v, Colour3d& colour_out) const
-{
+const Colour3d Texture::vec3SampleTiled(double u, double v) const
+{	
 	if(getBytesPP() == 1)
-		sampleTiled1BytePP(u, v, colour_out);
+	{
+		const double val = sampleTiled1BytePP(u, v);
+		return Colour3d(val, val, val);
+	}
 	else if(getBytesPP() == 3)
-		sampleTiled3BytesPP(u, v, colour_out);
+	{
+		Colour3d col;
+		sampleTiled3BytesPP(u, v, col);
+		return col;
+	}
 	else
 	{
 		assert(0);
-		colour_out = Colour3d(1,0,0);
+		return Colour3d(1,0,0);
+	}
+}
+
+double Texture::scalarSampleTiled(double x, double y) const
+{
+	if(getBytesPP() == 1)
+	{
+		return sampleTiled1BytePP(x, y);
+	}
+	else if(getBytesPP() == 3)
+	{
+		Colour3d col;
+		sampleTiled3BytesPP(x, y, col);
+		return (col.r + col.g + col.b) * (1.0 / 3.0);
+	}
+	else
+	{
+		assert(0);
+		return 0.0;
 	}
 }
 
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
-void Texture::sampleTiled1BytePP(double u, double v, Colour3d& colour_out) const
+double Texture::sampleTiled1BytePP(double u, double v) const
 {
 	assert(getBytesPP() == 1);
 
@@ -107,9 +133,11 @@ void Texture::sampleTiled1BytePP(double u, double v, Colour3d& colour_out) const
 	}
 
 	// Copy red to G and B
-	colour_out.set(colour_result, colour_result, colour_result);
+	//colour_out.set(colour_result, colour_result, colour_result);
 
-	colour_out *= (1.0 / 255.0);
+	//colour_out *= (1.0 / 255.0);
+
+	return colour_result * (1.0 / 255.0);
 }
 
 

@@ -12,7 +12,8 @@ Code By Nicholas Chapman.
 
 #include <vector>
 #include <string>
-class Bitmap;
+#include "../utils/reference.h"
+class Map2D;
 
 
 /*=====================================================================
@@ -35,7 +36,7 @@ public:
 
 //	static void* decode(const void* image, int numimagebytes, //size of encoded image
 //					int& bpp_out, int& width_out, int& height_out);
-	static void decode(const std::string& path, Bitmap& img_out);
+	static Reference<Map2D> decode(const std::string& path);
 
 
 

@@ -35,7 +35,7 @@ Image::Image()
 	height = 0;
 }
 
-Image::Image(int width_, int height_)
+Image::Image(unsigned int width_, unsigned int height_)
 :	pixels(width_, height_)
 {
 	width = width_;
@@ -62,8 +62,8 @@ Image& Image::operator = (const Image& other)
 		pixels.resize(width, height);
 	}
 
-	for(int x=0; x<width; ++x)
-		for(int y=0; y<height; ++y)
+	for(unsigned int x=0; x<width; ++x)
+		for(unsigned int y=0; y<height; ++y)
 		{
 			setPixel(x, y, other.getPixel(x, y));
 		}
@@ -449,7 +449,7 @@ void Image::zero()
 			setPixel(x, y, ColourType(0,0,0));
 }
 
-void Image::resize(int newwidth, int newheight)
+void Image::resize(unsigned int newwidth, unsigned int newheight)
 {
 	if(width == newwidth && height == newheight)
 		return;
@@ -467,10 +467,10 @@ void Image::posClamp()
 			getPixel(x, y).positiveClipComponents();
 }
 
-void Image::clamp(float min, float max)
+void Image::clampInPlace(float min, float max)
 {
 	for(unsigned int i=0; i<numPixels(); ++i)
-		getPixel(i).clamp(min, max);
+		getPixel(i).clampInPlace(min, max);
 }
 
 
@@ -514,8 +514,8 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 	src_start_x = myMax(0, src_start_x);
 	src_start_y = myMax(0, src_start_y);
 
-	src_end_x = myMin(src_end_x, getWidth());
-	src_end_y = myMin(src_end_y, getHeight());
+	src_end_x = myMin(src_end_x, (int)getWidth());
+	src_end_y = myMin(src_end_y, (int)getHeight());
 
 	for(int y=src_start_y; y<src_end_y; ++y)
 		for(int x=src_start_x; x<src_end_x; ++x)		
@@ -735,7 +735,7 @@ void Image::loadFromExr(const std::string& pathname)
 				this->getPixel(x, y).g = data[y*getWidth() + x].g;
 				this->getPixel(x, y).b = data[y*getWidth() + x].b;
 
-				this->getPixel(x, y).lowerClamp(0.0);//TEMP NEW
+				this->getPixel(x, y).lowerClampInPlace(0.0);//TEMP NEW
 
 				assert(this->getPixel(x, y).r >= 0.0);
 				//printVar(this->getPixel(x, y).g);
@@ -1251,7 +1251,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);*/
 
 		const int src_y_min = myMax(0, support_y);
-		const int src_y_max = myMin(getHeight(), support_y + filter_width);
+		const int src_y_max = myMin((int)getHeight(), support_y + filter_width);
 
 		//if(y % 50 == 0)
 		//	printVar(y);
@@ -1259,14 +1259,14 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 
 		int support_x = (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
 
-		for(int x=0; x<out.getWidth(); ++x)
+		for(int x=0; x<(int)out.getWidth(); ++x)
 		{
 			/*const int src_x_center = x * factor; 
 			const int src_x_min = myMax(0, src_x_center - neg_rad);
 			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);*/
 
 			const int src_x_min = myMax(0, support_x);
-			const int src_x_max = myMin(getWidth(), support_x + filter_width);
+			const int src_x_max = myMin((int)getWidth(), support_x + filter_width);
 
 			Colour3f c(0.0f);
 
@@ -1293,7 +1293,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
 
 			// Make sure components can't go below zero or above 1.0
-			c.clamp(0.0f, 1.0f);
+			c.clampInPlace(0.0f, 1.0f);
 
 			out.setPixel(x, y, c);
 
@@ -1549,4 +1549,15 @@ float Image::maxPixelComponent() const
 	for(unsigned int i=0; i<numPixels(); ++i)
 		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
 	return x;
+}
+
+const Colour3d Image::vec3SampleTiled(double x, double y) const
+{
+	return sampleTiled((float)x, (float)y).toColour3d();
+}
+
+double Image::scalarSampleTiled(double x, double y) const
+{
+	const Colour3f col = sampleTiled((float)x, (float)y);
+	return (double)(col.r + col.g + col.b) * (1.0 / 3.0);
 }

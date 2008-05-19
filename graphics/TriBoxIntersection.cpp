@@ -60,6 +60,45 @@ void TriBoxIntersection::clipPolyAgainstPlane(const Vec3f* points, unsigned int 
 		}
 	}*/
 
+	/*float current_dist;
+	float next_dist = points[0][plane_axis] * normal - d;
+
+	// For each edge...
+	for(unsigned int edge=0; edge<num_points; ++edge)
+	{
+		const Vec3f& current = points[edge];
+		const Vec3f& next = points[(edge + 1) % num_points];
+
+		current_dist = next_dist;
+		next_dist = next[plane_axis] * normal - d;
+
+		if(current_dist <= 0.0f)
+		{
+			// If current vertex is inside...
+			points_out[num_points_out++] = current; // Write it to output vertex list
+
+			if(next_dist > 0.0f) // If next vertex is outside...
+			{
+				// Output intersection point
+				const float frac = current_dist / (current_dist - next_dist); //(d - current[plane_axis] * normal) / (next[plane_axis] * normal - current[plane_axis] * normal);
+				assert(Maths::inRange(frac, 0.0f, 1.0f));
+				points_out[num_points_out++] = current + (next - current) * frac;
+			}
+		}
+		else
+		{
+			// Current is outside
+			
+			if(next_dist <= 0.0f) //next[plane_axis] * normal <= d) // If next vertex is inside...
+			{
+				// Output intersection point
+				const float frac = current_dist / (current_dist - next_dist); // const float frac = (d - current[plane_axis] * normal) / (next[plane_axis] * normal - current[plane_axis] * normal);
+				assert(Maths::inRange(frac, 0.0f, 1.0f));
+				points_out[num_points_out++] = current + (next - current) * frac;
+			}
+		}
+	}*/
+
 	// For each edge...
 	for(unsigned int edge=0; edge<num_points; ++edge)
 	{
@@ -93,6 +132,121 @@ void TriBoxIntersection::clipPolyAgainstPlane(const Vec3f* points, unsigned int 
 		}
 	}
 }
+
+
+void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
+{
+	polygon_verts_out.resize(0);
+	if(polygon_verts.size() == 0)
+		return;
+
+	float current_dist;
+	float next_dist = plane.signedDistToPoint(polygon_verts[0]);
+
+	// For each edge...
+	for(unsigned int edge=0; edge<polygon_verts.size(); ++edge)
+	{
+		const Vec3f& current = polygon_verts[edge];
+		const Vec3f& next = polygon_verts[(edge + 1) % polygon_verts.size()];
+
+		current_dist = next_dist;
+		next_dist = plane.signedDistToPoint(next);
+		assert(current_dist == plane.signedDistToPoint(current));
+		assert(next_dist == plane.signedDistToPoint(next));
+
+		if(current_dist <= 0.0f)
+		{
+			// If current vertex is inside...
+			polygon_verts_out.push_back(current); // Write it to output vertex list
+
+			if(next_dist > 0.0f) // If next vertex is outside...
+			{
+				// Output intersection point
+				const float t = current_dist / (current_dist - next_dist);
+				polygon_verts_out.push_back(lerp(current, next, t));
+			}
+		}
+		else
+		{
+			// Current is outside
+			
+			if(next_dist <= 0.0f) // If next vertex is inside...
+			{
+				// Output intersection point
+				const float t = current_dist / (current_dist - next_dist);
+				polygon_verts_out.push_back(lerp(current, next, t));
+			}
+		}
+	}
+}
+
+void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Plane<float> >& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
+{
+	std::vector<Vec3f> temp_verts;
+
+	temp_verts = polygon_verts;
+	for(unsigned int i=0; i<planes.size(); ++i)
+	{
+		clipPolyToPlaneHalfSpace(planes[i], temp_verts, polygon_verts_out);
+		temp_verts = polygon_verts_out;
+	}
+}
+
+
+/*void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, const Vec3f* points, unsigned int num_points, unsigned int max_num_points_out, Vec3f* points_out, unsigned int& num_points_out)
+{
+	num_points_out = 0;
+	if(num_points == 0)
+		return;
+
+	float current_dist;
+	float next_dist = plane.signedDistToPoint(points[0]);
+
+// For each edge...
+	for(unsigned int edge=0; edge<num_points; ++edge)
+	{
+		const Vec3f& current = points[edge];
+		const Vec3f& next = points[(edge + 1) % num_points];
+
+		//const float current_dist = plane.signedDistToPoint(current);
+		//const float next_dist = plane.signedDistToPoint(next);
+		current_dist = next_dist;
+		next_dist = plane.signedDistToPoint(next);
+		assert(current_dist == plane.signedDistToPoint(current));
+		assert(next_dist == plane.signedDistToPoint(next));
+
+		if(current_dist <= 0.0f) //current[plane_axis] * normal <= d)
+		{
+			assert(num_points_out < max_num_points_out);
+
+			// If current vertex is inside...
+			points_out[num_points_out++] = current; // Write it to output vertex list
+
+			if(next_dist > 0.0f) // next[plane_axis] * normal > d) // If next vertex is outside...
+			{
+				// Output intersection point
+				//const float frac = (d - current[plane_axis] * normal) / (next[plane_axis] * normal - current[plane_axis] * normal);
+				const float t = current_dist / (current_dist - next_dist);
+				assert(num_points_out < max_num_points_out);
+				points_out[num_points_out++] = lerp(current, next, t); //current + (next - current) * frac;
+			}
+		}
+		else
+		{
+			// Current is outside
+			
+			if(next_dist <= 0.0f) // next[plane_axis] * normal <= d) // If next vertex is inside...
+			{
+				// Output intersection point
+				//const float frac = (d - current[plane_axis] * normal) / (next[plane_axis] * normal - current[plane_axis] * normal);
+				const float t = current_dist / (current_dist - next_dist);
+				assert(num_points_out < max_num_points_out);
+				points_out[num_points_out++] = lerp(current, next, t); //current + (next - current) * frac;
+			}
+		}
+	}
+}*/
+
 
 
 void TriBoxIntersection::slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out)
@@ -1594,9 +1748,34 @@ void TriBoxIntersection::test()
 {
 	conPrint("TriBoxIntersection::test()");
 
+	/// test clipPolyToPlaneHalfSpace /// 
+	/*{
+		Vec3f v_out[32];
+		unsigned int num_verts_out;
+
+		{
+		const Vec3f v[3] = { Vec3f(0.0f, 0.0f, 0.0f), Vec3f(2.0, 2.0f, 0.0f), Vec3f(-2.0f, 2.0f, 0.0f) };
+		clipPolyToPlaneHalfSpace(
+			Plane<float>(Vec3f(0.f, 1.f, 0.f), 1.0), 
+			v, 
+			3, 
+			3, 
+			v_out, 
+			num_verts_out
+			);
+		testAssert(num_verts_out == 3);
+		testAssert(v_out[0] == v[0]);
+		testAssert(epsEqual(Vec3d(1.0, 1.0, 0.0), toVec3d(v_out[1])));
+		testAssert(epsEqual(Vec3d(-1.0, 1.0, 0.0), toVec3d(v_out[2])));
+		}
+	}*/
+
 	/// test clipPolyAgainstPlane ///
 	Vec3f v_out[32];
 	unsigned int num_verts_out;
+
+
+	
 
 	{
 	const Vec3f v[3] = { Vec3f(0.0f, 0.0f, 0.0f), Vec3f(2.0, 2.0f, 0.0f), Vec3f(-2.0f, 2.0f, 0.0f) };

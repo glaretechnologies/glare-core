@@ -91,7 +91,7 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 		for(int x=0; x<in.getWidth(); ++x)
 		{
 			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin(in.getWidth(), x + pixel_rad + 1);
+			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
 
 			const Image::ColourType incol = in.getPixel(x, y);
 
@@ -113,7 +113,7 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 		for(int x=0; x<in.getWidth(); ++x)
 		{
 			const int miny = myMax(0, y - pixel_rad);
-			const int maxy = myMin(in.getHeight(), y + pixel_rad + 1);
+			const int maxy = myMin((int)in.getHeight(), y + pixel_rad + 1);
 
 			const Image::ColourType incol = temp.getPixel(x, y);
 
@@ -210,7 +210,7 @@ static void horizontalGaussianBlur(const Image& in, Image& out, float standard_d
 		for(int x=0; x<in.getWidth(); ++x)
 		{
 			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin(in.getWidth(), x + pixel_rad + 1);
+			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
 
 			const Image::ColourType incol = in.getPixel(x, y);
 
@@ -355,13 +355,13 @@ void ImageFilter::chiuFilter(const Image& in, Image& out, float radius, bool inc
 	{
 		//get min and max of current filter rect along y axis
 		const int miny = myMax(0, y - pixel_rad);
-		const int maxy = myMin(in.getHeight(), y + pixel_rad + 1);
+		const int maxy = myMin((int)in.getHeight(), y + pixel_rad + 1);
 
 		for(int x=0; x<in.getWidth(); ++x)
 		{
 			//get min and max of current filter rect along x axis
 			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin(in.getWidth(), x + pixel_rad + 1);
+			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
 	
 			//for each pixel in the out image, in the filter radius
 			for(int ty=miny; ty<maxy; ++ty)
@@ -414,9 +414,9 @@ void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount)
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 	out.zero();
 
-	for(int y=0; y<out.getHeight(); ++y)
+	for(int y=0; y<(int)out.getHeight(); ++y)
 	{
-		for(int x=0; x<out.getWidth(); ++x)
+		for(int x=0; x<(int)out.getWidth(); ++x)
 		{
 			const Vec2f normed_pos(x/(float)out.getWidth(), y/(float)out.getHeight());
 			const Vec2f offset = normed_pos - Vec2f(0.5f, 0.5f);
@@ -446,8 +446,8 @@ static void rotateImage(const Image& in, Image& out, float angle)
 	const Vec2f center((float)in.getWidth() * 0.5f, (float)in.getHeight()  * 0.5f);
 
 	//for each output pixel...
-	for(int y=0; y<out.getHeight(); ++y)
-		for(int x=0; x<out.getWidth(); ++x)
+	for(int y=0; y<(int)out.getHeight(); ++y)
+		for(int x=0; x<(int)out.getWidth(); ++x)
 		{
 			//get floating point vector from center of image.
 			const Vec2f d = Vec2f((float)x, (float)y) - center;
@@ -1138,8 +1138,8 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 		const double scale = 2.0 / (double)(W * H);
 
 		// Read out real coefficients
-		for(int y=0; y<out.getHeight(); ++y)
-			for(int x=0; x<out.getWidth(); ++x)
+		for(unsigned int y=0; y<out.getHeight(); ++y)
+			for(unsigned int x=0; x<out.getWidth(); ++x)
 				out.getPixel(x, y)[comp] = (float)(product.elem(
 					x + x_offset, //(x + filter.getWidth()/2) % W, 
 					y + y_offset //(y + filter.getHeight()/2) % H

@@ -249,18 +249,27 @@ public:
 		return ::isFinite(r) && ::isFinite(g) && ::isFinite(b);
 	}
 
-	inline void clamp(Real lowerbound, Real upperbound)
+	inline void clampInPlace(Real lowerbound, Real upperbound)
 	{
 		r = myClamp(r, lowerbound, upperbound);
 		g = myClamp(g, lowerbound, upperbound);
 		b = myClamp(b, lowerbound, upperbound);
 	}
 
-	inline void lowerClamp(Real lowerbound)
+	inline void lowerClampInPlace(Real lowerbound)
 	{
 		r = myMax(r, lowerbound);
 		g = myMax(g, lowerbound);
 		b = myMax(b, lowerbound);
+	}
+
+	inline const Colour3<Real> clamp(Real lowerbound, Real upperbound) const
+	{
+		return Colour3<Real>(
+			myClamp(r, lowerbound, upperbound),
+			myClamp(g, lowerbound, upperbound),
+			myClamp(b, lowerbound, upperbound)
+			);
 	}
 
 	inline const Vec3<Real> toVec3() const

@@ -10,7 +10,9 @@ Code By Nicholas Chapman.
 
 #include <string>
 #include <vector>
-class Bitmap;
+//class Bitmap;
+class Map2D;
+#include "../utils/reference.h"
 
 
 class ImFormatExcep
@@ -40,11 +42,12 @@ public:
 	=====================================================================*/
 	~ImFormatDecoder();
 
-	static void decodeImage(const std::string& path, Bitmap& bitmap_out); // throws ImFormatExcep on failure
+	//static void decodeImage(const std::string& path, Bitmap& bitmap_out); // throws ImFormatExcep on failure
+
+	static Reference<Map2D> decodeImage(const std::string& path);
 
 private:
 	ImFormatDecoder();
-
 };
 
 

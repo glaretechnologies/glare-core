@@ -36,9 +36,9 @@ public:
 	//const unsigned char* getData() const { return data; }
 	//unsigned char* getData(){ return data; }
 
-	const unsigned int getWidth() const { return width; }
-	const unsigned int getHeight() const { return height; }
-	const unsigned int getBytesPP() const { return bytespp; }
+	unsigned int getWidth() const { return width; }
+	unsigned int getHeight() const { return height; }
+	unsigned int getBytesPP() const { return bytespp; }
 
 	inline unsigned char* rowPointer(unsigned int y);
 

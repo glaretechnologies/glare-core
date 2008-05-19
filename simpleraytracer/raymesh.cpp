@@ -84,7 +84,7 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreeP
 const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 {
 	if(!this->enable_normal_smoothing)
-		return computeTriGeometricNormal(hitinfo);//toVec3d(triNormal(hitinfo.hittri_index));
+		return toVec3d(triNormal(hitinfo.hittri_index));
 
 	const RayMeshTriangle& tri = triangles[hitinfo.hittri_index];
 
@@ -109,15 +109,17 @@ const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 
 const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 {
-#ifdef SUB_D_TREE
-	return computeTriGeometricNormal(hitinfo);
-#else
 	return toVec3d(triNormal(hitinfo.hittri_index));
-#endif
 }
 
-void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials)
+void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
+	const std::vector<Plane<float> >& camera_clip_planes
+	//double camera_horizontal_aov,
+	//double camera_vertical_aov
+	)
 {
+	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
+
 	std::vector<RayMeshTriangle> temp_tris;
 	std::vector<RayMeshVertex> temp_verts;
 
@@ -127,6 +129,9 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		pixel_height_at_dist_one,
 		subdivide_pixel_threshold,
 		num_subdivisions,
+		//camera_horizontal_aov,
+		//camera_vertical_aov,
+		camera_clip_planes,
 		triangles,
 		vertices,
 		temp_tris,
@@ -141,6 +146,8 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		triangles,
 		vertices
 		);*/
+
+	conPrint("\tDone.");
 }
 
 
@@ -451,12 +458,8 @@ void RayMesh::addMaterialUsed(const std::string& material_name)
 
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
-//#ifdef SUB_D_TREE
-	//const int use_tri_index = tri_index
-//#else
 	assert(tri_index < triangles.size());
 	return triangles[tri_index].tri_mat_index;
-//#endif
 }
 
 
@@ -566,7 +569,7 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 	FullHitInfo hitinfo;
 	hitinfo.hittri_index = tri_index;
 	hitinfo.tri_coords.set(u, v);
-	normal_out = computeTriGeometricNormal(hitinfo);//toVec3d(triNormal(tri_index));//tri.getNormal();
+	normal_out = toVec3d(triNormal(tri_index));//tri.getNormal();
 	assert(normal_out.isUnitLength());
 
 
@@ -663,25 +666,22 @@ int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
 
 void RayMesh::printTreeStats()
 {
-#ifndef SUB_D_TREE
 	tritree->printStats();
-#endif
 }
 
 void RayMesh::printTraceStats()
 {
-#ifndef SUB_D_TREE
 	tritree->printTraceStats();
-#endif
 }
 
+/*
 const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
 {
 	//assert(hitinfo.hittri_index < triangles.size());
 	//return toVec3d(subdivided_tris[hitinfo.hittri_index]->getGeometricNormal(Vec2f((float)hitinfo.tri_coords.x, (float)hitinfo.tri_coords.y)));
 	return toVec3d(this->triNormal(hitinfo.hittri_index));
 }
-
+*/
 
 
 

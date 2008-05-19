@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include <png.h>
 #include "bitmap.h"
+#include "texture.h"
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
 
@@ -53,9 +54,125 @@ void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
 */
 
 
-void PNGDecoder::decode(const std::string& path/*, const std::vector<unsigned char>& encoded_img*/, Bitmap& bitmap_out)
+Reference<Map2D> PNGDecoder::decode(const std::string& path)
 {
 	png_structp png_ptr = png_create_read_struct(
+		PNG_LIBPNG_VER_STRING, 
+		(png_voidp)NULL,
+        pngdecoder_error_func, 
+		pngdecoder_warning_func
+		);
+
+    if (!png_ptr)
+        throw ImFormatExcep("Failed to create PNG struct.");
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr)
+    {
+        png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
+
+        throw ImFormatExcep("Failed to create PNG info struct.");
+    }
+
+    png_infop end_info = png_create_info_struct(png_ptr);
+    if (!end_info)
+    {
+        png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+
+        throw ImFormatExcep("Failed to create PNG info struct.");
+    }
+
+	// Open file and start reading from it.
+	FILE* fp = fopen(path.c_str(), "rb");
+	if(!fp)
+		 throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
+
+	png_init_io(png_ptr, fp);
+
+	png_read_info(png_ptr, info_ptr);
+
+    const int width = (int)png_get_image_width(png_ptr, info_ptr);
+    const int height = (int)png_get_image_height(png_ptr, info_ptr);
+	const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+	const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
+	const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
+
+	unsigned int bitmap_num_bytes_pp = num_channels;
+
+	if(color_type == PNG_COLOR_TYPE_PALETTE)
+	{
+		 png_set_palette_to_rgb(png_ptr);
+
+		 assert(bitmap_num_bytes_pp == 1);
+		 bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
+	}
+
+	 
+
+	// actually pretty much every colour type is supported :)
+	//if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
+	//	throw ImFormatExcep("PNG has unsupported colour type.");
+
+	//PNG can have files with 16 bits per channel.  If you only can handle
+	//8 bits per channel, this will strip the pixels down to 8 bit.
+    if(bit_depth == 16)
+        png_set_strip_16(png_ptr);
+
+	///Remove alpha channel///
+	if(color_type & PNG_COLOR_MASK_ALPHA)
+	{
+        png_set_strip_alpha(png_ptr);
+
+		assert(bitmap_num_bytes_pp == 4);
+		bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
+	}
+
+	if(width <= 0 || width >= 1000000)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
+		throw ImFormatExcep("invalid width: " + toString(width));
+	}
+	if(height <= 0 || height >= 1000000)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
+		throw ImFormatExcep("invalid height: " + toString(height));
+	}
+
+	if(bit_depth != 8 && bit_depth != 16)
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		fclose(fp);
+		throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
+	}
+
+	// num_channels == 4 case should be stripped alpha case.
+	if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
+		throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 3 or 4 channels supported.");
+
+	Texture* texture = new Texture();
+	texture->resize(width, height, bitmap_num_bytes_pp);
+
+	// Read in actual image data
+	for(int y=0; y<height; ++y)
+		png_read_row(png_ptr, texture->rowPointer(y), NULL);
+
+	// Read the info at the end of the PNG file
+	png_read_end(png_ptr, end_info);
+
+	// Free structures
+	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+
+	// Close file
+	fclose(fp);
+
+	return Reference<Map2D>(texture);
+}
+
+void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
+{
+		png_structp png_ptr = png_create_read_struct(
 		PNG_LIBPNG_VER_STRING, 
 		(png_voidp)NULL,
         pngdecoder_error_func, 

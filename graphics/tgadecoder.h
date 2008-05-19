@@ -8,8 +8,9 @@ Code By Nicholas Chapman.
 #define __TGADECODER_H_666_
 
 
-
+#include "../utils/reference.h"
 #include <vector>
+class Map2D;
 class Bitmap;
 
 
@@ -29,7 +30,7 @@ public:
 	~TGADecoder();
 
 	//these throw ImFormatExcep
-	static void decode(const std::string& path, Bitmap& bitmap_out);
+	static Reference<Map2D> decode(const std::string& path);
 
 
 	static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);

@@ -31,7 +31,7 @@ You may not use this code for any commercial project.
 #include "../raytracing/hitinfo.h"
 
 
-RayPlane::RayPlane(const Plane& plane_)
+RayPlane::RayPlane(const Plane<double>& plane_)
 :	plane(plane_)
 {
 	//try and create a tightly fitting AABB

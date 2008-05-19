@@ -580,6 +580,13 @@ inline bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
 	}
 }
 
+template <class Real>
+inline const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real t)
+{
+	assert(t >= (Real)0.0 && t <= (Real)1.0);
+	return a * ((Real)1.0 - t) + b * t;
+}
+
 
 inline const Vec3<float> toVec3f(const Vec3<double>& v)
 {

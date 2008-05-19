@@ -7,6 +7,8 @@ Code By Nicholas Chapman.
 #include "DisplacementUtils.h"
 
 
+#include "../maths/rect2.h"
+#include "../graphics/TriBoxIntersection.h"
 
 
 DisplacementUtils::DisplacementUtils()
@@ -33,19 +35,19 @@ static const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, int v0
 void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& materials,
 											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
 								  unsigned int num_subdivisions,
+								  const std::vector<Plane<float> >& camera_clip_planes,
+								  //double camera_horizontal_aov,
+		//double camera_vertical_aov,
 		const std::vector<RayMeshTriangle>& triangles_in, 
 		const std::vector<RayMeshVertex>& vertices_in, 
 		std::vector<RayMeshTriangle>& tris_out, 
 		std::vector<RayMeshVertex>& verts_out
 		)
 {
-	conPrint("Subdividing mesh: (num subdivisions = " + toString(num_subdivisions) + ")");
+	//conPrint("Subdividing mesh: (num subdivisions = " + toString(num_subdivisions) + ")");
 
 	
 
-	conPrint("\t\tDone.");
-
-	
 	std::vector<RayMeshTriangle> temp_tris = triangles_in;
 
 	std::vector<DUVertex> temp_verts(vertices_in.size());
@@ -81,6 +83,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			}
 		}
 		temp_verts = newverts;
+		conPrint("\t\tDone.");
 	}
 
 
@@ -96,13 +99,17 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			camera_coordframe_os, 
 			pixel_height_at_dist_one, 
 			subdivide_pixel_threshold, 
+			//camera_horizontal_aov,
+			//camera_vertical_aov,
+			camera_clip_planes,
 			temp_tris, 
 			temp_verts, 
 			temp_tris2, 
 			temp_verts2
 			);
 		
-		averagePass(temp_tris2, temp_verts2, temp_verts);
+		// TEMP averagePass(temp_tris2, temp_verts2, temp_verts);
+		temp_verts = temp_verts2;
 		temp_tris = temp_tris2;
 
 		conPrint("\t\tresulting num vertices: " + toString(temp_verts.size()));
@@ -232,6 +239,19 @@ static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal
 	return myMax(curvature_u, curvature_v, curvature_uv);
 }
 
+static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordframe_os, const Vec3f& cam_space_pos)
+{
+	return Vec2f(cam_space_pos.x / cam_space_pos.y, cam_space_pos.z / cam_space_pos.y);
+}
+
+/*
+static Rect2f screen_space_for_aabb(const js::AABBox& cam_space_aabb)
+{
+	const float near_recip_dist = 1.0f / cam_space_aabb.min_.y;
+	const float far_recip_dist = 1.0f / cam_space_aabb.max_.y;
+	
+	Rect2f r(cam_space_aabb.min_.x * near_recip_dist, cam_space_aabb.min_.z * near_recip_dist);
+	r.area*/
 
 
 void DisplacementUtils::linearSubdivision(
@@ -239,6 +259,9 @@ void DisplacementUtils::linearSubdivision(
 	const CoordFramed& camera_coordframe_os, 
 	double pixel_height_at_dist_one,
 	double subdivide_pixel_threshold,
+	//double camera_horizontal_aov,
+	//double camera_vertical_aov,
+	const std::vector<Plane<float> >& camera_clip_planes,
 	const std::vector<RayMeshTriangle>& tris_in, 
 	const std::vector<DUVertex>& verts_in, 
 	std::vector<RayMeshTriangle>& tris_out, 
@@ -290,7 +313,11 @@ void DisplacementUtils::linearSubdivision(
 			const float cot_val = 1.0f / tan(::angleBetween(v0v1, v1v2);*/
 
 
+//	const double tan_horiz_cos_theta = tan(camera_horizontal_aov);
+//	const double tan_vert_cos_theta = tan(camera_vertical_aov);
 
+	std::vector<Vec3f> clipped_tri_verts;
+	clipped_tri_verts.reserve(32);
 
 	unsigned int num_tris_subdivided = 0;
 	unsigned int num_tris_unchanged = 0;
@@ -298,7 +325,7 @@ void DisplacementUtils::linearSubdivision(
 	// For each triangle
 	for(unsigned int t=0; t<tris_in.size(); ++t)
 	{
-		SSE_ALIGN js::AABBox tri_aabb(
+		/*SSE_ALIGN js::AABBox tri_aabb(
 			toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[0]].pos))), 
 			toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[0]].pos)))
 			);
@@ -306,19 +333,75 @@ void DisplacementUtils::linearSubdivision(
 		for(int i=1; i<3; ++i)
 		{
 			tri_aabb.enlargeToHoldPoint(toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[i]].pos))));
+		}*/
+
+		bool do_subdivide = false;
+
+		// Get array of triangle vertices in camera space
+		// NOTE: using displaced_in_verts here.
+		std::vector<Vec3f> verts_cs(3);
+		for(int i=0; i<3; ++i)
+			verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(displaced_in_verts[tris_in[t].vertex_indices[i]].pos)));
+		
+		// Clip triangle against frustrum planes
+		TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, verts_cs, clipped_tri_verts);
+
+		if(clipped_tri_verts.size() > 0) // If the triangle has not been completely clipped away
+		{
+			const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts[0]);
+			Rect2f rect_ss(v0_ss, v0_ss);
+
+			for(unsigned int i=1; i<clipped_tri_verts.size(); ++i)
+			{
+				rect_ss.enlargeToHoldPoint(
+					screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts[i])
+					);
+			}
+
+			do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
 		}
 
-		const double height = tri_aabb.axisLength(2) / tri_aabb.min_.y;
-		const double width = tri_aabb.axisLength(0) / tri_aabb.min_.y;
 
-		const float curvature = triangleMaxCurvature(
-			vert_normals[tris_in[t].vertex_indices[0]], 
-			vert_normals[tris_in[t].vertex_indices[1]], 
-			vert_normals[tris_in[t].vertex_indices[2]]
-		);
 
-		const bool do_subdivide = curvature > 0.01f; //myMax(height, width) > pixel_height_at_dist_one * subdivide_pixel_threshold;
-		//const bool do_subdivide = tri_aabb.min_.z > 0.0;
+		/*
+
+		if(tri_aabb.max_.y < 0.0f) // tri is completely behind camera
+		{
+			do_subdivide = false;
+		}
+		else
+		{
+			tri_aabb.min_.y = myMax(0.0001f, tri_aabb.min_.y);
+
+			const double near_dist = tri_aabb.min_.y;
+			const double far_dist = tri_aabb.max_.y;
+			double tan_horiz_angle = myMin(fabs(tri_aabb.min_.x) / near_dist, fabs(tri_aabb.max_.x) / near_dist);
+			tan_horiz_angle = myMin(tan_horiz_angle, fabs(tri_aabb.min_.x) / far_dist, fabs(tri_aabb.max_.x) / far_dist);
+
+			if((tri_aabb.min_.x * tri_aabb.max_.x <= 0.0f) || tan_horiz_angle <= tan_horiz_cos_theta)
+			{
+				double tan_vert_angle = myMin(fabs(tri_aabb.min_.z) / near_dist, fabs(tri_aabb.max_.z) / near_dist);
+				tan_vert_angle = myMin(tan_vert_angle, fabs(tri_aabb.min_.z) / far_dist, fabs(tri_aabb.max_.z) / far_dist);
+
+				if((tri_aabb.min_.z * tri_aabb.max_.z <= 0.0f) || tan_vert_angle <= tan_vert_cos_theta)
+				{
+
+
+					const double height = tri_aabb.axisLength(2) / fabs(tri_aabb.min_.y);
+					const double width = tri_aabb.axisLength(0) / fabs(tri_aabb.min_.y);
+
+					const float curvature = triangleMaxCurvature(
+						vert_normals[tris_in[t].vertex_indices[0]], 
+						vert_normals[tris_in[t].vertex_indices[1]], 
+						vert_normals[tris_in[t].vertex_indices[2]]
+					);
+
+					//const bool do_subdivide = true;//curvature > 0.01f; //myMax(height, width) > pixel_height_at_dist_one * subdivide_pixel_threshold;
+					do_subdivide = tri_aabb.max_.y > 0.0f && myMax(height, width) > pixel_height_at_dist_one * subdivide_pixel_threshold;
+					//const bool do_subdivide = tri_aabb.min_.z > 0.0;
+				}
+			}
+		}*/
 
 
 		if(do_subdivide)

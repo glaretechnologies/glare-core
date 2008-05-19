@@ -1,46 +1,44 @@
 /*=====================================================================
-TIFFDecoder.h
--------------
-File created by ClassTemplate on Fri May 02 16:51:32 2008
+FPImageMap32.h
+--------------
+File created by ClassTemplate on Sun May 18 21:48:53 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TIFFDECODER_H_666_
-#define __TIFFDECODER_H_666_
+#ifndef __FPIMAGEMAP32_H_666_
+#define __FPIMAGEMAP32_H_666_
 
+//#error: use Image.h instead
 
-#include <string>
-#include "../utils/reference.h"
-class Map2D;
+class Image;
 
 
 /*=====================================================================
-TIFFDecoder
------------
+FPImageMap32
+------------
 
 =====================================================================*/
-class TIFFDecoder
+class FPImageMap32
 {
 public:
 	/*=====================================================================
-	TIFFDecoder
-	-----------
+	FPImageMap32
+	------------
 	
 	=====================================================================*/
-	TIFFDecoder();
+	FPImageMap32();
 
-	~TIFFDecoder();
-
-
-	// throws ImFormatExcep
-	static Reference<Map2D> decode(const std::string& path);
+	~FPImageMap32();
 
 
 
+
+private:
+	Image* data;
 };
 
 
 
-#endif //__TIFFDECODER_H_666_
+#endif //__FPIMAGEMAP32_H_666_
 
 
 

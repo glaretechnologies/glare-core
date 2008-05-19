@@ -40,6 +40,8 @@ public:
 	inline const Vec2<Real> getWidths() const;
 	inline Real area() const { return (max.x - min.x) * (max.y - min.y); }
 
+	inline void enlargeToHoldPoint(const Vec2<Real>& p);
+
 private:
 	Vec2<Real> min;
 	Vec2<Real> max;
@@ -77,6 +79,16 @@ const Vec2<Real> Rect2<Real>::getWidths() const
 {
 	return max - min;
 }
+
+template <class Real>
+void Rect2<Real>::enlargeToHoldPoint(const Vec2<Real>& p)
+{
+	min.x = myMin(min.x, p.x);
+	min.y = myMin(min.y, p.y);
+	max.x = myMax(max.x, p.x);
+	max.y = myMax(max.y, p.y);
+}
+
 
 typedef Rect2<float> Rect2f;
 typedef Rect2<double> Rect2d;

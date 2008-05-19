@@ -4,6 +4,7 @@
 
 #include "colour3.h"
 #include "../utils/array2d.h"
+#include "../graphics/Map2D.h"
 #include "assert.h"
 #include <string>
 #include <map>
@@ -22,13 +23,18 @@ private:
 };
 
 
-//a floating point tri-component image class.
 
-class Image
+/*=====================================================================
+TGADecoder
+----------
+A floating point tri-component image class.
+Each component is stored as a 32-bit float.
+=====================================================================*/
+class Image : public Map2D
 {
 public:
 	Image();
-	Image(int width, int height);
+	Image(unsigned int width, unsigned int height);
 	~Image();
 
 	Image& operator = (const Image& other);
@@ -39,12 +45,12 @@ public:
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
-	inline int getHeight() const { return height; }
-	inline int getWidth() const { return width; }
+	inline unsigned int getHeight() const { return height; }
+	inline unsigned int getWidth() const { return width; }
 	inline unsigned int numPixels() const { return (unsigned int)(width * height); }
 
-	inline const ColourType& getPixel(int x, int y) const;
-	inline ColourType& getPixel(int x, int y);
+	inline const ColourType& getPixel(unsigned int x, unsigned int y) const;
+	inline ColourType& getPixel(unsigned int x, unsigned int y);
 
 	inline const ColourType& getPixel(unsigned int i) const;
 	inline ColourType& getPixel(unsigned int i);
@@ -64,8 +70,8 @@ public:
 	void loadFromRAW(const std::string& pathname, int width_, int height_,
 		float load_gain);
 
-	inline void setPixel(int x, int y, const ColourType& colour);
-	inline void incrPixel(int x, int y, const ColourType& colour);
+	inline void setPixel(unsigned int x, unsigned int y, const ColourType& colour);
+	inline void incrPixel(unsigned int x, unsigned int y, const ColourType& colour);
 
 	//throws ImageExcep
 	void loadFromNFF(const std::string& pathname);
@@ -81,10 +87,10 @@ public:
 
 	void zero();
 
-	void resize(int newwidth, int newheight);
+	void resize(unsigned int newwidth, unsigned int newheight);
 
 	void posClamp();
-	void clamp(float min, float max);
+	void clampInPlace(float min, float max);
 
 	void gammaCorrect(float exponent);
 
@@ -124,11 +130,15 @@ public:
 	float minPixelComponent() const;
 	float maxPixelComponent() const;
 
-	
+	////// Map2D interface //////////
+	virtual const Colour3d vec3SampleTiled(double x, double y) const;
+
+	virtual double scalarSampleTiled(double x, double y) const;
+	/////////////////////////////////
 
 private:
-	int width;
-	int height;
+	unsigned int width;
+	unsigned int height;
 	Array2d<ColourType> pixels;	
 
 };
@@ -145,14 +155,14 @@ Image::ColourType& Image::getPixel(unsigned int i)
 	return pixels.getData()[i];
 }
 
-const Image::ColourType& Image::getPixel(int x, int y) const
+const Image::ColourType& Image::getPixel(unsigned int x, unsigned int y) const
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 
 	return pixels.elem(x, y);
 }
 
-Image::ColourType& Image::getPixel(int x, int y)
+Image::ColourType& Image::getPixel(unsigned int x, unsigned int y)
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 
@@ -205,14 +215,14 @@ const Image::ColourType& Image::getPixelTiled(int x, int y) const
 }
 
 
-void Image::setPixel(int x, int y, const ColourType& colour)
+void Image::setPixel(unsigned int x, unsigned int y, const ColourType& colour)
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 	
 	pixels.elem(x, y) = colour;
 }
 
-void Image::incrPixel(int x, int y, const ColourType& colour)
+void Image::incrPixel(unsigned int x, unsigned int y, const ColourType& colour)
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 	

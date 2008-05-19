@@ -312,8 +312,8 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 	//const double max_y_angular_deviation = ((double)diffraction_filter_image->getHeight() / 2.0) * (this->sensor_width / (double)sensor_y_res);
 
 	// For each pixel in the XYZ diffraction map
-	for(int y=0; y<diffraction_filter_image->getHeight(); ++y)
-		for(int x=0; x<diffraction_filter_image->getWidth(); ++x)
+	for(unsigned int y=0; y<diffraction_filter_image->getHeight(); ++y)
+		for(unsigned int x=0; x<diffraction_filter_image->getWidth(); ++x)
 		{
 			// Get normalised coordinates of this pixel
 			const Vec2d normed_coords(
@@ -322,8 +322,8 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 				);
 
 			// Get distance from center pixel of filter
-			const int d_pixel_x = x - diffraction_filter_image->getWidth() / 2;
-			const int d_pixel_y = y - diffraction_filter_image->getHeight() / 2;
+			const int d_pixel_x = (int)x - (int)diffraction_filter_image->getWidth() / 2;
+			const int d_pixel_y = (int)y - (int)diffraction_filter_image->getHeight() / 2;
 
 			// Get physical distance this corresponds to on sensor
 			const double sensor_dist_x = (double)d_pixel_x * sensor_pixel_width;
@@ -424,7 +424,7 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 			}
 
 			diffraction_filter_image->getPixel(x, y) = Colour3f((float)sum.x, (float)sum.y, (float)sum.z);
-			diffraction_filter_image->getPixel(x, y).lowerClamp(0.0f);
+			diffraction_filter_image->getPixel(x, y).lowerClampInPlace(0.0f);
 		}
 
 
@@ -927,6 +927,15 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 	conPrint("\tDone.");
 }
 
+double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
+{
+	return 2.0 * atan(sensor_width / (2.0 * sensor_to_lens_dist));
+}
+
+double Camera::getVerticalAngleOfView() const // including to up and down, in radians
+{
+	return 2.0 * atan(sensor_height / (2.0 * sensor_to_lens_dist));
+}
 
 
 void Camera::unitTest()

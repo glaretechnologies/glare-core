@@ -11,6 +11,8 @@ Code By Nicholas Chapman.
 #include <vector>
 #include <map>
 #include <string>
+#include "../utils/reference.h"
+class Map2D;
 class Bitmap;
 
 
@@ -34,7 +36,9 @@ public:
 
 
 	//these throw ImFormatExcep
-	static void decode(const std::string& path, /*const std::vector<unsigned char>& encoded_img, */Bitmap& bitmap_out);
+	static Reference<Map2D> decode(const std::string& path);
+	
+	static void decode(const std::string& path, Bitmap& bitmap_out);
 
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 

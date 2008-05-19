@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "bitmap.h"
+#include "texture.h"
 #include "imformatdecoder.h"
 #include <assert.h>
 #include <memory.h>
@@ -54,7 +55,7 @@ typedef struct
 #pragma pack(pop)
 
 
-void TGADecoder::decode(const std::string& path, Bitmap& bitmap_out)
+Reference<Map2D> TGADecoder::decode(const std::string& path)
 {
 	assert(sizeof(TGA_HEADER) == 18);
 
@@ -101,7 +102,8 @@ void TGADecoder::decode(const std::string& path, Bitmap& bitmap_out)
 		throw ImFormatExcep("not enough data supplied");
 
 
-	bitmap_out.resize(width, height, bytes_pp);
+	Texture* texture = new Texture();
+	texture->resize(width, height, bytes_pp);
 
 	const byte* srcpointer = &(*encoded_img.begin()) + sizeof(TGA_HEADER);
 
@@ -121,7 +123,7 @@ void TGADecoder::decode(const std::string& path, Bitmap& bitmap_out)
 
 				//bitmap_out.getData()[dstoffset] = srcpointer[srcoffset];
 
-				bitmap_out.setPixelComp(x, y, 0, srcpointer[srcoffset]);
+				texture->setPixelComp(x, y, 0, srcpointer[srcoffset]);
 			}
 		}
 	}	
@@ -144,9 +146,9 @@ void TGADecoder::decode(const std::string& path, Bitmap& bitmap_out)
 				bitmap_out.getData()[dstoffset+1] = srcpointer[srcoffset+1];
 				bitmap_out.getData()[dstoffset+2] = srcpointer[srcoffset];*/
 
-				bitmap_out.setPixelComp(x, y, 0, srcpointer[srcoffset+2]);
-				bitmap_out.setPixelComp(x, y, 1, srcpointer[srcoffset+1]);
-				bitmap_out.setPixelComp(x, y, 2, srcpointer[srcoffset]);
+				texture->setPixelComp(x, y, 0, srcpointer[srcoffset+2]);
+				texture->setPixelComp(x, y, 1, srcpointer[srcoffset+1]);
+				texture->setPixelComp(x, y, 2, srcpointer[srcoffset]);
 			}
 		}
 	}
@@ -177,6 +179,8 @@ void TGADecoder::decode(const std::string& path, Bitmap& bitmap_out)
 	{
 		throw ImFormatExcep("invalid bytes per pixel.");
 	}
+
+	return Reference<Map2D>(texture);
 }
 
 void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)

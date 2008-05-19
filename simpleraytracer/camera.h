@@ -164,6 +164,9 @@ public:
 
 	double sensorHeight() const { return sensor_height; }
 	double sensorLensDist() const { return sensor_to_lens_dist; }
+
+	double getHorizontalAngleOfView() const; // including to left and right, in radians
+	double getVerticalAngleOfView() const; // including to up and down, in radians
 	
 
 	std::vector<const Medium*> containing_media;
@@ -192,7 +195,7 @@ private:
 	double lens_radius;
 	double focal_length;
 	double aspect_ratio;
-	double angle_of_view;
+	//double angle_of_view;
 
 	/*double width;
 	double width_2;

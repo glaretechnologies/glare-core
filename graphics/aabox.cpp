@@ -170,7 +170,7 @@ void AABox::scale(float scalefactor)
 }
 
 
-bool AABox::onFrontSideOfPlane(const Plane& plane) const
+/*bool AABox::onFrontSideOfPlane(const Plane<double>& plane) const
 {						//returns true if all corners on front side of plane
 	if(!inited)
 		return false;
@@ -182,7 +182,7 @@ bool AABox::onFrontSideOfPlane(const Plane& plane) const
 
 	return true;
 
-}
+}*/
 
 void AABox::setToLargeBox()
 {
@@ -199,7 +199,7 @@ void AABox::setToLargeBox()
 }
 
 //returns 0 if point in box
-float AABox::getDistToPoint(const Vec3d& point) const
+double AABox::getDistToPoint(const Vec3d& point) const
 {
 	assert(inited);
 

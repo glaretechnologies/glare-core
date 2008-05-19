@@ -30,98 +30,108 @@ You may not use this code for any commercial project.
 #include "mathstypes.h"
 //class CoordFrame;
 
+
+template <class Real>
 class Plane
 {
 public:
 	inline Plane();
-	inline Plane(const Vec3d& origin, const Vec3d& normal);
-	inline Plane(const Vec3d& normal, double dist_from_origin);
-	inline Plane(const Plane& rhs);
+	inline Plane(const Vec3<Real>& origin, const Vec3<Real>& normal);
+	inline Plane(const Vec3<Real>& normal, Real dist_from_origin);
+	//inline Plane(const Plane& rhs);
 	inline ~Plane();
 
 //	Plane& operator = (const Plane& rhs);
 
-	inline void set(const Vec3d& normal, double dist_from_origin);
-	inline void set(const Vec3d& origin, const Vec3d& normal);
+	//inline void set(const Vec3<Real>& normal, Real dist_from_origin);
+	//inline void set(const Vec3<Real>& origin, const Vec3<Real>& normal);
 
-	inline void setUnnormalised(const Vec3d& origin, const Vec3d& nonunit_normal);
+	//inline void setUnnormalised(const Vec3<Real>& origin, const Vec3<Real>& nonunit_normal);
 
 	
 
 
-	inline bool pointOnFrontSide(const Vec3d& point) const;
+	inline bool pointTouchingFrontHalfSpace(const Vec3<Real>& point) const;
 
-	inline bool pointOnBackSide(const Vec3d& point) const;
+	inline bool pointTouchingBackHalfSpace(const Vec3<Real>& point) const;
 
-	inline bool isPointOnPlane(const Vec3d& point) const;
+	//inline bool isPointOnPlane(const Vec3<Real>& point) const;
 
-	inline const Vec3d calcOrigin() const;//SLOW!
+	inline const Vec3<Real> calcOrigin() const;//SLOW!
 
-	inline const Vec3d projOnPlane(const Vec3d& vec) const;
+	inline const Vec3<Real> projOnPlane(const Vec3<Real>& vec) const;
 
-	inline const Vec3d compNormalToPlane(const Vec3d& vec) const;
+	inline const Vec3<Real> compNormalToPlane(const Vec3<Real>& vec) const;
 
-	inline double signedDistToPoint(const Vec3d& p) const;
+	inline Real signedDistToPoint(const Vec3<Real>& p) const;
 
-	inline const Vec3d closestPointOnPlane(const Vec3d& p) const;
+	inline const Vec3<Real> closestPointOnPlane(const Vec3<Real>& p) const;
 
-	inline double getDist() const { return d; }
-	inline double getD() const { return d; }
+	inline Real getDist() const { return d; }
+	inline Real getD() const { return d; }
 
-	inline const Vec3d& getNormal() const { return normal; }
+	inline const Vec3<Real>& getNormal() const { return normal; }
 
 	//returns fraction of ray travelled. Will be in range [0, 1] if ray hit
-	inline double finiteRayIntersect(const Vec3d& raystart, const Vec3d& rayend) const;
+	inline Real finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& rayend) const;
 
-	inline double rayIntersect(const Vec3d& raystart, const Vec3d ray_unitdir) const;
+	inline Real rayIntersect(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const;
 
 	//NOTE: will return a position even if ray points AWAY from plane.
-	inline const Vec3d getRayIntersectPos(const Vec3d& raystart, const Vec3d ray_unitdir) const;
+	inline const Vec3<Real> getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const;
 
 	//const Plane transformToLocal(const CoordFrame& coordframe) const;
 
-	inline bool isSpherePartiallyOnFrontSide(const Vec3d& sphere_center, double radius) const;
-	inline bool isSphereTotallyOnFrontSide(const Vec3d& sphere_center, double radius) const;
+	inline bool isSpherePartiallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
+	inline bool isSphereTotallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
 
 	inline bool isPlaneOnFrontSide(const Plane& p) const;
 
-	inline const Vec3d reflectPointInPlane(const Vec3d& point) const;
-	inline const Vec3d reflectVectorInPlane(const Vec3d& vec) const;
+	inline const Vec3<Real> reflectPointInPlane(const Vec3<Real>& point) const;
+	inline const Vec3<Real> reflectVectorInPlane(const Vec3<Real>& vec) const;
 
 private:
-	double d;
-	Vec3d normal;
+	Vec3<Real> normal;
+	Real d;
 };
 
-
-Plane::Plane()
+template <class Real>
+Plane<Real>::Plane()
 {}
 
-Plane::Plane(const Vec3d& origin, const Vec3d& normal_)
+template <class Real>
+Plane<Real>::Plane(const Vec3<Real>& origin, const Vec3<Real>& normal_)
+:	normal(normal_),
+	d(dot(origin, normal))
 {
-	normal = normal_;
+	//normal = normal_;
 
 	assert( epsEqual(normal.length(), 1.0) );
 
-	d = dot(origin, normal);
+	//d = dot(origin, normal);
 }
 
-Plane::Plane(const Vec3d& normal_, double dist_from_origin)
+template <class Real>
+Plane<Real>::Plane(const Vec3<Real>& normal_, Real d_)
+:	normal(normal_),
+	d(d_)
 {
-	normal = normal_;
+	//normal = normal_;
 
-	assert( epsEqual(normal.length(), 1.0) );
+	assert( epsEqual(normal.length(), (Real)1.0) );
 
-	d = dist_from_origin;
+	//d = dist_from_origin;
 }
 
-Plane::Plane(const Plane& rhs)
+/*template <class Real>
+Plane<Real>::Plane(const Plane& rhs)
 {
 	normal = rhs.normal;
 	d = rhs.d;
-}
+}*/
 
-Plane::~Plane()
+template <class Real>
+Plane<Real>::~Plane()
 {}
 
 /*Plane& Plane::operator = (const Plane& rhs)
@@ -131,18 +141,22 @@ Plane::~Plane()
 
 	return *this;
 }*/
-void Plane::set(const Vec3d& normal_, double dist_from_origin)
+
+/*
+template <class Real>
+void Plane<Real>::set(const Vec3<Real>& normal_, Real dist_from_origin)
 {
 	normal = normal_;
 
 	assert( epsEqual(normal.length(), 1.0) );
 
 	d = dist_from_origin;
-}
+}*/
 
 
-
-void Plane::set(const Vec3d& origin, const Vec3d& normal_)
+/*
+template <class Real>
+void Plane<Real>::set(const Vec3<Real>& origin, const Vec3<Real>& normal_)
 {
 	normal = normal_;
 
@@ -151,66 +165,76 @@ void Plane::set(const Vec3d& origin, const Vec3d& normal_)
 	d = dot(origin, normal);
 }
 
-void Plane::setUnnormalised(const Vec3d& origin, const Vec3d& nonunit_normal)
+template <class Real>
+void Plane<Real>::setUnnormalised(const Vec3<Real>& origin, const Vec3<Real>& nonunit_normal)
 {
 	normal = nonunit_normal;
 
 	normal.normalise();
 
 	d = dot(origin, normal);
-}
+}*/
 
-bool Plane::pointOnFrontSide(const Vec3d& point) const
+template <class Real>
+bool Plane<Real>::pointTouchingFrontHalfSpace(const Vec3<Real>& point) const
 {
-	return (dot(point, normal) >= d);
+	return dot(point, normal) >= d;
 }
 
-bool Plane::pointOnBackSide(const Vec3d& point) const
+template <class Real>
+bool Plane<Real>::pointTouchingBackHalfSpace(const Vec3<Real>& point) const
 {
-	return (dot(point, normal) < d);
+	return dot(point, normal) <= d;
 }
 
-bool Plane::isPointOnPlane(const Vec3d& point) const 
+/*template <class Real>
+bool Plane<Real>::isPointOnPlane(const Vec3<Real>& point) const 
 {
 	if(fabs(signedDistToPoint(point)) < 0.00001f)
 		return true;
 	else
 		return false;
-}
+}*/
 
 
-const Vec3d Plane::calcOrigin() const
+template <class Real>
+const Vec3<Real> Plane<Real>::calcOrigin() const
 {
 	return normal * d;
 }
 
-const Vec3d Plane::projOnPlane(const Vec3d& vec) const
+template <class Real>
+const Vec3<Real> Plane<Real>::projOnPlane(const Vec3<Real>& vec) const
 {
 	return vec - compNormalToPlane(vec);
 }
 
-const Vec3d Plane::compNormalToPlane(const Vec3d& vec) const
+template <class Real>
+const Vec3<Real> Plane<Real>::compNormalToPlane(const Vec3<Real>& vec) const
 {
 	return dot(vec, normal) * normal;
 }
 
-double Plane::signedDistToPoint(const Vec3d& p) const
+template <class Real>
+Real Plane<Real>::signedDistToPoint(const Vec3<Real>& p) const
 {
 	return dot(p, normal) - d;
 }
 
-const Vec3d Plane::closestPointOnPlane(const Vec3d& p) const
+template <class Real>
+const Vec3<Real> Plane<Real>::closestPointOnPlane(const Vec3<Real>& p) const
 {
 	return p - (signedDistToPoint(p) * normal);
 }
 
-double Plane::finiteRayIntersect(const Vec3d& raystart, const Vec3d& rayend) const
+template <class Real>
+Real Plane<Real>::finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& rayend) const
 {
-	const double raystart_dot_n = dot(raystart, normal);
+	const Real raystart_dot_n = dot(raystart, normal);
 
-	const double rayend_dot_n = dot(rayend, normal);
+	const Real rayend_dot_n = dot(rayend, normal);
 
-	const double denom = rayend_dot_n - raystart_dot_n;
+	const Real denom = rayend_dot_n - raystart_dot_n;
 
 	if(denom == 0.0f)
 		return -1.0f;
@@ -219,10 +243,11 @@ double Plane::finiteRayIntersect(const Vec3d& raystart, const Vec3d& rayend) con
 
 }
 
-double Plane::rayIntersect(const Vec3d& raystart, const Vec3d ray_unitdir) const
+template <class Real>
+Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const
 {
 
-	const double start_to_plane_dist = signedDistToPoint(raystart);
+	const Real start_to_plane_dist = signedDistToPoint(raystart);
 
 	return start_to_plane_dist / -dot(ray_unitdir, normal);
 
@@ -231,9 +256,10 @@ double Plane::rayIntersect(const Vec3d& raystart, const Vec3d ray_unitdir) const
 }
 
 
-const Vec3d Plane::getRayIntersectPos(const Vec3d& raystart, const Vec3d ray_unitdir) const
+template <class Real>
+const Vec3<Real> Plane<Real>::getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const
 {
-	const double dist_till_intersect = rayIntersect(raystart, ray_unitdir);
+	const Real dist_till_intersect = rayIntersect(raystart, ray_unitdir);
 
 	return raystart + ray_unitdir * dist_till_intersect;
 }
@@ -253,30 +279,35 @@ const Plane Plane::transformToLocal(const CoordFrame& coordframe) const
 	//NOTE: check this is right
 }*/
 
-bool Plane::isSpherePartiallyOnFrontSide(const Vec3d& sphere_center, double radius) const
+template <class Real>
+bool Plane<Real>::isSpherePartiallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const
 {
 	return signedDistToPoint(sphere_center) <= radius * -1.0f;
 }
 
-bool Plane::isSphereTotallyOnFrontSide(const Vec3d& sphere_center, double radius) const
+template <class Real>
+bool Plane<Real>::isSphereTotallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const
 {
 	return signedDistToPoint(sphere_center) >= radius;
 }
 
-bool Plane::isPlaneOnFrontSide(const Plane& p) const
+template <class Real>
+bool Plane<Real>::isPlaneOnFrontSide(const Plane& p) const
 {
 	return epsEqual(p.getNormal(), this->getNormal())
 				&& p.getDist() > this->getDist();
 }
 
-inline const Vec3d Plane::reflectPointInPlane(const Vec3d& point) const
+template <class Real>
+inline const Vec3<Real> Plane<Real>::reflectPointInPlane(const Vec3<Real>& point) const
 {
-	return point - getNormal() * signedDistToPoint(point) * 2.0f;
+	return point - getNormal() * signedDistToPoint(point) * (Real)2.0;
 }
 
-inline const Vec3d Plane::reflectVectorInPlane(const Vec3d& vec) const
+template <class Real>
+inline const Vec3<Real> Plane<Real>::reflectVectorInPlane(const Vec3<Real>& vec) const
 {
-	return vec - getNormal() * dot(getNormal(), vec) * 2.0f;
+	return vec - getNormal() * dot(getNormal(), vec) * (Real)2.0;
 }
 
 

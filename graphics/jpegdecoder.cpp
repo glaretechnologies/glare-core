@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "jpegdecoder.h"
 
-#include "../graphics/bitmap.h"
+#include "../graphics/texture.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +42,7 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
-void JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const std::string& path, Bitmap& img_out)
+Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const std::string& path)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -83,7 +83,10 @@ void JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const st
 
 	//img_out.setBytesPP(cinfo.num_components);
 	//img_out.resize(cinfo.output_width, cinfo.output_height);
-	img_out.resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
+
+	Texture* texture = new Texture();
+
+	texture->resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
 
 
 	//------------------------------------------------------------------------
@@ -114,7 +117,7 @@ void JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const st
 		/* Assume put_scanline_someplace wants a pointer and sample count. */
 		//put_scanline_someplace(buffer[0], row_stride);
 
-		memcpy(img_out.rowPointer(y), buffer[0], row_stride);
+		memcpy(texture->rowPointer(y), buffer[0], row_stride);
 		++y;
   }
 
@@ -136,6 +139,8 @@ void JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const st
 	* think that jpeg_destroy can do an error exit, but why assume anything...)
 	*/
 	fclose(infile);
+
+	return Reference<Map2D>(texture);
 }
 
 

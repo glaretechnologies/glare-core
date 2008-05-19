@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "bitmap.h"
+#include "texture.h"
 #include "imformatdecoder.h"
 #include <assert.h>
 #include "../utils/stringutils.h"
@@ -56,7 +57,7 @@ typedef struct {
 
 
 //these throw ImFormatExcep
-void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
+Reference<Map2D> BMPDecoder::decode(const std::string& path)
 {
 	// Read file into memory
 	std::vector<unsigned char> encoded_img;
@@ -118,7 +119,8 @@ void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 	if(height < 0 || height > MAX_DIMS) 
 		throw ImFormatExcep("bad image height.");
 
-	bitmap_out.resize(width, height, bytespp);
+	Texture* texture = new Texture();
+	texture->resize(width, height, bytespp);
 
 	int rowpaddingbytes = 4 - ((width * bytespp) % 4);
 	if(rowpaddingbytes == 4)
@@ -145,7 +147,7 @@ void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 				//bitmap_out.getData()[i++] = encoded_img[srcindex++];
 				//*bitmap_out.getPixel(x, y) = encoded_img[srcindex++];
 				assert(srcindex < encoded_img.size());
-				bitmap_out.setPixelComp(x, y, 0, encoded_img[srcindex++]);
+				texture->setPixelComp(x, y, 0, encoded_img[srcindex++]);
 			}
 			else
 			{
@@ -160,9 +162,9 @@ void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 				bitmap_out.getData()[i++] = g;
 				bitmap_out.getData()[i++] = b;*/
 
-				bitmap_out.setPixelComp(x, y, 0, r);
-				bitmap_out.setPixelComp(x, y, 1, g);
-				bitmap_out.setPixelComp(x, y, 2, b);
+				texture->setPixelComp(x, y, 0, r);
+				texture->setPixelComp(x, y, 1, g);
+				texture->setPixelComp(x, y, 2, b);
 			}
 			/*bitmap_out.getData()[i++] = encoded_img[srcindex++];
 			bitmap_out.getData()[i++] = encoded_img[srcindex++];
@@ -172,15 +174,16 @@ void BMPDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 		srcindex += rowpaddingbytes;
 	}
 
+	return Reference<Map2D>(texture);
 }
 
-
+/*
 void BMPDecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)
 {
 	throw ImFormatExcep("saving BMPs unsupported.");
 }
 
-
+*/
 
 
 

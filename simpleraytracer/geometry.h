@@ -73,7 +73,11 @@ public:
 	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const = 0; // PDF with respect to surface area metric, in parent space
 	virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
 
-	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials){}
+	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
+		const std::vector<Plane<float> >& camera_clip_planes
+		//double camera_horizontal_aov,
+		//double camera_vertical_aov
+		){}
 	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees){}
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;

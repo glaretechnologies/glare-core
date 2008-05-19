@@ -1,46 +1,41 @@
 /*=====================================================================
-TIFFDecoder.h
--------------
-File created by ClassTemplate on Fri May 02 16:51:32 2008
+ImageMap8.h
+-----------
+File created by ClassTemplate on Sun May 18 21:47:42 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TIFFDECODER_H_666_
-#define __TIFFDECODER_H_666_
+#ifndef __IMAGEMAP8_H_666_
+#define __IMAGEMAP8_H_666_
 
-
-#include <string>
-#include "../utils/reference.h"
-class Map2D;
 
 
 /*=====================================================================
-TIFFDecoder
------------
+ImageMap8
+---------
 
 =====================================================================*/
-class TIFFDecoder
+class ImageMap8
 {
 public:
 	/*=====================================================================
-	TIFFDecoder
-	-----------
+	ImageMap8
+	---------
 	
 	=====================================================================*/
-	TIFFDecoder();
+	ImageMap8();
 
-	~TIFFDecoder();
-
-
-	// throws ImFormatExcep
-	static Reference<Map2D> decode(const std::string& path);
+	~ImageMap8();
 
 
+
+private:
+	//Bitmap* bitmap;
 
 };
 
 
 
-#endif //__TIFFDECODER_H_666_
+#endif //__IMAGEMAP8_H_666_
 
 
 
