@@ -59,7 +59,8 @@ public:
 		double exposure_duration/*, double film_sensitivity*/,
 		Aperture* aperture,
 		const std::string& base_indigo_path,
-		double lens_shift_up_distance
+		double lens_shift_up_distance,
+		double lens_shift_right_distance
 		);
 
 	virtual ~Camera();
@@ -104,7 +105,7 @@ public:
 	//void setForwardsDir(const Vec3d& forwards);
 	//void setPos(const Vec3d& newpos) { pos = newpos; }
 
-	inline const Vec3d& getCurrentUpDir() const { return up; }
+	inline const Vec3d& getUpDir() const { return up; }
 	inline const Vec3d& getRightDir() const { return right; }
 	inline const Vec3d& getForwardsDir() const { return forwards; }
 
@@ -165,8 +166,14 @@ public:
 	double sensorHeight() const { return sensor_height; }
 	double sensorLensDist() const { return sensor_to_lens_dist; }
 
-	double getHorizontalAngleOfView() const; // including to left and right, in radians
-	double getVerticalAngleOfView() const; // including to up and down, in radians
+	//double getHorizontalAngleOfView() const; // including to left and right, in radians
+	//double getVerticalAngleOfView() const; // including to up and down, in radians
+
+	//const Vec3d getLensCenterPos() const;
+	//const Vec3d getSensorBottomMiddle() const;
+	//cons
+
+	void getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out) const;
 	
 
 	std::vector<const Medium*> containing_media;
@@ -187,7 +194,7 @@ private:
 	std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
 	Vec3d pos;
-	Vec3d ws_up;
+	//Vec3d ws_up;
 	Vec3d up;
 	Vec3d right;
 	Vec3d forwards;
@@ -239,6 +246,7 @@ private:
 	//double film_sensitivity; // aka ISO film sppeed
 
 	double lens_shift_up_distance;
+	double lens_shift_right_distance;
 };
 
 

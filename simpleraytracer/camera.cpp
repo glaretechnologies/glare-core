@@ -37,10 +37,11 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		double exposure_duration_,
 		Aperture* aperture_,
 		const std::string& base_indigo_path,
-		double lens_shift_up_distance_
+		double lens_shift_up_distance_,
+		double lens_shift_right_distance_
 		)
 :	pos(pos_),
-	ws_up(ws_updir),
+	//ws_up(ws_updir),
 	forwards(forwards_),
 	lens_radius(lens_radius_),
 	focus_distance(focus_distance_),
@@ -58,7 +59,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	colour_space_converter(NULL),
 	diffraction_filter(NULL),
 	aperture(aperture_),
-	lens_shift_up_distance(lens_shift_up_distance_)
+	lens_shift_up_distance(lens_shift_up_distance_),
+	lens_shift_right_distance(lens_shift_right_distance_)
 {
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
@@ -81,22 +83,22 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	if(exposure_duration <= 0.0)
 		throw CameraExcep("exposure_duration must be > 0.0");
 
-	up = ws_up;
+	up = ws_updir;
 	up.removeComponentInDir(forwards);
 	up.normalise();
 
 	right = ::crossProduct(forwards, up);
 
 	assert(forwards.isUnitLength());
-	assert(ws_up.isUnitLength());
+	assert(ws_updir.isUnitLength());
 	assert(up.isUnitLength());
 	assert(right.isUnitLength());
 
 	sensor_width = sensor_width_;
 	sensor_height = sensor_width / aspect_ratio;
 
-	lens_center = pos + up * lens_shift_up_distance;
-	lens_botleft = pos + up * (lens_shift_up_distance - lens_radius) - right * lens_radius;
+	lens_center = pos + up * lens_shift_up_distance + right * lens_shift_right_distance;
+	lens_botleft = pos + up * (lens_shift_up_distance - lens_radius) + right * (lens_shift_right_distance - lens_radius);
 
 	sensor_center = pos - forwards * sensor_to_lens_dist;
 	sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
@@ -125,7 +127,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	this->polarising_vec = getRightDir();
 	
 	const Vec2d components = Matrix2d::rotationMatrix(::degreeToRad(this->polarising_angle)) * Vec2d(1.0, 0.0);
-	this->polarising_vec = getRightDir() * components.x + getCurrentUpDir() * components.y;
+	this->polarising_vec = getRightDir() * components.x + getUpDir() * components.y;
 	assert(this->polarising_vec.isUnitLength());
 
 
@@ -604,7 +606,7 @@ const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) co
 	const double sensor_right = distRightOnSensorFromCenter(sensorpos);
 
 	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
-	const double target_right_dist = -sensor_right * focus_dist_sensor_to_lens_dist_ratio;
+	const double target_right_dist = (lens_shift_right_distance - sensor_right) * focus_dist_sensor_to_lens_dist_ratio;
 
 	const Vec3d target_point = lens_center + forwards * focus_distance + 
 		up * target_up_dist + 
@@ -675,7 +677,7 @@ const Vec3d Camera::sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3
 
 	// Compute corresponding sensorpos
 	const double sensor_up = -target_up * sensor_to_lens_dist_focus_dist_ratio + lens_shift_up_distance;
-	const double sensor_right = -target_right * sensor_to_lens_dist_focus_dist_ratio;
+	const double sensor_right = -target_right * sensor_to_lens_dist_focus_dist_ratio + lens_shift_right_distance;
 
 	if(fabs(sensor_up) > sensor_height * 0.5 || fabs(sensor_right) > sensor_width * 0.5)
 	{
@@ -927,7 +929,7 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 	conPrint("\tDone.");
 }
 
-double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
+/*double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
 {
 	return 2.0 * atan(sensor_width / (2.0 * sensor_to_lens_dist));
 }
@@ -935,7 +937,57 @@ double Camera::getHorizontalAngleOfView() const // including to left and right, 
 double Camera::getVerticalAngleOfView() const // including to up and down, in radians
 {
 	return 2.0 * atan(sensor_height / (2.0 * sensor_to_lens_dist));
+}*/
+
+
+
+void Camera::getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out) const
+{
+	planes_out.resize(0);
+
+	planes_out.push_back(
+		Plane<double>(
+			lens_center + getForwardsDir() * 0.01, // NOTE: bit of a hack here: use a close near clipping plane
+			getForwardsDir() * -1.0
+			)
+		); // back of frustrum
+
+
+	// Compute some points on the camera sensor
+	const Vec3d sensor_bottom = this->getSensorCenter() - getUpDir() * sensor_height * 0.5;
+	const Vec3d sensor_top = this->getSensorCenter() + getUpDir() * sensor_height * 0.5;
+	const Vec3d sensor_left = this->getSensorCenter() - getRightDir() * sensor_width * 0.5;
+	const Vec3d sensor_right = this->getSensorCenter() + getRightDir() * sensor_width * 0.5;
+
+	planes_out.push_back(
+		Plane<double>(
+			lens_center,
+			normalise(crossProduct(getUpDir(), lens_center - sensor_right))
+			)
+		); // left
+
+	planes_out.push_back(
+		Plane<double>(
+			lens_center,
+			normalise(crossProduct(lens_center - sensor_left, getUpDir()))
+			)
+		); // right
+
+	planes_out.push_back(
+		Plane<double>(
+			lens_center,
+			normalise(crossProduct(lens_center - sensor_top, getRightDir()))
+			)
+		); // bottom
+
+	planes_out.push_back(
+		Plane<double>(
+			lens_center,
+			normalise(crossProduct(getRightDir(), lens_center - sensor_bottom))
+			)
+		); // top
 }
+	
 
 
 void Camera::unitTest()
@@ -970,7 +1022,8 @@ void Camera::unitTest()
 		//800.f //film speed
 		new CircularAperture(Array2d<float>()),
 		".", // base indigo path
-		0.0 // lens_shift_up_distance
+		0.0, // lens_shift_up_distance
+		0.0 // lens_shift_right_distance
 		);
 
 
@@ -1010,7 +1063,7 @@ void Camera::unitTest()
 	sensorpos = cam.sensorPosForImCoords(Vec2d(0.1, 0.1));
 	//so ray should go a) up and b)left
 	Vec3d dir = cam.lensExitDir(sensorpos, cam.getPos());
-	testAssert(dot(dir, cam.getCurrentUpDir()) > 0.0);//goes up
+	testAssert(dot(dir, cam.getUpDir()) > 0.0);//goes up
 	testAssert(dot(dir, cam.getRightDir()) < 0.0);//goes left
 
 

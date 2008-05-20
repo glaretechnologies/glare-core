@@ -113,12 +113,15 @@ const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 }
 
 void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
-	const std::vector<Plane<float> >& camera_clip_planes
-	//double camera_horizontal_aov,
-	//double camera_vertical_aov
+	const std::vector<Plane<double> >& camera_clip_planes
 	)
 {
 	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
+
+	// Convert to single precision floating point planes
+	std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
+	for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
+		camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());
 
 	std::vector<RayMeshTriangle> temp_tris;
 	std::vector<RayMeshVertex> temp_verts;
@@ -129,9 +132,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		pixel_height_at_dist_one,
 		subdivide_pixel_threshold,
 		num_subdivisions,
-		//camera_horizontal_aov,
-		//camera_vertical_aov,
-		camera_clip_planes,
+		camera_clip_planes_f,
 		triangles,
 		vertices,
 		temp_tris,

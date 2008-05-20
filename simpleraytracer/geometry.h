@@ -74,9 +74,7 @@ public:
 	virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
 
 	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
-		const std::vector<Plane<float> >& camera_clip_planes
-		//double camera_horizontal_aov,
-		//double camera_vertical_aov
+		const std::vector<Plane<double> >& camera_clip_planes
 		){}
 	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees){}
 

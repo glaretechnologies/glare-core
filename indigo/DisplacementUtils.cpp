@@ -36,8 +36,6 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
 								  unsigned int num_subdivisions,
 								  const std::vector<Plane<float> >& camera_clip_planes,
-								  //double camera_horizontal_aov,
-		//double camera_vertical_aov,
 		const std::vector<RayMeshTriangle>& triangles_in, 
 		const std::vector<RayMeshVertex>& vertices_in, 
 		std::vector<RayMeshTriangle>& tris_out, 
@@ -45,8 +43,6 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		)
 {
 	//conPrint("Subdividing mesh: (num subdivisions = " + toString(num_subdivisions) + ")");
-
-	
 
 	std::vector<RayMeshTriangle> temp_tris = triangles_in;
 
@@ -99,8 +95,6 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			camera_coordframe_os, 
 			pixel_height_at_dist_one, 
 			subdivide_pixel_threshold, 
-			//camera_horizontal_aov,
-			//camera_vertical_aov,
 			camera_clip_planes,
 			temp_tris, 
 			temp_verts, 
@@ -259,8 +253,6 @@ void DisplacementUtils::linearSubdivision(
 	const CoordFramed& camera_coordframe_os, 
 	double pixel_height_at_dist_one,
 	double subdivide_pixel_threshold,
-	//double camera_horizontal_aov,
-	//double camera_vertical_aov,
 	const std::vector<Plane<float> >& camera_clip_planes,
 	const std::vector<RayMeshTriangle>& tris_in, 
 	const std::vector<DUVertex>& verts_in, 
@@ -313,11 +305,13 @@ void DisplacementUtils::linearSubdivision(
 			const float cot_val = 1.0f / tan(::angleBetween(v0v1, v1v2);*/
 
 
-//	const double tan_horiz_cos_theta = tan(camera_horizontal_aov);
-//	const double tan_vert_cos_theta = tan(camera_vertical_aov);
+	std::vector<Vec3f> tri_verts_pos_os(3);
 
-	std::vector<Vec3f> clipped_tri_verts;
-	clipped_tri_verts.reserve(32);
+	std::vector<Vec3f> clipped_tri_verts_os;
+	clipped_tri_verts_os.reserve(32);
+
+	std::vector<Vec3f> clipped_tri_verts_cs;
+	clipped_tri_verts_cs.reserve(32);
 
 	unsigned int num_tris_subdivided = 0;
 	unsigned int num_tris_unchanged = 0;
@@ -325,38 +319,31 @@ void DisplacementUtils::linearSubdivision(
 	// For each triangle
 	for(unsigned int t=0; t<tris_in.size(); ++t)
 	{
-		/*SSE_ALIGN js::AABBox tri_aabb(
-			toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[0]].pos))), 
-			toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[0]].pos)))
-			);
-			
-		for(int i=1; i<3; ++i)
-		{
-			tri_aabb.enlargeToHoldPoint(toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(verts_in[tris_in[t].vertex_indices[i]].pos))));
-		}*/
-
 		bool do_subdivide = false;
 
-		// Get array of triangle vertices in camera space
+		// Build vector of triangle vertex positions in object space	
 		// NOTE: using displaced_in_verts here.
-		std::vector<Vec3f> verts_cs(3);
-		for(int i=0; i<3; ++i)
-			verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(displaced_in_verts[tris_in[t].vertex_indices[i]].pos)));
-		
-		// Clip triangle against frustrum planes
-		TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, verts_cs, clipped_tri_verts);
+		for(unsigned int i=0; i<3; ++i)
+			tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
 
-		if(clipped_tri_verts.size() > 0) // If the triangle has not been completely clipped away
+		// Clip triangle against frustrum planes
+		TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
+
+		if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
 		{
-			const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts[0]);
+			// Convert clipped verts to camera space
+			clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
+			for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
+				clipped_tri_verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
+
+			// Compute 2D bounding box of clipped triangle in screen space
+			const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[0]);
 			Rect2f rect_ss(v0_ss, v0_ss);
 
-			for(unsigned int i=1; i<clipped_tri_verts.size(); ++i)
-			{
+			for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
 				rect_ss.enlargeToHoldPoint(
-					screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts[i])
+					screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[i])
 					);
-			}
 
 			do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
 		}

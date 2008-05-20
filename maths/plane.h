@@ -28,7 +28,7 @@ You may not use this code for any commercial project.
 
 #include "vec3.h"
 #include "mathstypes.h"
-//class CoordFrame;
+#include "coordframe.h"
 
 
 template <class Real>
@@ -57,7 +57,7 @@ public:
 
 	//inline bool isPointOnPlane(const Vec3<Real>& point) const;
 
-	inline const Vec3<Real> calcOrigin() const;//SLOW!
+	inline const Vec3<Real> getPointOnPlane() const; // Returns a point somewhere on the plane (actually the point closest to the origin)
 
 	inline const Vec3<Real> projOnPlane(const Vec3<Real>& vec) const;
 
@@ -80,7 +80,7 @@ public:
 	//NOTE: will return a position even if ray points AWAY from plane.
 	inline const Vec3<Real> getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const;
 
-	//const Plane transformToLocal(const CoordFrame& coordframe) const;
+	inline const Plane<Real> transformedToLocal(const CoordFrame<Real>& coordframe) const;
 
 	inline bool isSpherePartiallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
 	inline bool isSphereTotallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
@@ -198,7 +198,7 @@ bool Plane<Real>::isPointOnPlane(const Vec3<Real>& point) const
 
 
 template <class Real>
-const Vec3<Real> Plane<Real>::calcOrigin() const
+const Vec3<Real> Plane<Real>::getPointOnPlane() const
 {
 	return normal * d;
 }
@@ -262,6 +262,16 @@ const Vec3<Real> Plane<Real>::getRayIntersectPos(const Vec3<Real>& raystart, con
 	const Real dist_till_intersect = rayIntersect(raystart, ray_unitdir);
 
 	return raystart + ray_unitdir * dist_till_intersect;
+}
+
+template <class Real>
+const Plane<Real> Plane<Real>::transformedToLocal(const CoordFrame<Real>& coordframe) const
+{
+	// NOTE: there's probably a much faster way of computing this.
+	return Plane<Real>(
+		coordframe.transformPointToLocal(this->getPointOnPlane()),
+		coordframe.transformVecToLocal(this->getNormal())
+		);
 }
 
 
