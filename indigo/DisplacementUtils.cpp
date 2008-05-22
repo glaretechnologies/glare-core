@@ -22,15 +22,18 @@ DisplacementUtils::~DisplacementUtils()
 	
 }
 
+
 static inline bool operator < (const DUVertex& a, const DUVertex& b)
 {
 	return a.pos < b.pos;
 }
 
-static const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, int v0, int v1, int v2)
+
+static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
 	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
 }
+
 
 void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& materials,
 											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
@@ -46,6 +49,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 
 	std::vector<RayMeshTriangle> temp_tris = triangles_in;
 
+	// Convert RayMeshVertex's to DUVertex's
 	std::vector<DUVertex> temp_verts(vertices_in.size());
 	for(unsigned int i=0; i<temp_verts.size(); ++i)
 	{
@@ -55,7 +59,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 
 
 	//TEMP: Merge vertices sharing the same position
-	{
+	/*{
 		conPrint("\tMerging vertices...");
 		std::map<DUVertex, unsigned int> new_vert_indices;
 		std::vector<DUVertex> newverts;
@@ -80,7 +84,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		}
 		temp_verts = newverts;
 		conPrint("\t\tDone.");
-	}
+	}*/
 
 
 	std::vector<RayMeshTriangle> temp_tris2;
@@ -96,13 +100,13 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			pixel_height_at_dist_one, 
 			subdivide_pixel_threshold, 
 			camera_clip_planes,
-			temp_tris, 
-			temp_verts, 
-			temp_tris2, 
-			temp_verts2
+			temp_tris, // tris in
+			temp_verts, // verts in
+			temp_tris2, // tris out
+			temp_verts2 // verts out
 			);
 		
-		// TEMP averagePass(temp_tris2, temp_verts2, temp_verts);
+		// TEMP NO SMOOTHING averagePass(temp_tris2, temp_verts2, temp_verts);
 		temp_verts = temp_verts2;
 		temp_tris = temp_tris2;
 
@@ -111,7 +115,13 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		conPrint("\t\tDone.");
 	}
 
-	displace(materials, temp_tris, temp_verts, temp_verts2);
+	// Apply the final displacement
+	displace(
+		materials, 
+		temp_tris, // tris in
+		temp_verts, // verts in
+		temp_verts2 // verts out
+		);
 	temp_verts = temp_verts2;
 
 	tris_out = temp_tris;
@@ -136,7 +146,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		temp_verts[i].normal.normalise();
 
 
-
+	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
 	verts_out.resize(temp_verts.size());
 	for(unsigned int i=0; i<verts_out.size(); ++i)
 	{
@@ -146,12 +156,17 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 }
 
 
+/*
+Apply displacement to the given vertices, storing the displaced vertices in verts_out
+
+
+*/
 void DisplacementUtils::displace(const std::vector<Material*>& materials, const std::vector<RayMeshTriangle>& triangles, 
 								 const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out)
 {
 	verts_out = verts_in;
 
-	std::vector<bool> vert_displaced(verts_in.size(), false);
+	std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
 	for(unsigned int t=0; t<triangles.size(); ++t)
 	{
@@ -166,6 +181,7 @@ void DisplacementUtils::displace(const std::vector<Material*>& materials, const 
 			{
 				if(!vert_displaced[triangles[t].vertex_indices[i]])
 				{
+					// Translate vertex position along vertex shading normal
 					verts_out[triangles[t].vertex_indices[i]].pos += verts_out[triangles[t].vertex_indices[i]].normal * (float)material->displacement(
 						verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
 						verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
@@ -203,6 +219,7 @@ public:
 	unsigned int v_a, v_b;
 };
 
+
 inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 {
 	if(a.v_a < b.v_a)
@@ -215,6 +232,7 @@ inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 	}
 }
 
+
 /*static float triangleMaxCurvature(const DUVertex& v0, const DUVertex& v1, const DUVertex& v2)
 {
 	const float curvature_u = ::angleBetweenNormalized(v0.normal, v1.normal);// / v0.pos.getDist(v1.pos);
@@ -223,6 +241,7 @@ inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 
 	return myMax(curvature_u, curvature_v, curvature_uv);
 }*/
+
 
 static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal, const Vec3f& v2_normal)
 {
@@ -233,10 +252,12 @@ static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal
 	return myMax(curvature_u, curvature_v, curvature_uv);
 }
 
+
 static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordframe_os, const Vec3f& cam_space_pos)
 {
 	return Vec2f(cam_space_pos.x / cam_space_pos.y, cam_space_pos.z / cam_space_pos.y);
 }
+
 
 /*
 static Rect2f screen_space_for_aabb(const js::AABBox& cam_space_aabb)
@@ -273,12 +294,16 @@ void DisplacementUtils::linearSubdivision(
 	tris_out.resize(0);
 
 
-	// Get displaced vertices
+	// Get displaced vertices, which are needed for testing if subdivision is needed
 	std::vector<DUVertex> displaced_in_verts;
-	displace(materials, tris_in, verts_in, displaced_in_verts);
+	displace(
+		materials, 
+		tris_in, 
+		verts_in, 
+		displaced_in_verts // verts out
+		);
 
-	//TEMP NEW:
-	// Calculate normals off all vertices, as generated from the surrounding triangles
+	// Calculate normals of the displaced vertices, as generated from the surrounding triangles
 	std::vector<Vec3f> vert_normals(verts_in.size(), Vec3f(0.f, 0.f, 0.f));
 	for(unsigned int t=0; t<tris_in.size(); ++t)
 	{
@@ -305,6 +330,7 @@ void DisplacementUtils::linearSubdivision(
 			const float cot_val = 1.0f / tan(::angleBetween(v0v1, v1v2);*/
 
 
+	// Create some temporary buffers
 	std::vector<Vec3f> tri_verts_pos_os(3);
 
 	std::vector<Vec3f> clipped_tri_verts_os;
@@ -313,6 +339,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<Vec3f> clipped_tri_verts_cs;
 	clipped_tri_verts_cs.reserve(32);
 
+	// Counters
 	unsigned int num_tris_subdivided = 0;
 	unsigned int num_tris_unchanged = 0;
 
@@ -321,8 +348,7 @@ void DisplacementUtils::linearSubdivision(
 	{
 		bool do_subdivide = false;
 
-		// Build vector of triangle vertex positions in object space	
-		// NOTE: using displaced_in_verts here.
+		// Build vector of displaced triangle vertex positions. (in object space)
 		for(unsigned int i=0; i<3; ++i)
 			tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
 
@@ -345,6 +371,7 @@ void DisplacementUtils::linearSubdivision(
 					screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[i])
 					);
 
+			// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
 			do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
 		}
 
@@ -391,7 +418,7 @@ void DisplacementUtils::linearSubdivision(
 		}*/
 
 
-		if(do_subdivide)
+		if(do_subdivide) // If we are subdividing this triangle...
 		{
 			unsigned int e[3]; // Indices of edge midpoint vertices in verts_out
 
@@ -485,13 +512,13 @@ void DisplacementUtils::linearSubdivision(
 	for(unsigned int i=0; i<verts_out.size(); ++i)
 		verts_out[i].anchored = verts_out[i].anchored || verts_out[i].adjacent_subdivided_tris == 1;
 
-	conPrint("\t\tnum_tris_subdivided: " + toString(num_tris_subdivided));
-	conPrint("\t\tnum_tris_unchanged: " + toString(num_tris_unchanged));
+	conPrint("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
+	conPrint("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
 }
 
 
 
-static float w(unsigned int n_t, unsigned int n_q)
+static inline float w(unsigned int n_t, unsigned int n_q)
 {
 	if(n_q == 0 && n_t == 3)
 		return 1.5f;
@@ -542,10 +569,6 @@ void DisplacementUtils::averagePass(const std::vector<RayMeshTriangle>& tris, co
 
 	for(unsigned int v=0; v<new_verts_out.size(); ++v)
 	{
-		//NEW: if any vertex only has 1 adjacent subdivided tri, then just reset its position.
-		//assert(verts[v].adjacent_subdivided_tris >= 0 && verts[v].adjacent_subdivided_tris <= 2);
-
-		//const float w_val = verts[v].adjacent_subdivided_tris == 1 ? 0.0 : w(n_t[v], 0);
 		const float w_val = w(n_t[v], 0);
 
 		new_verts_out[v].pos /= total_weight[v];
@@ -565,7 +588,7 @@ void DisplacementUtils::averagePass(const std::vector<RayMeshTriangle>& tris, co
 
 	for(unsigned int v=0; v<new_verts_out.size(); ++v)
 	{
-		//NEW: if any vertex only has 1 adjacent subdivided tri, then just reset its position.
+		// If any vertex only has 1 adjacent subdivided tri, then just reset its position.
 		assert(verts[v].adjacent_subdivided_tris >= 0 && verts[v].adjacent_subdivided_tris <= 2);
 
 		if(verts[v].anchored)

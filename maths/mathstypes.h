@@ -458,6 +458,13 @@ inline bool isPowerOfTwo(T x)
 
 void test();
 
+template <class T>
+inline T lerp(T a, T b, T t)
+{
+	assert(Maths::inRange(t, (T)0.0, (T)1.0));
+	return a * (1.0 - t) + b * t;
+}
+
 }
 
 

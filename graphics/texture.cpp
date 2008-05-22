@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "texture.h"
 
+#include "../indigo/TestUtils.h"
 
 
 
@@ -440,3 +441,59 @@ void Texture::sampleTiled3BytesPP(double u, double v, Colour3d& colour_out) cons
 }
 
 
+void Texture::test()
+{
+	{
+	Texture t;
+	const int W = 32;
+	t.resize(W, W, 1);
+	for(unsigned int y=0; y<W; ++y)
+		for(unsigned int x=0; x<W; ++x)
+			t.getPixelNonConst(x, y)[0] = 0;
+
+	testAssert(t.scalarSampleTiled(0.1, 0.1) == 0.0);
+	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 0.0);
+	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 0.0);
+	}
+
+	{
+	Texture t;
+	const int W = 32;
+	t.resize(W, W, 1);
+	for(unsigned int y=0; y<W; ++y)
+		for(unsigned int x=0; x<W; ++x)
+			t.getPixelNonConst(x, y)[0] = 255;
+
+	testAssert(t.scalarSampleTiled(0.1, 0.1) == 1.0);
+	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 1.0);
+	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 1.0);
+	}
+
+	{
+	Texture t;
+	const int W = 32;
+	t.resize(W, W, 3);
+	for(unsigned int y=0; y<W; ++y)
+		for(unsigned int x=0; x<W; ++x)
+			for(unsigned int c=0; c<3; ++c)
+				t.setPixelComp(x, y, c, 0);
+
+	testAssert(t.scalarSampleTiled(0.1, 0.1) == 0.0);
+	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 0.0);
+	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 0.0);
+	}
+
+	{
+	Texture t;
+	const int W = 32;
+	t.resize(W, W, 3);
+	for(unsigned int y=0; y<W; ++y)
+		for(unsigned int x=0; x<W; ++x)
+			for(unsigned int c=0; c<3; ++c)
+				t.setPixelComp(x, y, c, 255);
+
+	testAssert(t.scalarSampleTiled(0.1, 0.1) == 1.0);
+	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 1.0);
+	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 1.0);
+	}
+}

@@ -41,6 +41,8 @@ public:
 	virtual unsigned int getWidth() const { return Bitmap::getWidth(); }
 	virtual unsigned int getHeight() const  { return Bitmap::getHeight(); }
 
+	static void test();
+
 private:
 	void sampleTiled3BytesPP(double x, double y, Colour3d& col_out) const;
 	double sampleTiled1BytePP(double x, double y) const;
