@@ -48,6 +48,7 @@ public:
 		const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
 		unsigned int num_subdivisions,
 		const std::vector<Plane<float> >& camera_clip_planes,
+		bool smooth,
 		const std::vector<RayMeshTriangle>& tris_in, 
 		const std::vector<RayMeshVertex>& verts_in, 
 		std::vector<RayMeshTriangle>& tris_out, 
@@ -58,7 +59,7 @@ public:
 private:
 	static void displace(const std::vector<Material*>& materials, const std::vector<RayMeshTriangle>& tris, const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out);
 	static void linearSubdivision(const std::vector<Material*>& materials,
-		const CoordFramed& camera_coordframe_os, 
+								const CoordFramed& camera_coordframe_os, 
 								double pixel_height_at_dist_one,
 								double subdivide_pixel_threshold,
 								const std::vector<Plane<float> >& camera_clip_planes,

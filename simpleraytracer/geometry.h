@@ -34,6 +34,19 @@ class DistanceFullHitInfo;
 class PerThreadData;
 class Object;
 
+
+class GeometryExcep
+{
+public:
+	GeometryExcep(const std::string& text_) : text(text_) {}
+	~GeometryExcep(){}
+
+	const std::string& what() const { return text; }
+private:
+	std::string text;
+};
+
+
 /*=====================================================================
 Geometry
 --------
@@ -75,7 +88,7 @@ public:
 
 	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
 		const std::vector<Plane<double> >& camera_clip_planes
-		){}
+		){} // throws GeometryExcep
 	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees){}
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;

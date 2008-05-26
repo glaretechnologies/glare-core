@@ -23,17 +23,20 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include <fstream>
 #include <algorithm>
 
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_)
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_, bool subdivision_smoothing_)
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
 	num_subdivisions(num_subdivisions_),
-	subdivide_pixel_threshold(subdivide_pixel_threshold_)
+	subdivide_pixel_threshold(subdivide_pixel_threshold_),
+	subdivision_smoothing(subdivision_smoothing_)
 {
 	num_texcoord_sets = 0;
 //	num_vertices = 0;
 	total_surface_area = 0.0f;
 	done_init_as_emitter = false;
+	subdivide_and_displace_done = false;
+	num_bad_normals = 0;
 }
 
 
@@ -116,6 +119,11 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 	const std::vector<Plane<double> >& camera_clip_planes
 	)
 {
+	if(subdivide_and_displace_done)
+	{
+		// TODO: throw exception if we are supposed to do a view-dependent subdivision
+		return;
+	}
 	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
 
 	// Convert to single precision floating point planes
@@ -133,6 +141,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		subdivide_pixel_threshold,
 		num_subdivisions,
 		camera_clip_planes_f,
+		subdivision_smoothing,
 		triangles,
 		vertices,
 		temp_tris,
@@ -142,11 +151,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 	triangles = temp_tris;
 	vertices = temp_verts;
 
-	/*DisplacementUtils::displace(
-		materials,
-		triangles,
-		vertices
-		);*/
+	subdivide_and_displace_done = true;
 
 	conPrint("\tDone.");
 }
@@ -156,8 +161,9 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 {
 	Timer timer;
 
+	if(tritree.get())
+		return; // build() has already been called.
 
-	assert(!tritree.get());
 	if((int)triangles.size() >= RendererSettings::getInstance().bih_tri_threshold)
 		tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
 	else
@@ -371,11 +377,29 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets)
 {
-	//assert(normal.isUnitLength());
-	if(!normal.isUnitLength())
-		throw ModelLoadingStreamHandlerExcep("Normal was not unit length.");
+	Vec3f use_normal;
+	if(normal.isUnitLength())
+	{
+		use_normal = normal;
+	}
+	else
+	{
+		if(normal.length() < 0.01f)
+			throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
 
-	vertices.push_back(RayMeshVertex(pos, normal));
+		const int MAX_NUM_NORMAL_ERROR_MESSAGES = 100;
+
+		if(num_bad_normals < MAX_NUM_NORMAL_ERROR_MESSAGES)
+			conPrint("WARNING: vertex normal in mesh '" + name + "' does not have unit length; normalising.");
+		else if(num_bad_normals == MAX_NUM_NORMAL_ERROR_MESSAGES)
+			conPrint("WARNING: Reached max num bad normal error messages for mesh '" + name + "'.  Bad mesh!!!");
+
+		use_normal = normalise(normal);
+
+		num_bad_normals++;
+	}
+
+	vertices.push_back(RayMeshVertex(pos, use_normal));
 	for(unsigned int i=0; i<texcoord_sets.size(); ++i)
 		vertices.back().texcoords[i] = texcoord_sets[i];
 

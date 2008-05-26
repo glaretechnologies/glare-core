@@ -37,6 +37,8 @@ public:
 	unsigned int tri_mat_index;
 };
 
+//#define MAX_NUM_RAYMESH_TEXCOORD_SETS 4
+
 class RayMeshVertex
 {
 public:
@@ -44,7 +46,8 @@ public:
 	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) { texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); }
 	Vec3f pos;
 	Vec3f normal;
-	Vec2f texcoords[4];
+	static const unsigned int MAX_NUM_RAYMESH_TEXCOORD_SETS = 4;
+	Vec2f texcoords[MAX_NUM_RAYMESH_TEXCOORD_SETS];
 };
 
 class RayMeshExcep
@@ -71,7 +74,7 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 8.0);
+	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 8.0, bool subdivision_smoothing = true);
 
 	virtual ~RayMesh();
 
@@ -181,6 +184,11 @@ private:
 
 	unsigned int num_subdivisions;
 	double subdivide_pixel_threshold;
+	bool subdivision_smoothing;
+
+	bool subdivide_and_displace_done;
+
+	int num_bad_normals;
 
 	//------------------------------------------------------------------------
 	//emitter stuff

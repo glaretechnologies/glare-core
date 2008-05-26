@@ -120,7 +120,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	//char tmp[2048];
 
-	int num_bad_normals = 0;
+	//int num_bad_normals = 0;
 
 	//Timer timer;
 	int linenum = 0;
@@ -188,7 +188,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 			if(!r1 || !r2 || !r3)
 				throw ModelFormatDecoderExcep("Parse error while reading normal on line " + toString(linenum));
 
-			if(!normal.isUnitLength())
+			/*if(!normal.isUnitLength())
 			{	
 				const int MAX_NUM_ERROR_MESSAGES = 100;
 				if(num_bad_normals == MAX_NUM_ERROR_MESSAGES)
@@ -209,7 +209,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 				}
 
 				num_bad_normals++;
-			}
+			}*/
 			normals.push_back(normal);
 		}
 		else if(token == "v")//vertex position

@@ -39,6 +39,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
 								  unsigned int num_subdivisions,
 								  const std::vector<Plane<float> >& camera_clip_planes,
+								  bool smooth,
 		const std::vector<RayMeshTriangle>& triangles_in, 
 		const std::vector<RayMeshVertex>& vertices_in, 
 		std::vector<RayMeshTriangle>& tris_out, 
@@ -54,7 +55,9 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	for(unsigned int i=0; i<temp_verts.size(); ++i)
 	{
 		temp_verts[i] = DUVertex(vertices_in[i].pos, vertices_in[i].normal);
-		temp_verts[i].texcoords[0] = vertices_in[i].texcoords[0]; // TEMP HACK
+
+		for(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
+			temp_verts[i].texcoords[t] = vertices_in[i].texcoords[t];
 	}
 
 
@@ -106,8 +109,10 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			temp_verts2 // verts out
 			);
 		
-		// TEMP NO SMOOTHING averagePass(temp_tris2, temp_verts2, temp_verts);
-		temp_verts = temp_verts2;
+		if(smooth)
+			averagePass(temp_tris2, temp_verts2, temp_verts);
+		else
+			temp_verts = temp_verts2;
 		temp_tris = temp_tris2;
 
 		conPrint("\t\tresulting num vertices: " + toString(temp_verts.size()));
@@ -151,7 +156,9 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	for(unsigned int i=0; i<verts_out.size(); ++i)
 	{
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal);
-		verts_out[i].texcoords[0] = temp_verts[i].texcoords[0]; // TEMP HACK
+
+		for(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
+			verts_out[i].texcoords[t] = temp_verts[i].texcoords[t];
 	}
 }
 
@@ -175,7 +182,7 @@ void DisplacementUtils::displace(const std::vector<Material*>& materials, const 
 		if(material->displacing())
 		{
 			const int uv_set_index = material->getDisplacementTextureUVSetIndex();
-			assert(uv_set_index >= 0 && uv_set_index < 4);
+			assert(uv_set_index >= 0 && uv_set_index < RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS);
 
 			for(unsigned int i=0; i<3; ++i)
 			{
@@ -233,16 +240,6 @@ inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 }
 
 
-/*static float triangleMaxCurvature(const DUVertex& v0, const DUVertex& v1, const DUVertex& v2)
-{
-	const float curvature_u = ::angleBetweenNormalized(v0.normal, v1.normal);// / v0.pos.getDist(v1.pos);
-	const float curvature_v = ::angleBetweenNormalized(v0.normal, v2.normal);// / v0.pos.getDist(v2.pos);
-	const float curvature_uv = ::angleBetweenNormalized(v1.normal, v2.normal);// / v1.pos.getDist(v2.pos);
-
-	return myMax(curvature_u, curvature_v, curvature_uv);
-}*/
-
-
 static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal, const Vec3f& v2_normal)
 {
 	const float curvature_u = ::angleBetweenNormalized(v0_normal, v1_normal);// / v0.pos.getDist(v1.pos);
@@ -257,16 +254,6 @@ static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordfram
 {
 	return Vec2f(cam_space_pos.x / cam_space_pos.y, cam_space_pos.z / cam_space_pos.y);
 }
-
-
-/*
-static Rect2f screen_space_for_aabb(const js::AABBox& cam_space_aabb)
-{
-	const float near_recip_dist = 1.0f / cam_space_aabb.min_.y;
-	const float far_recip_dist = 1.0f / cam_space_aabb.max_.y;
-	
-	Rect2f r(cam_space_aabb.min_.x * near_recip_dist, cam_space_aabb.min_.z * near_recip_dist);
-	r.area*/
 
 
 void DisplacementUtils::linearSubdivision(
@@ -376,48 +363,6 @@ void DisplacementUtils::linearSubdivision(
 		}
 
 
-
-		/*
-
-		if(tri_aabb.max_.y < 0.0f) // tri is completely behind camera
-		{
-			do_subdivide = false;
-		}
-		else
-		{
-			tri_aabb.min_.y = myMax(0.0001f, tri_aabb.min_.y);
-
-			const double near_dist = tri_aabb.min_.y;
-			const double far_dist = tri_aabb.max_.y;
-			double tan_horiz_angle = myMin(fabs(tri_aabb.min_.x) / near_dist, fabs(tri_aabb.max_.x) / near_dist);
-			tan_horiz_angle = myMin(tan_horiz_angle, fabs(tri_aabb.min_.x) / far_dist, fabs(tri_aabb.max_.x) / far_dist);
-
-			if((tri_aabb.min_.x * tri_aabb.max_.x <= 0.0f) || tan_horiz_angle <= tan_horiz_cos_theta)
-			{
-				double tan_vert_angle = myMin(fabs(tri_aabb.min_.z) / near_dist, fabs(tri_aabb.max_.z) / near_dist);
-				tan_vert_angle = myMin(tan_vert_angle, fabs(tri_aabb.min_.z) / far_dist, fabs(tri_aabb.max_.z) / far_dist);
-
-				if((tri_aabb.min_.z * tri_aabb.max_.z <= 0.0f) || tan_vert_angle <= tan_vert_cos_theta)
-				{
-
-
-					const double height = tri_aabb.axisLength(2) / fabs(tri_aabb.min_.y);
-					const double width = tri_aabb.axisLength(0) / fabs(tri_aabb.min_.y);
-
-					const float curvature = triangleMaxCurvature(
-						vert_normals[tris_in[t].vertex_indices[0]], 
-						vert_normals[tris_in[t].vertex_indices[1]], 
-						vert_normals[tris_in[t].vertex_indices[2]]
-					);
-
-					//const bool do_subdivide = true;//curvature > 0.01f; //myMax(height, width) > pixel_height_at_dist_one * subdivide_pixel_threshold;
-					do_subdivide = tri_aabb.max_.y > 0.0f && myMax(height, width) > pixel_height_at_dist_one * subdivide_pixel_threshold;
-					//const bool do_subdivide = tri_aabb.min_.z > 0.0;
-				}
-			}
-		}*/
-
-
 		if(do_subdivide) // If we are subdividing this triangle...
 		{
 			unsigned int e[3]; // Indices of edge midpoint vertices in verts_out
@@ -443,7 +388,7 @@ void DisplacementUtils::linearSubdivision(
 						(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
 						));
 
-					for(unsigned int z=0; z<4; ++z)
+					for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
 						verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
 
 					verts_out.back().adjacent_subdivided_tris = 1;
@@ -561,7 +506,7 @@ void DisplacementUtils::averagePass(const std::vector<RayMeshTriangle>& tris, co
 			new_verts_out[v_i].pos += cent * weight;
 			new_verts_out[v_i].normal += (verts[v_i].normal * (1.0f / 4.0f) + (verts[v_i_plus_1].normal + verts[v_i_minus_1].normal) * (3.0f / 8.0f)) * weight;
 
-			for(unsigned int z=0; z<4; ++z)
+			for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
 				new_verts_out[v_i].texcoords[z] += (verts[v_i].texcoords[z] * (1.0f / 4.0f) + (verts[v_i_plus_1].texcoords[z] + verts[v_i_minus_1].texcoords[z]) * (3.0f / 8.0f)) * weight;
 
 		}
@@ -602,6 +547,4 @@ void DisplacementUtils::averagePass(const std::vector<RayMeshTriangle>& tris, co
 	}
 
 }
-
-
 
