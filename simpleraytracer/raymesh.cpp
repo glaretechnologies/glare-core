@@ -377,8 +377,8 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets)
 {
-	Vec3f use_normal;
-	if(normal.isUnitLength())
+	
+	/*if(normal.isUnitLength())
 	{
 		use_normal = normal;
 	}
@@ -397,9 +397,11 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector
 		use_normal = normalise(normal);
 
 		num_bad_normals++;
-	}
+	}*/
+	if(normal.length2() < 0.01f)
+		throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
 
-	vertices.push_back(RayMeshVertex(pos, use_normal));
+	vertices.push_back(RayMeshVertex(pos, normalise(normal)));
 	for(unsigned int i=0; i<texcoord_sets.size(); ++i)
 		vertices.back().texcoords[i] = texcoord_sets[i];
 

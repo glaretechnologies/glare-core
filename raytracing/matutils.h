@@ -107,8 +107,10 @@ public:
 	inline static double pow5(double x);
 
 
-	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
-	inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
+	inline static double smoothingFactor(double in_dot_Ns, double in_dot_Ng);
+	inline static double smoothingFactor(const Vec3d& omega_in, const FullHitInfo& hitinfo);
+	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
+	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
 
 	inline static bool raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo);
 	inline static bool raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng);
@@ -151,8 +153,8 @@ double MatUtils::pow5(double x)
 }
 
 //see Veach page 158
-double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint)
-{
+//double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint)
+//{
 	/*the w_i.N_g factors in the denominators (extra from Veach) are to cancel with the same factor (cos theta) outside this call.
 
 	K(w_i, w_o) = fs(w_i, w_o) * w_i.N_s			[figure 5.6]
@@ -178,17 +180,29 @@ double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, 
 	else
 		geom_factor = fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
 	return geom_factor;*/
-	return adjoint ? 
+/*	return adjoint ? 
 		fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g())) : 
 		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
-}
+}*/
 
-double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng)
+/*double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng)
 {
 	return adjoint ? 
 		fabs(dot(omega_out, hitinfo.N_s()) / out_dot_Ng) : 
 		fabs(dot(omega_in, hitinfo.N_s()) / in_dot_Ng);
+}*/
+
+double MatUtils::smoothingFactor(double in_dot_Ns, double in_dot_Ng)
+{
+	return fabs(in_dot_Ns / in_dot_Ng);
 }
+
+// NOTE: This is rather slow :)
+double MatUtils::smoothingFactor(const Vec3d& omega_in, const FullHitInfo& hitinfo)
+{
+	return fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
+}
+
 
 bool MatUtils::raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo)
 {
