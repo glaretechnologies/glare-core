@@ -36,7 +36,7 @@ static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts,
 
 
 void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& materials,
-											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
+											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 								  unsigned int num_subdivisions,
 								  const std::vector<Plane<float> >& camera_clip_planes,
 								  bool smooth,
@@ -102,6 +102,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			camera_coordframe_os, 
 			pixel_height_at_dist_one, 
 			subdivide_pixel_threshold, 
+			subdivide_curvature_threshold,
 			camera_clip_planes,
 			temp_tris, // tris in
 			temp_verts, // verts in
@@ -261,6 +262,7 @@ void DisplacementUtils::linearSubdivision(
 	const CoordFramed& camera_coordframe_os, 
 	double pixel_height_at_dist_one,
 	double subdivide_pixel_threshold,
+	double subdivide_curvature_threshold,
 	const std::vector<Plane<float> >& camera_clip_planes,
 	const std::vector<RayMeshTriangle>& tris_in, 
 	const std::vector<DUVertex>& verts_in, 
@@ -339,27 +341,32 @@ void DisplacementUtils::linearSubdivision(
 		for(unsigned int i=0; i<3; ++i)
 			tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
 
-		// Clip triangle against frustrum planes
-		TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
-
-		if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
+		// Check curvature:
+		const float tri_curvature = triangleMaxCurvature(vert_normals[tris_in[t].vertex_indices[0]], vert_normals[tris_in[t].vertex_indices[1]], vert_normals[tris_in[t].vertex_indices[2]]);
+		if(tri_curvature > (float)subdivide_curvature_threshold) // If triangle is more curved than the threshold:
 		{
-			// Convert clipped verts to camera space
-			clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
-			for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
-				clipped_tri_verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
+			// Clip triangle against frustrum planes
+			TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
 
-			// Compute 2D bounding box of clipped triangle in screen space
-			const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[0]);
-			Rect2f rect_ss(v0_ss, v0_ss);
+			if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
+			{
+				// Convert clipped verts to camera space
+				clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
+				for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
+					clipped_tri_verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
 
-			for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
-				rect_ss.enlargeToHoldPoint(
-					screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[i])
-					);
+				// Compute 2D bounding box of clipped triangle in screen space
+				const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[0]);
+				Rect2f rect_ss(v0_ss, v0_ss);
 
-			// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
-			do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
+				for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
+					rect_ss.enlargeToHoldPoint(
+						screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[i])
+						);
+
+				// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
+				do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
+			}
 		}
 
 

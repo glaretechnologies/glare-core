@@ -422,9 +422,11 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, cons
 		{
 			assert(triindex >= 0 && triindex < leafgeom.size());
 
+#ifdef USE_LETTERBOX
 			//If this tri has not already been intersected against
 			if(!context.tri_hash->containsTriIndex(leafgeom[triindex]))
 			{
+#endif
 				float u, v, raydist;
 				if(intersect_tris[leafgeom[triindex]].rayIntersect(ray, closest_dist, raydist, u, v))
 				{
@@ -466,10 +468,11 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, cons
 						hitinfos_out.back().hitpos.addMult(ray.unitdir, raydist);
 					}*/
 				}
-
+#ifdef USE_LETTERBOX
 				//Add tri index to hash of tris already intersected against
 				context.tri_hash->addTriIndex(leafgeom[triindex]);
 			}
+#endif
 			triindex++;
 		}
 	}//end while !bundlenodestack.empty()

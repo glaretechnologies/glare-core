@@ -74,7 +74,7 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 8.0, bool subdivision_smoothing = true);
+	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 0.0, bool subdivision_smoothing = true, double subdivide_curvature_threshold = 0.0);
 
 	virtual ~RayMesh();
 
@@ -184,6 +184,7 @@ private:
 
 	unsigned int num_subdivisions;
 	double subdivide_pixel_threshold;
+	double subdivide_curvature_threshold;
 	bool subdivision_smoothing;
 
 	bool subdivide_and_displace_done;

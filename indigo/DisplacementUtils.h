@@ -45,7 +45,7 @@ public:
 
 
 	static void subdivideAndDisplace(const std::vector<Material*>& materials,
-		const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold,
+		const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 		unsigned int num_subdivisions,
 		const std::vector<Plane<float> >& camera_clip_planes,
 		bool smooth,
@@ -62,6 +62,7 @@ private:
 								const CoordFramed& camera_coordframe_os, 
 								double pixel_height_at_dist_one,
 								double subdivide_pixel_threshold,
+								double subdivide_curvature_threshold,
 								const std::vector<Plane<float> >& camera_clip_planes,
 								const std::vector<RayMeshTriangle>& tris_in, 
 								const std::vector<DUVertex>& verts_in, 

@@ -23,12 +23,13 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include <fstream>
 #include <algorithm>
 
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_, bool subdivision_smoothing_)
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_)
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
 	num_subdivisions(num_subdivisions_),
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
+	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_)
 {
 	num_texcoord_sets = 0;
@@ -121,7 +122,10 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 {
 	if(subdivide_and_displace_done)
 	{
-		// TODO: throw exception if we are supposed to do a view-dependent subdivision
+		// Throw exception if we are supposed to do a view-dependent subdivision
+		if(subdivide_pixel_threshold > 0.0)
+			throw GeometryExcep("Tried to do a view-dependent subdivision on an instanced mesh. (subdivide_pixel_threshold > 0.0)");
+
 		return;
 	}
 	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
@@ -139,6 +143,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		camera_coordframe_os, 
 		pixel_height_at_dist_one,
 		subdivide_pixel_threshold,
+		subdivide_curvature_threshold,
 		num_subdivisions,
 		camera_clip_planes_f,
 		subdivision_smoothing,
