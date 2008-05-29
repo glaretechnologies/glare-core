@@ -75,8 +75,8 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
 		temp_tris[i] = DUTriangle(
 			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2], triangles_in[i].tri_mat_index, 
-			2, // dimension
-			0 // num subdivs
+			2//, // dimension
+			//0 // num subdivs
 			);
 
 	// Convert RayMeshVertex's to DUVertex's
@@ -120,7 +120,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 				if(num_adjacent_tris[edge] == 1)
 				{
 					// this is an edge edge aka. boundary !!! :)
-					temp_tris.push_back(DUTriangle(v_i, v_i1, 666, 666, 1, 0));
+					temp_tris.push_back(DUTriangle(v_i, v_i1, 666, 666, 1));
 				}
 			}
 		}
@@ -307,15 +307,22 @@ static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordfram
 class DUEdgeInfo
 {
 public:
-	DUEdgeInfo() : midpoint_vert_index(0), num_adjacent_subdividing_tris(0), num_adjacent_non_subdividing_tris(0), left_tri_index(-1), right_tri_index(-1), border(false) {}
-	DUEdgeInfo(unsigned int midpoint_vert_index_, unsigned int num_adjacent_subdividing_tris_, unsigned int num_adjacent_non_subdividing_tris_) :
-		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subdividing_tris(num_adjacent_subdividing_tris_), num_adjacent_non_subdividing_tris(num_adjacent_non_subdividing_tris_)
+	DUEdgeInfo()
+	:	midpoint_vert_index(0), 
+		num_adjacent_subdividing_tris(0), 
+		//num_adjacent_non_subdividing_tris(0), 
+		//left_tri_index(-1), 
+		//right_tri_index(-1), 
+		border(false) 
+	{}
+	DUEdgeInfo(unsigned int midpoint_vert_index_, unsigned int num_adjacent_subdividing_tris_/*, unsigned int num_adjacent_non_subdividing_tris_*/) :
+		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subdividing_tris(num_adjacent_subdividing_tris_)/*, num_adjacent_non_subdividing_tris(num_adjacent_non_subdividing_tris_)*/
 		{}
 	~DUEdgeInfo(){}
 	unsigned int midpoint_vert_index;
 	unsigned int num_adjacent_subdividing_tris;
-	unsigned int num_adjacent_non_subdividing_tris;
-	int left_tri_index, right_tri_index;
+	//unsigned int num_adjacent_non_subdividing_tris;
+	//int left_tri_index, right_tri_index;
 	bool border;
 };
 
@@ -328,13 +335,13 @@ DUEdgeInfo& getEdgeInfo(std::map<DUVertIndexPair, DUEdgeInfo>& edge_info_map, un
 
 
 // tri_index may be -1
-static inline int triDisplacementLevel(const std::vector<DUTriangle>& tris, int tri_index)
+/*static inline int triDisplacementLevel(const std::vector<DUTriangle>& tris, int tri_index)
 {
 	if(tri_index == -1)
 		return -1;
 	else
 		return tris[tri_index].num_subdivs;
-}
+}*/
 
 void DisplacementUtils::linearSubdivision(
 	const std::vector<Material*>& materials,						
@@ -499,13 +506,13 @@ void DisplacementUtils::linearSubdivision(
 				}
 				else
 				{
-					edge_info.num_adjacent_non_subdividing_tris++;
+					//edge_info.num_adjacent_non_subdividing_tris++;
 				}
 
-				if(v_i < v_i1)
-					edge_info.left_tri_index = t;
-				else
-					edge_info.right_tri_index = t;
+				//if(v_i < v_i1)
+				//	edge_info.left_tri_index = t;
+				//else
+				//	edge_info.right_tri_index = t;
 
 				/*if(edge_info.num_adjacent_subdividing_tris == 1 && edge_info.num_adjacent_non_subdividing_tris == 1)
 				{
@@ -514,7 +521,7 @@ void DisplacementUtils::linearSubdivision(
 					verts_out[edge_info.midpoint_vert_index].anchored = true;
 				}*/
 
-				assert(edge_info.num_adjacent_subdividing_tris + edge_info.num_adjacent_non_subdividing_tris <= 2);
+				//assert(edge_info.num_adjacent_subdividing_tris + edge_info.num_adjacent_non_subdividing_tris <= 2);
 
 				/*const std::map<DUVertIndexPair, unsigned int>::iterator result = edge_info_map.find(edge);
 				if(result == edge_info_map.end())
@@ -623,8 +630,8 @@ void DisplacementUtils::linearSubdivision(
 						edge_info.midpoint_vert_index,
 						666,
 						tris_in[t].tri_mat_index,
-						1, // dimension
-						tris_in[t].num_subdivs + 1
+						1 // dimension
+						//tris_in[t].num_subdivs + 1
 					));
 
 				tris_out.push_back(DUTriangle(
@@ -632,8 +639,8 @@ void DisplacementUtils::linearSubdivision(
 						tris_in[t].vertex_indices[1],
 						666,
 						tris_in[t].tri_mat_index,
-						1, // dimension
-						tris_in[t].num_subdivs + 1
+						1 // dimension
+						//tris_in[t].num_subdivs + 1
 					));
 			}
 			else
@@ -804,8 +811,8 @@ void DisplacementUtils::linearSubdivision(
 						e[0],
 						e[2],
 						tris_in[t].tri_mat_index,
-						2, // dimension
-						tris_in[t].num_subdivs + 1
+						2 // dimension
+						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -813,8 +820,8 @@ void DisplacementUtils::linearSubdivision(
 						e[2],
 						e[0],
 						tris_in[t].tri_mat_index,
-						2, // dimension
-						tris_in[t].num_subdivs + 1
+						2 // dimension
+						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -822,8 +829,8 @@ void DisplacementUtils::linearSubdivision(
 						tris_in[t].vertex_indices[1],
 						e[1],
 						tris_in[t].tri_mat_index,
-						2, // dimension
-						tris_in[t].num_subdivs + 1
+						2 // dimension
+						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -831,8 +838,8 @@ void DisplacementUtils::linearSubdivision(
 						e[1],
 						tris_in[t].vertex_indices[2],
 						tris_in[t].tri_mat_index,
-						2, // dimension
-						tris_in[t].num_subdivs + 1
+						2 // dimension
+						//tris_in[t].num_subdivs + 1
 				));
 
 				num_tris_subdivided++;

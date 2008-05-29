@@ -29,7 +29,7 @@ class DUTriangle
 {
 public:
 	DUTriangle(){}
-	DUTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, unsigned int dimension_, unsigned int num_subdivs_) : tri_mat_index(matindex), dimension(dimension_), num_subdivs(num_subdivs_)
+	DUTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, unsigned int dimension_) : tri_mat_index(matindex), dimension(dimension_)//, num_subdivs(num_subdivs_)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -38,7 +38,7 @@ public:
 	unsigned int vertex_indices[3];
 	unsigned int tri_mat_index;
 	unsigned int dimension;
-	unsigned int num_subdivs;
+	//unsigned int num_subdivs;
 };
 
 /*=====================================================================
