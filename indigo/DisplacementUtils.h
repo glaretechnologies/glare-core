@@ -24,6 +24,21 @@ public:
 	int adjacent_vert_0, adjacent_vert_1;
 };
 
+class DUTriangle
+{
+public:
+	DUTriangle(){}
+	DUTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, unsigned int dimension_) : tri_mat_index(matindex), dimension(dimension_)
+	{
+		vertex_indices[0] = v0_;
+		vertex_indices[1] = v1_;
+		vertex_indices[2] = v2_;
+	}
+	unsigned int vertex_indices[3];
+	unsigned int tri_mat_index;
+	unsigned int dimension;
+};
+
 /*=====================================================================
 DisplacementUtils
 -----------------
@@ -57,19 +72,19 @@ public:
 
 
 private:
-	static void displace(const std::vector<Material*>& materials, const std::vector<RayMeshTriangle>& tris, const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out);
+	static void displace(const std::vector<Material*>& materials, const std::vector<DUTriangle>& tris, const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out);
 	static void linearSubdivision(const std::vector<Material*>& materials,
 								const CoordFramed& camera_coordframe_os, 
 								double pixel_height_at_dist_one,
 								double subdivide_pixel_threshold,
 								double subdivide_curvature_threshold,
 								const std::vector<Plane<float> >& camera_clip_planes,
-								const std::vector<RayMeshTriangle>& tris_in, 
+								const std::vector<DUTriangle>& tris_in, 
 								const std::vector<DUVertex>& verts_in, 
-								std::vector<RayMeshTriangle>& tris_out, 
+								std::vector<DUTriangle>& tris_out, 
 								std::vector<DUVertex>& verts_out
 								);
-	static void averagePass(const std::vector<RayMeshTriangle>& tris, const std::vector<DUVertex>& verts, std::vector<DUVertex>& new_verts_out);
+	static void averagePass(const std::vector<DUTriangle>& tris, const std::vector<DUVertex>& verts, std::vector<DUVertex>& new_verts_out);
 
 
 
