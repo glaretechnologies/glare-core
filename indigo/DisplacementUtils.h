@@ -20,7 +20,7 @@ public:
 	Vec3f normal;
 	Vec2f texcoords[4];
 	bool anchored;
-	int adjacent_subdivided_tris;
+	//int adjacent_subdivided_tris;
 	int adjacent_vert_0, adjacent_vert_1;
 };
 

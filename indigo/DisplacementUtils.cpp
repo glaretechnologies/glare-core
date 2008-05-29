@@ -314,15 +314,10 @@ void DisplacementUtils::displace(const std::vector<Material*>& materials, const 
 		}
 	}
 
+	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 	for(unsigned int v=0; v<verts_out.size(); ++v)
-	{
-		//NEW: if any vertex only has 1 adjacent subdivided tri (is anchored), then set its position to the average of its 'parent' vertices
 		if(verts_out[v].anchored)
-		{
 			verts_out[v].pos = (verts_out[verts_out[v].adjacent_vert_0].pos + verts_out[verts_out[v].adjacent_vert_1].pos) * 0.5f;
-		}
-	}
-
 }
 
 
@@ -347,14 +342,14 @@ static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordfram
 class DUEdgeInfo
 {
 public:
-	DUEdgeInfo() : midpoint_vert_index(0), num_adjacent_subidividing_tris(0), num_adjacent_non_subidividing_tris(0) {}
-	DUEdgeInfo(unsigned int midpoint_vert_index_,	unsigned int num_adjacent_subidividing_tris_, unsigned int num_adjacent_non_subidividing_tris_) :
-		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subidividing_tris(num_adjacent_subidividing_tris_), num_adjacent_non_subidividing_tris(num_adjacent_non_subidividing_tris_)
+	DUEdgeInfo() : midpoint_vert_index(0), num_adjacent_subdividing_tris(0), num_adjacent_non_subdividing_tris(0) {}
+	DUEdgeInfo(unsigned int midpoint_vert_index_, unsigned int num_adjacent_subdividing_tris_, unsigned int num_adjacent_non_subdividing_tris_) :
+		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subdividing_tris(num_adjacent_subdividing_tris_), num_adjacent_non_subdividing_tris(num_adjacent_non_subdividing_tris_)
 		{}
 	~DUEdgeInfo(){}
 	unsigned int midpoint_vert_index;
-	unsigned int num_adjacent_subidividing_tris;
-	unsigned int num_adjacent_non_subidividing_tris;
+	unsigned int num_adjacent_subdividing_tris;
+	unsigned int num_adjacent_non_subdividing_tris;
 };
 
 
@@ -385,8 +380,8 @@ void DisplacementUtils::linearSubdivision(
 	// Copy over original vertices
 	verts_out = verts_in;
 
-	for(unsigned int i=0; i<verts_out.size(); ++i)
-		verts_out[i].adjacent_subdivided_tris = 0;
+//	for(unsigned int i=0; i<verts_out.size(); ++i)
+//		verts_out[i].adjacent_subdivided_tris = 0;
 
 //	patch_start_indices_out.resize(0);
 	tris_out.resize(0);
@@ -402,7 +397,7 @@ void DisplacementUtils::linearSubdivision(
 		);
 
 	// Calculate normals of the displaced vertices, as generated from the surrounding triangles
-	std::vector<Vec3f> vert_normals(verts_in.size(), Vec3f(0.f, 0.f, 0.f));
+	std::vector<Vec3f> displaced_vert_normals(verts_in.size(), Vec3f(0.f, 0.f, 0.f));
 	for(unsigned int t=0; t<tris_in.size(); ++t)
 	{
 		if(tris_in[t].dimension == 2)
@@ -414,11 +409,11 @@ void DisplacementUtils::linearSubdivision(
 					tris_in[t].vertex_indices[2]
 				);
 			for(int i=0; i<3; ++i)
-				vert_normals[tris_in[t].vertex_indices[i]] += tri_normal;
+				displaced_vert_normals[tris_in[t].vertex_indices[i]] += tri_normal;
 		}
 	}
-	for(unsigned int i=0; i<vert_normals.size(); ++i)
-		vert_normals[i].normalise();
+	for(unsigned int i=0; i<displaced_vert_normals.size(); ++i)
+		displaced_vert_normals[i].normalise();
 
 	/*std::vector<Vec3f> vert_K(verts_in.size(), 0.0f);
 
@@ -440,7 +435,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<Vec3f> clipped_tri_verts_cs;
 	clipped_tri_verts_cs.reserve(32);
 
-	// Do a pass to decide whether or not to subdivide each triangle
+	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
 
 	// For each triangle
@@ -450,14 +445,17 @@ void DisplacementUtils::linearSubdivision(
 		{
 			bool do_subdivide = false;
 
-			// Build vector of displaced triangle vertex positions. (in object space)
-			for(unsigned int i=0; i<3; ++i)
-				tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
-
 			// Check curvature:
-			const float tri_curvature = triangleMaxCurvature(vert_normals[tris_in[t].vertex_indices[0]], vert_normals[tris_in[t].vertex_indices[1]], vert_normals[tris_in[t].vertex_indices[2]]);
+			const float tri_curvature = triangleMaxCurvature(
+				displaced_vert_normals[tris_in[t].vertex_indices[0]], 
+				displaced_vert_normals[tris_in[t].vertex_indices[1]], 
+				displaced_vert_normals[tris_in[t].vertex_indices[2]]);
 			if(tri_curvature >= (float)subdivide_curvature_threshold) // If triangle is more curved than the threshold:
 			{
+				// Build vector of displaced triangle vertex positions. (in object space)
+				for(unsigned int i=0; i<3; ++i)
+					tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
+
 				// Clip triangle against frustrum planes
 				TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
 
@@ -496,9 +494,9 @@ void DisplacementUtils::linearSubdivision(
 
 				DUEdgeInfo& edge_info = edge_info_map[edge];
 
-				if(subdividing_tri)
+				if(do_subdivide)
 				{
-					if(edge_info.num_adjacent_subidividing_tris == 0)
+					if(edge_info.num_adjacent_subdividing_tris == 0)
 					{
 						// Create the edge midpoint vertex
 						const unsigned int new_vert_index = verts_out.size();
@@ -511,19 +509,28 @@ void DisplacementUtils::linearSubdivision(
 						for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
 							verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
 
-						verts_out.back().adjacent_subdivided_tris = 1;
+						//verts_out.back().adjacent_subdivided_tris = 1;
 						verts_out.back().adjacent_vert_0 = edge.v_a;
 						verts_out.back().adjacent_vert_1 = edge.v_b;
 
 						edge_info.midpoint_vert_index = new_vert_index;
 					}
 
-					edge_info.num_adjacent_subidividing_tris++;
+					edge_info.num_adjacent_subdividing_tris++;
 				}
 				else
 				{
-					edge_info.num_adjacent_non_subidividing_tris++;
+					edge_info.num_adjacent_non_subdividing_tris++;
 				}
+
+				if(edge_info.num_adjacent_subdividing_tris == 1 && edge_info.num_adjacent_non_subdividing_tris == 1)
+				{
+					// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
+					// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
+					verts_out[edge_info.midpoint_vert_index].anchored = true;
+				}
+
+				assert(edge_info.num_adjacent_subdividing_tris + edge_info.num_adjacent_non_subdividing_tris <= 2);
 
 				/*const std::map<DUVertIndexPair, unsigned int>::iterator result = edge_info_map.find(edge);
 				if(result == edge_info_map.end())
@@ -565,15 +572,7 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 
-
-
-
-
-
-
-
-
-
+	// Update polygons
 
 	// Counters
 	unsigned int num_tris_subdivided = 0;
@@ -585,12 +584,49 @@ void DisplacementUtils::linearSubdivision(
 
 		if(tris_in[t].dimension == 0) // vertex polygon
 		{
+			// Can't subdivide it, so just copy it over
 			tris_out.push_back(tris_in[t]);
-			num_tris_unchanged++;
 		}
 		else if(tris_in[t].dimension == 1) // edge polygon
 		{
 			const unsigned int v_i = tris_in[t].vertex_indices[0];
+			const unsigned int v_i1 = tris_in[t].vertex_indices[1];
+			const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
+			
+			assert(edge_info_map.find(edge) != edge_info_map.end());
+
+			const std::map<DUVertIndexPair, DUEdgeInfo>::iterator result = edge_info_map.find(edge);
+			const DUEdgeInfo& edge_info = (*result).second;
+			if(edge_info.num_adjacent_subdividing_tris > 0)
+			{
+				// A triangle adjacent to this edge is being subdivided.  So subdivide this edge 1-D polygon as well.
+				assert(edge_info.midpoint_vert_index > 0);
+
+				// Create new edges
+				tris_out.push_back(DUTriangle(
+						tris_in[t].vertex_indices[0],
+						edge_info.midpoint_vert_index,
+						666,
+						tris_in[t].tri_mat_index,
+						1 // dimension
+					));
+
+				tris_out.push_back(DUTriangle(
+						edge_info.midpoint_vert_index,
+						tris_in[t].vertex_indices[1],
+						666,
+						tris_in[t].tri_mat_index,
+						1 // dimension
+					));
+			}
+			else
+			{
+				// not being subdivided, so just copy over polygon
+				tris_out.push_back(tris_in[t]);
+			}
+
+
+			/*const unsigned int v_i = tris_in[t].vertex_indices[0];
 			const unsigned int v_i1 = tris_in[t].vertex_indices[1];
 
 			unsigned int e; // Index of edge midpoint vertices in verts_out
@@ -645,11 +681,11 @@ void DisplacementUtils::linearSubdivision(
 					666,
 					tris_in[t].tri_mat_index,
 					1 // dimension
-				));
+				));*/
 		}
 		else
 		{
-			bool do_subdivide = true; // TEMP
+			//bool do_subdivide = true; // TEMP
 
 			// Build vector of displaced triangle vertex positions. (in object space)
 			/*for(unsigned int i=0; i<3; ++i)
@@ -684,7 +720,7 @@ void DisplacementUtils::linearSubdivision(
 			}*/
 
 
-			if(do_subdivide) // If we are subdividing this triangle...
+			if(subdividing_tri[t]) // If we are subdividing this triangle...
 			{
 				unsigned int e[3]; // Indices of edge midpoint vertices in verts_out
 
@@ -692,6 +728,15 @@ void DisplacementUtils::linearSubdivision(
 				for(unsigned int v=0; v<3; ++v)
 				{
 					const unsigned int v_i = tris_in[t].vertex_indices[v];
+					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
+					const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
+
+					const std::map<DUVertIndexPair, DUEdgeInfo>::iterator result = edge_info_map.find(edge);
+					assert(result != edge_info_map.end());
+
+					e[v] = (*result).second.midpoint_vert_index;
+
+					/*const unsigned int v_i = tris_in[t].vertex_indices[v];
 					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
 
 					// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
@@ -727,7 +772,7 @@ void DisplacementUtils::linearSubdivision(
 						e[v] = (*result).second; // else vertex has already been created
 					
 						verts_out[e[v]].adjacent_subdivided_tris++;
-					}			
+					}	*/		
 				}
 
 				//patch_start_indices_out.push_back(tris_out.size());
@@ -780,8 +825,8 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	for(unsigned int i=0; i<verts_out.size(); ++i)
-		verts_out[i].anchored = verts_out[i].anchored || verts_out[i].adjacent_subdivided_tris == 1;
+//	for(unsigned int i=0; i<verts_out.size(); ++i)
+//		verts_out[i].anchored = verts_out[i].anchored || verts_out[i].adjacent_subdivided_tris == 1;
 
 	conPrint("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
 	conPrint("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
@@ -803,6 +848,9 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 		Vec3f(0.0f, 0.0f, 0.0f), // pos
 		Vec3f(0.0f ,0.0f, 0.0f) // normal
 		)); // new vertices
+	/*new_verts_out = verts;
+	for(unsigned int v=0; v<new_verts_out; ++v)
+		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f*/
 
 	std::vector<unsigned int> dim(verts.size(), 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
@@ -879,11 +927,11 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 		}
 	}
 
-
-	/*TEMP for(unsigned int v=0; v<new_verts_out.size(); ++v)
+	// Set all anchored vertex positions back to the midpoint between the vertex's 'parent positions'
+	for(unsigned int v=0; v<new_verts_out.size(); ++v)
 	{
 		// If any vertex only has 1 adjacent subdivided tri, then just reset its position.
-		assert(verts[v].adjacent_subdivided_tris >= 0 && verts[v].adjacent_subdivided_tris <= 2);
+		//assert(verts[v].adjacent_subdivided_tris >= 0 && verts[v].adjacent_subdivided_tris <= 2);
 
 		if(verts[v].anchored)
 		{
@@ -893,7 +941,7 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 		new_verts_out[v].anchored = verts[v].anchored;
 		new_verts_out[v].adjacent_vert_0 = verts[v].adjacent_vert_0;
 		new_verts_out[v].adjacent_vert_1 = verts[v].adjacent_vert_1;
-	}*/
+	}
 
 }
 
