@@ -12,14 +12,12 @@ Code By Nicholas Chapman.
 
 
 DisplacementUtils::DisplacementUtils()
-{
-	
+{	
 }
 
 
 DisplacementUtils::~DisplacementUtils()
-{
-	
+{	
 }
 
 
@@ -40,9 +38,6 @@ public:
 	DUVertIndexPair(){}
 	DUVertIndexPair(unsigned int v_a_, unsigned int v_b_) : v_a(v_a_), v_b(v_b_) {}
 
-	//bool operator < (const VertIndexPair& other)
-	//{}
-
 	unsigned int v_a, v_b;
 };
 
@@ -60,7 +55,6 @@ inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 }
 
 
-
 void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& materials,
 											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 								  unsigned int num_subdivisions,
@@ -74,13 +68,15 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 {
 	//conPrint("Subdividing mesh: (num subdivisions = " + toString(num_subdivisions) + ")");
 
-	//std::vector<RayMeshTriangle> temp_tris = triangles_in;
+	
+	// Convert RayMeshTriangle's to DUTriangle's
 	std::vector<DUTriangle> temp_tris(triangles_in.size());
 	
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
 		temp_tris[i] = DUTriangle(
 			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2], triangles_in[i].tri_mat_index, 
-			2 // dimension
+			2, // dimension
+			0 // num subdivs
 			);
 
 	// Convert RayMeshVertex's to DUVertex's
@@ -110,8 +106,6 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			}
 		}
 
-		//std::vector<bool> adjacent_to_interior_edge(temp_verts.size(), false);
-
 		const unsigned int initial_num_temp_tris = temp_tris.size(); // precompute this, as temp_tris is being appended to.
 		
 		for(unsigned int t=0; t<initial_num_temp_tris; ++t)
@@ -126,40 +120,11 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 				if(num_adjacent_tris[edge] == 1)
 				{
 					// this is an edge edge aka. boundary !!! :)
-					temp_tris.push_back(DUTriangle(v_i, v_i1, 666, 666, 1));
+					temp_tris.push_back(DUTriangle(v_i, v_i1, 666, 666, 1, 0));
 				}
-				/*else
-				{
-					assert(num_adjacent_tris[edge] == 2);
-					// this is an interior edge (2 adjacent triangles)
-					adjacent_to_interior_edge[v_i] = true;
-					adjacent_to_interior_edge[v_i1] = true;
-				}*/
 			}
 		}
-
-		
-		//for(unsigned int v=0; v<temp_verts.size(); ++v)
-		//	if(!adjacent_to_interior_edge[v])
-		//		temp_tris.push_back(DUTriangle(v, 666, 666, 666, 0));
 	}
-
-	// TEMP HACK: manually add edges and verts
-	/*temp_tris.push_back(DUTriangle(0, 1, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(1, 2, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(2, 3, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(3, 7, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(7, 6, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(6, 5, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(5, 4, 666, 666, 1));
-	temp_tris.push_back(DUTriangle(0, 4, 666, 666, 1));
-
-	temp_tris.push_back(DUTriangle(0, 666, 666, 666, 0));
-	temp_tris.push_back(DUTriangle(3, 666, 666, 666, 0));
-	temp_tris.push_back(DUTriangle(7, 666, 666, 666, 0));
-	temp_tris.push_back(DUTriangle(4, 666, 666, 666, 0));*/
-
-
 
 	//TEMP: Merge vertices sharing the same position
 	/*{
@@ -223,6 +188,7 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 
 	// Apply the final displacement
 	displace(
+		true, // use anchoring
 		materials, 
 		temp_tris, // tris in
 		temp_verts, // verts in
@@ -230,13 +196,12 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		);
 	temp_verts = temp_verts2;
 
-	//tris_out = temp_tris;
+	// Build tris_out
 	tris_out.resize(0);
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
 		if(temp_tris[i].dimension == 2)
 			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index));
 
-	//verts_out = temp_verts;
 
 	// Recompute all vertex normals, as they will be completely wrong by now due to any displacement.
 	for(unsigned int i=0; i<temp_verts.size(); ++i)
@@ -277,7 +242,7 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 
 */
-void DisplacementUtils::displace(const std::vector<Material*>& materials, const std::vector<DUTriangle>& triangles, 
+void DisplacementUtils::displace(bool use_anchoring, const std::vector<Material*>& materials, const std::vector<DUTriangle>& triangles, 
 								 const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out)
 {
 	verts_out = verts_in;
@@ -342,7 +307,7 @@ static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordfram
 class DUEdgeInfo
 {
 public:
-	DUEdgeInfo() : midpoint_vert_index(0), num_adjacent_subdividing_tris(0), num_adjacent_non_subdividing_tris(0) {}
+	DUEdgeInfo() : midpoint_vert_index(0), num_adjacent_subdividing_tris(0), num_adjacent_non_subdividing_tris(0), left_tri_index(-1), right_tri_index(-1), border(false) {}
 	DUEdgeInfo(unsigned int midpoint_vert_index_, unsigned int num_adjacent_subdividing_tris_, unsigned int num_adjacent_non_subdividing_tris_) :
 		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subdividing_tris(num_adjacent_subdividing_tris_), num_adjacent_non_subdividing_tris(num_adjacent_non_subdividing_tris_)
 		{}
@@ -350,6 +315,8 @@ public:
 	unsigned int midpoint_vert_index;
 	unsigned int num_adjacent_subdividing_tris;
 	unsigned int num_adjacent_non_subdividing_tris;
+	int left_tri_index, right_tri_index;
+	bool border;
 };
 
 
@@ -360,6 +327,14 @@ DUEdgeInfo& getEdgeInfo(std::map<DUVertIndexPair, DUEdgeInfo>& edge_info_map, un
 }*/
 
 
+// tri_index may be -1
+static inline int triDisplacementLevel(const std::vector<DUTriangle>& tris, int tri_index)
+{
+	if(tri_index == -1)
+		return -1;
+	else
+		return tris[tri_index].num_subdivs;
+}
 
 void DisplacementUtils::linearSubdivision(
 	const std::vector<Material*>& materials,						
@@ -390,6 +365,7 @@ void DisplacementUtils::linearSubdivision(
 	// Get displaced vertices, which are needed for testing if subdivision is needed
 	std::vector<DUVertex> displaced_in_verts;
 	displace(
+		false, // use anchoring
 		materials, 
 		tris_in, 
 		verts_in, 
@@ -436,6 +412,7 @@ void DisplacementUtils::linearSubdivision(
 	clipped_tri_verts_cs.reserve(32);
 
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
+
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
 
 	// For each triangle
@@ -512,6 +489,8 @@ void DisplacementUtils::linearSubdivision(
 						//verts_out.back().adjacent_subdivided_tris = 1;
 						verts_out.back().adjacent_vert_0 = edge.v_a;
 						verts_out.back().adjacent_vert_1 = edge.v_b;
+						// If either of the parent vertices are anchored, then this vertex must be as well.
+						//verts_out.back().anchored = verts_in[v_i].anchored || verts_in[v_i1].anchored;
 
 						edge_info.midpoint_vert_index = new_vert_index;
 					}
@@ -523,12 +502,17 @@ void DisplacementUtils::linearSubdivision(
 					edge_info.num_adjacent_non_subdividing_tris++;
 				}
 
-				if(edge_info.num_adjacent_subdividing_tris == 1 && edge_info.num_adjacent_non_subdividing_tris == 1)
+				if(v_i < v_i1)
+					edge_info.left_tri_index = t;
+				else
+					edge_info.right_tri_index = t;
+
+				/*if(edge_info.num_adjacent_subdividing_tris == 1 && edge_info.num_adjacent_non_subdividing_tris == 1)
 				{
 					// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
 					// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
 					verts_out[edge_info.midpoint_vert_index].anchored = true;
-				}
+				}*/
 
 				assert(edge_info.num_adjacent_subdividing_tris + edge_info.num_adjacent_non_subdividing_tris <= 2);
 
@@ -571,6 +555,37 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
+	for(unsigned int t=0; t<tris_in.size(); ++t)
+	{
+		if(tris_in[t].dimension == 1) // border edge
+		{
+			const unsigned int v_i = tris_in[t].vertex_indices[0];
+			const unsigned int v_i1 = tris_in[t].vertex_indices[1];
+			const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
+			DUEdgeInfo& edge_info = edge_info_map[edge];
+			edge_info.border = true;
+		}
+	}
+
+
+
+
+	for(std::map<DUVertIndexPair, DUEdgeInfo>::const_iterator i=edge_info_map.begin(); i != edge_info_map.end(); ++i)
+	{
+		const DUEdgeInfo& edge_info = (*i).second;
+
+		if(!edge_info.border)
+			if(edge_info.num_adjacent_subdividing_tris == 1)// && edge_info.num_adjacent_non_subdividing_tris == 1)
+			{
+				// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
+				// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
+				verts_out[edge_info.midpoint_vert_index].anchored = true;
+			}
+
+			//if(triDisplacementLevel(tris_out, (*i).second.left_tri_index) != triDisplacementLevel(tris_out, (*i).second.right_tri_index))
+		//verts_out[(*i).second.midpoint_vert_index].anchored = true;
+	}
+
 
 	// Update polygons
 
@@ -608,7 +623,8 @@ void DisplacementUtils::linearSubdivision(
 						edge_info.midpoint_vert_index,
 						666,
 						tris_in[t].tri_mat_index,
-						1 // dimension
+						1, // dimension
+						tris_in[t].num_subdivs + 1
 					));
 
 				tris_out.push_back(DUTriangle(
@@ -616,7 +632,8 @@ void DisplacementUtils::linearSubdivision(
 						tris_in[t].vertex_indices[1],
 						666,
 						tris_in[t].tri_mat_index,
-						1 // dimension
+						1, // dimension
+						tris_in[t].num_subdivs + 1
 					));
 			}
 			else
@@ -736,6 +753,11 @@ void DisplacementUtils::linearSubdivision(
 
 					e[v] = (*result).second.midpoint_vert_index;
 
+					// Set edge midpoint vertex anchoring.  NOTE: could do this somewhere else.
+					//if(triDisplacementLevel(tris_out, (*result).second.left_tri_index) != triDisplacementLevel(tris_out, (*i).second.right_tri_index))
+					//	verts_out[(*i).second.midpoint_vert_index].anchored = true;
+
+
 					/*const unsigned int v_i = tris_in[t].vertex_indices[v];
 					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
 
@@ -782,7 +804,8 @@ void DisplacementUtils::linearSubdivision(
 						e[0],
 						e[2],
 						tris_in[t].tri_mat_index,
-						2 // dimension
+						2, // dimension
+						tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -790,7 +813,8 @@ void DisplacementUtils::linearSubdivision(
 						e[2],
 						e[0],
 						tris_in[t].tri_mat_index,
-						2 // dimension
+						2, // dimension
+						tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -798,7 +822,8 @@ void DisplacementUtils::linearSubdivision(
 						tris_in[t].vertex_indices[1],
 						e[1],
 						tris_in[t].tri_mat_index,
-						2 // dimension
+						2, // dimension
+						tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
@@ -806,7 +831,8 @@ void DisplacementUtils::linearSubdivision(
 						e[1],
 						tris_in[t].vertex_indices[2],
 						tris_in[t].tri_mat_index,
-						2 // dimension
+						2, // dimension
+						tris_in[t].num_subdivs + 1
 				));
 
 				num_tris_subdivided++;
@@ -844,13 +870,18 @@ static inline float w(unsigned int n_t, unsigned int n_q)
 
 void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const std::vector<DUVertex>& verts, std::vector<DUVertex>& new_verts_out)
 {
-	new_verts_out = std::vector<DUVertex>(verts.size(), DUVertex(
+	/*new_verts_out = std::vector<DUVertex>(verts.size(), DUVertex(
 		Vec3f(0.0f, 0.0f, 0.0f), // pos
 		Vec3f(0.0f ,0.0f, 0.0f) // normal
-		)); // new vertices
-	/*new_verts_out = verts;
-	for(unsigned int v=0; v<new_verts_out; ++v)
-		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f*/
+		)); // new vertices*/
+	new_verts_out = verts;
+	for(unsigned int v=0; v<new_verts_out.size(); ++v)
+	{
+		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f);
+		
+		for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
+			new_verts_out[v].texcoords[z] = Vec2f(0.f, 0.f);
+	}
 
 	std::vector<unsigned int> dim(verts.size(), 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
@@ -938,9 +969,9 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
 		}
 
-		new_verts_out[v].anchored = verts[v].anchored;
+		/*new_verts_out[v].anchored = verts[v].anchored;
 		new_verts_out[v].adjacent_vert_0 = verts[v].adjacent_vert_0;
-		new_verts_out[v].adjacent_vert_1 = verts[v].adjacent_vert_1;
+		new_verts_out[v].adjacent_vert_1 = verts[v].adjacent_vert_1;*/
 	}
 
 }
