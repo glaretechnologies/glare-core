@@ -74,7 +74,13 @@ public:
 
 
 private:
-	static void displace(bool use_anchoring, const std::vector<Material*>& materials, const std::vector<DUTriangle>& tris, const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out);
+	static void displace(bool use_anchoring, 
+		const std::vector<Material*>& materials, 
+		const std::vector<DUTriangle>& tris, 
+		const std::vector<DUVertex>& verts_in, 
+		std::vector<DUVertex>& verts_out,
+		std::vector<bool>* unclipped_out
+		);
 	static void linearSubdivision(const std::vector<Material*>& materials,
 								const CoordFramed& camera_coordframe_os, 
 								double pixel_height_at_dist_one,

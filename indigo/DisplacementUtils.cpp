@@ -187,19 +187,22 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	}
 
 	// Apply the final displacement
+
+	std::vector<bool> tris_unclipped;
 	displace(
 		true, // use anchoring
 		materials, 
 		temp_tris, // tris in
 		temp_verts, // verts in
-		temp_verts2 // verts out
+		temp_verts2, // verts out
+		&tris_unclipped
 		);
 	temp_verts = temp_verts2;
 
 	// Build tris_out
 	tris_out.resize(0);
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
-		if(temp_tris[i].dimension == 2)
+		if(tris_unclipped[i] && temp_tris[i].dimension == 2)
 			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index));
 
 
@@ -243,12 +246,16 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 */
 void DisplacementUtils::displace(bool use_anchoring, const std::vector<Material*>& materials, const std::vector<DUTriangle>& triangles, 
-								 const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out)
+								 const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out, std::vector<bool>* unclipped_out)
 {
 	verts_out = verts_in;
 
-	std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
+	if(unclipped_out)
+		unclipped_out->resize(triangles.size());
 
+	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
+
+	// For each triangle
 	for(unsigned int t=0; t<triangles.size(); ++t)
 	{
 		if(triangles[t].dimension == 2)
@@ -260,20 +267,36 @@ void DisplacementUtils::displace(bool use_anchoring, const std::vector<Material*
 				const int uv_set_index = material->getDisplacementTextureUVSetIndex();
 				assert(uv_set_index >= 0 && uv_set_index < RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS);
 
+				float min_displacement = std::numeric_limits<float>::infinity();
+
+				// For each vertex
 				for(unsigned int i=0; i<3; ++i)
 				{
-					if(!vert_displaced[triangles[t].vertex_indices[i]])
-					{
-						// Translate vertex position along vertex shading normal
-						verts_out[triangles[t].vertex_indices[i]].pos += verts_out[triangles[t].vertex_indices[i]].normal * (float)material->displacement(
+					const float displacement = (float)material->displacement(
 							verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
 							verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
 							);
 
+					min_displacement = myMin(min_displacement, displacement);
+
+					//if(!vert_displaced[triangles[t].vertex_indices[i]])
+					//{
+						// Translate vertex position along vertex shading normal
+						//verts_out[triangles[t].vertex_indices[i]].pos += verts_out[triangles[t].vertex_indices[i]].normal * displacement;
+					verts_out[triangles[t].vertex_indices[i]].pos = verts_in[triangles[t].vertex_indices[i]].pos + verts_in[triangles[t].vertex_indices[i]].normal * displacement;
+
+
+						
+
 						//vertices[triangles[t].vertex_indices[i]].pos.x += sin(vertices[triangles[t].vertex_indices[i]].pos.z * 50.0f) * 0.03f;
 
-						vert_displaced[triangles[t].vertex_indices[i]] = true;
-					}
+						//vert_displaced[triangles[t].vertex_indices[i]] = true;
+					//}
+				}
+
+				if(unclipped_out)
+				{
+					(*unclipped_out)[t] = true;//min_displacement > 0.2f;
 				}
 			}
 		}
@@ -334,15 +357,6 @@ DUEdgeInfo& getEdgeInfo(std::map<DUVertIndexPair, DUEdgeInfo>& edge_info_map, un
 }*/
 
 
-// tri_index may be -1
-/*static inline int triDisplacementLevel(const std::vector<DUTriangle>& tris, int tri_index)
-{
-	if(tri_index == -1)
-		return -1;
-	else
-		return tris[tri_index].num_subdivs;
-}*/
-
 void DisplacementUtils::linearSubdivision(
 	const std::vector<Material*>& materials,						
 	const CoordFramed& camera_coordframe_os, 
@@ -372,11 +386,12 @@ void DisplacementUtils::linearSubdivision(
 	// Get displaced vertices, which are needed for testing if subdivision is needed
 	std::vector<DUVertex> displaced_in_verts;
 	displace(
-		false, // use anchoring
+		true, // use anchoring
 		materials, 
 		tris_in, 
 		verts_in, 
-		displaced_in_verts // verts out
+		displaced_in_verts, // verts out
+		NULL // unclipped out
 		);
 
 	// Calculate normals of the displaced vertices, as generated from the surrounding triangles
@@ -493,71 +508,14 @@ void DisplacementUtils::linearSubdivision(
 						for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
 							verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
 
-						//verts_out.back().adjacent_subdivided_tris = 1;
 						verts_out.back().adjacent_vert_0 = edge.v_a;
 						verts_out.back().adjacent_vert_1 = edge.v_b;
-						// If either of the parent vertices are anchored, then this vertex must be as well.
-						//verts_out.back().anchored = verts_in[v_i].anchored || verts_in[v_i1].anchored;
 
 						edge_info.midpoint_vert_index = new_vert_index;
 					}
 
 					edge_info.num_adjacent_subdividing_tris++;
 				}
-				else
-				{
-					//edge_info.num_adjacent_non_subdividing_tris++;
-				}
-
-				//if(v_i < v_i1)
-				//	edge_info.left_tri_index = t;
-				//else
-				//	edge_info.right_tri_index = t;
-
-				/*if(edge_info.num_adjacent_subdividing_tris == 1 && edge_info.num_adjacent_non_subdividing_tris == 1)
-				{
-					// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
-					// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
-					verts_out[edge_info.midpoint_vert_index].anchored = true;
-				}*/
-
-				//assert(edge_info.num_adjacent_subdividing_tris + edge_info.num_adjacent_non_subdividing_tris <= 2);
-
-				/*const std::map<DUVertIndexPair, unsigned int>::iterator result = edge_info_map.find(edge);
-				if(result == edge_info_map.end())
-				{
-					// Create new vertex
-					//e[v] = verts_out.size(); // store index of new vertex
-					const unsigned int new_vert_index = verts_out.size();
-
-					verts_out.push_back(DUVertex(
-						(verts_in[v_i].pos + verts_in[v_i1].pos) * 0.5f,
-						(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
-						));
-
-					for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-						verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
-
-					verts_out.back().adjacent_subdivided_tris = 1;
-					verts_out.back().adjacent_vert_0 = edge.v_a;
-					verts_out.back().adjacent_vert_1 = edge.v_b;
-
-					// Add new vertex to map
-					edge_to_new_vert_map.insert(std::make_pair(
-						edge,
-						DUEdgeInfo(
-							new_vert_index, 
-							1, // num_adjacent_subidividing_tris: 1 because this tri is being subdivided, and this edge is new
-							0
-							)
-						));
-				}
-				else
-				{
-					e[v] = (*result).second; // else vertex has already been created
-				
-					verts_out[e[v]].adjacent_subdivided_tris++;
-				}*/			
 			}
 		}
 	}
@@ -588,9 +546,6 @@ void DisplacementUtils::linearSubdivision(
 				// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
 				verts_out[edge_info.midpoint_vert_index].anchored = true;
 			}
-
-			//if(triDisplacementLevel(tris_out, (*i).second.left_tri_index) != triDisplacementLevel(tris_out, (*i).second.right_tri_index))
-		//verts_out[(*i).second.midpoint_vert_index].anchored = true;
 	}
 
 
@@ -648,102 +603,9 @@ void DisplacementUtils::linearSubdivision(
 				// not being subdivided, so just copy over polygon
 				tris_out.push_back(tris_in[t]);
 			}
-
-
-			/*const unsigned int v_i = tris_in[t].vertex_indices[0];
-			const unsigned int v_i1 = tris_in[t].vertex_indices[1];
-
-			unsigned int e; // Index of edge midpoint vertices in verts_out
-
-			// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
-
-			const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
-
-			const std::map<DUVertIndexPair, unsigned int>::iterator result = edge_to_new_vert_map.find(edge);
-			if(result == edge_to_new_vert_map.end())
-			{
-				// Create new vertex
-				e = verts_out.size(); // store index of new vertex
-
-				verts_out.push_back(DUVertex(
-					(verts_in[v_i].pos + verts_in[v_i1].pos) * 0.5f,
-					(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
-					));
-
-				for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-					verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
-
-				verts_out.back().adjacent_subdivided_tris = 1;
-				verts_out.back().adjacent_vert_0 = edge.v_a;
-				verts_out.back().adjacent_vert_1 = edge.v_b;
-
-				// Add new vertex to map
-				edge_to_new_vert_map.insert(std::make_pair(
-					edge,
-					e
-					));
-			}
-			else
-			{
-				e = (*result).second; // else vertex has already been created
-			
-				verts_out[e].adjacent_subdivided_tris++;
-			}	
-
-			// Create new edges
-			tris_out.push_back(DUTriangle(
-					tris_in[t].vertex_indices[0],
-					e,
-					666,
-					tris_in[t].tri_mat_index,
-					1 // dimension
-				));
-
-			tris_out.push_back(DUTriangle(
-					e,
-					tris_in[t].vertex_indices[1],
-					666,
-					tris_in[t].tri_mat_index,
-					1 // dimension
-				));*/
 		}
 		else
 		{
-			//bool do_subdivide = true; // TEMP
-
-			// Build vector of displaced triangle vertex positions. (in object space)
-			/*for(unsigned int i=0; i<3; ++i)
-				tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
-
-			// Check curvature:
-			const float tri_curvature = triangleMaxCurvature(vert_normals[tris_in[t].vertex_indices[0]], vert_normals[tris_in[t].vertex_indices[1]], vert_normals[tris_in[t].vertex_indices[2]]);
-			if(tri_curvature >= (float)subdivide_curvature_threshold) // If triangle is more curved than the threshold:
-			{
-				// Clip triangle against frustrum planes
-				TriBoxIntersection::clipPolyToPlaneHalfSpaces(camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
-
-				if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
-				{
-					// Convert clipped verts to camera space
-					clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
-					for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
-						clipped_tri_verts_cs[i] = toVec3f(camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
-
-					// Compute 2D bounding box of clipped triangle in screen space
-					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[0]);
-					Rect2f rect_ss(v0_ss, v0_ss);
-
-					for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
-						rect_ss.enlargeToHoldPoint(
-							screenSpacePosForCameraSpacePos(camera_coordframe_os, clipped_tri_verts_cs[i])
-							);
-
-					// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
-					do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
-				}
-			}*/
-
-
 			if(subdividing_tri[t]) // If we are subdividing this triangle...
 			{
 				unsigned int e[3]; // Indices of edge midpoint vertices in verts_out
@@ -759,49 +621,6 @@ void DisplacementUtils::linearSubdivision(
 					assert(result != edge_info_map.end());
 
 					e[v] = (*result).second.midpoint_vert_index;
-
-					// Set edge midpoint vertex anchoring.  NOTE: could do this somewhere else.
-					//if(triDisplacementLevel(tris_out, (*result).second.left_tri_index) != triDisplacementLevel(tris_out, (*i).second.right_tri_index))
-					//	verts_out[(*i).second.midpoint_vert_index].anchored = true;
-
-
-					/*const unsigned int v_i = tris_in[t].vertex_indices[v];
-					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
-
-					// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
-
-					const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
-
-					const std::map<DUVertIndexPair, unsigned int>::iterator result = edge_to_new_vert_map.find(edge);
-					if(result == edge_to_new_vert_map.end())
-					{
-						// Create new vertex
-						e[v] = verts_out.size(); // store index of new vertex
-
-						verts_out.push_back(DUVertex(
-							(verts_in[v_i].pos + verts_in[v_i1].pos) * 0.5f,
-							(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
-							));
-
-						for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-							verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
-
-						verts_out.back().adjacent_subdivided_tris = 1;
-						verts_out.back().adjacent_vert_0 = edge.v_a;
-						verts_out.back().adjacent_vert_1 = edge.v_b;
-
-						// Add new vertex to map
-						edge_to_new_vert_map.insert(std::make_pair(
-							edge,
-							e[v]
-							));
-					}
-					else
-					{
-						e[v] = (*result).second; // else vertex has already been created
-					
-						verts_out[e[v]].adjacent_subdivided_tris++;
-					}	*/		
 				}
 
 				//patch_start_indices_out.push_back(tris_out.size());
