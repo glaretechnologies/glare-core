@@ -20,17 +20,12 @@ DisplacementUtils::~DisplacementUtils()
 {	
 }
 
-/*
-static inline bool operator < (const DUVertex& a, const DUVertex& b)
-{
-	return a.pos < b.pos;
-}*/
-
 
 static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
 	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
 }
+
 
 class DUVertIndexPair
 {
@@ -61,6 +56,8 @@ static inline const Vec2f& getUVs(const std::vector<Vec2f>& uvs, unsigned int nu
 	assert(set_index < num_uv_sets);
 	return uvs[uv_index * num_uv_sets + set_index];
 }
+
+
 static inline Vec2f& getUVs(std::vector<Vec2f>& uvs, unsigned int num_uv_sets, unsigned int uv_index, unsigned int set_index)
 {
 	assert(num_uv_sets > 0);
@@ -95,24 +92,18 @@ void DisplacementUtils::subdivideAndDisplace(
 			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2],
 			triangles_in[i].uv_indices[0], triangles_in[i].uv_indices[1], triangles_in[i].uv_indices[2],
 			triangles_in[i].tri_mat_index,
-			2//, // dimension
-			//0 // num subdivs
+			2 // dimension
 			);
 
 	// Convert RayMeshVertex's to DUVertex's
 	std::vector<DUVertex> temp_verts(vertices_in.size());
 	for(unsigned int i=0; i<temp_verts.size(); ++i)
-	{
 		temp_verts[i] = DUVertex(vertices_in[i].pos, vertices_in[i].normal);
-
-		//TEMPfor(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
-		//	temp_verts[i].texcoords[t] = vertices_in[i].texcoords[t];
-	}
 
 
 	// Add edge and vertex polygons
 	{
-		std::map<DUVertIndexPair, unsigned int> num_adjacent_tris; // edge -> num adjacent tris
+		std::map<DUVertIndexPair, unsigned int> num_adjacent_tris; // Map from edge -> num adjacent tris
 
 		for(unsigned int t=0; t<temp_tris.size(); ++t)
 		{
@@ -128,7 +119,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		const unsigned int initial_num_temp_tris = temp_tris.size(); // precompute this, as temp_tris is being appended to.
 		
-		for(unsigned int t=0; t<initial_num_temp_tris; ++t)
+		for(unsigned int t=0; t<initial_num_temp_tris; ++t) // For each original triangle...
 		{
 			for(unsigned int v=0; v<3; ++v)
 			{
@@ -269,12 +260,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
 	verts_out.resize(temp_verts.size());
 	for(unsigned int i=0; i<verts_out.size(); ++i)
-	{
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal);
-
-		//TEMPfor(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
-			//verts_out[i].texcoords[t] = temp_verts[i].texcoords[t];
-	}
 
 	uvs_out = temp_uvs;
 }
@@ -597,10 +583,6 @@ void DisplacementUtils::linearSubdivision(
 								uvs_out.push_back(
 									(getUVs(uvs_in, num_uv_sets, uv_i, z) + getUVs(uvs_in, num_uv_sets, uv_i1, z)) * 0.5f
 									);
-							//for(int z=0; z<num_uv_sets; ++z)
-							//	uvs_out.push_back(
-							//		(uvs_in[uv_i] + uvs_in[uv_i1]) * 0.5f
-							//		);
 						}
 						else
 						{
@@ -839,18 +821,9 @@ void DisplacementUtils::averagePass(
 	std::vector<Vec2f>& uvs_out
 	)
 {
-	/*new_verts_out = std::vector<DUVertex>(verts.size(), DUVertex(
-		Vec3f(0.0f, 0.0f, 0.0f), // pos
-		Vec3f(0.0f ,0.0f, 0.0f) // normal
-		)); // new vertices*/
 	new_verts_out = verts;
 	for(unsigned int v=0; v<new_verts_out.size(); ++v)
-	{
 		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f);
-		
-		//TEMP for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-			//new_verts_out[v].texcoords[z] = Vec2f(0.f, 0.f);
-	}
 
 	uvs_out = uvs_in;
 	for(unsigned int v=0; v<uvs_out.size(); ++v)
@@ -890,7 +863,6 @@ void DisplacementUtils::averagePass(
 			if(dim[v_i] == tris[t].dimension) // Only add centroid if vertex has same dimension as polygon
 			{
 				Vec3f cent;
-				//Vec2f uv_cent;
 				float weight;
 				if(tris[t].dimension == 0) // t is a vertex
 				{
@@ -930,7 +902,7 @@ void DisplacementUtils::averagePass(
 				new_verts_out[v_i].pos += cent * weight;
 
 				for(unsigned int z=0; z<num_uv_sets; ++z)
-					getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z];
+					getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
 
 				//new_verts_out[v_i].normal += (verts[v_i].normal * (1.0f / 4.0f) + (verts[v_i_plus_1].normal + verts[v_i_minus_1].normal) * (3.0f / 8.0f)) * weight;
 
