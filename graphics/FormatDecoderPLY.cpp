@@ -57,7 +57,7 @@ static int vertex_callback(p_ply_argument argument)
 	current_vert_pos[current_cmpnt] = (float)ply_get_argument_value(argument);
 	if(current_cmpnt == 2)
 	{
-		handler->addVertex(current_vert_pos * ply_scale, Vec3f(0, 0, 1), texcoord_sets);//NOTE: FUCKING NASTY HARD CODED NORMAL HERE
+		handler->addVertex(current_vert_pos * ply_scale, Vec3f(0, 0, 1)); // , texcoord_sets);//NOTE: FUCKING NASTY HARD CODED NORMAL HERE
 	}
 		
 
@@ -98,7 +98,8 @@ static int face_callback(p_ply_argument argument)
 		if(value_index == 2)
 		{
 			const unsigned int mat_index = 0;
-			handler->addTriangle(current_vert_indices, mat_index);
+			const unsigned int uv_indices[] = {0, 0, 0};
+			handler->addTriangle(current_vert_indices, uv_indices, mat_index);
 		}
 	}
 

@@ -7,17 +7,11 @@ Code By Nicholas Chapman.
 #include "formatdecoderobj.h"
 
 
-#include <sstream>
 #include "../utils/namemap.h"
 #include "../utils/stringutils.h"
-#include "../utils/fileutils.h"
-//#include "../cyberspace/model.h"
-//#include "../cyberspace/modelpart.h"
-#include <fstream>
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
 #include "../utils/Parser.h"
-#include "../utils/namemap.h"
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../maths/vec2.h"
 
@@ -26,9 +20,11 @@ FormatDecoderObj::FormatDecoderObj()
 {	
 }
 
+
 FormatDecoderObj::~FormatDecoderObj()
 {	
 }
+
 
 const std::string FormatDecoderObj::getExtensionType() const
 {
@@ -36,10 +32,201 @@ const std::string FormatDecoderObj::getExtensionType() const
 }
 
 
+void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, 
+		float scale) // throws ModelFormatDecoderExcep
+{
+	Timer load_timer;
+
+	// Assume one texcoord per vertex.
+	handler.setMaxNumTexcoordSets(1);
+	handler.addUVSetExposition("default", 0);
+
+	NameMap<int> materials;
+
+	int current_mat_index = -1;
+
+	std::vector<Vec2f> uv_vector(1);
+
+	/// Read .obj file from disk into RAM ///
+	std::vector<unsigned char> data;
+
+	readEntireFile(filename, data); // throws ModelFormatDecoderExcep
+	
+	Parser parser((const char*)&(data[0]), (unsigned int)data.size());
+
+	const unsigned int MAX_NUM_FACE_VERTICES = 256;
+	std::vector<unsigned int> face_vertex_indices(MAX_NUM_FACE_VERTICES);
+	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES);
+
+	int linenum = 0;
+	std::string token;
+	while(!parser.eof())
+	{
+		linenum++;
+
+		parser.parseSpacesAndTabs();
+		
+		if(parser.current() == '#')
+		{
+			parser.advancePastLine();
+			continue;
+		}
+
+		parser.parseAlphaToken(token);
+
+		if(token == "usemtl")  //material to use for subsequent faces
+		{
+			/// Parse material name ///
+			parser.parseSpacesAndTabs();
+
+			std::string material_name;
+			parser.parseNonWSToken(material_name);
+
+			/// See if material has already been created, create it if it hasn't been ///
+			if(materials.isInserted(material_name))
+				current_mat_index = materials.getValue(material_name);
+			else
+			{
+				conPrint("\tFound reference to material '" + material_name + "'.");
+				current_mat_index = materials.size();
+				materials.insert(material_name, current_mat_index);
+				handler.addMaterialUsed(material_name);
+			}
+		}
+		else if(token == "v")//vertex position
+		{
+			Vec3f pos(0,0,0);
+			parser.parseSpacesAndTabs();
+			const bool r1 = parser.parseFloat(pos.x);
+			parser.parseSpacesAndTabs();
+			const bool r2 = parser.parseFloat(pos.y);
+			parser.parseSpacesAndTabs();
+			const bool r3 = parser.parseFloat(pos.z);
+
+			if(!r1 || !r2 || !r3)
+				throw ModelFormatDecoderExcep("Parse error while reading position on line " + toString(linenum));
+
+			pos *= scale;
+			
+			handler.addVertex(pos, Vec3f(0,0,1));
+		}
+		else if(token == "vt")//vertex tex coordinate
+		{
+			Vec2f texcoord(0,0);
+			parser.parseSpacesAndTabs();
+			const bool r1 = parser.parseFloat(texcoord.x);
+			parser.parseSpacesAndTabs();
+			const bool r2 = parser.parseFloat(texcoord.y);
+
+			if(!r1 || !r2)
+				throw ModelFormatDecoderExcep("Parse error while reading tex coord on line " + toString(linenum));
+
+			assert(uv_vector.size() == 1);
+			uv_vector[0] = texcoord;
+			handler.addUVs(uv_vector);
+		}
+		else if(token == "f")//face
+		{
+			int numfaceverts = 0;
+
+			for(int i=0; i<MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
+			{
+				parser.parseSpacesAndTabs();
+				if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
+					break; // end of line, we're done parsing this vertex.
+
+				//------------------------------------------------------------------------
+				//Parse vert, texcoord, normal indices
+				//------------------------------------------------------------------------
+
+				//Read vertex position index
+				if(parser.parseUnsignedInt(face_vertex_indices[i]))
+				{
+					numfaceverts++;
+
+					// Bounds check
+					if(face_vertex_indices[i] == 0)
+						throw ModelFormatDecoderExcep("Position index invalid. (index '" + toString(face_vertex_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+
+					face_vertex_indices[i]--; // make index 0-based
+
+					//Try and read vertex texcoord index
+					if(parser.parseChar('/'))
+					{
+						if(parser.parseUnsignedInt(face_uv_indices[i]))
+						{
+							if(face_uv_indices[i] == 0)
+								throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(face_uv_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+							
+							face_uv_indices[i]--;//make 0-based
+							//got_texcoord = true;
+						}
+
+						//Try and read vertex normal index
+						if(parser.parseChar('/'))
+						{
+							unsigned int vert_normal_index; // don't actually do anything with this.
+
+							if(!parser.parseUnsignedInt(vert_normal_index))
+								throw ModelFormatDecoderExcep("syntax error: no integer following '/' (line " + toString(linenum) + ")");
+						
+							if(vert_normal_index == 0)
+								throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(vert_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+							
+							vert_normal_index--; // index make 0 based
+							//got_normal = true;
+						}
+					}
+				}
+				else 
+					throw ModelFormatDecoderExcep("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
+
+			}//end for each vertex
+
+			if(numfaceverts >= MAX_NUM_FACE_VERTICES)
+				conPrint("Warning, maximum number of verts per face reached or exceeded.");
+
+			if(numfaceverts < 3)
+				throw ModelFormatDecoderExcep("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
+
+			//------------------------------------------------------------------------
+			//Check current material index
+			//------------------------------------------------------------------------
+			if(current_mat_index < 0)
+			{
+				conPrint("WARNING: found faces without a 'usemtl' line first.  Using material 'default'");
+				current_mat_index = 0;
+				materials.insert("default", current_mat_index);
+				handler.addMaterialUsed("default");
+			}
+
+			// Add all tris needed to make up the face polygon
+			for(int i=2; i<numfaceverts; ++i)
+			{
+				const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
+				const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
+				handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
+			}
+
+			// Finished handling face.
+		}
+
+		parser.advancePastLine();
+	}
+
+	conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
+}
+
+
+
+
+
+
+#if 0
 //------------------------------------------------------------------------
 //Utility class and comparison operator
 //------------------------------------------------------------------------
-class FormatDecoderObjVertex
+/*class FormatDecoderObjVertex
 {
 public:
 	FormatDecoderObjVertex(){};
@@ -47,9 +234,9 @@ public:
 	Vec3f position;
 	Vec3f normal;
 	Vec2f texcoord;
-};
+};*/
 
-class CompareFormatDecoderObjVertex
+/*class CompareFormatDecoderObjVertex
 {
 public:
 	bool operator () (const FormatDecoderObjVertex& a, const FormatDecoderObjVertex& b) const
@@ -72,7 +259,7 @@ public:
 			}
 		}
 	}
-};
+};*/
 
 
 //TEMP HACK
@@ -92,35 +279,32 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 	int current_mat_index = -1;
 
 	// OLD: put dummy values at start because .obj files use 1-based indexing.
-	std::vector<Vec3f> positions;//(1, Vec3(0,0,0));
-	std::vector<Vec3f> normals;//(1, Vec3(0,0,1));
-	std::vector<Vec2f> texcoords;//(1, Vec2(0,0));
+	//std::vector<Vec3f> positions;//(1, Vec3(0,0,0));
+	//std::vector<Vec3f> normals;//(1, Vec3(0,0,1));
+	//std::vector<Vec2f> texcoords;//(1, Vec2(0,0));
 
 
 	//Map from complete vertex structure to final index of vertex
-	std::map<FormatDecoderObjVertex, unsigned int, CompareFormatDecoderObjVertex> verts;
-	unsigned int verts_size = 0;
+	//std::map<FormatDecoderObjVertex, unsigned int, CompareFormatDecoderObjVertex> verts;
+	//unsigned int verts_size = 0;
 
-	std::vector<Vec2f> texcoord_vector(1);
+	std::vector<Vec2f> uv_vector(1);
 
 	/// Read .obj file from disk into RAM ///
 	std::vector<unsigned char> data;
-	//conPrint("\tLoading into RAM...");
+
 	readEntireFile(filename, data);
-	//conPrint("\tDone.");
-	
-	//Form a string from the data
-	//NOTE: inefficient use of memory here :)
-	//std::string datastring((char*)&(data[0]), data.size());
+
 	
 	Parser parser((char*)&(data[0]), (unsigned int)data.size());
 
 	const unsigned int MAX_NUM_FACE_VERTICES = 256;
-	std::vector<unsigned int> vertex_indices(MAX_NUM_FACE_VERTICES);
-
-	//char tmp[2048];
+	std::vector<unsigned int> face_vertex_indices(MAX_NUM_FACE_VERTICES);
+	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES);
 
 	//int num_bad_normals = 0;
+
+	//unsigned int num_verts_created = 0;
 
 	//Timer timer;
 	int linenum = 0;
@@ -128,8 +312,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 	while(!parser.eof())
 	{
 		linenum++;
-		if(linenum == 3764)
-			int a = 9;
+
 		/*if(linenum % 100000 == 0)
 		{
 			conPrint("linenum: " + toString(linenum));
@@ -210,7 +393,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 				num_bad_normals++;
 			}*/
-			normals.push_back(normal);
+			//normals.push_back(normal);
 		}
 		else if(token == "v")//vertex position
 		{
@@ -247,11 +430,13 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 			pos *= scale;
 			
-			positions.push_back(pos);
+			//positions.push_back(pos);
 
-#ifdef NON_COLLAPSED_VERTEX_LOAD
-			handler.addVertex(pos, Vec3f(0,0,1), texcoord_vector);
-#endif
+			handler.addVertex(pos, Vec3f(0,0,1));
+
+//#ifdef NON_COLLAPSED_VERTEX_LOAD
+//			handler.addVertex(pos, Vec3f(0,0,1), texcoord_vector);
+//#endif
 		}
 		else if(token == "vt")//vertex tex coordinate
 		{
@@ -264,13 +449,15 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 			if(!r1 || !r2)
 				throw ModelFormatDecoderExcep("Parse error while reading tex coord on line " + toString(linenum));
 
-			texcoords.push_back(texcoord);
+			//texcoords.push_back(texcoord);
+			uv_vector[0] = texcoord;
+			handler.addUVs(uv_vector);
 		}
 		else if(token == "f")//face
 		{
 			int numfaceverts = 0;
 
-			for(int i=0; i<MAX_NUM_FACE_VERTICES; ++i)//for each vert
+			for(int i=0; i<MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
 			{
 				parser.parseSpacesAndTabs();
 				if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
@@ -291,7 +478,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 					numfaceverts++;
 
 					// Bounds check
-					if(vert_pos_index == 0 || vert_pos_index > positions.size())
+					if(vert_pos_index == 0)//TEMP || vert_pos_index > positions.size())
 						throw ModelFormatDecoderExcep("Position index invalid. (index '" + toString(vert_pos_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 					vert_pos_index--;//make 0-based
@@ -307,7 +494,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 						*/
 						if(parser.parseUnsignedInt(vert_texcoord_index))
 						{
-							if(vert_texcoord_index == 0 || vert_texcoord_index > texcoords.size())
+							if(vert_texcoord_index == 0)// || vert_texcoord_index > texcoords.size())
 								throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(vert_texcoord_index) + "' out of bounds, on line " + toString(linenum) + ")");
 							
 							vert_texcoord_index--;//make 0-based
@@ -320,7 +507,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 							if(!parser.parseUnsignedInt(vert_normal_index))
 								throw ModelFormatDecoderExcep("syntax error: no integer following '/' (line " + toString(linenum) + ")");
 						
-							if(vert_normal_index == 0 || vert_normal_index > normals.size())
+							if(vert_normal_index == 0)//TEMP || vert_normal_index > normals.size())
 								throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(vert_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 							
 							vert_normal_index--;//make 0 based
@@ -332,15 +519,15 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 					throw ModelFormatDecoderExcep("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
 
 
-#ifdef NON_COLLAPSED_VERTEX_LOAD
+//#ifdef NON_COLLAPSED_VERTEX_LOAD
 				//TEMP: just create new vertex
-				vertex_indices[i] = vert_pos_index;//NOTE: should add 1 to make 1-based?
-#else
+				//vertex_indices[i] = vert_pos_index;//NOTE: should add 1 to make 1-based?
+//#else
 				
 				//------------------------------------------------------------------------
 				//Find or insert vertex
 				//------------------------------------------------------------------------
-				FormatDecoderObjVertex target_vertex;
+				/*FormatDecoderObjVertex target_vertex;
 				target_vertex.position = positions[vert_pos_index];
 				target_vertex.normal = got_normal ? normals[vert_normal_index] : Vec3f(0,0,1);
 				target_vertex.texcoord = got_texcoord ? texcoords[vert_texcoord_index] : Vec2f(0,0);
@@ -367,9 +554,23 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 					//vert already created, so use it
 					//conPrint("Vert already exists");
 					vertex_indices[i] = (*result).second;
-				}
+				}*/
 
-#endif				
+				
+				// Add a vertex for this polygon vertex.
+				/*handler.addVertex(
+					positions[vert_pos_index], 
+					got_normal ? normals[vert_normal_index] : Vec3f(0,0,1)
+					);*/
+
+
+
+				face_vertex_indices[i] = vert_pos_index; // record the index of the vertex we created
+				face_uv_indices[i] = vert_texcoord_index;
+
+				//num_verts_created++;
+
+//#endif				
 			}//end for each vertex
 
 			if(numfaceverts >= MAX_NUM_FACE_VERTICES)
@@ -393,8 +594,13 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 			//add all tris needed to make up the face
 			for(int i=2; i<numfaceverts; ++i)
 			{
-				const unsigned int v_indices[3] = {vertex_indices[0], vertex_indices[i-1], vertex_indices[i]};
-				handler.addTriangle(v_indices, current_mat_index);
+				//const unsigned int v_indices[3] = {vertex_indices[0], vertex_indices[i-1], vertex_indices[i]};
+				//const unsigned int tri_uv_indices[3] = {uv_indices[0], uv_indices[i-1], uv_indices[i]};
+				//handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
+
+				const unsigned int v_indices[3] = {face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i]};
+				const unsigned int tri_uv_indices[3] = {face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i]};
+				handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
 			}
 
 			//finished handling face.
@@ -413,7 +619,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 
 
-
+#endif
 
 
 

@@ -160,6 +160,8 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 						texcoords[0].set(
 							(mesh->texelL[srcvertindex])[0],
 							(mesh->texelL[srcvertindex])[1]);
+
+						handler.addUVs(texcoords);
 					}
 
 					const Vec3f normal(
@@ -167,12 +169,13 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 						normals[f*9+v*3 + 1],
 						normals[f*9+v*3 + 2]);
 
-					handler.addVertex(pos * scale, normal, texcoords);
+					handler.addVertex(pos * scale, normal);
+					
 				}
 				
 
 				const unsigned int vert_indices[3] = {num_verts_added, num_verts_added+1, num_verts_added+2};
-				handler.addTriangle(vert_indices, (int)material_index);
+				handler.addTriangle(vert_indices, vert_indices, (int)material_index);
 
 				num_verts_added += 3;
 			}

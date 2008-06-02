@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 #define __RAYMESH_H_666_
 
 
-
 #include "geometry.h"
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
@@ -23,6 +22,7 @@ namespace js{ class Triangle; }
 namespace js{ class EdgeTri; }
 class Material;
 
+
 class RayMeshTriangle
 {
 public:
@@ -34,8 +34,10 @@ public:
 		vertex_indices[2] = v2_;
 	}
 	unsigned int vertex_indices[3];
+	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
 };
+
 
 //#define MAX_NUM_RAYMESH_TEXCOORD_SETS 4
 
@@ -43,12 +45,18 @@ class RayMeshVertex
 {
 public:
 	RayMeshVertex(){}
-	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) { texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); }
+	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : 
+		pos(pos_), 
+		normal(normal_) 
+	{ 
+		//texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); 
+	}
 	Vec3f pos;
 	Vec3f normal;
-	static const unsigned int MAX_NUM_RAYMESH_TEXCOORD_SETS = 4;
-	Vec2f texcoords[MAX_NUM_RAYMESH_TEXCOORD_SETS];
+	//static const unsigned int MAX_NUM_RAYMESH_TEXCOORD_SETS = 4;
+	//Vec2f texcoords[MAX_NUM_RAYMESH_TEXCOORD_SETS];
 };
+
 
 class RayMeshExcep
 {
@@ -74,7 +82,13 @@ public:
 	-------
 	
 	=====================================================================*/
-	RayMesh(const std::string& name, bool enable_normal_smoothing, unsigned int num_subdivisions = 0, double subdivide_pixel_threshold = 0.0, bool subdivision_smoothing = true, double subdivide_curvature_threshold = 0.0);
+	RayMesh(const std::string& name, bool enable_normal_smoothing, 
+		unsigned int num_subdivisions = 0, 
+		double subdivide_pixel_threshold = 0.0, 
+		bool subdivision_smoothing = true, 
+		double subdivide_curvature_threshold = 0.0
+		//bool merge_vertices_with_same_pos_and_normal = false
+		);
 
 	virtual ~RayMesh();
 
@@ -111,8 +125,12 @@ public:
 
 	////////// ModelLoadingStreamHandler interface /////////////
 	virtual void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
-	virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
-	virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
+	//virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
+	//virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
+	virtual void addVertex(const Vec3f& pos, const Vec3f& normal);
+	virtual void addUVs(const std::vector<Vec2f>& uvs);
+	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
 	virtual void addMaterialUsed(const std::string& material_name);
 	////////////////////////////////////////////////////////////////
@@ -143,6 +161,7 @@ public:
 
 
 private:
+	void computeShadingNormals();
 	void doInitAsEmitter();
 
 	//const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
@@ -173,14 +192,20 @@ private:
 	//inline unsigned int vertSize() const;
 	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
-	inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
+	//inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
 
-	unsigned int num_texcoord_sets;
+	//unsigned int num_texcoord_sets;
 	//unsigned int num_vertices;
 	//std::vector<float> vertex_data;
 	std::vector<RayMeshVertex> vertices;
 	std::vector<RayMeshTriangle> triangles;
+	
+	//unsigned int num_uvs;
+	
+	unsigned int num_uvs_per_group; // 0 - 4
+	unsigned int num_uv_groups; // will be roughly equal to number of vertice
+	std::vector<Vec2f> uvs; // will have num_uv_groups * num_uvs_per_group elements
 
 	unsigned int num_subdivisions;
 	double subdivide_pixel_threshold;
@@ -189,7 +214,9 @@ private:
 
 	bool subdivide_and_displace_done;
 
-	int num_bad_normals;
+	//int num_bad_normals;
+
+	//bool merge_vertices_with_same_pos_and_normal;
 
 	//------------------------------------------------------------------------
 	//emitter stuff
@@ -199,12 +226,14 @@ private:
 	std::vector<double> cdf;
 };
 
+
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
 {
 	return vertices[vertindex].pos;
 	//assert(vertindex < num_vertices);
 	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }
+
 
 const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const
 {
@@ -243,13 +272,15 @@ const Vec3f& RayMesh::vertNormal(unsigned int vertindex) const
 	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex) + 3]);
 }
 
-const Vec2f& RayMesh::vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const
+/*const Vec2f& RayMesh::vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const
 {
 	return vertices[vertindex].texcoords[texcoord_set_index];
 
 	//assert(vertindex < num_vertices);
 	//assert(texcoord_set_index < num_texcoord_sets);
 	//return *((const Vec2f*)&vertex_data[vertOffset(vertindex) + 6 + texcoord_set_index*2]);
-}
+}*/
+
 
 #endif //__RAYMESH_H_666_
+

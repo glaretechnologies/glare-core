@@ -23,7 +23,10 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include <fstream>
 #include <algorithm>
 
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_)
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, 
+				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_ 
+				 //bool merge_vertices_with_same_pos_and_normal_
+				 )
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
@@ -31,13 +34,17 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_)
+	//merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_)
 {
-	num_texcoord_sets = 0;
+//	num_texcoord_sets = 0;
 //	num_vertices = 0;
-	total_surface_area = 0.0f;
+	total_surface_area = 0.0;
 	done_init_as_emitter = false;
 	subdivide_and_displace_done = false;
-	num_bad_normals = 0;
+	//num_bad_normals = 0;
+
+	num_uvs_per_group = 0;
+	num_uv_groups = 0;
 }
 
 
@@ -116,6 +123,17 @@ const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 	return toVec3d(triNormal(hitinfo.hittri_index));
 }
 
+static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
+{
+	if(a.pos < b.pos)
+		return true;
+	else if(b.pos < a.pos) // else if a.pos > b.pos
+		return false;
+	else	// else a.pos == b.pos
+		return a.normal < b.normal;
+}
+
+
 void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
 	const std::vector<Plane<double> >& camera_clip_planes
 	)
@@ -128,6 +146,46 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 
 		return;
 	}
+
+	computeShadingNormals();
+
+	/*if(merge_vertices_with_same_pos_and_normal)
+	{
+		conPrint("Merging vertices for mesh '" + this->getName() + "'...");
+		conPrint("\tInitial num vertices: " + toString(vertices.size()));
+
+		std::map<RayMeshVertex, unsigned int> new_vert_indices;
+		std::vector<RayMeshVertex> newverts;
+		
+		for(unsigned int t=0; t<triangles.size(); ++t)
+		{
+			for(unsigned int i=0; i<3; ++i)
+			{
+				const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
+
+				unsigned int new_vert_index;
+
+				const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
+
+				if(result == new_vert_indices.end())
+				{
+					new_vert_index = newverts.size();
+					newverts.push_back(old_vert);
+					new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+				}
+				else
+					new_vert_index = (*result).second;
+
+				triangles[t].vertex_indices[i] = new_vert_index;
+			}
+		}
+
+		vertices = newverts;
+
+		conPrint("\tNew num vertices: " + toString(vertices.size()) + "");
+		conPrint("\tDone.");
+	}*/
+
 	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
 
 	// Convert to single precision floating point planes
@@ -137,6 +195,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 
 	std::vector<RayMeshTriangle> temp_tris;
 	std::vector<RayMeshVertex> temp_verts;
+	std::vector<Vec2f> temp_uvs;
 
 	DisplacementUtils::subdivideAndDisplace(
 		materials,
@@ -149,12 +208,29 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		subdivision_smoothing,
 		triangles,
 		vertices,
+		uvs,
+		this->num_uvs_per_group,
 		temp_tris,
-		temp_verts
+		temp_verts,
+		temp_uvs
 		);
 
 	triangles = temp_tris;
 	vertices = temp_verts;
+	uvs = temp_uvs;
+
+	// Check data
+//#ifdef DEBUG
+	for(unsigned int i=0; i<triangles.size(); ++i)
+		for(unsigned int c=0; c<3; ++c)
+		{
+			assert(triangles[i].vertex_indices[c] < vertices.size());
+			if(this->num_uvs_per_group > 0)
+			{
+				assert(triangles[i].uv_indices[c] < uvs.size());
+			}
+		}
+//#endif
 
 	subdivide_and_displace_done = true;
 
@@ -165,6 +241,9 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_trees)
 {
 	Timer timer;
+
+	if(triangles.size() == 0)
+		throw GeometryExcep("No triangles in mesh.");
 
 	if(tritree.get())
 		return; // build() has already been called.
@@ -234,7 +313,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 			}
 			catch(js::TreeExcep& e)
 			{
-				throw RayMeshExcep(e.what());
+				throw GeometryExcep(e.what());
 			}
 		
 			if(tritree->diskCachable())
@@ -271,7 +350,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 		}
 		catch(js::TreeExcep& e)
 		{
-			throw RayMeshExcep(e.what());
+			throw GeometryExcep(e.what());
 		}
 	}
 
@@ -281,9 +360,14 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 
 const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
 {
-	const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
-	const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
-	const Vec2f& v2tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
+	assert(texcoords_set < num_uvs_per_group);
+	const Vec2f& v0tex = uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v1tex = uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v2tex = uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+
+	//const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
+	//const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
+	//const Vec2f& v2tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
 	
 	//return toVec2d(
 	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
@@ -311,9 +395,14 @@ bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set
 	const Vec3f& v1pos = triVertPos(hitinfo.hittri_index, 1);//tritree->triVertPos(hitinfo.hittri_index, 1);
 	const Vec3f& v2pos = triVertPos(hitinfo.hittri_index, 2);//tritree->triVertPos(hitinfo.hittri_index, 2);
 
-	const Vec2f& v0tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
-	const Vec2f& v1tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
-	const Vec2f& v2tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
+	//const Vec2f& v0tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
+	//const Vec2f& v1tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
+	//const Vec2f& v2tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
+	assert(texcoords_set < num_uvs_per_group);
+	const Vec2f& v0tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v1tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v2tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+
 
 	/*const float a = v1.texcoords.x - v0.texcoords.x;
 	const float b = v1.texcoords.y - v0.texcoords.y;
@@ -377,10 +466,12 @@ bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set
 
 void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 {
-	num_texcoord_sets = myMax(num_texcoord_sets, max_num_texcoord_sets);
+	//num_texcoord_sets = myMax(num_texcoord_sets, max_num_texcoord_sets);
+
+	num_uvs_per_group = myMax(num_uvs_per_group, max_num_texcoord_sets);
 }
 
-void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets)
+void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal) // , const std::vector<Vec2f>& texcoord_sets)
 {
 	
 	/*if(normal.isUnitLength())
@@ -407,8 +498,8 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector
 		throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
 
 	vertices.push_back(RayMeshVertex(pos, normalise(normal)));
-	for(unsigned int i=0; i<texcoord_sets.size(); ++i)
-		vertices.back().texcoords[i] = texcoord_sets[i];
+	//for(unsigned int i=0; i<texcoord_sets.size(); ++i)
+	//	vertices.back().texcoords[i] = texcoord_sets[i];
 
 	/*unsigned int oldsize = (unsigned int)vertex_data.size();
 	vertex_data.resize(oldsize + vertSize());
@@ -443,8 +534,22 @@ inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
 }
 
+void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
+{
+	assert(new_uvs.size() <= num_uvs_per_group);
 
-void RayMesh::addTriangle(const unsigned int* vertex_indices, unsigned int material_index)
+	for(unsigned int i=0; i<num_uvs_per_group; ++i)
+	{
+		if(i < new_uvs.size())
+			uvs.push_back(new_uvs[i]);
+		else
+			uvs.push_back(Vec2f(0.f, 0.f));
+	}
+
+	num_uv_groups++;
+}
+
+void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
 	// Check material index is in bounds
 	if(material_index >= matname_to_index_map.size())
@@ -454,6 +559,12 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, unsigned int mater
 	for(unsigned int i=0; i<3; ++i)
 		if(vertex_indices[i] >= getNumVerts())
 			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.");
+
+	// Check uv indices are in bounds
+	for(unsigned int i=0; i<3; ++i)
+		if(uv_indices[i] >= num_uv_groups)
+			throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.");
+
 
 	// Check the area of the triangle
 	const float MIN_TRIANGLE_AREA = 1.0e-20f;
@@ -467,7 +578,10 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, unsigned int mater
 
 	triangles.push_back(RayMeshTriangle());
 	for(unsigned int i=0; i<3; ++i)
+	{
 		triangles.back().vertex_indices[i] = vertex_indices[i];
+		triangles.back().uv_indices[i] = uv_indices[i];
+	}
 
 	triangles.back().tri_mat_index = material_index;
 }
@@ -715,6 +829,33 @@ const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
 }
 */
 
+static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
+{
+	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
+}
+
+void RayMesh::computeShadingNormals()
+{
+	for(unsigned int i=0; i<vertices.size(); ++i)
+		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
+
+	for(unsigned int t=0; t<triangles.size(); ++t)
+	{
+		const Vec3f tri_normal = triGeometricNormal(
+					vertices, 
+					triangles[t].vertex_indices[0], 
+					triangles[t].vertex_indices[1], 
+					triangles[t].vertex_indices[2]
+				);
+
+		for(int i=0; i<3; ++i)
+			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
+	}
+
+	for(unsigned int i=0; i<vertices.size(); ++i)
+		vertices[i].normal.normalise();
+
+}
 
 
 

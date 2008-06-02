@@ -20,11 +20,11 @@ DisplacementUtils::~DisplacementUtils()
 {	
 }
 
-
+/*
 static inline bool operator < (const DUVertex& a, const DUVertex& b)
 {
 	return a.pos < b.pos;
-}
+}*/
 
 
 static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
@@ -55,16 +55,34 @@ inline bool operator < (const DUVertIndexPair& a, const DUVertIndexPair& b)
 }
 
 
-void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& materials,
-											 const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
-								  unsigned int num_subdivisions,
-								  const std::vector<Plane<float> >& camera_clip_planes,
-								  bool smooth,
-		const std::vector<RayMeshTriangle>& triangles_in, 
-		const std::vector<RayMeshVertex>& vertices_in, 
-		std::vector<RayMeshTriangle>& tris_out, 
-		std::vector<RayMeshVertex>& verts_out
-		)
+static inline const Vec2f& getUVs(const std::vector<Vec2f>& uvs, unsigned int num_uv_sets, unsigned int uv_index, unsigned int set_index)
+{
+	assert(num_uv_sets > 0);
+	assert(set_index < num_uv_sets);
+	return uvs[uv_index * num_uv_sets + set_index];
+}
+static inline Vec2f& getUVs(std::vector<Vec2f>& uvs, unsigned int num_uv_sets, unsigned int uv_index, unsigned int set_index)
+{
+	assert(num_uv_sets > 0);
+	assert(set_index < num_uv_sets);
+	return uvs[uv_index * num_uv_sets + set_index];
+}
+
+
+void DisplacementUtils::subdivideAndDisplace(
+	const std::vector<Material*>& materials,
+	const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
+	unsigned int num_subdivisions,
+	const std::vector<Plane<float> >& camera_clip_planes,
+	bool smooth,
+	const std::vector<RayMeshTriangle>& triangles_in, 
+	const std::vector<RayMeshVertex>& vertices_in,
+	const std::vector<Vec2f>& uvs_in,
+	unsigned int num_uv_sets,
+	std::vector<RayMeshTriangle>& tris_out, 
+	std::vector<RayMeshVertex>& verts_out,
+	std::vector<Vec2f>& uvs_out
+	)
 {
 	//conPrint("Subdividing mesh: (num subdivisions = " + toString(num_subdivisions) + ")");
 
@@ -74,7 +92,9 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
 		temp_tris[i] = DUTriangle(
-			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2], triangles_in[i].tri_mat_index, 
+			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2],
+			triangles_in[i].uv_indices[0], triangles_in[i].uv_indices[1], triangles_in[i].uv_indices[2],
+			triangles_in[i].tri_mat_index,
 			2//, // dimension
 			//0 // num subdivs
 			);
@@ -85,8 +105,8 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	{
 		temp_verts[i] = DUVertex(vertices_in[i].pos, vertices_in[i].normal);
 
-		for(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
-			temp_verts[i].texcoords[t] = vertices_in[i].texcoords[t];
+		//TEMPfor(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
+		//	temp_verts[i].texcoords[t] = vertices_in[i].texcoords[t];
 	}
 
 
@@ -120,7 +140,10 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 				if(num_adjacent_tris[edge] == 1)
 				{
 					// this is an edge edge aka. boundary !!! :)
-					temp_tris.push_back(DUTriangle(v_i, v_i1, 666, 666, 1));
+					temp_tris.push_back(DUTriangle(
+						v_i, v_i1, 666,
+						temp_tris[t].uv_indices[v], temp_tris[t].uv_indices[(v + 1) % 3], 666,
+						666, 1));
 				}
 			}
 		}
@@ -154,9 +177,11 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		conPrint("\t\tDone.");
 	}*/
 
+	std::vector<Vec2f> temp_uvs = uvs_in;
 
 	std::vector<DUTriangle> temp_tris2;
 	std::vector<DUVertex> temp_verts2;
+	std::vector<Vec2f> temp_uvs2;
 
 	for(unsigned int i=0; i<num_subdivisions; ++i)
 	{
@@ -171,14 +196,20 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 			camera_clip_planes,
 			temp_tris, // tris in
 			temp_verts, // verts in
+			temp_uvs, // uvs in
+			num_uv_sets,
 			temp_tris2, // tris out
-			temp_verts2 // verts out
+			temp_verts2, // verts out
+			temp_uvs2 // uvs out
 			);
 		
 		if(smooth)
-			averagePass(temp_tris2, temp_verts2, temp_verts);
+			averagePass(temp_tris2, temp_verts2, temp_uvs2, num_uv_sets, temp_verts, temp_uvs);
 		else
+		{
 			temp_verts = temp_verts2;
+			temp_uvs = temp_uvs2;
+		}
 		temp_tris = temp_tris2;
 
 		conPrint("\t\tresulting num vertices: " + toString(temp_verts.size()));
@@ -194,6 +225,8 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 		materials, 
 		temp_tris, // tris in
 		temp_verts, // verts in
+		temp_uvs, // uvs in
+		num_uv_sets,
 		temp_verts2, // verts out
 		&tris_unclipped
 		);
@@ -203,7 +236,12 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	tris_out.resize(0);
 	for(unsigned int i=0; i<temp_tris.size(); ++i)
 		if(tris_unclipped[i] && temp_tris[i].dimension == 2)
+		{
 			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index));
+			
+			for(unsigned int c=0; c<3; ++c)
+				tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
+		}
 
 
 	// Recompute all vertex normals, as they will be completely wrong by now due to any displacement.
@@ -234,9 +272,11 @@ void DisplacementUtils::subdivideAndDisplace(const std::vector<Material*>& mater
 	{
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal);
 
-		for(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
-			verts_out[i].texcoords[t] = temp_verts[i].texcoords[t];
+		//TEMPfor(unsigned int t=0; t<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++t)
+			//verts_out[i].texcoords[t] = temp_verts[i].texcoords[t];
 	}
+
+	uvs_out = temp_uvs;
 }
 
 
@@ -245,13 +285,24 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 
 */
-void DisplacementUtils::displace(bool use_anchoring, const std::vector<Material*>& materials, const std::vector<DUTriangle>& triangles, 
-								 const std::vector<DUVertex>& verts_in, std::vector<DUVertex>& verts_out, std::vector<bool>* unclipped_out)
+void DisplacementUtils::displace(bool use_anchoring, 
+								 const std::vector<Material*>& materials, 
+								 const std::vector<DUTriangle>& triangles, 
+								 const std::vector<DUVertex>& verts_in, 
+								 const std::vector<Vec2f>& uvs,
+								 unsigned int num_uv_sets,
+								 std::vector<DUVertex>& verts_out, 
+								 std::vector<bool>* unclipped_out
+								 )
 {
 	verts_out = verts_in;
 
 	if(unclipped_out)
+	{
 		unclipped_out->resize(triangles.size());
+		for(unsigned int i=0; i<unclipped_out->size(); ++i)
+			(*unclipped_out)[i] = true;
+	}
 
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
@@ -265,17 +316,19 @@ void DisplacementUtils::displace(bool use_anchoring, const std::vector<Material*
 			if(material->displacing())
 			{
 				const int uv_set_index = material->getDisplacementTextureUVSetIndex();
-				assert(uv_set_index >= 0 && uv_set_index < RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS);
+				assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
+				//TEMP assert(uv_set_index >= 0 && uv_set_index < RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS);
 
 				float min_displacement = std::numeric_limits<float>::infinity();
 
 				// For each vertex
 				for(unsigned int i=0; i<3; ++i)
 				{
+					const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
 					const float displacement = (float)material->displacement(
-							verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
-							verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
-							);
+						uv.x, //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].x, //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
+						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
+						);
 
 					min_displacement = myMin(min_displacement, displacement);
 
@@ -365,16 +418,21 @@ void DisplacementUtils::linearSubdivision(
 	double subdivide_curvature_threshold,
 	const std::vector<Plane<float> >& camera_clip_planes,
 	const std::vector<DUTriangle>& tris_in, 
-	const std::vector<DUVertex>& verts_in, 
+	const std::vector<DUVertex>& verts_in,
+	const std::vector<Vec2f>& uvs_in,
+	unsigned int num_uv_sets,
 	std::vector<DUTriangle>& tris_out, 
-	std::vector<DUVertex>& verts_out
+	std::vector<DUVertex>& verts_out,
+	std::vector<Vec2f>& uvs_out
 	)
 {
 	std::map<DUVertIndexPair, DUEdgeInfo> edge_info_map;
 
+	std::map<DUVertIndexPair, unsigned int> uv_edge_map;
 
-	// Copy over original vertices
-	verts_out = verts_in;
+	verts_out = verts_in; // Copy over original vertices
+
+	uvs_out = uvs_in; // Copy over uvs
 
 //	for(unsigned int i=0; i<verts_out.size(); ++i)
 //		verts_out[i].adjacent_subdivided_tris = 0;
@@ -389,7 +447,9 @@ void DisplacementUtils::linearSubdivision(
 		true, // use anchoring
 		materials, 
 		tris_in, 
-		verts_in, 
+		verts_in,
+		uvs_in,
+		num_uv_sets,
 		displaced_in_verts, // verts out
 		NULL // unclipped out
 		);
@@ -440,15 +500,17 @@ void DisplacementUtils::linearSubdivision(
 	// For each triangle
 	for(unsigned int t=0; t<tris_in.size(); ++t)
 	{
-		if(tris_in[t].dimension == 2) // triangle
+		if(tris_in[t].dimension == 2) // if 2-d (triangle)
 		{
-			bool do_subdivide = false;
+			// Decide if we are going to subdivide the triangle
+			bool subdivide_triangle = false;
 
 			// Check curvature:
 			const float tri_curvature = triangleMaxCurvature(
 				displaced_vert_normals[tris_in[t].vertex_indices[0]], 
 				displaced_vert_normals[tris_in[t].vertex_indices[1]], 
 				displaced_vert_normals[tris_in[t].vertex_indices[2]]);
+
 			if(tri_curvature >= (float)subdivide_curvature_threshold) // If triangle is more curved than the threshold:
 			{
 				// Build vector of displaced triangle vertex positions. (in object space)
@@ -475,26 +537,26 @@ void DisplacementUtils::linearSubdivision(
 							);
 
 					// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
-					do_subdivide = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
+					subdivide_triangle = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > pixel_height_at_dist_one * subdivide_pixel_threshold;
 				}
 			}
 
-			subdividing_tri[t] = do_subdivide;
+			subdividing_tri[t] = subdivide_triangle;
 
-			// Mark edges
-			for(unsigned int v=0; v<3; ++v)
+			if(subdivide_triangle)
 			{
-				const unsigned int v_i = tris_in[t].vertex_indices[v];
-				const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
-
-				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
-
-				const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
-
-				DUEdgeInfo& edge_info = edge_info_map[edge];
-
-				if(do_subdivide)
+				for(unsigned int v=0; v<3; ++v)
 				{
+					{
+					const unsigned int v_i = tris_in[t].vertex_indices[v];
+					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
+
+					// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
+
+					const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
+
+					DUEdgeInfo& edge_info = edge_info_map[edge];
+
 					if(edge_info.num_adjacent_subdividing_tris == 0)
 					{
 						// Create the edge midpoint vertex
@@ -505,8 +567,8 @@ void DisplacementUtils::linearSubdivision(
 							(verts_in[v_i].normal + verts_in[v_i1].normal) * 0.5f
 							));
 
-						for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-							verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
+						//TEMP for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
+						//	verts_out.back().texcoords[z] = (verts_in[v_i].texcoords[z] + verts_in[v_i1].texcoords[z]) * 0.5f,
 
 						verts_out.back().adjacent_vert_0 = edge.v_a;
 						verts_out.back().adjacent_vert_1 = edge.v_b;
@@ -515,6 +577,37 @@ void DisplacementUtils::linearSubdivision(
 					}
 
 					edge_info.num_adjacent_subdividing_tris++;
+					}
+
+					// Create new uvs at edge midpoint, if not already created.
+
+					if(num_uv_sets > 0)
+					{
+						const unsigned int uv_i = tris_in[t].uv_indices[v];
+						const unsigned int uv_i1 = tris_in[t].uv_indices[(v + 1) % 3];
+
+						const DUVertIndexPair edge_key(myMin(uv_i, uv_i1), myMax(uv_i, uv_i1)); // Key for the edge
+
+						const std::map<DUVertIndexPair, unsigned int>::const_iterator result = uv_edge_map.find(edge_key);
+						if(result == uv_edge_map.end())
+						{
+							uv_edge_map.insert(std::make_pair(edge_key, uvs_out.size() / num_uv_sets));
+
+							for(unsigned int z=0; z<num_uv_sets; ++z)
+								uvs_out.push_back(
+									(getUVs(uvs_in, num_uv_sets, uv_i, z) + getUVs(uvs_in, num_uv_sets, uv_i1, z)) * 0.5f
+									);
+							//for(int z=0; z<num_uv_sets; ++z)
+							//	uvs_out.push_back(
+							//		(uvs_in[uv_i] + uvs_in[uv_i1]) * 0.5f
+							//		);
+						}
+						else
+						{
+							// midpoint uvs already created
+						}
+
+					}
 				}
 			}
 		}
@@ -534,18 +627,17 @@ void DisplacementUtils::linearSubdivision(
 
 
 
-
+	// Mark any new edge midpoint vertices as anchored that need to be
 	for(std::map<DUVertIndexPair, DUEdgeInfo>::const_iterator i=edge_info_map.begin(); i != edge_info_map.end(); ++i)
 	{
 		const DUEdgeInfo& edge_info = (*i).second;
 
-		if(!edge_info.border)
-			if(edge_info.num_adjacent_subdividing_tris == 1)// && edge_info.num_adjacent_non_subdividing_tris == 1)
-			{
-				// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
-				// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
-				verts_out[edge_info.midpoint_vert_index].anchored = true;
-			}
+		if(!edge_info.border && edge_info.num_adjacent_subdividing_tris == 1)
+		{
+			// This edge has a subdivided triangle on one side, and a non-subdivided triangle on the other side.
+			// So we will 'anchor' the midpoint vertex to the average position of it's neighbours to avoid splitting.
+			verts_out[edge_info.midpoint_vert_index].anchored = true;
+		}
 	}
 
 
@@ -579,10 +671,25 @@ void DisplacementUtils::linearSubdivision(
 				// A triangle adjacent to this edge is being subdivided.  So subdivide this edge 1-D polygon as well.
 				assert(edge_info.midpoint_vert_index > 0);
 
+				// Get the midpoint uv index
+				unsigned int midpoint_uv_index = 0;
+				if(num_uv_sets > 0)
+				{
+					const unsigned int uv_i = tris_in[t].uv_indices[0];
+					const unsigned int uv_i1 = tris_in[t].uv_indices[1];
+					const DUVertIndexPair uv_edge_key(myMin(uv_i, uv_i1), myMax(uv_i, uv_i1)); // Key for the edge
+					assert(uv_edge_map.find(uv_edge_key) != uv_edge_map.end());
+					midpoint_uv_index = uv_edge_map[uv_edge_key];
+				}
+
+
 				// Create new edges
 				tris_out.push_back(DUTriangle(
 						tris_in[t].vertex_indices[0],
 						edge_info.midpoint_vert_index,
+						666,
+						tris_in[t].uv_indices[0],
+						midpoint_uv_index, 
 						666,
 						tris_in[t].tri_mat_index,
 						1 // dimension
@@ -592,6 +699,9 @@ void DisplacementUtils::linearSubdivision(
 				tris_out.push_back(DUTriangle(
 						edge_info.midpoint_vert_index,
 						tris_in[t].vertex_indices[1],
+						666,
+						midpoint_uv_index,
+						tris_in[t].uv_indices[1],
 						666,
 						tris_in[t].tri_mat_index,
 						1 // dimension
@@ -608,11 +718,13 @@ void DisplacementUtils::linearSubdivision(
 		{
 			if(subdividing_tri[t]) // If we are subdividing this triangle...
 			{
-				unsigned int e[3]; // Indices of edge midpoint vertices in verts_out
+				unsigned int midpoint_vert_indices[3]; // Indices of edge midpoint vertices in verts_out
+				unsigned int midpoint_uv_indices[3] = {0, 0, 0};
 
 				// For each edge (v_i, v_i+1)
 				for(unsigned int v=0; v<3; ++v)
 				{
+					{
 					const unsigned int v_i = tris_in[t].vertex_indices[v];
 					const unsigned int v_i1 = tris_in[t].vertex_indices[(v + 1) % 3];
 					const DUVertIndexPair edge(myMin(v_i, v_i1), myMax(v_i, v_i1)); // Key for the edge
@@ -620,42 +732,66 @@ void DisplacementUtils::linearSubdivision(
 					const std::map<DUVertIndexPair, DUEdgeInfo>::iterator result = edge_info_map.find(edge);
 					assert(result != edge_info_map.end());
 
-					e[v] = (*result).second.midpoint_vert_index;
+					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+					}
+					if(num_uv_sets > 0)
+					{
+						const unsigned int uv_i = tris_in[t].uv_indices[v];
+						const unsigned int uv_i1 = tris_in[t].uv_indices[(v + 1) % 3];
+						const DUVertIndexPair edge(myMin(uv_i, uv_i1), myMax(uv_i, uv_i1)); // Key for the edge
+
+						const std::map<DUVertIndexPair, unsigned int>::iterator result = uv_edge_map.find(edge);
+						assert(result != uv_edge_map.end());
+
+						midpoint_uv_indices[v] = (*result).second;
+					}
 				}
 
 				//patch_start_indices_out.push_back(tris_out.size());
 
 				tris_out.push_back(DUTriangle(
 						tris_in[t].vertex_indices[0],
-						e[0],
-						e[2],
+						midpoint_vert_indices[0],
+						midpoint_vert_indices[2],
+						tris_in[t].uv_indices[0],
+						midpoint_uv_indices[0],
+						midpoint_uv_indices[2],
 						tris_in[t].tri_mat_index,
 						2 // dimension
 						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
-						e[1],
-						e[2],
-						e[0],
+						midpoint_vert_indices[1],
+						midpoint_vert_indices[2],
+						midpoint_vert_indices[0],
+						midpoint_uv_indices[1],
+						midpoint_uv_indices[2],
+						midpoint_uv_indices[0],
 						tris_in[t].tri_mat_index,
 						2 // dimension
 						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
-						e[0],
+						midpoint_vert_indices[0],
 						tris_in[t].vertex_indices[1],
-						e[1],
+						midpoint_vert_indices[1],
+						midpoint_uv_indices[0],
+						tris_in[t].uv_indices[1],
+						midpoint_uv_indices[1],
 						tris_in[t].tri_mat_index,
 						2 // dimension
 						//tris_in[t].num_subdivs + 1
 				));
 
 				tris_out.push_back(DUTriangle(
-						e[2],
-						e[1],
+						midpoint_vert_indices[2],
+						midpoint_vert_indices[1],
 						tris_in[t].vertex_indices[2],
+						midpoint_uv_indices[2],
+						midpoint_uv_indices[1],
+						tris_in[t].uv_indices[2],
 						tris_in[t].tri_mat_index,
 						2 // dimension
 						//tris_in[t].num_subdivs + 1
@@ -694,7 +830,14 @@ static inline float w(unsigned int n_t, unsigned int n_q)
 		return 12.0f / (3.0f * (float)n_q + 2.0f * (float)n_t);
 }
 
-void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const std::vector<DUVertex>& verts, std::vector<DUVertex>& new_verts_out)
+void DisplacementUtils::averagePass(
+	const std::vector<DUTriangle>& tris, 
+	const std::vector<DUVertex>& verts,
+	const std::vector<Vec2f>& uvs_in,
+	unsigned int num_uv_sets,
+	std::vector<DUVertex>& new_verts_out,
+	std::vector<Vec2f>& uvs_out
+	)
 {
 	/*new_verts_out = std::vector<DUVertex>(verts.size(), DUVertex(
 		Vec3f(0.0f, 0.0f, 0.0f), // pos
@@ -705,13 +848,19 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 	{
 		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f);
 		
-		for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
-			new_verts_out[v].texcoords[z] = Vec2f(0.f, 0.f);
+		//TEMP for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
+			//new_verts_out[v].texcoords[z] = Vec2f(0.f, 0.f);
 	}
+
+	uvs_out = uvs_in;
+	for(unsigned int v=0; v<uvs_out.size(); ++v)
+		uvs_out[v] = Vec2f(0.f, 0.f);
 
 	std::vector<unsigned int> dim(verts.size(), 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
+	std::vector<float> total_uvs_weight(uvs_in.size(), 0.0f); // total weights per vertex
 	std::vector<unsigned int> n_t(verts.size(), 0); // array containing number of triangles touching each vertex
+	std::vector<unsigned int> uv_n_t(uvs_in.size(), 0); // array containing number of triangles touching each UV group
 	//std::vector<unsigned int> n_q(verts.size(), 0); // array containing number of quads touching each vertex
 
 	// Initialise dim
@@ -724,6 +873,13 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 		for(unsigned int v=0; v<tris[t].dimension+1; ++v)
 			n_t[tris[t].vertex_indices[v]]++;
 
+	// Initialise uv_n_t
+	for(unsigned int t=0; t<tris.size(); ++t)
+		for(unsigned int v=0; v<tris[t].dimension+1; ++v)
+			uv_n_t[tris[t].uv_indices[v]]++;
+
+
+	std::vector<Vec2f> uv_cent(num_uv_sets);
 
 	for(unsigned int t=0; t<tris.size(); ++t)
 	{
@@ -734,15 +890,20 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 			if(dim[v_i] == tris[t].dimension) // Only add centroid if vertex has same dimension as polygon
 			{
 				Vec3f cent;
+				//Vec2f uv_cent;
 				float weight;
 				if(tris[t].dimension == 0) // t is a vertex
 				{
 					cent = verts[v_i].pos;
+					for(unsigned int z=0; z<num_uv_sets; ++z)
+						uv_cent[z] = getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[v], z);
 					weight = 1.0f;
 				}
 				else if(tris[t].dimension == 1) // t is an edge
 				{
 					cent = (verts[v_i].pos + verts[tris[t].vertex_indices[(v + 1) % 2]].pos) * 0.5f;
+					for(unsigned int z=0; z<num_uv_sets; ++z)
+						uv_cent[z] = (getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[v], z) + getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 1) % 2], z)) * 0.5f;
 					weight = 1.0f;
 				}
 				else
@@ -753,11 +914,24 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 					const unsigned int v_i_minus_1 = tris[t].vertex_indices[(v + 2) % 3];
 
 					cent = verts[v_i].pos * (1.0f / 4.0f) + (verts[v_i_plus_1].pos + verts[v_i_minus_1].pos) * (3.0f / 8.0f);
+					
+					//uv_cent = uvs_in[tris[t].uv_indices[v]] * (1.0f / 4.0f) + (uvs_in[tris[t].uv_indices[(v + 1) % 3]] + uvs_in[tris[t].uv_indices[(v + 2) % 3]]) * (3.0f / 8.0f);
+					for(unsigned int z=0; z<num_uv_sets; ++z)
+						uv_cent[z] = 
+							getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[v], z) * (1.0f / 4.0f) + 
+							(getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 1) % 3], z) + getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 2) % 3], z)) * (3.0f / 8.0f);
+					
 					weight = (float)NICKMATHS_PI / 3.0f;
 				}
 			
 				total_weight[v_i] += weight;
+				total_uvs_weight[tris[t].uv_indices[v]] += weight;
+
 				new_verts_out[v_i].pos += cent * weight;
+
+				for(unsigned int z=0; z<num_uv_sets; ++z)
+					getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z];
+
 				//new_verts_out[v_i].normal += (verts[v_i].normal * (1.0f / 4.0f) + (verts[v_i_plus_1].normal + verts[v_i_minus_1].normal) * (3.0f / 8.0f)) * weight;
 
 				//for(unsigned int z=0; z<RayMeshVertex::MAX_NUM_RAYMESH_TEXCOORD_SETS; ++z)
@@ -777,12 +951,34 @@ void DisplacementUtils::averagePass(const std::vector<DUTriangle>& tris, const s
 		new_verts_out[v].normal = verts[v].normal + (new_verts_out[v].normal - verts[v].normal) * w_val;
 		new_verts_out[v].normal.normalise();
 
-		for(unsigned int z=0; z<4; ++z)
+		/*for(unsigned int z=0; z<num_uv_sets; ++z)
+			getUVs(uvs_out, num_uv_sets, v
+
+			uvs_out[v] /= total_weight[v];
+		uvs_out[v] = uvs_in[v] + (uvs_out[v] - uvs_in[v]) * w_val;*/
+
+
+		/*for(unsigned int z=0; z<4; ++z)
 		{
 			new_verts_out[v].texcoords[z] /= total_weight[v];
 			new_verts_out[v].texcoords[z] = verts[v].texcoords[z] + (new_verts_out[v].texcoords[z] - verts[v].texcoords[z]) * w_val;
-		}
+		}*/
 	}
+
+	if(num_uv_sets > 0)
+		for(unsigned int v=0; v<uvs_out.size() / num_uv_sets; ++v)
+		{
+			const float w_val = w(uv_n_t[v], 0);
+
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+			{
+				getUVs(uvs_out, num_uv_sets, v, z) /= total_uvs_weight[v];
+				
+				getUVs(uvs_out, num_uv_sets, v, z) = getUVs(uvs_in, num_uv_sets, v, z) + (getUVs(uvs_out, num_uv_sets, v, z) - getUVs(uvs_in, num_uv_sets, v, z)) * w_val;
+			}
+		}
+
+
 
 	// Set all anchored vertex positions back to the midpoint between the vertex's 'parent positions'
 	for(unsigned int v=0; v<new_verts_out.size(); ++v)
