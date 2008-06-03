@@ -110,7 +110,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 	}
 
 	std::vector<Vec2f> texcoords(0);
-	std::vector<float> normals;//(mesh->faces * 9);
+	//std::vector<float> normals;//(mesh->faces * 9);
 	unsigned int num_verts_added = 0;
 	for(Lib3dsMesh* mesh = file->meshes; mesh; mesh = mesh->next)
 	{
@@ -118,9 +118,9 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 		//calculate normals for mesh
 		//------------------------------------------------------------------------
 		//void lib3ds_mesh_calculate_normals(Lib3dsMesh *mesh, Lib3dsVector *normalL)
-		normals.resize(mesh->faces * 9);
-		if(mesh->faces > 0)//otherwise will crash when faces == 0
-			lib3ds_mesh_calculate_normals(mesh, (Lib3dsVector*)&normals[0]);
+		//normals.resize(mesh->faces * 9);
+		//if(mesh->faces > 0)//otherwise will crash when faces == 0
+		//	lib3ds_mesh_calculate_normals(mesh, (Lib3dsVector*)&normals[0]);
 
 		for(unsigned int f=0; f<mesh->faces; ++f)//for each tri
 		{
@@ -164,12 +164,12 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 						handler.addUVs(texcoords);
 					}
 
-					const Vec3f normal(
+					/*const Vec3f normal(
 						normals[f*9+v*3],
 						normals[f*9+v*3 + 1],
-						normals[f*9+v*3 + 2]);
+						normals[f*9+v*3 + 2]);*/
 
-					handler.addVertex(pos * scale, normal);
+					handler.addVertex(pos * scale/*, normal*/);
 					
 				}
 				

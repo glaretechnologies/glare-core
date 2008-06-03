@@ -108,7 +108,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 			pos *= scale;
 			
-			handler.addVertex(pos, Vec3f(0,0,1));
+			handler.addVertex(pos);//, Vec3f(0,0,1));
 		}
 		else if(token == "vt")//vertex tex coordinate
 		{

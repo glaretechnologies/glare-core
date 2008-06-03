@@ -465,6 +465,18 @@ inline T lerp(T a, T b, T t)
 	return a * (1.0 - t) + b * t;
 }
 
+template <class T>
+inline T uncheckedLerp(T a, T b, float t)
+{
+	return a * (1.0f - t) + b * t;
+}
+
+template <class T>
+inline T uncheckedLerp(T a, T b, double t)
+{
+	return a * (1.0 - t) + b * t;
+}
+
 }
 
 

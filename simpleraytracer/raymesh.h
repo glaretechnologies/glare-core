@@ -127,7 +127,7 @@ public:
 	virtual void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
 	//virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
 	//virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
-	virtual void addVertex(const Vec3f& pos, const Vec3f& normal);
+	virtual void addVertex(const Vec3f& pos/*, const Vec3f& normal*/);
 	virtual void addUVs(const std::vector<Vec2f>& uvs);
 	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 

@@ -38,7 +38,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n);
 void splitDirName(const std::string& dirname, std::string& rootdir_out, 
 						std::string& rest_out);
 
-bool createDir(const std::string& dirname);
+void createDir(const std::string& dirname);
 
 
 //Gets the directory of a file from the pathname.

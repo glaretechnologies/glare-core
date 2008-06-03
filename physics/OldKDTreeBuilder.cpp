@@ -636,6 +636,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 						clipped_tri_aabb
 						);
 					assert(negbox.containsAABBox(clipped_tri_aabb));
+					//TEMP: THIS IS FAILING ALL THE FUCKING TIME 
 					assert(clipped_tri_aabb.invariant());
 					child_tris.back().lower = clipped_tri_aabb.min_;
 					child_tris.back().upper = clipped_tri_aabb.max_;

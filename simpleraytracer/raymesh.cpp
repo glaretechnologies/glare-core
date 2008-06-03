@@ -471,7 +471,7 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 	num_uvs_per_group = myMax(num_uvs_per_group, max_num_texcoord_sets);
 }
 
-void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal) // , const std::vector<Vec2f>& texcoord_sets)
+void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const std::vector<Vec2f>& texcoord_sets)
 {
 	
 	/*if(normal.isUnitLength())
@@ -494,10 +494,10 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal) // , const std::v
 
 		num_bad_normals++;
 	}*/
-	if(normal.length2() < 0.01f)
-		throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
+	//if(normal.length2() < 0.01f)
+	//	throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
 
-	vertices.push_back(RayMeshVertex(pos, normalise(normal)));
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 1.0f)));//, normalise(normal)));
 	//for(unsigned int i=0; i<texcoord_sets.size(); ++i)
 	//	vertices.back().texcoords[i] = texcoord_sets[i];
 
@@ -561,9 +561,10 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.");
 
 	// Check uv indices are in bounds
-	for(unsigned int i=0; i<3; ++i)
-		if(uv_indices[i] >= num_uv_groups)
-			throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.");
+	if(num_uvs_per_group > 0)
+		for(unsigned int i=0; i<3; ++i)
+			if(uv_indices[i] >= num_uv_groups)
+				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.");
 
 
 	// Check the area of the triangle

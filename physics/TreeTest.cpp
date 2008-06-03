@@ -53,34 +53,34 @@ void TreeTest::testBuildCorrect()
 
 	// Tri a
 	{
-	raymesh.addVertex(Vec3f(0,0,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(5,1,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(4,4,1), Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(0,0,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(5,1,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(4,4,1));//, Vec3f(0,0,1)); // , texcoord_sets);
 	const unsigned int vertex_indices[] = {0, 1, 2};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
 	{
 	// Tri b
-	raymesh.addVertex(Vec3f(1,3,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(8,12,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(4,9,1), Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(1,3,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(8,12,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(4,9,1));//, Vec3f(0,0,1)); // , texcoord_sets);
 	const unsigned int vertex_indices[] = {3, 4, 5};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 	{
 	// Tri C
-	raymesh.addVertex(Vec3f(10,5,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(10,10,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(10,10,1), Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(10,5,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(10,10,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(10,10,1));//, Vec3f(0,0,1)); // , texcoord_sets);
 	const unsigned int vertex_indices[] = {6, 7, 8};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 	{
 	// Tri D
-	raymesh.addVertex(Vec3f(6,14,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(12,14,0), Vec3f(0,0,1)); // , texcoord_sets);
-	raymesh.addVertex(Vec3f(12,14,1), Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(6,14,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(12,14,0));//, Vec3f(0,0,1)); // , texcoord_sets);
+	raymesh.addVertex(Vec3f(12,14,1));//, Vec3f(0,0,1)); // , texcoord_sets);
 	const unsigned int vertex_indices[] = {9, 10, 11};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
@@ -128,26 +128,26 @@ void TreeTest::testBuildCorrect()
 
 	//x=0 tri
 	{
-	raymesh.addVertex(Vec3f(0,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(0,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(0,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {0, 1, 2};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
 	{
 	//x=1 tri
-	raymesh.addVertex(Vec3f(1.f,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {3, 4, 5};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 	{
 	//x=10 tri
-	raymesh.addVertex(Vec3f(10.f,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(10.f,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(10.f,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {6, 7, 8};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
@@ -192,36 +192,36 @@ void TreeTest::testBuildCorrect()
 
 	//x=0 tri
 	{
-	raymesh.addVertex(Vec3f(0,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(0,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(0,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(0,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {0, 1, 2};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
 	{
 	//x=1 tri
-	raymesh.addVertex(Vec3f(1.f,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {3, 4, 5};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
 	{
 	//x=1 tri
-	raymesh.addVertex(Vec3f(1.f,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(1.f,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(1.f,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {6, 7, 8};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
 	{
 	//x=10 tri
-	raymesh.addVertex(Vec3f(10.f,0,1), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(10.f,1,0), Vec3f(0,0,1));//, texcoord_sets);
-	raymesh.addVertex(Vec3f(10.f,1,1), Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,0,1));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,0));//, Vec3f(0,0,1));//, texcoord_sets);
+	raymesh.addVertex(Vec3f(10.f,1,1));//, Vec3f(0,0,1));//, texcoord_sets);
 	const unsigned int vertex_indices[] = {9, 10, 11};
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
@@ -491,9 +491,9 @@ void TreeTest::doTests()
 	{
 		const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
 
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f, Vec3f(0,0,1));
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f, Vec3f(0,0,1));
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f, Vec3f(0,0,1));
+		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
 		const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
 		const unsigned int uv_indices[] = {0, 0, 0};
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
@@ -521,15 +521,15 @@ void TreeTest::doTests()
 		Vec3f v;
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
-		raymesh.addVertex(v, Vec3f(0,0,1));
+		raymesh.addVertex(v);//, Vec3f(0,0,1));
 		
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
-		raymesh.addVertex(v, Vec3f(0,0,1));
+		raymesh.addVertex(v);//, Vec3f(0,0,1));
 		
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
-		raymesh.addVertex(v, Vec3f(0,0,1));
+		raymesh.addVertex(v);//, Vec3f(0,0,1));
 
 		const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
 		const unsigned int uv_indices[] = {0, 0, 0};

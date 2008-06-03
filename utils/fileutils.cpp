@@ -128,6 +128,19 @@ void splitDirName(const std::string& dirname, std::string& rootdir_out,
 	return;
 }
 	
+
+void createDir(const std::string& dirname)
+{
+#if defined(WIN32) || defined(WIN64)
+
+	const BOOL result = ::CreateDirectoryA(dirname.c_str(), NULL);
+	if(!result)
+		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
+#else
+	#error
+#endif
+}
+
 /*
 #if defined(WIN32) || defined(WIN64)
 bool createDir(const std::string& dirname)
@@ -397,12 +410,23 @@ bool isPathSafe(const std::string& pathname)
 	if(pathname.size() == 0)
 		return false;
 
+	if(isPathAbsolute(pathname))
+		return false;
+
+	std::vector<std::string> dirs;
+	getDirs(pathname, dirs);
+	for(unsigned int i=0; i<dirs.size(); ++i)
+		if(dirs[i] == "..")
+			return false;
+
+	return true;
+
 	//int charindex = 0;
 
 	//if(pathname[0] == '\\')//can't start with backslash
 	//	return false;
 
-	bool lastcharwasslash = true;//treat as starting with backslash
+	/*bool lastcharwasslash = true;//treat as starting with backslash
 
 	for(unsigned int i=0; i<pathname.size(); ++i)
 	{
@@ -428,7 +452,7 @@ bool isPathSafe(const std::string& pathname)
 	if(lastcharwasslash)
 		return false;
 
-	return isPathEqualOrLower(pathname);
+	return isPathEqualOrLower(pathname);*/
 }
 
 
@@ -687,14 +711,14 @@ void doUnitTests()
 	assert(!isPathSafe("..\\..\\haxored"));
 	assert(!isPathSafe("a\\..\\..\\haxored"));
 	assert(!isPathSafe("a/../../b/../haxored"));
-	assert(!isPathSafe("/b/file.txt"));	//can't start with /
+	//assert(!isPathSafe("/b/file.txt"));	//can't start with /
 	assert(!isPathSafe("\\b/file.txt"));	//can't start with backslash
 	assert(!isPathSafe("\\localhost\\c\\something.txt"));	//can't start with host thingey
 	assert(!isPathSafe("\\123.123.123.123\\c\\something.txt"));	//can't start with host thingey
 	
 	assert(isPathSafe("something.txt"));
 	assert(isPathSafe("dir\\something.txt"));
-	assert(!isPathSafe("dir/something.txt"));//don't use forward slashes!!!!
+//	assert(!isPathSafe("dir/something.txt"));//don't use forward slashes!!!!
 	assert(isPathSafe("a\\b\\something.txt"));
 	assert(isPathSafe("a\\b\\something"));
 	assert(isPathSafe("a\\.\\something"));
