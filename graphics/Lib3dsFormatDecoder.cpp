@@ -191,6 +191,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 	}
 
 	lib3ds_file_free(file);
+	handler.endOfModel();
 }
 
 

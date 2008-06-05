@@ -723,6 +723,7 @@ void doUnitTests()
 	assert(isPathSafe("a\\b\\something"));
 	assert(isPathSafe("a\\.\\something"));
 
+	assert(eatExtension("hello.there") == "hello.");
 
 }
 

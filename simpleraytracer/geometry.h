@@ -15,11 +15,8 @@ You may *not* use this code for any commercial project.
 #define __GEOMETRY_H_666_
 
 
-//#include "../graphics/colour3.h"
-//#include "../maths/vec3.h"
 #include "../maths/vec2.h"
 #include "../maths/coordframe.h"
-//#include "../physics/jscol_Intersectable.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/refcounted.h"
 #include <vector>
@@ -94,21 +91,16 @@ public:
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;
 
 
+	const std::map<std::string, unsigned int>& getMaterialNameToIndexMap() const { return matname_to_index_map; }
+	const std::map<std::string, unsigned int>& getUVSetNameToIndexMap() const { return uvset_name_to_index; }
+protected:
+	// Map from material name to the index of the material in the final per-object material array.
+	// Note that this could also be a vector.
+	std::map<std::string, unsigned int> matname_to_index_map;
 
-	std::map<std::string, int> uvset_name_to_index;
-	
-	//Map from material name to the index of the material in the final per-object material array
-	std::map<std::string, int> matname_to_index_map;
+	std::map<std::string, unsigned int> uvset_name_to_index;
 private:
 };
 
 
-
-
-
-
 #endif //__GEOMETRY_H_666_
-
-
-
-

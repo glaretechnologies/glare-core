@@ -524,6 +524,12 @@ const std::string getExtension(const std::string& filename)//3 letter extension
 		return getTailSubString(filename, dot_index + 1);
 }
 
+const std::string eatExtension(const std::string& filename)
+{
+	return eatSuffix(filename, getExtension(filename));
+}
+
+
 bool hasPrefix(const std::string& s, const std::string& prefix)
 {
 	if(prefix.length() > s.length())

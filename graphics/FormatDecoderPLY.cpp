@@ -139,6 +139,8 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, ModelLoadingStre
 		throw ModelFormatDecoderExcep("read of body failed.");
 
     ply_close(ply);
+
+	handler.endOfModel();
 }
 
 

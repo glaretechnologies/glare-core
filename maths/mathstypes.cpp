@@ -7,7 +7,7 @@ void Maths::test()
 	testAssert(true);
 	testAssert(roundToInt(0.0) == 0);
 	testAssert(roundToInt(0.1) == 0);
-	testAssert(roundToInt(0.5) == 0);
+	testAssert(roundToInt(0.5) == 0 || roundToInt(0.5) == 1);
 	testAssert(roundToInt(0.51) == 1);
 	testAssert(roundToInt(0.9) == 1);
 	testAssert(roundToInt(1.0) == 1);

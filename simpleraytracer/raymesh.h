@@ -39,8 +39,6 @@ public:
 };
 
 
-//#define MAX_NUM_RAYMESH_TEXCOORD_SETS 4
-
 class RayMeshVertex
 {
 public:
@@ -48,13 +46,10 @@ public:
 	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : 
 		pos(pos_), 
 		normal(normal_) 
-	{ 
-		//texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); 
-	}
+	{}
+
 	Vec3f pos;
 	Vec3f normal;
-	//static const unsigned int MAX_NUM_RAYMESH_TEXCOORD_SETS = 4;
-	//Vec2f texcoords[MAX_NUM_RAYMESH_TEXCOORD_SETS];
 };
 
 
@@ -112,7 +107,7 @@ public:
 	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
 	virtual double surfaceArea(const Matrix3d& to_parent) const;
 
-	virtual int UVSetIndexForName(const std::string& uvset_name) const;
+	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 	
 	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
 		const std::vector<Plane<double> >& camera_clip_planes
@@ -133,8 +128,8 @@ public:
 
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
 	virtual void addMaterialUsed(const std::string& material_name);
+	virtual void endOfModel();
 	////////////////////////////////////////////////////////////////
-	bool isMaterialAlreadyUsed(const std::string& material_name);
 
 
 

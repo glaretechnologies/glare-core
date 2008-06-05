@@ -5,6 +5,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 =====================================================================*/
 #include "raymesh.h"
 
+
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
 #include "../physics/jscol_tritree.h"
@@ -22,6 +23,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>
+
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_ 
@@ -53,7 +55,6 @@ RayMesh::~RayMesh()
 }
 
 
-
 //returns negative number if object not hit by the ray
 double RayMesh::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
@@ -66,10 +67,12 @@ double RayMesh::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadDa
 		);
 }
 
+
 const js::AABBox& RayMesh::getAABBoxWS() const
 {
 	return tritree->getAABBoxWS();
 }
+
 
 void RayMesh::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
@@ -80,6 +83,7 @@ void RayMesh::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, c
 		hitinfos_out
 		);
 }
+
 
 bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
 {
@@ -118,10 +122,12 @@ const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 		);
 }
 
+
 const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
 {
 	return toVec3d(triNormal(hitinfo.hittri_index));
 }
+
 
 static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 {
@@ -381,7 +387,6 @@ const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texco
 }
 
 
-
 //NOTE: need to make this use shading normal
 bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
 {
@@ -463,13 +468,13 @@ bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set
 }
 
 
-
 void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 {
 	//num_texcoord_sets = myMax(num_texcoord_sets, max_num_texcoord_sets);
 
 	num_uvs_per_group = myMax(num_uvs_per_group, max_num_texcoord_sets);
 }
+
 
 void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const std::vector<Vec2f>& texcoord_sets)
 {
@@ -529,10 +534,12 @@ inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix
 	return ::crossProduct(to_parent * toVec3d(v1 - v0), to_parent * toVec3d(v2 - v0)).length() * 0.5;
 }
 
+
 inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
 {
 	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
 }
+
 
 void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 {
@@ -549,10 +556,11 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 	num_uv_groups++;
 }
 
+
 void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
 	// Check material index is in bounds
-	if(material_index >= matname_to_index_map.size())
+	if(material_index >= getMaterialNameToIndexMap().size())
 		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.");
 
 	// Check vertex indices are in bounds
@@ -588,35 +596,38 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 }
 
 
-
 void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
 {
 	uvset_name_to_index[uv_set_name] = uv_set_index;
 }
 
+
 void RayMesh::addMaterialUsed(const std::string& material_name)
 {
-	// Material shouldn't already be listed as used
-	assert(this->matname_to_index_map.find(material_name) == matname_to_index_map.end());
-
-	const unsigned int mat_index = (unsigned int)matname_to_index_map.size();
-	this->matname_to_index_map[material_name] = mat_index;
+	if(matname_to_index_map.find(material_name) == matname_to_index_map.end()) // If this name not already added...
+	{
+		const unsigned int mat_index = (unsigned int)matname_to_index_map.size();
+		this->matname_to_index_map[material_name] = mat_index;
+	}
 }
+
+
+void RayMesh::endOfModel()
+{
+	// Check that any UV set expositions actually have the corresponding uv data.
+	for(std::map<std::string, unsigned int>::const_iterator i=getUVSetNameToIndexMap().begin(); i != getUVSetNameToIndexMap().end(); ++i)
+	{
+		if((*i).second >= num_uvs_per_group)
+			throw ModelLoadingStreamHandlerExcep("UV set with index " + toString((*i).second) + " was exposed, but the UV set data was not provided.");
+	}
+}
+
 
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
 	assert(tri_index < triangles.size());
 	return triangles[tri_index].tri_mat_index;
 }
-
-
-
-
-bool RayMesh::isMaterialAlreadyUsed(const std::string& material_name)
-{
-	return matname_to_index_map.find(material_name) != matname_to_index_map.end();
-}
-
 
 
 void RayMesh::doInitAsEmitter()
@@ -657,8 +668,6 @@ void RayMesh::doInitAsEmitter()
 
 	this->done_init_as_emitter = true;
 }
-
-
 
 
 const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
@@ -733,6 +742,7 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 	//	);
 }
 
+
 double RayMesh::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const
 {
 	assert(done_init_as_emitter);
@@ -793,11 +803,9 @@ void RayMesh::emitterInit()
 	doInitAsEmitter();
 }
 
-int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
-{
-	//if(matname_to_index_map.find(uvset_name) == matname_to_index_map.end())
-	//	return -1;
 
+/*int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
+{
 	//return matname_to_index_map[uvset_name];
 	std::map<std::string, int>::const_iterator it = matname_to_index_map.find(uvset_name);
 	if(it == matname_to_index_map.end())
@@ -808,7 +816,7 @@ int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
 	{
 		return (*it).second;
 	}
-}
+}*/
 
 
 void RayMesh::printTreeStats()
@@ -816,10 +824,12 @@ void RayMesh::printTreeStats()
 	tritree->printStats();
 }
 
+
 void RayMesh::printTraceStats()
 {
 	tritree->printTraceStats();
 }
+
 
 /*
 const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
@@ -830,10 +840,12 @@ const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
 }
 */
 
+
 static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
 	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
 }
+
 
 void RayMesh::computeShadingNormals()
 {
@@ -857,8 +869,4 @@ void RayMesh::computeShadingNormals()
 		vertices[i].normal.normalise();
 
 }
-
-
-
-
 

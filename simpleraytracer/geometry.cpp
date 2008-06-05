@@ -6,9 +6,11 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "geometry.h"
 
+
 #include "../maths/vec2.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/globals.h"
+
 
 bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
 {
@@ -17,11 +19,14 @@ bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTree
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }
+
+
 /*
 const Vec2 Geometry::getTexCoords(const FullHitInfo& hitinfo, unsigned int tri_index, float tri_u, float tri_v, unsigned int texcoords_set) const
 {
 	return Vec2(0,0);
 }*/
+
 
 bool Geometry::getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
 {
@@ -29,26 +34,3 @@ bool Geometry::getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set
 	assert(0);
 	return false;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

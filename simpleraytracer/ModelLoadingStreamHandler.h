@@ -7,11 +7,11 @@ Code By Nicholas Chapman.
 #ifndef __MODELLOADINGSTREAMHANDLER_H_666_
 #define __MODELLOADINGSTREAMHANDLER_H_666_
 
+
 #include <string>
 #include <vector>
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
-//class Colour3;
 
 
 class ModelLoadingStreamHandlerExcep
@@ -50,13 +50,8 @@ public:
 	virtual void addUVs(const std::vector<Vec2f>& uvs) = 0;
 	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index) = 0;
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index) = 0;
-
+	virtual void endOfModel() = 0;
 };
 
 
-
 #endif //__MODELLOADINGSTREAMHANDLER_H_666_
-
-
-
-

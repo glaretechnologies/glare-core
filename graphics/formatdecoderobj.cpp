@@ -214,6 +214,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 		parser.advancePastLine();
 	}
 
+	handler.endOfModel();
 	conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
 }
 
