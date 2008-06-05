@@ -57,6 +57,8 @@ public:
 	virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
 	virtual const std::string getName() const { return "RayPlane"; }
+
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
 private:
 	Plane<double> plane;
 	Vec2d uvs;

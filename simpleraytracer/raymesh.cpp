@@ -244,7 +244,7 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 }
 
 
-void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_trees)
+void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSettings& renderer_settings)
 {
 	Timer timer;
 
@@ -254,7 +254,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	if(tritree.get())
 		return; // build() has already been called.
 
-	if((int)triangles.size() >= RendererSettings::getInstance().bih_tri_threshold)
+	if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
 		tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
 	else
 		tritree = std::auto_ptr<js::Tree>(new js::TriTree(this));
@@ -268,7 +268,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, bool use_cached_tre
 	//conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
 	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
 
-	if(RendererSettings::getInstance().cache_trees && use_cached_trees)
+	if(renderer_settings.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
 		bool built_from_cache = false;
 

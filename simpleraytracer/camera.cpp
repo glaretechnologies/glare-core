@@ -131,22 +131,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	assert(this->polarising_vec.isUnitLength());
 
 
-	// Calculate diffraction distribution if needed.
-	if(RendererSettings::getInstance().aperture_diffraction)
-	{
-		try
-		{
-			diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
-				lens_radius, 
-				*aperture,
-				base_indigo_path
-				));
-		}
-		catch(DiffractionFilterExcep& e)
-		{
-			throw CameraExcep(e.what());
-		}
-	}
+	
 
 /*	assert(!aperture_image);
 	if(!circular_aperture_)
@@ -207,6 +192,24 @@ Camera::~Camera()
 	delete aperture;
 	//delete diffraction_filter;
 	delete colour_space_converter;
+}
+
+
+void Camera::buildDiffractionFilter(const std::string& base_indigo_path)
+{
+	// Calculate diffraction distribution if needed.
+	try
+	{
+		diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
+			lens_radius, 
+			*aperture,
+			base_indigo_path
+			));
+	}
+	catch(DiffractionFilterExcep& e)
+	{
+		throw CameraExcep(e.what());
+	}
 }
 
 
@@ -872,7 +875,7 @@ const Vec2d Camera::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoo
 
 const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const
 {
-	assert(RendererSettings::getInstance().aperture_diffraction);
+	//assert(RendererSettings::getInstance().aperture_diffraction);
 	assert(diffraction_filter.get() != NULL);
 
 	//if(!this->diffraction_filter || !RendererSettings::getInstance().aperture_diffraction)

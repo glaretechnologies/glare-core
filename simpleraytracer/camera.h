@@ -96,6 +96,7 @@ public:
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec2d getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const;
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
 
 
 
@@ -161,6 +162,7 @@ public:
 
 	
 
+	void buildDiffractionFilter(const std::string& base_indigo_path);
 	void buildDiffractionFilterImage(int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path);
 
 	double sensorHeight() const { return sensor_height; }

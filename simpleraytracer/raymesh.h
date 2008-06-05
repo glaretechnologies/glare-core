@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 namespace js{ class Triangle; }
 namespace js{ class EdgeTri; }
 class Material;
+class RendererSettings;
 
 
 class RayMeshTriangle
@@ -112,7 +113,7 @@ public:
 	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
 		const std::vector<Plane<double> >& camera_clip_planes
 		);
-	virtual void build(const std::string& indigo_base_dir_path, bool use_cached_trees);
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings);
 	virtual const std::string getName() const { return name; }
 	//////////////////////////////////////////////////////////
 

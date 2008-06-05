@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceFullHitInfo.h"
+#include "../indigo/RendererSettings.h"
 #include <algorithm>
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
@@ -85,9 +86,11 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
+	RendererSettings settings;
+	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		false // use cached trees
+		settings
 		);
 
 	{
@@ -152,9 +155,11 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
+	RendererSettings settings;
+	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		false // use cached trees
+		settings
 		);
 
 
@@ -226,9 +231,11 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
+	RendererSettings settings;
+	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		false // use cached trees
+		settings
 		);
 
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
@@ -562,9 +569,11 @@ void TreeTest::doSpeedTest()
 
 	Timer buildtimer;
 
+	RendererSettings settings;
+	settings.cache_trees = false;
 	raymesh.build(
 		".", // base indigo dir path
-		false // use cached trees
+		settings
 		);
 
 	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
@@ -674,9 +683,11 @@ void TreeTest::buildSpeedTest()
 	}
 
 	Timer timer;
+	RendererSettings settings;
+	settings.cache_trees = false;
 	raymesh.build(
 		".", // base indigo dir path
-		false // use cached trees
+		settings
 		);
 
 	printVar(timer.getSecondsElapsed());

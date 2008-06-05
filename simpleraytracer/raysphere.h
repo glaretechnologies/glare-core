@@ -61,6 +61,9 @@ public:
 	static void test();
 
 	virtual const std::string getName() const { return "RaySphere"; }
+
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
+
 private:
 	Vec3d centerpos;
 

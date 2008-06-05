@@ -16,6 +16,7 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 #include <iostream>
 #include "../indigo/TestUtils.h"
+#include "../indigo/RendererSettings.h"
 #include "../utils/timer.h"
 //#include "../indigo/InstancedGeom.h"
 #include "../simpleraytracer/csmodelloader.h"
@@ -55,7 +56,9 @@ void ObjectTreeTest::doTests()
 			Matrix3d::identity(),
 			std::vector<Material*>()
 			);
-		ob->build("", false);
+		RendererSettings settings;
+		settings.cache_trees = false;
+		ob->build("", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -275,7 +278,9 @@ void ObjectTreeTest::doSpeedTest()
 			Matrix3d::identity(),
 			std::vector<Material*>()
 			);
-		ob->build("", false);
+		RendererSettings settings;
+		settings.cache_trees = false;
+		ob->build("", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -366,9 +371,11 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//insert random instances
 	//------------------------------------------------------------------------
+	RendererSettings settings;
+	settings.cache_trees = true;
 	raymesh->build(
 		".", // base indigo dir path
-		true
+		settings
 		);
 
 	ObjectTree ob_tree;
@@ -386,7 +393,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			rot,
 			std::vector<Material*>()
 			);
-		object->build("", false);
+		RendererSettings settings;
+		settings.cache_trees = false;
+		object->build("", settings);
 
 		ob_tree.insertObject(object);
 	}
