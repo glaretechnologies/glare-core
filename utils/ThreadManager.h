@@ -35,13 +35,14 @@ public:
 
 
 	void addThread(MessageableThread* t);
-
-	void threadTerminating(MessageableThread* t);
+	
+	void enqueueMessage(const ThreadMessage& m);
 
 	void killThreadsBlocking();
-
-
-	void enqueueMessage(const ThreadMessage& m);
+	
+	
+	// Called by threads when they are about to terminate
+	void threadTerminating(MessageableThread* t);
 
 private:
 	typedef ThreadSafeQueue<ThreadMessage*> MESSAGE_QUEUE_TYPE;

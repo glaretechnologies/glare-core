@@ -82,8 +82,8 @@ void SSETest()
 
 
 	// Test accuracy of divisions
-	const SSE_ALIGN float a[4] = {1.0e0, 1.0e-1, 1.0e-2, 1.0e-3};
-	const SSE_ALIGN float b[4] = {1.1,1.01,1.001,1.0001};
+	const SSE_ALIGN float a[4] = {1.0e0f, 1.0e-1f, 1.0e-2f, 1.0e-3f};
+	const SSE_ALIGN float b[4] = {1.1f,1.01f,1.001f,1.0001f};
 	const SSE_ALIGN float c[4] = {0.99999999999,0.99999999,0.9999999,0.999999};
 	SSE_ALIGN float r1[4] = {1,1,1,1};
 	SSE_ALIGN float r2[4] = {1,1,1,1};

@@ -28,7 +28,7 @@ void ModelDecoder::readEntireFile(const std::string& pathname, std::vector<unsig
 	//------------------------------------------------------------------------
 	//read model file from disk
 	//------------------------------------------------------------------------
-	std::ifstream modelfile(pathname.c_str(), std::ios::binary);
+	/*std::ifstream modelfile(pathname.c_str(), std::ios::binary);
 
 	if(!modelfile)
 		throw ModelFormatDecoderExcep("could not open file '" + pathname + "' for reading.");
@@ -36,7 +36,16 @@ void ModelDecoder::readEntireFile(const std::string& pathname, std::vector<unsig
 	FileUtils::readEntireFile(modelfile, data);
 	
 	if(data.empty())
-		throw ModelFormatDecoderExcep("failed to read contents of '" + pathname + "'.");
+		throw ModelFormatDecoderExcep("failed to read contents of '" + pathname + "'.");*/
+
+	try
+	{
+		FileUtils::readEntireFile(pathname, data);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw ModelFormatDecoderExcep(e.what());
+	}
 }
 
 

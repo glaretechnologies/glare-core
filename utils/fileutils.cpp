@@ -17,10 +17,17 @@ Code By Nicholas Chapman.
 #include <zlib.h>
 #include <assert.h>
 #include "stringutils.h"
+#include "../indigo/TestUtils.h"
 
+/*#define BOOST_ALL_NO_LIB
+#include <boost/filesystem/path.hpp>
+
+#include <iostream>
+boost::filesystem::path p("dgfbdf");*/
 
 namespace FileUtils
 {
+
 
 #if defined(WIN32) || defined(WIN64)
 const std::string PLATFORM_DIR_SEPARATOR = "\\";
@@ -29,6 +36,7 @@ const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 const std::string PLATFORM_DIR_SEPARATOR = "/";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
+
 
 const std::string join(const std::string& dirpath, const std::string& filename)
 {
@@ -41,6 +49,7 @@ const std::string join(const std::string& dirpath, const std::string& filename)
 	return dirpath + PLATFORM_DIR_SEPARATOR + filename;
 }
 
+
 const std::string toPlatformSlashes(const std::string& pathname)
 {
 	std::string result = pathname;
@@ -49,6 +58,7 @@ const std::string toPlatformSlashes(const std::string& pathname)
 	::replaceChar(result, '/', PLATFORM_DIR_SEPARATOR_CHAR);
 	return result;
 }
+
 
 int getNumDirs(const std::string& dirname)
 {
@@ -63,9 +73,14 @@ int getNumDirs(const std::string& dirname)
 	return count + 1;
 }
 
+/*
 const std::string getFirstNDirs(const std::string& dirname, int n)
 {
 	assert(n >= 1);
+
+	//const std::string& path = toPlatformSlashes(dirname);
+
+
 
 	int nthslashpos = 0;
 
@@ -99,11 +114,10 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 		//	firstslashpos = dirname.find_first_of('/');
 
 
+}*/
 
-}
 
-
-void splitDirName(const std::string& dirname, std::string& rootdir_out, 
+/*void splitDirName(const std::string& dirname, std::string& rootdir_out, 
 						std::string& rest_out)
 {
 	std::string::size_type firstslashpos = dirname.find_first_of('\\');
@@ -126,7 +140,7 @@ void splitDirName(const std::string& dirname, std::string& rootdir_out,
 		rest_out = "";
 
 	return;
-}
+}*/
 	
 
 void createDir(const std::string& dirname)
@@ -140,6 +154,26 @@ void createDir(const std::string& dirname)
 	#error
 #endif
 }
+
+void createDirsForPath(const std::string& path)
+{
+	std::vector<std::string> dirs;
+	getDirectoriesFromPath(path, dirs);
+
+	std::string dir;
+	for(unsigned int i=0; i<dirs.size(); ++i)
+	{
+		//if(i > 0 || !isPathAbsolute(path)) // don't create first 
+		//{
+
+		dir += dirs[i];
+		if(!(fileExists(dir) || hasSuffix(dir, ":")))
+			createDir(dir);
+
+		dir += PLATFORM_DIR_SEPARATOR;
+	}
+}
+
 
 /*
 #if defined(WIN32) || defined(WIN64)
@@ -348,7 +382,7 @@ bool fileExists(const std::string& pathname)
 
 
 
-void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out)
+void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::string>& dirs_out)
 {
 	dirs_out.clear();
 
@@ -380,7 +414,7 @@ void getDirs(const std::string& pathname_, std::vector<std::string>& dirs_out)
 }
 
 
-bool isPathEqualOrLower(const std::string& pathname)
+/*bool isPathEqualOrLower(const std::string& pathname)
 {
 	std::vector<std::string> dirs;
 	FileUtils::getDirs(pathname, dirs);
@@ -403,7 +437,7 @@ bool isPathEqualOrLower(const std::string& pathname)
 	}
 
 	return relative_height <= 0;
-}
+}*/
 
 bool isPathSafe(const std::string& pathname)
 {
@@ -414,7 +448,7 @@ bool isPathSafe(const std::string& pathname)
 		return false;
 
 	std::vector<std::string> dirs;
-	getDirs(pathname, dirs);
+	getDirectoriesFromPath(pathname, dirs);
 	for(unsigned int i=0; i<dirs.size(); ++i)
 		if(dirs[i] == "..")
 			return false;
@@ -524,7 +558,8 @@ void writeEntireFile(const std::string& pathname,
 	if(!file)
 		throw FileUtilsExcep("could not open '" + pathname + "' for writing.");
 
-	file.write((const char*)&(*filecontents.begin()), filecontents.size());
+	if(filecontents.size() > 0)
+		file.write((const char*)&(*filecontents.begin()), filecontents.size());
 
 	if(file.bad())
 		throw FileUtilsExcep("write to '" + pathname + "' failed.");
@@ -628,8 +663,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 	}
 	
 #else
-	assert(0);
-	throw FileUtilsExcep("copyFile() not implemented.");
+#error
 #endif
 }
 
@@ -644,11 +678,24 @@ void deleteFile(const std::string& path)
 	}
 	
 #else
-	assert(0);
-	throw FileUtilsExcep("deleteFile() not implemented.");
+#error
 #endif
 }
 
+void deleteEmptyDirectory(const std::string& path)
+{
+#if defined(WIN32) || defined(WIN64)
+	if(!RemoveDirectoryA(
+		path.c_str()
+		))
+	{
+		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
+	}
+	
+#else
+#error
+#endif
+}
 
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
@@ -680,6 +727,9 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 	std::vector<unsigned char> contents;
 	readEntireFile(p, contents);
 
+	if(contents.size() == 0)
+		throw FileUtilsExcep("Failed to compute checksum over file '" + p + ", file is empty.");
+
 	const unsigned int initial_crc = crc32(0, 0, 0);
 	return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
 }
@@ -688,42 +738,76 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 void doUnitTests()
 {
 #if defined(WIN32) || defined(WIN64)
-	assert(isPathAbsolute("C:/windows"));
-	assert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
-	assert(isPathAbsolute("a:\\dsfsdf"));
-	assert(isPathAbsolute("\\\\lust\\dsfsdf"));
+	testAssert(isPathAbsolute("C:/windows"));
+	testAssert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
+	testAssert(isPathAbsolute("a:\\dsfsdf"));
+	testAssert(isPathAbsolute("\\\\lust\\dsfsdf"));
 
-	assert(!isPathAbsolute("a/b/"));
-	assert(!isPathAbsolute("somefile"));
-	assert(!isPathAbsolute("."));
-	assert(!isPathAbsolute(".."));
-	assert(!isPathAbsolute(""));
+	testAssert(!isPathAbsolute("a/b/"));
+	testAssert(!isPathAbsolute("somefile"));
+	testAssert(!isPathAbsolute("."));
+	testAssert(!isPathAbsolute(".."));
+	testAssert(!isPathAbsolute(""));
 #else
-	assert(isPathAbsolute("/etc/"));
-	assert(!isPathAbsolute("dfgfdgdf/etc/"));
+	testAssert(isPathAbsolute("/etc/"));
+	testAssert(!isPathAbsolute("dfgfdgdf/etc/"));
 
 #endif
-	assert(!isPathSafe("c:\\windows\\haxored.dll"));
-	assert(!isPathSafe("c:\\haxored.dll"));
-	assert(!isPathSafe("c:\\"));
-	assert(!isPathSafe("c:\\haxored.txt"));	//no absolute path names allowed
-	assert(!isPathSafe("..\\..\\haxored.dll"));
-	assert(!isPathSafe("..\\..\\haxored"));
-	assert(!isPathSafe("a\\..\\..\\haxored"));
-	assert(!isPathSafe("a/../../b/../haxored"));
-	//assert(!isPathSafe("/b/file.txt"));	//can't start with /
-	assert(!isPathSafe("\\b/file.txt"));	//can't start with backslash
-	assert(!isPathSafe("\\localhost\\c\\something.txt"));	//can't start with host thingey
-	assert(!isPathSafe("\\123.123.123.123\\c\\something.txt"));	//can't start with host thingey
+	testAssert(!isPathSafe("c:\\windows\\haxored.dll"));
+	testAssert(!isPathSafe("c:\\haxored.dll"));
+	testAssert(!isPathSafe("c:\\"));
+	testAssert(!isPathSafe("c:\\haxored.txt"));	//no absolute path names allowed
+	testAssert(!isPathSafe("..\\..\\haxored.dll"));
+	testAssert(!isPathSafe("..\\..\\haxored"));
+	testAssert(!isPathSafe("a\\..\\..\\haxored"));
+	testAssert(!isPathSafe("a/../../b/../haxored"));
+	//testAssert(!isPathSafe("/b/file.txt"));	//can't start with /
+	testAssert(!isPathSafe("\\b/file.txt"));	//can't start with backslash
+	testAssert(!isPathSafe("\\localhost\\c\\something.txt"));	//can't start with host thingey
+	testAssert(!isPathSafe("\\123.123.123.123\\c\\something.txt"));	//can't start with host thingey
 	
-	assert(isPathSafe("something.txt"));
-	assert(isPathSafe("dir\\something.txt"));
-//	assert(!isPathSafe("dir/something.txt"));//don't use forward slashes!!!!
-	assert(isPathSafe("a\\b\\something.txt"));
-	assert(isPathSafe("a\\b\\something"));
-	assert(isPathSafe("a\\.\\something"));
+	testAssert(isPathSafe("something.txt"));
+	testAssert(isPathSafe("dir\\something.txt"));
+//	testAssert(!isPathSafe("dir/something.txt"));//don't use forward slashes!!!!
+	testAssert(isPathSafe("a\\b\\something.txt"));
+	testAssert(isPathSafe("a\\b\\something"));
+	testAssert(isPathSafe("a\\.\\something"));
 
-	assert(eatExtension("hello.there") == "hello.");
+	testAssert(eatExtension("hello.there") == "hello.");
+
+
+	const std::string TEST_PATH = "TESTING_TEMP_FILE";
+	const std::string TEST_PATH2 = "TESTING_TEMP_FILE_2";
+	writeEntireFile(TEST_PATH, std::vector<unsigned char>(0, 100));
+	testAssert(fileExists(TEST_PATH));
+	moveFile(TEST_PATH, TEST_PATH2);
+	testAssert(!fileExists(TEST_PATH));
+	testAssert(fileExists(TEST_PATH2));
+	deleteFile(TEST_PATH2);
+	testAssert(!fileExists(TEST_PATH2));
+
+	// Test dir stuff
+
+	const std::string TEST_PATH3 = "TEMP_TESTING_DIR/TESTING_TEMP_FILE";
+	testAssert(getDirectory(TEST_PATH3) == "TEMP_TESTING_DIR");
+	testAssert(getFilename(TEST_PATH3) == "TESTING_TEMP_FILE");
+	testAssert(isPathSafe(TEST_PATH3));
+
+	createDirsForPath(TEST_PATH3);
+	testAssert(fileExists("TEMP_TESTING_DIR"));
+	deleteEmptyDirectory("TEMP_TESTING_DIR");
+	testAssert(!fileExists("TEMP_TESTING_DIR"));
+
+	const std::string TEST_PATH_4 = "TEMP_TESTING_DIR/a/b";
+	createDirsForPath(TEST_PATH_4);
+	testAssert(fileExists("TEMP_TESTING_DIR"));
+	testAssert(fileExists("TEMP_TESTING_DIR/a"));
+	deleteEmptyDirectory("TEMP_TESTING_DIR/a");
+	deleteEmptyDirectory("TEMP_TESTING_DIR");
+	testAssert(!fileExists("TEMP_TESTING_DIR"));
+	testAssert(!fileExists("TEMP_TESTING_DIR/a"));
+
+	createDirsForPath("c:/temp/test/a");
 
 }
 
