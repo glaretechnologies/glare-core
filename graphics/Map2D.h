@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __MAP2D_H_666_
 
 
-#include "Colour3.h"
+#include "colour3.h"
 #include "../utils/refcounted.h"
 
 
