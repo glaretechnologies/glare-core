@@ -100,7 +100,7 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
 		throw ImageExcep("BytesPP != 3");
 
-	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > getWidth() || y2 > getHeight())
+	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > (int)getWidth() || y2 > (int)getHeight())
 		throw ImageExcep("Region coordinates are invalid");
 
 	const int out_width = x2 - x1;

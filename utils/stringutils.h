@@ -160,8 +160,14 @@ void replaceChar(std::string& s, char src, char dest);
 
 inline void concatWithChar(std::string& s, char c)
 {
-	s.resize(s.size() + 1);
-	s[s.size() - 1] = c;
+	//s.resize(s.size() + 1);
+	//s[s.size() - 1] = c;
+	s = s + std::string(1, c);
+}
+
+inline const std::string appendChar(const std::string& s, char c)
+{
+	return s + std::string(1, c);
 }
 
 //if first_char_index is >= s.size(), then returns ""

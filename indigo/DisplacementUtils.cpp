@@ -800,9 +800,10 @@ void DisplacementUtils::averagePass(
 			n_t[tris[t].vertex_indices[v]]++;
 
 	// Initialise uv_n_t
-	for(unsigned int t=0; t<tris.size(); ++t)
-		for(unsigned int v=0; v<tris[t].dimension+1; ++v)
-			uv_n_t[tris[t].uv_indices[v]]++;
+	if(num_uv_sets > 0)
+		for(unsigned int t=0; t<tris.size(); ++t)
+			for(unsigned int v=0; v<tris[t].dimension+1; ++v)
+				uv_n_t[tris[t].uv_indices[v]]++;
 
 
 	std::vector<Vec2f> uv_cent(num_uv_sets);
@@ -850,7 +851,8 @@ void DisplacementUtils::averagePass(
 				}
 			
 				total_weight[v_i] += weight;
-				total_uvs_weight[tris[t].uv_indices[v]] += weight;
+				if(num_uv_sets > 0)
+					total_uvs_weight[tris[t].uv_indices[v]] += weight;
 
 				new_verts_out[v_i].pos += cent * weight;
 

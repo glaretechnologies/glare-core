@@ -26,8 +26,8 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, 
-				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_ 
-				 //bool merge_vertices_with_same_pos_and_normal_
+				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
+				 bool merge_vertices_with_same_pos_and_normal_
 				 )
 :	name(name_),
 	tritree(NULL),
@@ -35,14 +35,15 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	num_subdivisions(num_subdivisions_),
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
-	subdivision_smoothing(subdivision_smoothing_)
-	//merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_)
+	subdivision_smoothing(subdivision_smoothing_),
+	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_)
 {
 //	num_texcoord_sets = 0;
 //	num_vertices = 0;
 	total_surface_area = 0.0;
 	done_init_as_emitter = false;
 	subdivide_and_displace_done = false;
+	vertex_shading_normals_provided = false;
 	//num_bad_normals = 0;
 
 	num_uvs_per_group = 0;
@@ -140,6 +141,15 @@ static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 }
 
 
+static bool isDisplacingMaterial(const std::vector<Material*>& materials)
+{
+	for(unsigned int i=0; i<materials.size(); ++i)
+		if(materials[i]->displacing())
+			return true;
+	return false;
+}
+
+
 void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
 	const std::vector<Plane<double> >& camera_clip_planes
 	)
@@ -153,94 +163,64 @@ void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, doub
 		return;
 	}
 
-	computeShadingNormals();
+	if(merge_vertices_with_same_pos_and_normal)
+		mergeVerticesWithSamePosAndNormal();
+	
+	if(!vertex_shading_normals_provided)
+		computeShadingNormals();
 
-	/*if(merge_vertices_with_same_pos_and_normal)
+	if(isDisplacingMaterial(materials) || num_subdivisions > 0)
 	{
-		conPrint("Merging vertices for mesh '" + this->getName() + "'...");
-		conPrint("\tInitial num vertices: " + toString(vertices.size()));
+		conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
 
-		std::map<RayMeshVertex, unsigned int> new_vert_indices;
-		std::vector<RayMeshVertex> newverts;
-		
-		for(unsigned int t=0; t<triangles.size(); ++t)
-		{
-			for(unsigned int i=0; i<3; ++i)
+		// Convert to single precision floating point planes
+		std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
+		for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
+			camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());
+
+		std::vector<RayMeshTriangle> temp_tris;
+		std::vector<RayMeshVertex> temp_verts;
+		std::vector<Vec2f> temp_uvs;
+
+		DisplacementUtils::subdivideAndDisplace(
+			materials,
+			camera_coordframe_os, 
+			pixel_height_at_dist_one,
+			subdivide_pixel_threshold,
+			subdivide_curvature_threshold,
+			num_subdivisions,
+			camera_clip_planes_f,
+			subdivision_smoothing,
+			triangles,
+			vertices,
+			uvs,
+			this->num_uvs_per_group,
+			temp_tris,
+			temp_verts,
+			temp_uvs
+			);
+
+		triangles = temp_tris;
+		vertices = temp_verts;
+		uvs = temp_uvs;
+
+		// Check data
+	//#ifdef DEBUG
+		for(unsigned int i=0; i<triangles.size(); ++i)
+			for(unsigned int c=0; c<3; ++c)
 			{
-				const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
-
-				unsigned int new_vert_index;
-
-				const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
-
-				if(result == new_vert_indices.end())
+				assert(triangles[i].vertex_indices[c] < vertices.size());
+				if(this->num_uvs_per_group > 0)
 				{
-					new_vert_index = newverts.size();
-					newverts.push_back(old_vert);
-					new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+					assert(triangles[i].uv_indices[c] < uvs.size());
 				}
-				else
-					new_vert_index = (*result).second;
-
-				triangles[t].vertex_indices[i] = new_vert_index;
 			}
-		}
-
-		vertices = newverts;
-
-		conPrint("\tNew num vertices: " + toString(vertices.size()) + "");
+	//#endif
+	
 		conPrint("\tDone.");
-	}*/
-
-	conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
-
-	// Convert to single precision floating point planes
-	std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
-	for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
-		camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());
-
-	std::vector<RayMeshTriangle> temp_tris;
-	std::vector<RayMeshVertex> temp_verts;
-	std::vector<Vec2f> temp_uvs;
-
-	DisplacementUtils::subdivideAndDisplace(
-		materials,
-		camera_coordframe_os, 
-		pixel_height_at_dist_one,
-		subdivide_pixel_threshold,
-		subdivide_curvature_threshold,
-		num_subdivisions,
-		camera_clip_planes_f,
-		subdivision_smoothing,
-		triangles,
-		vertices,
-		uvs,
-		this->num_uvs_per_group,
-		temp_tris,
-		temp_verts,
-		temp_uvs
-		);
-
-	triangles = temp_tris;
-	vertices = temp_verts;
-	uvs = temp_uvs;
-
-	// Check data
-//#ifdef DEBUG
-	for(unsigned int i=0; i<triangles.size(); ++i)
-		for(unsigned int c=0; c<3; ++c)
-		{
-			assert(triangles[i].vertex_indices[c] < vertices.size());
-			if(this->num_uvs_per_group > 0)
-			{
-				assert(triangles[i].uv_indices[c] < uvs.size());
-			}
-		}
-//#endif
+	}
 
 	subdivide_and_displace_done = true;
-
-	conPrint("\tDone.");
 }
 
 
@@ -502,7 +482,7 @@ void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const st
 	//if(normal.length2() < 0.01f)
 	//	throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
 
-	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 1.0f)));//, normalise(normal)));
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.0f)));//, normalise(normal)));
 	//for(unsigned int i=0; i<texcoord_sets.size(); ++i)
 	//	vertices.back().texcoords[i] = texcoord_sets[i];
 
@@ -522,6 +502,16 @@ void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const st
 		*((Vec2f*)&vertex_data[oldsize]) = texcoord_sets[i];
 		oldsize += 2;
 	}*/
+}
+
+void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
+{
+	if(!epsEqual(normal.length(), 1.0f, 0.001f))
+		throw ModelLoadingStreamHandlerExcep("Normal does not have length 1.");
+	
+	vertices.push_back(RayMeshVertex(pos, normalise(normal)));
+
+	this->vertex_shading_normals_provided = true;
 }
 
 
@@ -849,6 +839,8 @@ static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& v
 
 void RayMesh::computeShadingNormals()
 {
+	conPrint("Computing shading normals for mesh '" + this->getName() + "'.");
+
 	for(unsigned int i=0; i<vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
 
@@ -868,5 +860,42 @@ void RayMesh::computeShadingNormals()
 	for(unsigned int i=0; i<vertices.size(); ++i)
 		vertices[i].normal.normalise();
 
+}
+
+void RayMesh::mergeVerticesWithSamePosAndNormal()
+{
+	conPrint("Merging vertices for mesh '" + this->getName() + "'...");
+	conPrint("\tInitial num vertices: " + toString(vertices.size()));
+
+	std::map<RayMeshVertex, unsigned int> new_vert_indices;
+	std::vector<RayMeshVertex> newverts;
+	
+	for(unsigned int t=0; t<triangles.size(); ++t)
+	{
+		for(unsigned int i=0; i<3; ++i)
+		{
+			const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
+
+			unsigned int new_vert_index;
+
+			const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
+
+			if(result == new_vert_indices.end())
+			{
+				new_vert_index = newverts.size();
+				newverts.push_back(old_vert);
+				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+			}
+			else
+				new_vert_index = (*result).second;
+
+			triangles[t].vertex_indices[i] = new_vert_index;
+		}
+	}
+
+	vertices = newverts;
+
+	conPrint("\tNew num vertices: " + toString(vertices.size()) + "");
+	conPrint("\tDone.");
 }
 

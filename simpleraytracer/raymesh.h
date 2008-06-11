@@ -82,8 +82,8 @@ public:
 		unsigned int num_subdivisions = 0, 
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
-		double subdivide_curvature_threshold = 0.0
-		//bool merge_vertices_with_same_pos_and_normal = false
+		double subdivide_curvature_threshold = 0.0,
+		bool merge_vertices_with_same_pos_and_normal = false
 		);
 
 	virtual ~RayMesh();
@@ -123,7 +123,8 @@ public:
 	virtual void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
 	//virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
 	//virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
-	virtual void addVertex(const Vec3f& pos/*, const Vec3f& normal*/);
+	virtual void addVertex(const Vec3f& pos);
+	virtual void addVertex(const Vec3f& pos, const Vec3f& normal);
 	virtual void addUVs(const std::vector<Vec2f>& uvs);
 	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 
@@ -158,9 +159,11 @@ public:
 
 private:
 	void computeShadingNormals();
+	void mergeVerticesWithSamePosAndNormal();
 	void doInitAsEmitter();
 
 	//const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
+
 
 	std::string name;
 
@@ -209,10 +212,11 @@ private:
 	bool subdivision_smoothing;
 
 	bool subdivide_and_displace_done;
+	bool vertex_shading_normals_provided;
 
 	//int num_bad_normals;
 
-	//bool merge_vertices_with_same_pos_and_normal;
+	bool merge_vertices_with_same_pos_and_normal;
 
 	//------------------------------------------------------------------------
 	//emitter stuff
