@@ -36,12 +36,12 @@ Lib3dsFormatDecoder::~Lib3dsFormatDecoder()
 
 void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale) // throw (ModelFormatDecoderExcep)
 {
-	handler.addUVSetExposition("albedo", 0);
-	handler.addUVSetExposition("default", 0);
-
 	Lib3dsFile* file = lib3ds_file_load(filename.c_str());
 	if(!file)
 		throw ModelFormatDecoderExcep("Failed to read 3ds file '" + filename + "'.");
+
+	
+	bool encountered_uvs = false;
 
 	//------------------------------------------------------------------------
 	//load the materials
@@ -109,7 +109,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 		material = material->next;
 	}
 
-	std::vector<Vec2f> texcoords(0);
+	std::vector<Vec2f> texcoords(1);
 	//std::vector<float> normals;//(mesh->faces * 9);
 	unsigned int num_verts_added = 0;
 	for(Lib3dsMesh* mesh = file->meshes; mesh; mesh = mesh->next)
@@ -130,9 +130,12 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 
 
 			if(mesh->texels > 0)
-			{
-				handler.setMaxNumTexcoordSets(1);
-			}
+				if(!encountered_uvs)
+				{
+					handler.setMaxNumTexcoordSets(1);
+					handler.addUVSetExposition("albedo", 0);
+					handler.addUVSetExposition("default", 0);
+				}
 
 			//find the part for this material
 			std::map<std::string, size_t>::iterator result = mat_name_to_index.find(facemat);
@@ -155,7 +158,8 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 
 					if(mesh->texels > srcvertindex)
 					{
-						texcoords.resize(1);
+						//texcoords.resize(1);
+						assert(texcoords.size() == 1);
 
 						texcoords[0].set(
 							(mesh->texelL[srcvertindex])[0],

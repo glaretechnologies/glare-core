@@ -764,6 +764,24 @@ static inline float w(unsigned int n_t, unsigned int n_q)
 		return 12.0f / (3.0f * (float)n_q + 2.0f * (float)n_t);
 }
 
+class VertexUVSetIndices
+{
+public:
+	VertexUVSetIndices() : num_uv_set_indices(0) {}
+
+	static const unsigned int MAX_NUM_UV_SET_INDICES = 8;
+	unsigned int uv_set_indices[MAX_NUM_UV_SET_INDICES];
+	unsigned int num_uv_set_indices;
+};
+
+static bool UVSetIndexPresent(const VertexUVSetIndices& indices, unsigned int index)
+{
+	for(unsigned int i=0; i<indices.num_uv_set_indices; ++i)
+		if(indices.uv_set_indices[i] == index)
+			return true;
+	return false;
+}
+
 
 void DisplacementUtils::averagePass(
 	const std::vector<DUTriangle>& tris, 
@@ -784,10 +802,12 @@ void DisplacementUtils::averagePass(
 
 	std::vector<unsigned int> dim(verts.size(), 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
-	std::vector<float> total_uvs_weight(uvs_in.size(), 0.0f); // total weights per vertex
+	//std::vector<float> total_uvs_weight(uvs_in.size() / num_uv_sets, 0.0f); // total weights per vertex
 	std::vector<unsigned int> n_t(verts.size(), 0); // array containing number of triangles touching each vertex
-	std::vector<unsigned int> uv_n_t(uvs_in.size(), 0); // array containing number of triangles touching each UV group
+	//std::vector<unsigned int> uv_n_t(uvs_in.size() / num_uv_sets, 0); // array containing number of triangles touching each UV group
 	//std::vector<unsigned int> n_q(verts.size(), 0); // array containing number of quads touching each vertex
+
+	std::vector<VertexUVSetIndices> vert_uv_set_indices(verts.size());
 
 	// Initialise dim
 	for(unsigned int t=0; t<tris.size(); ++t)
@@ -800,10 +820,24 @@ void DisplacementUtils::averagePass(
 			n_t[tris[t].vertex_indices[v]]++;
 
 	// Initialise uv_n_t
-	if(num_uv_sets > 0)
+	/*if(num_uv_sets > 0)
 		for(unsigned int t=0; t<tris.size(); ++t)
 			for(unsigned int v=0; v<tris[t].dimension+1; ++v)
-				uv_n_t[tris[t].uv_indices[v]]++;
+				uv_n_t[tris[t].uv_indices[v]]++;*/
+
+
+	for(unsigned int t=0; t<tris.size(); ++t)
+		if(tris[t].dimension == 2)
+		{
+			for(unsigned int i=0; i<3; ++i)
+			{
+				const unsigned int v_i = tris[t].vertex_indices[i]; // vertex index
+
+				if(!UVSetIndexPresent(vert_uv_set_indices[v_i], tris[t].uv_indices[i]) && vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES)
+					vert_uv_set_indices[v_i].uv_set_indices[vert_uv_set_indices[v_i].num_uv_set_indices++] = tris[t].uv_indices[i];
+			}
+		}
+				
 
 
 	std::vector<Vec2f> uv_cent(num_uv_sets);
@@ -841,6 +875,7 @@ void DisplacementUtils::averagePass(
 
 					cent = verts[v_i].pos * (1.0f / 4.0f) + (verts[v_i_plus_1].pos + verts[v_i_minus_1].pos) * (3.0f / 8.0f);
 					
+
 					//uv_cent = uvs_in[tris[t].uv_indices[v]] * (1.0f / 4.0f) + (uvs_in[tris[t].uv_indices[(v + 1) % 3]] + uvs_in[tris[t].uv_indices[(v + 2) % 3]]) * (3.0f / 8.0f);
 					for(unsigned int z=0; z<num_uv_sets; ++z)
 						uv_cent[z] = 
@@ -851,13 +886,22 @@ void DisplacementUtils::averagePass(
 				}
 			
 				total_weight[v_i] += weight;
-				if(num_uv_sets > 0)
-					total_uvs_weight[tris[t].uv_indices[v]] += weight;
+				//if(num_uv_sets > 0)
+				//	total_uvs_weight[tris[t].uv_indices[v]] += weight;
 
+				// Add cent to new vertex position
 				new_verts_out[v_i].pos += cent * weight;
 
+				//for(unsigned int z=0; z<num_uv_sets; ++z)
+				//	getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
+
+				// Add uv_cent to new uv positions
 				for(unsigned int z=0; z<num_uv_sets; ++z)
-					getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
+					for(unsigned int i=0; i<vert_uv_set_indices[v_i].num_uv_set_indices; ++i)
+					{
+						getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[i], z) += uv_cent[z] * weight;
+					}
+						
 
 				//new_verts_out[v_i].normal += (verts[v_i].normal * (1.0f / 4.0f) + (verts[v_i_plus_1].normal + verts[v_i_minus_1].normal) * (3.0f / 8.0f)) * weight;
 
@@ -872,14 +916,60 @@ void DisplacementUtils::averagePass(
 		const float w_val = w(n_t[v], 0);
 
 		new_verts_out[v].pos /= total_weight[v];
-		new_verts_out[v].pos = Maths::uncheckedLerp(verts[v].pos, new_verts_out[v].pos, w_val); //verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w_val;
+		new_verts_out[v].pos = Maths::uncheckedLerp(
+			verts[v].pos, 
+			new_verts_out[v].pos, 
+			w_val
+			); //verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w_val;
 
 		//new_verts_out[v].normal /= total_weight[v];
 		//new_verts_out[v].normal = verts[v].normal + (new_verts_out[v].normal - verts[v].normal) * w_val;
 		//new_verts_out[v].normal.normalise();
+
+
+		for(unsigned int z=0; z<num_uv_sets; ++z)
+			for(unsigned int i=0; i<vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
+			{
+				getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) /= total_weight[v];
+
+				getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) = Maths::uncheckedLerp(
+					getUVs(uvs_in, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
+					getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
+					w_val
+					);
+			}
+
+
+
 	}
 
-	if(num_uv_sets > 0)
+	
+
+
+	/*if(num_uv_sets > 0)
+		for(unsigned int t=0; t<tris.size(); ++t)
+			if(tris[t].dimension == 2)
+			{
+				for(unsigned int i=0; i<3; ++i)
+				{
+					const unsigned int v = tris[t].vertex_indices[i];
+
+					const float w_val = w(n_t[v], 0);
+
+					const unsigned int uv_index = tris[t].uv_indices[i];
+
+					for(unsigned int z=0; z<num_uv_sets; ++z)
+					{
+						getUVs(uvs_out, num_uv_sets, uv_index, z) /= total_weight[v];
+						getUVs(uvs_out, num_uv_sets, uv_index, z) = Maths::uncheckedLerp(getUVs(uvs_in, num_uv_sets, uv_index, z), getUVs(uvs_out, num_uv_sets, uv_index, z), w_val);
+					}
+				}
+			}*/
+
+
+
+
+	/*if(num_uv_sets > 0)
 		for(unsigned int v=0; v<uvs_out.size() / num_uv_sets; ++v)
 		{
 			const float w_val = w(uv_n_t[v], 0);
@@ -890,11 +980,14 @@ void DisplacementUtils::averagePass(
 				//getUVs(uvs_out, num_uv_sets, v, z) = getUVs(uvs_in, num_uv_sets, v, z) + (getUVs(uvs_out, num_uv_sets, v, z) - getUVs(uvs_in, num_uv_sets, v, z)) * w_val;
 				getUVs(uvs_out, num_uv_sets, v, z) = Maths::uncheckedLerp(getUVs(uvs_in, num_uv_sets, v, z), getUVs(uvs_out, num_uv_sets, v, z), w_val);
 			}
-		}
+		}*/
 
 	// Set all anchored vertex positions back to the midpoint between the vertex's 'parent positions'
 	for(unsigned int v=0; v<new_verts_out.size(); ++v)
 		if(verts[v].anchored)
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
+
+	// TEMP HACK:
+	//uvs_out = uvs_in;
 }
 

@@ -37,9 +37,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 {
 	Timer load_timer;
 
-	// Assume one texcoord per vertex.
-	handler.setMaxNumTexcoordSets(1);
-	handler.addUVSetExposition("default", 0);
+	bool encountered_uvs = false;
 
 	NameMap<int> materials;
 
@@ -56,7 +54,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	const unsigned int MAX_NUM_FACE_VERTICES = 256;
 	std::vector<unsigned int> face_vertex_indices(MAX_NUM_FACE_VERTICES);
-	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES);
+	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES, 0);
 
 	int linenum = 0;
 	std::string token;
@@ -120,6 +118,15 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 			if(!r1 || !r2)
 				throw ModelFormatDecoderExcep("Parse error while reading tex coord on line " + toString(linenum));
+
+
+			// Assume one texcoord per vertex.
+			if(!encountered_uvs)
+			{
+				handler.setMaxNumTexcoordSets(1);
+				handler.addUVSetExposition("default", 0);
+				encountered_uvs = true;
+			}
 
 			assert(uv_vector.size() == 1);
 			uv_vector[0] = texcoord;

@@ -25,6 +25,9 @@ public:
 	//int adjacent_subdivided_tris;
 	int adjacent_vert_0, adjacent_vert_1;
 	
+	//static const unsigned int MAX_NUM_UV_SET_INDICES = 8;
+	//unsigned int uv_set_indices[MAX_NUM_UV_SET_INDICES];
+	//unsigned int num_uv_set_indices;
 };
 
 class DUTriangle

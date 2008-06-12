@@ -551,18 +551,18 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 {
 	// Check material index is in bounds
 	if(material_index >= getMaterialNameToIndexMap().size())
-		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.");
+		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(material_index) + ")");
 
 	// Check vertex indices are in bounds
 	for(unsigned int i=0; i<3; ++i)
 		if(vertex_indices[i] >= getNumVerts())
-			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.");
+			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[i]) + ")");
 
 	// Check uv indices are in bounds
 	if(num_uvs_per_group > 0)
 		for(unsigned int i=0; i<3; ++i)
 			if(uv_indices[i] >= num_uv_groups)
-				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.");
+				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
 
 
 	// Check the area of the triangle
