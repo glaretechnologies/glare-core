@@ -8,8 +8,9 @@ Code By Nicholas Chapman.
 #define __DISPLACEMENTUTILS_H_666_
 
 
-
 #include "../simpleraytracer/raymesh.h"
+class ThreadContext;
+
 
 class DUVertex
 {
@@ -71,7 +72,9 @@ public:
 	
 
 
-	static void subdivideAndDisplace(const std::vector<Reference<Material> >& materials,
+	static void subdivideAndDisplace(
+		ThreadContext& context,
+		const Object& object,
 		const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 		unsigned int num_subdivisions,
 		const std::vector<Plane<float> >& camera_clip_planes,
@@ -87,8 +90,10 @@ public:
 
 
 private:
-	static void displace(bool use_anchoring, 
-		const std::vector<Reference<Material> >& materials, 
+	static void displace(
+		ThreadContext& context, 
+		const Object& object,
+		bool use_anchoring, 
 		const std::vector<DUTriangle>& tris, 
 		const std::vector<DUVertex>& verts_in, 
 		const std::vector<Vec2f>& uvs,
@@ -97,7 +102,8 @@ private:
 		std::vector<bool>* unclipped_out
 		);
 	static void linearSubdivision(
-		const std::vector<Reference<Material> >& materials,
+		ThreadContext& context,
+		const Object& object,
 		const CoordFramed& camera_coordframe_os, 
 		double pixel_height_at_dist_one,
 		double subdivide_pixel_threshold,

@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../maths/rect2.h"
 #include "../graphics/TriBoxIntersection.h"
+#include "ScalarMatParameter.h"
 
 
 DisplacementUtils::DisplacementUtils()
@@ -93,7 +94,8 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles, std::
 
 
 void DisplacementUtils::subdivideAndDisplace(
-	const std::vector<Reference<Material> >& materials,
+	ThreadContext& context,
+	const Object& object,
 	const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 	unsigned int num_subdivisions,
 	const std::vector<Plane<float> >& camera_clip_planes,
@@ -202,7 +204,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		conPrint("\tDoing subdivision level " + toString(i) + "...");
 
 		linearSubdivision(
-			materials,
+			context,
+			object,
+			//materials,
 			camera_coordframe_os, 
 			pixel_height_at_dist_one, 
 			subdivide_pixel_threshold, 
@@ -238,8 +242,10 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	std::vector<bool> tris_unclipped;
 	displace(
+		context,
+		object,
 		true, // use anchoring
-		materials, 
+		//materials, 
 		temp_tris, // tris in
 		temp_verts, // verts in
 		temp_uvs, // uvs in
@@ -294,13 +300,30 @@ void DisplacementUtils::subdivideAndDisplace(
 }
 
 
+
+class DUTexCoordEvaluator : public TexCoordEvaluator
+{
+public:
+	DUTexCoordEvaluator(){}
+	~DUTexCoordEvaluator(){}
+
+	virtual const Vec2d getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
+	{
+		return texcoords[texcoords_set];
+	}
+
+	std::vector<Vec2d> texcoords;
+};
+
+
 /*
 Apply displacement to the given vertices, storing the displaced vertices in verts_out
 
 
 */
-void DisplacementUtils::displace(bool use_anchoring, 
-								 const std::vector<Reference<Material> >& materials, 
+void DisplacementUtils::displace(ThreadContext& context, 
+								 const Object& object,
+								 bool use_anchoring, 
 								 const std::vector<DUTriangle>& triangles, 
 								 const std::vector<DUVertex>& verts_in, 
 								 const std::vector<Vec2f>& uvs,
@@ -318,35 +341,44 @@ void DisplacementUtils::displace(bool use_anchoring,
 			(*unclipped_out)[i] = true;
 	}
 
+
+	DUTexCoordEvaluator du_texcoord_evaluator;
+	du_texcoord_evaluator.texcoords.resize(num_uv_sets);
+
+
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
-#if 0  //TEMP NO DISPLACEMENT
+
 	// For each triangle
 	for(unsigned int t=0; t<triangles.size(); ++t)
 	{
 		if(triangles[t].dimension == 2)
 		{
-			const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
+			const Material* material = object.getMaterials()[triangles[t].tri_mat_index].getPointer(); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
-			if(material->displacing())
+			if(material->getDisplacementParam())//material->displacing())
 			{
 				FullHitInfo hitinfo;
-				hitinfo.hitobject = NULL;
+				hitinfo.hitobject = &object;
 
-				const int uv_set_index = material->getDisplacementTextureUVSetIndex();
-				assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
+				//const int uv_set_index = material->getDisplacementTextureUVSetIndex();
+				//assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
 
 				float min_displacement = std::numeric_limits<float>::infinity();
 
 				// For each vertex
 				for(unsigned int i=0; i<3; ++i)
 				{
-					hitinfo.hitpos = verts_in[triangles[t].vertex_indices[i]].pos;
+					hitinfo.hitpos = toVec3d(verts_in[triangles[t].vertex_indices[i]].pos);
 
-					const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
+					for(unsigned int z=0; z<num_uv_sets; ++z)
+						du_texcoord_evaluator.texcoords[z] = toVec2d(getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z));
+
+					/*const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
 					const float displacement = (float)material->displacement(
 						uv.x, //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].x, //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
 						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
-						);
+						);*/
+					const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
 
 					min_displacement = myMin(min_displacement, displacement);
 
@@ -374,7 +406,7 @@ void DisplacementUtils::displace(bool use_anchoring,
 			}
 		}
 	}
-#endif
+
 	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 	for(unsigned int v=0; v<verts_out.size(); ++v)
 		if(verts_out[v].anchored)
@@ -419,7 +451,9 @@ public:
 
 
 void DisplacementUtils::linearSubdivision(
-	const std::vector<Reference<Material> >& materials,						
+	ThreadContext& context,
+	const Object& object,
+	//const std::vector<Reference<Material> >& materials,						
 	const CoordFramed& camera_coordframe_os, 
 	double pixel_height_at_dist_one,
 	double subdivide_pixel_threshold,
@@ -443,8 +477,10 @@ void DisplacementUtils::linearSubdivision(
 	// Get displaced vertices, which are needed for testing if subdivision is needed
 	std::vector<DUVertex> displaced_in_verts;
 	displace(
+		context,
+		object,
 		true, // use anchoring
-		materials, 
+		//materials, 
 		tris_in, 
 		verts_in,
 		uvs_in,

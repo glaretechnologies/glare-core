@@ -117,7 +117,7 @@ public:
 	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const;
 
 	
-	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Reference<Material> >& materials, 
+	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
 		const std::vector<Plane<double> >& camera_clip_planes
 		);
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings);

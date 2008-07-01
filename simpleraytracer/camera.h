@@ -98,6 +98,9 @@ public:
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return forwards; }
 	virtual const Vec2d getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const;
+
+	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
+		const std::vector<Plane<double> >& camera_clip_planes){}
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
 
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
