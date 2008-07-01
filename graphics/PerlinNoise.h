@@ -30,6 +30,8 @@ public:
 
 	static double noise(double x, double y, double z);
 
+	static double FBM(double x, double y, double z, unsigned int num_octaves);
+
 	static void init();
 
 private:

@@ -90,27 +90,34 @@ public:
 
 
 	////////////////////// Geometry interface ///////////////////
-	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const;
+	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "RayMesh (name=" + name + ")"; }
 	
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const;
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const;
 	const Vec2d getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const;
-	virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
+	virtual void getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const;
+	virtual void getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const;
+	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
-	virtual void emitterInit();
-	virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
-										  HitInfo& hitinfo_out) const;
-	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
-	virtual double surfaceArea(const Matrix3d& to_parent) const;
+	//virtual void emitterInit();
+	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
+	//									  HitInfo& hitinfo_out) const;
+	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
+	//virtual double surfaceArea(const Matrix3d& to_parent) const;
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
+
+	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
+	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const;
+
 	
-	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
+	virtual void subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Reference<Material> >& materials, 
 		const std::vector<Plane<double> >& camera_clip_planes
 		);
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings);
@@ -221,9 +228,11 @@ private:
 	//------------------------------------------------------------------------
 	//emitter stuff
 	//------------------------------------------------------------------------
-	bool done_init_as_emitter;
-	double total_surface_area;
-	std::vector<double> cdf;
+	//bool done_init_as_emitter;
+	//double total_surface_area;
+	//std::vector<double> cdf;
+
+	//std::vector<double> tri_surface_areas;
 };
 
 

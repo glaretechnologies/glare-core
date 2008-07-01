@@ -16,6 +16,7 @@ class RayMesh;
 class FullHitInfo;
 class DistanceFullHitInfo;
 class Object;
+class ThreadContext;
 namespace js { class TriTreePerThreadData; };
 
 namespace js
@@ -61,13 +62,13 @@ public:
 
 
 	//intersectable interface
-	virtual double traceRay(const Ray& ray, double max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 	virtual const std::string debugName() const { return "kd-tree"; }
 	//end
 
-	virtual void getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const = 0;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const = 0;
 
 	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const = 0;
 

@@ -44,15 +44,21 @@ public:
 	//bool parseString(const std::string& s);
 	bool parseAlphaToken(std::string& token_out);
 	bool parseNonWSToken(std::string& token_out);
+	bool parseString(const std::string& s);
+
+	bool fractionalNumberNext();
 
 	static void doUnitTests();
 
 	//Only defined if eof() is not true.
-	inline char current();
+	inline char current() const;
+	inline unsigned int currentPos() const { return currentpos; }
 
-	inline bool eof();
-	inline bool notEOF();
+	inline bool eof() const;
+	inline bool notEOF() const;
 	inline void advance();
+
+	inline const char* getText() const { return text; }
 private:
 	const char* text;
 	unsigned int currentpos;
@@ -150,17 +156,17 @@ void Parser::advancePastLine()
 }
 
 
-char Parser::current()
+char Parser::current() const
 {
 	return text[currentpos];
 }
 
-bool Parser::eof()
+bool Parser::eof() const
 {
 	return currentpos >= textsize;
 }
 
-bool Parser::notEOF()
+bool Parser::notEOF() const
 {
 	return currentpos < textsize;
 }

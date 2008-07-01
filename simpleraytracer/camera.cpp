@@ -715,7 +715,7 @@ const Vec3d Camera::sensorPosForImCoords(const Vec2d& imcoords) const
 
 
 
-double Camera::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double Camera::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -728,11 +728,11 @@ const js::AABBox& Camera::getAABBoxWS() const
 }
 
 
-void Camera::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	return;
 }
-bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
+bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	return false;
 }
@@ -991,6 +991,25 @@ void Camera::getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out
 		); // top
 }
 	
+void Camera::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+{
+	assert(0);
+}
+
+void Camera::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+{
+	assert(0);
+}
+
+void Camera::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+{
+	assert(0);
+}
+
+void Camera::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+{
+	assert(0);
+}
 
 
 void Camera::unitTest()

@@ -198,7 +198,12 @@ const std::string join(const T& iterable, const std::string joinstring)
 	}
 	return s;
 }
+
+// Returns 0-based index of line and column of character indexed by charindex
+void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out);
+
 };
+
 
 
 //NOTE: must be in debug mode for this to work

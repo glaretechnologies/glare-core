@@ -31,7 +31,7 @@ const Colour3d FBM2DMap::vec3SampleTiled(double x, double y) const
 
 double FBM2DMap::scalarSampleTiled(double x, double y) const
 {
-	double sum = 0.0;
+	/*double sum = 0.0;
 	double scale = 1.0;
 	double weight = 1.0;
 	for(int i=0; i<10; ++i)
@@ -41,7 +41,14 @@ double FBM2DMap::scalarSampleTiled(double x, double y) const
 		weight *= 0.5;
 	}
 
-	return sum;
+	return sum;*/
+
+	return PerlinNoise::FBM(
+		x * u_scale, 
+		y * v_scale, 
+		0.0, // z
+		10 // num octaves
+		);
 }
 
 

@@ -14,6 +14,7 @@ class Ray;
 class HitInfo;
 class PerThreadData;
 class Object;
+class ThreadContext;
 //namespace js{ class TriTreePerThreadData; }
 namespace js{ class ObjectTreePerThreadData; }
 
@@ -40,9 +41,9 @@ public:
 
 	virtual ~Intersectable(){}
 
-	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, HitInfo& hitinfo_out) const = 0;
+	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context) const = 0;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context) const = 0;
 	//virtual void getAllHits(const Ray& ray, std::vector<FullHitInfo>& hitinfos_out) const = 0;
 
 	virtual const std::string debugName() const = 0;

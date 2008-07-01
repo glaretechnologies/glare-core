@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 //#include "../indigo/InstancedGeom.h"
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
+#include "../indigo/ThreadContext.h"
 
 
 namespace js
@@ -54,7 +55,10 @@ void ObjectTreeTest::doTests()
 			raysphere, 
 			Vec3d(0,0,0), 
 			Matrix3d::identity(),
-			std::vector<Material*>()
+			std::vector<Reference<Material> >(),
+			std::vector<std::vector<int> >(),
+			std::vector<EmitterScale>(),
+			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
@@ -70,6 +74,7 @@ void ObjectTreeTest::doTests()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
+	ThreadContext thread_context(1, 0);
 
 	
 
@@ -88,8 +93,8 @@ void ObjectTreeTest::doTests()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo, hitinfo2;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
-		const double t = ob_tree.traceRay(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo);
-		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo2);
+		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, hitob, hitinfo);
+		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, obtree_context, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
 		testAssert(t > 0.0 == t2 > 0.0);
@@ -105,8 +110,8 @@ void ObjectTreeTest::doTests()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
-		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, /*tritree_context,*/ obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
+		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context,  obtree_context);
 		testAssert(a == b);
 
 		if(t >= 0.0)//if the trace hit something after distance t
@@ -276,7 +281,10 @@ void ObjectTreeTest::doSpeedTest()
 			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)), 
 			Vec3d(0,0,0), 
 			Matrix3d::identity(),
-			std::vector<Material*>()
+			std::vector<Reference<Material> >(),
+			std::vector<std::vector<int> >(),
+			std::vector<EmitterScale>(),
+			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
@@ -292,6 +300,7 @@ void ObjectTreeTest::doSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
+	ThreadContext thread_context(1, 0); 
 
 	{
 	Timer testtimer;//start timer
@@ -312,7 +321,7 @@ void ObjectTreeTest::doSpeedTest()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
-		const double t = ob_tree.traceRay(ray, /*tritree_context,*/ obtree_context, hitob, hitinfo);
+		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -338,7 +347,7 @@ void ObjectTreeTest::doSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -391,7 +400,10 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			Reference<Geometry>(raymesh.getPointer()), 
 			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), 
 			rot,
-			std::vector<Material*>()
+			std::vector<Reference<Material> >(),
+			std::vector<std::vector<int> >(),
+			std::vector<EmitterScale>(),
+			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
@@ -411,6 +423,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
+	ThreadContext thread_context(1, 0);
 
 
 	//------------------------------------------------------------------------
@@ -438,7 +451,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = start.getDist(end);//rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, /*tritree_context,*/ obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
 		if(a)
 			num_hits++;
 	}

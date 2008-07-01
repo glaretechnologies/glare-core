@@ -113,7 +113,7 @@ void TriTree::printTraceStats() const
 
 
 // Returns dist till hit tri, neg number if missed.
-double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -259,7 +259,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 				{
 					assert(raydist < closest_dist);
 
-					if(!object || object->isNonNullAtHit(triangle_index, u, v)) // Do visiblity check for null materials etc..
+					if(!object || object->isNonNullAtHit(thread_context, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						closest_dist = raydist;
 						hitinfo_out.hittriindex = triangle_index;
@@ -293,7 +293,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, js::TriTreePerThreadD
 
 
 
-void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 
@@ -441,7 +441,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, cons
 
 					if(!already_got_hit)
 					{
-						if(!object || object->isNonNullAtHit(leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
+						if(!object || object->isNonNullAtHit(thread_context, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
 						{
 							hitinfos_out.push_back(DistanceFullHitInfo());
 							hitinfos_out.back().hittri_index = leafgeom[triindex];
@@ -484,7 +484,7 @@ void TriTree::getAllHits(const Ray& ray, js::TriTreePerThreadData& context, cons
 
 
 
-bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePerThreadData& context, const Object* object) const
+bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -588,7 +588,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, js::TriTreePe
 					(float)raylength, // raylength is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
 					dummy_hitdist, u, v))
 				{
-					if(!object || object->isNonNullAtHit(triangle_index, u, v)) // Do visiblity check for null materials etc..
+					if(!object || object->isNonNullAtHit(thread_context, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						return true;
 					}

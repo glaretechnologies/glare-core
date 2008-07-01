@@ -93,7 +93,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles, std::
 
 
 void DisplacementUtils::subdivideAndDisplace(
-	const std::vector<Material*>& materials,
+	const std::vector<Reference<Material> >& materials,
 	const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
 	unsigned int num_subdivisions,
 	const std::vector<Plane<float> >& camera_clip_planes,
@@ -300,7 +300,7 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 */
 void DisplacementUtils::displace(bool use_anchoring, 
-								 const std::vector<Material*>& materials, 
+								 const std::vector<Reference<Material> >& materials, 
 								 const std::vector<DUTriangle>& triangles, 
 								 const std::vector<DUVertex>& verts_in, 
 								 const std::vector<Vec2f>& uvs,
@@ -319,16 +319,19 @@ void DisplacementUtils::displace(bool use_anchoring,
 	}
 
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
-
+#if 0  //TEMP NO DISPLACEMENT
 	// For each triangle
 	for(unsigned int t=0; t<triangles.size(); ++t)
 	{
 		if(triangles[t].dimension == 2)
 		{
-			const Material* material = materials[triangles[t].tri_mat_index]; // Get the material assigned to this triangle
+			const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
 			if(material->displacing())
 			{
+				FullHitInfo hitinfo;
+				hitinfo.hitobject = NULL;
+
 				const int uv_set_index = material->getDisplacementTextureUVSetIndex();
 				assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
 
@@ -337,6 +340,8 @@ void DisplacementUtils::displace(bool use_anchoring,
 				// For each vertex
 				for(unsigned int i=0; i<3; ++i)
 				{
+					hitinfo.hitpos = verts_in[triangles[t].vertex_indices[i]].pos;
+
 					const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
 					const float displacement = (float)material->displacement(
 						uv.x, //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].x, //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
@@ -369,7 +374,7 @@ void DisplacementUtils::displace(bool use_anchoring,
 			}
 		}
 	}
-
+#endif
 	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 	for(unsigned int v=0; v<verts_out.size(); ++v)
 		if(verts_out[v].anchored)
@@ -414,7 +419,7 @@ public:
 
 
 void DisplacementUtils::linearSubdivision(
-	const std::vector<Material*>& materials,						
+	const std::vector<Reference<Material> >& materials,						
 	const CoordFramed& camera_coordframe_os, 
 	double pixel_height_at_dist_one,
 	double subdivide_pixel_threshold,

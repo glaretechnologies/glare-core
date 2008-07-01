@@ -12,10 +12,10 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 
 
-bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
+bool Geometry::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, context, object, hitinfo);
+	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }
@@ -28,9 +28,10 @@ const Vec2 Geometry::getTexCoords(const FullHitInfo& hitinfo, unsigned int tri_i
 }*/
 
 
-bool Geometry::getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
+/*bool Geometry::getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
 {
 	//just use geometric basis that is already calced
 	assert(0);
 	return false;
 }
+*/

@@ -37,12 +37,12 @@ public:
 	~RayPlane(){}
 
 	/// intersectable interface ///
-	virtual double traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual double traceRay(const Ray& ray, double max_t, const ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const;
+	virtual void getAllHits(const Ray& ray, const ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, const ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const;
 
 	virtual const Vec3d getShadingNormal(const FullHitInfo& hitinfo) const { return plane.getNormal(); }
 	virtual const Vec3d getGeometricNormal(const FullHitInfo& hitinfo) const { return plane.getNormal(); }

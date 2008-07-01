@@ -846,6 +846,39 @@ const std::string rightPad(const std::string& s, char c, int minwidth)
 		return s;
 }
 
+namespace StringUtils
+{
+
+void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out)
+{
+	assert(charindex < str.size());
+	if(charindex >= str.size())
+	{
+		line_num_out = column_out = 0;
+		return;
+	}
+
+	unsigned int line = 0;
+	unsigned int col = 0;
+	for(unsigned int i=0; i<charindex; ++i)
+	{
+		if(str[i] == '\n')
+		{
+			line++;
+			col = 0;
+		}
+		else
+			col++;
+	}
+
+	line_num_out = line;
+	column_out = col;
+}
+
+
+} // end namespace StringUtils
+
+
 void doStringUtilsUnitTests()
 {
 	std::vector<std::string> parts = split("a:b:c", ':');
@@ -930,6 +963,19 @@ void doStringUtilsUnitTests()
 	}
 	catch(StringUtilsExcep& )
 	{}
+
+
+	{
+		const std::string s = "\n\
+			line1\n\
+			line2\n\
+			line3";
+
+		unsigned int line, col;
+		StringUtils::getPosition(s, 4, line, col);
+		assert(line == 1 && col == 3);
+	}
+
 
 /*
 	assert(::toUpperCase("meh666XYZ") == "MEH666XYZ");

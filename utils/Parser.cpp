@@ -189,6 +189,46 @@ bool Parser::parseFloat(float& result_out)
 
 }
 
+
+bool Parser::fractionalNumberNext()
+{
+	const unsigned int initial_currentpos = currentpos;
+
+	if(eof())
+	{
+		currentpos = initial_currentpos; // restore currentpos
+		return false;
+	}
+
+	if(parseChar('+'))
+	{}
+	else if(parseChar('-'))
+	{}
+
+	if(eof())
+	{
+		currentpos = initial_currentpos; // restore currentpos
+		return false;
+	}
+
+	while(notEOF() && isNumeric(current()))
+	{
+		currentpos++;
+	}
+
+	if(parseChar('.'))
+	{
+		currentpos = initial_currentpos; // restore currentpos
+		return true;
+	}
+	else
+	{
+		currentpos = initial_currentpos; // restore currentpos
+		return false;
+	}
+}
+
+
 //[whitespace] [sign] [digits] [.digits] [ {d | D | e | E }[sign]digits]
 
 //must be whitespace delimited
@@ -293,6 +333,21 @@ bool Parser::parseNonWSToken(std::string& token_out)
 	return found;
 }
 
+bool Parser::parseString(const std::string& s)
+{
+	const unsigned int initial_pos = currentPos();
+
+	for(unsigned int i=0; i<s.length(); ++i)
+	{
+		if(eof() || current() != s[i])
+		{
+			currentpos = initial_pos;
+			return false;
+		}
+		advance();
+	}
+	return true;
+}
 
 
 /*bool Parser::parseString(const std::string& s)
@@ -400,6 +455,15 @@ void Parser::doUnitTests()
 	assert(p.parseWhiteSpace());
 
 	assert(!p.parseInt(x));
+	}
+
+	{
+	const std::string text = "BLEH";
+	Parser p(text.c_str(), text.size());
+
+	assert(!p.parseString("BLEHA"));
+	assert(p.parseString("BL"));
+	assert(p.parseString("EH"));
 	}
 
 #endif

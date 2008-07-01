@@ -7,7 +7,6 @@ Code By Nicholas Chapman.
 #ifndef __OBJECTTREEPERTHREADDATA_H_666_
 #define __OBJECTTREEPERTHREADDATA_H_666_
 
-class StackFrame;
 #include "jscol_tritree.h"
 #include <vector>
 #include <map>

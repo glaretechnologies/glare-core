@@ -40,8 +40,8 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 {
 //	num_texcoord_sets = 0;
 //	num_vertices = 0;
-	total_surface_area = 0.0;
-	done_init_as_emitter = false;
+//	total_surface_area = 0.0;
+//	done_init_as_emitter = false;
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
 	//num_bad_normals = 0;
@@ -57,11 +57,12 @@ RayMesh::~RayMesh()
 
 
 //returns negative number if object not hit by the ray
-double RayMesh::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double RayMesh::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return tritree->traceRay(
 		ray, 
 		max_t, 
+		thread_context, 
 		context.tritree_context, 
 		object, 
 		hitinfo_out
@@ -75,10 +76,11 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 }
 
 
-void RayMesh::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	tritree->getAllHits(
 		ray, // ray 
+		thread_context, 
 		context.tritree_context, // tri tree context
 		object, // object context
 		hitinfos_out
@@ -86,11 +88,12 @@ void RayMesh::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, c
 }
 
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	return tritree->doesFiniteRayHit(
 		ray, 
 		raylength, 
+		thread_context, 
 		context.tritree_context,
 		object
 		);
@@ -141,7 +144,7 @@ static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 }
 
 
-static bool isDisplacingMaterial(const std::vector<Material*>& materials)
+static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materials)
 {
 	for(unsigned int i=0; i<materials.size(); ++i)
 		if(materials[i]->displacing())
@@ -150,7 +153,7 @@ static bool isDisplacingMaterial(const std::vector<Material*>& materials)
 }
 
 
-void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Material*>& materials, 
+void RayMesh::subdivideAndDisplace(const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, const std::vector<Reference<Material> >& materials, 
 	const std::vector<Plane<double> >& camera_clip_planes
 	)
 {
@@ -367,7 +370,33 @@ const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texco
 }
 
 
+void RayMesh::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+{
+	const Vec3f& v0pos = triVertPos(hitinfo.hittri_index, 0);
+	const Vec3f& v1pos = triVertPos(hitinfo.hittri_index, 1);
+	const Vec3f& v2pos = triVertPos(hitinfo.hittri_index, 2);
+
+	dp_du_out = toVec3d(v1pos - v0pos);
+	dp_dv_out = toVec3d(v2pos - v0pos);
+}
+
+void RayMesh::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoords_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+{
+	assert(texcoords_set < num_uvs_per_group);
+	const Vec2f& v0tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v1tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v2tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+
+	ds_du_out = v1tex.x - v0tex.x;
+	dt_du_out = v1tex.y - v0tex.y;
+
+	ds_dv_out = v2tex.x - v0tex.x;
+	dt_dv_out = v2tex.y - v0tex.y;
+}
+
+
 //NOTE: need to make this use shading normal
+#if 0
 bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
 {
 	//const IndexTri& tri = mesh.getTri(hitinfo.hittri_index);
@@ -446,6 +475,7 @@ bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set
 
 	return true;
 }
+#endif
 
 
 void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
@@ -620,7 +650,53 @@ unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 }
 
 
-void RayMesh::doInitAsEmitter()
+void RayMesh::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+{
+	surface_areas_out.resize(triangles.size());
+
+	for(unsigned int i=0; i<surface_areas_out.size(); ++i)
+		surface_areas_out[i] = (double)getTriArea(*this, i, to_parent);
+
+}
+
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+{
+	//------------------------------------------------------------------------
+	//pick point using barycentric coords
+	//------------------------------------------------------------------------
+
+	//see siggraph montecarlo course 2003 pg 47
+	const double s = sqrt(samples.x);
+	const double t = samples.y;
+
+	// Compute barycentric coords
+	const double u = s * (1.0 - t);
+	const double v = (s * t);
+
+	hitinfo_out.hittriindex = sub_elem_index;
+	hitinfo_out.hittricoords.set(u, v);
+
+	//FullHitInfo hitinfo;
+	//hitinfo.hittri_index = tri_index;
+	//hitinfo.tri_coords.set(u, v);
+	normal_out = toVec3d(triNormal(sub_elem_index));
+	assert(normal_out.isUnitLength());
+
+	pos_out = toVec3d(
+		triVertPos(sub_elem_index, 0) * (float)(1.0 - s) + 
+		triVertPos(sub_elem_index, 1) * (float)u + 
+		triVertPos(sub_elem_index, 2) * (float)v
+		);
+}
+
+
+/*double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index) const
+{
+
+}*/
+
+
+/*void RayMesh::doInitAsEmitter()
 {
 	if(done_init_as_emitter)
 		return;
@@ -730,9 +806,9 @@ const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_poi
 	//	triVertPos(tri_index, 1) * (s * (1.0 - t)) + 
 	//	triVertPos(tri_index, 2) * (s * t)
 	//	);
-}
+}*/
 
-
+/*
 double RayMesh::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const
 {
 	assert(done_init_as_emitter);
@@ -773,9 +849,9 @@ double RayMesh::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d
 
 	//return 1.0 / total_surface_area;
 }
+*/
 
-
-double RayMesh::surfaceArea(const Matrix3d& to_parent) const
+/*double RayMesh::surfaceArea(const Matrix3d& to_parent) const
 {
 	assert(done_init_as_emitter);
 	//assert(total_surface_area > 0.0);
@@ -785,13 +861,13 @@ double RayMesh::surfaceArea(const Matrix3d& to_parent) const
 		surface_area += (double)getTriArea(*this, i, to_parent);
 
 	return surface_area;
-}
+}*/
 
 
-void RayMesh::emitterInit()
+/*void RayMesh::emitterInit()
 {
 	doInitAsEmitter();
-}
+}*/
 
 
 /*int RayMesh::UVSetIndexForName(const std::string& uvset_name) const

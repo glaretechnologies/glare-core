@@ -31,6 +31,7 @@ You may not use this code for any commercial project.
 #include "../indigo/TestUtils.h"
 #include "../physics/jscol_TriTreePerThreadData.h"
 #include <algorithm>
+#include "../indigo/ThreadContext.h"
 
 RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 {
@@ -43,6 +44,11 @@ RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 		toVec3f(centerpos - Vec3d(radius, radius, radius)), 
 		toVec3f(centerpos + Vec3d(radius, radius, radius))
 		);
+
+
+	uvset_name_to_index["default"] = 0;
+	uvset_name_to_index["albedo"] = 0;
+	uvset_name_to_index["bump"] = 0;
 }
 
 RaySphere::~RaySphere()
@@ -52,7 +58,7 @@ RaySphere::~RaySphere()
 	//returns neg num if object not hit by the ray
 
 //NOTE: ignoring max_t for now.
-double RaySphere::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.hittriindex = 0;
 	hitinfo_out.hittricoords.set(0.0, 0.0);
@@ -118,10 +124,10 @@ double RaySphere::traceRay(const Ray& ray, double max_t, js::ObjectTreePerThread
 		return dist;*/
 }
 
-bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, js::ObjectTreePerThreadData& context, const Object* object) const
+bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, context, object, hitinfo);
+	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }
@@ -177,7 +183,7 @@ const Vec3d RaySphere::getGeometricNormal(const FullHitInfo& hitinfo) const
 }
 
 //TODO: test
-void RaySphere::getAllHits(const Ray& ray, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -232,6 +238,27 @@ const Vec2d RaySphere::getTexCoords(const FullHitInfo& hitinfo, unsigned int tex
 }
 
 
+void RaySphere::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+{
+	const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
+	const double phi = acos(hitinfo.original_geometric_normal.z);
+
+	//(dx/du, dy/du, dz/du)
+	dp_du_out = Vec3d(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
+
+	//(dx/dv, dy/dv, dz/dv)
+	dp_dv_out = Vec3d(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
+}
+
+
+void RaySphere::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+{
+	// Tex coords must be the UVs for spheres.
+	ds_du_out = dt_dv_out = 1.0;
+
+	ds_dv_out = dt_du_out = 0.0;
+}
+
 
 //returns true if could construct a suitable basis
 bool RaySphere::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
@@ -264,7 +291,7 @@ bool RaySphere::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_s
 	return true;
 }
 
-void RaySphere::emitterInit()
+/*void RaySphere::emitterInit()
 {
 	::fatalError("Spheres may not be emitters.");
 }
@@ -283,12 +310,21 @@ double RaySphere::surfaceArea(const Matrix3d& to_parent) const
 {
 	::fatalError("RaySphere::surfaceArea");
 	return 4.0 * NICKMATHS_PI * radius*radius;
+}*/
+
+
+
+
+
+void RaySphere::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+{
+	assert(0);	
 }
 
-
-
-
-
+void RaySphere::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+{
+	assert(0);
+}
 
 
 
@@ -304,12 +340,13 @@ void RaySphere::test()
 	RaySphere sphere(Vec3d(0,0,1), 0.5);
 
 	js::ObjectTreePerThreadData context(true);
+	ThreadContext thread_context(1, 0);
 
 	//------------------------------------------------------------------------
 	//test traceRay()
 	//------------------------------------------------------------------------
 	HitInfo hitinfo;
-	double d = sphere.traceRay(ray, 1000.0, context, NULL, hitinfo);
+	double d = sphere.traceRay(ray, 1000.0, thread_context, context, NULL, hitinfo);
 
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.hittriindex == 0);
@@ -322,11 +359,11 @@ void RaySphere::test()
 	//test traceRay() in reverse direction
 	//------------------------------------------------------------------------
 	const SSE_ALIGN Ray ray2(Vec3d(1,0,1), Vec3d(-1,0,0));
-	d = sphere.traceRay(ray2, 1000.0, context, NULL, hitinfo);
+	d = sphere.traceRay(ray2, 1000.0, thread_context, context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.hittriindex == 0);
 
-	d = sphere.traceRay(ray2, 0.1, context, NULL, hitinfo);
+	d = sphere.traceRay(ray2, 0.1, thread_context, context, NULL, hitinfo);
 	//ignoring this for now: testAssert(d < 0.0);
 
 
@@ -335,7 +372,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
 	std::vector<DistanceFullHitInfo> hitinfos;
-	sphere.getAllHits(ray, context, NULL, hitinfos);
+	sphere.getAllHits(ray, thread_context, context, NULL, hitinfos);
 	std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
 
 	testAssert(hitinfos.size() == 2);
@@ -358,23 +395,23 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test doesFiniteRayHit()
 	//------------------------------------------------------------------------
-	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, context, NULL));
-	testAssert(sphere.doesFiniteRayHit(ray, 0.51, context, NULL));
+	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context, context, NULL));
+	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context, context, NULL));
 
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere
 	//------------------------------------------------------------------------
 	const SSE_ALIGN Ray ray3(Vec3d(0.25,0,1), Vec3d(1,0,0));
-	d = sphere.traceRay(ray3, 1000.0, context, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 1000.0, thread_context, context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.25));
 
-	d = sphere.traceRay(ray3, 0.24, context, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 0.24, thread_context, context, NULL, hitinfo);
 	//NOTE: ignoring this for now.  testAssert(d < 0.0);
 
 	//------------------------------------------------------------------------
 	//try getAllHits() from inside sphere
 	//------------------------------------------------------------------------
-	sphere.getAllHits(ray3, context, NULL, hitinfos);
+	sphere.getAllHits(ray3, thread_context, context, NULL, hitinfos);
 
 	testAssert(hitinfos.size() == 1);
 	testAssert(epsEqual(hitinfos[0].dist, 0.25));

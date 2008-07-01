@@ -70,12 +70,58 @@ int PerlinNoise::p[512];
 
 double PerlinNoise::noise(double x, double y, double z)
 {
-	const int	X = Maths::floorToInt(x) & 255,                  // FIND UNIT CUBE THAT
+	/*const int	X = Maths::floorToInt(x) & 255,                  // FIND UNIT CUBE THAT
 			Y = Maths::floorToInt(y) & 255,                  // CONTAINS POINT.
 			Z = Maths::floorToInt(z) & 255;
       x -= Maths::floorToInt(x);                                // FIND RELATIVE X,Y,Z
       y -= Maths::floorToInt(y);                                // OF POINT IN CUBE.
-      z -= Maths::floorToInt(z);
+      z -= Maths::floorToInt(z);*/
+
+
+
+
+	double intpart_d;
+	int intpart;
+	int X, Y, Z;
+
+	x = modf(x, &intpart_d);
+	intpart = (int)intpart_d;
+	if(x < 0.0)
+	{
+		X = 255 - (-intpart & 255);
+		x = 1.0 + x;
+	}
+	else
+		X = intpart & 255;
+
+	y = modf(y, &intpart_d);
+	intpart = (int)intpart_d;
+	if(y < 0.0)
+	{
+		Y = 255 - (-intpart & 255);
+		y = 1.0 + y;
+	}
+	else
+		Y = intpart & 255;
+
+	z = modf(z, &intpart_d);
+	intpart = (int)intpart_d;
+	if(z < 0.0)
+	{
+		Z = 255 - (-intpart & 255);
+		z = 1.0 + z;
+	}
+	else
+		Z = intpart & 255;
+
+	assert(Maths::inHalfClosedInterval(x, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(y, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(z, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(X, 0, 256));
+	assert(Maths::inHalfClosedInterval(Y, 0, 256));
+	assert(Maths::inHalfClosedInterval(Z, 0, 256));
+
+
       const double u = fade(x),                                // COMPUTE FADE CURVES
              v = fade(y),                                // FOR EACH OF X,Y,Z.
              w = fade(z);
@@ -93,3 +139,17 @@ double PerlinNoise::noise(double x, double y, double z)
 }
 
 
+double PerlinNoise::FBM(double x, double y, double z, unsigned int num_octaves)
+{
+	double sum = 0.0;
+	double scale = 1.0;
+	double weight = 1.0;
+	for(unsigned int i=0; i<num_octaves; ++i)
+	{
+		sum += weight * PerlinNoise::noise(x * scale, y * scale, z * scale);
+		scale *= 1.99;
+		weight *= 0.5;
+	}
+
+	return sum;
+}
