@@ -79,7 +79,8 @@ public:
 	static const Vec3d sampleHemisphere(const Basisd& basis, const Vec2d& unitsamples, double& pdf_out);
 	static inline double hemispherePDF();
 	
-	static const Vec3d sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
+	//static const Vec3d sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
+	static const Vec3d uniformlySampleSphere(const Vec2d& unitsamples); // returns point on surface of sphere with radius 1
 	static inline double spherePDF();
 	
 	static const Vec3d sampleHemisphereCosineWeighted(const Basisd& basis, const Vec2d& unitsamples/*, double& pdf_out*/);

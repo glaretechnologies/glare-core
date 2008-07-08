@@ -657,6 +657,7 @@ const Vec3d MatUtils::sampleHemisphere(const Basisd& basis, const Vec2d& unitsam
 	return basis.transformVectorToParent(dir);
 }*/
 
+/*
 const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out)
 {
 	Basisd basis;
@@ -673,6 +674,19 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 
 	return basis.transformVectorToParent(dir);
 }
+*/
+
+
+const Vec3d MatUtils::uniformlySampleSphere(const Vec2d& unitsamples) // returns point on surface of sphere with radius 1
+{
+	const double z = -1.0 + unitsamples.x * 2.0;
+	const double theta = unitsamples.y * NICKMATHS_2PI;
+
+	const double r = sqrt(1.0 - z*z);
+
+	return Vec3d(cos(theta) * r, sin(theta) * r, z);
+}
+
 
 
 const Vec3d MatUtils::sampleHemisphereCosineWeighted(const Basisd& basis, const Vec2d& unitsamples/*, double& pdf_out*/)
@@ -739,6 +753,8 @@ double MatUtils::evalNormalDist(double x, double mean, double standard_dev)
 //See Monte Carlo Ray Tracing siggraph course 2003 page 33.
 const Vec3d MatUtils::sampleSolidAngleCone(const Vec2d& samples, const Basisd& basis, double angle)
 {
+	assert(angle > 0.0);
+
 	const double phi = samples.x * NICKMATHS_2PI;
 	const double alpha = sqrt(samples.y) * angle;
 
@@ -751,10 +767,14 @@ const Vec3d MatUtils::sampleSolidAngleCone(const Vec2d& samples, const Basisd& b
 	return basis.transformVectorToParent(dir);
 }
 
+
 double MatUtils::solidAngleConePDF(double angle)
 {
-	const double solid_angle = NICKMATHS_2PI * (1.0f - cos(angle));
-	return 1.0f / solid_angle;
+	assert(angle > 0.0);
+
+	// The sampling is uniform over the solid angle subtended by the cone.
+	const double solid_angle = NICKMATHS_2PI * (1.0 - cos(angle));
+	return 1.0 / solid_angle;
 }
 
 
