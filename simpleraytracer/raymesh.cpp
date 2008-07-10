@@ -693,6 +693,12 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples
 }
 
 
+double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const
+{
+	return 1.0 / sub_elem_area_ws;
+}
+
+
 /*double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index) const
 {
 

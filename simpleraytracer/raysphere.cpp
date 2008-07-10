@@ -318,14 +318,20 @@ double RaySphere::surfaceArea(const Matrix3d& to_parent) const
 
 void RaySphere::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
 {
-	assert(0);	
+	assert(0);
 }
+
 
 void RaySphere::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
 
+
+double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const
+{
+	return 1.0 / sub_elem_area_ws;
+}
 
 
 

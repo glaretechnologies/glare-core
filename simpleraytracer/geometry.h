@@ -90,7 +90,7 @@ public:
 	//virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const = 0;
 	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
-	//virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) = 0;
+	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const = 0;
 	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const = 0;
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 

@@ -1001,6 +1001,12 @@ void Camera::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples,
 	assert(0);
 }
 
+double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const
+{
+	assert(0);
+	return 1.0;
+}
+
 void Camera::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
 {
 	assert(0);
