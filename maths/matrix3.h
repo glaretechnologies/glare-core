@@ -95,7 +95,8 @@ public:
 
 	The specified rotation axis should have length 1
 	================================================================================*/
-	void rotAroundAxis(const Vec3<Real>& axis, Real angle);
+	//void rotAroundAxis(const Vec3<Real>& axis, Real angle);
+	static const Matrix3 rotationMatrix(const Vec3<Real>& unit_axis, Real angle);
 
 
 	
@@ -816,7 +817,7 @@ Real Matrix3<Real>::cofactor(unsigned int i, unsigned int j) const
 	return submatrix.determinant() * ((i + j) % 2 == 0 ? 1.f : -1.f);
 }
 
-template <class Real>
+/*template <class Real>
 void Matrix3<Real>::rotAroundAxis(const Vec3<Real>& axis, Real angle)
 {
 	//-----------------------------------------------------------------
@@ -852,6 +853,36 @@ void Matrix3<Real>::rotAroundAxis(const Vec3<Real>& axis, Real angle)
 	//multiply this matrix by the rotation matrix
 	//-----------------------------------------------------------------
 	*this *= m;
+}*/
+
+
+template <class Real>
+const Matrix3<Real> Matrix3<Real>::rotationMatrix(const Vec3<Real>& unit_axis, Real angle)
+{
+	assert(unit_axis.isUnitLength());
+
+	//-----------------------------------------------------------------
+	//build the rotation matrix
+	//see http://mathworld.wolfram.com/RodriguesRotationFormula.html
+	//-----------------------------------------------------------------
+	const Real a = unit_axis.x;
+	const Real b = unit_axis.y;
+	const Real c = unit_axis.z;
+
+	const Real cost = cos(angle);
+	const Real sint = sin(angle);
+
+	const Real asint = a*sint;
+	const Real bsint = b*sint;
+	const Real csint = c*sint;
+
+	const Real one_minus_cost = 1.0 - cost;
+
+	return Matrix3<Real>(
+		Vec3<Real>(a*a*one_minus_cost + cost, a*b*one_minus_cost + csint, a*c*one_minus_cost - bsint), // column 0
+		Vec3<Real>(a*b*one_minus_cost - csint, b*b*one_minus_cost + cost, b*c*one_minus_cost + asint), // column 1
+		Vec3<Real>(a*c*one_minus_cost + bsint, b*c*one_minus_cost - asint, c*c*one_minus_cost + cost) // column 2
+		);
 }
 
 

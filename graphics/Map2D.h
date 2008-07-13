@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 /*=====================================================================
 Map2D
 -----
-
+Base class for two-dimensional textures.
 =====================================================================*/
 class Map2D : public RefCounted
 {

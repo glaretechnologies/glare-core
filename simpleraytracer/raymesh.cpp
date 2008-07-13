@@ -147,7 +147,7 @@ static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materials)
 {
 	for(unsigned int i=0; i<materials.size(); ++i)
-		if(materials[i]->getDisplacementParam())//displacing())
+		if(materials[i]->displacing())
 			return true;
 	return false;
 }

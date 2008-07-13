@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 #define __TEXTURE_H_666_
 
 
-
 #include "bitmap.h"
 #include "colour3.h"
 #include "Map2D.h"

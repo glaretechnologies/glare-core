@@ -391,8 +391,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 	for(int i=0; i<200; ++i)
 	{
-		Matrix3d rot = Matrix3d::identity();
-		rot.rotAroundAxis(normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
+		//Matrix3d rot = Matrix3d::identity();
+		Matrix3d rot = Matrix3d::rotationMatrix(normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
 
 		rot.scale(0.3);
 

@@ -355,7 +355,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 		{
 			const Material* material = object.getMaterials()[triangles[t].tri_mat_index].getPointer(); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
-			if(material->getDisplacementParam())//material->displacing())
+			if(material->displacing())
 			{
 				FullHitInfo hitinfo;
 				hitinfo.hitobject = &object;
@@ -378,7 +378,8 @@ void DisplacementUtils::displace(ThreadContext& context,
 						uv.x, //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].x, //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
 						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
 						);*/
-					const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
+					//const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
+					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
 
 					min_displacement = myMin(min_displacement, displacement);
 

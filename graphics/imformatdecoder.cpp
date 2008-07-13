@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "imformatdecoder.h"
 
+
 #include "../utils/stringutils.h"
 #include <stdlib.h>//for NULL
 #include "bitmap.h"
@@ -16,8 +17,8 @@ Code By Nicholas Chapman.
 #include "bmpdecoder.h"
 #include "PNGDecoder.h"
 #include "TIFFDecoder.h"
+#include "EXRDecoder.h"
 #include "../graphics/Map2D.h"
-
 
 
 ImFormatDecoder::ImFormatDecoder()
@@ -54,10 +55,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws
 	{
 		return TIFFDecoder::decode(path);
 	}*/
-	/*else if(hasExtension(path, "exr"))
+	else if(hasExtension(path, "exr"))
 	{
 		return EXRDecoder::decode(path);
-	}*/
+	}
 	else
 	{
 		throw ImFormatExcep("unhandled format ('" + path + "'");

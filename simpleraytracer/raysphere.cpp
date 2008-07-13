@@ -124,6 +124,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		return dist;*/
 }
 
+
 bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
@@ -131,6 +132,7 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext
 	
 	return hitdist >= 0.0f && hitdist < raylength;
 }
+
 
 /*void RaySphere::traceBundle(const RayBundle& raybundle, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfo_out)
 {
@@ -174,6 +176,7 @@ const Vec3d RaySphere::getShadingNormal(const FullHitInfo& hitinfo) const
 	return getGeometricNormal(hitinfo);
 }
 
+
 const Vec3d RaySphere::getGeometricNormal(const FullHitInfo& hitinfo) const 
 { 
 	//Vec3 normal = hitinfo.hitpos - centerpos;
@@ -181,6 +184,7 @@ const Vec3d RaySphere::getGeometricNormal(const FullHitInfo& hitinfo) const
 	//return normal;
 	return normalise(hitinfo.hitpos - centerpos);
 }
+
 
 //TODO: test
 void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
@@ -221,8 +225,8 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 		hitinfos_out.back().hitpos = ray.startPos();
 		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
 	}
-
 }
+
 
 const Vec2d RaySphere::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
 {

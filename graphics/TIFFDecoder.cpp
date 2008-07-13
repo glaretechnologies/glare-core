@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "texture.h"
 
+
 TIFFDecoder::TIFFDecoder()
 {
 	
@@ -22,7 +23,6 @@ TIFFDecoder::~TIFFDecoder()
 {
 	
 }
-
 
 
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
@@ -76,6 +76,3 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 	}
 }
-
-
-
