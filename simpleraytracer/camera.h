@@ -53,7 +53,8 @@ public:
 	=====================================================================*/
 	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double aspect_ratio, double sensor_width, double lens_sensor_dist, 
-		const std::string& white_balance, double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
+		//const std::string& white_balance, 
+		double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
@@ -133,7 +134,7 @@ public:
 
 	static void unitTest();
 
-	void convertFromXYZToSRGB(Image& image) const;
+	//void convertFromXYZToSRGB(Image& image) const;
 
 	double bloomRadius() const { return bloom_radius; }
 	double bloomWeight() const { return bloom_weight; }
@@ -164,7 +165,10 @@ public:
 
 	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const;
 
+	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image);
 	void applyDiffractionFilterToImage(Image& image) const;
+
+	const Image* getDiffractionFilterImage() const { return diffraction_filter_image.get(); }
 
 	
 
@@ -248,7 +252,7 @@ private:
 	double polarising_angle;
 	Vec3d polarising_vec;
 
-	ColourSpaceConverter* colour_space_converter;
+	//ColourSpaceConverter* colour_space_converter;
 
 	double exposure_duration; // aka shutter speed
 	//double film_sensitivity; // aka ISO film sppeed

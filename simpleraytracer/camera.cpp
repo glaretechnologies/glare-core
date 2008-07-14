@@ -31,7 +31,8 @@ Code By Nicholas Chapman.
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
 		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
-		const std::string& white_balance, double bloom_weight_, double bloom_radius_, bool autofocus_, 
+		//const std::string& white_balance, 
+		double bloom_weight_, double bloom_radius_, bool autofocus_, 
 		bool polarising_filter_, double polarising_angle_,
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_,
@@ -56,7 +57,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	glare_radius(glare_radius_),
 	glare_num_blades(glare_num_blades_),
 	exposure_duration(exposure_duration_),
-	colour_space_converter(NULL),
+//	colour_space_converter(NULL),
 	diffraction_filter(NULL),
 	aperture(aperture_),
 	lens_shift_up_distance(lens_shift_up_distance_),
@@ -111,7 +112,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 
 	recip_unoccluded_aperture_area = 1.0 / (4.0 * lens_radius * lens_radius);
 
-	try
+	/*try
 	{
 		const Vec3d whitepoint = ColourSpaceConverter::whitepoint(white_balance);
 		colour_space_converter = new ColourSpaceConverter(whitepoint.x, whitepoint.y);
@@ -119,7 +120,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	catch(ColourSpaceConverterExcep& e)
 	{
 		throw CameraExcep("ColourSpaceConverterExcep: " + e.what());
-	}
+	}/
 
 	//------------------------------------------------------------------------
 	//calculate polarising Vector
@@ -191,7 +192,7 @@ Camera::~Camera()
 {
 	delete aperture;
 	//delete diffraction_filter;
-	delete colour_space_converter;
+	//delete colour_space_converter;
 }
 
 
@@ -821,11 +822,12 @@ double Camera::getExitRaySolidAnglePDF(const Vec3d& dir) const
 }
 
 
-void Camera::convertFromXYZToSRGB(Image& image) const
+/*void Camera::convertFromXYZToSRGB(Image& image) const
 {
 	assert(colour_space_converter);
 	colour_space_converter->convertFromXYZToSRGB(image);
 }
+*/
 
 void Camera::setFocusDistance(double fd)
 {
@@ -914,22 +916,30 @@ const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SP
 	return out;
 }
 
-void Camera::applyDiffractionFilterToImage(Image& image) const
+void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image)
 {
-	assert(this->diffraction_filter_image.get() != NULL);
-
 	conPrint("Applying diffraction filter...");
 
 	Image out;
 	ImageFilter::convolveImage(
 		image, // in
-		*diffraction_filter_image, //filter
+		cam_diffraction_filter_image, //filter
 		out // result out
 		);
 
 	image = out;
 
 	conPrint("\tDone.");
+}
+
+void Camera::applyDiffractionFilterToImage(Image& image) const
+{
+	assert(this->diffraction_filter_image.get() != NULL);
+
+	applyDiffractionFilterToImage(
+		*this->diffraction_filter_image,
+		image
+		);
 }
 
 /*double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
@@ -1037,7 +1047,7 @@ void Camera::unitTest()
 		aspect_ratio, // aspect ration
 		sensor_width, // sensor_width
 		lens_sensor_dist, // lens_sensor_dist
-		"A",
+		//"A",
 		0.f, 
 		1.f, // bloom radius
 		false, // autofocus
