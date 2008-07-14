@@ -6,10 +6,12 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "ThreadManager.h"
 
+
 #include "KillThreadMessage.h"
 #include "../utils/platformutils.h"
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"
+
 
 ThreadManager::ThreadManager()
 {
@@ -51,8 +53,7 @@ void ThreadManager::enqueueMessage(const ThreadMessage& m)
 void ThreadManager::killThreadsBlocking()
 {
 	// Send kill messages to all threads
-	const KillThreadMessage m;
-	enqueueMessage(m);
+	killThreadsNonBlocking();
 
 	// Wait for threads to kill themselves
 	while(1)
@@ -65,6 +66,14 @@ void ThreadManager::killThreadsBlocking()
 		}
 		PlatformUtils::Sleep(500);
 	}
+}
+
+
+void ThreadManager::killThreadsNonBlocking()
+{
+	// Send kill messages to all threads
+	const KillThreadMessage m;
+	enqueueMessage(m);
 }
 
 
@@ -121,3 +130,9 @@ void ThreadManager::addThread(MessageableThread* t)
 
 
 
+unsigned int ThreadManager::getNumThreadsRunning()
+{
+	Lock lock(mutex);
+
+	return message_queues.size();
+}

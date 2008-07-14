@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "threadsafequeue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
-#include "../utils/singleton.h"
+//#include "../utils/singleton.h"
 #include <map>
 
 /*=====================================================================
@@ -19,7 +19,7 @@ ThreadManager
 -------------
 
 =====================================================================*/
-class ThreadManager : public Singleton<ThreadManager>
+class ThreadManager// : public Singleton<ThreadManager>
 {
 public:
 	/*=====================================================================
@@ -39,10 +39,13 @@ public:
 	void enqueueMessage(const ThreadMessage& m);
 
 	void killThreadsBlocking();
+	void killThreadsNonBlocking(); // Enqueues kill message to all threads, then returns immediately.
 	
 	
 	// Called by threads when they are about to terminate
 	void threadTerminating(MessageableThread* t);
+
+	unsigned int getNumThreadsRunning();
 
 private:
 	typedef ThreadSafeQueue<ThreadMessage*> MESSAGE_QUEUE_TYPE;
