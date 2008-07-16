@@ -28,6 +28,8 @@ Code By Nicholas Chapman.
 #include "../utils/fileutils.h"
 #include "../utils/MTwister.h"
 #include "../indigo/IndigoImage.h"
+#include "../graphics/imformatdecoder.h"
+
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
 		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
@@ -196,27 +198,39 @@ Camera::~Camera()
 }
 
 
-void Camera::buildDiffractionFilter(const std::string& base_indigo_path)
+void Camera::prepareForDiffractionFilter(const std::string& base_indigo_path_, int main_buffer_width_, int main_buffer_height_)
+{
+	base_indigo_path = base_indigo_path_;
+	main_buffer_width = main_buffer_width_;
+	main_buffer_height = main_buffer_height_;
+}
+
+
+void Camera::buildDiffractionFilter(/*const std::string& base_indigo_path*/) const
 {
 	// Calculate diffraction distribution if needed.
-	try
-	{
+	//try
+	//{
 		diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
 			lens_radius, 
 			*aperture,
 			base_indigo_path
 			));
-	}
-	catch(DiffractionFilterExcep& e)
-	{
-		throw CameraExcep(e.what());
-	}
+	//}
+	//catch(DiffractionFilterExcep& e)
+	//{
+	//	throw CameraExcep(e.what());
+	//}
 }
 
 
-void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path)
+void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path*/) const
 {
+	assert(main_buffer_width > 0 && main_buffer_height > 0);
+
 	conPrint("Creating diffraction filter image...");
+
+	MTwister rng(1);
 
 	// Copy scalar diffraction filter to 3-component image
 	//Image filter(diffraction_filter->getDiffractionFilter().getWidth(), diffraction_filter->getDiffractionFilter().getHeight());
@@ -496,6 +510,10 @@ void Camera::buildDiffractionFilterImage(int main_buffer_width, int main_buffer_
 		PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(base_indigo_path, "XYZ_diffraction_preview.png"));
 	}
 	catch(ImageExcep& e)
+	{
+		conPrint("ImageExcep: " + e.what());
+	}
+	catch(ImFormatExcep& e)
 	{
 		conPrint("ImageExcep: " + e.what());
 	}
@@ -878,7 +896,14 @@ const Vec2d Camera::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoo
 const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const
 {
 	//assert(RendererSettings::getInstance().aperture_diffraction);
+	if(diffraction_filter.get() == NULL)
+	{
+		// Lazily construct diffraction filter + filter image
+		buildDiffractionFilter();
+	}
+
 	assert(diffraction_filter.get() != NULL);
+
 
 	//if(!this->diffraction_filter || !RendererSettings::getInstance().aperture_diffraction)
 	//{
@@ -916,6 +941,7 @@ const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SP
 	return out;
 }
 
+
 void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image)
 {
 	conPrint("Applying diffraction filter...");
@@ -932,8 +958,16 @@ void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_i
 	conPrint("\tDone.");
 }
 
+
 void Camera::applyDiffractionFilterToImage(Image& image) const
 {
+	if(diffraction_filter_image.get() == NULL)
+	{
+		// Lazily construct diffraction filter + filter image
+		buildDiffractionFilter();
+		buildDiffractionFilterImage();
+	}
+
 	assert(this->diffraction_filter_image.get() != NULL);
 
 	applyDiffractionFilterToImage(
@@ -941,6 +975,7 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 		image
 		);
 }
+
 
 /*double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
 {

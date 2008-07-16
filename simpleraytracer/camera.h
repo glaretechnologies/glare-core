@@ -172,8 +172,10 @@ public:
 
 	
 
-	void buildDiffractionFilter(const std::string& base_indigo_path);
-	void buildDiffractionFilterImage(int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path);
+	void prepareForDiffractionFilter(const std::string& base_indigo_path, int main_buffer_width, int main_buffer_height);
+	void buildDiffractionFilter(/*const std::string& base_indigo_path*/) const;
+	void buildDiffractionFilterImage(/*int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path*/) const;
+
 
 	double sensorHeight() const { return sensor_height; }
 	double sensorLensDist() const { return sensor_to_lens_dist; }
@@ -190,6 +192,7 @@ public:
 
 	std::vector<const Medium*> containing_media;
 private:
+
 	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distUpOnLensFromCenter(const Vec3d& pos) const;
@@ -201,9 +204,9 @@ private:
 	//Array2d<float>* aperture_image;
 	//Distribution2* aperture_image;
 
-	std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
+	mutable std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
 	Aperture* aperture;
-	std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
+	mutable std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
 	Vec3d pos;
 	//Vec3d ws_up;
@@ -259,6 +262,11 @@ private:
 
 	double lens_shift_up_distance;
 	double lens_shift_right_distance;
+
+	// Stuff for Lazy calculation of diffraction filter
+	std::string base_indigo_path;
+	int main_buffer_width;
+	int main_buffer_height;
 };
 
 
