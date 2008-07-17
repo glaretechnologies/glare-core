@@ -46,6 +46,8 @@ void ObjectTreeTest::doTests()
 
 	ObjectTree ob_tree;
 
+	ThreadContext thread_context(1, 0);
+
 	/// Add some random spheres ////
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
@@ -62,7 +64,7 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->build("", settings);
+		ob->build(thread_context, "", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -74,7 +76,7 @@ void ObjectTreeTest::doTests()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	ThreadContext thread_context(1, 0);
+	
 
 	
 
@@ -273,6 +275,8 @@ void ObjectTreeTest::doSpeedTest()
 
 	ObjectTree ob_tree;
 
+	ThreadContext thread_context(1, 0);
+
 	/// Add some random spheres ////
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
@@ -288,7 +292,7 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->build("", settings);
+		ob->build(thread_context, "", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -300,7 +304,7 @@ void ObjectTreeTest::doSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	ThreadContext thread_context(1, 0); 
+	 
 
 	{
 	Timer testtimer;//start timer
@@ -388,6 +392,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		);
 
 	ObjectTree ob_tree;
+	ThreadContext thread_context(1, 0);
 
 	for(int i=0; i<200; ++i)
 	{
@@ -407,7 +412,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->build("", settings);
+		object->build(thread_context, "", settings);
 
 		ob_tree.insertObject(object);
 	}
@@ -423,7 +428,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	ThreadContext thread_context(1, 0);
+	
 
 
 	//------------------------------------------------------------------------
