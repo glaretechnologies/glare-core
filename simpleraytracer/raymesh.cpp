@@ -100,12 +100,12 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& 
 }
 
 
-const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
+const Vec3d RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	if(!this->enable_normal_smoothing)
-		return toVec3d(triNormal(hitinfo.hittri_index));
+		return toVec3d(triNormal(hitinfo.sub_elem_index));
 
-	const RayMeshTriangle& tri = triangles[hitinfo.hittri_index];
+	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
 	const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
 	const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
@@ -118,18 +118,18 @@ const Vec3d RayMesh::getShadingNormal(const FullHitInfo& hitinfo) const
 	//	(v2norm)*(float)hitinfo.tri_coords.y);
 
 	// Gratuitous removal of function calls
-	const double w = 1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y;
+	const double w = 1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	return Vec3d(
-		(double)v0norm.x * w + (double)v1norm.x * hitinfo.tri_coords.x + (double)v2norm.x * hitinfo.tri_coords.y,
-		(double)v0norm.y * w + (double)v1norm.y * hitinfo.tri_coords.x + (double)v2norm.y * hitinfo.tri_coords.y,
-		(double)v0norm.z * w + (double)v1norm.z * hitinfo.tri_coords.x + (double)v2norm.z * hitinfo.tri_coords.y
+		(double)v0norm.x * w + (double)v1norm.x * hitinfo.sub_elem_coords.x + (double)v2norm.x * hitinfo.sub_elem_coords.y,
+		(double)v0norm.y * w + (double)v1norm.y * hitinfo.sub_elem_coords.x + (double)v2norm.y * hitinfo.sub_elem_coords.y,
+		(double)v0norm.z * w + (double)v1norm.z * hitinfo.sub_elem_coords.x + (double)v2norm.z * hitinfo.sub_elem_coords.y
 		);
 }
 
 
-const Vec3d RayMesh::getGeometricNormal(const FullHitInfo& hitinfo) const
+const Vec3d RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	return toVec3d(triNormal(hitinfo.hittri_index));
+	return toVec3d(triNormal(hitinfo.sub_elem_index));
 }
 
 
@@ -350,12 +350,12 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 }
 
 
-const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
+const Vec2d RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	assert(texcoords_set < num_uvs_per_group);
-	const Vec2f& v0tex = uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v1tex = uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v2tex = uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v0tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v1tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v2tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
 
 	//const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
 	//const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
@@ -365,30 +365,30 @@ const Vec2d RayMesh::getTexCoords(const FullHitInfo& hitinfo, unsigned int texco
 	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 
 	// Gratuitous removal of function calls
-	const double w = 1.0 - hitinfo.tri_coords.x - hitinfo.tri_coords.y;
+	const double w = 1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	return Vec2d(
-		(double)v0tex.x * w + (double)v1tex.x * hitinfo.tri_coords.x + (double)v2tex.x * hitinfo.tri_coords.y,
-		(double)v0tex.y * w + (double)v1tex.y * hitinfo.tri_coords.x + (double)v2tex.y * hitinfo.tri_coords.y
+		(double)v0tex.x * w + (double)v1tex.x * hitinfo.sub_elem_coords.x + (double)v2tex.x * hitinfo.sub_elem_coords.y,
+		(double)v0tex.y * w + (double)v1tex.y * hitinfo.sub_elem_coords.x + (double)v2tex.y * hitinfo.sub_elem_coords.y
 		);
 }
 
 
-void RayMesh::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
 {
-	const Vec3f& v0pos = triVertPos(hitinfo.hittri_index, 0);
-	const Vec3f& v1pos = triVertPos(hitinfo.hittri_index, 1);
-	const Vec3f& v2pos = triVertPos(hitinfo.hittri_index, 2);
+	const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
+	const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
+	const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
 
 	dp_du_out = toVec3d(v1pos - v0pos);
 	dp_dv_out = toVec3d(v2pos - v0pos);
 }
 
-void RayMesh::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoords_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
 {
 	assert(texcoords_set < num_uvs_per_group);
-	const Vec2f& v0tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v1tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v2tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+	const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
 
 	ds_du_out = v1tex.x - v0tex.x;
 	dt_du_out = v1tex.y - v0tex.y;
@@ -676,8 +676,8 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples
 	const double u = s * (1.0 - t);
 	const double v = (s * t);
 
-	hitinfo_out.hittriindex = sub_elem_index;
-	hitinfo_out.hittricoords.set(u, v);
+	hitinfo_out.sub_elem_index = sub_elem_index;
+	hitinfo_out.sub_elem_coords.set(u, v);
 
 	//FullHitInfo hitinfo;
 	//hitinfo.hittri_index = tri_index;

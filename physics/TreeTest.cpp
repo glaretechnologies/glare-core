@@ -102,7 +102,7 @@ void TreeTest::testBuildCorrect()
 	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
-	testAssert(hitinfo.hittriindex == 0);
+	testAssert(hitinfo.sub_elem_index == 0);
 	}
 
 	{
@@ -111,7 +111,7 @@ void TreeTest::testBuildCorrect()
 	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
-	testAssert(hitinfo.hittriindex == 3);
+	testAssert(hitinfo.sub_elem_index == 3);
 	}
 
 
@@ -332,8 +332,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			//if ray hit anything before
 			testAssert(hitinfos.size() >= 1);
 			testAssert(hitinfos[0].dist == dist);
-			testAssert(hitinfos[0].hittri_index == hitinfo.hittriindex);
-			testAssert(hitinfos[0].tri_coords == hitinfo.hittricoords);
+			testAssert(hitinfos[0].hitinfo == hitinfo);
 		}
 
 		// Do a check against all tris
@@ -346,8 +345,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(unsigned int z=0; z<hitinfos.size(); ++z)
 		{
 			testAssert(hitinfos[z].dist == hitinfos_d[z].dist);
-			testAssert(hitinfos[z].hittri_index == hitinfos_d[z].hittri_index);
-			testAssert(hitinfos[z].tri_coords == hitinfos_d[z].tri_coords);
+			testAssert(hitinfos[z].hitinfo == hitinfos_d[z].hitinfo);
 		}
 
 		//------------------------------------------------------------------------
@@ -362,8 +360,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(unsigned int z=0; z<hitinfos.size(); ++z)
 		{
 			testAssert(hitinfos[z].dist == hitinfos_bih[z].dist);
-			testAssert(hitinfos[z].hittri_index == hitinfos_bih[z].hittri_index);
-			testAssert(hitinfos[z].tri_coords == hitinfos_bih[z].tri_coords);
+			testAssert(hitinfos[z].hitinfo == hitinfos_bih[z].hitinfo);
 		}
 #endif
 

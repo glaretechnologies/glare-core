@@ -307,7 +307,7 @@ public:
 	DUTexCoordEvaluator(){}
 	~DUTexCoordEvaluator(){}
 
-	virtual const Vec2d getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
+	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 	{
 		return texcoords[texcoords_set];
 	}

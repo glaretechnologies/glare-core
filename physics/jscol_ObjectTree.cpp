@@ -79,8 +79,8 @@ double ObjectTree::traceRay(const Ray& ray,
 #endif
 
 	hitob_out = NULL;
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.0f, 0.0f);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.0f, 0.0f);
 
 	HitInfo ob_hit_info;
 
@@ -953,8 +953,8 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 											const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.0f, 0.0f);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
 	double closest_dist = std::numeric_limits<double>::max();
 	for(unsigned int i=0; i<objects.size(); ++i)

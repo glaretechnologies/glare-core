@@ -123,8 +123,8 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	this->num_traces++;
 #endif
 
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.0, 0.0);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
 	assert(!nodes.empty());
 	assert(root_aabb);
@@ -262,8 +262,8 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 					if(!object || object->isNonNullAtHit(thread_context, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						closest_dist = raydist;
-						hitinfo_out.hittriindex = triangle_index;
-						hitinfo_out.hittricoords.set(u, v);
+						hitinfo_out.sub_elem_index = triangle_index;
+						hitinfo_out.sub_elem_coords.set(u, v);
 					}
 				}
 
@@ -436,7 +436,7 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 					// NOTE that this is a slow linear time check, but N should be small, hopefully :)
 					bool already_got_hit = false;
 					for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-						if(hitinfos_out[z].hittri_index == leafgeom[triindex])//if tri index is the same
+						if(hitinfos_out[z].hitinfo.sub_elem_index == leafgeom[triindex])//if tri index is the same
 							already_got_hit = true;
 
 					if(!already_got_hit)
@@ -444,8 +444,8 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 						if(!object || object->isNonNullAtHit(thread_context, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
 						{
 							hitinfos_out.push_back(DistanceFullHitInfo());
-							hitinfos_out.back().hittri_index = leafgeom[triindex];
-							hitinfos_out.back().tri_coords.set(u, v);
+							hitinfos_out.back().hitinfo.sub_elem_index = leafgeom[triindex];
+							hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
 							hitinfos_out.back().dist = raydist;
 							hitinfos_out.back().hitpos = ray.startPos();
 							hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
@@ -1007,8 +1007,8 @@ void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int 
 	//returns dist till hit tri, neg number if missed.
 double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
 {
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.f, 0.f);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
 	double closest_dist = std::numeric_limits<double>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
@@ -1022,8 +1022,8 @@ double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& 
 			assert(raydist < closest_dist);
 
 			closest_dist = raydist;
-			hitinfo_out.hittriindex = i;
-			hitinfo_out.hittricoords.set(u, v);
+			hitinfo_out.sub_elem_index = i;
+			hitinfo_out.sub_elem_coords.set(u, v);
 		}
 	}
 
@@ -1044,8 +1044,8 @@ void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceFullHitInfo>
 		{			
 			hitinfos_out.push_back(DistanceFullHitInfo());
 			hitinfos_out.back().dist = raydist;
-			hitinfos_out.back().hittri_index = i;
-			hitinfos_out.back().tri_coords.set(u, v);
+			hitinfos_out.back().hitinfo.sub_elem_index = i;
+			hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
 		}
 	}
 }

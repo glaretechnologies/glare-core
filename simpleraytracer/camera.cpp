@@ -880,7 +880,7 @@ double Camera::surfaceArea(const Matrix3d& to_parent) const
 	return 0.f;
 }
 
-const Vec2d Camera::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
+const Vec2d Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return Vec2d(0,0);
 }
@@ -1052,12 +1052,12 @@ double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& p
 	return 1.0;
 }
 
-void Camera::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
 {
 	assert(0);
 }
 
-void Camera::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
 {
 	assert(0);
 }

@@ -117,6 +117,14 @@ public:
 	inline static bool raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng);
 
 
+	// Dir need not be normalised.
+	// Returns (phi, theta)
+	inline static const Vec2d sphericalCoordsForDir(const Vec3d& dir, double recip_dir_length);
+
+	// Returns unit length vector
+	inline static const Vec3d dirForSphericalCoords(double phi, double theta);
+
+
 	static void unitTest();
 };
 
@@ -213,6 +221,57 @@ bool MatUtils::raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, cons
 bool MatUtils::raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng)
 {
 	return a_dot_orig_Ng * b_dot_orig_Ng < 0.0;
+}
+
+
+// Returns (phi, theta)
+// where phi is the azimuthal coordinate and theta is the zenith coordinate.
+const Vec2d MatUtils::sphericalCoordsForDir(const Vec3d& dir, double recip_dir_length)
+{
+	assert(epsEqual(1.0 / dir.length(), recip_dir_length));
+
+	return Vec2d(
+		atan2(dir.y, dir.x), // phi
+		acos(dir.z * recip_dir_length) // theta
+		);
+}
+
+
+const Vec3d MatUtils::dirForSphericalCoords(double phi, double theta)
+{
+	// http://mathworld.wolfram.com/SphericalCoordinates.html
+
+	/*const double sin_theta = sin(theta);
+	return Vec3d(
+		cos(phi) * sin_theta,
+		sin(phi) * sin_theta,
+		cos(theta)
+		);*/
+
+	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
+	const double cos_theta = cos(theta);
+	const double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+	return Vec3d(
+		cos(phi) * sin_theta,
+		sin(phi) * sin_theta,
+		cos_theta
+		);
+
+	// Use sqrt() instead of trig functions here.
+	// cos() and sin() take about 109 cycles on a Core2, 
+	// sqrt() takes more like 57
+
+	// cos(theta)^2 + sin(theta)^2 = 1 => cos(theta) = +-sqrt(1 - sin(theta)^2)
+
+	/*const double sin_theta = sin(theta);
+	const double sin_phi = sin(phi);
+
+	return Vec3d(
+		sqrt(1.0 - sin_phi*sin_phi) * sin_theta, // x = cos(phi) * sin(theta)
+		sin_phi * sin_theta,
+		sqrt(1.0 - sin_theta*sin_theta) // z = cos(theta)
+		);*/
 }
 
 #endif //__MATUTILS_H_666_

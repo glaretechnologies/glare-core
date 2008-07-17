@@ -104,8 +104,8 @@ void ObjectTreeTest::doTests()
 		if(t >= 0.0 || t2 >= 0.0)
 		{
 			testAssert(t == t2);
-			testAssert(hitinfo.hittricoords == hitinfo2.hittricoords);
-			testAssert(hitinfo.hittriindex == hitinfo2.hittriindex);
+			testAssert(hitinfo.sub_elem_coords == hitinfo2.sub_elem_coords);
+			testAssert(hitinfo.sub_elem_index == hitinfo2.sub_elem_index);
 		}
 
 		//------------------------------------------------------------------------

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 
-
+/*
 HitInfo::HitInfo()
 {
 	hittriindex = 0;
@@ -19,7 +19,7 @@ HitInfo::~HitInfo()
 {
 	
 }
-
+*/
 
 
 

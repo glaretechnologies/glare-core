@@ -425,8 +425,8 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	conPrint("ray.getRecipRayDir(): " + ray.getRecipRayDir().toStringFullPrecision());
 #endif
 
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.f, 0.f);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
 	////////////// load recip vector ///////////////
 	const SSE_ALIGN PaddedVec3& recip_unitraydir = ray.getRecipRayDirF();
@@ -628,8 +628,8 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 #endif
 
 					closest_dist = raydist;
-					hitinfo_out.hittriindex = leafgeom[leaf_geom_index];
-					hitinfo_out.hittricoords.set(u, v);
+					hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index];
+					hitinfo_out.sub_elem_coords.set(u, v);
 				}
 				++leaf_geom_index;
 			}
@@ -838,14 +838,14 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 					hitinfo_out.hittricoords.set(u, v);*/
 					bool already_added = false;
 					for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-						if(hitinfos_out[z].hittri_index == leafgeom[leaf_geom_index])
+						if(hitinfos_out[z].hitinfo.sub_elem_index == leafgeom[leaf_geom_index])
 							already_added = true;
 					
 					if(!already_added)
 					{
 						hitinfos_out.push_back(DistanceFullHitInfo());
-						hitinfos_out.back().hittri_index = leafgeom[leaf_geom_index];
-						hitinfos_out.back().tri_coords.set(u, v);
+						hitinfos_out.back().hitinfo.sub_elem_index = leafgeom[leaf_geom_index];
+						hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
 						hitinfos_out.back().dist = raydist;
 						hitinfos_out.back().hitpos = ray.startPos();
 						hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
@@ -885,8 +885,8 @@ bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 	//returns dist till hit tri, neg number if missed.
 double BIHTree::traceRayAgainstAllTris(const ::Ray& ray, double tmax, HitInfo& hitinfo_out) const
 {
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.f, 0.f);
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 	double closest_dist = std::numeric_limits<double>::max();//2e9f;//closest hit so far, also upper bound on hit dist
 
 	for(uint32 i=0; i<num_intersect_tris; ++i)
@@ -898,8 +898,8 @@ double BIHTree::traceRayAgainstAllTris(const ::Ray& ray, double tmax, HitInfo& h
 			assert(raydist < closest_dist);
 
 			closest_dist = raydist;
-			hitinfo_out.hittriindex = i;
-			hitinfo_out.hittricoords.set(u, v);
+			hitinfo_out.sub_elem_index = i;
+			hitinfo_out.sub_elem_coords.set(u, v);
 		}
 	}
 

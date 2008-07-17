@@ -24,6 +24,7 @@ You may not use this code for any commercial project.
 ====================================================================*/
 #include "raysphere.h"
 
+
 #include "ray.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceFullHitInfo.h"
@@ -32,6 +33,8 @@ You may not use this code for any commercial project.
 #include "../physics/jscol_TriTreePerThreadData.h"
 #include <algorithm>
 #include "../indigo/ThreadContext.h"
+#include "../raytracing/matutils.h"
+
 
 RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 {
@@ -51,17 +54,18 @@ RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 	uvset_name_to_index["bump"] = 0;
 }
 
+
 RaySphere::~RaySphere()
 {
 }
 
-	//returns neg num if object not hit by the ray
 
+//returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
 double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
-	hitinfo_out.hittriindex = 0;
-	hitinfo_out.hittricoords.set(0.0, 0.0);
+	hitinfo_out.sub_elem_index = 0;
+	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
 	const Vec3d center_to_raystart = ray.startPos() - centerpos;
 
@@ -84,9 +88,16 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 	const double sqrt_discriminant = sqrt(discriminant);
 	const double t0 = (-B - sqrt_discriminant) * 0.5;
 	if(t0 > 0.0)
+	{
+		hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(ray.point(t0) - centerpos, recip_radius);
 		return t0;
+	}
 	else
-		return (-B + sqrt_discriminant) * 0.5;
+	{
+		const double t = (-B + sqrt_discriminant) * 0.5;
+		hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(ray.point(t) - centerpos, recip_radius);
+		return t;
+	}
 
 	
 	/*const Vec3d raystarttosphere = this->centerpos - ray.startpos;
@@ -167,7 +178,7 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext
 
 
 
-const Vec3d RaySphere::getShadingNormal(const FullHitInfo& hitinfo) const 
+const Vec3d RaySphere::getShadingNormal(const HitInfo& hitinfo) const 
 { 
 	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
 
@@ -177,12 +188,14 @@ const Vec3d RaySphere::getShadingNormal(const FullHitInfo& hitinfo) const
 }
 
 
-const Vec3d RaySphere::getGeometricNormal(const FullHitInfo& hitinfo) const 
+const Vec3d RaySphere::getGeometricNormal(const HitInfo& hitinfo) const 
 { 
 	//Vec3 normal = hitinfo.hitpos - centerpos;
 	//normal.normalise();
 	//return normal;
-	return normalise(hitinfo.hitpos - centerpos);
+	//return normalise(hitinfo.hitpos - centerpos);
+
+	return MatUtils::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 }
 
 
@@ -216,6 +229,8 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 		hitinfos_out.back().dist = dist_to_rayclosest + a;
 		hitinfos_out.back().hitpos = ray.startPos();
 		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
+		hitinfos_out.back().hitinfo.sub_elem_index = 0;
+		hitinfos_out.back().hitinfo.sub_elem_coords = MatUtils::sphericalCoordsForDir(hitinfos_out.back().hitpos - centerpos, recip_radius);
 	}
 
 	if(dist_to_rayclosest - a > 0.0)
@@ -224,13 +239,17 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 		hitinfos_out.back().dist = dist_to_rayclosest - a;
 		hitinfos_out.back().hitpos = ray.startPos();
 		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
+		hitinfos_out.back().hitinfo.sub_elem_index = 0;
+		hitinfos_out.back().hitinfo.sub_elem_coords = MatUtils::sphericalCoordsForDir(hitinfos_out.back().hitpos - centerpos, recip_radius);
 	}
 }
 
 
-const Vec2d RaySphere::getTexCoords(const FullHitInfo& hitinfo, unsigned int texcoords_set) const
+const Vec2d RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
-	assert(hitinfo.geometric_normal.isUnitLength());
+	return hitinfo.sub_elem_coords;
+
+	/*assert(hitinfo.geometric_normal.isUnitLength());
 
 	//use the normal
 	//float theta = asin(hitinfo.geometric_normal.y);
@@ -238,14 +257,17 @@ const Vec2d RaySphere::getTexCoords(const FullHitInfo& hitinfo, unsigned int tex
 	//if(hitinfo.geometric_normal.x < 0.0f)
 	//	theta = NICKMATHS_PI - theta;
 	const double phi = acos(hitinfo.geometric_normal.z);
-	return Vec2d(theta * NICKMATHS_RECIP_2PI, phi * -NICKMATHS_RECIP_PI);
+	return Vec2d(theta * NICKMATHS_RECIP_2PI, phi * -NICKMATHS_RECIP_PI);*/
 }
 
 
-void RaySphere::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
 {
-	const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
-	const double phi = acos(hitinfo.original_geometric_normal.z);
+	const double theta = hitinfo.sub_elem_coords.x;
+	const double phi = hitinfo.sub_elem_coords.y;
+
+	//const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
+	//const double phi = acos(hitinfo.original_geometric_normal.z);
 
 	//(dx/du, dy/du, dz/du)
 	dp_du_out = Vec3d(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
@@ -255,7 +277,7 @@ void RaySphere::getPartialDerivs(const FullHitInfo& hitinfo, Vec3d& dp_du_out, V
 }
 
 
-void RaySphere::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void RaySphere::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
 {
 	// Tex coords must be the UVs for spheres.
 	ds_du_out = dt_dv_out = 1.0;
@@ -265,7 +287,8 @@ void RaySphere::getTexCoordPartialDerivs(const FullHitInfo& hitinfo, unsigned in
 
 
 //returns true if could construct a suitable basis
-bool RaySphere::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
+/*
+bool RaySphere::getTangents(const HitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
 {
 	//const Vec3 p = (hitinfo.hitpos - this->centerpos) * recip_radius;//normalised
 
@@ -293,7 +316,7 @@ bool RaySphere::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_s
 	bitangent_out = Vec3d(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
 
 	return true;
-}
+}*/
 
 /*void RaySphere::emitterInit()
 {
@@ -359,7 +382,7 @@ void RaySphere::test()
 	double d = sphere.traceRay(ray, 1000.0, thread_context, context, NULL, hitinfo);
 
 	testAssert(::epsEqual(d, 0.5));
-	testAssert(hitinfo.hittriindex == 0);
+	testAssert(hitinfo.sub_elem_index == 0);
 	//testAssert(hitinfo.hittricoords
 
 	
@@ -371,7 +394,7 @@ void RaySphere::test()
 	const SSE_ALIGN Ray ray2(Vec3d(1,0,1), Vec3d(-1,0,0));
 	d = sphere.traceRay(ray2, 1000.0, thread_context, context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.5));
-	testAssert(hitinfo.hittriindex == 0);
+	testAssert(hitinfo.sub_elem_index == 0);
 
 	d = sphere.traceRay(ray2, 0.1, thread_context, context, NULL, hitinfo);
 	//ignoring this for now: testAssert(d < 0.0);
@@ -395,11 +418,11 @@ void RaySphere::test()
 	//testAssert(epsEqual(hitinfos[1].geometric_normal, Vec3d(1,0,0)));
 	testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3d(-1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3d(-1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0].hitinfo), Vec3d(-1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0].hitinfo), Vec3d(-1,0,0)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3d(1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3d(1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1].hitinfo), Vec3d(1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1].hitinfo), Vec3d(1,0,0)));
 
 
 	//------------------------------------------------------------------------

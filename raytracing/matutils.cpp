@@ -17,6 +17,7 @@ Code By Nicholas Chapman.
 #include "../indigo/SpectrumGraph.h"
 #include "../indigo/IrregularSpectrum.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/timer.h"
 
 //TEMP:
 //RandNumPool rand_num_pool(65536);
@@ -45,6 +46,8 @@ MatUtils::~MatUtils()
 
 const Vec3d MatUtils::sphericalToCartesianCoords(double phi, double cos_theta, const Basisd& basis)
 {
+	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
+
 	const double sin_theta = sqrt(1.0 - cos_theta*cos_theta);
 
 	assert(Vec3d(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta).isUnitLength());
@@ -864,6 +867,120 @@ const Vec2d MatUtils::polarisedDialetricFresnelReflectance(double n1, double n2,
 void MatUtils::unitTest()
 {
 	conPrint("MatUtils::unitTest()");
+
+
+	{
+		const Vec3d d = sphericalToCartesianCoords(NICKMATHS_PI * (3.0/2.0), cos(NICKMATHS_PI_2), Basisd(Matrix3d::identity()));
+		assert(epsEqual(d, Vec3d(0, -1, 0)));
+	}
+
+/*
+	const int N = 1e7;
+	const double recip_N = 1.0 / (double)N;
+
+	// target is integral of cos(x) over 0...1 = sin(1) - sin(0) = sin(1) = 0.017452406437283512819418978516316
+	const double target = sin(1.0) * N;
+	{
+		Timer t;
+		double sum = 0.0;
+		double sin_x_sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * recip_N;
+			const double sin_x = sin(x);
+			sin_x_sum += sin_x;
+			sum += cos(x);
+		}
+
+		const double elapsed = t.getSecondsElapsed();
+		const double cycles = 2.4e9 * t.getSecondsElapsed() * recip_N;
+		printVar(sin_x_sum);
+		printVar(sum);
+		printVar(target);
+		printVar(elapsed);
+		printVar(cycles);
+	}
+	{
+		Timer t;
+		double sum = 0.0;
+		double sin_x_sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * recip_N;
+			const double sin_x = sin(x);
+			sin_x_sum += sin_x;
+			sum += sqrt(1.0 - sin_x*sin_x);
+		}
+
+		const double elapsed = t.getSecondsElapsed();
+		const double cycles = 2.4e9 * t.getSecondsElapsed() * recip_N;
+		printVar(sin_x_sum);
+		printVar(sum);
+		printVar(elapsed);
+		printVar(cycles);
+	}
+
+	{
+		Timer t;
+		double sum = 0.0;
+		double x = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			//const double x = (double)i * recip_N;
+			x += 0.001;
+			sum += sin(x);
+		}
+		const double sin_cycles = 2.4e9 * t.getSecondsElapsed() * recip_N;
+		printVar(sum);
+		printVar(sin_cycles);
+	}
+
+	{
+		Timer t;
+		double sum = 0.0;
+		double x = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			//const double x = (double)i * recip_N;
+			x += 0.001;
+			sum += cos(x);
+		}
+		const double cos_cycles = 2.4e9 * t.getSecondsElapsed() * recip_N;
+		printVar(sum);
+		printVar(cos_cycles);
+	}
+
+	{
+		Timer t;
+		double sum = 0.0;
+		double x = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			//const double x = (double)i * recip_N;
+			x += 0.001;
+			sum += sqrt(x);
+		}
+		const double sqrt_cycles = 2.4e9 * t.getSecondsElapsed() * recip_N;
+		printVar(sum);
+		printVar(sqrt_cycles);
+	}
+*/
+
+
+
+	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(1,0,0), 1.0), Vec2d(0.0, NICKMATHS_PI_2)));
+	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,1,0), 1.0), Vec2d(NICKMATHS_PI_2, NICKMATHS_PI_2)));
+	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,-1,0), 1.0), Vec2d(-NICKMATHS_PI_2, NICKMATHS_PI_2)));
+	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,0,1), 1.0), Vec2d(0.0, 0.0)));
+	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,0,-1), 1.0), Vec2d(0.0, NICKMATHS_PI)));
+
+	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, NICKMATHS_PI_2), Vec3d(1,0,0)));
+	testAssert(epsEqual(MatUtils::dirForSphericalCoords(NICKMATHS_PI_2, NICKMATHS_PI_2), Vec3d(0,1,0)));
+	testAssert(epsEqual(MatUtils::dirForSphericalCoords(-NICKMATHS_PI_2, NICKMATHS_PI_2), Vec3d(0,-1,0)));
+	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, 0.0), Vec3d(0,0,1)));
+	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, NICKMATHS_PI), Vec3d(0,0,-1)));
+
+
 
 	Basisd basis;
 	const Vec3d v = normalise(Vec3d(1,1,1));
