@@ -112,7 +112,7 @@ void TriTree::printTraceStats() const
 }
 
 
-// Returns dist till hit tri, neg number if missed.
+// Returns dist till hit triangle, neg number if missed.
 double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	assertSSEAligned(&ray);
@@ -192,7 +192,35 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
 
-			if(t_split > tmax) // whole interval is on near cell	
+			if(t_split > tmax) // Whole interval is on near cell	
+			{
+				current = child_nodes[ray_child_indices[splitting_axis]];
+			}
+			else 
+			{
+				if(tmin > t_split) // whole interval is on far cell.
+					current = child_nodes[ray_child_indices[splitting_axis + 4]]; //farnode;
+				else 
+				{
+					// Ray hits plane - double recursion, into both near and far cells.
+					const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+					const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
+
+					// Push far node onto stack to process later
+					stacktop++;
+					assert(stacktop < context.nodestack_size);
+					context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+
+#ifdef DO_PREFETCHING
+					// Prefetch pushed child
+					_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
+#endif					
+					// Process near child next
+					current = nearnode;
+					tmax = t_split;
+				}
+			}
+			/*if(t_split > tmax) // whole interval is on near cell	
 			{
 				current = child_nodes[ray_child_indices[splitting_axis]];
 			}
@@ -217,7 +245,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 				//process near child next
 				current = nearnode;
 				tmax = t_split;
-			}
+			}*/
 		}//end while current node is not a leaf..
 
 		//'current' is a leaf node..
@@ -655,7 +683,7 @@ void TriTree::build()
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		triTreeDebugPrint("calcing root AABB.");
+		triTreeDebugPrint("calculating root AABB.");
 		{
 		root_aabb->min_ = triVertPos(0, 0);
 		root_aabb->max_ = triVertPos(0, 0);
