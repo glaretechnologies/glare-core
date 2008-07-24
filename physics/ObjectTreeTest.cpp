@@ -58,7 +58,7 @@ void ObjectTreeTest::doTests()
 			Vec3d(0,0,0), 
 			Matrix3d::identity(),
 			std::vector<Reference<Material> >(),
-			std::vector<std::vector<int> >(),
+			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);
@@ -286,7 +286,7 @@ void ObjectTreeTest::doSpeedTest()
 			Vec3d(0,0,0), 
 			Matrix3d::identity(),
 			std::vector<Reference<Material> >(),
-			std::vector<std::vector<int> >(),
+			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);
@@ -406,7 +406,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), 
 			rot,
 			std::vector<Reference<Material> >(),
-			std::vector<std::vector<int> >(),
+			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);

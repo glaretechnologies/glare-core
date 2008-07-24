@@ -354,7 +354,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 		if(triangles[t].dimension == 2)
 		{
 			const unsigned int material_index = triangles[t].tri_mat_index;
-			const Material* material = object.getMaterials()[material_index].getPointer(); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
+			const Material* material = &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
 			if(material->displacing())
 			{

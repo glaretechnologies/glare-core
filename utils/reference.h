@@ -137,6 +137,16 @@ public:
 		return ob;
 	}
 
+	/*inline T& getRef()
+	{
+		return *ob;
+	}
+
+	inline const T& getRef() const
+	{
+		return *ob;
+	}*/
+
 private:
 	T* ob;
 };

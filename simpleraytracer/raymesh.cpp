@@ -143,14 +143,14 @@ static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 		return a.normal < b.normal;
 }
 
-
+/*
 static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materials)
 {
 	for(unsigned int i=0; i<materials.size(); ++i)
 		if(materials[i]->displacing())
 			return true;
 	return false;
-}
+}*/
 
 
 void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
@@ -173,7 +173,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 	if(!vertex_shading_normals_provided)
 		computeShadingNormals();
 
-	if(isDisplacingMaterial(object.getMaterials()) || num_subdivisions > 0)
+	if(object.hasDisplacingMaterial() || num_subdivisions > 0)
 	{
 		conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
 
