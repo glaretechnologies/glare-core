@@ -215,7 +215,7 @@ double MatUtils::smoothingFactor(const Vec3d& omega_in, const FullHitInfo& hitin
 
 bool MatUtils::raysOnOppositeGeometricSides(const Vec3d& a, const Vec3d& b, const FullHitInfo& hitinfo)
 {
-	return dot(a, hitinfo.original_geometric_normal) * dot(b, hitinfo.original_geometric_normal) < 0.0;
+	return dot(a, hitinfo.original_N_g()) * dot(b, hitinfo.original_N_g()) < 0.0;
 }
 
 bool MatUtils::raysOnOppositeGeometricSides(double a_dot_orig_Ng, double b_dot_orig_Ng)
@@ -230,9 +230,10 @@ const Vec2d MatUtils::sphericalCoordsForDir(const Vec3d& dir, double recip_dir_l
 {
 	assert(epsEqual(1.0 / dir.length(), recip_dir_length));
 
+	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	return Vec2d(
 		atan2(dir.y, dir.x), // phi
-		acos(dir.z * recip_dir_length) // theta
+		acos(myClamp(dir.z * recip_dir_length, -1.0, 1.0)) // theta
 		);
 }
 

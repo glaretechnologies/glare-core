@@ -254,13 +254,13 @@ void Matrix3<float>::test()
 	Matrix3<float> a_inverse;
 	bool invertible = a.inverse(a_inverse);
 	testAssert(invertible);
-	testAssert(epsEqual(a * a_inverse, Matrix3<float>::identity(), (float)NICKMATHS_EPSILON));
-	testAssert(epsEqual(a_inverse * a, identity(), (float)NICKMATHS_EPSILON));
+	testAssert(epsMatrixEqual(a * a_inverse, Matrix3<float>::identity(), (float)NICKMATHS_EPSILON));
+	testAssert(epsMatrixEqual(a_inverse * a, identity(), (float)NICKMATHS_EPSILON));
 
 	Matrix3<float> identity_inverse;
 	invertible = identity().inverse(identity_inverse);
 	testAssert(invertible);
-	testAssert(epsEqual(identity(), identity_inverse, (float)NICKMATHS_EPSILON));
+	testAssert(epsMatrixEqual(identity(), identity_inverse, (float)NICKMATHS_EPSILON));
 }
 
 

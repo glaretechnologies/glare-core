@@ -28,7 +28,7 @@ class PointTree;
 class PhotonHit;
 class HitInfo;
 class FullHitInfo;
-class DistanceFullHitInfo;
+class DistanceHitInfo;
 class PerThreadData;
 class Object;
 class RendererSettings;
@@ -71,7 +71,7 @@ public:
 	virtual const std::string getName() const = 0;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	virtual const Vec3d getShadingNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec3d getGeometricNormal(const HitInfo& hitinfo) const = 0;

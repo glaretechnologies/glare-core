@@ -33,6 +33,8 @@ public:
 #endif
 	}
 
+	inline HitInfo(unsigned int sub_elem_index, const Vec2d& sub_elem_coords);
+
 	inline ~HitInfo(){}
 
 	inline bool operator == (const HitInfo& rhs) const;
@@ -44,6 +46,12 @@ public:
 	unsigned int sub_elem_index;
 	Vec2d sub_elem_coords;
 };
+
+
+HitInfo::HitInfo(unsigned int sub_elem_index_, const Vec2d& sub_elem_coords_)
+:	sub_elem_index(sub_elem_index_),
+	sub_elem_coords(sub_elem_coords_)
+{}
 
 
 bool HitInfo::operator == (const HitInfo& rhs) const

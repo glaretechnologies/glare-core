@@ -1,6 +1,10 @@
 #include "mathstypes.h"
 
+
 #include "../indigo/TestUtils.h"
+#include "matrix2.h"
+#include "matrix3.h"
+
 
 void Maths::test()
 {
@@ -58,4 +62,82 @@ void Maths::test()
 	testAssert(!isPowerOfTwo((int)9));
 	testAssert(!isPowerOfTwo((unsigned int)3));
 	testAssert(!isPowerOfTwo((unsigned int)9));
+
+	{
+	const Matrix2d m(1, 2, 3, 4);
+	// determinant = 1 / (ad - bc) = 1 / (4 - 6) = -1/2
+
+	const Matrix2d inv = m.inverse();
+
+	testAssert(epsEqual(inv.e[0], -2.0));
+	testAssert(epsEqual(inv.e[1], 1.0));
+	testAssert(epsEqual(inv.e[2], 3.0/2.0));
+	testAssert(epsEqual(inv.e[3], -1.0/2.0));
+
+	{
+	const Matrix2d r = m * inv;
+
+	testAssert(epsEqual(r.e[0], 1.0));
+	testAssert(epsEqual(r.e[1], 0.0));
+	testAssert(epsEqual(r.e[2], 0.0));
+	testAssert(epsEqual(r.e[3], 1.0));
+	}
+	{
+	const Matrix2d r = inv * m;
+
+	testAssert(epsEqual(r.e[0], 1.0));
+	testAssert(epsEqual(r.e[1], 0.0));
+	testAssert(epsEqual(r.e[2], 0.0));
+	testAssert(epsEqual(r.e[3], 1.0));
+	}
+	{
+	const Matrix2d r = m.transpose();
+
+	testAssert(epsEqual(r.e[0], 1.0));
+	testAssert(epsEqual(r.e[1], 3.0));
+	testAssert(epsEqual(r.e[2], 2.0));
+	testAssert(epsEqual(r.e[3], 4.0));
+	}
+	}
+
+
+
+	{
+	const double e[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
+	const Matrix3d m(e);
+
+	Matrix3d inv;
+	testAssert(m.inverse(inv));
+
+
+	{
+	const Matrix3d r = m * inv;
+
+	testAssert(epsEqual(r.e[0], 1.0));
+	testAssert(epsEqual(r.e[1], 0.0));
+	testAssert(epsEqual(r.e[2], 0.0));
+	testAssert(epsEqual(r.e[3], 0.0));
+	testAssert(epsEqual(r.e[4], 1.0));
+	testAssert(epsEqual(r.e[5], 0.0));
+	testAssert(epsEqual(r.e[6], 0.0));
+	testAssert(epsEqual(r.e[7], 0.0));
+	testAssert(epsEqual(r.e[8], 1.0));
+	}
+	{
+	const Matrix3d r = inv * m;
+
+	testAssert(epsEqual(r.e[0], 1.0));
+	testAssert(epsEqual(r.e[1], 0.0));
+	testAssert(epsEqual(r.e[2], 0.0));
+	testAssert(epsEqual(r.e[3], 0.0));
+	testAssert(epsEqual(r.e[4], 1.0));
+	testAssert(epsEqual(r.e[5], 0.0));
+	testAssert(epsEqual(r.e[6], 0.0));
+	testAssert(epsEqual(r.e[7], 0.0));
+	testAssert(epsEqual(r.e[8], 1.0));
+	}
+	}
+
+
+	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 }

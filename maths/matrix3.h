@@ -733,7 +733,7 @@ inline const Vec3<Real> operator * (const Vec3<Real>& v, const Matrix3<Real>& m)
 }
 
 template <class Real>
-inline bool epsEqual(const Matrix3<Real>& a, const Matrix3<Real>& b, Real eps = NICKMATHS_EPSILON)
+inline bool epsMatrixEqual(const Matrix3<Real>& a, const Matrix3<Real>& b, Real eps = NICKMATHS_EPSILON)
 {
 	for(unsigned int i=0; i<9; ++i)
 		if(!epsEqual(a.e[i], b.e[i], eps))

@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
-#include "../indigo/DistanceFullHitInfo.h"
+#include "../indigo/DistanceHitInfo.h"
 #include "../maths/SSE.h"
 #include "../utils/platformutils.h"
 #include "../simpleraytracer/raymesh.h"
@@ -287,7 +287,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 				{
 					assert(raydist < closest_dist);
 
-					if(!object || object->isNonNullAtHit(thread_context, triangle_index, u, v)) // Do visiblity check for null materials etc..
+					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						closest_dist = raydist;
 						hitinfo_out.sub_elem_index = triangle_index;
@@ -321,7 +321,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 
 
 
-void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 
@@ -464,19 +464,20 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 					// NOTE that this is a slow linear time check, but N should be small, hopefully :)
 					bool already_got_hit = false;
 					for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-						if(hitinfos_out[z].hitinfo.sub_elem_index == leafgeom[triindex])//if tri index is the same
+						if(hitinfos_out[z].sub_elem_index == leafgeom[triindex])//if tri index is the same
 							already_got_hit = true;
 
 					if(!already_got_hit)
 					{
-						if(!object || object->isNonNullAtHit(thread_context, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
+						if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
 						{
-							hitinfos_out.push_back(DistanceFullHitInfo());
-							hitinfos_out.back().hitinfo.sub_elem_index = leafgeom[triindex];
-							hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
-							hitinfos_out.back().dist = raydist;
-							hitinfos_out.back().hitpos = ray.startPos();
-							hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
+							hitinfos_out.push_back(DistanceHitInfo(
+								leafgeom[triindex],
+								Vec2d(u, v),
+								raydist
+								));
+							//hitinfos_out.back().hitpos = ray.startPos();
+							//hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
 						}
 					}
 
@@ -616,7 +617,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 					(float)raylength, // raylength is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
 					dummy_hitdist, u, v))
 				{
-					if(!object || object->isNonNullAtHit(thread_context, triangle_index, u, v)) // Do visiblity check for null materials etc..
+					if(!object || object->isNonNullAtHit(thread_context, ray, (double)dummy_hitdist, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						return true;
 					}
@@ -1061,7 +1062,7 @@ double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& 
 	return closest_dist;
 }
 
-void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
@@ -1070,10 +1071,11 @@ void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceFullHitInfo>
 				
 		if(intersect_tris[i].rayIntersect(ray, std::numeric_limits<float>::max(), raydist, u, v))
 		{			
-			hitinfos_out.push_back(DistanceFullHitInfo());
-			hitinfos_out.back().dist = raydist;
-			hitinfos_out.back().hitinfo.sub_elem_index = i;
-			hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
+			hitinfos_out.push_back(DistanceHitInfo(
+				i,
+				Vec2d(u, v),
+				raydist
+				));
 		}
 	}
 }

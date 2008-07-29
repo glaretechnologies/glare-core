@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
-#include "../indigo/DistanceFullHitInfo.h"
+#include "../indigo/DistanceHitInfo.h"
 #include "../utils/timer.h"
 #include "../utils/random.h"
 #include <limits>
@@ -668,7 +668,7 @@ const js::AABBox& BIHTree::getAABBoxWS() const
 
 
 
-void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 	//assert(ray_max_t >= 0.0f);
@@ -838,17 +838,19 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 					hitinfo_out.hittricoords.set(u, v);*/
 					bool already_added = false;
 					for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-						if(hitinfos_out[z].hitinfo.sub_elem_index == leafgeom[leaf_geom_index])
+						if(hitinfos_out[z].sub_elem_index == leafgeom[leaf_geom_index])
 							already_added = true;
 					
 					if(!already_added)
 					{
-						hitinfos_out.push_back(DistanceFullHitInfo());
-						hitinfos_out.back().hitinfo.sub_elem_index = leafgeom[leaf_geom_index];
-						hitinfos_out.back().hitinfo.sub_elem_coords.set(u, v);
-						hitinfos_out.back().dist = raydist;
-						hitinfos_out.back().hitpos = ray.startPos();
-						hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
+						hitinfos_out.push_back(DistanceHitInfo(
+							leafgeom[leaf_geom_index],
+							Vec2d(u, v),
+							raydist
+							));
+
+						//hitinfos_out.back().hitpos = ray.startPos();
+						//hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
 					}
 				}
 				++leaf_geom_index;

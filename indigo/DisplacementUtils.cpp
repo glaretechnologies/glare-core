@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #include "../maths/rect2.h"
 #include "../graphics/TriBoxIntersection.h"
 #include "ScalarMatParameter.h"
+#include "VoidMedium.h"
 
 
 DisplacementUtils::DisplacementUtils()
@@ -312,8 +313,42 @@ public:
 		return texcoords[texcoords_set];
 	}
 
+
+	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+	{
+		// This should never be evaluated, because we don't need to know the partial derives when doing displacement.
+
+		/*assert(texcoords_set < texcoords.size());
+
+		const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
+		const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
+		const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+
+		ds_du_out = v1tex.x - v0tex.x;
+		dt_du_out = v1tex.y - v0tex.y;
+
+		ds_dv_out = v2tex.x - v0tex.x;
+		dt_dv_out = v2tex.y - v0tex.y;*/
+
+		assert(0);
+		ds_du_out = ds_dv_out = dt_du_out = dt_dv_out = 0.0;
+	}
+
+
 	std::vector<Vec2d> texcoords;
+
+	//Matrix2d d_st_d_uv;
+	//double ds_du_out, ds_dv_out, dt_du_out, dt_dv_out;
 };
+
+
+inline const Vec3d triGeomNormal(const std::vector<DUVertex>& verts, const DUTriangle& tri)
+{
+	return toVec3d(normalise(::crossProduct(
+		verts[tri.vertex_indices[1]].pos - verts[tri.vertex_indices[0]].pos,
+		verts[tri.vertex_indices[2]].pos - verts[tri.vertex_indices[0]].pos
+		)));
+}
 
 
 /*
@@ -348,6 +383,8 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
+	VoidMedium temp_void_medium;
+
 	// For each triangle
 	for(unsigned int t=0; t<triangles.size(); ++t)
 	{
@@ -355,11 +392,14 @@ void DisplacementUtils::displace(ThreadContext& context,
 		{
 			const unsigned int material_index = triangles[t].tri_mat_index;
 			const Material* material = &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
+			const MaterialBinding& material_binding = object.getMaterialBinding(material_index);
 
 			if(material->displacing())
 			{
-				FullHitInfo hitinfo;
-				hitinfo.hitobject = &object;
+				const Vec3d N_g = triGeomNormal(verts_in, triangles[t]);
+	
+
+				//hitinfo.hitobject = &object;
 
 				//const int uv_set_index = material->getDisplacementTextureUVSetIndex();
 				//assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
@@ -369,7 +409,24 @@ void DisplacementUtils::displace(ThreadContext& context,
 				// For each vertex
 				for(unsigned int i=0; i<3; ++i)
 				{
-					hitinfo.hitpos = toVec3d(verts_in[triangles[t].vertex_indices[i]].pos);
+					/*const Vec3d& N_s = toVec3d(verts_in[triangles[t].vertex_indices[i]].normal);
+					assert(N_s.isUnitLength());
+
+					//Basisd shading_basis;
+					//shading_basis.constructFromVector(N_s);
+					FullHitInfo hitinfo(
+						&object,
+						&temp_void_medium,
+						toVec3d(verts_in[triangles[t].vertex_indices[i]].pos), // position
+						N_g,
+						N_g,
+						N_s,
+						HitInfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0)) // NOTE: we use dummy values here because they will not be used, because of our custom texcoord evaluator.
+						);*/
+
+					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0));
+
+					//hitinfo.hitpos = toVec3d(verts_in[triangles[t].vertex_indices[i]].pos);
 
 					for(unsigned int z=0; z<num_uv_sets; ++z)
 						du_texcoord_evaluator.texcoords[z] = toVec2d(getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z));
@@ -380,7 +437,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
 						);*/
 					//const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
-					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, material_index, du_texcoord_evaluator);
+					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, material_binding, du_texcoord_evaluator);
 
 					min_displacement = myMin(min_displacement, displacement);
 

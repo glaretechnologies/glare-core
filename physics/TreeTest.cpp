@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
-#include "../indigo/DistanceFullHitInfo.h"
+#include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
 #include <algorithm>
 #include "../simpleraytracer/csmodelloader.h"
@@ -323,44 +323,47 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//test getAllHits()
 		//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
-		std::vector<DistanceFullHitInfo> hitinfos;
+		std::vector<DistanceHitInfo> hitinfos;
 		tritree.getAllHits(ray, thread_context, tree_context, NULL, hitinfos);
-		std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
+		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 		if(dist > 0.0)
 		{
 			//if ray hit anything before
 			testAssert(hitinfos.size() >= 1);
 			testAssert(hitinfos[0].dist == dist);
-			testAssert(hitinfos[0].hitinfo == hitinfo);
+			testAssert(hitinfos[0].sub_elem_index == hitinfo.sub_elem_index);
+			testAssert(hitinfos[0].sub_elem_coords == hitinfo.sub_elem_coords);
 		}
 
 		// Do a check against all tris
-		std::vector<DistanceFullHitInfo> hitinfos_d;
+		std::vector<DistanceHitInfo> hitinfos_d;
 		tritree.getAllHitsAllTris(ray, hitinfos_d);
-		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceFullHitInfoComparisonPred);
+		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred);
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_d.size());
 		for(unsigned int z=0; z<hitinfos.size(); ++z)
 		{
 			testAssert(hitinfos[z].dist == hitinfos_d[z].dist);
-			testAssert(hitinfos[z].hitinfo == hitinfos_d[z].hitinfo);
+			testAssert(hitinfos[z].sub_elem_index == hitinfos_d[z].sub_elem_index);
+			testAssert(hitinfos[z].sub_elem_coords == hitinfos_d[z].sub_elem_coords);
 		}
 
 		//------------------------------------------------------------------------
 		//test getAllHits() on BIH
 		//------------------------------------------------------------------------
-		std::vector<DistanceFullHitInfo> hitinfos_bih;
+		std::vector<DistanceHitInfo> hitinfos_bih;
 		bih_tree.getAllHits(ray, thread_context, tree_context, NULL, hitinfos_bih);
-		std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), distanceFullHitInfoComparisonPred);
+		std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), distanceHitInfoComparisonPred);
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_bih.size());
 		for(unsigned int z=0; z<hitinfos.size(); ++z)
 		{
 			testAssert(hitinfos[z].dist == hitinfos_bih[z].dist);
-			testAssert(hitinfos[z].hitinfo == hitinfos_bih[z].hitinfo);
+			testAssert(hitinfos[z].sub_elem_index == hitinfos_bih[z].sub_elem_index);
+			testAssert(hitinfos[z].sub_elem_coords == hitinfos_bih[z].sub_elem_coords);
 		}
 #endif
 

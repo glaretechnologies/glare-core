@@ -27,13 +27,14 @@ You may not use this code for any commercial project.
 
 #include "ray.h"
 #include "../indigo/FullHitInfo.h"
-#include "../indigo/DistanceFullHitInfo.h"
+#include "../indigo/DistanceHitInfo.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/TestUtils.h"
 #include "../physics/jscol_TriTreePerThreadData.h"
 #include <algorithm>
 #include "../indigo/ThreadContext.h"
 #include "../raytracing/matutils.h"
+#include "../indigo/object.h"
 
 
 RaySphere::RaySphere(const Vec3d& pos_, double radius_)
@@ -86,18 +87,33 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		return -1.0;//no intersection
 
 	const double sqrt_discriminant = sqrt(discriminant);
-	const double t0 = (-B - sqrt_discriminant) * 0.5;
-	if(t0 > 0.0)
 	{
-		hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(ray.point(t0) - centerpos, recip_radius);
-		return t0;
+		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
+		if(t0 > 0.0)
+		{
+			const Vec2d uvs = MatUtils::sphericalCoordsForDir(ray.point(t0) - centerpos, recip_radius);
+			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
+			{
+				hitinfo_out.sub_elem_coords = uvs;
+				return t0;
+			}
+		}
 	}
-	else
+
 	{
 		const double t = (-B + sqrt_discriminant) * 0.5;
-		hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(ray.point(t) - centerpos, recip_radius);
-		return t;
+		if(t > 0.0)
+		{
+			const Vec2d uvs = MatUtils::sphericalCoordsForDir(ray.point(t) - centerpos, recip_radius);
+			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
+			{
+				hitinfo_out.sub_elem_coords = uvs;
+				return t;
+			}
+		}
 	}
+
+	return -1.0;
 
 	
 	/*const Vec3d raystarttosphere = this->centerpos - ray.startpos;
@@ -200,7 +216,7 @@ const Vec3d RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
 
 
 //TODO: test
-void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceFullHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -225,22 +241,42 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 	
 	if(dist_to_rayclosest + a > 0.0)
 	{
-		hitinfos_out.push_back(DistanceFullHitInfo());
-		hitinfos_out.back().dist = dist_to_rayclosest + a;
-		hitinfos_out.back().hitpos = ray.startPos();
-		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
-		hitinfos_out.back().hitinfo.sub_elem_index = 0;
-		hitinfos_out.back().hitinfo.sub_elem_coords = MatUtils::sphericalCoordsForDir(hitinfos_out.back().hitpos - centerpos, recip_radius);
+		const Vec3d hitpos = ray.point(dist_to_rayclosest + a);
+		const Vec2d uvs = MatUtils::sphericalCoordsForDir(hitpos - centerpos, recip_radius);
+
+		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest + a, 0, uvs.x, uvs.y))
+		{
+			/*hitinfos_out.push_back(DistanceFullHitInfo());
+			hitinfos_out.back().dist = dist_to_rayclosest + a;
+			hitinfos_out.back().hitpos = hitpos;
+			hitinfos_out.back().hitinfo.sub_elem_index = 0;
+			hitinfos_out.back().hitinfo.sub_elem_coords = uvs;*/
+			hitinfos_out.push_back(DistanceHitInfo(
+				0,
+				uvs,
+				dist_to_rayclosest + a
+				));
+		}
 	}
 
 	if(dist_to_rayclosest - a > 0.0)
 	{
-		hitinfos_out.push_back(DistanceFullHitInfo());
-		hitinfos_out.back().dist = dist_to_rayclosest - a;
-		hitinfos_out.back().hitpos = ray.startPos();
-		hitinfos_out.back().hitpos.addMult(ray.unitDir(), hitinfos_out.back().dist);
-		hitinfos_out.back().hitinfo.sub_elem_index = 0;
-		hitinfos_out.back().hitinfo.sub_elem_coords = MatUtils::sphericalCoordsForDir(hitinfos_out.back().hitpos - centerpos, recip_radius);
+		const Vec3d hitpos = ray.point(dist_to_rayclosest - a);
+		const Vec2d uvs = MatUtils::sphericalCoordsForDir(hitpos - centerpos, recip_radius);
+
+		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest - a, 0, uvs.x, uvs.y))
+		{
+			/*hitinfos_out.push_back(DistanceFullHitInfo());
+			hitinfos_out.back().dist = dist_to_rayclosest - a;
+			hitinfos_out.back().hitpos = hitpos;
+			hitinfos_out.back().hitinfo.sub_elem_index = 0;
+			hitinfos_out.back().hitinfo.sub_elem_coords = uvs;*/
+			hitinfos_out.push_back(DistanceHitInfo(
+				0,
+				uvs,
+				dist_to_rayclosest - a
+				));
+		}
 	}
 }
 
@@ -404,25 +440,25 @@ void RaySphere::test()
 	//test getAllHits()
 	//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
-	std::vector<DistanceFullHitInfo> hitinfos;
+	std::vector<DistanceHitInfo> hitinfos;
 	sphere.getAllHits(ray, thread_context, context, NULL, hitinfos);
-	std::sort(hitinfos.begin(), hitinfos.end(), distanceFullHitInfoComparisonPred);
+	std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 	testAssert(hitinfos.size() == 2);
 
 	testAssert(epsEqual(hitinfos[0].dist, 0.5));
 	//testAssert(epsEqual(hitinfos[0].geometric_normal, Vec3d(-1,0,0)));
-	testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(-0.5, 0, 1)));
+	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(-0.5, 0, 1)));
 
 	testAssert(epsEqual(hitinfos[1].dist, 1.5));
 	//testAssert(epsEqual(hitinfos[1].geometric_normal, Vec3d(1,0,0)));
-	testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
+	//testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0].hitinfo), Vec3d(-1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0].hitinfo), Vec3d(-1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3d(-1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3d(-1,0,0)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1].hitinfo), Vec3d(1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1].hitinfo), Vec3d(1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3d(1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3d(1,0,0)));
 
 
 	//------------------------------------------------------------------------
@@ -448,7 +484,7 @@ void RaySphere::test()
 
 	testAssert(hitinfos.size() == 1);
 	testAssert(epsEqual(hitinfos[0].dist, 0.25));
-	testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(0.5, 0, 1)));
+	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(0.5, 0, 1)));
 
 
 #endif
