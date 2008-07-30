@@ -373,7 +373,7 @@ const Vec2d RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords
 }
 
 
-void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
 {
 	const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
 	const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
@@ -381,7 +381,32 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& 
 
 	dp_du_out = toVec3d(v1pos - v0pos);
 	dp_dv_out = toVec3d(v2pos - v0pos);
+
+
+	if(this->enable_normal_smoothing)
+	{
+		// TEMP NEW:
+		//dp_du_out.removeComponentInDir(
+
+		
+
+
+
+		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
+
+		const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
+		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
+		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
+
+		dNs_du_out = toVec3d(v1norm - v0norm);
+		dNs_dv_out = toVec3d(v2norm - v0norm);
+	}
+	else
+	{
+		dNs_du_out = dNs_dv_out = Vec3d(0,0,0);
+	}
 }
+
 
 void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
 {

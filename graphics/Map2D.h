@@ -33,6 +33,7 @@ public:
 	// X and Y are normalised image coordinates.
 	virtual const Colour3d vec3SampleTiled(double x, double y) const = 0;
 
+	// X and Y are normalised image coordinates.
 	virtual double scalarSampleTiled(double x, double y) const = 0;
 
 

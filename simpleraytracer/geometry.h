@@ -78,7 +78,8 @@ public:
 	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
 	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' u and v.
-	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const = 0;
+	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' u and v.
+	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const = 0;
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const = 0;
 	//returns true if could construct a suitable basis
 	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;

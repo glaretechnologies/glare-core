@@ -297,7 +297,7 @@ const Vec2d RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoor
 }
 
 
-void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
 {
 	const double theta = hitinfo.sub_elem_coords.x;
 	const double phi = hitinfo.sub_elem_coords.y;
@@ -310,6 +310,9 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d
 
 	//(dx/dv, dy/dv, dz/dv)
 	dp_dv_out = Vec3d(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
+
+	//TEMP HACK:
+	dNs_du_out = dNs_dv_out = Vec3d(0,0,0);
 }
 
 

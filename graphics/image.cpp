@@ -579,7 +579,7 @@ void Image::overwriteImage(const Image& img, int destx, int desty)
 
 
 
-
+/*
 const Image::ColourType Image::sample(float u, float v) const
 {
 	int ut = (int)u;
@@ -609,8 +609,8 @@ const Image::ColourType Image::sample(float u, float v) const
 	assert(colour_out.r >= 0.0 && colour_out.g >= 0.0 && colour_out.b >= 0.0);
 
 	return colour_out;
-}
-
+}*/
+/*
 const Image::ColourType Image::sampleTiled(float u, float v) const
 {
 	double intpart;
@@ -669,7 +669,7 @@ const Image::ColourType Image::sampleTiled(float u, float v) const
 	colour_out.addMult(getPixel(ut+1, vt), ufrac * onevfrac);
 
 	return colour_out;
-}
+}*/
 
 #ifndef BASIC_IMAGE
 
@@ -1399,9 +1399,14 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 						{
 							assert(scaled_normed_coords.inHalfClosedInterval(0.0, 1.0));
 									
-							sum += original_filter.sample(
-								scaled_normed_coords.x * (double)original_filter.getWidth(),
-								scaled_normed_coords.y * (double)original_filter.getHeight()
+							//sum += original_filter.sample(
+							//	scaled_normed_coords.x * (double)original_filter.getWidth(),
+							//	scaled_normed_coords.y * (double)original_filter.getHeight()
+							//	)[c];// * ss_weight;
+
+							sum += (float)original_filter.vec3SampleTiled(
+								scaled_normed_coords.x,
+								scaled_normed_coords.y
 								)[c];// * ss_weight;
 						}
 					}
@@ -1551,13 +1556,97 @@ float Image::maxPixelComponent() const
 	return x;
 }
 
-const Colour3d Image::vec3SampleTiled(double x, double y) const
+
+
+const Colour3d Image::vec3SampleTiled(double u, double v) const
 {
-	return sampleTiled((float)x, (float)y).toColour3d();
+	//return sampleTiled((float)x, (float)y).toColour3d();
+
+	Colour3d colour_out;
+
+	double intpart; // not used
+	double u_frac_part = modf(u, &intpart);
+	double v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+
+	if(u_frac_part < 0.0)
+		u_frac_part = 1.0 + u_frac_part;
+	if(v_frac_part < 0.0)
+		v_frac_part = 1.0 + v_frac_part;
+
+	assert(Maths::inHalfClosedInterval(u_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(v_frac_part, 0.0, 1.0));
+
+	// Convert from normalised image coords to pixel coordinates
+	const double u_pixels = u_frac_part * (double)getWidth();
+	const double v_pixels = v_frac_part * (double)getHeight();
+
+	assert(Maths::inHalfClosedInterval(u_pixels, 0.0, (double)getWidth()));
+	assert(Maths::inHalfClosedInterval(v_pixels, 0.0, (double)getHeight()));
+
+	const unsigned int ut = (unsigned int)u_pixels;
+	const unsigned int vt = (unsigned int)v_pixels;
+
+	assert(ut >= 0 && ut < getWidth());
+	assert(vt >= 0 && vt < getHeight());
+
+	const unsigned int ut_1 = (ut + 1) % getWidth();
+	const unsigned int vt_1 = (vt + 1) % getHeight();
+
+	const double ufrac = u_pixels - (double)ut;
+	const double vfrac = v_pixels - (double)vt;
+	const double oneufrac = 1.0 - ufrac;
+	const double onevfrac = 1.0 - vfrac;
+
+	// Top left pixel
+	{
+		const float* pixel = getPixel(ut, vt).data();
+		const double factor = oneufrac * onevfrac;
+		colour_out.r = (double)pixel[0] * factor;
+		colour_out.g = (double)pixel[1] * factor;
+		colour_out.b = (double)pixel[2] * factor;
+	}
+
+
+	// Top right pixel
+	{
+		const float* pixel = getPixel(ut_1, vt).data();
+		const double factor = ufrac * onevfrac;
+		colour_out.r += (double)pixel[0] * factor;
+		colour_out.g += (double)pixel[1] * factor;
+		colour_out.b += (double)pixel[2] * factor;
+	}
+
+
+	// Bottom left pixel
+	{
+		const float* pixel = getPixel(ut, vt_1).data();
+		const double factor = oneufrac * vfrac;
+		colour_out.r += (double)pixel[0] * factor;
+		colour_out.g += (double)pixel[1] * factor;
+		colour_out.b += (double)pixel[2] * factor;
+	}
+
+	// Bottom right pixel
+	{
+		const float* pixel = getPixel(ut_1, vt_1).data();
+		const double factor = ufrac * vfrac;
+		colour_out.r += (double)pixel[0] * factor;
+		colour_out.g += (double)pixel[1] * factor;
+		colour_out.b += (double)pixel[2] * factor;
+	}
+
+	return colour_out;
 }
 
+/*
 double Image::scalarSampleTiled(double x, double y) const
 {
 	const Colour3f col = sampleTiled((float)x, (float)y);
 	return (double)(col.r + col.g + col.b) * (1.0 / 3.0);
+}*/
+
+double Image::scalarSampleTiled(double x, double y) const
+{
+	const Colour3d col = vec3SampleTiled(x, y);
+	return (col.r + col.g + col.b) * (1.0 / 3.0);
 }

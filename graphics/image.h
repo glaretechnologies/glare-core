@@ -57,8 +57,8 @@ public:
 
 	inline const ColourType& getPixelTiled(int x, int y) const;
 
-	const ColourType sample(float x, float y) const;
-	const ColourType sampleTiled(float x, float y) const;
+	//const ColourType sample(float x, float y) const;
+	//const ColourType sampleTiled(float x, float y) const;
 
 	//static Image* loadFromBitmap(const std::string& pathname);
 	//throws ImageExcep

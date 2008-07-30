@@ -1052,7 +1052,7 @@ double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& p
 	return 1.0;
 }
 
-void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out) const
+void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
 {
 	assert(0);
 }
