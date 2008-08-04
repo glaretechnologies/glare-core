@@ -83,7 +83,9 @@ public:
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
-		bool merge_vertices_with_same_pos_and_normal = false
+		bool merge_vertices_with_same_pos_and_normal = false,
+		bool wrap_u = false,
+		bool wrap_v = false
 		);
 
 	virtual ~RayMesh();
@@ -225,6 +227,9 @@ private:
 	//int num_bad_normals;
 
 	bool merge_vertices_with_same_pos_and_normal;
+
+	bool wrap_u;
+	bool wrap_v;
 
 	//------------------------------------------------------------------------
 	//emitter stuff

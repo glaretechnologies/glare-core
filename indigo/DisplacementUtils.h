@@ -25,6 +25,7 @@ public:
 	bool anchored;
 	//int adjacent_subdivided_tris;
 	int adjacent_vert_0, adjacent_vert_1;
+	float displacement; // will be set after displace() is called.
 	
 	//static const unsigned int MAX_NUM_UV_SET_INDICES = 8;
 	//unsigned int uv_set_indices[MAX_NUM_UV_SET_INDICES];
@@ -50,6 +51,14 @@ public:
 	unsigned int tri_mat_index;
 	unsigned int dimension;
 	//unsigned int num_subdivs;
+};
+
+
+class DUOptions
+{
+public:
+	bool wrap_u;
+	bool wrap_v;
 };
 
 /*=====================================================================
@@ -83,11 +92,14 @@ public:
 		const std::vector<RayMeshVertex>& verts_in, 
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
+		const DUOptions& options,
 		std::vector<RayMeshTriangle>& tris_out, 
 		std::vector<RayMeshVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
 		);
 
+
+	static void test();
 
 private:
 	static void displace(
@@ -113,6 +125,7 @@ private:
 		const std::vector<DUVertex>& verts_in, 
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
+		const DUOptions& options,
 		std::vector<DUTriangle>& tris_out, 
 		std::vector<DUVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
@@ -122,6 +135,7 @@ private:
 		const std::vector<DUVertex>& verts,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
+		const DUOptions& options,
 		std::vector<DUVertex>& new_verts_out,
 		std::vector<Vec2f>& uvs_out
 		);

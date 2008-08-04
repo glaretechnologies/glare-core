@@ -27,7 +27,9 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
-				 bool merge_vertices_with_same_pos_and_normal_
+				 bool merge_vertices_with_same_pos_and_normal_,
+				bool wrap_u_,
+				bool wrap_v_
 				 )
 :	name(name_),
 	tritree(NULL),
@@ -36,7 +38,9 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
-	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_)
+	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_),
+	wrap_u(wrap_u_),
+	wrap_v(wrap_v_)
 {
 //	num_texcoord_sets = 0;
 //	num_vertices = 0;
@@ -186,6 +190,10 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		std::vector<RayMeshVertex> temp_verts;
 		std::vector<Vec2f> temp_uvs;
 
+		DUOptions options;
+		options.wrap_u = wrap_u;
+		options.wrap_v = wrap_v;
+
 		DisplacementUtils::subdivideAndDisplace(
 			context,
 			object,
@@ -201,6 +209,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 			vertices,
 			uvs,
 			this->num_uvs_per_group,
+			options,
 			temp_tris,
 			temp_verts,
 			temp_uvs
@@ -595,6 +604,10 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 
 	for(unsigned int i=0; i<num_uvs_per_group; ++i)
 	{
+		//TEMP:
+		printVar(new_uvs[i].x);
+		printVar(new_uvs[i].y);
+
 		if(i < new_uvs.size())
 			uvs.push_back(new_uvs[i]);
 		else
