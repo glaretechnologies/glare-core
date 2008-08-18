@@ -85,7 +85,9 @@ public:
 		double subdivide_curvature_threshold = 0.0,
 		bool merge_vertices_with_same_pos_and_normal = false,
 		bool wrap_u = false,
-		bool wrap_v = false
+		bool wrap_v = false,
+		bool view_dependent_subdivision = false,
+		double displacement_error_threshold = 0.0
 		);
 
 	virtual ~RayMesh();
@@ -216,7 +218,7 @@ private:
 	unsigned int num_uv_groups; // will be roughly equal to number of vertice
 	std::vector<Vec2f> uvs; // will have num_uv_groups * num_uvs_per_group elements
 
-	unsigned int num_subdivisions;
+	unsigned int max_num_subdivisions;
 	double subdivide_pixel_threshold;
 	double subdivide_curvature_threshold;
 	bool subdivision_smoothing;
@@ -227,6 +229,8 @@ private:
 	//int num_bad_normals;
 
 	bool merge_vertices_with_same_pos_and_normal;
+	bool view_dependent_subdivision;
+	double displacement_error_threshold;
 
 	bool wrap_u;
 	bool wrap_v;

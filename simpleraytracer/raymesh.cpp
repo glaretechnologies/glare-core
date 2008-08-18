@@ -29,18 +29,22 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				 bool merge_vertices_with_same_pos_and_normal_,
 				bool wrap_u_,
-				bool wrap_v_
+				bool wrap_v_,
+				bool view_dependent_subdivision_,
+				double displacement_error_threshold_
 				 )
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
-	num_subdivisions(num_subdivisions_),
+	max_num_subdivisions(num_subdivisions_),
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
 	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_),
 	wrap_u(wrap_u_),
-	wrap_v(wrap_v_)
+	wrap_v(wrap_v_),
+	view_dependent_subdivision(view_dependent_subdivision_),
+	displacement_error_threshold(displacement_error_threshold_)
 {
 //	num_texcoord_sets = 0;
 //	num_vertices = 0;
@@ -165,9 +169,11 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 	if(subdivide_and_displace_done)
 	{
 		// Throw exception if we are supposed to do a view-dependent subdivision
-		if(subdivide_pixel_threshold > 0.0)
-			throw GeometryExcep("Tried to do a view-dependent subdivision on an instanced mesh. (subdivide_pixel_threshold > 0.0)");
+		//if(subdivide_pixel_threshold > 0.0)
+		if(view_dependent_subdivision && max_num_subdivisions > 0)
+			throw GeometryExcep("Tried to do a view-dependent subdivision on an instanced mesh.");
 
+		// else not an error, but we don't need to subdivide again, so return.
 		return;
 	}
 
@@ -177,9 +183,9 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 	if(!vertex_shading_normals_provided)
 		computeShadingNormals();
 
-	if(object.hasDisplacingMaterial() || num_subdivisions > 0)
+	if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 	{
-		conPrint("Subdividing and displacing mesh '" + this->getName() + "', (num subdivisions = " + toString(num_subdivisions) + ") ...");
+		conPrint("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
 		// Convert to single precision floating point planes
 		std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
@@ -193,17 +199,25 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		DUOptions options;
 		options.wrap_u = wrap_u;
 		options.wrap_v = wrap_v;
+		options.view_dependent_subdivision = view_dependent_subdivision;
+		options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+		options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+		options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+		options.displacement_error_threshold = displacement_error_threshold;
+		options.max_num_subdivisions = max_num_subdivisions;
+		options.camera_clip_planes = camera_clip_planes_f;
+		options.camera_coordframe_os = camera_coordframe_os;
 
 		DisplacementUtils::subdivideAndDisplace(
 			context,
 			object,
 			//materials,
-			camera_coordframe_os, 
-			pixel_height_at_dist_one,
-			subdivide_pixel_threshold,
-			subdivide_curvature_threshold,
-			num_subdivisions,
-			camera_clip_planes_f,
+			//camera_coordframe_os, 
+			//pixel_height_at_dist_one,
+			//subdivide_pixel_threshold,
+			//subdivide_curvature_threshold,
+			//num_subdivisions,
+			//camera_clip_planes_f,
 			subdivision_smoothing,
 			triangles,
 			vertices,
@@ -573,10 +587,16 @@ void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const st
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
-	if(!epsEqual(normal.length(), 1.0f, 0.001f))
-		throw ModelLoadingStreamHandlerExcep("Normal does not have length 1.");
+	//if(!epsEqual(normal.length(), 1.0f, 0.001f))
+	//	throw ModelLoadingStreamHandlerExcep("Normal does not have length 1.");
+
+	const Vec3f n = normalise(normal);
+
+	if(!isFinite(normal.x) || !isFinite(normal.y) || !isFinite(normal.z))
+		throw ModelLoadingStreamHandlerExcep("Invalid normal");
+
 	
-	vertices.push_back(RayMeshVertex(pos, normalise(normal)));
+	vertices.push_back(RayMeshVertex(pos, n));
 
 	this->vertex_shading_normals_provided = true;
 }
@@ -605,8 +625,8 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 	for(unsigned int i=0; i<num_uvs_per_group; ++i)
 	{
 		//TEMP:
-		printVar(new_uvs[i].x);
-		printVar(new_uvs[i].y);
+		//printVar(new_uvs[i].x);
+		//printVar(new_uvs[i].y);
 
 		if(i < new_uvs.size())
 			uvs.push_back(new_uvs[i]);

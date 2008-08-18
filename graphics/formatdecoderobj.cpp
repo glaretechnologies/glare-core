@@ -54,7 +54,13 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	const unsigned int MAX_NUM_FACE_VERTICES = 256;
 	std::vector<unsigned int> face_vertex_indices(MAX_NUM_FACE_VERTICES);
+	std::vector<unsigned int> face_normal_indices(MAX_NUM_FACE_VERTICES);
 	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES, 0);
+
+	unsigned int num_vertices_added = 0;
+
+	std::vector<Vec3f> vert_positions;
+	std::vector<Vec3f> vert_normals;
 
 	int linenum = 0;
 	std::string token;
@@ -106,7 +112,8 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 			pos *= scale;
 			
-			handler.addVertex(pos);//, Vec3f(0,0,1));
+			//handler.addVertex(pos);//, Vec3f(0,0,1));
+			vert_positions.push_back(pos);
 		}
 		else if(token == "vt")//vertex tex coordinate
 		{
@@ -132,6 +139,21 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 			uv_vector[0] = texcoord;
 			handler.addUVs(uv_vector);
 		}
+		else if(token == "vn") // vertex normal
+		{
+			Vec3f normal(0,0,0);
+			parser.parseSpacesAndTabs();
+			const bool r1 = parser.parseFloat(normal.x);
+			parser.parseSpacesAndTabs();
+			const bool r2 = parser.parseFloat(normal.y);
+			parser.parseSpacesAndTabs();
+			const bool r3 = parser.parseFloat(normal.z);
+
+			if(!r1 || !r2 || !r3)
+				throw ModelFormatDecoderExcep("Parse error while reading normal on line " + toString(linenum));
+
+			vert_normals.push_back(normal);
+		}
 		else if(token == "f")//face
 		{
 			int numfaceverts = 0;
@@ -145,8 +167,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 				//------------------------------------------------------------------------
 				//Parse vert, texcoord, normal indices
 				//------------------------------------------------------------------------
+				bool read_normal_index = false;
 
-				//Read vertex position index
+				// Read vertex position index
 				if(parser.parseUnsignedInt(face_vertex_indices[i]))
 				{
 					numfaceverts++;
@@ -157,7 +180,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 					face_vertex_indices[i]--; // make index 0-based
 
-					//Try and read vertex texcoord index
+					// Try and read vertex texcoord index
 					if(parser.parseChar('/'))
 					{
 						if(parser.parseUnsignedInt(face_uv_indices[i]))
@@ -165,28 +188,45 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 							if(face_uv_indices[i] == 0)
 								throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(face_uv_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
 							
-							face_uv_indices[i]--;//make 0-based
+							face_uv_indices[i]--; // make index 0-based
 							//got_texcoord = true;
 						}
 
-						//Try and read vertex normal index
+						// Try and read vertex normal index
 						if(parser.parseChar('/'))
 						{
-							unsigned int vert_normal_index; // don't actually do anything with this.
+							//unsigned int vert_normal_index; // don't actually do anything with this.
 
-							if(!parser.parseUnsignedInt(vert_normal_index))
+							if(!parser.parseUnsignedInt(face_normal_indices[i]))
 								throw ModelFormatDecoderExcep("syntax error: no integer following '/' (line " + toString(linenum) + ")");
 						
-							if(vert_normal_index == 0)
-								throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(vert_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+							if(face_normal_indices[i] == 0)
+								throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(face_normal_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
 							
-							vert_normal_index--; // index make 0 based
-							//got_normal = true;
+							face_normal_indices[i]--; // make index 0 based
+							read_normal_index = true;
 						}
 					}
 				}
 				else 
 					throw ModelFormatDecoderExcep("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
+
+				// Add the vertex to the mesh
+
+				if(face_vertex_indices[i] >= vert_positions.size())
+					throw ModelFormatDecoderExcep("Position index invalid. (index '" + toString(face_vertex_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+
+				if(read_normal_index)
+				{
+					if(face_normal_indices[i] >= vert_normals.size())
+						throw ModelFormatDecoderExcep("Normal index invalid. (index '" + toString(face_normal_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+
+					handler.addVertex(vert_positions[face_vertex_indices[i]], vert_normals[face_normal_indices[i]]);
+				}
+				else
+				{
+					handler.addVertex(vert_positions[face_vertex_indices[i]]);
+				}
 
 			}//end for each vertex
 
@@ -210,10 +250,13 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 			// Add all tris needed to make up the face polygon
 			for(int i=2; i<numfaceverts; ++i)
 			{
-				const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
+				//const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
+				const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + i - 1, num_vertices_added + i };
 				const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
 				handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
 			}
+
+			num_vertices_added += numfaceverts;
 
 			// Finished handling face.
 		}

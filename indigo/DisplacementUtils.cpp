@@ -105,9 +105,12 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles, std::
 void DisplacementUtils::subdivideAndDisplace(
 	ThreadContext& context,
 	const Object& object,
-	const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
-	unsigned int num_subdivisions,
-	const std::vector<Plane<float> >& camera_clip_planes,
+	//const CoordFramed& camera_coordframe_os, 
+	//double pixel_height_at_dist_one, 
+	//double subdivide_pixel_threshold, 
+	//double subdivide_curvature_threshold,
+	//unsigned int num_subdivisions,
+	//const std::vector<Plane<float> >& camera_clip_planes,
 	bool smooth,
 	const std::vector<RayMeshTriangle>& triangles_in, 
 	const std::vector<RayMeshVertex>& vertices_in,
@@ -209,7 +212,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	std::vector<DUVertex> temp_verts2;
 	std::vector<Vec2f> temp_uvs2;
 
-	for(unsigned int i=0; i<num_subdivisions; ++i)
+	for(unsigned int i=0; i<options.max_num_subdivisions; ++i)
 	{
 		conPrint("\tDoing subdivision level " + toString(i) + "...");
 
@@ -217,11 +220,11 @@ void DisplacementUtils::subdivideAndDisplace(
 			context,
 			object,
 			//materials,
-			camera_coordframe_os, 
-			pixel_height_at_dist_one, 
-			subdivide_pixel_threshold, 
-			subdivide_curvature_threshold,
-			camera_clip_planes,
+			//camera_coordframe_os, 
+			//pixel_height_at_dist_one, 
+			//subdivide_pixel_threshold, 
+			//subdivide_curvature_threshold,
+			//camera_clip_planes,
 			temp_tris, // tris in
 			temp_verts, // verts in
 			temp_uvs, // uvs in
@@ -378,8 +381,7 @@ static float evalDisplacement(ThreadContext& context,
 								)
 {
 	const Material& material = object.getMaterial(triangle.tri_mat_index);
-	const MaterialBinding& material_binding = object.getMaterialBinding(triangle.tri_mat_index);
-
+	
 	if(material.displacing())
 	{
 		DUTexCoordEvaluator du_texcoord_evaluator;
@@ -397,6 +399,8 @@ static float evalDisplacement(ThreadContext& context,
 		}
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0));
+
+		const MaterialBinding& material_binding = object.getMaterialBinding(triangle.tri_mat_index);
 
 		return (float)material.evaluateDisplacement(context, hitinfo, material_binding, du_texcoord_evaluator);
 	}
@@ -445,22 +449,27 @@ static float displacementError(ThreadContext& context,
 								int res
 								)
 {
+	// Early out if material not displacing:
+	if(!object.getMaterial(triangle.tri_mat_index).displacing())
+		return 0.0f;
+
 	float max_error = -std::numeric_limits<float>::max();
 	const float recip_res = 1.0f / (float)res;
 	for(int x=0; x<=res; ++x)
 		for(int y=0; y<=(res - x); ++y)
 		{
-			const float nudge = 0.999; // nudge so that barycentric coords are valid
+			const float nudge = 0.999f; // nudge so that barycentric coords are valid
 			const float b1 = x * recip_res * nudge;
 			const float b2 = y * recip_res * nudge;
 
 			assert(b1 + b2 <= 1.0f);
 
-			const float error = 
+			const float error = fabs(
 				interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
-				evalDisplacement(context, object, triangle, verts, uvs, num_uv_sets, b1, b2);
+				evalDisplacement(context, object, triangle, verts, uvs, num_uv_sets, b1, b2)
+				);
 
-			max_error = myMax(max_error, fabs(error));
+			max_error = myMax(max_error, error);
 		}
 
 	return max_error;
@@ -720,15 +729,25 @@ static const Vec2f lerpUVs(const Vec2f& a, const Vec2f& b, float t, bool wrap_u,
 }
 
 
+static int getDispErrorRes(unsigned int num_tris)
+{
+	if(num_tris < 100)
+		return 15;
+	else if(num_tris < 10000)
+		return 10;
+	else
+		return 4;
+
+	//return 10;
+}
+
+
 void DisplacementUtils::linearSubdivision(
 	ThreadContext& context,
 	const Object& object,
 	//const std::vector<Reference<Material> >& materials,						
-	const CoordFramed& camera_coordframe_os, 
-	double pixel_height_at_dist_one,
-	double subdivide_pixel_threshold,
-	double subdivide_curvature_threshold,
-	const std::vector<Plane<float> >& camera_clip_planes,
+	//const CoordFramed& camera_coordframe_os, 
+	//const std::vector<Plane<float> >& camera_clip_planes,
 	const std::vector<DUTriangle>& tris_in, 
 	const std::vector<DUVertex>& verts_in,
 	const std::vector<Vec2f>& uvs_in,
@@ -779,6 +798,10 @@ void DisplacementUtils::linearSubdivision(
 
 	/*
 
+	view dependent subdivision:
+		* triangle in view frustrum
+		* screen space pixel size > subdivide_pixel_threshold
+
 	subdivide = 
 		num_subdivs < max_num_subdivs && 
 		(curvature >= curvature_threshold && 
@@ -787,8 +810,19 @@ void DisplacementUtils::linearSubdivision(
 		displacement_error > displacement_error_threshold
 
 
+		if view_dependent:
+			subdivide = 
+				num_subdivs < max_num_subdivs AND
+				triangle in view frustrum AND
+				screen space pixel size > subdivide_pixel_threshold AND
+				(curvature >= curvature_threshold OR 
+				displacement_error >= displacement_error_threshold)
 
-
+		else if not view dependent:
+			subdivide = 
+				num_subdivs < max_num_subdivs AND
+				(curvature >= curvature_threshold OR 
+				displacement_error >= displacement_error_threshold)
 	*/
 
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
@@ -800,6 +834,76 @@ void DisplacementUtils::linearSubdivision(
 		{
 			// Decide if we are going to subdivide the triangle
 			bool subdivide_triangle = false;
+
+			if(options.view_dependent_subdivision)
+			{
+				// Build vector of displaced triangle vertex positions. (in object space)
+				for(unsigned int i=0; i<3; ++i)
+					tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
+
+				// Clip triangle against frustrum planes
+				TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
+
+				if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
+				{
+					// Convert clipped verts to camera space
+					clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
+					for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
+						clipped_tri_verts_cs[i] = toVec3f(options.camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
+
+					// Compute 2D bounding box of clipped triangle in screen space
+					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(options.camera_coordframe_os, clipped_tri_verts_cs[0]);
+					Rect2f rect_ss(v0_ss, v0_ss);
+
+					for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
+						rect_ss.enlargeToHoldPoint(
+							screenSpacePosForCameraSpacePos(options.camera_coordframe_os, clipped_tri_verts_cs[i])
+							);
+
+					// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
+					const bool exceeds_pixel_threshold = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > options.pixel_height_at_dist_one * options.subdivide_pixel_threshold;
+
+					if(exceeds_pixel_threshold)
+					{
+						const float tri_curvature = triangleMaxCurvature(
+							displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
+
+						if(tri_curvature >= (float)options.subdivide_curvature_threshold)
+							subdivide_triangle = true;
+						else
+						{
+							// Test displacement error
+							const int res = getDispErrorRes(tris_in.size());
+							const float displacement_error = displacementError(context, object, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
+
+							subdivide_triangle = displacement_error >= options.displacement_error_threshold;
+						}
+					}
+				}
+			}
+			else
+			{
+				const float tri_curvature = triangleMaxCurvature(
+							displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
+
+				if(tri_curvature >= (float)options.subdivide_curvature_threshold)
+					subdivide_triangle = true;
+				else
+				{
+					// Test displacement error
+					const int RES = 10;
+					const float displacment_error = displacementError(context, object, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
+
+					subdivide_triangle = displacment_error >= options.displacement_error_threshold;
+				}
+			}
+
+
+
 
 			// Check curvature:
 			/*TEMP const float tri_curvature = triangleMaxCurvature(
@@ -837,14 +941,14 @@ void DisplacementUtils::linearSubdivision(
 				}
 			}*/
 
-			if(!subdivide_triangle)
+			/*if(!subdivide_triangle)
 			{
 				const float displacement_error_threshold = 0.01f;
 				const int RES = 10;
 				const float displacment_error = displacementError(context, object, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
 
 				subdivide_triangle = displacment_error >= displacement_error_threshold;
-			}
+			}*/
 
 			subdividing_tri[t] = subdivide_triangle;
 

@@ -59,6 +59,16 @@ class DUOptions
 public:
 	bool wrap_u;
 	bool wrap_v;
+
+	bool view_dependent_subdivision;
+	double pixel_height_at_dist_one;
+	double subdivide_pixel_threshold;
+	double subdivide_curvature_threshold;
+	double displacement_error_threshold;
+	unsigned int max_num_subdivisions;
+
+	std::vector<Plane<float> > camera_clip_planes;
+	CoordFramed camera_coordframe_os;
 };
 
 /*=====================================================================
@@ -84,9 +94,12 @@ public:
 	static void subdivideAndDisplace(
 		ThreadContext& context,
 		const Object& object,
-		const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, double subdivide_pixel_threshold, double subdivide_curvature_threshold,
-		unsigned int num_subdivisions,
-		const std::vector<Plane<float> >& camera_clip_planes,
+		//const CoordFramed& camera_coordframe_os, 
+		//double pixel_height_at_dist_one, 
+		//double subdivide_pixel_threshold, 
+		//double subdivide_curvature_threshold,
+		//unsigned int num_subdivisions,
+		//const std::vector<Plane<float> >& camera_clip_planes,
 		bool smooth,
 		const std::vector<RayMeshTriangle>& tris_in, 
 		const std::vector<RayMeshVertex>& verts_in, 
@@ -116,11 +129,11 @@ private:
 	static void linearSubdivision(
 		ThreadContext& context,
 		const Object& object,
-		const CoordFramed& camera_coordframe_os, 
-		double pixel_height_at_dist_one,
-		double subdivide_pixel_threshold,
-		double subdivide_curvature_threshold,
-		const std::vector<Plane<float> >& camera_clip_planes,
+		//const CoordFramed& camera_coordframe_os, 
+		//double pixel_height_at_dist_one,
+		//double subdivide_pixel_threshold,
+		//double subdivide_curvature_threshold,
+		//const std::vector<Plane<float> >& camera_clip_planes,
 		const std::vector<DUTriangle>& tris_in, 
 		const std::vector<DUVertex>& verts_in, 
 		const std::vector<Vec2f>& uvs_in,
