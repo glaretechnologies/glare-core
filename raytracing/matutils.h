@@ -124,6 +124,11 @@ public:
 	// Returns unit length vector
 	inline static const Vec3d dirForSphericalCoords(double phi, double theta);
 
+	/*
+	V is a vector away from the surface.
+	n1 will be set to the IOR of the medium that V points into.
+	*/
+	inline static void getN1AndN2(double external_ior, double internal_ior, double v_dot_orig_Ng, double& n1_out, double& n2_out);
 
 	static void unitTest();
 };
@@ -201,15 +206,23 @@ double MatUtils::pow5(double x)
 		fabs(dot(omega_in, hitinfo.N_s()) / in_dot_Ng);
 }*/
 
+const double MAX_SMOOTHING_FACTOR = 2.0;
+
 double MatUtils::smoothingFactor(double in_dot_Ns, double in_dot_Ng)
 {
-	return fabs(in_dot_Ns / in_dot_Ng);
+	return myMin(
+		MAX_SMOOTHING_FACTOR, 
+		fabs(in_dot_Ns / in_dot_Ng)
+		);
 }
 
 // NOTE: This is rather slow :)
 double MatUtils::smoothingFactor(const Vec3d& omega_in, const FullHitInfo& hitinfo)
 {
-	return fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
+	return myMin(
+		MAX_SMOOTHING_FACTOR, 
+		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()))
+		);
 }
 
 
@@ -273,6 +286,27 @@ const Vec3d MatUtils::dirForSphericalCoords(double phi, double theta)
 		sin_phi * sin_theta,
 		sqrt(1.0 - sin_theta*sin_theta) // z = cos(theta)
 		);*/
+}
+
+
+/*
+V is a vector away from the surface.
+n1 will be set to the IOR of the medium that V points into.
+*/
+void MatUtils::getN1AndN2(double external_ior, double internal_ior, double v_dot_orig_Ng, double& n1_out, double& n2_out)
+{
+	if(v_dot_orig_Ng >= 0.0)
+	{
+		// V points into the external medium
+		n1_out = external_ior;
+		n2_out = internal_ior;
+	}
+	else
+	{
+		// V points into the internal medium
+		n1_out = internal_ior;
+		n2_out = external_ior;
+	}
 }
 
 #endif //__MATUTILS_H_666_

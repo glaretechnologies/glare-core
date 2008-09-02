@@ -79,7 +79,7 @@ public:
 	
 	=====================================================================*/
 	RayMesh(const std::string& name, bool enable_normal_smoothing, 
-		unsigned int num_subdivisions = 0, 
+		unsigned int max_num_subdivisions = 0, 
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
@@ -159,6 +159,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////
 
 	
+	inline unsigned int getNumUVGroups() const { return num_uv_groups; }
 	
 	//Debugging:
 
