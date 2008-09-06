@@ -105,21 +105,11 @@ public:
 	const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const;
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const;
-	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
-	//virtual void emitterInit();
-	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
-	//									  HitInfo& hitinfo_out) const;
-	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
-	//virtual double surfaceArea(const Matrix3d& to_parent) const;
-
-	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
-
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
 	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const;
-	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const;
 
 	
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
@@ -175,7 +165,11 @@ private:
 	void mergeVerticesWithSamePosAndNormal();
 	void doInitAsEmitter();
 
-	//const Vec3d computeTriGeometricNormal(const FullHitInfo& hitinfo) const;
+	//inline unsigned int vertSize() const;
+	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
+	inline const Vec3f& vertNormal(unsigned int vertindex) const;
+	//inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
+	inline const Vec3f& vertPos(unsigned int vertindex) const;
 
 
 	std::string name;
@@ -201,12 +195,7 @@ private:
 
 	
 
-	//inline unsigned int vertSize() const;
-	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
-	inline const Vec3f& vertNormal(unsigned int vertindex) const;
-	//inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
-	inline const Vec3f& vertPos(unsigned int vertindex) const;
-
+	
 	//unsigned int num_texcoord_sets;
 	//unsigned int num_vertices;
 	//std::vector<float> vertex_data;
@@ -227,23 +216,12 @@ private:
 	bool subdivide_and_displace_done;
 	bool vertex_shading_normals_provided;
 
-	//int num_bad_normals;
-
 	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
 
 	bool wrap_u;
 	bool wrap_v;
-
-	//------------------------------------------------------------------------
-	//emitter stuff
-	//------------------------------------------------------------------------
-	//bool done_init_as_emitter;
-	//double total_surface_area;
-	//std::vector<double> cdf;
-
-	//std::vector<double> tri_surface_areas;
 };
 
 

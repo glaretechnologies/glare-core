@@ -38,6 +38,7 @@ ThreadManager::~ThreadManager()
 	}*/
 }
 
+
 void ThreadManager::enqueueMessage(const ThreadMessage& m)
 {
 	Lock lock(mutex);
@@ -127,7 +128,6 @@ void ThreadManager::addThread(MessageableThread* t)
 	t->launch(true);
 
 }
-
 
 
 unsigned int ThreadManager::getNumThreadsRunning()

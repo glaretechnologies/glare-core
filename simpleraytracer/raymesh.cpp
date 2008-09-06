@@ -25,7 +25,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include <algorithm>
 
 
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int num_subdivisions_, 
+RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				 bool merge_vertices_with_same_pos_and_normal_,
 				bool wrap_u_,
@@ -36,7 +36,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 :	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
-	max_num_subdivisions(num_subdivisions_),
+	max_num_subdivisions(max_num_subdivisions_),
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
@@ -46,13 +46,8 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	view_dependent_subdivision(view_dependent_subdivision_),
 	displacement_error_threshold(displacement_error_threshold_)
 {
-//	num_texcoord_sets = 0;
-//	num_vertices = 0;
-//	total_surface_area = 0.0;
-//	done_init_as_emitter = false;
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
-	//num_bad_normals = 0;
 
 	num_uvs_per_group = 0;
 	num_uv_groups = 0;
@@ -211,13 +206,6 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		DisplacementUtils::subdivideAndDisplace(
 			context,
 			object,
-			//materials,
-			//camera_coordframe_os, 
-			//pixel_height_at_dist_one,
-			//subdivide_pixel_threshold,
-			//subdivide_curvature_threshold,
-			//num_subdivisions,
-			//camera_clip_planes_f,
 			subdivision_smoothing,
 			triangles,
 			vertices,
@@ -234,7 +222,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		uvs = temp_uvs;
 
 		// Check data
-	//#ifdef DEBUG
+#ifdef DEBUG
 		for(unsigned int i=0; i<triangles.size(); ++i)
 			for(unsigned int c=0; c<3; ++c)
 			{
@@ -244,8 +232,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 					assert(triangles[i].uv_indices[c] < uvs.size());
 				}
 			}
-	//#endif
-	
+#endif	
 		conPrint("\tDone.");
 	}
 
@@ -446,155 +433,23 @@ void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texc
 }
 
 
-//NOTE: need to make this use shading normal
-#if 0
-bool RayMesh::getTangents(const FullHitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
-{
-	//const IndexTri& tri = mesh.getTri(hitinfo.hittri_index);
-
-	/*const Vertex& v0 = mesh.getVert( mesh.getTri(hitinfo.hittri_index).vertex_indices[0] );
-	const Vertex& v1 = mesh.getVert( mesh.getTri(hitinfo.hittri_index).vertex_indices[1] );
-	const Vertex& v2 = mesh.getVert( mesh.getTri(hitinfo.hittri_index).vertex_indices[2] );*/
-
-	const Vec3f& v0pos = triVertPos(hitinfo.hittri_index, 0);//tritree->triVertPos(hitinfo.hittri_index, 0);
-	const Vec3f& v1pos = triVertPos(hitinfo.hittri_index, 1);//tritree->triVertPos(hitinfo.hittri_index, 1);
-	const Vec3f& v2pos = triVertPos(hitinfo.hittri_index, 2);//tritree->triVertPos(hitinfo.hittri_index, 2);
-
-	//const Vec2f& v0tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
-	//const Vec2f& v1tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
-	//const Vec2f& v2tex = vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
-	assert(texcoords_set < num_uvs_per_group);
-	const Vec2f& v0tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v1tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v2tex = this->uvs[triangles[hitinfo.hittri_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
-
-
-	/*const float a = v1.texcoords.x - v0.texcoords.x;
-	const float b = v1.texcoords.y - v0.texcoords.y;
-	const float c = v2.texcoords.x - v0.texcoords.x;
-	const float d = v2.texcoords.y - v0.texcoords.y;*/
-	const float a = v1tex.x - v0tex.x;
-	const float b = v1tex.y - v0tex.y;
-	const float c = v2tex.x - v0tex.x;
-	const float d = v2tex.y - v0tex.y;
-
-	Matrix2f mat(a, b, c, d);
-	if(mat.determinant() == 0.0f)
-	{
-		return false;
-		//abort! abort!
-		//tangent_out = Vec3(1,0,0);
-		//bitangent_out = Vec3(0,1,0);
-		//return;
-	}
-
-
-	mat.invert();
-
-	/*const float det = 1.0f / (a*d - b*c);
-
-	const float t11 = det * d;
-	const float t12 = det * -b;
-	const float t21 = det * -c;
-	const float t22 = det * a;*/
-
-	/*const Vec2 tangents_x = mat * Vec2(v1.pos.x - v0.pos.x, v2.pos.x - v0.pos.x);
-	const Vec2 tangents_y = mat * Vec2(v1.pos.y - v0.pos.y, v2.pos.y - v0.pos.y);
-	const Vec2 tangents_z = mat * Vec2(v1.pos.z - v0.pos.z, v2.pos.z - v0.pos.z);*/
-	const Vec2f tangents_x = mat * Vec2f(v1pos.x - v0pos.x, v2pos.x - v0pos.x);
-	const Vec2f tangents_y = mat * Vec2f(v1pos.y - v0pos.y, v2pos.y - v0pos.y);
-	const Vec2f tangents_z = mat * Vec2f(v1pos.z - v0pos.z, v2pos.z - v0pos.z);
-
-
-	tangent_out.set(tangents_x.x, tangents_y.x, tangents_z.x);
-	bitangent_out.set(tangents_x.y, tangents_y.y, tangents_z.y);
-
-
-
-
-
-//really old
-	/*tangent_out.x = (v1.pos.x - v0.pos.x)*t11 + (v2.pos.x - v0.pos.x)*t12;
-	tangent_out.y = (v1.pos.y - v0.pos.y)*t11 + (v2.pos.y - v0.pos.y)*t12;
-	tangent_out.z = (v1.pos.z - v0.pos.z)*t11 + (v2.pos.z - v0.pos.z)*t12;*/
-	//tangent_out.normalise();
-
-	/*bitangent_out.x = (v1.pos.x - v0.pos.x)*t21 + (v2.pos.x - v0.pos.x)*t22;
-	bitangent_out.y = (v1.pos.y - v0.pos.y)*t21 + (v2.pos.y - v0.pos.y)*t22;
-	bitangent_out.z = (v1.pos.z - v0.pos.z)*t21 + (v2.pos.z - v0.pos.z)*t22;*/
-	//bitangent_out.normalise();
-
-	return true;
-}
-#endif
-
-
 void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 {
-	//num_texcoord_sets = myMax(num_texcoord_sets, max_num_texcoord_sets);
-
 	num_uvs_per_group = myMax(num_uvs_per_group, max_num_texcoord_sets);
 }
 
 
-void RayMesh::addVertex(const Vec3f& pos/*, const Vec3f& normal*/) // , const std::vector<Vec2f>& texcoord_sets)
+void RayMesh::addVertex(const Vec3f& pos)
 {
-	
-	/*if(normal.isUnitLength())
-	{
-		use_normal = normal;
-	}
-	else
-	{
-		if(normal.length() < 0.01f)
-			throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
-
-		const int MAX_NUM_NORMAL_ERROR_MESSAGES = 100;
-
-		if(num_bad_normals < MAX_NUM_NORMAL_ERROR_MESSAGES)
-			conPrint("WARNING: vertex normal in mesh '" + name + "' does not have unit length; normalising.");
-		else if(num_bad_normals == MAX_NUM_NORMAL_ERROR_MESSAGES)
-			conPrint("WARNING: Reached max num bad normal error messages for mesh '" + name + "'.  Bad mesh!!!");
-
-		use_normal = normalise(normal);
-
-		num_bad_normals++;
-	}*/
-	//if(normal.length2() < 0.01f)
-	//	throw ModelLoadingStreamHandlerExcep("Normal was zero or near zero.");
-
-	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.0f)));//, normalise(normal)));
-	//for(unsigned int i=0; i<texcoord_sets.size(); ++i)
-	//	vertices.back().texcoords[i] = texcoord_sets[i];
-
-	/*unsigned int oldsize = (unsigned int)vertex_data.size();
-	vertex_data.resize(oldsize + vertSize());
-	num_vertices++;
-
-	*((Vec3f*)&vertex_data[oldsize]) = pos;
-	oldsize += 3;
-	*((Vec3f*)&vertex_data[oldsize]) = normal;
-	oldsize += 3;
-	assert(texcoord_sets.size() <= num_texcoord_sets);
-	for(unsigned int i=0; i<texcoord_sets.size(); ++i)
-	{
-		assert(vertSize() >= 8);
-
-		*((Vec2f*)&vertex_data[oldsize]) = texcoord_sets[i];
-		oldsize += 2;
-	}*/
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.0f)));
 }
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
-	//if(!epsEqual(normal.length(), 1.0f, 0.001f))
-	//	throw ModelLoadingStreamHandlerExcep("Normal does not have length 1.");
-
 	const Vec3f n = normalise(normal);
 
 	if(!isFinite(normal.x) || !isFinite(normal.y) || !isFinite(normal.z))
 		throw ModelLoadingStreamHandlerExcep("Invalid normal");
-
 	
 	vertices.push_back(RayMeshVertex(pos, n));
 
@@ -624,10 +479,6 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 
 	for(unsigned int i=0; i<num_uvs_per_group; ++i)
 	{
-		//TEMP:
-		//printVar(new_uvs[i].x);
-		//printVar(new_uvs[i].y);
-
 		if(i < new_uvs.size())
 			uvs.push_back(new_uvs[i]);
 		else
@@ -757,201 +608,6 @@ double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& 
 }
 
 
-/*double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index) const
-{
-
-}*/
-
-
-/*void RayMesh::doInitAsEmitter()
-{
-	if(done_init_as_emitter)
-		return;
-
-	//------------------------------------------------------------------------
-	//compute total surface area (in local coordinate space)
-	//------------------------------------------------------------------------
-	total_surface_area = 0.0;
-	for(unsigned int i=0; i<this->getNumTris(); ++i)
-		total_surface_area += (double)getTriArea(*this, i, Matrix3d::identity());
-
-	//------------------------------------------------------------------------
-	//build CDF
-	//cdf[i] = sum of areas of triangles 0...i-1 / total area
-	//cdf[0] = 0
-	//cdf[1] = area of tri 0 / total area
-	//cdf[2] = (area of tri 0 + area of tri 1) / total area
-	//...
-	//cdf[numtris] = (area of tri 0 + area of tri 1 + ... + area of tri numtris-1) / total area
-	//------------------------------------------------------------------------
-	cdf.resize(getNumTris() + 1);
-
-	double sumarea = 0.0;
-	cdf[0] = 0.0;
-	for(unsigned int i=1; i<cdf.size(); ++i)
-	{
-		//sumarea += getTriArea(*this, i);
-		//cdf[i] = sumarea / total_surface_area;
-
-		cdf[i] = cdf[i-1] + ((double)getTriArea(*this, i-1, Matrix3d::identity()) / total_surface_area);
-
-//		assert(cdf[i] >= 0.0f && cdf[i] <= 1.0f);
-	}
-	assert(::epsEqual(cdf.back(), 1.0));
-
-	this->done_init_as_emitter = true;
-}
-
-
-const Vec3d RayMesh::sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
-										 HitInfo& hitinfo_out) const
-{
-	assert(done_init_as_emitter);
-
-	//------------------------------------------------------------------------
-	//pick triangle to sample
-	//------------------------------------------------------------------------
-	double xsample;
-	unsigned int tri_index;
-
-	//"The return value of lower_bound() is the iterator for the first element in 
-	//the container that is greater than or equal to value"
-	std::vector<double>::const_iterator it = std::lower_bound(cdf.begin(), cdf.end(), samples.x);
-	const unsigned int n1 = (unsigned int)(it - cdf.begin());
-	if(n1 == 0) //this will happen if samples.x == 0
-	{
-		tri_index = 0;
-		xsample = 0.0;
-	}
-	else
-	{
-		assert(n1 < cdf.size());
-
-		tri_index = n1 - 1;
-
-		xsample = (samples.x - cdf[tri_index]) / (cdf[n1] - cdf[tri_index]);//renormalise x sample
-
-		//const double low = *(i-1);//NOTE: this will fail if samples.x == 0 because i will be begin()
-		//const double high = *(i);
-		//const double xsample = (samples.x - low) / (high - low);//renormalise x sample
-	}
-
-	assert(xsample >= 0.0 && xsample <= 1.0);
-	assert(tri_index >= 0 && tri_index < getNumTris());
-
-
-	//------------------------------------------------------------------------
-	//pick point using barycentric coords
-	//------------------------------------------------------------------------
-
-	//see siggraph montecarlo course 2003 pg 47
-	const double s = sqrt(xsample);
-	const double t = samples.y;
-
-	// Compute barycentric coords
-	const double u = s * (1.0 - t);
-	const double v = (s * t);
-
-	hitinfo_out.hittriindex = tri_index;
-	hitinfo_out.hittricoords.set(u, v);
-
-	FullHitInfo hitinfo;
-	hitinfo.hittri_index = tri_index;
-	hitinfo.tri_coords.set(u, v);
-	normal_out = toVec3d(triNormal(tri_index));//tri.getNormal();
-	assert(normal_out.isUnitLength());
-
-
-	return toVec3d(
-		triVertPos(tri_index, 0) * (float)(1.0 - s) + 
-		triVertPos(tri_index, 1) * (float)u + 
-		triVertPos(tri_index, 2) * (float)v
-		);
-
-	//return toVec3d(
-	//	triVertPos(tri_index, 0) * (1.0 - s) + 
-	//	triVertPos(tri_index, 1) * (s * (1.0 - t)) + 
-	//	triVertPos(tri_index, 2) * (s * t)
-	//	);
-}*/
-
-/*
-double RayMesh::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const
-{
-	assert(done_init_as_emitter);
-	assert(total_surface_area > 0.0);
-	assert(normal.isUnitLength());
-
-	
-	// Generate a tangent and bitangent 
-
-	Vec3d v2;//x axis
-
-	//thanks to Pharr and Humprehys for this code
-	if(fabs(normal.x) > fabs(normal.y))
-	{
-		const double recip_len = 1.0 / sqrt(normal.x * normal.x + normal.z * normal.z);
-
-		v2.set(-normal.z * recip_len, 0.0, normal.x * recip_len);
-	}
-	else
-	{
-		const double recip_len = 1.0 / sqrt(normal.y * normal.y + normal.z * normal.z);
-
-		v2.set(0.0, normal.z * recip_len, -normal.y * recip_len);
-	}
-
-	const Vec3d v1 = crossProduct(v2, normal);
-
-	assert(v1.isUnitLength());
-	assert(v2.isUnitLength());
-	assert(::epsEqual(dot(normal, v1), 0.0));
-	assert(::epsEqual(dot(normal, v2), 0.0));
-	assert(::epsEqual(dot(v1, v2), 0.0));
-
-	// Now get the transformed differential area
-	const double da_primed = crossProduct(to_parent * v1, to_parent * v2).length();
-
-	return 1.0 / (da_primed * total_surface_area);
-
-	//return 1.0 / total_surface_area;
-}
-*/
-
-/*double RayMesh::surfaceArea(const Matrix3d& to_parent) const
-{
-	assert(done_init_as_emitter);
-	//assert(total_surface_area > 0.0);
-
-	double surface_area = 0.0;
-	for(unsigned int i=0; i<this->getNumTris(); ++i)
-		surface_area += (double)getTriArea(*this, i, to_parent);
-
-	return surface_area;
-}*/
-
-
-/*void RayMesh::emitterInit()
-{
-	doInitAsEmitter();
-}*/
-
-
-/*int RayMesh::UVSetIndexForName(const std::string& uvset_name) const
-{
-	//return matname_to_index_map[uvset_name];
-	std::map<std::string, int>::const_iterator it = matname_to_index_map.find(uvset_name);
-	if(it == matname_to_index_map.end())
-	{
-		return -1;
-	}
-	else
-	{
-		return (*it).second;
-	}
-}*/
-
-
 void RayMesh::printTreeStats()
 {
 	tritree->printStats();
@@ -962,16 +618,6 @@ void RayMesh::printTraceStats()
 {
 	tritree->printTraceStats();
 }
-
-
-/*
-const Vec3d RayMesh::computeTriGeometricNormal(const FullHitInfo& hitinfo) const
-{
-	//assert(hitinfo.hittri_index < triangles.size());
-	//return toVec3d(subdivided_tris[hitinfo.hittri_index]->getGeometricNormal(Vec2f((float)hitinfo.tri_coords.x, (float)hitinfo.tri_coords.y)));
-	return toVec3d(this->triNormal(hitinfo.hittri_index));
-}
-*/
 
 
 static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
@@ -1002,8 +648,8 @@ void RayMesh::computeShadingNormals()
 
 	for(unsigned int i=0; i<vertices.size(); ++i)
 		vertices[i].normal.normalise();
-
 }
+
 
 void RayMesh::mergeVerticesWithSamePosAndNormal()
 {

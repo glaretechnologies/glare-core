@@ -26,6 +26,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../graphics/imformatdecoder.h"
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"
+#include "../indigo/IndigoMeshDecoder.h"
 /*#include "../indigo/AnisoPhong.h"
 #include "../indigo/Phong.h"
 #include "../indigo/MatOverride.h"
@@ -51,6 +52,8 @@ CSModelLoader::CSModelLoader()
 	decoder->registerModelDecoder(new FormatDecoderPLY());
 
 	decoder->registerModelDecoder(new FormatDecoderObj());
+
+	decoder->registerModelDecoder(new IndigoMeshDecoder());
 	//decoder->registerModelDecoder(new FormatDecoderMd2());
 }
 
