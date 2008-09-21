@@ -47,6 +47,7 @@ public:
 	virtual const Vec3d getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3d getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
+	virtual unsigned int getNumTexCoordSets() const { return 1; }
 
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const;
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const;

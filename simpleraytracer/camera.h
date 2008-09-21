@@ -99,6 +99,7 @@ public:
 	virtual const Vec3d getShadingNormal(const HitInfo& hitinfo) const { return forwards; }
 	virtual const Vec3d getGeometricNormal(const HitInfo& hitinfo) const { return forwards; }
 	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
+	virtual unsigned int getNumTexCoordSets() const { return 0; }
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
 		const std::vector<Plane<double> >& camera_clip_planes){}

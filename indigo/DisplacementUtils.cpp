@@ -326,6 +326,7 @@ public:
 		return texcoords[texcoords_set];
 	}
 
+	virtual unsigned int getNumTexCoordSets() const { return texcoords.size(); }
 
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
 	{
@@ -1585,8 +1586,8 @@ void DisplacementUtils::test()
 	testAssert(epsEqual(wrappedLerp(0.9, 0.1, 0.25), 0.95));
 	testAssert(epsEqual(wrappedLerp(0.1, 0.9, 0.75), 0.95));
 
-	testAssert(epsEqual(wrappedLerp(0.9, 0.1, 0.75), 0.05));
-	testAssert(epsEqual(wrappedLerp(0.1, 0.9, 0.25), 0.05));
+	testAssert(epsEqual(wrappedLerp(0.9, 0.1, 0.75), 1.05));
+	testAssert(epsEqual(wrappedLerp(0.1, 0.9, 0.25), 1.05));
 
 	testAssert(epsEqual(wrappedLerp(-0.1, 0.1, 0.5), 0.0));
 	testAssert(epsEqual(wrappedLerp(0.1, -0.1, 0.5), 0.0));

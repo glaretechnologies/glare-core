@@ -76,6 +76,7 @@ public:
 	virtual const Vec3d getShadingNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec3d getGeometricNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
+	virtual unsigned int getNumTexCoordSets() const = 0;
 	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' u and v.
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' u and v.

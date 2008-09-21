@@ -48,6 +48,9 @@ BIHTree::BIHTree(RayMesh* raymesh_)
 
 BIHTree::~BIHTree()
 {
+	alignedSSEFree(root_aabb);
+	alignedSSEFree(intersect_tris);
+	intersect_tris = NULL;
 }
 
 
