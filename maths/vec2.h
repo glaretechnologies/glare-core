@@ -272,6 +272,29 @@ public:
 		return Maths::inHalfClosedInterval(x, minval, maxval) && Maths::inHalfClosedInterval(y, minval, maxval);
 	}
 
+	inline const Vec2 clamp(const Vec2& lo, const Vec2& up) const
+	{
+		return Vec2(
+			myClamp(x, lo.x, up.x),
+			myClamp(y, lo.y, up.y)
+			);
+	}
+
+	inline const Vec2 min(const Vec2& other) const
+	{
+		return Vec2(
+			myMin(x, other.x),
+			myMin(y, other.y)
+			);
+	}
+
+	inline const Vec2 max(const Vec2& other) const
+	{
+		return Vec2(
+			myMax(x, other.x),
+			myMax(y, other.y)
+			);
+	}
 };
 
 

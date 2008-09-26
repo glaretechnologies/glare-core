@@ -317,14 +317,20 @@ inline bool posOverflowed(double x)
 }
 
 
+// These are only correct for positive reals
 inline int floorToInt(float x)
 {
+	assert(x >= 0.0f);
 	return (int)x;
 }
+
+
 inline int floorToInt(double x)
 {
+	assert(x >= 0.0);
 	return (int)x;
 }
+
 
 const double SQRT_2PI = sqrt(NICKMATHS_2PI);
 const double RECIP_SQRT_2PI = 1.0f / sqrt(NICKMATHS_2PI);

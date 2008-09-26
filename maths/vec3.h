@@ -453,11 +453,38 @@ public:
 		return length();
 	}
 
-	inline void clamp(Real lowerbound, Real upperbound)
+	/*inline void clamp(Real lowerbound, Real upperbound)
 	{
 		x = myClamp(x, lowerbound, upperbound);
 		y = myClamp(y, lowerbound, upperbound);
 		z = myClamp(z, lowerbound, upperbound);
+	}*/
+
+	inline const Vec3 clamp(const Vec3& lo, const Vec3& up) const
+	{
+		return Vec3(
+			myClamp(x, lo.x, up.x),
+			myClamp(y, lo.y, up.y),
+			myClamp(z, lo.z, up.z)
+			);
+	}
+
+	inline const Vec3 min(const Vec3& other) const
+	{
+		return Vec3(
+			myMin(x, other.x),
+			myMin(y, other.y),
+			myMin(z, other.z)
+			);
+	}
+
+	inline const Vec3 max(const Vec3& other) const
+	{
+		return Vec3(
+			myMax(x, other.x),
+			myMax(y, other.y),
+			myMax(z, other.z)
+			);
 	}
 
 	inline void lowerClamp(Real lowerbound)
