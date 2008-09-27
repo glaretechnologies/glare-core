@@ -184,6 +184,8 @@ public:
 	inline Real& elem(unsigned int i, unsigned int j);
 	inline Real elem(unsigned int i, unsigned int j) const;
 
+	const std::string toString() const;
+
 	static void test();
 
 
@@ -883,6 +885,13 @@ const Matrix3<Real> Matrix3<Real>::rotationMatrix(const Vec3<Real>& unit_axis, R
 		Vec3<Real>(a*b*one_minus_cost - csint, b*b*one_minus_cost + cost, b*c*one_minus_cost + asint), // column 1
 		Vec3<Real>(a*c*one_minus_cost + bsint, b*c*one_minus_cost - asint, c*c*one_minus_cost + cost) // column 2
 		);
+}
+
+
+template <class Real>
+inline const std::string toString(const Matrix3<Real>& x)
+{
+	return x.toString();
 }
 
 

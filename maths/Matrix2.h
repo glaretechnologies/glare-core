@@ -7,8 +7,8 @@ Code By Nicholas Chapman.
 #ifndef __MATRIX2_H_666_
 #define __MATRIX2_H_666_
 
-#include "../maths/vec2.h"
 
+#include "../maths/vec2.h"
 
 
 /*=====================================================================
@@ -50,6 +50,7 @@ public:
 	//A matrix which will rotate a vector counterclockwise
 	inline static const Matrix2 rotationMatrix(Real angle_rad);
 
+	const std::string toString() const;
 
 	inline Real& elem(unsigned int i, unsigned int j);
 	inline Real elem(unsigned int i, unsigned int j) const;
@@ -186,6 +187,13 @@ inline bool epsMatrixEqual(const Matrix2<Real>& a, const Matrix2<Real>& b, Real 
 		if(!epsEqual(a.e[i], b.e[i], eps))
 			return false;
 	return true;
+}
+
+
+template <class Real>
+inline const std::string toString(const Matrix2<Real>& x)
+{
+	return x.toString();
 }
 
 

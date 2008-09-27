@@ -615,6 +615,13 @@ inline const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real t)
 }
 
 
+template <class Real>
+inline const std::string toString(const Vec3<Real>& v)
+{
+	return v.toString();
+}
+
+
 inline const Vec3<float> toVec3f(const Vec3<double>& v)
 {
 	return Vec3<float>((float)v.x, (float)v.y, (float)v.z);

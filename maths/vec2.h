@@ -385,6 +385,13 @@ inline MyStream& operator >> (MyStream& stream, Vec2& point)
 //#endif//CYBERSPACE
 
 
+template <class Real>
+inline const std::string toString(const Vec2<Real>& v)
+{
+	return v.toString();
+}
+
+
 inline const Vec2<float> toVec2f(const Vec2<double>& v)
 {
 	return Vec2<float>((float)v.x, (float)v.y);
