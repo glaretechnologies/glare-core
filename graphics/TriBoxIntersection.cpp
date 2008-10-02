@@ -270,14 +270,14 @@ void TriBoxIntersection::slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1,
 	// Compute bounds of polygon
 	//clipped_tri_aabb_out.min_ = v_a[0];
 	//clipped_tri_aabb_out.max_ = v_a[0];
-	const SSE_ALIGN PaddedVec3 v_a_0 = v_a[0];
+	const SSE_ALIGN PaddedVec3f v_a_0 = v_a[0];
 
 	__m128 clipped_aabb_min = _mm_load_ps(&v_a_0.x);
 	__m128 clipped_aabb_max = clipped_aabb_min;
 
 	for(unsigned int i=1; i<current_num_verts; ++i)
 	{
-		const SSE_ALIGN PaddedVec3 v = v_a[i];
+		const SSE_ALIGN PaddedVec3f v = v_a[i];
 		//clipped_tri_aabb_out.enlargeToHoldAlignedPoint(v);
 		clipped_aabb_min = _mm_min_ps(clipped_aabb_min, _mm_load_ps(&v.x));
 		clipped_aabb_max = _mm_max_ps(clipped_aabb_max, _mm_load_ps(&v.x));
@@ -309,16 +309,16 @@ void TriBoxIntersection::slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1,
 class Edge
 {
 public:
-	SSE_ALIGN PaddedVec3 start;
-	SSE_ALIGN PaddedVec3 end;
+	SSE_ALIGN PaddedVec3f start;
+	SSE_ALIGN PaddedVec3f end;
 };
 
 
 void checkEdges(Edge* edges)
 {
-	assert(epsEqual(edges[0].end, edges[1].start));
-	assert(epsEqual(edges[1].end, edges[2].start));
-	assert(epsEqual(edges[2].end, edges[0].start));
+	assert(PaddedVec3f::epsEqual(edges[0].end, edges[1].start));
+	assert(PaddedVec3f::epsEqual(edges[1].end, edges[2].start));
+	assert(PaddedVec3f::epsEqual(edges[2].end, edges[0].start));
 }
 
 void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out)
@@ -355,8 +355,8 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				if(edge.start[axis] >= aabb.min_[axis]) // If start is inside
 				{
 					// Then edge straddles clipping plane.  So clip off edge outside plane, by moving the end point towards the start point.
-					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
-					SSE_ALIGN PaddedVec3 recip_edge;
+					const SSE_ALIGN PaddedVec3f edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3f recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float t = (aabb.min_[axis] - edge.start[axis]) * recip_edge[axis];
@@ -380,8 +380,8 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 
 				if(edge.start[axis] < aabb.min_[axis]) // If start is outside
 				{
-					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
-					SSE_ALIGN PaddedVec3 recip_edge;
+					const SSE_ALIGN PaddedVec3f edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3f recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float neg_t = (aabb.min_[axis] - edge.end[axis]) * recip_edge[axis];
@@ -428,8 +428,8 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				if(edge.start[axis] <= aabb.max_[axis]) // If start is inside
 				{
 					// Get edgevec
-					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
-					SSE_ALIGN PaddedVec3 recip_edge;
+					const SSE_ALIGN PaddedVec3f edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3f recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float t = (aabb.max_[axis] - edge.start[axis]) * recip_edge[axis];
@@ -453,8 +453,8 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 				if(edge.start[axis] > aabb.max_[axis]) // If start is outside
 				{
 					// Get edgevec
-					const SSE_ALIGN PaddedVec3 edgevec = edge.end - edge.start;
-					SSE_ALIGN PaddedVec3 recip_edge;
+					const SSE_ALIGN PaddedVec3f edgevec = edge.end - edge.start;
+					SSE_ALIGN PaddedVec3f recip_edge;
 					reciprocalSSE(&edgevec.x, &recip_edge.x);
 
 					const float neg_t = (aabb.max_[axis] - edge.end[axis]) * recip_edge[axis];
@@ -491,7 +491,7 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 	{
 	edges[0].start = v0;
 	edges[0].end = v1;
-	SSE_ALIGN PaddedVec3 edgevec = v1 - v0;
+	SSE_ALIGN PaddedVec3f edgevec = v1 - v0;
 	reciprocalSSE(&edgevec.x, &edges[0].recip_edge.x);
 
 	edges[1].start = v1;
@@ -1812,9 +1812,9 @@ void TriBoxIntersection::test()
 
 
 	/// Test slowGetClippedTriAABB etc. ///
-	const SSE_ALIGN PaddedVec3 v0(1., -1., 0.);
-	const SSE_ALIGN PaddedVec3 v1(2., 4., 0.);
-	const SSE_ALIGN PaddedVec3 v2(-1.f, 5., 0.);
+	const SSE_ALIGN PaddedVec3f v0(1., -1., 0.);
+	const SSE_ALIGN PaddedVec3f v1(2., 4., 0.);
+	const SSE_ALIGN PaddedVec3f v2(-1.f, 5., 0.);
 
 	js::AABBox bounds_a;
 	slowGetClippedTriAABB(

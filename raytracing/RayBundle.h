@@ -38,7 +38,7 @@ public:
 	Vec3[4] unitdirs;*/
 	//Vec3 origin;
 	//float padding;//pad to 64 bytes
-	SSE_ALIGN PaddedVec3 origin;
+	SSE_ALIGN PaddedVec3f origin;
 
 	SSE_ALIGN float dirs[12];//x components packed, then y components, then z components
 

@@ -691,7 +691,7 @@ void TriTree::build()
 		for(unsigned int i=0; i<numTris(); ++i)
 			for(int v=0; v<3; ++v)
 			{
-				const SSE_ALIGN PaddedVec3 vert = triVertPos(i, v);
+				const SSE_ALIGN PaddedVec3f vert = triVertPos(i, v);
 				root_aabb->enlargeToHoldAlignedPoint(vert);
 			}
 		}
@@ -831,7 +831,7 @@ void TriTree::buildFromStream(std::istream& stream)
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			for(unsigned int v=0; v<3; ++v)
 			{
-				const SSE_ALIGN PaddedVec3 vert = triVertPos(i, v);
+				const SSE_ALIGN PaddedVec3f vert = triVertPos(i, v);
 				root_aabb->enlargeToHoldAlignedPoint(vert);
 			}
 				

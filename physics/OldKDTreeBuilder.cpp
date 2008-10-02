@@ -52,9 +52,9 @@ void OldKDTreeBuilder::build(TriTree& tree, const AABBox& root_aabb, TriTree::NO
 
 			// Get tri AABB
 			SSE_ALIGN AABBox tri_aabb(tree.triVertPos(i, 0), tree.triVertPos(i, 0));
-			const SSE_ALIGN PaddedVec3 v1 = tree.triVertPos(i, 1);
+			const SSE_ALIGN PaddedVec3f v1 = tree.triVertPos(i, 1);
 			tri_aabb.enlargeToHoldAlignedPoint(v1);
-			const SSE_ALIGN PaddedVec3 v2 = tree.triVertPos(i, 2);
+			const SSE_ALIGN PaddedVec3f v2 = tree.triVertPos(i, 2);
 			tri_aabb.enlargeToHoldAlignedPoint(v2);
 
 			node_tri_layers[0][i].lower = tri_aabb.min_;

@@ -432,7 +432,7 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
 	////////////// load recip vector ///////////////
-	const SSE_ALIGN PaddedVec3& recip_unitraydir = ray.getRecipRayDirF();
+	const SSE_ALIGN PaddedVec3f& recip_unitraydir = ray.getRecipRayDirF();
 
 	assert(!nodes.empty());
 	assert(root_aabb);
@@ -689,7 +689,7 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 	//hitinfo_out.hittricoords.set(0.f, 0.f);
 
 	////////////// load recip vector ///////////////
-	const SSE_ALIGN PaddedVec3& recip_unitraydir = ray.getRecipRayDirF();
+	const SSE_ALIGN PaddedVec3f& recip_unitraydir = ray.getRecipRayDirF();
 
 	assert(!nodes.empty());
 	assert(root_aabb);

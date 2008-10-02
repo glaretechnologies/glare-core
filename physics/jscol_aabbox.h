@@ -37,13 +37,13 @@ public:
 	inline bool operator == (const AABBox& rhs) const;
 
 	inline void enlargeToHoldPoint(const Vec3f& p);
-	inline void enlargeToHoldAlignedPoint(const PaddedVec3& p);
+	inline void enlargeToHoldAlignedPoint(const PaddedVec3f& p);
 	inline void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
 	DO_FORCEINLINE
-	int rayAABBTrace(const PaddedVec3& raystartpos, 
-		const PaddedVec3& recip_unitraydir, 
+	int rayAABBTrace(const PaddedVec3f& raystartpos, 
+		const PaddedVec3f& recip_unitraydir, 
 		float& near_hitd_out, float& far_hitd_out) const;
 	
 	inline float getSurfaceArea() const;
@@ -53,8 +53,8 @@ public:
 	inline float axisLength(unsigned int axis) const { return max_[axis] - min_[axis]; }
 	inline unsigned int longestAxis() const;
 
-	SSE_ALIGN PaddedVec3 min_;
-	SSE_ALIGN PaddedVec3 max_;
+	SSE_ALIGN PaddedVec3f min_;
+	SSE_ALIGN PaddedVec3f max_;
 };
 
 
@@ -91,7 +91,7 @@ void AABBox::enlargeToHoldPoint(const Vec3f& p)
 	max_.z = myMax(max_.z, p.z);
 }
 
-void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3& p)
+void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3f& p)
 {
 	_mm_store_ps(
 		&min_.x,
@@ -177,7 +177,7 @@ const float SSE_ALIGN
 #define maxss			_mm_max_ss
 
 DO_FORCEINLINE
-int AABBox::rayAABBTrace(const PaddedVec3& raystartpos, const PaddedVec3& recip_unitraydir, 
+int AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir, 
 						  float& near_hitd_out, float& far_hitd_out) const
 {
 	assertSSEAligned(&raystartpos);
@@ -295,7 +295,7 @@ bool AABBox::operator == (const AABBox& rhs) const
 
 inline bool epsEqual(const AABBox& a, const AABBox& b, float eps = (float)NICKMATHS_EPSILON)
 {
-	return epsEqual(a.min_, b.min_, eps) && epsEqual(a.max_, b.max_, eps);
+	return PaddedVec3f::epsEqual(a.min_, b.min_, eps) && PaddedVec3f::epsEqual(a.max_, b.max_, eps);
 }
 
 

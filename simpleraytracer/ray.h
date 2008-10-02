@@ -23,11 +23,11 @@ public:
 		unitdir(unitdir_)
 	{
 		assert(unitdir_.isUnitLength());
-		assert(sizeof(PaddedVec3) == 16);
+		assert(sizeof(PaddedVec3f) == 16);
 		assert((void*)&startpos.x == (void*)&startpos);
 
-		startpos_f = PaddedVec3((float)startpos_.x, (float)startpos_.y, (float)startpos_.z);
-		unitdir_f = PaddedVec3((float)unitdir_.x, (float)unitdir_.y, (float)unitdir_.z);
+		startpos_f = PaddedVec3f((float)startpos_.x, (float)startpos_.y, (float)startpos_.z);
+		unitdir_f = PaddedVec3f((float)unitdir_.x, (float)unitdir_.y, (float)unitdir_.z);
 
 		buildRecipRayDir();
 	}
@@ -37,14 +37,14 @@ public:
 	inline const Vec3d& startPos() const { return startpos; }
 	inline const Vec3d& unitDir() const { return unitdir; }
 
-	inline const PaddedVec3& startPosF() const { return startpos_f; }
-	inline const PaddedVec3& unitDirF() const { return unitdir_f; }
+	inline const PaddedVec3f& startPosF() const { return startpos_f; }
+	inline const PaddedVec3f& unitDirF() const { return unitdir_f; }
 
-	inline void setStartPos(const Vec3d& p) { startpos = p; startpos_f = PaddedVec3((float)p.x, (float)p.y, (float)p.z); }
-	inline void setUnitDir(const Vec3d& p) { unitdir = p; unitdir_f = PaddedVec3((float)p.x, (float)p.y, (float)p.z); buildRecipRayDir(); }
+	inline void setStartPos(const Vec3d& p) { startpos = p; startpos_f = PaddedVec3f((float)p.x, (float)p.y, (float)p.z); }
+	inline void setUnitDir(const Vec3d& p) { unitdir = p; unitdir_f = PaddedVec3f((float)p.x, (float)p.y, (float)p.z); buildRecipRayDir(); }
 
 	//inline const Vec3d& getRecipRayDir() const;
-	inline const PaddedVec3& getRecipRayDirF() const;
+	inline const PaddedVec3f& getRecipRayDirF() const;
 
 	inline void translateStartPos(const Vec3d& delta) { setStartPos(startPos() + delta); }
 
@@ -53,9 +53,9 @@ public:
 private:
 	void buildRecipRayDir();
 
-	SSE_ALIGN PaddedVec3 startpos_f;
-	SSE_ALIGN PaddedVec3 unitdir_f;
-	SSE_ALIGN PaddedVec3 recip_unitdir_f;
+	SSE_ALIGN PaddedVec3f startpos_f;
+	SSE_ALIGN PaddedVec3f unitdir_f;
+	SSE_ALIGN PaddedVec3f recip_unitdir_f;
 
 	SSE_ALIGN Vec3d startpos;
 	SSE_ALIGN Vec3d unitdir;
@@ -68,7 +68,7 @@ private:
 	return recip_unitdir;
 }*/
 
-const PaddedVec3& Ray::getRecipRayDirF() const
+const PaddedVec3f& Ray::getRecipRayDirF() const
 {
 	return recip_unitdir_f;
 }
