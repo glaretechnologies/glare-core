@@ -21,7 +21,7 @@ namespace SSE
 
 
 
-#ifdef USE_SSE
+//#ifdef USE_SSE
 
 #include <xmmintrin.h> //SSE header file
 
@@ -374,7 +374,8 @@ inline void addScaledVec4SSE(const float* a, const float* b, float scale, float*
 			)
 		);
 }
-			
+
+/*		
 #else //else if not USE_SSE
 
 //------------------------------------------------------------------------
@@ -403,7 +404,7 @@ inline void* alignedMalloc(unsigned int size, unsigned int alignment)
 
 #endif //USE_SSE
 
-
+*/
 
 
 
