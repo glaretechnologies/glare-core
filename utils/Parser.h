@@ -58,7 +58,12 @@ public:
 	inline bool notEOF() const;
 	inline void advance();
 
+	inline bool nextIsEOF() const { return currentpos + 1 >= textsize; }
+	inline bool nextIsNotEOF() const { return currentpos + 1 < textsize; }
+	inline char next() const { return text[currentpos + 1]; }
+
 	inline const char* getText() const { return text; }
+	inline unsigned int getTextSize() const { return textsize; }
 private:
 	const char* text;
 	unsigned int currentpos;
