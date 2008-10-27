@@ -122,7 +122,7 @@ public:
 	static void test();	
 
 
-	static const unsigned int MAX_KDTREE_DEPTH = 64;
+	static const unsigned int MAX_KDTREE_DEPTH = Tree::MAX_TREE_DEPTH;
 
 	static const unsigned int DEFAULT_EMPTY_LEAF_NODE_INDEX = 0;
 	static const unsigned int ROOT_NODE_INDEX = 1;

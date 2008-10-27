@@ -22,8 +22,8 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 :	raymesh(raymesh_),
 	num_intersect_tris(0),
 	intersect_tris(NULL),
-	root_aabb(NULL),
-	tri_aabbs(NULL)
+	root_aabb(NULL)//,
+	//tri_aabbs(NULL)
 {
 	assert(raymesh);
 
@@ -32,6 +32,14 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 
 	root_aabb = (js::AABBox*)alignedSSEMalloc(sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
+
+	num_maxdepth_leaves = 0;
+	num_under_thresh_leaves = 0;
+	num_leaves = 0;
+	max_num_tris_per_leaf = 0;
+	leaf_depth_sum = 0;
+	max_leaf_depth = 0;
+	num_cheaper_nosplit_leaves = 0;
 }
 
 
@@ -77,28 +85,39 @@ void SimpleBVH::build()
 	conPrint("\tRoot AABB min: " + root_aabb->min_.toString());
 	conPrint("\tRoot AABB max: " + root_aabb->max_.toString());
 
+	//------------------------------------------------------------------------
+	//alloc intersect tri array
+	//------------------------------------------------------------------------
+	conPrint("\tAllocing intersect triangles...");
+	this->num_intersect_tris = numTris();
+	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+
+	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+	intersect_tri_i = 0;
+
 	{
 	std::vector<TRI_INDEX> tris(numTris());
 	for(unsigned int i=0; i<numTris(); ++i)
 		tris[i] = i;
 
 	// Build tri AABBs
-	::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+	/*::alignedSSEArrayMalloc(numTris(), tri_aabbs);
 
 	for(unsigned int i=0; i<numTris(); ++i)
 	{
 		tri_aabbs[i].min_ = tri_aabbs[i].max_ = triVertPos(i, 0);
 		tri_aabbs[i].enlargeToHoldPoint(triVertPos(i, 1));
 		tri_aabbs[i].enlargeToHoldPoint(triVertPos(i, 2));
-	}
+	}*/
 
 	// Build tri centers
-	tri_centers.resize(numTris());
-	for(unsigned int i=0; i<numTris(); ++i)
-		tri_centers[i] = tri_aabbs[i].centroid();
+	//tri_centers.resize(numTris());
+	//for(unsigned int i=0; i<numTris(); ++i)
+	//	tri_centers[i] = tri_aabbs[i].centroid();
 
 
-	nodes_capacity = 128;
+	nodes_capacity = myMax(2u, numTris() / 4);
 	alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), nodes);
 	num_nodes = 1;
 	doBuild(
@@ -109,45 +128,71 @@ void SimpleBVH::build()
 		0, // node index to use
 		0 // depth
 		);
+
+	assert(intersect_tri_i == num_intersect_tris);
 	}
 
-	//------------------------------------------------------------------------
-	//alloc intersect tri array
-	//------------------------------------------------------------------------
-	conPrint("\tAllocing and copying intersect triangles...");
-	this->num_intersect_tris = numTris();
-	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-
-	// Copy tri data.
-	for(unsigned int i=0; i<num_intersect_tris; ++i)
-		intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 	conPrint("\tdone.");
 
-	::alignedSSEArrayFree(tri_aabbs);
+//	::alignedSSEArrayFree(tri_aabbs);
 
-
+	
 	conPrint("\tBuild Stats:");
-	conPrint("\t\ttotal leafgeom size: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
-	conPrint("\t\ttotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(SimpleBVHNode)) + ")");
+	conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(SimpleBVHNode)) + ")");
+	conPrint("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
+	conPrint("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
+	conPrint("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
+	conPrint("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
+	conPrint("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
+	conPrint("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
+	conPrint("\t\tMax leaf depth: " + toString(max_leaf_depth));
+
 
 	conPrint("\tFinished building tree.");	
 }
 
 
-static void markLeafNode(SimpleBVHNode* nodes, unsigned int node_index, int left, int right, std::vector<unsigned int>& tris, std::vector<unsigned int>& leafgeom)
+void SimpleBVH::markLeafNode(std::vector<TRI_INDEX>& tris, unsigned int node_index, int left, int right)
 {
 	nodes[node_index].leaf = 1;
-
-	// Add tris
-	nodes[node_index].geometry_index = leafgeom.size();
+	nodes[node_index].geometry_index = intersect_tri_i;
 
 	for(int i=left; i<right; ++i)
-		leafgeom.push_back(tris[i]);
+	{
+		const unsigned int source_tri = tris[i];
+		assert(intersect_tri_i < num_intersect_tris);
+		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
+	}
 
 	nodes[node_index].num_geom = myMax(right - left, 0);
+
+	// Update build stats
+	max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+	num_leaves++;
+}
+
+
+float SimpleBVH::triCenter(unsigned int tri_index, unsigned int axis)
+{
+	/*const float min = myMin(triVertPos(tri_index, 0)[axis], triVertPos(tri_index, 1)[axis], triVertPos(tri_index, 2)[axis]);
+	const float max = myMax(triVertPos(tri_index, 0)[axis], triVertPos(tri_index, 1)[axis], triVertPos(tri_index, 2)[axis]);
+	return 0.5f * (min + max);*/
+
+	SSE_ALIGN AABBox aabb;
+	triAABB(tri_index, aabb);
+	return 0.5f * (aabb.min_[axis] + aabb.max_[axis]);
+}
+
+
+void SimpleBVH::triAABB(unsigned int tri_index, AABBox& aabb_out)
+{
+	const SSE_ALIGN PaddedVec3f v1(triVertPos(tri_index, 1));
+	const SSE_ALIGN PaddedVec3f v2(triVertPos(tri_index, 2));
+
+	aabb_out.min_ = aabb_out.max_ = triVertPos(tri_index, 0);
+	aabb_out.enlargeToHoldAlignedPoint(v1);
+	aabb_out.enlargeToHoldAlignedPoint(v2);
 }
 
 
@@ -162,85 +207,22 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int le
 
 	const int LEAF_NUM_TRI_THRESHOLD = 4;
 
-	const int MAX_DEPTH = 64;
+	const int MAX_DEPTH = js::Tree::MAX_TREE_DEPTH;
 
-	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth > MAX_DEPTH)
+	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth >= MAX_DEPTH)
 	{
-		markLeafNode(nodes, node_index, left, right, tris, leafgeom);
+		markLeafNode(tris, node_index, left, right);
+
+		// Update build stats
+		if(depth >= MAX_DEPTH)
+			num_maxdepth_leaves++;
+		else
+			num_under_thresh_leaves++;
+		leaf_depth_sum += depth;
+		max_leaf_depth = myMax(max_leaf_depth, depth);
+
 		return;
 	}
-
-	// Compute best split plane
-	//const unsigned int split_axis = aabb.longestAxis();
-	//const float split_val = 0.5f * (aabb.min_[split_axis] + aabb.max_[split_axis]);
-
-	const float traversal_cost = 1.0f;
-	const float intersection_cost = 4.0f;
-	const float aabb_surface_area = aabb.getSurfaceArea();
-	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
-
-	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
-
-	int best_axis = -1;
-	float best_div_val = std::numeric_limits<float>::infinity();
-
-	// Compute non-split cost
-	float smallest_cost = (float)(right - left) * intersection_cost;
-
-	centers.resize(right - left);
-
-	// for each axis 0..2
-	for(unsigned int axis=0; axis<3; ++axis)
-	{
-		// SAH stuff
-		const unsigned int axis1 = nonsplit_axes[axis][0];
-		const unsigned int axis2 = nonsplit_axes[axis][1];
-		const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
-		const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
-
-		// Build list of triangle centers
-		for(int i=left, z=0; i<right; ++i, ++z)
-			centers[z] = (tri_centers[tris[i]])[axis];
-		
-		// Sort centers
-		std::sort(centers.begin(), centers.end());
-	
-		// For Each triangle centroid
-		for(unsigned int z=0; z<centers.size(); ++z)
-		{
-			const float splitval = centers[z];
-			// Compute the SAH cost at the centroid position
-			const int N_L = z + 1;
-			const int N_R = centers.size() - (z + 1);
-
-			assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
-
-			const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
-			const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
-
-			const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
-						recip_aabb_surf_area * intersection_cost;
-
-			if(cost < smallest_cost)
-			{
-				smallest_cost = cost;
-				best_axis = axis;
-				best_div_val = splitval;
-			}
-		}
-	}
-
-	if(best_axis == -1)
-	{
-		markLeafNode(nodes, node_index, left, right, tris, leafgeom);
-		return;
-	}
-
-	//------------------------------------------------------------------------
-	//make interior node
-	//------------------------------------------------------------------------
-	nodes[node_index].leaf = 0;
-
 
 	SSE_ALIGN AABBox neg_aabb(
 		Vec3f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()),
@@ -251,39 +233,153 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int le
 		Vec3f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()),
 		Vec3f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())
 		);
-
+	
 	int d = right-1;
 	int i = left;
-	while(i <= d)
+
+	const bool USE_SAH = true;
+	if(USE_SAH)
 	{
-		// Categorise triangle at i
+		// Compute best split plane
+		const float traversal_cost = 1.0f;
+		const float intersection_cost = 4.0f;
+		const float aabb_surface_area = aabb.getSurfaceArea();
+		const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
 
-		assert(i >= 0 && i < (int)numTris());
-		assert(d >= 0 && d < (int)numTris());
-		assert(tris[i] < numTris());
+		const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
 
-		//const float tri_min = tri_aabbs[tris[i]].min_[split_axis];
-		//const float tri_max = tri_aabbs[tris[i]].max_[split_axis];
-		//if(tri_max - split_val >= split_val - tri_min)
-		if((tri_centers[tris[i]])[best_axis] > best_div_val)
+		int best_axis = -1;
+		float best_div_val = std::numeric_limits<float>::infinity();
+
+		// Compute non-split cost
+		float smallest_cost = (float)(right - left) * intersection_cost;
+
+		centers.resize(right - left);
+
+		// for each axis 0..2
+		for(unsigned int axis=0; axis<3; ++axis)
 		{
-			// If mostly on positive side of split - categorise as R
-			pos_aabb.enlargeToHoldAABBox(tri_aabbs[tris[i]]); // Update right AABB
+			// SAH stuff
+			const unsigned int axis1 = nonsplit_axes[axis][0];
+			const unsigned int axis2 = nonsplit_axes[axis][1];
+			const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
+			const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
 
-			// Swap element at i with element at d
-			mySwap(tris[i], tris[d]);
+			// Build list of triangle centers
+			for(int i=left, z=0; i<right; ++i, ++z)
+				centers[z] = triCenter(tris[i], axis); //(tri_centers[tris[i]])[axis];
+			
+			// Sort centers
+			std::sort(centers.begin(), centers.end());
+		
+			// For Each triangle centroid
+			for(unsigned int z=0; z<centers.size(); ++z)
+			{
+				const float splitval = centers[z];
+				// Compute the SAH cost at the centroid position
+				const int N_L = z + 1;
+				const int N_R = centers.size() - (z + 1);
 
-			assert(d >= 0);
-			--d;
+				assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
+
+				const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
+
+				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
+							recip_aabb_surf_area * intersection_cost;
+
+				if(cost < smallest_cost)
+				{
+					smallest_cost = cost;
+					best_axis = axis;
+					best_div_val = splitval;
+				}
+			}
 		}
-		else
+
+		if(best_axis == -1)
 		{
-			// Tri mostly on negative side of split - categorise as L
-			neg_aabb.enlargeToHoldAABBox(tri_aabbs[tris[i]]); // Update left AABB
-			++i;
+			markLeafNode(tris, node_index, left, right);
+
+			// Update build stats
+			num_cheaper_nosplit_leaves++;
+			leaf_depth_sum += depth;
+			max_leaf_depth = myMax(max_leaf_depth, depth);
+			return;
 		}
+
+		
+		while(i <= d)
+		{
+			// Categorise triangle at i
+
+			assert(i >= 0 && i < (int)numTris());
+			assert(d >= 0 && d < (int)numTris());
+			assert(tris[i] < numTris());
+
+			// Get triangle AABB
+			SSE_ALIGN AABBox tri_aabb;
+			triAABB(tris[i], tri_aabb);
+
+			if(/*(tri_centers[tris[i]])[best_axis]*/triCenter(tris[i], best_axis) > best_div_val)
+			{
+				// If mostly on positive side of split - categorise as R
+				pos_aabb.enlargeToHoldAABBox(tri_aabb/*tri_aabbs[tris[i]]*/); // Update right AABB
+
+				// Swap element at i with element at d
+				mySwap(tris[i], tris[d]);
+
+				assert(d >= 0);
+				--d;
+			}
+			else
+			{
+				// Tri mostly on negative side of split - categorise as L
+				neg_aabb.enlargeToHoldAABBox(tri_aabb/*tri_aabbs[tris[i]]*/); // Update left AABB
+				++i;
+			}
+		}
+		assert(i == d+1);
 	}
-	assert(i == d+1);
+	else // else if not using SAH
+	{
+		const unsigned int split_axis = aabb.longestAxis();
+		const float split_val = 0.5f * (aabb.min_[split_axis] + aabb.max_[split_axis]);
+
+		while(i <= d)
+		{
+			// Categorise triangle at i
+
+			assert(i >= 0 && i < (int)numTris());
+			assert(d >= 0 && d < (int)numTris());
+			assert(tris[i] < numTris());
+
+			// Get triangle AABB
+			SSE_ALIGN AABBox tri_aabb;
+			triAABB(tris[i], tri_aabb);
+
+			const float tri_min = tri_aabb/*tri_aabbs[tris[i]]*/.min_[split_axis];
+			const float tri_max = tri_aabb/*tri_aabbs[tris[i]]*/.max_[split_axis];
+			if(tri_max - split_val >= split_val - tri_min)
+			{
+				// If mostly on positive side of split - categorise as R
+				pos_aabb.enlargeToHoldAABBox(tri_aabb/*tri_aabbs[tris[i]]*/); // Update right AABB
+
+				// Swap element at i with element at d
+				mySwap(tris[i], tris[d]);
+
+				assert(d >= 0);
+				--d;
+			}
+			else
+			{
+				// Tri mostly on negative side of split - categorise as L
+				neg_aabb.enlargeToHoldAABBox(tri_aabb/*tri_aabbs[tris[i]]*/); // Update left AABB
+				++i;
+			}
+		}
+		assert(i == d+1);
+	}
 
 	const int num_in_left = (d - left) + 1;
 	const int num_in_right = right - i;//+1;
@@ -294,12 +390,12 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int le
 	const unsigned int left_child_index = num_nodes;
 	const unsigned int right_child_index = left_child_index + 1;
 
+	nodes[node_index].leaf = 0;
 	nodes[node_index].left_child_index = left_child_index;
 	nodes[node_index].right_child_index = right_child_index;
 	nodes[node_index].left_aabb = neg_aabb;
 	nodes[node_index].right_aabb = pos_aabb;
 
-	
 	// Reserve space for children
 	const unsigned int new_num_nodes = num_nodes + 2;
 	if(new_num_nodes > nodes_capacity)
@@ -429,15 +525,14 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			for(unsigned int i=0; i<num_leaf_tris; ++i)
 			{
 				float u, v, raydist;
-				if(intersect_tris[leafgeom[leaf_geom_index]].rayIntersect(ray, closest_dist, raydist, u, v))
+				if(intersect_tris[/*leafgeom[*/leaf_geom_index/*]*/].rayIntersect(ray, closest_dist, raydist, u, v))
 				{
 					closest_dist = raydist;
-					hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index];
+					hitinfo_out.sub_elem_index = leaf_geom_index; // leafgeom[leaf_geom_index];
 					hitinfo_out.sub_elem_coords.set(u, v);
 				}
 				++leaf_geom_index;
 			}
-		//	testAgainstTriangles(nodes[current].geometry_index, nodes[current].num_geom, hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
 		}
 
 after_tri_test:

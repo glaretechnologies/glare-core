@@ -52,6 +52,8 @@ public:
 
 	virtual ~Tree();
 
+	static const unsigned int MAX_TREE_DEPTH = 100;
+
 	virtual void build() = 0; // throws TreeExcep
 	virtual bool diskCachable() = 0;
 	virtual void buildFromStream(std::istream& stream) = 0; // throws TreeExcep

@@ -20,7 +20,7 @@ TriTreePerThreadData::TriTreePerThreadData()
 	nodestack = NULL;
 	nodestack_size = 0;
 
-	nodestack_size = js::TriTree::MAX_KDTREE_DEPTH;//1024;
+	nodestack_size = js::Tree::MAX_TREE_DEPTH + 1; //js::TriTree::MAX_KDTREE_DEPTH;//1024;
 	alignedSSEArrayMalloc(nodestack_size, nodestack);
 
 
