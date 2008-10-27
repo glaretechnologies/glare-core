@@ -32,7 +32,7 @@ public:
 
 	void set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2);
 
-	inline unsigned int rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out); //non zero if hit
+	inline unsigned int rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const; //non zero if hit
 
 	inline const Vec3f& getNormal() const { return normal; }
 
@@ -51,7 +51,7 @@ private:
 
 const float BADOUEL_MIN_DIST = 0.00000001f;//this is to avoid denorms
 
-unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out)
+unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const
 {
 #if defined(WIN32) || defined(WIN64)
 	const __m128 raydir = _mm_load_ps((const float*)&ray.unitDirF());

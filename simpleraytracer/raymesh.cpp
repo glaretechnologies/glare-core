@@ -17,6 +17,9 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/RendererSettings.h"
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/jscol_tritree.h"
+#include "../physics/BVH.h"
+#include "../physics/SimpleBVH.h"
+#include "../physics/NBVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/fileutils.h"
 #include "../utils/timer.h"
@@ -250,10 +253,12 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	if(tritree.get())
 		return; // build() has already been called.
 
-	if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
+	/*if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
 		tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
 	else
-		tritree = std::auto_ptr<js::Tree>(new js::TriTree(this));
+		tritree = std::auto_ptr<js::Tree>(new js::TriTree(this));*/
+	//TEMP:
+	tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
 		
 	//------------------------------------------------------------------------
 	//print out our mem usage

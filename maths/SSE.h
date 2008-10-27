@@ -101,6 +101,13 @@ inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
 }
 
 template <class T>
+inline void alignedArrayMalloc(size_t numelems, size_t alignment, T*& t_out)
+{
+	const size_t memsize = sizeof(T) * numelems;
+	t_out = static_cast<T*>(alignedMalloc(memsize, alignment));
+}
+
+template <class T>
 inline void alignedSSEArrayFree(T* t)
 {
 	alignedSSEFree(t);
@@ -109,6 +116,12 @@ inline void alignedSSEArrayFree(T* t)
 	//	t[i].~T();
 	//alignedSSEFree(t);
 	//delete(t) []
+}
+
+template <class T>
+inline void alignedArrayFree(T* t)
+{
+	alignedFree(t);
 }
 
 

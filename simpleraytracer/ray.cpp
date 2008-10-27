@@ -1,7 +1,6 @@
 #include "ray.h"
 
 
-
 void Ray::buildRecipRayDir()
 {
 	const SSE_ALIGN float raydir[4] = {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};

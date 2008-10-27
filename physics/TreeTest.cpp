@@ -562,7 +562,7 @@ void TreeTest::doSpeedTest()
 	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
 
 	CSModelLoader model_loader;
-	RayMesh raymesh("raymesh", false);
+	RayMesh raymesh("bunny", false);
 	try
 	{
 		model_loader.streamModel(BUNNY_PATH, raymesh, 1.0);
@@ -576,6 +576,7 @@ void TreeTest::doSpeedTest()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
+	settings.bih_tri_threshold = 0; // TEMP USE BIH
 	raymesh.build(
 		".", // base indigo dir path
 		settings
@@ -599,7 +600,11 @@ void TreeTest::doSpeedTest()
 	Timer testtimer;//start timer
 	int num_hits = 0;//number of rays that actually hit the model
 
+	#ifdef DEBUG
+	const int NUM_ITERS = 1000000;
+	#else
 	const int NUM_ITERS = 20000000;
+	#endif
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const double RADIUS = 0.2f;//radius of sphere

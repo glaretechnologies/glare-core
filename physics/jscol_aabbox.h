@@ -12,8 +12,10 @@ File created by ClassTemplate on Thu Nov 18 03:48:29 2004Code By Nicholas Chapma
 #include "../maths/SSE.h"
 #include "../maths/mathstypes.h"
 
+
 namespace js
 {
+
 
 /*=====================================================================
 AABBox
@@ -41,10 +43,10 @@ public:
 	inline void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
-	DO_FORCEINLINE
-	int rayAABBTrace(const PaddedVec3f& raystartpos, 
-		const PaddedVec3f& recip_unitraydir, 
-		float& near_hitd_out, float& far_hitd_out) const;
+	
+	DO_FORCEINLINE int rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
+
+	DO_FORCEINLINE void rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir, __m128& near_t_out, __m128& far_t_out) const;
 	
 	inline float getSurfaceArea() const;
 	bool invariant() const;
@@ -53,6 +55,8 @@ public:
 	inline float axisLength(unsigned int axis) const { return max_[axis] - min_[axis]; }
 	inline unsigned int longestAxis() const;
 
+	inline const Vec3f centroid() const;
+
 	SSE_ALIGN PaddedVec3f min_;
 	SSE_ALIGN PaddedVec3f max_;
 };
@@ -60,17 +64,22 @@ public:
 
 AABBox::AABBox()
 {
+	assert(sizeof(AABBox) == 32);
 }
+
 
 AABBox::AABBox(const Vec3f& _min, const Vec3f& _max)
 :	min_(_min), 
 	max_(_max)
 {
+	assert(sizeof(AABBox) == 32);
 }
+
 
 AABBox::~AABBox()
 {
 }
+
 
 void AABBox::enlargeToHoldPoint(const Vec3f& p)
 {
@@ -91,6 +100,7 @@ void AABBox::enlargeToHoldPoint(const Vec3f& p)
 	max_.z = myMax(max_.z, p.z);
 }
 
+
 void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3f& p)
 {
 	_mm_store_ps(
@@ -108,6 +118,7 @@ void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3f& p)
 			)
 		);
 }
+
 
 void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 {
@@ -136,6 +147,7 @@ void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 		);
 }
 
+
 bool AABBox::containsAABBox(const AABBox& other) const
 {
 	return 
@@ -163,6 +175,7 @@ float AABBox::getZDims() const
 {
 	return max.z - min.z;
 }*/
+
 
 // From http://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
 
@@ -277,6 +290,65 @@ int AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& reci
 }
 
 
+DO_FORCEINLINE
+void AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir, 
+						  __m128& near_t_out, __m128& far_t_out) const
+{
+	assertSSEAligned(&raystartpos);
+	assertSSEAligned(&recip_unitraydir);
+	assertSSEAligned(&min_);
+	assertSSEAligned(&max_);
+
+	// you may already have those values hanging around somewhere
+	//const SSE4Vec
+	//	plus_inf	= load4Vec(ps_cst_plus_inf),
+	//	minus_inf	= load4Vec(ps_cst_minus_inf);
+
+	// use whatever's apropriate to load.
+	const SSE4Vec
+		box_min	= load4Vec(&min_.x),
+		box_max	= load4Vec(&max_.x),
+		pos	= load4Vec(&raystartpos.x),
+		inv_dir	= load4Vec(&recip_unitraydir.x);
+
+	// use a div if inverted directions aren't available
+	const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, pos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
+	const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, pos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
+
+	// the order we use for those min/max is vital to filter out
+	// NaNs that happens when an inv_dir is +/- inf and
+	// (box_min - pos) is 0. inf * 0 = NaN
+
+	// Nick's notes:
+	// "Note that if only one value is a NaN for this instruction, the source operand (second operand) value 
+	// (either NaN or valid floating-point value) is written to the result."
+	// So if l1 is a NaN, then filtered_l1a := +Inf
+	//const SSE4Vec filtered_l1a = min4Vec(l1, plus_inf);
+	//const SSE4Vec filtered_l2a = min4Vec(l2, plus_inf);
+
+	//const SSE4Vec filtered_l1b = max4Vec(l1, minus_inf);
+	//const SSE4Vec filtered_l2b = max4Vec(l2, minus_inf);
+
+	// now that we're back on our feet, test those slabs.
+	SSE4Vec lmax = max4Vec(l1, l2); //max4Vec(filtered_l1a, filtered_l2a);
+	SSE4Vec lmin = min4Vec(l1, l2); //min4Vec(filtered_l1b, filtered_l2b);
+
+	// unfold back. try to hide the latency of the shufps & co.
+	const SSE4Vec lmax0 = rotatelps(lmax);
+	const SSE4Vec lmin0 = rotatelps(lmin);
+	lmax = minss(lmax, lmax0);
+	lmin = maxss(lmin, lmin0);
+
+	const SSE4Vec lmax1 = muxhps(lmax,lmax);
+	const SSE4Vec lmin1 = muxhps(lmin,lmin);
+	lmax = minss(lmax, lmax1);
+	lmin = maxss(lmin, lmin1);
+
+	near_t_out = lmin;
+	far_t_out = lmax;
+}
+
+
 //SSE_ALIGN const float zero_4vec_f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 
@@ -288,10 +360,22 @@ unsigned int AABBox::longestAxis() const
 		return axisLength(1) > axisLength(2) ? 1 : 2;
 }
 
+
+inline const Vec3f AABBox::centroid() const
+{
+	return Vec3f(
+		(max_.x + min_.x) * 0.5f,
+		(max_.y + min_.y) * 0.5f,
+		(max_.z + min_.z) * 0.5f
+		);
+}
+
+
 bool AABBox::operator == (const AABBox& rhs) const
 {
 	return min_ == rhs.min_ && max_ == rhs.max_;
 }
+
 
 inline bool epsEqual(const AABBox& a, const AABBox& b, float eps = (float)NICKMATHS_EPSILON)
 {
@@ -307,15 +391,7 @@ float AABBox::getSurfaceArea() const
 }
 
 
-
 } //end namespace js
 
+
 #endif //__AABBOX_H_666_
-
-
-
-
-
-
-
-

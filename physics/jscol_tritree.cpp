@@ -119,9 +119,9 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
 
-#ifdef RECORD_TRACE_STATS
+	#ifdef RECORD_TRACE_STATS
 	this->num_traces++;
-#endif
+	#endif
 
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
@@ -129,28 +129,28 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	assert(!nodes.empty());
 	assert(root_aabb);
 
-#ifdef DO_PREFETCHING
+	#ifdef DO_PREFETCHING
 	// Prefetch first node
 	// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);	
-#endif
+	#endif
 
 	float aabb_enterdist, aabb_exitdist;
 	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
 		return -1.0; // Ray missed aabbox
 	assert(aabb_enterdist <= aabb_exitdist);
 
-#ifdef RECORD_TRACE_STATS
+	#ifdef RECORD_TRACE_STATS
 	this->num_root_aabb_hits++;
-#endif
+	#endif
 
 	const float root_t_min = myMax(0.0f, aabb_enterdist);
 	const float root_t_max = myMin((float)ray_max_t, aabb_exitdist);
 	if(root_t_min > root_t_max)
 		return -1.0; // Ray interval does not intersect AABB
 
-#ifdef USE_LETTERBOX
+	#ifdef USE_LETTERBOX
 	context.tri_hash->clear();
-#endif
+	#endif
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
@@ -176,9 +176,9 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 		
 		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
 		{
-#ifdef DO_PREFETCHING
-//			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
+			#ifdef DO_PREFETCHING
+			//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
+			#endif			
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			const SSE4Vec t = mult4Vec(
@@ -211,10 +211,11 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 					assert(stacktop < context.nodestack_size);
 					context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 
-#ifdef DO_PREFETCHING
+					#ifdef DO_PREFETCHING
 					// Prefetch pushed child
 					_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-#endif					
+					#endif	
+
 					// Process near child next
 					current = nearnode;
 					tmax = t_split;
@@ -238,10 +239,10 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 	
-#ifdef DO_PREFETCHING
+				#ifdef DO_PREFETCHING
 				// Prefetch pushed child
 				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-#endif					
+				#endif					
 				//process near child next
 				current = nearnode;
 				tmax = t_split;
@@ -250,9 +251,9 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 
 		//'current' is a leaf node..
 	
-#ifdef RECORD_TRACE_STATS
+		#ifdef RECORD_TRACE_STATS
 		this->total_num_leafs_touched++;
-#endif
+		#endif
 		//prefetch all data
 		//for(int i=0; i<nodes[current].num_leaf_tris; ++i)
 		//	_mm_prefetch((const char *)(leafgeom[nodes[current].positive_child + i]), _MM_HINT_T0);		
@@ -262,19 +263,19 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
-#ifdef RECORD_TRACE_STATS
+			#ifdef RECORD_TRACE_STATS
 			total_num_tris_considered++;
-#endif
+			#endif
 			assert(leaf_geom_index < leafgeom.size());
 			const unsigned int triangle_index = leafgeom[leaf_geom_index];
 
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 			if(!context.tri_hash->containsTriIndex(triangle_index)) //If this tri has not already been intersected against
 			{
-#endif
-#ifdef RECORD_TRACE_STATS
+			#endif
+				#ifdef RECORD_TRACE_STATS
 				total_num_tris_intersected++;
-#endif
+				#endif
 				// Try prefetching next tri.
 				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);		
 
@@ -295,11 +296,11 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 					}
 				}
 
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 				// Add tri index to hash of tris already intersected against
 				context.tri_hash->addTriIndex(triangle_index);
 			}
-#endif
+			#endif
 			leaf_geom_index++;
 		}
 
@@ -334,9 +335,9 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
 		return; //missed aabbox
 
-#ifdef USE_LETTERBOX
+	#ifdef USE_LETTERBOX
 	context.tri_hash->clear();
-#endif
+	#endif
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
@@ -374,9 +375,9 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 
 		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
 		{
-#ifdef DO_PREFETCHING
+			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
+			#endif			
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			const SSE4Vec t = mult4Vec(
@@ -425,10 +426,10 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 
-#ifdef DO_PREFETCHING
+				#ifdef DO_PREFETCHING
 				// Prefetch pushed child
 				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-#endif
+				#endif
 					
 				//process near child next
 				current = nearnode;
@@ -450,11 +451,11 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 		{
 			assert(triindex >= 0 && triindex < leafgeom.size());
 
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 			//If this tri has not already been intersected against
 			if(!context.tri_hash->containsTriIndex(leafgeom[triindex]))
 			{
-#endif
+			#endif
 				float u, v, raydist;
 				if(intersect_tris[leafgeom[triindex]].rayIntersect(ray, closest_dist, raydist, u, v))
 				{
@@ -497,11 +498,11 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 						hitinfos_out.back().hitpos.addMult(ray.unitdir, raydist);
 					}*/
 				}
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 				//Add tri index to hash of tris already intersected against
 				context.tri_hash->addTriIndex(leafgeom[triindex]);
 			}
-#endif
+			#endif
 			triindex++;
 		}
 	}//end while !bundlenodestack.empty()
@@ -532,9 +533,9 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
-#ifdef USE_LETTERBOX
+	#ifdef USE_LETTERBOX
 	context.tri_hash->clear();
-#endif
+	#endif
 
 	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
 	int stacktop = 0; // index of node on top of stack
@@ -550,10 +551,10 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 
 		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF) //while current node is not a leaf..
 		{
-#ifdef DO_PREFETCHING
+			#ifdef DO_PREFETCHING
 			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
-//			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
+			//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
+			#endif			
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			//const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
 			const SSE4Vec t = mult4Vec(
@@ -585,10 +586,10 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 				assert(stacktop < context.nodestack_size);
 				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
 
-#ifdef DO_PREFETCHING
+				#ifdef DO_PREFETCHING
 				// Prefetch pushed child
 				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-#endif
+				#endif
 					
 				// process near child next
 				current = nearnode;
@@ -606,11 +607,11 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 			assert(leaf_geom_index < leafgeom.size());
 			const unsigned int triangle_index = leafgeom[leaf_geom_index]; //get the actual intersection triangle index
 
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 			//If this tri has not already been intersected against
 			if(!context.tri_hash->containsTriIndex(triangle_index))
 			{
-#endif
+			#endif
 				//assert(tmax <= raylength);
 				float u, v, dummy_hitdist;
 				if(intersect_tris[triangle_index].rayIntersect(ray, 
@@ -623,11 +624,11 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 					}
 				}
 				
-#ifdef USE_LETTERBOX
+			#ifdef USE_LETTERBOX
 				//Add tri index to hash of tris already intersected against
 				context.tri_hash->addTriIndex(triangle_index);
 			}
-#endif
+			#endif
 			leaf_geom_index++;
 		}
 	}

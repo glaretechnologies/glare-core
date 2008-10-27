@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../utils/random.h"
 #include <limits>
 
+
 namespace js
 {
 
@@ -25,6 +26,7 @@ namespace js
 //#define RECORD_TRACE_STATS 1
 //#define VERBOSE_TRACE 1
 //#define VERBOSE_BUILD 1
+
 
 BIHTree::BIHTree(RayMesh* raymesh_)
 :	raymesh(raymesh_)
@@ -59,6 +61,7 @@ const Vec3f& BIHTree::triVertPos(unsigned int tri_index, unsigned int vert_index
 	return raymesh->triVertPos(tri_index, vert_index_in_tri);
 }
 
+
 unsigned int BIHTree::numTris() const
 {
 	return raymesh->getNumTris();
@@ -74,20 +77,21 @@ unsigned int BIHTree::numTris() const
 	assert(aabbox_out.invariant());
 }*/
 
+
 float BIHTree::triMaxPos(unsigned int tri_index, unsigned int axis) const
 {
 	return myMax(triVertPos(tri_index, 0)[axis], myMax(triVertPos(tri_index, 1)[axis], triVertPos(tri_index, 2)[axis]));
 }
+
 
 float BIHTree::triMinPos(unsigned int tri_index, unsigned int axis) const
 {
 	return myMin(triVertPos(tri_index, 0)[axis], myMin(triVertPos(tri_index, 1)[axis], triVertPos(tri_index, 2)[axis]));
 }
 
+
 void BIHTree::build()
 {
-	//raymesh = raymesh_;
-
 	conPrint("\tBIHTree::build()");
 	Timer buildtimer;
 	//conPrint("\t" + ::toString(numTris()) + " tris.");
@@ -150,6 +154,7 @@ void BIHTree::build()
 	conPrint("\tFinished building tree. (Build time: " + toString(buildtimer.getSecondsElapsed()) + "s)");	
 }
 
+
 unsigned int BIHTree::numInternalNodes() const
 {
 	uint32 c = 0;
@@ -158,6 +163,8 @@ unsigned int BIHTree::numInternalNodes() const
 			c++;
 	return c;
 }
+
+
 unsigned int BIHTree::numLeafNodes() const
 {
 	uint32 c = 0;
@@ -166,6 +173,8 @@ unsigned int BIHTree::numLeafNodes() const
 			c++;
 	return c;
 }
+
+
 double BIHTree::meanNumTrisPerLeaf() const
 {
 	double num_tris_per_leaf = 0.;
@@ -174,6 +183,8 @@ double BIHTree::meanNumTrisPerLeaf() const
 			num_tris_per_leaf += (double)nodes[i].getNumLeafGeom();
 	return num_tris_per_leaf / (double)numLeafNodes();
 }
+
+
 unsigned int BIHTree::maxNumTrisPerLeaf() const
 {
 	unsigned int num = 0;
@@ -192,13 +203,13 @@ void BIHTree::doBuild(const AABBox& aabb_, const AABBox& tri_aabb, std::vector<T
 {
 	const int MAX_DEPTH = 100;
 
-#ifdef VERBOSE_BUILD
+	#ifdef VERBOSE_BUILD
 	conPrint("doBuild()");
 	printVar(left);
 	printVar(right);
 	printVar(depth);
 	printVar(node_index);
-#endif
+	#endif
 
 	//nodes.push_back(BIHTreeNode());
 	//if(nodes.size() <= node_index_to_use)
@@ -282,7 +293,7 @@ void BIHTree::doBuild(const AABBox& aabb_, const AABBox& tri_aabb, std::vector<T
 	int i = left;
 	while(i <= d)
 	{
-		//catergorise triangle at i
+		//categorise triangle at i
 
 		assert(i >= 0 && i < (int)numTris());
 		assert(d >= 0 && d < (int)numTris());
@@ -408,25 +419,19 @@ void BIHTree::doBuild(const AABBox& aabb_, const AABBox& tri_aabb, std::vector<T
 }
 
 
-
-
-
-
-
-
 double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	assertSSEAligned(&ray);
 	assert(ray_max_t >= 0.0f);
 
-#ifdef RECORD_TRACE_STATS
+	#ifdef RECORD_TRACE_STATS
 	this->num_traces += 1.;
-#endif
-#ifdef VERBOSE_TRACE
+	#endif
+	#ifdef VERBOSE_TRACE
 	conPrint("------------------------- traceRay() ------------------------------");
 	conPrint("ray.unitdir: " + ray.unitdir.toStringFullPrecision());
 	conPrint("ray.getRecipRayDir(): " + ray.getRecipRayDir().toStringFullPrecision());
-#endif
+	#endif
 
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
@@ -450,14 +455,8 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	if(ray_max_t <= aabb_enterdist)//if this ray finishes before we even enter the aabb...
 		return -1.0f;
 
-	//unsigned int ray_child_indices[4][2];
-	//TreeUtils::buildRayChildIndices(ray, ray_child_indices);
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
-
-
-	//assert(ray_child_indices[2][0] == 0 || ray_child_indices[2][0] == 1);
-	//assert(ray_child_indices[2][1] == 0 || ray_child_indices[2][1] == 1);
 
 	assert(aabb_enterdist >= 0.0f);
 //TEMP as failing too much	assert(aabb_exitdist >= aabb_enterdist);
@@ -466,11 +465,11 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	REAL closest_dist = initial_closest_dist;
 	assert(closest_dist > ray_max_t);
 
-#ifdef VERBOSE_TRACE
+	#ifdef VERBOSE_TRACE
 	printVar(closest_dist);
 	printVar(aabb_enterdist);
 	printVar(aabb_exitdist);
-#endif
+	#endif
 
 	context.nodestack[0] = StackFrame(0, aabb_enterdist, aabb_exitdist);
 
@@ -489,13 +488,13 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 
 		stacktop--;
 
-#ifdef VERBOSE_TRACE
+		#ifdef VERBOSE_TRACE
 		conPrint("Popped node " + toString(current) + " off stack.");
 		printVar(stacktop);
 		printVar(tmin);
 		printVar(tmax);
 		printVar(closest_dist);
-#endif
+		#endif
 
 		//if we have hit a tri before the min_t of this child, then skip this subtree
 		if(closest_dist <= tmin)
@@ -513,13 +512,13 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 
 		while(!nodes[current].isLeafNode())//while current node is not a leaf..
 		{
-#ifdef VERBOSE_TRACE
+			#ifdef VERBOSE_TRACE
 			conPrint("---Processing interior node " + toString(current) + "...---");
-#endif
+			#endif
 			//prefetch child node memory
-#ifdef DO_PREFETCHING
+			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
+			#endif			
 	
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			assert(splitting_axis >= 0 && splitting_axis <= 2);
@@ -530,7 +529,7 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 			const bool intersect_near = tmin <= t_split_0;
 			const bool intersect_far = tmax >= t_split_1;
 
-#ifdef VERBOSE_TRACE
+			#ifdef VERBOSE_TRACE
 			printVar(ray_child_indices[splitting_axis][0]);
 			printVar(ray_child_indices[splitting_axis][1]);
 			printVar(nodes[current].clip[ray_child_indices[splitting_axis][0]]);
@@ -542,81 +541,78 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 			printVar(t_split_1);
 			printVar(intersect_near);
 			printVar(intersect_far);
-#endif
+			#endif
 
-			if(intersect_near && intersect_far)
+			if(intersect_near)
 			{
-				//ray hits plane - double recursion, into both near and far cells.
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
+				if(intersect_far)
+				{
+					//ray hits plane - double recursion, into both near and far cells.
+					const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
+					const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
 					
-				//push far node onto stack to process later
-				stacktop++;
-				assert(stacktop < context.nodestack_size);
-				//assert(t_split_1 >= tmin);
-				context.nodestack[stacktop] = StackFrame(farnode, myMax(t_split_1, tmin), tmax);
+					// Push far node onto stack to process later
+					stacktop++;
+					assert(stacktop < context.nodestack_size);
+					context.nodestack[stacktop] = StackFrame(farnode, myMax(t_split_1, tmin), tmax);
 					
-				//process near child next
-				current = nearnode;
-				//assert(t_split_0 <= tmax);
-				//tmax = t_split_0;
-				tmax = myMin(t_split_0, tmax);
-			}
-			else if(intersect_near)
-			{
-				current = child_nodes[ray_child_indices[splitting_axis]];//nearnode;
-				tmax = myMin(tmax, t_split_0);
-			}
-			else if(intersect_far)
-			{
-				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
-				tmin = myMax(tmin, t_split_1);
+					current = nearnode; // Process near child next
+					tmax = myMin(t_split_0, tmax);
+				}
+				else
+				{
+					current = child_nodes[ray_child_indices[splitting_axis]]; // Process near node
+					tmax = myMin(tmax, t_split_0);
+				}
 			}
 			else
 			{
-				assert(tmin >= t_split_0 && tmax <= t_split_1);
-				//neither
-				//want to pop this node off the stack and continue the traversal
-				do_intersections = false;
-				break;
+				if(intersect_far)
+				{
+					current = child_nodes[ray_child_indices[splitting_axis + 4]]; // Process far node;
+					tmin = myMax(tmin, t_split_1);
+				}
+				else
+				{
+					// hit neither near nor far
+					//want to pop this node off the stack and continue the traversal
+					do_intersections = false;
+					break;
+				}
 			}
-
-#ifdef RECORD_TRACE_STATS
-			this->total_num_nodes_touched += 1.;
-#endif
 		}//end while current node is not a leaf..
 
 		//'current' is a leaf node..
 	
 
-#ifdef VERBOSE_TRACE
+		#ifdef VERBOSE_TRACE
 		conPrint("Processing leaf node " + toString(current) + "...");
-#endif
+		#endif
 
 		if(do_intersections)
 		{
 			assert(nodes[current].isLeafNode());
 
-#ifdef RECORD_TRACE_STATS
+			#ifdef RECORD_TRACE_STATS
 			this->total_num_leafs_touched += 1.;
-#endif
+			#endif
 			//------------------------------------------------------------------------
 			//intersect ray against leaf triangles
 			//------------------------------------------------------------------------
 			unsigned int leaf_geom_index = nodes[current].getLeafGeomIndex();
 			const unsigned int num_leaf_tris = nodes[current].getNumLeafGeom();
 
-#ifdef VERBOSE_TRACE
+			#ifdef VERBOSE_TRACE
 			conPrint("Doing leaf intersections...");
 			printVar(leaf_geom_index);
 			printVar(num_leaf_tris);
-#endif
+			#endif
 
 			for(unsigned int i=0; i<num_leaf_tris; ++i)
 			{
-#ifdef RECORD_TRACE_STATS
+				#ifdef RECORD_TRACE_STATS
 				this->total_num_tris_intersected += 1;
-#endif
+				#endif
 				assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
 
 				float u, v, raydist;
@@ -624,11 +620,11 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 				if(intersect_tris[leafgeom[leaf_geom_index]].rayIntersect(ray, closest_dist, raydist, u, v))
 				{
 					assert(raydist < closest_dist);
-#ifdef VERBOSE_TRACE
+					#ifdef VERBOSE_TRACE
 					conPrint("Ray hit triangle");
 					printVar(raydist);
 					printVar(leafgeom[leaf_geom_index]);
-#endif
+					#endif
 
 					closest_dist = raydist;
 					hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index];
@@ -645,15 +641,15 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 		}*/
 	}//end while !bundlenodestack.empty()
 
-#ifdef RECORD_TRACE_STATS
-//	if(num_traces % 10000 == 0)
+	#ifdef RECORD_TRACE_STATS
+	//if(num_traces % 10000 == 0)
 	{
 		printVar(num_traces);
 		conPrint("av num nodes touched: " + toString(total_num_nodes_touched / num_traces));
 		conPrint("av num leaves touched: " + toString(total_num_leafs_touched / num_traces));
 		conPrint("av num tris tested: " + toString(total_num_tris_intersected / num_traces));
 	}
-#endif
+	#endif
 
 	if(closest_dist < initial_closest_dist)
 		return closest_dist;
@@ -661,14 +657,11 @@ double BIHTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 		return -1.0f;//missed all tris
 }
 
+
 const js::AABBox& BIHTree::getAABBoxWS() const
 {
 	return *root_aabb;
 }
-
-
-
-
 
 
 void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
@@ -879,6 +872,8 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 	else
 		return -1.0f;//missed all tris*/
 }
+
+
 bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	//NOTE: can speed this up
@@ -887,7 +882,8 @@ bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 	return dist >= 0.0f && dist < raylength;
 }
 
-	//returns dist till hit tri, neg number if missed.
+
+//returns dist till hit tri, neg number if missed.
 double BIHTree::traceRayAgainstAllTris(const ::Ray& ray, double tmax, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
@@ -919,15 +915,20 @@ bool BIHTree::diskCachable()
 {
 	return false;
 }
+
+
 void BIHTree::buildFromStream(std::istream& stream)
 {
 	assert(false);
 	throw TreeExcep("BIH can't save to disk.");
 }
+
+
 void BIHTree::saveTree(std::ostream& stream)
 {
 	assert(false);
 }
+
 
 unsigned int BIHTree::checksum()
 {
@@ -935,17 +936,11 @@ unsigned int BIHTree::checksum()
 	return 0;
 }
 
+
 const Vec3f& BIHTree::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	return intersect_tris[tri_index].getNormal();
 }
 
 
-
 } //end namespace js
-
-
-
-
-
-
