@@ -46,6 +46,8 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 
 SimpleBVH::~SimpleBVH()
 {
+	assert(tri_aabbs == NULL);
+	alignedArrayFree(nodes);
 	alignedSSEFree(root_aabb);
 	alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
@@ -67,27 +69,27 @@ unsigned int SimpleBVH::numTris() const
 class CenterPredicate
 {
 public:
-	CenterPredicate(int axis_, SimpleBVH* sbvh_) : axis(axis_), sbvh(sbvh_) {}
+	CenterPredicate(int axis_, const std::vector<Vec3f>& tri_centers_) : axis(axis_), tri_centers(tri_centers_) {}
 
 	inline bool operator()(unsigned int t1, unsigned int t2)
 	{
 		//return sbvh->triCenter(t1, axis) < sbvh->triCenter(t2, axis);
-		return sbvh->tri_centers[t1][axis] < sbvh->tri_centers[t2][axis];
+		return tri_centers[t1][axis] < tri_centers[t2][axis];
 	}
 
 private:
 	int axis;
-	SimpleBVH* sbvh;
+	//SimpleBVH* sbvh;
+	const std::vector<Vec3f>& tri_centers;
 };
 
 
 void SimpleBVH::build()
 {
 	conPrint("\tSimpleBVH::build()");
-	Timer buildtimer;
 
 	//------------------------------------------------------------------------
-	//calc root node's aabbox
+	//Calc root node's aabbox
 	//NOTE: could do this faster by looping over vertices instead.
 	//------------------------------------------------------------------------
 	conPrint("\tCalcing root AABB.");
@@ -99,24 +101,28 @@ void SimpleBVH::build()
 		root_aabb->enlargeToHoldPoint(triVertPos(i, 1));
 		root_aabb->enlargeToHoldPoint(triVertPos(i, 2));
 	}
-	conPrint("\tdone.");
-	conPrint("\tRoot AABB min: " + root_aabb->min_.toString());
-	conPrint("\tRoot AABB max: " + root_aabb->max_.toString());
+	conPrint("\t\tDone.");
+	conPrint("\t\tRoot AABB min: " + root_aabb->min_.toString());
+	conPrint("\t\tRoot AABB max: " + root_aabb->max_.toString());
 
 	//------------------------------------------------------------------------
 	//alloc intersect tri array
 	//------------------------------------------------------------------------
-	conPrint("\tAllocing intersect triangles...");
+	conPrint("\tAllocating intersect triangles...");
 	this->num_intersect_tris = numTris();
 	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+		conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
 	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+	if(intersect_tris == NULL)
+		throw TreeExcep("Memory allocation failure.");
 	intersect_tri_i = 0;
 
 	{
 	// Build tri AABBs
 	::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+	if(tri_aabbs == NULL)
+		throw TreeExcep("Memory allocation failure.");
 
 	for(unsigned int i=0; i<numTris(); ++i)
 	{
@@ -129,12 +135,12 @@ void SimpleBVH::build()
 	}
 
 	// Build tri centers
-	tri_centers.resize(numTris());
+	std::vector<Vec3f> tri_centers(numTris());;
 	for(unsigned int i=0; i<numTris(); ++i)
 	{
-		SSE_ALIGN AABBox aabb;
-		triAABB(i, aabb);
-		tri_centers[i] = aabb.centroid();
+		//SSE_ALIGN AABBox aabb;
+		//triAABB(i, aabb);
+		tri_centers[i] = tri_aabbs[i].centroid();
 	}
 
 	std::vector<std::vector<TRI_INDEX> > tris(3);
@@ -145,32 +151,35 @@ void SimpleBVH::build()
 	conPrint("\tSorting...");
 	Timer sort_timer;
 	// Sort indices based on center position along the axes
-	printVar(omp_get_num_procs());
-	printVar(omp_get_max_threads());
+	//printVar(omp_get_num_procs());
+	//printVar(omp_get_max_threads());
 #pragma omp parallel for
 	for(int axis=0; axis<3; ++axis)
 	{
-		printVar(axis);
-		printVar(omp_get_thread_num());
-		printVar(omp_get_num_threads());
+		//printVar(axis);
+		//printVar(omp_get_thread_num());
+		//printVar(omp_get_num_threads());
 
 		tris[axis].resize(numTris());
 		for(unsigned int i=0; i<numTris(); ++i)
 			tris[axis][i] = i;
 
 		// Sort based on center along axis 'axis'
-		std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, this));
+		std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
 	}
 	conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
 
 	nodes_capacity = myMax(2u, numTris() / 4);
 	alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), nodes);
+	if(nodes == NULL)
+		throw TreeExcep("Memory allocation failure.");
 	num_nodes = 1;
 	doBuild(
 		*root_aabb, // AABB
 		tris,
 		temp,
+		tri_centers,
 		0, // left
 		numTris(), // right
 		0, // node index to use
@@ -180,12 +189,9 @@ void SimpleBVH::build()
 	assert(intersect_tri_i == num_intersect_tris);
 	}
 
-
-	conPrint("\tdone.");
-
 	::alignedSSEArrayFree(tri_aabbs);
+	tri_aabbs = NULL;
 
-	
 	conPrint("\tBuild Stats:");
 	conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(SimpleBVHNode)) + ")");
 	conPrint("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
@@ -195,7 +201,6 @@ void SimpleBVH::build()
 	conPrint("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
 	conPrint("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
 	conPrint("\t\tMax leaf depth: " + toString(max_leaf_depth));
-
 
 	conPrint("\tFinished building tree.");	
 }
@@ -250,7 +255,8 @@ void SimpleBVH::triAABB(unsigned int tri_index, AABBox& aabb_out)
 The triangles [left, right) are considered to belong to this node.
 The AABB for this node (build_nodes[node_index]) should be set already.
 */
-void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, int left, int right, unsigned int node_index, int depth)
+void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, const std::vector<Vec3f>& tri_centers,
+						int left, int right, unsigned int node_index, int depth)
 {
 	//assert(left >= 0 && left < (int)numTris() && right >= 0 && right < (int)numTris());
 	assert(node_index < num_nodes);
@@ -279,7 +285,6 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 			num_under_thresh_leaves++;
 		leaf_depth_sum += depth;
 		max_leaf_depth = myMax(max_leaf_depth, depth);
-
 		return;
 	}
 
@@ -299,7 +304,7 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 
 	//int best_i = -1;
 
-	Timer timer;
+	//Timer timer;
 
 	float axis_smallest_cost[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
 	float axis_best_div_val[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
@@ -359,9 +364,9 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 		}
 
 
-	const int MAX_TIMER_REPORT_DEPTH = 2;
-	if(depth <= MAX_TIMER_REPORT_DEPTH)
-		conPrint("SAH eval time: " + toString(timer.getSecondsElapsed()) + " s");
+	//const int MAX_TIMER_REPORT_DEPTH = 2;
+	//if(depth <= MAX_TIMER_REPORT_DEPTH)
+	//	conPrint("SAH eval time: " + toString(timer.getSecondsElapsed()) + " s");
 
 	if(best_axis == -1)
 	{
@@ -374,7 +379,7 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 		return;
 	}
 
-	timer.reset();
+	//timer.reset();
 	// Now we need to partition the triangle index lists, while maintaining ordering.
 	int split_i;
 	for(int axis=0; axis<3; ++axis)
@@ -404,10 +409,10 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 		assert(split_i >= left && split_i <= right);
 	}
 
-	if(depth <= MAX_TIMER_REPORT_DEPTH)
-		conPrint("Partition time: " + toString(timer.getSecondsElapsed()) + " s");
+	//if(depth <= MAX_TIMER_REPORT_DEPTH)
+	//	conPrint("Partition time: " + toString(timer.getSecondsElapsed()) + " s");
 
-	timer.reset();
+	//timer.reset();
 
 	// Compute AABBs for children
 	SSE_ALIGN AABBox left_aabb(
@@ -436,8 +441,8 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 		right_aabb.enlargeToHoldAABBox(tri_aabbs[tris[0][i]]);
 	}
 
-	if(depth <= MAX_TIMER_REPORT_DEPTH)
-		conPrint("child AABB construction time: " + toString(timer.getSecondsElapsed()) + " s");
+	//if(depth <= MAX_TIMER_REPORT_DEPTH)
+	//	conPrint("child AABB construction time: " + toString(timer.getSecondsElapsed()) + " s");
 
 	const unsigned int left_child_index = num_nodes;
 	const unsigned int right_child_index = left_child_index + 1;
@@ -455,6 +460,8 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 		nodes_capacity *= 2;
 		SimpleBVHNode* new_nodes;
 		alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), new_nodes); // Alloc new array
+		if(new_nodes == NULL)
+			throw TreeExcep("Memory allocation failure.");
 		memcpy(new_nodes, nodes, sizeof(SimpleBVHNode) * num_nodes); // Copy over old array
 		alignedArrayFree(nodes); // Free old array
 		nodes = new_nodes; // Update nodes pointer to point at new array
@@ -462,10 +469,10 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 	num_nodes = new_num_nodes; // Update size
 
 	// Recurse to build left subtree
-	doBuild(left_aabb, tris, temp, left, split_i, left_child_index, depth+1);
+	doBuild(left_aabb, tris, temp, tri_centers, left, split_i, left_child_index, depth+1);
 
 	// Recurse to build right subtree
-	doBuild(right_aabb, tris, temp, split_i, right, right_child_index, depth+1);
+	doBuild(right_aabb, tris, temp, tri_centers, split_i, right, right_child_index, depth+1);
 }
 
 

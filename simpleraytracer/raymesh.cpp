@@ -253,12 +253,17 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	if(tritree.get())
 		return; // build() has already been called.
 
-	/*if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
-		tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
-	else
-		tritree = std::auto_ptr<js::Tree>(new js::TriTree(this));*/
-	//TEMP:
-	tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
+	try
+	{
+		if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
+			tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this)); // tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
+		else
+			tritree = std::auto_ptr<js::Tree>(new js::TriTree(this)); // kd-tree
+	}
+	catch(js::TreeExcep& e)
+	{
+		throw GeometryExcep("Exception while creating tree: " + e.what());
+	}
 		
 	//------------------------------------------------------------------------
 	//print out our mem usage
@@ -320,7 +325,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 			}
 			catch(js::TreeExcep& e)
 			{
-				throw GeometryExcep(e.what());
+				throw GeometryExcep("Exception while building tree: " + e.what());
 			}
 		
 			if(tritree->diskCachable())
@@ -357,7 +362,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 		}
 		catch(js::TreeExcep& e)
 		{
-			throw GeometryExcep(e.what());
+			throw GeometryExcep("Exception while building tree: " + e.what());
 		}
 	}
 

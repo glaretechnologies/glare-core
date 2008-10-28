@@ -54,17 +54,6 @@ public:
 };
 
 
-class RayMeshExcep
-{
-public:
-	RayMeshExcep(const std::string& s_) : s(s_) {}
-	~RayMeshExcep(){}
-	const std::string& what() const { return s; }
-private:
-	std::string s;
-};
-
-
 /*=====================================================================
 RayMesh
 -------
@@ -116,7 +105,7 @@ public:
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
 		const std::vector<Plane<double> >& camera_clip_planes
 		);
-	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings);
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings); // throws GeometryExcep
 	virtual const std::string getName() const { return name; }
 	//////////////////////////////////////////////////////////
 
@@ -144,7 +133,7 @@ public:
 	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	//inline const unsigned int getNumVerts() const { return num_vertices; }
 
-	inline const unsigned int getNumVerts() const { return vertices.size(); }
+	inline const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
 
 	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////

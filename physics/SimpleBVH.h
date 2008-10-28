@@ -56,7 +56,7 @@ public:
 	virtual void printTraceStats() const {}
 	
 	//float triCenter(unsigned int tri_index, unsigned int axis);
-	std::vector<Vec3f> tri_centers;
+	//std::vector<Vec3f> tri_centers;
 
 private:
 	typedef uint32 TRI_INDEX;
@@ -65,7 +65,7 @@ private:
 
 	void markLeafNode(const std::vector<std::vector<TRI_INDEX> >& tris, unsigned int node_index, int left, int right);
 
-	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, int left, int right, unsigned int node_index_to_use, int depth);
+	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, const std::vector<Vec3f>& tri_centers, int left, int right, unsigned int node_index_to_use, int depth);
 
 	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
 	unsigned int numTris() const;

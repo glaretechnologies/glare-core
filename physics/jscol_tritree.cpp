@@ -761,6 +761,8 @@ void TriTree::build()
 			triTreeDebugPrint("intersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
 		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		if(!intersect_tris)
+			throw TreeExcep("Memory allocation failed while building kd-tree");
 
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
@@ -814,6 +816,8 @@ void TriTree::buildFromStream(std::istream& stream)
 		//------------------------------------------------------------------------
 		num_intersect_tris = numTris();
 		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		if(!intersect_tris)
+			throw TreeExcep("Memory allocation failed while building kd-tree");
 
 		// Build intersect tris
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
