@@ -520,8 +520,6 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 
 	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
 	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
-	SSE_ALIGN float temp[4] = { 0.0, 0.0, 0.0, 0.0 };
-	SSE_ALIGN float temp2[4] = { 0.0, 0.0, 0.0, 0.0 };
 
 	while(stacktop >= 0)
 	{
@@ -539,20 +537,30 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			const unsigned int left = nodes[current].getLeftChildIndex();
 			const unsigned int right = nodes[current].getRightChildIndex();
 
+			const __m128 a = _mm_load_ps(nodes[current].box);
+			const __m128 b = _mm_load_ps(nodes[current].box + 4);
+			const __m128 c = _mm_load_ps(nodes[current].box + 8);
+
 			// Test ray against left child
 			__m128 left_near_t, left_far_t;
 			{
-			const __m128 box_min = _mm_load_ps(nodes[current].leftMin());
-			const __m128 box_max = _mm_load_ps(nodes[current].leftMax());
-			/*temp[0] = nodes[current].leftMin()[0];
-			temp[1] = nodes[current].leftMin()[1];
-			temp[2] = nodes[current].leftMin()[2];
-			const __m128 box_min = _mm_load_ps(temp);
-			temp2[0] = nodes[current].leftMax()[0];
-			temp2[1] = nodes[current].leftMax()[1];
-			temp2[2] = nodes[current].leftMax()[2];
-			const __m128 box_max = _mm_load_ps(temp2);*/
+			// a = [rmax.x, rmin.x, lmax.x, lmin.x]
+			// b = [rmax.y, rmin.y, lmax.y, lmin.y]
+			// c = [rmax.z, rmin.z, lmax.z, lmin.z]
+			__m128 
+			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(0, 0, 0, 0)); // box_min = [lmin.y, lmin.y, lmin.x, lmin.x]
+			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(0, 0, 2, 0)); // box_min = [lmin.z, lmin.z, lmin.x, lmin.x]
+			__m128 
+			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(1, 1, 1, 1)); // box_max = [lmax.y, lmax.y, lmax.x, lmax.x]
+			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(1, 1, 2, 0)); // box_max = [lmax.z, lmax.z, lmax.y, lmax.x]
 
+			#ifdef DEBUG
+			SSE_ALIGN float temp[4];
+			_mm_store_ps(temp, box_min);
+			assert(temp[0] == nodes[current].box[0] && assert(temp[1] == nodes[current].box[4] && assert(temp[2] == nodes[current].box[8]);
+			_mm_store_ps(temp, box_max);
+			assert(temp[0] == nodes[current].box[1] && assert(temp[1] == nodes[current].box[5] && assert(temp[2] == nodes[current].box[9]);
+			#endif
 
 			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
 			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
@@ -578,16 +586,23 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			// Test against right child
 			__m128 right_near_t, right_far_t;
 			{
-			const __m128 box_min = _mm_load_ps(nodes[current].rightMin());
-			const __m128 box_max = _mm_load_ps(nodes[current].rightMax());
-			/*temp[0] = nodes[current].rightMin()[0];
-			temp[1] = nodes[current].rightMin()[1];
-			temp[2] = nodes[current].rightMin()[2];
-			const __m128 box_min = _mm_load_ps(temp);
-			temp2[0] = nodes[current].rightMax()[0];
-			temp2[1] = nodes[current].rightMax()[1];
-			temp2[2] = nodes[current].rightMax()[2];
-			const __m128 box_max = _mm_load_ps(temp2);*/
+			// a = [rmax.x, rmin.x, lmax.x, lmin.x]
+			// b = [rmax.y, rmin.y, lmax.y, lmin.y]
+			// c = [rmax.z, rmin.z, lmax.z, lmin.z]
+			__m128 
+			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(2, 2, 2, 2)); // box_min = [rmin.y, rmin.y, rmin.x, rmin.x]
+			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(2, 2, 2, 0)); // box_min = [rmin.z, rmin.z, rmin.x, rmin.x]
+			__m128 
+			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(3, 3, 3, 3)); // box_max = [rmax.y, rmax.y, rmax.x, rmax.x]
+			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(3, 3, 2, 0)); // box_max = [rmax.z, rmax.z, rmax.y, rmax.x]
+
+			#ifdef DEBUG
+			SSE_ALIGN float temp[4];
+			_mm_store_ps(temp, box_min);
+			assert(temp[0] == nodes[current].box[2] && assert(temp[1] == nodes[current].box[6] && assert(temp[2] == nodes[current].box[10]);
+			_mm_store_ps(temp, box_max);
+			assert(temp[0] == nodes[current].box[3] && assert(temp[1] == nodes[current].box[7] && assert(temp[2] == nodes[current].box[11]);
+			#endif
 
 			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
 			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
@@ -637,7 +652,6 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 				else
 				{
 					// ray missed both child AABBs.  So break to popping node off stack
-					//break;
 					goto after_tri_test;
 				}
 			}

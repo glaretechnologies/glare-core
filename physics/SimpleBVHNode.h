@@ -147,15 +147,33 @@ public:
 	inline const float* leftMax() const { return &left_aabb.max_.x; }
 	inline const float* rightMin() const { return &right_aabb.min_.x; }
 	inline const float* rightMax() const { return &right_aabb.max_.x; }*/
-	inline const float* leftMin() const { return left_min; }
+	/*inline const float* leftMin() const { return left_min; }
 	inline const float* leftMax() const { return left_max; }
 	inline const float* rightMin() const { return right_min; }
-	inline const float* rightMax() const { return right_max; }
+	inline const float* rightMax() const { return right_max; }*/
 
 	//inline void setLeftAABB(const AABBox& x) { left_aabb = x; }
 	//inline void setRightAABB(const AABBox& x) {	right_aabb = x;	}
-	inline void setLeftAABB(const AABBox& x) { *(AABBox*)left_min = x; }
-	inline void setRightAABB(const AABBox& x) {	*(AABBox*)right_min = x; }
+	//inline void setLeftAABB(const AABBox& x) { *(AABBox*)left_min = x; }
+	//inline void setRightAABB(const AABBox& x) {	*(AABBox*)right_min = x; }
+	inline void setLeftAABB(const AABBox& b)
+	{
+		box[0] = b.min_.x;
+		box[1] = b.max_.x;
+		box[4] = b.min_.y;
+		box[5] = b.max_.y;
+		box[8] = b.min_.z;
+		box[9] = b.max_.z;
+	}
+	inline void setRightAABB(const AABBox& b)
+	{
+		box[2] = b.min_.x;
+		box[3] = b.max_.x;
+		box[6] = b.min_.y;
+		box[7] = b.max_.y;
+		box[10] = b.min_.z;
+		box[11] = b.max_.z;
+	}
 
 
 	/*inline unsigned int getLeftChildIndex() const { return left_child_index; }
@@ -163,14 +181,14 @@ public:
 
 	inline unsigned int getRightChildIndex() const { return right_child_index; }
 	inline void setRightChildIndex(unsigned int i) { right_child_index = i; }*/
-	inline unsigned int getLeftChildIndex() const { return data2[3]; }
-	inline void setLeftChildIndex(unsigned int i) { data2[3] = i; }
+	inline unsigned int getLeftChildIndex() const { return left; }
+	inline void setLeftChildIndex(unsigned int i) { left = i; }
 
-	inline unsigned int getRightChildIndex() const { return data3[3]; }
-	inline void setRightChildIndex(unsigned int i) { data3[3] = i; }
+	inline unsigned int getRightChildIndex() const { return right; }
+	inline void setRightChildIndex(unsigned int i) { right = i; }
 
-	inline unsigned int getLeaf() const { return data0[3]; }
-	inline void setLeaf(bool leaf_) { data0[3] = leaf_ ? 1 : 0; }
+	inline unsigned int getLeaf() const { return leaf; }
+	inline void setLeaf(bool leaf_) { leaf = leaf_ ? 1 : 0; }
 
 	inline unsigned int getGeomIndex() const { return getLeftChildIndex(); }
 	inline void setGeomIndex(unsigned int x) { setLeftChildIndex(x); }
@@ -178,11 +196,21 @@ public:
 	inline unsigned int getNumGeom() const { return getRightChildIndex(); }
 	inline void setNumGeom(unsigned int x) { setRightChildIndex(x); }
 
+	float box[12]; // 48 bytes
+
 private:
+
+	unsigned int leaf;
+	unsigned int left;
+	unsigned int right;
+	unsigned int dummy;
+
+
+
 	//SSE_ALIGN AABBox left_aabb; // 32 bytes
 	//SSE_ALIGN AABBox right_aabb; // 32 bytes
 
-	union {
+	/*union {
 		float left_min[4];
 		int data0[4];
 	};
@@ -198,7 +226,9 @@ private:
 	union {
 		float right_max[4];
 		unsigned int data3[4];
-	};
+	};*/
+
+
 
 	/*float left_min[3];
 	unsigned int data0; 
