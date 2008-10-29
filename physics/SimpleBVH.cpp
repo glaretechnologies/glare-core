@@ -42,8 +42,7 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 	max_leaf_depth = 0;
 	num_cheaper_nosplit_leaves = 0;
 
-	assert(sizeof(SimpleBVHNode) == 64 || sizeof(SimpleBVHNode) == 96);
-	printVar(sizeof(SimpleBVHNode));
+	assert(sizeof(SimpleBVHNode) == 64);
 }
 
 
@@ -95,18 +94,12 @@ void SimpleBVH::build()
 	//Calc root node's aabbox
 	//NOTE: could do this faster by looping over vertices instead.
 	//------------------------------------------------------------------------
-	conPrint("\tCalcing root AABB.");
-	root_aabb->min_ = triVertPos(0, 0);
-	root_aabb->max_ = triVertPos(0, 0);
-	for(unsigned int i=0; i<numTris(); ++i)
-	{
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 0));
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 1));
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 2));
-	}
-	conPrint("\t\tDone.");
-	conPrint("\t\tRoot AABB min: " + root_aabb->min_.toString());
-	conPrint("\t\tRoot AABB max: " + root_aabb->max_.toString());
+	const int num_tris = (int)numTris();
+
+	Timer timer;
+
+	TreeUtils::buildRootAABB(*raymesh, *root_aabb);
+	assert(root_aabb->invariant());
 
 	//------------------------------------------------------------------------
 	//alloc intersect tri array
@@ -138,8 +131,9 @@ void SimpleBVH::build()
 	}
 
 	// Build tri centers
-	std::vector<Vec3f> tri_centers(numTris());;
-	for(unsigned int i=0; i<numTris(); ++i)
+	std::vector<Vec3f> tri_centers(numTris());
+#pragma omp parallel for
+	for(int i=0; i<num_tris; ++i)
 	{
 		//SSE_ALIGN AABBox aabb;
 		//triAABB(i, aabb);
@@ -172,6 +166,8 @@ void SimpleBVH::build()
 	}
 	conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
+
+	conPrint("\tPrebuild time: " + toString(timer.getSecondsElapsed()) + " s.");
 
 	nodes_capacity = myMax(2u, numTris() / 4);
 	alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), nodes);
@@ -452,11 +448,6 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 
 	nodes[node_index].setLeftAABB(left_aabb);
 	nodes[node_index].setRightAABB(right_aabb);
-	/*nodes[node_index].left_min = left_aabb.min_;
-	nodes[node_index].left_max = left_aabb.max_;
-	nodes[node_index].right_min = right_aabb.min_;
-	nodes[node_index].right_max = right_aabb.max_;*/
-
 	nodes[node_index].setLeaf(false);
 	nodes[node_index].setLeftChildIndex(left_child_index);
 	nodes[node_index].setRightChildIndex(right_child_index);
@@ -557,9 +548,9 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			#ifdef DEBUG
 			SSE_ALIGN float temp[4];
 			_mm_store_ps(temp, box_min);
-			assert(temp[0] == nodes[current].box[0] && assert(temp[1] == nodes[current].box[4] && assert(temp[2] == nodes[current].box[8]);
+			assert(temp[0] == nodes[current].box[0] && temp[1] == nodes[current].box[4] && temp[2] == nodes[current].box[8]);
 			_mm_store_ps(temp, box_max);
-			assert(temp[0] == nodes[current].box[1] && assert(temp[1] == nodes[current].box[5] && assert(temp[2] == nodes[current].box[9]);
+			assert(temp[0] == nodes[current].box[1] && temp[1] == nodes[current].box[5] && temp[2] == nodes[current].box[9]);
 			#endif
 
 			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
@@ -599,9 +590,9 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			#ifdef DEBUG
 			SSE_ALIGN float temp[4];
 			_mm_store_ps(temp, box_min);
-			assert(temp[0] == nodes[current].box[2] && assert(temp[1] == nodes[current].box[6] && assert(temp[2] == nodes[current].box[10]);
+			assert(temp[0] == nodes[current].box[2] && temp[1] == nodes[current].box[6] && temp[2] == nodes[current].box[10]);
 			_mm_store_ps(temp, box_max);
-			assert(temp[0] == nodes[current].box[3] && assert(temp[1] == nodes[current].box[7] && assert(temp[2] == nodes[current].box[11]);
+			assert(temp[0] == nodes[current].box[3] && temp[1] == nodes[current].box[7] && temp[2] == nodes[current].box[11]);
 			#endif
 
 			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]

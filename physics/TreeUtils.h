@@ -8,14 +8,15 @@ Code By Nicholas Chapman.
 #define __TREEUTILS_H_666_
 
 
-
 #include "../simpleraytracer/ray.h"
+class RayMesh;
 
 
 namespace js
 {
 
 
+class AABBox;
 
 
 /*=====================================================================
@@ -40,6 +41,8 @@ public:
 	//static inline void buildRayChildIndices(const Ray& ray, unsigned int ray_child_indices[4][2]);
 
 	static inline void buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_indices[8]);
+
+	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out);
 
 };
 

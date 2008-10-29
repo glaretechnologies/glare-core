@@ -685,21 +685,7 @@ void TriTree::build()
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		triTreeDebugPrint("calculating root AABB.");
-		{
-		root_aabb->min_ = triVertPos(0, 0);
-		root_aabb->max_ = triVertPos(0, 0);
-		for(unsigned int i=0; i<numTris(); ++i)
-			for(int v=0; v<3; ++v)
-			{
-				const SSE_ALIGN PaddedVec3f vert = triVertPos(i, v);
-				root_aabb->enlargeToHoldAlignedPoint(vert);
-			}
-		}
-
-		triTreeDebugPrint("AABB: (" + ::toString(root_aabb->min_.x) + ", " + ::toString(root_aabb->min_.y) + ", " + ::toString(root_aabb->min_.z) + "), " + 
-							"(" + ::toString(root_aabb->max_.x) + ", " + ::toString(root_aabb->max_.y) + ", " + ::toString(root_aabb->max_.z) + ")"); 
-								
+		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
 		assert(root_aabb->invariant());
 
 		//------------------------------------------------------------------------

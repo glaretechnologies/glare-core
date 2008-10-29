@@ -76,20 +76,13 @@ private:
 	unsigned int num_nodes;
 	unsigned int nodes_capacity;
 
-
 	AABBox* root_aabb;//aabb of whole thing
-
 	AABBox* tri_aabbs;
 
 	typedef js::BadouelTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
 	unsigned int intersect_tri_i;
-
-	//std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
-
-
-	//std::vector<float> centers;
 
 	/// build stats ///
 	int num_maxdepth_leaves;
@@ -104,8 +97,5 @@ private:
 
 } //end namespace js
 
+
 #endif //__SIMPLEBVH_H_666_
-
-
-
-
