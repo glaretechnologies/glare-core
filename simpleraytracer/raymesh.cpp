@@ -681,7 +681,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal()
 
 			if(result == new_vert_indices.end())
 			{
-				new_vert_index = newverts.size();
+				new_vert_index = (unsigned int)newverts.size();
 				newverts.push_back(old_vert);
 				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
 			}

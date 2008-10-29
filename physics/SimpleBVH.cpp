@@ -41,6 +41,9 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 	leaf_depth_sum = 0;
 	max_leaf_depth = 0;
 	num_cheaper_nosplit_leaves = 0;
+
+	assert(sizeof(SimpleBVHNode) == 64 || sizeof(SimpleBVHNode) == 96);
+	printVar(sizeof(SimpleBVHNode));
 }
 
 
@@ -208,8 +211,8 @@ void SimpleBVH::build()
 
 void SimpleBVH::markLeafNode(const std::vector<std::vector<TRI_INDEX> >& tris, unsigned int node_index, int left, int right)
 {
-	nodes[node_index].leaf = 1;
-	nodes[node_index].geometry_index = intersect_tri_i;
+	nodes[node_index].setLeaf(true);
+	nodes[node_index].setGeomIndex(intersect_tri_i);
 
 	for(int i=left; i<right; ++i)
 	{
@@ -218,7 +221,7 @@ void SimpleBVH::markLeafNode(const std::vector<std::vector<TRI_INDEX> >& tris, u
 		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
 	}
 
-	nodes[node_index].num_geom = myMax(right - left, 0);
+	nodes[node_index].setNumGeom(myMax(right - left, 0));
 
 	// Update build stats
 	max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
@@ -447,11 +450,16 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 	const unsigned int left_child_index = num_nodes;
 	const unsigned int right_child_index = left_child_index + 1;
 
-	nodes[node_index].leaf = 0;
-	nodes[node_index].left_child_index = left_child_index;
-	nodes[node_index].right_child_index = right_child_index;
-	nodes[node_index].left_aabb = left_aabb;
-	nodes[node_index].right_aabb = right_aabb;
+	nodes[node_index].setLeftAABB(left_aabb);
+	nodes[node_index].setRightAABB(right_aabb);
+	/*nodes[node_index].left_min = left_aabb.min_;
+	nodes[node_index].left_max = left_aabb.max_;
+	nodes[node_index].right_min = right_aabb.min_;
+	nodes[node_index].right_max = right_aabb.max_;*/
+
+	nodes[node_index].setLeaf(false);
+	nodes[node_index].setLeftChildIndex(left_child_index);
+	nodes[node_index].setRightChildIndex(right_child_index);
 
 	// Reserve space for children
 	const unsigned int new_num_nodes = num_nodes + 2;
@@ -509,7 +517,12 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
 
 	int stacktop = 0; // Index of node on top of stack
-	
+
+	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
+	SSE_ALIGN float temp[4] = { 0.0, 0.0, 0.0, 0.0 };
+	SSE_ALIGN float temp2[4] = { 0.0, 0.0, 0.0, 0.0 };
+
 	while(stacktop >= 0)
 	{
 		// Pop node off stack
@@ -521,19 +534,77 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 
 		stacktop--;
 
-		while(nodes[current].leaf == 0)
+		while(nodes[current].getLeaf() == 0)
 		{
+			const unsigned int left = nodes[current].getLeftChildIndex();
+			const unsigned int right = nodes[current].getRightChildIndex();
+
 			// Test ray against left child
 			__m128 left_near_t, left_far_t;
-			nodes[current].left_aabb.rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), left_near_t, left_far_t);
-			
+			{
+			const __m128 box_min = _mm_load_ps(nodes[current].leftMin());
+			const __m128 box_max = _mm_load_ps(nodes[current].leftMax());
+			/*temp[0] = nodes[current].leftMin()[0];
+			temp[1] = nodes[current].leftMin()[1];
+			temp[2] = nodes[current].leftMin()[2];
+			const __m128 box_min = _mm_load_ps(temp);
+			temp2[0] = nodes[current].leftMax()[0];
+			temp2[1] = nodes[current].leftMax()[1];
+			temp2[2] = nodes[current].leftMax()[2];
+			const __m128 box_max = _mm_load_ps(temp2);*/
+
+
+			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
+			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
+
+			SSE4Vec lmax = max4Vec(l1, l2);
+			SSE4Vec lmin = min4Vec(l1, l2);
+
+			const SSE4Vec lmax0 = rotatelps(lmax);
+			const SSE4Vec lmin0 = rotatelps(lmin);
+			lmax = minss(lmax, lmax0);
+			lmin = maxss(lmin, lmin0);
+
+			const SSE4Vec lmax1 = muxhps(lmax,lmax);
+			const SSE4Vec lmin1 = muxhps(lmin,lmin);
+			left_far_t = minss(lmax, lmax1);
+			left_near_t = maxss(lmin, lmin1);
+			}
+
 			// Take the intersection of the current ray interval and the ray/BB interval
 			left_near_t = _mm_max_ps(left_near_t, tmin);
 			left_far_t = _mm_min_ps(left_far_t, tmax);
 
 			// Test against right child
 			__m128 right_near_t, right_far_t;
-			nodes[current].right_aabb.rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), right_near_t, right_far_t);
+			{
+			const __m128 box_min = _mm_load_ps(nodes[current].rightMin());
+			const __m128 box_max = _mm_load_ps(nodes[current].rightMax());
+			/*temp[0] = nodes[current].rightMin()[0];
+			temp[1] = nodes[current].rightMin()[1];
+			temp[2] = nodes[current].rightMin()[2];
+			const __m128 box_min = _mm_load_ps(temp);
+			temp2[0] = nodes[current].rightMax()[0];
+			temp2[1] = nodes[current].rightMax()[1];
+			temp2[2] = nodes[current].rightMax()[2];
+			const __m128 box_max = _mm_load_ps(temp2);*/
+
+			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
+			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
+
+			SSE4Vec lmax = max4Vec(l1, l2);
+			SSE4Vec lmin = min4Vec(l1, l2);
+
+			const SSE4Vec lmax0 = rotatelps(lmax);
+			const SSE4Vec lmin0 = rotatelps(lmin);
+			lmax = minss(lmax, lmax0);
+			lmin = maxss(lmin, lmin0);
+
+			const SSE4Vec lmax1 = muxhps(lmax,lmax);
+			const SSE4Vec lmin1 = muxhps(lmin,lmin);
+			right_far_t = minss(lmax, lmax1);
+			right_near_t = maxss(lmin, lmin1);
+			}
 				
 			// Take the intersection of the current ray interval and the ray/BB interval
 			right_near_t = _mm_max_ps(right_near_t, tmin);
@@ -546,22 +617,22 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 					// Push right child onto stack
 					stacktop++;
 					assert(stacktop < context.nodestack_size);
-					context.nodestack[stacktop].node = nodes[current].right_child_index;
+					context.nodestack[stacktop].node = right;
 					_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
 					_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
 
-					current = nodes[current].left_child_index; tmin = left_near_t; tmax = left_far_t; // next = L
+					current = left; tmin = left_near_t; tmax = left_far_t; // next = L
 				}
 				else // Else ray missed left AABB, so process right child next
 				{
-					current = nodes[current].right_child_index; tmin = right_near_t; tmax = right_far_t; // next = R
+					current = right; tmin = right_near_t; tmax = right_far_t; // next = R
 				}
 			}
 			else // Else ray misssed right AABB
 			{
 				if(_mm_comile_ss(left_near_t, left_far_t) != 0) // If ray hits left AABB
 				{
-					current = nodes[current].left_child_index; tmin = left_near_t; tmax = left_far_t; // next = L
+					current = left; tmin = left_near_t; tmax = left_far_t; // next = L
 				}
 				else
 				{
@@ -572,28 +643,25 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			}
 		}
 
-		// At this point, either the current node is a leaf, or we missed both children of an interior node.
-		//if(nodes[current].leaf == 1)
-		assert(nodes[current].leaf == 1);
+		// At this point, the current node is a leaf.
+		assert(nodes[current].getLeaf() != 0);
+		
+		// Test against leaf triangles
+
+		unsigned int leaf_geom_index = nodes[current].getGeomIndex();
+		const unsigned int num_leaf_tris = nodes[current].getNumGeom();
+
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
-			// Test against leaf triangles
-
-			unsigned int leaf_geom_index = nodes[current].geometry_index;
-			const unsigned int num_leaf_tris = nodes[current].num_geom;
-
-			for(unsigned int i=0; i<num_leaf_tris; ++i)
+			float u, v, raydist;
+			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 			{
-				float u, v, raydist;
-				if(intersect_tris[/*leafgeom[*/leaf_geom_index/*]*/].rayIntersect(ray, closest_dist, raydist, u, v))
-				{
-					closest_dist = raydist;
-					hitinfo_out.sub_elem_index = leaf_geom_index; // leafgeom[leaf_geom_index];
-					hitinfo_out.sub_elem_coords.set(u, v);
-				}
-				++leaf_geom_index;
+				closest_dist = raydist;
+				hitinfo_out.sub_elem_index = leaf_geom_index;
+				hitinfo_out.sub_elem_coords.set(u, v);
 			}
+			++leaf_geom_index;
 		}
-
 after_tri_test:
 		int dummy = 7; // dummy statement
 	}
