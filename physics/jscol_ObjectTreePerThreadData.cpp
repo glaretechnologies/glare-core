@@ -23,7 +23,7 @@ ObjectTreePerThreadData::ObjectTreePerThreadData(bool root/*int numobjects, int 
 	nodestack_size = 256;//stacksize;
 	//printVar(nodestack_size);
 	//printVar(numobjects);
-	alignedSSEArrayMalloc(nodestack_size, nodestack);
+	SSE::alignedSSEArrayMalloc(nodestack_size, nodestack);
 
 	/*last_test_time.resize(numobjects);
 	for(int i=0; i<numobjects; ++i)
@@ -43,7 +43,7 @@ ObjectTreePerThreadData::~ObjectTreePerThreadData()
 {
 	delete object_context;
 
-	alignedSSEFree(nodestack);
+	SSE::alignedSSEFree(nodestack);
 }
 
 

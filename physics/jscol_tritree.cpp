@@ -66,10 +66,10 @@ TriTree::TriTree(RayMesh* raymesh_)
 	raymesh = raymesh_;//NULL;
 
 	assert(sizeof(AABBox) == 32);
-	root_aabb = (js::AABBox*)alignedMalloc(sizeof(AABBox), sizeof(AABBox));
+	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
 
-	assert(isAlignedTo(root_aabb, sizeof(AABBox)));
+	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	// Insert DEFAULT_EMPTY_LEAF_NODE_INDEX node
 	nodes.push_back(TreeNode(
@@ -96,8 +96,8 @@ TriTree::TriTree(RayMesh* raymesh_)
 
 TriTree::~TriTree()
 {
-	alignedSSEFree(root_aabb);
-	alignedSSEFree(intersect_tris);
+	SSE::alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
 
@@ -726,7 +726,7 @@ void TriTree::build()
 
 		if(!nodes.empty())
 		{
-			assert(isAlignedTo(&nodes[0], sizeof(js::TreeNode)));
+			assert(SSE::isAlignedTo(&nodes[0], sizeof(js::TreeNode)));
 		}
 
 		const unsigned int numnodes = (unsigned int)nodes.size();
@@ -746,7 +746,7 @@ void TriTree::build()
 		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
 			triTreeDebugPrint("intersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 		if(!intersect_tris)
 			throw TreeExcep("Memory allocation failed while building kd-tree");
 
@@ -801,7 +801,7 @@ void TriTree::buildFromStream(std::istream& stream)
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
 		num_intersect_tris = numTris();
-		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 		if(!intersect_tris)
 			throw TreeExcep("Memory allocation failed while building kd-tree");
 

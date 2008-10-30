@@ -27,29 +27,50 @@ BVH::BVH(RayMesh* raymesh_)
 {
 	assert(raymesh);
 
-	num_intersect_tris = 0;
-	intersect_tris = NULL;
-
-	root_aabb = (js::AABBox*)alignedSSEMalloc(sizeof(AABBox));
-	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
-
-
 	BVHNode node;
 	node.setLeftChildIndex(45654);
-	assert(node.getLeftChildIndex() == 45654);
+	node.setRightChildIndex(456456);
 
-	node.setLeftGeomIndex(456456);
-	const unsigned int z = node.getLeftGeomIndex();
-	assert(node.getLeftGeomIndex() == 456456);
+	assert(node.getLeftChildIndex() == 45654);
+	assert(node.getRightChildIndex() == 456456);
+
+	node.setToInterior();
+	node.setLeftToLeaf();
+	node.setRightToLeaf();
+	
+	node.setLeftGeomIndex(3);
+	node.setLeftNumGeom(7);
+	node.setRightGeomIndex(567);
+	node.setRightNumGeom(4565);
+
+	
+	assert(node.isLeftLeaf());
+	assert(node.isRightLeaf());
+	assert(node.getLeftGeomIndex() == 3);
+	assert(node.getLeftNumGeom() == 7);
+	assert(node.getRightGeomIndex() == 567);
+	assert(node.getRightNumGeom() == 4565);
 
 	//printVar(z);
+
+	num_maxdepth_leaves = 0;
+	num_under_thresh_leaves = 0;
+	num_leaves = 0;
+	max_num_tris_per_leaf = 0;
+	leaf_depth_sum = 0;
+	max_leaf_depth = 0;
+	num_cheaper_nosplit_leaves = 0;
+
+	assert(sizeof(BVHNode) == 64);
 }
 
 
 BVH::~BVH()
 {
-	alignedSSEFree(root_aabb);
-	alignedSSEFree(intersect_tris);
+	assert(tri_aabbs == NULL);
+	SSE::alignedArrayFree(nodes);
+	SSE::alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
 
@@ -66,103 +87,200 @@ unsigned int BVH::numTris() const
 }
 
 
+/*
+		root: left geom index, left num geom, right = not used
+
+or
+
+		root left index, right index
+			/					\
+	left child					right child
+*/
+
+
+class CenterPredicate
+{
+public:
+	CenterPredicate(int axis_, const std::vector<Vec3f>& tri_centers_) : axis(axis_), tri_centers(tri_centers_) {}
+
+	inline bool operator()(unsigned int t1, unsigned int t2)
+	{
+		return tri_centers[t1][axis] < tri_centers[t2][axis];
+	}
+private:
+	int axis;
+	const std::vector<Vec3f>& tri_centers;
+};
+
+
 void BVH::build()
 {
 	conPrint("\tBVH::build()");
-	Timer buildtimer;
-
-	//------------------------------------------------------------------------
-	//calc root node's aabbox
-	//NOTE: could do this faster by looping over vertices instead.
-	//------------------------------------------------------------------------
-	conPrint("\tCalcing root AABB.");
-	root_aabb->min_ = triVertPos(0, 0);
-	root_aabb->max_ = triVertPos(0, 0);
-	for(unsigned int i=0; i<numTris(); ++i)
+	
+	try
 	{
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 0));
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 1));
-		root_aabb->enlargeToHoldPoint(triVertPos(i, 2));
-	}
-	conPrint("\tdone.");
-	conPrint("\tRoot AABB min: " + root_aabb->min_.toString());
-	conPrint("\tRoot AABB max: " + root_aabb->max_.toString());
+		const int num_tris = (int)numTris();
 
+		root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
+		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
+		assert(root_aabb->invariant());
+
+		//------------------------------------------------------------------------
+		//alloc intersect tri array
+		//------------------------------------------------------------------------
+		conPrint("\tAllocating intersect triangles...");
+		this->num_intersect_tris = numTris();
+		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+			conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+
+		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		intersect_tri_i = 0;
+
+		{
+
+		// Build tri AABBs
+		SSE::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+
+		for(unsigned int i=0; i<numTris(); ++i)
+		{
+			const SSE_ALIGN PaddedVec3f v1(triVertPos(i, 1));
+			const SSE_ALIGN PaddedVec3f v2(triVertPos(i, 2));
+
+			tri_aabbs[i].min_ = tri_aabbs[i].max_ = triVertPos(i, 0);
+			tri_aabbs[i].enlargeToHoldAlignedPoint(v1);
+			tri_aabbs[i].enlargeToHoldAlignedPoint(v2);
+		}
+
+		// Build tri centers
+		std::vector<Vec3f> tri_centers(numTris());
+	#pragma omp parallel for
+		for(int i=0; i<num_tris; ++i)
+			tri_centers[i] = tri_aabbs[i].centroid();
+
+		std::vector<std::vector<TRI_INDEX> > tris(3);
+		std::vector<std::vector<TRI_INDEX> > temp(2);
+		temp[0].resize(numTris());
+		temp[1].resize(numTris());
+
+		// Sort indices based on center position along the axes
+		conPrint("\tSorting...");
+		Timer sort_timer;
+	#pragma omp parallel for
+		for(int axis=0; axis<3; ++axis)
+		{
+			tris[axis].resize(numTris());
+			for(unsigned int i=0; i<numTris(); ++i)
+				tris[axis][i] = i;
+
+			// Sort based on center along axis 'axis'
+			std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
+		}
+		conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
+
+		nodes_capacity = myMax(2u, numTris() / 8);
+		SSE::alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), nodes);
+		num_nodes = 1;
+
+		// Make root node
+		nodes[0].setToInterior();
+		nodes[0].setLeftAABB(*root_aabb);
+		nodes[0].setRightAABB(AABBox(Vec3f(std::numeric_limits<float>::infinity()), Vec3f(std::numeric_limits<float>::infinity()))); // Pick an AABB that will never get hit
+		nodes[0].setRightToLeaf();
+		nodes[0].setRightNumGeom(0);
+
+		doBuild(
+			*root_aabb, // AABB
+			tris,
+			temp,
+			tri_centers,
+			0, // left
+			numTris(), // right
+			0, // depth
+			0, // parent index
+			0 // child index (=left)
+			);
+		}
+
+		//------------------------------------------------------------------------
+		//alloc intersect tri array
+		//------------------------------------------------------------------------
+		/*conPrint("\tAllocing and copying intersect triangles...");
+		this->num_intersect_tris = numTris();
+		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+			conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+
+		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+
+		// Copy tri data.
+		for(unsigned int i=0; i<num_intersect_tris; ++i)
+			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
+		conPrint("\tdone.");*/
+
+		SSE::alignedSSEArrayFree(tri_aabbs);
+		tri_aabbs = NULL;
+
+		conPrint("\tBuild Stats:");
+		conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(BVHNode)) + ")");
+		conPrint("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
+		conPrint("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
+		conPrint("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
+		conPrint("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
+		conPrint("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
+		conPrint("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
+		conPrint("\t\tMax leaf depth: " + toString(max_leaf_depth));
+
+		conPrint("\tFinished building tree.");
+	}
+	catch(std::bad_alloc& e)
 	{
-	std::vector<TRI_INDEX> tris(numTris());
-	for(unsigned int i=0; i<numTris(); ++i)
-		tris[i] = i;
-
-	// Build tri AABBs
-	::alignedSSEArrayMalloc(numTris(), tri_aabbs);
-
-	for(unsigned int i=0; i<numTris(); ++i)
-	{
-		tri_aabbs[i].min_ = tri_aabbs[i].max_ = triVertPos(i, 0);
-		tri_aabbs[i].enlargeToHoldPoint(triVertPos(i, 1));
-		tri_aabbs[i].enlargeToHoldPoint(triVertPos(i, 2));
+		throw TreeExcep(e.what());
 	}
-
-	// Build tri centers
-	tri_centers.resize(numTris());
-	for(unsigned int i=0; i<numTris(); ++i)
-		tri_centers[i] = tri_aabbs[i].centroid();
-
-
-	nodes_capacity = 128;
-	alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), nodes);
-	num_nodes = 0;
-	doBuild(
-		*root_aabb, // AABB
-		tris, 
-		0, // left
-		numTris(), // right
-		//0, // node index to use
-		0, // depth
-		0, // parent index
-		0 // child index
-		);
-	}
-
-	//------------------------------------------------------------------------
-	//alloc intersect tri array
-	//------------------------------------------------------------------------
-	conPrint("\tAllocing and copying intersect triangles...");
-	this->num_intersect_tris = numTris();
-	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
-
-	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-
-	// Copy tri data.
-	for(unsigned int i=0; i<num_intersect_tris; ++i)
-		intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
-	conPrint("\tdone.");
-
-	::alignedSSEArrayFree(tri_aabbs);
-
-
-	conPrint("\tBuild Stats:");
-	conPrint("\t\ttotal leafgeom size: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
-	conPrint("\t\ttotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(js::BVHNode)) + ")");
-
-	conPrint("\tFinished building tree. (Build time: " + toString(buildtimer.getSecondsElapsed()) + "s)");	
 }
 
 
-static void markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, std::vector<unsigned int>& tris, std::vector<unsigned int>& leafgeom)
+void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris)
 {
+	if(myMax(right - left, 0) > (int)BVHNode::maxNumGeom())
+		throw TreeExcep("Build failure, too many tris in leaf.");
+
 	if(child_index == 0)
-		nodes[parent_index].setLeftGeomIndex( (int)leafgeom.size() );
+	{
+		nodes[parent_index].setLeftToLeaf();
+		nodes[parent_index].setLeftGeomIndex(intersect_tri_i);
+		nodes[parent_index].setLeftNumGeom(myMax(right - left, 0));
+
+		assert(nodes[parent_index].isLeftLeaf() != 0);
+		assert(nodes[parent_index].getLeftGeomIndex() == intersect_tri_i);
+		assert(nodes[parent_index].getLeftNumGeom() == myMax(right - left, 0));
+	}
 	else
-		nodes[parent_index].setRightGeomIndex( (int)leafgeom.size() );
+	{
+		nodes[parent_index].setRightToLeaf();
+		nodes[parent_index].setRightGeomIndex(intersect_tri_i);
+		nodes[parent_index].setRightNumGeom(myMax(right - left, 0));
+
+		assert(nodes[parent_index].isRightLeaf() != 0);
+		assert(nodes[parent_index].getRightGeomIndex() == intersect_tri_i);
+		assert(nodes[parent_index].getRightNumGeom() == myMax(right - left, 0));
+	}
 
 	// Write num geom
-	leafgeom.push_back(myMax(right - left, 0));
-
+	//leafgeom.push_back(myMax(right - left, 0));
+	
 	// Write tri indices
+	//for(int i=left; i<right; ++i)
+	//	leafgeom.push_back(tris[i]);
+
 	for(int i=left; i<right; ++i)
-		leafgeom.push_back(tris[i]);
+	{
+		const TRI_INDEX source_tri = tris[0][i];
+		assert(intersect_tri_i < num_intersect_tris);
+		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
+	}
+
+	// Update build stats
+	max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+	num_leaves++;
 }
 
 
@@ -170,42 +288,31 @@ static void markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int
 The triangles [left, right) are considered to belong to this node.
 The AABB for this node (build_nodes[node_index]) should be set already.
 */
-void BVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int left, int right,/*unsigned int node_index, */int depth, unsigned int parent_index, unsigned int child_index)
+void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, 
+		const std::vector<Vec3f>& tri_centers, int left, int right, int depth, unsigned int parent_index, unsigned int child_index)
 {
 	//assert(left >= 0 && left < (int)numTris() && right >= 0 && right < (int)numTris());
 	//assert(node_index < build_nodes.size());
 
 	const int LEAF_NUM_TRI_THRESHOLD = 4;
 
-	const int MAX_DEPTH = 64;
+	const int MAX_DEPTH = js::Tree::MAX_TREE_DEPTH;
 
-	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth > MAX_DEPTH)
+	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth >= MAX_DEPTH)
 	{
-		//------------------------------------------------------------------------
-		//Make a Leaf node
-		//------------------------------------------------------------------------
-/*		nodes[node_index].leaf = 1;
+		markLeafNode(nodes, parent_index, child_index, left, right, tris);
 
-		// Add tris
-		nodes[node_index].geometry_index = leafgeom.size();
-
-		for(int i=left; i<right; ++i)
-			leafgeom.push_back(tris[i]);
-
-		nodes[node_index].num_geom = myMax(right - left, 0);*/
-		markLeafNode(nodes, parent_index, child_index, left, right, tris, leafgeom);
+		// Update build stats
+		if(depth >= MAX_DEPTH)
+			num_maxdepth_leaves++;
+		else
+			num_under_thresh_leaves++;
+		leaf_depth_sum += depth;
+		max_leaf_depth = myMax(max_leaf_depth, depth);
 		return;
 	}
 
-	//------------------------------------------------------------------------
-	//make interior node
-	//------------------------------------------------------------------------
-	//nodes[node_index].leaf = 0;
-
 	// Compute best split plane
-	//const unsigned int split_axis = aabb.longestAxis();
-	//const float split_val = 0.5f * (aabb.min_[split_axis] + aabb.max_[split_axis]);
-
 	const float traversal_cost = 1.0f;
 	const float intersection_cost = 4.0f;
 	const float aabb_surface_area = aabb.getSurfaceArea();
@@ -213,124 +320,131 @@ void BVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int left, in
 
 	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
 
-	int best_axis = -1;
-	float best_div_val = std::numeric_limits<float>::infinity();
-
 	// Compute non-split cost
 	float smallest_cost = (float)(right - left) * intersection_cost;
 
-	centers.resize(right - left);
+	float axis_smallest_cost[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
+	float axis_best_div_val[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
 
 	// for each axis 0..2
 	for(unsigned int axis=0; axis<3; ++axis)
 	{
+		const std::vector<TRI_INDEX>& axis_tris = tris[axis];
+
 		// SAH stuff
 		const unsigned int axis1 = nonsplit_axes[axis][0];
 		const unsigned int axis2 = nonsplit_axes[axis][1];
 		const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
 		const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
 
-		// Build list of triangle centers
-		for(int i=left, z=0; i<right; ++i, ++z)
-			centers[z] = (tri_centers[tris[i]])[axis];
-		
-		// Sort centers
-		std::sort(centers.begin(), centers.end());
-	
 		// For Each triangle centroid
-		for(unsigned int z=0; z<centers.size(); ++z)
+		for(int i=left; i<right; ++i)
 		{
-			const float splitval = centers[z];
+			const float splitval = tri_centers[axis_tris[i]][axis];//triCenter(tris[axis][i], axis);
+
 			// Compute the SAH cost at the centroid position
-			const int N_L = z + 1;
-			const int N_R = centers.size() - (z + 1);
+			const int N_L = (i - left) + 1;
+			const int N_R = (right - left) - N_L;
 
-			assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
+			//assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
 
+			// Compute SAH cost
 			const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
 			const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
 
 			const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
 						recip_aabb_surf_area * intersection_cost;
 
-			if(cost < smallest_cost)
+			if(cost < axis_smallest_cost[axis])
 			{
-				smallest_cost = cost;
-				best_axis = axis;
-				best_div_val = splitval;
+				axis_smallest_cost[axis] = cost;
+				//best_axis = axis;
+				axis_best_div_val[axis] = splitval;
+				//best_i = i;
 			}
 		}
 	}
 
+	int best_axis = -1;
+	float best_div_val;
+	for(int axis=0; axis<3; ++axis)
+		if(axis_smallest_cost[axis] < smallest_cost)
+		{
+			smallest_cost = axis_smallest_cost[axis];
+			best_axis = axis;
+			best_div_val = axis_best_div_val[axis];
+		}
+
 	if(best_axis == -1)
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
-		/*nodes[node_index].leaf = 1;
+		markLeafNode(nodes, parent_index, child_index, left, right, tris);
 
-		// Add tris
-		nodes[node_index].geometry_index = leafgeom.size();
-
-		for(int i=left; i<right; ++i)
-			leafgeom.push_back(tris[i]);
-
-		nodes[node_index].num_geom = myMax(right - left, 0);*/
-		markLeafNode(nodes, parent_index, child_index, left, right, tris, leafgeom);
+		// Update build stats
+		num_cheaper_nosplit_leaves++;
+		leaf_depth_sum += depth;
+		max_leaf_depth = myMax(max_leaf_depth, depth);
 		return;
 	}
 
-
-	SSE_ALIGN AABBox neg_aabb(
-		Vec3f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()),
-		Vec3f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())
-		);
-
-	SSE_ALIGN AABBox pos_aabb(
-		Vec3f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()),
-		Vec3f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())
-		);
-
-	int d = right-1;
-	int i = left;
-	while(i <= d)
+	// Now we need to partition the triangle index lists, while maintaining ordering.
+	int split_i;
+	for(int axis=0; axis<3; ++axis)
 	{
-		// Categorise triangle at i
+		std::vector<TRI_INDEX>& axis_tris = tris[axis];
 
-		assert(i >= 0 && i < (int)numTris());
-		assert(d >= 0 && d < (int)numTris());
-		assert(tris[i] < numTris());
+		int num_left_tris = 0;
+		int num_right_tris = 0;
 
-		//const float tri_min = tri_aabbs[tris[i]].min_[split_axis];
-		//const float tri_max = tri_aabbs[tris[i]].max_[split_axis];
-		//if(tri_max - split_val >= split_val - tri_min)
-		if((tri_centers[tris[i]])[best_axis] > best_div_val)
+		for(int i=left; i<right; ++i)
 		{
-			// If mostly on positive side of split - categorise as R
-			pos_aabb.enlargeToHoldAABBox(tri_aabbs[tris[i]]); // Update right AABB
-
-			// Swap element at i with element at d
-			mySwap(tris[i], tris[d]);
-
-			assert(d >= 0);
-			--d;
+			if(tri_centers[axis_tris[i]][best_axis]/*triCenter(tris[axis][i], best_axis)*/ <= best_div_val) // If on Left side
+				temp[0][num_left_tris++] = axis_tris[i];
+			else // else if on Right side
+				temp[1][num_right_tris++] = axis_tris[i];
 		}
-		else
-		{
-			// Tri mostly on negative side of split - categorise as L
-			neg_aabb.enlargeToHoldAABBox(tri_aabbs[tris[i]]); // Update left AABB
-			++i;
-		}
+
+		// Copy temp back to the tri list
+
+		for(int z=0; z<num_left_tris; ++z)
+			axis_tris[left + z] = temp[0][z];
+
+		for(int z=0; z<num_right_tris; ++z)
+			axis_tris[left + num_left_tris + z] = temp[1][z];
+
+		split_i = left + num_left_tris;
+		assert(split_i >= left && split_i <= right);
 	}
-	assert(i == d+1);
 
-	const int num_in_left = (d - left) + 1;
-	const int num_in_right = right - i;//+1;
-	assert(num_in_left >= 0);
-	assert(num_in_right >= 0);
-	assert(num_in_left + num_in_right == right - left);
+
+	// Compute AABBs for children
+	SSE_ALIGN AABBox left_aabb(
+		Vec3f(std::numeric_limits<float>::infinity()),
+		Vec3f(-std::numeric_limits<float>::infinity())
+		);
+
+	SSE_ALIGN AABBox right_aabb(
+		Vec3f(std::numeric_limits<float>::infinity()),
+		Vec3f(-std::numeric_limits<float>::infinity())
+		);
+
+	for(int i=left; i<split_i; ++i)
+	{
+		//SSE_ALIGN AABBox tri_aabb;
+		//triAABB(tris[0][i], tri_aabb);
+
+		left_aabb.enlargeToHoldAABBox(tri_aabbs[tris[0][i]]);
+	}
+
+	for(int i=split_i; i<right; ++i)
+	{
+		//SSE_ALIGN AABBox tri_aabb;
+		//triAABB(tris[0][i], tri_aabb);
+
+		right_aabb.enlargeToHoldAABBox(tri_aabbs[tris[0][i]]);
+	}
+
 	
-	//const unsigned int left_child_index = num_nodes;
-	//const unsigned int right_child_index = left_child_index + 1;
-
 	// Alloc space for this node
 	const unsigned int node_index = num_nodes;
 
@@ -339,49 +453,29 @@ void BVH::doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int left, in
 	{
 		nodes_capacity *= 2;
 		BVHNode* new_nodes;
-		alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), new_nodes); // Alloc new array
+		SSE::alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), new_nodes); // Alloc new array
 		memcpy(new_nodes, nodes, sizeof(BVHNode) * num_nodes); // Copy over old array
-		alignedArrayFree(nodes); // Free old array
+		SSE::alignedArrayFree(nodes); // Free old array
 		nodes = new_nodes; // Update nodes pointer to point at new array
 	}
 	num_nodes = new_num_nodes; // Update size
 
-	//assert(node_index < num_nodes);
-
-	//nodes[node_index].left_child_index = left_child_index;
-	//nodes[node_index].right_child_index = right_child_index;
-	nodes[node_index].left_aabb = neg_aabb;
-	nodes[node_index].right_aabb = pos_aabb;
+	assert(node_index < num_nodes);
+	nodes[node_index].setLeftAABB(left_aabb);
+	nodes[node_index].setRightAABB(right_aabb);
+	nodes[node_index].setToInterior(); // may be overridden later
 
 	// Update link from parent to this node
-	if(depth != 0) // Don't try and access parent for root node
-	{
-		if(child_index == 0)
-			nodes[parent_index].setLeftChildIndex(node_index);
-		else
-			nodes[parent_index].setRightChildIndex(node_index);
-	}
-
-	
-	// Reserve space for children
-	//nodes.resize(nodes.size() + 2); 
-	/*const unsigned int new_num_nodes = num_nodes + 2;
-	if(new_num_nodes > nodes_capacity)
-	{
-		nodes_capacity *= 2;
-		BVHNode* new_nodes;
-		alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), new_nodes); // Alloc new array
-		memcpy(new_nodes, nodes, sizeof(BVHNode) * num_nodes); // Copy over old array
-		alignedArrayFree(nodes); // Free old array
-		nodes = new_nodes; // Update nodes pointer to point at new array
-	}
-	num_nodes = new_num_nodes; // Update size*/
+	if(child_index == 0)
+		nodes[parent_index].setLeftChildIndex(node_index);
+	else
+		nodes[parent_index].setRightChildIndex(node_index);
 
 	// Recurse to build left subtree
-	doBuild(neg_aabb, tris, left, d + 1, /*left_child_index, */depth+1, node_index, 0);
+	doBuild(left_aabb, tris, temp, tri_centers, left, split_i, depth+1, node_index, 0);
 
 	// Recurse to build right subtree
-	doBuild(pos_aabb, tris, i, right, /*right_child_index, */depth+1, node_index, 1);
+	doBuild(right_aabb, tris, temp, tri_centers, split_i, right, depth+1, node_index, 1);
 }
 
 
@@ -394,19 +488,16 @@ bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& th
 }
 
 
-static inline void testAgainstTriangles(unsigned int leaf_geom_index,/*unsigned int num_leaf_tris, */HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, 
-										const std::vector<unsigned int>& leafgeom, float& closest_dist, const Ray& ray)
+static inline void testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, 
+										float& closest_dist, const Ray& ray)
 {
-	const unsigned int num_leaf_tris = leafgeom[leaf_geom_index];
-	++leaf_geom_index;
-
 	for(unsigned int i=0; i<num_leaf_tris; ++i)
 	{
 		float u, v, raydist;
-		if(intersect_tris[leafgeom[leaf_geom_index]].rayIntersect(ray, closest_dist, raydist, u, v))
+		if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 		{
 			closest_dist = raydist;
-			hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index];
+			hitinfo_out.sub_elem_index = leaf_geom_index;
 			hitinfo_out.sub_elem_coords.set(u, v);
 		}
 		++leaf_geom_index;
@@ -423,240 +514,176 @@ double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_con
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
-	float aabb_enterdist, aabb_exitdist;
-	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
-		return -1.0; // Ray missed aabbox
-	assert(aabb_enterdist <= aabb_exitdist);
+	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
 
-	const float root_t_min = myMax(0.0f, aabb_enterdist);
-	const float root_t_max = myMin((float)ray_max_t, aabb_exitdist);
-	if(root_t_min > root_t_max)
-		return -1.0; // Ray interval does not intersect AABB
+	__m128 near_t, far_t;
+	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	near_t = _mm_max_ss(near_t, zeroVec());
+	
+	const float ray_max_t_f = (float)ray_max_t;
+	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f));
+
+	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+		return -1.0;
+
+	context.nodestack[0].node = 0;
+	_mm_store_ss(&context.nodestack[0].tmin, near_t);
+	_mm_store_ss(&context.nodestack[0].tmax, far_t);
 
 	float closest_dist = std::numeric_limits<float>::infinity();
 
-	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
-
 	int stacktop = 0; // Index of node on top of stack
-	
 	while(stacktop >= 0)
 	{
 		// Pop node off stack
 		unsigned int current = context.nodestack[stacktop].node;
-		//printVar(current);
-		//printVar(stacktop);
 		__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
 		__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
 
-		tmax = _mm_min_ps(tmax, _mm_load_ss(&closest_dist));
+		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 		stacktop--;
 
-		//bool reached_leaf = false;
 		// While current is indexing a suitable internal node...
-		while(1)// nodes[current].leaf == 0)
+		while(1)
 		{
+			_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
+			_mm_prefetch((const char*)(nodes + nodes[current].getRightChildIndex()), _MM_HINT_T0);
+
+			const __m128 a = _mm_load_ps(nodes[current].box);
+			const __m128 b = _mm_load_ps(nodes[current].box + 4);
+			const __m128 c = _mm_load_ps(nodes[current].box + 8);
+
 			// Test ray against left child
 			__m128 left_near_t, left_far_t;
-			nodes[current].left_aabb.rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), left_near_t, left_far_t);
-			
+			{
+			// a = [rmax.x, rmin.x, lmax.x, lmin.x]
+			// b = [rmax.y, rmin.y, lmax.y, lmin.y]
+			// c = [rmax.z, rmin.z, lmax.z, lmin.z]
+			__m128 
+			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(0, 0, 0, 0)); // box_min = [lmin.y, lmin.y, lmin.x, lmin.x]
+			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(0, 0, 2, 0)); // box_min = [lmin.z, lmin.z, lmin.x, lmin.x]
+			__m128 
+			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(1, 1, 1, 1)); // box_max = [lmax.y, lmax.y, lmax.x, lmax.x]
+			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(1, 1, 2, 0)); // box_max = [lmax.z, lmax.z, lmax.y, lmax.x]
+
+			#ifdef DEBUG
+			SSE_ALIGN float temp[4];
+			_mm_store_ps(temp, box_min);
+			assert(temp[0] == nodes[current].box[0] && temp[1] == nodes[current].box[4] && temp[2] == nodes[current].box[8]);
+			_mm_store_ps(temp, box_max);
+			assert(temp[0] == nodes[current].box[1] && temp[1] == nodes[current].box[5] && temp[2] == nodes[current].box[9]);
+			#endif
+
+			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
+			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
+
+			SSE4Vec lmax = max4Vec(l1, l2);
+			SSE4Vec lmin = min4Vec(l1, l2);
+
+			const SSE4Vec lmax0 = rotatelps(lmax);
+			const SSE4Vec lmin0 = rotatelps(lmin);
+			lmax = minss(lmax, lmax0);
+			lmin = maxss(lmin, lmin0);
+
+			const SSE4Vec lmax1 = muxhps(lmax,lmax);
+			const SSE4Vec lmin1 = muxhps(lmin,lmin);
+			left_far_t = minss(lmax, lmax1);
+			left_near_t = maxss(lmin, lmin1);
+			}
+
 			// Take the intersection of the current ray interval and the ray/BB interval
-			left_near_t = _mm_max_ps(left_near_t, tmin);
-			left_far_t = _mm_min_ps(left_far_t, tmax);
+			left_near_t = _mm_max_ss(left_near_t, tmin);
+			left_far_t = _mm_min_ss(left_far_t, tmax);
 
 			// Test against right child
 			__m128 right_near_t, right_far_t;
-			nodes[current].right_aabb.rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), right_near_t, right_far_t);
+			{
+			__m128 
+			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(2, 2, 2, 2)); // box_min = [rmin.y, rmin.y, rmin.x, rmin.x]
+			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(2, 2, 2, 0)); // box_min = [rmin.z, rmin.z, rmin.x, rmin.x]
+			__m128 
+			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(3, 3, 3, 3)); // box_max = [rmax.y, rmax.y, rmax.x, rmax.x]
+			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(3, 3, 2, 0)); // box_max = [rmax.z, rmax.z, rmax.y, rmax.x]
+
+			#ifdef DEBUG
+			SSE_ALIGN float temp[4];
+			_mm_store_ps(temp, box_min);
+			assert(temp[0] == nodes[current].box[2] && temp[1] == nodes[current].box[6] && temp[2] == nodes[current].box[10]);
+			_mm_store_ps(temp, box_max);
+			assert(temp[0] == nodes[current].box[3] && temp[1] == nodes[current].box[7] && temp[2] == nodes[current].box[11]);
+			#endif
+
+			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
+			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
+
+			SSE4Vec lmax = max4Vec(l1, l2);
+			SSE4Vec lmin = min4Vec(l1, l2);
+
+			const SSE4Vec lmax0 = rotatelps(lmax);
+			const SSE4Vec lmin0 = rotatelps(lmin);
+			lmax = minss(lmax, lmax0);
+			lmin = maxss(lmin, lmin0);
+
+			const SSE4Vec lmax1 = muxhps(lmax,lmax);
+			const SSE4Vec lmin1 = muxhps(lmin,lmin);
+			right_far_t = minss(lmax, lmax1);
+			right_near_t = maxss(lmin, lmin1);
+			}
 				
 			// Take the intersection of the current ray interval and the ray/BB interval
-			right_near_t = _mm_max_ps(right_near_t, tmin);
-			right_far_t = _mm_min_ps(right_far_t, tmax);
+			right_near_t = _mm_max_ss(right_near_t, tmin);
+			right_far_t = _mm_min_ss(right_far_t, tmax);
 
 			if(_mm_comile_ss(right_near_t, right_far_t) != 0) { // if(ray hits right AABB)
 				if(_mm_comile_ss(left_near_t, left_far_t) != 0) { // if(ray hits left AABB)
-					if((nodes[current].getRightChildIndex() & 0x80000000) == 0) { // If right child exists
-						if((nodes[current].getLeftChildIndex() & 0x80000000) == 0) { // If left child exists
+					if(nodes[current].isRightLeaf() == 0) { // If right child exists
+						if(nodes[current].isLeftLeaf() == 0) { // If left child exists
 							// Push right child onto stack
 							stacktop++;
 							assert(stacktop < context.nodestack_size);
-							//context.nodestack[stacktop] = StackFrame(nodes[current].getRightChildIndex(), right_near_t_, right_far_t_);
 							context.nodestack[stacktop].node = nodes[current].getRightChildIndex();
 							_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
 							_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
 
 							current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 						} else {
-							testAgainstTriangles(nodes[current].getLeftGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
+							testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
 
 							current = nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 						}
 					} else { // Else if right child doesn't exist
-						if((nodes[current].getLeftChildIndex() & 0x80000000) == 0) { // If left child exists
-							testAgainstTriangles(nodes[current].getRightGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
+						if(nodes[current].isLeftLeaf() == 0) { // If left child exists
+							testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
 							
 							current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 						} else {
-							testAgainstTriangles(nodes[current].getLeftGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-							testAgainstTriangles(nodes[current].getRightGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
+							testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
+							testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
 							break;
 						}
 					}
 				} else { // Else only right AABB is hit
-					if((nodes[current].getRightChildIndex() & 0x80000000) == 0) { // If right child exists
+					if(nodes[current].isRightLeaf() == 0) { // If right child exists
 						current = nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 					} else {
-						testAgainstTriangles(nodes[current].getRightGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
+						testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
 						break;
 					}
 				}
 			} else { // Else ray missed right AABB
 				if(_mm_comile_ss(left_near_t, left_far_t) != 0) { // if(ray hits left AABB)
-					if((nodes[current].getLeftChildIndex() & 0x80000000) == 0) { // If left child exists
+					if(nodes[current].isLeftLeaf() == 0) { // If left child exists
 						current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 					} else {
-						testAgainstTriangles(nodes[current].getLeftGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
+						testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
 						break;
 					}
 				} else { // Else ray missed left AABB (and right AABB)
 					break;
 				}
 			}
-
-
-
-
-
-
-
-
-
-/*
-			// Test against right child
-			if(right_near_t_ <= right_far_t_) // If the intersection interval of the ray with the right child is non-zero
-			{
-				if(nodes[current].getRightChildIndex() >> 31 == 0) // If right child exists
-				{
-					assert(nodes[current].getRightChildIndex() > current);
-					// Push right child onto stack
-					stacktop++;
-					assert(stacktop < context.nodestack_size);
-					context.nodestack[stacktop] = StackFrame(nodes[current].getRightChildIndex(), right_near_t_, right_far_t_);
-				}
-				else
-				{
-					// Intersect its triangles
-					testAgainstTriangles(nodes[current].getRightGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-				}
-			}
-
-			// Test against left child
-			if(left_near_t_ <= left_far_t_) // If the intersection interval of the ray with the left child is non-zero
-			{
-				if(nodes[current].getLeftChildIndex() >> 31 == 0) // If left child exists
-				{
-					assert(nodes[current].getLeftChildIndex() > current);
-					// Push left child onto stack
-					stacktop++;
-					assert(stacktop < context.nodestack_size);
-					context.nodestack[stacktop] = StackFrame(nodes[current].getLeftChildIndex(), left_near_t_, left_far_t_);
-				}
-				else
-				{
-					// Intersect its triangles
-					testAgainstTriangles(nodes[current].getLeftGeomIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-				}
-			}*/
-
-
-			/*if(left_near_t_ <= left_far_t_) // If the intersection interval of the ray with the left child is non-zero
-			{
-				if(right_near_t_ <= right_far_t_) // If ray hits right child
-				{
-					if(nodes[current].getRightChildIndex() >= 0) // If right child exists
-					{
-						if(nodes[current].getLeftChildIndex() >= 0) // If left child exists
-						{
-							// Push right node onto stack to process later
-							stacktop++;
-							assert(stacktop < context.nodestack_size);
-							context.nodestack[stacktop] = StackFrame(nodes[current].getRightChildIndex(), right_near_t_, right_far_t_);
-						}
-						else
-						{
-							current = nodes[current].getRightChildIndex(); // Process right child next
-							tmin = right_near_t;
-							tmax = right_far_t;
-						}
-					}
-					else // Else right child doesn't exist
-					{
-						// Intersect its triangles
-						testAgainstTriangles(-nodes[current].getRightChildIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-					}
-				}
-				else // else if ray doesn't hit right child
-				{
-					// Process left child next
-					if(nodes[current].getLeftChildIndex() >= 0) // If left child exists
-					{
-						current = nodes[current].getLeftChildIndex(); 
-						tmin = left_near_t;
-						tmax = left_far_t;
-					}
-					else // Else left child doesn't exist
-					{
-						// Intersect its triangles
-						testAgainstTriangles(-nodes[current].getLeftChildIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-						break;
-					}
-				}
-			}
-			else // else Missed left child
-			{
-				if(right_near_t_ <= right_far_t_)
-				{
-					// Process right child next
-					if(nodes[current].getRightChildIndex() >= 0) // If right child exists
-					{
-						current = nodes[current].getRightChildIndex(); 
-						tmin = right_near_t;
-						tmax = right_far_t;
-					}
-					else // Else right child doesn't exist
-					{
-						// Intersect its triangles
-						testAgainstTriangles(-nodes[current].getRightChildIndex(), hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
-						break;
-					}
-				}
-				else
-				{
-					// Missed both children.
-					break;
-				}
-			}*/
-		//}
-
-		// At this point, either the current node is a leaf, or we missed both children of an interior node.
-		//if(nodes[current].leaf == 1)
-		//{
-			// Test against leaf triangles
-
-			/*unsigned int leaf_geom_index = nodes[current].geometry_index;
-			const unsigned int num_leaf_tris = nodes[current].num_geom;
-
-			for(unsigned int i=0; i<num_leaf_tris; ++i)
-			{
-				float u, v, raydist;
-				if(intersect_tris[leafgeom[leaf_geom_index]].rayIntersect(ray, closest_dist, raydist, u, v))
-				{
-					closest_dist = raydist;
-					hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index];
-					hitinfo_out.sub_elem_coords.set(u, v);
-				}
-				++leaf_geom_index;
-			}*/
-		//	testAgainstTriangles(nodes[current].geometry_index, nodes[current].num_geom, hitinfo_out, intersect_tris, leafgeom, closest_dist, ray);
 		}
 	}
 

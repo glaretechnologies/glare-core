@@ -25,9 +25,9 @@ ObjectTree::ObjectTree()
 	root_aabb = NULL;
 	nodestack_size = 0;
 
-	root_aabb = (js::AABBox*)alignedMalloc(sizeof(AABBox), sizeof(AABBox));
+	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
-	assert(::isAlignedTo(root_aabb, sizeof(AABBox)));
+	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	nodes.push_back(ObjectTreeNode());//root node
 	assert((uint64)&nodes[0] % 8 == 0);//assert aligned
@@ -40,7 +40,7 @@ ObjectTree::ObjectTree()
 
 ObjectTree::~ObjectTree()
 {
-	alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(root_aabb);
 
 //	delete rootnode;
 
@@ -445,7 +445,7 @@ void ObjectTree::build()
 
 	if(!nodes.empty())
 	{
-		assert(isAlignedTo(&nodes[0], sizeof(js::ObjectTreeNode)));
+		assert(SSE::isAlignedTo(&nodes[0], sizeof(js::ObjectTreeNode)));
 	}
 
 	const uint64 numnodes = nodes.size();

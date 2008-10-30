@@ -21,19 +21,19 @@ TriTreePerThreadData::TriTreePerThreadData()
 	nodestack_size = 0;
 
 	nodestack_size = js::Tree::MAX_TREE_DEPTH + 1; //js::TriTree::MAX_KDTREE_DEPTH;//1024;
-	alignedSSEArrayMalloc(nodestack_size, nodestack);
+	SSE::alignedSSEArrayMalloc(nodestack_size, nodestack);
 
 
-	tri_hash = (js::TriHash*)alignedMalloc(sizeof(js::TriHash), 64);//align to 64 bytes
+	tri_hash = (js::TriHash*)SSE::alignedMalloc(sizeof(js::TriHash), 64);//align to 64 bytes
 	new(tri_hash) js::TriHash();
 }
 
 
 TriTreePerThreadData::~TriTreePerThreadData()
 {
-	alignedSSEFree(tri_hash);
+	SSE::alignedSSEFree(tri_hash);
 
-	alignedSSEFree(nodestack);
+	SSE::alignedSSEFree(nodestack);
 	nodestack = NULL;
 
 }

@@ -256,7 +256,8 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	try
 	{
 		if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
-			tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this)); // tritree = std::auto_ptr<js::Tree>(new js::BIHTree(this));
+			tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
+			//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
 		else
 			tritree = std::auto_ptr<js::Tree>(new js::TriTree(this)); // kd-tree
 	}

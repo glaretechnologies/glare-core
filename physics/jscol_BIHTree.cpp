@@ -31,7 +31,7 @@ namespace js
 BIHTree::BIHTree(RayMesh* raymesh_)
 :	raymesh(raymesh_)
 {
-	root_aabb = (js::AABBox*)alignedSSEMalloc(sizeof(AABBox));
+	root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
 
 	num_intersect_tris = 0;
@@ -50,8 +50,8 @@ BIHTree::BIHTree(RayMesh* raymesh_)
 
 BIHTree::~BIHTree()
 {
-	alignedSSEFree(root_aabb);
-	alignedSSEFree(intersect_tris);
+	SSE::alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
 
@@ -131,7 +131,7 @@ void BIHTree::build()
 	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
 		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+	SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 
 	//copy tri data
 	for(unsigned int i=0; i<num_intersect_tris; ++i)

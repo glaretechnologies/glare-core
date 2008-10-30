@@ -7,27 +7,18 @@ Code By Nicholas Chapman.
 #ifndef __SSE_H_666_
 #define __SSE_H_666_
 
+
 #include "../utils/platform.h"
+#include <xmmintrin.h> //SSE header file
+#ifdef USE_SSE2
+#include <emmintrin.h> //SSE 2 header file
+#endif
 #include <assert.h>
 #ifdef COMPILER_GCC
 #include <stdlib.h>
 #include <inttypes.h>
 #endif
 
-namespace SSE
-{
-	void checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present, bool& sse3_present);
-};
-
-
-
-//#ifdef USE_SSE
-
-#include <xmmintrin.h> //SSE header file
-
-#ifdef USE_SSE2
-#include <emmintrin.h> //SSE 2 header file
-#endif
 
 typedef __m128 SSE4Vec;//A vector of 4 single precision floats.  16 byte aligned by default.
 #ifdef USE_SSE2
@@ -41,96 +32,77 @@ typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by def
 #define SSE_ALIGN __attribute__ ((aligned (16)))
 #endif
 
-template <class T>
-inline bool isAlignedTo(T* ptr, uintptr_t alignment)
+
+namespace SSE
 {
-	return (uintptr_t(ptr) % alignment) == 0;
-}
+	void checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present, bool& sse3_present);
 
-template <class T>
-inline bool isSSEAligned(T* ptr)
-{
-	return isAlignedTo(ptr, 16);
-}
+	template <class T>
+	inline bool isAlignedTo(T* ptr, uintptr_t alignment)
+	{
+		return (uintptr_t(ptr) % alignment) == 0;
+	}
 
-#define assertSSEAligned(p) (assert(isSSEAligned((p))))
-
-inline void* alignedMalloc(size_t size, size_t alignment)
-{
-#ifdef COMPILER_MSVC
-	return _aligned_malloc(size, alignment);
-#else
-	void* mem_ptr;
-	const int result = posix_memalign(&mem_ptr, alignment, size);
-	assert(result == 0);
-	//TODO: handle fail here somehow.
-	if(result != 0)
-		return (void*)0;
-	return mem_ptr;
-#endif
-}
-
-inline void alignedFree(void* mem)
-{
-#ifdef COMPILER_MSVC
-	_aligned_free(mem);
-#else
-	// Apparently free() can handle aligned mem.
-	// see: http://www.opengroup.org/onlinepubs/000095399/functions/posix_memalign.html
-	free(mem);
-#endif
-}
+	template <class T>
+	inline bool isSSEAligned(T* ptr)
+	{
+		return isAlignedTo(ptr, 16);
+	}
 
 
-inline void* alignedSSEMalloc(size_t size)
-{
-	return alignedMalloc(size, 16);
-}
-
-template <class T>
-inline void alignedSSEFree(T* t)
-{
-	alignedFree((void*)t);
-}
-
-template <class T>
-inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
-{
-	const size_t memsize = sizeof(T) * numelems;
-	t_out = static_cast<T*>(alignedSSEMalloc(memsize));
-}
-
-template <class T>
-inline void alignedArrayMalloc(size_t numelems, size_t alignment, T*& t_out)
-{
-	const size_t memsize = sizeof(T) * numelems;
-	t_out = static_cast<T*>(alignedMalloc(memsize, alignment));
-}
-
-template <class T>
-inline void alignedSSEArrayFree(T* t)
-{
-	alignedSSEFree(t);
-
-	//for(unsigned int i=0; i<numelems; ++i)
-	//	t[i].~T();
-	//alignedSSEFree(t);
-	//delete(t) []
-}
-
-template <class T>
-inline void alignedArrayFree(T* t)
-{
-	alignedFree(t);
-}
+	void* alignedMalloc(size_t size, size_t alignment); // throws bad_alloc on allocation failure.
+	void alignedFree(void* mem);
 
 
+	inline void* alignedSSEMalloc(size_t size)
+	{
+		return alignedMalloc(size, 16);
+	}
+
+	template <class T>
+	inline void alignedSSEFree(T* t)
+	{
+		alignedFree((void*)t);
+	}
+
+	template <class T>
+	inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
+	{
+		const size_t memsize = sizeof(T) * numelems;
+		t_out = static_cast<T*>(alignedSSEMalloc(memsize));
+	}
+
+	template <class T>
+	inline void alignedArrayMalloc(size_t numelems, size_t alignment, T*& t_out)
+	{
+		const size_t memsize = sizeof(T) * numelems;
+		t_out = static_cast<T*>(alignedMalloc(memsize, alignment));
+	}
+
+	template <class T>
+	inline void alignedSSEArrayFree(T* t)
+	{
+		alignedSSEFree(t);
+
+		//for(unsigned int i=0; i<numelems; ++i)
+		//	t[i].~T();
+		//alignedSSEFree(t);
+		//delete(t) []
+	}
+
+	template <class T>
+	inline void alignedArrayFree(T* t)
+	{
+		alignedFree(t);
+	}
+};
+
+
+#define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
 
 
 const SSE_ALIGN float zero_4vec[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-
 
 
 #define load4Vec(v) (_mm_load_ps(v))

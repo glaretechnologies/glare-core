@@ -46,7 +46,7 @@ public:
 	
 	DO_FORCEINLINE int rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
-	DO_FORCEINLINE void rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir, __m128& near_t_out, __m128& far_t_out) const;
+	DO_FORCEINLINE void rayAABBTrace(const __m128& pos , const __m128& inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 	
 	inline float getSurfaceArea() const;
 	bool invariant() const;
@@ -291,11 +291,8 @@ int AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& reci
 
 
 DO_FORCEINLINE
-void AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir, 
-						  __m128& near_t_out, __m128& far_t_out) const
+void AABBox::rayAABBTrace(const __m128& pos , const __m128& inv_dir, __m128& near_t_out, __m128& far_t_out) const
 {
-	assertSSEAligned(&raystartpos);
-	assertSSEAligned(&recip_unitraydir);
 	assertSSEAligned(&min_);
 	assertSSEAligned(&max_);
 
@@ -307,9 +304,9 @@ void AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& rec
 	// use whatever's apropriate to load.
 	const SSE4Vec
 		box_min	= load4Vec(&min_.x),
-		box_max	= load4Vec(&max_.x),
-		pos	= load4Vec(&raystartpos.x),
-		inv_dir	= load4Vec(&recip_unitraydir.x);
+		box_max	= load4Vec(&max_.x);
+		//pos	= load4Vec(&raystartpos.x),
+		//inv_dir	= load4Vec(&recip_unitraydir.x);
 
 	// use a div if inverted directions aren't available
 	const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, pos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]

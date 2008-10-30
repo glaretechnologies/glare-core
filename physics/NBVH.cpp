@@ -29,15 +29,15 @@ NBVH::NBVH(RayMesh* raymesh_)
 	num_intersect_tris = 0;
 	intersect_tris = NULL;
 
-	root_aabb = (js::AABBox*)alignedSSEMalloc(sizeof(AABBox));
+	root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
 }
 
 
 NBVH::~NBVH()
 {
-	alignedSSEFree(root_aabb);
-	alignedSSEFree(intersect_tris);
+	SSE::alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
 
@@ -82,7 +82,7 @@ void NBVH::build()
 		tris[i] = i;
 
 	// Build tri AABBs
-	::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+	SSE::alignedSSEArrayMalloc(numTris(), tri_aabbs);
 
 	for(unsigned int i=0; i<numTris(); ++i)
 	{
@@ -105,14 +105,14 @@ void NBVH::build()
 	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
 		conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+	SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 
 	// Copy tri data.
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 		intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 	conPrint("\tdone.");
 
-	::alignedSSEArrayFree(tri_aabbs);
+	SSE::alignedSSEArrayFree(tri_aabbs);
 
 
 	conPrint("\tBuild Stats:");

@@ -26,6 +26,8 @@ TreeUtils::~TreeUtils()
 
 void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out)
 {
+	// NOTE: could do this faster by looping over vertices instead.  But what if there is an unused vertex?
+
 	assert(raymesh.getNumTris() > 0);
 	conPrint("\tCalcing root AABB.");
 

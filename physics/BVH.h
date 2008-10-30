@@ -58,7 +58,10 @@ public:
 private:
 	typedef uint32 TRI_INDEX;
 	
-	void doBuild(const AABBox& aabb, std::vector<TRI_INDEX>& tris, int left, int right, /*unsigned int node_index_to_use, */int depth, unsigned int parent_index, unsigned int child_index);
+	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, 
+		const std::vector<Vec3f>& tri_centers, int left, int right, int depth, unsigned int parent_index, unsigned int child_index);
+
+	void markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris);
 
 	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
 	unsigned int numTris() const;
@@ -80,12 +83,22 @@ private:
 	typedef js::BadouelTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
+	unsigned int intersect_tri_i;
 
-	std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
+	//std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
 
-	std::vector<Vec3f> tri_centers;
+	//std::vector<Vec3f> tri_centers;
 
-	std::vector<float> centers;
+	//std::vector<float> centers;
+
+	/// build stats ///
+	int num_maxdepth_leaves;
+	int num_under_thresh_leaves;
+	int num_cheaper_nosplit_leaves;
+	int num_leaves;
+	int max_num_tris_per_leaf;
+	int leaf_depth_sum;
+	int max_leaf_depth;
 };
 
 

@@ -32,6 +32,12 @@ public:
 	inline ~Vec3()
 	{}
 
+	inline explicit Vec3(Real x_)
+	:	x(x_),
+		y(x_),
+		z(x_)
+	{}
+
 	inline Vec3(Real x_, Real y_, Real z_)
 	:	x(x_),
 		y(y_),

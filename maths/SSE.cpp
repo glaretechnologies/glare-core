@@ -18,12 +18,53 @@ Code By Nicholas Chapman.
 #endif
 
 
+namespace SSE
+{
+
+
+void* alignedMalloc(size_t size, size_t alignment)
+{
+#ifdef COMPILER_MSVC
+	void* result = _aligned_malloc(size, alignment);
+	if(result == NULL)
+		throw std::bad_alloc("Memory allocation failed.");
+	return result;
+#else
+#error // TODO: make throw bad_alloc
+	void* mem_ptr;
+	const int result = posix_memalign(&mem_ptr, alignment, size);
+	assert(result == 0);
+	//TODO: handle fail here somehow.
+	if(result != 0)
+		return (void*)0;
+	return mem_ptr;
+#endif
+}
+
+
+void alignedFree(void* mem)
+{
+#ifdef COMPILER_MSVC
+	_aligned_free(mem);
+#else
+	// Apparently free() can handle aligned mem.
+	// see: http://www.opengroup.org/onlinepubs/000095399/functions/posix_memalign.html
+	free(mem);
+#endif
+}
+
+
+} // end namespace SSE
+
+
 /*
 void alignedFree(void* mem)
 {
 	_aligned_free(mem);
 }
 */
+
+
 /*
 Uses the CPU_ID instruction to check for the presence of SSE
 */
@@ -84,7 +125,7 @@ void SSETest()
 	// Test accuracy of divisions
 	const SSE_ALIGN float a[4] = {1.0e0f, 1.0e-1f, 1.0e-2f, 1.0e-3f};
 	const SSE_ALIGN float b[4] = {1.1f,1.01f,1.001f,1.0001f};
-	const SSE_ALIGN float c[4] = {0.99999999999,0.99999999,0.9999999,0.999999};
+	const SSE_ALIGN float c[4] = {0.99999999999f,0.99999999f,0.9999999f,0.999999f};
 	SSE_ALIGN float r1[4] = {1,1,1,1};
 	SSE_ALIGN float r2[4] = {1,1,1,1};
 
@@ -124,9 +165,9 @@ void SSETest()
 
 
 	const int N = 20000000 * 4;
-	float* data1 = (float*)alignedMalloc(sizeof(float) * N, 16);
-	float* data2 = (float*)alignedMalloc(sizeof(float) * N, 16);
-	float* res = (float*)alignedMalloc(sizeof(float) * N, 16);
+	float* data1 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
+	float* data2 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
+	float* res = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
 
 	for(int i=0; i<N; ++i)
 	{
@@ -165,7 +206,7 @@ void SSETest()
 	printVar(elapsed_cycles);
 	printVar(cycles_per_iteration);
 
-	alignedFree(data1);
-	alignedFree(data2);
-	alignedFree(res);
+	SSE::alignedFree(data1);
+	SSE::alignedFree(data2);
+	SSE::alignedFree(res);
 }

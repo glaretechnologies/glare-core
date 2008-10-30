@@ -31,7 +31,7 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 	num_intersect_tris = 0;
 	intersect_tris = NULL;
 
-	root_aabb = (js::AABBox*)alignedSSEMalloc(sizeof(AABBox));
+	root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
 	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
 
 	num_maxdepth_leaves = 0;
@@ -49,9 +49,9 @@ SimpleBVH::SimpleBVH(RayMesh* raymesh_)
 SimpleBVH::~SimpleBVH()
 {
 	assert(tri_aabbs == NULL);
-	alignedArrayFree(nodes);
-	alignedSSEFree(root_aabb);
-	alignedSSEFree(intersect_tris);
+	SSE::alignedArrayFree(nodes);
+	SSE::alignedSSEFree(root_aabb);
+	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
 
@@ -90,13 +90,9 @@ void SimpleBVH::build()
 {
 	conPrint("\tSimpleBVH::build()");
 
-	//------------------------------------------------------------------------
-	//Calc root node's aabbox
-	//NOTE: could do this faster by looping over vertices instead.
-	//------------------------------------------------------------------------
 	const int num_tris = (int)numTris();
 
-	Timer timer;
+	//Timer timer;
 
 	TreeUtils::buildRootAABB(*raymesh, *root_aabb);
 	assert(root_aabb->invariant());
@@ -109,14 +105,14 @@ void SimpleBVH::build()
 	if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
 		conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-	::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+	SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 	if(intersect_tris == NULL)
 		throw TreeExcep("Memory allocation failure.");
 	intersect_tri_i = 0;
 
 	{
 	// Build tri AABBs
-	::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+	SSE::alignedSSEArrayMalloc(numTris(), tri_aabbs);
 	if(tri_aabbs == NULL)
 		throw TreeExcep("Memory allocation failure.");
 
@@ -167,10 +163,10 @@ void SimpleBVH::build()
 	conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
 
-	conPrint("\tPrebuild time: " + toString(timer.getSecondsElapsed()) + " s.");
+	//conPrint("\tPrebuild time: " + toString(timer.getSecondsElapsed()) + " s.");
 
 	nodes_capacity = myMax(2u, numTris() / 4);
-	alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), nodes);
+	SSE::alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), nodes);
 	if(nodes == NULL)
 		throw TreeExcep("Memory allocation failure.");
 	num_nodes = 1;
@@ -188,7 +184,7 @@ void SimpleBVH::build()
 	assert(intersect_tri_i == num_intersect_tris);
 	}
 
-	::alignedSSEArrayFree(tri_aabbs);
+	SSE::alignedSSEArrayFree(tri_aabbs);
 	tri_aabbs = NULL;
 
 	conPrint("\tBuild Stats:");
@@ -212,7 +208,7 @@ void SimpleBVH::markLeafNode(const std::vector<std::vector<TRI_INDEX> >& tris, u
 
 	for(int i=left; i<right; ++i)
 	{
-		const unsigned int source_tri = tris[0][i];
+		const TRI_INDEX source_tri = tris[0][i];
 		assert(intersect_tri_i < num_intersect_tris);
 		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
 	}
@@ -458,11 +454,11 @@ void SimpleBVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >
 	{
 		nodes_capacity *= 2;
 		SimpleBVHNode* new_nodes;
-		alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), new_nodes); // Alloc new array
+		SSE::alignedArrayMalloc(nodes_capacity, SimpleBVHNode::requiredAlignment(), new_nodes); // Alloc new array
 		if(new_nodes == NULL)
 			throw TreeExcep("Memory allocation failure.");
 		memcpy(new_nodes, nodes, sizeof(SimpleBVHNode) * num_nodes); // Copy over old array
-		alignedArrayFree(nodes); // Free old array
+		SSE::alignedArrayFree(nodes); // Free old array
 		nodes = new_nodes; // Update nodes pointer to point at new array
 	}
 	num_nodes = new_num_nodes; // Update size
@@ -493,7 +489,7 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
-	float aabb_enterdist, aabb_exitdist;
+	/*float aabb_enterdist, aabb_exitdist;
 	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
 		return -1.0; // Ray missed aabbox
 	assert(aabb_enterdist <= aabb_exitdist);
@@ -503,15 +499,27 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 	if(root_t_min > root_t_max)
 		return -1.0; // Ray interval does not intersect AABB
 
-	float closest_dist = std::numeric_limits<float>::infinity();
-
-	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
-
-	int stacktop = 0; // Index of node on top of stack
-
+	context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);*/
 	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
 	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
 
+	__m128 near_t, far_t;
+	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	near_t = _mm_max_ss(near_t, zeroVec());
+	
+	const float ray_max_t_f = (float)ray_max_t;
+	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f));
+
+	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+		return -1.0;
+
+	context.nodestack[0].node = 0;
+	_mm_store_ss(&context.nodestack[0].tmin, near_t);
+	_mm_store_ss(&context.nodestack[0].tmax, far_t);
+
+	float closest_dist = std::numeric_limits<float>::infinity();
+
+	int stacktop = 0; // Index of node on top of stack
 	while(stacktop >= 0)
 	{
 		// Pop node off stack
@@ -519,14 +527,14 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 		__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
 		__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
 
-		tmax = _mm_min_ps(tmax, _mm_load_ss(&closest_dist));
+		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 		stacktop--;
 
 		while(nodes[current].getLeaf() == 0)
 		{
-			const unsigned int left = nodes[current].getLeftChildIndex();
-			const unsigned int right = nodes[current].getRightChildIndex();
+			_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);	
+			_mm_prefetch((const char*)(nodes + nodes[current].getRightChildIndex()), _MM_HINT_T0);	
 
 			const __m128 a = _mm_load_ps(nodes[current].box);
 			const __m128 b = _mm_load_ps(nodes[current].box + 4);
@@ -571,8 +579,8 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			}
 
 			// Take the intersection of the current ray interval and the ray/BB interval
-			left_near_t = _mm_max_ps(left_near_t, tmin);
-			left_far_t = _mm_min_ps(left_far_t, tmax);
+			left_near_t = _mm_max_ss(left_near_t, tmin);
+			left_far_t = _mm_min_ss(left_far_t, tmax);
 
 			// Test against right child
 			__m128 right_near_t, right_far_t;
@@ -613,8 +621,8 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			}
 				
 			// Take the intersection of the current ray interval and the ray/BB interval
-			right_near_t = _mm_max_ps(right_near_t, tmin);
-			right_far_t = _mm_min_ps(right_far_t, tmax);
+			right_near_t = _mm_max_ss(right_near_t, tmin);
+			right_far_t = _mm_min_ss(right_far_t, tmax);
 
 			if(_mm_comile_ss(right_near_t, right_far_t) != 0) // If ray hits right AABB
 			{
@@ -623,22 +631,22 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 					// Push right child onto stack
 					stacktop++;
 					assert(stacktop < context.nodestack_size);
-					context.nodestack[stacktop].node = right;
+					context.nodestack[stacktop].node = nodes[current].getRightChildIndex();
 					_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
 					_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
 
-					current = left; tmin = left_near_t; tmax = left_far_t; // next = L
+					current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 				}
 				else // Else ray missed left AABB, so process right child next
 				{
-					current = right; tmin = right_near_t; tmax = right_far_t; // next = R
+					current = nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 				}
 			}
 			else // Else ray misssed right AABB
 			{
 				if(_mm_comile_ss(left_near_t, left_far_t) != 0) // If ray hits left AABB
 				{
-					current = left; tmin = left_near_t; tmax = left_far_t; // next = L
+					current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 				}
 				else
 				{

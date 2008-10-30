@@ -15,8 +15,6 @@ namespace js
 {
 
 
-
-
 /*=====================================================================
 BVHNode
 -------
@@ -25,92 +23,65 @@ BVHNode
 class BVHNode
 {
 public:
-	/*=====================================================================
-	BVHNode
-	-------
-	
-	=====================================================================*/
+
 	inline BVHNode() { assert(sizeof(BVHNode) == 64); }
 
 	inline ~BVHNode() {}
 
 	inline static size_t requiredAlignment() { return 64; }
 
+	inline static unsigned int maxNumGeom() { return 0xFFFF; }
 
-	/*union LeftType
+	inline void setLeftAABB(const AABBox& b)
 	{
-		AABBox left_aabb; // 32 bytes
-		float left_data[8];
-	};*/
-
-	SSE_ALIGN AABBox left_aabb; // 32 bytes
-	SSE_ALIGN AABBox right_aabb; // 32 bytes
-	/*Vec3f left_aabb_min;
-	int left_child_index; // If negative, then -left_child_index is the index into the geometry array.
-	Vec3f right_aabb;
-	int right_child_index; // If negative, then -right_child_index is the index into the geometry array.*/
-
-	inline void setLeftChildIndex(unsigned int i)
+		box[0] = b.min_.x;
+		box[1] = b.max_.x;
+		box[4] = b.min_.y;
+		box[5] = b.max_.y;
+		box[8] = b.min_.z;
+		box[9] = b.max_.z;
+	}
+	inline void setRightAABB(const AABBox& b)
 	{
-		*((unsigned int*)&left_aabb.min_.padding) = i;
+		box[2] = b.min_.x;
+		box[3] = b.max_.x;
+		box[6] = b.min_.y;
+		box[7] = b.max_.y;
+		box[10] = b.min_.z;
+		box[11] = b.max_.z;
 	}
 
-	inline void setRightChildIndex(unsigned int i)
-	{
-		*((unsigned int*)&right_aabb.min_.padding) = i;
-	}
+	inline unsigned int getLeftChildIndex() const { return left; }
+	inline void setLeftChildIndex(unsigned int i) { left = i; }
+	inline unsigned int getRightChildIndex() const { return right; }
+	inline void setRightChildIndex(unsigned int i) { right = i; }
 
-	inline unsigned int getLeftChildIndex() const
-	{
-		return *((unsigned int*)&left_aabb.min_.padding);
-	}
+	inline void setToInterior() { leaf = 0; }
+	inline unsigned int isLeftLeaf() const { return leaf & 0x00000001; }
+	inline void setLeftToLeaf() { leaf |= 0x00000001; }
+	inline unsigned int isRightLeaf() const { return leaf & 0x00000002; }
+	inline void setRightToLeaf() { leaf |= 0x00000002; }
 
-	inline unsigned int getRightChildIndex() const
-	{
-		return *((unsigned int*)&right_aabb.min_.padding);
-	}
+	inline unsigned int getLeftGeomIndex() const { return left; }
+	inline void setLeftGeomIndex(unsigned int x) { left = x; }
+	inline unsigned int getRightGeomIndex() const { return right; }
+	inline void setRightGeomIndex(unsigned int x) { right = x; }
 
-	inline unsigned int getLeftGeomIndex() const
-	{
-		return getLeftChildIndex() & 0x7FFFFFFF;
-	}
+	inline unsigned int getLeftNumGeom() const { return num_geom >> 16; }
+	inline void setLeftNumGeom(unsigned int x) { num_geom = (x << 16) | (num_geom & 0x0000FFFF); }
+	inline unsigned int getRightNumGeom() const { return num_geom & 0x0000FFFF; }
+	inline void setRightNumGeom(unsigned int x) { num_geom = (num_geom & 0xFFFF0000) | x; }
 
-	inline unsigned int getRightGeomIndex() const
-	{
-		return getRightChildIndex() & 0x7FFFFFFF;
-	}
-
-	inline void setLeftGeomIndex(unsigned int x)
-	{
-		return setLeftChildIndex(x | 0x80000000);
-	}
-
-	inline void setRightGeomIndex(unsigned int x)
-	{
-		return setRightChildIndex(x | 0x80000000);
-	}
-
-
-	/*int leaf;
-	union
-	{
-		int left_child_index;
-		int num_geom;
-	};
-	int right_child_index;
-	int geometry_index;
-	//int padding2;
-
-	int padding[4];*/
+	float box[12]; // 48 bytes
+private:
+	unsigned int leaf; // bit 0: left is leaf, bit 1: right is leaf.
+	unsigned int left; // left child index, or left geometry index
+	unsigned int right; // right child index, or right geometry index
+	unsigned int num_geom;
 };
-
 
 
 } //end namespace js
 
 
 #endif //__BVHNODE_H_666_
-
-
-
-
