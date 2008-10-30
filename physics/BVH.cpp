@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/timer.h"
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
+#include "BVHImpl.h"
 
 
 namespace js
@@ -479,15 +480,42 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 }
 
 
+class DoesFiniteRayHitFunctions
+{
+public:
+	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	{
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			float u, v, raydist;
+			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			{
+				closest_dist = raydist;
+				hitinfo_out.sub_elem_index = leaf_geom_index;
+				hitinfo_out.sub_elem_coords.set(u, v);
+				return true;
+			}
+			++leaf_geom_index;
+		}
+		return false;
+	}
+};
+
+
 bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
-	//NOTE: can speed this up
 	HitInfo hitinfo;
+	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo);
+	return t >= 0.0;
+
+
+	//NOTE: can speed this up
+	/*HitInfo hitinfo;
 	const double dist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
-	return dist >= 0.0 && dist < raylength;
+	return dist >= 0.0 && dist < raylength;*/
 }
 
-
+/*
 static inline void testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, 
 										float& closest_dist, const Ray& ray)
 {
@@ -502,11 +530,34 @@ static inline void testAgainstTriangles(unsigned int leaf_geom_index, unsigned i
 		}
 		++leaf_geom_index;
 	}
-}
+}*/
+
+class TraceRayFunctions
+{
+public:
+	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	{
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			float u, v, raydist;
+			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			{
+				closest_dist = raydist;
+				hitinfo_out.sub_elem_index = leaf_geom_index;
+				hitinfo_out.sub_elem_coords.set(u, v);
+			}
+			++leaf_geom_index;
+		}
+		return false; // don't early out
+	}
+};
 
 
 double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
+	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
+
+#if 0
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
@@ -691,12 +742,54 @@ double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_con
 		return closest_dist;
 	else
 		return -1.0f; // Missed all tris
+#endif
 }
+
+
+class GetAllHitsFunctions
+{
+public:
+	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris,std::vector<DistanceHitInfo>& hitinfos_out, 
+		const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	{
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			float u, v, raydist;
+			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			{
+				// Check to see if we have already recorded the hit against this triangle (while traversing another leaf volume)
+				// NOTE that this is a slow linear time check, but N should be small, hopefully :)
+				bool already_got_hit = false;
+				for(unsigned int z=0; z<hitinfos_out.size(); ++z)
+					if(hitinfos_out[z].sub_elem_index == leaf_geom_index)//if tri index is the same
+						already_got_hit = true;
+
+				if(!already_got_hit)
+				{
+					//if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
+					//{
+						hitinfos_out.push_back(DistanceHitInfo(
+							leaf_geom_index,
+							Vec2d(u, v),
+							raydist
+							));
+						//hitinfos_out.back().hitpos = ray.startPos();
+						//hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
+					//}
+				}
+			}
+			++leaf_geom_index;
+		}
+		return false; // don't early out
+	}
+};
 
 
 void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
+
+	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, context, object, hitinfos_out);
 }
 
 

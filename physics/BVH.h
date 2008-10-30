@@ -55,6 +55,7 @@ public:
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
 
+	friend class BVHImpl; 
 private:
 	typedef uint32 TRI_INDEX;
 	

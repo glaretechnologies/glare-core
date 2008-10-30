@@ -46,7 +46,7 @@ public:
 	
 	DO_FORCEINLINE int rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
-	DO_FORCEINLINE void rayAABBTrace(const __m128& pos , const __m128& inv_dir, __m128& near_t_out, __m128& far_t_out) const;
+	DO_FORCEINLINE void rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 	
 	inline float getSurfaceArea() const;
 	bool invariant() const;
@@ -291,7 +291,7 @@ int AABBox::rayAABBTrace(const PaddedVec3f& raystartpos, const PaddedVec3f& reci
 
 
 DO_FORCEINLINE
-void AABBox::rayAABBTrace(const __m128& pos , const __m128& inv_dir, __m128& near_t_out, __m128& far_t_out) const
+void AABBox::rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const
 {
 	assertSSEAligned(&min_);
 	assertSSEAligned(&max_);
