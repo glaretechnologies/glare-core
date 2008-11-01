@@ -52,7 +52,7 @@ public:
 
 	virtual ~Tree();
 
-	static const unsigned int MAX_TREE_DEPTH = 100;
+	static const unsigned int MAX_TREE_DEPTH = 63;
 
 	virtual void build() = 0; // throws TreeExcep
 	virtual bool diskCachable() = 0;
@@ -76,6 +76,11 @@ public:
 
 	virtual void printStats() const = 0;
 	virtual void printTraceStats() const = 0;
+
+	//For Debugging:
+	//virtual double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const = 0;
+	//virtual void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
+
 };
 
 

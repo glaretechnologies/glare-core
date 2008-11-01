@@ -126,9 +126,7 @@ void BVH::build()
 		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
 		assert(root_aabb->invariant());
 
-		//------------------------------------------------------------------------
-		//alloc intersect tri array
-		//------------------------------------------------------------------------
+		
 		conPrint("\tAllocating intersect triangles...");
 		this->num_intersect_tris = numTris();
 		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
@@ -136,6 +134,9 @@ void BVH::build()
 
 		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 		intersect_tri_i = 0;
+
+		original_tri_index.resize(num_tris);
+		new_tri_index.resize(num_tris);
 
 		{
 
@@ -205,17 +206,18 @@ void BVH::build()
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
-		/*conPrint("\tAllocing and copying intersect triangles...");
+		/*conPrint("\tAllocating intersect triangles...");
 		this->num_intersect_tris = numTris();
 		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			conPrint("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+			conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
-		::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
+		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 
 		// Copy tri data.
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 		conPrint("\tdone.");*/
+
 
 		SSE::alignedSSEArrayFree(tri_aabbs);
 		tri_aabbs = NULL;
@@ -265,17 +267,12 @@ void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int c
 		assert(nodes[parent_index].getRightNumGeom() == myMax(right - left, 0));
 	}
 
-	// Write num geom
-	//leafgeom.push_back(myMax(right - left, 0));
-	
-	// Write tri indices
-	//for(int i=left; i<right; ++i)
-	//	leafgeom.push_back(tris[i]);
-
 	for(int i=left; i<right; ++i)
 	{
 		const TRI_INDEX source_tri = tris[0][i];
 		assert(intersect_tri_i < num_intersect_tris);
+		original_tri_index[intersect_tri_i] = source_tri;
+		new_tri_index[source_tri] = intersect_tri_i;
 		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
 	}
 
@@ -483,17 +480,16 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 class DoesFiniteRayHitFunctions
 {
 public:
-	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, int hitinfo_dummy, 
+		float& closest_dist, const Ray& ray)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 			float u, v, raydist;
-			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 			{
-				closest_dist = raydist;
-				hitinfo_out.sub_elem_index = leaf_geom_index;
-				hitinfo_out.sub_elem_coords.set(u, v);
-				return true;
+				closest_dist = 1.0; // raydist;
+				return true; // This will result in an early-out return from BVHImpl::traceRay()
 			}
 			++leaf_geom_index;
 		}
@@ -504,51 +500,29 @@ public:
 
 bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
-	HitInfo hitinfo;
-	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo);
+	int hitinfo_dummy;
+	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo_dummy);
 	return t >= 0.0;
-
-
-	//NOTE: can speed this up
-	/*HitInfo hitinfo;
-	const double dist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
-	return dist >= 0.0 && dist < raylength;*/
 }
 
-/*
-static inline void testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, 
-										float& closest_dist, const Ray& ray)
-{
-	for(unsigned int i=0; i<num_leaf_tris; ++i)
-	{
-		float u, v, raydist;
-		if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
-		{
-			closest_dist = raydist;
-			hitinfo_out.sub_elem_index = leaf_geom_index;
-			hitinfo_out.sub_elem_coords.set(u, v);
-		}
-		++leaf_geom_index;
-	}
-}*/
 
 class TraceRayFunctions
 {
 public:
-	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, float& closest_dist, const Ray& ray)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 			float u, v, raydist;
-			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 			{
 				closest_dist = raydist;
-				hitinfo_out.sub_elem_index = leaf_geom_index;
+				hitinfo_out.sub_elem_index = bvh.original_tri_index[leaf_geom_index];
 				hitinfo_out.sub_elem_coords.set(u, v);
 			}
 			++leaf_geom_index;
 		}
-		return false; // don't early out
+		return false; // Don't early out from BVHImpl::traceRay()
 	}
 };
 
@@ -556,212 +530,25 @@ public:
 double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
-
-#if 0
-	assertSSEAligned(&ray);
-	assert(ray.unitDir().isUnitLength());
-	assert(ray_max_t >= 0.0);
-
-	hitinfo_out.sub_elem_index = 0;
-	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
-
-	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
-
-	__m128 near_t, far_t;
-	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
-	near_t = _mm_max_ss(near_t, zeroVec());
-	
-	const float ray_max_t_f = (float)ray_max_t;
-	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f));
-
-	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
-		return -1.0;
-
-	context.nodestack[0].node = 0;
-	_mm_store_ss(&context.nodestack[0].tmin, near_t);
-	_mm_store_ss(&context.nodestack[0].tmax, far_t);
-
-	float closest_dist = std::numeric_limits<float>::infinity();
-
-	int stacktop = 0; // Index of node on top of stack
-	while(stacktop >= 0)
-	{
-		// Pop node off stack
-		unsigned int current = context.nodestack[stacktop].node;
-		__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
-		__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
-
-		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
-
-		stacktop--;
-
-		// While current is indexing a suitable internal node...
-		while(1)
-		{
-			_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
-			_mm_prefetch((const char*)(nodes + nodes[current].getRightChildIndex()), _MM_HINT_T0);
-
-			const __m128 a = _mm_load_ps(nodes[current].box);
-			const __m128 b = _mm_load_ps(nodes[current].box + 4);
-			const __m128 c = _mm_load_ps(nodes[current].box + 8);
-
-			// Test ray against left child
-			__m128 left_near_t, left_far_t;
-			{
-			// a = [rmax.x, rmin.x, lmax.x, lmin.x]
-			// b = [rmax.y, rmin.y, lmax.y, lmin.y]
-			// c = [rmax.z, rmin.z, lmax.z, lmin.z]
-			__m128 
-			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(0, 0, 0, 0)); // box_min = [lmin.y, lmin.y, lmin.x, lmin.x]
-			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(0, 0, 2, 0)); // box_min = [lmin.z, lmin.z, lmin.x, lmin.x]
-			__m128 
-			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(1, 1, 1, 1)); // box_max = [lmax.y, lmax.y, lmax.x, lmax.x]
-			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(1, 1, 2, 0)); // box_max = [lmax.z, lmax.z, lmax.y, lmax.x]
-
-			#ifdef DEBUG
-			SSE_ALIGN float temp[4];
-			_mm_store_ps(temp, box_min);
-			assert(temp[0] == nodes[current].box[0] && temp[1] == nodes[current].box[4] && temp[2] == nodes[current].box[8]);
-			_mm_store_ps(temp, box_max);
-			assert(temp[0] == nodes[current].box[1] && temp[1] == nodes[current].box[5] && temp[2] == nodes[current].box[9]);
-			#endif
-
-			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
-			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
-
-			SSE4Vec lmax = max4Vec(l1, l2);
-			SSE4Vec lmin = min4Vec(l1, l2);
-
-			const SSE4Vec lmax0 = rotatelps(lmax);
-			const SSE4Vec lmin0 = rotatelps(lmin);
-			lmax = minss(lmax, lmax0);
-			lmin = maxss(lmin, lmin0);
-
-			const SSE4Vec lmax1 = muxhps(lmax,lmax);
-			const SSE4Vec lmin1 = muxhps(lmin,lmin);
-			left_far_t = minss(lmax, lmax1);
-			left_near_t = maxss(lmin, lmin1);
-			}
-
-			// Take the intersection of the current ray interval and the ray/BB interval
-			left_near_t = _mm_max_ss(left_near_t, tmin);
-			left_far_t = _mm_min_ss(left_far_t, tmax);
-
-			// Test against right child
-			__m128 right_near_t, right_far_t;
-			{
-			__m128 
-			box_min = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(2, 2, 2, 2)); // box_min = [rmin.y, rmin.y, rmin.x, rmin.x]
-			box_min = _mm_shuffle_ps(box_min, c,	_MM_SHUFFLE(2, 2, 2, 0)); // box_min = [rmin.z, rmin.z, rmin.x, rmin.x]
-			__m128 
-			box_max = _mm_shuffle_ps(a, b,			_MM_SHUFFLE(3, 3, 3, 3)); // box_max = [rmax.y, rmax.y, rmax.x, rmax.x]
-			box_max = _mm_shuffle_ps(box_max, c,	_MM_SHUFFLE(3, 3, 2, 0)); // box_max = [rmax.z, rmax.z, rmax.y, rmax.x]
-
-			#ifdef DEBUG
-			SSE_ALIGN float temp[4];
-			_mm_store_ps(temp, box_min);
-			assert(temp[0] == nodes[current].box[2] && temp[1] == nodes[current].box[6] && temp[2] == nodes[current].box[10]);
-			_mm_store_ps(temp, box_max);
-			assert(temp[0] == nodes[current].box[3] && temp[1] == nodes[current].box[7] && temp[2] == nodes[current].box[11]);
-			#endif
-
-			const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, raystartpos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
-			const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, raystartpos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
-
-			SSE4Vec lmax = max4Vec(l1, l2);
-			SSE4Vec lmin = min4Vec(l1, l2);
-
-			const SSE4Vec lmax0 = rotatelps(lmax);
-			const SSE4Vec lmin0 = rotatelps(lmin);
-			lmax = minss(lmax, lmax0);
-			lmin = maxss(lmin, lmin0);
-
-			const SSE4Vec lmax1 = muxhps(lmax,lmax);
-			const SSE4Vec lmin1 = muxhps(lmin,lmin);
-			right_far_t = minss(lmax, lmax1);
-			right_near_t = maxss(lmin, lmin1);
-			}
-				
-			// Take the intersection of the current ray interval and the ray/BB interval
-			right_near_t = _mm_max_ss(right_near_t, tmin);
-			right_far_t = _mm_min_ss(right_far_t, tmax);
-
-			if(_mm_comile_ss(right_near_t, right_far_t) != 0) { // if(ray hits right AABB)
-				if(_mm_comile_ss(left_near_t, left_far_t) != 0) { // if(ray hits left AABB)
-					if(nodes[current].isRightLeaf() == 0) { // If right child exists
-						if(nodes[current].isLeftLeaf() == 0) { // If left child exists
-							// Push right child onto stack
-							stacktop++;
-							assert(stacktop < context.nodestack_size);
-							context.nodestack[stacktop].node = nodes[current].getRightChildIndex();
-							_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
-							_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
-
-							current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
-						} else {
-							testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-
-							current = nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
-						}
-					} else { // Else if right child doesn't exist
-						if(nodes[current].isLeftLeaf() == 0) { // If left child exists
-							testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-							
-							current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
-						} else {
-							testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-							testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-							break;
-						}
-					}
-				} else { // Else only right AABB is hit
-					if(nodes[current].isRightLeaf() == 0) { // If right child exists
-						current = nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
-					} else {
-						testAgainstTriangles(nodes[current].getRightGeomIndex(), nodes[current].getRightNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-						break;
-					}
-				}
-			} else { // Else ray missed right AABB
-				if(_mm_comile_ss(left_near_t, left_far_t) != 0) { // if(ray hits left AABB)
-					if(nodes[current].isLeftLeaf() == 0) { // If left child exists
-						current = nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
-					} else {
-						testAgainstTriangles(nodes[current].getLeftGeomIndex(), nodes[current].getLeftNumGeom(), hitinfo_out, intersect_tris, closest_dist, ray);
-						break;
-					}
-				} else { // Else ray missed left AABB (and right AABB)
-					break;
-				}
-			}
-		}
-	}
-
-	if(closest_dist < std::numeric_limits<float>::infinity())
-		return closest_dist;
-	else
-		return -1.0f; // Missed all tris
-#endif
 }
 
 
 class GetAllHitsFunctions
 {
 public:
-	inline static bool testAgainstTriangles(unsigned int leaf_geom_index, unsigned int num_leaf_tris,std::vector<DistanceHitInfo>& hitinfos_out, 
-		const js::BadouelTri* intersect_tris, float& closest_dist, const Ray& ray)
+	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, std::vector<DistanceHitInfo>& hitinfos_out, 
+		float& closest_dist, const Ray& ray)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 			float u, v, raydist;
-			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
+			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 			{
 				// Check to see if we have already recorded the hit against this triangle (while traversing another leaf volume)
 				// NOTE that this is a slow linear time check, but N should be small, hopefully :)
 				bool already_got_hit = false;
 				for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-					if(hitinfos_out[z].sub_elem_index == leaf_geom_index)//if tri index is the same
+					if(hitinfos_out[z].sub_elem_index == bvh.original_tri_index[leaf_geom_index])//if tri index is the same
 						already_got_hit = true;
 
 				if(!already_got_hit)
@@ -769,18 +556,16 @@ public:
 					//if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
 					//{
 						hitinfos_out.push_back(DistanceHitInfo(
-							leaf_geom_index,
+							bvh.original_tri_index[leaf_geom_index],
 							Vec2d(u, v),
 							raydist
 							));
-						//hitinfos_out.back().hitpos = ray.startPos();
-						//hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
 					//}
 				}
 			}
 			++leaf_geom_index;
 		}
-		return false; // don't early out
+		return false; // Don't early out from BVHImpl::traceRay()
 	}
 };
 
@@ -801,7 +586,7 @@ const js::AABBox& BVH::getAABBoxWS() const
 
 const Vec3f& BVH::triGeometricNormal(unsigned int tri_index) const //slow
 {
-	return intersect_tris[tri_index].getNormal();
+	return intersect_tris[new_tri_index[tri_index]].getNormal();
 }
 
 

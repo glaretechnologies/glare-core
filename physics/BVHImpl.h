@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "BVH.h"
 
+
 class ThreadContext;
 
 
@@ -32,9 +33,6 @@ public:
 		assert(ray.unitDir().isUnitLength());
 		assert(ray_max_t >= 0.0);
 
-		//hitinfo_out.sub_elem_index = 0;
-		//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
-
 		const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
 		const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
 
@@ -52,7 +50,7 @@ public:
 		_mm_store_ss(&context.nodestack[0].tmin, near_t);
 		_mm_store_ss(&context.nodestack[0].tmax, far_t);
 
-		float closest_dist = std::numeric_limits<float>::infinity();
+		float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::infinity();
 
 		int stacktop = 0; // Index of node on top of stack
 		while(stacktop >= 0)
@@ -170,20 +168,20 @@ public:
 
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, closest_dist, ray))
 									return 1.0f;
 
 								current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 							}
 						} else { // Else if right child doesn't exist
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
-								if(T::testAgainstTriangles(bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, closest_dist, ray))
 									return 1.0f;
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, closest_dist, ray))
 									return 1.0f;
-								if(T::testAgainstTriangles(bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, closest_dist, ray))
 									return 1.0f;
 								break;
 							}
@@ -192,7 +190,7 @@ public:
 						if(bvh.nodes[current].isRightLeaf() == 0) { // If right child exists
 							current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 						} else {
-							if(T::testAgainstTriangles(bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), hitinfo_out, closest_dist, ray))
 								return 1.0f;
 							break;
 						}
@@ -202,7 +200,7 @@ public:
 						if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
 							current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 						} else {
-							if(T::testAgainstTriangles(bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, bvh.intersect_tris, closest_dist, ray))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), hitinfo_out, closest_dist, ray))
 								return 1.0f;
 							break;
 						}
@@ -213,7 +211,7 @@ public:
 			}
 		}
 
-		if(closest_dist < std::numeric_limits<float>::infinity())
+		if(closest_dist < (float)ray_max_t) // std::numeric_limits<float>::infinity())
 			return closest_dist;
 		else
 			return -1.0f; // Missed all tris

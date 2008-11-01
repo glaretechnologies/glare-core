@@ -7,34 +7,8 @@ Code By Nicholas Chapman.
 #include "BVHImpl.h"
 
 
-
-
 namespace js
 {
 
 
-
-/*
-BVHImpl::BVHImpl()
-{
-	
-}
-
-
-BVHImpl::~BVHImpl()
-{
-	
-}*/
-
-
-
-
-
-
 } //end namespace js
-
-
-
-
-
-

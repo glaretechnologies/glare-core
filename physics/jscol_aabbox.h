@@ -296,35 +296,14 @@ void AABBox::rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_
 	assertSSEAligned(&min_);
 	assertSSEAligned(&max_);
 
-	// you may already have those values hanging around somewhere
-	//const SSE4Vec
-	//	plus_inf	= load4Vec(ps_cst_plus_inf),
-	//	minus_inf	= load4Vec(ps_cst_minus_inf);
-
 	// use whatever's apropriate to load.
 	const SSE4Vec
 		box_min	= load4Vec(&min_.x),
 		box_max	= load4Vec(&max_.x);
-		//pos	= load4Vec(&raystartpos.x),
-		//inv_dir	= load4Vec(&recip_unitraydir.x);
 
 	// use a div if inverted directions aren't available
 	const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, pos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
 	const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, pos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
-
-	// the order we use for those min/max is vital to filter out
-	// NaNs that happens when an inv_dir is +/- inf and
-	// (box_min - pos) is 0. inf * 0 = NaN
-
-	// Nick's notes:
-	// "Note that if only one value is a NaN for this instruction, the source operand (second operand) value 
-	// (either NaN or valid floating-point value) is written to the result."
-	// So if l1 is a NaN, then filtered_l1a := +Inf
-	//const SSE4Vec filtered_l1a = min4Vec(l1, plus_inf);
-	//const SSE4Vec filtered_l2a = min4Vec(l2, plus_inf);
-
-	//const SSE4Vec filtered_l1b = max4Vec(l1, minus_inf);
-	//const SSE4Vec filtered_l2b = max4Vec(l2, minus_inf);
 
 	// now that we're back on our feet, test those slabs.
 	SSE4Vec lmax = max4Vec(l1, l2); //max4Vec(filtered_l1a, filtered_l2a);
@@ -344,9 +323,6 @@ void AABBox::rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_
 	near_t_out = lmin;
 	far_t_out = lmax;
 }
-
-
-//SSE_ALIGN const float zero_4vec_f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 
 unsigned int AABBox::longestAxis() const

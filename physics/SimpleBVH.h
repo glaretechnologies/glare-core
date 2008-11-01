@@ -84,6 +84,8 @@ private:
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
 	unsigned int intersect_tri_i;
+	std::vector<TRI_INDEX> original_tri_index;
+	std::vector<TRI_INDEX> new_tri_index;
 
 	/// build stats ///
 	int num_maxdepth_leaves;

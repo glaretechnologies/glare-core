@@ -55,7 +55,11 @@ public:
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
 
-	friend class BVHImpl; 
+	friend class BVHImpl;
+	friend class DoesFiniteRayHitFunctions;
+	friend class TraceRayFunctions;
+	friend class GetAllHitsFunctions;
+
 private:
 	typedef uint32 TRI_INDEX;
 	
@@ -85,6 +89,8 @@ private:
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
 	unsigned int intersect_tri_i;
+	std::vector<TRI_INDEX> original_tri_index;
+	std::vector<TRI_INDEX> new_tri_index;
 
 	//std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
 

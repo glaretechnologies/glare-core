@@ -109,6 +109,8 @@ void SimpleBVH::build()
 	if(intersect_tris == NULL)
 		throw TreeExcep("Memory allocation failure.");
 	intersect_tri_i = 0;
+	original_tri_index.resize(num_tris);
+	new_tri_index.resize(num_tris);
 
 	{
 	// Build tri AABBs
@@ -210,6 +212,8 @@ void SimpleBVH::markLeafNode(const std::vector<std::vector<TRI_INDEX> >& tris, u
 	{
 		const TRI_INDEX source_tri = tris[0][i];
 		assert(intersect_tri_i < num_intersect_tris);
+		original_tri_index[intersect_tri_i] = source_tri;
+		new_tri_index[source_tri] = intersect_tri_i;
 		intersect_tris[intersect_tri_i++].set(triVertPos(source_tri, 0), triVertPos(source_tri, 1), triVertPos(source_tri, 2));
 	}
 
@@ -517,7 +521,7 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 	_mm_store_ss(&context.nodestack[0].tmin, near_t);
 	_mm_store_ss(&context.nodestack[0].tmax, far_t);
 
-	float closest_dist = std::numeric_limits<float>::infinity();
+	float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::infinity();
 
 	int stacktop = 0; // Index of node on top of stack
 	while(stacktop >= 0)
@@ -670,7 +674,8 @@ double SimpleBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thre
 			if(intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
 			{
 				closest_dist = raydist;
-				hitinfo_out.sub_elem_index = leaf_geom_index;
+				assert(original_tri_index[leaf_geom_index] < num_intersect_tris);
+				hitinfo_out.sub_elem_index = original_tri_index[leaf_geom_index];
 				hitinfo_out.sub_elem_coords.set(u, v);
 			}
 			++leaf_geom_index;
@@ -679,7 +684,7 @@ after_tri_test:
 		int dummy = 7; // dummy statement
 	}
 
-	if(closest_dist < std::numeric_limits<float>::infinity())
+	if(closest_dist < ray_max_t) // std::numeric_limits<float>::infinity())
 		return closest_dist;
 	else
 		return -1.0f; // Missed all tris
@@ -700,7 +705,8 @@ const js::AABBox& SimpleBVH::getAABBoxWS() const
 
 const Vec3f& SimpleBVH::triGeometricNormal(unsigned int tri_index) const //slow
 {
-	return intersect_tris[tri_index].getNormal();
+	//return intersect_tris[tri_index].getNormal();
+	return intersect_tris[new_tri_index[tri_index]].getNormal();
 }
 
 

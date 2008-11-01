@@ -54,7 +54,7 @@ public:
 	virtual void printStats() const {};
 	virtual void printTraceStats() const {};
 
-	double traceRayAgainstAllTris(const Ray& ray, double tmax, HitInfo& hitinfo_out) const;
+	virtual double traceRayAgainstAllTris(const Ray& ray, double tmax, HitInfo& hitinfo_out) const;
 
 	typedef float REAL;
 
