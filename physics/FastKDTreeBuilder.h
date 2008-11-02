@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __FASTKDTREEBUILDER_H_666_
 
 
-#include "jscol_tritree.h"
+#include "KDTree.h"
 #include <vector>
 
 namespace js
@@ -17,7 +17,7 @@ namespace js
 class Boundary 
 {
 public:
-	TriTree::TRI_INDEX tri_index;
+	KDTree::TRI_INDEX tri_index;
 	float lower, upper;
 };
 
@@ -39,21 +39,21 @@ public:
 	~FastKDTreeBuilder();
 
 
-	void build(TriTree& tree, const AABBox& cur_aabb, TriTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out);
+	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out);
 
 
 private:
 	
 
 	void buildSubTree(
-		TriTree& tree, 
+		KDTree& tree, 
 		const AABBox& cur_aabb,
 		const std::vector<std::vector<Boundary> >& min_bounds, 
 		const std::vector<std::vector<Boundary> >& max_bounds, 
 		unsigned int depth,
 		unsigned int maxdepth,
-		TriTree::NODE_VECTOR_TYPE& nodes_out, 
-		js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out);
+		KDTree::NODE_VECTOR_TYPE& nodes_out, 
+		js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out);
 
 };
 

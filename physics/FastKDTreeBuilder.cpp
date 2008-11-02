@@ -6,14 +6,15 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "FastKDTreeBuilder.h"
 
-#include "jscol_tritree.h"
+#if 0
+#include "KDTree.h"
 #include <vector>
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
 
+
 namespace js
 {
-
 
 class Node 
 {
@@ -385,3 +386,4 @@ void FastKDTreeBuilder::buildSubTree(
 } // End namespace js
 
 
+#endif

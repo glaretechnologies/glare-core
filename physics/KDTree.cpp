@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "KDTree.h"
 
+
 #include "KDTreeNode.h"
 #include "jscol_TriHash.h"
 #include "jscol_TriTreePerThreadData.h"
@@ -37,17 +38,19 @@ Code By Nicholas Chapman.
 const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
 const uint32 TREE_CACHE_VERSION = 1;
 
+
 namespace js
 {
+
 
 static void triTreeDebugPrint(const std::string& s)
 {
 	conPrint("\t" + s);
 }
 
+
 //#define RECORD_TRACE_STATS 1
 //#define USE_LETTERBOX 1
-
 
 
 KDTree::KDTree(RayMesh* raymesh_)
@@ -554,11 +557,6 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 }
 
 
-
-
-
-
-
 bool KDTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	assertSSEAligned(&ray);
@@ -686,10 +684,12 @@ const Vec3f& KDTree::triVertPos(unsigned int tri_index, unsigned int vert_index_
 	return raymesh->triVertPos(tri_index, vert_index_in_tri);
 }
 
+
 unsigned int KDTree::numTris() const
 {
 	return raymesh->getNumTris();
 }
+
 
 /*
 void KDTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
@@ -707,16 +707,19 @@ bool KDTree::diskCachable()
 	return true;
 }
 
+
 const js::AABBox& KDTree::getAABBoxWS() const
 {
 	assert(this->root_aabb);
 	return *root_aabb;
 }
 
+
 unsigned int KDTree::calcMaxDepth() const
 {
 	return MAX_KDTREE_DEPTH - 1;
 }
+
 
 void KDTree::build()
 {
@@ -811,7 +814,6 @@ void KDTree::build()
 	//TEMP:
 //	printTree(ROOT_NODE_INDEX, 0, std::cout);
 }
-
 
 
 void KDTree::buildFromStream(std::istream& stream)
@@ -921,8 +923,8 @@ void KDTree::buildFromStream(std::istream& stream)
 	{
 		throw TreeExcep("Memory allocation failed while loading kd-tree from disk");
 	}
-
 }
+
 
 void KDTree::postBuild() const
 {
@@ -943,20 +945,6 @@ void KDTree::postBuild() const
 	printVar((uint64)&root_aabb[0]);
 	printVar((uint64)&root_aabb[0] % 32);*/
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void KDTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
@@ -984,6 +972,7 @@ void KDTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
 	}
 }
 
+
 void KDTree::debugPrintTree(unsigned int cur, unsigned int depth)
 {
 	if(nodes[cur].getNodeType() == KDTreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
@@ -1010,7 +999,6 @@ void KDTree::debugPrintTree(unsigned int cur, unsigned int depth)
 		this->debugPrintTree(nodes[cur].getPosChildIndex(), depth + 1);
 	}
 }
-
 
 
 void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int depth) const
@@ -1068,7 +1056,6 @@ void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int d
 }
 
 
-
 	//returns dist till hit tri, neg number if missed.
 double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
 {
@@ -1098,6 +1085,7 @@ double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& h
 	return closest_dist;
 }
 
+
 void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
@@ -1121,6 +1109,7 @@ js::TriTreePerThreadData* allocPerThreadData()
 {
 	return new js::TriTreePerThreadData();
 }
+
 
 void KDTree::saveTree(std::ostream& stream)
 {
@@ -1175,14 +1164,13 @@ unsigned int KDTree::checksum()
 }
 
 
-
-
 void KDTree::printStats() const
 {
 	TreeStats stats;
 	getTreeStats(stats);
 	stats.print();
 }
+
 
 void KDTree::test()
 {
@@ -1211,19 +1199,7 @@ void KDTree::test()
 	testAssert(n.getLeafGeomIndex() == 67);
 	testAssert(n.getNumLeafGeom() == 777);
 	}
-
-
 }
-
-
-
-
-
-
-
-
-
-
 
 
 TreeStats::TreeStats()
@@ -1241,6 +1217,7 @@ TreeStats::TreeStats()
 	leafgeom_indices_mem = 0;
 	tri_mem = 0;
 }
+
 
 TreeStats::~TreeStats()
 {
@@ -1287,25 +1264,7 @@ void TreeStats::print()
 	{
 		conPrint("\tN=" + toString((*i).first) + ": " + toString((*i).second));
 	}
-
 }
 
 
-
-
 } //end namespace jscol
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

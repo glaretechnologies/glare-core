@@ -24,6 +24,8 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/platformutils.h"
 #include "../indigo/ThreadContext.h"
+#include "../maths/SSE.h"
+
 
 namespace js
 {
@@ -41,6 +43,177 @@ TreeTest::~TreeTest()
 {
 	
 }
+
+
+// returns mask == 0xFFFFFF ? b : a
+static inline __m128 condMov(__m128 a, __m128 b, __m128 mask)
+{
+	b = _mm_and_ps(b, mask);
+	a = _mm_andnot_ps(mask, a);
+	return _mm_or_ps(a, b);
+}
+
+
+template <int i>
+static inline __m128 copyToAll(__m128 a)
+{
+	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(i, i, i, i));
+}
+
+
+/*typedef union {
+	__m128 v;
+	float f[4];
+} vec4;*/
+
+
+void intersectTris(
+	const float* orig_x_,
+	const float* orig_y_,
+	const float* orig_z_,
+	const float* dir_x_,
+	const float* dir_y_,
+	const float* dir_z_,
+	const float* v0x_, // [t3_v0x, t2_v0x, t1_v0x, t0_v0x]
+	const float* v0y_, // [t3_v0y, t2_v0y, t1_v0y, t0_v0y]
+	const float* v0z_,
+	const float* edge1_x_,
+	const float* edge1_y_,
+	const float* edge1_z_,
+	const float* edge2_x_,
+	const float* edge2_y_,
+	const float* edge2_z_,
+	float* best_t_, // [t, t, t, t]
+	unsigned int* best_tri_index_, // [t3_index, t2_index, t1_index, t0_index]
+	float* best_u_,
+	float* best_v_
+	)
+{
+	const __m128 orig_x = _mm_load_ps(orig_x_);
+	const __m128 orig_y = _mm_load_ps(orig_y_);
+	const __m128 orig_z = _mm_load_ps(orig_z_);
+
+	const __m128 dir_x = _mm_load_ps(dir_x_);
+	const __m128 dir_y = _mm_load_ps(dir_y_);
+	const __m128 dir_z = _mm_load_ps(dir_z_);
+
+	const __m128 v0x = _mm_load_ps(v0x_);
+	const __m128 v0y = _mm_load_ps(v0y_);
+	const __m128 v0z = _mm_load_ps(v0z_);
+
+	const __m128 edge1_x = _mm_load_ps(edge1_x_);
+	const __m128 edge1_y = _mm_load_ps(edge1_y_);
+	const __m128 edge1_z = _mm_load_ps(edge1_z_);
+
+	const __m128 edge2_x = _mm_load_ps(edge2_x_);
+	const __m128 edge2_y = _mm_load_ps(edge2_y_);
+	const __m128 edge2_z = _mm_load_ps(edge2_z_);
+
+	// edge1 = vert1 - vert0
+	/*const __m128 edge1_x = _mm_sub_ps(v1x, v0x);
+	const __m128 edge1_y = _mm_sub_ps(v1y, v0y);
+	const __m128 edge1_z = _mm_sub_ps(v1z, v0z);
+
+	// edge2 = vert2 - vert0
+	const __m128 edge2_x = _mm_sub_ps(v2x, v0x);
+	const __m128 edge2_y = _mm_sub_ps(v2y, v0y);
+	const __m128 edge2_z = _mm_sub_ps(v2z, v0z);*/
+
+	/* v1 x v2:
+	(v1.y * v2.z) - (v1.z * v2.y),
+	(v1.z * v2.x) - (v1.x * v2.z),
+	(v1.x * v2.y) - (v1.y * v2.x)
+	*/
+
+	// pvec = cross(dir, edge2)
+	const __m128 pvec_x = _mm_sub_ps(_mm_mul_ps(dir_y, edge2_z), _mm_mul_ps(dir_z, edge2_y));
+	const __m128 pvec_y = _mm_sub_ps(_mm_mul_ps(dir_z, edge2_x), _mm_mul_ps(dir_x, edge2_z));
+	const __m128 pvec_z = _mm_sub_ps(_mm_mul_ps(dir_x, edge2_y), _mm_mul_ps(dir_y, edge2_x));
+
+
+	// det = dot(edge1, pvec)
+	
+	const __m128 det = _mm_add_ps(_mm_mul_ps(edge1_x, pvec_x), _mm_add_ps(_mm_mul_ps(edge1_y, pvec_y), _mm_mul_ps(edge1_z, pvec_z)));
+
+	// TODO: det ~= 0 test
+
+	const __m128 one = _mm_load_ps(one_4vec);
+
+	const __m128 inv_det = _mm_div_ps(one, det);
+
+	// tvec = orig - vert0
+	const __m128 tvec_x = _mm_sub_ps(orig_x, v0x);
+	const __m128 tvec_y = _mm_sub_ps(orig_y, v0y);
+	const __m128 tvec_z = _mm_sub_ps(orig_z, v0z);
+
+	// u = dot(tvec, pvec) * inv_det
+	const __m128 u = _mm_mul_ps(
+		_mm_add_ps(_mm_mul_ps(tvec_x, pvec_x), _mm_add_ps(_mm_mul_ps(tvec_y, pvec_y), _mm_mul_ps(tvec_z, pvec_z))),
+		inv_det
+		);
+
+	// qvec = cross(tvec, edge1)
+	const __m128 qvec_x = _mm_sub_ps(_mm_mul_ps(tvec_y, edge1_z), _mm_mul_ps(tvec_z, edge1_y));
+	const __m128 qvec_y = _mm_sub_ps(_mm_mul_ps(tvec_z, edge1_x), _mm_mul_ps(tvec_x, edge1_z));
+	const __m128 qvec_z = _mm_sub_ps(_mm_mul_ps(tvec_x, edge1_y), _mm_mul_ps(tvec_y, edge1_x));
+
+	// v = dot(dir, qvec) * inv_det
+	const __m128 v = _mm_mul_ps(
+		_mm_add_ps(_mm_mul_ps(dir_x, qvec_x), _mm_add_ps(_mm_mul_ps(dir_y, qvec_y), _mm_mul_ps(dir_z, qvec_z))),
+		inv_det
+		);
+
+	// t = dot(edge2, qvec) * inv_det
+	const __m128 t = _mm_mul_ps(
+		_mm_add_ps(_mm_mul_ps(edge2_x, qvec_x), _mm_add_ps(_mm_mul_ps(edge2_y, qvec_y), _mm_mul_ps(edge2_z, qvec_z))),
+		inv_det
+		);
+
+	// if(u < 0.0 || u > 1.0) return 0
+	// hit = (u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
+	const __m128 hit = _mm_and_ps(
+		_mm_and_ps(_mm_cmpge_ps(u, zeroVec()), _mm_cmple_ps(u, one)),
+		_mm_and_ps(_mm_cmpge_ps(v, zeroVec()), _mm_cmple_ps(_mm_add_ps(u, v), one))
+		);
+
+	__m128 best_t = _mm_load_ps(best_t_);
+	const __m128 hit_and_closer = _mm_and_ps(hit, _mm_cmplt_ps(t, best_t));
+
+	// [best_u, best_v, best_triindex, dummy]
+
+	//__m128 best_t = _mm_load_ps(&best_t_);
+	__m128 best_u = _mm_load_ps(best_u_);
+	__m128 best_v = _mm_load_ps(best_v_);
+	__m128 best_tri_index = _mm_load_ps((const float*)best_tri_index_);
+
+	__m128 closer;
+	closer = copyToAll<0>(hit_and_closer);
+	best_t = condMov(best_t, copyToAll<0>(t), closer);
+	best_u = condMov(best_u, copyToAll<0>(u), closer);
+	best_v = condMov(best_v, copyToAll<0>(v), closer);
+	best_tri_index = condMov(best_tri_index, copyToAll<0>(best_tri_index), closer);
+
+	// Store back
+	_mm_store_ps(best_t_, best_t);
+	_mm_store_ps(best_u_, best_u);
+	_mm_store_ps(best_v_, best_v);
+	_mm_store_ps((float*)best_tri_index_, best_tri_index);
+}	
+
+
+static void testTriangleIntersection()
+{
+
+
+
+}
+
+
+
+
+
+
+
 
 void TreeTest::testBuildCorrect()
 {
