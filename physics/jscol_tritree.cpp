@@ -26,6 +26,8 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h" // TEMP
 #include <iostream> // TEMP
+#include "KDTreeImpl.h"
+
 
 #ifdef USE_SSE
 #define DO_PREFETCHING 1
@@ -113,9 +115,72 @@ void TriTree::printTraceStats() const
 }
 
 
+class TraceRayFunctions
+{
+public:
+	inline static bool testAgainstTriangles(__m128 tmax, const TriTree& kd, unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, float& closest_dist, const Ray& ray, 
+		const Object* object, ThreadContext& thread_context)
+	{
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			#ifdef RECORD_TRACE_STATS
+			total_num_tris_considered++;
+			#endif
+			assert(leaf_geom_index < kd.leafgeom.size());
+			const unsigned int triangle_index = kd.leafgeom[leaf_geom_index];
+
+			#ifdef USE_LETTERBOX
+			if(!context.tri_hash->containsTriIndex(triangle_index)) //If this tri has not already been intersected against
+			{
+			#endif
+				#ifdef RECORD_TRACE_STATS
+				total_num_tris_intersected++;
+				#endif
+				// Try prefetching next tri.
+				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);		
+
+				float u, v, raydist;
+				if(kd.intersect_tris[triangle_index].rayIntersect(
+					ray, 
+					closest_dist, //max t NOTE: because we're using the tri hash, this can't just be the current leaf volume interval.
+					raydist, //distance out
+					u, v)) //hit uvs out
+				{
+					assert(raydist < closest_dist);
+
+					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
+					{
+						closest_dist = raydist;
+						hitinfo_out.sub_elem_index = triangle_index;
+						hitinfo_out.sub_elem_coords.set(u, v);
+					}
+				}
+
+			#ifdef USE_LETTERBOX
+				// Add tri index to hash of tris already intersected against
+				context.tri_hash->addTriIndex(triangle_index);
+			}
+			#endif
+			leaf_geom_index++;
+		}
+
+		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) //closest_dist <= tmax)
+		{
+			// If intersection point lies before ray exit from this leaf volume, then finished.
+			//return closest_dist;
+			return true; // Rarly out from KDTreeImpl::traceRay()
+		}
+
+		return false; // Don't early out from KDTreeImpl::traceRay()
+	}
+};
+
+
 // Returns dist till hit triangle, neg number if missed.
 double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
+	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
+#if 1
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
@@ -163,9 +228,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
-	REAL closest_dist = std::numeric_limits<float>::max();
-
-	//context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
+	REAL closest_dist = (float)ray_max_t; // std::numeric_limits<float>::max();
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -215,31 +278,26 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 			{
 				current = child_nodes[ray_child_indices[splitting_axis]];
 			}
-			else 
+			else
 			{
 				if(_mm_comigt_ss(tmin, t_split) != 0) // tmin > t_split) // whole interval is on far cell.
 					current = child_nodes[ray_child_indices[splitting_axis + 4]]; // farnode;
 				else 
 				{
 					// Ray hits plane - double recursion, into both near and far cells.
-					const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-					const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
-
-					// Push far node onto stack to process later
+					// Push far node onto stack to process later.
 					stacktop++;
 					assert(stacktop < context.nodestack_size);
-					//context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
-					context.nodestack[stacktop].node = farnode;
+					context.nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
 					_mm_store_ss(&context.nodestack[stacktop].tmin, t_split);
 					_mm_store_ss(&context.nodestack[stacktop].tmax, tmax);
 
 					#ifdef DO_PREFETCHING
-					// Prefetch pushed child
-					_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
+					_mm_prefetch((const char *)(&nodes[child_nodes[ray_child_indices[splitting_axis + 4]]]), _MM_HINT_T0);	// Prefetch pushed child
 					#endif	
 
 					// Process near child next
-					current = nearnode;
+					current = child_nodes[ray_child_indices[splitting_axis]]; // near node
 					tmax = t_split;
 				}
 			}
@@ -301,17 +359,11 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 		}
 
 		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) //closest_dist <= tmax)
-		{
-			// If intersection point lies before ray exit from this leaf volume, then finished.
-			return closest_dist;
-		}
-
+			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
 	} // End while stacktop >= 0
 
-	//assert(closest_dist == std::numeric_limits<float>::max());
-	//return -1.0; // Missed all tris
-	//assert(closest_dist == std::numeric_limits<float>::max() || Maths::inRange(closest_dist, aabb_exitdist, aabb_exitdist + (float)NICKMATHS_EPSILON));
-	return closest_dist < std::numeric_limits<float>::max() ? closest_dist : -1.0;
+	return closest_dist < (float)ray_max_t/*std::numeric_limits<float>::max()*/ ? closest_dist : -1.0;
+#endif
 }
 
 

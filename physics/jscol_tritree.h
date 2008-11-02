@@ -147,6 +147,11 @@ public:
 	};
 	unsigned int calcMaxDepth() const;
 
+	friend class KDTreeImpl;
+	friend class DoesFiniteRayHitFunctions;
+	friend class TraceRayFunctions;
+	friend class GetAllHitsFunctions;
+
 private:
 	//-----------------typedefs------------------------
 	//typedef uint32 TRI_INDEX;

@@ -596,7 +596,7 @@ void TreeTest::doSpeedTest()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
-	settings.bih_tri_threshold = 0;//1e8;
+	settings.bih_tri_threshold = 1e8;
 	raymesh.build(
 		".", // base indigo dir path
 		settings
