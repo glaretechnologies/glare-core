@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __OBJECTTREEPERTHREADDATA_H_666_
 #define __OBJECTTREEPERTHREADDATA_H_666_
 
-#include "jscol_tritree.h"
+#include "KDTree.h"
 #include <vector>
 #include <map>
 #include "../indigo/DistanceHitInfo.h"

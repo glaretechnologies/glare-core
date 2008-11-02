@@ -4,9 +4,9 @@ tritree.cpp
 File created by ClassTemplate on Fri Nov 05 01:09:27 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "jscol_tritree.h"
+#include "KDTree.h"
 
-#include "jscol_treenode.h"
+#include "KDTreeNode.h"
 #include "jscol_TriHash.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "../utils/stringutils.h"
@@ -50,7 +50,7 @@ static void triTreeDebugPrint(const std::string& s)
 
 
 
-TriTree::TriTree(RayMesh* raymesh_)
+KDTree::KDTree(RayMesh* raymesh_)
 :	root_aabb(NULL)
 {
 //	nodes.setAlignment(8);
@@ -74,13 +74,13 @@ TriTree::TriTree(RayMesh* raymesh_)
 	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	// Insert DEFAULT_EMPTY_LEAF_NODE_INDEX node
-	nodes.push_back(TreeNode(
+	nodes.push_back(KDTreeNode(
 		0, // leaf tri index
 		0 // num leaf tris
 		));
 
 	// Insert root node
-	nodes.push_back(TreeNode());
+	nodes.push_back(KDTreeNode());
 
 	assert((uint64)&nodes[0] % 8 == 0);//assert aligned
 
@@ -96,7 +96,7 @@ TriTree::TriTree(RayMesh* raymesh_)
 }
 
 
-TriTree::~TriTree()
+KDTree::~KDTree()
 {
 	SSE::alignedSSEFree(root_aabb);
 	SSE::alignedSSEFree(intersect_tris);
@@ -104,7 +104,7 @@ TriTree::~TriTree()
 }
 
 
-void TriTree::printTraceStats() const
+void KDTree::printTraceStats() const
 {
 	printVar(num_traces);
 	conPrint("AABB hit fraction: " + toString((double)num_root_aabb_hits / (double)num_traces));
@@ -118,7 +118,7 @@ void TriTree::printTraceStats() const
 class TraceRayFunctions
 {
 public:
-	inline static bool testAgainstTriangles(__m128 tmax, const TriTree& kd, unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, float& closest_dist, const Ray& ray, 
+	inline static bool testAgainstTriangles(__m128 tmax, const KDTree& kd, unsigned int leaf_geom_index, unsigned int num_leaf_tris, HitInfo& hitinfo_out, float& closest_dist, const Ray& ray, 
 		const Object* object, ThreadContext& thread_context)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -177,7 +177,7 @@ public:
 
 
 // Returns dist till hit triangle, neg number if missed.
-double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 #if 1
@@ -246,7 +246,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 		
-		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
+		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 		{
 			//_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
@@ -367,7 +367,7 @@ double TriTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread
 }
 
 
-void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 
@@ -418,7 +418,7 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 
 		stacktop--;
 
-		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
+		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 		{
 			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
@@ -559,7 +559,7 @@ void TriTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 
 
 
-bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+bool KDTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -594,7 +594,7 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 
 		stacktop--; //pop current node off stack
 
-		while(nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF) //while current node is not a leaf..
+		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF) //while current node is not a leaf..
 		{
 			#ifdef DO_PREFETCHING
 			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
@@ -681,18 +681,18 @@ bool TriTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext
 }
 
 
-const Vec3f& TriTree::triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const
+const Vec3f& KDTree::triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const
 {
 	return raymesh->triVertPos(tri_index, vert_index_in_tri);
 }
 
-unsigned int TriTree::numTris() const
+unsigned int KDTree::numTris() const
 {
 	return raymesh->getNumTris();
 }
 
 /*
-void TriTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
+void KDTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
 {
 	aabbox_out.min_ = aabbox_out.max_ = triVertPos(tri_index, 0);//(*tris)[i].v0();
 	aabbox_out.enlargeToHoldPoint(triVertPos(tri_index, 1));//(*tris)[i].v1());
@@ -702,23 +702,23 @@ void TriTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
 }*/
 
 
-bool TriTree::diskCachable()
+bool KDTree::diskCachable()
 {
 	return true;
 }
 
-const js::AABBox& TriTree::getAABBoxWS() const
+const js::AABBox& KDTree::getAABBoxWS() const
 {
 	assert(this->root_aabb);
 	return *root_aabb;
 }
 
-unsigned int TriTree::calcMaxDepth() const
+unsigned int KDTree::calcMaxDepth() const
 {
 	return MAX_KDTREE_DEPTH - 1;
 }
 
-void TriTree::build()
+void KDTree::build()
 {
 	triTreeDebugPrint("Building kd-tree...");
 
@@ -749,7 +749,7 @@ void TriTree::build()
 		triTreeDebugPrint("max tree depth: " + ::toString(max_depth));
 
 		const int expected_numnodes = (int)((float)numTris() * 1.0f);
-		const int nodemem = expected_numnodes * sizeof(js::TreeNode);
+		const int nodemem = expected_numnodes * sizeof(js::KDTreeNode);
 
 		//triTreeDebugPrint("reserving N nodes: " + ::toString(expected_numnodes) + "(" 
 		//	+ ::getNiceByteSize(nodemem) + ")");
@@ -771,14 +771,14 @@ void TriTree::build()
 
 		if(!nodes.empty())
 		{
-			assert(SSE::isAlignedTo(&nodes[0], sizeof(js::TreeNode)));
+			assert(SSE::isAlignedTo(&nodes[0], sizeof(js::KDTreeNode)));
 		}
 
 		const unsigned int numnodes = (unsigned int)nodes.size();
 		const unsigned int leafgeomsize = (unsigned int)leafgeom.size();
 
 		triTreeDebugPrint("total nodes used: " + ::toString(numnodes) + " (" + 
-			::getNiceByteSize(numnodes * sizeof(js::TreeNode)) + ")");
+			::getNiceByteSize(numnodes * sizeof(js::KDTreeNode)) + ")");
 
 		triTreeDebugPrint("total leafgeom size: " + ::toString(leafgeomsize) + " (" + 
 			::getNiceByteSize(leafgeomsize * sizeof(TRI_INDEX)) + ")");
@@ -798,7 +798,7 @@ void TriTree::build()
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
-		const unsigned int total_tree_mem_usage = numnodes * sizeof(js::TreeNode) + leafgeomsize * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
+		const unsigned int total_tree_mem_usage = numnodes * sizeof(js::KDTreeNode) + leafgeomsize * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
 		triTreeDebugPrint("Total tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
 
 		postBuild();
@@ -814,7 +814,7 @@ void TriTree::build()
 
 
 
-void TriTree::buildFromStream(std::istream& stream)
+void KDTree::buildFromStream(std::istream& stream)
 {
 	if(numTris() == 0)
 		throw TreeExcep("Error, tried to build tree with zero triangles.");
@@ -892,7 +892,7 @@ void TriTree::buildFromStream(std::istream& stream)
 
 		// Read actual node data
 		nodes.resize(num_nodes);
-		stream.read((char*)&nodes[0], sizeof(js::TreeNode) * num_nodes);
+		stream.read((char*)&nodes[0], sizeof(js::KDTreeNode) * num_nodes);
 
 		//------------------------------------------------------------------------
 		// Read leafgeom
@@ -907,12 +907,12 @@ void TriTree::buildFromStream(std::istream& stream)
 
 
 		triTreeDebugPrint("total nodes used: " + ::toString(num_nodes) + " (" + 
-			::getNiceByteSize(num_nodes * sizeof(js::TreeNode)) + ")");
+			::getNiceByteSize(num_nodes * sizeof(js::KDTreeNode)) + ")");
 
 		triTreeDebugPrint("total leafgeom size: " + ::toString(leaf_geom_count) + " (" + 
 			::getNiceByteSize(leaf_geom_count * sizeof(TRI_INDEX)) + ")");
 
-		const unsigned int total_tree_mem_usage = num_nodes * sizeof(js::TreeNode) + leaf_geom_count * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
+		const unsigned int total_tree_mem_usage = num_nodes * sizeof(js::KDTreeNode) + leaf_geom_count * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
 		triTreeDebugPrint("Total tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
 
 		postBuild();
@@ -924,9 +924,9 @@ void TriTree::buildFromStream(std::istream& stream)
 
 }
 
-void TriTree::postBuild() const
+void KDTree::postBuild() const
 {
-	//triTreeDebugPrint("finished building tree.");
+	//KDTreeDebugPrint("finished building tree.");
 
 	//------------------------------------------------------------------------
 	//TEMP: check things are aligned
@@ -959,9 +959,9 @@ void TriTree::postBuild() const
 
 
 
-void TriTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
+void KDTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
 {
-	if(nodes[cur].getNodeType() == TreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
+	if(nodes[cur].getNodeType() == KDTreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
 	{
 		for(unsigned int i=0; i<depth; ++i)
 			out << "  ";
@@ -984,9 +984,9 @@ void TriTree::printTree(unsigned int cur, unsigned int depth, std::ostream& out)
 	}
 }
 
-void TriTree::debugPrintTree(unsigned int cur, unsigned int depth)
+void KDTree::debugPrintTree(unsigned int cur, unsigned int depth)
 {
-	if(nodes[cur].getNodeType() == TreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
+	if(nodes[cur].getNodeType() == KDTreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
 	{
 		std::string lineprefix;
 		for(unsigned int i=0; i<depth; ++i)
@@ -1013,13 +1013,13 @@ void TriTree::debugPrintTree(unsigned int cur, unsigned int depth)
 
 
 
-void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int depth) const
+void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int depth) const
 {
 	if(nodes.empty())
 		return;
 
 
-	if(nodes[cur].getNodeType() == TreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
+	if(nodes[cur].getNodeType() == KDTreeNode::NODE_TYPE_LEAF)//nodes[cur].isLeafNode())
 	{
 		stats_out.num_leaf_nodes++;
 		stats_out.num_leaf_geom_tris += (int)nodes[cur].getNumLeafGeom();
@@ -1053,7 +1053,7 @@ void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int 
 	
 		stats_out.max_depth = calcMaxDepth();//max_depth;
 
-		stats_out.total_node_mem = (int)nodes.size() * sizeof(TreeNode);
+		stats_out.total_node_mem = (int)nodes.size() * sizeof(KDTreeNode);
 		stats_out.leafgeom_indices_mem = stats_out.num_leaf_geom_tris * sizeof(TRI_INDEX);
 		stats_out.tri_mem = num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
 
@@ -1070,7 +1070,7 @@ void TriTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int 
 
 
 	//returns dist till hit tri, neg number if missed.
-double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
+double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
@@ -1098,7 +1098,7 @@ double TriTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& 
 	return closest_dist;
 }
 
-void TriTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
+void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
@@ -1122,7 +1122,7 @@ js::TriTreePerThreadData* allocPerThreadData()
 	return new js::TriTreePerThreadData();
 }
 
-void TriTree::saveTree(std::ostream& stream)
+void KDTree::saveTree(std::ostream& stream)
 {
 	// Write file format magic number
 	stream.write((const char*)&TREE_CACHE_MAGIC_NUMBER, sizeof(TREE_CACHE_MAGIC_NUMBER));
@@ -1142,7 +1142,7 @@ void TriTree::saveTree(std::ostream& stream)
 	stream.write((const char*)&temp, sizeof(unsigned int));
 	
 	// Write actual node data
-	stream.write((const char*)&nodes[0], sizeof(js::TreeNode)*(unsigned int)nodes.size());
+	stream.write((const char*)&nodes[0], sizeof(js::KDTreeNode)*(unsigned int)nodes.size());
 
 	//------------------------------------------------------------------------
 	//write leafgeom
@@ -1157,7 +1157,7 @@ void TriTree::saveTree(std::ostream& stream)
 }
 
 // Checksum over triangle vertex positions
-unsigned int TriTree::checksum()
+unsigned int KDTree::checksum()
 {
 	if(calced_checksum)
 		return checksum_;
@@ -1177,37 +1177,37 @@ unsigned int TriTree::checksum()
 
 
 
-void TriTree::printStats() const
+void KDTree::printStats() const
 {
 	TreeStats stats;
 	getTreeStats(stats);
 	stats.print();
 }
 
-void TriTree::test()
+void KDTree::test()
 {
 
 	{
-	TreeNode n(
+	KDTreeNode n(
 		//TreeNode::NODE_TYPE_INTERIOR, //TreeNode::NODE_TYPE_TWO_CHILDREN,
 		2, //axis
 		666.0, //split
 		43 // right child index
 		);
 
-	testAssert(n.getNodeType() == TreeNode::NODE_TYPE_INTERIOR); // TreeNode::NODE_TYPE_TWO_CHILDREN);
+	testAssert(n.getNodeType() == KDTreeNode::NODE_TYPE_INTERIOR); // TreeNode::NODE_TYPE_TWO_CHILDREN);
 	//testAssert(n.getNodeType() != TreeNode::NODE_TYPE_LEAF);
 	testAssert(n.getSplittingAxis() == 2);
 	testAssert(n.data2.dividing_val == 666.0);
 	testAssert(n.getPosChildIndex() == 43);
 	}
 	{
-	TreeNode n(
+	KDTreeNode n(
 		67, // leaf geom index
 		777 // num leaf geom
 		);
 
-	testAssert(n.getNodeType() == TreeNode::NODE_TYPE_LEAF);
+	testAssert(n.getNodeType() == KDTreeNode::NODE_TYPE_LEAF);
 	testAssert(n.getLeafGeomIndex() == 67);
 	testAssert(n.getNumLeafGeom() == 777);
 	}

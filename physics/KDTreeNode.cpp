@@ -3,7 +3,7 @@ treenode.cpp
 ------------
 File created by ClassTemplate on Fri Nov 05 01:54:56 2004Code By Nicholas Chapman.
 =====================================================================*/
-#include "jscol_treenode.h"
+#include "KDTreeNode.h"
 
 
 #include "../maths/mathstypes.h"

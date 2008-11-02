@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "jscol_TriTreePerThreadData.h"
-#include "jscol_tritree.h"
+#include "KDTree.h"
 #include "../simpleraytracer/ray.h"
 #include "../raytracing/hitinfo.h"
 
@@ -28,7 +28,7 @@ class KDTreeImpl
 public:
 
 	template <class T, class HitInfoType>
-	inline static double traceRay(const TriTree& kd, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
+	inline static double traceRay(const KDTree& kd, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
 		const Object* object, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);

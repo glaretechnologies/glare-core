@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "TreeTest.h"
 
-#include "jscol_tritree.h"
+#include "KDTree.h"
 #include "jscol_BIHTree.h"
 #include "BVH.h"
 #include "../simpleraytracer/raymesh.h"
@@ -274,7 +274,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//Init KD-tree and BIH
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
-	trees.push_back(new TriTree(&raymesh));
+	trees.push_back(new KDTree(&raymesh));
 	trees.back()->build();
 
 	trees.push_back(new BIHTree(&raymesh));
@@ -311,7 +311,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		const double dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
 		
-		const double alltrisdist = dynamic_cast<TriTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, hitinfo);
+		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, hitinfo);
 		testAssert(dist == alltrisdist);
 
 		for(unsigned int t=0; t<trees.size(); ++t)
@@ -345,7 +345,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		// Do a check against all tris
 		std::vector<DistanceHitInfo> hitinfos_d;
-		dynamic_cast<TriTree*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
+		dynamic_cast<KDTree*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
 		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred);
 
 		// Compare results
@@ -596,7 +596,7 @@ void TreeTest::doSpeedTest()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
-	settings.bih_tri_threshold = 1e8;
+	settings.bih_tri_threshold = 100000000;
 	raymesh.build(
 		".", // base indigo dir path
 		settings

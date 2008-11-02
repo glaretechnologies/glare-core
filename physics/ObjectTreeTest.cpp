@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "ObjectTreeTest.h"
 
-#include "jscol_tritree.h"
+#include "KDTree.h"
 #include "jscol_ObjectTree.h"
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"

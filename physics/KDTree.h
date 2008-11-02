@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "jscol_triangle.h"
 #include "jscol_Tree.h"
 #include "jscol_BadouelTri.h"
-#include "jscol_treenode.h"
+#include "KDTreeNode.h"
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"
 #include "jscol_Intersectable.h"
@@ -78,11 +78,11 @@ public:
 
 
 /*=====================================================================
-TriTree
+KDTree
 -------
 Kd-Tree
 =====================================================================*/
-class TriTree : public Tree
+class KDTree : public Tree
 {
 	friend class FastKDTreeBuilder;
 	friend class OldKDTreeBuilder;
@@ -90,12 +90,12 @@ class TriTree : public Tree
 
 public:
 	/*=====================================================================
-	TriTree
+	KDTree
 	-------
 	
 	=====================================================================*/
-	TriTree(RayMesh* raymesh);
-	~TriTree();
+	KDTree(RayMesh* raymesh);
+	~KDTree();
 
 	typedef float REAL;
 
@@ -118,7 +118,7 @@ public:
 	//For Debugging:
 	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
 	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	const std::vector<TreeNode>& getNodesDebug() const { return nodes; }
+	const std::vector<KDTreeNode>& getNodesDebug() const { return nodes; }
 	static void test();	
 
 
@@ -128,7 +128,7 @@ public:
 	static const unsigned int ROOT_NODE_INDEX = 1;
 
 	typedef uint32 TRI_INDEX;
-	typedef std::vector<TreeNode> NODE_VECTOR_TYPE;
+	typedef std::vector<KDTreeNode> NODE_VECTOR_TYPE;
 	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
 
 
@@ -212,7 +212,7 @@ private:
 };
 
 
-const Vec3f& TriTree::triGeometricNormal(unsigned int tri_index) const //slow
+const Vec3f& KDTree::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	return intersect_tris[tri_index].getNormal();
 }

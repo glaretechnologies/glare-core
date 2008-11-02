@@ -34,13 +34,13 @@ OldKDTreeBuilder::~OldKDTreeBuilder()
 }
 
 
-void OldKDTreeBuilder::build(TriTree& tree, const AABBox& root_aabb, TriTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out)
+void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out)
 {
 
 	unsigned int max_depth = tree.calcMaxDepth();
 
 	{ // Scope for various arrays
-		std::vector<std::vector<TriInfo> > node_tri_layers(TriTree::MAX_KDTREE_DEPTH); // One list of tris for each depth
+		std::vector<std::vector<TriInfo> > node_tri_layers(KDTree::MAX_KDTREE_DEPTH); // One list of tris for each depth
 
 		//for(int t=0; t<MAX_KDTREE_DEPTH; ++t)
 		//	node_tri_layers[t].reserve(1000);
@@ -70,7 +70,7 @@ void OldKDTreeBuilder::build(TriTree& tree, const AABBox& root_aabb, TriTree::NO
 		std::vector<SortedBoundInfo> upper(tree.numTris());
 		doBuild(
 			tree, 
-			TriTree::ROOT_NODE_INDEX, 
+			KDTree::ROOT_NODE_INDEX, 
 			node_tri_layers, 
 			0,
 			max_depth, root_aabb, lower, upper, leaf_tri_indices_out, nodes_out);
@@ -93,15 +93,15 @@ static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundI
 }
 
 
-void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of current node getting built
+void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth
 						const AABBox& cur_aabb, // AABB of current node
 						std::vector<SortedBoundInfo>& upper, 
 						std::vector<SortedBoundInfo>& lower,
-						js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out,
-						std::vector<TreeNode>& nodes)
+						js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out,
+						std::vector<KDTreeNode>& nodes)
 {
 	// Get the list of tris intersecting this volume
 	assert(depth < (unsigned int)node_tri_layers.size());
@@ -123,7 +123,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
 	{
 		// Make this node a leaf node.
-		nodes[cur] = TreeNode(
+		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(), // Leaf geom index
 			(unsigned int)nodetris.size() // num leaf geom
 			);
@@ -536,7 +536,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	if(best_axis == -1)
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
-		nodes[cur] = TreeNode(
+		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(),
 			(unsigned int)nodetris.size()
 			);
@@ -565,7 +565,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	{
 		// If we were unable to get a reduction in the number of tris in either of the children,
 		// then splitting is pointless.  So make this a leaf node.
-		nodes[cur] = TreeNode(
+		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(),
 			(unsigned int)nodetris.size()
 			);
@@ -670,7 +670,7 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 		// Add left child node
 		const unsigned int left_child_index = (unsigned int)nodes.size();
 		assert(left_child_index == cur + 1);
-		nodes.push_back(TreeNode());
+		nodes.push_back(KDTreeNode());
 
 		// Build left subtree
 		doBuild(
@@ -779,10 +779,10 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 	{
 		const unsigned int right_child_index = (unsigned int)nodes.size();
 		assert(right_child_index > cur);
-		nodes.push_back(TreeNode());
+		nodes.push_back(KDTreeNode());
 	
 		// Set details of current node
-		nodes[cur] = TreeNode(
+		nodes[cur] = KDTreeNode(
 			//TreeNode::NODE_TYPE_INTERIOR,//actual_num_neg_tris > 0 ? TreeNode::NODE_TYPE_TWO_CHILDREN : TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
 			best_axis, // split axis
 			best_div_val, // split value
@@ -864,10 +864,10 @@ void OldKDTreeBuilder::doBuild(TriTree& tree, unsigned int cur, // index of curr
 		// Right child is empty, so don't actually add it.
 
 		// Set details of current node
-		nodes[cur] = TreeNode(
+		nodes[cur] = KDTreeNode(
 			best_axis, // split axis
 			best_div_val, // split value
-			TriTree::DEFAULT_EMPTY_LEAF_NODE_INDEX // right child index
+			KDTree::DEFAULT_EMPTY_LEAF_NODE_INDEX // right child index
 		);
 	}
 

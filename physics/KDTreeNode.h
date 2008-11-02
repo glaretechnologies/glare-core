@@ -1,20 +1,23 @@
 /*=====================================================================
-treenode.h
+kdtreenode.h
 ----------
 File created by ClassTemplate on Fri Nov 05 01:54:56 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TREENODE_H_666_
-#define __TREENODE_H_666_
+#ifndef __KDTREENODE_H_666_
+#define __KDTREENODE_H_666_
+
 
 #include <assert.h>
 #include "../utils/platform.h"
 
+
 namespace js
 {
 
+
 /*=====================================================================
-TreeNode
+KDTreeNode
 --------
 negative child is implicitly defined as the next node in the array.
 
@@ -69,13 +72,13 @@ bits 0 - 27:
 	if interior node with 1 child: nothing
 	if interior node with 2 children: index of right child
 =====================================================================*/
-class TreeNode
+class KDTreeNode
 {
 public:
-	inline TreeNode();
-	inline TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
-	inline TreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom); // Leaf constructor
-	inline ~TreeNode();
+	inline KDTreeNode();
+	inline KDTreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
+	inline KDTreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom); // Leaf constructor
+	inline ~KDTreeNode();
 	
 	static const uint32 NODE_TYPE_LEAF = 0;
 	static const uint32 NODE_TYPE_INTERIOR = 1;
@@ -108,10 +111,10 @@ private:
 #define TREENODE_AXIS_OFFSET 1
 #define TREENODE_LEAF_DATA_OFFSET 1
 
-TreeNode::TreeNode()
+KDTreeNode::KDTreeNode()
 {}
 
-TreeNode::TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index) // Interior node constructor
+KDTreeNode::KDTreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index) // Interior node constructor
 {
 	assert(axis < 3);
 
@@ -125,30 +128,30 @@ TreeNode::TreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_
 	//data = node_type | (axis << TREENODE_AXIS_OFFSET) | (right_child_node_index << TREENODE_MAIN_DATA_OFFSET);
 }
 
-TreeNode::TreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom) // Leaf constructor
+KDTreeNode::KDTreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom) // Leaf constructor
 {
 	data2.numtris = num_leaf_geom;
 	assert(NODE_TYPE_LEAF == 0);
 	data = leaf_geom_index << TREENODE_LEAF_DATA_OFFSET;
 }
 
-TreeNode::~TreeNode()
+KDTreeNode::~KDTreeNode()
 {}
 
-uint32 TreeNode::getNodeType() const
+uint32 KDTreeNode::getNodeType() const
 {
 	return data & 0x00000001;
 }
 
 
 
-uint32 TreeNode::getSplittingAxis() const
+uint32 KDTreeNode::getSplittingAxis() const
 { 
 	//return (data & 0x00000006U) >> TREENODE_AXIS_OFFSET;
 	return (data >> TREENODE_AXIS_OFFSET) & 0x00000003; 
 }
 
-uint32 TreeNode::getPosChildIndex() const
+uint32 KDTreeNode::getPosChildIndex() const
 { 
 	return data >> TREENODE_MAIN_DATA_OFFSET;
 }
@@ -156,12 +159,12 @@ uint32 TreeNode::getPosChildIndex() const
 
 
 
-uint32 TreeNode::getLeafGeomIndex() const
+uint32 KDTreeNode::getLeafGeomIndex() const
 { 
 	return data >> TREENODE_LEAF_DATA_OFFSET;
 }
 
-uint32 TreeNode::getNumLeafGeom() const
+uint32 KDTreeNode::getNumLeafGeom() const
 {
 	return data2.numtris;
 }
@@ -172,7 +175,7 @@ uint32 TreeNode::getNumLeafGeom() const
 } //end namespace js
 
 
-#endif //__TREENODE_H_666_
+#endif //__KDTREENODE_H_666_
 
 
 

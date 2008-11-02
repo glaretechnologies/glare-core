@@ -8,7 +8,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
-#include "../physics/jscol_tritree.h"
+#include "../physics/KDTree.h"
 #include "../graphics/image.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
@@ -16,7 +16,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/globals.h"
 #include "../indigo/RendererSettings.h"
 #include "../physics/jscol_BIHTree.h"
-#include "../physics/jscol_tritree.h"
+#include "../physics/KDTree.h"
 #include "../physics/BVH.h"
 #include "../physics/SimpleBVH.h"
 #include "../physics/NBVH.h"
@@ -259,7 +259,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 			tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
 			//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
 		else
-			tritree = std::auto_ptr<js::Tree>(new js::TriTree(this)); // kd-tree
+			tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
 	}
 	catch(js::TreeExcep& e)
 	{

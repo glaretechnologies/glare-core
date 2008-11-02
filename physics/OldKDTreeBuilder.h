@@ -7,14 +7,14 @@ Code By Nicholas Chapman.
 #ifndef __OLDKDTREEBUILDER_H_666_
 #define __OLDKDTREEBUILDER_H_666_
 
-#include "jscol_tritree.h"
+
+#include "KDTree.h"
 #include <vector>
 
 
 namespace js
 {
 
-class TriTree;
 
 /*=====================================================================
 OldKDTreeBuilder
@@ -34,7 +34,7 @@ public:
 	~OldKDTreeBuilder();
 
 
-	void build(TriTree& tree, const AABBox& cur_aabb, TriTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out);
+	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out);
 
 
 	class SortedBoundInfo
@@ -47,17 +47,17 @@ private:
 	class TriInfo
 	{
 	public:
-		TriTree::TRI_INDEX tri_index;
+		KDTree::TRI_INDEX tri_index;
 		Vec3f lower;
 		Vec3f upper;
 	};
 
 	
-	void doBuild(TriTree& tree, TriTree::NODE_INDEX cur, 
+	void doBuild(KDTree& tree, KDTree::NODE_INDEX cur, 
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower,
-		js::Vector<TriTree::TRI_INDEX>& leaf_tri_indices_out,
-		std::vector<TreeNode>& nodes
+		js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out,
+		std::vector<KDTreeNode>& nodes
 		);
 
 

@@ -8,8 +8,8 @@ Code By Nicholas Chapman.
 #define __TRITREEPERTHREADDATA_H_666_
 
 
+#include "KDTree.h"
 
-#include "jscol_tritree.h"
 
 namespace js
 {
@@ -40,12 +40,7 @@ public:
 };
 
 
-
 } //end namespace js
 
 
 #endif //__TRITREEPERTHREADDATA_H_666_
-
-
-
-
