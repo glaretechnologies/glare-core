@@ -12,8 +12,10 @@ Code By Nicholas Chapman.
 #include "jscol_Tree.h"
 #include "jscol_Intersectable.h"
 #include "jscol_BadouelTri.h"
+#include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
+
 
 class RayMesh;
 class FullHitInfo;
@@ -50,7 +52,7 @@ public:
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
 
-	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const;
+	virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
@@ -85,14 +87,14 @@ private:
 
 	AABBox* tri_aabbs;
 
-	typedef js::BadouelTri INTERSECT_TRI_TYPE;
+	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
 	unsigned int intersect_tri_i;
-	std::vector<TRI_INDEX> original_tri_index;
-	std::vector<TRI_INDEX> new_tri_index;
+	//std::vector<TRI_INDEX> original_tri_index;
+	//std::vector<TRI_INDEX> new_tri_index;
 
-	//std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
+	std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
 
 	//std::vector<Vec3f> tri_centers;
 

@@ -49,7 +49,7 @@ public:
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
 	virtual const std::string debugName() const { return "BIH"; }
 
-	virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const;
+	virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
 
 	virtual void printStats() const {};
 	virtual void printTraceStats() const {};

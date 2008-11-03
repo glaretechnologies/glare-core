@@ -129,7 +129,7 @@ public:
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
 	inline const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	inline const Vec3f& triNormal(unsigned int triindex) const;
+	inline const Vec3f triNormal(unsigned int triindex) const;
 	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	//inline const unsigned int getNumVerts() const { return num_vertices; }
 
@@ -233,7 +233,7 @@ const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_i
 }
 
 
-const Vec3f& RayMesh::triNormal(unsigned int triindex) const
+const Vec3f RayMesh::triNormal(unsigned int triindex) const
 {
 	return tritree->triGeometricNormal(triindex);
 }

@@ -703,7 +703,7 @@ const js::AABBox& SimpleBVH::getAABBoxWS() const
 }
 
 
-const Vec3f& SimpleBVH::triGeometricNormal(unsigned int tri_index) const //slow
+const Vec3f SimpleBVH::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	//return intersect_tris[tri_index].getNormal();
 	return intersect_tris[new_tri_index[tri_index]].getNormal();

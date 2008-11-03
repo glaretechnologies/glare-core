@@ -937,7 +937,7 @@ unsigned int BIHTree::checksum()
 }
 
 
-const Vec3f& BIHTree::triGeometricNormal(unsigned int tri_index) const //slow
+const Vec3f BIHTree::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	return intersect_tris[tri_index].getNormal();
 }

@@ -25,194 +25,124 @@ Code By Nicholas Chapman.
 #include "../utils/platformutils.h"
 #include "../indigo/ThreadContext.h"
 #include "../maths/SSE.h"
+#include "MollerTrumboreTri.h"
 
 
 namespace js
 {
 
 
-
-
-TreeTest::TreeTest()
+static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
-	
-}
+	//SSE_ALIGN Vec4 best_t = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	//SSE_ALIGN Vec4 best_tri_index = {666, 666, 666, 666};
+	/*SSE_ALIGN Vec4 tri_indices;// = { 0, 1, 2, 3 };
+	tri_indices.i[0] = 0;
+	tri_indices.i[1] = 1;
+	tri_indices.i[2] = 2;
+	tri_indices.i[3] = 3;*/
+	//SSE_ALIGN Vec4 best_u = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	//SSE_ALIGN Vec4 best_v = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+
+	//SSE_ALIGN Vec4 best_data;
 
 
-TreeTest::~TreeTest()
-{
-	
-}
+	/*SSE_ALIGN Vec4 orig_x = {orig.x, orig.x, orig.x, orig.x};
+	SSE_ALIGN Vec4 orig_y = {orig.y, orig.y, orig.y, orig.y};
+	SSE_ALIGN Vec4 orig_z = {orig.z, orig.z, orig.z, orig.z};*/
 
+	/*SSE_ALIGN Vec4 dir_x = {dir.x, dir.x, dir.x, dir.x};
+	SSE_ALIGN Vec4 dir_y = {dir.y, dir.y, dir.y, dir.y};
+	SSE_ALIGN Vec4 dir_z = {dir.z, dir.z, dir.z, dir.z};*/
 
-// returns mask == 0xFFFFFF ? b : a
-static inline __m128 condMov(__m128 a, __m128 b, __m128 mask)
-{
-	b = _mm_and_ps(b, mask);
-	a = _mm_andnot_ps(mask, a);
-	return _mm_or_ps(a, b);
-}
+	Vec4 u, v, t, hit;
+	MollerTrumboreTri::intersectTris(&ray,
+		/*&orig_x, &orig_y, &orig_z, &dir_x, &dir_y, &dir_z*/
+		tri[0].data, tri[1].data, tri[2].data, tri[3].data, 
+		//&best_t,
+		&u, &v, &t, &hit
+		//&best_tri_index, 
+		//&tri_indices,
 
-
-template <int i>
-static inline __m128 copyToAll(__m128 a)
-{
-	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(i, i, i, i));
-}
-
-
-/*typedef union {
-	__m128 v;
-	float f[4];
-} vec4;*/
-
-
-void intersectTris(
-	const float* orig_x_,
-	const float* orig_y_,
-	const float* orig_z_,
-	const float* dir_x_,
-	const float* dir_y_,
-	const float* dir_z_,
-	const float* v0x_, // [t3_v0x, t2_v0x, t1_v0x, t0_v0x]
-	const float* v0y_, // [t3_v0y, t2_v0y, t1_v0y, t0_v0y]
-	const float* v0z_,
-	const float* edge1_x_,
-	const float* edge1_y_,
-	const float* edge1_z_,
-	const float* edge2_x_,
-	const float* edge2_y_,
-	const float* edge2_z_,
-	float* best_t_, // [t, t, t, t]
-	unsigned int* best_tri_index_, // [t3_index, t2_index, t1_index, t0_index]
-	float* best_u_,
-	float* best_v_
-	)
-{
-	const __m128 orig_x = _mm_load_ps(orig_x_);
-	const __m128 orig_y = _mm_load_ps(orig_y_);
-	const __m128 orig_z = _mm_load_ps(orig_z_);
-
-	const __m128 dir_x = _mm_load_ps(dir_x_);
-	const __m128 dir_y = _mm_load_ps(dir_y_);
-	const __m128 dir_z = _mm_load_ps(dir_z_);
-
-	const __m128 v0x = _mm_load_ps(v0x_);
-	const __m128 v0y = _mm_load_ps(v0y_);
-	const __m128 v0z = _mm_load_ps(v0z_);
-
-	const __m128 edge1_x = _mm_load_ps(edge1_x_);
-	const __m128 edge1_y = _mm_load_ps(edge1_y_);
-	const __m128 edge1_z = _mm_load_ps(edge1_z_);
-
-	const __m128 edge2_x = _mm_load_ps(edge2_x_);
-	const __m128 edge2_y = _mm_load_ps(edge2_y_);
-	const __m128 edge2_z = _mm_load_ps(edge2_z_);
-
-	// edge1 = vert1 - vert0
-	/*const __m128 edge1_x = _mm_sub_ps(v1x, v0x);
-	const __m128 edge1_y = _mm_sub_ps(v1y, v0y);
-	const __m128 edge1_z = _mm_sub_ps(v1z, v0z);
-
-	// edge2 = vert2 - vert0
-	const __m128 edge2_x = _mm_sub_ps(v2x, v0x);
-	const __m128 edge2_y = _mm_sub_ps(v2y, v0y);
-	const __m128 edge2_z = _mm_sub_ps(v2z, v0z);*/
-
-	/* v1 x v2:
-	(v1.y * v2.z) - (v1.z * v2.y),
-	(v1.z * v2.x) - (v1.x * v2.z),
-	(v1.x * v2.y) - (v1.y * v2.x)
-	*/
-
-	// pvec = cross(dir, edge2)
-	const __m128 pvec_x = _mm_sub_ps(_mm_mul_ps(dir_y, edge2_z), _mm_mul_ps(dir_z, edge2_y));
-	const __m128 pvec_y = _mm_sub_ps(_mm_mul_ps(dir_z, edge2_x), _mm_mul_ps(dir_x, edge2_z));
-	const __m128 pvec_z = _mm_sub_ps(_mm_mul_ps(dir_x, edge2_y), _mm_mul_ps(dir_y, edge2_x));
-
-
-	// det = dot(edge1, pvec)
-	
-	const __m128 det = _mm_add_ps(_mm_mul_ps(edge1_x, pvec_x), _mm_add_ps(_mm_mul_ps(edge1_y, pvec_y), _mm_mul_ps(edge1_z, pvec_z)));
-
-	// TODO: det ~= 0 test
-
-	const __m128 one = _mm_load_ps(one_4vec);
-
-	const __m128 inv_det = _mm_div_ps(one, det);
-
-	// tvec = orig - vert0
-	const __m128 tvec_x = _mm_sub_ps(orig_x, v0x);
-	const __m128 tvec_y = _mm_sub_ps(orig_y, v0y);
-	const __m128 tvec_z = _mm_sub_ps(orig_z, v0z);
-
-	// u = dot(tvec, pvec) * inv_det
-	const __m128 u = _mm_mul_ps(
-		_mm_add_ps(_mm_mul_ps(tvec_x, pvec_x), _mm_add_ps(_mm_mul_ps(tvec_y, pvec_y), _mm_mul_ps(tvec_z, pvec_z))),
-		inv_det
+		//&best_u, 
+		//&best_v
+		//&best_data
+		
 		);
 
-	// qvec = cross(tvec, edge1)
-	const __m128 qvec_x = _mm_sub_ps(_mm_mul_ps(tvec_y, edge1_z), _mm_mul_ps(tvec_z, edge1_y));
-	const __m128 qvec_y = _mm_sub_ps(_mm_mul_ps(tvec_z, edge1_x), _mm_mul_ps(tvec_x, edge1_z));
-	const __m128 qvec_z = _mm_sub_ps(_mm_mul_ps(tvec_x, edge1_y), _mm_mul_ps(tvec_y, edge1_x));
+	//float ref_u, ref_v;
+	//unsigned int ref_best_index;
+	//float ref_best_t = std::numeric_limits<float>::max();
+	//bool hit_a_tri = false;
 
-	// v = dot(dir, qvec) * inv_det
-	const __m128 v = _mm_mul_ps(
-		_mm_add_ps(_mm_mul_ps(dir_x, qvec_x), _mm_add_ps(_mm_mul_ps(dir_y, qvec_y), _mm_mul_ps(dir_z, qvec_z))),
-		inv_det
-		);
+	for(int i=0; i<4; ++i)
+	{
+		float ref_u, ref_v, ref_t;
+		const bool ref_hit = tri[i].referenceIntersect(ray, &ref_u, &ref_v, &ref_t);
 
-	// t = dot(edge2, qvec) * inv_det
-	const __m128 t = _mm_mul_ps(
-		_mm_add_ps(_mm_mul_ps(edge2_x, qvec_x), _mm_add_ps(_mm_mul_ps(edge2_y, qvec_y), _mm_mul_ps(edge2_z, qvec_z))),
-		inv_det
-		);
+		if(ref_hit || (hit.i[i] != 0))
+		{
+			testAssert(::epsEqual(ref_t, t.f[i]));
+			testAssert(::epsEqual(ref_u, u.f[i]));
+			testAssert(::epsEqual(ref_v, v.f[i]));
+			testAssert(ref_hit == (hit.i[i] != 0));
+		}
+		
+		/*if(tri[i].referenceIntersect(ray, &u, &v, &t))
+		{
+			hit_a_tri = true;
 
-	// if(u < 0.0 || u > 1.0) return 0
-	// hit = (u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
-	const __m128 hit = _mm_and_ps(
-		_mm_and_ps(_mm_cmpge_ps(u, zeroVec()), _mm_cmple_ps(u, one)),
-		_mm_and_ps(_mm_cmpge_ps(v, zeroVec()), _mm_cmple_ps(_mm_add_ps(u, v), one))
-		);
+			if(t < ref_best_t)
+			{
+				ref_best_index = i;
+				ref_best_t = t;
+				ref_u = u;
+				ref_v = v;
+			}
+		}*/
+	}
 
-	__m128 best_t = _mm_load_ps(best_t_);
-	const __m128 hit_and_closer = _mm_and_ps(hit, _mm_cmplt_ps(t, best_t));
+	/*if(hit_a_tri)
+	{
+		const float best_u = best_data.f[0];
+		const float best_v = best_data.f[1];
+		const unsigned int best_index = best_data.i[2];
 
-	// [best_u, best_v, best_triindex, dummy]
-
-	//__m128 best_t = _mm_load_ps(&best_t_);
-	__m128 best_u = _mm_load_ps(best_u_);
-	__m128 best_v = _mm_load_ps(best_v_);
-	__m128 best_tri_index = _mm_load_ps((const float*)best_tri_index_);
-
-	__m128 closer;
-	closer = copyToAll<0>(hit_and_closer);
-	best_t = condMov(best_t, copyToAll<0>(t), closer);
-	best_u = condMov(best_u, copyToAll<0>(u), closer);
-	best_v = condMov(best_v, copyToAll<0>(v), closer);
-	best_tri_index = condMov(best_tri_index, copyToAll<0>(best_tri_index), closer);
-
-	// Store back
-	_mm_store_ps(best_t_, best_t);
-	_mm_store_ps(best_u_, best_u);
-	_mm_store_ps(best_v_, best_v);
-	_mm_store_ps((float*)best_tri_index_, best_tri_index);
-}	
+		testAssert(best_index == ref_best_index);
+		testAssert(::epsEqual(ref_best_t, best_t.f[0]));
+		testAssert(::epsEqual(ref_u, best_u));
+		testAssert(::epsEqual(ref_v, best_v));
+	}*/
+}
 
 
 static void testTriangleIntersection()
 {
+	conPrint("testTriangleIntersection()");
 
+	MTwister rng(1);
 
+	SSE_ALIGN MollerTrumboreTri tris[4];
 
+	for(int i=0; i<100000; ++i)
+	{
+		for(int t=0; t<4; ++t)
+			tris[t].set(
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
+				);
+
+		const SSE_ALIGN Ray ray(
+			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
+			);
+
+		testIntersection(ray, tris);
+	}
+
+	conPrint("testTriangleIntersection() Done.");
 }
-
-
-
-
-
-
 
 
 void TreeTest::testBuildCorrect()
@@ -479,7 +409,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			normalise(Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0))
 			);
 
-		HitInfo hitinfo, hitinfo2;
+		HitInfo hitinfo;
 		js::TriTreePerThreadData tree_context;
 
 		const double dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
@@ -489,12 +419,16 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
-			HitInfo hitinfo_, hitinfo2_;
+			HitInfo hitinfo_;
 			const double dist_ = trees[t]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo_);
 
-			testAssert(dist == dist_);
 			if(dist_ >= 0.0)
-				testAssert(hitinfo == hitinfo_);
+			{
+				testAssert(::epsEqual(dist, dist_));
+				//testAssert(hitinfo == hitinfo_);
+				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
+				testAssert(epsEqual(hitinfo.sub_elem_coords, hitinfo_.sub_elem_coords));
+			}
 		}
 
 
@@ -502,7 +436,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test getAllHits()
 		//------------------------------------------------------------------------
-		std::vector<DistanceHitInfo> hitinfos;
+		/*std::vector<DistanceHitInfo> hitinfos;
 
 		trees[0]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
@@ -548,19 +482,19 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_bih[z].sub_elem_index);
 				testAssert(hitinfos[z].sub_elem_coords == hitinfos_bih[z].sub_elem_coords);
 			}
-		}
+		}*/
 
 		//------------------------------------------------------------------------
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
-		const double testlength = rng.unitRandom() * 2.0;
+		/*const double testlength = rng.unitRandom() * 2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 		
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 			testAssert(hit == hit_);
-		}
+		}*/
 
 		/*
 		bool bih_hit = bih_tree.doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
@@ -676,6 +610,7 @@ static void cornellBoxTest()
 
 void TreeTest::doTests()
 {
+	testTriangleIntersection();
 	
 	doEdgeCaseTests();
 
@@ -769,7 +704,7 @@ void TreeTest::doSpeedTest()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
-	settings.bih_tri_threshold = 100000000;
+	settings.bih_tri_threshold = 0;
 	raymesh.build(
 		".", // base indigo dir path
 		settings

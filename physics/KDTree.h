@@ -110,7 +110,7 @@ public:
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
 
-	inline virtual const Vec3f& triGeometricNormal(unsigned int tri_index) const; //slow
+	inline virtual const Vec3f triGeometricNormal(unsigned int tri_index) const; //slow
 
 	virtual void printStats() const;
 	virtual void printTraceStats() const;
@@ -212,7 +212,7 @@ private:
 };
 
 
-const Vec3f& KDTree::triGeometricNormal(unsigned int tri_index) const //slow
+const Vec3f KDTree::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	return intersect_tris[tri_index].getNormal();
 }
