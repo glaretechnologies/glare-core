@@ -28,9 +28,9 @@ class BVHImpl
 {
 public:
 
-	template <class T>
+	template <class T, class HitInfoType>
 	inline static double traceRay(const BVH& bvh, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
-		const Object* object, HitInfo& hitinfo_out) //Vec4* best_u, Vec4* best_v, Vec4* best_tri_index)
+		const Object* object, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
 		assert(ray.unitDir().isUnitLength());
@@ -55,30 +55,6 @@ public:
 
 		float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::infinity();
 
-		// NEW
-		/*SSE_ALIGN Vec4 orig_x;
-		orig_x.v = _mm_load_ps1(&ray.startPosF().x);
-		SSE_ALIGN Vec4 orig_y;
-		orig_y.v = _mm_load_ps1(&ray.startPosF().x + 1);
-		SSE_ALIGN Vec4 orig_z;
-		orig_z.v = _mm_load_ps1(&ray.startPosF().x + 2);
-
-		SSE_ALIGN Vec4 dir_x;
-		dir_x.v = _mm_load_ps1(&ray.unitDirF().x);
-		SSE_ALIGN Vec4 dir_y;
-		dir_y.v = _mm_load_ps1(&ray.unitDirF().x + 1);
-		SSE_ALIGN Vec4 dir_z;
-		dir_z.v = _mm_load_ps1(&ray.unitDirF().x + 2);*/
-
-
-		//const float ray_max_t_ = (float)ray_max_t;
-		//SSE_ALIGN Vec4 best_t;
-		//best_t.v = _mm_load_ps1(&ray_max_t_);
-
-		//SSE_ALIGN Vec4 best_u;
-		//SSE_ALIGN Vec4 best_v;
-		//SSE_ALIGN Vec4 best_tri_index;
-
 		int stacktop = 0; // Index of node on top of stack
 		while(stacktop >= 0)
 		{
@@ -87,7 +63,7 @@ public:
 			__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
 			__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
 
-			tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist)); //_mm_min_ss(tmax, best_t.v);
+			tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 			stacktop--;
 
@@ -195,20 +171,20 @@ public:
 
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 									return 1.0f;
 
 								current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 							}
 						} else { // Else if right child doesn't exist
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 									return 1.0f;
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 									return 1.0f;
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 									return 1.0f;
 								break;
 							}
@@ -217,7 +193,7 @@ public:
 						if(bvh.nodes[current].isRightLeaf() == 0) { // If right child exists
 							current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 						} else {
-							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 								return 1.0f;
 							break;
 						}
@@ -227,7 +203,7 @@ public:
 						if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
 							current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 						} else {
-							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, hitinfo_out, closest_dist, thread_context, object))
 								return 1.0f;
 							break;
 						}
@@ -238,14 +214,8 @@ public:
 			}
 		}
 
-		if(closest_dist < (float)ray_max_t) // best_t.f[0] < ray_max_t_) //closest_dist < (float)ray_max_t) // std::numeric_limits<float>::infinity())
-		{
-			//_mm_store_ss(&hitinfo_out.sub_elem_coords.x, best_u.v);
-			//_mm_store_ss(&hitinfo_out.sub_elem_coords.y, best_v.v);
-			//_mm_store_ss(&hitinfo_out.sub_elem_index, best_tri_index.v);
-
-			return closest_dist; // best_t.f[0];
-		}
+		if(closest_dist < (float)ray_max_t)
+			return closest_dist;
 		else
 			return -1.0f; // Missed all tris
 	}

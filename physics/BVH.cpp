@@ -127,15 +127,6 @@ void BVH::build()
 		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
 		assert(root_aabb->invariant());
 
-		
-		conPrint("\tAllocating intersect triangles...");
-		this->num_intersect_tris = numTris();
-		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
-
-		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-		intersect_tri_i = 0;
-
 		//original_tri_index.resize(num_tris);
 		//new_tri_index.resize(num_tris);
 
@@ -207,17 +198,17 @@ void BVH::build()
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
-		/*conPrint("\tAllocating intersect triangles...");
+		conPrint("\tAllocating intersect triangles...");
 		this->num_intersect_tris = numTris();
 		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			conPrint("\t\tIntersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+			conPrint("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
 		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-*/
+		//intersect_tri_i = 0;
+
 		// Copy tri data.
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
-		//conPrint("\tdone.");
 
 
 		SSE::alignedSSEArrayFree(tri_aabbs);
@@ -257,7 +248,6 @@ void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int c
 	const int num_4tris = ((num_tris % 4) == 0) ? (num_tris / 4) : (num_tris / 4) + 1;
 	const int num_tris_rounded_up = num_4tris * 4;
 	const int num_padding = num_tris_rounded_up - num_tris;
-	//const int num_4tris = num_tris_rounded_up / 4;
 
 	assert(num_tris + num_padding == num_tris_rounded_up);
 	assert(num_tris_rounded_up % 4 == 0);
@@ -489,59 +479,16 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 }
 
 
-class DoesFiniteRayHitFunctions
+/*static inline void updateVals(
+	const BVH& bvh, unsigned int leaf_geom_index,
+	const Vec4& u,
+	const Vec4& v,
+	const Vec4& t,
+	const Vec4& hit,
+	HitInfo& hitinfo_out
+	)
 {
-public:
-	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
-		const Ray& ray,
-		HitInfo& hitinfo_out,
-		float& best_t
-		)
-	{
-		for(unsigned int i=0; i<num_leaf_tris; ++i)
-		{
-			const float* const t0 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 0]].data;
-			const float* const t1 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 1]].data;
-			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
-			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
-
-			Vec4 u, v, t, hit;
-			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
-				&u, &v, &t, &hit
-				);
-
-			if((hit.i[0] != 0) && t.f[0] < best_t) // && object mask test
-				return true;
-			if((hit.i[1] != 0) && t.f[1] < best_t) // && object mask test
-				return true;
-			if((hit.i[2] != 0) && t.f[2] < best_t) // && object mask test
-				return true;
-			if((hit.i[3] != 0) && t.f[3] < best_t) // && object mask test
-				return true;
-
-			leaf_geom_index += 4;
-		}
-
-		return false; // Don't early out from BVHImpl::traceRay()
-	}
-};
-
-
-bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
-{
-	//int hitinfo_dummy;
-	//SSE_ALIGN Vec4 best_u;
-	//SSE_ALIGN Vec4 best_v;
-	//SSE_ALIGN Vec4 best_tri_index;
-	/*SSE_ALIGN Vec4 best_data;*/
-
-	HitInfo hitinfo;
-	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo); // &best_u, &best_v, &best_tri_index);
-	return t >= 0.0;
-
-	//HitInfo hitinfo;
-	//return traceRay(ray, raylength, thread_context, context, object, hitinfo) > 0.0;
-}
+}*/
 
 
 class TraceRayFunctions
@@ -549,72 +496,43 @@ class TraceRayFunctions
 public:
 	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
 		const Ray& ray,
-		//Vec4* best_t,
 		HitInfo& hitinfo_out,
-		float& best_t
-		//Vec4* best_tri_index,
-		//Vec4* best_u,
-		//Vec4* best_v
-		//Vec4* best_data
+		float& best_t,
+		ThreadContext& thread_context,
+		const Object* object
 		)
 	{
-		/*for(unsigned int i=0; i<num_leaf_tris; ++i)
-		{
-			float u, v, raydist;
-			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
-			{
-				closest_dist = raydist;
-				hitinfo_out.sub_elem_index = bvh.original_tri_index[leaf_geom_index];
-				hitinfo_out.sub_elem_coords.set(u, v);
-			}
-			++leaf_geom_index;
-		}*/
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 			const float* const t0 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 0]].data;
 			const float* const t1 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 1]].data;
 			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
-		
-			/*SSE_ALIGN Vec4 tri_indices;
-			tri_indices.i[0] = bvh.leafgeom[leaf_geom_index + 0];
-			tri_indices.i[1] = bvh.leafgeom[leaf_geom_index + 1];
-			tri_indices.i[2] = bvh.leafgeom[leaf_geom_index + 2];
-			tri_indices.i[3] = bvh.leafgeom[leaf_geom_index + 3];
-
-			assert(tri_indices.i[0] < bvh.num_intersect_tris);
-			assert(tri_indices.i[1] < bvh.num_intersect_tris);
-			assert(tri_indices.i[2] < bvh.num_intersect_tris);
-			assert(tri_indices.i[3] < bvh.num_intersect_tris);*/
 
 			Vec4 u, v, t, hit;
 			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
-				//best_t,
 				&u, &v, &t, &hit
-				//&tri_indices, 
-				//best_data
 				);
-				//best_tri_index, &tri_indices, best_u, best_v);
 
-			if((hit.i[0] != 0) && t.f[0] < best_t) // && object mask test
+			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])))
 			{
 				best_t = t.f[0];
 				hitinfo_out.sub_elem_index = bvh.leafgeom[leaf_geom_index + 0];
 				hitinfo_out.sub_elem_coords.set(u.f[0], v.f[0]);
 			}
-			if((hit.i[1] != 0) && t.f[1] < best_t) // && object mask test
+			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])))
 			{
 				best_t = t.f[1];
 				hitinfo_out.sub_elem_index = bvh.leafgeom[leaf_geom_index + 1];
 				hitinfo_out.sub_elem_coords.set(u.f[1], v.f[1]);
 			}
-			if((hit.i[2] != 0) && t.f[2] < best_t) // && object mask test
+			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])))
 			{
 				best_t = t.f[2];
 				hitinfo_out.sub_elem_index = bvh.leafgeom[leaf_geom_index + 2];
 				hitinfo_out.sub_elem_coords.set(u.f[2], v.f[2]);
 			}
-			if((hit.i[3] != 0) && t.f[3] < best_t) // && object mask test
+			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])))
 			{
 				best_t = t.f[3];
 				hitinfo_out.sub_elem_index = bvh.leafgeom[leaf_geom_index + 3];
@@ -631,17 +549,73 @@ public:
 
 double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
-	//SSE_ALIGN Vec4 best_u;
-	//SSE_ALIGN Vec4 best_v;
-	//SSE_ALIGN Vec4 best_tri_index;
-	//SSE_ALIGN Vec4 best_data;
+	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
+}
 
-	const double d = BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);//&best_data); // &best_u, &best_v, &best_tri_index);
-	//hitinfo_out.sub_elem_index = best_data.i[2]; //best_tri_index.i[0];
-	//hitinfo_out.sub_elem_coords.x = best_data.f[0]; // best_u.f[0];
-	//hitinfo_out.sub_elem_coords.y = best_data.f[1]; // best_v.f[0];
 
-	return d;
+class DoesFiniteRayHitFunctions
+{
+public:
+	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
+		const Ray& ray,
+		HitInfo& hitinfo_out,
+		float& best_t,
+		ThreadContext& thread_context,
+		const Object* object
+		)
+	{
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			const float* const t0 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 0]].data;
+			const float* const t1 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 1]].data;
+			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
+			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
+
+			Vec4 u, v, t, hit;
+			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
+				&u, &v, &t, &hit
+				);
+
+			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])))
+				return true;
+			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])))
+				return true;
+			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])))
+				return true;
+			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])))
+				return true;
+
+			leaf_geom_index += 4;
+		}
+
+		return false; // Don't early out from BVHImpl::traceRay()
+	}
+};
+
+
+bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+{
+	HitInfo hitinfo;
+	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo);
+	return t >= 0.0;
+}
+
+
+inline static void recordHit(float t, float u, float v, unsigned int tri_index, std::vector<DistanceHitInfo>& hitinfos_out)
+{
+	bool already_got_hit = false;
+	for(unsigned int z=0; z<hitinfos_out.size(); ++z)
+		if(hitinfos_out[z].sub_elem_index == tri_index)//if tri index is the same
+			already_got_hit = true;
+
+	if(!already_got_hit)
+	{
+		hitinfos_out.push_back(DistanceHitInfo(
+			tri_index,
+			Vec2d(u, v),
+			t
+			));
+	}
 }
 
 
@@ -650,13 +624,41 @@ class GetAllHitsFunctions
 public:
 	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
 		const Ray& ray,
-		Vec4* best_t,
-		Vec4* best_tri_index,
-		Vec4* best_u,
-		Vec4* best_v
+		std::vector<DistanceHitInfo>& hitinfos_out,
+		float& best_t,
+		ThreadContext& thread_context,
+		const Object* object
 		)
 	{
-		/*for(unsigned int i=0; i<num_leaf_tris; ++i)
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
+		{
+			const float* const t0 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 0]].data;
+			const float* const t1 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 1]].data;
+			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
+			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
+
+			Vec4 u, v, t, hit;
+			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
+				&u, &v, &t, &hit
+				);
+
+			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])))
+				recordHit(t.f[0], u.f[0], v.f[0], bvh.leafgeom[leaf_geom_index + 0], hitinfos_out);
+
+			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])))
+				recordHit(t.f[1], u.f[1], v.f[1], bvh.leafgeom[leaf_geom_index + 1], hitinfos_out);
+			
+			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])))
+				recordHit(t.f[2], u.f[2], v.f[2], bvh.leafgeom[leaf_geom_index + 2], hitinfos_out);
+			
+			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])))
+				recordHit(t.f[3], u.f[3], v.f[3], bvh.leafgeom[leaf_geom_index + 3], hitinfos_out);
+
+			leaf_geom_index += 4;
+		}
+
+/*
+		for(unsigned int i=0; i<num_leaf_tris; ++i)
 		{
 			float u, v, raydist;
 			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
@@ -682,6 +684,7 @@ public:
 			}
 			++leaf_geom_index;
 		}*/
+
 		return false; // Don't early out from BVHImpl::traceRay()
 	}
 };
@@ -691,7 +694,7 @@ void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreeP
 {
 	hitinfos_out.resize(0);
 
-	//BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, context, object, hitinfos_out);
+	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, context, object, hitinfos_out);
 }
 
 

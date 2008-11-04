@@ -40,6 +40,16 @@ public:
 		box[5] = b.max_.y;
 		box[8] = b.min_.z;
 		box[9] = b.max_.z;
+
+		// [l_min_x, r_min_x, l_max_x, r_max_x, l_min_y, r_min_y, l_max_y, r_max_y, l_min_z, r_min_z, l_max_z, r_max_z]
+
+		/*box[0] = b.min_.x;
+		box[2] = b.max_.x;
+		box[4] = b.min_.y;
+		box[6] = b.max_.y;
+		box[8] = b.min_.z;
+		box[10] = b.max_.z;*/
+
 	}
 	inline void setRightAABB(const AABBox& b)
 	{
@@ -49,6 +59,13 @@ public:
 		box[7] = b.max_.y;
 		box[10] = b.min_.z;
 		box[11] = b.max_.z;
+
+		/*box[1] = b.min_.x;
+		box[3] = b.max_.x;
+		box[5] = b.min_.y;
+		box[7] = b.max_.y;
+		box[9] = b.min_.z;
+		box[11] = b.max_.z;*/
 	}
 
 	inline unsigned int getLeftChildIndex() const { return left; }

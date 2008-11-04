@@ -422,12 +422,12 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			HitInfo hitinfo_;
 			const double dist_ = trees[t]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo_);
 
-			if(dist_ >= 0.0)
+			if(dist >= 0.0 || dist_ >= 0.0)
 			{
 				testAssert(::epsEqual(dist, dist_));
-				//testAssert(hitinfo == hitinfo_);
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
-				testAssert(epsEqual(hitinfo.sub_elem_coords, hitinfo_.sub_elem_coords));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, 0.0001));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, 0.0001));
 			}
 		}
 
@@ -436,7 +436,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test getAllHits()
 		//------------------------------------------------------------------------
-		/*std::vector<DistanceHitInfo> hitinfos;
+		std::vector<DistanceHitInfo> hitinfos;
 
 		trees[0]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
@@ -453,7 +453,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		// Do a check against all tris
 		std::vector<DistanceHitInfo> hitinfos_d;
 		dynamic_cast<KDTree*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
-		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred);
+		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred); // Sort hits
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_d.size());
@@ -465,36 +465,37 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		}
 
 		//------------------------------------------------------------------------
-		//test getAllHits() on BIH
+		//test getAllHits() on other trees
 		//------------------------------------------------------------------------
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
-
-			std::vector<DistanceHitInfo> hitinfos_bih;
-			trees[t]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos_bih);
-			std::sort(hitinfos_bih.begin(), hitinfos_bih.end(), distanceHitInfoComparisonPred);
+			std::vector<DistanceHitInfo> hitinfos_other;
+			trees[t]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos_other);
+			std::sort(hitinfos_other.begin(), hitinfos_other.end(), distanceHitInfoComparisonPred); // Sort hits
 
 			// Compare results
-			testAssert(hitinfos.size() == hitinfos_bih.size());
+			testAssert(hitinfos.size() == hitinfos_other.size());
 			for(unsigned int z=0; z<hitinfos.size(); ++z)
 			{
-				testAssert(hitinfos[z].dist == hitinfos_bih[z].dist);
-				testAssert(hitinfos[z].sub_elem_index == hitinfos_bih[z].sub_elem_index);
-				testAssert(hitinfos[z].sub_elem_coords == hitinfos_bih[z].sub_elem_coords);
+				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist));
+				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
+				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, 0.0001));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, 0.0001));
 			}
-		}*/
+		}
 
 		//------------------------------------------------------------------------
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
-		/*const double testlength = rng.unitRandom() * 2.0;
+		const double testlength = rng.unitRandom() * 2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 		
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 			testAssert(hit == hit_);
-		}*/
+		}
 
 		/*
 		bool bih_hit = bih_tree.doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);

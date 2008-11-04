@@ -1,0 +1,82 @@
+Alternate node AABB intersection code:
+
+
+		const __m128 orig_x = _mm_load_ps1(&ray.startPosF().x);
+		const __m128 orig_y = _mm_load_ps1(&ray.startPosF().y);
+		const __m128 orig_z = _mm_load_ps1(&ray.startPosF().z);
+
+		const __m128 invdir_x = _mm_load_ps1(&ray.getRecipRayDirF().x);
+		const __m128 invdir_y = _mm_load_ps1(&ray.getRecipRayDirF().y);
+		const __m128 invdir_z = _mm_load_ps1(&ray.getRecipRayDirF().z);
+
+		const __m128 zero = _mm_set_ps1(0.0f);
+		
+		...
+		
+		
+				float min_t_x = (min.x - orig.x) * inv_dir.x
+				float max_t_x = (max.x - orig.x) * inv_dir.x
+
+				float min_t_y = (min.y - orig.y) * inv_dir.y
+				float max_t_y = (max.y - orig.y) * inv_dir.y
+
+				float min_t_z = (min.z - orig.z) * inv_dir.z
+				float max_t_z = (max.z - orig.z) * inv_dir.z
+
+				float min_t = max(min(min_t_x, max_t_x), min_t_y, min_t_z)
+				float max_t = min(max_t_x, max_t_y, max_t_z)
+
+				bbox data:
+				[l_min_x, r_min_x, l_max_x, r_max_x, l_min_y, r_min_y, l_max_y, r_max_y, l_min_z, r_min_z, l_max_z, r_max_z]
+
+				orig_x = [orig_x, orig_x, orig_x, orig_x]
+				invdir_x = [invdir_x, invdir_x, invdir_x, invdir_x]
+				min_x = [0, 0, r_min_x, l_min_x]
+				max_x = [0, 0, r_max_x, l_max_x]
+				*/
+				const __m128 d0 = _mm_load_ps(bvh.nodes[current].box);
+				const __m128 d1 = _mm_load_ps(bvh.nodes[current].box + 4);
+				const __m128 d2 = _mm_load_ps(bvh.nodes[current].box + 8);
+
+				const __m128 min_x = _mm_shuffle_ps(d0, zero, _MM_SHUFFLE(0, 0, 1, 0));
+				const __m128 max_x = _mm_shuffle_ps(d0, zero, _MM_SHUFFLE(0, 0, 3, 2));
+
+				const __m128 min_y = _mm_shuffle_ps(d1, zero, _MM_SHUFFLE(0, 0, 1, 0));
+				const __m128 max_y = _mm_shuffle_ps(d1, zero, _MM_SHUFFLE(0, 0, 3, 2));
+
+				const __m128 min_z = _mm_shuffle_ps(d2, zero, _MM_SHUFFLE(0, 0, 1, 0));
+				const __m128 max_z = _mm_shuffle_ps(d2, zero, _MM_SHUFFLE(0, 0, 3, 2));
+
+				const __m128 min_t_x_ = _mm_mul_ps(_mm_sub_ps(min_x, orig_x), invdir_x);
+				const __m128 max_t_x_ = _mm_mul_ps(_mm_sub_ps(max_x, orig_x), invdir_x);
+
+				const __m128 min_t_x = _mm_min_ps(min_t_x_, max_t_x_);
+				const __m128 max_t_x = _mm_max_ps(min_t_x_, max_t_x_);
+
+				const __m128 min_t_y_ = _mm_mul_ps(_mm_sub_ps(min_y, orig_y), invdir_y);
+				const __m128 max_t_y_ = _mm_mul_ps(_mm_sub_ps(max_y, orig_y), invdir_y);
+
+				const __m128 min_t_y = _mm_min_ps(min_t_y_, max_t_y_);
+				const __m128 max_t_y = _mm_max_ps(min_t_y_, max_t_y_);
+
+				const __m128 min_t_z_ = _mm_mul_ps(_mm_sub_ps(min_z, orig_z), invdir_z);
+				const __m128 max_t_z_ = _mm_mul_ps(_mm_sub_ps(max_z, orig_z), invdir_z);
+
+				const __m128 min_t_z = _mm_min_ps(min_t_z_, max_t_z_);
+				const __m128 max_t_z = _mm_max_ps(min_t_z_, max_t_z_);
+
+				const __m128 min_t = _mm_max_ps(min_t_x, _mm_max_ps(min_t_y, min_t_z));
+				const __m128 max_t = _mm_min_ps(max_t_x, _mm_min_ps(max_t_y, max_t_z));
+
+				const __m128 l_min_t = _mm_shuffle_ps(min_t, min_t, _MM_SHUFFLE(0, 0, 0, 0));
+				const __m128 r_min_t = _mm_shuffle_ps(min_t, min_t, _MM_SHUFFLE(1, 1, 1, 1));
+				const __m128 l_max_t = _mm_shuffle_ps(max_t, max_t, _MM_SHUFFLE(0, 0, 0, 0));
+				const __m128 r_max_t = _mm_shuffle_ps(max_t, max_t, _MM_SHUFFLE(1, 1, 1, 1));
+
+				// Take the intersection of the current ray interval and the ray/BB interval
+				const __m128 left_near_t = _mm_max_ss(l_min_t, tmin);
+				const __m128 left_far_t = _mm_min_ss(l_max_t, tmax);
+
+				// Take the intersection of the current ray interval and the ray/BB interval
+				const __m128 right_near_t = _mm_max_ss(r_min_t, tmin);
+				const __m128 right_far_t = _mm_min_ss(r_max_t, tmax);
