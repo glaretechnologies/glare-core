@@ -45,14 +45,14 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 		Texture* texture = new Texture();
 		if(raster != NULL)
 		{
-			if(TIFFReadRGBAImage(tif, w, h, (uint32*)raster, 0))
+			if(TIFFReadRGBAImage(tif, w, h, (uint32*)raster, 0) != 0)
 			{
 				if(samples_per_pixel == 1)
 				{
 					texture->resize(w, h, samples_per_pixel);
 					for(unsigned int y=0; y<h; ++y)
 						for(unsigned int x=0; x<w; ++x)
-							texture->setPixelComp(x, y, 0, raster[((y * w) + x) * 4]);
+							texture->setPixelComp(x, y, 0, raster[(((h - y - 1) * w) + x) * 4]);
 				}
 				else
 				{
@@ -61,12 +61,21 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 					for(unsigned int y=0; y<h; ++y)
 						for(unsigned int x=0; x<w; ++x)
 							for(unsigned int c=0; c<3; ++c)
-								texture->setPixelComp(x, y, c, raster[((y * w) + x) * 4 + c]);
+								texture->setPixelComp(x, y, c, raster[(((h - y - 1) * w) + x) * 4 + c]);
 				}
 
 			}
+			else
+			{
+				_TIFFfree((uint32*)raster);
+				throw ImFormatExcep("Failed to read RGBA data from TIFF file.");
+			}
+
 			_TIFFfree((uint32*)raster);
 		}
+		else
+			throw ImFormatExcep("Failed to alloc memory while reading from TIFF file.");
+
 		TIFFClose(tif);
 
 		return Reference<Map2D>(texture);

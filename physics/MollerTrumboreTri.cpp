@@ -11,18 +11,6 @@ namespace js
 {
 
 
-MollerTrumboreTri::MollerTrumboreTri()
-{
-	
-}
-
-
-MollerTrumboreTri::~MollerTrumboreTri()
-{
-	
-}
-
-
 void MollerTrumboreTri::set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
 {
 	const Vec3f e1 = v1 - v0;
@@ -59,4 +47,3 @@ void MollerTrumboreTri::set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
 
 
 } //end namespace js
-

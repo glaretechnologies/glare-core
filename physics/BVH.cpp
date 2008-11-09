@@ -236,9 +236,6 @@ void BVH::build()
 
 void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris)
 {
-	if(myMax(right - left, 0) > (int)BVHNode::maxNumGeom())
-		throw TreeExcep("Build failure, too many tris in leaf.");
-
 	// 8 => 8
 	// 7 => 8
 	// 6 => 8
@@ -251,6 +248,9 @@ void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int c
 
 	assert(num_tris + num_padding == num_tris_rounded_up);
 	assert(num_tris_rounded_up % 4 == 0);
+
+	if(num_4tris > (int)BVHNode::maxNumGeom())
+		throw TreeExcep("BVH Build failure, too many triangles in leaf.");
 
 	if(child_index == 0)
 	{
@@ -323,12 +323,19 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 	// Compute non-split cost
 	float smallest_cost = (float)(right - left) * intersection_cost;
 
-	float axis_smallest_cost[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
-	float axis_best_div_val[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
+	//float axis_smallest_cost[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
+	//float axis_best_div_val[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
+
+	int best_N_L = -1;
+	int best_axis = -1;
+	float best_div_val;
+	
 
 	// for each axis 0..2
 	for(unsigned int axis=0; axis<3; ++axis)
 	{
+		float last_split_val = -std::numeric_limits<float>::infinity();
+
 		const std::vector<TRI_INDEX>& axis_tris = tris[axis];
 
 		// SAH stuff
@@ -341,39 +348,44 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 		for(int i=left; i<right; ++i)
 		{
 			const float splitval = tri_centers[axis_tris[i]][axis];//triCenter(tris[axis][i], axis);
-
-			// Compute the SAH cost at the centroid position
-			const int N_L = (i - left) + 1;
-			const int N_R = (right - left) - N_L;
-
-			//assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
-
-			// Compute SAH cost
-			const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
-			const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
-
-			const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
-						recip_aabb_surf_area * intersection_cost;
-
-			if(cost < axis_smallest_cost[axis])
+			if(splitval != last_split_val) // If this is the first such split position seen.
 			{
-				axis_smallest_cost[axis] = cost;
-				//best_axis = axis;
-				axis_best_div_val[axis] = splitval;
-				//best_i = i;
+				// Compute the SAH cost at the centroid position
+				const int N_L = (i - left);// + 1;
+				const int N_R = (right - left) - N_L;
+
+				//assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
+
+				// Compute SAH cost
+				const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
+
+				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
+							recip_aabb_surf_area * intersection_cost;
+
+				if(cost < smallest_cost) // axis_smallest_cost[axis])
+				{
+					best_N_L = N_L;
+					smallest_cost = cost;
+					//axis_smallest_cost[axis] = cost;
+					best_axis = axis;
+					//axis_best_div_val[axis] = splitval;
+					//best_i = i;
+					best_div_val = splitval;
+				}
+				last_split_val = splitval;
 			}
 		}
 	}
 
-	int best_axis = -1;
-	float best_div_val;
-	for(int axis=0; axis<3; ++axis)
+	
+	/*for(int axis=0; axis<3; ++axis)
 		if(axis_smallest_cost[axis] < smallest_cost)
 		{
 			smallest_cost = axis_smallest_cost[axis];
 			best_axis = axis;
 			best_div_val = axis_best_div_val[axis];
-		}
+		}*/
 
 	if(best_axis == -1)
 	{
@@ -398,7 +410,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 		for(int i=left; i<right; ++i)
 		{
-			if(tri_centers[axis_tris[i]][best_axis]/*triCenter(tris[axis][i], best_axis)*/ <= best_div_val) // If on Left side
+			if(tri_centers[axis_tris[i]][best_axis]/*triCenter(tris[axis][i], best_axis)*/ < best_div_val) // If on Left side
 				temp[0][num_left_tris++] = axis_tris[i];
 			else // else if on Right side
 				temp[1][num_right_tris++] = axis_tris[i];
@@ -414,6 +426,10 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 		split_i = left + num_left_tris;
 		assert(split_i >= left && split_i <= right);
+		assert(num_left_tris == best_N_L);
+
+		//if(num_left_tris == 0 || num_left_tris == right - left)
+			//conPrint("Warning, all tris went left or right.");
 	}
 
 
@@ -656,34 +672,6 @@ public:
 
 			leaf_geom_index += 4;
 		}
-
-/*
-		for(unsigned int i=0; i<num_leaf_tris; ++i)
-		{
-			float u, v, raydist;
-			if(bvh.intersect_tris[leaf_geom_index].rayIntersect(ray, closest_dist, raydist, u, v))
-			{
-				// Check to see if we have already recorded the hit against this triangle (while traversing another leaf volume)
-				// NOTE that this is a slow linear time check, but N should be small, hopefully :)
-				bool already_got_hit = false;
-				for(unsigned int z=0; z<hitinfos_out.size(); ++z)
-					if(hitinfos_out[z].sub_elem_index == bvh.original_tri_index[leaf_geom_index])//if tri index is the same
-						already_got_hit = true;
-
-				if(!already_got_hit)
-				{
-					//if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
-					//{
-						hitinfos_out.push_back(DistanceHitInfo(
-							bvh.original_tri_index[leaf_geom_index],
-							Vec2d(u, v),
-							raydist
-							));
-					//}
-				}
-			}
-			++leaf_geom_index;
-		}*/
 
 		return false; // Don't early out from BVHImpl::traceRay()
 	}

@@ -685,7 +685,7 @@ void TreeTest::doTests()
 
 
 
-void TreeTest::doSpeedTest()
+void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply";
 	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
@@ -705,7 +705,11 @@ void TreeTest::doSpeedTest()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
-	settings.bih_tri_threshold = 0;
+	if(treetype == 0)
+		settings.bih_tri_threshold = 100000000;
+	else
+		settings.bih_tri_threshold = 0;
+
 	raymesh.build(
 		".", // base indigo dir path
 		settings

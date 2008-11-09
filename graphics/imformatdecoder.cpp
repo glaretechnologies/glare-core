@@ -52,10 +52,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws
 	{
 		return PNGDecoder::decode(path);
 	}
-	/*else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
+	else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
 	{
 		return TIFFDecoder::decode(path);
-	}*/
+	}
 	else if(hasExtension(path, "exr"))
 	{
 		return EXRDecoder::decode(path);

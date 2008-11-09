@@ -423,6 +423,13 @@ inline void myAlignedFree(void* mem)
 }*/
 
 
+typedef union {
+	__m128 v;
+	float f[4];
+	unsigned int i[4];
+} Vec4;
+
+
 void SSETest();
 
 #endif //__SSE_H_666_
