@@ -6,8 +6,9 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "MessageableThread.h"
 
-#include "ThreadManager.h"
 
+#include "ThreadManager.h"
+#include "../utils/KillThreadMessage.h"
 
 
 MessageableThread::MessageableThread()
@@ -34,4 +35,19 @@ void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<Threa
 }
 
 
+bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMessage was in the queue.
+{
+	bool found_kill_thread_message = false;
+	
+	Lock lock(getMessageQueue().getMutex());
+		
+	while(!getMessageQueue().empty())
+	{
+		ThreadMessage* message;
+		getMessageQueue().dequeue(message);
+		found_kill_thread_message = found_kill_thread_message || dynamic_cast<KillThreadMessage*>(message) != NULL;
+		delete message;
+	}
 
+	return found_kill_thread_message;
+}

@@ -29,17 +29,8 @@ public:
 
 	virtual ~KillThreadMessage();
 
-
 	virtual ThreadMessage* clone() const { return new KillThreadMessage(); }
-
-
-
 };
 
 
-
 #endif //__KILLTHREADMESSAGE_H_666_
-
-
-
-
