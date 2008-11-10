@@ -29,7 +29,7 @@ const int SOCKET_ERROR = -1;
 
 Networking::Networking()
 {
-	sockets_shut_down = false;
+	//sockets_shut_down = false;
 
 //	used_ipaddr_determined = false;
 
@@ -302,7 +302,7 @@ const std::string Networking::doReverseDNSLookup(const IPAddress& ipaddress) // 
 	return hostaddr->h_name;
 }
 
-void Networking::makeSocketsShutDown()
+/*void Networking::makeSocketsShutDown()
 {
 	sockets_shut_down = true;
 }
@@ -310,7 +310,7 @@ void Networking::makeSocketsShutDown()
 bool Networking::shouldSocketsShutDown() const
 {
 	return sockets_shut_down;
-}
+}*/
 
 
 /*void Networking::createInstance(Networking* newinstance)

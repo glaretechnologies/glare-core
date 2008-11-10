@@ -87,11 +87,11 @@ public:
 	//returns descriptive string of last (WSA) networking error
 	static const std::string getError();
 
-	void makeSocketsShutDown();
-	bool shouldSocketsShutDown() const;
+	//void makeSocketsShutDown();
+	//bool shouldSocketsShutDown() const;
 
 private:
-	bool sockets_shut_down;
+	//bool sockets_shut_down;
 	//static Networking* instance;
 
 	//IPAddress used_ipaddr;

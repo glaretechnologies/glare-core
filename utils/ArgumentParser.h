@@ -61,6 +61,7 @@ public:
 	
 	=====================================================================*/
 	ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax);
+	ArgumentParser(){}
 
 	~ArgumentParser();
 
@@ -72,8 +73,14 @@ public:
 	double getArgDoubleValue(const std::string& name, unsigned int value_index = 0) const;
 
 	const std::string getUnnamedArg() const { return unnamed_arg; }
+	void setUnnamedArg(const std::string& s) { unnamed_arg = s; }
 
 	const std::vector<std::string>& getArgs() const { return args; }
+
+	void setArg(const std::string& name, const std::vector<ParsedArg>& args_) { parsed_args[name] = args_; }
+
+	const std::vector<std::string>& getOriginalArgs() const { return args; }
+	const std::string getOriginalArgsAsString() const;
 
 private:
 	std::vector<std::string> args;

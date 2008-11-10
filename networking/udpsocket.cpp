@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "packet.h"
 #include <assert.h>
 #include "../utils/lock.h"
-#include "../utils/inifile.h"
+//#include "../utils/inifile.h"
 #include "../utils/stringutils.h"
 
 #if defined(WIN32) || defined(WIN64)

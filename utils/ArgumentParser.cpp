@@ -139,5 +139,8 @@ double ArgumentParser::getArgDoubleValue(const std::string& name, unsigned int v
 }
 
 
-
+const std::string ArgumentParser::getOriginalArgsAsString() const
+{
+	return StringUtils::join(getOriginalArgs(), " ");
+}
 

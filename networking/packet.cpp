@@ -171,7 +171,7 @@ void Packet::readTo(unsigned short& x)
 	readTo(vec.z);
 }*/
 
-void Packet::readTo(std::string& s, unsigned int maxlength)
+void Packet::readTo(std::string& s, int maxlength)
 {
 	/*std::vector<char> buffer(1000);
 

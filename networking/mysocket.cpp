@@ -59,8 +59,8 @@ MySocket::MySocket(const std::string hostname, int port)
 		throw MySocketExcep("Networking not inited or destroyed.");
 
 //#ifdef CYBERSPACE
-	if(Networking::getInstance().shouldSocketsShutDown())
-		throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+	//if(Networking::getInstance().shouldSocketsShutDown())
+	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 //#endif
 
 
@@ -307,7 +307,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 
 
 
-void MySocket::acceptConnection(MySocket& new_socket) // throw (MySocketExcep)
+void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
 
@@ -323,8 +323,10 @@ void MySocket::acceptConnection(MySocket& new_socket) // throw (MySocketExcep)
 		fd_set sockset;
 		initFDSetWithSocket(sockset, sockethandle);
 	
-		if(Networking::getInstance().shouldSocketsShutDown())
-			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		//if(Networking::getInstance().shouldSocketsShutDown())
+		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+			throw AbortedMySocketExcep();
 
 		const int num_ready = select(
 			sockethandle + SOCKETHANDLE_TYPE(1), // nfds: range of file descriptors to test
@@ -336,8 +338,8 @@ void MySocket::acceptConnection(MySocket& new_socket) // throw (MySocketExcep)
 
 		//std::cout << "MySocket::acceptConnection(): num_ready: " << num_ready << std::endl;
 
-		if(Networking::getInstance().shouldSocketsShutDown())
-			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		if(should_abort_callback && should_abort_callback->shouldAbort()) // Networking::getInstance().shouldSocketsShutDown())
+			throw AbortedMySocketExcep(); // ::Networking::shouldSocketsShutDown() == true");
 
 		if(num_ready != 0)
 			break;
@@ -472,12 +474,12 @@ void MySocket::close()
 const int USE_BUFFERSIZE = 1024;
 
 
-void MySocket::write(const void* data, int datalen)
+void MySocket::write(const void* data, int datalen, SocketShouldAbortCallback* should_abort_callback)
 {	
-	write(data, datalen, NULL);
+	write(data, datalen, NULL, should_abort_callback);
 }
 
-void MySocket::write(const void* data, int datalen, FractionListener* frac)
+void MySocket::write(const void* data, int datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 	const int totalnumbytestowrite = datalen;
 	
@@ -499,14 +501,18 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac)
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
-			if(Networking::getInstance().shouldSocketsShutDown())
-				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			//if(Networking::getInstance().shouldSocketsShutDown())
+			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+				throw AbortedMySocketExcep();
 
 			//get number of handles that are ready to write to
 			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &sockset, NULL, &wait_period);
 
-			if(Networking::getInstance().shouldSocketsShutDown())
-				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			//if(Networking::getInstance().shouldSocketsShutDown())
+			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+				throw AbortedMySocketExcep();
 
 			if(num_ready != 0)
 				break;
@@ -547,19 +553,19 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac)
 			Sleep(sleep_time);
 		}*/
 
-		if(Networking::getInstance().shouldSocketsShutDown())
-			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		//if(Networking::getInstance().shouldSocketsShutDown())
+		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 	}
 }
 
 
-
-void MySocket::readTo(void* buffer, int readlen)
+void MySocket::readTo(void* buffer, int readlen, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(buffer, readlen, NULL);
+	readTo(buffer, readlen, NULL, should_abort_callback);
 }
 
-void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
+
+void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 	const int totalnumbytestoread = readlen;
 
@@ -582,14 +588,18 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
-			if(Networking::getInstance().shouldSocketsShutDown())
-				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			//if(Networking::getInstance().shouldSocketsShutDown())
+			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+				throw AbortedMySocketExcep();
 	
 			//get number of handles that are ready to read from
 			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
 
-			if(Networking::getInstance().shouldSocketsShutDown())
-				throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			//if(Networking::getInstance().shouldSocketsShutDown())
+			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+				throw AbortedMySocketExcep();
 
 			if(num_ready != 0)
 				break;
@@ -611,8 +621,10 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
 
-		if(Networking::getInstance().shouldSocketsShutDown())
-			throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		//if(Networking::getInstance().shouldSocketsShutDown())
+		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+			throw AbortedMySocketExcep();
 	}
 }
 
@@ -663,39 +675,39 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac)
 
 
 
-void MySocket::write(float x)
+void MySocket::write(float x, SocketShouldAbortCallback* should_abort_callback)
 {
 	*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
 
-	write(&x, sizeof(float));
+	write(&x, sizeof(float), should_abort_callback);
 }
 
-void MySocket::write(int x)
+void MySocket::write(int x, SocketShouldAbortCallback* should_abort_callback)
 {
 	*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
 
-	write(&x, sizeof(int));
+	write(&x, sizeof(int), should_abort_callback);
 }
 
-void MySocket::write(char x)
+void MySocket::write(char x, SocketShouldAbortCallback* should_abort_callback)
 {
-	write(&x, sizeof(char));
+	write(&x, sizeof(char), should_abort_callback);
 }	
 
-void MySocket::write(unsigned char x)
+void MySocket::write(unsigned char x, SocketShouldAbortCallback* should_abort_callback)
 {
-	write(&x, sizeof(unsigned char));
+	write(&x, sizeof(unsigned char), should_abort_callback);
 }
 
-void MySocket::write(const std::string& s) // writes string
+void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // writes string
 {
 	//write(s.c_str(), s.size() + 1);
 	
 	// Write length of string
-	write((int)s.length());
+	write((int)s.length(), should_abort_callback);
 
 	// Write string data
-	write(&(*s.begin()), s.length());
+	write(&(*s.begin()), s.length(), should_abort_callback);
 }
 
 /*
@@ -706,11 +718,11 @@ void MySocket::write(const Vec3& vec)
 	write(vec.z);
 }*/
 
-void MySocket::write(unsigned short x)
+void MySocket::write(unsigned short x, SocketShouldAbortCallback* should_abort_callback)
 {
 	x = htons(x);//convert to network byte ordering
 
-	write(&x, sizeof(unsigned short));
+	write(&x, sizeof(unsigned short), should_abort_callback);
 }
 
 
@@ -743,32 +755,32 @@ char MySocket::readChar()
 }*/
 
 
-void MySocket::readTo(float& x)
+void MySocket::readTo(float& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(float));
+	readTo(&x, sizeof(float), should_abort_callback);
 
 	*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
 }
 
-void MySocket::readTo(int& x)
+void MySocket::readTo(int& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(int));
+	readTo(&x, sizeof(int), should_abort_callback);
 	*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
 }
 
-void MySocket::readTo(char& x)
+void MySocket::readTo(char& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(char));
+	readTo(&x, sizeof(char), should_abort_callback);
 }
 
-void MySocket::readTo(unsigned char& x)
+void MySocket::readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(unsigned char));
+	readTo(&x, sizeof(unsigned char), should_abort_callback);
 }
 
-void MySocket::readTo(unsigned short& x)
+void MySocket::readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(unsigned short));
+	readTo(&x, sizeof(unsigned short), should_abort_callback);
 	x = ntohs(x);//convert from network to host byte ordering
 }
 
@@ -780,7 +792,7 @@ void MySocket::readTo(Vec3& vec)
 	readTo(vec.z);
 }
 */
-void MySocket::readTo(std::string& s, unsigned int maxlength)
+void MySocket::readTo(std::string& s, int maxlength, SocketShouldAbortCallback* should_abort_callback)
 {
 	/*std::vector<char> buffer(1000);
 
@@ -801,23 +813,23 @@ void MySocket::readTo(std::string& s, unsigned int maxlength)
 
 	// Read length
 	int length;
-	readTo(length);
+	readTo(length, should_abort_callback);
 	if(length < 0 || length > maxlength)
 		throw MySocketExcep("String was too long.");
 	//std::vector<char> buffer(length);
 	//readTo(buffer
 
 	s.resize(length);
-	readTo(&(*s.begin()), length, NULL);
+	readTo(&(*s.begin()), length, NULL, should_abort_callback);
 }
 
-void MySocket::readTo(std::string& x, int numchars, FractionListener* frac)
+void MySocket::readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 //	x.clear();
 	assert(numchars >= 0);
 
 	x.resize(numchars);
-	readTo(&(*x.begin()), numchars, frac);
+	readTo(&(*x.begin()), numchars, frac, should_abort_callback);
 }
 
 //-----------------------------------------------------------------
@@ -854,14 +866,14 @@ void MySocket::pollRead(std::string& data_out)
 	fd_set sockset;
 	initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
 		
-	if(Networking::getInstance().shouldSocketsShutDown())
-		throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+	//if(Networking::getInstance().shouldSocketsShutDown())
+	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
 	//get number of handles that are ready to read from
 	const int num_ready = select(sockethandle+1, &sockset, NULL, NULL, &wait_period);
 
-	if(Networking::getInstance().shouldSocketsShutDown())
-		throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
+	//if(Networking::getInstance().shouldSocketsShutDown())
+	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
 	if(num_ready == 0)
 		return;

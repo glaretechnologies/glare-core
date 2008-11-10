@@ -7,7 +7,6 @@ Code By Nicholas Chapman.
 #include "TestUtils.h"
 
 
-
 #include "globals.h"
 #include "../utils/stringutils.h"
 
@@ -21,23 +20,3 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 		exit(0);
 	}
 }
-
-
-
-/*
-TestUtils::TestUtils()
-{
-	
-}
-
-
-TestUtils::~TestUtils()
-{
-	
-}
-
-*/
-
-
-
-

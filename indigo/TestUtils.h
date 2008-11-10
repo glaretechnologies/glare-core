@@ -10,29 +10,7 @@ Code By Nicholas Chapman.
 
 #define testAssert(expr) (doTestAssert((expr), (#expr), (__LINE__), (__FILE__)))
 
-
 void doTestAssert(bool expr, const char* test, long line, const char* file);
 
 
-
-/*=====================================================================
-TestUtils
----------
-
-=====================================================================*/
-/*class TestUtils
-{
-public:
-
-	TestUtils();
-
-	~TestUtils();
-};*/
-
-
-
 #endif //__TESTUTILS_H_666_
-
-
-
-

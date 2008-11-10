@@ -41,6 +41,21 @@ private:
 };
 
 
+class AbortedMySocketExcep : public MySocketExcep
+{
+public:
+	AbortedMySocketExcep() : MySocketExcep("Aborted.") {}
+};
+
+
+class SocketShouldAbortCallback
+{
+public:
+	virtual ~SocketShouldAbortCallback(){}
+
+	virtual bool shouldAbort() = 0;
+};
+
 
 /*=====================================================================
 MySocket
@@ -51,7 +66,7 @@ Does both client and server sockets.
 NOTE: fix exceptions
 NOTE: handle copy semantics
 =====================================================================*/
-class MySocket : public MyStream
+class MySocket// : public MyStream
 {
 public:
 	/*=====================================================================
@@ -68,44 +83,45 @@ public:
 	void bindAndListen(int port);// throw (MySocketExcep);
 
 
-	void acceptConnection(MySocket& new_socket);// throw (MySocketExcep);
+	void acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback);// throw (MySocketExcep);
 
 	void close();
 
 	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
 	int getThisEndPort() const { return thisend_port; }
+	int getOtherEndPort() const { return otherend_port; }
 
 
-	virtual void write(float x);
-	virtual void write(int x);
-	virtual void write(unsigned short x);
-	virtual void write(char x);
-	virtual void write(unsigned char x);
+	virtual void write(float x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void write(int x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void write(unsigned short x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void write(char x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void write(unsigned char x, SocketShouldAbortCallback* should_abort_callback);
 	//virtual void write(const Vec3& vec);
-	virtual void write(const std::string& s); // Writes string
+	virtual void write(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Writes string
 
 	//-----------------------------------------------------------------
 	//if u use this directly u must do host->network and vice versa byte reordering yourself
 	//-----------------------------------------------------------------
-	virtual void write(const void* data, int numbytes);
-	void write(const void* data, int numbytes, FractionListener* frac);
+	virtual void write(const void* data, int numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void write(const void* data, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
 	//virtual float readFloat();
 	//virtual int readInt();
 	//virtual char readChar();
 	//virtual const Vec3 readVec3();
 
-	virtual void readTo(float& x);
-	virtual void readTo(int& x);
-	virtual void readTo(unsigned short& x);
-	virtual void readTo(char& x);
-	virtual void readTo(unsigned char& x);
+	virtual void readTo(float& x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void readTo(int& x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void readTo(char& x, SocketShouldAbortCallback* should_abort_callback);
+	virtual void readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback);
 	//virtual void readTo(Vec3& x);
-	virtual void readTo(std::string& x, unsigned int maxlength); // read string, of up to maxlength chars
-	virtual void readTo(void* buffer, int numbytes);
-	void readTo(void* buffer, int numbytes, FractionListener* frac);
+	virtual void readTo(std::string& x, int maxlength, SocketShouldAbortCallback* should_abort_callback); // read string, of up to maxlength chars
+	virtual void readTo(void* buffer, int numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(void* buffer, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
-	void readTo(std::string& x, int numchars, FractionListener* frac);
+	void readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
 	void pollRead(std::string& data_out);//non blocking, returns currently
 	//queued incoming data up to some arbitrary limit such as 1024 bytes.
