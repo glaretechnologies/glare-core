@@ -29,12 +29,21 @@ void Maths::test()
 	testAssert(!posUnderflowed(1.0));
 	testAssert(!posUnderflowed(0.0));
 
+	testAssert(posFloorToInt(0.5) == 0);
+	testAssert(posFloorToInt(0.0) == 0);
+	testAssert(posFloorToInt(1.0) == 1);
+	testAssert(posFloorToInt(1.1) == 1);
+	testAssert(posFloorToInt(1.99999) == 1);
+	testAssert(posFloorToInt(2.0) == 2);
+
+	testAssert(floorToInt(-0.5) == -1);
 	testAssert(floorToInt(0.5) == 0);
-	testAssert(floorToInt(0.0) == 0);
-	testAssert(floorToInt(1.0) == 1);
-	testAssert(floorToInt(1.1) == 1);
-	testAssert(floorToInt(1.99999) == 1);
-	testAssert(floorToInt(2.0) == 2);
+	testAssert(floorToInt(-0.0) == 0);
+	testAssert(floorToInt(-1.0) == -1);
+	testAssert(floorToInt(-1.1) == -2);
+	testAssert(floorToInt(-1.99999) == -2);
+	testAssert(floorToInt(-2.0) == -2);
+	testAssert(floorToInt(2.1) == 2);
 
 	testAssert(epsEqual(tanForCos(0.2), tan(acos(0.2))));
 

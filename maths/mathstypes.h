@@ -44,7 +44,7 @@ const double NICKMATHS_RECIP_PI = 1.0 / NICKMATHS_PI;
 const double NICKMATHS_RECIP_2PI = 1.0 / NICKMATHS_2PI;
 const double NICKMATHS_RECIP_4PI = 1.0 / NICKMATHS_4PI;
 
-//natural log of 2
+// Natural log of 2
 const double LN_2 = 0.69314718055994530941723212145818;
 
 
@@ -129,11 +129,12 @@ inline T myClamp(T x, T lowerbound, T upperbound)
 {
 	assert(lowerbound <= upperbound);
 
-	if(x < lowerbound)
+	/*if(x < lowerbound)
 		return lowerbound;
 	else if(x > upperbound)
 		return upperbound;
-	return x;
+	return x;*/
+	return x < lowerbound ? lowerbound : (x > upperbound ? upperbound : x);
 }
 
 inline float absClamp(float x, float upperbound)
@@ -318,17 +319,30 @@ inline bool posOverflowed(double x)
 
 
 // These are only correct for positive reals
-inline int floorToInt(float x)
+inline int posFloorToInt(float x)
 {
 	assert(x >= 0.0f);
 	return (int)x;
 }
 
 
-inline int floorToInt(double x)
+inline int posFloorToInt(double x)
 {
 	assert(x >= 0.0);
 	return (int)x;
+}
+
+
+// NOTE: this may fail due to some floating point numbers not being expressible in ints
+inline int floorToInt(float x)
+{
+	return (int)floor(x);
+}
+
+
+inline int floorToInt(double x)
+{
+	return (int)floor(x);
 }
 
 
