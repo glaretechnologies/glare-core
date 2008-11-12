@@ -8,10 +8,10 @@ Code By Nicholas Chapman.
 #define __TEXTDRAWER_H_666_
 
 
-
 #include <string>
 #include <vector>
 #include "image.h"
+
 
 class TextDrawerExcep
 {
@@ -52,9 +52,4 @@ private:
 };
 
 
-
 #endif //__TEXTDRAWER_H_666_
-
-
-
-

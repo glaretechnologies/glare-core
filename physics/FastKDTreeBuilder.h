@@ -39,7 +39,7 @@ public:
 	~FastKDTreeBuilder();
 
 
-	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out);
+	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out);
 
 
 private:
@@ -53,7 +53,7 @@ private:
 		unsigned int depth,
 		unsigned int maxdepth,
 		KDTree::NODE_VECTOR_TYPE& nodes_out, 
-		js::Vector<KDTree::TRI_INDEX>& leaf_tri_indices_out);
+		js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out);
 
 };
 

@@ -12,19 +12,19 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"//TEMP
 #include "stringutils.h"//TEMP
 #include <malloc.h>
+#include "../maths/SSE.h"
+
 
 namespace js
 {
-
-//#define JS_VEC_ALIGNMENT 1
 
 
 /*=====================================================================
 Vector
 ------
-
+Similar to std::vector, but aligns the elements.
 =====================================================================*/
-template <class T>
+template <class T, int alignment>
 class Vector
 {
 public:
@@ -33,7 +33,7 @@ public:
 
 	inline Vector& operator=(const Vector& other);
 
-	inline void reserve(unsigned int N); // make sure capacity is at least N
+	inline void reserve(unsigned int N); // Make sure capacity is at least N.
 	inline void resize(unsigned int N);
 	inline unsigned int capacity() const { return capacity_; }
 	inline unsigned int size() const;
@@ -46,53 +46,43 @@ public:
 	inline T& operator[](unsigned int index);
 	inline const T& operator[](unsigned int index) const;
 
-	void setAlignment(unsigned int a);
-
 private:
 	Vector(const Vector& other);
 	
-
-	static inline void copy(T* src, T* dst, unsigned int num);
+	static inline void copy(const T* const src, T* dst, unsigned int num);
 
 	T* e;
 	unsigned int size_;
 	unsigned int capacity_;
-	unsigned int alignment_;
 };
 
 
-template <class T>
-Vector<T>::Vector()
+template <class T, int alignment>
+Vector<T, alignment>::Vector()
 :	e(0),
 	size_(0),
-	capacity_(0),
-	alignment_(4)
+	capacity_(0)
 {
-	//assert(alignment_in > 0);
 }
 
-template <class T>
-Vector<T>::~Vector()
+
+template <class T, int alignment>
+Vector<T, alignment>::~Vector()
 {
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
 
-#ifdef JS_VEC_ALIGNMENT
-	_aligned_free(e);
-#else
-	delete[] e;
-#endif
+	SSE::alignedFree(e);
 }
 
-template <class T>
-Vector<T>& Vector<T>::operator=(const Vector& other)
+
+template <class T, int alignment>
+Vector<T, alignment>& Vector<T, alignment>::operator=(const Vector& other)
 {
 	assert(capacity_ >= size_);
 	
 	if(this == &other)
 		return *this;
-
-	alignment_ = other.alignment_;
 
 	resize(other.size());
 	assert(size() == other.size());
@@ -106,32 +96,24 @@ Vector<T>& Vector<T>::operator=(const Vector& other)
 }
 
 
-template <class T>
-void Vector<T>::reserve(unsigned int n)
+template <class T, int alignment>
+void Vector<T, alignment>::reserve(unsigned int n)
 {
 	assert(capacity_ >= size_);
 
-	if(n > capacity_) //if need to expand capacity
+	if(n > capacity_) // If need to expand capacity
 	{
-		//conPrint("Vector<T>::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");//TEMP
-		//T* new_e = new(_aligned_malloc(sizeof(T) * n, alignment_)) T[n];
-		//NOTE: bother constructing these objects?
-#ifdef JS_VEC_ALIGNMENT
-		T* new_e = static_cast<T*>(_aligned_malloc(sizeof(T) * n, alignment_));
-#else
-		T* new_e = new T[n];
-#endif
+		//conPrint("Vector<T>::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+		
+		// NOTE: bother constructing these objects?
+		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
 		
 		if(e)
 		{
 			copy(e, new_e, size_); //copy existing data to new buffer
 
-			//conPrint("Vector<T>::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");//TEMP
-#ifdef JS_VEC_ALIGNMENT
-			_aligned_free(e); //free old buffer
-#else
-			delete[] e;
-#endif
+			//conPrint("Vector<T>::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+			SSE::alignedFree(e); // Free old buffer.
 		}
 		e = new_e;
 		capacity_ = n;
@@ -141,8 +123,9 @@ void Vector<T>::reserve(unsigned int n)
 	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-void Vector<T>::resize(unsigned int n)
+
+template <class T, int alignment>
+void Vector<T, alignment>::resize(unsigned int n)
 {
 	assert(capacity_ >= size_);
 
@@ -153,24 +136,27 @@ void Vector<T>::resize(unsigned int n)
 	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-unsigned int Vector<T>::size() const
+
+template <class T, int alignment>
+unsigned int Vector<T, alignment>::size() const
 {
 	return size_;
 }
 
-template <class T>
-bool Vector<T>::empty() const
+
+template <class T, int alignment>
+bool Vector<T, alignment>::empty() const
 {
 	return size_ == 0;
 }
 
-template <class T>
-void Vector<T>::push_back(const T& t)
+
+template <class T, int alignment>
+void Vector<T, alignment>::push_back(const T& t)
 {
 	assert(capacity_ >= size_);
 
-	if(size_ >= capacity_)//if next write would exceed capacity
+	if(size_ >= capacity_) // If next write would exceed capacity
 	{
 		const unsigned int ideal_newcapacity = size_ + size_ / 2; // current size * 1.5
 		const unsigned int newcapacity = ideal_newcapacity > (size_ + 1) ? ideal_newcapacity : (size_ + 1); //(size_ + 1) * 2;
@@ -184,8 +170,9 @@ void Vector<T>::push_back(const T& t)
 	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-void Vector<T>::pop_back()
+
+template <class T, int alignment>
+void Vector<T, alignment>::pop_back()
 {
 	assert(capacity_ >= size_);
 	assert(size_ >= 1);
@@ -197,32 +184,29 @@ void Vector<T>::pop_back()
 	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-const T& Vector<T>::back() const
+
+template <class T, int alignment>
+const T& Vector<T, alignment>::back() const
 {
 	assert(capacity_ >= size_);
 	assert(size_ >= 1);
 
 	return e[size_-1];
-
-	assert(capacity_ >= size_);
-	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-T& Vector<T>::back()
+
+template <class T, int alignment>
+T& Vector<T, alignment>::back()
 {
 	assert(size_ >= 1);
 	assert(capacity_ >= size_);
 
 	return e[size_-1];
-
-	assert(capacity_ >= size_);
-	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-void Vector<T>::copy(T* src, T* dst, unsigned int num)
+
+template <class T, int alignment>
+void Vector<T, alignment>::copy(const T * const src, T* dst, unsigned int num)
 {
 	assert(src);
 	assert(dst);
@@ -231,34 +215,24 @@ void Vector<T>::copy(T* src, T* dst, unsigned int num)
 		dst[i] = src[i];
 }
 
-template <class T>
-T& Vector<T>::operator[](unsigned int index)
+
+template <class T, int alignment>
+T& Vector<T, alignment>::operator[](unsigned int index)
 {
 	assert(capacity_ >= size_);
 	assert(index < size_);
 
 	return e[index];
-
-	assert(capacity_ >= size_);
-	assert(size_ > 0 ? (e != NULL) : true);
 }
 
-template <class T>
-const T& Vector<T>::operator[](unsigned int index) const
+
+template <class T, int alignment>
+const T& Vector<T, alignment>::operator[](unsigned int index) const
 {
 	assert(index < size_);
 	assert(capacity_ >= size_);
 
 	return e[index];
-
-	assert(capacity_ >= size_);
-	assert(size_ > 0 ? (e != NULL) : true);
-}
-
-template <class T>
-void Vector<T>::setAlignment(unsigned int a)
-{
-	alignment_ = a;
 }
 
 
@@ -266,22 +240,3 @@ void Vector<T>::setAlignment(unsigned int a)
 
 
 #endif //VECTOR_H_666
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

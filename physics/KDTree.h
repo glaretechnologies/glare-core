@@ -191,7 +191,7 @@ private:
 	unsigned int num_intersect_tris;
 
 	//std::vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
-	js::Vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
+	js::Vector<TRI_INDEX, 4> leafgeom;//indices into the 'edgetris' array
 
 	unsigned int numnodesbuilt;
 	//unsigned int max_depth;

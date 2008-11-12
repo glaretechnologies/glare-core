@@ -29,6 +29,7 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 #include "../indigo/IndigoImage.h"
 #include "../graphics/imformatdecoder.h"
+#include "../indigo/SpectralVector.h"
 
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
@@ -893,7 +894,7 @@ const Vec2d Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_
 
 
 
-const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const
+const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const
 {
 	//assert(RendererSettings::getInstance().aperture_diffraction);
 	if(diffraction_filter.get() == NULL)

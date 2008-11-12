@@ -17,6 +17,7 @@ You may *not* use this code for any commercial project.
 #include <math.h>
 #include <assert.h>
 
+
 template <class Real>
 class Colour3
 {

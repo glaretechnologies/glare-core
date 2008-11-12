@@ -32,7 +32,7 @@ VectorUnitTests::~VectorUnitTests()
 
 void VectorUnitTests::run()
 {
-	Vector<int> v;
+	Vector<int, 8> v;
 	testAssert(v.empty());
 	testAssert(v.size() == 0);
 

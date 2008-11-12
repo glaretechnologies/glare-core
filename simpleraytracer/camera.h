@@ -164,7 +164,7 @@ public:
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
-	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SPECTRAL_VECTOR_F& wavelengths, double direction_sign, SPECTRAL_VECTOR_D& weights_out) const;
+	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const;
 
 	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image);
 	void applyDiffractionFilterToImage(Image& image) const;
