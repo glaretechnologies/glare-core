@@ -22,7 +22,8 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../indigo/ThreadContext.h"
-
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 namespace js
 {

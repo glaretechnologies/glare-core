@@ -26,6 +26,8 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 

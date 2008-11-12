@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "jscol_ObjectTree.h"
 
+
 #include "../indigo/FullHitInfo.h"
 #include "../simpleraytracer/ray.h"
 #include "../raytracing/hitinfo.h"
@@ -13,6 +14,9 @@ Code By Nicholas Chapman.
 #include "jscol_ObjectTreePerThreadData.h"
 #include <limits>
 #include "TreeUtils.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
+
 
 namespace js
 {

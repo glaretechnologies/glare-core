@@ -13,6 +13,8 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
 #include <omp.h>
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 namespace js

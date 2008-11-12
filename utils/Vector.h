@@ -8,11 +8,18 @@ Code By Nicholas Chapman.
 #define VECTOR_H_666
 
 
-#include <assert.h>
-#include "../indigo/globals.h"//TEMP
-#include "stringutils.h"//TEMP
-#include <malloc.h>
 #include "../maths/SSE.h"
+#include "../maths/mathstypes.h"
+#include <assert.h>
+
+// If this is defined, prints out messages on allocing and deallocing in reserver()
+//#define JS_VECTOR_VERBOSE 1
+
+#if JS_VECTOR_VERBOSE
+#include "../indigo/globals.h"
+#include "stringutils.h"
+#include <typeinfo.h>
+#endif
 
 
 namespace js
@@ -103,16 +110,21 @@ void Vector<T, alignment>::reserve(unsigned int n)
 
 	if(n > capacity_) // If need to expand capacity
 	{
-		//conPrint("Vector<T>::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+		#endif
 		
 		// NOTE: bother constructing these objects?
 		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
 		
 		if(e)
 		{
-			copy(e, new_e, size_); //copy existing data to new buffer
+			copy(e, new_e, size_); // Copy existing data to new buffer
 
-			//conPrint("Vector<T>::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+			#if JS_VECTOR_VERBOSE
+			conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+			#endif
+
 			SSE::alignedFree(e); // Free old buffer.
 		}
 		e = new_e;
@@ -129,7 +141,15 @@ void Vector<T, alignment>::resize(unsigned int n)
 {
 	assert(capacity_ >= size_);
 
-	reserve(n);
+	//reserve(n);
+	if(n > capacity_)
+	{
+		const unsigned int newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
+		//const unsigned int newcapacity = ideal_newcapacity > (size_ + 1) ? ideal_newcapacity : (size_ + 1); //(size_ + 1) * 2;
+		//assert(newcapacity >= size_ + 1);
+		reserve(newcapacity);
+	}
+
 	size_ = n;
 
 	assert(capacity_ >= size_);
@@ -156,15 +176,17 @@ void Vector<T, alignment>::push_back(const T& t)
 {
 	assert(capacity_ >= size_);
 
-	if(size_ >= capacity_) // If next write would exceed capacity
+	/*if(size_ >= capacity_) // If next write would exceed capacity
 	{
 		const unsigned int ideal_newcapacity = size_ + size_ / 2; // current size * 1.5
 		const unsigned int newcapacity = ideal_newcapacity > (size_ + 1) ? ideal_newcapacity : (size_ + 1); //(size_ + 1) * 2;
 		assert(newcapacity >= size_ + 1);
 		reserve(newcapacity);
-	}
+	}*/
+	const unsigned int old_size = size_;
+	resize(size_ + 1);
 
-	e[size_++] = t;
+	e[old_size] = t;
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);

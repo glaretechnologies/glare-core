@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 #define __MATUTILS_H_666_
 
 
-
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/basis.h"
@@ -17,6 +16,8 @@ Code By Nicholas Chapman.
 //class Colour3;
 //class Basisd;
 class MTwister;
+class SpectralVector;
+
 
 /*=====================================================================
 MatUtils
@@ -26,11 +27,6 @@ MatUtils
 class MatUtils
 {
 public:
-	/*=====================================================================
-	MatUtils
-	--------
-	
-	=====================================================================*/
 	MatUtils();
 
 	~MatUtils();
@@ -98,6 +94,7 @@ public:
 	static const Vec3d sampleSolidAngleCone(const Vec2d& unitsamples, const Basisd& basis, double angle);
 	static double solidAngleConePDF(double angle);
 
+	static void conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, double cos_incident_angle, SpectralVector& F_R_out);
 	static double conductorFresnelReflectance(double n, double k, double cos_incident_angle);
 	static const Vec2d polarisedConductorFresnelReflectance(double n, double k, double cos_theta);
 

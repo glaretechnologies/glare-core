@@ -22,8 +22,6 @@ namespace js
 
 BVH::BVH(RayMesh* raymesh_)
 :	raymesh(raymesh_),
-	num_intersect_tris(0),
-	intersect_tris(NULL),
 	root_aabb(NULL),
 	tri_aabbs(NULL)
 {
@@ -53,8 +51,6 @@ BVH::BVH(RayMesh* raymesh_)
 	assert(node.getRightGeomIndex() == 567);
 	assert(node.getRightNumGeom() == 4565);
 
-	//printVar(z);
-
 	num_maxdepth_leaves = 0;
 	num_under_thresh_leaves = 0;
 	num_leaves = 0;
@@ -70,10 +66,7 @@ BVH::BVH(RayMesh* raymesh_)
 BVH::~BVH()
 {
 	assert(tri_aabbs == NULL);
-	SSE::alignedArrayFree(nodes);
 	SSE::alignedSSEFree(root_aabb);
-	SSE::alignedSSEFree(intersect_tris);
-	intersect_tris = NULL;
 }
 
 
@@ -147,7 +140,7 @@ void BVH::build()
 
 		// Build tri centers
 		std::vector<Vec3f> tri_centers(numTris());
-	#pragma omp parallel for
+		#pragma omp parallel for
 		for(int i=0; i<num_tris; ++i)
 			tri_centers[i] = tri_aabbs[i].centroid();
 
@@ -159,7 +152,7 @@ void BVH::build()
 		// Sort indices based on center position along the axes
 		conPrint("\tSorting...");
 		Timer sort_timer;
-	#pragma omp parallel for
+		#pragma omp parallel for
 		for(int axis=0; axis<3; ++axis)
 		{
 			tris[axis].resize(numTris());
@@ -171,9 +164,10 @@ void BVH::build()
 		}
 		conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
-		nodes_capacity = myMax(2u, numTris() / 8);
-		SSE::alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), nodes);
-		num_nodes = 1;
+		// In the best case, Each leaf node has pointers to 4 tris for left AABB, and 4 tris for right AABB, for a total of 8 tris.
+		// So there are N / 8 leaf nodes, or N / 4 total nodes.
+		nodes.reserve(numTris() / 4);
+		nodes.resize(1);
 
 		// Make root node
 		nodes[0].setToInterior();
@@ -195,27 +189,30 @@ void BVH::build()
 			);
 		}
 
+		// Free triangle AABB array.
+		SSE::alignedSSEArrayFree(tri_aabbs);
+		tri_aabbs = NULL;
+
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
 		conPrint("\tAllocating intersect triangles...");
-		this->num_intersect_tris = numTris();
-		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			conPrint("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+		
+		intersect_tris.resize(numTris());
 
-		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-		//intersect_tri_i = 0;
+		assert(intersect_tris.size() == intersect_tris.capacity());
+
+		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+			conPrint("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(intersect_tris.size() * sizeof(INTERSECT_TRI_TYPE)));
 
 		// Copy tri data.
-		for(unsigned int i=0; i<num_intersect_tris; ++i)
+		for(unsigned int i=0; i<intersect_tris.size(); ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
 
-		SSE::alignedSSEArrayFree(tri_aabbs);
-		tri_aabbs = NULL;
-
 		conPrint("\tBuild Stats:");
-		conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)num_nodes) + " (" + ::getNiceByteSize(num_nodes * sizeof(BVHNode)) + ")");
+		conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(BVHNode)) + ")");
+		conPrint("\t\tTotal nodes capacity: " + ::toString((unsigned int)nodes.capacity()) + " (" + ::getNiceByteSize(nodes.capacity() * sizeof(BVHNode)) + ")");
 		conPrint("\t\tTotal tri indices used: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
 		conPrint("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
 		conPrint("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
@@ -234,7 +231,7 @@ void BVH::build()
 }
 
 
-void BVH::markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris)
+void BVH::markLeafNode(/*BVHNode* nodes, */unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris)
 {
 	// 8 => 8
 	// 7 => 8
@@ -300,7 +297,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth >= MAX_DEPTH)
 	{
-		markLeafNode(nodes, parent_index, child_index, left, right, tris);
+		markLeafNode(/*nodes, */parent_index, child_index, left, right, tris);
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -390,7 +387,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 	if(best_axis == -1)
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
-		markLeafNode(nodes, parent_index, child_index, left, right, tris);
+		markLeafNode(/*nodes, */parent_index, child_index, left, right, tris);
 
 		// Update build stats
 		num_cheaper_nosplit_leaves++;
@@ -462,21 +459,10 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 	
 	// Alloc space for this node
-	const unsigned int node_index = num_nodes;
+	const unsigned int node_index = nodes.size();
+	nodes.resize(nodes.size() + 1);
 
-	const unsigned int new_num_nodes = num_nodes + 1;
-	if(new_num_nodes > nodes_capacity)
-	{
-		nodes_capacity *= 2;
-		BVHNode* new_nodes;
-		SSE::alignedArrayMalloc(nodes_capacity, BVHNode::requiredAlignment(), new_nodes); // Alloc new array
-		memcpy(new_nodes, nodes, sizeof(BVHNode) * num_nodes); // Copy over old array
-		SSE::alignedArrayFree(nodes); // Free old array
-		nodes = new_nodes; // Update nodes pointer to point at new array
-	}
-	num_nodes = new_num_nodes; // Update size
-
-	assert(node_index < num_nodes);
+	//assert(node_index < num_nodes);
 	nodes[node_index].setLeftAABB(left_aabb);
 	nodes[node_index].setRightAABB(right_aabb);
 	nodes[node_index].setToInterior(); // may be overridden later

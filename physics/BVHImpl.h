@@ -70,8 +70,8 @@ public:
 			// While current is indexing a suitable internal node...
 			while(1)
 			{
-				_mm_prefetch((const char*)(bvh.nodes + bvh.nodes[current].getLeftChildIndex()), _MM_HINT_T0);
-				_mm_prefetch((const char*)(bvh.nodes + bvh.nodes[current].getRightChildIndex()), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&bvh.nodes[0] + bvh.nodes[current].getLeftChildIndex()), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&bvh.nodes[0] + bvh.nodes[current].getRightChildIndex()), _MM_HINT_T0);
 
 				const __m128 a = _mm_load_ps(bvh.nodes[current].box);
 				const __m128 b = _mm_load_ps(bvh.nodes[current].box + 4);

@@ -13,6 +13,8 @@ Code By Nicholas Chapman.
 #include "ScalarMatParameter.h"
 #include "VoidMedium.h"
 #include "TestUtils.h"
+#include "globals.h"
+#include "../utils/stringutils.h"
 
 
 DisplacementUtils::DisplacementUtils()

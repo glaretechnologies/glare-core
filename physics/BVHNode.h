@@ -28,7 +28,8 @@ public:
 
 	inline ~BVHNode() {}
 
-	inline static size_t requiredAlignment() { return 64; }
+	//inline static size_t requiredAlignment() { return 64; }
+	static const int REQUIRED_ALIGNMENT = 64;
 
 	inline static unsigned int maxNumGeom() { return 0xFFFF; }
 

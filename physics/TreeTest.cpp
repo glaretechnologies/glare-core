@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "TreeTest.h"
 
+
 #include "KDTree.h"
 #include "jscol_BIHTree.h"
 #include "BVH.h"
@@ -26,11 +27,12 @@ Code By Nicholas Chapman.
 #include "../indigo/ThreadContext.h"
 #include "../maths/SSE.h"
 #include "MollerTrumboreTri.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 namespace js
 {
-
 
 static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {

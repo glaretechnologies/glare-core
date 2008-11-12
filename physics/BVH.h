@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
+#include "../utils/Vector.h"
 
 
 class RayMesh;
@@ -68,36 +69,30 @@ private:
 	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, 
 		const std::vector<Vec3f>& tri_centers, int left, int right, int depth, unsigned int parent_index, unsigned int child_index);
 
-	void markLeafNode(BVHNode* nodes, unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris);
+	void markLeafNode(unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris);
 
 	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
 	unsigned int numTris() const;
 
-	//typedef std::vector<BVHNode> NODE_VECTOR_TYPE;
 
 	RayMesh* raymesh;
-	//NODE_VECTOR_TYPE nodes; // Nodes of the tree.
-	BVHNode* nodes;
-	unsigned int num_nodes;
-	unsigned int nodes_capacity;
 
-	//std::vector<BVHBuildNode> build_nodes;
+	typedef js::Vector<BVHNode, BVHNode::REQUIRED_ALIGNMENT> NODE_VECTOR_TYPE;
+	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
 
-	AABBox* root_aabb;//aabb of whole thing
+	AABBox* root_aabb; // AABB of whole thing
 
-	AABBox* tri_aabbs;
+	AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
 
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
-	INTERSECT_TRI_TYPE* intersect_tris;
-	unsigned int num_intersect_tris;
-	//unsigned int intersect_tri_i;
+	js::Vector<INTERSECT_TRI_TYPE, 16> intersect_tris;
+	
 	//std::vector<TRI_INDEX> original_tri_index;
 	//std::vector<TRI_INDEX> new_tri_index;
 
-	std::vector<TRI_INDEX> leafgeom;//indices into the intersect_tris array
+	std::vector<TRI_INDEX> leafgeom; // Indices into the intersect_tris array.
 
 	//std::vector<Vec3f> tri_centers;
-
 	//std::vector<float> centers;
 
 	/// build stats ///

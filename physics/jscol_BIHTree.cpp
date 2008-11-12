@@ -17,6 +17,8 @@ Code By Nicholas Chapman.
 #include "../utils/timer.h"
 #include "../utils/random.h"
 #include <limits>
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 namespace js

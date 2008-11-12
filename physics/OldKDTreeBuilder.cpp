@@ -8,6 +8,8 @@ Code By Nicholas Chapman.
 
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 namespace js

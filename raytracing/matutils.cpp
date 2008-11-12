@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 //#include "../indigo/sphereunitvecgenerator.h"
 #include "../indigo/globals.h"
+#include "../indigo/SpectralVector.h"
 #include "../graphics/colour3.h"
 #include "../maths/basis.h"
 #include "../maths/vec2.h"
@@ -780,6 +781,13 @@ double MatUtils::solidAngleConePDF(double angle)
 	return 1.0 / solid_angle;
 }
 
+
+void MatUtils::conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, double cos_incident_angle, SpectralVector& F_R_out)
+{
+	//NOTE: SSE this up?
+	for(unsigned int i=0; i<F_R_out.size(); ++i)
+		F_R_out[i] = conductorFresnelReflectance(n[i], k[i], cos_incident_angle);
+}
 
 
 double MatUtils::conductorFresnelReflectance(double n, double k, double cos_theta)
