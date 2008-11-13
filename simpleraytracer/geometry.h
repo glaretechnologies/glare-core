@@ -20,6 +20,7 @@ You may *not* use this code for any commercial project.
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/refcounted.h"
 #include "../indigo/TexCoordEvaluator.h"
+#include "../indigo/SampleTypes.h"
 #include <vector>
 class Ray;
 class RayBundle;
@@ -93,7 +94,7 @@ public:
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const = 0;
 	//virtual unsigned int getNumSubElems() const = 0;
 	// Sample the surface of the given sub-element.
-	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
 
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const = 0;

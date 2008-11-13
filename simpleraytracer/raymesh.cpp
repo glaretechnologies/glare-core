@@ -584,7 +584,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<d
 
 }
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords

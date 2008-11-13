@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../maths/basis.h"
 #include "../indigo/FullHitInfo.h"
+#include "../indigo/SampleTypes.h"
 //class Vec2d;
 //class Colour3;
 //class Basisd;
@@ -70,16 +71,16 @@ public:
 
 
 
-	static const Vec2d sampleUnitDisc(const Vec2d& unitsamples);
+	static const Vec2d sampleUnitDisc(const SamplePair& unitsamples);
 	
 	static const Vec3d sampleHemisphere(const Basisd& basis, const Vec2d& unitsamples, double& pdf_out);
 	static inline double hemispherePDF();
 	
 	//static const Vec3d sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
-	static const Vec3d uniformlySampleSphere(const Vec2d& unitsamples); // returns point on surface of sphere with radius 1
+	static const Vec3d uniformlySampleSphere(const SamplePair& unitsamples); // returns point on surface of sphere with radius 1
 	static inline double spherePDF();
 	
-	static const Vec3d sampleHemisphereCosineWeighted(const Basisd& basis, const Vec2d& unitsamples/*, double& pdf_out*/);
+	static const Vec3d sampleHemisphereCosineWeighted(const Basisd& basis, const SamplePair& unitsamples/*, double& pdf_out*/);
 	//static const Vec3d sampleHemisphereCosineWeighted(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
 	static inline double hemisphereCosineWeightedPDF(const Vec3d& normal, const Vec3d& unitdir);
 
@@ -91,7 +92,7 @@ public:
 	static double evalNormalDist(double x, double mean, double standard_dev);
 
 	//k() of the basis should point towards center of cone.
-	static const Vec3d sampleSolidAngleCone(const Vec2d& unitsamples, const Basisd& basis, double angle);
+	static const Vec3d sampleSolidAngleCone(const SamplePair& unitsamples, const Basisd& basis, double angle);
 	static double solidAngleConePDF(double angle);
 
 	static void conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, double cos_incident_angle, SpectralVector& F_R_out);
@@ -105,7 +106,7 @@ public:
 	inline static double pow5(double x);
 
 
-	inline static double smoothingFactor(double in_dot_Ns, double in_dot_Ng);
+	template <class Real> inline static double smoothingFactor(Real in_dot_Ns, Real in_dot_Ng);
 	inline static double smoothingFactor(const Vec3d& omega_in, const FullHitInfo& hitinfo);
 	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
 	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
@@ -205,10 +206,11 @@ double MatUtils::pow5(double x)
 
 const double MAX_SMOOTHING_FACTOR = 2.0;
 
-double MatUtils::smoothingFactor(double in_dot_Ns, double in_dot_Ng)
+template <class Real>
+double MatUtils::smoothingFactor(Real in_dot_Ns, Real in_dot_Ng)
 {
 	return myMin(
-		MAX_SMOOTHING_FACTOR, 
+		(Real)MAX_SMOOTHING_FACTOR, 
 		fabs(in_dot_Ns / in_dot_Ng)
 		);
 }

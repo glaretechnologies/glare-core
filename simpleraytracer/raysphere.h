@@ -55,11 +55,11 @@ public:
 	//virtual bool getTangents(const HitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
 
 	//virtual void emitterInit();
-	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out, HitInfo& hitinfo_out) const;
+	//virtual const Vec3d sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out, HitInfo& hitinfo_out) const;
 	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
 	//virtual double surfaceArea(const Matrix3d& to_parent) const;
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
-	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const;
 
 	virtual int UVSetIndexForName(const std::string& uvset_name) const { return 0; }

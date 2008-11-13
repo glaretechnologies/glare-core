@@ -527,7 +527,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 
 
-const Vec3d Camera::sampleSensor(const Vec2d& samples) const
+const Vec3d Camera::sampleSensor(const SamplePair& samples) const
 {
 	return sensor_botleft + 
 		right * samples.x * sensor_width + 
@@ -540,7 +540,7 @@ double Camera::sensorPDF(const Vec3d& p) const
 	return uniform_sensor_pos_pdf;
 }
 
-const Vec3d Camera::sampleLensPos(const Vec2d& samples) const
+const Vec3d Camera::sampleLensPos(const SamplePair& samples) const
 {
 /*	if(aperture_image)
 	{
@@ -862,7 +862,7 @@ void Camera::emitterInit()
 	::fatalError("Cameras may not be emitters.");
 }
 
-const Vec3d Camera::sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
+const Vec3d Camera::sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out,
 										  HitInfo& hitinfo_out) const
 {
 	assert(0);
@@ -894,7 +894,7 @@ const Vec2d Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_
 
 
 
-const Vec3d Camera::diffractRay(const Vec2d& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const
+const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const
 {
 	//assert(RendererSettings::getInstance().aperture_diffraction);
 	if(diffraction_filter.get() == NULL)
@@ -1042,7 +1042,7 @@ void Camera::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<do
 	assert(0);
 }
 
-void Camera::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void Camera::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
@@ -1156,7 +1156,7 @@ void Camera::unitTest()
 
 	// 'Sample' an exit direction
 	sensorpos = cam.sensorPosForImCoords(Vec2d(0.1f, 0.8f));
-	Vec3d lenspos = cam.sampleLensPos(Vec2d(0.45654f, 0.8099f));
+	Vec3d lenspos = cam.sampleLensPos(SamplePair(0.45654f, 0.8099f));
 	v = cam.lensExitDir(sensorpos, lenspos); // get lens exit direction
 
 	//cast ray back into camera and make sure it hits at same sensor pos
@@ -1176,7 +1176,7 @@ void Camera::unitTest()
 	sensorpos = cam.sensorPosForLensIncidentRay(cam.getPos(), normalise(cam.getPos() - focus), hitsensor);
 	assert(hitsensor);
 
-	lenspos = cam.sampleLensPos(Vec2d(0.76846, 0.38467)); // get a 'random' lens pos
+	lenspos = cam.sampleLensPos(SamplePair(0.76846, 0.38467)); // get a 'random' lens pos
 	assert(lenspos != cam.getPos());
 	sensorpos2 = cam.sensorPosForLensIncidentRay(lenspos, normalise(lenspos - focus), hitsensor);
 	assert(hitsensor);

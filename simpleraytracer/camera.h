@@ -16,6 +16,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "geometry.h"
 #include "../graphics/image.h" //TEMP for diffraction
 #include "../indigo/Spectral.h"
+#include "../indigo/SampleTypes.h"
 #include <string>
 class ColourSpaceConverter;
 class HitInfo;
@@ -67,10 +68,10 @@ public:
 	virtual ~Camera();
 
 
-	const Vec3d sampleSensor(const Vec2d& samples) const;
+	const Vec3d sampleSensor(const SamplePair& samples) const;
 	double sensorPDF(const Vec3d& pos) const;
 
-	const Vec3d sampleLensPos(const Vec2d& samples/*, const Vec3d& sensorpos*/) const;
+	const Vec3d sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/) const;
 	double lensPosPDF(/*const Vec3d& sensorpos,*/ const Vec3d& lenspos) const;
 	double lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const;
 	double lensPosVisibility(const Vec3d& lenspos) const;
@@ -106,7 +107,7 @@ public:
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
 
 	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
-	virtual void sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const;
 
 
@@ -127,7 +128,7 @@ public:
 
 	double getLensRadius() const { return lens_radius; }
 
-	void sampleRay(const Vec3d& target_dir, const Vec2d& samples, Vec3d& origin_out, Vec3d& unitdir_out,
+	void sampleRay(const Vec3d& target_dir, const SamplePair& samples, Vec3d& origin_out, Vec3d& unitdir_out,
 		double wvlen) const;
 
 	//assuming the image plane is sampled uniformly
@@ -150,7 +151,7 @@ public:
 
 	// NOTE: non-const
 	virtual void emitterInit();
-	virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
+	virtual const Vec3d sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out,
 										  HitInfo& hitinfo_out) const;
 	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
 	virtual double surfaceArea(const Matrix3d& to_parent) const;
@@ -164,7 +165,7 @@ public:
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
-	const Vec3d diffractRay(const Vec2d& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const;
+	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const;
 
 	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image);
 	void applyDiffractionFilterToImage(Image& image) const;

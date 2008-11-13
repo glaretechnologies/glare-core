@@ -83,7 +83,7 @@ change log:
 
 */
 
-static inline void shirleyUnitSquareToDisk(const Vec2d& unitsamples, Vec2d& spheresamples_out)
+static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2d& spheresamples_out)
 {
 	const double a = 2.0*unitsamples.x - 1.0;   /* (a,b) is now on [-1,1]^2 */
 	const double b = 2.0*unitsamples.y - 1.0;
@@ -619,7 +619,7 @@ void MatUtils::getReflForCosAngleSchlick(double cos_angle_incidence,
 }
 */
 
-const Vec2d MatUtils::sampleUnitDisc(const Vec2d& unitsamples)
+const Vec2d MatUtils::sampleUnitDisc(const SamplePair& unitsamples)
 {
 	/*const float r = sqrt(unitsamples.x);
 	const float theta = unitsamples.y * NICKMATHS_2PI;
@@ -681,7 +681,7 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 */
 
 
-const Vec3d MatUtils::uniformlySampleSphere(const Vec2d& unitsamples) // returns point on surface of sphere with radius 1
+const Vec3d MatUtils::uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
 {
 	const double z = -1.0 + unitsamples.x * 2.0;
 	const double theta = unitsamples.y * NICKMATHS_2PI;
@@ -693,7 +693,7 @@ const Vec3d MatUtils::uniformlySampleSphere(const Vec2d& unitsamples) // returns
 
 
 
-const Vec3d MatUtils::sampleHemisphereCosineWeighted(const Basisd& basis, const Vec2d& unitsamples/*, double& pdf_out*/)
+const Vec3d MatUtils::sampleHemisphereCosineWeighted(const Basisd& basis, const SamplePair& unitsamples/*, double& pdf_out*/)
 {
 	//sample unit disc
 	/*const float r = sqrtf(unitsamples.x);
@@ -755,7 +755,7 @@ double MatUtils::evalNormalDist(double x, double mean, double standard_dev)
 
 
 //See Monte Carlo Ray Tracing siggraph course 2003 page 33.
-const Vec3d MatUtils::sampleSolidAngleCone(const Vec2d& samples, const Basisd& basis, double angle)
+const Vec3d MatUtils::sampleSolidAngleCone(const SamplePair& samples, const Basisd& basis, double angle)
 {
 	assert(angle > 0.0);
 
@@ -994,7 +994,7 @@ void MatUtils::unitTest()
 	const Vec3d v = normalise(Vec3d(1,1,1));
 	basis.constructFromVector(v);
 
-	const Vec3d res = sampleSolidAngleCone(Vec2d(0.5, 0.5), basis, 0.01f);
+	const Vec3d res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
 
 	testAssert(dot(v, res) > 0.95);
 

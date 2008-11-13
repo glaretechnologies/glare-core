@@ -361,7 +361,7 @@ bool RaySphere::getTangents(const HitInfo& hitinfo, unsigned int texcoords_set, 
 {
 	::fatalError("Spheres may not be emitters.");
 }
-const Vec3d RaySphere::sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out,
+const Vec3d RaySphere::sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out,
 										 HitInfo& hitinfo_out) const
 {
 	assert(0);
@@ -388,7 +388,7 @@ void RaySphere::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector
 }
 
 
-void RaySphere::sampleSubElement(unsigned int sub_elem_index, const Vec2d& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
