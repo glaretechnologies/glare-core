@@ -4,11 +4,15 @@
 #include "../indigo/TestUtils.h"
 #include "matrix2.h"
 #include "matrix3.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
+#include "../utils/timer.h"
 
 
 void Maths::test()
 {
-	testAssert(true);
+	conPrint("Maths::test()");
+
 	testAssert(roundToInt(0.0) == 0);
 	testAssert(roundToInt(0.1) == 0);
 	testAssert(roundToInt(0.5) == 0 || roundToInt(0.5) == 1);
@@ -149,4 +153,102 @@ void Maths::test()
 
 
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
+
+	conPrint("sin()");
+	int N = 1000000;
+	{
+	Timer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sin(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+
+	{
+	Timer timer;
+	double sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const double x = (double)i * 0.001;
+		sum += sin(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+	conPrint("sqrt()");
+	{
+	Timer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sqrt(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+	{
+	Timer timer;
+	double sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const double x = (double)i * 0.001;
+		sum += sqrt(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+	conPrint("exp()");
+	{
+	Timer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.00001f;
+		sum += exp(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+	{
+	Timer timer;
+	double sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const double x = (double)i * 0.00001;
+		sum += exp(x);
+	}
+	const double elapsed = timer.getSecondsElapsed();
+	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+	printVar(elapsed);
+	printVar(cycles);
+	printVar(sum);
+	}
+
+
+
 }
