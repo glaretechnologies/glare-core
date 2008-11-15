@@ -428,8 +428,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			{
 				testAssert(::epsEqual(dist, dist_));
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
-				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, 0.0001));
-				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, 0.0001));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
 		}
 
@@ -482,8 +482,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist));
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
 				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, 0.0001));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, 0.0001));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
 		}
 

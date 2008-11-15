@@ -760,11 +760,19 @@ bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& t
 
 
 
+const std::string Camera::getName() const { return "Camera"; }
 
 
+const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
 
 
+const Camera::Vec3Type Camera::getGeometricNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
 
+
+unsigned int Camera::getNumTexCoordSets() const { return 0; }
+
+
+unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 
 
 /*
@@ -881,10 +889,18 @@ double Camera::surfaceArea(const Matrix3d& to_parent) const
 	return 0.f;
 }
 
-const Vec2d Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const Camera::TexCoordsType Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
-	return Vec2d(0,0);
+	return TexCoordsType(0,0);
 }
+
+
+void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
+		const std::vector<Plane<double> >& camera_clip_planes){}
+
+
+void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
+
 
 /*int Camera::UVSetIndexForName(const std::string& uvset_name) const
 {
@@ -1037,12 +1053,12 @@ void Camera::getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out
 		); // top
 }
 	
-void Camera::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+void Camera::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
 {
 	assert(0);
 }
 
-void Camera::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void Camera::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
@@ -1053,12 +1069,13 @@ double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& p
 	return 1.0;
 }
 
-void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
+void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
 	assert(0);
 }
 
-void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
+									  TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 {
 	assert(0);
 }

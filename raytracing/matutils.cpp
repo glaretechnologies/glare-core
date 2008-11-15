@@ -45,15 +45,7 @@ MatUtils::~MatUtils()
 }
 
 
-const Vec3d MatUtils::sphericalToCartesianCoords(double phi, double cos_theta, const Basisd& basis)
-{
-	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
 
-	const double sin_theta = sqrt(1.0 - cos_theta*cos_theta);
-
-	assert(Vec3d(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta).isUnitLength());
-	return basis.transformVectorToParent(Vec3d(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta));
-}
 
 
 
@@ -83,12 +75,13 @@ change log:
 
 */
 
-static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2d& spheresamples_out)
+template <class Real>
+static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2<Real>& spheresamples_out)
 {
-	const double a = 2.0*unitsamples.x - 1.0;   /* (a,b) is now on [-1,1]^2 */
-	const double b = 2.0*unitsamples.y - 1.0;
+	const Real a = 2.0*unitsamples.x - 1.0;   /* (a,b) is now on [-1,1]^2 */
+	const Real b = 2.0*unitsamples.y - 1.0;
 
-	double phi, r;
+	Real phi, r;
 
 	if (a > -b) {     // region 1 or 2
 		if (a > b) {  // region 1, also |a| > |b|
@@ -274,17 +267,6 @@ void MatUtils::getCosineWeightedHemisUnitVec(const Vec3& surface_normal, Vec3& v
 }*/
 
 
-void MatUtils::reflectInSurface(const Vec3d& surface_normal, Vec3d& vec_out)
-{
-//	assert(vec_out.isUnitLength());
-//	assert(surface_normal.isUnitLength());
-
-	vec_out.addMult(surface_normal, dot(surface_normal, vec_out) * -2.0);
-
-//	assert(vec_out.dot(surface_normal) >= 0);
-//	assert(vec_out.isUnitLength());
-
-}
 
 
 
@@ -337,9 +319,9 @@ Compute the refracted ray.
 see http://en.wikipedia.org/wiki/Snell's_law#Vector_form
 
 */
-void MatUtils::refractInSurface(const Vec3d& normal, 
-		const Vec3d& incident_raydir, double src_refindex, double dest_refindex,
-		Vec3d& exit_raydir_out, bool& totally_internally_reflected_out)
+void MatUtils::refractInSurface(const DefaultVec3Type& normal, 
+		const DefaultVec3Type& incident_raydir, IORType src_refindex, IORType dest_refindex,
+		DefaultVec3Type& exit_raydir_out, bool& totally_internally_reflected_out)
 {
 	assert(normal.isUnitLength());
 	assert(incident_raydir.isUnitLength());
@@ -371,7 +353,7 @@ void MatUtils::refractInSurface(const Vec3d& normal,
 	}
 
 
-	assert(epsEqual(exit_raydir_out.length(), 1.0, 0.0001));
+	assert(epsEqual(exit_raydir_out.length(), (DefaultReal)1.0, (DefaultReal)0.0001));
 	//normalising here because there seems to be quite a lot of error introduced.
 	exit_raydir_out.normalise();
 
@@ -681,19 +663,7 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 */
 
 
-const Vec3d MatUtils::uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
-{
-	const double z = -1.0 + unitsamples.x * 2.0;
-	const double theta = unitsamples.y * NICKMATHS_2PI;
-
-	const double r = sqrt(1.0 - z*z);
-
-	return Vec3d(cos(theta) * r, sin(theta) * r, z);
-}
-
-
-
-const Vec3d MatUtils::sampleHemisphereCosineWeighted(const Basisd& basis, const SamplePair& unitsamples/*, double& pdf_out*/)
+const Vec3<MatUtils::DefaultReal> MatUtils::sampleHemisphereCosineWeighted(const Basis<DefaultReal>& basis, const SamplePair& unitsamples/*, double& pdf_out*/)
 {
 	//sample unit disc
 	/*const float r = sqrtf(unitsamples.x);
@@ -705,9 +675,9 @@ const Vec3d MatUtils::sampleHemisphereCosineWeighted(const Basisd& basis, const 
 
 	return basis.transformVectorToParent(dir);*/
 
-	Vec2d disc;
-	shirleyUnitSquareToDisk(unitsamples, disc);
-	const Vec3d dir(disc.x, disc.y, sqrt(myMax(0., 1.0 - (disc.x*disc.x + disc.y*disc.y))));
+	Vec2<DefaultReal> disc;
+	shirleyUnitSquareToDisk<DefaultReal>(unitsamples, disc);
+	const Vec3<DefaultReal> dir(disc.x, disc.y, sqrt(myMax((DefaultReal)0.0, (DefaultReal)1.0 - (disc.x*disc.x + disc.y*disc.y))));
 	assert(dir.isUnitLength());
 	//pdf_out = dir.z * NICKMATHS_RECIP_PI;
 	return basis.transformVectorToParent(dir);
@@ -751,34 +721,6 @@ const Vec2d MatUtils::boxMullerGaussian(double standard_deviation, MTwister& rng
 double MatUtils::evalNormalDist(double x, double mean, double standard_dev)
 {
 	return exp(-(x-mean)*(x-mean) / (2.0*standard_dev*standard_dev)) / (standard_dev * sqrt(NICKMATHS_2PI));
-}
-
-
-//See Monte Carlo Ray Tracing siggraph course 2003 page 33.
-const Vec3d MatUtils::sampleSolidAngleCone(const SamplePair& samples, const Basisd& basis, double angle)
-{
-	assert(angle > 0.0);
-
-	const double phi = samples.x * NICKMATHS_2PI;
-	const double alpha = sqrt(samples.y) * angle;
-
-	//const float r = sqrt(unitsamples.x);
-	//const float phi = unitsamples.y * NICKMATHS_2PI;
-
-	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
-	Vec3d dir(cos(phi)*sin(alpha), sin(phi)*sin(alpha), cos(alpha));
-
-	return basis.transformVectorToParent(dir);
-}
-
-
-double MatUtils::solidAngleConePDF(double angle)
-{
-	assert(angle > 0.0);
-
-	// The sampling is uniform over the solid angle subtended by the cone.
-	const double solid_angle = NICKMATHS_2PI * (1.0 - cos(angle));
-	return 1.0 / solid_angle;
 }
 
 
@@ -990,11 +932,11 @@ void MatUtils::unitTest()
 
 
 
-	Basisd basis;
-	const Vec3d v = normalise(Vec3d(1,1,1));
+	Basis<DefaultReal> basis;
+	const DefaultVec3Type v = normalise(DefaultVec3Type(1,1,1));
 	basis.constructFromVector(v);
 
-	const Vec3d res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
+	const DefaultVec3Type res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
 
 	testAssert(dot(v, res) > 0.95);
 
@@ -1027,10 +969,10 @@ void MatUtils::unitTest()
 
 	n1 = 1.0f;
 	n2 = 1.5f;
-	Vec3d normal(0,0,1);
-	Vec3d out;
+	MatUtils::DefaultVec3Type normal(0,0,1);
+	MatUtils::DefaultVec3Type out;
 	bool tir;
-	Vec3d in(0,0,-1);
+	MatUtils::DefaultVec3Type in(0,0,-1);
 	refractInSurface(normal, in, n1, n2, out, tir);
 	testAssert(epsEqual(out, in));
 	testAssert(!tir);
@@ -1038,7 +980,7 @@ void MatUtils::unitTest()
 
 	double inangle, outangle, left, right;
 
-	in = normalise(Vec3d(1,0,-1));
+	in = normalise(MatUtils::DefaultVec3Type(1,0,-1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1047,7 +989,7 @@ void MatUtils::unitTest()
 	right = n2 * sin(outangle);
 	testAssert(::epsEqual(left, right));
 
-	in = normalise(Vec3d(3,0,-1));
+	in = normalise(MatUtils::DefaultVec3Type(3,0,-1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1056,7 +998,7 @@ void MatUtils::unitTest()
 	right = n2 * sin(outangle);
 	testAssert(::epsEqual(left, right));
 
-	in = normalise(Vec3d(-0.2f,0,-1));
+	in = normalise(MatUtils::DefaultVec3Type(-0.2f,0,-1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1066,7 +1008,7 @@ void MatUtils::unitTest()
 	testAssert(::epsEqual(left, right));
 
 	//try coming against normal
-	in = normalise(Vec3d(-0.2f,0,1));
+	in = normalise(MatUtils::DefaultVec3Type(-0.2f,0,1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1075,7 +1017,7 @@ void MatUtils::unitTest()
 	right = n2 * sin(outangle);
 	testAssert(::epsEqual(left, right));
 
-	in = normalise(Vec3d(4,0,1));
+	in = normalise(MatUtils::DefaultVec3Type(4,0,1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1087,7 +1029,7 @@ void MatUtils::unitTest()
 	//from dense to less dense
 	n1 = 1.5f;
 	n2 = 1.1f;
-	in = normalise(Vec3d(0.3f,0,1));
+	in = normalise(MatUtils::DefaultVec3Type(0.3f,0,1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 
 	inangle = acos(fabs(dot(in, normal)));
@@ -1101,7 +1043,7 @@ void MatUtils::unitTest()
 	//from dense to less dense
 	n1 = 1.5f;
 	n2 = 1.1f;
-	in = normalise(Vec3d(4,0,1));
+	in = normalise(MatUtils::DefaultVec3Type(4,0,1));
 	refractInSurface(normal, in, n1, n2, out, tir);
 	testAssert(tir);
 

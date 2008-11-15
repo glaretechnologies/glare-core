@@ -57,7 +57,7 @@ void ObjectTreeTest::doTests()
 		Object* ob = new Object(
 			raysphere, 
 			Vec3d(0,0,0), 
-			Matrix3d::identity(),
+			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
@@ -285,7 +285,7 @@ void ObjectTreeTest::doSpeedTest()
 		Object* ob = new Object(
 			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)), 
 			Vec3d(0,0,0), 
-			Matrix3d::identity(),
+			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
@@ -398,7 +398,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	for(int i=0; i<200; ++i)
 	{
 		//Matrix3d rot = Matrix3d::identity();
-		Matrix3d rot = Matrix3d::rotationMatrix(normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
+		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Object::Vec3Type(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
 
 		rot.scale(0.3);
 

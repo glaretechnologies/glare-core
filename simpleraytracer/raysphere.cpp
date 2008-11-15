@@ -91,7 +91,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
 		if(t0 > 0.0)
 		{
-			const Vec2d uvs = MatUtils::sphericalCoordsForDir(ray.point(t0) - centerpos, recip_radius);
+			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t0) - centerpos), recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -104,7 +104,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		const double t = (-B + sqrt_discriminant) * 0.5;
 		if(t > 0.0)
 		{
-			const Vec2d uvs = MatUtils::sphericalCoordsForDir(ray.point(t) - centerpos, recip_radius);
+			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t) - centerpos), recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -194,7 +194,7 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext
 
 
 
-const Vec3d RaySphere::getShadingNormal(const HitInfo& hitinfo) const 
+const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const 
 { 
 	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
 
@@ -204,7 +204,7 @@ const Vec3d RaySphere::getShadingNormal(const HitInfo& hitinfo) const
 }
 
 
-const Vec3d RaySphere::getGeometricNormal(const HitInfo& hitinfo) const 
+const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const 
 { 
 	//Vec3 normal = hitinfo.hitpos - centerpos;
 	//normal.normalise();
@@ -242,7 +242,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 	if(dist_to_rayclosest + a > 0.0)
 	{
 		const Vec3d hitpos = ray.point(dist_to_rayclosest + a);
-		const Vec2d uvs = MatUtils::sphericalCoordsForDir(hitpos - centerpos, recip_radius);
+		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos - centerpos), recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest + a, 0, uvs.x, uvs.y))
 		{
@@ -262,7 +262,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 	if(dist_to_rayclosest - a > 0.0)
 	{
 		const Vec3d hitpos = ray.point(dist_to_rayclosest - a);
-		const Vec2d uvs = MatUtils::sphericalCoordsForDir(hitpos - centerpos, recip_radius);
+		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos - centerpos), recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest - a, 0, uvs.x, uvs.y))
 		{
@@ -281,7 +281,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 }
 
 
-const Vec2d RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const RaySphere::TexCoordsType RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return hitinfo.sub_elem_coords;
 
@@ -297,29 +297,29 @@ const Vec2d RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoor
 }
 
 
-void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
+void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
-	const double theta = hitinfo.sub_elem_coords.x;
-	const double phi = hitinfo.sub_elem_coords.y;
+	const Vec3RealType theta = hitinfo.sub_elem_coords.x;
+	const Vec3RealType phi = hitinfo.sub_elem_coords.y;
 
 	//const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
 	//const double phi = acos(hitinfo.original_geometric_normal.z);
 
 	//(dx/du, dy/du, dz/du)
-	dp_du_out = Vec3d(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
+	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
 
 	//(dx/dv, dy/dv, dz/dv)
-	dp_dv_out = Vec3d(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
+	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
 
 	//TEMP HACK:
-	dNs_du_out = dNs_dv_out = Vec3d(0,0,0);
+	dNs_du_out = dNs_dv_out = Vec3Type(0.0);
 }
 
 
-void RaySphere::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void RaySphere::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 {
 	// Tex coords must be the UVs for spheres.
-	ds_du_out = dt_dv_out = 1.0;
+	ds_du_out = dt_dv_out = (TexCoordsRealType)1.0;
 
 	ds_dv_out = dt_du_out = 0.0;
 }
@@ -380,15 +380,16 @@ double RaySphere::surfaceArea(const Matrix3d& to_parent) const
 
 
 
+const js::AABBox& RaySphere::getAABBoxWS() const { return aabbox; }
 
 
-void RaySphere::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+void RaySphere::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
 {
 	assert(0);
 }
 
 
-void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
@@ -400,7 +401,23 @@ double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d
 }
 
 
+//int RaySphere::UVSetIndexForName(const std::string& uvset_name) const { return 0; }
 
+	
+const std::string RaySphere::getName() const { return "RaySphere"; }
+
+
+void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
+		const std::vector<Plane<double> >& camera_clip_planes){}
+
+
+void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
+
+
+unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
+
+
+unsigned int RaySphere::getNumTexCoordSets() const { return 1; }
 
 
 void RaySphere::test()
@@ -457,11 +474,11 @@ void RaySphere::test()
 	//testAssert(epsEqual(hitinfos[1].geometric_normal, Vec3d(1,0,0)));
 	//testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3d(-1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3d(-1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3Type(-1,0,0)));
 
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3d(1,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3d(1,0,0)));
+	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0)));
+	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3Type(1,0,0)));
 
 
 	//------------------------------------------------------------------------

@@ -323,14 +323,14 @@ public:
 	DUTexCoordEvaluator(){}
 	~DUTexCoordEvaluator(){}
 
-	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+	virtual const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 	{
 		return texcoords[texcoords_set];
 	}
 
 	virtual unsigned int getNumTexCoordSets() const { return texcoords.size(); }
 
-	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 	{
 		// This should never be evaluated, because we don't need to know the partial derives when doing displacement.
 
@@ -351,7 +351,7 @@ public:
 	}
 
 
-	std::vector<Vec2d> texcoords;
+	std::vector<TexCoordsType> texcoords;
 
 	//Matrix2d d_st_d_uv;
 	//double ds_du_out, ds_dv_out, dt_du_out, dt_dv_out;
@@ -394,14 +394,14 @@ static float evalDisplacement(ThreadContext& context,
 		const float b0 = (1.0f - b1) - b2;
 		for(unsigned int z=0; z<num_uv_sets; ++z)
 		{
-			du_texcoord_evaluator.texcoords[z] = toVec2d(
+			du_texcoord_evaluator.texcoords[z] = 
 				getUVs(uvs, num_uv_sets, triangle.uv_indices[0], z) * b0 + 
 				getUVs(uvs, num_uv_sets, triangle.uv_indices[1], z) * b1 + 
 				getUVs(uvs, num_uv_sets, triangle.uv_indices[2], z) * b2
-				);
+				;
 		}
 
-		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0));
+		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666.0, -666.0));
 
 		const MaterialBinding& material_binding = object.getMaterialBinding(triangle.tri_mat_index);
 
@@ -552,12 +552,12 @@ void DisplacementUtils::displace(ThreadContext& context,
 						HitInfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0)) // NOTE: we use dummy values here because they will not be used, because of our custom texcoord evaluator.
 						);*/
 
-					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0));
+					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666.0, -666.0));
 
 					//hitinfo.hitpos = toVec3d(verts_in[triangles[t].vertex_indices[i]].pos);
 
 					for(unsigned int z=0; z<num_uv_sets; ++z)
-						du_texcoord_evaluator.texcoords[z] = toVec2d(getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z));
+						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
 
 					/*const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
 					const float displacement = (float)material->displacement(

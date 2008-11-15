@@ -33,7 +33,10 @@ public:
 #endif
 	}
 
-	inline HitInfo(unsigned int sub_elem_index, const Vec2d& sub_elem_coords);
+	typedef float SubElemCoordsRealType;
+	typedef Vec2<SubElemCoordsRealType> SubElemCoordsType;
+
+	inline HitInfo(unsigned int sub_elem_index, const SubElemCoordsType& sub_elem_coords);
 
 	inline ~HitInfo(){}
 
@@ -44,11 +47,11 @@ public:
 	//Vec2d hittricoords; // Hit position in triangle barycentric coordinates. 
 
 	unsigned int sub_elem_index;
-	Vec2d sub_elem_coords;
+	SubElemCoordsType sub_elem_coords;
 };
 
 
-HitInfo::HitInfo(unsigned int sub_elem_index_, const Vec2d& sub_elem_coords_)
+HitInfo::HitInfo(unsigned int sub_elem_index_, const SubElemCoordsType& sub_elem_coords_)
 :	sub_elem_index(sub_elem_index_),
 	sub_elem_coords(sub_elem_coords_)
 {}

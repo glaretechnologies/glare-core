@@ -798,7 +798,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 						{
 							hitinfos_out.push_back(DistanceHitInfo(
 								leafgeom[triindex],
-								Vec2d(u, v),
+								HitInfo::SubElemCoordsType(u, v),
 								raydist
 								));
 							//hitinfos_out.back().hitpos = ray.startPos();
@@ -1253,7 +1253,7 @@ void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hit
 		{			
 			hitinfos_out.push_back(DistanceHitInfo(
 				i,
-				Vec2d(u, v),
+				HitInfo::SubElemCoordsType(u, v),
 				raydist
 				));
 		}

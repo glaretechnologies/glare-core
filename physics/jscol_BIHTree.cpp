@@ -843,7 +843,7 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 					{
 						hitinfos_out.push_back(DistanceHitInfo(
 							leafgeom[leaf_geom_index],
-							Vec2d(u, v),
+							HitInfo::SubElemCoordsType(u, v),
 							raydist
 							));
 

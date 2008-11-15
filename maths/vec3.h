@@ -586,6 +586,11 @@ inline bool epsEqual(const Vec3<Real>& a, const Vec3<Real>& b, Real eps = NICKMA
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }*/
 
+inline bool epsEqual(const Vec3<float>& a, const Vec3<float>& b, float eps = NICKMATHS_EPSILON)
+{
+	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
+}
+
 inline bool epsEqual(const Vec3<double>& a, const Vec3<double>& b, double eps = NICKMATHS_EPSILON)
 {
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);

@@ -614,7 +614,7 @@ inline static void recordHit(float t, float u, float v, unsigned int tri_index, 
 	{
 		hitinfos_out.push_back(DistanceHitInfo(
 			tri_index,
-			Vec2d(u, v),
+			HitInfo::SubElemCoordsType(u, v),
 			t
 			));
 	}

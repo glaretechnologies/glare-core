@@ -64,6 +64,18 @@ RayMesh::~RayMesh()
 }
 
 
+/*const std::string RayMesh::debugName() const 
+{ 
+	return "RayMesh (name=" + name + ")"; 
+}*/
+
+
+const std::string RayMesh::getName() const 
+{ 
+	return name; 
+}
+
+
 //returns negative number if object not hit by the ray
 double RayMesh::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
@@ -108,10 +120,10 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& 
 }
 
 
-const Vec3d RayMesh::getShadingNormal(const HitInfo& hitinfo) const
+const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	if(!this->enable_normal_smoothing)
-		return toVec3d(triNormal(hitinfo.sub_elem_index));
+		return triNormal(hitinfo.sub_elem_index);
 
 	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
@@ -126,18 +138,18 @@ const Vec3d RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 	//	(v2norm)*(float)hitinfo.tri_coords.y);
 
 	// Gratuitous removal of function calls
-	const double w = 1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return Vec3d(
-		(double)v0norm.x * w + (double)v1norm.x * hitinfo.sub_elem_coords.x + (double)v2norm.x * hitinfo.sub_elem_coords.y,
-		(double)v0norm.y * w + (double)v1norm.y * hitinfo.sub_elem_coords.x + (double)v2norm.y * hitinfo.sub_elem_coords.y,
-		(double)v0norm.z * w + (double)v1norm.z * hitinfo.sub_elem_coords.x + (double)v2norm.z * hitinfo.sub_elem_coords.y
+	const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	return Vec3Type(
+		v0norm.x * w + v1norm.x * hitinfo.sub_elem_coords.x + v2norm.x * hitinfo.sub_elem_coords.y,
+		v0norm.y * w + v1norm.y * hitinfo.sub_elem_coords.x + v2norm.y * hitinfo.sub_elem_coords.y,
+		v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y
 		);
 }
 
 
-const Vec3d RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
+const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	return toVec3d(triNormal(hitinfo.sub_elem_index));
+	return triNormal(hitinfo.sub_elem_index);
 }
 
 
@@ -373,7 +385,13 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 }
 
 
-const Vec2d RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+unsigned int RayMesh::getNumTexCoordSets() const
+{ 
+	return num_uvs_per_group; 
+}
+
+
+const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	assert(texcoords_set < num_uvs_per_group);
 	const Vec2f& v0tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
@@ -388,22 +406,22 @@ const Vec2d RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords
 	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 
 	// Gratuitous removal of function calls
-	const double w = 1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return Vec2d(
-		(double)v0tex.x * w + (double)v1tex.x * hitinfo.sub_elem_coords.x + (double)v2tex.x * hitinfo.sub_elem_coords.y,
-		(double)v0tex.y * w + (double)v1tex.y * hitinfo.sub_elem_coords.x + (double)v2tex.y * hitinfo.sub_elem_coords.y
+	const float w = (float)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	return RayMesh::TexCoordsType(
+		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
+		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
 		);
 }
 
 
-void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const
+void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
 	const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
 	const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
 	const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
 
-	dp_du_out = toVec3d(v1pos - v0pos);
-	dp_dv_out = toVec3d(v2pos - v0pos);
+	dp_du_out = v1pos - v0pos;
+	dp_dv_out = v2pos - v0pos;
 
 
 	if(this->enable_normal_smoothing)
@@ -421,17 +439,17 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& 
 		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
 		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
 
-		dNs_du_out = toVec3d(v1norm - v0norm);
-		dNs_dv_out = toVec3d(v2norm - v0norm);
+		dNs_du_out = v1norm - v0norm;
+		dNs_dv_out = v2norm - v0norm;
 	}
 	else
 	{
-		dNs_du_out = dNs_dv_out = Vec3d(0,0,0);
+		dNs_du_out = dNs_dv_out = Vec3Type(0,0,0);
 	}
 }
 
 
-void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const
+void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 {
 	assert(texcoords_set < num_uvs_per_group);
 	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
@@ -470,13 +488,13 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 }
 
 
-inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix3d& to_parent)
+inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix3<RayMesh::Vec3RealType>& to_parent)
 {
 	const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
 	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
 	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);
 
-	return ::crossProduct(to_parent * toVec3d(v1 - v0), to_parent * toVec3d(v2 - v0)).length() * 0.5;
+	return ::crossProduct(to_parent * (v1 - v0), to_parent * (v2 - v0)).length() * 0.5;
 }
 
 
@@ -575,7 +593,7 @@ unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 }
 
 
-void RayMesh::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const
+void RayMesh::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
 {
 	surface_areas_out.resize(triangles.size());
 
@@ -584,33 +602,30 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<d
 
 }
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
 	//------------------------------------------------------------------------
 
 	//see siggraph montecarlo course 2003 pg 47
-	const double s = sqrt(samples.x);
-	const double t = samples.y;
+	const Vec3RealType s = sqrt(samples.x);
+	const Vec3RealType t = samples.y;
 
 	// Compute barycentric coords
-	const double u = s * (1.0 - t);
-	const double v = (s * t);
+	const Vec3RealType u = s * (1.0f - t);
+	const Vec3RealType v = (s * t);
 
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
-	//FullHitInfo hitinfo;
-	//hitinfo.hittri_index = tri_index;
-	//hitinfo.tri_coords.set(u, v);
-	normal_out = toVec3d(triNormal(sub_elem_index));
+	normal_out = triNormal(sub_elem_index);
 	assert(normal_out.isUnitLength());
 
 	pos_out = toVec3d(
-		triVertPos(sub_elem_index, 0) * (float)(1.0 - s) + 
-		triVertPos(sub_elem_index, 1) * (float)u + 
-		triVertPos(sub_elem_index, 2) * (float)v
+		triVertPos(sub_elem_index, 0) * (1.0f - s) + 
+		triVertPos(sub_elem_index, 1) * u + 
+		triVertPos(sub_elem_index, 2) * v
 		);
 }
 

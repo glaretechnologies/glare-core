@@ -65,6 +65,11 @@ public:
 	virtual ~Geometry(){}
 
 
+	typedef Vec3d Pos3Type;
+	typedef float Vec3RealType;
+	typedef Vec3<Vec3RealType> Vec3Type;
+	
+
 	/// intersectable interface ///
 	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
@@ -74,15 +79,15 @@ public:
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
-	virtual const Vec3d getShadingNormal(const HitInfo& hitinfo) const = 0;
-	virtual const Vec3d getGeometricNormal(const HitInfo& hitinfo) const = 0;
-	virtual const Vec2d getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
+	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const = 0;
+	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
+	virtual const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
 	virtual unsigned int getNumTexCoordSets() const = 0;
 	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' u and v.
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' u and v.
-	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3d& dp_du_out, Vec3d& dp_dv_out, Vec3d& dNs_du_out, Vec3d& dNs_dv_out) const = 0;
-	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, double& ds_du_out, double& ds_dv_out, double& dt_du_out, double& dt_dv_out) const = 0;
+	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const = 0;
+	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const = 0;
 	//returns true if could construct a suitable basis
 	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
@@ -91,13 +96,13 @@ public:
 	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
 	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const = 0; // PDF with respect to surface area metric, in parent space
 	//virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
-	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const = 0;
+	virtual void getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const = 0;
 	//virtual unsigned int getNumSubElems() const = 0;
 	// Sample the surface of the given sub-element.
-	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const = 0;
 
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
-	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const = 0;
+	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const = 0;
 	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const = 0;
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
