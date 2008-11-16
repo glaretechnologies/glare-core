@@ -217,7 +217,7 @@ Real MatUtils::smoothingFactor(Real in_dot_Ns, Real in_dot_Ng)
 {
 	return myMin(
 		(Real)MAX_SMOOTHING_FACTOR, 
-		fabs(in_dot_Ns / in_dot_Ng)
+		(Real)fabs(in_dot_Ns / in_dot_Ng)
 		);
 }
 
@@ -226,7 +226,7 @@ FullHitInfo::Vec3RealType MatUtils::smoothingFactor(const FullHitInfo::Vec3Type&
 {
 	return myMin(
 		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR, 
-		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()))
+		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
 		);
 }
 

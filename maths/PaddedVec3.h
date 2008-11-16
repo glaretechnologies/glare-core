@@ -8,8 +8,9 @@ Code By Nicholas Chapman.
 #define __PADDEDVEC3_H_666_
 
 
-
 #include "vec3.h"
+#include "mathstypes.h"
+
 
 /*=====================================================================
 PaddedVec3
@@ -33,7 +34,7 @@ public:
 
 	inline PaddedVec3& operator = (const Vec3<T>& vec3);
 
-	static inline bool epsEqual(const PaddedVec3<T>& a, const PaddedVec3<T>& b, T eps = NICKMATHS_EPSILON);
+	static inline bool epsEqual(const PaddedVec3<T>& a, const PaddedVec3<T>& b, T eps = (T)NICKMATHS_EPSILON);
 
 
 	T padding;
@@ -48,23 +49,23 @@ PaddedVec3<T>::PaddedVec3()
 
 template <class T>
 PaddedVec3<T>::PaddedVec3(T x_, T y_, T z_)
-//TEMP:	Vec3(x, y, z)
+:	Vec3<T>(x_, y_, z_)
 {
 	//TEMP:
-	x = x_;
-	y = y_;
-	z = z_;
+	//x = x_;
+	//y = y_;
+	//z = z_;
 
 	padding = (T)1.0;
 }
 
 template <class T>
 PaddedVec3<T>::PaddedVec3(const Vec3<T>& vec3)
-//TEMP:	Vec3(vec3)
+:	Vec3<T>(vec3)
 {
-	x = vec3.x;
-	y = vec3.y;
-	z = vec3.z;
+//	x = vec3.x;
+//	y = vec3.y;
+//	z = vec3.z;
 
 	padding = (T)1.0;
 }
@@ -72,14 +73,14 @@ PaddedVec3<T>::PaddedVec3(const Vec3<T>& vec3)
 template <class T>
 PaddedVec3<T>& PaddedVec3<T>::operator = (const Vec3<T>& vec3)
 {
-	x = vec3.x;
-	y = vec3.y;
-	z = vec3.z;
+	this->x = vec3.x;
+	this->y = vec3.y;
+	this->z = vec3.z;
 	return *this;
 }
 
 template <class T>
-inline bool PaddedVec3<T>::epsEqual(const PaddedVec3<T>& a, const PaddedVec3<T>& b, T eps = NICKMATHS_EPSILON)
+inline bool PaddedVec3<T>::epsEqual(const PaddedVec3<T>& a, const PaddedVec3<T>& b, T eps)
 {
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }

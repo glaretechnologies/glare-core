@@ -78,7 +78,7 @@ public:
 	MySocket(const IPAddress& ipaddress, int port);//client connect
 	MySocket();//for server socket
 
-	~MySocket();
+	virtual ~MySocket();
 
 	void bindAndListen(int port);// throw (MySocketExcep);
 
