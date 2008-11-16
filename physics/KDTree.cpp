@@ -195,11 +195,6 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 	assert(!nodes.empty());
 	assert(root_aabb);
 
-	#ifdef DO_PREFETCHING
-	// Prefetch first node
-	// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);	
-	#endif
-
 	#ifdef RECORD_TRACE_STATS
 	this->num_root_aabb_hits++;
 	#endif
@@ -244,17 +239,11 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 
 		stacktop--;
 
-		//tmax = myMin(tmax, closest_dist);
 		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
-		
 		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 		{
-			//_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
-			#ifdef DO_PREFETCHING
-			//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-			#endif			
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			const __m128 t_split = 
@@ -373,11 +362,6 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	assert(!nodes.empty());
 	assert(root_aabb);
 
-	#ifdef DO_PREFETCHING
-	// Prefetch first node
-	// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);	
-	#endif
-
 	#ifdef RECORD_TRACE_STATS
 	this->num_root_aabb_hits++;
 	#endif
@@ -406,9 +390,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
-	//REAL closest_dist = ray_max_t_f; // std::numeric_limits<float>::max();
-
-	int stacktop = 0;//index of node on top of stack
+	int stacktop = 0; // index of node on top of stack
 	
 	while(stacktop >= 0)
 	{
@@ -420,17 +402,9 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 
 		stacktop--;
 
-		//tmax = myMin(tmax, closest_dist);
-		//tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
-
-		
 		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 		{
-			//_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
-			#ifdef DO_PREFETCHING
-			//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-			#endif			
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
 			const __m128 t_split = 
@@ -525,166 +499,40 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	} // End while stacktop >= 0
 
 	return false;
-
-	/*assertSSEAligned(&ray);
-	assert(ray.unitDir().isUnitLength());
-	assert(raylength > 0.0);
-
-	// Intersect ray with AABBox
-	float aabb_enterdist, aabb_exitdist;
-	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
-		return false; // missed bounding box
-
-	const float root_t_min = myMax(0.0f, aabb_enterdist);
-	const float root_t_max = myMin((float)raylength, aabb_exitdist);
-	if(root_t_min > root_t_max)
-		return false; // Ray interval does not intersect AABB
-
-	SSE_ALIGN unsigned int ray_child_indices[8];
-	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
-
-	#ifdef USE_LETTERBOX
-	context.tri_hash->clear();
-	#endif
-
-	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
-	int stacktop = 0; // index of node on top of stack
-
-	while(stacktop >= 0)
-	{
-		unsigned int current = context.nodestack[stacktop].node;
-		assert(current < nodes.size());
-		float tmin = context.nodestack[stacktop].tmin;
-		float tmax = context.nodestack[stacktop].tmax;
-
-		stacktop--; //pop current node off stack
-
-		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF) //while current node is not a leaf..
-		{
-			#ifdef DO_PREFETCHING
-			//_mm_prefetch((const char *)(&nodes[current+1]), _MM_HINT_T0);	
-			//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-			#endif			
-			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			//const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
-			const SSE4Vec t = mult4Vec(
-				sub4Vec(
-					loadScalarCopy(&nodes[current].data2.dividing_val), 
-					load4Vec(&ray.startPosF().x)
-					), 
-				load4Vec(&ray.getRecipRayDirF().x)
-				);
-
-			const float t_split = t.m128_f32[splitting_axis];
-			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
-
-			if(t_split > tmax) // whole interval is on near cell	
-			{
-				current = child_nodes[ray_child_indices[splitting_axis]];
-			}
-			else if(tmin > t_split) // whole interval is on far cell.
-			{
-				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
-			}
-			else // ray hits plane - double recursion, into both near and far cells.
-			{
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
-					
-				//push far node onto stack to process later
-				stacktop++;
-				assert(stacktop < context.nodestack_size);
-				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
-
-				#ifdef DO_PREFETCHING
-				// Prefetch pushed child
-				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-				#endif
-					
-				// process near child next
-				current = nearnode;
-				tmax = t_split;
-			}
-		} // end while current node is not a leaf..
-
-		// 'current' is a leaf node..
-
-		unsigned int leaf_geom_index = nodes[current].getLeafGeomIndex(); //get index into leaf geometry array
-		const unsigned int num_leaf_tris = nodes[current].getNumLeafGeom();
-
-		for(unsigned int i=0; i<num_leaf_tris; ++i)
-		{
-			assert(leaf_geom_index < leafgeom.size());
-			const unsigned int triangle_index = leafgeom[leaf_geom_index]; //get the actual intersection triangle index
-
-			#ifdef USE_LETTERBOX
-			//If this tri has not already been intersected against
-			if(!context.tri_hash->containsTriIndex(triangle_index))
-			{
-			#endif
-				//assert(tmax <= raylength);
-				float u, v, dummy_hitdist;
-				if(intersect_tris[triangle_index].rayIntersect(ray, 
-					(float)raylength, // raylength is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
-					dummy_hitdist, u, v))
-				{
-					if(!object || object->isNonNullAtHit(thread_context, ray, (double)dummy_hitdist, triangle_index, u, v)) // Do visiblity check for null materials etc..
-					{
-						return true;
-					}
-				}
-				
-			#ifdef USE_LETTERBOX
-				//Add tri index to hash of tris already intersected against
-				context.tri_hash->addTriIndex(triangle_index);
-			}
-			#endif
-			leaf_geom_index++;
-		}
-	}
-	return false;*/
 }
 
 
 void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
-
 	assert(!nodes.empty());
 	assert(root_aabb);	
 	
 	hitinfos_out.resize(0);
 
-	float aabb_enterdist, aabb_exitdist;
-	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
-		return; //missed aabbox
-
 	#ifdef USE_LETTERBOX
 	context.tri_hash->clear();
-	#endif
+	#endif	
+	
+	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
+
+	__m128 near_t, far_t;
+	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
+	
+	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+		return;
+
+	context.nodestack[0].node = ROOT_NODE_INDEX;
+	_mm_store_ss(&context.nodestack[0].tmin, near_t);
+	_mm_store_ss(&context.nodestack[0].tmax, far_t);
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 
-	//const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
-	//TEMP:
-	//aabb_enterdist = myMax(aabb_enterdist, MIN_TMIN);
-
-	//assert(aabb_enterdist >= 0.0f);
-	//assert(aabb_exitdist >= aabb_enterdist);
-
-	const float root_t_min = myMax(0.0f, aabb_enterdist);
-	const float root_t_max = aabb_exitdist; //myMin((float)ray_max_t, aabb_exitdist);// * (1.1f + (float)NICKMATHS_EPSILON));
-	if(root_t_min > root_t_max)
-		return; // Ray interval does not intersect AABB
-
-	REAL closest_dist = std::numeric_limits<float>::max();
-
-	//const REAL initial_closest_dist = aabb_exitdist + 0.01f;
-	//REAL closest_dist = initial_closest_dist;//(REAL)2.0e9;//closest hit on a tri so far.
-
-	context.nodestack[0] = StackFrame(ROOT_NODE_INDEX, root_t_min, root_t_max);
+	const REAL closest_dist = std::numeric_limits<float>::max();
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -692,26 +540,28 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 	{
 		//pop node off stack
 		unsigned int current = context.nodestack[stacktop].node;
-		float tmin = context.nodestack[stacktop].tmin;
-		float tmax = context.nodestack[stacktop].tmax;
+		assert(current < nodes.size());
+		__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
+		__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
 
 		stacktop--;
 
 		while(nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 		{
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
 			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
 			#endif			
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			const SSE4Vec t = mult4Vec(
-				sub4Vec(
-					loadScalarCopy(&nodes[current].data2.dividing_val), 
-					load4Vec(&ray.startPosF().x)
-					), 
-				load4Vec(&ray.getRecipRayDirF().x)
+			const __m128 t_split = 
+				_mm_mul_ss(
+					_mm_sub_ss(
+						_mm_load_ss(&nodes[current].data2.dividing_val),
+						_mm_load_ss(&ray.startPosF().x + splitting_axis)
+					),
+					_mm_load_ss(&ray.getRecipRayDirF().x + splitting_axis)
 				);
-			const float t_split = t.m128_f32[splitting_axis];
 	
 
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
@@ -732,32 +582,30 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 				child_nodes[1] = nodes[current].getPosChildIndex();
 			}*/
 
-			if(t_split > tmax) // whole interval is on near cell	
+			if(_mm_comigt_ss(t_split, tmax) != 0) // whole interval is on near cell	
 			{
 				current = child_nodes[ray_child_indices[splitting_axis]];
 			}
-			else if(tmin > t_split) // whole interval is on far cell.
+			else 
 			{
-				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
-			}
-			else // ray hits plane - double recursion, into both near and far cells.
-			{
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
-					
-				//push far node onto stack to process later
-				stacktop++;
-				assert(stacktop < context.nodestack_size);
-				context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
+				if(_mm_comigt_ss(tmin, t_split) != 0)  // whole interval is on far cell.
+					current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
+				else // ray hits plane - double recursion, into both near and far cells.
+				{
+					stacktop++;
+					assert(stacktop < context.nodestack_size);
+					context.nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
+					_mm_store_ss(&context.nodestack[stacktop].tmin, t_split);
+					_mm_store_ss(&context.nodestack[stacktop].tmax, tmax);
 
-				#ifdef DO_PREFETCHING
-				// Prefetch pushed child
-				_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-				#endif
-					
-				//process near child next
-				current = nearnode;
-				tmax = t_split;
+					#ifdef DO_PREFETCHING
+					_mm_prefetch((const char *)(&nodes[child_nodes[ray_child_indices[splitting_axis + 4]]]), _MM_HINT_T0);	// Prefetch pushed child
+					#endif	
+						
+					// Process near child next
+					current = child_nodes[ray_child_indices[splitting_axis]]; // near node
+					tmax = t_split;
+				}
 			}
 		}//end while current node is not a leaf..
 
@@ -767,8 +615,6 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 		//intersect with leaf tris
 		//------------------------------------------------------------------------
 		unsigned int triindex = nodes[current].getLeafGeomIndex();//positive_child;
-
-		//lookup the number of leaf tris
 		const unsigned int num_leaf_tris = nodes[current].getNumLeafGeom();
 
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -801,26 +647,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 								HitInfo::SubElemCoordsType(u, v),
 								raydist
 								));
-							//hitinfos_out.back().hitpos = ray.startPos();
-							//hitinfos_out.back().hitpos.addMult(ray.unitDir(), raydist);
 						}
 					}
-
-					//NOTE: this looks fully bogus :(
-					/*const int last_hit_index = hitinfos_out.size() - 1;
-					if(last_hit_index >= 0 && hitinfos_out[last_hit_index].dist == raydist)
-					{
-						//then we already have this hit
-					}
-					else
-					{
-						hitinfos_out.push_back(FullHitInfo());
-						hitinfos_out.back().hittri_index = leafgeom[triindex];
-						hitinfos_out.back().tri_coords.set(u, v);
-						hitinfos_out.back().dist = raydist;
-						hitinfos_out.back().hitpos = ray.startpos;
-						hitinfos_out.back().hitpos.addMult(ray.unitdir, raydist);
-					}*/
 				}
 			#ifdef USE_LETTERBOX
 				//Add tri index to hash of tris already intersected against
@@ -831,8 +659,6 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 		}
 	}//end while !bundlenodestack.empty()
 }
-
-
 
 
 const Vec3f& KDTree::triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const
@@ -847,8 +673,7 @@ unsigned int KDTree::numTris() const
 }
 
 
-/*
-void KDTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
+/*void KDTree::AABBoxForTri(unsigned int tri_index, AABBox& aabbox_out)
 {
 	aabbox_out.min_ = aabbox_out.max_ = triVertPos(tri_index, 0);//(*tris)[i].v0();
 	aabbox_out.enlargeToHoldPoint(triVertPos(tri_index, 1));//(*tris)[i].v1());
@@ -891,18 +716,6 @@ void KDTree::build()
 		//------------------------------------------------------------------------
 		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
 		assert(root_aabb->invariant());
-
-		//------------------------------------------------------------------------
-		//compute max allowable depth
-		//------------------------------------------------------------------------
-		//const int numtris = tris->size();
-		//max_depth = (int)(2.0f + logBase2((float)numtris) * 1.2f);
-	/*TEMP	max_depth = myMin(
-			(int)(2.0f + logBase2((float)numTris()) * 2.0f),
-			(int)MAX_KDTREE_DEPTH-1
-			);*/
-		//max_depth = (int)MAX_KDTREE_DEPTH-1;
-
 
 		const unsigned int max_depth = calcMaxDepth();
 		triTreeDebugPrint("max tree depth: " + ::toString(max_depth));
@@ -966,9 +779,6 @@ void KDTree::build()
 	{
 		throw TreeExcep("Memory allocation failed while building kd-tree");
 	}
-
-	//TEMP:
-//	printTree(ROOT_NODE_INDEX, 0, std::cout);
 }
 
 
@@ -1084,8 +894,6 @@ void KDTree::buildFromStream(std::istream& stream)
 
 void KDTree::postBuild() const
 {
-	//KDTreeDebugPrint("finished building tree.");
-
 	//------------------------------------------------------------------------
 	//TEMP: check things are aligned
 	//------------------------------------------------------------------------
@@ -1212,7 +1020,7 @@ void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int d
 }
 
 
-	//returns dist till hit tri, neg number if missed.
+// Returns dist till hit tri, neg number if missed.
 double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
@@ -1301,6 +1109,7 @@ void KDTree::saveTree(std::ostream& stream)
 
 }
 
+
 // Checksum over triangle vertex positions
 unsigned int KDTree::checksum()
 {
@@ -1330,7 +1139,6 @@ void KDTree::printStats() const
 
 void KDTree::test()
 {
-
 	{
 	KDTreeNode n(
 		//TreeNode::NODE_TYPE_INTERIOR, //TreeNode::NODE_TYPE_TWO_CHILDREN,

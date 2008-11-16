@@ -54,6 +54,8 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 	return fabs(a - b) <= epsilon;
 }
 
+
+
 template <class Real>
 inline Real radToDegree(Real rad)
 {
@@ -303,6 +305,12 @@ inline int roundToInt(double x)
 namespace Maths
 {
 
+template <class Real>
+inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
+{
+	return fabs(a - b) / fabs(a) <= eps;
+}
+
 inline bool posUnderflowed(double x)
 {
 	assert(x >= 0.0);
@@ -445,6 +453,12 @@ template <class T>
 inline bool inRange(T x, T min, T max)
 {
 	return x >= min && x <= max;
+}
+
+template <class T>
+inline bool inUnitInterval(T x)
+{
+	return x >= (T)0.0 && x <= (T)1.0;
 }
 
 template <class T>

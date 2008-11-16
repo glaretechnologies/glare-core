@@ -13,6 +13,10 @@ void Maths::test()
 {
 	conPrint("Maths::test()");
 
+	testAssert(approxEq(1.0, 1.0));
+	testAssert(approxEq(1.0, 1.0000001));
+	testAssert(!approxEq(1.0, 1.0001));
+
 	testAssert(roundToInt(0.0) == 0);
 	testAssert(roundToInt(0.1) == 0);
 	testAssert(roundToInt(0.5) == 0 || roundToInt(0.5) == 1);

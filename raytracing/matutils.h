@@ -160,7 +160,7 @@ double MatUtils::spherePDF()
 
 template <class Real> Real MatUtils::hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir)
 {
-	return myMax((Real)0.0, dot(normal, unitdir)) * NICKMATHS_RECIP_PI;
+	return myMax((Real)0.0, dot(normal, unitdir)) * (Real)NICKMATHS_RECIP_PI;
 }
 
 double MatUtils::pow5(double x)
@@ -246,7 +246,8 @@ bool MatUtils::raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig
 // where phi is the azimuthal coordinate and theta is the zenith coordinate.
 template <class Real> const Vec2<Real> MatUtils::sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length)
 {
-	assert(epsEqual((Real)1.0 / dir.length(), recip_dir_length));
+	const Real recip_len = (Real)1.0 / dir.length();
+	assert(Maths::approxEq((Real)1.0 / dir.length(), recip_dir_length, (Real)0.001));
 
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	return Vec2<Real>(
