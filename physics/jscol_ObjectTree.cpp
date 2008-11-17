@@ -1,11 +1,10 @@
-me/*=====================================================================
+/*=====================================================================
 ObjectTree.cpp
 --------------
 File created by ClassTemplate on Sat Apr 15 18:59:20 2006
 Code By Nicholas Chapman.
 =====================================================================*/
 #include "jscol_ObjectTree.h"
-
 
 #include "../indigo/FullHitInfo.h"
 #include "../simpleraytracer/ray.h"
@@ -17,6 +16,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include <string.h>
+
 
 
 namespace js
