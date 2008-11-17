@@ -319,7 +319,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 	// Units of (m / radian) * m * src_pixels / m = pixels / radian
 	//const double pixel_scale_factor = sensor_displament_for_angle * this->sensor_to_lens_dist * (double)src_image_res / this->sensor_width;
 
-	MitchellNetravali mn(
+	MitchellNetravali<double> mn(
 		0.6, // B
 		0.2 // C
 		);
@@ -393,7 +393,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 				const int center_sx = Maths::floorToInt(src_pixel_coords.x);
 				const int center_sy = Maths::floorToInt(src_pixel_coords.y);
 
-				const Vec3d xyz_col = SingleFreq::getXYZ_CIE_2DegForWavelen(wvlen_nm);
+				const Vec3d xyz_col = toVec3d(SingleFreq::getXYZ_CIE_2DegForWavelen(wvlen_nm));
 
 				if(x_scale > 1.0)
 				{

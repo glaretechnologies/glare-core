@@ -16,6 +16,7 @@ MitchellNetravali
 -----------------
 
 =====================================================================*/
+template <class Real>
 class MitchellNetravali
 {
 public:
@@ -24,30 +25,52 @@ public:
 	-----------------
 	
 	=====================================================================*/
-	MitchellNetravali(double B, double C);
+	MitchellNetravali(Real B, Real C);
 
 	~MitchellNetravali();
 
 
 	// require x >= 0
-	inline double eval(double x) const;
+	inline Real eval(Real x) const;
 
-	inline double getB() const { return B; }
-	inline double getC() const { return C; }
+	inline Real getB() const { return B; }
+	inline Real getC() const { return C; }
 
 
 private:
-	double region_0_a, region_0_b, region_0_d; // 0.0 <= x < 1.0
-	double region_1_a, region_1_b, region_1_c, region_1_d; // 1.0 <= x < 2.0
-	double B, C;
+	Real region_0_a, region_0_b, region_0_d; // 0.0 <= x < 1.0
+	Real region_1_a, region_1_b, region_1_c, region_1_d; // 1.0 <= x < 2.0
+	Real B, C;
 };
 
 
-double MitchellNetravali::eval(double x) const
+template <class Real>
+MitchellNetravali<Real>::MitchellNetravali(Real B_, Real C_)
+:	B(B_), C(C_)
+{
+	region_0_a = (12.0 - 9.0*B - 6.0*C) / 6.0;
+	region_0_b = (-18.0 + 12.0*B + 6.0*C) / 6.0;
+	region_0_d = (6.0 - 2.0*B) / 6.0;
+
+	region_1_a = (-B - 6.0*C) / 6.0;
+	region_1_b = (6.0*B + 30.0*C) / 6.0;
+	region_1_c = (-12.0*B - 48.0*C) / 6.0;
+	region_1_d = (8.0*B + 24.0*C) / 6.0;
+}
+
+
+template <class Real>
+MitchellNetravali<Real>::~MitchellNetravali()
+{
+}
+
+
+template <class Real>
+Real MitchellNetravali<Real>::eval(Real x) const
 {
 	assert(x >= 0.0);
 
-	if(x < 1.0)
+	if(x < (Real)1.0)
 	{
 		// Region '0'
 		return region_0_a * x*x*x + region_0_b * x*x + region_0_d;

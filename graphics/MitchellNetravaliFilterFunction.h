@@ -26,7 +26,7 @@ public:
 	virtual const std::string description() const;
 
 private:
-	MitchellNetravali mn;
+	MitchellNetravali<double> mn;
 };
 
 
