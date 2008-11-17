@@ -18,6 +18,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../indigo/Spectral.h"
 #include "../indigo/SampleTypes.h"
 #include <string>
+#include <memory>
 class ColourSpaceConverter;
 class HitInfo;
 class FullHitInfo;

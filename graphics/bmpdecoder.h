@@ -8,11 +8,12 @@ Code By Nicholas Chapman.
 #define __BMPDECODER_H_666_
 
 
-
-#include <vector>
 #include "../utils/reference.h"
+#include <string>
+#include <vector>
 class Map2D;
 //class Bitmap;
+
 
 /*=====================================================================
 BMPDecoder

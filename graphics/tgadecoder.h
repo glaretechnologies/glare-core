@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include "../utils/reference.h"
 #include <vector>
+#include <string>
 class Map2D;
 class Bitmap;
 

@@ -14,6 +14,7 @@ Code Copyright Nicholas Chapman 2005.
 #include <vector>
 #include "fractionlistener.h"
 #include "../utils/stringutils.h"
+#include <string.h>
 #if defined(WIN32) || defined(WIN64)
 #else
 #include <netinet/in.h>

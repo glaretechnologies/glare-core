@@ -18,7 +18,7 @@ Code Copyright Nicholas Chapman 2005.
 #define NOMINMAX
 #include <winsock.h>
 #else
-
+#include <sys/select.h>
 #endif
 
 #include <string>

@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../utils/lock.h"
 //#include "../utils/inifile.h"
 #include "../utils/stringutils.h"
-
+#include <string.h> // for memset()
 #if defined(WIN32) || defined(WIN64)
 
 #else

@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
+#include <string.h>
 
 
 BMPDecoder::BMPDecoder()

@@ -1,4 +1,4 @@
-/*=====================================================================
+me/*=====================================================================
 ObjectTree.cpp
 --------------
 File created by ClassTemplate on Sat Apr 15 18:59:20 2006
@@ -16,6 +16,7 @@ Code By Nicholas Chapman.
 #include "TreeUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include <string.h>
 
 
 namespace js
