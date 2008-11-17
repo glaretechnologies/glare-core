@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "FloatDecoder.h"
 
 
-#include "../utils/FileUtils.h"
+#include "../utils/fileutils.h"
 #include <vector>
 #include <math.h>
 #include "imformatdecoder.h"

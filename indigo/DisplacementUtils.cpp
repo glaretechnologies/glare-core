@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "DisplacementUtils.h"
 
 
-#include "../maths/rect2.h"
+#include "../maths/Rect2.h"
 #include "../maths/mathstypes.h"
 #include "../graphics/TriBoxIntersection.h"
 #include "ScalarMatParameter.h"
@@ -249,8 +249,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		// Recompute vertex normals
 		computeVertexNormals(temp_tris, temp_verts);
 
-		conPrint("\t\tresulting num vertices: " + toString(temp_verts.size()));
-		conPrint("\t\tresulting num triangles: " + toString(temp_tris.size()));
+		conPrint("\t\tresulting num vertices: " + toString((unsigned int)temp_verts.size()));
+		conPrint("\t\tresulting num triangles: " + toString((unsigned int)temp_tris.size()));
 		conPrint("\t\tDone.");
 	}
 
