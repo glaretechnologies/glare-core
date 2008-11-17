@@ -71,7 +71,7 @@ public:
 		if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
 			return -1.0;
 
-		context.nodestack[0].node = TriTree::ROOT_NODE_INDEX;
+		context.nodestack[0].node = KDTree::ROOT_NODE_INDEX;
 		_mm_store_ss(&context.nodestack[0].tmin, near_t);
 		_mm_store_ss(&context.nodestack[0].tmax, far_t);
 
@@ -94,7 +94,7 @@ public:
 
 			tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 	
-			while(kd.nodes[current].getNodeType() != TreeNode::NODE_TYPE_LEAF)
+			while(kd.nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 			{
 				//_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 				_mm_prefetch((const char*)(&kd.nodes[0] + kd.nodes[current].getPosChildIndex()), _MM_HINT_T0);

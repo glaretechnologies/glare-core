@@ -2,7 +2,7 @@
 
 
 #include "../indigo/TestUtils.h"
-#include "matrix2.h"
+#include "Matrix2.h"
 #include "matrix3.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"

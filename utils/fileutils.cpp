@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #else
 #include <stdio.h>
+#include <sys/stat.h>
 #endif
 
 #include <zlib.h>
@@ -151,7 +152,9 @@ void createDir(const std::string& dirname)
 	if(!result)
 		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
 #else
-	#error
+	// Create with r/w/x permissions for user and group
+	if(mkdir(dirname.c_str(), S_IRWXU | S_IRWXG) != 0)
+		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
 #endif
 }
 
@@ -375,7 +378,9 @@ bool fileExists(const std::string& pathname)
 
 	return foundit;
 #else
-	#error to be implemented
+	struct stat buffer;
+	const int status = stat(pathname.c_str(), &buffer);
+	return status != 0;
 #endif
 }
 
@@ -663,7 +668,9 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 	}
 	
 #else
-#error
+	std::vector<unsigned char> data;
+	readEntireFile(srcpath, data);
+	writeEntireFile(dstpath, data);
 #endif
 }
 
@@ -678,7 +685,8 @@ void deleteFile(const std::string& path)
 	}
 	
 #else
-#error
+	if(remove(path.c_str()) != 0)
+		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
 #endif
 }
 
@@ -693,7 +701,8 @@ void deleteEmptyDirectory(const std::string& path)
 	}
 	
 #else
-#error
+	if(rmdir(path.c_str()) != 0)
+		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
 #endif
 }
 

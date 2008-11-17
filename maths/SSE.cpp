@@ -30,13 +30,9 @@ void* alignedMalloc(size_t size, size_t alignment)
 		throw std::bad_alloc("Memory allocation failed.");
 	return result;
 #else
-#error // TODO: make throw bad_alloc
 	void* mem_ptr;
-	const int result = posix_memalign(&mem_ptr, alignment, size);
-	assert(result == 0);
-	//TODO: handle fail here somehow.
-	if(result != 0)
-		return (void*)0;
+	if(posix_memalign(&mem_ptr, alignment, size) != 0)
+		throw std::bad_alloc();
 	return mem_ptr;
 #endif
 }

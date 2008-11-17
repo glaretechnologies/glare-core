@@ -682,7 +682,7 @@ void RayMesh::computeShadingNormals()
 void RayMesh::mergeVerticesWithSamePosAndNormal()
 {
 	conPrint("Merging vertices for mesh '" + this->getName() + "'...");
-	conPrint("\tInitial num vertices: " + toString(vertices.size()));
+	conPrint("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
 
 	std::map<RayMeshVertex, unsigned int> new_vert_indices;
 	std::vector<RayMeshVertex> newverts;
@@ -712,7 +712,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal()
 
 	vertices = newverts;
 
-	conPrint("\tNew num vertices: " + toString(vertices.size()) + "");
+	conPrint("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
 	conPrint("\tDone.");
 }
 
