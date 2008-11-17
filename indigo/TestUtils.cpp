@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "globals.h"
 #include "../utils/stringutils.h"
+#include <process.h>
 
 
 void doTestAssert(bool expr, const char* test, long line, const char* file)
