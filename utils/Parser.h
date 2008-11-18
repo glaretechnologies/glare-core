@@ -117,7 +117,7 @@ bool Parser::parseWhiteSpace()
 
 void Parser::parseSpacesAndTabs()
 {
-	for( ;notEOF() && text[currentpos] == ' ' || text[currentpos] == '\t' ; ++currentpos)
+	for( ;notEOF() && (text[currentpos] == ' ' || text[currentpos] == '\t') ; ++currentpos)
 	{}
 }
 /*

@@ -27,7 +27,7 @@ namespace SSE
 
 void* alignedMalloc(size_t size, size_t alignment)
 {
-	assert(Maths::isPowerOfTwo(alignment % sizeof(void*))); // This is required for posix_memalign
+	//assert(Maths::isPowerOfTwo(alignment % sizeof(void*))); // This is required for posix_memalign
 #ifdef COMPILER_MSVC
 	void* result = _aligned_malloc(size, alignment);
 	if(result == NULL)
