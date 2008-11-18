@@ -6,15 +6,18 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "SSE.h"
 
+
 #include "../utils/platform.h"
 #include "../utils/timer.h" // just for testing
 #include "../indigo/globals.h" // just for testing
 #include "../utils/stringutils.h" // just for testing
-
+#include "../maths/mathstypes.h"
+#include <assert.h>
 #ifdef COMPILER_MSVC
 #include <intrin.h>
 #else
-
+#include <stdlib.h>
+#include <errno.h>
 #endif
 
 
@@ -24,6 +27,7 @@ namespace SSE
 
 void* alignedMalloc(size_t size, size_t alignment)
 {
+	assert(Maths::isPowerOfTwo(alignment % sizeof(void*))); // This is required for posix_memalign
 #ifdef COMPILER_MSVC
 	void* result = _aligned_malloc(size, alignment);
 	if(result == NULL)
@@ -31,9 +35,19 @@ void* alignedMalloc(size_t size, size_t alignment)
 	return result;
 #else
 	void* mem_ptr;
-	if(posix_memalign(&mem_ptr, alignment, size) != 0)
+	const int result = posix_memalign(&mem_ptr, alignment, size);
+	if(result == EINVAL)
+	{
+		conPrint("Bad alignment: " + toString((unsigned int)alignment));
+		assert(0);
 		throw std::bad_alloc();
-	return mem_ptr;
+	}
+	else if(result == ENOMEM)
+	{
+		throw std::bad_alloc();
+	}
+	else
+		return mem_ptr;
 #endif
 }
 
@@ -69,13 +83,13 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 	/*unsigned int cpeinfo;
 	unsigned int cpsse3;
 	unsigned int temp_ebx;
-	__asm 
+	__asm
 	{
 	mov temp_ebx, ebx //save ebx
-	mov eax, 01h 
-	cpuid 
-	mov cpeinfo, edx 
-	mov cpsse3, ecx 
+	mov eax, 01h
+	cpuid
+	mov cpeinfo, edx
+	mov cpsse3, ecx
 	mov ebx, temp_ebx; //restore ebx
 	}
 
@@ -93,7 +107,7 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 #ifdef COMPILER_MSVC
 	int CPUInfo[4];
 	__cpuid(
-		CPUInfo, 
+		CPUInfo,
 		1 //infotype
 		);
 

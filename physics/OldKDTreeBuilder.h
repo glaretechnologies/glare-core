@@ -27,14 +27,14 @@ public:
 	/*=====================================================================
 	OldKDTreeBuilder
 	----------------
-	
+
 	=====================================================================*/
 	OldKDTreeBuilder();
 
 	~OldKDTreeBuilder();
 
 
-	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out);
+	void build(KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out);
 
 
 	class SortedBoundInfo
@@ -52,11 +52,11 @@ private:
 		Vec3f upper;
 	};
 
-	
-	void doBuild(KDTree& tree, KDTree::NODE_INDEX cur, 
+
+	void doBuild(KDTree& tree, KDTree::NODE_INDEX cur,
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower,
-		js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out,
+		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out,
 		std::vector<KDTreeNode>& nodes
 		);
 

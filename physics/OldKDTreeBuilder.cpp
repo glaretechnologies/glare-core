@@ -32,11 +32,11 @@ OldKDTreeBuilder::OldKDTreeBuilder()
 
 OldKDTreeBuilder::~OldKDTreeBuilder()
 {
-	
+
 }
 
 
-void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out)
+void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 
 	unsigned int max_depth = tree.calcMaxDepth();
@@ -46,7 +46,7 @@ void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE
 
 		//for(int t=0; t<MAX_KDTREE_DEPTH; ++t)
 		//	node_tri_layers[t].reserve(1000);
-		
+
 		node_tri_layers[0].resize(tree.numTris());
 		for(unsigned int i=0; i<tree.numTris(); ++i)
 		{
@@ -71,9 +71,9 @@ void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE
 		std::vector<SortedBoundInfo> lower(tree.numTris());
 		std::vector<SortedBoundInfo> upper(tree.numTris());
 		doBuild(
-			tree, 
-			KDTree::ROOT_NODE_INDEX, 
-			node_tri_layers, 
+			tree,
+			KDTree::ROOT_NODE_INDEX,
+			node_tri_layers,
 			0,
 			max_depth, root_aabb, lower, upper, leaf_tri_indices_out, nodes_out);
 	}
@@ -100,9 +100,9 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth
 						const AABBox& cur_aabb, // AABB of current node
-						std::vector<SortedBoundInfo>& upper, 
+						std::vector<SortedBoundInfo>& upper,
 						std::vector<SortedBoundInfo>& lower,
-						js::Vector<KDTree::TRI_INDEX, 4>& leaf_tri_indices_out,
+						KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out,
 						std::vector<KDTreeNode>& nodes)
 {
 	// Get the list of tris intersecting this volume
@@ -117,7 +117,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		triTreeDebugPrint(::toString(numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
 		numnodesbuilt++;
 	}
-	
+
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
@@ -181,7 +181,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		//	continue;
 		if(cur_aabb.axisLength(axis) == 0.0f)
 			continue; // Don't try to split a zero-width bounding box
-		
+
 		//------------------------------------------------------------------------
 		//Sort lower and upper tri AABB bounds into ascending order
 		//------------------------------------------------------------------------
@@ -314,7 +314,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 				if(num_on_splitting_plane == 0)
 				{
-					const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * 
+					const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
 						recip_aabb_surf_area * intersection_cost;
 					assert(cost >= 0.0);
 
@@ -331,7 +331,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 				else
 				{
 					// Try pushing tris on splitting plane to left
-					const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * 
+					const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
 						recip_aabb_surf_area * intersection_cost;
 					assert(push_left_cost >= 0.0);
 
@@ -347,7 +347,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 					}
 
 					// Try pushing tris on splitting plane to right
-					const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) * 
+					const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) *
 						recip_aabb_surf_area * intersection_cost;
 					assert(push_right_cost >= 0.0);
 
@@ -380,7 +380,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 			const float splitval = upper[i].upper;
 			//assert(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]);
-			
+
 			if(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis])
 			{
 
@@ -401,7 +401,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 			assert(i < upper.size());
 			const float splitval = upper[i];
-			
+
 			//if(splitval != last_splitval)
 			//{
 				//if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis])
@@ -440,7 +440,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 			if(num_on_splitting_plane == 0)
 			{
-				const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * 
+				const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
 					recip_aabb_surf_area * intersection_cost;
 				assert(cost >= 0.0);
 
@@ -457,7 +457,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			else
 			{
 				// Try pushing tris on splitting plane to left
-				const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * 
+				const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
 					recip_aabb_surf_area * intersection_cost;
 				assert(push_left_cost >= 0.0);
 
@@ -473,7 +473,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 				}
 
 				// Try pushing tris on splitting plane to right
-				const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) * 
+				const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) *
 					recip_aabb_surf_area * intersection_cost;
 				assert(push_right_cost >= 0.0);
 
@@ -497,7 +497,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 					assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area + NICKMATHS_EPSILON);
 					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * (float)1.0e-6));
 
-					const float cost = traversal_cost + 
+					const float cost = traversal_cost +
 						((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * recip_aabb_surf_area * intersection_cost;
 
 					assert(cost >= 0.0);
@@ -553,7 +553,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 	assert(best_axis >= 0 && best_axis <= 2);
 	assert(best_div_val >= cur_aabb.min_[best_axis]);
 	assert(best_div_val <= cur_aabb.max_[best_axis]);
-	
+
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
 	//------------------------------------------------------------------------
@@ -638,7 +638,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 						clipped_tri_aabb
 						);
 					assert(negbox.containsAABBox(clipped_tri_aabb));
-					//TEMP: THIS IS FAILING ALL THE FUCKING TIME 
+					//TEMP: THIS IS FAILING ALL THE FUCKING TIME
 					assert(clipped_tri_aabb.invariant());
 					child_tris.back().lower = clipped_tri_aabb.min_;
 					child_tris.back().upper = clipped_tri_aabb.max_;
@@ -678,11 +678,11 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		doBuild(
 			tree,
 			left_child_index,
-			node_tri_layers, 
-			depth + 1, 
-			maxdepth, 
-			negbox, 
-			lower, 
+			node_tri_layers,
+			depth + 1,
+			maxdepth,
+			negbox,
+			lower,
 			upper,
 			leaf_tri_indices_out,
 			nodes
@@ -782,7 +782,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		const unsigned int right_child_index = (unsigned int)nodes.size();
 		assert(right_child_index > cur);
 		nodes.push_back(KDTreeNode());
-	
+
 		// Set details of current node
 		nodes[cur] = KDTreeNode(
 			//TreeNode::NODE_TYPE_INTERIOR,//actual_num_neg_tris > 0 ? TreeNode::NODE_TYPE_TWO_CHILDREN : TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
@@ -794,12 +794,12 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		// Build right subtree
 		doBuild(
 			tree,
-			right_child_index, // nodes[cur].getPosChildIndex(), 
-			node_tri_layers, 
-			depth + 1, 
-			maxdepth, 
-			posbox, 
-			lower, 
+			right_child_index, // nodes[cur].getPosChildIndex(),
+			node_tri_layers,
+			depth + 1,
+			maxdepth,
+			posbox,
+			lower,
 			upper,
 			leaf_tri_indices_out,
 			nodes
@@ -809,7 +809,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		{
 			// The current node has two children
 			nodes.push_back(TreeNode());
-	
+
 			// Set details of current node
 			nodes[cur] = TreeNode(
 				TreeNode::NODE_TYPE_TWO_CHILDREN,
@@ -821,12 +821,12 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			// Build right subtree
 			doBuild(
 				tree,
-				nodes[cur].getPosChildIndex(), 
-				node_tri_layers, 
-				depth + 1, 
-				maxdepth, 
-				posbox, 
-				lower, 
+				nodes[cur].getPosChildIndex(),
+				node_tri_layers,
+				depth + 1,
+				maxdepth,
+				posbox,
+				lower,
 				upper,
 				leaf_tri_indices_out,
 				nodes
@@ -837,7 +837,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			// The current node only has the positive child
 			nodes.push_back(TreeNode()); // Add child node, adjacent to current node
 			assert((unsigned int)nodes.size() == cur + 2);
-	
+
 			// Set details of current node
 			nodes[cur] = TreeNode(
 				TreeNode::NODE_TYPE_RIGHT_CHILD_ONLY,
@@ -849,12 +849,12 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			// Build right subtree
 			doBuild(
 				tree,
-				nodes[cur].getPosChildIndex(), 
-				node_tri_layers, 
-				depth + 1, 
-				maxdepth, 
-				posbox, 
-				lower, 
+				nodes[cur].getPosChildIndex(),
+				node_tri_layers,
+				depth + 1,
+				maxdepth,
+				posbox,
+				lower,
 				upper,
 				leaf_tri_indices_out,
 				nodes

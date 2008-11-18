@@ -27,8 +27,8 @@ class Ray;
 class HitInfo;
 class FullHitInfo;
 class ThreadContext;
-namespace js 
-{ 
+namespace js
+{
 	class TriHash;
 	class TriTreePerThreadData;
 }
@@ -92,7 +92,7 @@ public:
 	/*=====================================================================
 	KDTree
 	-------
-	
+
 	=====================================================================*/
 	KDTree(RayMesh* raymesh);
 	~KDTree();
@@ -119,7 +119,7 @@ public:
 	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
 	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	const std::vector<KDTreeNode>& getNodesDebug() const { return nodes; }
-	static void test();	
+	static void test();
 
 
 	static const unsigned int MAX_KDTREE_DEPTH = Tree::MAX_TREE_DEPTH;
@@ -152,11 +152,13 @@ public:
 	friend class TraceRayFunctions;
 	friend class GetAllHitsFunctions;
 
+	typedef js::Vector<TRI_INDEX, 8> LEAF_GEOM_ARRAY_TYPE;
+
 private:
 	//-----------------typedefs------------------------
 	//typedef uint32 TRI_INDEX;
 	typedef uint32 NODE_INDEX;
-	
+
 	//typedef std::vector<AABBox> TRIBOX_VECTOR_TYPE;
 	//typedef js::Vector<TreeNode> NODE_VECTOR_TYPE;
 	//typedef js::Vector<AABBox> TRIBOX_VECTOR_TYPE;
@@ -170,14 +172,14 @@ private:
 		Vec3f upper;
 	};
 
-	
+
 	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = ROOT_NODE_INDEX, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
 	TRI_INDEX numTris() const;
 	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 	void postBuild() const;
-	void doBuild(NODE_INDEX cur, 
+	void doBuild(NODE_INDEX cur,
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower);
 
@@ -191,7 +193,7 @@ private:
 	unsigned int num_intersect_tris;
 
 	//std::vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
-	js::Vector<TRI_INDEX, 4> leafgeom;//indices into the 'edgetris' array
+	LEAF_GEOM_ARRAY_TYPE leafgeom;//indices into the 'edgetris' array
 
 	unsigned int numnodesbuilt;
 	//unsigned int max_depth;
