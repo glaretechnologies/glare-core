@@ -730,16 +730,19 @@ void KDTree::build()
 		//------------------------------------------------------------------------
 		//reserve space for leaf geom array
 		//------------------------------------------------------------------------
+conPrint("a");//TEMP
 		leafgeom.reserve(numTris() * 4);
 
 		//const int leafgeommem = leafgeom.capacity() * sizeof(TRI_INDEX);
 		//triTreeDebugPrint("leafgeom reserved: " + ::toString(leafgeom.capacity()) + "("
 		//	+ ::getNiceByteSize(leafgeommem) + ")");
+conPrint("b");//TEMP
 
 		{
 		OldKDTreeBuilder tree_builder;
 		tree_builder.build(*this, *root_aabb, nodes, leafgeom);
 		}
+conPrint("c");//TEMP
 
 		if(!nodes.empty())
 		{
