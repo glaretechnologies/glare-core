@@ -33,11 +33,7 @@ You may not use this code for any commercial project.
 Coded by NIck Chapman in the year 2000
 =================================================================*/
 
-#include <math.h>
 #include <string>
-//#ifdef CYBERSPACE
-//#include "../networking/mystream.h"
-////#endif
 #include "mathstypes.h"
 
 

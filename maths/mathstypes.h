@@ -25,7 +25,8 @@ You may not use this code for any commercial project.
 #ifndef __MATHSTYPES_H__
 #define __MATHSTYPES_H__
 
-#include <math.h>
+//#include <math.h>
+#include <cmath>
 #include <float.h>
 #include <assert.h>
 #include <limits>

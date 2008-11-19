@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include <assert.h>
-#include <math.h>
+#include "../maths/mathstypes.h"
 #include <zlib.h>
 
 

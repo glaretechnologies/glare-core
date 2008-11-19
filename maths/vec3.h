@@ -16,7 +16,6 @@ You may not use this code for any commercial project.
 Coded by Nick Chapman in the year 2000-
 =================================================================*/
 
-#include <math.h>
 #include "mathstypes.h"
 #include <assert.h>
 #include <string>

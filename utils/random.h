@@ -28,7 +28,7 @@ You may not use this code for any commercial project.
 
 //#define random()	((rand () & 0x7fff) / ((float)0x7fff))
 #include <stdlib.h>
-#include <math.h>
+#include "../maths/mathstypes.h"
 #include <time.h>
 #include <assert.h>
 

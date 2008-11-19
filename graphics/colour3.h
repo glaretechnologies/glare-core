@@ -14,7 +14,7 @@ You may *not* use this code for any commercial project.
 
 #include "../maths/mathstypes.h"
 #include "../maths/vec3.h"
-#include <math.h>
+#include "../maths/mathstypes.h"
 #include <assert.h>
 
 

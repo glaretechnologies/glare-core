@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "sphereunitvecpool.h"
 
 
-#include <math.h>
+#include "../maths/mathstypes.h"
 
 
 /* note: slightly doctored version from the GNU Sci. Lib. (GSL).

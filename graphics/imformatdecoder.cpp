@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include <stdlib.h>//for NULL
 #include "bitmap.h"
 #include <fstream>
-#include <math.h>
+#include "../maths/mathstypes.h"
 #include "jpegdecoder.h"
 #include "tgadecoder.h"
 #include "bmpdecoder.h"

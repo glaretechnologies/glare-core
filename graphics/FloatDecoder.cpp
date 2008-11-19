@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../utils/fileutils.h"
 #include <vector>
-#include <math.h>
+#include "../maths/mathstypes.h"
 #include "imformatdecoder.h"
 #include "image.h"
 
