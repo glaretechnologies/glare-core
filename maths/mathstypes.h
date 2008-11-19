@@ -27,8 +27,9 @@ You may not use this code for any commercial project.
 
 //#include <math.h>
 #include <cmath>
-#include <float.h>
-#include <assert.h>
+//#include <float.h>
+//#include <assert.h>
+#include <cassert>
 #include <limits>
 
 const double NICKMATHS_EPSILON = 0.00001;
