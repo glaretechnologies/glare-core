@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "PerlinNoise.h"
 
-PerlinNoise2DMap::PerlinNoise2DMap(double u_scale_, double v_scale_)
+PerlinNoise2DMap::PerlinNoise2DMap(Coord u_scale_, Coord v_scale_)
 :	u_scale(u_scale_),
 	v_scale(v_scale_)
 {
@@ -23,18 +23,18 @@ PerlinNoise2DMap::~PerlinNoise2DMap()
 }
 
 
-const Colour3d PerlinNoise2DMap::vec3SampleTiled(double x, double y) const
+const Colour3<PerlinNoise2DMap::Value> PerlinNoise2DMap::vec3SampleTiled(Coord x, Coord y) const
 {
 	//return Colour3d(PerlinNoise::noise(x * u_scale, y * v_scale, 0.0));
 
-	return Colour3d(scalarSampleTiled(x, y));
+	return Colour3<Value>(scalarSampleTiled(x, y));
 }
 
-double PerlinNoise2DMap::scalarSampleTiled(double x, double y) const
+PerlinNoise2DMap::Value PerlinNoise2DMap::scalarSampleTiled(Coord x, Coord y) const
 {
-	double sum = 0.0;
-	double scale = 1.0;
-	double weight = 1.0;
+	Value sum = 0.0;
+	Value scale = 1.0;
+	Value weight = 1.0;
 	for(int i=0; i<10; ++i)
 	{
 		sum += weight * PerlinNoise::noise(x * scale * u_scale, y * scale * v_scale, 0.0);

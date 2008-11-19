@@ -308,6 +308,8 @@ namespace Maths
 template <class Real>
 inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 {
+	if(a == 0.0 && b == 0.0)
+		return true;
 	return fabs(a - b) / fabs(a) <= eps;
 }
 

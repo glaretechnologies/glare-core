@@ -33,9 +33,9 @@ public:
 	// X and Y are normalised image coordinates.  col_out components will be in range [0, 1]
 	//void sampleTiled(double x, double y, Colour3d& col_out) const;
 
-	virtual const Colour3d vec3SampleTiled(double x, double y) const;
+	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
-	virtual double scalarSampleTiled(double x, double y) const;
+	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 	virtual unsigned int getWidth() const { return Bitmap::getWidth(); }
 	virtual unsigned int getHeight() const  { return Bitmap::getHeight(); }
@@ -43,8 +43,8 @@ public:
 	static void test();
 
 private:
-	void sampleTiled3BytesPP(double x, double y, Colour3d& col_out) const;
-	double sampleTiled1BytePP(double x, double y) const;
+	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;
+	Value sampleTiled1BytePP(Coord x, Coord y) const;
 };
 
 

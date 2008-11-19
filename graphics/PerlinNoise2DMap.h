@@ -24,21 +24,21 @@ public:
 	----------------
 	
 	=====================================================================*/
-	PerlinNoise2DMap(double u_scale, double v_scale);
+	PerlinNoise2DMap(Coord u_scale, Coord v_scale);
 
 	virtual ~PerlinNoise2DMap();
 
 
-	virtual const Colour3d vec3SampleTiled(double x, double y) const;
+	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
-	virtual double scalarSampleTiled(double x, double y) const;
+	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 
 	virtual unsigned int getWidth() const { return 1; }
 	virtual unsigned int getHeight() const { return 1; }
 
 private:
-	double u_scale, v_scale;
+	Coord u_scale, v_scale;
 };
 
 

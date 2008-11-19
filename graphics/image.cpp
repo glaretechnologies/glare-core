@@ -1558,30 +1558,30 @@ float Image::maxPixelComponent() const
 
 
 
-const Colour3d Image::vec3SampleTiled(double u, double v) const
+const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 {
 	//return sampleTiled((float)x, (float)y).toColour3d();
 
-	Colour3d colour_out;
+	Colour3<Value> colour_out;
 
-	double intpart; // not used
-	double u_frac_part = modf(u, &intpart);
-	double v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord intpart; // not used
+	Coord u_frac_part = modf(u, &intpart);
+	Coord v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = 1.0 + u_frac_part;
 	if(v_frac_part < 0.0)
 		v_frac_part = 1.0 + v_frac_part;
 
-	assert(Maths::inHalfClosedInterval(u_frac_part, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval(v_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
 
 	// Convert from normalised image coords to pixel coordinates
-	const double u_pixels = u_frac_part * (double)getWidth();
-	const double v_pixels = v_frac_part * (double)getHeight();
+	const Coord u_pixels = u_frac_part * (Coord)getWidth();
+	const Coord v_pixels = v_frac_part * (Coord)getHeight();
 
-	assert(Maths::inHalfClosedInterval(u_pixels, 0.0, (double)getWidth()));
-	assert(Maths::inHalfClosedInterval(v_pixels, 0.0, (double)getHeight()));
+	assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)getWidth()));
+	assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)getHeight()));
 
 	const unsigned int ut = (unsigned int)u_pixels;
 	const unsigned int vt = (unsigned int)v_pixels;
@@ -1592,47 +1592,47 @@ const Colour3d Image::vec3SampleTiled(double u, double v) const
 	const unsigned int ut_1 = (ut + 1) % getWidth();
 	const unsigned int vt_1 = (vt + 1) % getHeight();
 
-	const double ufrac = u_pixels - (double)ut;
-	const double vfrac = v_pixels - (double)vt;
-	const double oneufrac = 1.0 - ufrac;
-	const double onevfrac = 1.0 - vfrac;
+	const Coord ufrac = u_pixels - (Coord)ut;
+	const Coord vfrac = v_pixels - (Coord)vt;
+	const Coord oneufrac = 1.0 - ufrac;
+	const Coord onevfrac = 1.0 - vfrac;
 
 	// Top left pixel
 	{
 		const float* pixel = getPixel(ut, vt).data();
-		const double factor = oneufrac * onevfrac;
-		colour_out.r = (double)pixel[0] * factor;
-		colour_out.g = (double)pixel[1] * factor;
-		colour_out.b = (double)pixel[2] * factor;
+		const Value factor = oneufrac * onevfrac;
+		colour_out.r = pixel[0] * factor;
+		colour_out.g = pixel[1] * factor;
+		colour_out.b = pixel[2] * factor;
 	}
 
 
 	// Top right pixel
 	{
 		const float* pixel = getPixel(ut_1, vt).data();
-		const double factor = ufrac * onevfrac;
-		colour_out.r += (double)pixel[0] * factor;
-		colour_out.g += (double)pixel[1] * factor;
-		colour_out.b += (double)pixel[2] * factor;
+		const Value factor = ufrac * onevfrac;
+		colour_out.r += pixel[0] * factor;
+		colour_out.g += pixel[1] * factor;
+		colour_out.b += pixel[2] * factor;
 	}
 
 
 	// Bottom left pixel
 	{
 		const float* pixel = getPixel(ut, vt_1).data();
-		const double factor = oneufrac * vfrac;
-		colour_out.r += (double)pixel[0] * factor;
-		colour_out.g += (double)pixel[1] * factor;
-		colour_out.b += (double)pixel[2] * factor;
+		const Value factor = oneufrac * vfrac;
+		colour_out.r += pixel[0] * factor;
+		colour_out.g += pixel[1] * factor;
+		colour_out.b += pixel[2] * factor;
 	}
 
 	// Bottom right pixel
 	{
 		const float* pixel = getPixel(ut_1, vt_1).data();
-		const double factor = ufrac * vfrac;
-		colour_out.r += (double)pixel[0] * factor;
-		colour_out.g += (double)pixel[1] * factor;
-		colour_out.b += (double)pixel[2] * factor;
+		const Value factor = ufrac * vfrac;
+		colour_out.r += pixel[0] * factor;
+		colour_out.g += pixel[1] * factor;
+		colour_out.b += pixel[2] * factor;
 	}
 
 	return colour_out;
@@ -1645,8 +1645,8 @@ double Image::scalarSampleTiled(double x, double y) const
 	return (double)(col.r + col.g + col.b) * (1.0 / 3.0);
 }*/
 
-double Image::scalarSampleTiled(double x, double y) const
+Image::Value Image::scalarSampleTiled(Coord x, Coord y) const
 {
-	const Colour3d col = vec3SampleTiled(x, y);
+	const Colour3<Value> col = vec3SampleTiled(x, y);
 	return (col.r + col.g + col.b) * (1.0 / 3.0);
 }

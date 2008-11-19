@@ -22,27 +22,27 @@ Texture::~Texture()
 }
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
-const Colour3d Texture::vec3SampleTiled(double u, double v) const
+const Colour3<Texture::Value> Texture::vec3SampleTiled(Coord u, Coord v) const
 {	
 	if(getBytesPP() == 1)
 	{
-		const double val = sampleTiled1BytePP(u, v);
-		return Colour3d(val, val, val);
+		const Value val = sampleTiled1BytePP(u, v);
+		return Colour3<Value>(val, val, val);
 	}
 	else if(getBytesPP() == 3)
 	{
-		Colour3d col;
+		Colour3<Value> col;
 		sampleTiled3BytesPP(u, v, col);
 		return col;
 	}
 	else
 	{
 		assert(0);
-		return Colour3d(1,0,0);
+		return Colour3<Value>(1,0,0);
 	}
 }
 
-double Texture::scalarSampleTiled(double x, double y) const
+Texture::Value Texture::scalarSampleTiled(Coord x, Coord y) const
 {
 	if(getBytesPP() == 1)
 	{
@@ -50,9 +50,9 @@ double Texture::scalarSampleTiled(double x, double y) const
 	}
 	else if(getBytesPP() == 3)
 	{
-		Colour3d col;
+		Colour3<Value> col;
 		sampleTiled3BytesPP(x, y, col);
-		return (col.r + col.g + col.b) * (1.0 / 3.0);
+		return (col.r + col.g + col.b) * (Coord)(1.0 / 3.0);
 	}
 	else
 	{
@@ -63,28 +63,28 @@ double Texture::scalarSampleTiled(double x, double y) const
 
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
-double Texture::sampleTiled1BytePP(double u, double v) const
+Texture::Value Texture::sampleTiled1BytePP(Coord u, Coord v) const
 {
 	assert(getBytesPP() == 1);
 
-	double intpart; // not used
-	double u_frac_part = modf(u, &intpart);
-	double v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord intpart; // not used
+	Coord u_frac_part = modf(u, &intpart);
+	Coord v_frac_part = modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
-		u_frac_part = 1.0 + u_frac_part;
+		u_frac_part = (Coord)1.0 + u_frac_part;
 	if(v_frac_part < 0.0)
-		v_frac_part = 1.0 + v_frac_part;
+		v_frac_part = (Coord)1.0 + v_frac_part;
 
-	assert(Maths::inHalfClosedInterval(u_frac_part, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval(v_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(u_frac_part, (Coord)0.0, (Coord)1.0));
+	assert(Maths::inHalfClosedInterval(v_frac_part, (Coord)0.0, (Coord)1.0));
 
 	// Convert from normalised image coords to pixel coordinates
-	const double u_pixels = u_frac_part * (double)getWidth();
-	const double v_pixels = v_frac_part * (double)getHeight();
+	const Coord u_pixels = u_frac_part * (Coord)getWidth();
+	const Coord v_pixels = v_frac_part * (Coord)getHeight();
 
-	assert(Maths::inHalfClosedInterval(u_pixels, 0.0, (double)getWidth()));
-	assert(Maths::inHalfClosedInterval(v_pixels, 0.0, (double)getHeight()));
+	assert(Maths::inHalfClosedInterval(u_pixels, (Coord)0.0, (Coord)getWidth()));
+	assert(Maths::inHalfClosedInterval(v_pixels, (Coord)0.0, (Coord)getHeight()));
 
 	const unsigned int ut = (unsigned int)u_pixels;
 	const unsigned int vt = (unsigned int)v_pixels;
@@ -95,42 +95,42 @@ double Texture::sampleTiled1BytePP(double u, double v) const
 	const unsigned int ut_1 = (ut + 1) % getWidth();
 	const unsigned int vt_1 = (vt + 1) % getHeight();
 
-	const double ufrac = u_pixels - (double)ut;
-	const double vfrac = v_pixels - (double)vt;
-	const double oneufrac = 1.0 - ufrac;
-	const double onevfrac = 1.0 - vfrac;
+	const Coord ufrac = u_pixels - (Coord)ut;
+	const Coord vfrac = v_pixels - (Coord)vt;
+	const Coord oneufrac = (Coord)1.0 - ufrac;
+	const Coord onevfrac = (Coord)1.0 - vfrac;
 
-	double colour_result;
+	Value colour_result;
 
 	// Top left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt);
-	const double factor = oneufrac * onevfrac;
-	colour_result = (double)pixel[0] * factor;
+	const Value factor = oneufrac * onevfrac;
+	colour_result = (Value)pixel[0] * factor;
 	}
 
 
 	// Top right pixel
 	{
 	const unsigned char* pixel = getPixel(ut_1, vt);
-	const double factor = ufrac * onevfrac;
-	colour_result += (double)pixel[0] * factor;
+	const Value factor = ufrac * onevfrac;
+	colour_result += (Value)pixel[0] * factor;
 	}
 
 	
 	// Bottom left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt_1);
-	const double factor = oneufrac * vfrac;
-	colour_result += (double)pixel[0] * factor;
+	const Value factor = oneufrac * vfrac;
+	colour_result += (Value)pixel[0] * factor;
 	}
 
 
 	// Bottom right pixel
 	{
 	const unsigned char* pixel = getPixel(ut_1, vt_1);
-	const double factor = ufrac * vfrac;
-	colour_result += (double)pixel[0] * factor;
+	const Value factor = ufrac * vfrac;
+	colour_result += (Value)pixel[0] * factor;
 	}
 
 	// Copy red to G and B
@@ -138,14 +138,14 @@ double Texture::sampleTiled1BytePP(double u, double v) const
 
 	//colour_out *= (1.0 / 255.0);
 
-	return colour_result * (1.0 / 255.0);
+	return colour_result * (Value)(1.0 / 255.0);
 }
 
 
 
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
-void Texture::sampleTiled3BytesPP(double u, double v, Colour3d& colour_out) const
+void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) const
 {
 	assert(getBytesPP() == 3);
 
@@ -243,24 +243,24 @@ void Texture::sampleTiled3BytesPP(double u, double v, Colour3d& colour_out) cons
 
 
 
-	double intpart; // not used
-	double u_frac_part = modf(u, &intpart);
-	double v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord intpart; // not used
+	Coord u_frac_part = modf(u, &intpart);
+	Coord v_frac_part = modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
-		u_frac_part = 1.0 + u_frac_part;
+		u_frac_part = (Coord)1.0 + u_frac_part;
 	if(v_frac_part < 0.0)
-		v_frac_part = 1.0 + v_frac_part;
+		v_frac_part = (Coord)1.0 + v_frac_part;
 
-	assert(Maths::inHalfClosedInterval(u_frac_part, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval(v_frac_part, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(u_frac_part, (Coord)0.0, (Coord)1.0));
+	assert(Maths::inHalfClosedInterval(v_frac_part, (Coord)0.0, (Coord)1.0));
 
 	// Convert from normalised image coords to pixel coordinates
-	const double u_pixels = u_frac_part * (double)getWidth();
-	const double v_pixels = v_frac_part * (double)getHeight();
+	const Coord u_pixels = u_frac_part * (Coord)getWidth();
+	const Coord v_pixels = v_frac_part * (Coord)getHeight();
 
-	assert(Maths::inHalfClosedInterval(u_pixels, 0.0, (double)getWidth()));
-	assert(Maths::inHalfClosedInterval(v_pixels, 0.0, (double)getHeight()));
+	assert(Maths::inHalfClosedInterval(u_pixels, (Coord)0.0, (Coord)getWidth()));
+	assert(Maths::inHalfClosedInterval(v_pixels, (Coord)0.0, (Coord)getHeight()));
 
 	const unsigned int ut = (unsigned int)u_pixels;
 	const unsigned int vt = (unsigned int)v_pixels;
@@ -271,50 +271,50 @@ void Texture::sampleTiled3BytesPP(double u, double v, Colour3d& colour_out) cons
 	const unsigned int ut_1 = (ut + 1) % getWidth();
 	const unsigned int vt_1 = (vt + 1) % getHeight();
 
-	const double ufrac = u_pixels - (double)ut;
-	const double vfrac = v_pixels - (double)vt;
-	const double oneufrac = 1.0 - ufrac;
-	const double onevfrac = 1.0 - vfrac;
+	const Coord ufrac = u_pixels - (Coord)ut;
+	const Coord vfrac = v_pixels - (Coord)vt;
+	const Coord oneufrac = (Coord)1.0 - ufrac;
+	const Coord onevfrac = (Coord)1.0 - vfrac;
 
 	// Top left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt);
-	const double factor = oneufrac * onevfrac;
-	colour_out.r = (double)pixel[0] * factor;
-	colour_out.g = (double)pixel[1] * factor;
-	colour_out.b = (double)pixel[2] * factor;
+	const Value factor = oneufrac * onevfrac;
+	colour_out.r = (Value)pixel[0] * factor;
+	colour_out.g = (Value)pixel[1] * factor;
+	colour_out.b = (Value)pixel[2] * factor;
 	}
 
 
 	// Top right pixel
 	{
 	const unsigned char* pixel = getPixel(ut_1, vt);
-	const double factor = ufrac * onevfrac;
-	colour_out.r += (double)pixel[0] * factor;
-	colour_out.g += (double)pixel[1] * factor;
-	colour_out.b += (double)pixel[2] * factor;
+	const Value factor = ufrac * onevfrac;
+	colour_out.r += (Value)pixel[0] * factor;
+	colour_out.g += (Value)pixel[1] * factor;
+	colour_out.b += (Value)pixel[2] * factor;
 	}
 
 	
 	// Bottom left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt_1);
-	const double factor = oneufrac * vfrac;
-	colour_out.r += (double)pixel[0] * factor;
-	colour_out.g += (double)pixel[1] * factor;
-	colour_out.b += (double)pixel[2] * factor;
+	const Value factor = oneufrac * vfrac;
+	colour_out.r += (Value)pixel[0] * factor;
+	colour_out.g += (Value)pixel[1] * factor;
+	colour_out.b += (Value)pixel[2] * factor;
 	}
 
 	// Bottom right pixel
 	{
 	const unsigned char* pixel = getPixel(ut_1, vt_1);
-	const double factor = ufrac * vfrac;
-	colour_out.r += (double)pixel[0] * factor;
-	colour_out.g += (double)pixel[1] * factor;
-	colour_out.b += (double)pixel[2] * factor;
+	const Value factor = ufrac * vfrac;
+	colour_out.r += (Value)pixel[0] * factor;
+	colour_out.g += (Value)pixel[1] * factor;
+	colour_out.b += (Value)pixel[2] * factor;
 	}
 
-	colour_out *= (1.0 / 255.0);
+	colour_out *= (Value)(1.0 / 255.0);
 
 
 

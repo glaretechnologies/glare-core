@@ -30,11 +30,14 @@ public:
 	virtual ~Map2D();
 
 
-	// X and Y are normalised image coordinates.
-	virtual const Colour3d vec3SampleTiled(double x, double y) const = 0;
+	typedef float Value;
+	typedef float Coord;
 
 	// X and Y are normalised image coordinates.
-	virtual double scalarSampleTiled(double x, double y) const = 0;
+	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const = 0;
+
+	// X and Y are normalised image coordinates.
+	virtual Value scalarSampleTiled(Coord x, Coord y) const = 0;
 
 
 	virtual unsigned int getWidth() const = 0;

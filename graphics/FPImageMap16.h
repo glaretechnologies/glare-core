@@ -32,9 +32,9 @@ public:
 	~FPImageMap16();
 
 	// X and Y are normalised image coordinates.
-	virtual const Colour3d vec3SampleTiled(double x, double y) const;
+	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
-	virtual double scalarSampleTiled(double x, double y) const;
+	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 
 	virtual unsigned int getWidth() const { return width; }

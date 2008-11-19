@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "PerlinNoise.h"
 
 
-FBM2DMap::FBM2DMap(double u_scale_, double v_scale_)
+FBM2DMap::FBM2DMap(Coord u_scale_, Coord v_scale_)
 :	u_scale(u_scale_),
 	v_scale(v_scale_)
 {
@@ -24,12 +24,12 @@ FBM2DMap::~FBM2DMap()
 }
 
 
-const Colour3d FBM2DMap::vec3SampleTiled(double x, double y) const
+const Colour3<FBM2DMap::Value> FBM2DMap::vec3SampleTiled(Coord x, Coord y) const
 {
-	return Colour3d(scalarSampleTiled(x, y));
+	return Colour3<Value>(scalarSampleTiled(x, y));
 }
 
-double FBM2DMap::scalarSampleTiled(double x, double y) const
+FBM2DMap::Value FBM2DMap::scalarSampleTiled(Coord x, Coord y) const
 {
 	/*double sum = 0.0;
 	double scale = 1.0;
