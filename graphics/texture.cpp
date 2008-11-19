@@ -6,24 +6,25 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "texture.h"
 
-#include "../indigo/TestUtils.h"
 
+#include "../indigo/TestUtils.h"
+#include <cmath>
 
 
 Texture::Texture()
 {
-	
+
 }
 
 
 Texture::~Texture()
 {
-	
+
 }
 
 // u and v are normalised image coordinates.  U goes across image, v goes up image.
 const Colour3<Texture::Value> Texture::vec3SampleTiled(Coord u, Coord v) const
-{	
+{
 	if(getBytesPP() == 1)
 	{
 		const Value val = sampleTiled1BytePP(u, v);
@@ -68,8 +69,8 @@ Texture::Value Texture::sampleTiled1BytePP(Coord u, Coord v) const
 	assert(getBytesPP() == 1);
 
 	Coord intpart; // not used
-	Coord u_frac_part = modf(u, &intpart);
-	Coord v_frac_part = modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord u_frac_part = std::modf(u, &intpart);
+	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = (Coord)1.0 + u_frac_part;
@@ -117,7 +118,7 @@ Texture::Value Texture::sampleTiled1BytePP(Coord u, Coord v) const
 	colour_result += (Value)pixel[0] * factor;
 	}
 
-	
+
 	// Bottom left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt_1);
@@ -244,8 +245,8 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 
 
 	Coord intpart; // not used
-	Coord u_frac_part = modf(u, &intpart);
-	Coord v_frac_part = modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord u_frac_part = std::modf(u, &intpart);
+	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = (Coord)1.0 + u_frac_part;
@@ -295,7 +296,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 	colour_out.b += (Value)pixel[2] * factor;
 	}
 
-	
+
 	// Bottom left pixel
 	{
 	const unsigned char* pixel = getPixel(ut, vt_1);
@@ -386,7 +387,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 	if(ut + 1 >= getWidth()) ut = getWidth() - 2;//need to allow for + 1 pixel in x and y dir
 	if(vt + 1 >= getHeight()) vt = getHeight() - 2;
 
-		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) + 
+		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) +
 		//	(oneufrac * onevfrac) + (oneufrac * vfrac);
 	const unsigned char* pixel = getPixel(ut, vt);
 	const Colour3d u0v0(pixel[0], pixel[1], pixel[2]);
@@ -424,7 +425,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 
 	if(y < 0)
 	{
-		y = 0 - y;					
+		y = 0 - y;
 		y = y % getHeight();
 		y = getHeight() - y - 1;
 
@@ -433,7 +434,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 	{
 		y = y % getHeight();
 	}
-	
+
 	const unsigned char* pixel = getPixel(x, y);
 	col_out.r = (float)pixel[0] / 255.0f;
 	col_out.g = (float)pixel[1] / 255.0f;

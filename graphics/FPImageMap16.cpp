@@ -7,6 +7,10 @@ Code By Nicholas Chapman.
 #include "FPImageMap16.h"
 
 
+//#include <math.h>
+//#include <math>
+#include <cmath>
+
 
 FPImageMap16::FPImageMap16(unsigned int width_, unsigned int height_)
 :	width(width_),
@@ -18,7 +22,7 @@ FPImageMap16::FPImageMap16(unsigned int width_, unsigned int height_)
 
 FPImageMap16::~FPImageMap16()
 {
-	
+
 }
 
 
@@ -27,8 +31,8 @@ const Colour3<FPImageMap16::Value> FPImageMap16::vec3SampleTiled(Coord u, Coord 
 	Colour3<Value> colour_out;
 
 	Coord intpart; // not used
-	Coord u_frac_part = modf(u, &intpart);
-	Coord v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord u_frac_part = std::modf(u, &intpart);
+	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = 1.0 + u_frac_part;

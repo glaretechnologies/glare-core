@@ -13,6 +13,7 @@
 #include "../indigo/IndigoImage.h"
 #include "MitchellNetravali.h"
 #include "BoxFilterFunction.h"
+#include <cmath>
 
 #ifndef BASIC_IMAGE
 
@@ -73,7 +74,7 @@ Image& Image::operator = (const Image& other)
 
 
 // will throw ImageExcep if bytespp != 3
-void Image::setFromBitmap(const Bitmap& bmp) 
+void Image::setFromBitmap(const Bitmap& bmp)
 {
 	if(bmp.getBytesPP() != 3)
 		throw ImageExcep("BytesPP != 3");
@@ -84,7 +85,7 @@ void Image::setFromBitmap(const Bitmap& bmp)
 	for(unsigned int y=0; y<bmp.getHeight(); ++y)
 		for(unsigned int x=0; x<bmp.getWidth(); ++x)
 		{
-			setPixel(x, y, 
+			setPixel(x, y,
 				Colour3f(
 					(float)bmp.getPixel(x, y)[0] * factor,
 					(float)bmp.getPixel(x, y)[1] * factor,
@@ -95,7 +96,7 @@ void Image::setFromBitmap(const Bitmap& bmp)
 }
 
 // Will throw ImageExcep if bytespp != 3 && bytespp != 4
-void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const 
+void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
 	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
 		throw ImageExcep("BytesPP != 3");
@@ -175,7 +176,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 	if(!f)
 		throw ImageExcep("could not open file '" + pathname + "'.");
 
-	
+
 	//-----------------------------------------------------------------
 	//read bitmap header
 	//-----------------------------------------------------------------
@@ -193,7 +194,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 	//read bitmap info-header
 	//-----------------------------------------------------------------
 	assert(sizeof(BITMAP_INFOHEADER) == 40);
-	
+
 	BITMAP_INFOHEADER infoheader;
 
 	fread(&infoheader, sizeof(BITMAP_INFOHEADER), 1, f);
@@ -222,9 +223,9 @@ void Image::loadFromBitmap(const std::string& pathname)
 	this->height = infoheader.height;
 
 	const int MAX_DIMS = 10000;
-	if(width < 0 || width > MAX_DIMS) 
+	if(width < 0 || width > MAX_DIMS)
 		throw ImageExcep("bad image width.");
-	if(height < 0 || height > MAX_DIMS) 
+	if(height < 0 || height > MAX_DIMS)
 		throw ImageExcep("bad image height.");
 
 	pixels.resize(width, height);
@@ -261,7 +262,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 
 		i += rowpaddingbytes;
 	}
-		
+
 
 	delete[] data;
 
@@ -326,11 +327,11 @@ void Image::saveToBitmap(const std::string& pathname)
 
 			const BYTE g = (BYTE)(pixelcol.g * 255.0f);
 			fwrite(&g, 1, 1, f);
-		
+
 			const BYTE r = (BYTE)(pixelcol.r * 255.0f);
 			fwrite(&r, 1, 1, f);
 
-		
+
 			/*const BYTE r = (BYTE)(getPixel(x, y).r * 255.0f);
 			fwrite(&r, 1, 1, f);
 			const BYTE g = (BYTE)(getPixel(x, y).g * 255.0f);
@@ -360,7 +361,7 @@ void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 
 	width = width_;
 	height = height_;
-	
+
 	pixels.resize(width, height);
 
 	//const float MAX_VAL = 1.0f;
@@ -372,7 +373,7 @@ void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 			const int desty = height - 1 - y;//invert vertically
 
 			float val;
-			
+
 			file.read((char*)&val, 4);
 			pixels.elem(destx, desty).r = val * load_gain;
 
@@ -386,7 +387,7 @@ void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 
 			//assert(file.good());
 		}
-	
+
 	if(!file.good())
 		throw ImageExcep("Error encountered while reading RAW image.");
 }
@@ -394,7 +395,7 @@ void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 /*
 void Image::loadFromNFF(const std::string& pathname)
 {
-	
+
 	std::vector<float> imgdata;
 
 	try
@@ -417,7 +418,7 @@ void Image::loadFromNFF(const std::string& pathname)
 	catch(NFFioExcep& e)
 	{
 		throw ImageExcep("NFFioExcep: " + e.what());
-	}									
+	}
 }
 
 
@@ -500,7 +501,7 @@ void Image::scale(float factor)
 void Image::blitToImage(Image& dest, int destx, int desty) const
 {
 	for(int y=0; y<getHeight(); ++y)
-		for(int x=0; x<getWidth(); ++x)		
+		for(int x=0; x<getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -518,7 +519,7 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 	src_end_y = myMin(src_end_y, (int)getHeight());
 
 	for(int y=src_start_y; y<src_end_y; ++y)
-		for(int x=src_start_x; x<src_end_x; ++x)		
+		for(int x=src_start_x; x<src_end_x; ++x)
 		{
 			const int dx = (x - src_start_x) + destx;
 			const int dy = (y - src_start_y) + desty;
@@ -528,9 +529,9 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 }
 
 void Image::addImage(const Image& img, int destx, int desty)
-{	
+{
 	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)		
+		for(int x=0; x<img.getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -540,9 +541,9 @@ void Image::addImage(const Image& img, int destx, int desty)
 }
 
 void Image::blendImage(const Image& img, int destx, int desty)
-{	
+{
 	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)		
+		for(int x=0; x<img.getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -554,9 +555,9 @@ void Image::blendImage(const Image& img, int destx, int desty)
 }
 
 void Image::subImage(const Image& img, int destx, int desty)
-{	
+{
 	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)		
+		for(int x=0; x<img.getWidth(); ++x)
 		{
 			int dx = x + destx;
 			int dy = y + desty;
@@ -568,7 +569,7 @@ void Image::subImage(const Image& img, int destx, int desty)
 void Image::overwriteImage(const Image& img, int destx, int desty)
 {
 	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)		
+		for(int x=0; x<img.getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -597,7 +598,7 @@ const Image::ColourType Image::sample(float u, float v) const
 	if(ut + 1 >= getWidth()) ut = getWidth() - 2;
 	if(vt + 1 >= getHeight()) vt = getHeight() - 2;
 
-		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) + 
+		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) +
 		//	(oneufrac * onevfrac) + (oneufrac * vfrac);
 
 	ColourType colour_out(0,0,0);
@@ -659,7 +660,7 @@ const Image::ColourType Image::sampleTiled(float u, float v) const
 	if(ut + 1 >= getWidth()) ut = getWidth() - 2;
 	if(vt + 1 >= getHeight()) vt = getHeight() - 2;
 
-		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) + 
+		//const float sum = (ufrac * vfrac) + (ufrac * onevfrac) +
 		//	(oneufrac * onevfrac) + (oneufrac * vfrac);
 
 	ColourType colour_out(0,0,0);
@@ -701,7 +702,7 @@ void Image::saveToExr(const std::string& pathname) const
 
 		//Imf::Rgba p(1.0f, 1.0f, 1.0f);
 		//file.setFrameBuffer(&p, 1, 1);
-	
+
 		file.writePixels(getHeight());
 
 	}
@@ -788,7 +789,7 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 	FILE* fp = fopen(pathname.c_str(), "wb");
 	if(fp == NULL)
 		throw ImageExcep("Failed to open '" + pathname + "' for writing.");
-	
+
 
 	//Create and initialize the png_struct with the desired error handler functions.
 	png_struct* png = png_create_write_struct(PNG_LIBPNG_VER_STRING,
@@ -807,7 +808,7 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 
 		throw ImageExcep("Failed to create PNG info object.");
 	}
-	
+
 	// set up the output control if you are using standard C stream
 	png_init_io(png, fp);
 
@@ -897,7 +898,7 @@ void Image::normalise()
 	for(unsigned int i=0; i<numPixels(); ++i)
 		av_lum += (double)getPixel(i).luminance();
 	av_lum /= (double)(numPixels());
-	
+
 	const float factor = (float)(1.0 / av_lum);
 	for(unsigned int i=0; i<numPixels(); ++i)
 		getPixel(i) *= factor;
@@ -908,7 +909,7 @@ void Image::normalise()
 void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 {
 	/*width = width_;
-	height = height_; 
+	height = height_;
 
 	std::ifstream file(pathname.c_str(), std::ios_base::binary);
 	if(!file)
@@ -946,7 +947,7 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 	pixels.resize(width, height);
 	unsigned int i = 0;
 	for(int x=0; x<width; ++x)
-		for(int y=0; y<height; ++y)	
+		for(int y=0; y<height; ++y)
 		{
 			unsigned char rgbe[4];
 			//file.get((char*)rgbe, 4);
@@ -967,7 +968,7 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 			pixels.elem(x, y) = col;
 
 			//assert(i+2 < data.size());
-			
+
 			//pixels.elem(x, y).set(data[i], data[i+1], data[i+2]);
 			//i += 3;
 
@@ -981,7 +982,7 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 		throw ImageExcep("Failed to open file '" + pathname + "' for reading.");
 
 	width = width_;
-	height = height_; 
+	height = height_;
 	int result;
 	rgbe_header_info header_info;
 	result = RGBE_ReadHeader(f, &width, &height, &header_info);
@@ -1085,7 +1086,7 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B
 	Array2d<float> filter(filter_width, filter_width);
 
 	// Filter center coordinates in big pixels
-	const double center_pos_x = 2.5; 
+	const double center_pos_x = 2.5;
 	const double center_pos_y = 2.5;
 
 	for(int y=0; y<filter_width; ++y)
@@ -1119,7 +1120,7 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B
 
 		for(int x=0; x<out.getWidth(); ++x)
 		{
-			const int src_x_center = x * factor; 
+			const int src_x_center = x * factor;
 			const int src_x_min = myMax(0, src_x_center - (2 * factor));
 			const int src_x_max = myMin(this->getWidth(), src_x_center + (3 * factor));
 
@@ -1129,12 +1130,12 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
 			{
 				const int filter_y = (sy - src_y_center) + rad;
-				assert(filter_y >= 0 && filter_y < filter_width);		
+				assert(filter_y >= 0 && filter_y < filter_width);
 
 				for(int sx=src_x_min; sx<src_x_max; ++sx)
 				{
 					const int filter_x = (sx - src_x_center) + rad;
-					assert(filter_x >= 0 && filter_x < filter_width);	
+					assert(filter_x >= 0 && filter_x < filter_width);
 
 					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
 					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
@@ -1179,7 +1180,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 	Array2d<float> filter(filter_width, filter_width);
 
 	// Filter center coordinates in big pixels
-	const double center_pos_x = (double)(filter_width / 2) + 0.5; //2.5; 
+	const double center_pos_x = (double)(filter_width / 2) + 0.5; //2.5;
 	const double center_pos_y = (double)(filter_width / 2) + 0.5; //2.5;*/
 
 	const double radius_src = filter_function.supportRadius() * (double)factor;
@@ -1261,7 +1262,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 
 		for(int x=0; x<(int)out.getWidth(); ++x)
 		{
-			/*const int src_x_center = x * factor; 
+			/*const int src_x_center = x * factor;
 			const int src_x_min = myMax(0, src_x_center - neg_rad);
 			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);*/
 
@@ -1274,12 +1275,12 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
 			{
 				const int filter_y = sy - support_y; //(sy - src_y_center) + neg_rad;
-				assert(filter_y >= 0 && filter_y < filter_width);		
+				assert(filter_y >= 0 && filter_y < filter_width);
 
 				for(int sx=src_x_min; sx<src_x_max; ++sx)
 				{
 					const int filter_x = sx - support_x; //(sx - src_x_center) + neg_rad;
-					assert(filter_x >= 0 && filter_x < filter_width);	
+					assert(filter_x >= 0 && filter_x < filter_width);
 
 					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
 					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
@@ -1398,7 +1399,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 						if(scaled_normed_coords.inHalfClosedInterval(0.0, 1.0))
 						{
 							assert(scaled_normed_coords.inHalfClosedInterval(0.0, 1.0));
-									
+
 							//sum += original_filter.sample(
 							//	scaled_normed_coords.x * (double)original_filter.getWidth(),
 							//	scaled_normed_coords.y * (double)original_filter.getHeight()
@@ -1516,12 +1517,12 @@ void Image::convolve(const Image& filter, Image& result_out) const
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
 			{
 				const int filter_y = (sy - y) + filter_h_2;
-				assert(filter_y >= 0 && filter_y < filter.getHeight());		
+				assert(filter_y >= 0 && filter_y < filter.getHeight());
 
 				for(int sx=src_x_min; sx<src_x_max; ++sx)
 				{
 					const int filter_x = (sx - x) + filter_w_2;
-					assert(filter_x >= 0 && filter_x < filter.getWidth());	
+					assert(filter_x >= 0 && filter_x < filter.getWidth());
 
 					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
 					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
@@ -1565,8 +1566,8 @@ const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 	Colour3<Value> colour_out;
 
 	Coord intpart; // not used
-	Coord u_frac_part = modf(u, &intpart);
-	Coord v_frac_part = modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord u_frac_part = std::modf(u, &intpart);
+	Coord v_frac_part = std::modf(1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = 1.0 + u_frac_part;
