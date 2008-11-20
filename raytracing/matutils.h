@@ -33,7 +33,7 @@ namespace MatUtils
 
 	template <class Real> const Vec3<Real> reflectInSurface(const Vec3<Real>& surface_normal, const Vec3<Real>& in);
 
-	template <class Real> void refractInSurface(const Vec3<Real>& surface_normal, 
+	template <class Real> void refractInSurface(const Vec3<Real>& surface_normal,
 		const Vec3<Real>& incident_raydir, Real src_refindex, Real dest_refindex,
 		Vec3<Real>& exit_raydir_out, bool& totally_internally_reflected_out);
 
@@ -53,15 +53,15 @@ namespace MatUtils
 
 
 	template <class Real> const Vec2<Real> sampleUnitDisc(const SamplePair& unitsamples);
-	
+
 	//template <class Real> static const Vec3<Real> sampleHemisphere(const Basis<Real>& basis, const SamplePair& unitsamples, Real& pdf_out);
 	//template <class Real> static inline Real hemispherePDF();
-	
+
 	//static const Vec3d sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
 	template <class Real> inline const Vec3<Real> uniformlySampleSphere(const SamplePair& unitsamples); // returns point on surface of sphere with radius 1
 	template <class Real> inline Real spherePDF();
 
-	
+
 	template <class Real> const Vec3<Real> sampleHemisphereCosineWeighted(const Basis<Real>& basis, const SamplePair& unitsamples);
 	template <class Real> inline Real hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir);
 
@@ -113,31 +113,31 @@ namespace MatUtils
 
 
 
-template <class Real> Real MatUtils::solidAngleToAreaPDF(Real solid_angle_pdf, Real dist2, Real costheta)
+template <class Real> Real solidAngleToAreaPDF(Real solid_angle_pdf, Real dist2, Real costheta)
 {
 	return solid_angle_pdf * costheta / dist2;
 }
 
 
-template <class Real> Real MatUtils::areaToSolidAnglePDF(Real area_pdf, Real dist2, Real costheta)
+template <class Real> Real areaToSolidAnglePDF(Real area_pdf, Real dist2, Real costheta)
 {
 	return area_pdf * dist2 / costheta;
 }
 
 
-template <class Real> Real MatUtils::spherePDF()
+template <class Real> Real spherePDF()
 {
 	return (Real)NICKMATHS_RECIP_4PI;
 }
 
 
-template <class Real> Real MatUtils::hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir)
+template <class Real> Real hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir)
 {
 	return myMax((Real)0.0, dot(normal, unitdir)) * (Real)NICKMATHS_RECIP_PI;
 }
 
 
-template <class Real> Real MatUtils::pow5(Real x)
+template <class Real> Real pow5(Real x)
 {
 	const Real x2 = x*x;
 	return x2*x2*x;
@@ -173,15 +173,15 @@ template <class Real> Real MatUtils::pow5(Real x)
 	else
 		geom_factor = fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
 	return geom_factor;*/
-/*	return adjoint ? 
-		fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g())) : 
+/*	return adjoint ?
+		fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g())) :
 		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
 }*/
 
 /*double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng)
 {
-	return adjoint ? 
-		fabs(dot(omega_out, hitinfo.N_s()) / out_dot_Ng) : 
+	return adjoint ?
+		fabs(dot(omega_out, hitinfo.N_s()) / out_dot_Ng) :
 		fabs(dot(omega_in, hitinfo.N_s()) / in_dot_Ng);
 }*/
 
@@ -190,32 +190,32 @@ const double MAX_SMOOTHING_FACTOR = 2.0;
 
 
 template <class Real>
-Real MatUtils::smoothingFactor(Real in_dot_Ns, Real in_dot_Ng)
+Real smoothingFactor(Real in_dot_Ns, Real in_dot_Ng)
 {
 	return myMin(
-		(Real)MAX_SMOOTHING_FACTOR, 
+		(Real)MAX_SMOOTHING_FACTOR,
 		(Real)fabs(in_dot_Ns / in_dot_Ng)
 		);
 }
 
 
 // NOTE: This is rather slow :)
-FullHitInfo::Vec3RealType MatUtils::smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo)
+FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo)
 {
 	return myMin(
-		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR, 
+		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
 		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
 		);
 }
 
 
-bool MatUtils::raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
+bool raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
 {
 	return dot(a, hitinfo.original_N_g()) * dot(b, hitinfo.original_N_g()) < 0.0;
 }
 
 
-bool MatUtils::raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig_Ng, FullHitInfo::Vec3RealType b_dot_orig_Ng)
+bool raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig_Ng, FullHitInfo::Vec3RealType b_dot_orig_Ng)
 {
 	return a_dot_orig_Ng * b_dot_orig_Ng < 0.0;
 }
@@ -223,7 +223,7 @@ bool MatUtils::raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig
 
 // Returns (phi, theta)
 // where phi is the azimuthal coordinate and theta is the zenith coordinate.
-template <class Real> const Vec2<Real> MatUtils::sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length)
+template <class Real> const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length)
 {
 	const Real recip_len = (Real)1.0 / dir.length();
 	assert(Maths::approxEq((Real)1.0 / dir.length(), recip_dir_length, (Real)0.001));
@@ -236,7 +236,7 @@ template <class Real> const Vec2<Real> MatUtils::sphericalCoordsForDir(const Vec
 }
 
 
-template <class Real> const Vec3<Real> MatUtils::dirForSphericalCoords(Real phi, Real theta)
+template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real theta)
 {
 	// http://mathworld.wolfram.com/SphericalCoordinates.html
 
@@ -258,7 +258,7 @@ template <class Real> const Vec3<Real> MatUtils::dirForSphericalCoords(Real phi,
 		);
 
 	// Use sqrt() instead of trig functions here.
-	// cos() and sin() take about 109 cycles on a Core2, 
+	// cos() and sin() take about 109 cycles on a Core2,
 	// sqrt() takes more like 57
 
 	// cos(theta)^2 + sin(theta)^2 = 1 => cos(theta) = +-sqrt(1 - sin(theta)^2)
@@ -279,7 +279,7 @@ V is a vector away from the surface.
 n1 will be set to the IOR of the medium that V points into.
 */
 template <class Real>
-void MatUtils::getN1AndN2(Real external_ior, Real internal_ior, Real v_dot_orig_Ng, Real& n1_out, Real& n2_out)
+void getN1AndN2(Real external_ior, Real internal_ior, Real v_dot_orig_Ng, Real& n1_out, Real& n2_out)
 {
 	if(v_dot_orig_Ng >= 0.0)
 	{
@@ -302,7 +302,7 @@ template <class Real> const Vec3<Real> reflectInSurface(const Vec3<Real>& surfac
 }
 
 
-template <class Real> const Vec3<Real> MatUtils::sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis)
+template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis)
 {
 	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
 
@@ -313,7 +313,7 @@ template <class Real> const Vec3<Real> MatUtils::sphericalToCartesianCoords(Real
 }
 
 
-template <class Real> const Vec3<Real> MatUtils::uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
+template <class Real> const Vec3<Real> uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
 {
 	const Real z = (Real)-1.0 + unitsamples.x * (Real)2.0;
 	const Real theta = unitsamples.y * (Real)NICKMATHS_2PI;
@@ -342,7 +342,7 @@ template <class Real> const Vec3<Real> sampleSolidAngleCone(const SamplePair& sa
 }
 
 
-template <class Real> Real MatUtils::solidAngleConePDF(Real angle)
+template <class Real> Real solidAngleConePDF(Real angle)
 {
 	assert(angle > 0.0);
 
@@ -352,7 +352,7 @@ template <class Real> Real MatUtils::solidAngleConePDF(Real angle)
 }
 
 
-template <class Real> Real MatUtils::schlickFresnelReflectance(Real R_0, Real cos_theta)
+template <class Real> Real schlickFresnelReflectance(Real R_0, Real cos_theta)
 {
 	assert(Maths::inUnitInterval(cos_theta));
 
