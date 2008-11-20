@@ -37,7 +37,7 @@ PerlinNoise2DMap::Value PerlinNoise2DMap::scalarSampleTiled(Coord x, Coord y) co
 	Value weight = 1.0;
 	for(int i=0; i<10; ++i)
 	{
-		sum += weight * PerlinNoise::noise(x * scale * u_scale, y * scale * v_scale, 0.0);
+		sum += weight * PerlinNoise::noise<Value>(x * scale * u_scale, y * scale * v_scale, 0.0);
 		scale *= 1.99;
 		weight *= 0.5;
 	}

@@ -362,7 +362,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 			{
 				// Sample a wavelength
 				const double wvlen_nm = MIN_WAVELENGTH + (((double)i + rng.unitRandom()) / (double)NUM_WAVELENGTH_SAMPLES) * WAVELENGTH_SPAN;
-				assert(Maths::inRange(wvlen_nm, MIN_WAVELENGTH, MAX_WAVELENGTH));
+				assert(Maths::inRange<double>(wvlen_nm, MIN_WAVELENGTH, MAX_WAVELENGTH));
 				const double wvlen_m = wvlen_nm * 1.0e-9;
 
 				// Get the number of times bigger the dest features are than the source features (in pixels),

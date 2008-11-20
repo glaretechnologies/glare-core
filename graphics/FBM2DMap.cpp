@@ -31,22 +31,10 @@ const Colour3<FBM2DMap::Value> FBM2DMap::vec3SampleTiled(Coord x, Coord y) const
 
 FBM2DMap::Value FBM2DMap::scalarSampleTiled(Coord x, Coord y) const
 {
-	/*double sum = 0.0;
-	double scale = 1.0;
-	double weight = 1.0;
-	for(int i=0; i<10; ++i)
-	{
-		sum += weight * PerlinNoise::noise(x * scale * u_scale, y * scale * v_scale, 0.0);
-		scale *= 1.99;
-		weight *= 0.5;
-	}
-
-	return sum;*/
-
-	return PerlinNoise::FBM(
+	return PerlinNoise::FBM<Value>(
 		x * u_scale, 
 		y * v_scale, 
-		0.0, // z
+		(Value)0.0, // z
 		10 // num octaves
 		);
 }

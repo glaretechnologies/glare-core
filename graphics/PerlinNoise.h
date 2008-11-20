@@ -8,9 +8,6 @@ Code By Nicholas Chapman.
 #define __PERLINNOISE_H_666_
 
 
-
-
-
 /*=====================================================================
 PerlinNoise
 -----------
@@ -19,18 +16,14 @@ PerlinNoise
 class PerlinNoise
 {
 public:
-	/*=====================================================================
-	PerlinNoise
-	-----------
-	
-	=====================================================================*/
 	PerlinNoise();
-
 	~PerlinNoise();
 
-	static double noise(double x, double y, double z);
+	template <class Real>
+	static Real noise(Real x, Real y, Real z);
 
-	static double FBM(double x, double y, double z, unsigned int num_octaves);
+	template <class Real>
+	static Real FBM(Real x, Real y, Real z, unsigned int num_octaves);
 
 	static void init();
 
@@ -39,9 +32,4 @@ private:
 };
 
 
-
 #endif //__PERLINNOISE_H_666_
-
-
-
-

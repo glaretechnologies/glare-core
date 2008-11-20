@@ -9,6 +9,12 @@ Code By Nicholas Chapman.
 
 #include "../maths/mathstypes.h"
 
+
+// Explicit template instantiation
+template float PerlinNoise::noise(float x, float y, float z);
+template float PerlinNoise::FBM(float x, float y, float z, unsigned int num_octaves);
+
+
 PerlinNoise::PerlinNoise()
 {
 	
@@ -22,26 +28,29 @@ PerlinNoise::~PerlinNoise()
 
 
 //http://mrl.nyu.edu/~perlin/noise/
-inline static double fade(double t) 
+template <class Real>
+inline static Real fade(Real t) 
 { 
-	return t * t * t * (t * (t * 6 - 15) + 10); 
+	return t * t * t * (t * (t * (Real)6.0 - (Real)15.0) + (Real)10.0); 
 }
 
-inline static double lerp(double t, double a, double b)
+
+template <class Real>
+inline static Real lerp(Real t, Real a, Real b)
 {
 	return a + t * (b - a);
 }
-
 // return a * t + (1-t)*b
 
-inline static double grad(int hash, double x, double y, double z)
+
+template <class Real>
+inline static Real grad(int hash, Real x, Real y, Real z)
 {
 	const int h = hash & 15;                      // CONVERT LO 4 BITS OF HASH CODE
-	double u = h<8 ? x : y,                 // INTO 12 GRADIENT DIRECTIONS.
+	Real u = h<8 ? x : y,                 // INTO 12 GRADIENT DIRECTIONS.
 		v = h<4 ? y : h==12||h==14 ? x : z;
 	return ((h&1) == 0 ? u : -u) + ((h&2) == 0 ? v : -v);
 }
-
 
 
 const static int permutation[] = { 151,160,137,91,90,15,
@@ -59,6 +68,7 @@ const static int permutation[] = { 151,160,137,91,90,15,
    138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
 };
 
+
 void PerlinNoise::init()
 {
 	for(int i=0; i<256 ;i++) 
@@ -68,7 +78,9 @@ void PerlinNoise::init()
 
 int PerlinNoise::p[512];
 
-double PerlinNoise::noise(double x, double y, double z)
+
+template <class Real>
+Real PerlinNoise::noise(Real x, Real y, Real z)
 {
 	/*const int	X = Maths::floorToInt(x) & 255,                  // FIND UNIT CUBE THAT
 			Y = Maths::floorToInt(y) & 255,                  // CONTAINS POINT.
@@ -77,52 +89,49 @@ double PerlinNoise::noise(double x, double y, double z)
       y -= Maths::floorToInt(y);                                // OF POINT IN CUBE.
       z -= Maths::floorToInt(z);*/
 
-
-
-
-	double intpart_d;
+	Real intpart_d;
 	int intpart;
 	int X, Y, Z;
 
-	x = modf(x, &intpart_d);
+	x = std::modf(x, &intpart_d);
 	intpart = (int)intpart_d;
 	if(x < 0.0)
 	{
 		X = 255 - (-intpart & 255);
-		x = 1.0 + x;
+		x = (Real)1.0 + x;
 	}
 	else
 		X = intpart & 255;
 
-	y = modf(y, &intpart_d);
+	y = std::modf(y, &intpart_d);
 	intpart = (int)intpart_d;
 	if(y < 0.0)
 	{
 		Y = 255 - (-intpart & 255);
-		y = 1.0 + y;
+		y = (Real)1.0 + y;
 	}
 	else
 		Y = intpart & 255;
 
-	z = modf(z, &intpart_d);
+	z = std::modf(z, &intpart_d);
 	intpart = (int)intpart_d;
 	if(z < 0.0)
 	{
 		Z = 255 - (-intpart & 255);
-		z = 1.0 + z;
+		z = (Real)1.0 + z;
 	}
 	else
 		Z = intpart & 255;
 
-	assert(Maths::inHalfClosedInterval(x, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval(y, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval(z, 0.0, 1.0));
+	assert(Maths::inHalfClosedInterval(x, (Real)0.0, (Real)1.0));
+	assert(Maths::inHalfClosedInterval(y, (Real)0.0, (Real)1.0));
+	assert(Maths::inHalfClosedInterval(z, (Real)0.0, (Real)1.0));
 	assert(Maths::inHalfClosedInterval(X, 0, 256));
 	assert(Maths::inHalfClosedInterval(Y, 0, 256));
 	assert(Maths::inHalfClosedInterval(Z, 0, 256));
 
 
-      const double u = fade(x),                                // COMPUTE FADE CURVES
+      const Real u = fade(x),                                // COMPUTE FADE CURVES
              v = fade(y),                                // FOR EACH OF X,Y,Z.
              w = fade(z);
       const int A = p[X  ]+Y, AA = p[A]+Z, AB = p[A+1]+Z,      // HASH COORDINATES OF
@@ -139,16 +148,17 @@ double PerlinNoise::noise(double x, double y, double z)
 }
 
 
-double PerlinNoise::FBM(double x, double y, double z, unsigned int num_octaves)
+template <class Real>
+Real PerlinNoise::FBM(Real x, Real y, Real z, unsigned int num_octaves)
 {
-	double sum = 0.0;
-	double scale = 1.0;
-	double weight = 1.0;
+	Real sum = 0.0;
+	Real scale = 1.0;
+	Real weight = 1.0;
 	for(unsigned int i=0; i<num_octaves; ++i)
 	{
 		sum += weight * PerlinNoise::noise(x * scale, y * scale, z * scale);
-		scale *= 1.99;
-		weight *= 0.5;
+		scale *= (Real)1.99;
+		weight *= (Real)0.5;
 	}
 
 	return sum;
