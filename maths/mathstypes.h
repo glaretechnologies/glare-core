@@ -1,16 +1,16 @@
 /*===================================================================
 
-  
+
   digital liberation front 2001
-  
+
   _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
+ /______/\  |______|    /\______\
+|       \ \ |      |   / /       |
 |        \| |      |  |/         |
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
+|_____    \ |      |_ /    ______|
+ ____|    | |      |_||    |_____
+     |____| |________||____|
+
 
 
 
@@ -31,6 +31,20 @@ You may not use this code for any commercial project.
 //#include <assert.h>
 #include <cassert>
 #include <limits>
+
+/*using std::modf;
+using std::pow;
+using std::exp;
+using std::log;
+using std::sqrt;
+using std::sin;
+using std::cos;
+using std::tan;
+using std::acos;
+using std::asin;
+using std::atan;
+using std::fabs;*/
+
 
 const double NICKMATHS_EPSILON = 0.00001;
 
@@ -61,7 +75,7 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 template <class Real>
 inline Real radToDegree(Real rad)
 {
-	return rad * (Real)180.0 / (Real)NICKMATHS_PI;	
+	return rad * (Real)180.0 / (Real)NICKMATHS_PI;
 }
 
 template <class Real>
@@ -112,7 +126,7 @@ inline Real absoluteVal(Real x)
 // Fast reciprocal square root
 //posted by DarkWIng on Flipcode
 
-/*__inline float RSqrt( float number ) 
+/*__inline float RSqrt( float number )
 {
 	long i;
 	float x2, y;
@@ -265,12 +279,12 @@ inline bool isPosInf(double x)
 //see http://mega-nerd.com/FPcast/
 template <class Real>
 inline int roundToInt(Real x)
-{	
-	assert(x >= (Real)0.0);	
+{
+	assert(x >= (Real)0.0);
 #if defined(WIN32)
 	int i;
 	_asm
-	{         
+	{
 		fld x		; Push x onto FP stack
 		fistp i;	; convert to integer and store in i.
 	}
@@ -294,7 +308,7 @@ inline int roundToInt(double x)
 {
 	int i;
 	_asm
-	{         
+	{
 		fld x;
 		fistp i;
 	}
@@ -422,7 +436,7 @@ inline double mitchellNetravali(double x)
 		// 1.0 <= t < 2.0
 
 		assert(epsEqual((-7.0 / 18.0)*x*x*x + 2.0*x*x - (20.0 / 6.0)*x + (32.0 / 18.0), mitchellNetravali(1.0/3.0, 1.0/3.0, x)));
-		
+
 		return (-7.0 / 18.0)*x*x*x + 2.0*x*x - (20.0 / 6.0)*x + (32.0 / 18.0);
 	}
 	else

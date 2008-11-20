@@ -10,6 +10,8 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include <cmath>
 
+using std::modf;
+
 
 Texture::Texture()
 {
@@ -69,8 +71,8 @@ Texture::Value Texture::sampleTiled1BytePP(Coord u, Coord v) const
 	assert(getBytesPP() == 1);
 
 	Coord intpart; // not used
-	Coord u_frac_part = std::modf(u, &intpart);
-	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
+	Coord u_frac_part = modf(u, &intpart);
+	Coord v_frac_part = modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
 		u_frac_part = (Coord)1.0 + u_frac_part;
