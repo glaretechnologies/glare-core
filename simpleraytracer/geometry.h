@@ -105,6 +105,8 @@ public:
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const = 0;
 	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const = 0;
 
+	virtual bool isEnvSphereGeometry() const = 0;
+
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
 		const std::vector<Plane<double> >& camera_clip_planes
 		) = 0; // throws GeometryExcep

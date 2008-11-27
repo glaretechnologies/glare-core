@@ -109,6 +109,7 @@ public:
 		const std::vector<Plane<double> >& camera_clip_planes);
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings); // throws GeometryExcep
 	virtual const std::string getName() const;
+	virtual bool isEnvSphereGeometry() const;
 	//////////////////////////////////////////////////////////
 	/*
 	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;

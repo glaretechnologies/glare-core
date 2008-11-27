@@ -716,3 +716,8 @@ void RayMesh::mergeVerticesWithSamePosAndNormal()
 	conPrint("\tDone.");
 }
 
+
+bool RayMesh::isEnvSphereGeometry() const
+{
+	return false;
+}

@@ -105,6 +105,7 @@ public:
 		const std::vector<Plane<double> >& camera_clip_planes);
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings); // throws GeometryExcep
 	virtual const std::string getName() const;
+	virtual bool isEnvSphereGeometry() const;
 	//////////////////////////////////////////////////////////
 
 

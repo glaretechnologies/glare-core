@@ -329,18 +329,21 @@ inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 	return fabs(a - b) / fabs(a) <= eps;
 }
 
-inline bool posUnderflowed(double x)
+template <class Real>
+inline bool posUnderflowed(Real x)
 {
 	assert(x >= 0.0);
 
-	//min returns the minimum normalised value for double.
-	return x != 0.0 && x < std::numeric_limits<double>::min();
+	// min returns the minimum normalised value for double.
+	return x != 0.0 && x < std::numeric_limits<Real>::min();
 }
-inline bool posOverflowed(double x)
+
+template <class Real>
+inline bool posOverflowed(Real x)
 {
 	assert(x >= 0.0);
 
-	return x > std::numeric_limits<double>::max();
+	return x > std::numeric_limits<Real>::max();
 }
 
 
@@ -494,11 +497,11 @@ inline T square(T x)
 template <class T>
 inline T tanForCos(T cos_theta)
 {
-	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
+	assert(cos_theta >= (T)-1.0 && cos_theta <= (T)1.0);
 
 	//sin(theta)^2 + cos(theta)^2 + 1
 	//sin(theta) = sqrt(1 - cos(theta)^2)
-	return sqrt(1.0 - cos_theta*cos_theta) / cos_theta;
+	return sqrt((T)1.0 - cos_theta*cos_theta) / cos_theta;
 }
 
 // from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
@@ -514,7 +517,7 @@ template <class T>
 inline T lerp(T a, T b, T t)
 {
 	assert(Maths::inRange(t, (T)0.0, (T)1.0));
-	return a * (1.0 - t) + b * t;
+	return a * ((T)1.0 - t) + b * t;
 }
 
 template <class T>

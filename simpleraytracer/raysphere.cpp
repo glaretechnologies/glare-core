@@ -525,3 +525,7 @@ void RaySphere::test()
 }
 
 
+bool RaySphere::isEnvSphereGeometry() const
+{
+	return false;
+}

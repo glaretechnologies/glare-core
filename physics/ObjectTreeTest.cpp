@@ -65,7 +65,7 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->build(thread_context, "", settings);
+		ob->buildGeometry(thread_context, "", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -293,7 +293,7 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->build(thread_context, "", settings);
+		ob->buildGeometry(thread_context, "", settings);
 		ob_tree.insertObject(ob); 
 	}
 	ob_tree.build();
@@ -413,7 +413,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->build(thread_context, "", settings);
+		object->buildGeometry(thread_context, "", settings);
 
 		ob_tree.insertObject(object);
 	}

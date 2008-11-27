@@ -1081,6 +1081,12 @@ void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texco
 }
 
 
+bool Camera::isEnvSphereGeometry() const
+{
+	return false;
+}
+
+
 void Camera::unitTest()
 {
 	conPrint("Camera::unitTest()");
@@ -1250,22 +1256,6 @@ void Camera::unitTest()
 	im = cam.getNormedImagePointForRay(normalise(Vec3(0.0f, 1.0f, 0.f)), fell_on_image);
 	assert(!fell_on_image);*/
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
