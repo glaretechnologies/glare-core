@@ -42,6 +42,8 @@ public:
 
 	static void test();
 
+	virtual bool takesOnlyUnitIntervalValues() const { return true; }
+
 private:
 	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;
 	Value sampleTiled1BytePP(Coord x, Coord y) const;

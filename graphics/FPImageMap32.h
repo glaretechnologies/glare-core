@@ -30,7 +30,7 @@ public:
 	~FPImageMap32();
 
 
-
+	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 
 private:
 	Image* data;

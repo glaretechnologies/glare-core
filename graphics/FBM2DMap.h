@@ -36,6 +36,8 @@ public:
 	virtual unsigned int getWidth() const { return 1; }
 	virtual unsigned int getHeight() const { return 1; }
 
+	virtual bool takesOnlyUnitIntervalValues() const { return false; }
+
 private:
 	Coord u_scale, v_scale;
 };

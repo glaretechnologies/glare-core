@@ -42,6 +42,9 @@ public:
 
 	std::vector<half>& getData() { return data; }
 
+	virtual bool takesOnlyUnitIntervalValues() const { return false; }
+
+
 private:
 	inline const half* getPixel(unsigned int x, unsigned int y) const;
 

@@ -134,6 +134,8 @@ public:
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;
+
+	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 	/////////////////////////////////
 
 private:

@@ -42,6 +42,8 @@ public:
 
 	virtual unsigned int getWidth() const = 0;
 	virtual unsigned int getHeight() const = 0;
+
+	virtual bool takesOnlyUnitIntervalValues() const = 0;
 };
 
 
