@@ -30,9 +30,9 @@ Code By Nicholas Chapman.
 #include "KDTreeImpl.h"
 
 
-#ifdef USE_SSE
+//#ifdef USE_SSE
 #define DO_PREFETCHING 1
-#endif
+//#endif
 
 
 const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;

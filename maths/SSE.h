@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../utils/platform.h"
 #include <xmmintrin.h> //SSE header file
 //#ifdef USE_SSE2
-#include <emmintrin.h> //SSE 2 header file
+//#include <emmintrin.h> //SSE 2 header file
 //#endif
 #include <assert.h>
 #ifdef COMPILER_GCC

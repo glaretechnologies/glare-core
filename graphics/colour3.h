@@ -223,6 +223,16 @@ public:
 		return (r + g + b) * 0.33333333333333333333333333f;
 	}
 
+	inline Real minVal() const
+	{
+		return myMin(r, g, b);
+	}
+
+	inline Real maxVal() const
+	{
+		return myMax(r, g, b);
+	}
+
 	/*static inline const Colour3 randomColour3()
 	{
 		return Colour(Random::unit(), Random::unit(), Random::unit());

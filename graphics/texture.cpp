@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../indigo/TestUtils.h"
-#include <cmath>
+#include "../maths/mathstypes.h"
 
 using std::modf;
 
@@ -467,9 +467,9 @@ void Texture::test()
 		for(unsigned int x=0; x<W; ++x)
 			t.getPixelNonConst(x, y)[0] = 255;
 
-	testAssert(t.scalarSampleTiled(0.1, 0.1) == 1.0);
-	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 1.0);
-	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 1.0);
+	testAssert(epsEqual(t.scalarSampleTiled(0.1, 0.1), 1.0f));
+	testAssert(epsEqual(t.scalarSampleTiled(-0.1, 0.1), 1.0f));
+	testAssert(epsEqual(t.scalarSampleTiled(-1.0e9, 1.0e9), 1.0f));
 	}
 
 	{

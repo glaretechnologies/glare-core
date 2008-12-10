@@ -91,6 +91,8 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
 		if(t0 > 0.0)
 		{
+			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
+			//assert(epsEqual(r, (float)radius));
 			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t0) - centerpos), recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{

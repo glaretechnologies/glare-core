@@ -7,12 +7,15 @@ Code By Nicholas Chapman.
 #ifndef __BADOUELTRI_H_666_
 #define __BADOUELTRI_H_666_
 
+
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
 #include "../simpleraytracer/ray.h"
 
+
 namespace js
 {
+
 
 /*=====================================================================
 BadouelTri
@@ -22,11 +25,6 @@ Should be 48 bytes
 class BadouelTri
 {
 public:
-	/*=====================================================================
-	BadouelTri
-	----------
-	
-	=====================================================================*/
 	BadouelTri();
 	~BadouelTri();
 
@@ -51,70 +49,10 @@ private:
 
 const float BADOUEL_MIN_DIST = 0.00000001f;//this is to avoid denorms
 
-unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const
-{
-#if defined(WIN32) || defined(WIN64)
-	const __m128 raydir = _mm_load_ps((const float*)&ray.unitDirF());
-	const __m128 n = _mm_load_ps((const float*)&normal);
-	const __m128 d = dotSSEIn4Vec(raydir, n);
-	//const float one = 1.0f; 
-	//const __m128 recip_dist = _mm_div_ss(_mm_load_ss(&one), d);
-
-	const __m128 raystartpos = _mm_load_ps((const float*)&ray.startPosF());
-	const __m128 raydist_numerator = _mm_sub_ss(_mm_load_ss(&this->dist), dotSSEIn4Vec(raystartpos, n));
-
-	if(d.m128_f32[0] == 0.0f)
-		return 0;
-
-	//const __m128 raydist_v = _mm_mul_ss(raydist_numerator, recip_dist);
-	const __m128 raydist_v = _mm_div_ss(raydist_numerator, d);
-
-	//if(raydist < BADOUEL_MIN_DIST || raydist >= ray_t_max) // if ray heading away form tri plane
-	//	return 0;
-	const __m128 res = _mm_or_ps(
-		_mm_cmplt_ss(raydist_v, _mm_load_ss(&BADOUEL_MIN_DIST)), // raydist < BADOUEL_MIN_DIST ? 0xFFFFFFFF : 0x0
-		_mm_cmple_ss(_mm_load_ss(&ray_t_max), raydist_v) // ray_t_max <= raydist ? 0xFFFFFFFF : 0x0
-		);
-	if(res.m128_i32[0] != 0)
-		return 0;
-
-	const __m128 uv_vec_v = _mm_add_ps(raystartpos, _mm_mul_ps(raydir, shuffle4Vec(raydist_v, raydist_v, SHUF_X, SHUF_X, SHUF_X, SHUF_X)));
-
-	SSE_ALIGN float uv_vec[4];
-	_mm_store_ps(uv_vec, uv_vec_v);
-	
-	const float u = uv_vec[project_axis_1] - v0_1;  // ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
-	const float v = uv_vec[project_axis_2] - v0_2;  // ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
-	const float alpha = t11*u + t12*v;
-	const float beta = t21*u + t22*v;
-	assert(!isNAN(alpha) && !isNAN(beta));
-
-	const float one = 1.0;
-	dist_out = raydist_v.m128_f32[0];
-	u_out = alpha;
-	v_out = beta;
-#else
-	const float denom = dot(ray.unitDirF(), this->normal);
-	if(denom == 0.0f)
-		return 0;
-
-	const float raydist = (this->dist - dot(ray.startPosF(), this->normal))/ denom; // signed distance until ray intersects triangle plane
-	if(raydist < BADOUEL_MIN_DIST || raydist >= ray_t_max) // if ray heading away form tri plane
-		return 0;
-
-	const float u = ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
-	const float v = ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
-	const float alpha = t11*u + t12*v;
-	const float beta = t21*u + t22*v;
-	assert(!isNAN(alpha) && !isNAN(beta));
-
-	//const float one = 1.0;
-	dist_out = raydist;
-	u_out = alpha;
-	v_out = beta;
-#endif
 
 /*
+	Reference code:
+
 	const float denom = dot(ray.unitDirF(), this->normal);
 	//const float recip_denom = 1.0f / denom; // Start computing this now to avoid effects of latency.
 	if(denom == 0.0f)
@@ -133,8 +71,58 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	const float one = 1.0;
 	dist_out = raydist;
 	u_out = alpha;
-	v_out = beta;*/
+	v_out = beta;
+*/
+
+
+unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const
+{
+	assert(SSE::isSSEAligned(&normal.x));
+	assert(SSE::isSSEAligned(&ray));
+
+//#if defined(WIN32) || defined(WIN64)
+	const __m128 raydir = _mm_load_ps(&ray.unitDirF().x);
+	const __m128 n = _mm_load_ps(&normal.x);
+	const __m128 d = dotSSEIn4Vec(raydir, n);
+	//const float one = 1.0f; 
+	//const __m128 recip_dist = _mm_div_ss(_mm_load_ss(&one), d);
+
+	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
+	const __m128 raydist_numerator = _mm_sub_ss(_mm_load_ss(&this->dist), dotSSEIn4Vec(raystartpos, n));
+
+	if(_mm_comieq_ss(d, zeroVec()) != 0) // if(d.m128_f32[0] == 0.0f)
+		return 0;
+
+	//const __m128 raydist_v = _mm_mul_ss(raydist_numerator, recip_dist);
+	const __m128 raydist_v = _mm_div_ss(raydist_numerator, d);
+
+	//if(raydist < BADOUEL_MIN_DIST || raydist >= ray_t_max) // if ray heading away form tri plane
+	//	return 0;
+	const __m128 res = _mm_or_ps(
+		_mm_cmplt_ss(raydist_v, _mm_load_ss(&BADOUEL_MIN_DIST)), // raydist < BADOUEL_MIN_DIST ? 0xFFFFFFFF : 0x0
+		_mm_cmple_ss(_mm_load_ss(&ray_t_max), raydist_v) // ray_t_max <= raydist ? 0xFFFFFFFF : 0x0
+		);
+
+	SSE_ALIGN Vec4 res_;
+	_mm_store_ss(res_.f, res);
+	if(res_.i[0] != 0) // if(res.m128_i32[0] != 0)
+		return 0;
+
+	const __m128 uv_vec_v = _mm_add_ps(raystartpos, _mm_mul_ps(raydir, shuffle4Vec(raydist_v, raydist_v, SHUF_X, SHUF_X, SHUF_X, SHUF_X)));
+
+	SSE_ALIGN float uv_vec[4];
+	_mm_store_ps(uv_vec, uv_vec_v);
 	
+	const float u = uv_vec[project_axis_1] - v0_1;  // ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
+	const float v = uv_vec[project_axis_2] - v0_2;  // ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
+	const float alpha = t11*u + t12*v;
+	const float beta = t21*u + t22*v;
+	assert(!isNAN(alpha) && !isNAN(beta));
+
+	const float one = 1.0;
+	_mm_store_ss(&dist_out, raydist_v); // dist_out = raydist_v.m128_f32[0];
+	u_out = alpha;
+	v_out = beta;
 
 #if defined(WIN32) && !defined(WIN64)
 	SSE_ALIGN unsigned int hit;
@@ -182,7 +170,3 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 
 
 #endif //__BADOUELTRI_H_666_
-
-
-
-

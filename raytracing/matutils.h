@@ -225,8 +225,8 @@ bool raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig_Ng, FullH
 // where phi is the azimuthal coordinate and theta is the zenith coordinate.
 template <class Real> const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length)
 {
-	const Real recip_len = (Real)1.0 / dir.length();
-	assert(Maths::approxEq((Real)1.0 / dir.length(), recip_dir_length, (Real)0.001));
+	//const Real recip_len = (Real)1.0 / dir.length();
+	//assert(Maths::approxEq((Real)1.0 / dir.length(), recip_dir_length, (Real)0.001));
 
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	return Vec2<Real>(
