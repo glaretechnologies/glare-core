@@ -46,7 +46,7 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
-	
+
 	//------------------------------------------------------------------------
 	//set error handling
 	//------------------------------------------------------------------------
@@ -66,8 +66,8 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 	if(!infile)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 
-	
-	
+
+
 	jpeg_stdio_src(&cinfo, infile);
 
 
@@ -93,21 +93,21 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 	//alloc row buffer
 	//------------------------------------------------------------------------
 	const unsigned int row_stride = cinfo.output_width * cinfo.output_components;
-	
+
 	// Make a one-row-high sample array that will go away when done with image
 	JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
 
 	//------------------------------------------------------------------------
 	//read data
 	//------------------------------------------------------------------------
-	/* Step 6: while (scan lines remain to be read) 
-             jpeg_read_scanlines(...); 
+	/* Step 6: while (scan lines remain to be read)
+             jpeg_read_scanlines(...);
 
 	Here we use the library's state variable cinfo.output_scanline as the
 	loop counter, so that we don't have to keep track ourselves.
 	*/
 	int y = 0;
-	while (cinfo.output_scanline < cinfo.output_height) 
+	while (cinfo.output_scanline < cinfo.output_height)
 	{
 		/* jpeg_read_scanlines expects an array of pointers to scanlines.
 		* Here the array is only one element long, but you could ask for
@@ -182,7 +182,7 @@ void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, Bitmap& img_
 {
 	int width, height, bytes_pp;
 
-	void* decodedimage = ReadImage(width, height, bytes_pp, &(*srcdata.begin()), 
+	void* decodedimage = ReadImage(width, height, bytes_pp, &(*srcdata.begin()),
 		srcdata.size());
 
 	if(!decodedimage)

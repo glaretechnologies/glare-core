@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
 
 /*#define BOOST_ALL_NO_LIB
 #include <boost/filesystem/path.hpp>
@@ -118,7 +119,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 }*/
 
 
-/*void splitDirName(const std::string& dirname, std::string& rootdir_out, 
+/*void splitDirName(const std::string& dirname, std::string& rootdir_out,
 						std::string& rest_out)
 {
 	std::string::size_type firstslashpos = dirname.find_first_of('\\');
@@ -133,7 +134,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 		return;
 	}
 
-	rootdir_out = dirname.substr(0, firstslashpos); 
+	rootdir_out = dirname.substr(0, firstslashpos);
 
 	if(dirname.size() > firstslashpos + 1)
 		rest_out = dirname.substr(firstslashpos + 1, (int)dirname.size() - (firstslashpos + 1));
@@ -142,7 +143,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 
 	return;
 }*/
-	
+
 
 void createDir(const std::string& dirname)
 {
@@ -166,7 +167,7 @@ void createDirsForPath(const std::string& path)
 	std::string dir;
 	for(unsigned int i=0; i<dirs.size(); ++i)
 	{
-		//if(i > 0 || !isPathAbsolute(path)) // don't create first 
+		//if(i > 0 || !isPathAbsolute(path)) // don't create first
 		//{
 
 		dir += dirs[i];
@@ -189,7 +190,7 @@ bool createDir(const std::string& dirname)
 	for(int i=1; i<=numdirs; ++i)
 	{
 		const std::string firstndirs = getFirstNDirs(dirname, i);
-		
+
 		if(!dirExists(firstndirs))
 		{
 			const BOOL result = ::CreateDirectoryA(firstndirs.c_str(), NULL);
@@ -258,12 +259,12 @@ bool createDir(const std::string& dirname)
 const std::string getDirectory(const std::string& pathname_)
 {
 	const std::string path = toPlatformSlashes(pathname_);
-	
+
 	const std::string::size_type lastslashpos = path.find_last_of(PLATFORM_DIR_SEPARATOR_CHAR);
 
 	if(lastslashpos == std::string::npos)
 		return "";
-	
+
 	return path.substr(0, lastslashpos);
 
 
@@ -271,7 +272,7 @@ const std::string getDirectory(const std::string& pathname_)
 	::replaceChar(forwardslashpath, '\\', '/');
 
 	int lastslashpos = pathname.find_last_of('/');
-	
+
 	if(lastslashpos == std::string::npos)
 		return "";
 
@@ -380,7 +381,7 @@ bool fileExists(const std::string& pathname)
 #else
 	struct stat buffer;
 	const int status = stat(pathname.c_str(), &buffer);
-	return status != 0;
+	return status == 0;
 #endif
 }
 
@@ -403,7 +404,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 
 	while(1)
 	{
-	
+
 		const std::string::size_type slashpos = pathname.find_first_of('\\', startpos);
 
 		if(slashpos == std::string::npos)
@@ -413,7 +414,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 		assert(startpos >= 0);
 		assert(slashpos < pathname.size());
 		dirs_out.push_back(pathname.substr(startpos, slashpos - startpos));
-	
+
 		startpos = slashpos + 1;
 	}
 }
@@ -476,7 +477,7 @@ bool isPathSafe(const std::string& pathname)
 
 			lastcharwasslash = true;
 		}
-		else if(::isAlphaNumeric(pathname[i]) || pathname[i] == '_' || 
+		else if(::isAlphaNumeric(pathname[i]) || pathname[i] == '_' ||
 				pathname[i] == '.' || pathname[i] == '-' || pathname[i] == '+')
 		{
 			lastcharwasslash = false;
@@ -533,29 +534,29 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 }
 
 
-void readEntireFile(const std::string& pathname, 
+void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {
 	std::ifstream infile(pathname.c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-	
+
 	readEntireFile(infile, filecontents_out);
 }
 
-void readEntireFile(const std::string& pathname, 
+void readEntireFile(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
 	std::ifstream infile(pathname.c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-	
+
 	readEntireFile(infile, filecontents_out);
 }
 
-void writeEntireFile(const std::string& pathname, 
+void writeEntireFile(const std::string& pathname,
 					 const std::vector<unsigned char>& filecontents)
 {
 	std::ofstream file(pathname.c_str(), std::ios::binary);
@@ -659,14 +660,14 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 
 #if defined(WIN32) || defined(WIN64)
 	if(!CopyFileA(
-		srcpath.c_str(), 
-		dstpath.c_str(), 
+		srcpath.c_str(),
+		dstpath.c_str(),
 		FALSE // fail if exists
 		))
 	{
 		throw FileUtilsExcep("Failed to copy file '" + srcpath + "' to '" + dstpath + "'.");
 	}
-	
+
 #else
 	std::vector<unsigned char> data;
 	readEntireFile(srcpath, data);
@@ -683,7 +684,7 @@ void deleteFile(const std::string& path)
 	{
 		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
 	}
-	
+
 #else
 	if(remove(path.c_str()) != 0)
 		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
@@ -699,7 +700,7 @@ void deleteEmptyDirectory(const std::string& path)
 	{
 		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
 	}
-	
+
 #else
 	if(rmdir(path.c_str()) != 0)
 		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
@@ -745,6 +746,8 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 
 void doUnitTests()
 {
+	conPrint("FileUtils::doUnitTests()");
+
 #if defined(WIN32) || defined(WIN64)
 	testAssert(isPathAbsolute("C:/windows"));
 	testAssert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
@@ -756,11 +759,6 @@ void doUnitTests()
 	testAssert(!isPathAbsolute("."));
 	testAssert(!isPathAbsolute(".."));
 	testAssert(!isPathAbsolute(""));
-#else
-	testAssert(isPathAbsolute("/etc/"));
-	testAssert(!isPathAbsolute("dfgfdgdf/etc/"));
-
-#endif
 	testAssert(!isPathSafe("c:\\windows\\haxored.dll"));
 	testAssert(!isPathSafe("c:\\haxored.dll"));
 	testAssert(!isPathSafe("c:\\"));
@@ -773,13 +771,19 @@ void doUnitTests()
 	testAssert(!isPathSafe("\\b/file.txt"));	//can't start with backslash
 	testAssert(!isPathSafe("\\localhost\\c\\something.txt"));	//can't start with host thingey
 	testAssert(!isPathSafe("\\123.123.123.123\\c\\something.txt"));	//can't start with host thingey
-	
+
 	testAssert(isPathSafe("something.txt"));
 	testAssert(isPathSafe("dir\\something.txt"));
 //	testAssert(!isPathSafe("dir/something.txt"));//don't use forward slashes!!!!
 	testAssert(isPathSafe("a\\b\\something.txt"));
 	testAssert(isPathSafe("a\\b\\something"));
 	testAssert(isPathSafe("a\\.\\something"));
+#else
+	testAssert(isPathAbsolute("/etc/"));
+	testAssert(!isPathAbsolute("dfgfdgdf/etc/"));
+
+#endif
+
 
 	testAssert(eatExtension("hello.there") == "hello.");
 
@@ -815,21 +819,24 @@ void doUnitTests()
 	testAssert(!fileExists("TEMP_TESTING_DIR"));
 	testAssert(!fileExists("TEMP_TESTING_DIR/a"));
 
-	createDirsForPath("c:/temp/test/a");
+	//createDirsForPath("c:/temp/test/a");
 
+	conPrint("FileUtils::doUnitTests() Done.");
 }
 
 
 
 //Wed Jan 02 02:03:55 1980\n\0
 /*
-const std::string getAscTimeFileLastModified(const std::string& filename)
+const std:	conPrint("FileUtils::doUnitTests()");
+:string getAscTimeFileLastModified(const std::string& filename)
 {
 
 
-	HANDLE file = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, 
+	HANDLE file = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ,
+			conPrint("FileUtils::doUnitTests()");
 							NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	
+
 	if(file == INVALID_HANDLE_VALUE)
 		return "";
 
@@ -858,8 +865,8 @@ const std::string getAscTimeFileLastModified(const std::string& filename)
 
 	timestring += widenToTwoChars(::toString(systime.wDay)) + " ";
 
-	timestring += widenToTwoChars(::toString(systime.wHour)) + ":" + 
-		widenToTwoChars(::toString(systime.wMinute)) + ":" + 
+	timestring += widenToTwoChars(::toString(systime.wHour)) + ":" +
+		widenToTwoChars(::toString(systime.wMinute)) + ":" +
 		widenToTwoChars(::toString(systime.wSecond)) + " ";
 
 	timestring += ::toString(systime.wYear);
@@ -871,7 +878,7 @@ const std::string getAscTimeFileLastModified(const std::string& filename)
 
 	if(!file)
 		return "";
-	
+
 	struct _stat statistics;
 
 	const int result = _fstat(file, &statistics);
@@ -886,9 +893,9 @@ const std::string getAscTimeFileLastModified(const std::string& filename)
 /*
 const Date getFileLastModifiedDate(const std::string& filename)
 {
-	HANDLE file = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, 
+	HANDLE file = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ,
 							NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	
+
 	if(file == INVALID_HANDLE_VALUE)
 		return Date();
 
