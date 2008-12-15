@@ -495,8 +495,11 @@ void Texture::test()
 			for(unsigned int c=0; c<3; ++c)
 				t.setPixelComp(x, y, c, 255);
 
-	testAssert(t.scalarSampleTiled(0.1, 0.1) == 1.0);
-	testAssert(t.scalarSampleTiled(-0.1, 0.1) == 1.0);
-	testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 1.0);
+	//testAssert(t.scalarSampleTiled(0.1, 0.1) == 1.0);
+	//testAssert(t.scalarSampleTiled(-0.1, 0.1) == 1.0);
+	//testAssert(t.scalarSampleTiled(-1.0e9, 1.0e9) == 1.0);
+	testAssert(epsEqual(t.scalarSampleTiled(0.1, 0.1), 1.0f));
+	testAssert(epsEqual(t.scalarSampleTiled(-0.1, 0.1), 1.0f));
+	testAssert(epsEqual(t.scalarSampleTiled(-1.0e9, 1.0e9), 1.0f));
 	}
 }
