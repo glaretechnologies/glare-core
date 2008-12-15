@@ -26,7 +26,7 @@ BadouelTri::BadouelTri()
 
 BadouelTri::~BadouelTri()
 {
-	
+
 }
 
 void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
@@ -42,8 +42,37 @@ void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
 
 	dist = normal.dot(vert0);
 
+	if(std::fabs(normal.x) >= std::fabs(normal.y))
+	{
+		if(std::fabs(normal.x) >= std::fabs(normal.z))
+		{
+			project_axis_1 = 1;
+			project_axis_2 = 2;
+		}
+		else
+		{
+			assert(std::fabs(normal.z) >= std::fabs(normal.x) && std::fabs(normal.z) >= std::fabs(normal.y));
+			project_axis_1 = 0;
+			project_axis_2 = 1;
+		}
+	}
+	else
+	{
+		if(fabs(normal.y) >= fabs(normal.z))
+		{
+			assert(std::fabs(normal.y) >= std::fabs(normal.x) && std::fabs(normal.y) >= std::fabs(normal.z));
+			project_axis_1 = 0;
+			project_axis_2 = 2;
+		}
+		else
+		{
+			assert(std::fabs(normal.z) >= std::fabs(normal.x) && std::fabs(normal.z) >= std::fabs(normal.y));
+			project_axis_1 = 0;
+			project_axis_2 = 1;
+		}
+	}
 
-	const float max_norm_comp = myMax(fabs(normal.x), myMax(fabs(normal.y), fabs(normal.z)));
+	/*const float max_norm_comp = myMax(fabs(normal.x), fabs(normal.y), fabs(normal.z));
 	if(fabs(normal.x) == max_norm_comp)
 	{
 		project_axis_1 = 1;
@@ -61,10 +90,11 @@ void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
 	}
 	else
 	{
+		::fatalError("BadouelTri::set");
 		assert(0);
 		project_axis_1 = 0;
 		project_axis_2 = 1;
-	}
+	}*/
 
 	/*u = vert0[project_axis_1];
 	v = vert0[project_axis_2];
@@ -86,7 +116,7 @@ void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
 
 	const float det = u1*v2 - u2*v1;
 
-	if(fabs(det) < 0.00000001f)
+	if(std::fabs(det) < 0.00000001f)
 	{
 		//make a transform that will always return out of bound barycentric coords.
 		t11 = t12 = t21 = t22 = 1e9f;

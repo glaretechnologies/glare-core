@@ -12,6 +12,10 @@ Code By Nicholas Chapman.
 #include "../maths/SSE.h"
 #include "../simpleraytracer/ray.h"
 
+//TEMP:
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
+
 
 namespace js
 {
@@ -67,6 +71,13 @@ unsigned int BadouelTri::referenceIntersect(const Ray& ray, float ray_t_max, flo
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
 
+	/*printVar(u);
+	printVar(v);
+	printVar(t11);
+	printVar(t12);
+	printVar(alpha);
+	printVar(beta);*/
+
 	dist_out = raydist;
 	u_out = alpha;
 	v_out = beta;
@@ -109,13 +120,21 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	SSE_ALIGN float uv_vec[4];
 	_mm_store_ps(uv_vec, uv_vec_v);
 
+
 	const float u = uv_vec[project_axis_1] - v0_1;  // ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
 	const float v = uv_vec[project_axis_2] - v0_2;  // ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
 	const float alpha = t11*u + t12*v;
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
 
-	const float one = 1.0;
+	/*printVar(u);
+	printVar(v);
+	printVar(t11);
+	printVar(t12);
+	printVar(alpha);
+	printVar(beta);*/
+
+	//const float one = 1.0;
 	_mm_store_ss(&dist_out, raydist_v); // dist_out = raydist_v.m128_f32[0];
 	u_out = alpha;
 	v_out = beta;

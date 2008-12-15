@@ -160,10 +160,14 @@ static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const R
 	if(hit)
 	{
 		testAssert(::epsEqual(dist, ref_dist));
-		printVar(u);
-		printVar(ref_u);
+		//printVar(dist);
+		//printVar(ref_dist);
+		//printVar(u);
+		//printVar(ref_u);
 		testAssert(::epsEqual(u, ref_u));
 		testAssert(::epsEqual(v, ref_v));
+		//testAssert(::epsEqual(u, ref_u, 0.0001f));
+		//testAssert(::epsEqual(v, ref_v, 0.0001f));
 	}
 }
 
@@ -174,7 +178,7 @@ void testBadouelTriIntersection()
 
 	MTwister rng(1);
 
-	const int N = 100000;
+	const int N = 10000000;
 
 	for(int i=0; i<N; ++i)
 	{
@@ -191,6 +195,7 @@ void testBadouelTriIntersection()
 			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
 			);
 
+		//printVar(i);
 		testIndividualBadouelIntersection(tri, ray);
 	}
 
