@@ -151,10 +151,10 @@ static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const R
 {
 	const float ray_t_max = 1.0e9f;
 	float ref_dist, ref_u, ref_v;
-	const unsigned int ref_hit = tri.referenceIntersect(ray, ray_t_max, ref_dist, ref_u, ref_v);
+	const bool ref_hit = tri.referenceIntersect(ray, ray_t_max, ref_dist, ref_u, ref_v) != 0;
 
 	float dist, u, v;
-	const unsigned int hit = tri.rayIntersect(ray, ray_t_max, dist, u, v);
+	const bool hit = tri.rayIntersect(ray, ray_t_max, dist, u, v) != 0;
 
 	testAssert(hit == ref_hit);
 	if(hit)

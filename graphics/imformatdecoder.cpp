@@ -68,30 +68,4 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws
 	{
 		throw ImFormatExcep("unhandled format ('" + path + "'");
 	}
-
-	/*if(hasExtension(path, "jpg") || hasExtension(path, "jpeg"))
-	{
-		JPEGDecoder::decode(path, bitmap_out);
-	}
-	else if(hasExtension(path, "tga"))
-	{
-		TGADecoder::decode(path, bitmap_out);
-	}
-	else if(hasExtension(path, "bmp"))
-	{
-		BMPDecoder::decode(path, bitmap_out);
-	}
-	else if(hasExtension(path, "png"))
-	{
-		PNGDecoder::decode(path, bitmap_out);
-	}
-	else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
-	{
-		TIFFDecoder::decode(path, bitmap_out);
-	}
-	else
-	{
-		throw ImFormatExcep("unhandled format ('" + path + "'");
-	}*/
 }
-
