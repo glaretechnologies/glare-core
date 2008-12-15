@@ -60,16 +60,16 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 	Vec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
 		/*&orig_x, &orig_y, &orig_z, &dir_x, &dir_y, &dir_z*/
-		tri[0].data, tri[1].data, tri[2].data, tri[3].data, 
+		tri[0].data, tri[1].data, tri[2].data, tri[3].data,
 		//&best_t,
 		&u, &v, &t, &hit
-		//&best_tri_index, 
+		//&best_tri_index,
 		//&tri_indices,
 
-		//&best_u, 
+		//&best_u,
 		//&best_v
 		//&best_data
-		
+
 		);
 
 	//float ref_u, ref_v;
@@ -89,7 +89,7 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 			testAssert(::epsEqual(ref_v, v.f[i]));
 			testAssert(ref_hit == (hit.i[i] != 0));
 		}
-		
+
 		/*if(tri[i].referenceIntersect(ray, &u, &v, &t))
 		{
 			hit_a_tri = true;
@@ -147,6 +147,58 @@ static void testTriangleIntersection()
 }
 
 
+static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const Ray& ray)
+{
+	const float ray_t_max = 1.0e9f;
+	float ref_dist, ref_u, ref_v;
+	const unsigned int ref_hit = tri.referenceIntersect(ray, ray_t_max, ref_dist, ref_u, ref_v);
+
+	float dist, u, v;
+	const unsigned int hit = tri.rayIntersect(ray, ray_t_max, dist, u, v);
+
+	testAssert(hit == ref_hit);
+	if(hit)
+	{
+		testAssert(::epsEqual(dist, ref_dist));
+		printVar(u);
+		printVar(ref_u);
+		testAssert(::epsEqual(u, ref_u));
+		testAssert(::epsEqual(v, ref_v));
+	}
+}
+
+
+void testBadouelTriIntersection()
+{
+	conPrint("testBadouelTriIntersection()");
+
+	MTwister rng(1);
+
+	const int N = 100000;
+
+	for(int i=0; i<N; ++i)
+	{
+		js::BadouelTri tri;
+
+		tri.set(
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
+		);
+
+		const SSE_ALIGN Ray ray(
+			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
+			);
+
+		testIndividualBadouelIntersection(tri, ray);
+	}
+
+
+	conPrint("testBadouelTriIntersection() Done");
+}
+
+
 void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
@@ -156,7 +208,7 @@ void TreeTest::testBuildCorrect()
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	const std::vector<Vec2f> texcoord_sets;
 
 	const unsigned int uv_indices[] = {0, 0, 0};
@@ -234,7 +286,7 @@ void TreeTest::testBuildCorrect()
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	//const std::vector<Vec2f> texcoord_sets;
 	const unsigned int uv_indices[] = {0, 0, 0};
 
@@ -300,7 +352,7 @@ void TreeTest::testBuildCorrect()
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	//const std::vector<Vec2f> texcoord_sets;
 	const unsigned int uv_indices[] = {0, 0, 0};
 
@@ -407,18 +459,22 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const double max_t = 1.0e9;
 
 		const SSE_ALIGN Ray ray(
-			Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0) * 1.5, 
+			Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0) * 1.5,
 			normalise(Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0))
 			);
+
+		//printVar(ray.startPos());
+		//printVar(ray.unitDir());
 
 		HitInfo hitinfo;
 		js::TriTreePerThreadData tree_context;
 
 		const double dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
-		
+
 		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, hitinfo);
 		testAssert(dist == alltrisdist);
 
+		printVar(i);
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo_;
@@ -426,8 +482,32 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 			if(dist >= 0.0 || dist_ >= 0.0)
 			{
-				testAssert(::epsEqual(dist, dist_));
+				if(i == 351) // TEMP
+				{
+					conPrint("SSE intersect:");
+					float tempdist, tempu, tempv;
+					unsigned int hit = dynamic_cast<KDTree*>(trees[0])->intersect_tris[324].rayIntersect(ray, max_t, tempdist, tempu, tempv);
+					printVar(hit);
+					printVar(tempdist);
+					printVar(tempu);
+					printVar(tempv);
+
+					conPrint("reference intersect:");
+					hit = dynamic_cast<KDTree*>(trees[0])->intersect_tris[324].referenceIntersect(ray, max_t, tempdist, tempu, tempv);
+					printVar(hit);
+					printVar(tempdist);
+					printVar(tempu);
+					printVar(tempv);
+				}
+
+				printVar(hitinfo.sub_elem_index);
+				printVar(hitinfo_.sub_elem_index);
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
+				testAssert(::epsEqual(dist, dist_, 0.001));
+
+				printVar(hitinfo.sub_elem_index);
+				printVar(hitinfo.sub_elem_coords.x);
+				printVar(hitinfo_.sub_elem_coords.x);
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
@@ -482,8 +562,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist));
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
 				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.001));
+				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.001));
 			}
 		}
 
@@ -492,7 +572,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		const double testlength = rng.unitRandom() * 2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
-		
+
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
@@ -536,18 +616,18 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 static void doEdgeCaseTests()
 {
 	conPrint("TreeTest::doEdgeCaseTests()");
-#if 0 
+#if 0
 	//TEMP reenable this
 
 
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	const std::vector<Vec2f> texcoord_sets;
 
 	//x=0 tri
-	{ 
+	{
 	raymesh.addVertex(Vec3f(0,0,1), Vec3f(0,0,1)); // , texcoord_sets);
 	raymesh.addVertex(Vec3f(0,1,0), Vec3f(0,0,1)); // , texcoord_sets);
 	raymesh.addVertex(Vec3f(0,1,1), Vec3f(0,0,1)); // , texcoord_sets);
@@ -613,8 +693,10 @@ static void cornellBoxTest()
 
 void TreeTest::doTests()
 {
+	testBadouelTriIntersection();
+
 	testTriangleIntersection();
-	
+
 	doEdgeCaseTests();
 
 	conPrint("TreeTest::doTests()");
@@ -626,7 +708,7 @@ void TreeTest::doTests()
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
 	for(int i=0; i<NUM_TRIS; ++i)
@@ -650,7 +732,7 @@ void TreeTest::doTests()
 	{
 	RayMesh raymesh("raymesh", false);
 	raymesh.addMaterialUsed("dummy");
-	
+
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
 	for(int i=0; i<NUM_TRIS; ++i)
@@ -664,11 +746,11 @@ void TreeTest::doTests()
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
 		raymesh.addVertex(v);//, Vec3f(0,0,1));
-		
+
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
 		raymesh.addVertex(v);//, Vec3f(0,0,1));
-		
+
 		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
 		v[axis] = axis_val;
 		raymesh.addVertex(v);//, Vec3f(0,0,1));
@@ -753,7 +835,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		///generate other point on ray path///
 		const PoolVec3 pool_rayend = vecpool.getVec();//get random point on unit ball from pool
-			
+
 		Vec3d rayend(pool_rayend.x, pool_rayend.y, pool_rayend.z);//convert to usual 3-vector object
 		rayend *= RADIUS;
 		rayend += aabb_center;
@@ -799,7 +881,7 @@ void TreeTest::doSpeedTest(int treetype)
 	const double cycles_per_trace = clock_freq * timetaken / (double)kdtree->num_traces;
 	printVar(cycles_per_trace);
 	}
-	
+
 	conPrint("Stats for rays that intersect root AABB:");
 	conPrint("av num nodes touched: " + toString((double)kdtree->total_num_nodes_touched / (double)kdtree->num_root_aabb_hits));
 	conPrint("av num leaves touched: " + toString((double)kdtree->total_num_leafs_touched / (double)kdtree->num_root_aabb_hits));

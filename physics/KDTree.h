@@ -187,11 +187,11 @@ private:
 	//int nodestack_size;
 
 	NODE_VECTOR_TYPE nodes;//nodes of the tree
-
+public://TEMP
 	typedef js::BadouelTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
-
+private://TEMP
 	//std::vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
 	LEAF_GEOM_ARRAY_TYPE leafgeom;//indices into the 'edgetris' array
 
