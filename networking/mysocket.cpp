@@ -15,6 +15,7 @@ Code Copyright Nicholas Chapman 2005.
 #include "fractionlistener.h"
 #include "../utils/stringutils.h"
 #include <string.h>
+//#include "../indigo/globals.h" // TEMP
 #if defined(WIN32) || defined(WIN64)
 #else
 #include <netinet/in.h>
@@ -49,13 +50,13 @@ const int SOCKET_ERROR = -1;
 
 MySocket::MySocket(const std::string hostname, int port)
 {
-	
+
 	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = 0;
 
 	assert(Networking::isInited());
-		
+
 	if(!Networking::isInited())
 		throw MySocketExcep("Networking not inited or destroyed.");
 
@@ -97,7 +98,7 @@ MySocket::MySocket(const std::string hostname, int port)
 	{
 		throw MySocketExcep("DNS Lookup failed: " + std::string(e.what()));
 	}
-	
+
 }
 
 
@@ -199,7 +200,7 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 		thisend_ipaddr = interface_addr.sin_addr.s_addr; //NEWCODE: removed ntohl
 		//::debugPrint("socket thisend ip: " + thisend_ipaddr.toString());
 
-		thisend_port = ntohs(interface_addr.sin_port); 
+		thisend_port = ntohs(interface_addr.sin_port);
 		//::debugPrint("socket thisend port: " + toString(thisend_port));
 
 		//if(ipaddress != IPAddress("127.0.0.1"))//loopback connection, ignore
@@ -235,7 +236,7 @@ MySocket::~MySocket()
 		//close socket
 		//-----------------------------------------------------------------
 		result = closesocket(sockethandle);
-		
+
 		assert(result == 0);
 		if(result)
 		{
@@ -292,7 +293,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	}
 
 
-	if(::bind(sockethandle, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 
+	if(::bind(sockethandle, (struct sockaddr*)&server_addr, sizeof(server_addr)) ==
 															SOCKET_ERROR)
 		throw MySocketExcep("bind failed");
 
@@ -317,13 +318,13 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 	{
 		const double BLOCK_DURATION = 0.5; // in seconds
 		timeval wait_period;
-		wait_period.tv_sec = 0; // seconds 
-		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds 
+		wait_period.tv_sec = 0; // seconds
+		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds
 
 		// Create the file descriptor set
 		fd_set sockset;
 		initFDSetWithSocket(sockset, sockethandle);
-	
+
 		//if(Networking::getInstance().shouldSocketsShutDown())
 		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 		if(should_abort_callback && should_abort_callback->shouldAbort())
@@ -365,7 +366,7 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 
 		const int result = ioctlsocket(socket_handle, FIONBIO, &b);
 
-		assert(result != SOCKET_ERROR); 
+		assert(result != SOCKET_ERROR);
 
 		while(1)
 		{
@@ -401,7 +402,7 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 
 	if(result != SOCKET_ERROR)
 	{
-		thisend_ipaddr = interface_addr.sin_addr.s_addr; 
+		thisend_ipaddr = interface_addr.sin_addr.s_addr;
 		//NEWCODE removed ntohl
 		//::debugPrint("socket thisend ip: " + thisend_ipaddr.toString());
 
@@ -420,7 +421,7 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 	}
 
 }
- 
+
 
 
 
@@ -448,7 +449,7 @@ void MySocket::close()
 		result = closesocket(sockethandle);
 #else
 		result = ::close(sockethandle);
-#endif	
+#endif
 		assert(result == 0);
 		if(result)
 		{
@@ -476,14 +477,14 @@ const int USE_BUFFERSIZE = 1024;
 
 
 void MySocket::write(const void* data, int datalen, SocketShouldAbortCallback* should_abort_callback)
-{	
+{
 	write(data, datalen, NULL, should_abort_callback);
 }
 
 void MySocket::write(const void* data, int datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 	const int totalnumbytestowrite = datalen;
-	
+
 	while(datalen > 0)//while still bytes to write
 	{
 		const int numbytestowrite = myMin(USE_BUFFERSIZE, datalen);
@@ -501,7 +502,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
-		
+
 			//if(Networking::getInstance().shouldSocketsShutDown())
 			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
@@ -520,7 +521,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 		}
 
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
-		
+
 		if(numbyteswritten == SOCKET_ERROR)
 			throw MySocketExcep("write failed.  Error code == " + Networking::getError());
 
@@ -531,7 +532,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
-	
+
 		//-----------------------------------------------------------------
 		//artificially slow down connection speed
 		//-----------------------------------------------------------------
@@ -549,7 +550,7 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 
 				printed_warning = true;
 			}
-			
+
 			const float sleep_time = 1000.0 * (float)USE_BUFFERSIZE / max_rate;//in ms
 			Sleep(sleep_time);
 		}*/
@@ -571,7 +572,7 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 	const int totalnumbytestoread = readlen;
 
 	while(readlen > 0)//while still bytes to read
-	{		
+	{
 		const int numbytestoread = myMin(USE_BUFFERSIZE, readlen);
 
 		//------------------------------------------------------------------------
@@ -588,12 +589,12 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 			//FD_SET fd_set;
 			fd_set sockset;
 			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
-		
+
 			//if(Networking::getInstance().shouldSocketsShutDown())
 			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
 				throw AbortedMySocketExcep();
-	
+
 			//get number of handles that are ready to read from
 			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
 
@@ -611,14 +612,14 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 		//------------------------------------------------------------------------
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
-		if(numbytesread == SOCKET_ERROR || numbytesread == 0) 
+		if(numbytesread == SOCKET_ERROR || numbytesread == 0)
 			throw MySocketExcep("read failed, error: " + Networking::getError());
 
 		readlen -= numbytesread;
 		buffer = (void*)((char*)buffer + numbytesread);
-			
+
 		MySocket::num_bytes_rcvd += numbytesread;
-		
+
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
 
@@ -641,11 +642,11 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 
 	while(!done)
 	{
-	
+
 		//-----------------------------------------------------------------
 		//read data to buf
 		//-----------------------------------------------------------------
-		const int num_chars_received = 
+		const int num_chars_received =
 				recv(sockethandle, &(*buf.begin()), USE_BUFFERSIZE, 0);
 
 
@@ -678,22 +679,49 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 
 void MySocket::write(float x, SocketShouldAbortCallback* should_abort_callback)
 {
-	*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
+	//conPrint("MySocket::write(float"); // TEMP
 
-	write(&x, sizeof(float), should_abort_callback);
+	//*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
+
+	union data
+	{
+		float x;
+		unsigned int i;
+	};
+
+
+	union data d;
+	d.x = x;
+
+	const unsigned int i = htonl(d.i);
+
+	write(&i, sizeof(float), should_abort_callback);
 }
 
 void MySocket::write(int x, SocketShouldAbortCallback* should_abort_callback)
 {
-	*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
+	//conPrint("MySocket::write(int"); // TEMP
 
-	write(&x, sizeof(int), should_abort_callback);
+	union data
+	{
+		int si;
+		unsigned int i;
+	};
+
+	//*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
+
+	union data d;
+	d.si = x;
+
+	const unsigned int i = htonl(d.i);
+
+	write(&i, sizeof(int), should_abort_callback);
 }
 
 void MySocket::write(char x, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(&x, sizeof(char), should_abort_callback);
-}	
+}
 
 void MySocket::write(unsigned char x, SocketShouldAbortCallback* should_abort_callback)
 {
@@ -703,7 +731,7 @@ void MySocket::write(unsigned char x, SocketShouldAbortCallback* should_abort_ca
 void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // writes string
 {
 	//write(s.c_str(), s.size() + 1);
-	
+
 	// Write length of string
 	write((int)s.length(), should_abort_callback);
 
@@ -758,15 +786,38 @@ char MySocket::readChar()
 
 void MySocket::readTo(float& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(float), should_abort_callback);
+	//conPrint("MySocket::readTo(float& x");
+	//readTo(&x, sizeof(float), should_abort_callback);
 
-	*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
+	//*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
+
+	union data
+	{
+		float x;
+		unsigned int i;
+	};
+
+	data d;
+	readTo(&d.i, sizeof(float), should_abort_callback);
+	d.i = ntohl(d.i);
+	x = d.x;
 }
 
 void MySocket::readTo(int& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	readTo(&x, sizeof(int), should_abort_callback);
-	*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
+	//conPrint("MySocket::readTo(int& x");
+	//readTo(&x, sizeof(int), should_abort_callback);
+	//*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
+
+	union data
+	{
+		int si;
+		unsigned int i;
+	};
+	data d;
+	readTo(&d.i, sizeof(unsigned int), should_abort_callback);
+	d.i = ntohl(d.i);
+	x = d.si;
 }
 
 void MySocket::readTo(char& x, SocketShouldAbortCallback* should_abort_callback)
@@ -866,7 +917,7 @@ void MySocket::pollRead(std::string& data_out)
 	//FD_SET fd_set;
 	fd_set sockset;
 	initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
-		
+
 	//if(Networking::getInstance().shouldSocketsShutDown())
 	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 
@@ -878,13 +929,13 @@ void MySocket::pollRead(std::string& data_out)
 
 	if(num_ready == 0)
 		return;
-		
+
 
 	data_out.resize(USE_BUFFERSIZE);
 	const int numbytesread = recv(sockethandle, &(*data_out.begin()), data_out.size(), 0);
 
 
-	if(numbytesread == SOCKET_ERROR || numbytesread == 0) 
+	if(numbytesread == SOCKET_ERROR || numbytesread == 0)
 		throw MySocketExcep("read failed, error code == " + Networking::getError());
 
 
@@ -935,7 +986,7 @@ void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle)
 {
 	FD_ZERO(&sockset);
-	
+
 	//FD_SET doesn´t seem to work when targeting x64 in gcc.
 #ifdef COMPILER_GCC
 	//sockset.fds_bits[0] = sockhandle;
