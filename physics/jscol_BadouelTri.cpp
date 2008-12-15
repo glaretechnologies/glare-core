@@ -72,30 +72,6 @@ void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
 		}
 	}
 
-	/*const float max_norm_comp = myMax(fabs(normal.x), fabs(normal.y), fabs(normal.z));
-	if(fabs(normal.x) == max_norm_comp)
-	{
-		project_axis_1 = 1;
-		project_axis_2 = 2;
-	}
-	else if(fabs(normal.y) == max_norm_comp)
-	{
-		project_axis_1 = 0;
-		project_axis_2 = 2;
-	}
-	else if(fabs(normal.z) == max_norm_comp)
-	{
-		project_axis_1 = 0;
-		project_axis_2 = 1;
-	}
-	else
-	{
-		::fatalError("BadouelTri::set");
-		assert(0);
-		project_axis_1 = 0;
-		project_axis_2 = 1;
-	}*/
-
 	/*u = vert0[project_axis_1];
 	v = vert0[project_axis_2];
 

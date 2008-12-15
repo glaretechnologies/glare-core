@@ -11,10 +11,8 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
 #include "../simpleraytracer/ray.h"
-
-//TEMP:
-#include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+//#include "../indigo/globals.h"
+//#include "../utils/stringutils.h"
 
 
 namespace js
@@ -71,13 +69,6 @@ unsigned int BadouelTri::referenceIntersect(const Ray& ray, float ray_t_max, flo
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
 
-	/*printVar(u);
-	printVar(v);
-	printVar(t11);
-	printVar(t12);
-	printVar(alpha);
-	printVar(beta);*/
-
 	dist_out = raydist;
 	u_out = alpha;
 	v_out = beta;
@@ -126,13 +117,6 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	const float alpha = t11*u + t12*v;
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
-
-	/*printVar(u);
-	printVar(v);
-	printVar(t11);
-	printVar(t12);
-	printVar(alpha);
-	printVar(beta);*/
 
 	_mm_store_ss(&dist_out, raydist_v); // dist_out = raydist_v.m128_f32[0];
 	u_out = alpha;

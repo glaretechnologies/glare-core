@@ -160,12 +160,6 @@ static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const R
 	if(hit)
 	{
 		testAssert(::epsEqual(dist, ref_dist, 0.0001f));
-		//printVar(dist);
-		//printVar(ref_dist);
-		//printVar(u);
-		//printVar(ref_u);
-		//testAssert(::epsEqual(u, ref_u));
-		//testAssert(::epsEqual(v, ref_v));
 		testAssert(::epsEqual(u, ref_u, 0.00005f));
 		testAssert(::epsEqual(v, ref_v, 0.00005f));
 	}
@@ -195,7 +189,6 @@ void testBadouelTriIntersection()
 			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
 			);
 
-		//printVar(i);
 		testIndividualBadouelIntersection(tri, ray);
 	}
 
@@ -468,9 +461,6 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			normalise(Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0))
 			);
 
-		//printVar(ray.startPos());
-		//printVar(ray.unitDir());
-
 		HitInfo hitinfo;
 		js::TriTreePerThreadData tree_context;
 
@@ -479,7 +469,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, hitinfo);
 		testAssert(dist == alltrisdist);
 
-		printVar(i);
+		//printVar(i);
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo_;
@@ -487,7 +477,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 			if(dist >= 0.0 || dist_ >= 0.0)
 			{
-				if(i == 351) // TEMP
+				/*if(i == 351) // TEMP
 				{
 					conPrint("SSE intersect:");
 					float tempdist, tempu, tempv;
@@ -503,16 +493,16 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 					printVar(tempdist);
 					printVar(tempu);
 					printVar(tempv);
-				}
+				}*/
 
-				printVar(hitinfo.sub_elem_index);
-				printVar(hitinfo_.sub_elem_index);
+				//printVar(hitinfo.sub_elem_index);
+				//printVar(hitinfo_.sub_elem_index);
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
-				testAssert(::epsEqual(dist, dist_, 0.001));
+				testAssert(::epsEqual(dist, dist_, 0.0001));
 
-				printVar(hitinfo.sub_elem_index);
-				printVar(hitinfo.sub_elem_coords.x);
-				printVar(hitinfo_.sub_elem_coords.x);
+				//printVar(hitinfo.sub_elem_index);
+				//printVar(hitinfo.sub_elem_coords.x);
+				//printVar(hitinfo_.sub_elem_coords.x);
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
