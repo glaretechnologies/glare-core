@@ -134,12 +134,12 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	printVar(alpha);
 	printVar(beta);*/
 
-	//const float one = 1.0;
 	_mm_store_ss(&dist_out, raydist_v); // dist_out = raydist_v.m128_f32[0];
 	u_out = alpha;
 	v_out = beta;
 
 #if defined(WIN32) && !defined(WIN64)
+	const float one = 1.0;
 	SSE_ALIGN unsigned int hit;
 	_asm
 	{
