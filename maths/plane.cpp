@@ -1,6 +1,6 @@
 #include "plane.h"
 
-
+/*
 #include "coordframe.h"
 
 const Plane Plane::transformToLocal(const CoordFrame& coordframe) const
@@ -15,3 +15,5 @@ const Plane Plane::transformToLocal(const CoordFrame& coordframe) const
 
 	//NOTE: check this is right
 }
+
+*/

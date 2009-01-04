@@ -7,6 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __KDTREEIMPL_H_666_
 #define __KDTREEIMPL_H_666_
 
+#if 0
 
 #include "jscol_TriTreePerThreadData.h"
 #include "KDTree.h"
@@ -28,7 +29,7 @@ class KDTreeImpl
 public:
 
 	template <class T, class HitInfoType>
-	inline static double traceRay(const KDTree& kd, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
+	inline static double traceRay(const KDTree& kd, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context,
 		const Object* object, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
@@ -47,7 +48,7 @@ public:
 
 		#ifdef DO_PREFETCHING
 		// Prefetch first node
-		// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);	
+		// _mm_prefetch((const char *)(&nodes[0]), _MM_HINT_T0);
 		#endif
 
 		#ifdef RECORD_TRACE_STATS
@@ -64,7 +65,7 @@ public:
 		__m128 near_t, far_t;
 		kd.root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
 		near_t = _mm_max_ss(near_t, zeroVec());
-		
+
 		const float ray_max_t_f = (float)ray_max_t;
 		far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f));
 
@@ -81,7 +82,7 @@ public:
 		float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::max();
 
 		int stacktop = 0;//index of node on top of stack
-		
+
 		while(stacktop >= 0)
 		{
 			//pop node off stack
@@ -93,25 +94,25 @@ public:
 			stacktop--;
 
 			tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
-	
+
 			while(kd.nodes[current].getNodeType() != KDTreeNode::NODE_TYPE_LEAF)
 			{
 				//_mm_prefetch((const char*)(nodes + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 				_mm_prefetch((const char*)(&kd.nodes[0] + kd.nodes[current].getPosChildIndex()), _MM_HINT_T0);
 				#ifdef DO_PREFETCHING
-				//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-				#endif			
+				//_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);
+				#endif
 
 				const unsigned int splitting_axis = kd.nodes[current].getSplittingAxis();
 				/*const SSE4Vec t = mult4Vec(
 					sub4Vec(
-						loadScalarCopy(&nodes[current].data2.dividing_val), 
+						loadScalarCopy(&nodes[current].data2.dividing_val),
 						load4Vec(&ray.startPosF().x)
-						), 
+						),
 					load4Vec(&ray.getRecipRayDirF().x)
 					);
 				const float t_split = t.m128_f32[splitting_axis];*/
-				const __m128 t_split = 
+				const __m128 t_split =
 					_mm_mul_ss(
 						_mm_sub_ss(
 							_mm_load_ss(&kd.nodes[current].data2.dividing_val),
@@ -119,18 +120,18 @@ public:
 						),
 						_mm_load_ss(&ray.getRecipRayDirF().x + splitting_axis)
 					);
-		
+
 				const unsigned int child_nodes[2] = {current + 1, kd.nodes[current].getPosChildIndex()};
 
-				if(_mm_comigt_ss(t_split, tmax) != 0)  // t_split > tmax) // Whole interval is on near cell	
+				if(_mm_comigt_ss(t_split, tmax) != 0)  // t_split > tmax) // Whole interval is on near cell
 				{
 					current = child_nodes[ray_child_indices[splitting_axis]];
 				}
-				else 
+				else
 				{
 					if(_mm_comigt_ss(tmin, t_split) != 0) // tmin > t_split) // whole interval is on far cell.
 						current = child_nodes[ray_child_indices[splitting_axis + 4]]; // farnode;
-					else 
+					else
 					{
 						// Ray hits plane - double recursion, into both near and far cells.
 						const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
@@ -145,8 +146,8 @@ public:
 
 						#ifdef DO_PREFETCHING
 						// Prefetch pushed child
-						_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);	
-						#endif	
+						_mm_prefetch((const char *)(&nodes[farnode]), _MM_HINT_T0);
+						#endif
 
 						// Process near child next
 						current = nearnode;
@@ -156,13 +157,13 @@ public:
 			} // End while current node is not a leaf..
 
 			// 'current' is a leaf node..
-		
+
 			#ifdef RECORD_TRACE_STATS
 			this->total_num_leafs_touched++;
 			#endif
 			//prefetch all data
 			//for(int i=0; i<nodes[current].num_leaf_tris; ++i)
-			//	_mm_prefetch((const char *)(leafgeom[nodes[current].positive_child + i]), _MM_HINT_T0);		
+			//	_mm_prefetch((const char *)(leafgeom[nodes[current].positive_child + i]), _MM_HINT_T0);
 
 			//unsigned int leaf_geom_index = kd.nodes[current].getLeafGeomIndex();
 			//const unsigned int num_leaf_tris = nodes[current].getNumLeafGeom();
@@ -196,5 +197,6 @@ public:
 
 } //end namespace js
 
+#endif
 
 #endif //__KDTREEIMPL_H_666_

@@ -568,6 +568,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const double testlength = rng.unitRandom() * 2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 
+
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
@@ -600,6 +601,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 	}
 }
+
 
 
 

@@ -1,6 +1,6 @@
 #include "coordframe.h"
 
-
+/*
 
 #include <windows.h>
 #include <GL/gl.h>
@@ -82,9 +82,9 @@ void CoordFrame::getMatrixData(float* matrix_out) const
 
 void CoordFrame::invert()
 {
-	origin *= -1, 
-		
+	origin *= -1,
+
 	basis.invert();
 
 	//origin.set(0,0,0);//TEMP
-}
+}*/

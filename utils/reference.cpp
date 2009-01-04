@@ -9,19 +9,3 @@ Code By Nicholas Chapman.
 
 
 
-Reference::Reference()
-{
-	
-}
-
-
-Reference::~Reference()
-{
-	
-}
-
-
-
-
-
-

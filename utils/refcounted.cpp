@@ -9,19 +9,4 @@ Code By Nicholas Chapman.
 
 
 
-RefCounted::RefCounted()
-{
-	
-}
-
-
-RefCounted::~RefCounted()
-{
-	
-}
-
-
-
-
-
 
