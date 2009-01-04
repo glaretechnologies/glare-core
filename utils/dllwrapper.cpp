@@ -7,14 +7,13 @@ Code By Nicholas Chapman.
 #include "dllwrapper.h"
 
 
-
-
 DLLWrapper::DLLWrapper()
 {
 	dll_handle = NULL;
 }
 
-DLLWrapper::DLLWrapper(const std::string& filename_) throw (DLLWrapperExcep)
+
+DLLWrapper::DLLWrapper(const std::string& filename_)// throw (DLLWrapperExcep)
 {
 	filename = filename_;
 	dll_handle = NULL;
@@ -22,14 +21,14 @@ DLLWrapper::DLLWrapper(const std::string& filename_) throw (DLLWrapperExcep)
 	load(filename);
 }
 
+
 DLLWrapper::~DLLWrapper()
 {
 	unload();
 }
 
 
-
-void DLLWrapper::load(const std::string& filename_) throw (DLLWrapperExcep)
+void DLLWrapper::load(const std::string& filename_)// throw (DLLWrapperExcep)
 {
 	filename = filename_;
 
@@ -56,7 +55,7 @@ void DLLWrapper::unload()//called on destruction
 }
 
 
-void* DLLWrapper::getProcedureAddr(const std::string& procedure_name) throw (DLLWrapperExcep)
+void* DLLWrapper::getProcedureAddr(const std::string& procedure_name)// throw (DLLWrapperExcep)
 {
 	if(!dll_handle)
 	{
@@ -74,6 +73,4 @@ void* DLLWrapper::getProcedureAddr(const std::string& procedure_name) throw (DLL
 
 	return procaddr;
 }
-
-
 

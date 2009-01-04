@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 namespace js
 {
 
-#define CLIP_TRIANGLES 1
+//#define CLIP_TRIANGLES 1
 const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
 
@@ -118,11 +118,14 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		numnodesbuilt++;
 	}
 
+	if(cur == 920)
+		int a = 9;//TEMP
+
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
 	const int SPLIT_THRESHOLD = 1;
-	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
+	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth || cur_aabb.getSurfaceArea() == 0.0f)
 	{
 		// Make this node a leaf node.
 		nodes[cur] = KDTreeNode(
@@ -133,7 +136,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		for(unsigned int i=0; i<nodetris.size(); ++i)
 			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
 
-		// Do stats
+		// Record stats
 		if(depth >= maxdepth)
 			num_maxdepth_leafs++;
 		else
@@ -141,8 +144,10 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		return;
 	}
 
+	// SAH cost constants
 	const float traversal_cost = 1.0f;
 	const float intersection_cost = 4.0f;
+
 	const float aabb_surface_area = cur_aabb.getSurfaceArea();
 	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
 
@@ -177,8 +182,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		const float two_cap_area = (cur_aabb.axisLength(axis1) * cur_aabb.axisLength(axis2)) * 2.0f;
 		const float circum = (cur_aabb.axisLength(axis1) + cur_aabb.axisLength(axis2)) * 2.0f;
 
-		//if(two_cap_area == 0.0)
-		//	continue;
 		if(cur_aabb.axisLength(axis) == 0.0f)
 			continue; // Don't try to split a zero-width bounding box
 
@@ -188,7 +191,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		for(unsigned int i=0; i<numtris; ++i)
 		{
 //			assert(nodetris[i].lower[axis] >= cur_aabb.min_[axis] && nodetris[i].upper[axis] <= cur_aabb.max_[axis]);
-			assert(nodetris[i].lower[axis] <= nodetris[i].upper[axis]);
+//TEMP			assert(nodetris[i].lower[axis] <= nodetris[i].upper[axis]);
 
 			lower[i].lower = nodetris[i].lower[axis];
 			lower[i].upper = nodetris[i].upper[axis];
@@ -199,8 +202,8 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		//Timer sort_timer;
 
 		//Note that we don't want to sort the whole buffers here, as we're only using the first numtris elements.
-		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred); //lower.end());
-		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred); //upper.end());
+		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred);
+		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred);
 
 		//conPrint("sort took " + toString(sort_timer.getSecondsElapsed()));
 
@@ -228,10 +231,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			}
 		}
 
-
-		// Tris in contact with splitting plane will not imply tri is in either volume,
-		// except for tris lying totally on splitting plane which are considered to be in positive volume.
-
 		unsigned int upper_index = 0;
 		//Index of first triangle in upper volume
 		//Index of first tri with upper bound >= then current split val.
@@ -244,52 +243,16 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			const float splitval = lower[i].lower;
 			//assert(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]);
 
-			/*int num_on_splitting_plane = 0;
-			while(i<numtris && lower[i].lower == splitval)
-			{
-				// If the tri has zero extent along the current axis
-				if(lower[i].upper == splitval)
-					num_on_splitting_plane++;
-
-				i++;
-			}*/
-
-			if(splitval != last_splitval)//only consider first tri seen with a given lower bound.
+			if(splitval != last_splitval) // Only consider first tri seen with a given lower bound.
 			{
 				if(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]) // If split val is actually in AABB
 				{
+
 				// Get number of tris on splitting plane
 				int num_on_splitting_plane = 0;
-				for(unsigned int z=i; z<numtris && lower[z].lower == splitval; ++z) // for all other triangles that share the current splitting plane as a lower bound
+				for(unsigned int z=i; z<numtris && lower[z].lower == splitval; ++z) // For all other triangles that share the current splitting plane as a lower bound
 					if(lower[z].upper == splitval) // If the tri has zero extent along the current axis
-						num_on_splitting_plane++;
-
-				//if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis]) // If split val is actually in AABB
-				//{
-					//advance upper index to maintain invariant above
-					//while(upper_index < numtris && upper[upper_index] < splitval) //<= splitval)
-					//	upper_index++;
-
-					//advance upper_index while it points to triangles with upper < split (definitely in negative volume)
-					/*while(upper_index < numtris && upper[upper_index] < splitval)
-						upper_index++;
-
-					unsigned int num_coplanar_tris = 0;
-					//advance upper_index while it points to triangles with upper == split, which may be coplanar and hence in positive volume, if lower == split as well.
-					while(upper_index < numtris && upper[upper_index] == splitval)
-					{
-						if(lower[upper_index] == splitval)
-							num_coplanar_tris++;
-						upper_index++;
-					}
-
-					assert(upper_index == numtris || upper[upper_index] > splitval);
-
-					const int num_in_neg = i;//upper_index;
-					const int num_in_pos = num_coplanar_tris + numtris - upper_index;//numtris - i;
-					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
-					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
-					assert(num_in_neg + num_in_pos >= (int)numtris);*/
+						num_on_splitting_plane++; // Then it lies on the splitting plane.
 
 				while(upper_index < numtris && upper[upper_index].upper <= splitval)
 					upper_index++;
@@ -301,9 +264,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 				assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
 				assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
 				assert(num_in_neg + num_in_pos + num_on_splitting_plane >= (int)numtris);
-
-				//const int num_on_splitting_plane = numtris - (num_in_neg + num_in_pos);
-
 
 
 				const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
@@ -389,35 +349,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 				if(upper[z].lower == splitval) // If tri has zero extent along this axis
 					num_on_splitting_plane++;
 
-			/*unsigned int num_coplanar_tris = lower[i] == upper[i] ? 1 : 0;
-			//if tri i and tri i+1 share upper bounds, advance to largest index of tris sharing same upper bound
-			while(i<numtris-1 && upper[i] == upper[i+1])
-			{
-				++i;
-				if(lower[i] == upper[i])
-					num_coplanar_tris++;
-			}
-
-
-			assert(i < upper.size());
-			const float splitval = upper[i];
-
-			//if(splitval != last_splitval)
-			//{
-				//if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis])
-				//{
-					//advance lower index to maintain invariant above
-					while(lower_index < numtris && lower[lower_index] < splitval)
-						lower_index++;
-
-					assert(lower_index == numtris || lower[lower_index] >= splitval);
-
-					const int num_in_neg = lower_index;//i;
-					const int num_in_pos = num_coplanar_tris + numtris - (i + 1);//numtris - lower_index;
-					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
-					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
-					assert(num_in_neg + num_in_pos >= (int)numtris);*/
-
 			while(lower_index < numtris && lower[lower_index].lower < splitval)
 				lower_index++;
 
@@ -490,29 +421,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 			}
 
 			}
-
-					/*const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
-					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
-					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area + NICKMATHS_EPSILON);
-					assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area + NICKMATHS_EPSILON);
-					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * (float)1.0e-6));
-
-					const float cost = traversal_cost +
-						((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) * recip_aabb_surf_area * intersection_cost;
-
-					assert(cost >= 0.0);
-
-					if(cost < smallest_cost)
-					{
-						smallest_cost = cost;
-						best_axis = axis;
-						best_div_val = splitval;
-						best_num_in_neg = num_in_neg;
-						best_num_in_pos = num_in_pos;
-					}*/
-				//}
-				//last_splitval = splitval;
-			//}
 		}
 	}
 
@@ -595,31 +503,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		const float tri_lower = nodetris[i].lower[best_axis];
 		const float tri_upper = nodetris[i].upper[best_axis];
 
-		/*if(tri_upper <= split)//does tri lie entirely in min volume (including splitting plane)?
-		{
-			// Tri is either in neg box, or on splitting plane
-			if(tri_lower < split)
-				child_tris.push_back(nodetris[i]);
-		}
-		else // else tri_upper > split
-		{
-			if(tri_lower < split)
-			{
-				// Tri lies in both boxes
-				child_tris.push_back(TriInfo());
-				child_tris.back().tri_index = nodetris[i].tri_index;
-
-				SSE_ALIGN AABBox clipped_tri_aabb;
-				TriBoxIntersection::slowGetClippedTriAABB(
-					triVertPos(nodetris[i].tri_index, 0), triVertPos(nodetris[i].tri_index, 1), triVertPos(nodetris[i].tri_index, 2),
-					negbox,
-					clipped_tri_aabb
-					);
-				assert(negbox.containsAABBox(clipped_tri_aabb));
-				child_tris.back().lower = clipped_tri_aabb.min_;
-				child_tris.back().upper = clipped_tri_aabb.max_;
-			}
-		}*/
 		if(tri_lower <= split) // Tri touches left volume, including splitting plane
 		{
 			if(tri_lower < split) // Tri touches left volume, not including splitting plane
@@ -702,34 +585,6 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 		const float tri_lower = nodetris[i].lower[best_axis];
 		const float tri_upper = nodetris[i].upper[best_axis];
 
-		/*if(tri_upper <= split) // Does tri lie entirely in min volume (including splitting plane)?
-		{
-			// Tri is either in neg box, or on splitting plane
-			if(tri_lower >= split)
-				child_tris.push_back(nodetris[i]);//tri lies entirely on splitting plane.  so assign it to positive half.
-		}
-		else // else tri_upper > split
-		{
-			if(tri_lower < split)
-			{
-				// tri straddles splitting plane
-				child_tris.push_back(TriInfo());
-				child_tris.back().tri_index = nodetris[i].tri_index;
-
-				SSE_ALIGN AABBox clipped_tri_aabb;
-				TriBoxIntersection::slowGetClippedTriAABB(
-					triVertPos(nodetris[i].tri_index, 0), triVertPos(nodetris[i].tri_index, 1), triVertPos(nodetris[i].tri_index, 2),
-					posbox,
-					clipped_tri_aabb
-					);
-				assert(posbox.containsAABBox(clipped_tri_aabb));
-				child_tris.back().lower = clipped_tri_aabb.min_;
-				child_tris.back().upper = clipped_tri_aabb.max_;
-			}
-			else
-				child_tris.push_back(nodetris[i]); // Tri lies totally in positive half
-		}*/
-
 		if(tri_upper >= split) // Tri touches right volume, including splitting plane
 		{
 			if(tri_upper > split) // Tri touches right volume, not including splitting plane
@@ -748,7 +603,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 						clipped_tri_aabb
 						);
 					assert(posbox.containsAABBox(clipped_tri_aabb));
-					assert(clipped_tri_aabb.invariant());
+					//TEMPassert(clipped_tri_aabb.invariant());
 					child_tris.back().lower = clipped_tri_aabb.min_;
 					child_tris.back().upper = clipped_tri_aabb.max_;
 #else

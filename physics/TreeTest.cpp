@@ -448,7 +448,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	//compare tests against all tris with tests against the tree
 	//------------------------------------------------------------------------
-	const int NUM_RAYS = 1000;
+	const int NUM_RAYS = 10000;
 	for(int i=0; i<NUM_RAYS; ++i)
 	{
 		//------------------------------------------------------------------------
@@ -466,10 +466,17 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		const double dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
 
-		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, hitinfo);
+		HitInfo all_tris_hitinfo;
+		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
 		testAssert(dist == alltrisdist);
 
-		//printVar(i);
+		if(dist >= 0.0) // If hit
+		{
+			testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
+			testAssert(hitinfo.sub_elem_coords.x == all_tris_hitinfo.sub_elem_coords.x);
+			testAssert(hitinfo.sub_elem_coords.y == all_tris_hitinfo.sub_elem_coords.y);
+		}
+
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo_;
@@ -477,32 +484,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 			if(dist >= 0.0 || dist_ >= 0.0)
 			{
-				/*if(i == 351) // TEMP
-				{
-					conPrint("SSE intersect:");
-					float tempdist, tempu, tempv;
-					unsigned int hit = dynamic_cast<KDTree*>(trees[0])->intersect_tris[324].rayIntersect(ray, max_t, tempdist, tempu, tempv);
-					printVar(hit);
-					printVar(tempdist);
-					printVar(tempu);
-					printVar(tempv);
-
-					conPrint("reference intersect:");
-					hit = dynamic_cast<KDTree*>(trees[0])->intersect_tris[324].referenceIntersect(ray, max_t, tempdist, tempu, tempv);
-					printVar(hit);
-					printVar(tempdist);
-					printVar(tempu);
-					printVar(tempv);
-				}*/
-
-				//printVar(hitinfo.sub_elem_index);
-				//printVar(hitinfo_.sub_elem_index);
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
 				testAssert(::epsEqual(dist, dist_, 0.0001));
 
-				//printVar(hitinfo.sub_elem_index);
-				//printVar(hitinfo.sub_elem_coords.x);
-				//printVar(hitinfo_.sub_elem_coords.x);
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
@@ -554,7 +538,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			testAssert(hitinfos.size() == hitinfos_other.size());
 			for(unsigned int z=0; z<hitinfos.size(); ++z)
 			{
-				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist));
+				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist, 0.0001));
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
 				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
 				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.001));
@@ -699,6 +683,27 @@ void TreeTest::doTests()
 	conPrint("TreeTest::doTests()");
 
 	MTwister rng(1);
+
+	///////////////////////////////////////
+	{
+	// Load tricky mesh from disk
+	const std::string MODEL_PATH = "bug-2.igmesh";
+	CSModelLoader model_loader;
+	RayMesh raymesh("tricky", false);
+	try
+	{
+		model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
+	}
+	catch(CSModelLoaderExcep& e)
+	{
+		::fatalError(e.what());
+	}
+	testTree(rng, raymesh);
+	}
+	/////////////////////////////////////////////
+
+
+	
 	//------------------------------------------------------------------------
 	//try building up a random set of triangles and inserting into a tree
 	//------------------------------------------------------------------------

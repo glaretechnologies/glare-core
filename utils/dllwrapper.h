@@ -12,15 +12,17 @@ http://homepages.paradise.net.nz/nickamy/
 #ifndef __DLLWRAPPER_H_666_
 #define __DLLWRAPPER_H_666_
 
-//#pragma warning(disable : 4786)//disable long debug name warning
 
+#include "platform.h"
 #include <string>
+
+
+#if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #include <windows.h>
-#include "platform.h"
-
-
+#else
+#endif
 
 
 class DLLWrapperExcep
@@ -36,8 +38,6 @@ private:
 };
 
 
-
-
 /*=====================================================================
 DLLWrapper
 ----------
@@ -46,34 +46,32 @@ DLLWrapper
 class DLLWrapper
 {
 public:
-	/*=====================================================================
-	DLLWrapper
-	----------
-	
-	=====================================================================*/
 	DLLWrapper();
-	DLLWrapper(const std::string& filename) throw (DLLWrapperExcep);
+	DLLWrapper(const std::string& filename);// throw (DLLWrapperExcep);
 
 	~DLLWrapper();
 
-	void load(const std::string& filename) throw (DLLWrapperExcep);
+	void load(const std::string& filename);// throw (DLLWrapperExcep);
 
 
 	void unload();//called on destruction
 
 
-	void* getProcedureAddr(const std::string& procedure_name) throw (DLLWrapperExcep);
+	void* getProcedureAddr(const std::string& procedure_name);// throw (DLLWrapperExcep);
 		
 
 
-	const HINSTANCE& getHandle() const { return dll_handle; }
-	HINSTANCE& getHandle(){ return dll_handle; }
+	//const HINSTANCE& getHandle() const { return dll_handle; }
+	//HINSTANCE& getHandle(){ return dll_handle; }
 
 	const std::string& getPathName() const { return filename; }
 
 private:
 
+#if defined(WIN32) || defined(WIN64)
 	HINSTANCE dll_handle;
+#else
+#endif
 	std::string filename;
 
 };
