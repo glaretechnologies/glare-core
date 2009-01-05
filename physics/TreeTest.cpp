@@ -687,7 +687,7 @@ void TreeTest::doTests()
 	///////////////////////////////////////
 	{
 	// Load tricky mesh from disk
-	const std::string MODEL_PATH = "bug-2.igmesh";
+	const std::string MODEL_PATH = "../testfiles/bug-2.igmesh";
 	CSModelLoader model_loader;
 	RayMesh raymesh("tricky", false);
 	try
@@ -703,7 +703,7 @@ void TreeTest::doTests()
 	/////////////////////////////////////////////
 
 
-	
+
 	//------------------------------------------------------------------------
 	//try building up a random set of triangles and inserting into a tree
 	//------------------------------------------------------------------------
