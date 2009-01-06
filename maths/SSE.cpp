@@ -25,8 +25,61 @@ namespace SSE
 {
 
 
+static inline size_t allBitsOne()
+{
+	if(sizeof(size_t) == 4)
+		return 0xFFFFFFFF;
+	else if(sizeof(size_t) == 8)
+		return 0xFFFFFFFFFFFFFFFF;
+	else
+	{
+		assert(0);
+	}
+}
+
+
+void* myAlignedMalloc(size_t amount, size_t alignment)
+{
+	assert(Maths::isPowerOfTwo(alignment));
+	
+	// Suppose alignment is 16 = 0x10, so alignment - 1 = 15 = 0xF
+
+	const size_t mask = allBitsOne() ^ (alignment - 1); // e.g. 0xFFFFFFFF ^ 0x0000000F = 0xFFFFFFF0
+
+	const size_t padding = myMax(alignment, sizeof(unsigned int)) * 2;
+
+	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
+
+	// Snap the address down to the largest multiple of alignment <= original_addr
+	const size_t snapped_addr = (size_t)original_addr & mask; // e.g. 0x01234567 | 0xFFFFFFF0 = 0x01234560
+
+	assert(snapped_addr % alignment == 0); // Check aligned
+	assert(snapped_addr <= (size_t)original_addr);
+	assert((size_t)original_addr - snapped_addr < alignment);
+
+	void* returned_addr = (void*)(snapped_addr + padding); // e.g. 0x01234560 + 0x10 =  + 0xF = 0x01234570
+
+	assert((size_t)returned_addr - (size_t)original_addr >= sizeof(unsigned int));
+
+	*(((unsigned int*)returned_addr) - 1) = (unsigned int)((size_t)returned_addr - (size_t)original_addr); // Store offset from original address to returned address
+
+	return returned_addr;
+}
+
+
+void myAlignedFree(void* addr)
+{
+	const unsigned int original_addr_offset = *(((unsigned int*)addr) - 1);
+
+	void* original_addr = (void*)((size_t)addr - (size_t)original_addr_offset);
+
+	free(original_addr);
+}
+
+
 void* alignedMalloc(size_t size, size_t alignment)
 {
+	/*
 	//assert(Maths::isPowerOfTwo(alignment % sizeof(void*))); // This is required for posix_memalign
 #ifdef COMPILER_MSVC
 	void* result = _aligned_malloc(size, alignment);
@@ -49,11 +102,14 @@ void* alignedMalloc(size_t size, size_t alignment)
 	else
 		return mem_ptr;
 #endif
+	*/
+	return myAlignedMalloc(size, alignment);
 }
 
 
 void alignedFree(void* mem)
 {
+	/*
 #ifdef COMPILER_MSVC
 	_aligned_free(mem);
 #else
@@ -61,6 +117,8 @@ void alignedFree(void* mem)
 	// see: http://www.opengroup.org/onlinepubs/000095399/functions/posix_memalign.html
 	free(mem);
 #endif
+	*/
+	myAlignedFree(mem);
 }
 
 
@@ -130,6 +188,23 @@ void SSE::checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present,
 void SSETest()
 {
 	conPrint("SSETest()");
+
+	// Test myAlignedMalloc, myAlignedFree
+	for(int i=0; i<1000; ++i)
+	{
+		for(int a=0; a<10; ++a)
+		{
+			void* m = SSE::myAlignedMalloc(i, 4 << a);
+
+			// Write to the memory
+			for(int z=0; z<i; ++z)
+			{
+				((unsigned char*)m)[z] = 0;
+			}
+
+			SSE::myAlignedFree(m);
+		}
+	}
 
 
 	// Test accuracy of divisions
