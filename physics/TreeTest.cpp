@@ -773,7 +773,7 @@ void TreeTest::doTests()
 
 void TreeTest::doSpeedTest(int treetype)
 {
-	const std::string BUNNY_PATH = "c:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply";
+	const std::string BUNNY_PATH = "../testfiles/bun_zipper.ply";
 	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
 
 	CSModelLoader model_loader;
