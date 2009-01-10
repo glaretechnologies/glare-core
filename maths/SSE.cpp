@@ -69,6 +69,9 @@ void* myAlignedMalloc(size_t amount, size_t alignment)
 
 void myAlignedFree(void* addr)
 {
+	if(addr == NULL)
+		return;
+
 	const unsigned int original_addr_offset = *(((unsigned int*)addr) - 1);
 
 	void* original_addr = (void*)((size_t)addr - (size_t)original_addr_offset);
