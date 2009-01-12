@@ -473,8 +473,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		if(dist >= 0.0) // If hit
 		{
 			testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
-			testAssert(hitinfo.sub_elem_coords.x == all_tris_hitinfo.sub_elem_coords.x);
-			testAssert(hitinfo.sub_elem_coords.y == all_tris_hitinfo.sub_elem_coords.y);
+			testAssert(::epsEqual(hitinfo.sub_elem_coords.x, all_tris_hitinfo.sub_elem_coords.x));
+			testAssert(::epsEqual(hitinfo.sub_elem_coords.y, all_tris_hitinfo.sub_elem_coords.y));
 		}
 
 		for(unsigned int t=0; t<trees.size(); ++t)
@@ -508,7 +508,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			testAssert(hitinfos.size() >= 1);
 			testAssert(hitinfos[0].dist == dist);
 			testAssert(hitinfos[0].sub_elem_index == hitinfo.sub_elem_index);
-			testAssert(hitinfos[0].sub_elem_coords == hitinfo.sub_elem_coords);
+			testAssert(epsEqual(hitinfos[0].sub_elem_coords, hitinfo.sub_elem_coords));
 		}
 
 		// Do a check against all tris
