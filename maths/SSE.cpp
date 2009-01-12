@@ -25,33 +25,20 @@ namespace SSE
 {
 
 
-static inline size_t allBitsOne()
-{
-	if(sizeof(size_t) == 4)
-		return 0xFFFFFFFF;
-	else if(sizeof(size_t) == 8)
-		return 0xFFFFFFFFFFFFFFFF;
-	else
-	{
-		assert(0);
-	}
-}
-
-
 void* myAlignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
 	
-	// Suppose alignment is 16 = 0x10, so alignment - 1 = 15 = 0xF
-
-	const size_t mask = allBitsOne() ^ (alignment - 1); // e.g. 0xFFFFFFFF ^ 0x0000000F = 0xFFFFFFF0
+	// Suppose alignment is 16 = 0x10, so alignment - 1 = 15 = 0xF, also suppose original_addr = 0x01234567 
+	// original_addr & (alignment - 1) = 0x01234567 & 0xF = 0x00000007
+	// original_addr - (original_addr & (alignment - 1)) = 0x01234567 - 0x00000007 = 0x01234560
 
 	const size_t padding = myMax(alignment, sizeof(unsigned int)) * 2;
 
 	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
 
 	// Snap the address down to the largest multiple of alignment <= original_addr
-	const size_t snapped_addr = (size_t)original_addr & mask; // e.g. 0x01234567 | 0xFFFFFFF0 = 0x01234560
+	const size_t snapped_addr = (size_t)original_addr - ((size_t)original_addr & (alignment - 1));
 
 	assert(snapped_addr % alignment == 0); // Check aligned
 	assert(snapped_addr <= (size_t)original_addr);
