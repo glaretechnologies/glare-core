@@ -38,17 +38,17 @@ void* myAlignedMalloc(size_t amount, size_t alignment)
 	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
 
 	// Snap the address down to the largest multiple of alignment <= original_addr
-	const size_t snapped_addr = (size_t)original_addr - ((size_t)original_addr & (alignment - 1));
+	const uintptr_t snapped_addr = (uintptr_t)original_addr - ((uintptr_t)original_addr & (alignment - 1));
 
 	assert(snapped_addr % alignment == 0); // Check aligned
-	assert(snapped_addr <= (size_t)original_addr);
-	assert((size_t)original_addr - snapped_addr < alignment);
+	assert(snapped_addr <= (uintptr_t)original_addr);
+	assert((uintptr_t)original_addr - snapped_addr < alignment);
 
 	void* returned_addr = (void*)(snapped_addr + padding); // e.g. 0x01234560 + 0x10 =  + 0xF = 0x01234570
 
-	assert((size_t)returned_addr - (size_t)original_addr >= sizeof(unsigned int));
+	assert((uintptr_t)returned_addr - (uintptr_t)original_addr >= sizeof(unsigned int));
 
-	*(((unsigned int*)returned_addr) - 1) = (unsigned int)((size_t)returned_addr - (size_t)original_addr); // Store offset from original address to returned address
+	*(((unsigned int*)returned_addr) - 1) = (unsigned int)((uintptr_t)returned_addr - (uintptr_t)original_addr); // Store offset from original address to returned address
 
 	return returned_addr;
 }
@@ -61,7 +61,7 @@ void myAlignedFree(void* addr)
 
 	const unsigned int original_addr_offset = *(((unsigned int*)addr) - 1);
 
-	void* original_addr = (void*)((size_t)addr - (size_t)original_addr_offset);
+	void* original_addr = (void*)((uintptr_t)addr - (uintptr_t)original_addr_offset);
 
 	free(original_addr);
 }
@@ -113,14 +113,6 @@ void alignedFree(void* mem)
 
 
 } // end namespace SSE
-
-
-/*
-void alignedFree(void* mem)
-{
-	_aligned_free(mem);
-}
-*/
 
 
 /*
