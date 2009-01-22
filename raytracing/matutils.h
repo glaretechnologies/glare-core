@@ -80,6 +80,8 @@ namespace MatUtils
 	template <class Real> Real conductorFresnelReflectance(Real n, Real k, Real cos_incident_angle);
 	template <class Real> const Vec2<Real> polarisedConductorFresnelReflectance(Real n, Real k, Real cos_theta);
 
+	// Returns (F_perp, F_par)
+	template <class Real> const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta);
 
 	template <class Real> Real dielectricFresnelReflectance(Real srcn, Real destn, Real incident_cos_theta);
 	template <class Real> const Vec2<Real> polarisedDielectricFresnelReflectance(Real srcn, Real destn, Real incident_cos_theta);
@@ -249,7 +251,7 @@ template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real thet
 
 	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
 	const Real cos_theta = cos(theta);
-	const Real sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+	const Real sin_theta = sqrt((Real)1.0 - cos_theta * cos_theta);
 
 	return Vec3<Real>(
 		cos(phi) * sin_theta,

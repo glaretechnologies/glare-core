@@ -15,6 +15,8 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
+#include "../utils/stringutils.h"
+#include <fstream>
 
 
 // Explicit template instantiation
@@ -54,30 +56,30 @@ change log:
 template <class Real>
 static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2<Real>& spheresamples_out)
 {
-	const Real a = 2.0*unitsamples.x - 1.0;   /* (a,b) is now on [-1,1]^2 */
-	const Real b = 2.0*unitsamples.y - 1.0;
+	const Real a = (Real)2.0*unitsamples.x - (Real)1.0;   /* (a,b) is now on [-1,1]^2 */
+	const Real b = (Real)2.0*unitsamples.y - (Real)1.0;
 
 	Real phi, r;
 
 	if (a > -b) {     // region 1 or 2
 		if (a > b) {  // region 1, also |a| > |b|
 			r = a;
-			phi = NICKMATHS_PI_4 * (b/a);
+			phi = (Real)NICKMATHS_PI_4 * (b/a);
 		}
 		else {  // region 2, also |b| > |a| 
 			r = b;
-			phi = NICKMATHS_PI_4 * (2.0 - (a/b));
+			phi = (Real)NICKMATHS_PI_4 * ((Real)2.0 - (a/b));
 		}
 	}
 	else {        // region 3 or 4 
 		if (a < b) {  // region 3, also |a| >= |b|, a != 0
 			r = -a;
-			phi = NICKMATHS_PI_4 * (4.0 + (b/a));
+			phi = (Real)NICKMATHS_PI_4 * ((Real)4.0 + (b/a));
 		}
 		else {  // region 4, |b| >= |a|, but a==0 and b==0 could occur.
 			r = -b;
 			if (b != 0)
-				phi = NICKMATHS_PI_4 * (6.0 - (a/b));
+				phi = (Real)NICKMATHS_PI_4 * ((Real)6.0 - (a/b));
 			else
 				phi = 0;
 		}
@@ -297,6 +299,32 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectance(Real n, Real k, 
 }
 
 
+// Returns (F_perp, F_par)
+// From 'Digital Modelling of Material Appearance', page 99, eq 5.24
+template <class Real>
+const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta)
+{
+	assert(cos_theta >= 0.0f && cos_theta <= 1.0f);
+
+	const Real cos2_theta = cos_theta*cos_theta;
+	const Real sin2_theta = 1.0f - cos_theta*cos_theta;
+	const Real sin_theta = sqrt(sin2_theta);
+	const Real tan_theta = sin_theta / cos_theta;
+
+	const Real a2 = 0.5f * (sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) + n*n - k*k - sin2_theta);
+
+	const Real b2 = 0.5f * (sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) - (n*n - k*k - sin2_theta));
+
+	const Real a = sqrt(a2);
+	const Real b = sqrt(b2);
+	const Real F_perp = (a2 + b2 - 2.0f*a*cos_theta + cos2_theta) / (a2 + b2 + 2.0f*a*cos_theta + cos2_theta);
+	const Real F_par = F_perp * (a2 + b2 - 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta) / (a2 + b2 + 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta);
+
+	return Vec2<Real>(F_perp, F_par);
+}
+
+
+
 template <class Real>
 Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 {
@@ -309,7 +337,7 @@ Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 	if(sintheta_t >= (Real)1.0)
 		return (Real)1.0; // Total internal reflection
 
-	const double costheta_t = sqrt((Real)1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
+	const Real costheta_t = sqrt((Real)1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
 
 	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
 
@@ -354,6 +382,51 @@ const Vec2<Real> MatUtils::polarisedDielectricFresnelReflectance(Real n1, Real n
 void MatUtils::unitTest()
 {
 	conPrint("MatUtils::unitTest()");
+
+
+	{
+		std::ofstream f("c:/temp/fresnel.txt");
+
+		const float n = 1.5f;
+		const float k = 0.0f;
+		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.001f)
+		{
+			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
+
+			f << theta << " " << F.x << " " << F.y << " " << (0.5f * (F.x + F.y)) << "\n";
+		}
+	}
+
+	/*{
+		std::ofstream f("c:/temp/fresnel_approx.txt");
+
+		const float n = 1.5f;
+		const float k = 0.0f;
+		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.001f)
+		{
+			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
+
+			f << theta << "\t" << F.x << "\t" << F.y << "\n";
+		}
+	}*/
+
+	// Check average (unpolarised) reflectance is the same using full (conductor) fresnel equations and dielectric fresnel equations
+	{
+		const float n = 1.5f;
+		const float k = 0.0f;
+		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.001f)
+		{
+			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
+
+			const float R = 0.5f * (F.x + F.y);
+
+			const float R2 = MatUtils::dielectricFresnelReflectance(1.0f, 1.5f, cos(theta));
+
+			printVar(R);
+			printVar(R2);
+			testAssert(epsEqual(R, R2));
+		}
+	}
 
 
 	{
