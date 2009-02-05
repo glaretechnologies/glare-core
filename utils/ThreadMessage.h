@@ -8,9 +8,6 @@ Code By Nicholas Chapman.
 #define __THREADMESSAGE_H_666_
 
 
-
-
-
 /*=====================================================================
 ThreadMessage
 -------------
@@ -35,9 +32,4 @@ public:
 };
 
 
-
 #endif //__THREADMESSAGE_H_666_
-
-
-
-
