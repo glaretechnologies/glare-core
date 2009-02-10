@@ -248,10 +248,11 @@ void TreeTest::testBuildCorrect()
 
 	RendererSettings settings;
 	settings.cache_trees = false;
+	StandardPrintOutput print_output;
 	raymesh.build(
 		".",
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 	{
@@ -316,12 +317,13 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
+	StandardPrintOutput print_output;
 	RendererSettings settings;
 	settings.cache_trees = false;
 	raymesh.build(
 		".",
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 
@@ -393,12 +395,13 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
+	StandardPrintOutput print_output;
 	RendererSettings settings;
 	settings.cache_trees = false;
 	raymesh.build(
 		".",
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
@@ -434,13 +437,14 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new KDTree(&raymesh));
-	trees.back()->build(StandardPrintOutput());
+	StandardPrintOutput print_output;
+	trees.back()->build(print_output);
 
 	trees.push_back(new BIHTree(&raymesh));
-	trees.back()->build(StandardPrintOutput());
+	trees.back()->build(print_output);
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build(StandardPrintOutput());
+	trees.back()->build(print_output);
 
 	// Check AABBox
 	SSE_ALIGN AABBox box = trees[0]->getAABBoxWS();
@@ -800,10 +804,11 @@ void TreeTest::doSpeedTest(int treetype)
 	else
 		settings.bih_tri_threshold = 0;
 
+	StandardPrintOutput print_output;
 	raymesh.build(
 		".", // base indigo dir path
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
@@ -920,10 +925,11 @@ void TreeTest::buildSpeedTest()
 	Timer timer;
 	RendererSettings settings;
 	settings.cache_trees = false;
+	StandardPrintOutput print_output;
 	raymesh.build(
 		".", // base indigo dir path
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 	printVar(timer.getSecondsElapsed());

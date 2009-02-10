@@ -33,23 +33,24 @@ namespace js
 /*
 ObjectTreeTest::ObjectTreeTest()
 {
-	
+
 }
 
 
 ObjectTreeTest::~ObjectTreeTest()
 {
-	
+
 }*/
 
 void ObjectTreeTest::doTests()
-{	
+{
 	conPrint("ObjectTreeTest::doTests()");
 	MTwister rng(1);
 
 	ObjectTree ob_tree;
 
 	ThreadContext thread_context(1, 0);
+	StandardPrintOutput print_output;
 
 	/// Add some random spheres ////
 	const int N = 1000;
@@ -57,8 +58,8 @@ void ObjectTreeTest::doTests()
 	{
 		Reference<Geometry> raysphere(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05));
 		Object* ob = new Object(
-			raysphere, 
-			Vec3d(0,0,0), 
+			raysphere,
+			Vec3d(0,0,0),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -67,10 +68,10 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, StandardPrintOutput());
-		ob_tree.insertObject(ob); 
+		ob->buildGeometry(thread_context, "", settings, print_output);
+		ob_tree.insertObject(ob);
 	}
-	ob_tree.build(StandardPrintOutput());
+	ob_tree.build(print_output);
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -79,9 +80,9 @@ void ObjectTreeTest::doTests()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	
 
-	
+
+
 
 	/// Do some random traces through the tree ///
 	for(int i=0; i<10000; ++i)
@@ -279,14 +280,15 @@ void ObjectTreeTest::doSpeedTest()
 	ObjectTree ob_tree;
 
 	ThreadContext thread_context(1, 0);
+	StandardPrintOutput print_output;
 
 	/// Add some random spheres ////
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
 		Object* ob = new Object(
-			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)), 
-			Vec3d(0,0,0), 
+			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)),
+			Vec3d(0,0,0),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -295,10 +297,10 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, StandardPrintOutput());
-		ob_tree.insertObject(ob); 
+		ob->buildGeometry(thread_context, "", settings, print_output);
+		ob_tree.insertObject(ob);
 	}
-	ob_tree.build(StandardPrintOutput());
+	ob_tree.build(print_output);
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -307,7 +309,7 @@ void ObjectTreeTest::doSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	 
+
 
 	{
 	Timer testtimer;//start timer
@@ -387,12 +389,13 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//insert random instances
 	//------------------------------------------------------------------------
+	StandardPrintOutput print_output;
 	RendererSettings settings;
 	settings.cache_trees = true;
 	raymesh->build(
 		".", // base indigo dir path
 		settings,
-		StandardPrintOutput()
+		print_output
 		);
 
 	ObjectTree ob_tree;
@@ -406,8 +409,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		rot.scale(0.3);
 
 		Object* object = new Object(
-			Reference<Geometry>(raymesh.getPointer()), 
-			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), 
+			Reference<Geometry>(raymesh.getPointer()),
+			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
 			rot,
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -416,7 +419,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->buildGeometry(thread_context, "", settings, StandardPrintOutput());
+		object->buildGeometry(thread_context, "", settings, print_output);
 
 		ob_tree.insertObject(object);
 	}
@@ -424,7 +427,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//compile tree
 	//------------------------------------------------------------------------
-	ob_tree.build(StandardPrintOutput());
+	ob_tree.build(print_output);
 
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
@@ -432,7 +435,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context(true);
-	
+
 
 
 	//------------------------------------------------------------------------
@@ -450,7 +453,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		const Vec3d end(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
 		const SSE_ALIGN Ray ray(
-			start, 
+			start,
 			normalise(end - start)
 			);
 

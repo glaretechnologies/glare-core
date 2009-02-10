@@ -22,11 +22,13 @@ public:
 	/*=====================================================================
 	StandardPrintOutput
 	-------------------
-	
+
 	=====================================================================*/
 	StandardPrintOutput();
 
 	virtual ~StandardPrintOutput();
+
+	static StandardPrintOutput create() { StandardPrintOutput s; return s; }
 
 
 	virtual void print(const std::string& s);

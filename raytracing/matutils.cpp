@@ -66,12 +66,12 @@ static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2<R
 			r = a;
 			phi = (Real)NICKMATHS_PI_4 * (b/a);
 		}
-		else {  // region 2, also |b| > |a| 
+		else {  // region 2, also |b| > |a|
 			r = b;
 			phi = (Real)NICKMATHS_PI_4 * ((Real)2.0 - (a/b));
 		}
 	}
-	else {        // region 3 or 4 
+	else {        // region 3 or 4
 		if (a < b) {  // region 3, also |a| >= |b|, a != 0
 			r = -a;
 			phi = (Real)NICKMATHS_PI_4 * ((Real)4.0 + (b/a));
@@ -101,7 +101,7 @@ see http://en.wikipedia.org/wiki/Snell's_law#Vector_form
 
 */
 template <class Real>
-void MatUtils::refractInSurface(const Vec3<Real>& normal, 
+void MatUtils::refractInSurface(const Vec3<Real>& normal,
 		const Vec3<Real>& incident_raydir, Real src_refindex, Real dest_refindex,
 		Vec3<Real>& exit_raydir_out, bool& totally_internally_reflected_out)
 {
@@ -119,7 +119,7 @@ void MatUtils::refractInSurface(const Vec3<Real>& normal,
 	if(a < 0.0)
 	{
 		totally_internally_reflected_out = true; // Total internal reflection occurred
-		
+
 		// Make the exit ray the reflected vector.
 		exit_raydir_out = incident_raydir;
 		exit_raydir_out.subMult(normal, n_dot_r * (Real)2.0);
@@ -127,14 +127,14 @@ void MatUtils::refractInSurface(const Vec3<Real>& normal,
 	else
 	{
 		totally_internally_reflected_out = false;
-		exit_raydir_out = n_dot_r < 0.0 ? 
+		exit_raydir_out = n_dot_r < 0.0 ?
 			normal * (-sqrt(a) - n_ratio*n_dot_r) + incident_raydir * n_ratio : // n.r negative
 			normal * (sqrt(a) - n_ratio*n_dot_r) + incident_raydir * n_ratio;   // n.r positive
 	}
 
 
 	assert(epsEqual(exit_raydir_out.length(), (Real)1.0, (Real)0.0001));
-	
+
 	// Normalising here because there seems to be quite a lot of error introduced.
 	exit_raydir_out.normalise();
 
@@ -225,10 +225,10 @@ const Vec3<Real> MatUtils::sampleHemisphereCosineWeighted(const Basis<Real>& bas
 
 	Vec2<Real> disc;
 	shirleyUnitSquareToDisk<Real>(unitsamples, disc);
-	
+
 	const Vec3<Real> dir(disc.x, disc.y, sqrt(myMax((Real)0.0, (Real)1.0 - (disc.x*disc.x + disc.y*disc.y))));
 	assert(dir.isUnitLength());
-	
+
 	return basis.transformVectorToParent(dir);
 }
 
@@ -238,12 +238,12 @@ const Vec2d MatUtils::boxMullerGaussian(double standard_deviation, MTwister& rng
 {
 	//http://www.taygeta.com/random/gaussian.html
 	double w, x1, x2;
-	do 
+	do
 	{
 		x1 = 2.0 * rng.unitRandom() - 1.0;
 		x2 = 2.0 * rng.unitRandom() - 1.0;
 		w = x1 * x1 + x2 * x2;
-	} 
+	}
 	while(w >= 1.0);
 
 	w = sqrt((-2.0 * log(w)) / w) * standard_deviation;
@@ -416,11 +416,11 @@ void MatUtils::unitTest()
 		const float k = 0.0f;
 		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.01f)
 		{
-			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
+			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, std::cos(theta));
 
 			const float R = 0.5f * (F.x + F.y);
 
-			const float R2 = MatUtils::dielectricFresnelReflectance(1.0f, 1.5f, cos(theta));
+			const float R2 = MatUtils::dielectricFresnelReflectance(1.0f, 1.5f, std::cos(theta));
 
 			printVar(R);
 			printVar(R2);
@@ -471,7 +471,7 @@ void MatUtils::unitTest()
 
 	n1 = 1.5f;
 	n2 = 1.0f;
-	
+
 	r = dielectricFresnelReflectance<double>(n1, n2, 1.0f);
 	r = dielectricFresnelReflectance<double>(n1, n2, 0.8f);
 	r = dielectricFresnelReflectance<double>(n1, n2, 0.6f);
