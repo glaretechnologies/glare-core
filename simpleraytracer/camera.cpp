@@ -899,7 +899,7 @@ void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, 
 		const std::vector<Plane<double> >& camera_clip_planes){}
 
 
-void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
+void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) {} // throws GeometryExcep
 
 
 /*int Camera::UVSetIndexForName(const std::string& uvset_name) const

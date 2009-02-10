@@ -34,7 +34,7 @@ public:
 	SimpleBVH(RayMesh* raymesh);
 	~SimpleBVH();
 
-	virtual void build(); // throws TreeExcep
+	virtual void build(PrintOutput& print_output); // throws TreeExcep
 	virtual bool diskCachable() { return false; }
 	virtual void buildFromStream(std::istream& stream) {} // throws TreeExcep
 	virtual void saveTree(std::ostream& stream) {}

@@ -28,6 +28,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include <algorithm>
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../indigo/PrintOutput.h"
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
@@ -257,7 +258,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 }
 
 
-void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSettings& renderer_settings)
+void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSettings& renderer_settings, PrintOutput& print_output)
 {
 	Timer timer;
 
@@ -284,10 +285,10 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	//print out our mem usage
 	//------------------------------------------------------------------------
 	
-	conPrint("Building Mesh '" + name + "'...");
-	conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
-	//conPrint("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
-	conPrint("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
+	print_output.print("Building Mesh '" + name + "'...");
+	print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
+	//print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
+	print_output.print("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
 
 	if(renderer_settings.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
@@ -316,18 +317,18 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 				//conPrint("\tLoading tree from disk cache...");
 				try
 				{
-					tritree->buildFromStream(file);
+					tritree->buildFromStream(file, print_output);
 					built_from_cache = true;
 				}
 				catch(js::TreeExcep& e)
 				{
-					conPrint("\tError while loading cached tree: " + e.what());
+					print_output.print("\tError while loading cached tree: " + e.what());
 				}
 				//conPrint("\tDone.");
 			}
 			else
 			{
-				conPrint("\tCouldn't find matching cached tree file, rebuilding tree...");
+				print_output.print("\tCouldn't find matching cached tree file, rebuilding tree...");
 			}
 
 		}
@@ -336,7 +337,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 		{
 			try
 			{
-				tritree->build();
+				tritree->build(print_output);
 			}
 			catch(js::TreeExcep& e)
 			{
@@ -353,18 +354,18 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
 					);
 
-				conPrint("\tSaving tree to '" + path + "'...");
+				print_output.print("\tSaving tree to '" + path + "'...");
 
 				std::ofstream cachefile(path.c_str(), std::ofstream::binary);
 
 				if(cachefile)
 				{
 					tritree->saveTree(cachefile);
-					conPrint("\tDone.");
+					print_output.print("\tDone.");
 				}
 				else
 				{
-					conPrint("\tFailed to open file '" + path + "' for writing.");
+					print_output.print("\tFailed to open file '" + path + "' for writing.");
 				}
 			}
 		}
@@ -373,7 +374,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	{
 		try
 		{
-			tritree->build();
+			tritree->build(print_output);
 		}
 		catch(js::TreeExcep& e)
 		{
@@ -381,7 +382,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 		}
 	}
 
-	conPrint("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
+	print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
 }
 
 

@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <limits>
 #include "TreeUtils.h"
 #include "../indigo/globals.h"
+#include "../indigo/PrintOutput.h"
 #include "../utils/stringutils.h"
 #include <string.h>
 
@@ -381,20 +382,10 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength,
 }
 
 
-
-void obTreeDebugPrint(const std::string& s)
+void ObjectTree::build(PrintOutput& print_output)
 {
-	conPrint("\t" + s);
-}
-
-
-
-
-
-void ObjectTree::build()
-{
-	conPrint("Building Object Tree...");
-	obTreeDebugPrint(::toString((int)objects.size()) + " objects.");
+	print_output.print("Building Object Tree...");
+	print_output.print("\t" + ::toString((int)objects.size()) + " objects.");
 
 	if(objects.size() == 0)
 	{
@@ -405,7 +396,7 @@ void ObjectTree::build()
 	//------------------------------------------------------------------------
 	//calc root node's aabbox
 	//------------------------------------------------------------------------
-	obTreeDebugPrint("calcing root AABB.");
+	print_output.print("\tcalcing root AABB.");
 	{
 	
 	*root_aabb = objects[0]->getAABBoxWS();
@@ -414,7 +405,7 @@ void ObjectTree::build()
 		root_aabb->enlargeToHoldAABBox(objects[i]->getAABBoxWS());
 	}
 
-	obTreeDebugPrint("AABB: (" + ::toString(root_aabb->min_.x) + ", " + ::toString(root_aabb->min_.y) + ", " + ::toString(root_aabb->min_.z) + "), " + 
+	print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x) + ", " + ::toString(root_aabb->min_.y) + ", " + ::toString(root_aabb->min_.z) + "), " + 
 						"(" + ::toString(root_aabb->max_.x) + ", " + ::toString(root_aabb->max_.y) + ", " + ::toString(root_aabb->max_.z) + ")"); 
 							
 	assert(root_aabb->invariant());
@@ -425,7 +416,7 @@ void ObjectTree::build()
 	const int numtris = (int)objects.size();
 	max_depth = (int)(2.0 + logBase2((double)numtris) * 2.0);
 
-	obTreeDebugPrint("max tree depth: " + ::toString(max_depth));
+	print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
 	// Alloc stack vector
 	nodestack_size = max_depth + 1;
@@ -434,7 +425,7 @@ void ObjectTree::build()
 	const int expected_numnodes = (int)((float)numtris * 1.0);
 	const int nodemem = expected_numnodes * sizeof(js::ObjectTreeNode);
 
-	obTreeDebugPrint("reserving N nodes: " + ::toString(expected_numnodes) + "(" 
+	print_output.print("\treserving N nodes: " + ::toString(expected_numnodes) + "(" 
 		+ ::getNiceByteSize(nodemem) + ")");
 
 	//------------------------------------------------------------------------
@@ -456,13 +447,13 @@ void ObjectTree::build()
 	const uint64 numnodes = nodes.size();
 	const uint64 leafgeomsize = leafgeom.size();
 
-	obTreeDebugPrint("total nodes used: " + ::toString(numnodes) + " (" + 
+	print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" + 
 		::getNiceByteSize((int)numnodes * sizeof(js::ObjectTreeNode)) + ")");
 
-	obTreeDebugPrint("total leafgeom size: " + ::toString(leafgeomsize) + " (" + 
+	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" + 
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
 
-	conPrint("Finished building tree.");
+	print_output.print("Finished building tree.");
 }
 
 

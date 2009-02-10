@@ -389,7 +389,7 @@ void MatUtils::unitTest()
 
 		const float n = 1.5f;
 		const float k = 0.0f;
-		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.001f)
+		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.01f)
 		{
 			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
 
@@ -414,7 +414,7 @@ void MatUtils::unitTest()
 	{
 		const float n = 1.5f;
 		const float k = 0.0f;
-		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.001f)
+		for(float theta = 0.0f; theta <= NICKMATHS_PI_2; theta += 0.01f)
 		{
 			const Vec2f F = MatUtils::polarisedConductorFresnelReflectanceExact<float>(n, k, cos(theta));
 

@@ -99,9 +99,9 @@ public:
 
 	typedef float REAL;
 
-	virtual void build(); // throws TreeExcep
+	virtual void build(PrintOutput& print_output); // throws TreeExcep
 	virtual bool diskCachable();
-	virtual void buildFromStream(std::istream& stream); // throws TreeExcep
+	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output); // throws TreeExcep
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 

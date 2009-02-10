@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "TreeUtils.h"
 #include "BVHImpl.h"
 #include "MollerTrumboreTri.h"
+#include "../indigo/PrintOutput.h"
 
 
 namespace js
@@ -108,9 +109,9 @@ private:
 };
 
 
-void BVH::build()
+void BVH::build(PrintOutput& print_output)
 {
-	conPrint("\tBVH::build()");
+	print_output.print("\tBVH::build()");
 	
 	try
 	{
@@ -150,7 +151,7 @@ void BVH::build()
 		temp[1].resize(numTris());
 
 		// Sort indices based on center position along the axes
-		conPrint("\tSorting...");
+		print_output.print("\tSorting...");
 		Timer sort_timer;
 		#pragma omp parallel for
 		for(int axis=0; axis<3; ++axis)
@@ -162,7 +163,7 @@ void BVH::build()
 			// Sort based on center along axis 'axis'
 			std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
 		}
-		conPrint("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
+		print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
 		// In the best case, Each leaf node has pointers to 4 tris for left AABB, and 4 tris for right AABB, for a total of 8 tris.
 		// So there are N / 8 leaf nodes, or N / 4 total nodes.
@@ -196,33 +197,33 @@ void BVH::build()
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
-		conPrint("\tAllocating intersect triangles...");
+		print_output.print("\tAllocating intersect triangles...");
 		
 		intersect_tris.resize(numTris());
 
 		assert(intersect_tris.size() == intersect_tris.capacity());
 
 		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			conPrint("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(intersect_tris.size() * sizeof(INTERSECT_TRI_TYPE)));
+			print_output.print("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(intersect_tris.size() * sizeof(INTERSECT_TRI_TYPE)));
 
 		// Copy tri data.
 		for(unsigned int i=0; i<intersect_tris.size(); ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
 
-		conPrint("\tBuild Stats:");
-		conPrint("\t\tTotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(BVHNode)) + ")");
-		conPrint("\t\tTotal nodes capacity: " + ::toString((unsigned int)nodes.capacity()) + " (" + ::getNiceByteSize(nodes.capacity() * sizeof(BVHNode)) + ")");
-		conPrint("\t\tTotal tri indices used: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
-		conPrint("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
-		conPrint("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
-		conPrint("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
-		conPrint("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
-		conPrint("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
-		conPrint("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
-		conPrint("\t\tMax leaf depth: " + toString(max_leaf_depth));
+		print_output.print("\tBuild Stats:");
+		print_output.print("\t\tTotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(BVHNode)) + ")");
+		print_output.print("\t\tTotal nodes capacity: " + ::toString((unsigned int)nodes.capacity()) + " (" + ::getNiceByteSize(nodes.capacity() * sizeof(BVHNode)) + ")");
+		print_output.print("\t\tTotal tri indices used: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
+		print_output.print("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
+		print_output.print("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
+		print_output.print("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
+		print_output.print("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
+		print_output.print("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
+		print_output.print("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
+		print_output.print("\t\tMax leaf depth: " + toString(max_leaf_depth));
 
-		conPrint("\tFinished building tree.");
+		print_output.print("\tFinished building tree.");
 	}
 	catch(std::bad_alloc& e)
 	{

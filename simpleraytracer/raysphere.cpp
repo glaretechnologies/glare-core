@@ -413,7 +413,7 @@ void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& objec
 		const std::vector<Plane<double> >& camera_clip_planes){}
 
 
-void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
+void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) {} // throws GeometryExcep
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

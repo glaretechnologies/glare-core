@@ -29,6 +29,7 @@ Code By Nicholas Chapman.
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../indigo/StandardPrintOutput.h"
 
 
 namespace js
@@ -249,7 +250,8 @@ void TreeTest::testBuildCorrect()
 	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 	{
@@ -318,7 +320,8 @@ void TreeTest::testBuildCorrect()
 	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 
@@ -394,7 +397,8 @@ void TreeTest::testBuildCorrect()
 	settings.cache_trees = false;
 	raymesh.build(
 		".",
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
@@ -430,13 +434,13 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new KDTree(&raymesh));
-	trees.back()->build();
+	trees.back()->build(StandardPrintOutput());
 
 	trees.push_back(new BIHTree(&raymesh));
-	trees.back()->build();
+	trees.back()->build(StandardPrintOutput());
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build();
+	trees.back()->build(StandardPrintOutput());
 
 	// Check AABBox
 	SSE_ALIGN AABBox box = trees[0]->getAABBoxWS();
@@ -798,7 +802,8 @@ void TreeTest::doSpeedTest(int treetype)
 
 	raymesh.build(
 		".", // base indigo dir path
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
@@ -917,7 +922,8 @@ void TreeTest::buildSpeedTest()
 	settings.cache_trees = false;
 	raymesh.build(
 		".", // base indigo dir path
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 	printVar(timer.getSecondsElapsed());

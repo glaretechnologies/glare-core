@@ -24,6 +24,8 @@ Code By Nicholas Chapman.
 #include "../indigo/ThreadContext.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../indigo/StandardPrintOutput.h"
+
 
 namespace js
 {
@@ -65,10 +67,10 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings);
+		ob->buildGeometry(thread_context, "", settings, StandardPrintOutput());
 		ob_tree.insertObject(ob); 
 	}
-	ob_tree.build();
+	ob_tree.build(StandardPrintOutput());
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -293,10 +295,10 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings);
+		ob->buildGeometry(thread_context, "", settings, StandardPrintOutput());
 		ob_tree.insertObject(ob); 
 	}
-	ob_tree.build();
+	ob_tree.build(StandardPrintOutput());
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -389,7 +391,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	settings.cache_trees = true;
 	raymesh->build(
 		".", // base indigo dir path
-		settings
+		settings,
+		StandardPrintOutput()
 		);
 
 	ObjectTree ob_tree;
@@ -413,7 +416,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->buildGeometry(thread_context, "", settings);
+		object->buildGeometry(thread_context, "", settings, StandardPrintOutput());
 
 		ob_tree.insertObject(object);
 	}
@@ -421,7 +424,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//compile tree
 	//------------------------------------------------------------------------
-	ob_tree.build();
+	ob_tree.build(StandardPrintOutput());
 
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);

@@ -7,13 +7,13 @@ Code By Nicholas Chapman.
 #ifndef __THREADSAFEQUEUE_H_666_
 #define __THREADSAFEQUEUE_H_666_
 
-// #pragma warning(disable : 4786)//disable long debug name warning
 
 #include "mutex.h"
 #include "lock.h"
 #include "Condition.h"
 #include <list>
-#include <assert.h>
+#include <vector>
+#include <cassert>
 
 
 /*=====================================================================
@@ -25,11 +25,6 @@ template <class T>
 class ThreadSafeQueue
 {
 public:
-	/*=====================================================================
-	ThreadSafeQueue
-	---------------
-	
-	=====================================================================*/
 	inline ThreadSafeQueue();
 
 	inline ~ThreadSafeQueue();
@@ -70,6 +65,9 @@ public:
 	//suspends thread until queue is non-empty
 	void dequeue(T& t_out);
 
+	// Threadsafe, appends all elements in queue to vec_out.
+	void dequeueAppendToVector(std::vector<T>& vec_out);
+
 	//threadsafe
 	inline bool empty() const;
 	inline int size() const;
@@ -81,7 +79,6 @@ private:
 	mutable Mutex mutex;
 
 	Condition nonempty;
-
 };
 
 
@@ -90,10 +87,12 @@ ThreadSafeQueue<T>::ThreadSafeQueue()
 {
 }
 
+
 template <class T>
 ThreadSafeQueue<T>::~ThreadSafeQueue()
 {
 }
+
 
 template <class T>
 void ThreadSafeQueue<T>::enqueue(const T& t)
@@ -105,6 +104,7 @@ void ThreadSafeQueue<T>::enqueue(const T& t)
 	if(queue.size() == 1)//if the queue was empty
 		nonempty.notify();//notify suspended threads that there is an item in the queue
 }
+
 
 template <class T>
 void ThreadSafeQueue<T>::unlockedEnqueue(T& t)
@@ -122,7 +122,8 @@ Mutex& ThreadSafeQueue<T>::getMutex()
 	return mutex;
 }
 
-	//returns true if object removed from queue.
+
+//returns true if object removed from queue.
 template <class T>
 bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
 {
@@ -136,7 +137,7 @@ bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
 	return true;
 }
 
-	//returns true if object removed from queue.
+//returns true if object removed from queue.
 template <class T>
 bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
 {
@@ -150,7 +151,8 @@ bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
 	return true;
 }
 
-	//returns true if object removed from queue.
+
+//returns true if object removed from queue.
 template <class T>
 void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 {
@@ -175,6 +177,7 @@ bool ThreadSafeQueue<T>::empty() const
 	return queue.empty();
 }
 
+
 template <class T>
 int ThreadSafeQueue<T>::size() const
 {
@@ -182,6 +185,8 @@ int ThreadSafeQueue<T>::size() const
 
 	return queue.size();
 }
+
+
 template <class T>
 void ThreadSafeQueue<T>::clear()
 {
@@ -189,6 +194,7 @@ void ThreadSafeQueue<T>::clear()
 
 	queue.clear();
 }
+
 
 template <class T>
 void ThreadSafeQueue<T>::dequeue(T& t_out)
@@ -222,8 +228,20 @@ void ThreadSafeQueue<T>::dequeue(T& t_out)
 	}
 }
 
+
+template <class T>
+void ThreadSafeQueue<T>::dequeueAppendToVector(std::vector<T>& vec_out)
+{
+	Lock lock(mutex); // Lock queue
+
+	while(!queue.empty())
+	{
+		vec_out.push_back(queue.front());
+		queue.pop_front();
+	}
+
+	nonempty.resetToFalse();
+}
+
+
 #endif //__THREADSAFEQUEUE_H_666_
-
-
-
-

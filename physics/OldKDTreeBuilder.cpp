@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #include "../graphics/TriBoxIntersection.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../indigo/PrintOutput.h"
 
 
 namespace js
@@ -36,7 +37,7 @@ OldKDTreeBuilder::~OldKDTreeBuilder()
 }
 
 
-void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
+void OldKDTreeBuilder::build(PrintOutput& print_output, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 
 	unsigned int max_depth = tree.calcMaxDepth();
@@ -71,6 +72,7 @@ void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE
 		std::vector<SortedBoundInfo> lower(tree.numTris());
 		std::vector<SortedBoundInfo> upper(tree.numTris());
 		doBuild(
+			print_output,
 			tree,
 			KDTree::ROOT_NODE_INDEX,
 			node_tri_layers,
@@ -79,15 +81,12 @@ void OldKDTreeBuilder::build(KDTree& tree, const AABBox& root_aabb, KDTree::NODE
 	}
 }
 
-static void triTreeDebugPrint(const std::string& s)
-{
-	conPrint("\t" + s);
-}
 
 static inline bool SortedBoundInfoLowerPred(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
 {
    return a.lower < b.lower;
 }
+
 
 static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
 {
@@ -95,7 +94,7 @@ static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundI
 }
 
 
-void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of current node getting built
+void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned int cur, // index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth
@@ -114,7 +113,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 	// Print progress message
 	if(depth == 5)
 	{
-		triTreeDebugPrint(::toString(numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
+		print_output.print("\t" + ::toString(numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
 		numnodesbuilt++;
 	}
 
@@ -559,6 +558,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 		// Build left subtree
 		doBuild(
+			print_output,
 			tree,
 			left_child_index,
 			node_tri_layers,
@@ -648,6 +648,7 @@ void OldKDTreeBuilder::doBuild(KDTree& tree, unsigned int cur, // index of curre
 
 		// Build right subtree
 		doBuild(
+			print_output,
 			tree,
 			right_child_index, // nodes[cur].getPosChildIndex(),
 			node_tri_layers,

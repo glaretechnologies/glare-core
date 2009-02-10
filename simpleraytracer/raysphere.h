@@ -58,7 +58,7 @@ public:
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
 		const std::vector<Plane<double> >& camera_clip_planes);
-	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings); // throws GeometryExcep
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
 	//////////////////////////////////////////////////////////

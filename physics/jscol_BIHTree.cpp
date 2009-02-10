@@ -92,7 +92,7 @@ float BIHTree::triMinPos(unsigned int tri_index, unsigned int axis) const
 }
 
 
-void BIHTree::build()
+void BIHTree::build(PrintOutput& print_output)
 {
 	conPrint("\tBIHTree::build()");
 	Timer buildtimer;
@@ -919,7 +919,7 @@ bool BIHTree::diskCachable()
 }
 
 
-void BIHTree::buildFromStream(std::istream& stream)
+void BIHTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 {
 	assert(false);
 	throw TreeExcep("BIH can't save to disk.");

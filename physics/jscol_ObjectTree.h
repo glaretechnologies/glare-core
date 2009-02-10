@@ -7,6 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __OBJECTTREE_H_666_
 #define __OBJECTTREE_H_666_
 
+
 #include "../indigo/object.h"
 #include "jscol_Intersectable.h"
 #include "ObjectTreeNode.h"
@@ -15,12 +16,11 @@ Code By Nicholas Chapman.
 namespace js{ class TriTreePerThreadData; }
 namespace js{ class ObjectTreePerThreadData; }
 class HitInfo;
+class PrintOutput;
+
 
 namespace js
 {
-
-
-
 
 
 class ObjectTreeStats
@@ -57,11 +57,6 @@ ObjectTree
 class ObjectTree
 {
 public:
-	/*=====================================================================
-	ObjectTree
-	----------
-	
-	=====================================================================*/
 	ObjectTree();
 	~ObjectTree();
 
@@ -72,7 +67,7 @@ public:
 
 
 	void insertObject(INTERSECTABLE_TYPE* intersectable);
-	void build();
+	void build(PrintOutput& print_output);
 
 	//js::ObjectTreePerThreadData* allocContext() const;
 

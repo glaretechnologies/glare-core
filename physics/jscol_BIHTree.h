@@ -37,9 +37,9 @@ public:
 
 	~BIHTree();
 
-	virtual void build();
+	virtual void build(PrintOutput& print_output);
 	virtual bool diskCachable();
-	virtual void buildFromStream(std::istream& stream);
+	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output);
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
