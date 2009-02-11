@@ -8,8 +8,8 @@ Code By Nicholas Chapman.
 #define __REFCOUNTED_H_666_
 
 
+#include <cassert>
 
-#include <assert.h>
 
 /*=====================================================================
 RefCounted

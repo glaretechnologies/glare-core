@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "refcounted.h"
-#include <assert.h>
+#include <cassert>
 
 
 /*=====================================================================
