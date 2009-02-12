@@ -75,3 +75,18 @@ unsigned int Bitmap::checksum() const
 	return crc32(initial_crc, &data[0], width * height * bytespp);
 }
 
+
+void Bitmap::addImage(const Bitmap& img, int destx, int desty)
+{
+	for(int y=0; y<(int)img.getHeight(); ++y)
+		for(int x=0; x<(int)img.getWidth(); ++x)
+		{
+			const int dx = x + destx;
+			const int dy = y + desty;
+			if(dx >= 0 && dx < (int)getWidth() && dy >= 0 && dy < (int)getHeight())
+				for(unsigned int c=0; c<3; ++c)
+					setPixelComp(dx, dy, c, 
+						(unsigned char)myMin((unsigned int)255, (unsigned int)img.getPixelComp(x, y, c) + (unsigned int)getPixelComp(dx, dy, c))
+					);
+		}
+}

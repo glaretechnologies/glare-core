@@ -45,12 +45,14 @@ public:
 	inline unsigned char* getPixelNonConst(unsigned int x, unsigned int y);
 	inline const unsigned char* getPixel(unsigned int x, unsigned int y) const;
 
+	inline unsigned char getPixelComp(unsigned int x, unsigned y, unsigned int c) const;
 	inline void setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval);
 
 	void raiseToPower(float exponent);
 
 	unsigned int checksum() const;
 
+	void addImage(const Bitmap& img, int destx, int desty);
 
 private:
 	std::vector<unsigned char> data;
@@ -86,6 +88,17 @@ const unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y) const
 	//return data + (y*width + x) * bytespp;
 	return &data[(y*width + x) * bytespp];
 }
+
+
+unsigned char Bitmap::getPixelComp(unsigned int x, unsigned y, unsigned int c) const
+{
+	assert(x < width);
+	assert(y < height);
+	assert(c < bytespp);
+
+	return data[(y*width + x) * bytespp + c];
+}
+
 
 void Bitmap::setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval)
 {
