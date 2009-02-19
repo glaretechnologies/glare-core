@@ -137,6 +137,7 @@ bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
 	return true;
 }
 
+
 //returns true if object removed from queue.
 template <class T>
 bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
