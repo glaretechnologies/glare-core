@@ -26,7 +26,10 @@ public:
 	inline ~Complex(){}
 
 
+	inline const Complex operator * (Real x) const;
 	inline const Complex operator * (const Complex& other) const;
+	inline const Complex operator / (const Complex& other) const;
+	inline const Complex operator + (const Complex& other) const;
 
 	inline Real re() const { return a; }
 	inline Real im() const { return b; }
@@ -45,10 +48,32 @@ Complex<Real>::Complex(Real a_, Real b_)
 
 
 template <class Real>
+const Complex<Real> Complex<Real>::operator * (Real x) const
+{
+	return Complex<Real>(a*x, b*x);
+}
+
+
+template <class Real>
 const Complex<Real> Complex<Real>::operator * (const Complex<Real>& other) const
 {
 	return Complex<Real>(a*other.a - b*other.b, a*other.b + b*other.a);
 }
+
+
+template <class Real>
+const Complex<Real> Complex<Real>::operator / (const Complex<Real>& other) const
+{
+	return Complex<Real>(a*other.a + b*other.b, b*other.a - a*other.b) * ((Real)1.0 / other.norm2());
+}
+
+
+template <class Real>
+const Complex<Real> Complex<Real>::operator + (const Complex<Real>& other) const
+{
+	return Complex<Real>(a + other.a, b + other.b) ;
+}
+
 
 typedef Complex<float> Complexf;
 typedef Complex<double> Complexd;

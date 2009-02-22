@@ -49,7 +49,6 @@ RaySphere::RaySphere(const Vec3d& pos_, double radius_)
 		toVec3f(centerpos + Vec3d(radius, radius, radius))
 		);
 
-
 	uvset_name_to_index["default"] = 0;
 	uvset_name_to_index["albedo"] = 0;
 	uvset_name_to_index["bump"] = 0;
@@ -163,39 +162,6 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext
 }
 
 
-/*void RaySphere::traceBundle(const RayBundle& raybundle, js::TriTreePerThreadData& context, std::vector<FullHitInfo>& hitinfo_out)
-{
-
-}*/
-
-
-/*float RaySphere::getDistanceUntilExits(const Ray& ray, HitInfo& hitinfo_out) const
-{
-	const Vec3 raystarttosphere = this->centerpos - ray.startpos;
-
-	const float dist_to_rayclosest = dotProduct(raystarttosphere, ray.unitdir);
-
-	//-----------------------------------------------------------------
-	//check if center of sphere lies behind ray startpos (in dir of ray)
-	//-----------------------------------------------------------------
-	//if(dist_to_rayclosest < 0.0f)//will think of rays as having infinite length || q_closest > ray.length)
-	//	return -666.0f;
-
-	const float sph_cen_to_ray_closest_len2 = raystarttosphere.length2() - 
-		dist_to_rayclosest*dist_to_rayclosest;
-
-	//-----------------------------------------------------------------
-	//ray has missed sphere?
-	//-----------------------------------------------------------------
-//	if(sph_cen_to_ray_closest_len2 > this->radius_squared)
-//		return -666.0f;
-
-	//ray has hit sphere...
-	return dist_to_rayclosest + sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-}*/
-
-
-
 const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const 
 { 
 	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
@@ -286,16 +252,6 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 const RaySphere::TexCoordsType RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return hitinfo.sub_elem_coords;
-
-	/*assert(hitinfo.geometric_normal.isUnitLength());
-
-	//use the normal
-	//float theta = asin(hitinfo.geometric_normal.y);
-	const double theta = atan2(hitinfo.geometric_normal.y, hitinfo.geometric_normal.x);
-	//if(hitinfo.geometric_normal.x < 0.0f)
-	//	theta = NICKMATHS_PI - theta;
-	const double phi = acos(hitinfo.geometric_normal.z);
-	return Vec2d(theta * NICKMATHS_RECIP_2PI, phi * -NICKMATHS_RECIP_PI);*/
 }
 
 
@@ -327,73 +283,25 @@ void RaySphere::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int te
 }
 
 
-//returns true if could construct a suitable basis
-/*
-bool RaySphere::getTangents(const HitInfo& hitinfo, unsigned int texcoords_set, Vec3d& tangent_out, Vec3d& bitangent_out) const
-{
-	//const Vec3 p = (hitinfo.hitpos - this->centerpos) * recip_radius;//normalised
-
-	//const float r2_minus_z2 = radius_squared - p.z*p.z;
-
-	//tangent_out = Vec3(-p.y, p.x, 0.0f) * r2_minus_z2 * NICKMATHS_RECIP_2PI;
-
-	//bitangent_out.set(0.0f, 0.0f, NICKMATHS_RECIP_PI / sqrt(1.0f - p.z*p.z));
-
-		//tangent_out = Vec3(-p.y, p.x, 0.0f) * r2_minus_z2 * NICKMATHS_RECIP_2PI;
-
-	//bitangent_out.set(0.0f, 0.0f, NICKMATHS_RECIP_PI / sqrt(1.0f - p.z*p.z));
-
-	const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
-	const double phi = acos(hitinfo.original_geometric_normal.z);
-
-
-	//(dx/du, dy/du, dz/du)
-	//tangent_out = Vec3(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f);
-
-	tangent_out = Vec3d(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
-
-	//(dx/dv, dy/dv, dz/dv)
-	//bitangent_out = Vec3(cos(theta)*cos(phi), sin(theta)*cos(phi), -sin(phi));
-	bitangent_out = Vec3d(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
-
-	return true;
-}*/
-
-/*void RaySphere::emitterInit()
-{
-	::fatalError("Spheres may not be emitters.");
-}
-const Vec3d RaySphere::sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out,
-										 HitInfo& hitinfo_out) const
-{
-	assert(0);
-	return Vec3d(0.f, 0.f, 0.f);
-}
-double RaySphere::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const
-{
-	::fatalError("RaySphere::surfacePDF");
-	return 0.f;
-}
-double RaySphere::surfaceArea(const Matrix3d& to_parent) const
-{
-	::fatalError("RaySphere::surfaceArea");
-	return 4.0 * NICKMATHS_PI * radius*radius;
-}*/
-
-
-
 const js::AABBox& RaySphere::getAABBoxWS() const { return aabbox; }
 
 
 void RaySphere::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
 {
-	assert(0);
+	surface_areas_out.resize(1);
+	surface_areas_out[0] = 4.0 * NICKMATHS_PI * radius * radius;
 }
 
 
 void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
-	assert(0);
+	assert(sub_elem_index == 0);
+	normal_out = MatUtils::uniformlySampleSphere<Vec3RealType>(samples);
+	assert(normal_out.isUnitLength());
+	pos_out = this->centerpos + toVec3d(normal_out) * radius;
+
+	hitinfo_out.sub_elem_index = 0;
+	hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir<HitInfo::SubElemCoordsRealType>(normal_out, this->recip_radius);
 }
 
 
@@ -401,9 +309,6 @@ double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d
 {
 	return 1.0 / sub_elem_area_ws;
 }
-
-
-//int RaySphere::UVSetIndexForName(const std::string& uvset_name) const { return 0; }
 
 	
 const std::string RaySphere::getName() const { return "RaySphere"; }

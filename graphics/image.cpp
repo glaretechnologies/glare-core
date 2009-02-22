@@ -1,19 +1,16 @@
 #include "image.h"
 
-//#pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
-
-#include <stdio.h>
-#include <fstream>
-#include "../indigo/globals.h"
-#include "../utils/stringutils.h"
-#include "../maths/vec2.h"
-#include <assert.h>
-#include <limits>
-#include "../indigo/IndigoImage.h"
 #include "MitchellNetravali.h"
 #include "BoxFilterFunction.h"
+#include "../utils/stringutils.h"
+#include "../maths/vec2.h"
+#include <fstream>
+#include <limits>
 #include <cmath>
+#include <cassert>
+#include <stdio.h>
+
 
 #ifndef BASIC_IMAGE
 
@@ -753,12 +750,12 @@ void Image::loadFromExr(const std::string& pathname)
 
 void Image::saveToExr(const std::string& pathname) const
 {
-	::fatalError("Image::saveToExr: OPENEXR_SUPPORT disabled.");
+	throw ImageExcep("Image::saveToExr: OPENEXR_SUPPORT disabled.");
 }
 
 void Image::loadFromExr(const std::string& pathname)
 {
-	::fatalError("Image::saveToExr: OPENEXR_SUPPORT disabled.");
+	throw ImageExcep("Image::saveToExr: OPENEXR_SUPPORT disabled.");
 }
 
 #endif //OPENEXR_SUPPORT
@@ -1360,7 +1357,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 	const int new_filter_height = (int)((double)original_filter.getHeight() * max_scale);
 	Image filter(new_filter_width, new_filter_height);
 
-	printVar(new_filter_width);
+	//printVar(new_filter_width);
 
 	const Vec3d scale_ratios(
 		max_scale / filter_scales.x,
@@ -1378,7 +1375,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 	{
 		for(int y=0; y<filter.getHeight(); ++y)
 		{
-			printVar(y);
+			//printVar(y);
 
 			for(int x=0; x<filter.getWidth(); ++x)
 			{

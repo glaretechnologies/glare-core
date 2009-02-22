@@ -17,7 +17,9 @@ Code By Nicholas Chapman.
 #include "bmpdecoder.h"
 #include "PNGDecoder.h"
 #include "TIFFDecoder.h"
+#ifdef OPENEXR_SUPPORT
 #include "EXRDecoder.h"
+#endif
 #include "FloatDecoder.h"
 #include "../graphics/Map2D.h"
 
@@ -56,10 +58,12 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws
 	{
 		return TIFFDecoder::decode(path);
 	}
+	#ifdef OPENEXR_SUPPORT
 	else if(hasExtension(path, "exr"))
 	{
 		return EXRDecoder::decode(path);
 	}
+	#endif
 	else if(hasExtension(path, "float"))
 	{
 		return FloatDecoder::decode(path);

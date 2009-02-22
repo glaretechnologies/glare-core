@@ -281,7 +281,7 @@ template <class Real>
 inline int roundToInt(Real x)
 {
 	assert(x >= (Real)0.0);
-#if defined(WIN32)
+#if defined(WIN32) && !defined(WIN64)
 	int i;
 	_asm
 	{
@@ -513,11 +513,11 @@ inline bool isPowerOfTwo(T x)
 
 void test();
 
-template <class T>
-inline T lerp(T a, T b, T t)
+template <class T, class Real>
+inline T lerp(T a, T b, Real t)
 {
-	assert(Maths::inRange(t, (T)0.0, (T)1.0));
-	return a * ((T)1.0 - t) + b * t;
+	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
+	return a * ((Real)1.0 - t) + b * t;
 }
 
 template <class T>
