@@ -118,7 +118,7 @@ void BVH::build(PrintOutput& print_output)
 		const int num_tris = (int)numTris();
 
 		root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
-		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
+		TreeUtils::buildRootAABB(*raymesh, *root_aabb, print_output);
 		assert(root_aabb->invariant());
 
 		//original_tri_index.resize(num_tris);

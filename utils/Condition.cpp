@@ -46,24 +46,72 @@ Condition::~Condition()
 
 
 ///Calling thread is suspended until conidition is met.
-void Condition::wait(Mutex& mutex)
+bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_seconds)
 {
 #if defined(WIN32) || defined(WIN64)
 
 	///Release mutex///
 	mutex.release();
 
+	bool signalled = false;
+
 	///wait on the condition event///
-	::WaitForSingleObject(condition, INFINITE);
+	if(infinite_wait_time)
+	{
+		::WaitForSingleObject(condition, INFINITE);
+		signalled = true;
+	}
+	else
+	{
+		const DWORD result = ::WaitForSingleObject(condition, (DWORD)(wait_time_seconds * 1000.0));
+		if(result == WAIT_OBJECT_0) // Object was signalled.
+			signalled = true;
+		else if(result == WAIT_TIMEOUT)
+			signalled = false;
+		else
+		{
+			// Uh oh, some crazy shit happened (WAIT_ABANDONED)
+			assert(0);
+			signalled = false;
+		}
+	}
 
 	///Get the mutex again///
 	mutex.acquire();
+
+	return signalled;
 #else
 	//this automatically release the associated mutex in pthreads.
 	//Re-locks mutex on return.
-	pthread_cond_wait(&condition, &mutex.mutex);
+	if(infinite_wait_time)
+	{
+		pthread_cond_wait(&condition, &mutex.mutex);
+		return true;
+	}
+	else
+	{
+		double integer_seconds;
+		const double fractional_seconds = modf(wait_time_seconds, &integer_seconds);
+
+		struct timespec t;
+		t.seconds = (time_t)integer_seconds;
+		t.tv_nsec = (long)(fractional_seconds * 1.0e9);
+
+		const int result = pthread_cond_timedwait(&condition, &mutex.mutex, &t);
+		if(result == 0)
+			return true;
+		else if(result == ETIMEDOUT)
+			return false;
+		else
+		{
+			// WTF?
+			assert(0);
+			return false;
+		}
+	}
 #endif
 }
+
 
 ///Condition has been met: wake up one suspended thread.
 void Condition::notify()

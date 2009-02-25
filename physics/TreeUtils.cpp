@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../simpleraytracer/raymesh.h"
+#include "../indigo/PrintOutput.h"
 
 
 namespace js
@@ -24,12 +25,12 @@ TreeUtils::~TreeUtils()
 }
 
 
-void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out)
+void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOutput& print_output)
 {
 	// NOTE: could do this faster by looping over vertices instead.  But what if there is an unused vertex?
 
 	assert(raymesh.getNumTris() > 0);
-	conPrint("\tCalcing root AABB.");
+	print_output.print("\tCalcing root AABB.");
 
 	aabb_out.min_ = raymesh.triVertPos(0, 0);
 	aabb_out.min_.padding = 1.0f;
@@ -47,9 +48,9 @@ void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out)
 		aabb_out.enlargeToHoldAlignedPoint(v2);
 	}
 
-	conPrint("\t\tDone.");
-	conPrint("\t\tRoot AABB min: " + aabb_out.min_.toString());
-	conPrint("\t\tRoot AABB max: " + aabb_out.max_.toString());
+	print_output.print("\t\tDone.");
+	print_output.print("\t\tRoot AABB min: " + aabb_out.min_.toString());
+	print_output.print("\t\tRoot AABB max: " + aabb_out.max_.toString());
 }
 
 

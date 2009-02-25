@@ -41,10 +41,10 @@ bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMe
 	
 	Lock lock(getMessageQueue().getMutex());
 		
-	while(!getMessageQueue().empty())
+	while(!getMessageQueue().unlockedEmpty())
 	{
 		ThreadMessage* message;
-		getMessageQueue().dequeue(message);
+		getMessageQueue().unlockedDequeue(message);
 		found_kill_thread_message = found_kill_thread_message || dynamic_cast<KillThreadMessage*>(message) != NULL;
 		delete message;
 	}

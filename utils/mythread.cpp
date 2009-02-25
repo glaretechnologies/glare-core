@@ -5,36 +5,26 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "mythread.h"
 
-#include <assert.h>
-#if defined(WIN32) || defined(WIN64)
 
+#include <cassert>
+#if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
-
 #include <windows.h>
 #include <process.h>
-
-
-//TEMP HACK:
-//unsigned long _beginthread( void( __cdecl *start_address )( void * ),
-//		unsigned stack_size, void *arglist );
-		
 #endif
-//#include "lock.h"
+
 
 MyThread::MyThread()
 {
-	thread_handle = 0;//NULL;
+	thread_handle = 0;
 	autodelete = false;
-	commit_suicide = false;
 }
 
 
 MyThread::~MyThread()
-{
-	
+{	
 }
-
 
 
 void MyThread::launch(bool autodelete_)
@@ -43,21 +33,22 @@ void MyThread::launch(bool autodelete_)
 
 	autodelete = autodelete_;
 
-
 #if defined(WIN32) || defined(WIN64)
-
-	const int stacksize = 0;//TEMP HACK
-
-	thread_handle = (HANDLE)_beginthread(threadFunction, stacksize, this);
-
+	thread_handle = (HANDLE)_beginthread(
+		threadFunction, 
+		0, // Stack size
+		this // arglist
+		);
 #else
-	//int pthread_create (pthread_t *thread, const pthread_attr_t *attr, void
-	//*(*start_routine) (void), void *arg) ;
-	pthread_create(&thread_handle, NULL, threadFunction, this);
+	pthread_create(
+		&thread_handle, // Thread
+		NULL, // attr
+		threadFunction, // start routine
+		this // arg
+		);
 #endif
-
-	//return thread_handle;
 }
+
 
 #if defined(WIN32) || defined(WIN64)
 	void 
@@ -70,55 +61,22 @@ void MyThread::launch(bool autodelete_)
 
 	assert(the_thread != NULL);
 
-	MyThread::incrNumAliveThreads();
-
 	the_thread->run();
 
 	if(the_thread->autodelete)
 		delete the_thread;
-
-	MyThread::decrNumAliveThreads();
 
 #if !(defined(WIN32) || defined(WIN64))
 	return NULL;
 #endif
 }
 
-void MyThread::killThread()
+
+void MyThread::join() // Wait for thread termination
 {
-	//_endthread(
+#if defined(WIN32) || defined(WIN64)
+	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);
+#else
+	const int result = pthread_join(thread_handle, NULL);
+#endif
 }
-
-int MyThread::getNumAliveThreads()
-{
-	//Lock lock(alivecount_mutex);
-
-	return num_alive_threads;
-}
-
-void MyThread::incrNumAliveThreads()
-{
-	num_alive_threads++;
-}
-
-void MyThread::decrNumAliveThreads()
-{
-	//Lock lock(alivecount_mutex);
-
-	num_alive_threads--;
-	
-	assert(num_alive_threads >= 0);
-}
-
-/*void MyThread::waitForThread()
-{
-	const DWORD result = WaitForSingleObject(
-		thread_handle,
-		INFINITE // time out interval
-		);
-
-	assert(result != WAIT_FAILED);
-}*/
-
-//Mutex MyThread::alivecount_mutex;
-int MyThread::num_alive_threads = 0;

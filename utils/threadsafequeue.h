@@ -44,7 +44,7 @@ public:
 
 	//returns true if object removed from queue.
 	//NOTE: MUST have aquired lock on mutex b4 using this function
-	inline bool pollDequeueUnlocked(T& t_out);
+	//inline bool pollDequeueUnlocked(T& t_out);
 
 	/*=====================================================================
 	pollDequeueLocked
@@ -55,23 +55,32 @@ public:
 
 	This version locks the queue.
 	=====================================================================*/
-	inline bool pollDequeueLocked(T& t_out);
+	//inline bool pollDequeueLocked(T& t_out);
 
 	//don't call unless queue is locked.
 	inline void unlockedDequeue(T& t_out);
 
-	inline void unlockedEnqueue(T& t);
+	//inline void unlockedEnqueue(const T& t);
 
-	//suspends thread until queue is non-empty
+	// Suspends thread until queue is non-empty
 	void dequeue(T& t_out);
 
+	/*
+	Suspends thread until queue is non-empty, or wait_time_seconds has elapsed.
+	Returns true if object dequeued, false if timeout occured.
+	*/
+	bool dequeueWithTimeout(double wait_time_seconds, T& t_out);
+
 	// Threadsafe, appends all elements in queue to vec_out.
-	void dequeueAppendToVector(std::vector<T>& vec_out);
+	//void dequeueAppendToVector(std::vector<T>& vec_out);
 
 	//threadsafe
 	inline bool empty() const;
 	inline int size() const;
-	void clear();
+	//void clear();
+
+	inline bool unlockedEmpty() const;
+
 
 private:
 	std::list<T> queue;
@@ -97,23 +106,25 @@ ThreadSafeQueue<T>::~ThreadSafeQueue()
 template <class T>
 void ThreadSafeQueue<T>::enqueue(const T& t)
 {	
-	Lock lock(mutex);//lock the queue
+	Lock lock(mutex); // Lock the queue
 
-	queue.push_back(t);//add item to queue
+	queue.push_back(t); // Add item to queue
 
-	if(queue.size() == 1)//if the queue was empty
-		nonempty.notify();//notify suspended threads that there is an item in the queue
+	if(queue.size() == 1) // If the queue was empty
+		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
+
+	//unlockedEnqueue(t);
 }
 
 
-template <class T>
-void ThreadSafeQueue<T>::unlockedEnqueue(T& t)
+/*template <class T>
+void ThreadSafeQueue<T>::unlockedEnqueue(const T& t)
 {
-	queue.push_back(t);//add item to queue
+	queue.push_back(t); // Add item to queue
 
-	if(queue.size() == 1)//if the queue was empty
-		nonempty.notify();//notify suspended threads that there is an item in the queue
-}
+	if(queue.size() == 1) // If the queue was empty
+		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
+}*/
 
 
 template <class T>
@@ -124,7 +135,7 @@ Mutex& ThreadSafeQueue<T>::getMutex()
 
 
 //returns true if object removed from queue.
-template <class T>
+/*template <class T>
 bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
 {
 	//Lock lock(mutex);
@@ -135,11 +146,11 @@ bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
 	t_out = queue.front();
 	queue.pop_front();
 	return true;
-}
+}*/
 
 
 //returns true if object removed from queue.
-template <class T>
+/*template <class T>
 bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
 {
 	Lock lock(mutex);
@@ -150,23 +161,26 @@ bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
 	t_out = queue.front();
 	queue.pop_front();
 	return true;
-}
+}*/
 
 
-//returns true if object removed from queue.
 template <class T>
 void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 {
 	if(queue.empty())
 	{
-		//uhoh, tryed to dequeue when the queue was empty...
-		//t_out will be undefined.
+		// Uhoh, tryed to dequeue when the queue was empty...
+		// t_out will be undefined.
 		assert(0);
 		return;
 	}
 
 	t_out = queue.front();
 	queue.pop_front();
+
+	// Reset the nonempty condition if neccessary
+	if(queue.empty())
+		nonempty.resetToFalse();
 }
 
 
@@ -189,12 +203,19 @@ int ThreadSafeQueue<T>::size() const
 
 
 template <class T>
+bool ThreadSafeQueue<T>::unlockedEmpty() const
+{
+	return queue.empty();
+}
+
+
+/*template <class T>
 void ThreadSafeQueue<T>::clear()
 {
 	Lock lock(mutex);
 
 	queue.clear();
-}
+}*/
 
 
 template <class T>
@@ -202,28 +223,26 @@ void ThreadSafeQueue<T>::dequeue(T& t_out)
 {
 	while(1)
 	{
-		Lock lock(mutex);//lock queue
+		Lock lock(mutex); // Lock queue
 
 		if(!queue.empty())
 		{
-			//no need to wait for condition, just return the value now
+			// No need to wait for condition, just return the value now
 			unlockedDequeue(t_out);
 			return;
 		}
-		else //else if queue is currently empty...
+		else // Else if queue is currently empty...
 		{		
-			///suspend until queue is non-empty///
-			nonempty.wait(mutex);
+			// Suspend until queue is non-empty.
+			nonempty.wait(
+				mutex, 
+				true, // infinite wait time
+				0.0);
 
-			if(queue.empty())//if empty
-				continue;//try again
+			if(queue.empty()) // If some sneaky other thread was woken up as well and snaffled the item...
+				continue; // Try again
 
 			unlockedDequeue(t_out);
-
-			///reset the nonempty condition if neccessary
-			if(queue.empty())
-				nonempty.resetToFalse();
-
 			return;
 		}
 	}
@@ -231,6 +250,45 @@ void ThreadSafeQueue<T>::dequeue(T& t_out)
 
 
 template <class T>
+bool ThreadSafeQueue<T>::dequeueWithTimeout(double wait_time_seconds, T& t_out)
+{
+	while(1)
+	{
+		Lock lock(mutex); // Lock queue
+
+		if(!queue.empty())
+		{
+			// No need to wait for condition, just return the value now
+			unlockedDequeue(t_out);
+			return true;
+		}
+		else // Else if queue is currently empty...
+		{
+			// Suspend thread until there is something in the queue
+			const bool condition_signalled = nonempty.wait(
+				mutex,
+				false, // infinite wait time
+				wait_time_seconds
+				);
+
+			if(condition_signalled)
+			{
+				if(queue.empty()) // If empty
+					continue; // Try again
+
+				unlockedDequeue(t_out);
+				return true;
+			}
+			else // Else wait timed out.
+			{
+				return false;
+			}
+		}
+	}
+}
+
+
+/*template <class T>
 void ThreadSafeQueue<T>::dequeueAppendToVector(std::vector<T>& vec_out)
 {
 	Lock lock(mutex); // Lock queue
@@ -242,7 +300,7 @@ void ThreadSafeQueue<T>::dequeueAppendToVector(std::vector<T>& vec_out)
 	}
 
 	nonempty.resetToFalse();
-}
+}*/
 
 
 #endif //__THREADSAFEQUEUE_H_666_

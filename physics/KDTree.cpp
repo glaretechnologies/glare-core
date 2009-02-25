@@ -709,7 +709,7 @@ void KDTree::build(PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		TreeUtils::buildRootAABB(*raymesh, *root_aabb);
+		TreeUtils::buildRootAABB(*raymesh, *root_aabb, print_output);
 		assert(root_aabb->invariant());
 
 		const unsigned int max_depth = calcMaxDepth();

@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include "../simpleraytracer/ray.h"
 class RayMesh;
+class PrintOutput;
 
 
 namespace js
@@ -42,7 +43,7 @@ public:
 
 	static inline void buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_indices[8]);
 
-	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out);
+	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out, PrintOutput& print_output);
 
 };
 

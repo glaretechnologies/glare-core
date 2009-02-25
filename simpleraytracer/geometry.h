@@ -109,7 +109,7 @@ public:
 	virtual bool isEnvSphereGeometry() const = 0;
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
-		const std::vector<Plane<double> >& camera_clip_planes
+		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output
 		) = 0; // throws GeometryExcep
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) = 0; // throws GeometryExcep
 

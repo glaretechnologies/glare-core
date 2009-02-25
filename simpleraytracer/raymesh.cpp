@@ -176,7 +176,7 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 
 void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
-	const std::vector<Plane<double> >& camera_clip_planes
+	const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output
 	)
 {
 	if(subdivide_and_displace_done)
@@ -191,10 +191,10 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 	}
 
 	if(merge_vertices_with_same_pos_and_normal)
-		mergeVerticesWithSamePosAndNormal();
+		mergeVerticesWithSamePosAndNormal(print_output);
 	
 	if(!vertex_shading_normals_provided)
-		computeShadingNormals();
+		computeShadingNormals(print_output);
 
 	if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 	{
@@ -655,9 +655,9 @@ static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& v
 }
 
 
-void RayMesh::computeShadingNormals()
+void RayMesh::computeShadingNormals(PrintOutput& print_output)
 {
-	conPrint("Computing shading normals for mesh '" + this->getName() + "'.");
+	print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 
 	for(unsigned int i=0; i<vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
@@ -680,10 +680,10 @@ void RayMesh::computeShadingNormals()
 }
 
 
-void RayMesh::mergeVerticesWithSamePosAndNormal()
+void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output)
 {
-	conPrint("Merging vertices for mesh '" + this->getName() + "'...");
-	conPrint("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
+	print_output.print("Merging vertices for mesh '" + this->getName() + "'...");
+	print_output.print("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
 
 	std::map<RayMeshVertex, unsigned int> new_vert_indices;
 	std::vector<RayMeshVertex> newverts;
@@ -713,8 +713,8 @@ void RayMesh::mergeVerticesWithSamePosAndNormal()
 
 	vertices = newverts;
 
-	conPrint("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
-	conPrint("\tDone.");
+	print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
+	print_output.print("\tDone.");
 }
 
 
