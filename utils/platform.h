@@ -1,3 +1,4 @@
+// Copyright Glare Technologies Limited 2009 - 
 #ifndef PLATFORM_H_666
 #define PLATFORM_H_666
 

@@ -54,7 +54,7 @@ public:
 	
 	=====================================================================*/
 	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
-		double lens_radius, double focus_distance, double aspect_ratio, double sensor_width, double lens_sensor_dist, 
+		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist, 
 		//const std::string& white_balance, 
 		double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
 		double polarising_angle,
@@ -63,7 +63,8 @@ public:
 		Aperture* aperture,
 		const std::string& base_indigo_path,
 		double lens_shift_up_distance,
-		double lens_shift_right_distance
+		double lens_shift_right_distance,
+		bool write_aperture_preview
 		);
 
 	virtual ~Camera();
@@ -242,7 +243,7 @@ private:
 
 	double lens_radius;
 	double focal_length;
-	double aspect_ratio;
+	//double aspect_ratio;
 	//double angle_of_view;
 
 	/*double width;

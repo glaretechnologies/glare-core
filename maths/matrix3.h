@@ -871,14 +871,14 @@ const Matrix3<Real> Matrix3<Real>::rotationMatrix(const Vec3<Real>& unit_axis, R
 	const Real b = unit_axis.y;
 	const Real c = unit_axis.z;
 
-	const Real cost = cos(angle);
-	const Real sint = sin(angle);
+	const Real cost = std::cos(angle);
+	const Real sint = std::sin(angle);
 
 	const Real asint = a*sint;
 	const Real bsint = b*sint;
 	const Real csint = c*sint;
 
-	const Real one_minus_cost = 1.0 - cost;
+	const Real one_minus_cost = (Real)1.0 - cost;
 
 	return Matrix3<Real>(
 		Vec3<Real>(a*a*one_minus_cost + cost, a*b*one_minus_cost + csint, a*c*one_minus_cost - bsint), // column 0

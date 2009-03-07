@@ -1,6 +1,5 @@
 /*===================================================================
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
+Copyright Glare Technologies Limited 2009 - 
 ====================================================================*/
 #ifndef __STRINGUTILS_H__
 #define __STRINGUTILS_H__
@@ -160,8 +159,6 @@ void replaceChar(std::string& s, char src, char dest);
 
 inline void concatWithChar(std::string& s, char c)
 {
-	//s.resize(s.size() + 1);
-	//s[s.size() - 1] = c;
 	s = s + std::string(1, c);
 }
 

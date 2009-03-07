@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "TestUtils.h"
 #include "globals.h"
 #include "../utils/stringutils.h"
+#include "PrintOutput.h"
 
 
 DisplacementUtils::DisplacementUtils()
@@ -105,6 +106,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles, std::
 
 
 void DisplacementUtils::subdivideAndDisplace(
+	PrintOutput& print_output,
 	ThreadContext& context,
 	const Object& object,
 	//const CoordFramed& camera_coordframe_os, 
@@ -216,9 +218,10 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	for(unsigned int i=0; i<options.max_num_subdivisions; ++i)
 	{
-		conPrint("\tDoing subdivision level " + toString(i) + "...");
+		print_output.print("\tDoing subdivision level " + toString(i) + "...");
 
 		linearSubdivision(
+			print_output,
 			context,
 			object,
 			//materials,
@@ -249,9 +252,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		// Recompute vertex normals
 		computeVertexNormals(temp_tris, temp_verts);
 
-		conPrint("\t\tresulting num vertices: " + toString((unsigned int)temp_verts.size()));
-		conPrint("\t\tresulting num triangles: " + toString((unsigned int)temp_tris.size()));
-		conPrint("\t\tDone.");
+		print_output.print("\t\tresulting num vertices: " + toString((unsigned int)temp_verts.size()));
+		print_output.print("\t\tresulting num triangles: " + toString((unsigned int)temp_tris.size()));
+		print_output.print("\t\tDone.");
 	}
 
 	// Apply the final displacement
@@ -746,6 +749,7 @@ static int getDispErrorRes(unsigned int num_tris)
 
 
 void DisplacementUtils::linearSubdivision(
+	PrintOutput& print_output,
 	ThreadContext& context,
 	const Object& object,
 	//const std::vector<Reference<Material> >& materials,						
@@ -1198,8 +1202,8 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	conPrint("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
-	conPrint("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
+	print_output.print("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
+	print_output.print("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
 }
 
 

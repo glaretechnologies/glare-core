@@ -198,7 +198,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 
 	if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 	{
-		conPrint("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
+		print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
 		// Convert to single precision floating point planes
 		std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
@@ -222,6 +222,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		options.camera_coordframe_os = camera_coordframe_os;
 
 		DisplacementUtils::subdivideAndDisplace(
+			print_output,
 			context,
 			object,
 			subdivision_smoothing,
@@ -251,7 +252,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 				}
 			}
 #endif	
-		conPrint("\tDone.");
+		print_output.print("\tDone.");
 	}
 
 	subdivide_and_displace_done = true;

@@ -1,8 +1,7 @@
 /*=====================================================================
 Parser.h
 --------
-File created by ClassTemplate on Sat Jul 08 20:49:28 2006
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2009 - 
 =====================================================================*/
 #ifndef __PARSER_H_666_
 #define __PARSER_H_666_

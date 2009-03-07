@@ -1,7 +1,9 @@
+// Copyright Glare Technologies Limited 2009 - 
 #include "stringutils.h"
 
 
-#include "../maths/mathstypes.h"
+//#include "../maths/mathstypes.h"
+#include <cmath>
 #include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
 
@@ -877,6 +879,14 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 
 
 } // end namespace StringUtils
+
+
+
+template <class Real>
+static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
+{
+	return fabs(a - b) <= epsilon;
+}
 
 
 void doStringUtilsUnitTests()

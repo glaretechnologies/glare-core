@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
+class PrintOutput;
 
 
 class DUVertex
@@ -92,6 +93,7 @@ public:
 
 
 	static void subdivideAndDisplace(
+		PrintOutput& print_output,
 		ThreadContext& context,
 		const Object& object,
 		//const CoordFramed& camera_coordframe_os, 
@@ -127,6 +129,7 @@ private:
 		std::vector<bool>* unclipped_out
 		);
 	static void linearSubdivision(
+		PrintOutput& print_output,
 		ThreadContext& context,
 		const Object& object,
 		//const CoordFramed& camera_coordframe_os, 

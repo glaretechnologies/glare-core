@@ -151,8 +151,8 @@ void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, con
 
 		current_dist = next_dist;
 		next_dist = plane.signedDistToPoint(next);
-		assert(current_dist == plane.signedDistToPoint(current));
-		assert(next_dist == plane.signedDistToPoint(next));
+		assert(epsEqual(current_dist, plane.signedDistToPoint(current)));
+		assert(epsEqual(next_dist, plane.signedDistToPoint(next)));
 
 		if(current_dist <= 0.0f)
 		{

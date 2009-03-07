@@ -1,13 +1,13 @@
 /*=====================================================================
 Parser.cpp
 ----------
-File created by ClassTemplate on Sat Jul 08 20:49:28 2006
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2009 - 
 =====================================================================*/
 #include "Parser.h"
 
 
-#include "../maths/mathstypes.h"
+//#include "../maths/mathstypes.h"
+#include <cmath>
 
 
 Parser::Parser(const char* text_, unsigned int textsize_)
@@ -357,6 +357,14 @@ bool Parser::parseString(const std::string& s)
 
 	for(unsigned int i=0; i<s.size(); ++i)
 }*/
+
+
+template <class Real>
+inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
+{
+	return fabs(a - b) <= epsilon;
+}
+
 
 void Parser::doUnitTests()
 {

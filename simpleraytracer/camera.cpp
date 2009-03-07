@@ -33,7 +33,7 @@ Code By Nicholas Chapman.
 
 
 Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
-		double lens_radius_, double focus_distance_, double aspect_ratio_, double sensor_width_, double lens_sensor_dist_, 
+		double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_, 
 		//const std::string& white_balance, 
 		double bloom_weight_, double bloom_radius_, bool autofocus_, 
 		bool polarising_filter_, double polarising_angle_,
@@ -42,14 +42,15 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		Aperture* aperture_,
 		const std::string& base_indigo_path,
 		double lens_shift_up_distance_,
-		double lens_shift_right_distance_
+		double lens_shift_right_distance_,
+		bool write_aperture_preview
 		)
 :	pos(pos_),
 	//ws_up(ws_updir),
 	forwards(forwards_),
 	lens_radius(lens_radius_),
 	focus_distance(focus_distance_),
-	aspect_ratio(aspect_ratio_),
+	//aspect_ratio(aspect_ratio_),
 	sensor_to_lens_dist(lens_sensor_dist_),
 	bloom_weight(bloom_weight_),
 	bloom_radius(bloom_radius_),
@@ -70,8 +71,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		throw CameraExcep("lens_radius must be > 0.0");
 	if(focus_distance <= 0.0)
 		throw CameraExcep("focus_distance must be > 0.0");
-	if(aspect_ratio <= 0.0)
-		throw CameraExcep("aspect_ratio must be > 0.0");
+	//if(aspect_ratio <= 0.0)
+	//	throw CameraExcep("aspect_ratio must be > 0.0");
 	if(sensor_to_lens_dist <= 0.0)
 		throw CameraExcep("sensor_to_lens_dist must be > 0.0");
 	if(bloom_weight < 0.0)
@@ -99,7 +100,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	assert(right.isUnitLength());
 
 	sensor_width = sensor_width_;
-	sensor_height = sensor_width / aspect_ratio;
+	sensor_height = sensor_height_; // sensor_width / aspect_ratio;
 
 	lens_center = pos + up * lens_shift_up_distance + right * lens_shift_right_distance;
 	lens_botleft = pos + up * (lens_shift_up_distance - lens_radius) + right * (lens_shift_right_distance - lens_radius);
@@ -154,30 +155,29 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	}*/
 	
 	// Save aperture preview to disk
+	if(write_aperture_preview)
 	{
-	
-	Array2d<double> ap_vis;
-	aperture->getVisibilityMap(ap_vis);
+		Array2d<double> ap_vis;
+		aperture->getVisibilityMap(ap_vis);
 
-	Image aperture_preview_image(ap_vis.getWidth(), ap_vis.getHeight());
+		Image aperture_preview_image(ap_vis.getWidth(), ap_vis.getHeight());
 
-	for(unsigned int y=0; y<ap_vis.getHeight(); ++y)
-		for(unsigned int x=0; x<ap_vis.getWidth(); ++x)
-			aperture_preview_image.setPixel(x, y, Colour3f((float)ap_vis.elem(x, y)));
+		for(unsigned int y=0; y<ap_vis.getHeight(); ++y)
+			for(unsigned int x=0; x<ap_vis.getWidth(); ++x)
+				aperture_preview_image.setPixel(x, y, Colour3f((float)ap_vis.elem(x, y)));
 
-
-	std::map<std::string, std::string> metadata;
-	try
-	{
-		//aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata, 0);
-		Bitmap ldr_image(aperture_preview_image.getWidth(), aperture_preview_image.getHeight(), 3, NULL);
-		aperture_preview_image.copyRegionToBitmap(ldr_image, 0, 0, aperture_preview_image.getWidth(), aperture_preview_image.getHeight());
-		PNGDecoder::write(ldr_image, metadata, FileUtils::join(base_indigo_path, "aperture_preview.png"));
-	}
-	catch(ImageExcep& e)
-	{
-		conPrint("ImageExcep: " + e.what());
-	}
+		std::map<std::string, std::string> metadata;
+		try
+		{
+			//aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata, 0);
+			Bitmap ldr_image(aperture_preview_image.getWidth(), aperture_preview_image.getHeight(), 3, NULL);
+			aperture_preview_image.copyRegionToBitmap(ldr_image, 0, 0, aperture_preview_image.getWidth(), aperture_preview_image.getHeight());
+			PNGDecoder::write(ldr_image, metadata, FileUtils::join(base_indigo_path, "aperture_preview.png"));
+		}
+		catch(ImageExcep& e)
+		{
+			conPrint("ImageExcep: " + e.what());
+		}
 	}
 
 
@@ -393,7 +393,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 				const int center_sx = Maths::floorToInt(src_pixel_coords.x);
 				const int center_sy = Maths::floorToInt(src_pixel_coords.y);
 
-				const Vec3d xyz_col = toVec3d(SingleFreq::getXYZ_CIE_2DegForWavelen(wvlen_nm));
+				const Vec3d xyz_col = toVec3d(SingleFreq::getXYZ_CIE_2DegForWavelen((float)wvlen_nm));
 
 				if(x_scale > 1.0)
 				{
@@ -638,35 +638,9 @@ const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) co
 	return normalise(target_point - lenspos);
 }
 
+
 double Camera::lensPosVisibility(const Vec3d& lenspos) const
 {
-	/*if(aperture_image)
-	{
-		const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
-
-		if(normed_lenspoint.x < 0.0 || normed_lenspoint.x >= 1.0 || normed_lenspoint.y < 0.0 || normed_lenspoint.y >= 1.0)
-			return 0.0;
-
-		assert(aperture_image->value(normed_lenspoint) == 0.0 || aperture_image->value(normed_lenspoint) == 1.0);
-		return aperture_image->value(normed_lenspoint);
-
-		//const int ap_image_x = (int)(normed_lenspoint.x * aperture_image->getWidth());
-		//if(ap_image_x < 0 || ap_image_x >= aperture_image->getWidth())
-		//	return 0.0;
-
-		//const int ap_image_y = (int)((1.0 - normed_lenspoint.y) * aperture_image->getHeight()); // y increases downwards in aperture_image
-		//if(ap_image_y < 0 || ap_image_y >= aperture_image->getHeight())
-		//	return 0.0;
-
-		//assert(Maths::inRange(aperture_image->elem(ap_image_x, ap_image_y), 0.f, 1.f));
-		//return (double)aperture_image->elem(ap_image_x, ap_image_y);
-
-	}
-	else
-	{
-		return 1.0;
-	}*/
-
 	const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
 
 	if(normed_lenspoint.x < 0.0 || normed_lenspoint.x >= 1.0 || normed_lenspoint.y < 0.0 || normed_lenspoint.y >= 1.0)
@@ -946,7 +920,7 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 
 	//const double pdf = weights_out.sum() / (double)TOTAL_NUM_WAVELENGTHS;
 	//weights_out /= pdf;//camera.diffraction_filter->filterPDF(filterpos, wavelengths[PRIMARY_WAVELENGTH_INDEX]);
-	weights_out *= (double)TOTAL_NUM_WAVELENGTHS / weights_out.sum();
+	weights_out *= (SpectralVector::Real)TOTAL_NUM_WAVELENGTHS / weights_out.sum();
 
 	//const Vec2d offset = filterpos;
 
@@ -1096,6 +1070,7 @@ void Camera::unitTest()
 	const double lens_sensor_dist = 0.25;
 	const double sensor_width = 0.5001;
 	const double aspect_ratio = 1.333;
+	const double sensor_height = sensor_width / aspect_ratio;
 	const double focus_distance = 10.0;
 	Camera cam(
 		Vec3d(0,0,0), // pos
@@ -1103,8 +1078,8 @@ void Camera::unitTest()
 		forwards, // forwards
 		0.1f, // lens_radius
 		focus_distance, // focus distance
-		aspect_ratio, // aspect ration
 		sensor_width, // sensor_width
+		sensor_height, // sensor_height
 		lens_sensor_dist, // lens_sensor_dist
 		//"A",
 		0.f, 
@@ -1120,7 +1095,8 @@ void Camera::unitTest()
 		new CircularAperture(Array2d<float>()),
 		".", // base indigo path
 		0.0, // lens_shift_up_distance
-		0.0 // lens_shift_right_distance
+		0.0, // lens_shift_right_distance
+		false // write_aperture_preview
 		);
 
 

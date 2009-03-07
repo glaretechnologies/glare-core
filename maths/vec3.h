@@ -182,7 +182,7 @@ public:
 	inline Real normalise_ret_length()
 	{
 		const Real len = length();
-		const Real inverselength = 1.0 / len;
+		const Real inverselength = (Real)1.0 / len;
 
 		x *= inverselength;
 		y *= inverselength;
@@ -194,7 +194,7 @@ public:
 	inline Real normalise_ret_length(Real& inv_len_out)
 	{
 		const Real len = length();
-		const Real inverselength = 1.0 / len;
+		const Real inverselength = (Real)1.0 / len;
 
 		x *= inverselength;
 		y *= inverselength;
@@ -208,7 +208,7 @@ public:
 	inline Real normalise_ret_length2()
 	{
 		const Real len2 = length2();
-		const Real inverselength = 1.0 / sqrt(len2);
+		const Real inverselength = (Real)1.0 / sqrt(len2);
 
 		x *= inverselength;
 		y *= inverselength;
@@ -532,6 +532,12 @@ template <class Real>
 inline Real dot(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
+}
+
+template <class Real>
+inline Real absDot(const Vec3<Real>& v1, const Vec3<Real>& v2)
+{
+	return std::fabs(dot(v1, v2));
 }
 
 template <class Real>

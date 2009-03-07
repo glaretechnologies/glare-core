@@ -1,8 +1,7 @@
 /*=====================================================================
 reference.h
 -----------
-File created by ClassTemplate on Thu Jul 17 18:17:42 2003
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2009 - 
 =====================================================================*/
 #ifndef __REFERENCE_H_666_
 #define __REFERENCE_H_666_
