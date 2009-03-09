@@ -328,6 +328,9 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Rea
 template <class Real>
 Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 {
+	assert(n1 >= 1.0f && n2 >= 0.0f);
+	assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
+
 	//Get transmitted cos theta using Snell's law
 	//http://en.wikipedia.org/wiki/Snell%27s_law
 
