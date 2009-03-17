@@ -153,5 +153,12 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	std::cout << b << std::endl;
 	std::cout << c << std::endl;
 	std::cout << d << std::endl;
+
+	cpuid(1, a, b, c, d);
+
+	info_out.mmx = (d & MMX_FLAG) != 0;
+	info_out.sse1 = (d & SSE_FLAG ) != 0;
+	info_out.sse2 = (d & SSE2_FLAG ) != 0;
+	info_out.sse3 = (c & SSE3_FLAG ) != 0;
 #endif
 }
