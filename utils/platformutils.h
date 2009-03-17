@@ -45,8 +45,9 @@ void getMACAddresses(std::vector<std::string>& addresses_out); // throws Platfor
 
 
 
-struct CPUInfo
+class CPUInfo
 {
+public:
 	char vendor[13];
 	bool mmx, sse1, sse2, sse3;
 };

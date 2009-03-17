@@ -123,9 +123,11 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 }
 
 
+#if defined(WIN32) || defined(WIN64)
+#else
 #define cpuid(in,a,b,c,d)\
   asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
-
+#endif
 
 void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 {
