@@ -123,16 +123,6 @@ unsigned long long hexStringTo64UInt(const std::string& s)
 	return x;
 }
 
-const std::string buildString(const char* text, ...)
-{
-	/*static */char textBuffer[1024];
-	va_list args;
-	va_start(args, text);
-	vsprintf(textBuffer, text, args);
-	va_end(args);
-
-	return std::string(textBuffer);
-}
 
 /*const std::string toHexString(unsigned int i)
 {
@@ -538,11 +528,9 @@ bool hasPrefix(const std::string& s, const std::string& prefix)
 	if(prefix.length() > s.length())
 		return false;
 
-	for(int i=0; i<prefix.length(); i++)
-	{
+	for(unsigned int i=0; i<prefix.length(); i++)
 		if(prefix[i] != s[i])
 			return false;
-	}
 
 	return true;
 }
@@ -554,33 +542,15 @@ bool hasSuffix(const std::string& s, const std::string& postfix)
 	if(postfix.length() > s.length())
 		return false;
 
-	const int s_offset = (int)s.length() - (int)postfix.length();
+	assert(s.length() >= postfix.length());
 
-	for(int i=0; i<postfix.length(); ++i)
-	{
+	const unsigned int s_offset = s.length() - postfix.length();
+
+	for(unsigned int i=0; i<postfix.length(); ++i)
 		if(s[s_offset + i] != postfix[i])
 			return false;
-	}
 
 	return true;
-
-
-	/*assert(0);//BUGGY CODE
-
-	if(postfix.length() > s.length())
-		return false;
-
-	const int endindex = s.length() - postfix.length();
-
-	for(int i = s.length() - 1; i >= endindex; i--)
-	{
-		const int postfix_index = s.length() - 1 - i;
-
-		if(s.at(i) != postfix.at(postfix_index))
-			return false;
-	}
-
-	return true;*/
 }
 
 
@@ -588,11 +558,9 @@ int getNumMatches(const std::string& s, char target)
 {
 	int num_matches = 0;
 
-	for(int i=0; i<s.length(); i++)
-	{
+	for(unsigned int i=0; i<s.length(); i++)
 		if(s[i] == target)
 			num_matches++;
-	}
 
 	return num_matches;
 }

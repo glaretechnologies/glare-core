@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #define NOMINMAX
 #include <windows.h>
 #include <Iphlpapi.h>
+#include <intrin.h>
 #else
 #include <time.h>
 #include <unistd.h>
@@ -24,7 +25,7 @@ Code By Nicholas Chapman.
 #endif
 #include <cassert>
 #include "../utils/stringutils.h"
-//#include <iostream> //TEMP
+#include <iostream> //TEMP
 
 
 //make current thread sleep for x milliseconds
@@ -118,5 +119,39 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	{
 		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
 	}
+#endif
+}
+
+
+#define cpuid(in,a,b,c,d)\
+  asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
+
+
+void PlatformUtils::getCPUInfo(CPUInfo& info_out)
+{
+#if defined(WIN32) || defined(WIN64)
+	int CPUInfo[4];
+	__cpuid(
+		CPUInfo,
+		1 //infotype
+		);
+
+	const int MMX_FLAG = 1 << 23;
+	const int SSE_FLAG = 1 << 25;
+	const int SSE2_FLAG = 1 << 26;
+	const int SSE3_FLAG = 1;
+	info_out.mmx = (CPUInfo[3] & MMX_FLAG ) != 0;
+	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
+	info_out.sse2 = (CPUInfo[3] & SSE2_FLAG ) != 0;
+	info_out.sse3 = (CPUInfo[2] & SSE3_FLAG ) != 0;
+#else
+	unsigned int a, b, c, d;
+	unsigned int in = 0;
+	cpuid(0, a, b, c, d);
+
+	std::cout << a << std::endl;
+	std::cout << b << std::endl;
+	std::cout << c << std::endl;
+	std::cout << d << std::endl;
 #endif
 }

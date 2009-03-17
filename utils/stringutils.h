@@ -14,7 +14,6 @@ Copyright Glare Technologies Limited 2009 -
 #include <vector>
 #include <sstream>
 
-//const std::string buildString(const char* text, ...); 
 
 class StringUtilsExcep
 {
@@ -100,20 +99,18 @@ inline bool isAlphaNumeric(char c)
 const std::string eatHeadWhitespace(const std::string& text);
 const std::string eatTailWhitespace(const std::string& text);
 
-
 const std::string toLowerCase(const std::string& text);
 const std::string toUpperCase(const std::string& text);
 
 char toLowerCase(char c);
 char toUpperCase(char c);
 
-
 bool hasFileTypeExtension(const std::string& filename);
 const std::string getExtension(const std::string& filename);//returns 3 letter extension
 
 const std::string eatExtension(const std::string& filename);
 
-	//without the dot
+// Without the dot
 bool hasExtension(const std::string& filename, const std::string& extension);
 
 bool hasPrefix(const std::string& s, const std::string& prefix);
@@ -128,11 +125,11 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out);
 
 bool containsString(const std::string& text, const std::string& target_string);
 
-	//can handle multiple words in quotes
+// Can handle multiple words in quotes
 void readInToken(std::istream& stream, std::string& str_out);
 
-void readQuote(std::istream& stream, std::string& str_out);//reads string from between double quotes.
-void writeToQuote(std::ostream& stream, const std::string& str);//writes string to between double quotes.
+void readQuote(std::istream& stream, std::string& str_out); // Reads string from between double quotes.
+void writeToQuote(std::ostream& stream, const std::string& str); // Writes string to between double quotes.
 
 unsigned int stringChecksum(const std::string& s);
 
@@ -154,7 +151,7 @@ inline void readFromStringStream(const std::string& instring, T& t_out)
 }
 
 
-//replaces all occurences of src with dest in string s.
+// Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest);
 
 inline void concatWithChar(std::string& s, char c)
@@ -167,12 +164,12 @@ inline const std::string appendChar(const std::string& s, char c)
 	return s + std::string(1, c);
 }
 
-//if first_char_index is >= s.size(), then returns ""
+// If first_char_index is >= s.size(), then returns ""
 const std::string getTailSubString(const std::string& s, int first_char_index);
 
 const std::string forceCopyString(const std::string& s);
 
-//returns as 4.6MB etc.. instead of 46287567B
+// Returns as 4.6MB etc.. instead of 46287567B
 const std::string getNiceByteSize(size_t x);
 
 const std::string getPrefixBeforeDelim(const std::string& s, char delim);

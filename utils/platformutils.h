@@ -44,6 +44,15 @@ unsigned int getNumLogicalProcessors();
 void getMACAddresses(std::vector<std::string>& addresses_out); // throws PlatformUtilsExcep
 
 
+
+struct CPUInfo
+{
+	bool mmx, sse1, sse2, sse3;
+};
+
+void getCPUInfo(CPUInfo& info_out);
+
+
 }//end namespace PlatformUtils
 
 
