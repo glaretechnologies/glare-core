@@ -224,21 +224,21 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	assert(highest_extended_param >= 0x80000004);
 
 	cpuid(0x80000002, a, b, c, d);
-	memcpy(info_out.proc_brand + 0, a, 4);
-	memcpy(info_out.proc_brand + 4, b, 4);
-	memcpy(info_out.proc_brand + 8, c, 4);
-	memcpy(info_out.proc_brand + 12, d, 4);
-	
+	memcpy(info_out.proc_brand + 0, &a, 4);
+	memcpy(info_out.proc_brand + 4, &b, 4);
+	memcpy(info_out.proc_brand + 8, &c, 4);
+	memcpy(info_out.proc_brand + 12, &d, 4);
+
 	cpuid(0x80000003, a, b, c, d);
-	memcpy(info_out.proc_brand + 16, a, 4);
-	memcpy(info_out.proc_brand + 20, b, 4);
-	memcpy(info_out.proc_brand + 24, c, 4);
-	memcpy(info_out.proc_brand + 28, d, 4);
+	memcpy(info_out.proc_brand + 16, &a, 4);
+	memcpy(info_out.proc_brand + 20, &b, 4);
+	memcpy(info_out.proc_brand + 24, &c, 4);
+	memcpy(info_out.proc_brand + 28, &d, 4);
 
 	cpuid(0x80000004, a, b, c, d);
-	memcpy(info_out.proc_brand + 32, a, 4);
-	memcpy(info_out.proc_brand + 36, b, 4);
-	memcpy(info_out.proc_brand + 40, c, 4);
-	memcpy(info_out.proc_brand + 44, d, 4);
+	memcpy(info_out.proc_brand + 32, &a, 4);
+	memcpy(info_out.proc_brand + 36, &b, 4);
+	memcpy(info_out.proc_brand + 40, &c, 4);
+	memcpy(info_out.proc_brand + 44, &d, 4);
 #endif
 }
