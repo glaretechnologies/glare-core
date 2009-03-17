@@ -135,22 +135,17 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 		);
 	memcpy(out, CPUInfo, 16);
 #else
-	//unsigned int reg = infotype;
-	//unsigned int words[4];
-
 	// ebx saving is necessary for PIC
-     __asm__ volatile\
-             ("mov %%ebx, %%esi\n\t"
-              "cpuid\n\t"
-              "xchg %%ebx, %%esi"
-              : "=a" (out[0]),
-				"=S" (out[1]),
-                "=c" (out[2]),
-                "=d" (out[3])
-              : "0" (infotype)
+	__asm__ volatile(
+			"mov %%ebx, %%esi\n\t"
+			"cpuid\n\t"
+			"xchg %%ebx, %%esi"
+            : "=a" (out[0]),
+			"=S" (out[1]),
+            "=c" (out[2]),
+            "=d" (out[3])
+            : "0" (infotype)
      );
-
-	//memcpy(out, words, 16);
 #endif
 }
 
