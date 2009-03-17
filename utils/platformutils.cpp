@@ -24,6 +24,7 @@ Code By Nicholas Chapman.
 #endif
 #include <cassert>
 #include "../utils/stringutils.h"
+//#include <iostream> //TEMP
 
 
 //make current thread sleep for x milliseconds
@@ -80,7 +81,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	const DWORD dwStatus = GetAdaptersInfo(      // Call GetAdapterInfo
 		AdapterInfo,	// [out] buffer to receive data
 		&dwBufLen		// [in] size of receive data buffer
-	);                 
+	);
 
 	if(dwStatus != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("GetAdaptersInfo Failed.");
@@ -93,7 +94,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 		addresses_out.push_back("");
 		for(UINT i = 0; i < pAdapterInfo->AddressLength; i++)
 		{
-			addresses_out.back() = addresses_out.back() + leftPad(toHexString(pAdapterInfo->Address[i]), '0', 2) + ((i < pAdapterInfo->AddressLength-1) ? "-" : "");
+			addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)pAdapterInfo->Address[i]), '0', 2) + ((i < pAdapterInfo->AddressLength-1) ? "-" : "");
 		}
 
 		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
@@ -115,7 +116,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	addresses_out.resize(1);
 	for(unsigned i=0; i<6; ++i)
 	{
-		addresses_out.back() = addresses_out.back() + leftPad(toHexString(ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
+		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
 	}
 #endif
 }

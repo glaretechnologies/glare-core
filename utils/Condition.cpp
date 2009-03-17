@@ -6,20 +6,26 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "Condition.h"
 
+
 #include "mutex.h"
 #include <assert.h>
+#include <cmath>
 
+#if defined(WIN32) || defined(WIN64)
+#else
+#include <errno.h>
+#endif
 
 
 Condition::Condition()
 {
 #if defined(WIN32) || defined(WIN64)
-	condition = CreateEvent( 
+	condition = CreateEvent(
         NULL,         // no security attributes
         TRUE,         // manual-reset event
         FALSE,//TRUE, // is initial state signaled?
         NULL          // object name
-        ); 
+        );
 
 	assert(condition != NULL);
 #else
@@ -81,8 +87,8 @@ bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_sec
 
 	return signalled;
 #else
-	//this automatically release the associated mutex in pthreads.
-	//Re-locks mutex on return.
+	// This automatically release the associated mutex in pthreads.
+	// Re-locks mutex on return.
 	if(infinite_wait_time)
 	{
 		pthread_cond_wait(&condition, &mutex.mutex);
@@ -91,10 +97,10 @@ bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_sec
 	else
 	{
 		double integer_seconds;
-		const double fractional_seconds = modf(wait_time_seconds, &integer_seconds);
+		const double fractional_seconds = std::modf(wait_time_seconds, &integer_seconds);
 
 		struct timespec t;
-		t.seconds = (time_t)integer_seconds;
+		t.tv_sec = (time_t)integer_seconds;
 		t.tv_nsec = (long)(fractional_seconds * 1.0e9);
 
 		const int result = pthread_cond_timedwait(&condition, &mutex.mutex, &t);

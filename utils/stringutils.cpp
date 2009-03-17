@@ -1,4 +1,4 @@
-// Copyright Glare Technologies Limited 2009 - 
+// Copyright Glare Technologies Limited 2009 -
 #include "stringutils.h"
 
 
@@ -6,6 +6,7 @@
 #include <cmath>
 #include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
+//#include <iostream> //TEMP
 
 
 
@@ -32,7 +33,7 @@ double stringToDouble(const std::string& s) // throws StringUtilsExcep
 int stringToInt(const std::string& s) // throws StringUtilsExcep
 {
 	char* end_ptr = NULL;
-	const int ret = strtol(s.c_str(), &end_ptr, 
+	const int ret = strtol(s.c_str(), &end_ptr,
 		10 // base
 		);
 	if(end_ptr == s.c_str())
@@ -149,7 +150,7 @@ const std::string buildString(const char* text, ...)
 			concatWithChar(reverse_s, '0' + nibble - 0);
 		else
 			concatWithChar(reverse_s, 'a' + nibble - 10);
-	
+
 		i >>= 4;//shift right 4 bits
 	}
 
@@ -184,11 +185,12 @@ const std::string toHexString(unsigned long long i)
 	while(i != 0)
 	{
 		const unsigned long long nibble = i & 0x000000000000000F; // Get last 4 bits
+
 		if(nibble <= 9)
 			concatWithChar(reverse_s, '0' + (char)nibble - 0);
 		else
 			concatWithChar(reverse_s, 'A' + (char)nibble - 10);
-	
+
 		i >>= 4; // Shift right 4 bits
 	}
 
@@ -277,7 +279,7 @@ const std::string floatToString(float f, int num_decimal_places)
 
 	if(num_decimal_places >= 10)
 		num_decimal_places = 9;
-	
+
 	const std::string dec_string = intToString(num_decimal_places);
 	assert(dec_string.size() == 1);
 
@@ -332,7 +334,7 @@ const std::string getLineFromText(int linenum, const char* textbuffer, int textb
 				{
 					pos = i;//save position of the '\n'
 					break;
-				}				
+				}
 			}
 		}
 	}
@@ -609,7 +611,7 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 		//-----------------------------------------------------------------
 		//eat whitespace
 		//-----------------------------------------------------------------
-		while(1) 
+		while(1)
 		{
 			if(i >= text.length())//eof
 				return;
@@ -638,7 +640,7 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 			token += text[i];
 			i++;
 		}
-			
+
 	}
 }
 
@@ -679,7 +681,7 @@ void readInToken(std::istream& stream, std::string& str_out)
 
 			str_out += " ";
 			str_out += nextword;
-				
+
 			if(nextword.size() == 0 || nextword.find_first_of('\"') != std::string::npos)
 			{
 				break;
