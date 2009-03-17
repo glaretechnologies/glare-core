@@ -125,8 +125,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
-	unsigned int reg = infotype;
-	unsigned int words[4];
+
 
 #if defined(WIN32) || defined(WIN64)
 	int CPUInfo[4];
@@ -136,19 +135,22 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 		);
 	memcpy(out, CPUInfo, 16);
 #else
+	//unsigned int reg = infotype;
+	//unsigned int words[4];
+
 	// ebx saving is necessary for PIC
      __asm__ volatile\
              ("mov %%ebx, %%esi\n\t"
               "cpuid\n\t"
               "xchg %%ebx, %%esi"
-              : "=a" (words[0]),
-				"=S" (words[1]),
-                "=c" (words[2]),
-                "=d" (words[3])
-              : "0" (reg)
+              : "=a" (out[0]),
+				"=S" (out[1]),
+                "=c" (out[2]),
+                "=d" (out[3])
+              : "0" (infotype)
      );
 
-	memcpy(out, words, 16);
+	//memcpy(out, words, 16);
 #endif
 }
 
