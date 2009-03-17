@@ -10,10 +10,20 @@ Code By Nicholas Chapman.
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #include <windows.h>
+#include <Iphlpapi.h>
 #else
 #include <time.h>
 #include <unistd.h>
+
+#include <string.h> /* for strncpy */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <net/if.h>
 #endif
+#include <cassert>
+#include "../utils/stringutils.h"
 
 
 //make current thread sleep for x milliseconds
@@ -59,3 +69,53 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 #endif
 }
 
+
+void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
+{
+#if defined(WIN32) || defined(WIN64)
+	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information
+											// for up to 16 NICs
+	DWORD dwBufLen = sizeof(AdapterInfo);	// Save memory size of buffer
+
+	const DWORD dwStatus = GetAdaptersInfo(      // Call GetAdapterInfo
+		AdapterInfo,	// [out] buffer to receive data
+		&dwBufLen		// [in] size of receive data buffer
+	);                 
+
+	if(dwStatus != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("GetAdaptersInfo Failed.");
+
+	PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo; // Contains pointer to current adapter info.
+
+	addresses_out.resize(0);
+	while(pAdapterInfo)
+	{
+		addresses_out.push_back("");
+		for(UINT i = 0; i < pAdapterInfo->AddressLength; i++)
+		{
+			addresses_out.back() = addresses_out.back() + leftPad(toHexString(pAdapterInfo->Address[i]), '0', 2) + ((i < pAdapterInfo->AddressLength-1) ? "-" : "");
+		}
+
+		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
+	}
+#else
+	int fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if(fd == -1)
+		throw PlatformUtilsExcep("socket() Failed.");
+
+	struct ifreq ifr;
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1); // Assuming we want eth0
+
+	ioctl(fd, SIOCGIFHWADDR, &ifr); // Retrieve MAC address
+
+	close(fd);
+
+	addresses_out.resize(1);
+	for(unsigned i=0; i<6; ++i)
+	{
+		addresses_out.back() = addresses_out.back() + leftPad(toHexString(ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
+	}
+#endif
+}

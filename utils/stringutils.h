@@ -179,6 +179,7 @@ const std::string getPrefixBeforeDelim(const std::string& s, char delim);
 
 const std::vector<std::string> split(const std::string& s, char delim);
 
+const std::string leftPad(const std::string& s, char c, int minwidth);
 const std::string rightPad(const std::string& s, char c, int minwidth);
 
 namespace StringUtils

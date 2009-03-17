@@ -180,23 +180,22 @@ const std::string toHexString(unsigned long long i)
 	//build the hex string in reverse order
 	//------------------------------------------------------------------------
 	std::string reverse_s;
-	unsigned long long nibble;
 
 	while(i != 0)
 	{
-		nibble = i & 0x000000000000000F;//get last 4 bits
+		const unsigned long long nibble = i & 0x000000000000000F; // Get last 4 bits
 		if(nibble <= 9)
 			concatWithChar(reverse_s, '0' + (char)nibble - 0);
 		else
-			concatWithChar(reverse_s, 'a' + (char)nibble - 10);
+			concatWithChar(reverse_s, 'A' + (char)nibble - 10);
 	
-		i >>= 4;//shift right 4 bits
+		i >>= 4; // Shift right 4 bits
 	}
 
 	if(reverse_s.empty())
 	{
-		//hex constants must have at least one digit :)
-		return "0x0";
+		// Hex constants must have at least one digit :)
+		return "0";
 	}
 	else
 	{
@@ -205,7 +204,7 @@ const std::string toHexString(unsigned long long i)
 		for(unsigned int z=0; z<s.size(); ++z)
 			s[z] = reverse_s[reverse_s.size() - z - 1];
 
-		return "0x" + s;
+		return s;
 	}
 }
 
@@ -839,14 +838,23 @@ const std::vector<std::string> split(const std::string& s, char delim)
 }
 
 
+const std::string leftPad(const std::string& s, char c, int minwidth)
+{
+	if(minwidth > s.length())
+		return std::string(minwidth - s.length(), c) + s;
+	else
+		return s;
+}
+
+
 const std::string rightPad(const std::string& s, char c, int minwidth)
 {
-	//for(int i=0; i<minwidth - (int)s.length())
 	if(minwidth > s.length())
 		return s + std::string(minwidth - s.length(), c);
 	else
 		return s;
 }
+
 
 namespace StringUtils
 {

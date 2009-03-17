@@ -8,6 +8,10 @@ Code By Nicholas Chapman.
 #define __PLATFORMUTILS_H_666_
 
 
+#include <vector>
+#include <string>
+
+
 /*=====================================================================
 PlatformUtils
 -------------
@@ -16,21 +20,31 @@ PlatformUtils
 namespace PlatformUtils
 {
 
-	
+
+class PlatformUtilsExcep
+{
+public:
+	PlatformUtilsExcep(const std::string& s_) : s(s_) {}
+	const std::string& what() const { return s; }
+private:
+	std::string s;
+};
+
+
 void Sleep(int x);//make current thread sleep for x milliseconds
 
 
 //unsigned int getMinWorkingSetSize();
 //unsigned int getMaxWorkingSetSize();
 
+
 unsigned int getNumLogicalProcessors();
+
+
+void getMACAddresses(std::vector<std::string>& addresses_out); // throws PlatformUtilsExcep
+
 
 }//end namespace PlatformUtils
 
 
-
 #endif //__PLATFORMUTILS_H_666_
-
-
-
-
