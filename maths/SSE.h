@@ -35,8 +35,6 @@ typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by def
 
 namespace SSE
 {
-	void checkForSSE(bool& mmx_present, bool& sse1_present, bool& sse2_present, bool& sse3_present);
-
 	template <class T>
 	inline bool isAlignedTo(T* ptr, uintptr_t alignment)
 	{

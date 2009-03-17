@@ -129,30 +129,41 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 
 void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 {
-#if defined(WIN32) || defined(WIN64)
-	int CPUInfo[4];
-	__cpuid(
-		CPUInfo,
-		1 //infotype
-		);
-
 	const int MMX_FLAG = 1 << 23;
 	const int SSE_FLAG = 1 << 25;
 	const int SSE2_FLAG = 1 << 26;
 	const int SSE3_FLAG = 1;
+
+#if defined(WIN32) || defined(WIN64)
+	int CPUInfo[4];
+	__cpuid(
+		CPUInfo,
+		0 // infotype
+		);
+
+	memcpy(info_out.vendor, &CPUInfo[1], 4);
+	memcpy(info_out.vendor + 4, &CPUInfo[3], 4);
+	memcpy(info_out.vendor + 8, &CPUInfo[2], 4);
+	info_out.vendor[12] = 0;
+
+	__cpuid(
+		CPUInfo,
+		1 // infotype
+		);
+
 	info_out.mmx = (CPUInfo[3] & MMX_FLAG ) != 0;
 	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
 	info_out.sse2 = (CPUInfo[3] & SSE2_FLAG ) != 0;
 	info_out.sse3 = (CPUInfo[2] & SSE3_FLAG ) != 0;
+
 #else
 	unsigned int a, b, c, d;
-	unsigned int in = 0;
 	cpuid(0, a, b, c, d);
 
-	std::cout << a << std::endl;
-	std::cout << b << std::endl;
-	std::cout << c << std::endl;
-	std::cout << d << std::endl;
+	memcpy(info_out.vendor, &b, 4);
+	memcpy(info_out.vendor + 4, &d, 4);
+	memcpy(info_out.vendor + 8, &c, 4);
+	info_out.vendor[12] = 0;
 
 	cpuid(1, a, b, c, d);
 
