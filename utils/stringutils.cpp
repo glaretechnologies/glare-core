@@ -995,7 +995,7 @@ void doStringUtilsUnitTests()
 	}
 
 
-/*
+
 	assert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
 
 	assert(::toLowerCase("meh666XYZ") == "meh666xyz");
@@ -1012,12 +1012,13 @@ void doStringUtilsUnitTests()
 	assert(getPrefixBeforeDelim("meh666", '3') == "meh666");
 	assert(getPrefixBeforeDelim("meh666", 'm') == "");
 
-	assert(::toHexString(0x34bc8106) == "0x34bc8106");
-	assert(::toHexString(0x0) == "0x0");
-	assert(::toHexString(0x00000) == "0x0");
-	assert(::toHexString(0x1) == "0x1");
-	assert(::toHexString(0x00000001) == "0x1");
-	assert(::toHexString(0xffffffff) == "0xffffffff");
+	assert(::toHexString(0x34bc8106) == "34BC8106");
+	assert(::toHexString(0x0) == "0");
+	assert(::toHexString(0x00000) == "0");
+	assert(::toHexString(0x1) == "1");
+	assert(::toHexString(0x00000001) == "1");
+	assert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
+	assert(::toHexString(0xA4) == "A4");
 
 	assert(::hexStringToUInt("0x34bc8106") == 0x34bc8106);
 	assert(::hexStringToUInt("0x0005F") == 0x0005F);
@@ -1037,7 +1038,7 @@ void doStringUtilsUnitTests()
 	assert(::isWhitespace(' '));
 	assert(::isWhitespace('\t'));
 	assert(::isWhitespace('	'));
-
+/*
 	{
 	const std::string a = ::eatTailWhitespace("abc  \t    ");
 	assert(a == "abc");
