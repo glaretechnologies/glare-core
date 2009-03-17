@@ -123,11 +123,36 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 }
 
 
+//#if defined(WIN32) || defined(WIN64)
+//#else
+//#define cpuid(in,a,b,c,d)\
+//  asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
+//#endif
+
+static void doCPUID(unsigned int infotype, unsigned int* out)
+{
 #if defined(WIN32) || defined(WIN64)
+	int CPUInfo[4];
+	__cpuid(
+		CPUInfo,
+		infotype // infotype
+		);
+	memcpy(out, CPUInfo, 16);
 #else
-#define cpuid(in,a,b,c,d)\
-  asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
+	asm(
+		"pushl %%ebx \n\t" /* save %ebx */
+		"cpuid \n\t"
+		"movl %%ebx, %esi \n\t" /* save what cpuid just put in %ebx */
+		"popl %%ebx \n\t" /* restore the old %ebx */
+		: "=a" (out[0]), /* output */
+		"=S" (out[1]),
+		"=c" (out[2]),
+		"=d" (out[3])
+		: "a" (infotype) /*input */
+		);
 #endif
+}
+
 
 void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 {
@@ -136,12 +161,8 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	const int SSE2_FLAG = 1 << 26;
 	const int SSE3_FLAG = 1;
 
-#if defined(WIN32) || defined(WIN64)
-	int CPUInfo[4];
-	__cpuid(
-		CPUInfo,
-		0 // infotype
-		);
+	unsigned int CPUInfo[4];
+	doCPUID(0, CPUInfo);
 
 	const int highest_param = CPUInfo[0];
 	assert(highest_param >= 1);
@@ -151,10 +172,7 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	memcpy(info_out.vendor + 8, &CPUInfo[2], 4);
 	info_out.vendor[12] = 0;
 
-	__cpuid(
-		CPUInfo,
-		1 // infotype
-		);
+	doCPUID(1, CPUInfo);
 
 	info_out.mmx = (CPUInfo[3] & MMX_FLAG ) != 0;
 	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
@@ -164,39 +182,28 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.model = (CPUInfo[0] >> 4) & 0xF;
 	info_out.family = (CPUInfo[0] >> 8) & 0xF;
 
-	__cpuid(
-		CPUInfo,
-		0x80000000
-		);
+	doCPUID(0x80000000, CPUInfo);
+
 	unsigned int highest_extended_param;
 	memcpy(&highest_extended_param, &CPUInfo[0], 4);
 	assert(highest_extended_param >= 0x80000004);
 
-	__cpuid(
-		CPUInfo,
-		0x80000002
-		);
+	doCPUID(0x80000002, CPUInfo);
 	memcpy(info_out.proc_brand + 0, CPUInfo + 0, 4);
 	memcpy(info_out.proc_brand + 4, CPUInfo + 1, 4);
 	memcpy(info_out.proc_brand + 8, CPUInfo + 2, 4);
 	memcpy(info_out.proc_brand + 12, CPUInfo + 3, 4);
-	__cpuid(
-		CPUInfo,
-		0x80000003
-		);
+	doCPUID(0x80000003, CPUInfo);
 	memcpy(info_out.proc_brand + 16, CPUInfo + 0, 4);
 	memcpy(info_out.proc_brand + 20, CPUInfo + 1, 4);
 	memcpy(info_out.proc_brand + 24, CPUInfo + 2, 4);
 	memcpy(info_out.proc_brand + 28, CPUInfo + 3, 4);
-	__cpuid(
-		CPUInfo,
-		0x80000004
-		);
+	doCPUID(0x80000004, CPUInfo);
 	memcpy(info_out.proc_brand + 32, CPUInfo + 0, 4);
 	memcpy(info_out.proc_brand + 36, CPUInfo + 1, 4);
 	memcpy(info_out.proc_brand + 40, CPUInfo + 2, 4);
 	memcpy(info_out.proc_brand + 44, CPUInfo + 3, 4);
-
+/*
 #else
 	unsigned int a, b, c, d;
 	cpuid(0, a, b, c, d);
@@ -240,5 +247,5 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	memcpy(info_out.proc_brand + 36, &b, 4);
 	memcpy(info_out.proc_brand + 40, &c, 4);
 	memcpy(info_out.proc_brand + 44, &d, 4);
-#endif
+#endif*/
 }
