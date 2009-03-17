@@ -143,6 +143,9 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 		0 // infotype
 		);
 
+	const int highest_param = CPUInfo[0];
+	assert(highest_param >= 1);
+
 	memcpy(info_out.vendor, &CPUInfo[1], 4);
 	memcpy(info_out.vendor + 4, &CPUInfo[3], 4);
 	memcpy(info_out.vendor + 8, &CPUInfo[2], 4);
@@ -157,10 +160,49 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
 	info_out.sse2 = (CPUInfo[3] & SSE2_FLAG ) != 0;
 	info_out.sse3 = (CPUInfo[2] & SSE3_FLAG ) != 0;
+	info_out.stepping = CPUInfo[0] & 0xF;
+	info_out.model = (CPUInfo[0] >> 4) & 0xF;
+	info_out.family = (CPUInfo[0] >> 8) & 0xF;
+
+	__cpuid(
+		CPUInfo,
+		0x80000000
+		);
+	unsigned int highest_extended_param;
+	memcpy(&highest_extended_param, &CPUInfo[0], 4);
+	assert(highest_extended_param >= 0x80000004);
+
+	__cpuid(
+		CPUInfo,
+		0x80000002
+		);
+	memcpy(info_out.proc_brand + 0, CPUInfo + 0, 4);
+	memcpy(info_out.proc_brand + 4, CPUInfo + 1, 4);
+	memcpy(info_out.proc_brand + 8, CPUInfo + 2, 4);
+	memcpy(info_out.proc_brand + 12, CPUInfo + 3, 4);
+	__cpuid(
+		CPUInfo,
+		0x80000003
+		);
+	memcpy(info_out.proc_brand + 16, CPUInfo + 0, 4);
+	memcpy(info_out.proc_brand + 20, CPUInfo + 1, 4);
+	memcpy(info_out.proc_brand + 24, CPUInfo + 2, 4);
+	memcpy(info_out.proc_brand + 28, CPUInfo + 3, 4);
+	__cpuid(
+		CPUInfo,
+		0x80000004
+		);
+	memcpy(info_out.proc_brand + 32, CPUInfo + 0, 4);
+	memcpy(info_out.proc_brand + 36, CPUInfo + 1, 4);
+	memcpy(info_out.proc_brand + 40, CPUInfo + 2, 4);
+	memcpy(info_out.proc_brand + 44, CPUInfo + 3, 4);
 
 #else
 	unsigned int a, b, c, d;
 	cpuid(0, a, b, c, d);
+
+	const unsigned int highest_param = a;
+	assert(highest_param >= 1);
 
 	memcpy(info_out.vendor, &b, 4);
 	memcpy(info_out.vendor + 4, &d, 4);
@@ -173,5 +215,30 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.sse1 = (d & SSE_FLAG ) != 0;
 	info_out.sse2 = (d & SSE2_FLAG ) != 0;
 	info_out.sse3 = (c & SSE3_FLAG ) != 0;
+	info_out.stepping = a & 0xF;
+	info_out.model = (a >> 4) & 0xF;
+	info_out.family = (a >> 8) & 0xF;
+
+	cpuid(0x80000000, a, b, c, d);
+	const unsigned int highest_extended_param = a;
+	assert(highest_extended_param >= 0x80000004);
+
+	cpuid(0x80000002, a, b, c, d);
+	memcpy(info_out.proc_brand + 0, a, 4);
+	memcpy(info_out.proc_brand + 4, b, 4);
+	memcpy(info_out.proc_brand + 8, c, 4);
+	memcpy(info_out.proc_brand + 12, d, 4);
+	
+	cpuid(0x80000003, a, b, c, d);
+	memcpy(info_out.proc_brand + 16, a, 4);
+	memcpy(info_out.proc_brand + 20, b, 4);
+	memcpy(info_out.proc_brand + 24, c, 4);
+	memcpy(info_out.proc_brand + 28, d, 4);
+
+	cpuid(0x80000004, a, b, c, d);
+	memcpy(info_out.proc_brand + 32, a, 4);
+	memcpy(info_out.proc_brand + 36, b, 4);
+	memcpy(info_out.proc_brand + 40, c, 4);
+	memcpy(info_out.proc_brand + 44, d, 4);
 #endif
 }

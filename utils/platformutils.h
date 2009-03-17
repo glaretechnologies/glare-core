@@ -50,6 +50,10 @@ class CPUInfo
 public:
 	char vendor[13];
 	bool mmx, sse1, sse2, sse3;
+	unsigned int stepping;
+	unsigned int model;
+	unsigned int family;
+	char proc_brand[48];
 };
 
 void getCPUInfo(CPUInfo& info_out);
