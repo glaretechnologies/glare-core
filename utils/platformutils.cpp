@@ -137,13 +137,17 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 	memcpy(out, CPUInfo, 16);
 #else
 
-	__asm__("pushl %%ebx \n\t"
-			"cpuid \n\t"
-			"movl %%ebx, %%esi \n\t"
-			"popl %%ebx \n\t"
-			: "=a" (words[0])
-			:
-	);
+	/* ebx saving is necessary for PIC. gcc seems unable to see it alone */
+
+     __asm__ volatile\
+         ("mov %%"REG_b", %%"REG_S"\n\t"\
+          "cpuid\n\t"\
+          "xchg %%"REG_b", %%"REG_S\
+          : "=a" (eax), "=S" (ebx),\
+            "=c" (ecx), "=d" (edx)\
+          : "0" (index));
+
+
 
 #if 0
 	__asm__(
