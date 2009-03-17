@@ -123,14 +123,11 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 }
 
 
-//#if defined(WIN32) || defined(WIN64)
-//#else
-//#define cpuid(in,a,b,c,d)\
-//  asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
-//#endif
-
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
+	unsigned int reg = infotype;
+	unsigned int words[4];
+
 #if defined(WIN32) || defined(WIN64)
 	int CPUInfo[4];
 	__cpuid(
@@ -139,17 +136,29 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 		);
 	memcpy(out, CPUInfo, 16);
 #else
-	asm(
+
+	__asm__("pushl %%ebx \n\t"
+			"cpuid \n\t"
+			"movl %%ebx, %%esi \n\t"
+			"popl %%ebx \n\t"
+			: "=a" (words[0])
+			:
+	);
+
+#if 0
+	__asm__(
 		"pushl %%ebx \n\t" /* save %ebx */
 		"cpuid \n\t"
-		"movl %%ebx, %esi \n\t" /* save what cpuid just put in %ebx */
+		"movl %%ebx, %%esi \n\t" /* save what cpuid just put in %ebx */
 		"popl %%ebx \n\t" /* restore the old %ebx */
-		: "=a" (out[0]), /* output */
-		"=S" (out[1]),
-		"=c" (out[2]),
-		"=d" (out[3])
-		: "a" (infotype) /*input */
+		: "=a" (words[0]), /* output */
+		"=S" (words[1]),
+		"=c" (words[2]),
+		"=d" (words[3])
+		: "a" (reg) /*input */
 		);
+#endif
+	memcpy(out, words, 16);
 #endif
 }
 
