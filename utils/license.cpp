@@ -17,6 +17,8 @@
 
 #define	PUBLIC_CERTIFICATE_DATA "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n"
 
+namespace Licensing{
+	
 using namespace std;
 
 string slurp(string fn) {
@@ -66,7 +68,7 @@ EVP_PKEY* get_public_key(){
 	return PEM_read_bio_PUBKEY(mbio, NULL, NULL, NULL);
 }
 
-bool verify(){
+bool verify_license(){
     EVP_MD_CTX ctx;
 
 	ERR_load_crypto_strings();
@@ -133,13 +135,15 @@ bool verify(){
 	}
 }
 
-int main(int argc, char **argv){
-	if (verify()){
-		cout << "Running in full version\n";
-	}else{
-		cout << "Running in demo mode\n";
-	}
-	
-	return 0;
+// int main(int argc, char **argv){
+// 	if (verify()){
+// 		cout << "Running in full version\n";
+// 	}else{
+// 		cout << "Running in demo mode\n";
+// 	}
+// 	
+// 	return 0;
+// 
+// }
 
 }

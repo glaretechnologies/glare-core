@@ -27,6 +27,16 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include <iostream> //TEMP
 
+#if defined(OSX)
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <sys/ioctl.h>
+	#include <sys/sysctl.h>
+	#include <net/if.h>
+	#include <net/if_dl.h>
+	#include <netinet/in.h>
+	#include <arpa/inet.h>
+#endif
 
 //make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
@@ -75,6 +85,7 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 
 #if defined(WIN32) || defined(WIN64)
 #else
+#ifndef OSX
 // From http://www.creatis.insa-lyon.fr/~malaterre/gdcm/getether/mac_addr_sys.c
 long mac_addr_sys ( u_char *addr)
 {
@@ -118,6 +129,7 @@ long mac_addr_sys ( u_char *addr)
     return 0;
 }
 #endif
+#endif
 
 
 
@@ -149,6 +161,48 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 
 		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
 	}
+#endif
+
+#if defined(OSX)
+	int			mib[6];
+	size_t	 	len;
+	char			*buf;
+	unsigned char		*ptr;
+	struct if_msghdr	*ifm;
+	struct sockaddr_dl	*sdl;
+	
+	mib[0] = CTL_NET;
+	mib[1] = AF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_LINK;
+	mib[4] = NET_RT_IFLIST;
+	if ((mib[5] = if_nametoindex("en1")) == 0) {
+		throw("if_nametoindex error");
+	}
+
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
+		throw("sysctl 1 error");
+	}
+
+	if ((buf = (char *)malloc(len)) == NULL) {
+		throw("malloc error");
+	}
+
+	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+		throw("sysctl 2 error");
+	}
+
+	ifm = (struct if_msghdr *)buf;
+	sdl = (struct sockaddr_dl *)(ifm + 1);
+	ptr = (unsigned char *)LLADDR(sdl);
+	
+	char buffer[100];
+	
+	sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+
+	addresses_out.resize(0);
+	addresses_out.push_back(std::string(buffer));
+
 #else
 	/*int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
