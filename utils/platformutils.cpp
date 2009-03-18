@@ -72,6 +72,54 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 }
 
 
+
+#if defined(WIN32) || defined(WIN64)
+#else
+long mac_addr_sys ( u_char *addr)
+{
+    struct ifreq ifr;
+    struct ifreq *IFR;
+    struct ifconf ifc;
+    char buf[1024];
+    int s, i;
+    int ok = 0;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s==-1) {
+        return -1;
+    }
+
+    ifc.ifc_len = sizeof(buf);
+    ifc.ifc_buf = buf;
+    ioctl(s, SIOCGIFCONF, &ifc);
+
+    IFR = ifc.ifc_req;
+    for (i = ifc.ifc_len / sizeof(struct ifreq); --i >= 0; IFR++) {
+
+        strcpy(ifr.ifr_name, IFR->ifr_name);
+        if (ioctl(s, SIOCGIFFLAGS, &ifr) == 0) {
+            if (! (ifr.ifr_flags & IFF_LOOPBACK)) {
+                if (ioctl(s, SIOCGIFHWADDR, &ifr) == 0) {
+                    ok = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    close(s);
+    if (ok) {
+        bcopy( ifr.ifr_hwaddr.sa_data, addr, 6);
+    }
+    else {
+        return -1;
+    }
+    return 0;
+}
+#endif
+
+
+
 void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -101,7 +149,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
 	}
 #else
-	int fd = socket(AF_INET, SOCK_DGRAM, 0);
+	/*int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
 	if(fd == -1)
 		throw PlatformUtilsExcep("socket() Failed.");
@@ -110,7 +158,8 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	ifr.ifr_addr.sa_family = AF_INET;
 	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1); // Assuming we want eth0
 
-	ioctl(fd, SIOCGIFHWADDR, &ifr); // Retrieve MAC address
+	if(ioctl(fd, SIOCGIFHWADDR, &ifr) == -1) // Retrieve MAC address
+		throw PlatformUtilsExcep("ioctl() failed.");
 
 	close(fd);
 
@@ -118,7 +167,17 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	for(unsigned i=0; i<6; ++i)
 	{
 		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
+	}*/
+	addresses_out.resize(1);
+	unsigned char addr[6];
+	if(mac_addr_sys(addr) != 0)
+		throw PlatformUtilsExcep("mac_addr_sys failed.");
+
+	for(unsigned i=0; i<6; ++i)
+	{
+		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)addr[i]), '0', 2) + ((i < 5) ? "-" : "");
 	}
+
 #endif
 }
 
