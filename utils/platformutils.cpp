@@ -75,6 +75,7 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 
 #if defined(WIN32) || defined(WIN64)
 #else
+// From http://www.creatis.insa-lyon.fr/~malaterre/gdcm/getether/mac_addr_sys.c
 long mac_addr_sys ( u_char *addr)
 {
     struct ifreq ifr;
