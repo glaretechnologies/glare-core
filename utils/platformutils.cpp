@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "platformutils.h"
 
+
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
@@ -15,7 +16,6 @@ Code By Nicholas Chapman.
 #else
 #include <time.h>
 #include <unistd.h>
-
 #include <string.h> /* for strncpy */
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -25,20 +25,19 @@ Code By Nicholas Chapman.
 #endif
 #include <cassert>
 #include "../utils/stringutils.h"
-#include <iostream> //TEMP
 
 #if defined(OSX)
-	#include <sys/types.h>
-	#include <sys/socket.h>
-	#include <sys/ioctl.h>
-	#include <sys/sysctl.h>
-	#include <net/if.h>
-	#include <net/if_dl.h>
-	#include <netinet/in.h>
-	#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/sysctl.h>
+#include <net/if.h>
+#include <net/if_dl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #endif
 
-//make current thread sleep for x milliseconds
+// Make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -53,22 +52,6 @@ void PlatformUtils::Sleep(int x)
 #endif
 }
 
-/*
-unsigned int PlatformUtils::getMinWorkingSetSize()
-{
-	SIZE_T min, max;
-	GetProcessWorkingSetSize(GetCurrentProcess(), &min, &max);
-
-	return (unsigned int)min;
-}
-unsigned int PlatformUtils::getMaxWorkingSetSize()
-{
-	SIZE_T min, max;
-	GetProcessWorkingSetSize(GetCurrentProcess(), &min, &max);
-
-	return (unsigned int)max;
-}
-*/
 
 unsigned int PlatformUtils::getNumLogicalProcessors()
 {
@@ -80,7 +63,6 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 	return sysconf(_SC_NPROCESSORS_CONF);
 #endif
 }
-
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -132,7 +114,6 @@ long mac_addr_sys ( u_char *addr)
 #endif
 
 
-
 void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -161,9 +142,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 
 		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
 	}
-#endif
-
-#if defined(OSX)
+#elif defined(OSX)
 	int			mib[6];
 	size_t	 	len;
 	char			*buf;
@@ -203,26 +182,8 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	addresses_out.resize(0);
 	addresses_out.push_back(std::string(buffer));
 
-#else
-	/*int fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if(fd == -1)
-		throw PlatformUtilsExcep("socket() Failed.");
-
-	struct ifreq ifr;
-	ifr.ifr_addr.sa_family = AF_INET;
-	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1); // Assuming we want eth0
-
-	if(ioctl(fd, SIOCGIFHWADDR, &ifr) == -1) // Retrieve MAC address
-		throw PlatformUtilsExcep("ioctl() failed.");
-
-	close(fd);
-
-	addresses_out.resize(1);
-	for(unsigned i=0; i<6; ++i)
-	{
-		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)ifr.ifr_hwaddr.sa_data[i]), '0', 2) + ((i < 5) ? "-" : "");
-	}*/
+#else 
+	// else Linux
 	addresses_out.resize(1);
 	unsigned char addr[6];
 	if(mac_addr_sys(addr) != 0)
@@ -232,15 +193,12 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	{
 		addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)addr[i]), '0', 2) + ((i < 5) ? "-" : "");
 	}
-
 #endif
 }
 
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
-
-
 #if defined(WIN32) || defined(WIN64)
 	int CPUInfo[4];
 	__cpuid(
@@ -275,7 +233,8 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	doCPUID(0, CPUInfo);
 
 	const int highest_param = CPUInfo[0];
-	assert(highest_param >= 1);
+	if(highest_param < 1)
+		throw PlatformUtilsExcep("CPUID highest_param error.");
 
 	memcpy(info_out.vendor, &CPUInfo[1], 4);
 	memcpy(info_out.vendor + 4, &CPUInfo[3], 4);
@@ -294,9 +253,9 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 
 	doCPUID(0x80000000, CPUInfo);
 
-	unsigned int highest_extended_param;
-	memcpy(&highest_extended_param, &CPUInfo[0], 4);
-	assert(highest_extended_param >= 0x80000004);
+	const unsigned int highest_extended_param = CPUInfo[0];
+	if(highest_extended_param < 0x80000004)
+		throw PlatformUtilsExcep("CPUID highest_extended_param error.");
 
 	doCPUID(0x80000002, CPUInfo);
 	memcpy(info_out.proc_brand + 0, CPUInfo + 0, 4);
@@ -313,49 +272,4 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	memcpy(info_out.proc_brand + 36, CPUInfo + 1, 4);
 	memcpy(info_out.proc_brand + 40, CPUInfo + 2, 4);
 	memcpy(info_out.proc_brand + 44, CPUInfo + 3, 4);
-/*
-#else
-	unsigned int a, b, c, d;
-	cpuid(0, a, b, c, d);
-
-	const unsigned int highest_param = a;
-	assert(highest_param >= 1);
-
-	memcpy(info_out.vendor, &b, 4);
-	memcpy(info_out.vendor + 4, &d, 4);
-	memcpy(info_out.vendor + 8, &c, 4);
-	info_out.vendor[12] = 0;
-
-	cpuid(1, a, b, c, d);
-
-	info_out.mmx = (d & MMX_FLAG) != 0;
-	info_out.sse1 = (d & SSE_FLAG ) != 0;
-	info_out.sse2 = (d & SSE2_FLAG ) != 0;
-	info_out.sse3 = (c & SSE3_FLAG ) != 0;
-	info_out.stepping = a & 0xF;
-	info_out.model = (a >> 4) & 0xF;
-	info_out.family = (a >> 8) & 0xF;
-
-	cpuid(0x80000000, a, b, c, d);
-	const unsigned int highest_extended_param = a;
-	assert(highest_extended_param >= 0x80000004);
-
-	cpuid(0x80000002, a, b, c, d);
-	memcpy(info_out.proc_brand + 0, &a, 4);
-	memcpy(info_out.proc_brand + 4, &b, 4);
-	memcpy(info_out.proc_brand + 8, &c, 4);
-	memcpy(info_out.proc_brand + 12, &d, 4);
-
-	cpuid(0x80000003, a, b, c, d);
-	memcpy(info_out.proc_brand + 16, &a, 4);
-	memcpy(info_out.proc_brand + 20, &b, 4);
-	memcpy(info_out.proc_brand + 24, &c, 4);
-	memcpy(info_out.proc_brand + 28, &d, 4);
-
-	cpuid(0x80000004, a, b, c, d);
-	memcpy(info_out.proc_brand + 32, &a, 4);
-	memcpy(info_out.proc_brand + 36, &b, 4);
-	memcpy(info_out.proc_brand + 40, &c, 4);
-	memcpy(info_out.proc_brand + 44, &d, 4);
-#endif*/
 }

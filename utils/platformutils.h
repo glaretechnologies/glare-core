@@ -34,15 +34,10 @@ private:
 void Sleep(int x);//make current thread sleep for x milliseconds
 
 
-//unsigned int getMinWorkingSetSize();
-//unsigned int getMaxWorkingSetSize();
-
-
 unsigned int getNumLogicalProcessors();
 
 
 void getMACAddresses(std::vector<std::string>& addresses_out); // throws PlatformUtilsExcep
-
 
 
 class CPUInfo
@@ -56,7 +51,7 @@ public:
 	char proc_brand[48];
 };
 
-void getCPUInfo(CPUInfo& info_out);
+void getCPUInfo(CPUInfo& info_out); // throws PlatformUtilsExcep
 
 
 }//end namespace PlatformUtils
