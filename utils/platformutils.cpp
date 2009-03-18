@@ -156,19 +156,19 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	mib[3] = AF_LINK;
 	mib[4] = NET_RT_IFLIST;
 	if ((mib[5] = if_nametoindex("en1")) == 0) {
-		throw("if_nametoindex error");
+		throw PlatformUtilsExcep("if_nametoindex error");
 	}
 
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
-		throw("sysctl 1 error");
+		throw PlatformUtilsExcep("sysctl 1 error");
 	}
 
 	if ((buf = (char *)malloc(len)) == NULL) {
-		throw("malloc error");
+		throw PlatformUtilsExcep("malloc error");
 	}
 
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
-		throw("sysctl 2 error");
+		throw PlatformUtilsExcep("sysctl 2 error");
 	}
 
 	ifm = (struct if_msghdr *)buf;
@@ -177,7 +177,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	
 	char buffer[100];
 	
-	sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+	sprintf(buffer, "%02x-%02x-%02x-%02x-%02x-%02x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
 
 	addresses_out.resize(0);
 	addresses_out.push_back(std::string(buffer));
