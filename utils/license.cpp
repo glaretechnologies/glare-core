@@ -12,7 +12,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 #include "platformutils.h"
 #include "fileutils.h"
-
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -20,7 +19,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <openssl/x509.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
-
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,18 +31,18 @@ static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\n
 
 // From http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
-static std::vector<unsigned char> decode_base64(const std::string& data) {
+static std::vector<unsigned char> decodeBase64(const std::vector<unsigned char>& data) {
 	std::vector<unsigned char> rv;
     BIO *b64 = 0, *bmem = 0;
     rv.clear();
 	
     try {
-        bmem = BIO_new_mem_buf((void*)data.data(),data.size());
+        bmem = BIO_new_mem_buf((void*)&data[0], data.size());
         if(!bmem)
-            throw "failed to allocate in base64 decoder";
+			throw License::LicenseExcep("failed to allocate in base64 decoder");
         b64 = BIO_new(BIO_f_base64());
         if(!b64)
-            throw "failed to initialize in base64 decoder";
+            throw License::LicenseExcep("failed to initialize in base64 decoder");
         BIO_push(b64,bmem);
         unsigned char tmp[512];
         size_t rb = 0;
@@ -54,7 +52,7 @@ static std::vector<unsigned char> decode_base64(const std::string& data) {
         BIO_free_all(b64);
     }catch(...) {
         if(b64) BIO_free_all(b64);
-        throw;
+        throw License::LicenseExcep("base64 decoder error");
     }
 	
 	return rv;
@@ -89,22 +87,23 @@ bool License::verifyLicense(const std::string& indigo_base_path)
 	const std::string hwinfo = getHardwareIdentifier();
 
 	// Load the signature and decode from base64
-	if(!FileUtils::fileExists(FileUtils::join(indigo_base_path, "license.sig")))
+	if(!FileUtils::fileExists(FileUtils::join(indigo_base_path, "licence.sig")))
 		return false;
 
 	std::vector<unsigned char> signature;
 	try
 	{
-		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "license.sig"), signature);
+		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "licence.sig"), signature);
+
+		if(signature.empty())
+			throw LicenseExcep("Signature empty.");
+
+		signature = decodeBase64(signature);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		throw LicenseExcep(e.what());
 	}
-
-	if(signature.empty())
-		throw LicenseExcep("Signature empty.");
-
 
 	// Initialize openssl and pass in the data
 	EVP_MD_CTX ctx;
@@ -117,14 +116,14 @@ bool License::verifyLicense(const std::string& indigo_base_path)
 	// Call the actual verify function and get result
 	const int result = EVP_VerifyFinal(&ctx, &signature[0], signature.size(), public_key);
 
-    if(result == 1)
+	ERR_free_strings();
+
+	if(result == 1)
 		return true;
-	else if (result == 0) // incorrect signature
+	else if(result == 0) // incorrect signature
 		return false;
 	else // failure (other error)
 		throw LicenseExcep("Verification failed.");
-
-	ERR_free_strings();
 }
 
 

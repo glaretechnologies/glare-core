@@ -166,19 +166,6 @@ void SSETest()
 	}
 
 
-
-
-
-
-
-
-
-
-
-	conPrint("bleh");
-
-
-
 	const int N = 200000 * 4;
 	float* data1 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
 	float* data2 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
