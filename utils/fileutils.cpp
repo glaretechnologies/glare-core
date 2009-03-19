@@ -21,11 +21,6 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 
-/*#define BOOST_ALL_NO_LIB
-#include <boost/filesystem/path.hpp>
-
-#include <iostream>
-boost::filesystem::path p("dgfbdf");*/
 
 namespace FileUtils
 {
