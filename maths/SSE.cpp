@@ -25,6 +25,20 @@ namespace SSE
 {
 
 
+static inline size_t allBitsOne()
+{
+	if(sizeof(size_t) == 4)
+		//return 0xFFFFFFFF;
+    return -1;
+	else if(sizeof(size_t) == 8)
+		return -1; //return 0xFFFFFFFFFFFFFFFF;
+	else
+	{
+		assert(0);
+	}
+	
+}
+
 void* myAlignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
@@ -76,6 +90,8 @@ void* alignedMalloc(size_t size, size_t alignment)
 	if(result == NULL)
 		throw std::bad_alloc("Memory allocation failed.");
 	return result;
+#elif defined(OSX)
+  return malloc(size);
 #else
 	void* mem_ptr;
 	const int result = posix_memalign(&mem_ptr, alignment, size);

@@ -212,7 +212,7 @@ inline bool isNAN(float x)
 #if defined(WIN32) || defined(WIN64)
 	return _isnan(x) != 0;
 #else
-	return isnan(x) != 0;
+	return std::isnan(x) != 0;
 #endif
 }
 
@@ -221,7 +221,7 @@ inline bool isNAN(double x)
 #if defined(WIN32) || defined(WIN64)
 	return _isnan(x) != 0;
 #else
-	return isnan(x) != 0;
+	return std::isnan(x) != 0;
 #endif
 }
 
