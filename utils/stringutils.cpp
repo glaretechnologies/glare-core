@@ -568,7 +568,7 @@ int getNumMatches(const std::string& s, char target)
 
 void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	while(1)
 	{
@@ -703,7 +703,7 @@ void writeToQuote(std::ostream& stream, const std::string& str)//writes string t
 	stream << '\"';
 }
 
-unsigned int stringChecksum(const std::string& s)
+/*unsigned int stringChecksum(const std::string& s)
 {
 	int sum = 1;
 	for(int i=0; i<s.size(); ++i)
@@ -712,29 +712,27 @@ unsigned int stringChecksum(const std::string& s)
 	}
 
 	return sum;
-}
+}*/
 
 
 //replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest)
 {
-	for(int i=0; i<s.size(); ++i)
-	{
+	for(unsigned int i=0; i<s.size(); ++i)
 		if(s[i] == src)
 			s[i] = dest;
-	}
 }
 
 
 
-const std::string getTailSubString(const std::string& s, int first_char_index)
+const std::string getTailSubString(const std::string& s, unsigned int first_char_index)
 {
 	assert(first_char_index >= 0);
 
 	if(first_char_index >= s.size())
 		return "";
 
-	return s.substr(first_char_index, (int)s.size() - first_char_index);
+	return s.substr(first_char_index, s.size() - first_char_index);
 }
 
 
@@ -808,7 +806,7 @@ const std::vector<std::string> split(const std::string& s, char delim)
 }
 
 
-const std::string leftPad(const std::string& s, char c, int minwidth)
+const std::string leftPad(const std::string& s, char c, unsigned int minwidth)
 {
 	if(minwidth > s.length())
 		return std::string(minwidth - s.length(), c) + s;
@@ -817,7 +815,7 @@ const std::string leftPad(const std::string& s, char c, int minwidth)
 }
 
 
-const std::string rightPad(const std::string& s, char c, int minwidth)
+const std::string rightPad(const std::string& s, char c, unsigned int minwidth)
 {
 	if(minwidth > s.length())
 		return s + std::string(minwidth - s.length(), c);

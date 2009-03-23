@@ -165,7 +165,7 @@ inline const std::string appendChar(const std::string& s, char c)
 }
 
 // If first_char_index is >= s.size(), then returns ""
-const std::string getTailSubString(const std::string& s, int first_char_index);
+const std::string getTailSubString(const std::string& s, unsigned int first_char_index);
 
 const std::string forceCopyString(const std::string& s);
 
@@ -176,8 +176,8 @@ const std::string getPrefixBeforeDelim(const std::string& s, char delim);
 
 const std::vector<std::string> split(const std::string& s, char delim);
 
-const std::string leftPad(const std::string& s, char c, int minwidth);
-const std::string rightPad(const std::string& s, char c, int minwidth);
+const std::string leftPad(const std::string& s, char c, unsigned int minwidth);
+const std::string rightPad(const std::string& s, char c, unsigned int minwidth);
 
 namespace StringUtils
 {
