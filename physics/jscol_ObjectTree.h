@@ -72,15 +72,15 @@ public:
 	//js::ObjectTreePerThreadData* allocContext() const;
 
 	// Returns distance untill hit or negative if missed
-	double traceRay(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	double traceRay(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, double length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context) const;
+	bool doesFiniteRayHit(const Ray& ray, double length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time) const;
 
 	const js::AABBox& getAABBoxWS() const { return *root_aabb; }
 
 	///-------- debugging methods ---------///
-	double traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
-	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context) const;
+	double traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time) const;
 	void writeTreeModel(std::ostream& stream);
 	void printTree(int currentnode, int depth, std::ostream& out);
 	void getTreeStats(ObjectTreeStats& stats_out, int cur = 0, int depth = 0);

@@ -115,6 +115,8 @@ public:
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;
 
+	virtual Vec3RealType getBoundingRadius() const = 0;
+
 
 
 	const std::map<std::string, unsigned int>& getMaterialNameToIndexMap() const { return matname_to_index_map; }

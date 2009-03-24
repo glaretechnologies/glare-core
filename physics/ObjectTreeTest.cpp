@@ -45,6 +45,8 @@ ObjectTreeTest::~ObjectTreeTest()
 void ObjectTreeTest::doTests()
 {
 	conPrint("ObjectTreeTest::doTests()");
+	double start_time = 0.0;
+	double end_time = 0.0;
 	MTwister rng(1);
 
 	ObjectTree ob_tree;
@@ -56,10 +58,14 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Reference<Geometry> raysphere(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05));
+		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+
+		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
 		Object* ob = new Object(
 			raysphere,
-			Vec3d(0,0,0),
+			//pos, pos,
+			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -68,7 +74,7 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output);
+		ob->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(print_output);
@@ -92,6 +98,8 @@ void ObjectTreeTest::doTests()
 			normalise(Vec3d(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.5, 0.5, 0.5)))
 			);
 
+		double time = 0.0;
+
 		//ray.buildRecipRayDir();
 
 		//------------------------------------------------------------------------
@@ -99,8 +107,8 @@ void ObjectTreeTest::doTests()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo, hitinfo2;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
-		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, hitob, hitinfo);
-		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, obtree_context, hitob, hitinfo2);
+		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, time, hitob, hitinfo);
+		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, obtree_context, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
 		testAssert(t > 0.0 == t2 > 0.0);
@@ -116,8 +124,8 @@ void ObjectTreeTest::doTests()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
-		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context,  obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, time);
+		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context,  obtree_context, time);
 		testAssert(a == b);
 
 		if(t >= 0.0)//if the trace hit something after distance t
@@ -279,6 +287,9 @@ void ObjectTreeTest::doSpeedTest()
 
 	ObjectTree ob_tree;
 
+	double start_time = 0.0;
+	double end_time = 0.0;
+
 	ThreadContext thread_context(1, 0);
 	StandardPrintOutput print_output;
 
@@ -286,9 +297,14 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
+		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+
+		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
 		Object* ob = new Object(
-			Reference<Geometry>(new RaySphere(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()), rng.unitRandom() * 0.05)),
-			Vec3d(0,0,0),
+			raysphere,
+			//pos, pos,
+			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -297,7 +313,7 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output);
+		ob->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(print_output);
@@ -330,7 +346,7 @@ void ObjectTreeTest::doSpeedTest()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
-		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, hitob, hitinfo);
+		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, start_time, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -356,7 +372,7 @@ void ObjectTreeTest::doSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, start_time);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -367,10 +383,12 @@ void ObjectTreeTest::doSpeedTest()
 
 void ObjectTreeTest::instancedMeshSpeedTest()
 {
-
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
 
 	MTwister rng(1);
+
+	double start_time = 0.0;
+	double end_time = 0.0;
 
 	//------------------------------------------------------------------------
 	//load bunny mesh
@@ -408,9 +426,12 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		rot.scale(0.3);
 
+		const Vec3d offset(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
+
 		Object* object = new Object(
 			Reference<Geometry>(raymesh.getPointer()),
-			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
+			//offset, offset,
+			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),
 			rot,
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -419,7 +440,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->buildGeometry(thread_context, "", settings, print_output);
+		object->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
 
 		ob_tree.insertObject(object);
 	}
@@ -463,7 +484,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const double len = start.getDist(end);//rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, start_time);
 		if(a)
 			num_hits++;
 	}

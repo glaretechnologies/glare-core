@@ -331,7 +331,7 @@ template <class Real> const Vec3<Real> sampleSolidAngleCone(const SamplePair& sa
 {
 	assert(angle > 0.0);
 
-	const Real phi = samples.x * NICKMATHS_2PI;
+	const Real phi = samples.x * (Real)NICKMATHS_2PI;
 	const Real alpha = sqrt(samples.y) * angle;
 
 	//const float r = sqrt(unitsamples.x);

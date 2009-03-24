@@ -4,6 +4,7 @@
 #include "../indigo/TestUtils.h"
 #include "Matrix2.h"
 #include "matrix3.h"
+#include "Quat.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
@@ -11,7 +12,25 @@
 
 void Maths::test()
 {
+	
+
 	conPrint("Maths::test()");
+
+
+	{
+	Quatd identity = Quatd::identity();
+	Quatd q = Quatd::fromAxisAndAngle(Vec3d(0,0,1), 20.0);
+
+	Matrix3d mat;
+	Maths::lerp(identity, q, 0.5).toMatrix(mat);
+
+	Matrix3d rot = Matrix3d::rotationMatrix(Vec3d(0,0,1), 10.0);
+
+	testAssert(epsMatrixEqual(mat, rot));
+
+	}
+
+
 
 	testAssert(approxEq(1.0, 1.0));
 	testAssert(approxEq(1.0, 1.0000001));

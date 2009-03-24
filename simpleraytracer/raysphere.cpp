@@ -37,16 +37,15 @@ You may not use this code for any commercial project.
 #include "../indigo/object.h"
 
 
-RaySphere::RaySphere(const Vec3d& pos_, double radius_)
+RaySphere::RaySphere(double radius_)
 {
-	centerpos = pos_;
 	radius = radius_;
 	radius_squared = radius_ * radius_;
 	recip_radius = 1.0 / radius;
 
 	aabbox = js::AABBox(
-		toVec3f(centerpos - Vec3d(radius, radius, radius)), 
-		toVec3f(centerpos + Vec3d(radius, radius, radius))
+		Vec3f((float)radius) * -1.0f, 
+		Vec3f((float)radius)
 		);
 
 	uvset_name_to_index["default"] = 0;
@@ -67,7 +66,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 	hitinfo_out.sub_elem_index = 0;
 	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
-	const Vec3d center_to_raystart = ray.startPos() - centerpos;
+	const Vec3d center_to_raystart = ray.startPos();
 
 //http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
 	/*const double B = 2.0 * (
@@ -92,7 +91,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
-			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t0) - centerpos), recip_radius);
+			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t0)), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -105,7 +104,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 		const double t = (-B + sqrt_discriminant) * 0.5;
 		if(t > 0.0)
 		{
-			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t) - centerpos), recip_radius);
+			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(ray.point(t)), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -188,7 +187,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 {
 	hitinfos_out.resize(0);
 
-	const Vec3d raystarttosphere = centerpos - ray.startPos();
+	const Vec3d raystarttosphere = ray.startPos() * -1.0f;
 
 	const double dist_to_rayclosest = dotProduct(raystarttosphere, ray.unitDir());
 
@@ -210,7 +209,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 	if(dist_to_rayclosest + a > 0.0)
 	{
 		const Vec3d hitpos = ray.point(dist_to_rayclosest + a);
-		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos - centerpos), recip_radius);
+		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest + a, 0, uvs.x, uvs.y))
 		{
@@ -230,7 +229,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 	if(dist_to_rayclosest - a > 0.0)
 	{
 		const Vec3d hitpos = ray.point(dist_to_rayclosest - a);
-		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos - centerpos), recip_radius);
+		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest - a, 0, uvs.x, uvs.y))
 		{
@@ -264,10 +263,10 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 	//const double phi = acos(hitinfo.original_geometric_normal.z);
 
 	//(dx/du, dy/du, dz/du)
-	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * NICKMATHS_2PI * radius;
+	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f) * (Vec3RealType)NICKMATHS_2PI * (Vec3RealType)radius;
 
 	//(dx/dv, dy/dv, dz/dv)
-	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * NICKMATHS_PI * radius;
+	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi)) * (Vec3RealType)NICKMATHS_PI * (Vec3RealType)radius;
 
 	//TEMP HACK:
 	dNs_du_out = dNs_dv_out = Vec3Type(0.0);
@@ -298,10 +297,10 @@ void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& 
 	assert(sub_elem_index == 0);
 	normal_out = MatUtils::uniformlySampleSphere<Vec3RealType>(samples);
 	assert(normal_out.isUnitLength());
-	pos_out = this->centerpos + toVec3d(normal_out) * radius;
+	pos_out = toVec3d(normal_out) * radius;
 
 	hitinfo_out.sub_elem_index = 0;
-	hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir<HitInfo::SubElemCoordsRealType>(normal_out, this->recip_radius);
+	hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir<HitInfo::SubElemCoordsRealType>(normal_out, (Vec3RealType)this->recip_radius);
 }
 
 
@@ -331,9 +330,9 @@ void RaySphere::test()
 {
 	conPrint("RaySphere::test()");
 
-	const SSE_ALIGN Ray ray(Vec3d(-1,0,1), Vec3d(1,0,0));
+	const SSE_ALIGN Ray ray(Vec3d(-1,0,0), Vec3d(1,0,0));
 
-	RaySphere sphere(Vec3d(0,0,1), 0.5);
+	RaySphere sphere(/*Vec3d(0,0,1), */0.5);
 
 	js::ObjectTreePerThreadData context(true);
 	ThreadContext thread_context(1, 0);
@@ -354,7 +353,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test traceRay() in reverse direction
 	//------------------------------------------------------------------------
-	const SSE_ALIGN Ray ray2(Vec3d(1,0,1), Vec3d(-1,0,0));
+	const SSE_ALIGN Ray ray2(Vec3d(1,0,0), Vec3d(-1,0,0));
 	d = sphere.traceRay(ray2, 1000.0, thread_context, context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
@@ -397,7 +396,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere
 	//------------------------------------------------------------------------
-	const SSE_ALIGN Ray ray3(Vec3d(0.25,0,1), Vec3d(1,0,0));
+	const SSE_ALIGN Ray ray3(Vec3d(0.25,0,0), Vec3d(1,0,0));
 	d = sphere.traceRay(ray3, 1000.0, thread_context, context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.25));
 
@@ -435,4 +434,10 @@ void RaySphere::test()
 bool RaySphere::isEnvSphereGeometry() const
 {
 	return false;
+}
+
+
+RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
+{
+	return (Vec3RealType)radius;
 }

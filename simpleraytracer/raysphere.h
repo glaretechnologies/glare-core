@@ -33,7 +33,7 @@ You may not use this code for any commercial project.
 class RaySphere : public Geometry
 {
 public:
-	RaySphere(const Vec3d& pos_, double radius_);
+	RaySphere(double radius_);
 	virtual ~RaySphere();
 
 	
@@ -60,13 +60,12 @@ public:
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
+	virtual Vec3RealType getBoundingRadius() const;
 	//////////////////////////////////////////////////////////
 
 	static void test();
 
 private:
-	Vec3d centerpos;
-
 	double radius;
 
 	//stuff below is precomputed for efficiency

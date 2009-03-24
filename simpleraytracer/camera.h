@@ -17,6 +17,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../graphics/image.h" //TEMP for diffraction
 #include "../indigo/Spectral.h"
 #include "../indigo/SampleTypes.h"
+#include "../indigo/TransformPath.h"
 #include <memory>
 #include <string>
 class ColourSpaceConverter;
@@ -29,6 +30,8 @@ class Distribution2;
 class Aperture;
 class MTwister;
 
+
+
 class CameraExcep
 {
 public:
@@ -39,6 +42,7 @@ public:
 private:
 	std::string text;
 };
+
 
 /*=====================================================================
 Camera
@@ -53,7 +57,10 @@ public:
 	------
 	
 	=====================================================================*/
-	Camera(const Vec3d& pos, const Vec3d& ws_updir, const Vec3d& forwards, 
+	Camera(//const Vec3d& pos, 
+		const std::vector<TransformKeyFrame>& frames,
+		//const Matrix3f& child_to_world,
+		const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist, 
 		//const std::string& white_balance, 
 		double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
@@ -70,21 +77,21 @@ public:
 	virtual ~Camera();
 
 
-	const Vec3d sampleSensor(const SamplePair& samples) const;
-	double sensorPDF(const Vec3d& pos) const;
+	//const Vec3d sampleSensor(const SamplePair& samples, double time) const;
+	double sensorPDF() const;
 
-	const Vec3d sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/) const;
-	double lensPosPDF(/*const Vec3d& sensorpos,*/ const Vec3d& lenspos) const;
-	double lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const;
-	double lensPosVisibility(const Vec3d& lenspos) const;
+	void sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const;
+	double lensPosPDF(/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
+	double lensPosSolidAnglePDF(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const;
+	double lensPosVisibility(const Vec3d& lenspos_os, double time) const;
 
-	const Vec3d lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) const;
-	const Vec3d sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3d& raydir, bool& hitsensor_out) const;
+	const Vec3f lensExitDir(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const;
+	void sensorPosForLensIncidentRay(const Vec3d& lenspos_ws, const Vec3f& raydir, double time, bool& hitsensor_out, Vec3d& sensorpos_os_out, Vec3d& sensorpos_ws_out) const;
 
-	const Vec2d imCoordsForSensorPos(const Vec3d& senserpos) const;
-	const Vec3d sensorPosForImCoords(const Vec2d& imcoords) const;
+	const Vec2d imCoordsForSensorPos(const Vec3d& sensorpos_os, double time) const;
+	void sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const;
 
-	const Vec3d& getSensorCenter() const { return sensor_center; }
+	//const Vec3d& getSensorCenter(double time) const;// { return sensor_center; }
 
 
 	////////////////////// Geometry interface ///////////////////
@@ -111,65 +118,44 @@ public:
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
+	virtual Vec3RealType getBoundingRadius() const;
 	//////////////////////////////////////////////////////////
-	/*
-	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
-	virtual const js::AABBox& getAABBoxWS() const;
-	virtual const std::string getName() const { return "Camera"; }
-	
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const;
-
-	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const;
-	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const;
-	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
-	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
-	virtual const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
-	virtual unsigned int getNumTexCoordSets() const { return 0; }
-
-	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
-		const std::vector<Plane<double> >& camera_clip_planes){}
-	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings) {} // throws GeometryExcep
-
-	virtual void getSubElementSurfaceAreas(const Matrix3d& to_parent, std::vector<double>& surface_areas_out) const;
-	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3d& normal_out, HitInfo& hitinfo_out) const;
-	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const;*/
 
 
-	//void lookAt(const Vec3d& target);
-	//void setForwardsDir(const Vec3d& forwards);
-	//void setPos(const Vec3d& newpos) { pos = newpos; }
+	const Vec3d getUpDir(double time) const;
+	const Vec3d getRightDir(double time) const;
+	const Vec3d getForwardsDir(double time) const;
 
-	inline const Vec3d& getUpDir() const { return up; }
-	inline const Vec3d& getRightDir() const { return right; }
-	inline const Vec3d& getForwardsDir() const { return forwards; }
+	const Vec3f getForwardsDirF(double time) const;
 
-	inline const Vec3d& getPos() const { return pos; }
+	const Vec3d getPosWS(double time) const;
+	//const Vec3d getPos(double time) const;
 
 	//const Vec2d getNormedImagePointForRay(const Vec3d& unitray, bool& fell_on_image_out) const;
 
-	const Vec3d getRayUnitDirForImageCoords(double x, double y, double width, double height) const;
-	const Vec3d getRayUnitDirForNormedImageCoords(double x, double y) const;
+	//const Vec3d getRayUnitDirForImageCoords(double x, double y, double width, double height) const;
+	//const Vec3d getRayUnitDirForNormedImageCoords(double x, double y) const;
 
-	double getLensRadius() const { return lens_radius; }
+	//double getLensRadius() const { return lens_radius; }
 
-	void sampleRay(const Vec3d& target_dir, const SamplePair& samples, Vec3d& origin_out, Vec3d& unitdir_out,
-		double wvlen) const;
+	//void sampleRay(const Vec3d& target_dir, const SamplePair& samples, Vec3d& origin_out, Vec3d& unitdir_out,
+	//	double wvlen) const;
 
 	//assuming the image plane is sampled uniformly
-	double getExitRaySolidAnglePDF(const Vec3d& dir) const;
+	//double getExitRaySolidAnglePDF(const Vec3d& dir) const;
 
 	static void unitTest();
 
 	//void convertFromXYZToSRGB(Image& image) const;
 
-	double bloomRadius() const { return bloom_radius; }
-	double bloomWeight() const { return bloom_weight; }
-	double glareRadius() const { return glare_radius; }
-	double glareWeight() const { return glare_weight; }
-	int glareNumBlades() const { return glare_num_blades; }
+	//double bloomRadius() const { return bloom_radius; }
+	//double bloomWeight() const { return bloom_weight; }
+	//double glareRadius() const { return glare_radius; }
+	//double glareWeight() const { return glare_weight; }
+	//int glareNumBlades() const { return glare_num_blades; }
 
 	bool isAutoFocus() const { return autofocus; }
+	
 	// NOTE: non-const
 	void setFocusDistance(double fd);
 
@@ -182,15 +168,15 @@ public:
 	virtual double surfaceArea(const Matrix3d& to_parent) const;
 
 
-	bool polarisingFilter() const { return polarising_filter; }
-	const Vec3d polarisingVec() const { return polarising_vec; }
+	//bool polarisingFilter() const { return polarising_filter; }
+	//const Vec3d polarisingVec() const { return polarising_vec; }
 
 	double getExposureDuration() const { return exposure_duration; }
 	//double getFilmSensitivity() const { return film_sensitivity; }
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
-	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const;
+	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const;
 
 	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image);
 	void applyDiffractionFilterToImage(Image& image) const;
@@ -226,7 +212,12 @@ private:
 	inline double distRightOnLensFromCenter(const Vec3d& pos) const;
 
 	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
-	inline const Vec2d normalisedLensPosForWSPoint(const Vec3d& pos) const;
+	inline const Vec2d normalisedLensPosForWSPoint(const Vec3d& pos, double time) const;
+	inline const Vec2d normalisedLensPosForOSPoint(const Vec3d& pos, double time) const;
+
+	js::AABBox* bbox_ws;
+
+	TransformPath transform_path;
 
 	//Array2d<float>* aperture_image;
 	//Distribution2* aperture_image;
@@ -235,14 +226,16 @@ private:
 	Aperture* aperture;
 	mutable std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
-	Vec3d pos;
+	//Vec3d pos;
 	//Vec3d ws_up;
-	Vec3d up;
-	Vec3d right;
-	Vec3d forwards;
+	//Vec3d up;
+	//Vec3d right;
+	//Vec3d forwards;
 
 	double lens_radius;
+	double lens_width;
 	double focal_length;
+	double recip_lens_width;
 	//double aspect_ratio;
 	//double angle_of_view;
 
@@ -257,7 +250,7 @@ private:
 	double sensor_width;
 	double sensor_height;
 	Vec3d lens_center;
-	Vec3d lens_botleft;
+	//Vec3d lens_botleft;
 	double recip_sensor_width;
 	double recip_sensor_height;
 	double sensor_to_lens_dist;
@@ -297,7 +290,7 @@ private:
 };
 
 
-double Camera::distUpOnSensorFromCenter(const Vec3d& x) const
+/*double Camera::distUpOnSensorFromCenter(const Vec3d& x) const
 {
 	return dot(x - sensor_center, up);
 }
@@ -321,7 +314,7 @@ const Vec2d Camera::normalisedLensPosForWSPoint(const Vec3d& x) const
 {
 	return Vec2d(dot(right, x) - dot(right, lens_botleft), dot(up, x) - dot(up, lens_botleft)) / (2.0 * lens_radius);
 	//return Vec2d(dot(right, pos) - dot(right, lens_botleft), dot(up, pos) - dot(up, lens_botleft)) / (2.0 * lens_radius);
-}
+}*/
 
 
 

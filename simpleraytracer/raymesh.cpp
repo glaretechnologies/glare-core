@@ -723,3 +723,12 @@ bool RayMesh::isEnvSphereGeometry() const
 {
 	return false;
 }
+
+
+RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
+{
+	float max_r2 = 0.0;
+	for(unsigned int i=0; i<this->vertices.size(); ++i)
+		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
+	return std::sqrt(max_r2);
+}

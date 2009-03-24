@@ -30,9 +30,17 @@ Code By Nicholas Chapman.
 #include "../indigo/IndigoImage.h"
 #include "../graphics/imformatdecoder.h"
 #include "../indigo/SpectralVector.h"
+#include "../indigo/TransformPath.h"
 
 
-Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_, 
+static const Vec3f FORWARDS_OS(0.0f, 1.0f, 0.0f); // Forwards in local camera (object) space.
+static const Vec3f UP_OS(0.0f, 1.0f, 1.0f);
+static const Vec3f RIGHT_OS(1.0f, 0.0f, 0.0f);
+
+
+Camera::Camera(
+			  const std::vector<TransformKeyFrame>& frames,
+			  const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_, 
 		//const std::string& white_balance, 
 		double bloom_weight_, double bloom_radius_, bool autofocus_, 
@@ -45,12 +53,8 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 		double lens_shift_right_distance_,
 		bool write_aperture_preview
 		)
-:	pos(pos_),
-	//ws_up(ws_updir),
-	forwards(forwards_),
-	lens_radius(lens_radius_),
+:	lens_radius(lens_radius_),
 	focus_distance(focus_distance_),
-	//aspect_ratio(aspect_ratio_),
 	sensor_to_lens_dist(lens_sensor_dist_),
 	bloom_weight(bloom_weight_),
 	bloom_radius(bloom_radius_),
@@ -67,6 +71,7 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	lens_shift_up_distance(lens_shift_up_distance_),
 	lens_shift_right_distance(lens_shift_right_distance_)
 {
+
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
 	if(focus_distance <= 0.0)
@@ -88,29 +93,48 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 	if(exposure_duration <= 0.0)
 		throw CameraExcep("exposure_duration must be > 0.0");
 
-	up = ws_updir;
+	lens_width = lens_radius * 2.0;
+	recip_lens_width = 1.0 / lens_width;
+
+	Vec3d up = ws_updir;
 	up.removeComponentInDir(forwards);
 	up.normalise();
 
-	right = ::crossProduct(forwards, up);
-
+	Vec3d right = ::crossProduct(forwards, up);
 	assert(forwards.isUnitLength());
 	assert(ws_updir.isUnitLength());
 	assert(up.isUnitLength());
 	assert(right.isUnitLength());
 
+	try
+	{
+		Matrix3f child_to_world(toVec3f(right), toVec3f(forwards), toVec3f(up));
+		transform_path.init(child_to_world, frames);
+	}
+	catch(TransformPathExcep& e)
+	{
+		throw CameraExcep(e.what());
+	}
+
 	sensor_width = sensor_width_;
-	sensor_height = sensor_height_; // sensor_width / aspect_ratio;
+	sensor_height = sensor_height_;
+	recip_sensor_width = 1.0 / sensor_width_;
+	recip_sensor_height = 1.0 / sensor_height_;
 
-	lens_center = pos + up * lens_shift_up_distance + right * lens_shift_right_distance;
-	lens_botleft = pos + up * (lens_shift_up_distance - lens_radius) + right * (lens_shift_right_distance - lens_radius);
+	lens_center = Vec3d(lens_shift_right_distance, 0.0f, lens_shift_up_distance);
 
-	sensor_center = pos - forwards * sensor_to_lens_dist;
-	sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
+	//lens_center = up * lens_shift_up_distance + right * lens_shift_right_distance;
+	//lens_botleft = up * (lens_shift_up_distance - lens_radius) + right * (lens_shift_right_distance - lens_radius);
+
+	sensor_center = Vec3d(0.0f, -sensor_to_lens_dist, 0.0f);
+	sensor_botleft = Vec3d(sensor_width * -0.5, -sensor_to_lens_dist, sensor_height * -0.5);
+
+	//sensor_center = Vec3d(0.0) - forwards * sensor_to_lens_dist;
+	//sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
+
 	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
 	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
-	recip_sensor_width = 1.0 / sensor_width;
-	recip_sensor_height = 1.0 / sensor_height;
+	
 	//uniform_lens_pos_pdf = 1.0 / (NICKMATHS_PI * lens_radius * lens_radius);
 	uniform_sensor_pos_pdf = 1.0 / (sensor_width * sensor_height);
 
@@ -188,11 +212,23 @@ Camera::Camera(const Vec3d& pos_, const Vec3d& ws_updir, const Vec3d& forwards_,
 
 
 	assert(aperture);
+
+	// Alloc root_aabb, making sure it is at least 16-byte (SSE) aligned.
+	bbox_ws = (js::AABBox*)SSE::alignedMalloc(sizeof(js::AABBox), sizeof(js::AABBox));
+	new(bbox_ws) js::AABBox(Vec3f(-666.f), Vec3f(-666.f));
+
+	const Vec3f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius));
+	const Vec3f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius));
+
+	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
+	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
 }
 
 
 Camera::~Camera()
 {
+	SSE::alignedSSEFree(bbox_ws);
+
 	delete aperture;
 	//delete diffraction_filter;
 	//delete colour_space_converter;
@@ -525,50 +561,70 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 }
 
+/*      k
+        ^          j
+        |        ^
+        |       /
+        |      /
+        |     /
+________|____/__
+|       |   /   |  
+|       |  /    | lens_width
+|       | /     |
+|       |/      |
+|       -----------------> i
+|               |
+|               |
+|_______________|
+      lens_width
+*/
 
 
-const Vec3d Camera::sampleSensor(const SamplePair& samples) const
+/*const Vec3d Camera::sampleSensor(const SamplePair& samples, double time) const
 {
-	return sensor_botleft + 
-		right * samples.x * sensor_width + 
-		up * samples.y * sensor_height;
-}
+	return transform_path.pointToWorld(
+			Vec3d(
+				sensor_width * (samples.x - 0.5f),
+				-sensor_to_lens_dist,
+				sensor_height * (samples.y - 0.5f)
+			),
+			time
+		);
+		
+	//sensor_botleft + 
+	//right * samples.x * sensor_width + 
+	//up * samples.y * sensor_height;
+}*/
 
-double Camera::sensorPDF(const Vec3d& p) const
+
+double Camera::sensorPDF() const
 {
 	assert(epsEqual(uniform_sensor_pos_pdf, 1.0 / (sensor_width * sensor_height)));
 	return uniform_sensor_pos_pdf;
 }
 
-const Vec3d Camera::sampleLensPos(const SamplePair& samples) const
+
+void Camera::sampleLensPos(const SamplePair& samples, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const
 {
-/*	if(aperture_image)
-	{
-		//const Vec2d offset = aperture_image->sample(samples) * lens_radius * 2.0;
-		const Vec2d normed_lenspos = aperture_image->sample(samples);
-
-		assert(aperture_image->value(normed_lenspos) > 0.0);
-
-		return lens_center + 
-			up * (2.0 * normed_lenspos.y - 1.0) * lens_radius + 
-			right * (2.0 * normed_lenspos.x - 1.0) * lens_radius;
-	}
-	else
-	{
-		const Vec2d discpos = MatUtils::sampleUnitDisc(samples) * lens_radius;
-		return lens_center + up * discpos.y + right * discpos.x;
-	}*/
-
 	assert(aperture->sampleAperture(samples).inHalfClosedInterval(0.0, 1.0));
 
 	const Vec2d normed_lenspos = aperture->sampleAperture(samples);
 
-	return lens_center + 
-			up * (2.0 * normed_lenspos.y - 1.0) * lens_radius + 
-			right * (2.0 * normed_lenspos.x - 1.0) * lens_radius;
+	pos_os_out = Vec3d(
+		lens_center.x + (normed_lenspos.x - 0.5f) * lens_width,
+		lens_center.y,
+		lens_center.z + (normed_lenspos.y - 0.5f) * lens_width
+	);
+
+	pos_ws_out = transform_path.pointToWorld(pos_os_out, time);
+
+
+	//return lens_center + 
+	//		up * (2.0 * normed_lenspos.y - 1.0) * lens_radius + 
+	//		right * (2.0 * normed_lenspos.x - 1.0) * lens_radius;
 }
 
-double Camera::lensPosPDF(const Vec3d& lenspos) const
+double Camera::lensPosPDF(/*const Vec3d& lenspos, double time*/) const
 {
 /*	if(aperture_image)
 	{
@@ -591,41 +647,68 @@ double Camera::lensPosPDF(const Vec3d& lenspos) const
 	}*/
 
 
-	const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
-	assert(normed_lenspoint.inHalfClosedInterval(0.0, 1.0));
+	//const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos, time);
+	//assert(normed_lenspoint.inHalfClosedInterval(0.0, 1.0));
 	
-	assert(aperture->pdf(normed_lenspoint) > 0.0);
-	assert(isFinite(aperture->pdf(normed_lenspoint)));
+	//assert(aperture->pdf(normed_lenspoint) > 0.0);
+	//assert(isFinite(aperture->pdf(normed_lenspoint)));
 
 	//return aperture->pdf(normed_lenspoint) / (4.0 * lens_radius * lens_radius); // TEMP TODO: precompute divide
 	assert(epsEqual(recip_unoccluded_aperture_area, 1.0 / (4.0 * lens_radius * lens_radius)));
-	return aperture->pdf(normed_lenspoint) * recip_unoccluded_aperture_area;
+	return aperture->pdf(/*normed_lenspoint*/) * recip_unoccluded_aperture_area;
 }
 
-double Camera::lensPosSolidAnglePDF(const Vec3d& sensorpos, const Vec3d& lenspos) const
-{
-	//NOTE: wtf is up with this func???
 
-	const double pdf_A = lensPosPDF(lenspos);
+/*
+	p_sa = p_A * ||lens - sensor||^2 / cos(theta)
+	= p_A * ||lens - sensor||^2 / (forwards, (lens - sensor) / ||lens - sensor||)
+	= p_A * ||lens - sensor||^2 / [ (forwards, (lens - sensor)) / ||lens - sensor|| ]
+	= p_A * ||lens - sensor||^3 / (forwards, (lens - sensor))
+*/
+double Camera::lensPosSolidAnglePDF(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const
+{
+	const Vec3d sensor_to_lens = lenspos_os - sensorpos_os;
+
+	assert(sensor_to_lens.y > 0.0);
+
+	const double d2 = sensor_to_lens.length2();
+
+	return lensPosPDF() * d2 * std::sqrt(d2) / sensor_to_lens.y;
+
+	/*const double pdf_A = lensPosPDF(lenspos, time);
 
 	//NOTE: this is a very slow way of doing this!!!!
-	const double costheta = fabs(dot(forwards, normalise(lenspos - sensorpos)));
+	const double costheta = fabs(dot(getForwardsDir(time), normalise(lenspos - sensorpos)));
 
-	return MatUtils::areaToSolidAnglePDF(pdf_A, lenspos.getDist2(sensorpos), costheta);
-
-	/*const float costheta = fabs(dot(forwards, normalise(lenspos - sensorpos)));
-
-	const float pdf_solidangle = pdf_A * sensor_to_lens_dist * sensor_to_lens_dist / (costheta * costheta * costheta);
-
-	return pdf_solidangle;*/
+	return MatUtils::areaToSolidAnglePDF(pdf_A, lenspos.getDist2(sensorpos), costheta);*/
 }
 
-const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) const
+
+const Vec3f Camera::lensExitDir(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const
 {
 	// The target point can be found by following the line from sensorpos, through the lens center,
 	// and for a distance of focus_distance.
 
-	const double sensor_up = distUpOnSensorFromCenter(sensorpos);
+	const double sensor_up = sensorpos_os.z - sensor_center.z; // Distance up from sensor center
+	const double sensor_right = sensorpos_os.x - sensor_center.x; // Distance right from sensor center
+
+	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
+	const double target_right_dist = (lens_shift_right_distance - sensor_right) * focus_dist_sensor_to_lens_dist_ratio;
+
+	const Vec3d target_point_os(
+		lens_center.x + target_right_dist,
+		focus_distance,
+		lens_center.z + target_up_dist
+		);
+
+	// Resulting ray is a ray from the lens position, to the target position.
+	return transform_path.vecToWorld(normalise(toVec3f(target_point_os - lenspos_os)), time);
+
+
+
+
+
+	/*const double sensor_up = distUpOnSensorFromCenter(sensorpos);
 	const double sensor_right = distRightOnSensorFromCenter(sensorpos);
 
 	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
@@ -635,13 +718,20 @@ const Vec3d Camera::lensExitDir(const Vec3d& sensorpos, const Vec3d& lenspos) co
 		up * target_up_dist + 
 		right * target_right_dist;
 
-	return normalise(target_point - lenspos);
+	return normalise(target_point - lenspos);*/
 }
 
 
-double Camera::lensPosVisibility(const Vec3d& lenspos) const
+double Camera::lensPosVisibility(const Vec3d& lenspos_os, double time) const
 {
-	const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos);
+	//const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos, time);
+
+	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
+	// TODO: precompute 1/lens_width
+	const Vec2d normed_lenspoint(
+		((lenspos_os.x - lens_center.x) * recip_lens_width) + 0.5,
+		((lenspos_os.z - lens_center.z) * recip_lens_width) + 0.5
+		);
 
 	if(normed_lenspoint.x < 0.0 || normed_lenspoint.x >= 1.0 || normed_lenspoint.y < 0.0 || normed_lenspoint.y >= 1.0)
 		return 0.0;
@@ -650,63 +740,84 @@ double Camera::lensPosVisibility(const Vec3d& lenspos) const
 }
 
 
-const Vec3d Camera::sensorPosForLensIncidentRay(const Vec3d& lenspos, const Vec3d& raydir, bool& hitsensor_out) const
+void Camera::sensorPosForLensIncidentRay(const Vec3d& lenspos_ws, const Vec3f& raydir_, double time, bool& hitsensor_out, Vec3d& sensorpos_os_out, Vec3d& sensorpos_ws_out) const
 {
-	assert(raydir.isUnitLength());
+	assert(raydir_.isUnitLength());
 
-	hitsensor_out = true;
+	const Vec3d lenspos_os = transform_path.pointToLocal(lenspos_ws, time);
+	const Vec3f raydir_os = transform_path.vecToLocal(raydir_, time);
 
 	// Follow ray back to focus_distance away to the target point
-	const double lens_up = distUpOnLensFromCenter(lenspos);
-	const double lens_right = distRightOnLensFromCenter(lenspos);
-	const double forwards_comp = -dot(raydir, forwards);
+	//const double lens_up = lenspos_os.z - lens_center.z; // distUpOnLensFromCenter(lenspos);
+	//const double lens_right = lenspos_os.x - lens_center.x; // distRightOnLensFromCenter(lenspos);
+	//const double forwards_comp = -raydir_os.y; //-dot(raydir, forwards);
 
-	if(forwards_comp <= 0.0)
+	if(raydir_os.y >= 0.0) // If ray is not heading into camera
 	{
 		hitsensor_out = false;
-		return Vec3d(0,0,0);
+		return;
 	}
-	const double ray_dist_to_target_plane = focus_distance / forwards_comp;
+	const double ray_dist_to_target_plane = focus_distance / (-raydir_os.y);
 	
-	// Compute the up and right components of target point
-	const double target_up = lens_up - dot(raydir, up) * ray_dist_to_target_plane;
-	const double target_right = lens_right - dot(raydir, right) * ray_dist_to_target_plane;
+	// Compute the up and right components of target point, relative to the lens center point.
+	const double target_up = lenspos_os.z - raydir_os.z * ray_dist_to_target_plane - lens_center.z;
+	const double target_right = lenspos_os.x - raydir_os.x * ray_dist_to_target_plane - lens_center.x;
 
 	// Compute corresponding sensorpos
 	const double sensor_up = -target_up * sensor_to_lens_dist_focus_dist_ratio + lens_shift_up_distance;
 	const double sensor_right = -target_right * sensor_to_lens_dist_focus_dist_ratio + lens_shift_right_distance;
 
-	if(fabs(sensor_up) > sensor_height * 0.5 || fabs(sensor_right) > sensor_width * 0.5)
+	/*if(fabs(sensor_up) > sensor_height * 0.5 || fabs(sensor_right) > sensor_width * 0.5)
 	{
 		hitsensor_out = false;
 		return Vec3d(0,0,0);
+	}*/
+
+	sensorpos_os_out.x = sensor_center.x + sensor_right;
+	sensorpos_os_out.y = sensor_center.y;
+	sensorpos_os_out.z = sensor_center.z + sensor_up;
+
+
+	if(sensorpos_os_out.x < sensor_center.x - sensor_width * 0.5 || sensorpos_os_out.x >= sensor_center.x + sensor_width * 0.5 ||
+		sensorpos_os_out.z < sensor_center.z - sensor_height * 0.5 || sensorpos_os_out.z >= sensor_center.z + sensor_height * 0.5)
+	{
+		hitsensor_out = false;
+		return;
 	}
 
-	return sensor_center + up * sensor_up + right * sensor_right;
+	hitsensor_out = true;
+	sensorpos_ws_out = transform_path.pointToWorld(sensorpos_os_out, time);
+
+
+
+	//return sensor_center + up * sensor_up + right * sensor_right;
 }
 
-const Vec2d Camera::imCoordsForSensorPos(const Vec3d& sensorpos) const
+
+const Vec2d Camera::imCoordsForSensorPos(const Vec3d& sensorpos_os, double time) const
 {
-	const double sensor_up_dist = dot(sensorpos - sensor_botleft, up);
-	const double sensor_right_dist = dot(sensorpos - sensor_botleft, right);
+	const double sensor_up_dist = sensorpos_os.z - sensor_botleft.z; // dot(sensorpos - sensor_botleft, up);
+	const double sensor_right_dist = sensorpos_os.x - sensor_botleft.x; // dot(sensorpos - sensor_botleft, right);
 	
 	return Vec2d(1.0 - (sensor_right_dist * recip_sensor_width), sensor_up_dist * recip_sensor_height);
 }
 
-const Vec3d Camera::sensorPosForImCoords(const Vec2d& imcoords) const
+
+void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const
 {
-	return sensor_botleft + 
-		up * imcoords.y * sensor_height + 
-		right * (1.0 - imcoords.x) * sensor_width;
+	pos_os_out = Vec3d(
+		sensor_width * (0.5f - imcoords.x),
+		-sensor_to_lens_dist,
+		sensor_height * (imcoords.y - 0.5f)
+	);
+
+	pos_ws_out = transform_path.pointToWorld(pos_os_out, time);
+
+
+	//return sensor_botleft + 
+	//	up * imcoords.y * sensor_height + 
+	//	right * (1.0 - imcoords.x) * sensor_width;
 }
-
-
-
-
-
-
-
-
 
 
 double Camera::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
@@ -714,11 +825,10 @@ double Camera::traceRay(const Ray& ray, double max_t, ThreadContext& thread_cont
 	return -1.0f;//TEMP
 }
 
-js::AABBox tempzero(Vec3f(0,0,0), Vec3f(0,0,0));
 
 const js::AABBox& Camera::getAABBoxWS() const
 {
-	return tempzero;
+	return *bbox_ws;
 }
 
 
@@ -726,21 +836,21 @@ void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Objec
 {
 	return;
 }
+
+
 bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	return false;
 }
 
 
-
-
 const std::string Camera::getName() const { return "Camera"; }
 
 
-const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
+const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
 
 
-const Camera::Vec3Type Camera::getGeometricNormal(const HitInfo& hitinfo) const { return toVec3f(forwards); }
+const Camera::Vec3Type Camera::getGeometricNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
 
 
 unsigned int Camera::getNumTexCoordSets() const { return 0; }
@@ -748,87 +858,6 @@ unsigned int Camera::getNumTexCoordSets() const { return 0; }
 
 unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 
-
-/*
-void Camera::lookAt(const Vec3& target)
-{
-	setForwardsDir(normalise(target - getPos()));
-}
-
-void Camera::setForwardsDir(const Vec3& forwards_)
-{
-	forwards = forwards_;
-	rightdir = ::crossProduct(forwards, current_up);
-}
-*/
-
-
-//for a ray heading into the camera
-/*const Vec2 Camera::getNormedImagePointForRay(const Vec3& unitray, bool& fell_on_image_out) const
-{	
-	fell_on_image_out = true;
-	//assert(0);
-	//return Vec2(0.5f, 0.5f);
-	const float forwardcomp = unitray.dot(this->getForwardsDir()) * -1.0f;
-	if(forwardcomp <= 0.0f)
-		fell_on_image_out = false;
-
-	const float upcomp = unitray.dot(this->up) / forwardcomp;
-	const float rightcomp = unitray.dot(this->right) / forwardcomp;
-
-	const Vec2 coords(-rightcomp/width + 0.5f, upcomp/height + 0.5f);
-
-	fell_on_image_out = fell_on_image_out && 
-		(coords.x >= 0.0f && coords.x <= 1.0f && coords.y >= 0.0f && coords.y <= 1.0f);
-
-	return coords;
-}*/
-	
-const Vec3d Camera::getRayUnitDirForNormedImageCoords(double x, double y) const
-{
-	::fatalError("Camera::getRayUnitDirForNormedImageCoords");
-	return Vec3d(0,0,0);
-	//return normalise(getForwardsDir() + getRightDir() * (-width_2 + width*x)
-	//			+ getCurrentUpDir() * -(-height_2 + height*y));
-}
-
-const Vec3d Camera::getRayUnitDirForImageCoords(double x, double y, double width, double height) const
-{
-	::fatalError("Camera::getRayUnitDirForImageCoords");
-	/*const float xfrac = x / width;
-	const float yfrac = y / height;
-
-	return getRayUnitDirForNormedImageCoords(xfrac, yfrac);*/
-	return Vec3d(0,0,0);
-}
-
-
-
-//assuming the image plane is sampled uniformly
-double Camera::getExitRaySolidAnglePDF(const Vec3d& dir) const
-{
-	::fatalError("Camera::getExitRaySolidAnglePDF");
-	return 1.0f;
-	/*
-	const float image_area = width * height;
-	const float pdf_A = 1.0f / image_area;
-
-	const float costheta = dot(getForwardsDir(), dir);
-
-	//pdf_sa = pdf_A * d^2 / cos(theta)
-	//d = 1 /cos(theta)
-	//d^2 = 1 / cos(theta)^2
-	const float pdf_solidangle = pdf_A / (costheta * costheta * costheta);
-	return pdf_solidangle;*/
-}
-
-
-/*void Camera::convertFromXYZToSRGB(Image& image) const
-{
-	assert(colour_space_converter);
-	colour_space_converter->convertFromXYZToSRGB(image);
-}
-*/
 
 void Camera::setFocusDistance(double fd)
 {
@@ -839,10 +868,12 @@ void Camera::setFocusDistance(double fd)
 	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
 }
 
+
 void Camera::emitterInit()
 {
 	::fatalError("Cameras may not be emitters.");
 }
+
 
 const Vec3d Camera::sampleSurface(const SamplePair& samples, const Vec3d& viewer_point, Vec3d& normal_out,
 										  HitInfo& hitinfo_out) const
@@ -851,17 +882,20 @@ const Vec3d Camera::sampleSurface(const SamplePair& samples, const Vec3d& viewer
 	return Vec3d(0.f, 0.f, 0.f);
 }
 
+
 double Camera::surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const
 {
 	assert(0);
 	return 0.f;
 }
 
+
 double Camera::surfaceArea(const Matrix3d& to_parent) const
 {
 	::fatalError("Camera::surfaceArea()");
 	return 0.f;
 }
+
 
 const Camera::TexCoordsType Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
@@ -884,7 +918,7 @@ void Camera::build(const std::string& indigo_base_dir_path, const RendererSettin
 
 
 
-const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, SpectralVector& weights_out) const
+const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const
 {
 	//assert(RendererSettings::getInstance().aperture_diffraction);
 	if(diffraction_filter.get() == NULL)
@@ -904,7 +938,7 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 	
 	// Form a basis with k in direction of ray, using cam right as i
 	const Vec3d k = dir;
-	Vec3d i = getRightDir();
+	Vec3d i = getRightDir(time);
 	i.removeComponentInDir(k);
 	i.normalise();
 	const Vec3d j = ::crossProduct(i, k);
@@ -973,69 +1007,84 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 	return 2.0 * atan(sensor_width / (2.0 * sensor_to_lens_dist));
 }
 
+
 double Camera::getVerticalAngleOfView() const // including to up and down, in radians
 {
 	return 2.0 * atan(sensor_height / (2.0 * sensor_to_lens_dist));
 }*/
 
 
+const Vec3d Camera::getPosWS(double time) const
+{
+	return transform_path.pointToWorld(Vec3d(0.0), time);
+}
+
 
 void Camera::getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out) const
 {
 	planes_out.resize(0);
 
+	const double time = 0.0; // TEMP HACK not considering moving camera.
+
 	planes_out.push_back(
 		Plane<double>(
-			lens_center + getForwardsDir() * 0.01, // NOTE: bit of a hack here: use a close near clipping plane
-			getForwardsDir() * -1.0
+			lens_center + getForwardsDir(time) * 0.01, // NOTE: bit of a hack here: use a close near clipping plane
+			getForwardsDir(time) * -1.0
 			)
 		); // back of frustrum
 
 
 	// Compute some points on the camera sensor
-	const Vec3d sensor_bottom = this->getSensorCenter() - getUpDir() * sensor_height * 0.5;
-	const Vec3d sensor_top = this->getSensorCenter() + getUpDir() * sensor_height * 0.5;
-	const Vec3d sensor_left = this->getSensorCenter() - getRightDir() * sensor_width * 0.5;
-	const Vec3d sensor_right = this->getSensorCenter() + getRightDir() * sensor_width * 0.5;
+
+	const Vec3d sensor_center_ws = transform_path.pointToWorld(sensor_center, time);
+
+
+	const Vec3d sensor_bottom = sensor_center_ws - getUpDir(time) * sensor_height * 0.5;
+	const Vec3d sensor_top = sensor_center_ws + getUpDir(time) * sensor_height * 0.5;
+	const Vec3d sensor_left = sensor_center_ws - getRightDir(time) * sensor_width * 0.5;
+	const Vec3d sensor_right = sensor_center_ws + getRightDir(time) * sensor_width * 0.5;
 
 	planes_out.push_back(
 		Plane<double>(
 			lens_center,
-			normalise(crossProduct(getUpDir(), lens_center - sensor_right))
+			normalise(crossProduct(getUpDir(time), lens_center - sensor_right))
 			)
 		); // left
 
 	planes_out.push_back(
 		Plane<double>(
 			lens_center,
-			normalise(crossProduct(lens_center - sensor_left, getUpDir()))
+			normalise(crossProduct(lens_center - sensor_left, getUpDir(time)))
 			)
 		); // right
 
 	planes_out.push_back(
 		Plane<double>(
 			lens_center,
-			normalise(crossProduct(lens_center - sensor_top, getRightDir()))
+			normalise(crossProduct(lens_center - sensor_top, getRightDir(time)))
 			)
 		); // bottom
 
 	planes_out.push_back(
 		Plane<double>(
 			lens_center,
-			normalise(crossProduct(getRightDir(), lens_center - sensor_bottom))
+			normalise(crossProduct(getRightDir(time), lens_center - sensor_bottom))
 			)
 		); // top
 }
 	
+
 void Camera::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
 {
 	assert(0);
 }
 
+
 void Camera::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(0);
 }
+
 
 double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const
 {
@@ -1043,10 +1092,12 @@ double Camera::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& p
 	return 1.0;
 }
 
+
 void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
 	assert(0);
 }
+
 
 void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
 									  TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
@@ -1061,22 +1112,66 @@ bool Camera::isEnvSphereGeometry() const
 }
 
 
+Camera::Vec3RealType Camera::getBoundingRadius() const
+{
+	const Vec3f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius));
+	const Vec3f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius));
+
+	Vec3RealType max_r2 = 0.0f; 
+	max_r2 = myMax(max_r2, Vec3Type(min_os.x, min_os.y, min_os.z).length2());
+	max_r2 = myMax(max_r2, Vec3Type(min_os.x, min_os.y, max_os.z).length2());//1
+	max_r2 = myMax(max_r2, Vec3Type(min_os.x, max_os.y, min_os.z).length2());//2
+	max_r2 = myMax(max_r2, Vec3Type(min_os.x, max_os.y, max_os.z).length2());//3
+	max_r2 = myMax(max_r2, Vec3Type(max_os.x, min_os.y, min_os.z).length2());//4
+	max_r2 = myMax(max_r2, Vec3Type(max_os.x, min_os.y, max_os.z).length2());//5
+	max_r2 = myMax(max_r2, Vec3Type(max_os.x, max_os.y, min_os.z).length2());//6
+	max_r2 = myMax(max_r2, Vec3Type(max_os.x, max_os.y, max_os.z).length2());//7
+	return std::sqrt(max_r2);
+}
+
+
+const Vec3d Camera::getUpDir(double time) const
+{
+	return toVec3d(transform_path.vecToWorld(UP_OS, time));
+}
+
+
+const Vec3d Camera::getRightDir(double time) const
+{
+	return toVec3d(transform_path.vecToWorld(RIGHT_OS, time));
+}
+
+
+const Vec3d Camera::getForwardsDir(double time) const
+{
+	return toVec3d(transform_path.vecToWorld(FORWARDS_OS, time));
+}
+
+
+const Vec3f Camera::getForwardsDirF(double time) const
+{
+	return transform_path.vecToWorld(FORWARDS_OS, time);
+}
+
+
 void Camera::unitTest()
 {
 	conPrint("Camera::unitTest()");
 
 	MTwister rng(1);
 	const Vec3d forwards(0,1,0);
-	const double lens_sensor_dist = 0.25;
-	const double sensor_width = 0.5001;
-	const double aspect_ratio = 1.333;
+	const double lens_sensor_dist = 1.0;
+	const double sensor_width = 1.0;
+	const double aspect_ratio = 1.0;
 	const double sensor_height = sensor_width / aspect_ratio;
 	const double focus_distance = 10.0;
 	Camera cam(
-		Vec3d(0,0,0), // pos
+		//Vec3d(0,0,0), // pos
+		std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, Vec3d(0.0), Quatf::identity())),
+		//Matrix3f::identity(),
 		Vec3d(0,0,1), // up
 		forwards, // forwards
-		0.1f, // lens_radius
+		0.25f, // lens_radius
 		focus_distance, // focus distance
 		sensor_width, // sensor_width
 		sensor_height, // sensor_height
@@ -1094,52 +1189,68 @@ void Camera::unitTest()
 		//800.f //film speed
 		new CircularAperture(Array2d<float>()),
 		".", // base indigo path
-		0.0, // lens_shift_up_distance
+		0.25, // lens_shift_up_distance
 		0.0, // lens_shift_right_distance
 		false // write_aperture_preview
 		);
 
+	const Vec3d sensor_center(0, -lens_sensor_dist, 0);
 
 
 	//------------------------------------------------------------------------
 	// test sensorPosForImCoords()
 	//------------------------------------------------------------------------
+	const double time = 0.0;
 	// Image coords in middle of image.
-	Vec3d sensorpos = cam.sensorPosForImCoords(Vec2d(0.5, 0.5));
-	testAssert(epsEqual(Vec3d(0, -lens_sensor_dist, 0), sensorpos));
+	{
+	Vec3d sensorpos_os, sensorpos_ws;
+	cam.sensorPosForImCoords(Vec2d(0.5, 0.5), time, sensorpos_os, sensorpos_ws);
+	testAssert(epsEqual(sensor_center, sensorpos_os));
+	testAssert(epsEqual(sensor_center, sensorpos_ws));
+	}
 
-	Vec3d v = cam.lensExitDir(sensorpos, cam.getPos());
-	testAssert(epsEqual(v, forwards));
+	Vec3d lenspos_os(0,0,0);
+
+	//Vec3f v = cam.lensExitDir(sensorpos_os, lenspos_os, time);
+	//testAssert(epsEqual(v, toVec3f(forwards)));
 
 	// Image coords at top left of image => bottom right of sensor
-	sensorpos = cam.sensorPosForImCoords(Vec2d(0.0, 0.0));
-	testAssert(epsEqual(Vec3d(sensor_width/2.0, -lens_sensor_dist, -sensor_width/(aspect_ratio * 2.0)), sensorpos));
+	{
+	Vec3d sensorpos_os, sensorpos_ws;
+	cam.sensorPosForImCoords(Vec2d(0.0, 0.0), time, sensorpos_os, sensorpos_ws);
+	testAssert(epsEqual(Vec3d(sensor_width/2.0, -lens_sensor_dist, -sensor_width/(aspect_ratio * 2.0)), sensorpos_os));
+	}
 
 	// Test conversion of image coords to sensorpos and back
-	Vec2d imcoords = Vec2d(0.1, 0.1);
-	sensorpos = cam.sensorPosForImCoords(imcoords);
-	testAssert(epsEqual(cam.imCoordsForSensorPos(sensorpos), imcoords));
+	{
+	const Vec2d imcoords(0.1, 0.1);
+	Vec3d sensorpos_os, sensorpos_ws;
+	cam.sensorPosForImCoords(imcoords, time, sensorpos_os, sensorpos_ws);
+	testAssert(epsEqual(cam.imCoordsForSensorPos(sensorpos_os, time), imcoords));
+	}
 
 
 	//------------------------------------------------------------------------
 	// test sensorPosForLensIncidentRay()
 	//------------------------------------------------------------------------
 	// Test ray in middle of lens, in reverse camera dir.
-	bool hitsensor;
-	sensorpos = cam.sensorPosForLensIncidentRay(cam.getPos(), forwards * -1.0, hitsensor);
+	/*bool hitsensor;
+	Vec3d lenspos_ws(0,0,0);
+	cam.sensorPosForLensIncidentRay(lenspos_ws, toVec3f(forwards) * -1.0, time, hitsensor, sensorpos_os, sensorpos_ws);
 	testAssert(hitsensor);
-	testAssert(epsEqual(sensorpos, cam.getSensorCenter()));
-	imcoords = cam.imCoordsForSensorPos(sensorpos);
-	testAssert(epsEqual(imcoords, Vec2d(0.5, 0.5)));
+	testAssert(epsEqual(sensorpos_os, sensor_center));
+	imcoords = cam.imCoordsForSensorPos(sensorpos_os, time);
+	testAssert(epsEqual(imcoords, Vec2d(0.5, 0.5)));*/
 
+	/*
 	//near bottom left of sensor as seen facing in backwards dir
-	sensorpos = cam.sensorPosForImCoords(Vec2d(0.1, 0.1));
+	cam.sensorPosForImCoords(Vec2d(0.1, 0.1), time, sensorpos_os, sensorpos_ws);
 	//so ray should go a) up and b)left
-	Vec3d dir = cam.lensExitDir(sensorpos, cam.getPos());
-	testAssert(dot(dir, cam.getUpDir()) > 0.0);//goes up
-	testAssert(dot(dir, cam.getRightDir()) < 0.0);//goes left
-
-
+	Vec3d dir = toVec3d(cam.lensExitDir(sensorpos_os, Vec3d(0,0,0), time));
+	testAssert(dot(dir, cam.getUpDir(time)) > 0.0);//goes up
+	testAssert(dot(dir, cam.getRightDir(time)) < 0.0);//goes left
+*/
+/*
 	// Test ray incoming from right at a 45 degree angle.
 	// so 45 degree angle to sensor should be maintained.
 	Vec3d indir = normalise(Vec3d(-1, -1, 0));//45 deg angle
@@ -1152,17 +1263,25 @@ void Camera::unitTest()
 	dir = cam.lensExitDir(sensorpos, cam.getPos());
 	testAssert(epsEqual(dir, indir * -1.0));
 
+*/
+	{
+	// Sample an exit direction
+	Vec3d lenspos_os, lenspos_ws;
+	Vec3d sensorpos_os, sensorpos_ws;
+	bool hitsensor;
+	cam.sensorPosForImCoords(Vec2d(0.2f, 0.5f), time, sensorpos_os, sensorpos_ws);
+	cam.sampleLensPos(SamplePair(0.1f, 0.4f), time, lenspos_os, lenspos_ws);
+	Vec3f v = cam.lensExitDir(sensorpos_os, lenspos_os, time); // get lens exit direction
 
-	// 'Sample' an exit direction
-	sensorpos = cam.sensorPosForImCoords(Vec2d(0.1f, 0.8f));
-	Vec3d lenspos = cam.sampleLensPos(SamplePair(0.45654f, 0.8099f));
-	v = cam.lensExitDir(sensorpos, lenspos); // get lens exit direction
-
-	//cast ray back into camera and make sure it hits at same sensor pos
-	Vec3d sensorpos2 = cam.sensorPosForLensIncidentRay(lenspos, v * -1.0, hitsensor);
+	// Cast ray back into camera and make sure it hits at same sensor pos
+	Vec3d sensorpos_os2, sensorpos_ws2;
+	cam.sensorPosForLensIncidentRay(lenspos_ws, v * -1.0, time, hitsensor, sensorpos_os2, sensorpos_ws2);
 	testAssert(hitsensor);
-	testAssert(::epsEqual(sensorpos, sensorpos2));
+	testAssert(::epsEqual(sensorpos_os, sensorpos_os2));
+	testAssert(::epsEqual(sensorpos_ws, sensorpos_ws2));
+	}
 
+/*
 	// Test ray incoming at an angle that will miss sensor.
 	sensorpos = cam.sensorPosForLensIncidentRay(cam.getPos(), normalise(Vec3d(-1.2, -1, 0)), hitsensor);
 	assert(!hitsensor);
@@ -1183,7 +1302,7 @@ void Camera::unitTest()
 	assert(epsEqual(sensorpos, sensorpos2));
 
 
-
+*/
 
 	//intersect with plane
 	//Plane plane(forwards, -10.0f);//10 = focal dist
