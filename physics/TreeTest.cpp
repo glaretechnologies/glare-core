@@ -58,7 +58,7 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 	SSE_ALIGN Vec4 dir_y = {dir.y, dir.y, dir.y, dir.y};
 	SSE_ALIGN Vec4 dir_z = {dir.z, dir.z, dir.z, dir.z};*/
 
-	Vec4 u, v, t, hit;
+	UnionVec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
 		/*&orig_x, &orig_y, &orig_z, &dir_x, &dir_y, &dir_z*/
 		tri[0].data, tri[1].data, tri[2].data, tri[3].data,

@@ -22,6 +22,7 @@ public:
 	inline ~Timer();
 
 	inline double getSecondsElapsed() const;
+	inline double elapsed() const { return getSecondsElapsed(); }
 
 	inline void reset();
 

@@ -10,11 +10,13 @@ You may not use this code for any commercial project.
 #ifndef __VEC3_H__
 #define __VEC3_H__
 
+
 /*=================================================================
 3 component vector class
 ------------------------
 Coded by Nick Chapman in the year 2000-
 =================================================================*/
+
 
 #include "mathstypes.h"
 #include <assert.h>
@@ -514,6 +516,13 @@ template <class Real>
 inline const Vec3<Real> normalise(const Vec3<Real>& v)
 {
 	return v * ((Real)1.0 / v.length());
+}
+
+template <class Real>
+inline const Vec3<Real> normalise(const Vec3<Real>& v, Real& original_length_out)
+{
+	original_length_out = v.length();
+	return v * ((Real)1.0 / original_length_out);
 }
 
 template <class Real>

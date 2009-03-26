@@ -425,7 +425,7 @@ typedef union {
 	__m128 v;
 	float f[4];
 	unsigned int i[4];
-} Vec4;
+} UnionVec4;
 
 
 void SSETest();

@@ -512,7 +512,7 @@ public:
 			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
 
-			Vec4 u, v, t, hit;
+			UnionVec4 u, v, t, hit;
 			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
 				&u, &v, &t, &hit
 				);
@@ -574,7 +574,7 @@ public:
 			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
 
-			Vec4 u, v, t, hit;
+			UnionVec4 u, v, t, hit;
 			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
 				&u, &v, &t, &hit
 				);
@@ -640,7 +640,7 @@ public:
 			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
 
-			Vec4 u, v, t, hit;
+			UnionVec4 u, v, t, hit;
 			MollerTrumboreTri::intersectTris(&ray, t0, t1, t2, t3, 
 				&u, &v, &t, &hit
 				);

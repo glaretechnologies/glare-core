@@ -101,7 +101,7 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 		_mm_cmple_ss(_mm_load_ss(&ray_t_max), raydist_v) // ray_t_max <= raydist ? 0xFFFFFFFF : 0x0
 		);
 
-	SSE_ALIGN Vec4 res_;
+	SSE_ALIGN UnionVec4 res_;
 	_mm_store_ss(res_.f, res);
 	if(res_.i[0] != 0) // if(res.m128_i32[0] != 0)
 		return 0;

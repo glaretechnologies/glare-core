@@ -124,10 +124,10 @@ public:
 		const float* const t1data,
 		const float* const t2data,
 		const float* const t3data,
-		Vec4* u_out,
-		Vec4* v_out,
-		Vec4* t_out,
-		Vec4* hit_out
+		UnionVec4* u_out,
+		UnionVec4* v_out,
+		UnionVec4* t_out,
+		UnionVec4* hit_out
 		)
 	{
 		const __m128 orig_x = _mm_load_ps1(&ray->startPosF().x);
