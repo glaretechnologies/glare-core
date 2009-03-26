@@ -22,12 +22,12 @@ Vec4
 class Vec4f
 {
 public:
-	Vec4f() {}
-	Vec4f(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
-	explicit Vec4f(__m128 v_) : v(v_) {}
-	explicit Vec4f(float f) { x[0] = f, x[1] = f, x[2] = f, x[3] = f; }
+	inline Vec4f() {}
+	inline Vec4f(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
+	inline explicit Vec4f(__m128 v_) : v(v_) {}
+	inline explicit Vec4f(float f) { x[0] = f, x[1] = f, x[2] = f, x[3] = f; }
 
-	~Vec4f() {}
+	inline ~Vec4f() {}
 
 
 	inline void operator += (const Vec4f& a);

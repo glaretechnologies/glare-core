@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../utils/platform.h"
 #include "../utils/timer.h" // just for testing
-#include "../indigo/globals.h" // just for testing
+//#include "../indigo/globals.h" // just for testing
 #include "../utils/stringutils.h" // just for testing
 #include "../maths/mathstypes.h"
 #include <assert.h>
@@ -133,7 +133,7 @@ void alignedFree(void* mem)
 
 void SSETest()
 {
-	conPrint("SSETest()");
+//	conPrint("SSETest()");
 
 	// Test myAlignedMalloc, myAlignedFree
 	for(int i=0; i<1000; ++i)
@@ -177,8 +177,8 @@ void SSETest()
 	{
 		r2[z] = a[z] / (b[z] - c[z]);
 
-		conPrint(::floatToString(r1[z], 20));
-		conPrint(::floatToString(r2[z], 20));
+		//conPrint(::floatToString(r1[z], 20));
+		//conPrint(::floatToString(r2[z], 20));
 	}
 
 
@@ -193,7 +193,7 @@ void SSETest()
 		data2[i] = (float)(i + 1);
 	}
 
-	conPrint("running divisions...");
+	//conPrint("running divisions...");
 
 	Timer timer;
 
@@ -219,10 +219,10 @@ void SSETest()
 	for(int i=0; i<N; ++i)
 		sum += (double)res[i];
 
-	printVar(sum);
-	printVar(elapsed_time);
-	printVar(elapsed_cycles);
-	printVar(cycles_per_iteration);
+	//printVar(sum);
+	//printVar(elapsed_time);
+	//printVar(elapsed_cycles);
+	//printVar(cycles_per_iteration);
 
 	SSE::alignedFree(data1);
 	SSE::alignedFree(data2);

@@ -193,6 +193,9 @@ inline const SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 #define shuffle4Vec(a, b, x, y, z, w) (_mm_shuffle_ps(a, b, _MM_SHUFFLE(z, y, x, w)))
 //Selects four specific single-precision, floating-point values from a and b, based on the mask i. The mask must be an immediate
 
+#define indigoCopyToAll(a, index) (_mm_shuffle_ps(a, a, _MM_SHUFFLE(index, index, index, index)))
+
+
 #define shiftLeftOneWord(a) (_mm_slli_si128((a)), 32)
 
 //#define setToZero(a) (_mm_setzero_ps()

@@ -3,18 +3,32 @@
 
 
 #include "Vec4f.h"
+#include "SSE.h"
 
 
 class Matrix4f
 {
+public:
 
+	inline Matrix4f() {}
+	Matrix4f(const float* data);
 
+	static const Matrix4f identity();
 
-	const Vec4f operator * (const Vec4f& v) const;
+	//__forceinline const Vec4f operator * (const Vec4f& v) const;
 	
 
+	static void test();
 
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
 	float e[16];
+
+
 };
 
 
@@ -63,10 +77,81 @@ e[3]	e[7]	e[11]	e[15]
 x	y	z	w
 x	y	z	w
 
+
+r.x = e[0]*v.x +	e[4]*v.y +  e[8]*v.z +  e[12]*v.w
+r.y = e[1]*v.x +	e[5]*v.y +  e[9]*v.z +  e[13]*v.w
+r.z = e[2]*v.x +	e[6]*v.y +	e[10]*v.z + e[14]*v.w
+r.w = e[3]*v.x +	e[7]*v.y +	e[11]*v.z + e[15]*v.w
+
 */
-const Vec4f Matrix4f::operator * (const Vec4f& v) const
+
+
+/*
+__forceinline void mul(const Matrix4f& m, const Vec4f& v, Vec4f& res_out)
 {
-	return Vec4
+	const __m128 vx = indigoCopyToAll(v.v, 0);
+	const __m128 vy = indigoCopyToAll(v.v, 1);
+	const __m128 vz = indigoCopyToAll(v.v, 2);
+	const __m128 vw = indigoCopyToAll(v.v, 3);
+
+	res_out = Vec4f(
+		_mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(
+					vx,
+					_mm_load_ps(m.e) // e[0]-e[3]
+					),
+				_mm_mul_ps(
+					vy,
+					_mm_load_ps(m.e + 4) // e[4]-e[7]
+					)
+				),
+			_mm_add_ps(
+				_mm_mul_ps(
+					vz,
+					_mm_load_ps(m.e + 8) // e[8]-e[11]
+					),
+				_mm_mul_ps(
+					vw,
+					_mm_load_ps(m.e + 12) // e[12]-e[15]
+					)
+				)
+			)
+		);
+}
+*/
+
+__forceinline __m128 operator * (const Matrix4f& m, const Vec4f& v)
+{
+	const __m128 vx = indigoCopyToAll(v.v, 0);
+	const __m128 vy = indigoCopyToAll(v.v, 1);
+	const __m128 vz = indigoCopyToAll(v.v, 2);
+	const __m128 vw = indigoCopyToAll(v.v, 3);
+
+	return 
+		_mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(
+					vx,
+					_mm_load_ps(m.e) // e[0]-e[3]
+					),
+				_mm_mul_ps(
+					vy,
+					_mm_load_ps(m.e + 4) // e[4]-e[7]
+					)
+				),
+			_mm_add_ps(
+				_mm_mul_ps(
+					vz,
+					_mm_load_ps(m.e + 8) // e[8]-e[11]
+					),
+				_mm_mul_ps(
+					vw,
+					_mm_load_ps(m.e + 12) // e[12]-e[15]
+					)
+				)
+			)
+		;
 }
 
 
