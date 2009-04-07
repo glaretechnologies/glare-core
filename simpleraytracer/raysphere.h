@@ -51,7 +51,7 @@ public:
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
-	virtual void getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const;
+	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const;
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const;
 
@@ -66,12 +66,12 @@ public:
 	static void test();
 
 private:
+	SSE_ALIGN js::AABBox aabbox;
 	double radius;
 
 	//stuff below is precomputed for efficiency
 	double radius_squared;
 	double recip_radius;
-	js::AABBox aabbox;
 };
 
 

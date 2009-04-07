@@ -28,14 +28,14 @@ namespace MatUtils
 	template <class Real> inline Real solidAngleToAreaPDF(Real solid_angle_pdf, Real dist2, Real costheta);
 	template <class Real> inline Real areaToSolidAnglePDF(Real area_pdf, Real dist2, Real costheta);
 
-	template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis);
-
+	//template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis);
+	inline const Vec4f sphericalToCartesianCoords(float phi, float cos_theta, const Matrix4f& basis);
 
 	template <class Real> const Vec3<Real> reflectInSurface(const Vec3<Real>& surface_normal, const Vec3<Real>& in);
 
-	template <class Real> void refractInSurface(const Vec3<Real>& surface_normal,
-		const Vec3<Real>& incident_raydir, Real src_refindex, Real dest_refindex,
-		Vec3<Real>& exit_raydir_out, bool& totally_internally_reflected_out);
+	template <class Real, class VecType> void refractInSurface(const VecType& surface_normal,
+		const VecType& incident_raydir, Real src_refindex, Real dest_refindex,
+		VecType& exit_raydir_out, bool& totally_internally_reflected_out);
 
 	//static double getFresnelReflForCosAngle(double cos_angle_incidence,
 	//			double fresnel_fraction);
@@ -59,11 +59,13 @@ namespace MatUtils
 
 	//static const Vec3d sampleSphere(const Vec2d& unitsamples, const Vec3d& normal, double& pdf_out);
 	template <class Real> inline const Vec3<Real> uniformlySampleSphere(const SamplePair& unitsamples); // returns point on surface of sphere with radius 1
+	inline const Vec4f uniformlySampleSphere(const SamplePair& unitsamples); // returns point on surface of sphere with radius 1
 	template <class Real> inline Real spherePDF();
 
 
-	template <class Real> const Vec3<Real> sampleHemisphereCosineWeighted(const Basis<Real>& basis, const SamplePair& unitsamples);
-	template <class Real> inline Real hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir);
+	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, /*const Basis<Real>& basis, */const SamplePair& unitsamples);
+	//template <class Real> inline Real hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir);
+	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 
 
@@ -73,8 +75,9 @@ namespace MatUtils
 	double evalNormalDist(double x, double mean, double standard_dev);
 
 	//k() of the basis should point towards center of cone.
-	template <class Real> const Vec3<Real> sampleSolidAngleCone(const SamplePair& unitsamples, const Basis<Real>& basis, Real angle);
-	template <class Real> Real solidAngleConePDF(Real angle);
+	//template <class Real> const Vec3<Real> sampleSolidAngleCone(const SamplePair& unitsamples, const Basis<Real>& basis, Real angle);
+	inline const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle);
+	template <class Real> inline Real solidAngleConePDF(Real angle);
 
 	void conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, float cos_incident_angle, SpectralVector& F_R_out);
 	template <class Real> Real conductorFresnelReflectance(Real n, Real k, Real cos_incident_angle);
@@ -101,9 +104,11 @@ namespace MatUtils
 	// Dir need not be normalised.
 	// Returns (phi, theta)
 	template <class Real> inline const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length);
+	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
 
 	// Returns unit length vector
 	template <class Real> inline const Vec3<Real> dirForSphericalCoords(Real phi, Real theta);
+	inline const Vec4f dirForSphericalCoords(float phi, float theta);
 
 	// V is a vector away from the surface.
 	// n1 will be set to the IOR of the medium that V points into.
@@ -133,9 +138,9 @@ template <class Real> Real spherePDF()
 }
 
 
-template <class Real> Real hemisphereCosineWeightedPDF(const Vec3<Real>& normal, const Vec3<Real>& unitdir)
+template <class VecType> typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir)
 {
-	return myMax((Real)0.0, dot(normal, unitdir)) * (Real)NICKMATHS_RECIP_PI;
+	return myMax((VecType::RealType)0.0, dot(normal, unitdir)) * (VecType::RealType)NICKMATHS_RECIP_PI;
 }
 
 
@@ -206,8 +211,13 @@ FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in,
 {
 	return myMin(
 		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
-		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
+		(FullHitInfo::Vec3RealType)std::fabs((dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g())))
 		);
+
+	/*return myMin(
+		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
+		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
+		);*/
 }
 
 
@@ -238,6 +248,19 @@ template <class Real> const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& d
 }
 
 
+const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length)
+{
+	//const Real recip_len = (Real)1.0 / dir.length();
+	//assert(Maths::approxEq((Real)1.0 / dir.length(), recip_dir_length, (Real)0.001));
+
+	//NOTE: the clamp is in there to avoid the spitting out of a NaN
+	return Vec2f(
+		atan2(dir[1], dir[0]), // phi
+		acos(myClamp(dir[2] * recip_dir_length, -1.0f, 1.0f)) // theta
+		);
+}
+
+
 template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real theta)
 {
 	// http://mathworld.wolfram.com/SphericalCoordinates.html
@@ -250,12 +273,12 @@ template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real thet
 		);*/
 
 	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
-	const Real cos_theta = cos(theta);
-	const Real sin_theta = sqrt((Real)1.0 - cos_theta * cos_theta);
+	const Real cos_theta = std::cos(theta);
+	const Real sin_theta = std::sqrt((Real)1.0 - cos_theta * cos_theta);
 
 	return Vec3<Real>(
-		cos(phi) * sin_theta,
-		sin(phi) * sin_theta,
+		std::cos(phi) * sin_theta,
+		std::sin(phi) * sin_theta,
 		cos_theta
 		);
 
@@ -273,6 +296,21 @@ template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real thet
 		sin_phi * sin_theta,
 		sqrt(1.0 - sin_theta*sin_theta) // z = cos(theta)
 		);*/
+}
+
+
+inline const Vec4f dirForSphericalCoords(float phi, float theta)
+{
+	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
+	const float cos_theta = std::cos(theta);
+	const float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);
+
+	return Vec4f(
+		std::cos(phi) * sin_theta,
+		std::sin(phi) * sin_theta,
+		cos_theta,
+		0.0f
+		);
 }
 
 
@@ -298,13 +336,13 @@ void getN1AndN2(Real external_ior, Real internal_ior, Real v_dot_orig_Ng, Real& 
 }
 
 
-template <class Real> const Vec3<Real> reflectInSurface(const Vec3<Real>& surface_normal, const Vec3<Real>& in)
+template <class VecType> const VecType reflectInSurface(const VecType& surface_normal, const VecType& in)
 {
-	return in + surface_normal * dot(surface_normal, in) * (Real)-2.0;
+	return in + surface_normal * dot(surface_normal, in) * -2.0f;
 }
 
 
-template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis)
+/*template <class Real> const Vec34 sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis)
 {
 	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
 
@@ -312,7 +350,19 @@ template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real
 
 	assert(Vec3<Real>(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta).isUnitLength());
 	return basis.transformVectorToParent(Vec3<Real>(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta));
+}*/
+const Vec4f sphericalToCartesianCoords(float phi, float cos_theta, const Matrix4f& basis)
+{
+	assert(cos_theta >= -1.0 && cos_theta <= 1.0);
+
+	const float sin_theta = std::sqrt(1.0f - cos_theta*cos_theta);
+
+	assert(Vec3<float>(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta).isUnitLength());
+
+	return basis * Vec4f(cos(phi)* sin_theta, sin(phi) * sin_theta, cos_theta, 0.0f);
 }
+
+
 
 
 template <class Real> const Vec3<Real> uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
@@ -326,21 +376,34 @@ template <class Real> const Vec3<Real> uniformlySampleSphere(const SamplePair& u
 }
 
 
-//See Monte Carlo Ray Tracing siggraph course 2003 page 33.
-template <class Real> const Vec3<Real> sampleSolidAngleCone(const SamplePair& samples, const Basis<Real>& basis, Real angle)
+const Vec4f uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
+{
+	const float z = (float)-1.0 + unitsamples.x * (float)2.0;
+	const float theta = unitsamples.y * (float)NICKMATHS_2PI;
+
+	const float r = sqrt((float)1.0 - z*z);
+
+	return Vec4f(cos(theta) * r, sin(theta) * r, z, 1.0f);
+}
+
+
+// See Monte Carlo Ray Tracing siggraph course 2003 page 33.
+const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle)
 {
 	assert(angle > 0.0);
 
-	const Real phi = samples.x * (Real)NICKMATHS_2PI;
-	const Real alpha = sqrt(samples.y) * angle;
+	const float phi = samples.x * (float)NICKMATHS_2PI;
+	const float alpha = std::sqrt(samples.y) * angle;
 
 	//const float r = sqrt(unitsamples.x);
 	//const float phi = unitsamples.y * NICKMATHS_2PI;
 
 	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
-	const Vec3<Real> dir(cos(phi)*sin(alpha), sin(phi)*sin(alpha), cos(alpha));
 
-	return basis.transformVectorToParent(dir);
+	const float sin_alpha = std::sin(alpha);
+	const SSE_ALIGN Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
+
+	return Vec4f(basis * dir); //basis.transformVectorToParent(dir);
 }
 
 
@@ -349,7 +412,7 @@ template <class Real> Real solidAngleConePDF(Real angle)
 	assert(angle > 0.0);
 
 	// The sampling is uniform over the solid angle subtended by the cone.
-	const Real solid_angle = NICKMATHS_2PI * (1.0 - cos(angle));
+	const Real solid_angle = NICKMATHS_2PI * (1.0 - std::cos(angle));
 	return (Real)1.0 / solid_angle;
 }
 

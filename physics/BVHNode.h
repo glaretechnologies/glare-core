@@ -35,12 +35,12 @@ public:
 
 	inline void setLeftAABB(const AABBox& b)
 	{
-		box[0] = b.min_.x;
-		box[1] = b.max_.x;
-		box[4] = b.min_.y;
-		box[5] = b.max_.y;
-		box[8] = b.min_.z;
-		box[9] = b.max_.z;
+		box[0] = b.min_.x[0];
+		box[1] = b.max_.x[0];
+		box[4] = b.min_.x[1];
+		box[5] = b.max_.x[1];
+		box[8] = b.min_.x[2];
+		box[9] = b.max_.x[2];
 
 		// [l_min_x, r_min_x, l_max_x, r_max_x, l_min_y, r_min_y, l_max_y, r_max_y, l_min_z, r_min_z, l_max_z, r_max_z]
 
@@ -54,12 +54,12 @@ public:
 	}
 	inline void setRightAABB(const AABBox& b)
 	{
-		box[2] = b.min_.x;
-		box[3] = b.max_.x;
-		box[6] = b.min_.y;
-		box[7] = b.max_.y;
-		box[10] = b.min_.z;
-		box[11] = b.max_.z;
+		box[2] = b.min_.x[0];
+		box[3] = b.max_.x[0];
+		box[6] = b.min_.x[1];
+		box[7] = b.max_.x[1];
+		box[10] = b.min_.x[2];
+		box[11] = b.max_.x[2];
 
 		/*box[1] = b.min_.x;
 		box[3] = b.max_.x;

@@ -124,7 +124,11 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& 
 const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	if(!this->enable_normal_smoothing)
-		return triNormal(hitinfo.sub_elem_index);
+	{
+		SSE_ALIGN Vec4f n;
+		triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+		return n;
+	}
 
 	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
@@ -143,14 +147,17 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 	return Vec3Type(
 		v0norm.x * w + v1norm.x * hitinfo.sub_elem_coords.x + v2norm.x * hitinfo.sub_elem_coords.y,
 		v0norm.y * w + v1norm.y * hitinfo.sub_elem_coords.x + v2norm.y * hitinfo.sub_elem_coords.y,
-		v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y
+		v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y,
+		0.f
 		);
 }
 
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	return triNormal(hitinfo.sub_elem_index);
+	SSE_ALIGN Vec4f n;
+	triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+	return n;
 }
 
 
@@ -418,9 +425,16 @@ const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsig
 
 void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
-	const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
-	const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
-	const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
+	//const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
+	//const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
+	//const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
+	SSE_ALIGN Vec4f v0pos;
+	SSE_ALIGN Vec4f v1pos;
+	SSE_ALIGN Vec4f v2pos;
+	triVertPos(hitinfo.sub_elem_index, 0).pointToVec4f(v0pos);
+	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
+	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
+
 
 	dp_du_out = v1pos - v0pos;
 	dp_dv_out = v2pos - v0pos;
@@ -437,16 +451,22 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 
 		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
-		const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
-		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
-		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
+		//const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
+		//const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
+		//const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
+		SSE_ALIGN Vec4f v0norm;
+		SSE_ALIGN Vec4f v1norm;
+		SSE_ALIGN Vec4f v2norm;
+		vertNormal( tri.vertex_indices[0] ).vectorToVec4f(v0norm);
+		vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
+		vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
 
 		dNs_du_out = v1norm - v0norm;
 		dNs_dv_out = v2norm - v0norm;
 	}
 	else
 	{
-		dNs_du_out = dNs_dv_out = Vec3Type(0,0,0);
+		dNs_du_out = dNs_dv_out = Vec3Type(0,0,0,0);
 	}
 }
 
@@ -490,13 +510,20 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 }
 
 
-inline static double getTriArea(const RayMesh& mesh, int tri_index, const Matrix3<RayMesh::Vec3RealType>& to_parent)
+inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
 {
-	const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
+	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
 	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
-	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);
+	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);*/
+	SSE_ALIGN Vec4f v0, v1, v2;
+	mesh.triVertPos(tri_index, 0).vectorToVec4f(v0);
+	mesh.triVertPos(tri_index, 1).vectorToVec4f(v1);
+	mesh.triVertPos(tri_index, 2).vectorToVec4f(v2);
 
-	return ::crossProduct(to_parent * (v1 - v0), to_parent * (v2 - v0)).length() * 0.5;
+	const SSE_ALIGN Vec4f e0(to_parent * (v1 - v0));
+	const SSE_ALIGN Vec4f e1(to_parent * (v2 - v0));
+
+	return Vec4f(crossProduct(e0, e1)).length() * 0.5f;
 }
 
 
@@ -595,7 +622,7 @@ unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 }
 
 
-void RayMesh::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const
+void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const
 {
 	surface_areas_out.resize(triangles.size());
 
@@ -604,14 +631,15 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, 
 
 }
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Vec3d& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
+
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
 	//------------------------------------------------------------------------
 
 	//see siggraph montecarlo course 2003 pg 47
-	const Vec3RealType s = sqrt(samples.x);
+	const Vec3RealType s = std::sqrt(samples.x);
 	const Vec3RealType t = samples.y;
 
 	// Compute barycentric coords
@@ -621,18 +649,28 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
-	normal_out = triNormal(sub_elem_index);
+	triNormal(sub_elem_index).vectorToVec4f(normal_out);
 	assert(normal_out.isUnitLength());
 
-	pos_out = toVec3d(
+	Vec4f a, b, c;
+	triVertPos(sub_elem_index, 0).pointToVec4f(a);
+	triVertPos(sub_elem_index, 1).pointToVec4f(b);
+	triVertPos(sub_elem_index, 2).pointToVec4f(c);
+
+	pos_out = 
+		a * (1.0f - s) + 
+		b * u + 
+		c * v;
+
+	/*pos_out = 
 		triVertPos(sub_elem_index, 0) * (1.0f - s) + 
 		triVertPos(sub_elem_index, 1) * u + 
 		triVertPos(sub_elem_index, 2) * v
-		);
+		;*/
 }
 
 
-double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Vec3d& pos, double sub_elem_area_ws) const
+double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const
 {
 	return 1.0 / sub_elem_area_ws;
 }

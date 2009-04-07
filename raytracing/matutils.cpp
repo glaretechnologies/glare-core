@@ -20,8 +20,8 @@ Code By Nicholas Chapman.
 
 
 // Explicit template instantiation
-template const Vec3<float> MatUtils::sampleHemisphereCosineWeighted(const Basis<float>& basis, const SamplePair& unitsamples);
-template void MatUtils::refractInSurface(const Vec3<float>& surface_normal, const Vec3<float>& incident_raydir, float src_refindex, float dest_refindex, Vec3<float>& exit_raydir_out, bool& totally_internally_reflected_out);
+template const Vec4f MatUtils::sampleHemisphereCosineWeighted(const Matrix4f& basis, const SamplePair& unitsamples);
+template void MatUtils::refractInSurface(const Vec4f& surface_normal, const Vec4f& incident_raydir, float src_refindex, float dest_refindex, Vec4f& exit_raydir_out, bool& totally_internally_reflected_out);
 template const Vec2<float> MatUtils::sampleUnitDisc(const SamplePair& unitsamples);
 template const Vec2<double> MatUtils::sampleUnitDisc(const SamplePair& unitsamples);
 template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
@@ -100,10 +100,10 @@ Compute the refracted ray.
 see http://en.wikipedia.org/wiki/Snell's_law#Vector_form
 
 */
-template <class Real>
-void MatUtils::refractInSurface(const Vec3<Real>& normal,
-		const Vec3<Real>& incident_raydir, Real src_refindex, Real dest_refindex,
-		Vec3<Real>& exit_raydir_out, bool& totally_internally_reflected_out)
+template <class Real, class VecType>
+void MatUtils::refractInSurface(const VecType& normal,
+		const VecType& incident_raydir, Real src_refindex, Real dest_refindex,
+		VecType& exit_raydir_out, bool& totally_internally_reflected_out)
 {
 	assert(normal.isUnitLength());
 	assert(incident_raydir.isUnitLength());
@@ -122,7 +122,8 @@ void MatUtils::refractInSurface(const Vec3<Real>& normal,
 
 		// Make the exit ray the reflected vector.
 		exit_raydir_out = incident_raydir;
-		exit_raydir_out.subMult(normal, n_dot_r * (Real)2.0);
+		//exit_raydir_out.subMult(normal, n_dot_r * (Real)2.0);
+		exit_raydir_out -= normal * (n_dot_r * (Real)2.0);
 	}
 	else
 	{
@@ -136,7 +137,7 @@ void MatUtils::refractInSurface(const Vec3<Real>& normal,
 	assert(epsEqual(exit_raydir_out.length(), (Real)1.0, (Real)0.0001));
 
 	// Normalising here because there seems to be quite a lot of error introduced.
-	exit_raydir_out.normalise();
+	exit_raydir_out = normalise(exit_raydir_out);
 
 #ifdef DEBUG
 	double len = exit_raydir_out.length();
@@ -210,8 +211,8 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 */
 
 
-template <class Real>
-const Vec3<Real> MatUtils::sampleHemisphereCosineWeighted(const Basis<Real>& basis, const SamplePair& unitsamples/*, double& pdf_out*/)
+template <class VecType>
+const VecType MatUtils::sampleHemisphereCosineWeighted(const Matrix4f& to_world, /*const Basis<Real>& basis, */const SamplePair& unitsamples/*, double& pdf_out*/)
 {
 	//sample unit disc
 	/*const float r = sqrtf(unitsamples.x);
@@ -223,13 +224,14 @@ const Vec3<Real> MatUtils::sampleHemisphereCosineWeighted(const Basis<Real>& bas
 
 	return basis.transformVectorToParent(dir);*/
 
-	Vec2<Real> disc;
-	shirleyUnitSquareToDisk<Real>(unitsamples, disc);
+	Vec2<VecType::RealType> disc;
+	shirleyUnitSquareToDisk<VecType::RealType>(unitsamples, disc);
 
-	const Vec3<Real> dir(disc.x, disc.y, sqrt(myMax((Real)0.0, (Real)1.0 - (disc.x*disc.x + disc.y*disc.y))));
+	const VecType dir(disc.x, disc.y, sqrt(myMax((VecType::RealType)0.0, (VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y))), 0.0);
 	assert(dir.isUnitLength());
 
-	return basis.transformVectorToParent(dir);
+	//return basis.transformVectorToParent(dir);
+	return VecType(to_world * dir);
 }
 
 
@@ -433,8 +435,8 @@ void MatUtils::unitTest()
 
 
 	{
-		const Vec3d d = sphericalToCartesianCoords(NICKMATHS_PI * (3.0/2.0), cos(NICKMATHS_PI_2), Basisd(Matrix3d::identity()));
-		assert(epsEqual(d, Vec3d(0, -1, 0)));
+		const Vec4f d = sphericalToCartesianCoords(NICKMATHS_PI * (3.0/2.0), cos(NICKMATHS_PI_2), Matrix4f::identity());
+		assert(epsEqual(d, Vec4f(0, -1, 0,0)));
 	}
 
 	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(1,0,0), 1.0), Vec2d(0.0, NICKMATHS_PI_2)));
@@ -451,11 +453,12 @@ void MatUtils::unitTest()
 
 
 
-	Basis<double> basis;
-	const Vec3d v = normalise(Vec3d(1,1,1));
+	//Basis<double> basis;
+	SSE_ALIGN Matrix4f basis;
+	const Vec4f v = normalise(Vec4f(1,1,1, 0.f));
 	basis.constructFromVector(v);
 
-	const Vec3d res = sampleSolidAngleCone<double>(SamplePair(0.5, 0.5), basis, 0.01f);
+	const Vec4f res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
 
 	testAssert(dot(v, res) > 0.95);
 

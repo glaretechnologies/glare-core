@@ -25,6 +25,15 @@ TreeUtils::~TreeUtils()
 }
 
 
+static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
+{
+	pos_out.x[0] = p.x;
+	pos_out.x[1] = p.y;
+	pos_out.x[2] = p.z;
+	pos_out.x[3] = 1.0f;
+}
+
+
 void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOutput& print_output)
 {
 	// NOTE: could do this faster by looping over vertices instead.  But what if there is an unused vertex?
@@ -32,20 +41,31 @@ void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOut
 	assert(raymesh.getNumTris() > 0);
 	print_output.print("\tCalcing root AABB.");
 
-	aabb_out.min_ = raymesh.triVertPos(0, 0);
-	aabb_out.min_.padding = 1.0f;
-	aabb_out.max_ = raymesh.triVertPos(0, 0);
-	aabb_out.max_.padding = 1.0f;
+	SSE_ALIGN Vec4f p;
+
+	convertPos(raymesh.triVertPos(0, 0), p);
+
+	aabb_out.min_ = p;
+	aabb_out.max_ = p;
 
 	for(unsigned int i=0; i<raymesh.getNumTris(); ++i)
 	{
-		const SSE_ALIGN PaddedVec3f v0(raymesh.triVertPos(i, 0));
-		const SSE_ALIGN PaddedVec3f v1(raymesh.triVertPos(i, 1));
-		const SSE_ALIGN PaddedVec3f v2(raymesh.triVertPos(i, 2));
+		convertPos(raymesh.triVertPos(i, 0), p);
+		aabb_out.enlargeToHoldPoint(p);
+
+		convertPos(raymesh.triVertPos(i, 1), p);
+		aabb_out.enlargeToHoldPoint(p);
+
+		convertPos(raymesh.triVertPos(i, 2), p);
+		aabb_out.enlargeToHoldPoint(p);
+
+		/*const SSE_ALIGN Vec4f v0(raymesh.triVertPos(i, 0));
+		const SSE_ALIGN Vec4f v1(raymesh.triVertPos(i, 1));
+		const SSE_ALIGN Vec4f v2(raymesh.triVertPos(i, 2));
 
 		aabb_out.enlargeToHoldAlignedPoint(v0);
 		aabb_out.enlargeToHoldAlignedPoint(v1);
-		aabb_out.enlargeToHoldAlignedPoint(v2);
+		aabb_out.enlargeToHoldAlignedPoint(v2);*/
 	}
 
 	print_output.print("\t\tDone.");

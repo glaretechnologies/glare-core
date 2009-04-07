@@ -76,20 +76,23 @@ public:
 
 	virtual ~Camera();
 
+	typedef float PDType;
+	//typedef Vec4f VecType;
+
 
 	//const Vec3d sampleSensor(const SamplePair& samples, double time) const;
-	double sensorPDF() const;
+	PDType sensorPDF() const;
 
-	void sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const;
-	double lensPosPDF(/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
-	double lensPosSolidAnglePDF(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const;
-	double lensPosVisibility(const Vec3d& lenspos_os, double time) const;
+	void sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
+	PDType lensPosPDF(/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
+	PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
+	double lensPosVisibility(const Vec3Type& lenspos_os, double time) const;
 
-	const Vec3f lensExitDir(const Vec3d& sensorpos_os, const Vec3d& lenspos_os, double time) const;
-	void sensorPosForLensIncidentRay(const Vec3d& lenspos_ws, const Vec3f& raydir, double time, bool& hitsensor_out, Vec3d& sensorpos_os_out, Vec3d& sensorpos_ws_out) const;
+	const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
+	void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const;
 
-	const Vec2d imCoordsForSensorPos(const Vec3d& sensorpos_os, double time) const;
-	void sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3d& pos_os_out, Vec3d& pos_ws_out) const;
+	const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const;
+	void sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
 
 	//const Vec3d& getSensorCenter(double time) const;// { return sensor_center; }
 
@@ -109,7 +112,7 @@ public:
 	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
-	virtual void getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const;
+	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const;
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const;
 
@@ -126,7 +129,7 @@ public:
 	const Vec3d getRightDir(double time) const;
 	const Vec3d getForwardsDir(double time) const;
 
-	const Vec3f getForwardsDirF(double time) const;
+	const Vec4f getForwardsDirF(double time) const;
 
 	const Vec3d getPosWS(double time) const;
 	//const Vec3d getPos(double time) const;
@@ -166,7 +169,7 @@ public:
 										  HitInfo& hitinfo_out) const;
 	virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const;
 	virtual double surfaceArea(const Matrix3d& to_parent) const;
-
+	
 
 	//bool polarisingFilter() const { return polarising_filter; }
 	//const Vec3d polarisingVec() const { return polarising_vec; }
@@ -203,6 +206,8 @@ public:
 	void getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out) const;
 	
 
+	SSE_ALIGN TransformPath transform_path;
+
 	std::vector<const Medium*> containing_media;
 private:
 
@@ -217,7 +222,7 @@ private:
 
 	js::AABBox* bbox_ws;
 
-	TransformPath transform_path;
+	
 
 	//Array2d<float>* aperture_image;
 	//Distribution2* aperture_image;

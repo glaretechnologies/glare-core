@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "jscol_aabbox.h"
+#include "../maths/vec3.h"
 
 
 namespace js

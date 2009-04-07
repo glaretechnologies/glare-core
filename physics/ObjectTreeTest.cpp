@@ -58,11 +58,11 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
-		Object* ob = new Object(
+		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			raysphere,
 			//pos, pos,
 			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
@@ -94,8 +94,8 @@ void ObjectTreeTest::doTests()
 	for(int i=0; i<10000; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.2, 0.2, 0.2)) * 1.4,
-			normalise(Vec3d(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.5, 0.5, 0.5)))
+			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1) - Vec4f(0.2, 0.2, 0.2, 1)) * 1.4,
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
 		double time = 0.0;
@@ -297,11 +297,11 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
-		Object* ob = new Object(
+		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			raysphere,
 			//pos, pos,
 			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
@@ -335,8 +335,8 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.2, 0.2, 0.2)) * 1.4,
-			normalise(Vec3d(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.5, 0.5, 0.5)))
+			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
 		//ray.buildRecipRayDir();
@@ -362,8 +362,8 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.2, 0.2, 0.2)) * 1.4,
-			normalise(Vec3d(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) - Vec3d(0.5, 0.5, 0.5)))
+			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
 		//ray.buildRecipRayDir();
@@ -422,14 +422,15 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	for(int i=0; i<200; ++i)
 	{
 		//Matrix3d rot = Matrix3d::identity();
-		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Object::Vec3Type(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
+
+		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
 
 		rot.scale(0.3);
 
 		const Vec3d offset(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
 
-		Object* object = new Object(
-			Reference<Geometry>(raymesh.getPointer()),
+		Object* object = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+			AlignedRef<Geometry, 16>(raymesh.getPointer()),
 			//offset, offset,
 			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),
 			rot,
@@ -470,8 +471,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	/// Do some random traces through the tree ///
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
-		const Vec3d start(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
-		const Vec3d end(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+		const Vec4f start(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1);
+		const Vec4f end(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1);
 
 		const SSE_ALIGN Ray ray(
 			start,
@@ -483,7 +484,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//------------------------------------------------------------------------
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
-		const double len = start.getDist(end);//rng.unitRandom() * 1.5;
+		const double len = Vec4f(end - start).length();//rng.unitRandom() * 1.5;
 		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, start_time);
 		if(a)
 			num_hits++;

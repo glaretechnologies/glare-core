@@ -323,13 +323,6 @@ inline const SSE4Vec dotSSEIn4Vec(const SSE4Vec& v1, const SSE4Vec& v2)
 }
 
 
-
-inline const SSE4Vec crossSSE(const SSE4Vec& v1, const SSE4Vec& v2)
-{
-	return sub4Vec( mult4Vec( shuffle4Vec(v1, v1, SHUF_Y, SHUF_Z, SHUF_X, 0), shuffle4Vec(v2, v2, SHUF_Z, SHUF_X, SHUF_Y, 0) ),
-					mult4Vec( shuffle4Vec(v1, v1, SHUF_Z, SHUF_X, SHUF_Y, 0), shuffle4Vec(v2, v2, SHUF_Y, SHUF_Z, SHUF_X, 0) ) );
-}
-
 inline void reciprocalSSE(const float* vec_in, float* reciprocal_out)
 {
 	assertSSEAligned(vec_in);

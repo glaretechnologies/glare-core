@@ -109,6 +109,15 @@ private:
 };
 
 
+static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
+{
+	pos_out.x[0] = p.x;
+	pos_out.x[1] = p.y;
+	pos_out.x[2] = p.z;
+	pos_out.x[3] = 1.0f;
+}
+
+
 void BVH::build(PrintOutput& print_output)
 {
 	print_output.print("\tBVH::build()");
@@ -131,19 +140,30 @@ void BVH::build(PrintOutput& print_output)
 
 		for(unsigned int i=0; i<numTris(); ++i)
 		{
-			const SSE_ALIGN PaddedVec3f v1(triVertPos(i, 1));
+			SSE_ALIGN Vec4f p;
+			convertPos(triVertPos(i, 0), p);
+			tri_aabbs[i].min_ = p;
+			tri_aabbs[i].max_ = p;
+
+			convertPos(triVertPos(i, 1), p);
+			tri_aabbs[i].enlargeToHoldPoint(p);
+
+			convertPos(triVertPos(i, 2), p);
+			tri_aabbs[i].enlargeToHoldPoint(p);
+
+			/*const SSE_ALIGN PaddedVec3f v1(triVertPos(i, 1));
 			const SSE_ALIGN PaddedVec3f v2(triVertPos(i, 2));
 
 			tri_aabbs[i].min_ = tri_aabbs[i].max_ = triVertPos(i, 0);
 			tri_aabbs[i].enlargeToHoldAlignedPoint(v1);
-			tri_aabbs[i].enlargeToHoldAlignedPoint(v2);
+			tri_aabbs[i].enlargeToHoldAlignedPoint(v2);*/
 		}
 
 		// Build tri centers
 		std::vector<Vec3f> tri_centers(numTris());
 		#pragma omp parallel for
 		for(int i=0; i<num_tris; ++i)
-			tri_centers[i] = tri_aabbs[i].centroid();
+			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
 
 		std::vector<std::vector<TRI_INDEX> > tris(3);
 		std::vector<std::vector<TRI_INDEX> > temp(2);
@@ -173,7 +193,10 @@ void BVH::build(PrintOutput& print_output)
 		// Make root node
 		nodes[0].setToInterior();
 		nodes[0].setLeftAABB(*root_aabb);
-		nodes[0].setRightAABB(AABBox(Vec3f(std::numeric_limits<float>::infinity()), Vec3f(std::numeric_limits<float>::infinity()))); // Pick an AABB that will never get hit
+		SSE_ALIGN AABBox rootaabb;
+		rootaabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
+		rootaabb.max_ = rootaabb.min_;
+		nodes[0].setRightAABB(rootaabb); // Pick an AABB that will never get hit
 		nodes[0].setRightToLeaf();
 		nodes[0].setRightNumGeom(0);
 
@@ -432,15 +455,13 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 
 	// Compute AABBs for children
-	SSE_ALIGN AABBox left_aabb(
-		Vec3f(std::numeric_limits<float>::infinity()),
-		Vec3f(-std::numeric_limits<float>::infinity())
-		);
+	SSE_ALIGN AABBox left_aabb;
+	left_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
+	left_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
 
-	SSE_ALIGN AABBox right_aabb(
-		Vec3f(std::numeric_limits<float>::infinity()),
-		Vec3f(-std::numeric_limits<float>::infinity())
-		);
+	SSE_ALIGN AABBox right_aabb;
+	right_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
+	right_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
 
 	for(int i=left; i<split_i; ++i)
 	{

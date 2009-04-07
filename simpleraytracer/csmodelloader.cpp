@@ -134,7 +134,7 @@ void CSModelLoader::loadModel(const std::string& pathname,
 		throw CSModelLoaderExcep("ModelFormatDecoderExcep for model '" + pathname + "': " + e.what());
 	}
 
-	Object* object = new Object();
+	Object* object = new(SSE::alignedSSEMalloc(sizeof(Object))) Object();
 	RayMesh* raymesh = new RayMesh(enable_normal_smoothing);
 	object->setGeometry(raymesh);
 

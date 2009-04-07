@@ -19,6 +19,7 @@ Coded by Nick Chapman in the year 2000-
 
 
 #include "mathstypes.h"
+#include "Vec4f.h" // For toVec3d()
 #include <assert.h>
 #include <string>
 
@@ -26,6 +27,8 @@ template <class Real>
 class Vec3
 {
 public:
+
+	typedef typename Real RealType;
 
 	inline Vec3()
 	{}
@@ -510,6 +513,18 @@ public:
 			Maths::inHalfClosedInterval(z, minval, maxval);
 	}
 
+
+	inline void vectorToVec4f(Vec4f& v) const
+	{
+		v.set((float)x, (float)y, (float)z, 0.0f);
+	}
+
+
+	inline void pointToVec4f(Vec4f& v) const
+	{
+		v.set((float)x, (float)y, (float)z, 1.0f);
+	}
+
 };
 
 template <class Real>
@@ -537,17 +552,13 @@ inline Real dotProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
 	return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
+
 template <class Real>
 inline Real dot(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
-template <class Real>
-inline Real absDot(const Vec3<Real>& v1, const Vec3<Real>& v2)
-{
-	return std::fabs(dot(v1, v2));
-}
 
 template <class Real>
 inline const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
@@ -651,10 +662,22 @@ inline const Vec3<float> toVec3f(const Vec3<double>& v)
 {
 	return Vec3<float>((float)v.x, (float)v.y, (float)v.z);
 }
+
 inline const Vec3<double> toVec3d(const Vec3<float>& v)
 {
 	return Vec3<double>((double)v.x, (double)v.y, (double)v.z);
 }
+
+inline const Vec3<double> toVec3d(const Vec4f& v)
+{
+	return Vec3<double>((double)v.x[0], (double)v.x[1], (double)v.x[2]);
+}
+
+inline const Vec3<float> toVec3f(const Vec4f& v)
+{
+	return Vec3<float>((float)v.x[0], (float)v.x[1], (float)v.x[2]);
+}
+
 
 
 typedef Vec3<float> Vec3f;

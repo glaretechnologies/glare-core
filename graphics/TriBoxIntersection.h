@@ -32,7 +32,7 @@ public:
 	//~TriBoxIntersection();
 
 
-	static void clipPolyAgainstPlane(const Vec3f* points, unsigned int num_points, unsigned int plane_axis, float d, float normal, Vec3f* points_out, unsigned int& num_points_out);
+	/*static void clipPolyAgainstPlane(const Vec3f* points, unsigned int num_points, unsigned int plane_axis, float d, float normal, Vec3f* points_out, unsigned int& num_points_out);
 
 	static int triBoxOverlap(float boxcenter[3], float boxhalfsize[3], float triverts[3][3]);
 
@@ -42,7 +42,7 @@ public:
 	static void getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
 	//static void getClippedTriAABB_SSE(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out);
 
-
+*/
 	// clips to half space in the other half from the plane normal.
 	//static void clipPolyToPlaneHalfSpace(const Plane<float>& plane, const Vec3f* points, unsigned int num_points, unsigned int max_num_points_out, Vec3f* points_out, unsigned int& num_points_out);
 	static void clipPolyToPlaneHalfSpace(const Plane<float>& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out);

@@ -67,7 +67,7 @@ KDTree::KDTree(RayMesh* raymesh_)
 
 	assert(sizeof(AABBox) == 32);
 	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
-	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
+	new(root_aabb) AABBox(Vec4f(0,0,0, 1.f), Vec4f(0,0,0, 1.f));
 
 	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
@@ -198,8 +198,8 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
+	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
 
 	__m128 near_t, far_t;
 	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
@@ -245,9 +245,9 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 				_mm_mul_ss(
 					_mm_sub_ss(
 						_mm_load_ss(&nodes[current].data2.dividing_val),
-						_mm_load_ss(&ray.startPosF().x + splitting_axis)
+						_mm_load_ss(ray.startPosF().x + splitting_axis)
 					),
-					_mm_load_ss(&ray.getRecipRayDirF().x + splitting_axis)
+					_mm_load_ss(ray.getRecipRayDirF().x + splitting_axis)
 				);
 
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
@@ -365,8 +365,8 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
+	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
 
 	__m128 near_t, far_t;
 	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
@@ -406,9 +406,9 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 				_mm_mul_ss(
 					_mm_sub_ss(
 						_mm_load_ss(&nodes[current].data2.dividing_val),
-						_mm_load_ss(&ray.startPosF().x + splitting_axis)
+						_mm_load_ss(ray.startPosF().x + splitting_axis)
 					),
-					_mm_load_ss(&ray.getRecipRayDirF().x + splitting_axis)
+					_mm_load_ss(ray.getRecipRayDirF().x + splitting_axis)
 				);
 
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
@@ -509,8 +509,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = _mm_load_ps(&ray.getRecipRayDirF().x);
+	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
+	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
 
 	__m128 near_t, far_t;
 	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
@@ -553,9 +553,9 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 				_mm_mul_ss(
 					_mm_sub_ss(
 						_mm_load_ss(&nodes[current].data2.dividing_val),
-						_mm_load_ss(&ray.startPosF().x + splitting_axis)
+						_mm_load_ss(ray.startPosF().x + splitting_axis)
 					),
-					_mm_load_ss(&ray.getRecipRayDirF().x + splitting_axis)
+					_mm_load_ss(ray.getRecipRayDirF().x + splitting_axis)
 				);
 
 
@@ -825,19 +825,20 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		print_output.print("\tcalcing root AABB.");
 		{
-		root_aabb->min_ = triVertPos(0, 0);
-		root_aabb->max_ = triVertPos(0, 0);
+		root_aabb->min_ = Vec4f(triVertPos(0, 0).x, triVertPos(0, 0).y, triVertPos(0, 0).z, 1.0f);
+		root_aabb->max_ = root_aabb->min_;
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			for(unsigned int v=0; v<3; ++v)
 			{
-				const SSE_ALIGN PaddedVec3f vert = triVertPos(i, v);
-				root_aabb->enlargeToHoldAlignedPoint(vert);
+				const Vec3f& vertpos = triVertPos(i, v);
+				const SSE_ALIGN Vec4f vert(vertpos.x, vertpos.y, vertpos.z, 1.0f);
+				root_aabb->enlargeToHoldPoint(vert);
 			}
 
 		}
 
-		print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x) + ", " + ::toString(root_aabb->min_.y) + ", " + ::toString(root_aabb->min_.z) + "), " +
-							"(" + ::toString(root_aabb->max_.x) + ", " + ::toString(root_aabb->max_.y) + ", " + ::toString(root_aabb->max_.z) + ")");
+		print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x[0]) + ", " + ::toString(root_aabb->min_.x[1]) + ", " + ::toString(root_aabb->min_.x[2]) + "), " +
+							"(" + ::toString(root_aabb->max_.x[0]) + ", " + ::toString(root_aabb->max_.x[1]) + ", " + ::toString(root_aabb->max_.x[2]) + ")");
 
 		assert(root_aabb->invariant());
 

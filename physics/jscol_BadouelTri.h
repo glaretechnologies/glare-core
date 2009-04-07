@@ -55,16 +55,17 @@ const float BADOUEL_MIN_DIST = 0.00000001f;//this is to avoid denorms
 
 unsigned int BadouelTri::referenceIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const
 {
-	const float denom = dot(ray.unitDirF(), this->normal);
+	const Vec4f n(normal.x, normal.y, normal.z, 0.0f);
+	const float denom = dot(ray.unitDirF(), n); // this->normal);
 	if(denom == 0.0f)
 		return 0;
 
-	const float raydist = (this->dist - dot(ray.startPosF(), this->normal)) / denom; // Signed distance until ray intersects triangle plane.
+	const float raydist = (this->dist - dot(ray.startPosF(), n)) / denom; // Signed distance until ray intersects triangle plane.
 	if(raydist < BADOUEL_MIN_DIST || raydist >= ray_t_max)
 		return 0;
 
-	const float u = ray.startPosF()[project_axis_1] + ray.unitDirF()[project_axis_1] * raydist - v0_1;
-	const float v = ray.startPosF()[project_axis_2] + ray.unitDirF()[project_axis_2] * raydist - v0_2;
+	const float u = ray.startPosF().x[project_axis_1] + ray.unitDirF().x[project_axis_1] * raydist - v0_1;
+	const float v = ray.startPosF().x[project_axis_2] + ray.unitDirF().x[project_axis_2] * raydist - v0_2;
 	const float alpha = t11*u + t12*v;
 	const float beta = t21*u + t22*v;
 	assert(!isNAN(alpha) && !isNAN(beta));
@@ -82,11 +83,11 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	assert(SSE::isSSEAligned(&normal.x));
 	assert(SSE::isSSEAligned(&ray));
 
-	const __m128 raydir = _mm_load_ps(&ray.unitDirF().x);
+	const __m128 raydir = ray.unitDirF().v; // _mm_load_ps(&ray.unitDirF().x);
 	const __m128 n = _mm_load_ps(&normal.x);
 	const __m128 d = dotSSEIn4Vec(raydir, n);
 
-	const __m128 raystartpos = _mm_load_ps(&ray.startPosF().x);
+	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
 	const __m128 raydist_numerator = _mm_sub_ss(_mm_load_ss(&this->dist), dotSSEIn4Vec(raystartpos, n));
 
 	if(_mm_comieq_ss(d, zeroVec()) != 0) // if(d.m128_f32[0] == 0.0f)

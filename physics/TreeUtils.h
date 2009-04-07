@@ -147,7 +147,7 @@ void TreeUtils::buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_
 	if(ray.unitDir().z < 0.0f) 
 		mySwap(ray_child_indices[2], ray_child_indices[6]);*/
 
-	const __m128 mask = _mm_cmplt_ps(_mm_load_ps(&ray.unitDirF()[0]), zeroVec()); // mask[i] = raydir[i] < 0.0 ? 0xFFFFFFFF : 0x0
+	const __m128 mask = _mm_cmplt_ps(ray.unitDirF().v, zeroVec()); // mask[i] = raydir[i] < 0.0 ? 0xFFFFFFFF : 0x0
 
 //	const SSE_ALIGN int one_int_array[4] = {1, 1, 1, 1};
 
@@ -167,11 +167,11 @@ void TreeUtils::buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_
 #ifdef DEBUG
 	unsigned int ray_child_indices_d[8] = {0, 0, 0, 0, 1, 1, 1, 1};
 
-	if(ray.unitDir().x < 0.0f) 
+	if(ray.unitDir()[0] < 0.0f) 
 		mySwap(ray_child_indices_d[0], ray_child_indices_d[4]);
-	if(ray.unitDir().y < 0.0f) 
+	if(ray.unitDir()[1] < 0.0f) 
 		mySwap(ray_child_indices_d[1], ray_child_indices_d[5]);
-	if(ray.unitDir().z < 0.0f) 
+	if(ray.unitDir()[2] < 0.0f) 
 		mySwap(ray_child_indices_d[2], ray_child_indices_d[6]);
 	for(unsigned int z=0; z<3; ++z)
 	{

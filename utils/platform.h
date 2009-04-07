@@ -4,25 +4,11 @@
 
 
 #if defined(WIN32) || defined(WIN64)
-#define _FORCEINLINE __forceinline
+#define INDIGO_STRONG_INLINE __forceinline
 #else
-#define _FORCEINLINE __inline
+#define INDIGO_STRONG_INLINE inline
 #endif
 
-/*#ifdef DEBUG
-//don't try and force inline in debug mode
-#define FORCEINLINE inline
-#else
-#define FORCEINLINE _FORCEINLINE //winNT.h defines this already?
-#endif
-*/
-
-#ifdef DEBUG
-//don't try and force inline in debug mode
-#define DO_FORCEINLINE inline
-#else
-#define DO_FORCEINLINE _FORCEINLINE //winNT.h defines this already?
-#endif
 
 //Compiler Definitions
 //#define COMPILER_GCC

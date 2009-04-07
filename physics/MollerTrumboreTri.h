@@ -61,8 +61,8 @@ public:
 		const Vec3f e1(data + 3);
 		const Vec3f e2(data + 6);
 
-		const Vec3f orig = ray.startPosF();
-		const Vec3f dir = ray.unitDirF();
+		const Vec3f orig(ray.startPosF().x[0], ray.startPosF().x[1], ray.startPosF().x[2]);
+		const Vec3f dir(ray.unitDirF().x[0], ray.unitDirF().x[1], ray.unitDirF().x[2]);
 		const Vec3f pvec = crossProduct(dir, e2);
 
 		const float det = dot(e1, pvec);
@@ -130,12 +130,13 @@ public:
 		UnionVec4* hit_out
 		)
 	{
-		const __m128 orig_x = _mm_load_ps1(&ray->startPosF().x);
-		const __m128 orig_y = _mm_load_ps1(&ray->startPosF().y);
-		const __m128 orig_z = _mm_load_ps1(&ray->startPosF().z);
-		const __m128 dir_x = _mm_load_ps1(&ray->unitDirF().x);
-		const __m128 dir_y = _mm_load_ps1(&ray->unitDirF().y);
-		const __m128 dir_z = _mm_load_ps1(&ray->unitDirF().z);
+		// TODO: try shuffling here, might be faster.
+		const __m128 orig_x = _mm_load_ps1(ray->startPosF().x);
+		const __m128 orig_y = _mm_load_ps1(ray->startPosF().x+1);
+		const __m128 orig_z = _mm_load_ps1(ray->startPosF().x+2);
+		const __m128 dir_x = _mm_load_ps1(ray->unitDirF().x);
+		const __m128 dir_y = _mm_load_ps1(ray->unitDirF().x+1);
+		const __m128 dir_z = _mm_load_ps1(ray->unitDirF().x+2);
 
 		const __m128 one  = _mm_set_ps1(1.0f);
 		const __m128 zero = _mm_set_ps1(0.0f);

@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include "vec3.h"
 #include "matrix3.h"
+#include "Matrix4f.h"
 
 
 /*=====================================================================
@@ -48,6 +49,7 @@ public:
 	inline const Quat conjugate() const;
 
 	inline void toMatrix(Matrix3<Real>& mat_out) const;
+	inline void toMatrix(Matrix4f& mat_out) const;
 
 	static const Quat slerp(const Quat& a, const Quat& b, Real t);
 
@@ -182,6 +184,37 @@ template <class Real> void Quat<Real>::toMatrix(Matrix3<Real>& mat) const
 }
 
 
+template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
+{
+	const Real Nq = norm();
+	const Real s = (Nq > (Real)0.0) ? ((Real)2.0 / Nq) : (Real)0.0;
+	const Real xs = v.x*s, ys = v.y*s, zs = v.z*s;
+	const Real wx = w*xs, wy = w*ys, wz = w*zs;
+	const Real xx = v.x*xs, xy = v.x*ys, xz = v.x*zs;
+	const Real yy = v.y*ys, yz = v.y*zs, zz = v.z*zs;
+
+	/*
+	Matrix4f layout:
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
+	mat.e[0] = (Real)1.0 - (yy + zz);
+	mat.e[4] = xy - wz;
+	mat.e[8] = xz + wy;
+	mat.e[1] = xy + wz;
+	mat.e[5] = (Real)1.0 - (xx + zz);
+	mat.e[9] = yz - wx;
+	mat.e[2] = xz - wy;
+	mat.e[6] = yz + wx;
+	mat.e[10] = (Real)1.0 - (xx + yy);
+
+	mat.e[3] = mat.e[7] = mat.e[11] = mat.e[12] = mat.e[13] = mat.e[14] = 0.0f;
+	mat.e[15] = 1.0f;
+}
+
+
 // Adapted from http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
 template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, const Quat<Real>& q1, Real t)
 {
@@ -202,8 +235,8 @@ template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, c
     }
 
 	// Robustness: Stay within domain of acos()
-	const double theta_0 = std::acos(myClamp(dot, (Real)-1.0, (Real)1.0));  // theta_0 = angle between input vectors
-    const double theta = theta_0 * t;    // theta = angle between v0 and result 
+	const Real theta_0 = std::acos(myClamp(dot, (Real)-1.0, (Real)1.0));  // theta_0 = angle between input vectors
+    const Real theta = theta_0 * t;    // theta = angle between v0 and result 
 
     const Quat<Real> q2(normalise(q1 - q0*dot)); // { q0, q2 } is now an orthonormal basis
 

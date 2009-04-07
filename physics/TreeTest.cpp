@@ -137,8 +137,8 @@ static void testTriangleIntersection()
 				);
 
 		const SSE_ALIGN Ray ray(
-			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
+			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
+			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
 			);
 
 		testIntersection(ray, tris);
@@ -186,8 +186,8 @@ void testBadouelTriIntersection()
 		);
 
 		const SSE_ALIGN Ray ray(
-			Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-			normalise(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()))
+			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1),
+			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0))
 			);
 
 		testIndividualBadouelIntersection(tri, ray);
@@ -256,7 +256,7 @@ void TreeTest::testBuildCorrect()
 		);
 
 	{
-	const SSE_ALIGN Ray ray(Vec3d(0,-2,0), Vec3d(0,1,0));
+	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
 	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
@@ -265,7 +265,7 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	const SSE_ALIGN Ray ray(Vec3d(9,0,0), Vec3d(0,1,0));
+	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
 	js::ObjectTreePerThreadData tree_context(true);
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
@@ -333,8 +333,8 @@ void TreeTest::testBuildCorrect()
 
 	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
 
-	testAssert(bbox_ws.min_ == Vec3f(0, 0, 0));
-	testAssert(bbox_ws.max_ == Vec3f(10.f, 1, 1));
+	testAssert(bbox_ws.min_ == Vec4f(0, 0, 0, 1.0f));
+	testAssert(bbox_ws.max_ == Vec4f(10.f, 1.0f, 1.0f, 1.0f));
 
 //	testAssert(kdtree->getNodesDebug().size() == 3);
 /*	TEMP testAssert(!kdtree->getNodesDebug()[0].isLeafNode() != 0);
@@ -409,8 +409,8 @@ void TreeTest::testBuildCorrect()
 
 	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
 
-	testAssert(bbox_ws.min_ == Vec3f(0, 0, 0));
-	testAssert(bbox_ws.max_ == Vec3f(10.f, 1, 1));
+	testAssert(bbox_ws.min_ == Vec4f(0, 0, 0, 1.0f));
+	testAssert(bbox_ws.max_ == Vec4f(10.f, 1, 1, 1.0f));
 
 	/* TEMP testAssert(kdtree->getNodesDebug().size() == 3);
 	testAssert(!kdtree->getNodesDebug()[0].isLeafNode());
@@ -440,8 +440,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	StandardPrintOutput print_output;
 	trees.back()->build(print_output);
 
-	trees.push_back(new BIHTree(&raymesh));
-	trees.back()->build(print_output);
+	//trees.push_back(new BIHTree(&raymesh));
+	//trees.back()->build(print_output);
 
 	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output);
@@ -465,8 +465,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const double max_t = 1.0e9;
 
 		const SSE_ALIGN Ray ray(
-			Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0) * 1.5,
-			normalise(Vec3d(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0))
+			Vec4f(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0,1) * 1.5,
+			normalise(Vec4f(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0,0))
 			);
 
 		HitInfo hitinfo;
@@ -856,7 +856,11 @@ void TreeTest::doSpeedTest(int treetype)
 		if(rayend == rayorigin)
 			continue;
 
-		const SSE_ALIGN Ray ray(rayorigin, normalise(rayend - rayorigin));
+		SSE_ALIGN Vec4f rayorigin_f, dir_f;
+		rayorigin.pointToVec4f(rayorigin_f);
+		normalise(rayend - rayorigin).vectorToVec4f(dir_f);
+
+		const SSE_ALIGN Ray ray(rayorigin_f, dir_f);
 
 		//do the trace
 		//ray.buildRecipRayDir();
@@ -945,7 +949,7 @@ void TreeTest::buildSpeedTest()
 
 void TreeTest::doRayTests()
 {
-	Ray ray(Vec3d(0,0,0), Vec3d(0,0,1));
+	//Ray ray(Vec3d(0,0,0), Vec3d(0,0,1));
 
 	/*const float recip_x = ray.getRecipRayDirF().x;
 

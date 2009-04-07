@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 
 
-
+#if 0
 void TriBoxIntersection::clipPolyAgainstPlane(const Vec3f* points, unsigned int num_points, unsigned int plane_axis, float d, float normal, Vec3f* points_out, unsigned int& num_points_out)
 {
 	assert(plane_axis < 3);
@@ -132,6 +132,7 @@ void TriBoxIntersection::clipPolyAgainstPlane(const Vec3f* points, unsigned int 
 		}
 	}
 }
+#endif
 
 
 void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
@@ -248,7 +249,7 @@ void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Plane<float
 }*/
 
 
-
+#if 0
 void TriBoxIntersection::slowGetClippedTriAABB(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const js::AABBox& aabb, js::AABBox& clipped_tri_aabb_out)
 {
 	Vec3f v_a[9] = {v0, v1, v2};	
@@ -909,7 +910,7 @@ void TriBoxIntersection::getClippedTriAABB(const Vec3f& v0, const Vec3f& v1, con
 		}
 	}*/
 }
-
+#endif
 
 
 #if 0
@@ -1777,7 +1778,7 @@ void TriBoxIntersection::test()
 
 	
 
-	{
+	/*{
 	const Vec3f v[3] = { Vec3f(0.0f, 0.0f, 0.0f), Vec3f(2.0, 2.0f, 0.0f), Vec3f(-2.0f, 2.0f, 0.0f) };
 	clipPolyAgainstPlane(v, 3, 1, 1.0f, 1.0f, v_out, num_verts_out);
 	testAssert(num_verts_out == 3);
@@ -1807,12 +1808,12 @@ void TriBoxIntersection::test()
 	testAssert(num_verts_out == 4);
 	testAssert(v_out[0] == v[0]);
 	testAssert(v_out[3] == v[2]);
-	}
+	}*/
 
 
 
 	/// Test slowGetClippedTriAABB etc. ///
-	const SSE_ALIGN PaddedVec3f v0(1., -1., 0.);
+/*	const SSE_ALIGN PaddedVec3f v0(1., -1., 0.);
 	const SSE_ALIGN PaddedVec3f v1(2., 4., 0.);
 	const SSE_ALIGN PaddedVec3f v2(-1.f, 5., 0.);
 
@@ -1825,7 +1826,7 @@ void TriBoxIntersection::test()
 
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
 	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
-
+*/
 	/*getClippedTriAABB(
 		v0, v1, v2,
 		js::AABBox(Vec3f(-1., 1., 0.), Vec3f(3., 3., 0.)),
@@ -1844,7 +1845,7 @@ void TriBoxIntersection::test()
 	testAssert(epsEqual(toVec3d(bounds_a.min_), Vec3d(-1./3., 1., 0.)));
 	testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));*/
 
-	// Do speed test
+	/*// Do speed test
 	const int N = 1000000;
 	{
 	Timer timer;
@@ -1861,7 +1862,7 @@ void TriBoxIntersection::test()
 		testAssert(epsEqual(toVec3d(bounds_a.max_), Vec3d(9./5., 3., 0.)));
 	}
 	printVar(timer.getSecondsElapsed());
-	}
+	}*/
 	/*{
 	Timer timer;
 	for(int i=0; i<N; ++i)
@@ -1912,7 +1913,7 @@ void TriBoxIntersection::test()
 
 
 
-
+#if 0
 
 
 /********************************************************/
@@ -2100,7 +2101,7 @@ int TriBoxIntersection::triBoxOverlap(float boxcenter[3],float boxhalfsize[3],fl
    return 1;   /* box and triangle overlaps */
 }
 
-
+#endif
 
 
 

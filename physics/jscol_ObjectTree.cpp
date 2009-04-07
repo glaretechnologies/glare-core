@@ -32,7 +32,7 @@ ObjectTree::ObjectTree()
 	nodestack_size = 0;
 
 	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
-	new(root_aabb) AABBox(Vec3f(0,0,0), Vec3f(0,0,0));
+	new(root_aabb) AABBox(Vec4f(0,0,0, 1.f), Vec4f(0,0,0, 1.f));
 	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	nodes.push_back(ObjectTreeNode());//root node
@@ -144,7 +144,7 @@ double ObjectTree::traceRay(const Ray& ray,
 			//while current node is not a leaf..
 	
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
+			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF().x[splitting_axis]) * ray.getRecipRayDirF().x[splitting_axis];	
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
 
 			if(t_split > tmax)//or ray segment ends b4 split
@@ -318,7 +318,7 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength,
 	
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF()[splitting_axis]) * ray.getRecipRayDirF()[splitting_axis];	
+			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF().x[splitting_axis]) * ray.getRecipRayDirF().x[splitting_axis];	
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
 
 			if(t_split > tmax)//or ray segment ends b4 split
@@ -406,8 +406,8 @@ void ObjectTree::build(PrintOutput& print_output)
 		root_aabb->enlargeToHoldAABBox(objects[i]->getAABBoxWS());
 	}
 
-	print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x) + ", " + ::toString(root_aabb->min_.y) + ", " + ::toString(root_aabb->min_.z) + "), " + 
-						"(" + ::toString(root_aabb->max_.x) + ", " + ::toString(root_aabb->max_.y) + ", " + ::toString(root_aabb->max_.z) + ")"); 
+	print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x[0]) + ", " + ::toString(root_aabb->min_.x[1]) + ", " + ::toString(root_aabb->min_.x[2]) + "), " + 
+						"(" + ::toString(root_aabb->max_.x[0]) + ", " + ::toString(root_aabb->max_.x[1]) + ", " + ::toString(root_aabb->max_.x[2]) + ")"); 
 							
 	assert(root_aabb->invariant());
 
@@ -535,8 +535,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 		for(unsigned int i=0; i<numtris; ++i)
 		{
-			lower[i] = nodeobjs[i]->getAABBoxWS().min_[axis];//tri_boxes[nodetris[i]].min[axis];
-			upper[i] = nodeobjs[i]->getAABBoxWS().max_[axis];//tri_boxes[nodetris[i]].max[axis];
+			lower[i] = nodeobjs[i]->getAABBoxWS().min_.x[axis];//tri_boxes[nodetris[i]].min[axis];
+			upper[i] = nodeobjs[i]->getAABBoxWS().max_.x[axis];//tri_boxes[nodetris[i]].max[axis];
 
 			if(upper[i] == lower[i])
 			{
@@ -566,7 +566,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 			if(splitval != last_splitval)//only consider first tri seen with a given lower bound.
 			{
-				if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis])
+				if(splitval > cur_aabb.min_.x[axis] && splitval < cur_aabb.max_.x[axis])
 				{
 					//advance upper index to maintain invariant above
 					while(upper_index < numtris && upper[upper_index] <= splitval)
@@ -584,8 +584,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					assert(num_in_neg + num_in_pos >= (int)numtris);
 					//if(num_in_neg + num_in_pos < (int)numtris)
 					//	num_in_pos = 
-					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
-					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
+					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+					const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 
 					const float cost = traversal_cost + 
 						((float)num_in_neg * negchild_surface_area + 
@@ -619,7 +619,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 			
 			//if(splitval != last_splitval)
 			//{
-				if(splitval > cur_aabb.min_[axis] && splitval < cur_aabb.max_[axis])
+				if(splitval > cur_aabb.min_.x[axis] && splitval < cur_aabb.max_.x[axis])
 				{
 					//advance lower index to maintain invariant above
 					while(lower_index < numtris && lower[lower_index] < splitval)
@@ -632,8 +632,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
 					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
 					assert(num_in_neg + num_in_pos >= (int)numtris);
-					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
-					const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
+					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+					const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 
 					const float cost = traversal_cost + 
 						((float)num_in_neg * negchild_surface_area + 
@@ -672,8 +672,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	assert(best_axis >= 0 && best_axis <= 2);
 	assert(best_div_val != -666.0f);
 
-	assert(best_div_val >= cur_aabb.min_[best_axis]);
-	assert(best_div_val <= cur_aabb.max_[best_axis]);
+	assert(best_div_val >= cur_aabb.min_.x[best_axis]);
+	assert(best_div_val <= cur_aabb.max_.x[best_axis]);
 
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
@@ -681,10 +681,10 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	assert(best_axis >= 0 && best_axis <= 2);
 
 	AABBox negbox(cur_aabb.min_, cur_aabb.max_);
-	negbox.max_[best_axis] = best_div_val;
+	negbox.max_.x[best_axis] = best_div_val;
 
 	AABBox posbox(cur_aabb.min_, cur_aabb.max_);
-	posbox.min_[best_axis] = best_div_val;
+	posbox.min_.x[best_axis] = best_div_val;
 
 	//------------------------------------------------------------------------
 	//assign tris to neg and pos child node bins
@@ -798,10 +798,10 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 				//then this box gets tris which touch the split, ie which hit
 				//max[split_axis]
 
-				if(ob_aabb.max_[i] < aabb.min_[i])
+				if(ob_aabb.max_.x[i] < aabb.min_.x[i])
 					return false;
 
-				if(ob_aabb.min_[i] >= aabb.max_[i])
+				if(ob_aabb.min_.x[i] >= aabb.max_.x[i])
 					return false;
 			}
 			else
@@ -810,24 +810,24 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 				//tris which hit the split. (ie hit min[split_axis])
 				//if(tri_boxes[triindex].max[i] <= aabb.min[i])//reject even if touching
 				//	return false;
-				if(ob_aabb.max_[i] <= aabb.min_[i])
+				if(ob_aabb.max_.x[i] <= aabb.min_.x[i])
 				{
-					if(!(ob_aabb.max_[i] == ob_aabb.min_[i] &&
-						ob_aabb.max_[i] == aabb.min_[i]))//if tri doesn't lie entirely on splitting plane
+					if(!(ob_aabb.max_.x[i] == ob_aabb.min_.x[i] &&
+						ob_aabb.max_.x[i] == aabb.min_.x[i]))//if tri doesn't lie entirely on splitting plane
 					return false;
 				}
 
-				if(ob_aabb.min_[i] > aabb.max_[i])
+				if(ob_aabb.min_.x[i] > aabb.max_.x[i])
 					return false;
 			}
 		}
 		else
 		{
 			//tris touching min or max planes are considered in aabb	
-			if(ob_aabb.max_[i] < aabb.min_[i])
+			if(ob_aabb.max_.x[i] < aabb.min_.x[i])
 				return false;
 			
-			if(ob_aabb.min_[i] > aabb.max_[i])
+			if(ob_aabb.min_.x[i] > aabb.max_.x[i])
 				return false;
 		}
 	}

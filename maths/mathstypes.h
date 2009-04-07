@@ -318,6 +318,14 @@ inline int roundToInt(double x)
 
 //From http://homepages.inf.ed.ac.uk/rbf/HIPR2/gsmooth.htm
 
+
+template <class VecType>
+inline typename VecType::RealType absDot(const VecType& v1, const VecType& v2)
+{
+	return std::fabs(dot(v1, v2));
+}
+
+
 namespace Maths
 {
 

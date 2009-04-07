@@ -54,14 +54,37 @@ void OldKDTreeBuilder::build(PrintOutput& print_output, KDTree& tree, const AABB
 			node_tri_layers[0][i].tri_index = i;
 
 			// Get tri AABB
-			SSE_ALIGN AABBox tri_aabb(tree.triVertPos(i, 0), tree.triVertPos(i, 0));
-			const SSE_ALIGN PaddedVec3f v1 = tree.triVertPos(i, 1);
-			tri_aabb.enlargeToHoldAlignedPoint(v1);
-			const SSE_ALIGN PaddedVec3f v2 = tree.triVertPos(i, 2);
-			tri_aabb.enlargeToHoldAlignedPoint(v2);
+			SSE_ALIGN AABBox tri_aabb;
+			{
+			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 0);
+			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			tri_aabb.min_ = v;
+			tri_aabb.max_ = v;
+			}
 
-			node_tri_layers[0][i].lower = tri_aabb.min_;
-			node_tri_layers[0][i].upper = tri_aabb.max_;
+			{
+			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 1);
+			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			tri_aabb.enlargeToHoldPoint(v);
+			}
+
+			{
+			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 2);
+			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			tri_aabb.enlargeToHoldPoint(v);
+			}
+
+			/*const SSE_ALIGN Vec4f v1 = tree.triVertPos(i, 1);
+			tri_aabb.enlargeToHoldPoint(v1);
+			const SSE_ALIGN Vec4f v2 = tree.triVertPos(i, 2);
+			tri_aabb.enlargeToHoldPoint(v2);*/
+
+			node_tri_layers[0][i].lower.x = tri_aabb.min_.x[0];
+			node_tri_layers[0][i].lower.y = tri_aabb.min_.x[1];
+			node_tri_layers[0][i].lower.z = tri_aabb.min_.x[2];
+			node_tri_layers[0][i].upper.x = tri_aabb.max_.x[0];
+			node_tri_layers[0][i].upper.y = tri_aabb.max_.x[1];
+			node_tri_layers[0][i].upper.z = tri_aabb.max_.x[2];
 		}
 
 
@@ -189,7 +212,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		//------------------------------------------------------------------------
 		for(unsigned int i=0; i<numtris; ++i)
 		{
-//			assert(nodetris[i].lower[axis] >= cur_aabb.min_[axis] && nodetris[i].upper[axis] <= cur_aabb.max_[axis]);
+//			assert(nodetris[i].lower[axis] >= cur_aabb.min_.x[axis] && nodetris[i].upper[axis] <= cur_aabb.max_.x[axis]);
 //TEMP			assert(nodetris[i].lower[axis] <= nodetris[i].upper[axis]);
 
 			lower[i].lower = nodetris[i].lower[axis];
@@ -210,8 +233,8 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		// 'Construction of Kd-Trees with Utilization of Empty Spatial Regions'
 		if(DO_EMPTY_SPACE_CUTOFF)
 		{
-			const float lower_cutoff_frac = myClamp((lower[0].lower - cur_aabb.min_[axis]) / cur_aabb.axisLength(axis), 0.f, 1.f);
-			const float upper_cutoff_frac = myClamp((cur_aabb.max_[axis] - upper[numtris-1].upper) / cur_aabb.axisLength(axis), 0.f, 1.f);
+			const float lower_cutoff_frac = myClamp((lower[0].lower - cur_aabb.min_.x[axis]) / cur_aabb.axisLength(axis), 0.f, 1.f);
+			const float upper_cutoff_frac = myClamp((cur_aabb.max_.x[axis] - upper[numtris-1].upper) / cur_aabb.axisLength(axis), 0.f, 1.f);
 			assert(Maths::inRange(lower_cutoff_frac, 0.0f, 1.0f));
 			assert(Maths::inRange(upper_cutoff_frac, 0.0f, 1.0f));
 			if(lower_cutoff_frac > best_cutoff_frac)
@@ -240,11 +263,11 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		for(unsigned int i=0; i<numtris; ++i)
 		{
 			const float splitval = lower[i].lower;
-			//assert(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]);
+			//assert(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]);
 
 			if(splitval != last_splitval) // Only consider first tri seen with a given lower bound.
 			{
-				if(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]) // If split val is actually in AABB
+				if(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]) // If split val is actually in AABB
 				{
 
 				// Get number of tris on splitting plane
@@ -265,8 +288,8 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 				assert(num_in_neg + num_in_pos + num_on_splitting_plane >= (int)numtris);
 
 
-				const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
-				const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
+				const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 				assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
 				assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
 				assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * 1.0e-6f));
@@ -338,9 +361,9 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 
 
 			const float splitval = upper[i].upper;
-			//assert(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis]);
+			//assert(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]);
 
-			if(splitval >= cur_aabb.min_[axis] && splitval <= cur_aabb.max_[axis])
+			if(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis])
 			{
 
 			int num_on_splitting_plane = 0;
@@ -362,8 +385,8 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 
 			//const int num_on_splitting_plane = numtris - (num_in_neg + num_in_pos);
 
-			const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_[axis]) * circum;
-			const float poschild_surface_area = two_cap_area + (cur_aabb.max_[axis] - splitval) * circum;
+			const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+			const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 			assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
 			assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
 			assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * 1.0e-6f));
@@ -458,17 +481,17 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 	}
 
 	assert(best_axis >= 0 && best_axis <= 2);
-	assert(best_div_val >= cur_aabb.min_[best_axis]);
-	assert(best_div_val <= cur_aabb.max_[best_axis]);
+	assert(best_div_val >= cur_aabb.min_.x[best_axis]);
+	assert(best_div_val <= cur_aabb.max_.x[best_axis]);
 
 	//------------------------------------------------------------------------
 	//compute AABBs of child nodes
 	//------------------------------------------------------------------------
 	SSE_ALIGN AABBox negbox(cur_aabb.min_, cur_aabb.max_);
-	negbox.max_[best_axis] = best_div_val;
+	negbox.max_.x[best_axis] = best_div_val;
 
 	SSE_ALIGN AABBox posbox(cur_aabb.min_, cur_aabb.max_);
-	posbox.min_[best_axis] = best_div_val;
+	posbox.min_.x[best_axis] = best_div_val;
 
 	if(best_num_in_neg == numtris && best_num_in_pos == numtris)
 	{

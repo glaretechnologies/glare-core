@@ -30,21 +30,21 @@ public:
 
 	inline void setLeftAABB(const AABBox& b)
 	{
-		box[0] = b.min_.x;
-		box[1] = b.max_.x;
-		box[4] = b.min_.y;
-		box[5] = b.max_.y;
-		box[8] = b.min_.z;
-		box[9] = b.max_.z;
+		box[0] = b.min_[0];
+		box[1] = b.max_[0];
+		box[4] = b.min_[1];
+		box[5] = b.max_[1];
+		box[8] = b.min_[2];
+		box[9] = b.max_[2];
 	}
 	inline void setRightAABB(const AABBox& b)
 	{
-		box[2] = b.min_.x;
-		box[3] = b.max_.x;
-		box[6] = b.min_.y;
-		box[7] = b.max_.y;
-		box[10] = b.min_.z;
-		box[11] = b.max_.z;
+		box[2] = b.min_[0];
+		box[3] = b.max_[0];
+		box[6] = b.min_[1];
+		box[7] = b.max_[1];
+		box[10] = b.min_[2];
+		box[11] = b.max_[2];
 	}
 
 	inline unsigned int getLeftChildIndex() const { return left; }

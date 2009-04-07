@@ -35,6 +35,7 @@ class Object;
 class RendererSettings;
 class ThreadContext;
 class PrintOutput;
+class Matrix4f;
 
 
 class GeometryExcep
@@ -66,9 +67,9 @@ public:
 	virtual ~Geometry(){}
 
 
-	typedef Vec3d Pos3Type;
+	typedef Vec4f Pos3Type;
 	typedef float Vec3RealType;
-	typedef Vec3<Vec3RealType> Vec3Type;
+	typedef Vec4f Vec3Type; //Vec3<Vec3RealType> Vec3Type;
 	
 
 	/// intersectable interface ///
@@ -97,7 +98,7 @@ public:
 	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
 	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const = 0; // PDF with respect to surface area metric, in parent space
 	//virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
-	virtual void getSubElementSurfaceAreas(const Matrix3<Vec3RealType>& to_parent, std::vector<double>& surface_areas_out) const = 0;
+	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const = 0;
 	//virtual unsigned int getNumSubElems() const = 0;
 	// Sample the surface of the given sub-element.
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const = 0;
