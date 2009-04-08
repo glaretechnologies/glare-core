@@ -12,8 +12,8 @@ Code By Nicholas Chapman.
 
 
 /*=====================================================================
-Reference
----------
+AlignedRef
+----------
 Handle to a reference-counted object.
 Referenced object will be automatically deleted when no refs to it remain.
 T must be a subclass of 'RefCounted'

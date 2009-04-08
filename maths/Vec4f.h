@@ -34,7 +34,7 @@ public:
 
 	INDIGO_STRONG_INLINE ~Vec4f() {}
 
-	inline void set(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
+	INDIGO_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
 
 	INDIGO_STRONG_INLINE Vec4f& operator = (const Vec4f& a);
 
@@ -49,11 +49,10 @@ public:
 	inline bool operator == (const Vec4f& a) const;
 
 
-
-	inline float length() const;
-	inline float length2() const;
-	inline float getDist(const Vec4f& a) const;
-	inline float getDist2(const Vec4f& a) const;
+	INDIGO_STRONG_INLINE float length() const;
+	INDIGO_STRONG_INLINE float length2() const;
+	INDIGO_STRONG_INLINE float getDist(const Vec4f& a) const;
+	INDIGO_STRONG_INLINE float getDist2(const Vec4f& a) const;
 
 	inline bool isUnitLength() const;
 
@@ -68,13 +67,13 @@ public:
 		float x[4];
 		__m128 v;
 	};
-	//float x[4];
 };
 
 
 // Some stand-alone functions that operate on Vec4fs
 
 
+// NOTE: This returns __m128 instead of 'const Vec4f', because VC9 won't inline the function if it returns 'const Vec4f'.
 INDIGO_STRONG_INLINE __m128 operator + (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_add_ps(a.v, b.v);
@@ -160,12 +159,6 @@ INDIGO_STRONG_INLINE __m128 maskWToZero(const Vec4f& a)
 	return _mm_and_ps(a.v, _mm_load_ps((const float*)mask));
 }
 
-/*template <class Real> const Vec4<Real> operator + (const Vec4<Real>& a, const Vec4<Real> b);
-
-template <> const Vec4<float> operator + (const Vec4<float>& a, const Vec4<float> b)
-{
-}*/
-
 
 Vec4f& Vec4f::operator = (const Vec4f& a)
 {
@@ -208,7 +201,8 @@ void Vec4f::operator *= (float f)
 
 bool Vec4f::operator == (const Vec4f& a) const
 {
-	// NOTE: could speed this up.
+	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
+	// Exact floating point comparison should be rare.
 	return 
 		x[0] == a.x[0] &&
 		x[1] == a.x[1] &&
