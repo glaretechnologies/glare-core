@@ -1,7 +1,7 @@
 #include "jscol_triangle.h"
 
 
-
+#if 0
 /*void js::Triangle::calcNormal()
 {
 	//Vec3 edge0 = v0() - v1();
@@ -283,3 +283,6 @@ bool js::Triangle::pointInTri(const Vec3f& point) const
 /*
 	return true;
 }*/
+
+
+#endif

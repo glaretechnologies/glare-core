@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #include "NBVH.h"
 
 
+#if 0
+
+
 #include "jscol_aabbox.h"
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
@@ -266,6 +269,7 @@ const Vec3f NBVH::triGeometricNormal(unsigned int tri_index) const //slow
 } //end namespace js
 
 
+#endif
 
 
 

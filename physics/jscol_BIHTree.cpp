@@ -7,6 +7,8 @@ Code By Nicholas Chapman.
 #include "jscol_BIHTree.h"
 
 
+#if 0
+
 #include "jscol_aabbox.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "TreeUtils.h"
@@ -946,3 +948,6 @@ const Vec3f BIHTree::triGeometricNormal(unsigned int tri_index) const //slow
 
 
 } //end namespace js
+
+
+#endif
