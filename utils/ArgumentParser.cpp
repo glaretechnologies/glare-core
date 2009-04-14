@@ -9,13 +9,11 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include "../utils/stringutils.h"
 
-ArgumentParser::ArgumentParser(const std::vector<std::string>& args_, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
-:	args(args_),
+ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
+:	//args(args_),
 	syntax(syntax_)
 {
-	
 	// Parse
-
 	bool parsed_free_arg = false;
 	for(int i=1; i<(int)args.size(); ++i)
 	{
@@ -28,59 +26,46 @@ ArgumentParser::ArgumentParser(const std::vector<std::string>& args_, const std:
 			parsed_free_arg = true;
 			unnamed_arg = args[i];
 		}
-
-		const std::vector<ArgumentType>& arg_types = syntax[name];
-
-		parsed_args[name] = std::vector<ParsedArg>();
-
-		for(unsigned int z=0; z<arg_types.size(); ++z)
+		else
 		{
-			i++;
-			if(i >= (int)args.size())
-				throw ArgumentParserExcep("Failed to find expected token following '" + name + "'");
+			const std::vector<ArgumentType>& arg_types = syntax[name];
 
-			try
-			{
-				parsed_args[name].push_back(ParsedArg());
-				if(arg_types[z] == ArgumentType_string)
-				{
-					parsed_args[name].back().string_val = args[i];
-				}
-				else if(arg_types[z] == ArgumentType_int)
-				{
-					parsed_args[name].back().int_val = ::stringToInt(args[i]);
-				}
-				else if(arg_types[z] == ArgumentType_double)
-				{
-					parsed_args[name].back().double_val = ::stringToDouble(args[i]);
-				}
-				else
-				{
-					assert(0);
-				}
+			parsed_args[name] = std::vector<ParsedArg>();
 
-				parsed_args[name].back().type = arg_types[z];
-			}
-			catch(StringUtilsExcep& e)
+			for(unsigned int z=0; z<arg_types.size(); ++z)
 			{
-				throw ArgumentParserExcep(e.what());
+				i++;
+				if(i >= (int)args.size())
+					throw ArgumentParserExcep("Failed to find expected token following '" + name + "'");
+
+				try
+				{
+					parsed_args[name].push_back(ParsedArg());
+					if(arg_types[z] == ArgumentType_string)
+					{
+						parsed_args[name].back().string_val = args[i];
+					}
+					else if(arg_types[z] == ArgumentType_int)
+					{
+						parsed_args[name].back().int_val = ::stringToInt(args[i]);
+					}
+					else if(arg_types[z] == ArgumentType_double)
+					{
+						parsed_args[name].back().double_val = ::stringToDouble(args[i]);
+					}
+					else
+					{
+						assert(0);
+					}
+
+					parsed_args[name].back().type = arg_types[z];
+				}
+				catch(StringUtilsExcep& e)
+				{
+					throw ArgumentParserExcep(e.what());
+				}
 			}
 		}
-
-				
-
-
-
-		/*const int numargs = syntax[name];
-		parsed_args[name].resize(numargs);
-		for(int z=0; z<numargs; ++z)
-		{
-			i++;
-			if(i >= (int)args.size())
-				throw ArgumentParserExcep("Failed to find expected token following '" + name + "'");
-
-			parsed_args[name][z] = args[i];
-		}*/
 	}
 }
 
@@ -89,6 +74,40 @@ ArgumentParser::~ArgumentParser()
 {
 	
 }
+
+
+const std::vector<std::string> ArgumentParser::getArgs() const
+{
+	std::vector<std::string> res;
+
+	if(unnamed_arg != "")
+		res.push_back(unnamed_arg);
+
+	for(std::map<std::string, std::vector<ParsedArg> >::const_iterator i = parsed_args.begin(); i != parsed_args.end(); ++i)
+	{
+		res.push_back((*i).first);
+		for(unsigned int z=0; z<(*i).second.size(); ++z)
+			res.push_back((*i).second[z].toString());
+	}
+	return res;
+}
+
+
+/*const std::vector<std::string> ArgumentParser::getArgsWithoutUnnamedAndZerothArg() const
+{
+	std::vector<std::string> res;
+
+	for(std::map<std::string, std::vector<ParsedArg> >::const_iterator i = parsed_args.begin(); i != parsed_args.end(); ++i)
+	{
+		res.push_back((*i).first);
+		for(unsigned int z=0; z<(*i).second.size(); ++z)
+		{
+			res.push_back((*i).second[z].toString());
+		}
+	}
+	return res;
+}*/
+
 
 const std::string ArgumentParser::getArgStringValue(const std::string& name, unsigned int value_index) const
 {
@@ -139,8 +158,52 @@ double ArgumentParser::getArgDoubleValue(const std::string& name, unsigned int v
 }
 
 
-const std::string ArgumentParser::getOriginalArgsAsString() const
+/*const std::string ArgumentParser::getOriginalArgsAsString() const
 {
 	return StringUtils::join(getOriginalArgs(), " ");
+}*/
+
+const std::string ArgumentParser::getArgsAsString() const
+{
+	return StringUtils::join(getArgs(), " ");
+}
+
+
+void ArgumentParser::appendToOrCreateArg(const std::string& name, const std::string& value)
+{
+	std::map<std::string, std::vector<ParsedArg> >::iterator res = parsed_args.find(name);
+	if(res == parsed_args.end())
+	{
+		ParsedArg p;
+		p.type = ArgumentType_string;
+		p.string_val = value;
+		parsed_args[name] = std::vector<ParsedArg>(1, p);
+	}
+	else
+	{
+		(*res).second[0].string_val += value;
+	}
+}
+
+
+void ArgumentParser::setStringArg(const std::string& name, const std::string& s)
+{
+	ParsedArg p;
+	p.type = ArgumentType_string;
+	p.string_val = s;
+	parsed_args[name] = std::vector<ParsedArg>(1, p);
+}
+
+
+const std::string ArgumentParser::ParsedArg::toString() const
+{
+	if(type == ArgumentType_string)
+		return string_val;
+	else if(type == ArgumentType_int)
+		return ::toString(int_val);
+	else if(type == ArgumentType_double)
+		return ::toString(double_val);
+	else
+		return "[ERROR]";
 }
 

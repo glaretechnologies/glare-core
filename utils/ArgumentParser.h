@@ -52,6 +52,8 @@ public:
 		double double_val;
 		int int_val;
 		ArgumentType type;
+
+		const std::string toString() const;
 	};
 	
 
@@ -75,15 +77,22 @@ public:
 	const std::string getUnnamedArg() const { return unnamed_arg; }
 	void setUnnamedArg(const std::string& s) { unnamed_arg = s; }
 
-	const std::vector<std::string>& getArgs() const { return args; }
+	const std::vector<std::string> getArgs() const;// { return args; }
+	const std::string getArgsAsString() const;
+
+
+	//const std::vector<std::string> getArgsWithoutUnnamedAndZerothArg() const;
+
+	void appendToOrCreateArg(const std::string& name, const std::string& value);
 
 	void setArg(const std::string& name, const std::vector<ParsedArg>& args_) { parsed_args[name] = args_; }
+	void setStringArg(const std::string& name, const std::string& s);
 
-	const std::vector<std::string>& getOriginalArgs() const { return args; }
-	const std::string getOriginalArgsAsString() const;
+	//const std::vector<std::string>& getOriginalArgs() const { return args; }
+	//const std::string getOriginalArgsAsString() const;
 
 private:
-	std::vector<std::string> args;
+	//std::vector<std::string> args;
 	std::map<std::string, std::vector<ArgumentType> > syntax;
 	std::map<std::string, std::vector<ParsedArg> > parsed_args;
 	std::string unnamed_arg;
