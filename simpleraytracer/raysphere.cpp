@@ -300,6 +300,7 @@ void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& 
 	normal_out.set(n.x[0], n.x[1], n.x[2], 0.0f);
 	assert(normal_out.isUnitLength());
 	pos_out = n * (float)radius;
+	pos_out.x[3] = 1.0f;
 
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(n, (Vec3RealType)this->recip_radius);

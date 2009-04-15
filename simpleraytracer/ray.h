@@ -34,8 +34,9 @@ public:
 
 		buildRecipRayDir();
 	}*/
-	inline Ray(const Vec4f& startpos_, const Vec4f& unitdir_)
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_)
 	{
+		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(unitdir_.isUnitLength());
 		assert(SSE::isSSEAligned(this));
 
@@ -45,7 +46,7 @@ public:
 		buildRecipRayDir();
 	}
 
-	inline ~Ray(){}
+	INDIGO_STRONG_INLINE ~Ray(){}
 
 	//INDIGO_STRONG_INLINE const Vec3d& startPos() const { return startpos; }
 	//INDIGO_STRONG_INLINE const Vec3d& unitDir() const { return unitdir; }
@@ -68,7 +69,7 @@ public:
 	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return Vec4f(startpos_f + Vec4f(unitdir_f * t)); }
 	
 private:
-	void buildRecipRayDir();
+	INDIGO_STRONG_INLINE void buildRecipRayDir();
 
 	SSE_ALIGN Vec4f startpos_f;
 	SSE_ALIGN Vec4f unitdir_f;
@@ -85,6 +86,45 @@ private:
 	//assert(built_recip_unitdir);
 	return recip_unitdir;
 }*/
+
+
+void Ray::buildRecipRayDir()
+{
+	//const SSE_ALIGN float raydir[4] = unitdir_f; // {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};
+	const float MAX_RECIP = 1.0e26f;
+	const SSE_ALIGN float MAX_RECIP_vec[4] = {MAX_RECIP, MAX_RECIP, MAX_RECIP, MAX_RECIP};
+
+	this->recip_unitdir_f = Vec4f(
+		_mm_min_ps(
+			_mm_load_ps(MAX_RECIP_vec),
+			_mm_div_ps(
+				_mm_load_ps(one_4vec),
+				unitdir_f.v
+				)
+			)
+		);
+
+	/*_mm_store_ps(
+		&recip_unitdir_f.x,
+		_mm_min_ps(
+			_mm_load_ps(MAX_RECIP_vec),
+			_mm_div_ps(
+				_mm_load_ps(one_4vec),
+				_mm_load_ps(raydir)
+				)
+			)
+		);*/
+
+	/*const SSE_ALIGN float raydir[4] = {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};
+
+	_mm_store_ps(
+		&recip_unitdir_f.x,
+		_mm_div_ps(
+			_mm_load_ps(one_4vec),
+			_mm_load_ps(raydir)
+			)
+		);*/
+}
 
 
 #endif //__RAY_H_666_

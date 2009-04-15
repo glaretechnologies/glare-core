@@ -1229,7 +1229,7 @@ void Camera::unitTest()
 
 	// Test conversion of image coords to sensorpos and back
 	{
-	const Vec2d imcoords(0.1, 0.1);
+	const Vec2d imcoords(0.1856, 0.145);
 	SSE_ALIGN Vec4f sensorpos_os, sensorpos_ws;
 	cam.sensorPosForImCoords(imcoords, time, sensorpos_os, sensorpos_ws);
 	testAssert(epsEqual(cam.imCoordsForSensorPos(sensorpos_os, time), imcoords));
@@ -1272,16 +1272,16 @@ void Camera::unitTest()
 */
 	{
 	// Sample an exit direction
-	SSE_ALIGN Vec4f lenspos_os, lenspos_ws;
-	SSE_ALIGN Vec4f sensorpos_os, sensorpos_ws;
-	bool hitsensor;
-	cam.sensorPosForImCoords(Vec2d(0.2f, 0.5f), time, sensorpos_os, sensorpos_ws);
-	cam.sampleLensPos(SamplePair(0.1f, 0.4f), time, lenspos_os, lenspos_ws);
-	SSE_ALIGN Vec4f v = cam.lensExitDir(sensorpos_os, lenspos_os, time); // get lens exit direction
+	Vec4f lenspos_os, lenspos_ws;
+	Vec4f sensorpos_os, sensorpos_ws;
+	cam.sensorPosForImCoords(Vec2d(0.2f, 0.5f), time, sensorpos_os, sensorpos_ws); // Get sensor position
+	cam.sampleLensPos(SamplePair(0.1f, 0.4f), time, lenspos_os, lenspos_ws); // Get lens position
+	const Vec4f lens_exit_dir = cam.lensExitDir(sensorpos_os, lenspos_os, time); // get lens exit direction
 
 	// Cast ray back into camera and make sure it hits at same sensor pos
-	SSE_ALIGN Vec4f  sensorpos_os2, sensorpos_ws2;
-	cam.sensorPosForLensIncidentRay(lenspos_ws, v * -1.0, time, hitsensor, sensorpos_os2, sensorpos_ws2);
+	bool hitsensor;
+	Vec4f sensorpos_os2, sensorpos_ws2;
+	cam.sensorPosForLensIncidentRay(lenspos_ws, lens_exit_dir * -1.0, time, hitsensor, sensorpos_os2, sensorpos_ws2);
 	testAssert(hitsensor);
 	testAssert(::epsEqual(sensorpos_os, sensorpos_os2));
 	testAssert(::epsEqual(sensorpos_ws, sensorpos_ws2));
