@@ -538,7 +538,6 @@ bool hasPrefix(const std::string& s, const std::string& prefix)
 
 bool hasSuffix(const std::string& s, const std::string& postfix)
 {
-
 	if(postfix.length() > s.length())
 		return false;
 
