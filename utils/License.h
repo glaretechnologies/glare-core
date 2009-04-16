@@ -29,7 +29,20 @@ public:
 	};
 
 
-	static bool verifyLicense(const std::string& indigo_base_path); // throws LicenseExcep
+	enum LicenceType
+	{
+		FULL
+	};
+
+	static const std::string licenseTypeToString(LicenceType t)
+	{
+		if(t == FULL)
+			return "Full";
+		else
+			return "[Unknown]";
+	}
+
+	static bool verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getHardwareIdentifier(); // throws LicenseExcep

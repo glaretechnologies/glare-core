@@ -506,8 +506,8 @@ void readEntireFile(std::ifstream& file, std::string& filecontents_out)
 
 	filecontents_out.resize(filesize);
 
-	file.read(&(*filecontents_out.begin()), filesize);
-
+	if(filecontents_out.size() > 0)
+		file.read(&(*filecontents_out.begin()), filesize);
 }
 
 void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontents_out)
@@ -525,7 +525,8 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 
 	filecontents_out.resize(filesize);
 
-	file.read((char*)&(*filecontents_out.begin()), filesize);
+	if(filecontents_out.size() > 0)
+		file.read((char*)&(*filecontents_out.begin()), filesize);
 }
 
 
@@ -551,20 +552,36 @@ void readEntireFile(const std::string& pathname,
 	readEntireFile(infile, filecontents_out);
 }
 
+
 void writeEntireFile(const std::string& pathname,
 					 const std::vector<unsigned char>& filecontents)
 {
 	std::ofstream file(pathname.c_str(), std::ios::binary);
 
 	if(!file)
-		throw FileUtilsExcep("could not open '" + pathname + "' for writing.");
+		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
 
 	if(filecontents.size() > 0)
 		file.write((const char*)&(*filecontents.begin()), filecontents.size());
 
 	if(file.bad())
-		throw FileUtilsExcep("write to '" + pathname + "' failed.");
+		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
+}
 
+
+void writeEntireFile(const std::string& pathname,
+					 const std::string& filecontents)
+{
+	std::ofstream file(pathname.c_str(), std::ios::binary);
+
+	if(!file)
+		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
+
+	if(filecontents.size() > 0)
+		file.write(filecontents.c_str(), filecontents.size());
+
+	if(file.bad())
+		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
 }
 
 

@@ -12,6 +12,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 #include "platformutils.h"
 #include "fileutils.h"
+#include "stringutils.h"
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -31,31 +32,37 @@ static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\n
 
 // From http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
-static std::vector<unsigned char> decodeBase64(const std::vector<unsigned char>& data) {
-	std::vector<unsigned char> rv;
+static const std::string decodeBase64(const std::string& data) {
+	//std::vector<unsigned char> rv;
     BIO *b64 = 0, *bmem = 0;
-    rv.clear();
+    //rv.clear();
 	
     try {
-        bmem = BIO_new_mem_buf((void*)&data[0], data.size());
+		bmem = BIO_new_mem_buf((void*)data.c_str(), data.size());
         if(!bmem)
-			throw License::LicenseExcep("failed to allocate in base64 decoder");
+			throw License::LicenseExcep("Failed to allocate in base64 decoder");
+
         b64 = BIO_new(BIO_f_base64());
         if(!b64)
-            throw License::LicenseExcep("failed to initialize in base64 decoder");
+            throw License::LicenseExcep("Failed to initialize in base64 decoder");
+
         BIO_push(b64,bmem);
         unsigned char tmp[512];
         size_t rb = 0;
+		std::string rv;
         while((rb=BIO_read(b64,tmp,sizeof(tmp)))>0){
-            rv.insert(rv.end(),tmp,&tmp[rb]);
+            rv.insert(rv.end(), tmp, &tmp[rb]);
 		}
+
         BIO_free_all(b64);
-    }catch(...) {
+
+		return rv;
+    }
+	catch(...)
+	{
         if(b64) BIO_free_all(b64);
         throw License::LicenseExcep("base64 decoder error");
     }
-	
-	return rv;
 }
 
 
@@ -66,23 +73,13 @@ static EVP_PKEY* get_public_key(){
 }
 
 
-bool License::verifyLicense(const std::string& indigo_base_path)
+bool License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
 {
 	ERR_load_crypto_strings();
 
 	// Load the public key
 	EVP_PKEY* public_key = get_public_key();
 	
-	// Get the hardware info file
-	/*std::string hwinfo;
-	std::cout << "Loading hardware info.. ";
-	try{
-		hwinfo = slurp("license.txt");
-	}catch(std::string err){
-		std::cout << "failure (" << err << ")\n";
-		return false;
-	}
-	std::cout << "ok\n";*/
 
 	const std::string hwinfo = getHardwareIdentifier();
 
@@ -90,15 +87,36 @@ bool License::verifyLicense(const std::string& indigo_base_path)
 	if(!FileUtils::fileExists(FileUtils::join(indigo_base_path, "licence.sig")))
 		return false;
 
-	std::vector<unsigned char> signature;
+	//std::vector<unsigned char> signature;
+	std::string hash;
+	std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
 	try
 	{
-		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "licence.sig"), signature);
+		std::string sigfile_contents;
+		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "licence.sig"), sigfile_contents);
 
-		if(signature.empty())
-			throw LicenseExcep("Signature empty.");
+		if(sigfile_contents.empty())
+			return false; //throw LicenseExcep("Signature empty.");
 
-		signature = decodeBase64(signature);
+		// Split the license key up into (User Id, license type, sig)
+		const std::vector<std::string> components = ::split(sigfile_contents, ';');
+
+		if(components.size() != 3)
+			return false;
+
+		user_id_out = components[0];
+
+		if(components[1] == "Full")
+			license_type_out = FULL;
+		else
+			return false;
+
+		hash = decodeBase64(components[2]);
+
+		if(hash.empty())
+			return false; // throw LicenseExcep("Signature empty.");
+
+		constructed_key = components[0] + ";" + components[1] + ";" + hwinfo;
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
@@ -108,13 +126,13 @@ bool License::verifyLicense(const std::string& indigo_base_path)
 	// Initialize openssl and pass in the data
 	EVP_MD_CTX ctx;
     if(EVP_VerifyInit(&ctx, EVP_sha1()) != 1)
-		throw LicenseExcep("Internal Verification failure.");
+		throw LicenseExcep("Internal Verification failure 1.");
 
-    if(EVP_VerifyUpdate(&ctx, hwinfo.data(), hwinfo.size()) != 1)
-		throw LicenseExcep("Internal Verification failure.");
+    if(EVP_VerifyUpdate(&ctx, constructed_key.data(), constructed_key.size()) != 1)
+		throw LicenseExcep("Internal Verification failure 2.");
 
 	// Call the actual verify function and get result
-	const int result = EVP_VerifyFinal(&ctx, &signature[0], signature.size(), public_key);
+	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.c_str(), hash.size(), public_key);
 
 	ERR_free_strings();
 
