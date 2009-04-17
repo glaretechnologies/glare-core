@@ -7,10 +7,6 @@ File created by ClassTemplate on Sun Nov 07 02:05:28 2004Code By Nicholas Chapma
 #define __MODELDECODER_H_666_
 
 
-
-#pragma warning(disable : 4786)//disable long debug name warning
-
-
 #include "modelformatdecoder.h"
 #include <string>
 class ModelLoadingStreamHandler;
@@ -26,7 +22,7 @@ public:
 	/*=====================================================================
 	ModelDecoder
 	------------
-	
+
 	=====================================================================*/
 	ModelDecoder();
 
@@ -36,7 +32,7 @@ public:
 	virtual const std::string getExtensionType() const = 0;
 
 
-	//virtual void buildModel(const void* data, int datalen, const std::string& filename, 
+	//virtual void buildModel(const void* data, int datalen, const std::string& filename,
 	//	CS::Model& model_out) throw (ModelFormatDecoderExcep) = 0;
 
 

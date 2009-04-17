@@ -8,9 +8,6 @@ Code By Nicholas Chapman.
 #define __LIB3DSFORMATDECODER_H_666_
 
 
-#pragma warning(disable : 4786)//disable long debug name warning
-
-
 #include "../graphics/modeldecoder.h"
 //#include "../simple3D/colour.h"
 //#include "../graphics/colour3.h"
@@ -36,7 +33,7 @@ public:
 	/*=====================================================================
 	Lib3dsFormatDecoder
 	-------------------
-	
+
 	=====================================================================*/
 	Lib3dsFormatDecoder();
 
@@ -46,7 +43,7 @@ public:
 	virtual const std::string getExtensionType() const { return "3ds"; }
 
 
-	//virtual void buildModel(const void* data, int datalen, const std::string& filename, 
+	//virtual void buildModel(const void* data, int datalen, const std::string& filename,
 	//	CS::Model& model_out) throw (ModelFormatDecoderExcep);
 
 	void setScale(float newscale){ scale = newscale; }//set b4 calling buildModel()
