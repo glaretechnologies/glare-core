@@ -28,8 +28,10 @@ typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by def
 
 #ifdef COMPILER_MSVC
 #define SSE_ALIGN _MM_ALIGN16
+#define SSE_ALIGN_SUFFIX
 #else
-#define SSE_ALIGN __attribute__ ((aligned (16)))
+#define SSE_ALIGN
+#define SSE_ALIGN_SUFFIX __attribute__ ((aligned (16)))
 #endif
 
 
@@ -224,7 +226,7 @@ inline const SSE4Vec setMasked(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec
 	setMasked(newvals, result, lessThan4Vec(a, b), result);
 }*/
 
-inline const SSE4Vec setIfALessThanB4Vec(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& newvals, 
+inline const SSE4Vec setIfALessThanB4Vec(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& newvals,
 										 const SSE4Vec& oldvals)
 {
 	return setMasked(newvals, oldvals, lessThan4Vec(a, b));
@@ -303,7 +305,7 @@ inline const SSE4Int setMasked(const SSE4Int& a, const SSE4Int& b, const SSE4Int
 /*inline float dotSSE(const SSE4Vec& v1, const SSE4Vec& v2)
 {
 	const SSE4Vec prod = mult4Vec(v1, v2);
-	
+
 	return prod.m128_f32[0] + prod.m128_f32[1] + prod.m128_f32[2];
 }*/
 
@@ -318,7 +320,7 @@ inline const SSE4Vec dotSSEIn4Vec(const SSE4Vec& v1, const SSE4Vec& v2)
 	//shuffled.y = prod.z
 	result = add4Vec(result, shuffle4Vec(prod, prod, SHUF_Y, SHUF_Y, SHUF_Y, SHUF_Y));
 	result = add4Vec(result, shuffle4Vec(prod, prod, SHUF_Z, SHUF_Z, SHUF_Z, SHUF_Z));
-	
+
 	return result;
 }
 
@@ -355,7 +357,7 @@ inline void addScaledVec4SSE(const float* a, const float* b, float scale, float*
 		);
 }
 
-/*		
+/*
 #else //else if not USE_SSE
 
 //------------------------------------------------------------------------
@@ -367,7 +369,7 @@ inline void addScaledVec4SSE(const float* a, const float* b, float scale, float*
 typedef float SSE4Vec[4];
 typedef int SSE4Int[4];
 
-#define SSE_ALIGN 
+#define SSE_ALIGN
 
 template <class T>
 inline bool isSSEAligned(T* ptr)
@@ -393,7 +395,7 @@ inline void* myAlignedMalloc(unsigned int size, unsigned int alignment)
 {
 	assert(alignment >= 4);
 	const unsigned int usesize = size + alignment*2;
-	
+
 	char* mem = (char*)malloc(usesize);
 	char* p = mem;
 	//snap up to next boundary

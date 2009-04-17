@@ -28,7 +28,7 @@ class Vec3
 {
 public:
 
-	typedef typename Real RealType;
+	typedef /*typename*/ Real RealType;
 
 	inline Vec3()
 	{}
@@ -71,7 +71,7 @@ public:
 		y(v.y * scale),
 		z(v.z * scale)
 	{}
-		
+
 
 	inline void set(Real newx, Real newy, Real newz)
 	{
@@ -99,17 +99,17 @@ public:
 
 
 	inline const Vec3 operator - (const Vec3& rhs) const
-	{	
+	{
 		return Vec3(x - rhs.x, y - rhs.y, z - rhs.z);
 	}
 
 	inline const Vec3 operator * (const Vec3& rhs) const
-	{	
+	{
 		return Vec3(x * rhs.x, y * rhs.y, z * rhs.z);
 	}
 
 	inline Vec3& operator += (const Vec3& rhs)
-	{		
+	{
 		x += rhs.x;
 		y += rhs.y;
 		z += rhs.z;
@@ -117,7 +117,7 @@ public:
 	}
 
 	inline Vec3& operator -= (const Vec3& rhs)
-	{	
+	{
 		x -= rhs.x;
 		y -= rhs.y;
 		z -= rhs.z;
@@ -125,7 +125,7 @@ public:
 	}
 
 	inline Vec3& operator = (const Vec3& rhs)
-	{	
+	{
 		x = rhs.x;
 		y = rhs.y;
 		z = rhs.z;
@@ -341,7 +341,7 @@ public:
 
 
 	inline const Real* data() const { return (Real*)this; }
-	
+
 
 
 
@@ -367,7 +367,7 @@ public:
 	/*==================================================================
 	getAngles
 	---------
-	Gets the Euler angles of this vector.  Returns the vector (yaw, pitch, roll). 
+	Gets the Euler angles of this vector.  Returns the vector (yaw, pitch, roll).
 	Yaw is the angle between this vector and the vector 'ws_forwards' measured
 	anticlockwise when looking towards the origin from along the vector 'ws_up'.
 	Yaw will be in the range (-Pi, Pi).
@@ -443,13 +443,13 @@ public:
 	{
 		return ::epsEqual(length(), (Real)1.0);
 	}
-	
+
 	//will be in range [-Pi/2, Pi/2]
 	inline Real theta() const
 	{
 		return atan2(sqrt(x*x + y*y), z);
 	}
-	
+
 	inline Real phi() const
 	{
 		Real phi = atan2(x, y);
@@ -457,7 +457,7 @@ public:
 		    phi += NICKMATHS_2PI;
 		return phi;
 	}
-	
+
 	inline Real r() const
 	{
 		return length();
@@ -507,8 +507,8 @@ public:
 	// returns true if all components c satisfy c >= minval && c < maxval, i.e. c e [minval, maxval)
 	inline bool inHalfClosedInterval(Real minval, Real maxval) const
 	{
-		return 
-			Maths::inHalfClosedInterval(x, minval, maxval) && 
+		return
+			Maths::inHalfClosedInterval(x, minval, maxval) &&
 			Maths::inHalfClosedInterval(y, minval, maxval) &&
 			Maths::inHalfClosedInterval(z, minval, maxval);
 	}

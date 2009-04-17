@@ -140,7 +140,7 @@ template <class Real> Real spherePDF()
 
 template <class VecType> typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir)
 {
-	return myMax((VecType::RealType)0.0, dot(normal, unitdir)) * (VecType::RealType)NICKMATHS_RECIP_PI;
+	return myMax(/*(VecType::RealType)*/0.0f, dot(normal, unitdir)) * /*(VecType::RealType)*/(float)NICKMATHS_RECIP_PI;
 }
 
 

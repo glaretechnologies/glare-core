@@ -224,10 +224,10 @@ const VecType MatUtils::sampleHemisphereCosineWeighted(const Matrix4f& to_world,
 
 	return basis.transformVectorToParent(dir);*/
 
-	Vec2<VecType::RealType> disc;
-	shirleyUnitSquareToDisk<VecType::RealType>(unitsamples, disc);
+	Vec2<typename VecType::RealType> disc;
+	shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples, disc);
 
-	const VecType dir(disc.x, disc.y, sqrt(myMax((VecType::RealType)0.0, (VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y))), 0.0);
+	const VecType dir(disc.x, disc.y, sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y))), 0.0);
 	assert(dir.isUnitLength());
 
 	//return basis.transformVectorToParent(dir);
@@ -318,7 +318,7 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Rea
 	const Real b2 = 0.5f * (sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) - (n*n - k*k - sin2_theta));
 
 	const Real a = sqrt(a2);
-	const Real b = sqrt(b2);
+	//const Real b = sqrt(b2);
 	const Real F_perp = (a2 + b2 - 2.0f*a*cos_theta + cos2_theta) / (a2 + b2 + 2.0f*a*cos_theta + cos2_theta);
 	const Real F_par = F_perp * (a2 + b2 - 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta) / (a2 + b2 + 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta);
 

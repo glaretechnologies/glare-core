@@ -94,7 +94,7 @@ void ObjectTreeTest::doTests()
 	for(int i=0; i<10000; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1) - Vec4f(0.2, 0.2, 0.2, 1)) * 1.4,
+			Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1) - Vec4f(0.2, 0.2, 0.2, 1)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
@@ -111,9 +111,9 @@ void ObjectTreeTest::doTests()
 		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, obtree_context, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
-		testAssert(t > 0.0 == t2 > 0.0);
+		testAssert((t > 0.0) == (t2 > 0.0));
 
-		if(t >= 0.0 || t2 >= 0.0)
+		if((t >= 0.0) || (t2 >= 0.0))
 		{
 			testAssert(t == t2);
 			testAssert(hitinfo.sub_elem_coords == hitinfo2.sub_elem_coords);
@@ -335,7 +335,7 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
+				Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
@@ -362,7 +362,7 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-			(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
+				Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 

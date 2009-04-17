@@ -20,8 +20,7 @@ Vec4
 ----
 
 =====================================================================*/
-SSE_ALIGN 
-class Vec4f
+SSE_ALIGN class SSE_ALIGN_SUFFIX Vec4f
 {
 public:
 	typedef float RealType;
@@ -115,16 +114,16 @@ INDIGO_STRONG_INLINE __m128 crossProduct(const Vec4f& a, const Vec4f& b)
 
 		= [0, axby - aybx, azbx - axbz, aybz - azby]
 	*/
-	return 
+	return
 		_mm_sub_ps(
 			_mm_mul_ps(
 				_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(3, 0, 2, 1)), // [0, ax, az, ay]
 				_mm_shuffle_ps(b.v, b.v, _MM_SHUFFLE(3, 1, 0, 2)) // [0, by, bx, bz]
-				), // [0, axby, azbx, aybz] 
+				), // [0, axby, azbx, aybz]
 			_mm_mul_ps(
 				_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(3, 1, 0, 2)), // [0, ay, ax, az]
 				_mm_shuffle_ps(b.v, b.v, _MM_SHUFFLE(3, 0, 2, 1)) // [0, bx, bz, by]
-				) // [0, aybx, axbz, azby] 
+				) // [0, aybx, axbz, azby]
 			)
 		;
 }
@@ -203,7 +202,7 @@ bool Vec4f::operator == (const Vec4f& a) const
 {
 	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
 	// Exact floating point comparison should be rare.
-	return 
+	return
 		x[0] == a.x[0] &&
 		x[1] == a.x[1] &&
 		x[2] == a.x[2] &&

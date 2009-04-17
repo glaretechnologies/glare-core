@@ -1,16 +1,16 @@
 /*===================================================================
 
-  
+
   digital liberation front 2002
-  
+
   _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|        \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
+ /______/\  |______|    /\______\
+|       \ \ |      |   / /       |
+|        \| |      |  |/         |
+|_____    \ |      |_ /    ______|
+ ____|    | |      |_||    |_____
+     |____| |________||____|
+
 
 
 
@@ -70,8 +70,8 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 
 //http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
 	/*const double B = 2.0 * (
-		ray.unitdir.x * (ray.startpos.x - centerpos.x) + 
-		ray.unitdir.y * (ray.startpos.y - centerpos.y) + 
+		ray.unitdir.x * (ray.startpos.x - centerpos.x) +
+		ray.unitdir.y * (ray.startpos.y - centerpos.y) +
 		ray.unitdir.z * (ray.startpos.z - centerpos.z)
 		);*/
 
@@ -115,7 +115,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 
 	return -1.0;
 
-	
+
 	/*const Vec3d raystarttosphere = this->centerpos - ray.startpos;
 
 	const double dist_to_rayclosest = dotProduct(raystarttosphere, ray.unitdir);
@@ -128,7 +128,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 //		return -666.0f;
 
 
-	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() - 
+	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() -
 		dist_to_rayclosest*dist_to_rayclosest;
 
 	//-----------------------------------------------------------------
@@ -139,8 +139,8 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 
 
 	//ray has hit sphere...
-	
-	
+
+
 	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 	double dist = dist_to_rayclosest - a;
@@ -156,13 +156,13 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext
 {
 	HitInfo hitinfo;
 	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
-	
+
 	return hitdist >= 0.0f && hitdist < raylength;
 }
 
 
-const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const 
-{ 
+const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const
+{
 	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
 
 	//return (point - centerpos) * recip_radius;
@@ -171,8 +171,8 @@ const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) co
 }
 
 
-const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const 
-{ 
+const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
+{
 	//Vec3 normal = hitinfo.hitpos - centerpos;
 	//normal.normalise();
 	//return normal;
@@ -191,7 +191,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 
 	const double dist_to_rayclosest = dot(raystarttosphere, toVec3d(ray.unitDir()));
 
-	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() - 
+	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() -
 		dist_to_rayclosest*dist_to_rayclosest;
 
 	//-----------------------------------------------------------------
@@ -201,11 +201,11 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Ob
 		return;
 
 	//ray has hit sphere...
-	
-	
+
+
 	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-	
+
 	if(dist_to_rayclosest + a > 0.0)
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest + a));
@@ -263,10 +263,10 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 	//const double phi = acos(hitinfo.original_geometric_normal.z);
 
 	//(dx/du, dy/du, dz/du)
-	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f, 0.0f) * (Vec3RealType)NICKMATHS_2PI * (Vec3RealType)radius;
+	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f, 0.0f) * ((Vec3RealType)NICKMATHS_2PI * (Vec3RealType)radius);
 
 	//(dx/dv, dy/dv, dz/dv)
-	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi), 0.0f) * (Vec3RealType)NICKMATHS_PI * (Vec3RealType)radius;
+	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi), 0.0f) * ((Vec3RealType)NICKMATHS_PI * (Vec3RealType)radius);
 
 	//TEMP HACK:
 	dNs_du_out = dNs_dv_out = Vec3Type(0.0);
@@ -312,11 +312,11 @@ double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3T
 	return 1.0 / sub_elem_area_ws;
 }
 
-	
+
 const std::string RaySphere::getName() const { return "RaySphere"; }
 
 
-void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
+void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
 		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output){}
 
 
@@ -334,7 +334,7 @@ void RaySphere::test()
 	conPrint("RaySphere::test()");
 
 	const SSE_ALIGN Ray ray(
-		Vec4f(-1,0,0,1), 
+		Vec4f(-1,0,0,1),
 		Vec4f(1,0,0,0)
 		);
 
@@ -353,14 +353,14 @@ void RaySphere::test()
 	testAssert(hitinfo.sub_elem_index == 0);
 	//testAssert(hitinfo.hittricoords
 
-	
+
 
 
 	//------------------------------------------------------------------------
 	//test traceRay() in reverse direction
 	//------------------------------------------------------------------------
 	const SSE_ALIGN Ray ray2(
-		Vec4f(1,0,0,1), 
+		Vec4f(1,0,0,1),
 		Vec4f(-1,0,0,0)
 		);
 	d = sphere.traceRay(ray2, 1000.0, thread_context, context, NULL, hitinfo);
@@ -406,7 +406,7 @@ void RaySphere::test()
 	//try tracing from inside sphere
 	//------------------------------------------------------------------------
 	const SSE_ALIGN Ray ray3(
-		Vec4f(0.25,0,0,1), 
+		Vec4f(0.25,0,0,1),
 		Vec4f(1,0,0,0)
 		);
 	d = sphere.traceRay(ray3, 1000.0, thread_context, context, NULL, hitinfo);
@@ -434,7 +434,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	/*sphere.emitterInit();
 
-	//4*pi*r^2 
+	//4*pi*r^2
 	//4*pi*(0.5)^2
 	//pi
 	testAssert(epsEqual(sphere.surfaceArea(), NICKMATHS_PI));

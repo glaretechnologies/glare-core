@@ -9,8 +9,7 @@ template <class Real> class Matrix3;
 template <class Real> class Vec3;
 
 
-SSE_ALIGN 
-class Matrix4f
+SSE_ALIGN class SSE_ALIGN_SUFFIX Matrix4f
 {
 public:
 
@@ -42,7 +41,7 @@ public:
 	static const Matrix4f identity();
 
 	//__forceinline const Vec4f operator * (const Vec4f& v) const;
-	
+
 
 	static void test();
 
@@ -231,7 +230,7 @@ __forceinline void mul(const Matrix4f& m, const Vec4f& v, Vec4f& res_out)
 }
 */
 
-__forceinline __m128 operator * (const Matrix4f& m, const Vec4f& v)
+INDIGO_STRONG_INLINE __m128 operator * (const Matrix4f& m, const Vec4f& v)
 {
 	assert(SSE::isSSEAligned(&m));
 	assert(SSE::isSSEAligned(&v));
@@ -241,7 +240,7 @@ __forceinline __m128 operator * (const Matrix4f& m, const Vec4f& v)
 	const __m128 vz = indigoCopyToAll(v.v, 2);
 	const __m128 vw = indigoCopyToAll(v.v, 3);
 
-	return 
+	return
 		_mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(
@@ -268,7 +267,7 @@ __forceinline __m128 operator * (const Matrix4f& m, const Vec4f& v)
 }
 
 
-// Sets to the matrix that will transfrom a vector from an orthonormal basis with k = vec, to parent space.
+// Sets to the matrix that will transform a vector from an orthonormal basis with k = vec, to parent space.
 void Matrix4f::constructFromVector(const Vec4f& vec)
 {
 	assert(SSE::isSSEAligned(this));
@@ -325,7 +324,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	//mat.setColumn0(v2);
 	//mat.setColumn1(::crossProduct(vec, v2));
 	//mat.setColumn2(vec);
-	
+
 	//assert(::epsEqual(dot(mat.getColumn0(), mat.getColumn1()), (Real)0.0));
 	//assert(::epsEqual(dot(mat.getColumn0(), mat.getColumn2()), (Real)0.0));
 	//assert(::epsEqual(dot(mat.getColumn1(), mat.getColumn2()), (Real)0.0));
@@ -350,4 +349,4 @@ inline bool epsEqual(const Matrix4f& a, const Matrix4f& b)
 }
 
 
-#endif INDIGO_MATRIX4F_H
+#endif // INDIGO_MATRIX4F_H
