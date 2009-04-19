@@ -178,21 +178,6 @@ const std::string License::getHardwareIdentifier()
 }
 
 
-const std::string License::licenseTypeToString(LicenceType t)
-{
-	if(t == UNLICENSED)
-		return "Unlicensed";
-	else if(t == FULL)
-		return "Indigo 2.x Full";
-	else if(t == BETA)
-		return "Indigo 2.x Beta (Valid until 31st May 2009)";
-	else if(t == NODE)
-		return "Indigo 2.x Node";
-	else
-		return "[Unknown]";
-}
-
-
 // Beta period ends 2009/May/31
 static bool isCurrentDayInBetaPeriod()
 {
@@ -200,6 +185,21 @@ static bool isCurrentDayInBetaPeriod()
 	Clock::getCurrentDay(day, month, year);
 	// Month is zero based, so May = 4
 	return year <= 2009 && month <= 4 && day <= 31;
+}
+
+
+const std::string License::licenseTypeToString(LicenceType t)
+{
+	if(t == UNLICENSED)
+		return "Unlicensed";
+	else if(t == FULL)
+		return "Indigo 2.x Full";
+	else if(t == BETA)
+		return std::string("Indigo 2.x Beta ") + (isCurrentDayInBetaPeriod() ? std::string("(Valid until 31st May 2009)") : std::string("(Expired on 1st June 2009)"));
+	else if(t == NODE)
+		return "Indigo 2.x Node";
+	else
+		return "[Unknown]";
 }
 
 
