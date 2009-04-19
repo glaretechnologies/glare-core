@@ -177,7 +177,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	
 	char buffer[100];
 	
-	sprintf(buffer, "%02x-%02x-%02x-%02x-%02x-%02x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+	sprintf(buffer, "%02x-%02x-%02x-%02x-%02x-%02x", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
 
 	addresses_out.resize(0);
 	addresses_out.push_back(std::string(buffer));

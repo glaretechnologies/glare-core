@@ -109,11 +109,11 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 
 		user_id_out = components[0];
 
-		if(components[1] == "Full")
+		if(components[1] == "indigo-full-2.x")
 			desired_license_type = FULL;
-		else if(components[1] == "Beta")
+		else if(components[1] == "indigo-beta-2.x")
 			desired_license_type = BETA;
-		else if(components[1] == "Node")
+		else if(components[1] == "indigo-node-2.x")
 			desired_license_type = NODE;
 		else
 			return;
