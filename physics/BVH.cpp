@@ -140,7 +140,7 @@ void BVH::build(PrintOutput& print_output)
 
 		for(unsigned int i=0; i<numTris(); ++i)
 		{
-			SSE_ALIGN Vec4f p;
+			Vec4f p;
 			convertPos(triVertPos(i, 0), p);
 			tri_aabbs[i].min_ = p;
 			tri_aabbs[i].max_ = p;
@@ -193,7 +193,7 @@ void BVH::build(PrintOutput& print_output)
 		// Make root node
 		nodes[0].setToInterior();
 		nodes[0].setLeftAABB(*root_aabb);
-		SSE_ALIGN AABBox rootaabb;
+		AABBox rootaabb;
 		rootaabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
 		rootaabb.max_ = rootaabb.min_;
 		nodes[0].setRightAABB(rootaabb); // Pick an AABB that will never get hit
@@ -455,11 +455,11 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 
 	// Compute AABBs for children
-	SSE_ALIGN AABBox left_aabb;
+	AABBox left_aabb;
 	left_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
 	left_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
 
-	SSE_ALIGN AABBox right_aabb;
+	AABBox right_aabb;
 	right_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
 	right_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
 

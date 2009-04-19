@@ -831,7 +831,7 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 			for(unsigned int v=0; v<3; ++v)
 			{
 				const Vec3f& vertpos = triVertPos(i, v);
-				const SSE_ALIGN Vec4f vert(vertpos.x, vertpos.y, vertpos.z, 1.0f);
+				const Vec4f vert(vertpos.x, vertpos.y, vertpos.z, 1.0f);
 				root_aabb->enlargeToHoldPoint(vert);
 			}
 

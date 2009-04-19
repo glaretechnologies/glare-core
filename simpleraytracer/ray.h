@@ -18,8 +18,7 @@ You may *not* use this code for any commercial project.
 #include "../maths/SSE.h"
 
 
-SSE_ALIGN
-class Ray
+SSE_ALIGN class SSE_ALIGN_SUFFIX Ray
 {
 public:
 	/*inline Ray(const Vec3d& startpos_, const Vec3d& unitdir_)

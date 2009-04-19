@@ -31,18 +31,27 @@ public:
 
 	enum LicenceType
 	{
-		FULL
+		UNLICENSED,
+		FULL,
+		BETA,
+		NODE
 	};
 
 	static const std::string licenseTypeToString(LicenceType t)
 	{
-		if(t == FULL)
+		if(t == UNLICENSED)
+			return "Unlicensed";
+		else if(t == FULL)
 			return "Full";
+		else if(t == BETA)
+			return "Beta";
+		else if(t == NODE)
+			return "Node";
 		else
 			return "[Unknown]";
 	}
 
-	static bool verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
+	static void verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getHardwareIdentifier(); // throws LicenseExcep

@@ -73,8 +73,10 @@ static EVP_PKEY* get_public_key(){
 }
 
 
-bool License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
+void License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
 {
+	license_type_out = UNLICENSED;
+
 	ERR_load_crypto_strings();
 
 	// Load the public key
@@ -85,36 +87,41 @@ bool License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 
 	// Load the signature and decode from base64
 	if(!FileUtils::fileExists(FileUtils::join(indigo_base_path, "licence.sig")))
-		return false;
+		return;
 
 	//std::vector<unsigned char> signature;
 	std::string hash;
 	std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
+	LicenceType desired_license_type = UNLICENSED;
 	try
 	{
 		std::string sigfile_contents;
 		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "licence.sig"), sigfile_contents);
 
 		if(sigfile_contents.empty())
-			return false; //throw LicenseExcep("Signature empty.");
+			return; //throw LicenseExcep("Signature empty.");
 
 		// Split the license key up into (User Id, license type, sig)
 		const std::vector<std::string> components = ::split(sigfile_contents, ';');
 
 		if(components.size() != 3)
-			return false;
+			return;
 
 		user_id_out = components[0];
 
 		if(components[1] == "Full")
-			license_type_out = FULL;
+			desired_license_type = FULL;
+		else if(components[1] == "Beta")
+			desired_license_type = BETA;
+		else if(components[1] == "Node")
+			desired_license_type = NODE;
 		else
-			return false;
+			return;
 
 		hash = decodeBase64(components[2]);
 
 		if(hash.empty())
-			return false; // throw LicenseExcep("Signature empty.");
+			return; // throw LicenseExcep("Signature empty.");
 
 		constructed_key = components[0] + ";" + components[1] + ";" + hwinfo;
 	}
@@ -137,9 +144,12 @@ bool License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 	ERR_free_strings();
 
 	if(result == 1)
-		return true;
+	{
+		license_type_out = desired_license_type;
+		return;
+	}
 	else if(result == 0) // incorrect signature
-		return false;
+		return;
 	else // failure (other error)
 		throw LicenseExcep("Verification failed.");
 }

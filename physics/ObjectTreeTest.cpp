@@ -93,7 +93,7 @@ void ObjectTreeTest::doTests()
 	/// Do some random traces through the tree ///
 	for(int i=0; i<10000; ++i)
 	{
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1) - Vec4f(0.2, 0.2, 0.2, 1)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
@@ -361,7 +361,7 @@ void ObjectTreeTest::doSpeedTest()
 	/// Do some random traces through the tree ///
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 				Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
@@ -474,7 +474,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		const Vec4f start(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1);
 		const Vec4f end(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1);
 
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			start,
 			normalise(end - start)
 			);

@@ -318,7 +318,7 @@ int AABBox::triangleBoxOverlap(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 void AABBox::test()
 {
 	{
-	SSE_ALIGN AABBox box(Vec4f(0,0,0,1.0f), Vec4f(1,2,3,1.0f));
+	AABBox box(Vec4f(0,0,0,1.0f), Vec4f(1,2,3,1.0f));
 
 	testAssert(box == AABBox(Vec4f(0,0,0,1.0f), Vec4f(1,2,3,1.0f)));
 	testAssert(::epsEqual(box.getSurfaceArea(), 22.f));

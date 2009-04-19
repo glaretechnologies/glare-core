@@ -108,18 +108,23 @@ const std::string humanReadableDuration(int seconds)
 }
 
 
+namespace Clock
+{
+
+/*
+	day = Day of month (1 – 31).
+	month = Month (0 – 11; January = 0).
+	year = e.g. 2009
+*/
+void getCurrentDay(int& day, int& month, int& year)
+{
+	time_t t = time(NULL);
+	const tm* thetime = localtime(&t);
+
+	day = thetime->tm_mday; // Day of month (1 – 31).
+	month = thetime->tm_mon; // Month (0 – 11; January = 0).
+	year = thetime->tm_year + 1900; // tm_year = Year (current year minus 1900).
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+}

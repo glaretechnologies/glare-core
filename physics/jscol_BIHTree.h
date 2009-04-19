@@ -80,7 +80,7 @@ private:
 
 	NODE_VECTOR_TYPE nodes;//nodes of the tree
 
-	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
+	AABBox* root_aabb;//aabb of whole thing
 
 	typedef js::BadouelTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;

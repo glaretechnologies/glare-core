@@ -20,7 +20,6 @@ You may *not* use this code for any commercial project.
 double getCurTimeRealSec();
 
 
-
 const std::string getAsciiTime();//nicely formatted string
 
 bool leftTimeEarlier(const std::string& asciitime_a, const std::string& asciitime_b);
@@ -28,5 +27,15 @@ bool leftTimeEarlier(const std::string& asciitime_a, const std::string& asciitim
 time_t getSecsSince1970();//hehe
 
 const std::string humanReadableDuration(int seconds);
+
+namespace Clock
+{
+/*
+	day = Day of month (1 – 31).
+	month = Month (0 – 11; January = 0).
+	year = e.g. 2009
+*/
+void getCurrentDay(int& day, int& month, int& year);
+}
 
 #endif //__CLOCK_H_666_

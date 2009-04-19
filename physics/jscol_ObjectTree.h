@@ -62,8 +62,8 @@ public:
 
 	typedef float REAL;
 
-	//typedef Object INTERSECTABLE_TYPE;
-	typedef Intersectable INTERSECTABLE_TYPE;
+	typedef Object INTERSECTABLE_TYPE;
+	//typedef Intersectable INTERSECTABLE_TYPE;
 
 
 	void insertObject(INTERSECTABLE_TYPE* intersectable);
@@ -95,7 +95,7 @@ private:
 
 	void doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 
-	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
+	AABBox* root_aabb;//aabb of whole thing
 
 	std::vector<INTERSECTABLE_TYPE*> objects;
 	std::vector<INTERSECTABLE_TYPE*> leafgeom;
