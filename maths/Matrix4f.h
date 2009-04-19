@@ -9,7 +9,7 @@ template <class Real> class Matrix3;
 template <class Real> class Vec3;
 
 
-SSE_ALIGN class SSE_ALIGN_SUFFIX Matrix4f
+SSE_CLASS_ALIGN Matrix4f
 {
 public:
 

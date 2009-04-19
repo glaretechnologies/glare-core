@@ -50,7 +50,7 @@ Camera
 ------
 
 =====================================================================*/
-SSE_ALIGN class SSE_ALIGN_SUFFIX Camera : public Geometry
+SSE_CLASS_ALIGN Camera : public Geometry
 {
 public:
 	/*=====================================================================

@@ -20,7 +20,7 @@ Vec4
 ----
 
 =====================================================================*/
-SSE_ALIGN class SSE_ALIGN_SUFFIX Vec4f
+SSE_CLASS_ALIGN Vec4f
 {
 public:
 	typedef float RealType;

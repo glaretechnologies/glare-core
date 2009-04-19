@@ -30,7 +30,7 @@ You may not use this code for any commercial project.
 #include "../physics/jscol_aabbox.h"
 
 
-SSE_ALIGN class SSE_ALIGN_SUFFIX RaySphere : public Geometry
+SSE_CLASS_ALIGN RaySphere : public Geometry
 {
 public:
 	RaySphere(double radius_);

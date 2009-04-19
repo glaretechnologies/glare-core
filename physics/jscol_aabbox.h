@@ -25,7 +25,7 @@ Axis aligned bounding box.
 single-precision floating point.
 Must be 16-byte aligned.
 =====================================================================*/
-SSE_ALIGN class SSE_ALIGN_SUFFIX AABBox
+SSE_CLASS_ALIGN AABBox
 {
 public:
 	/*=====================================================================

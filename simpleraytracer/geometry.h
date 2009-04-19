@@ -55,7 +55,7 @@ Geometry
 --------
 interface that represents the shape of an object
 =====================================================================*/
-SSE_ALIGN class SSE_ALIGN_SUFFIX Geometry : /*public js::Intersectable, */public RefCounted, public TexCoordEvaluator
+SSE_CLASS_ALIGN Geometry : /*public js::Intersectable, */public RefCounted, public TexCoordEvaluator
 {
 public:
 	/*=====================================================================
