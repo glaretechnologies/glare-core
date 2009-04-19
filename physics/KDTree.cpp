@@ -500,6 +500,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
+	assertSSEAligned(object);
 	assert(!nodes.empty());
 	assert(root_aabb);
 
