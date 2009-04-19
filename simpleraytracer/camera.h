@@ -7,6 +7,7 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #define __CAMERA_H_666_
 
 
+#include "../maths/SSE.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/matrix3.h"
@@ -49,7 +50,7 @@ Camera
 ------
 
 =====================================================================*/
-class Camera : public Geometry
+SSE_ALIGN class SSE_ALIGN_SUFFIX Camera : public Geometry
 {
 public:
 	/*=====================================================================

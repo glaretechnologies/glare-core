@@ -60,7 +60,7 @@ RayMesh
 -------
 
 =====================================================================*/
-class RayMesh : public Geometry, public ModelLoadingStreamHandler
+SSE_ALIGN class SSE_ALIGN_SUFFIX RayMesh : public Geometry, public ModelLoadingStreamHandler
 {
 public:
 	/*=====================================================================

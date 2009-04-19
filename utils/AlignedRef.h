@@ -35,7 +35,10 @@ public:
 		ob = ob_;
 
 		if(ob)
+		{
+			assert(SSE::isAlignedTo(ob, alignment));
 			ob->incRefCount();
+		}
 	}
 
 	~AlignedRef()
@@ -56,7 +59,10 @@ public:
 		ob = other.ob;
 
 		if(ob)
+		{
+			assert(SSE::isAlignedTo(ob, alignment));
 			ob->incRefCount();
+		}
 	}
 
 	AlignedRef& operator = (const AlignedRef& other)
