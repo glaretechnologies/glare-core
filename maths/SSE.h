@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../utils/platform.h"
 #include <xmmintrin.h> //SSE header file
 //#ifdef USE_SSE2
-//#include <emmintrin.h> //SSE 2 header file
+//#include <emmintrin.h> //SSE 2 header file'
 //#endif
 #include <assert.h>
 #ifdef COMPILER_GCC
@@ -27,11 +27,11 @@ typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by def
 
 
 #ifdef COMPILER_MSVC
+#define SSE_CLASS_ALIGN _MM_ALIGN16 class
 #define SSE_ALIGN _MM_ALIGN16
-#define SSE_ALIGN_SUFFIX
 #else
-#define SSE_ALIGN
-#define SSE_ALIGN_SUFFIX __attribute__ ((aligned (16)))
+#define SSE_CLASS_ALIGN class __attribute__ ((aligned (16)))
+#define SSE_ALIGN __attribute__ ((aligned (16)))
 #endif
 
 
