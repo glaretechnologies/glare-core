@@ -37,19 +37,15 @@ public:
 		NODE
 	};
 
-	static const std::string licenseTypeToString(LicenceType t)
-	{
-		if(t == UNLICENSED)
-			return "Unlicensed";
-		else if(t == FULL)
-			return "Full";
-		else if(t == BETA)
-			return "Beta";
-		else if(t == NODE)
-			return "Node";
-		else
-			return "[Unknown]";
-	}
+
+	/*
+	Should we apply a watermark?
+	This depends on the license type, and the date, in the case of the Beta licence type.
+	*/
+	static bool shouldApplyWatermark(LicenceType t);
+	static bool shouldApplyResolutionLimits(LicenceType t);
+
+	static const std::string licenseTypeToString(LicenceType t);
 
 	static void verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 

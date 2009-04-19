@@ -12,7 +12,7 @@ You may *not* use this code for any commercial project.
 #define __RAY_H_666_
 
 
-#include "../maths/vec3.h"
+//#include "../maths/vec3.h"
 #include "../maths/Vec4f.h"
 #include "../maths/mathstypes.h"
 #include "../maths/SSE.h"
@@ -34,15 +34,31 @@ public:
 		buildRecipRayDir();
 	}*/
 	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_)
+	:	startpos_f(startpos_),
+		unitdir_f(unitdir_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(unitdir_.isUnitLength());
 		assert(SSE::isSSEAligned(this));
 
-		startpos_f = startpos_;
-		unitdir_f = unitdir_;
+		//buildRecipRayDir();
 
-		buildRecipRayDir();
+		/*
+			TEMP HACK:
+			We want to avoid 1/+0 = +Inf or 1/-0 = -Inf
+		*/
+		const float MAX_RECIP = 1.0e26f;
+		const SSE_ALIGN float MAX_RECIP_vec[4] = {MAX_RECIP, MAX_RECIP, MAX_RECIP, MAX_RECIP};
+
+		this->recip_unitdir_f = Vec4f(
+			_mm_min_ps(
+				_mm_load_ps(MAX_RECIP_vec),
+				_mm_div_ps(
+					_mm_load_ps(one_4vec),
+					unitdir_.v
+					)
+				)
+			);
 	}
 
 	INDIGO_STRONG_INLINE ~Ray(){}
@@ -68,11 +84,11 @@ public:
 	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return Vec4f(startpos_f + Vec4f(unitdir_f * t)); }
 	
 private:
-	INDIGO_STRONG_INLINE void buildRecipRayDir();
+	//INDIGO_STRONG_INLINE void buildRecipRayDir();
 
-	SSE_ALIGN Vec4f startpos_f;
-	SSE_ALIGN Vec4f unitdir_f;
-	SSE_ALIGN Vec4f recip_unitdir_f;
+	Vec4f startpos_f;
+	Vec4f unitdir_f;
+	Vec4f recip_unitdir_f;
 
 	//SSE_ALIGN Vec3d startpos;
 	//SSE_ALIGN Vec3d unitdir;
@@ -87,6 +103,7 @@ private:
 }*/
 
 
+#if 0
 void Ray::buildRecipRayDir()
 {
 	//const SSE_ALIGN float raydir[4] = unitdir_f; // {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};
@@ -124,6 +141,7 @@ void Ray::buildRecipRayDir()
 			)
 		);*/
 }
+#endif
 
 
 #endif //__RAY_H_666_

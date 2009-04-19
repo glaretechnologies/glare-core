@@ -13,6 +13,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "platformutils.h"
 #include "fileutils.h"
 #include "stringutils.h"
+#include "clock.h"
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -173,5 +174,70 @@ const std::string License::getHardwareIdentifier()
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
 		throw LicenseExcep(e.what());
+	}
+}
+
+
+const std::string License::licenseTypeToString(LicenceType t)
+{
+	if(t == UNLICENSED)
+		return "Unlicensed";
+	else if(t == FULL)
+		return "Indigo 2.x Full";
+	else if(t == BETA)
+		return "Indigo 2.x Beta (Valid until 31st May 2009)";
+	else if(t == NODE)
+		return "Indigo 2.x Node";
+	else
+		return "[Unknown]";
+}
+
+
+// Beta period ends 2009/May/31
+static bool isCurrentDayInBetaPeriod()
+{
+	int day, month, year;
+	Clock::getCurrentDay(day, month, year);
+	// Month is zero based, so May = 4
+	return year <= 2009 && month <= 4 && day <= 31;
+}
+
+
+bool License::shouldApplyWatermark(LicenceType t)
+{
+	if(t == UNLICENSED)
+		return true;
+	else if(t == FULL)
+		return false;
+	else if(t == NODE)
+		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
+	else if(t == BETA)
+	{
+		return !isCurrentDayInBetaPeriod(); // Apply watermark if not in beta period.
+	}
+	else
+	{
+		assert(0);
+		return true;
+	}
+}
+
+
+bool License::shouldApplyResolutionLimits(LicenceType t)
+{
+	if(t == UNLICENSED)
+		return true;
+	else if(t == FULL)
+		return false;
+	else if(t == NODE)
+		return false; // Nodes shouldn't have resolution limits, 'cause they have to do full-res renders
+	else if(t == BETA)
+	{
+		return !isCurrentDayInBetaPeriod(); // Apply res limits if not in beta period.
+	}
+	else
+	{
+		assert(0);
+		return true;
 	}
 }
