@@ -34,7 +34,8 @@ public:
 		UNLICENSED,
 		FULL,
 		BETA,
-		NODE
+		NODE,
+		FULL_LIFETIME
 	};
 
 

@@ -94,7 +94,7 @@ void ObjectTreeTest::doTests()
 	for(int i=0; i<10000; ++i)
 	{
 		const Ray ray(
-			Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1) - Vec4f(0.2, 0.2, 0.2, 1)) * 1.4f,
+			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) - Vec4f(0.2, 0.2, 0.2, 0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
@@ -126,7 +126,7 @@ void ObjectTreeTest::doTests()
 		const double len = rng.unitRandom() * 1.5;
 		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, time);
 		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context,  obtree_context, time);
-		//TEMP HACK OBJECTTREE TEST testAssert(a == b);
+		testAssert(a == b);
 
 		if(t >= 0.0)//if the trace hit something after distance t
 		{
@@ -335,7 +335,7 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const SSE_ALIGN Ray ray(
-				Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4f,
+			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
@@ -362,7 +362,7 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const Ray ray(
-				Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1) - Vec4f(0.2, 0.2, 0.2,1)) * 1.4,
+			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 			);
 
@@ -399,9 +399,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	{
 		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", *raymesh, 1.0);
 	}
-	catch(CSModelLoaderExcep& e)
+	catch(CSModelLoaderExcep&)
 	{
-		::fatalError(e.what());
+		testAssert(false);
 	}
 
 	//------------------------------------------------------------------------
@@ -423,7 +423,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	{
 		//Matrix3d rot = Matrix3d::identity();
 
-		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0);
+		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0f);
 
 		rot.scale(0.3);
 

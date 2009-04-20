@@ -465,8 +465,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const double max_t = 1.0e9;
 
 		const SSE_ALIGN Ray ray(
-			Vec4f(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0,1) * 1.5,
-			normalise(Vec4f(-1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0, -1.0 + rng.unitRandom()*2.0,0))
+			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
+			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
 			);
 
 		HitInfo hitinfo;
@@ -702,9 +702,9 @@ void TreeTest::doTests()
 	{
 		model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
 	}
-	catch(CSModelLoaderExcep& e)
+	catch(CSModelLoaderExcep&)
 	{
-		::fatalError(e.what());
+		testAssert(false);
 	}
 	testTree(rng, raymesh);
 	}
@@ -790,9 +790,9 @@ void TreeTest::doSpeedTest(int treetype)
 	{
 		model_loader.streamModel(BUNNY_PATH, raymesh, 1.0);
 	}
-	catch(CSModelLoaderExcep& e)
+	catch(CSModelLoaderExcep&)
 	{
-		::fatalError(e.what());
+		testAssert(false);
 	}
 
 	Timer buildtimer;
@@ -921,9 +921,9 @@ void TreeTest::buildSpeedTest()
 	{
 		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", raymesh, 1.0);
 	}
-	catch(CSModelLoaderExcep& e)
+	catch(CSModelLoaderExcep&)
 	{
-		::fatalError(e.what());
+		testAssert(false);
 	}
 
 	Timer timer;

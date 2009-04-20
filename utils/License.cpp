@@ -116,6 +116,8 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 			desired_license_type = BETA;
 		else if(components[1] == "indigo-node-2.x")
 			desired_license_type = NODE;
+		else if(components[1] == "indigo-full-lifetime")
+			desired_license_type = FULL_LIFETIME;
 		else
 			return;
 
@@ -198,6 +200,8 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return std::string("Indigo 2.x Beta ") + (isCurrentDayInBetaPeriod() ? std::string("(Valid until 31st May 2009)") : std::string("(Expired on 1st June 2009)"));
 	else if(t == NODE)
 		return "Indigo 2.x Node";
+	else if(t == FULL_LIFETIME)
+		return "Indigo Full Lifetime";
 	else
 		return "[Unknown]";
 }
@@ -215,6 +219,8 @@ bool License::shouldApplyWatermark(LicenceType t)
 	{
 		return !isCurrentDayInBetaPeriod(); // Apply watermark if not in beta period.
 	}
+	else if(t == FULL_LIFETIME)
+		return false;
 	else
 	{
 		assert(0);
@@ -235,6 +241,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	{
 		return !isCurrentDayInBetaPeriod(); // Apply res limits if not in beta period.
 	}
+	else if(t == FULL_LIFETIME)
+		return false;
 	else
 	{
 		assert(0);
