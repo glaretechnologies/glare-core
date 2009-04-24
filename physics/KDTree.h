@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"
 #include "jscol_Intersectable.h"
+#include "../maths/SSE.h"
 #include "../maths/vec3.h"
 #include "../maths/PaddedVec3.h"
 #include "../utils/Vector.h"
@@ -34,13 +35,8 @@ namespace js
 }
 
 
-
-
 namespace js
 {
-
-
-
 
 
 class TreeStats
@@ -82,7 +78,7 @@ KDTree
 -------
 Kd-Tree
 =====================================================================*/
-class KDTree : public Tree
+SSE_CLASS_ALIGN KDTree : public Tree
 {
 	friend class FastKDTreeBuilder;
 	friend class OldKDTreeBuilder;
@@ -97,7 +93,7 @@ public:
 	KDTree(RayMesh* raymesh);
 	~KDTree();
 
-	typedef float REAL;
+	//typedef float Real;
 
 	virtual void build(PrintOutput& print_output); // throws TreeExcep
 	virtual bool diskCachable();
@@ -105,10 +101,10 @@ public:
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
-	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
 
 	inline virtual const Vec3f triGeometricNormal(unsigned int tri_index) const; //slow
 
@@ -116,7 +112,7 @@ public:
 	virtual void printTraceStats() const;
 
 	//For Debugging:
-	double traceRayAgainstAllTris(const Ray& ray, double max_t, HitInfo& hitinfo_out) const;
+	Real traceRayAgainstAllTris(const Ray& ray, Real max_t, HitInfo& hitinfo_out) const;
 	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	const std::vector<KDTreeNode>& getNodesDebug() const { return nodes; }
 	static void test();
@@ -130,6 +126,9 @@ public:
 	typedef uint32 TRI_INDEX;
 	typedef std::vector<KDTreeNode> NODE_VECTOR_TYPE;
 	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
+
+
+	AABBox root_aabb;//aabb of whole thing
 
 
 	///tracing stats///
@@ -205,7 +204,6 @@ private://TEMP
 	//std::vector<unsigned int> leaf_geom_counts;
 	//std::map<unsigned int, unsigned int> leaf_geom_counts;
 
-	SSE_ALIGN AABBox* root_aabb;//aabb of whole thing
 
 	uint32 checksum_;
 	bool calced_checksum;

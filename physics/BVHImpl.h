@@ -29,7 +29,7 @@ class BVHImpl
 public:
 
 	template <class T, class HitInfoType>
-	inline static double traceRay(const BVH& bvh, const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
+	inline static BVH::Real traceRay(const BVH& bvh, const Ray& ray, BVH::Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
 		const Object* object, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
@@ -40,7 +40,7 @@ public:
 		const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
 
 		__m128 near_t, far_t;
-		bvh.root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+		bvh.root_aabb.rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
 		near_t = _mm_max_ss(near_t, zeroVec());
 		
 		const float ray_max_t_f = (float)ray_max_t;

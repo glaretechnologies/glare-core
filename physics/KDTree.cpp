@@ -31,9 +31,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 
 
-//#ifdef USE_SSE
 #define DO_PREFETCHING 1
-//#endif
 
 
 const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
@@ -49,10 +47,8 @@ namespace js
 
 
 KDTree::KDTree(RayMesh* raymesh_)
-:	root_aabb(NULL)
 {
-//	nodes.setAlignment(8);
-
+	assert(SSE::isSSEAligned(this));
 	checksum_ = 0;
 	calced_checksum = false;
 	intersect_tris = NULL;
@@ -64,12 +60,6 @@ KDTree::KDTree(RayMesh* raymesh_)
 	num_under_thresh_leafs = 0;
 //	build_checksum = 0;
 	raymesh = raymesh_;
-
-	assert(sizeof(AABBox) == 32);
-	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
-	new(root_aabb) AABBox(Vec4f(0,0,0, 1.f), Vec4f(0,0,0, 1.f));
-
-	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	// Insert DEFAULT_EMPTY_LEAF_NODE_INDEX node
 	nodes.push_back(KDTreeNode(
@@ -96,7 +86,6 @@ KDTree::KDTree(RayMesh* raymesh_)
 
 KDTree::~KDTree()
 {
-	SSE::alignedSSEFree(root_aabb);
 	SSE::alignedSSEFree(intersect_tris);
 	intersect_tris = NULL;
 }
@@ -175,7 +164,7 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
@@ -188,7 +177,6 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 	#endif
 
 	assert(!nodes.empty());
-	assert(root_aabb);
 
 	#ifdef RECORD_TRACE_STATS
 	this->num_root_aabb_hits++;
@@ -198,18 +186,15 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
-
 	__m128 near_t, far_t;
-	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
 	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
 
-	const float ray_max_t_f = (float)ray_max_t;
-	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f)); // far_t = min(far_t, ray_max_t)
+	//const float ray_max_t_f = (float)ray_max_t;
+	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t)); // far_t = min(far_t, ray_max_t)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
-		return -1.0;
+		return (Real)-1.0;
 
 	context.nodestack[0].node = ROOT_NODE_INDEX;
 	_mm_store_ss(&context.nodestack[0].tmin, near_t);
@@ -220,13 +205,13 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 
 	//NOTE: if this is set to ray_max_t (which it should be), we get errors, see for example dof_test.igs
 	//REAL closest_dist = ray_max_t_f; // std::numeric_limits<float>::max();
-	REAL closest_dist = std::numeric_limits<float>::max();
+	Real closest_dist = std::numeric_limits<Real>::max();
 
-	int stacktop = 0;//index of node on top of stack
+	int stacktop = 0; // Index of node on top of stack
 
 	while(stacktop >= 0)
 	{
-		//pop node off stack
+		// Pop node off stack
 		unsigned int current = context.nodestack[stacktop].node;
 		assert(current < nodes.size());
 		__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
@@ -340,11 +325,11 @@ double KDTree::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_
 			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
 	} // End while stacktop >= 0
 
-	return closest_dist < std::numeric_limits<float>::max()/*ray_max_t_f*/ ? closest_dist : -1.0;
+	return closest_dist < std::numeric_limits<Real>::max()/*ray_max_t_f*/ ? closest_dist : (Real)-1.0;
 }
 
 
-bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -355,7 +340,6 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	#endif
 
 	assert(!nodes.empty());
-	assert(root_aabb);
 
 	#ifdef RECORD_TRACE_STATS
 	this->num_root_aabb_hits++;
@@ -365,11 +349,8 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, double ray_max_t, ThreadContext&
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
-
 	__m128 near_t, far_t;
-	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
 	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
 
 	const float ray_max_t_f = (float)ray_max_t;
@@ -502,7 +483,6 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 	assertSSEAligned(&ray);
 	assertSSEAligned(object);
 	assert(!nodes.empty());
-	assert(root_aabb);
 
 	hitinfos_out.resize(0);
 
@@ -510,11 +490,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 	context.tri_hash->clear();
 	#endif
 
-	const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
-	const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
-
 	__m128 near_t, far_t;
-	root_aabb->rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
+	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
 	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
@@ -528,7 +505,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTr
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 
-	const REAL closest_dist = std::numeric_limits<float>::max();
+	const Real closest_dist = std::numeric_limits<Real>::max();
 
 	int stacktop = 0;//index of node on top of stack
 
@@ -687,8 +664,7 @@ bool KDTree::diskCachable()
 
 const js::AABBox& KDTree::getAABBoxWS() const
 {
-	assert(this->root_aabb);
-	return *root_aabb;
+	return root_aabb;
 }
 
 
@@ -710,8 +686,8 @@ void KDTree::build(PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		TreeUtils::buildRootAABB(*raymesh, *root_aabb, print_output);
-		assert(root_aabb->invariant());
+		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output);
+		assert(root_aabb.invariant());
 
 		const unsigned int max_depth = calcMaxDepth();
 		print_output.print("\tmax tree depth: " + ::toString(max_depth));
@@ -734,7 +710,7 @@ void KDTree::build(PrintOutput& print_output)
 
 		{
 		OldKDTreeBuilder tree_builder;
-		tree_builder.build(print_output, *this, *root_aabb, nodes, leafgeom);
+		tree_builder.build(print_output, *this, root_aabb, nodes, leafgeom);
 		}
 
 		if(!nodes.empty())
@@ -826,22 +802,22 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		print_output.print("\tcalcing root AABB.");
 		{
-		root_aabb->min_ = Vec4f(triVertPos(0, 0).x, triVertPos(0, 0).y, triVertPos(0, 0).z, 1.0f);
-		root_aabb->max_ = root_aabb->min_;
+		root_aabb.min_ = Vec4f(triVertPos(0, 0).x, triVertPos(0, 0).y, triVertPos(0, 0).z, 1.0f);
+		root_aabb.max_ = root_aabb.min_;
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			for(unsigned int v=0; v<3; ++v)
 			{
 				const Vec3f& vertpos = triVertPos(i, v);
 				const Vec4f vert(vertpos.x, vertpos.y, vertpos.z, 1.0f);
-				root_aabb->enlargeToHoldPoint(vert);
+				root_aabb.enlargeToHoldPoint(vert);
 			}
 
 		}
 
-		print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x[0]) + ", " + ::toString(root_aabb->min_.x[1]) + ", " + ::toString(root_aabb->min_.x[2]) + "), " +
-							"(" + ::toString(root_aabb->max_.x[0]) + ", " + ::toString(root_aabb->max_.x[1]) + ", " + ::toString(root_aabb->max_.x[2]) + ")");
+		print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
+							"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")");
 
-		assert(root_aabb->invariant());
+		assert(root_aabb.invariant());
 
 		// Compute max allowable depth
 		const unsigned int max_depth = calcMaxDepth();
@@ -1018,12 +994,12 @@ void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int d
 
 
 // Returns dist till hit tri, neg number if missed.
-double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& hitinfo_out) const
+KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
-	double closest_dist = std::numeric_limits<double>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
+	Real closest_dist = std::numeric_limits<Real>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
@@ -1041,7 +1017,7 @@ double KDTree::traceRayAgainstAllTris(const ::Ray& ray, double t_max, HitInfo& h
 	}
 
 	if(closest_dist > t_max)
-		closest_dist = -1.0;
+		closest_dist = (Real)-1.0;
 
 	return closest_dist;
 }

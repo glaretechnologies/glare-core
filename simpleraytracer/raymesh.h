@@ -143,7 +143,7 @@ public:
 	
 	//Debugging:
 
-	const js::Tree* getTreeDebug() const { return tritree.get(); }
+	const js::Tree* getTreeDebug() const { return tritree; }
 
 	void printTreeStats();
 	void printTraceStats();
@@ -164,7 +164,8 @@ private:
 
 	std::string name;
 
-	std::auto_ptr<js::Tree> tritree;
+	//std::auto_ptr<js::Tree> tritree;
+	js::Tree* tritree;
 
 	bool enable_normal_smoothing;
 

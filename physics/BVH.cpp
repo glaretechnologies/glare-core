@@ -23,7 +23,6 @@ namespace js
 
 BVH::BVH(RayMesh* raymesh_)
 :	raymesh(raymesh_),
-	root_aabb(NULL),
 	tri_aabbs(NULL)
 {
 	assert(raymesh);
@@ -67,7 +66,6 @@ BVH::BVH(RayMesh* raymesh_)
 BVH::~BVH()
 {
 	assert(tri_aabbs == NULL);
-	SSE::alignedSSEFree(root_aabb);
 }
 
 
@@ -126,9 +124,8 @@ void BVH::build(PrintOutput& print_output)
 	{
 		const int num_tris = (int)numTris();
 
-		root_aabb = (js::AABBox*)SSE::alignedSSEMalloc(sizeof(AABBox));
-		TreeUtils::buildRootAABB(*raymesh, *root_aabb, print_output);
-		assert(root_aabb->invariant());
+		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output);
+		assert(root_aabb.invariant());
 
 		//original_tri_index.resize(num_tris);
 		//new_tri_index.resize(num_tris);
@@ -192,7 +189,7 @@ void BVH::build(PrintOutput& print_output)
 
 		// Make root node
 		nodes[0].setToInterior();
-		nodes[0].setLeftAABB(*root_aabb);
+		nodes[0].setLeftAABB(root_aabb);
 		AABBox rootaabb;
 		rootaabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
 		rootaabb.max_ = rootaabb.min_;
@@ -201,7 +198,7 @@ void BVH::build(PrintOutput& print_output)
 		nodes[0].setRightNumGeom(0);
 
 		doBuild(
-			*root_aabb, // AABB
+			root_aabb, // AABB
 			tris,
 			temp,
 			tri_centers,
@@ -571,7 +568,7 @@ public:
 };
 
 
-double BVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+BVH::Real BVH::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 }
@@ -617,7 +614,7 @@ public:
 };
 
 
-bool BVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+bool BVH::doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
 	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo);
@@ -696,7 +693,7 @@ void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreeP
 
 const js::AABBox& BVH::getAABBoxWS() const
 {
-	return *root_aabb;
+	return root_aabb;
 }
 
 

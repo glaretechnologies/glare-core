@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __OBJECTTREE_H_666_
 
 
+#include "../maths/SSE.h"
 #include "../indigo/object.h"
 #include "jscol_Intersectable.h"
 #include "ObjectTreeNode.h"
@@ -54,7 +55,7 @@ ObjectTree
 ----------
 
 =====================================================================*/
-class ObjectTree
+SSE_CLASS_ALIGN ObjectTree
 {
 public:
 	ObjectTree();
@@ -76,7 +77,7 @@ public:
 
 	bool doesFiniteRayHit(const Ray& ray, double length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time) const;
 
-	const js::AABBox& getAABBoxWS() const { return *root_aabb; }
+	INDIGO_STRONG_INLINE const js::AABBox& getAABBoxWS() const { return root_aabb; }
 
 	///-------- debugging methods ---------///
 	double traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
@@ -95,7 +96,7 @@ private:
 
 	void doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 
-	AABBox* root_aabb;//aabb of whole thing
+	AABBox root_aabb;//aabb of whole thing
 
 	std::vector<INTERSECTABLE_TYPE*> objects;
 	std::vector<INTERSECTABLE_TYPE*> leafgeom;

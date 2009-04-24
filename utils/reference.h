@@ -151,6 +151,8 @@ private:
 };
 
 
+//typedef Reference<T> Ref<T>;
+
 
 #endif //__REFERENCE_H_666_
 

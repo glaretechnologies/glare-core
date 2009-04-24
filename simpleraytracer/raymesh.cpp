@@ -62,6 +62,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 
 RayMesh::~RayMesh()
 {	
+	SSE::alignedFree(tritree);
 }
 
 
@@ -273,16 +274,18 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 	if(triangles.size() == 0)
 		throw GeometryExcep("No triangles in mesh.");
 
-	if(tritree.get())
+	if(tritree != NULL)
 		return; // build() has already been called.
 
 	try
 	{
 		if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
-			tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
+			tritree = new (SSE::alignedSSEMalloc(sizeof(js::BVH))) js::BVH(this);
+			//tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
 			//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
 		else
-			tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
+			tritree = new (SSE::alignedSSEMalloc(sizeof(js::KDTree))) js::KDTree(this);
+			//tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
 	}
 	catch(js::TreeExcep& e)
 	{

@@ -436,7 +436,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//Init KD-tree and BIH
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
-	trees.push_back(new KDTree(&raymesh));
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
 	StandardPrintOutput print_output;
 	trees.back()->build(print_output);
 

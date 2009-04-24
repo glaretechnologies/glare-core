@@ -27,11 +27,11 @@ namespace js
 
 
 /*=====================================================================
-NBVH
+BVH
 ----
 
 =====================================================================*/
-class BVH : public Tree
+SSE_CLASS_ALIGN BVH : public Tree
 {
 public:
 	BVH(RayMesh* raymesh);
@@ -45,13 +45,13 @@ public:
 
 
 	//intersectable interface
-	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "BVH"; }
 	//end
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;
 
 	virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
 
@@ -74,13 +74,14 @@ private:
 	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
 	unsigned int numTris() const;
 
+	AABBox root_aabb; // AABB of whole thing
+
 
 	RayMesh* raymesh;
 
 	typedef js::Vector<BVHNode, BVHNode::REQUIRED_ALIGNMENT> NODE_VECTOR_TYPE;
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
 
-	AABBox* root_aabb; // AABB of whole thing
 
 	AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
 

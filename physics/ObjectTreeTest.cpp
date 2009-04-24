@@ -115,8 +115,11 @@ void ObjectTreeTest::doTests()
 
 		if((t >= 0.0) || (t2 >= 0.0))
 		{
-			testAssert(t == t2);
-			testAssert(hitinfo.sub_elem_coords == hitinfo2.sub_elem_coords);
+			testAssert(::epsEqual(t, t2));
+			testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo2.sub_elem_coords.x));
+			testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo2.sub_elem_coords.y));
+			//testAssert(t == t2);
+			//testAssert(hitinfo.sub_elem_coords == hitinfo2.sub_elem_coords);
 			testAssert(hitinfo.sub_elem_index == hitinfo2.sub_elem_index);
 		}
 

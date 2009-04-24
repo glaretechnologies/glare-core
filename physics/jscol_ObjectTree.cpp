@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "jscol_ObjectTree.h"
 
+
 #include "../indigo/FullHitInfo.h"
 #include "../simpleraytracer/ray.h"
 #include "../raytracing/hitinfo.h"
@@ -19,7 +20,6 @@ Code By Nicholas Chapman.
 #include <string.h>
 
 
-
 namespace js
 {
 
@@ -28,12 +28,7 @@ namespace js
 
 ObjectTree::ObjectTree()
 {
-	root_aabb = NULL;
 	nodestack_size = 0;
-
-	root_aabb = (js::AABBox*)SSE::alignedMalloc(sizeof(AABBox), sizeof(AABBox));
-	new(root_aabb) AABBox(Vec4f(0,0,0, 1.f), Vec4f(0,0,0, 1.f));
-	assert(SSE::isAlignedTo(root_aabb, sizeof(AABBox)));
 
 	nodes.push_back(ObjectTreeNode());//root node
 	assert((uint64)&nodes[0] % 8 == 0);//assert aligned
@@ -46,24 +41,17 @@ ObjectTree::ObjectTree()
 
 ObjectTree::~ObjectTree()
 {
-	SSE::alignedSSEFree(root_aabb);
-
-//	delete rootnode;
-
-	//alignedSSEFree(nodestack);
-	//nodestack = NULL;
 }
+
 
 void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 {
 	intersectable->setObjectIndex((int)objects.size());
 	objects.push_back(intersectable);
-	//intersectable->object_index = (int)objects.size() - 1;
 }
 
 
-
-//returns dist till hit tri, neg number if missed.
+// Returns dist till hit tri, neg number if missed.
 double ObjectTree::traceRay(const Ray& ray, 
 						   ThreadContext& thread_context, 
 						   js::ObjectTreePerThreadData& object_context, double time, 
@@ -75,14 +63,15 @@ double ObjectTree::traceRay(const Ray& ray,
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::traceRay()-----------------------------");
 #endif
+	assertSSEAligned(this);
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 
 	object_context.time++;
 
-#ifdef OBJECTTREE_VERBOSE
+	#ifdef OBJECTTREE_VERBOSE
 	printVar(object_context.time);
-#endif
+	#endif
 
 	hitob_out = NULL;
 	hitinfo_out.sub_elem_index = 0;
@@ -95,32 +84,27 @@ double ObjectTree::traceRay(const Ray& ray,
 
 	assert(nodestack_size > 0);
 	assert(!nodes.empty());
-	assert(root_aabb);
 
-	float aabb_enterdist, aabb_exitdist;
-	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
-		return -1.0;//missed aabbox
+	__m128 near_t, far_t;
+	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
+	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
+
+	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+		return -1.0;
 
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
-	//const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
-	//TEMP:
-	//aabb_enterdist = myMax(aabb_enterdist, MIN_TMIN);
-
-	aabb_enterdist = myMax(aabb_enterdist, 0.f);
-
-	assert(aabb_enterdist >= 0.0f);
-	assert(aabb_exitdist >= aabb_enterdist);
-
 #ifdef OBJECTTREE_VERBOSE
 	printVar(aabb_enterdist);
 	printVar(aabb_exitdist);
 #endif
+	REAL closest_dist = std::numeric_limits<float>::max();
 
-	double closest_dist = std::numeric_limits<double>::max(); //closest hit on a tri so far.
-	object_context.nodestack[0] = StackFrame(0, aabb_enterdist, aabb_exitdist);
+	object_context.nodestack[0].node = 0;
+	_mm_store_ss(&object_context.nodestack[0].tmin, near_t);
+	_mm_store_ss(&object_context.nodestack[0].tmax, far_t);
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -128,61 +112,74 @@ double ObjectTree::traceRay(const Ray& ray,
 	{
 		//pop node off stack
 		unsigned int current = object_context.nodestack[stacktop].node;
-		float tmin = object_context.nodestack[stacktop].tmin;
-		float tmax = object_context.nodestack[stacktop].tmax;
+		assert(current < nodes.size());
+		__m128 tmin = _mm_load_ss(&object_context.nodestack[stacktop].tmin);
+		__m128 tmax = _mm_load_ss(&object_context.nodestack[stacktop].tmax);
 
 		stacktop--;
+
+		tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 		while(nodes[current].getNodeType() != ObjectTreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
 		{
 			//------------------------------------------------------------------------
 			//prefetch child node memory
 			//------------------------------------------------------------------------
-#ifdef DO_PREFETCHING
+			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
+			#endif
+
 			//while current node is not a leaf..
-	
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF().x[splitting_axis]) * ray.getRecipRayDirF().x[splitting_axis];	
+			const __m128 t_split =
+				_mm_mul_ss(
+					_mm_sub_ss(
+						_mm_load_ss(&nodes[current].data2.dividing_val),
+						_mm_load_ss(ray.startPosF().x + splitting_axis)
+					),
+					_mm_load_ss(ray.getRecipRayDirF().x + splitting_axis)
+				);
+
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
 
-			if(t_split > tmax)//or ray segment ends b4 split
+			if(_mm_comigt_ss(t_split, tmax) != 0)  // if(t_split > tmax) // Whole interval is on near cell
 			{
-				//whole interval is on near cell	
 				current = child_nodes[ray_child_indices[splitting_axis]];
-			}
-			else if(tmin > t_split)//else if ray seg starts after split
-			{
-				//whole interval is on far cell.
-				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
 			}
 			else
 			{
-				//ray hits plane - double recursion, into both near and far cells.
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
-					
-				//push far node onto stack to process later
-				stacktop++;
-				assert(stacktop < nodestack_size);
-				object_context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
-					
-				//process near child next
-				current = nearnode;
-				tmax = t_split;
-			}
+				if(_mm_comigt_ss(tmin, t_split) != 0) // if(tmin > t_split) // whole interval is on far cell.
+					current = child_nodes[ray_child_indices[splitting_axis + 4]]; // farnode;
+				else
+				{
+					// Ray hits plane - double recursion, into both near and far cells.
+					// Push far node onto stack to process later.
+					stacktop++;
+					assert(stacktop < object_context.nodestack_size);
+					object_context.nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
+					_mm_store_ss(&object_context.nodestack[stacktop].tmin, t_split);
+					_mm_store_ss(&object_context.nodestack[stacktop].tmax, tmax);
 
+					#ifdef DO_PREFETCHING
+					_mm_prefetch((const char *)(&nodes[child_nodes[ray_child_indices[splitting_axis + 4]]]), _MM_HINT_T0);	// Prefetch pushed child
+					#endif
+
+					// Process near child next
+					current = child_nodes[ray_child_indices[splitting_axis]]; // near node
+					tmax = t_split;
+				}
+			}
 		}//end while current node is not a leaf..
 
 		//'current' is a leaf node..
 
 		unsigned int leaf_geom_index = nodes[current].getLeafGeomIndex();
 		const unsigned int num_leaf_geom = nodes[current].getNumLeafGeom();
-#ifdef OBJECTTREE_VERBOSE
+		#ifdef OBJECTTREE_VERBOSE
 		printVar(leaf_geom_index);
 		printVar(num_leaf_geom);
-#endif
+		#endif
+
 		for(unsigned int i=0; i<num_leaf_geom; ++i)
 		{
 			assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
@@ -190,11 +187,11 @@ double ObjectTree::traceRay(const Ray& ray,
 			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
 
 			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
-#ifdef OBJECTTREE_VERBOSE
+			#ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
-#endif
+			#endif
 
-			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) //If this object has not already been intersected against during this traversal
+			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
 			{
 				//assert(object_context.object_context != NULL);
 				const double dist = ob->traceRay(
@@ -205,9 +202,9 @@ double ObjectTree::traceRay(const Ray& ray,
 					object_context.object_context ? *object_context.object_context : object_context, 
 					ob_hit_info
 					);
-#ifdef OBJECTTREE_VERBOSE
+				#ifdef OBJECTTREE_VERBOSE
 				conPrint("Ran intersection, dist=" + toString(dist));
-#endif
+				#endif
 				if(dist >= 0.0 && dist < closest_dist)
 				{
 					closest_dist = dist;
@@ -220,19 +217,15 @@ double ObjectTree::traceRay(const Ray& ray,
 			leaf_geom_index++;
 		}
 
-		if(closest_dist <= tmax)
-		{
-			//If intersection point lies before ray exit from this leaf volume, then finished.
-			return closest_dist;
-		}
-
+		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) // if(closest_dist <= tmax)
+			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
 	}
 
 	return hitob_out ? closest_dist : -1.0;
 }
 
 
-//for debugging
+//For debugging
 bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, 
 													ThreadContext& thread_context,
 													js::ObjectTreePerThreadData& object_context, double time) const
@@ -243,7 +236,8 @@ bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, double lengt
 	return dist >= 0.0 && dist < length;
 }
 
-bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength, 
+
+bool ObjectTree::doesFiniteRayHit(const Ray& ray, double ray_max_t, 
 								  ThreadContext& thread_context, 
 								  js::ObjectTreePerThreadData& object_context, double time) const
 {
@@ -253,47 +247,42 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength,
 	if(object_context.last_test_time.size() < objects.size())
 		object_context.last_test_time.resize(objects.size());
 
+	assertSSEAligned(this);
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
-	assert(raylength > 0.0);
+	assert(ray_max_t > 0.0);
 	
 	object_context.time++;
 
-#ifdef OBJECTTREE_VERBOSE
+	#ifdef OBJECTTREE_VERBOSE
 	printVar(object_context.time);
-#endif
+	#endif
 
 	if(leafgeom.empty())
 		return false;
 
 	assert(nodestack_size > 0);
 	assert(!nodes.empty());
-	assert(root_aabb);
 
-	float aabb_enterdist, aabb_exitdist;
-	if(root_aabb->rayAABBTrace(ray.startPosF(), ray.getRecipRayDirF(), aabb_enterdist, aabb_exitdist) == 0)
-		return false;//missed aabbox
+	__m128 near_t, far_t;
+	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
+	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
 
-	/*const float MIN_TMIN = 0.00000001f;//above zero to avoid denorms
-	//TEMP:
-	aabb_enterdist = myMax(aabb_enterdist, MIN_TMIN);
+	const float ray_max_t_f = (float)ray_max_t;
+	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f)); // far_t = min(far_t, ray_max_t)
 
-	assert(aabb_enterdist >= 0.0f);
-	assert(aabb_exitdist >= aabb_enterdist);
-
-	if(aabb_enterdist > raylength)
+	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
 		return false;
-	aabb_exitdist = myMin(aabb_exitdist, (float)raylength);*/
 
-	const float root_t_min = myMax(0.0f, aabb_enterdist);
-	const float root_t_max = myMin((float)raylength, aabb_exitdist);
-	if(root_t_min > root_t_max)
-		return false; // Ray interval does not intersect AABB
+
+	//object_context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
+	object_context.nodestack[0].node = 0;
+	_mm_store_ss(&object_context.nodestack[0].tmin, near_t);
+	_mm_store_ss(&object_context.nodestack[0].tmax, far_t);
+
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
-
-	object_context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
 
 	int stacktop = 0;//index of node on top of stack
 	
@@ -301,78 +290,85 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, double raylength,
 	{
 		//pop node off stack
 		unsigned int current = object_context.nodestack[stacktop].node;
-		float tmin = object_context.nodestack[stacktop].tmin;
-		float tmax = object_context.nodestack[stacktop].tmax;
+		assert(current < nodes.size());
+		__m128 tmin = _mm_load_ss(&object_context.nodestack[stacktop].tmin);
+		__m128 tmax = _mm_load_ss(&object_context.nodestack[stacktop].tmax);
 
 		stacktop--;
 
 		while(nodes[current].getNodeType() != ObjectTreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
 		{
-			//------------------------------------------------------------------------
-			//prefetch child node memory
-			//------------------------------------------------------------------------
-#ifdef DO_PREFETCHING
+			#ifdef DO_PREFETCHING
 			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-#endif			
-			//while current node is not a leaf..
+			#endif			
 	
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
-			const REAL t_split = (nodes[current].data2.dividing_val - ray.startPosF().x[splitting_axis]) * ray.getRecipRayDirF().x[splitting_axis];	
+			const __m128 t_split =
+				_mm_mul_ss(
+					_mm_sub_ss(
+						_mm_load_ss(&nodes[current].data2.dividing_val),
+						_mm_load_ss(ray.startPosF().x + splitting_axis)
+					),
+					_mm_load_ss(ray.getRecipRayDirF().x + splitting_axis)
+				);
+
 			const unsigned int child_nodes[2] = {current + 1, nodes[current].getPosChildIndex()};
 
-			if(t_split > tmax)//or ray segment ends b4 split
+			if(_mm_comigt_ss(t_split, tmax) != 0)  // if(t_split > tmax) // Whole interval is on near cell
 			{
-				//whole interval is on near cell	
 				current = child_nodes[ray_child_indices[splitting_axis]];
-			}
-			else if(tmin > t_split)//else if ray seg starts after split
-			{
-				//whole interval is on far cell.
-				current = child_nodes[ray_child_indices[splitting_axis + 4]];//farnode;
 			}
 			else
 			{
-				//ray hits plane - double recursion, into both near and far cells.
-				const unsigned int nearnode = child_nodes[ray_child_indices[splitting_axis]];
-				const unsigned int farnode = child_nodes[ray_child_indices[splitting_axis + 4]];
-					
-				//push far node onto stack to process later
-				stacktop++;
-				assert(stacktop < nodestack_size);
-				object_context.nodestack[stacktop] = StackFrame(farnode, t_split, tmax);
-					
-				//process near child next
-				current = nearnode;
-				tmax = t_split;
-			}
+				if(_mm_comigt_ss(tmin, t_split) != 0) // if(tmin > t_split) // whole interval is on far cell.
+					current = child_nodes[ray_child_indices[splitting_axis + 4]]; // farnode;
+				else
+				{
+					// Ray hits plane - double recursion, into both near and far cells.
+					// Push far node onto stack to process later.
+					stacktop++;
+					assert(stacktop < object_context.nodestack_size);
+					object_context.nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
+					_mm_store_ss(&object_context.nodestack[stacktop].tmin, t_split);
+					_mm_store_ss(&object_context.nodestack[stacktop].tmax, tmax);
 
+					#ifdef DO_PREFETCHING
+					_mm_prefetch((const char *)(&nodes[child_nodes[ray_child_indices[splitting_axis + 4]]]), _MM_HINT_T0);	// Prefetch pushed child
+					#endif
+
+					// Process near child next
+					current = child_nodes[ray_child_indices[splitting_axis]]; // near node
+					tmax = t_split;
+				}
+			}
 		}//end while current node is not a leaf..
 
 		//'current' is a leaf node..
 
 		unsigned int leaf_geom_index = nodes[current].getLeafGeomIndex();
 		const unsigned int num_leaf_geom = nodes[current].getNumLeafGeom();
-#ifdef OBJECTTREE_VERBOSE
+		#ifdef OBJECTTREE_VERBOSE
 		printVar(leaf_geom_index);
 		printVar(num_leaf_geom);
-#endif
+		#endif
 		for(unsigned int i=0; i<num_leaf_geom; ++i)
 		{
 			assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
-			INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];
-#ifdef OBJECTTREE_VERBOSE
+			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];
+			#ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
-#endif
+			#endif
 			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
 			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time)
 			{
-#ifdef OBJECTTREE_VERBOSE
+				#ifdef OBJECTTREE_VERBOSE
 				conPrint("Intersecting with object...");
 				conPrint(ob->doesFiniteRayHit(ray, raylength, tritree_context) ? "\tHIT" : "\tMISSED");
-#endif
+				#endif
 				//assert(object_context.object_context != NULL);
-				if(ob->doesFiniteRayHit(ray, raylength, time, thread_context, *object_context.object_context))
+				if(ob->doesFiniteRayHit(ray, ray_max_t, time, thread_context, *object_context.object_context))
 					return true;
 				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
 			}
@@ -400,16 +396,16 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("\tcalcing root AABB.");
 	{
 	
-	*root_aabb = objects[0]->getAABBoxWS();
+	root_aabb = objects[0]->getAABBoxWS();
 
 	for(unsigned int i=0; i<objects.size(); ++i)
-		root_aabb->enlargeToHoldAABBox(objects[i]->getAABBoxWS());
+		root_aabb.enlargeToHoldAABBox(objects[i]->getAABBoxWS());
 	}
 
-	print_output.print("\tAABB: (" + ::toString(root_aabb->min_.x[0]) + ", " + ::toString(root_aabb->min_.x[1]) + ", " + ::toString(root_aabb->min_.x[2]) + "), " + 
-						"(" + ::toString(root_aabb->max_.x[0]) + ", " + ::toString(root_aabb->max_.x[1]) + ", " + ::toString(root_aabb->max_.x[2]) + ")"); 
+	print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " + 
+						"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")"); 
 							
-	assert(root_aabb->invariant());
+	assert(root_aabb.invariant());
 
 	//------------------------------------------------------------------------
 	//compute max allowable depth
@@ -437,7 +433,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	//const int tris_size = tris->size();
 
 	//triTreeDebugPrint("calling doBuild()...");
-	doBuild(0, rootobs, 0, max_depth, *root_aabb);
+	doBuild(0, rootobs, 0, max_depth, root_aabb);
 	//triTreeDebugPrint("doBuild() done.");
 
 	if(!nodes.empty())
