@@ -1,0 +1,22 @@
+<scenedata>
+
+	<mesh>
+		<!-- ModelName in Max: Plane01 -->
+		<name>1</name>
+		<normal_smoothing>true</normal_smoothing>
+		<merge_vertices_with_same_pos_and_normal>true</merge_vertices_with_same_pos_and_normal>
+		<external>
+		<path>Mesh_data\1.igmesh</path>
+		</external>
+	</mesh>
+
+	<mesh>
+		<!-- ModelName in Max: Box01 -->
+		<name>2</name>
+		<normal_smoothing>true</normal_smoothing>
+		<merge_vertices_with_same_pos_and_normal>true</merge_vertices_with_same_pos_and_normal>
+		<external>
+		<path>Mesh_data\2.igmesh</path>
+		</external>
+	</mesh>
+</scenedata>

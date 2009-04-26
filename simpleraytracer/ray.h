@@ -46,6 +46,8 @@ public:
 		/*
 			TEMP HACK:
 			We want to avoid 1/+0 = +Inf or 1/-0 = -Inf
+			so we set a maximum value that the reciprocal can take, and set
+			use_recip = clamp(recip, MIN_RECIP, MAX_RECIP),
 		*/
 		const float MAX_RECIP = 1.0e26f;
 		const SSE_ALIGN float MAX_RECIP_vec[4] = {MAX_RECIP, MAX_RECIP, MAX_RECIP, MAX_RECIP};
@@ -59,6 +61,14 @@ public:
 					)
 				)
 			);
+
+#ifdef DEBUG
+		Vec4f r(_mm_div_ps(_mm_load_ps(one_4vec), unitdir_.v));
+		if(r.x[0] != recip_unitdir_f.x[0])
+		{
+			int a = 9;
+		}
+#endif
 	}
 
 	INDIGO_STRONG_INLINE ~Ray(){}

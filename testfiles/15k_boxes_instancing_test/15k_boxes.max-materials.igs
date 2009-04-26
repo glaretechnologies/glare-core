@@ -1,0 +1,28 @@
+<scenedata>
+<material>
+	<name>1_1</name>
+	<diffuse>
+	 <albedo>
+	  <constant>
+		<rgb>
+		<rgb>0.337255 0.337255 0.337255</rgb>
+		<gamma>2.2</gamma>
+		</rgb>
+	  </constant>
+	 </albedo>
+	</diffuse>
+</material>
+<material>
+	<name>2_1</name>
+	<diffuse>
+	 <albedo>
+	  <constant>
+		<rgb>
+		<rgb>0.603922 0.843137 0.898039</rgb>
+		<gamma>2.2</gamma>
+		</rgb>
+	  </constant>
+	 </albedo>
+	</diffuse>
+</material>
+</scenedata>

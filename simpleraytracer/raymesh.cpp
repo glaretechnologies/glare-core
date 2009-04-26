@@ -79,7 +79,7 @@ const std::string RayMesh::getName() const
 
 
 //returns negative number if object not hit by the ray
-double RayMesh::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real RayMesh::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return tritree->traceRay(
 		ray, 
@@ -110,7 +110,7 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Obje
 }
 
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	return tritree->doesFiniteRayHit(
 		ray, 

@@ -432,22 +432,20 @@ void TreeTest::testBuildCorrect()
 
 static void testTree(MTwister& rng, RayMesh& raymesh)
 {
+	StandardPrintOutput print_output;
+
 	//------------------------------------------------------------------------
 	//Init KD-tree and BIH
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
-	StandardPrintOutput print_output;
 	trees.back()->build(print_output);
 
-	//trees.push_back(new BIHTree(&raymesh));
-	//trees.back()->build(print_output);
-
-	trees.push_back(new BVH(&raymesh));
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
 	trees.back()->build(print_output);
 
 	// Check AABBox
-	SSE_ALIGN AABBox box = trees[0]->getAABBoxWS();
+	AABBox box = trees[0]->getAABBoxWS();
 	for(unsigned int i=0; i<trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
@@ -462,7 +460,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test first hit traces
 		//------------------------------------------------------------------------
-		const double max_t = 1.0e9;
+		const Tree::Real max_t = 1.0e9;
 
 		const SSE_ALIGN Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
@@ -472,10 +470,10 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		HitInfo hitinfo;
 		js::TriTreePerThreadData tree_context;
 
-		const double dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
+		const Tree::Real dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
 
 		HitInfo all_tris_hitinfo;
-		const double alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
+		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
 		testAssert(dist == alltrisdist);
 
 		if(dist >= 0.0) // If hit
@@ -488,12 +486,12 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo_;
-			const double dist_ = trees[t]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo_);
+			const Tree::Real dist_ = trees[t]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo_);
 
 			if(dist >= 0.0 || dist_ >= 0.0)
 			{
 				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
-				testAssert(::epsEqual(dist, dist_, 0.0001));
+				testAssert(::epsEqual(dist, dist_, (Tree::Real)0.0001));
 
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
@@ -534,7 +532,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		}
 
 		//------------------------------------------------------------------------
-		//test getAllHits() on other trees
+		//Test getAllHits() on other trees
 		//------------------------------------------------------------------------
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
@@ -557,40 +555,21 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
-		const double testlength = rng.unitRandom() * 2.0;
+		const Tree::Real testlength = rng.unitRandom() * (Tree::Real)2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
-
 
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
 			testAssert(hit == hit_);
 		}
+	}
 
-		/*
-		bool bih_hit = bih_tree.doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
-		testAssert(kd_hit == bih_hit);
-		if(dist > 0.0)
-		{
-			testAssert(kd_hit == testlength >= dist);
-		}
-		else
-		{
-			testAssert(!kd_hit);
-		}
-
-		if(dist > 0.0)
-		{
-			//try with the testlength just on either side of the first hit dist
-			kd_hit = tritree.doesFiniteRayHit(ray, dist + 0.0001, thread_context, tree_context, NULL);
-			bih_hit = bih_tree.doesFiniteRayHit(ray, dist + 0.0001, thread_context, tree_context, NULL);
-			testAssert(kd_hit == bih_hit);
-
-			kd_hit = tritree.doesFiniteRayHit(ray, dist - 0.0001, thread_context, tree_context, NULL);
-			bih_hit = bih_tree.doesFiniteRayHit(ray, dist - 0.0001, thread_context, tree_context, NULL);
-			testAssert(kd_hit == bih_hit);
-		}*/
-
+	// Delete trees
+	for(unsigned int i=0; i<trees.size(); ++i)
+	{
+		trees[i]->~Tree();
+		SSE::alignedFree(trees[i]);
 	}
 }
 

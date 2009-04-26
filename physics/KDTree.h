@@ -93,8 +93,6 @@ public:
 	KDTree(RayMesh* raymesh);
 	~KDTree();
 
-	//typedef float Real;
-
 	virtual void build(PrintOutput& print_output); // throws TreeExcep
 	virtual bool diskCachable();
 	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output); // throws TreeExcep

@@ -140,9 +140,6 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		numnodesbuilt++;
 	}
 
-	if(cur == 920)
-		int a = 9;//TEMP
-
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------

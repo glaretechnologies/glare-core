@@ -822,7 +822,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 }
 
 
-double Camera::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -840,7 +840,7 @@ void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, js::Objec
 }
 
 
-bool Camera::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	return false;
 }

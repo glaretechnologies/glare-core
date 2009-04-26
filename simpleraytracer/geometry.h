@@ -69,13 +69,14 @@ public:
 
 	typedef Vec4f Pos3Type;
 	typedef float Vec3RealType;
+	typedef float Real;
 	typedef Vec4f Vec3Type; //Vec3<Vec3RealType> Vec3Type;
 	
 
 	/// intersectable interface ///
-	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	virtual bool doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const = 0;
+	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const = 0;
 	virtual const std::string getName() const = 0;
 	/// End intersectable interface ///
 

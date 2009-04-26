@@ -61,7 +61,7 @@ RaySphere::~RaySphere()
 
 //returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
-double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
 	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
@@ -152,7 +152,7 @@ double RaySphere::traceRay(const Ray& ray, double max_t, ThreadContext& thread_c
 }
 
 
-bool RaySphere::doesFiniteRayHit(const Ray& ray, double raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
 {
 	HitInfo hitinfo;
 	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);

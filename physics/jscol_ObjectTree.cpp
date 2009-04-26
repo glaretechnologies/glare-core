@@ -17,11 +17,13 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/PrintOutput.h"
 #include "../utils/stringutils.h"
+#include "../indigo/EnvSphereGeometry.h"
 #include <string.h>
 
 
 namespace js
 {
+
 
 //#define OBJECTTREE_VERBOSE 1
 
@@ -52,7 +54,7 @@ void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 
 
 // Returns dist till hit tri, neg number if missed.
-double ObjectTree::traceRay(const Ray& ray, 
+ObjectTree::Real ObjectTree::traceRay(const Ray& ray, 
 						   ThreadContext& thread_context, 
 						   js::ObjectTreePerThreadData& object_context, double time, 
 						   const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
@@ -100,7 +102,7 @@ double ObjectTree::traceRay(const Ray& ray,
 	printVar(aabb_enterdist);
 	printVar(aabb_exitdist);
 #endif
-	REAL closest_dist = std::numeric_limits<float>::max();
+	Real closest_dist = std::numeric_limits<Real>::max();
 
 	object_context.nodestack[0].node = 0;
 	_mm_store_ss(&object_context.nodestack[0].tmin, near_t);
@@ -194,7 +196,7 @@ double ObjectTree::traceRay(const Ray& ray,
 			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
 			{
 				//assert(object_context.object_context != NULL);
-				const double dist = ob->traceRay(
+				const Real dist = ob->traceRay(
 					ray, 
 					closest_dist,
 					time,
@@ -221,23 +223,23 @@ double ObjectTree::traceRay(const Ray& ray,
 			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
 	}
 
-	return hitob_out ? closest_dist : -1.0;
+	return hitob_out ? closest_dist : (Real)-1.0;
 }
 
 
 //For debugging
-bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, double length, 
+bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, 
 													ThreadContext& thread_context,
 													js::ObjectTreePerThreadData& object_context, double time) const
 {
 	const INTERSECTABLE_TYPE* hitob = NULL;
 	HitInfo hitinfo;
-	const double dist = this->traceRayAgainstAllObjects(ray, thread_context, object_context, time, hitob, hitinfo);
+	const Real dist = this->traceRayAgainstAllObjects(ray, thread_context, object_context, time, hitob, hitinfo);
 	return dist >= 0.0 && dist < length;
 }
 
 
-bool ObjectTree::doesFiniteRayHit(const Ray& ray, double ray_max_t, 
+bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t, 
 								  ThreadContext& thread_context, 
 								  js::ObjectTreePerThreadData& object_context, double time) const
 {
@@ -433,7 +435,9 @@ void ObjectTree::build(PrintOutput& print_output)
 	//const int tris_size = tris->size();
 
 	//triTreeDebugPrint("calling doBuild()...");
-	doBuild(0, rootobs, 0, max_depth, root_aabb);
+	std::vector<SortedBoundInfo> lower(numtris);
+	std::vector<SortedBoundInfo> upper(numtris);
+	doBuild(0, rootobs, 0, max_depth, root_aabb, lower, upper);
 	//triTreeDebugPrint("doBuild() done.");
 
 	if(!nodes.empty())
@@ -450,18 +454,46 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" + 
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
 
+	ObjectTreeStats stats;
+	this->getTreeStats(stats);
+	print_output.print("\ttotal_num_nodes: " + toString(stats.total_num_nodes));
+	print_output.print("\tnum_interior_nodes: " + toString(stats.num_interior_nodes));
+	print_output.print("\tnum_leaf_nodes: " + toString(stats.num_leaf_nodes));
+	print_output.print("\tnum_objects: " + toString(stats.num_objects));
+	print_output.print("\tnum_leafgeom_objects: " + toString(stats.num_leafgeom_objects));
+	print_output.print("\taverage_leafnode_depth: " + toString(stats.average_leafnode_depth));
+	print_output.print("\taverage_objects_per_leafnode: " + toString(stats.average_objects_per_leafnode));
+	print_output.print("\tmax_leaf_objects: " + toString(stats.max_leaf_objects));
+	print_output.print("\tmax_leafnode_depth: " + toString(stats.max_leafnode_depth));
+	print_output.print("\tmax_depth: " + toString(stats.max_depth));
+	print_output.print("\tnum_inseparable_tri_leafs: " + toString(stats.num_inseparable_tri_leafs));
+	print_output.print("\tnum_maxdepth_leafs: " + toString(stats.num_maxdepth_leafs));
+	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));
+
 	print_output.print("Finished building tree.");
 }
 
 
+static inline bool SortedBoundInfoLowerPred(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
+{
+   return a.lower < b.lower;
+}
 
+
+static inline bool SortedBoundInfoUpperPred(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
+{
+   return a.upper < b.upper;
+}
 
 
 void ObjectTree::doBuild(int cur, //index of current node getting built
 						const std::vector<INTERSECTABLE_TYPE*>& nodeobjs,//objects for current node
 						int depth, //depth of current node
 						int maxdepth, //max permissible depth
-						const AABBox& cur_aabb)//AABB of current node
+						const AABBox& cur_aabb,//AABB of current node
+						std::vector<SortedBoundInfo>& upper,
+						std::vector<SortedBoundInfo>& lower
+					)
 {
 	assert(cur >= 0 && cur < (int)nodes.size());
 	
@@ -480,7 +512,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//------------------------------------------------------------------------
 	const int SPLIT_THRESHOLD = 2;
 
-	if(nodeobjs.size() <= SPLIT_THRESHOLD || depth >= maxdepth)
+	if(nodeobjs.size() <= SPLIT_THRESHOLD || depth >= maxdepth || cur_aabb.getSurfaceArea() == 0.0f)
 	{
 		nodes[cur] = ObjectTreeNode(
 			(uint32)leafgeom.size(),
@@ -498,18 +530,24 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 		return;
 	}
 
-	float smallest_cost = std::numeric_limits<float>::max();
-	int best_axis = -1;
-	float best_div_val = -666.0f;
-	const float traversal_cost = 1.0f;
-	const float intersection_cost = 10.0f;
-	const float recip_aabb_surf_area = (1.0f / cur_aabb.getSurfaceArea());
-	int best_num_in_neg = 0;
-	int best_num_in_pos = 0;
-
 	//------------------------------------------------------------------------
 	//compute non-split cost
 	//------------------------------------------------------------------------
+	// SAH cost constants
+	const float traversal_cost = 1.0f;
+	const float intersection_cost = 4.0f;
+	float smallest_cost = (float)nodeobjs.size() * intersection_cost;
+	//float smallest_cost = std::numeric_limits<float>::max();
+	int best_axis = -1;
+	float best_div_val = -666.0f;
+	int best_num_in_neg = 0;
+	int best_num_in_pos = 0;
+
+	const float aabb_surface_area = cur_aabb.getSurfaceArea();
+	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
+
+	bool best_push_right = false;
+
 	const unsigned int numtris = (unsigned int)nodeobjs.size();
 
 	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
@@ -518,40 +556,225 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	{
 		const int axis1 = nonsplit_axes[axis][0];
 		const int axis2 = nonsplit_axes[axis][1];
-		//const float two_cap_area = (cur_aabb.max[axis1] - cur_aabb.min[axis1]) * (cur_aabb.max[axis2] - cur_aabb.min[axis2]) * 2.0f;
-		//const float circum = ((cur_aabb.max[axis1] - cur_aabb.min[axis1]) + (cur_aabb.max[axis2] - cur_aabb.min[axis2])) * 2.0f;
 		const float two_cap_area = cur_aabb.axisLength(axis1) * cur_aabb.axisLength(axis2) * 2.0f;
 		const float circum = (cur_aabb.axisLength(axis1) + cur_aabb.axisLength(axis2)) * 2.0f;
 		
+		if(cur_aabb.axisLength(axis) == 0.0f)
+			continue; // Don't try to split a zero-width bounding box
+
 		//------------------------------------------------------------------------
 		//Sort lower and upper tri AABB bounds into ascending order
 		//------------------------------------------------------------------------
-		std::vector<float> lower(numtris);
-		std::vector<float> upper(numtris);
+		for(unsigned int i=0; i<numtris; ++i)
+		{
+			lower[i].lower = nodeobjs[i]->getAABBoxWS().min_.x[axis];
+			lower[i].upper = nodeobjs[i]->getAABBoxWS().max_.x[axis];
+			upper[i].lower = nodeobjs[i]->getAABBoxWS().min_.x[axis];
+			upper[i].upper = nodeobjs[i]->getAABBoxWS().max_.x[axis];
+		}
+
+		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred);
+		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred);
+
+		unsigned int upper_index = 0;
+		//Index of first triangle in upper volume
+		//Index of first tri with upper bound >= then current split val.
+		//Also the number of tris with upper bound <= current split val.
+		//which is the number of tris *not* in pos volume
+
+		float last_splitval = -std::numeric_limits<float>::max();
+		for(unsigned int i=0; i<numtris; ++i)
+		{
+			const float splitval = lower[i].lower;
+			//assert(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]);
+
+			if(splitval != last_splitval) // Only consider first tri seen with a given lower bound.
+			{
+				if(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]) // If split val is actually in AABB
+				{
+
+					// Get number of tris on splitting plane
+					int num_on_splitting_plane = 0;
+					for(unsigned int z=i; z<numtris && lower[z].lower == splitval; ++z) // For all other triangles that share the current splitting plane as a lower bound
+						if(lower[z].upper == splitval) // If the tri has zero extent along the current axis
+							num_on_splitting_plane++; // Then it lies on the splitting plane.
+
+					while(upper_index < numtris && upper[upper_index].upper <= splitval)
+						upper_index++;
+
+					assert(upper_index == numtris || upper[upper_index].upper > splitval);
+
+					const int num_in_neg = i;
+					if(i == 7500)
+						int a = 0;//TEMP
+					const int num_in_pos = numtris - upper_index;
+					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
+					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
+					assert(num_in_neg + num_in_pos + num_on_splitting_plane >= (int)numtris);
+
+
+					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+					const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
+					assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
+					assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
+					assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * 1.0e-6f));
+
+					if(num_on_splitting_plane == 0)
+					{
+						const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
+							recip_aabb_surf_area * intersection_cost;
+						assert(cost >= 0.0);
+
+						//conPrint("axis: " + toString(axis) + ", i: " + toString(i) + ", cost: " + toString(cost));
+
+						if(cost < smallest_cost)
+						{
+							smallest_cost = cost;
+							best_axis = axis;
+							best_div_val = splitval;
+							best_num_in_neg = num_in_neg;
+							best_num_in_pos = num_in_pos;
+							//best_num_on_split_plane = 0;
+						}
+					}
+					else
+					{
+						// Try pushing tris on splitting plane to left
+						const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
+							recip_aabb_surf_area * intersection_cost;
+						assert(push_left_cost >= 0.0);
+
+						if(push_left_cost < smallest_cost)
+						{
+							smallest_cost = push_left_cost;
+							best_axis = axis;
+							best_div_val = splitval;
+							best_num_in_neg = num_in_neg + num_on_splitting_plane;
+							best_num_in_pos = num_in_pos;
+							//best_num_on_split_plane = 0;
+							best_push_right = false;
+						}
+
+						// Try pushing tris on splitting plane to right
+						const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) *
+							recip_aabb_surf_area * intersection_cost;
+						assert(push_right_cost >= 0.0);
+
+						if(push_right_cost < smallest_cost)
+						{
+							smallest_cost = push_right_cost;
+							best_axis = axis;
+							best_div_val = splitval;
+							best_num_in_neg = num_in_neg;
+							best_num_in_pos = num_in_pos + num_on_splitting_plane;
+							//best_num_on_split_plane = 0;
+							best_push_right = true;
+						}
+					}
+				}
+				last_splitval = splitval;
+			}
+		}
+		unsigned int lower_index = 0;//index of first tri with lower bound >= current split val
+		//Also the number of tris that are in the negative volume
 
 		for(unsigned int i=0; i<numtris; ++i)
 		{
-			lower[i] = nodeobjs[i]->getAABBoxWS().min_.x[axis];//tri_boxes[nodetris[i]].min[axis];
-			upper[i] = nodeobjs[i]->getAABBoxWS().max_.x[axis];//tri_boxes[nodetris[i]].max[axis];
+			// Advance to greatest index with given upper bound
+			while(i+1 < numtris && upper[i].upper == upper[i+1].upper) // While triangle i has some upper bound as triangle i+1
+				++i;
 
-			if(upper[i] == lower[i])
+
+			const float splitval = upper[i].upper;
+			//assert(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis]);
+
+			if(splitval >= cur_aabb.min_.x[axis] && splitval <= cur_aabb.max_.x[axis])
 			{
-				//tri lies totally in the plane perpendicular to the current axis.
-				//So nudge up its upper bound a bit to force it into the positive volume.
-				float upperval = upper[i];
-				upper[i] += 0.000001f;
-				upperval = upper[i];
-				assert(upper[i] > lower[i]);
+
+				int num_on_splitting_plane = 0;
+				for(int z=i; z>=0 && upper[z].upper == splitval; --z) // For each triangle sharing an upper bound with the current triangle
+					if(upper[z].lower == splitval) // If tri has zero extent along this axis
+						num_on_splitting_plane++;
+
+				while(lower_index < numtris && lower[lower_index].lower < splitval)
+					lower_index++;
+
+				// Postcondition:
+				assert(lower_index == numtris || lower[lower_index].lower >= splitval);
+
+				const int num_in_neg = lower_index;
+				const int num_in_pos = numtris - (i + 1);
+				assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
+				assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
+				assert(num_in_neg + num_in_pos + num_on_splitting_plane >= (int)numtris);
+
+				//const int num_on_splitting_plane = numtris - (num_in_neg + num_in_pos);
+
+				const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
+				assert(negchild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
+				assert(poschild_surface_area >= 0.f && negchild_surface_area <= aabb_surface_area * (1.0f + NICKMATHS_EPSILON));
+				assert(::epsEqual(negchild_surface_area + poschild_surface_area - two_cap_area, aabb_surface_area, aabb_surface_area * 1.0e-6f));
+
+				if(num_on_splitting_plane == 0)
+				{
+					const float cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
+						recip_aabb_surf_area * intersection_cost;
+					assert(cost >= 0.0);
+
+					if(cost < smallest_cost)
+					{
+						smallest_cost = cost;
+						best_axis = axis;
+						best_div_val = splitval;
+						best_num_in_neg = num_in_neg;
+						best_num_in_pos = num_in_pos;
+						//best_num_on_split_plane = 0;
+					}
+				}
+				else
+				{
+					// Try pushing tris on splitting plane to left
+					const float push_left_cost = traversal_cost + ((float)(num_in_neg + num_on_splitting_plane) * negchild_surface_area + (float)num_in_pos * poschild_surface_area) *
+						recip_aabb_surf_area * intersection_cost;
+					assert(push_left_cost >= 0.0);
+
+					if(push_left_cost < smallest_cost)
+					{
+						smallest_cost = push_left_cost;
+						best_axis = axis;
+						best_div_val = splitval;
+						best_num_in_neg = num_in_neg + num_on_splitting_plane;
+						best_num_in_pos = num_in_pos;
+						//best_num_on_split_plane = 0;
+						best_push_right = false;
+					}
+
+					// Try pushing tris on splitting plane to right
+					const float push_right_cost = traversal_cost + ((float)num_in_neg * negchild_surface_area + (float)(num_in_pos + num_on_splitting_plane) * poschild_surface_area) *
+						recip_aabb_surf_area * intersection_cost;
+					assert(push_right_cost >= 0.0);
+
+					if(push_right_cost < smallest_cost)
+					{
+						smallest_cost = push_right_cost;
+						best_axis = axis;
+						best_div_val = splitval;
+						best_num_in_neg = num_in_neg;
+						best_num_in_pos = num_in_pos + num_on_splitting_plane;
+						//best_num_on_split_plane = 0;
+						best_push_right = true;
+					}
+				}
 			}
 		}
+	}
 
-		std::sort(lower.begin(), lower.end());
-		std::sort(upper.begin(), upper.end());
 
 		//Tris in contact with splitting plane will not imply tri is in either volume, except
 		//for tris lying totally on splitting plane which is considered to be in positive volume.
 
-		unsigned int upper_index = 0;//Index of first tri with upper bound > then current split val.
+		/*unsigned int upper_index = 0;//Index of first tri with upper bound > then current split val.
 		//Also the number of tris with upper bound <= current split val.
 		//which is the number of tris *not* in pos volume
 
@@ -648,7 +871,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 				//last_splitval = splitval;
 			//}
 		}
-	}
+	}*/
 
 	if(best_axis == -1)
 	{
@@ -664,6 +887,9 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 		num_inseparable_tri_leafs++;
 		return;
 	}
+
+	//if(best_num_in_neg == 15002 && best_num_in_pos == 1)
+	//	conPrint("Splitting along axis " + toString(best_axis) + ", best_num_in_neg: " + toString(best_num_in_neg) + ", best_num_in_pos: " + toString(best_num_in_pos));
 	
 	assert(best_axis >= 0 && best_axis <= 2);
 	assert(best_div_val != -666.0f);
@@ -686,33 +912,94 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//assign tris to neg and pos child node bins
 	//------------------------------------------------------------------------
 	std::vector<INTERSECTABLE_TYPE*> neg_objs;
-	neg_objs.reserve(best_num_in_neg);//nodeobjs.size() / 2);
 	std::vector<INTERSECTABLE_TYPE*> pos_objs;
-	pos_objs.reserve(best_num_in_pos);//nodeobjs.size() / 2);
+	//neg_objs.reserve(best_num_in_neg);//nodeobjs.size() / 2);
+	//std::vector<INTERSECTABLE_TYPE*> pos_objs;
+	//pos_objs.reserve(best_num_in_pos);//nodeobjs.size() / 2);
 
-	for(unsigned int i=0; i<nodeobjs.size(); ++i)//for each tri
+	/*for(unsigned int i=0; i<nodeobjs.size(); ++i)//for each tri
 	{
 		bool inserted = false;
-		if(intersectableIntersectsAABB(nodeobjs[i], negbox, nodes[cur].getSplittingAxis(), true))
-		//if(triIntersectsAABB(nodetris[i], negbox, nodes[cur].getSplittingAxis(), true))
+		if(intersectableIntersectsAABB(nodeobjs[i], negbox, best_axis, true))
 		{
 			neg_objs.push_back(nodeobjs[i]);
 			inserted = true;
 		}
 
-		if(intersectableIntersectsAABB(nodeobjs[i], posbox, nodes[cur].getSplittingAxis(), false))
-		//if(triIntersectsAABB(nodetris[i], posbox, nodes[cur].getSplittingAxis(), false))
+		if(intersectableIntersectsAABB(nodeobjs[i], posbox, best_axis, false))
 		{
 			pos_objs.push_back(nodeobjs[i]);
 			inserted = true;
 		}
+	}*/
 
-//		assert(inserted);	//check we haven't 'lost' any tris
+	const float split = best_div_val;
+	for(unsigned int i=0; i<numtris; ++i)//for each tri
+	{
+		if(nodeobjs[i]->isEnvSphereGeometry())
+		{
+			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], negbox))
+				neg_objs.push_back(nodeobjs[i]);
+		}
+		else
+		{
+			const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
+			const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
+
+			if(tri_lower <= split) // Tri touches left volume, including splitting plane
+			{
+				if(tri_lower < split) // Tri touches left volume, not including splitting plane
+				{
+					neg_objs.push_back(nodeobjs[i]);
+				}
+				else
+				{
+					// else tri_lower == split
+					if(tri_upper == split && !best_push_right)
+						neg_objs.push_back(nodeobjs[i]);
+				}
+			}
+			// Else tri_lower > split, so doesn't intersect left box of splitting plane.
+		}
 	}
 
 	const int num_in_neg = (int)neg_objs.size();
+
+
+	//child_tris.resize(0);
+
+	for(unsigned int i=0; i<numtris; ++i) // For each tri
+	{
+		if(nodeobjs[i]->isEnvSphereGeometry())
+		{
+			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], posbox))
+				pos_objs.push_back(nodeobjs[i]);
+		}
+		else
+		{
+			const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
+			const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
+
+			if(tri_upper >= split) // Tri touches right volume, including splitting plane
+			{
+				if(tri_upper > split) // Tri touches right volume, not including splitting plane
+				{
+					pos_objs.push_back(nodeobjs[i]);
+				}
+				else
+				{
+					// else tri_upper == split
+					if(tri_lower == split && best_push_right)
+						pos_objs.push_back(nodeobjs[i]);
+				}
+			}
+			// Else tri_upper < split, so doesn't intersect right box of splitting plane.
+		}
+	}
+
+
 	const int num_in_pos = (int)pos_objs.size();
-	const int num_tris_in_both = (int)neg_objs.size() + (int)pos_objs.size() - numtris;
+	const int num_tris_in_both = num_in_neg + num_in_pos - numtris;
 
 	//assert(num_in_neg == best_num_in_neg);
 	//assert(num_in_pos == best_num_in_pos);
@@ -720,7 +1007,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//::triTreeDebugPrint("split " + ::toString(nodetris.size()) + " tris: left: " + ::toString(neg_tris.size())
 	//	+ ", right: " + ::toString(pos_tris.size()) + ", both: " + ::toString(num_tris_in_both) );
 
-	if(neg_objs.size() == nodeobjs.size() && pos_objs.size() == nodeobjs.size())
+	if(num_in_neg == numtris && num_in_pos == numtris)
 	{
 		//If we were unable to get a reduction in the number of tris in either of the children,
 		//then splitting is pointless.  So make this a leaf node.
@@ -740,8 +1027,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	nodes.push_back(ObjectTreeNode());
 	const int negchild_index = (int)nodes.size() - 1;
 
-	//build left subtree, recursive call.
-	doBuild(negchild_index, neg_objs, depth + 1, maxdepth, negbox);
+	// Build left subtree, recursive call.
+	doBuild(negchild_index, neg_objs, depth + 1, maxdepth, negbox, lower, upper);
 
 	//------------------------------------------------------------------------
 	//create positive child
@@ -749,18 +1036,43 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	nodes.push_back(ObjectTreeNode());
 	
 	// Set details for current node
-	//nodes[cur].setPosChildIndex((int)nodes.size() - 1);//positive_child = new TreeNode(depth + 1);
 	nodes[cur] = ObjectTreeNode(
 		best_axis, // splitting axis
 		best_div_val, // split
 		(int)nodes.size() - 1 // right child node index
 		);
 
-	//build right subtree
-	doBuild(nodes[cur].getPosChildIndex(), pos_objs, depth + 1, maxdepth, posbox);
+	// Build right subtree
+	doBuild(nodes[cur].getPosChildIndex(), pos_objs, depth + 1, maxdepth, posbox, lower, upper);
 }
 
 
+bool ObjectTree::doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb)
+{
+	assert(ob->isEnvSphereGeometry());
+
+	const Vec4f origin(0,0,0,1.f);
+
+	for(unsigned int i=0; i<8; ++i) // For each corner of 'aabb'
+	{
+		const unsigned int x = i & 0x1;
+		const unsigned int y = (i >> 1) & 0x1;
+		const unsigned int z = (i >> 2) & 0x1;
+
+		const Vec4f corner(
+			x == 0 ? aabb.min_.x[0] : aabb.max_.x[0],
+			y == 0 ? aabb.min_.x[1] : aabb.max_.x[1],
+			z == 0 ? aabb.min_.x[2] : aabb.max_.x[2],
+			1.0f);
+
+		const float corner_dist = corner.getDist(origin);
+
+		if(corner_dist >= ((const EnvSphereGeometry*)(&ob->getGeometry()))->getBoundingRadius())
+			return true;
+	}
+
+	return false;
+}
 
 
 bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb, int split_axis,
@@ -768,6 +1080,53 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 {
 	const AABBox& ob_aabb = ob->getAABBoxWS();
 
+	// Test for special case in which aabb lies entirely inside the environment sphere geometry.
+	if(ob->isEnvSphereGeometry())
+	{
+		const Vec4f origin(0,0,0,1.f);
+
+		for(unsigned int i=0; i<8; ++i) // For each corner of 'aabb'
+		{
+			const unsigned int x = i & 0x1;
+			const unsigned int y = (i >> 1) & 0x1;
+			const unsigned int z = (i >> 2) & 0x1;
+
+			const Vec4f corner(
+				x == 0 ? aabb.min_.x[0] : aabb.max_.x[0],
+				y == 0 ? aabb.min_.x[1] : aabb.max_.x[1],
+				z == 0 ? aabb.min_.x[2] : aabb.max_.x[2],
+				1.0f);
+
+			const float corner_dist = corner.getDist(origin);
+
+			if(corner_dist >= ((const EnvSphereGeometry*)(&ob->getGeometry()))->getBoundingRadius())
+				return true;
+		}
+
+		return false;
+	}
+
+	//------------------------------------------------------------------------
+	//test each separating axis
+	//------------------------------------------------------------------------
+	/*for(int axis=0; axis<3; ++axis) // For each axis
+	{
+		if(axis == split_axis)
+		{
+			if(ob_aabb.min_[axis] == ob_aabb.max_[axis]) // Object 
+		}
+		else
+		{
+			if(ob_aabb.max_.x[axis] <= aabb.min_.x[axis] || 
+				ob_aabb.min_.x[axis] >= aabb.max_.x[axis])
+			{
+				return false;
+			}
+		}
+	}*/
+	return true;
+
+#if 0
 	//------------------------------------------------------------------------
 	//test each separating axis
 	//------------------------------------------------------------------------
@@ -829,7 +1188,9 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 	}
 
 	return true;
+#endif
 }
+
 
 /*
 void ObjectTree::writeTreeModel(std::ostream& stream)
@@ -858,6 +1219,7 @@ void ObjectTree::writeTreeModel(std::ostream& stream)
 }
 */
 
+
 /*
 void ObjectTree::doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, 
 							  int& num_verts) const
@@ -881,6 +1243,7 @@ void ObjectTree::doWriteModel(int currentnode, const AABBox& node_aabb, std::ost
 		doWriteModel(node.getPosChildIndex(), max_aabb, stream, num_verts);
 	}
 }*/
+
 
 /*
 void ObjectTree::writeAABBModel(const AABBox& aabb, std::ostream& stream, int& num_verts) const
@@ -939,8 +1302,9 @@ void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 	}
 }
 
-	//just for debugging
-double ObjectTree::traceRayAgainstAllObjects(const Ray& ray, 
+
+//just for debugging
+ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray, 
 											ThreadContext& thread_context, 
 											js::ObjectTreePerThreadData& object_context,
 											double time,
@@ -950,11 +1314,11 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
-	double closest_dist = std::numeric_limits<double>::max();
+	Real closest_dist = std::numeric_limits<Real>::max();
 	for(unsigned int i=0; i<objects.size(); ++i)
 	{
 		HitInfo hitinfo;
-		const double dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, *object_context.object_context, hitinfo);
+		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, *object_context.object_context, hitinfo);
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;
@@ -963,7 +1327,7 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 		}
 	}
 
-	return hitob_out ? closest_dist : -1.0;
+	return hitob_out ? closest_dist : (Real)-1.0;
 }
 
 
@@ -975,8 +1339,6 @@ double ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 */
 
 
-
-
 void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 {
 	if(nodes.empty())
@@ -985,8 +1347,10 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 	if(nodes[cur].getNodeType() == ObjectTreeNode::NODE_TYPE_LEAF)// nodes[cur].isLeafNode())
 	{
 		stats_out.num_leaf_nodes++;
-		stats_out.num_leaf_geom_tris += (int)nodes[cur].getNumLeafGeom();
+		stats_out.num_leafgeom_objects += (int)nodes[cur].getNumLeafGeom();
 		stats_out.average_leafnode_depth += (double)depth;
+		stats_out.max_leaf_objects = myMax(stats_out.max_leaf_objects, (int)nodes[cur].getNumLeafGeom());
+		stats_out.max_leafnode_depth = myMax(stats_out.max_leafnode_depth, depth);
 	}
 	else
 	{
@@ -1005,15 +1369,15 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 		assert(depth == 0);
 
 		stats_out.total_num_nodes = (int)nodes.size();
-		stats_out.num_tris = (int)objects.size();//num_intersect_tris;
+		stats_out.num_objects = (int)objects.size();//num_intersect_tris;
 
 		stats_out.average_leafnode_depth /= (double)stats_out.num_leaf_nodes;
-		stats_out.average_numgeom_per_leafnode = (double)stats_out.num_leaf_geom_tris / (double)stats_out.num_leaf_nodes;
+		stats_out.average_objects_per_leafnode = (double)stats_out.num_leafgeom_objects / (double)stats_out.num_leaf_nodes;
 	
 		stats_out.max_depth = max_depth;
 
 		stats_out.total_node_mem = (int)nodes.size() * sizeof(ObjectTreeNode);
-		stats_out.leafgeom_indices_mem = stats_out.num_leaf_geom_tris * sizeof(INTERSECTABLE_TYPE*);
+		stats_out.leafgeom_indices_mem = stats_out.num_leafgeom_objects * sizeof(INTERSECTABLE_TYPE*);
 		stats_out.tri_mem = (int)objects.size() * sizeof(INTERSECTABLE_TYPE*);
 
 		stats_out.num_inseparable_tri_leafs = this->num_inseparable_tri_leafs;
@@ -1023,27 +1387,15 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 }
 
 
-
-
-
 ObjectTreeStats::ObjectTreeStats()
 {
 	memset(this, 0, sizeof(ObjectTreeStats));
 }
+
 
 ObjectTreeStats::~ObjectTreeStats()
 {
 }
 
 
-
-
-
-
 } //end namespace js
-
-
-
-
-
-

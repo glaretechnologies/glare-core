@@ -36,8 +36,8 @@ public:
 		assert(ray.unitDir().isUnitLength());
 		assert(ray_max_t >= 0.0);
 
-		const __m128 raystartpos = ray.startPosF().v; // _mm_load_ps(&ray.startPosF().x);
-		const __m128 inv_dir = ray.getRecipRayDirF().v; // _mm_load_ps(&ray.getRecipRayDirF().x);
+		const __m128 raystartpos = ray.startPosF().v;
+		const __m128 inv_dir = ray.getRecipRayDirF().v;
 
 		__m128 near_t, far_t;
 		bvh.root_aabb.rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
