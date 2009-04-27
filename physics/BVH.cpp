@@ -15,6 +15,8 @@ Code By Nicholas Chapman.
 #include "BVHImpl.h"
 #include "MollerTrumboreTri.h"
 #include "../indigo/PrintOutput.h"
+#include "../indigo/ThreadContext.h"
+#include "../indigo/DistanceHitInfo.h"
 
 
 namespace js
@@ -568,9 +570,12 @@ public:
 };
 
 
-BVH::Real BVH::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+BVH::Real BVH::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
 {
-	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
+	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, 
+		thread_context, 
+		thread_context.getTreeContext(), //context, 
+		object, hitinfo_out);
 }
 
 
@@ -614,10 +619,13 @@ public:
 };
 
 
-bool BVH::doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+bool BVH::doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, thread_context, context, object, hitinfo);
+	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, 
+		thread_context, 
+		thread_context.getTreeContext(), // context, 
+		object, hitinfo);
 	return t >= 0.0;
 }
 
@@ -683,11 +691,13 @@ public:
 };
 
 
-void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
-	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, context, object, hitinfos_out);
+	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, 
+		thread_context.getTreeContext(), // context, 
+		object, hitinfos_out);
 }
 
 

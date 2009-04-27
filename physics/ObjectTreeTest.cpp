@@ -85,7 +85,7 @@ void ObjectTreeTest::doTests()
 
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
-	ObjectTreePerThreadData obtree_context(true);
+	ObjectTreePerThreadData obtree_context;//(true);
 
 
 
@@ -107,8 +107,8 @@ void ObjectTreeTest::doTests()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo, hitinfo2;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
-		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, time, hitob, hitinfo);
-		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, obtree_context, time, hitob, hitinfo2);
+		const double t = ob_tree.traceRay(ray, thread_context, time, hitob, hitinfo);
+		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
 		testAssert((t > 0.0) == (t2 > 0.0));
@@ -126,9 +126,9 @@ void ObjectTreeTest::doTests()
 		//------------------------------------------------------------------------
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
-		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, time);
-		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context,  obtree_context, time);
+		const ObjectTree::Real len = rng.unitRandom() * 1.5f;
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, time);
+		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context, time);
 		testAssert(a == b);
 
 		if(t >= 0.0)//if the trace hit something after distance t
@@ -327,7 +327,7 @@ void ObjectTreeTest::doSpeedTest()
 
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
-	ObjectTreePerThreadData obtree_context(true);
+	//ObjectTreePerThreadData obtree_context;//(true);
 
 
 	{
@@ -349,7 +349,7 @@ void ObjectTreeTest::doSpeedTest()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
-		const double t = ob_tree.traceRay(ray, thread_context, obtree_context, start_time, hitob, hitinfo);
+		const double t = ob_tree.traceRay(ray, thread_context, start_time, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -374,8 +374,8 @@ void ObjectTreeTest::doSpeedTest()
 		//------------------------------------------------------------------------
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
-		const double len = rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, start_time);
+		const ObjectTree::Real len = rng.unitRandom() * 1.5f;
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -459,7 +459,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
-	ObjectTreePerThreadData obtree_context(true);
+	ObjectTreePerThreadData obtree_context;//(true);
 
 
 
@@ -487,8 +487,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//------------------------------------------------------------------------
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
-		const double len = Vec4f(end - start).length();//rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, obtree_context, start_time);
+		const ObjectTree::Real len = Vec4f(end - start).length();//rng.unitRandom() * 1.5;
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time);
 		if(a)
 			num_hits++;
 	}
@@ -505,9 +505,3 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 
 } //end namespace js
-
-
-
-
-
-

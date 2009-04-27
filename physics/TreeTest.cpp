@@ -258,8 +258,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
-	js::ObjectTreePerThreadData tree_context(true);
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.sub_elem_index == 0);
 	}
@@ -267,8 +266,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
-	js::ObjectTreePerThreadData tree_context(true);
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, tree_context, NULL, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.sub_elem_index == 3);
 	}
@@ -470,7 +468,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		HitInfo hitinfo;
 		js::TriTreePerThreadData tree_context;
 
-		const Tree::Real dist = trees[0]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo);
+		const Tree::Real dist = trees[0]->traceRay(ray, max_t, thread_context/*, tree_context*/, NULL, hitinfo);
 
 		HitInfo all_tris_hitinfo;
 		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
@@ -486,7 +484,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo_;
-			const Tree::Real dist_ = trees[t]->traceRay(ray, max_t, thread_context, tree_context, NULL, hitinfo_);
+			const Tree::Real dist_ = trees[t]->traceRay(ray, max_t, thread_context/*, tree_context*/, NULL, hitinfo_);
 
 			if(dist >= 0.0 || dist_ >= 0.0)
 			{
@@ -505,7 +503,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		std::vector<DistanceHitInfo> hitinfos;
 
-		trees[0]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos);
+		trees[0]->getAllHits(ray, thread_context/*, tree_context*/, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 		if(dist > 0.0)
@@ -537,7 +535,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			std::vector<DistanceHitInfo> hitinfos_other;
-			trees[t]->getAllHits(ray, thread_context, tree_context, NULL, hitinfos_other);
+			trees[t]->getAllHits(ray, thread_context/*, tree_context*/, NULL, hitinfos_other);
 			std::sort(hitinfos_other.begin(), hitinfos_other.end(), distanceHitInfoComparisonPred); // Sort hits
 
 			// Compare results
@@ -556,11 +554,11 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
 		const Tree::Real testlength = rng.unitRandom() * (Tree::Real)2.0;
-		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
+		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context/*, tree_context*/, NULL);
 
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
-			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, tree_context, NULL);
+			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context/*, tree_context*/, NULL);
 			testAssert(hit == hit_);
 		}
 	}
@@ -800,7 +798,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 	HitInfo hitinfo;
 	//js::TriTreePerThreadData tree_context;
-	js::ObjectTreePerThreadData context(true);
+	//js::ObjectTreePerThreadData context;//(true);
 	ThreadContext thread_context(1, 0);
 
 	conPrint("Running test...");
@@ -843,7 +841,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, context, NULL, hitinfo);
+		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context/*, context*/, NULL, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.

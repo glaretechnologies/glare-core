@@ -29,13 +29,13 @@ public:
 	-----------------------
 	
 	=====================================================================*/
-	ObjectTreePerThreadData(bool root/*int numobjects, int stacksize*/);
+	ObjectTreePerThreadData(/*bool root*//*int numobjects, int stacksize*/);
 
 	~ObjectTreePerThreadData();
 
 
 
-	StackFrame* nodestack;
+	StackFrame* nodestack; // Stack for traversal through Object Tree.
 	int nodestack_size;
 
 	std::vector<int> last_test_time;
@@ -46,9 +46,9 @@ public:
 
 
 
-	TriTreePerThreadData tritree_context;
+	//TriTreePerThreadData tritree_context;
 	
-	ObjectTreePerThreadData* object_context;
+	//ObjectTreePerThreadData* object_context;
 
 	//std::map<int, ObjectTreePerThreadData> object_data;
 };

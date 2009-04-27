@@ -16,13 +16,11 @@ namespace js
 
 
 
-ObjectTreePerThreadData::ObjectTreePerThreadData(bool root/*int numobjects, int stacksize*/)
+ObjectTreePerThreadData::ObjectTreePerThreadData(/*bool root*//*int numobjects, int stacksize*/)
 {
-	object_context = NULL;
+//	object_context = NULL;
 
 	nodestack_size = 256;//stacksize;
-	//printVar(nodestack_size);
-	//printVar(numobjects);
 	SSE::alignedSSEArrayMalloc(nodestack_size, nodestack);
 
 	/*last_test_time.resize(numobjects);
@@ -33,15 +31,15 @@ ObjectTreePerThreadData::ObjectTreePerThreadData(bool root/*int numobjects, int 
 
 	time = 0;
 
-	if(root)
-		object_context = new ObjectTreePerThreadData(false);
+//	if(root)
+//		object_context = new ObjectTreePerThreadData(false);
 
 }
 
 
 ObjectTreePerThreadData::~ObjectTreePerThreadData()
 {
-	delete object_context;
+	//delete object_context;
 
 	SSE::alignedSSEFree(nodestack);
 }

@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../utils/stringutils.h"
 #include "../indigo/EnvSphereGeometry.h"
+#include "../indigo/ThreadContext.h"
 #include <string.h>
 
 
@@ -56,18 +57,23 @@ void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 // Returns dist till hit tri, neg number if missed.
 ObjectTree::Real ObjectTree::traceRay(const Ray& ray, 
 						   ThreadContext& thread_context, 
-						   js::ObjectTreePerThreadData& object_context, double time, 
+						   double time, 
 						   const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
 {
-	if(object_context.last_test_time.size() < objects.size())
-		object_context.last_test_time.resize(objects.size());
-
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::traceRay()-----------------------------");
 #endif
 	assertSSEAligned(this);
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
+
+	assert(!thread_context.in_object_tree_traversal);
+	thread_context.in_object_tree_traversal = true;
+	
+	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
+	
+	if(object_context.last_test_time.size() < objects.size())
+		object_context.last_test_time.resize(objects.size());
 
 	object_context.time++;
 
@@ -82,7 +88,10 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	HitInfo ob_hit_info;
 
 	if(leafgeom.empty())
+	{
+		thread_context.in_object_tree_traversal = false;
 		return -1.0;
+	}
 
 	assert(nodestack_size > 0);
 	assert(!nodes.empty());
@@ -92,7 +101,10 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+	{
+		thread_context.in_object_tree_traversal = false;
 		return -1.0;
+	}
 
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
@@ -195,13 +207,11 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
 			{
-				//assert(object_context.object_context != NULL);
 				const Real dist = ob->traceRay(
 					ray, 
 					closest_dist,
 					time,
 					thread_context, 
-					object_context.object_context ? *object_context.object_context : object_context, 
 					ob_hit_info
 					);
 				#ifdef OBJECTTREE_VERBOSE
@@ -220,9 +230,13 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 		}
 
 		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) // if(closest_dist <= tmax)
+		{
+			thread_context.in_object_tree_traversal = false;
 			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
+		}
 	}
 
+	thread_context.in_object_tree_traversal = false;
 	return hitob_out ? closest_dist : (Real)-1.0;
 }
 
@@ -230,24 +244,29 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 //For debugging
 bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, 
 													ThreadContext& thread_context,
-													js::ObjectTreePerThreadData& object_context, double time) const
+													double time) const
 {
 	const INTERSECTABLE_TYPE* hitob = NULL;
 	HitInfo hitinfo;
-	const Real dist = this->traceRayAgainstAllObjects(ray, thread_context, object_context, time, hitob, hitinfo);
+	const Real dist = this->traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo);
 	return dist >= 0.0 && dist < length;
 }
 
 
 bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t, 
 								  ThreadContext& thread_context, 
-								  js::ObjectTreePerThreadData& object_context, double time) const
+								  double time) const
 {
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::doesFiniteRayHitAnything()-----------------------------");
 #endif
+	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
+
 	if(object_context.last_test_time.size() < objects.size())
 		object_context.last_test_time.resize(objects.size());
+
+	assert(!thread_context.in_object_tree_traversal);
+	thread_context.in_object_tree_traversal = true;
 
 	assertSSEAligned(this);
 	assertSSEAligned(&ray);
@@ -261,7 +280,10 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 	#endif
 
 	if(leafgeom.empty())
+	{
+		thread_context.in_object_tree_traversal = false;
 		return false;
+	}
 
 	assert(nodestack_size > 0);
 	assert(!nodes.empty());
@@ -274,7 +296,10 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f)); // far_t = min(far_t, ray_max_t)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
+	{
+		thread_context.in_object_tree_traversal = false;
 		return false;
+	}
 
 
 	//object_context.nodestack[0] = StackFrame(0, root_t_min, root_t_max);
@@ -369,14 +394,17 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 				conPrint("Intersecting with object...");
 				conPrint(ob->doesFiniteRayHit(ray, raylength, tritree_context) ? "\tHIT" : "\tMISSED");
 				#endif
-				//assert(object_context.object_context != NULL);
-				if(ob->doesFiniteRayHit(ray, ray_max_t, time, thread_context, *object_context.object_context))
+				if(ob->doesFiniteRayHit(ray, ray_max_t, time, thread_context))
+				{
+					thread_context.in_object_tree_traversal = false;
 					return true;
+				}
 				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
 			}
 			leaf_geom_index++;
 		}
 	}//end while !bundlenodestack.empty()
+	thread_context.in_object_tree_traversal = false;
 	return false;
 }
 
@@ -1306,9 +1334,10 @@ void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 //just for debugging
 ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray, 
 											ThreadContext& thread_context, 
-											js::ObjectTreePerThreadData& object_context,
+											//js::ObjectTreePerThreadData& object_context,
 											double time,
-											const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const
+											const INTERSECTABLE_TYPE*& hitob_out, 
+											HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
 	hitinfo_out.sub_elem_index = 0;
@@ -1318,7 +1347,7 @@ ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 	for(unsigned int i=0; i<objects.size(); ++i)
 	{
 		HitInfo hitinfo;
-		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, *object_context.object_context, hitinfo);
+		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context/*, *object_context.object_context*/, hitinfo);
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;

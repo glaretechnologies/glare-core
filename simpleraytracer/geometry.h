@@ -17,11 +17,13 @@ You may *not* use this code for any commercial project.
 
 #include "../maths/vec2.h"
 #include "../maths/coordframe.h"
-#include "../physics/jscol_ObjectTreePerThreadData.h"
+#include "../maths/plane.h"
+#include "../physics/jscol_aabbox.h"
 #include "../utils/refcounted.h"
 #include "../indigo/TexCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
 #include <vector>
+#include <map>
 class Ray;
 class RayBundle;
 class World;
@@ -74,13 +76,13 @@ public:
 	
 
 	/// intersectable interface ///
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const = 0;
+	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const = 0;
 	virtual const std::string getName() const = 0;
 	/// End intersectable interface ///
 
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;

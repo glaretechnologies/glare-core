@@ -61,7 +61,7 @@ RaySphere::~RaySphere()
 
 //returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
-Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
 	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
@@ -152,10 +152,12 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 }
 
 
-bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
+	const double hitdist = traceRay(ray, raylength, thread_context, 
+		//context, 
+		object, hitinfo);
 
 	return hitdist >= 0.0f && hitdist < raylength;
 }
@@ -183,7 +185,7 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 
 
 //TODO: test
-void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::ObjectTreePerThreadData& context, */const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -340,14 +342,16 @@ void RaySphere::test()
 
 	RaySphere sphere(/*Vec3d(0,0,1), */0.5);
 
-	js::ObjectTreePerThreadData context(true);
+	//js::ObjectTreePerThreadData context;//(true);
 	ThreadContext thread_context(1, 0);
 
 	//------------------------------------------------------------------------
 	//test traceRay()
 	//------------------------------------------------------------------------
 	HitInfo hitinfo;
-	double d = sphere.traceRay(ray, 1000.0, thread_context, context, NULL, hitinfo);
+	double d = sphere.traceRay(ray, 1000.0, thread_context, 
+		//context, 
+		NULL, hitinfo);
 
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
@@ -363,11 +367,15 @@ void RaySphere::test()
 		Vec4f(1,0,0,1),
 		Vec4f(-1,0,0,0)
 		);
-	d = sphere.traceRay(ray2, 1000.0, thread_context, context, NULL, hitinfo);
+	d = sphere.traceRay(ray2, 1000.0, thread_context, 
+		//context, 
+		NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
 
-	d = sphere.traceRay(ray2, 0.1, thread_context, context, NULL, hitinfo);
+	d = sphere.traceRay(ray2, 0.1, thread_context, 
+		//context, 
+		NULL, hitinfo);
 	//ignoring this for now: testAssert(d < 0.0);
 
 
@@ -376,7 +384,9 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 #ifndef COMPILER_GCC
 	std::vector<DistanceHitInfo> hitinfos;
-	sphere.getAllHits(ray, thread_context, context, NULL, hitinfos);
+	sphere.getAllHits(ray, thread_context, 
+		//context, 
+		NULL, hitinfos);
 	std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 	testAssert(hitinfos.size() == 2);
@@ -399,8 +409,8 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test doesFiniteRayHit()
 	//------------------------------------------------------------------------
-	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context, context, NULL));
-	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context, context, NULL));
+	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context/*, context*/, NULL));
+	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context/*, context*/, NULL));
 
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere
@@ -409,16 +419,16 @@ void RaySphere::test()
 		Vec4f(0.25,0,0,1),
 		Vec4f(1,0,0,0)
 		);
-	d = sphere.traceRay(ray3, 1000.0, thread_context, context, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 1000.0, thread_context/*, context*/, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.25));
 
-	d = sphere.traceRay(ray3, 0.24, thread_context, context, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 0.24, thread_context/*, context*/, NULL, hitinfo);
 	//NOTE: ignoring this for now.  testAssert(d < 0.0);
 
 	//------------------------------------------------------------------------
 	//try getAllHits() from inside sphere
 	//------------------------------------------------------------------------
-	sphere.getAllHits(ray3, thread_context, context, NULL, hitinfos);
+	sphere.getAllHits(ray3, thread_context/*, context*/, NULL, hitinfos);
 
 	testAssert(hitinfos.size() == 1);
 	testAssert(epsEqual(hitinfos[0].dist, 0.25));

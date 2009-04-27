@@ -24,32 +24,8 @@ namespace js
 {
 
 
-class ObjectTreeStats
-{
-public:
-	ObjectTreeStats();
-	~ObjectTreeStats();
+class ObjectTreeStats;
 
-	int total_num_nodes; // total number of nodes, both interior and leaf
-	int num_interior_nodes;
-	int num_leaf_nodes;
-	int num_objects; // number of triangles stored
-	int num_leafgeom_objects; // number of references to tris held in leaf nodes
-	double average_leafnode_depth;//average depth in tree of leaf nodes, where depth of 0 is root level.
-	double average_objects_per_leafnode;//average num tri refs per leaf node
-	int max_leaf_objects;
-	int max_leafnode_depth;
-	int max_depth;
-
-	int total_node_mem;
-	int leafgeom_indices_mem;
-	int tri_mem;
-
-	//build stats:
-	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
-	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
-	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
-};
 
 
 /*=====================================================================
@@ -75,15 +51,15 @@ public:
 	//js::ObjectTreePerThreadData* allocContext() const;
 
 	// Returns distance untill hit or negative if missed
-	Real traceRay(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	Real traceRay(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time) const;
+	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
 
 	INDIGO_STRONG_INLINE const js::AABBox& getAABBoxWS() const { return root_aabb; }
 
 	///-------- debugging methods ---------///
-	Real traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
-	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, ThreadContext& thread_context, js::ObjectTreePerThreadData& object_context, double time) const;
+	Real traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
 	void writeTreeModel(std::ostream& stream);
 	void printTree(int currentnode, int depth, std::ostream& out);
 	void getTreeStats(ObjectTreeStats& stats_out, int cur = 0, int depth = 0);
@@ -107,7 +83,7 @@ private:
 
 	void doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 
-	AABBox root_aabb;//aabb of whole thing
+	AABBox root_aabb; // AABB of whole thing
 
 	std::vector<INTERSECTABLE_TYPE*> objects;
 	std::vector<INTERSECTABLE_TYPE*> leafgeom;
@@ -116,13 +92,39 @@ private:
 	int nodestack_size;
 
 	typedef std::vector<ObjectTreeNode> NODE_VECTOR_TYPE;
-	NODE_VECTOR_TYPE nodes;//nodes of the tree
+	NODE_VECTOR_TYPE nodes; // Nodes of the tree
 
+	int num_inseparable_tri_leafs; // Num leaves formed when can't separate tris
+	int num_maxdepth_leafs; // Num leaves formed because the max tree depth was hit
+	int num_under_thresh_leafs; // Num leaves formed because the number of tris was less than leaf threshold
+};
+
+
+class ObjectTreeStats
+{
+public:
+	ObjectTreeStats();
+	~ObjectTreeStats();
+
+	int total_num_nodes; // total number of nodes, both interior and leaf
+	int num_interior_nodes;
+	int num_leaf_nodes;
+	int num_objects; // number of triangles stored
+	int num_leafgeom_objects; // number of references to tris held in leaf nodes
+	double average_leafnode_depth;//average depth in tree of leaf nodes, where depth of 0 is root level.
+	double average_objects_per_leafnode;//average num tri refs per leaf node
+	int max_leaf_objects;
+	int max_leafnode_depth;
+	int max_depth;
+
+	int total_node_mem;
+	int leafgeom_indices_mem;
+	int tri_mem;
+
+	//build stats:
 	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
 	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
-
-
 };
 
 

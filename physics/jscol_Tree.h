@@ -68,13 +68,13 @@ public:
 
 
 	//intersectable interface
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 	virtual const std::string debugName() const { return "kd-tree"; }
 	//end
 
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const = 0;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object) const = 0;
 
 	virtual const Vec3f triGeometricNormal(unsigned int tri_index) const = 0;
 

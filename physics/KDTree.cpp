@@ -29,6 +29,7 @@ Code By Nicholas Chapman.
 #include <iostream>
 #include "KDTreeImpl.h"
 #include "../indigo/PrintOutput.h"
+#include "../indigo/ThreadContext.h"
 
 
 #define DO_PREFETCHING 1
@@ -164,13 +165,15 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
+
+	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
 	#ifdef RECORD_TRACE_STATS
 	this->num_traces++;
@@ -329,11 +332,13 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 }
 
 
-bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
+bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
+
+	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
 	#ifdef RECORD_TRACE_STATS
 	this->num_traces++;
@@ -478,11 +483,13 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 }
 
 
-void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
 	assertSSEAligned(object);
 	assert(!nodes.empty());
+
+	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
 	hitinfos_out.resize(0);
 

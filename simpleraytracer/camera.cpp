@@ -822,7 +822,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 }
 
 
-Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -834,13 +834,13 @@ const js::AABBox& Camera::getAABBoxWS() const
 }
 
 
-void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	return;
 }
 
 
-bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const
 {
 	return false;
 }

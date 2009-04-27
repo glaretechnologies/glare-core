@@ -28,6 +28,8 @@ public:
 
 	//bool inverse(Matrix4f& inverse_out);
 
+	void getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const;
+
 
 	inline void constructFromVector(const Vec4f& vec);
 

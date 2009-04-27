@@ -9,10 +9,9 @@ Code By Nicholas Chapman.
 
 #include "jscol_TriHash.h"
 
+
 namespace js
 {
-
-
 
 
 TriTreePerThreadData::TriTreePerThreadData()
@@ -39,14 +38,4 @@ TriTreePerThreadData::~TriTreePerThreadData()
 }
 
 
-
-
-
-
 } //end namespace js
-
-
-
-
-
-

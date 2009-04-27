@@ -69,6 +69,35 @@ void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 }
 
 
+/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+*/
+/*
+	0 1 2
+
+	3 4 5
+
+	6 7 8
+	*/
+void Matrix4f::getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const
+{
+	upper_left_mat_out.e[0] = e[0];
+	upper_left_mat_out.e[1] = e[4];
+	upper_left_mat_out.e[2] = e[8];
+
+	upper_left_mat_out.e[3] = e[1];
+	upper_left_mat_out.e[4] = e[5];
+	upper_left_mat_out.e[5] = e[9];
+
+	upper_left_mat_out.e[6] = e[2];
+	upper_left_mat_out.e[7] = e[6];
+	upper_left_mat_out.e[8] = e[10];
+}
+
+
 void Matrix4f::test()
 {
 	{

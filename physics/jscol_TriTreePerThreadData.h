@@ -18,25 +18,18 @@ namespace js
 /*=====================================================================
 TriTreePerThreadData
 --------------------
-
+Per-thread data structures needed for traversing KD-tree or BVH.
 =====================================================================*/
 class TriTreePerThreadData
 {
 public:
-	/*=====================================================================
-	TriTreePerThreadData
-	--------------------
-	
-	=====================================================================*/
 	TriTreePerThreadData();
-
 	~TriTreePerThreadData();
 
 	StackFrame* nodestack;
 	int nodestack_size;
 
 	js::TriHash* tri_hash;
-
 };
 
 

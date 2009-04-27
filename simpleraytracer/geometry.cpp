@@ -12,13 +12,13 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 
 
-bool Geometry::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, js::ObjectTreePerThreadData& context, const Object* object) const
+/*bool Geometry::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const
 {
 	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
+	const Real hitdist = traceRay(ray, raylength, thread_context, object, hitinfo);
 	
 	return hitdist >= 0.0f && hitdist < raylength;
-}
+}*/
 
 
 /*
