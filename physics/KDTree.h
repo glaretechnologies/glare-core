@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"
 #include "jscol_Intersectable.h"
+#include "MollerTrumboreTri.h"
 #include "../maths/SSE.h"
 #include "../maths/vec3.h"
 #include "../maths/PaddedVec3.h"
@@ -32,45 +33,12 @@ namespace js
 {
 	class TriHash;
 	class TriTreePerThreadData;
+	class TreeStats;
 }
 
 
 namespace js
 {
-
-
-class TreeStats
-{
-public:
-	TreeStats();
-	~TreeStats();
-
-	int total_num_nodes;//total number of nodes, both interior and leaf
-	int num_interior_nodes;
-	int num_leaf_nodes;
-	int num_tris;//number of triangles stored
-	int num_leaf_geom_tris;//number of references to tris held in leaf nodes
-	double average_leafnode_depth;//average depth in tree of leaf nodes, where depth of 0 is root level.
-	double average_numgeom_per_leafnode;//average num tri refs per leaf node
-	int max_depth;
-
-	int total_node_mem;
-	int leafgeom_indices_mem;
-	int tri_mem;
-
-	//build stats:
-	int num_cheaper_no_split_leafs;
-	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
-	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
-	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
-	int num_empty_space_cutoffs;
-
-	//std::vector<unsigned int> leaf_geom_counts;
-	std::map<int, int> leaf_geom_counts;
-
-	void print();
-};
-
 
 
 /*=====================================================================
@@ -99,10 +67,10 @@ public:
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex/*t, js::TriTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const;
 
 	inline virtual const Vec3f triGeometricNormal(unsigned int tri_index) const; //slow
 
@@ -126,7 +94,7 @@ public:
 	const Vec3f& triVertPos(TRI_INDEX tri_index, unsigned int vert_index_in_tri) const;
 
 
-	AABBox root_aabb;//aabb of whole thing
+	AABBox root_aabb; // AABB of whole thing.
 
 
 	///tracing stats///
@@ -181,32 +149,58 @@ private:
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower);
 
 	RayMesh* raymesh;
-	//int nodestack_size;
 
-	NODE_VECTOR_TYPE nodes;//nodes of the tree
-public://TEMP
-	typedef js::BadouelTri INTERSECT_TRI_TYPE;
+	NODE_VECTOR_TYPE nodes; // Nodes of the tree
+	
+	//typedef js::BadouelTri INTERSECT_TRI_TYPE;
+	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 	INTERSECT_TRI_TYPE* intersect_tris;
 	unsigned int num_intersect_tris;
-private://TEMP
-	//std::vector<TRI_INDEX> leafgeom;//indices into the 'edgetris' array
+	
 	LEAF_GEOM_ARRAY_TYPE leafgeom;//indices into the 'edgetris' array
 
 	unsigned int numnodesbuilt;
-	//unsigned int max_depth;
 	unsigned int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
 	unsigned int num_cheaper_no_split_leafs;//num leafs formed when the cost function is cheaper to terminate splitting.
 	unsigned int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
 	unsigned int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
 	int num_empty_space_cutoffs;
-	//std::vector<unsigned int> leaf_geom_counts;
-	//std::map<unsigned int, unsigned int> leaf_geom_counts;
-
 
 	uint32 checksum_;
 	bool calced_checksum;
+};
 
 
+class TreeStats
+{
+public:
+	TreeStats();
+	~TreeStats();
+
+	int total_num_nodes;//total number of nodes, both interior and leaf
+	int num_interior_nodes;
+	int num_leaf_nodes;
+	int num_tris;//number of triangles stored
+	int num_leaf_geom_tris;//number of references to tris held in leaf nodes
+	double average_leafnode_depth;//average depth in tree of leaf nodes, where depth of 0 is root level.
+	double average_numgeom_per_leafnode;//average num tri refs per leaf node
+	int max_num_leaf_tris;
+	int max_depth;
+
+	int total_node_mem;
+	int leafgeom_indices_mem;
+	int tri_mem;
+
+	//build stats:
+	int num_cheaper_no_split_leafs;
+	int num_inseparable_tri_leafs;//num leafs formed when can't separate tris
+	int num_maxdepth_leafs;//num leafs formed because the max tree depth was hit
+	int num_under_thresh_leafs;//num leafs formed because the number of tris was less than leaf threshold
+	int num_empty_space_cutoffs;
+
+	std::map<int, int> leaf_geom_counts;
+
+	void print();
 };
 
 
@@ -220,7 +214,3 @@ const Vec3f KDTree::triGeometricNormal(unsigned int tri_index) const //slow
 
 
 #endif //__TRITREE_H_666_
-
-
-
-

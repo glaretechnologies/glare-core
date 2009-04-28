@@ -49,6 +49,88 @@ public:
 	}
 
 
+	inline unsigned int rayIntersectSSE(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	{
+		const Vec4f v0(data[0], data[1], data[2], 1.0f);
+		const Vec4f e1(data[3], data[4], data[5], 0.0f);
+		const Vec4f e2(data[6], data[7], data[8], 0.0f);
+
+		const Vec4f pvec(crossProduct(ray.unitDir(), e2));
+
+		const float det = dot(e1, pvec);
+
+		const float inv_det = 1.0f / det;
+
+		const Vec4f tvec = ray.startPos() - v0;
+
+		const float u = dot(tvec, pvec) * inv_det;
+		if(u < 0.0f || u > 1.0f)
+			return 0;
+
+		const Vec4f qvec = crossProduct(tvec, e1);
+
+		const float v = dot(ray.unitDir(), qvec) * inv_det;
+		if(v < 0.0f || (u + v) > 1.0f)
+			return 0;
+
+		const float t = dot(e2, qvec) * inv_det;
+
+		if(t < 0.0f)
+			return 0;
+
+		if(t >= ray_t_max)
+			return 0;
+
+		dist_out = t;
+		u_out = u;
+		v_out = v;
+
+		return 1;
+	}
+
+
+	inline unsigned int rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	{
+		const Vec3f v0(data);
+		const Vec3f e1(data + 3);
+		const Vec3f e2(data + 6);
+
+		const Vec3f orig(ray.startPosF().x[0], ray.startPosF().x[1], ray.startPosF().x[2]);
+		const Vec3f dir(ray.unitDirF().x[0], ray.unitDirF().x[1], ray.unitDirF().x[2]);
+		const Vec3f pvec = crossProduct(dir, e2);
+
+		const float det = dot(e1, pvec);
+
+		const float inv_det = 1.0f / det;
+
+		const Vec3f tvec = orig - v0;
+
+		const float u = dot(tvec, pvec) * inv_det;
+		if(u < 0.0f || u > 1.0f)
+			return 0;
+
+		const Vec3f qvec = crossProduct(tvec, e1);
+
+		const float v = dot(dir, qvec) * inv_det;
+		if(v < 0.0f || (u + v) > 1.0f)
+			return 0;
+
+		const float t = dot(e2, qvec) * inv_det;
+
+		if(t < 0.0f)
+			return 0;
+
+		if(t >= ray_t_max)
+			return 0;
+
+		dist_out = t;
+		u_out = u;
+		v_out = v;
+
+		return 1;
+	}
+
+
 	// Reference implementation: Intersects one ray with one triangle.
 	inline bool referenceIntersect(
 		const Ray& ray,

@@ -59,14 +59,6 @@ private:
 		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out,
 		std::vector<KDTreeNode>& nodes
 		);
-
-
-	int numnodesbuilt;
-	int num_maxdepth_leafs;
-	int num_under_thresh_leafs;
-	int num_empty_space_cutoffs;
-	int num_cheaper_no_split_leafs;
-	int num_inseparable_tri_leafs;
 };
 
 

@@ -465,34 +465,21 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
 			);
 
-		HitInfo hitinfo;
-		js::TriTreePerThreadData tree_context;
-
-		const Tree::Real dist = trees[0]->traceRay(ray, max_t, thread_context/*, tree_context*/, NULL, hitinfo);
-
 		HitInfo all_tris_hitinfo;
 		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
-		testAssert(dist == alltrisdist);
-
-		if(dist >= 0.0) // If hit
-		{
-			testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
-			testAssert(::epsEqual(hitinfo.sub_elem_coords.x, all_tris_hitinfo.sub_elem_coords.x));
-			testAssert(::epsEqual(hitinfo.sub_elem_coords.y, all_tris_hitinfo.sub_elem_coords.y));
-		}
 
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
-			HitInfo hitinfo_;
-			const Tree::Real dist_ = trees[t]->traceRay(ray, max_t, thread_context/*, tree_context*/, NULL, hitinfo_);
+			HitInfo hitinfo;
+			const Tree::Real dist = trees[t]->traceRay(ray, max_t, thread_context, NULL, hitinfo);
 
-			if(dist >= 0.0 || dist_ >= 0.0)
+			if(dist >= 0.0 || alltrisdist >= 0.0)
 			{
-				testAssert(hitinfo.sub_elem_index == hitinfo_.sub_elem_index);
-				testAssert(::epsEqual(dist, dist_, (Tree::Real)0.0001));
+				testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
+				testAssert(::epsEqual(dist, alltrisdist, (Tree::Real)0.0001));
 
-				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, hitinfo_.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
-				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, hitinfo_.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, all_tris_hitinfo.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));
+				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, all_tris_hitinfo.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
 		}
 
@@ -506,13 +493,13 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		trees[0]->getAllHits(ray, thread_context/*, tree_context*/, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
-		if(dist > 0.0)
+		if(alltrisdist > 0.0)
 		{
 			//if ray hit anything before
 			testAssert(hitinfos.size() >= 1);
-			testAssert(hitinfos[0].dist == dist);
-			testAssert(hitinfos[0].sub_elem_index == hitinfo.sub_elem_index);
-			testAssert(epsEqual(hitinfos[0].sub_elem_coords, hitinfo.sub_elem_coords));
+			testAssert(hitinfos[0].dist == alltrisdist);
+			testAssert(hitinfos[0].sub_elem_index == all_tris_hitinfo.sub_elem_index);
+			testAssert(epsEqual(hitinfos[0].sub_elem_coords, all_tris_hitinfo.sub_elem_coords));
 		}
 
 		// Do a check against all tris
@@ -542,7 +529,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			testAssert(hitinfos.size() == hitinfos_other.size());
 			for(unsigned int z=0; z<hitinfos.size(); ++z)
 			{
-				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist, 0.0001));
+				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist, 0.0001f));
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
 				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
 				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.001));
@@ -670,6 +657,27 @@ void TreeTest::doTests()
 	MTwister rng(1);
 
 	///////////////////////////////////////
+	/*
+	This mesh is too big to use in this way during the normal course of testing :(
+	
+	{
+	// Load tricky mesh from disk
+	const std::string MODEL_PATH = "../testfiles/ring_kdbug_scene/models.ringe/ringe-2.igmesh";
+	CSModelLoader model_loader;
+	RayMesh raymesh("ring", false);
+	try
+	{
+		model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
+	}
+	catch(CSModelLoaderExcep&)
+	{
+		testAssert(false);
+	}
+	testTree(rng, raymesh);
+	}*/
+	/////////////////////////////////////////////
+
+	///////////////////////////////////////
 	{
 	// Load tricky mesh from disk
 	const std::string MODEL_PATH = "../testfiles/bug-2.igmesh";
@@ -686,6 +694,8 @@ void TreeTest::doTests()
 	testTree(rng, raymesh);
 	}
 	/////////////////////////////////////////////
+
+
 
 
 

@@ -752,6 +752,9 @@ void KDTree::build(PrintOutput& print_output)
 		const unsigned int total_tree_mem_usage = numnodes * sizeof(js::KDTreeNode) + leafgeomsize * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
 		print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
 
+		// TEMP:
+		//printStats();
+
 		postBuild();
 	}
 	catch(std::bad_alloc& )
@@ -956,6 +959,7 @@ void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int d
 		stats_out.num_leaf_nodes++;
 		stats_out.num_leaf_geom_tris += (int)nodes[cur].getNumLeafGeom();
 		stats_out.average_leafnode_depth += (double)depth;
+		stats_out.max_num_leaf_tris = myMax(stats_out.max_num_leaf_tris, (int)nodes[cur].getNumLeafGeom());
 
 		stats_out.leaf_geom_counts[nodes[cur].getNumLeafGeom()]++;
 	}
@@ -969,10 +973,10 @@ void KDTree::getTreeStats(TreeStats& stats_out, unsigned int cur, unsigned int d
 		this->getTreeStats(stats_out, cur + 1, depth + 1);
 		//if(nodes[cur].getNodeType() == TreeNode::NODE_TYPE_TWO_CHILDREN)
 
-			this->getTreeStats(stats_out, nodes[cur].getPosChildIndex(), depth + 1);
+		this->getTreeStats(stats_out, nodes[cur].getPosChildIndex(), depth + 1);
 	}
 
-	if(cur == 0)
+	if(cur == ROOT_NODE_INDEX)
 	{
 		//if this is the root node
 		assert(depth == 0);
@@ -1156,6 +1160,7 @@ TreeStats::TreeStats()
 	average_leafnode_depth = 0;//average depth in tree of leaf nodes, where depth of 0 is root level.
 	average_numgeom_per_leafnode = 0;//average num tri refs per leaf node
 	max_depth = 0;
+	max_num_leaf_tris = 0;
 
 	total_node_mem = 0;
 	leafgeom_indices_mem = 0;
@@ -1170,19 +1175,24 @@ TreeStats::~TreeStats()
 
 void TreeStats::print()
 {
+	conPrint("------------------------ KDTree Stats-----------------------------------");
 	conPrint("Nodes");
 	conPrint("\tTotal num nodes: " + toString(total_num_nodes));
 	conPrint("\tTotal num interior nodes: " + toString(num_interior_nodes));
 	conPrint("\tTotal num leaf nodes: " + toString(num_leaf_nodes));
 
-	printVar(num_tris);
-	printVar(num_leaf_geom_tris);
+	conPrint("Tri References");
+	conPrint("\tnum_tris: " + toString(num_tris));
+	conPrint("\tnum_leaf_geom_tris: " + toString(num_leaf_geom_tris));
+	conPrint("\tmax_num_leaf_tris: " + toString(max_num_leaf_tris));
 
-	printVar(total_node_mem);
-	printVar(leafgeom_indices_mem);
-	printVar(tri_mem);
+	//printVar(total_node_mem);
+	//printVar(leafgeom_indices_mem);
+	//printVar(tri_mem);
 
-	conPrint("num_empty_space_cutoffs: " + toString(num_empty_space_cutoffs));
+
+
+	conPrint("\tnum_empty_space_cutoffs: " + toString(num_empty_space_cutoffs));
 
 	conPrint("Build termination reasons:");
 	conPrint("\tCheaper to not split: " + toString(num_cheaper_no_split_leafs));
@@ -1208,6 +1218,7 @@ void TreeStats::print()
 	{
 		conPrint("\tN=" + toString((*i).first) + ": " + toString((*i).second));
 	}
+	conPrint("-----------------------------------------------------------------------");
 }
 
 

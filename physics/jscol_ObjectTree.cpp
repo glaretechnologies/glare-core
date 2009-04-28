@@ -482,7 +482,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" + 
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
 
-	ObjectTreeStats stats;
+	/*ObjectTreeStats stats;
 	this->getTreeStats(stats);
 	print_output.print("\ttotal_num_nodes: " + toString(stats.total_num_nodes));
 	print_output.print("\tnum_interior_nodes: " + toString(stats.num_interior_nodes));
@@ -496,7 +496,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("\tmax_depth: " + toString(stats.max_depth));
 	print_output.print("\tnum_inseparable_tri_leafs: " + toString(stats.num_inseparable_tri_leafs));
 	print_output.print("\tnum_maxdepth_leafs: " + toString(stats.num_maxdepth_leafs));
-	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));
+	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));*/
 
 	print_output.print("Finished building tree.");
 }

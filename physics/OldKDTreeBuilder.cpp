@@ -22,12 +22,6 @@ const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
 OldKDTreeBuilder::OldKDTreeBuilder()
 {
-	num_cheaper_no_split_leafs = 0;
-	num_inseparable_tri_leafs = 0;
-	num_maxdepth_leafs = 0;
-	num_under_thresh_leafs = 0;
-	numnodesbuilt = 0;
-	num_empty_space_cutoffs = 0;
 }
 
 
@@ -136,8 +130,8 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 	// Print progress message
 	if(depth == 5)
 	{
-		print_output.print("\t" + ::toString(numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
-		numnodesbuilt++;
+		print_output.print("\t" + ::toString(tree.numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
+		tree.numnodesbuilt++;
 	}
 
 	//------------------------------------------------------------------------
@@ -157,9 +151,9 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 
 		// Record stats
 		if(depth >= maxdepth)
-			num_maxdepth_leafs++;
+			tree.num_maxdepth_leafs++;
 		else
-			num_under_thresh_leafs++;
+			tree.num_under_thresh_leafs++;
 		return;
 	}
 
@@ -459,7 +453,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 			best_num_in_neg = numtris;
 			best_num_in_pos = 0;
 		}
-		num_empty_space_cutoffs++;
+		tree.num_empty_space_cutoffs++;
 	}
 
 	if(best_axis == -1)
@@ -473,7 +467,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		for(unsigned int i=0; i<nodetris.size(); ++i)
 			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
 
-		num_cheaper_no_split_leafs++;
+		tree.num_cheaper_no_split_leafs++;
 		return;
 	}
 
@@ -502,7 +496,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		for(unsigned int i=0; i<(unsigned int)nodetris.size(); ++i)
 			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
 
-		num_inseparable_tri_leafs++;
+		tree.num_inseparable_tri_leafs++;
 		return;
 	}
 
@@ -526,10 +520,10 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		{
 			if(tri_lower < split) // Tri touches left volume, not including splitting plane
 			{
+#ifdef CLIP_TRIANGLES
 				if(tri_upper > split)
 				{
 					// Tri straddles split plane
-#ifdef CLIP_TRIANGLES
 					child_tris.push_back(TriInfo());
 					child_tris.back().tri_index = nodetris[i].tri_index;
 
@@ -544,17 +538,19 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 					assert(clipped_tri_aabb.invariant());
 					child_tris.back().lower = clipped_tri_aabb.min_;
 					child_tris.back().upper = clipped_tri_aabb.max_;
-#else
+					
 					child_tris.push_back(nodetris[i]);
-#endif
 				}
 				else // else tri_upper <= split
 					child_tris.push_back(nodetris[i]); // Tri is only in left child
+#else
+				child_tris.push_back(nodetris[i]);// Tri is in left child
+#endif
 			}
 			else
 			{
 				// else tri_lower == split
-				if(tri_upper == split && !best_push_right)
+				if(tri_upper == split && !best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris left...
 					child_tris.push_back(nodetris[i]);
 			}
 		}
@@ -609,10 +605,11 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		{
 			if(tri_upper > split) // Tri touches right volume, not including splitting plane
 			{
+#ifdef CLIP_TRIANGLES
 				if(tri_lower < split)
 				{
 					// Tri straddles splitting plane
-#ifdef CLIP_TRIANGLES
+
 					child_tris.push_back(TriInfo());
 					child_tris.back().tri_index = nodetris[i].tri_index;
 
@@ -626,18 +623,18 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 					//TEMPassert(clipped_tri_aabb.invariant());
 					child_tris.back().lower = clipped_tri_aabb.min_;
 					child_tris.back().upper = clipped_tri_aabb.max_;
-#else
-
 					child_tris.push_back(nodetris[i]);
-#endif
 				}
 				else // else tri_lower >= split
 					child_tris.push_back(nodetris[i]); // Tri is only in right child
+#else
+				child_tris.push_back(nodetris[i]); // Tri is in right child
+#endif
 			}
 			else
 			{
 				// else tri_upper == split
-				if(tri_lower == split && best_push_right)
+				if(tri_lower == split && best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris right...
 					child_tris.push_back(nodetris[i]);
 			}
 		}
@@ -749,17 +746,14 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		);
 	}
 
+	if(actual_num_neg_tris + actual_num_pos_tris < numtris)
+	{
+		assert(0);
+		print_output.print("UHOH, lost a tri.");
+	}
+
 	assert(actual_num_neg_tris + actual_num_pos_tris > 0);
 }
 
 
-
-
-
 } //end namespace js
-
-
-
-
-
-

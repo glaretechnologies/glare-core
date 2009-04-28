@@ -391,11 +391,11 @@ void RaySphere::test()
 
 	testAssert(hitinfos.size() == 2);
 
-	testAssert(epsEqual(hitinfos[0].dist, 0.5));
+	testAssert(epsEqual(hitinfos[0].dist, 0.5f));
 	//testAssert(epsEqual(hitinfos[0].geometric_normal, Vec3d(-1,0,0)));
 	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(-0.5, 0, 1)));
 
-	testAssert(epsEqual(hitinfos[1].dist, 1.5));
+	testAssert(epsEqual(hitinfos[1].dist, 1.5f));
 	//testAssert(epsEqual(hitinfos[1].geometric_normal, Vec3d(1,0,0)));
 	//testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
 
@@ -431,7 +431,7 @@ void RaySphere::test()
 	sphere.getAllHits(ray3, thread_context/*, context*/, NULL, hitinfos);
 
 	testAssert(hitinfos.size() == 1);
-	testAssert(epsEqual(hitinfos[0].dist, 0.25));
+	testAssert(epsEqual(hitinfos[0].dist, 0.25f));
 	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(0.5, 0, 1)));
 
 
