@@ -249,3 +249,21 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 		return true;
 	}
 }
+
+
+const std::string License::currentLicenseSummaryString(const std::string& indigo_base_dir_path)
+{
+	LicenceType licence_type = License::UNLICENSED;
+	std::string licence_user_id;
+	try
+	{
+		License::verifyLicense(indigo_base_dir_path, licence_type, licence_user_id);
+	}
+	catch(License::LicenseExcep&)
+	{}
+
+	if(licence_type != License::UNLICENSED)
+		return "Licence verified, licence type: " + License::licenseTypeToString(licence_type) + ", licensed to '" + licence_user_id + "'";
+	else
+		return "Licence not verified, running in free mode.";
+}

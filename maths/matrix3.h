@@ -763,11 +763,21 @@ template <class Real>
 bool Matrix3<Real>::inverse(Matrix3& inverse_out) const
 {
 	const Real d = determinant();
-	if(fabs(d) < 1.e-9)
-		return false;//singular matrix
+	if(std::fabs(d) == 0.0f)//< 1.e-9)
+		return false; // Singular matrix
 
 	inverse_out = adjoint();
 	inverse_out.scale((Real)1.0 / d);
+
+#ifdef DEBUG
+	// Check our inverse is correct.
+	Matrix3<Real> product = *this * inverse_out;
+	assert(epsMatrixEqual(product, Matrix3<Real>::identity()));
+
+	product = inverse_out * *this;
+	assert(epsMatrixEqual(product, Matrix3<Real>::identity()));
+#endif
+
 	return true;
 }
 

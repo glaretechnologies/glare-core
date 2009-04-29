@@ -53,6 +53,9 @@ public:
 	// A combination of the CPU type and MAC address
 	static const std::string getHardwareIdentifier(); // throws LicenseExcep
 
+
+	static const std::string currentLicenseSummaryString(const std::string& indigo_base_dir_path);
+
 };
 
 
