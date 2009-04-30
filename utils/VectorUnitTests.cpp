@@ -32,30 +32,46 @@ VectorUnitTests::~VectorUnitTests()
 
 void VectorUnitTests::run()
 {
-	Vector<int, 8> v;
-	testAssert(v.empty());
-	testAssert(v.size() == 0);
 
-	v.push_back(3);
-	testAssert(!v.empty());
-	testAssert(v.size() == 1);
-	testAssert(v[0] == 3);
+	{
+		// Test (count, val) constructor
+		const Vector<int, 4> v(4, 555);
+		testAssert(v.size() == 4);
 
-	v.push_back(4);
-	testAssert(!v.empty());
-	testAssert(v.size() == 2);
-	testAssert(v[0] == 3);
-	testAssert(v[1] == 4);
+		// Test const_iterator
+		for(Vector<int, 8>::const_iterator i = v.begin(); i != v.end(); ++i)
+		{
+			testAssert(*i == 555);
+		}
+	}
 
-	v.resize(100);
-	v[99] = 5;
-	testAssert(v.size() == 100);
-	testAssert(v[0] == 3);
-	testAssert(v[1] == 4);
 
-	v.resize(0);
-	testAssert(v.empty());
-	testAssert(v.size() == 0);
+	{
+		Vector<int, 4> v;
+		testAssert(v.empty());
+		testAssert(v.size() == 0);
+
+		v.push_back(3);
+		testAssert(!v.empty());
+		testAssert(v.size() == 1);
+		testAssert(v[0] == 3);
+
+		v.push_back(4);
+		testAssert(!v.empty());
+		testAssert(v.size() == 2);
+		testAssert(v[0] == 3);
+		testAssert(v[1] == 4);
+
+		v.resize(100);
+		v[99] = 5;
+		testAssert(v.size() == 100);
+		testAssert(v[0] == 3);
+		testAssert(v[1] == 4);
+
+		v.resize(0);
+		testAssert(v.empty());
+		testAssert(v.size() == 0);
+	}
 
 }
 

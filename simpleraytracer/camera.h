@@ -59,7 +59,7 @@ public:
 	
 	=====================================================================*/
 	Camera(//const Vec3d& pos, 
-		const std::vector<TransformKeyFrame>& frames,
+		const js::Vector<TransformKeyFrame, 16>& frames,
 		//const Matrix3f& child_to_world,
 		const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist, 

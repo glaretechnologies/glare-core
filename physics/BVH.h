@@ -86,7 +86,8 @@ private:
 	AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
 
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
-	js::Vector<INTERSECT_TRI_TYPE, 16> intersect_tris;
+	//js::Vector<INTERSECT_TRI_TYPE, 16> intersect_tris;
+	std::vector<INTERSECT_TRI_TYPE> intersect_tris;
 	
 	//std::vector<TRI_INDEX> original_tri_index;
 	//std::vector<TRI_INDEX> new_tri_index;

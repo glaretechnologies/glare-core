@@ -12,8 +12,10 @@ Code By Nicholas Chapman.
 #include "../maths/mathstypes.h"
 #include <assert.h>
 
+
 // If this is defined, prints out messages on allocing and deallocing in reserver()
 //#define JS_VECTOR_VERBOSE 1
+
 
 #if JS_VECTOR_VERBOSE
 #include "../indigo/globals.h"
@@ -36,6 +38,7 @@ class Vector
 {
 public:
 	inline Vector();
+	inline Vector(unsigned int count, const T& val);
 	inline ~Vector();
 
 	inline Vector& operator=(const Vector& other);
@@ -52,6 +55,12 @@ public:
 	inline T& back();
 	inline T& operator[](unsigned int index);
 	inline const T& operator[](unsigned int index) const;
+
+	typedef T* iterator;
+	typedef const T* const_iterator;
+
+	inline const_iterator begin() const;
+	inline const_iterator end() const;
 
 private:
 	Vector(const Vector& other);
@@ -70,6 +79,21 @@ Vector<T, alignment>::Vector()
 	size_(0),
 	capacity_(0)
 {
+	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+}
+
+
+template <class T, int alignment>
+Vector<T, alignment>::Vector(unsigned int count, const T& val)
+:	e(0),
+	size_(0),
+	capacity_(0)
+{
+	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+
+	resize(count);
+	for(unsigned int i=0; i<count; ++i)
+		e[i] = val;
 }
 
 
@@ -255,6 +279,20 @@ const T& Vector<T, alignment>::operator[](unsigned int index) const
 	assert(capacity_ >= size_);
 
 	return e[index];
+}
+
+
+template <class T, int alignment>
+typename Vector<T, alignment>::const_iterator Vector<T, alignment>::begin() const
+{
+	return e;
+}
+
+
+template <class T, int alignment>
+typename Vector<T, alignment>::const_iterator Vector<T, alignment>::end() const
+{
+	return e + size_;
 }
 
 

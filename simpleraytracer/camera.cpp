@@ -39,7 +39,7 @@ static const SSE_ALIGN Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
 
 
 Camera::Camera(
-			  const std::vector<TransformKeyFrame>& frames,
+			  const js::Vector<TransformKeyFrame, 16>& frames,
 			  const Vec3d& ws_updir, const Vec3d& forwards,
 		double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_,
 		//const std::string& white_balance,
@@ -1173,7 +1173,7 @@ void Camera::unitTest()
 	const double focus_distance = 10.0;
 	Camera cam(
 		//Vec3d(0,0,0), // pos
-		std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, Vec3d(0.0), Quatf::identity())),
+		js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1), Quatf::identity())),
 		//Matrix3f::identity(),
 		Vec3d(0,0,1), // up
 		forwards, // forwards

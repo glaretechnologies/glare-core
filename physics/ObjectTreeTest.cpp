@@ -60,12 +60,12 @@ void ObjectTreeTest::doTests()
 	{
 		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
 
-		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
 		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			raysphere,
 			//pos, pos,
-			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
+			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -302,12 +302,12 @@ void ObjectTreeTest::doSpeedTest()
 	{
 		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
 
-		const Vec3d pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
 		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			raysphere,
 			//pos, pos,
-			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
+			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),
@@ -430,12 +430,12 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		rot.scale(0.3);
 
-		const Vec3d offset(Vec3d(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
+		const Vec4f offset(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
 		Object* object = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			AlignedRef<Geometry, 16>(raymesh.getPointer()),
 			//offset, offset,
-			std::vector<TransformKeyFrame>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),
+			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),
 			rot,
 			std::vector<Reference<Material> >(),
 			//std::vector<std::vector<int> >(),

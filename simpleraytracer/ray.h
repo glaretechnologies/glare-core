@@ -38,6 +38,7 @@ public:
 		unitdir_f(unitdir_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
+		assert(epsEqual(unitdir_.x[3], 0.0f));
 		assert(unitdir_.isUnitLength());
 		assert(SSE::isSSEAligned(this));
 

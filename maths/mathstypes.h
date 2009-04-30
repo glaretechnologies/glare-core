@@ -522,20 +522,20 @@ inline bool isPowerOfTwo(T x)
 void test();
 
 template <class T, class Real>
-inline T lerp(T a, T b, Real t)
+inline const T lerp(const T& a, const T& b, Real t)
 {
 	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
 	return a * ((Real)1.0 - t) + b * t;
 }
 
 template <class T>
-inline T uncheckedLerp(T a, T b, float t)
+inline const T uncheckedLerp(const T& a, const T& b, float t)
 {
 	return a * (1.0f - t) + b * t;
 }
 
 template <class T>
-inline T uncheckedLerp(T a, T b, double t)
+inline const T uncheckedLerp(const T& a, const T& b, double t)
 {
 	return a * (1.0 - t) + b * t;
 }
