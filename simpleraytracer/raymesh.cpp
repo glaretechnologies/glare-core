@@ -267,7 +267,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 }
 
 
-void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSettings& renderer_settings, PrintOutput& print_output)
+void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output)
 {
 	Timer timer;
 
@@ -312,7 +312,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 			//------------------------------------------------------------------------
 			const unsigned int tree_checksum = tritree->checksum();
 			const std::string path = FileUtils::join(
-				indigo_base_dir_path, 
+				appdata_path, 
 				FileUtils::join("tree_cache", toString(tree_checksum) + ".tre")
 				);
 
@@ -361,7 +361,7 @@ void RayMesh::build(const std::string& indigo_base_dir_path, const RendererSetti
 				//Save to disk
 				//------------------------------------------------------------------------
 				const std::string path = FileUtils::join(
-					indigo_base_dir_path, 
+					appdata_path, 
 					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
 					);
 

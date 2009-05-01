@@ -41,6 +41,8 @@ const std::string toPlatformSlashes(const std::string& pathname);
 void createDir(const std::string& dirname);
 void createDirsForPath(const std::string& path);
 
+void createDirIfDoesNotExist(const std::string& dirname);
+
 
 //Gets the directory of a file from the pathname.
 //If the pathname is just the filename, returns ""
@@ -75,7 +77,7 @@ void writeEntireFile(const std::string& pathname, const std::string& filecontent
 
 const std::string getCurrentDir();
 
-//void copyFile(const std::string& srcpath, const std::string& dstpath);
+void copyFile(const std::string& srcpath, const std::string& dstpath);
 
 // Atomic filesystem operation (hopefully)
 // throws FileUtilsExcep on failure

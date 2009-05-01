@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #include <Iphlpapi.h>
 #include <intrin.h>
+#include <shlobj.h>
 #else
 #include <time.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@ Code By Nicholas Chapman.
 #endif
 #include <cassert>
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
 
 #if defined(OSX)
 #include <sys/types.h>
@@ -272,4 +274,52 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	memcpy(info_out.proc_brand + 36, CPUInfo + 1, 4);
 	memcpy(info_out.proc_brand + 40, CPUInfo + 2, 4);
 	memcpy(info_out.proc_brand + 44, CPUInfo + 3, 4);
+}
+
+
+const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExcep
+{
+#if defined(WIN32) || defined(WIN64)
+	TCHAR path[MAX_PATH];
+	const HRESULT res = SHGetFolderPathA(
+		NULL, // hwndOwner
+		CSIDL_APPDATA, // nFolder
+		NULL, // hToken
+		SHGFP_TYPE_CURRENT, // dwFlags
+		path // pszPath
+		);
+
+	if(res != S_OK)
+		throw PlatformUtilsExcep("SHGetFolderPathA() failed, Error code: " + toString(res));
+
+	return std::string(path);
+#else
+	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows.");
+#endif
+}
+
+
+const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
+{
+#if defined(WIN32) || defined(WIN64)
+	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming
+	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
+
+	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming\Indigo Renderer
+	const std::string appdatapath = FileUtils::join(appdatapath_base, app_name);
+
+	// Create the dir if it doesn't exist
+	try
+	{
+		if(!FileUtils::fileExists(appdatapath))
+			FileUtils::createDir(appdatapath);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw PlatformUtilsExcep(e.what());
+	}
+	return appdatapath;
+#else
+	return app_base_path;
+#endif
 }

@@ -174,6 +174,13 @@ void createDirsForPath(const std::string& path)
 }
 
 
+void createDirIfDoesNotExist(const std::string& dirname)
+{
+	if(!fileExists(dirname))
+		createDir(dirname);
+}
+
+
 /*
 #if defined(WIN32) || defined(WIN64)
 bool createDir(const std::string& dirname)
@@ -654,22 +661,9 @@ const std::string getCurrentDir()
 
 #endif
 
+
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
-	/*std::string filecontents;
-
-	std::ifstream infile(srcpath.c_str(), std::ios::in | std::ios::binary);
-
-	if(!infile)
-		return;
-
-	readEntireFile(infile, filecontents);
-
-	std::ofstream dstfile(dstpath.c_str(), std::ios::out | std::ios::binary);
-
-
-	dstfile.write(filecontents.c_str(), filecontents.length());*/
-
 #if defined(WIN32) || defined(WIN64)
 	if(!CopyFileA(
 		srcpath.c_str(),
@@ -686,6 +680,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 	writeEntireFile(dstpath, data);
 #endif
 }
+
 
 void deleteFile(const std::string& path)
 {

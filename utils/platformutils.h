@@ -53,6 +53,17 @@ public:
 
 void getCPUInfo(CPUInfo& info_out); // throws PlatformUtilsExcep
 
+/*
+This is something like "C:\Documents and Settings\username\Application Data" on XP, and "C:\Users\Nicolas Chapman\AppData\Roaming" on Vista.
+*/
+const std::string getAPPDataDirPath(); // throws PlatformUtilsExcep
+
+
+/*
+Returns a directory that is writeable by the app.
+On Vista, this can't be indigo_base_dir_path, because that path might be in program files, and so won't be writeable.
+*/
+const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name); // throws PlatformUtilsExcep
 
 }//end namespace PlatformUtils
 
