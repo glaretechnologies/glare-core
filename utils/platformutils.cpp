@@ -323,3 +323,23 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 	return app_base_path;
 #endif
 }
+
+// http://stackoverflow.com/questions/143174/c-c-how-to-obtain-the-full-path-of-current-directory
+const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws PlatformUtilsExcep, only works on Windows.
+{
+#if defined(WIN32) || defined(WIN64)
+	TCHAR buf[2048];
+	const DWORD result = GetModuleFileName(
+		NULL, // hModule "If this parameter is NULL, GetModuleFileName retrieves the path of the executable file of the current process."
+		buf,
+		2048
+		);
+
+	if(result == 0)
+		throw PlatformUtilsExcep("GetModuleFileName failed.");
+	else
+		return std::string(buf);
+#else
+	throw PlatformUtilsExcep("getFullPathToCurrentExecutable only supported on Windows.");
+#endif
+}

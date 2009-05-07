@@ -84,9 +84,9 @@ public:
 
 
 	////////////////////// Geometry interface ///////////////////
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	//virtual const std::string debugName() const;
 	
@@ -102,11 +102,12 @@ public:
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const;
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const;
 
-	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
-		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output);
+	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output);
 	virtual void build(const std::string& appdata_path, const RendererSettings& settings, PrintOutput& print_output); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
+	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
 	//////////////////////////////////////////////////////////
 

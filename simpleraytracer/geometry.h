@@ -76,7 +76,7 @@ public:
 	
 
 	/// intersectable interface ///
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const = 0;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const = 0;
 	virtual const std::string getName() const = 0;
@@ -111,9 +111,10 @@ public:
 	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const = 0;
 
 	virtual bool isEnvSphereGeometry() const = 0;
+	virtual bool areSubElementsCurved() const = 0; // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
 
-	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
-		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output
+	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output
 		) = 0; // throws GeometryExcep
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) = 0; // throws GeometryExcep
 

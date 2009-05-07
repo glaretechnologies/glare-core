@@ -95,40 +95,29 @@ private:
 	Real d;
 };
 
+
 template <class Real>
 Plane<Real>::Plane()
 {}
+
 
 template <class Real>
 Plane<Real>::Plane(const Vec3<Real>& origin, const Vec3<Real>& normal_)
 :	normal(normal_),
 	d(dot(origin, normal))
 {
-	//normal = normal_;
-
-	assert( epsEqual(normal.length(), 1.0) );
-
-	//d = dot(origin, normal);
+	assert(normal.isUnitLength());
 }
+
 
 template <class Real>
 Plane<Real>::Plane(const Vec3<Real>& normal_, Real d_)
 :	normal(normal_),
 	d(d_)
 {
-	//normal = normal_;
-
-	assert( epsEqual(normal.length(), (Real)1.0) );
-
-	//d = dist_from_origin;
+	assert(normal.isUnitLength());
 }
 
-/*template <class Real>
-Plane<Real>::Plane(const Plane& rhs)
-{
-	normal = rhs.normal;
-	d = rhs.d;
-}*/
 
 template <class Real>
 Plane<Real>::~Plane()

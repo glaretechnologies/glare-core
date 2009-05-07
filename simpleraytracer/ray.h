@@ -35,7 +35,8 @@ public:
 	}*/
 	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_)
 	:	startpos_f(startpos_),
-		unitdir_f(unitdir_)
+		unitdir_f(unitdir_),
+		min_t(0.0001f)//TEMP
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
@@ -93,6 +94,8 @@ public:
 
 	//inline const Vec3d point(const double t) const { return startPos() + unitDir() * t; }
 	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return Vec4f(startpos_f + Vec4f(unitdir_f * t)); }
+
+	INDIGO_STRONG_INLINE const float& minT() const { return min_t; }
 	
 private:
 	//INDIGO_STRONG_INLINE void buildRecipRayDir();
@@ -100,6 +103,7 @@ private:
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
 	Vec4f recip_unitdir_f;
+	float min_t;
 
 	//SSE_ALIGN Vec3d startpos;
 	//SSE_ALIGN Vec3d unitdir;

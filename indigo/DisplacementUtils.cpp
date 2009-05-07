@@ -615,7 +615,7 @@ static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal
 }
 
 
-static Vec2f screenSpacePosForCameraSpacePos(const CoordFramed& camera_coordframe_os, const Vec3f& cam_space_pos)
+inline static const Vec2f screenSpacePosForCameraSpacePos(const Vec3f& cam_space_pos)
 {
 	return Vec2f(cam_space_pos.x / cam_space_pos.y, cam_space_pos.z / cam_space_pos.y);
 }
@@ -849,22 +849,29 @@ void DisplacementUtils::linearSubdivision(
 					tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
 
 				// Clip triangle against frustrum planes
-				TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes, tri_verts_pos_os, clipped_tri_verts_os);
+				TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, tri_verts_pos_os, clipped_tri_verts_os);
 
 				if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
 				{
 					// Convert clipped verts to camera space
 					clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
 					for(unsigned int i=0; i<clipped_tri_verts_cs.size(); ++i)
-						clipped_tri_verts_cs[i] = toVec3f(options.camera_coordframe_os.transformPointToLocal(toVec3d(clipped_tri_verts_os[i])));
+					{
+						Vec4f v_os;
+						clipped_tri_verts_os[i].pointToVec4f(v_os);
+
+						const Vec4f v_cs = options.object_to_camera * v_os;
+
+						clipped_tri_verts_cs[i] = Vec3f(v_cs);
+					}
 
 					// Compute 2D bounding box of clipped triangle in screen space
-					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(options.camera_coordframe_os, clipped_tri_verts_cs[0]);
+					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[0]);
 					Rect2f rect_ss(v0_ss, v0_ss);
 
 					for(unsigned int i=1; i<clipped_tri_verts_cs.size(); ++i)
 						rect_ss.enlargeToHoldPoint(
-							screenSpacePosForCameraSpacePos(options.camera_coordframe_os, clipped_tri_verts_cs[i])
+							screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[i])
 							);
 
 					// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold

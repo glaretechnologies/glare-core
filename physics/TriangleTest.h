@@ -1,56 +1,45 @@
 /*=====================================================================
-ObjectTreeTest.h
-----------------
-File created by ClassTemplate on Sat Apr 22 20:17:04 2006
+TriangleTest.h
+--------------
+File created by ClassTemplate on Thu May 07 13:27:06 2009
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __OBJECTTREETEST_H_666_
-#define __OBJECTTREETEST_H_666_
-
-
-
+#ifndef __TRIANGLETEST_H_666_
+#define __TRIANGLETEST_H_666_
 
 
 namespace js
 {
 
 
-
-
 /*=====================================================================
-ObjectTreeTest
---------------
+TriangleTest
+------------
 
 =====================================================================*/
-class ObjectTreeTest
+class TriangleTest
 {
 public:
 	/*=====================================================================
-	ObjectTreeTest
-	--------------
+	TriangleTest
+	------------
 	
 	=====================================================================*/
-	//ObjectTreeTest();
+	TriangleTest();
 
-	//~ObjectTreeTest();
+	~TriangleTest();
 
 
 	static void doTests();
 
-	static void doSelfIntersectionAvoidanceTest();
 
-
-	static void doSpeedTest();
-
-	static void instancedMeshSpeedTest();
 };
 
 
+}
 
-} //end namespace js
 
-
-#endif //__OBJECTTREETEST_H_666_
+#endif //__TRIANGLETEST_H_666_
 
 
 

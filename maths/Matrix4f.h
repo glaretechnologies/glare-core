@@ -39,6 +39,9 @@ public:
 	inline float& elem(unsigned int row_index, unsigned int column_index) { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 
 
+	// Is A the inverse of B?
+	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
+
 
 	static const Matrix4f identity();
 

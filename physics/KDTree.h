@@ -67,7 +67,7 @@ public:
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const;
@@ -143,7 +143,7 @@ private:
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
 	TRI_INDEX numTris() const;
 	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
-	void postBuild() const;
+	void postBuild();
 	void doBuild(NODE_INDEX cur,
 		std::vector<std::vector<TriInfo> >& node_tri_layers,
 		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower);
@@ -168,6 +168,8 @@ private:
 
 	uint32 checksum_;
 	bool calced_checksum;
+
+	Real tree_specific_min_t;
 };
 
 

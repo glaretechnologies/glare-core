@@ -89,7 +89,7 @@ public:
 	}
 
 
-	inline unsigned int rayIntersect(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	inline unsigned int rayIntersect(const Ray& ray, float ray_t_min, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
 	{
 		const Vec3f v0(data);
 		const Vec3f e1(data + 3);
@@ -117,7 +117,7 @@ public:
 
 		const float t = dot(e2, qvec) * inv_det;
 
-		if(t < 0.0f)
+		if(t < ray_t_min) // 0.0f)
 			return 0;
 
 		if(t >= ray_t_max)
@@ -202,6 +202,7 @@ public:
 
 	inline static void intersectTris(
 		const Ray* const ray,
+		float use_min_t,
 		const float* const t0data,
 		const float* const t1data,
 		const float* const t2data,
@@ -297,9 +298,9 @@ public:
 			inv_det
 			);
 
-		// hit = (t >= 0.0 && u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
+		// hit = (t >= ray_min_t && u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
 		const __m128 hit = _mm_and_ps(
-				_mm_cmpge_ps(t, zero),
+				_mm_cmpge_ps(t, _mm_load_ps1(&use_min_t)/*zero*/),
 				_mm_and_ps(
 					_mm_and_ps(_mm_cmpge_ps(u, zero), _mm_cmple_ps(u, one)),
 					_mm_and_ps(_mm_cmpge_ps(v, zero), _mm_cmple_ps(_mm_add_ps(u, v), one))

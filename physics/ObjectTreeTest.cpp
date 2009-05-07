@@ -18,7 +18,6 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/timer.h"
-//#include "../indigo/InstancedGeom.h"
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../indigo/ThreadContext.h"
@@ -30,20 +29,131 @@ Code By Nicholas Chapman.
 namespace js
 {
 
-/*
-ObjectTreeTest::ObjectTreeTest()
-{
 
+void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
+{
+	conPrint("ObjectTreeTest::doSelfIntersectionAvoidanceTest()");
+
+	double start_time = 0.0;
+	double end_time = 0.0;
+	MTwister rng(1);
+
+	ObjectTree ob_tree;
+
+	ThreadContext thread_context(1, 0);
+	StandardPrintOutput print_output;
+
+
+	RayMesh* raymesh = new RayMesh("quad", false);
+	raymesh->addMaterialUsed("dummy");
+	const unsigned int uv_indices[] = {0, 0, 0};
+
+	{
+	raymesh->addVertex(Vec3f(0,0,0));
+	raymesh->addVertex(Vec3f(0,1,0));
+	raymesh->addVertex(Vec3f(0,1,1));
+	const unsigned int vertex_indices[] = {0, 1, 2};
+	raymesh->addTriangle(vertex_indices, uv_indices, 0);
+	}
+	{
+	raymesh->addVertex(Vec3f(0,0,0));
+	raymesh->addVertex(Vec3f(0,1,1));
+	raymesh->addVertex(Vec3f(0,0,1));
+	const unsigned int vertex_indices[] = {3, 4, 5};
+	raymesh->addTriangle(vertex_indices, uv_indices, 0);
+	}
+
+	AlignedRef<Geometry, 16> raymeshref(raymesh);
+
+	RendererSettings settings;
+	settings.cache_trees = false;
+	Object* ob1;
+	Object* ob2;
+	{
+		ob1 = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+			raymeshref,
+			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1.f), Quatf::identity())),
+			Object::Matrix3Type::identity(),
+			std::vector<Reference<Material> >(),
+			std::vector<EmitterScale>(),
+			std::vector<const IESDatum*>()
+			);
+
+		
+		ob1->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob_tree.insertObject(ob1);
+	}
+
+	{
+		ob2 = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+			raymeshref,
+			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(1.0f,0,0,1.f), Quatf::identity())),
+			Object::Matrix3Type::identity(),
+			std::vector<Reference<Material> >(),
+			std::vector<EmitterScale>(),
+			std::vector<const IESDatum*>()
+			);
+
+		ob2->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob_tree.insertObject(ob2);
+	}
+
+	ob_tree.build(print_output);
+
+	ObjectTreeStats stats;
+	ob_tree.getTreeStats(stats);
+
+	// Start a ray on one quad, trace to the other quad.
+	{
+		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+
+		{
+			HitInfo hitinfo;
+			const Object* hitob;
+			const ObjectTree::Real dist = ob_tree.traceRay(ray, thread_context, 0.0, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
+
+			testAssert(::epsEqual(dist, 1.0f));
+			testAssert(hitob == ob2);
+			testAssert(hitinfo.sub_elem_index == 0);
+		}
+
+		const float nudge = 0.0001f;
+
+		// Trace the same ray, but with a max distance of 1.0 - nudge.
+		// So the ray shouldn't hit the other quad.
+		{
+			HitInfo hitinfo;
+			const bool hit = ob_tree.doesFiniteRayHit(ray, 
+				1.0f - nudge, // max_t
+				thread_context, 0.0);
+
+			testAssert(!hit);
+		}
+
+		// Trace the same ray, but with a max distance of 1.0 + nudge.
+		// The ray *should* hit the other quad.
+		{
+			HitInfo hitinfo;
+			const bool hit = ob_tree.doesFiniteRayHit(ray, 
+				1.0f + nudge, // max_t
+				thread_context, 0.0);
+
+			testAssert(hit);
+		}
+	}
 }
 
 
-ObjectTreeTest::~ObjectTreeTest()
-{
 
-}*/
+
+
+
+
 
 void ObjectTreeTest::doTests()
 {
+	doSelfIntersectionAvoidanceTest();
+
 	conPrint("ObjectTreeTest::doTests()");
 	double start_time = 0.0;
 	double end_time = 0.0;
@@ -107,7 +217,7 @@ void ObjectTreeTest::doTests()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo, hitinfo2;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
-		const double t = ob_tree.traceRay(ray, thread_context, time, hitob, hitinfo);
+		const double t = ob_tree.traceRay(ray, thread_context, time, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
 		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
@@ -349,7 +459,7 @@ void ObjectTreeTest::doSpeedTest()
 		//------------------------------------------------------------------------
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
-		const double t = ob_tree.traceRay(ray, thread_context, start_time, hitob, hitinfo);
+		const double t = ob_tree.traceRay(ray, thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();

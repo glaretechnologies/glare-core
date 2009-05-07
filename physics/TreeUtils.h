@@ -45,6 +45,7 @@ public:
 
 	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out, PrintOutput& print_output);
 
+	static float getTreeSpecificMinT(const AABBox& aabb);
 };
 
 #if 0
@@ -181,6 +182,10 @@ void TreeUtils::buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_
 #endif
 
 }
+
+
+
+
 
 } //end namespace js
 

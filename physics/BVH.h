@@ -45,7 +45,7 @@ public:
 
 
 	//intersectable interface
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const;
+	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "BVH"; }
 	//end
@@ -96,6 +96,8 @@ private:
 
 	//std::vector<Vec3f> tri_centers;
 	//std::vector<float> centers;
+
+	Real tree_specific_min_t;
 
 	/// build stats ///
 	int num_maxdepth_leaves;

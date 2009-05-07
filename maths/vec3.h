@@ -72,6 +72,12 @@ public:
 		z(v.z * scale)
 	{}
 
+	inline explicit Vec3(const Vec4f& v)
+	:	x(v.x[0]),
+		y(v.x[1]),
+		z(v.x[2])
+	{}
+
 
 	inline void set(Real newx, Real newy, Real newz)
 	{

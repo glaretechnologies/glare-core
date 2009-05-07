@@ -61,7 +61,7 @@ RaySphere::~RaySphere()
 
 //returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
-Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.sub_elem_index = 0;
 	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
@@ -87,7 +87,7 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 	const double sqrt_discriminant = sqrt(discriminant);
 	{
 		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
-		if(t0 > 0.0)
+		if(t0 >= ray.minT())
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
@@ -102,7 +102,7 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 
 	{
 		const double t = (-B + sqrt_discriminant) * 0.5;
-		if(t > 0.0)
+		if(t >= ray.minT())
 		{
 			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
@@ -156,10 +156,9 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& 
 {
 	HitInfo hitinfo;
 	const double hitdist = traceRay(ray, raylength, thread_context, 
-		//context, 
-		object, hitinfo);
+		object, std::numeric_limits<unsigned int>::max(), hitinfo);
 
-	return hitdist >= 0.0f && hitdist < raylength;
+	return hitdist >= ray.minT() && hitdist < raylength;
 }
 
 
@@ -208,7 +207,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 
-	if(dist_to_rayclosest + a > 0.0)
+	if(dist_to_rayclosest + a >= ray.minT())
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest + a));
 		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
@@ -228,7 +227,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 		}
 	}
 
-	if(dist_to_rayclosest - a > 0.0)
+	if(dist_to_rayclosest - a >= ray.minT())
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest - a));
 		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
@@ -318,8 +317,8 @@ double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3T
 const std::string RaySphere::getName() const { return "RaySphere"; }
 
 
-void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
-		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output){}
+void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output){}
 
 
 void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) {} // throws GeometryExcep
@@ -350,8 +349,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	HitInfo hitinfo;
 	double d = sphere.traceRay(ray, 1000.0, thread_context, 
-		//context, 
-		NULL, hitinfo);
+		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
@@ -368,14 +366,12 @@ void RaySphere::test()
 		Vec4f(-1,0,0,0)
 		);
 	d = sphere.traceRay(ray2, 1000.0, thread_context, 
-		//context, 
-		NULL, hitinfo);
+		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
 
 	d = sphere.traceRay(ray2, 0.1, thread_context, 
-		//context, 
-		NULL, hitinfo);
+		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	//ignoring this for now: testAssert(d < 0.0);
 
 
@@ -419,10 +415,10 @@ void RaySphere::test()
 		Vec4f(0.25,0,0,1),
 		Vec4f(1,0,0,0)
 		);
-	d = sphere.traceRay(ray3, 1000.0, thread_context/*, context*/, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(d, 0.25));
 
-	d = sphere.traceRay(ray3, 0.24, thread_context/*, context*/, NULL, hitinfo);
+	d = sphere.traceRay(ray3, 0.24, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	//NOTE: ignoring this for now.  testAssert(d < 0.0);
 
 	//------------------------------------------------------------------------
@@ -456,6 +452,12 @@ void RaySphere::test()
 bool RaySphere::isEnvSphereGeometry() const
 {
 	return false;
+}
+
+
+bool RaySphere::areSubElementsCurved() const
+{
+	return true;
 }
 
 

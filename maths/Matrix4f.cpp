@@ -98,6 +98,15 @@ void Matrix4f::getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const
 }
 
 
+bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
+{
+	Matrix4f AB, BA;
+	mul(A, B, AB);
+	mul(B, A, BA);
+	return epsEqual(AB, identity()) && epsEqual(BA, identity());
+}
+
+
 void Matrix4f::test()
 {
 	{

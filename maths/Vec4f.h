@@ -129,12 +129,12 @@ INDIGO_STRONG_INLINE __m128 crossProduct(const Vec4f& a, const Vec4f& b)
 }
 
 
-inline bool epsEqual(const Vec4f& a, const Vec4f& b)
+inline bool epsEqual(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSILON)
 {
-	return ::epsEqual(a.x[0], b.x[0]) &&
-		::epsEqual(a.x[1], b.x[1]) &&
-		::epsEqual(a.x[2], b.x[2]) &&
-		::epsEqual(a.x[3], b.x[3]);
+	return ::epsEqual(a.x[0], b.x[0], eps) &&
+		::epsEqual(a.x[1], b.x[1], eps) &&
+		::epsEqual(a.x[2], b.x[2], eps) &&
+		::epsEqual(a.x[3], b.x[3], eps);
 }
 
 

@@ -35,167 +35,6 @@ Code By Nicholas Chapman.
 namespace js
 {
 
-static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
-{
-	//SSE_ALIGN Vec4 best_t = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-	//SSE_ALIGN Vec4 best_tri_index = {666, 666, 666, 666};
-	/*SSE_ALIGN Vec4 tri_indices;// = { 0, 1, 2, 3 };
-	tri_indices.i[0] = 0;
-	tri_indices.i[1] = 1;
-	tri_indices.i[2] = 2;
-	tri_indices.i[3] = 3;*/
-	//SSE_ALIGN Vec4 best_u = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-	//SSE_ALIGN Vec4 best_v = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-
-	//SSE_ALIGN Vec4 best_data;
-
-
-	/*SSE_ALIGN Vec4 orig_x = {orig.x, orig.x, orig.x, orig.x};
-	SSE_ALIGN Vec4 orig_y = {orig.y, orig.y, orig.y, orig.y};
-	SSE_ALIGN Vec4 orig_z = {orig.z, orig.z, orig.z, orig.z};*/
-
-	/*SSE_ALIGN Vec4 dir_x = {dir.x, dir.x, dir.x, dir.x};
-	SSE_ALIGN Vec4 dir_y = {dir.y, dir.y, dir.y, dir.y};
-	SSE_ALIGN Vec4 dir_z = {dir.z, dir.z, dir.z, dir.z};*/
-
-	UnionVec4 u, v, t, hit;
-	MollerTrumboreTri::intersectTris(&ray,
-		/*&orig_x, &orig_y, &orig_z, &dir_x, &dir_y, &dir_z*/
-		tri[0].data, tri[1].data, tri[2].data, tri[3].data,
-		//&best_t,
-		&u, &v, &t, &hit
-		//&best_tri_index,
-		//&tri_indices,
-
-		//&best_u,
-		//&best_v
-		//&best_data
-
-		);
-
-	//float ref_u, ref_v;
-	//unsigned int ref_best_index;
-	//float ref_best_t = std::numeric_limits<float>::max();
-	//bool hit_a_tri = false;
-
-	for(int i=0; i<4; ++i)
-	{
-		float ref_u, ref_v, ref_t;
-		const bool ref_hit = tri[i].referenceIntersect(ray, &ref_u, &ref_v, &ref_t);
-
-		if(ref_hit || (hit.i[i] != 0))
-		{
-			testAssert(::epsEqual(ref_t, t.f[i]));
-			testAssert(::epsEqual(ref_u, u.f[i]));
-			testAssert(::epsEqual(ref_v, v.f[i]));
-			testAssert(ref_hit == (hit.i[i] != 0));
-		}
-
-		/*if(tri[i].referenceIntersect(ray, &u, &v, &t))
-		{
-			hit_a_tri = true;
-
-			if(t < ref_best_t)
-			{
-				ref_best_index = i;
-				ref_best_t = t;
-				ref_u = u;
-				ref_v = v;
-			}
-		}*/
-	}
-
-	/*if(hit_a_tri)
-	{
-		const float best_u = best_data.f[0];
-		const float best_v = best_data.f[1];
-		const unsigned int best_index = best_data.i[2];
-
-		testAssert(best_index == ref_best_index);
-		testAssert(::epsEqual(ref_best_t, best_t.f[0]));
-		testAssert(::epsEqual(ref_u, best_u));
-		testAssert(::epsEqual(ref_v, best_v));
-	}*/
-}
-
-
-static void testTriangleIntersection()
-{
-	conPrint("testTriangleIntersection()");
-
-	MTwister rng(1);
-
-	SSE_ALIGN MollerTrumboreTri tris[4];
-
-	for(int i=0; i<100000; ++i)
-	{
-		for(int t=0; t<4; ++t)
-			tris[t].set(
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
-				);
-
-		const SSE_ALIGN Ray ray(
-			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
-			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
-			);
-
-		testIntersection(ray, tris);
-	}
-
-	conPrint("testTriangleIntersection() Done.");
-}
-
-
-static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const Ray& ray)
-{
-	const float ray_t_max = 1.0e9f;
-	float ref_dist, ref_u, ref_v;
-	const bool ref_hit = tri.referenceIntersect(ray, ray_t_max, ref_dist, ref_u, ref_v) != 0;
-
-	float dist, u, v;
-	const bool hit = tri.rayIntersect(ray, ray_t_max, dist, u, v) != 0;
-
-	testAssert(hit == ref_hit);
-	if(hit)
-	{
-		testAssert(::epsEqual(dist, ref_dist, 0.0001f));
-		testAssert(::epsEqual(u, ref_u, 0.00005f));
-		testAssert(::epsEqual(v, ref_v, 0.00005f));
-	}
-}
-
-
-void testBadouelTriIntersection()
-{
-	conPrint("testBadouelTriIntersection()");
-
-	MTwister rng(1);
-
-	const int N = 1000000;
-
-	for(int i=0; i<N; ++i)
-	{
-		js::BadouelTri tri;
-
-		tri.set(
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()),
-				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
-		);
-
-		const SSE_ALIGN Ray ray(
-			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1),
-			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0))
-			);
-
-		testIndividualBadouelIntersection(tri, ray);
-	}
-
-
-	conPrint("testBadouelTriIntersection() Done");
-}
 
 
 void TreeTest::testBuildCorrect()
@@ -258,7 +97,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.sub_elem_index == 0);
 	}
@@ -266,7 +105,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0));
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.sub_elem_index == 3);
 	}
@@ -428,12 +267,48 @@ void TreeTest::testBuildCorrect()
 }
 
 
-static void testTree(MTwister& rng, RayMesh& raymesh)
+
+static void testSelfIntersectionAvoidance()
 {
+	// We will construct a scene with two quads coplanar to the y-z plane, one at x=0, and the other at x=1.
+
 	StandardPrintOutput print_output;
 
+	RayMesh raymesh("testmesh", false);
+	raymesh.addMaterialUsed("dummy");
+	const unsigned int uv_indices[] = {0, 0, 0};
+
+	{
+	raymesh.addVertex(Vec3f(0,0,0));
+	raymesh.addVertex(Vec3f(0,1,0));
+	raymesh.addVertex(Vec3f(0,1,1));
+	const unsigned int vertex_indices[] = {0, 1, 2};
+	raymesh.addTriangle(vertex_indices, uv_indices, 0);
+	}
+	{
+	raymesh.addVertex(Vec3f(0,0,0));
+	raymesh.addVertex(Vec3f(0,1,1));
+	raymesh.addVertex(Vec3f(0,0,1));
+	const unsigned int vertex_indices[] = {3, 4, 5};
+	raymesh.addTriangle(vertex_indices, uv_indices, 0);
+	}
+	{
+	raymesh.addVertex(Vec3f(1,0,0));
+	raymesh.addVertex(Vec3f(1,1,0));
+	raymesh.addVertex(Vec3f(1,1,1));
+	const unsigned int vertex_indices[] = {6, 7, 8};
+	raymesh.addTriangle(vertex_indices, uv_indices, 0);
+	}
+	{
+	raymesh.addVertex(Vec3f(1,0,0));
+	raymesh.addVertex(Vec3f(1,1,1));
+	raymesh.addVertex(Vec3f(1,0,1));
+	const unsigned int vertex_indices[] = {9, 10, 11};
+	raymesh.addTriangle(vertex_indices, uv_indices, 0);
+	}
+
 	//------------------------------------------------------------------------
-	//Init KD-tree and BIH
+	//Init KD-tree and BVH
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
@@ -443,14 +318,106 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	trees.back()->build(print_output);
 
 	// Check AABBox
-	AABBox box = trees[0]->getAABBoxWS();
+	const AABBox box = trees[0]->getAABBoxWS();
+	for(unsigned int i=0; i<trees.size(); ++i)
+		testAssert(trees[i]->getAABBoxWS() == box);
+
+	ThreadContext thread_context(1, 0);
+
+	// Start a ray on one quad, trace to the other quad.
+	{
+		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+
+		for(unsigned int i=0; i<trees.size(); ++i)
+		{
+			HitInfo hitinfo;
+			const Tree::Real dist = trees[i]->traceRay(ray, 500.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+
+			testAssert(::epsEqual(dist, 1.0f));
+			testAssert(hitinfo.sub_elem_index == 2);
+		}
+
+		const float nudge = 0.0001f;
+
+		// Trace the same ray, but with a max distance of 1.0 - nudge.
+		// So the ray shouldn't hit the other quad.
+		for(unsigned int i=0; i<trees.size(); ++i)
+		{
+			HitInfo hitinfo;
+			const Tree::Real dist = trees[i]->traceRay(ray, 
+				1.0f - nudge, // max_t
+				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+
+			testAssert(dist < 0.0f);
+		}
+
+		// Trace the same ray, but with a max distance of 1.0 + nudge.
+		// The ray *should* hit the other quad.
+		for(unsigned int i=0; i<trees.size(); ++i)
+		{
+			HitInfo hitinfo;
+			const Tree::Real dist = trees[i]->traceRay(ray, 
+				1.0f + nudge, // max_t
+				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+
+			testAssert(::epsEqual(dist, 1.0f));
+			testAssert(hitinfo.sub_elem_index == 2);
+		}
+
+		// Test doesFiniteRayHit
+		for(unsigned int i=0; i<trees.size(); ++i)
+		{
+			HitInfo hitinfo;
+			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+				1.0f - nudge, // max_t
+				thread_context, NULL);
+
+			testAssert(!hit);
+		}
+
+		for(unsigned int i=0; i<trees.size(); ++i)
+		{
+			HitInfo hitinfo;
+			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+				1.0f + nudge, // max_t
+				thread_context, NULL);
+
+			testAssert(hit);
+		}
+	}
+
+	// Delete trees
+	for(unsigned int i=0; i<trees.size(); ++i)
+	{
+		trees[i]->~Tree();
+		SSE::alignedFree(trees[i]);
+	}
+}
+
+
+static void testTree(MTwister& rng, RayMesh& raymesh)
+{
+	StandardPrintOutput print_output;
+
+	//------------------------------------------------------------------------
+	//Init KD-tree and BVH
+	//------------------------------------------------------------------------
+	std::vector<Tree*> trees;
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
+	trees.back()->build(print_output);
+
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
+	trees.back()->build(print_output);
+
+	// Check AABBox
+	const AABBox box = trees[0]->getAABBoxWS();
 	for(unsigned int i=0; i<trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
 	ThreadContext thread_context(1, 0);
 
 	//------------------------------------------------------------------------
-	//compare tests against all tris with tests against the tree
+	//compare tests against all tris with tests against the trees
 	//------------------------------------------------------------------------
 	const int NUM_RAYS = 10000;
 	for(int i=0; i<NUM_RAYS; ++i)
@@ -465,16 +432,20 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
 			);
 
+		// Trace against all tris individually
 		HitInfo all_tris_hitinfo;
 		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
 
+		// Trace through the trees
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[t]->traceRay(ray, max_t, thread_context, NULL, hitinfo);
+			unsigned int ignore_tri = std::numeric_limits<unsigned int>::max();
+			const Tree::Real dist = trees[t]->traceRay(ray, max_t, thread_context, NULL, ignore_tri, hitinfo);
 
-			if(dist >= 0.0 || alltrisdist >= 0.0)
+			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
+				testAssert(dist >= 0.0 && alltrisdist >= 0.0);
 				testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
 				testAssert(::epsEqual(dist, alltrisdist, (Tree::Real)0.0001));
 
@@ -490,7 +461,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		std::vector<DistanceHitInfo> hitinfos;
 
-		trees[0]->getAllHits(ray, thread_context/*, tree_context*/, NULL, hitinfos);
+		trees[0]->getAllHits(ray, thread_context, NULL, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 		if(alltrisdist > 0.0)
@@ -541,11 +512,11 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//Test doesFiniteRayHit()
 		//------------------------------------------------------------------------
 		const Tree::Real testlength = rng.unitRandom() * (Tree::Real)2.0;
-		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context/*, tree_context*/, NULL);
+		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, NULL);
 
 		for(unsigned int t=0; t<trees.size(); ++t)
 		{
-			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context/*, tree_context*/, NULL);
+			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, NULL);
 			testAssert(hit == hit_);
 		}
 	}
@@ -557,13 +528,6 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		SSE::alignedFree(trees[i]);
 	}
 }
-
-
-
-
-
-
-
 
 
 static void doEdgeCaseTests()
@@ -634,21 +598,15 @@ static void doEdgeCaseTests()
 }
 
 
-
 static void cornellBoxTest()
 {
 	//cornellbox_jotero\cornellbox_jotero.3DS
-
 }
-
-
 
 
 void TreeTest::doTests()
 {
-	testBadouelTriIntersection();
-
-	testTriangleIntersection();
+	testSelfIntersectionAvoidance();
 
 	doEdgeCaseTests();
 
@@ -764,12 +722,9 @@ void TreeTest::doTests()
 }
 
 
-
-
 void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = "../testfiles/bun_zipper.ply";
-	//const std::string BUNNY_PATH = "C:\\programming\\models\\ply\\happy_recon\\happy_vrip.ply";
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("bunny", false);
@@ -807,8 +762,6 @@ void TreeTest::doSpeedTest(int treetype)
 	SphereUnitVecPool vecpool;//create pool of random points
 
 	HitInfo hitinfo;
-	//js::TriTreePerThreadData tree_context;
-	//js::ObjectTreePerThreadData context;//(true);
 	ThreadContext thread_context(1, 0);
 
 	conPrint("Running test...");
@@ -851,7 +804,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context/*, context*/, NULL, hitinfo);
+		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.

@@ -51,7 +51,10 @@ public:
 	//js::ObjectTreePerThreadData* allocContext() const;
 
 	// Returns distance untill hit or negative if missed
-	Real traceRay(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
+	Real traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
+		const INTERSECTABLE_TYPE* last_object_hit,
+		unsigned int last_triangle_hit,
+		const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
 	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
 

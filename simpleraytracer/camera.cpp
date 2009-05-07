@@ -33,9 +33,9 @@ Code By Nicholas Chapman.
 #include "../indigo/TransformPath.h"
 
 
-static const SSE_ALIGN Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
-static const SSE_ALIGN Vec4f UP_OS(0.0f, 1.0f, 1.0f, 0.0f);
-static const SSE_ALIGN Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
+static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
+static const Vec4f UP_OS(0.0f, 0.0f, 1.0f, 0.0f);
+static const Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
 
 
 Camera::Camera(
@@ -222,6 +222,9 @@ Camera::Camera(
 
 	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
 	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+
+
+	makeClippingPlanesCameraSpace();
 }
 
 
@@ -822,7 +825,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 }
 
 
-Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -834,13 +837,13 @@ const js::AABBox& Camera::getAABBoxWS() const
 }
 
 
-void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	return;
 }
 
 
-bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const
+bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const
 {
 	return false;
 }
@@ -905,8 +908,8 @@ const Camera::TexCoordsType Camera::getTexCoords(const HitInfo& hitinfo, unsigne
 }
 
 
-void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one,
-		const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output){}
+void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output){}
 
 
 void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) {} // throws GeometryExcep
@@ -1023,9 +1026,53 @@ const Vec3d Camera::getPosWS(double time) const
 }
 
 
-void Camera::getViewVolumeClippingPlanes(std::vector<Plane<double> >& planes_out) const
+void Camera::makeClippingPlanesCameraSpace()
 {
-	planes_out.resize(0);
+	clipping_planes_camera_space.resize(0);
+
+	const Vec3d up(UP_OS);
+	const Vec3d right(RIGHT_OS);
+	const Vec3d forwards(FORWARDS_OS);
+
+	const Vec3d sensor_bottom = (sensor_center - up * sensor_height * 0.5);
+	const Vec3d sensor_top = (sensor_center + up * sensor_height * 0.5);
+	const Vec3d sensor_left = (sensor_center - right * sensor_width * 0.5);
+	const Vec3d sensor_right = (sensor_center + right * sensor_width * 0.5);
+
+	clipping_planes_camera_space.push_back(
+		Plane<Vec3RealType>(
+			toVec3f(lens_center + forwards * 0.01f), // NOTE: bit of a hack here: use a close near clipping plane
+			toVec3f(forwards * -1.0f)
+			)
+		); // back of frustrum
+
+	clipping_planes_camera_space.push_back(
+		Plane<Vec3RealType>(
+			toVec3f(lens_center),
+			toVec3f(normalise(crossProduct(up, lens_center - sensor_right)))
+			)
+		); // left
+
+	clipping_planes_camera_space.push_back(
+		Plane<Vec3RealType>(
+			toVec3f(lens_center),
+			toVec3f(normalise(crossProduct(lens_center - sensor_left, up)))
+			)
+		); // right
+
+	clipping_planes_camera_space.push_back(
+		Plane<Vec3RealType>(
+			toVec3f(lens_center),
+			toVec3f(normalise(crossProduct(lens_center - sensor_top, right)))
+			)
+		); // bottom
+
+	clipping_planes_camera_space.push_back(
+		Plane<Vec3RealType>(
+			toVec3f(lens_center),
+			toVec3f(normalise(crossProduct(right, lens_center - sensor_bottom)))
+			)
+		); // top
 
 	// TEMP HACK NO CLIPPING PLANES
 	/*const double time = 0.0; // TEMP HACK not considering moving camera.
@@ -1113,6 +1160,11 @@ void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texco
 
 
 bool Camera::isEnvSphereGeometry() const
+{
+	return false;
+}
+
+bool Camera::areSubElementsCurved() const
 {
 	return false;
 }

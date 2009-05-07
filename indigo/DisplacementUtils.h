@@ -55,9 +55,11 @@ public:
 };
 
 
-class DUOptions
+SSE_CLASS_ALIGN DUOptions
 {
 public:
+	Matrix4f object_to_camera;
+
 	bool wrap_u;
 	bool wrap_v;
 
@@ -68,8 +70,7 @@ public:
 	double displacement_error_threshold;
 	unsigned int max_num_subdivisions;
 
-	std::vector<Plane<float> > camera_clip_planes;
-	CoordFramed camera_coordframe_os;
+	std::vector<Plane<float> > camera_clip_planes_os; // Camera clip planes in object space.
 };
 
 /*=====================================================================

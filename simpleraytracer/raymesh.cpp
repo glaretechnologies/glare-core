@@ -79,14 +79,17 @@ const std::string RayMesh::getName() const
 
 
 //returns negative number if object not hit by the ray
-Geometry::Real RayMesh::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, HitInfo& hitinfo_out) const
+Geometry::Real RayMesh::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
+	//if(this->areSubElementsCurved())
+	//	ignore_tri = std::numeric_limits<unsigned int>::max();
+
 	return tritree->traceRay(
-		ray, 
-		max_t, 
-		thread_context, 
-		//context.tritree_context, 
-		object, 
+		ray,
+		max_t,
+		thread_context,
+		object,
+		ignore_tri,
 		hitinfo_out
 		);
 }
@@ -98,7 +101,7 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 }
 
 
-void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	tritree->getAllHits(
 		ray, // ray 
@@ -110,13 +113,12 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Ob
 }
 
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const
 {
 	return tritree->doesFiniteRayHit(
-		ray, 
-		raylength, 
-		thread_context, 
-		//context.tritree_context,
+		ray,
+		raylength,
+		thread_context,
 		object
 		);
 }
@@ -182,9 +184,9 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 }*/
 
 
-void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const CoordFramed& camera_coordframe_os, double pixel_height_at_dist_one, 
+void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
-	const std::vector<Plane<double> >& camera_clip_planes, PrintOutput& print_output
+	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output
 	)
 {
 	if(subdivide_and_displace_done)
@@ -209,15 +211,16 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
 		// Convert to single precision floating point planes
-		std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
+		/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
 		for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
-			camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());
+			camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
 
 		std::vector<RayMeshTriangle> temp_tris;
 		std::vector<RayMeshVertex> temp_verts;
 		std::vector<Vec2f> temp_uvs;
 
 		DUOptions options;
+		options.object_to_camera = object_to_camera;
 		options.wrap_u = wrap_u;
 		options.wrap_v = wrap_v;
 		options.view_dependent_subdivision = view_dependent_subdivision;
@@ -226,8 +229,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		options.subdivide_curvature_threshold = subdivide_curvature_threshold;
 		options.displacement_error_threshold = displacement_error_threshold;
 		options.max_num_subdivisions = max_num_subdivisions;
-		options.camera_clip_planes = camera_clip_planes_f;
-		options.camera_coordframe_os = camera_coordframe_os;
+		options.camera_clip_planes_os = camera_clip_planes_os;
 
 		DisplacementUtils::subdivideAndDisplace(
 			print_output,
@@ -761,6 +763,12 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output)
 
 
 bool RayMesh::isEnvSphereGeometry() const
+{
+	return false;
+}
+
+
+bool RayMesh::areSubElementsCurved() const
 {
 	return false;
 }
