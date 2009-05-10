@@ -55,12 +55,12 @@ void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 
 
 // Returns dist till hit tri, neg number if missed.
-ObjectTree::Real ObjectTree::traceRay(const Ray& ray, 
-						   ThreadContext& thread_context, 
-						   double time, 
+ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
+						   ThreadContext& thread_context,
+						   double time,
 						   const INTERSECTABLE_TYPE* last_object_hit,
 						   unsigned int last_triangle_hit,
-						   const INTERSECTABLE_TYPE*& hitob_out, 
+						   const INTERSECTABLE_TYPE*& hitob_out,
 						   HitInfo& hitinfo_out) const
 {
 #ifdef OBJECTTREE_VERBOSE
@@ -70,11 +70,11 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 
-	assert(!thread_context.in_object_tree_traversal);
+	//assert(!thread_context.in_object_tree_traversal);
 	//thread_context.in_object_tree_traversal = true;
-	
+
 	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
-	
+
 	if(object_context.last_test_time.size() < objects.size())
 		object_context.last_test_time.resize(objects.size());
 
@@ -124,7 +124,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	_mm_store_ss(&object_context.nodestack[0].tmax, far_t);
 
 	int stacktop = 0;//index of node on top of stack
-	
+
 	while(stacktop >= 0)//!nodestack.empty())
 	{
 		//pop node off stack
@@ -143,7 +143,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 			//prefetch child node memory
 			//------------------------------------------------------------------------
 			#ifdef DO_PREFETCHING
-			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
+			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);
 			#endif
 
 			//while current node is not a leaf..
@@ -200,7 +200,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 		for(unsigned int i=0; i<num_leaf_geom; ++i)
 		{
 			assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
-	
+
 			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
 
 			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
@@ -211,7 +211,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
 			{
 				const Real dist = ob->traceRay(
-					ray, 
+					ray,
 					closest_dist,
 					time,
 					thread_context,
@@ -246,7 +246,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 
 //For debugging
-bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, 
+bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length,
 													ThreadContext& thread_context,
 													double time) const
 {
@@ -257,8 +257,8 @@ bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length,
 }
 
 
-bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t, 
-								  ThreadContext& thread_context, 
+bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
+								  ThreadContext& thread_context,
 								  double time) const
 {
 #ifdef OBJECTTREE_VERBOSE
@@ -269,14 +269,14 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 	if(object_context.last_test_time.size() < objects.size())
 		object_context.last_test_time.resize(objects.size());
 
-	assert(!thread_context.in_object_tree_traversal);
+	//assert(!thread_context.in_object_tree_traversal);
 	//thread_context.in_object_tree_traversal = true;
 
 	assertSSEAligned(this);
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t > 0.0);
-	
+
 	object_context.time++;
 
 	#ifdef OBJECTTREE_VERBOSE
@@ -316,7 +316,7 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 	int stacktop = 0;//index of node on top of stack
-	
+
 	while(stacktop >= 0)//!nodestack.empty())
 	{
 		//pop node off stack
@@ -330,9 +330,9 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 		while(nodes[current].getNodeType() != ObjectTreeNode::NODE_TYPE_LEAF)//!nodes[current].isLeafNode())
 		{
 			#ifdef DO_PREFETCHING
-			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);	
-			#endif			
-	
+			_mm_prefetch((const char *)(&nodes[nodes[current].getPosChildIndex()]), _MM_HINT_T0);
+			#endif
+
 			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getPosChildIndex()), _MM_HINT_T0);
 
 			const unsigned int splitting_axis = nodes[current].getSplittingAxis();
@@ -429,16 +429,16 @@ void ObjectTree::build(PrintOutput& print_output)
 	//------------------------------------------------------------------------
 	print_output.print("\tcalcing root AABB.");
 	{
-	
+
 	root_aabb = objects[0]->getAABBoxWS();
 
 	for(unsigned int i=0; i<objects.size(); ++i)
 		root_aabb.enlargeToHoldAABBox(objects[i]->getAABBoxWS());
 	}
 
-	print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " + 
-						"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")"); 
-							
+	print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
+						"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")");
+
 	assert(root_aabb.invariant());
 
 	//------------------------------------------------------------------------
@@ -452,11 +452,11 @@ void ObjectTree::build(PrintOutput& print_output)
 	// Alloc stack vector
 	nodestack_size = max_depth + 1;
 	//alignedSSEArrayMalloc(nodestack_size, nodestack);
-	
+
 	const int expected_numnodes = (int)((float)numtris * 1.0);
 	const int nodemem = expected_numnodes * sizeof(js::ObjectTreeNode);
 
-	print_output.print("\treserving N nodes: " + ::toString(expected_numnodes) + "(" 
+	print_output.print("\treserving N nodes: " + ::toString(expected_numnodes) + "("
 		+ ::getNiceByteSize(nodemem) + ")");
 
 	//------------------------------------------------------------------------
@@ -480,10 +480,10 @@ void ObjectTree::build(PrintOutput& print_output)
 	const uint64 numnodes = nodes.size();
 	const uint64 leafgeomsize = leafgeom.size();
 
-	print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" + 
+	print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" +
 		::getNiceByteSize((int)numnodes * sizeof(js::ObjectTreeNode)) + ")");
 
-	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" + 
+	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" +
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
 
 	/*ObjectTreeStats stats;
@@ -528,7 +528,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					)
 {
 	assert(cur >= 0 && cur < (int)nodes.size());
-	
+
 	if(nodeobjs.size() == 0)
 	{
 		//no tris were allocated to this node.
@@ -590,7 +590,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 		const int axis2 = nonsplit_axes[axis][1];
 		const float two_cap_area = cur_aabb.axisLength(axis1) * cur_aabb.axisLength(axis2) * 2.0f;
 		const float circum = (cur_aabb.axisLength(axis1) + cur_aabb.axisLength(axis2)) * 2.0f;
-		
+
 		if(cur_aabb.axisLength(axis) == 0.0f)
 			continue; // Don't try to split a zero-width bounding box
 
@@ -834,13 +834,13 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
 					assert(num_in_neg + num_in_pos >= (int)numtris);
 					//if(num_in_neg + num_in_pos < (int)numtris)
-					//	num_in_pos = 
+					//	num_in_pos =
 					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 
-					const float cost = traversal_cost + 
-						((float)num_in_neg * negchild_surface_area + 
-						(float)num_in_pos * poschild_surface_area) * 
+					const float cost = traversal_cost +
+						((float)num_in_neg * negchild_surface_area +
+						(float)num_in_pos * poschild_surface_area) *
 						recip_aabb_surf_area * intersection_cost;
 
 					if(cost < smallest_cost)
@@ -867,7 +867,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 			assert(i < upper.size());
 			const float splitval = upper[i];
-			
+
 			//if(splitval != last_splitval)
 			//{
 				if(splitval > cur_aabb.min_.x[axis] && splitval < cur_aabb.max_.x[axis])
@@ -886,9 +886,9 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					const float negchild_surface_area = two_cap_area + (splitval - cur_aabb.min_.x[axis]) * circum;
 					const float poschild_surface_area = two_cap_area + (cur_aabb.max_.x[axis] - splitval) * circum;
 
-					const float cost = traversal_cost + 
-						((float)num_in_neg * negchild_surface_area + 
-						(float)num_in_pos * poschild_surface_area) * 
+					const float cost = traversal_cost +
+						((float)num_in_neg * negchild_surface_area +
+						(float)num_in_pos * poschild_surface_area) *
 						recip_aabb_surf_area * intersection_cost;
 
 					if(cost < smallest_cost)
@@ -922,7 +922,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	//if(best_num_in_neg == 15002 && best_num_in_pos == 1)
 	//	conPrint("Splitting along axis " + toString(best_axis) + ", best_num_in_neg: " + toString(best_num_in_neg) + ", best_num_in_pos: " + toString(best_num_in_pos));
-	
+
 	assert(best_axis >= 0 && best_axis <= 2);
 	assert(best_div_val != -666.0f);
 
@@ -1066,7 +1066,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//create positive child
 	//------------------------------------------------------------------------
 	nodes.push_back(ObjectTreeNode());
-	
+
 	// Set details for current node
 	nodes[cur] = ObjectTreeNode(
 		best_axis, // splitting axis
@@ -1145,11 +1145,11 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 	{
 		if(axis == split_axis)
 		{
-			if(ob_aabb.min_[axis] == ob_aabb.max_[axis]) // Object 
+			if(ob_aabb.min_[axis] == ob_aabb.max_[axis]) // Object
 		}
 		else
 		{
-			if(ob_aabb.max_.x[axis] <= aabb.min_.x[axis] || 
+			if(ob_aabb.max_.x[axis] <= aabb.min_.x[axis] ||
 				ob_aabb.min_.x[axis] >= aabb.max_.x[axis])
 			{
 				return false;
@@ -1169,7 +1169,7 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 			//ONLY tris hitting the MIN plane are considered in AABB
 			/*if(trimax[i] < aabb.min[i])//if less than min
 				return false;//not in box
-			
+
 			if(trimin[i] >= aabb.max[i])//if tris is touching max in this axis
 			{
 				if(aabb.min[i] == aabb.max[i])//must hit the zero width box
@@ -1210,10 +1210,10 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 		}
 		else
 		{
-			//tris touching min or max planes are considered in aabb	
+			//tris touching min or max planes are considered in aabb
 			if(ob_aabb.max_.x[i] < aabb.min_.x[i])
 				return false;
-			
+
 			if(ob_aabb.min_.x[i] > aabb.max_.x[i])
 				return false;
 		}
@@ -1253,7 +1253,7 @@ void ObjectTree::writeTreeModel(std::ostream& stream)
 
 
 /*
-void ObjectTree::doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, 
+void ObjectTree::doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream,
 							  int& num_verts) const
 {
 	const TreeNode& node = nodes[currentnode];
@@ -1315,10 +1315,10 @@ void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 			out << "  ";
 
 		out << "leaf node (num leaf tris: " << nodes[cur].getNumLeafGeom() << ")\n";
-	
+
 	}
 	else
-	{	
+	{
 		//process neg child
 		this->printTree(cur + 1, depth + 1, out);
 
@@ -1327,20 +1327,20 @@ void ObjectTree::printTree(int cur, int depth, std::ostream& out)
 
 		out << "interior node (split axis: "  << nodes[cur].getSplittingAxis() << ", split val: "
 				<< nodes[cur].data2.dividing_val << ")\n";
-		
+
 		//process pos child
 		this->printTree(nodes[cur].getPosChildIndex(), depth + 1, out);
-	
+
 	}
 }
 
 
 //just for debugging
-ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray, 
-											ThreadContext& thread_context, 
+ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
+											ThreadContext& thread_context,
 											//js::ObjectTreePerThreadData& object_context,
 											double time,
-											const INTERSECTABLE_TYPE*& hitob_out, 
+											const INTERSECTABLE_TYPE*& hitob_out,
 											HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
@@ -1406,7 +1406,7 @@ void ObjectTree::getTreeStats(ObjectTreeStats& stats_out, int cur, int depth)
 
 		stats_out.average_leafnode_depth /= (double)stats_out.num_leaf_nodes;
 		stats_out.average_objects_per_leafnode = (double)stats_out.num_leafgeom_objects / (double)stats_out.num_leaf_nodes;
-	
+
 		stats_out.max_depth = max_depth;
 
 		stats_out.total_node_mem = (int)nodes.size() * sizeof(ObjectTreeNode);
