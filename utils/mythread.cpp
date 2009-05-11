@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <process.h>
 #endif
 #include "stringutils.h"
+#include <iostream>
 
 
 MyThread::MyThread()
@@ -24,7 +25,7 @@ MyThread::MyThread()
 
 
 MyThread::~MyThread()
-{	
+{
 }
 
 
@@ -36,7 +37,7 @@ void MyThread::launch(bool autodelete_)
 
 #if defined(WIN32) || defined(WIN64)
 	thread_handle = (HANDLE)_beginthread(
-		threadFunction, 
+		threadFunction,
 		0, // Stack size
 		this // arglist
 		);
@@ -52,7 +53,7 @@ void MyThread::launch(bool autodelete_)
 
 
 #if defined(WIN32) || defined(WIN64)
-	void 
+	void
 #else
 	void*
 #endif
@@ -99,11 +100,23 @@ void MyThread::setPriority(Priority p)
 	if(res == 0)
 		throw MyThreadExcep("SetThreadPriority failed: " + toString((unsigned int)GetLastError()));
 #else
-	pthread_attr_t tattr;
+	throw MyThreadExcep("Can't change thread priority after creation on Linux or OS X");
+	/*// Get current priority
+	int policy;
 	sched_param param;
-	param.sched_priority = 30;
-	const int res = pthread_attr_setschedparam(&tattr, &param);
+	const int ret = pthread_getschedparam(thread_handle, &policy, &param);
+	if(ret != 0)
+		throw MyThreadExcep("pthread_getschedparam failed: " + toString(ret));
+	std::cout << "param.sched_priority: " << param.sched_priority << std::endl;
+
+	std::cout << "SCHED_OTHER: " << SCHED_OTHER << std::endl;
+	std::cout << "policy: " << policy << std::endl;
+
+
+	//sched_param param;
+	param.sched_priority = -1;
+	const int res = pthread_setschedparam(thread_handle, policy, &param);
 	if(res != 0)
-		throw MyThreadExcep("pthread_attr_setschedparam failed: " + toString((unsigned int)GetLastError())); 
+		throw MyThreadExcep("pthread_setschedparam failed: " + toString(res));*/
 #endif
 }
