@@ -14,6 +14,17 @@ Code By Nicholas Chapman.
 #else
 #include <pthread.h>
 #endif
+#include <string>
+
+
+class MyThreadExcep
+{
+public:
+	MyThreadExcep(const std::string& text_) : text(text_) {}
+	const std::string& what() const { return text; }
+private:
+	std::string text;
+};
 
 
 /*=====================================================================
@@ -32,6 +43,13 @@ public:
 	void launch(bool autodelete = true);
 
 	void join(); // Wait for thread termination
+
+	enum Priority
+	{
+		Priority_Normal,
+		Priority_BelowNormal
+	};
+	void setPriority(Priority p); // throws MyThreadExcep
 
 private:
 
