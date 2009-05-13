@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include <netdb.h>//gethostbyname
 #include <string.h>//strerror_r
 #include <errno.h>
+#include <unistd.h>//gethostname
 #endif
 
 //#include "../cyberspace/globals.h"
@@ -301,6 +302,17 @@ const std::string Networking::doReverseDNSLookup(const IPAddress& ipaddress) // 
 
 	return hostaddr->h_name;
 }
+
+
+const std::string Networking::getHostName() // throws NetworkingExcep
+{
+	char buf[2048];
+	const int result = ::gethostname(buf, sizeof(buf));
+	if(result != 0)
+		throw NetworkingExcep("gethostname failed: " + getError());
+	return std::string(buf);
+}
+
 
 /*void Networking::makeSocketsShutDown()
 {

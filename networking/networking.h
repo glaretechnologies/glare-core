@@ -74,6 +74,9 @@ public:
 	const std::string doReverseDNSLookup(const IPAddress& ipaddr);// throw (NetworkingExcep);
 
 
+	static const std::string getHostName(); // throws NetworkingExcep
+
+
 	//-----------------------------------------------------------------
 	//singleton stuff
 	//-----------------------------------------------------------------
