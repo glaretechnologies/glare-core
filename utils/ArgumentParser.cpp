@@ -195,6 +195,12 @@ void ArgumentParser::setStringArg(const std::string& name, const std::string& s)
 }
 
 
+void ArgumentParser::removeArg(const std::string& name)
+{
+	parsed_args.erase(name);
+}
+
+
 const std::string ArgumentParser::ParsedArg::toString() const
 {
 	if(type == ArgumentType_string)

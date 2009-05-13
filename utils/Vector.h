@@ -39,6 +39,7 @@ class Vector
 public:
 	inline Vector();
 	inline Vector(unsigned int count, const T& val);
+	inline Vector(const Vector& other);
 	inline ~Vector();
 
 	inline Vector& operator=(const Vector& other);
@@ -63,7 +64,7 @@ public:
 	inline const_iterator end() const;
 
 private:
-	Vector(const Vector& other);
+	
 	
 	static inline void copy(const T* const src, T* dst, unsigned int num);
 
@@ -94,6 +95,16 @@ Vector<T, alignment>::Vector(unsigned int count, const T& val)
 	resize(count);
 	for(unsigned int i=0; i<count; ++i)
 		e[i] = val;
+}
+
+
+template <class T, int alignment>
+Vector<T, alignment>::Vector(const Vector<T, alignment>& other)
+:	e(0),
+	size_(0),
+	capacity_(0)
+{
+	*this = other;
 }
 
 

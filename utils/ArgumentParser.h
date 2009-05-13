@@ -87,6 +87,7 @@ public:
 
 	void setArg(const std::string& name, const std::vector<ParsedArg>& args_) { parsed_args[name] = args_; }
 	void setStringArg(const std::string& name, const std::string& s);
+	void removeArg(const std::string& name);
 
 	//const std::vector<std::string>& getOriginalArgs() const { return args; }
 	//const std::string getOriginalArgsAsString() const;
