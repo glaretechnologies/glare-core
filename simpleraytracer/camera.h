@@ -69,7 +69,7 @@ public:
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
 		Aperture* aperture,
-		const std::string& base_indigo_path,
+		const std::string& appdata_path,
 		double lens_shift_up_distance,
 		double lens_shift_right_distance,
 		bool write_aperture_preview
@@ -190,7 +190,7 @@ public:
 
 	
 
-	void prepareForDiffractionFilter(const std::string& base_indigo_path, int main_buffer_width, int main_buffer_height);
+	void prepareForDiffractionFilter(/*const std::string& base_indigo_path, */int main_buffer_width, int main_buffer_height);
 	void buildDiffractionFilter(/*const std::string& base_indigo_path*/) const;
 	void buildDiffractionFilterImage(/*int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path*/) const;
 
@@ -296,9 +296,11 @@ private:
 	double lens_shift_right_distance;
 
 	// Stuff for Lazy calculation of diffraction filter
-	std::string base_indigo_path;
+	std::string appdata_path;
 	int main_buffer_width;
 	int main_buffer_height;
+
+	bool write_aperture_preview;
 };
 
 

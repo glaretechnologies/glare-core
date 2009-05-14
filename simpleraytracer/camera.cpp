@@ -48,10 +48,10 @@ Camera::Camera(
 		double glare_weight_, double glare_radius_, int glare_num_blades_,
 		double exposure_duration_,
 		Aperture* aperture_,
-		const std::string& base_indigo_path,
+		const std::string& appdata_path_,
 		double lens_shift_up_distance_,
 		double lens_shift_right_distance_,
-		bool write_aperture_preview
+		bool write_aperture_preview_
 		)
 :	lens_radius(lens_radius_),
 	focus_distance(focus_distance_),
@@ -68,8 +68,10 @@ Camera::Camera(
 //	colour_space_converter(NULL),
 	diffraction_filter(NULL),
 	aperture(aperture_),
+	appdata_path(appdata_path_),
 	lens_shift_up_distance(lens_shift_up_distance_),
-	lens_shift_right_distance(lens_shift_right_distance_)
+	lens_shift_right_distance(lens_shift_right_distance_),
+	write_aperture_preview(write_aperture_preview_)
 {
 
 	if(lens_radius <= 0.0)
@@ -196,7 +198,7 @@ Camera::Camera(
 			//aperture_preview_image.saveToPng(FileUtils::join(base_indigo_path, "aperture_preview.png"), metadata, 0);
 			Bitmap ldr_image(aperture_preview_image.getWidth(), aperture_preview_image.getHeight(), 3, NULL);
 			aperture_preview_image.copyRegionToBitmap(ldr_image, 0, 0, aperture_preview_image.getWidth(), aperture_preview_image.getHeight());
-			PNGDecoder::write(ldr_image, metadata, FileUtils::join(base_indigo_path, "aperture_preview.png"));
+			PNGDecoder::write(ldr_image, metadata, FileUtils::join(appdata_path, "aperture_preview.png"));
 		}
 		catch(ImageExcep& e)
 		{
@@ -238,9 +240,9 @@ Camera::~Camera()
 }
 
 
-void Camera::prepareForDiffractionFilter(const std::string& base_indigo_path_, int main_buffer_width_, int main_buffer_height_)
+void Camera::prepareForDiffractionFilter(/*const std::string& base_indigo_path_, */int main_buffer_width_, int main_buffer_height_)
 {
-	base_indigo_path = base_indigo_path_;
+	//base_indigo_path = base_indigo_path_;
 	main_buffer_width = main_buffer_width_;
 	main_buffer_height = main_buffer_height_;
 }
@@ -254,7 +256,8 @@ void Camera::buildDiffractionFilter(/*const std::string& base_indigo_path*/) con
 		diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
 			lens_radius,
 			*aperture,
-			base_indigo_path
+			appdata_path,
+			this->write_aperture_preview
 			));
 	//}
 	//catch(DiffractionFilterExcep& e)
@@ -532,30 +535,33 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 
 	//TEMP: save diffraction image-------------------------------------------------------
-	Image save_image = *diffraction_filter_image;
-
-	//IndigoImage igi;
-	//igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
-
-	//save_image.scale(100000.0f);
-	save_image.scale(10000.0f / save_image.maxLuminance());
-	save_image.posClamp();
-
-	try
+	if(this->write_aperture_preview)
 	{
-		//save_image.saveToPng(FileUtils::join(preview_save_dir, "diffraction_preview.png"), dummy_metadata, 0);
-		Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
-		save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
-		std::map<std::string, std::string> dummy_metadata;
-		PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(base_indigo_path, "XYZ_diffraction_preview.png"));
-	}
-	catch(ImageExcep& e)
-	{
-		conPrint("ImageExcep: " + e.what());
-	}
-	catch(ImFormatExcep& e)
-	{
-		conPrint("ImageExcep: " + e.what());
+		Image save_image = *diffraction_filter_image;
+
+		//IndigoImage igi;
+		//igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
+
+		//save_image.scale(100000.0f);
+		save_image.scale(10000.0f / save_image.maxLuminance());
+		save_image.posClamp();
+
+		try
+		{
+			//save_image.saveToPng(FileUtils::join(preview_save_dir, "diffraction_preview.png"), dummy_metadata, 0);
+			Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
+			save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
+			std::map<std::string, std::string> dummy_metadata;
+			PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview.png"));
+		}
+		catch(ImageExcep& e)
+		{
+			conPrint("ImageExcep: " + e.what());
+		}
+		catch(ImFormatExcep& e)
+		{
+			conPrint("ImageExcep: " + e.what());
+		}
 	}
 	//---------------------------------------------------------------------------------------
 
