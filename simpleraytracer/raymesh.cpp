@@ -315,7 +315,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			const unsigned int tree_checksum = tritree->checksum();
 			const std::string path = FileUtils::join(
 				appdata_path, 
-				FileUtils::join("tree_cache", toString(tree_checksum) + ".tre")
+				FileUtils::join("cache/tree_cache", toString(tree_checksum) + ".tre")
 				);
 
 			std::ifstream file(path.c_str(), std::ifstream::binary);
@@ -364,7 +364,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 				//------------------------------------------------------------------------
 				const std::string path = FileUtils::join(
 					appdata_path, 
-					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
+					FileUtils::join("cache/tree_cache", toString(tritree->checksum()) + ".tre")
 					);
 
 				print_output.print("\tSaving tree to '" + path + "'...");
