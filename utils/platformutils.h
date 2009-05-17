@@ -31,7 +31,7 @@ private:
 };
 
 
-void Sleep(int x);//make current thread sleep for x milliseconds
+void Sleep(int x); // Make current thread sleep for x milliseconds
 
 
 unsigned int getNumLogicalProcessors();

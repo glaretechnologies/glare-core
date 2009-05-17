@@ -35,7 +35,7 @@ void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<Threa
 }
 
 
-bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMessage was in the queue.
+/*bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMessage was in the queue.
 {
 	bool found_kill_thread_message = false;
 	
@@ -50,4 +50,4 @@ bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMe
 	}
 
 	return found_kill_thread_message;
-}
+}*/

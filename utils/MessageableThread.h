@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "ThreadMessage.h"
 class ThreadManager;
 
+
 /*=====================================================================
 MessageableThread
 -----------------
@@ -21,11 +22,6 @@ MessageableThread
 class MessageableThread : public MyThread
 {
 public:
-	/*=====================================================================
-	MessageableThread
-	-----------------
-	
-	=====================================================================*/
 	MessageableThread();
 
 	virtual ~MessageableThread();
@@ -34,7 +30,7 @@ public:
 	void set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessage*>* message_queue);
 
 protected:
-	bool deleteQueuedMessages(); // Returns true if a KillThreadMessage was in the queue.
+	//bool deleteQueuedMessages(); // Returns true if a KillThreadMessage was in the queue.
 
 	ThreadSafeQueue<ThreadMessage*>& getMessageQueue() { return *mesthread_message_queue; }
 	ThreadManager& getThreadManager() { return *mesthread_thread_manager; }
@@ -45,9 +41,4 @@ private:
 };
 
 
-
 #endif //__MESSAGEABLETHREAD_H_666_
-
-
-
-

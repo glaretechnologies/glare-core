@@ -20,22 +20,7 @@ ThreadManager::ThreadManager()
 
 ThreadManager::~ThreadManager()
 {
-	//conPrint("ThreadManager::~ThreadManager()");
-	
 	killThreadsBlocking();
-
-	/*Lock lock(mutex);
-	for(MESSAGE_QUEUE_MAP_TYPE::iterator i=dead_message_queues.begin(); i!=dead_message_queues.end(); ++i)
-	{
-		MESSAGE_QUEUE_TYPE* queue = (*i).second;
-		while(!queue->empty())
-		{
-			ThreadMessage* m;
-			queue->dequeue(m);
-			delete m;
-		}
-		delete queue;
-	}*/
 }
 
 
@@ -57,7 +42,7 @@ void ThreadManager::killThreadsBlocking()
 	killThreadsNonBlocking();
 
 	// Wait for threads to kill themselves
-	while(1)
+	/*while(1)
 	{
 		//conPrint("Waiting..." + toString((int)message_queues.size()));
 		{
@@ -65,7 +50,27 @@ void ThreadManager::killThreadsBlocking()
 		if(message_queues.size() == 0)
 			break;
 		}
-		PlatformUtils::Sleep(500);
+		PlatformUtils::Sleep(100);
+	}*/
+
+	while(1)
+	{
+		{
+			Lock lock(mutex);
+
+			if(message_queues.size() == 0)
+				break;
+
+			// Suspend this thread until one of the worker threads terminates and calls thread_terminated_condition.notify().
+			const bool signalled = thread_terminated_condition.wait(
+				mutex,
+				true, // infinite wait time
+				0.0 // wait time (s) (n/a)
+				);
+
+			if(message_queues.size() == 0)
+				break;
+		}
 	}
 }
 
@@ -84,30 +89,30 @@ void ThreadManager::threadTerminating(MessageableThread* t)
 
 	Lock lock(mutex);
 
-	// Delete any messages in the queue
+	// Delete any messages in the queue for this thread
 	MESSAGE_QUEUE_TYPE* queue = (*message_queues.find(t)).second;
 	if(queue)
 	{
-		while(!queue->empty())
+		// Delete any messages still in the queue
 		{
-			ThreadMessage* m;
-			queue->dequeue(m);
-			delete m;
-		}
+			Lock queue_lock(queue->getMutex());
+
+			while(!queue->unlockedEmpty())
+			{
+				ThreadMessage* m;
+				queue->unlockedDequeue(m);
+				delete m;
+			}
+		} // End of queue lock scope.
+
 		// Delete the queue
 		delete queue;
 	}
+
 	// Remove queue from list of queues
 	message_queues.erase(t);
 
-
-	/*MESSAGE_QUEUE_MAP_TYPE::iterator r = message_queues.find(t);
-	
-	if(r != message_queues.end())
-	{
-		dead_message_queues.insert(*r);
-		message_queues.erase(r);
-	}*/
+	thread_terminated_condition.notify();
 }
 
 
@@ -121,18 +126,17 @@ void ThreadManager::addThread(MessageableThread* t)
 	// Add it to list of message queues
 	message_queues[t] = msg_queue;
 
-	// Tell the thread the message queue and this.
+	// Tell the thread the message queue and 'this'.
 	t->set(this, msg_queue);
 
 	// Launch the thread
 	t->launch(true);
-
 }
 
 
-unsigned int ThreadManager::getNumThreadsRunning()
+/*unsigned int ThreadManager::getNumThreadsRunning()
 {
 	Lock lock(mutex);
 
 	return message_queues.size();
-}
+}*/

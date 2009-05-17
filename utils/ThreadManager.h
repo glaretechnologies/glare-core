@@ -11,27 +11,19 @@ Code By Nicholas Chapman.
 #include "threadsafequeue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
-//#include "../utils/singleton.h"
 #include <map>
+
 
 /*=====================================================================
 ThreadManager
 -------------
 
 =====================================================================*/
-class ThreadManager// : public Singleton<ThreadManager>
+class ThreadManager
 {
 public:
-	/*=====================================================================
-	ThreadManager
-	-------------
-	
-	=====================================================================*/
 	ThreadManager();
-
 	~ThreadManager();
-
-
 
 
 	void addThread(MessageableThread* t);
@@ -45,21 +37,17 @@ public:
 	// Called by threads when they are about to terminate
 	void threadTerminating(MessageableThread* t);
 
-	unsigned int getNumThreadsRunning();
+	//unsigned int getNumThreadsRunning();
 
 private:
 	typedef ThreadSafeQueue<ThreadMessage*> MESSAGE_QUEUE_TYPE;
 	typedef std::map<MessageableThread*, MESSAGE_QUEUE_TYPE*> MESSAGE_QUEUE_MAP_TYPE;
 	MESSAGE_QUEUE_MAP_TYPE message_queues;
-	//MESSAGE_QUEUE_MAP_TYPE dead_message_queues;
 
 	Mutex mutex;
+
+	Condition thread_terminated_condition;
 };
 
 
-
 #endif //__THREADMANAGER_H_666_
-
-
-
-

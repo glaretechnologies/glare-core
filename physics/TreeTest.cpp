@@ -877,8 +877,6 @@ void TreeTest::buildSpeedTest()
 		);
 
 	printVar(timer.getSecondsElapsed());
-
-	PlatformUtils::Sleep(10000);
 }
 
 
