@@ -25,11 +25,14 @@ public:
 	inline Complex(Real a_, Real b_);
 	inline ~Complex(){}
 
+	inline static const Complex fromModulusAndArg(Real modulus, Real arg);
+
 
 	inline const Complex operator * (Real x) const;
 	inline const Complex operator * (const Complex& other) const;
 	inline const Complex operator / (const Complex& other) const;
 	inline const Complex operator + (const Complex& other) const;
+	inline void operator += (const Complex& other);
 
 	inline Real re() const { return a; }
 	inline Real im() const { return b; }
@@ -45,6 +48,13 @@ template <class Real>
 Complex<Real>::Complex(Real a_, Real b_)
 :	a(a_), b(b_)
 {}
+
+
+template <class Real>
+const Complex<Real> Complex<Real>::fromModulusAndArg(Real modulus, Real arg)
+{
+	return Complex(std::cos(arg) * modulus, std::sin(arg) * modulus);
+}
 
 
 template <class Real>
@@ -72,6 +82,14 @@ template <class Real>
 const Complex<Real> Complex<Real>::operator + (const Complex<Real>& other) const
 {
 	return Complex<Real>(a + other.a, b + other.b) ;
+}
+
+
+template <class Real>
+void Complex<Real>::operator += (const Complex<Real>& other)
+{
+	a += other.a;
+	b += other.b;
 }
 
 

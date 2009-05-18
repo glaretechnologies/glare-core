@@ -105,6 +105,8 @@ namespace MatUtils
 	// Returns (phi, theta)
 	template <class Real> inline const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length);
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
+	inline void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out);
+
 
 	// Returns unit length vector
 	template <class Real> inline const Vec3<Real> dirForSphericalCoords(Real phi, Real theta);
@@ -259,6 +261,16 @@ const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length)
 		acos(myClamp(dir[2] * recip_dir_length, -1.0f, 1.0f)) // theta
 		);
 }
+
+
+void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out)
+{
+	//NOTE: the clamp is in there to avoid the spitting out of a NaN
+	phi_out = std::atan2(dir.x[1], dir.x[0]);
+	theta_out = std::acos(myClamp(dir.x[2] * recip_dir_length, -1.0f, 1.0f));
+}
+
+
 
 
 template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real theta)

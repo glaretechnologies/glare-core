@@ -302,7 +302,9 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectance(Real n, Real k, 
 
 
 // Returns (F_perp, F_par)
+// Where F is the reflectance.
 // From 'Digital Modelling of Material Appearance', page 99, eq 5.24
+// Also in 'Ray tracing with polarization parameters', Wolff and Kurlander
 template <class Real>
 const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta)
 {
@@ -310,14 +312,14 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Rea
 
 	const Real cos2_theta = cos_theta*cos_theta;
 	const Real sin2_theta = 1.0f - cos_theta*cos_theta;
-	const Real sin_theta = sqrt(sin2_theta);
+	const Real sin_theta = std::sqrt(sin2_theta);
 	const Real tan_theta = sin_theta / cos_theta;
 
-	const Real a2 = 0.5f * (sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) + n*n - k*k - sin2_theta);
+	const Real a2 = 0.5f * (std::sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) + n*n - k*k - sin2_theta);
 
-	const Real b2 = 0.5f * (sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) - (n*n - k*k - sin2_theta));
+	const Real b2 = 0.5f * (std::sqrt(Maths::square(n*n - k*k - sin2_theta) + 4*n*n*k*k) - (n*n - k*k - sin2_theta));
 
-	const Real a = sqrt(a2);
+	const Real a = std::sqrt(a2);
 	//const Real b = sqrt(b2);
 	const Real F_perp = (a2 + b2 - 2.0f*a*cos_theta + cos2_theta) / (a2 + b2 + 2.0f*a*cos_theta + cos2_theta);
 	const Real F_par = F_perp * (a2 + b2 - 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta) / (a2 + b2 + 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta);
@@ -435,7 +437,7 @@ void MatUtils::unitTest()
 
 
 	{
-		const Vec4f d = sphericalToCartesianCoords(NICKMATHS_PI * (3.0/2.0), cos(NICKMATHS_PI_2), Matrix4f::identity());
+		const Vec4f d = sphericalToCartesianCoords((float)NICKMATHS_PI * (3.0f/2.0f), cos((float)NICKMATHS_PI_2), Matrix4f::identity());
 		assert(epsEqual(d, Vec4f(0, -1, 0,0)));
 	}
 

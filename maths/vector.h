@@ -1,31 +1,27 @@
 #ifndef __VECTOR_H__
 #define __VECTOR_H__
 
+
 #include "../maths/mathstypes.h"
-#include <assert.h>
+#include <cassert>
 #include <vector>
 
-//class Graphics2d;
-//class VectorIterator;
-//class ConstVectorIterator;
-//class Vec3;
 
 template <class Real>
 class Vector
 {
 public:
 	inline Vector(int dimension);
+	inline Vector(int dimension, Real initial_value);
 	inline Vector();
 	inline Vector(int dimension, const Real* data);
 	inline Vector(const Vector& rhs);
 
 	inline ~Vector();
 
-	//inline void checkResize(int newdimension);
-
 	//aliases:
 	inline int getDim() const { return dimension; }
-	inline int size() const { return dimension; }
+	inline int size() const { return data.size(); }
 	inline int getSize() const { return dimension; }
 
 	inline Real operator[] (int index) const;
@@ -41,7 +37,7 @@ public:
 	inline Vector& operator -= (const Vector& rhs);
 	inline Vector& operator += (const Vector& rhs);
 
-	inline Vector& addFirstNElements(const Vector& rhs, int N);
+	//inline Vector& addFirstNElements(const Vector& rhs, int N);
 
 	inline Vector operator * (Real factor) const;
 
@@ -64,20 +60,13 @@ public:
 	inline const Real* toReal() const;
 	inline Real* toReal();
 
-	//typedef VectorIterator iterator;
 	typedef typename std::vector<Real>::iterator iterator;
 	inline iterator begin();
 	inline iterator end();
 
-	//typedef ConstVectorIterator const_iterator;
 	typedef typename std::vector<Real>::const_iterator const_iterator;
 	inline const_iterator const_begin() const;
 	inline const_iterator const_end() const;
-
-//	inline ConstVectorIterator const_begin() const; { return begin(); }
-
-	//void draw(Graphics2d& graphics, int xpos, int ypos, int maxbaramp, float scale, 
-	//	float width, const Vec3& colour) const;
 
 	inline Real sum() const;
 	inline Real averageValue() const;
@@ -89,207 +78,48 @@ public:
 	//static void test();
 
 private:
-	int dimension;
-	//Real* data;
 	std::vector<Real> data;
 };
 
 
-
-
-
-/*
-class VectorIterator
-{
-public:
-	inline VectorIterator(Vector* vec, int index);
-	inline VectorIterator(const VectorIterator& rhs);
-	inline ~VectorIterator();
-
-
-	inline VectorIterator& operator = (const VectorIterator& rhs);
-	inline float& operator * () const;
-	inline VectorIterator& operator ++ ();
-	inline void operator ++ (int);
-	inline bool operator != (const VectorIterator& rhs) const; 
-	int getIndex() const { return index; }
-
-private:
-	Vector* vec;
-	int index;
-};
-
-
-
-class ConstVectorIterator
-{
-public:
-	inline ConstVectorIterator(const Vector* vec, int index);
-	inline ConstVectorIterator(const ConstVectorIterator& rhs);
-	inline ~ConstVectorIterator();
-
-
-	inline ConstVectorIterator& operator = (const ConstVectorIterator& rhs);
-	inline float operator * () const;
-	inline ConstVectorIterator& operator ++ ();
-	inline void operator ++ (int);
-	inline bool operator != (const ConstVectorIterator& rhs) const; 
-	int getIndex() const { return index; }
-
-private:
-	const Vector* vec;
-	int index;
-};
-
-
-
-VectorIterator::VectorIterator(Vector* vec_, int index_)
-{
-	vec = vec_;
-	index = index_;
-}
-
-VectorIterator::VectorIterator(const VectorIterator& rhs)
-{
-	vec = rhs.vec;
-	index = rhs.index;
-}
-
-VectorIterator::~VectorIterator()
+template <class Real>
+Vector<Real>::Vector(int dimension_)
+:	data(dimension_)
 {
 }
-
-
-VectorIterator& VectorIterator::operator = (const VectorIterator& rhs)
-{
-	vec = rhs.vec;
-	index = rhs.index;
-}
-
-float& VectorIterator::operator * () const
-{
-	return (*vec)[index];
-}
-
-VectorIterator& VectorIterator::operator ++ ()
-{
-	index++;
-	return *this;
-}
-void VectorIterator::operator ++ (int)
-{
-	index++;
-}
-
-
-bool VectorIterator::operator != (const VectorIterator& rhs) const
-{
-	assert(rhs.vec == vec);
-	return index != rhs.index;
-}
-
-
-
-
-
-ConstVectorIterator::ConstVectorIterator(const Vector* vec_, int index_)
-{
-	vec = vec_;
-	index = index_;
-}
-
-ConstVectorIterator::ConstVectorIterator(const ConstVectorIterator& rhs)
-{
-	vec = rhs.vec;
-	index = rhs.index;
-}
-
-ConstVectorIterator::~ConstVectorIterator()
-{
-}
-
-
-ConstVectorIterator& ConstVectorIterator::operator = (const ConstVectorIterator& rhs)
-{
-	vec = rhs.vec;
-	index = rhs.index;
-}
-
-float ConstVectorIterator::operator * () const
-{
-	return (*vec)[index];
-}
-
-ConstVectorIterator& ConstVectorIterator::operator ++ ()
-{
-	index++;
-	return *this;
-}
-void ConstVectorIterator::operator ++ (int)
-{
-	index++;
-}
-
-
-bool ConstVectorIterator::operator != (const ConstVectorIterator& rhs) const
-{
-	assert(rhs.vec == vec);
-	return index != rhs.index;
-}
-*/
-
-
 
 
 template <class Real>
-Vector<Real>::Vector(int dimension_)
+Vector<Real>::Vector(int dimension_, Real initial_value)
+:	data(dimension_, initial_value)
 {
-	dimension = dimension_;
-	//data = new Real[dimension];
-	data.resize(dimension);
 }
 
 template <class Real>
 Vector<Real>::Vector(const Vector& rhs)
 {
-	dimension = rhs.dimension;
-
-	//data = new Real[dimension];
-	data.resize(dimension);
-
-	for(int i=0; i<dimension; i++)
-		data[i] = rhs.data[i];
+	data = rhs.data;
 }
 
 template <class Real>
 Vector<Real>::Vector()
 {
-	dimension = 0;
-	//data = 0;
 }
 
 template <class Real>
 Vector<Real>::Vector(int dimension_, const Real* newdata)
 {
 	assert(newdata);
-	dimension = dimension_;
+	data.resize(dimension_);
 
-	//data = new Real[dimension];
-	data.resize(dimension);
-
-	for(int i=0; i<dimension; i++)
+	for(int i=0; i<dimension_; i++)
 		data[i] = newdata[i];
 }
-
-	
-
-
 
 
 template <class Real>
 Vector<Real>::~Vector()
 {
-	//delete[] data;
 }
 
 
@@ -304,29 +134,13 @@ Real Vector<Real>::operator[] (int index) const
 template <class Real>
 Real& Vector<Real>::operator[] (int index)
 {
-	assert(index >= 0 && index < dimension);
-	
 	return data[index];
 }
 
 template <class Real>
 Vector<Real>& Vector<Real>::operator = (const Vector& rhs)
 {
-	if(dimension != rhs.dimension)
-	{
-		//delete[] data;
-
-		dimension = rhs.dimension;
-
-		//data = new Real[dimension];
-		data.resize(rhs.dimension);
-	}
-
-	for(int i=0; i<dimension; i++)
-	{
-		data[i] = rhs.data[i];
-	}
-
+	data = rhs.data;
 	return *this;
 }
 
@@ -336,14 +150,12 @@ Vector<Real>& Vector<Real>::operator = (const Vector& rhs)
 template <class Real>
 bool Vector<Real>::operator == (const Vector& rhs) const
 {
-	if(dimension != rhs.dimension)
+	if(data.size() != rhs.size())
 		return false;
 
-	for(int i=0; i<dimension; i++)
-	{
+	for(int i=0; i<data.size(); ++i)
 		if(data[i] != rhs.data[i])
 			return false;
-	}
 
 	return true;
 }
@@ -362,9 +174,6 @@ Vector<Real> Vector<Real>::operator - (const Vector& rhs) const
 }
 
 
-
-
-
 template <class Real>
 Vector<Real> Vector<Real>::operator + (const Vector& rhs) const
 {
@@ -378,9 +187,6 @@ Vector<Real> Vector<Real>::operator + (const Vector& rhs) const
 }
 
 
-
-
-
 template <class Real>
 Vector<Real>& Vector<Real>::operator -= (const Vector& rhs)
 {
@@ -391,6 +197,7 @@ Vector<Real>& Vector<Real>::operator -= (const Vector& rhs)
 
 	return *this;
 }
+
 
 template <class Real>
 Vector<Real>& Vector<Real>::operator += (const Vector& rhs)
@@ -404,6 +211,7 @@ Vector<Real>& Vector<Real>::operator += (const Vector& rhs)
 }
 
 
+/*
 template <class Real>
 Vector<Real>& Vector<Real>::addFirstNElements(const Vector& rhs, int N)
 {
@@ -414,8 +222,8 @@ Vector<Real>& Vector<Real>::addFirstNElements(const Vector& rhs, int N)
 
 	return *this;
 }
-
-
+*/
+/*
 template <class Real>
 Vector<Real> Vector<Real>::operator * (Real factor) const
 {
@@ -426,16 +234,18 @@ Vector<Real> Vector<Real>::operator * (Real factor) const
 
 	return newvec;
 }
+*/
 
 
 template <class Real>
 Vector<Real>& Vector<Real>::operator *= (Real factor)
 {
-	for(int i=0; i<dimension; i++)
+	for(int i=0; i<data.size(); i++)
 		data[i] *= factor;
 
 	return *this;
 }
+
 
 template <class Real>
 inline Vector<Real>& Vector<Real>::scale(Real factor)
@@ -446,6 +256,7 @@ inline Vector<Real>& Vector<Real>::scale(Real factor)
 }
 
 
+/*
 template <class Real>
 Vector<Real> Vector<Real>::operator / (Real factor) const
 {
@@ -500,8 +311,8 @@ Real Vector<Real>::length2() const
 		length2 += data[i]*data[i];
 
 	return length2;
-}
-
+}*/
+/*
 
 
 template <class Real>
@@ -527,8 +338,8 @@ Real Vector<Real>::angle(const Vector& rhs) const
 	rhsnormized.normalise();
 
 	return thisnormized.angleNormized(rhsnormized);
-}
-
+}*/
+/*
 template <class Real>
 Real Vector<Real>::angleNormized(const Vector& rhs) const
 {
@@ -556,35 +367,38 @@ Real* Vector<Real>::toReal()
 {
 	return data;
 }
-
+*/
 
 
 template <class Real>
 typename Vector<Real>::iterator Vector<Real>::begin() 
 {
-	return data.begin();//VectorIterator(this, 0);
+	return data.begin();
 }
+
 
 template <class Real>
 typename Vector<Real>::iterator Vector<Real>::end()
 {
-	return data.end(); //VectorIterator(this, dimension);
+	return data.end();
 }
+
 
 template <class Real>
 typename Vector<Real>::const_iterator Vector<Real>::const_begin() const
 {
-	return data.begin(); //ConstVectorIterator(this, 0);
+	return data.begin();
 }
+
 
 template <class Real>
 typename Vector<Real>::const_iterator Vector<Real>::const_end() const
 {
-	return data.end(); //ConstVectorIterator(this, dimension);
+	return data.end();
 }
 
 
-
+/*
 template <class Real>
 Real Vector<Real>::sum() const
 {
@@ -612,8 +426,8 @@ Real Vector<Real>::variance() const
 	
 	return diffsum / (Real)dimension;
 }
-
-
+*/
+/*
 template <class Real>
 Real Vector<Real>::Min() const
 {
@@ -635,9 +449,7 @@ Real Vector<Real>::Max() const
 	return x;
 }
 
-
-
-
+*/
 
 
 #endif //__VECTOR_H__
