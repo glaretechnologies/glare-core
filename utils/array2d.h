@@ -59,6 +59,9 @@ public:
 	inline Field* rowBegin(unsigned int y);
 	inline Field* rowEnd(unsigned int y);
 
+	inline const Field* rowBegin(unsigned int y) const;
+	inline const Field* rowEnd(unsigned int y) const;
+
 private:
 	void resizeAndScrapData(unsigned int newdim1, unsigned int newdim2);
 
@@ -211,6 +214,18 @@ Field* Array2d<Field>::rowBegin(unsigned int y)
 
 template <class Field>
 Field* Array2d<Field>::rowEnd(unsigned int y)
+{
+	return data + ((y + 1) * dim1);
+}
+
+template <class Field>
+const Field* Array2d<Field>::rowBegin(unsigned int y) const
+{
+	return data + (y * dim1);
+}
+
+template <class Field>
+const Field* Array2d<Field>::rowEnd(unsigned int y) const
 {
 	return data + ((y + 1) * dim1);
 }

@@ -126,7 +126,7 @@ Vector<Real>::~Vector()
 template <class Real>
 Real Vector<Real>::operator[] (int index) const
 {
-	assert(index >= 0 && index < dimension);
+	//assert(index >= 0 && index < dimension);
 	
 	return data[index];
 }
