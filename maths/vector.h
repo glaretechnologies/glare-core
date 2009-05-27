@@ -20,9 +20,9 @@ public:
 	inline ~Vector();
 
 	//aliases:
-	inline int getDim() const { return dimension; }
+//	inline int getDim() const { return dimension; }
 	inline int size() const { return data.size(); }
-	inline int getSize() const { return dimension; }
+//	inline int getSize() const { return dimension; }
 
 	inline Real operator[] (int index) const;
 	inline Real& operator[] (int index);
@@ -161,54 +161,54 @@ bool Vector<Real>::operator == (const Vector& rhs) const
 }
 
 
-template <class Real>
-Vector<Real> Vector<Real>::operator - (const Vector& rhs) const
-{
-	assert(dimension == rhs.dimension);
-	Vector newvec(dimension);
-
-	for(int i=0; i<dimension; i++)
-		newvec[i] = data[i] - rhs.data[i];
-
-	return newvec;
-}
-
-
-template <class Real>
-Vector<Real> Vector<Real>::operator + (const Vector& rhs) const
-{
-	assert(dimension == rhs.dimension);
-	Vector newvec(dimension);
-
-	for(int i=0; i<dimension; i++)
-		newvec[i] = data[i] + rhs.data[i];
-
-	return newvec;
-}
+// template <class Real>
+// Vector<Real> Vector<Real>::operator - (const Vector& rhs) const
+// {
+// 	assert(dimension == rhs.dimension);
+// 	Vector newvec(dimension);
+// 
+// 	for(int i=0; i<dimension; i++)
+// 		newvec[i] = data[i] - rhs.data[i];
+// 
+// 	return newvec;
+// }
 
 
-template <class Real>
-Vector<Real>& Vector<Real>::operator -= (const Vector& rhs)
-{
-	assert(dimension == rhs.dimension);
+// template <class Real>
+// Vector<Real> Vector<Real>::operator + (const Vector& rhs) const
+// {
+// 	assert(dimension == rhs.dimension);
+// 	Vector newvec(dimension);
+// 
+// 	for(int i=0; i<dimension; i++)
+// 		newvec[i] = data[i] + rhs.data[i];
+// 
+// 	return newvec;
+// }
 
-	for(int i=0; i<dimension; i++)
-		data[i] -= rhs.data[i];
 
-	return *this;
-}
+// template <class Real>
+// Vector<Real>& Vector<Real>::operator -= (const Vector& rhs)
+// {
+// 	assert(dimension == rhs.dimension);
+// 
+// 	for(int i=0; i<dimension; i++)
+// 		data[i] -= rhs.data[i];
+// 
+// 	return *this;
+// }
 
 
-template <class Real>
-Vector<Real>& Vector<Real>::operator += (const Vector& rhs)
-{
-	assert(dimension == rhs.dimension);
-
-	for(int i=0; i<dimension; i++)
-		data[i] += rhs.data[i];
-
-	return *this;
-}
+// template <class Real>
+// Vector<Real>& Vector<Real>::operator += (const Vector& rhs)
+// {
+// 	assert(dimension == rhs.dimension);
+// 
+// 	for(int i=0; i<dimension; i++)
+// 		data[i] += rhs.data[i];
+// 
+// 	return *this;
+// }
 
 
 /*
