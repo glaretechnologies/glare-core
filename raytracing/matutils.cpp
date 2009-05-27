@@ -20,78 +20,10 @@ Code By Nicholas Chapman.
 
 
 // Explicit template instantiation
-template const Vec4f MatUtils::sampleHemisphereCosineWeighted(const Matrix4f& basis, const SamplePair& unitsamples);
 template void MatUtils::refractInSurface(const Vec4f& surface_normal, const Vec4f& incident_raydir, float src_refindex, float dest_refindex, Vec4f& exit_raydir_out, bool& totally_internally_reflected_out);
-template const Vec2<float> MatUtils::sampleUnitDisc(const SamplePair& unitsamples);
-template const Vec2<double> MatUtils::sampleUnitDisc(const SamplePair& unitsamples);
 template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
 
 
-/*-----------------------------------------------------------------------------------------------
-from http://jgt.akpeters.com/papers/ShirleyChiu97/code.html
-
- This transforms points on [0,1]^2 to points on unit disk centered at
- origin.  Each "pie-slice" quadrant of square is handled as a seperate
- case.  The bad floating point cases are all handled appropriately.
- The regions for (a,b) are:
-
-        phi = pi/2
-       -----*-----
-       |\       /|
-       |  \ 2 /  |
-       |   \ /   |
- phi=pi* 3  *  1 *phi = 0
-       |   / \   |
-       |  / 4 \  |
-       |/       \|
-       -----*-----
-        phi = 3pi/2
-
-change log:
-    26 feb 2004.  bug fix in computation of phi (now this matches the paper,
-                  which is correct).  thanks to Atilim Cetin for catching this.
-
-*/
-
-template <class Real>
-static inline void shirleyUnitSquareToDisk(const SamplePair& unitsamples, Vec2<Real>& spheresamples_out)
-{
-	const Real a = (Real)2.0*unitsamples.x - (Real)1.0;   /* (a,b) is now on [-1,1]^2 */
-	const Real b = (Real)2.0*unitsamples.y - (Real)1.0;
-
-	Real phi, r;
-
-	if (a > -b) {     // region 1 or 2
-		if (a > b) {  // region 1, also |a| > |b|
-			r = a;
-			phi = (Real)NICKMATHS_PI_4 * (b/a);
-		}
-		else {  // region 2, also |b| > |a|
-			r = b;
-			phi = (Real)NICKMATHS_PI_4 * ((Real)2.0 - (a/b));
-		}
-	}
-	else {        // region 3 or 4
-		if (a < b) {  // region 3, also |a| >= |b|, a != 0
-			r = -a;
-			phi = (Real)NICKMATHS_PI_4 * ((Real)4.0 + (b/a));
-		}
-		else {  // region 4, |b| >= |a|, but a==0 and b==0 could occur.
-			r = -b;
-			if (b != 0)
-				phi = (Real)NICKMATHS_PI_4 * ((Real)6.0 - (a/b));
-			else
-				phi = 0;
-		}
-	}
-
-	assert(r >= 0.0 && r <= 1.0);
-	spheresamples_out.x = r * cos(phi);
-	spheresamples_out.y = r * sin(phi);
-
-	assert(spheresamples_out.x >= -1.f && spheresamples_out.x <= 1.f);
-	assert(spheresamples_out.y >= -1.f && spheresamples_out.y <= 1.f);
-}
 
 
 /*
@@ -146,17 +78,7 @@ void MatUtils::refractInSurface(const VecType& normal,
 }
 
 
-template <class Real>
-const Vec2<Real> MatUtils::sampleUnitDisc(const SamplePair& unitsamples)
-{
-	/*const float r = sqrt(unitsamples.x);
-	const float theta = unitsamples.y * NICKMATHS_2PI;
-	return Vec2(cos(theta)*r, sin(theta)*r);*/
 
-	Vec2<Real> disc;
-	shirleyUnitSquareToDisk(unitsamples, disc);
-	return disc;
-}
 
 
 /*const Vec3d MatUtils::sampleHemisphere(const Basisd& basis, const Vec2d& unitsamples, double& pdf_out)
@@ -211,28 +133,7 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 */
 
 
-template <class VecType>
-const VecType MatUtils::sampleHemisphereCosineWeighted(const Matrix4f& to_world, /*const Basis<Real>& basis, */const SamplePair& unitsamples/*, double& pdf_out*/)
-{
-	//sample unit disc
-	/*const float r = sqrtf(unitsamples.x);
-	const float theta = unitsamples.y * NICKMATHS_2PI;
 
-	Vec3d dir(cos(theta)*r, sin(theta)*r, sqrt(1.0f - r*r));
-
-	pdf_out = dir.z * NICKMATHS_RECIP_PI;
-
-	return basis.transformVectorToParent(dir);*/
-
-	Vec2<typename VecType::RealType> disc;
-	shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples, disc);
-
-	const VecType dir(disc.x, disc.y, sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y))), 0.0);
-	assert(dir.isUnitLength());
-
-	//return basis.transformVectorToParent(dir);
-	return VecType(to_world * dir);
-}
 
 
 // Samples a bivariate Gaussian distribution, with mean (0,0) and given standard_deviation
@@ -254,6 +155,7 @@ const Vec2d MatUtils::boxMullerGaussian(double standard_deviation, MTwister& rng
 	//y1 = x1 * w;
     //y2 = x2 * w;
 }
+
 
 double MatUtils::evalNormalDist(double x, double mean, double standard_dev)
 {
@@ -328,7 +230,6 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Rea
 }
 
 
-
 template <class Real>
 Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 {
@@ -390,6 +291,9 @@ void MatUtils::unitTest()
 {
 	conPrint("MatUtils::unitTest()");
 
+	
+			
+
 
 	{
 		std::ofstream f("c:/temp/fresnel.txt");
@@ -436,33 +340,10 @@ void MatUtils::unitTest()
 	}
 
 
-	{
-		const Vec4f d = sphericalToCartesianCoords((float)NICKMATHS_PI * (3.0f/2.0f), cos((float)NICKMATHS_PI_2), Matrix4f::identity());
-		assert(epsEqual(d, Vec4f(0, -1, 0,0)));
-	}
-
-	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(1,0,0), 1.0), Vec2d(0.0, NICKMATHS_PI_2)));
-	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,1,0), 1.0), Vec2d(NICKMATHS_PI_2, NICKMATHS_PI_2)));
-	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,-1,0), 1.0), Vec2d(-NICKMATHS_PI_2, NICKMATHS_PI_2)));
-	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,0,1), 1.0), Vec2d(0.0, 0.0)));
-	testAssert(epsEqual(MatUtils::sphericalCoordsForDir(Vec3d(0,0,-1), 1.0), Vec2d(0.0, NICKMATHS_PI)));
-
-	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, NICKMATHS_PI_2), Vec3d(1,0,0)));
-	testAssert(epsEqual(MatUtils::dirForSphericalCoords(NICKMATHS_PI_2, NICKMATHS_PI_2), Vec3d(0,1,0)));
-	testAssert(epsEqual(MatUtils::dirForSphericalCoords(-NICKMATHS_PI_2, NICKMATHS_PI_2), Vec3d(0,-1,0)));
-	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, 0.0), Vec3d(0,0,1)));
-	testAssert(epsEqual(MatUtils::dirForSphericalCoords(0.0, NICKMATHS_PI), Vec3d(0,0,-1)));
 
 
 
-	//Basis<double> basis;
-	SSE_ALIGN Matrix4f basis;
-	const Vec4f v = normalise(Vec4f(1,1,1, 0.f));
-	basis.constructFromVector(v);
 
-	const Vec4f res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
-
-	testAssert(dot(v, res) > 0.95);
 
 	double r;
 	double n1 = 1.0f;

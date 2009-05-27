@@ -33,7 +33,7 @@ You may not use this code for any commercial project.
 #include "../physics/jscol_TriTreePerThreadData.h"
 #include <algorithm>
 #include "../indigo/ThreadContext.h"
-#include "../raytracing/matutils.h"
+#include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
 
 
@@ -91,7 +91,7 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
-			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir(ray.pointf(t0), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -104,7 +104,7 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 		const double t = (-B + sqrt_discriminant) * 0.5;
 		if(t >= ray.minT())
 		{
-			const TexCoordsType uvs = MatUtils::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -179,7 +179,7 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 	//return normal;
 	//return normalise(hitinfo.hitpos - centerpos);
 
-	return MatUtils::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
+	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 }
 
 
@@ -210,7 +210,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 	if(dist_to_rayclosest + a >= ray.minT())
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest + a));
-		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest + a, 0, uvs.x, uvs.y))
 		{
@@ -230,7 +230,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 	if(dist_to_rayclosest - a >= ray.minT())
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest - a));
-		const TexCoordsType uvs = MatUtils::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest - a, 0, uvs.x, uvs.y))
 		{
@@ -297,14 +297,14 @@ void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector
 void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const
 {
 	assert(sub_elem_index == 0);
-	const Vec4f n = MatUtils::uniformlySampleSphere(samples);
+	const Vec4f n = GeometrySampling::uniformlySampleSphere(samples);
 	normal_out.set(n.x[0], n.x[1], n.x[2], 0.0f);
 	assert(normal_out.isUnitLength());
 	pos_out = n * (float)radius;
 	pos_out.x[3] = 1.0f;
 
 	hitinfo_out.sub_elem_index = 0;
-	hitinfo_out.sub_elem_coords = MatUtils::sphericalCoordsForDir(n, (Vec3RealType)this->recip_radius);
+	hitinfo_out.sub_elem_coords = GeometrySampling::sphericalCoordsForDir(n, (Vec3RealType)this->recip_radius);
 }
 
 

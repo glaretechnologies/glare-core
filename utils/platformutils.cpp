@@ -27,6 +27,8 @@ Code By Nicholas Chapman.
 #include <cassert>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
+#include <cstdlib>
+
 
 #if defined(OSX)
 #include <sys/types.h>
@@ -342,4 +344,10 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 #else
 	throw PlatformUtilsExcep("getFullPathToCurrentExecutable only supported on Windows.");
 #endif
+}
+
+
+void PlatformUtils::execute(const std::string& command)
+{
+	std::system(command.c_str());
 }

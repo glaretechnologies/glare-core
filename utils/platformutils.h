@@ -67,6 +67,8 @@ const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, 
 
 const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep, only works on Windows.
 
+void execute(const std::string& command);
+
 }//end namespace PlatformUtils
 
 
