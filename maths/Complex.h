@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __COMPLEX_H_666_
 
 
-
+#include <cmath>
 
 
 /*=====================================================================
