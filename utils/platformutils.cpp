@@ -347,7 +347,7 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 }
 
 
-void PlatformUtils::execute(const std::string& command)
+int PlatformUtils::execute(const std::string& command)
 {
-	std::system(command.c_str());
+	return std::system(command.c_str());
 }

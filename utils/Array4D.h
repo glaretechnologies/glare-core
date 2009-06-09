@@ -36,6 +36,8 @@ public:
 	INDIGO_STRONG_INLINE const unsigned int dZ() const { return dz; }
 	INDIGO_STRONG_INLINE const unsigned int dW() const { return dw; }
 
+	std::vector<T>& getData() { return data; }
+	const std::vector<T>& getData() const { return data; }
 private:
 	unsigned int dx, dy, dz, dw;
 	std::vector<T> data;
