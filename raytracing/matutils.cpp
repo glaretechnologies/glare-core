@@ -22,6 +22,7 @@ Code By Nicholas Chapman.
 // Explicit template instantiation
 template void MatUtils::refractInSurface(const Vec4f& surface_normal, const Vec4f& incident_raydir, float src_refindex, float dest_refindex, Vec4f& exit_raydir_out, bool& totally_internally_reflected_out);
 template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
+template const Vec2<float> MatUtils::polarisedDielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
 
 
 
@@ -266,13 +267,13 @@ const Vec2<Real> MatUtils::polarisedDielectricFresnelReflectance(Real n1, Real n
 
 	assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
 
-	const Real sintheta = sqrt((Real)1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	const Real sintheta = std::sqrt((Real)1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
 	const Real sintheta_t = sintheta * n1 / n2; // Use Snell's law to get sin(theta_t)
 
 	if(sintheta_t >= (Real)1.0)
-		return Vec2<Real>((Real)1.0); // Total internal reflection
+		return Vec2<Real>((Real)1.0, (Real)1.0); // Total internal reflection
 
-	const double costheta_t = sqrt(1.0f - sintheta_t*sintheta_t); // Get cos(theta_t)
+	const Real costheta_t = std::sqrt(1.0f - sintheta_t*sintheta_t); // Get cos(theta_t)
 
 	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
 

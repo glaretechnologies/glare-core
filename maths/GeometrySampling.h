@@ -93,7 +93,7 @@ template <class VecType> typename VecType::RealType hemisphereCosineWeightedPDF(
 
 inline const Vec4f dirForSphericalCoords(float phi, float theta)
 {
-	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
+	//assert(theta >= 0.0 && theta <= NICKMATHS_PI);
 	const float cos_theta = std::cos(theta);
 	const float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);
 
