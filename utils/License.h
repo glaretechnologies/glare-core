@@ -56,6 +56,9 @@ public:
 
 	static const std::string currentLicenseSummaryString(const std::string& indigo_base_dir_path);
 
+	static bool verifyKey(const std::string& key, const std::string& hash);
+
+	static const std::string decodeBase64(const std::string& data);
 };
 
 

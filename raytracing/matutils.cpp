@@ -22,7 +22,7 @@ Code By Nicholas Chapman.
 // Explicit template instantiation
 template void MatUtils::refractInSurface(const Vec4f& surface_normal, const Vec4f& incident_raydir, float src_refindex, float dest_refindex, Vec4f& exit_raydir_out, bool& totally_internally_reflected_out);
 template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
-template const Vec2<float> MatUtils::polarisedDielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
+template void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(float srcn, float destn, float incident_cos_theta, float& r_perp_out, float& r_par_out, float& t_perp_out, float& t_par_out);
 
 
 
@@ -259,32 +259,55 @@ Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 }
 
 
+// Returns (r_perp, r_par)
+// See Optics (Hecht) pg 117
 template <class Real>
-const Vec2<Real> MatUtils::polarisedDielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
+void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, Real cos_theta_i, 
+																	 Real& r_perp_out, Real& r_par_out, Real& t_perp_out, Real& t_par_out)
 {
-	//Get transmitted cos theta using Snell's law
-	//http://en.wikipedia.org/wiki/Snell%27s_law
+	// Get transmitted cos theta using Snell's law
+	// http://en.wikipedia.org/wiki/Snell%27s_law
 
-	assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
+	//assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
 
-	const Real sintheta = std::sqrt((Real)1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	const Real sintheta = std::sqrt(myMax((Real)0.0, (Real)1.0 - cos_theta_i*cos_theta_i)); // Get sin(theta_i)
 	const Real sintheta_t = sintheta * n1 / n2; // Use Snell's law to get sin(theta_t)
 
 	if(sintheta_t >= (Real)1.0)
-		return Vec2<Real>((Real)1.0, (Real)1.0); // Total internal reflection
+	{
+		//return Vec2<Real>((Real)1.0, (Real)1.0); // Total internal reflection
+		r_perp_out = 1.0;
+		r_par_out = 1;
+		t_perp_out = 0.0;
+		t_par_out = 0.0;
+		return;
+	}
 
 	const Real costheta_t = std::sqrt(1.0f - sintheta_t*sintheta_t); // Get cos(theta_t)
 
 	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
 
 	// Component with electric field lying along interface (on surface)
-	const Real r_perp = (n1*cos_theta_i - n2*costheta_t) / (n1*cos_theta_i + n2*costheta_t); // R_s in wikipedia, electric field polarised along material surface
+	// Optics (Hecht) eq 4.34
+	r_perp_out = (n1*cos_theta_i - n2*costheta_t) / (n1*cos_theta_i + n2*costheta_t); // R_s in wikipedia, electric field polarised along material surface
 
 	// This is component with electric field in plane of incident, reflected and normal vectors. (plane of incidence)
-	const Real r_par = (n2*cos_theta_i - n1*costheta_t) / (n1*costheta_t + n2*cos_theta_i); // R_p in wikipedia, electric field polarised on plane of incidence
+	// Optics (Hecht) eq 4.40
+	r_par_out = (n2*cos_theta_i - n1*costheta_t) / (n2*cos_theta_i + n1*costheta_t); // R_p in wikipedia, electric field polarised on plane of incidence
 
-	//return Vec2d(r_par*r_par, r_perp*r_perp);
-	return Vec2<Real>(r_perp*r_perp, r_par*r_par);
+	t_perp_out = (Real)1.0 + r_perp_out; // Optics (Hecht) eq 4.49
+
+	t_par_out = (Real)2.0 * n1 * cos_theta_i / (n2*cos_theta_i + n1*costheta_t); // Optics (Hecht) eq 4.41
+
+#ifdef DEBUG
+	const Real R_perp = r_perp_out*r_perp_out;
+	const Real R_par = r_par_out*r_par_out;
+	const Real T_perp = t_perp_out*t_perp_out;
+	const Real T_par = t_par_out*t_par_out;
+
+	//assert(epsEqual(R_perp + T_perp, (Real)1.0));
+	//assert(epsEqual(R_par + T_par, (Real)1.0));
+#endif
 }
 
 

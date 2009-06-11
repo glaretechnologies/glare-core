@@ -29,7 +29,7 @@ static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\n
 
 // From http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
-static const std::string decodeBase64(const std::string& data)
+const std::string License::decodeBase64(const std::string& data)
 {
     try {
     	BIO* bmem = BIO_new_mem_buf((void*)data.c_str(), data.size());
@@ -67,14 +67,47 @@ static EVP_PKEY* get_public_key(){
 }
 
 
-void License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
+bool License::verifyKey(const std::string& key, const std::string& hash)
 {
-	license_type_out = UNLICENSED;
-
 	ERR_load_crypto_strings();
 
 	// Load the public key
 	EVP_PKEY* public_key = get_public_key();
+
+	// Initialize OpenSSL and pass in the data
+	EVP_MD_CTX ctx;
+    if(EVP_VerifyInit(&ctx, EVP_sha1()) != 1)
+		throw LicenseExcep("Internal Verification failure 1.");
+
+    if(EVP_VerifyUpdate(&ctx, key.data(), key.size()) != 1)
+		throw LicenseExcep("Internal Verification failure 2.");
+
+	// Call the actual verify function and get result
+	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.data(), hash.size(), public_key);
+
+	ERR_free_strings();
+
+	if(result == 1)
+	{
+		return true;
+	}
+	else if(result == 0) // incorrect signature
+	{
+		return false;
+	}
+	else // failure (other error)
+		throw LicenseExcep("Verification failed.");
+}
+
+
+void License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
+{
+	license_type_out = UNLICENSED;
+
+//	ERR_load_crypto_strings();
+
+	// Load the public key
+//	EVP_PKEY* public_key = get_public_key();
 
 
 	const std::string hwinfo = getHardwareIdentifier();
@@ -125,8 +158,17 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 		throw LicenseExcep(e.what());
 	}
 
+	if(verifyKey(constructed_key, hash))
+	{
+		license_type_out = desired_license_type;
+	}
+	else
+	{
+		assert(license_type_out == UNLICENSED);
+	}
+
 	// Initialize OpenSSL and pass in the data
-	EVP_MD_CTX ctx;
+/*	EVP_MD_CTX ctx;
     if(EVP_VerifyInit(&ctx, EVP_sha1()) != 1)
 		throw LicenseExcep("Internal Verification failure 1.");
 
@@ -149,6 +191,7 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 	}
 	else // failure (other error)
 		throw LicenseExcep("Verification failed.");
+*/
 }
 
 
