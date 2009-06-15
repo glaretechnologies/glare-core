@@ -33,10 +33,12 @@ public:
 
 		buildRecipRayDir();
 	}*/
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_)
+	INDIGO_STRONG_INLINE Ray() {}
+
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_ = 0.0001f)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
-		min_t(0.0001f)//TEMP
+		min_t(min_t_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));

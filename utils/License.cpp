@@ -10,6 +10,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "fileutils.h"
 #include "stringutils.h"
 #include "clock.h"
+#include "../indigo/TestUtils.h"
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -26,11 +27,30 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
 
+/*
+Believe it or not, OpenSSL requires newline characters after every 64 characters, or at the end of the input if the total input len is < 64 chars.
+So if they were inadvertantly removed, add them back in.
+*/
+const std::string License::ensureNewLinesPresent(const std::string& data)
+{
+	if(::getNumMatches(data, '\n') == 0) // If no newlines in input string
+	{
+		std::string s;
+		for(size_t i=0; i<data.length(); i+=64)
+			s += data.substr(i, 64) + "\n";
+		return s;
+	}
+	else
+		return data;
+}
+
 
 // From http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
-const std::string License::decodeBase64(const std::string& data)
+const std::string License::decodeBase64(const std::string& data_)
 {
+	const std::string data = ensureNewLinesPresent(data_);
+
     try {
     	BIO* bmem = BIO_new_mem_buf((void*)data.c_str(), data.size());
         if(!bmem)
@@ -48,8 +68,9 @@ const std::string License::decodeBase64(const std::string& data)
             rv.insert(rv.end(), tmp, &tmp[rb]); // Append read bytes to rv
 		}
 
-        BIO_free_all(b64);
 
+        BIO_free_all(bmem);
+		// BIO_free_all(b64);
 		return rv;
     }
 	catch(...)
@@ -103,12 +124,6 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 void License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
 {
 	license_type_out = UNLICENSED;
-
-//	ERR_load_crypto_strings();
-
-	// Load the public key
-//	EVP_PKEY* public_key = get_public_key();
-
 
 	const std::string hwinfo = getHardwareIdentifier();
 
@@ -166,32 +181,6 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 	{
 		assert(license_type_out == UNLICENSED);
 	}
-
-	// Initialize OpenSSL and pass in the data
-/*	EVP_MD_CTX ctx;
-    if(EVP_VerifyInit(&ctx, EVP_sha1()) != 1)
-		throw LicenseExcep("Internal Verification failure 1.");
-
-    if(EVP_VerifyUpdate(&ctx, constructed_key.data(), constructed_key.size()) != 1)
-		throw LicenseExcep("Internal Verification failure 2.");
-
-	// Call the actual verify function and get result
-	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.data(), hash.size(), public_key);
-
-	ERR_free_strings();
-
-	if(result == 1)
-	{
-		license_type_out = desired_license_type;
-		return;
-	}
-	else if(result == 0) // incorrect signature
-	{
-		return;
-	}
-	else // failure (other error)
-		throw LicenseExcep("Verification failed.");
-*/
 }
 
 
@@ -303,4 +292,34 @@ const std::string License::currentLicenseSummaryString(const std::string& indigo
 		return "Licence verified, licence type: " + License::licenseTypeToString(licence_type) + ", licensed to '" + licence_user_id + "'";
 	else
 		return "Licence not verified, running in free mode.";
+}
+
+
+void License::test()
+{
+	// Test long base-64 encoded block, with no embedded newlines
+	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
+		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
+		);
+
+
+	// Test long base-64 encoded block, with embedded newlines
+	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlz\nIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2Yg\ndGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGlu\ndWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRo\nZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=")
+		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
+		);
+
+	testAssert(decodeBase64("bGVhc3VyZS4=") == "leasure.");
+	testAssert(decodeBase64("bGVhc3VyZS4=\n") == "leasure.");
+
+	// Test a signed key
+	{
+		const std::string encoded_hash = 
+			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+
+		const std::string hash = License::decodeBase64(encoded_hash);
+
+		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
+		
+		testAssert(License::verifyKey(key, hash));
+	}
 }

@@ -59,6 +59,10 @@ public:
 	static bool verifyKey(const std::string& key, const std::string& hash);
 
 	static const std::string decodeBase64(const std::string& data);
+
+	static void test();
+private:
+	static const std::string ensureNewLinesPresent(const std::string& data);
 };
 
 
