@@ -63,6 +63,9 @@ RaySphere::~RaySphere()
 //NOTE: ignoring max_t for now.
 Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
+	//if(ignore_tri == 0)
+	//	return -1.0;
+
 	hitinfo_out.sub_elem_index = 0;
 	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
 
@@ -85,9 +88,12 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 		return -1.0;//no intersection
 
 	const double sqrt_discriminant = sqrt(discriminant);
+
+	const double use_min_t = rayMinT(radius);
+
 	{
 		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
-		if(t0 >= ray.minT())
+		if(t0 >= use_min_t/*ray.minT()*/)
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
@@ -102,7 +108,7 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 
 	{
 		const double t = (-B + sqrt_discriminant) * 0.5;
-		if(t >= ray.minT())
+		if(t >= use_min_t/*ray.minT()*/)
 		{
 			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
@@ -152,13 +158,13 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 }
 
 
-bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& context*/, const Object* object) const
+bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
 {
 	HitInfo hitinfo;
 	const double hitdist = traceRay(ray, raylength, thread_context, 
-		object, std::numeric_limits<unsigned int>::max(), hitinfo);
+		object, ignore_tri, hitinfo);
 
-	return hitdist >= ray.minT() && hitdist < raylength;
+	return hitdist >= rayMinT(radius) && hitdist < raylength;
 }
 
 
@@ -184,7 +190,7 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 
 
 //TODO: test
-void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::ObjectTreePerThreadData& context, */const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -207,7 +213,9 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
 
-	if(dist_to_rayclosest + a >= ray.minT())
+	const double use_min_t = rayMinT(radius);
+
+	if(dist_to_rayclosest + a >= use_min_t/*ray.minT()*/)
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest + a));
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
@@ -227,7 +235,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, /*js::
 		}
 	}
 
-	if(dist_to_rayclosest - a >= ray.minT())
+	if(dist_to_rayclosest - a >= use_min_t/*ray.minT()*/)
 	{
 		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest - a));
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
@@ -405,8 +413,8 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test doesFiniteRayHit()
 	//------------------------------------------------------------------------
-	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context/*, context*/, NULL));
-	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context/*, context*/, NULL));
+	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
+	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
 
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere

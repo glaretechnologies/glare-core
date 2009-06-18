@@ -35,7 +35,7 @@ public:
 	}*/
 	INDIGO_STRONG_INLINE Ray() {}
 
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_ = 0.0001f)
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_ = 0.0f)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
 		min_t(min_t_)

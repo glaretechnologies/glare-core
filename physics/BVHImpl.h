@@ -30,7 +30,7 @@ public:
 
 	template <class T, class HitInfoType>
 	inline static BVH::Real traceRay(const BVH& bvh, const Ray& ray, BVH::Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
-		const Object* object, HitInfoType& hitinfo_out)
+		const Object* object, unsigned int ignore_tri, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
 		assert(ray.unitDir().isUnitLength());
@@ -173,20 +173,20 @@ public:
 
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 									return 1.0f;
 
 								current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 							}
 						} else { // Else if right child doesn't exist
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 									return 1.0f;
 								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 							} else {
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 									return 1.0f;
-								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 									return 1.0f;
 								break;
 							}
@@ -195,7 +195,7 @@ public:
 						if(bvh.nodes[current].isRightLeaf() == 0) { // If right child exists
 							current = bvh.nodes[current].getRightChildIndex(); tmin = right_near_t; tmax = right_far_t; // next = R
 						} else {
-							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getRightGeomIndex(), bvh.nodes[current].getRightNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 								return 1.0f;
 							break;
 						}
@@ -205,7 +205,7 @@ public:
 						if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
 							current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
 						} else {
-							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object))
+							if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 								return 1.0f;
 							break;
 						}

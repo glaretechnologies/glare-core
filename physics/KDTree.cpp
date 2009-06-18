@@ -341,7 +341,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 }
 
 
-bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object) const
+bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
 {
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
@@ -475,7 +475,9 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 					use_min_t, // ray_t_min
 					ray_max_t_f, // ray_max_t_f is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
 					raydist, //distance out
-					u, v)) //hit uvs out
+					u, v)
+					&& triangle_index != ignore_tri // NEW: ignore intersection if we are supposed to ignore this triangle.
+					) //hit uvs out
 				{
 					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
 						return true;
@@ -897,6 +899,8 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 void KDTree::postBuild()
 {
 	this->tree_specific_min_t = TreeUtils::getTreeSpecificMinT(this->root_aabb);
+
+	//conPrint(this->raymesh->getName() + " tree_specific_min_t: " + toString(tree_specific_min_t));
 
 	//------------------------------------------------------------------------
 	//TEMP: check things are aligned

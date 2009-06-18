@@ -849,7 +849,7 @@ void Camera::getAllHits(const Ray& ray, ThreadContext& thread_context, const Obj
 }
 
 
-bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const
+bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
 {
 	return false;
 }

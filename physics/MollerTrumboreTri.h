@@ -91,6 +91,7 @@ public:
 
 	inline unsigned int rayIntersect(const Ray& ray, float ray_t_min, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
 	{
+#if 1
 		const Vec3f v0(data);
 		const Vec3f e1(data + 3);
 		const Vec3f e2(data + 6);
@@ -117,6 +118,60 @@ public:
 
 		const float t = dot(e2, qvec) * inv_det;
 
+		//TEMP:
+		//ray_t_min = crossProduct(e1, e2).length() * 0.0000001f;
+		/*
+		t_min = C * max(len_1, len_2)
+		t_min^2 = C^2 * max(len_1, len_2)^2
+		t_min^2 = C^2 * max(len_1^2, len_2^2)
+
+		*/
+		if(t < 0.0f)
+			return 0;
+
+		const float C = 0.00005f;
+		const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
+
+		if(t*t < ray_t_min_sqd)
+			return 0;
+		//if(t < ray_t_min) // 0.0f)
+		//	return 0;
+
+		if(t >= ray_t_max)
+			return 0;
+
+		dist_out = t;
+		u_out = u;
+		v_out = v;
+
+		return 1;
+#else	
+		const Vec3d v0(data[0], data[1], data[2]);
+		const Vec3d e1(data[3], data[4], data[5]);
+		const Vec3d e2(data[6], data[7], data[8]);
+
+		const Vec3d orig(ray.startPosF().x[0], ray.startPosF().x[1], ray.startPosF().x[2]);
+		const Vec3d dir(ray.unitDirF().x[0], ray.unitDirF().x[1], ray.unitDirF().x[2]);
+		const Vec3d pvec = crossProduct(dir, e2);
+
+		const double det = dot(e1, pvec);
+
+		const double inv_det = 1.0 / det;
+
+		const Vec3d tvec = orig - v0;
+
+		const double u = dot(tvec, pvec) * inv_det;
+		if(u < 0.0 || u > 1.0)
+			return 0;
+
+		const Vec3d qvec = crossProduct(tvec, e1);
+
+		const double v = dot(dir, qvec) * inv_det;
+		if(v < 0.0 || (u + v) > 1.0)
+			return 0;
+
+		const double t = dot(e2, qvec) * inv_det;
+
 		if(t < ray_t_min) // 0.0f)
 			return 0;
 
@@ -128,6 +183,7 @@ public:
 		v_out = v;
 
 		return 1;
+#endif
 	}
 
 
@@ -298,9 +354,39 @@ public:
 			inv_det
 			);
 
+		//NEW
+		const float C = 0.00005f;
+		const float C_sqd = C * C;
+
+		const __m128 e1_len_sqd = _mm_add_ps(
+			_mm_mul_ps(edge1_x, edge1_x),
+			_mm_add_ps(
+				_mm_mul_ps(edge1_y, edge1_y),
+				_mm_mul_ps(edge1_z, edge1_z)
+				)
+			);
+
+		const __m128 e2_len_sqd = _mm_add_ps(
+			_mm_mul_ps(edge2_x, edge2_x),
+			_mm_add_ps(
+				_mm_mul_ps(edge2_y, edge2_y),
+				_mm_mul_ps(edge2_z, edge2_z)
+				)
+			);
+
+		const __m128 ray_t_min_sqd = _mm_mul_ps(
+			_mm_max_ps(e1_len_sqd, e2_len_sqd),
+			_mm_load_ps1(&C_sqd)
+			);
+
+
 		// hit = (t >= ray_min_t && u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
 		const __m128 hit = _mm_and_ps(
-				_mm_cmpge_ps(t, _mm_load_ps1(&use_min_t)/*zero*/),
+				//_mm_cmpge_ps(t, _mm_load_ps1(&use_min_t)/*zero*/),
+				_mm_and_ps(
+					_mm_cmpge_ps(t, zero), // t >= 0.0
+					_mm_cmpge_ps(_mm_mul_ps(t, t), ray_t_min_sqd) // t*t >= ray_t_min_sqd
+				),
 				_mm_and_ps(
 					_mm_and_ps(_mm_cmpge_ps(u, zero), _mm_cmple_ps(u, one)),
 					_mm_and_ps(_mm_cmpge_ps(v, zero), _mm_cmple_ps(_mm_add_ps(u, v), one))

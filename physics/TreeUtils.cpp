@@ -76,7 +76,9 @@ void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOut
 
 float TreeUtils::getTreeSpecificMinT(const AABBox& aabb)
 {
-	return aabb.axisLength(aabb.longestAxis()) * 5.0e-7f;
+	return 0.0; // TEMP HACK 
+	//return aabb.axisLength(aabb.longestAxis()) * 5.0e-7f;
+	//return aabb.axisLength(aabb.longestAxis()) * 1.0e-5f;
 }
 
 

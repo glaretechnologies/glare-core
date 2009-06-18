@@ -259,7 +259,7 @@ bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length,
 
 bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 								  ThreadContext& thread_context,
-								  double time) const
+								  double time, const INTERSECTABLE_TYPE* ignore_object, unsigned int ignore_tri) const
 {
 #ifdef OBJECTTREE_VERBOSE
 	conPrint("-------------------------ObjectTree::doesFiniteRayHitAnything()-----------------------------");
@@ -398,7 +398,9 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 				conPrint("Intersecting with object...");
 				conPrint(ob->doesFiniteRayHit(ray, raylength, tritree_context) ? "\tHIT" : "\tMISSED");
 				#endif
-				if(ob->doesFiniteRayHit(ray, ray_max_t, time, thread_context))
+				if(ob->doesFiniteRayHit(ray, ray_max_t, time, thread_context,
+					(ignore_object == ob ? ignore_tri : std::numeric_limits<unsigned int>::max())
+					))
 				{
 					//thread_context.in_object_tree_traversal = false;
 					return true;

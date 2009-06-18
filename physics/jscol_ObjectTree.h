@@ -56,7 +56,7 @@ public:
 		unsigned int last_triangle_hit,
 		const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
+	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const INTERSECTABLE_TYPE* ignore_object, unsigned int ignore_tri) const;
 
 	INDIGO_STRONG_INLINE const js::AABBox& getAABBoxWS() const { return root_aabb; }
 

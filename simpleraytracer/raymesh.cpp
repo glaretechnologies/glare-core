@@ -113,13 +113,14 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, const Ob
 }
 
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object) const
+bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
 {
 	return tritree->doesFiniteRayHit(
 		ray,
 		raylength,
 		thread_context,
-		object
+		object,
+		ignore_tri
 		);
 }
 

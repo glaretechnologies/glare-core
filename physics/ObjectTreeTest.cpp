@@ -125,7 +125,11 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			HitInfo hitinfo;
 			const bool hit = ob_tree.doesFiniteRayHit(ray, 
 				1.0f - nudge, // max_t
-				thread_context, 0.0);
+				thread_context, 
+				0.0, // time
+				NULL,
+				std::numeric_limits<unsigned int>::max() // ignore tri
+				);
 
 			testAssert(!hit);
 		}
@@ -136,7 +140,11 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			HitInfo hitinfo;
 			const bool hit = ob_tree.doesFiniteRayHit(ray, 
 				1.0f + nudge, // max_t
-				thread_context, 0.0);
+				thread_context, 
+				0.0, // ignore object
+				NULL,
+				std::numeric_limits<unsigned int>::max() // ignore tri
+				);
 
 			testAssert(hit);
 		}
@@ -237,7 +245,7 @@ void ObjectTreeTest::doTests()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const ObjectTree::Real len = rng.unitRandom() * 1.5f;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, time);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, time, NULL, std::numeric_limits<unsigned int>::max());
 		const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context, time);
 		testAssert(a == b);
 
@@ -485,7 +493,7 @@ void ObjectTreeTest::doSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const ObjectTree::Real len = rng.unitRandom() * 1.5f;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max());
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -598,7 +606,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		const ObjectTree::Real len = Vec4f(end - start).length();//rng.unitRandom() * 1.5;
-		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time);
+		const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max());
 		if(a)
 			num_hits++;
 	}
