@@ -11,6 +11,8 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "stringutils.h"
 #include "clock.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/timer.h"
+#include "../indigo/globals.h"
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -68,23 +70,13 @@ const std::string License::decodeBase64(const std::string& data_)
             rv.insert(rv.end(), tmp, &tmp[rb]); // Append read bytes to rv
 		}
 
-
-        BIO_free_all(bmem);
-		// BIO_free_all(b64);
+		BIO_free_all(b64); // This seems to free up all used memory.
 		return rv;
     }
 	catch(...)
 	{
-        //if(b64) BIO_free_all(b64);
         throw License::LicenseExcep("base64 decoder error");
     }
-}
-
-
-static EVP_PKEY* get_public_key(){
-	std::string public_key = PUBLIC_CERTIFICATE_DATA; //slurp("public_key.pem");
-	BIO *mbio = BIO_new_mem_buf((void *)public_key.c_str(), public_key.size());
-	return PEM_read_bio_PUBKEY(mbio, NULL, NULL, NULL);
 }
 
 
@@ -93,7 +85,8 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	ERR_load_crypto_strings();
 
 	// Load the public key
-	EVP_PKEY* public_key = get_public_key();
+	BIO* public_key_mbio = BIO_new_mem_buf((void *)PUBLIC_CERTIFICATE_DATA.c_str(), PUBLIC_CERTIFICATE_DATA.size());
+	EVP_PKEY* public_key = PEM_read_bio_PUBKEY(public_key_mbio, NULL, NULL, NULL);
 
 	// Initialize OpenSSL and pass in the data
 	EVP_MD_CTX ctx;
@@ -106,17 +99,23 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	// Call the actual verify function and get result
 	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.data(), hash.size(), public_key);
 
+	EVP_MD_CTX_cleanup(&ctx);
+	
+	// Free the public key
+	EVP_PKEY_free(public_key);
+	BIO_free_all(public_key_mbio);
+
 	ERR_free_strings();
 
-	if(result == 1)
+	if(result == 1) // Correct signature
 	{
 		return true;
 	}
-	else if(result == 0) // incorrect signature
+	else if(result == 0) // Incorrect signature
 	{
 		return false;
 	}
-	else // failure (other error)
+	else // Failure (other error)
 		throw LicenseExcep("Verification failed.");
 }
 
@@ -312,6 +311,10 @@ void License::test()
 	testAssert(decodeBase64("bGVhc3VyZS4=\n") == "leasure.");
 
 	// Test a signed key
+	Timer timer;
+
+	const int N = 1000;
+	for(unsigned int i=0; i<N; ++i)
 	{
 		const std::string encoded_hash = 
 			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
@@ -320,6 +323,8 @@ void License::test()
 
 		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
 		
-		testAssert(License::verifyKey(key, hash));
+		testAssert(License::verifyKey(key, hash));	
 	}
+
+	conPrint("Verification took on average " + toString(timer.elapsed() / N) + " s");
 }
