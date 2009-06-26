@@ -27,7 +27,7 @@ public:
 	/*=====================================================================
 	Plotter
 	-------
-	
+
 	=====================================================================*/
 	Plotter();
 
@@ -61,7 +61,7 @@ public:
 		const std::string& y_label,
 		const std::string& key,
 		const Array2d<Vec3f>& data,
-		PlotOptions& options = PlotOptions()
+		PlotOptions options = PlotOptions()
 		);
 
 };

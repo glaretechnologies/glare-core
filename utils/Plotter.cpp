@@ -8,19 +8,19 @@ Code By Nicholas Chapman.
 
 
 #include <fstream>
-#include "PlatformUtils.h"
+#include "platformutils.h"
 #include "../utils/stringutils.h"
 
 
 Plotter::Plotter()
 {
-	
+
 }
 
 
 Plotter::~Plotter()
 {
-	
+
 }
 
 
@@ -46,7 +46,7 @@ void Plotter::plot(
 
 	// Write Gnuplot control script
 	const std::string temp_path = "c:/temp/plot.txt";
-	
+
 	{
 		std::ofstream f(temp_path.c_str());
 
@@ -79,7 +79,7 @@ void Plotter::plot3D(
 		const std::string& y_label,
 		const std::string& key,
 		const Array2d<Vec3f>& data,
-		PlotOptions& options
+		PlotOptions options
 		)
 {
 	const std::string temp_data_path = "c:/temp/plotdata.txt";
@@ -100,7 +100,7 @@ void Plotter::plot3D(
 
 	// Write Gnuplot control script
 	const std::string temp_path = "c:/temp/plot.txt";
-	
+
 	{
 		std::ofstream f(temp_path.c_str());
 

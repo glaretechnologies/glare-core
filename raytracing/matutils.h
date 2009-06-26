@@ -25,7 +25,7 @@ MatUtils
 namespace MatUtils
 {
 
-	
+
 	//template <class Real> const Vec3<Real> sphericalToCartesianCoords(Real phi, Real cos_theta, const Basis<Real>& basis);
 	//inline const Vec4f sphericalToCartesianCoords(float phi, float cos_theta, const Matrix4f& basis);
 
@@ -236,7 +236,7 @@ void getN1AndN2(Real external_ior, Real internal_ior, Real v_dot_orig_Ng, Real& 
 
 template <class VecType> const VecType reflectInSurface(const VecType& surface_normal, const VecType& in)
 {
-	return in + surface_normal * dot(surface_normal, in) * -2.0f;
+	return in + surface_normal * (dot(surface_normal, in) * -2.0f);
 }
 
 
