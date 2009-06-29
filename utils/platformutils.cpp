@@ -41,6 +41,7 @@ Code By Nicholas Chapman.
 #include <arpa/inet.h>
 #endif
 
+
 // Make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
 {
@@ -283,7 +284,7 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 {
 #if defined(WIN32) || defined(WIN64)
 	TCHAR path[MAX_PATH];
-	const HRESULT res = SHGetFolderPathA(
+	const HRESULT res = SHGetFolderPath(
 		NULL, // hwndOwner
 		CSIDL_APPDATA, // nFolder
 		NULL, // hToken
@@ -292,9 +293,9 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 		);
 
 	if(res != S_OK)
-		throw PlatformUtilsExcep("SHGetFolderPathA() failed, Error code: " + toString(res));
+		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString(res));
 
-	return std::string(path);
+	return StringUtils::WToUTF8String(path);
 #else
 	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows.");
 #endif
@@ -326,6 +327,7 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 #endif
 }
 
+
 // http://stackoverflow.com/questions/143174/c-c-how-to-obtain-the-full-path-of-current-directory
 const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws PlatformUtilsExcep, only works on Windows.
 {
@@ -340,7 +342,7 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 	if(result == 0)
 		throw PlatformUtilsExcep("GetModuleFileName failed.");
 	else
-		return std::string(buf);
+		return StringUtils::WToUTF8String(buf);
 #else
 	throw PlatformUtilsExcep("getFullPathToCurrentExecutable only supported on Windows.");
 #endif

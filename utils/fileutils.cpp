@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "fileutils.h"
 
+
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
@@ -144,7 +145,7 @@ void createDir(const std::string& dirname)
 {
 #if defined(WIN32) || defined(WIN64)
 
-	const BOOL result = ::CreateDirectoryA(dirname.c_str(), NULL);
+	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToWString(dirname).c_str(), NULL);
 	if(!result)
 		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
 #else
@@ -368,11 +369,13 @@ bool dirExists(const std::string& dirname)
 #endif
 */
 
+
 bool fileExists(const std::string& pathname)
 {
 #if defined(WIN32) || defined(WIN64)
+
 	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFile(pathname.c_str(), &find_data);
+	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToWString(pathname).c_str(), &find_data);
 
 	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
 
@@ -386,8 +389,6 @@ bool fileExists(const std::string& pathname)
 	return status == 0;
 #endif
 }
-
-
 
 
 void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::string>& dirs_out)
@@ -446,6 +447,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 
 	return relative_height <= 0;
 }*/
+
 
 bool isPathSafe(const std::string& pathname)
 {
@@ -592,7 +594,6 @@ void writeEntireFile(const std::string& pathname,
 }
 
 
-
 const std::string dayOfWeek(int day)
 {
 	if(day == 0) return "Sun";
@@ -608,6 +609,7 @@ const std::string dayOfWeek(int day)
 		return "";
 	}
 }
+
 
 const std::string getMonthString(int month)
 {
@@ -630,6 +632,7 @@ const std::string getMonthString(int month)
 	}
 }
 
+
 const std::string widenToTwoChars(const std::string& numeral)
 {
 	assert(numeral.size() >= 1 && numeral.size() <= 2);
@@ -639,8 +642,6 @@ const std::string widenToTwoChars(const std::string& numeral)
 	else
 		return numeral;
 }
-
-
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -665,9 +666,9 @@ const std::string getCurrentDir()
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!CopyFileA(
-		srcpath.c_str(),
-		dstpath.c_str(),
+	if(!CopyFile(
+		StringUtils::UTF8ToWString(srcpath).c_str(),
+		StringUtils::UTF8ToWString(dstpath).c_str(),
 		FALSE // fail if exists
 		))
 	{
@@ -685,8 +686,8 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 void deleteFile(const std::string& path)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!DeleteFileA(
-		path.c_str()
+	if(!DeleteFile(
+		StringUtils::UTF8ToWString(path).c_str()
 		))
 	{
 		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
@@ -698,11 +699,12 @@ void deleteFile(const std::string& path)
 #endif
 }
 
+
 void deleteEmptyDirectory(const std::string& path)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!RemoveDirectoryA(
-		path.c_str()
+	if(!RemoveDirectory(
+		StringUtils::UTF8ToWString(path).c_str()
 		))
 	{
 		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
@@ -714,10 +716,15 @@ void deleteEmptyDirectory(const std::string& path)
 #endif
 }
 
+
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
-	if(!MoveFileExA(srcpath.c_str(), dstpath.c_str(), MOVEFILE_REPLACE_EXISTING))
+	if(!MoveFileEx(
+		StringUtils::UTF8ToWString(srcpath).c_str(), 
+		StringUtils::UTF8ToWString(dstpath).c_str(), 
+		MOVEFILE_REPLACE_EXISTING
+	))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #else
 	if(rename(srcpath.c_str(), dstpath.c_str()) != 0)

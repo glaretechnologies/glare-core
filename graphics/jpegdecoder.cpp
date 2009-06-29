@@ -14,8 +14,11 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
+
 
 #define LIBJPEG_SUPPORT 1
+
 
 #ifdef LIBJPEG_SUPPORT
 extern "C"
@@ -23,6 +26,7 @@ extern "C"
 #include <jpeglib.h>
 }
 #endif // LIBJPEG_SUPPORT
+
 
 JPEGDecoder::JPEGDecoder()
 {
@@ -62,7 +66,15 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 	//------------------------------------------------------------------------
 	//Open file
 	//------------------------------------------------------------------------
+#if defined(WIN32) || defined(WIN64)
+	
+	const std::wstring wide_path = StringUtils::UTF8ToWString(path);
+
+	FILE* infile = _wfopen(wide_path.c_str(), L"rb");
+
+#else
 	FILE* infile = fopen(path.c_str(), "rb");
+#endif
 	if(!infile)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 

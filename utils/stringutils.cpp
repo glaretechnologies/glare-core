@@ -9,6 +9,11 @@
 //#include <iostream> //TEMP
 
 
+#if defined(WIN32) || defined(WIN64)
+// Stop windows.h from defining the min() and max() macros
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 
 
@@ -853,6 +858,102 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 }
 
 
+const std::wstring UTF8ToWString(const std::string& s)
+{
+#if defined(WIN32) || defined(WIN64)
+	// Call initially to get size of buffer to allocate.
+	const int size_required = MultiByteToWideChar(
+		CP_UTF8, // code page
+		0, // flags
+		s.c_str(),
+		s.size() + 1, // Byte size of s.  Add one, because we want to include the null terminator.
+		NULL, // out buffer
+		0 // buffer size
+		);
+
+	if(size_required == 0)
+		return std::wstring();
+
+	// Call again, this time with the buffer.
+	std::vector<wchar_t> buffer(size_required);
+
+	const int result = MultiByteToWideChar(
+		CP_UTF8, // code page
+		0,
+		s.c_str(),
+		s.size() + 1, // Add one, because we want to convert the null terminator.
+		&buffer[0],
+		size_required
+		);
+
+	if(result == 0)
+	{
+		const int er = GetLastError();
+		if(er == ERROR_INSUFFICIENT_BUFFER)
+		{
+			assert(0);
+		}
+		else if(er == ERROR_INVALID_FLAGS)
+		{
+			assert(0);
+		}
+		else if(er == ERROR_INVALID_PARAMETER)
+		{
+			assert(0);
+		}
+		else if(er == ERROR_NO_UNICODE_TRANSLATION )
+		{
+			assert(0);
+		}
+		//error
+		assert(0);
+		return std::wstring();
+	}
+
+	return std::wstring(buffer.begin(), buffer.end() - 1);
+
+
+#else
+#error TODO: implement this
+#endif
+}
+
+
+const std::string WToUTF8String(const std::wstring& wide_string)
+{
+#if defined(WIN32) || defined(WIN64)
+	// Call once to get number of bytes required for buffer.
+	const int size_required = WideCharToMultiByte(
+		CP_UTF8,
+		0,
+		wide_string.c_str(),
+		wide_string.size() + 1,
+		NULL,
+		0,
+		NULL,
+		NULL
+	);
+
+	std::vector<char> buffer(size_required);
+
+	const int num_bytes = WideCharToMultiByte(
+		CP_UTF8,
+		0,
+		wide_string.c_str(),
+		wide_string.size() + 1,
+		&buffer[0],
+		size_required,
+		NULL,
+		NULL
+	);
+
+	return std::string(buffer.begin(), buffer.end() - 1);
+#else
+#error TODO: implement this
+#endif
+}
+
+
 } // end namespace StringUtils
 
 
@@ -866,6 +967,53 @@ static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 
 void doStringUtilsUnitTests()
 {
+
+	// test WToUTF8String and UTF8ToWString
+	{
+		const int a = sizeof(wchar_t);
+
+		const std::wstring w = L"A";
+
+		const std::string s = StringUtils::WToUTF8String(w);
+
+		assert(s.size() == 1);
+		assert(s.c_str()[0] == 'A');
+		assert(s.c_str()[1] == '\0');
+
+		const std::wstring w2 = StringUtils::UTF8ToWString(s);
+
+		assert(w == w2);
+	}
+
+	// Test with empty string
+	{
+		const std::wstring w = L"";
+
+		const std::string s = StringUtils::WToUTF8String(w);
+
+		assert(s.size() == 0);
+
+		const std::wstring w2 = StringUtils::UTF8ToWString(s);
+
+		assert(w == w2);
+	}
+
+
+	{
+		// This is the Euro sign, encoded in UTF-8: see http://en.wikipedia.org/wiki/UTF-8
+		const std::string s = "\xE2\x82\xAC";
+
+		assert(s.size() == 3);
+
+		const std::wstring w = StringUtils::UTF8ToWString(s);
+
+		const std::string s2 = StringUtils::WToUTF8String(w);
+
+		assert(s == s2);
+	}
+
+
+
 	std::vector<std::string> parts = split("a:b:c", ':');
 	assert(parts.size() == 3);
 	assert(parts[0] == "a");
