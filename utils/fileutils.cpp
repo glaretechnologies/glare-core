@@ -71,6 +71,7 @@ int getNumDirs(const std::string& dirname)
 	return count + 1;
 }
 
+
 /*
 const std::string getFirstNDirs(const std::string& dirname, int n)
 {
@@ -154,6 +155,7 @@ void createDir(const std::string& dirname)
 		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
 #endif
 }
+
 
 void createDirsForPath(const std::string& path)
 {
@@ -308,7 +310,7 @@ const std::string getFilename(const std::string& pathname)
 	replaceChar(pathname_copy, '\\', '/');
 
 
-	const int lastslashpos = pathname_copy.find_last_of('/');
+	const size_t lastslashpos = pathname_copy.find_last_of('/');
 
 	if(lastslashpos == std::string::npos)//if no slashes
 	{
@@ -316,9 +318,9 @@ const std::string getFilename(const std::string& pathname)
 	}
 	else
 	{
-		const int filenamepos = lastslashpos + 1;
+		const size_t filenamepos = lastslashpos + 1;
 
-		if(filenamepos < (int)pathname.size())
+		if(filenamepos < pathname.size())
 			return pathname.substr(filenamepos, (int)pathname.size() - filenamepos);
 		else
 			return "";
@@ -519,6 +521,7 @@ void readEntireFile(std::ifstream& file, std::string& filecontents_out)
 		file.read(&(*filecontents_out.begin()), filesize);
 }
 
+
 void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontents_out)
 {
 	filecontents_out.resize(0);
@@ -542,7 +545,12 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {
+#if defined(WIN32) || defined(WIN64)
+	// NOTE: we are relying on MS's overload of ifstream() here to accept a wstring path, in order to handle Unicode pathnames.
+	std::ifstream infile(StringUtils::UTF8ToWString(pathname).c_str(), std::ios::binary);
+#else
 	std::ifstream infile(pathname.c_str(), std::ios::binary);
+#endif
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -550,10 +558,16 @@ void readEntireFile(const std::string& pathname,
 	readEntireFile(infile, filecontents_out);
 }
 
+
 void readEntireFile(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
+#if defined(WIN32) || defined(WIN64)
+	// NOTE: we are relying on MS's overload of ifstream() here to accept a wstring path, in order to handle Unicode pathnames.
+	std::ifstream infile(StringUtils::UTF8ToWString(pathname).c_str(), std::ios::binary);
+#else
 	std::ifstream infile(pathname.c_str(), std::ios::binary);
+#endif
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -761,6 +775,23 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
+
+	testAssert(fileExists("../testfiles/\xE2\x82\xAC.txt")); // Euro sign.txt
+
+	try
+	{
+		std::string contents;
+		FileUtils::readEntireFile("../testfiles/\xE2\x82\xAC.txt", contents);
+
+		const std::string target_contents = "\xE2\x82\xAC";
+	
+	//	testAssert(contents == target_contents);
+	}
+	catch(FileUtilsExcep& e)
+	{
+		conPrint(e.what());
+		testAssert(0);
+	}
 
 #if defined(WIN32) || defined(WIN64)
 	testAssert(isPathAbsolute("C:/windows"));
