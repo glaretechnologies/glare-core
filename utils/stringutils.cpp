@@ -858,9 +858,9 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 }
 
 
+#if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
-#if defined(WIN32) || defined(WIN64)
 	// Call initially to get size of buffer to allocate.
 	const int size_required = MultiByteToWideChar(
 		CP_UTF8, // code page
@@ -911,17 +911,12 @@ const std::wstring UTF8ToWString(const std::string& s)
 	}
 
 	return std::wstring(buffer.begin(), buffer.end() - 1);
-
-
-#else
-#error TODO: implement this
-#endif
 }
 
 
 const std::string WToUTF8String(const std::wstring& wide_string)
 {
-#if defined(WIN32) || defined(WIN64)
+
 	// Call once to get number of bytes required for buffer.
 	const int size_required = WideCharToMultiByte(
 		CP_UTF8,
@@ -948,10 +943,8 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 	);
 
 	return std::string(buffer.begin(), buffer.end() - 1);
-#else
-#error TODO: implement this
-#endif
 }
+#endif
 
 
 } // end namespace StringUtils
@@ -968,6 +961,7 @@ static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 void doStringUtilsUnitTests()
 {
 
+#if defined(WIN32) || defined(WIN64)
 	// test WToUTF8String and UTF8ToWString
 	{
 		const int a = sizeof(wchar_t);
@@ -1011,6 +1005,7 @@ void doStringUtilsUnitTests()
 
 		assert(s == s2);
 	}
+#endif
 
 
 

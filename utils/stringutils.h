@@ -1,5 +1,5 @@
 /*===================================================================
-Copyright Glare Technologies Limited 2009 - 
+Copyright Glare Technologies Limited 2009 -
 ====================================================================*/
 #ifndef __STRINGUTILS_H__
 #define __STRINGUTILS_H__
@@ -140,14 +140,14 @@ inline const std::string writeToStringStream(T& t)
 	std::ostringstream outstream;
 	outstream << t;
 
-	return outstream.str();	
+	return outstream.str();
 }
 
 template <class T>
 inline void readFromStringStream(const std::string& instring, T& t_out)
 {
 	std::istringstream instream(instring);
-	instream >> t_out;	
+	instream >> t_out;
 }
 
 
@@ -197,9 +197,10 @@ const std::string join(const T& iterable, const std::string joinstring)
 // Returns 0-based index of line and column of character indexed by charindex
 void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out);
 
-
+#if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s);
 const std::string WToUTF8String(const std::wstring& s);
+#endif
 };
 
 

@@ -735,8 +735,8 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
 	if(!MoveFileEx(
-		StringUtils::UTF8ToWString(srcpath).c_str(), 
-		StringUtils::UTF8ToWString(dstpath).c_str(), 
+		StringUtils::UTF8ToWString(srcpath).c_str(),
+		StringUtils::UTF8ToWString(dstpath).c_str(),
 		MOVEFILE_REPLACE_EXISTING
 	))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
@@ -784,7 +784,9 @@ void doUnitTests()
 		FileUtils::readEntireFile("../testfiles/\xE2\x82\xAC.txt", contents);
 
 		const std::string target_contents = "\xE2\x82\xAC";
-	
+
+		conPrint("'" + contents + "'");
+
 	//	testAssert(contents == target_contents);
 	}
 	catch(FileUtilsExcep& e)
