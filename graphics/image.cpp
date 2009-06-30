@@ -4,6 +4,7 @@
 #include "MitchellNetravali.h"
 #include "BoxFilterFunction.h"
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
 #include "../maths/vec2.h"
 #include <fstream>
 #include <limits>
@@ -168,7 +169,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 	//-----------------------------------------------------------------
 	//open file
 	//-----------------------------------------------------------------
-	FILE* f = fopen(pathname.c_str(), "rb");//create a file
+	FILE* f = FileUtils::openFile(pathname, "rb"); // fopen(pathname.c_str(), "rb");//create a file
 
 	if(!f)
 		throw ImageExcep("could not open file '" + pathname + "'.");
@@ -278,7 +279,7 @@ void Image::loadFromBitmap(const std::string& pathname)
 
 void Image::saveToBitmap(const std::string& pathname)
 {
-	FILE* f = fopen(pathname.c_str(), "wb");
+	FILE* f = FileUtils::openFile(pathname, "wb");
 	assert(f);
 
 	if(!f)
@@ -348,7 +349,7 @@ void Image::saveToBitmap(const std::string& pathname)
 
 
 //TODO: error handling
-void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
+/*void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 		float load_gain)
 {
 
@@ -387,7 +388,7 @@ void Image::loadFromRAW(const std::string& pathname, int width_, int height_,
 
 	if(!file.good())
 		throw ImageExcep("Error encountered while reading RAW image.");
-}
+}*/
 
 /*
 void Image::loadFromNFF(const std::string& pathname)

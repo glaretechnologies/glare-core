@@ -66,15 +66,7 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 	//------------------------------------------------------------------------
 	//Open file
 	//------------------------------------------------------------------------
-#if defined(WIN32) || defined(WIN64)
-	
-	const std::wstring wide_path = StringUtils::UTF8ToWString(path);
-
-	FILE* infile = _wfopen(wide_path.c_str(), L"rb");
-
-#else
-	FILE* infile = fopen(path.c_str(), "rb");
-#endif
+	FILE* infile = FileUtils::openFile(path, "rb");
 	if(!infile)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 

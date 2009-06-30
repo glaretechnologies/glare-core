@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "texture.h"
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
 
 
 PNGDecoder::PNGDecoder()
@@ -83,7 +84,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
     }
 
 	// Open file and start reading from it.
-	FILE* fp = fopen(path.c_str(), "rb");
+	FILE* fp = FileUtils::openFile(path, "rb");
 	if(!fp)
 		 throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 
@@ -199,7 +200,7 @@ void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
     }
 
 	// Open file and start reading from it.
-	FILE* fp = fopen(path.c_str(), "rb");
+	FILE* fp = FileUtils::openFile(path, "rb"); // fopen(path.c_str(), "rb");
 	if(!fp)
 		 throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 
@@ -313,7 +314,7 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
     }
 
 
-	FILE* fp = fopen(image_path.c_str(), "rb");
+	FILE* fp = FileUtils::openFile(image_path, "rb"); // fopen(image_path.c_str(), "rb");
 	if(!fp)
 		 throw ImFormatExcep("Failed to open file '" + image_path + "' for reading."); 
 
@@ -376,7 +377,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		
 
 	// Open the file
-	FILE* fp = fopen(pathname.c_str(), "wb");
+	FILE* fp = FileUtils::openFile(pathname, "wb"); // fopen(pathname.c_str(), "wb");
 	if(fp == NULL)
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	

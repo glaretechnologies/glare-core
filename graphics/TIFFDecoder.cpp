@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include "bitmap.h"
 #include "texture.h"
+#include "../utils/stringutils.h"
 
 
 TIFFDecoder::TIFFDecoder()
@@ -27,7 +28,11 @@ TIFFDecoder::~TIFFDecoder()
 
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 {
+#if defined(WIN32) || defined(WIN64)
+	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "r");
+#else
 	TIFF* tif = TIFFOpen(path.c_str(), "r");
+#endif
     if(tif)
 	{
 		uint32 w, h, image_depth;

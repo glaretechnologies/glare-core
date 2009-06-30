@@ -67,8 +67,8 @@ public:
 	void saveToBitmap(const std::string& pathname);
 
 	//throws ImageExcep
-	void loadFromRAW(const std::string& pathname, int width_, int height_,
-		float load_gain);
+	//void loadFromRAW(const std::string& pathname, int width_, int height_,
+	//	float load_gain);
 
 	inline void setPixel(unsigned int x, unsigned int y, const ColourType& colour);
 	inline void incrPixel(unsigned int x, unsigned int y, const ColourType& colour);

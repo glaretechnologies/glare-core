@@ -197,12 +197,21 @@ const std::string join(const T& iterable, const std::string joinstring)
 // Returns 0-based index of line and column of character indexed by charindex
 void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out);
 
+
 #if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s);
 const std::string WToUTF8String(const std::wstring& s);
 #endif
-};
 
+
+#if defined(WIN32) || defined(WIN64)
+inline const std::wstring UTF8ToPlatformUnicodeEncoding(const std::string& s) { return UTF8ToWString(s); }
+#else
+inline const std::string UTF8ToPlatformUnicodeEncoding(const std::string& s) { return s; }
+#endif
+
+
+}; // end namespace StringUtils
 
 
 //NOTE: must be in debug mode for this to work

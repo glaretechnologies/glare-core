@@ -545,12 +545,7 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {
-#if defined(WIN32) || defined(WIN64)
-	// NOTE: we are relying on MS's overload of ifstream() here to accept a wstring path, in order to handle Unicode pathnames.
-	std::ifstream infile(StringUtils::UTF8ToWString(pathname).c_str(), std::ios::binary);
-#else
-	std::ifstream infile(pathname.c_str(), std::ios::binary);
-#endif
+	std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -562,12 +557,7 @@ void readEntireFile(const std::string& pathname,
 void readEntireFile(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
-#if defined(WIN32) || defined(WIN64)
-	// NOTE: we are relying on MS's overload of ifstream() here to accept a wstring path, in order to handle Unicode pathnames.
-	std::ifstream infile(StringUtils::UTF8ToWString(pathname).c_str(), std::ios::binary);
-#else
-	std::ifstream infile(pathname.c_str(), std::ios::binary);
-#endif
+	std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -772,16 +762,29 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 }
 
 
+FILE* openFile(const std::string& pathname, const std::string openmode)
+{
+#if defined(WIN32) || defined(WIN64)
+	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()
+	return _wfopen(StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
+#else
+	// On Linux (and on OS X?), fopen accepts UTF-8 encoded Unicode filenames natively.
+	return fopen(pathname.c_str(), openmode.c_str());
+#endif
+}
+
+
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
 
-	testAssert(fileExists("../testfiles/\xE2\x82\xAC.txt")); // Euro sign.txt
+	const std::string euro_txt_pathname = "../testfiles/\xE2\x82\xAC.txt";
+	testAssert(fileExists(euro_txt_pathname)); // Euro sign.txt
 
 	try
 	{
 		std::string contents;
-		FileUtils::readEntireFile("../testfiles/\xE2\x82\xAC.txt", contents);
+		FileUtils::readEntireFile(euro_txt_pathname, contents);
 
 		const std::string target_contents = "\xE2\x82\xAC";
 
@@ -794,6 +797,28 @@ void doUnitTests()
 		conPrint(e.what());
 		testAssert(0);
 	}
+
+	// Test openFile() with a Unicode pathname
+	FILE* infile = FileUtils::openFile(euro_txt_pathname, "rb");
+	testAssert(infile != NULL);
+	fclose(infile);
+
+
+	// Test std::ifstream with a Unicode pathname
+	{
+	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(euro_txt_pathname).c_str(), std::ios_base::in | std::ios_base::binary);
+
+	testAssert(file.is_open());
+	}
+
+	// Test std::ifstream without a Unicode pathname
+	{
+	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding("../testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
+	
+	testAssert(file.is_open());
+	}
+	
+
 
 #if defined(WIN32) || defined(WIN64)
 	testAssert(isPathAbsolute("C:/windows"));
