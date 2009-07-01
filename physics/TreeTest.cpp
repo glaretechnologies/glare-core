@@ -344,7 +344,7 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[i]->traceRay(ray, 
+			const Tree::Real dist = trees[i]->traceRay(ray,
 				1.0f - nudge, // max_t
 				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
@@ -356,7 +356,7 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[i]->traceRay(ray, 
+			const Tree::Real dist = trees[i]->traceRay(ray,
 				1.0f + nudge, // max_t
 				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
@@ -368,9 +368,9 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+			const bool hit = trees[i]->doesFiniteRayHit(ray,
 				1.0f - nudge, // max_t
-				thread_context, 
+				thread_context,
 				NULL,
 				std::numeric_limits<unsigned int>::max()
 				);
@@ -381,9 +381,9 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+			const bool hit = trees[i]->doesFiniteRayHit(ray,
 				1.0f + nudge, // max_t
-				thread_context, 
+				thread_context,
 				NULL,
 				std::numeric_limits<unsigned int>::max()
 				);
@@ -395,9 +395,9 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+			const bool hit = trees[i]->doesFiniteRayHit(ray,
 				1.0f + nudge, // max_t
-				thread_context, 
+				thread_context,
 				NULL,
 				2
 				);
@@ -409,9 +409,9 @@ static void testSelfIntersectionAvoidance()
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray, 
+			const bool hit = trees[i]->doesFiniteRayHit(ray,
 				1.0f + nudge, // max_t
-				thread_context, 
+				thread_context,
 				NULL,
 				3
 				);
@@ -502,7 +502,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		{
 			//if ray hit anything before
 			testAssert(hitinfos.size() >= 1);
-			testAssert(hitinfos[0].dist == alltrisdist);
+			testAssert(::epsEqual(hitinfos[0].dist, alltrisdist));
 			testAssert(hitinfos[0].sub_elem_index == all_tris_hitinfo.sub_elem_index);
 			testAssert(epsEqual(hitinfos[0].sub_elem_coords, all_tris_hitinfo.sub_elem_coords));
 		}
@@ -516,9 +516,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		testAssert(hitinfos.size() == hitinfos_d.size());
 		for(unsigned int z=0; z<hitinfos.size(); ++z)
 		{
-			testAssert(hitinfos[z].dist == hitinfos_d[z].dist);
+			testAssert(::epsEqual(hitinfos[z].dist, hitinfos_d[z].dist));
 			testAssert(hitinfos[z].sub_elem_index == hitinfos_d[z].sub_elem_index);
-			testAssert(hitinfos[z].sub_elem_coords == hitinfos_d[z].sub_elem_coords);
+			testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_d[z].sub_elem_coords));
 		}
 
 		//------------------------------------------------------------------------
@@ -651,7 +651,7 @@ void TreeTest::doTests()
 	///////////////////////////////////////
 	/*
 	This mesh is too big to use in this way during the normal course of testing :(
-	
+
 	{
 	// Load tricky mesh from disk
 	const std::string MODEL_PATH = "../testfiles/ring_kdbug_scene/models.ringe/ringe-2.igmesh";
