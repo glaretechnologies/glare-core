@@ -569,7 +569,7 @@ void readEntireFile(const std::string& pathname,
 void writeEntireFile(const std::string& pathname,
 					 const std::vector<unsigned char>& filecontents)
 {
-	std::ofstream file(pathname.c_str(), std::ios::binary);
+	std::ofstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
 
 	if(!file)
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
@@ -585,7 +585,7 @@ void writeEntireFile(const std::string& pathname,
 void writeEntireFile(const std::string& pathname,
 					 const std::string& filecontents)
 {
-	std::ofstream file(pathname.c_str(), std::ios::binary);
+	std::ofstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
 
 	if(!file)
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
@@ -779,10 +779,12 @@ void doUnitTests()
 	conPrint("FileUtils::doUnitTests()");
 
 	const std::string euro_txt_pathname = "../testfiles/\xE2\x82\xAC.txt";
-	testAssert(fileExists(euro_txt_pathname)); // Euro sign.txt
 
 	try
 	{
+		testAssert(fileExists(euro_txt_pathname)); // Euro sign.txt
+
+
 		std::string contents;
 		FileUtils::readEntireFile(euro_txt_pathname, contents);
 
@@ -857,39 +859,47 @@ void doUnitTests()
 #endif
 
 
-	testAssert(eatExtension("hello.there") == "hello.");
+	try
+	{
+		testAssert(eatExtension("hello.there") == "hello.");
 
 
-	const std::string TEST_PATH = "TESTING_TEMP_FILE";
-	const std::string TEST_PATH2 = "TESTING_TEMP_FILE_2";
-	writeEntireFile(TEST_PATH, std::vector<unsigned char>(0, 100));
-	testAssert(fileExists(TEST_PATH));
-	moveFile(TEST_PATH, TEST_PATH2);
-	testAssert(!fileExists(TEST_PATH));
-	testAssert(fileExists(TEST_PATH2));
-	deleteFile(TEST_PATH2);
-	testAssert(!fileExists(TEST_PATH2));
+		const std::string TEST_PATH = "TESTING_TEMP_FILE";
+		const std::string TEST_PATH2 = "TESTING_TEMP_FILE_2";
+		writeEntireFile(TEST_PATH, std::vector<unsigned char>(0, 100));
+		testAssert(fileExists(TEST_PATH));
+		moveFile(TEST_PATH, TEST_PATH2);
+		testAssert(!fileExists(TEST_PATH));
+		testAssert(fileExists(TEST_PATH2));
+		deleteFile(TEST_PATH2);
+		testAssert(!fileExists(TEST_PATH2));
 
-	// Test dir stuff
+		// Test dir stuff
 
-	const std::string TEST_PATH3 = "TEMP_TESTING_DIR/TESTING_TEMP_FILE";
-	testAssert(getDirectory(TEST_PATH3) == "TEMP_TESTING_DIR");
-	testAssert(getFilename(TEST_PATH3) == "TESTING_TEMP_FILE");
-	testAssert(isPathSafe(TEST_PATH3));
+		const std::string TEST_PATH3 = "TEMP_TESTING_DIR/TESTING_TEMP_FILE";
+		testAssert(getDirectory(TEST_PATH3) == "TEMP_TESTING_DIR");
+		testAssert(getFilename(TEST_PATH3) == "TESTING_TEMP_FILE");
+		testAssert(isPathSafe(TEST_PATH3));
 
-	createDirsForPath(TEST_PATH3);
-	testAssert(fileExists("TEMP_TESTING_DIR"));
-	deleteEmptyDirectory("TEMP_TESTING_DIR");
-	testAssert(!fileExists("TEMP_TESTING_DIR"));
+		createDirsForPath(TEST_PATH3);
+		testAssert(fileExists("TEMP_TESTING_DIR"));
+		deleteEmptyDirectory("TEMP_TESTING_DIR");
+		testAssert(!fileExists("TEMP_TESTING_DIR"));
 
-	const std::string TEST_PATH_4 = "TEMP_TESTING_DIR/a/b";
-	createDirsForPath(TEST_PATH_4);
-	testAssert(fileExists("TEMP_TESTING_DIR"));
-	testAssert(fileExists("TEMP_TESTING_DIR/a"));
-	deleteEmptyDirectory("TEMP_TESTING_DIR/a");
-	deleteEmptyDirectory("TEMP_TESTING_DIR");
-	testAssert(!fileExists("TEMP_TESTING_DIR"));
-	testAssert(!fileExists("TEMP_TESTING_DIR/a"));
+		const std::string TEST_PATH_4 = "TEMP_TESTING_DIR/a/b";
+		createDirsForPath(TEST_PATH_4);
+		testAssert(fileExists("TEMP_TESTING_DIR"));
+		testAssert(fileExists("TEMP_TESTING_DIR/a"));
+		deleteEmptyDirectory("TEMP_TESTING_DIR/a");
+		deleteEmptyDirectory("TEMP_TESTING_DIR");
+		testAssert(!fileExists("TEMP_TESTING_DIR"));
+		testAssert(!fileExists("TEMP_TESTING_DIR/a"));
+	}
+	catch(FileUtilsExcep& e)
+	{
+		conPrint(e.what());
+		testAssert(0);
+	}
 
 	//createDirsForPath("c:/temp/test/a");
 

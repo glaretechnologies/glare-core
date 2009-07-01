@@ -44,7 +44,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	StandardPrintOutput print_output;
 
 
-	RayMesh* raymesh = new RayMesh("quad", false);
+	RayMesh* raymesh = new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("quad", false);
 	raymesh->addMaterialUsed("dummy");
 	const unsigned int uv_indices[] = {0, 0, 0};
 

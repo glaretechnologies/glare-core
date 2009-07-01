@@ -370,7 +370,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 				print_output.print("\tSaving tree to '" + path + "'...");
 
-				std::ofstream cachefile(path.c_str(), std::ofstream::binary);
+				std::ofstream cachefile(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), std::ofstream::binary);
 
 				if(cachefile)
 				{

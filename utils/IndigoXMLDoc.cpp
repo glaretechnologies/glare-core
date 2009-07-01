@@ -11,8 +11,9 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 
 
-IndigoXMLDoc::IndigoXMLDoc(const std::string& path)
-:	file(NULL)
+IndigoXMLDoc::IndigoXMLDoc(const std::string& path_)
+:	file(NULL),
+	path(path_)
 {
 	// Open file.  Using FILE* method here to allow Unicode paths.
 	file = FileUtils::openFile(path, "rb");
@@ -24,13 +25,13 @@ IndigoXMLDoc::IndigoXMLDoc(const std::string& path)
 	{
 		if(doc.ErrorId() == TiXmlBase::TIXML_ERROR_OPENING_FILE)
 		{
-			throw IndigoXMLDocExcep("failed to open XML doc from path '" + path + "': " + std::string(doc.ErrorDesc()));
+			throw IndigoXMLDocExcep("Failed to open XML doc from path '" + path + "': " + std::string(doc.ErrorDesc()));
 		}
 		else
 		{
 			throw IndigoXMLDocExcep("failed to load XML doc from path '" + path + "': " +
-				std::string(doc.ErrorDesc()) + " Line " + ::toString(doc.ErrorRow()) + ", column " +
-				::toString(doc.ErrorCol()));
+				std::string(doc.ErrorDesc()) + "  (Line " + ::toString(doc.ErrorRow()) + ", column " +
+				::toString(doc.ErrorCol()) + ".)");
 		}
 	}
 }
@@ -43,11 +44,28 @@ IndigoXMLDoc::~IndigoXMLDoc()
 }
 
 
-const TiXmlNode& IndigoXMLDoc::getRootElement(const std::string& name) const  // throws IndigoXMLDocExcep if no such root element
+TiXmlElement& IndigoXMLDoc::getRootElement(const std::string& name)  // throws IndigoXMLDocExcep if no such root element
 {
-	const TiXmlNode* root_element = doc.FirstChild(name);
+	TiXmlElement* root_element = doc.FirstChildElement(name);
 	if(!root_element)
-		throw IndigoXMLDocExcep("could not find root '" + name + "' element");
+		throw IndigoXMLDocExcep("Could not find root '" + name + "' element in file '" + path + "'.");
 
 	return *root_element;
+}
+
+
+void IndigoXMLDoc::saveDoc(const std::string& savepath)
+{
+	FILE* savefile = FileUtils::openFile(savepath, "wb");
+
+	if(!savefile)
+		throw IndigoXMLDocExcep("Failed to open file '" + savepath + "' for writing.");
+
+	if(!doc.SaveFile(savefile))
+	{
+		fclose(savefile);
+		throw IndigoXMLDocExcep("Failed to save XML document to '" + savepath + "': " + std::string(doc.ErrorDesc()));
+	}
+
+	fclose(savefile);
 }

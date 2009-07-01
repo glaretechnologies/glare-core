@@ -35,11 +35,14 @@ public:
 	~IndigoXMLDoc();
 
 
-	const TiXmlNode& getRootElement(const std::string& name) const;  // throws IndigoXMLDocExcep if no such root element
+	TiXmlElement& getRootElement(const std::string& name);  // throws IndigoXMLDocExcep if no such root element
+
+	void saveDoc(const std::string& path);
 
 private:
 	FILE* file;
 	TiXmlDocument doc;
+	std::string path;
 };
 
 
