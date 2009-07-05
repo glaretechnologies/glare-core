@@ -24,11 +24,12 @@ Code By Nicholas Chapman.
 #include <netinet/in.h>
 #include <net/if.h>
 #endif
+
+
 #include <cassert>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include <cstdlib>
-
 
 #if defined(OSX)
 #include <sys/types.h>
@@ -353,3 +354,26 @@ int PlatformUtils::execute(const std::string& command)
 {
 	return std::system(command.c_str());
 }
+
+/*
+void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_path)
+{
+#if defined(WIN32) || defined(WIN64)
+
+	//execute("Explorer.exe /select," + select_path + "");
+
+#elif defined(OSX)
+#error Implement me
+#else
+	// Linux
+#error Implement me
+#endif
+}
+
+
+void PlatformUtils::testPlatformUtils()
+{
+//	openFileBrowserWindowAtLocation("C:\\testscenes\\include test.igs");
+}
+*/
+

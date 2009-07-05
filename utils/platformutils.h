@@ -69,7 +69,20 @@ const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep
 
 int execute(const std::string& command);
 
-}//end namespace PlatformUtils
+/*
+On Windows, open Windows Explorer and select the given file or folder.
+On Mac, open Finder.
+On Linux.. erm.. do something good.
+
+NOTE: be vary careful to only path in valid paths here, or there will be massive security vunerabilities.
+*/
+void openFileBrowserWindowAtLocation(const std::string& select_path);
+
+
+void testPlatformUtils();
+
+
+} // end namespace PlatformUtils
 
 
 #endif //__PLATFORMUTILS_H_666_
