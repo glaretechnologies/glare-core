@@ -435,12 +435,10 @@ void PlatformUtils::testPlatformUtils()
 	try
 	{
 		//openFileBrowserWindowAtLocation("C:\\testscenes");
-		openFileBrowserWindowAtLocation("C:\\testscenes\\sun_glare_test.igs");
+		//openFileBrowserWindowAtLocation("C:\\testscenes\\sun_glare_test.igs");
 	}
 	catch(PlatformUtilsExcep& e)
 	{
 		conPrint(e.what());
 	}
 }
-
-

@@ -206,8 +206,10 @@ const std::string WToUTF8String(const std::wstring& s);
 
 #if defined(WIN32) || defined(WIN64)
 inline const std::wstring UTF8ToPlatformUnicodeEncoding(const std::string& s) { return UTF8ToWString(s); }
+inline const std::string PlatformToUTF8UnicodeEncoding(const std::wstring& s) { return WToUTF8String(s); }
 #else
 inline const std::string UTF8ToPlatformUnicodeEncoding(const std::string& s) { return s; }
+inline const std::string PlatformToUTF8UnicodeEncoding(const std::string& s) { return s; }
 #endif
 
 
