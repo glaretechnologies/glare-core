@@ -423,10 +423,10 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 
 #elif defined(OSX)
 
-		// Uses applescript
-		std::string command = "osascript -e 'tell application \"Finder\" to activate' -e 'tell application \"Finder\" to reveal POSIX file \"" + select_path + "\"'";
+	// Uses applescript
+	std::string command = "osascript -e 'tell application \"Finder\" to activate' -e 'tell application \"Finder\" to reveal POSIX file \"" + select_path + "\"'";
 		
-		system(command.c_str());
+	system(command.c_str());
 
 #else
 	// Linux
