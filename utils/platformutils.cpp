@@ -156,7 +156,7 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	unsigned char		*ptr;
 	struct if_msghdr	*ifm;
 	struct sockaddr_dl	*sdl;
-	
+
 	mib[0] = CTL_NET;
 	mib[1] = AF_ROUTE;
 	mib[2] = 0;
@@ -181,15 +181,15 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 	ifm = (struct if_msghdr *)buf;
 	sdl = (struct sockaddr_dl *)(ifm + 1);
 	ptr = (unsigned char *)LLADDR(sdl);
-	
+
 	char buffer[100];
-	
+
 	sprintf(buffer, "%02x-%02x-%02x-%02x-%02x-%02x", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
 
 	addresses_out.resize(0);
 	addresses_out.push_back(std::string(buffer));
 
-#else 
+#else
 	// else Linux
 	addresses_out.resize(1);
 	unsigned char addr[6];
@@ -425,7 +425,7 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 #error Implement me
 #else
 	// Linux
-#error Implement me
+	throw PlatformUtilsExcep("openFileBrowserWindowAtLocation not available on Linux.");
 #endif
 }
 
