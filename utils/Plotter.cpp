@@ -72,6 +72,7 @@ void Plotter::plot(
 }
 
 
+/*
 void Plotter::plot3D(
 		const std::string& path,
 		const std::string& title,
@@ -122,3 +123,6 @@ void Plotter::plot3D(
 	// Execute Gnuplot
 	const int result = PlatformUtils::execute("pgnuplot " + temp_path);
 }
+
+
+*/

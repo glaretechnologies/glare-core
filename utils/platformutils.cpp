@@ -422,13 +422,19 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 
 
 #elif defined(OSX)
-#error Implement me
+
+		// Uses applescript
+		std::string command = "osascript -e 'tell application \"Finder\" to activate' -e 'tell application \"Finder\" to reveal POSIX file \"" + select_path + "\"'";
+		
+		system(command.c_str());
+
 #else
 	// Linux
 	throw PlatformUtilsExcep("openFileBrowserWindowAtLocation not available on Linux.");
 #endif
 }
-
+	
+	
 
 void PlatformUtils::testPlatformUtils()
 {

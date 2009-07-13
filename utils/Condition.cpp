@@ -12,9 +12,11 @@ Code By Nicholas Chapman.
 #include <cmath>
 #include <iostream>
 
+
 #if defined(WIN32) || defined(WIN64)
 #else
 #include <errno.h>
+#include <sys/time.h>
 #endif
 
 
@@ -100,22 +102,26 @@ bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_sec
 		double integer_seconds;
 		const double fractional_seconds = std::modf(wait_time_seconds, &integer_seconds);
 
-		struct timespec t;
-		const int clockres = clock_gettime(CLOCK_REALTIME, &t);
-		assert(clockres == 0);
+		struct timeval now;
+		gettimeofday(&now,NULL);
+		
+		// Convert from a timeval to a timespec
+		struct timespec ts;
+		ts.tv_sec = now.tv_sec;
+		ts.tv_nsec = now.tv_usec * 1000;
 
-		t.tv_sec += (time_t)integer_seconds;
-		t.tv_nsec += (long)(fractional_seconds * 1.0e9);
-		if(t.tv_nsec >= 1000000000)
-		{
-			t.tv_sec++;
-			t.tv_nsec -= 1000000000;
+		// Add on the time specified
+		ts.tv_sec += (time_t)integer_seconds;
+		ts.tv_nsec += (long)(fractional_seconds * 1.0e9);
+		if(ts.tv_nsec >= 1000000000){
+			ts.tv_sec++;
+			ts.tv_nsec -= 1000000000;
 		}
 
 		//std::cout << "t.tv_sec: " << t.tv_sec << std::endl;
 		//std::cout << "t.tv_nsec: " << t.tv_nsec << std::endl;
 
-		const int result = pthread_cond_timedwait(&condition, &mutex.mutex, &t);
+		const int result = pthread_cond_timedwait(&condition, &mutex.mutex, &ts);
 		if(result == 0)
 			return true;
 		else if(result == ETIMEDOUT)
