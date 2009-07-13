@@ -124,6 +124,7 @@ public:
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
+	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
 

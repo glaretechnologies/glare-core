@@ -189,6 +189,12 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 }
 
 
+const RaySphere::Vec3Type RaySphere::positionForHitInfo(const HitInfo& hitinfo) const
+{
+	return Vec3Type(0,0,0,1) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
+}
+
+
 //TODO: test
 void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {

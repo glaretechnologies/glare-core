@@ -172,8 +172,19 @@ public:
 
 		const double t = dot(e2, qvec) * inv_det;
 
-		if(t < ray_t_min) // 0.0f)
+		if(t < 0.0)
 			return 0;
+
+		const double C = 0.0001;
+		const double ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
+
+		if(t*t < ray_t_min_sqd)
+			return 0;
+
+		/*const double use_ray_t_min = 0.0001;
+
+		if(t < use_ray_t_min) // 0.0f)
+			return 0;*/
 
 		if(t >= ray_t_max)
 			return 0;

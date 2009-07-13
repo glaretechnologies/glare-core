@@ -1194,6 +1194,14 @@ Camera::Vec3RealType Camera::getBoundingRadius() const
 }
 
 
+const Camera::Vec3Type Camera::positionForHitInfo(const HitInfo& hitinfo) const
+{
+	::fatalError("Camera::positionForHitInfo");
+	return Vec3Type(0,0,0,1);
+}
+
+
+
 const Vec3d Camera::getUpDir(double time) const
 {
 	return toVec3d(transform_path.vecToWorld(UP_OS, time));

@@ -109,6 +109,7 @@ public:
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
+	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
 
@@ -130,17 +131,17 @@ public:
 
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
-	inline const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	inline const Vec3f triNormal(unsigned int triindex) const;
-	inline const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
+	INDIGO_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
+	INDIGO_STRONG_INLINE const Vec3f triNormal(unsigned int triindex) const;
+	INDIGO_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	//inline const unsigned int getNumVerts() const { return num_vertices; }
 
-	inline const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
+	INDIGO_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
 
 	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
-	inline unsigned int getNumUVGroups() const { return num_uv_groups; }
+	INDIGO_STRONG_INLINE unsigned int getNumUVGroups() const { return num_uv_groups; }
 	
 	//Debugging:
 

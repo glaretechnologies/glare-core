@@ -122,6 +122,8 @@ public:
 
 	virtual Vec3RealType getBoundingRadius() const = 0;
 
+	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const = 0;
+
 
 
 	const std::map<std::string, unsigned int>& getMaterialNameToIndexMap() const { return matname_to_index_map; }

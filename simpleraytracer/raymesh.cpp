@@ -782,3 +782,21 @@ RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
 	return std::sqrt(max_r2);
 }
+
+
+const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) const
+{
+	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
+
+	const Vec3f& v0 = vertPos( tri.vertex_indices[0] );
+	const Vec3f& v1 = vertPos( tri.vertex_indices[1] );
+	const Vec3f& v2 = vertPos( tri.vertex_indices[2] );
+
+	const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	return Vec3Type(
+		v0.x * w + v1.x * hitinfo.sub_elem_coords.x + v2.x * hitinfo.sub_elem_coords.y,
+		v0.y * w + v1.y * hitinfo.sub_elem_coords.x + v2.y * hitinfo.sub_elem_coords.y,
+		v0.z * w + v1.z * hitinfo.sub_elem_coords.x + v2.z * hitinfo.sub_elem_coords.y,
+		1.f
+	);
+}
