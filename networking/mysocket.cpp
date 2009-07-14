@@ -481,6 +481,7 @@ void MySocket::write(const void* data, int datalen, SocketShouldAbortCallback* s
 	write(data, datalen, NULL, should_abort_callback);
 }
 
+
 void MySocket::write(const void* data, int datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 	const int totalnumbytestowrite = datalen;
