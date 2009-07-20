@@ -109,6 +109,7 @@ bool hasFileTypeExtension(const std::string& filename);
 const std::string getExtension(const std::string& filename);//returns 3 letter extension
 
 const std::string eatExtension(const std::string& filename);
+const std::string eatDotAndExtension(const std::string& filename);
 
 // Without the dot
 bool hasExtension(const std::string& filename, const std::string& extension);

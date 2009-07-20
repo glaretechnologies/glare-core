@@ -522,9 +522,16 @@ const std::string getExtension(const std::string& filename)//3 letter extension
 		return getTailSubString(filename, dot_index + 1);
 }
 
+
 const std::string eatExtension(const std::string& filename)
 {
 	return eatSuffix(filename, getExtension(filename));
+}
+
+
+const std::string eatDotAndExtension(const std::string& filename)
+{
+	return ::eatSuffix(eatExtension(filename), ".");
 }
 
 
