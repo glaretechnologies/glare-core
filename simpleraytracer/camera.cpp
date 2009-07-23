@@ -31,6 +31,7 @@ Code By Nicholas Chapman.
 #include "../graphics/imformatdecoder.h"
 #include "../indigo/SpectralVector.h"
 #include "../indigo/TransformPath.h"
+#include "../utils/timer.h"
 
 
 static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
@@ -269,98 +270,39 @@ void Camera::buildDiffractionFilter(/*const std::string& base_indigo_path*/) con
 
 void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path*/) const
 {
+	this->diffraction_filter_image = std::auto_ptr<Image>(doBuildDiffractionFilterImage(
+		this->diffraction_filter->getDiffractionFilter(),
+		*this->diffraction_filter,
+		this->main_buffer_width,
+		this->main_buffer_height,
+		this->sensor_width,
+		this->sensor_height,
+		this->sensor_to_lens_dist,
+		this->write_aperture_preview,
+		this->appdata_path
+	));
+}
+
+
+Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
+											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path)
+{
 	assert(main_buffer_width > 0 && main_buffer_height > 0);
 
 	conPrint("Creating diffraction filter image...");
+	Timer timer;
 
 	MTwister rng(1);
 
-	// Copy scalar diffraction filter to 3-component image
-	//Image filter(diffraction_filter->getDiffractionFilter().getWidth(), diffraction_filter->getDiffractionFilter().getHeight());
-	//filter.zero();
-
-	//for(int y=0; y<filter.getHeight(); ++y)
-	//	for(int x=0; x<filter.getWidth(); ++x)
-	//		filter.setPixel(x, y, Colour3f((float)diffraction_filter->getDiffractionFilter().elem(x, y)));
-
-	//const double red_wavelength_m = 700.0e-9;
-	//const double green_wavelength_m = 550.0e-9;
-	//const double blue_wavelength_m = 400.0e-9;
-
-	//void spectralConvolution(const Image& filter, const Vec3d& xyz_filter_scales, Image& result_out) const;
-
-	//const int image_width = RendererSettings::getInstance().getWidth() * RendererSettings::getInstance().super_sample_factor; // TEMP PRETTY NASTY
-	//const double pixel_scale_factor = this->sensor_to_lens_dist * (double)image_width / this->sensor_width;
-
-	/*diffraction_filter_image = std::auto_ptr<Image>(new Image());
-
-	Image::buildRGBFilter(
-		filter, // original filter
-		Vec3d(diffraction_filter->getXYScale(red_wavelength_m), diffraction_filter->getXYScale(green_wavelength_m), diffraction_filter->getXYScale(blue_wavelength_m)) * pixel_scale_factor / (double)filter.getWidth(),
-		*diffraction_filter_image // result_out
-		);*/
-
-	// for each pixel of original image
-	/*for(int y=0; y<filter.getHeight(); ++y)
-		for(int x=0; x<filter.getWidth(); ++x)
-		{
-			const Vec2d normed_coords(
-				(double)x / (double)filter.getWidth(),
-				(double)y / (double)filter.getHeight()
-				);
-
-			const int NUM_WAVELENGTH_SAMPLES = 10;
-				for(int i=0; i<NUM_WAVELENGTH_SAMPLES; ++i)
-				{
-					const double wvlen_nm = MIN_WAVELENGTH + ((double)i / (double)(NUM_WAVELENGTH_SAMPLES - 1)) * WAVELENGTH_SPAN;
-					assert(Maths::inRange(wvlen_nm, MIN_WAVELENGTH, MAX_WAVELENGTH));
-
-					const double wvlen_m = wvlen_nm * 1.0e-9;
-
-					const double xy_scale = diffraction_filter->getXYScale(wvlen_m);
-
-					const Vec2d scaled_normed_coords = Vec2d(0.5, 0.5) + (normed_coords - Vec2d(0.5, 0.5)) * xy_scale * pixel_scale_factor / (double)filter.getWidth();
-
-					const Vec2d scaled_pixel_coords(scaled_normed_coords.x * (double)filter.getWidth(), scaled_normed_coords.y * (double)filter.getHeight());
-
-					//Splat
-					const int sx = (int)scaled_pixel_coords.x;
-					const int sy = (int)scaled_pixel_coords.y;
-
-					if(sx >= 0 && sx < filter.getWidth() && sy >= 0 && sy < filter.getHeight())
-					{
-						const double diff_value = diffraction_filter->getDiffractionFilter().elem(x, y);
-						const Vec3d xyz_col = SingleFreq::getXYZ_CIE_2DegForWavelen(wvlen_nm);
-						const Colour3f splatcol(
-							(float)(diff_value * xyz_col.x),
-							(float)(diff_value * xyz_col.y),
-							(float)(diff_value * xyz_col.z)
-							);
-
-						filter.getPixel(sx, sy).add(splatcol);
-					}
-				}
-		}*/
-
-
-	//assert(!diffraction_filter_image->get())
-
-	diffraction_filter_image = std::auto_ptr<Image>(new Image(
+	Image* diffraction_filter_image = new Image(
 		513, //diffraction_filter->getDiffractionFilter().getWidth(),
 		513 //diffraction_filter->getDiffractionFilter().getHeight()
-		));
-	//diffraction_filter_image->zero();
-
+		);
 
 	const int sensor_x_res = main_buffer_width;
 	const int sensor_y_res = main_buffer_height;
-
-	//const int src_image_res = diffraction_filter->getDiffractionFilter().getWidth()
-
-	//const double sensor_displament_for_angle = 1.0; // m / radian
-	// Units of (m / radian) * m * src_pixels / m = pixels / radian
-	//const double pixel_scale_factor = sensor_displament_for_angle * this->sensor_to_lens_dist * (double)src_image_res / this->sensor_width;
-
+	// pixel
+	
 	MitchellNetravali<double> mn(
 		0.6, // B
 		0.2 // C
@@ -368,11 +310,9 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 	// max_x_angular_deviation = max pixel deviation divided by physical size of a pixel
 	//NOTE: using small angle approximation here (even if not valid) because that's what the diffraction filter code will be doing as well
-	const double sensor_pixel_width = this->sensor_width / (double)sensor_x_res;
-	const double sensor_pixel_height = this->sensor_height / (double)sensor_y_res;
-
-	//const double max_x_angular_deviation = ((double)diffraction_filter_image->getWidth() / 2.0) * ();
-	//const double max_y_angular_deviation = ((double)diffraction_filter_image->getHeight() / 2.0) * (this->sensor_width / (double)sensor_y_res);
+	const double sensor_pixel_width = sensor_width / (double)sensor_x_res;
+	const double sensor_pixel_height = sensor_height / (double)sensor_y_res;
+	// m / pixel                     = m                 / pixel
 
 	// For each pixel in the XYZ diffraction map
 	for(unsigned int y=0; y<diffraction_filter_image->getHeight(); ++y)
@@ -383,18 +323,22 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 				(double)x / (double)diffraction_filter_image->getWidth(),
 				(double)y / (double)diffraction_filter_image->getHeight()
 				);
+			// dimensionless = pixel / pixel
 
 			// Get distance from center pixel of filter
 			const int d_pixel_x = (int)x - (int)diffraction_filter_image->getWidth() / 2;
 			const int d_pixel_y = (int)y - (int)diffraction_filter_image->getHeight() / 2;
+			// pixel            = pixel  - pixel / 2
 
 			// Get physical distance this corresponds to on sensor
 			const double sensor_dist_x = (double)d_pixel_x * sensor_pixel_width;
 			const double sensor_dist_y = (double)d_pixel_y * sensor_pixel_height;
+			// m                       = pixel             * (m/pixel)
 
 			// What angular deviation does this correspond to?
-			const double x_angle = sensor_dist_x / this->sensor_to_lens_dist;
-			const double y_angle = sensor_dist_y / this->sensor_to_lens_dist;
+			const double x_angle = sensor_dist_x / sensor_to_lens_dist;
+			const double y_angle = sensor_dist_y / sensor_to_lens_dist;
+			// radians           = m             / m
 
 
 			// For each of a few wavelengths chosen over the visible range...
@@ -409,27 +353,25 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 				// Get the number of times bigger the dest features are than the source features (in pixels),
 
-				// units of (radians / m) * (pixels / radian) = pixels / m
-				//const double scale = diffraction_filter->getXYScale(wvlen_m) * pixel_scale_factor;
+				const double max_src_angular_deviations = diffraction_filter.getXYScale(wvlen_m);
+				// radians
 
-				// Get normalised coordinates of the corresponding point in the src image
-				//const Vec2d src_normed_coords = Vec2d(0.5, 0.5) + (normed_coords - Vec2d(0.5, 0.5)) / scale;
-
-				const double max_angular_deviations = diffraction_filter->getXYScale(wvlen_m);
-
-				const Vec2d src_normed_coords = Vec2d(0.5, 0.5) + Vec2d(x_angle, y_angle) / max_angular_deviations;
+				const Vec2d src_normed_coords = Vec2d(0.5, 0.5) + Vec2d(x_angle, y_angle) / max_src_angular_deviations;
+				// dimensionless              =                   radians                 / radians
 
 				// Src pixel width (if diffraction pattern was projected onto sensor)
-				const double src_pixel_width = (max_angular_deviations * this->sensor_to_lens_dist) / ((double)diffraction_filter->getDiffractionFilter().getWidth() * 0.5);
+				const double src_pixel_width = (max_src_angular_deviations * sensor_to_lens_dist) / ((double)filter_data.getWidth() * 0.5);
+				// m/pixel                   = radians                 * m                          / pixels
 
-				// Pixel scale.  This will be > 1 if source pixels are larger than destination pixels
-				const double x_scale = src_pixel_width / sensor_pixel_width;
-				const double y_scale = src_pixel_width / sensor_pixel_height;
+				const double src_pixels_per_dest_pixel_x = sensor_pixel_width / src_pixel_width;
+				const double src_pixels_per_dest_pixel_y = sensor_pixel_height / src_pixel_width;
+				// dimensionless                         = m/pixel             / m/pixel
 
-				// Convert to pixel coords
+				// Convert to pixel coords.
+				// So src_pixel_coords is the point on the source image corresponding to (x, y) on the dest image
 				const Vec2d src_pixel_coords(
-					src_normed_coords.x * (double)diffraction_filter->getDiffractionFilter().getWidth(),
-					src_normed_coords.y * (double)diffraction_filter->getDiffractionFilter().getHeight());
+					src_normed_coords.x * (double)filter_data.getWidth(),
+					src_normed_coords.y * (double)filter_data.getHeight());
 
 				// Find the center pixel of the sampling filter in the source image.
 				const int center_sx = Maths::floorToInt(src_pixel_coords.x);
@@ -437,53 +379,57 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 
 				const Vec3d xyz_col = toVec3d(SingleFreq::getXYZ_CIE_2DegForWavelen((float)wvlen_nm));
 
-				if(x_scale > 1.0)
+				/*if(false) // TEMP NEW dest_pixels_per_src_pixel_x > 1.0)
 				{
 					// Just point sample
-					if(center_sx > 0 && center_sx < (int)diffraction_filter->getDiffractionFilter().getWidth() &&
-						center_sy > 0 && center_sy < (int)diffraction_filter->getDiffractionFilter().getHeight())
+					if(center_sx > 0 && center_sx < (int)filter_data.getWidth() &&
+						center_sy > 0 && center_sy < (int)filter_data.getHeight())
 					{
-						const double diff_value = diffraction_filter->getDiffractionFilter().elem(center_sx, center_sy);
+						const double diff_value = filter_data.elem(center_sx, center_sy);
 						sum += xyz_col * diff_value;
 					}
 				}
 				else
-				{
+				{*/
+					const double mn_scale_x = myMax(src_pixels_per_dest_pixel_x, 1.0);
+					const double mn_scale_y = myMax(src_pixels_per_dest_pixel_y, 1.0);
+					const double recip_mn_scale_x = 1.0 / mn_scale_x;
+					const double recip_mn_scale_y = 1.0 / mn_scale_y;
 
 					// Using MN filter radius, in units of source image pixels.
-					const double rad_x = myMax(2.0 / x_scale, 2.0);
-					const double rad_y = myMax(2.0 / y_scale, 2.0);
-					const int filter_rad_x = (int)ceil(rad_x);
-					const int filter_rad_y = (int)ceil(rad_y);
+					const double MN_radius = 2.0;
+					const double filter_rad_xf = mn_scale_x * MN_radius; //myMax(2.0 * src_pixels_per_dest_pixel_x, 2.0);
+					const double filter_rad_yf = mn_scale_y * MN_radius; //myMax(2.0 * src_pixels_per_dest_pixel_y, 2.0);
+					const int filter_rad_x = (int)ceil(filter_rad_xf);
+					const int filter_rad_y = (int)ceil(filter_rad_yf);
 
 					// Get the min and max bounds of the filter support on the source image.
 					const int min_sx = myMax(0, center_sx - filter_rad_x);
 					const int min_sy = myMax(0, center_sy - filter_rad_y);
-					const int max_sx = myMin((int)diffraction_filter->getDiffractionFilter().getWidth(), center_sx + filter_rad_x + 1);
-					const int max_sy = myMin((int)diffraction_filter->getDiffractionFilter().getHeight(), center_sy + filter_rad_y + 1);
+					const int max_sx = myMin((int)filter_data.getWidth(), center_sx + filter_rad_x + 1);
+					const int max_sy = myMin((int)filter_data.getHeight(), center_sy + filter_rad_y + 1);
 
-
-
+					// For each pixel in source image in filter support...
 					for(int sy=min_sy; sy<max_sy; ++sy)
 					{
-						const double dy = fabs(((double)sy - src_pixel_coords.y) / rad_y);
-						//assert(dy <= 3.0);
+						const double dy = fabs(((double)sy - src_pixel_coords.y) * recip_mn_scale_y); // / rad_y);
+						assert(dy <= 3);
 						const double filter_y = mn.eval(dy);
 
 						for(int sx=min_sx; sx<max_sx; ++sx)
 						{
-							const double dx = fabs(((double)sx - src_pixel_coords.x) / rad_x);
-							//assert(dx <= 3.0);
+							const double dx = fabs(((double)sx - src_pixel_coords.x) * recip_mn_scale_x); // / rad_x);
+							assert(dx <= 3);
 							const double filter_x = mn.eval(dx);
 
 							const double filter_val = filter_x * filter_y;
 
-							const double diff_value = diffraction_filter->getDiffractionFilter().elem(sx, sy);
+							const double diff_value = filter_data.elem(sx, sy);
 
 							sum += xyz_col * diff_value * filter_val;
 						}
 					}
-				}
+				//}
 			}
 
 			diffraction_filter_image->getPixel(x, y) = Colour3f((float)sum.x, (float)sum.y, (float)sum.z);
@@ -512,47 +458,73 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 		diffraction_filter_image->getPixel(i).b *= Z_scale;
 	}
 
-	//TEMP HACK: move everything down to the right a bit
-	//Image temp = *diffraction_filter_image;
-	//diffraction_filter_image->zero();
-	//temp.blitToImage(*diffraction_filter_image, 1, 1);
+	conPrint("\tDone.  (Elapsed: " + toString(timer.elapsed()) + " s)");
 
-	//TEMP HACK:
-	//diffraction_filter_image->zero();
-	//diffraction_filter_image->setPixel(255, 255, Colour3f(1.0f));
-
-
-
-
-	//diffraction_filter_image = std::auto_ptr<Image>(new Image(filter));
-
-	// for each sampled wavelength across visible spectrum
-		// get XYZ weights
-			//splat onto XYZ filter
-
-
-// normalise filter for X, Y, Z separately.
-
-
-	//TEMP: save diffraction image-------------------------------------------------------
-	if(this->write_aperture_preview)
+	// save diffraction image-------------------------------------------------------
+	if(write_aperture_preview)
 	{
-		Image save_image = *diffraction_filter_image;
-
-		//IndigoImage igi;
-		//igi.write(save_image, 1.0, 1, "XYZ_diffraction_preview.igi");
-
-		//save_image.scale(100000.0f);
-		save_image.scale(10000.0f / save_image.maxLuminance());
-		save_image.posClamp();
+		//TEMP:
+		/*for(int y=diffraction_filter_image->getWidth()/2 - 4; y<diffraction_filter_image->getWidth()/2 + 4; ++y)
+		{
+			conPrint("");
+			for(int x=diffraction_filter_image->getWidth()/2 - 4; x<diffraction_filter_image->getWidth()/2 + 4; ++x)
+			{
+				conPrintStr(::doubleToStringScientific(diffraction_filter_image->getPixel(x, y).g) + "\t");
+			}
+		}*/
 
 		try
 		{
-			//save_image.saveToPng(FileUtils::join(preview_save_dir, "diffraction_preview.png"), dummy_metadata, 0);
-			Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
-			save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
-			std::map<std::string, std::string> dummy_metadata;
-			PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview.png"));
+
+			{
+				Image save_image = *diffraction_filter_image;
+
+				save_image.scale(1.0f / save_image.maxLuminance());
+				save_image.posClamp();
+
+				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
+				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
+				std::map<std::string, std::string> dummy_metadata;
+				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview.png"));
+			}
+			
+			{
+				Image save_image = *diffraction_filter_image;
+
+				save_image.scale(100.0f / save_image.maxLuminance());
+				save_image.posClamp();
+		
+				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
+				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
+				std::map<std::string, std::string> dummy_metadata;
+				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_100.png"));
+			}
+
+			{
+				Image save_image = *diffraction_filter_image;
+
+				save_image.scale(10000.0f / save_image.maxLuminance());
+				save_image.posClamp();
+		
+				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
+				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
+				std::map<std::string, std::string> dummy_metadata;
+				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_10000.png"));
+			}
+
+			{
+				Image save_image = *diffraction_filter_image;
+
+				save_image.scale(1000000.0f / save_image.maxLuminance());
+				save_image.posClamp();
+		
+				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
+				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
+				std::map<std::string, std::string> dummy_metadata;
+				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_1000000.png"));
+			}
+
+
 		}
 		catch(ImageExcep& e)
 		{
@@ -565,9 +537,7 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 	}
 	//---------------------------------------------------------------------------------------
 
-	conPrint("\tDone.");
-
-
+	return diffraction_filter_image;
 }
 
 /*      k
@@ -1080,7 +1050,6 @@ void Camera::makeClippingPlanesCameraSpace()
 			)
 		); // top
 
-	// TEMP HACK NO CLIPPING PLANES
 	/*const double time = 0.0; // TEMP HACK not considering moving camera.
 
 	planes_out.push_back(
@@ -1422,6 +1391,60 @@ void Camera::unitTest()
 
 	im = cam.getNormedImagePointForRay(normalise(Vec3(0.0f, 1.0f, 0.f)), fell_on_image);
 	assert(!fell_on_image);*/
+
+
+
+	// Test aperture diffraction filter building.
+	/*try
+	{
+		Array2d<float> vis_map(Aperture::getVisibilityMapWidth(), Aperture::getVisibilityMapWidth());
+		vis_map.setAllElems(1.0f);
+
+		CircularAperture ap(vis_map);
+
+		DiffractionFilter filter(
+			0.0001, // aperture radius
+			ap,
+			".", // preview save dir
+			true // write preview
+		);
+
+		Array2d<double> filter_data(filter.getDiffractionFilter().getWidth(), filter.getDiffractionFilter().getHeight());
+		
+		
+		//filter_data.setAllElems(0.0);
+		//Bitmap bmp;
+		//PNGDecoder::decode("../testscenes/diag_obstacle.png", bmp);
+
+		//for(int y=0; y<myMin(filter_data.getHeight(), bmp.getHeight()); ++y)
+		//	for(int x=0; x<myMin(filter_data.getWidth(), bmp.getWidth()); ++x)
+		//	{
+		//		filter_data.elem(x, y) = bmp.getPixel(x, y)[1] * (1.0 / 255.0);
+		//	}
+
+		filter_data = filter.getDiffractionFilter();
+
+		Image* image = Camera::doBuildDiffractionFilterImage(
+			filter_data,
+			filter,
+			1000, // main buffer width
+			1000, // main buffer height
+			0.036, // sensor width
+			0.036, // sensor height
+			0.05, // lens-sensor dist
+			true, // write ap preview
+			"." // appdata path
+		);
+
+		delete image;
+	}
+	catch(ImFormatExcep& e)
+	{
+		conPrint(e.what());
+		testAssert(false);
+	}
+
+	exit(0);*/
 }
 
 

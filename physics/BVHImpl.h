@@ -39,7 +39,7 @@ public:
 		const __m128 raystartpos = ray.startPosF().v;
 		const __m128 inv_dir = ray.getRecipRayDirF().v;
 
-		const float use_min_t = myMax(ray.minT(), bvh.tree_specific_min_t);
+		const float use_min_t = 0.0f; // myMax(ray.minT(), bvh.tree_specific_min_t);
 
 		__m128 near_t, far_t;
 		bvh.root_aabb.rayAABBTrace(raystartpos, inv_dir, near_t, far_t);

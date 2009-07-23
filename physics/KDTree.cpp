@@ -173,7 +173,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
-	assert(ray.minT() >= 0.0f);
+	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
@@ -193,7 +193,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 	#endif
 
 	assert(this->tree_specific_min_t >= 0.0f);
-	const float use_min_t = myMax(ray.minT(), this->tree_specific_min_t);
+	const float use_min_t = 0.0f; // myMax(ray.minT(), this->tree_specific_min_t);
 
 	__m128 near_t, far_t;
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
@@ -308,7 +308,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 				float u, v, raydist;
 				if(intersect_tris[triangle_index].rayIntersect(
 					ray,
-					use_min_t, // ray t min
+					//use_min_t, // ray t min
 					closest_dist, //max t NOTE: because we're using the tri hash, this can't just be the current leaf volume interval.
 					raydist, //distance out
 					u, v)//A != 0
@@ -363,7 +363,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 	context.tri_hash->clear();
 	#endif
 
-	const float use_min_t = myMax(ray.minT(), this->tree_specific_min_t);
+	const float use_min_t = 0.0f; // myMax(ray.minT(), this->tree_specific_min_t);
 
 	__m128 near_t, far_t;
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
@@ -472,7 +472,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 				float u, v, raydist;
 				if(intersect_tris[triangle_index].rayIntersect(
 					ray,
-					use_min_t, // ray_t_min
+					//use_min_t, // ray_t_min
 					ray_max_t_f, // ray_max_t_f is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
 					raydist, //distance out
 					u, v)
@@ -511,7 +511,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	context.tri_hash->clear();
 	#endif
 
-	const float use_min_t = myMax(ray.minT(), this->tree_specific_min_t);
+	const float use_min_t = 0.0f; // myMax(ray.minT(), this->tree_specific_min_t);
 
 	__m128 near_t, far_t;
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
@@ -625,7 +625,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 				float u, v, raydist;
 				if(intersect_tris[leafgeom[triindex]].rayIntersect(
 					ray, 
-					use_min_t, // ray_t_min
+					//use_min_t, // ray_t_min
 					closest_dist, 
 					raydist, 
 					u, v))
@@ -1043,7 +1043,7 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 		//raydist is distance until hit if hit occurred
 
 		if(intersect_tris[i].rayIntersect(ray, 
-			ray.minT(), // ray_t_min
+			//ray.minT(), // ray_t_min
 			(float)closest_dist, raydist, u, v))
 		{
 			assert(raydist < closest_dist);
@@ -1069,7 +1069,7 @@ void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hit
 		//raydist is distance until hit if hit occurred
 
 		if(intersect_tris[i].rayIntersect(ray, 
-			ray.minT(), // ray_t_min
+			//ray.minT(), // ray_t_min
 			std::numeric_limits<float>::max(), raydist, u, v))
 		{
 			hitinfos_out.push_back(DistanceHitInfo(

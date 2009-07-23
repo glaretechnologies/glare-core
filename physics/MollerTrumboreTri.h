@@ -49,7 +49,7 @@ public:
 	}
 
 
-	inline unsigned int rayIntersectSSE(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	/*inline unsigned int rayIntersectSSE(const Ray& ray, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
 	{
 		const Vec4f v0(data[0], data[1], data[2], 1.0f);
 		const Vec4f e1(data[3], data[4], data[5], 0.0f);
@@ -86,10 +86,10 @@ public:
 		v_out = v;
 
 		return 1;
-	}
+	}*/
 
 
-	inline unsigned int rayIntersect(const Ray& ray, float ray_t_min, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	inline unsigned int rayIntersect(const Ray& ray/*, float ray_t_min*/, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
 	{
 #if 1
 		const Vec3f v0(data);
@@ -99,6 +99,10 @@ public:
 		const Vec3f orig(ray.startPosF().x[0], ray.startPosF().x[1], ray.startPosF().x[2]);
 		const Vec3f dir(ray.unitDirF().x[0], ray.unitDirF().x[1], ray.unitDirF().x[2]);
 		const Vec3f pvec = crossProduct(dir, e2);
+
+#if USE_LAUNCH_NORMAL
+		const Vec3f launch_n(ray.launchNormal().x[0], ray.launchNormal().x[1], ray.launchNormal().x[2]);
+#endif
 
 		const float det = dot(e1, pvec);
 
@@ -129,11 +133,37 @@ public:
 		if(t < 0.0f)
 			return 0;
 
+#if USE_LAUNCH_NORMAL
+		const Vec3f tri_normal = crossProduct(e1, e2) * data[9]; //normalise(crossProduct(e1, e2));
+		assert(tri_normal.isUnitLength());
+		if(dot(tri_normal, launch_n) > 0.9f)
+		{
+			// If the normal of this tri and the launch normal are nearly the same
+			const float C = 0.0005f;
+			const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
+
+			if(t*t < ray_t_min_sqd)
+				return 0;
+		}
+		/*else
+		{
+			// Else the normal of this triangle and the launch triangle are significantly different.
+			// So we want to intersect with this triangle, even if the t value is very small.
+
+			//const float C = 0.0000f;//0.00005f;
+			//const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
+
+			//if(t*t < ray_t_min_sqd)
+			//	return 0;
+		}*/
+#else
 		const float C = 0.00005f;
 		const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
 
 		if(t*t < ray_t_min_sqd)
 			return 0;
+#endif
+
 		//if(t < ray_t_min) // 0.0f)
 		//	return 0;
 
@@ -416,7 +446,11 @@ public:
 		return normalise(crossProduct(Vec3f(data[3], data[4], data[5]), Vec3f(data[6], data[7], data[8])));
 	}
 
+#if USE_LAUNCH_NORMAL
+	float data[10];
+#else
 	float data[9]; // 9 * 4 bytes = 36 bytes.
+#endif
 };
 
 

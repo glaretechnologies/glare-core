@@ -95,7 +95,11 @@ void TreeTest::testBuildCorrect()
 		);
 
 	{
-	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0));
+	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0)
+#if USE_LAUNCH_NORMAL
+		, Vec4f(0,1,0,0)
+#endif
+		);
 	HitInfo hitinfo;
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
@@ -103,7 +107,11 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0));
+	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0)
+#if USE_LAUNCH_NORMAL
+		, Vec4f(0,1,0,0)
+#endif
+	);
 	HitInfo hitinfo;
 	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
@@ -326,7 +334,11 @@ static void testSelfIntersectionAvoidance()
 
 	// Start a ray on one quad, trace to the other quad.
 	{
-		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#if USE_LAUNCH_NORMAL
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+#endif
+		);
 
 		for(unsigned int i=0; i<trees.size(); ++i)
 		{
@@ -464,6 +476,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const SSE_ALIGN Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
+#if USE_LAUNCH_NORMAL
+			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
 			);
 
 		// Trace against all tris individually
@@ -830,11 +845,15 @@ void TreeTest::doSpeedTest(int treetype)
 		if(rayend == rayorigin)
 			continue;
 
-		SSE_ALIGN Vec4f rayorigin_f, dir_f;
+		Vec4f rayorigin_f, dir_f;
 		rayorigin.pointToVec4f(rayorigin_f);
 		normalise(rayend - rayorigin).vectorToVec4f(dir_f);
 
-		const SSE_ALIGN Ray ray(rayorigin_f, dir_f);
+		const Ray ray(rayorigin_f, dir_f
+#if USE_LAUNCH_NORMAL
+			, dir_f
+#endif
+		);
 
 		//do the trace
 		//ray.buildRecipRayDir();

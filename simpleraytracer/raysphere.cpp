@@ -351,6 +351,9 @@ void RaySphere::test()
 	const SSE_ALIGN Ray ray(
 		Vec4f(-1,0,0,1),
 		Vec4f(1,0,0,0)
+#if USE_LAUNCH_NORMAL
+		, Vec4f(1,0,0,0) // launch normal
+#endif
 		);
 
 	RaySphere sphere(/*Vec3d(0,0,1), */0.5);
@@ -378,6 +381,9 @@ void RaySphere::test()
 	const SSE_ALIGN Ray ray2(
 		Vec4f(1,0,0,1),
 		Vec4f(-1,0,0,0)
+#if USE_LAUNCH_NORMAL
+		, Vec4f(-1,0,0,0) // launch normal
+#endif
 		);
 	d = sphere.traceRay(ray2, 1000.0, thread_context, 
 		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
@@ -428,6 +434,9 @@ void RaySphere::test()
 	const SSE_ALIGN Ray ray3(
 		Vec4f(0.25,0,0,1),
 		Vec4f(1,0,0,0)
+#if USE_LAUNCH_NORMAL
+		, Vec4f(1,0,0,0) // launch normal
+#endif
 		);
 	d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 	testAssert(::epsEqual(d, 0.25));

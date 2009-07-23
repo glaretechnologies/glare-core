@@ -105,7 +105,11 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	// Start a ray on one quad, trace to the other quad.
 	{
-		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#if USE_LAUNCH_NORMAL
+			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
+			);
 
 		{
 			HitInfo hitinfo;
@@ -214,6 +218,9 @@ void ObjectTreeTest::doTests()
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) - Vec4f(0.2, 0.2, 0.2, 0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
+#if USE_LAUNCH_NORMAL
+			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
 			);
 
 		double time = 0.0;
@@ -458,6 +465,9 @@ void ObjectTreeTest::doSpeedTest()
 		const SSE_ALIGN Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
+#if USE_LAUNCH_NORMAL
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
 			);
 
 		//ray.buildRecipRayDir();
@@ -485,6 +495,9 @@ void ObjectTreeTest::doSpeedTest()
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
+#if USE_LAUNCH_NORMAL
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
 			);
 
 		//ray.buildRecipRayDir();
@@ -598,6 +611,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		const Ray ray(
 			start,
 			normalise(end - start)
+#if USE_LAUNCH_NORMAL
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+#endif
 			);
 
 		//ray.buildRecipRayDir();

@@ -214,6 +214,8 @@ public:
 
 	std::vector<const Medium*> containing_media;
 private:
+	static Image* doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
+		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path);
 
 	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;

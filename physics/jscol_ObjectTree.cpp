@@ -294,7 +294,7 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 
 	__m128 near_t, far_t;
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
-	near_t = _mm_max_ss(near_t, _mm_load_ss(&ray.minT())/*zeroVec()*/); // near_t = max(near_t, 0)
+	near_t = _mm_max_ss(near_t, /*_mm_load_ss(&ray.minT())*/zeroVec()); // near_t = max(near_t, 0)
 
 	const float ray_max_t_f = (float)ray_max_t;
 	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f)); // far_t = min(far_t, ray_max_t)

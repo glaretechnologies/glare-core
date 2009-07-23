@@ -18,6 +18,9 @@ You may *not* use this code for any commercial project.
 #include "../maths/SSE.h"
 
 
+//#define USE_LAUNCH_NORMAL 1
+
+
 SSE_CLASS_ALIGN Ray
 {
 public:
@@ -35,10 +38,18 @@ public:
 	}*/
 	INDIGO_STRONG_INLINE Ray() {}
 
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_ = 0.0f)
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_
+#if USE_LAUNCH_NORMAL
+		, const Vec4f& launch_normal_
+#endif
+		//, float min_t_ = 0.0f
+		)
 	:	startpos_f(startpos_),
-		unitdir_f(unitdir_),
-		min_t(min_t_)
+		unitdir_f(unitdir_)
+#if USE_LAUNCH_NORMAL
+		,launch_normal(launch_normal_)//,
+#endif
+		//min_t(min_t_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
@@ -97,15 +108,21 @@ public:
 	//inline const Vec3d point(const double t) const { return startPos() + unitDir() * t; }
 	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return Vec4f(startpos_f + Vec4f(unitdir_f * t)); }
 
-	INDIGO_STRONG_INLINE const float& minT() const { return min_t; }
+	//INDIGO_STRONG_INLINE const float& minT() const { return min_t; }
 	
+#if USE_LAUNCH_NORMAL
+	INDIGO_STRONG_INLINE const Vec4f& launchNormal() const { return launch_normal; }
+#endif
 private:
 	//INDIGO_STRONG_INLINE void buildRecipRayDir();
 
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
+#if USE_LAUNCH_NORMAL
+	Vec4f launch_normal;
+#endif
 	Vec4f recip_unitdir_f;
-	float min_t;
+	//float min_t;
 
 	//SSE_ALIGN Vec3d startpos;
 	//SSE_ALIGN Vec3d unitdir;

@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #include "MollerTrumboreTri.h"
 
 
+#include "../simpleraytracer/ray.h"
+
+
 namespace js
 {
 
@@ -43,6 +46,10 @@ void MollerTrumboreTri::set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
 	data[6] = e2.x;
 	data[7] = e2.y;
 	data[8] = e2.z;
+
+#if USE_LAUNCH_NORMAL
+	data[9] = 1.0f / crossProduct(e1, e2).length();
+#endif
 }
 
 
