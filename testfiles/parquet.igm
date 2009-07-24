@@ -13,7 +13,7 @@
 			</diffuse_albedo_spectrum>
 			<ior>1.45</ior>
 			<albedo_texture>
-				<path>textures\parquet-diffuse.jpg</path>
+				<path>textures/parquet-diffuse.jpg</path>
 				<uv_set>uv</uv_set>
 				<exponent>2.300000</exponent>
 				<a>0</a>
@@ -21,7 +21,7 @@
 				<c>0</c>
 			</albedo_texture>
 			<bump_map>
-				<path>textures\parquet-bump.jpg</path>
+				<path>textures/parquet-bump.jpg</path>
 				<uv_set>uv</uv_set>
 				<exponent>1.000000</exponent>
 				<a>0</a>
