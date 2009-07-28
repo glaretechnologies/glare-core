@@ -48,7 +48,8 @@ void MollerTrumboreTri::set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
 	data[8] = e2.z;
 
 #if USE_LAUNCH_NORMAL
-	data[9] = 1.0f / crossProduct(e1, e2).length();
+	//data[9] = 1.0f / crossProduct(e1, e2).length();
+	data[9] = crossProduct(e1, e2).length();
 #endif
 }
 

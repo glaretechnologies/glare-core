@@ -107,7 +107,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	{
 		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #if USE_LAUNCH_NORMAL
-			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
 			);
 
@@ -219,7 +219,7 @@ void ObjectTreeTest::doTests()
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) - Vec4f(0.2, 0.2, 0.2, 0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 #if USE_LAUNCH_NORMAL
-			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
 			);
 

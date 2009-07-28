@@ -336,7 +336,7 @@ static void testSelfIntersectionAvoidance()
 	{
 		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f));
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
 		);
 
@@ -477,7 +477,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
 #if USE_LAUNCH_NORMAL
-			Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
 			);
 

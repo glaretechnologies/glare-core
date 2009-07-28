@@ -134,9 +134,20 @@ public:
 			return 0;
 
 #if USE_LAUNCH_NORMAL
-		const Vec3f tri_normal = crossProduct(e1, e2) * data[9]; //normalise(crossProduct(e1, e2));
-		assert(tri_normal.isUnitLength());
-		if(dot(tri_normal, launch_n) > 0.9f)
+		/*
+		t = e1 x e2 / ||e1 x e2||
+
+		suppose (t, launch_n) = 0.9f
+
+		(e1 x e2 / ||e1 x e2||, launch_n) = 0.9f
+		(e1 x e2, launch_n) / ||e1 x e2|| = 0.9f
+		(e1 x e2, launch_n) = 0.9f * ||e1 x e2||
+
+
+		*/
+		const Vec3f tri_normal = crossProduct(e1, e2);// * data[9]; //normalise(crossProduct(e1, e2));
+		//assert(tri_normal.isUnitLength());
+		if(dot(tri_normal, launch_n) > (0.9f * data[9]))
 		{
 			// If the normal of this tri and the launch normal are nearly the same
 			const float C = 0.0005f;

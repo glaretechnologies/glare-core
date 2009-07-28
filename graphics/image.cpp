@@ -74,23 +74,39 @@ Image& Image::operator = (const Image& other)
 // will throw ImageExcep if bytespp != 3
 void Image::setFromBitmap(const Bitmap& bmp)
 {
-	if(bmp.getBytesPP() != 3)
-		throw ImageExcep("BytesPP != 3");
+	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3)
+		throw ImageExcep("Image bytes per pixel must be 1 or 3.");
 
 	resize(bmp.getWidth(), bmp.getHeight());
 
-	const float factor = 1.0f / 255.0f;
-	for(unsigned int y=0; y<bmp.getHeight(); ++y)
-		for(unsigned int x=0; x<bmp.getWidth(); ++x)
-		{
-			setPixel(x, y,
-				Colour3f(
-					(float)bmp.getPixel(x, y)[0] * factor,
-					(float)bmp.getPixel(x, y)[1] * factor,
-					(float)bmp.getPixel(x, y)[2] * factor
-					)
-				);
-		}
+	if(bmp.getBytesPP() == 1)
+	{
+		const float factor = 1.0f / 255.0f;
+		for(unsigned int y=0; y<bmp.getHeight(); ++y)
+			for(unsigned int x=0; x<bmp.getWidth(); ++x)
+			{
+				setPixel(x, y,
+					Colour3f((float)*bmp.getPixel(x, y) * factor)
+					);
+			}
+	}
+	else
+	{
+		assert(bmp.getBytesPP() == 3);
+
+		const float factor = 1.0f / 255.0f;
+		for(unsigned int y=0; y<bmp.getHeight(); ++y)
+			for(unsigned int x=0; x<bmp.getWidth(); ++x)
+			{
+				setPixel(x, y,
+					Colour3f(
+						(float)bmp.getPixel(x, y)[0] * factor,
+						(float)bmp.getPixel(x, y)[1] * factor,
+						(float)bmp.getPixel(x, y)[2] * factor
+						)
+					);
+			}
+	}
 }
 
 // Will throw ImageExcep if bytespp != 3 && bytespp != 4

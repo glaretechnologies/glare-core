@@ -567,7 +567,7 @@ inline Real dot(const Vec3<Real>& v1, const Vec3<Real>& v2)
 
 
 template <class Real>
-inline const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
+INDIGO_STRONG_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return Vec3<Real>(
 	(v1.y * v2.z) - (v1.z * v2.y),
