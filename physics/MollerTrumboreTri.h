@@ -406,9 +406,37 @@ public:
 			inv_det
 			);
 
+		//NEW:
+		// tri_n = cross(edge1, edge2)
+		const __m128 tri_n_x = _mm_sub_ps(_mm_mul_ps(edge1_y, edge2_z), _mm_mul_ps(edge1_z, edge2_y));
+		const __m128 tri_n_y = _mm_sub_ps(_mm_mul_ps(edge1_z, edge2_x), _mm_mul_ps(edge1_x, edge2_z));
+		const __m128 tri_n_z = _mm_sub_ps(_mm_mul_ps(edge1_x, edge2_y), _mm_mul_ps(edge1_y, edge2_x));
+
+		const __m128 launch_n_x = _mm_load_ps1(ray->launchNormal().x);
+		const __m128 launch_n_y = _mm_load_ps1(ray->launchNormal().x+1);
+		const __m128 launch_n_z = _mm_load_ps1(ray->launchNormal().x+2);
+
+		const __m128 tri_n_dot_launch_n = _mm_add_ps(
+			_mm_mul_ps(tri_n_x, launch_n_x), 
+			_mm_add_ps(
+				_mm_mul_ps(tri_n_y, launch_n_y),
+				_mm_mul_ps(tri_n_z, launch_n_z)
+			));
+
+		const __m128 tri_n_len = loadDataItem(t0data, t1data, t2data, t3data, 9);
+
+		// if(dot(tri_normal, launch_n) > (0.9f * data[9]))
+		const float thresh = 0.9f;
+		const __m128 same_n = _mm_cmpge_ps(tri_n_dot_launch_n, _mm_mul_ps(_mm_load_ps1(&thresh), tri_n_len));
+
+
 		//NEW
-		const float C = 0.00005f;
+		const float C = 0.0005f; // 0.00005f;
 		const float C_sqd = C * C;
+
+		//// returns mask == 0xFFFFFF ? b : a
+		const __m128 Cvec = condMov(zeroVec(), _mm_load_ps1(&C_sqd), same_n);
+
 
 		const __m128 e1_len_sqd = _mm_add_ps(
 			_mm_mul_ps(edge1_x, edge1_x),
@@ -428,7 +456,7 @@ public:
 
 		const __m128 ray_t_min_sqd = _mm_mul_ps(
 			_mm_max_ps(e1_len_sqd, e2_len_sqd),
-			_mm_load_ps1(&C_sqd)
+			Cvec // _mm_load_ps1(&C_sqd)
 			);
 
 

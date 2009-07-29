@@ -50,54 +50,19 @@ TriangleTest::~TriangleTest()
 
 static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
-	//SSE_ALIGN Vec4 best_t = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-	//SSE_ALIGN Vec4 best_tri_index = {666, 666, 666, 666};
-	/*SSE_ALIGN Vec4 tri_indices;// = { 0, 1, 2, 3 };
-	tri_indices.i[0] = 0;
-	tri_indices.i[1] = 1;
-	tri_indices.i[2] = 2;
-	tri_indices.i[3] = 3;*/
-	//SSE_ALIGN Vec4 best_u = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-	//SSE_ALIGN Vec4 best_v = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-
-	//SSE_ALIGN Vec4 best_data;
-
-
-	/*SSE_ALIGN Vec4 orig_x = {orig.x, orig.x, orig.x, orig.x};
-	SSE_ALIGN Vec4 orig_y = {orig.y, orig.y, orig.y, orig.y};
-	SSE_ALIGN Vec4 orig_z = {orig.z, orig.z, orig.z, orig.z};*/
-
-	/*SSE_ALIGN Vec4 dir_x = {dir.x, dir.x, dir.x, dir.x};
-	SSE_ALIGN Vec4 dir_y = {dir.y, dir.y, dir.y, dir.y};
-	SSE_ALIGN Vec4 dir_z = {dir.z, dir.z, dir.z, dir.z};*/
-
 	const float min_t = 0.0f;
 
 	UnionVec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
 		min_t,
-		/*&orig_x, &orig_y, &orig_z, &dir_x, &dir_y, &dir_z*/
 		tri[0].data, tri[1].data, tri[2].data, tri[3].data,
-		//&best_t,
 		&u, &v, &t, &hit
-		//&best_tri_index,
-		//&tri_indices,
-
-		//&best_u,
-		//&best_v
-		//&best_data
-
 		);
-
-	//float ref_u, ref_v;
-	//unsigned int ref_best_index;
-	//float ref_best_t = std::numeric_limits<float>::max();
-	//bool hit_a_tri = false;
 
 	for(int i=0; i<4; ++i)
 	{
 		float ref_u, ref_v, ref_t;
-		const bool ref_hit = tri[i].referenceIntersect(ray, &ref_u, &ref_v, &ref_t);
+		const bool ref_hit = tri[i].rayIntersect(ray, 1.0e9f, ref_t, ref_u, ref_v) != 0;
 
 		if(ref_hit || (hit.i[i] != 0))
 		{
@@ -106,32 +71,17 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 			testAssert(::epsEqual(ref_v, v.f[i]));
 			testAssert(ref_hit == (hit.i[i] != 0));
 		}
-
-		/*if(tri[i].referenceIntersect(ray, &u, &v, &t))
-		{
-			hit_a_tri = true;
-
-			if(t < ref_best_t)
-			{
-				ref_best_index = i;
-				ref_best_t = t;
-				ref_u = u;
-				ref_v = v;
-			}
-		}*/
 	}
+}
 
-	/*if(hit_a_tri)
-	{
-		const float best_u = best_data.f[0];
-		const float best_v = best_data.f[1];
-		const unsigned int best_index = best_data.i[2];
 
-		testAssert(best_index == ref_best_index);
-		testAssert(::epsEqual(ref_best_t, best_t.f[0]));
-		testAssert(::epsEqual(ref_u, best_u));
-		testAssert(::epsEqual(ref_v, best_v));
-	}*/
+static void testSingleTriIntersection(const Ray& ray, const MollerTrumboreTri& tri)
+{
+	MollerTrumboreTri tris[4];
+	tris[0] = tris[1] = tris[2] = tris[3] = tri;
+
+
+	testIntersection(ray, tris);
 }
 
 
@@ -141,7 +91,7 @@ static void testTriangleIntersection()
 
 	MTwister rng(1);
 
-	SSE_ALIGN MollerTrumboreTri tris[4];
+	MollerTrumboreTri tris[4];
 
 	for(int i=0; i<100000; ++i)
 	{
@@ -222,8 +172,51 @@ void testBadouelTriIntersection()
 
 void TriangleTest::doTests()
 {
+
+
+	// Test self intersection avoidance
+	{
+		MollerTrumboreTri t;
+		t.set(Vec3f(0,0,0), Vec3f(0.5f,0,0), Vec3f(0,0.5f,0));
+
+		testAssert(epsEqual(t.getNormal(), Vec3f(0,0,1)));
+
+
+		// Start ray just under tri, with same launch normal.  Shouldn't self intersect.
+		{
+		const Ray ray(
+			Vec4f(0.1f, 0.1f, -0.00001f, 1.f), // startpos
+			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)), // dir
+			Vec4f(0,0,1, 0.f) // launch normal
+		);
+
+		float dist, u, v;
+		const unsigned int hit = t.rayIntersect(ray, 10000.0f, dist, u, v);
+		testAssert(hit == 0);
+
+		testSingleTriIntersection(ray, t);
+		}
+
+		// Start ray just under tri, with same different normal.  Should self intersect.
+		{
+		const Ray ray(
+			Vec4f(0.1f, 0.1f, -0.00001f, 1.f), // startpos
+			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)), // dir
+			normalise(Vec4f(1,0,1, 0.f)) // launch normal
+		);
+
+		float dist, u, v;
+		const unsigned int hit = t.rayIntersect(ray, 10000.0f, dist, u, v);
+		testAssert(hit != 0);
+
+		testSingleTriIntersection(ray, t);
+		}
+
+	}
+
 	testTriangleIntersection();
 	testBadouelTriIntersection();
+
 }
 
 
