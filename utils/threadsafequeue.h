@@ -81,6 +81,7 @@ public:
 
 	inline bool unlockedEmpty() const;
 
+	const std::list<T>& getQueueDebug() const { return queue; }
 
 private:
 	std::list<T> queue;

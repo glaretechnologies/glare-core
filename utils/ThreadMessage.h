@@ -8,6 +8,9 @@ Code By Nicholas Chapman.
 #define __THREADMESSAGE_H_666_
 
 
+#include <string>
+
+
 /*=====================================================================
 ThreadMessage
 -------------
@@ -28,6 +31,7 @@ public:
 
 	virtual ThreadMessage* clone() const = 0;
 
+	virtual const std::string debugName() const { return "ThreadMessage"; }
 
 };
 

@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 #define __THREADTERMINATINGMESSAGE_H_666_
 
 
-
 #include "ThreadMessage.h"
 
 
@@ -33,13 +32,9 @@ public:
 
 	virtual ThreadMessage* clone() const { return new ThreadTerminatingMessage(); }
 
+	virtual const std::string debugName() const { return "ThreadTerminatingMessage"; }
 
 };
 
 
-
 #endif //__THREADTERMINATINGMESSAGE_H_666_
-
-
-
-

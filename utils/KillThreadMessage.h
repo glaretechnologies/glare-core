@@ -30,6 +30,8 @@ public:
 	virtual ~KillThreadMessage();
 
 	virtual ThreadMessage* clone() const { return new KillThreadMessage(); }
+
+	virtual const std::string debugName() const { return "KillThreadMessage"; }
 };
 
 

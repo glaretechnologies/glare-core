@@ -1,12 +1,14 @@
 // Copyright Glare Technologies Limited 2009 -
 #include "stringutils.h"
 
-
-//#include "../maths/mathstypes.h"
 #include <cmath>
 #include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
-//#include <iostream> //TEMP
+#include <stdio.h>
+
+#include "../utils/timer.h"
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -14,7 +16,6 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-
 
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep
@@ -26,6 +27,7 @@ float stringToFloat(const std::string& s) // throws StringUtilsExcep
 	return ret;
 }
 
+
 double stringToDouble(const std::string& s) // throws StringUtilsExcep
 {
 	char* end_ptr = NULL;
@@ -34,6 +36,7 @@ double stringToDouble(const std::string& s) // throws StringUtilsExcep
 		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
 	return ret;
 }
+
 
 int stringToInt(const std::string& s) // throws StringUtilsExcep
 {
@@ -45,7 +48,6 @@ int stringToInt(const std::string& s) // throws StringUtilsExcep
 		throw StringUtilsExcep("Failed to convert '" + s + "' to an int.");
 	return ret;
 }
-
 
 
 unsigned int hexStringToUInt(const std::string& s)
@@ -86,6 +88,7 @@ unsigned int hexStringToUInt(const std::string& s)
 
 	return x;
 }
+
 
 unsigned long long hexStringTo64UInt(const std::string& s)
 {
@@ -165,6 +168,7 @@ unsigned long long hexStringTo64UInt(const std::string& s)
 	}
 }*/
 
+
 //for 64 bit integers
 //NOTE: this function is unchanged from the 32 bit version... so turn into template?
 //or could cast 32 bit ints into 64 bit ints and always use this version.
@@ -205,25 +209,28 @@ const std::string toHexString(unsigned long long i)
 	}
 }
 
+
 const std::string intToString(int i)
 {
-	//not static for thread-safety.
-	char buffer[100];
+	// Not static for thread-safety.
+	char buffer[16];
 
 	sprintf(buffer, "%i", i);
 
 	return std::string(buffer);
 }
 
+
 const std::string floatToString(float f)
 {
-	//not static for thread-safety.
+	// Not static for thread-safety.
 	char buffer[100];
 
 	sprintf(buffer, "%f", f);
 
 	return std::string(buffer);
 }
+
 
 const std::string doubleToString(double d, int num_decimal_places)
 {
@@ -237,6 +244,8 @@ const std::string doubleToString(double d, int num_decimal_places)
 
 	return std::string(buffer);
 }
+
+
 const std::string doubleToStringScientific(double d, int num_decimal_places)
 {
 	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
@@ -292,12 +301,32 @@ const std::string floatToString(float f, int num_decimal_places)
 
 const std::string toString(unsigned int x)
 {
-	char buffer[100];
+	char buffer[16];
 
 	sprintf(buffer, "%u", x);
 
 	return std::string(buffer);
 }
+
+
+// Slooooow
+const std::string toStringStrStream(unsigned int x)
+{
+	std::ostringstream stream;
+	stream << x;
+	return stream.str();
+}
+
+
+const std::string toString(uint64 x)
+{
+	char buffer[32];
+
+	sprintf(buffer, "%llu", x);
+
+	return std::string(buffer);
+}
+
 
 const std::string boolToString(bool b)
 {
@@ -396,6 +425,7 @@ const std::string eatTailWhitespace(const std::string& text)
 	return "";
 }
 
+
 const std::string eatPrefix(const std::string& s, const std::string& prefix)
 {
 	if(::hasPrefix(s, prefix))
@@ -412,7 +442,6 @@ const std::string eatSuffix(const std::string& s, const std::string& suffix)
 	else
 		return s;
 }
-
 
 
 const std::string toLowerCase(const std::string& text)
@@ -436,7 +465,6 @@ const std::string toLowerCase(const std::string& text)
 
 	return lowerstr;
 }
-
 
 
 const std::string toUpperCase(const std::string& text)
@@ -475,6 +503,8 @@ char toLowerCase(char c)
 	else
 		return c;
 }
+
+
 char toUpperCase(char c)
 {
 	//TEMP NASTY HACK
@@ -491,8 +521,6 @@ char toUpperCase(char c)
 }
 
 
-
-
 bool hasExtension(const std::string& file, const std::string& extension)
 {
 	const std::string dot_plus_extension = "." + toUpperCase(extension);
@@ -506,6 +534,7 @@ bool hasExtension(const std::string& file, const std::string& extension)
 	else
 		return false;
 }
+
 
 const std::string getExtension(const std::string& filename)//3 letter extension
 {
@@ -623,6 +652,7 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 	}
 }
 
+
 bool containsString(const std::string& text, const std::string& target_string)
 {
 
@@ -669,6 +699,7 @@ void readInToken(std::istream& stream, std::string& str_out)
 	}
 }
 
+
 void readQuote(std::istream& stream, std::string& str_out)//reads string from between double quotes.
 {
 	stream >> str_out;
@@ -707,12 +738,14 @@ void readQuote(std::istream& stream, std::string& str_out)//reads string from be
 	str_out = str_out.substr(1, (int)str_out.size() - 2);*/
 }
 
+
 void writeToQuote(std::ostream& stream, const std::string& str)//writes string to between double quotes.
 {
 	stream << '\"';
 	stream << str;
 	stream << '\"';
 }
+
 
 /*unsigned int stringChecksum(const std::string& s)
 {
@@ -733,7 +766,6 @@ void replaceChar(std::string& s, char src, char dest)
 		if(s[i] == src)
 			s[i] = dest;
 }
-
 
 
 const std::string getTailSubString(const std::string& s, unsigned int first_char_index)
@@ -757,6 +789,7 @@ const std::string forceCopyString(const std::string& s)
 
 	return newstring;
 }
+
 
 const std::string getNiceByteSize(size_t x)
 {
@@ -783,6 +816,7 @@ const std::string getNiceByteSize(size_t x)
 	}
 }
 
+
 const std::string getPrefixBeforeDelim(const std::string& s, char delim)
 {
 	std::string prefix;
@@ -795,6 +829,7 @@ const std::string getPrefixBeforeDelim(const std::string& s, char delim)
 	}
 	return prefix;
 }
+
 
 const std::vector<std::string> split(const std::string& s, char delim)
 {
@@ -837,6 +872,7 @@ const std::string rightPad(const std::string& s, char c, unsigned int minwidth)
 
 namespace StringUtils
 {
+
 
 void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out)
 {
@@ -957,7 +993,6 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 } // end namespace StringUtils
 
 
-
 template <class Real>
 static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 {
@@ -967,6 +1002,46 @@ static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 
 void doStringUtilsUnitTests()
 {
+	testAssert(toString(1234567) == "1234567");
+	testAssert(toString(-1234567) == "-1234567");
+	testAssert(toString(0) == "0");
+
+	// 64 bit integers
+	testAssert(toString((uint64)12345671234567) == "12345671234567");
+	testAssert(toString((uint64)0) == "0");
+	testAssert(toString((uint64)1234567) == "1234567");
+
+	/*const int N = 100000;
+	{
+		Timer timer;
+		uint64 sumlen = 0;
+
+		for(unsigned i=0; i<N; ++i)
+			sumlen += toString(i).size();
+
+		conPrint("toString: " + toString(timer.getSecondsElapsed()));
+		conPrint("sumlen: " + toString(sumlen));
+	}
+	{
+		Timer timer;
+		uint64 sumlen = 0;
+
+		for(unsigned i=0; i<N; ++i)
+			sumlen += toStringStrStream(i).size();
+
+		conPrint("toStringStrStream: " + toString(timer.getSecondsElapsed()));
+		conPrint("sumlen: " + toString(sumlen));
+	}
+	{
+		Timer timer;
+		uint64 sumlen = 0;
+
+		for(unsigned i=0; i<N; ++i)
+			sumlen += toString((uint64)i).size();
+
+		conPrint("toString((uint64): " + toString(timer.getSecondsElapsed()));
+		conPrint("sumlen: " + toString(sumlen));
+	}*/
 
 #if defined(WIN32) || defined(WIN64)
 	// test WToUTF8String and UTF8ToWString

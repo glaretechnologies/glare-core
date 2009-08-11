@@ -9,6 +9,7 @@ Code Copyright Nicholas Chapman 2005.
 =====================================================================*/
 #include "mysocket.h"
 
+
 #include "networking.h"
 #include "../maths/vec3.h"
 #include <vector>
@@ -25,17 +26,6 @@ Code Copyright Nicholas Chapman 2005.
 #include <sys/select.h>
 #endif
 
-//#include <iostream> //TEMP
-
-
-/*inline void zeroHandle(SOCKETHANDLE_TYPE& sockhandle)
-{
-#ifdef WIN32
-	sockhandle = NULL;
-#else
-	sockhandle = 0;
-#endif
-}*/
 
 #if defined(WIN32) || defined(WIN64)
 typedef int SOCKLEN_TYPE;
@@ -44,8 +34,6 @@ typedef socklen_t SOCKLEN_TYPE;
 
 const int SOCKET_ERROR = -1;
 #endif
-
-
 
 
 MySocket::MySocket(const std::string hostname, int port)
@@ -60,26 +48,10 @@ MySocket::MySocket(const std::string hostname, int port)
 	if(!Networking::isInited())
 		throw MySocketExcep("Networking not inited or destroyed.");
 
-//#ifdef CYBERSPACE
-	//if(Networking::getInstance().shouldSocketsShutDown())
-	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
-//#endif
-
-
 
 	//-----------------------------------------------------------------
-	//do DNS lookup to get server IP
+	//do DNS lookup to get server host IP
 	//-----------------------------------------------------------------
-	/*struct hostent* host_info = gethostbyname(hostname.c_str());
-
-	if(!host_info)
-	{
-		throw MySocketExcep("could not lookup host IP with DNS");
-	}
-
-	IPAddress serverip(*((unsigned int*)(host_info->h_addr)));*/
-	//NOTE: checkme cast is alright
-
 	try
 	{
 		std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
@@ -98,7 +70,6 @@ MySocket::MySocket(const std::string hostname, int port)
 	{
 		throw MySocketExcep("DNS Lookup failed: " + std::string(e.what()));
 	}
-
 }
 
 
@@ -110,7 +81,6 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 
 	assert(Networking::isInited());
 
-
 	doConnect(ipaddress, port);
 }
 
@@ -121,6 +91,7 @@ MySocket::MySocket()
 	sockethandle = 0;
 
 }
+
 
 void MySocket::doConnect(const IPAddress& ipaddress, int port)
 {
@@ -139,13 +110,10 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 	server_address.sin_port = htons((unsigned short)port);
 	server_address.sin_addr.s_addr = ipaddress.getAddr();
 
-//	const std::string temp = ipaddress.toString();
-
-
 	//-----------------------------------------------------------------
 	//create the socket
 	//-----------------------------------------------------------------
-	const int DEFAULT_PROTOCOL = 0;			// use default protocol
+	const int DEFAULT_PROTOCOL = 0; // Use default protocol
 	sockethandle = socket(PF_INET, SOCK_STREAM, DEFAULT_PROTOCOL);
 
 	if(!isSockHandleValid(sockethandle))
@@ -153,29 +121,8 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 		throw MySocketExcep("could not create a socket.  Error code == " + Networking::getError());
 	}
 
-	//------------------------------------------------------------------------
-	//set timeouts for reading and writing data
-	//------------------------------------------------------------------------
-	/*{
-	const int rcv_timeout = 1000;//ms
-	const int result = setsockopt(sockethandle, IPPROTO_TCP, SO_RCVTIMEO, (const char*)&rcv_timeout, sizeof(rcv_timeout));
-
-	assert(result != SOCKET_ERROR);
-	if(result == SOCKET_ERROR)
-	{
-		::error(Networking::getError());
-	}
-
-	}
-	{
-	const int send_timeout = 1000;//ms
-	const int result = setsockopt(sockethandle, IPPROTO_TCP, SO_SNDTIMEO, (const char*)&send_timeout, sizeof(send_timeout));
-
-	assert(result != SOCKET_ERROR);
-	}*/
-
 	//-----------------------------------------------------------------
-	//connect to server
+	//Connect to server
 	//NOTE: get rid of this blocking connect.
 	//-----------------------------------------------------------------
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) == -1)
@@ -198,64 +145,23 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 	if(result != SOCKET_ERROR)
 	{
 		thisend_ipaddr = interface_addr.sin_addr.s_addr; //NEWCODE: removed ntohl
-		//::debugPrint("socket thisend ip: " + thisend_ipaddr.toString());
 
 		thisend_port = ntohs(interface_addr.sin_port);
-		//::debugPrint("socket thisend port: " + toString(thisend_port));
 
 		//if(ipaddress != IPAddress("127.0.0.1"))//loopback connection, ignore
 		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
 	}
-	else
-	{
-#ifdef CYBERSPACE
-		::debugPrint("failed to determine ip addr and port used for socket.");
-#endif
-	}
-
 }
 
 
 MySocket::~MySocket()
 {
 	close();
-	/*if(sockethandle)
-	{
-		//------------------------------------------------------------------------
-		//try shutting down the socket
-		//------------------------------------------------------------------------
-		int result = shutdown(sockethandle, 1);
-
-		assert(result == 0);
-		if(result)
-		{
-			::printWarning("Error while shutting down TCP socket: " + Networking::getError());
-		}
-
-		//-----------------------------------------------------------------
-		//close socket
-		//-----------------------------------------------------------------
-		result = closesocket(sockethandle);
-
-		assert(result == 0);
-		if(result)
-		{
-			::printWarning("Error while destroying TCP socket: " + Networking::getError());
-		}
-	}*/
-
 }
-
-
-
-
-
-
 
 
 void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 {
-
 	assert(Networking::isInited());
 
 	//-----------------------------------------------------------------
@@ -264,9 +170,6 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	if(sockethandle)
 	{
 		assert(0);
-		/*const int result = closesocket(sockethandle);
-		assert(result != SOCKET_ERROR);
-		sockethandle = NULL;*/
 		throw MySocketExcep("Socket already created.");
 	}
 
@@ -277,7 +180,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);//accept on any interface
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Accept on any interface
 	server_addr.sin_port = htons(port);
 
 
@@ -298,15 +201,13 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 		throw MySocketExcep("bind failed");
 
 
-	const int backlog = 100;//NOTE: wtf should this be?
+	const int backlog = 100; // NOTE: wtf should this be?
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
 		throw MySocketExcep("listen failed");
 
 	thisend_port = port;
-
 }
-
 
 
 void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
@@ -325,8 +226,6 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 		fd_set sockset;
 		initFDSetWithSocket(sockset, sockethandle);
 
-		//if(Networking::getInstance().shouldSocketsShutDown())
-		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 			throw AbortedMySocketExcep();
 
@@ -338,18 +237,16 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 			&wait_period // timeout
 			);
 
-		//std::cout << "MySocket::acceptConnection(): num_ready: " << num_ready << std::endl;
-
-		if(should_abort_callback && should_abort_callback->shouldAbort()) // Networking::getInstance().shouldSocketsShutDown())
-			throw AbortedMySocketExcep(); // ::Networking::shouldSocketsShutDown() == true");
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+			throw AbortedMySocketExcep();
 
 		if(num_ready != 0)
 			break;
 	}
 
-	// Now this should accept() immediately .... :)
+	// Now this should accept immediately .... :)
 
-	sockaddr_in client_addr;//data struct to get the client IP
+	sockaddr_in client_addr; // Data struct to get the client IP
 	SOCKLEN_TYPE length = sizeof(client_addr);
 
 	memset(&client_addr, 0, length);
@@ -358,25 +255,6 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 
 	if(!isSockHandleValid(newsockethandle))
 		throw MySocketExcep("accept failed");
-
-/*	if(poll_mode)
-	{
-
-		unsigned long NON_BLOCKING = 1;
-
-		const int result = ioctlsocket(socket_handle, FIONBIO, &b);
-
-		assert(result != SOCKET_ERROR);
-
-		while(1)
-		{
-
-			SOCKET newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
-
-			if(newsockethandle == INVALID_SOCKET)
-				throw MySocketExcep("accept failed");
-
-*/
 
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
@@ -404,25 +282,13 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 	{
 		thisend_ipaddr = interface_addr.sin_addr.s_addr;
 		//NEWCODE removed ntohl
-		//::debugPrint("socket thisend ip: " + thisend_ipaddr.toString());
 
 		thisend_port = ntohs(interface_addr.sin_port);
-		//::debugPrint("socket thisend port: " + toString(thisend_port));
 
 		//if(thisend_ipaddr != IPAddress("127.0.0.1"))//loopback connection, ignore
 		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
-
 	}
-	else
-	{
-#ifdef CYBERSPACE
-		::debugPrint("failed to determine ip addr and port used for socket.");
-#endif
-	}
-
 }
-
-
 
 
 void MySocket::close()
@@ -456,24 +322,12 @@ void MySocket::close()
 			//::printWarning("Error while destroying TCP socket: " + Networking::getError());
 		}
 	}
-	/*//-----------------------------------------------------------------
-	//close socket
-	//-----------------------------------------------------------------
-	if(closesocket(sockethandle) == SOCKET_ERROR)
-	{
-		//NOTE: could just do nothing here?
-		throw std::exception("error closing socket");
-	}*/
 
 	sockethandle = 0;
 }
 
 
-
-
-
-
-const int USE_BUFFERSIZE = 1024;
+static const int USE_BUFFERSIZE = 1024;
 
 
 void MySocket::write(const void* data, int datalen, SocketShouldAbortCallback* should_abort_callback)
@@ -502,18 +356,14 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
 
 			fd_set sockset;
-			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
+			initFDSetWithSocket(sockset, sockethandle);
 
-			//if(Networking::getInstance().shouldSocketsShutDown())
-			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
 				throw AbortedMySocketExcep();
 
-			//get number of handles that are ready to write to
+			// Get number of handles that are ready to write to
 			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &sockset, NULL, &wait_period);
 
-			//if(Networking::getInstance().shouldSocketsShutDown())
-			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
 				throw AbortedMySocketExcep();
 
@@ -527,37 +377,12 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 			throw MySocketExcep("write failed.  Error code == " + Networking::getError());
 
 		datalen -= numbyteswritten;
-		data = (void*)((char*)data + numbyteswritten);//advance data pointer
+		data = (void*)((char*)data + numbyteswritten); // Advance data pointer
 
-		MySocket::num_bytes_sent += numbyteswritten;
+		//MySocket::num_bytes_sent += numbyteswritten;
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
-
-		//-----------------------------------------------------------------
-		//artificially slow down connection speed
-		//-----------------------------------------------------------------
-		/*const bool SLOW_CONNECTION = false;
-
-		if(SLOW_CONNECTION && datalen > 0)
-		{
-			const float max_rate = 10000;//Bytes/sec
-			static bool printed_warning = false;
-
-			if(!printed_warning)
-			{
-				//::debugPrint("WARNING: artificially narrowing TCP socket rate to " +
-				//					::toString(max_rate) + "B/s !", Vec3(1,1,0));
-
-				printed_warning = true;
-			}
-
-			const float sleep_time = 1000.0 * (float)USE_BUFFERSIZE / max_rate;//in ms
-			Sleep(sleep_time);
-		}*/
-
-		//if(Networking::getInstance().shouldSocketsShutDown())
-		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 	}
 }
 
@@ -572,14 +397,13 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 {
 	const int totalnumbytestoread = readlen;
 
-	while(readlen > 0)//while still bytes to read
+	while(readlen > 0) // While still bytes to read
 	{
 		const int numbytestoread = myMin(USE_BUFFERSIZE, readlen);
 
 		//------------------------------------------------------------------------
-		//NEWCODE: loop until either the prog is exiting or have incoming data
+		//Loop until either the prog is exiting or have incoming data
 		//------------------------------------------------------------------------
-
 		while(1)
 		{
 			const float BLOCK_DURATION = 0.5f;
@@ -587,20 +411,15 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 			wait_period.tv_sec = 0;
 			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
 
-			//FD_SET fd_set;
 			fd_set sockset;
-			initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
+			initFDSetWithSocket(sockset, sockethandle);
 
-			//if(Networking::getInstance().shouldSocketsShutDown())
-			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
 				throw AbortedMySocketExcep();
 
-			//get number of handles that are ready to read from
+			// Get number of handles that are ready to read from
 			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
 
-			//if(Networking::getInstance().shouldSocketsShutDown())
-			//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 			if(should_abort_callback && should_abort_callback->shouldAbort())
 				throw AbortedMySocketExcep();
 
@@ -613,19 +432,19 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 		//------------------------------------------------------------------------
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
-		if(numbytesread == SOCKET_ERROR || numbytesread == 0)
-			throw MySocketExcep("read failed, error: " + Networking::getError());
+		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+			throw MySocketExcep("Read failed, error: " + Networking::getError());
+		else if(numbytesread == 0) // Connection was closed gracefully
+			throw MySocketExcep("Connection Closed.");
 
 		readlen -= numbytesread;
 		buffer = (void*)((char*)buffer + numbytesread);
 
-		MySocket::num_bytes_rcvd += numbytesread;
+		//MySocket::num_bytes_rcvd += numbytesread;
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
 
-		//if(Networking::getInstance().shouldSocketsShutDown())
-		//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 			throw AbortedMySocketExcep();
 	}
@@ -719,15 +538,18 @@ void MySocket::write(int x, SocketShouldAbortCallback* should_abort_callback)
 	write(&i, sizeof(int), should_abort_callback);
 }
 
+
 void MySocket::write(char x, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(&x, sizeof(char), should_abort_callback);
 }
 
+
 void MySocket::write(unsigned char x, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(&x, sizeof(unsigned char), should_abort_callback);
 }
+
 
 void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // writes string
 {
@@ -740,6 +562,7 @@ void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abo
 	write(&(*s.begin()), s.length(), should_abort_callback);
 }
 
+
 /*
 void MySocket::write(const Vec3& vec)
 {
@@ -747,6 +570,7 @@ void MySocket::write(const Vec3& vec)
 	write(vec.y);
 	write(vec.z);
 }*/
+
 
 void MySocket::write(unsigned short x, SocketShouldAbortCallback* should_abort_callback)
 {
@@ -888,7 +712,7 @@ void MySocket::readTo(std::string& x, int numchars, FractionListener* frac, Sock
 //-----------------------------------------------------------------
 //funcs for measuring data rate
 //-----------------------------------------------------------------
-int MySocket::getNumBytesSent()
+/*int MySocket::getNumBytesSent()
 {
 	return num_bytes_sent;
 }
@@ -904,9 +728,9 @@ void MySocket::resetNumBytesSent()
 void MySocket::resetNumBytesRcvd()
 {
 	num_bytes_rcvd = 0;
-}
+}*/
 
-void MySocket::pollRead(std::string& data_out)
+/*void MySocket::pollRead(std::string& data_out)
 {
 	data_out.resize(0);
 
@@ -942,21 +766,45 @@ void MySocket::pollRead(std::string& data_out)
 
 	data_out.resize(numbytesread);
 
-	/*data_out.resize(1024);//max bytes to read at once
+	//data_out.resize(1024);//max bytes to read at once
 
-	const int num_pending_bytes = recv(sockethandle, &(*data_out.begin()), data_out.size(), MSG_PEEK);
+	//const int num_pending_bytes = recv(sockethandle, &(*data_out.begin()), data_out.size(), MSG_PEEK);
 
-	//now remove from the input queue
-	data_out.resize(num_pending_bytes);
+	////now remove from the input queue
+	//data_out.resize(num_pending_bytes);
 
-	if(num_pending_bytes != 0)
-	{
+	//if(num_pending_bytes != 0)
+	//{
 
-		const int numread = recv(sockethandle, &(*data_out.begin()), data_out.size(), 0);
+	//	const int numread = recv(sockethandle, &(*data_out.begin()), data_out.size(), 0);
 
-		assert(numread == data_out.size());
-	}*/
+	//	assert(numread == data_out.size());
+	//}
+}*/
+
+
+bool MySocket::readable(double timeout_s)
+{
+	assert(timeout_s < 1.0);
+
+	timeval wait_period;
+	wait_period.tv_sec = 0;
+	wait_period.tv_usec = (long)(timeout_s * 1000000.0);
+
+	fd_set sockset;
+	initFDSetWithSocket(sockset, sockethandle);
+
+	// Get number of handles that are ready to read from
+	const int num = select(sockethandle+1, 
+		&sockset, // Read fds
+		NULL, // Read fds
+		NULL, // Read fds
+		&wait_period
+		);
+
+	return num > 0;
 }
+
 
 bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
@@ -966,6 +814,7 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 	return handle >= 0;
 #endif
 }
+
 
 void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 {
@@ -984,6 +833,7 @@ void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 #endif
 }
 
+
 void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle)
 {
 	FD_ZERO(&sockset);
@@ -998,5 +848,5 @@ void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandl
 }
 
 
-int MySocket::num_bytes_sent = 0;
-int MySocket::num_bytes_rcvd = 0;
+//int MySocket::num_bytes_sent = 0;
+//int MySocket::num_bytes_rcvd = 0;

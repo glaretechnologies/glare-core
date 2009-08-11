@@ -123,10 +123,12 @@ public:
 
 	void readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
-	void pollRead(std::string& data_out);//non blocking, returns currently
+	//void pollRead(std::string& data_out);//non blocking, returns currently
 	//queued incoming data up to some arbitrary limit such as 1024 bytes.
 
 	void setNagleAlgEnabled(bool enabled);//on by default.
+
+	bool readable(double timeout_s);
 
 	//-----------------------------------------------------------------
 	//if u use these directly u must do host->network and vice versa byte reordering yourself
@@ -139,11 +141,11 @@ public:
 	//-----------------------------------------------------------------
 	//funcs for measuring data rate
 	//-----------------------------------------------------------------
-	static int getNumBytesSent();
-	static int getNumBytesRcvd();
+	//static int getNumBytesSent();
+	//static int getNumBytesRcvd();
 
-	static void resetNumBytesSent();
-	static void resetNumBytesRcvd();
+	//static void resetNumBytesSent();
+	//static void resetNumBytesRcvd();
 
 private:
 	MySocket(const MySocket& other);
@@ -161,14 +163,16 @@ private:
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
+
+
 	IPAddress otherend_ipaddr;
 	IPAddress thisend_ipaddr;
 	int thisend_port;
 	int otherend_port;
 
 
-	static int num_bytes_sent;
-	static int num_bytes_rcvd;
+	//static int num_bytes_sent;
+	//static int num_bytes_rcvd;
 	//NOTE: not threadsafe
 };
 

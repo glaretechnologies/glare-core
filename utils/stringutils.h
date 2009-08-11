@@ -66,10 +66,8 @@ inline const std::string toString(int i)
 
 const std::string toString(unsigned int x);
 
-inline const std::string toString(uint64 x)
-{
-	return toString((uint32)x);
-}
+const std::string toString(uint64 x);
+
 
 const std::string boolToString(bool b);
 

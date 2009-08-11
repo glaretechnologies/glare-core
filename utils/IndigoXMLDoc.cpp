@@ -69,3 +69,14 @@ void IndigoXMLDoc::saveDoc(const std::string& savepath)
 
 	fclose(savefile);
 }
+
+
+void IndigoXMLDoc::test()
+{
+	for(int i=0; i<10000; ++i)
+	{
+ 		IndigoXMLDoc doc("C:/programming/models/BbB/Avivre1/Avivre1.igs");
+
+	}
+
+}
