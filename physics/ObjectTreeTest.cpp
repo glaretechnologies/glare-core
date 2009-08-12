@@ -153,6 +153,11 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			testAssert(hit);
 		}
 	}
+
+	ob1->~Object();
+	SSE::alignedSSEFree(ob1);
+	ob2->~Object();
+	SSE::alignedSSEFree(ob2);
 }
 
 
@@ -176,6 +181,8 @@ void ObjectTreeTest::doTests()
 	ThreadContext thread_context(1, 0);
 	StandardPrintOutput print_output;
 
+	std::vector<Object*> objects;
+
 	/// Add some random spheres ////
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
@@ -186,11 +193,9 @@ void ObjectTreeTest::doTests()
 
 		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
 			raysphere,
-			//pos, pos,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(),
-			//std::vector<std::vector<int> >(),
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);
@@ -198,6 +203,8 @@ void ObjectTreeTest::doTests()
 		settings.cache_trees = false;
 		ob->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
 		ob_tree.insertObject(ob);
+
+		objects.push_back(ob);
 	}
 	ob_tree.build(print_output);
 
@@ -263,8 +270,15 @@ void ObjectTreeTest::doTests()
 		}
 	}
 
-/*
+	// Delete objects
+	for(unsigned int i=0; i<objects.size(); ++i)
 	{
+		objects[i]->~Object();
+		SSE::alignedSSEFree(objects[i]);
+	}
+
+
+	/*{
 	js::Triangle tri(Vec3(0,0,0), Vec3(0,1,0), Vec3(1,1,0));
 
 	TriTree tritree;

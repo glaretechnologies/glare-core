@@ -62,6 +62,7 @@ const std::string License::decodeBase64(const std::string& data_)
         if(!b64)
             throw License::LicenseExcep("Failed to initialize in base64 decoder");
 
+		// Append bmem to the chain
         BIO_push(b64, bmem);
         unsigned char tmp[512];
         size_t rb = 0;
@@ -70,7 +71,11 @@ const std::string License::decodeBase64(const std::string& data_)
             rv.insert(rv.end(), tmp, &tmp[rb]); // Append read bytes to rv
 		}
 
+		//BIO_pop(bmem);
+		//BIO_free_all(bmem);
+
 		BIO_free_all(b64); // This seems to free up all used memory.
+		
 		return rv;
     }
 	catch(...)
@@ -299,13 +304,12 @@ void License::test()
 	// Test long base-64 encoded block, with no embedded newlines
 	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
 		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
-		);
-
+	);
 
 	// Test long base-64 encoded block, with embedded newlines
 	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlz\nIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2Yg\ndGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGlu\ndWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRo\nZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=")
 		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
-		);
+	);
 
 	testAssert(decodeBase64("bGVhc3VyZS4=") == "leasure.");
 	testAssert(decodeBase64("bGVhc3VyZS4=\n") == "leasure.");
@@ -313,7 +317,7 @@ void License::test()
 	// Test a signed key
 	Timer timer;
 
-	const int N = 1000;
+	const int N = 10;
 	for(unsigned int i=0; i<N; ++i)
 	{
 		const std::string encoded_hash = 

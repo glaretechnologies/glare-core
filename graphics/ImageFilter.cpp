@@ -1276,7 +1276,9 @@ void ImageFilter::test()
 
 	testConvolutionWithDims(19, 6, 5, 3);
 
+#ifndef DEBUG
 	testConvolutionWithDims(32, 32, 6, 6);
+#endif
 
 	testConvolutionWithDims(16, 16, 7, 7);
 }

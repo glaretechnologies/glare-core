@@ -8,7 +8,8 @@ Code By Nicholas Chapman.
 #define __INDIGOXMLDOC_H_666_
 
 
-#include "../tinyxml_2_4_3/tinyxml/tinyxml.h"
+#include <tinyxml/tinyxml.h>
+#include <string>
 
 
 class IndigoXMLDocExcep

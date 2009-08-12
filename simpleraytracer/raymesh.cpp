@@ -62,7 +62,11 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 
 RayMesh::~RayMesh()
 {	
-	SSE::alignedFree(tritree);
+	if(tritree)
+	{
+		tritree->~Tree();
+		SSE::alignedFree(tritree);
+	}
 }
 
 

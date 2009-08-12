@@ -59,7 +59,7 @@ public:
 
 	=====================================================================*/
 	KDTree(RayMesh* raymesh);
-	~KDTree();
+	virtual ~KDTree();
 
 	virtual void build(PrintOutput& print_output); // throws TreeExcep
 	virtual bool diskCachable();
