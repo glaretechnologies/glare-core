@@ -16,7 +16,9 @@ Code By Nicholas Chapman.
 #include <sys/stat.h>
 #endif
 
+#ifndef WINTER
 #include <zlib.h>
+#endif
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
@@ -748,7 +750,7 @@ bool isPathAbsolute(const std::string& p)
 #endif
 }
 
-
+#ifndef WINTER
 uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
 {
 	std::vector<unsigned char> contents;
@@ -760,7 +762,7 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 	const unsigned int initial_crc = crc32(0, 0, 0);
 	return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
 }
-
+#endif
 
 FILE* openFile(const std::string& pathname, const std::string openmode)
 {
