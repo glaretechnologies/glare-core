@@ -4,6 +4,7 @@
 
 #include "colour3.h"
 #include "../utils/array2d.h"
+#include "../utils/platform.h"
 #include "../graphics/Map2D.h"
 #include "assert.h"
 #include <string>
@@ -49,11 +50,11 @@ public:
 	inline unsigned int getWidth() const { return width; }
 	inline unsigned int numPixels() const { return (unsigned int)(width * height); }
 
-	inline const ColourType& getPixel(unsigned int x, unsigned int y) const;
-	inline ColourType& getPixel(unsigned int x, unsigned int y);
+	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int x, unsigned int y) const;
+	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int x, unsigned int y);
 
-	inline const ColourType& getPixel(unsigned int i) const;
-	inline ColourType& getPixel(unsigned int i);
+	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int i) const;
+	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int i);
 
 	inline const ColourType& getPixelTiled(int x, int y) const;
 

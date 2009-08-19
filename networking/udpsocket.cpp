@@ -150,9 +150,9 @@ void UDPSocket::bindToPort(const Port& port)//listen on a particluar port
 	my_addr.sin_addr.s_addr = INADDR_ANY; // accept on any network interface
 	memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
 
-	if(bind(socket_handle, (struct sockaddr*)&my_addr, sizeof(struct sockaddr)) == -1) 
+	if(bind(socket_handle, (struct sockaddr*)&my_addr, sizeof(my_addr)) != 0) 
 	{
-		throw UDPSocketExcep("error binding socket to port " + port.toString() + ": " + Networking::getInstance().getError());
+		throw UDPSocketExcep("Error binding socket to port " + port.toString() + ": " + Networking::getInstance().getError());
 	}       
 
 	thisend_port = port;

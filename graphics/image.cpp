@@ -61,11 +61,14 @@ Image& Image::operator = (const Image& other)
 		pixels.resize(width, height);
 	}
 
-	for(unsigned int x=0; x<width; ++x)
+	/*for(unsigned int x=0; x<width; ++x)
 		for(unsigned int y=0; y<height; ++y)
 		{
 			setPixel(x, y, other.getPixel(x, y));
-		}
+		}*/
+	//for(unsigned int i=0; i<other.numPixels(); ++i)
+	//	this->getPixel(i) = other.getPixel(i);
+	this->pixels = other.pixels;
 
 	return *this;
 }
@@ -459,9 +462,12 @@ void Image::saveAsNFF(const std::string& pathname)
 
 void Image::zero()
 {
-	for(int x=0; x<width; ++x)
-		for(int y=0; y<height; ++y)
-			setPixel(x, y, ColourType(0,0,0));
+	const unsigned int num = numPixels();
+	for(unsigned int i=0; i<num; ++i)
+		getPixel(i) = ColourType(0,0,0);
+	//for(int x=0; x<width; ++x)
+	//	for(int y=0; y<height; ++y)
+	//		setPixel(x, y, ColourType(0,0,0));
 }
 
 void Image::resize(unsigned int newwidth, unsigned int newheight)
@@ -477,21 +483,26 @@ void Image::resize(unsigned int newwidth, unsigned int newheight)
 
 void Image::posClamp()
 {
-	for(int x=0; x<width; ++x)
-		for(int y=0; y<height; ++y)
-			getPixel(x, y).positiveClipComponents();
+	const unsigned int num = numPixels();
+	for(unsigned int i=0; i<num; ++i)
+		getPixel(i).positiveClipComponents();
+
+	//for(int x=0; x<width; ++x)
+	//	for(int y=0; y<height; ++y)
+	//		getPixel(x, y).positiveClipComponents();
 }
 
 void Image::clampInPlace(float min, float max)
 {
-	for(unsigned int i=0; i<numPixels(); ++i)
+	const unsigned int num = numPixels();
+	for(unsigned int i=0; i<num; ++i)
 		getPixel(i).clampInPlace(min, max);
 }
 
 
 void Image::gammaCorrect(float exponent)
 {
-	for(int x=0; x<width; ++x)
+	/*for(int x=0; x<width; ++x)
 		for(int y=0; y<height; ++y)
 		{
 			ColourType& colour = getPixel(x, y);
@@ -499,16 +510,31 @@ void Image::gammaCorrect(float exponent)
 			colour.r = pow(colour.r, exponent);
 			colour.g = pow(colour.g, exponent);
 			colour.b = pow(colour.b, exponent);
-		}
+		}*/
+	const unsigned int num = numPixels();
+	for(unsigned int i=0; i<num; ++i)
+	{
+		const ColourType colour = getPixel(i);
+		ColourType newcolour(
+			pow(colour.r, exponent),
+			pow(colour.g, exponent),
+			pow(colour.b, exponent)
+		);
+
+		getPixel(i) = newcolour;
+	}
 }
 
 void Image::scale(float factor)
 {
-	for(int x=0; x<width; ++x)
+	/*for(int x=0; x<width; ++x)
 		for(int y=0; y<height; ++y)
 		{
 			getPixel(x, y) *= factor;
-		}
+		}*/
+	const unsigned int num = numPixels();
+	for(unsigned int i=0; i<num; ++i)
+		getPixel(i) *= factor;
 }
 
 

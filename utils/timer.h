@@ -14,6 +14,8 @@ You may *not* use this code for any commercial project.
 
 #include "clock.h"
 #include <assert.h>
+#include <string>
+
 
 class Timer
 {
@@ -23,6 +25,7 @@ public:
 
 	inline double getSecondsElapsed() const;
 	inline double elapsed() const { return getSecondsElapsed(); }
+	const std::string elapsedString() const; // e.g "30.4 s"
 
 	inline void reset();
 
@@ -36,6 +39,7 @@ private:
 	double timesofar;
 	bool paused;
 };
+
 
 Timer::Timer()
 {
