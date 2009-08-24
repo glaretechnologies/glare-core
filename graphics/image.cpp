@@ -137,7 +137,21 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 }
 
 
+void Image::copyToBitmap(Bitmap& bmp_out) const
+{
+	bmp_out.resize(getWidth(), getHeight(), 3);
 
+	for(int y=0; y<getHeight(); ++y)
+		for(int x=0; x<getWidth(); ++x)
+		{
+			const ColourType& p = getPixel(x, y);
+
+			unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
+			pixel[0] = (unsigned char)(p.r * 255.0f);
+			pixel[1] = (unsigned char)(p.g * 255.0f);
+			pixel[2] = (unsigned char)(p.b * 255.0f);
+		}
+}
 
 
 typedef unsigned char BYTE;

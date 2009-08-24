@@ -46,6 +46,8 @@ public:
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
+	void copyToBitmap(Bitmap& bmp_out) const;
+
 	inline unsigned int getHeight() const { return height; }
 	inline unsigned int getWidth() const { return width; }
 	inline unsigned int numPixels() const { return (unsigned int)(width * height); }

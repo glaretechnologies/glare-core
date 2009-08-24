@@ -331,4 +331,17 @@ void License::test()
 	}
 
 	conPrint("Verification took on average " + toString(timer.elapsed() / N) + " s");
+
+	{
+		const std::string encoded_hash = 
+			"Lb+20caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
+			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
+			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
+	
+		const std::string hash = License::decodeBase64(encoded_hash);
+		
+		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
+		
+		testAssert(License::verifyKey(key, hash));	
+	}
 }
