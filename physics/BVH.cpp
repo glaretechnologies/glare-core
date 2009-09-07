@@ -160,7 +160,15 @@ void BVH::build(PrintOutput& print_output)
 
 		// Build tri centers
 		std::vector<Vec3f> tri_centers(numTris());
+
+		// Had to disable this for mac because gcc 4.2 is too aids to do
+		// openmp in pthreads as per bug...
+		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
+
+		#ifndef OSX
 		#pragma omp parallel for
+		#endif
+		
 		for(int i=0; i<num_tris; ++i)
 			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
 
@@ -172,7 +180,15 @@ void BVH::build(PrintOutput& print_output)
 		// Sort indices based on center position along the axes
 		print_output.print("\tSorting...");
 		Timer sort_timer;
+
+		// Had to disable this for mac because gcc 4.2 is too aids to do
+		// openmp in pthreads as per bug...
+		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
+		
+		#ifndef OSX
 		#pragma omp parallel for
+		#endif
+		
 		for(int axis=0; axis<3; ++axis)
 		{
 			tris[axis].resize(numTris());
