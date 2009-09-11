@@ -304,6 +304,26 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 }
 
 
+const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
+{
+#if defined(WIN32) || defined(WIN64)
+	TCHAR path[MAX_PATH];
+	const DWORD num_chars_rqrd = GetTempPath(
+		MAX_PATH,
+		path
+	);
+
+	if(num_chars_rqrd == 0 || num_chars_rqrd > MAX_PATH)
+		throw PlatformUtilsExcep("GetTempPath() failed.");
+
+	const std::string p = StringUtils::WToUTF8String(path);
+	return ::eatSuffix(p, "\\"); // Remove trailing backslash.
+#else
+	#error Implement me
+#endif
+}
+
+
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
 {
 #if defined(WIN32) || defined(WIN64)

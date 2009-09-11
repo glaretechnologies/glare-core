@@ -49,7 +49,7 @@ void createDirIfDoesNotExist(const std::string& dirname);
 //Path will *not* have a trailing slash
 const std::string getDirectory(const std::string& pathname);
 
-const std::string getFilename(const std::string& pathname);
+const std::string getFilename(const std::string& pathname); // throws FileUtilsExcep
 
 
 //creates the directory the file is in according to pathname
@@ -57,6 +57,7 @@ const std::string getFilename(const std::string& pathname);
 //bool createDirForPathname(const std::string& pathname);
 
 
+const std::vector<std::string> getFilesInDir(const std::string& dir_path);
 
 
 //bool dirExists(const std::string& dirname);

@@ -58,6 +58,8 @@ This is something like "C:\Documents and Settings\username\Application Data" on 
 */
 const std::string getAPPDataDirPath(); // throws PlatformUtilsExcep
 
+const std::string getTempDirPath(); // throws PlatformUtilsExcep
+
 
 /*
 Returns a directory that is writeable by the app.

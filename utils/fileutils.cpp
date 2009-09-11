@@ -330,6 +330,29 @@ const std::string getFilename(const std::string& pathname)
 }
 
 
+const std::vector<std::string> getFilesInDir(const std::string& dir_path)
+{
+	WIN32_FIND_DATA find_data;
+	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToWString(dir_path + "\\*").c_str(), &find_data);
+	if(search_handle == INVALID_HANDLE_VALUE)
+		throw FileUtilsExcep("FindFirstFile() failed: " + toString((int)GetLastError()));
+	
+
+	std::vector<std::string> paths;
+	paths.push_back(StringUtils::WToUTF8String(find_data.cFileName));
+
+	while(FindNextFile(search_handle, &find_data) != 0)
+	{
+		paths.push_back(StringUtils::WToUTF8String(find_data.cFileName));
+	}
+
+	FindClose(search_handle);
+
+	return paths;
+}
+
+
+
 /*
 //creates the directory the file is in according to pathname
 //returns false if fails or directory already exists
