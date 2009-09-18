@@ -35,7 +35,8 @@ public:
 		FULL,
 		BETA,
 		NODE,
-		FULL_LIFETIME
+		FULL_LIFETIME,
+		SDK_2_X
 	};
 
 
@@ -48,17 +49,17 @@ public:
 
 	static const std::string licenseTypeToString(LicenceType t);
 
-	static void verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
+	static void verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getHardwareIdentifier(); // throws LicenseExcep
 
 
-	static const std::string currentLicenseSummaryString(const std::string& indigo_base_dir_path);
+	static const std::string currentLicenseSummaryString(const std::string& appdata_path);
 
 	static bool verifyKey(const std::string& key, const std::string& hash);
-
 	static const std::string decodeBase64(const std::string& data);
+
 
 	static void test();
 private:

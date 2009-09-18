@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include <vector>
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
+class PrintOutput;
 
 
 class ModelLoadingStreamHandlerExcep

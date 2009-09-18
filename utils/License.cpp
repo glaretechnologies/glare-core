@@ -47,7 +47,7 @@ const std::string License::ensureNewLinesPresent(const std::string& data)
 }
 
 
-// From http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
+// Modified from http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
 const std::string License::decodeBase64(const std::string& data_)
 {
@@ -84,7 +84,10 @@ const std::string License::decodeBase64(const std::string& data_)
     }
 }
 
+/*
+Verify that the hash is a public signature of key.
 
+*/
 bool License::verifyKey(const std::string& key, const std::string& hash)
 {
 	ERR_load_crypto_strings();
@@ -125,23 +128,48 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 }
 
 
-void License::verifyLicense(const std::string& indigo_base_path, LicenceType& license_type_out, std::string& user_id_out)
+void License::verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out)
 {
 	license_type_out = UNLICENSED;
 
-	const std::string hwinfo = getHardwareIdentifier();
+#ifdef INDIGO_DLL_EXPORTS
+	/*std::string hardware_id;
+	try
+	{
+		std::string licence_id;
+		FileUtils::readEntireFile(FileUtils::join(appdata_path, "licence-id.txt"), licence_id);
+		hardware_id = licence_id;
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw LicenseExcep(e.what());
+	}*/
+
+	//const std::string hardware_id = getHardwareIdentifier();
+#else
+	const std::string hardware_id = getHardwareIdentifier();
+#endif
+
+#ifdef INDIGO_DLL_EXPORTS
+	const std::string licence_sig_path = "sdk-licence.txt";
+#else
+	const std::string licence_sig_path = "licence.sig";
+#endif
 
 	// Load the signature and decode from base64
-	if(!FileUtils::fileExists(FileUtils::join(indigo_base_path, "licence.sig")))
+	if(!FileUtils::fileExists(FileUtils::join(appdata_path, licence_sig_path)))
 		return;
 
 	std::string hash;
 	std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
+	// Or, in the case of the SDK DLL,
+	// = "Preamble and User ID;License Type"
+
 	LicenceType desired_license_type = UNLICENSED;
 	try
 	{
 		std::string sigfile_contents;
-		FileUtils::readEntireFile(FileUtils::join(indigo_base_path, "licence.sig"), sigfile_contents);
+		FileUtils::readEntireFile(FileUtils::join(appdata_path, licence_sig_path), sigfile_contents);
 
 		if(sigfile_contents.empty())
 			return; //throw LicenseExcep("Signature empty.");
@@ -162,6 +190,8 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 			desired_license_type = NODE;
 		else if(components[1] == "indigo-full-lifetime")
 			desired_license_type = FULL_LIFETIME;
+		else if(components[1] == "indigo-sdk-2.x")
+			desired_license_type = SDK_2_X;
 		else
 			return;
 
@@ -170,7 +200,11 @@ void License::verifyLicense(const std::string& indigo_base_path, LicenceType& li
 		if(hash.empty())
 			return; // throw LicenseExcep("Signature empty.");
 
-		constructed_key = components[0] + ";" + components[1] + ";" + hwinfo;
+		#ifdef INDIGO_DLL_EXPORTS
+		constructed_key = components[0] + ";" + components[1];
+		#else
+		constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
+		#endif
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
@@ -232,6 +266,8 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return "Indigo 2.x Node";
 	else if(t == FULL_LIFETIME)
 		return "Indigo Full Lifetime";
+	else if(t == SDK_2_X)
+		return "Indigo 2.x SDK";
 	else
 		return "[Unknown]";
 }
@@ -250,6 +286,8 @@ bool License::shouldApplyWatermark(LicenceType t)
 		return !isCurrentDayInBetaPeriod(); // Apply watermark if not in beta period.
 	}
 	else if(t == FULL_LIFETIME)
+		return false;
+	else if(t == SDK_2_X)
 		return false;
 	else
 	{
@@ -273,6 +311,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	}
 	else if(t == FULL_LIFETIME)
 		return false;
+	else if(t == SDK_2_X)
+		return false;
 	else
 	{
 		assert(0);
@@ -281,13 +321,13 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 }
 
 
-const std::string License::currentLicenseSummaryString(const std::string& indigo_base_dir_path)
+const std::string License::currentLicenseSummaryString(const std::string& appdata_path)
 {
 	LicenceType licence_type = License::UNLICENSED;
 	std::string licence_user_id;
 	try
 	{
-		License::verifyLicense(indigo_base_dir_path, licence_type, licence_user_id);
+		License::verifyLicense(appdata_path, licence_type, licence_user_id);
 	}
 	catch(License::LicenseExcep&)
 	{}
