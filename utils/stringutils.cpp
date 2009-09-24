@@ -1007,7 +1007,7 @@ void doStringUtilsUnitTests()
 	testAssert(toString(0) == "0");
 
 	// 64 bit integers
-	testAssert(toString((uint64)12345671234567) == "12345671234567");
+	testAssert(toString((uint64)12345671234567LL) == "12345671234567");
 	testAssert(toString((uint64)0) == "0");
 	testAssert(toString((uint64)1234567) == "1234567");
 

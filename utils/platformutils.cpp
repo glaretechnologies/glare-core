@@ -318,8 +318,11 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 
 	const std::string p = StringUtils::WToUTF8String(path);
 	return ::eatSuffix(p, "\\"); // Remove trailing backslash.
+#elif defined(OSX)
+	throw PlatformUtilsExcep("PlatformUtils::getTempDirPath() not implemented yet on OS X.");
 #else
-	#error Implement me
+	// Linux
+	return "/tmp";
 #endif
 }
 
@@ -445,7 +448,7 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 
 	// Uses applescript
 	std::string command = "osascript -e 'tell application \"Finder\" to activate' -e 'tell application \"Finder\" to reveal POSIX file \"" + select_path + "\"'";
-		
+
 	system(command.c_str());
 
 #else
@@ -453,8 +456,8 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 	throw PlatformUtilsExcep("openFileBrowserWindowAtLocation not available on Linux.");
 #endif
 }
-	
-	
+
+
 
 void PlatformUtils::testPlatformUtils()
 {

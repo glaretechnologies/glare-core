@@ -330,13 +330,16 @@ const std::string getFilename(const std::string& pathname)
 }
 
 
+// NOTE: this is only used by the material editor currently.
+// Needs to be implemented on MAC and Linux before we release the mat editor on those platforms.
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
+#if defined(WIN32) || defined(WIN64)
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToWString(dir_path + "\\*").c_str(), &find_data);
 	if(search_handle == INVALID_HANDLE_VALUE)
 		throw FileUtilsExcep("FindFirstFile() failed: " + toString((int)GetLastError()));
-	
+
 
 	std::vector<std::string> paths;
 	paths.push_back(StringUtils::WToUTF8String(find_data.cFileName));
@@ -349,6 +352,9 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 	FindClose(search_handle);
 
 	return paths;
+#else
+	throw FileUtilsExcep("getFilesInDir() not implemented yet on OS X and Linux.");
+#endif
 }
 
 
@@ -841,10 +847,10 @@ void doUnitTests()
 	// Test std::ifstream without a Unicode pathname
 	{
 	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding("../testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
-	
+
 	testAssert(file.is_open());
 	}
-	
+
 
 
 #if defined(WIN32) || defined(WIN64)
