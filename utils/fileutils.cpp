@@ -14,6 +14,8 @@ Code By Nicholas Chapman.
 #else
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 #endif
 
 #ifndef WINTER
@@ -147,7 +149,6 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 
 void createDir(const std::string& dirname)
 {
-	//std::cout << "createDir(), dirname: '" << dirname << "'" << std::endl;
 #if defined(WIN32) || defined(WIN64)
 
 	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToWString(dirname).c_str(), NULL);
@@ -176,7 +177,7 @@ void createDirsForPath(const std::string& path)
 		{
 			assert(i == 0);
 			assert(PLATFORM_DIR_SEPARATOR == "/");
-			// This is the root dir on Unix.
+			// This is the root dir on Unix.  Don't try and create it.
 			dir = "/";
 		}
 		else // Else this is not the root dir.
@@ -342,11 +343,8 @@ const std::string getFilename(const std::string& pathname)
 		else
 			return "";
 	}
-}
+}
 
-
-// NOTE: this is only used by the material editor currently.
-// Needs to be implemented on MAC and Linux before we release the mat editor on those platforms.
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -368,7 +366,21 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 
 	return paths;
 #else
-	throw FileUtilsExcep("getFilesInDir() not implemented yet on OS X and Linux.");
+	DIR* dir = opendir(dir_path.c_str());
+	if(!dir)
+		throw FileUtilsExcep("Failed to open dir '" + dir_path + "'");
+
+	std::vector<std::string> paths;
+
+	struct dirent* f = NULL;
+	while((f = readdir(dir)) != NULL)
+	{
+		paths.push_back(f->d_name);	
+	}
+
+	closedir(dir);
+
+	return paths;
 #endif
 }
 
@@ -942,11 +954,36 @@ void doUnitTests()
 		deleteEmptyDirectory("TEMP_TESTING_DIR");
 		testAssert(!fileExists("TEMP_TESTING_DIR"));
 		testAssert(!fileExists("TEMP_TESTING_DIR/a"));
+
+		// Test getFilesInDir
+		createDir("TEMP_TESTING_DIR");
+		writeEntireFile("TEMP_TESTING_DIR/a", std::vector<unsigned char>(0, 100));
+		writeEntireFile("TEMP_TESTING_DIR/b", std::vector<unsigned char>(0, 100));
+		
+		const std::vector<std::string> files = getFilesInDir("TEMP_TESTING_DIR");
+		testAssert(files.size() == 4);
+		bool found_a = false;
+		bool found_b = false;
+		for(size_t i=0; i<files.size(); ++i)
+		{
+			if(files[i] == "a")
+				found_a = true;
+			if(files[i] == "b")
+				found_b = true;
+			std::cout << "file[" << i << "]: '" << files[i] << "'" << std::endl;
+		}
+		testAssert(found_a);
+		testAssert(found_b);
+
+		deleteFile("TEMP_TESTING_DIR/a");
+		deleteFile("TEMP_TESTING_DIR/b");
+		deleteEmptyDirectory("TEMP_TESTING_DIR");
+	
 	}
 	catch(FileUtilsExcep& e)
 	{
 		conPrint(e.what());
-		testAssert(0);
+		testAssert(!"FileUtilsExcep");
 	}
 
 	//createDirsForPath("c:/temp/test/a");
