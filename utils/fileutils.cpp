@@ -23,6 +23,7 @@ Code By Nicholas Chapman.
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
+#include <iostream> // TEMP
 
 
 namespace FileUtils
@@ -146,6 +147,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 
 void createDir(const std::string& dirname)
 {
+	//std::cout << "createDir(), dirname: '" << dirname << "'" << std::endl;
 #if defined(WIN32) || defined(WIN64)
 
 	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToWString(dirname).c_str(), NULL);
@@ -167,14 +169,27 @@ void createDirsForPath(const std::string& path)
 	std::string dir;
 	for(unsigned int i=0; i<dirs.size(); ++i)
 	{
+		//std::cout << "dirs[" << i << "]: '" << dirs[i] << "'" << std::endl;
 		//if(i > 0 || !isPathAbsolute(path)) // don't create first
 		//{
+		if(dirs[i] == "")
+		{
+			assert(i == 0);
+			assert(PLATFORM_DIR_SEPARATOR == "/");
+			// This is the root dir on Unix.
+			dir = "/";
+		}
+		else // Else this is not the root dir.
+		{
+			dir += dirs[i];
 
-		dir += dirs[i];
-		if(!(fileExists(dir) || hasSuffix(dir, ":")))
-			createDir(dir);
+			//std::cout << "dir: '" << dir << "'" << std::endl;
 
-		dir += PLATFORM_DIR_SEPARATOR;
+			if(!(fileExists(dir) || hasSuffix(dir, ":")))
+				createDir(dir);
+
+			dir += PLATFORM_DIR_SEPARATOR;
+		}
 	}
 }
 
@@ -449,6 +464,8 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 		assert(slashpos - startpos >= 0);
 		assert(startpos >= 0);
 		assert(slashpos < pathname.size());
+
+		//if(slashpos - startpos > 0) // Don't include zero length dirs, e.g. the root dir on Unix.
 		dirs_out.push_back(pathname.substr(startpos, slashpos - startpos));
 
 		startpos = slashpos + 1;
