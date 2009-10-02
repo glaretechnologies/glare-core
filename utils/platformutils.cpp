@@ -319,7 +319,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 	const std::string p = StringUtils::WToUTF8String(path);
 	return ::eatSuffix(p, "\\"); // Remove trailing backslash.
 #elif defined(OSX)
-	throw PlatformUtilsExcep("PlatformUtils::getTempDirPath() not implemented yet on OS X.");
+	return "/tmp";
 #else
 	// Linux
 	return "/tmp";
