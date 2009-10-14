@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<medium>
+		<name>Unnamed</name>
+		<precedence>2</precedence>
+		<basic>
+			<ior>1.4</ior>
+			<cauchy_b_coeff>0</cauchy_b_coeff>
+			<absorption_coefficient_spectrum>
+				<rgb>
+					<rgb>
+						50.1191 17.8117 55.7992
+					</rgb>
+					<gamma>1</gamma>
+				</rgb>
+			</absorption_coefficient_spectrum>
+			<subsurface_scattering>
+					<scattering_coefficient_spectrum>
+						<uniform>
+							<value>1</value>
+						</uniform>
+					</scattering_coefficient_spectrum>
+					<phase_function>
+						<uniform>
+						</uniform>
+					</phase_function>
+			</subsurface_scattering>
+		</basic>
+	</medium>
+	<material>
+		<name>Unnamed</name>
+		<glossy_transparent>
+			<exponent>
+				<constant>
+					67464
+				</constant>
+			</exponent>
+			<internal_medium_name>Unnamed</internal_medium_name>
+			<layer>0</layer>
+		</glossy_transparent>
+	</material>
+
+</scenedata>

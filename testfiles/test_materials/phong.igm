@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>phong a</name>
+		<phong>
+			<texture>
+				<path>C:/programming/indigosvn/trunk/testfiles/test_materials/blackrose_pattern.jpg</path>
+				<a>0</a>
+				<b>1</b>
+				<c>0</c>
+				<uv_set>default</uv_set>
+				<exponent>2.2</exponent>
+				<tex_coord_generation>
+					<uv>
+					</uv>
+				</tex_coord_generation>
+			</texture>
+			<diffuse_albedo>
+				<constant>
+					<rgb>
+						<rgb>
+							0.293 0.0391 0.1602
+						</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</diffuse_albedo>
+			<exponent>
+				<constant>
+					2000
+				</constant>
+			</exponent>
+			<base_emission>
+				<constant>
+					<rgb>
+						<rgb>
+							1000 0 0
+						</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</base_emission>
+			<emission>
+				<texture>
+					<texture_index>0</texture_index>
+				</texture>
+			</emission>
+			<layer>0</layer>
+			<fresnel_scale>1</fresnel_scale>
+			<ior>1.335</ior>
+			<nk_data></nk_data>
+		</phong>
+	</material>
+
+</scenedata>

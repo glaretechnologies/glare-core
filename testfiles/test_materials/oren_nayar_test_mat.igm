@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>oren nayar test mat</name>
+		<oren_nayar>
+			<texture>
+				<path>C:/programming/indigosvn/trunk/testfiles/test_materials/blackrose_pattern.jpg</path>
+				<a>0</a>
+				<b>1</b>
+				<c>0</c>
+				<uv_set>default</uv_set>
+				<exponent>2.2</exponent>
+				<tex_coord_generation>
+					<uv>
+					</uv>
+				</tex_coord_generation>
+			</texture>
+			<texture>
+				<path>C:/programming/indigosvn/trunk/testfiles/test_materials/blackrose_pattern.jpg</path>
+				<a>0</a>
+				<b>0.4</b>
+				<c>0.2</c>
+				<uv_set>default</uv_set>
+				<exponent>2.1</exponent>
+				<tex_coord_generation>
+					<uv>
+					</uv>
+				</tex_coord_generation>
+			</texture>
+			<albedo>
+				<texture>
+					<texture_index>1</texture_index>
+				</texture>
+			</albedo>
+			<sigma>
+				<shader>
+					<shader><![CDATA[def eval(vec3 pos) vec3 :
+	vec3(0.4, 0.4, 0.4) # Return a grey colour]]></shader>
+				</shader>
+			</sigma>
+			<bump>
+				<shader>
+					<shader><![CDATA[def eval() real :
+	0.0 # Return zero displacement/bump]]></shader>
+				</shader>
+			</bump>
+			<layer>0</layer>
+		</oren_nayar>
+	</material>
+
+</scenedata>
