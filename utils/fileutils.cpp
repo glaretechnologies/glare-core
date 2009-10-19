@@ -808,6 +808,7 @@ bool isPathAbsolute(const std::string& p)
 #endif
 }
 
+
 #ifndef WINTER
 uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
 {
@@ -822,6 +823,7 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 }
 #endif
 
+
 FILE* openFile(const std::string& pathname, const std::string openmode)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -831,6 +833,22 @@ FILE* openFile(const std::string& pathname, const std::string openmode)
 	// On Linux (and on OS X?), fopen accepts UTF-8 encoded Unicode filenames natively.
 	return fopen(pathname.c_str(), openmode.c_str());
 #endif
+}
+
+
+// remove non alphanumeric characters etc..
+const std::string makeOSFriendlyFilename(const std::string& name)
+{
+	std::string r(name.size(), ' ');
+	for(unsigned int i=0; i<name.size(); ++i)
+	{
+		if(::isAlphaNumeric(name[i]) || name[i] == ' ' || name[i] == '_' || name[i] == '.' || name[i] == '(' || name[i] == ')' || name[i] == '-')
+			r[i] = name[i];
+		else
+			r[i] = '_';
+	}
+
+	return r;
 }
 
 
