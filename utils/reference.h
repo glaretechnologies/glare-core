@@ -95,13 +95,13 @@ public:
 
 	inline T& operator * ()
 	{
-		assert(ob);
+		//assert(ob);
 		return *ob;
 	}
 
 	inline T* operator -> ()
 	{
-		assert(ob);
+		//assert(ob);
 		return ob;
 	}
 
