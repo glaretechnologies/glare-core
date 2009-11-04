@@ -184,8 +184,8 @@ public:
 
 	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const;
 
-	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image);
-	void applyDiffractionFilterToImage(Image& image) const;
+	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out);
+	void applyDiffractionFilterToImage(const Image& in, Image& out) const;
 
 	const Image* getDiffractionFilterImage() const { return diffraction_filter_image.get(); }
 

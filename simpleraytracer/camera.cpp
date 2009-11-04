@@ -948,24 +948,24 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 }
 
 
-void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, Image& image)
+void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out)
 {
 	conPrint("Applying diffraction filter...");
 
-	Image out;
+	//Image out;
 	ImageFilter::convolveImage(
-		image, // in
+		in, // in
 		cam_diffraction_filter_image, //filter
 		out // result out
 		);
 
-	image = out;
+	//image = out;
 
 	conPrint("\tDone.");
 }
 
 
-void Camera::applyDiffractionFilterToImage(Image& image) const
+void Camera::applyDiffractionFilterToImage(const Image& in, Image& out) const
 {
 	if(diffraction_filter_image.get() == NULL)
 	{
@@ -978,7 +978,8 @@ void Camera::applyDiffractionFilterToImage(Image& image) const
 
 	applyDiffractionFilterToImage(
 		*this->diffraction_filter_image,
-		image
+		in,
+		out
 		);
 }
 
