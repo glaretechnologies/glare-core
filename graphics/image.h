@@ -119,7 +119,7 @@ public:
 	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
 	
-	void collapseImage(int factor, int border_width, const FilterFunction& filter_function);
+	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out);
 
 	unsigned int getByteSize() const;
 

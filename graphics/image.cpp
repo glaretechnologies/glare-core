@@ -1107,12 +1107,17 @@ void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 
 	//*this = out;
 
+	Image out;
 	BoxFilterFunction ff;
-	this->collapseImage(
+	collapseImage(
 		factor,
 		0, // border
-		ff
+		ff,
+		*this,
+		out
 		);
+
+	*this = out;
 }
 
 /*
@@ -1218,14 +1223,15 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B
 
 
 
-void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function)
+void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out)
 {
 	assert(border_width >= 0);
-	assert(width > border_width * 2);
-	assert(width > border_width * 2);
-	assert((width - (border_width * 2)) % factor == 0);
+	assert(in.width > border_width * 2);
+	assert(in.width > border_width * 2);
+	assert((in.width - (border_width * 2)) % factor == 0);
 
-	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
+	out.resize((in.width - (border_width * 2)) / factor, (in.height - (border_width * 2)) / factor);
 
 	//const double scale_factor = 1.0f / (float)(factor * factor);
 
@@ -1306,7 +1312,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);*/
 
 		const int src_y_min = myMax(0, support_y);
-		const int src_y_max = myMin((int)getHeight(), support_y + filter_width);
+		const int src_y_max = myMin((int)in.getHeight(), support_y + filter_width);
 
 		//if(y % 50 == 0)
 		//	printVar(y);
@@ -1321,7 +1327,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);*/
 
 			const int src_x_min = myMax(0, support_x);
-			const int src_x_max = myMin((int)getWidth(), support_x + filter_width);
+			const int src_x_max = myMin((int)in.getWidth(), support_x + filter_width);
 
 			Colour3f c(0.0f);
 
@@ -1336,10 +1342,10 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 					const int filter_x = sx - support_x; //(sx - src_x_center) + neg_rad;
 					assert(filter_x >= 0 && filter_x < filter_width);
 
-					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
-					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
+					assert(in.getPixel(sx, sy).r >= 0.0 && in.getPixel(sx, sy).g >= 0.0 && in.getPixel(sx, sy).b >= 0.0);
+					assert(isFinite(in.getPixel(sx, sy).r) && isFinite(in.getPixel(sx, sy).g) && isFinite(in.getPixel(sx, sy).b));
 
-					c.addMult(this->getPixel(sx, sy), filter.elem(filter_x, filter_y));
+					c.addMult(in.getPixel(sx, sy), filter.elem(filter_x, filter_y));
 				}
 			}
 
@@ -1358,7 +1364,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		support_y += factor;
 	}
 
-	*this = out;
+	//*this = out;
 }
 
 
