@@ -32,6 +32,7 @@ Code By Nicholas Chapman.
 #include "../indigo/SpectralVector.h"
 #include "../indigo/TransformPath.h"
 #include "../utils/timer.h"
+#include "../indigo/PrintOutput.h"
 
 
 static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
@@ -268,7 +269,7 @@ void Camera::buildDiffractionFilter(/*const std::string& base_indigo_path*/) con
 }
 
 
-void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffer_height, MTwister& rng, const std::string& base_indigo_path*/) const
+void Camera::buildDiffractionFilterImage(PrintOutput& print_output) const
 {
 	this->diffraction_filter_image = std::auto_ptr<Image>(doBuildDiffractionFilterImage(
 		this->diffraction_filter->getDiffractionFilter(),
@@ -279,17 +280,19 @@ void Camera::buildDiffractionFilterImage(/*int main_buffer_width, int main_buffe
 		this->sensor_height,
 		this->sensor_to_lens_dist,
 		this->write_aperture_preview,
-		this->appdata_path
+		this->appdata_path,
+		print_output
 	));
 }
 
 
 Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
-											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path)
+											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, 
+											 PrintOutput& print_output)
 {
 	assert(main_buffer_width > 0 && main_buffer_height > 0);
 
-	conPrint("Creating diffraction filter image...");
+	print_output.print("Creating diffraction filter image...");
 	Timer timer;
 
 	MTwister rng(1);
@@ -458,7 +461,7 @@ Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data,
 		diffraction_filter_image->getPixel(i).b *= Z_scale;
 	}
 
-	conPrint("\tDone.  (Elapsed: " + toString(timer.elapsed()) + " s)");
+	print_output.print("\tDone.  (Elapsed: " + toString(timer.elapsed()) + " s)");
 
 	// save diffraction image-------------------------------------------------------
 	if(write_aperture_preview)
@@ -528,11 +531,11 @@ Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data,
 		}
 		catch(ImageExcep& e)
 		{
-			conPrint("ImageExcep: " + e.what());
+			print_output.print("ImageExcep: " + e.what());
 		}
 		catch(ImFormatExcep& e)
 		{
-			conPrint("ImageExcep: " + e.what());
+			print_output.print("ImageExcep: " + e.what());
 		}
 	}
 	//---------------------------------------------------------------------------------------
@@ -950,7 +953,7 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 
 void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out)
 {
-	conPrint("Applying diffraction filter...");
+	//print_output.print("Applying diffraction filter...");
 
 	//Image out;
 	ImageFilter::convolveImage(
@@ -961,17 +964,17 @@ void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_i
 
 	//image = out;
 
-	conPrint("\tDone.");
+	//print_output.print("\tDone.");
 }
 
 
-void Camera::applyDiffractionFilterToImage(const Image& in, Image& out) const
+void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out) const
 {
 	if(diffraction_filter_image.get() == NULL)
 	{
 		// Lazily construct diffraction filter + filter image
 		buildDiffractionFilter();
-		buildDiffractionFilterImage();
+		buildDiffractionFilterImage(print_output);
 	}
 
 	assert(this->diffraction_filter_image.get() != NULL);
