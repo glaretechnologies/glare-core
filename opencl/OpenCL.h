@@ -8,6 +8,9 @@ Code By Nicholas Chapman.
 #define __OPENCL_H_666_
 
 
+#if USE_OPENCL
+
+
 #include <CL/cl.h>
 #include <CL/clext.h>
 
@@ -32,6 +35,9 @@ typedef cl_int (*clEnqueueReadBuffer_TYPE) (cl_command_queue command_queue, cl_m
 typedef cl_int (*clEnqueueNDRangeKernel_TYPE) (cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 
 
+#endif
+
+
 /*=====================================================================
 OpenCL
 ------
@@ -50,6 +56,7 @@ public:
 	~OpenCL();
 
 //private:
+#if USE_OPENCL
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
 	clGetPlatformInfo_TYPE clGetPlatformInfo;
 	clGetDeviceIDs_TYPE clGetDeviceIDs;
@@ -72,6 +79,7 @@ public:
 	cl_device_id device_to_use_id;
 	cl_context context;
 	cl_command_queue command_queue;
+#endif
 };
 
 
