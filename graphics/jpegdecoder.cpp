@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "jpegdecoder.h"
 
+
 #include "../graphics/texture.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,17 +16,12 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
-
-
-#define LIBJPEG_SUPPORT 1
-
-
-#ifdef LIBJPEG_SUPPORT
-extern "C"
-{
 #include <jpeglib.h>
-}
-#endif // LIBJPEG_SUPPORT
+
+
+#if JPEG_LIB_VERSION < 70
+#error Please compile with Libjpeg 7.0
+#endif
 
 
 JPEGDecoder::JPEGDecoder()
@@ -38,29 +34,38 @@ JPEGDecoder::~JPEGDecoder()
 }
 
 
-#ifdef LIBJPEG_SUPPORT
 static void my_error_exit(j_common_ptr cinfo)
 {
-	const std::string errormsg = cinfo->err->last_jpeg_message >= 0 ? std::string(cinfo->err->jpeg_message_table[0]) : "Unkown error.";
-	throw ImFormatExcep("Error while reading JPEG file: " + errormsg);
+	// Format message into buffer.
+	char buffer[JMSG_LENGTH_MAX];
+
+	(*cinfo->err->format_message) (cinfo, buffer);
+	
+	throw ImFormatExcep("Error while reading JPEG file: " + std::string(buffer));
 }
 
 
 Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const std::string& path)
 {
-	struct jpeg_decompress_struct cinfo;
-	struct jpeg_error_mgr jerr;
-
 	//------------------------------------------------------------------------
 	//set error handling
 	//------------------------------------------------------------------------
-	//cinfo.err = jpeg_std_error(&jerr.pub);
-	cinfo.err = jpeg_std_error(&jerr);
-	jerr.error_exit = my_error_exit;
+	struct jpeg_error_mgr error_manager;
+
+	// Fill in standard error-handling methods
+	jpeg_std_error(&error_manager);
+
+	// Override error_exit;
+	error_manager.error_exit = my_error_exit;
 
 	//------------------------------------------------------------------------
 	//Init main struct
 	//------------------------------------------------------------------------
+	struct jpeg_decompress_struct cinfo;
+
+	// Set error manager
+	cinfo.err = &error_manager;
+
 	jpeg_create_decompress(&cinfo);
 
 	//------------------------------------------------------------------------
@@ -70,8 +75,7 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 	if(!infile)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 
-
-
+	// Specifiy file data source
 	jpeg_stdio_src(&cinfo, infile);
 
 
@@ -148,206 +152,9 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 }
 
 
-#else //LIBJPEG_SUPPORT
-
+/*
 void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, const std::string& path, Bitmap& img_out)
 {
 	::fatalError("JPEGDecoder::decode: LIBJPEG_SUPPORT disabled.");
 }
-
-#endif //LIBJPEG_SUPPORT
-
-
-
-
-#if 0
-
-
-//I got this off the FLIPCODE IOTD.  thanks FLipCode!!!, thanks John!!!
-//  ... and I suppose thanks Intel :) -- nickc
-
-//############################################################################
-//##                                                                        ##
-//##  JPEG.H                                                                ##
-//##                                                                        ##
-//##  Wrapper class to compress or decompress a jpeg from a block of memory ##
-//##  using the Intel Jpeg Library.                                         ##
-//##  OpenSourced 2/4/2000 by John W. Ratcliff                              ##
-//##                                                                        ##
-//##  No warranty expressed or implied.  Released as part of the triangle   ##
-//##  throughput testbed project.                                           ##
-//############################################################################
-//##                                                                        ##
-//##  Contact John W. Ratcliff at jratcliff@verant.com                      ##
-//############################################################################
-
-
-void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, Bitmap& img_out)
-{
-	int width, height, bytes_pp;
-
-	void* decodedimage = ReadImage(width, height, bytes_pp, &(*srcdata.begin()),
-		srcdata.size());
-
-	if(!decodedimage)
-		throw ImFormatExcep("Jpeg decoding failed.");
-
-
-	img_out.takePointer(width, height, bytes_pp, (unsigned char*)decodedimage);
-}
-
-
-
-/*void* JPEGDecoder::decode(const void* image, int numimagebytes, //size of encoded image
-					int& bpp_out, int& width_out, int& height_out)
-{
-	void* decodedimage = ReadImage(width_out, height_out, bpp_out, image, numimagebytes);
-
-	bpp_out *= 8;//NOTE: CHECKME
-
-	return decodedimage;
-}*/
-
-
-
-// read image into this buffer.
-void * JPEGDecoder::ReadImage(int &width,
-                       int &height,
-                       int &nchannels,
-                       const void *buffer,
-                       int sizebytes)
-{
-  JPEG_CORE_PROPERTIES jcprops;
-
-  if ( ijlInit(&jcprops) != IJL_OK )
-  {
-    ijlFree(&jcprops);
-    return 0;
-  }
-
-  jcprops.JPGBytes = (unsigned char *) buffer;
-  jcprops.JPGSizeBytes = sizebytes;
-  jcprops.jquality = 100;
-
-  if ( ijlRead(&jcprops,IJL_JBUFF_READPARAMS) != IJL_OK )
-  {
-    ijlFree(&jcprops);
-    return 0;
-  }
-
-  width  = jcprops.JPGWidth;
-  height = jcprops.JPGHeight;
-  IJLIOTYPE mode;
-
-  mode = IJL_JBUFF_READWHOLEIMAGE;
-  nchannels = jcprops.JPGChannels;
-  unsigned char * pixbuff = new unsigned char[width*height*nchannels];
-  if ( !pixbuff )
-  {
-    ijlFree(&jcprops);
-    return 0;
-  }
-
-  jcprops.DIBWidth  = width;
-  jcprops.DIBHeight = height;
-  jcprops.DIBChannels = nchannels;
-  jcprops.DIBPadBytes = 0;
-  jcprops.DIBBytes = (unsigned char *)pixbuff;
-
-  if ( jcprops.JPGChannels == 3 )
-  {
-    jcprops.DIBColor = IJL_RGB;
-    jcprops.JPGColor = IJL_YCBCR;
-    jcprops.JPGSubsampling = IJL_411;
-    jcprops.DIBSubsampling = (IJL_DIBSUBSAMPLING) 0;
-  }
-  else
-  {
-    jcprops.DIBColor = IJL_G;
-    jcprops.JPGColor = IJL_G;
-    jcprops.JPGSubsampling = (IJL_JPGSUBSAMPLING) 0;
-    jcprops.DIBSubsampling = (IJL_DIBSUBSAMPLING) 0;
-  }
-
-  if ( ijlRead(&jcprops, mode) != IJL_OK )
-  {
-    ijlFree(&jcprops);
-    return 0;
-  }
-
-  if ( ijlFree(&jcprops) != IJL_OK ) return 0;
-
-  return (void *)pixbuff;
-}
-
-
-void * JPEGDecoder::Compress(const void *source,
-                      int width,
-                      int height,
-                      int bpp,
-                      int &len,
-                      int quality)
-{
-  JPEG_CORE_PROPERTIES jcprops;
-
-  if ( ijlInit(&jcprops) != IJL_OK )
-  {
-    ijlFree(&jcprops);
-    return false;
-  }
-
-  jcprops.DIBWidth    = width;
-  jcprops.DIBHeight   = height;
-  jcprops.JPGWidth    = width;
-  jcprops.JPGHeight   = height;
-  jcprops.DIBBytes    = (unsigned char *) source;
-  jcprops.DIBPadBytes = 0;
-  jcprops.DIBChannels = bpp;
-  jcprops.JPGChannels = bpp;
-
-  if ( bpp == 3 )
-  {
-    jcprops.DIBColor = IJL_RGB;
-    jcprops.JPGColor = IJL_YCBCR;
-    jcprops.JPGSubsampling = IJL_411;
-    jcprops.DIBSubsampling = (IJL_DIBSUBSAMPLING) 0;
-  }
-  else
-  {
-    jcprops.DIBColor = IJL_G;
-    jcprops.JPGColor = IJL_G;
-    jcprops.JPGSubsampling = (IJL_JPGSUBSAMPLING) 0;
-    jcprops.DIBSubsampling = (IJL_DIBSUBSAMPLING) 0;
-  }
-
-  int size = width*height*bpp;
-
-  unsigned char * buffer = new unsigned char[size];
-
-  jcprops.JPGSizeBytes = size;
-  jcprops.JPGBytes     = buffer;
-
-  jcprops.jquality = quality;
-
-
-  if ( ijlWrite(&jcprops,IJL_JBUFF_WRITEWHOLEIMAGE) != IJL_OK )
-  {
-    ijlFree(&jcprops);
-    delete buffer;
-    return 0;
-  }
-
-
-  if ( ijlFree(&jcprops) != IJL_OK )
-  {
-    delete buffer;
-    return 0;
-  }
-
-  len = jcprops.JPGSizeBytes;
-  return buffer;
-}
-
-
-#endif
-
+*/

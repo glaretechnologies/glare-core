@@ -19,9 +19,11 @@ Code By Nicholas Chapman.
 
 
 OpenCL::OpenCL()
-:	context(0),
-	command_queue(0)
 {
+#if USE_OPENCL
+	context = 0;
+	command_queue = 0;
+
 	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
 	HMODULE module = ::LoadLibrary(path.c_str()); // TEMP HACK
 
@@ -448,15 +450,18 @@ OpenCL::OpenCL()
 		if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseCommandQueue failed");
 	}
+#endif
 }
 
 
 OpenCL::~OpenCL()
 {
+#if USE_OPENCL
 	// Cleanup
 	if(this->context)
 	{
 		if(clReleaseContext(this->context) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseContext failed");
 	}
+#endif
 }
