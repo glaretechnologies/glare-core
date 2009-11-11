@@ -130,7 +130,8 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 
 void License::verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out)
 {
-	license_type_out = UNLICENSED;
+	license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+	user_id_out = "";
 
 #ifdef INDIGO_DLL_EXPORTS
 	/*std::string hardware_id;
@@ -147,7 +148,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 
 	//const std::string hardware_id = getHardwareIdentifier();
 #else
-	const std::string hardware_id = getHardwareIdentifier();
+	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
 #endif
 
 #ifdef INDIGO_DLL_EXPORTS
@@ -156,23 +157,18 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 	const std::string licence_sig_path = "licence.sig";
 #endif
 
-	// Load the signature and decode from base64
-	if(!FileUtils::fileExists(FileUtils::join(appdata_path, licence_sig_path)))
-		return;
-
-	std::string hash;
-	std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
-	// Or, in the case of the SDK DLL,
-	// = "Preamble and User ID;License Type"
-
-	LicenceType desired_license_type = UNLICENSED;
 	try
 	{
+		// Load the signature from disk and decode from base64
+		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_path);
+		if(!FileUtils::fileExists(licence_sig_full_path))
+			return;
+
 		std::string sigfile_contents;
-		FileUtils::readEntireFile(FileUtils::join(appdata_path, licence_sig_path), sigfile_contents);
+		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
 
 		if(sigfile_contents.empty())
-			return; //throw LicenseExcep("Signature empty.");
+			return; // throw LicenseExcep("Signature empty.");
 
 		// Split the license key up into (User Id, license type, sig)
 		const std::vector<std::string> components = ::split(sigfile_contents, ';');
@@ -181,6 +177,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			return;
 
 		user_id_out = components[0];
+
+		LicenceType desired_license_type = UNLICENSED;
 
 		if(components[1] == "indigo-full-2.x")
 			desired_license_type = FULL;
@@ -195,37 +193,50 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 		else
 			return;
 
-		hash = decodeBase64(components[2]);
+		const std::string hash = decodeBase64(components[2]);
 
 		if(hash.empty())
 			return; // throw LicenseExcep("Signature empty.");
 
-		#ifdef INDIGO_DLL_EXPORTS
-		constructed_key = components[0] + ";" + components[1];
-		#else
-		constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
-		#endif
+		// Go through each hardware id, and see if it can be verified against the signature.
+		for(size_t i=0; i<hardware_ids.size(); ++i)
+		{
+			const std::string hardware_id = hardware_ids[i];
+
+			//std::string hash;
+			//std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
+			// Or, in the case of the SDK DLL,
+			// = "Preamble and User ID;License Type"
+
+			#ifdef INDIGO_DLL_EXPORTS
+			constructed_key = components[0] + ";" + components[1];
+			#else
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
+			#endif
+
+			if(verifyKey(constructed_key, hash))
+			{
+				// Key verified!
+				license_type_out = desired_license_type;
+				return; // We're done here, return
+			}
+			else
+			{
+				assert(license_type_out == UNLICENSED);
+			}
+		}
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		throw LicenseExcep(e.what());
 	}
-
-	if(verifyKey(constructed_key, hash))
-	{
-		license_type_out = desired_license_type;
-	}
-	else
-	{
-		assert(license_type_out == UNLICENSED);
-	}
 }
 
 
-const std::string License::getHardwareIdentifier()
+const std::vector<std::string> License::getHardwareIdentifiers()
 {
 	try
-	{
+	{	
 		std::vector<std::string> MAC_addresses;
 		PlatformUtils::getMACAddresses(MAC_addresses);
 
@@ -235,12 +246,25 @@ const std::string License::getHardwareIdentifier()
 		PlatformUtils::CPUInfo cpuinfo;
 		PlatformUtils::getCPUInfo(cpuinfo);
 
-		return std::string(cpuinfo.proc_brand) + ":" + MAC_addresses[0];
+		std::vector<std::string> ids(MAC_addresses.size());
+		for(size_t i=0; i<ids.size(); ++i)
+			ids[i] = std::string(cpuinfo.proc_brand) + ":" + MAC_addresses[i];
+		
+		return ids;
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
 		throw LicenseExcep(e.what());
 	}
+}
+
+
+const std::string License::getPrimaryHardwareIdentifier()
+{
+	const std::vector<std::string> ids = getHardwareIdentifiers();
+	if(ids.empty())
+		throw LicenseExcep("ids.empty()");
+	return ids[0];
 }
 
 

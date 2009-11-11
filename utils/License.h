@@ -8,6 +8,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 
 #include <string>
+#include <vector>
 
 
 /*=====================================================================
@@ -52,7 +53,8 @@ public:
 	static void verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
-	static const std::string getHardwareIdentifier(); // throws LicenseExcep
+	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
+	static const std::vector<std::string> getHardwareIdentifiers(); // throws LicenseExcep
 
 
 	static const std::string currentLicenseSummaryString(const std::string& appdata_path);

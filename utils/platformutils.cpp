@@ -31,6 +31,8 @@ Code By Nicholas Chapman.
 #include "../utils/fileutils.h"
 #include "../indigo/globals.h"
 #include <cstdlib>
+#include <iostream>//TEMP
+#include <algorithm>
 
 #if defined(OSX)
 #include <sys/types.h>
@@ -121,6 +123,20 @@ long mac_addr_sys ( u_char *addr)
 #endif
 
 
+class MyAdapterInfo
+{
+public:
+	std::string MAC;
+	DWORD index;
+};
+
+
+inline static bool myAdapterInfoComparisonPred(const MyAdapterInfo& a, const MyAdapterInfo& b)
+{
+	return a.index < b.index;
+}
+
+
 void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -138,17 +154,34 @@ void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
 
 	PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo; // Contains pointer to current adapter info.
 
-	addresses_out.resize(0);
+	
+	std::vector<MyAdapterInfo> adapters;
+
 	while(pAdapterInfo)
 	{
-		addresses_out.push_back("");
+		/*std::cout << "--------Details----------" << std::endl;
+		std::cout << "AdapterName: " << pAdapterInfo->AdapterName << std::endl;
+		std::cout << "Description: " << pAdapterInfo->Description << std::endl;
+		std::cout << "Index: " << pAdapterInfo->Index << std::endl;
+		std::cout << "-------------------------" << std::endl;*/
+
+		adapters.push_back(MyAdapterInfo());
 		for(UINT i = 0; i < pAdapterInfo->AddressLength; i++)
 		{
-			addresses_out.back() = addresses_out.back() + leftPad(toHexString((unsigned char)pAdapterInfo->Address[i]), '0', 2) + ((i < pAdapterInfo->AddressLength-1) ? "-" : "");
+			adapters.back().MAC = adapters.back().MAC + leftPad(toHexString((unsigned char)pAdapterInfo->Address[i]), '0', 2) + ((i < pAdapterInfo->AddressLength-1) ? "-" : "");
 		}
+		adapters.back().index = pAdapterInfo->Index;
 
 		pAdapterInfo = pAdapterInfo->Next;    // Progress through linked list
 	}
+
+	// Sort by index
+	std::sort(adapters.begin(), adapters.end(), myAdapterInfoComparisonPred);
+
+	addresses_out.resize(adapters.size());
+	for(size_t i=0; i<addresses_out.size(); ++i)
+		addresses_out[i] = adapters[i].MAC;
+
 #elif defined(OSX)
 	int			mib[6];
 	size_t	 	len;
