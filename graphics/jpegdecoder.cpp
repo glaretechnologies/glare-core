@@ -19,9 +19,9 @@ Code By Nicholas Chapman.
 #include <jpeglib.h>
 
 
-#if JPEG_LIB_VERSION < 70
-#error Please compile with Libjpeg 7.0
-#endif
+//#if JPEG_LIB_VERSION < 70
+//#error Please compile with Libjpeg 7.0
+//#endif
 
 
 JPEGDecoder::JPEGDecoder()
