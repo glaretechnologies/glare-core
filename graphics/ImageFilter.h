@@ -53,6 +53,8 @@ public:
 
 	static void realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
 
+	static void FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
+
 	static void test();
 
 private:

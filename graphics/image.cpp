@@ -1303,10 +1303,16 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 	//const int pos_rad = factor * (filter_width / 2 + 1);
 
 	// For each pixel of result image
-	int support_y = (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
+	//int support_y = (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
 
-	for(int y=0; y<out.getHeight(); ++y)
+	#ifndef OSX
+	#pragma omp parallel for
+	#endif
+	for(int y=0; y<(int)out.getHeight(); ++y)
 	{
+
+		// Get the y-range of pixels in the source image that lie in the filter support for the destination pixel.
+		const int support_y = (y * factor) + (int)floor((0.5 - filter_function.supportRadius()) * (double)factor) + border_width;
 		/*const int src_y_center = y * factor;
 		const int src_y_min = myMax(0, src_y_center - neg_rad);
 		const int src_y_max = myMin(this->getHeight(), src_y_center + pos_rad);*/
@@ -1326,10 +1332,11 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			const int src_x_min = myMax(0, src_x_center - neg_rad);
 			const int src_x_max = myMin(this->getWidth(), src_x_center + pos_rad);*/
 
+			// Get the x-range of pixels in the source image that lie in the filter support for the destination pixel.
 			const int src_x_min = myMax(0, support_x);
 			const int src_x_max = myMin((int)in.getWidth(), support_x + filter_width);
 
-			Colour3f c(0.0f);
+			Colour3f c(0.0f); // Running sum of source pixel value * filter value.
 
 			// For each pixel in filter support of source image
 			for(int sy=src_y_min; sy<src_y_max; ++sy)
@@ -1361,7 +1368,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			support_x += factor;
 		}
 
-		support_y += factor;
+		//support_y += factor;
 	}
 
 	//*this = out;

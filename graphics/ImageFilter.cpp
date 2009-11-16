@@ -17,6 +17,8 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h" // just for testing
 //#include "fft2d.h"
 #include "../indigo/TestUtils.h"
+#include "fftss.h"
+#include "../utils/timer.h"
 
 // Defined in fft4f2d.c
 extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
@@ -1153,6 +1155,62 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 }
 
 
+#include <iostream>//TEMP
+
+
+void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out)
+{
+	const int py = data.getWidth() + 1;
+
+	double* in = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
+
+	for(int i=0; i<py * data.getHeight() * 2; ++i)
+		in[i] = 0.0;
+	//double* out = (double*)fftss_malloc(data.getWidth() * data.getHeight() * sizeof(double) * 2);
+
+	// Copy data to in
+	/*for(unsigned int i=0; i<data.getWidth() * data.getHeight(); ++i)
+	{
+		in[i*2    ] = data.getData()[i];
+		in[i*2 + 1] = 0.0;
+	}*/
+	for(unsigned int y=0; y<data.getHeight(); ++y)
+		for(unsigned int x=0; x<data.getWidth(); ++x)
+		{
+			in[x * 2 + y * py * 2] = data.elem(x, y); // re
+			in[x * 2 + y * py * 2 + 1] = 0.0; // im
+		}
+
+	//TEMP
+	for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
+		std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
+
+	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, in,
+                           FFTSS_FORWARD, FFTSS_INOUT|FFTSS_VERBOSE);
+
+	fftss_execute(plan);
+
+	
+	// Copy to output
+	out.resize(data.getWidth(), data.getHeight());
+	/*for(unsigned int i=0; i<data.getWidth() * data.getHeight(); ++i)
+	{
+		out.getData()[i].a = in[i*2];
+		out.getData()[i].a = in[i*2 + 1];
+	}*/
+	const double scale = 1.0 / (data.getWidth() * data.getHeight() * data.getWidth() * data.getHeight());
+
+	for(unsigned int y=0; y<data.getHeight(); ++y)
+		for(unsigned int x=0; x<data.getWidth(); ++x)
+		{
+			out.elem(x, y).a = in[x * 2 + y * py * 2] * scale;
+			out.elem(x, y).b = in[x * 2 + y * py * 2 + 1] * scale * -1.0;
+		}
+
+	fftss_destroy_plan(plan);
+	fftss_free(in);
+}
+
 
 static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 {
@@ -1207,6 +1265,8 @@ static void testFT(int in_w, int in_h)
 	printVar(in_w);
 	printVar(in_h);
 
+	Timer t;
+
 	MTwister rng(1);
 
 	Array2d<double> in(in_w, in_h);
@@ -1215,22 +1275,43 @@ static void testFT(int in_w, int in_h)
 
 	// Fast FT convolution
 	Array2d<Complexd> fast_ft_out;
+	t.reset();
 	ImageFilter::realFFT(in, fast_ft_out);
+	conPrint("realFFT: " + t.elapsedString());
+
+	// FFTSS FFT
+	Array2d<Complexd> fftss_ft_out;
+	t.reset();
+	ImageFilter::FFTSS_realFFT(in, fftss_ft_out);
+	conPrint("FFTSS_realFFT: " + t.elapsedString());
+
 
 	// Reference FT convolution
 	Array2d<Complexd> ref_ft_out;
+	t.reset();
 	ImageFilter::realFT(in, ref_ft_out);
+	conPrint("realFT: " + t.elapsedString());
 
 
 	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
 	testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
 
-	conPrint("--------------Fast FT-----------------");
+	/*conPrint("--------------Fast FT-----------------");
 	for(int y=0; y<in_h; ++y)
 	{
 		for(int x=0; x<in_w; ++x)
 		{
 			conPrintStr(" (" + toString(fast_ft_out.elem(x, y).re()) + ", " + toString(fast_ft_out.elem(x, y).im()) + ")" );
+		}
+		conPrintStr("\n");
+	}
+
+	conPrint("--------------FFTSS--------------------");
+	for(int y=0; y<in_h; ++y)
+	{
+		for(int x=0; x<in_w; ++x)
+		{
+			conPrintStr(" (" + toString(fftss_ft_out.elem(x, y).re()) + ", " + toString(fftss_ft_out.elem(x, y).im()) + ")" );
 		}
 		conPrintStr("\n");
 	}
@@ -1243,14 +1324,16 @@ static void testFT(int in_w, int in_h)
 			conPrintStr(" (" + toString(ref_ft_out.elem(x, y).re()) + ", " + toString(ref_ft_out.elem(x, y).im()) + ")" );
 		}
 		conPrintStr("\n");
-	}
+	}*/
 
 	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
 	{
 		const Complexd a = ref_ft_out.getData()[i];
-		const Complexd b = fast_ft_out.getData()[i];
-		
+		const Complexd b = fftss_ft_out.getData()[i];
+		const Complexd c = fast_ft_out.getData()[i];
+	
 		testAssert(epsEqual(a.re(), b.re()));
+		testAssert(epsEqual(a.re(), c.re()));
 	}
 }
 
