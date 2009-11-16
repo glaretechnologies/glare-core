@@ -1160,6 +1160,8 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 
 void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out)
 {
+	Timer t;
+
 	const int py = data.getWidth() + 1;
 
 	double* in = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
@@ -1182,13 +1184,19 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 		}
 
 	//TEMP
-	for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
-		std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
+	//for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
+	//	std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
 
+	t.reset();
+	fftss_plan_with_nthreads(2);
 	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, in,
                            FFTSS_FORWARD, FFTSS_INOUT|FFTSS_VERBOSE);
 
+	conPrint("plan: " + t.elapsedString());
+	
+	t.reset();
 	fftss_execute(plan);
+	conPrint("execute: " + t.elapsedString());
 
 	
 	// Copy to output
@@ -1337,9 +1345,48 @@ static void testFT(int in_w, int in_h)
 	}
 }
 
+
+static void performanceTestFT(int in_w, int in_h)
+{
+	conPrint("performanceTestFT(), " + toString(in_w) + "*" + toString(in_h));
+
+	Timer t;
+
+	MTwister rng(1);
+
+	Array2d<double> in(in_w, in_h);
+	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
+		in.getData()[i] = rng.unitRandom();
+
+	// Fast FT convolution
+	Array2d<Complexd> fast_ft_out;
+	t.reset();
+	ImageFilter::realFFT(in, fast_ft_out);
+	conPrint("realFFT: " + t.elapsedString());
+
+	// FFTSS FFT
+	Array2d<Complexd> fftss_ft_out;
+	t.reset();
+	ImageFilter::FFTSS_realFFT(in, fftss_ft_out);
+	conPrint("FFTSS_realFFT: " + t.elapsedString());
+
+
+	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
+	{
+		const Complexd b = fftss_ft_out.getData()[i];
+		const Complexd c = fast_ft_out.getData()[i];
+		testAssert(epsEqual(b.re(), c.re()));
+	}
+}
+
+
 void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
+
+	performanceTestFT(1024, 1024);
+
+	exit(0);
 
 	testFT(4, 4);
 
