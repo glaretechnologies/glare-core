@@ -123,6 +123,7 @@ long mac_addr_sys ( u_char *addr)
 #endif
 
 
+#if defined(WIN32) || defined(WIN64)
 class MyAdapterInfo
 {
 public:
@@ -135,6 +136,7 @@ inline static bool myAdapterInfoComparisonPred(const MyAdapterInfo& a, const MyA
 {
 	return a.index < b.index;
 }
+#endif
 
 
 void PlatformUtils::getMACAddresses(std::vector<std::string>& addresses_out)
