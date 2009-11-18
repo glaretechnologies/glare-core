@@ -19,6 +19,9 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "fftss.h"
 #include "../utils/timer.h"
+#include <omp.h>
+#include "FFTPlan.h"
+
 
 // Defined in fft4f2d.c
 extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
@@ -495,11 +498,11 @@ static int smallestPowerOf2GE(int x)
 	return y;
 }
 
-void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out)
+void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan)
 {
 	if((filter.getWidth() * filter.getHeight()) > 9)
 	{
-		convolveImageFFT(in, filter, out);
+		convolveImageFFTSS(in, filter, out, plan);
 	}
 	else
 	{
@@ -606,13 +609,63 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 		Array2d<Complexd> ft_filter;
 		realFT(padded_filter, ft_filter);
 
+		//TEMP:
+		/*if(comp == 0)
+		{
+			conPrint("slowConvolveImageFFT, padded in FT:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + toString(ft_in.elem(x, y).re()) + ", " + toString(ft_in.elem(x, y).im()) + ")");
+				}
+				conPrintStr("\n");
+			}
+			conPrint("slowConvolveImageFFT, padded filter FT:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + toString(ft_filter.elem(x, y).re()) + ", " + toString(ft_filter.elem(x, y).im()) + ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
+
 		Array2d<Complexd> product(W, H);
 
 		for(int y=0; y<H; ++y)
 			for(int x=0; x<W; ++x)
 				product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
 
+		//TEMP:
+		/*if(comp == 0)
+		{
+			conPrint("slowConvolveImageFFT, product:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + toString(product.elem(x, y).re()) + ", " + toString(product.elem(x, y).im()) + ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
+
 		realIFT(product, padded_convolution);
+
+		/*if(comp == 0)
+		{
+			conPrint("slowConvolveImageFFT, IFT'd product:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + toString(padded_convolution.elem(x, y))+ ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
 
 		const double scale = 2.0 / (double)(W * H);
 
@@ -1155,6 +1208,243 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 }
 
 
+void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan)
+{
+#ifdef DEBUG
+	for(unsigned int i=0; i<in.numPixels(); ++i)
+		assert(in.getPixel(i).isFinite());
+	for(unsigned int i=0; i<filter.numPixels(); ++i)
+		assert(filter.getPixel(i).isFinite());
+#endif
+	assert(filter.getWidth() >= 2);
+	assert(filter.getHeight() >= 2);
+
+	const int x_offset = filter.getWidth() / 2;
+	const int y_offset = filter.getHeight() / 2;
+
+	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
+	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
+
+	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
+	assert(W >= 2);
+	assert(H >= 2);
+
+	// Stride between rows. FFTSS seems to like + 1 for some perverse reason.
+	const int py = W + 1; //TEMP
+
+	const int N = py * H * 2; // N = num doubles in arrays
+
+	// If we have previously failed, don't do aperture diffraction.
+	if(plan.failed_to_allocate_buffers)
+	{
+		out = in;
+		return;
+	}
+
+	
+	if(!plan.buffer_a)
+	{
+		plan.buffer_a = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		if(!plan.buffer_a)
+		{
+			plan.failed_to_allocate_buffers = true;
+			throw Indigo::Exception("Failed to allocate buffer.");
+		}
+	}
+	if(!plan.buffer_b)
+	{
+		plan.buffer_b = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		if(!plan.buffer_b)
+		{
+			plan.failed_to_allocate_buffers = true;
+			throw Indigo::Exception("Failed to allocate buffer.");
+		}
+	}
+	if(!plan.product)
+	{
+		plan.product = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		if(!plan.product)
+		{
+			plan.failed_to_allocate_buffers = true;
+			throw Indigo::Exception("Failed to allocate buffer.");
+		}
+	}
+
+	try
+	{
+		out.resize(in.getWidth(), in.getHeight());
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Failed to allocate buffer.");
+	}
+
+	if(!plan.in_plan)
+	{
+		fftss_plan_with_nthreads(omp_get_max_threads());
+		plan.in_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.product,
+						FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
+		//FFTSS_INOUT
+		//FFTSS_ESTIMATE
+		//FFTSS_VERBOSE
+	}
+
+	if(!plan.filter_plan)
+	{
+		fftss_plan_with_nthreads(omp_get_max_threads());
+		plan.filter_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.buffer_b,
+							FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
+	}
+
+	if(!plan.ift_plan)
+	{
+		fftss_plan_with_nthreads(omp_get_max_threads());
+		plan.ift_plan = fftss_plan_dft_2d(W, H, py, plan.product, plan.buffer_a,
+						FFTSS_BACKWARD, FFTSS_DESTROY_INPUT);
+		
+	}
+
+	for(int comp=0; comp<3; ++comp)
+	{
+		// Copy image 'in' to buffer_a
+		
+		// Zero pad input
+		//for(int i=0; i<N; ++i)
+		//	plan.buffer_a[i] = 0.0;
+
+		const double scale = 1.0 / (W * H);
+
+		// Blit component of input to padded input
+		for(int y=0; y<in.getHeight(); ++y)
+		{
+			for(int x=0; x<in.getWidth(); ++x)
+			{
+				plan.buffer_a[x*2 + y*py*2] = (double)in.getPixel(x, y)[comp]; // Re
+				plan.buffer_a[x*2 + y*py*2 + 1] = 0.0; // Im
+			}
+			for(int x=in.getWidth(); x<py; ++x)
+				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
+		}
+		for(int y=in.getHeight(); y<H; ++y)
+			for(int x=0; x<py; ++x)
+				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
+
+		// Compute FT of input, writing to buffer 'product'.
+		fftss_execute(plan.in_plan);
+
+		// Copy image 'filter' to buffer_a
+		// Zero pad filter
+		//for(int i=0; i<N; ++i)
+		//	plan.buffer_a[i] = 0.0;
+
+		// Blit component of filter to padded filter
+		for(int y=0; y<filter.getHeight(); ++y)
+		{
+			for(int x=0; x<filter.getWidth(); ++x)
+			{
+				plan.buffer_a[x*2 + y*py*2] = (double)filter.getPixel(filter.getWidth() - x - 1, filter.getHeight() - y - 1)[comp]/* * scale*/; // Note: rotating filter around center point here.
+				plan.buffer_a[x*2 + y*py*2 + 1] = 0.0; // Im
+			}
+			for(int x=filter.getWidth(); x<py; ++x)
+				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
+		}
+		for(int y=filter.getHeight(); y<H; ++y)
+			for(int x=0; x<py; ++x)
+				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
+
+		
+		// Compute FT of filter, writing to buffer_b
+		fftss_execute(plan.filter_plan);
+
+		// Form product of buffer_a (currently in product, and buffer b)
+		/*
+		(a + bi) * (c + di)
+		= ac + adi + bci + bdi^2
+		= ac + (ad + bc)i - bd
+		= (ac - bd) + (ad + bc)i
+		*/
+		for(int i=0; i<N/2; ++i)
+		{
+			const double a = plan.product[i*2]; // re
+			const double b = plan.product[i*2 + 1]; // im
+			const double c = plan.buffer_b[i*2]; // re
+			const double d = plan.buffer_b[i*2 + 1]; //im
+			plan.product[i*2] = (a*c - b*d);
+			plan.product[i*2+1] = (a*d + b*c);
+		}
+
+
+
+		//TEMP:
+		/*if(comp == 0)
+		{
+			conPrint("convolveImageFFTSS, padded in FT:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + doubleToString(plan.padded_in[x*2 + y*py*2], 10) + ", " + doubleToString(plan.padded_in[x*2 + y*py*2 + 1], 10) + ")");
+				}
+				conPrintStr("\n");
+			}
+			conPrint("convolveImageFFTSS, padded filter FT:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<W; ++x)
+				{
+					conPrintStr(" (" + doubleToString(plan.padded_filter[x*2 + y*py*2], 10) + ", " + doubleToString(plan.padded_filter[x*2 + y*py*2 + 1], 10) + ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
+
+	
+		
+
+
+		//TEMP:
+		/*if(comp == 0)
+		{
+			conPrint("convolveImageFFTSS, product:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<py; ++x)
+				{
+					conPrintStr(" (" + doubleToString(plan.product[x*2 + y*py*2], 10) + ", " + doubleToString(plan.product[x*2 + y*py*2 + 1], 10) + ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
+	
+		// Compute IFT of product, which writes back to buffer_a
+		
+		fftss_execute(plan.ift_plan);
+
+
+		/*if(comp == 0)
+		{
+			conPrint("convolveImageFFTSS, IFT'd product:");
+			for(int y=0; y<H; ++y)
+			{
+				for(int x=0; x<py; ++x)
+				{
+					conPrintStr(" (" + toString(plan.product[x*2 + y*py*2]) + ", " + toString(plan.product[x*2 + y*py*2 + 1]) + ")");
+				}
+				conPrintStr("\n");
+			}
+		}*/
+
+		
+		// Read out real coefficients
+		for(unsigned int y=0; y<out.getHeight(); ++y)
+			for(unsigned int x=0; x<out.getWidth(); ++x)
+			{
+				out.getPixel(x, y)[comp] = (float)plan.buffer_a[(x + x_offset)*2 + py*(y + y_offset)*2] * scale;
+			}
+	}
+}
+
+
 #include <iostream>//TEMP
 
 
@@ -1165,6 +1455,12 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	const int py = data.getWidth() + 1;
 
 	double* in = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
+	if(!in)
+		throw Indigo::Exception("Failed to allocate buffer.");
+
+	double* outbuf = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
+	if(!outbuf)
+		throw Indigo::Exception("Failed to allocate buffer.");
 
 	for(int i=0; i<py * data.getHeight() * 2; ++i)
 		in[i] = 0.0;
@@ -1176,10 +1472,12 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 		in[i*2    ] = data.getData()[i];
 		in[i*2 + 1] = 0.0;
 	}*/
+	const double scale = 1.0 / (data.getWidth() * data.getHeight());
+
 	for(unsigned int y=0; y<data.getHeight(); ++y)
 		for(unsigned int x=0; x<data.getWidth(); ++x)
 		{
-			in[x * 2 + y * py * 2] = data.elem(x, y); // re
+			in[x * 2 + y * py * 2] = data.elem(x, y)/* * scale*/; // re
 			in[x * 2 + y * py * 2 + 1] = 0.0; // im
 		}
 
@@ -1187,12 +1485,23 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	//for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
 	//	std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
 
+	conPrint("omp_get_max_threads: " + toString(omp_get_max_threads()));
+
 	t.reset();
-	fftss_plan_with_nthreads(2);
-	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, in,
-                           FFTSS_FORWARD, FFTSS_INOUT|FFTSS_VERBOSE);
+	fftss_plan_with_nthreads(omp_get_max_threads());
+	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, outbuf,
+                           FFTSS_FORWARD, FFTSS_VERBOSE);
 
 	conPrint("plan: " + t.elapsedString());
+
+	for(int i=0; i<py * data.getHeight() * 2; ++i)
+		in[i] = 0.0;
+	for(unsigned int y=0; y<data.getHeight(); ++y)
+		for(unsigned int x=0; x<data.getWidth(); ++x)
+		{
+			in[x * 2 + y * py * 2] = data.elem(x, y)/* * scale*/; // re
+			in[x * 2 + y * py * 2 + 1] = 0.0; // im
+		}
 	
 	t.reset();
 	fftss_execute(plan);
@@ -1206,29 +1515,32 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 		out.getData()[i].a = in[i*2];
 		out.getData()[i].a = in[i*2 + 1];
 	}*/
-	const double scale = 1.0 / (data.getWidth() * data.getHeight() * data.getWidth() * data.getHeight());
+	//const double scale = 1.0 / (data.getWidth() * data.getHeight() * data.getWidth() * data.getHeight());
 
 	for(unsigned int y=0; y<data.getHeight(); ++y)
 		for(unsigned int x=0; x<data.getWidth(); ++x)
 		{
-			out.elem(x, y).a = in[x * 2 + y * py * 2] * scale;
-			out.elem(x, y).b = in[x * 2 + y * py * 2 + 1] * scale * -1.0;
+			out.elem(x, y).a = outbuf[x * 2 + y * py * 2]/* * scale*/;
+			out.elem(x, y).b = outbuf[x * 2 + y * py * 2 + 1]/* * scale*/ * -1.0;
 		}
 
 	fftss_destroy_plan(plan);
 	fftss_free(in);
+	fftss_free(outbuf);
 }
 
 
 static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 {
-	conPrint("testWithDims()");
+	conPrint("testConvolutionWithDims()");
 	printVar(in_w);
 	printVar(in_h);
 	printVar(f_w);
 	printVar(f_h);
 
 	MTwister rng(2);
+
+	Timer t;
 
 	Image in(in_w, in_h);
 	for(unsigned int i=0; i<in.numPixels(); ++i)
@@ -1238,31 +1550,72 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 	for(unsigned int i=0; i<filter.numPixels(); ++i)
 		filter.getPixel(i).set(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
-	// Fast FT convolution
-	Image fast_ft_out;
-	ImageFilter::convolveImageFFT(in, filter, fast_ft_out);
-
 	// Reference FT convolution
 	Image ref_ft_out;
-	ImageFilter::slowConvolveImageFFT(in, filter, ref_ft_out);
+	if(in_w < 32)
+		ImageFilter::slowConvolveImageFFT(in, filter, ref_ft_out);
+	
+	// Fast FT convolution
+	t.reset();
+	Image fast_ft_out;
+	ImageFilter::convolveImageFFT(in, filter, fast_ft_out);
+	conPrint("convolveImageFFT: " + t.elapsedString());
+
+	// FFTSS Fast FT convolution
+	Image fftss_ft_out;
+	FFTPlan plan;
+	// Compute once to get plan
+	t.reset();
+	ImageFilter::convolveImageFFTSS(in, filter, fftss_ft_out, plan);
+	conPrint("convolveImageFFTSS plan: " + t.elapsedString());
+
+	// Compute a second time, measuring speed
+	t.reset();
+	ImageFilter::convolveImageFFTSS(in, filter, fftss_ft_out, plan);
+	conPrint("convolveImageFFTSS execute: " + t.elapsedString());
+
 
 	// Spatial convolution
 	Image spatial_convolution_out;
-	ImageFilter::convolveImageSpatial(in, filter, spatial_convolution_out);
+	if(in_w < 32)
+		ImageFilter::convolveImageSpatial(in, filter, spatial_convolution_out);
 
 
 	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
-	testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
-	testAssert(spatial_convolution_out.getWidth() == in.getWidth() && spatial_convolution_out.getHeight() == in.getHeight());
+	testAssert(fftss_ft_out.getWidth() == in.getWidth() && fftss_ft_out.getHeight() == in.getHeight());
+
+	if(in_w < 32)
+	{
+		testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
+		testAssert(spatial_convolution_out.getWidth() == in.getWidth() && spatial_convolution_out.getHeight() == in.getHeight());
+	}
 
 	for(unsigned int i=0; i<fast_ft_out.numPixels(); ++i)
-		for(unsigned int c=0; c<3; ++c)
+		for(unsigned int comp=0; comp<3; ++comp)
 		{
-			testAssert(epsEqual(fast_ft_out.getPixel(i)[c], ref_ft_out.getPixel(i)[c]));
+			if(in_w < 32)
+			{
+				const float ref = ref_ft_out.getPixel(i)[comp];
+				const float a = fast_ft_out.getPixel(i)[comp];
+				const float b = spatial_convolution_out.getPixel(i)[comp];
+				const float c = fftss_ft_out.getPixel(i)[comp];
 
-			const float a = ref_ft_out.getPixel(i)[c];
-			const float b = spatial_convolution_out.getPixel(i)[c];
-			testAssert(epsEqual(spatial_convolution_out.getPixel(i)[c], ref_ft_out.getPixel(i)[c], 0.0001f));
+				if(!epsEqual(ref, c, 0.0001f))
+				{
+					printVar(ref);
+					printVar(c);
+				}
+				testAssert(epsEqual(ref, a, 0.0001f));
+				testAssert(epsEqual(ref, b, 0.0001f));
+				testAssert(epsEqual(ref, c, 0.0001f));
+			}
+			else
+			{
+				const float a = fast_ft_out.getPixel(i)[comp];
+				const float c = fftss_ft_out.getPixel(i)[comp];
+
+				testAssert(epsEqual(a, c, 0.0001f));
+			}
 		}
 }
 
@@ -1304,7 +1657,7 @@ static void testFT(int in_w, int in_h)
 	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
 	testAssert(ref_ft_out.getWidth() == in.getWidth() && ref_ft_out.getHeight() == in.getHeight());
 
-	/*conPrint("--------------Fast FT-----------------");
+	conPrint("--------------Fast FT-----------------");
 	for(int y=0; y<in_h; ++y)
 	{
 		for(int x=0; x<in_w; ++x)
@@ -1332,7 +1685,7 @@ static void testFT(int in_w, int in_h)
 			conPrintStr(" (" + toString(ref_ft_out.elem(x, y).re()) + ", " + toString(ref_ft_out.elem(x, y).im()) + ")" );
 		}
 		conPrintStr("\n");
-	}*/
+	}
 
 	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
 	{
@@ -1375,6 +1728,11 @@ static void performanceTestFT(int in_w, int in_h)
 	{
 		const Complexd b = fftss_ft_out.getData()[i];
 		const Complexd c = fast_ft_out.getData()[i];
+		if(!epsEqual(b.re(), c.re()))
+		{
+			conPrint(toString(b.re()));
+			conPrint(toString(c.re()));
+		}
 		testAssert(epsEqual(b.re(), c.re()));
 	}
 }
@@ -1386,9 +1744,11 @@ void ImageFilter::test()
 
 	performanceTestFT(1024, 1024);
 
-	exit(0);
+	/*exit(0);
 
 	testFT(4, 4);
+
+	
 
 	testFT(8, 8);
 
@@ -1396,7 +1756,7 @@ void ImageFilter::test()
 
 	testFT(8, 16);
 
-	testFT(16, 4);
+	testFT(16, 4);*/
 
 	testConvolutionWithDims(2, 2, 2, 2);
 
@@ -1411,4 +1771,10 @@ void ImageFilter::test()
 #endif
 
 	testConvolutionWithDims(16, 16, 7, 7);
+	
+	testConvolutionWithDims(1024, 1024, 1025, 1025);
+
+	testConvolutionWithDims(2048, 2048, 1025, 1025);
+
+	exit(1);
 }

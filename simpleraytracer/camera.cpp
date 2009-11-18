@@ -33,6 +33,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TransformPath.h"
 #include "../utils/timer.h"
 #include "../indigo/PrintOutput.h"
+#include "../graphics/FFTPlan.h"
 
 
 static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
@@ -73,8 +74,10 @@ Camera::Camera(
 	appdata_path(appdata_path_),
 	lens_shift_up_distance(lens_shift_up_distance_),
 	lens_shift_right_distance(lens_shift_right_distance_),
-	write_aperture_preview(write_aperture_preview_)
+	write_aperture_preview(write_aperture_preview_),
+	plan(NULL)
 {
+	plan = new FFTPlan();
 
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
@@ -234,6 +237,8 @@ Camera::Camera(
 
 Camera::~Camera()
 {
+	delete plan;
+
 	SSE::alignedSSEFree(bbox_ws);
 
 	delete aperture;
@@ -950,17 +955,25 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 	return out;
 }
 
-
-void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out)
+// Static
+void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan)
 {
 	//print_output.print("Applying diffraction filter...");
 
 	//Image out;
-	ImageFilter::convolveImage(
-		in, // in
-		cam_diffraction_filter_image, //filter
-		out // result out
-		);
+	try
+	{
+		ImageFilter::convolveImage(
+			in, // in
+			cam_diffraction_filter_image, //filter
+			out, // result out
+			plan
+			);
+	}
+	catch(Indigo::Exception& e)
+	{
+		throw CameraExcep(e.what());
+	}
 
 	//image = out;
 
@@ -979,11 +992,21 @@ void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Imag
 
 	assert(this->diffraction_filter_image.get() != NULL);
 
-	applyDiffractionFilterToImage(
-		*this->diffraction_filter_image,
-		in,
-		out
-		);
+	try
+	{
+		applyDiffractionFilterToImage(
+			*this->diffraction_filter_image,
+			in,
+			out,
+			*plan
+			);
+	}
+	catch(CameraExcep& e)
+	{
+		print_output.print("ERROR while performing aperture diffraction: " + e.what());
+
+		out = in;
+	}
 }
 
 

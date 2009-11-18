@@ -9,8 +9,11 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/array2d.h"
+#include "../utils/Exception.h"
 #include "../maths/Complex.h"
 class Image;
+class FFTPlan;
+
 
 /*=====================================================================
 ImageFilter
@@ -42,9 +45,10 @@ public:
 	static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
 
 	// Chooses convolution technique depending on filter size etc..
-	static void convolveImage(const Image& in, const Image& filter, Image& out);
+	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.
 	static void convolveImageSpatial(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFT(const Image& in, const Image& filter, Image& out);
+	static void convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan);
 	static void convolveImageRobinDaviesFFT(const Image& in, const Image& filter, Image& out);
 	static void slowConvolveImageFFT(const Image& in, const Image& filter, Image& out);
 
@@ -53,7 +57,7 @@ public:
 
 	static void realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
 
-	static void FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
+	static void FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out); // throws Indigo::Exception on out of mem.
 
 	static void test();
 
