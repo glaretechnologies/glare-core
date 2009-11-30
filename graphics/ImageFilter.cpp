@@ -1281,7 +1281,9 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.in_plan)
 	{
+		#ifndef OSX
 		fftss_plan_with_nthreads(omp_get_max_threads());
+		#endif
 		plan.in_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.product,
 						FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
 		//FFTSS_INOUT
@@ -1291,14 +1293,18 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.filter_plan)
 	{
+		#ifndef OSX
 		fftss_plan_with_nthreads(omp_get_max_threads());
+		#endif
 		plan.filter_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.buffer_b,
 							FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
 	}
 
 	if(!plan.ift_plan)
 	{
+		#ifndef OSX
 		fftss_plan_with_nthreads(omp_get_max_threads());
+		#endif
 		plan.ift_plan = fftss_plan_dft_2d(W, H, py, plan.product, plan.buffer_a,
 						FFTSS_BACKWARD, FFTSS_DESTROY_INPUT);
 		
@@ -1488,7 +1494,9 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	conPrint("omp_get_max_threads: " + toString(omp_get_max_threads()));
 
 	t.reset();
+	#ifndef OSX
 	fftss_plan_with_nthreads(omp_get_max_threads());
+	#endif
 	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, outbuf,
                            FFTSS_FORWARD, FFTSS_VERBOSE);
 
@@ -1742,7 +1750,7 @@ void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
 
-	performanceTestFT(1024, 1024);
+	//performanceTestFT(1024, 1024);
 
 	/*exit(0);
 
@@ -1772,9 +1780,9 @@ void ImageFilter::test()
 
 	testConvolutionWithDims(16, 16, 7, 7);
 	
-	testConvolutionWithDims(1024, 1024, 1025, 1025);
+	//testConvolutionWithDims(1024, 1024, 1025, 1025);
 
-	testConvolutionWithDims(2048, 2048, 1025, 1025);
+	//testConvolutionWithDims(2048, 2048, 1025, 1025);
 
-	exit(1);
+	//exit(1);
 }
