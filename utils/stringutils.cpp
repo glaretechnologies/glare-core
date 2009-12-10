@@ -5,7 +5,7 @@
 #include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <clocale>
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
@@ -1127,7 +1127,33 @@ void doStringUtilsUnitTests()
 	assert(StringUtils::join(parts, ":") == "");
 
 
+	// Test float to string
+	{
+		testAssert(::epsEqual(::stringToFloat(::floatToString(123.456f)), 123.456f));
 
+		testAssert(::floatToString(123.456f, 0) == "123");
+		testAssert(::floatToString(123.234f, 1) == "123.2");
+		testAssert(::floatToString(123.234f, 2) == "123.23");
+		testAssert(::floatToString(123.234f, 3) == "123.234");
+	}
+	// Try German locale where decimal separtor is ','
+	{
+		const char* result = std::setlocale(LC_ALL, "german");
+		testAssert(result);
+
+		testAssert(::floatToString(123.234f, 1) == "123,2");
+
+		testAssert(::epsEqual(::stringToFloat("123,456"), 123.456f));
+	}
+
+	// Reset Locale
+	{
+		const char* result = std::setlocale(LC_ALL, "");
+		testAssert(result);
+	}
+
+
+	// Test string to float
 	assert(epsEqual(stringToFloat("1.4"), 1.4f));
 
 	try

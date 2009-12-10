@@ -6,8 +6,12 @@ Copyright Glare Technologies Limited 2009 -
 #include "Parser.h"
 
 
-//#include "../maths/mathstypes.h"
 #include <cmath>
+#include <clocale>
+#include <cstring>
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
+#include "../utils/timer.h"
 
 
 Parser::Parser(const char* text_, unsigned int textsize_)
@@ -15,11 +19,44 @@ Parser::Parser(const char* text_, unsigned int textsize_)
 	textsize(textsize_)
 {
 	currentpos = 0;
+
+	// Get the current decimal point character from the locale info, may be '.' or ','
+	struct lconv* lc = std::localeconv();
+
+	if(std::strlen(lc->decimal_point) >= 1)
+		this->decimal_separator = lc->decimal_point[0];
+	else
+		this->decimal_separator = '.';
+}
+
+
+Parser::Parser()
+{
+	this->text = NULL;
+	this->textsize = 0;
+	this->currentpos = 0;
+
+	// Get the current decimal point character from the locale info, may be '.' or ','
+	struct lconv* lc = std::localeconv();
+
+	if(std::strlen(lc->decimal_point) >= 1)
+		this->decimal_separator = lc->decimal_point[0];
+	else
+		this->decimal_separator = '.';
 }
 
 
 Parser::~Parser()
 {
+}
+
+
+void Parser::reset(const char* text_, unsigned int textsize_)
+{
+	this->text = text_;
+	this->textsize = textsize_;
+	this->currentpos = 0;
+	// Leave this->decimal_separator as it is.
 }
 
 
@@ -261,7 +298,7 @@ bool Parser::parseDouble(double& result_out)
 	}
 
 	/// Parse optional decimal point + digits ///
-	if(parseChar('.'))
+	if(parseChar(this->decimal_separator)) // parseChar('.'))
 	{
 		//parse digits to right of decimal point
 		double place_val = 0.1;
@@ -368,6 +405,49 @@ inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 
 void Parser::doUnitTests()
 {
+
+	// Speedtest
+	{
+		const std::string text = "123.456";
+
+		Timer t;
+
+		double y = 0;
+		for(int i=0; i<1000000; ++i)
+		{
+			Parser p(text.c_str(), text.size());
+
+			double x;
+			p.parseDouble(x);
+			y += x;
+		}
+		conPrint(t.elapsedString());
+		conPrint(::toString(y));
+	}
+
+	// Speedtest
+	{
+		const std::string text = "123.456";
+
+		Timer t;
+
+		Parser p;
+
+		double y = 0;
+		for(int i=0; i<1000000; ++i)
+		{
+			p.reset(text.c_str(), text.size());
+
+			double x;
+			p.parseDouble(x);
+			y += x;
+		}
+		conPrint(t.elapsedString());
+		conPrint(::toString(y));
+	}
+
+	
+
 #ifdef _DEBUG
 	{
 	std::string text = "-456.5456e21 673.234 -0.5e-53 .6 167/2/3 4/5/6";
@@ -417,6 +497,25 @@ void Parser::doUnitTests()
 	assert(!p.parseChar('/'));
 	assert(!p.parseUnsignedInt(x));
 	assert(!p.parseWhiteSpace());
+	}
+
+	// Try German locale where decimal separtor is ','
+	{
+		const char* result = std::setlocale(LC_ALL, "german");
+		assert(result);
+
+		const std::string text = "123,456";
+		Parser p(text.c_str(), text.size());
+		double x;
+		assert(p.parseDouble(x));
+		
+		assert(::epsEqual(x, 123.456));
+	}
+
+	// Reset locale to default locale
+	{
+		const char* result = std::setlocale(LC_ALL, "");
+		assert(result);
 	}
 
 

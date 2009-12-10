@@ -24,9 +24,12 @@ public:
 	------
 	
 	=====================================================================*/
+	Parser();
 	Parser(const char* text, unsigned int textsize);
 
 	~Parser();
+
+	void reset(const char* text, unsigned int textsize);
 
 	//returns if character was found
 	//if it was, currentpos will be pointing to the next character.
@@ -67,6 +70,7 @@ private:
 	const char* text;
 	unsigned int currentpos;
 	unsigned int textsize;
+	char decimal_separator;
 };
 
 
