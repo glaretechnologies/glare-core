@@ -1139,11 +1139,15 @@ void doStringUtilsUnitTests()
 	// Try German locale where decimal separtor is ','
 	{
 		const char* result = std::setlocale(LC_ALL, "german");
-		testAssert(result);
+		if(result)
+		{
+			// WIll only work if german locale is installed.
+			// Run locale -a on console to view installed locales.
 
-		testAssert(::floatToString(123.234f, 1) == "123,2");
-
-		testAssert(::epsEqual(::stringToFloat("123,456"), 123.456f));
+			testAssert(::floatToString(123.234f, 1) == "123,2");
+	
+			testAssert(::epsEqual(::stringToFloat("123,456"), 123.456f));
+		}
 	}
 
 	// Reset Locale
