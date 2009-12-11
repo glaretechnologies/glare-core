@@ -21,11 +21,11 @@ Parser::Parser(const char* text_, unsigned int textsize_)
 	currentpos = 0;
 
 	// Get the current decimal point character from the locale info, may be '.' or ','
-	struct lconv* lc = std::localeconv();
+	/*struct lconv* lc = std::localeconv();
 
 	if(std::strlen(lc->decimal_point) >= 1)
 		this->decimal_separator = lc->decimal_point[0];
-	else
+	else*/
 		this->decimal_separator = '.';
 }
 
@@ -37,11 +37,11 @@ Parser::Parser()
 	this->currentpos = 0;
 
 	// Get the current decimal point character from the locale info, may be '.' or ','
-	struct lconv* lc = std::localeconv();
+	/*struct lconv* lc = std::localeconv();
 
 	if(std::strlen(lc->decimal_point) >= 1)
 		this->decimal_separator = lc->decimal_point[0];
-	else
+	else*/
 		this->decimal_separator = '.';
 }
 
@@ -500,7 +500,7 @@ void Parser::doUnitTests()
 	}
 
 	// Try German locale where decimal separtor is ','
-	{
+	/*{
 		const char* result = std::setlocale(LC_ALL, "german");
 		assert(result);
 
@@ -516,7 +516,7 @@ void Parser::doUnitTests()
 	{
 		const char* result = std::setlocale(LC_ALL, "");
 		assert(result);
-	}
+	}*/
 
 
 	{
