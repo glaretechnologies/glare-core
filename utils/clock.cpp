@@ -26,17 +26,15 @@ You may *not* use this code for any commercial project.
 double getCurTimeRealSec()
 {
 #if defined(WIN32) || defined(WIN64)
-	/*static */LARGE_INTEGER li_net;
+	LARGE_INTEGER li_net;
 	memset(&li_net, 0, sizeof(li_net));
 	BOOL b = QueryPerformanceCounter(&li_net); 
 	assert(b);
 
-
-	/*static */LARGE_INTEGER freq;
+	LARGE_INTEGER freq;
 	memset(&freq, 0, sizeof(freq));
 	b = QueryPerformanceFrequency(&freq);
 	assert(b);
-
 
 	return (double)(li_net.QuadPart) / (double)(freq.QuadPart);
 #else
@@ -53,10 +51,6 @@ double getCurTimeRealSec()
 }
 
 
-
-
-
-
 const std::string getAsciiTime()
 {
 	time_t currenttime;
@@ -64,7 +58,23 @@ const std::string getAsciiTime()
 	time(&currenttime);                 
 	
 	struct tm *newtime = localtime(&currenttime);
-	//NOTE: check for mem leak here
+	if(!newtime)
+		return "";
+                                   
+	std::string s = asctime(newtime);
+
+	if(!s.empty() && s[(int)s.size() - 1] == '\n')
+		s = s.substr(0, (int)s.size() - 1);
+
+	return s;
+}
+
+
+const std::string getAsciiTime(time_t t)//nicely formatted string
+{
+	struct tm *newtime = localtime(&t);
+	if(!newtime)
+		return "";
                                    
 	std::string s = asctime(newtime);
 
@@ -80,12 +90,12 @@ time_t getSecsSince1970()
 	return time(NULL);                 
 }
 
-bool leftTimeEarlier(const std::string& time_a, const std::string& time_b)
+
+/*bool leftTimeEarlier(const std::string& time_a, const std::string& time_b)
 {
-
-
 	return true;
-}
+}*/
+
 
 const std::string humanReadableDuration(int seconds)
 {

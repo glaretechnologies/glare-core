@@ -21,8 +21,9 @@ double getCurTimeRealSec();
 
 
 const std::string getAsciiTime();//nicely formatted string
+const std::string getAsciiTime(time_t t);//nicely formatted string
 
-bool leftTimeEarlier(const std::string& asciitime_a, const std::string& asciitime_b);
+//bool leftTimeEarlier(const std::string& asciitime_a, const std::string& asciitime_b);
 
 time_t getSecsSince1970();//hehe
 

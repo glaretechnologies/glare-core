@@ -30,6 +30,7 @@ private:
 float stringToFloat(const std::string& s); // throws StringUtilsExcep
 double stringToDouble(const std::string& s); // throws StringUtilsExcep
 int stringToInt(const std::string& s); // throws StringUtilsExcep
+uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
 
 inline const std::string toString(char c)

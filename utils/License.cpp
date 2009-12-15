@@ -13,6 +13,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
+#include <zlib.h> // for crc32()
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -132,6 +133,16 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 {
 	license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
+
+	// Try and verifiy network licence first.
+	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, license_type_out, user_id_out);
+	if(have_net_floating_licence)
+		return;
+	else
+	{
+		license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+		user_id_out = "";
+	}
 
 #ifdef INDIGO_DLL_EXPORTS
 	/*std::string hardware_id;
@@ -292,6 +303,21 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return "Indigo Full Lifetime";
 	else if(t == SDK_2_X)
 		return "Indigo 2.x SDK";
+	else if(t == NETWORK_FLOATING_FULL)
+		return "Network Floating Full";
+	else if(t == NETWORK_FLOATING_NODE)
+		return "Network Floating Node";
+	else
+		return "[Unknown]";
+}
+
+
+const std::string License::licenseTypeToCodeString(LicenceType t)
+{
+	if(t == NETWORK_FLOATING_FULL)
+		return "network-floating-full";
+	else if(t == NETWORK_FLOATING_NODE)
+		return "network-floating-node";
 	else
 		return "[Unknown]";
 }
@@ -312,6 +338,10 @@ bool License::shouldApplyWatermark(LicenceType t)
 	else if(t == FULL_LIFETIME)
 		return false;
 	else if(t == SDK_2_X)
+		return false;
+	else if(t == NETWORK_FLOATING_FULL)
+		return false;
+	else if(t == NETWORK_FLOATING_NODE)
 		return false;
 	else
 	{
@@ -337,6 +367,10 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 		return false;
 	else if(t == SDK_2_X)
 		return false;
+	else if(t == NETWORK_FLOATING_FULL)
+		return false;
+	else if(t == NETWORK_FLOATING_NODE)
+		return false;
 	else
 	{
 		assert(0);
@@ -360,6 +394,106 @@ const std::string License::currentLicenseSummaryString(const std::string& appdat
 		return "Licence verified, licence type: " + License::licenseTypeToString(licence_type) + ", licensed to '" + licence_user_id + "'";
 	else
 		return "Licence not verified, running in free mode.";
+}
+
+
+bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out)
+{
+	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
+
+	
+	try
+	{
+		// Load the signature from disk.
+		const std::string licence_sig_filename = "network_licence.sig";
+
+		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_filename);
+		if(!FileUtils::fileExists(licence_sig_full_path))
+			return false;
+
+		std::string sigfile_contents;
+		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
+
+		if(sigfile_contents.empty())
+			return false;
+
+		// Split the license key up into (user_id, type, end_time, sig)
+		const std::vector<std::string> components = ::split(sigfile_contents, ';');
+
+		if(components.size() != 4)
+			return false;
+
+		user_id_out = components[0];
+
+		LicenceType desired_license_type = UNLICENSED;
+
+		if(components[1] == "network-floating-full")
+			desired_license_type = NETWORK_FLOATING_FULL;
+		else if(components[1] == "network-floating-node")
+			desired_license_type = NETWORK_FLOATING_NODE;
+		else
+			return false;
+
+		const uint64 end_time = ::stringToUInt64(components[2]);
+
+		const std::string hash = components[3]; // decodeBase64(components[3]);
+		if(hash.empty())
+			return false;
+
+		// Go through each hardware id, and see if it can be verified against the signature.
+		for(size_t i=0; i<hardware_ids.size(); ++i)
+		{
+			const std::string hardware_id = hardware_ids[i];
+
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + components[2] + ";" + hardware_id;
+
+			if(networkFloatingHash(constructed_key) == hash)
+			{
+				// Are we in the licence period?
+				if((uint64)::getSecsSince1970() < end_time)
+				{
+					// Key verified!
+					license_type_out = desired_license_type;
+					//TEMP:
+					std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
+					std::cout << "end_time:" << end_time << std::endl;
+					std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
+					return true; // We're done here, return
+				}
+				else
+					return false; // Licence has expired
+			}
+			else
+			{
+				assert(license_type_out == UNLICENSED);
+			}
+		}
+
+		return false;
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw LicenseExcep(e.what());
+	}
+}
+
+
+const std::string License::networkFloatingHash(const std::string& input)
+{
+	/*std::string out(input.size(), 0);
+	for(unsigned int i=0; i<input.size(); ++i)
+		out[i] = input[i] + 1;
+	return out;*/
+
+	const std::string x = input + "9fssa3tnjh";
+
+	unsigned int crc = crc32(
+		0, 
+		(const Bytef*)x.c_str(), 
+		x.size()
+	);
+
+	return ::toHexString(crc);
 }
 
 

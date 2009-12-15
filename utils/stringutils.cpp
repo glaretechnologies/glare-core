@@ -9,6 +9,7 @@
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
+#include <limits>
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -47,6 +48,39 @@ int stringToInt(const std::string& s) // throws StringUtilsExcep
 	if(end_ptr == s.c_str())
 		throw StringUtilsExcep("Failed to convert '" + s + "' to an int.");
 	return ret;
+}
+
+
+uint64 stringToUInt64(const std::string& s) // throws StringUtilsExcep
+{
+	uint64 x = 0;
+	uint64 valmul = 1;
+	bool valmul_has_overflowed = false;
+
+	//const uint64 max_uint64 = std::numeric_limits<uint64>::max(); //18446744073709551615LL
+
+	for(int i=(int)s.size() - 1; i >= 0; --i)
+	{
+		if(s[i] >= '0' && s[i] <= '9')
+		{
+			const uint64 incr = valmul * (s[i] - '0');
+			
+			if(incr > std::numeric_limits<uint64>::max() - x) // If x will overflow when we add incr to it...
+				throw StringUtilsExcep("Failed to convert '" + s + "' to an uint64: Value is too large.");
+			if(valmul_has_overflowed && incr > 0)
+				throw StringUtilsExcep("Failed to convert '" + s + "' to an uint64: Value is too large.");
+				
+			x += incr;
+		}
+		else
+			throw StringUtilsExcep("Failed to convert '" + s + "' to an uint64: Invalid character '" + s[i] + "'");
+
+		if(valmul > (std::numeric_limits<uint64>::max() / 10)) // if valmul will overflow when we multiply it by 10...
+			valmul_has_overflowed = true; //throw StringUtilsExcep("Failed to convert '" + s + "' to an uint64: Value is too large.");
+
+		valmul *= 10;
+	}
+	return x;
 }
 
 
@@ -1006,10 +1040,52 @@ void doStringUtilsUnitTests()
 	testAssert(toString(-1234567) == "-1234567");
 	testAssert(toString(0) == "0");
 
-	// 64 bit integers
+	// 64 bit unsigned integer <-> string conversion
 	testAssert(toString((uint64)12345671234567LL) == "12345671234567");
 	testAssert(toString((uint64)0) == "0");
+	testAssert(toString((uint64)1) == "1");
 	testAssert(toString((uint64)1234567) == "1234567");
+	testAssert(toString((uint64)18446744073709551615LL) == "18446744073709551615"); // max representable uint64
+
+	testAssert(stringToUInt64("12345671234567") == 12345671234567LL);
+	testAssert(stringToUInt64("0") == 0);
+	testAssert(stringToUInt64("1") == 1);
+	testAssert(stringToUInt64("01") == 1);
+	testAssert(stringToUInt64("00001") == 1);
+	testAssert(stringToUInt64("10000") == 10000);
+	testAssert(stringToUInt64("1234567") == 1234567);
+	testAssert(stringToUInt64("18446744073709551615") == 18446744073709551615LL); // max representable uint64
+
+	try
+	{
+		stringToUInt64("-1");
+		testAssert(!"Shouldn't get here.");
+	}
+	catch(StringUtilsExcep& e)
+	{
+		const std::string s = e.what();
+	}
+
+	try
+	{
+		stringToUInt64("18446744073709551616"); // 1 past max representable uint64
+		testAssert(!"Shouldn't get here.");
+	}
+	catch(StringUtilsExcep& e)
+	{
+		const std::string s = e.what();
+	}
+
+	try
+	{
+		stringToUInt64("1000000000000000000000000000000"); // valmul should overflow
+		testAssert(!"Shouldn't get here.");
+	}
+	catch(StringUtilsExcep& e)
+	{
+		const std::string s = e.what();
+	}
+
 
 	/*const int N = 100000;
 	{
@@ -1195,6 +1271,7 @@ void doStringUtilsUnitTests()
 	{}
 
 	assert(epsEqual((double)stringToInt("-631"), (double)-631));
+
 
 	try
 	{

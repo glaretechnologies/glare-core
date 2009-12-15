@@ -37,7 +37,9 @@ public:
 		BETA,
 		NODE,
 		FULL_LIFETIME,
-		SDK_2_X
+		SDK_2_X,
+		NETWORK_FLOATING_FULL,
+		NETWORK_FLOATING_NODE
 	};
 
 
@@ -49,6 +51,7 @@ public:
 	static bool shouldApplyResolutionLimits(LicenceType t);
 
 	static const std::string licenseTypeToString(LicenceType t);
+	static const std::string licenseTypeToCodeString(LicenceType t);
 
 	static void verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
 
@@ -62,10 +65,14 @@ public:
 	static bool verifyKey(const std::string& key, const std::string& hash);
 	static const std::string decodeBase64(const std::string& data);
 
+	static const std::string networkFloatingHash(const std::string& input);
 
 	static void test();
 private:
 	static const std::string ensureNewLinesPresent(const std::string& data);
+
+	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out);
+
 };
 
 
