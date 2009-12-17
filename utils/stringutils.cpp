@@ -1229,7 +1229,7 @@ void doStringUtilsUnitTests()
 	// Reset Locale
 	{
 		const char* result = std::setlocale(LC_ALL, "");
-		testAssert(result);
+		testAssert(result != NULL);
 	}
 
 
