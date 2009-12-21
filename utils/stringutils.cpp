@@ -84,6 +84,19 @@ uint64 stringToUInt64(const std::string& s) // throws StringUtilsExcep
 }
 
 
+unsigned int hexCharToUInt(char c)
+{
+	if(c >= '0' && c <= '9')
+		return c - '0';
+	else if(c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	else if(c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	else
+		return 0;
+}
+
+
 unsigned int hexStringToUInt(const std::string& s)
 {
 	if(s.size() < 3)
@@ -457,6 +470,18 @@ const std::string eatTailWhitespace(const std::string& text)
 
 	//if got here, everything was whitespace
 	return "";
+}
+
+
+const std::string eatWhitespace(const std::string& s)
+{
+	std::string out;
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if(!::isWhitespace(s[i]))
+			out += std::string(1, s[i]);
+	}
+	return out;
 }
 
 

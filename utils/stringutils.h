@@ -38,6 +38,8 @@ inline const std::string toString(char c)
 	return std::string(1, c);
 }
 
+
+unsigned int hexCharToUInt(char c);
 unsigned int hexStringToUInt(const std::string& s);
 unsigned long long hexStringTo64UInt(const std::string& s);
 
@@ -97,6 +99,7 @@ inline bool isAlphaNumeric(char c)
 
 const std::string eatHeadWhitespace(const std::string& text);
 const std::string eatTailWhitespace(const std::string& text);
+const std::string eatWhitespace(const std::string& s);
 
 const std::string toLowerCase(const std::string& text);
 const std::string toUpperCase(const std::string& text);
