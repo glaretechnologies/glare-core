@@ -455,9 +455,9 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 					// Key verified!
 					license_type_out = desired_license_type;
 					//TEMP:
-					std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
-					std::cout << "end_time:" << end_time << std::endl;
-					std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
+					//std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
+					//std::cout << "end_time:" << end_time << std::endl;
+					//std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
 					return true; // We're done here, return
 				}
 				else
