@@ -54,7 +54,7 @@ OpenCL::OpenCL()
 
 	std::vector<cl_platform_id> platforms(10);
 	cl_uint num_platforms = 0;
-	if(clGetPlatformIDs(10, &platforms[0], &num_platforms) != CL_SUCCESS)
+	if(this->clGetPlatformIDs(10, &platforms[0], &num_platforms) != CL_SUCCESS)
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 	std::cout << "Num platforms: " << num_platforms << std::endl;
@@ -174,7 +174,7 @@ OpenCL::OpenCL()
 		throw Indigo::Exception("clCreateContextFromType failed");
 
 	// Run a test
-	if(true)
+	if(false)
 	{
 		// Create command queue
 		this->command_queue = this->clCreateCommandQueue(
