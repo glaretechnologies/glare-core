@@ -173,19 +173,19 @@ OpenCL::OpenCL()
 	if(this->context == 0)
 		throw Indigo::Exception("clCreateContextFromType failed");
 
-	// Run a test
+	// Create command queue
+	this->command_queue = this->clCreateCommandQueue(
+		context,
+		device_to_use_id, // TEMP HACK, may not be same device as context
+		0, // queue properties
+		&error_code);
+
+	if(command_queue == 0)
+		throw Indigo::Exception("clCreateCommandQueue failed");
+
+	////////////////////// Run a test ////////////////////////////////////////////
 	if(false)
 	{
-		// Create command queue
-		this->command_queue = this->clCreateCommandQueue(
-			context,
-			device_to_use_id, // TEMP HACK, may not be same device as context
-			0, // queue properties
-			&error_code);
-
-		if(command_queue == 0)
-			throw Indigo::Exception("clCreateCommandQueue failed");
-
 
 		// Create buffer
 		const int N = 10000 * 512; // Should be a multiple of work group size (512)
@@ -450,15 +450,7 @@ OpenCL::OpenCL()
 			throw Indigo::Exception("clReleaseMemObject failed");
 		if(clReleaseMemObject(buffer_c) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseMemObject failed");
-
-
-		// Free command queue
-		if(command_queue)
-		{
-			if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
-				throw Indigo::Exception("clReleaseCommandQueue failed");
-		}
-	}
+	} // End of test
 #endif
 }
 
@@ -466,6 +458,13 @@ OpenCL::OpenCL()
 OpenCL::~OpenCL()
 {
 #if USE_OPENCL
+	// Free command queue
+	if(command_queue)
+	{
+		if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
+			throw Indigo::Exception("clReleaseCommandQueue failed");
+	}
+
 	// Cleanup
 	if(this->context)
 	{
