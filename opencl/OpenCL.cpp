@@ -25,7 +25,7 @@ OpenCL::OpenCL()
 	command_queue = 0;
 
 	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
-	HMODULE module = ::LoadLibrary(path.c_str()); // TEMP HACK
+	module = ::LoadLibrary(path.c_str()); // TEMP HACK
 
 	if(!module)
 		throw Indigo::Exception("Failed to load OpenCL library from '" + StringUtils::PlatformToUTF8UnicodeEncoding(path) + "'");
@@ -48,6 +48,8 @@ OpenCL::OpenCL()
 	clEnqueueWriteBuffer = (clEnqueueWriteBuffer_TYPE)::GetProcAddress(module, "clEnqueueWriteBuffer");
 	clEnqueueReadBuffer = (clEnqueueReadBuffer_TYPE)::GetProcAddress(module, "clEnqueueReadBuffer");
 	clEnqueueNDRangeKernel = (clEnqueueNDRangeKernel_TYPE)::GetProcAddress(module, "clEnqueueNDRangeKernel");
+	clReleaseKernel = (clReleaseKernel_TYPE)::GetProcAddress(module, "clReleaseKernel");
+	clReleaseProgram = (clReleaseProgram_TYPE)::GetProcAddress(module, "clReleaseProgram");
 
 
 	this->device_to_use_id = 0;
@@ -177,7 +179,7 @@ OpenCL::OpenCL()
 	this->command_queue = this->clCreateCommandQueue(
 		context,
 		device_to_use_id, // TEMP HACK, may not be same device as context
-		0, // queue properties
+		CL_QUEUE_PROFILING_ENABLE, // queue properties  TEMP enabled profiling.
 		&error_code);
 
 	if(command_queue == 0)
@@ -471,5 +473,32 @@ OpenCL::~OpenCL()
 		if(clReleaseContext(this->context) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseContext failed");
 	}
+
+	if(!::FreeLibrary(module))
+		throw Indigo::Exception("FreeLibrary failed");
+
+	std::cout << "Shut down OpenCL." << std::endl;
 #endif
+}
+
+
+const std::string OpenCL::errorString(cl_int result)
+{
+	switch(result)
+	{
+		case 0: return "CL_SUCCESS";
+		case -1: return "CL_DEVICE_NOT_FOUND";
+		case -2: return "CL_DEVICE_NOT_AVAILABLE";
+		case -3: return "CL_COMPILER_NOT_AVAILABLE";
+		case -4: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+		case -5: return "CL_OUT_OF_RESOURCES";
+		case -6: return "CL_OUT_OF_HOST_MEMORY";
+		case -7: return "CL_PROFILING_INFO_NOT_AVAILABLE";
+		case -8: return "CL_MEM_COPY_OVERLAP";
+		case -9: return "CL_IMAGE_FORMAT_MISMATCH";
+		case -10: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+		case -11: return "CL_BUILD_PROGRAM_FAILURE";
+		case -12: return "CL_MAP_FAILURE";
+		default: return "[Unknown: " + ::toString(result) + "]";
+	};
 }

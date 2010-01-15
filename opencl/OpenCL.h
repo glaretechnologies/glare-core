@@ -10,9 +10,13 @@ Code By Nicholas Chapman.
 
 #if USE_OPENCL
 
+#define NOMINMAX
+#include <windows.h>
 
 #include <CL/cl.h>
 #include <CL/clext.h>
+
+#include <string>
 
 extern "C" 
 {
@@ -34,6 +38,8 @@ typedef cl_int (*clSetKernelArg_TYPE) (cl_kernel kernel, cl_uint arg_index, size
 typedef cl_int (*clEnqueueWriteBuffer_TYPE) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t cb, const void *ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (*clEnqueueReadBuffer_TYPE) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_read, size_t offset, size_t cb, void *ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (*clEnqueueNDRangeKernel_TYPE) (cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+typedef cl_int (*clReleaseKernel_TYPE) (cl_kernel kernel);
+typedef cl_int (*clReleaseProgram_TYPE) (cl_program program);
 }
 
 #endif
@@ -56,8 +62,11 @@ public:
 
 	~OpenCL();
 
-//private:
 #if USE_OPENCL
+	static const std::string errorString(cl_int result);
+
+//private:
+
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
 	clGetPlatformInfo_TYPE clGetPlatformInfo;
 	clGetDeviceIDs_TYPE clGetDeviceIDs;
@@ -76,7 +85,10 @@ public:
 	clEnqueueWriteBuffer_TYPE clEnqueueWriteBuffer;
 	clEnqueueReadBuffer_TYPE clEnqueueReadBuffer;
 	clEnqueueNDRangeKernel_TYPE clEnqueueNDRangeKernel;
+	clReleaseKernel_TYPE clReleaseKernel;
+	clReleaseProgram_TYPE clReleaseProgram;
 
+	HMODULE module;
 	cl_device_id device_to_use_id;
 	cl_context context;
 	cl_command_queue command_queue;
