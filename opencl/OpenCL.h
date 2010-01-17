@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <windows.h>
 
 #include <CL/cl.h>
-#include <CL/clext.h>
+//#include <CL/clext.h>
 
 #include <string>
 
@@ -40,6 +40,8 @@ typedef cl_int (*clEnqueueReadBuffer_TYPE) (cl_command_queue command_queue, cl_m
 typedef cl_int (*clEnqueueNDRangeKernel_TYPE) (cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (*clReleaseKernel_TYPE) (cl_kernel kernel);
 typedef cl_int (*clReleaseProgram_TYPE) (cl_program program);
+typedef cl_int (*clGetProgramInfo_TYPE) (cl_program program, cl_program_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
 }
 
 #endif
@@ -87,6 +89,7 @@ public:
 	clEnqueueNDRangeKernel_TYPE clEnqueueNDRangeKernel;
 	clReleaseKernel_TYPE clReleaseKernel;
 	clReleaseProgram_TYPE clReleaseProgram;
+	clGetProgramInfo_TYPE clGetProgramInfo;
 
 	HMODULE module;
 	cl_device_id device_to_use_id;

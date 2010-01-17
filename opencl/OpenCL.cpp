@@ -17,6 +17,26 @@ Code By Nicholas Chapman.
 #include <cmath>
 #include "../maths/mathstypes.h"
 
+/*
+#define checkFunctionPointer(f) (_checkFunctionPointer(f, #f));
+
+template <class T>
+static void _checkFunctionPointer(T f, const std::string& name)
+{
+	if(!f)
+		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+}*/
+
+
+template <class FuncPointerType>
+static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
+{
+	FuncPointerType f = (FuncPointerType)::GetProcAddress(module, name.c_str());
+	if(!f)
+		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+	return f;
+}
+
 
 OpenCL::OpenCL()
 {
@@ -24,62 +44,73 @@ OpenCL::OpenCL()
 	context = 0;
 	command_queue = 0;
 
+
+	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
 	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
-	module = ::LoadLibrary(path.c_str()); // TEMP HACK
+	module = ::LoadLibrary(path.c_str());
 
 	if(!module)
-		throw Indigo::Exception("Failed to load OpenCL library from '" + StringUtils::PlatformToUTF8UnicodeEncoding(path) + "'");
+	{
+		const DWORD error_code = GetLastError();
+		throw Indigo::Exception("Failed to load OpenCL library from '" + StringUtils::PlatformToUTF8UnicodeEncoding(path) + "', error_code: " + ::toString((uint32)error_code));
+	}
 
-	clGetPlatformIDs = (clGetPlatformIDs_TYPE)::GetProcAddress(module, "clGetPlatformIDs");
-	clGetPlatformInfo = (clGetPlatformInfo_TYPE)::GetProcAddress(module, "clGetPlatformInfo");
-	clGetDeviceIDs = (clGetDeviceIDs_TYPE)::GetProcAddress(module, "clGetDeviceIDs");
-	clGetDeviceInfo = (clGetDeviceInfo_TYPE)::GetProcAddress(module, "clGetDeviceInfo");
-	clCreateContextFromType = (clCreateContextFromType_TYPE)::GetProcAddress(module, "clCreateContextFromType");
-	clReleaseContext = (clReleaseContext_TYPE)::GetProcAddress(module, "clReleaseContext");
-	clCreateCommandQueue = (clCreateCommandQueue_TYPE)::GetProcAddress(module, "clCreateCommandQueue");
-	clReleaseCommandQueue = (clReleaseCommandQueue_TYPE)::GetProcAddress(module, "clReleaseCommandQueue");
-	clCreateBuffer = (clCreateBuffer_TYPE)::GetProcAddress(module, "clCreateBuffer");
-	clReleaseMemObject = (clReleaseMemObject_TYPE)::GetProcAddress(module, "clReleaseMemObject");
-	clCreateProgramWithSource = (clCreateProgramWithSource_TYPE)::GetProcAddress(module, "clCreateProgramWithSource");
-	clBuildProgram = (clBuildProgram_TYPE)::GetProcAddress(module, "clBuildProgram");
-	clGetProgramBuildInfo = (clGetProgramBuildInfo_TYPE)::GetProcAddress(module, "clGetProgramBuildInfo");
-	clCreateKernel = (clCreateKernel_TYPE)::GetProcAddress(module, "clCreateKernel");
-	clSetKernelArg = (clSetKernelArg_TYPE)::GetProcAddress(module, "clSetKernelArg");
-	clEnqueueWriteBuffer = (clEnqueueWriteBuffer_TYPE)::GetProcAddress(module, "clEnqueueWriteBuffer");
-	clEnqueueReadBuffer = (clEnqueueReadBuffer_TYPE)::GetProcAddress(module, "clEnqueueReadBuffer");
-	clEnqueueNDRangeKernel = (clEnqueueNDRangeKernel_TYPE)::GetProcAddress(module, "clEnqueueNDRangeKernel");
-	clReleaseKernel = (clReleaseKernel_TYPE)::GetProcAddress(module, "clReleaseKernel");
-	clReleaseProgram = (clReleaseProgram_TYPE)::GetProcAddress(module, "clReleaseProgram");
 
+	clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(module, "clGetPlatformIDs");
+	clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(module, "clGetPlatformInfo");
+	clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(module, "clGetDeviceIDs");
+	clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(module, "clGetDeviceInfo");
+	clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(module, "clCreateContextFromType");
+	clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(module, "clReleaseContext");
+	clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(module, "clCreateCommandQueue");
+	clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(module, "clReleaseCommandQueue");
+	clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(module, "clCreateBuffer");
+	clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(module, "clReleaseMemObject");
+	clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(module, "clCreateProgramWithSource");
+	clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(module, "clBuildProgram");
+	clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(module, "clGetProgramBuildInfo");
+	clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(module, "clCreateKernel");
+	clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(module, "clSetKernelArg");
+	clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(module, "clEnqueueWriteBuffer");
+	clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(module, "clEnqueueReadBuffer");
+	clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(module, "clEnqueueNDRangeKernel");
+	clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(module, "clReleaseKernel");
+	clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
+	clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
 
 	this->device_to_use_id = 0;
 
-	std::vector<cl_platform_id> platforms(10);
+	cl_platform_id platform_to_use = 0;
+
+	std::vector<cl_platform_id> platform_ids(128);
 	cl_uint num_platforms = 0;
-	if(this->clGetPlatformIDs(10, &platforms[0], &num_platforms) != CL_SUCCESS)
+	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 	std::cout << "Num platforms: " << num_platforms << std::endl;
 
 	for(cl_uint i=0; i<num_platforms; ++i)
 	{
+		platform_to_use = platform_ids[i];
+
 		std::vector<char> val(100000);
-		if(clGetPlatformInfo(platforms[i], CL_PLATFORM_PROFILE, val.size(), &val[0], NULL) != CL_SUCCESS)
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_PROFILE, val.size(), &val[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_profile(&val[0]);
-		if(clGetPlatformInfo(platforms[i], CL_PLATFORM_VERSION, val.size(), &val[0], NULL) != CL_SUCCESS)
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VERSION, val.size(), &val[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_version(&val[0]);
-		if(clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, val.size(), &val[0], NULL) != CL_SUCCESS)
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, val.size(), &val[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_name(&val[0]);
-		if(clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, val.size(), &val[0], NULL) != CL_SUCCESS)
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, val.size(), &val[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_vendor(&val[0]);
-		if(clGetPlatformInfo(platforms[i], CL_PLATFORM_EXTENSIONS, val.size(), &val[0], NULL) != CL_SUCCESS)
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, val.size(), &val[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_extensions(&val[0]);
 
+		std::cout << "platform_id: " << platform_ids[i] << std::endl;
 		std::cout << "platform_profile: " << platform_profile << std::endl;
 		std::cout << "platform_version: " << platform_version << std::endl;
 		std::cout << "platform_name: " << platform_name << std::endl;
@@ -88,11 +119,15 @@ OpenCL::OpenCL()
 
 		std::vector<cl_device_id> device_ids(10);
 		cl_uint num_devices = 0;
-		if(clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
+		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
 			throw Indigo::Exception("clGetDeviceIDs failed");
+
+		std::cout << num_devices << " devices found." << std::endl;
 
 		for(cl_uint d=0; d<num_devices; ++d)
 		{
+			std::cout << "-----------Device " << d << "-----------" << std::endl;
+
 			cl_device_type device_type;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
@@ -163,17 +198,24 @@ OpenCL::OpenCL()
 		}
 	}
 
+	cl_context_properties cps[3] = 
+    {
+        CL_CONTEXT_PLATFORM, 
+		(cl_context_properties)platform_to_use, 
+        0
+    };
+
 	cl_int error_code;
 	this->context = clCreateContextFromType(
-		NULL, // properties
-		CL_DEVICE_TYPE_GPU, // device type
+		cps, // properties
+		CL_DEVICE_TYPE_ALL, // CL_DEVICE_TYPE_CPU, // TEMP CL_DEVICE_TYPE_GPU, // device type
 		NULL, // pfn notifiy
 		NULL, // user data
 		&error_code
 	);
 
 	if(this->context == 0)
-		throw Indigo::Exception("clCreateContextFromType failed");
+		throw Indigo::Exception("clCreateContextFromType failed: " + errorString(error_code));
 
 	// Create command queue
 	this->command_queue = this->clCreateCommandQueue(
@@ -233,7 +275,7 @@ OpenCL::OpenCL()
 
 		cl_program program = clCreateProgramWithSource(
 			context,
-			program_lines.size(),
+			(cl_uint)program_lines.size(),
 			&strings[0],
 			NULL, // lengths, can NULL because all strings are null-terminated.
 			&error_code
