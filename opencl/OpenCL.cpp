@@ -45,8 +45,8 @@ OpenCL::OpenCL()
 	command_queue = 0;
 
 
-	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
-	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
+	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
+	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
 	module = ::LoadLibrary(path.c_str());
 
 	if(!module)
