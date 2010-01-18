@@ -531,6 +531,11 @@ public:
 		v.set((float)x, (float)y, (float)z, 1.0f);
 	}
 
+	inline const Vec4f toVec4fPoint() const
+	{
+		return Vec4f((float)x, (float)y, (float)z, 1.0f);
+	}
+
 };
 
 template <class Real>

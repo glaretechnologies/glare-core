@@ -29,7 +29,7 @@
 #pragma warning(disable : 4290)//disable exception specification warning in VS2003
 #endif
 
-
+typedef int int32;
 typedef unsigned int uint32;
 typedef unsigned long long uint64;
 

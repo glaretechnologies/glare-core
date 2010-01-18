@@ -524,6 +524,7 @@ OpenCL::~OpenCL()
 }
 
 
+#if USE_OPENCL
 const std::string OpenCL::errorString(cl_int result)
 {
 	switch(result)
@@ -544,3 +545,4 @@ const std::string OpenCL::errorString(cl_int result)
 		default: return "[Unknown: " + ::toString(result) + "]";
 	};
 }
+#endif

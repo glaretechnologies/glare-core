@@ -38,6 +38,11 @@ public:
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 	inline float& elem(unsigned int row_index, unsigned int column_index) { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 
+	inline void setColumn0(const Vec4f& c);
+	inline void setColumn1(const Vec4f& c);
+	inline void setColumn2(const Vec4f& c);
+	inline void setColumn3(const Vec4f& c);
+
 
 	// Is A the inverse of B?
 	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
@@ -342,6 +347,30 @@ bool Matrix4f::operator == (const Matrix4f& a) const
 		if(e[i] != a.e[i])
 			return false;
 	return true;
+}
+
+
+void Matrix4f::setColumn0(const Vec4f& c)
+{
+	_mm_store_ps(e, c.v);
+}
+
+
+void Matrix4f::setColumn1(const Vec4f& c)
+{
+	_mm_store_ps(e + 4, c.v);
+}
+
+
+void Matrix4f::setColumn2(const Vec4f& c)
+{
+	_mm_store_ps(e + 8, c.v);
+}
+
+
+void Matrix4f::setColumn3(const Vec4f& c)
+{
+	_mm_store_ps(e + 12, c.v);
 }
 
 
