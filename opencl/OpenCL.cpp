@@ -40,13 +40,14 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 
 OpenCL::OpenCL()
 {
+	
 #if USE_OPENCL
 	context = 0;
 	command_queue = 0;
 
 
-	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
-	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
+	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
+	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
 	module = ::LoadLibrary(path.c_str());
 
 	if(!module)
@@ -495,6 +496,8 @@ OpenCL::OpenCL()
 		if(clReleaseMemObject(buffer_c) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseMemObject failed");
 	} // End of test
+#else
+	throw Indigo::Exception("Open CL disabled.");
 #endif
 }
 
