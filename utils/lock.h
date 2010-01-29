@@ -8,8 +8,8 @@ Code By Nicholas Chapman.
 #define __LOCK_H_666_
 
 
-
 class Mutex;
+
 
 /*=====================================================================
 Lock
