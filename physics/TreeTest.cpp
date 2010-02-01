@@ -41,7 +41,7 @@ void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	{
 	RayMesh raymesh("raymesh", false);
@@ -330,7 +330,7 @@ static void testSelfIntersectionAvoidance()
 	for(unsigned int i=0; i<trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	// Start a ray on one quad, trace to the other quad.
 	{
@@ -460,7 +460,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	for(unsigned int i=0; i<trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	//------------------------------------------------------------------------
 	//compare tests against all tris with tests against the trees
@@ -811,7 +811,7 @@ void TreeTest::doSpeedTest(int treetype)
 	SphereUnitVecPool vecpool;//create pool of random points
 
 	HitInfo hitinfo;
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	conPrint("Running test...");
 

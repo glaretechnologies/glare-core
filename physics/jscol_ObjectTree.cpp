@@ -31,6 +31,8 @@ namespace js
 
 ObjectTree::ObjectTree()
 {
+	assertSSEAligned(this);
+
 	nodestack_size = 0;
 
 	nodes.push_back(ObjectTreeNode());//root node

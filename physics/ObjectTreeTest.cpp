@@ -40,7 +40,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	ObjectTree ob_tree;
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 
 
@@ -178,7 +178,7 @@ void ObjectTreeTest::doTests()
 
 	ObjectTree ob_tree;
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 
 	std::vector<Object*> objects;
@@ -432,7 +432,7 @@ void ObjectTreeTest::doSpeedTest()
 	double start_time = 0.0;
 	double end_time = 0.0;
 
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 
 	/// Add some random spheres ////
@@ -565,7 +565,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		);
 
 	ObjectTree ob_tree;
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	for(int i=0; i<200; ++i)
 	{

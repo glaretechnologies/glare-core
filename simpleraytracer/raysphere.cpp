@@ -359,7 +359,7 @@ void RaySphere::test()
 	RaySphere sphere(/*Vec3d(0,0,1), */0.5);
 
 	//js::ObjectTreePerThreadData context;//(true);
-	ThreadContext thread_context(1, 0);
+	ThreadContext thread_context;
 
 	//------------------------------------------------------------------------
 	//test traceRay()

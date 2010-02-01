@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 
 
-// If this is defined, prints out messages on allocing and deallocing in reserver()
+// If this is defined, prints out messages on allocing and deallocing in reserve()
 //#define JS_VECTOR_VERBOSE 1
 
 
@@ -38,6 +38,7 @@ class Vector
 {
 public:
 	inline Vector();
+	inline Vector(unsigned int count);
 	inline Vector(unsigned int count, const T& val);
 	inline Vector(const Vector& other);
 	inline ~Vector();
@@ -81,6 +82,19 @@ Vector<T, alignment>::Vector()
 	capacity_(0)
 {
 	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+}
+
+
+template <class T, int alignment>
+Vector<T, alignment>::Vector(unsigned int count)
+:	e(0),
+	size_(0),
+	capacity_(0)
+{
+	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+
+	resize(count);
+	// TODO: construct elements?
 }
 
 
