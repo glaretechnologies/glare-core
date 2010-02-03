@@ -686,7 +686,9 @@ unsigned int KDTree::numTris() const
 
 bool KDTree::diskCachable()
 {
-	return true;
+	const int NUM_TRIS_CACHING_THRESHOLD = 1000;
+	return this->raymesh->getNumTris() >= NUM_TRIS_CACHING_THRESHOLD;
+	//return true;
 }
 
 
