@@ -61,9 +61,9 @@ public:
 	KDTree(RayMesh* raymesh);
 	virtual ~KDTree();
 
-	virtual void build(PrintOutput& print_output); // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose); // throws TreeExcep
 	virtual bool diskCachable();
-	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output); // throws TreeExcep
+	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose); // throws TreeExcep
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 

@@ -103,8 +103,8 @@ public:
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const;
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output);
-	virtual void build(const std::string& appdata_path, const RendererSettings& settings, PrintOutput& print_output); // throws GeometryExcep
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output, bool verbose);
+	virtual void build(const std::string& appdata_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
@@ -153,8 +153,8 @@ public:
 
 
 private:
-	void computeShadingNormals(PrintOutput& print_output);
-	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output);
+	void computeShadingNormals(PrintOutput& print_output, bool verbose);
+	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
 
 	//inline unsigned int vertSize() const;

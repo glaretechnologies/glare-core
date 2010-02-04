@@ -704,9 +704,9 @@ unsigned int KDTree::calcMaxDepth() const
 }
 
 
-void KDTree::build(PrintOutput& print_output)
+void KDTree::build(PrintOutput& print_output, bool verbose)
 {
-	print_output.print("\tBuilding kd-tree...");
+	if(verbose) print_output.print("\tBuilding kd-tree...");
 
 	if(numTris() == 0)
 		throw TreeExcep("Error, tried to build tree with zero triangles.");
@@ -716,11 +716,11 @@ void KDTree::build(PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output);
+		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output, verbose);
 		assert(root_aabb.invariant());
 
 		const unsigned int max_depth = calcMaxDepth();
-		print_output.print("\tmax tree depth: " + ::toString(max_depth));
+		if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
 		const int expected_numnodes = (int)((float)numTris() * 1.0f);
 		const int nodemem = expected_numnodes * sizeof(js::KDTreeNode);
@@ -740,7 +740,7 @@ void KDTree::build(PrintOutput& print_output)
 
 		{
 		OldKDTreeBuilder tree_builder;
-		tree_builder.build(print_output, *this, root_aabb, nodes, leafgeom);
+		tree_builder.build(print_output, verbose, *this, root_aabb, nodes, leafgeom);
 		}
 
 		if(!nodes.empty())
@@ -751,19 +751,15 @@ void KDTree::build(PrintOutput& print_output)
 		const unsigned int numnodes = (unsigned int)nodes.size();
 		const unsigned int leafgeomsize = (unsigned int)leafgeom.size();
 
-		print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" +
-			::getNiceByteSize(numnodes * sizeof(js::KDTreeNode)) + ")");
-
-		print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" +
-			::getNiceByteSize(leafgeomsize * sizeof(TRI_INDEX)) + ")");
+		if(verbose) print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" + ::getNiceByteSize(numnodes * sizeof(js::KDTreeNode)) + ")");
+		if(verbose) print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" + ::getNiceByteSize(leafgeomsize * sizeof(TRI_INDEX)) + ")");
 
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
 		num_intersect_tris = numTris();
-		print_output.print("\tAllocing intersect triangles...");
-		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
-			print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
+		if(verbose) print_output.print("\tAllocing intersect triangles...");
+		if(verbose) print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
 		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 		if(!intersect_tris)
@@ -773,7 +769,7 @@ void KDTree::build(PrintOutput& print_output)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
 		const unsigned int total_tree_mem_usage = numnodes * sizeof(js::KDTreeNode) + leafgeomsize * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
-		print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
+		if(verbose) print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
 
 		// TEMP:
 		//printStats();
@@ -787,14 +783,14 @@ void KDTree::build(PrintOutput& print_output)
 }
 
 
-void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
+void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose)
 {
 	if(numTris() == 0)
 		throw TreeExcep("Error, tried to build tree with zero triangles.");
 
 	try
 	{
-		print_output.print("\tLoading kd-tree from cache...");
+		if(verbose) print_output.print("\tLoading kd-tree from cache...");
 
 		// Read magic number
 		uint32 magic_number;
@@ -827,13 +823,13 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
-		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+		if(verbose)
 			print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(js::BadouelTri)));
 
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
 		//------------------------------------------------------------------------
-		print_output.print("\tcalcing root AABB.");
+		if(verbose) print_output.print("\tcalcing root AABB.");
 		{
 		root_aabb.min_ = Vec4f(triVertPos(0, 0).x, triVertPos(0, 0).y, triVertPos(0, 0).z, 1.0f);
 		root_aabb.max_ = root_aabb.min_;
@@ -847,7 +843,7 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 
 		}
 
-		print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
+		if(verbose) print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
 							"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")");
 
 		assert(root_aabb.invariant());
@@ -855,7 +851,7 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 		// Compute max allowable depth
 		const unsigned int max_depth = calcMaxDepth();
 
-		print_output.print("\tmax tree depth: " + ::toString(max_depth));
+		if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
 		//------------------------------------------------------------------------
 		// Read nodes
@@ -880,14 +876,14 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output)
 		stream.read((char*)&leafgeom[0], sizeof(TRI_INDEX) * leaf_geom_count);
 
 
-		print_output.print("\ttotal nodes used: " + ::toString(num_nodes) + " (" +
+		if(verbose) print_output.print("\ttotal nodes used: " + ::toString(num_nodes) + " (" +
 			::getNiceByteSize(num_nodes * sizeof(js::KDTreeNode)) + ")");
 
-		print_output.print("\ttotal leafgeom size: " + ::toString(leaf_geom_count) + " (" +
+		if(verbose) print_output.print("\ttotal leafgeom size: " + ::toString(leaf_geom_count) + " (" +
 			::getNiceByteSize(leaf_geom_count * sizeof(TRI_INDEX)) + ")");
 
 		const unsigned int total_tree_mem_usage = num_nodes * sizeof(js::KDTreeNode) + leaf_geom_count * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
-		print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
+		if(verbose) print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
 
 		postBuild();
 	}

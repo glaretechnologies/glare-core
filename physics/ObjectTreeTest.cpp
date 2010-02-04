@@ -80,7 +80,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			);
 
 		
-		ob1->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob1->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 		ob_tree.insertObject(ob1);
 	}
 
@@ -94,7 +94,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			std::vector<const IESDatum*>()
 			);
 
-		ob2->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob2->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 		ob_tree.insertObject(ob2);
 	}
 
@@ -201,7 +201,7 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 		ob_tree.insertObject(ob);
 
 		objects.push_back(ob);
@@ -455,7 +455,7 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(print_output);
@@ -561,7 +561,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	raymesh->build(
 		".", // base indigo dir path
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 	ObjectTree ob_tree;
@@ -589,7 +590,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		object->buildGeometry(thread_context, "", settings, print_output, start_time, end_time);
+		object->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 
 		ob_tree.insertObject(object);
 	}

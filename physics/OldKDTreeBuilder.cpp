@@ -31,7 +31,7 @@ OldKDTreeBuilder::~OldKDTreeBuilder()
 }
 
 
-void OldKDTreeBuilder::build(PrintOutput& print_output, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
+void OldKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 
 	unsigned int max_depth = tree.calcMaxDepth();
@@ -90,6 +90,7 @@ void OldKDTreeBuilder::build(PrintOutput& print_output, KDTree& tree, const AABB
 		std::vector<SortedBoundInfo> upper(tree.numTris());
 		doBuild(
 			print_output,
+			verbose,
 			tree,
 			KDTree::ROOT_NODE_INDEX,
 			node_tri_layers,
@@ -111,7 +112,7 @@ static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundI
 }
 
 
-void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned int cur, // index of current node getting built
+void OldKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& tree, unsigned int cur, // index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth
@@ -130,7 +131,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 	// Print progress message
 	if(depth == 5)
 	{
-		print_output.print("\t" + ::toString(tree.numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
+		if(verbose)	print_output.print("\t" + ::toString(tree.numnodesbuilt) + "/" + ::toString(1 << 5) + " nodes at depth 5 built.");
 		tree.numnodesbuilt++;
 	}
 
@@ -575,6 +576,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		// Build left subtree
 		doBuild(
 			print_output,
+			verbose,
 			tree,
 			left_child_index,
 			node_tri_layers,
@@ -666,6 +668,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, KDTree& tree, unsigned
 		// Build right subtree
 		doBuild(
 			print_output,
+			verbose,
 			tree,
 			right_child_index, // nodes[cur].getPosChildIndex(),
 			node_tri_layers,

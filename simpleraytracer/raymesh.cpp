@@ -191,7 +191,7 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 
 void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
-	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output
+	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output, bool verbose
 	)
 {
 	if(subdivide_and_displace_done)
@@ -206,14 +206,14 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 	}
 
 	if(merge_vertices_with_same_pos_and_normal)
-		mergeVerticesWithSamePosAndNormal(print_output);
+		mergeVerticesWithSamePosAndNormal(print_output, verbose);
 	
 	if(!vertex_shading_normals_provided)
-		computeShadingNormals(print_output);
+		computeShadingNormals(print_output, verbose);
 
 	if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 	{
-		print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
+		if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
 		// Convert to single precision floating point planes
 		/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
@@ -267,14 +267,14 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 				}
 			}
 #endif	
-		print_output.print("\tDone.");
+		if(verbose) print_output.print("\tDone.");
 	}
 
 	subdivide_and_displace_done = true;
 }
 
 
-void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output)
+void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose)
 {
 	Timer timer;
 
@@ -303,10 +303,13 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	//print out our mem usage
 	//------------------------------------------------------------------------
 	
-	print_output.print("Building Mesh '" + name + "'...");
-	print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
-	//print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
-	print_output.print("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
+	if(verbose)
+	{
+		print_output.print("Building Mesh '" + name + "'...");
+		print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
+		//print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
+		print_output.print("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
+	}
 
 	if(renderer_settings.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
@@ -335,7 +338,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 				//conPrint("\tLoading tree from disk cache...");
 				try
 				{
-					tritree->buildFromStream(file, print_output);
+					tritree->buildFromStream(file, print_output, verbose);
 					built_from_cache = true;
 				}
 				catch(js::TreeExcep& e)
@@ -346,7 +349,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			}
 			else
 			{
-				print_output.print("\tCouldn't find matching cached tree file, rebuilding tree...");
+				if(verbose) print_output.print("\tCouldn't find matching cached tree file, rebuilding tree...");
 			}
 
 		}
@@ -355,7 +358,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		{
 			try
 			{
-				tritree->build(print_output);
+				tritree->build(print_output, verbose);
 			}
 			catch(js::TreeExcep& e)
 			{
@@ -372,14 +375,14 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 					FileUtils::join("cache/tree_cache", toString(tritree->checksum()) + ".tre")
 					);
 
-				print_output.print("\tSaving tree to '" + path + "'...");
+				if(verbose) print_output.print("\tSaving tree to '" + path + "'...");
 
 				std::ofstream cachefile(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), std::ofstream::binary);
 
 				if(cachefile)
 				{
 					tritree->saveTree(cachefile);
-					print_output.print("\tDone.");
+					if(verbose) print_output.print("\tDone.");
 				}
 				else
 				{
@@ -392,7 +395,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	{
 		try
 		{
-			tritree->build(print_output);
+			tritree->build(print_output, verbose);
 		}
 		catch(js::TreeExcep& e)
 		{
@@ -400,7 +403,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		}
 	}
 
-	print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
+	if(verbose) print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
 }
 
 
@@ -704,9 +707,9 @@ static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& v
 }
 
 
-void RayMesh::computeShadingNormals(PrintOutput& print_output)
+void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 {
-	print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
+	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 
 	for(unsigned int i=0; i<vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
@@ -729,10 +732,13 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output)
 }
 
 
-void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output)
+void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose)
 {
-	print_output.print("Merging vertices for mesh '" + this->getName() + "'...");
-	print_output.print("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
+	if(verbose)
+	{
+		print_output.print("Merging vertices for mesh '" + this->getName() + "'...");
+		print_output.print("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
+	}
 
 	std::map<RayMeshVertex, unsigned int> new_vert_indices;
 	std::vector<RayMeshVertex> newverts;
@@ -762,8 +768,11 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output)
 
 	vertices = newverts;
 
-	print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
-	print_output.print("\tDone.");
+	if(verbose)
+	{
+		print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
+		print_output.print("\tDone.");
+	}
 }
 
 

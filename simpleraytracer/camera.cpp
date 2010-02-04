@@ -893,10 +893,10 @@ const Camera::TexCoordsType Camera::getTexCoords(const HitInfo& hitinfo, unsigne
 
 
 void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output){}
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output, bool verbose){}
 
 
-void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) {} // throws GeometryExcep
+void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose) {} // throws GeometryExcep
 
 
 /*int Camera::UVSetIndexForName(const std::string& uvset_name) const

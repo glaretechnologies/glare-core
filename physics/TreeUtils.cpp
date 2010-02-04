@@ -34,12 +34,12 @@ static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
 }
 
 
-void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOutput& print_output)
+void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOutput& print_output, bool verbose)
 {
 	// NOTE: could do this faster by looping over vertices instead.  But what if there is an unused vertex?
 
 	assert(raymesh.getNumTris() > 0);
-	print_output.print("\tCalcing root AABB.");
+	if(verbose) print_output.print("\tCalcing root AABB.");
 
 	SSE_ALIGN Vec4f p;
 
@@ -68,9 +68,12 @@ void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOut
 		aabb_out.enlargeToHoldAlignedPoint(v2);*/
 	}
 
-	print_output.print("\t\tDone.");
-	print_output.print("\t\tRoot AABB min: " + aabb_out.min_.toString());
-	print_output.print("\t\tRoot AABB max: " + aabb_out.max_.toString());
+	if(verbose)
+	{
+		print_output.print("\t\tDone.");
+		print_output.print("\t\tRoot AABB min: " + aabb_out.min_.toString());
+		print_output.print("\t\tRoot AABB max: " + aabb_out.max_.toString());
+	}
 }
 
 

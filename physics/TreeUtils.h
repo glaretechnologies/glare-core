@@ -43,7 +43,7 @@ public:
 
 	static inline void buildFlatRayChildIndices(const Ray& ray, unsigned int ray_child_indices[8]);
 
-	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out, PrintOutput& print_output);
+	static void buildRootAABB(const RayMesh& raymesh, js::AABBox& aabb_out, PrintOutput& print_output, bool verbose);
 
 	static float getTreeSpecificMinT(const AABBox& aabb);
 };

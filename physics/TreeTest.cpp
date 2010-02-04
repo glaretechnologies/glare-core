@@ -91,7 +91,8 @@ void TreeTest::testBuildCorrect()
 	raymesh.build(
 		".",
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 	{
@@ -168,7 +169,8 @@ void TreeTest::testBuildCorrect()
 	raymesh.build(
 		".",
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 
@@ -246,7 +248,8 @@ void TreeTest::testBuildCorrect()
 	raymesh.build(
 		".",
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
@@ -320,10 +323,10 @@ static void testSelfIntersectionAvoidance()
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
-	trees.back()->build(print_output);
+	trees.back()->build(print_output, true);
 
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
-	trees.back()->build(print_output);
+	trees.back()->build(print_output, true);
 
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
@@ -450,10 +453,10 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
-	trees.back()->build(print_output);
+	trees.back()->build(print_output, true);
 
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
-	trees.back()->build(print_output);
+	trees.back()->build(print_output, true);
 
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
@@ -799,7 +802,8 @@ void TreeTest::doSpeedTest(int treetype)
 	raymesh.build(
 		".", // base indigo dir path
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
@@ -926,7 +930,8 @@ void TreeTest::buildSpeedTest()
 	raymesh.build(
 		".", // base indigo dir path
 		settings,
-		print_output
+		print_output,
+		true
 		);
 
 	printVar(timer.getSecondsElapsed());

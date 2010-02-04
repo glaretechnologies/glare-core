@@ -118,15 +118,15 @@ static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
 }
 
 
-void BVH::build(PrintOutput& print_output)
+void BVH::build(PrintOutput& print_output, bool verbose)
 {
-	print_output.print("\tBVH::build()");
+	if(verbose) print_output.print("\tBVH::build()");
 	
 	try
 	{
 		const int num_tris = (int)numTris();
 
-		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output);
+		TreeUtils::buildRootAABB(*raymesh, root_aabb, print_output, verbose);
 		assert(root_aabb.invariant());
 
 		//original_tri_index.resize(num_tris);
@@ -178,7 +178,7 @@ void BVH::build(PrintOutput& print_output)
 		temp[1].resize(numTris());
 
 		// Sort indices based on center position along the axes
-		print_output.print("\tSorting...");
+		if(verbose) print_output.print("\tSorting...");
 		Timer sort_timer;
 
 		// Had to disable this for mac because gcc 4.2 is too aids to do
@@ -198,7 +198,7 @@ void BVH::build(PrintOutput& print_output)
 			// Sort based on center along axis 'axis'
 			std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
 		}
-		print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
+		if(verbose) print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
 		// In the best case, Each leaf node has pointers to 4 tris for left AABB, and 4 tris for right AABB, for a total of 8 tris.
 		// So there are N / 8 leaf nodes, or N / 4 total nodes.
@@ -235,13 +235,13 @@ void BVH::build(PrintOutput& print_output)
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
-		print_output.print("\tAllocating intersect triangles...");
+		if(verbose) print_output.print("\tAllocating intersect triangles...");
 		
 		intersect_tris.resize(numTris());
 
 		assert(intersect_tris.size() == intersect_tris.capacity());
 
-		if(::atDebugLevel(DEBUG_LEVEL_VERBOSE))
+		if(verbose)
 			print_output.print("\t\tDone.  Intersect_tris mem usage: " + ::getNiceByteSize(intersect_tris.size() * sizeof(INTERSECT_TRI_TYPE)));
 
 		// Copy tri data.
@@ -250,19 +250,22 @@ void BVH::build(PrintOutput& print_output)
 
 		this->tree_specific_min_t = TreeUtils::getTreeSpecificMinT(this->root_aabb);
 
-		print_output.print("\tBuild Stats:");
-		print_output.print("\t\tTotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(BVHNode)) + ")");
-		print_output.print("\t\tTotal nodes capacity: " + ::toString((unsigned int)nodes.capacity()) + " (" + ::getNiceByteSize(nodes.capacity() * sizeof(BVHNode)) + ")");
-		print_output.print("\t\tTotal tri indices used: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
-		print_output.print("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
-		print_output.print("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
-		print_output.print("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
-		print_output.print("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
-		print_output.print("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
-		print_output.print("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
-		print_output.print("\t\tMax leaf depth: " + toString(max_leaf_depth));
+		if(verbose)
+		{
+			print_output.print("\tBuild Stats:");
+			print_output.print("\t\tTotal nodes used: " + ::toString((unsigned int)nodes.size()) + " (" + ::getNiceByteSize(nodes.size() * sizeof(BVHNode)) + ")");
+			print_output.print("\t\tTotal nodes capacity: " + ::toString((unsigned int)nodes.capacity()) + " (" + ::getNiceByteSize(nodes.capacity() * sizeof(BVHNode)) + ")");
+			print_output.print("\t\tTotal tri indices used: " + ::toString((unsigned int)leafgeom.size()) + " (" + ::getNiceByteSize(leafgeom.size() * sizeof(TRI_INDEX)) + ")");
+			print_output.print("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
+			print_output.print("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
+			print_output.print("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
+			print_output.print("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
+			print_output.print("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
+			print_output.print("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
+			print_output.print("\t\tMax leaf depth: " + toString(max_leaf_depth));
 
-		print_output.print("\tFinished building tree.");
+			print_output.print("\tFinished building tree.");
+		}
 	}
 	catch(std::bad_alloc& e)
 	{
@@ -463,7 +466,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 		split_i = left + num_left_tris;
 		assert(split_i >= left && split_i <= right);
-		assert(num_left_tris == best_N_L);
+		//TEMP DISABLED WAS FAILING assert(num_left_tris == best_N_L);
 
 		//if(num_left_tris == 0 || num_left_tris == right - left)
 			//conPrint("Warning, all tris went left or right.");

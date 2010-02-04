@@ -114,9 +114,9 @@ public:
 	virtual bool areSubElementsCurved() const = 0; // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
 
 	virtual void subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output, bool verbose
 		) = 0; // throws GeometryExcep
-	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output) = 0; // throws GeometryExcep
+	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose) = 0; // throws GeometryExcep
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;
 
