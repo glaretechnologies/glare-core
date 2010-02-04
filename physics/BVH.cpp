@@ -370,6 +370,10 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 	int best_axis = -1;
 	float best_div_val;
 	
+	std::vector<float> tri_min(right - left);
+	std::vector<float> tri_max(right - left);
+
+
 
 	// for each axis 0..2
 	for(unsigned int axis=0; axis<3; ++axis)
@@ -384,6 +388,22 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 		const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
 		const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
 
+		// Build tri_max array
+		float running_max = -std::numeric_limits<float>::infinity();
+		for(int i=left; i<right; ++i)
+		{
+			running_max = myMax(running_max, tri_aabbs[axis_tris[i]].max_[axis]);
+			tri_max[i-left] = running_max;
+		}
+		float running_min = std::numeric_limits<float>::infinity();
+		for(int i=right-1; i>=left; --i)
+		{
+			running_min = myMin(running_min, tri_aabbs[axis_tris[i]].min_[axis]);
+			tri_min[i-left] = running_min;
+		}
+		
+
+
 		// For Each triangle centroid
 		for(int i=left; i<right; ++i)
 		{
@@ -395,10 +415,12 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 				const int N_R = (right - left) - N_L;
 
 				//assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
+				const float left_max = tri_max[i-left];
+				const float right_min = tri_min[i-left];
 
 				// Compute SAH cost
-				const float negchild_surface_area = two_cap_area + (splitval - aabb.min_[axis]) * circum;
-				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - splitval) * circum;
+				const float negchild_surface_area = two_cap_area + (left_max/*splitval*/ - aabb.min_[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - right_min/*splitval*/) * circum;
 
 				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
 							recip_aabb_surf_area * intersection_cost;
