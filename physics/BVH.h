@@ -94,6 +94,8 @@ private:
 
 	std::vector<TRI_INDEX> leafgeom; // Indices into the intersect_tris array.
 
+	js::Vector<float, 4> tri_max; // Used only during build process.
+
 	//std::vector<Vec3f> tri_centers;
 	//std::vector<float> centers;
 
@@ -103,6 +105,7 @@ private:
 	int num_maxdepth_leaves;
 	int num_under_thresh_leaves;
 	int num_cheaper_nosplit_leaves;
+	int num_could_not_split_leaves;
 	int num_leaves;
 	int max_num_tris_per_leaf;
 	int leaf_depth_sum;

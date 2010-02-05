@@ -29,7 +29,7 @@ BVH::BVH(RayMesh* raymesh_)
 {
 	assert(raymesh);
 
-	BVHNode node;
+	/*BVHNode node;
 	node.setLeftChildIndex(45654);
 	node.setRightChildIndex(456456);
 
@@ -51,7 +51,7 @@ BVH::BVH(RayMesh* raymesh_)
 	assert(node.getLeftGeomIndex() == 3);
 	assert(node.getLeftNumGeom() == 7);
 	assert(node.getRightGeomIndex() == 567);
-	assert(node.getRightNumGeom() == 4565);
+	assert(node.getRightNumGeom() == 4565);*/
 
 	num_maxdepth_leaves = 0;
 	num_under_thresh_leaves = 0;
@@ -60,6 +60,7 @@ BVH::BVH(RayMesh* raymesh_)
 	leaf_depth_sum = 0;
 	max_leaf_depth = 0;
 	num_cheaper_nosplit_leaves = 0;
+	num_could_not_split_leaves = 0;
 
 	assert(sizeof(BVHNode) == 64);
 }
@@ -149,13 +150,6 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 
 			convertPos(triVertPos(i, 2), p);
 			tri_aabbs[i].enlargeToHoldPoint(p);
-
-			/*const SSE_ALIGN PaddedVec3f v1(triVertPos(i, 1));
-			const SSE_ALIGN PaddedVec3f v2(triVertPos(i, 2));
-
-			tri_aabbs[i].min_ = tri_aabbs[i].max_ = triVertPos(i, 0);
-			tri_aabbs[i].enlargeToHoldAlignedPoint(v1);
-			tri_aabbs[i].enlargeToHoldAlignedPoint(v2);*/
 		}
 
 		// Build tri centers
@@ -164,11 +158,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		// Had to disable this for mac because gcc 4.2 is too aids to do
 		// openmp in pthreads as per bug...
 		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
-
 		#ifndef OSX
 		#pragma omp parallel for
 		#endif
-		
 		for(int i=0; i<num_tris; ++i)
 			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
 
@@ -181,14 +173,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		if(verbose) print_output.print("\tSorting...");
 		Timer sort_timer;
 
-		// Had to disable this for mac because gcc 4.2 is too aids to do
-		// openmp in pthreads as per bug...
-		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
-		
 		#ifndef OSX
 		#pragma omp parallel for
 		#endif
-		
 		for(int axis=0; axis<3; ++axis)
 		{
 			tris[axis].resize(numTris());
@@ -204,6 +191,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		// So there are N / 8 leaf nodes, or N / 4 total nodes.
 		nodes.reserve(numTris() / 4);
 		nodes.resize(1);
+
+		this->tri_max.resize(numTris());
+		//this->tri_max = new std::vector<float>(numTris());
 
 		// Make root node
 		nodes[0].setToInterior();
@@ -232,6 +222,11 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		SSE::alignedSSEArrayFree(tri_aabbs);
 		tri_aabbs = NULL;
 
+		// Free tri_max
+		//delete this->tri_max;
+		//this->tri_max = NULL;
+		this->tri_max.clearAndFreeMem();
+
 		//------------------------------------------------------------------------
 		//alloc intersect tri array
 		//------------------------------------------------------------------------
@@ -259,6 +254,7 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 			print_output.print("\t\tNum sub threshold leaves: " + toString(num_under_thresh_leaves));
 			print_output.print("\t\tNum max depth leaves: " + toString(num_maxdepth_leaves));
 			print_output.print("\t\tNum cheaper no-split leaves: " + toString(num_cheaper_nosplit_leaves));
+			print_output.print("\t\tNum could not split leaves: " + toString(num_could_not_split_leaves));
 			print_output.print("\t\tMean tris per leaf: " + toString((float)numTris() / (float)num_leaves));
 			print_output.print("\t\tMax tris per leaf: " + toString(max_num_tris_per_leaf));
 			print_output.print("\t\tMean leaf depth: " + toString((float)leaf_depth_sum / (float)num_leaves));
@@ -363,18 +359,10 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 	// Compute non-split cost
 	float smallest_cost = (float)(right - left) * intersection_cost;
 
-	//float axis_smallest_cost[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
-	//float axis_best_div_val[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
-
 	int best_N_L = -1;
 	int best_axis = -1;
 	float best_div_val;
 	
-	std::vector<float> tri_min(right - left);
-	std::vector<float> tri_max(right - left);
-
-
-
 	// for each axis 0..2
 	for(unsigned int axis=0; axis<3; ++axis)
 	{
@@ -388,39 +376,31 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 		const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
 		const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
 
-		// Build tri_max array
+		// Go from left to right, Building the current max bound seen so far for tris 0...i
 		float running_max = -std::numeric_limits<float>::infinity();
 		for(int i=left; i<right; ++i)
 		{
 			running_max = myMax(running_max, tri_aabbs[axis_tris[i]].max_[axis]);
-			tri_max[i-left] = running_max;
+			(tri_max)[i-left] = running_max;
 		}
-		float running_min = std::numeric_limits<float>::infinity();
-		for(int i=right-1; i>=left; --i)
-		{
-			running_min = myMin(running_min, tri_aabbs[axis_tris[i]].min_[axis]);
-			tri_min[i-left] = running_min;
-		}
-		
-
 
 		// For Each triangle centroid
-		for(int i=left; i<right; ++i)
+		float running_min = std::numeric_limits<float>::infinity();
+		for(int i=right-2; i>=left; --i)
 		{
-			const float splitval = tri_centers[axis_tris[i]][axis];//triCenter(tris[axis][i], axis);
+			const float splitval = tri_centers[axis_tris[i]][axis];
 			if(splitval != last_split_val) // If this is the first such split position seen.
 			{
+				running_min = myMin(running_min, tri_aabbs[axis_tris[i]].min_[axis]);
+				const float current_max = (tri_max)[i-left];
+
 				// Compute the SAH cost at the centroid position
-				const int N_L = (i - left);// + 1;
+				const int N_L = (i - left) + 1;
 				const int N_R = (right - left) - N_L;
 
-				//assert(N_L >= 0 && N_L <= (int)centers.size() && N_R >= 0 && N_R <= (int)centers.size());
-				const float left_max = tri_max[i-left];
-				const float right_min = tri_min[i-left];
-
 				// Compute SAH cost
-				const float negchild_surface_area = two_cap_area + (left_max/*splitval*/ - aabb.min_[axis]) * circum;
-				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - right_min/*splitval*/) * circum;
+				const float negchild_surface_area = two_cap_area + (current_max - aabb.min_[axis]) * circum;
+				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - running_min) * circum;
 
 				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
 							recip_aabb_surf_area * intersection_cost;
@@ -429,10 +409,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 				{
 					best_N_L = N_L;
 					smallest_cost = cost;
-					//axis_smallest_cost[axis] = cost;
 					best_axis = axis;
-					//axis_best_div_val[axis] = splitval;
-					//best_i = i;
 					best_div_val = splitval;
 				}
 				last_split_val = splitval;
@@ -440,19 +417,10 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 		}
 	}
 
-	
-	/*for(int axis=0; axis<3; ++axis)
-		if(axis_smallest_cost[axis] < smallest_cost)
-		{
-			smallest_cost = axis_smallest_cost[axis];
-			best_axis = axis;
-			best_div_val = axis_best_div_val[axis];
-		}*/
-
 	if(best_axis == -1)
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
-		markLeafNode(/*nodes, */parent_index, child_index, left, right, tris);
+		markLeafNode(parent_index, child_index, left, right, tris);
 
 		// Update build stats
 		num_cheaper_nosplit_leaves++;
@@ -472,7 +440,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 		for(int i=left; i<right; ++i)
 		{
-			if(tri_centers[axis_tris[i]][best_axis]/*triCenter(tris[axis][i], best_axis)*/ < best_div_val) // If on Left side
+			if(tri_centers[axis_tris[i]][best_axis] <= best_div_val) // If on Left side
 				temp[0][num_left_tris++] = axis_tris[i];
 			else // else if on Right side
 				temp[1][num_right_tris++] = axis_tris[i];
@@ -490,8 +458,15 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 		assert(split_i >= left && split_i <= right);
 		//TEMP DISABLED WAS FAILING assert(num_left_tris == best_N_L);
 
-		//if(num_left_tris == 0 || num_left_tris == right - left)
-			//conPrint("Warning, all tris went left or right.");
+		if(num_left_tris == 0 || num_left_tris == right - left)
+		{
+			markLeafNode(parent_index, child_index, left, right, tris);
+			// Update build stats
+			num_could_not_split_leaves++;
+			leaf_depth_sum += depth;
+			max_leaf_depth = myMax(max_leaf_depth, depth);
+			return;
+		}
 	}
 
 

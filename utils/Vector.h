@@ -50,6 +50,7 @@ public:
 	inline unsigned int capacity() const { return capacity_; }
 	inline unsigned int size() const;
 	inline bool empty() const;
+	inline void clearAndFreeMem(); // Set size to zero, but also frees actual array memory.
 
 	inline void push_back(const T& t);
 	inline void pop_back();
@@ -217,6 +218,16 @@ template <class T, int alignment>
 bool Vector<T, alignment>::empty() const
 {
 	return size_ == 0;
+}
+
+
+template <class T, int alignment>
+void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees actual array memory.
+{
+	SSE::alignedFree(e); // Free old buffer.
+	e = NULL;
+	size_ = 0;
+	capacity_ = 0;
 }
 
 
