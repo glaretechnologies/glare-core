@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
+#include "../indigo/TestUtils.h"
 
 
 namespace js
@@ -31,104 +32,157 @@ NLogNKDTreeBuilder::~NLogNKDTreeBuilder()
 }
 
 
-void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
-{
-
-	unsigned int max_depth = tree.calcMaxDepth();
-
-	{ // Scope for various arrays
-		std::vector<std::vector<TriInfo> > node_tri_layers(KDTree::MAX_KDTREE_DEPTH); // One list of tris for each depth
-
-		//for(int t=0; t<MAX_KDTREE_DEPTH; ++t)
-		//	node_tri_layers[t].reserve(1000);
-
-		node_tri_layers[0].resize(tree.numTris());
-		for(unsigned int i=0; i<tree.numTris(); ++i)
-		{
-			node_tri_layers[0][i].tri_index = i;
-
-			// Get tri AABB
-			AABBox tri_aabb;
-			{
-			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 0);
-			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
-			tri_aabb.min_ = v;
-			tri_aabb.max_ = v;
-			}
-
-			{
-			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 1);
-			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
-			tri_aabb.enlargeToHoldPoint(v);
-			}
-
-			{
-			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 2);
-			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
-			tri_aabb.enlargeToHoldPoint(v);
-			}
-
-			/*const SSE_ALIGN Vec4f v1 = tree.triVertPos(i, 1);
-			tri_aabb.enlargeToHoldPoint(v1);
-			const SSE_ALIGN Vec4f v2 = tree.triVertPos(i, 2);
-			tri_aabb.enlargeToHoldPoint(v2);*/
-
-			node_tri_layers[0][i].lower.x = tri_aabb.min_.x[0];
-			node_tri_layers[0][i].lower.y = tri_aabb.min_.x[1];
-			node_tri_layers[0][i].lower.z = tri_aabb.min_.x[2];
-			node_tri_layers[0][i].upper.x = tri_aabb.max_.x[0];
-			node_tri_layers[0][i].upper.y = tri_aabb.max_.x[1];
-			node_tri_layers[0][i].upper.z = tri_aabb.max_.x[2];
-		}
-
-
-		//std::vector<SortedBoundInfo> lower(tree.numTris());
-		//std::vector<SortedBoundInfo> upper(tree.numTris());
-		doBuild(
-			print_output,
-			verbose,
-			tree,
-			KDTree::ROOT_NODE_INDEX,
-			node_tri_layers,
-			0,
-			max_depth, root_aabb, lower, upper, leaf_tri_indices_out, nodes_out);
-	}
-}
-
-
-class SortedBoundInfoLowerPred
+class LowerPred
 {
 public:
-	inline bool operator()(const NLogNKDTreeBuilder::SortedBoundInfo& a, const NLogNKDTreeBuilder::SortedBoundInfo& b)
+	inline bool operator()(const NLogNKDTreeBuilder::LowerBound& a, const NLogNKDTreeBuilder::LowerBound& b)
 	{
 	   return a.lower < b.lower;
 	}
 };
 
 
-class SortedBoundInfoUpperPred
+class UpperPred
 {
 public:
-	inline bool operator()(const NLogNKDTreeBuilder::SortedBoundInfo& a, const NLogNKDTreeBuilder::SortedBoundInfo& b)
+	inline bool operator()(const NLogNKDTreeBuilder::UpperBound& a, const NLogNKDTreeBuilder::UpperBound& b)
 	{
 	   return a.upper < b.upper;
 	}
 };
 
 
-void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& tree, unsigned int cur, // index of current node getting built
-						std::vector<std::vector<TriInfo> >& node_tri_layers,
+void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
+{
+	unsigned int max_depth = tree.calcMaxDepth();
+
+	// Build triangle AABBs
+	tri_aabbs.resize(tree.numTris());
+	for(unsigned int i=0; i<tree.numTris(); ++i)
+	{
+		tri_aabbs[i].min_ = tree.triVertPos(i, 0).toVec4fPoint();
+		tri_aabbs[i].max_ = tree.triVertPos(i, 0).toVec4fPoint();
+		tri_aabbs[i].enlargeToHoldPoint(tree.triVertPos(i, 1).toVec4fPoint());
+		tri_aabbs[i].enlargeToHoldPoint(tree.triVertPos(i, 2).toVec4fPoint());
+	}
+
+	layers.resize(max_depth);
+
+	// Initialise upper and lower bounds
+	for(int ax=0; ax<3; ++ax)
+	{
+		layers[0].lower_bounds[ax].resize(tree.numTris());
+		layers[0].upper_bounds[ax].resize(tree.numTris());
+
+		for(unsigned int i=0; i<tree.numTris(); ++i)
+		{
+			(layers[0].lower_bounds[ax])[i].lower = tri_aabbs[i].min_[ax];
+			(layers[0].lower_bounds[ax])[i].tri_index = i;
+			(layers[0].upper_bounds[ax])[i].upper = tri_aabbs[i].max_[ax];
+			(layers[0].upper_bounds[ax])[i].tri_index = i;
+		}
+	}
+
+	// Sort bounds
+#pragma omp parallel for
+	for(int axis=0; axis<3; ++axis)
+	{
+		std::sort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred());
+		std::sort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred());
+	}
+
+
+
+	/*std::vector<std::vector<TriInfo> > node_tri_layers(KDTree::MAX_KDTREE_DEPTH); // One list of tris for each depth
+
+	node_tri_layers[0].resize(tree.numTris());
+	for(unsigned int i=0; i<tree.numTris(); ++i)
+	{
+		node_tri_layers[0][i].tri_index = i;
+
+		// Get tri AABB
+		AABBox tri_aabb;
+		{
+		const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 0);
+		const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+		tri_aabb.min_ = v;
+		tri_aabb.max_ = v;
+		}
+
+		{
+		const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 1);
+		const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+		tri_aabb.enlargeToHoldPoint(v);
+		}
+
+		{
+		const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 2);
+		const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+		tri_aabb.enlargeToHoldPoint(v);
+		}
+
+		node_tri_layers[0][i].lower.x = tri_aabb.min_.x[0];
+		node_tri_layers[0][i].lower.y = tri_aabb.min_.x[1];
+		node_tri_layers[0][i].lower.z = tri_aabb.min_.x[2];
+		node_tri_layers[0][i].upper.x = tri_aabb.max_.x[0];
+		node_tri_layers[0][i].upper.y = tri_aabb.max_.x[1];
+		node_tri_layers[0][i].upper.z = tri_aabb.max_.x[2];
+	}*/
+
+	doBuild(
+		print_output,
+		verbose,
+		tree,
+		KDTree::ROOT_NODE_INDEX,
+		//node_tri_layers,
+		0,
+		max_depth,
+		root_aabb, 
+		//lower, upper, 
+		nodes_out,
+		leaf_tri_indices_out
+		);
+}
+
+
+void NLogNKDTreeBuilder::doBuild(
+						PrintOutput& print_output, 
+						bool verbose, 
+						KDTree& tree, 
+						unsigned int cur, // index of current node getting built
+						//std::vector<std::vector<TriInfo> >& node_tri_layers,
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth
 						const AABBox& cur_aabb, // AABB of current node
-						std::vector<SortedBoundInfo>& upper,
-						std::vector<SortedBoundInfo>& lower,
-						KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out,
-						std::vector<KDTreeNode>& nodes)
+						//std::vector<SortedBoundInfo>& upper,
+						//std::vector<SortedBoundInfo>& lower,
+						std::vector<KDTreeNode>& nodes,
+						KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out
+						)
 {
 	// Get the list of tris intersecting this volume
-	assert(depth < (unsigned int)node_tri_layers.size());
-	const std::vector<TriInfo>& nodetris = node_tri_layers[depth];
+	//assert(depth < (unsigned int)node_tri_layers.size());
+	//const std::vector<TriInfo>& nodetris = node_tri_layers[depth];
+
+	LayerInfo& layer = this->layers[depth];
+
+#ifdef DEBUG
+	const unsigned int num_lowers = layer.lower_bounds[0].size();
+
+	// Check all our bounds are sorted correctly
+	for(int axis=0; axis<3; ++axis)
+	{
+		testAssert(layer.lower_bounds[axis].size() == num_lowers);
+		testAssert(layer.upper_bounds[axis].size() == num_lowers);
+
+		for(int z=1; z<layer.lower_bounds[axis].size(); ++z)
+		{
+			testAssert((layer.lower_bounds[axis])[z-1].lower <= (layer.lower_bounds[axis])[z].lower);
+			testAssert((layer.upper_bounds[axis])[z-1].upper <= (layer.upper_bounds[axis])[z].upper);
+		}
+	}
+#endif
+
 
 	assert(cur < (int)nodes.size());
 
@@ -139,20 +193,22 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 		tree.numnodesbuilt++;
 	}
 
+	const unsigned int numtris = (unsigned int)layer.lower_bounds[0].size();
+
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
 	const int SPLIT_THRESHOLD = 1;
-	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth || cur_aabb.getSurfaceArea() == 0.0f)
+	if(numtris <= SPLIT_THRESHOLD || depth >= maxdepth || cur_aabb.getSurfaceArea() == 0.0f)
 	{
 		// Make this node a leaf node.
 		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(), // Leaf geom index
-			(unsigned int)nodetris.size() // num leaf geom
+			numtris // num leaf geom
 			);
 
-		for(unsigned int i=0; i<nodetris.size(); ++i)
-			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
+		for(unsigned int i=0; i<numtris; ++i)
+			leaf_tri_indices_out.push_back((layer.lower_bounds[0])[i].tri_index); //nodetris[i].tri_index);
 
 		// Record stats
 		if(depth >= maxdepth)
@@ -184,9 +240,9 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 	//------------------------------------------------------------------------
 	//compute non-split cost
 	//------------------------------------------------------------------------
-	float smallest_cost = (float)nodetris.size() * intersection_cost;
+	float smallest_cost = (float)numtris * intersection_cost;
 
-	const unsigned int numtris = (unsigned int)nodetris.size();
+	//const unsigned int numtris = (unsigned int)nodetris.size();
 
 	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
 
@@ -195,6 +251,9 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 	//------------------------------------------------------------------------
 	for(int axis=0; axis<3; ++axis)
 	{
+		const std::vector<LowerBound>& lower = layer.lower_bounds[axis];
+		const std::vector<UpperBound>& upper = layer.upper_bounds[axis];
+
 		const unsigned int axis1 = nonsplit_axes[axis][0];
 		const unsigned int axis2 = nonsplit_axes[axis][1];
 		const float two_cap_area = (cur_aabb.axisLength(axis1) * cur_aabb.axisLength(axis2)) * 2.0f;
@@ -202,28 +261,6 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 
 		if(cur_aabb.axisLength(axis) == 0.0f)
 			continue; // Don't try to split a zero-width bounding box
-
-		//------------------------------------------------------------------------
-		//Sort lower and upper tri AABB bounds into ascending order
-		//------------------------------------------------------------------------
-		for(unsigned int i=0; i<numtris; ++i)
-		{
-//			assert(nodetris[i].lower[axis] >= cur_aabb.min_.x[axis] && nodetris[i].upper[axis] <= cur_aabb.max_.x[axis]);
-//TEMP			assert(nodetris[i].lower[axis] <= nodetris[i].upper[axis]);
-
-			lower[i].lower = nodetris[i].lower[axis];
-			lower[i].upper = nodetris[i].upper[axis];
-			upper[i].lower = nodetris[i].lower[axis];
-			upper[i].upper = nodetris[i].upper[axis];
-		}
-
-		//Timer sort_timer;
-
-		//Note that we don't want to sort the whole buffers here, as we're only using the first numtris elements.
-		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred());
-		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred());
-
-		//conPrint("sort took " + toString(sort_timer.getSecondsElapsed()));
 
 		// Try explicit 'Early empty-space cutoff', see section 4.4 of Havran's thesis
 		// 'Construction of Kd-Trees with Utilization of Empty Spatial Regions'
@@ -269,7 +306,7 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 				// Get number of tris on splitting plane
 				int num_on_splitting_plane = 0;
 				for(unsigned int z=i; z<numtris && lower[z].lower == splitval; ++z) // For all other triangles that share the current splitting plane as a lower bound
-					if(lower[z].upper == splitval) // If the tri has zero extent along the current axis
+					if(this->tri_aabbs[lower[z].tri_index].max_[axis]/*lower[z].upper*/ == splitval) // If the tri has zero extent along the current axis
 						num_on_splitting_plane++; // Then it lies on the splitting plane.
 
 				while(upper_index < numtris && upper[upper_index].upper <= splitval)
@@ -364,7 +401,7 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 
 			int num_on_splitting_plane = 0;
 			for(int z=i; z>=0 && upper[z].upper == splitval; --z) // For each triangle sharing an upper bound with the current triangle
-				if(upper[z].lower == splitval) // If tri has zero extent along this axis
+				if(this->tri_aabbs[upper[z].tri_index].min_[axis]/*upper[z].lower*/ == splitval) // If tri has zero extent along this axis
 					num_on_splitting_plane++;
 
 			while(lower_index < numtris && lower[lower_index].lower < splitval)
@@ -466,11 +503,11 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 		// If the least cost is to not split the node, then make this node a leaf node
 		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(),
-			(unsigned int)nodetris.size()
+			numtris
 			);
 
-		for(unsigned int i=0; i<nodetris.size(); ++i)
-			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
+		for(unsigned int i=0; i<numtris; ++i)
+			leaf_tri_indices_out.push_back((layer.lower_bounds[0])[i].tri_index); //nodetris[i].tri_index);
 
 		tree.num_cheaper_no_split_leafs++;
 		return;
@@ -495,81 +532,91 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 		// then splitting is pointless.  So make this a leaf node.
 		nodes[cur] = KDTreeNode(
 			(unsigned int)leaf_tri_indices_out.size(),
-			(unsigned int)nodetris.size()
+			numtris
 			);
 
-		for(unsigned int i=0; i<(unsigned int)nodetris.size(); ++i)
-			leaf_tri_indices_out.push_back(nodetris[i].tri_index);
+		for(unsigned int i=0; i<numtris; ++i)
+			leaf_tri_indices_out.push_back((layer.lower_bounds[0])[i].tri_index); // nodetris[i].tri_index);
 
 		tree.num_inseparable_tri_leafs++;
 		return;
 	}
 
-	assert(depth + 1 < (int)node_tri_layers.size());
-	std::vector<TriInfo>& child_tris = node_tri_layers[depth + 1];
+	//assert(depth + 1 < (int)node_tri_layers.size());
+	//std::vector<TriInfo>& child_tris = node_tri_layers[depth + 1];
+	LayerInfo& childlayer = layers[depth + 1];
 
 	//------------------------------------------------------------------------
-	// Build list of neg tris
+	// Build bounds lists for left child
 	//------------------------------------------------------------------------
-	child_tris.resize(0);
-	child_tris.reserve(myMax(best_num_in_neg, best_num_in_pos));
+	//child_tris.resize(0);
+	//child_tris.reserve(myMax(best_num_in_neg, best_num_in_pos));
 
-	assert(numtris == nodetris.size());
 	const float split = best_div_val;
-	for(unsigned int i=0; i<numtris; ++i)//for each tri
+	const unsigned int split_axis = best_axis;
+
+	for(int axis=0; axis<3; ++axis)
 	{
-		const float tri_lower = nodetris[i].lower[best_axis];
-		const float tri_upper = nodetris[i].upper[best_axis];
+		childlayer.lower_bounds[axis].resize(0);
+		childlayer.upper_bounds[axis].resize(0);
 
-		if(tri_lower <= split) // Tri touches left volume, including splitting plane
+		// Build lower bound list for left child
+		for(unsigned int i=0; i<numtris; ++i) // for bound in bound list
 		{
-			if(tri_lower < split) // Tri touches left volume, not including splitting plane
+			// Get the triangle bounds along the splitting aixs
+			const uint32 tri_index = (layer.lower_bounds[axis])[i].tri_index;
+			const float tri_lower = this->tri_aabbs[tri_index].min_[split_axis];
+			const float tri_upper = this->tri_aabbs[tri_index].max_[split_axis];
+
+			if(tri_lower <= split) // Tri touches left volume, including splitting plane
 			{
-#ifdef CLIP_TRIANGLES
-				if(tri_upper > split)
+				if(tri_lower < split) // Tri touches left volume, not including splitting plane
 				{
-					// Tri straddles split plane
-					child_tris.push_back(TriInfo());
-					child_tris.back().tri_index = nodetris[i].tri_index;
-
-					SSE_ALIGN AABBox clipped_tri_aabb;
-					TriBoxIntersection::slowGetClippedTriAABB(
-						tree.triVertPos(nodetris[i].tri_index, 0), tree.triVertPos(nodetris[i].tri_index, 1), tree.triVertPos(nodetris[i].tri_index, 2),
-						negbox,
-						clipped_tri_aabb
-						);
-					assert(negbox.containsAABBox(clipped_tri_aabb));
-					//TEMP: THIS IS FAILING ALL THE FUCKING TIME
-					assert(clipped_tri_aabb.invariant());
-					child_tris.back().lower = clipped_tri_aabb.min_;
-					child_tris.back().upper = clipped_tri_aabb.max_;
-					
-					child_tris.push_back(nodetris[i]);
+					// Tri is in left child
+					childlayer.lower_bounds[axis].push_back((layer.lower_bounds[axis])[i]);
 				}
-				else // else tri_upper <= split
-					child_tris.push_back(nodetris[i]); // Tri is only in left child
-#else
-				child_tris.push_back(nodetris[i]);// Tri is in left child
-#endif
+				else
+				{
+					// else tri_lower == split
+					if(tri_upper == split && !best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris left...
+						childlayer.lower_bounds[axis].push_back((layer.lower_bounds[axis])[i]);
+				}
 			}
-			else
-			{
-				// else tri_lower == split
-				if(tri_upper == split && !best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris left...
-					child_tris.push_back(nodetris[i]);
-			}
+			// Else tri_lower > split, so doesn't intersect left box of splitting plane.
 		}
-		// Else tri_lower > split, so doesn't intersect left box of splitting plane.
+		// Build Upper bound list for left child
+		for(unsigned int i=0; i<numtris; ++i) // for bound in bound list
+		{
+			// Get the triangle bounds along the splitting aixs
+			const uint32 tri_index = (layer.upper_bounds[axis])[i].tri_index;
+			const float tri_lower = this->tri_aabbs[tri_index].min_[split_axis]; //(layer.lower_bounds[best_axis])[i].lower; //nodetris[i].lower[best_axis];
+			const float tri_upper = this->tri_aabbs[tri_index].max_[split_axis]; //(layernodetris[i].upper[best_axis];
 
+			if(tri_lower <= split) // Tri touches left volume, including splitting plane
+			{
+				if(tri_lower < split) // Tri touches left volume, not including splitting plane
+				{
+					// Tri is in left child
+					childlayer.upper_bounds[axis].push_back((layer.upper_bounds[axis])[i]);
+				}
+				else
+				{
+					// else tri_lower == split
+					if(tri_upper == split && !best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris left...
+						childlayer.upper_bounds[axis].push_back((layer.upper_bounds[axis])[i]);
+				}
+			}
+			// Else tri_lower > split, so doesn't intersect left box of splitting plane.
+		}
 	}
 
 	//conPrint("Finished binning neg tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
-	assert(child_tris.size() == best_num_in_neg);
+	//assert(child_tris.size() == best_num_in_neg);
 
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.
 	//------------------------------------------------------------------------
-	const unsigned int actual_num_neg_tris = (unsigned int)child_tris.size();
+	const unsigned int actual_num_neg_tris = (unsigned int)childlayer.lower_bounds[0].size();
 	//if(actual_num_neg_tris > 0)
 	//{
 		// Add left child node
@@ -583,78 +630,88 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 			verbose,
 			tree,
 			left_child_index,
-			node_tri_layers,
+			//node_tri_layers,
 			depth + 1,
 			maxdepth,
 			negbox,
-			lower,
-			upper,
-			leaf_tri_indices_out,
-			nodes
+			//lower,
+			//upper,
+			nodes,
+			leaf_tri_indices_out
 			);
 	//}
 
 
 	//------------------------------------------------------------------------
-	// Build list of pos tris
+	// Build lists for right child
 	//------------------------------------------------------------------------
-	child_tris.resize(0);
+	//child_tris.resize(0);
 
-	assert(numtris == nodetris.size());
-	//assert(best_axis == nodes[cur].getSplittingAxis());
-	for(unsigned int i=0; i<numtris; ++i) // For each tri
+	for(int axis=0; axis<3; ++axis)
 	{
-		const float tri_lower = nodetris[i].lower[best_axis];
-		const float tri_upper = nodetris[i].upper[best_axis];
+		childlayer.lower_bounds[axis].resize(0);
+		childlayer.upper_bounds[axis].resize(0);
 
-		if(tri_upper >= split) // Tri touches right volume, including splitting plane
+		// Build lower bound list for right child
+		for(unsigned int i=0; i<numtris; ++i) // For each tri
 		{
-			if(tri_upper > split) // Tri touches right volume, not including splitting plane
+			// Get the triangle bounds along the splitting aixs
+			const uint32 tri_index = (layer.lower_bounds[axis])[i].tri_index;
+			const float tri_lower = this->tri_aabbs[tri_index].min_[best_axis];
+			const float tri_upper = this->tri_aabbs[tri_index].max_[best_axis]; 
+
+			if(tri_upper >= split) // Tri touches right volume, including splitting plane
 			{
-#ifdef CLIP_TRIANGLES
-				if(tri_lower < split)
+				if(tri_upper > split) // Tri touches right volume, not including splitting plane
 				{
-					// Tri straddles splitting plane
-
-					child_tris.push_back(TriInfo());
-					child_tris.back().tri_index = nodetris[i].tri_index;
-
-					SSE_ALIGN AABBox clipped_tri_aabb;
-					TriBoxIntersection::slowGetClippedTriAABB(
-						tree.triVertPos(nodetris[i].tri_index, 0), tree.triVertPos(nodetris[i].tri_index, 1), tree.triVertPos(nodetris[i].tri_index, 2),
-						posbox,
-						clipped_tri_aabb
-						);
-					assert(posbox.containsAABBox(clipped_tri_aabb));
-					//TEMPassert(clipped_tri_aabb.invariant());
-					child_tris.back().lower = clipped_tri_aabb.min_;
-					child_tris.back().upper = clipped_tri_aabb.max_;
-					child_tris.push_back(nodetris[i]);
+					//child_tris.push_back(nodetris[i]); // Tri is in right child
+					childlayer.lower_bounds[axis].push_back((layer.lower_bounds[axis])[i]);
 				}
-				else // else tri_lower >= split
-					child_tris.push_back(nodetris[i]); // Tri is only in right child
-#else
-				child_tris.push_back(nodetris[i]); // Tri is in right child
-#endif
+				else
+				{
+					// else tri_upper == split
+					if(tri_lower == split && best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris right...
+						childlayer.lower_bounds[axis].push_back((layer.lower_bounds[axis])[i]);
+						//child_tris.push_back(nodetris[i]);
+				}
 			}
-			else
-			{
-				// else tri_upper == split
-				if(tri_lower == split && best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris right...
-					child_tris.push_back(nodetris[i]);
-			}
+			// Else tri_upper < split, so doesn't intersect right box of splitting plane.
 		}
-		// Else tri_upper < split, so doesn't intersect right box of splitting plane.
+		// Build lower bound list for right child
+		for(unsigned int i=0; i<numtris; ++i) // For each tri
+		{
+			// Get the triangle bounds along the splitting aixs
+			const uint32 tri_index = (layer.upper_bounds[axis])[i].tri_index;
+			const float tri_lower = this->tri_aabbs[tri_index].min_[best_axis];
+			const float tri_upper = this->tri_aabbs[tri_index].max_[best_axis]; 
+
+			if(tri_upper >= split) // Tri touches right volume, including splitting plane
+			{
+				if(tri_upper > split) // Tri touches right volume, not including splitting plane
+				{
+					//child_tris.push_back(nodetris[i]); // Tri is in right child
+					childlayer.upper_bounds[axis].push_back((layer.upper_bounds[axis])[i]);
+				}
+				else
+				{
+					// else tri_upper == split
+					if(tri_lower == split && best_push_right) // If this tri lies on the splitting plane, and we are pushing splitting plane tris right...
+						childlayer.upper_bounds[axis].push_back((layer.upper_bounds[axis])[i]);
+						//child_tris.push_back(nodetris[i]);
+				}
+			}
+			// Else tri_upper < split, so doesn't intersect right box of splitting plane.
+		}
 	}
 
-	assert(child_tris.size() == best_num_in_pos);
+	//assert(child_tris.size() == best_num_in_pos);
 
 	//conPrint("Finished binning pos tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
 
 	//------------------------------------------------------------------------
 	//create positive child
 	//------------------------------------------------------------------------
-	const unsigned int actual_num_pos_tris = (unsigned int)child_tris.size();
+	const unsigned int actual_num_pos_tris = (unsigned int)childlayer.lower_bounds[0].size(); // child_tris.size();
 	if(actual_num_pos_tris > 0)
 	{
 		const unsigned int right_child_index = (unsigned int)nodes.size();
@@ -675,14 +732,14 @@ void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree
 			verbose,
 			tree,
 			right_child_index, // nodes[cur].getPosChildIndex(),
-			node_tri_layers,
+			//node_tri_layers,
 			depth + 1,
 			maxdepth,
 			posbox,
-			lower,
-			upper,
-			leaf_tri_indices_out,
-			nodes
+			//lower,
+			//upper,
+			nodes,
+			leaf_tri_indices_out
 			);
 
 		/*if(actual_num_neg_tris > 0)

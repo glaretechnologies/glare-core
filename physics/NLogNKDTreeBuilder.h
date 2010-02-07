@@ -34,34 +34,65 @@ public:
 	~NLogNKDTreeBuilder();
 
 
-	void build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& cur_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out);
+	void build(
+		PrintOutput& print_output, 
+		bool verbose, 
+		KDTree& tree, 
+		const AABBox& cur_aabb, 
+		KDTree::NODE_VECTOR_TYPE& nodes_out, 
+		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out);
 
 
-	class SortedBoundInfo
+	/*class SortedBoundInfo
 	{
 	public:
 		float lower, upper;
+	};*/
+
+	class LowerBound
+	{
+	public:
+		float lower;
+		uint32 tri_index;
+	};
+	class UpperBound
+	{
+	public:
+		float upper;
+		uint32 tri_index;
 	};
 
 private:
-	class TriInfo
-	{
-	public:
-		KDTree::TRI_INDEX tri_index;
-		Vec3f lower;
-		Vec3f upper;
-	};
+	//class TriInfo
+	//{
+	//public:
+	//	KDTree::TRI_INDEX tri_index;
+	//	Vec3f lower;
+	//	Vec3f upper;
+	//};
 
 
-	void doBuild(PrintOutput& print_output, bool verbose, KDTree& tree, KDTree::NODE_INDEX cur,
-		std::vector<std::vector<TriInfo> >& node_tri_layers,
-		unsigned int depth, unsigned int maxdepth, const AABBox& cur_aabb, std::vector<SortedBoundInfo>& upper, std::vector<SortedBoundInfo>& lower,
-		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out,
-		std::vector<KDTreeNode>& nodes
+	void doBuild(
+		PrintOutput& print_output, 
+		bool verbose, 
+		KDTree& tree, 
+		KDTree::NODE_INDEX cur,
+		unsigned int depth, 
+		unsigned int maxdepth, 
+		const AABBox& cur_aabb, 
+		KDTree::NODE_VECTOR_TYPE& nodes_out, 
+		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out
 		);
 
 private:
-	std::vector<SortedBoundInfo> lower, upper; 
+	class LayerInfo
+	{
+	public:
+		std::vector<LowerBound> lower_bounds[3];// One for each axis
+		std::vector<UpperBound> upper_bounds[3];
+	};
+	std::vector<LayerInfo> layers;
+	js::Vector<js::AABBox, 16> tri_aabbs;
 };
 
 

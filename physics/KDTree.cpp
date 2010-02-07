@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
 #include "OldKDTreeBuilder.h"
+#include "NLogNKDTreeBuilder.h"
 #include <zlib.h>
 #include <limits>
 #include <algorithm>
@@ -739,7 +740,8 @@ void KDTree::build(PrintOutput& print_output, bool verbose)
 		//	+ ::getNiceByteSize(leafgeommem) + ")");
 
 		{
-		OldKDTreeBuilder tree_builder;
+		//OldKDTreeBuilder tree_builder;
+		NLogNKDTreeBuilder tree_builder;
 		tree_builder.build(print_output, verbose, *this, root_aabb, nodes, leafgeom);
 		}
 
