@@ -37,6 +37,7 @@ public:
 
 	static void doTests();
 	static void doSpeedTest(int treetype);
+	static void doVaryingNumtrisBuildTests();
 	static void buildSpeedTest();
 	static void testBuildCorrect();
 	static void doRayTests();

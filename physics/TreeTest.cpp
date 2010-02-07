@@ -658,6 +658,8 @@ static void cornellBoxTest()
 
 void TreeTest::doTests()
 {
+	doVaryingNumtrisBuildTests();
+
 	testSelfIntersectionAvoidance();
 
 	doEdgeCaseTests();
@@ -774,6 +776,57 @@ void TreeTest::doTests()
 }
 
 
+void TreeTest::doVaryingNumtrisBuildTests()
+{
+	MTwister rng(1);
+
+	int num_tris = 1;
+	for(int i=0; i<12; ++i)
+	{
+		//------------------------------------------------------------------------
+		//Build up a random set of triangles and inserting into a tree
+		//------------------------------------------------------------------------
+		RayMesh raymesh("raymesh", false);
+		raymesh.addMaterialUsed("dummy");
+
+		const std::vector<Vec2f> texcoord_sets;
+		for(int i=0; i<num_tris; ++i)
+		{
+			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
+
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
+			const unsigned int uv_indices[] = {0, 0, 0};
+			raymesh.addTriangle(vertex_indices, uv_indices, 0);
+		}
+
+		Timer timer;
+		StandardPrintOutput print_output;
+		RendererSettings settings;
+		settings.bih_tri_threshold = 10000000;
+		settings.cache_trees = false;
+		raymesh.build(
+			".", // appdata path
+			settings,
+			print_output,
+			false // verbose
+		);
+
+		const double elapsed = timer.elapsed();
+
+		conPrint("Kdtree with " + toString(num_tris) + " tris built in " + toString(elapsed) + " s");
+
+		num_tris *= 2;
+	}
+	
+	exit(666);//TEMP
+}
+
+
+
+// Aka. the 'Bunnybench' :)
 void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = "../testfiles/bun_zipper.ply";

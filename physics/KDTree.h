@@ -51,6 +51,7 @@ SSE_CLASS_ALIGN KDTree : public Tree
 	friend class FastKDTreeBuilder;
 	friend class OldKDTreeBuilder;
 	friend class ThreadedKDTreeBuilder;
+	friend class NLogNKDTreeBuilder;
 
 public:
 	/*=====================================================================

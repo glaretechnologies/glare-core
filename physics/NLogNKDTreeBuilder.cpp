@@ -1,10 +1,10 @@
 /*=====================================================================
-OldKDTreeBuilder.cpp
+NLogNKDTreeBuilder.cpp
 --------------------
 File created by ClassTemplate on Sun Mar 23 23:42:55 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "OldKDTreeBuilder.h"
+#include "NLogNKDTreeBuilder.h"
 
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
@@ -20,18 +20,18 @@ namespace js
 const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
 
-OldKDTreeBuilder::OldKDTreeBuilder()
+NLogNKDTreeBuilder::NLogNKDTreeBuilder()
 {
 }
 
 
-OldKDTreeBuilder::~OldKDTreeBuilder()
+NLogNKDTreeBuilder::~NLogNKDTreeBuilder()
 {
 
 }
 
 
-void OldKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
+void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 
 	unsigned int max_depth = tree.calcMaxDepth();
@@ -48,23 +48,23 @@ void OldKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tr
 			node_tri_layers[0][i].tri_index = i;
 
 			// Get tri AABB
-			SSE_ALIGN AABBox tri_aabb;
+			AABBox tri_aabb;
 			{
 			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 0);
-			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
 			tri_aabb.min_ = v;
 			tri_aabb.max_ = v;
 			}
 
 			{
 			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 1);
-			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
 			tri_aabb.enlargeToHoldPoint(v);
 			}
 
 			{
 			const SSE_ALIGN Vec3f& vpos = tree.triVertPos(i, 2);
-			const SSE_ALIGN Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
+			const Vec4f v(vpos.x, vpos.y, vpos.z, 1.f);
 			tri_aabb.enlargeToHoldPoint(v);
 			}
 
@@ -82,12 +82,8 @@ void OldKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tr
 		}
 
 
-		// Create thread pool
-		// Add X threads (X = number of cores)
-
-
-		std::vector<SortedBoundInfo> lower(tree.numTris());
-		std::vector<SortedBoundInfo> upper(tree.numTris());
+		//std::vector<SortedBoundInfo> lower(tree.numTris());
+		//std::vector<SortedBoundInfo> upper(tree.numTris());
 		doBuild(
 			print_output,
 			verbose,
@@ -103,7 +99,7 @@ void OldKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tr
 class SortedBoundInfoLowerPred
 {
 public:
-	inline bool operator()(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
+	inline bool operator()(const NLogNKDTreeBuilder::SortedBoundInfo& a, const NLogNKDTreeBuilder::SortedBoundInfo& b)
 	{
 	   return a.lower < b.lower;
 	}
@@ -113,26 +109,14 @@ public:
 class SortedBoundInfoUpperPred
 {
 public:
-	inline bool operator()(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
+	inline bool operator()(const NLogNKDTreeBuilder::SortedBoundInfo& a, const NLogNKDTreeBuilder::SortedBoundInfo& b)
 	{
 	   return a.upper < b.upper;
 	}
 };
 
 
-/*static inline bool SortedBoundInfoLowerPred(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
-{
-   return a.lower < b.lower;
-}
-
-
-static inline bool SortedBoundInfoUpperPred(const OldKDTreeBuilder::SortedBoundInfo& a, const OldKDTreeBuilder::SortedBoundInfo& b)
-{
-   return a.upper < b.upper;
-}*/
-
-
-void OldKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& tree, unsigned int cur, // index of current node getting built
+void NLogNKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& tree, unsigned int cur, // index of current node getting built
 						std::vector<std::vector<TriInfo> >& node_tri_layers,
 						unsigned int depth, // depth of current node
 						unsigned int maxdepth, // max permissible depth

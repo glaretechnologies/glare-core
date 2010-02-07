@@ -509,8 +509,27 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("Finished building tree.");
 }
 
+class SortedBoundInfoLowerPred
+{
+public:
+	inline bool operator()(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
+	{
+	   return a.lower < b.lower;
+	}
+};
 
-static inline bool SortedBoundInfoLowerPred(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
+
+class SortedBoundInfoUpperPred
+{
+public:
+	inline bool operator()(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
+	{
+	   return a.upper < b.upper;
+	}
+};
+
+
+/*static inline bool SortedBoundInfoLowerPred(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
 {
    return a.lower < b.lower;
 }
@@ -519,7 +538,7 @@ static inline bool SortedBoundInfoLowerPred(const ObjectTree::SortedBoundInfo& a
 static inline bool SortedBoundInfoUpperPred(const ObjectTree::SortedBoundInfo& a, const ObjectTree::SortedBoundInfo& b)
 {
    return a.upper < b.upper;
-}
+}*/
 
 
 void ObjectTree::doBuild(int cur, //index of current node getting built
@@ -609,8 +628,8 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 			upper[i].upper = nodeobjs[i]->getAABBoxWS().max_.x[axis];
 		}
 
-		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred);
-		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred);
+		std::sort(lower.begin(), lower.begin() + numtris, SortedBoundInfoLowerPred());
+		std::sort(upper.begin(), upper.begin() + numtris, SortedBoundInfoUpperPred());
 
 		unsigned int upper_index = 0;
 		//Index of first triangle in upper volume
