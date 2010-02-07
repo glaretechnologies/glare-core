@@ -88,8 +88,8 @@ private:
 	class LayerInfo
 	{
 	public:
-		std::vector<LowerBound> lower_bounds[3];// One for each axis
-		std::vector<UpperBound> upper_bounds[3];
+		js::Vector<LowerBound, 4> lower_bounds[3]; // One for each axis
+		js::Vector<UpperBound, 4> upper_bounds[3];
 	};
 	std::vector<LayerInfo> layers;
 	js::Vector<js::AABBox, 16> tri_aabbs;

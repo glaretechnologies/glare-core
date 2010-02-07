@@ -62,6 +62,8 @@ public:
 	typedef T* iterator;
 	typedef const T* const_iterator;
 
+	inline iterator begin();
+	inline iterator end();
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 
@@ -290,8 +292,8 @@ T& Vector<T, alignment>::back()
 template <class T, int alignment>
 void Vector<T, alignment>::copy(const T * const src, T* dst, unsigned int num)
 {
-	assert(src);
-	assert(dst);
+	assert(num == 0 || src);
+	assert(num == 0 || dst);
 
 	for(unsigned int i=0; i<num; ++i)
 		dst[i] = src[i];
@@ -315,6 +317,20 @@ const T& Vector<T, alignment>::operator[](unsigned int index) const
 	assert(capacity_ >= size_);
 
 	return e[index];
+}
+
+
+template <class T, int alignment>
+typename Vector<T, alignment>::iterator Vector<T, alignment>::begin()
+{
+	return e;
+}
+
+
+template <class T, int alignment>
+typename Vector<T, alignment>::iterator Vector<T, alignment>::end()
+{
+	return e + size_;
 }
 
 

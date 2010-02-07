@@ -658,7 +658,7 @@ static void cornellBoxTest()
 
 void TreeTest::doTests()
 {
-	doVaryingNumtrisBuildTests();
+//	doVaryingNumtrisBuildTests();
 
 	testSelfIntersectionAvoidance();
 
@@ -781,7 +781,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 	MTwister rng(1);
 
 	int num_tris = 1;
-	for(int i=0; i<12; ++i)
+	for(int i=0; i<21; ++i)
 	{
 		//------------------------------------------------------------------------
 		//Build up a random set of triangles and inserting into a tree
