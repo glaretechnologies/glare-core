@@ -536,6 +536,11 @@ public:
 		return Vec4f((float)x, (float)y, (float)z, 1.0f);
 	}
 
+	inline const Vec4f toVec4fVector() const
+	{
+		return Vec4f((float)x, (float)y, (float)z, 0.0f);
+	}
+
 };
 
 template <class Real>

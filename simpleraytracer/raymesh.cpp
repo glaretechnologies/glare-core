@@ -133,7 +133,7 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	if(!this->enable_normal_smoothing)
 	{
-		SSE_ALIGN Vec4f n;
+		Vec4f n;
 		triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
 		return n;
 	}
@@ -163,9 +163,42 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	SSE_ALIGN Vec4f n;
+	Vec4f n;
 	triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
 	return n;
+	//return triNormal(hitinfo.sub_elem_index).toVec4fVector(); // This is slower :(
+}
+
+
+void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const
+{
+	// Set N_g_os_out
+	triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
+
+	// Set N_s_os_out
+	if(!this->enable_normal_smoothing)
+	{
+		triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_s_os_out);
+	}
+	else
+	{
+		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
+
+		const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
+		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
+		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
+
+		// Gratuitous removal of function calls
+		const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+		N_s_os_out = Vec3Type(
+			v0norm.x * w + v1norm.x * hitinfo.sub_elem_coords.x + v2norm.x * hitinfo.sub_elem_coords.y,
+			v0norm.y * w + v1norm.y * hitinfo.sub_elem_coords.x + v2norm.y * hitinfo.sub_elem_coords.y,
+			v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y,
+			0.f
+			);
+	}
+
+	mat_index_out = this->triangles[hitinfo.sub_elem_index].tri_mat_index;
 }
 
 

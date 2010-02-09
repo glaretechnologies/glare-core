@@ -842,6 +842,14 @@ const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { 
 const Camera::Vec3Type Camera::getGeometricNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
 
 
+void Camera::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const
+{
+	N_g_os_out = FORWARDS_OS;
+	N_s_os_out = FORWARDS_OS;
+	mat_index_out = 0;
+}
+
+
 unsigned int Camera::getNumTexCoordSets() const { return 0; }
 
 

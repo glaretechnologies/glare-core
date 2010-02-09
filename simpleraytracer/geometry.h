@@ -89,6 +89,8 @@ public:
 	virtual const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
 	virtual unsigned int getNumTexCoordSets() const = 0;
 	
+	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const = 0;
+	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' u and v.
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' u and v.
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const = 0;
