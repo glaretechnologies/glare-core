@@ -1,10 +1,11 @@
 /*=====================================================================
-NLogNKDTreeBuilder.cpp
+ThreadedNLogNKDTreeBuilder.cpp
 --------------------
 File created by ClassTemplate on Sun Mar 23 23:42:55 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "NLogNKDTreeBuilder.h"
+#include "ThreadedNLogNKDTreeBuilder.h"
+
 
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
@@ -22,12 +23,12 @@ namespace js
 const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
 
-NLogNKDTreeBuilder::NLogNKDTreeBuilder()
+ThreadedNLogNKDTreeBuilder::ThreadedNLogNKDTreeBuilder()
 {
 }
 
 
-NLogNKDTreeBuilder::~NLogNKDTreeBuilder()
+ThreadedNLogNKDTreeBuilder::~ThreadedNLogNKDTreeBuilder()
 {
 
 }
@@ -36,7 +37,7 @@ NLogNKDTreeBuilder::~NLogNKDTreeBuilder()
 class LowerPred
 {
 public:
-	inline bool operator()(const NLogNKDTreeBuilder::LowerBound& a, const NLogNKDTreeBuilder::LowerBound& b)
+	inline bool operator()(const ThreadedNLogNKDTreeBuilder::LowerBound& a, const ThreadedNLogNKDTreeBuilder::LowerBound& b)
 	{
 	   return a.lower < b.lower;
 	}
@@ -46,14 +47,14 @@ public:
 class UpperPred
 {
 public:
-	inline bool operator()(const NLogNKDTreeBuilder::UpperBound& a, const NLogNKDTreeBuilder::UpperBound& b)
+	inline bool operator()(const ThreadedNLogNKDTreeBuilder::UpperBound& a, const ThreadedNLogNKDTreeBuilder::UpperBound& b)
 	{
 	   return a.upper < b.upper;
 	}
 };
 
 
-void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
+void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 	unsigned int max_depth = tree.calcMaxDepth();
 
@@ -116,7 +117,7 @@ void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& 
 }
 
 
-void NLogNKDTreeBuilder::doBuild(
+void ThreadedNLogNKDTreeBuilder::doBuild(
 						PrintOutput& print_output, 
 						bool verbose, 
 						KDTree& tree, 
@@ -131,7 +132,6 @@ void NLogNKDTreeBuilder::doBuild(
 	// Get the list of tris intersecting this volume
 	//assert(depth < (unsigned int)node_tri_layers.size());
 	//const std::vector<TriInfo>& nodetris = node_tri_layers[depth];
-	Timer timer;//TEMP
 
 	LayerInfo& layer = this->layers[depth];
 
@@ -581,9 +581,6 @@ void NLogNKDTreeBuilder::doBuild(
 	}
 
 	//conPrint("Finished binning neg tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
-
-	if(depth == 0)
-		conPrint("Finished splitting tris, elapsed: " + timer.elapsedString());
 
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.

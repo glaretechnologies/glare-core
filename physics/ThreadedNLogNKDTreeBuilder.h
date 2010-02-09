@@ -1,11 +1,11 @@
 /*=====================================================================
-OldKDTreeBuilder.h
+ThreadedNLogNKDTreeBuilder.h
 ------------------
 File created by ClassTemplate on Sun Mar 23 23:42:55 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef NLogNKDTreeBuilder_H_666_
-#define NLogNKDTreeBuilder_H_666_
+#ifndef ThreadedNLogNKDTreeBuilder_H_666_
+#define ThreadedNLogNKDTreeBuilder_H_666_
 
 
 #include "KDTree.h"
@@ -17,16 +17,21 @@ namespace js
 
 
 /*=====================================================================
-NLogNKDTreeBuilder
-------------------
+OldKDTreeBuilder
+----------------
 
 =====================================================================*/
-class NLogNKDTreeBuilder
+class ThreadedNLogNKDTreeBuilder
 {
 public:
-	NLogNKDTreeBuilder();
+	/*=====================================================================
+	OldKDTreeBuilder
+	----------------
 
-	~NLogNKDTreeBuilder();
+	=====================================================================*/
+	ThreadedNLogNKDTreeBuilder();
+
+	~ThreadedNLogNKDTreeBuilder();
 
 
 	void build(
@@ -36,6 +41,13 @@ public:
 		const AABBox& cur_aabb, 
 		KDTree::NODE_VECTOR_TYPE& nodes_out, 
 		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out);
+
+
+	/*class SortedBoundInfo
+	{
+	public:
+		float lower, upper;
+	};*/
 
 	class LowerBound
 	{
@@ -51,6 +63,15 @@ public:
 	};
 
 private:
+	//class TriInfo
+	//{
+	//public:
+	//	KDTree::TRI_INDEX tri_index;
+	//	Vec3f lower;
+	//	Vec3f upper;
+	//};
+
+
 	void doBuild(
 		PrintOutput& print_output, 
 		bool verbose, 
@@ -72,12 +93,15 @@ private:
 	};
 	std::vector<LayerInfo> layers;
 	js::Vector<js::AABBox, 16> tri_aabbs;
-
-	//Mutex write_mutex;
 };
+
 
 
 } //end namespace js
 
 
-#endif //NLogNKDTreeBuilder_H_666_
+#endif //ThreadedNLogNKDTreeBuilder
+
+
+
+
