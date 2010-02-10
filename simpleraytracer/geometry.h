@@ -65,7 +65,7 @@ public:
 	--------
 	
 	=====================================================================*/
-	Geometry(){}
+	Geometry() : object_usage_count(0) {}
 	virtual ~Geometry(){}
 
 
@@ -126,6 +126,8 @@ public:
 
 	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const = 0;
 
+	void incrementObjectUsageCount() { object_usage_count++; }
+	unsigned int getObjectUsageCount() const { return object_usage_count; }
 
 
 	const std::map<std::string, unsigned int>& getMaterialNameToIndexMap() const { return matname_to_index_map; }
@@ -137,6 +139,7 @@ protected:
 
 	std::map<std::string, unsigned int> uvset_name_to_index;
 private:
+	unsigned int object_usage_count; // Number of objects that use this geometry.
 };
 
 

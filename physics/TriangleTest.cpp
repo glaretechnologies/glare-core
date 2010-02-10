@@ -179,7 +179,7 @@ void TriangleTest::doTests()
 		MollerTrumboreTri t;
 		t.set(Vec3f(0,0,0), Vec3f(0.5f,0,0), Vec3f(0,0.5f,0));
 
-		testAssert(epsEqual(t.getNormal(), Vec3f(0,0,1)));
+		//testAssert(epsEqual(t.getNormal(), Vec3f(0,0,1)));
 
 
 		// Start ray just under tri, with same launch normal.  Shouldn't self intersect.

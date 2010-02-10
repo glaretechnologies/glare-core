@@ -480,10 +480,10 @@ public:
 	}	
 
 
-	inline const Vec3f getNormal() const
+	/*inline const Vec3f getNormal() const
 	{
 		return normalise(crossProduct(Vec3f(data[3], data[4], data[5]), Vec3f(data[6], data[7], data[8])));
-	}
+	}*/
 
 #if USE_LAUNCH_NORMAL
 	float data[10];

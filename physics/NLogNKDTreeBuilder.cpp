@@ -582,8 +582,8 @@ void NLogNKDTreeBuilder::doBuild(
 
 	//conPrint("Finished binning neg tris, depth=" + toString(depth) + ", size=" + toString(child_tris.size()) + ", capacity=" + toString(child_tris.capacity()));
 
-	if(depth == 0)
-		conPrint("Finished splitting tris, elapsed: " + timer.elapsedString());
+	//if(depth == 0)
+	//	conPrint("Finished splitting tris, elapsed: " + timer.elapsedString());
 
 	//------------------------------------------------------------------------
 	//create negative child node, next in the array.

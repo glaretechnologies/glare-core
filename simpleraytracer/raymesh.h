@@ -38,6 +38,7 @@ public:
 	unsigned int vertex_indices[3];
 	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
+	Vec3f geom_normal;
 };
 
 
@@ -133,7 +134,7 @@ public:
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
 	INDIGO_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	INDIGO_STRONG_INLINE const Vec3f triNormal(unsigned int triindex) const;
+	//INDIGO_STRONG_INLINE const Vec3f triNormal(unsigned int triindex) const;
 	INDIGO_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	//inline const unsigned int getNumVerts() const { return num_vertices; }
 
@@ -152,6 +153,11 @@ public:
 	void printTraceStats();
 
 
+	const std::vector<RayMeshVertex>& getVertices() const { return vertices; }
+	const std::vector<RayMeshTriangle>& getTriangles() const { return triangles; }
+	const std::vector<Vec2f>& getUVs() const { return uvs; }
+	
+	const unsigned int numUVSets() const { return num_uvs_per_group; }
 
 private:
 	void computeShadingNormals(PrintOutput& print_output, bool verbose);
@@ -195,6 +201,8 @@ private:
 	//std::vector<float> vertex_data;
 	std::vector<RayMeshVertex> vertices;
 	std::vector<RayMeshTriangle> triangles;
+
+	//std::vector<Vec3f> triangle_geom_normals;
 	
 	//unsigned int num_uvs;
 	
@@ -238,10 +246,10 @@ const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_i
 }
 
 
-const Vec3f RayMesh::triNormal(unsigned int triindex) const
+/*const Vec3f RayMesh::triNormal(unsigned int triindex) const
 {
 	return tritree->triGeometricNormal(triindex);
-}
+}*/
 
 
 

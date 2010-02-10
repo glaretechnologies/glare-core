@@ -134,7 +134,9 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 	if(!this->enable_normal_smoothing)
 	{
 		Vec4f n;
-		triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+		//triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
+		this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
 		return n;
 	}
 
@@ -164,7 +166,9 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
 	Vec4f n;
-	triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+	//triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+	//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
+	this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
 	return n;
 	//return triNormal(hitinfo.sub_elem_index).toVec4fVector(); // This is slower :(
 }
@@ -173,12 +177,15 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const
 {
 	// Set N_g_os_out
-	triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
+	//triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
+	//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_g_os_out);
+	this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(N_g_os_out);
 
 	// Set N_s_os_out
 	if(!this->enable_normal_smoothing)
 	{
-		triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_s_os_out);
+		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_s_os_out);
+		N_s_os_out = N_g_os_out;
 	}
 	else
 	{
@@ -316,6 +323,19 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	if(tritree != NULL)
 		return; // build() has already been called.
+
+
+	//NEW: Build triangle_geom_normals
+	//this->triangle_geom_normals.resize(this->triangles.size());
+	for(size_t i=0; i<this->triangles.size(); ++i)
+	{
+		//this->triangle_geom_normals[i] = 
+		this->triangles[i].geom_normal = 
+			::normalise(::crossProduct(
+			this->triVertPos(i, 1) - this->triVertPos(i, 0), // v1 - v0
+			this->triVertPos(i, 2) - this->triVertPos(i, 0) // v2 - v0
+		));
+	}
 
 	try
 	{
@@ -695,7 +715,9 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
-	triNormal(sub_elem_index).vectorToVec4f(normal_out);
+	//triNormal(sub_elem_index).vectorToVec4f(normal_out);
+	//this->triangle_geom_normals[sub_elem_index].vectorToVec4f(normal_out);
+	this->triangles[sub_elem_index].geom_normal.vectorToVec4f(normal_out);
 	assert(normal_out.isUnitLength());
 
 	Vec4f a, b, c;
