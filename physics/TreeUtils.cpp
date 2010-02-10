@@ -41,7 +41,7 @@ void TreeUtils::buildRootAABB(const RayMesh& raymesh, AABBox& aabb_out, PrintOut
 	assert(raymesh.getNumTris() > 0);
 	if(verbose) print_output.print("\tCalcing root AABB.");
 
-	SSE_ALIGN Vec4f p;
+	Vec4f p;
 
 	convertPos(raymesh.triVertPos(0, 0), p);
 

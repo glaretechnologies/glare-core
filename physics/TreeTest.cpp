@@ -96,7 +96,7 @@ void TreeTest::testBuildCorrect()
 		);
 
 	{
-	const SSE_ALIGN Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0)
+	const Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0)
 #if USE_LAUNCH_NORMAL
 		, Vec4f(0,1,0,0)
 #endif
@@ -108,7 +108,7 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	const SSE_ALIGN Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0)
+	const Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0)
 #if USE_LAUNCH_NORMAL
 		, Vec4f(0,1,0,0)
 #endif
@@ -476,7 +476,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		const Tree::Real max_t = 1.0e9;
 
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
 #if USE_LAUNCH_NORMAL

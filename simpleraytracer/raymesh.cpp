@@ -70,12 +70,6 @@ RayMesh::~RayMesh()
 }
 
 
-/*const std::string RayMesh::debugName() const 
-{ 
-	return "RayMesh (name=" + name + ")"; 
-}*/
-
-
 const std::string RayMesh::getName() const 
 { 
 	return name; 
@@ -110,7 +104,6 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, const Ob
 	tritree->getAllHits(
 		ray, // ray 
 		thread_context, 
-		//context.tritree_context, // tri tree context
 		object, // object context
 		hitinfos_out
 		);
@@ -218,6 +211,7 @@ static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
 	else	// else a.pos == b.pos
 		return a.normal < b.normal;
 }
+
 
 /*
 static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materials)
@@ -494,9 +488,9 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 	//const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
 	//const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
 	//const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
-	SSE_ALIGN Vec4f v0pos;
-	SSE_ALIGN Vec4f v1pos;
-	SSE_ALIGN Vec4f v2pos;
+	Vec4f v0pos;
+	Vec4f v1pos;
+	Vec4f v2pos;
 	triVertPos(hitinfo.sub_elem_index, 0).pointToVec4f(v0pos);
 	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
 	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
@@ -520,9 +514,9 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 		//const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
 		//const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
 		//const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
-		SSE_ALIGN Vec4f v0norm;
-		SSE_ALIGN Vec4f v1norm;
-		SSE_ALIGN Vec4f v2norm;
+		Vec4f v0norm;
+		Vec4f v1norm;
+		Vec4f v2norm;
 		vertNormal( tri.vertex_indices[0] ).vectorToVec4f(v0norm);
 		vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
 		vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
@@ -563,6 +557,7 @@ void RayMesh::addVertex(const Vec3f& pos)
 	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.0f)));
 }
 
+
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
 	const Vec3f n = normalise(normal);
@@ -581,13 +576,13 @@ inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4
 	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
 	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
 	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);*/
-	SSE_ALIGN Vec4f v0, v1, v2;
+	Vec4f v0, v1, v2;
 	mesh.triVertPos(tri_index, 0).vectorToVec4f(v0);
 	mesh.triVertPos(tri_index, 1).vectorToVec4f(v1);
 	mesh.triVertPos(tri_index, 2).vectorToVec4f(v2);
 
-	const SSE_ALIGN Vec4f e0(to_parent * (v1 - v0));
-	const SSE_ALIGN Vec4f e1(to_parent * (v2 - v0));
+	const Vec4f e0(to_parent * (v1 - v0));
+	const Vec4f e1(to_parent * (v2 - v0));
 
 	return Vec4f(crossProduct(e0, e1)).length() * 0.5f;
 }

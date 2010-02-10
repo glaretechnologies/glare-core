@@ -102,7 +102,7 @@ static void testTriangleIntersection()
 				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
 				);
 
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
 			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
 #if USE_LAUNCH_NORMAL
@@ -154,7 +154,7 @@ void testBadouelTriIntersection()
 				Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())
 		);
 
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1),
 			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0))
 #if USE_LAUNCH_NORMAL

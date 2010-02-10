@@ -27,29 +27,29 @@ void Vec4f::test()
 	}
 
 	{
-		const SSE_ALIGN Vec4f a(1, 2, 3, 4);
-		const SSE_ALIGN Vec4f b(5, 6, 7, 8);
+		const Vec4f a(1, 2, 3, 4);
+		const Vec4f b(5, 6, 7, 8);
 
 		testAssert(epsEqual(dot(a, b), 70.0f));
 	}
 
 	{
-		const SSE_ALIGN Vec4f a(1, 0, 0, 0);
-		const SSE_ALIGN Vec4f b(0, 1, 0, 0);
+		const Vec4f a(1, 0, 0, 0);
+		const Vec4f b(0, 1, 0, 0);
 
-		const SSE_ALIGN Vec4f res(crossProduct(a, b));
+		const Vec4f res(crossProduct(a, b));
 		testAssert(epsEqual(res, Vec4f(0, 0, 1, 0)));
 	}
 
 	{
-		const SSE_ALIGN Vec4f a(1, 2, 3, 4);
+		const Vec4f a(1, 2, 3, 4);
 
 		testAssert(epsEqual(a.length(), std::sqrt(30.0f)));
 		testAssert(epsEqual(a.length2(), 30.0f));
 
 		testAssert(!a.isUnitLength());
 
-		const SSE_ALIGN Vec4f b(normalise(a));
+		const Vec4f b(normalise(a));
 
 		testAssert(b.isUnitLength());
 		testAssert(epsEqual(b.length(), 1.0f));

@@ -476,7 +476,7 @@ void ObjectTreeTest::doSpeedTest()
 	/// Do some random traces through the tree ///
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
-		const SSE_ALIGN Ray ray(
+		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
 #if USE_LAUNCH_NORMAL

@@ -101,7 +101,7 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 
 	const __m128 s2 = _mm_shuffle_ps(sum, sum, _MM_SHUFFLE(2, 2, 2, 2)); // [z+w, z+w, z+w, z+w]
 
-	const SSE_ALIGN Vec4f res(_mm_add_ps(sum, s2)); // [x+y+z+w, ...]
+	const Vec4f res(_mm_add_ps(sum, s2)); // [x+y+z+w, ...]
 
 	return res.x[0];
 }
