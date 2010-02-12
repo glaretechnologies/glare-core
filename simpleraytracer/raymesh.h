@@ -129,6 +129,7 @@ public:
 	virtual void addMaterialUsed(const std::string& material_name);
 	virtual void endOfModel();
 	////////////////////////////////////////////////////////////////
+	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 
 
 

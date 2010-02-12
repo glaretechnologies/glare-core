@@ -649,6 +649,28 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 }
 
 
+void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
+{
+	// Check the area of the triangle
+	const float MIN_TRIANGLE_AREA = 1.0e-20f;
+	if(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2])) < MIN_TRIANGLE_AREA)
+	{
+		//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+		return;
+	}
+
+	// Push the triangle onto tri array.
+	triangles.push_back(RayMeshTriangle());
+	for(unsigned int i=0; i<3; ++i)
+	{
+		triangles.back().vertex_indices[i] = vertex_indices[i];
+		triangles.back().uv_indices[i] = uv_indices[i];
+	}
+
+	triangles.back().tri_mat_index = material_index;
+}
+
+
 void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
 {
 	uvset_name_to_index[uv_set_name] = uv_set_index;
