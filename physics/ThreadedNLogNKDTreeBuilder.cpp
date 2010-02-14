@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
+#include "../utils/ParallelFor.h"
 
 
 namespace js
@@ -102,6 +103,23 @@ void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, 
 		std::sort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred());
 	}
 	//print_output.print("Sort took " + timer.elapsedString());
+
+
+/*	struct Sort
+	{
+		Sort(std::vector<LayerInfo>& layers_) : layers(layers_) {}
+		std::vector<LayerInfo>& layers;
+		void operator() (int axis)
+		{
+			std::sort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred());
+			std::sort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred());
+		}
+	};
+
+	Sort sort(layers);
+	ParallelFor::exec<Sort>(sort, 0, 3);*/
+
+
 
 	doBuild(
 		print_output,
