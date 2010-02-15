@@ -75,10 +75,10 @@ public:
 	//returns fraction of ray travelled. Will be in range [0, 1] if ray hit
 	inline Real finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& rayend) const;
 
-	inline Real rayIntersect(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const;
+	inline Real rayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const;
 
 	//NOTE: will return a position even if ray points AWAY from plane.
-	inline const Vec3<Real> getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const;
+	inline const Vec3<Real> getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const;
 
 	inline const Plane<Real> transformedToLocal(const CoordFrame<Real>& coordframe) const;
 
@@ -233,7 +233,7 @@ Real Plane<Real>::finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real
 }
 
 template <class Real>
-Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const
+Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const
 {
 
 	const Real start_to_plane_dist = signedDistToPoint(raystart);
@@ -246,7 +246,7 @@ Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real> ray_
 
 
 template <class Real>
-const Vec3<Real> Plane<Real>::getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real> ray_unitdir) const
+const Vec3<Real> Plane<Real>::getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const
 {
 	const Real dist_till_intersect = rayIntersect(raystart, ray_unitdir);
 

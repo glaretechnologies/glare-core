@@ -100,7 +100,7 @@ bool isPathAbsolute(const std::string& p);
 
 uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep
 
-FILE* openFile(const std::string& pathname, const std::string openmode);
+FILE* openFile(const std::string& pathname, const std::string& openmode);
 
 // remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name);

@@ -824,7 +824,7 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 #endif
 
 
-FILE* openFile(const std::string& pathname, const std::string openmode)
+FILE* openFile(const std::string& pathname, const std::string& openmode)
 {
 #if defined(WIN32) || defined(WIN64)
 	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()

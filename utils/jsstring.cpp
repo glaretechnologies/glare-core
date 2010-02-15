@@ -37,7 +37,7 @@ JSString::JSString(const JSString& other)
 
 JSString::~JSString()
 {
-	delete data;
+	delete[] data;
 }
 
 

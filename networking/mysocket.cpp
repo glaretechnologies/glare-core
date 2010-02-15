@@ -36,7 +36,7 @@ const int SOCKET_ERROR = -1;
 #endif
 
 
-MySocket::MySocket(const std::string hostname, int port)
+MySocket::MySocket(const std::string& hostname, int port)
 {
 
 	thisend_port = -1;

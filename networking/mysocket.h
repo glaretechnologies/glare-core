@@ -74,7 +74,7 @@ public:
 	--------
 	
 	=====================================================================*/
-	MySocket(const std::string hostname, int port);//client connect via DNS lookup
+	MySocket(const std::string& hostname, int port);//client connect via DNS lookup
 	MySocket(const IPAddress& ipaddress, int port);//client connect
 	MySocket();//for server socket
 
