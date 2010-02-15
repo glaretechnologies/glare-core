@@ -8,6 +8,8 @@
 #include "MyThread.h"
 #include "platformutils.h"
 #include "../maths/mathstypes.h"
+#include <vector>
+#include <iostream> //TEMP
 
 
 template <class T>
@@ -19,7 +21,7 @@ public:
 	int begin, end, step;
 	virtual void run()
 	{
-		for(int i=begin; i<end; i+=step)
+		for(int i=begin; i<end; ++i/*i+=step*/)
 			t(i);
 	}
 };
@@ -31,8 +33,8 @@ public:
 	ParallelFor();
 	~ParallelFor();
 	
-	template <class T>
-	static void exec(T& t, int begin, int end)
+	template <class Task>
+	static void exec(Task& task, int begin, int end)
 	{
 		if(begin >= end)
 			return;
@@ -58,49 +60,79 @@ public:
 			num_indices_per_thread = (total / num_threads) + 1;
 		}
 
-
-		ParallelForThread<T>** threads = new ParallelForThread<T>*[end - begin];
-		//int i=begin;
-		for(int thread_i=0; thread_i<num_threads; ++thread_i)
+		std::vector<ParallelForThread<Task>*> threads(num_threads);
+		int i=begin;
+		for(int t=0; t<num_threads; ++t)
 		{
-			//const int thread_begin = i;
-			//const int thread_end = myMin(i + num_indices_per_thread, end);
-			const int thread_begin = begin + thread_i;
-			const int thread_end = end;//myMin(i + num_indices_per_thread, end);
-			const int step = num_threads;
+			const int thread_begin = i;
+			const int thread_end = myMin(i + num_indices_per_thread, end);
+			const int step = 1;
+			//const int thread_begin = begin + thread_i;
+			//const int thread_end = end;//myMin(i + num_indices_per_thread, end);
+			//const int step = num_threads;
 
 			assert(thread_begin >= begin);
 			assert(thread_end >= thread_begin);
 			assert(thread_end <= end);
 
-			threads[thread_i] = new ParallelForThread<T>(
-				t, 
+			threads[t] = new ParallelForThread<Task>(
+				task, 
 				thread_begin, // begin
 				thread_end, // end
 				step
 				);
-			threads[thread_i]->launch(
+			threads[t]->launch(
 				false // autodelete
 			);
 
-			//i += num_indices_per_thread;
+			i += num_indices_per_thread;
 		}
 		assert(i >= end);
 
 		//for(int thread_i=0; thread_i<num_threads; ++thread_i)
 		//	threads[thread_i]->launch(false);
 
-
-
-		// Wait for threads to terminate
-		for(int thread_i=0; thread_i<num_threads; ++thread_i)
+		/*for(int i=0; i<num_threads; ++i)
 		{
-			threads[thread_i]->join();
-			delete threads[thread_i];
+			std::cout << "handle " << i << ": " << threads[i]->getHandle() << std::endl;
+		}*/
+
+
+
+		////////// Wait for threads to terminate //////////
+
+#if defined(WIN32) || defined(WIN64)
+		// If we're on Windows, use WaitForMultipleObjects() instead of waiting for each thread individually, 
+		// because it seems to be somewhat faster.
+
+		// Build array of thread handles
+		std::vector<HANDLE> thread_handles(num_threads);
+		for(int i=0; i<num_threads; ++i)
+			thread_handles[i] = threads[i]->getHandle();
+
+		const DWORD result = ::WaitForMultipleObjects(
+			num_threads, // num handles
+			&thread_handles[0], // pointer to handles
+			TRUE, // bWaitAll
+			INFINITE // dwMilliseconds
+		);
+		assert(result != WAIT_FAILED);
+		//std::cout << result << std::endl;
+		if(result == WAIT_FAILED)
+		{
+			std::cout << "WAIT_FAILED, GetLastError ():" << GetLastError () << std::endl;
+		}
+		else if(result == WAIT_TIMEOUT)
+		{
+			std::cout << "WAIT_TIMEOUT" << std::endl;
 		}
 
+#else
+		for(int i=0; i<num_threads; ++i)
+			threads[i]->join();
+#endif
 		// Delete threads
-		//for(int i=begin; i!=end; ++i)
-		//	delete threads[i - begin];
+		for(int i=0; i<num_threads; ++i)
+			delete threads[i];
 	}
 };

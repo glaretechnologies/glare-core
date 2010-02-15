@@ -51,16 +51,13 @@ public:
 	};
 	void setPriority(Priority p); // throws MyThreadExcep
 
-private:
-
 #if defined(WIN32) || defined(WIN64)
-	static void 
-#else
-	static void*
+	HANDLE getHandle() { return thread_handle; }
 #endif
-		/*_cdecl*/ threadFunction(void* the_thread);
 
+	bool autoDelete() const { return autodelete; }
 
+private:
 #if defined(WIN32) || defined(WIN64)
 	HANDLE thread_handle;
 #else

@@ -108,8 +108,9 @@ public:
 void ThreadTests::test()
 {
 	// Test parallel For
+	for(int z=0; z<1; ++z)
 	{
-		const int N = 10000000;
+		const int N = 10000;
 		std::vector<double> v(N, 1.0f);
 
 		//////////// Do pass to warm up caches //////////////
@@ -177,22 +178,16 @@ void ThreadTests::test()
 		for(int i=0; i<N; ++i)
 			sum_2 += v[i];
 
-
-
-
-
 		testAssert(sum_1 == sum_2);
 		testAssert(sum_1 == sum_3);
-	
-
 
 		conPrint("sum_1: " + toString(sum_1));
 		conPrint("parallel_for_elapsed: " + toString(parallel_for_elapsed));
 		conPrint("singlethread_elapased: " + toString(singlethread_elapased));
 		conPrint("openmp_elapsed: " + toString(openmp_elapsed));
-
-		exit(0);//TEMP
 	}
+	
+	//exit(0);//TEMP
 
 
 

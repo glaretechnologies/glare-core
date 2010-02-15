@@ -26,6 +26,30 @@ MyThread::MyThread()
 
 MyThread::~MyThread()
 {
+#if defined(WIN32) || defined(WIN64)
+	if(!CloseHandle(thread_handle))
+		std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
+#endif
+}
+
+
+#if defined(WIN32) || defined(WIN64)
+	static unsigned int __stdcall
+#else
+	void*
+#endif
+threadFunction(void* the_thread_)
+{
+	MyThread* the_thread = static_cast<MyThread*>(the_thread_);
+
+	assert(the_thread != NULL);
+
+	the_thread->run();
+
+	if(the_thread->autoDelete())
+		delete the_thread;
+
+	return 0;
 }
 
 
@@ -36,11 +60,17 @@ void MyThread::launch(bool autodelete_)
 	autodelete = autodelete_;
 
 #if defined(WIN32) || defined(WIN64)
-	thread_handle = (HANDLE)_beginthread(
-		threadFunction,
-		0, // Stack size
-		this // arglist
-		);
+	thread_handle = (HANDLE)_beginthreadex(
+		NULL, // security
+		0, // stack size
+		threadFunction, // startAddress
+		this, // arglist
+		0, // Initflag, 0 = running
+		NULL // thread identifier out.
+	);
+
+	if(thread_handle == 0)
+		throw MyThreadExcep("Thread creation failed.");
 #else
 	pthread_create(
 		&thread_handle, // Thread
@@ -48,28 +78,6 @@ void MyThread::launch(bool autodelete_)
 		threadFunction, // start routine
 		this // arg
 		);
-#endif
-}
-
-
-#if defined(WIN32) || defined(WIN64)
-	void
-#else
-	void*
-#endif
-/*_cdecl*/ MyThread::threadFunction(void* the_thread_)
-{
-	MyThread* the_thread = static_cast<MyThread*>(the_thread_);
-
-	assert(the_thread != NULL);
-
-	the_thread->run();
-
-	if(the_thread->autodelete)
-		delete the_thread;
-
-#if !(defined(WIN32) || defined(WIN64))
-	return NULL;
 #endif
 }
 
