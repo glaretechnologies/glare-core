@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "mutex.h"
 #include <assert.h>
 #include <cmath>
-#include <iostream>
+//#include <iostream>
 
 
 #if defined(WIN32) || defined(WIN64)

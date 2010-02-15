@@ -1451,7 +1451,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 }
 
 
-#include <iostream>//TEMP
+//#include <iostream>//TEMP
 
 
 void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out)

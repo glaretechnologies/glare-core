@@ -25,7 +25,7 @@ Code By Nicholas Chapman.
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-#include <iostream> // TEMP
+//#include <iostream> // TEMP
 
 
 namespace FileUtils
@@ -988,7 +988,7 @@ void doUnitTests()
 				found_a = true;
 			if(files[i] == "b")
 				found_b = true;
-			std::cout << "file[" << i << "]: '" << files[i] << "'" << std::endl;
+			conPrint("file[" + ::toString(i) + "]: '" + files[i] + "'");
 		}
 		testAssert(found_a);
 		testAssert(found_b);

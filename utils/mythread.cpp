@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <process.h>
 #endif
 #include "stringutils.h"
-#include <iostream>
+//#include <iostream>
 
 
 MyThread::MyThread()
@@ -28,7 +28,10 @@ MyThread::~MyThread()
 {
 #if defined(WIN32) || defined(WIN64)
 	if(!CloseHandle(thread_handle))
-		std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
+	{
+		assert(0);
+		//std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
+	}
 #endif
 }
 

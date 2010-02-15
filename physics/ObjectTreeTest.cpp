@@ -6,6 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "ObjectTreeTest.h"
 
+
 #include "KDTree.h"
 #include "jscol_ObjectTree.h"
 #include "../raytracing/hitinfo.h"
@@ -14,7 +15,7 @@ Code By Nicholas Chapman.
 #include "../utils/random.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/MTwister.h"
-#include <iostream>
+//#include <iostream>
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/timer.h"

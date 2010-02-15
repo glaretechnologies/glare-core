@@ -9,7 +9,7 @@
 #include "platformutils.h"
 #include "../maths/mathstypes.h"
 #include <vector>
-#include <iostream> //TEMP
+//#include <iostream> //TEMP
 
 
 template <class T>
@@ -117,14 +117,15 @@ public:
 			INFINITE // dwMilliseconds
 		);
 		assert(result != WAIT_FAILED);
-		//std::cout << result << std::endl;
 		if(result == WAIT_FAILED)
 		{
-			std::cout << "WAIT_FAILED, GetLastError ():" << GetLastError () << std::endl;
+			assert(0);
+			//std::cout << "WAIT_FAILED, GetLastError ():" << GetLastError () << std::endl;
 		}
 		else if(result == WAIT_TIMEOUT)
 		{
-			std::cout << "WAIT_TIMEOUT" << std::endl;
+			assert(0);
+			//std::cout << "WAIT_TIMEOUT" << std::endl;
 		}
 
 #else
