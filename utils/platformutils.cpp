@@ -493,6 +493,29 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 }
 
 
+const std::string PlatformUtils::getLastErrorString()
+{
+#if defined(WIN32) || defined(WIN64)
+	std::vector<wchar_t> buf(2048);
+
+	const DWORD result = FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, // See http://blogs.msdn.com/oldnewthing/archive/2007/11/28/6564257.aspx on why FORMAT_MESSAGE_IGNORE_INSERTS should be used.
+		NULL, // source
+		GetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		&buf[0],
+		buf.size(),
+		NULL // arguments
+	);
+	if(result == 0)
+		return "[Unknown (error code=" + toString((int)GetLastError()) + "]";
+	else
+		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
+#else
+#error implement me!
+#endif
+}
+
 
 void PlatformUtils::testPlatformUtils()
 {
