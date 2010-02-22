@@ -91,10 +91,10 @@ public:
 	
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const = 0;
 	
-	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' u and v.
-	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' u and v.
-	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const = 0;
-	virtual void getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const = 0;
+	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' alpha and beta.
+	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' alpha and beta.
+	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const = 0;
+	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const = 0;
 	//returns true if could construct a suitable basis
 	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

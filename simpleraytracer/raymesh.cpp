@@ -483,11 +483,8 @@ const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsig
 }
 
 
-void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
+void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const
 {
-	//const Vec3f& v0pos = triVertPos(hitinfo.sub_elem_index, 0);
-	//const Vec3f& v1pos = triVertPos(hitinfo.sub_elem_index, 1);
-	//const Vec3f& v2pos = triVertPos(hitinfo.sub_elem_index, 2);
 	Vec4f v0pos;
 	Vec4f v1pos;
 	Vec4f v2pos;
@@ -496,8 +493,8 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
 
 
-	dp_du_out = v1pos - v0pos;
-	dp_dv_out = v2pos - v0pos;
+	dp_dalpha_out = v1pos - v0pos;
+	dp_dbeta_out = v2pos - v0pos;
 
 
 	if(this->enable_normal_smoothing)
@@ -505,15 +502,8 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 		// TEMP NEW:
 		//dp_du_out.removeComponentInDir(
 
-		
-
-
-
 		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
-		//const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
-		//const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
-		//const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
 		Vec4f v0norm;
 		Vec4f v1norm;
 		Vec4f v2norm;
@@ -521,28 +511,37 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 		vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
 		vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
 
-		dNs_du_out = v1norm - v0norm;
-		dNs_dv_out = v2norm - v0norm;
+		dNs_dalpha_out = v1norm - v0norm;
+		dNs_dbeta_out = v2norm - v0norm;
 	}
 	else
 	{
-		dNs_du_out = dNs_dv_out = Vec3Type(0,0,0,0);
+		dNs_dalpha_out = dNs_dbeta_out = Vec3Type(0,0,0,0);
 	}
 }
 
 
-void RayMesh::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
+void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, 
+										TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, 
+										TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out
+									   ) const
 {
 	assert(texcoords_set < num_uvs_per_group);
 	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
 	const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
 	const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
 
-	ds_du_out = v1tex.x - v0tex.x;
+	/*ds_du_out = v1tex.x - v0tex.x;
 	dt_du_out = v1tex.y - v0tex.y;
 
 	ds_dv_out = v2tex.x - v0tex.x;
-	dt_dv_out = v2tex.y - v0tex.y;
+	dt_dv_out = v2tex.y - v0tex.y;*/
+
+	du_dalpha_out =  v1tex.x - v0tex.x;
+	dv_dalpha_out =  v1tex.y - v0tex.y;
+
+	du_dbeta_out =  v2tex.x - v0tex.x;
+	dv_dbeta_out =  v2tex.y - v0tex.y;
 }
 
 

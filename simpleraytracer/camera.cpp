@@ -1162,7 +1162,7 @@ void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3T
 }
 
 
-void Camera::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set,
+void Camera::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set,
 									  TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 {
 	assert(0);

@@ -296,12 +296,13 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 }
 
 
-void RaySphere::getTexCoordPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
+void RaySphere::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
+								   TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const
 {
-	// Tex coords must be the UVs for spheres.
-	ds_du_out = dt_dv_out = (TexCoordsRealType)1.0;
+	// (alpha, beta) -> (u, v) is the identity mapping
+	du_dalpha_out = dv_dbeta_out = (TexCoordsRealType)1.0;
 
-	ds_dv_out = dt_du_out = 0.0;
+	du_dbeta_out = dv_dalpha_out = 0.0;
 }
 
 
