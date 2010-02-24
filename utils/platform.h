@@ -10,7 +10,7 @@
 #endif
 
 
-//Compiler Definitions
+//Compiler Definitiosn
 //#define COMPILER_GCC
 //#define COMPILER_MSVC 1
 //#define COMPILER_MSVC_6
@@ -29,9 +29,23 @@
 #pragma warning(disable : 4290)//disable exception specification warning in VS2003
 #endif
 
-typedef int int32;
-typedef unsigned int uint32;
-typedef unsigned long long uint64;
+// Workaround for MSVC not including stdint.h for fixed-width int types
+#ifdef _MSC_VER
+typedef signed __int8		int8_t;
+typedef signed __int16		int16_t;
+typedef signed __int32		int32_t;
+typedef signed __int64		int64_t;
+typedef unsigned __int8		uint8_t;
+typedef unsigned __int16	uint16_t;
+typedef unsigned __int32	uint32_t;
+typedef unsigned __int64	uint64_t;
+#else
+#include <stdint.h>
+#endif
+
+typedef int32_t int32;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
 
 
 #endif //PLATFORM_H_666
