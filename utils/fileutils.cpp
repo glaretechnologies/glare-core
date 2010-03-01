@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include <dirent.h>
 #endif
 
-#ifndef WINTER
+#if !defined(WINTER) && !defined(NETWORK_CLIENT_SERVICE)
 #include <zlib.h>
 #endif
 #include <assert.h>
@@ -809,7 +809,7 @@ bool isPathAbsolute(const std::string& p)
 }
 
 
-#ifndef WINTER
+#if !(defined(WINTER) || defined(NETWORK_CLIENT_SERVICE))
 uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
 {
 	std::vector<unsigned char> contents;

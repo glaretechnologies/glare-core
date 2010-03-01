@@ -50,6 +50,9 @@ public:
 	static bool shouldApplyWatermark(LicenceType t);
 	static bool shouldApplyResolutionLimits(LicenceType t);
 
+	static unsigned int maxUnlicensedResolution();
+	static bool dimensionsExceedLicenceDimensions(LicenceType t, int width, int height);
+
 	static const std::string licenseTypeToString(LicenceType t);
 	static const std::string licenseTypeToCodeString(LicenceType t);
 

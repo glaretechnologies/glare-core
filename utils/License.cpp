@@ -10,7 +10,9 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "fileutils.h"
 #include "stringutils.h"
 #include "clock.h"
+#include "SystemInfo.h"
 #include "../indigo/TestUtils.h"
+#include "Exception.h"
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include <zlib.h> // for crc32()
@@ -249,7 +251,7 @@ const std::vector<std::string> License::getHardwareIdentifiers()
 	try
 	{	
 		std::vector<std::string> MAC_addresses;
-		PlatformUtils::getMACAddresses(MAC_addresses);
+		SystemInfo::getMACAddresses(MAC_addresses);
 
 		if(MAC_addresses.empty())
 			throw LicenseExcep("No MAC addresses found.");
@@ -262,6 +264,10 @@ const std::vector<std::string> License::getHardwareIdentifiers()
 			ids[i] = std::string(cpuinfo.proc_brand) + ":" + MAC_addresses[i];
 		
 		return ids;
+	}
+	catch(Indigo::Exception& e)
+	{
+		throw LicenseExcep(e.what());
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
@@ -376,6 +382,21 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 		assert(0);
 		return true;
 	}
+}
+
+
+uint32 License::maxUnlicensedResolution()
+{
+	return 700000; // 0.7 MP
+}
+	
+
+bool License::dimensionsExceedLicenceDimensions(LicenceType t, int width, int height)
+{
+	if(shouldApplyResolutionLimits(t))
+		return width * height > (int)maxUnlicensedResolution();
+	else
+		return false;
 }
 
 

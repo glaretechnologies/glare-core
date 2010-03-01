@@ -37,7 +37,6 @@ void Sleep(int x); // Make current thread sleep for x milliseconds
 unsigned int getNumLogicalProcessors();
 
 
-void getMACAddresses(std::vector<std::string>& addresses_out); // throws PlatformUtilsExcep
 
 
 class CPUInfo
