@@ -18,9 +18,9 @@ Code By Nicholas Chapman.
 #include <dirent.h>
 #endif
 
-#if !defined(WINTER) && !defined(NETWORK_CLIENT_SERVICE)
-#include <zlib.h>
-#endif
+//#if !defined(WINTER)
+//#include <zlib.h>
+//#endif
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
@@ -809,7 +809,7 @@ bool isPathAbsolute(const std::string& p)
 }
 
 
-#if !(defined(WINTER) || defined(NETWORK_CLIENT_SERVICE))
+/*#if !defined(WINTER)
 uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
 {
 	std::vector<unsigned char> contents;
@@ -821,7 +821,7 @@ uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not f
 	const unsigned int initial_crc = crc32(0, 0, 0);
 	return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
 }
-#endif
+#endif*/
 
 
 FILE* openFile(const std::string& pathname, const std::string& openmode)

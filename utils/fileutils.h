@@ -98,7 +98,7 @@ void deleteEmptyDirectory(const std::string& path);
 
 bool isPathAbsolute(const std::string& p);
 
-uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep
+//uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep
 
 FILE* openFile(const std::string& pathname, const std::string& openmode);
 
