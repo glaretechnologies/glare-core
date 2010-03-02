@@ -18,14 +18,11 @@ Code By Nicholas Chapman.
 #include <dirent.h>
 #endif
 
-//#if !defined(WINTER)
-//#include <zlib.h>
-//#endif
+
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-//#include <iostream> // TEMP
 
 
 namespace FileUtils
@@ -807,21 +804,6 @@ bool isPathAbsolute(const std::string& p)
 	return hasPrefix(p, "/");
 #endif
 }
-
-
-/*#if !defined(WINTER)
-uint32 fileChecksum(const std::string& p) // throws FileUtilsExcep if file not found.
-{
-	std::vector<unsigned char> contents;
-	readEntireFile(p, contents);
-
-	if(contents.size() == 0)
-		throw FileUtilsExcep("Failed to compute checksum over file '" + p + ", file is empty.");
-
-	const unsigned int initial_crc = crc32(0, 0, 0);
-	return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
-}
-#endif*/
 
 
 FILE* openFile(const std::string& pathname, const std::string& openmode)
