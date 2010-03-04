@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __RAYMESH_H_666_
 
 
+#include "../utils/platform.h"
 #include "geometry.h"
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
@@ -29,16 +30,38 @@ class RayMeshTriangle
 {
 public:
 	RayMeshTriangle(){}
-	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex)
+	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex << 1)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
 		vertex_indices[2] = v2_;
 	}
-	unsigned int vertex_indices[3];
-	unsigned int uv_indices[3];
-	unsigned int tri_mat_index;
+	uint32 vertex_indices[3];
+	uint32 uv_indices[3];
+	
 	Vec3f geom_normal;
+
+	inline void setUseShadingNormals(bool b)
+	{
+		if(b)
+			tri_mat_index |= 0x1;
+		else
+			tri_mat_index &= 0xFFFFFFFE;
+	}
+	inline uint32 getUseShadingNormals() const
+	{
+		return tri_mat_index & 0x1;
+	}
+
+	inline void setTriMatIndex(uint32 i)
+	{ 
+		// Clear upper 31 bits, and OR with new index.
+		tri_mat_index = (tri_mat_index & 0x1) | (i << 1); 
+	}
+	inline uint32 getTriMatIndex() const { return tri_mat_index >> 1; }
+
+private:
+	uint32 tri_mat_index; // least significant bit is normal smoothing flag.
 };
 
 
@@ -129,7 +152,7 @@ public:
 	virtual void addMaterialUsed(const std::string& material_name);
 	virtual void endOfModel();
 	////////////////////////////////////////////////////////////////
-	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
 
 
 
@@ -159,6 +182,8 @@ public:
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
 	const unsigned int numUVSets() const { return num_uvs_per_group; }
+
+	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
 
 private:
 	void computeShadingNormals(PrintOutput& print_output, bool verbose);

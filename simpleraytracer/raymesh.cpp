@@ -124,10 +124,10 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& th
 
 const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
-	if(!this->enable_normal_smoothing)
+	//if(!this->enable_normal_smoothing)
+	if(this->triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
 	{
 		Vec4f n;
-		//triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
 		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
 		this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
 		return n;
@@ -175,7 +175,8 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(N_g_os_out);
 
 	// Set N_s_os_out
-	if(!this->enable_normal_smoothing)
+	//if(!this->enable_normal_smoothing)
+	if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
 	{
 		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_s_os_out);
 		N_s_os_out = N_g_os_out;
@@ -198,7 +199,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 			);
 	}
 
-	mat_index_out = this->triangles[hitinfo.sub_elem_index].tri_mat_index;
+	mat_index_out = this->triangles[hitinfo.sub_elem_index].getTriMatIndex();
 }
 
 
@@ -497,11 +498,9 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, 
 	dp_dbeta_out = v2pos - v0pos;
 
 
-	if(this->enable_normal_smoothing)
+	//if(this->enable_normal_smoothing)
+	if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() != 0)
 	{
-		// TEMP NEW:
-		//dp_du_out.removeComponentInDir(
-
 		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
 		Vec4f v0norm;
@@ -644,11 +643,12 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 		triangles.back().uv_indices[i] = uv_indices[i];
 	}
 
-	triangles.back().tri_mat_index = material_index;
+	triangles.back().setTriMatIndex(material_index);
+	triangles.back().setUseShadingNormals(this->enable_normal_smoothing);
 }
 
 
-void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
+void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals)
 {
 	// Check the area of the triangle
 	const float MIN_TRIANGLE_AREA = 1.0e-20f;
@@ -666,7 +666,8 @@ void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const uns
 		triangles.back().uv_indices[i] = uv_indices[i];
 	}
 
-	triangles.back().tri_mat_index = material_index;
+	triangles.back().setTriMatIndex(material_index);
+	triangles.back().setUseShadingNormals(use_shading_normals);
 }
 
 
@@ -700,7 +701,7 @@ void RayMesh::endOfModel()
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
 	assert(tri_index < triangles.size());
-	return triangles[tri_index].tri_mat_index;
+	return triangles[tri_index].getTriMatIndex();
 }
 
 

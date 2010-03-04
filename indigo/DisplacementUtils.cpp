@@ -133,7 +133,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_tris[i] = DUTriangle(
 			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2],
 			triangles_in[i].uv_indices[0], triangles_in[i].uv_indices[1], triangles_in[i].uv_indices[2],
-			triangles_in[i].tri_mat_index,
+			triangles_in[i].getTriMatIndex(),
 			2 // dimension
 			);
 
