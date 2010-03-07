@@ -340,7 +340,8 @@ const std::string getFilename(const std::string& pathname)
 		else
 			return "";
 	}
-}
+}
+
 
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
@@ -970,7 +971,7 @@ void doUnitTests()
 				found_a = true;
 			if(files[i] == "b")
 				found_b = true;
-			conPrint("file[" + ::toString(i) + "]: '" + files[i] + "'");
+			conPrint("file[" + ::toString((int) i) + "]: '" + files[i] + "'");
 		}
 		testAssert(found_a);
 		testAssert(found_b);
