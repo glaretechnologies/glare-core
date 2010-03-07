@@ -396,7 +396,7 @@ const std::string PlatformUtils::getLastErrorString()
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
 #else
-#error implement me!
+#warning implement me!
 #endif
 }
 
