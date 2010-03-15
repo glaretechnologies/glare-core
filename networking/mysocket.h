@@ -24,6 +24,7 @@ Code Copyright Nicholas Chapman 2005.
 #include <string>
 #include "ipaddress.h"
 #include "mystream.h"
+#include "../utils/platform.h"
 //class Vec3;
 class FractionListener;
 
@@ -78,7 +79,7 @@ public:
 	MySocket(const IPAddress& ipaddress, int port);//client connect
 	MySocket();//for server socket
 
-	virtual ~MySocket();
+	~MySocket();
 
 	void bindAndListen(int port);// throw (MySocketExcep);
 
@@ -92,18 +93,22 @@ public:
 	int getOtherEndPort() const { return otherend_port; }
 
 
-	virtual void write(float x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void write(int x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void write(unsigned short x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void write(char x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void write(unsigned char x, SocketShouldAbortCallback* should_abort_callback);
-	//virtual void write(const Vec3& vec);
-	virtual void write(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Writes string
+	void write(float x, SocketShouldAbortCallback* should_abort_callback);
+	void write(int x, SocketShouldAbortCallback* should_abort_callback);
+	void writeUInt32(uint32 x, SocketShouldAbortCallback* should_abort_callback);
+	void writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_callback);
+	void write(unsigned short x, SocketShouldAbortCallback* should_abort_callback);
+	void write(char x, SocketShouldAbortCallback* should_abort_callback);
+	void write(unsigned char x, SocketShouldAbortCallback* should_abort_callback);
+	//void write(const Vec3& vec);
+	void write(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Writes string
+
+	void writeString(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Write null-terminated string.
 
 	//-----------------------------------------------------------------
 	//if u use this directly u must do host->network and vice versa byte reordering yourself
 	//-----------------------------------------------------------------
-	virtual void write(const void* data, int numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void write(const void* data, int numbytes, SocketShouldAbortCallback* should_abort_callback);
 	void write(const void* data, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
 	//virtual float readFloat();
@@ -111,15 +116,22 @@ public:
 	//virtual char readChar();
 	//virtual const Vec3 readVec3();
 
-	virtual void readTo(float& x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void readTo(int& x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void readTo(char& x, SocketShouldAbortCallback* should_abort_callback);
-	virtual void readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(float& x, SocketShouldAbortCallback* should_abort_callback);
+	float readFloat(SocketShouldAbortCallback* should_abort_callback);
+	void readTo(int& x, SocketShouldAbortCallback* should_abort_callback);
+	int32 readInt32(SocketShouldAbortCallback* should_abort_callback);
+	uint32 readUInt32(SocketShouldAbortCallback* should_abort_callback);
+	uint64 readUInt64(SocketShouldAbortCallback* should_abort_callback);
+	void readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(char& x, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback);
 	//virtual void readTo(Vec3& x);
-	virtual void readTo(std::string& x, int maxlength, SocketShouldAbortCallback* should_abort_callback); // read string, of up to maxlength chars
-	virtual void readTo(void* buffer, int numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(std::string& x, int maxlength, SocketShouldAbortCallback* should_abort_callback); // read string, of up to maxlength chars
+	void readTo(void* buffer, int numbytes, SocketShouldAbortCallback* should_abort_callback);
 	void readTo(void* buffer, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
+
+	const std::string readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback); // Read null-terminated string.
+
 
 	void readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 

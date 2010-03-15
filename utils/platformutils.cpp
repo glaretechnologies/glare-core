@@ -401,6 +401,16 @@ const std::string PlatformUtils::getLastErrorString()
 }
 
 
+uint32 PlatformUtils::getProcessID()
+{
+#if defined(WIN32) || defined(WIN64)
+	return ::GetCurrentProcessId();
+#else
+#error implement me!
+#endif
+}
+
+
 void PlatformUtils::testPlatformUtils()
 {
 	try

@@ -451,6 +451,25 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 }
 
 
+const std::string MySocket::readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback) // Read null-terminated string.
+{
+	std::string s;
+	while(1)
+	{
+		char c;
+		this->readTo(&c, sizeof(c), should_abort_callback);
+		if(c == 0) // If we just read the null terminator.
+			return s;
+		else
+			s += std::string(1, c); // Append the character to the string. NOTE: maybe faster way to do this?
+
+		if(s.size() > max_string_length)
+			throw MySocketExcep("String too long");
+	}
+	return s;
+}
+
+
 /*void MySocket::readMessage(std::string& data_out, FractionListener* frac)
 {
 
@@ -539,6 +558,29 @@ void MySocket::write(int x, SocketShouldAbortCallback* should_abort_callback)
 }
 
 
+void MySocket::writeUInt32(uint32 x, SocketShouldAbortCallback* should_abort_callback)
+{
+	const uint32 i = htonl(x); // Convert to network byte ordering.
+	write(&i, sizeof(uint32), should_abort_callback);
+}
+
+
+void MySocket::writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_callback)
+{
+	//NOTE: not sure if this byte ordering is correct.
+	union data
+	{
+		uint32 i32[2];
+		uint64 i64;
+	};
+
+	data d;
+	d.i64 = x;
+	writeUInt32(d.i32[0], should_abort_callback);
+	writeUInt32(d.i32[1], should_abort_callback);
+}
+
+
 void MySocket::write(char x, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(&x, sizeof(char), should_abort_callback);
@@ -560,6 +602,16 @@ void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abo
 
 	// Write string data
 	write(&(*s.begin()), s.length(), should_abort_callback);
+}
+
+
+void MySocket::writeString(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // Write null-terminated string.
+{
+	this->write(
+		s.c_str(), 
+		s.size() + 1, // num bytes: + 1 for null terminator.
+		should_abort_callback
+	);
 }
 
 
@@ -611,11 +663,6 @@ char MySocket::readChar()
 
 void MySocket::readTo(float& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	//conPrint("MySocket::readTo(float& x");
-	//readTo(&x, sizeof(float), should_abort_callback);
-
-	//*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
-
 	union data
 	{
 		float x;
@@ -628,22 +675,72 @@ void MySocket::readTo(float& x, SocketShouldAbortCallback* should_abort_callback
 	x = d.x;
 }
 
+
+float MySocket::readFloat(SocketShouldAbortCallback* should_abort_callback)
+{
+	union data
+	{
+		float x;
+		uint32 i;
+	};
+	data d;
+	readTo(&d.i, sizeof(float), should_abort_callback);
+	d.i = ntohl(d.i);
+	return d.x;
+}
+
+
 void MySocket::readTo(int& x, SocketShouldAbortCallback* should_abort_callback)
 {
-	//conPrint("MySocket::readTo(int& x");
-	//readTo(&x, sizeof(int), should_abort_callback);
-	//*((unsigned int*)&x) = ntohl(*((unsigned int*)&x));//convert from network to host byte ordering
-
 	union data
 	{
 		int si;
-		unsigned int i;
+		uint32 i;
 	};
 	data d;
-	readTo(&d.i, sizeof(unsigned int), should_abort_callback);
+	readTo(&d.i, sizeof(uint32), should_abort_callback);
 	d.i = ntohl(d.i);
 	x = d.si;
 }
+
+
+int MySocket::readInt32(SocketShouldAbortCallback* should_abort_callback)
+{
+	union data
+	{
+		int si;
+		uint32 i;
+	};
+	data d;
+	readTo(&d.i, sizeof(uint32), should_abort_callback);
+	d.i = ntohl(d.i);
+	return d.si;
+}
+
+
+uint32 MySocket::readUInt32(SocketShouldAbortCallback* should_abort_callback)
+{
+	uint32 x;
+	readTo(&x, sizeof(uint32), should_abort_callback);
+	return ntohl(x);
+}
+
+
+uint64 MySocket::readUInt64(SocketShouldAbortCallback* should_abort_callback)
+{
+	//NOTE: not sure if this byte ordering is correct.
+	union data
+	{
+		uint32 i32[2];
+		uint64 i64;
+	};
+
+	data d;
+	d.i32[0] = readUInt32(should_abort_callback);
+	d.i32[1] = readUInt32(should_abort_callback);
+	return d.i64;
+}
+
 
 void MySocket::readTo(char& x, SocketShouldAbortCallback* should_abort_callback)
 {

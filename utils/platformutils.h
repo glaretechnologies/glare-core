@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include <vector>
 #include <string>
+#include "platform.h"
 
 
 /*=====================================================================
@@ -81,6 +82,9 @@ void openFileBrowserWindowAtLocation(const std::string& select_path);
 
 
 const std::string getLastErrorString();
+
+
+uint32 getProcessID();
 
 
 void testPlatformUtils();
