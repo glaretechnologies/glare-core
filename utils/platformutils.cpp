@@ -74,6 +74,22 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 }
 
 
+uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
+{
+#if defined(WIN32) || defined(WIN64)
+	MEMORYSTATUSEX mem_state;
+	mem_state.dwLength = sizeof(mem_state);
+
+	// TODO: check error code
+	GlobalMemoryStatusEx(&mem_state);
+	
+	return mem_state.ullTotalPhys;
+#else
+#error Implement me!
+#endif
+}
+
+
 #if defined(WIN32) || defined(WIN64)
 #else
 #ifndef OSX

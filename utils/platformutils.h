@@ -37,6 +37,8 @@ void Sleep(int x); // Make current thread sleep for x milliseconds
 
 unsigned int getNumLogicalProcessors();
 
+uint64 getPhysicalRAMSize(); // Number of bytes of physical RAM
+
 
 
 

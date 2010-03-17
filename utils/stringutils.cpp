@@ -850,7 +850,7 @@ const std::string forceCopyString(const std::string& s)
 }
 
 
-const std::string getNiceByteSize(size_t x)
+const std::string getNiceByteSize(uint64 x)
 {
 	assert(x >= 0);
 	if(x < 1024)

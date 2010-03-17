@@ -96,7 +96,7 @@ MySocket::MySocket()
 void MySocket::doConnect(const IPAddress& ipaddress, int port)
 {
 
-	otherend_ipaddr = ipaddress;//remember ip of other end
+	otherend_ipaddr = ipaddress; // Remember ip of other end
 
 	assert(port >= 0 && port <= 65536);
 
@@ -118,7 +118,7 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 
 	if(!isSockHandleValid(sockethandle))
 	{
-		throw MySocketExcep("could not create a socket.  Error code == " + Networking::getError());
+		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
 	}
 
 	//-----------------------------------------------------------------
@@ -127,7 +127,7 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 	//-----------------------------------------------------------------
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) == -1)
 	{
-		throw MySocketExcep("could not make a TCP connection with server. Error code == " + Networking::getError());
+		throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + Networking::getError());
 	}
 
 	otherend_port = port;
@@ -747,10 +747,12 @@ void MySocket::readTo(char& x, SocketShouldAbortCallback* should_abort_callback)
 	readTo(&x, sizeof(char), should_abort_callback);
 }
 
+
 void MySocket::readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback)
 {
 	readTo(&x, sizeof(unsigned char), should_abort_callback);
 }
+
 
 void MySocket::readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback)
 {
@@ -758,14 +760,15 @@ void MySocket::readTo(unsigned short& x, SocketShouldAbortCallback* should_abort
 	x = ntohs(x);//convert from network to host byte ordering
 }
 
-/*
-void MySocket::readTo(Vec3& vec)
+
+/*void MySocket::readTo(Vec3& vec)
 {
 	readTo(vec.x);
 	readTo(vec.y);
 	readTo(vec.z);
-}
-*/
+}*/
+
+
 void MySocket::readTo(std::string& s, int maxlength, SocketShouldAbortCallback* should_abort_callback)
 {
 	/*std::vector<char> buffer(1000);
@@ -797,6 +800,7 @@ void MySocket::readTo(std::string& s, int maxlength, SocketShouldAbortCallback* 
 	readTo(&(*s.begin()), length, NULL, should_abort_callback);
 }
 
+
 void MySocket::readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 //	x.clear();
@@ -805,6 +809,7 @@ void MySocket::readTo(std::string& x, int numchars, FractionListener* frac, Sock
 	x.resize(numchars);
 	readTo(&(*x.begin()), numchars, frac, should_abort_callback);
 }
+
 
 //-----------------------------------------------------------------
 //funcs for measuring data rate
@@ -935,7 +940,7 @@ void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandl
 {
 	FD_ZERO(&sockset);
 
-	//FD_SET doesn´t seem to work when targeting x64 in gcc.
+	//FD_SET doesn't seem to work when targeting x64 in gcc.
 #ifdef COMPILER_GCC
 	//sockset.fds_bits[0] = sockhandle;
 	FD_SET(sockhandle, &sockset);
