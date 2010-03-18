@@ -39,6 +39,8 @@ unsigned int getNumLogicalProcessors();
 
 uint64 getPhysicalRAMSize(); // Number of bytes of physical RAM
 
+const std::string getLoggedInUserName();
+
 
 
 

@@ -12,6 +12,8 @@ Code By Nicholas Chapman.
 #define NOMINMAX
 #include <windows.h>
 #include <Iphlpapi.h>
+//#define SECURITY_WIN32 1
+//#include <Security.h>
 #include <intrin.h>
 #include <shlobj.h>
 #else
@@ -30,6 +32,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
 #include <cstdlib>
 #include <iostream>//TEMP
 #include <algorithm>
@@ -86,6 +89,47 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	return mem_state.ullTotalPhys;
 #else
 #error Implement me!
+#endif
+}
+
+
+const std::string PlatformUtils::getLoggedInUserName()
+{
+#if defined(WIN32) || defined(WIN64)
+	
+	/*TCHAR buffer[2048];
+
+	ULONG size = 2048;
+	if(GetUserNameEx(
+		NameDisplay, //NameCanonical, // NameFormat
+		buffer,
+		&size
+	) == 0)
+		throw PlatformUtilsExcep("GetUserNameEx failed: " + getLastErrorString());
+
+	return StringUtils::WToUTF8String(buffer);*/
+
+
+
+	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
+
+	const std::wstring varname = L"USERNAME";
+
+	TCHAR buffer[2048];
+
+	const DWORD size = 2048;
+
+	if(GetEnvironmentVariable(
+		varname.c_str(),
+		buffer,
+		size
+		) == 0)
+		throw PlatformUtilsExcep("GetEnvironmentVariable failed: " + getLastErrorString());
+
+	return StringUtils::WToUTF8String(buffer);
+
+#else
+#error Implement me, use getenv
 #endif
 }
 
@@ -412,7 +456,7 @@ const std::string PlatformUtils::getLastErrorString()
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
 #else
-#warning implement me!
+#error implement me!
 #endif
 }
 
@@ -429,13 +473,18 @@ uint32 PlatformUtils::getProcessID()
 
 void PlatformUtils::testPlatformUtils()
 {
+
 	try
 	{
 		//openFileBrowserWindowAtLocation("C:\\testscenes");
 		//openFileBrowserWindowAtLocation("C:\\testscenes\\sun_glare_test.igs");
+
+		conPrint("PlatformUtils::getLoggedInUserName(): " + PlatformUtils::getLoggedInUserName());
 	}
 	catch(PlatformUtilsExcep& e)
 	{
 		conPrint(e.what());
+
+		testAssert(!"test Failed.");
 	}
 }
