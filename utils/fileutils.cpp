@@ -509,6 +509,22 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 }*/
 
 
+bool isDirectory(const std::string& pathname)
+{
+#if defined(WIN32) || defined(WIN64)
+	WIN32_FILE_ATTRIBUTE_DATA file_data;
+	GetFileAttributesEx(StringUtils::UTF8ToWString(pathname).c_str(), GetFileExInfoStandard, &file_data);
+
+	if(file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		return true;
+
+	return false;
+#else
+#error "implement me! i'm isDirectory(const std::string& pathname)"
+#endif
+}
+
+
 bool isPathSafe(const std::string& pathname)
 {
 	if(pathname.size() == 0)

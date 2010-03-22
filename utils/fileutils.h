@@ -68,6 +68,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 //bool isPathEqualOrLower(const std::string& pathname);
 
 //Returns true if pathname is relative, and does not contain any '..' dirs.
+bool isDirectory(const std::string& pathname);
 bool isPathSafe(const std::string& pathname);
 
 //void readEntireFile(std::ifstream& file, std::string& filecontents_out); // throws FileUtilsExcep
