@@ -16,19 +16,41 @@ namespace js
 {
 
 
-/*=====================================================================
-OldKDTreeBuilder
-----------------
+namespace ThreadedBuilder
+{
 
-=====================================================================*/
+
+class LowerBound
+{
+public:
+	float lower;
+	uint32 tri_index;
+};
+class UpperBound
+{
+public:
+	float upper;
+	uint32 tri_index;
+};
+
+	
+class LayerInfo
+{
+public:
+	js::Vector<LowerBound, 4> lower_bounds[3]; // One for each axis
+	js::Vector<UpperBound, 4> upper_bounds[3];
+};
+
+	
+class WorkUnit
+{
+	uint32  parent_node_index;
+};
+
+
 class ThreadedNLogNKDTreeBuilder
 {
 public:
-	/*=====================================================================
-	OldKDTreeBuilder
-	----------------
-
-	=====================================================================*/
 	ThreadedNLogNKDTreeBuilder();
 
 	~ThreadedNLogNKDTreeBuilder();
@@ -49,18 +71,6 @@ public:
 		float lower, upper;
 	};*/
 
-	class LowerBound
-	{
-	public:
-		float lower;
-		uint32 tri_index;
-	};
-	class UpperBound
-	{
-	public:
-		float upper;
-		uint32 tri_index;
-	};
 
 private:
 	//class TriInfo
@@ -85,17 +95,13 @@ private:
 		);
 
 private:
-	class LayerInfo
-	{
-	public:
-		js::Vector<LowerBound, 4> lower_bounds[3]; // One for each axis
-		js::Vector<UpperBound, 4> upper_bounds[3];
-	};
-	std::vector<LayerInfo> layers;
+	//std::vector<LayerInfo> layers;
 	js::Vector<js::AABBox, 16> tri_aabbs;
+
 };
 
 
+} //end namespace ThreadedBuilder
 
 } //end namespace js
 

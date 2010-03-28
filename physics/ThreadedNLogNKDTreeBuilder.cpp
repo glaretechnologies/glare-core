@@ -20,6 +20,11 @@ Code By Nicholas Chapman.
 namespace js
 {
 
+
+namespace ThreadedBuilder
+{
+
+	
 //#define CLIP_TRIANGLES 1
 const static bool DO_EMPTY_SPACE_CUTOFF = true;
 
@@ -38,7 +43,7 @@ ThreadedNLogNKDTreeBuilder::~ThreadedNLogNKDTreeBuilder()
 class LowerPred
 {
 public:
-	inline bool operator()(const ThreadedNLogNKDTreeBuilder::LowerBound& a, const ThreadedNLogNKDTreeBuilder::LowerBound& b)
+	inline bool operator()(const LowerBound& a, const LowerBound& b)
 	{
 	   return a.lower < b.lower;
 	}
@@ -48,7 +53,7 @@ public:
 class UpperPred
 {
 public:
-	inline bool operator()(const ThreadedNLogNKDTreeBuilder::UpperBound& a, const ThreadedNLogNKDTreeBuilder::UpperBound& b)
+	inline bool operator()(const UpperBound& a, const UpperBound& b)
 	{
 	   return a.upper < b.upper;
 	}
@@ -73,7 +78,7 @@ void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, 
 	//print_output.print("Building tri aabbs took " + timer.elapsedString());
 	//timer.reset();
 
-	layers.resize(max_depth + 1);
+/*	layers.resize(max_depth + 1);
 
 	// Initialise upper and lower bounds
 	for(int ax=0; ax<3; ++ax)
@@ -88,13 +93,13 @@ void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, 
 			(layers[0].upper_bounds[ax])[i].upper = tri_aabbs[i].max_[ax];
 			(layers[0].upper_bounds[ax])[i].tri_index = i;
 		}
-	}
+	}*/
 
 	//print_output.print("Building layers took " + timer.elapsedString());
 	//timer.reset();
 
 	// Sort bounds
-	#ifndef OSX
+/*	#ifndef OSX
 	#pragma omp parallel for
 	#endif
 	for(int axis=0; axis<3; ++axis)
@@ -103,7 +108,7 @@ void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, 
 		std::sort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred());
 	}
 	//print_output.print("Sort took " + timer.elapsedString());
-
+*/
 
 /*	struct Sort
 	{
@@ -147,11 +152,11 @@ void ThreadedNLogNKDTreeBuilder::doBuild(
 						KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out
 						)
 {
-	// Get the list of tris intersecting this volume
+#if 0	// Get the list of tris intersecting this volume
 	//assert(depth < (unsigned int)node_tri_layers.size());
 	//const std::vector<TriInfo>& nodetris = node_tri_layers[depth];
 
-	LayerInfo& layer = this->layers[depth];
+//	LayerInfo& layer = this->layers[depth];
 
 #ifdef DEBUG
 	const unsigned int num_lowers = layer.lower_bounds[0].size();
@@ -796,7 +801,11 @@ void ThreadedNLogNKDTreeBuilder::doBuild(
 	}
 
 	assert(actual_num_neg_tris + actual_num_pos_tris > 0);
+#endif
 }
+
+
+} // end namespace ThreadedBuilder
 
 
 } //end namespace js

@@ -103,14 +103,12 @@ public:
 };
 
 
-
-
 void ThreadTests::test()
 {
 	// Test parallel For
 	for(int z=0; z<1; ++z)
 	{
-		const int N = 10000;
+		const int N = 1000000;
 		std::vector<double> v(N, 1.0f);
 
 		//////////// Do pass to warm up caches //////////////
@@ -187,7 +185,7 @@ void ThreadTests::test()
 		conPrint("openmp_elapsed: " + toString(openmp_elapsed));
 	}
 	
-	//exit(0);//TEMP
+	exit(0);//TEMP
 
 
 

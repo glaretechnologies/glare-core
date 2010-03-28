@@ -34,7 +34,10 @@ namespace js
 	class TriHash;
 	class TriTreePerThreadData;
 	class TreeStats;
+//	class Threaded
 }
+
+namespace ThreadedBuilder { class ThreadedNLogNKDTreeBuilder; };
 
 
 namespace js
@@ -52,8 +55,9 @@ SSE_CLASS_ALIGN KDTree : public Tree
 	friend class OldKDTreeBuilder;
 	friend class ThreadedKDTreeBuilder;
 	friend class NLogNKDTreeBuilder;
-	friend class ThreadedNLogNKDTreeBuilder;
+	friend class ThreadedBuilder::ThreadedNLogNKDTreeBuilder;
 public:
+	typedef uint32 NODE_INDEX;
 	/*=====================================================================
 	KDTree
 	-------
@@ -120,10 +124,10 @@ public:
 
 	typedef js::Vector<TRI_INDEX, 8> LEAF_GEOM_ARRAY_TYPE;
 
+	TRI_INDEX numTris() const;
 private:
 	//-----------------typedefs------------------------
 	//typedef uint32 TRI_INDEX;
-	typedef uint32 NODE_INDEX;
 
 	//typedef std::vector<AABBox> TRIBOX_VECTOR_TYPE;
 	//typedef js::Vector<TreeNode> NODE_VECTOR_TYPE;
@@ -142,7 +146,6 @@ private:
 	void getTreeStats(TreeStats& stats_out, NODE_INDEX cur = ROOT_NODE_INDEX, unsigned int depth = 0) const;
 	void printTree(NODE_INDEX currentnode, unsigned int depth, std::ostream& out);
 	void debugPrintTree(NODE_INDEX cur, unsigned int depth);
-	TRI_INDEX numTris() const;
 	//void doWriteModel(unsigned int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 	void postBuild();
 	void doBuild(NODE_INDEX cur,
