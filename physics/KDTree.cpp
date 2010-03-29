@@ -316,7 +316,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 					//&& (ignore_tri != triangle_index)
 					) //hit uvs out
 				{
-					assert(raydist < closest_dist);
+					//TEMP assert(raydist < closest_dist);
 
 					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
