@@ -52,6 +52,8 @@ public:
 	inline bool empty() const;
 	inline void clearAndFreeMem(); // Set size to zero, but also frees actual array memory.
 
+	inline void clearAndSetCapacity(unsigned int N);
+
 	inline void push_back(const T& t);
 	inline void pop_back();
 	inline const T& back() const;
@@ -230,6 +232,14 @@ void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees
 	e = NULL;
 	size_ = 0;
 	capacity_ = 0;
+}
+
+
+template <class T, int alignment>
+inline void Vector<T, alignment>::clearAndSetCapacity(unsigned int N)
+{
+	clearAndFreeMem();
+	reserve(N);
 }
 
 
