@@ -153,6 +153,7 @@ public:
 	virtual void endOfModel();
 	////////////////////////////////////////////////////////////////
 	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
+	void addVertexUnchecked(const Vec3f& pos, const Vec3f& normal);
 
 
 

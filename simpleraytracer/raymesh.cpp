@@ -569,6 +569,16 @@ void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 }
 
 
+void RayMesh::addVertexUnchecked(const Vec3f& pos, const Vec3f& normal)
+{
+	const Vec3f n = normalise(normal);
+
+	vertices.push_back(RayMeshVertex(pos, n));
+
+	this->vertex_shading_normals_provided = true;
+}
+
+
 inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
 {
 	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
