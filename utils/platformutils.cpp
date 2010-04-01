@@ -471,6 +471,25 @@ uint32 PlatformUtils::getProcessID()
 }
 
 
+void PlatformUtils::setThisProcessPriority(ProcessPriority p)
+{
+#if defined(WIN32) || defined(WIN64)
+	if(p == BelowNormal_Priority)
+	{
+		if(!::SetPriorityClass(::GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS))
+			throw PlatformUtilsExcep("SetPriorityClass failed: " + getLastErrorString());
+	}
+	else if(p == Normal_Priority)
+	{
+		if(!::SetPriorityClass(::GetCurrentProcess(), NORMAL_PRIORITY_CLASS))
+			throw PlatformUtilsExcep("SetPriorityClass failed: " + getLastErrorString());
+	}
+#else
+#error implement me, maybe?
+#endif
+}
+
+
 void PlatformUtils::testPlatformUtils()
 {
 

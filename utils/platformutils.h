@@ -91,6 +91,15 @@ const std::string getLastErrorString();
 uint32 getProcessID();
 
 
+enum ProcessPriority
+{
+	BelowNormal_Priority,
+	Normal_Priority
+};
+
+void setThisProcessPriority(ProcessPriority p);
+
+
 void testPlatformUtils();
 
 
