@@ -60,6 +60,12 @@ const double NICKMATHS_RECIP_PI = 1.0 / NICKMATHS_PI;
 const double NICKMATHS_RECIP_2PI = 1.0 / NICKMATHS_2PI;
 const double NICKMATHS_RECIP_4PI = 1.0 / NICKMATHS_4PI;
 
+const float NICKMATHS_2PIf = (float)NICKMATHS_2PI;
+const float NICKMATHS_PI_2f = (float)NICKMATHS_PI_2;
+const float NICKMATHS_RECIP_PIf = (float)(1.0 / NICKMATHS_PI);
+const float NICKMATHS_RECIP_2PIf = (float)(1.0 / NICKMATHS_2PI);
+
+
 // Natural log of 2
 const double LN_2 = 0.69314718055994530941723212145818;
 
