@@ -27,11 +27,11 @@ bool ThreadShouldAbortCallback::shouldAbort()
 {
 	bool suicide = false;
 
-	Lock lock(message_queue->getMutex()); // lock message queue
+	Lock lock(message_queue->getMutex()); // Lock message queue.
 
-	while(!message_queue->unlockedEmpty()) // While there are messages in the queue
+	while(!message_queue->unlockedEmpty()) // While there are messages in the queue...
 	{
-		// Dequeue message
+		// Dequeue message.
 		ThreadMessage* message;
 		message_queue->unlockedDequeue(message); 
 
