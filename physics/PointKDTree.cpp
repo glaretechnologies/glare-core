@@ -8,7 +8,9 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 
 
 #include "../maths/vec3.h"
+#include "../utils/Exception.h"
 #include <algorithm>
+#include <set>
 
 
 PointKDTree::PointKDTree(const std::vector<Vec3f>& points)
@@ -30,62 +32,73 @@ uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_contex
 {
 	std::vector<uint32> stack(64);
 
-	const float radius = 0.1f;
-
 	float smallest_dist2 = std::numeric_limits<float>::max();
-	uint32 closest_point_index = std::numeric_limits<uint32>::max();
+	uint32 closest_point_index = notFoundIndex();
+	float radius = 0.1f;
 
-	int stacktop = 0; // Index of node on top of stack
-
-	while(stacktop >= 0)
+	while(1)
 	{
-		// Pop node off stack
-		uint32 current = stack[stacktop];
-		assert(current < nodes.size());
-		stacktop--;
+		const float radius2 = radius * radius;
 
-		// Keep walking down a tree until we walk off the bottom of a leaf.
-		while(current != NULL_NODE_INDEX)
+	
+		int stacktop = 0; // Index of node on top of stack
+
+		while(stacktop >= 0)
 		{
-			if(nodes[current].point.getDist2(p) < smallest_dist2)
-			{
-				smallest_dist2 = nodes[current].point.getDist2(p);
-				closest_point_index = nodes[current].point_index;
-			}
+			// Pop node off stack
+			uint32 current = stack[stacktop];
+			assert(current < nodes.size());
+			stacktop--;
 
-			if(nodes[current].left == NULL_NODE_INDEX && nodes[current].right == NULL_NODE_INDEX)
+			// Keep walking down a tree until we walk off the bottom of a leaf.
+			while(current != NULL_NODE_INDEX)
 			{
-				// This is a leaf node
-				break;
-			}
+				const float d2 = nodes[current].point.getDist2(p);
+				if(d2 < smallest_dist2 && d2 < radius2)
+				{
+					smallest_dist2 = nodes[current].point.getDist2(p);
+					closest_point_index = nodes[current].point_index;
+				}
+
+				if(nodes[current].left == NULL_NODE_INDEX && nodes[current].right == NULL_NODE_INDEX)
+				{
+					// This is a leaf node
+					break;
+				}
 
 
-			const unsigned int split_axis = nodes[current].split_axis;
-			const float diff = p[split_axis] - nodes[current].split_val;
-			if(diff > radius)
-			{
-				// Then the p sphere lies entirely in right child.
-				// So traverse to right child
-				current = nodes[current].right;
-			}
-			else if(diff < -radius)
-			{
-				// Then the p sphere lies entirely in left child.
-				// So traverse to left child
-				current = nodes[current].left;
-			}
-			else
-			{
-				// Else p sphere intersects both left and right child spaces.
-				// So pop right child onto stack, and traverse to left child.
+				const unsigned int split_axis = nodes[current].split_axis;
+				const float diff = p[split_axis] - nodes[current].split_val;
+				if(diff > radius)
+				{
+					// Then the p sphere lies entirely in right child.
+					// So traverse to right child
+					current = nodes[current].right;
+				}
+				else if(diff < -radius)
+				{
+					// Then the p sphere lies entirely in left child.
+					// So traverse to left child
+					current = nodes[current].left;
+				}
+				else
+				{
+					// Else p sphere intersects both left and right child spaces.
+					// So pop right child onto stack, and traverse to left child.
 
-				stacktop++;
-				stack[stacktop] = nodes[current].right;
-				current = nodes[current].left;
-			}
-		} // End while(current != NULL_NODE_INDEX)
-	} // End while(stacktop >= 0)
+					stacktop++;
+					stack[stacktop] = nodes[current].right;
+					current = nodes[current].left;
+				}
+			} // End while(current != NULL_NODE_INDEX)
+		} // End while(stacktop >= 0)
 
+		// Expand search radius
+		if(closest_point_index == notFoundIndex())
+			radius *= 2.0f;
+		else
+			break;
+	}
 	return closest_point_index;
 }
 
@@ -153,11 +166,74 @@ void PointKDTree::build(const std::vector<Vec3f>& points)
 }
 
 
+void PointKDTree::checkLayerLists(const std::vector<Vec3f>& points, LayerInfo& layer)
+{
+	// Check all our bounds are sorted correctly
+	for(int axis=0; axis<3; ++axis)
+	{
+		// Check each axis has the same number of points
+		assert(layer.axis_points[axis].size() == layer.axis_points[0].size());
+
+		for(size_t z=1; z<layer.axis_points[axis].size(); ++z)
+		{
+			const uint32 prev_point_index = (layer.axis_points[axis])[z-1].point_index;
+			const uint32 point_index = (layer.axis_points[axis])[z].point_index;
+
+			assert((points[prev_point_index])[axis] <= (points[point_index])[axis]);
+		}
+	}
+
+	std::set<uint32> p;
+	for(size_t i=0; i<layer.axis_points[0].size(); ++i)
+	{
+		const uint32 point_index = (layer.axis_points[0])[i].point_index;
+
+		if(p.find(point_index) != p.end())
+		{
+			assert(!"Point already in list.");
+		}
+
+		p.insert(point_index);
+	}
+
+	for(int axis=0; axis<3; ++axis)
+	{
+		for(size_t i=0; i<layer.axis_points[axis].size(); ++i)
+		{
+			const uint32 point_index = (layer.axis_points[axis])[i].point_index;
+
+			if(p.find(point_index) == p.end())
+			{
+				assert(!"Point missing from list!");
+			}
+		}
+	}
+}
+
+
+static int c = 0;
+
+
 void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_depth)
 {	
+	c++;
+
+	if(c == 121)
+		int a = 9;
+
+	if(depth >= max_depth)
+	{
+		assert(0);
+		throw Indigo::Exception("Reached max depth while building point kd tree.");
+	}
+
 	LayerInfo& layer = this->layers[depth];
 
 	const unsigned int num_points = (unsigned int)layer.axis_points[0].size();
+
+#ifdef DEBUG
+	checkLayerLists(points, layer);
+#endif
 
 	assert(num_points >= 1);
 
@@ -204,24 +280,62 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 	const float split = best_div_val;
 	const unsigned int split_axis = best_axis;
 
+	std::set<uint32> pushed_left;
+
 	for(int axis=0; axis<3; ++axis)
 	{
 		childlayer.axis_points[axis].resize(0);
 
+		// Get num points on splitting plane
+		int num_on_split = 0;
+
 		for(unsigned int i=0; i<num_points; ++i) // for bound in bound list
 		{
 			const uint32 point_index = (layer.axis_points[axis])[i].point_index;
-
 			const float point_val = (points[point_index])[split_axis];
+			if(point_val == split)
+				num_on_split++;
+		}
 
-			if(point_val < split)
+		int num_on_split_pushed_left = 0;
+
+		for(unsigned int i=0; i<num_points; ++i) // for bound in bound list
+		{
+			const uint32 point_index = (layer.axis_points[axis])[i].point_index; // Get original point index.
+			const float point_val = (points[point_index])[split_axis]; // Get point coordinate along splitting axis.
+
+			if(point_val < split) // If point lies to left of splitting plane...
 			{
 				// Point is in left child.
 				childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]);
 			}
+			else if(point_val == split) // else if point lies on splitting plane
+			{
+				// Push the first num_on_split/2 points on the split plane to the left
+				if(axis == 0)
+				{
+					if(num_on_split_pushed_left < num_on_split / 2)
+					{
+						childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]);
+						num_on_split_pushed_left++;
+
+						pushed_left.insert((layer.axis_points[axis])[i].point_index);
+					}
+				}
+				else
+				{
+					if(pushed_left.find((layer.axis_points[axis])[i].point_index) != pushed_left.end()) // If in pushed_left
+						childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]);
+				}
+			}
+
 			// Else point is in right child
 		}
 	}
+
+#ifdef DEBUG
+	checkLayerLists(points, childlayer);
+#endif
 
 	//------------------------------------------------------------------------
 	//Create left child node.
@@ -250,6 +364,19 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 	{
 		childlayer.axis_points[axis].resize(0);
 
+		// Get num points on split plane
+		/*int num_on_split = 0;
+
+		for(unsigned int i=0; i<num_points; ++i) // for bound in bound list
+		{
+			const uint32 point_index = (layer.axis_points[axis])[i].point_index;
+			const float point_val = (points[point_index])[split_axis];
+			if(point_val == split)
+				num_on_split++;
+		}
+
+		int num_on_split_pushed_left = 0;*/
+
 		for(unsigned int i=0; i<num_points; ++i) // for bound in bound list
 		{
 			const uint32 point_index = (layer.axis_points[axis])[i].point_index;
@@ -257,14 +384,30 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 			const float point_val = (points[point_index])[split_axis];
 
 			// The splitting point doesn't go in either left or right child.
-			if(point_val >= split && point_index != best_point_index)
+			if(point_val > split)			//if(point_val >= split && point_index != best_point_index)
 			{
 				// Point is in right child.
 				childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]);
 			}
+			else if(point_val == split) // else if point lies on splitting plane
+			{
+				// Push the first num_on_split/2 points on the split plane to the left, the rest to the right.
+				/*if(num_on_split_pushed_left >= num_on_split / 2)
+					childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]);
+				else
+					num_on_split_pushed_left++;*/
+
+				if(pushed_left.find((layer.axis_points[axis])[i].point_index) == pushed_left.end()) // If not in pushed_left
+					childlayer.axis_points[axis].push_back((layer.axis_points[axis])[i]); // Push right
+
+			}
 			// Else point is in left child
 		}
 	}
+
+#ifdef DEBUG
+	checkLayerLists(points, childlayer);
+#endif
 
 	//------------------------------------------------------------------------
 	//Create right child node.
