@@ -37,6 +37,9 @@ public:
 
 	uint32 getNearestPoint(const Vec3f& p, ThreadContext& thread_context) const;
 
+	uint32 getNearestPointDebug(const std::vector<Vec3f>& points, const Vec3f& p, ThreadContext& thread_context) const;
+
+
 
 	void printTree(std::ostream& stream, unsigned int node_index, unsigned int depth) const;
 

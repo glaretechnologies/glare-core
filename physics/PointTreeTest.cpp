@@ -11,6 +11,8 @@ Generated at Wed Apr 07 14:22:30 +1200 2010
 #include "../indigo/ThreadContext.h"
 #include <iostream>
 #include "../indigo/TestUtils.h"
+#include "../maths/vec3.h"
+#include "../utils/MTwister.h"
 
 
 PointTreeTest::PointTreeTest()
@@ -57,6 +59,52 @@ void PointTreeTest::test()
 		PointKDTree tree(points);
 
 		//tree.printTree(std::cout, 0, 0);
+	}
+
+	{
+		std::vector<Vec3f> points;
+		MTwister rng(1);
+		for(int i=0; i<10000; ++i)
+		{
+			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
+		}
+
+		ThreadContext context;
+		PointKDTree tree(points);
+
+		for(int i=0; i<10000; ++i)
+		{
+			const Vec3f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
+			const uint32 res = tree.getNearestPoint(p, context);
+
+			const uint32 debug_res = tree.getNearestPointDebug(points, p, context);
+
+			testAssert(res == debug_res);
+		}
+	}
+
+	{
+		std::vector<Vec3f> points;
+		MTwister rng(1);
+		for(int i=0; i<10000; ++i)
+		{
+			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * 1000.0f);
+		}
+
+		ThreadContext context;
+		PointKDTree tree(points);
+
+		for(int i=0; i<10000; ++i)
+		{
+			const Vec3f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
+
+			const uint32 res = tree.getNearestPoint(p, context);
+
+			const uint32 debug_res = tree.getNearestPointDebug(points, p, context);
+
+			testAssert(res == debug_res);
+		}
 	}
 
 

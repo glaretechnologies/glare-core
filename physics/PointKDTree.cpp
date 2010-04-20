@@ -40,10 +40,12 @@ uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_contex
 	{
 		const float radius2 = radius * radius;
 
-	
 		int stacktop = 0; // Index of node on top of stack
 
-		while(stacktop >= 0)
+		// Push root node onto top of stack
+		stack[0] = 0;
+
+		while(stacktop >= 0) // While stack is not empty...
 		{
 			// Pop node off stack
 			uint32 current = stack[stacktop];
@@ -98,6 +100,23 @@ uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_contex
 			radius *= 2.0f;
 		else
 			break;
+	}
+	return closest_point_index;
+}
+
+
+uint32 PointKDTree::getNearestPointDebug(const std::vector<Vec3f>& points, const Vec3f& p, ThreadContext& thread_context) const
+{
+	float smallest_dist2 = std::numeric_limits<float>::max();
+	uint32 closest_point_index = notFoundIndex();
+	for(uint32 i=0; i<(uint32)points.size(); ++i)
+	{
+		const float d = p.getDist2(points[i]);
+		if(d < smallest_dist2)
+		{
+			smallest_dist2 = d;
+			closest_point_index = i;
+		}
 	}
 	return closest_point_index;
 }
