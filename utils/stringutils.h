@@ -216,6 +216,11 @@ inline const std::string PlatformToUTF8UnicodeEncoding(const std::string& s) { r
 #endif
 
 
+// Replaces all occurrences of src with dest in string s.
+const std::string replaceCharacter(const std::string& s, char src, char dest);
+
+
+
 }; // end namespace StringUtils
 
 

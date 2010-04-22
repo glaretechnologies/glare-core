@@ -11,6 +11,7 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 #include "../utils/Exception.h"
 #include <algorithm>
 #include <set>
+#include "../indigo/ThreadContext.h"
 
 
 PointKDTree::PointKDTree(const std::vector<Vec3f>& points)
@@ -30,7 +31,9 @@ static const uint32 NULL_NODE_INDEX = std::numeric_limits<uint32>::max();
 
 uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_context) const
 {
-	std::vector<uint32> stack(64);
+	//std::vector<uint32> stack(64);
+
+	std::vector<uint32>& stack = thread_context.point_kd_tree_stack;
 
 	float smallest_dist2 = std::numeric_limits<float>::max();
 	uint32 closest_point_index = notFoundIndex();

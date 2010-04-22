@@ -827,6 +827,17 @@ void replaceChar(std::string& s, char src, char dest)
 }
 
 
+// Replaces all occurrences of src with dest in string s.
+const std::string StringUtils::replaceCharacter(const std::string& s, char src, char dest)
+{
+	std::string res = s;
+	for(unsigned int i=0; i<s.size(); ++i)
+		if(res[i] == src)
+			res[i] = dest;
+	return res;
+}
+
+
 const std::string getTailSubString(const std::string& s, unsigned int first_char_index)
 {
 	assert(first_char_index >= 0);

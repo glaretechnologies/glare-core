@@ -140,6 +140,9 @@ Real& Vector<Real>::operator[] (int index)
 template <class Real>
 Vector<Real>& Vector<Real>::operator = (const Vector& rhs)
 {
+	if(this == &rhs)
+		return *this;
+
 	data = rhs.data;
 	return *this;
 }

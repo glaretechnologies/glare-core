@@ -416,7 +416,9 @@ template <class Real> const Vec2<Real> hemisphereToUnitSquare(const Vec3<Real>& 
 		myMax((Real)0.0, (Real)1.0 - on_unit_sphere.z)
 		);
 
-	const Vec2<Real> on_disk(on_unit_sphere.x / std::sqrt(2 - r*r), on_unit_sphere.y / std::sqrt(2 - r*r));
+	const Vec2<Real> on_disk(on_unit_sphere.x / std::sqrt((Real)2.0 - r*r), on_unit_sphere.y / std::sqrt((Real)2.0 - r*r));
+
+	assert(on_disk.length() <= 1.0);
 
 	return shirleyDiskToUnitSquare(on_disk);
 }

@@ -54,6 +54,7 @@ public:
 		int w, h;
 	};
 
+	// throws Indigo::Exception on failure.
 	static void plot3D(
 		const std::string& path,
 		const std::string& title,

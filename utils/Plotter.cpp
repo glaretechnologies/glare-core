@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #include <fstream>
 #include "platformutils.h"
 #include "../utils/stringutils.h"
+#include "../utils/Exception.h"
 
 
 Plotter::Plotter()
@@ -82,43 +83,53 @@ void Plotter::plot3D(
 		PlotOptions options
 		)
 {
-	const std::string temp_data_path = "c:/temp/plotdata.txt";
 
-	// Write data
+	try
 	{
-		std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_data_path).c_str());
-
-		for(unsigned int y=0; y<data.getHeight(); ++y)
+		const std::string temp_dir = StringUtils::replaceCharacter(PlatformUtils::getTempDirPath(), '\\', '/'); // Gnuplot needs forwards slashes
+		const std::string temp_data_path = temp_dir + "/plotdata.txt";
+	
+		// Write data
 		{
-			for(unsigned int x=0; x<data.getWidth(); ++x)
-				f << data.elem(x, y).x << " " << data.elem(x, y).y << " " << data.elem(x, y).z << "\n";
+			std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_data_path).c_str());
 
-			f << "\n";
+			for(unsigned int y=0; y<data.getHeight(); ++y)
+			{
+				for(unsigned int x=0; x<data.getWidth(); ++x)
+					f << data.elem(x, y).x << " " << data.elem(x, y).y << " " << data.elem(x, y).z << "\n";
+
+				f << "\n";
+			}
 		}
+
+
+		// Write Gnuplot control script
+		const std::string temp_path = temp_dir + "/plot.txt";
+
+		{
+			std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_path).c_str());
+
+			f << "set terminal png size " << options.w << "," << options.h << "\n";
+			f << "set output \"" + path + "\"\n";
+			f << "set style data lines\n";
+			f << "set grid linetype rgb \"blue\"  lw 0.4\n";
+			f << "set style data linespoints\n";
+			f << "set xlabel \"" + x_label + "\"\n";
+			f << "set ylabel \"" + y_label + "\"\n";
+			f << "set title \"" + title + "\"\n";
+			//f << "set encoding iso_8859_1\n"
+			f << "set contour\n";
+			f << "set cntrparam levels 10\n";
+
+			f << "splot	\"" + temp_data_path + "\" using 1:2:3 with lines title \"" + key + "\"\n";
+		}
+
+		// Execute Gnuplot
+		const int result = PlatformUtils::execute("pgnuplot " + temp_path);
+
 	}
-
-
-	// Write Gnuplot control script
-	const std::string temp_path = "c:/temp/plot.txt";
-
+	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
-		std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_path).c_str());
-
-		f << "set terminal png size " << options.w << "," << options.h << "\n";
-		f << "set output \"" + path + "\"\n";
-		f << "set style data lines\n";
-		f << "set grid linetype rgb \"blue\"  lw 0.4\n";
-		f << "set style data linespoints\n";
-		f << "set xlabel \"" + x_label + "\"\n";
-		f << "set ylabel \"" + y_label + "\"\n";
-		f << "set title \"" + title + "\"\n";
-		//f << "set encoding iso_8859_1\n"
-		f << "set contour\n";
-		f << "set cntrparam levels 10\n";
-
-		f << "splot	\"" + temp_data_path + "\" using 1:2:3 with lines title \"" + key + "\"\n";
+		throw Indigo::Exception(e.what());
 	}
-
-	// Execute Gnuplot
-	const int result = PlatformUtils::execute("pgnuplot " + temp_path);
 }
