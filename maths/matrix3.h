@@ -186,6 +186,9 @@ public:
 
 	const std::string toString() const;
 
+	inline void constructFromVector(const Vec3<Real>& vec);
+
+
 	static void test();
 
 
@@ -902,6 +905,39 @@ template <class Real>
 inline const std::string toString(const Matrix3<Real>& x)
 {
 	return x.toString();
+}
+
+
+template <class Real>
+void Matrix3<Real>::constructFromVector(const Vec3<Real>& vec)
+{
+	assert(::epsEqual(vec.length(), (Real)1.0));
+
+	Vec3<Real> v2;//x axis
+
+	//thanks to Pharr and Humprehys for this code
+	if(fabs(vec.x) > fabs(vec.y))
+	{
+		const Real recip_len = (Real)1.0 / sqrt(vec.x * vec.x + vec.z * vec.z);
+
+		v2.set(-vec.z * recip_len, 0.0f, vec.x * recip_len);
+	}
+	else
+	{
+		const Real recip_len = (Real)1.0 / sqrt(vec.y * vec.y + vec.z * vec.z);
+
+		v2.set(0.0, vec.z * recip_len, -vec.y * recip_len);
+	}
+
+	assert(::epsEqual(v2.length(), (Real)1.0));
+
+	setColumn0(v2);
+	setColumn1(::crossProduct(vec, v2));
+	setColumn2(vec);
+	
+	assert(::epsEqual(dot(getColumn0(), getColumn1()), (Real)0.0));
+	assert(::epsEqual(dot(getColumn0(), getColumn2()), (Real)0.0));
+	assert(::epsEqual(dot(getColumn1(), getColumn2()), (Real)0.0));
 }
 
 

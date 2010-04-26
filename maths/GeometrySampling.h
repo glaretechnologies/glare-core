@@ -62,7 +62,7 @@ namespace GeometrySampling
 	template <class Real> inline const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length);
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
 	inline void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out);
-	inline void sphericalCoordsForDir(const Vec3f& dir, float recip_dir_length, float& theta_out, float& phi_out);
+	template <class Real> inline void sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length, Real& theta_out, Real& phi_out);
 
 
 	////// Spherical polar angle -> Cartesian coordinates conversion //////////
@@ -177,11 +177,12 @@ void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& thet
 }
 
 
-void sphericalCoordsForDir(const Vec3f& dir, float recip_dir_length, float& theta_out, float& phi_out)
+template <class Real>
+void sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length, Real& theta_out, Real& phi_out)
 {
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	phi_out = std::atan2(dir.y, dir.x);
-	theta_out = std::acos(myClamp(dir.z * recip_dir_length, -1.0f, 1.0f));
+	theta_out = std::acos(myClamp(dir.z * recip_dir_length, (Real)-1.0, (Real)1.0));
 }
 
 
