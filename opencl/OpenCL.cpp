@@ -80,7 +80,7 @@ OpenCL::OpenCL()
 	clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
 
 	this->device_to_use_id = 0;
-	fgsdfgsdfgsdfg CHANGE ME TO USE DEVICE ID QUERIED FROM gpuDeviceQuery!!!!
+	//fgsdfgsdfgsdfg CHANGE ME TO USE DEVICE ID QUERIED FROM gpuDeviceQuery!!!!
 
 	cl_platform_id platform_to_use = 0;
 
