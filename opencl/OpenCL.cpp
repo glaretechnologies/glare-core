@@ -66,6 +66,7 @@ OpenCL::OpenCL()
 	clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(module, "clCreateCommandQueue");
 	clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(module, "clReleaseCommandQueue");
 	clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(module, "clCreateBuffer");
+	clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(module, "clCreateImage2D");
 	clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(module, "clReleaseMemObject");
 	clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(module, "clCreateProgramWithSource");
 	clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(module, "clBuildProgram");
