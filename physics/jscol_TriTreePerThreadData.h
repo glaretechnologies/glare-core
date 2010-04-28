@@ -29,6 +29,8 @@ public:
 	StackFrame* nodestack;
 	int nodestack_size;
 
+	std::vector<uint32> bvh_stack;
+
 	js::TriHash* tri_hash;
 };
 

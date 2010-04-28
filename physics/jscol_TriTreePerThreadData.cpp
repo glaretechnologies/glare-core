@@ -25,6 +25,9 @@ TriTreePerThreadData::TriTreePerThreadData()
 
 	tri_hash = (js::TriHash*)SSE::alignedMalloc(sizeof(js::TriHash), 64);//align to 64 bytes
 	new(tri_hash) js::TriHash();
+
+
+	bvh_stack.resize(js::Tree::MAX_TREE_DEPTH + 1);
 }
 
 

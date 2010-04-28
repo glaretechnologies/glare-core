@@ -39,9 +39,9 @@ public:
 		const __m128 raystartpos = ray.startPosF().v;
 		const __m128 inv_dir = ray.getRecipRayDirF().v;
 
-		const float use_min_t = 0.0f; // myMax(ray.minT(), bvh.tree_specific_min_t);
+		const float use_min_t = 0.0f;
 
-		__m128 near_t, far_t;
+		/*__m128 near_t, far_t;
 		bvh.root_aabb.rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
 		near_t = _mm_max_ss(near_t, _mm_load_ss(&use_min_t));
 		
@@ -50,22 +50,28 @@ public:
 
 		if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
 			return -1.0;
+		*/
 
-		context.nodestack[0].node = 0;
-		_mm_store_ss(&context.nodestack[0].tmin, near_t);
-		_mm_store_ss(&context.nodestack[0].tmax, far_t);
+		//context.nodestack[0].node = 0;
+		//_mm_store_ss(&context.nodestack[0].tmin, near_t);
+		//_mm_store_ss(&context.nodestack[0].tmax, far_t);
+		context.bvh_stack[0] = 0;
 
+		// This is the distance along the ray to the minimum of the closest hit so far and the maximum length of the ray
 		float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::infinity();
 
 		int stacktop = 0; // Index of node on top of stack
 		while(stacktop >= 0)
 		{
 			// Pop node off stack
-			unsigned int current = context.nodestack[stacktop].node;
-			__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
-			__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
+			//unsigned int current = context.nodestack[stacktop].node;
+			//__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
+			//__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
+			//tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
+			unsigned int current = context.bvh_stack[stacktop];
+			__m128 tmin = _mm_load_ss(&use_min_t); //near_t;
+			__m128 tmax = _mm_load_ss(&closest_dist);
 
-			tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 
 			stacktop--;
 
@@ -155,7 +161,7 @@ public:
 				right_far_t = minss(lmax, lmax1);
 				right_near_t = maxss(lmin, lmin1);
 				}
-					
+
 				// Take the intersection of the current ray interval and the ray/BB interval
 				right_near_t = _mm_max_ss(right_near_t, tmin);
 				right_far_t = _mm_min_ss(right_far_t, tmax);
@@ -166,7 +172,7 @@ public:
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
 								// Push right child onto stack
 								stacktop++;
-								assert(stacktop < context.nodestack_size);
+								assert(stacktop < context.bvh_stack.size());
 								/*context.nodestack[stacktop].node = bvh.nodes[current].getRightChildIndex();
 								_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
 								_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
@@ -192,9 +198,10 @@ public:
 									mySwap(near_idx, far_idx);
 								}
 
-								context.nodestack[stacktop].node = far_idx;
-								context.nodestack[stacktop].tmin = far_tmin;
-								context.nodestack[stacktop].tmax = far_tmax;
+								context.bvh_stack[stacktop] = far_idx;
+								//context.nodestack[stacktop].node = far_idx;
+								//context.nodestack[stacktop].tmin = far_tmin;
+								//context.nodestack[stacktop].tmax = far_tmax;
 								current = near_idx;
 								tmin = _mm_load_ss(&near_tmin);
 								tmax = _mm_load_ss(&near_tmax);
