@@ -167,11 +167,38 @@ public:
 								// Push right child onto stack
 								stacktop++;
 								assert(stacktop < context.nodestack_size);
-								context.nodestack[stacktop].node = bvh.nodes[current].getRightChildIndex();
+								/*context.nodestack[stacktop].node = bvh.nodes[current].getRightChildIndex();
 								_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
 								_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
 
-								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L
+								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L*/
+
+								float near_tmin;
+								float near_tmax;
+								float far_tmin;
+								float far_tmax;
+								_mm_store_ss(&near_tmin, left_near_t);
+								_mm_store_ss(&near_tmax, left_far_t);
+								_mm_store_ss(&far_tmin, right_near_t);
+								_mm_store_ss(&far_tmax, right_far_t);
+
+								uint32 near_idx = bvh.nodes[current].getLeftChildIndex();
+								uint32 far_idx = bvh.nodes[current].getRightChildIndex();
+								if(near_tmin > far_tmin)
+								{
+									// If right is actually closest
+									mySwap(near_tmin, far_tmin);
+									mySwap(near_tmax, far_tmax);
+									mySwap(near_idx, far_idx);
+								}
+
+								context.nodestack[stacktop].node = far_idx;
+								context.nodestack[stacktop].tmin = far_tmin;
+								context.nodestack[stacktop].tmax = far_tmax;
+								current = near_idx;
+								tmin = _mm_load_ss(&near_tmin);
+								tmax = _mm_load_ss(&near_tmax);
+
 							} else {
 								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))
 									return 1.0f;
