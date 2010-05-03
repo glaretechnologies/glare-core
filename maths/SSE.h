@@ -221,6 +221,7 @@ inline const SSE4Vec setMasked(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec
 	//return or4Vec(masked_a, masked_b);
 	return or4Vec( and4Vec(mask, a), andNot4Vec(mask, b) );
 }
+
 /*inline void setIfALessThanB4Vec(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& newvals, SSE4Vec& result)
 {
 	setMasked(newvals, result, lessThan4Vec(a, b), result);

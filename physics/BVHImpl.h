@@ -41,7 +41,9 @@ public:
 
 		const float use_min_t = 0.0f;
 
-		/*__m128 near_t, far_t;
+		/*
+		// Test against root AABB
+		__m128 near_t, far_t;
 		bvh.root_aabb.rayAABBTrace(raystartpos, inv_dir, near_t, far_t);
 		near_t = _mm_max_ss(near_t, _mm_load_ss(&use_min_t));
 		
@@ -52,32 +54,27 @@ public:
 			return -1.0;
 		*/
 
-		//context.nodestack[0].node = 0;
-		//_mm_store_ss(&context.nodestack[0].tmin, near_t);
-		//_mm_store_ss(&context.nodestack[0].tmax, far_t);
 		context.bvh_stack[0] = 0;
 
 		// This is the distance along the ray to the minimum of the closest hit so far and the maximum length of the ray
-		float closest_dist = (float)ray_max_t; // std::numeric_limits<float>::infinity();
+		float closest_dist = (float)ray_max_t;
 
 		int stacktop = 0; // Index of node on top of stack
 		while(stacktop >= 0)
 		{
 			// Pop node off stack
-			//unsigned int current = context.nodestack[stacktop].node;
-			//__m128 tmin = _mm_load_ss(&context.nodestack[stacktop].tmin);
-			//__m128 tmax = _mm_load_ss(&context.nodestack[stacktop].tmax);
-			//tmax = _mm_min_ss(tmax, _mm_load_ss(&closest_dist));
 			unsigned int current = context.bvh_stack[stacktop];
 			__m128 tmin = _mm_load_ss(&use_min_t); //near_t;
 			__m128 tmax = _mm_load_ss(&closest_dist);
-
 
 			stacktop--;
 
 			// While current is indexing a suitable internal node...
 			while(1)
 			{
+				//TEMP:
+				//conPrint("current: " + toString(current));
+
 				_mm_prefetch((const char*)(&bvh.nodes[0] + bvh.nodes[current].getLeftChildIndex()), _MM_HINT_T0);
 				_mm_prefetch((const char*)(&bvh.nodes[0] + bvh.nodes[current].getRightChildIndex()), _MM_HINT_T0);
 
@@ -170,14 +167,9 @@ public:
 					if(_mm_comile_ss(left_near_t, left_far_t) != 0) { // if(ray hits left AABB)
 						if(bvh.nodes[current].isRightLeaf() == 0) { // If right child exists
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
-								// Push right child onto stack
+								// Traverse to closest child, push furthest child onto stack.
 								stacktop++;
 								assert(stacktop < context.bvh_stack.size());
-								/*context.nodestack[stacktop].node = bvh.nodes[current].getRightChildIndex();
-								_mm_store_ss(&context.nodestack[stacktop].tmin, right_near_t);
-								_mm_store_ss(&context.nodestack[stacktop].tmax, right_far_t);
-
-								current = bvh.nodes[current].getLeftChildIndex(); tmin = left_near_t; tmax = left_far_t; // next = L*/
 
 								float near_tmin;
 								float near_tmax;
@@ -199,12 +191,24 @@ public:
 								}
 
 								context.bvh_stack[stacktop] = far_idx;
-								//context.nodestack[stacktop].node = far_idx;
-								//context.nodestack[stacktop].tmin = far_tmin;
-								//context.nodestack[stacktop].tmax = far_tmax;
 								current = near_idx;
 								tmin = _mm_load_ss(&near_tmin);
 								tmax = _mm_load_ss(&near_tmax);
+
+								/*const SSE4Vec mask = _mm_cmplt_ss(left_near_t, right_near_t); // mask = left_near_t < right_near_t ? 0xFFFFFFFF : 0x0
+								
+								tmin = setMasked(left_near_t, right_near_t, mask); // tmin = mask ? left_near_t : right_near_t
+								tmax = setMasked(left_far_t, right_far_t, mask);
+
+								const uint32 left_idx = bvh.nodes[current].getLeftChildIndex();
+								const uint32 right_idx = bvh.nodes[current].getRightChildIndex();
+								const SSE4Vec left = _mm_load_ss((const float*)&left_idx);
+								const SSE4Vec right = _mm_load_ss((const float*)&right_idx);
+								const SSE4Vec near = setMasked(left, right, mask);
+								const SSE4Vec far = setMasked(right, left, mask);
+
+								_mm_store_ss((float*)&current, near); // current = near
+								_mm_store_ss((float*)&context.bvh_stack[stacktop], far); // context.bvh_stack[stacktop] = far*/
 
 							} else {
 								if(T::testAgainstTriangles(bvh, bvh.nodes[current].getLeftGeomIndex(), bvh.nodes[current].getLeftNumGeom(), ray, use_min_t, hitinfo_out, closest_dist, thread_context, object, ignore_tri))

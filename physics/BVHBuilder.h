@@ -43,6 +43,10 @@ public:
 		bool verbose, 
 		BVHBuilderCallBacks& callback
 	);
+
+
+	int getMaxLeafDepth() const { return max_leaf_depth; }
+
 private:
 	/*
 	Assumptions: root node for subtree is already created and is at node_index
