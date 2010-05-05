@@ -182,6 +182,10 @@ OpenCL::OpenCL()
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(device_global_mem_size), &device_global_mem_size, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
+			size_t device_image2d_max_width = 0;
+			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetDeviceInfo failed");
+
 			std::cout << "device_name: " << device_name << std::endl;
 			std::cout << "driver_version: " << driver_version << std::endl;
 			std::cout << "device_profile: " << device_profile << std::endl;
@@ -189,6 +193,7 @@ OpenCL::OpenCL()
 			std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
 			std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
 			std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
+			std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
 
 			for(size_t z=0; z<device_max_num_work_items.size(); ++z)
 				std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
