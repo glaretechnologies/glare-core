@@ -21,7 +21,11 @@ Code By Nicholas Chapman.
 #include <time.h>
 #include <unistd.h>
 #include <string.h> /* for strncpy */
-#include <sys/sysinfo.h>
+
+#ifndef OSX
+	#include <sys/sysinfo.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -91,11 +95,27 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	return mem_state.ullTotalPhys;
 #else
 
+#ifdef OSX
+
+	int mib[2];  
+	uint64_t memsize;  
+	size_t len;  
+
+	mib[0] = CTL_HW;  
+	mib[1] = HW_MEMSIZE; /*uint64_t: physical ram size */  
+	len = sizeof(memsize);  
+	sysctl(mib, 2, &memsize, &len, NULL, 0);
+
+	return memsize;
+
+#else
 	struct sysinfo info;
 	if(sysinfo(&info) != 0)
 		throw PlatformUtilsExcep("sysinfo failed.");
 
 	return info.totalram;
+#endif
+
 #endif
 }
 
