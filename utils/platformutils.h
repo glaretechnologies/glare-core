@@ -88,7 +88,7 @@ void openFileBrowserWindowAtLocation(const std::string& select_path);
 const std::string getLastErrorString();
 
 
-uint32 getProcessID();
+uint64 getProcessID();
 
 
 enum ProcessPriority

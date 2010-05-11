@@ -520,7 +520,12 @@ bool isDirectory(const std::string& pathname)
 
 	return false;
 #else
-#error "implement me! i'm isDirectory(const std::string& pathname)"
+	struct stat buffer;
+	const int status = stat(pathname.c_str(), &buffer);
+	if(status != 0)
+		return false; // No such file
+
+	return S_ISDIR(buffer.st_mode);
 #endif
 }
 

@@ -9,6 +9,7 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 
 #include "../maths/vec3.h"
 #include "../utils/Exception.h"
+#include "../utils/stringutils.h"
 #include <algorithm>
 #include <set>
 #include "../indigo/ThreadContext.h"
@@ -128,8 +129,8 @@ uint32 PointKDTree::getNearestPointDebug(const std::vector<Vec3f>& points, const
 void PointKDTree::printTree(std::ostream& stream, unsigned int node_index, unsigned int depth) const
 {
 	for(unsigned int i=0; i<depth; ++i)
-		stream << "    ";
-	stream << "node index: " << node_index << " " /*<< nodes[node_index].point.toString()*/ << " left: " << nodes[node_index].left << ", right: " << nodes[node_index].right << "\n";
+		stream << std::string("    ");
+	stream << std::string("node index: ") << ::toString(node_index) << std::string(" ") /*<< nodes[node_index].point.toString()*/ << std::string(" left: ") << nodes[node_index].left << std::string(", right: ") << nodes[node_index].right << std::string("\n");
 
 	//process neg child
 	if(nodes[node_index].left != NULL_NODE_INDEX)

@@ -63,6 +63,55 @@ inline static bool myAdapterInfoComparisonPred(const MyAdapterInfo& a, const MyA
 #endif
 
 
+#if defined(WIN32) || defined(WIN64)
+#else
+#ifndef OSX
+// From http://www.creatis.insa-lyon.fr/~malaterre/gdcm/getether/mac_addr_sys.c
+long mac_addr_sys ( u_char *addr)
+{
+    struct ifreq ifr;
+    struct ifreq *IFR;
+    struct ifconf ifc;
+    char buf[1024];
+    int s, i;
+    int ok = 0;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s==-1) {
+        return -1;
+    }
+
+    ifc.ifc_len = sizeof(buf);
+    ifc.ifc_buf = buf;
+    ioctl(s, SIOCGIFCONF, &ifc);
+
+    IFR = ifc.ifc_req;
+    for (i = ifc.ifc_len / sizeof(struct ifreq); --i >= 0; IFR++) {
+
+        strcpy(ifr.ifr_name, IFR->ifr_name);
+        if (ioctl(s, SIOCGIFFLAGS, &ifr) == 0) {
+            if (! (ifr.ifr_flags & IFF_LOOPBACK)) {
+                if (ioctl(s, SIOCGIFHWADDR, &ifr) == 0) {
+                    ok = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    close(s);
+    if (ok) {
+        bcopy( ifr.ifr_hwaddr.sa_data, addr, 6);
+    }
+    else {
+        return -1;
+    }
+    return 0;
+}
+#endif
+#endif
+
+
 void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -161,3 +210,4 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	}
 #endif
 }
+

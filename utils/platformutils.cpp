@@ -17,9 +17,11 @@ Code By Nicholas Chapman.
 #include <intrin.h>
 #include <shlobj.h>
 #else
+#include <errno.h>
 #include <time.h>
 #include <unistd.h>
 #include <string.h> /* for strncpy */
+#include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -88,7 +90,12 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	
 	return mem_state.ullTotalPhys;
 #else
-#error Implement me!
+
+	struct sysinfo info;
+	if(sysinfo(&info) != 0)
+		throw PlatformUtilsExcep("sysinfo failed.");
+
+	return info.totalram;
 #endif
 }
 
@@ -129,58 +136,11 @@ const std::string PlatformUtils::getLoggedInUserName()
 	return StringUtils::WToUTF8String(buffer);
 
 #else
-#error Implement me, use getenv
+	if(!getenv("USER"))
+		throw PlatformUtilsExcep("getLoggedInUserName(): getenv failed.");
+	return getenv("USER");
 #endif
 }
-
-
-#if defined(WIN32) || defined(WIN64)
-#else
-#ifndef OSX
-// From http://www.creatis.insa-lyon.fr/~malaterre/gdcm/getether/mac_addr_sys.c
-long mac_addr_sys ( u_char *addr)
-{
-    struct ifreq ifr;
-    struct ifreq *IFR;
-    struct ifconf ifc;
-    char buf[1024];
-    int s, i;
-    int ok = 0;
-
-    s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s==-1) {
-        return -1;
-    }
-
-    ifc.ifc_len = sizeof(buf);
-    ifc.ifc_buf = buf;
-    ioctl(s, SIOCGIFCONF, &ifc);
-
-    IFR = ifc.ifc_req;
-    for (i = ifc.ifc_len / sizeof(struct ifreq); --i >= 0; IFR++) {
-
-        strcpy(ifr.ifr_name, IFR->ifr_name);
-        if (ioctl(s, SIOCGIFFLAGS, &ifr) == 0) {
-            if (! (ifr.ifr_flags & IFF_LOOPBACK)) {
-                if (ioctl(s, SIOCGIFHWADDR, &ifr) == 0) {
-                    ok = 1;
-                    break;
-                }
-            }
-        }
-    }
-
-    close(s);
-    if (ok) {
-        bcopy( ifr.ifr_hwaddr.sa_data, addr, 6);
-    }
-    else {
-        return -1;
-    }
-    return 0;
-}
-#endif
-#endif
 
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
@@ -456,17 +416,17 @@ const std::string PlatformUtils::getLastErrorString()
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
 #else
-#error implement me!
+	return "[Unknown (error code=" + ::toString(errno) + "]";
 #endif
 }
 
 
-uint32 PlatformUtils::getProcessID()
+uint64 PlatformUtils::getProcessID()
 {
 #if defined(WIN32) || defined(WIN64)
 	return ::GetCurrentProcessId();
 #else
-#error implement me!
+	return getpid();
 #endif
 }
 
@@ -485,7 +445,8 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 			throw PlatformUtilsExcep("SetPriorityClass failed: " + getLastErrorString());
 	}
 #else
-#error implement me, maybe?
+	// For now, we'll just make this a Null op.
+	//#error implement me, maybe?
 #endif
 }
 

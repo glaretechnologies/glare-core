@@ -5,7 +5,7 @@
 #pragma once
 
 
-#include "MyThread.h"
+#include "mythread.h"
 #include "platformutils.h"
 #include "../maths/mathstypes.h"
 #include <vector>
