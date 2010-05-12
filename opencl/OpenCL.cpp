@@ -16,6 +16,7 @@ Code By Nicholas Chapman.
 #include <iostream>
 #include <cmath>
 #include "../maths/mathstypes.h"
+#include "../indigo/gpuDeviceInfo.h"
 
 /*
 #define checkFunctionPointer(f) (_checkFunctionPointer(f, #f));
@@ -40,7 +41,6 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 
 OpenCL::OpenCL()
 {
-	
 #if USE_OPENCL
 	context = 0;
 	command_queue = 0;
@@ -84,6 +84,7 @@ OpenCL::OpenCL()
 	//fgsdfgsdfgsdfg CHANGE ME TO USE DEVICE ID QUERIED FROM gpuDeviceQuery!!!!
 
 	cl_platform_id platform_to_use = 0;
+	uint64 best_device_perf = 0;
 
 	std::vector<cl_platform_id> platform_ids(128);
 	cl_uint num_platforms = 0;
@@ -147,7 +148,7 @@ OpenCL::OpenCL()
 			std::vector<char> buf(100000);
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, buf.size(), &buf[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
-			const std::string device_name(&buf[0]);
+			const std::string device_name_(&buf[0]);
 			if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, buf.size(), &buf[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 			const std::string driver_version(&buf[0]);
@@ -186,7 +187,7 @@ OpenCL::OpenCL()
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
-			std::cout << "device_name: " << device_name << std::endl;
+			std::cout << "device_name: " << device_name_ << std::endl;
 			std::cout << "driver_version: " << driver_version << std::endl;
 			std::cout << "device_profile: " << device_profile << std::endl;
 			std::cout << "device_version: " << device_version << std::endl;
@@ -202,7 +203,20 @@ OpenCL::OpenCL()
 			std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
 			std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
 
-			this->device_to_use_id = device_ids[d];
+			device_name.push_back(device_name_);
+			device_memory_size.push_back(device_global_mem_size);
+			device_cores.push_back(device_max_compute_units);
+			device_clock.push_back(device_max_clock_frequency);
+
+			// estimate performance as # cores times clock speed
+			uint64 device_perf = device_max_compute_units * device_max_clock_frequency;
+
+			// if this is the best performing device found so far, select it
+			if(best_device_perf < device_perf)
+			{
+				this->device_to_use_id = device_ids[d];
+				best_device_perf = device_perf;
+			}
 		}
 	}
 
@@ -555,4 +569,13 @@ const std::string OpenCL::errorString(cl_int result)
 		default: return "[Unknown: " + ::toString(result) + "]";
 	};
 }
+
+
+// Accessor methods for device data queried in the constructor.
+std::vector<std::string> OpenCL::getDeviceNames() const { return device_name; }
+std::vector<uint64> OpenCL::getDeviceMemorySizes() const { return device_memory_size; }
+std::vector<int> OpenCL::getDeviceCoreCount() const { return device_cores; }
+std::vector<int> OpenCL::getDeviceCoreClock() const { return device_clock; }
+
+
 #endif

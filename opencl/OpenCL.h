@@ -12,11 +12,13 @@ Code By Nicholas Chapman.
 
 #define NOMINMAX
 #include <windows.h>
+#include "../utils/platform.h"
 
 #include <CL/cl.h>
 //#include <CL/clext.h>
 
 #include <string>
+#include <vector>
 
 extern "C" 
 {
@@ -68,6 +70,11 @@ public:
 #if USE_OPENCL
 	static const std::string errorString(cl_int result);
 
+	std::vector<std::string> getDeviceNames() const;
+	std::vector<uint64> getDeviceMemorySizes() const;
+	std::vector<int> getDeviceCoreCount() const;
+	std::vector<int> getDeviceCoreClock() const;
+
 //private:
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
@@ -94,9 +101,15 @@ public:
 	clGetProgramInfo_TYPE clGetProgramInfo;
 
 	HMODULE module;
+
 	cl_device_id device_to_use_id;
 	cl_context context;
 	cl_command_queue command_queue;
+
+	std::vector<std::string> device_name;
+	std::vector<uint64> device_memory_size;
+	std::vector<int> device_cores;
+	std::vector<int> device_clock;
 #endif
 };
 
