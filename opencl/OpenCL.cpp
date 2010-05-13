@@ -7,9 +7,11 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
+#if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #include <windows.h>
+#endif
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
@@ -29,6 +31,7 @@ static void _checkFunctionPointer(T f, const std::string& name)
 }*/
 
 
+#if defined(WIN32) || defined(WIN64)
 template <class FuncPointerType>
 static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 {
@@ -37,6 +40,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
 	return f;
 }
+#endif
 
 
 OpenCL::OpenCL()
