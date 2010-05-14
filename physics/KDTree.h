@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 
 #include "jscol_triangle.h"
 #include "jscol_Tree.h"
-#include "jscol_BadouelTri.h"
+//#include "jscol_BadouelTri.h"
 #include "KDTreeNode.h"
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"

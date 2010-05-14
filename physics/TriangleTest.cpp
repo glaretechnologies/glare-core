@@ -50,11 +50,13 @@ TriangleTest::~TriangleTest()
 
 static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
-	const float min_t = 0.0f;
+	//const float min_t = 0.0f;
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	UnionVec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
-		min_t,
+		//min_t,
+		epsilon,
 		tri[0].data, tri[1].data, tri[2].data, tri[3].data,
 		&u, &v, &t, &hit
 		);
@@ -62,7 +64,7 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 	for(int i=0; i<4; ++i)
 	{
 		float ref_u, ref_v, ref_t;
-		const bool ref_hit = tri[i].rayIntersect(ray, 1.0e9f, ref_t, ref_u, ref_v) != 0;
+		const bool ref_hit = tri[i].rayIntersect(ray, 1.0e9f, epsilon, ref_t, ref_u, ref_v) != 0;
 
 		if(ref_hit || (hit.i[i] != 0))
 		{
@@ -186,31 +188,39 @@ void TriangleTest::doTests()
 		{
 		const Ray ray(
 			Vec4f(0.1f, 0.1f, -0.00001f, 1.f), // startpos
-			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)), // dir
-			Vec4f(0,0,1, 0.f) // launch normal
+			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)) // dir
+#if USE_LAUNCH_NORMAL
+			,Vec4f(0,0,1, 0.f) // launch normal
+#endif
 		);
 
+		const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+
 		float dist, u, v;
-		const unsigned int hit = t.rayIntersect(ray, 10000.0f, dist, u, v);
+		const unsigned int hit = t.rayIntersect(ray, 10000.0f, epsilon, dist, u, v);
 		testAssert(hit == 0);
 
 		testSingleTriIntersection(ray, t);
 		}
 
 		// Start ray just under tri, with same different normal.  Should self intersect.
-		{
+		/*{
 		const Ray ray(
 			Vec4f(0.1f, 0.1f, -0.00001f, 1.f), // startpos
-			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)), // dir
+			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)) // dir
+#if USE_LAUNCH_NORMAL
 			normalise(Vec4f(1,0,1, 0.f)) // launch normal
+#endif
 		);
 
+		const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+
 		float dist, u, v;
-		const unsigned int hit = t.rayIntersect(ray, 10000.0f, dist, u, v);
+		const unsigned int hit = t.rayIntersect(ray, 10000.0f, epsilon, dist, u, v);
 		testAssert(hit != 0);
 
 		testSingleTriIntersection(ray, t);
-		}
+		}*/
 
 	}
 

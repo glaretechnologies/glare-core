@@ -89,7 +89,7 @@ public:
 	}*/
 
 
-	inline unsigned int rayIntersect(const Ray& ray/*, float ray_t_min*/, float ray_t_max, float& dist_out, float& u_out, float& v_out) const //non zero if hit
+	inline unsigned int rayIntersect(const Ray& ray, float ray_t_max, float epsilon, float& dist_out, float& u_out, float& v_out) const //non zero if hit
 	{
 #if 1
 		const Vec3f v0(data);
@@ -133,6 +133,7 @@ public:
 		if(t < 0.0f)
 			return 0;
 
+
 #if USE_LAUNCH_NORMAL
 		/*
 		t = e1 x e2 / ||e1 x e2||
@@ -168,15 +169,18 @@ public:
 			//	return 0;
 		}*/
 #else
-		const float C = 0.00005f;
+		/*const float C = 0.00005f;
 		const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
 
 		if(t*t < ray_t_min_sqd)
+			return 0;*/
+
+		// NEW
+		if(t < epsilon)
 			return 0;
 #endif
 
-		//if(t < ray_t_min) // 0.0f)
-		//	return 0;
+		
 
 		if(t >= ray_t_max)
 			return 0;
@@ -310,7 +314,8 @@ public:
 
 	inline static void intersectTris(
 		const Ray* const ray,
-		float use_min_t,
+		//float use_min_t,
+		float epsilon,
 		const float* const t0data,
 		const float* const t1data,
 		const float* const t2data,
@@ -407,6 +412,7 @@ public:
 			);
 
 		//NEW:
+#if USE_LAUNCH_NORMAL
 		// tri_n = cross(edge1, edge2)
 		const __m128 tri_n_x = _mm_sub_ps(_mm_mul_ps(edge1_y, edge2_z), _mm_mul_ps(edge1_z, edge2_y));
 		const __m128 tri_n_y = _mm_sub_ps(_mm_mul_ps(edge1_z, edge2_x), _mm_mul_ps(edge1_x, edge2_z));
@@ -458,18 +464,20 @@ public:
 			_mm_max_ps(e1_len_sqd, e2_len_sqd),
 			Cvec // _mm_load_ps1(&C_sqd)
 			);
+#endif
 
-
-		// hit = (t >= ray_min_t && u >= 0.0 && u <= 1.0 && v >= 0.0 && u+v <= 1.0)
 		const __m128 hit = _mm_and_ps(
-				//_mm_cmpge_ps(t, _mm_load_ps1(&use_min_t)/*zero*/),
+#if USE_LAUNCH_NORMAL
 				_mm_and_ps(
 					_mm_cmpge_ps(t, zero), // t >= 0.0
 					_mm_cmpge_ps(_mm_mul_ps(t, t), ray_t_min_sqd) // t*t >= ray_t_min_sqd
 				),
+#else
+				_mm_cmpge_ps(t, _mm_load_ps1(&epsilon)), // t >= epsilon
+#endif
 				_mm_and_ps(
-					_mm_and_ps(_mm_cmpge_ps(u, zero), _mm_cmple_ps(u, one)),
-					_mm_and_ps(_mm_cmpge_ps(v, zero), _mm_cmple_ps(_mm_add_ps(u, v), one))
+					_mm_and_ps(_mm_cmpge_ps(u, zero), _mm_cmple_ps(u, one)), // u >= 0 && u <= 1
+					_mm_and_ps(_mm_cmpge_ps(v, zero), _mm_cmple_ps(_mm_add_ps(u, v), one)) // v >= 0 && u+v <= 1
 				)
 			);
 

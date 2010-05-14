@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "BVHNode.h"
 #include "jscol_Tree.h"
 #include "jscol_Intersectable.h"
-#include "jscol_BadouelTri.h"
+//#include "jscol_BadouelTri.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"

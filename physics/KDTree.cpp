@@ -36,12 +36,15 @@ Code By Nicholas Chapman.
 #define DO_PREFETCHING 1
 
 
-const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
-const uint32 TREE_CACHE_VERSION = 1;
+static const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
+static const uint32 TREE_CACHE_VERSION = 1;
 
 
 namespace js
 {
+
+
+//static const float EPSILON_FACTOR = 1.0e-4f;
 
 
 //#define RECORD_TRACE_STATS 1
@@ -177,6 +180,8 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
 	#ifdef RECORD_TRACE_STATS
@@ -311,6 +316,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 					ray,
 					//use_min_t, // ray t min
 					closest_dist, //max t NOTE: because we're using the tri hash, this can't just be the current leaf volume interval.
+					epsilon, // Epsilon NEW
 					raydist, //distance out
 					u, v)//A != 0
 					//&& (ignore_tri != triangle_index)
@@ -347,6 +353,8 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 	assertSSEAligned(&ray);
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
+
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -475,6 +483,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 					ray,
 					//use_min_t, // ray_t_min
 					ray_max_t_f, // ray_max_t_f is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
+					epsilon, // Epsilon
 					raydist, //distance out
 					u, v)
 					&& triangle_index != ignore_tri // NEW: ignore intersection if we are supposed to ignore this triangle.
@@ -503,6 +512,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	assertSSEAligned(&ray);
 	assertSSEAligned(object);
 	assert(!nodes.empty());
+
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -628,6 +639,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 					ray, 
 					//use_min_t, // ray_t_min
 					closest_dist, 
+					epsilon,
 					raydist, 
 					u, v))
 				{
@@ -826,7 +838,7 @@ void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output, bo
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
 
 		if(verbose)
-			print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(js::BadouelTri)));
+			print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
 
 		//------------------------------------------------------------------------
 		//calc root node's aabbox
@@ -1035,6 +1047,8 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+
 	Real closest_dist = std::numeric_limits<Real>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
@@ -1044,7 +1058,7 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 
 		if(intersect_tris[i].rayIntersect(ray, 
 			//ray.minT(), // ray_t_min
-			(float)closest_dist, raydist, u, v))
+			(float)closest_dist, epsilon, raydist, u, v))
 		{
 			assert(raydist < closest_dist);
 
@@ -1063,6 +1077,8 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 
 void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
+	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
 		float u, v, raydist;
@@ -1070,7 +1086,7 @@ void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hit
 
 		if(intersect_tris[i].rayIntersect(ray, 
 			//ray.minT(), // ray_t_min
-			std::numeric_limits<float>::max(), raydist, u, v))
+			std::numeric_limits<float>::max(), epsilon, raydist, u, v))
 		{
 			hitinfos_out.push_back(DistanceHitInfo(
 				i,

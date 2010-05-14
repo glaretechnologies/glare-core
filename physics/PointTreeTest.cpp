@@ -64,7 +64,7 @@ void PointTreeTest::test()
 	{
 		std::vector<Vec3f> points;
 		MTwister rng(1);
-		for(int i=0; i<10000; ++i)
+		for(int i=0; i<1000; ++i)
 		{
 			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
 		}
@@ -72,7 +72,7 @@ void PointTreeTest::test()
 		ThreadContext context;
 		PointKDTree tree(points);
 
-		for(int i=0; i<10000; ++i)
+		for(int i=0; i<1000; ++i)
 		{
 			const Vec3f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
@@ -87,7 +87,7 @@ void PointTreeTest::test()
 	{
 		std::vector<Vec3f> points;
 		MTwister rng(1);
-		for(int i=0; i<10000; ++i)
+		for(int i=0; i<1000; ++i)
 		{
 			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * 1000.0f);
 		}
@@ -95,7 +95,7 @@ void PointTreeTest::test()
 		ThreadContext context;
 		PointKDTree tree(points);
 
-		for(int i=0; i<10000; ++i)
+		for(int i=0; i<1000; ++i)
 		{
 			const Vec3f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom());
 
@@ -108,5 +108,5 @@ void PointTreeTest::test()
 	}
 
 
-	exit(0);
+	//exit(0);
 }

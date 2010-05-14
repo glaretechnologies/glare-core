@@ -22,6 +22,7 @@ namespace js
 /*=====================================================================
 BadouelTri
 ----------
+Not used by either the current production kdtree or BVH.
 Should be 48 bytes
 =====================================================================*/
 class BadouelTri

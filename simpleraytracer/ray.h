@@ -18,7 +18,7 @@ You may *not* use this code for any commercial project.
 #include "../maths/SSE.h"
 
 
-#define USE_LAUNCH_NORMAL 1
+//#define USE_LAUNCH_NORMAL 1
 
 
 SSE_CLASS_ALIGN Ray

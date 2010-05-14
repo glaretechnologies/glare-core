@@ -37,6 +37,9 @@ private:
 };
 
 
+const float TREE_EPSILON_FACTOR = 1.0e-4f;
+
+
 /*=====================================================================
 Tree
 ----
@@ -55,6 +58,7 @@ public:
 	virtual ~Tree();
 
 	typedef float Real;
+
 
 	static const unsigned int MAX_TREE_DEPTH = 63;
 

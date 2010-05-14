@@ -536,7 +536,8 @@ class TraceRayFunctions
 public:
 	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
 		const Ray& ray,
-		float use_min_t,
+		//float use_min_t,
+		float epsilon,
 		HitInfo& hitinfo_out,
 		float& best_t,
 		ThreadContext& thread_context,
@@ -552,7 +553,7 @@ public:
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
 
 			UnionVec4 u, v, t, hit;
-			MollerTrumboreTri::intersectTris(&ray, use_min_t, t0, t1, t2, t3, 
+			MollerTrumboreTri::intersectTris(&ray, epsilon, t0, t1, t2, t3, 
 				&u, &v, &t, &hit
 				);
 
@@ -606,7 +607,8 @@ class DoesFiniteRayHitFunctions
 public:
 	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
 		const Ray& ray,
-		float use_min_t,
+		//float use_min_t,
+		float epsilon,
 		HitInfo& hitinfo_out,
 		float& best_t,
 		ThreadContext& thread_context,
@@ -622,7 +624,7 @@ public:
 			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
 
 			UnionVec4 u, v, t, hit;
-			MollerTrumboreTri::intersectTris(&ray, use_min_t, t0, t1, t2, t3, 
+			MollerTrumboreTri::intersectTris(&ray, /*use_min_t, */epsilon, t0, t1, t2, t3, 
 				&u, &v, &t, &hit
 				);
 
