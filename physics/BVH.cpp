@@ -17,6 +17,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
+#include "../utils/Sort.h"
 
 
 namespace js
@@ -110,6 +111,21 @@ private:
 };
 
 
+class CenterKey
+{
+public:
+	CenterKey(int axis_, const std::vector<Vec3f>& tri_centers_) : axis(axis_), tri_centers(tri_centers_) {}
+
+	inline float operator()(uint32 i)
+	{
+		return tri_centers[i][axis];
+	}
+private:
+	int axis;
+	const std::vector<Vec3f>& tri_centers;
+};
+
+
 static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
 {
 	pos_out.x[0] = p.x;
@@ -183,7 +199,23 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 				tris[axis][i] = i;
 
 			// Sort based on center along axis 'axis'
-			std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
+
+			//std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
+
+			CenterKey center_key(axis, tri_centers);
+			Sort::radixSort<uint32, CenterKey>(&(*tris[axis].begin()), tris[axis].size(), center_key);
+
+			if(false) // Enable this code to check the triangle indices are sorted.
+			{
+				for(size_t i=1; i<tris[axis].size(); ++i)
+				{
+					if(tri_centers[tris[axis][i]][axis] <tri_centers[tris[axis][i-1]][axis])
+					{
+						print_output.print("Error: not sorted!");	
+						exit(1);
+					}
+				}
+			}
 		}
 		if(verbose) print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
