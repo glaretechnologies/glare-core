@@ -104,12 +104,12 @@ public:
 		//unsigned int num_subdivisions,
 		//const std::vector<Plane<float> >& camera_clip_planes,
 		bool smooth,
-		const std::vector<RayMeshTriangle>& tris_in, 
+		const js::Vector<RayMeshTriangle, 16>& tris_in, 
 		const std::vector<RayMeshVertex>& verts_in, 
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		std::vector<RayMeshTriangle>& tris_out, 
+		js::Vector<RayMeshTriangle, 16>& tris_out, 
 		std::vector<RayMeshVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
 		);

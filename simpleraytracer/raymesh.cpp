@@ -127,10 +127,20 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 	//if(!this->enable_normal_smoothing)
 	if(this->triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
 	{
-		Vec4f n;
-		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
-		this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
-		return n;
+		//Vec4f n;
+		////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
+		//this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
+		//return n;
+
+		const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+		const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+		const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+		const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+		const Vec3f e0(v1.pos - v0.pos);
+		const Vec3f e1(v2.pos - v0.pos);
+		return RayMesh::Vec3Type((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+								 (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+								 (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
 	}
 
 	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
@@ -158,33 +168,50 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	Vec4f n;
-	//triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
-	//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
-	this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
-	return n;
-	//return triNormal(hitinfo.sub_elem_index).toVec4fVector(); // This is slower :(
+	//Vec4f n;
+	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
+	////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
+	//this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
+	//return n;
+	////return triNormal(hitinfo.sub_elem_index).toVec4fVector(); // This is slower :(
+
+	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	const Vec3f e0(v1.pos - v0.pos);
+	const Vec3f e1(v2.pos - v0.pos);
+	return RayMesh::Vec3Type((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+							 (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+							 (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
 }
 
 
 void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const
 {
 	// Set N_g_os_out
-	//triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
-	//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_g_os_out);
-	this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(N_g_os_out);
+	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
+	////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_g_os_out);
+	//this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(N_g_os_out);
+	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	const Vec3f e0(v1.pos - v0.pos);
+	const Vec3f e1(v2.pos - v0.pos);
+	N_g_os_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
 
 	// Set N_s_os_out
 	//if(!this->enable_normal_smoothing)
-	if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
+	if(tri.getUseShadingNormals() == 0)
 	{
 		//this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_s_os_out);
 		N_s_os_out = N_g_os_out;
 	}
 	else
 	{
-		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
-
 		const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
 		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
 		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
@@ -255,7 +282,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
 			camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
 
-		std::vector<RayMeshTriangle> temp_tris;
+		js::Vector<RayMeshTriangle, 16> temp_tris;
 		std::vector<RayMeshVertex> temp_verts;
 		std::vector<Vec2f> temp_uvs;
 
@@ -322,14 +349,27 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	//NEW: Build triangle_geom_normals
 	//this->triangle_geom_normals.resize(this->triangles.size());
-	for(size_t i=0; i<this->triangles.size(); ++i)
+	const size_t num_tris = triangles.size();
+	for(size_t i = 0; i < num_tris; ++i)
 	{
-		//this->triangle_geom_normals[i] = 
-		this->triangles[i].geom_normal = 
-			::normalise(::crossProduct(
-			this->triVertPos(i, 1) - this->triVertPos(i, 0), // v1 - v0
-			this->triVertPos(i, 2) - this->triVertPos(i, 0) // v2 - v0
-		));
+		////this->triangle_geom_normals[i] = 
+		//this->triangles[i].geom_normal = 
+		//	::normalise(::crossProduct(
+		//	this->triVertPos(i, 1) - this->triVertPos(i, 0), // v1 - v0
+		//	this->triVertPos(i, 2) - this->triVertPos(i, 0) // v2 - v0
+		//));
+
+		RayMeshTriangle& tri(triangles[i]);
+		const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+		const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+		const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+		const double p0[3] = { (double)v0.pos.x, (double)v0.pos.y, (double)v0.pos.z };
+		const double e0[3] = { (double)v1.pos.x - p0[0], (double)v1.pos.y - p0[1], (double)v1.pos.z - p0[2] };
+		const double e1[3] = { (double)v2.pos.x - p0[0], (double)v2.pos.y - p0[1], (double)v2.pos.z - p0[2] };
+		const double nv[3] = {  e0[1] * e1[2] - e0[2] * e1[1],
+								e0[2] * e1[0] - e0[0] * e1[2],
+								e0[0] * e1[1] - e0[1] * e1[0] };
+		tri.inv_cross_magnitude = (float)(1.0 / sqrt(nv[0] * nv[0] + nv[1] * nv[1] + nv[2] * nv[2]));
 	}
 
 	try
@@ -579,6 +619,7 @@ void RayMesh::addVertexUnchecked(const Vec3f& pos, const Vec3f& normal)
 }
 
 
+// This can be optimised quite a bit...
 inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
 {
 	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
@@ -737,25 +778,40 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 
 	// Compute barycentric coords
 	const Vec3RealType u = s * (1.0f - t);
-	const Vec3RealType v = (s * t);
+	const Vec3RealType v = s * t;
 
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
 	//triNormal(sub_elem_index).vectorToVec4f(normal_out);
 	//this->triangle_geom_normals[sub_elem_index].vectorToVec4f(normal_out);
-	this->triangles[sub_elem_index].geom_normal.vectorToVec4f(normal_out);
+	//this->triangles[sub_elem_index].geom_normal.vectorToVec4f(normal_out);
+	const RayMeshTriangle& tri(this->triangles[sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	const Vec3f e0(v1.pos - v0.pos);
+	const Vec3f e1(v2.pos - v0.pos);
+	//normal_out = crossProduct(e0, e1) * tri.inv_cross_magnitude;
+	normal_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+
+
 	assert(normal_out.isUnitLength());
 
-	Vec4f a, b, c;
-	triVertPos(sub_elem_index, 0).pointToVec4f(a);
-	triVertPos(sub_elem_index, 1).pointToVec4f(b);
-	triVertPos(sub_elem_index, 2).pointToVec4f(c);
+	//Vec4f a, b, c;
+	//triVertPos(sub_elem_index, 0).pointToVec4f(a);
+	//triVertPos(sub_elem_index, 1).pointToVec4f(b);
+	//triVertPos(sub_elem_index, 2).pointToVec4f(c);
 
-	pos_out = 
-		a * (1.0f - s) + 
-		b * u + 
-		c * v;
+	//pos_out = 
+	//	v0.pos * (1.0f - s) + 
+	//	v1.pos * u + 
+	//	v2.pos * v;
+	pos_out.set(v0.pos.x * (1 - s) + v1.pos.x * u + v2.pos.x * v,
+				v0.pos.y * (1 - s) + v1.pos.y * u + v2.pos.y * v,
+				v0.pos.z * (1 - s) + v1.pos.z * u + v2.pos.z * v, 1);
 
 	/*pos_out = 
 		triVertPos(sub_elem_index, 0) * (1.0f - s) + 

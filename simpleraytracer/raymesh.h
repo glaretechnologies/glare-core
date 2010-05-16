@@ -39,7 +39,8 @@ public:
 	uint32 vertex_indices[3];
 	uint32 uv_indices[3];
 	
-	Vec3f geom_normal;
+	//Vec3f geom_normal;
+	float inv_cross_magnitude;
 
 	inline void setUseShadingNormals(bool b)
 	{
@@ -179,7 +180,8 @@ public:
 
 
 	const std::vector<RayMeshVertex>& getVertices() const { return vertices; }
-	const std::vector<RayMeshTriangle>& getTriangles() const { return triangles; }
+	//const std::vector<RayMeshTriangle>& getTriangles() const { return triangles; }
+	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
 	const unsigned int numUVSets() const { return num_uvs_per_group; }
@@ -227,7 +229,8 @@ private:
 	//unsigned int num_vertices;
 	//std::vector<float> vertex_data;
 	std::vector<RayMeshVertex> vertices;
-	std::vector<RayMeshTriangle> triangles;
+	//std::vector<RayMeshTriangle> triangles;
+	js::Vector<RayMeshTriangle, 16> triangles;
 
 	//std::vector<Vec3f> triangle_geom_normals;
 	
