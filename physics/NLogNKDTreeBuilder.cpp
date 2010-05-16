@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
+#include "../utils/sort.h"
 
 
 namespace js
@@ -43,6 +44,16 @@ public:
 };
 
 
+class LowerKey
+{
+public:
+	inline float operator()(const NLogNKDTreeBuilder::LowerBound& bound)
+	{
+		return bound.lower;
+	}
+};
+
+
 class UpperPred
 {
 public:
@@ -53,11 +64,21 @@ public:
 };
 
 
+class UpperKey
+{
+public:
+	inline float operator()(const NLogNKDTreeBuilder::UpperBound& bound)
+	{
+		return bound.upper;
+	}
+};
+
+
 void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 	unsigned int max_depth = tree.calcMaxDepth();
 
-	//Timer timer;
+	Timer timer;
 	// Build triangle AABBs
 	tri_aabbs.resize(tree.numTris());
 	for(unsigned int i=0; i<tree.numTris(); ++i)
@@ -89,7 +110,7 @@ void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& 
 	}
 
 	//print_output.print("Building layers took " + timer.elapsedString());
-	//timer.reset();
+	timer.reset();
 
 	// Sort bounds
 	#ifndef OSX
@@ -97,10 +118,10 @@ void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& 
 	#endif
 	for(int axis=0; axis<3; ++axis)
 	{
-		std::sort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred());
-		std::sort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred());
+		Sort::floatKeyAscendingSort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred(), LowerKey());
+		Sort::floatKeyAscendingSort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred(), UpperKey());
 	}
-	//print_output.print("Sort took " + timer.elapsedString());
+	if(verbose) print_output.print("\t\tSort took " + timer.elapsedString());
 
 	doBuild(
 		print_output,

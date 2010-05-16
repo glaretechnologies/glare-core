@@ -18,10 +18,32 @@ Derived from http://www.stereopsis.com/radix.html
 =====================================================================*/
 namespace Sort
 {
+
+	template <class RandomAccessIterator, class LessThanPredicate, class Key>
+	inline void floatKeyAscendingSort(RandomAccessIterator begin, RandomAccessIterator end, LessThanPredicate pred, Key key);
+
+
 	template <class T, class Key>
 	inline void radixSort(T* array, uint32 num_elements, Key key);
 
+
 	void test();
+
+
+	template <class RandomAccessIterator, class LessThanPredicate, class Key>
+	inline void floatKeyAscendingSort(RandomAccessIterator begin, RandomAccessIterator end, LessThanPredicate pred, Key key)
+	{
+		// Use std sort for arrays of less than 320 items, because std sort is faster for smaller arrays.
+		const size_t num_elems = end - begin;
+		if(num_elems < 320)
+		{
+			std::sort(begin, end, pred);
+		}
+		else
+		{
+			radixSort(&(*begin), (uint32)num_elems, key);
+		}
+	}
 
 
 	// ---- use SSE prefetch (needs compiler support), not really a problem on non-SSE machines.
@@ -90,6 +112,7 @@ namespace Sort
 	{
 		return FloatFlip(floatAsUInt32(x));
 	}
+
 
 
 	// ================================================================================================

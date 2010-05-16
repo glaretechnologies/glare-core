@@ -10,6 +10,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "jscol_aabbox.h"
 #include <algorithm>
 #include "../utils/Exception.h"
+#include "../utils/Sort.h"
 
 
 BVHBuilder::BVHBuilder()
@@ -36,6 +37,21 @@ public:
 private:
 	int axis;
 	const std::vector<Vec3f>& centers;
+};
+
+
+class CenterKey
+{
+public:
+	CenterKey(int axis_, const std::vector<Vec3f>& tri_centers_) : axis(axis_), tri_centers(tri_centers_) {}
+
+	inline float operator()(uint32 i)
+	{
+		return tri_centers[i][axis];
+	}
+private:
+	int axis;
+	const std::vector<Vec3f>& tri_centers;
 };
 
 
@@ -77,7 +93,7 @@ void BVHBuilder::build(
 			objects[axis][i] = i;
 
 		// Sort based on center along axis 'axis'
-		std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(objects[axis].begin(), objects[axis].end(), CenterPredicate(axis, centers));
+		Sort::floatKeyAscendingSort(objects[axis].begin(), objects[axis].end(), CenterPredicate(axis, centers), CenterKey(axis, centers));
 	}
 
 	// Build root aabb

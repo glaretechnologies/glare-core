@@ -26,6 +26,8 @@ class Item
 public:
 	int i;
 	float f;
+
+	// int padding[16];
 };
 
 
@@ -47,7 +49,6 @@ public:
 		return item.f;
 	}
 };
-
 
 
 void test()
