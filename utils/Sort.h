@@ -14,7 +14,7 @@ Generated at Sat May 15 15:39:54 +1200 2010
 /*=====================================================================
 Sort
 -------------------
-
+Derived from http://www.stereopsis.com/radix.html
 =====================================================================*/
 namespace Sort
 {
@@ -152,49 +152,24 @@ namespace Sort
 			uint32 pos = _0(flippedKey(key(fi)));
 
 			sorted[++b0[pos]] = fi;
-
-
-			//uint32 fi = array[i];
-			//FloatFlipX(fi);
-			//uint32 pos = _0(fi);
-
-			//assert(b0[pos]+1 < elements);
-
-			//pf2(array);
-			//sort[++b0[pos]] = fi;
-
-			//sorted[b0[pos]] = in[i]; // NEW: move T object
 		}
 
 		// byte 1: read/write histogram, copy
 		//   sorted -> array
 		for (uint32 i = 0; i < elements; i++) {
+
 			const T si = sorted[i];
 			uint32 pos = _1(flippedKey(key(si)));
 			in[++b1[pos]] = si;
-
-			//uint32 si = sort[i];
-			//uint32 pos = _1(si);
-			//pf2(sort);
-			//array[++b1[pos]] = si;
-
-			//in[b1[pos]] = sorted[i]; // NEW: move T object
 		}
 
 		// byte 2: read/write histogram, copy & flip out
 		//   array -> sorted
 		for (uint32 i = 0; i < elements; i++) {
+
 			const T ai = in[i];
 			uint32 pos = _2(flippedKey(key(ai)));
 			sorted[++b2[pos]] = ai;
-
-			//uint32 ai = array[i];
-			//uint32 pos = _2(ai);
-
-			//pf2(array);
-			//sort[++b2[pos]] = IFloatFlip(ai);
-
-			//sorted[b2[pos]] = in[i]; // NEW: move T object
 		}
 
 		// to write original:

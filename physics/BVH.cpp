@@ -200,10 +200,11 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 
 			// Sort based on center along axis 'axis'
 
-			//std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
-
-			CenterKey center_key(axis, tri_centers);
-			Sort::radixSort<uint32, CenterKey>(&(*tris[axis].begin()), tris[axis].size(), center_key);
+			// Use std sort for arrays of less than 320 items, because std sort is faster for smaller arrays.
+			if(tris[axis].size() < 320)
+				std::sort<std::vector<unsigned int>::iterator, CenterPredicate>(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers));
+			else
+				Sort::radixSort<uint32, CenterKey>(&(*tris[axis].begin()), tris[axis].size(), CenterKey(axis, tri_centers));
 
 			if(false) // Enable this code to check the triangle indices are sorted.
 			{
