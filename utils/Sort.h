@@ -105,6 +105,7 @@ namespace Sort
 		fi_union u;
 		u.f = x;
 		return u.i;
+		//return (uint32&)x;
 	}
 
 
@@ -171,28 +172,34 @@ namespace Sort
 		// byte 0: floatflip entire value, read/write histogram, write out flipped
 		for (uint32 i = 0; i < elements; i++) {
 
-			const T fi = in[i];
+			/*const T& fi = in[i];
 			uint32 pos = _0(flippedKey(key(fi)));
-
-			sorted[++b0[pos]] = fi;
+			sorted[++b0[pos]] = fi;*/
+			uint32 pos = _0(flippedKey(key(in[i])));
+			sorted[++b0[pos]] = in[i];
 		}
 
 		// byte 1: read/write histogram, copy
 		//   sorted -> array
 		for (uint32 i = 0; i < elements; i++) {
 
-			const T si = sorted[i];
-			uint32 pos = _1(flippedKey(key(si)));
-			in[++b1[pos]] = si;
+			//const T si = sorted[i];
+			//uint32 pos = _1(flippedKey(key(si)));
+			//in[++b1[pos]] = si;
+			uint32 pos = _1(flippedKey(key(sorted[i])));
+			in[++b1[pos]] = sorted[i];
 		}
 
 		// byte 2: read/write histogram, copy & flip out
 		//   array -> sorted
 		for (uint32 i = 0; i < elements; i++) {
 
-			const T ai = in[i];
-			uint32 pos = _2(flippedKey(key(ai)));
-			sorted[++b2[pos]] = ai;
+			//const T ai = in[i];
+			//uint32 pos = _2(flippedKey(key(ai)));
+			//sorted[++b2[pos]] = ai;
+			uint32 pos = _2(flippedKey(key(in[i])));
+			sorted[++b2[pos]] = in[i];
+
 		}
 
 		// to write original:

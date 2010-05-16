@@ -99,6 +99,7 @@ void test()
 		conPrint("N: "  + toString(N));
 		conPrint("radix_time:    " + toString(radix_time) + " s");
 		conPrint("std_sort_time: " + toString(std_sort_time) + " s");
+		conPrint("speedup: " + toString(std_sort_time / radix_time) + " x");
 	}
 
 	exit(0);
