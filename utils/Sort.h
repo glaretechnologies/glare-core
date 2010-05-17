@@ -93,7 +93,6 @@ namespace Sort
 	#define _2(x)	(x >> 22 )
 
 
-
 	finline uint32 floatAsUInt32(float x)
 	{
 		union fi_union
@@ -113,7 +112,6 @@ namespace Sort
 	{
 		return FloatFlip(floatAsUInt32(x));
 	}
-
 
 
 	// ================================================================================================
