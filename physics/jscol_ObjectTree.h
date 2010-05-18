@@ -100,6 +100,8 @@ private:
 	int num_inseparable_tri_leafs; // Num leaves formed when can't separate tris
 	int num_maxdepth_leafs; // Num leaves formed because the max tree depth was hit
 	int num_under_thresh_leafs; // Num leaves formed because the number of tris was less than leaf threshold
+
+	int max_object_index;
 };
 
 

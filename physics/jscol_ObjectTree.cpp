@@ -41,6 +41,7 @@ ObjectTree::ObjectTree()
 	num_inseparable_tri_leafs = 0;
 	num_maxdepth_leafs = 0;
 	num_under_thresh_leafs = 0;
+	max_object_index = 0;
 }
 
 
@@ -51,7 +52,8 @@ ObjectTree::~ObjectTree()
 
 void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 {
-	intersectable->setObjectIndex((int)objects.size());
+	max_object_index = myMax(max_object_index, intersectable->getObjectIndex());
+	//intersectable->setObjectIndex((int)objects.size());
 	objects.push_back(intersectable);
 }
 
@@ -78,7 +80,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
 
 	if(object_context.last_test_time.size() < objects.size())
-		object_context.last_test_time.resize(objects.size());
+		object_context.last_test_time.resize(max_object_index + 1);//objects.size());
 
 	object_context.time++;
 
