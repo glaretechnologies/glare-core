@@ -64,7 +64,8 @@ void BVHBuilder::build(
 		   )
 {
 	if(num_objects <= 0)
-		throw Indigo::Exception("Must be at least one object in tree.");
+		return;
+		//throw Indigo::Exception("Must be at least one object in tree.");
 
 	this->aabbs = aabbs_;
 
