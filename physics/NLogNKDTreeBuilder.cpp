@@ -13,7 +13,8 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
-#include "../utils/sort.h"
+#include "../utils/Sort.h"
+#include <algorithm>
 
 
 namespace js
