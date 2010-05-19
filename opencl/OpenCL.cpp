@@ -247,7 +247,7 @@ OpenCL::OpenCL()
 	this->command_queue = this->clCreateCommandQueue(
 		context,
 		device_to_use_id, // TEMP HACK, may not be same device as context
-		CL_QUEUE_PROFILING_ENABLE, // queue properties  TEMP enabled profiling.
+		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties  TEMP enabled profiling.
 		&error_code);
 
 	if(command_queue == 0)

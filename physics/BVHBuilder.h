@@ -33,7 +33,7 @@ BVHBuilder
 class BVHBuilder
 {
 public:
-	BVHBuilder();
+	BVHBuilder(int leaf_num_object_threshold, float intersection_cost);
 	~BVHBuilder();
 
 	void build(
@@ -67,6 +67,9 @@ private:
 	std::vector<uint32> objects[3];
 	std::vector<uint32> temp[2];
 	std::vector<float> object_max;
+
+	int leaf_num_object_threshold; 
+	float intersection_cost; // Relative to BVH node traversal cost.
 
 	/// build stats ///
 	int num_maxdepth_leaves;

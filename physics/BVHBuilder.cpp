@@ -13,9 +13,11 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/Sort.h"
 
 
-BVHBuilder::BVHBuilder()
+BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, float intersection_cost_)
+:	leaf_num_object_threshold(leaf_num_object_threshold_),
+	intersection_cost(intersection_cost_)
 {
-
+	assert(intersection_cost > 0.f);
 }
 
 
@@ -134,10 +136,9 @@ void BVHBuilder::doBuild(
 			 BVHBuilderCallBacks& callback
 			 )
 {
-	const int LEAF_NUM_TRI_THRESHOLD = 4;
 	const int MAX_DEPTH = 60;
 
-	if(right - left <= LEAF_NUM_TRI_THRESHOLD || depth >= MAX_DEPTH)
+	if(right - left <= leaf_num_object_threshold || depth >= MAX_DEPTH)
 	{
 		// Make this a leaf node
 		callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
@@ -156,7 +157,6 @@ void BVHBuilder::doBuild(
 
 	// Compute best split plane
 	const float traversal_cost = 1.0f;
-	const float intersection_cost = 4.0f;
 	const float aabb_surface_area = aabb.getSurfaceArea();
 	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
 
