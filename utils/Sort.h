@@ -9,6 +9,7 @@ Generated at Sat May 15 15:39:54 +1200 2010
 
 #include "platform.h"
 #include <assert.h>
+#include <algorithm>
 
 
 /*=====================================================================
