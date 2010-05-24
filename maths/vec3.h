@@ -22,6 +22,8 @@ Coded by Nick Chapman in the year 2000-
 #include "Vec4f.h" // For toVec3d()
 #include <assert.h>
 #include <string>
+#include "../utils/platform.h"
+
 
 template <class Real>
 class Vec3
@@ -109,7 +111,7 @@ public:
 		return Vec3(x - rhs.x, y - rhs.y, z - rhs.z);
 	}
 
-	inline const Vec3 operator * (const Vec3& rhs) const
+	INDIGO_STRONG_INLINE const Vec3 operator * (const Vec3& rhs) const
 	{
 		return Vec3(x * rhs.x, y * rhs.y, z * rhs.z);
 	}

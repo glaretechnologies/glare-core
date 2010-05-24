@@ -210,6 +210,11 @@ public:
 		return r == 0.0f && g == 0.0f && b == 0.0f;
 	}
 
+	inline bool nonZero() const
+	{
+		return r != 0.0f || g != 0.0f || b != 0.0f;
+	}
+
 	//assuming in linear sRGB space
 	inline Real luminance() const
 	{

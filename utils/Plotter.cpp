@@ -33,7 +33,8 @@ void Plotter::plot(
 		const std::vector<DataSet>& data
 		)
 {
-	const std::string temp_data_path = "c:/temp/plotdata";
+	const std::string temp_dir = StringUtils::replaceCharacter(PlatformUtils::getTempDirPath(), '\\', '/'); // Gnuplot needs forwards slashes
+	const std::string temp_data_path = temp_dir + "/plotdata.txt";
 
 	// Write data
 	for(unsigned int i=0; i<data.size(); ++i)
@@ -46,7 +47,7 @@ void Plotter::plot(
 
 
 	// Write Gnuplot control script
-	const std::string temp_path = "c:/temp/plot.txt";
+	const std::string temp_path = temp_dir + "/plot.txt";
 
 	{
 		std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_path).c_str());
