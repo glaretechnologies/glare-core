@@ -51,8 +51,8 @@ OpenCL::OpenCL(int platform_id, int device_id)
 
 
 	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
-	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
-	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\atiocl64.dll");
+	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
+	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\atiocl64.dll");
 	module = ::LoadLibrary(path.c_str());
 
 	if(!module)
