@@ -63,7 +63,9 @@ public:
 	------
 	
 	=====================================================================*/
-	OpenCL();
+
+	// If platform_id < 0 it will automatically choose a platform and device id.
+	OpenCL(int platform_id, int device_id);
 
 	~OpenCL();
 

@@ -43,7 +43,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 #endif
 
 
-OpenCL::OpenCL()
+OpenCL::OpenCL(int platform_id, int device_id)
 {
 #if USE_OPENCL
 	context = 0;
@@ -51,7 +51,8 @@ OpenCL::OpenCL()
 
 
 	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
-	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
+	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
+	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\atiocl64.dll");
 	module = ::LoadLibrary(path.c_str());
 
 	if(!module)
@@ -84,144 +85,151 @@ OpenCL::OpenCL()
 	clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
 	clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
 
-	this->device_to_use_id = 0;
-	//fgsdfgsdfgsdfg CHANGE ME TO USE DEVICE ID QUERIED FROM gpuDeviceQuery!!!!
-
 	cl_platform_id platform_to_use = 0;
-	uint64 best_device_perf = 0;
 
-	std::vector<cl_platform_id> platform_ids(128);
-	cl_uint num_platforms = 0;
-	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
-		throw Indigo::Exception("clGetPlatformIDs failed");
-
-	std::cout << "Num platforms: " << num_platforms << std::endl;
-
-	for(cl_uint i=0; i<num_platforms; ++i)
+	if(platform_id < 0)
 	{
-		platform_to_use = platform_ids[i];
+		uint64 best_device_perf = 0;
 
-		std::vector<char> val(100000);
-		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_PROFILE, val.size(), &val[0], NULL) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformInfo failed");
-		const std::string platform_profile(&val[0]);
-		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VERSION, val.size(), &val[0], NULL) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformInfo failed");
-		const std::string platform_version(&val[0]);
-		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, val.size(), &val[0], NULL) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformInfo failed");
-		const std::string platform_name(&val[0]);
-		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, val.size(), &val[0], NULL) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformInfo failed");
-		const std::string platform_vendor(&val[0]);
-		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, val.size(), &val[0], NULL) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformInfo failed");
-		const std::string platform_extensions(&val[0]);
+		std::vector<cl_platform_id> platform_ids(128);
+		cl_uint num_platforms = 0;
+		if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
+			throw Indigo::Exception("clGetPlatformIDs failed");
 
-		std::cout << "platform_id: " << platform_ids[i] << std::endl;
-		std::cout << "platform_profile: " << platform_profile << std::endl;
-		std::cout << "platform_version: " << platform_version << std::endl;
-		std::cout << "platform_name: " << platform_name << std::endl;
-		std::cout << "platform_vendor: " << platform_vendor << std::endl;
-		std::cout << "platform_extensions: " << platform_extensions << std::endl;
+		std::cout << "Num platforms: " << num_platforms << std::endl;
 
-		std::vector<cl_device_id> device_ids(10);
-		cl_uint num_devices = 0;
-		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
-			throw Indigo::Exception("clGetDeviceIDs failed");
-
-		std::cout << num_devices << " devices found." << std::endl;
-
-		for(cl_uint d=0; d<num_devices; ++d)
+		for(cl_uint i=0; i<num_platforms; ++i)
 		{
-			std::cout << "-----------Device " << d << "-----------" << std::endl;
+			platform_to_use = platform_ids[i];
 
-			cl_device_type device_type;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
+			std::vector<char> val(100000);
+			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_PROFILE, val.size(), &val[0], NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetPlatformInfo failed");
+			const std::string platform_profile(&val[0]);
+			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VERSION, val.size(), &val[0], NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetPlatformInfo failed");
+			const std::string platform_version(&val[0]);
+			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, val.size(), &val[0], NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetPlatformInfo failed");
+			const std::string platform_name(&val[0]);
+			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, val.size(), &val[0], NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetPlatformInfo failed");
+			const std::string platform_vendor(&val[0]);
+			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, val.size(), &val[0], NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetPlatformInfo failed");
+			const std::string platform_extensions(&val[0]);
 
-			if(device_type & CL_DEVICE_TYPE_CPU)
-				std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_GPU)
-				std::cout << "device_type: CL_DEVICE_TYPE_GPU" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_ACCELERATOR)
-				std::cout << "device_type: CL_DEVICE_TYPE_ACCELERATOR" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_DEFAULT)
-				std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
+			std::cout << "platform_id: " << platform_ids[i] << std::endl;
+			std::cout << "platform_profile: " << platform_profile << std::endl;
+			std::cout << "platform_version: " << platform_version << std::endl;
+			std::cout << "platform_name: " << platform_name << std::endl;
+			std::cout << "platform_vendor: " << platform_vendor << std::endl;
+			std::cout << "platform_extensions: " << platform_extensions << std::endl;
 
-			std::vector<char> buf(100000);
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, buf.size(), &buf[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			const std::string device_name_(&buf[0]);
-			if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, buf.size(), &buf[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			const std::string driver_version(&buf[0]);
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_PROFILE, buf.size(), &buf[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			const std::string device_profile(&buf[0]);
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_VERSION, buf.size(), &buf[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			const std::string device_version(&buf[0]);
+			std::vector<cl_device_id> device_ids(10);
+			cl_uint num_devices = 0;
+			if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
+				throw Indigo::Exception("clGetDeviceIDs failed");
 
-			cl_uint device_max_compute_units = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(device_max_compute_units), &device_max_compute_units, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			
-			size_t device_max_work_group_size = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(device_max_work_group_size), &device_max_work_group_size, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
+			std::cout << num_devices << " devices found." << std::endl;
 
-			cl_uint device_max_work_item_dimensions = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(device_max_work_item_dimensions), &device_max_work_item_dimensions, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-
-			std::vector<size_t> device_max_num_work_items(device_max_work_item_dimensions);
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * device_max_num_work_items.size(), &device_max_num_work_items[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-
-			cl_uint device_max_clock_frequency = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(device_max_clock_frequency), &device_max_clock_frequency, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-			
-			cl_ulong device_global_mem_size = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(device_global_mem_size), &device_global_mem_size, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-
-			size_t device_image2d_max_width = 0;
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetDeviceInfo failed");
-
-			std::cout << "device_name: " << device_name_ << std::endl;
-			std::cout << "driver_version: " << driver_version << std::endl;
-			std::cout << "device_profile: " << device_profile << std::endl;
-			std::cout << "device_version: " << device_version << std::endl;
-			std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
-			std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
-			std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
-			std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
-
-			for(size_t z=0; z<device_max_num_work_items.size(); ++z)
-				std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
-
-
-			std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
-			std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
-
-			device_name.push_back(device_name_);
-			device_memory_size.push_back(device_global_mem_size);
-			device_cores.push_back(device_max_compute_units);
-			device_clock.push_back(device_max_clock_frequency);
-
-			// estimate performance as # cores times clock speed
-			uint64 device_perf = device_max_compute_units * device_max_clock_frequency;
-
-			// if this is the best performing device found so far, select it
-			if(best_device_perf < device_perf)
+			for(cl_uint d=0; d<num_devices; ++d)
 			{
-				this->device_to_use_id = device_ids[d];
-				best_device_perf = device_perf;
+				std::cout << "-----------Device " << d << "-----------" << std::endl;
+
+				cl_device_type device_type;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				if(device_type & CL_DEVICE_TYPE_CPU)
+					std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_GPU)
+					std::cout << "device_type: CL_DEVICE_TYPE_GPU" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_ACCELERATOR)
+					std::cout << "device_type: CL_DEVICE_TYPE_ACCELERATOR" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_DEFAULT)
+					std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
+
+				std::vector<char> buf(100000);
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, buf.size(), &buf[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				const std::string device_name_(&buf[0]);
+				if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, buf.size(), &buf[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				const std::string driver_version(&buf[0]);
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_PROFILE, buf.size(), &buf[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				const std::string device_profile(&buf[0]);
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_VERSION, buf.size(), &buf[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				const std::string device_version(&buf[0]);
+
+				cl_uint device_max_compute_units = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(device_max_compute_units), &device_max_compute_units, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				
+				size_t device_max_work_group_size = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(device_max_work_group_size), &device_max_work_group_size, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				cl_uint device_max_work_item_dimensions = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(device_max_work_item_dimensions), &device_max_work_item_dimensions, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				std::vector<size_t> device_max_num_work_items(device_max_work_item_dimensions);
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * device_max_num_work_items.size(), &device_max_num_work_items[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				cl_uint device_max_clock_frequency = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(device_max_clock_frequency), &device_max_clock_frequency, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+				
+				cl_ulong device_global_mem_size = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(device_global_mem_size), &device_global_mem_size, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				size_t device_image2d_max_width = 0;
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+
+				std::cout << "device_name: " << device_name_ << std::endl;
+				std::cout << "driver_version: " << driver_version << std::endl;
+				std::cout << "device_profile: " << device_profile << std::endl;
+				std::cout << "device_version: " << device_version << std::endl;
+				std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
+				std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
+				std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
+				std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
+
+				for(size_t z=0; z<device_max_num_work_items.size(); ++z)
+					std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
+
+
+				std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
+				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
+
+				device_name.push_back(device_name_);
+				device_memory_size.push_back(device_global_mem_size);
+				device_cores.push_back(device_max_compute_units);
+				device_clock.push_back(device_max_clock_frequency);
+
+				// estimate performance as # cores times clock speed
+				uint64 device_perf = device_max_compute_units * device_max_clock_frequency;
+
+				// if this is the best performing GPU device found so far, select it
+				if(best_device_perf < device_perf && ((device_type & CL_DEVICE_TYPE_GPU)))
+				{
+					this->device_to_use_id = device_ids[d];
+					best_device_perf = device_perf;
+					std::cout << "using device " << device_name_.c_str() << std::endl;
+				}
 			}
 		}
+	}
+	else
+	{
+		platform_to_use = (cl_platform_id)platform_id;
+		device_to_use_id = (cl_device_id)device_id;
 	}
 
 	cl_context_properties cps[3] = 
