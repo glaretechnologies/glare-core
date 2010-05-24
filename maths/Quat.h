@@ -52,6 +52,7 @@ public:
 	inline void toMatrix(Matrix4f& mat_out) const;
 
 	static const Quat slerp(const Quat& a, const Quat& b, Real t);
+	static const Quat nlerp(const Quat& a, const Quat& b, Real t);
 
 	Vec3<Real> v;
 	Real w;
@@ -241,6 +242,29 @@ template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, c
     const Quat<Real> q2(normalise(q1 - q0*dot)); // { q0, q2 } is now an orthonormal basis
 
 	return q0*std::cos(theta) + q2*std::sin(theta);
+}
+
+
+// Adapted from http://number-none.com/product/Hacking%20Quaternions/index.html
+template <class Real> const Quat<Real> Quat<Real>::nlerp(const Quat<Real>& q0, const Quat<Real>& q1, Real t)
+{
+	//const Real attenuation = 0.7878088;
+	//const Real k = 0.5069269;
+	//const Real b =  2 * k;
+	//const Real c = -3 * k;
+	//const Real d =  1 + k;
+
+	//// Compute the cosine of the angle between the two vectors.
+	//const Real dot = dotProduct(q0, q1);
+
+	//Real factor = 1 - attenuation * dot;
+	//factor *= factor;
+	//k *= factor;
+
+	//double tprime_divided_by_t = t * (b * t + c) + d;
+	//return tprime_divided_by_t;
+
+	return normalise(Maths::lerp(q0, q1, t));
 }
 
 
