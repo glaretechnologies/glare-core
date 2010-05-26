@@ -87,14 +87,14 @@ OpenCL::OpenCL(int platform_id, int device_id)
 
 	cl_platform_id platform_to_use = 0;
 
+	std::vector<cl_platform_id> platform_ids(128);
+	cl_uint num_platforms = 0;
+	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
+		throw Indigo::Exception("clGetPlatformIDs failed");
+
 	if(platform_id < 0)
 	{
 		uint64 best_device_perf = 0;
-
-		std::vector<cl_platform_id> platform_ids(128);
-		cl_uint num_platforms = 0;
-		if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
-			throw Indigo::Exception("clGetPlatformIDs failed");
 
 		std::cout << "Num platforms: " << num_platforms << std::endl;
 
