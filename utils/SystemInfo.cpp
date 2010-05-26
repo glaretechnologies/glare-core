@@ -170,7 +170,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	mib[2] = 0;
 	mib[3] = AF_LINK;
 	mib[4] = NET_RT_IFLIST;
-	if ((mib[5] = if_nametoindex("en1")) == 0) {
+	if ((mib[5] = if_nametoindex("en1")) == 0 && (mib[5] = if_nametoindex("en0")) == 0) {
 		throw Indigo::Exception("if_nametoindex error");
 	}
 
