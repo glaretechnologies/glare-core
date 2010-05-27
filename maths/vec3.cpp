@@ -24,17 +24,16 @@ You may not use this code for any commercial project.
 ====================================================================*/
 #include "vec3.h"
 
-#include "../maths/mathstypes.h"
 
-#include <stdio.h>
+#include "../maths/mathstypes.h"
+#include "../indigo/globals.h"
 #include "../utils/random.h"
 #include "../utils/stringutils.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
+#include <stdio.h>
 #include <string>
 
-/*void Vec3::print() const
-{
-	printf("(%1.2f,		%1.2f,	%1.2f)\n", x, y, z);
-}*/
 
 template <>
 const std::string Vec3<float>::toString() const
@@ -45,6 +44,7 @@ const std::string Vec3<float>::toString() const
 	return "(" + ::toString(x) + "," + ::toString(y) + "," + ::toString(z) + ")";
 }
 
+
 template <>
 const std::string Vec3<double>::toString() const
 {
@@ -54,11 +54,91 @@ const std::string Vec3<double>::toString() const
 	return "(" + ::toString(x) + "," + ::toString(y) + "," + ::toString(z) + ")";
 }
 
+
 template <class Real>
 const std::string Vec3<Real>::toStringFullPrecision() const
 {
 	return "(" + floatToString(x) + "," + floatToString(y) 
 		+ "," + floatToString(z) + ")";
+}
+
+
+//__declspec(nothrow)
+static INDIGO_STRONG_INLINE Vec3f __declspec(nothrow) vmul(const Vec3f& a, float f)
+{
+	//return Vec3f(a.x * f, a.y * f, a.z * f);
+	Vec3f res;
+	res.x = a.x * f;
+	res.y = a.y * f;
+	res.z = a.z * f;
+	return res;
+}
+
+
+inline void vmul2(const Vec3f& a, float f, Vec3f& out)
+{
+	//return Vec3f(a.x * f, a.y * f, a.z * f);
+	Vec3f res;
+	res.x = a.x * f;
+	res.y = a.y * f;
+	res.z = a.z * f;
+	out = res;
+}
+
+
+inline void vadd(const Vec3f& a, const Vec3f& b, Vec3f& out)
+{
+	Vec3f res;
+	res.x = a.x + b.x;
+	res.y = a.y + b.y;
+	res.z = a.z + b.z;
+	out = res;
+}
+
+
+template <>
+static void Vec3<float>::test()
+{
+	//__m128 temp_hakz = { 0.f };
+
+	const Vec3f a(1.f, 2.f, 3.f);
+	//const Vec3f b(4.f, 5.f, 6.f);
+	int N = 10000000;
+
+	// Run a test using methods that write to the 3rd parameter.
+	{
+		Timer timer;
+		Vec3f c(0.f, 0.f, 0.f);
+		for(int i=0; i<N; ++i)
+		{
+			const float factor = (float)i;
+			Vec3f temp;
+			vmul2(a, factor, temp);
+			vadd(c, temp, c);
+		}
+
+		conPrint(c.toString());
+		conPrint(timer.elapsedString());
+	} 
+
+	// Run a test using methods that return the vec3.
+	{
+		Timer timer;
+		Vec3f c(0.f, 0.f, 0.f);
+		for(int i=0; i<N; ++i)
+		{
+			const float factor = (float)i;
+			const Vec3f temp = vmul(a, factor);
+			c += temp;
+		}
+
+		conPrint(c.toString());
+		conPrint(timer.elapsedString());
+	}
+
+	//conPrint(::toString(temp_hakz.m128_f32[0]));
+
+	exit(0);
 }
 
 

@@ -25,6 +25,9 @@ Coded by Nick Chapman in the year 2000-
 #include "../utils/platform.h"
 
 
+#define VEC3_INLINE INDIGO_STRONG_INLINE
+
+
 template <class Real>
 class Vec3
 {
@@ -32,91 +35,88 @@ public:
 
 	typedef /*typename*/ Real RealType;
 
-	inline Vec3()
+	VEC3_INLINE Vec3()
 	{}
 
-	inline ~Vec3()
+	VEC3_INLINE ~Vec3()
 	{}
 
-	inline explicit Vec3(Real x_)
+	VEC3_INLINE explicit Vec3(Real x_)
 	:	x(x_),
 		y(x_),
 		z(x_)
 	{}
 
-	inline Vec3(Real x_, Real y_, Real z_)
+	VEC3_INLINE Vec3(Real x_, Real y_, Real z_)
 	:	x(x_),
 		y(y_),
 		z(z_)
 	{}
 
-	inline Vec3(const Vec3& rhs)
+	/*
+	NEW:
+	VEC3_INLINE Vec3(const Vec3& rhs)
 	:	x(rhs.x),
 		y(rhs.y),
 		z(rhs.z)
-	{}
-
-	/*inline Vec3<float>(const Vec3<double>& rhs)
-	:	x((float)rhs.x),
-		y((float)rhs.y),
-		z((float)rhs.z)
 	{}*/
 
-	inline Vec3(const Real* f)
+
+	VEC3_INLINE Vec3(const Real* f)
 	:	x(f[0]),
 		y(f[1]),
 		z(f[2])
 	{}
 
-	inline Vec3(const Vec3& v, Real scale)
+	VEC3_INLINE Vec3(const Vec3& v, Real scale)
 	:	x(v.x * scale),
 		y(v.y * scale),
 		z(v.z * scale)
 	{}
 
-	inline explicit Vec3(const Vec4f& v)
+	VEC3_INLINE explicit Vec3(const Vec4f& v)
 	:	x(v.x[0]),
 		y(v.x[1]),
 		z(v.x[2])
 	{}
 
 
-	inline void set(Real newx, Real newy, Real newz)
+	VEC3_INLINE void set(Real newx, Real newy, Real newz)
 	{
 		x = newx;
 		y = newy;
 		z = newz;
 	}
 
-	inline Real& operator[] (unsigned int index)
+	VEC3_INLINE Real& operator[] (unsigned int index)
 	{
 		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];
 	}
 
-	inline const Real& operator[] (unsigned int index) const
+	VEC3_INLINE const Real& operator[] (unsigned int index) const
 	{
 		assert(index >= 0 && index < 3);
 		return ((Real*)(&x))[index];
 	}
 
-	inline const Vec3 operator + (const Vec3& rhs) const
+	VEC3_INLINE const Vec3 operator + (const Vec3& rhs) const
 	{
 		return Vec3(x + rhs.x, y + rhs.y, z + rhs.z);
 	}
 
 
-	inline const Vec3 operator - (const Vec3& rhs) const
+	VEC3_INLINE const Vec3 operator - (const Vec3& rhs) const
 	{
 		return Vec3(x - rhs.x, y - rhs.y, z - rhs.z);
 	}
 
-	INDIGO_STRONG_INLINE const Vec3 operator * (const Vec3& rhs) const
+	VEC3_INLINE const Vec3 operator * (const Vec3& rhs) const
 	{
 		return Vec3(x * rhs.x, y * rhs.y, z * rhs.z);
 	}
 
-	inline Vec3& operator += (const Vec3& rhs)
+	VEC3_INLINE Vec3& operator += (const Vec3& rhs)
 	{
 		x += rhs.x;
 		y += rhs.y;
@@ -124,7 +124,7 @@ public:
 		return *this;
 	}
 
-	inline Vec3& operator -= (const Vec3& rhs)
+	VEC3_INLINE Vec3& operator -= (const Vec3& rhs)
 	{
 		x -= rhs.x;
 		y -= rhs.y;
@@ -132,7 +132,7 @@ public:
 		return *this;
 	}
 
-	inline Vec3& operator = (const Vec3& rhs)
+	VEC3_INLINE Vec3& operator = (const Vec3& rhs)
 	{
 		x = rhs.x;
 		y = rhs.y;
@@ -140,12 +140,12 @@ public:
 		return *this;
 	}
 
-	inline bool operator == (const Vec3& rhs) const
+	VEC3_INLINE bool operator == (const Vec3& rhs) const
 	{
 		return (x == rhs.x) && (y == rhs.y) && (z == rhs.z);
 	}
 
-	inline bool operator != (const Vec3& rhs) const
+	VEC3_INLINE bool operator != (const Vec3& rhs) const
 	{
 		return (x != rhs.x) || (y != rhs.y) || (z != rhs.z);
 	}
@@ -170,7 +170,7 @@ public:
 		}
 	}*/
 
-	inline void normalise()
+	VEC3_INLINE void normalise()
 	{
 		const Real inverselength = Real(1.0) / length();
 
@@ -192,7 +192,7 @@ public:
 		z *= inverselength;
 	}*/
 
-	inline Real normalise_ret_length()
+	VEC3_INLINE Real normalise_ret_length()
 	{
 		const Real len = length();
 		const Real inverselength = (Real)1.0 / len;
@@ -204,7 +204,7 @@ public:
 		return len;
 	}
 
-	inline Real normalise_ret_length(Real& inv_len_out)
+	VEC3_INLINE Real normalise_ret_length(Real& inv_len_out)
 	{
 		const Real len = length();
 		const Real inverselength = (Real)1.0 / len;
@@ -218,7 +218,7 @@ public:
 		return len;
 	}
 
-	inline Real normalise_ret_length2()
+	VEC3_INLINE Real normalise_ret_length2()
 	{
 		const Real len2 = length2();
 		const Real inverselength = (Real)1.0 / sqrt(len2);
@@ -231,29 +231,29 @@ public:
 	}
 
 
-	inline const Vec3<Real> negated() const
+	VEC3_INLINE const Vec3<Real> negated() const
 	{
 		return Vec3<Real>(-x, -y, -z);
 	}
 
-	inline Real length() const
+	VEC3_INLINE Real length() const
 	{
 		return sqrt(x*x + y*y + z*z);
 	}
 
-	inline Real length2() const
+	VEC3_INLINE Real length2() const
 	{
 		return x*x + y*y + z*z;
 	}
 
-	inline void scale(Real factor)
+	VEC3_INLINE void scale(Real factor)
 	{
 		x *= factor;
 		y *= factor;
 		z *= factor;
 	}
 
-	inline Vec3& operator *= (Real factor)
+	VEC3_INLINE Vec3& operator *= (Real factor)
 	{
 		x *= factor;
 		y *= factor;
@@ -261,44 +261,44 @@ public:
 		return *this;
 	}
 
-	inline void setLength(Real newlength)
+	VEC3_INLINE void setLength(Real newlength)
 	{
 		scale(newlength / length());
 	}
 
-	inline Vec3& operator /= (Real divisor)
+	VEC3_INLINE Vec3& operator /= (Real divisor)
 	{
 		*this *= ((Real)1.0 / divisor);
 		return *this;
 	}
 
-	inline const Vec3 operator * (Real factor) const
+	VEC3_INLINE const Vec3 operator * (Real factor) const
 	{
 		return Vec3(x * factor, y * factor, z * factor);
 	}
 
-	inline const Vec3 operator / (Real divisor) const
+	VEC3_INLINE const Vec3 operator / (Real divisor) const
 	{
 		const Real inverse_d = 1.0 / divisor;
 
 		return Vec3(x * inverse_d, y * inverse_d, z * inverse_d);
 	}
 
-	inline void zero()
+	VEC3_INLINE void zero()
 	{
 		x = 0.0;
 		y = 0.0;
 		z = 0.0;
 	}
 
-	inline Real getDist(const Vec3& other) const
+	VEC3_INLINE Real getDist(const Vec3& other) const
 	{
 		//const Vec3 dif = other - *this;
 		//return dif.length();
 		return sqrt(getDist2(other));
 	}
 
-	inline Real getDist2(const Vec3& other) const
+	VEC3_INLINE Real getDist2(const Vec3& other) const
 	{
 		//const Vec3 dif = other - *this;
 		//return dif.length2();
@@ -322,7 +322,7 @@ public:
 		//return (other.x - x) + (other.y - y) + (other.z - z);
 	}
 
-	inline void assertUnitVector() const
+	VEC3_INLINE void assertUnitVector() const
 	{
 #ifdef DEBUG
 		const Real len = length();
@@ -348,7 +348,7 @@ public:
 
 
 
-	inline const Real* data() const { return (Real*)this; }
+	VEC3_INLINE const Real* data() const { return (Real*)this; }
 
 
 
@@ -394,12 +394,12 @@ public:
 
 	const Vec3 fromAngles(const Vec3& ws_forwards, const Vec3& ws_up, const Vec3& ws_right) const;
 
-	Real dotProduct(const Vec3& rhs) const
+	VEC3_INLINE Real dotProduct(const Vec3& rhs) const
 	{
 		return x*rhs.x + y*rhs.y + z*rhs.z;
 	}
 
-	Real dot(const Vec3& rhs) const
+	VEC3_INLINE Real dot(const Vec3& rhs) const
 	{
 		return dotProduct(rhs);
 	}
@@ -407,58 +407,58 @@ public:
 	static const Vec3 randomVec(Real component_lowbound, Real component_highbound);
 
 
-	inline void setToMult(const Vec3& other, Real factor)
+	VEC3_INLINE void setToMult(const Vec3& other, Real factor)
 	{
 		x = other.x * factor;
 		y = other.y * factor;
 		z = other.z * factor;
 	}
 
-	inline void addMult(const Vec3& other, Real factor)
+	VEC3_INLINE void addMult(const Vec3& other, Real factor)
 	{
 		x += other.x * factor;
 		y += other.y * factor;
 		z += other.z * factor;
 	}
 
-	inline void subMult(const Vec3& other, Real factor)
+	VEC3_INLINE void subMult(const Vec3& other, Real factor)
 	{
 		x -= other.x * factor;
 		y -= other.y * factor;
 		z -= other.z * factor;
 	}
 
-	inline void add(const Vec3& other)
+	VEC3_INLINE void add(const Vec3& other)
 	{
 		x += other.x;
 		y += other.y;
 		z += other.z;
 	}
 
-	inline void sub(const Vec3& other)
+	VEC3_INLINE void sub(const Vec3& other)
 	{
 		x -= other.x;
 		y -= other.y;
 		z -= other.z;
 	}
 
-	inline void removeComponentInDir(const Vec3& unitdir)
+	VEC3_INLINE void removeComponentInDir(const Vec3& unitdir)
 	{
 		subMult(unitdir, this->dot(unitdir));
 	}
 
-	inline bool isUnitLength() const
+	VEC3_INLINE bool isUnitLength() const
 	{
 		return ::epsEqual(length(), (Real)1.0);
 	}
 
 	//will be in range [-Pi/2, Pi/2]
-	inline Real theta() const
+	VEC3_INLINE Real theta() const
 	{
 		return atan2(sqrt(x*x + y*y), z);
 	}
 
-	inline Real phi() const
+	VEC3_INLINE Real phi() const
 	{
 		Real phi = atan2(x, y);
 		if(phi < 0.0)
@@ -466,7 +466,7 @@ public:
 		return phi;
 	}
 
-	inline Real r() const
+	VEC3_INLINE Real r() const
 	{
 		return length();
 	}
@@ -478,7 +478,7 @@ public:
 		z = myClamp(z, lowerbound, upperbound);
 	}*/
 
-	inline const Vec3 clamp(const Vec3& lo, const Vec3& up) const
+	VEC3_INLINE const Vec3 clamp(const Vec3& lo, const Vec3& up) const
 	{
 		return Vec3(
 			myClamp(x, lo.x, up.x),
@@ -487,7 +487,7 @@ public:
 			);
 	}
 
-	inline const Vec3 min(const Vec3& other) const
+	VEC3_INLINE const Vec3 min(const Vec3& other) const
 	{
 		return Vec3(
 			myMin(x, other.x),
@@ -496,7 +496,7 @@ public:
 			);
 	}
 
-	inline const Vec3 max(const Vec3& other) const
+	VEC3_INLINE const Vec3 max(const Vec3& other) const
 	{
 		return Vec3(
 			myMax(x, other.x),
@@ -505,7 +505,7 @@ public:
 			);
 	}
 
-	inline void lowerClamp(Real lowerbound)
+	VEC3_INLINE void lowerClamp(Real lowerbound)
 	{
 		x = myMax(x, lowerbound);
 		y = myMax(y, lowerbound);
@@ -513,7 +513,7 @@ public:
 	}
 
 	// returns true if all components c satisfy c >= minval && c < maxval, i.e. c e [minval, maxval)
-	inline bool inHalfClosedInterval(Real minval, Real maxval) const
+	VEC3_INLINE bool inHalfClosedInterval(Real minval, Real maxval) const
 	{
 		return
 			Maths::inHalfClosedInterval(x, minval, maxval) &&
@@ -522,64 +522,65 @@ public:
 	}
 
 
-	inline void vectorToVec4f(Vec4f& v) const
+	VEC3_INLINE void vectorToVec4f(Vec4f& v) const
 	{
 		v.set((float)x, (float)y, (float)z, 0.0f);
 	}
 
 
-	inline void pointToVec4f(Vec4f& v) const
+	VEC3_INLINE void pointToVec4f(Vec4f& v) const
 	{
 		v.set((float)x, (float)y, (float)z, 1.0f);
 	}
 
-	inline const Vec4f toVec4fPoint() const
+	VEC3_INLINE const Vec4f toVec4fPoint() const
 	{
 		return Vec4f((float)x, (float)y, (float)z, 1.0f);
 	}
 
-	inline const Vec4f toVec4fVector() const
+	VEC3_INLINE const Vec4f toVec4fVector() const
 	{
 		return Vec4f((float)x, (float)y, (float)z, 0.0f);
 	}
 
+	static void test();
 };
 
 template <class Real>
-inline const Vec3<Real> normalise(const Vec3<Real>& v)
+VEC3_INLINE const Vec3<Real> normalise(const Vec3<Real>& v)
 {
 	return v * ((Real)1.0 / v.length());
 }
 
 template <class Real>
-inline const Vec3<Real> normalise(const Vec3<Real>& v, Real& original_length_out)
+VEC3_INLINE const Vec3<Real> normalise(const Vec3<Real>& v, Real& original_length_out)
 {
 	original_length_out = v.length();
 	return v * ((Real)1.0 / original_length_out);
 }
 
 template <class Real>
-inline const Vec3<Real> operator * (Real m, const Vec3<Real>& right)
+VEC3_INLINE const Vec3<Real> operator * (Real m, const Vec3<Real>& right)
 {
 	return Vec3<Real>(right.x * m, right.y * m, right.z * m);
 }
 
 template <class Real>
-inline Real dotProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
+VEC3_INLINE Real dotProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
 
 template <class Real>
-inline Real dot(const Vec3<Real>& v1, const Vec3<Real>& v2)
+VEC3_INLINE Real dot(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
 
 template <class Real>
-INDIGO_STRONG_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
+VEC3_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return Vec3<Real>(
 	(v1.y * v2.z) - (v1.z * v2.y),
@@ -591,7 +592,7 @@ INDIGO_STRONG_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const V
 
 	//v1 and v2 unnormalized
 template <class Real>
-inline Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)
+VEC3_INLINE Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	const Real lf = v1.length() * v2.length();
 
@@ -604,7 +605,7 @@ inline Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)
 }
 
 template <class Real>
-inline Real angleBetweenNormalized(const Vec3<Real>& v1, const Vec3<Real>& v2)
+VEC3_INLINE Real angleBetweenNormalized(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
 	return acos(dotProduct(v1, v2));
 }
@@ -629,12 +630,12 @@ inline bool epsEqual(const Vec3<Real>& a, const Vec3<Real>& b, Real eps = NICKMA
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }*/
 
-inline bool epsEqual(const Vec3<float>& a, const Vec3<float>& b, float eps = NICKMATHS_EPSILON)
+VEC3_INLINE bool epsEqual(const Vec3<float>& a, const Vec3<float>& b, float eps = NICKMATHS_EPSILON)
 {
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }
 
-inline bool epsEqual(const Vec3<double>& a, const Vec3<double>& b, double eps = NICKMATHS_EPSILON)
+VEC3_INLINE bool epsEqual(const Vec3<double>& a, const Vec3<double>& b, double eps = NICKMATHS_EPSILON)
 {
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }
@@ -642,7 +643,7 @@ inline bool epsEqual(const Vec3<double>& a, const Vec3<double>& b, double eps = 
 
 //for sorting Vec3's
 template <class Real>
-inline bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
+VEC3_INLINE bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
 {
 	if(a.x < b.x)
 		return true;
@@ -662,7 +663,7 @@ inline bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
 }
 
 template <class Real>
-inline const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real t)
+VEC3_INLINE const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real t)
 {
 	assert(t >= (Real)0.0 && t <= (Real)1.0);
 	return a * ((Real)1.0 - t) + b * t;
@@ -670,28 +671,28 @@ inline const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real t)
 
 
 template <class Real>
-inline const std::string toString(const Vec3<Real>& v)
+VEC3_INLINE const std::string toString(const Vec3<Real>& v)
 {
 	return v.toString();
 }
 
 
-inline const Vec3<float> toVec3f(const Vec3<double>& v)
+VEC3_INLINE const Vec3<float> toVec3f(const Vec3<double>& v)
 {
 	return Vec3<float>((float)v.x, (float)v.y, (float)v.z);
 }
 
-inline const Vec3<double> toVec3d(const Vec3<float>& v)
+VEC3_INLINE const Vec3<double> toVec3d(const Vec3<float>& v)
 {
 	return Vec3<double>((double)v.x, (double)v.y, (double)v.z);
 }
 
-inline const Vec3<double> toVec3d(const Vec4f& v)
+VEC3_INLINE const Vec3<double> toVec3d(const Vec4f& v)
 {
 	return Vec3<double>((double)v.x[0], (double)v.x[1], (double)v.x[2]);
 }
 
-inline const Vec3<float> toVec3f(const Vec4f& v)
+VEC3_INLINE const Vec3<float> toVec3f(const Vec4f& v)
 {
 	return Vec3<float>((float)v.x[0], (float)v.x[1], (float)v.x[2]);
 }

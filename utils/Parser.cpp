@@ -248,9 +248,18 @@ bool Parser::fractionalNumberNext()
 		return false;
 	}
 
+	bool valid_number = false;
+
 	while(notEOF() && isNumeric(current()))
 	{
+		valid_number = true;
 		currentpos++;
+	}
+
+	if(!valid_number)
+	{
+		currentpos = initial_currentpos; // restore currentpos
+		return false;
 	}
 
 	if(parseChar('.'))
@@ -342,6 +351,13 @@ bool Parser::parseDouble(double& result_out)
 		result_out = (sign * x);
 	}
 
+	// Parse optional 'f' or 'F' (single-precision floating point number specifier)
+	if(notEOF() && current() == 'f')
+		parseChar('f');
+	else if(notEOF() && current() == 'F')
+		parseChar('F');
+
+
 	return reached_numerals;
 
 }
@@ -356,6 +372,29 @@ bool Parser::parseAlphaToken(std::string& token_out)
 		found = true;
 	}
 	return found;
+}
+
+bool Parser::parseIdentifier(std::string& token_out)
+{
+	token_out = "";
+	//bool found = false;
+
+	// Read first character of identifier
+	if(notEOF() && (::isAlphabetic(text[currentpos]) || text[currentpos] == '_'))
+	{
+		::concatWithChar(token_out, text[currentpos]);
+		currentpos++;
+		//found = true;
+	}
+	else
+		return false;
+
+	for( ;notEOF() && (::isAlphabetic(text[currentpos]) || isNumeric(text[currentpos]) || text[currentpos] == '_'); ++currentpos)
+	{
+		::concatWithChar(token_out, text[currentpos]);
+		//found = true;
+	}
+	return true;//found;
 }
 
 bool Parser::parseNonWSToken(std::string& token_out)
@@ -499,6 +538,17 @@ void Parser::doUnitTests()
 	assert(!p.parseWhiteSpace());
 	}
 
+	// Check parsing of 'f' suffix
+	{
+		const std::string text = "123.456e3f";
+		Parser p(text.c_str(), text.size());
+
+		double x;
+		assert(p.parseDouble(x));
+		assert(::epsEqual((float)x, 123.456e3f));
+		assert(p.eof());
+	}
+
 	// Try German locale where decimal separtor is ','
 	/*{
 		const char* result = std::setlocale(LC_ALL, "german");
@@ -571,6 +621,25 @@ void Parser::doUnitTests()
 	assert(!p.parseString("BLEHA"));
 	assert(p.parseString("BL"));
 	assert(p.parseString("EH"));
+	}
+
+	{
+		const std::string text = ".";
+		Parser p(text.c_str(), text.size());
+
+		assert(!p.fractionalNumberNext());
+	}
+	{
+		const std::string text = "1.3";
+		Parser p(text.c_str(), text.size());
+
+		assert(p.fractionalNumberNext());
+	}
+	{
+		const std::string text = "13";
+		Parser p(text.c_str(), text.size());
+
+		assert(!p.fractionalNumberNext());
 	}
 
 #endif

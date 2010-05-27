@@ -43,8 +43,10 @@ public:
 	inline bool parseWhiteSpace();
 	inline void parseSpacesAndTabs();
 	inline void advancePastLine();
+	inline void parseLine();
 	//bool parseString(const std::string& s);
 	bool parseAlphaToken(std::string& token_out);
+	bool parseIdentifier(std::string& token_out);
 	bool parseNonWSToken(std::string& token_out);
 	bool parseString(const std::string& s);
 
@@ -63,6 +65,7 @@ public:
 	inline bool nextIsEOF() const { return currentpos + 1 >= textsize; }
 	inline bool nextIsNotEOF() const { return currentpos + 1 < textsize; }
 	inline char next() const { return text[currentpos + 1]; }
+	inline bool nextIsChar(char c) const { return nextIsNotEOF() && next() == c; }
 
 	inline const char* getText() const { return text; }
 	inline unsigned int getTextSize() const { return textsize; }
@@ -164,28 +167,37 @@ void Parser::advancePastLine()
 }
 
 
+void Parser::parseLine()
+{
+	for( ; notEOF() && current() != '\n' && current() != '\r'; ++currentpos)
+	{
+		currentpos++;
+	}
+}
+
+
 char Parser::current() const
 {
 	return text[currentpos];
 }
+
 
 bool Parser::eof() const
 {
 	return currentpos >= textsize;
 }
 
+
 bool Parser::notEOF() const
 {
 	return currentpos < textsize;
 }
+
 
 void Parser::advance()
 {
 	currentpos++;
 }
 
+
 #endif //__PARSER_H_666_
-
-
-
-
