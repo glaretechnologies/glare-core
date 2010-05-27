@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #define NOMINMAX
 #include <windows.h>
 #include "../utils/platform.h"
+#include "../indigo/gpuDeviceInfo.h"
 
 #include <CL/cl.h>
 //#include <CL/clext.h>
@@ -64,18 +65,15 @@ public:
 	
 	=====================================================================*/
 
-	// If platform_id < 0 it will automatically choose a platform and device id.
-	OpenCL(int platform_id, int device_id);
+	// If device_number < 0 it will automatically choose a device.
+	OpenCL(int device_number);
 
 	~OpenCL();
 
 #if USE_OPENCL
 	static const std::string errorString(cl_int result);
 
-	std::vector<std::string> getDeviceNames() const;
-	std::vector<uint64> getDeviceMemorySizes() const;
-	std::vector<int> getDeviceCoreCount() const;
-	std::vector<int> getDeviceCoreClock() const;
+	std::vector<gpuDeviceInfo> getDeviceInfo() const;
 
 //private:
 
@@ -104,14 +102,14 @@ public:
 
 	HMODULE module;
 
-	cl_device_id device_to_use_id;
+	int chosen_device_number;
+	cl_platform_id platform_to_use;
+	cl_device_id device_to_use;
+
 	cl_context context;
 	cl_command_queue command_queue;
 
-	std::vector<std::string> device_name;
-	std::vector<uint64> device_memory_size;
-	std::vector<int> device_cores;
-	std::vector<int> device_clock;
+	std::vector<gpuDeviceInfo> device_info;
 #endif
 };
 
