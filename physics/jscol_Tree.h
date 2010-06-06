@@ -37,7 +37,7 @@ private:
 };
 
 
-const float TREE_EPSILON_FACTOR = 1.0e-5f;
+const float TREE_EPSILON_FACTOR = 4.0e-5f;
 
 
 /*=====================================================================
