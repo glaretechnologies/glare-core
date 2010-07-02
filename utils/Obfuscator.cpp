@@ -318,5 +318,5 @@ void Obfuscator::test()
 	
 	
 
-	exit(0);
+	//exit(0);
 }
