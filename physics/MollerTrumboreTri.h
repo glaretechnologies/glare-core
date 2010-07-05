@@ -128,13 +128,12 @@ public:
 		t_min = C * max(len_1, len_2)
 		t_min^2 = C^2 * max(len_1, len_2)^2
 		t_min^2 = C^2 * max(len_1^2, len_2^2)
-
 		*/
+		
+#if USE_LAUNCH_NORMAL
 		if(t < 0.0f)
 			return 0;
 
-
-#if USE_LAUNCH_NORMAL
 		/*
 		t = e1 x e2 / ||e1 x e2||
 
