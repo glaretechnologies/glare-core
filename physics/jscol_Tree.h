@@ -37,7 +37,7 @@ private:
 };
 
 
-const float TREE_EPSILON_FACTOR = 4.0e-5f;
+const float TREE_EPSILON_FACTOR = 1.0e-4f;
 
 
 /*=====================================================================
@@ -58,6 +58,7 @@ public:
 	virtual ~Tree();
 
 	typedef float Real;
+	typedef double DistType;
 
 
 	static const unsigned int MAX_TREE_DEPTH = 63;
@@ -72,7 +73,7 @@ public:
 
 
 	//intersectable interface
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const = 0;
+	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const = 0;
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 	virtual const std::string debugName() const { return "kd-tree"; }
 	//end

@@ -77,7 +77,7 @@ const std::string RayMesh::getName() const
 
 
 //returns negative number if object not hit by the ray
-Geometry::Real RayMesh::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	//if(this->areSubElementsCurved())
 	//	ignore_tri = std::numeric_limits<unsigned int>::max();

@@ -809,7 +809,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 }
 
 
-Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType Camera::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }

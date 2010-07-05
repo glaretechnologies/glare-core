@@ -61,7 +61,7 @@ RaySphere::~RaySphere()
 
 //returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
-Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	//if(ignore_tri == 0)
 	//	return -1.0;
