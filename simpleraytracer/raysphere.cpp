@@ -78,11 +78,11 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 		ray.unitdir.z * (ray.startpos.z - centerpos.z)
 		);*/
 
-	const double B = 2.0 * dot(center_to_raystart, toVec3d(ray.unitDir()));
+	const double B = dot(center_to_raystart, toVec3d(ray.unitDir()));
 
 	const double C = center_to_raystart.length2() - radius_squared;
 
-	const double discriminant = B*B - 4.0*C;
+	const double discriminant = B*B - C;
 
 	if(discriminant < 0.0)
 		return -1.0;//no intersection
@@ -92,7 +92,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const double use_min_t = rayMinT(radius);
 
 	{
-		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
+		const double t0 = -B - sqrt_discriminant; // t0 is the smaller of the two solutions
 		if(t0 >= use_min_t/*ray.minT()*/)
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
@@ -107,7 +107,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	}
 
 	{
-		const double t = (-B + sqrt_discriminant) * 0.5;
+		const double t = -B + sqrt_discriminant;
 		if(t >= use_min_t/*ray.minT()*/)
 		{
 			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
