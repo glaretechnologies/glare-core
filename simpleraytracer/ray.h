@@ -12,7 +12,6 @@ You may *not* use this code for any commercial project.
 #define __RAY_H_666_
 
 
-//#include "../maths/vec3.h"
 #include "../maths/Vec4f.h"
 #include "../maths/mathstypes.h"
 #include "../maths/SSE.h"
@@ -24,39 +23,25 @@ You may *not* use this code for any commercial project.
 SSE_CLASS_ALIGN Ray
 {
 public:
-	/*inline Ray(const Vec3d& startpos_, const Vec3d& unitdir_)
-	:	startpos(startpos_),
-		unitdir(unitdir_)
-	{
-		assert(unitdir_.isUnitLength());
-		assert((void*)&startpos.x == (void*)&startpos);
-
-		startpos_f = Vec4f((float)startpos_.x, (float)startpos_.y, (float)startpos_.z, 1.f);
-		unitdir_f = Vec4f((float)unitdir_.x, (float)unitdir_.y, (float)unitdir_.z, 0.f);
-
-		buildRecipRayDir();
-	}*/
 	INDIGO_STRONG_INLINE Ray() {}
 
 	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_
 #if USE_LAUNCH_NORMAL
 		, const Vec4f& launch_normal_
 #endif
-		//, float min_t_ = 0.0f
 		)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_)
 #if USE_LAUNCH_NORMAL
 		,launch_normal(launch_normal_)//,
 #endif
-		//min_t(min_t_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
 		assert(unitdir_.isUnitLength());
 		assert(SSE::isSSEAligned(this));
 
-		//buildRecipRayDir();
+		origin_error = startpos_.length() * 2.0e-5f;
 
 		/*
 			TEMP HACK:
@@ -88,9 +73,6 @@ public:
 
 	INDIGO_STRONG_INLINE ~Ray(){}
 
-	//INDIGO_STRONG_INLINE const Vec3d& startPos() const { return startpos; }
-	//INDIGO_STRONG_INLINE const Vec3d& unitDir() const { return unitdir; }
-
 	INDIGO_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
 	INDIGO_STRONG_INLINE const Vec4f& unitDir() const { return unitdir_f; }
 
@@ -113,69 +95,18 @@ public:
 #if USE_LAUNCH_NORMAL
 	INDIGO_STRONG_INLINE const Vec4f& launchNormal() const { return launch_normal; }
 #endif
-private:
-	//INDIGO_STRONG_INLINE void buildRecipRayDir();
 
+	float origin_error;
+	float padding[3];
+
+private:
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
 #if USE_LAUNCH_NORMAL
 	Vec4f launch_normal;
 #endif
 	Vec4f recip_unitdir_f;
-	//float min_t;
-
-	//SSE_ALIGN Vec3d startpos;
-	//SSE_ALIGN Vec3d unitdir;
-	//SSE_ALIGN Vec3d recip_unitdir;
 };
-
-
-/*const Vec3d& Ray::getRecipRayDir() const
-{
-	//assert(built_recip_unitdir);
-	return recip_unitdir;
-}*/
-
-
-#if 0
-void Ray::buildRecipRayDir()
-{
-	//const SSE_ALIGN float raydir[4] = unitdir_f; // {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};
-	const float MAX_RECIP = 1.0e26f;
-	const SSE_ALIGN float MAX_RECIP_vec[4] = {MAX_RECIP, MAX_RECIP, MAX_RECIP, MAX_RECIP};
-
-	this->recip_unitdir_f = Vec4f(
-		_mm_min_ps(
-			_mm_load_ps(MAX_RECIP_vec),
-			_mm_div_ps(
-				_mm_load_ps(one_4vec),
-				unitdir_f.v
-				)
-			)
-		);
-
-	/*_mm_store_ps(
-		&recip_unitdir_f.x,
-		_mm_min_ps(
-			_mm_load_ps(MAX_RECIP_vec),
-			_mm_div_ps(
-				_mm_load_ps(one_4vec),
-				_mm_load_ps(raydir)
-				)
-			)
-		);*/
-
-	/*const SSE_ALIGN float raydir[4] = {(float)unitdir.x, (float)unitdir.y, (float)unitdir.z, 1.0f};
-
-	_mm_store_ps(
-		&recip_unitdir_f.x,
-		_mm_div_ps(
-			_mm_load_ps(one_4vec),
-			_mm_load_ps(raydir)
-			)
-		);*/
-}
-#endif
 
 
 #endif //__RAY_H_666_

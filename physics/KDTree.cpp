@@ -180,7 +180,8 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 
-	const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
+	//const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -358,7 +359,9 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
 
-	const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
+
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -518,7 +521,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	assertSSEAligned(object);
 	assert(!nodes.empty());
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -1053,7 +1057,8 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
-	const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	Real closest_dist = std::numeric_limits<Real>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
@@ -1084,7 +1089,8 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 
 void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
-	const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{

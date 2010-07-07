@@ -51,7 +51,8 @@ TriangleTest::~TriangleTest()
 static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
 	//const float min_t = 0.0f;
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const float epsilon = ray.origin_error;
 
 	UnionVec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
@@ -194,7 +195,8 @@ void TriangleTest::doTests()
 #endif
 		);
 
-		const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+		//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+		const float epsilon = ray.origin_error;
 
 		float dist, u, v;
 		const unsigned int hit = t.rayIntersect(ray, 10000.0f, epsilon, dist, u, v);
