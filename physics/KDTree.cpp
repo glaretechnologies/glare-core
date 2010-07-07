@@ -358,7 +358,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 	assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
