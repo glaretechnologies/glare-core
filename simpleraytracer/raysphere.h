@@ -66,7 +66,7 @@ public:
 	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
-	static double rayMinT(double radius) { return 0.00005f * radius; }
+	static double rayMinT(double radius) { return 0.0003f/*0.00005f*/ * radius; }
 
 	static void test();
 
