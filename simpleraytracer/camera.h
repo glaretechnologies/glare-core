@@ -129,6 +129,8 @@ public:
 	//////////////////////////////////////////////////////////
 
 
+	void setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir);
+
 	const Vec3d getUpDir(double time) const;
 	const Vec3d getRightDir(double time) const;
 	const Vec3d getForwardsDir(double time) const;

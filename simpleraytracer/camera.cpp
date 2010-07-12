@@ -1205,6 +1205,39 @@ const Camera::Vec3Type Camera::positionForHitInfo(const HitInfo& hitinfo) const
 }
 
 
+void Camera::setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir)
+{
+	Vec3d up(0, 0, 1); //UP_OS.x[0], UP_OS.x[1], UP_OS.x[2]);
+	up.removeComponentInDir(cam_dir);
+	up.normalise();
+
+	Vec3d right = ::crossProduct(cam_dir, up);
+	assert(cam_dir.isUnitLength());
+	assert(up.isUnitLength());
+	assert(right.isUnitLength());
+
+	try
+	{
+		Matrix3f child_to_world(toVec3f(right), toVec3f(cam_dir), toVec3f(up));
+		js::Vector<TransformKeyFrame, 16> frames;
+		frames.push_back(TransformKeyFrame(0, Vec4f(cam_pos.x, cam_pos.y, cam_pos.z, 1), Quatf::identity()));
+
+		transform_path.init(child_to_world, frames);
+	}
+	catch(TransformPathExcep& e)
+	{
+		throw CameraExcep(e.what());
+	}
+
+	const SSE_ALIGN Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
+	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
+
+	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
+	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+
+	makeClippingPlanesCameraSpace();
+}
+
 
 const Vec3d Camera::getUpDir(double time) const
 {
