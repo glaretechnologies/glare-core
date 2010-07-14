@@ -67,7 +67,7 @@ void MatUtils::refractInSurface(const VecType& normal,
 	}
 
 
-	assert(epsEqual(exit_raydir_out.length(), (Real)1.0, (Real)0.0001));
+	//assert(epsEqual(exit_raydir_out.length(), (Real)1.0, (Real)0.0001));
 
 	// Normalising here because there seems to be quite a lot of error introduced.
 	exit_raydir_out = normalise(exit_raydir_out);
