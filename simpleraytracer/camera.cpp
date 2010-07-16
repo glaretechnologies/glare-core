@@ -659,7 +659,7 @@ Camera::PDType Camera::lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const 
 
 	assert(sensor_to_lens[1] > 0.0);
 
-	const double d2 = sensor_to_lens.length2();
+	const Real d2 = sensor_to_lens.length2();
 
 	return lensPosPDF() * d2 * std::sqrt(d2) / sensor_to_lens[1];
 
