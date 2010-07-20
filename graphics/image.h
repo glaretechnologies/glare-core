@@ -26,8 +26,8 @@ private:
 
 
 /*=====================================================================
-TGADecoder
-----------
+Image
+-----
 A floating point tri-component image class.
 Each component is stored as a 32-bit float.
 =====================================================================*/
@@ -49,8 +49,8 @@ public:
 	void copyToBitmap(Bitmap& bmp_out) const;
 
 	inline unsigned int getHeight() const { return height; }
-	inline unsigned int getWidth() const { return width; }
-	inline unsigned int numPixels() const { return (unsigned int)(width * height); }
+	inline unsigned int getWidth()  const { return width; }
+	inline size_t numPixels() const { return (size_t)width * (size_t)height; }
 
 	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int x, unsigned int y) const;
 	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int x, unsigned int y);
@@ -118,8 +118,10 @@ public:
 	void collapseSizeBoxFilter(int factor); // trims off border before collapsing
 	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
-	
+
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out);
+
+	static void collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, const Image& in, Image& out);
 
 	unsigned int getByteSize() const;
 
@@ -144,8 +146,8 @@ public:
 private:
 	unsigned int width;
 	unsigned int height;
-	Array2d<ColourType> pixels;	
 
+	Array2d<ColourType> pixels;
 };
 
 

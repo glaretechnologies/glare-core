@@ -141,8 +141,8 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 {
 	bmp_out.resize(getWidth(), getHeight(), 3);
 
-	for(int y=0; y<getHeight(); ++y)
-		for(int x=0; x<getWidth(); ++x)
+	for(unsigned int y=0; y<getHeight(); ++y)
+		for(unsigned int x=0; x<getWidth(); ++x)
 		{
 			const ColourType& p = getPixel(x, y);
 
@@ -306,10 +306,6 @@ void Image::loadFromBitmap(const std::string& pathname)
 }
 
 
-
-
-
-
 void Image::saveToBitmap(const std::string& pathname)
 {
 	FILE* f = FileUtils::openFile(pathname, "wb");
@@ -341,14 +337,14 @@ void Image::saveToBitmap(const std::string& pathname)
 	fwrite(&bitmap_infoheader, sizeof(BITMAP_INFOHEADER), 1, f);
 
 
-	int rowpaddingbytes = 4 - ((width*3) % 4);
+	int rowpaddingbytes = 4 - ((width * 3) % 4);
 	if(rowpaddingbytes == 4)
 		rowpaddingbytes = 0;
 
 
-	for(int y=getHeight()-1; y>=0; --y)
+	for(int y = getHeight() - 1; y >= 0; --y)
 	{
-		for(int x=0; x<getWidth(); ++x)
+		for(int x = 0; x < getWidth(); ++x)
 		{
 			ColourType pixelcol = getPixel(x, y);
 			pixelcol.positiveClipComponents();
@@ -362,18 +358,16 @@ void Image::saveToBitmap(const std::string& pathname)
 			const BYTE r = (BYTE)(pixelcol.r * 255.0f);
 			fwrite(&r, 1, 1, f);
 
-
 			/*const BYTE r = (BYTE)(getPixel(x, y).r * 255.0f);
 			fwrite(&r, 1, 1, f);
 			const BYTE g = (BYTE)(getPixel(x, y).g * 255.0f);
 			fwrite(&g, 1, 1, f);
 			const BYTE b = (BYTE)(getPixel(x, y).b * 255.0f);
 			fwrite(&b, 1, 1, f);*/
-
 		}
 
 		const BYTE zerobyte = 0;
-		for(int i=0; i<rowpaddingbytes; ++i)
+		for(int i = 0; i < rowpaddingbytes; ++i)
 			fwrite(&zerobyte, 1, 1, f);
 	}
 
@@ -474,15 +468,17 @@ void Image::saveAsNFF(const std::string& pathname)
 	}
 }*/
 
+
 void Image::zero()
 {
 	const unsigned int num = numPixels();
-	for(unsigned int i=0; i<num; ++i)
-		getPixel(i) = ColourType(0,0,0);
+	for(unsigned int i = 0; i < num; ++i)
+		getPixel(i) = ColourType(0, 0, 0);
 	//for(int x=0; x<width; ++x)
 	//	for(int y=0; y<height; ++y)
 	//		setPixel(x, y, ColourType(0,0,0));
 }
+
 
 void Image::resize(unsigned int newwidth, unsigned int newheight)
 {
@@ -495,10 +491,11 @@ void Image::resize(unsigned int newwidth, unsigned int newheight)
 	pixels.resize(width, height);
 }
 
+
 void Image::posClamp()
 {
 	const unsigned int num = numPixels();
-	for(unsigned int i=0; i<num; ++i)
+	for(unsigned int i = 0; i < num; ++i)
 		getPixel(i).positiveClipComponents();
 
 	//for(int x=0; x<width; ++x)
@@ -506,10 +503,11 @@ void Image::posClamp()
 	//		getPixel(x, y).positiveClipComponents();
 }
 
+
 void Image::clampInPlace(float min, float max)
 {
 	const unsigned int num = numPixels();
-	for(unsigned int i=0; i<num; ++i)
+	for(unsigned int i = 0; i < num; ++i)
 		getPixel(i).clampInPlace(min, max);
 }
 
@@ -526,7 +524,7 @@ void Image::gammaCorrect(float exponent)
 			colour.b = pow(colour.b, exponent);
 		}*/
 	const unsigned int num = numPixels();
-	for(unsigned int i=0; i<num; ++i)
+	for(unsigned int i = 0; i < num; ++i)
 	{
 		const ColourType colour = getPixel(i);
 		ColourType newcolour(
@@ -539,6 +537,7 @@ void Image::gammaCorrect(float exponent)
 	}
 }
 
+
 void Image::scale(float factor)
 {
 	/*for(int x=0; x<width; ++x)
@@ -547,15 +546,15 @@ void Image::scale(float factor)
 			getPixel(x, y) *= factor;
 		}*/
 	const unsigned int num = numPixels();
-	for(unsigned int i=0; i<num; ++i)
+	for(unsigned int i = 0; i < num; ++i)
 		getPixel(i) *= factor;
 }
 
 
 void Image::blitToImage(Image& dest, int destx, int desty) const
 {
-	for(int y=0; y<getHeight(); ++y)
-		for(int x=0; x<getWidth(); ++x)
+	for(int y = 0; y < getHeight(); ++y)
+		for(int x = 0; x < getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -563,6 +562,7 @@ void Image::blitToImage(Image& dest, int destx, int desty) const
 				dest.setPixel(dx, dy, getPixel(x, y));
 		}
 }
+
 
 void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image& dest, int destx, int desty) const
 {
@@ -572,8 +572,8 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 	src_end_x = myMin(src_end_x, (int)getWidth());
 	src_end_y = myMin(src_end_y, (int)getHeight());
 
-	for(int y=src_start_y; y<src_end_y; ++y)
-		for(int x=src_start_x; x<src_end_x; ++x)
+	for(int y = src_start_y; y < src_end_y; ++y)
+		for(int x = src_start_x; x < src_end_x; ++x)
 		{
 			const int dx = (x - src_start_x) + destx;
 			const int dy = (y - src_start_y) + desty;
@@ -582,10 +582,11 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 		}
 }
 
+
 void Image::addImage(const Image& img, int destx, int desty)
 {
-	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)
+	for(int y = 0; y < img.getHeight(); ++y)
+		for(int x = 0; x < img.getWidth(); ++x)
 		{
 			const int dx = x + destx;
 			const int dy = y + desty;
@@ -593,6 +594,7 @@ void Image::addImage(const Image& img, int destx, int desty)
 				getPixel(dx, dy) += img.getPixel(x, y);
 		}
 }
+
 
 void Image::blendImage(const Image& img, int destx, int desty)
 {
@@ -1369,6 +1371,58 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		}
 
 		//support_y += factor;
+	}
+
+	//*this = out;
+}
+
+
+void Image::collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, const Image& img_in, Image& img_out)
+{
+	assert(border_width >= 0);
+	assert(img_in.width > border_width * 2);
+	assert(img_in.width > border_width * 2);
+	assert((img_in.width - (border_width * 2)) % factor == 0);
+
+	assert(resize_filter_size > 0);
+	assert(resize_filter != 0);
+
+	img_out.resize( (img_in.width  - (border_width * 2)) / factor,
+					(img_in.height - (border_width * 2)) / factor);
+
+	const int64_t in_xres  = (int64_t)img_in.getWidth();
+	const int64_t in_yres  = (int64_t)img_in.getHeight();
+	const int64_t out_xres = (int64_t)img_out.getWidth();
+	const int64_t out_yres = (int64_t)img_out.getHeight();
+	const int filter_bound = resize_filter_size / 2 - 1;
+
+	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
+	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
+
+	#ifndef OSX
+	#pragma omp parallel for
+	#endif
+	for(int y = 0; y < out_yres; ++y)
+	for(int x = 0; x < out_xres; ++x)
+	{
+		ColourType weighted_sum(0);
+		uint32 filter_addr = 0;
+
+		for(int v = -filter_bound; v <= filter_bound; ++v)
+		for(int u = -filter_bound; u <= filter_bound; ++u)
+		{
+			const int64_t addr = (y * factor + factor / 2 + v + border_width) * in_xres +
+								  x * factor + factor / 2 + u + border_width;
+
+			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
+		}
+
+		assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
+
+		// Make sure components can't go below zero or above 1.0
+		weighted_sum.clampInPlace(0.0f, 1.0f);
+
+		out_buffer[y * out_xres + x] = weighted_sum;
 	}
 
 	//*this = out;
