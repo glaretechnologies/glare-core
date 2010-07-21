@@ -860,7 +860,7 @@ void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
 
-	const std::string euro_txt_pathname = "../testfiles/\xE2\x82\xAC.txt";
+	const std::string euro_txt_pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
 
 	try
 	{
@@ -897,7 +897,7 @@ void doUnitTests()
 
 	// Test std::ifstream without a Unicode pathname
 	{
-	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding("../testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
 
 	testAssert(file.is_open());
 	}

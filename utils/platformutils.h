@@ -100,6 +100,9 @@ enum ProcessPriority
 void setThisProcessPriority(ProcessPriority p);
 
 
+const std::string getEnvironmentVariable(const std::string& varname);
+
+
 void testPlatformUtils();
 
 

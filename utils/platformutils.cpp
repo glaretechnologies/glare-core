@@ -123,42 +123,9 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 const std::string PlatformUtils::getLoggedInUserName()
 {
 #if defined(WIN32) || defined(WIN64)
-	
-	/*TCHAR buffer[2048];
-
-	ULONG size = 2048;
-	if(GetUserNameEx(
-		NameDisplay, //NameCanonical, // NameFormat
-		buffer,
-		&size
-	) == 0)
-		throw PlatformUtilsExcep("GetUserNameEx failed: " + getLastErrorString());
-
-	return StringUtils::WToUTF8String(buffer);*/
-
-
-
-	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
-
-	const std::wstring varname = L"USERNAME";
-
-	TCHAR buffer[2048];
-
-	const DWORD size = 2048;
-
-	if(GetEnvironmentVariable(
-		varname.c_str(),
-		buffer,
-		size
-		) == 0)
-		throw PlatformUtilsExcep("GetEnvironmentVariable failed: " + getLastErrorString());
-
-	return StringUtils::WToUTF8String(buffer);
-
+	return getEnvironmentVariable("USERNAME");
 #else
-	if(!getenv("USER"))
-		throw PlatformUtilsExcep("getLoggedInUserName(): getenv failed.");
-	return getenv("USER");
+	return getEnvironmentVariable("USER");
 #endif
 }
 
@@ -467,6 +434,34 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 #else
 	// For now, we'll just make this a Null op.
 	//#error implement me, maybe?
+#endif
+}
+
+
+const std::string PlatformUtils::getEnvironmentVariable(const std::string& varname)
+{
+#if defined(WIN32) || defined(WIN64)
+	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
+
+	const std::wstring varname_w = StringUtils::UTF8ToWString(varname);
+
+	TCHAR buffer[2048];
+
+	const DWORD size = 2048;
+
+	if(GetEnvironmentVariable(
+		varname_w.c_str(),
+		buffer,
+		size
+		) == 0)
+		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
+
+	return StringUtils::WToUTF8String(buffer);
+
+#else
+	if(!getenv(varname.c_str()))
+		throw PlatformUtilsExcep("getEnvironmentVariable failed.");
+	return getenv(varname.c_str());
 #endif
 }
 
