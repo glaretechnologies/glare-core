@@ -8,6 +8,8 @@
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
+#include "../utils/CycleTimer.h"
+#include "../utils/platform.h"
 
 
 void Maths::test()
@@ -178,20 +180,48 @@ void Maths::test()
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
 	conPrint("sin()");
-	int N = 1000000;
+	const int N = 10000;
+	const int trials = 10;
+
 	{
-	Timer timer;
-	float sum = 0.0;
-	for(int i=0; i<N; ++i)
-	{
-		const float x = (float)i * 0.001f;
-		sum += sin(x);
+		float sum = 0.0;
+		int64_t least_cycles = std::numeric_limits<int>::max();
+		for(int t=0; t<trials; ++t)
+		{
+			CycleTimer timer;
+			for(int i=0; i<N; ++i)
+			{
+				const float x = (float)i * 0.001f;
+				sum += std::sin(x);
+			}
+
+			least_cycles = myMin(least_cycles, timer.getCyclesElapsed());
+		}
+
+		const double cycles = (double)least_cycles / (double)N;
+		printVar(cycles);
+		printVar(sum);
 	}
-	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+
+	conPrint("double sin()");
+	{
+		double sum = 0.0;
+		int64_t least_cycles = std::numeric_limits<int>::max();
+		for(int t=0; t<trials; ++t)
+		{
+			CycleTimer timer;
+			for(int i=0; i<N; ++i)
+			{
+				const double x = (double)i * 0.001;
+				sum += sin(x);
+			}
+
+			least_cycles = myMin(least_cycles, timer.getCyclesElapsed());
+		}
+
+		const double cycles = (double)least_cycles / (double)N;
+		printVar(cycles);
+		printVar(sum);
 	}
 
 
@@ -272,6 +302,38 @@ void Maths::test()
 	printVar(sum);
 	}
 
+	conPrint("pow()");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += pow(x, 2.2f);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+		printVar(elapsed);
+		printVar(cycles);
+		printVar(sum);
+	}
 
+	{
+		Timer timer;
+		double sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * 0.00001;
+			sum += pow(x, 2.2);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
+		printVar(elapsed);
+		printVar(cycles);
+		printVar(sum);
+	}
+
+
+	// exit(0);
 
 }

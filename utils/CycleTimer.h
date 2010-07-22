@@ -8,6 +8,12 @@ Code By Nicholas Chapman.
 #define __CYCLETIMER_H_666_
 
 
+#include "platform.h"
+#include <intrin.h>
+
+
+#pragma intrinsic(__rdtsc)
+
 
 /*=====================================================================
 CycleTimer
@@ -30,19 +36,20 @@ public:
 
 	~CycleTimer();
 
-	typedef /*unsigned long long*/ __int64 CYCLETIME_TYPE;//signed 64 bit integer type
+	typedef __int64 CYCLETIME_TYPE;
 
-	__forceinline void reset();
+	INDIGO_STRONG_INLINE void reset();
 
-	__forceinline CYCLETIME_TYPE getCyclesElapsed() const;
-	//adjusted for execution time of CPUID.
-	//NOTE: may be negative or 0.
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE elapsed() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCyclesElapsed() const;
+// Adjusted for execution time of CPUID.
+	// NOTE: may be negative or 0.
 
-	__forceinline CYCLETIME_TYPE getRawCyclesElapsed() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
 	//double getSecondsElapsed() const;
 
 private:
-	__forceinline CYCLETIME_TYPE getCounter() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
 
 	CYCLETIME_TYPE start_time;
 	CYCLETIME_TYPE cpuid_time;
@@ -62,6 +69,17 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getRawCyclesElapsed() const
 }
 
 //NOTE: may be negative or 0.
+CycleTimer::CYCLETIME_TYPE CycleTimer::elapsed() const
+{
+	return (getCounter() - start_time) - cpuid_time;
+	/*CYCLETIME_TYPE time = getCounter() - start_time - cpuid_time;
+	if(time < 0)
+	return 0;
+	else
+	return time;*/
+}
+
+//NOTE: may be negative or 0.
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 {
 	return (getCounter() - start_time) - cpuid_time;
@@ -74,7 +92,10 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 {
-	CycleTimer::CYCLETIME_TYPE numticks = 0;
+	return __rdtsc();
+
+
+	/*CycleTimer::CYCLETIME_TYPE numticks = 0;
 
 	__asm
 	{
@@ -85,7 +106,7 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 		mov dword ptr [ecx+4],edx //write high order bits into numticks
 	}
 
-	return numticks;
+	return numticks;*/
 }
 
 

@@ -8,6 +8,7 @@ Generated at Wed Jul 14 11:41:12 +1200 2010
 
 
 #include "timer.h"
+#include "CycleTimer.h"
 #include "stringutils.h"
 #include "../indigo/globals.h"
 
@@ -34,30 +35,64 @@ void UtilTests::test()
 {
 	if(false)
 	{
-		// Test speed of Timer.
-		const int N = 10000000;
-		double sum_elapsed_time = 0;
-
-		//ticks start_ticks = getticks();
-		Timer sum_timer;
-
-		for(int i=0; i<N; ++i)
 		{
+			conPrint("============ Timer =============");
+			// Test speed of Timer.
+			const int N = 10000000;
+			double sum_elapsed_time = 0;
+			CycleTimer cycle_timer;
+			Timer sum_timer;
+
 			Timer t;
-			sum_elapsed_time += t.elapsed();
+			for(int i=0; i<N; ++i)
+			{
+				t.reset();
+				sum_elapsed_time += t.elapsed();
+			}
+
+			const double sum_time = sum_timer.elapsed();
+			//ticks end_ticks = getticks();
+
+			//const ticks elapsed_ticks = end_ticks - start_ticks;
+			//conPrint("elapsed_ticks: " + toString(elapsed_ticks));
+			//conPrint("per-timer ticks: " + toString(elapsed_ticks / N));
+
+			const CycleTimer::CYCLETIME_TYPE cycles = cycle_timer.getCyclesElapsed();
+			conPrint("Elapsed cycles: " + toString((uint64)cycles));
+			conPrint("per-timer cycles: " + toString((uint64)cycles / N) + " cycles");
+
+			conPrint("sum_time: " + toString(sum_time) + " s");
+			conPrint("per-timer time: " + toString(1.0e9 * sum_time / N) + " ns");
+
+			conPrint("sum_elapsed_time: " + toString(sum_elapsed_time));
 		}
+		{
+			conPrint("============ CycleTimer =============");
+			// Test speed of CycleTimer.
+			const int N = 10000000;
+			CycleTimer::CYCLETIME_TYPE sum_elapsed_cycles = 0;
+			CycleTimer sum_cycle_timer;
+			Timer sum_timer;
 
-		const double sum_time = sum_timer.elapsed();
-		//ticks end_ticks = getticks();
+			CycleTimer t;
 
-		//const ticks elapsed_ticks = end_ticks - start_ticks;
-		//conPrint("elapsed_ticks: " + toString(elapsed_ticks));
-		//conPrint("per-timer ticks: " + toString(elapsed_ticks / N));
+			for(int i=0; i<N; ++i)
+			{
+				t.reset();	
+				sum_elapsed_cycles += t.getCyclesElapsed();
+			}
 
+			const double sum_time = sum_timer.elapsed();
 
-		conPrint("sum_time: " + toString(sum_time));
-		conPrint("per-timer time: " + toString(1.0e9 * sum_time / N) + " ns");
-		conPrint("sum_elapsed_time: " + toString(sum_elapsed_time));
+			const CycleTimer::CYCLETIME_TYPE cycles = sum_cycle_timer.getCyclesElapsed();
+			conPrint("Elapsed cycles: " + toString((uint64)cycles));
+			conPrint("per-timer cycles: " + toString((uint64)cycles / N) + " cycles");
+
+			conPrint("sum_time: " + toString(sum_time) + " s");
+			conPrint("per-timer time: " + toString(1.0e9 * sum_time / N) + " ns");
+
+			conPrint("sum_elapsed_cycles: " + toString((uint64)sum_elapsed_cycles));
+		}
 
 		exit(0);
 	}
