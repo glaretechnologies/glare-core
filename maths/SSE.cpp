@@ -9,8 +9,10 @@ Code By Nicholas Chapman.
 
 #include "../utils/platform.h"
 #include "../utils/timer.h" // just for testing
-//#include "../indigo/globals.h" // just for testing
+#include "../utils/CycleTimer.h" // just for testing
+#include "../indigo/globals.h" // just for testing
 #include "../utils/stringutils.h" // just for testing
+#include "../indigo/TestUtils.h" // just for testing
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #ifdef COMPILER_MSVC
@@ -131,9 +133,26 @@ void alignedFree(void* mem)
 } // end namespace SSE
 
 
+inline float horizontalMax(const __m128& v)
+{
+	//const __m128 v = _mm_load_ps(f); // [d, c, b, a]
+	const __m128 aabb = _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0)); // [b, b, a, a]
+	const __m128 ccdd = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 2, 2)); // [d, d, c, c]
+	const __m128 m1 = _mm_max_ps(aabb, ccdd); // [m(b,d), m(b,d), m(a, c), m(a, c)]
+	const __m128 m2 = _mm_shuffle_ps(m1, m1, _MM_SHUFFLE(3, 3, 3, 3)); // [m(b,d), m(b,d), m(b,d), m(b,d)]
+	const __m128 m3 = _mm_max_ps(m1, m2);
+
+	SSE_ALIGN float x[4];
+	_mm_store_ps(x, m3);
+	return x[0];
+}
+
+
+
 void SSETest()
 {
 //	conPrint("SSETest()");
+	{
 
 	// Test myAlignedMalloc, myAlignedFree
 	for(int i=0; i<1000; ++i)
@@ -227,4 +246,99 @@ void SSETest()
 	SSE::alignedFree(data1);
 	SSE::alignedFree(data2);
 	SSE::alignedFree(res);
+
+	}
+
+
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 100000;
+		int actual_num_cycles = 0;
+
+		SSE_ALIGN float c[4];
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			__m128 i_v = _mm_load1_ps(&f);
+
+			_mm_store_ps(c, i_v);
+
+			actual_num_cycles++;
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		printVar((float)cycles);
+		printVar((float)cycles / N);
+		printVar(actual_num_cycles);
+		printVar(f);
+		printVar(c[0]);
+	}
+
+	/*conPrint("\n====================Scalar max ===============");
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 100000;
+		float sum = 0.f;
+
+		SSE_ALIGN float fv[4] = { 1.f, 0, 20000.f, 0 };
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			fv[3] = f;
+
+			sum += myMax(fv[0], myMax(fv[1], myMax(fv[2], fv[3])));
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		printVar((float)cycles);
+		printVar((float)cycles / N);
+		printVar(sum);
+	}*/
+
+	conPrint("\n====================SSE horizontal max ===============");
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 100000;
+		float sum = 0.f;
+
+		//SSE_ALIGN float fv[4] = { 1.f, 0, 20000.f, 0 };
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			//fv[3] = f;
+			//SSE_ALIGN float fv[4] = { f + 1.f, f, f + 2.f, f };
+
+			//sum += sseGetMax(_mm_load_ps(fv));
+			sum += horizontalMax(_mm_load_ps1(&f));
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		printVar((float)cycles);
+		printVar((float)cycles / N);
+		printVar(sum);
+	}
+
+	{
+		SSE_ALIGN float x[4] = { 1.f, 2.f, 3.f, 4.f };
+		testAssert(horizontalMax(_mm_load_ps(x)) == 4.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 2.f, 3.f, 4.f };
+		testAssert(horizontalMax(_mm_load_ps(x)) == 5.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 6.f, 3.f, 4.f };
+		testAssert(horizontalMax(_mm_load_ps(x)) == 6.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 6.f, 7.f, 4.f };
+		testAssert(horizontalMax(_mm_load_ps(x)) == 7.f);
+	}
+	//exit(0);
 }

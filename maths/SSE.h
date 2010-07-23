@@ -207,6 +207,13 @@ inline const SSE4Vec zeroVec()
 	return _mm_setzero_ps();
 }
 
+
+inline const SSE4Vec oneVec()
+{
+	return _mm_load_ps(one_4vec);
+}
+
+
 //sets each float in result to a if the mask is 1'd, or b if the mask is zeroed
 /*inline void setMasked(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& mask, SSE4Vec& result)
 {
