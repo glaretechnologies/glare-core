@@ -81,6 +81,15 @@ public:
 	//typedef Vec4f VecType;
 
 
+	void init(
+		const Vec3d& cam_pos, const Vec3d& ws_updir, const Vec3d& forwards, 
+		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist,
+		double exposure_duration,
+		Aperture* aperture,
+		double lens_shift_up_distance,
+		double lens_shift_right_distance);
+
+
 	//const Vec3d sampleSensor(const SamplePair& samples, double time) const;
 	PDType sensorPDF() const;
 
@@ -181,7 +190,6 @@ public:
 	//const Vec3d polarisingVec() const { return polarising_vec; }
 
 	double getExposureDuration() const { return exposure_duration; }
-	//double getFilmSensitivity() const { return film_sensitivity; }
 
 	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
@@ -207,7 +215,6 @@ public:
 
 	//const Vec3d getLensCenterPos() const;
 	//const Vec3d getSensorBottomMiddle() const;
-	//cons
 
 	//void getViewVolumeClippingPlanesCameraSpace(std::vector<Plane<Vec3RealType> >& planes_out) const;
 	const std::vector<Plane<Vec3RealType> >& getViewVolumeClippingPlanesCameraSpace() const { return clipping_planes_camera_space; }
@@ -235,7 +242,6 @@ private:
 
 	std::vector<Plane<Vec3RealType> > clipping_planes_camera_space;
 
-	
 
 	//Array2d<float>* aperture_image;
 	//Distribution2* aperture_image;
@@ -244,23 +250,10 @@ private:
 	Aperture* aperture;
 	mutable std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
-	//Vec3d pos;
-	//Vec3d ws_up;
-	//Vec3d up;
-	//Vec3d right;
-	//Vec3d forwards;
-
 	double lens_radius;
 	double lens_width;
 	double focal_length;
 	double recip_lens_width;
-	//double aspect_ratio;
-	//double angle_of_view;
-
-	/*double width;
-	double width_2;
-	double height;
-	double height_2;*/
 
 	double focus_distance;
 	Vec3d sensor_center;
@@ -268,14 +261,12 @@ private:
 	double sensor_width;
 	double sensor_height;
 	Vec3d lens_center;
-	//Vec3d lens_botleft;
 	double recip_sensor_width;
 	double recip_sensor_height;
 	double sensor_to_lens_dist;
 
 	double sensor_to_lens_dist_focus_dist_ratio;
 	double focus_dist_sensor_to_lens_dist_ratio;
-	//double uniform_lens_pos_pdf;
 	double uniform_sensor_pos_pdf;
 
 	double recip_unoccluded_aperture_area;
@@ -296,7 +287,6 @@ private:
 	//ColourSpaceConverter* colour_space_converter;
 
 	double exposure_duration; // aka shutter speed
-	//double film_sensitivity; // aka ISO film sppeed
 
 	double lens_shift_up_distance;
 	double lens_shift_right_distance;
@@ -312,36 +302,4 @@ private:
 };
 
 
-/*double Camera::distUpOnSensorFromCenter(const Vec3d& x) const
-{
-	return dot(x - sensor_center, up);
-}
-
-double Camera::distRightOnSensorFromCenter(const Vec3d& x) const
-{
-	return dot(x - sensor_center, right);
-}
-
-double Camera::distUpOnLensFromCenter(const Vec3d& x) const
-{
-	return dot(x - lens_center, up);
-}
-
-double Camera::distRightOnLensFromCenter(const Vec3d& x) const
-{
-	return dot(x - lens_center, right);
-}
-
-const Vec2d Camera::normalisedLensPosForWSPoint(const Vec3d& x) const
-{
-	return Vec2d(dot(right, x) - dot(right, lens_botleft), dot(up, x) - dot(up, lens_botleft)) / (2.0 * lens_radius);
-	//return Vec2d(dot(right, pos) - dot(right, lens_botleft), dot(up, pos) - dot(up, lens_botleft)) / (2.0 * lens_radius);
-}*/
-
-
-
 #endif //__CAMERA_H_666_
-
-
-
-
