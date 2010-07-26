@@ -438,6 +438,44 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 }
 
 
+const std::string PlatformUtils::readRegistryKey(const std::string& keystr, const std::string& value)
+{
+#if defined(WIN32) || defined(WIN64)
+	HKEY key = 0;
+	LONG result = RegOpenKeyEx(
+		HKEY_LOCAL_MACHINE,
+		StringUtils::UTF8ToPlatformUnicodeEncoding(keystr).c_str(),
+		0, //options
+		KEY_QUERY_VALUE, //
+		//KEY_READ, // rights
+		&key // key out
+		);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("RegOpenKeyEx failed: " + toString((int)result));
+
+
+	std::vector<wchar_t> buf(2048);
+	DWORD bytesize = buf.size() * sizeof(wchar_t);
+
+	result = RegGetValue(
+		key, // key
+		L"", // subkey
+		StringUtils::UTF8ToPlatformUnicodeEncoding(value).c_str(), // value
+		RRF_RT_REG_SZ,
+		NULL,
+		&buf[0],
+		&bytesize
+		);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("RegGetValue failed: " + toString((int)result));
+
+	return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0]));
+#else
+	throw PlatformUtilsExcep("Called readRegistryKey() not on Windows.");
+#endif
+}
+
+
 const std::string PlatformUtils::getEnvironmentVariable(const std::string& varname)
 {
 #if defined(WIN32) || defined(WIN64)
