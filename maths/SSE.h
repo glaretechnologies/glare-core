@@ -13,6 +13,12 @@ Code By Nicholas Chapman.
 //#ifdef USE_SSE2
 //#include <emmintrin.h> //SSE 2 header file'
 //#endif
+
+//#define USE_SSE4 1
+#if USE_SSE4
+#include <smmintrin.h>
+#endif
+
 #include <assert.h>
 #ifdef COMPILER_GCC
 #include <stdlib.h>
@@ -436,19 +442,5 @@ typedef union {
 
 void SSETest();
 
+
 #endif //__SSE_H_666_
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
