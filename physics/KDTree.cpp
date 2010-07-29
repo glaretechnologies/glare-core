@@ -176,7 +176,7 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
 	assertSSEAligned(&ray);
-	assert(ray.unitDir().isUnitLength());
+	//assert(ray.unitDir().isUnitLength()); // NOTE: taken out because rays are not necessarily normalised anymore
 	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 

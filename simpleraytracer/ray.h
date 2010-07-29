@@ -38,7 +38,7 @@ public:
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
-		assert(unitdir_.isUnitLength());
+		//assert(unitdir_.isUnitLength()); // NOTE: taken out because rays don't always use unit vector directions
 		assert(SSE::isSSEAligned(this));
 
 		origin_error = startpos_.length() * 2.0e-5f;
