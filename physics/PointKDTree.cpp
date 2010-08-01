@@ -126,6 +126,92 @@ uint32 PointKDTree::getNearestPointDebug(const std::vector<Vec3f>& points, const
 }
 
 
+float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const
+{
+	std::vector<uint32>& stack = thread_context.point_kd_tree_stack;
+
+	actual_num_out = 0;
+
+	//float smallest_dist2 = std::numeric_limits<float>::max();
+	//uint32 closest_point_index = notFoundIndex();
+	float radius = min_radius;
+
+	while(radius < max_radius)
+	{
+		const float radius2 = radius * radius;
+		int num_points_in_r = 0;
+
+		int stacktop = 0; // Index of node on top of stack
+
+		// Push root node onto top of stack
+		stack[0] = 0;
+
+		while(stacktop >= 0) // While stack is not empty...
+		{
+			// Pop node off stack
+			uint32 current = stack[stacktop];
+			assert(current < nodes.size());
+			stacktop--;
+
+			// Keep walking down a tree until we walk off the bottom of a leaf.
+			while(current != NULL_NODE_INDEX)
+			{
+				const float d2 = nodes[current].point.getDist2(p);
+				if(d2 < radius2)
+				{
+					num_points_in_r++;
+					//smallest_dist2 = nodes[current].point.getDist2(p);
+					//closest_point_index = nodes[current].point_index;
+				}
+
+				if(nodes[current].left == NULL_NODE_INDEX && nodes[current].right == NULL_NODE_INDEX)
+				{
+					// This is a leaf node
+					break;
+				}
+
+
+				const unsigned int split_axis = nodes[current].split_axis;
+				const float diff = p[split_axis] - nodes[current].split_val;
+				if(diff > radius)
+				{
+					// Then the p sphere lies entirely in right child.
+					// So traverse to right child
+					current = nodes[current].right;
+				}
+				else if(diff < -radius)
+				{
+					// Then the p sphere lies entirely in left child.
+					// So traverse to left child
+					current = nodes[current].left;
+				}
+				else
+				{
+					// Else p sphere intersects both left and right child spaces.
+					// So pop right child onto stack, and traverse to left child.
+
+					stacktop++;
+					stack[stacktop] = nodes[current].right;
+					current = nodes[current].left;
+				}
+			} // End while(current != NULL_NODE_INDEX)
+		} // End while(stacktop >= 0)
+
+		
+		if(num_points_in_r < N)
+			radius *= 2.0f; // Expand search radius
+		else
+		{
+			actual_num_out = num_points_in_r;
+			break;
+		}
+	}
+
+
+	return radius;
+}
+
+
 void PointKDTree::printTree(std::ostream& stream, unsigned int node_index, unsigned int depth) const
 {
 	for(unsigned int i=0; i<depth; ++i)
