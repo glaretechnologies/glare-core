@@ -36,7 +36,7 @@ class Array2d
 {
 public:
 	inline Array2d();
-	inline Array2d(unsigned int dim1, unsigned int dim2);
+	inline Array2d(size_t dim1, size_t dim2);
 	inline Array2d(const Array2d& rhs);
 	inline ~Array2d();
 
@@ -48,8 +48,8 @@ public:
 
 	inline void setAllElems(const Field& newval);
 
-	void resize(unsigned int newdim1, unsigned int newdim2);
-	inline void checkResize(unsigned int xindex, unsigned int yindex);
+	void resize(size_t newdim1, size_t newdim2);
+	inline void checkResize(size_t xindex, size_t yindex);
 
 	inline size_t getWidth()  const { return dim1; }
 	inline size_t getHeight() const { return dim2; }
@@ -64,7 +64,7 @@ public:
 	inline const Field* rowEnd(unsigned int y) const;
 
 private:
-	void resizeAndScrapData(unsigned int newdim1, unsigned int newdim2);
+	void resizeAndScrapData(size_t newdim1, size_t newdim2);
 
 	Field* data;
 	size_t dim1;
@@ -83,13 +83,13 @@ Array2d<Field>::Array2d()
 
 
 template <class Field>
-Array2d<Field>::Array2d(unsigned int dim1_, unsigned int dim2_)
+Array2d<Field>::Array2d(size_t dim1_, size_t dim2_)
 :	data(NULL),
 	dim1(dim1_),
 	dim2(dim2_)
 {
 	//data = new Field[dim1 * dim2];
-	data = (Field *)_mm_malloc((size_t)dim1 * (size_t)dim2 * sizeof(Field), 64);
+	data = (Field *)_mm_malloc(dim1 * dim2 * sizeof(Field), 64);
 }
 
 
@@ -98,7 +98,7 @@ Array2d<Field>::Array2d(const Array2d& rhs)
 :	dim1(rhs.dim1),
 	dim2(rhs.dim2)
 {
-	const size_t num_elems = (size_t)dim1 * (size_t)dim2;
+	const size_t num_elems = dim1 * dim2;
 
 	//data = new Field[num_elems];
 	data = (Field *)_mm_malloc(num_elems * sizeof(Field), 64);
@@ -141,7 +141,7 @@ Array2d<Field>& Array2d<Field>::operator = (const Array2d<Field>& rhs)
 
 	assert(dim1 == rhs.dim1 && dim2 == rhs.dim2);
 
-	const size_t num_elems = (size_t)dim1 * (size_t)dim2;
+	const size_t num_elems = dim1 * dim2;
 	for(size_t i = 0; i < num_elems; ++i)
 		data[i] = rhs.data[i];
 
@@ -155,7 +155,7 @@ bool Array2d<Field>::operator == (const Array2d<Field>& rhs) const
 	if(rhs.dim1 != dim1 || rhs.dim2 != dim2)
 		return false;
 
-	const size_t num_elems = (size_t)dim1 * (size_t)dim2;
+	const size_t num_elems = dim1 * dim2;
 	for(size_t i = 0; i < num_elems; ++i)
 		if(data[i] != rhs.data[i])
 			return false;
@@ -167,20 +167,20 @@ bool Array2d<Field>::operator == (const Array2d<Field>& rhs) const
 template <class Field>
 void Array2d<Field>::setAllElems(const Field& newval)
 {
-	const size_t num_elems = (size_t)dim1 * (size_t)dim2;
+	const size_t num_elems = dim1 * dim2;
 	for(size_t i = 0; i < num_elems; ++i)
 		data[i] = newval;
 }
 
 
 template <class Field>
-void Array2d<Field>::resize(unsigned int newdim1, unsigned int newdim2)
+void Array2d<Field>::resize(size_t newdim1, size_t newdim2)
 {
 	//Field* newdata = new Field[newdim1 * newdim2];
-	Field* newdata = (Field*)_mm_malloc((size_t)newdim1 * (size_t)newdim2 * sizeof(Field), 64);
+	Field* newdata = (Field*)_mm_malloc(newdim1 * newdim2 * sizeof(Field), 64);
 
-	const size_t minx = myMin((size_t)newdim1, dim1);
-	const size_t miny = myMin((size_t)newdim2, dim2);
+	const size_t minx = myMin(newdim1, dim1);
+	const size_t miny = myMin(newdim2, dim2);
 
 	for(size_t y = 0; y < miny; y++)
 		for(size_t x = 0; x < minx; x++)
@@ -196,12 +196,12 @@ void Array2d<Field>::resize(unsigned int newdim1, unsigned int newdim2)
 
 
 template <class Field>
-void Array2d<Field>::resizeAndScrapData(unsigned int newdim1, unsigned int newdim2)
+void Array2d<Field>::resizeAndScrapData(size_t newdim1, size_t newdim2)
 {
 	//delete[] data;
 	//data = new Field[newdim1 * newdim2];
 	_mm_free(data);
-	data = (Field*)_mm_malloc((size_t)newdim1 * (size_t)newdim2 * sizeof(Field), 64);
+	data = (Field*)_mm_malloc(newdim1 * newdim2 * sizeof(Field), 64);
 
 	dim1 = newdim1;
 	dim2 = newdim2;
@@ -209,7 +209,7 @@ void Array2d<Field>::resizeAndScrapData(unsigned int newdim1, unsigned int newdi
 
 
 template <class Field>
-void Array2d<Field>::checkResize(unsigned int xindex, unsigned int yindex)
+void Array2d<Field>::checkResize(size_t xindex, size_t yindex)
 {
 	if(xindex >= dim1 || yindex >= dim2)
 		resize( myMax(xindex + 1, dim1), myMax(yindex + 1, dim2) );

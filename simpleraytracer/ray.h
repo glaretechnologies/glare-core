@@ -63,11 +63,11 @@ public:
 			);
 
 #ifdef DEBUG
-		Vec4f r(_mm_div_ps(_mm_load_ps(one_4vec), unitdir_.v));
+		/*Vec4f r(_mm_div_ps(_mm_load_ps(one_4vec), unitdir_.v));
 		if(r.x[0] != recip_unitdir_f.x[0])
 		{
 			int a = 9;
-		}
+		}*/
 #endif
 	}
 
