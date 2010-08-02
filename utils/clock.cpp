@@ -29,11 +29,15 @@ static double clock_period = 0;
 
 void Clock::init()
 {
+#if defined(WIN32) || defined(WIN64)
 	LARGE_INTEGER freq;
 	const BOOL b = QueryPerformanceFrequency(&freq);
 	assert(b);
 
 	clock_period = 1.0 / (double)(freq.QuadPart);
+#else
+	clock_period = 0.0;
+#endif
 
 	clock_initialised = true;
 }

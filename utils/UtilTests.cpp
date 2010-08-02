@@ -94,7 +94,7 @@ void UtilTests::test()
 			conPrint("sum_elapsed_cycles: " + toString((uint64)sum_elapsed_cycles));
 		}
 
-		exit(0);
+		//exit(0);
 	}
 
 }

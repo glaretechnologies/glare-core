@@ -64,7 +64,7 @@ const std::string Vec3<Real>::toStringFullPrecision() const
 
 
 //__declspec(nothrow)
-static INDIGO_STRONG_INLINE Vec3f __declspec(nothrow) vmul(const Vec3f& a, float f)
+static INDIGO_STRONG_INLINE Vec3f vmul(const Vec3f& a, float f)
 {
 	//return Vec3f(a.x * f, a.y * f, a.z * f);
 	Vec3f res;
@@ -97,7 +97,7 @@ inline void vadd(const Vec3f& a, const Vec3f& b, Vec3f& out)
 
 
 template <>
-static void Vec3<float>::test()
+void Vec3<float>::test()
 {
 	//__m128 temp_hakz = { 0.f };
 

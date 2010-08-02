@@ -12,7 +12,13 @@ Generated at Tue May 25 16:47:39 +1200 2010
 //#include "../indigo/globals.h"
 
 
+#if defined(WIN32) || defined(WIN64)
 #define VEC3_INLINE __forceinline
+#define NOTHROW __declspec(nothrow)
+#else
+#define VEC3_INLINE inline
+#define NOTHROW
+#endif
 
 
 //template <class Real>
@@ -21,13 +27,13 @@ class TestVec3
 {
 public:
 
-	__declspec(nothrow) VEC3_INLINE TestVec3() throw ()
+	NOTHROW VEC3_INLINE TestVec3() throw ()
 	{}
 
-	__declspec(nothrow) VEC3_INLINE ~TestVec3() throw ()
+	NOTHROW VEC3_INLINE ~TestVec3() throw ()
 	{}
 
-	__declspec(nothrow) VEC3_INLINE TestVec3(TVReal x_, TVReal y_, TVReal z_) throw ()
+	NOTHROW VEC3_INLINE TestVec3(TVReal x_, TVReal y_, TVReal z_) throw ()
 	:	x(x_),
 		y(y_),
 		z(z_)
@@ -62,7 +68,7 @@ VectorTest::~VectorTest()
 }
 
 
-__declspec(nothrow)
+NOTHROW
 static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
 {
 	return TestVec3(a.x * f, a.y * f, a.z * f);
