@@ -20,7 +20,7 @@ Code Copyright Nicholas Chapman 2005.
 #endif
 
 #include "ipaddress.h"
-#include "mystream.h"
+//#include "mystream.h"
 #include "../utils/platform.h"
 #include <string>
 class FractionListener;
