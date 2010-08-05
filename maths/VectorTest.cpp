@@ -30,6 +30,12 @@ public:
 	NOTHROW VEC3_INLINE TestVec3() throw ()
 	{}
 
+	NOTHROW VEC3_INLINE TestVec3(const TestVec3& other) throw ()
+	:	x(other.x),
+		y(other.y),
+		z(other.z)
+	{}
+
 	NOTHROW VEC3_INLINE ~TestVec3() throw ()
 	{}
 
