@@ -32,8 +32,6 @@ static const uint32 NULL_NODE_INDEX = std::numeric_limits<uint32>::max();
 
 uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_context) const
 {
-	//std::vector<uint32> stack(64);
-
 	std::vector<uint32>& stack = thread_context.point_kd_tree_stack;
 
 	float smallest_dist2 = std::numeric_limits<float>::max();
@@ -90,7 +88,7 @@ uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_contex
 				else
 				{
 					// Else p sphere intersects both left and right child spaces.
-					// So pop right child onto stack, and traverse to left child.
+					// So push right child onto stack, and traverse to left child.
 
 					stacktop++;
 					stack[stacktop] = nodes[current].right;
@@ -132,14 +130,14 @@ float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N,
 
 	actual_num_out = 0;
 
-	//float smallest_dist2 = std::numeric_limits<float>::max();
-	//uint32 closest_point_index = notFoundIndex();
+	// Current query radius.  Will expand if not N points in radius.
 	float radius = min_radius;
 
 	while(radius < max_radius)
 	{
-		const float radius2 = radius * radius;
+		const float radius2 = radius * radius; // Get radius squared
 		int num_points_in_r = 0;
+		float max_r2 = 0;
 
 		int stacktop = 0; // Index of node on top of stack
 
@@ -160,8 +158,7 @@ float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N,
 				if(d2 < radius2)
 				{
 					num_points_in_r++;
-					//smallest_dist2 = nodes[current].point.getDist2(p);
-					//closest_point_index = nodes[current].point_index;
+					max_r2 = myMax(max_r2, d2);
 				}
 
 				if(nodes[current].left == NULL_NODE_INDEX && nodes[current].right == NULL_NODE_INDEX)
@@ -188,7 +185,7 @@ float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N,
 				else
 				{
 					// Else p sphere intersects both left and right child spaces.
-					// So pop right child onto stack, and traverse to left child.
+					// So push right child onto stack, and traverse to left child.
 
 					stacktop++;
 					stack[stacktop] = nodes[current].right;
@@ -203,10 +200,13 @@ float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N,
 		else
 		{
 			actual_num_out = num_points_in_r;
-			break;
+			return max_r2;
 		}
 	}
 
+	assert(radius >= max_radius);
+
+	//NOTE: what actual_num_out should we return here?
 
 	return radius;
 }
@@ -542,8 +542,5 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 	nodes[current].split_val = split;
 	nodes[current].point = points[best_point_index];
 	nodes[current].point_index = best_point_index;
-
 }
-
-
 

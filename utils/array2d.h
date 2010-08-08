@@ -63,6 +63,8 @@ public:
 	inline const Field* rowBegin(unsigned int y) const;
 	inline const Field* rowEnd(unsigned int y) const;
 
+	void getTranspose(Array2d<Field>& transpose_out) const;
+
 private:
 	void resizeAndScrapData(size_t newdim1, size_t newdim2);
 
@@ -241,6 +243,17 @@ template <class Field>
 const Field* Array2d<Field>::rowEnd(unsigned int y) const
 {
 	return data + ((y + 1) * dim1);
+}
+
+
+template <class Field>
+void Array2d<Field>::getTranspose(Array2d<Field>& transpose_out) const
+{
+	transpose_out.resize(getHeight(), getWidth());
+
+	for(size_t y=0; y<getHeight(); ++y)
+		for(size_t x=0; x<getWidth(); ++x)
+			transpose_out.elem(y, x) = elem(x, y);
 }
 
 
