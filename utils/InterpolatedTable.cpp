@@ -8,6 +8,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 
 #include "../indigo/SpectralVector.h"
+#include "../indigo/PolarisationVec.h"
 
 
 InterpolatedTable::InterpolatedTable(
@@ -62,24 +63,28 @@ Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 }
 
 
-void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, SpectralVector& values_out) const
+void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const
 {
 	const int y_index = myMax(0, (int)((y - start_y) * recip_y_step));
 	const int y_index_1 = myMin(y_index + 1, (int)data.getHeight() - 1);
 
-	// Calc interpolation parameter along y axis.
-	const Real t_y = (y - (float)y_index * y_step) * recip_y_step;
+	// Calculate interpolation parameter along y axis.
+	const Real t_y = (y - (start_y + (float)y_index * y_step)) * recip_y_step;
+
+	assert(t_y >= 0 && t_y <= 1.01);
 
 	for(unsigned int i=0; i<wavelengths.size(); ++i)
 	{
 		const Real w = wavelengths[i];
 		const int x_index = myMax(0, (int)((w - start_x) * recip_x_step));
-		const int x_index_1 = myMin(x_index + 1, (int)data.getHeight() - 1);
+		const int x_index_1 = myMin(x_index + 1, (int)data.getWidth() - 1);
 
-		// Calc interpolation parameter along x axis.
-		const Real t_x = (w - (float)x_index * x_step) * recip_x_step;
+		// Calculate interpolation parameter along x axis.
+		const Real t_x = (w - (start_x + (float)x_index * x_step)) * recip_x_step;
 
-		values_out[i] = biLerp(
+		assert(t_x >= 0 && t_x <= 1.01);
+
+		values_out.e[i] = biLerp(
 			data.elem(x_index, y_index),
 			data.elem(x_index_1, y_index),
 			data.elem(x_index, y_index_1),

@@ -856,9 +856,59 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 }
 
 
+/*
+Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+*/
+const std::string getActualOSPath(const std::string& path_)
+{
+	const std::string path = toPlatformSlashes(path_);
+
+	if(fileExists(path))
+		return path;
+	
+	// We don't have an exact match.
+	// Try to guess the correct case by scanning directory and doing case-insensitive matches.
+
+	const std::string dir = getDirectory(path);
+	const std::vector<std::string> files = getFilesInDir(dir);
+
+	const std::string target_filename_lowercase = ::toLowerCase(getFilename(path));
+
+	for(size_t i=0; i<files.size(); ++i)
+	{
+		if(::toLowerCase(files[i]) == target_filename_lowercase)
+			return join(dir, files[i]);
+	}
+
+	throw FileUtilsExcep("Could not find file '" + path_ + "'");
+}
+
+
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
+
+
+
+	try
+	{
+#if defined(WIN32) || defined(WIN64)
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
+#else
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+#endif
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+
+
+
 
 	const std::string euro_txt_pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
 

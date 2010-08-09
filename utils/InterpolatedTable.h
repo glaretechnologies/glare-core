@@ -9,6 +9,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 #include "array2d.h"
 class SpectralVector;
+class PolarisationVec;
 
 
 /*=====================================================================
@@ -35,7 +36,7 @@ public:
 	);
 	~InterpolatedTable();
 
-	void getValues(const SpectralVector& wavelengths, Real y, SpectralVector& values_out) const;
+	void getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const;
 
 
 
