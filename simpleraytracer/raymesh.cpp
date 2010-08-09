@@ -317,8 +317,8 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		vertices = temp_verts;
 		uvs = temp_uvs;
 
-		assert((temp_uvs.size() % num_uv_sets) == 0);
-		this->num_uv_groups = temp_uvs.size() / num_uv_sets;
+		assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+		this->num_uv_groups = num_uv_sets > 0 ? temp_uvs.size() / num_uv_sets : 0;
 
 		// Check data
 #ifdef DEBUG
