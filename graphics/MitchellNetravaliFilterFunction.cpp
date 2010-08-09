@@ -4,10 +4,9 @@
 
 
 MitchellNetravaliFilterFunction::MitchellNetravaliFilterFunction(double B_, double C_)
-:	mn(B, C),
-	B(B_),
-	C(C_)
-{}
+:	mn(B_, C_)
+{
+}
 
 
 MitchellNetravaliFilterFunction::~MitchellNetravaliFilterFunction()
@@ -17,14 +16,14 @@ MitchellNetravaliFilterFunction::~MitchellNetravaliFilterFunction()
 
 void MitchellNetravaliFilterFunction::getParameters(double* B_out, double* C_out)
 {
-	*B_out = B;
-	*C_out = C;
+	*B_out = mn.getB();
+	*C_out = mn.getC();
 }
 
 
 double MitchellNetravaliFilterFunction::supportRadius() const
 {
-	return 2.0;
+	return 2.5;
 }
 
 

@@ -184,7 +184,7 @@ public:
 	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
-	const unsigned int numUVSets() const { return num_uvs_per_group; }
+	const unsigned int numUVSets() const { return num_uv_sets; }
 
 	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
 
@@ -236,8 +236,8 @@ private:
 	
 	//unsigned int num_uvs;
 	
-	unsigned int num_uvs_per_group; // 0 - 4
-	unsigned int num_uv_groups; // will be roughly equal to number of vertice
+	unsigned int num_uv_sets; // 0 - 4
+	unsigned int num_uv_groups; // will be roughly equal to number of vertices
 	std::vector<Vec2f> uvs; // will have num_uv_groups * num_uvs_per_group elements
 
 	unsigned int max_num_subdivisions;

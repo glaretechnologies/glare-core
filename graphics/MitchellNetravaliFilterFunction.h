@@ -29,8 +29,6 @@ public:
 
 private:
 	MitchellNetravali<double> mn;
-
-	double B, C;
 };
 
 
