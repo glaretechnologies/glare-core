@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #endif
 
 
+#include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
@@ -749,6 +750,7 @@ const std::string getCurrentDir()
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
+
 	if(!CopyFile(
 		StringUtils::UTF8ToWString(srcpath).c_str(),
 		StringUtils::UTF8ToWString(dstpath).c_str(),
@@ -892,6 +894,12 @@ void doUnitTests()
 
 	try
 	{
+
+		//TEMP:
+		const std::vector<std::string> files = getFilesInDir(TestUtils::getIndigoTestReposDir() + "/testfiles");
+		for(size_t i=0; i<files.size(); ++i)
+			conPrint("file: " + files[i]);
+
 #if defined(WIN32) || defined(WIN64)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
 #else
