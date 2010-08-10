@@ -97,7 +97,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0) - Vec4f(0,0,0,1), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -110,7 +110,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 		const double t = -B + sqrt_discriminant;
 		if(t >= use_min_t/*ray.minT()*/)
 		{
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t) - Vec4f(0,0,0,1), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
