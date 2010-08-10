@@ -33,7 +33,6 @@ Code By Nicholas Chapman.
 #include <net/if.h>
 #endif
 
-
 #include <cassert>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
@@ -44,6 +43,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 
 #if defined(OSX)
+#include <CoreServices/CoreServices.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -208,6 +208,17 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 }
 
 
+#if defined(OSX)
+std::string GetPathFromCFURLRef(CFURLRef urlRef)
+{
+	char buffer[2048];
+	std::string path;
+	if(CFURLGetFileSystemRepresentation(urlRef, true, (UInt8*)buffer, 1024))
+		path = std::string(buffer);
+	return path;
+}
+#endif
+
 const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExcep
 {
 #if defined(WIN32) || defined(WIN64)
@@ -224,8 +235,31 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString(res));
 
 	return StringUtils::WToUTF8String(path);
+#elif defined(OSX)
+	FSRef f;
+	CFURLRef url;
+	std::string filepath = "";
+	
+	if(noErr == FSFindFolder(kUserDomain, kApplicationSupportFolderType, kDontCreateFolder, &f ))
+	{
+		url = CFURLCreateFromFSRef( 0, &f );
+		if(url)
+		{
+			filepath = GetPathFromCFURLRef(url);
+		}
+		else
+			throw PlatformUtilsExcep("Couldn't create CFURLRef for User's application support Path");
+		
+		url = NULL;
+	}
+	else 
+	{
+		throw PlatformUtilsExcep("Couldn't find the User's Application Support Path");
+	}
+	
+	return filepath;
 #else
-	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows.");
+	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows and OSX.");
 #endif
 }
 
@@ -255,7 +289,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(WIN32) || defined(WIN64) || defined(OSX)
 	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming
 	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
 
