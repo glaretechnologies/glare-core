@@ -87,30 +87,30 @@ void Image::setFromBitmap(const Bitmap& bmp)
 	if(bmp.getBytesPP() == 1)
 	{
 		const float factor = 1.0f / 255.0f;
-		for(unsigned int y=0; y<bmp.getHeight(); ++y)
-			for(unsigned int x=0; x<bmp.getWidth(); ++x)
-			{
-				setPixel(x, y,
-					Colour3f((float)*bmp.getPixel(x, y) * factor)
-					);
-			}
+		for(unsigned int y = 0; y < bmp.getHeight(); ++y)
+		for(unsigned int x = 0; x < bmp.getWidth();  ++x)
+		{
+			setPixel(x, y,
+				Colour3f((float)*bmp.getPixel(x, y) * factor)
+				);
+		}
 	}
 	else
 	{
 		assert(bmp.getBytesPP() == 3);
 
 		const float factor = 1.0f / 255.0f;
-		for(unsigned int y=0; y<bmp.getHeight(); ++y)
-			for(unsigned int x=0; x<bmp.getWidth(); ++x)
-			{
-				setPixel(x, y,
-					Colour3f(
-						(float)bmp.getPixel(x, y)[0] * factor,
-						(float)bmp.getPixel(x, y)[1] * factor,
-						(float)bmp.getPixel(x, y)[2] * factor
-						)
-					);
-			}
+		for(unsigned int y = 0; y < bmp.getHeight(); ++y)
+		for(unsigned int x = 0; x < bmp.getWidth();  ++x)
+		{
+			setPixel(x, y,
+				Colour3f(
+					(float)bmp.getPixel(x, y)[0] * factor,
+					(float)bmp.getPixel(x, y)[1] * factor,
+					(float)bmp.getPixel(x, y)[2] * factor
+					)
+				);
+		}
 	}
 }
 
@@ -128,14 +128,14 @@ void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) 
 
 	bmp_out.resize(out_width, out_height, bmp_out.getBytesPP());
 
-	for(int y=y1; y<y2; ++y)
-		for(int x=x1; x<x2; ++x)
-		{
-			unsigned char* pixel = bmp_out.getPixelNonConst(x - x1, y - y1);
-			pixel[0] = (unsigned char)(getPixel(x, y).r * 255.0f);
-			pixel[1] = (unsigned char)(getPixel(x, y).g * 255.0f);
-			pixel[2] = (unsigned char)(getPixel(x, y).b * 255.0f);
-		}
+	for(int y = y1; y < y2; ++y)
+	for(int x = x1; x < x2; ++x)
+	{
+		unsigned char* pixel = bmp_out.getPixelNonConst(x - x1, y - y1);
+		pixel[0] = (unsigned char)(getPixel(x, y).r * 255.0f);
+		pixel[1] = (unsigned char)(getPixel(x, y).g * 255.0f);
+		pixel[2] = (unsigned char)(getPixel(x, y).b * 255.0f);
+	}
 }
 
 
@@ -143,16 +143,16 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 {
 	bmp_out.resize(getWidth(), getHeight(), 3);
 
-	for(unsigned int y=0; y<getHeight(); ++y)
-		for(unsigned int x=0; x<getWidth(); ++x)
-		{
-			const ColourType& p = getPixel(x, y);
+	for(unsigned int y = 0; y < getHeight(); ++y)
+	for(unsigned int x = 0; x < getWidth();  ++x)
+	{
+		const ColourType& p = getPixel(x, y);
 
-			unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
-			pixel[0] = (unsigned char)(p.r * 255.0f);
-			pixel[1] = (unsigned char)(p.g * 255.0f);
-			pixel[2] = (unsigned char)(p.b * 255.0f);
-		}
+		unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
+		pixel[0] = (unsigned char)(p.r * 255.0f);
+		pixel[1] = (unsigned char)(p.g * 255.0f);
+		pixel[2] = (unsigned char)(p.b * 255.0f);
+	}
 }
 
 
@@ -473,12 +473,17 @@ void Image::saveAsNFF(const std::string& pathname)
 
 void Image::zero()
 {
-	const unsigned int num = numPixels();
-	for(unsigned int i = 0; i < num; ++i)
-		getPixel(i) = ColourType(0, 0, 0);
-	//for(int x=0; x<width; ++x)
-	//	for(int y=0; y<height; ++y)
-	//		setPixel(x, y, ColourType(0,0,0));
+	set(0);
+}
+
+
+void Image::set(const float s)
+{
+	const ColourType s_colour(s, s, s);
+
+	const size_t num = numPixels();
+	for(size_t i = 0; i < num; ++i)
+		getPixel(i) = s_colour;
 }
 
 
@@ -530,9 +535,9 @@ void Image::gammaCorrect(float exponent)
 	{
 		const ColourType colour = getPixel(i);
 		ColourType newcolour(
-			pow(colour.r, exponent),
-			pow(colour.g, exponent),
-			pow(colour.b, exponent)
+			std::pow(colour.r, exponent),
+			std::pow(colour.g, exponent),
+			std::pow(colour.b, exponent)
 		);
 
 		getPixel(i) = newcolour;
@@ -556,13 +561,14 @@ void Image::scale(float factor)
 void Image::blitToImage(Image& dest, int destx, int desty) const
 {
 	for(int y = 0; y < getHeight(); ++y)
-		for(int x = 0; x < getWidth(); ++x)
-		{
-			const int dx = x + destx;
-			const int dy = y + desty;
-			if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
-				dest.setPixel(dx, dy, getPixel(x, y));
-		}
+	for(int x = 0; x < getWidth();  ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+
+		if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+			dest.setPixel(dx, dy, getPixel(x, y));
+	}
 }
 
 
@@ -575,67 +581,70 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 	src_end_y = myMin(src_end_y, (int)getHeight());
 
 	for(int y = src_start_y; y < src_end_y; ++y)
-		for(int x = src_start_x; x < src_end_x; ++x)
-		{
-			const int dx = (x - src_start_x) + destx;
-			const int dy = (y - src_start_y) + desty;
-			if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
-				dest.setPixel(dx, dy, getPixel(x, y));
-		}
+	for(int x = src_start_x; x < src_end_x; ++x)
+	{
+		const int dx = (x - src_start_x) + destx;
+		const int dy = (y - src_start_y) + desty;
+
+		if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+			dest.setPixel(dx, dy, getPixel(x, y));
+	}
 }
 
 
 void Image::addImage(const Image& img, int destx, int desty)
 {
 	for(int y = 0; y < img.getHeight(); ++y)
-		for(int x = 0; x < img.getWidth(); ++x)
-		{
-			const int dx = x + destx;
-			const int dy = y + desty;
-			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-				getPixel(dx, dy) += img.getPixel(x, y);
-		}
+	for(int x = 0; x < img.getWidth();  ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+
+		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+			getPixel(dx, dy) += img.getPixel(x, y);
+	}
 }
 
 
 void Image::blendImage(const Image& img, int destx, int desty)
 {
-	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)
-		{
-			const int dx = x + destx;
-			const int dy = y + desty;
-			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-			{
-				setPixel(dx, dy, Colour3f(1.0) * img.getPixel(x, y).r + getPixel(dx, dy) * (1.0 - img.getPixel(x, y).r));
-			}
-		}
+	for(int y = 0; y < img.getHeight(); ++y)
+	for(int x = 0; x < img.getWidth();  ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+
+		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+			setPixel(dx, dy, Colour3f(1.0) * img.getPixel(x, y).r + getPixel(dx, dy) * (1.0 - img.getPixel(x, y).r));
+	}
 }
+
 
 void Image::subImage(const Image& img, int destx, int desty)
 {
-	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)
-		{
-			int dx = x + destx;
-			int dy = y + desty;
-			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-				getPixel(dx, dy).addMult(img.getPixel(x, y), -1.0f);//NOTE: slow :)
-		}
+	for(int y = 0; y < img.getHeight(); ++y)
+	for(int x = 0; x < img.getWidth();  ++x)
+	{
+		int dx = x + destx;
+		int dy = y + desty;
+
+		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+			getPixel(dx, dy).addMult(img.getPixel(x, y), -1.0f); //NOTE: slow :)
+	}
 }
+
 
 void Image::overwriteImage(const Image& img, int destx, int desty)
 {
-	for(int y=0; y<img.getHeight(); ++y)
-		for(int x=0; x<img.getWidth(); ++x)
-		{
-			const int dx = x + destx;
-			const int dy = y + desty;
-			if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-				setPixel(dx, dy, img.getPixel(x, y));
-		}
+	for(int y = 0; y < img.getHeight(); ++y)
+	for(int x = 0; x < img.getWidth();  ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+			setPixel(dx, dy, img.getPixel(x, y));
+	}
 }
-
 
 
 /*
@@ -829,20 +838,20 @@ void Image::loadFromExr(const std::string& pathname)
 		file.setFrameBuffer(&data[0], 1, filewidth); //&pixels[0][0] - dw.min.x - dw.min.y * width, 1, width);
 		file.readPixels(dw.min.y, dw.max.y);
 
-		for(int y=0; y<getHeight(); ++y)
-			for(int x=0; x<getWidth(); ++x)
-			{
-				this->getPixel(x, y).r = data[y*getWidth() + x].r;
-				this->getPixel(x, y).g = data[y*getWidth() + x].g;
-				this->getPixel(x, y).b = data[y*getWidth() + x].b;
+		for(int y = 0; y < getHeight(); ++y)
+		for(int x = 0; x < getWidth();  ++x)
+		{
+			this->getPixel(x, y).r = data[y*getWidth() + x].r;
+			this->getPixel(x, y).g = data[y*getWidth() + x].g;
+			this->getPixel(x, y).b = data[y*getWidth() + x].b;
 
-				this->getPixel(x, y).lowerClampInPlace(0.0);//TEMP NEW
+			this->getPixel(x, y).lowerClampInPlace(0.0);//TEMP NEW
 
-				assert(this->getPixel(x, y).r >= 0.0);
-				//printVar(this->getPixel(x, y).g);
-				assert(this->getPixel(x, y).g >= 0.0);
-				assert(this->getPixel(x, y).b >= 0.0);
-			}
+			assert(this->getPixel(x, y).r >= 0.0);
+			//printVar(this->getPixel(x, y).g);
+			assert(this->getPixel(x, y).g >= 0.0);
+			assert(this->getPixel(x, y).b >= 0.0);
+		}
 	}
 	catch(const std::exception& e)
 	{
@@ -1167,112 +1176,12 @@ void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 	*this = out;
 }
 
-/*
-
-// trims off border before collapsing
-void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B, double C)
-{
-	assert(border_width >= 0);
-	assert(width > border_width * 2);
-	assert(width > border_width * 2);
-	assert((width - (border_width * 2)) % factor == 0);
-
-	MitchellNetravali mn(
-		B, // B = blur
-		C // C = ring
-		);
-
-	Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
-
-	const float scale_factor = 1.0f / (float)(factor * factor);
-
-	// Construct filter
-	//const int rad = 4;
-	const int filter_width = 5 * factor;//rad * factor + 1;
-	Array2d<float> filter(filter_width, filter_width);
-
-	// Filter center coordinates in big pixels
-	const double center_pos_x = 2.5;
-	const double center_pos_y = 2.5;
-
-	for(int y=0; y<filter_width; ++y)
-	{
-		const double pos_y = ((double)y + 0.5) / (double)factor; // y coordinate in big pixels
-		const double abs_dy = fabs(pos_y - center_pos_y);
-
-		for(int x=0; x<filter_width; ++x)
-		{
-			const double pos_x = ((double)x + 0.5) / (double)factor; // y coordinate in big pixels
-			const double abs_dx = fabs(pos_x - center_pos_x);
-
-			//filter.elem(x, y) = Maths::mitchellNetravali(abs_dx) * Maths::mitchellNetravali(abs_dy) * scale_factor;
-			filter.elem(x, y) = mn.eval(abs_dx) * mn.eval(abs_dy) * scale_factor;
-		}
-	}
-
-
-
-	const int rad = factor * 2;
-
-	// For each pixel of result image
-	for(int y=0; y<out.getHeight(); ++y)
-	{
-		const int src_y_center = y * factor;
-		const int src_y_min = myMax(0, src_y_center - (2 * factor));
-		const int src_y_max = myMin(this->getHeight(), src_y_center + (3 * factor));
-
-		//if(y % 50 == 0)
-		//	printVar(y);
-
-		for(int x=0; x<out.getWidth(); ++x)
-		{
-			const int src_x_center = x * factor;
-			const int src_x_min = myMax(0, src_x_center - (2 * factor));
-			const int src_x_max = myMin(this->getWidth(), src_x_center + (3 * factor));
-
-			Colour3f c(0.0f);
-
-			// For each pixel in filter support of source image
-			for(int sy=src_y_min; sy<src_y_max; ++sy)
-			{
-				const int filter_y = (sy - src_y_center) + rad;
-				assert(filter_y >= 0 && filter_y < filter_width);
-
-				for(int sx=src_x_min; sx<src_x_max; ++sx)
-				{
-					const int filter_x = (sx - src_x_center) + rad;
-					assert(filter_x >= 0 && filter_x < filter_width);
-
-					assert(this->getPixel(sx, sy).r >= 0.0 && this->getPixel(sx, sy).g >= 0.0 && this->getPixel(sx, sy).b >= 0.0);
-					assert(isFinite(this->getPixel(sx, sy).r) && isFinite(this->getPixel(sx, sy).g) && isFinite(this->getPixel(sx, sy).b));
-
-					c.addMult(this->getPixel(sx, sy), filter.elem(filter_x, filter_y));
-				}
-			}
-
-
-			//assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
-			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
-
-			// Make sure components can't go below zero
-			c.clamp(0.0f, 1.0f);
-
-			out.setPixel(x, y, c);
-		}
-	}
-
-
-
-	*this = out;
-}
-*/
-
 
 void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out)
 {
 	assert(border_width >= 0);
-	assert(in.width > border_width * 2);
-	assert(in.width > border_width * 2);
+	assert(in.width  > border_width * 2);
+	assert(in.height > border_width * 2);
 	assert((in.width - (border_width * 2)) % factor == 0);
 
 	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
@@ -1421,25 +1330,25 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 }
 
 
-
-void Image::collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, float max_component_value, const Image& img_in, Image& img_out)
+void Image::collapseImageNew(const int factor, const int border_width, const int filter_span, const float* const resize_filter, const float max_component_value, const Image& img_in, Image& img_out)
 {
-	assert(border_width >= 0);
-	assert(img_in.width > border_width * 2);
-	assert(img_in.width > border_width * 2);
-	assert((img_in.width - (border_width * 2)) % factor == 0);
+	assert((int64_t)img_in.width * (int64_t)img_in.height < 2147483648);	// no 32bit integer overflow
+	assert(border_width >= 0);												// have padding pixels
+	assert(img_in.width > border_width * 2);								// have at least one interior pixel in x
+	assert(img_in.width > border_width * 2);								// have at least one interior pixel in y
+	assert((img_in.width - (border_width * 2)) % factor == 0);				// padded image is multiple of supersampling factor
 
-	assert(resize_filter_size > 0);
+	assert(filter_span > 0);
 	assert(resize_filter != 0);
 
 	img_out.resize( (img_in.width  - (border_width * 2)) / factor,
 					(img_in.height - (border_width * 2)) / factor);
 
-	const int64_t in_xres  = (int64_t)img_in.getWidth();
-	const int64_t in_yres  = (int64_t)img_in.getHeight();
-	const int64_t out_xres = (int64_t)img_out.getWidth();
-	const int64_t out_yres = (int64_t)img_out.getHeight();
-	const int filter_bound = resize_filter_size / 2 - 1;
+	const int in_xres  = (int)img_in.getWidth();
+	const int in_yres  = (int)img_in.getHeight();
+	const int out_xres = (int)img_out.getWidth();
+	const int out_yres = (int)img_out.getHeight();
+	const int filter_bound = filter_span / 2 - 1;
 
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
 	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
@@ -1456,8 +1365,8 @@ void Image::collapseImageNew(const int factor, const int border_width, const int
 		for(int v = -filter_bound; v <= filter_bound; ++v)
 		for(int u = -filter_bound; u <= filter_bound; ++u)
 		{
-			const int64_t addr = (y * factor + factor / 2 + v + border_width) * in_xres +
-								  x * factor + factor / 2 + u + border_width;
+			const int addr = (y * factor + factor / 2 + v + border_width) * in_xres +
+							  x * factor + factor / 2 + u + border_width;
 
 			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
 		}
@@ -1816,5 +1725,54 @@ double Image::scalarSampleTiled(double x, double y) const
 Image::Value Image::scalarSampleTiled(Coord x, Coord y) const
 {
 	const Colour3<Value> col = vec3SampleTiled(x, y);
-	return (col.r + col.g + col.b) * (1.0 / 3.0);
+	return (col.r + col.g + col.b) * static_cast<Image::Value>(1.0 / 3.0);
 }
+
+
+#if (BUILD_TESTS)
+
+#include "../indigo/TestUtils.h"
+#include "../graphics/MitchellNetravaliFilterFunction.h"
+
+void Image::test()
+{
+	const int mitchell_b_steps = 6;
+
+	for(int mitchell_b_int = 0; mitchell_b_int < mitchell_b_steps; ++mitchell_b_int)
+	for(int supersample_factor = 2; supersample_factor < 4; ++supersample_factor)
+	for(int sqrt_image_size = 1; sqrt_image_size < 3; ++sqrt_image_size)
+	{
+		// Compute Mitchell-Netravali B, C values from the relation 2C + B = 1
+		const double mitchell_b = (double)mitchell_b_int / (double)(mitchell_b_steps - 1);
+		const double mitchell_c = (1 - mitchell_b) / 2.0;
+
+		MitchellNetravaliFilterFunction filter(mitchell_b, mitchell_c);
+
+		const int filter_pixel_span  = (int)ceil(filter.supportRadius() * 2) * supersample_factor;
+		const int filter_pixel_bound = filter_pixel_span / 2 - 1;
+
+		const int src_xres = 2 * filter_pixel_bound + supersample_factor * sqrt_image_size;
+		const int src_yres = 2 * filter_pixel_bound + supersample_factor * sqrt_image_size;
+		const int dst_xres = sqrt_image_size;
+		const int dst_yres = sqrt_image_size;
+
+		Image src(src_xres, src_yres), dst(dst_xres, dst_yres);
+
+		src.set(1);
+
+		Image::collapseImageNew(
+			supersample_factor,	// factor
+			filter_pixel_bound,	// border width
+			filter.getFilterSpan(supersample_factor),
+			filter.getFilterData(supersample_factor),
+			1000000.0f, // max component value
+			src, // in
+			dst // out
+			);
+
+		testAssert(::epsEqual(dst.maxPixelComponent(), 1.0f));
+		//std::cout << "supersample = " << supersample_factor << ", size = " << sqrt_image_size << "x" << sqrt_image_size << ", B = " << mitchell_b << ", C = " << mitchell_c << ", max pixel component = " << dst.maxPixelComponent() << std::endl;
+	}
+}
+
+#endif

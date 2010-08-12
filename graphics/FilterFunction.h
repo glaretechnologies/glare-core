@@ -9,24 +9,29 @@
 
 /*=====================================================================
 FilterFunction
---------
-Separable filter function interface
+--------------
+Radially-symmetric filter function interface
 =====================================================================*/
 class FilterFunction : public RefCounted
 {
 public:
-	FilterFunction(){}
+	FilterFunction();
 
-	virtual ~FilterFunction(){}
+	virtual ~FilterFunction();
 
 	virtual double supportRadius() const = 0;
 
-	virtual double eval(double abs_x) const = 0;
+	virtual double eval(double r) const = 0;
+
+	int getFilterSpan(int supersample_factor);
+	float* getFilterData(int supersample_factor);
 
 	virtual const std::string description() const = 0;
 
 private:
 
+	int cached_supersample_factor;
+	float* cached_filter_data;
 };
 
 

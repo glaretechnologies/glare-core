@@ -8,9 +8,8 @@
 #include "MitchellNetravali.h"
 
 /*=====================================================================
-FilterFunction
---------
-Separable filter function interface
+MitchellNetravaliFilterFunction
+-------------------------------
 =====================================================================*/
 class MitchellNetravaliFilterFunction : public FilterFunction
 {
