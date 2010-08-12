@@ -81,8 +81,10 @@ public:
 	//throws ImageExcep
 	void saveAsNFF(const std::string& pathname);
 
-	void saveToExr(const std::string& pathname) const;
+	void saveTo16BitExr(const std::string& pathname) const;
 	void loadFromExr(const std::string& pathname);
+
+	void saveTo32BitExr(const std::string& pathname) const;
 
 	//void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const;
 
@@ -119,9 +121,9 @@ public:
 	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
 
-	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out);
+	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
 
-	static void collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, const Image& in, Image& out);
+	static void collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, float max_component_value, const Image& in, Image& out);
 
 	unsigned int getByteSize() const;
 

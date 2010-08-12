@@ -18,6 +18,8 @@
 #ifdef OPENEXR_SUPPORT
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
+#include <ImfChannelList.h>
+#include <ImfOutputFile.h>
 #endif
 
 #include <png.h>
@@ -733,7 +735,7 @@ const Image::ColourType Image::sampleTiled(float u, float v) const
 
 
 #ifdef OPENEXR_SUPPORT
-void Image::saveToExr(const std::string& pathname) const
+void Image::saveTo16BitExr(const std::string& pathname) const
 {
 	try
 	{
@@ -761,6 +763,48 @@ void Image::saveToExr(const std::string& pathname) const
 
 		file.writePixels(getHeight());
 
+	}
+	catch(const std::exception& e)
+	{
+		throw ImageExcep("Error writing EXR file: " + std::string(e.what()));
+	}
+}
+
+
+void Image::saveTo32BitExr(const std::string& pathname) const
+{
+	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
+	try
+	{
+		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
+
+		Imf::Header header(getWidth(), getHeight());
+		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
+		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
+		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
+		Imf::OutputFile file(pathname.c_str(), header);                               
+		Imf::FrameBuffer frameBuffer;
+
+		frameBuffer.insert("R",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&getPixel(0).r,			// base
+			sizeof(ColourType),				// xStride
+			sizeof(ColourType) * getWidth())// yStride
+		);
+		frameBuffer.insert("G",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&getPixel(0).g,			// base
+			sizeof(ColourType),				// xStride
+			sizeof(ColourType) * getWidth())// yStride
+			);
+		frameBuffer.insert("B",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&getPixel(0).b,			// base
+			sizeof(ColourType),				// xStride
+			sizeof(ColourType) * getWidth())// yStride
+			);
+		file.setFrameBuffer(frameBuffer);
+		file.writePixels(getHeight());
 	}
 	catch(const std::exception& e)
 	{
@@ -1115,6 +1159,7 @@ void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 		factor,
 		0, // border
 		ff,
+		1.0f, // max component value
 		*this,
 		out
 		);
@@ -1223,9 +1268,7 @@ void Image::collapseSizeMitchellNetravali(int factor, int border_width, double B
 */
 
 
-
-
-void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out)
+void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out)
 {
 	assert(border_width >= 0);
 	assert(in.width > border_width * 2);
@@ -1362,8 +1405,9 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			//assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
 			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
 
-			// Make sure components can't go below zero or above 1.0
-			c.clampInPlace(0.0f, 1.0f);
+			// Make sure components can't go below zero or above max_component_value
+			c.clampInPlace(0.0f, max_component_value);
+			//c.lowerClampInPlace(0.f);
 
 			out.setPixel(x, y, c);
 
@@ -1377,7 +1421,8 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 }
 
 
-void Image::collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, const Image& img_in, Image& img_out)
+
+void Image::collapseImageNew(const int factor, const int border_width, const int resize_filter_size, float const * const resize_filter, float max_component_value, const Image& img_in, Image& img_out)
 {
 	assert(border_width >= 0);
 	assert(img_in.width > border_width * 2);
@@ -1419,8 +1464,9 @@ void Image::collapseImageNew(const int factor, const int border_width, const int
 
 		assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
 
-		// Make sure components can't go below zero or above 1.0
-		weighted_sum.clampInPlace(0.0f, 1.0f);
+		// Make sure components can't go below zero or above max_component_value
+		weighted_sum.clampInPlace(0.0f, max_component_value);
+		//weighted_sum.lowerClampInPlace(0.f);
 
 		out_buffer[y * out_xres + x] = weighted_sum;
 	}
