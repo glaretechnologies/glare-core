@@ -31,6 +31,7 @@ namespace js
 {
 
 
+#if (BUILD_TESTS)
 void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 {
 	conPrint("ObjectTreeTest::doSelfIntersectionAvoidanceTest()");
@@ -657,6 +658,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	}
 
 }
+#endif
 
 
 } //end namespace js

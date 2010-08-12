@@ -1180,6 +1180,7 @@ void KDTree::printStats() const
 }
 
 
+#if (BUILD_TESTS)
 void KDTree::test()
 {
 	{
@@ -1207,6 +1208,7 @@ void KDTree::test()
 	testAssert(n.getNumLeafGeom() == 777);
 	}
 }
+#endif
 
 
 TreeStats::TreeStats()

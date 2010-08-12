@@ -87,6 +87,7 @@ void DouglasPeuckerAlg::doApproximate(const std::vector<Vec2<Real> >& points, in
 }
 
 
+#if (BUILD_TESTS)
 void DouglasPeuckerAlg::test()
 {
 	{
@@ -143,3 +144,4 @@ void DouglasPeuckerAlg::test()
 	}
 
 }
+#endif

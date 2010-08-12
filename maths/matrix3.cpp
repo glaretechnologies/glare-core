@@ -262,6 +262,7 @@ const Matrix3 Matrix3::buildMatrixFromRows(const Vec3& r0,
 
 }*/
 
+#if (BUILD_TESTS)
 template <>
 void Matrix3<float>::test()
 {
@@ -285,6 +286,7 @@ void Matrix3<float>::test()
 	testAssert(invertible);
 	testAssert(epsMatrixEqual(identity(), identity_inverse, (float)NICKMATHS_EPSILON));
 }
+#endif
 
 
 

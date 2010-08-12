@@ -29,7 +29,7 @@ VectorUnitTests::~VectorUnitTests()
 }
 
 
-
+#if (BUILD_TESTS)
 void VectorUnitTests::run()
 {
 
@@ -74,7 +74,7 @@ void VectorUnitTests::run()
 	}
 
 }
-
+#endif
 
 
 } //end namespace js

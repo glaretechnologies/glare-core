@@ -1286,6 +1286,7 @@ const Vec4f Camera::getForwardsDirF(double time) const
 }
 
 
+#if (BUILD_TESTS)
 void Camera::unitTest()
 {
 	conPrint("Camera::unitTest()");
@@ -1537,6 +1538,7 @@ void Camera::unitTest()
 
 	exit(0);*/
 }
+#endif
 
 
 

@@ -886,6 +886,7 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
+#if (BUILD_TESTS)
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
@@ -902,7 +903,7 @@ void doUnitTests()
 
 #if defined(WIN32) || defined(WIN64)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
-#else
+#elif !defined(OSX)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
@@ -1070,7 +1071,7 @@ void doUnitTests()
 
 	conPrint("FileUtils::doUnitTests() Done.");
 }
-
+#endif
 
 
 //Wed Jan 02 02:03:55 1980\n\0

@@ -521,6 +521,7 @@ const std::string License::networkFloatingHash(const std::string& input)
 }
 
 
+#if (BUILD_TESTS)
 void License::test()
 {
 	// Test long base-64 encoded block, with no embedded newlines
@@ -567,3 +568,4 @@ void License::test()
 		testAssert(License::verifyKey(key, hash));	
 	}
 }
+#endif

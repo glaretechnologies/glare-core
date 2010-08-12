@@ -51,6 +51,7 @@ static double stdDev(const std::vector<double>& d)
 }
 
 
+#if (BUILD_TESTS)
 void testRunningVariance()
 {
 	{
@@ -107,7 +108,7 @@ void testRunningVariance()
 	}
 
 }
-
+#endif
 
 
 

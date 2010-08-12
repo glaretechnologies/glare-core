@@ -442,6 +442,7 @@ inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 }
 
 
+#if (BUILD_TESTS)
 void Parser::doUnitTests()
 {
 
@@ -644,7 +645,7 @@ void Parser::doUnitTests()
 
 #endif
 }
-
+#endif
 
 
 

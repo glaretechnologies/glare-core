@@ -17,6 +17,7 @@ const std::string Vec4f::toString() const
 }
 
 
+#if (BUILD_TESTS)
 void Vec4f::test()
 {
 	{
@@ -62,3 +63,4 @@ void Vec4f::test()
 	}
 
 }
+#endif

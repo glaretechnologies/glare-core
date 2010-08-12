@@ -311,6 +311,7 @@ void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1,
 }
 
 
+#if (BUILD_TESTS)
 void MatUtils::unitTest()
 {
 	conPrint("MatUtils::unitTest()");
@@ -483,3 +484,4 @@ void MatUtils::unitTest()
 	right = n2 * sin(outangle);
 	assert(::epsEqual(left, right));*/
 }
+#endif

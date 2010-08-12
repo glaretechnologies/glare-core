@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include <stdlib.h>
 
 
+#if (BUILD_TESTS)
 void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)
@@ -54,3 +55,4 @@ const std::string getIndigoTestReposDir()
 
 
 }
+#endif

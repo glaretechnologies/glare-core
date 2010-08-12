@@ -148,7 +148,7 @@ inline float horizontalMax(const __m128& v)
 }
 
 
-
+#if (BUILD_TESTS)
 void SSETest()
 {
 //	conPrint("SSETest()");
@@ -342,3 +342,4 @@ void SSETest()
 	}
 	//exit(0);
 }
+#endif

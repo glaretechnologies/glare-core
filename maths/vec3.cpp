@@ -96,6 +96,7 @@ inline void vadd(const Vec3f& a, const Vec3f& b, Vec3f& out)
 }
 
 
+#if (BUILD_TESTS)
 template <>
 void Vec3<float>::test()
 {
@@ -140,6 +141,7 @@ void Vec3<float>::test()
 
 	exit(0);
 }
+#endif
 
 
 /*const Vec3 Vec3::zerovector(0, 0, 0);

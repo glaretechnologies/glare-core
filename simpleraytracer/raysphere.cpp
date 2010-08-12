@@ -353,6 +353,7 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumTexCoordSets() const { return 1; }
 
 
+#if (BUILD_TESTS)
 void RaySphere::test()
 {
 	conPrint("RaySphere::test()");
@@ -479,6 +480,7 @@ void RaySphere::test()
 	testAssert(epsEqual(sphere.surfacePDF(), 1.0 / NICKMATHS_PI));*/
 
 }
+#endif
 
 
 bool RaySphere::isEnvSphereGeometry() const

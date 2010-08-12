@@ -51,6 +51,7 @@ public:
 };
 
 
+#if (BUILD_TESTS)
 void test()
 {
 	MTwister rng(1);
@@ -104,6 +105,7 @@ void test()
 
 	exit(0);
 }
-
+#endif
+	
 
 } // end namespace Sort

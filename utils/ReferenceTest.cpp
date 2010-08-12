@@ -43,6 +43,8 @@ private:
 	int* i;
 };
 
+
+#if (BUILD_TESTS)
 void ReferenceTest::run()
 {
 	int i = 0;
@@ -80,7 +82,7 @@ void ReferenceTest::run()
 
 
 }
-
+#endif
 
 
 

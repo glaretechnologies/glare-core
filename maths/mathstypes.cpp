@@ -11,7 +11,7 @@
 #include "../utils/CycleTimer.h"
 #include "../utils/platform.h"
 
-
+#if (BUILD_TESTS)
 void Maths::test()
 {
 	
@@ -337,3 +337,4 @@ void Maths::test()
 	// exit(0);
 
 }
+#endif

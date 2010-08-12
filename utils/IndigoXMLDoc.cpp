@@ -71,7 +71,7 @@ void IndigoXMLDoc::saveDoc(const std::string& savepath)
 	fclose(savefile);
 }
 
-
+#if (BUILD_TESTS)
 void IndigoXMLDoc::test()
 {
 	try
@@ -86,3 +86,4 @@ void IndigoXMLDoc::test()
 		failTest("IndigoXMLDocExcep");
 	}
 }
+#endif

@@ -538,6 +538,7 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 }
 
 
+#if (BUILD_TESTS)
 void PlatformUtils::testPlatformUtils()
 {
 
@@ -555,3 +556,4 @@ void PlatformUtils::testPlatformUtils()
 		testAssert(!"test Failed.");
 	}
 }
+#endif

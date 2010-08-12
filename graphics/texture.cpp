@@ -444,6 +444,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 }
 
 
+#if (BUILD_TESTS)
 void Texture::test()
 {
 	{
@@ -503,3 +504,4 @@ void Texture::test()
 	testAssert(epsEqual(t.scalarSampleTiled(-1.0e9, 1.0e9), 1.0f));
 	}
 }
+#endif

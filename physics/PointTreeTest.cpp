@@ -27,6 +27,7 @@ PointTreeTest::~PointTreeTest()
 }
 
 
+#if (BUILD_TESTS)
 void PointTreeTest::test()
 {
 	{
@@ -110,3 +111,4 @@ void PointTreeTest::test()
 
 	//exit(0);
 }
+#endif

@@ -48,6 +48,7 @@ TriangleTest::~TriangleTest()
 }
 
 
+#if (BUILD_TESTS)
 static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
 	//const float min_t = 0.0f;
@@ -173,6 +174,7 @@ void testBadouelTriIntersection()
 }
 
 
+
 void TriangleTest::doTests()
 {
 
@@ -230,6 +232,7 @@ void TriangleTest::doTests()
 	testBadouelTriIntersection();
 
 }
+#endif
 
 
 }

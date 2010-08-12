@@ -315,6 +315,7 @@ int AABBox::triangleBoxOverlap(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 
 
 
+#if (BUILD_TESTS)
 void AABBox::test()
 {
 	{
@@ -374,7 +375,7 @@ void AABBox::test()
 
 	
 }
-
+#endif
 
 
 

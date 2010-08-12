@@ -36,7 +36,7 @@ namespace js
 {
 
 
-
+#if (BUILD_TESTS)
 void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
@@ -825,7 +825,6 @@ void TreeTest::doVaryingNumtrisBuildTests()
 }
 
 
-
 // Aka. the 'Bunnybench' :)
 void TreeTest::doSpeedTest(int treetype)
 {
@@ -1007,7 +1006,8 @@ void TreeTest::doRayTests()
 	testAssert(!isInf(ray.getRecipRayDirF().z));*/
 
 }
-
+#endif
+	
 
 } //end namespace js
 
