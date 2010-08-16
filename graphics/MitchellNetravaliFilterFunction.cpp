@@ -23,7 +23,7 @@ void MitchellNetravaliFilterFunction::getParameters(double* B_out, double* C_out
 
 double MitchellNetravaliFilterFunction::supportRadius() const
 {
-	return 2.5;
+	return 2.0;
 }
 
 
