@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include <unistd.h>//gethostname
 #endif
 
-//#include "../cyberspace/globals.h"
+
 #include "../utils/stringutils.h"
 
 
@@ -30,9 +30,7 @@ const int SOCKET_ERROR = -1;
 
 Networking::Networking()
 {
-	//sockets_shut_down = false;
-
-//	used_ipaddr_determined = false;
+	//	used_ipaddr_determined = false;
 
 	//-----------------------------------------------------------------
 	//do windows sockets startup
@@ -312,34 +310,3 @@ const std::string Networking::getHostName() // throws NetworkingExcep
 		throw NetworkingExcep("gethostname failed: " + getError());
 	return std::string(buf);
 }
-
-
-/*void Networking::makeSocketsShutDown()
-{
-	sockets_shut_down = true;
-}
-	
-bool Networking::shouldSocketsShutDown() const
-{
-	return sockets_shut_down;
-}*/
-
-
-/*void Networking::createInstance(Networking* newinstance)
-{
-	assert(instance == NULL);
-
-	instance = newinstance;
-
-}
-
-void Networking::destroyInstance()
-{
-	delete instance;
-	instance = NULL;
-}
-
-
-
-Networking* Networking::instance = NULL;*/
-

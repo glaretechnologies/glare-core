@@ -31,6 +31,7 @@ namespace js
 {
 
 
+#if (BUILD_TESTS)
 void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 {
 	conPrint("ObjectTreeTest::doSelfIntersectionAvoidanceTest()");
@@ -82,6 +83,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 		
 		ob1->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
+		ob1->setObjectIndex(0);
 		ob_tree.insertObject(ob1);
 	}
 
@@ -96,6 +98,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			);
 
 		ob2->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
+		ob2->setObjectIndex(1);
 		ob_tree.insertObject(ob2);
 	}
 
@@ -106,7 +109,9 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	// Start a ray on one quad, trace to the other quad.
 	{
-		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+		Ray ray(
+			Vec4f(0.0f, 0.25f, 0.1f, 1.0f), // start position
+			Vec4f(1.0f, 0.0f, 0.0f, 0.0f) // dir
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -203,6 +208,7 @@ void ObjectTreeTest::doTests()
 		RendererSettings settings;
 		settings.cache_trees = false;
 		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
+		ob->setObjectIndex(i);
 		ob_tree.insertObject(ob);
 
 		objects.push_back(ob);
@@ -652,6 +658,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	}
 
 }
+#endif
 
 
 } //end namespace js

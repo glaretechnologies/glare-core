@@ -3,20 +3,16 @@ mysocket.cpp
 ------------
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 Code By Nicholas Chapman.
-
-Code Copyright Nicholas Chapman 2005.
-
 =====================================================================*/
 #include "mysocket.h"
 
 
 #include "networking.h"
-#include "../maths/vec3.h"
-#include <vector>
 #include "fractionlistener.h"
+#include "../maths/vec3.h"
 #include "../utils/stringutils.h"
+#include <vector>
 #include <string.h>
-//#include "../indigo/globals.h" // TEMP
 #if defined(WIN32) || defined(WIN64)
 #else
 #include <netinet/in.h>
@@ -34,6 +30,11 @@ typedef socklen_t SOCKLEN_TYPE;
 
 const int SOCKET_ERROR = -1;
 #endif
+
+
+// Block period.  This is how long any socket operations will block for, before calling the 'Should Abort' call-back.
+// Must be < 1.
+const double BLOCK_DURATION = 0.5; // in seconds.
 
 
 MySocket::MySocket(const std::string& hostname, int port)
@@ -89,13 +90,11 @@ MySocket::MySocket()
 {
 	thisend_port = -1;
 	sockethandle = 0;
-
 }
 
 
 void MySocket::doConnect(const IPAddress& ipaddress, int port)
 {
-
 	otherend_ipaddr = ipaddress; // Remember ip of other end
 
 	assert(port >= 0 && port <= 65536);
@@ -217,7 +216,6 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 	// Wait until the accept() will succeed.
 	while(1)
 	{
-		const double BLOCK_DURATION = 0.5; // in seconds
 		timeval wait_period;
 		wait_period.tv_sec = 0; // seconds
 		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds
@@ -330,27 +328,25 @@ void MySocket::close()
 static const int USE_BUFFERSIZE = 1024;
 
 
-void MySocket::write(const void* data, int datalen, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::write(const void* data, size_t datalen, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(data, datalen, NULL, should_abort_callback);
 }
 
 
-void MySocket::write(const void* data, int datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::write(const void* data, size_t datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
-	const int totalnumbytestowrite = datalen;
+	const size_t totalnumbytestowrite = datalen;
 
 	while(datalen > 0)//while still bytes to write
 	{
-		const int numbytestowrite = myMin(USE_BUFFERSIZE, datalen);
+		const int numbytestowrite = (int)myMin((size_t)USE_BUFFERSIZE, datalen);
 
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or can write to socket
 		//------------------------------------------------------------------------
-
 		while(1)
 		{
-			const float BLOCK_DURATION = 0.5f;
 			timeval wait_period;
 			wait_period.tv_sec = 0;
 			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
@@ -379,34 +375,31 @@ void MySocket::write(const void* data, int datalen, FractionListener* frac, Sock
 		datalen -= numbyteswritten;
 		data = (void*)((char*)data + numbyteswritten); // Advance data pointer
 
-		//MySocket::num_bytes_sent += numbyteswritten;
-
 		if(frac)
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
 	}
 }
 
 
-void MySocket::readTo(void* buffer, int readlen, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen, SocketShouldAbortCallback* should_abort_callback)
 {
 	readTo(buffer, readlen, NULL, should_abort_callback);
 }
 
 
-void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
-	const int totalnumbytestoread = readlen;
+	const size_t totalnumbytestoread = readlen;
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = myMin(USE_BUFFERSIZE, readlen);
+		const int numbytestoread = (int)myMin((size_t)USE_BUFFERSIZE, readlen);
 
 		//------------------------------------------------------------------------
 		//Loop until either the prog is exiting or have incoming data
 		//------------------------------------------------------------------------
 		while(1)
 		{
-			const float BLOCK_DURATION = 0.5f;
 			timeval wait_period;
 			wait_period.tv_sec = 0;
 			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
@@ -440,8 +433,6 @@ void MySocket::readTo(void* buffer, int readlen, FractionListener* frac, SocketS
 		readlen -= numbytesread;
 		buffer = (void*)((char*)buffer + numbytesread);
 
-		//MySocket::num_bytes_rcvd += numbytesread;
-
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
 
@@ -470,90 +461,16 @@ const std::string MySocket::readString(size_t max_string_length, SocketShouldAbo
 }
 
 
-/*void MySocket::readMessage(std::string& data_out, FractionListener* frac)
+void MySocket::writeInt32(int32 x, SocketShouldAbortCallback* should_abort_callback)
 {
-
-
-	std::vector<char> buf(USE_BUFFERSIZE);
-	data_out = "";
-
-	bool done = false;
-
-	while(!done)
-	{
-
-		//-----------------------------------------------------------------
-		//read data to buf
-		//-----------------------------------------------------------------
-		const int num_chars_received =
-				recv(sockethandle, &(*buf.begin()), USE_BUFFERSIZE, 0);
-
-
-   		if(num_chars_received == SOCKET_ERROR)
-   		{
-			throw MySocketExcep("socket error while reading data.  Error code == " + Networking::getError());
-		}
-
-		MySocket::num_bytes_rcvd += num_chars_received;
-
-		//-----------------------------------------------------------------
-		//append buf to end of string 'data_out'
-		//-----------------------------------------------------------------
-		const int writeindex = data_out.size();
-		data_out.resize(data_out.size() + num_chars_received);
-		for(int i=0; i<num_chars_received; ++i)
-			data_out[writeindex + i] = buf[i];
-
-   		if(num_chars_received < USE_BUFFERSIZE)
-   			done = true;
-
-		if(::threadsShutDown())
-			throw MySocketExcep("::threadsShutDown() == true");
-
-   }
-}*/
-
-
-
-
-void MySocket::write(float x, SocketShouldAbortCallback* should_abort_callback)
-{
-	//conPrint("MySocket::write(float"); // TEMP
-
-	//*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
-
 	union data
 	{
-		float x;
-		unsigned int i;
+		int signed_i;
+		unsigned int unsigned_i;
 	};
-
-
-	union data d;
-	d.x = x;
-
-	const unsigned int i = htonl(d.i);
-
-	write(&i, sizeof(float), should_abort_callback);
-}
-
-void MySocket::write(int x, SocketShouldAbortCallback* should_abort_callback)
-{
-	//conPrint("MySocket::write(int"); // TEMP
-
-	union data
-	{
-		int si;
-		unsigned int i;
-	};
-
-	//*((unsigned int*)&x) = htonl(*((unsigned int*)&x));//convert to network byte ordering
-
-	union data d;
-	d.si = x;
-
-	const unsigned int i = htonl(d.i);
-
+	data d;
+	d.signed_i = x;
+	const unsigned int i = htonl(d.unsigned_i);
 	write(&i, sizeof(int), should_abort_callback);
 }
 
@@ -581,30 +498,6 @@ void MySocket::writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_cal
 }
 
 
-void MySocket::write(char x, SocketShouldAbortCallback* should_abort_callback)
-{
-	write(&x, sizeof(char), should_abort_callback);
-}
-
-
-void MySocket::write(unsigned char x, SocketShouldAbortCallback* should_abort_callback)
-{
-	write(&x, sizeof(unsigned char), should_abort_callback);
-}
-
-
-void MySocket::write(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // writes string
-{
-	//write(s.c_str(), s.size() + 1);
-
-	// Write length of string
-	write((int)s.length(), should_abort_callback);
-
-	// Write string data
-	write(&(*s.begin()), s.length(), should_abort_callback);
-}
-
-
 void MySocket::writeString(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // Write null-terminated string.
 {
 	this->write(
@@ -612,95 +505,6 @@ void MySocket::writeString(const std::string& s, SocketShouldAbortCallback* shou
 		s.size() + 1, // num bytes: + 1 for null terminator.
 		should_abort_callback
 	);
-}
-
-
-/*
-void MySocket::write(const Vec3& vec)
-{
-	write(vec.x);
-	write(vec.y);
-	write(vec.z);
-}*/
-
-
-void MySocket::write(unsigned short x, SocketShouldAbortCallback* should_abort_callback)
-{
-	x = htons(x);//convert to network byte ordering
-
-	write(&x, sizeof(unsigned short), should_abort_callback);
-}
-
-
-/*float MySocket::readFloat()
-{
-	float x;
-	read(&x, sizeof(float));
-
-	x = ntohl(x);//convert from network to host byte ordering
-
-	return x;
-}
-
-int MySocket::readInt()
-{
-	int x;
-	read(&x, sizeof(int));
-
-	x = ntohl(x);//convert from network to host byte ordering
-
-	return x;
-}
-
-char MySocket::readChar()
-{
-	char x;
-	read(&x, sizeof(char));
-
-	return x;
-}*/
-
-
-void MySocket::readTo(float& x, SocketShouldAbortCallback* should_abort_callback)
-{
-	union data
-	{
-		float x;
-		unsigned int i;
-	};
-
-	data d;
-	readTo(&d.i, sizeof(float), should_abort_callback);
-	d.i = ntohl(d.i);
-	x = d.x;
-}
-
-
-float MySocket::readFloat(SocketShouldAbortCallback* should_abort_callback)
-{
-	union data
-	{
-		float x;
-		uint32 i;
-	};
-	data d;
-	readTo(&d.i, sizeof(float), should_abort_callback);
-	d.i = ntohl(d.i);
-	return d.x;
-}
-
-
-void MySocket::readTo(int& x, SocketShouldAbortCallback* should_abort_callback)
-{
-	union data
-	{
-		int si;
-		uint32 i;
-	};
-	data d;
-	readTo(&d.i, sizeof(uint32), should_abort_callback);
-	d.i = ntohl(d.i);
-	x = d.si;
 }
 
 
@@ -740,149 +544,6 @@ uint64 MySocket::readUInt64(SocketShouldAbortCallback* should_abort_callback)
 	d.i32[1] = readUInt32(should_abort_callback);
 	return d.i64;
 }
-
-
-void MySocket::readTo(char& x, SocketShouldAbortCallback* should_abort_callback)
-{
-	readTo(&x, sizeof(char), should_abort_callback);
-}
-
-
-void MySocket::readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback)
-{
-	readTo(&x, sizeof(unsigned char), should_abort_callback);
-}
-
-
-void MySocket::readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback)
-{
-	readTo(&x, sizeof(unsigned short), should_abort_callback);
-	x = ntohs(x);//convert from network to host byte ordering
-}
-
-
-/*void MySocket::readTo(Vec3& vec)
-{
-	readTo(vec.x);
-	readTo(vec.y);
-	readTo(vec.z);
-}*/
-
-
-void MySocket::readTo(std::string& s, int maxlength, SocketShouldAbortCallback* should_abort_callback)
-{
-	/*std::vector<char> buffer(1000);
-
-	int i = 0;
-	while(1)
-	{
-		buffer.push_back('\0');
-		readTo(buffer[i]);
-
-		if(buffer[i] == '\0')
-			break;
-
-		//TODO: break after looping to long
-		++i;
-	}
-
-	s = &(*buffer.begin());*/
-
-	// Read length
-	int length;
-	readTo(length, should_abort_callback);
-	if(length < 0 || length > maxlength)
-		throw MySocketExcep("String was too long.");
-	//std::vector<char> buffer(length);
-	//readTo(buffer
-
-	s.resize(length);
-	readTo(&(*s.begin()), length, NULL, should_abort_callback);
-}
-
-
-void MySocket::readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
-{
-//	x.clear();
-	assert(numchars >= 0);
-
-	x.resize(numchars);
-	readTo(&(*x.begin()), numchars, frac, should_abort_callback);
-}
-
-
-//-----------------------------------------------------------------
-//funcs for measuring data rate
-//-----------------------------------------------------------------
-/*int MySocket::getNumBytesSent()
-{
-	return num_bytes_sent;
-}
-int MySocket::getNumBytesRcvd()
-{
-	return num_bytes_rcvd;
-}
-
-void MySocket::resetNumBytesSent()
-{
-	num_bytes_sent = 0;
-}
-void MySocket::resetNumBytesRcvd()
-{
-	num_bytes_rcvd = 0;
-}*/
-
-/*void MySocket::pollRead(std::string& data_out)
-{
-	data_out.resize(0);
-
-	const float BLOCK_DURATION = 0.0f;
-	timeval wait_period;
-	wait_period.tv_sec = 0;
-	wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
-
-	//FD_SET fd_set;
-	fd_set sockset;
-	initFDSetWithSocket(sockset, sockethandle); //FD_SET(sockethandle, &sockset);
-
-	//if(Networking::getInstance().shouldSocketsShutDown())
-	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
-
-	//get number of handles that are ready to read from
-	const int num_ready = select(sockethandle+1, &sockset, NULL, NULL, &wait_period);
-
-	//if(Networking::getInstance().shouldSocketsShutDown())
-	//	throw MySocketExcep("::Networking::shouldSocketsShutDown() == true");
-
-	if(num_ready == 0)
-		return;
-
-
-	data_out.resize(USE_BUFFERSIZE);
-	const int numbytesread = recv(sockethandle, &(*data_out.begin()), data_out.size(), 0);
-
-
-	if(numbytesread == SOCKET_ERROR || numbytesread == 0)
-		throw MySocketExcep("read failed, error code == " + Networking::getError());
-
-
-	data_out.resize(numbytesread);
-
-	//data_out.resize(1024);//max bytes to read at once
-
-	//const int num_pending_bytes = recv(sockethandle, &(*data_out.begin()), data_out.size(), MSG_PEEK);
-
-	////now remove from the input queue
-	//data_out.resize(num_pending_bytes);
-
-	//if(num_pending_bytes != 0)
-	//{
-
-	//	const int numread = recv(sockethandle, &(*data_out.begin()), data_out.size(), 0);
-
-	//	assert(numread == data_out.size());
-	//}
-}*/
 
 
 bool MySocket::readable(double timeout_s)
@@ -948,7 +609,3 @@ void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandl
 	FD_SET(sockhandle, &sockset);
 #endif
 }
-
-
-//int MySocket::num_bytes_sent = 0;
-//int MySocket::num_bytes_rcvd = 0;

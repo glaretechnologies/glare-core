@@ -30,6 +30,9 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <vector>
 
 
+//#define NO_HARDWARE_ID_SDK_LICENSING 1
+
+
 static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
 
 /*
@@ -146,7 +149,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 		user_id_out = "";
 	}
 
-#ifdef INDIGO_DLL_EXPORTS
+#ifdef NO_HARDWARE_ID_SDK_LICENSING
 	/*std::string hardware_id;
 	try
 	{
@@ -164,7 +167,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
 #endif
 
-#ifdef INDIGO_DLL_EXPORTS
+#ifdef NO_HARDWARE_ID_SDK_LICENSING
 	const std::string licence_sig_path = "sdk-licence.txt";
 #else
 	const std::string licence_sig_path = "licence.sig";
@@ -221,7 +224,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			// Or, in the case of the SDK DLL,
 			// = "Preamble and User ID;License Type"
 
-			#ifdef INDIGO_DLL_EXPORTS
+			#ifdef NO_HARDWARE_ID_SDK_LICENSING
 			constructed_key = components[0] + ";" + components[1];
 			#else
 			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
@@ -518,6 +521,7 @@ const std::string License::networkFloatingHash(const std::string& input)
 }
 
 
+#if (BUILD_TESTS)
 void License::test()
 {
 	// Test long base-64 encoded block, with no embedded newlines
@@ -564,3 +568,4 @@ void License::test()
 		testAssert(License::verifyKey(key, hash));	
 	}
 }
+#endif

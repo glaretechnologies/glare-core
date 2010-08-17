@@ -33,7 +33,6 @@ Code By Nicholas Chapman.
 #include <net/if.h>
 #endif
 
-
 #include <cassert>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
@@ -44,6 +43,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 
 #if defined(OSX)
+#include <CoreServices/CoreServices.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -123,42 +123,9 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 const std::string PlatformUtils::getLoggedInUserName()
 {
 #if defined(WIN32) || defined(WIN64)
-	
-	/*TCHAR buffer[2048];
-
-	ULONG size = 2048;
-	if(GetUserNameEx(
-		NameDisplay, //NameCanonical, // NameFormat
-		buffer,
-		&size
-	) == 0)
-		throw PlatformUtilsExcep("GetUserNameEx failed: " + getLastErrorString());
-
-	return StringUtils::WToUTF8String(buffer);*/
-
-
-
-	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
-
-	const std::wstring varname = L"USERNAME";
-
-	TCHAR buffer[2048];
-
-	const DWORD size = 2048;
-
-	if(GetEnvironmentVariable(
-		varname.c_str(),
-		buffer,
-		size
-		) == 0)
-		throw PlatformUtilsExcep("GetEnvironmentVariable failed: " + getLastErrorString());
-
-	return StringUtils::WToUTF8String(buffer);
-
+	return getEnvironmentVariable("USERNAME");
 #else
-	if(!getenv("USER"))
-		throw PlatformUtilsExcep("getLoggedInUserName(): getenv failed.");
-	return getenv("USER");
+	return getEnvironmentVariable("USER");
 #endif
 }
 
@@ -241,6 +208,17 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 }
 
 
+#if defined(OSX)
+std::string GetPathFromCFURLRef(CFURLRef urlRef)
+{
+	char buffer[2048];
+	std::string path;
+	if(CFURLGetFileSystemRepresentation(urlRef, true, (UInt8*)buffer, 1024))
+		path = std::string(buffer);
+	return path;
+}
+#endif
+
 const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExcep
 {
 #if defined(WIN32) || defined(WIN64)
@@ -257,8 +235,31 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString(res));
 
 	return StringUtils::WToUTF8String(path);
+#elif defined(OSX)
+	FSRef f;
+	CFURLRef url;
+	std::string filepath = "";
+	
+	if(noErr == FSFindFolder(kUserDomain, kApplicationSupportFolderType, kDontCreateFolder, &f ))
+	{
+		url = CFURLCreateFromFSRef( 0, &f );
+		if(url)
+		{
+			filepath = GetPathFromCFURLRef(url);
+		}
+		else
+			throw PlatformUtilsExcep("Couldn't create CFURLRef for User's application support Path");
+		
+		url = NULL;
+	}
+	else 
+	{
+		throw PlatformUtilsExcep("Couldn't find the User's Application Support Path");
+	}
+	
+	return filepath;
 #else
-	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows.");
+	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows and OSX.");
 #endif
 }
 
@@ -288,7 +289,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(WIN32) || defined(WIN64) || defined(OSX)
 	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming
 	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
 
@@ -471,6 +472,73 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 }
 
 
+const std::string PlatformUtils::readRegistryKey(const std::string& keystr, const std::string& value)
+{
+#if defined(WIN32) || defined(WIN64)
+	HKEY key = 0;
+	LONG result = RegOpenKeyEx(
+		HKEY_LOCAL_MACHINE,
+		StringUtils::UTF8ToPlatformUnicodeEncoding(keystr).c_str(),
+		0, //options
+		KEY_QUERY_VALUE, //
+		//KEY_READ, // rights
+		&key // key out
+		);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("RegOpenKeyEx failed: " + toString((int)result));
+
+
+	std::vector<wchar_t> buf(2048);
+	DWORD bytesize = buf.size() * sizeof(wchar_t);
+
+	result = RegGetValue(
+		key, // key
+		L"", // subkey
+		StringUtils::UTF8ToPlatformUnicodeEncoding(value).c_str(), // value
+		RRF_RT_REG_SZ,
+		NULL,
+		&buf[0],
+		&bytesize
+		);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("RegGetValue failed: " + toString((int)result));
+
+	return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0]));
+#else
+	throw PlatformUtilsExcep("Called readRegistryKey() not on Windows.");
+#endif
+}
+
+
+const std::string PlatformUtils::getEnvironmentVariable(const std::string& varname)
+{
+#if defined(WIN32) || defined(WIN64)
+	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
+
+	const std::wstring varname_w = StringUtils::UTF8ToWString(varname);
+
+	TCHAR buffer[2048];
+
+	const DWORD size = 2048;
+
+	if(GetEnvironmentVariable(
+		varname_w.c_str(),
+		buffer,
+		size
+		) == 0)
+		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
+
+	return StringUtils::WToUTF8String(buffer);
+
+#else
+	if(!getenv(varname.c_str()))
+		throw PlatformUtilsExcep("getEnvironmentVariable failed.");
+	return getenv(varname.c_str());
+#endif
+}
+
+
+#if (BUILD_TESTS)
 void PlatformUtils::testPlatformUtils()
 {
 
@@ -488,3 +556,4 @@ void PlatformUtils::testPlatformUtils()
 		testAssert(!"test Failed.");
 	}
 }
+#endif

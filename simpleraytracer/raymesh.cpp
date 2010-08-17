@@ -55,7 +55,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
 
-	num_uvs_per_group = 0;
+	num_uv_sets = 0;
 	num_uv_groups = 0;
 }
 
@@ -77,7 +77,7 @@ const std::string RayMesh::getName() const
 
 
 //returns negative number if object not hit by the ray
-Geometry::Real RayMesh::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	//if(this->areSubElementsCurved())
 	//	ignore_tri = std::numeric_limits<unsigned int>::max();
@@ -306,7 +306,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 			triangles,
 			vertices,
 			uvs,
-			this->num_uvs_per_group,
+			this->num_uv_sets,
 			options,
 			temp_tris,
 			temp_verts,
@@ -317,13 +317,16 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		vertices = temp_verts;
 		uvs = temp_uvs;
 
+		assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+		this->num_uv_groups = num_uv_sets > 0 ? temp_uvs.size() / num_uv_sets : 0;
+
 		// Check data
 #ifdef DEBUG
-		for(unsigned int i=0; i<triangles.size(); ++i)
-			for(unsigned int c=0; c<3; ++c)
+		for(unsigned int i = 0; i < triangles.size(); ++i)
+			for(unsigned int c = 0; c < 3; ++c)
 			{
 				assert(triangles[i].vertex_indices[c] < vertices.size());
-				if(this->num_uvs_per_group > 0)
+				if(this->num_uv_sets > 0)
 				{
 					assert(triangles[i].uv_indices[c] < uvs.size());
 				}
@@ -352,13 +355,6 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	const size_t num_tris = triangles.size();
 	for(size_t i = 0; i < num_tris; ++i)
 	{
-		////this->triangle_geom_normals[i] = 
-		//this->triangles[i].geom_normal = 
-		//	::normalise(::crossProduct(
-		//	this->triVertPos(i, 1) - this->triVertPos(i, 0), // v1 - v0
-		//	this->triVertPos(i, 2) - this->triVertPos(i, 0) // v2 - v0
-		//));
-
 		RayMeshTriangle& tri(triangles[i]);
 		const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
 		const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
@@ -497,16 +493,17 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 unsigned int RayMesh::getNumTexCoordSets() const
 { 
-	return num_uvs_per_group; 
+	return num_uv_sets; 
 }
 
 
 const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
-	assert(texcoords_set < num_uvs_per_group);
-	const Vec2f& v0tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v1tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v2tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+	assert(texcoords_set < num_uv_sets);
+	assert(hitinfo.sub_elem_index < triangles.size());
+	const Vec2f& v0tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
+	const Vec2f& v1tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
+	const Vec2f& v2tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
 
 	//const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
 	//const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
@@ -516,7 +513,7 @@ const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsig
 	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 
 	// Gratuitous removal of function calls
-	const float w = (float)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	return RayMesh::TexCoordsType(
 		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
 		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
@@ -565,10 +562,10 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 										TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out
 									   ) const
 {
-	assert(texcoords_set < num_uvs_per_group);
-	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-	const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
+	assert(texcoords_set < num_uv_sets);
+	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
+	const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
+	const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
 
 	/*ds_du_out = v1tex.x - v0tex.x;
 	dt_du_out = v1tex.y - v0tex.y;
@@ -586,7 +583,7 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 
 void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 {
-	num_uvs_per_group = myMax(num_uvs_per_group, max_num_texcoord_sets);
+	num_uv_sets = myMax(num_uv_sets, max_num_texcoord_sets);
 }
 
 
@@ -645,9 +642,9 @@ inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 
 void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 {
-	assert(new_uvs.size() <= num_uvs_per_group);
+	assert(new_uvs.size() <= num_uv_sets);
 
-	for(unsigned int i=0; i<num_uvs_per_group; ++i)
+	for(unsigned int i = 0; i < num_uv_sets; ++i)
 	{
 		if(i < new_uvs.size())
 			uvs.push_back(new_uvs[i]);
@@ -666,13 +663,13 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(material_index) + ")");
 
 	// Check vertex indices are in bounds
-	for(unsigned int i=0; i<3; ++i)
+	for(unsigned int i = 0; i < 3; ++i)
 		if(vertex_indices[i] >= getNumVerts())
 			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[i]) + ")");
 
 	// Check uv indices are in bounds
-	if(num_uvs_per_group > 0)
-		for(unsigned int i=0; i<3; ++i)
+	if(num_uv_sets > 0)
+		for(unsigned int i = 0; i < 3; ++i)
 			if(uv_indices[i] >= num_uv_groups)
 				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
 
@@ -688,7 +685,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 	// Push the triangle onto tri array.
 
 	triangles.push_back(RayMeshTriangle());
-	for(unsigned int i=0; i<3; ++i)
+	for(unsigned int i = 0; i < 3; ++i)
 	{
 		triangles.back().vertex_indices[i] = vertex_indices[i];
 		triangles.back().uv_indices[i] = uv_indices[i];
@@ -711,7 +708,7 @@ void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const uns
 
 	// Push the triangle onto tri array.
 	triangles.push_back(RayMeshTriangle());
-	for(unsigned int i=0; i<3; ++i)
+	for(unsigned int i = 0; i < 3; ++i)
 	{
 		triangles.back().vertex_indices[i] = vertex_indices[i];
 		triangles.back().uv_indices[i] = uv_indices[i];
@@ -743,7 +740,7 @@ void RayMesh::endOfModel()
 	// Check that any UV set expositions actually have the corresponding uv data.
 	for(std::map<std::string, unsigned int>::const_iterator i=getUVSetNameToIndexMap().begin(); i != getUVSetNameToIndexMap().end(); ++i)
 	{
-		if((*i).second >= num_uvs_per_group)
+		if((*i).second >= num_uv_sets)
 			throw ModelLoadingStreamHandlerExcep("UV set with index " + toString((*i).second) + " was exposed, but the UV set data was not provided.");
 	}
 }
@@ -760,7 +757,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<d
 {
 	surface_areas_out.resize(triangles.size());
 
-	for(unsigned int i=0; i<surface_areas_out.size(); ++i)
+	for(unsigned int i = 0; i < surface_areas_out.size(); ++i)
 		surface_areas_out[i] = (double)getTriArea(*this, i, to_parent);
 
 }
@@ -849,10 +846,10 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 
-	for(unsigned int i=0; i<vertices.size(); ++i)
+	for(unsigned int i = 0; i < vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
 
-	for(unsigned int t=0; t<triangles.size(); ++t)
+	for(unsigned int t = 0; t<triangles.size(); ++t)
 	{
 		const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
@@ -861,11 +858,11 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 					triangles[t].vertex_indices[2]
 				);
 
-		for(int i=0; i<3; ++i)
+		for(int i = 0; i < 3; ++i)
 			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
 	}
 
-	for(unsigned int i=0; i<vertices.size(); ++i)
+	for(unsigned int i = 0; i < vertices.size(); ++i)
 		vertices[i].normal.normalise();
 }
 
@@ -881,9 +878,9 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	std::map<RayMeshVertex, unsigned int> new_vert_indices;
 	std::vector<RayMeshVertex> newverts;
 	
-	for(unsigned int t=0; t<triangles.size(); ++t)
+	for(unsigned int t = 0; t < triangles.size(); ++t)
 	{
-		for(unsigned int i=0; i<3; ++i)
+		for(unsigned int i = 0; i < 3; ++i)
 		{
 			const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
 
@@ -929,7 +926,7 @@ bool RayMesh::areSubElementsCurved() const
 RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 {
 	float max_r2 = 0.0;
-	for(unsigned int i=0; i<this->vertices.size(); ++i)
+	for(unsigned int i = 0; i < this->vertices.size(); ++i)
 		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
 	return std::sqrt(max_r2);
 }
@@ -943,7 +940,7 @@ const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) cons
 	const Vec3f& v1 = vertPos( tri.vertex_indices[1] );
 	const Vec3f& v2 = vertPos( tri.vertex_indices[2] );
 
-	const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	const Vec3RealType w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	return Vec3Type(
 		v0.x * w + v1.x * hitinfo.sub_elem_coords.x + v2.x * hitinfo.sub_elem_coords.y,
 		v0.y * w + v1.y * hitinfo.sub_elem_coords.x + v2.y * hitinfo.sub_elem_coords.y,

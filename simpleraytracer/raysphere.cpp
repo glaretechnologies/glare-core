@@ -61,7 +61,7 @@ RaySphere::~RaySphere()
 
 //returns neg num if object not hit by the ray
 //NOTE: ignoring max_t for now.
-Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	//if(ignore_tri == 0)
 	//	return -1.0;
@@ -78,11 +78,11 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 		ray.unitdir.z * (ray.startpos.z - centerpos.z)
 		);*/
 
-	const double B = 2.0 * dot(center_to_raystart, toVec3d(ray.unitDir()));
+	const double B = dot(center_to_raystart, toVec3d(ray.unitDir()));
 
 	const double C = center_to_raystart.length2() - radius_squared;
 
-	const double discriminant = B*B - 4.0*C;
+	const double discriminant = B*B - C;
 
 	if(discriminant < 0.0)
 		return -1.0;//no intersection
@@ -92,12 +92,12 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 	const double use_min_t = rayMinT(radius);
 
 	{
-		const double t0 = (-B - sqrt_discriminant) * 0.5; // t0 is the smaller of the two solutions
+		const double t0 = -B - sqrt_discriminant; // t0 is the smaller of the two solutions
 		if(t0 >= use_min_t/*ray.minT()*/)
 		{
 			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
 			//assert(epsEqual(r, (float)radius));
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0) - Vec4f(0,0,0,1), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -107,10 +107,10 @@ Geometry::Real RaySphere::traceRay(const Ray& ray, Real max_t, ThreadContext& th
 	}
 
 	{
-		const double t = (-B + sqrt_discriminant) * 0.5;
+		const double t = -B + sqrt_discriminant;
 		if(t >= use_min_t/*ray.minT()*/)
 		{
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t), (Vec3RealType)recip_radius);
+			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t) - Vec4f(0,0,0,1), (Vec3RealType)recip_radius);
 			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
 			{
 				hitinfo_out.sub_elem_coords = uvs;
@@ -353,6 +353,7 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumTexCoordSets() const { return 1; }
 
 
+#if (BUILD_TESTS)
 void RaySphere::test()
 {
 	conPrint("RaySphere::test()");
@@ -479,6 +480,7 @@ void RaySphere::test()
 	testAssert(epsEqual(sphere.surfacePDF(), 1.0 / NICKMATHS_PI));*/
 
 }
+#endif
 
 
 bool RaySphere::isEnvSphereGeometry() const

@@ -23,6 +23,7 @@ namespace GeometrySampling
 {
 
 
+#if (BUILD_TESTS)
 void doTests()
 {
 	// Check shirleyUnitSquareToDisk and inverse
@@ -114,7 +115,7 @@ void doTests()
 	testAssert(dot(v, res) > 0.95);
 
 }
-
+#endif
 
 
 

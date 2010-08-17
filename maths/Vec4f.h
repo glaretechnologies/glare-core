@@ -93,6 +93,11 @@ INDIGO_STRONG_INLINE __m128 operator * (const Vec4f& a, float f)
 
 INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 {
+#if USE_SSE4 
+	Vec4f res;
+	res.v = _mm_dp_ps(a.v, b.v, 255);
+	return res.x[0];
+#else
 	const __m128 prod = _mm_mul_ps(a.v, b.v); // [w, z, y, x]
 
 	const __m128 s = _mm_shuffle_ps(prod, prod, _MM_SHUFFLE(3, 3, 1, 1)); // [w, w, y, y]
@@ -104,6 +109,7 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 	const Vec4f res(_mm_add_ps(sum, s2)); // [x+y+z+w, ...]
 
 	return res.x[0];
+#endif
 }
 
 

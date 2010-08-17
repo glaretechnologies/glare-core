@@ -14,9 +14,9 @@ You may *not* use this code for any commercial project.
 #include <string>
 #include <time.h>
 
-//returns current time in SECONDS
 
-//this is time since commencement of program
+// This is time in seconds since commencement of program.
+// IMPORTANT NOTE: must call Clock::init() first.
 double getCurTimeRealSec();
 
 
@@ -31,6 +31,7 @@ const std::string humanReadableDuration(int seconds);
 
 namespace Clock
 {
+	void init();
 /*
 	day = Day of month (1 – 31).
 	month = Month (0 – 11; January = 0).

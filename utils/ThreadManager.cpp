@@ -62,7 +62,7 @@ void ThreadManager::killThreadsBlocking()
 				break;
 
 			// Suspend this thread until one of the worker threads terminates and calls thread_terminated_condition.notify().
-			const bool signalled = thread_terminated_condition.wait(
+			/*const bool signalled = */thread_terminated_condition.wait(
 				mutex,
 				true, // infinite wait time
 				0.0 // wait time (s) (n/a)

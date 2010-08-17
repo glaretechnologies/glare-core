@@ -1589,6 +1589,7 @@ void DisplacementUtils::averagePass(
 }
 
 
+#if (BUILD_TESTS)
 void DisplacementUtils::test()
 {
 	double z = fmod(-1.25, 1.0);
@@ -1605,4 +1606,5 @@ void DisplacementUtils::test()
 	testAssert(epsEqual(wrappedLerp(-0.1, 0.1, 0.5), 0.0));
 	testAssert(epsEqual(wrappedLerp(0.1, -0.1, 0.5), 0.0));
 }
+#endif
 

@@ -10,6 +10,7 @@ You may *not* use this code for any commercial project.
 =====================================================================*/
 #include "clock.h"
 	
+
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
@@ -19,24 +20,39 @@ You may *not* use this code for any commercial project.
 #endif
 
 #include <assert.h>
-//#include <time.h>
 #include "stringutils.h"
 
-//returns current time in seconds
-double getCurTimeRealSec()
+
+static bool clock_initialised = false;
+static double clock_period = 0;
+
+
+void Clock::init()
 {
 #if defined(WIN32) || defined(WIN64)
-	LARGE_INTEGER li_net;
-	memset(&li_net, 0, sizeof(li_net));
-	BOOL b = QueryPerformanceCounter(&li_net); 
-	assert(b);
-
 	LARGE_INTEGER freq;
-	memset(&freq, 0, sizeof(freq));
-	b = QueryPerformanceFrequency(&freq);
+	const BOOL b = QueryPerformanceFrequency(&freq);
 	assert(b);
 
-	return (double)(li_net.QuadPart) / (double)(freq.QuadPart);
+	clock_period = 1.0 / (double)(freq.QuadPart);
+#else
+	clock_period = 0.0;
+#endif
+
+	clock_initialised = true;
+}
+
+
+double getCurTimeRealSec()
+{
+	assert(clock_initialised);
+
+#if defined(WIN32) || defined(WIN64)
+	LARGE_INTEGER count;
+	const BOOL b = QueryPerformanceCounter(&count); 
+	assert(b);
+
+	return (double)(count.QuadPart) * clock_period;
 #else
 
 	/* struct timeval {

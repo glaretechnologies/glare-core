@@ -280,7 +280,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 	return res;
 }
 
-
+#if (BUILD_TESTS)
 void Obfuscator::test()
 {
 	//const std::string s = "int /*a = b[3] + */a;";
@@ -318,5 +318,6 @@ void Obfuscator::test()
 	
 	
 
-	exit(0);
+	//exit(0);
 }
+#endif

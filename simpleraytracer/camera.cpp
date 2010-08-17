@@ -42,80 +42,59 @@ static const Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
 
 
 Camera::Camera(
-			  const js::Vector<TransformKeyFrame, 16>& frames,
-			  const Vec3d& ws_updir, const Vec3d& forwards,
-		double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_,
-		//const std::string& white_balance,
-		double bloom_weight_, double bloom_radius_, bool autofocus_,
-		bool polarising_filter_, double polarising_angle_,
-		double glare_weight_, double glare_radius_, int glare_num_blades_,
-		double exposure_duration_,
-		Aperture* aperture_,
-		const std::string& appdata_path_,
-		double lens_shift_up_distance_,
-		double lens_shift_right_distance_,
-		bool write_aperture_preview_
-		)
-:	lens_radius(lens_radius_),
-	focus_distance(focus_distance_),
-	sensor_to_lens_dist(lens_sensor_dist_),
-	bloom_weight(bloom_weight_),
-	bloom_radius(bloom_radius_),
-	autofocus(autofocus_),
+	const js::Vector<TransformKeyFrame, 16>& frames,
+	const Vec3d& ws_updir, const Vec3d& forwards,
+	double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_,
+	//const std::string& white_balance,
+	double bloom_weight_, double bloom_radius_, bool autofocus_,
+	bool polarising_filter_, double polarising_angle_,
+	double glare_weight_, double glare_radius_, int glare_num_blades_,
+	double exposure_duration_,
+	Aperture* aperture_,
+	const std::string& appdata_path_,
+	double lens_shift_up_distance_,
+	double lens_shift_right_distance_,
+	bool write_aperture_preview_)
+:	autofocus(autofocus_),
 	polarising_filter(polarising_filter_),
 	polarising_angle(polarising_angle_),
 	glare_weight(glare_weight_),
 	glare_radius(glare_radius_),
 	glare_num_blades(glare_num_blades_),
-	exposure_duration(exposure_duration_),
-//	colour_space_converter(NULL),
+	aperture(NULL),
 	diffraction_filter(NULL),
-	aperture(aperture_),
 	appdata_path(appdata_path_),
-	lens_shift_up_distance(lens_shift_up_distance_),
-	lens_shift_right_distance(lens_shift_right_distance_),
-	write_aperture_preview(write_aperture_preview_),
-	plan(NULL)
+	write_aperture_preview(write_aperture_preview_)
 {
 	plan = new FFTPlan();
 
-	if(lens_radius <= 0.0)
-		throw CameraExcep("lens_radius must be > 0.0");
-	if(focus_distance <= 0.0)
-		throw CameraExcep("focus_distance must be > 0.0");
-	//if(aspect_ratio <= 0.0)
-	//	throw CameraExcep("aspect_ratio must be > 0.0");
-	if(sensor_to_lens_dist <= 0.0)
-		throw CameraExcep("sensor_to_lens_dist must be > 0.0");
-	if(bloom_weight < 0.0)
-		throw CameraExcep("bloom_weight must be >= 0.0");
-	if(bloom_radius < 0.0)
-		throw CameraExcep("bloom_radius must be >= 0.0");
-	if(glare_weight < 0.0)
-		throw CameraExcep("glare_weight must be >= 0.0");
-	if(glare_radius < 0.0)
-		throw CameraExcep("glare_radius must be >= 0.0");
-	if(glare_weight > 0.0 && glare_num_blades <= 3)
-		throw CameraExcep("glare_num_blades must be >= 3");
-	if(exposure_duration <= 0.0)
-		throw CameraExcep("exposure_duration must be > 0.0");
+	// Alloc root_aabb, making sure it is at least 16-byte (SSE) aligned.
+	bbox_ws = (js::AABBox*)SSE::alignedMalloc(sizeof(js::AABBox), sizeof(js::AABBox));
+	new(bbox_ws) js::AABBox(Vec4f(-666.f), Vec4f(-666.f));
 
-	lens_width = lens_radius * 2.0;
-	recip_lens_width = 1.0 / lens_width;
 
-	Vec3d up = ws_updir;
-	up.removeComponentInDir(forwards);
-	up.normalise();
+	init(Vec3d(0,0,0), ws_updir, forwards,
+		lens_radius_, focus_distance_, sensor_width_, sensor_height_, lens_sensor_dist_,
+		exposure_duration_,
+		aperture_,
+		lens_shift_up_distance_, lens_shift_right_distance_);
 
-	Vec3d right = ::crossProduct(forwards, up);
-	assert(forwards.isUnitLength());
-	assert(ws_updir.isUnitLength());
-	assert(up.isUnitLength());
-	assert(right.isUnitLength());
 
+	// Override default camera position with passed keyframes
 	try
 	{
+		Vec3d up = ws_updir;
+		up.removeComponentInDir(forwards);
+		up.normalise();
+		Vec3d right = ::crossProduct(forwards, up);
+
+		assert(forwards.isUnitLength());
+		assert(ws_updir.isUnitLength());
+		assert(up.isUnitLength());
+		assert(right.isUnitLength());
+
 		Matrix3f child_to_world(toVec3f(right), toVec3f(forwards), toVec3f(up));
+
 		transform_path.init(child_to_world, frames);
 	}
 	catch(TransformPathExcep& e)
@@ -123,29 +102,6 @@ Camera::Camera(
 		throw CameraExcep(e.what());
 	}
 
-	sensor_width = sensor_width_;
-	sensor_height = sensor_height_;
-	recip_sensor_width = 1.0 / sensor_width_;
-	recip_sensor_height = 1.0 / sensor_height_;
-
-	lens_center = Vec3d(lens_shift_right_distance, 0.0f, lens_shift_up_distance);
-
-	//lens_center = up * lens_shift_up_distance + right * lens_shift_right_distance;
-	//lens_botleft = up * (lens_shift_up_distance - lens_radius) + right * (lens_shift_right_distance - lens_radius);
-
-	sensor_center = Vec3d(0.0f, -sensor_to_lens_dist, 0.0f);
-	sensor_botleft = Vec3d(sensor_width * -0.5, -sensor_to_lens_dist, sensor_height * -0.5);
-
-	//sensor_center = Vec3d(0.0) - forwards * sensor_to_lens_dist;
-	//sensor_botleft = sensor_center - up * sensor_height * 0.5 - right * sensor_width * 0.5;
-
-	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
-	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
-
-	//uniform_lens_pos_pdf = 1.0 / (NICKMATHS_PI * lens_radius * lens_radius);
-	uniform_sensor_pos_pdf = 1.0 / (sensor_width * sensor_height);
-
-	recip_unoccluded_aperture_area = 1.0 / (4.0 * lens_radius * lens_radius);
 
 	/*try
 	{
@@ -165,8 +121,6 @@ Camera::Camera(
 	const Vec2d components = Matrix2d::rotationMatrix(::degreeToRad(this->polarising_angle)) * Vec2d(1.0, 0.0);
 	this->polarising_vec = getRightDir() * components.x + getUpDir() * components.y;
 	assert(this->polarising_vec.isUnitLength());
-
-
 
 
 	assert(!aperture_image);
@@ -211,27 +165,8 @@ Camera::Camera(
 		}
 	}
 
-
-	// Construct RGB diffraction filter image if needed
-	/*if(RendererSettings::getInstance().aperture_diffraction && RendererSettings::getInstance().post_process_diffraction)
-	{
-	}*/
-
-
-	assert(aperture);
-
-	// Alloc root_aabb, making sure it is at least 16-byte (SSE) aligned.
-	bbox_ws = (js::AABBox*)SSE::alignedMalloc(sizeof(js::AABBox), sizeof(js::AABBox));
-	new(bbox_ws) js::AABBox(Vec4f(-666.f), Vec4f(-666.f));
-
-	const SSE_ALIGN Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
-	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
-
-	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
-	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
-
-
-	makeClippingPlanesCameraSpace();
+	//// Construct RGB diffraction filter image if needed
+	//if(RendererSettings::getInstance().aperture_diffraction && RendererSettings::getInstance().post_process_diffraction)
 }
 
 
@@ -244,6 +179,94 @@ Camera::~Camera()
 	delete aperture;
 	//delete diffraction_filter;
 	//delete colour_space_converter;
+}
+
+
+void Camera::init(
+	const Vec3d& cam_pos, const Vec3d& ws_updir, const Vec3d& forwards, 
+	double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_,
+	double exposure_duration_,
+	Aperture* aperture_,
+	double lens_shift_up_distance_,
+	double lens_shift_right_distance_)
+{
+	lens_radius					= lens_radius_;
+	focus_distance				= focus_distance_;
+	sensor_to_lens_dist			= lens_sensor_dist_;
+	exposure_duration			= exposure_duration_;
+	lens_shift_up_distance		= lens_shift_up_distance_;
+	lens_shift_right_distance	= lens_shift_right_distance_;
+
+	// If we are given a new aperture then delete the old and reassign current
+	if(aperture_ != NULL)
+	{
+		delete aperture;
+		aperture = aperture_;
+		assert(aperture);
+	}
+
+	if(lens_radius <= 0.0)
+		throw CameraExcep("lens_radius must be > 0.0");
+	if(focus_distance <= 0.0)
+		throw CameraExcep("focus_distance must be > 0.0");
+	if(sensor_to_lens_dist <= 0.0)
+		throw CameraExcep("sensor_to_lens_dist must be > 0.0");
+	if(exposure_duration <= 0.0)
+		throw CameraExcep("exposure_duration must be > 0.0");
+
+	lens_width = lens_radius * 2.0;
+	recip_lens_width = 1.0 / lens_width;
+
+	Vec3d up = ws_updir;
+	up.removeComponentInDir(forwards);
+	up.normalise();
+
+	Vec3d right = ::crossProduct(forwards, up);
+	assert(forwards.isUnitLength());
+	assert(ws_updir.isUnitLength());
+	assert(up.isUnitLength());
+	assert(right.isUnitLength());
+
+	try
+	{
+		// TEMP HACK kills existing keyframes
+
+		Matrix3f child_to_world(toVec3f(right), toVec3f(forwards), toVec3f(up));
+		js::Vector<TransformKeyFrame, 16> frames;
+		frames.push_back(TransformKeyFrame(0, Vec4f(cam_pos.x, cam_pos.y, cam_pos.z, 1), Quatf::identity()));
+
+		transform_path.init(child_to_world, frames);
+	}
+	catch(TransformPathExcep& e)
+	{
+		throw CameraExcep(e.what());
+	}
+
+	sensor_width  = sensor_width_;
+	sensor_height = sensor_height_;
+	recip_sensor_width  = 1.0 / sensor_width_;
+	recip_sensor_height = 1.0 / sensor_height_;
+
+	lens_center = Vec3d(lens_shift_right_distance, 0.0f, lens_shift_up_distance);
+
+	sensor_center  = Vec3d(0.0f, -sensor_to_lens_dist, 0.0f);
+	sensor_botleft = Vec3d(sensor_width * -0.5, -sensor_to_lens_dist, sensor_height * -0.5);
+
+	sensor_to_lens_dist_focus_dist_ratio = sensor_to_lens_dist / focus_distance;
+	focus_dist_sensor_to_lens_dist_ratio = focus_distance / sensor_to_lens_dist;
+
+	uniform_sensor_pos_pdf = 1.0 / (sensor_width * sensor_height);
+
+	recip_unoccluded_aperture_area = 1.0 / (4.0 * lens_radius * lens_radius);
+
+
+	const SSE_ALIGN Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
+	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
+
+	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
+	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+
+	makeClippingPlanesCameraSpace();
 }
 
 
@@ -659,7 +682,7 @@ Camera::PDType Camera::lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const 
 
 	assert(sensor_to_lens[1] > 0.0);
 
-	const double d2 = sensor_to_lens.length2();
+	const Real d2 = sensor_to_lens.length2();
 
 	return lensPosPDF() * d2 * std::sqrt(d2) / sensor_to_lens[1];
 
@@ -809,7 +832,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 }
 
 
-Geometry::Real Camera::traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType Camera::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	return -1.0f;//TEMP
 }
@@ -1205,6 +1228,39 @@ const Camera::Vec3Type Camera::positionForHitInfo(const HitInfo& hitinfo) const
 }
 
 
+void Camera::setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir)
+{
+	Vec3d up(0, 0, 1); //UP_OS.x[0], UP_OS.x[1], UP_OS.x[2]);
+	up.removeComponentInDir(cam_dir);
+	up.normalise();
+
+	Vec3d right = ::crossProduct(cam_dir, up);
+	assert(cam_dir.isUnitLength());
+	assert(up.isUnitLength());
+	assert(right.isUnitLength());
+
+	try
+	{
+		Matrix3f child_to_world(toVec3f(right), toVec3f(cam_dir), toVec3f(up));
+		js::Vector<TransformKeyFrame, 16> frames;
+		frames.push_back(TransformKeyFrame(0, Vec4f(cam_pos.x, cam_pos.y, cam_pos.z, 1), Quatf::identity()));
+
+		transform_path.init(child_to_world, frames);
+	}
+	catch(TransformPathExcep& e)
+	{
+		throw CameraExcep(e.what());
+	}
+
+	const SSE_ALIGN Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
+	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
+
+	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
+	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+
+	makeClippingPlanesCameraSpace();
+}
+
 
 const Vec3d Camera::getUpDir(double time) const
 {
@@ -1230,6 +1286,7 @@ const Vec4f Camera::getForwardsDirF(double time) const
 }
 
 
+#if (BUILD_TESTS)
 void Camera::unitTest()
 {
 	conPrint("Camera::unitTest()");
@@ -1481,6 +1538,7 @@ void Camera::unitTest()
 
 	exit(0);*/
 }
+#endif
 
 
 

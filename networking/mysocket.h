@@ -11,8 +11,6 @@ Code Copyright Nicholas Chapman 2005.
 #define __MYSOCKET_H_666_
 
 
-//#pragma warning(disable : 4786)//disable long debug name warning
-
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
@@ -21,11 +19,10 @@ Code Copyright Nicholas Chapman 2005.
 #include <sys/select.h>
 #endif
 
-#include <string>
 #include "ipaddress.h"
-#include "mystream.h"
+//#include "mystream.h"
 #include "../utils/platform.h"
-//class Vec3;
+#include <string>
 class FractionListener;
 
 
@@ -61,30 +58,23 @@ public:
 /*=====================================================================
 MySocket
 --------
-my TCP socket class.
+TCP socket class.
 Blocking.
 Does both client and server sockets.
-NOTE: fix exceptions
-NOTE: handle copy semantics
 =====================================================================*/
-class MySocket// : public MyStream
+class MySocket
 {
 public:
-	/*=====================================================================
-	MySocket
-	--------
-	
-	=====================================================================*/
-	MySocket(const std::string& hostname, int port);//client connect via DNS lookup
-	MySocket(const IPAddress& ipaddress, int port);//client connect
-	MySocket();//for server socket
+	MySocket(const std::string& hostname, int port); // Client connect via DNS lookup
+	MySocket(const IPAddress& ipaddress, int port); // Client connect
+	MySocket(); // For server socket
 
 	~MySocket();
 
-	void bindAndListen(int port);// throw (MySocketExcep);
+	void bindAndListen(int port); // throw (MySocketExcep);
 
 
-	void acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback);// throw (MySocketExcep);
+	void acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback); // throw (MySocketExcep);
 
 	void close();
 
@@ -93,71 +83,29 @@ public:
 	int getOtherEndPort() const { return otherend_port; }
 
 
-	void write(float x, SocketShouldAbortCallback* should_abort_callback);
-	void write(int x, SocketShouldAbortCallback* should_abort_callback);
+	void writeInt32(int32 x, SocketShouldAbortCallback* should_abort_callback);
 	void writeUInt32(uint32 x, SocketShouldAbortCallback* should_abort_callback);
 	void writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_callback);
-	void write(unsigned short x, SocketShouldAbortCallback* should_abort_callback);
-	void write(char x, SocketShouldAbortCallback* should_abort_callback);
-	void write(unsigned char x, SocketShouldAbortCallback* should_abort_callback);
-	//void write(const Vec3& vec);
-	void write(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Writes string
-
 	void writeString(const std::string& s, SocketShouldAbortCallback* should_abort_callback); // Write null-terminated string.
 
 	//-----------------------------------------------------------------
-	//if u use this directly u must do host->network and vice versa byte reordering yourself
+	//if you use this directly you must do host->network and vice versa byte reordering yourself
 	//-----------------------------------------------------------------
-	void write(const void* data, int numbytes, SocketShouldAbortCallback* should_abort_callback);
-	void write(const void* data, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
+	void write(const void* data, size_t numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void write(const void* data, size_t numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
-	//virtual float readFloat();
-	//virtual int readInt();
-	//virtual char readChar();
-	//virtual const Vec3 readVec3();
 
-	void readTo(float& x, SocketShouldAbortCallback* should_abort_callback);
-	float readFloat(SocketShouldAbortCallback* should_abort_callback);
-	void readTo(int& x, SocketShouldAbortCallback* should_abort_callback);
 	int32 readInt32(SocketShouldAbortCallback* should_abort_callback);
 	uint32 readUInt32(SocketShouldAbortCallback* should_abort_callback);
 	uint64 readUInt64(SocketShouldAbortCallback* should_abort_callback);
-	void readTo(unsigned short& x, SocketShouldAbortCallback* should_abort_callback);
-	void readTo(char& x, SocketShouldAbortCallback* should_abort_callback);
-	void readTo(unsigned char& x, SocketShouldAbortCallback* should_abort_callback);
-	//virtual void readTo(Vec3& x);
-	void readTo(std::string& x, int maxlength, SocketShouldAbortCallback* should_abort_callback); // read string, of up to maxlength chars
-	void readTo(void* buffer, int numbytes, SocketShouldAbortCallback* should_abort_callback);
-	void readTo(void* buffer, int numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
-
 	const std::string readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback); // Read null-terminated string.
 
+	void readTo(void* buffer, size_t numbytes, SocketShouldAbortCallback* should_abort_callback);
+	void readTo(void* buffer, size_t numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
-	void readTo(std::string& x, int numchars, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
-
-	//void pollRead(std::string& data_out);//non blocking, returns currently
-	//queued incoming data up to some arbitrary limit such as 1024 bytes.
-
-	void setNagleAlgEnabled(bool enabled);//on by default.
+	void setNagleAlgEnabled(bool enabled); // On by default.
 
 	bool readable(double timeout_s);
-
-	//-----------------------------------------------------------------
-	//if u use these directly u must do host->network and vice versa byte reordering yourself
-	//-----------------------------------------------------------------
-	//void read(void* buffer, int readlen);
-
-	//reads data until buffer not entirely filled.  Not guaranteed to return the whole reply
-//	void readMessage(std::string& data_out, FractionListener* frac = NULL);
-
-	//-----------------------------------------------------------------
-	//funcs for measuring data rate
-	//-----------------------------------------------------------------
-	//static int getNumBytesSent();
-	//static int getNumBytesRcvd();
-
-	//static void resetNumBytesSent();
-	//static void resetNumBytesRcvd();
 
 private:
 	MySocket(const MySocket& other);
@@ -176,24 +124,11 @@ private:
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
 
-
 	IPAddress otherend_ipaddr;
 	IPAddress thisend_ipaddr;
 	int thisend_port;
 	int otherend_port;
-
-
-	//static int num_bytes_sent;
-	//static int num_bytes_rcvd;
-	//NOTE: not threadsafe
 };
 
 
-
-
-
 #endif //__MYSOCKET_H_666_
-
-
-
-

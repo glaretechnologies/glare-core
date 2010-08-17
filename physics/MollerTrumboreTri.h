@@ -128,13 +128,12 @@ public:
 		t_min = C * max(len_1, len_2)
 		t_min^2 = C^2 * max(len_1, len_2)^2
 		t_min^2 = C^2 * max(len_1^2, len_2^2)
-
 		*/
+
+#if USE_LAUNCH_NORMAL
 		if(t < 0.0f)
 			return 0;
 
-
-#if USE_LAUNCH_NORMAL
 		/*
 		t = e1 x e2 / ||e1 x e2||
 
@@ -159,28 +158,28 @@ public:
 		}
 		/*else
 		{
-			// Else the normal of this triangle and the launch triangle are significantly different.
-			// So we want to intersect with this triangle, even if the t value is very small.
+		// Else the normal of this triangle and the launch triangle are significantly different.
+		// So we want to intersect with this triangle, even if the t value is very small.
 
-			//const float C = 0.0000f;//0.00005f;
-			//const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
+		//const float C = 0.0000f;//0.00005f;
+		//const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
 
-			//if(t*t < ray_t_min_sqd)
-			//	return 0;
+		//if(t*t < ray_t_min_sqd)
+		//	return 0;
 		}*/
 #else
 		/*const float C = 0.00005f;
 		const float ray_t_min_sqd = myMax(e1.length2(), e2.length2()) * (C * C);
 
 		if(t*t < ray_t_min_sqd)
-			return 0;*/
+		return 0;*/
 
 		// NEW
 		if(t < epsilon)
 			return 0;
 #endif
 
-		
+
 
 		if(t >= ray_t_max)
 			return 0;
@@ -229,7 +228,7 @@ public:
 		/*const double use_ray_t_min = 0.0001;
 
 		if(t < use_ray_t_min) // 0.0f)
-			return 0;*/
+		return 0;*/
 
 		if(t >= ray_t_max)
 			return 0;
@@ -240,6 +239,63 @@ public:
 
 		return 1;
 #endif
+	}
+
+	typedef double riReal;
+
+	inline unsigned int rayIntersectReal(const Ray& ray, riReal ray_t_max, riReal epsilon, riReal& dist_out, float& u_out, float& v_out) const //non zero if hit
+	{
+		const riReal v0[3] = { data[0], data[1], data[2] };
+		const riReal e1[3] = { data[3], data[4], data[5] };
+		const riReal e2[3] = { data[6], data[7], data[8] };
+
+		const riReal orig[3] = { ray.startPosF().x[0], ray.startPosF().x[1], ray.startPosF().x[2] };
+		const riReal dir[3]  = { ray.unitDirF().x[0],  ray.unitDirF().x[1],  ray.unitDirF().x[2] };
+		const riReal pvec[3] = // crossProduct(dir, e2);
+		{
+			dir[1] * e2[2] - dir[2] * e2[1],
+			dir[2] * e2[0] - dir[0] * e2[2],
+			dir[0] * e2[1] - dir[1] * e2[0]
+		};
+
+		const riReal inv_det = 1 / (e1[0] * pvec[0] + e1[1] * pvec[1] + e1[2] * pvec[2]);
+
+		const riReal tvec[3] =
+		{
+			orig[0] - v0[0],
+			orig[1] - v0[1],
+			orig[2] - v0[2]
+		};
+
+		const riReal u = (tvec[0] * pvec[0] + tvec[1] * pvec[1] + tvec[2] * pvec[2]) * inv_det;
+		if(u < 0 || u > 1)
+			return 0;
+
+		const riReal qvec[3] = //crossProduct(tvec, e1);
+		{
+			tvec[1] * e1[2] - tvec[2] * e1[1],
+			tvec[2] * e1[0] - tvec[0] * e1[2],
+			tvec[0] * e1[1] - tvec[1] * e1[0]
+		};
+
+		const riReal v = (dir[0] * qvec[0] + dir[1] * qvec[1] + dir[2] * qvec[2]) * inv_det;
+		if(v < 0 || (u + v) > 1)
+			return 0;
+
+		const riReal t = (e2[0] * qvec[0] + e2[1] * qvec[1] + e2[2] * qvec[2]) * inv_det;
+
+		// NEW
+		if(t < epsilon)
+			return 0;
+
+		if(t >= ray_t_max)
+			return 0;
+
+		dist_out = t;
+		u_out = (float)u;
+		v_out = (float)v;
+
+		return 1;
 	}
 
 

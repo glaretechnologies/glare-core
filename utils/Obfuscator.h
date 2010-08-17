@@ -26,7 +26,7 @@ public:
 
 	const std::string mapToken(const std::string& t);
 
-	const std::string Obfuscator::obfuscate(const std::string& s);
+	const std::string obfuscate(const std::string& s);
 
 	static void test();
 private:

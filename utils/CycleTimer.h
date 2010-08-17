@@ -8,6 +8,14 @@ Code By Nicholas Chapman.
 #define __CYCLETIMER_H_666_
 
 
+#include "platform.h"
+
+
+#if defined(WIN32) || defined(WIN64)
+#include <intrin.h>
+#pragma intrinsic(__rdtsc)
+#endif
+
 
 /*=====================================================================
 CycleTimer
@@ -30,19 +38,20 @@ public:
 
 	~CycleTimer();
 
-	typedef /*unsigned long long*/ __int64 CYCLETIME_TYPE;//signed 64 bit integer type
+	typedef int64_t CYCLETIME_TYPE;
 
-	__forceinline void reset();
+	INDIGO_STRONG_INLINE void reset();
 
-	__forceinline CYCLETIME_TYPE getCyclesElapsed() const;
-	//adjusted for execution time of CPUID.
-	//NOTE: may be negative or 0.
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE elapsed() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCyclesElapsed() const;
+// Adjusted for execution time of CPUID.
+	// NOTE: may be negative or 0.
 
-	__forceinline CYCLETIME_TYPE getRawCyclesElapsed() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
 	//double getSecondsElapsed() const;
 
 private:
-	__forceinline CYCLETIME_TYPE getCounter() const;
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
 
 	CYCLETIME_TYPE start_time;
 	CYCLETIME_TYPE cpuid_time;
@@ -56,10 +65,24 @@ void CycleTimer::reset()
 	start_time = getCounter();
 }
 
+
 CycleTimer::CYCLETIME_TYPE CycleTimer::getRawCyclesElapsed() const
 {
 	return getCounter() - start_time;
 }
+
+
+//NOTE: may be negative or 0.
+CycleTimer::CYCLETIME_TYPE CycleTimer::elapsed() const
+{
+	return (getCounter() - start_time) - cpuid_time;
+	/*CYCLETIME_TYPE time = getCounter() - start_time - cpuid_time;
+	if(time < 0)
+	return 0;
+	else
+	return time;*/
+}
+
 
 //NOTE: may be negative or 0.
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
@@ -72,25 +95,20 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 		return time;*/
 }
 
+
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 {
-	CycleTimer::CYCLETIME_TYPE numticks = 0;
+#if defined(WIN32) || defined(WIN64)
+	return __rdtsc();
+#else
+	unsigned long long ret;
+	__asm__ __volatile__("rdtsc": "=A" (ret));
 
-	__asm
-	{
-		cpuid //a serialising instruction to force in order execution
-		rdtsc //store counter in eax and edx
-		lea ecx,numticks //load addr of numticks into ecx
-		mov dword ptr [ecx],  eax //write low order bits into numticks
-		mov dword ptr [ecx+4],edx //write high order bits into numticks
-	}
-
-	return numticks;
+	return (CYCLETIME_TYPE)ret;
+#endif
 }
 
 
 #endif //__CYCLETIMER_H_666_
-
-
 
 

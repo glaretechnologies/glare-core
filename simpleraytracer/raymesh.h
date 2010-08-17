@@ -109,7 +109,7 @@ public:
 
 
 	////////////////////// Geometry interface ///////////////////
-	virtual Real traceRay(const Ray& ray, Real max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
+	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const;
 	virtual const js::AABBox& getAABBoxWS() const;
@@ -184,7 +184,7 @@ public:
 	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
-	const unsigned int numUVSets() const { return num_uvs_per_group; }
+	const unsigned int numUVSets() const { return num_uv_sets; }
 
 	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
 
@@ -236,8 +236,8 @@ private:
 	
 	//unsigned int num_uvs;
 	
-	unsigned int num_uvs_per_group; // 0 - 4
-	unsigned int num_uv_groups; // will be roughly equal to number of vertice
+	unsigned int num_uv_sets; // 0 - 4
+	unsigned int num_uv_groups; // will be roughly equal to number of vertices
 	std::vector<Vec2f> uvs; // will have num_uv_groups * num_uvs_per_group elements
 
 	unsigned int max_num_subdivisions;

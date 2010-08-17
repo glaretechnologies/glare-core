@@ -40,6 +40,9 @@ public:
 	uint32 getNearestPointDebug(const std::vector<Vec3f>& points, const Vec3f& p, ThreadContext& thread_context) const;
 
 
+	float getNearestNPointsRadius(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const;
+
+
 
 	void printTree(std::ostream& stream, unsigned int node_index, unsigned int depth) const;
 

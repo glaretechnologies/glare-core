@@ -620,7 +620,7 @@ public:
 };
 
 
-BVH::Real BVH::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, 
 		thread_context, 

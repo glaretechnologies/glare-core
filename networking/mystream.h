@@ -8,12 +8,7 @@ Code By Nicholas Chapman.
 #define __MYSTREAM_H_666_
 
 
-//class Vec3;
-#include <string>//get rid of this?
-
-
-//#pragma warning (disable:4800)
-//disable "forcing value to bool 'true' or 'false' (performance warning)"
+#include <string>
 
 
 class MyStreamExcep	

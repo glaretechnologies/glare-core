@@ -107,6 +107,7 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 }
 
 
+#if (BUILD_TESTS)
 void Matrix4f::test()
 {
 	{
@@ -250,3 +251,4 @@ void Matrix4f::test()
 		}
 	}
 }
+#endif

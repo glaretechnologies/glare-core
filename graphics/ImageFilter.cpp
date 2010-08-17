@@ -1538,6 +1538,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 }
 
 
+#if (BUILD_TESTS)
 static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 {
 	conPrint("testConvolutionWithDims()");
@@ -1786,3 +1787,4 @@ void ImageFilter::test()
 
 	//exit(1);
 }
+#endif

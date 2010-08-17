@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #endif
 
 
+#include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
@@ -749,6 +750,7 @@ const std::string getCurrentDir()
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
+
 	if(!CopyFile(
 		StringUtils::UTF8ToWString(srcpath).c_str(),
 		StringUtils::UTF8ToWString(dstpath).c_str(),
@@ -856,11 +858,68 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 }
 
 
+/*
+Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+*/
+const std::string getActualOSPath(const std::string& path_)
+{
+	const std::string path = toPlatformSlashes(path_);
+
+	if(fileExists(path))
+		return path;
+	
+	// We don't have an exact match.
+	// Try to guess the correct case by scanning directory and doing case-insensitive matches.
+
+	const std::string dir = getDirectory(path);
+	const std::vector<std::string> files = getFilesInDir(dir);
+
+	const std::string target_filename_lowercase = ::toLowerCase(getFilename(path));
+
+	for(size_t i=0; i<files.size(); ++i)
+	{
+		if(::toLowerCase(files[i]) == target_filename_lowercase)
+			return join(dir, files[i]);
+	}
+
+	throw FileUtilsExcep("Could not find file '" + path_ + "'");
+}
+
+
+#if (BUILD_TESTS)
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
 
-	const std::string euro_txt_pathname = "../testfiles/\xE2\x82\xAC.txt";
+
+
+	try
+	{
+
+		//TEMP:
+		const std::vector<std::string> files = getFilesInDir(TestUtils::getIndigoTestReposDir() + "/testfiles");
+		for(size_t i=0; i<files.size(); ++i)
+			conPrint("file: " + files[i]);
+
+#if defined(WIN32) || defined(WIN64)
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
+#elif !defined(OSX)
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+#endif
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+
+
+
+
+	const std::string euro_txt_pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
 
 	try
 	{
@@ -897,7 +956,7 @@ void doUnitTests()
 
 	// Test std::ifstream without a Unicode pathname
 	{
-	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding("../testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
 
 	testAssert(file.is_open());
 	}
@@ -1012,7 +1071,7 @@ void doUnitTests()
 
 	conPrint("FileUtils::doUnitTests() Done.");
 }
-
+#endif
 
 
 //Wed Jan 02 02:03:55 1980\n\0

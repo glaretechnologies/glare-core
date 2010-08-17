@@ -32,8 +32,6 @@ static const uint32 NULL_NODE_INDEX = std::numeric_limits<uint32>::max();
 
 uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_context) const
 {
-	//std::vector<uint32> stack(64);
-
 	std::vector<uint32>& stack = thread_context.point_kd_tree_stack;
 
 	float smallest_dist2 = std::numeric_limits<float>::max();
@@ -90,7 +88,7 @@ uint32 PointKDTree::getNearestPoint(const Vec3f& p, ThreadContext& thread_contex
 				else
 				{
 					// Else p sphere intersects both left and right child spaces.
-					// So pop right child onto stack, and traverse to left child.
+					// So push right child onto stack, and traverse to left child.
 
 					stacktop++;
 					stack[stacktop] = nodes[current].right;
@@ -123,6 +121,94 @@ uint32 PointKDTree::getNearestPointDebug(const std::vector<Vec3f>& points, const
 		}
 	}
 	return closest_point_index;
+}
+
+
+float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const
+{
+	std::vector<uint32>& stack = thread_context.point_kd_tree_stack;
+
+	actual_num_out = 0;
+
+	// Current query radius.  Will expand if not N points in radius.
+	float radius = min_radius;
+
+	while(radius < max_radius)
+	{
+		const float radius2 = radius * radius; // Get radius squared
+		int num_points_in_r = 0;
+		float max_r2 = 0;
+
+		int stacktop = 0; // Index of node on top of stack
+
+		// Push root node onto top of stack
+		stack[0] = 0;
+
+		while(stacktop >= 0) // While stack is not empty...
+		{
+			// Pop node off stack
+			uint32 current = stack[stacktop];
+			assert(current < nodes.size());
+			stacktop--;
+
+			// Keep walking down a tree until we walk off the bottom of a leaf.
+			while(current != NULL_NODE_INDEX)
+			{
+				const float d2 = nodes[current].point.getDist2(p);
+				if(d2 < radius2)
+				{
+					num_points_in_r++;
+					max_r2 = myMax(max_r2, d2);
+				}
+
+				if(nodes[current].left == NULL_NODE_INDEX && nodes[current].right == NULL_NODE_INDEX)
+				{
+					// This is a leaf node
+					break;
+				}
+
+
+				const unsigned int split_axis = nodes[current].split_axis;
+				const float diff = p[split_axis] - nodes[current].split_val;
+				if(diff > radius)
+				{
+					// Then the p sphere lies entirely in right child.
+					// So traverse to right child
+					current = nodes[current].right;
+				}
+				else if(diff < -radius)
+				{
+					// Then the p sphere lies entirely in left child.
+					// So traverse to left child
+					current = nodes[current].left;
+				}
+				else
+				{
+					// Else p sphere intersects both left and right child spaces.
+					// So push right child onto stack, and traverse to left child.
+
+					stacktop++;
+					stack[stacktop] = nodes[current].right;
+					current = nodes[current].left;
+				}
+			} // End while(current != NULL_NODE_INDEX)
+		} // End while(stacktop >= 0)
+
+		
+		if(num_points_in_r < N)
+			radius *= 2.0f; // Expand search radius
+		else
+		{
+			actual_num_out = num_points_in_r;
+			return max_r2;
+		}
+	}
+
+	assert(radius >= max_radius);
+
+	//NOTE: what actual_num_out should we return here?
+
+	return radius;
 }
 
 
@@ -456,8 +542,5 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 	nodes[current].split_val = split;
 	nodes[current].point = points[best_point_index];
 	nodes[current].point_index = best_point_index;
-
 }
-
-
 

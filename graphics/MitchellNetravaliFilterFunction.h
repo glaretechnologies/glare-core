@@ -8,16 +8,17 @@
 #include "MitchellNetravali.h"
 
 /*=====================================================================
-FilterFunction
---------
-Separable filter function interface
+MitchellNetravaliFilterFunction
+-------------------------------
 =====================================================================*/
 class MitchellNetravaliFilterFunction : public FilterFunction
 {
 public:
-	MitchellNetravaliFilterFunction(double B, double C);
+	MitchellNetravaliFilterFunction(double B_, double C_);
 
 	virtual ~MitchellNetravaliFilterFunction();
+
+	void getParameters(double* B_out, double* C_out);
 
 	virtual double supportRadius() const;
 

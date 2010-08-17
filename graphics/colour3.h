@@ -75,7 +75,8 @@ public:
 
 	inline Colour3 operator / (Real scale) const
 	{
-		return Colour3(r / scale, g / scale, b / scale);
+		const Real inv = 1 / scale;
+		return Colour3(r * inv, g * inv, b * inv);
 	}
 
 	inline Colour3& operator *= (Real scale)
@@ -89,9 +90,10 @@ public:
 
 	inline Colour3& operator /= (Real scale)
 	{
-		r /= scale;
-		g /= scale;
-		b /= scale;
+		const Real inv = 1 / scale;
+		r *= inv;
+		g *= inv;
+		b *= inv;
 
 		return *this;
 	}
@@ -174,20 +176,16 @@ public:
 
 	inline void clipComponents()
 	{
-		if(r < 0.0f)
-			r = 0.0f;
-		else if(r > 1.0f)
-			r = 1.0f;
+		r = myClamp(r, 0, 1);
+		g = myClamp(g, 0, 1);
+		b = myClamp(b, 0, 1);
 
-		if(g < 0.0f)
-			g = 0.0f;
-		else if(g > 1.0f)
-			g = 1.0f;
-
-		if(b < 0.0f)
-			b = 0.0f;
-		else if(b > 1.0f)
-			b = 1.0f;
+		//if(r < 0.0f) r = 0.0f;
+		//else if(r > 1.0f) r = 1.0f;
+		//if(g < 0.0f) g = 0.0f;
+		//else if(g > 1.0f) g = 1.0f;
+		//if(b < 0.0f) b = 0.0f;
+		//else if(b > 1.0f) b = 1.0f;
 	}
 
 	inline void positiveClipComponents(Real threshold = 1.0f)
@@ -246,7 +244,7 @@ public:
 	const Real* toFloatArray() const { return (const Real*)this; }
 	const Real* data() const { return (const Real*)this; }
 	
-	const Real length() const { return (Real)sqrt(r*r + g*g + b*b); }
+	const Real length() const { return std::sqrt(r*r + g*g + b*b); }
 
 	Real& operator [] (int index)
 	{

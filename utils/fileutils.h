@@ -56,7 +56,9 @@ const std::string getFilename(const std::string& pathname); // throws FileUtilsE
 //returns false if fails or directory already exists
 //bool createDirForPathname(const std::string& pathname);
 
-
+/*
+Returns only the filenames, not the full paths
+*/
 const std::vector<std::string> getFilesInDir(const std::string& dir_path);
 
 
@@ -105,6 +107,11 @@ FILE* openFile(const std::string& pathname, const std::string& openmode);
 
 // remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name);
+
+/*
+Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+*/
+const std::string getActualOSPath(const std::string& path);
 
 void doUnitTests();
 

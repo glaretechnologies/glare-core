@@ -171,16 +171,17 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
 	assertSSEAligned(&ray);
-	assert(ray.unitDir().isUnitLength());
+	//assert(ray.unitDir().isUnitLength()); // NOTE: taken out because rays are not necessarily normalised anymore
 	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
+	//const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -205,8 +206,8 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
 	near_t = _mm_max_ss(near_t, _mm_load_ss(&use_min_t)); // near_t = max(near_t, 0)
 
-	//const float ray_max_t_f = (float)ray_max_t;
-	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t)); // far_t = min(far_t, ray_max_t)
+	const float ray_max_t_f = (float)ray_max_t;
+	far_t = _mm_min_ss(far_t, _mm_load_ss(&ray_max_t_f)); // far_t = min(far_t, ray_max_t)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
 		return (Real)-1.0;
@@ -221,6 +222,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 	//NOTE: if this is set to ray_max_t (which it should be), we get errors, see for example dof_test.igs
 	//REAL closest_dist = ray_max_t_f; // std::numeric_limits<float>::max();
 	Real closest_dist = std::numeric_limits<Real>::max();
+	DistType closest_dist_d = closest_dist;
 
 	int stacktop = 0; // Index of node on top of stack
 
@@ -311,8 +313,9 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 				// Try prefetching next tri.
 				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);
 
-				float u, v, raydist;
-				if(intersect_tris[triangle_index].rayIntersect(
+				float u, v;//, raydist;
+				double raydist;
+				if(intersect_tris[triangle_index].rayIntersectReal(
 					ray,
 					//use_min_t, // ray t min
 					closest_dist, //max t NOTE: because we're using the tri hash, this can't just be the current leaf volume interval.
@@ -327,6 +330,7 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
 					{
 						closest_dist = raydist;
+						closest_dist_d = raydist;
 						hitinfo_out.sub_elem_index = triangle_index;
 						hitinfo_out.sub_elem_coords.set(u, v);
 					}
@@ -341,20 +345,23 @@ KDTree::Real KDTree::traceRay(const Ray& ray, Real ray_max_t, ThreadContext& thr
 		}
 
 		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) // if(closest_dist <= tmax)
-			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
+			return closest_dist_d; // If intersection point lies before ray exit from this leaf volume, then finished.
 	} // End while stacktop >= 0
 
-	return closest_dist < std::numeric_limits<Real>::max()/*ray_max_t_f*/ ? closest_dist : (Real)-1.0;
+	//return closest_dist < std::numeric_limits<Real>::max()/*ray_max_t_f*/ ? closest_dist : (Real)-1.0;
+	return closest_dist_d < std::numeric_limits<Real>::max()/*ray_max_t_f*/ ? closest_dist_d : -1;
 }
 
 
 bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
 {
 	assertSSEAligned(&ray);
-	assert(ray.unitDir().isUnitLength());
+	//assert(ray.unitDir().isUnitLength());
 	assert(ray_max_t >= 0.0);
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
+
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -478,8 +485,9 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 				// Try prefetching next tri.
 				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);
 
-				float u, v, raydist;
-				if(intersect_tris[triangle_index].rayIntersect(
+				float u, v;//, raydist;
+				double raydist;
+				if(intersect_tris[triangle_index].rayIntersectReal(
 					ray,
 					//use_min_t, // ray_t_min
 					ray_max_t_f, // ray_max_t_f is better than tmax, because we don't mind if we hit a tri outside of this leaf volume, we can still return now.
@@ -513,7 +521,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	assertSSEAligned(object);
 	assert(!nodes.empty());
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -540,7 +549,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
 
 
-	const Real closest_dist = std::numeric_limits<Real>::max();
+	const double closest_dist = std::numeric_limits<double>::max();
 
 	int stacktop = 0;//index of node on top of stack
 
@@ -634,8 +643,9 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 			if(!context.tri_hash->containsTriIndex(leafgeom[triindex]))
 			{
 			#endif
-				float u, v, raydist;
-				if(intersect_tris[leafgeom[triindex]].rayIntersect(
+				float u, v;//, raydist;
+				double raydist;
+				if(intersect_tris[leafgeom[triindex]].rayIntersectReal(
 					ray, 
 					//use_min_t, // ray_t_min
 					closest_dist, 
@@ -1047,16 +1057,18 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 	hitinfo_out.sub_elem_index = 0;
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	Real closest_dist = std::numeric_limits<Real>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
-		float u, v, raydist;
+		float u, v;//, raydist;
+		double raydist;
 		//raydist is distance until hit if hit occurred
 
-		if(intersect_tris[i].rayIntersect(ray, 
+		if(intersect_tris[i].rayIntersectReal(ray, 
 			//ray.minT(), // ray_t_min
 			(float)closest_dist, epsilon, raydist, u, v))
 		{
@@ -1077,16 +1089,18 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 
 void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
-	const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
+	const DistType epsilon = ray.origin_error;
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
-		float u, v, raydist;
+		float u, v;//, raydist;
+		double raydist;
 		//raydist is distance until hit if hit occurred
 
-		if(intersect_tris[i].rayIntersect(ray, 
+		if(intersect_tris[i].rayIntersectReal(ray, 
 			//ray.minT(), // ray_t_min
-			std::numeric_limits<float>::max(), epsilon, raydist, u, v))
+			std::numeric_limits<double>::max(), epsilon, raydist, u, v))
 		{
 			hitinfos_out.push_back(DistanceHitInfo(
 				i,
@@ -1166,6 +1180,7 @@ void KDTree::printStats() const
 }
 
 
+#if (BUILD_TESTS)
 void KDTree::test()
 {
 	{
@@ -1193,6 +1208,7 @@ void KDTree::test()
 	testAssert(n.getNumLeafGeom() == 777);
 	}
 }
+#endif
 
 
 TreeStats::TreeStats()

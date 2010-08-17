@@ -26,8 +26,8 @@ private:
 
 
 /*=====================================================================
-TGADecoder
-----------
+Image
+-----
 A floating point tri-component image class.
 Each component is stored as a 32-bit float.
 =====================================================================*/
@@ -49,8 +49,8 @@ public:
 	void copyToBitmap(Bitmap& bmp_out) const;
 
 	inline unsigned int getHeight() const { return height; }
-	inline unsigned int getWidth() const { return width; }
-	inline unsigned int numPixels() const { return (unsigned int)(width * height); }
+	inline unsigned int getWidth()  const { return width; }
+	inline size_t numPixels() const { return (size_t)width * (size_t)height; }
 
 	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int x, unsigned int y) const;
 	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int x, unsigned int y);
@@ -81,14 +81,17 @@ public:
 	//throws ImageExcep
 	void saveAsNFF(const std::string& pathname);
 
-	void saveToExr(const std::string& pathname) const;
+	void saveTo16BitExr(const std::string& pathname) const;
 	void loadFromExr(const std::string& pathname);
+
+	void saveTo32BitExr(const std::string& pathname) const;
 
 	//void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const;
 
 	void loadFromHDR(const std::string& pathname, int width, int height);
 
 	void zero();
+	void set(float s);
 
 	void resize(unsigned int newwidth, unsigned int newheight);
 
@@ -116,10 +119,11 @@ public:
 	};
 
 	void collapseSizeBoxFilter(int factor); // trims off border before collapsing
-	//void collapseSizeMitchellNetravali(int factor, int border_width, double B, double C); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
-	
-	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, const Image& in, Image& out);
+
+	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
+
+	static void collapseImageNew(int factor, int border_width, int resize_filter_size, const float* const resize_filter, float max_component_value, const Image& in, Image& out);
 
 	unsigned int getByteSize() const;
 
@@ -141,11 +145,13 @@ public:
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 	/////////////////////////////////
 
+	static void test();
+
 private:
 	unsigned int width;
 	unsigned int height;
-	Array2d<ColourType> pixels;	
 
+	Array2d<ColourType> pixels;
 };
 
 
@@ -154,6 +160,8 @@ const Image::ColourType& Image::getPixel(unsigned int i) const
 	assert(i < numPixels());
 	return pixels.getData()[i];
 }
+
+
 Image::ColourType& Image::getPixel(unsigned int i)
 {
 	assert(i < numPixels());

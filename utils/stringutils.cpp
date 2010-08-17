@@ -1070,6 +1070,7 @@ static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 }
 
 
+#if (BUILD_TESTS)
 void doStringUtilsUnitTests()
 {
 	testAssert(toString(1234567) == "1234567");
@@ -1422,4 +1423,5 @@ void doStringUtilsUnitTests()
 	assert(::concatWithChar("aa", '_') == "aa_");*/
 
 }
+#endif
 

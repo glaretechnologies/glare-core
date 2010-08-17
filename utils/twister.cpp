@@ -192,7 +192,7 @@ double genrand_res53(void)
 } 
 /* These real versions are due to Isaku Wada, 2002/01/09 added */
 
-int main(void)
+/*int main(void)
 {
     int i;
     unsigned long init[4]={0x123, 0x234, 0x345, 0x456}, length=4;
@@ -208,7 +208,7 @@ int main(void)
       if (i%5==4) printf("\n");
     }
     return 0;
-}
+}*/
 
 
 }//end namespace Twister

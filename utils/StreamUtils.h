@@ -72,7 +72,7 @@ namespace StreamUtils
 	template <class T>
 	inline static void writeBasicVector(std::ostream& stream, const std::vector<T>& t)
 	{
-		const unsigned int sz = t.size();
+		const size_t sz = t.size();
 		writeBasic(stream, sz);
 		//for(size_t i=0; i<t.size(); ++i)
 		//	writeBasic(stream, t[i]);

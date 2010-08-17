@@ -36,7 +36,7 @@ namespace js
 {
 
 
-
+#if (BUILD_TESTS)
 void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
@@ -692,7 +692,7 @@ void TreeTest::doTests()
 	///////////////////////////////////////
 	{
 	// Load tricky mesh from disk
-	const std::string MODEL_PATH = "../testfiles/bug-2.igmesh";
+	const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
 	CSModelLoader model_loader;
 	RayMesh raymesh("tricky", false);
 	try
@@ -823,7 +823,6 @@ void TreeTest::doVaryingNumtrisBuildTests()
 	
 	exit(666);//TEMP
 }
-
 
 
 // Aka. the 'Bunnybench' :)
@@ -1007,7 +1006,8 @@ void TreeTest::doRayTests()
 	testAssert(!isInf(ray.getRecipRayDirF().z));*/
 
 }
-
+#endif
+	
 
 } //end namespace js
 

@@ -103,6 +103,7 @@ public:
 };
 
 
+#if (BUILD_TESTS)
 void ThreadTests::test()
 {
 	// Test parallel For
@@ -250,7 +251,7 @@ void ThreadTests::test()
 		conPrint(toString(timer.getSecondsElapsed()));
 	}
 }
-
+#endif
 
 
 

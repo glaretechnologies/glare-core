@@ -100,7 +100,15 @@ enum ProcessPriority
 void setThisProcessPriority(ProcessPriority p);
 
 
+const std::string getEnvironmentVariable(const std::string& varname);
+
+
+const std::string readRegistryKey(const std::string& key, const std::string& value);
+
+
 void testPlatformUtils();
+
+
 
 
 } // end namespace PlatformUtils

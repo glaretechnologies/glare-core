@@ -18,6 +18,17 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, float intersection_cost_)
 	intersection_cost(intersection_cost_)
 {
 	assert(intersection_cost > 0.f);
+
+	aabbs = NULL;
+
+	num_maxdepth_leaves = 0;
+	num_under_thresh_leaves = 0;
+	num_cheaper_nosplit_leaves = 0;
+	num_could_not_split_leaves = 0;
+	num_leaves = 0;
+	max_num_tris_per_leaf = 0;
+	leaf_depth_sum = 0;
+	max_leaf_depth = 0;
 }
 
 

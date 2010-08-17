@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../utils/fileutils.h"
 #include "../utils/stringutils.h"
+#include "../indigo/TestUtils.h"
 
 
 IndigoXMLDoc::IndigoXMLDoc(const std::string& path_)
@@ -70,11 +71,19 @@ void IndigoXMLDoc::saveDoc(const std::string& savepath)
 	fclose(savefile);
 }
 
-
+#if (BUILD_TESTS)
 void IndigoXMLDoc::test()
 {
-	for(int i=0; i<1; ++i)
+	try
 	{
- 		IndigoXMLDoc doc("../testscenes/airy_disc_test.igs");
+		for(int i=0; i<1; ++i)
+		{
+			IndigoXMLDoc doc(TestUtils::getIndigoTestReposDir() + "/testscenes/airy_disc_test.igs");
+		}
+	}
+	catch(IndigoXMLDocExcep& )
+	{
+		failTest("IndigoXMLDocExcep");
 	}
 }
+#endif
