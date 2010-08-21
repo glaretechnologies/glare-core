@@ -10,6 +10,7 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <Iphlpapi.h>
 #include <intrin.h>

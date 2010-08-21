@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
-
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <process.h>
 #else

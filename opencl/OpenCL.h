@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #if USE_OPENCL
 
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "../utils/platform.h"
 #include "../indigo/gpuDeviceInfo.h"
