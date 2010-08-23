@@ -102,6 +102,11 @@ Camera::Camera(
 		throw CameraExcep(e.what());
 	}
 
+	const Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
+	const Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
+
+	js::AABBox aabb_os(min_os, max_os);
+	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
 
 	/*try
 	{

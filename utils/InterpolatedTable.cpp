@@ -9,6 +9,8 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 #include "../indigo/SpectralVector.h"
 #include "../indigo/PolarisationVec.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 InterpolatedTable::InterpolatedTable(
@@ -59,7 +61,7 @@ Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 		one_t_x * one_t_y * a + 
 		t_x * one_t_y * b + 
 		one_t_x * t_y * c + 
-		t_x + t_y * d;
+		t_x * t_y * d;
 }
 
 
@@ -84,6 +86,14 @@ void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, Pol
 
 		assert(t_x >= 0 && t_x <= 1.01);
 
+		/*printVar(i);
+		printVar(data.elem(x_index, y_index));
+		printVar(data.elem(x_index_1, y_index));
+		printVar(data.elem(x_index, y_index_1));
+		printVar(data.elem(x_index_1, y_index_1));
+		printVar(t_x);
+		printVar(t_y);*/
+
 		values_out.e[i] = biLerp(
 			data.elem(x_index, y_index),
 			data.elem(x_index_1, y_index),
@@ -92,5 +102,7 @@ void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, Pol
 			t_x,
 			t_y
 		);
+
+		//printVar(values_out.e[i]);
 	}	
 }
