@@ -11,6 +11,9 @@ Code By Nicholas Chapman.
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #include "imformatdecoder.h"
+#include "../utils/stringutils.h"
+#include <fstream>
+#include <ImfStdIO.h>
 
 
 EXRDecoder::EXRDecoder()
@@ -29,7 +32,12 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 {
 	try
 	{
-		Imf::RgbaInputFile file(pathname.c_str());
+		std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+
+		Imf::StdIFStream exr_ifstream(infile, pathname.c_str());
+
+		Imf::RgbaInputFile file(exr_ifstream);
+
 		const Imath::Box2i dw = file.dataWindow();
 
 		const unsigned int filewidth = (unsigned int)(dw.max.x - dw.min.x + 1);

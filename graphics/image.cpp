@@ -20,6 +20,7 @@
 #include <ImathBox.h>
 #include <ImfChannelList.h>
 #include <ImfOutputFile.h>
+#include <ImfStdIO.h>
 #endif
 
 #include <png.h>
@@ -744,14 +745,17 @@ const Image::ColourType Image::sampleTiled(float u, float v) const
 
 
 #ifdef OPENEXR_SUPPORT
-void Image::saveTo16BitExr(const std::string& pathname) const
+/*void Image::saveTo16BitExr(const std::string& pathname) const
 {
 	try
 	{
-		Imf::RgbaOutputFile file(pathname.c_str(), getWidth(), getHeight(), Imf::WRITE_RGBA);
+		std::ofstream outfile_stream(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+
+		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
+
+		Imf::RgbaOutputFile file(exr_ofstream, getWidth(), getHeight(), Imf::WRITE_RGBA);
 
 		std::vector<Imf::Rgba> rgba(getWidth() * getHeight());
-		//Imf::Rgba* rgba = new Imf::Rgba[getWidth() * getHeight()];
 
 		//------------------------------------------------------------------------
 		//fill in the data
@@ -767,17 +771,13 @@ void Image::saveTo16BitExr(const std::string& pathname) const
 
 		file.setFrameBuffer(&rgba[0], 1, getWidth());
 
-		//Imf::Rgba p(1.0f, 1.0f, 1.0f);
-		//file.setFrameBuffer(&p, 1, 1);
-
 		file.writePixels(getHeight());
-
 	}
 	catch(const std::exception& e)
 	{
 		throw ImageExcep("Error writing EXR file: " + std::string(e.what()));
 	}
-}
+}*/
 
 
 void Image::saveTo32BitExr(const std::string& pathname) const
@@ -787,11 +787,15 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 	{
 		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
 
+		std::ofstream outfile_stream(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+
+		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
+
 		Imf::Header header(getWidth(), getHeight());
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
-		Imf::OutputFile file(pathname.c_str(), header);                               
+		Imf::OutputFile file(exr_ofstream, header);                               
 		Imf::FrameBuffer frameBuffer;
 
 		frameBuffer.insert("R",				// name
@@ -821,43 +825,6 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 	}
 }
 
-void Image::loadFromExr(const std::string& pathname)
-{
-	try
-	{
-		Imf::RgbaInputFile file(pathname.c_str());
-		const Imath::Box2i dw = file.dataWindow();
-
-		const int filewidth = dw.max.x - dw.min.x + 1;
-		const int fileheight = dw.max.y - dw.min.y + 1;
-
-		this->resize(filewidth, fileheight);
-
-		std::vector<Imf::Rgba> data(filewidth * fileheight);
-
-		file.setFrameBuffer(&data[0], 1, filewidth); //&pixels[0][0] - dw.min.x - dw.min.y * width, 1, width);
-		file.readPixels(dw.min.y, dw.max.y);
-
-		for(int y = 0; y < getHeight(); ++y)
-		for(int x = 0; x < getWidth();  ++x)
-		{
-			this->getPixel(x, y).r = data[y*getWidth() + x].r;
-			this->getPixel(x, y).g = data[y*getWidth() + x].g;
-			this->getPixel(x, y).b = data[y*getWidth() + x].b;
-
-			this->getPixel(x, y).lowerClampInPlace(0.0);//TEMP NEW
-
-			assert(this->getPixel(x, y).r >= 0.0);
-			//printVar(this->getPixel(x, y).g);
-			assert(this->getPixel(x, y).g >= 0.0);
-			assert(this->getPixel(x, y).b >= 0.0);
-		}
-	}
-	catch(const std::exception& e)
-	{
-		throw ImageExcep("Error reading EXR file: " + std::string(e.what()));
-	}
-}
 #else //OPENEXR_SUPPORT
 
 void Image::saveToExr(const std::string& pathname) const

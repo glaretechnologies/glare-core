@@ -81,9 +81,7 @@ public:
 	//throws ImageExcep
 	void saveAsNFF(const std::string& pathname);
 
-	void saveTo16BitExr(const std::string& pathname) const;
-	void loadFromExr(const std::string& pathname);
-
+	//void saveTo16BitExr(const std::string& pathname) const;
 	void saveTo32BitExr(const std::string& pathname) const;
 
 	//void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const;

@@ -33,7 +33,7 @@ public:
 		const Object* object, unsigned int ignore_tri, HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
-		assert(ray.unitDir().isUnitLength());
+		//assert(ray.unitDir().isUnitLength());
 		assert(ray_max_t >= 0.0);
 
 		const __m128 raystartpos = ray.startPosF().v;
