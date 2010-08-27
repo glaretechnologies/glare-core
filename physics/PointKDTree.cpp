@@ -212,6 +212,12 @@ float PointKDTree::getNearestNPointsRadius(ThreadContext& thread_context, int N,
 }
 
 
+/*PointKDTree::float getNearestNPointsRadiusDebug(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const
+{
+	
+}*/
+
+
 void PointKDTree::printTree(std::ostream& stream, unsigned int node_index, unsigned int depth) const
 {
 	for(unsigned int i=0; i<depth; ++i)

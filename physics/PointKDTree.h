@@ -41,6 +41,7 @@ public:
 
 
 	float getNearestNPointsRadius(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const;
+	float getNearestNPointsRadiusDebug(ThreadContext& thread_context, int N, const Vec3f& p, float min_radius, float max_radius, int& actual_num_out) const;
 
 
 
