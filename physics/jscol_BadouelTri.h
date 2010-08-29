@@ -124,7 +124,7 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	u_out = alpha;
 	v_out = beta;
 
-#if defined(WIN32) && !defined(WIN64)
+#if defined(WIN32) && !defined(WIN64) && !defined(__MINGW32__)
 	const float one = 1.0;
 	SSE_ALIGN unsigned int hit;
 	_asm

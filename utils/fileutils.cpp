@@ -150,7 +150,7 @@ void createDir(const std::string& dirname)
 {
 #if defined(WIN32) || defined(WIN64)
 
-	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToWString(dirname).c_str(), NULL);
+	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToPlatformUnicodeEncoding(dirname).c_str(), NULL);
 	if(!result)
 		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
 #else
@@ -349,17 +349,17 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
 #if defined(WIN32) || defined(WIN64)
 	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToWString(dir_path + "\\*").c_str(), &find_data);
+	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(dir_path + "\\*").c_str(), &find_data);
 	if(search_handle == INVALID_HANDLE_VALUE)
 		throw FileUtilsExcep("FindFirstFile() failed: " + toString((int)GetLastError()));
 
 
 	std::vector<std::string> paths;
-	paths.push_back(StringUtils::WToUTF8String(find_data.cFileName));
+	paths.push_back(StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName));
 
 	while(FindNextFile(search_handle, &find_data) != 0)
 	{
-		paths.push_back(StringUtils::WToUTF8String(find_data.cFileName));
+		paths.push_back(StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName));
 	}
 
 	FindClose(search_handle);
@@ -435,7 +435,7 @@ bool fileExists(const std::string& pathname)
 #if defined(WIN32) || defined(WIN64)
 
 	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToWString(pathname).c_str(), &find_data);
+	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), &find_data);
 
 	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
 
@@ -515,7 +515,7 @@ bool isDirectory(const std::string& pathname)
 {
 #if defined(WIN32) || defined(WIN64)
 	WIN32_FILE_ATTRIBUTE_DATA file_data;
-	GetFileAttributesEx(StringUtils::UTF8ToWString(pathname).c_str(), GetFileExInfoStandard, &file_data);
+	GetFileAttributesEx(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), GetFileExInfoStandard, &file_data);
 
 	if(file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return true;
@@ -753,8 +753,8 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 #if defined(WIN32) || defined(WIN64)
 
 	if(!CopyFile(
-		StringUtils::UTF8ToWString(srcpath).c_str(),
-		StringUtils::UTF8ToWString(dstpath).c_str(),
+		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
+		StringUtils::UTF8ToPlatformUnicodeEncoding(dstpath).c_str(),
 		FALSE // fail if exists
 		))
 	{
@@ -773,7 +773,7 @@ void deleteFile(const std::string& path)
 {
 #if defined(WIN32) || defined(WIN64)
 	if(!DeleteFile(
-		StringUtils::UTF8ToWString(path).c_str()
+		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
 	{
 		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
@@ -790,7 +790,7 @@ void deleteEmptyDirectory(const std::string& path)
 {
 #if defined(WIN32) || defined(WIN64)
 	if(!RemoveDirectory(
-		StringUtils::UTF8ToWString(path).c_str()
+		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
 	{
 		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
@@ -807,8 +807,8 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
 	if(!MoveFileEx(
-		StringUtils::UTF8ToWString(srcpath).c_str(),
-		StringUtils::UTF8ToWString(dstpath).c_str(),
+		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
+		StringUtils::UTF8ToPlatformUnicodeEncoding(dstpath).c_str(),
 		MOVEFILE_REPLACE_EXISTING
 	))
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");

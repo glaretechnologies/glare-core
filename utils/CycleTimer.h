@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "platform.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 #include <intrin.h>
 #pragma intrinsic(__rdtsc)
 #endif
@@ -98,7 +98,7 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 {
-#if defined(WIN32) || defined(WIN64)
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 	return __rdtsc();
 #else
 	unsigned long long ret;

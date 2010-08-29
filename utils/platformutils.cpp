@@ -15,7 +15,11 @@ Code By Nicholas Chapman.
 #include <Iphlpapi.h>
 //#define SECURITY_WIN32 1
 //#include <Security.h>
+
+#if !defined(__MINGW32__)
 #include <intrin.h>
+#endif
+
 #include <shlobj.h>
 #else
 #include <errno.h>
@@ -87,6 +91,9 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 {
 #if defined(WIN32) || defined(WIN64)
+#if defined(__MINGW32__)
+	return 0; // TEMP HACK
+#else
 	MEMORYSTATUSEX mem_state;
 	mem_state.dwLength = sizeof(mem_state);
 
@@ -94,6 +101,7 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	GlobalMemoryStatusEx(&mem_state);
 	
 	return mem_state.ullTotalPhys;
+#endif
 #else
 
 #ifdef OSX
@@ -133,7 +141,7 @@ const std::string PlatformUtils::getLoggedInUserName()
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
-#if defined(WIN32) || defined(WIN64)
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 	int CPUInfo[4];
 	__cpuid(
 		CPUInfo,
@@ -228,14 +236,14 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 		NULL, // hwndOwner
 		CSIDL_APPDATA, // nFolder
 		NULL, // hToken
-		SHGFP_TYPE_CURRENT, // dwFlags
+		0, // 0=SHGFP_TYPE_CURRENT, // dwFlags
 		path // pszPath
 		);
 
 	if(res != S_OK)
-		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString(res));
+		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString((int)res));
 
-	return StringUtils::WToUTF8String(path);
+	return StringUtils::PlatformToUTF8UnicodeEncoding(path);
 #elif defined(OSX)
 	FSRef f;
 	CFURLRef url;
@@ -277,7 +285,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 	if(num_chars_rqrd == 0 || num_chars_rqrd > MAX_PATH)
 		throw PlatformUtilsExcep("GetTempPath() failed.");
 
-	const std::string p = StringUtils::WToUTF8String(path);
+	const std::string p = StringUtils::PlatformToUTF8UnicodeEncoding(path);
 	return ::eatSuffix(p, "\\"); // Remove trailing backslash.
 #elif defined(OSX)
 	return "/tmp";
@@ -328,7 +336,7 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 	if(result == 0)
 		throw PlatformUtilsExcep("GetModuleFileName failed.");
 	else
-		return StringUtils::WToUTF8String(buf);
+		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
 #else
 	throw PlatformUtilsExcep("getFullPathToCurrentExecutable only supported on Windows.");
 #endif
@@ -473,7 +481,7 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 }
 
 
-const std::string PlatformUtils::readRegistryKey(const std::string& keystr, const std::string& value)
+/*const std::string PlatformUtils::readRegistryKey(const std::string& keystr, const std::string& value)
 {
 #if defined(WIN32) || defined(WIN64)
 	HKEY key = 0;
@@ -496,7 +504,7 @@ const std::string PlatformUtils::readRegistryKey(const std::string& keystr, cons
 		key, // key
 		L"", // subkey
 		StringUtils::UTF8ToPlatformUnicodeEncoding(value).c_str(), // value
-		RRF_RT_REG_SZ,
+		0x00000002, // RRF_RT_REG_SZ = 0x00000002,
 		NULL,
 		&buf[0],
 		&bytesize
@@ -508,7 +516,7 @@ const std::string PlatformUtils::readRegistryKey(const std::string& keystr, cons
 #else
 	throw PlatformUtilsExcep("Called readRegistryKey() not on Windows.");
 #endif
-}
+}*/
 
 
 const std::string PlatformUtils::getEnvironmentVariable(const std::string& varname)

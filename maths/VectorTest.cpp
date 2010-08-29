@@ -12,7 +12,7 @@ Generated at Tue May 25 16:47:39 +1200 2010
 //#include "../indigo/globals.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 #define VEC3_INLINE __forceinline
 #define NOTHROW __declspec(nothrow)
 #else

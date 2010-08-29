@@ -288,13 +288,14 @@ inline int roundToInt(Real x)
 {
 	assert(x >= (Real)0.0);
 #if defined(WIN32) && !defined(WIN64)
-	int i;
+	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
+	/*int i;
 	_asm
 	{
 		fld x		; Push x onto FP stack
 		fistp i;	; convert to integer and store in i.
 	}
-	return i;
+	return i;*/
 #elif defined(WIN64)
 	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
 #else

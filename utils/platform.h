@@ -3,7 +3,7 @@
 #define PLATFORM_H_666
 
 
-#if defined(WIN32) || defined(WIN64)
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 #define INDIGO_STRONG_INLINE __forceinline
 #else
 #define INDIGO_STRONG_INLINE inline

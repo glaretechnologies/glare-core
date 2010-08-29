@@ -13,7 +13,11 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <Iphlpapi.h>
+
+#if !defined(__MINGW32__)
 #include <intrin.h>
+#endif 
+
 #include <shlobj.h>
 #else
 #include <time.h>

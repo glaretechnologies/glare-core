@@ -53,6 +53,9 @@ void* myAlignedMalloc(size_t amount, size_t alignment)
 
 	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
 
+	if(!original_addr)
+		throw std::bad_alloc();
+
 	// Snap the address down to the largest multiple of alignment <= original_addr
 	const uintptr_t snapped_addr = (uintptr_t)original_addr - ((uintptr_t)original_addr & (alignment - 1));
 
