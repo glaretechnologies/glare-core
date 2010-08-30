@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include <ImathBox.h>
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
 #include <fstream>
 #include <ImfStdIO.h>
 
@@ -30,9 +31,10 @@ EXRDecoder::~EXRDecoder()
 
 Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 {
+#ifdef OPENEXR_SUPPORT
 	try
 	{
-		std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+		std::ifstream infile(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 		Imf::StdIFStream exr_ifstream(infile, pathname.c_str());
 
@@ -72,4 +74,10 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 	{
 		throw ImFormatExcep("Error reading EXR file: " + std::string(e.what()));
 	}
+
+#else //OPENEXR_SUPPORT
+
+	throw ImFormatExcep("OPENEXR_SUPPORT disabled.");
+
+#endif //OPENEXR_SUPPORT
 }

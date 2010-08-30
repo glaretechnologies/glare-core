@@ -410,7 +410,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 				FileUtils::join("cache/tree_cache", toString(tree_checksum) + ".tre")
 				);
 
-			std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), std::ifstream::binary);
+			std::ifstream file(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ifstream::binary);
 
 			if(file)
 			{
@@ -461,7 +461,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 				if(verbose) print_output.print("\tSaving tree to '" + path + "'...");
 
-				std::ofstream cachefile(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), std::ofstream::binary);
+				std::ofstream cachefile(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ofstream::binary);
 
 				if(cachefile)
 				{

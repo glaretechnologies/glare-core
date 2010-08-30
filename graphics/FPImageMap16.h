@@ -9,7 +9,9 @@ Code By Nicholas Chapman.
 
 
 #include "Map2D.h"
+#ifdef OPENEXR_SUPPORT
 #include <half.h>
+
 //#include "../utils/array2d.h"
 #include <vector>
 
@@ -58,6 +60,8 @@ const half* FPImageMap16::getPixel(unsigned int x, unsigned int y) const
 {
 	return &data[(x + width * y) * 3];
 }
+
+#endif // OPENEXR_SUPPORT
 
 
 #endif //__FPIMAGEMAP16_H_666_

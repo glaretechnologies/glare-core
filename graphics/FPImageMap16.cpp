@@ -12,6 +12,9 @@ Code By Nicholas Chapman.
 #include <cmath>
 
 
+#ifdef OPENEXR_SUPPORT
+
+
 FPImageMap16::FPImageMap16(unsigned int width_, unsigned int height_)
 :	width(width_),
 	height(height_)
@@ -110,3 +113,6 @@ FPImageMap16::Value FPImageMap16::scalarSampleTiled(Coord x, Coord y) const
 	const Colour3<Value> col = vec3SampleTiled(x, y);
 	return (col.r + col.g + col.b) * (1.0 / 3.0);
 }
+
+
+#endif // #ifdef OPENEXR_SUPPORT

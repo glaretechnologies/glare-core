@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "platformutils.h"
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
+#include "../utils/fileutils.h"
 
 
 Plotter::Plotter()
@@ -39,7 +40,7 @@ void Plotter::plot(
 	// Write data
 	for(unsigned int i=0; i<data.size(); ++i)
 	{
-		std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_data_path + ::toString(i) + ".txt").c_str());
+		std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_data_path + ::toString(i) + ".txt").c_str());
 
 		for(size_t z=0; z<data[i].points.size(); ++z)
 			f << data[i].points[z].x << " " << data[i].points[z].y << "\n";
@@ -50,7 +51,7 @@ void Plotter::plot(
 	const std::string temp_path = temp_dir + "/plot.txt";
 
 	{
-		std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_path).c_str());
+		std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_path).c_str());
 
 		f << "set terminal png size 1000,800\n";
 		f << "set output \"" + path + "\"\n";
@@ -92,7 +93,7 @@ void Plotter::plot3D(
 	
 		// Write data
 		{
-			std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_data_path).c_str());
+			std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_data_path).c_str());
 
 			for(unsigned int y=0; y<data.getHeight(); ++y)
 			{
@@ -108,7 +109,7 @@ void Plotter::plot3D(
 		const std::string temp_path = temp_dir + "/plot.txt";
 
 		{
-			std::ofstream f(StringUtils::UTF8ToPlatformUnicodeEncoding(temp_path).c_str());
+			std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_path).c_str());
 
 			f << "set terminal png size " << options.w << "," << options.h << "\n";
 			f << "set output \"" + path + "\"\n";

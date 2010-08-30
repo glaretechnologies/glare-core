@@ -16,6 +16,8 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include <zlib.h> // for crc32()
+
+#if USE_OPENSSL
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -23,6 +25,8 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <openssl/x509.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
+#endif 
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -53,6 +57,7 @@ const std::string License::ensureNewLinesPresent(const std::string& data)
 }
 
 
+#if USE_OPENSSL
 // Modified from http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
 const std::string License::decodeBase64(const std::string& data_)
@@ -89,6 +94,8 @@ const std::string License::decodeBase64(const std::string& data_)
         throw License::LicenseExcep("base64 decoder error");
     }
 }
+#endif // USE_OPENSSL
+
 
 /*
 Verify that the hash is a public signature of key.
@@ -96,6 +103,7 @@ Verify that the hash is a public signature of key.
 */
 bool License::verifyKey(const std::string& key, const std::string& hash)
 {
+#if USE_OPENSSL
 	ERR_load_crypto_strings();
 
 	// Load the public key
@@ -131,6 +139,10 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	}
 	else // Failure (other error)
 		throw LicenseExcep("Verification failed.");
+
+#else // #if USE_OPENSSL
+	return false;
+#endif // #if USE_OPENSSL
 }
 
 
@@ -138,6 +150,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 {
 	license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
+
+#if USE_OPENSSL
 
 	// Try and verifiy network licence first.
 	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, license_type_out, user_id_out);
@@ -246,6 +260,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 	{
 		throw LicenseExcep(e.what());
 	}
+
+#endif // #if USE_OPENSSL
 }
 
 
@@ -524,6 +540,7 @@ const std::string License::networkFloatingHash(const std::string& input)
 #if (BUILD_TESTS)
 void License::test()
 {
+#if USE_OPENSSL
 	// Test long base-64 encoded block, with no embedded newlines
 	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
 		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
@@ -567,5 +584,6 @@ void License::test()
 		
 		testAssert(License::verifyKey(key, hash));	
 	}
+#endif // USE_OPENSSL
 }
 #endif

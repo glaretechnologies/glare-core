@@ -825,21 +825,17 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 	}
 }
 
+
 #else //OPENEXR_SUPPORT
 
-void Image::saveToExr(const std::string& pathname) const
+
+void Image::saveTo32BitExr(const std::string& pathname) const
 {
-	throw ImageExcep("Image::saveToExr: OPENEXR_SUPPORT disabled.");
+	throw ImageExcep("Image::saveTo32BitExr: OPENEXR_SUPPORT disabled.");
 }
 
-void Image::loadFromExr(const std::string& pathname)
-{
-	throw ImageExcep("Image::saveToExr: OPENEXR_SUPPORT disabled.");
-}
 
 #endif //OPENEXR_SUPPORT
-
-
 
 
 //typedef void (PNGAPI *png_error_ptr) PNGARG((png_structp, png_const_charp));

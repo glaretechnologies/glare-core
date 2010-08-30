@@ -40,6 +40,9 @@ const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
 
 
+
+
+
 const std::string join(const std::string& dirpath, const std::string& filename)
 {
 	if(dirpath == "")
@@ -626,7 +629,7 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {
-	std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -638,7 +641,7 @@ void readEntireFile(const std::string& pathname,
 void readEntireFile(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
-	std::ifstream infile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 	if(!infile)
 		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
@@ -650,7 +653,7 @@ void readEntireFile(const std::string& pathname,
 void writeEntireFile(const std::string& pathname,
 					 const std::vector<unsigned char>& filecontents)
 {
-	std::ofstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+	std::ofstream file(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 	if(!file)
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
@@ -666,7 +669,7 @@ void writeEntireFile(const std::string& pathname,
 void writeEntireFile(const std::string& pathname,
 					 const std::string& filecontents)
 {
-	std::ofstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+	std::ofstream file(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 	if(!file)
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");

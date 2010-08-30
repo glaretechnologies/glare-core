@@ -25,7 +25,8 @@ You may not use this code for any commercial project.
 #ifndef __ARRAY2D__
 #define __ARRAY2D__
 
-#include "../maths/SSE.h" // for _mm_malloc
+
+#include "../maths/SSE.h" // for SSE::alignedMalloc etc..
 #include "../maths/mathstypes.h" // for myMin
 #include <assert.h>
 #include <stdlib.h> // for NULL
@@ -91,7 +92,7 @@ Array2d<Field>::Array2d(size_t dim1_, size_t dim2_)
 	dim2(dim2_)
 {
 	//data = new Field[dim1 * dim2];
-	data = (Field *)_mm_malloc(dim1 * dim2 * sizeof(Field), 64);
+	data = (Field *)SSE::alignedMalloc(dim1 * dim2 * sizeof(Field), 64);
 }
 
 
@@ -103,7 +104,7 @@ Array2d<Field>::Array2d(const Array2d& rhs)
 	const size_t num_elems = dim1 * dim2;
 
 	//data = new Field[num_elems];
-	data = (Field *)_mm_malloc(num_elems * sizeof(Field), 64);
+	data = (Field *)SSE::alignedMalloc(num_elems * sizeof(Field), 64);
 
 	for(size_t i = 0; i < num_elems; ++i)
 		data[i] = rhs.data[i];
@@ -114,7 +115,7 @@ template <class Field>
 Array2d<Field>::~Array2d()
 {
 	//delete[] data;
-	_mm_free(data);
+	SSE::alignedFree(data);
 }
 
 
@@ -179,7 +180,7 @@ template <class Field>
 void Array2d<Field>::resize(size_t newdim1, size_t newdim2)
 {
 	//Field* newdata = new Field[newdim1 * newdim2];
-	Field* newdata = (Field*)_mm_malloc(newdim1 * newdim2 * sizeof(Field), 64);
+	Field* newdata = (Field*)SSE::alignedMalloc(newdim1 * newdim2 * sizeof(Field), 64);
 
 	const size_t minx = myMin(newdim1, dim1);
 	const size_t miny = myMin(newdim2, dim2);
@@ -189,7 +190,7 @@ void Array2d<Field>::resize(size_t newdim1, size_t newdim2)
 			newdata[x + y * newdim1] = data[x + y * dim1];
 
 	//delete[] data;
-	_mm_free(data);
+	SSE::alignedFree(data);
 	data = newdata;
 
 	dim1 = newdim1;
@@ -202,8 +203,8 @@ void Array2d<Field>::resizeAndScrapData(size_t newdim1, size_t newdim2)
 {
 	//delete[] data;
 	//data = new Field[newdim1 * newdim2];
-	_mm_free(data);
-	data = (Field*)_mm_malloc(newdim1 * newdim2 * sizeof(Field), 64);
+	SSE::alignedFree(data);
+	data = (Field*)SSE::alignedMalloc(newdim1 * newdim2 * sizeof(Field), 64);
 
 	dim1 = newdim1;
 	dim2 = newdim2;

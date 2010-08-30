@@ -9,7 +9,10 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/platform.h"
+extern "C"
+{
 #include <xmmintrin.h> //SSE header file
+};
 //#ifdef USE_SSE2
 //#include <emmintrin.h> //SSE 2 header file'
 //#endif
