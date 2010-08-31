@@ -787,7 +787,7 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 	{
 		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
 
-		std::ofstream outfile_stream(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), std::ios::binary);
+		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 

@@ -709,7 +709,7 @@ unsigned int KDTree::numTris() const
 
 bool KDTree::diskCachable()
 {
-	const int NUM_TRIS_CACHING_THRESHOLD = 1000;
+	const unsigned int NUM_TRIS_CACHING_THRESHOLD = 1000;
 	return this->raymesh->getNumTris() >= NUM_TRIS_CACHING_THRESHOLD;
 	//return true;
 }
@@ -746,7 +746,7 @@ void KDTree::build(PrintOutput& print_output, bool verbose)
 		if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
 		const int expected_numnodes = (int)((float)numTris() * 1.0f);
-		const int nodemem = expected_numnodes * sizeof(js::KDTreeNode);
+		//const int nodemem = expected_numnodes * sizeof(js::KDTreeNode);
 
 		//print_output.print("reserving N nodes: " + ::toString(expected_numnodes) + "("
 		//	+ ::getNiceByteSize(nodemem) + ")");

@@ -179,8 +179,8 @@ void Maths::test()
 
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
-	conPrint("sin()");
-	const int N = 10000;
+	conPrint("float sin()");
+	const int N = 1000000;
 	const int trials = 10;
 
 	{
@@ -199,8 +199,8 @@ void Maths::test()
 		}
 
 		const double cycles = (double)least_cycles / (double)N;
-		printVar(cycles);
-		printVar(sum);
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("double sin()");
@@ -220,12 +220,34 @@ void Maths::test()
 		}
 
 		const double cycles = (double)least_cycles / (double)N;
-		printVar(cycles);
-		printVar(sum);
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
 	}
 
 
+	conPrint("float sqrt()");
 	{
+		float sum = 0.0;
+		int64_t least_cycles = std::numeric_limits<int>::max();
+		for(int t=0; t<trials; ++t)
+		{
+			CycleTimer timer;
+			for(int i=0; i<N; ++i)
+			{
+				const float x = (float)i * 0.001f;
+				sum += std::sqrt(x);
+			}
+
+			least_cycles = myMin(least_cycles, timer.getCyclesElapsed());
+		}
+
+		const double cycles = (double)least_cycles / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+
+	/*{
 	Timer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
@@ -331,7 +353,7 @@ void Maths::test()
 		printVar(elapsed);
 		printVar(cycles);
 		printVar(sum);
-	}
+	}*/
 
 
 	// exit(0);

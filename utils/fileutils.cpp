@@ -890,6 +890,12 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
+const std::string convertUTF8ToFStreamPath(const std::string& p)
+{
+	return p;
+}
+
+
 #if (BUILD_TESTS)
 void doUnitTests()
 {
@@ -953,14 +959,14 @@ void doUnitTests()
 
 	// Test std::ifstream with a Unicode pathname
 	{
-	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(euro_txt_pathname).c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream file(FileUtils::convertUTF8ToFStreamPath(euro_txt_pathname).c_str(), std::ios_base::in | std::ios_base::binary);
 
 	testAssert(file.is_open());
 	}
 
 	// Test std::ifstream without a Unicode pathname
 	{
-	std::ifstream file(StringUtils::UTF8ToPlatformUnicodeEncoding(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream file(FileUtils::convertUTF8ToFStreamPath(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
 
 	testAssert(file.is_open());
 	}

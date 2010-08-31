@@ -115,11 +115,7 @@ const std::string getActualOSPath(const std::string& path);
 
 
 // TEMP HACK IMPORTANT: Just to get to compile with TDM GCC.
-static const std::string convertUTF8ToFStreamPath(const std::string& p)
-{
-	return p;
-}
-
+const std::string convertUTF8ToFStreamPath(const std::string& p);
 
 void doUnitTests();
 

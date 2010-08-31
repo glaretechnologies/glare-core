@@ -46,7 +46,7 @@ Condition::~Condition()
 	{
 		//Function failed.
 		assert(false);
-		const DWORD e = GetLastError();
+		//const DWORD e = GetLastError();
 	}
 #else
 	pthread_cond_destroy(&condition);

@@ -9,7 +9,9 @@ Code By Nicholas Chapman.
 #include <cassert>
 #if defined(WIN32) || defined(WIN64)
 // Stop windows.h from defining the min() and max() macros
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <process.h>
