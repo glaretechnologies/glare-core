@@ -890,10 +890,21 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
+#if (defined(WIN32) || defined(WIN64))
+
+const std::wstring convertUTF8ToFStreamPath(const std::string& p)
+{
+	return StringUtils::UTF8ToPlatformUnicodeEncoding(p);
+}
+
+#else
+
 const std::string convertUTF8ToFStreamPath(const std::string& p)
 {
-	return p;
+	return StringUtils::UTF8ToPlatformUnicodeEncoding(p);
 }
+
+#endif
 
 
 #if (BUILD_TESTS)

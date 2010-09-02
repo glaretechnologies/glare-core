@@ -114,8 +114,11 @@ Changed slashes to platform slashes.  Also tries to guess the correct case by sc
 const std::string getActualOSPath(const std::string& path);
 
 
-// TEMP HACK IMPORTANT: Just to get to compile with TDM GCC.
+#if (defined(WIN32) || defined(WIN64))
+const std::wstring convertUTF8ToFStreamPath(const std::string& p);
+#else
 const std::string convertUTF8ToFStreamPath(const std::string& p);
+#endif
 
 void doUnitTests();
 

@@ -180,7 +180,7 @@ void Maths::test()
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
 	const int N = 1000000;
-	const int trials = 10;
+	const int trials = 4;
 
 	/*conPrint("float sin()");
 	

@@ -828,7 +828,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 // Aka. the 'Bunnybench' :)
 void TreeTest::doSpeedTest(int treetype)
 {
-	const std::string BUNNY_PATH = "../testfiles/bun_zipper.ply";
+	const std::string BUNNY_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("bunny", false);
