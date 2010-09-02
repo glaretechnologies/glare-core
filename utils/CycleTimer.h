@@ -50,14 +50,13 @@ public:
 	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
 	//double getSecondsElapsed() const;
 
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCPUIDTime() const { return cpuid_time; }
 private:
 	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
 
 	CYCLETIME_TYPE start_time;
 	CYCLETIME_TYPE cpuid_time;
-	
 };
-
 
 
 void CycleTimer::reset()
@@ -76,11 +75,6 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getRawCyclesElapsed() const
 CycleTimer::CYCLETIME_TYPE CycleTimer::elapsed() const
 {
 	return (getCounter() - start_time) - cpuid_time;
-	/*CYCLETIME_TYPE time = getCounter() - start_time - cpuid_time;
-	if(time < 0)
-	return 0;
-	else
-	return time;*/
 }
 
 
@@ -88,18 +82,13 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::elapsed() const
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 {
 	return (getCounter() - start_time) - cpuid_time;
-	/*CYCLETIME_TYPE time = getCounter() - start_time - cpuid_time;
-	if(time < 0)
-		return 0;
-	else
-		return time;*/
 }
 
 
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 {
 #if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
-	return __rdtsc();
+	return (CYCLETIME_TYPE)__rdtsc();
 #else
 	unsigned long long ret;
 	__asm__ __volatile__("rdtsc": "=A" (ret));
@@ -110,5 +99,3 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 
 
 #endif //__CYCLETIMER_H_666_
-
-

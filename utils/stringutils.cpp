@@ -370,7 +370,29 @@ const std::string toString(uint64 x)
 {
 	char buffer[32];
 
+	// u = unsigned decimal
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
+	sprintf(buffer, "%I64u", x);
+#else
 	sprintf(buffer, "%llu", x);
+#endif
+
+	return std::string(buffer);
+}
+
+
+const std::string toString(int64 x)
+{
+	char buffer[32];
+
+	// i = signed decimal
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
+	sprintf(buffer, "%I64i", x);
+#else
+	sprintf(buffer, "%lli", x);
+#endif
 
 	return std::string(buffer);
 }
@@ -1045,7 +1067,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 
 	std::vector<char> buffer(size_required);
 
-	const int num_bytes = WideCharToMultiByte(
+	/*const int num_bytes = */WideCharToMultiByte(
 		CP_UTF8,
 		0,
 		wide_string.c_str(),
@@ -1083,7 +1105,7 @@ void doStringUtilsUnitTests()
 	testAssert(toString((uint64)0) == "0");
 	testAssert(toString((uint64)1) == "1");
 	testAssert(toString((uint64)1234567) == "1234567");
-	testAssert(toString((uint64)18446744073709551615LL) == "18446744073709551615"); // max representable uint64
+	testAssert(toString((uint64)18446744073709551615ULL) == "18446744073709551615"); // max representable uint64
 
 	testAssert(stringToUInt64("12345671234567") == 12345671234567LL);
 	testAssert(stringToUInt64("0") == 0);
@@ -1092,7 +1114,7 @@ void doStringUtilsUnitTests()
 	testAssert(stringToUInt64("00001") == 1);
 	testAssert(stringToUInt64("10000") == 10000);
 	testAssert(stringToUInt64("1234567") == 1234567);
-	testAssert(stringToUInt64("18446744073709551615") == 18446744073709551615LL); // max representable uint64
+	testAssert(stringToUInt64("18446744073709551615") == 18446744073709551615ULL); // max representable uint64
 
 	try
 	{

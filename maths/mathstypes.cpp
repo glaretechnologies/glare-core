@@ -179,13 +179,15 @@ void Maths::test()
 
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
-	conPrint("float sin()");
 	const int N = 1000000;
+
+	/*conPrint("float sin()");
+	
 	const int trials = 10;
 
 	{
 		float sum = 0.0;
-		int64_t least_cycles = std::numeric_limits<int>::max();
+		int64_t least_cycles = std::numeric_limits<int64_t>::max();
 		for(int t=0; t<trials; ++t)
 		{
 			CycleTimer timer;
@@ -195,7 +197,16 @@ void Maths::test()
 				sum += std::sin(x);
 			}
 
+			int64_t cycles = timer.getCyclesElapsed();
+
 			least_cycles = myMin(least_cycles, timer.getCyclesElapsed());
+
+			printVar(cycles);
+			printVar(timer.getCyclesElapsed());
+			printVar((int64_t)timer.getCyclesElapsed());
+			printVar((double)timer.getCyclesElapsed());
+			printVar(timer.getCPUIDTime());
+			printVar(least_cycles);
 		}
 
 		const double cycles = (double)least_cycles / (double)N;
@@ -206,7 +217,7 @@ void Maths::test()
 	conPrint("double sin()");
 	{
 		double sum = 0.0;
-		int64_t least_cycles = std::numeric_limits<int>::max();
+		int64_t least_cycles = std::numeric_limits<int64_t>::max();
 		for(int t=0; t<trials; ++t)
 		{
 			CycleTimer timer;
@@ -228,7 +239,7 @@ void Maths::test()
 	conPrint("float sqrt()");
 	{
 		float sum = 0.0;
-		int64_t least_cycles = std::numeric_limits<int>::max();
+		int64_t least_cycles = std::numeric_limits<int64_t>::max();
 		for(int t=0; t<trials; ++t)
 		{
 			CycleTimer timer;
@@ -244,116 +255,130 @@ void Maths::test()
 		const double cycles = (double)least_cycles / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
+	}*/
+
+
+	const double clock_freq = 2.6e9;
+
+	conPrint("sin() [float]");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.001f;
+			sum += std::sin(x);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
 	}
 
-
-	/*{
+	conPrint("sin() [double]");
+	{
 	Timer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const double x = (double)i * 0.001;
-		sum += sin(x);
+		sum += std::sin(x);
 	}
 	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
 	}
 
-	conPrint("sqrt()");
+	conPrint("sqrt() [float]");
 	{
 	Timer timer;
 	float sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const float x = (float)i * 0.001f;
-		sum += sqrt(x);
+		sum += std::sqrt(x);
 	}
 	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("sqrt() [double]");
 	{
 	Timer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const double x = (double)i * 0.001;
-		sum += sqrt(x);
+		sum += std::sqrt(x);
 	}
 	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
 	}
 
-	conPrint("exp()");
+	conPrint("exp() [float]");
 	{
 	Timer timer;
 	float sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const float x = (float)i * 0.00001f;
-		sum += exp(x);
+		sum += std::exp(x);
 	}
 	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("exp() [double]");
 	{
 	Timer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const double x = (double)i * 0.00001;
-		sum += exp(x);
+		sum += std::exp(x);
 	}
 	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-	printVar(elapsed);
-	printVar(cycles);
-	printVar(sum);
+	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
 	}
 
-	conPrint("pow()");
+	conPrint("pow() [float]");
 	{
 		Timer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
-			sum += pow(x, 2.2f);
+			sum += std::pow(x, 2.2f);
 		}
 		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-		printVar(elapsed);
-		printVar(cycles);
-		printVar(sum);
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("pow() [double]");
 	{
 		Timer timer;
 		double sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const double x = (double)i * 0.00001;
-			sum += pow(x, 2.2);
+			sum += std::pow(x, 2.2);
 		}
 		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * 2.4e9; // s * cycles s^-1
-		printVar(elapsed);
-		printVar(cycles);
-		printVar(sum);
-	}*/
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
 
 
 	// exit(0);

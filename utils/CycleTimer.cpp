@@ -8,19 +8,29 @@ Code By Nicholas Chapman.
 
 
 #include <assert.h>
+#include "../maths/mathstypes.h"
 
 
 CycleTimer::CycleTimer()
 {
 	assert(sizeof(CYCLETIME_TYPE) == 8);
 	
+	cpuid_time = 10000000;
 
+	for(int i=0; i<3; ++i)
+	{
+		reset();
+		const CYCLETIME_TYPE t = getRawCyclesElapsed();
+		cpuid_time = myMin(cpuid_time, t);
+	}
+	
+	/*CYCLETIME_TYPE cpuid_time_1 = getRawCyclesElapsed();
 	reset();
-	cpuid_time = getRawCyclesElapsed();
+	CYCLETIME_TYPE cpuid_time_2 = getRawCyclesElapsed();
 	reset();
-	cpuid_time = getRawCyclesElapsed();
-	reset();
-	cpuid_time = getRawCyclesElapsed();
+	CYCLETIME_TYPE cpuid_time_3 = getRawCyclesElapsed();
+
+	 = myMin(cpuid_time_1, cpuid_time_2, cpuid_time_3);*/
 }
 
 
