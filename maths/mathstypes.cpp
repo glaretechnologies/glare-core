@@ -180,10 +180,10 @@ void Maths::test()
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
 	const int N = 1000000;
+	const int trials = 10;
 
 	/*conPrint("float sin()");
 	
-	const int trials = 10;
 
 	{
 		float sum = 0.0;
@@ -257,19 +257,23 @@ void Maths::test()
 		conPrint("\tsum: " + toString(sum));
 	}*/
 
-
 	const double clock_freq = 2.6e9;
+
 
 	conPrint("sin() [float]");
 	{
 		Timer timer;
 		float sum = 0.0;
-		for(int i=0; i<N; ++i)
+		double elapsed = 1000000000;
+		for(int t=0; t<trials; ++t)
 		{
-			const float x = (float)i * 0.001f;
-			sum += std::sin(x);
+			for(int i=0; i<N; ++i)
+			{
+				const float x = (float)i * 0.001f;
+				sum += std::sin(x);
+			}
+			elapsed = myMin(elapsed, timer.getSecondsElapsed());
 		}
-		const double elapsed = timer.getSecondsElapsed();
 		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
@@ -279,12 +283,16 @@ void Maths::test()
 	{
 	Timer timer;
 	double sum = 0.0;
-	for(int i=0; i<N; ++i)
+	double elapsed = 1000000000;
+	for(int t=0; t<trials; ++t)
 	{
-		const double x = (double)i * 0.001;
-		sum += std::sin(x);
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * 0.001;
+			sum += std::sin(x);
+		}
+		elapsed = myMin(elapsed, timer.getSecondsElapsed());
 	}
-	const double elapsed = timer.getSecondsElapsed();
 	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
