@@ -76,39 +76,72 @@ unsigned int Bitmap::checksum() const
 }
 
 
-void Bitmap::addImage(const Bitmap& img, int destx, int desty)
+void Bitmap::addImage(const Bitmap& img, const int destx, const int desty, const float alpha/* = 1 */)
 {
-	for(int y=0; y<(int)img.getHeight(); ++y)
-		for(int x=0; x<(int)img.getWidth(); ++x)
+	assert((alpha >= 0) && (alpha <= 1));
+	const int dst_xres = (int)getWidth();
+	const int dst_yres = (int)getHeight();
+	const int img_xres = (int)img.getWidth();
+	const int img_yres = (int)img.getHeight();
+
+	// Perform trivial rejects.
+	if(destx >= dst_xres) return;
+	if(desty >= dst_yres) return;
+	if((destx + img_xres) < 0) return;
+	if((desty + img_yres) < 0) return;
+
+	for(int y = 0; y < img_yres; ++y)
+	{
+		const int dy = y + desty;
+
+		if(dy < 0) continue;		// Skip to next line if this row is before first.
+		if(dy >= dst_yres) break;	// Stop looping if we've hit the last row.
+
+		for(int x = 0; x < img_xres; ++x)
 		{
 			const int dx = x + destx;
-			const int dy = y + desty;
 
-			if(dx >= 0 && dx < (int)getWidth() && dy >= 0 && dy < (int)getHeight())
-				for(unsigned int c=0; c<3; ++c)
-					setPixelComp(dx, dy, c, 
-						(unsigned char)myMin((unsigned int)255, (unsigned int)img.getPixelComp(x, y, c) + (unsigned int)getPixelComp(dx, dy, c))
-					);
+			if(dx >= 0 && dx < dst_xres)
+			{
+				setPixelComp(dx, dy, 0, (unsigned char)myMin(255, (int)(img.getPixelComp(x, y, 0) * alpha) + (int)getPixelComp(dx, dy, 0)));
+				setPixelComp(dx, dy, 1, (unsigned char)myMin(255, (int)(img.getPixelComp(x, y, 1) * alpha) + (int)getPixelComp(dx, dy, 1)));
+				setPixelComp(dx, dy, 2, (unsigned char)myMin(255, (int)(img.getPixelComp(x, y, 2) * alpha) + (int)getPixelComp(dx, dy, 2)));
+			}
 		}
+	}
 }
 
 
-void Bitmap::blendImage(const Bitmap& img, int destx, int desty)
+void Bitmap::blendImage(const Bitmap& img, const int destx, const int desty, const float alpha/* = 1 */)
 {
-	for(int y=0; y<(int)img.getHeight(); ++y)
-		for(int x=0; x<(int)img.getWidth(); ++x)
+	assert((alpha >= 0) && (alpha <= 1));
+	const int dst_xres = (int)getWidth();
+	const int dst_yres = (int)getHeight();
+	const int img_xres = (int)img.getWidth();
+	const int img_yres = (int)img.getHeight();
+
+	// Perform trivial rejects.
+	if(destx >= dst_xres) return;
+	if(desty >= dst_yres) return;
+	if((destx + img_xres) < 0) return;
+	if((desty + img_yres) < 0) return;
+
+	for(int y = 0; y < img_yres; ++y)
+	{
+		const int dy = y + desty;
+
+		if(dy < 0) continue; else	// Skip to next line if this row is before first.
+		if(dy >= dst_yres) break;	// Stop looping if we've hit the last row.
+
+		for(int x = 0; x < img_xres; ++x)
 		{
 			const int dx = x + destx;
-			const int dy = y + desty;
 
-			if(dx >= 0 && dx < (int)getWidth() && dy >= 0 && dy < (int)getHeight())
-				for(unsigned int c=0; c<3; ++c)
-					setPixelComp(dx, dy, c, 
-						(unsigned char)Maths::lerp(
-							(float)getPixelComp(dx, dy, c), // a
-							255.0f, // b (white)
-							(1.0f / 255.0f) * (float)img.getPixelComp(x, y, 0) // t
-						)
-					);
+			if(dx >= 0 && dx < dst_xres)
+			{
+				for(unsigned int c = 0; c < 3; ++c)
+					setPixelComp(dx, dy, c, (unsigned char)Maths::lerp((float)getPixelComp(dx, dy, c), 255.0f, (alpha / 255.0f) * img.getPixelComp(x, y, 0)));
+			}
 		}
+	}
 }

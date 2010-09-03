@@ -36,5 +36,7 @@ public:
 	// convenience method for the embedded kernels
 	static bool decrypt(const unsigned int* src_dwords, std::string& dst_string, int string_len);
 
+	static void test();
+
 private:
 };

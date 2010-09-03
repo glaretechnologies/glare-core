@@ -52,8 +52,8 @@ public:
 
 	unsigned int checksum() const;
 
-	void addImage(const Bitmap& img, int destx, int desty);
-	void blendImage(const Bitmap& img, int destx, int desty);
+	void addImage(const Bitmap& img, int destx, int desty, float alpha = 1);
+	void blendImage(const Bitmap& img, int destx, int desty, float alpha = 1);
 
 private:
 	std::vector<unsigned char> data;
