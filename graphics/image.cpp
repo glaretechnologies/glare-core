@@ -593,7 +593,7 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 }
 
 
-void Image::addImage(const Image& img, int destx, int desty)
+void Image::addImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/)
 {
 	for(int y = 0; y < img.getHeight(); ++y)
 	for(int x = 0; x < img.getWidth();  ++x)
@@ -602,12 +602,12 @@ void Image::addImage(const Image& img, int destx, int desty)
 		const int dy = y + desty;
 
 		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-			getPixel(dx, dy) += img.getPixel(x, y);
+			getPixel(dx, dy) += img.getPixel(x, y) * alpha;
 	}
 }
 
 
-void Image::blendImage(const Image& img, int destx, int desty)
+void Image::blendImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/)
 {
 	for(int y = 0; y < img.getHeight(); ++y)
 	for(int x = 0; x < img.getWidth();  ++x)
@@ -616,7 +616,7 @@ void Image::blendImage(const Image& img, int destx, int desty)
 		const int dy = y + desty;
 
 		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-			setPixel(dx, dy, Colour3f(1.0) * img.getPixel(x, y).r + getPixel(dx, dy) * (1.0 - img.getPixel(x, y).r));
+			setPixel(dx, dy, Colour3f(1) * img.getPixel(x, y).r * alpha + getPixel(dx, dy) * (1 - img.getPixel(x, y).r * alpha));
 	}
 }
 
