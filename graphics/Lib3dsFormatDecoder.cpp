@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <lib3ds/file.h>
 #include <lib3ds/io.h>
 #include <lib3ds/mesh.h>
-#include <lib3ds/lib3ds_material.h>
+#include <lib3ds/material.h>
 #endif
 #include <assert.h>
 #include "../indigo/globals.h"
