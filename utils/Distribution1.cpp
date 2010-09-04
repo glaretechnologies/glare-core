@@ -17,7 +17,7 @@ Generated at Sun Aug 15 02:19:14 +1200 2010
 template<>
 void Distribution1<float>::test()
 {
-	int num_bins = 16;
+	int num_bins = 4096;
 
 	std::vector<uint32> bins(num_bins);
 	std::vector<uint32> resampled_bins(num_bins);
@@ -31,7 +31,7 @@ void Distribution1<float>::test()
 	pdf[num_bins / 2] = 10;
 
 
-	Distribution1 dist(pdf, 0.5f);
+	Distribution1 dist(pdf, 0.25);
 
 
 	uint32 num_samples = num_bins * 768 * 64;
@@ -53,7 +53,7 @@ void Distribution1<float>::test()
 	double time_taken = timer.elapsed();
 
 
-	if(true)
+	if(false)
 	{
 		for(int i = 0; i < num_bins; ++i) std::cout << "bin " << i << ":\t\t\t" << bins[i] << std::endl;
 		for(int i = 0; i < num_bins; ++i) std::cout << "bin resampled " << i << ":\t" << resampled_bins[i] << std::endl;
