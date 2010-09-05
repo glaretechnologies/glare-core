@@ -890,11 +890,18 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
-#if (defined(WIN32) || defined(WIN64))
+#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
 
 const std::wstring convertUTF8ToFStreamPath(const std::string& p)
 {
 	return StringUtils::UTF8ToPlatformUnicodeEncoding(p);
+}
+
+#elif defined(__MINGW32__)
+
+const std::string convertUTF8ToFStreamPath(const std::string& p)
+{
+	return p;
 }
 
 #else

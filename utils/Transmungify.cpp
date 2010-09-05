@@ -111,6 +111,7 @@ bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_stri
 
 #include <assert.h>
 #include <iostream>
+#include <stdlib.h>
 
 void Transmungify::test()
 {
