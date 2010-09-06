@@ -59,12 +59,12 @@ void Bitmap::resize(unsigned int newwidth, unsigned int newheight, unsigned int 
 
 void Bitmap::raiseToPower(float exponent)
 {
-	const int datasize = data.size();
-	for(int i=0; i<datasize; ++i)
+	const size_t datasize = data.size();
+	for(size_t i = 0; i < datasize; ++i)
 	{
 		const unsigned char c = data[i];
 
-		data[i] = (unsigned char)(pow((float)c / 255.0f, exponent) * 255.0f);
+		data[i] = (unsigned char)(std::pow(c * (1.0f / 255.0f), exponent) * 255.0f);
 	}
 }
 
@@ -112,7 +112,7 @@ void Bitmap::addImage(const Bitmap& img, const int destx, const int desty, const
 }
 
 
-void Bitmap::blendImage(const Bitmap& img, const int destx, const int desty, const float alpha/* = 1 */)
+void Bitmap::blendImage(const Bitmap& img, const int destx, const int desty, unsigned char solid_colour[3], const float alpha/* = 1 */)
 {
 	assert((alpha >= 0) && (alpha <= 1));
 	const int dst_xres = (int)getWidth();
@@ -140,8 +140,46 @@ void Bitmap::blendImage(const Bitmap& img, const int destx, const int desty, con
 			if(dx >= 0 && dx < dst_xres)
 			{
 				for(unsigned int c = 0; c < 3; ++c)
-					setPixelComp(dx, dy, c, (unsigned char)Maths::lerp((float)getPixelComp(dx, dy, c), 255.0f, (alpha / 255.0f) * img.getPixelComp(x, y, 0)));
+					setPixelComp(dx, dy, c, (unsigned char)Maths::lerp((float)getPixelComp(dx, dy, c), (float)solid_colour[c], (alpha / 255.0f) * img.getPixelComp(x, y, 0)));
 			}
 		}
 	}
 }
+
+
+void Bitmap::mulImage(const Bitmap& img, const int destx, const int desty, const float alpha/* = 1*/, bool invert/* = false*/)
+{
+	assert((alpha >= 0) && (alpha <= 1));
+	const int dst_xres = (int)getWidth();
+	const int dst_yres = (int)getHeight();
+	const int img_xres = (int)img.getWidth();
+	const int img_yres = (int)img.getHeight();
+
+	// Perform trivial rejects.
+	if(destx >= dst_xres) return;
+	if(desty >= dst_yres) return;
+	if((destx + img_xres) < 0) return;
+	if((desty + img_yres) < 0) return;
+
+	for(int y = 0; y < img_yres; ++y)
+	{
+		const int dy = y + desty;
+
+		if(dy < 0) continue; else	// Skip to next line if this row is before first.
+			if(dy >= dst_yres) break;	// Stop looping if we've hit the last row.
+
+		for(int x = 0; x < img_xres; ++x)
+		{
+			const int dx = x + destx;
+
+			if(dx >= 0 && dx < dst_xres)
+			{
+				const float alpha255 = ((invert) ? 255 - img.getPixelComp(x, y, 0) : img.getPixelComp(x, y, 0)) * (alpha / 255.0f);
+
+				for(unsigned int c = 0; c < 3; ++c)
+					setPixelComp(dx, dy, c, myMin(255, (int)(getPixelComp(dx, dy, c) * (1 - alpha) + getPixelComp(dx, dy, c) * alpha255)));
+			}
+		}
+	}
+}
+

@@ -607,7 +607,7 @@ void Image::addImage(const Image& img, const int destx, const int desty, const f
 }
 
 
-void Image::blendImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/)
+void Image::blendImage(const Image& img, const int destx, const int desty, const Colour3f& solid_colour, const float alpha/* = 1*/)
 {
 	for(int y = 0; y < img.getHeight(); ++y)
 	for(int x = 0; x < img.getWidth();  ++x)
@@ -616,7 +616,24 @@ void Image::blendImage(const Image& img, const int destx, const int desty, const
 		const int dy = y + desty;
 
 		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
-			setPixel(dx, dy, Colour3f(1) * img.getPixel(x, y).r * alpha + getPixel(dx, dy) * (1 - img.getPixel(x, y).r * alpha));
+			setPixel(dx, dy, solid_colour * img.getPixel(x, y).r * alpha + getPixel(dx, dy) * (1 - img.getPixel(x, y).r * alpha));
+	}
+}
+
+
+void Image::mulImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/, bool invert/* = false*/)
+{
+	for(int y = 0; y < img.getHeight(); ++y)
+	for(int x = 0; x < img.getWidth();  ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+
+		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		{
+			const float inv_alpha = ((invert) ? 1 - img.getPixel(x, y).r : img.getPixel(x, y).r) * alpha;
+			setPixel(dx, dy, getPixel(dx, dy) * (1 - alpha) + getPixel(dx, dy) * inv_alpha);
+		}
 	}
 }
 
