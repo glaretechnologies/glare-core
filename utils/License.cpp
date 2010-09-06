@@ -17,7 +17,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "../indigo/globals.h"
 #include <zlib.h> // for crc32()
 
-//#define USE_OPENSSL 1
+#define USE_OPENSSL 1
 #if USE_OPENSSL
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
