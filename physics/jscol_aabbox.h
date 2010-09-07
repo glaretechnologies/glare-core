@@ -39,6 +39,8 @@ public:
 
 	inline bool operator == (const AABBox& rhs) const;
 
+	inline bool contains(const Vec4f& p) const;
+
 	//inline void enlargeToHoldPoint(const Vec3f& p);
 	inline void enlargeToHoldPoint(const Vec4f& p);
 	//inline void enlargeToHoldAlignedPoint(const PaddedVec3f& p);
@@ -159,6 +161,14 @@ void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 			_mm_load_ps(&aabb.max_.x)
 			)
 		);*/
+}
+
+
+bool AABBox::contains(const Vec4f& p) const
+{
+	return	(p.x[0] >= min_.x[0]) && (p.x[0] <= max_.x[0]) &&
+			(p.x[1] >= min_.x[1]) && (p.x[1] <= max_.x[1]) &&
+			(p.x[2] >= min_.x[2]) && (p.x[2] <= max_.x[2]);
 }
 
 
