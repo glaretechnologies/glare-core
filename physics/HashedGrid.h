@@ -46,7 +46,7 @@ public:
 		recip_cell_width[1] = y_res / grid_aabb.axisLength(1);
 		recip_cell_width[2] = z_res / grid_aabb.axisLength(2);
 
-		buckets.resize(1 << 20);
+		buckets.resize(1 << 16);
 	}
 
 	virtual ~HashedGrid()
