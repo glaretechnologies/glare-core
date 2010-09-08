@@ -6,9 +6,12 @@ Generated at Tue Sep 07 16:03:27 +1200 2010
 =====================================================================*/
 #pragma once
 
+
 #include "../utils/Vector.h"
 #include "../maths/Vec4f.h"
 #include "jscol_aabbox.h"
+#include <vector>
+#include "../maths/SSE.h"
 
 
 template<typename T>
@@ -35,11 +38,15 @@ public:
 				int x_res, int y_res, int z_res)
 	:	grid_aabb(aabb)
 	{
-		grid_res[0] = x_res; inv_grid_res[0] = 1.0f / grid_res[0];
+		/*grid_res[0] = x_res; inv_grid_res[0] = 1.0f / grid_res[0];
 		grid_res[1] = y_res; inv_grid_res[1] = 1.0f / grid_res[1];
-		grid_res[2] = z_res; inv_grid_res[2] = 1.0f / grid_res[2];
+		grid_res[2] = z_res; inv_grid_res[2] = 1.0f / grid_res[2];*/
 
-		cells.resize(4096);
+		recip_cell_width[0] = x_res / grid_aabb.axisLength(0);
+		recip_cell_width[1] = y_res / grid_aabb.axisLength(1);
+		recip_cell_width[2] = z_res / grid_aabb.axisLength(2);
+
+		buckets.resize(1 << 20);
 	}
 
 	virtual ~HashedGrid()
@@ -47,31 +54,39 @@ public:
 
 	}
 
-	inline unsigned int computeHash(const unsigned int x, const unsigned int y, const unsigned int z) const
+	inline void clear()
 	{
-		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) % cells.size();
+		for(unsigned int i=0; i<buckets.size(); ++i)
+		{
+			buckets[i].data.resize(0);
+		}
 	}
 
-	inline void insert(const T& t, const js::AABBox& aabb_t) const
+	inline unsigned int computeHash(const unsigned int x, const unsigned int y, const unsigned int z) const
 	{
-		assert(grid_aabb.containsAABBox(aabb_t));
+		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) % buckets.size();
+	}
+
+	inline void insert(const T& t, const js::AABBox& aabb_t)
+	{
+		//assert(grid_aabb.containsAABBox(aabb_t));
 
 		const unsigned int grid_minbound[3] =
 		{
-			(unsigned int)((aabb_t.min_.x[0] - grid_aabb.min_.x[0]) * inv_grid_res[0]),
-			(unsigned int)((aabb_t.min_.x[1] - grid_aabb.min_.x[1]) * inv_grid_res[1]),
-			(unsigned int)((aabb_t.min_.x[2] - grid_aabb.min_.x[2]) * inv_grid_res[2])
+			(unsigned int)myMax(0.f, ((aabb_t.min_.x[0] - grid_aabb.min_.x[0]) * recip_cell_width[0])),
+			(unsigned int)myMax(0.f, ((aabb_t.min_.x[1] - grid_aabb.min_.x[1]) * recip_cell_width[1])),
+			(unsigned int)myMax(0.f, ((aabb_t.min_.x[2] - grid_aabb.min_.x[2]) * recip_cell_width[2]))
 		};
 		const unsigned int grid_maxbound[3] =
 		{
-			(unsigned int)((aabb_t.max_.x[0] - grid_aabb.min_.x[0]) * inv_grid_res[0]),
-			(unsigned int)((aabb_t.max_.x[1] - grid_aabb.min_.x[1]) * inv_grid_res[1]),
-			(unsigned int)((aabb_t.max_.x[2] - grid_aabb.min_.x[2]) * inv_grid_res[2])
+			(unsigned int)((aabb_t.max_.x[0] - grid_aabb.min_.x[0]) * recip_cell_width[0]),
+			(unsigned int)((aabb_t.max_.x[1] - grid_aabb.min_.x[1]) * recip_cell_width[1]),
+			(unsigned int)((aabb_t.max_.x[2] - grid_aabb.min_.x[2]) * recip_cell_width[2])
 		};
 
-		assert(grid_maxbound[0] < grid_res[0]);
-		assert(grid_maxbound[1] < grid_res[1]);
-		assert(grid_maxbound[2] < grid_res[2]);
+		//assert(grid_maxbound[0] < grid_res[0]);
+		//assert(grid_maxbound[1] < grid_res[1]);
+		//assert(grid_maxbound[2] < grid_res[2]);
 
 		for(unsigned int z = grid_minbound[2]; z <= grid_maxbound[2]; ++z)
 		for(unsigned int y = grid_minbound[1]; y <= grid_maxbound[1]; ++y)
@@ -79,24 +94,34 @@ public:
 		{
 			const unsigned int id = computeHash(x, y, z);
 
-			cells[id].data.push_back(t);
+			buckets[id].data.push_back(t);
 		}
+	}
+
+	inline unsigned int getBucketIndexForPoint(const Vec4f& p)
+	{
+		const unsigned int x = (unsigned int)((p.x[0] - grid_aabb.min_.x[0]) * recip_cell_width[0]);
+		const unsigned int y = (unsigned int)((p.x[1] - grid_aabb.min_.x[1]) * recip_cell_width[1]);
+		const unsigned int z = (unsigned int)((p.x[2] - grid_aabb.min_.x[2]) * recip_cell_width[2]);
+
+		return computeHash(x, y, z);
 	}
 
 	inline HashBucket<T>& getBucketForPoint(const Vec4f& p)
 	{
-		const unsigned int x = (unsigned int)((p.x[0] - grid_aabb.min_.x[0]) * inv_grid_res[0]); assert(x < grid_res[0]);
-		const unsigned int y = (unsigned int)((p.x[1] - grid_aabb.min_.x[1]) * inv_grid_res[1]); assert(y < grid_res[0]);
-		const unsigned int z = (unsigned int)((p.x[2] - grid_aabb.min_.x[2]) * inv_grid_res[2]); assert(z < grid_res[0]);
+		const unsigned int x = (unsigned int)((p.x[0] - grid_aabb.min_.x[0]) * recip_cell_width[0]);
+		const unsigned int y = (unsigned int)((p.x[1] - grid_aabb.min_.x[1]) * recip_cell_width[1]);
+		const unsigned int z = (unsigned int)((p.x[2] - grid_aabb.min_.x[2]) * recip_cell_width[2]);
 
-		return cells[computeHash(x, y, z)];
+		return buckets[computeHash(x, y, z)];
 	}
 
-	const js::AABBox& grid_aabb;
-	float inv_grid_res[3];
-	int grid_res[3];
+	const js::AABBox grid_aabb;
+	//float inv_grid_res[3];
+	//int grid_res[3];
+	float recip_cell_width[3];
 
-	js::Vector<HashBucket<T>, 64> cells;
+	std::vector<HashBucket<T> > buckets;
 
 private:
 
