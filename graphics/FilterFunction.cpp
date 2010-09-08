@@ -27,7 +27,7 @@ int FilterFunction::getFilterSpan(int supersample_factor)
 float* FilterFunction::getFilterData(int supersample_factor)
 {
 	//assert(supersample_factor > 1);
-	if(supersample_factor == cached_supersample_factor) return cached_filter_data;
+	//if(supersample_factor == cached_supersample_factor) return cached_filter_data;
 
 	const int filter_pixel_span  = (int)ceil(supportRadius() * 2) * supersample_factor;
 	const int filter_pixel_bound = filter_pixel_span / 2 - 1;

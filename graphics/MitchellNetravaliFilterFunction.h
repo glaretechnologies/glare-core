@@ -14,7 +14,7 @@ MitchellNetravaliFilterFunction
 class MitchellNetravaliFilterFunction : public FilterFunction
 {
 public:
-	MitchellNetravaliFilterFunction(double B_, double C_);
+	MitchellNetravaliFilterFunction(double B_, double C_, double radius = 2.0);
 
 	virtual ~MitchellNetravaliFilterFunction();
 
@@ -28,6 +28,8 @@ public:
 
 private:
 	MitchellNetravali<double> mn;
+
+	double support_radius;
 };
 
 

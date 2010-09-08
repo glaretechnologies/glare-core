@@ -3,9 +3,11 @@
 #include "../utils/stringutils.h"
 
 
-MitchellNetravaliFilterFunction::MitchellNetravaliFilterFunction(double B_, double C_)
-:	mn(B_, C_)
+MitchellNetravaliFilterFunction::MitchellNetravaliFilterFunction(double B_, double C_, double radius/* = 2.0*/)
+:	mn(B_, C_),
+	support_radius(radius)
 {
+	assert((radius > 0) && (radius < 8));
 }
 
 
@@ -23,7 +25,7 @@ void MitchellNetravaliFilterFunction::getParameters(double* B_out, double* C_out
 
 double MitchellNetravaliFilterFunction::supportRadius() const
 {
-	return 2.0;
+	return support_radius;
 }
 
 
@@ -37,5 +39,5 @@ double MitchellNetravaliFilterFunction::eval(double r_01) const
 
 const std::string MitchellNetravaliFilterFunction::description() const
 {
-	return "mn_cubic, blur=" + toString(mn.getB()) + ", ring=" + toString(mn.getC()) + ", support=" + toString(supportRadius()) + "px";
+	return "mn_cubic, blur=" + toString(mn.getB()) + ", ring=" + toString(mn.getC()) + ", support=" + toString(supportRadius() * 2) + "px";
 }
