@@ -44,7 +44,7 @@ public:
 		grid_cell_scale[1] = y_res / grid_aabb.axisLength(1);
 		grid_cell_scale[2] = z_res / grid_aabb.axisLength(2);
 
-		const int num_buckets = 1 << 17;//(int)(0.1f * x_res * y_res * z_res);
+		const int num_buckets = myMax<int>(1, (int)(0.1f * x_res * y_res * z_res));
 		buckets.resize(num_buckets);
 
 		mutexes = (thread_safe) ? new Mutex[num_mutexes] : 0;
@@ -56,6 +56,8 @@ public:
 	}
 
 	const static uint32 num_mutexes = 1024;
+
+	inline unsigned int getNumBuckets() { return buckets.size(); }
 
 	inline void clear()
 	{
@@ -116,13 +118,18 @@ public:
 		return computeHash(x, y, z);
 	}
 
+	inline HashBucket<T>& getBucketForIndices(const unsigned int x, const unsigned int y, const unsigned int z)
+	{
+		return buckets[computeHash(x, y, z)];
+	}
+
 	inline HashBucket<T>& getBucketForPoint(const Vec4f& p)
 	{
 		const unsigned int x = (unsigned int)((p.x[0] - grid_aabb.min_.x[0]) * grid_cell_scale[0]);
 		const unsigned int y = (unsigned int)((p.x[1] - grid_aabb.min_.x[1]) * grid_cell_scale[1]);
 		const unsigned int z = (unsigned int)((p.x[2] - grid_aabb.min_.x[2]) * grid_cell_scale[2]);
 
-		return buckets[computeHash(x, y, z)];
+		return getBucketForIndices(x, y, z);
 	}
 
 	const js::AABBox grid_aabb;
