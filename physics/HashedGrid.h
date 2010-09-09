@@ -44,7 +44,7 @@ public:
 		grid_cell_scale[1] = y_res / grid_aabb.axisLength(1);
 		grid_cell_scale[2] = z_res / grid_aabb.axisLength(2);
 
-		const int num_buckets = (int)(0.1f * x_res * y_res * z_res);
+		const int num_buckets = 1 << 17;//(int)(0.1f * x_res * y_res * z_res);
 		buckets.resize(num_buckets);
 
 		mutexes = (thread_safe) ? new Mutex[num_mutexes] : 0;
