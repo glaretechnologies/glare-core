@@ -44,7 +44,7 @@ public:
 		grid_cell_scale[1] = y_res / grid_aabb.axisLength(1);
 		grid_cell_scale[2] = z_res / grid_aabb.axisLength(2);
 
-		const int num_buckets = myMax<int>(1, (int)(0.1f * x_res * y_res * z_res));
+		const int num_buckets = myMax<int>(64, (int)(0.1f * x_res * y_res * z_res));
 		buckets.resize(num_buckets);
 
 		mutexes = (thread_safe) ? new Mutex[num_mutexes] : 0;
@@ -103,9 +103,36 @@ public:
  			{
 				Lock lock(mutexes[id % num_mutexes]);
 
-				buckets[id].data.push_back(t);
+				bool no_duplicate = true;
+				const unsigned int bucket_size = buckets[id].data.size();
+				for(unsigned int i = 0; i < bucket_size; ++i)
+				{
+					if(buckets[id].data[i] == t)
+					{
+						no_duplicate = false;
+						break;
+					}
+				}
+
+				if(no_duplicate)
+					buckets[id].data.push_back(t);
 			}
- 			else buckets[id].data.push_back(t);
+ 			else
+			{
+				bool no_duplicate = true;
+				const unsigned int bucket_size = buckets[id].data.size();
+				for(unsigned int i = 0; i < bucket_size; ++i)
+				{
+					if(buckets[id].data[i] == t)
+					{
+						no_duplicate = false;
+						break;
+					}
+				}
+
+				if(no_duplicate)
+					buckets[id].data.push_back(t);
+			}
 		}
 	}
 

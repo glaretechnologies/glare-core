@@ -74,7 +74,7 @@ void HashedGridTests::test()
 			grid.clear();
 			grid.insert(666, insert_aabb);
 
-			// Now check that the grid cells have a total of 27 references to the inserted value
+			// Now check that the grid cells have a data in the cells we expect it to
 			unsigned int num_refs = 0;
 			for(int z = 0; z < grid_res; ++z)
 			for(int y = 0; y < grid_res; ++y)
@@ -94,14 +94,6 @@ void HashedGridTests::test()
 					std::cout << "error: bucket " << x << ", " << y << ", " << z << " has no data elements (insertion at " << interior_x << ", " << interior_y << ", " << interior_z << ")" << std::endl;
 					exit(1);
 				}
-
-				num_refs += bucket.data.size();
-			}
-
-			if(num_refs != 27)
-			{
-				std::cout << "error: counted " << num_refs << " references in the grid, should be 27." << std::endl;
-				exit(1);
 			}
 		}
 
@@ -128,10 +120,10 @@ void HashedGridTests::test()
 			insert_aabb.max_ = insertion_point + Vec4f(grid_cell_width, grid_cell_width, grid_cell_width, 0);
 
 			// Insert value with associated bound into grid
+			grid.clear();
 			grid.insert(666, insert_aabb);
 
-			// Now check that the grid cells have a total of 27 references to the inserted value
-			unsigned int num_refs = 0;
+			// Now check that the grid cells have a data in the cells we expect it to
 			for(int z = 0; z < grid_res; ++z)
 			for(int y = 0; y < grid_res; ++y)
 			for(int x = 0; x < grid_res; ++x)
@@ -150,17 +142,7 @@ void HashedGridTests::test()
 					std::cout << "error: bucket " << x << ", " << y << ", " << z << " has no data elements" << std::endl;
 					exit(1);
 				}
-
-				num_refs += bucket.data.size();
 			}
-
-			if(num_refs != 27)
-			{
-				std::cout << "error: counted " << num_refs << " references in the grid, should be 27." << std::endl;
-				exit(1);
-			}
-
-			grid.clear();
 		}
 
 		std::cout << std::endl;
