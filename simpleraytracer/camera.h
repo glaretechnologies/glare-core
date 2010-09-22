@@ -207,8 +207,14 @@ public:
 	void buildDiffractionFilterImage(PrintOutput& print_output) const;
 
 
+	double sensorWidth() const { return sensor_width; }
 	double sensorHeight() const { return sensor_height; }
 	double sensorLensDist() const { return sensor_to_lens_dist; }
+	double lensRadius() const { return lens_radius; }
+	double lensWidth() const { return lens_width; }
+
+	const Vec4f sensorCenter() const { return Vec4f(sensor_center.x, sensor_center.y, sensor_center.z, 1.f); }
+	const Vec4f lensCenter() const { return Vec4f(lens_center.x, lens_center.y, lens_center.z, 1.f); }
 
 	//double getHorizontalAngleOfView() const; // including to left and right, in radians
 	//double getVerticalAngleOfView() const; // including to up and down, in radians
@@ -223,6 +229,17 @@ public:
 	SSE_ALIGN TransformPath transform_path;
 
 	std::vector<const Medium*> containing_media;
+
+	// READ ONLY
+	double focus_dist_sensor_to_lens_dist_ratio;
+	double uniform_sensor_pos_pdf;
+	double recip_unoccluded_aperture_area;
+	double lens_shift_up_distance;
+	double lens_shift_right_distance;
+	double focus_distance;
+
+
+
 private:
 	static Image* doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, PrintOutput& print_output);
@@ -255,7 +272,6 @@ private:
 	double focal_length;
 	double recip_lens_width;
 
-	double focus_distance;
 	Vec3d sensor_center;
 	Vec3d sensor_botleft;
 	double sensor_width;
@@ -266,10 +282,7 @@ private:
 	double sensor_to_lens_dist;
 
 	double sensor_to_lens_dist_focus_dist_ratio;
-	double focus_dist_sensor_to_lens_dist_ratio;
-	double uniform_sensor_pos_pdf;
 
-	double recip_unoccluded_aperture_area;
 	
 
 	double bloom_weight;
@@ -288,8 +301,6 @@ private:
 
 	double exposure_duration; // aka shutter speed
 
-	double lens_shift_up_distance;
-	double lens_shift_right_distance;
 
 	// Stuff for Lazy calculation of diffraction filter
 	std::string appdata_path;
