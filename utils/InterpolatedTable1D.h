@@ -68,7 +68,7 @@ Datum InterpolatedTable1D<Real, Datum>::getValue(Real x) const
 
 	const Real index_x = start_x + (Real)index * gap_width;
 
-	const Real t = (x - start_x) * recip_gap_width;
+	const Real t = (x - index_x) * recip_gap_width;
 
 	return Maths::lerp(data[index], data[index+1], t);
 }
