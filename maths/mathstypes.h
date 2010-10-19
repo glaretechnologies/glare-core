@@ -510,6 +510,12 @@ inline T square(T x)
 }
 
 template <class T>
+inline T pow4(T x)
+{
+	return x * x * x * x;
+}
+
+template <class T>
 inline T tanForCos(T cos_theta)
 {
 	assert(cos_theta >= (T)-1.0 && cos_theta <= (T)1.0);
