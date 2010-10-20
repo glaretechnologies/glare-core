@@ -76,6 +76,8 @@ public:
 
 	std::vector<gpuDeviceInfo> getDeviceInfo() const;
 
+	int getChosenDeviceNumber();
+
 //private:
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

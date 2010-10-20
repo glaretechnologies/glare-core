@@ -91,8 +91,9 @@ OpenCL::OpenCL(int device_number)
 	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
+	device_to_use = 0;
 	chosen_device_number = -1;
-	uint64 best_device_perf = 0;
+	int64 best_device_perf = -1;
 
 	std::cout << "Num platforms: " << num_platforms << std::endl;
 
@@ -214,31 +215,34 @@ OpenCL::OpenCL(int device_number)
 			di.core_clock = device_max_clock_frequency;
 			di.CUDA = false;
 
-			int current_device_number = device_info.size();
-			device_info.push_back(di);
+			int current_device_number = (int)device_info.size();
 
 			// estimate performance as # cores times clock speed
-			uint64 device_perf = (uint64)device_max_compute_units * (uint64)device_max_clock_frequency;
+			int64 device_perf = (uint64)device_max_compute_units * (uint64)device_max_clock_frequency;
 
 			if(device_number < 0) // If auto selecting device
 			{
 				// if this is the best performing GPU device found so far, select it
-				if(best_device_perf < device_perf && ((device_type & CL_DEVICE_TYPE_GPU)))
+				if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf)
 				{
 					device_to_use = device_ids[d];
 					platform_to_use = platform_ids[i];
 					chosen_device_number = current_device_number;
 
 					best_device_perf = device_perf;
+
+					device_info.push_back(di);
 				}
 			}
-			else if(device_number == current_device_number) // else if we have the desired device number, use it
+			else if(device_number == d) // else if we have the desired device number, use it
 			{
 				device_to_use = device_ids[d];
 				platform_to_use = platform_ids[i];
 				chosen_device_number = current_device_number;
 
 				best_device_perf = device_perf;
+
+				device_info.push_back(di);
 			}
 		}
 	}
@@ -573,6 +577,12 @@ OpenCL::~OpenCL()
 
 	std::cout << "Shut down OpenCL." << std::endl;
 #endif
+}
+
+
+int OpenCL::getChosenDeviceNumber()
+{
+	return chosen_device_number;
 }
 
 
