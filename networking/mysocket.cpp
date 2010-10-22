@@ -42,7 +42,7 @@ MySocket::MySocket(const std::string& hostname, int port)
 
 	thisend_port = -1;
 	otherend_port = -1;
-	sockethandle = 0;
+	sockethandle = nullSocketHandle();
 
 	assert(Networking::isInited());
 
@@ -78,7 +78,7 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 {
 	thisend_port = -1;
 	otherend_port = -1;
-	sockethandle = 0;
+	sockethandle = nullSocketHandle();
 
 	assert(Networking::isInited());
 
@@ -89,7 +89,7 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 MySocket::MySocket()
 {
 	thisend_port = -1;
-	sockethandle = 0;
+	sockethandle = nullSocketHandle();
 }
 
 
@@ -126,7 +126,13 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 	//-----------------------------------------------------------------
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) == -1)
 	{
-		throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + Networking::getError());
+		const std::string error_str = Networking::getError();
+		// Because we are about to throw an exception, and because doConnect() is always called only from a constructor, we are about to throw an exception from a constructor.
+		// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
+		// so we have to close the socket here.
+		closesocket(sockethandle);
+		sockethandle = nullSocketHandle();
+		throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
 	}
 
 	otherend_port = port;
@@ -291,7 +297,7 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 
 void MySocket::close()
 {
-	if(sockethandle)
+	if(isSockHandleValid(sockethandle))
 	{
 		//------------------------------------------------------------------------
 		//try shutting down the socket
@@ -321,7 +327,7 @@ void MySocket::close()
 		}
 	}
 
-	sockethandle = 0;
+	sockethandle = nullSocketHandle();
 }
 
 
@@ -566,6 +572,16 @@ bool MySocket::readable(double timeout_s)
 		);
 
 	return num > 0;
+}
+
+
+MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
+{
+#if defined(WIN32) || defined(WIN64)
+	return INVALID_SOCKET;
+#else
+	return -1;
+#endif
 }
 
 

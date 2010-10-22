@@ -123,6 +123,7 @@ private:
 	typedef int SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #endif
+	SOCKETHANDLE_TYPE nullSocketHandle() const;
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
