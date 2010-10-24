@@ -71,12 +71,12 @@ public:
 
 	~OpenCL();
 
+	int getChosenDeviceNumber();
+
 #if USE_OPENCL
 	static const std::string errorString(cl_int result);
 
 	std::vector<gpuDeviceInfo> getDeviceInfo() const;
-
-	int getChosenDeviceNumber();
 
 //private:
 
