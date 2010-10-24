@@ -7,20 +7,21 @@ Code By Nicholas Chapman.
 #ifndef __OPENCL_H_666_
 #define __OPENCL_H_666_
 
+#include <string>
+#include <vector>
+#include "../utils/platform.h"
+#include "../indigo/gpuDeviceInfo.h"
+
 
 #if USE_OPENCL
 
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include "../utils/platform.h"
-#include "../indigo/gpuDeviceInfo.h"
 
 #include <CL/cl.h>
 //#include <CL/clext.h>
 
-#include <string>
-#include <vector>
 
 extern "C" 
 {
@@ -104,16 +105,15 @@ public:
 	clGetProgramInfo_TYPE clGetProgramInfo;
 
 	HMODULE module;
-
-	int chosen_device_number;
 	cl_platform_id platform_to_use;
 	cl_device_id device_to_use;
-
 	cl_context context;
 	cl_command_queue command_queue;
+#endif
+
+	int chosen_device_number;
 
 	std::vector<gpuDeviceInfo> device_info;
-#endif
 };
 
 
