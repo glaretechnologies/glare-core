@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __INDIGOXMLDOC_H_666_
 
 
+#include "FileHandle.h"
 #include <tinyxml/tinyxml.h>
 #include <string>
 
@@ -43,7 +44,8 @@ public:
 	static void test();
 
 private:
-	FILE* file;
+	//FILE* file;
+	//FileHandle file;
 	TiXmlDocument doc;
 	std::string path;
 };

@@ -5,6 +5,8 @@
 #include "BoxFilterFunction.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
+#include "../utils/FileHandle.h"
+#include "../utils/Exception.h"
 #include "../maths/vec2.h"
 #include <fstream>
 #include <limits>
@@ -202,179 +204,185 @@ typedef struct {
 //Image* Image::loadFromBitmap(const std::string& pathname)
 void Image::loadFromBitmap(const std::string& pathname)
 {
-	//-----------------------------------------------------------------
-	//open file
-	//-----------------------------------------------------------------
-	FILE* f = FileUtils::openFile(pathname, "rb"); // fopen(pathname.c_str(), "rb");//create a file
-
-	if(!f)
-		throw ImageExcep("could not open file '" + pathname + "'.");
-
-
-	//-----------------------------------------------------------------
-	//read bitmap header
-	//-----------------------------------------------------------------
-	BITMAP_HEADER bitmap_header;
-	const int header_size = sizeof(BITMAP_HEADER);
-	assert(header_size == 14);
-
-	fread(&bitmap_header, 14, 1, f);
-
-	//debugPrint("file size: %i\n", (int)bitmap_header.size);
-	//debugPrint("offset to image data in bytes: %i\n", (int)bitmap_header.offset);
-
-
-	//-----------------------------------------------------------------
-	//read bitmap info-header
-	//-----------------------------------------------------------------
-	assert(sizeof(BITMAP_INFOHEADER) == 40);
-
-	BITMAP_INFOHEADER infoheader;
-
-	fread(&infoheader, sizeof(BITMAP_INFOHEADER), 1, f);
-
-//	debugPrint("width: %i\n", infoheader.width);
-//	debugPrint("height: %i\n", infoheader.height);
-//	debugPrint("bits per pixel: %i\n", (int)infoheader.bits);
-
-	assert(infoheader.bits == 24);
-	if(infoheader.bits != 24)
-		throw ImageExcep("unsupported bitdepth.");
-
-//	debugPrint("number of planes: %i\n", infoheader.planes);
-//	debugPrint("compression mode: %i\n", infoheader.compression);
-
-
-
-
-	//-----------------------------------------------------------------
-	//build image object
-	//-----------------------------------------------------------------
-	//Image* image = new Image(infoheader.width, infoheader.height);
-
-
-	this->width = infoheader.width;
-	this->height = infoheader.height;
-
-	const int MAX_DIMS = 10000;
-	if(width < 0 || width > MAX_DIMS)
-		throw ImageExcep("bad image width.");
-	if(height < 0 || height > MAX_DIMS)
-		throw ImageExcep("bad image height.");
-
-	pixels.resize(width, height);
-
-	int rowpaddingbytes = 4 - ((width*3) % 4);
-	if(rowpaddingbytes == 4)
-		rowpaddingbytes = 0;
-
-	const int DATASIZE = infoheader.height * (infoheader.width * 3 + rowpaddingbytes);
-
-	BYTE* data = new BYTE[DATASIZE];
-
-	fread(data, DATASIZE, 1, f);
-
-	//-----------------------------------------------------------------
-	//convert into colour array
-	//-----------------------------------------------------------------
-	int i = 0;
-	for(int y=infoheader.height-1; y>=0; --y)
+	try
 	{
-		for(int x=0; x<infoheader.width; ++x)
+		//-----------------------------------------------------------------
+		//open file
+		//-----------------------------------------------------------------
+		FileHandle f(pathname, "rb");
+
+		//-----------------------------------------------------------------
+		//read bitmap header
+		//-----------------------------------------------------------------
+		BITMAP_HEADER bitmap_header;
+		const int header_size = sizeof(BITMAP_HEADER);
+		assert(header_size == 14);
+
+		fread(&bitmap_header, 14, 1, f.getFile());
+
+		//debugPrint("file size: %i\n", (int)bitmap_header.size);
+		//debugPrint("offset to image data in bytes: %i\n", (int)bitmap_header.offset);
+
+
+		//-----------------------------------------------------------------
+		//read bitmap info-header
+		//-----------------------------------------------------------------
+		assert(sizeof(BITMAP_INFOHEADER) == 40);
+
+		BITMAP_INFOHEADER infoheader;
+
+		fread(&infoheader, sizeof(BITMAP_INFOHEADER), 1, f.getFile());
+
+	//	debugPrint("width: %i\n", infoheader.width);
+	//	debugPrint("height: %i\n", infoheader.height);
+	//	debugPrint("bits per pixel: %i\n", (int)infoheader.bits);
+
+		assert(infoheader.bits == 24);
+		if(infoheader.bits != 24)
+			throw ImageExcep("unsupported bitdepth.");
+
+	//	debugPrint("number of planes: %i\n", infoheader.planes);
+	//	debugPrint("compression mode: %i\n", infoheader.compression);
+
+
+
+
+		//-----------------------------------------------------------------
+		//build image object
+		//-----------------------------------------------------------------
+		//Image* image = new Image(infoheader.width, infoheader.height);
+
+
+		this->width = infoheader.width;
+		this->height = infoheader.height;
+
+		const int MAX_DIMS = 10000;
+		if(width < 0 || width > MAX_DIMS)
+			throw ImageExcep("bad image width.");
+		if(height < 0 || height > MAX_DIMS)
+			throw ImageExcep("bad image height.");
+
+		pixels.resize(width, height);
+
+		int rowpaddingbytes = 4 - ((width*3) % 4);
+		if(rowpaddingbytes == 4)
+			rowpaddingbytes = 0;
+
+		const int DATASIZE = infoheader.height * (infoheader.width * 3 + rowpaddingbytes);
+
+		BYTE* data = new BYTE[DATASIZE];
+
+		fread(data, DATASIZE, 1, f.getFile());
+
+		//-----------------------------------------------------------------
+		//convert into colour array
+		//-----------------------------------------------------------------
+		int i = 0;
+		for(int y=infoheader.height-1; y>=0; --y)
 		{
-			//const float r = byteToFloat(data[i]);
-			//const float g = byteToFloat(data[i + 1]);
-			//const float b = byteToFloat(data[i + 2]);
-			const float b = byteToFloat(data[i]);
-			const float g = byteToFloat(data[i + 1]);
-			const float r = byteToFloat(data[i + 2]);
+			for(int x=0; x<infoheader.width; ++x)
+			{
+				//const float r = byteToFloat(data[i]);
+				//const float g = byteToFloat(data[i + 1]);
+				//const float b = byteToFloat(data[i + 2]);
+				const float b = byteToFloat(data[i]);
+				const float g = byteToFloat(data[i + 1]);
+				const float r = byteToFloat(data[i + 2]);
 
-			this->setPixel(x, y, ColourType(r, g, b));
+				this->setPixel(x, y, ColourType(r, g, b));
 
-			i += 3;
+				i += 3;
+			}
+
+			i += rowpaddingbytes;
 		}
 
-		i += rowpaddingbytes;
+
+		delete[] data;
+
+
+
+		//-----------------------------------------------------------------
+		//close file
+		//-----------------------------------------------------------------
+		//fclose (f);
 	}
-
-
-	delete[] data;
-
-
-
-	//-----------------------------------------------------------------
-	//close file
-	//-----------------------------------------------------------------
-	fclose (f);
+	catch(Indigo::Exception& )
+	{
+		throw ImageExcep("could not open file '" + pathname + "'.");
+	}
 }
 
 
 void Image::saveToBitmap(const std::string& pathname)
 {
-	FILE* f = FileUtils::openFile(pathname, "wb");
-	assert(f);
-
-	if(!f)
-		throw ImageExcep("could not open file");
-
-	BITMAP_HEADER bitmap_header;
-	bitmap_header.offset = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER);
-	bitmap_header.type = BITMAP_ID;
-	bitmap_header.size = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER) + getWidth() * getHeight() * 3;
-
-	fwrite(&bitmap_header, sizeof(BITMAP_HEADER), 1, f);
-
-	BITMAP_INFOHEADER bitmap_infoheader;
-	bitmap_infoheader.size = sizeof(BITMAP_INFOHEADER);
-	bitmap_infoheader.bits = 24;
-	bitmap_infoheader.compression = 0;
-	bitmap_infoheader.height = getHeight();
-	bitmap_infoheader.width = getWidth();
-	bitmap_infoheader.imagesize = 0;//getWidth() * getHeight() * 3;
-	bitmap_infoheader.importantcolours = 0;//1 << 24;
-	bitmap_infoheader.ncolours = 0;//1 << 24;
-	bitmap_infoheader.planes = 1;
-	bitmap_infoheader.xresolution = 100;
-	bitmap_infoheader.yresolution = 100;
-
-	fwrite(&bitmap_infoheader, sizeof(BITMAP_INFOHEADER), 1, f);
-
-
-	int rowpaddingbytes = 4 - ((width * 3) % 4);
-	if(rowpaddingbytes == 4)
-		rowpaddingbytes = 0;
-
-
-	for(int y = getHeight() - 1; y >= 0; --y)
+	try
 	{
-		for(int x = 0; x < getWidth(); ++x)
+		FileHandle f(pathname, "wb");
+
+		BITMAP_HEADER bitmap_header;
+		bitmap_header.offset = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER);
+		bitmap_header.type = BITMAP_ID;
+		bitmap_header.size = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER) + getWidth() * getHeight() * 3;
+
+		fwrite(&bitmap_header, sizeof(BITMAP_HEADER), 1, f.getFile());
+
+		BITMAP_INFOHEADER bitmap_infoheader;
+		bitmap_infoheader.size = sizeof(BITMAP_INFOHEADER);
+		bitmap_infoheader.bits = 24;
+		bitmap_infoheader.compression = 0;
+		bitmap_infoheader.height = getHeight();
+		bitmap_infoheader.width = getWidth();
+		bitmap_infoheader.imagesize = 0;//getWidth() * getHeight() * 3;
+		bitmap_infoheader.importantcolours = 0;//1 << 24;
+		bitmap_infoheader.ncolours = 0;//1 << 24;
+		bitmap_infoheader.planes = 1;
+		bitmap_infoheader.xresolution = 100;
+		bitmap_infoheader.yresolution = 100;
+
+		fwrite(&bitmap_infoheader, sizeof(BITMAP_INFOHEADER), 1, f.getFile());
+
+
+		int rowpaddingbytes = 4 - ((width * 3) % 4);
+		if(rowpaddingbytes == 4)
+			rowpaddingbytes = 0;
+
+
+		for(int y = getHeight() - 1; y >= 0; --y)
 		{
-			ColourType pixelcol = getPixel(x, y);
-			pixelcol.positiveClipComponents();
+			for(int x = 0; x < getWidth(); ++x)
+			{
+				ColourType pixelcol = getPixel(x, y);
+				pixelcol.positiveClipComponents();
 
-			const BYTE b = (BYTE)(pixelcol.b * 255.0f);
-			fwrite(&b, 1, 1, f);
+				const BYTE b = (BYTE)(pixelcol.b * 255.0f);
+				fwrite(&b, 1, 1, f.getFile());
 
-			const BYTE g = (BYTE)(pixelcol.g * 255.0f);
-			fwrite(&g, 1, 1, f);
+				const BYTE g = (BYTE)(pixelcol.g * 255.0f);
+				fwrite(&g, 1, 1, f.getFile());
 
-			const BYTE r = (BYTE)(pixelcol.r * 255.0f);
-			fwrite(&r, 1, 1, f);
+				const BYTE r = (BYTE)(pixelcol.r * 255.0f);
+				fwrite(&r, 1, 1, f.getFile());
 
-			/*const BYTE r = (BYTE)(getPixel(x, y).r * 255.0f);
-			fwrite(&r, 1, 1, f);
-			const BYTE g = (BYTE)(getPixel(x, y).g * 255.0f);
-			fwrite(&g, 1, 1, f);
-			const BYTE b = (BYTE)(getPixel(x, y).b * 255.0f);
-			fwrite(&b, 1, 1, f);*/
+				/*const BYTE r = (BYTE)(getPixel(x, y).r * 255.0f);
+				fwrite(&r, 1, 1, f);
+				const BYTE g = (BYTE)(getPixel(x, y).g * 255.0f);
+				fwrite(&g, 1, 1, f);
+				const BYTE b = (BYTE)(getPixel(x, y).b * 255.0f);
+				fwrite(&b, 1, 1, f);*/
+			}
+
+			const BYTE zerobyte = 0;
+			for(int i = 0; i < rowpaddingbytes; ++i)
+				fwrite(&zerobyte, 1, 1, f.getFile());
 		}
 
-		const BYTE zerobyte = 0;
-		for(int i = 0; i < rowpaddingbytes; ++i)
-			fwrite(&zerobyte, 1, 1, f);
+		//fclose(f);
 	}
-
-	fclose(f);
+	catch(Indigo::Exception& )
+	{
+		throw ImageExcep("could not open file '" + pathname + "'.");
+	}
 }
 
 

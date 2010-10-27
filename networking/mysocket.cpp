@@ -130,7 +130,11 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 		// Because we are about to throw an exception, and because doConnect() is always called only from a constructor, we are about to throw an exception from a constructor.
 		// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
 		// so we have to close the socket here.
+#if defined(WIN32) || defined(WIN64)
 		closesocket(sockethandle);
+#else
+		::close(sockethandle);
+#endif
 		sockethandle = nullSocketHandle();
 		throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
 	}

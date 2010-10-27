@@ -11,6 +11,9 @@ Generated at Wed Jul 14 11:41:12 +1200 2010
 #include "CycleTimer.h"
 #include "stringutils.h"
 #include "../indigo/globals.h"
+#include "../utils/FileHandle.h"
+#include "../utils/Exception.h"
+#include "../indigo/TestUtils.h"
 
 
 UtilTests::UtilTests()
@@ -97,4 +100,32 @@ void UtilTests::test()
 		//exit(0);
 	}
 
+
+	// Test FileHandle
+	{
+		int n = 10;
+		for(int i=0; i<n; ++i)
+		{
+			FileHandle f(TestUtils::getIndigoTestReposDir() + "/testfiles/bleh", "w");
+			fputc('a', f.getFile());
+		}
+
+		for(int i=0; i<n; ++i)
+		{
+			FileHandle f;
+			f.open(TestUtils::getIndigoTestReposDir() + "/testfiles/bleh", "w");
+			fputc('a', f.getFile());
+		}
+
+		// Try a file that doesn't exist
+		try
+		{
+			FileHandle f(TestUtils::getIndigoTestReposDir() + "/testfiles/idfhkjsdghkjfhgdkfj", "r");
+			
+			failTest("Should have thrown an exception.");
+		}
+		catch(Indigo::Exception& )
+		{
+		}
+	}
 }

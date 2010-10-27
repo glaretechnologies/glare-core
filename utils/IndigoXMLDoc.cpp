@@ -10,38 +10,40 @@ Code By Nicholas Chapman.
 #include "../utils/fileutils.h"
 #include "../utils/stringutils.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/Exception.h"
 
 
 IndigoXMLDoc::IndigoXMLDoc(const std::string& path_)
-:	file(NULL),
-	path(path_)
+:	path(path_)
 {
-	// Open file.  Using FILE* method here to allow Unicode paths.
-	file = FileUtils::openFile(path, "rb");
+	try
+	{	
+		// Open file.  Using FILE* method here to allow Unicode paths.
+		FileHandle file(path, "rb");
 
-	if(!file)
-		throw IndigoXMLDocExcep("Failed to open file '" + path + "'.");
-
-	if(!doc.LoadFile(file))
+		if(!doc.LoadFile(file.getFile()))
+		{
+			if(doc.ErrorId() == TiXmlBase::TIXML_ERROR_OPENING_FILE)
+			{
+				throw IndigoXMLDocExcep("Failed to open XML doc from path '" + path + "': " + std::string(doc.ErrorDesc()));
+			}
+			else
+			{
+				throw IndigoXMLDocExcep("failed to load XML doc from path '" + path + "': " +
+					std::string(doc.ErrorDesc()) + "  (Line " + ::toString(doc.ErrorRow()) + ", column " +
+					::toString(doc.ErrorCol()) + ".)");
+			}
+		}
+	}
+	catch(Indigo::Exception& e)
 	{
-		if(doc.ErrorId() == TiXmlBase::TIXML_ERROR_OPENING_FILE)
-		{
-			throw IndigoXMLDocExcep("Failed to open XML doc from path '" + path + "': " + std::string(doc.ErrorDesc()));
-		}
-		else
-		{
-			throw IndigoXMLDocExcep("failed to load XML doc from path '" + path + "': " +
-				std::string(doc.ErrorDesc()) + "  (Line " + ::toString(doc.ErrorRow()) + ", column " +
-				::toString(doc.ErrorCol()) + ".)");
-		}
+		throw IndigoXMLDocExcep(e.what());
 	}
 }
 
 
 IndigoXMLDoc::~IndigoXMLDoc()
 {
-	if(file)
-		fclose(file);
 }
 
 
@@ -57,18 +59,17 @@ TiXmlElement& IndigoXMLDoc::getRootElement(const std::string& name)  // throws I
 
 void IndigoXMLDoc::saveDoc(const std::string& savepath)
 {
-	FILE* savefile = FileUtils::openFile(savepath, "wb");
-
-	if(!savefile)
-		throw IndigoXMLDocExcep("Failed to open file '" + savepath + "' for writing.");
-
-	if(!doc.SaveFile(savefile))
+	try
 	{
-		fclose(savefile);
-		throw IndigoXMLDocExcep("Failed to save XML document to '" + savepath + "': " + std::string(doc.ErrorDesc()));
-	}
+		FileHandle savefile(savepath, "wb");
 
-	fclose(savefile);
+		if(!doc.SaveFile(savefile.getFile()))
+			throw IndigoXMLDocExcep("Failed to save XML document to '" + savepath + "': " + std::string(doc.ErrorDesc()));
+	}
+	catch(Indigo::Exception& )
+	{
+		throw IndigoXMLDocExcep("Failed to open file '" + savepath + "' for writing.");
+	}
 }
 
 #if (BUILD_TESTS)

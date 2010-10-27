@@ -103,6 +103,8 @@ bool isPathAbsolute(const std::string& p);
 
 //uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep
 
+
+// NOTE: this function call is rather vulnerable to handle leaks.  Prefer to use the FileHandle class instead.
 FILE* openFile(const std::string& pathname, const std::string& openmode);
 
 // remove non alphanumeric characters etc..
