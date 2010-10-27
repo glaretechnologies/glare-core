@@ -44,7 +44,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 #endif
 
 
-OpenCL::OpenCL(int device_number)
+OpenCL::OpenCL(int device_number, bool verbose_init)
 {
 #if USE_OPENCL
 	context = 0;
@@ -95,7 +95,7 @@ OpenCL::OpenCL(int device_number)
 	chosen_device_number = -1;
 	int64 best_device_perf = -1;
 
-	std::cout << "Num platforms: " << num_platforms << std::endl;
+	if(verbose_init) std::cout << "Num platforms: " << num_platforms << std::endl;
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
@@ -117,36 +117,42 @@ OpenCL::OpenCL(int device_number)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		const std::string platform_extensions(&val[0]);
 
-		std::cout << "platform_id: " << platform_ids[i] << std::endl;
-		std::cout << "platform_profile: " << platform_profile << std::endl;
-		std::cout << "platform_version: " << platform_version << std::endl;
-		std::cout << "platform_name: " << platform_name << std::endl;
-		std::cout << "platform_vendor: " << platform_vendor << std::endl;
-		std::cout << "platform_extensions: " << platform_extensions << std::endl;
+		if(verbose_init)
+		{
+			std::cout << "platform_id: " << platform_ids[i] << std::endl;
+			std::cout << "platform_profile: " << platform_profile << std::endl;
+			std::cout << "platform_version: " << platform_version << std::endl;
+			std::cout << "platform_name: " << platform_name << std::endl;
+			std::cout << "platform_vendor: " << platform_vendor << std::endl;
+			std::cout << "platform_extensions: " << platform_extensions << std::endl;
+		}
 
 		std::vector<cl_device_id> device_ids(10);
 		cl_uint num_devices = 0;
 		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
 			throw Indigo::Exception("clGetDeviceIDs failed");
 
-		std::cout << num_devices << " devices found." << std::endl;
+		if(verbose_init) std::cout << num_devices << " devices found." << std::endl;
 
 		for(cl_uint d = 0; d < num_devices; ++d)
 		{
-			std::cout << "-----------Device " << d << "-----------" << std::endl;
+			if(verbose_init) std::cout << "-----------Device " << d << "-----------" << std::endl;
 
 			cl_device_type device_type;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
-			if(device_type & CL_DEVICE_TYPE_CPU)
-				std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_GPU)
-				std::cout << "device_type: CL_DEVICE_TYPE_GPU" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_ACCELERATOR)
-				std::cout << "device_type: CL_DEVICE_TYPE_ACCELERATOR" << std::endl;
-			if(device_type & CL_DEVICE_TYPE_DEFAULT)
-				std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
+			if(verbose_init)
+			{
+				if(device_type & CL_DEVICE_TYPE_CPU)
+					std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_GPU)
+					std::cout << "device_type: CL_DEVICE_TYPE_GPU" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_ACCELERATOR)
+					std::cout << "device_type: CL_DEVICE_TYPE_ACCELERATOR" << std::endl;
+				if(device_type & CL_DEVICE_TYPE_DEFAULT)
+					std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
+			}
 
 			std::vector<char> buf(100000);
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, buf.size(), &buf[0], NULL) != CL_SUCCESS)
@@ -190,21 +196,23 @@ OpenCL::OpenCL(int device_number)
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
-			std::cout << "device_name: " << device_name_ << std::endl;
-			std::cout << "driver_version: " << driver_version << std::endl;
-			std::cout << "device_profile: " << device_profile << std::endl;
-			std::cout << "device_version: " << device_version << std::endl;
-			std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
-			std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
-			std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
-			std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
+			if(verbose_init)
+			{
+				std::cout << "device_name: " << device_name_ << std::endl;
+				std::cout << "driver_version: " << driver_version << std::endl;
+				std::cout << "device_profile: " << device_profile << std::endl;
+				std::cout << "device_version: " << device_version << std::endl;
+				std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
+				std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
+				std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
+				std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
 
-			for(size_t z=0; z<device_max_num_work_items.size(); ++z)
-				std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
+				for(size_t z=0; z<device_max_num_work_items.size(); ++z)
+					std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
 
-
-			std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
-			std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
+				std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
+				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
+			}
 
 			// Initialise device info structure
 			gpuDeviceInfo di;
@@ -250,7 +258,7 @@ OpenCL::OpenCL(int device_number)
 	if(chosen_device_number == -1)
 		throw Indigo::Exception("Could not find appropriate OpenCL device.");
 
-	std::cout << "Using device " << device_info[chosen_device_number].device_name.c_str() << std::endl;
+	if(verbose_init) std::cout << "OpenCL: using device '" << device_info[chosen_device_number].device_name.c_str() << "'" << std::endl;
 
 	cl_context_properties cps[3] = 
     {
