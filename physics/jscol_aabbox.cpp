@@ -12,6 +12,14 @@ File created by ClassTemplate on Thu Nov 18 03:48:29 2004Code By Nicholas Chapma
 namespace js
 {
 
+AABBox AABBox::emptyAABBox()
+{
+	const static float positive_inf = -logf(0.0f);
+	const static float negative_inf =  logf(0.0f);
+	return AABBox(	Vec4f(positive_inf, positive_inf, positive_inf, 1.0f),
+		Vec4f(negative_inf, negative_inf, negative_inf, 1.0f));
+}
+
 /*
 bool AABBox::slowRayAABBTrace(const Ray& ray, float& near_hitd_out, float& far_hitd_out) const
 {
