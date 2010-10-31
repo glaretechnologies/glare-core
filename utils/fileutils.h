@@ -81,6 +81,8 @@ void readEntireFile(const std::string& pathname, std::vector<unsigned char>& fil
 void writeEntireFile(const std::string& pathname, const std::vector<unsigned char>& filecontents); // throws FileUtilsExcep
 void writeEntireFile(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep
 
+void readEntireFileTextMode(const std::string& pathname, std::string& s_out); // throws FileUtilsExcep
+
 const std::string getCurrentDir();
 
 void copyFile(const std::string& srcpath, const std::string& dstpath);

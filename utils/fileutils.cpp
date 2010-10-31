@@ -682,6 +682,26 @@ void writeEntireFile(const std::string& pathname,
 }
 
 
+void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // throws FileUtilsExcep
+{
+	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str());
+
+	if(!infile)
+		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
+
+	s_out = "";
+	std::string line;
+	while(infile)
+	{
+		std::getline(infile, line);
+
+		//if((line.size() > 0) && (line[0] == '\r'))
+		//	line = line.substr(1, line.size() - 1);
+		s_out += line + "\n"; // NOTE: use platform newline string?
+	}
+}
+
+
 const std::string dayOfWeek(int day)
 {
 	if(day == 0) return "Sun";
