@@ -48,7 +48,7 @@ class CPUInfo
 {
 public:
 	char vendor[13];
-	bool mmx, sse1, sse2, sse3;
+	bool mmx, sse1, sse2, sse3, sse4_1, sse4_2;
 	unsigned int stepping;
 	unsigned int model;
 	unsigned int family;

@@ -170,6 +170,9 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	const int SSE_FLAG = 1 << 25;
 	const int SSE2_FLAG = 1 << 26;
 	const int SSE3_FLAG = 1;
+	const int SSE_4_1_FLAG = 1 << 19; // SSE4.1 Extensions
+	const int SSE_4_2_FLAG = 1 << 20; // SSE4.2 Extensions
+
 
 	unsigned int CPUInfo[4];
 	doCPUID(0, CPUInfo);
@@ -189,6 +192,8 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
 	info_out.sse2 = (CPUInfo[3] & SSE2_FLAG ) != 0;
 	info_out.sse3 = (CPUInfo[2] & SSE3_FLAG ) != 0;
+	info_out.sse4_1 = (CPUInfo[2] & SSE_4_1_FLAG ) != 0;
+	info_out.sse4_2 = (CPUInfo[2] & SSE_4_2_FLAG ) != 0;
 	info_out.stepping = CPUInfo[0] & 0xF;
 	info_out.model = (CPUInfo[0] >> 4) & 0xF;
 	info_out.family = (CPUInfo[0] >> 8) & 0xF;
