@@ -1,7 +1,8 @@
 /*=====================================================================
 aabbox.h
 --------
-File created by ClassTemplate on Thu Nov 18 03:48:29 2004Code By Nicholas Chapman.
+File created by ClassTemplate on Thu Nov 18 03:48:29 2004
+Code By Nicholas Chapman.
 =====================================================================*/
 #ifndef __AABBOX_H_666_
 #define __AABBOX_H_666_
@@ -47,13 +48,13 @@ public:
 	inline void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
-	
+
 	INDIGO_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
 	INDIGO_STRONG_INLINE void rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 
 	static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
-	
+
 	inline float getSurfaceArea() const;
 	bool invariant() const;
 	static void test();

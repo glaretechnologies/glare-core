@@ -53,10 +53,8 @@ private:
 	{
 		for(uint32_t i = 0; i < 32; ++i)
 		{
-			uint32_t int_offset = (i * dimensions + dim_idx) / 32;
-			uint32_t bit_offset = (i * dimensions + dim_idx) % 32;
-			key[(i * dimensions + dim_idx) / 32] |= ((dim_val >> i) & 1) << ((i * dimensions + dim_idx) % 32);
+			uint32_t bit_index = i * dimensions + dim_idx;
+			key[bit_index / 32] |= ((dim_val >> i) & 1) << (bit_index % 32);
 		}
 	}
-
 };
