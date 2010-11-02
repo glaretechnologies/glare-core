@@ -19,13 +19,15 @@ template<int dimensions>
 class zKey
 {
 public:
+	zKey(){}
+
 	zKey(const uint32_t _coords[dimensions], const uint32_t _val)
 	{
 		computeKey(_coords);
 		val = _val;
 	}
 
-	~zKey();
+	~zKey(){}
 
 	uint32_t key[dimensions];
 	uint32_t val;
@@ -50,7 +52,11 @@ private:
 	inline void interleaveBits(const uint32_t dim_idx, const uint32_t dim_val)
 	{
 		for(uint32_t i = 0; i < 32; ++i)
+		{
+			uint32_t int_offset = (i * dimensions + dim_idx) / 32;
+			uint32_t bit_offset = (i * dimensions + dim_idx) % 32;
 			key[(i * dimensions + dim_idx) / 32] |= ((dim_val >> i) & 1) << ((i * dimensions + dim_idx) % 32);
+		}
 	}
 
 };
