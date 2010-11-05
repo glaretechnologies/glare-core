@@ -86,6 +86,11 @@ OpenCL::OpenCL(int device_number, bool verbose_init)
 	clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
 	clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
 
+	clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(module, "clSetCommandQueueProperty");
+	clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(module, "clGetEventProfilingInfo");
+	clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(module, "clEnqueueMarker");
+	clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(module, "clWaitForEvents");
+
 	std::vector<cl_platform_id> platform_ids(128);
 	cl_uint num_platforms = 0;
 	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)

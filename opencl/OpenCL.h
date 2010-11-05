@@ -48,6 +48,11 @@ typedef cl_int (*clReleaseKernel_TYPE) (cl_kernel kernel);
 typedef cl_int (*clReleaseProgram_TYPE) (cl_program program);
 typedef cl_int (*clGetProgramInfo_TYPE) (cl_program program, cl_program_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
+typedef cl_int (*clSetCommandQueueProperty_TYPE) (cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties *old_properties);
+typedef cl_int (*clGetEventProfilingInfo_TYPE) (cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+typedef cl_int (*clEnqueueMarker_TYPE) (cl_command_queue command_queue, cl_event *event);
+typedef cl_int (*clWaitForEvents_TYPE) (cl_uint num_events, const cl_event *event_list);
+
 }
 
 #endif
@@ -103,6 +108,11 @@ public:
 	clReleaseKernel_TYPE clReleaseKernel;
 	clReleaseProgram_TYPE clReleaseProgram;
 	clGetProgramInfo_TYPE clGetProgramInfo;
+
+	clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
+	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
+	clEnqueueMarker_TYPE clEnqueueMarker;
+	clWaitForEvents_TYPE clWaitForEvents;
 
 	HMODULE module;
 	cl_platform_id platform_to_use;
