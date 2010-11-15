@@ -298,12 +298,35 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		options.max_num_subdivisions = max_num_subdivisions;
 		options.camera_clip_planes_os = camera_clip_planes_os;
 
+		if(false) // TEMP HACK
+		{
+			vertices.resize(4);
+			uvs.resize(4);
+			triangles.resize(0);
+			quads.resize(1);
+
+			// Quad vertices in CCW order from topright, facing up
+			vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
+			vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
+			vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
+			vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
+
+			uvs[0] = Vec2f(1, 0);
+			uvs[1] = Vec2f(0, 0);
+			uvs[2] = Vec2f(0, 1);
+			uvs[3] = Vec2f(1, 1);
+
+			quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
+			// I SHOULD PROBABLY HACK IN SOME UV INDICES HERE
+		}
+
 		DisplacementUtils::subdivideAndDisplace(
 			print_output,
 			context,
 			object,
 			subdivision_smoothing,
 			triangles,
+			quads,
 			vertices,
 			uvs,
 			this->num_uv_sets,

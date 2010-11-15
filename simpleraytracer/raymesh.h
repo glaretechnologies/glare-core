@@ -38,7 +38,7 @@ public:
 	}
 	uint32 vertex_indices[3];
 	uint32 uv_indices[3];
-	
+
 	//Vec3f geom_normal;
 	float inv_cross_magnitude;
 
@@ -63,6 +63,49 @@ public:
 
 private:
 	uint32 tri_mat_index; // least significant bit is normal smoothing flag.
+};
+
+
+class RayMeshQuad
+{
+public:
+	RayMeshQuad(){}
+	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_) : mat_index(mat_index_ << 1)
+	{
+		vertex_indices[0] = v0_;
+		vertex_indices[1] = v1_;
+		vertex_indices[2] = v2_;
+		vertex_indices[3] = v3_;
+	}
+	uint32_t vertex_indices[4];
+	uint32_t uv_indices[4];
+
+	//Vec3f geom_normal;
+	float inv_cross_magnitude;
+
+	inline void setUseShadingNormals(bool b)
+	{
+		if(b)
+			mat_index |= 0x1;
+		else
+			mat_index &= 0xFFFFFFFE;
+	}
+	inline uint32 getUseShadingNormals() const
+	{
+		return mat_index & 0x1;
+	}
+
+	inline void setMatIndex(uint32_t i)
+	{ 
+		// Clear upper 31 bits, and OR with new index.
+		mat_index = (mat_index & 0x1) | (i << 1); 
+	}
+	inline uint32 getMatIndex() const { return mat_index >> 1; }
+
+private:
+	uint32_t mat_index; // least significant bit is normal smoothing flag.
+
+	uint32_t padding[2]; // to make structure multiple of 4 32bit ints
 };
 
 
@@ -231,6 +274,7 @@ private:
 	std::vector<RayMeshVertex> vertices;
 	//std::vector<RayMeshTriangle> triangles;
 	js::Vector<RayMeshTriangle, 16> triangles;
+	js::Vector<RayMeshQuad, 16> quads;
 
 	//std::vector<Vec3f> triangle_geom_normals;
 	

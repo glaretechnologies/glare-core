@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __DISPLACEMENTUTILS_H_666_
 
 
+#include "../utils/platform.h"
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
 class PrintOutput;
@@ -54,6 +55,35 @@ public:
 	//unsigned int num_subdivs;
 };
 
+class DUQuad
+{
+public:
+	DUQuad(){}
+	DUQuad(	uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_,
+			uint32_t uv0, uint32_t uv1, uint32_t uv2, uint32_t uv3,
+			uint32_t mat_index_, uint32_t dimension_) : mat_index(mat_index_), dimension(dimension_)//, num_subdivs(num_subdivs_)
+	{
+		vertex_indices[0] = v0_;
+		vertex_indices[1] = v1_;
+		vertex_indices[2] = v2_;
+		vertex_indices[3] = v3_;
+
+		uv_indices[0] = uv0;
+		uv_indices[1] = uv1;
+		uv_indices[2] = uv2;
+		uv_indices[3] = uv3;
+	}
+	uint32_t vertex_indices[4];
+	uint32_t uv_indices[4];
+	uint32_t mat_index;
+	uint32_t dimension;
+	//unsigned int num_subdivs;
+
+	uint32_t padding[2];
+	//uint32_t centre_vertex_index;
+	//uint32_t centre_uv_index;
+};
+
 
 SSE_CLASS_ALIGN DUOptions
 {
@@ -90,8 +120,6 @@ public:
 
 	~DisplacementUtils();
 
-	
-
 
 	static void subdivideAndDisplace(
 		PrintOutput& print_output,
@@ -104,12 +132,13 @@ public:
 		//unsigned int num_subdivisions,
 		//const std::vector<Plane<float> >& camera_clip_planes,
 		bool smooth,
-		const js::Vector<RayMeshTriangle, 16>& tris_in, 
-		const std::vector<RayMeshVertex>& verts_in, 
+		const js::Vector<RayMeshTriangle, 16>& tris_in,
+		const js::Vector<RayMeshQuad, 16>& quads_in,
+		const std::vector<RayMeshVertex>& verts_in,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		js::Vector<RayMeshTriangle, 16>& tris_out, 
+		js::Vector<RayMeshTriangle, 16>& tris_out,
 		std::vector<RayMeshVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
 		);
@@ -119,36 +148,43 @@ public:
 
 private:
 	static void displace(
-		ThreadContext& context, 
+		ThreadContext& context,
 		const Object& object,
-		bool use_anchoring, 
-		const std::vector<DUTriangle>& tris, 
-		const std::vector<DUVertex>& verts_in, 
+		bool use_anchoring,
+		const std::vector<DUTriangle>& tris,
+		const std::vector<DUQuad>& quads,
+		const std::vector<DUVertex>& verts_in,
 		const std::vector<Vec2f>& uvs,
 		unsigned int num_uv_sets,
 		std::vector<DUVertex>& verts_out,
-		std::vector<bool>* unclipped_out
+		std::vector<bool>* unclipped_tris_out,
+		std::vector<bool>* unclipped_quads_out
 		);
+
 	static void linearSubdivision(
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const Object& object,
-		//const CoordFramed& camera_coordframe_os, 
+		//const CoordFramed& camera_coordframe_os,
 		//double pixel_height_at_dist_one,
 		//double subdivide_pixel_threshold,
 		//double subdivide_curvature_threshold,
 		//const std::vector<Plane<float> >& camera_clip_planes,
-		const std::vector<DUTriangle>& tris_in, 
-		const std::vector<DUVertex>& verts_in, 
+		const std::vector<DUTriangle>& tris_in,
+		const std::vector<DUQuad>& quads_in,
+		const std::vector<DUVertex>& verts_in,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		std::vector<DUTriangle>& tris_out, 
+		std::vector<DUTriangle>& tris_out,
+		std::vector<DUQuad>& quads_out,
 		std::vector<DUVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
 		);
+
 	static void averagePass(
-		const std::vector<DUTriangle>& tris, 
+		const std::vector<DUTriangle>& tris,
+		const std::vector<DUQuad>& quads,
 		const std::vector<DUVertex>& verts,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
@@ -156,9 +192,6 @@ private:
 		std::vector<DUVertex>& new_verts_out,
 		std::vector<Vec2f>& uvs_out
 		);
-
-
-
 };
 
 
