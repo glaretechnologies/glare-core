@@ -102,7 +102,7 @@ public:
 	void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const;
 
 	const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const;
-	void sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
+	void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const;
 
 	//const Vec3d& getSensorCenter(double time) const;// { return sensor_center; }
 

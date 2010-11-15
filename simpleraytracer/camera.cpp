@@ -819,7 +819,7 @@ const Vec2d Camera::imCoordsForSensorPos(const Vec3Type& sensorpos_os, double ti
 }
 
 
-void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const
+void Camera::sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const
 {
 	pos_os_out.set(
 		sensor_width * (0.5f - imcoords.x),
@@ -828,12 +828,7 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, double time, Vec3Type& 
 		1.0f
 	);
 
-	pos_ws_out = transform_path.vecToWorld(pos_os_out, time);
-
-
-	//return sensor_botleft +
-	//	up * imcoords.y * sensor_height +
-	//	right * (1.0 - imcoords.x) * sensor_width;
+	//pos_ws_out = transform_path.vecToWorld(pos_os_out, time);
 }
 
 
@@ -1341,8 +1336,9 @@ void Camera::unitTest()
 	const double time = 0.0;
 	// Image coords in middle of image.
 	{
-	SSE_ALIGN Vec4f sensorpos_os, sensorpos_ws;
-	cam.sensorPosForImCoords(Vec2d(0.5, 0.5), time, sensorpos_os, sensorpos_ws);
+	SSE_ALIGN Vec4f sensorpos_os;
+	cam.sensorPosForImCoords(Vec2d(0.5, 0.5), sensorpos_os);
+	const Vec4f sensorpos_ws = cam.transform_path.vecToWorld(sensorpos_os, time);
 	testAssert(epsEqual(sensor_center, sensorpos_os));
 	testAssert(epsEqual(sensor_center, sensorpos_ws));
 	}
@@ -1354,16 +1350,18 @@ void Camera::unitTest()
 
 	// Image coords at top left of image => bottom right of sensor
 	{
-	SSE_ALIGN Vec4f sensorpos_os, sensorpos_ws;
-	cam.sensorPosForImCoords(Vec2d(0.0, 0.0), time, sensorpos_os, sensorpos_ws);
+	SSE_ALIGN Vec4f sensorpos_os;
+	cam.sensorPosForImCoords(Vec2d(0.0, 0.0), sensorpos_os);
+	const Vec4f sensorpos_ws = cam.transform_path.vecToWorld(sensorpos_os, time);
 	testAssert(epsEqual(Vec3d(sensor_width/2.0, -lens_sensor_dist, -sensor_width/(aspect_ratio * 2.0)), toVec3d(sensorpos_os)));
 	}
 
 	// Test conversion of image coords to sensorpos and back
 	{
 	const Vec2d imcoords(0.1856, 0.145);
-	SSE_ALIGN Vec4f sensorpos_os, sensorpos_ws;
-	cam.sensorPosForImCoords(imcoords, time, sensorpos_os, sensorpos_ws);
+	SSE_ALIGN Vec4f sensorpos_os;
+	cam.sensorPosForImCoords(imcoords, sensorpos_os);
+	const Vec4f sensorpos_ws = cam.transform_path.vecToWorld(sensorpos_os, time);
 	testAssert(epsEqual(cam.imCoordsForSensorPos(sensorpos_os, time), imcoords));
 	}
 
@@ -1405,8 +1403,9 @@ void Camera::unitTest()
 	{
 	// Sample an exit direction
 	Vec4f lenspos_os, lenspos_ws;
-	Vec4f sensorpos_os, sensorpos_ws;
-	cam.sensorPosForImCoords(Vec2d(0.2f, 0.5f), time, sensorpos_os, sensorpos_ws); // Get sensor position
+	Vec4f sensorpos_os;
+	cam.sensorPosForImCoords(Vec2d(0.2f, 0.5f), sensorpos_os); // Get sensor position
+	const Vec4f sensorpos_ws = cam.transform_path.vecToWorld(sensorpos_os, time);
 	cam.sampleLensPos(SamplePair(0.1f, 0.4f), time, lenspos_os, lenspos_ws); // Get lens position
 	const Vec4f lens_exit_dir = cam.lensExitDir(sensorpos_os, lenspos_os, time); // get lens exit direction
 
