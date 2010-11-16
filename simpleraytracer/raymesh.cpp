@@ -298,32 +298,10 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		options.max_num_subdivisions = max_num_subdivisions;
 		options.camera_clip_planes_os = camera_clip_planes_os;
 
-		if(false) // TEMP HACK
-		{
-			vertices.resize(4);
-			uvs.resize(4);
-			triangles.resize(0);
-			quads.resize(1);
-
-			// Quad vertices in CCW order from topright, facing up
-			vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
-			vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
-			vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
-			vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
-
-			uvs[0] = Vec2f(1, 0);
-			uvs[1] = Vec2f(0, 0);
-			uvs[2] = Vec2f(0, 1);
-			uvs[3] = Vec2f(1, 1);
-
-			quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
-			// I SHOULD PROBABLY HACK IN SOME UV INDICES HERE
-		}
-
 		DisplacementUtils::subdivideAndDisplace(
 			print_output,
 			context,
-			object,
+			object.getMaterials(),
 			subdivision_smoothing,
 			triangles,
 			quads,
@@ -339,6 +317,8 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		triangles = temp_tris;
 		vertices = temp_verts;
 		uvs = temp_uvs;
+
+		this->quads.clearAndFreeMem();
 
 		assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
 		this->num_uv_groups = num_uv_sets > 0 ? temp_uvs.size() / num_uv_sets : 0;
@@ -357,6 +337,29 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 #endif	
 		if(verbose) print_output.print("\tDone.");
 	}
+	
+	// convert any quads to tris
+	if(this->getNumQuads() > 0)
+	{
+		for(size_t i=0; i<this->quads.size(); ++i)
+		{
+			const RayMeshQuad& q = this->quads[i];
+			this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex()));
+			this->triangles.back().uv_indices[0] = q.uv_indices[0];
+			this->triangles.back().uv_indices[1] = q.uv_indices[1];
+			this->triangles.back().uv_indices[2] = q.uv_indices[2];
+			this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+
+			this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex()));
+			this->triangles.back().uv_indices[0] = q.uv_indices[0];
+			this->triangles.back().uv_indices[1] = q.uv_indices[2];
+			this->triangles.back().uv_indices[2] = q.uv_indices[3];
+			this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+		}
+
+		this->quads.clearAndFreeMem();
+	}
+
 
 	subdivide_and_displace_done = true;
 }
@@ -719,6 +722,46 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 }
 
 
+void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
+{
+	// Check material index is in bounds
+	if(material_index >= getMaterialNameToIndexMap().size())
+		throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(material_index) + ")");
+
+	// Check vertex indices are in bounds
+	for(unsigned int i = 0; i < 4; ++i)
+		if(vertex_indices[i] >= getNumVerts())
+			throw ModelLoadingStreamHandlerExcep("Quad vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[i]) + ")");
+
+	// Check uv indices are in bounds
+	if(num_uv_sets > 0)
+		for(unsigned int i = 0; i < 4; ++i)
+			if(uv_indices[i] >= num_uv_groups)
+				throw ModelLoadingStreamHandlerExcep("Quad uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
+
+
+	// Check the area of the triangle
+/*	const float MIN_TRIANGLE_AREA = 1.0e-20f;
+	if(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2])) < MIN_TRIANGLE_AREA)
+	{
+		//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+		return;
+	}
+*/
+	// Push the triangle onto tri array.
+
+	quads.push_back(RayMeshQuad());
+	for(unsigned int i = 0; i < 4; ++i)
+	{
+		quads.back().vertex_indices[i] = vertex_indices[i];
+		quads.back().uv_indices[i] = uv_indices[i];
+	}
+
+	quads.back().setMatIndex(material_index);
+	quads.back().setUseShadingNormals(this->enable_normal_smoothing);
+}
+
+
 void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals)
 {
 	// Check the area of the triangle
@@ -921,6 +964,29 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 				new_vert_index = (*result).second;
 
 			triangles[t].vertex_indices[i] = new_vert_index;
+		}
+	}
+
+	for(unsigned int t = 0; t < quads.size(); ++t)
+	{
+		for(unsigned int i = 0; i < 4; ++i)
+		{
+			const RayMeshVertex& old_vert = vertices[quads[t].vertex_indices[i]];
+
+			unsigned int new_vert_index;
+
+			const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
+
+			if(result == new_vert_indices.end())
+			{
+				new_vert_index = (unsigned int)newverts.size();
+				newverts.push_back(old_vert);
+				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+			}
+			else
+				new_vert_index = (*result).second;
+
+			quads[t].vertex_indices[i] = new_vert_index;
 		}
 	}
 

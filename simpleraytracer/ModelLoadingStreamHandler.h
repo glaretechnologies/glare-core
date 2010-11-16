@@ -51,6 +51,7 @@ public:
 	virtual void addVertex(const Vec3f& pos, const Vec3f& normal) = 0;
 	virtual void addUVs(const std::vector<Vec2f>& uvs) = 0;
 	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index) = 0;
+	virtual void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index) = 0;
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index) = 0;
 	virtual void endOfModel() = 0;
 };

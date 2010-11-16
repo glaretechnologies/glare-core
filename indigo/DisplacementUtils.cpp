@@ -16,6 +16,11 @@ Code By Nicholas Chapman.
 #include "globals.h"
 #include "../utils/stringutils.h"
 #include "PrintOutput.h"
+#include "StandardPrintOutput.h"
+#include "ThreadContext.h"
+#include "Diffuse.h"
+#include "SpectrumMatParameter.h"
+#include "DisplaceMatParameter.h"
 
 
 DisplacementUtils::DisplacementUtils()
@@ -128,7 +133,8 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 void DisplacementUtils::subdivideAndDisplace(
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const Object& object,
+	//const Object& object,
+	const std::vector<Reference<MaterialBinding> >& materials,
 	//const CoordFramed& camera_coordframe_os, 
 	//double pixel_height_at_dist_one, 
 	//double subdivide_pixel_threshold, 
@@ -171,7 +177,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		quads_in[i].vertex_indices[0], quads_in[i].vertex_indices[1], quads_in[i].vertex_indices[2], quads_in[i].vertex_indices[3],
 		quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
 		quads_in[i].getMatIndex(),
-		3 // dimension
+		2 // dimension
 		);
 
 
@@ -181,9 +187,9 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		for(uint32_t t = 0; t < temp_tris.size(); ++t)
 		{
-			const uint32_t& v0 = temp_tris[t].vertex_indices[0];
-			const uint32_t& v1 = temp_tris[t].vertex_indices[1];
-			const uint32_t& v2 = temp_tris[t].vertex_indices[2];
+			const uint32_t v0 = temp_tris[t].vertex_indices[0];
+			const uint32_t v1 = temp_tris[t].vertex_indices[1];
+			const uint32_t v2 = temp_tris[t].vertex_indices[2];
 
 			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
 			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
@@ -194,8 +200,8 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		for(uint32_t q = 0; q < temp_quads.size(); ++q)
 		{
-			const uint32_t& v0 = temp_quads[q].vertex_indices[0]; const uint32_t& v1 = temp_quads[q].vertex_indices[1];
-			const uint32_t& v2 = temp_quads[q].vertex_indices[2]; const uint32_t& v3 = temp_quads[q].vertex_indices[3];
+			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
+			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
 
 			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
 			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
@@ -208,9 +214,9 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		for(uint32_t t = 0; t < initial_num_temp_tris; ++t) // For each original triangle...
 		{
-			const uint32_t& v0 = temp_tris[t].vertex_indices[0];
-			const uint32_t& v1 = temp_tris[t].vertex_indices[1];
-			const uint32_t& v2 = temp_tris[t].vertex_indices[2];
+			const uint32_t v0 = temp_tris[t].vertex_indices[0];
+			const uint32_t v1 = temp_tris[t].vertex_indices[1];
+			const uint32_t v2 = temp_tris[t].vertex_indices[2];
 
 			if(num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))] == 1) // Boundary edge (has only 1 adjacent poly)
 				temp_tris.push_back(DUTriangle(v0, v1, 666, temp_tris[t].uv_indices[0], temp_tris[t].uv_indices[1], 666, 666, 1));
@@ -224,8 +230,8 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		for(uint32_t q = 0; q < initial_num_temp_quads; ++q) // For each original quad...
 		{
-			const uint32_t& v0 = temp_quads[q].vertex_indices[0]; const uint32_t& v1 = temp_quads[q].vertex_indices[1];
-			const uint32_t& v2 = temp_quads[q].vertex_indices[2]; const uint32_t& v3 = temp_quads[q].vertex_indices[3];
+			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
+			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
 
 			if(num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))] == 1) // Boundary edge (has only 1 adjacent poly)
 				temp_quads.push_back(DUQuad(v0, v1, 666, 666, temp_quads[q].uv_indices[0], temp_quads[q].uv_indices[1], 666, 666, 666, 1));
@@ -283,7 +289,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		linearSubdivision(
 			print_output,
 			context,
-			object,
+			//object,
+			materials,
 			//materials,
 			//camera_coordframe_os, 
 			//pixel_height_at_dist_one, 
@@ -329,7 +336,8 @@ void DisplacementUtils::subdivideAndDisplace(
 	// Apply the final displacement
 	displace(
 		context,
-		object,
+		//object,
+		materials,
 		true, // use anchoring
 		//materials, 
 		temp_tris, // tris in
@@ -363,9 +371,16 @@ void DisplacementUtils::subdivideAndDisplace(
 			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index));
 			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index));
 
+			tris_out[tris_out.size() - 2].uv_indices[0] = temp_quads[i].uv_indices[0];
+			tris_out[tris_out.size() - 2].uv_indices[1] = temp_quads[i].uv_indices[1];
+			tris_out[tris_out.size() - 2].uv_indices[2] = temp_quads[i].uv_indices[2];
+
+			tris_out[tris_out.size() - 1].uv_indices[0] = temp_quads[i].uv_indices[0];
+			tris_out[tris_out.size() - 1].uv_indices[1] = temp_quads[i].uv_indices[2];
+			tris_out[tris_out.size() - 1].uv_indices[2] = temp_quads[i].uv_indices[3];
 			// XXX this could be wrong?
-			for(uint32_t c = 0; c < 4; ++c)
-				tris_out.back().uv_indices[c] = temp_quads[i].uv_indices[c];
+			//for(uint32_t c = 0; c < 4; ++c)
+			//	tris_out.back().uv_indices[c] = temp_quads[i].uv_indices[c];
 		}
 	}
 
@@ -461,7 +476,8 @@ evaluated at an arbitrary point on the triangle, according to the barycentric co
 
 */
 static float evalDisplacement(ThreadContext& context, 
-								const Object& object,
+								//const Object& object,
+								const std::vector<Reference<MaterialBinding> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
 								const std::vector<Vec2f>& uvs,
@@ -470,7 +486,7 @@ static float evalDisplacement(ThreadContext& context,
 								float b2
 								)
 {
-	const Material& material = object.getMaterial(triangle.tri_mat_index);
+	const Material& material = *materials[triangle.tri_mat_index]->material; //object.getMaterial(triangle.tri_mat_index);
 	
 	if(material.displacing())
 	{
@@ -489,7 +505,7 @@ static float evalDisplacement(ThreadContext& context,
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		const MaterialBinding& material_binding = object.getMaterialBinding(triangle.tri_mat_index);
+		const MaterialBinding& material_binding = *materials[triangle.tri_mat_index]; //object.getMaterialBinding(triangle.tri_mat_index);
 
 		return (float)material.evaluateDisplacement(context, hitinfo, material_binding, du_texcoord_evaluator);
 	}
@@ -530,7 +546,8 @@ and the displacement as evaluated directly.
 
 */
 static float displacementError(ThreadContext& context, 
-								const Object& object,
+								//const Object& object,
+								const std::vector<Reference<MaterialBinding> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
 								const std::vector<Vec2f>& uvs,
@@ -539,7 +556,7 @@ static float displacementError(ThreadContext& context,
 								)
 {
 	// Early out if material not displacing:
-	if(!object.getMaterial(triangle.tri_mat_index).displacing())
+	if(!materials[triangle.tri_mat_index]->material->displacing()) // if(!object.getMaterial(triangle.tri_mat_index).displacing())
 		return 0.0f;
 
 	float max_error = -std::numeric_limits<float>::max();
@@ -555,7 +572,7 @@ static float displacementError(ThreadContext& context,
 
 			const float error = fabs(
 				interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
-				evalDisplacement(context, object, triangle, verts, uvs, num_uv_sets, b1, b2)
+				evalDisplacement(context, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
 				);
 
 			max_error = myMax(max_error, error);
@@ -571,7 +588,8 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 */
 void DisplacementUtils::displace(ThreadContext& context,
-								 const Object& object,
+								 //const Object& object,
+								 const std::vector<Reference<MaterialBinding> >& materials,
 								 bool use_anchoring,
 								 const std::vector<DUTriangle>& triangles,
 								 const std::vector<DUQuad>& quads,
@@ -592,6 +610,13 @@ void DisplacementUtils::displace(ThreadContext& context,
 			(*unclipped_tris_out)[i] = true;
 	}
 
+	if(unclipped_quads_out)
+	{
+		unclipped_quads_out->resize(quads.size());
+		for(uint32_t i = 0; i < quads.size(); ++i)
+			(*unclipped_quads_out)[i] = true;
+	}
+
 
 	DUTexCoordEvaluator du_texcoord_evaluator;
 	du_texcoord_evaluator.texcoords.resize(num_uv_sets);
@@ -607,8 +632,8 @@ void DisplacementUtils::displace(ThreadContext& context,
 		if(triangles[t].dimension == 2)
 		{
 			const uint32_t material_index = triangles[t].tri_mat_index;
-			const Material* material = &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
-			const MaterialBinding& material_binding = object.getMaterialBinding(material_index);
+			const Material* material = materials[triangles[t].tri_mat_index]->material.getPointer(); // &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
+			const MaterialBinding& material_binding = *materials[triangles[t].tri_mat_index]; // object.getMaterialBinding(material_index);
 
 			if(material->displacing())
 			{
@@ -836,7 +861,8 @@ static int getDispErrorRes(unsigned int num_tris)
 void DisplacementUtils::linearSubdivision(
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const Object& object,
+	const std::vector<Reference<MaterialBinding> >& materials,
+	//const Object& object,
 	//const std::vector<Reference<Material> >& materials,
 	//const CoordFramed& camera_coordframe_os,
 	//const std::vector<Plane<float> >& camera_clip_planes,
@@ -863,7 +889,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<DUVertex> displaced_in_verts;
 	displace(
 		context,
-		object,
+		materials,
 		true, // use anchoring
 		//materials,
 		tris_in,
@@ -982,7 +1008,7 @@ void DisplacementUtils::linearSubdivision(
 						{
 							// Test displacement error
 							const int res = getDispErrorRes(tris_in.size());
-							const float displacement_error = displacementError(context, object, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
+							const float displacement_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
 
 							subdivide_triangle = displacement_error >= options.displacement_error_threshold;
 						}
@@ -1002,7 +1028,7 @@ void DisplacementUtils::linearSubdivision(
 				{
 					// Test displacement error
 					const int RES = 10;
-					const float displacment_error = displacementError(context, object, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
+					const float displacment_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
 
 					subdivide_triangle = displacment_error >= options.displacement_error_threshold;
 				}
@@ -1076,93 +1102,96 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 
-
+	// For each quad
 	for(uint32_t q = 0; q < quads_in.size(); ++q)
 	{
-		const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
-								quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
-
-		// Create the quad's centroid vertex
-		const uint32_t centroid_vert_index = verts_out.size();
-		const uint32_t centroid_uv_index = uvs_out.size() / num_uv_sets;
-
-		//quads_in[q].centre_vertex_index = centroid_vert_index;
-		//quads_in[q].centre_uv_index = centroid_uv_index;
-		quad_centre_data[q].first  = centroid_vert_index;
-		quad_centre_data[q].second = centroid_uv_index;
-
-		verts_out.push_back(DUVertex(
-			(verts_in[v[0]].pos + verts_in[v[1]].pos + verts_in[v[2]].pos + verts_in[v[3]].pos) * 0.25f,
-			(verts_in[v[0]].normal + verts_in[v[1]].normal + verts_in[v[2]].normal + verts_in[v[3]].normal)// * 0.25f
-			));
-
-		for(uint32_t z = 0; z < num_uv_sets; ++z)
+		if(quads_in[q].dimension == 2) // if 2-d (triangle)
 		{
-			// this is probably super b0rked and wrong...
-			const Vec2f uv_top = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z),
-									 	 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z), 0.5f, options.wrap_u, options.wrap_v);
-			const Vec2f uv_bot = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z),
-										 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z), 0.5f, options.wrap_u, options.wrap_v);
+			const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
+									quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
 
-			uvs_out.push_back(lerpUVs(uv_top, uv_bot, 0.5f, options.wrap_u, options.wrap_v));
-		}
+			// Create the quad's centroid vertex
+			const uint32_t centroid_vert_index = verts_out.size();
+			const uint32_t centroid_uv_index = uvs_out.size() / num_uv_sets;
 
+			//quads_in[q].centre_vertex_index = centroid_vert_index;
+			//quads_in[q].centre_uv_index = centroid_uv_index;
+			quad_centre_data[q].first  = centroid_vert_index;
+			quad_centre_data[q].second = centroid_uv_index;
 
-		// Create the quad's edge vertices
-		for(uint32_t v = 0; v < 4; ++v)
-		{
-			const unsigned int v0 = quads_in[q].vertex_indices[v];
-			const unsigned int v1 = quads_in[q].vertex_indices[mod4[v + 1]];
+			verts_out.push_back(DUVertex(
+				(verts_in[v[0]].pos + verts_in[v[1]].pos + verts_in[v[2]].pos + verts_in[v[3]].pos) * 0.25f,
+				(verts_in[v[0]].normal + verts_in[v[1]].normal + verts_in[v[2]].normal + verts_in[v[3]].normal)// * 0.25f
+				));
 
-			// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
-
-			const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
-
-			DUEdgeInfo& edge_info = edge_info_map[edge];
-
-			if(edge_info.num_adjacent_subdividing_polys == 0)
+			for(uint32_t z = 0; z < num_uv_sets; ++z)
 			{
-				// Create the edge midpoint vertex
-				const uint32_t new_vert_index = verts_out.size();
+				// this is probably super b0rked and wrong...
+				const Vec2f uv_top = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z),
+									 		 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z), 0.5f, options.wrap_u, options.wrap_v);
+				const Vec2f uv_bot = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z),
+											 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z), 0.5f, options.wrap_u, options.wrap_v);
 
-				verts_out.push_back(DUVertex(
-					(verts_in[v0].pos + verts_in[v1].pos) * 0.5f,
-					(verts_in[v0].normal + verts_in[v1].normal)// * 0.5f
-					));
-
-				verts_out.back().adjacent_vert_0 = edge.v_a;
-				verts_out.back().adjacent_vert_1 = edge.v_b;
-
-				edge_info.midpoint_vert_index = new_vert_index;
+				uvs_out.push_back(lerpUVs(uv_top, uv_bot, 0.5f, options.wrap_u, options.wrap_v));
 			}
 
-			edge_info.num_adjacent_subdividing_polys++;
 
-			// Create new uvs at edge midpoint, if not already created.
-
-			if(num_uv_sets > 0)
+			// Create the quad's edge vertices
+			for(uint32_t v = 0; v < 4; ++v)
 			{
-				const unsigned int uv0 = quads_in[q].uv_indices[v];
-				const unsigned int uv1 = quads_in[q].uv_indices[mod4[v + 1]];
+				const unsigned int v0 = quads_in[q].vertex_indices[v];
+				const unsigned int v1 = quads_in[q].vertex_indices[mod4[v + 1]];
 
-				const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 
-				const std::map<DUVertIndexPair, uint32_t>::const_iterator result = uv_edge_map.find(edge_key);
-				if(result == uv_edge_map.end())
+				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+
+				DUEdgeInfo& edge_info = edge_info_map[edge];
+
+				if(edge_info.num_adjacent_subdividing_polys == 0)
 				{
-					uv_edge_map.insert(std::make_pair(edge_key, uvs_out.size() / num_uv_sets));
+					// Create the edge midpoint vertex
+					const uint32_t new_vert_index = verts_out.size();
 
-					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						uvs_out.push_back(
-							lerpUVs(
-								getUVs(uvs_in, num_uv_sets, uv0, z),
-								getUVs(uvs_in, num_uv_sets, uv1, z),
-								0.5f,
-								options.wrap_u, options.wrap_v
-							)
-						);
+					verts_out.push_back(DUVertex(
+						(verts_in[v0].pos + verts_in[v1].pos) * 0.5f,
+						(verts_in[v0].normal + verts_in[v1].normal)// * 0.5f
+						));
+
+					verts_out.back().adjacent_vert_0 = edge.v_a;
+					verts_out.back().adjacent_vert_1 = edge.v_b;
+
+					edge_info.midpoint_vert_index = new_vert_index;
 				}
-				// else midpoint uvs already created
+
+				edge_info.num_adjacent_subdividing_polys++;
+
+				// Create new uvs at edge midpoint, if not already created.
+
+				if(num_uv_sets > 0)
+				{
+					const unsigned int uv0 = quads_in[q].uv_indices[v];
+					const unsigned int uv1 = quads_in[q].uv_indices[mod4[v + 1]];
+
+					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+
+					const std::map<DUVertIndexPair, uint32_t>::const_iterator result = uv_edge_map.find(edge_key);
+					if(result == uv_edge_map.end())
+					{
+						uv_edge_map.insert(std::make_pair(edge_key, uvs_out.size() / num_uv_sets));
+
+						for(uint32_t z = 0; z < num_uv_sets; ++z)
+							uvs_out.push_back(
+								lerpUVs(
+									getUVs(uvs_in, num_uv_sets, uv0, z),
+									getUVs(uvs_in, num_uv_sets, uv1, z),
+									0.5f,
+									options.wrap_u, options.wrap_v
+								)
+							);
+					}
+					// else midpoint uvs already created
+				}
 			}
 		}
 
@@ -1476,25 +1505,25 @@ void DisplacementUtils::linearSubdivision(
 				quads_out.push_back(DUQuad(
 					quads_in[q].vertex_indices[0], midpoint_vert_indices[0], centre_vert_idx, midpoint_vert_indices[3],
 					quads_in[q].uv_indices[0], midpoint_uv_indices[0], centre_uv_idx, midpoint_uv_indices[3],
-					quads_in[q].mat_index, 3 // dimension
+					quads_in[q].mat_index, 2 // dimension
 					));
 
 				quads_out.push_back(DUQuad(
 					midpoint_vert_indices[0], quads_in[q].vertex_indices[1], midpoint_vert_indices[1], centre_vert_idx,
 					midpoint_uv_indices[0], quads_in[q].uv_indices[1], midpoint_uv_indices[1], centre_uv_idx,
-					quads_in[q].mat_index, 3 // dimension
+					quads_in[q].mat_index, 2 // dimension
 					));
 
 				quads_out.push_back(DUQuad(
 					centre_vert_idx, midpoint_vert_indices[1], quads_in[q].vertex_indices[2], midpoint_vert_indices[2],
 					centre_uv_idx, midpoint_uv_indices[1], quads_in[q].uv_indices[2], midpoint_uv_indices[2],
-					quads_in[q].mat_index, 3 // dimension
+					quads_in[q].mat_index, 2 // dimension
 					));
 
 				quads_out.push_back(DUQuad(
 					midpoint_vert_indices[3], centre_vert_idx, midpoint_vert_indices[2], quads_in[q].vertex_indices[3],
 					midpoint_uv_indices[3], centre_uv_idx, midpoint_uv_indices[2], quads_in[q].uv_indices[3],
-					quads_in[q].mat_index, 3 // dimension
+					quads_in[q].mat_index, 2 // dimension
 					));
 
 				num_quads_subdivided++;
@@ -1598,8 +1627,11 @@ void DisplacementUtils::averagePass(
 		for(uint32_t v = 0; v < tris[t].dimension + 1; ++v)
 			dim[tris[t].vertex_indices[v]] = myMin(dim[tris[t].vertex_indices[v]], tris[t].dimension);
 	for(uint32_t q = 0; q < quads.size(); ++q)
-		for(uint32_t v = 0; v < quads[q].dimension + 1; ++v)
+	{
+		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+		for(uint32_t v = 0; v < num_v; ++v)
 			dim[quads[q].vertex_indices[v]] = myMin(dim[quads[q].vertex_indices[v]], quads[q].dimension);
+	}
 
 	// Initialise n_t
 	for(uint32_t t = 0; t < tris.size(); ++t)
@@ -1608,8 +1640,11 @@ void DisplacementUtils::averagePass(
 
 	// Initialise n_t
 	for(uint32_t q = 0; q < quads.size(); ++q)
-		for(uint32_t v = 0; v < quads[q].dimension + 1; ++v)
+	{
+		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+		for(uint32_t v = 0; v < num_v; ++v)
 			n_q[quads[q].vertex_indices[v]]++;
+	}
 
 	// Initialise uv_n_t
 	/*if(num_uv_sets > 0)
@@ -1631,7 +1666,7 @@ void DisplacementUtils::averagePass(
 			}
 
 	for(uint32_t q = 0; q < quads.size(); ++q) // For each quad
-		if(quads[q].dimension == 3) // If it's a quad
+		if(quads[q].dimension == 2) // If it's a quad
 			for(uint32_t i = 0; i < 4; ++i) // For each vertex
 			{
 				const uint32_t v_i = quads[q].vertex_indices[i]; // vertex index
@@ -1765,7 +1800,9 @@ void DisplacementUtils::averagePass(
 
 	for(uint32_t q = 0; q < quads.size(); ++q) // For each quad
 	{
-		for(uint32_t v = 0; v < quads[q].dimension + 1; ++v) // For each vertex
+		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+
+		for(uint32_t v = 0; v < num_v; ++v) // For each vertex
 		{
 			const uint32_t v0 = quads[q].vertex_indices[v];
 
@@ -1796,7 +1833,7 @@ void DisplacementUtils::averagePass(
 				else
 				{
 					// q is a quad
-					assert(quads[q].dimension == 3);
+					assert(quads[q].dimension == 2);
 					const uint32_t v1 = quads[q].vertex_indices[mod4[v + 1]];
 					const uint32_t v2 = quads[q].vertex_indices[mod4[v + 2]];
 					const uint32_t v3 = quads[q].vertex_indices[mod4[v + 3]];
@@ -2049,6 +2086,90 @@ void DisplacementUtils::test()
 
 	testAssert(epsEqual(wrappedLerp(-0.1, 0.1, 0.5), 0.0));
 	testAssert(epsEqual(wrappedLerp(0.1, -0.1, 0.5), 0.0));
-}
-#endif
 
+	/////////////////////	
+	std::vector<RayMeshVertex> vertices(4);
+	std::vector<Vec2f> uvs(4);
+	js::Vector<RayMeshTriangle, 16> triangles;
+	js::Vector<RayMeshQuad, 16> quads(1);
+
+	js::Vector<RayMeshTriangle, 16> triangles_out;
+	std::vector<RayMeshVertex> verts_out;
+	std::vector<Vec2f> uvs_out;
+
+
+	// Quad vertices in CCW order from top right, facing up
+	vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
+	vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
+	vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
+	vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
+
+	uvs[0] = Vec2f(1, 1);
+	uvs[1] = Vec2f(0, 1);
+	uvs[2] = Vec2f(0, 0);
+	uvs[3] = Vec2f(1, 0);
+
+
+	quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
+	quads[0].uv_indices[0] = 0;
+	quads[0].uv_indices[1] = 1;
+	quads[0].uv_indices[2] = 2;
+	quads[0].uv_indices[3] = 3;
+
+	StandardPrintOutput print_output;
+	ThreadContext context;
+
+	std::vector<Reference<MaterialBinding> > materials;
+	materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
+		std::vector<TextureUnit*>(),
+		Reference<SpectrumMatParameter>(NULL),
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<SpectrumMatParameter>(NULL),
+		Reference<SpectrumMatParameter>(NULL),
+		0, // layer_index
+		false // random_triangle_colours
+	)))));
+
+	materials[0]->uv_set_indices.push_back(0);
+
+	DUOptions options;
+	options.object_to_camera = Matrix4f::identity();
+	options.wrap_u = false;
+	options.wrap_v = false;
+	options.view_dependent_subdivision = false;
+	options.pixel_height_at_dist_one = 1;
+	options.subdivide_pixel_threshold = 0;
+	options.subdivide_curvature_threshold = 0;
+	options.displacement_error_threshold = 0;
+	options.max_num_subdivisions = 1;
+
+	DisplacementUtils::subdivideAndDisplace(
+		print_output,
+		context,
+		materials,
+		true, // smooth
+		triangles,
+		quads,
+		vertices,
+		uvs,
+		1, // num uv sets
+		options,
+		triangles_out,
+		verts_out,
+		uvs_out
+	);
+
+	for(size_t i=0; i<verts_out.size(); ++i)
+	{
+		conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+	}
+
+	for(size_t i=0; i<triangles_out.size(); ++i)
+	{
+		conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
+	}
+}
+
+
+#endif

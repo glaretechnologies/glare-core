@@ -124,7 +124,8 @@ public:
 	static void subdivideAndDisplace(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		const Object& object,
+		//const Object& object,
+		const std::vector<Reference<MaterialBinding> >& materials,
 		//const CoordFramed& camera_coordframe_os, 
 		//double pixel_height_at_dist_one, 
 		//double subdivide_pixel_threshold, 
@@ -141,7 +142,7 @@ public:
 		js::Vector<RayMeshTriangle, 16>& tris_out,
 		std::vector<RayMeshVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out
-		);
+	);
 
 
 	static void test();
@@ -149,7 +150,8 @@ public:
 private:
 	static void displace(
 		ThreadContext& context,
-		const Object& object,
+		//const Object& object,
+		const std::vector<Reference<MaterialBinding> >& materials,
 		bool use_anchoring,
 		const std::vector<DUTriangle>& tris,
 		const std::vector<DUQuad>& quads,
@@ -164,7 +166,8 @@ private:
 	static void linearSubdivision(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		const Object& object,
+		//const Object& object,
+		const std::vector<Reference<MaterialBinding> >& materials,
 		//const CoordFramed& camera_coordframe_os,
 		//double pixel_height_at_dist_one,
 		//double subdivide_pixel_threshold,

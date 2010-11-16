@@ -191,6 +191,7 @@ public:
 	virtual void addVertex(const Vec3f& pos, const Vec3f& normal);
 	virtual void addUVs(const std::vector<Vec2f>& uvs);
 	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+	virtual void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 
 	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
 	virtual void addMaterialUsed(const std::string& material_name);
@@ -205,6 +206,7 @@ public:
 	INDIGO_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
 	//INDIGO_STRONG_INLINE const Vec3f triNormal(unsigned int triindex) const;
 	INDIGO_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
+	INDIGO_STRONG_INLINE const unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
 	//inline const unsigned int getNumVerts() const { return num_vertices; }
 
 	INDIGO_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }

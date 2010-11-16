@@ -247,13 +247,28 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 				handler.addMaterialUsed("default");
 			}
 
-			// Add all tris needed to make up the face polygon
-			for(int i=2; i<numfaceverts; ++i)
+			if(numfaceverts == 3)
 			{
-				//const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
-				const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + i - 1, num_vertices_added + i };
-				const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
+				const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + 1, num_vertices_added + 2 };
+				const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[1], face_uv_indices[2] };
 				handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
+			}
+			else if(numfaceverts == 4)
+			{
+				const unsigned int v_indices[4] = { num_vertices_added, num_vertices_added + 1, num_vertices_added + 2, num_vertices_added + 3 };
+				const unsigned int uv_indices[4] = { face_uv_indices[0], face_uv_indices[1], face_uv_indices[2], face_uv_indices[3] };
+				handler.addQuad(v_indices, uv_indices, current_mat_index);
+			}
+			else
+			{
+				// Add all tris needed to make up the face polygon
+				for(int i=2; i<numfaceverts; ++i)
+				{
+					//const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
+					const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + i - 1, num_vertices_added + i };
+					const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
+					handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
+				}
 			}
 
 			num_vertices_added += numfaceverts;
