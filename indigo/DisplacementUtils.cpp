@@ -37,6 +37,45 @@ static const uint32_t mod3[] = { 0, 1, 2, 0, 1, 2 };
 static const uint32_t mod4[] = { 0, 1, 2, 3, 0, 1, 2, 3 };
 
 
+
+const float doMod(float x)
+{
+	if(x >= 0)
+	{
+		return fmod(x, 1.0f);
+	}
+	else
+	{
+		const float y = -x;
+		return 1.0f - fmod(y, 1.0f);
+	}
+}
+
+const Vec2f doMod(const Vec2f& v)
+{
+	return Vec2f(doMod(v.x), doMod(v.y));
+}
+
+
+const Vec2f uvCombination(const std::vector<Vec2f>& uvs, const std::vector<float>& weights)
+{
+	const Vec2f trans = Vec2f(0.5,0.5) - uvs[0];
+
+	Vec2f sum(0,0);
+	for(size_t i=0; i<uvs.size(); ++i)
+	{
+		const Vec2f T_uv = uvs[i] + trans;
+		const Vec2f mod_T_uv = doMod(T_uv);
+		const Vec2f w_mod_T_uv = mod_T_uv * weights[i];
+		sum += w_mod_T_uv;
+	}
+
+	sum -= trans;
+
+	return Vec2f(doMod(sum));
+}
+
+
 static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, uint32_t v0, uint32_t v1, uint32_t v2)
 {
 	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
@@ -1105,7 +1144,7 @@ void DisplacementUtils::linearSubdivision(
 	// For each quad
 	for(uint32_t q = 0; q < quads_in.size(); ++q)
 	{
-		if(quads_in[q].dimension == 2) // if 2-d (triangle)
+		if(quads_in[q].dimension == 2) // if 2-d (quad)
 		{
 			const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
 									quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
@@ -1126,13 +1165,20 @@ void DisplacementUtils::linearSubdivision(
 
 			for(uint32_t z = 0; z < num_uv_sets; ++z)
 			{
+				//TODO: remove these lerpUVs
 				// this is probably super b0rked and wrong...
-				const Vec2f uv_top = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z),
-									 		 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z), 0.5f, options.wrap_u, options.wrap_v);
-				const Vec2f uv_bot = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z),
-											 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z), 0.5f, options.wrap_u, options.wrap_v);
+				//const Vec2f uv_top = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z),
+				//					 		 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z), 0.5f, options.wrap_u, options.wrap_v);
+				//const Vec2f uv_bot = lerpUVs(getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z),
+				//							 getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z), 0.5f, options.wrap_u, options.wrap_v);
 
-				uvs_out.push_back(lerpUVs(uv_top, uv_bot, 0.5f, options.wrap_u, options.wrap_v));
+				//uvs_out.push_back(lerpUVs(uv_top, uv_bot, 0.5f, options.wrap_u, options.wrap_v));
+
+				uvs_out.push_back((
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z) +
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z) + 
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z)) * 0.25f);
 			}
 
 
@@ -1181,14 +1227,17 @@ void DisplacementUtils::linearSubdivision(
 						uv_edge_map.insert(std::make_pair(edge_key, uvs_out.size() / num_uv_sets));
 
 						for(uint32_t z = 0; z < num_uv_sets; ++z)
-							uvs_out.push_back(
+						{
+							uvs_out.push_back((getUVs(uvs_in, num_uv_sets, uv0, z) + getUVs(uvs_in, num_uv_sets, uv1, z)) * 0.5f);
+							/*uvs_out.push_back(
 								lerpUVs(
 									getUVs(uvs_in, num_uv_sets, uv0, z),
 									getUVs(uvs_in, num_uv_sets, uv1, z),
 									0.5f,
 									options.wrap_u, options.wrap_v
 								)
-							);
+							);*/
+						}
 					}
 					// else midpoint uvs already created
 				}
@@ -1611,7 +1660,7 @@ void DisplacementUtils::averagePass(
 	// For each vertex, we will store a list of the indices of UV coord pairs associated with the vertex
 	std::vector<VertexUVSetIndices> vert_uv_set_indices(verts.size());
 
-	std::vector<Vec2f> uv_offsets(uvs_in.size()); //verts.size() * num_uv_sets);
+	/*std::vector<Vec2f> uv_offsets(uvs_in.size()); //verts.size() * num_uv_sets);
 
 	// Init uv_offsets
 	for(uint32_t i = 0; i < uv_offsets.size(); ++i)
@@ -1620,6 +1669,11 @@ void DisplacementUtils::averagePass(
 		uv_offsets[i].y = options.wrap_v ? ((uvs_in[i].y < 0.25f || uvs_in[i].y > 0.75f) ? 0.5f : 0.0f) : 0.0f;
 
 		//uv_offsets[i] = Vec2f(0.f, 0.f);
+	}*/
+	std::vector<Vec2f> uv_offsets(uvs_in.size());
+	for(uint32_t i = 0; i < uv_offsets.size(); ++i)
+	{
+		uv_offsets[i] = Vec2f(0.5f, 0.5f) - uvs_in[i];
 	}
 
 	// Initialise dim
@@ -1822,12 +1876,26 @@ void DisplacementUtils::averagePass(
 				{
 					cent = (verts[v0].pos + verts[quads[q].vertex_indices[(v + 1) % 2]].pos) * 0.5f;
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						uv_cent[z] = lerpUVs(
+					{
+						if(options.wrap_u)
+						{
+							uv_cent[z] = 
+								doMod(uv_offsets[quads[q].uv_indices[v]] + getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z)) * 0.5f + 
+								doMod(uv_offsets[quads[q].uv_indices[v]] + getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z)) * 0.5f;
+						}
+						else
+						{
+							uv_cent[z] = 
+								getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z) * 0.5f + 
+								getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z) * 0.5f;
+						}
+					/*uv_cent[z] = lerpUVs(
 						getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z),
 						getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[(v + 1) % 2], z),
 						0.5f,
 						options.wrap_u, options.wrap_v
-						);
+						);*/
+					}
 					weight = 1.0f;
 				}
 				else
@@ -1853,7 +1921,30 @@ void DisplacementUtils::averagePass(
 					const uint32 uv3 = quads[q].uv_indices[mod4[v + 3]];
 
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						uv_cent[z] = lerpUVs(
+					{
+						//TEMP
+						std::vector<Vec2f> uvs(4);
+						uvs[0] = getUVs(uvs_in, num_uv_sets, uv0, z);
+						uvs[1] = getUVs(uvs_in, num_uv_sets, uv1, z);
+						uvs[2] = getUVs(uvs_in, num_uv_sets, uv2, z);
+						uvs[3] = getUVs(uvs_in, num_uv_sets, uv3, z);
+
+						if(options.wrap_u)
+						{
+
+							//const std::vector<float> weights(4, 0.25f);
+							//uv_cent[z] = uvCombination(uvs, weights);
+							uv_cent[z] = doMod(uv_offsets[uv0] + uvs[0]) * 0.25f;
+							uv_cent[z] += doMod(uv_offsets[uv0] + uvs[1]) * 0.25f;
+							uv_cent[z] += doMod(uv_offsets[uv0] + uvs[2]) * 0.25f;
+							uv_cent[z] += doMod(uv_offsets[uv0] + uvs[3]) * 0.25f;
+						}
+						else
+						{
+							uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
+						}
+
+						/*uv_cent[z] = lerpUVs(
 							lerpUVs(
 								getUVs(uvs_in, num_uv_sets, uv0, z),
 								getUVs(uvs_in, num_uv_sets, uv1, z),
@@ -1868,7 +1959,8 @@ void DisplacementUtils::averagePass(
 							),
 							0.5f,
 							options.wrap_u, options.wrap_v
-						);
+						);*/
+					}
 
 					/*for(unsigned int z=0; z<num_uv_sets; ++z)
 					uv_cent[z] = 
@@ -1900,12 +1992,13 @@ void DisplacementUtils::averagePass(
 
 					//const Vec2f raw_uvs = uv_cent[z];
 
-					const Vec2f shifted_uvs(
+					/*const Vec2f shifted_uvs(
 						options.wrap_u ? fmod(uv_cent[z].x + uv_offsets[uv_index].x, 1.0f) : uv_cent[z].x,
 						options.wrap_v ? fmod(uv_cent[z].y + uv_offsets[uv_index].y, 1.0f) : uv_cent[z].y
 						);
 
-					uvs_out[uv_index] += shifted_uvs * weight;
+					uvs_out[uv_index] += shifted_uvs * weight;*/
+					uvs_out[uv_index] += uv_cent[z] * weight;
 
 					//getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[i], z) += uv_cent[z] * weight;
 
@@ -1932,48 +2025,67 @@ void DisplacementUtils::averagePass(
 
 
 
-
+	// Do 'normalize vertices by the weights' and 'apply correction only for quads and triangles' step.
 	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
 	{
 		const float w_val = w(n_t[v], n_q[v]);
 
 		new_verts_out[v].pos /= total_weight[v];
-		new_verts_out[v].pos = Maths::uncheckedLerp(
-			verts[v].pos, 
-			new_verts_out[v].pos, 
-			w_val
-			); //verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w_val;
 
-		//new_verts_out[v].normal /= total_weight[v];
-		//new_verts_out[v].normal = verts[v].normal + (new_verts_out[v].normal - verts[v].normal) * w_val;
-		//new_verts_out[v].normal.normalise();
+		//NOTE: Missing if dim == 2 check here?
+		if(dim[v] == 2) // NEW
+		{
+			new_verts_out[v].pos = Maths::uncheckedLerp(
+				verts[v].pos, 
+				new_verts_out[v].pos, 
+				w_val
+				); //verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w_val;
 
 
-		for(uint32_t z = 0; z < num_uv_sets; ++z)
-			for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
-			{
-				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
+			//new_verts_out[v].normal /= total_weight[v];
+			//new_verts_out[v].normal = verts[v].normal + (new_verts_out[v].normal - verts[v].normal) * w_val;
+			//new_verts_out[v].normal.normalise();
 
-				uvs_out[uv_index] /= total_weight[v];
 
-				uvs_out[uv_index] -= uv_offsets[uv_index];
+			for(uint32_t z = 0; z < num_uv_sets; ++z)
+				for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
+				{
+					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 
-				uvs_out[uv_index] = lerpUVs(//Maths::uncheckedLerp(
-					uvs_in[uv_index], 
-					uvs_out[uv_index], 
-					w_val,
-					options.wrap_u, options.wrap_v
-					);
-/*
-				getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) /= total_weight[v];
 
-				getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) = Maths::uncheckedLerp(
-					getUVs(uvs_in, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
-					getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
-					w_val
-					);*/
-			}
+					uvs_out[uv_index] /= total_weight[v];
 
+					uvs_out[uv_index] = uvs_in[uv_index] + (uvs_out[uv_index] - uvs_in[uv_index]) * w_val;
+
+					// Apply inverse transformation
+					if(options.wrap_u)
+					{
+						uvs_out[uv_index] -= uv_offsets[uv_index];
+						uvs_out[uv_index] = uvs_out[uv_index];
+					}
+
+
+
+					/*uvs_out[uv_index] /= total_weight[v];
+
+					uvs_out[uv_index] -= uv_offsets[uv_index];
+
+					uvs_out[uv_index] = lerpUVs(//Maths::uncheckedLerp(
+						uvs_in[uv_index], 
+						uvs_out[uv_index], 
+						w_val,
+						options.wrap_u, options.wrap_v
+						);*/
+	/*
+					getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) /= total_weight[v];
+
+					getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z) = Maths::uncheckedLerp(
+						getUVs(uvs_in, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
+						getUVs(uvs_out, num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z), 
+						w_val
+						);*/
+				}
+		} // end if dim == 2
 
 
 	}
@@ -2075,6 +2187,8 @@ void DisplacementUtils::averagePass(
 }
 
 
+
+
 #if (BUILD_TESTS)
 void DisplacementUtils::test()
 {
@@ -2091,6 +2205,47 @@ void DisplacementUtils::test()
 
 	testAssert(epsEqual(wrappedLerp(-0.1, 0.1, 0.5), 0.0));
 	testAssert(epsEqual(wrappedLerp(0.1, -0.1, 0.5), 0.0));
+
+	{
+		std::vector<Vec2f> uvs;
+		uvs.push_back(Vec2f(0.1, 0.1));
+		uvs.push_back(Vec2f(0.3, 0.3));
+
+		const std::vector<float> weights(2, 0.5);
+
+		const Vec2f v = uvCombination(uvs, weights);
+
+		testAssert(epsEqual(v.x, 0.2f));
+		testAssert(epsEqual(v.y, 0.2f));
+	}
+
+	{
+		std::vector<Vec2f> uvs;
+		uvs.push_back(Vec2f(0.3, 0.3));
+		uvs.push_back(Vec2f(0.1, 0.1));
+
+		const std::vector<float> weights(2, 0.5);
+
+		const Vec2f v = uvCombination(uvs, weights);
+
+		testAssert(epsEqual(v.x, 0.2f));
+		testAssert(epsEqual(v.y, 0.2f));
+	}
+
+	{
+		std::vector<Vec2f> uvs;
+		uvs.push_back(Vec2f(0.9, 0.9));
+		uvs.push_back(Vec2f(0.1, 0.1));
+
+		std::vector<float> weights;
+		weights.push_back(0.75f);
+		weights.push_back(0.25f);
+
+		const Vec2f v = uvCombination(uvs, weights);
+
+		testAssert(epsEqual(v.x, 0.95f));
+		testAssert(epsEqual(v.y, 0.95f));
+	}
 
 	/////////////////////	
 	std::vector<RayMeshVertex> vertices(4);
@@ -2173,6 +2328,11 @@ void DisplacementUtils::test()
 	for(size_t i=0; i<triangles_out.size(); ++i)
 	{
 		conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
+
+		for(int v=0; v<3; ++v)
+		{
+			conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
+		}
 	}
 }
 
