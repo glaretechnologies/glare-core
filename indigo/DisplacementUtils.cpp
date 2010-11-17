@@ -6,6 +6,15 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "DisplacementUtils.h"
 
+/*
+
+NOTE: The subdivision scheme is based on the paper
+'A Factored Approach to Subdivision Surfaces'
+by Joe Warren and Scott Schaefer
+
+
+
+*/
 
 #include "../maths/Rect2.h"
 #include "../maths/mathstypes.h"
@@ -33,8 +42,23 @@ DisplacementUtils::~DisplacementUtils()
 }
 
 
-static const uint32_t mod3[] = { 0, 1, 2, 0, 1, 2 };
-static const uint32_t mod4[] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static const uint32_t mod3_table[] = { 0, 1, 2, 0, 1, 2 };
+//static const uint32_t mod4[] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+
+inline static uint32 mod2(uint32 x)
+{
+	return x & 0x1;
+}
+
+inline static uint32 mod3(uint32 x)
+{
+	return mod3_table[x];
+}
+
+inline static uint32 mod4(uint32 x)
+{
+	return x & 0x3;
+}
 
 
 
@@ -1082,7 +1106,7 @@ void DisplacementUtils::linearSubdivision(
 				{
 					{
 					const unsigned int v0 = tris_in[t].vertex_indices[v];
-					const unsigned int v1 = tris_in[t].vertex_indices[mod3[v + 1]];
+					const unsigned int v1 = tris_in[t].vertex_indices[mod3(v + 1)];
 
 					// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 
@@ -1114,7 +1138,7 @@ void DisplacementUtils::linearSubdivision(
 					if(num_uv_sets > 0)
 					{
 						const unsigned int uv0 = tris_in[t].uv_indices[v];
-						const unsigned int uv1 = tris_in[t].uv_indices[mod3[v + 1]];
+						const unsigned int uv1 = tris_in[t].uv_indices[mod3(v + 1)];
 
 						const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
@@ -1186,7 +1210,7 @@ void DisplacementUtils::linearSubdivision(
 			for(uint32_t v = 0; v < 4; ++v)
 			{
 				const unsigned int v0 = quads_in[q].vertex_indices[v];
-				const unsigned int v1 = quads_in[q].vertex_indices[mod4[v + 1]];
+				const unsigned int v1 = quads_in[q].vertex_indices[mod4(v + 1)];
 
 				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 
@@ -1217,7 +1241,7 @@ void DisplacementUtils::linearSubdivision(
 				if(num_uv_sets > 0)
 				{
 					const unsigned int uv0 = quads_in[q].uv_indices[v];
-					const unsigned int uv1 = quads_in[q].uv_indices[mod4[v + 1]];
+					const unsigned int uv1 = quads_in[q].uv_indices[mod4(v + 1)];
 
 					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
@@ -1360,7 +1384,7 @@ void DisplacementUtils::linearSubdivision(
 				{
 					{
 					const uint32_t v0 = tris_in[t].vertex_indices[v];
-					const uint32_t v1 = tris_in[t].vertex_indices[mod3[v + 1]];
+					const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
 					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
 					const std::map<DUVertIndexPair, DUEdgeInfo>::iterator result = edge_info_map.find(edge);
@@ -1371,7 +1395,7 @@ void DisplacementUtils::linearSubdivision(
 					if(num_uv_sets > 0)
 					{
 						const uint32_t uv0 = tris_in[t].uv_indices[v];
-						const uint32_t uv1 = tris_in[t].uv_indices[mod3[v + 1]];
+						const uint32_t uv1 = tris_in[t].uv_indices[mod3(v + 1)];
 						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
 						const std::map<DUVertIndexPair, uint32_t>::iterator result = uv_edge_map.find(edge);
@@ -1524,7 +1548,7 @@ void DisplacementUtils::linearSubdivision(
 				{
 					{
 						const uint32_t v0 = quads_in[q].vertex_indices[v];
-						const uint32_t v1 = quads_in[q].vertex_indices[mod4[v + 1]];
+						const uint32_t v1 = quads_in[q].vertex_indices[mod4(v + 1)];
 						const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
 						const std::map<DUVertIndexPair, DUEdgeInfo>::iterator result = edge_info_map.find(edge);
@@ -1535,7 +1559,7 @@ void DisplacementUtils::linearSubdivision(
 					if(num_uv_sets > 0)
 					{
 						const uint32_t uv0 = quads_in[q].uv_indices[v];
-						const uint32_t uv1 = quads_in[q].uv_indices[mod4[v + 1]];
+						const uint32_t uv1 = quads_in[q].uv_indices[mod4(v + 1)];
 						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
 						const std::map<DUVertIndexPair, uint32_t>::iterator result = uv_edge_map.find(edge);
@@ -1682,7 +1706,7 @@ void DisplacementUtils::averagePass(
 			dim[tris[t].vertex_indices[v]] = myMin(dim[tris[t].vertex_indices[v]], tris[t].dimension);
 	for(uint32_t q = 0; q < quads.size(); ++q)
 	{
-		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+		const uint32 num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
 		for(uint32_t v = 0; v < num_v; ++v)
 			dim[quads[q].vertex_indices[v]] = myMin(dim[quads[q].vertex_indices[v]], quads[q].dimension);
 	}
@@ -1695,7 +1719,7 @@ void DisplacementUtils::averagePass(
 	// Initialise n_t
 	for(uint32_t q = 0; q < quads.size(); ++q)
 	{
-		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+		const uint32 num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
 		for(uint32_t v = 0; v < num_v; ++v)
 			n_q[quads[q].vertex_indices[v]]++;
 	}
@@ -1767,8 +1791,8 @@ void DisplacementUtils::averagePass(
 				{
 					// t is a triangle
 					assert(tris[t].dimension == 2);
-					const uint32_t v_i_plus_1  = tris[t].vertex_indices[mod3[v + 1]];
-					const uint32_t v_i_minus_1 = tris[t].vertex_indices[mod3[v + 2]];
+					const uint32_t v_i_plus_1  = tris[t].vertex_indices[mod3(v + 1)];
+					const uint32_t v_i_minus_1 = tris[t].vertex_indices[mod3(v + 2)];
 
 					cent = verts[v_i].pos * (1.0f / 4.0f) + (verts[v_i_plus_1].pos + verts[v_i_minus_1].pos) * (3.0f / 8.0f);
 
@@ -1784,8 +1808,8 @@ void DisplacementUtils::averagePass(
 						uv_cent[z] = lerpUVs(
 							getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[v], z),
 							lerpUVs(
-								getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[mod3[v + 1]], z),
-								getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[mod3[v + 2]], z),
+								getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[mod3(v + 1)], z),
+								getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[mod3(v + 2)], z),
 								0.5f,
 								options.wrap_u, options.wrap_v
 								),
@@ -1854,7 +1878,7 @@ void DisplacementUtils::averagePass(
 
 	for(uint32_t q = 0; q < quads.size(); ++q) // For each quad
 	{
-		const int num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
+		const uint32 num_v = (quads[q].dimension == 0 || quads[q].dimension == 1) ? quads[q].dimension + 1 : 4;
 
 		for(uint32_t v = 0; v < num_v; ++v) // For each vertex
 		{
@@ -1904,9 +1928,9 @@ void DisplacementUtils::averagePass(
 				{
 					// q is a quad
 					assert(quads[q].dimension == 2);
-					const uint32_t v1 = quads[q].vertex_indices[mod4[v + 1]];
-					const uint32_t v2 = quads[q].vertex_indices[mod4[v + 2]];
-					const uint32_t v3 = quads[q].vertex_indices[mod4[v + 3]];
+					const uint32_t v1 = quads[q].vertex_indices[mod4(v + 1)];
+					const uint32_t v2 = quads[q].vertex_indices[mod4(v + 2)];
+					const uint32_t v3 = quads[q].vertex_indices[mod4(v + 3)];
 
 					cent = (verts[v0].pos + verts[v1].pos + verts[v2].pos + verts[v3].pos) * 0.25f;
 
@@ -1918,9 +1942,9 @@ void DisplacementUtils::averagePass(
 					(getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 1) % 3], z) + getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 2) % 3], z)) * (3.0f / 8.0f);*/
 
 					const uint32 uv0 = quads[q].uv_indices[v];
-					const uint32 uv1 = quads[q].uv_indices[mod4[v + 1]];
-					const uint32 uv2 = quads[q].uv_indices[mod4[v + 2]];
-					const uint32 uv3 = quads[q].uv_indices[mod4[v + 3]];
+					const uint32 uv1 = quads[q].uv_indices[mod4(v + 1)];
+					const uint32 uv2 = quads[q].uv_indices[mod4(v + 2)];
+					const uint32 uv3 = quads[q].uv_indices[mod4(v + 3)];
 
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
