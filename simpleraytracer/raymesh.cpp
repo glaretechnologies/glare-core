@@ -928,6 +928,19 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
 	}
 
+	for(unsigned int q = 0; q<quads.size(); ++q)
+	{
+		const Vec3f normal = triGeometricNormal(
+			vertices, 
+			quads[q].vertex_indices[0], 
+			quads[q].vertex_indices[1], 
+			quads[q].vertex_indices[2]
+		);
+
+		for(int i = 0; i < 4; ++i)
+			vertices[quads[q].vertex_indices[i]].normal += normal;
+	}
+
 	for(unsigned int i = 0; i < vertices.size(); ++i)
 		vertices[i].normal.normalise();
 }

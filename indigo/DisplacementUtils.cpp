@@ -1847,17 +1847,22 @@ void DisplacementUtils::averagePass(
 					getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[v], z) * (1.0f / 4.0f) + 
 					(getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 1) % 3], z) + getUVs(uvs_in, num_uv_sets, tris[t].uv_indices[(v + 2) % 3], z)) * (3.0f / 8.0f);*/
 
+					const uint32 uv0 = quads[q].uv_indices[v];
+					const uint32 uv1 = quads[q].uv_indices[mod4[v + 1]];
+					const uint32 uv2 = quads[q].uv_indices[mod4[v + 2]];
+					const uint32 uv3 = quads[q].uv_indices[mod4[v + 3]];
+
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 						uv_cent[z] = lerpUVs(
 							lerpUVs(
-								getUVs(uvs_in, num_uv_sets, v0, z),
-								getUVs(uvs_in, num_uv_sets, v1, z),
+								getUVs(uvs_in, num_uv_sets, uv0, z),
+								getUVs(uvs_in, num_uv_sets, uv1, z),
 								0.5f,
 								options.wrap_u, options.wrap_v
 							),
 							lerpUVs(
-								getUVs(uvs_in, num_uv_sets, v2, z),
-								getUVs(uvs_in, num_uv_sets, v3, z),
+								getUVs(uvs_in, num_uv_sets, uv2, z),
+								getUVs(uvs_in, num_uv_sets, uv3, z),
 								0.5f,
 								options.wrap_u, options.wrap_v
 							),
