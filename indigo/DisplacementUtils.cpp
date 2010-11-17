@@ -1875,19 +1875,21 @@ void DisplacementUtils::averagePass(
 				else if(quads[q].dimension == 1) // q is an edge
 				{
 					cent = (verts[v0].pos + verts[quads[q].vertex_indices[(v + 1) % 2]].pos) * 0.5f;
+
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						if(options.wrap_u)
 						{
+							//NOTE: Correct index into uv_offsets here?
 							uv_cent[z] = 
 								doMod(uv_offsets[quads[q].uv_indices[v]] + getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z)) * 0.5f + 
-								doMod(uv_offsets[quads[q].uv_indices[v]] + getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z)) * 0.5f;
+								doMod(uv_offsets[quads[q].uv_indices[v]] + getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[(v + 1) % 2], z)) * 0.5f;
 						}
 						else
 						{
 							uv_cent[z] = 
 								getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z) * 0.5f + 
-								getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z) * 0.5f;
+								getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[(v + 1) % 2], z) * 0.5f;
 						}
 					/*uv_cent[z] = lerpUVs(
 						getUVs(uvs_in, num_uv_sets, quads[q].uv_indices[v], z),
@@ -1923,7 +1925,7 @@ void DisplacementUtils::averagePass(
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						//TEMP
-						std::vector<Vec2f> uvs(4);
+						Vec2f uvs[4];
 						uvs[0] = getUVs(uvs_in, num_uv_sets, uv0, z);
 						uvs[1] = getUVs(uvs_in, num_uv_sets, uv1, z);
 						uvs[2] = getUVs(uvs_in, num_uv_sets, uv2, z);
@@ -2032,6 +2034,14 @@ void DisplacementUtils::averagePass(
 
 		new_verts_out[v].pos /= total_weight[v];
 
+		for(uint32_t z = 0; z < num_uv_sets; ++z)
+			for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
+			{
+				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
+				uvs_out[uv_index] /= total_weight[v];
+			}
+
+
 		//NOTE: Missing if dim == 2 check here?
 		if(dim[v] == 2) // NEW
 		{
@@ -2053,16 +2063,16 @@ void DisplacementUtils::averagePass(
 					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 
 
-					uvs_out[uv_index] /= total_weight[v];
+					//uvs_out[uv_index] /= total_weight[v];
 
 					uvs_out[uv_index] = uvs_in[uv_index] + (uvs_out[uv_index] - uvs_in[uv_index]) * w_val;
 
 					// Apply inverse transformation
-					if(options.wrap_u)
+					/*if(options.wrap_u)
 					{
 						uvs_out[uv_index] -= uv_offsets[uv_index];
 						uvs_out[uv_index] = uvs_out[uv_index];
-					}
+					}*/
 
 
 
@@ -2086,6 +2096,20 @@ void DisplacementUtils::averagePass(
 						);*/
 				}
 		} // end if dim == 2
+
+		for(uint32_t z = 0; z < num_uv_sets; ++z)
+			for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
+			{
+				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
+
+				// Apply inverse transformation
+					if(options.wrap_u)
+					{
+						uvs_out[uv_index] -= uv_offsets[uv_index];
+						uvs_out[uv_index] = uvs_out[uv_index];
+					}
+
+			}
 
 
 	}
