@@ -1115,11 +1115,27 @@ void DisplacementUtils::linearSubdivision(
 
 		for(uint32_t z = 0; z < num_uv_sets; ++z)
 		{
+			//TEMP DEBUG:
+			Vec2f uvs[4];
+			uvs[0] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z);
+			uvs[1] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z);
+			uvs[2] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z);
+			uvs[3] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z);
+
 			uvs_out.push_back((
 				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
 				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z) +
 				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z) + 
 				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z)) * 0.25f);
+
+			/*std::vector<Vec2f> uvs(4);
+			uvs[0] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z);
+			uvs[1] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z);
+			uvs[2] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z);
+			uvs[3] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z);
+
+			std::vector<float> weights(4, 0.25f);
+			uvs_out.push_back(uvCombination(uvs, weights));*/
 		}
 
 
@@ -1168,7 +1184,17 @@ void DisplacementUtils::linearSubdivision(
 					uv_edge_map.insert(std::make_pair(edge_key, uvs_out.size() / num_uv_sets));
 
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						uvs_out.push_back((getUVs(uvs_in, num_uv_sets, uv0, z) + getUVs(uvs_in, num_uv_sets, uv1, z)) * 0.5f);
+					{
+						const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
+						const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
+						uvs_out.push_back((uv_a + uv_b) * 0.5f);
+						/*std::vector<Vec2f> uvs(2);
+						uvs[0] = getUVs(uvs_in, num_uv_sets, uv0, z);
+						uvs[1] = getUVs(uvs_in, num_uv_sets, uv1, z);
+
+						std::vector<float> weights(2, 0.5f);
+						uvs_out.push_back(uvCombination(uvs, weights));*/
+					}
 				}
 				// else midpoint uvs already created
 			}
@@ -1489,7 +1515,7 @@ void DisplacementUtils::averagePass(
 	//std::vector<unsigned int> uv_n_t(uvs_in.size() / num_uv_sets, 0); // array containing number of polygons touching each UV group
 
 	// For each vertex, we will store a list of the indices of UV coord pairs associated with the vertex
-//	std::vector<VertexUVSetIndices> vert_uv_set_indices(verts.size());
+	std::vector<VertexUVSetIndices> vert_uv_set_indices(verts.size());
 
 	/*std::vector<Vec2f> uv_offsets(uvs_in.size()); //verts.size() * num_uv_sets);
 
@@ -1507,8 +1533,13 @@ void DisplacementUtils::averagePass(
 	{
 		uv_offsets[i] = Vec2f(0.5f, 0.5f) - uvs_in[i];
 	}
+	
+	
+
 
 	// Initialise dim
+	/*
+	TEMP HACK
 	for(uint32 i=0; i<edges.size(); ++i)
 	{
 		dim[edges[i].vertex_indices[0]] = 1;
@@ -1516,7 +1547,7 @@ void DisplacementUtils::averagePass(
 	}
 
 	for(uint32 i=0; i<vert_polygons.size(); ++i)
-		dim[vert_polygons[i].vertex_index] = 0;
+		dim[vert_polygons[i].vertex_index] = 0;*/
 
 	// Initialise n_t
 	for(uint32_t t = 0; t < tris.size(); ++t)
@@ -1530,7 +1561,33 @@ void DisplacementUtils::averagePass(
 			n_q[quads[q].vertex_indices[v]]++;
 	}
 
-	// Initialise uv_n_t
+	// TEMP:
+	// Assign uv coords from triangles and quads to vertices themselves
+
+	/*std::vector<Vec2f> old_vert_texcoords(verts.size());
+	std::vector<Vec2f> new_vert_texcoords(verts.size(), Vec2f(0,0));
+
+	for(uint32 t=0; t<tris.size(); ++t)
+		for(uint32 i=0; i<3; ++i)
+		{
+			const uint32 v_i = tris[t].vertex_indices[i];
+			old_vert_texcoords[v_i] = uvs_in[tris[t].uv_indices[i]];
+		}
+
+	for(uint32 q=0; q<quads.size(); ++q)
+		for(uint32 i=0; i<4; ++i)
+		{
+			const uint32 v_i = quads[q].vertex_indices[i];
+			old_vert_texcoords[v_i] = uvs_in[quads[q].uv_indices[i]];
+		}
+
+	std::vector<Vec2f> vert_uv_offsets(verts.size());
+	for(uint32_t i = 0; i < verts.size(); ++i)
+	{
+		vert_uv_offsets[i] = Vec2f(0.5f, 0.5f) - old_vert_texcoords[i];
+	}*/
+
+		// Initialise uv_n_t
 	/*if(num_uv_sets > 0)
 		for(unsigned int t=0; t<tris.size(); ++t)
 			for(unsigned int v=0; v<tris[t].dimension+1; ++v)
@@ -1538,7 +1595,7 @@ void DisplacementUtils::averagePass(
 
 
 	// Initialise vert_uv_set_indices
-/*	for(uint32_t t = 0; t < tris.size(); ++t) // For each triangle
+	for(uint32_t t = 0; t < tris.size(); ++t) // For each triangle
 		for(uint32_t i = 0; i < 3; ++i) // For each vertex
 		{
 			const uint32_t v_i = tris[t].vertex_indices[i]; // vertex index
@@ -1557,11 +1614,14 @@ void DisplacementUtils::averagePass(
 			if(!UVSetIndexPresent(vert_uv_set_indices[v_i], quads[q].uv_indices[i]) && vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES)
 				vert_uv_set_indices[v_i].uv_set_indices[vert_uv_set_indices[v_i].num_uv_set_indices++] = quads[q].uv_indices[i]; // Store the index of the UV pair.
 		}
-*/
+
 
 	std::vector<Vec2f> uv_cent(num_uv_sets); // One for each UV set
 
-	// For each vertex polygon
+
+#if 0
+TEMP
+// For each vertex polygon
 	for(uint32 q=0; q<vert_polygons.size(); ++q)
 	{
 		const DUVertexPolygon& v = vert_polygons[q];
@@ -1641,11 +1701,11 @@ void DisplacementUtils::averagePass(
 					}*/
 
 				//TEMP: will only work for 1 uv set.
-				uvs_out[uv_i] += uv_cent[0] * weight;
+				//uvs_out[uv_i] += uv_cent[0] * weight;
 			}
 		}
 	}
-
+#endif
 
 
 	for(uint32_t t = 0; t < tris.size(); ++t) // For each triangle
@@ -1679,12 +1739,15 @@ void DisplacementUtils::averagePass(
 				//	total_uvs_weight[tris[t].uv_indices[v]] += weight;
 
 				// Add cent to new vertex position
-				new_verts_out[v_i].pos += cent * weight;
+				//new_verts_out[v_i].pos += cent * weight;
 
 				//for(unsigned int z=0; z<num_uv_sets; ++z)
 				//	getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
 
 				// Add uv_cent to new uv positions
+
+				//TEMP
+				//new_vert_texcoords[v_i] += uv_cent
 				
 				// For each UV pair associated with this vertex
 				/*for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
@@ -1701,9 +1764,9 @@ void DisplacementUtils::averagePass(
 				}*/
 
 				//TEMP: will only work for 1 uv set.
-				const uint32_t uv_i = tri.uv_indices[i];
+				//const uint32_t uv_i = tri.uv_indices[i];
 
-				uvs_out[uv_i] += uv_cent[0] * weight;
+				//uvs_out[uv_i] += uv_cent[0] * weight;
 
 			}
 		}
@@ -1739,13 +1802,17 @@ void DisplacementUtils::averagePass(
 					uvs[1] = getUVs(uvs_in, num_uv_sets, uv_i1, z);
 					uvs[2] = getUVs(uvs_in, num_uv_sets, uv_i2, z);
 					uvs[3] = getUVs(uvs_in, num_uv_sets, uv_i3, z);
+					/*uvs[0] = old_vert_texcoords[v_i];
+					uvs[1] = old_vert_texcoords[v_i1];
+					uvs[2] = old_vert_texcoords[v_i2];
+					uvs[3] = old_vert_texcoords[v_i3];*/
 
 					if(options.wrap_u)
 					{
-						uv_cent[z] = doMod(uv_offsets[uv_i] + uvs[0]) * 0.25f;
-						uv_cent[z] += doMod(uv_offsets[uv_i] + uvs[1]) * 0.25f;
-						uv_cent[z] += doMod(uv_offsets[uv_i] + uvs[2]) * 0.25f;
-						uv_cent[z] += doMod(uv_offsets[uv_i] + uvs[3]) * 0.25f;
+						uv_cent[z] = doMod(uv_offsets[v_i] + uvs[0]) * 0.25f;
+						uv_cent[z] += doMod(uv_offsets[v_i] + uvs[1]) * 0.25f;
+						uv_cent[z] += doMod(uv_offsets[v_i] + uvs[2]) * 0.25f;
+						uv_cent[z] += doMod(uv_offsets[v_i] + uvs[3]) * 0.25f;
 					}
 					else
 					{
@@ -1757,11 +1824,15 @@ void DisplacementUtils::averagePass(
 
 				total_weight[v_i] += weight;
 
+
+
 				//if(num_uv_sets > 0)
 				//	total_uvs_weight[tris[t].uv_indices[v]] += weight;
 
 				// Add cent to new vertex position
 				new_verts_out[v_i].pos += cent * weight;
+
+				//new_vert_texcoords[v_i] += uv_cent[0] * weight;
 
 				//for(unsigned int z=0; z<num_uv_sets; ++z)
 				//	getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
@@ -1769,15 +1840,37 @@ void DisplacementUtils::averagePass(
 				// Add uv_cent to new uv positions
 
 				// For each UV pair associated with this vertex
-				/*for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
+				for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
+
+						const Vec2f uv_offset = uv_offsets[uv_index];
+
+						Vec2f uvs[4];
+						uvs[0] = getUVs(uvs_in, num_uv_sets, uv_i, z);
+						uvs[1] = getUVs(uvs_in, num_uv_sets, uv_i1, z);
+						uvs[2] = getUVs(uvs_in, num_uv_sets, uv_i2, z);
+						uvs[3] = getUVs(uvs_in, num_uv_sets, uv_i3, z);
+
+						if(options.wrap_u)
+						{
+							uv_cent[z] = (doMod(uv_offset + uvs[0]) + 
+										doMod(uv_offset + uvs[1]) +
+										doMod(uv_offset + uvs[2]) +
+										doMod(uv_offset + uvs[3])) * 0.25f;
+						}
+						else
+						{
+							uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
+						}
+							
+
 						uvs_out[uv_index] += uv_cent[z] * weight;
-					}*/
+					}
 
 				//TEMP: will only work for 1 uv set.
-				uvs_out[uv_i] += uv_cent[0] * weight;
+				//uvs_out[uv_i] += uv_cent[0] * weight;
 			}
 		}
 	}
@@ -1795,13 +1888,22 @@ void DisplacementUtils::averagePass(
 	{
 		new_verts_out[v].pos /= total_weight[v]; // Normalise vertex positions by the weights
 
+		//new_vert_texcoords[v] /= total_weight[v];
+
 		// Normalise vertex UVs by the weights
-		/*for(uint32_t z = 0; z < num_uv_sets; ++z)
+		for(uint32_t z = 0; z < num_uv_sets; ++z)
 			for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
 			{
 				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 				uvs_out[uv_index] /= total_weight[v];
-			}*/
+
+				const Vec2f new_uv = uvs_out[uv_index];
+
+				//conPrint(toString(new_uv));
+
+				if(fabs(new_uv.x - 0.5) > 0.1)
+					int a = 9;
+			}
 		//TEMP:
 
 
@@ -1815,6 +1917,11 @@ void DisplacementUtils::averagePass(
 				w
 			); //verts[v].pos + (new_verts_out[v].pos - verts[v].pos) * w_val;
 
+		/*	new_vert_texcoords[v] = Maths::uncheckedLerp(
+				old_vert_texcoords[v],
+				new_vert_texcoords[v],
+				w
+			);*/
 
 			/*
 			TEMP
@@ -1829,20 +1936,35 @@ void DisplacementUtils::averagePass(
 
 		if(options.wrap_u)
 		{
-			/*
-			TEMP
+			//TODO: unoffset UVs
+			//new_vert_texcoords[v] = (new_vert_texcoords[v] - vert_uv_offsets[v]);
+			
 			for(uint32_t z = 0; z < num_uv_sets; ++z)
 				for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
 				{
 					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 
 					// Apply inverse transformation
-					uvs_out[uv_index] -= uv_offsets[uv_index];
-					uvs_out[uv_index] = uvs_out[uv_index];
+					uvs_out[uv_index] = uvs_out[uv_index] - uv_offsets[uv_index];
 				}
-				*/
 		}
 	}
+
+	// Write vert uvs back to tri uvs
+	//for(uint32 t=0; t<tris.size(); ++t)
+	//	for(uint32 i=0; i<3; ++i)
+	//	{
+	//		const uint32 v_i = tris[t].vertex_indices[i];
+	//		uvs_out[tris[t].uv_indices[i]] = new_vert_texcoords[v_i];
+	//	}
+
+	//for(uint32 q=0; q<quads.size(); ++q)
+	//	for(uint32 i=0; i<4; ++i)
+	//	{
+	//		const uint32 v_i = quads[q].vertex_indices[i];
+	//		uvs_out[quads[q].uv_indices[i]] = new_vert_texcoords[v_i];
+	//	}
+
 
 
 	/*for(unsigned int t=0; t<tris.size(); ++t) // For each poly
@@ -1937,7 +2059,7 @@ void DisplacementUtils::averagePass(
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
 
 	// TEMP HACK:
-	uvs_out = uvs_in;
+	//uvs_out = uvs_in;
 }
 
 
@@ -2002,90 +2124,193 @@ void DisplacementUtils::test()
 	}
 
 	/////////////////////	
-	std::vector<RayMeshVertex> vertices(4);
-	std::vector<Vec2f> uvs(4);
-	js::Vector<RayMeshTriangle, 16> triangles;
-	js::Vector<RayMeshQuad, 16> quads(1);
+	//{
+	//	std::vector<RayMeshVertex> vertices(4);
+	//	std::vector<Vec2f> uvs(4);
+	//	js::Vector<RayMeshTriangle, 16> triangles;
+	//	js::Vector<RayMeshQuad, 16> quads(1);
 
-	js::Vector<RayMeshTriangle, 16> triangles_out;
-	std::vector<RayMeshVertex> verts_out;
-	std::vector<Vec2f> uvs_out;
-
-
-	// Quad vertices in CCW order from top right, facing up
-	vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
-	vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
-	vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
-	vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
-
-	uvs[0] = Vec2f(1, 1);
-	uvs[1] = Vec2f(0, 1);
-	uvs[2] = Vec2f(0, 0);
-	uvs[3] = Vec2f(1, 0);
+	//	js::Vector<RayMeshTriangle, 16> triangles_out;
+	//	std::vector<RayMeshVertex> verts_out;
+	//	std::vector<Vec2f> uvs_out;
 
 
-	quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
-	quads[0].uv_indices[0] = 0;
-	quads[0].uv_indices[1] = 1;
-	quads[0].uv_indices[2] = 2;
-	quads[0].uv_indices[3] = 3;
+	//	// Quad vertices in CCW order from top right, facing up
+	//	vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
+	//	vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
+	//	vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
+	//	vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
 
-	StandardPrintOutput print_output;
-	ThreadContext context;
+	//	uvs[0] = Vec2f(1, 1);
+	//	uvs[1] = Vec2f(0, 1);
+	//	uvs[2] = Vec2f(0, 0);
+	//	uvs[3] = Vec2f(1, 0);
 
-	std::vector<Reference<MaterialBinding> > materials;
-	materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
-		std::vector<TextureUnit*>(),
-		Reference<SpectrumMatParameter>(NULL),
-		Reference<DisplaceMatParameter>(NULL),
-		Reference<DisplaceMatParameter>(NULL),
-		Reference<SpectrumMatParameter>(NULL),
-		Reference<SpectrumMatParameter>(NULL),
-		0, // layer_index
-		false // random_triangle_colours
-	)))));
 
-	materials[0]->uv_set_indices.push_back(0);
+	//	quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
+	//	quads[0].uv_indices[0] = 0;
+	//	quads[0].uv_indices[1] = 1;
+	//	quads[0].uv_indices[2] = 2;
+	//	quads[0].uv_indices[3] = 3;
 
-	DUOptions options;
-	options.object_to_camera = Matrix4f::identity();
-	options.wrap_u = false;
-	options.wrap_v = false;
-	options.view_dependent_subdivision = false;
-	options.pixel_height_at_dist_one = 1;
-	options.subdivide_pixel_threshold = 0;
-	options.subdivide_curvature_threshold = 0;
-	options.displacement_error_threshold = 0;
-	options.max_num_subdivisions = 1;
+	//	StandardPrintOutput print_output;
+	//	ThreadContext context;
 
-	DisplacementUtils::subdivideAndDisplace(
-		print_output,
-		context,
-		materials,
-		true, // smooth
-		triangles,
-		quads,
-		vertices,
-		uvs,
-		1, // num uv sets
-		options,
-		triangles_out,
-		verts_out,
-		uvs_out
-	);
+	//	std::vector<Reference<MaterialBinding> > materials;
+	//	materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
+	//		std::vector<TextureUnit*>(),
+	//		Reference<SpectrumMatParameter>(NULL),
+	//		Reference<DisplaceMatParameter>(NULL),
+	//		Reference<DisplaceMatParameter>(NULL),
+	//		Reference<SpectrumMatParameter>(NULL),
+	//		Reference<SpectrumMatParameter>(NULL),
+	//		0, // layer_index
+	//		false // random_triangle_colours
+	//	)))));
 
-	for(size_t i=0; i<verts_out.size(); ++i)
+	//	materials[0]->uv_set_indices.push_back(0);
+
+	//	DUOptions options;
+	//	options.object_to_camera = Matrix4f::identity();
+	//	options.wrap_u = false;
+	//	options.wrap_v = false;
+	//	options.view_dependent_subdivision = false;
+	//	options.pixel_height_at_dist_one = 1;
+	//	options.subdivide_pixel_threshold = 0;
+	//	options.subdivide_curvature_threshold = 0;
+	//	options.displacement_error_threshold = 0;
+	//	options.max_num_subdivisions = 1;
+
+	//	DisplacementUtils::subdivideAndDisplace(
+	//		print_output,
+	//		context,
+	//		materials,
+	//		true, // smooth
+	//		triangles,
+	//		quads,
+	//		vertices,
+	//		uvs,
+	//		1, // num uv sets
+	//		options,
+	//		triangles_out,
+	//		verts_out,
+	//		uvs_out
+	//	);
+
+	//	for(size_t i=0; i<verts_out.size(); ++i)
+	//	{
+	//		conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+	//	}
+
+	//	for(size_t i=0; i<triangles_out.size(); ++i)
+	//	{
+	//		conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
+
+	//		for(int v=0; v<3; ++v)
+	//		{
+	//			conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
+	//		}
+	//	}
+	//}
+	///////////////
 	{
-		conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
-	}
+		std::vector<RayMeshVertex> vertices(6);
+		std::vector<Vec2f> uvs(8);
+		js::Vector<RayMeshTriangle, 16> triangles;
+		js::Vector<RayMeshQuad, 16> quads(2);
 
-	for(size_t i=0; i<triangles_out.size(); ++i)
-	{
-		conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
+		js::Vector<RayMeshTriangle, 16> triangles_out;
+		std::vector<RayMeshVertex> verts_out;
+		std::vector<Vec2f> uvs_out;
 
-		for(int v=0; v<3; ++v)
+
+		// Quad vertices in CCW order from top right, facing up
+		vertices[0] = RayMeshVertex(Vec3f(0.9,  1, 0), Vec3f(0, 0, 1));
+		vertices[1] = RayMeshVertex(Vec3f(1,  1, 0), Vec3f(0, 0, 1));
+		vertices[2] = RayMeshVertex(Vec3f(1.1, 1, 0), Vec3f(0, 0, 1));
+		vertices[3] = RayMeshVertex(Vec3f(0.9,  0, 0), Vec3f(0, 0, 1));
+		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1));
+		vertices[5] = RayMeshVertex(Vec3f(1.1, 0, 0), Vec3f(0, 0, 1));
+
+		uvs[0] = Vec2f(0.9, 1);
+		uvs[1] = Vec2f(1.0, 1);
+		uvs[2] = Vec2f(0, 1);
+		uvs[3] = Vec2f(0.1, 1);
+		uvs[4] = Vec2f(0.9, 0);
+		uvs[5] = Vec2f(1.0, 0);
+		uvs[6] = Vec2f(0, 0);
+		uvs[7] = Vec2f(0.1, 0);
+
+
+		quads[0] = RayMeshQuad(0, 3, 4, 1, 0);
+		quads[0].uv_indices[0] = 0;
+		quads[0].uv_indices[1] = 4;
+		quads[0].uv_indices[2] = 5;
+		quads[0].uv_indices[3] = 1;
+
+		quads[1] = RayMeshQuad(1, 4, 5, 2, 0);
+		quads[1].uv_indices[0] = 2;
+		quads[1].uv_indices[1] = 6;
+		quads[1].uv_indices[2] = 7;
+		quads[1].uv_indices[3] = 3;
+
+		StandardPrintOutput print_output;
+		ThreadContext context;
+
+		std::vector<Reference<MaterialBinding> > materials;
+		materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
+			std::vector<TextureUnit*>(),
+			Reference<SpectrumMatParameter>(NULL),
+			Reference<DisplaceMatParameter>(NULL),
+			Reference<DisplaceMatParameter>(NULL),
+			Reference<SpectrumMatParameter>(NULL),
+			Reference<SpectrumMatParameter>(NULL),
+			0, // layer_index
+			false // random_triangle_colours
+		)))));
+
+		materials[0]->uv_set_indices.push_back(0);
+
+		DUOptions options;
+		options.object_to_camera = Matrix4f::identity();
+		options.wrap_u = true;
+		options.wrap_v = false;
+		options.view_dependent_subdivision = false;
+		options.pixel_height_at_dist_one = 1;
+		options.subdivide_pixel_threshold = 0;
+		options.subdivide_curvature_threshold = 0;
+		options.displacement_error_threshold = 0;
+		options.max_num_subdivisions = 1;
+
+		DisplacementUtils::subdivideAndDisplace(
+			print_output,
+			context,
+			materials,
+			true, // smooth
+			triangles,
+			quads,
+			vertices,
+			uvs,
+			1, // num uv sets
+			options,
+			triangles_out,
+			verts_out,
+			uvs_out
+		);
+
+		for(size_t i=0; i<verts_out.size(); ++i)
 		{
-			conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
+			conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+		}
+
+		for(size_t i=0; i<triangles_out.size(); ++i)
+		{
+			conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
+
+			for(int v=0; v<3; ++v)
+			{
+				conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
+			}
 		}
 	}
 }
