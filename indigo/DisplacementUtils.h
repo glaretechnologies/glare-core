@@ -34,11 +34,39 @@ public:
 	//unsigned int num_uv_set_indices;
 };
 
+
+class DUVertexPolygon
+{
+public:
+	unsigned int vertex_index;
+	unsigned int uv_index;
+};
+
+
+// dimension 1
+class DUEdge
+{
+public:
+	DUEdge(){}
+	DUEdge(uint32 v0, uint32 v1, uint32 uv0, uint32 uv1)
+	{
+		vertex_indices[0] = v0;
+		vertex_indices[1] = v1;
+		uv_indices[0] = uv0;
+		uv_indices[1] = uv1;
+	}
+	unsigned int vertex_indices[2];
+	unsigned int uv_indices[2];
+	//unsigned int tri_mat_index;
+	//unsigned int dimension;
+};
+
+
 class DUTriangle
 {
 public:
 	DUTriangle(){}
-	DUTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int uv0, unsigned int uv1, unsigned int uv2, unsigned int matindex, unsigned int dimension_) : tri_mat_index(matindex), dimension(dimension_)//, num_subdivs(num_subdivs_)
+	DUTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int uv0, unsigned int uv1, unsigned int uv2, unsigned int matindex/*, unsigned int dimension_*/) : tri_mat_index(matindex)/*, dimension(dimension_)*///, num_subdivs(num_subdivs_)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -51,7 +79,7 @@ public:
 	unsigned int vertex_indices[3];
 	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
-	unsigned int dimension;
+	//unsigned int dimension;
 	//unsigned int num_subdivs;
 };
 
@@ -61,7 +89,7 @@ public:
 	DUQuad(){}
 	DUQuad(	uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_,
 			uint32_t uv0, uint32_t uv1, uint32_t uv2, uint32_t uv3,
-			uint32_t mat_index_, uint32_t dimension_) : mat_index(mat_index_), dimension(dimension_)//, num_subdivs(num_subdivs_)
+			uint32_t mat_index_/*, uint32_t dimension_*/) : mat_index(mat_index_)/*, dimension(dimension_)*///, num_subdivs(num_subdivs_)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -76,7 +104,7 @@ public:
 	uint32_t vertex_indices[4];
 	uint32_t uv_indices[4];
 	uint32_t mat_index;
-	uint32_t dimension;
+	//uint32_t dimension;
 	//unsigned int num_subdivs;
 
 	uint32_t padding[2];
@@ -173,12 +201,16 @@ private:
 		//double subdivide_pixel_threshold,
 		//double subdivide_curvature_threshold,
 		//const std::vector<Plane<float> >& camera_clip_planes,
+		const std::vector<DUVertexPolygon>& vert_polygons_in,
+		const std::vector<DUEdge>& edges_in,
 		const std::vector<DUTriangle>& tris_in,
 		const std::vector<DUQuad>& quads_in,
 		const std::vector<DUVertex>& verts_in,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
+		std::vector<DUVertexPolygon>& vert_polygons_out,
+		std::vector<DUEdge>& edges_out,
 		std::vector<DUTriangle>& tris_out,
 		std::vector<DUQuad>& quads_out,
 		std::vector<DUVertex>& verts_out,
@@ -186,6 +218,8 @@ private:
 		);
 
 	static void averagePass(
+		const std::vector<DUVertexPolygon>& vert_polygons,
+		const std::vector<DUEdge>& edges,
 		const std::vector<DUTriangle>& tris,
 		const std::vector<DUQuad>& quads,
 		const std::vector<DUVertex>& verts,
