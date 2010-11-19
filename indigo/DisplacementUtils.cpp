@@ -246,8 +246,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 
 		const uint32_t initial_num_temp_tris = temp_tris.size(); // Store number of original triangles
+		const uint32_t initial_num_temp_quads = temp_quads.size(); // Store number of original quads
 
-		for(uint32_t q = 0; q < temp_quads.size(); ++q)
+		for(uint32_t q = 0; q < initial_num_temp_quads; ++q)
 		{
 			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
 			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
@@ -258,7 +259,6 @@ void DisplacementUtils::subdivideAndDisplace(
 			num_adjacent_polys[DUVertIndexPair(myMin(v3, v0), myMax(v3, v0))]++;
 		}
 
-		const uint32_t initial_num_temp_quads = temp_quads.size(); // Store number of original quads
 
 
 		for(uint32_t t = 0; t < initial_num_temp_tris; ++t) // For each original triangle...
@@ -1115,12 +1115,11 @@ void DisplacementUtils::linearSubdivision(
 
 		for(uint32_t z = 0; z < num_uv_sets; ++z)
 		{
-			//TEMP DEBUG:
-			Vec2f uvs[4];
+			/*Vec2f uvs[4];
 			uvs[0] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z);
 			uvs[1] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z);
 			uvs[2] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z);
-			uvs[3] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z);
+			uvs[3] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z);*/
 
 			uvs_out.push_back((
 				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
@@ -1530,18 +1529,17 @@ void DisplacementUtils::averagePass(
 		//uv_offsets[i] = Vec2f(0.f, 0.f);
 	}*/
 
-	std::vector<Vec2f> uv_offsets(uvs_in.size());
+	/*std::vector<Vec2f> uv_offsets(uvs_in.size());
 	for(uint32_t i = 0; i < uv_offsets.size(); ++i)
 	{
 		uv_offsets[i] = Vec2f(0.5f, 0.5f) - uvs_in[i];
-	}
+	}*/
 	
 	
 
 
 	// Initialise dim
-	/*
-	TEMP HACK
+
 	for(uint32 i=0; i<edges.size(); ++i)
 	{
 		dim[edges[i].vertex_indices[0]] = 1;
@@ -1549,7 +1547,7 @@ void DisplacementUtils::averagePass(
 	}
 
 	for(uint32 i=0; i<vert_polygons.size(); ++i)
-		dim[vert_polygons[i].vertex_index] = 0;*/
+		dim[vert_polygons[i].vertex_index] = 0;
 
 	// Initialise n_t
 	for(uint32_t t = 0; t < tris.size(); ++t)
@@ -1621,9 +1619,8 @@ void DisplacementUtils::averagePass(
 	std::vector<Vec2f> uv_cent(num_uv_sets); // One for each UV set
 
 
-#if 0
-TEMP
-// For each vertex polygon
+
+	// For each vertex polygon
 	for(uint32 q=0; q<vert_polygons.size(); ++q)
 	{
 		const DUVertexPolygon& v = vert_polygons[q];
@@ -1645,13 +1642,16 @@ TEMP
 			new_verts_out[v_i].pos += cent * weight;
 
 			// For each UV pair associated with this vertex
-			//TEMP
-			/*for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
+			for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
 				for(uint32_t z = 0; z < num_uv_sets; ++z)
 				{
 					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
 					uvs_out[uv_index] += uv_cent[z] * weight;
-				}*/
+
+					//NEW:
+					if(uv_cent[z].getDist2(uvs_in[uv_index]) > (0.5f * 0.5f))
+						use_old_uvs[uv_index] = true;
+				}
 		}
 	}
 
@@ -1674,7 +1674,7 @@ TEMP
 
 				for(uint32_t z = 0; z < num_uv_sets; ++z)
 				{
-					if(options.wrap_u)
+					/*if(options.wrap_u)
 					{
 						//NOTE: Correct index into uv_offsets here?
 						uv_cent[z] = 
@@ -1682,11 +1682,11 @@ TEMP
 							doMod(uv_offsets[uv_i] + getUVs(uvs_in, num_uv_sets, uv_i1, z))) * 0.5f;
 					}
 					else
-					{
+					{*/
 						uv_cent[z] = 
 							(getUVs(uvs_in, num_uv_sets, uv_i, z) + 
 							getUVs(uvs_in, num_uv_sets, uv_i1, z)) * 0.5f;
-					}
+					//}
 				}
 				const float weight = 1.0f;
 
@@ -1694,20 +1694,23 @@ TEMP
 				new_verts_out[v_i].pos += cent * weight;
 
 				// For each UV pair associated with this vertex
-				//TEMP
-				/*for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
+				for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
 						uvs_out[uv_index] += uv_cent[z] * weight;
-					}*/
+
+						//NEW:
+						if(uv_cent[z].getDist2(uvs_in[uv_index]) > (0.5f * 0.5f))
+							use_old_uvs[uv_index] = true;
+					}
 
 				//TEMP: will only work for 1 uv set.
 				//uvs_out[uv_i] += uv_cent[0] * weight;
 			}
 		}
 	}
-#endif
+
 
 
 	for(uint32_t t = 0; t < tris.size(); ++t) // For each triangle
@@ -1741,7 +1744,7 @@ TEMP
 				//	total_uvs_weight[tris[t].uv_indices[v]] += weight;
 
 				// Add cent to new vertex position
-				//new_verts_out[v_i].pos += cent * weight;
+				new_verts_out[v_i].pos += cent * weight;
 
 				//for(unsigned int z=0; z<num_uv_sets; ++z)
 				//	getUVs(uvs_out, num_uv_sets, tris[t].uv_indices[v], z) += uv_cent[z] * weight;
@@ -1752,18 +1755,23 @@ TEMP
 				//new_vert_texcoords[v_i] += uv_cent
 				
 				// For each UV pair associated with this vertex
-				/*for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
-				for(uint32_t z = 0; z < num_uv_sets; ++z)
-				{
-					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
+				for(uint32_t x = 0; x < vert_uv_set_indices[v_i].num_uv_set_indices; ++x)
+					for(uint32_t z = 0; z < num_uv_sets; ++z)
+					{
+						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
 
-					const Vec2f shifted_uvs(
-						options.wrap_u ? fmod(uv_cent[z].x + uv_offsets[uv_index].x, 1.0f) : uv_cent[z].x,
-						options.wrap_v ? fmod(uv_cent[z].y + uv_offsets[uv_index].y, 1.0f) : uv_cent[z].y
-						);
+						/*const Vec2f shifted_uvs(
+							options.wrap_u ? fmod(uv_cent[z].x + uv_offsets[uv_index].x, 1.0f) : uv_cent[z].x,
+							options.wrap_v ? fmod(uv_cent[z].y + uv_offsets[uv_index].y, 1.0f) : uv_cent[z].y
+							);*/
 
-					uvs_out[uv_index] += shifted_uvs * weight;
-				}*/
+						//uvs_out[uv_index] += shifted_uvs * weight;
+						uvs_out[uv_index] += uv_cent[z] * weight;
+
+						//NEW:
+						if(uv_cent[z].getDist2(uvs_in[uv_index]) > (0.5f * 0.5f))
+							use_old_uvs[uv_index] = true;
+					}
 
 				//TEMP: will only work for 1 uv set.
 				//const uint32_t uv_i = tri.uv_indices[i];
@@ -1847,7 +1855,7 @@ TEMP
 					{
 						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
 
-						const Vec2f uv_offset = uv_offsets[uv_index];
+						//const Vec2f uv_offset = uv_offsets[uv_index];
 
 						Vec2f uvs[4];
 						uvs[0] = getUVs(uvs_in, num_uv_sets, uv_i, z);
@@ -1855,7 +1863,7 @@ TEMP
 						uvs[2] = getUVs(uvs_in, num_uv_sets, uv_i2, z);
 						uvs[3] = getUVs(uvs_in, num_uv_sets, uv_i3, z);
 
-						if(options.wrap_u)
+						/*if(options.wrap_u)
 						{
 							uv_cent[z] = (doMod(uv_offset + uvs[0]) + 
 										doMod(uv_offset + uvs[1]) +
@@ -1863,15 +1871,13 @@ TEMP
 										doMod(uv_offset + uvs[3])) * 0.25f;
 						}
 						else
-						{
+						{*/
 							uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
-						}
+						//}
 
 						//NEW:
-						if(uv_cent[z].getDist(uvs_in[uv_index]) > 0.5f)
-						{
+						if(uv_cent[z].getDist2(uvs_in[uv_index]) > (0.5f * 0.5f))
 							use_old_uvs[uv_index] = true;
-						}
 							
 
 						uvs_out[uv_index] += uv_cent[z] * weight;
@@ -1905,12 +1911,12 @@ TEMP
 				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 				uvs_out[uv_index] /= total_weight[v];
 
-				const Vec2f new_uv = uvs_out[uv_index];
+				//const Vec2f new_uv = uvs_out[uv_index];
 
 				//conPrint(toString(new_uv));
 
-				if(fabs(new_uv.x - 0.5) > 0.1)
-					int a = 9;
+				//if(fabs(new_uv.x - 0.5) > 0.1)
+				//	int a = 9;
 			}
 		//TEMP:
 
@@ -1942,7 +1948,7 @@ TEMP
 				}
 		} // end if dim == 2
 
-		if(options.wrap_u)
+		/*if(options.wrap_u)
 		{
 			//TODO: unoffset UVs
 			//new_vert_texcoords[v] = (new_vert_texcoords[v] - vert_uv_offsets[v]);
@@ -1955,7 +1961,7 @@ TEMP
 					// Apply inverse transformation
 					uvs_out[uv_index] = uvs_out[uv_index] - uv_offsets[uv_index];
 				}
-		}
+		}*/
 	}
 
 	// Write vert uvs back to tri uvs

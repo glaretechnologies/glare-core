@@ -246,6 +246,7 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 
 
 
+
 	Coord intpart; // not used
 	Coord u_frac_part = std::modf(u, &intpart);
 	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
@@ -254,6 +255,8 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 		u_frac_part = (Coord)1.0 + u_frac_part;
 	if(v_frac_part < 0.0)
 		v_frac_part = (Coord)1.0 + v_frac_part;
+	//const Coord u_frac_part = Maths::fract(u);
+	//const Coord v_frac_part = Maths::fract(1 - v);
 
 	assert(Maths::inHalfClosedInterval(u_frac_part, (Coord)0.0, (Coord)1.0));
 	assert(Maths::inHalfClosedInterval(v_frac_part, (Coord)0.0, (Coord)1.0));
