@@ -24,12 +24,12 @@ public:
 	Vec3f pos;
 	Vec3f normal;
 	//Vec2f texcoords[4];
-	bool anchored;
 	//int adjacent_subdivided_tris;
 	int adjacent_vert_0, adjacent_vert_1;
 	float displacement; // will be set after displace() is called.
+	bool anchored;
 
-	Vec2f texcoords; // TEMP
+	//Vec2f texcoords; // TEMP
 	
 	//static const unsigned int MAX_NUM_UV_SET_INDICES = 8;
 	//unsigned int uv_set_indices[MAX_NUM_UV_SET_INDICES];
@@ -59,8 +59,6 @@ public:
 	}
 	unsigned int vertex_indices[2];
 	unsigned int uv_indices[2];
-	//unsigned int tri_mat_index;
-	//unsigned int dimension;
 };
 
 
@@ -81,8 +79,6 @@ public:
 	unsigned int vertex_indices[3];
 	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
-	//unsigned int dimension;
-	//unsigned int num_subdivs;
 };
 
 class DUQuad
@@ -91,7 +87,7 @@ public:
 	DUQuad(){}
 	DUQuad(	uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_,
 			uint32_t uv0, uint32_t uv1, uint32_t uv2, uint32_t uv3,
-			uint32_t mat_index_/*, uint32_t dimension_*/) : mat_index(mat_index_)/*, dimension(dimension_)*///, num_subdivs(num_subdivs_)
+			uint32_t mat_index_) : mat_index(mat_index_)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -106,12 +102,8 @@ public:
 	uint32_t vertex_indices[4];
 	uint32_t uv_indices[4];
 	uint32_t mat_index;
-	//uint32_t dimension;
-	//unsigned int num_subdivs;
 
-	uint32_t padding[2];
-	//uint32_t centre_vertex_index;
-	//uint32_t centre_uv_index;
+	//uint32_t padding[2];
 };
 
 
@@ -132,6 +124,7 @@ public:
 
 	std::vector<Plane<float> > camera_clip_planes_os; // Camera clip planes in object space.
 };
+
 
 /*=====================================================================
 DisplacementUtils
@@ -154,14 +147,7 @@ public:
 	static void subdivideAndDisplace(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		//const Object& object,
 		const std::vector<Reference<MaterialBinding> >& materials,
-		//const CoordFramed& camera_coordframe_os, 
-		//double pixel_height_at_dist_one, 
-		//double subdivide_pixel_threshold, 
-		//double subdivide_curvature_threshold,
-		//unsigned int num_subdivisions,
-		//const std::vector<Plane<float> >& camera_clip_planes,
 		bool smooth,
 		const js::Vector<RayMeshTriangle, 16>& tris_in,
 		const js::Vector<RayMeshQuad, 16>& quads_in,
@@ -180,7 +166,6 @@ public:
 private:
 	static void displace(
 		ThreadContext& context,
-		//const Object& object,
 		const std::vector<Reference<MaterialBinding> >& materials,
 		bool use_anchoring,
 		const std::vector<DUTriangle>& tris,
@@ -196,13 +181,7 @@ private:
 	static void linearSubdivision(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		//const Object& object,
 		const std::vector<Reference<MaterialBinding> >& materials,
-		//const CoordFramed& camera_coordframe_os,
-		//double pixel_height_at_dist_one,
-		//double subdivide_pixel_threshold,
-		//double subdivide_curvature_threshold,
-		//const std::vector<Plane<float> >& camera_clip_planes,
 		const std::vector<DUVertexPolygon>& vert_polygons_in,
 		const std::vector<DUEdge>& edges_in,
 		const std::vector<DUTriangle>& tris_in,
@@ -234,9 +213,4 @@ private:
 };
 
 
-
 #endif //__DISPLACEMENTUTILS_H_666_
-
-
-
-
