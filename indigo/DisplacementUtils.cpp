@@ -1507,6 +1507,8 @@ void DisplacementUtils::averagePass(
 	for(uint32_t v = 0; v < uvs_out.size(); ++v)
 		uvs_out[v] = Vec2f(0.f, 0.f);
 
+	std::vector<bool> use_old_uvs(uvs_in.size(), false);
+
 	std::vector<uint32_t> dim(verts.size(), 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
 	//std::vector<float> total_uvs_weight(uvs_in.size() / num_uv_sets, 0.0f); // total weights per vertex
@@ -1794,7 +1796,7 @@ TEMP
 				const uint32 uv_i2 = quad.uv_indices[mod4(i + 2)];
 				const uint32 uv_i3 = quad.uv_indices[mod4(i + 3)];
 
-				for(uint32_t z = 0; z < num_uv_sets; ++z)
+/*				for(uint32_t z = 0; z < num_uv_sets; ++z)
 				{
 					//TEMP
 					Vec2f uvs[4];
@@ -1802,10 +1804,10 @@ TEMP
 					uvs[1] = getUVs(uvs_in, num_uv_sets, uv_i1, z);
 					uvs[2] = getUVs(uvs_in, num_uv_sets, uv_i2, z);
 					uvs[3] = getUVs(uvs_in, num_uv_sets, uv_i3, z);
-					/*uvs[0] = old_vert_texcoords[v_i];
-					uvs[1] = old_vert_texcoords[v_i1];
-					uvs[2] = old_vert_texcoords[v_i2];
-					uvs[3] = old_vert_texcoords[v_i3];*/
+					//uvs[0] = old_vert_texcoords[v_i];
+					//uvs[1] = old_vert_texcoords[v_i1];
+					//uvs[2] = old_vert_texcoords[v_i2];
+					//uvs[3] = old_vert_texcoords[v_i3];
 
 					if(options.wrap_u)
 					{
@@ -1818,7 +1820,7 @@ TEMP
 					{
 						uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
 					}
-				}
+				}*/
 
 				const float weight = (float)(NICKMATHS_PI / 2.0);
 
@@ -1863,6 +1865,12 @@ TEMP
 						else
 						{
 							uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
+						}
+
+						//NEW:
+						if(uv_cent[z].getDist(uvs_in[uv_index]) > 0.5f)
+						{
+							use_old_uvs[uv_index] = true;
 						}
 							
 
@@ -1911,6 +1919,7 @@ TEMP
 		{
 			const float w = evalW(n_t[v], n_q[v]);
 
+
 			new_verts_out[v].pos = Maths::uncheckedLerp(
 				verts[v].pos, 
 				new_verts_out[v].pos, 
@@ -1923,15 +1932,14 @@ TEMP
 				w
 			);*/
 
-			/*
-			TEMP
+
 			for(uint32_t z = 0; z < num_uv_sets; ++z)
 				for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
 				{
 					const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
 
 					uvs_out[uv_index] = uvs_in[uv_index] + (uvs_out[uv_index] - uvs_in[uv_index]) * w;
-				}*/
+				}
 		} // end if dim == 2
 
 		if(options.wrap_u)
@@ -2057,6 +2065,11 @@ TEMP
 	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
 		if(verts[v].anchored)
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
+
+	// NEW:
+	for(uint32 i=0; i<uvs_in.size(); ++i)
+		if(use_old_uvs[i])
+			uvs_out[i] = uvs_in[i];
 
 	// TEMP HACK:
 	//uvs_out = uvs_in;
@@ -2232,14 +2245,14 @@ void DisplacementUtils::test()
 		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1));
 		vertices[5] = RayMeshVertex(Vec3f(1.1, 0, 0), Vec3f(0, 0, 1));
 
-		uvs[0] = Vec2f(0.9, 1);
-		uvs[1] = Vec2f(1.0, 1);
-		uvs[2] = Vec2f(0, 1);
-		uvs[3] = Vec2f(0.1, 1);
-		uvs[4] = Vec2f(0.9, 0);
-		uvs[5] = Vec2f(1.0, 0);
-		uvs[6] = Vec2f(0, 0);
-		uvs[7] = Vec2f(0.1, 0);
+		uvs[0] = Vec2f(0.9, 0.6);
+		uvs[1] = Vec2f(1.0, 0.6);
+		uvs[2] = Vec2f(0, 0.6);
+		uvs[3] = Vec2f(0.1, 0.6);
+		uvs[4] = Vec2f(0.9, 0.4);
+		uvs[5] = Vec2f(1.0, 0.4);
+		uvs[6] = Vec2f(0, 0.4);
+		uvs[7] = Vec2f(0.1, 0.4);
 
 
 		quads[0] = RayMeshQuad(0, 3, 4, 1, 0);
@@ -2298,9 +2311,16 @@ void DisplacementUtils::test()
 			uvs_out
 		);
 
+		conPrint("Vertex positions");
 		for(size_t i=0; i<verts_out.size(); ++i)
 		{
-			conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+			conPrint("vert " + toString(i) + ": " + toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+		}
+
+		conPrint("UVs");
+		for(size_t i=0; i<uvs_out.size(); ++i)
+		{
+			conPrint("UV " + toString(i) + ": " + toString(uvs_out[i].x) + ", " + toString(uvs_out[i].y));
 		}
 
 		for(size_t i=0; i<triangles_out.size(); ++i)

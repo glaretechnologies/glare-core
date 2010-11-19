@@ -390,6 +390,13 @@ inline int floorToInt(double x)
 }
 
 
+template <class Real>
+inline Real fract(Real x)
+{
+	return x - std::floor(x);
+}
+
+
 const double SQRT_2PI = sqrt(NICKMATHS_2PI);
 const double RECIP_SQRT_2PI = 1.0f / sqrt(NICKMATHS_2PI);
 
