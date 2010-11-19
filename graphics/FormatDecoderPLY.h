@@ -12,7 +12,6 @@ Code By Nicholas Chapman.
 
 #include "modeldecoder.h"
 #include "modelformatdecoder.h"//just for the exception
-class ModelLoadingStreamHandler;
 
 
 /*=====================================================================
@@ -34,7 +33,7 @@ public:
 
 	virtual const std::string getExtensionType() const { return "ply"; }
 
-	virtual void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale);// throw (ModelFormatDecoderExcep);
+	virtual void streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale);// throw (ModelFormatDecoderExcep);
 };
 
 

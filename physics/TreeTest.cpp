@@ -30,6 +30,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
+#include "../public/IndigoMesh.h"
 
 
 namespace js
@@ -695,9 +696,11 @@ void TreeTest::doTests()
 	const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
 	CSModelLoader model_loader;
 	RayMesh raymesh("tricky", false);
+	Indigo::IndigoMesh indigoMesh;
 	try
 	{
-		model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
+		model_loader.streamModel(MODEL_PATH, indigoMesh, 1.0);
+		raymesh.fromIndigoMesh(indigoMesh);
 	}
 	catch(CSModelLoaderExcep&)
 	{
@@ -832,9 +835,11 @@ void TreeTest::doSpeedTest(int treetype)
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("bunny", false);
+	Indigo::IndigoMesh indigoMesh;
 	try
 	{
-		model_loader.streamModel(BUNNY_PATH, raymesh, 1.0);
+		model_loader.streamModel(BUNNY_PATH, indigoMesh, 1.0);
+		raymesh.fromIndigoMesh(indigoMesh);
 	}
 	catch(CSModelLoaderExcep&)
 	{
@@ -966,9 +971,11 @@ void TreeTest::buildSpeedTest()
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
+	Indigo::IndigoMesh indigoMesh;
 	try
 	{
-		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", raymesh, 1.0);
+		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", indigoMesh, 1.0);
+		raymesh.fromIndigoMesh(indigoMesh);
 	}
 	catch(CSModelLoaderExcep&)
 	{

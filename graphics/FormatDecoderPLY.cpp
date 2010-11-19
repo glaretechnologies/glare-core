@@ -10,10 +10,11 @@ Code By Nicholas Chapman.
 
 #include "../rply-1.01/rply.h"
 #include <assert.h>
-#include "../maths/vec2.h"
-#include "../maths/vec3.h"
-#include "../simpleraytracer/ModelLoadingStreamHandler.h"
 
+#include "../public/IndigoMesh.h"
+
+
+using namespace Indigo;
 
 
 FormatDecoderPLY::FormatDecoderPLY()
@@ -28,8 +29,8 @@ FormatDecoderPLY::~FormatDecoderPLY()
 }
 
 //dirty nasty global variables
-static Vec3f current_vert_pos;//NOTE TEMP HACK GLOBAL VAR
-static const std::vector<Vec2f> texcoord_sets;
+static IndigoVec3f current_vert_pos;//NOTE TEMP HACK GLOBAL VAR
+static const std::vector<IndigoVec2f> texcoord_sets;
 static unsigned int current_vert_indices[3];
 static float ply_scale = 1.0f;//TEMP NASTY HACK
 
@@ -46,7 +47,7 @@ static int vertex_callback(p_ply_argument argument)
 	//PlyMesh* current_mesh = static_cast<PlyMesh*>(pointer_usrdata);
 	//assert(current_mesh);
 
-	ModelLoadingStreamHandler* handler =  static_cast<ModelLoadingStreamHandler*>(pointer_usrdata);
+	Indigo::IndigoMesh* handler =  static_cast<Indigo::IndigoMesh*>(pointer_usrdata);
 
 
 	//get vert index
@@ -78,7 +79,7 @@ static int face_callback(p_ply_argument argument)
 
 	//PlyMesh* current_mesh = static_cast<PlyMesh*>(pointer_usrdata);
 	//assert(current_mesh);
-	ModelLoadingStreamHandler* handler =  static_cast<ModelLoadingStreamHandler*>(pointer_usrdata);
+	Indigo::IndigoMesh* handler =  static_cast<Indigo::IndigoMesh*>(pointer_usrdata);
 
 
 	//get current tri index
@@ -107,7 +108,7 @@ static int face_callback(p_ply_argument argument)
 }
 
 
-void FormatDecoderPLY::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
+void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	ply_scale = scale;
 

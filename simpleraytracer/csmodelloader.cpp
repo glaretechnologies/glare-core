@@ -27,6 +27,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"
 #include "../indigo/IndigoMeshDecoder.h"
+#include "../public/IndigoMesh.h"
 /*#include "../indigo/AnisoPhong.h"
 #include "../indigo/Phong.h"
 #include "../indigo/MatOverride.h"
@@ -62,7 +63,7 @@ CSModelLoader::~CSModelLoader()
 {	
 }
 
-void CSModelLoader::streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
+void CSModelLoader::streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	//------------------------------------------------------------------------
 	//read model file from disk

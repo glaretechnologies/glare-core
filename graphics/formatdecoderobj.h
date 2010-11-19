@@ -43,7 +43,7 @@ public:
 	//virtual void buildModel(const void* data, int datalen, const std::string& filename, 
 	//	CS::Model& model_out) throw (ModelFormatDecoderExcep);
 
-	virtual void streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, 
+	virtual void streamModel(const std::string& filename, Indigo::IndigoMesh& handler, 
 		float scale);// throw (ModelFormatDecoderExcep);
 
 

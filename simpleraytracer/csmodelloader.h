@@ -17,8 +17,11 @@ class ModelFormatDecoder;
 class Texture;
 class Material;
 class MatOverride;
-class IntermediateMesh;
-class ModelLoadingStreamHandler;
+
+namespace Indigo
+{
+	class IndigoMesh;
+}
 
 namespace CS{ class Material; }
 
@@ -61,7 +64,7 @@ public:
 	//IntermediateMesh* buildIntermediateMesh(const std::string& fullpathname,
 	//	NameMap<Material*>& materials);
 
-	void streamModel(const std::string& pathname, ModelLoadingStreamHandler& handler, float scale);
+	void streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale);
 
 
 

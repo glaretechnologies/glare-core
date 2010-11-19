@@ -18,6 +18,8 @@ Code By Nicholas Chapman.
 #include "formatdecoderjpg.h"
 #include "formatdecodertxt.h"*/
 
+#include "../public/IndigoMesh.h"
+
 ModelFormatDecoder::ModelFormatDecoder()
 {
 	
@@ -31,7 +33,7 @@ ModelFormatDecoder::~ModelFormatDecoder()
 
 
 
-void ModelFormatDecoder::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale) //throw (ModelFormatDecoderExcep)
+void ModelFormatDecoder::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale) //throw (ModelFormatDecoderExcep)
 {
 	if(filename.length() < 4)
 		throw ModelFormatDecoderExcep("filename too short: '" + filename + "'");

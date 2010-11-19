@@ -25,6 +25,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
+#include "../public/IndigoMesh.h"
 
 
 namespace js
@@ -550,9 +551,11 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
 	AlignedRef<RayMesh, 16> raymesh(new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("raymesh", false));
+	Indigo::IndigoMesh indigoMesh;
 	try
 	{
-		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", *raymesh, 1.0);
+		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", indigoMesh, 1.0);
+		raymesh->fromIndigoMesh(indigoMesh);
 	}
 	catch(CSModelLoaderExcep&)
 	{

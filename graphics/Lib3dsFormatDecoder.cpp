@@ -18,9 +18,12 @@ Code By Nicholas Chapman.
 #endif
 #include <assert.h>
 #include "../indigo/globals.h"
-#include "../simpleraytracer/ModelLoadingStreamHandler.h"
-#include "../maths/vec2.h"
-#include "../maths/vec3.h"
+
+#include "../public/IndigoMesh.h"
+
+
+using namespace Indigo;
+
 
 Lib3dsFormatDecoder::Lib3dsFormatDecoder()
 {
@@ -34,7 +37,7 @@ Lib3dsFormatDecoder::~Lib3dsFormatDecoder()
 
 #ifdef LIB3DS_SUPPORT
 
-void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, float scale) // throw (ModelFormatDecoderExcep)
+void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale) // throw (ModelFormatDecoderExcep)
 {
 	Lib3dsFile* file = lib3ds_file_load(filename.c_str());
 	if(!file)
@@ -109,7 +112,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 		material = material->next;
 	}
 
-	std::vector<Vec2f> texcoords(1);
+	std::vector<IndigoVec2f> texcoords(1);
 	std::vector<float> normals;//(mesh->faces * 9);
 	unsigned int num_verts_added = 0;
 	for(Lib3dsMesh* mesh = file->meshes; mesh; mesh = mesh->next)
@@ -150,7 +153,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 				{
 					const unsigned int srcvertindex = mesh->faceL[f].points[v];
 
-					const Vec3f pos(
+					const IndigoVec3f pos(
 							mesh->pointL[srcvertindex].pos[0],
 							mesh->pointL[srcvertindex].pos[1],
 							mesh->pointL[srcvertindex].pos[2]);
@@ -167,7 +170,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, ModelLoadingS
 						handler.addUVs(texcoords);
 					}
 
-					const Vec3f normal(
+					const IndigoVec3f normal(
 						normals[f*9+v*3],
 						normals[f*9+v*3 + 1],
 						normals[f*9+v*3 + 2]);

@@ -24,6 +24,7 @@ namespace js{ class EdgeTri; }
 class Material;
 class RendererSettings;
 class PrintOutput;
+namespace Indigo{ class IndigoMesh; }
 
 
 class RayMeshTriangle
@@ -181,6 +182,8 @@ public:
 	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
+	
+	void fromIndigoMesh(Indigo::IndigoMesh& mesh);
 
 
 	////////// ModelLoadingStreamHandler interface /////////////

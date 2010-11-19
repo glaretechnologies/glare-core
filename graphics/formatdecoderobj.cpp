@@ -12,8 +12,11 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
 #include "../utils/Parser.h"
-#include "../simpleraytracer/ModelLoadingStreamHandler.h"
-#include "../maths/vec2.h"
+
+#include "../public/IndigoMesh.h"
+
+
+using namespace Indigo;
 
 
 FormatDecoderObj::FormatDecoderObj()
@@ -32,7 +35,7 @@ const std::string FormatDecoderObj::getExtensionType() const
 }
 
 
-void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStreamHandler& handler, 
+void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, 
 		float scale) // throws ModelFormatDecoderExcep
 {
 	Timer load_timer;
@@ -43,7 +46,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	int current_mat_index = -1;
 
-	std::vector<Vec2f> uv_vector(1);
+	std::vector<IndigoVec2f> uv_vector(1);
 
 	/// Read .obj file from disk into RAM ///
 	std::vector<unsigned char> data;
@@ -59,8 +62,8 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 
 	unsigned int num_vertices_added = 0;
 
-	std::vector<Vec3f> vert_positions;
-	std::vector<Vec3f> vert_normals;
+	std::vector<IndigoVec3f> vert_positions;
+	std::vector<IndigoVec3f> vert_normals;
 
 	int linenum = 0;
 	std::string token;
@@ -99,7 +102,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 		}
 		else if(token == "v")//vertex position
 		{
-			Vec3f pos(0,0,0);
+			IndigoVec3f pos(0,0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(pos.x);
 			parser.parseSpacesAndTabs();
@@ -117,7 +120,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 		}
 		else if(token == "vt")//vertex tex coordinate
 		{
-			Vec2f texcoord(0,0);
+			IndigoVec2f texcoord(0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(texcoord.x);
 			parser.parseSpacesAndTabs();
@@ -141,7 +144,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, ModelLoadingStre
 		}
 		else if(token == "vn") // vertex normal
 		{
-			Vec3f normal(0,0,0);
+			IndigoVec3f normal(0,0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(normal.x);
 			parser.parseSpacesAndTabs();

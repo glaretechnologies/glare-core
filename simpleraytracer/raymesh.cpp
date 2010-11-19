@@ -29,6 +29,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
+#include "../public/IndigoMesh.h"
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
@@ -604,6 +605,72 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 
 	du_dbeta_out =  v2tex.x - v0tex.x;
 	dv_dbeta_out =  v2tex.y - v0tex.y;
+}
+
+
+inline static const ::Vec3f toVec3(const Indigo::IndigoVec3f& v)
+{
+	return ::Vec3f(v.x, v.y, v.z);
+}
+
+
+inline static const ::Vec2f toVec2(const Indigo::IndigoVec2f& v)
+{
+	return ::Vec2f(v.x, v.y);
+}
+
+
+void RayMesh::fromIndigoMesh(Indigo::IndigoMesh& mesh)
+{
+	// TODO room for optimization here
+
+	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
+
+	for(unsigned int i=0; i<mesh.used_materials.size(); ++i)
+		this->addMaterialUsed(mesh.used_materials[i]);
+
+	// Verts
+	if(mesh.vert_normals.size() == 0)
+	{
+		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
+			this->addVertex(toVec3(mesh.vert_positions[i]));
+	}
+	else
+	{
+		assert(mesh.vert_positions.size() == mesh.vert_normals.size());
+		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
+			this->addVertex(toVec3(mesh.vert_positions[i]), toVec3(mesh.vert_normals[i]));
+	}
+
+	// UVs
+	assert(mesh.num_uv_mappings == 0 || (mesh.uv_pairs.size() % mesh.num_uv_mappings == 0));
+
+	std::vector<Vec2f> uv_sets(mesh.num_uv_mappings);
+
+	if(mesh.num_uv_mappings > 0)
+	{
+		for(unsigned int i=0; i<mesh.uv_pairs.size(); )
+		{
+			for(unsigned int z=0; z<mesh.num_uv_mappings; ++z)
+				uv_sets[z] = toVec2(mesh.uv_pairs[i++]);
+
+			this->addUVs(uv_sets);
+		}
+	}
+
+	// Triangles
+	for(unsigned int i=0; i<mesh.triangles.size(); ++i)
+		this->addTriangle(mesh.triangles[i].vertex_indices, mesh.triangles[i].uv_indices, mesh.triangles[i].tri_mat_index);
+
+	// Quads
+	for(unsigned int i=0; i<mesh.quads.size(); ++i)
+		this->addQuad(mesh.quads[i].vertex_indices, mesh.quads[i].uv_indices, mesh.quads[i].mat_index);
+
+	// UV set expositions
+	for(unsigned int i=0; i<mesh.uv_set_expositions.size(); ++i)
+		this->addUVSetExposition(mesh.uv_set_expositions[i].uv_set_name, mesh.uv_set_expositions[i].uv_set_index);
+
+	this->endOfModel();
 }
 
 
