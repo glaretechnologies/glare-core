@@ -620,7 +620,7 @@ inline static const ::Vec2f toVec2(const Indigo::IndigoVec2f& v)
 }
 
 
-void RayMesh::fromIndigoMesh(Indigo::IndigoMesh& mesh)
+void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 {
 	// TODO room for optimization here
 

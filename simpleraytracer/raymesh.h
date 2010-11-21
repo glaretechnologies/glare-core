@@ -183,7 +183,7 @@ public:
 	//////////////////////////////////////////////////////////
 
 	
-	void fromIndigoMesh(Indigo::IndigoMesh& mesh);
+	void fromIndigoMesh(const Indigo::IndigoMesh& mesh);
 
 	//////////  old ModelLoadingStreamHandler interface /////////////
 	//////////  raymesh does not implement this interface ///////////
