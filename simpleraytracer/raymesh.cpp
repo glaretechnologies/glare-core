@@ -632,12 +632,25 @@ void RayMesh::fromIndigoMesh(Indigo::IndigoMesh& mesh)
 	// Verts
 	if(mesh.vert_normals.size() == 0)
 	{
+		// NEW
+		//this->vertices.resize(mesh.vert_positions.size());
+
+		//for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
+		//	this->vertices[i] = RayMeshVertex(toVec3(mesh.vert_positions[i]), Vec3f(0.f, 0.f, 0.0f));
+
 		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
 			this->addVertex(toVec3(mesh.vert_positions[i]));
 	}
 	else
 	{
 		assert(mesh.vert_positions.size() == mesh.vert_normals.size());
+
+		// NEW
+		//this->vertices.resize(mesh.vert_positions.size());
+
+		//for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
+		//	this->vertices[i] = RayMeshVertex(toVec3(mesh.vert_positions[i]), toVec3(mesh.vert_normals[i]));
+
 		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
 			this->addVertex(toVec3(mesh.vert_positions[i]), toVec3(mesh.vert_normals[i]));
 	}

@@ -129,7 +129,7 @@ RayMesh
 -------
 
 =====================================================================*/
-SSE_CLASS_ALIGN RayMesh : public Geometry, public ModelLoadingStreamHandler
+SSE_CLASS_ALIGN RayMesh : public Geometry
 {
 public:
 	/*=====================================================================
@@ -185,20 +185,22 @@ public:
 	
 	void fromIndigoMesh(Indigo::IndigoMesh& mesh);
 
-
-	////////// ModelLoadingStreamHandler interface /////////////
-	virtual void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
+	//////////  old ModelLoadingStreamHandler interface /////////////
+	//////////  raymesh does not implement this interface ///////////
+	//////////  anymore but functions are still used by /////////////
+	//////////  fromIndigoMesh() ////////////////////////////////////
+	void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
 	//virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
 	//virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
-	virtual void addVertex(const Vec3f& pos);
-	virtual void addVertex(const Vec3f& pos, const Vec3f& normal);
-	virtual void addUVs(const std::vector<Vec2f>& uvs);
-	virtual void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
-	virtual void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+	void addVertex(const Vec3f& pos);
+	void addVertex(const Vec3f& pos, const Vec3f& normal);
+	void addUVs(const std::vector<Vec2f>& uvs);
+	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+	void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 
-	virtual void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
-	virtual void addMaterialUsed(const std::string& material_name);
-	virtual void endOfModel();
+	void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
+	void addMaterialUsed(const std::string& material_name);
+	void endOfModel();
 	////////////////////////////////////////////////////////////////
 	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
 	void addVertexUnchecked(const Vec3f& pos, const Vec3f& normal);
