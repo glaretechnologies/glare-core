@@ -622,62 +622,108 @@ inline static const ::Vec2f toVec2(const Indigo::IndigoVec2f& v)
 
 void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 {
-	// TODO room for optimization here
-
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
 	for(unsigned int i=0; i<mesh.used_materials.size(); ++i)
 		this->addMaterialUsed(mesh.used_materials[i]);
 
-	// Verts
+	// Copy Vertices
+	this->vertices.resize(mesh.vert_positions.size());
+
 	if(mesh.vert_normals.size() == 0)
 	{
-		// NEW
-		//this->vertices.resize(mesh.vert_positions.size());
-
-		//for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
-		//	this->vertices[i] = RayMeshVertex(toVec3(mesh.vert_positions[i]), Vec3f(0.f, 0.f, 0.0f));
-
-		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
-			this->addVertex(toVec3(mesh.vert_positions[i]));
+		for(uint32 i=0; i<mesh.vert_positions.size(); ++i)
+		{
+			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
+			this->vertices[i].normal.set(0.f, 0.f, 0.f);
+		}
 	}
 	else
 	{
-		assert(mesh.vert_positions.size() == mesh.vert_normals.size());
+		assert(mesh.vert_normals.size() == mesh.vert_positions.size());
 
-		// NEW
-		//this->vertices.resize(mesh.vert_positions.size());
-
-		//for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
-		//	this->vertices[i] = RayMeshVertex(toVec3(mesh.vert_positions[i]), toVec3(mesh.vert_normals[i]));
-
-		for(unsigned int i=0; i<mesh.vert_positions.size(); ++i)
-			this->addVertex(toVec3(mesh.vert_positions[i]), toVec3(mesh.vert_normals[i]));
+		for(uint32 i=0; i<mesh.vert_positions.size(); ++i)
+		{
+			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
+			this->vertices[i].normal.set(mesh.vert_normals[i].x, mesh.vert_normals[i].y, mesh.vert_normals[i].z);
+		}
 	}
 
 	// UVs
 	assert(mesh.num_uv_mappings == 0 || (mesh.uv_pairs.size() % mesh.num_uv_mappings == 0));
 
-	std::vector<Vec2f> uv_sets(mesh.num_uv_mappings);
+	this->uvs.resize(mesh.uv_pairs.size());
 
-	if(mesh.num_uv_mappings > 0)
-	{
-		for(unsigned int i=0; i<mesh.uv_pairs.size(); )
-		{
-			for(unsigned int z=0; z<mesh.num_uv_mappings; ++z)
-				uv_sets[z] = toVec2(mesh.uv_pairs[i++]);
+	for(uint32 i=0; i<mesh.uv_pairs.size(); ++i)
+		this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
 
-			this->addUVs(uv_sets);
-		}
-	}
+	this->num_uv_groups = mesh.num_uv_mappings == 0 ? 0 : (unsigned int)mesh.uv_pairs.size() / mesh.num_uv_mappings;
 
 	// Triangles
+	this->triangles.resize(mesh.triangles.size());
 	for(unsigned int i=0; i<mesh.triangles.size(); ++i)
-		this->addTriangle(mesh.triangles[i].vertex_indices, mesh.triangles[i].uv_indices, mesh.triangles[i].tri_mat_index);
+	{
+		// Check material index is in bounds
+		if(mesh.triangles[i].tri_mat_index >= getMaterialNameToIndexMap().size())
+			throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(mesh.triangles[i].tri_mat_index) + ")");
+
+		// Check vertex indices are in bounds
+		for(unsigned int v = 0; v < 3; ++v)
+			if(mesh.triangles[i].vertex_indices[v] >= getNumVerts())
+				throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ")");
+
+		// Check uv indices are in bounds
+		if(num_uv_sets > 0)
+			for(unsigned int v = 0; v < 3; ++v)
+				if(mesh.triangles[i].uv_indices[v] >= num_uv_groups)
+					throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
+
+
+		this->triangles[i].vertex_indices[0] = mesh.triangles[i].vertex_indices[0];
+		this->triangles[i].vertex_indices[1] = mesh.triangles[i].vertex_indices[1];
+		this->triangles[i].vertex_indices[2] = mesh.triangles[i].vertex_indices[2];
+		
+		this->triangles[i].uv_indices[0] = mesh.triangles[i].uv_indices[0];
+		this->triangles[i].uv_indices[1] = mesh.triangles[i].uv_indices[1];
+		this->triangles[i].uv_indices[2] = mesh.triangles[i].uv_indices[2];
+	
+		this->triangles[i].setTriMatIndex(mesh.triangles[i].tri_mat_index);
+		this->triangles[i].setUseShadingNormals(this->enable_normal_smoothing);
+	}
 
 	// Quads
+	this->quads.resize(mesh.quads.size());
 	for(unsigned int i=0; i<mesh.quads.size(); ++i)
-		this->addQuad(mesh.quads[i].vertex_indices, mesh.quads[i].uv_indices, mesh.quads[i].mat_index);
+	{
+		// Check material index is in bounds
+		if(mesh.quads[i].mat_index >= getMaterialNameToIndexMap().size())
+			throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(mesh.quads[i].mat_index) + ")");
+
+		// Check vertex indices are in bounds
+		for(unsigned int v = 0; v < 4; ++v)
+			if(mesh.quads[i].vertex_indices[v] >= getNumVerts())
+				throw ModelLoadingStreamHandlerExcep("Quad vertex index is out of bounds.  (vertex index=" + toString(mesh.quads[i].vertex_indices[v]) + ")");
+
+		// Check uv indices are in bounds
+		if(num_uv_sets > 0)
+			for(unsigned int v = 0; v < 4; ++v)
+				if(mesh.quads[i].uv_indices[v] >= num_uv_groups)
+					throw ModelLoadingStreamHandlerExcep("Quad uv index is out of bounds.  (uv index=" + toString(mesh.quads[i].uv_indices[v]) + ")");
+
+
+		this->quads[i].vertex_indices[0] = mesh.quads[i].vertex_indices[0];
+		this->quads[i].vertex_indices[1] = mesh.quads[i].vertex_indices[1];
+		this->quads[i].vertex_indices[2] = mesh.quads[i].vertex_indices[2];
+		this->quads[i].vertex_indices[3] = mesh.quads[i].vertex_indices[3];
+
+		this->quads[i].uv_indices[0] = mesh.quads[i].uv_indices[0];
+		this->quads[i].uv_indices[1] = mesh.quads[i].uv_indices[1];
+		this->quads[i].uv_indices[2] = mesh.quads[i].uv_indices[2];
+		this->quads[i].uv_indices[3] = mesh.quads[i].uv_indices[3];
+
+		this->quads[i].setMatIndex(mesh.quads[i].mat_index);
+		this->quads[i].setUseShadingNormals(this->enable_normal_smoothing);
+	}
 
 	// UV set expositions
 	for(unsigned int i=0; i<mesh.uv_set_expositions.size(); ++i)
