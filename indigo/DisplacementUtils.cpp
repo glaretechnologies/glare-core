@@ -256,10 +256,38 @@ void DisplacementUtils::subdivideAndDisplace(
 	// Convert RayMeshQuads to DUQuads
 	for(uint32_t i = 0; i < quads_in.size(); ++i)
 		temp_quads[i] = DUQuad(
-		quads_in[i].vertex_indices[0], quads_in[i].vertex_indices[1], quads_in[i].vertex_indices[2], quads_in[i].vertex_indices[3],
-		quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
-		quads_in[i].getMatIndex()
+			quads_in[i].vertex_indices[0], quads_in[i].vertex_indices[1], quads_in[i].vertex_indices[2], quads_in[i].vertex_indices[3],
+			quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
+			quads_in[i].getMatIndex()
 		);
+
+	//TEMP: explode UVs
+	std::vector<Vec2f> temp_uvs;// = uvs_in;
+
+	temp_uvs.resize(0);
+	for(uint32 i=0; i<temp_tris.size(); ++i)
+	{
+		for(uint32 v=0; v<3; ++v)
+		{
+			// Create new UV
+			temp_uvs.push_back(uvs_in[temp_tris[i].uv_indices[v]]);
+			
+			// Update tri UV index
+			temp_tris[i].uv_indices[v] = temp_uvs.size() - 1;
+		}
+	}
+
+	for(uint32 i=0; i<temp_quads.size(); ++i)
+	{
+		for(uint32 v=0; v<4; ++v)
+		{
+			// Create new UV
+			temp_uvs.push_back(uvs_in[temp_quads[i].uv_indices[v]]);
+
+			// Update quad UV index
+			temp_quads[i].uv_indices[v] = temp_uvs.size() - 1;
+		}
+	}
 
 
 	// Add edge and vertex polygons
@@ -330,7 +358,6 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 	}
 
-	std::vector<Vec2f> temp_uvs = uvs_in;
 
 	std::vector<DUVertexPolygon> temp_vert_polygons2;
 	std::vector<DUEdge> temp_edges2;
@@ -932,6 +959,9 @@ void DisplacementUtils::linearSubdivision(
 
 	//tris_out.reserve(tris_in.size() * 4);
 	quads_out.reserve(quads_in.size() * 4);
+
+
+
 
 
 	// Get displaced vertices, which are needed for testing if subdivision is needed
@@ -1589,6 +1619,7 @@ void DisplacementUtils::averagePass(
 		uv_offsets[i] = Vec2f(0.5f, 0.5f) - uvs_in[i];
 	}*/
 	
+
 	
 
 
@@ -1614,6 +1645,85 @@ void DisplacementUtils::averagePass(
 		for(uint32_t v = 0; v < 4; ++v)
 			n_q[quads[q].vertex_indices[v]]++;
 	}
+
+
+	//NEW:
+	std::vector<bool> uv_discontinuity(verts.size(), false);
+	std::vector<bool> assigned_uv(verts.size(), false);
+	std::vector<Vec2f> vert_uvs(verts.size());
+
+	const float UV_DIST_THRESHOLD = 0.001f;
+
+	for(uint32 t=0; t<tris.size(); ++t)
+	{
+		//conPrint("tri " + toString(t));
+		for(uint32 i=0; i<3; ++i)
+		{
+			const uint32 v_i = tris[t].vertex_indices[i];
+
+			//conPrint(toString(uvs_in[tris[t].uv_indices[i]]));
+
+			if(assigned_uv[v_i])
+			{
+				const float d2 = vert_uvs[v_i].getDist(uvs_in[tris[t].uv_indices[i]]);
+				//conPrint(toString(d2));
+				if(d2 >= UV_DIST_THRESHOLD)
+					uv_discontinuity[v_i] = true;
+			}
+
+			vert_uvs[v_i] = uvs_in[tris[t].uv_indices[i]];
+			assigned_uv[v_i] = true;
+		}
+	}
+
+	for(uint32 q=0; q<quads.size(); ++q)
+		for(uint32 i=0; i<4; ++i)
+		{
+			const uint32 v_i = quads[q].vertex_indices[i];
+
+			if(assigned_uv[v_i])
+			{
+				const float d2 = vert_uvs[v_i].getDist(uvs_in[quads[q].uv_indices[i]]);
+				//conPrint(toString(d2));
+
+				if(d2 >= UV_DIST_THRESHOLD)
+					uv_discontinuity[v_i] = true;
+			}
+
+			vert_uvs[v_i] = uvs_in[quads[q].uv_indices[i]];
+			assigned_uv[v_i] = true;
+		}
+
+	for(uint32 t=0; t<tris.size(); ++t)
+		for(uint32 i=0; i<3; ++i)
+		{
+			const uint32 v_i = tris[t].vertex_indices[i];
+			const uint32 uv_i = tris[t].uv_indices[i];
+
+			if(uv_discontinuity[v_i])
+			{
+				use_old_uvs[tris[t].uv_indices[mod3(i + 1)]] = true;
+				use_old_uvs[tris[t].uv_indices[mod3(i + 2)]] = true;
+				use_old_uvs[uv_i] = true;
+			}
+		}
+
+	for(uint32 q=0; q<quads.size(); ++q)
+		for(uint32 i=0; i<4; ++i)
+		{
+			const uint32 v_i = quads[q].vertex_indices[i];
+			const uint32 uv_i = quads[q].uv_indices[i];
+
+			if(uv_discontinuity[v_i])
+			{
+				use_old_uvs[quads[q].uv_indices[mod4(i + 1)]] = true;
+				use_old_uvs[quads[q].uv_indices[mod4(i + 2)]] = true;
+				use_old_uvs[quads[q].uv_indices[mod4(i + 3)]] = true;
+
+				use_old_uvs[uv_i] = true;
+			}
+		}
+
 
 	// TEMP:
 	// Assign uv coords from triangles and quads to vertices themselves
@@ -1654,6 +1764,8 @@ void DisplacementUtils::averagePass(
 		{
 			const uint32_t v_i = tris[t].vertex_indices[i]; // vertex index
 
+			assert(vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES);
+
 			// If it's not in the list, and the list isn't full yet...
 			if(!UVSetIndexPresent(vert_uv_set_indices[v_i], tris[t].uv_indices[i]) && vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES)
 				vert_uv_set_indices[v_i].uv_set_indices[vert_uv_set_indices[v_i].num_uv_set_indices++] = tris[t].uv_indices[i]; // Store the index of the UV pair.
@@ -1663,6 +1775,8 @@ void DisplacementUtils::averagePass(
 		for(uint32_t i = 0; i < 4; ++i) // For each vertex
 		{
 			const uint32_t v_i = quads[q].vertex_indices[i]; // vertex index
+
+			assert(vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES);
 
 			// If it's not in the list, and the list isn't full yet...
 			if(!UVSetIndexPresent(vert_uv_set_indices[v_i], quads[q].uv_indices[i]) && vert_uv_set_indices[v_i].num_uv_set_indices < VertexUVSetIndices::MAX_NUM_UV_SET_INDICES)
@@ -1703,8 +1817,8 @@ void DisplacementUtils::averagePass(
 					uvs_out[uv_index] += uv_cent[z] * weight;
 
 					//NEW:
-					if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
-						use_old_uvs[uv_index] = true;
+					//if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
+					//	use_old_uvs[uv_index] = true;
 				}
 		}
 	}
@@ -1755,8 +1869,8 @@ void DisplacementUtils::averagePass(
 						uvs_out[uv_index] += uv_cent[z] * weight;
 
 						//NEW:
-						if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
-							use_old_uvs[uv_index] = true;
+						//if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
+						//	use_old_uvs[uv_index] = true;
 					}
 			}
 		}
@@ -1771,6 +1885,9 @@ void DisplacementUtils::averagePass(
 		for(uint32_t i = 0; i < 3; ++i) // For each vertex
 		{
 			const uint32_t v_i = tri.vertex_indices[i];
+
+			if(v_i == 4)
+				int a =9;
 
 			if(dim[v_i] == 2) // Only add centroid if vertex has same dimension as polygon
 			{
@@ -1801,19 +1918,11 @@ void DisplacementUtils::averagePass(
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
-
-						/*const Vec2f shifted_uvs(
-							options.wrap_u ? fmod(uv_cent[z].x + uv_offsets[uv_index].x, 1.0f) : uv_cent[z].x,
-							options.wrap_v ? fmod(uv_cent[z].y + uv_offsets[uv_index].y, 1.0f) : uv_cent[z].y
-							);*/
-
-						//uvs_out[uv_index] += shifted_uvs * weight;
-
 						uvs_out[uv_index] += uv_cent[z] * weight;
 
 						//NEW:
-						if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
-							use_old_uvs[uv_index] = true;
+						//if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
+						//	use_old_uvs[uv_index] = true;
 					}
 			}
 		}
@@ -1836,14 +1945,21 @@ void DisplacementUtils::averagePass(
 				const Vec3f cent = (verts[v_i].pos + verts[v_i1].pos + verts[v_i2].pos + verts[v_i3].pos) * 0.25f;
 
 					
-				const uint32 uv_i = quad.uv_indices[i];
+				/*const uint32 uv_i = quad.uv_indices[i];
 				const uint32 uv_i1 = quad.uv_indices[mod4(i + 1)];
 				const uint32 uv_i2 = quad.uv_indices[mod4(i + 2)];
-				const uint32 uv_i3 = quad.uv_indices[mod4(i + 3)];
-
-				/*				
+				const uint32 uv_i3 = quad.uv_indices[mod4(i + 3)];*/
+				
 				for(uint32_t z = 0; z < num_uv_sets; ++z)
 				{
+					uv_cent[z] = (
+						getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], z) + 
+						getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 1)], z) + 
+						getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 2)], z) + 
+						getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 3)], z)
+						) * 0.25f;
+
+					/*
 					//TEMP
 					Vec2f uvs[4];
 					uvs[0] = getUVs(uvs_in, num_uv_sets, uv_i, z);
@@ -1865,8 +1981,8 @@ void DisplacementUtils::averagePass(
 					else
 					{
 						uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
-					}
-				}*/
+					}*/
+				}
 
 				const float weight = (float)(NICKMATHS_PI / 2.0);
 
@@ -1882,14 +1998,15 @@ void DisplacementUtils::averagePass(
 					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
 						const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v_i].uv_set_indices[x], z);
+						uvs_out[uv_index] += uv_cent[z] * weight;
 
 						//const Vec2f uv_offset = uv_offsets[uv_index];
 
-						Vec2f uvs[4];
-						uvs[0] = getUVs(uvs_in, num_uv_sets, uv_i, z);
-						uvs[1] = getUVs(uvs_in, num_uv_sets, uv_i1, z);
-						uvs[2] = getUVs(uvs_in, num_uv_sets, uv_i2, z);
-						uvs[3] = getUVs(uvs_in, num_uv_sets, uv_i3, z);
+						/*Vec2f uvs[4];
+						uvs[0] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], z);
+						uvs[1] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 1)], z);
+						uvs[2] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 2)], z);
+						uvs[3] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[mod4(i + 3)], z);*/
 
 						/*if(options.wrap_u)
 						{
@@ -1900,24 +2017,30 @@ void DisplacementUtils::averagePass(
 						}
 						else
 						{*/
-							uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
+							//uv_cent[z] = (uvs[0] + uvs[1] + uvs[2] + uvs[3]) * 0.25f;
 						//}
 
 						//NEW:
-						if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
-							use_old_uvs[uv_index] = true;
+						//if(uv_cent[z].getDist2(uvs_in[uv_index]) > UV_DISTANCE_THRESHOLD_SQD)
+						//	use_old_uvs[uv_index] = true;
 							
-						uvs_out[uv_index] += uv_cent[z] * weight;
+						
 					}
 			}
 		}
 	}
 
+	std::vector<bool> weight_applied(uvs_out.size(), false);
 
 
 	// Do 'normalize vertices by the weights' and 'apply correction only for quads and triangles' step.
 	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
 	{
+		if(v == 4)
+			int a =9;
+
+		const float weight = total_weight[v];
+
 		new_verts_out[v].pos /= total_weight[v]; // Normalise vertex positions by the weights
 
 		// Normalise vertex UVs by the weights
@@ -1925,7 +2048,14 @@ void DisplacementUtils::averagePass(
 			for(uint32_t i = 0; i < vert_uv_set_indices[v].num_uv_set_indices; ++i) // for each UV set at this vertex
 			{
 				const uint32_t uv_index = uvIndex(num_uv_sets, vert_uv_set_indices[v].uv_set_indices[i], z);
-				uvs_out[uv_index] /= total_weight[v];
+
+				if(uv_index == 4)
+					int b = 5;
+
+				if(!weight_applied[uv_index])
+					uvs_out[uv_index] /= total_weight[v];
+
+				weight_applied[uv_index] = true;
 			}
 
 		if(dim[v] == 2) // Apply correction only for quads and triangles
@@ -2042,8 +2172,23 @@ void DisplacementUtils::averagePass(
 		if(use_old_uvs[i])
 			uvs_out[i] = uvs_in[i];
 
+
 	// TEMP HACK:
 	//uvs_out = uvs_in;
+
+	//for(uint32 i=0; i<uvs_out.size(); ++i)
+	//	conPrint(toString(uvs_out[i]));
+
+	/*for(uint32 t=0; t<tris.size(); ++t)
+	{
+		conPrint("tri uvs in " + toString(t));
+		for(uint32 i=0; i<3; ++i)
+			conPrint(toString(uvs_in[tris[t].uv_indices[i]]));
+		conPrint("tri uvs out " + toString(t));
+		for(uint32 i=0; i<3; ++i)
+			conPrint(toString(uvs_out[tris[t].uv_indices[i]]));
+	}*/
+
 }
 
 
