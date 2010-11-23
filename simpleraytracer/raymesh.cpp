@@ -30,6 +30,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapma
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
 #include "../public/IndigoMesh.h"
+#include <unordered_map>
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
@@ -228,17 +229,6 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	}
 
 	mat_index_out = this->triangles[hitinfo.sub_elem_index].getTriMatIndex();
-}
-
-
-static inline bool operator < (const RayMeshVertex& a, const RayMeshVertex& b)
-{
-	if(a.pos < b.pos)
-		return true;
-	else if(b.pos < a.pos) // else if a.pos > b.pos
-		return false;
-	else	// else a.pos == b.pos
-		return a.normal < b.normal;
 }
 
 
@@ -1072,16 +1062,43 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 }
 
 
+// Hash function for RayMeshVertex
+class RayMeshVertexHash
+{
+public:
+	inline size_t operator()(const RayMeshVertex& v) const
+	{	// hash _Keyval to size_t value by pseudorandomizing transform
+
+		union A
+		{
+			uint32 i;
+			float x;
+		};
+
+		A a;
+		a.x = v.pos.x + v.pos.y + v.pos.z;
+
+		return (size_t)a.i;
+	}
+};
+
+
+//typedef std::map<RayMeshVertex, unsigned int> VertToIndexMap;
+typedef std::tr1::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
+
+
 void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose)
 {
+	Timer timer;
 	if(verbose)
 	{
 		print_output.print("Merging vertices for mesh '" + this->getName() + "'...");
 		print_output.print("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
 	}
 
-	std::map<RayMeshVertex, unsigned int> new_vert_indices;
+	VertToIndexMap new_vert_indices;
 	std::vector<RayMeshVertex> newverts;
+	newverts.reserve(vertices.size());
 	
 	for(unsigned int t = 0; t < triangles.size(); ++t)
 	{
@@ -1091,7 +1108,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 
 			unsigned int new_vert_index;
 
-			const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
+			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert);
 
 			if(result == new_vert_indices.end())
 			{
@@ -1114,7 +1131,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 
 			unsigned int new_vert_index;
 
-			const std::map<RayMeshVertex, unsigned int>::const_iterator result = new_vert_indices.find(old_vert);
+			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert);
 
 			if(result == new_vert_indices.end())
 			{
@@ -1134,7 +1151,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	if(verbose)
 	{
 		print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
-		print_output.print("\tDone.");
+		print_output.print("\tDone.  (Time taken: " + timer.elapsedString());
 	}
 }
 

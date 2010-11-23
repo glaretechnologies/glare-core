@@ -973,6 +973,8 @@ void DisplacementUtils::linearSubdivision(
 
 	// Create edge midpoint vertices for triangle and quads
 
+	const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
+
 	// For each triangle
 	for(uint32_t t = 0; t < tris_in.size(); ++t)
 	{
@@ -1010,42 +1012,47 @@ void DisplacementUtils::linearSubdivision(
 					edge_info.midpoint_vert_index = new_vert_index;
 
 					// Store UVs for triangle t in the edge.
-					//TEMP HACK NOTE: will only work if num_uv_sets = 1
-					if(v0 < v1)
+					if(num_uv_sets > 0)
 					{
-						edge_info.start_uv = uvs_in[uv0];
-						edge_info.end_uv = uvs_in[uv1];
-					}
-					else
-					{
-						edge_info.start_uv = uvs_in[uv1];
-						edge_info.end_uv = uvs_in[uv0];
+						if(v0 < v1)
+						{
+							edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+							edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						}
+						else
+						{
+							edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+							edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						}
 					}
 				}
 				else
 				{
 					assert(edge_info.num_adjacent_subdividing_polys == 1);
 
-					Vec2f this_start_uv;
-					Vec2f this_end_uv;
-					if(v0 < v1)
+					if(num_uv_sets > 0)
 					{
-						this_start_uv = uvs_in[uv0];
-						this_end_uv = uvs_in[uv1];
-					}
-					else
-					{
-						this_start_uv = uvs_in[uv1];
-						this_end_uv = uvs_in[uv0];
-					}
+						Vec2f this_start_uv;
+						Vec2f this_end_uv;
+						if(v0 < v1)
+						{
+							this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+							this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						}
+						else
+						{
+							this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+							this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						}
 
-					if((this_start_uv.getDist(edge_info.start_uv) > 0.001f) ||
-						(this_end_uv.getDist(edge_info.end_uv) > 0.001f))
-					{
-						// Mark vertices as having a UV discontinuity
-						verts_out[v0].uv_discontinuity = true;
-						verts_out[v1].uv_discontinuity = true;
-						verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+						if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
+							(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
+						{
+							// Mark vertices as having a UV discontinuity
+							verts_out[v0].uv_discontinuity = true;
+							verts_out[v1].uv_discontinuity = true;
+							verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+						}
 					}
 				}
 
@@ -1132,18 +1139,21 @@ void DisplacementUtils::linearSubdivision(
 
 				edge_info.midpoint_vert_index = new_vert_index;
 
-				// Store edge start and end UVs
-				// If v0 < v1, start_uv = uv(v0), end_uv = uv(v1), else
-				// start_uv = uv(v1), end_uv = uv(v0)
-				if(v0 < v1)
+				if(num_uv_sets > 0)
 				{
-					edge_info.start_uv = uvs_in[uv0];
-					edge_info.end_uv = uvs_in[uv1];
-				}
-				else
-				{
-					edge_info.start_uv = uvs_in[uv1];
-					edge_info.end_uv = uvs_in[uv0];
+					// Store edge start and end UVs
+					// If v0 < v1, start_uv = uv(v0), end_uv = uv(v1), else
+					// start_uv = uv(v1), end_uv = uv(v0)
+					if(v0 < v1)
+					{
+						edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+					}
+					else
+					{
+						edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+					}
 				}
 			}
 			else
@@ -1154,17 +1164,17 @@ void DisplacementUtils::linearSubdivision(
 				Vec2f this_end_uv;
 				if(v0 < v1)
 				{
-					this_start_uv = uvs_in[uv0];
-					this_end_uv = uvs_in[uv1];
+					this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+					this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
 				}
 				else
 				{
-					this_start_uv = uvs_in[uv1];
-					this_end_uv = uvs_in[uv0];
+					this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+					this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
 				}
 
-				if((this_start_uv.getDist(edge_info.start_uv) > 0.001f) ||
-					(this_end_uv.getDist(edge_info.end_uv) > 0.001f))
+				if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
+					(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
 				{
 					// Mark vertices as having a UV discontinuity
 					verts_out[v0].uv_discontinuity = true;
@@ -1194,6 +1204,7 @@ void DisplacementUtils::linearSubdivision(
 						uvs_out.push_back((uv_a + uv_b) * 0.5f);
 					}
 				}
+				
 				// else midpoint uvs already created
 			}
 		}

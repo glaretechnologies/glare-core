@@ -121,6 +121,18 @@ public:
 
 	Vec3f pos;
 	Vec3f normal;
+
+	inline bool operator < (const RayMeshVertex& b) const
+	{
+		if(pos < b.pos)
+			return true;
+		else if(b.pos < pos) // else if a.pos > b.pos
+			return false;
+		else	// else pos == b.pos
+			return normal < b.normal;
+	}
+
+	inline bool operator == (const RayMeshVertex& other) const { return pos == other.pos && normal == other.normal; }
 };
 
 
