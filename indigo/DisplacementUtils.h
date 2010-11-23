@@ -20,7 +20,7 @@ public:
 	DUVertex(){ anchored = false; }
 	DUVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) { 
 		//texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); 
-		anchored = false; }
+		anchored = false; uv_discontinuity = false; }
 	Vec3f pos;
 	Vec3f normal;
 	//Vec2f texcoords[4];
@@ -28,6 +28,8 @@ public:
 	int adjacent_vert_0, adjacent_vert_1;
 	float displacement; // will be set after displace() is called.
 	bool anchored;
+
+	bool uv_discontinuity;
 
 	//Vec2f texcoords; // TEMP
 	
