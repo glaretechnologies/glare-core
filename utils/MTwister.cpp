@@ -88,11 +88,12 @@ void MTwister::init_genrand(unsigned long s)
 }
 
 
+const static unsigned long mag01[2]={0x0UL, MATRIX_A};
+
 /* generates a random number on [0,0xffffffff]-interval */
 unsigned long MTwister::genrand_int32(void)
 {
     unsigned long y;
-    const /*static*/ unsigned long mag01[2]={0x0UL, MATRIX_A};
     /* mag01[x] = x * MATRIX_A  for x=0,1 */
 
     if (mti >= N) { /* generate N words at one time */
