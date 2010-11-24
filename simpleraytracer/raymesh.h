@@ -253,6 +253,7 @@ public:
 private:
 	void computeShadingNormals(PrintOutput& print_output, bool verbose);
 	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose);
+	void mergeUVs(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
 
 	//inline unsigned int vertSize() const;

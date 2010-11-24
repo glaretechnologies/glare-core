@@ -351,7 +351,6 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		this->quads.clearAndFreeMem();
 	}
 
-
 	subdivide_and_displace_done = true;
 }
 
@@ -365,6 +364,10 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	if(tritree != NULL)
 		return; // build() has already been called.
+
+
+	//NOTE: disabled due to questionable speed-up offered.
+	//mergeUVs(print_output, verbose);
 
 
 	//NEW: Build triangle_geom_normals
@@ -410,6 +413,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertices.size() * sizeof(RayMeshVertex)) + ")");
 		//print_output.print("\t" + toString(getNumVerts()) + " vertices (" + ::getNiceByteSize(vertex_data.size()*sizeof(float)) + ")");
 		print_output.print("\t" + toString((unsigned int)triangles.size()) + " triangles (" + ::getNiceByteSize(triangles.size()*sizeof(RayMeshTriangle)) + ")");
+		print_output.print("\t" + toString((unsigned int)uvs.size()) + " UVs (" + ::getNiceByteSize(uvs.size()*sizeof(Vec2f)) + ")");
 	}
 
 	if(renderer_settings.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
@@ -1151,6 +1155,83 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	if(verbose)
 	{
 		print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
+		print_output.print("\tDone.  (Time taken: " + timer.elapsedString());
+	}
+}
+
+
+// Hash function for UV
+class UVHash
+{
+public:
+	inline size_t operator()(const Vec2f& v) const
+	{	// hash _Keyval to size_t value by pseudorandomizing transform
+
+		union A
+		{
+			uint32 i;
+			float x;
+		};
+
+		A a;
+		a.x = v.x + v.y;
+
+		return (size_t)a.i;
+	}
+};
+
+
+typedef std::tr1::unordered_map<Vec2f, unsigned int, UVHash> UVToIndexMap;
+
+
+void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
+{
+	assert(quads.size() == 0);
+
+	// NOTE: This code only works in the case of num_uv_sets == 1 currently.
+	if(num_uv_sets != 1)
+		return;
+
+	Timer timer;
+	if(verbose)
+	{
+		print_output.print("Merging uvs for mesh '" + this->getName() + "'...");
+		print_output.print("\tInitial num uvs: " + toString((unsigned int)uvs.size()));
+	}
+
+	std::vector<Vec2f> new_uvs;
+
+	UVToIndexMap new_uv_indices;
+
+	for(unsigned int t = 0; t < triangles.size(); ++t)
+	{
+		for(unsigned int i = 0; i < 3; ++i)
+		{
+			const Vec2f& old_uv = uvs[triangles[t].uv_indices[i]];
+
+			unsigned int new_index;
+
+			const UVToIndexMap::const_iterator result = new_uv_indices.find(old_uv);
+
+			if(result == new_uv_indices.end())
+			{
+				new_index = (unsigned int)new_uvs.size();
+				new_uvs.push_back(old_uv);
+				new_uv_indices.insert(std::make_pair(old_uv, new_index));
+			}
+			else
+				new_index = (*result).second;
+
+			triangles[t].uv_indices[i] = new_index;
+		}
+	}
+
+	uvs = new_uvs;
+
+
+	if(verbose)
+	{
+		print_output.print("\tNew num uvs: " + toString((unsigned int)uvs.size()) + "");
 		print_output.print("\tDone.  (Time taken: " + timer.elapsedString());
 	}
 }
