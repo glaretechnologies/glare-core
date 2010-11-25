@@ -49,6 +49,27 @@ public:
 		return item.f;
 	}
 };
+/*
+typedef float Item;
+
+class ItemPredicate
+{
+public:
+	inline bool operator()(float a, float b)
+	{
+		return a < b;
+	}
+};
+
+
+class ItemKey
+{
+public:
+	inline float operator() (float x)
+	{
+		return x;
+	}
+};*/
 
 
 #if (BUILD_TESTS)
@@ -63,6 +84,7 @@ void test()
 		{
 			f[i].i = (int)i;
 			f[i].f = -100.0f + rng.unitRandom() * 200.0f;
+			//f[i] = -100.0f + rng.unitRandom() * 200.0f;
 		}
 
 		std::vector<Item> radix_sorted = f;
@@ -78,10 +100,14 @@ void test()
 
 		const double radix_time = timer.elapsed();
 
+
+		//ItemPredicate less_than;
+
 		// Check the results actually are sorted.
 		for(size_t i=1; i<radix_sorted.size(); ++i)
 		{
 			testAssert(radix_sorted[i].f >= radix_sorted[i-1].f);
+			//testAssert(radix_sorted[i] >= radix_sorted[i-1]);
 		}
 
 		// Check all original items are present.
@@ -101,6 +127,8 @@ void test()
 		conPrint("radix_time:    " + toString(radix_time) + " s");
 		conPrint("std_sort_time: " + toString(std_sort_time) + " s");
 		conPrint("speedup: " + toString(std_sort_time / radix_time) + " x");
+
+		conPrint("Sort speed: " + toString(1.0e-6 * N / radix_time) + " M Keys/sec");
 	}
 
 	exit(0);

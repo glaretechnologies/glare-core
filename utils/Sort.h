@@ -135,17 +135,18 @@ namespace Sort
 		}
 		//memset(b0, 0, kHist * 12);
 
+
 		// 1.  parallel histogramming pass
 		//
 		for (uint32 i = 0; i < elements; i++) {
 
 			pf(array);
 
-			uint32 fi = flippedKey(key(in[i])); // FloatFlip((uint32&)array[i]);
+			const uint32 fi = flippedKey(key(in[i]));
 
-			b0[_0(fi)] ++;
-			b1[_1(fi)] ++;
-			b2[_2(fi)] ++;
+			b0[_0(fi)]++;
+			b1[_1(fi)]++;
+			b2[_2(fi)]++;
 		}
 
 		// 2.  Sum the histograms -- each histogram entry records the number of values preceding itself.
@@ -155,15 +156,15 @@ namespace Sort
 			for (uint32 i = 0; i < kHist; i++) {
 
 				tsum = b0[i] + sum0;
-				b0[i] = sum0 - 1;
+				b0[i] = sum0;
 				sum0 = tsum;
 
 				tsum = b1[i] + sum1;
-				b1[i] = sum1 - 1;
+				b1[i] = sum1;
 				sum1 = tsum;
 
 				tsum = b2[i] + sum2;
-				b2[i] = sum2 - 1;
+				b2[i] = sum2;
 				sum2 = tsum;
 			}
 		}
@@ -174,8 +175,8 @@ namespace Sort
 			/*const T& fi = in[i];
 			uint32 pos = _0(flippedKey(key(fi)));
 			sorted[++b0[pos]] = fi;*/
-			uint32 pos = _0(flippedKey(key(in[i])));
-			sorted[++b0[pos]] = in[i];
+			const uint32 pos = _0(flippedKey(key(in[i])));
+			sorted[b0[pos]++] = in[i];
 		}
 
 		// byte 1: read/write histogram, copy
@@ -185,8 +186,8 @@ namespace Sort
 			//const T si = sorted[i];
 			//uint32 pos = _1(flippedKey(key(si)));
 			//in[++b1[pos]] = si;
-			uint32 pos = _1(flippedKey(key(sorted[i])));
-			in[++b1[pos]] = sorted[i];
+			const uint32 pos = _1(flippedKey(key(sorted[i])));
+			in[b1[pos]++] = sorted[i];
 		}
 
 		// byte 2: read/write histogram, copy & flip out
@@ -196,8 +197,8 @@ namespace Sort
 			//const T ai = in[i];
 			//uint32 pos = _2(flippedKey(key(ai)));
 			//sorted[++b2[pos]] = ai;
-			uint32 pos = _2(flippedKey(key(in[i])));
-			sorted[++b2[pos]] = in[i];
+			const uint32 pos = _2(flippedKey(key(in[i])));
+			sorted[b2[pos]++] = in[i];
 
 		}
 

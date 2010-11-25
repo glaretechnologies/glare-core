@@ -322,7 +322,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	{
 		print_output.print("\tDoing subdivision level " + toString(i) + "...");
 
-		Timer linear_timer;
+		//Timer linear_timer;
 		
 
 		linearSubdivision(
@@ -345,13 +345,13 @@ void DisplacementUtils::subdivideAndDisplace(
 			temp_uvs2 // uvs out
 			);
 
-		conPrint("linearSubdivision took " + linear_timer.elapsedString());
+		//conPrint("linearSubdivision took " + linear_timer.elapsedString());
 
 		if(smooth)
 		{
-			Timer avpass_timer;
+			//Timer avpass_timer;
 			averagePass(temp_vert_polygons2, temp_edges2, temp_tris2, temp_quads2, temp_verts2, temp_uvs2, num_uv_sets, options, temp_verts, temp_uvs);
-			conPrint("averagePass took " + avpass_timer.elapsedString());
+			//conPrint("averagePass took " + avpass_timer.elapsedString());
 		}
 		else
 		{
