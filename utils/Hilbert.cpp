@@ -38,38 +38,9 @@ static const Matrix2<int> negMirror(const Matrix2<int>& m)
 }
 
 
-static int sign(int x)
-{
-	return x >= 0 ? 1 : -1;
-}
-
-
 static int run(int depth, int maxdepth, Matrix2<int> m, int x, int y, int index, std::vector<std::pair<int, int> >& indices_out)
 {
-	/*int i_x, i_y, j_x, j_y;
-	if(direction == 0)
-	{
-		i_x = 1; i_y = 0;
-		j_x = 0; j_y = 1;
-	}
-	else if(direction == 1)
-	{
-		i_x = 0; i_y = 1;
-		j_x = 1; j_y = 0;
-	}
-	else if(direction == 2)
-	{
-		i_x = -1; i_y = 0;
-		j_x = 0; j_y = -1;
-	}
-	else
-	{
-		i_x = 0; i_y = -1;
-		j_x = -1; j_y = 0;
-	}*/
-
 	const int step = 1 << (maxdepth - depth);
-	//const int halfstep = 1 << (maxdepth - depth - 1);
 
 	int i_x = m.e[0];
 	int i_y = m.e[2];
@@ -87,10 +58,10 @@ static int run(int depth, int maxdepth, Matrix2<int> m, int x, int y, int index,
 	}
 	else
 	{
-		index = run(depth + 1, maxdepth, mirror(m),    x,                                 y,                                  index, indices_out);
-		index = run(depth + 1, maxdepth, m,            x + j_x*step,                      y + j_y*step,                       index, indices_out);
-		index = run(depth + 1, maxdepth, m,            x + (i_x + j_x)*step,              y + (i_y + j_y)*step,               index, indices_out);
-		index = run(depth + 1, maxdepth, negMirror(m), x + (2*i_x + j_x)*step - i_x - j_x,      y + (2*i_y + j_y)*step - i_y - j_y,       index, indices_out);
+		index = run(depth + 1, maxdepth, mirror(m),    x,                                   y,                                   index, indices_out);
+		index = run(depth + 1, maxdepth, m,            x + j_x*step,                        y + j_y*step,                        index, indices_out);
+		index = run(depth + 1, maxdepth, m,            x + (i_x + j_x)*step,                y + (i_y + j_y)*step,                index, indices_out);
+		index = run(depth + 1, maxdepth, negMirror(m), x + (2*i_x + j_x)*step - i_x - j_x,  y + (2*i_y + j_y)*step - i_y - j_y,  index, indices_out);
 		return index;
 	}
 }
