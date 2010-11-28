@@ -40,6 +40,14 @@ public:
 			interleaveBits(d, _coords[d]);
 	}
 
+	void computeKeyPtr(const uint32_t* const _coords)
+	{
+		for(uint32_t d = 0; d < dimensions; ++d) key[d] = 0;
+
+		for(uint32_t d = 0; d < dimensions; ++d)
+			interleaveBits(d, _coords[d]);
+	}
+
 	inline bool operator < (const zKey& rhs) const
 	{
 		for(int d = dimensions - 1; d >= 0; --d)
