@@ -28,13 +28,13 @@ public:
 
 	~MTwister();
 
+	void init_genrand(unsigned long s);
 
-	float unitRandom();
+	inline float unitRandom()		{ return genrand_int32() * static_cast<float>(1.0 / 4294967295.0); }
+	inline float unitRandomOpen()	{ return genrand_int32() * static_cast<float>(1.0 / 4294967296.0); }
 	unsigned long genrand_int32();
 
 private:
-	void init_genrand(unsigned long s);
-
 
 	static const unsigned int N = 624;
 	static const unsigned int M = 397;

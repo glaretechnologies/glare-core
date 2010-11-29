@@ -126,12 +126,3 @@ unsigned long MTwister::genrand_int32(void)
 
     return y;
 }
-
-
-/* generates a random number on [0,1]-real-interval */
-float MTwister::unitRandom()
-{
-    return (float)genrand_int32()*(1.0f/4294967295.0f); 
-    /* divided by 2^32-1 */ 
-}
-
