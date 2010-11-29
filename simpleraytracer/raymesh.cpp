@@ -614,6 +614,30 @@ inline static const ::Vec2f toVec2(const Indigo::IndigoVec2f& v)
 }
 
 
+// This can be optimised quite a bit...
+inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
+{
+	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
+	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
+	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);*/
+	Vec4f v0, v1, v2;
+	mesh.triVertPos(tri_index, 0).vectorToVec4f(v0);
+	mesh.triVertPos(tri_index, 1).vectorToVec4f(v1);
+	mesh.triVertPos(tri_index, 2).vectorToVec4f(v2);
+
+	const Vec4f e0(to_parent * (v1 - v0));
+	const Vec4f e1(to_parent * (v2 - v0));
+
+	return Vec4f(crossProduct(e0, e1)).length() * 0.5f;
+}
+
+
+inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
+{
+	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
+}
+
+
 void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 {
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
@@ -640,6 +664,8 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 		{
 			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
 			this->vertices[i].normal.set(mesh.vert_normals[i].x, mesh.vert_normals[i].y, mesh.vert_normals[i].z);
+
+			assert(::isFinite(mesh.vert_normals[i].x));
 		}
 	}
 
@@ -654,35 +680,58 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 	this->num_uv_groups = mesh.num_uv_mappings == 0 ? 0 : (unsigned int)mesh.uv_pairs.size() / mesh.num_uv_mappings;
 
 	// Triangles
-	this->triangles.resize(mesh.triangles.size());
+	this->triangles.reserve(mesh.triangles.size());
+	unsigned int dest_i = 0;
 	for(unsigned int i=0; i<mesh.triangles.size(); ++i)
 	{
+		const Indigo::Triangle& src_tri = mesh.triangles[i];
+
 		// Check material index is in bounds
-		if(mesh.triangles[i].tri_mat_index >= getMaterialNameToIndexMap().size())
+		if(src_tri.tri_mat_index >= getMaterialNameToIndexMap().size())
 			throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(mesh.triangles[i].tri_mat_index) + ")");
 
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 3; ++v)
-			if(mesh.triangles[i].vertex_indices[v] >= getNumVerts())
+			if(src_tri.vertex_indices[v] >= getNumVerts())
 				throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
 			for(unsigned int v = 0; v < 3; ++v)
-				if(mesh.triangles[i].uv_indices[v] >= num_uv_groups)
+				if(src_tri.uv_indices[v] >= num_uv_groups)
 					throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
 
+		// Check the area of the triangle.
+		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
+		const float MIN_TRIANGLE_AREA = 1.0e-20f;
+		if(getTriArea(
+			vertPos(src_tri.vertex_indices[0]), 
+			vertPos(src_tri.vertex_indices[1]), 
+			vertPos(src_tri.vertex_indices[2])) < MIN_TRIANGLE_AREA)
+		{
+			//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+			//return;
+		}
+		else
+		{
+			// Add a triangle
+			this->triangles.resize(this->triangles.size() + 1);
 
-		this->triangles[i].vertex_indices[0] = mesh.triangles[i].vertex_indices[0];
-		this->triangles[i].vertex_indices[1] = mesh.triangles[i].vertex_indices[1];
-		this->triangles[i].vertex_indices[2] = mesh.triangles[i].vertex_indices[2];
+			RayMeshTriangle& dest_tri = this->triangles[dest_i];
+
+			dest_tri.vertex_indices[0] = src_tri.vertex_indices[0];
+			dest_tri.vertex_indices[1] = src_tri.vertex_indices[1];
+			dest_tri.vertex_indices[2] = src_tri.vertex_indices[2];
+			
+			dest_tri.uv_indices[0] = src_tri.uv_indices[0];
+			dest_tri.uv_indices[1] = src_tri.uv_indices[1];
+			dest_tri.uv_indices[2] = src_tri.uv_indices[2];
 		
-		this->triangles[i].uv_indices[0] = mesh.triangles[i].uv_indices[0];
-		this->triangles[i].uv_indices[1] = mesh.triangles[i].uv_indices[1];
-		this->triangles[i].uv_indices[2] = mesh.triangles[i].uv_indices[2];
-	
-		this->triangles[i].setTriMatIndex(mesh.triangles[i].tri_mat_index);
-		this->triangles[i].setUseShadingNormals(this->enable_normal_smoothing);
+			dest_tri.setTriMatIndex(src_tri.tri_mat_index);
+			dest_tri.setUseShadingNormals(this->enable_normal_smoothing);
+
+			dest_i++;
+		}
 	}
 
 	// Quads
@@ -762,28 +811,7 @@ void RayMesh::addVertexUnchecked(const Vec3f& pos, const Vec3f& normal)
 }
 
 
-// This can be optimised quite a bit...
-inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
-{
-	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
-	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
-	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);*/
-	Vec4f v0, v1, v2;
-	mesh.triVertPos(tri_index, 0).vectorToVec4f(v0);
-	mesh.triVertPos(tri_index, 1).vectorToVec4f(v1);
-	mesh.triVertPos(tri_index, 2).vectorToVec4f(v2);
 
-	const Vec4f e0(to_parent * (v1 - v0));
-	const Vec4f e1(to_parent * (v2 - v0));
-
-	return Vec4f(crossProduct(e0, e1)).length() * 0.5f;
-}
-
-
-inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
-{
-	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
-}
 
 
 void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
