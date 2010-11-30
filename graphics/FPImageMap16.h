@@ -47,8 +47,8 @@ public:
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 
 
-private:
 	inline const half* getPixel(unsigned int x, unsigned int y) const;
+private:
 
 	unsigned int width, height;
 	//Array2d<half> data;
