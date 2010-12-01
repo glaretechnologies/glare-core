@@ -236,8 +236,7 @@ OpenCL::OpenCL(int device_number, bool verbose_init)
 			if(device_number < 0) // If auto selecting device
 			{
 				// if this is the best performing GPU device found so far, select it
-				if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf) // CPU devices disallowed
-				//if(best_device_perf < device_perf) // CPU devices allowed
+				if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf)
 				{
 					device_to_use = device_ids[d];
 					platform_to_use = platform_ids[i];
