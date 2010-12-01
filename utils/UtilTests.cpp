@@ -34,6 +34,10 @@ typedef unsigned __int64 ticks;
 #define getticks __rdtsc
 */
 
+
+#if BUILD_TESTS
+
+
 void UtilTests::test()
 {
 	if(false)
@@ -129,3 +133,6 @@ void UtilTests::test()
 		}
 	}
 }
+
+
+#endif // BUILD_TESTS
