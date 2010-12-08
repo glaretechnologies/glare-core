@@ -176,7 +176,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	//-----------------------------------------------------------------
 	//if socket already exists, destroy it
 	//-----------------------------------------------------------------
-	if(sockethandle)
+	if(isSockHandleValid(sockethandle))
 	{
 		assert(0);
 		throw MySocketExcep("Socket already created.");
