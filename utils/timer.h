@@ -77,7 +77,7 @@ bool Timer::isPaused()
 
 void Timer::pause()
 {
-	assert(!paused);
+//	assert(!paused);
 
 	paused = true;
 
@@ -86,7 +86,7 @@ void Timer::pause()
 
 void Timer::unpause()
 {
-	assert(paused);
+//	assert(paused);
 
 	paused = false;
 
