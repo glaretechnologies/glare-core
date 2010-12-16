@@ -49,6 +49,11 @@ public:
 	inline ~Vec2()
 	{}
 
+	inline Vec2(Real v)
+	:	x(v),
+		y(v)
+	{}
+
 	inline Vec2(Real x_, Real y_)
 	:	x(x_),
 		y(y_)
