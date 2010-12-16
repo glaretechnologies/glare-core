@@ -211,19 +211,21 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	//NEW: explode UVs
 	std::vector<Vec2f> temp_uvs;
-	temp_uvs.reserve(temp_tris.size() * 3 + temp_quads.size() * 4);
+	temp_uvs.reserve((temp_tris.size() * 3 + temp_quads.size() * 4) * num_uv_sets);
+
+	uint32 new_uv_index = 0;
 
 	for(uint32 i=0; i<temp_tris.size(); ++i)
 	{
 		for(uint32 v=0; v<3; ++v)
 		{
-			const uint32 new_uv_index = (uint32)temp_uvs.size();
-
 			// Create new UV
-			temp_uvs.push_back(uvs_in[temp_tris[i].uv_indices[v]]);
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_tris[i].uv_indices[v], z));
 			
 			// Update tri UV index
 			temp_tris[i].uv_indices[v] = new_uv_index;
+			new_uv_index++;
 		}
 	}
 
@@ -231,13 +233,13 @@ void DisplacementUtils::subdivideAndDisplace(
 	{
 		for(uint32 v=0; v<4; ++v)
 		{
-			const uint32 new_uv_index = (uint32)temp_uvs.size();
-
 			// Create new UV
-			temp_uvs.push_back(uvs_in[temp_quads[i].uv_indices[v]]);
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_quads[i].uv_indices[v], z));
 
 			// Update quad UV index
 			temp_quads[i].uv_indices[v] = new_uv_index;
+			new_uv_index++;
 		}
 	}
 
@@ -438,7 +440,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	uvs_out = temp_uvs;
 
-	conPrint("subdivideAndDisplace took " + timer.elapsedString());
+	print_output.print("Subdivision and displacement took " + timer.elapsedString());
 }
 
 
@@ -950,20 +952,38 @@ void DisplacementUtils::linearSubdivision(
 		}
 		else
 		{
-			const float tri_curvature = triangleMaxCurvature(
-						displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
-						displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
-						displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
-
-			if(tri_curvature >= (float)options.subdivide_curvature_threshold)
+			if(options.subdivide_curvature_threshold <= 0)
+			{
+				// If subdivide_curvature_threshold is <= 0, then since tri_curvature is always >= 0, then we will always subdivide the triangle,
+				// so avoid computing the tri_curvature.
 				subdivide_triangle = true;
+			}
 			else
 			{
-				// Test displacement error
-				const int RES = 10;
-				const float displacment_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
+				const float tri_curvature = triangleMaxCurvature(
+							displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
+							displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
 
-				subdivide_triangle = displacment_error >= options.displacement_error_threshold;
+				if(tri_curvature >= (float)options.subdivide_curvature_threshold)
+					subdivide_triangle = true;
+				else
+				{
+					if(options.displacement_error_threshold <= 0)
+					{
+						// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the triangle.
+						// So avoid computing the displacment_error.
+						subdivide_triangle = true;
+					}
+					else
+					{
+						// Test displacement error
+						const int RES = 10;
+						const float displacment_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
+
+						subdivide_triangle = displacment_error >= options.displacement_error_threshold;
+					}
+				}
 			}
 		}
 
@@ -1217,7 +1237,7 @@ void DisplacementUtils::linearSubdivision(
 	{
 		const DUEdgeInfo& edge_info = i->second;
 
-		assert(edge_info.num_adjacent_subdividing_polys == 2);
+		//assert(edge_info.num_adjacent_subdividing_polys == 2);
 	}
 #endif
 
@@ -1623,9 +1643,6 @@ void DisplacementUtils::averagePass(
 		for(uint32_t i = 0; i < 3; ++i) // For each vertex
 		{
 			const uint32_t v_i = tri.vertex_indices[i];
-
-			if(v_i == 4)
-				int a =9;
 
 			if(dim[v_i] == 2) // Only add centroid if vertex has same dimension as polygon
 			{
