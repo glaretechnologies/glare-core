@@ -37,9 +37,8 @@ const int SOCKET_ERROR = -1;
 const double BLOCK_DURATION = 0.5; // in seconds.
 
 
-MySocket::MySocket(const std::string& hostname, int port)
+MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback)
 {
-
 	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
@@ -64,7 +63,7 @@ MySocket::MySocket(const std::string& hostname, int port)
 		//-----------------------------------------------------------------
 		//do the connect using the looked up ip address
 		//-----------------------------------------------------------------
-		doConnect(serverips[0], port);
+		doConnect(serverips[0], port, should_abort_callback);
 
 	}
 	catch(NetworkingExcep& e)
@@ -74,7 +73,7 @@ MySocket::MySocket(const std::string& hostname, int port)
 }
 
 
-MySocket::MySocket(const IPAddress& ipaddress, int port)
+MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback)
 {
 	thisend_port = -1;
 	otherend_port = -1;
@@ -82,7 +81,7 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 
 	assert(Networking::isInited());
 
-	doConnect(ipaddress, port);
+	doConnect(ipaddress, port, should_abort_callback);
 }
 
 
@@ -93,7 +92,45 @@ MySocket::MySocket()
 }
 
 
-void MySocket::doConnect(const IPAddress& ipaddress, int port)
+static void closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
+{
+#if defined(WIN32) || defined(WIN64)
+	const int result = closesocket(sockethandle);
+#else
+	const int result = ::close(sockethandle);
+#endif
+	assert(result == 0);
+}
+
+
+static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
+{
+	u_long nonblocking = blocking ? 0 : 1;
+	const int result = ioctlsocket(sockethandle, FIONBIO, &nonblocking);
+	assert(result == 0);
+}
+
+
+static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
+{
+	//linger lin;
+	//lin.l_onoff = 
+
+	const BOOL dont_linger = linger ? 0 : 1;
+	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DONTLINGER, (const char*)&dont_linger, sizeof(dont_linger));
+	assert(result == 0);
+}
+
+
+static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
+{
+	const BOOL debug = enable_debug ? 1 : 0;
+	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DEBUG, (const char*)&debug, sizeof(debug));
+	assert(result == 0);
+}
+
+
+void MySocket::doConnect(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback)
 {
 	otherend_ipaddr = ipaddress; // Remember ip of other end
 
@@ -116,31 +153,78 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port)
 	sockethandle = socket(PF_INET, SOCK_STREAM, DEFAULT_PROTOCOL);
 
 	if(!isSockHandleValid(sockethandle))
-	{
 		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
-	}
 
 	//-----------------------------------------------------------------
 	//Connect to server
-	//NOTE: get rid of this blocking connect.
 	//-----------------------------------------------------------------
-	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) == -1)
+
+	// Turn off blocking while connecting
+	setBlocking(sockethandle, false);
+
+	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
-		const std::string error_str = Networking::getError();
-		// Because we are about to throw an exception, and because doConnect() is always called only from a constructor, we are about to throw an exception from a constructor.
-		// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
-		// so we have to close the socket here.
-#if defined(WIN32) || defined(WIN64)
-		closesocket(sockethandle);
-#else
-		::close(sockethandle);
-#endif
-		sockethandle = nullSocketHandle();
-		throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
+		if(WSAGetLastError() != WSAEWOULDBLOCK)
+		{
+			const std::string error_str = Networking::getError(); // Get error before we call closeSocket(), which may overwrite it.
+
+			// Because we are about to throw an exception, and because doConnect() is always called only from a constructor, we are about to throw an exception from a constructor.
+			// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
+			// so we have to close the socket here.
+			closeSocket(sockethandle);
+			sockethandle = nullSocketHandle();
+			throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
+		}
 	}
 
-	otherend_port = port;
+	// While we are not either connected or in an error state...
+	while(1)
+	{
+		timeval wait_period;
+		wait_period.tv_sec = 0;
+		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
 
+		fd_set write_sockset;
+		initFDSetWithSocket(write_sockset, sockethandle);
+		fd_set error_sockset;
+		initFDSetWithSocket(error_sockset, sockethandle);
+
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			setLinger(sockethandle, false);
+			closeSocket(sockethandle);
+			sockethandle = nullSocketHandle();
+			throw AbortedMySocketExcep();
+		}
+
+		select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &write_sockset, &error_sockset, &wait_period);
+
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			setLinger(sockethandle, false);
+			closeSocket(sockethandle);
+			sockethandle = nullSocketHandle();
+			throw AbortedMySocketExcep();
+		}
+
+		// If socket is writeable, then the connect has succeeded.
+		if(FD_ISSET(sockethandle, &write_sockset))
+			 break;
+
+		if(FD_ISSET(sockethandle, &error_sockset))
+		{
+			closeSocket(sockethandle);
+			sockethandle = nullSocketHandle();
+			throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
+		}
+	}
+
+
+	// Return to normal blocking mode.
+	setBlocking(sockethandle, true);
+
+
+	otherend_port = port;
 
 	//-----------------------------------------------------------------
 	//get the interface address of this host used for the connection
@@ -316,19 +400,7 @@ void MySocket::close()
 			//::printWarning("Error while shutting down TCP socket: " + Networking::getError());
 		//}
 
-		//-----------------------------------------------------------------
-		//close socket
-		//-----------------------------------------------------------------
-#if defined(WIN32) || defined(WIN64)
-		result = closesocket(sockethandle);
-#else
-		result = ::close(sockethandle);
-#endif
-		assert(result == 0);
-		if(result)
-		{
-			//::printWarning("Error while destroying TCP socket: " + Networking::getError());
-		}
+		closeSocket(sockethandle);
 	}
 
 	sockethandle = nullSocketHandle();

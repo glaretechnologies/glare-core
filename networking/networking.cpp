@@ -49,9 +49,9 @@ Networking::Networking()
 	//-----------------------------------------------------------------
 	//work out the IP adress of this computer
 	//-----------------------------------------------------------------
-	char buffer[1024];
-	if(::gethostname(buffer, 1024) == SOCKET_ERROR)
-		throw NetworkingExcep("error calling gethostname()");
+	//char buffer[1024];
+	//if(::gethostname(buffer, 1024) == SOCKET_ERROR)
+	//	throw NetworkingExcep("error calling gethostname()");
 
 
 
@@ -107,7 +107,8 @@ Networking::~Networking()
 	//close down windows sockets
 	//-----------------------------------------------------------------
 #if defined(WIN32) || defined(WIN64)
-	WSACleanup();
+	const int result = WSACleanup();
+	assert(result == 0);
 #endif
 }
 	

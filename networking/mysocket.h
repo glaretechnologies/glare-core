@@ -68,8 +68,8 @@ Does both client and server sockets.
 class MySocket
 {
 public:
-	MySocket(const std::string& hostname, int port); // Client connect via DNS lookup
-	MySocket(const IPAddress& ipaddress, int port); // Client connect
+	MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback); // Client connect via DNS lookup
+	MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback); // Client connect
 	MySocket(); // For server socket
 
 	~MySocket();
@@ -114,8 +114,8 @@ private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
-	void doConnect(const IPAddress& ipaddress, int port);
-
+	void doConnect(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback);
+public:
 #if defined(WIN32) || defined(WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
@@ -123,6 +123,7 @@ private:
 	typedef int SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #endif
+private:
 	SOCKETHANDLE_TYPE nullSocketHandle() const;
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
