@@ -47,6 +47,16 @@ IndigoXMLDoc::~IndigoXMLDoc()
 }
 
 
+TiXmlElement& IndigoXMLDoc::getRootElement()  // throws IndigoXMLDocExcep if no such root element
+{
+	TiXmlElement* root_element = doc.FirstChildElement();
+	if(!root_element)
+		throw IndigoXMLDocExcep("Could not root element in file '" + path + "'.");
+
+	return *root_element;
+}
+
+
 TiXmlElement& IndigoXMLDoc::getRootElement(const std::string& name)  // throws IndigoXMLDocExcep if no such root element
 {
 	TiXmlElement* root_element = doc.FirstChildElement(name);

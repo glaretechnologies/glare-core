@@ -37,6 +37,7 @@ public:
 	~IndigoXMLDoc();
 
 
+	TiXmlElement& getRootElement();  // throws IndigoXMLDocExcep if no such root element
 	TiXmlElement& getRootElement(const std::string& name);  // throws IndigoXMLDocExcep if no such root element
 
 	void saveDoc(const std::string& path);
