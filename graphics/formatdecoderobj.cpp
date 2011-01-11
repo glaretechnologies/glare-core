@@ -94,7 +94,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 				current_mat_index = materials.getValue(material_name);
 			else
 			{
-				conPrint("\tFound reference to material '" + material_name + "'.");
+				//conPrint("\tFound reference to material '" + material_name + "'.");
 				current_mat_index = materials.size();
 				materials.insert(material_name, current_mat_index);
 				handler.addMaterialUsed(material_name);
@@ -233,8 +233,8 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 
 			}//end for each vertex
 
-			if(numfaceverts >= MAX_NUM_FACE_VERTICES)
-				conPrint("Warning, maximum number of verts per face reached or exceeded.");
+			//if(numfaceverts >= MAX_NUM_FACE_VERTICES)
+			//	conPrint("Warning, maximum number of verts per face reached or exceeded.");
 
 			if(numfaceverts < 3)
 				throw ModelFormatDecoderExcep("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
@@ -244,7 +244,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 			//------------------------------------------------------------------------
 			if(current_mat_index < 0)
 			{
-				conPrint("WARNING: found faces without a 'usemtl' line first.  Using material 'default'");
+				//conPrint("WARNING: found faces without a 'usemtl' line first.  Using material 'default'");
 				current_mat_index = 0;
 				materials.insert("default", current_mat_index);
 				handler.addMaterialUsed("default");
@@ -283,7 +283,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 	}
 
 	handler.endOfModel();
-	conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
+	//conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
 }
 
 

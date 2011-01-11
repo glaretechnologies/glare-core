@@ -672,6 +672,7 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 	// UVs
 	assert(mesh.num_uv_mappings == 0 || (mesh.uv_pairs.size() % mesh.num_uv_mappings == 0));
 
+
 	this->uvs.resize(mesh.uv_pairs.size());
 
 	for(uint32 i=0; i<mesh.uv_pairs.size(); ++i)

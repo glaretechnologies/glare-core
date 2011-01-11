@@ -190,7 +190,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 				//error, material we have not seen
 				//so just ignore the tri.
 			//	assert(0);
-				conPrint("Triangle with no associated material.");
+				//conPrint("Triangle with no associated material.");
 				//TEMP NO ERROR throw ModelFormatDecoderExcep("Triangle with no associated material.");
 			}	
 		}
