@@ -40,6 +40,7 @@ static void my_error_exit(j_common_ptr cinfo)
 {
 	// Format message into buffer.
 	char buffer[JMSG_LENGTH_MAX];
+	memset(buffer, 0, sizeof(buffer));
 
 	(*cinfo->err->format_message) (cinfo, buffer);
 	
