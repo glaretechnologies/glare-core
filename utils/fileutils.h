@@ -80,6 +80,7 @@ void readEntireFile(const std::string& pathname, std::vector<unsigned char>& fil
 
 void writeEntireFile(const std::string& pathname, const std::vector<unsigned char>& filecontents); // throws FileUtilsExcep
 void writeEntireFile(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep
+void writeEntireFile(const std::string& pathname, const char* data, size_t data_size); // throws FileUtilsExcep
 
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out); // throws FileUtilsExcep
 

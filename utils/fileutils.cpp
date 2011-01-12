@@ -682,6 +682,21 @@ void writeEntireFile(const std::string& pathname,
 }
 
 
+void writeEntireFile(const std::string& pathname, const char* data, size_t data_size)
+{
+	std::ofstream file(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
+
+	if(!file)
+		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
+
+	if(data_size)
+		file.write(data, data_size);
+
+	if(file.bad())
+		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
+}
+
+
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // throws FileUtilsExcep
 {
 	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str());
