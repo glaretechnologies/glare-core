@@ -14,6 +14,7 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "../utils/Exception.h"
 #include "../utils/fileutils.h"
 #include <fstream>
+#include "Transmungify.h"
 
 
 Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool change_tokens_, bool cryptic_tokens_)
@@ -59,6 +60,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "volatile",
 "while",
 
+// Cuda keywords
+
 "float4",
 "uint",
 "uint4",
@@ -87,6 +90,61 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "y",
 "z",
 "w",
+
+// OpenCL: see '6.1.9 Keywords' in OpenCL 1.1 spec.
+"__global",
+"global",
+"__local",
+"local",
+"__constant",
+"constant",
+"__private",
+"private",
+
+"__kernel", 
+"kernel",
+
+"__read_only", "read_only", "__write_only", "write_only", 
+"__read_write","read_write", 
+ 
+
+"sampler_t",
+"image2d_t",
+"read_imagef",
+"int2",
+"get_local_id",
+"get_global_id",
+"inline",
+"atom_add",
+"fmin",
+"fmax",
+"as_uint4",
+"as_float",
+"as_uint",
+"cross",
+
+"CLK_NORMALIZED_COORDS_FALSE", "CLK_ADDRESS_CLAMP_TO_EDGE", "CLK_FILTER_NEAREST",
+
+// preprocessor definitions: need to be unchanged.
+
+"OPENCL_BACKGROUND_SPHERE",
+"OPENCL_RAY_BLOCK_HEIGHT",
+
+// single level defs:
+"OPENCL_MAX_TEX_XRES",
+"MESH_STACK_SIZE",
+"TERMINATOR_NODE",
+
+// 2 level defs:
+"OBJECT_STACK_SIZE",
+"OPENCL_MOTION_BLUR",
+"MESH_STACK_SIZE",
+"OPENCL_SKIP_LIST",
+
+// Externally accesible functions
+"RayTracingKernel",
+"RayTracingKernelSkip",
+
 
 NULL
 	};
@@ -120,7 +178,7 @@ const std::string Obfuscator::mapToken(const std::string& t)
 		{
 			while(1)
 			{
-				new_token = "";
+				new_token = "l";
 				
 				for(int i=0; i<10; ++i)
 				{
@@ -159,7 +217,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 	std::string res;
 
 
-	const std::string ignore_tokens = "f[](){}<>/*-+=;,.&!|?:";
+	const std::string ignore_tokens = "f[](){}<>/*-+=;,.&!|?:%";
 
 
 	while(p.notEOF())
@@ -280,20 +338,129 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 	return res;
 }
 
+
+void Obfuscator::obfuscateKernels()
+{
+	//std::string header;
+
+	try
+	{
+		// Single level kernel
+		{
+			std::string s;
+			FileUtils::readEntireFile("OpenCLSingleLevelRayTracingKernel.cl", s);
+
+			Obfuscator ob(
+				true, // collapse_whitespace
+				true, // remove_comments
+				true, // change tokens
+				true // cryptic_tokens
+				);
+
+
+			// Obfuscate the code
+			const std::string ob_s = ob.obfuscate(s);
+
+			// Transmungify
+			std::vector<unsigned int> dwords;
+			Transmungify::encrypt(ob_s, dwords);
+			
+			// Add to header
+			/*header += "const int OpenCLSingleLevelRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
+			header += "const unsigned int OpenCLSingleLevelRayTracingKernel[" + toString(dwords.size()) + "] = {\n";
+			for(int i=0; i<dwords.size(); ++i)
+			{
+				header += "0x" + ::toHexString(dwords[i]) + ", ";
+				if((i > 0) && (i%10 == 0))
+					header += "\n";
+			}
+			header += "\n};\n";*/
+
+
+			{
+			const std::string outpath = "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
+			FileUtils::writeEntireFile(outpath, ob_s);
+			conPrint("Written '" + outpath + "'");
+			}
+
+			{
+			const std::string outpath = "OSL";
+			FileUtils::writeEntireFile(outpath, ob_s);
+			conPrint("Written '" + outpath + "'");
+			}
+		}
+
+		// Two level kernel
+		{
+			std::string s;
+			FileUtils::readEntireFile("OpenCLRayTracingKernel.cl", s);
+
+			Obfuscator ob(
+				true, // collapse_whitespace
+				true, // remove_comments
+				true, // change tokens
+				true // cryptic_tokens
+				);
+
+
+			// Obfuscate the code
+			const std::string ob_s = ob.obfuscate(s);
+
+			// Transmungify
+			std::vector<unsigned int> dwords;
+			Transmungify::encrypt(ob_s, dwords);
+
+			// Add to header
+			/*header += "\n\n";
+			header += "const int OpenCLRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
+			header += "const unsigned int OpenCLRayTracingKernel[" + toString(dwords.size()) + "] = {\n";
+			for(int i=0; i<dwords.size(); ++i)
+			{
+				header += "0x" + ::toHexString(dwords[i]) + ", ";
+				if((i > 0) && (i%10 == 0))
+					header += "\n";
+			}
+			header += "\n};\n";*/
+
+			{
+			const std::string outpath = "OpenCLRayTracingKernel_obfuscated.cl";
+			FileUtils::writeEntireFile(outpath, ob_s);
+			conPrint("Written '" + outpath + "'");	
+			}
+
+			{
+			const std::string outpath = "ODL";
+			FileUtils::writeEntireFile(outpath, ob_s);
+			conPrint("Written '" + outpath + "'");
+			}
+		}
+
+		//FileUtils::writeEntireFile("encrypted_OpenCLKernels.h", header);
+		//conPrint("Written encrypted_OpenCLKernels.h.");
+
+	}
+	catch(Indigo::Exception& e)
+	{
+		conPrint("Error: " + e.what());
+		exit(1);
+	}
+}
+
+
 #if (BUILD_TESTS)
 void Obfuscator::test()
 {
 	//const std::string s = "int /*a = b[3] + */a;";
 
 	std::string s;
-	FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\cuda\\NewCudaTwoLevelRayTracingKernel.cu", s);
+	FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\opencl\\OpenCLSingleLevelRayTracingKernel.cl", s);
 
 	
 	Obfuscator ob(
-		false, // collapse_whitespace
-		false, // remove_comments
-		false, // change tokens
-		false // cryptic_tokens
+		true, // collapse_whitespace
+		true, // remove_comments
+		true, // change tokens
+		true // cryptic_tokens
 	);
 
 	try
@@ -305,14 +472,15 @@ void Obfuscator::test()
 		{
 			//std::ofstream f("munged.cpp");
 			//f << ob_s;
-			const std::string outpath = "c:\\programming\\indigo\\trunk\\cuda\\NewCudaTwoLevelRayTracingKernel_obfuscated.cu";
+			/*const std::string outpath = "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
 			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");
+			conPrint("Written '" + outpath + "'");*/
 		}
 	}
 	catch(Indigo::Exception& e)
 	{
-		conPrint(e.what());
+		conPrint("Error: " + e.what());
+		exit(1);
 	}
 
 	

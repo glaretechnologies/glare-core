@@ -65,6 +65,8 @@ static const int ASCII_ZERO_INT = (int)'0';
 
 bool Parser::parseInt(int& result_out)
 {
+	const unsigned int initial_currentpos = currentpos;
+
 	/// Parse sign ///
 	int sign = 1;
 	if(parseChar('+'))
@@ -72,15 +74,19 @@ bool Parser::parseInt(int& result_out)
 	else if(parseChar('-'))
 		sign = -1;
 
+	bool valid = false;
 	unsigned int x = 0;
-	const int initial_currentpos = currentpos;
+	//const int initial_currentpos = currentpos;
 	for( ;notEOF() && ::isNumeric(text[currentpos]); ++currentpos)
+	{
 		x = 10*x + ((int)text[currentpos] - ASCII_ZERO_INT);
+		valid = true;
+	}
+
 	result_out = sign * x;
-	return currentpos - initial_currentpos > 0;
+	
+	return valid; //currentpos - initial_currentpos > 0;
 }
-
-
 
 
 bool Parser::parseFloat(float& result_out)
@@ -229,13 +235,12 @@ bool Parser::parseFloat(float& result_out)
 
 bool Parser::fractionalNumberNext()
 {
+	//TODO FIXME NOTE: this is incorrect.  Returns false on 4e-5f.
+
 	const unsigned int initial_currentpos = currentpos;
 
 	if(eof())
-	{
-		currentpos = initial_currentpos; // restore currentpos
 		return false;
-	}
 
 	if(parseChar('+'))
 	{}
@@ -269,6 +274,14 @@ bool Parser::fractionalNumberNext()
 	}
 	else
 	{
+		if(currentIsChar('e') || currentIsChar('E'))
+		{
+			// TODO: check that [sign]digits follows?
+
+			currentpos = initial_currentpos; // restore currentpos
+			return true;
+		}
+
 		currentpos = initial_currentpos; // restore currentpos
 		return false;
 	}
@@ -280,6 +293,8 @@ bool Parser::fractionalNumberNext()
 //must be whitespace delimited
 bool Parser::parseDouble(double& result_out)
 {
+	const unsigned int initial_currentpos = currentpos;
+
 	if(eof())
 		return false;
 	
@@ -292,7 +307,10 @@ bool Parser::parseDouble(double& result_out)
 		sign = -1.;
 
 	if(eof())// || !isNumeric(current()))
+	{
+		currentpos = initial_currentpos;
 		return false;
+	}
 
 	bool reached_numerals = false;
 
@@ -333,7 +351,11 @@ bool Parser::parseDouble(double& result_out)
 			exponent_sign = -1.;
 
 		if(eof())
+		{
+			currentpos = initial_currentpos;
 			return false;
+		}
+
 
 		//parse exponent digits
 		int e = 0;
@@ -642,7 +664,17 @@ void Parser::doUnitTests()
 
 		assert(!p.fractionalNumberNext());
 	}
+	{
+		const std::string text = "4e-5f";
+		Parser p(text.c_str(), text.size());
 
+		assert(p.fractionalNumberNext());
+
+		double x;
+		bool res = p.parseDouble(x);
+		assert(res);
+		assert(::epsEqual((float)x, 4e-5f));
+	}
 #endif
 }
 #endif
