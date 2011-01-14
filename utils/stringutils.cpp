@@ -269,6 +269,17 @@ const std::string intToString(int i)
 }
 
 
+const std::string uIntToString(uint32 i)
+{
+	// Not static for thread-safety.
+	char buffer[16];
+
+	sprintf(buffer, "%u", i);
+
+	return std::string(buffer);
+}
+
+
 const std::string floatToString(float f)
 {
 	// Not static for thread-safety.
