@@ -174,6 +174,9 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 }
 
 
+#if BUILD_TESTS
+
+
 void Compression::test()
 {
 
@@ -206,3 +209,6 @@ void Compression::test()
 	}
 
 }
+
+
+#endif

@@ -84,6 +84,12 @@ public:
 
 	std::vector<gpuDeviceInfo> getDeviceInfo() const;
 
+	cl_program buildProgram(
+		const std::vector<std::string>& program_lines,
+		cl_device_id device,
+		const std::string& compile_options
+	);
+
 //private:
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

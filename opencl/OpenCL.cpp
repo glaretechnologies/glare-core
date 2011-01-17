@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include <cmath>
 #include "../maths/mathstypes.h"
 #include "../indigo/gpuDeviceInfo.h"
+#include <fstream>
 
 /*
 #define checkFunctionPointer(f) (_checkFunctionPointer(f, #f));
@@ -589,7 +590,7 @@ OpenCL::~OpenCL()
 	if(!::FreeLibrary(module))
 		throw Indigo::Exception("FreeLibrary failed");
 
-	std::cout << "Shut down OpenCL." << std::endl;
+	//std::cout << "Shut down OpenCL." << std::endl;
 #endif
 }
 
@@ -625,6 +626,167 @@ const std::string OpenCL::errorString(cl_int result)
 
 // Accessor method for device data queried in the constructor.
 std::vector<gpuDeviceInfo> OpenCL::getDeviceInfo() const { return device_info; }
+
+
+cl_program OpenCL::buildProgram(
+							   const std::vector<std::string>& program_lines,
+							   cl_device_id device,
+							   const std::string& compile_options
+							   )
+{
+	std::vector<const char*> strings(program_lines.size());
+	for(size_t i=0; i<program_lines.size(); ++i)
+		strings[i] = program_lines[i].c_str();
+
+	cl_int result;
+	cl_program program = this->clCreateProgramWithSource(
+		this->context,
+		(cl_uint)program_lines.size(),
+		&strings[0],
+		NULL, // lengths, can be NULL because all strings are null-terminated.
+		&result
+		);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clCreateProgramWithSource failed");
+
+	// Build program
+	result = this->clBuildProgram(
+		program,
+		1, // num devices
+		&device, // device ids
+		compile_options.c_str(), // options
+		NULL, // pfn_notify
+		NULL // user data
+	);
+
+	if(result != CL_SUCCESS)
+	{
+		if(result != CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
+			throw Indigo::Exception("clBuildProgram failed");
+	}
+
+	// Print build log
+#ifdef DISTRIBUTE_RELEASE
+	const bool print_build_log = false;
+#else
+	const bool print_build_log = true;
+#endif
+	if(print_build_log)
+	{
+		// Call once to get the size of the buffer
+		size_t param_value_size_ret;
+		result = this->clGetProgramBuildInfo(
+			program,
+			this->device_to_use,
+			CL_PROGRAM_BUILD_LOG,
+			0, // param value size
+			NULL, // param value
+			&param_value_size_ret);
+
+		std::vector<char> buf(param_value_size_ret);
+
+		result = this->clGetProgramBuildInfo(
+			program,
+			this->device_to_use,
+			CL_PROGRAM_BUILD_LOG,
+			buf.size(),
+			&buf[0],
+			&param_value_size_ret);
+		if(result == CL_SUCCESS)
+		{
+			const std::string log(&buf[0], param_value_size_ret);
+			std::cout << "OpenCL build log: " << log << std::endl;
+
+			{
+				std::ofstream build_log("build_log.txt");
+				build_log << log;
+			}
+		}
+	}
+
+	// Get build status
+	cl_build_status build_status;
+	this->clGetProgramBuildInfo(
+		program,
+		this->device_to_use,
+		CL_PROGRAM_BUILD_STATUS,
+		sizeof(build_status), // param value size
+		&build_status, // param value
+		NULL
+		);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clGetProgramBuildInfo failed");
+
+	if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
+		throw Indigo::Exception("Build failed");
+
+	//================= TEMP: get program 'binary' ====================
+
+	if(false)
+	{
+		// Get number of devices program has been built for
+		cl_uint program_num_devices = 0;
+		size_t param_value_size_ret = 0;
+		this->clGetProgramInfo(
+			program,
+			CL_PROGRAM_NUM_DEVICES,
+			sizeof(program_num_devices),
+			&program_num_devices,
+			&param_value_size_ret
+			);
+
+		std::cout << "program_num_devices: " << program_num_devices << std::endl;
+
+		// Get sizes of the binaries on the devices
+		std::vector<size_t> program_binary_sizes(program_num_devices);
+		this->clGetProgramInfo(
+			program,
+			CL_PROGRAM_BINARY_SIZES,
+			sizeof(size_t) * program_binary_sizes.size(), // size
+			&program_binary_sizes[0],
+			&param_value_size_ret
+			);
+
+		for(size_t i=0; i<program_binary_sizes.size(); ++i)
+		{
+			std::cout << "\tprogram " << i << " binary size: " << program_binary_sizes[i] << " B" << std::endl;
+		}
+
+		std::vector<std::string> program_binaries(program_num_devices);
+		for(size_t i=0; i<program_binary_sizes.size(); ++i)
+		{
+			program_binaries[i].resize(program_binary_sizes[i]);
+		}
+
+		std::vector<unsigned char*> program_binaries_ptrs(program_num_devices);
+		for(size_t i=0; i<program_binary_sizes.size(); ++i)
+		{
+			program_binaries_ptrs[i] = (unsigned char*)&(*program_binaries[i].begin());
+		}
+
+		this->clGetProgramInfo(
+			program,
+			CL_PROGRAM_BINARIES,
+			sizeof(unsigned char*) * program_binaries_ptrs.size(), // size
+			&program_binaries_ptrs[0],
+			&param_value_size_ret
+			);
+
+		for(size_t i=0; i<program_binary_sizes.size(); ++i)
+		{
+			std::cout << "Writing Program " << i << " binary to disk." << std::endl;
+
+			std::ofstream binfile("binary.txt");
+			binfile.write(program_binaries[i].c_str(), program_binaries[i].size());
+
+			std::cout << "\tDone." << std::endl;
+
+			//std::cout << program_binaries[i] << std::endl;
+		}
+	}
+
+	return program;
+}
 
 
 #endif

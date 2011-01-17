@@ -127,19 +127,19 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 
 // preprocessor definitions: need to be unchanged.
 
-"OPENCL_BACKGROUND_SPHERE",
-"OPENCL_RAY_BLOCK_HEIGHT",
+"OPENCL_BACKGROUND_SPHERE", "OBS",
+"OPENCL_RAY_BLOCK_HEIGHT", "ORBH",
 
 // single level defs:
-"OPENCL_MAX_TEX_XRES",
-"MESH_STACK_SIZE",
-"TERMINATOR_NODE",
+"OPENCL_MAX_TEX_XRES", "OMTX",
+"MESH_STACK_SIZE", "MSS",
+"TERMINATOR_NODE", "TN",
 
 // 2 level defs:
-"OBJECT_STACK_SIZE",
-"OPENCL_MOTION_BLUR",
-"MESH_STACK_SIZE",
-"OPENCL_SKIP_LIST",
+"OBJECT_STACK_SIZE", "OSS",
+"OPENCL_MOTION_BLUR", "OMB",
+"MESH_STACK_SIZE", "MSS",
+"OPENCL_SKIP_LIST", "OSL",
 
 // Externally accesible functions
 "RayTracingKernel",
@@ -384,10 +384,17 @@ void Obfuscator::obfuscateKernels()
 			}
 
 			{
-			const std::string outpath = "OSL";
+			const std::string outpath = "data/OSL";
 			FileUtils::writeEntireFile(outpath, ob_s);
 			conPrint("Written '" + outpath + "'");
 			}
+			
+			//{
+			//	// Write to dist dir.  Note: this kinda sux.
+			//	const std::string outpath = PlatformUtils::getEnvironmentVariable("INDIGO_TEST_REPOS_DIR") + "dist/shared/data/OSL";
+			//	FileUtils::writeEntireFile(outpath, ob_s);
+			//	conPrint("Written '" + outpath + "'");
+			//}
 		}
 
 		// Two level kernel
@@ -429,7 +436,7 @@ void Obfuscator::obfuscateKernels()
 			}
 
 			{
-			const std::string outpath = "ODL";
+			const std::string outpath = "data/ODL";
 			FileUtils::writeEntireFile(outpath, ob_s);
 			conPrint("Written '" + outpath + "'");
 			}
