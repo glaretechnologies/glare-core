@@ -30,11 +30,8 @@ public:
 
 	static bool encrypt(const std::string& src_string, std::vector<unsigned int>& dst_dwords);
 
-	// string_len is the length of the original string and must be known a priori
-	static bool decrypt(const std::vector<unsigned int>& src_dwords, std::string& dst_string, int string_len);
-
-	// convenience method for the embedded kernels
-	static bool decrypt(const unsigned int* src_dwords, std::string& dst_string, int string_len);
+	static bool decrypt(const std::vector<unsigned int>& src_dwords, std::string& dst_string);
+	static bool decrypt(const unsigned int* src_dwords, std::string& dst_string, unsigned int string_len);
 
 	static void test();
 

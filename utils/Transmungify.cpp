@@ -24,12 +24,13 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<unsigned i
 	unsigned int i, string_len = src_string.size(), encrypted_int32s = (string_len + 3) / 4;
 	const char* src_str = src_string.c_str();
 
-	dst_dwords.resize(encrypted_int32s);
+	dst_dwords.resize(encrypted_int32s + 1);
+	dst_dwords[encrypted_int32s] = (string_len ^ magic0) + magic1;
 
 	// Create padded string
-	unsigned char* padded_string = new unsigned char[encrypted_int32s * 4];
+	std::vector<char> padded_string(encrypted_int32s * 4);
 	for(i = 0; i < string_len; ++i)			padded_string[i] = src_str[i];
-	for(; i < encrypted_int32s * 4; ++i)	padded_string[i] = src_str[i - string_len]; // Use text from start (wrap around)
+	for(; i < encrypted_int32s * 4; ++i)	padded_string[i] = src_str[(((i + 1) * string_len / 4) + string_len) % string_len]; // Use text from start (wrap around)
 
 	// create encrypted data
 	for(i = 0; i < encrypted_int32s; ++i)
@@ -55,53 +56,36 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<unsigned i
 		dst_dwords[i] = dword_value;
 	}
 
-	delete padded_string;
-
 	return true;
 }
 
 
-bool Transmungify::decrypt(const std::vector<unsigned int>& src_dwords, std::string& dst_string, int string_len)
+bool Transmungify::decrypt(const std::vector<unsigned int>& src_dwords, std::string& dst_string)
 {
-	for(unsigned int i = 0; i < src_dwords.size(); ++i)
+	const unsigned int string_len = (src_dwords[src_dwords.size() - 1] - magic1) ^ magic0;
+
+	return decrypt(&src_dwords[0], dst_string, string_len);
+}
+
+
+bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_string, unsigned int string_len)
+{
+	dst_string.resize(string_len + 3);
+	for(unsigned int i = 0; i < (string_len + 3) / 4; ++i)
 	{
 		const unsigned int dword_value = (src_dwords[i] - magic1) ^ magic0;
-
 		unsigned char chars[4] =
 		{
 			((dword_value & 0x000000FF) >>  0), ((dword_value & 0x0000FF00) >>  8),
 			((dword_value & 0x00FF0000) >> 16), ((dword_value & 0xFF000000) >> 24)
 		};
 
-		dst_string += (chars[permute[3]] - char_offsets[2]);
-		dst_string += (chars[permute[1]] - char_offsets[1]);
-		dst_string += (chars[permute[0]] - char_offsets[3]);
-		dst_string += (chars[permute[2]] - char_offsets[0]);
+		dst_string[i * 4 + 0] = (chars[permute[3]] - char_offsets[2]);
+		dst_string[i * 4 + 1] = (chars[permute[1]] - char_offsets[1]);
+		dst_string[i * 4 + 2] = (chars[permute[0]] - char_offsets[3]);
+		dst_string[i * 4 + 3] = (chars[permute[2]] - char_offsets[0]);
 	}
-
-	return true;
-}
-
-
-bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_string, int string_len)
-{
-	unsigned int encrypted_int32s = (string_len + 3) / 4;
-
-	for(unsigned int i = 0; i < encrypted_int32s; ++i)
-	{
-		const unsigned int dword_value = (src_dwords[i] - magic1) ^ magic0;
-
-		unsigned char chars[4] =
-		{
-			((dword_value & 0x000000FF) >>  0), ((dword_value & 0x0000FF00) >>  8),
-			((dword_value & 0x00FF0000) >> 16), ((dword_value & 0xFF000000) >> 24)
-		};
-
-		dst_string += (chars[permute[3]] - char_offsets[2]);
-		dst_string += (chars[permute[1]] - char_offsets[1]);
-		dst_string += (chars[permute[0]] - char_offsets[3]);
-		dst_string += (chars[permute[2]] - char_offsets[0]);
-	}
+	dst_string.erase(string_len, dst_string.size() - string_len);
 
 	return true;
 }
@@ -121,7 +105,7 @@ void Transmungify::test()
 	encrypt(program_string, munged_program_string);
 
 	std::string unmunged_program_string;
-	if(!decrypt(munged_program_string, unmunged_program_string, program_string.size()))
+	if(!decrypt(munged_program_string, unmunged_program_string))
 	{
 		std::cout << "error decrypting string" << std::endl;
 		exit(1);
