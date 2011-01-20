@@ -7,6 +7,9 @@ Generated at Sun May 30 21:03:25 +1200 2010
 #include "Transmungify.h"
 
 
+#include "Exception.h"
+
+
 Transmungify::Transmungify()
 {
 
@@ -62,14 +65,17 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& d
 
 bool Transmungify::decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string)
 {
-	const uint32 string_len = (src_dwords[src_dwords.size() - 1] - magic1) ^ magic0;
-
-	return decrypt(&src_dwords[0], dst_string, string_len);
+	return decrypt(&src_dwords[0], src_dwords.size(), dst_string);
 }
 
 
-bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_string, uint32 string_len)
+bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string)
 {
+	const uint32 string_len = (src_dwords[src_dwords_count - 1] - magic1) ^ magic0;
+
+	if(string_len > src_dwords_count * 4)
+		throw Indigo::Exception("String decode error");
+
 	dst_string.resize(string_len + 3);
 	for(uint32 i = 0; i < (string_len + 3) / 4; ++i)
 	{

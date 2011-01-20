@@ -32,7 +32,7 @@ public:
 	static bool encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords);
 
 	static bool decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string);
-	static bool decrypt(const uint32* src_dwords, std::string& dst_string, uint32 string_len);
+	static bool decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string);
 
 	static void test();
 
