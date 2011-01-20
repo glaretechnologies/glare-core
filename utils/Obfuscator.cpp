@@ -144,6 +144,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 // Externally accesible functions
 "RayTracingKernel",
 "RayTracingKernelSkip",
+"RTK",
+"RTKS",
 
 
 NULL
