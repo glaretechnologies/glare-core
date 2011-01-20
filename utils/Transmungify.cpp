@@ -19,9 +19,9 @@ Transmungify::~Transmungify()
 }
 
 
-bool Transmungify::encrypt(const std::string& src_string, std::vector<unsigned int>& dst_dwords)
+bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords)
 {
-	unsigned int i, string_len = src_string.size(), encrypted_int32s = (string_len + 3) / 4;
+	uint32 i, string_len = src_string.size(), encrypted_int32s = (string_len + 3) / 4;
 	const char* src_str = src_string.c_str();
 
 	dst_dwords.resize(encrypted_int32s + 1);
@@ -45,7 +45,7 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<unsigned i
 		};
 
 		// pack chars into single dword
-		unsigned int dword_value = (chars[0] << 0) + (chars[1] << 8) + (chars[2] << 16) + (chars[3] << 24);
+		uint32 dword_value = (chars[0] << 0) + (chars[1] << 8) + (chars[2] << 16) + (chars[3] << 24);
 
 		// xor with 0xDEADBEEF
 		dword_value ^= magic0;
@@ -60,20 +60,20 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<unsigned i
 }
 
 
-bool Transmungify::decrypt(const std::vector<unsigned int>& src_dwords, std::string& dst_string)
+bool Transmungify::decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string)
 {
-	const unsigned int string_len = (src_dwords[src_dwords.size() - 1] - magic1) ^ magic0;
+	const uint32 string_len = (src_dwords[src_dwords.size() - 1] - magic1) ^ magic0;
 
 	return decrypt(&src_dwords[0], dst_string, string_len);
 }
 
 
-bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_string, unsigned int string_len)
+bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_string, uint32 string_len)
 {
 	dst_string.resize(string_len + 3);
-	for(unsigned int i = 0; i < (string_len + 3) / 4; ++i)
+	for(uint32 i = 0; i < (string_len + 3) / 4; ++i)
 	{
-		const unsigned int dword_value = (src_dwords[i] - magic1) ^ magic0;
+		const uint32 dword_value = (src_dwords[i] - magic1) ^ magic0;
 		unsigned char chars[4] =
 		{
 			((dword_value & 0x000000FF) >>  0), ((dword_value & 0x0000FF00) >>  8),
@@ -97,6 +97,8 @@ bool Transmungify::decrypt(const unsigned int* src_dwords, std::string& dst_stri
 #include <iostream>
 #include <stdlib.h>
 
+#include "../indigo/TestUtils.h"
+
 void Transmungify::test()
 {
 	std::string program_string("uint32 dword_value = (chars[0] <<  0) + (chars[1] <<  8) + (chars[2] << 16) + (chars[3] << 24);");
@@ -116,6 +118,24 @@ void Transmungify::test()
 		std::cout << "original and unmunged strings don't match!" << std::endl;
 		assert(false);
 		exit(0);
+	}
+
+	srand(1337);
+
+	for(uint32 size = 0; size < 64; ++size)
+	{
+		std::string orig_string;
+
+		for(uint32 i = 0; i < size; ++i)
+			orig_string += program_string[rand() % program_string.size()];
+
+		std::vector<uint32> encrypted_dwords;
+		encrypt(orig_string, encrypted_dwords);
+
+		std::string decrypted_string;
+		decrypt(encrypted_dwords, decrypted_string);
+
+		testAssert(decrypted_string == orig_string);
 	}
 }
 
