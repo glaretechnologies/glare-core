@@ -345,6 +345,8 @@ void Obfuscator::obfuscateKernels()
 {
 	//std::string header;
 
+	const bool transmungify_kernels = true;
+
 	try
 	{
 		// Single level kernel
@@ -363,9 +365,7 @@ void Obfuscator::obfuscateKernels()
 			// Obfuscate the code
 			const std::string ob_s = ob.obfuscate(s);
 
-			// Transmungify
-			std::vector<unsigned int> dwords;
-			Transmungify::encrypt(ob_s, dwords);
+			
 			
 			// Add to header
 			/*header += "const int OpenCLSingleLevelRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
@@ -379,17 +379,29 @@ void Obfuscator::obfuscateKernels()
 			header += "\n};\n";*/
 
 
+			const std::string outpath = "data/OSL"; // "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
+
+			if(!transmungify_kernels)
 			{
-			const std::string outpath = "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
-			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");
+				FileUtils::writeEntireFile(outpath, ob_s);
+			}
+			else
+			{
+				// Transmungify
+				std::vector<unsigned int> dwords;
+				Transmungify::encrypt(ob_s, dwords);
+
+				FileUtils::writeEntireFile(outpath, (const char*)&dwords[0], dwords.size() * sizeof(unsigned int));
 			}
 
-			{
+			conPrint("Written '" + outpath + "'");
+
+
+			/*{
 			const std::string outpath = "data/OSL";
 			FileUtils::writeEntireFile(outpath, ob_s);
 			conPrint("Written '" + outpath + "'");
-			}
+			}*/
 			
 			//{
 			//	// Write to dist dir.  Note: this kinda sux.
@@ -431,17 +443,28 @@ void Obfuscator::obfuscateKernels()
 			}
 			header += "\n};\n";*/
 
+			const std::string outpath = "data/ODL"; // "OpenCLRayTracingKernel_obfuscated.cl";
+
+			if(!transmungify_kernels)
 			{
-			const std::string outpath = "OpenCLRayTracingKernel_obfuscated.cl";
-			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");	
+				FileUtils::writeEntireFile(outpath, ob_s);
+			}
+			else
+			{
+				// Transmungify
+				std::vector<unsigned int> dwords;
+				Transmungify::encrypt(ob_s, dwords);
+
+				FileUtils::writeEntireFile(outpath, (const char*)&dwords[0], dwords.size() * sizeof(unsigned int));
 			}
 
-			{
+			conPrint("Written '" + outpath + "'");	
+
+			/*{
 			const std::string outpath = "data/ODL";
 			FileUtils::writeEntireFile(outpath, ob_s);
 			conPrint("Written '" + outpath + "'");
-			}
+			}*/
 		}
 
 		//FileUtils::writeEntireFile("encrypted_OpenCLKernels.h", header);
