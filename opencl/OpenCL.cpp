@@ -45,7 +45,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 #endif
 
 
-OpenCL::OpenCL(int device_number, bool verbose_init)
+OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 {
 #if USE_OPENCL
 	context = 0;
@@ -220,21 +220,21 @@ OpenCL::OpenCL(int device_number, bool verbose_init)
 				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
 			}
 
+			int current_device_number = (int)device_info.size();
+
 			// Initialise device info structure
 			gpuDeviceInfo di;
-			di.device_number = (int)d;
+			di.device_number = current_device_number;
 			di.device_name = device_name_;
 			di.memory_size = (uint64)device_global_mem_size;
 			di.core_count = device_max_compute_units;
 			di.core_clock = device_max_clock_frequency;
 			di.CUDA = false;
 
-			int current_device_number = (int)device_info.size();
-
 			// estimate performance as # cores times clock speed
 			int64 device_perf = (uint64)device_max_compute_units * (uint64)device_max_clock_frequency;
 
-			if(device_number < 0) // If auto selecting device
+			if(desired_device_number < 0) // If auto selecting device
 			{
 				// if this is the best performing GPU device found so far, select it
 				if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf) // CPU devices disallowed
@@ -249,7 +249,7 @@ OpenCL::OpenCL(int device_number, bool verbose_init)
 					device_info.push_back(di);
 				}
 			}
-			else if(device_number == d) // else if we have the desired device number, use it
+			else if(desired_device_number == current_device_number) // else if we have the desired device number, use it
 			{
 				device_to_use = device_ids[d];
 				platform_to_use = platform_ids[i];

@@ -72,8 +72,8 @@ public:
 	
 	=====================================================================*/
 
-	// If device_number < 0 it will automatically choose a device.
-	OpenCL(int device_number, bool verbose_init = false);
+	// If desired_device_number < 0 it will automatically choose a device.
+	OpenCL(int desired_device_number, bool verbose_init = false);
 
 	~OpenCL();
 
