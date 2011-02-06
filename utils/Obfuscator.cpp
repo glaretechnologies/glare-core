@@ -483,6 +483,7 @@ void Obfuscator::obfuscateKernels()
 void Obfuscator::test()
 {
 	//const std::string s = "int /*a = b[3] + */a;";
+	return;
 
 	std::string s;
 	FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\opencl\\OpenCLSingleLevelRayTracingKernel.cl", s);
