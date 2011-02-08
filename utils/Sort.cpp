@@ -77,7 +77,7 @@ void test()
 {
 	MTwister rng(1);
 
-	for(uint32 N = 10; N<=16777216; N*=2)
+	for(uint32 N = 10; N<=100000/*16777216*/; N*=2)
 	{
 		std::vector<Item> f(N);
 		for(size_t i=0; i<f.size(); ++i)
@@ -130,8 +130,6 @@ void test()
 
 		conPrint("Sort speed: " + toString(1.0e-6 * N / radix_time) + " M Keys/sec");
 	}
-
-	exit(0);
 }
 #endif
 	

@@ -106,6 +106,7 @@ void UtilTests::test()
 
 
 	// Test FileHandle
+	try
 	{
 		int n = 10;
 		for(int i=0; i<n; ++i)
@@ -131,6 +132,10 @@ void UtilTests::test()
 		catch(Indigo::Exception& )
 		{
 		}
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
 	}
 }
 
