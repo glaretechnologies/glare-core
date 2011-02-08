@@ -213,8 +213,8 @@ public:
 	double lensRadius() const { return lens_radius; }
 	double lensWidth() const { return lens_width; }
 
-	const Vec4f sensorCenter() const { return Vec4f(sensor_center.x, sensor_center.y, sensor_center.z, 1.f); }
-	const Vec4f lensCenter() const { return Vec4f(lens_center.x, lens_center.y, lens_center.z, 1.f); }
+	const Vec4f sensorCenter() const { return Vec4f((float)sensor_center.x, (float)sensor_center.y, (float)sensor_center.z, 1.f); }
+	const Vec4f lensCenter() const { return Vec4f((float)lens_center.x, (float)lens_center.y, (float)lens_center.z, 1.f); }
 
 	//double getHorizontalAngleOfView() const; // including to left and right, in radians
 	//double getVerticalAngleOfView() const; // including to up and down, in radians

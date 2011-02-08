@@ -41,8 +41,8 @@ public:
 	inline Array2d(const Array2d& rhs);
 	inline ~Array2d();
 
-	inline Field& elem(unsigned int dim1, unsigned int dim2);
-	inline const Field& elem(unsigned int dim1, unsigned int dim2) const;
+	inline Field& elem(size_t dim1, size_t dim2);
+	inline const Field& elem(size_t dim1, size_t dim2) const;
 
 	Array2d& operator = (const Array2d& rhs);
 	bool operator == (const Array2d& rhs) const;
@@ -58,11 +58,11 @@ public:
 	inline const Field* getData() const { return data; }
 	inline Field* getData() { return data; }
 
-	inline Field* rowBegin(unsigned int y);
-	inline Field* rowEnd(unsigned int y);
+	inline Field* rowBegin(size_t y);
+	inline Field* rowEnd(size_t y);
 
-	inline const Field* rowBegin(unsigned int y) const;
-	inline const Field* rowEnd(unsigned int y) const;
+	inline const Field* rowBegin(size_t y) const;
+	inline const Field* rowEnd(size_t y) const;
 
 	void getTranspose(Array2d<Field>& transpose_out) const;
 
@@ -120,7 +120,7 @@ Array2d<Field>::~Array2d()
 
 
 template <class Field>
-Field& Array2d<Field>::elem(unsigned int x, unsigned int y)
+Field& Array2d<Field>::elem(size_t x, size_t y)
 {
 	assert(x < dim1 && y < dim2);
 	return data[y * dim1 + x];
@@ -128,7 +128,7 @@ Field& Array2d<Field>::elem(unsigned int x, unsigned int y)
 
 
 template <class Field>
-const Field& Array2d<Field>::elem(unsigned int x, unsigned int y) const
+const Field& Array2d<Field>::elem(size_t x, size_t y) const
 {
 	assert(x < dim1 && y < dim2);
 	return data[y * dim1 + x];
@@ -220,28 +220,28 @@ void Array2d<Field>::checkResize(size_t xindex, size_t yindex)
 
 
 template <class Field>
-Field* Array2d<Field>::rowBegin(unsigned int y)
+Field* Array2d<Field>::rowBegin(size_t y)
 {
 	return data + (y * dim1);
 }
 
 
 template <class Field>
-Field* Array2d<Field>::rowEnd(unsigned int y)
+Field* Array2d<Field>::rowEnd(size_t y)
 {
 	return data + ((y + 1) * dim1);
 }
 
 
 template <class Field>
-const Field* Array2d<Field>::rowBegin(unsigned int y) const
+const Field* Array2d<Field>::rowBegin(size_t y) const
 {
 	return data + (y * dim1);
 }
 
 
 template <class Field>
-const Field* Array2d<Field>::rowEnd(unsigned int y) const
+const Field* Array2d<Field>::rowEnd(size_t y) const
 {
 	return data + ((y + 1) * dim1);
 }
