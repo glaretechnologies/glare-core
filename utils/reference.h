@@ -130,6 +130,35 @@ public:
 	{
 		return ob;
 	}
+
+	template <class T2>
+	inline const Reference<T2> upcast() const
+	{
+		return Reference<T2>(ob);
+	}
+
+	template <class T2>
+	inline Reference<T2> upcast()
+	{
+		return Reference<T2>(ob);
+	}
+
+
+	// Downcast to a reference to a derived type.  NOTE: only call this if you are sure the pointer is actually to an object of the derived type.
+	// Otherwise behaviour is undefined.
+	template <class T2>
+	inline const Reference<T2> downcast() const
+	{
+		assert(dynamic_cast<const T2*>(ob) != NULL);
+		return Reference<T2>(static_cast<const T2*>(ob));
+	}
+
+	template <class T2>
+	inline Reference<T2> downcast()
+	{
+		assert(dynamic_cast<T2*>(ob) != NULL);
+		return Reference<T2>(static_cast<T2*>(ob));
+	}
 	
 	inline const T* getPointer() const
 	{

@@ -202,7 +202,7 @@ public:
 
 	
 
-	void prepareForDiffractionFilter(/*const std::string& base_indigo_path, */int main_buffer_width, int main_buffer_height);
+	void prepareForDiffractionFilter(/*const std::string& base_indigo_path, */int main_buffer_width, int main_buffer_height, int ssf_);
 	void buildDiffractionFilter(/*const std::string& base_indigo_path*/) const;
 	void buildDiffractionFilterImage(PrintOutput& print_output) const;
 
@@ -242,7 +242,7 @@ public:
 
 private:
 	static Image* doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
-		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, PrintOutput& print_output);
+		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, int ssf, PrintOutput& print_output);
 
 	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;
@@ -304,6 +304,7 @@ private:
 
 	// Stuff for Lazy calculation of diffraction filter
 	std::string appdata_path;
+	int ssf;
 	int main_buffer_width;
 	int main_buffer_height;
 

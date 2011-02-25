@@ -466,7 +466,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 	replaceChar(pathname, '/', '\\');
 
 
-	int startpos = 0;
+	std::string::size_type startpos = 0;
 
 	while(1)
 	{
@@ -595,7 +595,7 @@ void readEntireFile(std::ifstream& file, std::string& filecontents_out)
 
 	file.seekg(0, std::ios_base::end);
 
-	const int filesize = file.tellg();
+	const std::ifstream::pos_type filesize = file.tellg();
 
 	file.seekg(0, std::ios_base::beg);
 
@@ -615,7 +615,8 @@ void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontent
 
 	file.seekg(0, std::ios_base::end);
 
-	const int filesize = file.tellg();
+	//const std::ifstream::pos_type filesize = file.tellg();
+	const size_t filesize = file.tellg();
 
 	file.seekg(0, std::ios_base::beg);
 
@@ -884,13 +885,14 @@ FILE* openFile(const std::string& pathname, const std::string& openmode)
 // remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name)
 {
-	std::string r(name.size(), ' ');
+	//std::string r(name.size(), ' ');
+	std::string r;
 	for(unsigned int i=0; i<name.size(); ++i)
 	{
 		if(::isAlphaNumeric(name[i]) || name[i] == ' ' || name[i] == '_' || name[i] == '.' || name[i] == '(' || name[i] == ')' || name[i] == '-')
-			r[i] = name[i];
+			r = ::appendChar(r, name[i]); //r[i] = name[i];
 		else
-			r[i] = '_';
+			r += "_" + intToString(r[i]); //r[i] = '_' + ;
 	}
 
 	return r;

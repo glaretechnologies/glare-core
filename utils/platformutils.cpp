@@ -301,6 +301,35 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 }
 
 
+const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUtilsExcep
+{
+#if defined(WIN32) || defined(WIN64)
+	TCHAR path[MAX_PATH];
+
+	TCHAR* result = _wgetcwd(
+		path,
+		MAX_PATH
+	);
+
+	if(result == NULL)
+		throw PlatformUtilsExcep("_wgetcwd() failed.");
+
+	return StringUtils::PlatformToUTF8UnicodeEncoding(path);
+#else
+	char path[4096];
+
+	char* result = getcwd(
+		path,
+		MAX_PATH
+	);
+	if(result == NULL)
+		throw PlatformUtilsExcep("getcwd() failed.");
+
+	return result;
+#endif
+}
+
+
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
 {
 #if defined(WIN32) || defined(WIN64) || defined(OSX)
@@ -443,7 +472,7 @@ const std::string PlatformUtils::getLastErrorString()
 		GetLastError(),
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		&buf[0],
-		buf.size(),
+		(DWORD)buf.size(),
 		NULL // arguments
 	);
 	if(result == 0)
@@ -558,6 +587,8 @@ void PlatformUtils::testPlatformUtils()
 
 	try
 	{
+		conPrint("PlatformUtils::getCurrentWorkingDirPath(): " + PlatformUtils::getCurrentWorkingDirPath());
+
 		//openFileBrowserWindowAtLocation("C:\\testscenes");
 		//openFileBrowserWindowAtLocation("C:\\testscenes\\sun_glare_test.igs");
 

@@ -43,6 +43,19 @@ private:
 	int* i;
 };
 
+class DerivedTestClass : public TestClass
+{
+public:
+	DerivedTestClass(int* i_) : TestClass(i_) {}
+
+};
+
+
+static Reference<DerivedTestClass> someFunc(int* i)
+{
+	return Reference<DerivedTestClass>(new DerivedTestClass(i));
+}
+
 
 #if (BUILD_TESTS)
 void ReferenceTest::run()
@@ -78,6 +91,27 @@ void ReferenceTest::run()
 	testAssert(i == 1);
 	}
 	testAssert(i == 0);
+
+
+	{
+		Reference<DerivedTestClass> d(new DerivedTestClass(&i));
+
+		Reference<TestClass> t = d.upcast<TestClass>();
+	}
+
+	testAssert(i == 0);
+
+	{
+		Reference<DerivedTestClass> d = someFunc(&i);
+	}
+
+	{
+		Reference<TestClass> t = someFunc(&i).upcast<TestClass>();
+	}
+
+	testAssert(i == 0);
+	
+
 
 
 

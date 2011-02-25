@@ -275,11 +275,12 @@ void Camera::init(
 }
 
 
-void Camera::prepareForDiffractionFilter(/*const std::string& base_indigo_path_, */int main_buffer_width_, int main_buffer_height_)
+void Camera::prepareForDiffractionFilter(/*const std::string& base_indigo_path_, */int main_buffer_width_, int main_buffer_height_, int ssf_)
 {
 	//base_indigo_path = base_indigo_path_;
 	main_buffer_width = main_buffer_width_;
 	main_buffer_height = main_buffer_height_;
+	ssf = ssf_;
 }
 
 
@@ -314,6 +315,7 @@ void Camera::buildDiffractionFilterImage(PrintOutput& print_output) const
 		this->sensor_to_lens_dist,
 		this->write_aperture_preview,
 		this->appdata_path,
+		this->ssf,
 		print_output
 	));
 }
@@ -321,7 +323,7 @@ void Camera::buildDiffractionFilterImage(PrintOutput& print_output) const
 
 Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, 
-											 PrintOutput& print_output)
+											 int ssf, PrintOutput& print_output)
 {
 	assert(main_buffer_width > 0 && main_buffer_height > 0);
 
@@ -330,9 +332,11 @@ Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data,
 
 	MTwister rng(1);
 
+	const int im_w = 512 * ssf + 1;
+
 	Image* diffraction_filter_image = new Image(
-		513, //diffraction_filter->getDiffractionFilter().getWidth(),
-		513 //diffraction_filter->getDiffractionFilter().getHeight()
+		im_w, //TEMP NEW 513, //diffraction_filter->getDiffractionFilter().getWidth(),
+		im_w //513 //diffraction_filter->getDiffractionFilter().getHeight()
 		);
 
 	const int sensor_x_res = main_buffer_width;
@@ -511,55 +515,18 @@ Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data,
 
 		try
 		{
-
+			for(int i=1; i<100000; i*=10)
 			{
 				Image save_image = *diffraction_filter_image;
 
-				save_image.scale(1.0f / save_image.maxLuminance());
+				save_image.scale(1000 * i / save_image.maxLuminance());
 				save_image.posClamp();
 
 				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
 				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
 				std::map<std::string, std::string> dummy_metadata;
-				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview.png"));
+				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_" + toString(i) + ".png"));
 			}
-			
-			{
-				Image save_image = *diffraction_filter_image;
-
-				save_image.scale(100.0f / save_image.maxLuminance());
-				save_image.posClamp();
-		
-				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
-				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
-				std::map<std::string, std::string> dummy_metadata;
-				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_100.png"));
-			}
-
-			{
-				Image save_image = *diffraction_filter_image;
-
-				save_image.scale(10000.0f / save_image.maxLuminance());
-				save_image.posClamp();
-		
-				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
-				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
-				std::map<std::string, std::string> dummy_metadata;
-				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_10000.png"));
-			}
-
-			{
-				Image save_image = *diffraction_filter_image;
-
-				save_image.scale(1000000.0f / save_image.maxLuminance());
-				save_image.posClamp();
-		
-				Bitmap ldr_image(save_image.getWidth(), save_image.getHeight(), 3, NULL);
-				save_image.copyRegionToBitmap(ldr_image, 0, 0, save_image.getWidth(), save_image.getHeight());
-				std::map<std::string, std::string> dummy_metadata;
-				PNGDecoder::write(ldr_image, dummy_metadata, FileUtils::join(appdata_path, "XYZ_diffraction_preview_x_1000000.png"));
-			}
-
 
 		}
 		catch(ImageExcep& e)

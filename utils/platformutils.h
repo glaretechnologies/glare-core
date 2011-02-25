@@ -64,6 +64,8 @@ const std::string getAPPDataDirPath(); // throws PlatformUtilsExcep
 
 const std::string getTempDirPath(); // throws PlatformUtilsExcep
 
+const std::string getCurrentWorkingDirPath(); // throws PlatformUtilsExcep
+
 
 /*
 Returns a directory that is writeable by the app.
