@@ -33,6 +33,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <sstream>
 #include <string>
 #include <vector>
+#include <limits>
 
 
 //#define NO_HARDWARE_ID_SDK_LICENSING 1
@@ -65,8 +66,11 @@ const std::string License::decodeBase64(const std::string& data_)
 {
 	const std::string data = ensureNewLinesPresent(data_);
 
+	if(data.size() > std::numeric_limits<int>::max())
+		throw License::LicenseExcep("Data too big");
+
     try {
-    	BIO* bmem = BIO_new_mem_buf((void*)data.c_str(), data.size());
+    	BIO* bmem = BIO_new_mem_buf((void*)data.c_str(), (int)data.size());
         if(!bmem)
 			throw License::LicenseExcep("Failed to allocate in base64 decoder");
 
@@ -104,11 +108,14 @@ Verify that the hash is a public signature of key.
 */
 bool License::verifyKey(const std::string& key, const std::string& hash)
 {
+	if(hash.size() > std::numeric_limits<unsigned int>::max())
+		throw License::LicenseExcep("Data too big");
+
 #if USE_OPENSSL
 	ERR_load_crypto_strings();
 
 	// Load the public key
-	BIO* public_key_mbio = BIO_new_mem_buf((void *)PUBLIC_CERTIFICATE_DATA.c_str(), PUBLIC_CERTIFICATE_DATA.size());
+	BIO* public_key_mbio = BIO_new_mem_buf((void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
 	EVP_PKEY* public_key = PEM_read_bio_PUBKEY(public_key_mbio, NULL, NULL, NULL);
 
 	// Initialize OpenSSL and pass in the data
@@ -120,7 +127,7 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 		throw LicenseExcep("Internal Verification failure 2.");
 
 	// Call the actual verify function and get result
-	const int result = EVP_VerifyFinal(&ctx, (unsigned char*)hash.data(), hash.size(), public_key);
+	const int result = EVP_VerifyFinal(&ctx, (unsigned char*)hash.data(), (unsigned int)hash.size(), public_key);
 
 	EVP_MD_CTX_cleanup(&ctx);
 	
@@ -212,15 +219,19 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 		LicenceType desired_license_type = UNLICENSED;
 
 		if(components[1] == "indigo-full-2.x")
-			desired_license_type = FULL;
+			desired_license_type = FULL_2_X;
 		else if(components[1] == "indigo-beta-2.x")
-			desired_license_type = BETA;
+			desired_license_type = BETA_2_X;
 		else if(components[1] == "indigo-node-2.x")
-			desired_license_type = NODE;
+			desired_license_type = NODE_2_X;
 		else if(components[1] == "indigo-full-lifetime")
 			desired_license_type = FULL_LIFETIME;
 		else if(components[1] == "indigo-sdk-2.x")
 			desired_license_type = SDK_2_X;
+		else if(components[1] == "indigo-full-3.x")
+			desired_license_type = FULL_3_X;
+		else if(components[1] == "indigo-node-3.x")
+			desired_license_type = NODE_3_X;
 		else
 			return;
 
@@ -319,16 +330,23 @@ const std::string License::licenseTypeToString(LicenceType t)
 {
 	if(t == UNLICENSED)
 		return "Unlicensed";
-	else if(t == FULL)
-		return "Indigo 2.x Full";
-	else if(t == BETA)
-		return std::string("Indigo 2.x Beta ") + (isCurrentDayInBetaPeriod() ? std::string("(Valid until 31st May 2009)") : std::string("(Expired on 1st June 2009)"));
-	else if(t == NODE)
-		return "Indigo 2.x Node";
 	else if(t == FULL_LIFETIME)
 		return "Indigo Full Lifetime";
+
+	else if(t == FULL_2_X)
+		return "Indigo 2.x Full";
+	else if(t == BETA_2_X)
+		return std::string("Indigo 2.x Beta ") + (isCurrentDayInBetaPeriod() ? std::string("(Valid until 31st May 2009)") : std::string("(Expired on 1st June 2009)"));
+	else if(t == NODE_2_X)
+		return "Indigo 2.x Node";
 	else if(t == SDK_2_X)
 		return "Indigo 2.x SDK";
+
+	else if(t == FULL_3_X)
+		return "Indigo 3.x Full";
+	else if(t == NODE_3_X)
+		return "Indigo 3.x Node";
+
 	else if(t == NETWORK_FLOATING_FULL)
 		return "Network Floating Full";
 	else if(t == NETWORK_FLOATING_NODE)
@@ -349,26 +367,39 @@ const std::string License::licenseTypeToCodeString(LicenceType t)
 }
 
 
+bool License::licenceIsForOldVersion(LicenceType t)
+{
+	if(t == FULL_2_X || t == NODE_2_X)
+		return true; // we're at 3.0 now.
+
+	return false;
+}
+
+
 bool License::shouldApplyWatermark(LicenceType t)
 {
 	if(t == UNLICENSED)
 		return true;
-	else if(t == FULL)
-		return false;
-	else if(t == NODE)
+	else if(t == FULL_2_X)
+		return true; // we're at 3.0 now.
+	else if(t == NODE_2_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
-	else if(t == BETA)
+	else if(t == BETA_2_X)
 	{
 		return !isCurrentDayInBetaPeriod(); // Apply watermark if not in beta period.
 	}
 	else if(t == FULL_LIFETIME)
 		return false;
 	else if(t == SDK_2_X)
-		return false;
+		return true;
 	else if(t == NETWORK_FLOATING_FULL)
 		return false;
 	else if(t == NETWORK_FLOATING_NODE)
 		return false;
+	else if(t == FULL_3_X)
+		return false;
+	else if(t == NODE_3_X)
+		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
 	else
 	{
 		assert(0);
@@ -381,21 +412,25 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 {
 	if(t == UNLICENSED)
 		return true;
-	else if(t == FULL)
+	else if(t == FULL_LIFETIME)
 		return false;
-	else if(t == NODE)
-		return false; // Nodes shouldn't have resolution limits, 'cause they have to do full-res renders
-	else if(t == BETA)
+	else if(t == FULL_2_X)
+		return true; // we're at 3.0 now, so apply res limits.
+	else if(t == NODE_2_X)
+		return true; // we're at 3.0 now, so apply res limits.
+	else if(t == BETA_2_X)
 	{
 		return !isCurrentDayInBetaPeriod(); // Apply res limits if not in beta period.
 	}
-	else if(t == FULL_LIFETIME)
-		return false;
 	else if(t == SDK_2_X)
-		return false;
+		return true; // we're at 3.0 now, so apply res limits.
 	else if(t == NETWORK_FLOATING_FULL)
 		return false;
 	else if(t == NETWORK_FLOATING_NODE)
+		return false;
+	else if(t == FULL_3_X)
+		return false;
+	else if(t == NODE_3_X)
 		return false;
 	else
 	{
@@ -531,7 +566,7 @@ const std::string License::networkFloatingHash(const std::string& input)
 	unsigned int crc = crc32(
 		0, 
 		(const Bytef*)x.c_str(), 
-		x.size()
+		(int)x.size()
 	);
 
 	return ::toHexString(crc);

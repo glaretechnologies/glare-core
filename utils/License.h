@@ -33,16 +33,22 @@ public:
 	enum LicenceType
 	{
 		UNLICENSED,
-		FULL,
-		BETA,
-		NODE,
 		FULL_LIFETIME,
+
+		FULL_2_X,
+		BETA_2_X,
+		NODE_2_X,
 		SDK_2_X,
+		
+		FULL_3_X,
+		NODE_3_X,
+		
 		NETWORK_FLOATING_FULL,
 		NETWORK_FLOATING_NODE
 	};
 
 
+	static bool licenceIsForOldVersion(LicenceType t);
 	/*
 	Should we apply a watermark?
 	This depends on the license type, and the date, in the case of the Beta licence type.
