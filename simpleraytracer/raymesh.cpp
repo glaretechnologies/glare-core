@@ -936,7 +936,7 @@ void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const uns
 
 void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
 {
-	uvset_name_to_index[uv_set_name] = uv_set_index;
+	this->getUVSetNameToIndexMap()[uv_set_name] = uv_set_index;
 }
 
 

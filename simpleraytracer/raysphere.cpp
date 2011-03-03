@@ -48,9 +48,9 @@ RaySphere::RaySphere(double radius_)
 	aabbox.min_ = min;
 	aabbox.max_ = max;
 
-	uvset_name_to_index["default"] = 0;
-	uvset_name_to_index["albedo"] = 0;
-	uvset_name_to_index["bump"] = 0;
+	this->getUVSetNameToIndexMap()["default"] = 0;
+	this->getUVSetNameToIndexMap()["albedo"] = 0;
+	this->getUVSetNameToIndexMap()["bump"] = 0;
 }
 
 

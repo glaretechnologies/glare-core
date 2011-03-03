@@ -139,9 +139,10 @@ protected:
 	// Map from material name to the index of the material in the final per-object material array.
 	// Note that this could also be a vector.
 	std::map<std::string, unsigned int> matname_to_index_map;
+	std::map<std::string, unsigned int>& getUVSetNameToIndexMap() { return uvset_name_to_index; }
 
-	std::map<std::string, unsigned int> uvset_name_to_index;
 private:
+	std::map<std::string, unsigned int> uvset_name_to_index;
 	unsigned int object_usage_count; // Number of objects that use this geometry.
 };
 
