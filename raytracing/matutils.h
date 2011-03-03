@@ -83,8 +83,8 @@ namespace MatUtils
 	template <class Real> inline Real pow5(Real x);
 
 
-	template <class Real> inline Real smoothingFactor(Real in_dot_Ns, Real in_dot_Ng);
-	inline FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo);
+	template <class Real> inline Real smoothingFactor(Real in_dot_prebump_Ns, Real in_dot_Ns, Real in_dot_Ng);
+	//inline FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo);
 	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint);
 	//inline static double smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng);
 
@@ -167,28 +167,37 @@ const double MAX_SMOOTHING_FACTOR = 2.0;
 
 
 template <class Real>
-Real smoothingFactor(Real in_dot_Ns, Real in_dot_Ng)
+Real smoothingFactor(Real in_dot_prebump_Ns, Real in_dot_Ns, Real in_dot_Ng)
 {
-	return myMin(
+	//if(in_dot_prebump_Ns <= 0)
+	//	return 0;
+
+	const Real use_dot = myMin(in_dot_prebump_Ns*5, in_dot_Ns);
+
+	return myMax<Real>(use_dot / std::fabs(in_dot_Ng), 0);
+
+	//return std::fabs(in_dot_Ns / in_dot_Ng);
+	//return myMax<Real>(in_dot_Ns / std::fabs(in_dot_Ng), 0);
+	/*return myMin(
 		(Real)MAX_SMOOTHING_FACTOR,
 		(Real)fabs(in_dot_Ns / in_dot_Ng)
-		);
+		);*/
 }
 
 
 // NOTE: This is rather slow :)
-FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo)
-{
-	return myMin(
-		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
-		(FullHitInfo::Vec3RealType)std::fabs((dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g())))
-		);
-
-	/*return myMin(
-		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
-		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
-		);*/
-}
+//FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo)
+//{
+//	return myMin(
+//		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
+//		(FullHitInfo::Vec3RealType)std::fabs((dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g())))
+//		);
+//
+//	/*return myMin(
+//		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
+//		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
+//		);*/
+//}
 
 
 bool raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
