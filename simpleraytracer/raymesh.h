@@ -210,7 +210,7 @@ public:
 	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 	void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 
-	void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
+	//void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
 	void addMaterialUsed(const std::string& material_name);
 	void endOfModel();
 	////////////////////////////////////////////////////////////////

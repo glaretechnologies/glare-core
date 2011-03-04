@@ -47,10 +47,6 @@ RaySphere::RaySphere(double radius_)
 	const SSE_ALIGN Vec4f max((float)radius, (float)radius, (float)radius, 1.f);
 	aabbox.min_ = min;
 	aabbox.max_ = max;
-
-	this->getUVSetNameToIndexMap()["default"] = 0;
-	this->getUVSetNameToIndexMap()["albedo"] = 0;
-	this->getUVSetNameToIndexMap()["bump"] = 0;
 }
 
 

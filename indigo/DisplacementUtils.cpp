@@ -166,7 +166,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 void DisplacementUtils::subdivideAndDisplace(
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const std::vector<Reference<MaterialBinding> >& materials,
+	const std::vector<Reference<Material> >& materials,
 	bool smooth,
 	const js::Vector<RayMeshTriangle, 16>& triangles_in, 
 	const js::Vector<RayMeshQuad, 16>& quads_in,
@@ -503,7 +503,7 @@ evaluated at an arbitrary point on the triangle, according to the barycentric co
 */
 static float evalDisplacement(ThreadContext& context, 
 								//const Object& object,
-								const std::vector<Reference<MaterialBinding> >& materials,
+								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
 								const std::vector<Vec2f>& uvs,
@@ -512,7 +512,7 @@ static float evalDisplacement(ThreadContext& context,
 								float b2
 								)
 {
-	const Material& material = *materials[triangle.tri_mat_index]->material;
+	const Material& material = *materials[triangle.tri_mat_index];//->material;
 	
 	if(material.displacing())
 	{
@@ -531,9 +531,7 @@ static float evalDisplacement(ThreadContext& context,
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		const MaterialBinding& material_binding = *materials[triangle.tri_mat_index];
-
-		return (float)material.evaluateDisplacement(context, hitinfo, material_binding, du_texcoord_evaluator);
+		return (float)material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
 	}
 	else
 	{
@@ -572,7 +570,7 @@ and the displacement as evaluated directly.
 
 */
 static float displacementError(ThreadContext& context, 
-								const std::vector<Reference<MaterialBinding> >& materials,
+								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
 								const std::vector<Vec2f>& uvs,
@@ -581,7 +579,7 @@ static float displacementError(ThreadContext& context,
 								)
 {
 	// Early out if material not displacing:
-	if(!materials[triangle.tri_mat_index]->material->displacing())
+	if(!materials[triangle.tri_mat_index]->displacing())
 		return 0.0f;
 
 	float max_error = -std::numeric_limits<float>::max();
@@ -613,7 +611,7 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 */
 void DisplacementUtils::displace(ThreadContext& context,
-								 const std::vector<Reference<MaterialBinding> >& materials,
+								 const std::vector<Reference<Material> >& materials,
 								 bool use_anchoring,
 								 const std::vector<DUTriangle>& triangles,
 								 const std::vector<DUQuad>& quads,
@@ -654,8 +652,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 	for(uint32_t t = 0; t < triangles.size(); ++t)
 	{
 			const uint32_t material_index = triangles[t].tri_mat_index;
-			const Material* material = materials[triangles[t].tri_mat_index]->material.getPointer(); // &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
-			const MaterialBinding& material_binding = *materials[triangles[t].tri_mat_index]; // object.getMaterialBinding(material_index);
+			const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
 			if(material->displacing())
 			{
@@ -700,7 +697,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
 						);*/
 					//const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
-					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, material_binding, du_texcoord_evaluator);
+					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
 
 					min_displacement = myMin(min_displacement, displacement);
 
@@ -794,7 +791,7 @@ typedef std::tr1::unordered_map<DUVertIndexPair, unsigned int, DUVertIndexPairHa
 void DisplacementUtils::linearSubdivision(
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const std::vector<Reference<MaterialBinding> >& materials,
+	const std::vector<Reference<Material> >& materials,
 	const std::vector<DUVertexPolygon>& vert_polygons_in,
 	const std::vector<DUEdge>& edges_in,
 	const std::vector<DUTriangle>& tris_in,
@@ -1914,9 +1911,9 @@ void DisplacementUtils::test()
 		StandardPrintOutput print_output;
 		ThreadContext context;
 
-		std::vector<Reference<MaterialBinding> > materials;
-		materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
-			std::vector<TextureUnit*>(),
+		std::vector<Reference<Material> > materials;
+		materials.push_back(Reference<Material>(new Diffuse(
+			std::vector<TextureUnit>(),
 			Reference<SpectrumMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),
@@ -1924,9 +1921,9 @@ void DisplacementUtils::test()
 			Reference<SpectrumMatParameter>(NULL),
 			0, // layer_index
 			false // random_triangle_colours
-		)))));
+		)));
 
-		materials[0]->uv_set_indices.push_back(0);
+		//materials[0]->uv_set_indices.push_back(0);
 
 		DUOptions options;
 		options.object_to_camera = Matrix4f::identity();

@@ -149,7 +149,7 @@ public:
 	static void subdivideAndDisplace(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		const std::vector<Reference<MaterialBinding> >& materials,
+		const std::vector<Reference<Material> >& materials,
 		bool smooth,
 		const js::Vector<RayMeshTriangle, 16>& tris_in,
 		const js::Vector<RayMeshQuad, 16>& quads_in,
@@ -168,7 +168,7 @@ public:
 private:
 	static void displace(
 		ThreadContext& context,
-		const std::vector<Reference<MaterialBinding> >& materials,
+		const std::vector<Reference<Material> >& materials,
 		bool use_anchoring,
 		const std::vector<DUTriangle>& tris,
 		const std::vector<DUQuad>& quads,
@@ -183,7 +183,7 @@ private:
 	static void linearSubdivision(
 		PrintOutput& print_output,
 		ThreadContext& context,
-		const std::vector<Reference<MaterialBinding> >& materials,
+		const std::vector<Reference<Material> >& materials,
 		const std::vector<DUVertexPolygon>& vert_polygons_in,
 		const std::vector<DUEdge>& edges_in,
 		const std::vector<DUTriangle>& tris_in,

@@ -770,8 +770,8 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 	}
 
 	// UV set expositions
-	for(unsigned int i=0; i<mesh.uv_set_expositions.size(); ++i)
-		this->addUVSetExposition(mesh.uv_set_expositions[i].uv_set_name, mesh.uv_set_expositions[i].uv_set_index);
+	//for(unsigned int i=0; i<mesh.uv_set_expositions.size(); ++i)
+	//	this->addUVSetExposition(mesh.uv_set_expositions[i].uv_set_name, mesh.uv_set_expositions[i].uv_set_index);
 
 	this->endOfModel();
 }
@@ -934,10 +934,10 @@ void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const uns
 }
 
 
-void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
-{
-	this->getUVSetNameToIndexMap()[uv_set_name] = uv_set_index;
-}
+//void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
+//{
+//	this->getUVSetNameToIndexMap()[uv_set_name] = uv_set_index;
+//}
 
 
 void RayMesh::addMaterialUsed(const std::string& material_name)
@@ -953,11 +953,11 @@ void RayMesh::addMaterialUsed(const std::string& material_name)
 void RayMesh::endOfModel()
 {
 	// Check that any UV set expositions actually have the corresponding uv data.
-	for(std::map<std::string, unsigned int>::const_iterator i=getUVSetNameToIndexMap().begin(); i != getUVSetNameToIndexMap().end(); ++i)
+	/*for(std::map<std::string, unsigned int>::const_iterator i=getUVSetNameToIndexMap().begin(); i != getUVSetNameToIndexMap().end(); ++i)
 	{
 		if((*i).second >= num_uv_sets)
 			throw ModelLoadingStreamHandlerExcep("UV set with index " + toString((*i).second) + " was exposed, but the UV set data was not provided.");
-	}
+	}*/
 }
 
 
