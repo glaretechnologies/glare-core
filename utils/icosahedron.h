@@ -29,7 +29,7 @@ public:
 
 	void setSubdivision(const uint32 num_subdivs) { icosahedralSubdivision(num_subdivs, vertices, indices); }
 
-	static void icosahedralSubdivision(uint32 num_subdivs, std::vector<Vec3f>  & sphere_vertices_out, std::vector<uint32> & sphere_indices_out)
+	static void icosahedralSubdivision(uint32 num_subdivs, std::vector<Vec3f>& sphere_vertices_out, std::vector<uint32>& sphere_indices_out)
 	{
 		const double p = 0.61803398874989484820458683436564; // 1 / phi
 		const double icosahedron_verts[] =
@@ -66,19 +66,12 @@ public:
 				{
 					const subdiv_tri
 						t0(current.first),
-						t1(normalise(t0.v[0] + t0.v[1]), normalise(t0.v[1] + t0.v[2]), normalise(t0.v[2] + t0.v[0])),
-						split_tris[4] =
-						{
-							subdiv_tri(t1.v[0], t1.v[2], t1.v[1]),
-							subdiv_tri(t1.v[2], t1.v[0], t0.v[0]),
-							subdiv_tri(t1.v[0], t1.v[1], t0.v[1]),
-							subdiv_tri(t1.v[1], t1.v[2], t0.v[2]),
-						};
+						t1(normalise(t0.v[0] + t0.v[1]), normalise(t0.v[1] + t0.v[2]), normalise(t0.v[2] + t0.v[0]));
 
-					triangle_stack.push(std::pair<subdiv_tri, uint32>(split_tris[0], current.second + 1));
-					triangle_stack.push(std::pair<subdiv_tri, uint32>(split_tris[1], current.second + 1));
-					triangle_stack.push(std::pair<subdiv_tri, uint32>(split_tris[2], current.second + 1));
-					triangle_stack.push(std::pair<subdiv_tri, uint32>(split_tris[3], current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[0], t1.v[2], t1.v[1]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[2], t1.v[0], t0.v[0]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[0], t1.v[1], t0.v[1]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[1], t1.v[2], t0.v[2]), current.second + 1));
 				}
 			}
 		}
@@ -93,10 +86,9 @@ public:
 			const std::map<Vec3d, uint32>::iterator i = shared_vertices.find(t->v[z]);
 			if(i == shared_vertices.end())
 			{
-				const uint32 vertex_idx = sphere_vertices_out.size();
-				sphere_vertices_out.push_back(Vec3f((float)t->v[z].x, (float)t->v[z].y, (float)t->v[z].z));
-
+				const uint32 vertex_idx = (uint32)sphere_vertices_out.size();
 				shared_vertices.insert(std::pair<Vec3d, uint32>(t->v[z], vertex_idx));
+				sphere_vertices_out.push_back(Vec3f((float)t->v[z].x, (float)t->v[z].y, (float)t->v[z].z));
 
 				sphere_indices_out.push_back(vertex_idx);
 			}
