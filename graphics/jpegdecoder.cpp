@@ -48,7 +48,7 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
-Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata, */const std::string& path)
+Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 {
 	try
 	{
@@ -92,11 +92,8 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 		if(!(cinfo.num_components == 1 || cinfo.num_components == 3))
 			throw ImFormatExcep("Only 1 or 3 component JPEGs are currently supported.");
 
-		//img_out.setBytesPP(cinfo.num_components);
-		//img_out.resize(cinfo.output_width, cinfo.output_height);
 
-		Texture* texture = new Texture();
-
+		Reference<Texture> texture(new Texture());
 		texture->resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
 
 
@@ -144,25 +141,10 @@ Reference<Map2D> JPEGDecoder::decode(/*const std::vector<unsigned char>& srcdata
 		/* This is an important step since it will release a good deal of memory. */
 		jpeg_destroy_decompress(&cinfo);
 
-		/* After finish_decompress, we can close the input file.
-		* Here we postpone it until after no more JPEG errors are possible,
-		* so as to simplify the setjmp error logic above.  (Actually, I don't
-		* think that jpeg_destroy can do an error exit, but why assume anything...)
-		*/
-		//fclose(infile);
-
-		return Reference<Map2D>(texture);
+		return texture.upcast<Map2D>();
 	}
 	catch(Indigo::Exception& e)
 	{
 		throw ImFormatExcep(e.what());
 	}
 }
-
-
-/*
-void JPEGDecoder::decode(const std::vector<unsigned char>& srcdata, const std::string& path, Bitmap& img_out)
-{
-	::fatalError("JPEGDecoder::decode: LIBJPEG_SUPPORT disabled.");
-}
-*/

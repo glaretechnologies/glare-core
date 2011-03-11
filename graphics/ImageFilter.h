@@ -38,11 +38,11 @@ public:
 
 
 	//adds the image in, convolved by a Chiu filter, to out.
-	static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);
+	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);
 
 	static void chromaticAberration(const Image& in, Image& out, float amount);
 
-	static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
+	//static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
 
 	// Chooses convolution technique depending on filter size etc..
 	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.

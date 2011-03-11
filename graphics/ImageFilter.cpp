@@ -47,7 +47,11 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 
 	const double z = Maths::eval1DGaussian(rad_needed, standard_deviation);
 
-	const int pixel_rad = myMax(1, (int)rad_needed);//kernel_radius;
+	const int pixel_rad = myClamp<int>(
+		(int)rad_needed,
+		1, // lower bound
+		myMin((int)in.getWidth() - 1, (int)in.getHeight() - 1) // upper bound
+	);
 
 	//conPrint("gaussianFilter: using pixel radius of " + toString(pixel_rad));
 
@@ -55,15 +59,12 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 
 
 	const int lookup_size = pixel_rad + pixel_rad + 1;
-	//build filter lookup table
+	// Build filter lookup table
 	float* filter_weights = new float[lookup_size];
-	//float filter_weights[10];
 	for(int x=0; x<lookup_size; ++x)
 	{
 		const float dist = (float)x - (float)pixel_rad;
-		filter_weights[x] = Maths::eval1DGaussian(dist, standard_deviation);
-		//printVar(x);
-		//printVar(filter_weights[x]);
+		filter_weights[x] = (float)Maths::eval1DGaussian(dist, standard_deviation);
 		if(filter_weights[x] < 1.0e-12f)
 			filter_weights[x] = 0.0f;
 	}
@@ -90,13 +91,76 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 	//------------------------------------------------------------------------
 	//blur in x direction
 	Image temp(in.getWidth(), in.getHeight());
-	temp.zero();
+	//temp.zero();
 
-	for(int y=0; y<in.getHeight(); ++y)
+	const int h = in.getHeight();
+	const int w = in.getWidth();
+
+	#ifndef OSX
+	#pragma omp parallel for
+	#endif
+	for(int dy=0; dy<h; ++dy)
+	{
+		for(int dx=0; dx<w; ++dx)
+		{
+			Image::ColourType c(0);
+
+			const int start_x = dx - pixel_rad;
+			const int end_x = dx + pixel_rad + 1;
+
+			// Do input off left side of image: x < 0, so x is equal (mod w) to w + x
+			for(int x=start_x; x<0; ++x)
+				c.addMult(in.getPixel(w + x, dy), filter_weights[x - start_x]);
+
+			// Do 0 <= x < w
+			for(int x=myMax(0, start_x); x<myMin(w, end_x); ++x)
+				c.addMult(in.getPixel(x, dy), filter_weights[x - start_x]);
+
+			// Do w < x, so x is equal (mod w) to x - w
+			for(int x=w; x<end_x; ++x)
+				c.addMult(in.getPixel(x - w, dy), filter_weights[x - start_x]);
+
+			temp.setPixel(dx, dy, c);
+		}
+	}
+
+	#ifndef OSX
+	#pragma omp parallel for
+	#endif
+	for(int dy=0; dy<h; ++dy)
+	{
+		for(int dx=0; dx<w; ++dx)
+		{
+			Image::ColourType c(0);
+
+			const int start_y = dy - pixel_rad;
+			const int end_y = dy + pixel_rad + 1;
+
+			// y < 0
+			for(int y=start_y; y<0; ++y)
+				c.addMult(temp.getPixel(dx, h + y), filter_weights[y - start_y]);
+
+			// Do 0 <= y < h
+			for(int y=myMax(0, start_y); y<myMin(h, end_y); ++y)
+				c.addMult(temp.getPixel(dx, y), filter_weights[y - start_y]);
+
+			// Do h < y
+			for(int y=h; y<end_y; ++y)
+				c.addMult(temp.getPixel(dx, y - h), filter_weights[y - start_y]);
+
+			out.setPixel(dx, dy, c);
+		}
+	}
+
+
+
+	/*for(int y=0; y<in.getHeight(); ++y)
 		for(int x=0; x<in.getWidth(); ++x)
 		{
-			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
+			//const int minx = myMax(0, x - pixel_rad);
+			//const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
+			const int minx = x - pixel_rad;
+			const int maxx = x + pixel_rad + 1;
 
 			const Image::ColourType incol = in.getPixel(x, y);
 
@@ -130,7 +194,7 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 
 				out.getPixel(x, ty).addMult(incol, filter_weights[ty - y + pixel_rad]);
 			}
-		}
+		}*/
 
 	/*//for each pixel in the source image
 	for(int y=0; y<in.getHeight(); ++y)
@@ -169,14 +233,14 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 
 
 
-static void horizontalGaussianBlur(const Image& in, Image& out, float standard_deviation)
+/*static void horizontalGaussianBlur(const Image& in, Image& out, float standard_deviation)
 {
 	assert(standard_deviation > 0.f);
 	out.resize(in.getWidth(), in.getHeight());
 
-	const float rad_needed = Maths::inverse1DGaussian(0.00001f, standard_deviation);
+	const float rad_needed = (float)Maths::inverse1DGaussian(0.00001, standard_deviation);
 
-	const float z = Maths::eval1DGaussian(rad_needed, standard_deviation);
+	const float z = (float)Maths::eval1DGaussian(rad_needed, standard_deviation);
 
 	const int pixel_rad = myMax(1, (int)rad_needed);//kernel_radius;
 
@@ -230,7 +294,7 @@ static void horizontalGaussianBlur(const Image& in, Image& out, float standard_d
 	}
 
 	delete[] filter_weights;
-}
+}*/
 
 
 
@@ -306,7 +370,7 @@ void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_dev
 
 #endif
 
-void ImageFilter::chiuFilter(const Image& in, Image& out, float radius, bool include_center)
+/*void ImageFilter::chiuFilter(const Image& in, Image& out, float radius, bool include_center)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 
@@ -383,7 +447,7 @@ void ImageFilter::chiuFilter(const Image& in, Image& out, float radius, bool inc
 
 		}
 	}
-}
+}*/
 
 
 static const Image::ColourType bilinearSampleImage(const Image& im, const Vec2f& pos)
@@ -464,7 +528,7 @@ static void rotateImage(const Image& in, Image& out, float angle)
 
 
 
-void ImageFilter::glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation)
+/*void ImageFilter::glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation)
 {
 	out.resize(in.getWidth(), in.getHeight());
 	out.zero();
@@ -488,7 +552,7 @@ void ImageFilter::glareFilter(const Image& in, Image& out, int num_blades, float
 	}
 
 	out.scale(1.f / (float)num_blades);
-}
+}*/
 
 static int smallestPowerOf2GE(int x)
 {

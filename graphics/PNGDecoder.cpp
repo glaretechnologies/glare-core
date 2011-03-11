@@ -11,10 +11,12 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "texture.h"
 #include "imformatdecoder.h"
+#include "ImageMap.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
+#include "../indigo/globals.h"
 
 
 PNGDecoder::PNGDecoder()
@@ -33,28 +35,13 @@ PNGDecoder::~PNGDecoder()
 void pngdecoder_error_func(png_structp png, const char* msg)
 {
 	throw ImFormatExcep("LibPNG error: " + std::string(msg));
-
 }
+
 
 void pngdecoder_warning_func(png_structp png, const char* msg)
 {
 	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
 }
-
-/*
-static int offset = 0;//TEMP UNTHREADSAFE HACK
-
-void user_read_data_proc(png_structp png_ptr, png_bytep data, png_size_t length)
-{
-	void* read_io_ptr = png_get_io_ptr(png_ptr);
-
-	unsigned char* buf = (unsigned char*)read_io_ptr;
-
-	memcpy(data, &buf[offset], length);
-
-	offset += length;
-}
-*/
 
 
 Reference<Map2D> PNGDecoder::decode(const std::string& path)
@@ -94,8 +81,8 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 
 		png_read_info(png_ptr, info_ptr);
 
-		const int width = (int)png_get_image_width(png_ptr, info_ptr);
-		const int height = (int)png_get_image_height(png_ptr, info_ptr);
+		const unsigned int width = png_get_image_width(png_ptr, info_ptr);
+		const unsigned int height = png_get_image_height(png_ptr, info_ptr);
 		const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 		const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
 		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
@@ -110,64 +97,79 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			 bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
 		}
 
-		 
-
-		// actually pretty much every colour type is supported :)
-		//if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
-		//	throw ImFormatExcep("PNG has unsupported colour type.");
-
-		//PNG can have files with 16 bits per channel.  If you only can handle
-		//8 bits per channel, this will strip the pixels down to 8 bit.
-		if(bit_depth == 16)
-			png_set_strip_16(png_ptr);
-
+		//conPrint("bitmap_num_bytes_pp before alpha stripping: " + toString(bitmap_num_bytes_pp));
+		
 		///Remove alpha channel///
 		if(color_type & PNG_COLOR_MASK_ALPHA)
 		{
 			png_set_strip_alpha(png_ptr);
 
-			assert(bitmap_num_bytes_pp == 4);
-			bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
+			// We either had Grey + alpha, or RGB + alpha
+			assert(bitmap_num_bytes_pp == 2 || bitmap_num_bytes_pp == 4);
+			bitmap_num_bytes_pp--;
 		}
 
-		if(width <= 0 || width >= 1000000)
+		//conPrint("bitmap_num_bytes_pp after stripping: " + toString(bitmap_num_bytes_pp));
+
+		if(width >= 1000000)
 		{
 			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			//fclose(fp);
 			throw ImFormatExcep("invalid width: " + toString(width));
 		}
-		if(height <= 0 || height >= 1000000)
+		if(height >= 1000000)
 		{
 			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			//fclose(fp);
 			throw ImFormatExcep("invalid height: " + toString(height));
 		}
 
 		if(bit_depth != 8 && bit_depth != 16)
 		{
 			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			//fclose(fp);
-			throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
+			throw ImFormatExcep("Only PNGs with per-channel bit depths of 8 and 16 supported.");
 		}
 
 		// num_channels == 4 case should be stripped alpha case.
-		if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
-			throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 3 or 4 channels supported.");
+		if(!(num_channels == 1 || num_channels == 2 || num_channels == 3 || num_channels == 4))
+			throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 2, 3 or 4 channels supported.");
 
-		Texture* texture = new Texture();
-		texture->resize(width, height, bitmap_num_bytes_pp);
+		Map2D* map_2d = NULL;
+		if(bit_depth == 8)
+		{
+			Texture* texture = new Texture();
+			texture->resize(width, height, bitmap_num_bytes_pp);
 
-		// Read in actual image data
-		for(int y=0; y<height; ++y)
-			png_read_row(png_ptr, texture->rowPointer(y), NULL);
+			// Read in actual image data
+			for(unsigned int y=0; y<height; ++y)
+				png_read_row(png_ptr, texture->rowPointer(y), NULL);
 
+			map_2d = texture;
+		}
+		else if(bit_depth == 16)
+		{
+			// Swap to little-endian (Intel) byte order, from network byte order, which is what PNG uses.
+			png_set_swap(png_ptr);
+
+			ImageMap<uint16_t, UInt16ComponentValueTraits>* image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+
+			// Read in actual image data
+			for(unsigned int y=0; y<height; ++y)
+				png_read_row(png_ptr, (png_bytep)image_map->getPixel(0, y), NULL);
+
+			map_2d = image_map;
+		}
+		else
+		{
+			assert(0);
+		}
+
+	
 		// Read the info at the end of the PNG file
 		png_read_end(png_ptr, end_info);
 
 		// Free structures
 		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 
-		return Reference<Map2D>(texture);
+		return Reference<Map2D>(map_2d);
 	}
 	catch(Indigo::Exception& )
 	{
@@ -212,8 +214,8 @@ void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 
 		png_read_info(png_ptr, info_ptr);
 
-		const int width = (int)png_get_image_width(png_ptr, info_ptr);
-		const int height = (int)png_get_image_height(png_ptr, info_ptr);
+		const unsigned int width = png_get_image_width(png_ptr, info_ptr);
+		const unsigned int height = png_get_image_height(png_ptr, info_ptr);
 		const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 		const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
 		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
@@ -248,12 +250,12 @@ void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 			bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
 		}
 
-		if(width <= 0 || width >= 1000000)
+		if(width >= 1000000)
 		{
 			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 			throw ImFormatExcep("invalid width: " + toString(width));
 		}
-		if(height <= 0 || height >= 1000000)
+		if(height >= 1000000)
 		{
 			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 			throw ImFormatExcep("invalid height: " + toString(height));
@@ -272,7 +274,7 @@ void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
 		bitmap_out.resize(width, height, bitmap_num_bytes_pp);
 
 		// Read in actual image data
-		for(int y=0; y<height; ++y)
+		for(unsigned int y=0; y<height; ++y)
 			png_read_row(png_ptr, bitmap_out.rowPointer(y), NULL);
 
 		// Read the info at the end of the PNG file
@@ -446,25 +448,8 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		png_write_info(png, info);
 
 
-		//------------------------------------------------------------------------
-		//write image rows
-		//------------------------------------------------------------------------
-		//std::vector<unsigned char> rowdata(bitmap.getWidth() * bitmap.getBytesPP());
-
 		for(unsigned int y=0; y<bitmap.getHeight(); ++y)
 		{
-			//------------------------------------------------------------------------
-			// copy floating point data to 8bpp format
-			//------------------------------------------------------------------------
-			//for(int x=0; x<bitmap.getWidth(); ++x)
-			//	for(int i=0; i<bitmap.getBytesPP(); ++i)
-			//		rowdata[x * bitmap.getBytesPP() + i] = (unsigned char)(bitmap.getPixel(x, y)[i] * 255.0f);
-
-			//------------------------------------------------------------------------
-			// write it
-			//------------------------------------------------------------------------
-			//png_bytep row_pointer = (png_bytep)bitmap.getPixel(0, y);  //(png_bytep)&(*rowdata.begin());
-
 			png_write_row(
 				png, 
 				(png_bytep)bitmap.getPixel(0, y) // Pointer to row data

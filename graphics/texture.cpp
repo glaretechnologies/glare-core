@@ -9,6 +9,8 @@ Code By Nicholas Chapman.
 
 #include "../indigo/TestUtils.h"
 #include "../maths/mathstypes.h"
+#include "../graphics/image.h"
+#include "../graphics/ImageFilter.h"
 
 using std::modf;
 
@@ -447,7 +449,45 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 }
 
 
+Reference<Map2D> Texture::getBlurredImage() const
+{
+	// Convert this low-bit texture to a 32 bit fp image.
+	const unsigned int w = getWidth();
+	const unsigned int h = getHeight();
+	const float scale = 1.f / (255.f * getBytesPP());
+	Image img(w, h);
+	for(unsigned int y=0; y<h; ++y)
+		for(unsigned int x=0; x<w; ++x)
+		{
+			float val = 0;
+			for(unsigned int c=0; c<getBytesPP(); ++c)
+				val += this->getPixelComp(x, y, c);
+
+			img.setPixel(x, y, Colour3f(val * scale));
+		}
+
+
+	// Blur the floating point imaage
+	Image blurred_img(w, h);
+	ImageFilter::gaussianFilter(
+		img, 
+		blurred_img, 
+		(float)myMax(w, h) * 0.01f // standard dev in pixels
+	);
+	
+	return Reference<Map2D>(new Image(blurred_img));
+}
+
+
 #if (BUILD_TESTS)
+
+
+#include "../graphics/ImFormatDecoder.h"
+#include "../graphics/PNGDecoder.h"
+#include "../utils/timer.h"
+#include "../indigo/globals.h"
+
+
 void Texture::test()
 {
 	{
@@ -505,6 +545,25 @@ void Texture::test()
 	testAssert(epsEqual(t.scalarSampleTiled(0.1, 0.1), 1.0f));
 	testAssert(epsEqual(t.scalarSampleTiled(-0.1, 0.1), 1.0f));
 	testAssert(epsEqual(t.scalarSampleTiled(-1.0e9, 1.0e9), 1.0f));
+	}
+
+
+	{
+
+
+		Reference<Map2D> tex = ImFormatDecoder::decodeImage(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+
+		Timer timer;
+
+		Reference<Map2D> blurred = tex.downcast<Texture>()->getBlurredImage();
+
+		conPrint("Blurring took " + timer.elapsedString());
+
+		Bitmap bmp;
+		blurred.downcast<Image>()->copyToBitmap(bmp);
+
+		PNGDecoder::write(bmp, std::map<std::string, std::string>(), "blurred.png");
+
 	}
 }
 #endif

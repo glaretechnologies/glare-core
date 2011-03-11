@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "colour3.h"
 #include "Map2D.h"
+#include "../utils/reference.h"
 
 
 /*=====================================================================
@@ -33,6 +34,9 @@ public:
 	// X and Y are normalised image coordinates.  col_out components will be in range [0, 1]
 	//void sampleTiled(double x, double y, Colour3d& col_out) const;
 
+	virtual unsigned int getMapWidth() const { return getWidth(); }
+	virtual unsigned int getMapHeight() const { return getHeight(); }
+
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;
@@ -43,6 +47,8 @@ public:
 	static void test();
 
 	virtual bool takesOnlyUnitIntervalValues() const { return true; }
+
+	Reference<Map2D> getBlurredImage() const;
 
 private:
 	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;

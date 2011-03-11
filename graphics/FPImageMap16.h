@@ -39,8 +39,11 @@ public:
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 
-	virtual unsigned int getWidth() const { return width; }
-	virtual unsigned int getHeight() const { return height; }
+	unsigned int getWidth() const { return width; }
+	unsigned int getHeight() const { return height; }
+
+	virtual unsigned int getMapWidth() const { return width; }
+	virtual unsigned int getMapHeight() const { return height; }
 
 	std::vector<half>& getData() { return data; }
 

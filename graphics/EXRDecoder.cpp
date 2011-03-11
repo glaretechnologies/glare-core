@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../graphics/FPImageMap16.h"
 #include "../graphics/image.h"
+#include "../graphics/ImageMap.h"
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #include "imformatdecoder.h"
@@ -64,7 +65,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 
 		if(use_pixel_type == Imf::FLOAT)
 		{
-			Image* new_image = new Image(width, height);
+			/*Image* new_image = new Image(width, height);
 
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::FLOAT,			// type
@@ -83,6 +84,26 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 				(char*)&new_image->getPixel(0).b,			// base
 				sizeof(Image::ColourType),				// xStride
 				sizeof(Image::ColourType) * width)// yStride
+				);*/
+
+			ImageMap<float, FloatComponentValueTraits>* new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, 3);
+			frameBuffer.insert("R",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)(new_image->getData() + 0),			// base
+				sizeof(Image::ColourType),				// xStride
+				sizeof(Image::ColourType) * width)// yStride
+				);
+			frameBuffer.insert("G",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)(new_image->getData() + 1),			// base
+				sizeof(Image::ColourType),				// xStride
+				sizeof(Image::ColourType) * width)// yStride
+				);
+			frameBuffer.insert("B",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)(new_image->getData() + 2),			// base
+				sizeof(Image::ColourType),				// xStride
+				sizeof(Image::ColourType) * width)// yStride
 				);
 
 			file.setFrameBuffer(frameBuffer);
@@ -92,7 +113,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		}
 		else if(use_pixel_type == Imf::HALF)
 		{
-			FPImageMap16* new_image = new FPImageMap16(width, height);
+			/*FPImageMap16* new_image = new FPImageMap16(width, height);
 
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::HALF,			// type
@@ -109,6 +130,27 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 			frameBuffer.insert("B",				// name
 				Imf::Slice(Imf::HALF,			// type
 				(char*)(&new_image->getData()[2]),			// base
+				sizeof(half)*3,				// xStride
+				sizeof(half)*3 * width)// yStride
+				);*/
+
+			ImageMap<half, HalfComponentValueTraits>* new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, 3);
+
+			frameBuffer.insert("R",				// name
+				Imf::Slice(Imf::HALF,			// type
+				(char*)(new_image->getData() + 0),			// base
+				sizeof(half)*3,				// xStride
+				sizeof(half)*3 * width)// yStride
+				);
+			frameBuffer.insert("G",				// name
+				Imf::Slice(Imf::HALF,			// type
+				(char*)(new_image->getData() + 1),			// base
+				sizeof(half)*3,				// xStride
+				sizeof(half)*3 * width)// yStride
+				);
+			frameBuffer.insert("B",				// name
+				Imf::Slice(Imf::HALF,			// type
+				(char*)(new_image->getData() + 2),			// base
 				sizeof(half)*3,				// xStride
 				sizeof(half)*3 * width)// yStride
 				);

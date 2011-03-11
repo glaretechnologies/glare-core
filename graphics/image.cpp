@@ -428,57 +428,6 @@ void Image::saveToBitmap(const std::string& pathname)
 		throw ImageExcep("Error encountered while reading RAW image.");
 }*/
 
-/*
-void Image::loadFromNFF(const std::string& pathname)
-{
-
-	std::vector<float> imgdata;
-
-	try
-	{
-		NFFio::readNNF(pathname, imgdata, width, height);
-
-		//resize this image
-		pixels.resize(width, height);
-
-		for(int x=0; x<width; ++x)
-			for(int y=0; y<height; ++y)
-			{
-				int srcpixelindex = (x + y*width)*3;
-
-				setPixel(x, y, ColourType(imgdata[srcpixelindex],
-										imgdata[srcpixelindex+1],
-										imgdata[srcpixelindex+2]));
-			}
-	}
-	catch(NFFioExcep& e)
-	{
-		throw ImageExcep("NFFioExcep: " + e.what());
-	}
-}
-
-
-void Image::saveAsNFF(const std::string& pathname)
-{
-	std::vector<float> imgdata(width * height * 3);
-	for(int x=0; x<width; ++x)
-		for(int y=0; y<height; ++y)
-		{
-			imgdata[(x + y*width)*3] = getPixel(x, y).r;
-			imgdata[(x + y*width)*3+1] = getPixel(x, y).g;
-			imgdata[(x + y*width)*3+2] = getPixel(x, y).b;
-		}
-
-	try
-	{
-		NFFio::writeNFF(pathname, imgdata, width, height);
-	}
-	catch(NFFioExcep& e)
-	{
-		throw ImageExcep("NFFioExcep: " + e.what());
-	}
-}*/
-
 
 void Image::zero()
 {

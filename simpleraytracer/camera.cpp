@@ -675,6 +675,12 @@ const Camera::Vec3Type Camera::lensExitDir(const Vec3Type& sensorpos_os, const V
 	const double sensor_up = sensorpos_os[2] - sensor_center[2]; // Distance up from sensor center
 	const double sensor_right = sensorpos_os[0] - sensor_center[0]; // Distance right from sensor center
 
+	// TEMP HACK NEW: spherical abberation
+	/*const float lens_r2 = lenspos_os.x[0]*lenspos_os.x[0] + lenspos_os.x[1]*lenspos_os.x[1];
+	const float lens_r4 = lens_r2 * lens_r2;
+	const float ab_scale = 1.0e8f;
+	const float use_focus_dist_sensor_to_lens_dist_ratio = focus_dist_sensor_to_lens_dist_ratio * (1.01 - lens_r4*ab_scale);*/
+
 	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
 	const double target_right_dist = (lens_shift_right_distance - sensor_right) * focus_dist_sensor_to_lens_dist_ratio;
 

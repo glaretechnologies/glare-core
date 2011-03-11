@@ -137,6 +137,9 @@ public:
 	float maxPixelComponent() const;
 
 	////// Map2D interface //////////
+	virtual unsigned int getMapWidth() const { return getWidth(); }
+	virtual unsigned int getMapHeight() const { return getHeight(); }
+
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;

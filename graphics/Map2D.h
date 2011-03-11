@@ -40,8 +40,8 @@ public:
 	virtual Value scalarSampleTiled(Coord x, Coord y) const = 0;
 
 
-	virtual unsigned int getWidth() const = 0;
-	virtual unsigned int getHeight() const = 0;
+	virtual unsigned int getMapWidth() const = 0;
+	virtual unsigned int getMapHeight() const = 0;
 
 	virtual bool takesOnlyUnitIntervalValues() const = 0;
 };

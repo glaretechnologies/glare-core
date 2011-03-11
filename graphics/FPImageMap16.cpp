@@ -38,9 +38,9 @@ const Colour3<FPImageMap16::Value> FPImageMap16::vec3SampleTiled(Coord u, Coord 
 	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
 
 	if(u_frac_part < 0.0)
-		u_frac_part = 1.0 + u_frac_part;
+		u_frac_part = 1 + u_frac_part;
 	if(v_frac_part < 0.0)
-		v_frac_part = 1.0 + v_frac_part;
+		v_frac_part = 1 + v_frac_part;
 
 	assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
 	assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
@@ -63,8 +63,8 @@ const Colour3<FPImageMap16::Value> FPImageMap16::vec3SampleTiled(Coord u, Coord 
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1.0 - ufrac;
-	const Coord onevfrac = 1.0 - vfrac;
+	const Coord oneufrac = 1 - ufrac;
+	const Coord onevfrac = 1 - vfrac;
 
 	// Top left pixel
 	{
@@ -111,7 +111,7 @@ const Colour3<FPImageMap16::Value> FPImageMap16::vec3SampleTiled(Coord u, Coord 
 FPImageMap16::Value FPImageMap16::scalarSampleTiled(Coord x, Coord y) const
 {
 	const Colour3<Value> col = vec3SampleTiled(x, y);
-	return (col.r + col.g + col.b) * (1.0 / 3.0);
+	return (col.r + col.g + col.b) * (Value)(1.0 / 3.0);
 }
 
 
