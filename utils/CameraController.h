@@ -46,8 +46,6 @@ private:
 	//Quatd current_orientation;
 	//Vec3d rotation_axes[3];
 
-	Vec3d camera_up;
-
 	Vec3d position;
 	Vec2d rotation; // Specified as (theta, phi).
 

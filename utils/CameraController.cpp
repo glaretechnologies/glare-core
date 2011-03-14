@@ -11,8 +11,6 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 
 CameraController::CameraController()
 {
-	camera_up = Vec3d(0.0, 0.0, 1.0);
-
 	position = Vec3d(0.0);
 	rotation = Vec2d(0.0);
 
@@ -67,7 +65,7 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 						sin(rotation.x) * sin(rotation.y),
 						cos(rotation.x));
 
-	up_out = camera_up;
+	up_out = Vec3d(0, 0, 1);
 	up_out.removeComponentInDir(forward_out);
 	up_out.normalise();
 
@@ -77,8 +75,6 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 
 void CameraController::setBasis(const Vec3d &up, const Vec3d &forward)
 {
-	camera_up = up;
-
 	rotation.x = acos(forward.z / forward.length());
 	rotation.y = atan2(forward.y, forward.x);
 }
