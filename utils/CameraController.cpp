@@ -73,7 +73,7 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 }
 
 
-void CameraController::setBasis(const Vec3d &up, const Vec3d &forward)
+void CameraController::setForward(const Vec3d &forward)
 {
 	rotation.x = acos(forward.z / forward.length());
 	rotation.y = atan2(forward.y, forward.x);

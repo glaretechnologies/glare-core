@@ -28,7 +28,7 @@ public:
 	void setPosition(const Vec3d& pos);
 
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
-	void setBasis(const Vec3d& up, const Vec3d& forward);
+	void setForward(const Vec3d& forward);
 
 private:
 
