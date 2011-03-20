@@ -13,14 +13,21 @@ Code By Nicholas Chapman.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+
+#include <cmath>
+#include <fstream>
+#include <iostream>
+
+
+#include "../maths/mathstypes.h"
+
+#include "../utils/platformutils.h"
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
-#include <iostream>
-#include <cmath>
-#include "../maths/mathstypes.h"
+
 #include "../indigo/gpuDeviceInfo.h"
-#include <fstream>
+
 
 /*
 #define checkFunctionPointer(f) (_checkFunctionPointer(f, #f));
@@ -51,55 +58,104 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	context = 0;
 	command_queue = 0;
 
+	std::vector<std::string> opencl_paths;
 
-	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\OpenCL.dll");
-	const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Windows\\System32\\OpenCL.dll");
-	//const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding("C:\\Program Files (x86)\\ATI Stream\\bin\\x86_64\\atiocl64.dll");
-	module = ::LoadLibrary(path.c_str());
+	opencl_paths.push_back("OpenCL.dll");
 
-	if(!module)
+	try // ati/amd opencl
 	{
-		const DWORD error_code = GetLastError();
-		throw Indigo::Exception("Failed to load OpenCL library from '" + StringUtils::PlatformToUTF8UnicodeEncoding(path) + "', error_code: " + ::toString((uint32)error_code));
+		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
+	#if defined(WIN64)
+		if(verbose_init) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		opencl_paths.push_back(ati_sdk_root + "x86_64\\atiocl64.dll");
+	#else
+		if(verbose_init) std::cout << "Detected ATI 32 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		opencl_paths.push_back(ati_sdk_root + "x86\\atiocl.dll");
+	#endif
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e) { } // no ati/amd opencl found
+
+	try // intel opencl
+	{
+		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
+
+	#if defined(WIN64)
+		if(verbose_init) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		opencl_paths.push_back(intel_sdk_root + "bin\\x64\\intelocl.dll");
+	#else
+		if(verbose_init) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
+	#endif
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e) { } // no intel opencl found
+
+	size_t searched_paths = 0;
+	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
+	{
+		const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding(opencl_paths[searched_paths]);
+		module = ::LoadLibrary(path.c_str());
+		if(!module)
+		{
+			const DWORD error_code = GetLastError();
+			std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
+			continue;
+		}
+
+		// Successfully loaded library, try to get required function pointers
+		try
+		{
+			clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(module, "clGetPlatformIDs");
+			clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(module, "clGetPlatformInfo");
+			clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(module, "clGetDeviceIDs");
+			clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(module, "clGetDeviceInfo");
+			clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(module, "clCreateContextFromType");
+			clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(module, "clReleaseContext");
+			clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(module, "clCreateCommandQueue");
+			clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(module, "clReleaseCommandQueue");
+			clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(module, "clCreateBuffer");
+			clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(module, "clCreateImage2D");
+			clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(module, "clReleaseMemObject");
+			clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(module, "clCreateProgramWithSource");
+			clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(module, "clBuildProgram");
+			clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(module, "clGetProgramBuildInfo");
+			clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(module, "clCreateKernel");
+			clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(module, "clSetKernelArg");
+			clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(module, "clEnqueueWriteBuffer");
+			clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(module, "clEnqueueReadBuffer");
+			clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(module, "clEnqueueNDRangeKernel");
+			clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(module, "clReleaseKernel");
+			clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
+			clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
+
+			clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(module, "clSetCommandQueueProperty");
+			clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(module, "clGetEventProfilingInfo");
+			clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(module, "clEnqueueMarker");
+			clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(module, "clWaitForEvents");
+		}
+		catch(Indigo::Exception& e)
+		{
+			if(verbose_init) std::cout << "Error loading OpenCL library from " << opencl_paths[searched_paths] << ": " << e.what() << std::endl;
+			continue; // try the next library
+		}
+
+		if(verbose_init) std::cout << "Successfully loaded OpenCL from functions from " << opencl_paths[searched_paths] << std::endl;
+		break; // found all req functions, break out of search loop
+	}
+	if(searched_paths == opencl_paths.size())
+	{
+		throw Indigo::Exception("Failed to find OpenCL library.");
 	}
 
 
-	clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(module, "clGetPlatformIDs");
-	clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(module, "clGetPlatformInfo");
-	clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(module, "clGetDeviceIDs");
-	clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(module, "clGetDeviceInfo");
-	clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(module, "clCreateContextFromType");
-	clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(module, "clReleaseContext");
-	clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(module, "clCreateCommandQueue");
-	clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(module, "clReleaseCommandQueue");
-	clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(module, "clCreateBuffer");
-	clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(module, "clCreateImage2D");
-	clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(module, "clReleaseMemObject");
-	clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(module, "clCreateProgramWithSource");
-	clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(module, "clBuildProgram");
-	clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(module, "clGetProgramBuildInfo");
-	clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(module, "clCreateKernel");
-	clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(module, "clSetKernelArg");
-	clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(module, "clEnqueueWriteBuffer");
-	clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(module, "clEnqueueReadBuffer");
-	clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(module, "clEnqueueNDRangeKernel");
-	clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(module, "clReleaseKernel");
-	clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
-	clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
-
-	clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(module, "clSetCommandQueueProperty");
-	clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(module, "clGetEventProfilingInfo");
-	clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(module, "clEnqueueMarker");
-	clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(module, "clWaitForEvents");
+	device_to_use = 0;
+	chosen_device_number = -1;
+	int64 best_device_perf = -1;
 
 	std::vector<cl_platform_id> platform_ids(128);
 	cl_uint num_platforms = 0;
 	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
-	device_to_use = 0;
-	chosen_device_number = -1;
-	int64 best_device_perf = -1;
 
 	if(verbose_init) std::cout << "Num platforms: " << num_platforms << std::endl;
 
@@ -237,8 +293,8 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			if(desired_device_number < 0) // If auto selecting device
 			{
 				// if this is the best performing GPU device found so far, select it
-				if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf) // CPU devices disallowed
-				//if(best_device_perf < device_perf) // CPU devices allowed
+				//if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf) // CPU devices disallowed
+				if(best_device_perf < device_perf) // CPU devices allowed
 				{
 					device_to_use = device_ids[d];
 					platform_to_use = platform_ids[i];

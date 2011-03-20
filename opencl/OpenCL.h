@@ -19,7 +19,8 @@ Code By Nicholas Chapman.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <CL/cl.h>
+//#include <CL/cl.h>
+#include "khronos/cl.h"
 //#include <CL/clext.h>
 
 
@@ -73,7 +74,7 @@ public:
 	=====================================================================*/
 
 	// If desired_device_number < 0 it will automatically choose a device.
-	OpenCL(int desired_device_number, bool verbose_init = false);
+	OpenCL(int desired_device_number, bool verbose_init = true);
 
 	~OpenCL();
 
