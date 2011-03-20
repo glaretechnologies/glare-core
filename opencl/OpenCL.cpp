@@ -60,17 +60,17 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 
 	std::vector<std::string> opencl_paths;
 
-	opencl_paths.push_back("OpenCL.dll");
+	//opencl_paths.push_back("OpenCL.dll");
 
 	try // ati/amd opencl
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
 	#if defined(WIN64)
 		if(verbose_init) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
-		opencl_paths.push_back(ati_sdk_root + "x86_64\\atiocl64.dll");
+		opencl_paths.push_back(ati_sdk_root + "bin\\x86_64\\atiocl64.dll");
 	#else
 		if(verbose_init) std::cout << "Detected ATI 32 bit OpenCL SDK at " << ati_sdk_root << std::endl;
-		opencl_paths.push_back(ati_sdk_root + "x86\\atiocl.dll");
+		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
 	#endif
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e) { } // no ati/amd opencl found
