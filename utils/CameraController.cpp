@@ -26,12 +26,16 @@ CameraController::~CameraController()
 
 }
 
+#include <iostream>
 
 void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 {
 	// Accumulate rotation angles, taking into account mouse speed and invertedness.
 	rotation.x += rot_delta.x * rotate_speed;
 	rotation.y += rot_delta.y * rotate_speed * (invert_mouse ? -1 : 1);
+
+	const double pi = 3.1415926535897932384626433832795, cap = 1e-4;
+	rotation.x = std::max(cap, std::min(pi - cap, rotation.x));
 
 	// Construct camera basis.
 	Vec3d forwards(	sin(rotation.x) * cos(rotation.y),
@@ -73,7 +77,7 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 }
 
 
-void CameraController::setForward(const Vec3d &forward)
+void CameraController::setForward(const Vec3d& forward)
 {
 	rotation.x = acos(forward.z / forward.length());
 	rotation.y = atan2(forward.y, forward.x);
