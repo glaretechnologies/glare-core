@@ -60,7 +60,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 
 	std::vector<std::string> opencl_paths;
 
-	//opencl_paths.push_back("OpenCL.dll");
+	opencl_paths.push_back("OpenCL.dll");
 
 	try // ati/amd opencl
 	{
@@ -138,7 +138,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			continue; // try the next library
 		}
 
-		if(verbose_init) std::cout << "Successfully loaded OpenCL from functions from " << opencl_paths[searched_paths] << std::endl;
+		if(verbose_init) std::cout << "Successfully loaded OpenCL functions from " << opencl_paths[searched_paths] << std::endl;
 		break; // found all req functions, break out of search loop
 	}
 	if(searched_paths == opencl_paths.size())

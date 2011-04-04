@@ -27,6 +27,9 @@ public:
 	Vec3d getPosition() const;
 	void setPosition(const Vec3d& pos);
 
+	void setMouseSensitivity(double sensitivity);
+	void setMoveScale(double move_scale);
+
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	void setForward(const Vec3d& forward);
 
@@ -49,7 +52,9 @@ private:
 	Vec3d position;
 	Vec2d rotation; // Specified as (theta, phi).
 
-	float move_speed, rotate_speed;
+	float base_move_speed, base_rotate_speed;
+	
+	float move_speed_scale, rotate_speed_scale;
 
 	bool invert_mouse;
 };
