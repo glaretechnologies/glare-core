@@ -77,9 +77,9 @@ public:
 	inline const Matrix3 operator - (const Matrix3& rhs) const;
 	//return value = this * rhs;
 	inline const Matrix3 operator * (const Matrix3& rhs) const;
-	
 
-	
+
+
 	//return value = this * rhs;
 	inline Vec3<Real> operator * (const Vec3<Real>& rhs) const;
 	inline Vec3<Real> transposeMult(const Vec3<Real>& rhs) const;
@@ -99,21 +99,16 @@ public:
 	static const Matrix3 rotationMatrix(const Vec3<Real>& unit_axis, Real angle);
 
 
-	
+
 	inline const Matrix3 getTranspose() const;
 	inline void transpose();
-	
+
 	//-----------------------------------------------------------------
 	//this assumes matrix is orthogonal. ie. returns transpose
 	//-----------------------------------------------------------------
 	//inline Matrix3 getInverse() const;
 	//void invert();
 
-
-	//-----------------------------------------------------------------
-	//orthognalise matrix and then normalise each column vector
-	//-----------------------------------------------------------------
-	inline void orthoganalise();
 
 	inline Vec3<Real> getXUnitVector() const;
 	inline Vec3<Real> getYUnitVector() const;
@@ -142,7 +137,7 @@ public:
 	========================================================================*/
 	//const Vec3 getYPRAngles() const; //around i, j, k
 
-	
+
 	/*========================================================================
 	setToAngles
 	-----------
@@ -165,7 +160,7 @@ public:
 	float getPitch() const;
 	float getRoll() const;*/
 
-	
+
 	void print() const;
 	//void writeToFile(FILE* f) const;
 	//void readFromFile(FILE* f);
@@ -378,15 +373,6 @@ bool Matrix3<Real>::operator == (const Matrix3& rhs) const
 			e[7] == rhs.e[7] &&
 			e[8] == rhs.e[8]);
 }
-			
-
-template <class Real>
-void Matrix3<Real>::orthoganalise()
-{
-	//Do some magic
-}
-
-
 
 
 
