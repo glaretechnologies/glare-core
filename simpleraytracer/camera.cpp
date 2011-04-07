@@ -34,6 +34,7 @@ Code By Nicholas Chapman.
 #include "../utils/timer.h"
 #include "../indigo/PrintOutput.h"
 #include "../graphics/FFTPlan.h"
+#include "../maths/GeometrySampling.h"
 
 
 static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
@@ -676,17 +677,38 @@ const Camera::Vec3Type Camera::lensExitDir(const Vec3Type& sensorpos_os, const V
 	const double sensor_right = sensorpos_os[0] - sensor_center[0]; // Distance right from sensor center
 
 	// TEMP HACK NEW: spherical abberation
-	/*const float lens_r2 = lenspos_os.x[0]*lenspos_os.x[0] + lenspos_os.x[1]*lenspos_os.x[1];
+	/*const float lens_r2 = lenspos_os.x[0]*lenspos_os.x[0] + lenspos_os.x[2]*lenspos_os.x[2];
 	const float lens_r4 = lens_r2 * lens_r2;
-	const float ab_scale = 1.0e8f;
-	const float use_focus_dist_sensor_to_lens_dist_ratio = focus_dist_sensor_to_lens_dist_ratio * (1.01 - lens_r4*ab_scale);*/
+	const float ab_scale = 1.0e7f;//10.0e-6f;
+	//const float use_focus_dist_sensor_to_lens_dist_ratio = focus_dist_sensor_to_lens_dist_ratio * (1.0 - lens_r4*ab_scale);
+
+	// TEMP NEW: Fish-eye projection
+	const float r2 = sensorpos_os.x[0]*sensorpos_os.x[0] + sensorpos_os.x[2]*sensorpos_os.x[2];
+	const float r = sqrt(r2);
+
+	//const float theta = asin(2.5 * r / this->sensor_to_lens_dist);
+	//const float theta = 4 * r / this->sensor_to_lens_dist;
+	const float theta = atan(r / this->sensor_to_lens_dist);
+	
+	const float phi = atan2(-sensor_up, -sensor_right);
+	
+	const Vec4f dir(
+		cos(phi) * sin(theta),
+		cos(theta),
+		sin(phi) * sin(theta),
+		0
+	);
+
+	conPrint(::doubleToStringScientific(lens_r4));
+	const Vec4f target_point_os = Vec4f(0,0,0,1) + dir * this->focus_distance * (1.0 - lens_r4*ab_scale);
+		*/
 
 	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
 	const double target_right_dist = (lens_shift_right_distance - sensor_right) * focus_dist_sensor_to_lens_dist_ratio;
 
-	const SSE_ALIGN Vec3Type target_point_os(
+	const Vec3Type target_point_os(
 		lens_center.x + target_right_dist,
-		focus_distance,
+		focus_distance, // TEMP
 		lens_center.z + target_up_dist,
 		1.0f
 		);
@@ -694,7 +716,7 @@ const Camera::Vec3Type Camera::lensExitDir(const Vec3Type& sensorpos_os, const V
 	// Resulting ray is a ray from the lens position, to the target position.
 	return transform_path.vecToWorld(normalise(target_point_os - lenspos_os), time);
 
-
+	
 
 
 

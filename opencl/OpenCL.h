@@ -19,8 +19,8 @@ Code By Nicholas Chapman.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-//#include <CL/cl.h>
-#include "khronos/cl.h"
+#include <CL/cl.h>
+//#include "khronos/cl.h"
 //#include <CL/clext.h>
 
 

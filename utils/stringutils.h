@@ -128,7 +128,7 @@ int getNumMatches(const std::string& s, char target);
 
 void tokenise(const std::string& text, std::vector<std::string>& tokens_out);
 
-bool containsString(const std::string& text, const std::string& target_string);
+//bool containsString(const std::string& text, const std::string& target_string);
 
 // Can handle multiple words in quotes
 void readInToken(std::istream& stream, std::string& str_out);
@@ -170,7 +170,7 @@ inline const std::string appendChar(const std::string& s, char c)
 }
 
 // If first_char_index is >= s.size(), then returns ""
-const std::string getTailSubString(const std::string& s, unsigned int first_char_index);
+const std::string getTailSubString(const std::string& s, size_t first_char_index);
 
 const std::string forceCopyString(const std::string& s);
 

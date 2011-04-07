@@ -21,6 +21,11 @@ class UInt8ComponentValueTraits
 {
 public:
 	static inline bool isFloatingPoint() { return false; }
+
+	// Scale from [0, 2^8) down to [0, 1)
+	// NOTE: divide by 255 now to be consistent with Texture.  BlendMaterial efficient blending when t = 0 or 1 depends on dividing by 255 as well.
+	static inline Map2D::Value scaleValue(Map2D::Value x) { return x * (1 / (Map2D::Value)255); }
+
 };
 
 
@@ -30,7 +35,7 @@ public:
 	static inline bool isFloatingPoint() { return false; }
 
 	// Scale from [0, 2^16) down to [0, 1)
-	static inline Map2D::Value scaleValue(Map2D::Value x) { return x * (1 / (Map2D::Value)65536); }
+	static inline Map2D::Value scaleValue(Map2D::Value x) { return x * (1 / (Map2D::Value)65535); }
 };
 
 
@@ -71,6 +76,10 @@ public:
 	inline virtual unsigned int getMapHeight() const { return height; }
 
 	inline virtual bool takesOnlyUnitIntervalValues() const { return !ComponentValueTraits::isFloatingPoint(); }
+
+	inline virtual bool hasAlphaChannel() const { return N == 2 || N == 4; }
+	inline virtual Reference<Map2D> extractAlphaChannel() const;
+
 
 	V* getData() { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
@@ -135,8 +144,11 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
-	if(N == 1)
+	if(N < 3)
 	{
+		// This is either grey, alpha or grey with alpha.
+		// Either way just use zeroth channel
+
 		// Top left pixel
 		{
 			const V* pixel = getPixel(ut, vt);
@@ -174,8 +186,11 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 		}
 		
 	}
-	else if(N == 3)
+	else if(N >= 3)
 	{
+		// This map is either RGB or RGB with alpha
+		// Ignore alpha and just return the interpolated RGB colour.
+
 		// Top left pixel
 		{
 			const V* pixel = getPixel(ut, vt);
@@ -267,38 +282,42 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 	{
 		const V* pixel = getPixel(ut, vt);
 		const Value factor = oneufrac * onevfrac;
-		for(unsigned int i=0; i<N; ++i)
-			colour_out = pixel[i] * factor;
+		//for(unsigned int i=0; i<N; ++i)
+		//	colour_out = pixel[i] * factor;
+		colour_out = pixel[0] * factor;
 	}
 
 	// Top right pixel
 	{
 		const V* pixel = getPixel(ut_1, vt);
 		const Value factor = ufrac * onevfrac;
-		for(unsigned int i=0; i<N; ++i)
-			colour_out += pixel[i] * factor;
+		//for(unsigned int i=0; i<N; ++i)
+		//	colour_out += pixel[i] * factor;
+		colour_out += pixel[0] * factor;
 	}
 
 	// Bottom left pixel
 	{
 		const V* pixel = getPixel(ut, vt_1);
 		const Value factor = oneufrac * vfrac;
-		for(unsigned int i=0; i<N; ++i)
-			colour_out += pixel[i] * factor;
+		//for(unsigned int i=0; i<N; ++i)
+		//	colour_out += pixel[i] * factor;
+		colour_out += pixel[0] * factor;
 	}
 
 	// Bottom right pixel
 	{
 		const V* pixel = getPixel(ut_1, vt_1);
 		const Value factor = ufrac * vfrac;
-		for(unsigned int i=0; i<N; ++i)
-			colour_out += pixel[i] * factor;
+		//for(unsigned int i=0; i<N; ++i)
+		//	colour_out += pixel[i] * factor;
+		colour_out += pixel[0] * factor;
 	}
 
 	// Divide by number of colour components
-	const Value N_factor = ((Value)1 / (Value)N); // TODO: test this is computed at compile time.
+	//const Value N_factor = ((Value)1 / (Value)N); // TODO: test this is computed at compile time.
 
-	return colour_out * N_factor;
+	return VTraits::scaleValue(colour_out)/* * N_factor*/;
 }
 
 
@@ -315,4 +334,18 @@ inline const V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y) c
 {
 	assert(x < width && y < height);
 	return &data[(x + width * y) * N];
+}
+
+
+template <class V, class VTraits>
+Reference<Map2D> ImageMap<V, VTraits>::extractAlphaChannel() const
+{
+	ImageMap<V, VTraits>* alpha_map = new ImageMap<V, VTraits>(width, height, 1);
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+		{	
+			alpha_map->getPixel(x, y)[0] = this->getPixel(x, y)[N-1];
+		}
+
+	return Reference<Map2D>(alpha_map);
 }

@@ -73,7 +73,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
 	#endif
 	}
-	catch(PlatformUtils::PlatformUtilsExcep& e) { } // no ati/amd opencl found
+	catch(PlatformUtils::PlatformUtilsExcep&) { } // no ati/amd opencl found
 
 	try // intel opencl
 	{
@@ -87,7 +87,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
 	#endif
 	}
-	catch(PlatformUtils::PlatformUtilsExcep& e) { } // no intel opencl found
+	catch(PlatformUtils::PlatformUtilsExcep&) { } // no intel opencl found
 
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)

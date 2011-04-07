@@ -477,7 +477,7 @@ void Parser::doUnitTests()
 		double y = 0;
 		for(int i=0; i<1000000; ++i)
 		{
-			Parser p(text.c_str(), text.size());
+			Parser p(text.c_str(), (unsigned int)text.size());
 
 			double x;
 			p.parseDouble(x);
@@ -498,7 +498,7 @@ void Parser::doUnitTests()
 		double y = 0;
 		for(int i=0; i<1000000; ++i)
 		{
-			p.reset(text.c_str(), text.size());
+			p.reset(text.c_str(), (unsigned int)text.size());
 
 			double x;
 			p.parseDouble(x);

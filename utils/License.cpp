@@ -127,7 +127,7 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 		throw LicenseExcep("Internal Verification failure 2.");
 
 	// Call the actual verify function and get result
-	const int result = EVP_VerifyFinal(&ctx, (unsigned char*)hash.data(), (unsigned int)hash.size(), public_key);
+	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.data(), (unsigned int)hash.size(), public_key);
 
 	EVP_MD_CTX_cleanup(&ctx);
 	

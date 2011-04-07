@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include "colour3.h"
 #include "../utils/refcounted.h"
+#include "../utils/reference.h"
 
 
 /*=====================================================================
@@ -44,6 +45,9 @@ public:
 	virtual unsigned int getMapHeight() const = 0;
 
 	virtual bool takesOnlyUnitIntervalValues() const = 0;
+
+	virtual bool hasAlphaChannel() const { return false; }
+	virtual Reference<Map2D> extractAlphaChannel() const { return Reference<Map2D>(); }
 };
 
 

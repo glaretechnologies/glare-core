@@ -102,11 +102,11 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		///Remove alpha channel///
 		if(color_type & PNG_COLOR_MASK_ALPHA)
 		{
-			png_set_strip_alpha(png_ptr);
+			//png_set_strip_alpha(png_ptr);
 
 			// We either had Grey + alpha, or RGB + alpha
-			assert(bitmap_num_bytes_pp == 2 || bitmap_num_bytes_pp == 4);
-			bitmap_num_bytes_pp--;
+			//assert(bitmap_num_bytes_pp == 2 || bitmap_num_bytes_pp == 4);
+			//bitmap_num_bytes_pp--;
 		}
 
 		//conPrint("bitmap_num_bytes_pp after stripping: " + toString(bitmap_num_bytes_pp));
@@ -135,14 +135,18 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		Map2D* map_2d = NULL;
 		if(bit_depth == 8)
 		{
-			Texture* texture = new Texture();
-			texture->resize(width, height, bitmap_num_bytes_pp);
+			//Texture* texture = new Texture();
+			//texture->resize(width, height, bitmap_num_bytes_pp);
+			ImageMap<uint8_t, UInt8ComponentValueTraits>* image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+
+			for(unsigned int y=0; y<height; ++y)
+				png_read_row(png_ptr, (png_bytep)image_map->getPixel(0, y), NULL);
 
 			// Read in actual image data
-			for(unsigned int y=0; y<height; ++y)
-				png_read_row(png_ptr, texture->rowPointer(y), NULL);
+			//for(unsigned int y=0; y<height; ++y)
+			//	png_read_row(png_ptr, texture->rowPointer(y), NULL);
 
-			map_2d = texture;
+			map_2d = image_map;
 		}
 		else if(bit_depth == 16)
 		{

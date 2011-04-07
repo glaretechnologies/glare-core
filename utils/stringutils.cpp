@@ -677,9 +677,9 @@ bool hasSuffix(const std::string& s, const std::string& postfix)
 
 	assert(s.length() >= postfix.length());
 
-	const unsigned int s_offset = s.length() - postfix.length();
+	const size_t s_offset = s.length() - postfix.length();
 
-	for(unsigned int i=0; i<postfix.length(); ++i)
+	for(size_t i=0; i<postfix.length(); ++i)
 		if(s[s_offset + i] != postfix[i])
 			return false;
 
@@ -746,10 +746,9 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 }
 
 
-bool containsString(const std::string& text, const std::string& target_string)
+/*bool containsString(const std::string& text, const std::string& target_string)
 {
-
-	const int lengthdif = text.length() - target_string.length();
+	const int lengthdif = (int)text.length() - (int)target_string.length();
 
 	if(lengthdif < 0)
 		return false;
@@ -761,7 +760,7 @@ bool containsString(const std::string& text, const std::string& target_string)
 	}
 
 	return false;
-}
+}*/
 
 
 void readInToken(std::istream& stream, std::string& str_out)
@@ -872,10 +871,8 @@ const std::string StringUtils::replaceCharacter(const std::string& s, char src, 
 }
 
 
-const std::string getTailSubString(const std::string& s, unsigned int first_char_index)
+const std::string getTailSubString(const std::string& s, size_t first_char_index)
 {
-	assert(first_char_index >= 0);
-
 	if(first_char_index >= s.size())
 		return "";
 
@@ -1008,15 +1005,17 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 #if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
+	assert(s.size() + 1 < std::numeric_limits<int>::max());
+
 	// Call initially to get size of buffer to allocate.
 	const int size_required = MultiByteToWideChar(
 		CP_UTF8, // code page
 		0, // flags
 		s.c_str(),
-		s.size() + 1, // Byte size of s.  Add one, because we want to include the null terminator.
+		(int)s.size() + 1, // Byte size of s.  Add one, because we want to include the null terminator.
 		NULL, // out buffer
 		0 // buffer size
-		);
+	);
 
 	if(size_required == 0)
 		return std::wstring();
@@ -1028,10 +1027,10 @@ const std::wstring UTF8ToWString(const std::string& s)
 		CP_UTF8, // code page
 		0,
 		s.c_str(),
-		s.size() + 1, // Add one, because we want to convert the null terminator.
+		(int)s.size() + 1, // Add one, because we want to convert the null terminator.
 		&buffer[0],
 		size_required
-		);
+	);
 
 	if(result == 0)
 	{
@@ -1063,13 +1062,14 @@ const std::wstring UTF8ToWString(const std::string& s)
 
 const std::string WToUTF8String(const std::wstring& wide_string)
 {
+	assert(wide_string.size() + 1 < std::numeric_limits<int>::max());
 
 	// Call once to get number of bytes required for buffer.
 	const int size_required = WideCharToMultiByte(
 		CP_UTF8,
 		0,
 		wide_string.c_str(),
-		wide_string.size() + 1,
+		(int)wide_string.size() + 1,
 		NULL,
 		0,
 		NULL,
@@ -1082,7 +1082,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 		CP_UTF8,
 		0,
 		wide_string.c_str(),
-		wide_string.size() + 1,
+		(int)wide_string.size() + 1,
 		&buffer[0],
 		size_required,
 		NULL,
