@@ -24,7 +24,9 @@ Transmungify::~Transmungify()
 
 bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords)
 {
-	uint32 i, string_len = src_string.size(), encrypted_int32s = (string_len + 3) / 4;
+	uint32 i;
+	const uint32 string_len = (uint32)src_string.size();
+	const uint32 encrypted_int32s = (string_len + 3) / 4;
 	const char* src_str = src_string.c_str();
 
 	dst_dwords.resize(encrypted_int32s + 1);
@@ -65,7 +67,7 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& d
 
 bool Transmungify::decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string)
 {
-	return decrypt(&src_dwords[0], src_dwords.size(), dst_string);
+	return decrypt(&src_dwords[0], (uint32)src_dwords.size(), dst_string);
 }
 
 

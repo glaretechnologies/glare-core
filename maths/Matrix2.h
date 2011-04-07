@@ -87,7 +87,7 @@ Matrix2<Real>::~Matrix2()
 template <class Real>
 const Matrix2<Real> Matrix2<Real>::identity()
 {
-	return Matrix2<Real>(1.0, 0.0, 0.0, 1.0);
+	return Matrix2<Real>(1, 0, 0, 1);
 }
 
 template <class Real>

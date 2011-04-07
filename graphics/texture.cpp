@@ -548,7 +548,7 @@ void Texture::test()
 	}
 
 
-	{
+	/*{
 
 
 		Reference<Map2D> tex = ImFormatDecoder::decodeImage(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
@@ -564,6 +564,6 @@ void Texture::test()
 
 		PNGDecoder::write(bmp, std::map<std::string, std::string>(), "blurred.png");
 
-	}
+	}*/
 }
 #endif

@@ -60,6 +60,7 @@ const double NICKMATHS_RECIP_PI = 1.0 / NICKMATHS_PI;
 const double NICKMATHS_RECIP_2PI = 1.0 / NICKMATHS_2PI;
 const double NICKMATHS_RECIP_4PI = 1.0 / NICKMATHS_4PI;
 
+const float NICKMATHS_PIf = (float)NICKMATHS_PI;
 const float NICKMATHS_2PIf = (float)NICKMATHS_2PI;
 const float NICKMATHS_PI_2f = (float)NICKMATHS_PI_2;
 const float NICKMATHS_RECIP_PIf = (float)(1.0 / NICKMATHS_PI);
@@ -545,19 +546,19 @@ template <class T, class Real>
 inline const T lerp(const T& a, const T& b, Real t)
 {
 	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
-	return a * ((Real)1.0 - t) + b * t;
+	return a * (1 - t) + b * t;
 }
 
 template <class T>
 inline const T uncheckedLerp(const T& a, const T& b, float t)
 {
-	return a * (1.0f - t) + b * t;
+	return a * (1 - t) + b * t;
 }
 
 template <class T>
 inline const T uncheckedLerp(const T& a, const T& b, double t)
 {
-	return a * (1.0 - t) + b * t;
+	return a * (1 - t) + b * t;
 }
 
 }
