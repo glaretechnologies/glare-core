@@ -35,7 +35,7 @@ Reference<Map2D> FloatDecoder::decode(const std::string& pathname)
 
 		// Since there is no header, and assuming the image is square, we can work out the size
 		const unsigned int pixel_size = sizeof(float) * 3;
-		const unsigned int num_pixels = data.size() / pixel_size;
+		const unsigned int num_pixels = (unsigned int)data.size() / pixel_size;
 		
 		const int width = (unsigned int)sqrt((double)num_pixels);
 

@@ -1772,8 +1772,8 @@ void TriBoxIntersection::test()
 	}*/
 
 	/// test clipPolyAgainstPlane ///
-	Vec3f v_out[32];
-	unsigned int num_verts_out;
+	//Vec3f v_out[32];
+	//unsigned int num_verts_out;
 
 
 	
