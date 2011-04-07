@@ -33,6 +33,8 @@ public:
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	void setForward(const Vec3d& forward);
 
+	bool invert_mouse;
+
 private:
 
 	//Vec3d current_position;
@@ -50,11 +52,8 @@ private:
 	//Vec3d rotation_axes[3];
 
 	Vec3d position;
-	Vec2d rotation; // Specified as (theta, phi).
+	Vec3d rotation; // Specified as (pitch, heading, roll).
 
 	float base_move_speed, base_rotate_speed;
-	
 	float move_speed_scale, rotate_speed_scale;
-
-	bool invert_mouse;
 };
