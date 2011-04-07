@@ -35,15 +35,15 @@ extern "C"
 Image::Image()
 :	pixels(0, 0)
 {
-	width = 0;
-	height = 0;
+	//width = 0;
+	//height = 0;
 }
 
-Image::Image(unsigned int width_, unsigned int height_)
+Image::Image(size_t width_, size_t height_)
 :	pixels(width_, height_)
 {
-	width = width_;
-	height = height_;
+	//width = width_;
+	//height = height_;
 }
 
 
@@ -58,12 +58,12 @@ Image& Image::operator = (const Image& other)
 	if(&other == this)
 		return *this;
 
-	if(width != other.width || height != other.height)
+	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
 	{
-		width = other.width;
-		height = other.height;
+		//width = other.width;
+		//height = other.height;
 
-		pixels.resize(width, height);
+		pixels.resize(other.getWidth(), other.getHeight());
 	}
 
 	/*for(unsigned int x=0; x<width; ++x)
@@ -90,8 +90,8 @@ void Image::setFromBitmap(const Bitmap& bmp)
 	if(bmp.getBytesPP() == 1)
 	{
 		const float factor = 1.0f / 255.0f;
-		for(unsigned int y = 0; y < bmp.getHeight(); ++y)
-		for(unsigned int x = 0; x < bmp.getWidth();  ++x)
+		for(size_t y = 0; y < bmp.getHeight(); ++y)
+		for(size_t x = 0; x < bmp.getWidth();  ++x)
 		{
 			setPixel(x, y,
 				Colour3f((float)*bmp.getPixel(x, y) * factor)
@@ -103,8 +103,8 @@ void Image::setFromBitmap(const Bitmap& bmp)
 		assert(bmp.getBytesPP() == 3);
 
 		const float factor = 1.0f / 255.0f;
-		for(unsigned int y = 0; y < bmp.getHeight(); ++y)
-		for(unsigned int x = 0; x < bmp.getWidth();  ++x)
+		for(size_t y = 0; y < bmp.getHeight(); ++y)
+		for(size_t x = 0; x < bmp.getWidth();  ++x)
 		{
 			setPixel(x, y,
 				Colour3f(
@@ -146,8 +146,8 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 {
 	bmp_out.resize(getWidth(), getHeight(), 3);
 
-	for(unsigned int y = 0; y < getHeight(); ++y)
-	for(unsigned int x = 0; x < getWidth();  ++x)
+	for(size_t y = 0; y < getHeight(); ++y)
+	for(size_t x = 0; x < getWidth();  ++x)
 	{
 		const ColourType& p = getPixel(x, y);
 
@@ -253,8 +253,8 @@ void Image::loadFromBitmap(const std::string& pathname)
 		//Image* image = new Image(infoheader.width, infoheader.height);
 
 
-		this->width = infoheader.width;
-		this->height = infoheader.height;
+		const size_t width = infoheader.width;
+		const size_t height = infoheader.height;
 
 		const int MAX_DIMS = 10000;
 		if(width < 0 || width > MAX_DIMS)
@@ -343,7 +343,7 @@ void Image::saveToBitmap(const std::string& pathname)
 		fwrite(&bitmap_infoheader, sizeof(BITMAP_INFOHEADER), 1, f.getFile());
 
 
-		int rowpaddingbytes = 4 - ((width * 3) % 4);
+		int rowpaddingbytes = 4 - ((getWidth() * 3) % 4);
 		if(rowpaddingbytes == 4)
 			rowpaddingbytes = 0;
 
@@ -445,22 +445,22 @@ void Image::set(const float s)
 }
 
 
-void Image::resize(unsigned int newwidth, unsigned int newheight)
+void Image::resize(size_t newwidth, size_t newheight)
 {
-	if(width == newwidth && height == newheight)
+	if(getWidth() == newwidth && getHeight() == newheight)
 		return;
 
-	width = newwidth;
-	height = newheight;
+	//width = newwidth;
+	//height = newheight;
 
-	pixels.resize(width, height);
+	pixels.resize(newwidth, newheight);
 }
 
 
 void Image::posClamp()
 {
-	const unsigned int num = numPixels();
-	for(unsigned int i = 0; i < num; ++i)
+	const size_t num = numPixels();
+	for(size_t i = 0; i < num; ++i)
 		getPixel(i).positiveClipComponents();
 
 	//for(int x=0; x<width; ++x)
@@ -471,8 +471,8 @@ void Image::posClamp()
 
 void Image::clampInPlace(float min, float max)
 {
-	const unsigned int num = numPixels();
-	for(unsigned int i = 0; i < num; ++i)
+	const size_t num = numPixels();
+	for(size_t i = 0; i < num; ++i)
 		getPixel(i).clampInPlace(min, max);
 }
 
@@ -488,8 +488,8 @@ void Image::gammaCorrect(float exponent)
 			colour.g = pow(colour.g, exponent);
 			colour.b = pow(colour.b, exponent);
 		}*/
-	const unsigned int num = numPixels();
-	for(unsigned int i = 0; i < num; ++i)
+	const size_t num = numPixels();
+	for(size_t i = 0; i < num; ++i)
 	{
 		const ColourType colour = getPixel(i);
 		ColourType newcolour(
@@ -510,8 +510,8 @@ void Image::scale(float factor)
 		{
 			getPixel(x, y) *= factor;
 		}*/
-	const unsigned int num = numPixels();
-	for(unsigned int i = 0; i < num; ++i)
+	const size_t num = numPixels();
+	for(size_t i = 0; i < num; ++i)
 		getPixel(i) *= factor;
 }
 
@@ -937,16 +937,16 @@ void Image::saveToPng(const std::string& pathname, const std::map<std::string, s
 //make the average pixel luminance == 1
 void Image::normalise()
 {
-	if(height == 0 || width == 0)
+	if(getHeight() == 0 || getWidth() == 0)
 		return;
 
 	double av_lum = 0.0;
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		av_lum += (double)getPixel(i).luminance();
 	av_lum /= (double)(numPixels());
 
 	const float factor = (float)(1.0 / av_lum);
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		getPixel(i) *= factor;
 }
 
@@ -1122,7 +1122,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 	assert((in.width - (border_width * 2)) % factor == 0);
 
 	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
-	out.resize((in.width - (border_width * 2)) / factor, (in.height - (border_width * 2)) / factor);
+	out.resize((in.getWidth() - (border_width * 2)) / factor, (in.getHeight() - (border_width * 2)) / factor);
 
 	//const double scale_factor = 1.0f / (float)(factor * factor);
 
@@ -1278,8 +1278,8 @@ void Image::collapseImageNew(const int factor, const int border_width, const int
 	assert(filter_span > 0);
 	assert(resize_filter != 0);
 
-	img_out.resize( (img_in.width  - (border_width * 2)) / factor,
-					(img_in.height - (border_width * 2)) / factor);
+	img_out.resize( (img_in.getWidth()  - (border_width * 2)) / factor,
+					(img_in.getHeight() - (border_width * 2)) / factor);
 
 	const int in_xres  = (int)img_in.getWidth();
 	const int in_yres  = (int)img_in.getHeight();
@@ -1335,7 +1335,7 @@ void Image::collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_t
 }*/
 
 
-unsigned int Image::getByteSize() const
+size_t Image::getByteSize() const
 {
 	return numPixels() * 3 * sizeof(float);
 }
@@ -1343,14 +1343,14 @@ unsigned int Image::getByteSize() const
 float Image::minLuminance() const
 {
 	float minlum = std::numeric_limits<float>::max();
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		minlum = myMin(minlum, getPixel(i).luminance());
 	return minlum;
 }
 float Image::maxLuminance() const
 {
 	float maxlum = -std::numeric_limits<float>::max();
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		maxlum = myMax(maxlum, getPixel(i).luminance());
 	return maxlum;
 }
@@ -1359,7 +1359,7 @@ float Image::maxLuminance() const
 double Image::averageLuminance() const
 {
 	double sum = 0.0;
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		sum += (double)getPixel(i).luminance();
 	return sum / (double)numPixels();
 }
@@ -1432,7 +1432,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 
 	// Re-normalise filter for each component
 	Vec3d sum(0,0,0);
-	for(unsigned int i=0; i<filter.numPixels(); ++i)
+	for(size_t i=0; i<filter.numPixels(); ++i)
 		sum += Vec3d(
 			(double)filter.getPixel(i).r,
 			(double)filter.getPixel(i).g,
@@ -1440,7 +1440,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 			);
 
 	const Vec3d scale_factors(1.0 / sum.x, 1.0 / sum.y, 1.0 / sum.z);
-	for(unsigned int i=0; i<filter.numPixels(); ++i)
+	for(size_t i=0; i<filter.numPixels(); ++i)
 	{
 		filter.getPixel(i).r *= (float)scale_factors.x;
 		filter.getPixel(i).g *= (float)scale_factors.y;
@@ -1450,7 +1450,7 @@ void Image::buildRGBFilter(const Image& original_filter, const Vec3d& filter_sca
 #ifdef DEBUG
 	// Check normalised
 	sum.set(0,0,0);
-	for(unsigned int i=0; i<filter.numPixels(); ++i)
+	for(size_t i=0; i<filter.numPixels(); ++i)
 	{
 		assert(filter.getPixel(i).r >= 0.0 && filter.getPixel(i).g >= 0.0 && filter.getPixel(i).b >= 0.0);
 		assert(isFinite(filter.getPixel(i).r) && isFinite(filter.getPixel(i).g) && isFinite(filter.getPixel(i).b));
@@ -1557,7 +1557,7 @@ void Image::convolve(const Image& filter, Image& result_out) const
 float Image::minPixelComponent() const
 {
 	float x = std::numeric_limits<float>::max();
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		x = myMin(x, myMin(getPixel(i).r, myMin(getPixel(i).g, getPixel(i).b)));
 	return x;
 }
@@ -1565,7 +1565,7 @@ float Image::minPixelComponent() const
 float Image::maxPixelComponent() const
 {
 	float x = -std::numeric_limits<float>::max();
-	for(unsigned int i=0; i<numPixels(); ++i)
+	for(size_t i=0; i<numPixels(); ++i)
 		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
 	return x;
 }

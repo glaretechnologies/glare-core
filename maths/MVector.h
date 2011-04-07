@@ -11,10 +11,10 @@ template <class Real>
 class MVector
 {
 public:
-	inline MVector(int dimension);
-	inline MVector(int dimension, Real initial_value);
+	inline MVector(size_t dimension);
+	inline MVector(size_t dimension, Real initial_value);
 	inline MVector();
-	inline MVector(int dimension, const Real* data);
+	inline MVector(size_t dimension, const Real* data);
 	inline MVector(const MVector& rhs);
 
 	inline ~MVector();
@@ -24,8 +24,8 @@ public:
 	inline int size() const { return data.size(); }
 //	inline int getSize() const { return dimension; }
 
-	inline Real operator[] (int index) const;
-	inline Real& operator[] (int index);
+	inline Real operator[] (size_t index) const;
+	inline Real& operator[] (size_t index);
 
 	inline MVector& operator = (const MVector& rhs);
 	inline bool operator == (const MVector& rhs) const;
@@ -83,14 +83,14 @@ private:
 
 
 template <class Real>
-MVector<Real>::MVector(int dimension_)
+MVector<Real>::MVector(size_t dimension_)
 :	data(dimension_)
 {
 }
 
 
 template <class Real>
-MVector<Real>::MVector(int dimension_, Real initial_value)
+MVector<Real>::MVector(size_t dimension_, Real initial_value)
 :	data(dimension_, initial_value)
 {
 }
@@ -107,12 +107,12 @@ MVector<Real>::MVector()
 }
 
 template <class Real>
-MVector<Real>::MVector(int dimension_, const Real* newdata)
+MVector<Real>::MVector(size_t dimension_, const Real* newdata)
 {
 	assert(newdata);
 	data.resize(dimension_);
 
-	for(int i=0; i<dimension_; i++)
+	for(size_t i=0; i<dimension_; i++)
 		data[i] = newdata[i];
 }
 
@@ -124,7 +124,7 @@ MVector<Real>::~MVector()
 
 
 template <class Real>
-Real MVector<Real>::operator[] (int index) const
+Real MVector<Real>::operator[] (size_t index) const
 {
 	//assert(index >= 0 && index < dimension);
 	
@@ -132,7 +132,7 @@ Real MVector<Real>::operator[] (int index) const
 }
 
 template <class Real>
-Real& MVector<Real>::operator[] (int index)
+Real& MVector<Real>::operator[] (size_t index)
 {
 	return data[index];
 }
@@ -156,7 +156,7 @@ bool MVector<Real>::operator == (const MVector& rhs) const
 	if(data.size() != rhs.size())
 		return false;
 
-	for(int i=0; i<data.size(); ++i)
+	for(size_t i=0; i<data.size(); ++i)
 		if(data[i] != rhs.data[i])
 			return false;
 
@@ -243,7 +243,7 @@ MVector<Real> MVector<Real>::operator * (Real factor) const
 template <class Real>
 MVector<Real>& MVector<Real>::operator *= (Real factor)
 {
-	for(int i=0; i<data.size(); i++)
+	for(size_t i=0; i<data.size(); i++)
 		data[i] *= factor;
 
 	return *this;

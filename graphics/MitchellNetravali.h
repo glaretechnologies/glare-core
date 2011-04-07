@@ -48,14 +48,14 @@ template <class Real>
 MitchellNetravali<Real>::MitchellNetravali(Real B_, Real C_)
 :	B(B_), C(C_)
 {
-	region_0_a = (12.0 - 9.0*B - 6.0*C) / 6.0;
-	region_0_b = (-18.0 + 12.0*B + 6.0*C) / 6.0;
-	region_0_d = (6.0 - 2.0*B) / 6.0;
+	region_0_a = (12 - 9*B - 6*C) / 6;
+	region_0_b = (-18 + 12*B + 6*C) / 6;
+	region_0_d = (6 - 2*B) / 6;
 
-	region_1_a = (-B - 6.0*C) / 6.0;
-	region_1_b = (6.0*B + 30.0*C) / 6.0;
-	region_1_c = (-12.0*B - 48.0*C) / 6.0;
-	region_1_d = (8.0*B + 24.0*C) / 6.0;
+	region_1_a = (-B - 6*C) / 6;
+	region_1_b = (6*B + 30*C) / 6;
+	region_1_c = (-12*B - 48*C) / 6;
+	region_1_d = (8*B + 24*C) / 6;
 }
 
 

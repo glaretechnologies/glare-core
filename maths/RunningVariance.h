@@ -40,7 +40,7 @@ public:
 	Real variance() const
 	{
 		//return s_j_sq;
-		return k <= 1 ? 0.0 : S_k / (Real)(k - 1);
+		return k <= 1 ? 0 : S_k / (Real)(k - 1);
 	}
 
 	Real standardDev() const

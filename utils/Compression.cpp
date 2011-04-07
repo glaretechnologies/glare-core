@@ -27,7 +27,7 @@ Compression::~Compression()
 
 void Compression::compress(const char* data, size_t size, std::vector<char>& data_out)
 {
-	const uLong bound = compressBound(size);
+	const uLong bound = compressBound((uLong)size);
 	
 	data_out.resize(bound + 4);
 
@@ -39,7 +39,7 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 	};
 
 	intchar d;
-	d.i = size;
+	d.i = (uint32)size;
 
 	data_out[0] = d.c[0];
 	data_out[1] = d.c[1];
@@ -52,7 +52,7 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 		(Bytef*)&data_out[4], // dest
 		&dest_len, // dest len
 		(Bytef*)data, // source
-		size // source len
+		(uLong)size // source len
 	);
 
 	if(result != Z_OK)
@@ -139,7 +139,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 {
 	//data_out.resize(decompressed_size);
 
-	uLong decompressed_size = decompressedSize(data, size);
+	uLong decompressed_size = (uLong)decompressedSize(data, size);
 
 	if(decompressed_size != data_out_size)
 		throw Indigo::Exception("Decompression failed: decompressed_size != data_out_size");
@@ -148,7 +148,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 		(Bytef*)data_out, // dest
 		&decompressed_size, // dest len
 		(Bytef*)data + 4, // source
-		size - 4 // source len
+		(uLong)size - 4 // source len
 	);
 
 	if(result != Z_OK)

@@ -28,7 +28,7 @@ uint32 fileChecksum(const std::string& p) // throws Indigo::Exception if file no
 			throw Indigo::Exception("Failed to compute checksum over file '" + p + ", file is empty.");
 
 		const unsigned int initial_crc = crc32(0, 0, 0);
-		return crc32(initial_crc, &contents[0], contents.size() * sizeof(unsigned char));
+		return crc32(initial_crc, &contents[0], (unsigned int)(contents.size() * sizeof(unsigned char)));
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{

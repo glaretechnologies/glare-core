@@ -35,7 +35,7 @@ class Image : public Map2D
 {
 public:
 	Image();
-	Image(unsigned int width, unsigned int height);
+	Image(size_t width, size_t height);
 	~Image();
 
 	Image& operator = (const Image& other);
@@ -48,15 +48,15 @@ public:
 
 	void copyToBitmap(Bitmap& bmp_out) const;
 
-	inline unsigned int getHeight() const { return height; }
-	inline unsigned int getWidth()  const { return width; }
-	inline size_t numPixels() const { return (size_t)width * (size_t)height; }
+	inline size_t getHeight() const { return pixels.getHeight(); }
+	inline size_t getWidth()  const { return pixels.getWidth(); }
+	inline size_t numPixels() const { return pixels.getWidth() * pixels.getHeight(); }
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int x, unsigned int y) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int x, unsigned int y);
+	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
+	INDIGO_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(unsigned int i) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(unsigned int i);
+	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t i) const;
+	INDIGO_STRONG_INLINE ColourType& getPixel(size_t i);
 
 	inline const ColourType& getPixelTiled(int x, int y) const;
 
@@ -73,8 +73,8 @@ public:
 	//void loadFromRAW(const std::string& pathname, int width_, int height_,
 	//	float load_gain);
 
-	inline void setPixel(unsigned int x, unsigned int y, const ColourType& colour);
-	inline void incrPixel(unsigned int x, unsigned int y, const ColourType& colour);
+	inline void setPixel(size_t x, size_t y, const ColourType& colour);
+	inline void incrPixel(size_t x, size_t y, const ColourType& colour);
 
 	//throws ImageExcep
 	void loadFromNFF(const std::string& pathname);
@@ -91,7 +91,7 @@ public:
 	void zero();
 	void set(float s);
 
-	void resize(unsigned int newwidth, unsigned int newheight);
+	void resize(size_t newwidth, size_t newheight);
 
 	void posClamp();
 	void clampInPlace(float min, float max);
@@ -124,7 +124,7 @@ public:
 
 	static void collapseImageNew(int factor, int border_width, int resize_filter_size, const float* const resize_filter, float max_component_value, const Image& in, Image& out);
 
-	unsigned int getByteSize() const;
+	size_t getByteSize() const;
 
 	float minLuminance() const;
 	float maxLuminance() const;
@@ -137,8 +137,8 @@ public:
 	float maxPixelComponent() const;
 
 	////// Map2D interface //////////
-	virtual unsigned int getMapWidth() const { return getWidth(); }
-	virtual unsigned int getMapHeight() const { return getHeight(); }
+	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
+	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
 
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
@@ -150,34 +150,34 @@ public:
 	static void test();
 
 private:
-	unsigned int width;
-	unsigned int height;
+	//unsigned int width;
+	//unsigned int height;
 
 	Array2d<ColourType> pixels;
 };
 
 
-const Image::ColourType& Image::getPixel(unsigned int i) const
+const Image::ColourType& Image::getPixel(size_t i) const
 {
 	assert(i < numPixels());
 	return pixels.getData()[i];
 }
 
 
-Image::ColourType& Image::getPixel(unsigned int i)
+Image::ColourType& Image::getPixel(size_t i)
 {
 	assert(i < numPixels());
 	return pixels.getData()[i];
 }
 
-const Image::ColourType& Image::getPixel(unsigned int x, unsigned int y) const
+const Image::ColourType& Image::getPixel(size_t x, size_t y) const
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 
 	return pixels.elem(x, y);
 }
 
-Image::ColourType& Image::getPixel(unsigned int x, unsigned int y)
+Image::ColourType& Image::getPixel(size_t x, size_t y)
 {
 	assert(x >= 0 && x < width && y >= 0 && y < height);
 
@@ -187,6 +187,9 @@ Image::ColourType& Image::getPixel(unsigned int x, unsigned int y)
 
 const Image::ColourType& Image::getPixelTiled(int x, int y) const
 {
+	const int w = (int)getWidth();
+	const int h = (int)getHeight();
+
 	if(x < 0)
 	{
 		//note: could use modulo here somehow
@@ -194,9 +197,9 @@ const Image::ColourType& Image::getPixelTiled(int x, int y) const
 		//	x += width;
 		x = 0 - x;//x = -x		, so now x is positive
 					//NOTE: could use bitmask here
-		x = x % width;
+		x = x % w;
 
-		x = width - x - 1;
+		x = w - x - 1;
 
 		//say x = -1;
 		//x = (width - x) % width; //x = 700 - (-1) = 70;
@@ -204,7 +207,7 @@ const Image::ColourType& Image::getPixelTiled(int x, int y) const
 	}
 	else
 	{
-		x = x % width;
+		x = x % w;
 	}
 
 	if(y < 0)
@@ -215,32 +218,28 @@ const Image::ColourType& Image::getPixelTiled(int x, int y) const
 
 		y = 0 - y;
 					
-		y = y % height;
+		y = y % h;
 
-		y = height - y - 1;
+		y = h - y - 1;
 
 		//y = (height - y) % height;
 	}
 	else
 	{
-		y = y % height;
+		y = y % h;
 	}
 
 	return getPixel(x, y);
 }
 
 
-void Image::setPixel(unsigned int x, unsigned int y, const ColourType& colour)
+void Image::setPixel(size_t x, size_t y, const ColourType& colour)
 {
-	assert(x >= 0 && x < width && y >= 0 && y < height);
-	
 	pixels.elem(x, y) = colour;
 }
 
-void Image::incrPixel(unsigned int x, unsigned int y, const ColourType& colour)
+void Image::incrPixel(size_t x, size_t y, const ColourType& colour)
 {
-	assert(x >= 0 && x < width && y >= 0 && y < height);
-	
 	pixels.elem(x, y) += colour;
 }
 
