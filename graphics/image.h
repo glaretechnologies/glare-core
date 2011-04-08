@@ -170,16 +170,18 @@ Image::ColourType& Image::getPixel(size_t i)
 	return pixels.getData()[i];
 }
 
+
 const Image::ColourType& Image::getPixel(size_t x, size_t y) const
 {
-	assert(x >= 0 && x < width && y >= 0 && y < height);
+	assert(x >= 0 && x < pixels.getWidth() && y >= 0 && y < pixels.getHeight());
 
 	return pixels.elem(x, y);
 }
 
+
 Image::ColourType& Image::getPixel(size_t x, size_t y)
 {
-	assert(x >= 0 && x < width && y >= 0 && y < height);
+	assert(x >= 0 && x < pixels.getWidth() && y >= 0 && y < pixels.getHeight());
 
 	return pixels.elem(x, y);
 }
@@ -203,7 +205,6 @@ const Image::ColourType& Image::getPixelTiled(int x, int y) const
 
 		//say x = -1;
 		//x = (width - x) % width; //x = 700 - (-1) = 70;
-
 	}
 	else
 	{

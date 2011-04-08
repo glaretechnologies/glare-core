@@ -1117,9 +1117,9 @@ void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out)
 {
 	assert(border_width >= 0);
-	assert(in.width  > border_width * 2);
-	assert(in.height > border_width * 2);
-	assert((in.width - (border_width * 2)) % factor == 0);
+	assert(in.getWidth()  > border_width * 2);
+	assert(in.getHeight() > border_width * 2);
+	assert((in.getWidth() - (border_width * 2)) % factor == 0);
 
 	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
 	out.resize((in.getWidth() - (border_width * 2)) / factor, (in.getHeight() - (border_width * 2)) / factor);
@@ -1269,11 +1269,11 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 
 void Image::collapseImageNew(const int factor, const int border_width, const int filter_span, const float* const resize_filter, const float max_component_value, const Image& img_in, Image& img_out)
 {
-	assert((int64_t)img_in.width * (int64_t)img_in.height < 2147483648);	// no 32bit integer overflow
+	//assert((int64_t)img_in.getWidth() * (int64_t)img_in.getHeight() < 2147483648);	// no 32bit integer overflow
 	assert(border_width >= 0);												// have padding pixels
-	assert(img_in.width > border_width * 2);								// have at least one interior pixel in x
-	assert(img_in.width > border_width * 2);								// have at least one interior pixel in y
-	assert((img_in.width - (border_width * 2)) % factor == 0);				// padded image is multiple of supersampling factor
+	assert(img_in.getWidth()  > border_width * 2);								// have at least one interior pixel in x
+	assert(img_in.getHeight() > border_width * 2);								// have at least one interior pixel in y
+	assert((img_in.getWidth() - (border_width * 2)) % factor == 0);				// padded image is multiple of supersampling factor
 
 	assert(filter_span > 0);
 	assert(resize_filter != 0);

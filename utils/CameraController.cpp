@@ -11,8 +11,7 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 
 CameraController::CameraController()
 {
-	position = Vec3d(0.0);
-	rotation = Vec3d(0.0);
+	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
 
 	base_move_speed   = 0.035;
 	base_rotate_speed = 0.005;
@@ -27,6 +26,29 @@ CameraController::CameraController()
 CameraController::~CameraController()
 {
 
+}
+
+
+void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward, const Vec3d& cam_up)
+{
+	// Copy camera position
+	position = cam_pos;
+
+	// Construct basis assuming world up direction is <0,0,1>
+	Vec3d world_up = Vec3d(0, 0, 1);
+	Vec3d camera_forward = normalise(cam_forward);
+	Vec3d camera_up = world_up; camera_up.removeComponentInDir(camera_forward); camera_up.normalise();
+	Vec3d camera_right = ::crossProduct(camera_forward, camera_up);
+
+	rotation.x = acos(cam_forward.z / cam_forward.length());
+	rotation.y = atan2(cam_forward.y, cam_forward.x);
+
+	const Vec3d rollplane_x_basis = crossProduct(camera_forward, world_up);
+	const Vec3d rollplane_y_basis = crossProduct(rollplane_x_basis, camera_forward);
+	const double rollplane_x = dot(camera_right, rollplane_x_basis);
+	const double rollplane_y = dot(camera_right, rollplane_y_basis);
+
+	rotation.z = atan2(rollplane_y, rollplane_x);
 }
 
 
@@ -93,19 +115,9 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 	right_out = ::crossProduct(forward_out, up_out);
 
 
-	const Matrix3d roll_basis = Matrix3d(right_out, forward_out, up_out) * Matrix3d::rotationMatrix(forward_out, rotation.z);
+	const Matrix3d roll_basis = Matrix3d::rotationMatrix(forward_out, rotation.z) * Matrix3d(right_out, forward_out, up_out);
 
 	right_out	= roll_basis.getColumn0();
 	forward_out	= roll_basis.getColumn1();
 	up_out		= roll_basis.getColumn2();
-}
-
-
-void CameraController::setForward(const Vec3d& forward)
-{
-	rotation.x = acos(forward.z / forward.length());
-	rotation.y = atan2(forward.y, forward.x);
-
-	// TEMP HACK
-	rotation.z = 0;
 }
