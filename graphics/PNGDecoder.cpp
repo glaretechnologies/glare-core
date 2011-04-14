@@ -19,6 +19,13 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 
 
+#ifndef PNG_ALLOW_BENIGN_ERRORS
+#error PNG_ALLOW_BENIGN_ERRORS should be defined in preprocessor defs.
+#endif
+
+
+
+
 PNGDecoder::PNGDecoder()
 {
 	
@@ -40,7 +47,8 @@ void pngdecoder_error_func(png_structp png, const char* msg)
 
 void pngdecoder_warning_func(png_structp png, const char* msg)
 {
-	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
+	const std::string* path = (const std::string*)png->error_ptr;
+	conPrint("PNG Warning while loading file '" + *path + "': " + std::string(msg));
 }
 
 
@@ -50,13 +58,16 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 	{
 		png_structp png_ptr = png_create_read_struct(
 			PNG_LIBPNG_VER_STRING, 
-			(png_voidp)NULL,
+			(png_voidp)&path, // Pass a pointer to the path string as out user-data, so we can use it when printing a warning.
 			pngdecoder_error_func, 
 			pngdecoder_warning_func
 			);
 
 		if (!png_ptr)
 			throw ImFormatExcep("Failed to create PNG struct.");
+
+		// Make CRC errors into warnings.
+		png_set_crc_action(png_ptr, PNG_CRC_WARN_USE, PNG_CRC_WARN_USE);
 
 		png_infop info_ptr = png_create_info_struct(png_ptr);
 		if (!info_ptr)
