@@ -36,6 +36,8 @@ public:
 
 	bool invert_mouse;
 
+	static void test();
+
 private:
 
 	Vec3d position;

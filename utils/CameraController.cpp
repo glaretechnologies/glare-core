@@ -121,3 +121,26 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 	forward_out	= roll_basis.getColumn1();
 	up_out		= roll_basis.getColumn2();
 }
+
+
+#if BUILD_TESTS
+
+#include "../maths/mathstypes.h"
+#include "../indigo/TestUtils.h"
+
+void CameraController::test()
+{
+	CameraController cc;
+
+	// Initialise canonical viewing system
+	cc.initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
+
+	Vec3d basis[3];
+	cc.getBasis(basis[0], basis[1], basis[2]);
+
+	testAssert(::epsEqual(basis[0].x, 1.0)); testAssert(::epsEqual(basis[0].y, 0.0)); testAssert(::epsEqual(basis[0].z, 0.0));
+	testAssert(::epsEqual(basis[1].x, 0.0)); testAssert(::epsEqual(basis[1].y, 0.0)); testAssert(::epsEqual(basis[1].z, 1.0));
+	testAssert(::epsEqual(basis[2].x, 0.0)); testAssert(::epsEqual(basis[2].y, 1.0)); testAssert(::epsEqual(basis[2].z, 0.0));
+}
+
+#endif // BUILD_TESTS
