@@ -172,6 +172,7 @@ public:
 
 	VEC3_INLINE void normalise()
 	{
+		assert(length() != 0);
 		const Real inverselength = Real(1.0) / length();
 
 		x *= inverselength;
@@ -194,6 +195,7 @@ public:
 
 	VEC3_INLINE Real normalise_ret_length()
 	{
+		assert(length() != 0);
 		const Real len = length();
 		const Real inverselength = (Real)1.0 / len;
 
@@ -206,6 +208,7 @@ public:
 
 	VEC3_INLINE Real normalise_ret_length(Real& inv_len_out)
 	{
+		assert(length() != 0);
 		const Real len = length();
 		const Real inverselength = (Real)1.0 / len;
 
@@ -220,8 +223,9 @@ public:
 
 	VEC3_INLINE Real normalise_ret_length2()
 	{
+		assert(length2() != 0);
 		const Real len2 = length2();
-		const Real inverselength = (Real)1.0 / sqrt(len2);
+		const Real inverselength = (Real)1.0 / std::sqrt(len2);
 
 		x *= inverselength;
 		y *= inverselength;
@@ -268,6 +272,7 @@ public:
 
 	VEC3_INLINE Vec3& operator /= (Real divisor)
 	{
+		assert(divisor != 0);
 		*this *= ((Real)1.0 / divisor);
 		return *this;
 	}
@@ -279,6 +284,7 @@ public:
 
 	VEC3_INLINE const Vec3 operator / (Real divisor) const
 	{
+		assert(divisor != 0);
 		const Real inverse_d = 1.0 / divisor;
 
 		return Vec3(x * inverse_d, y * inverse_d, z * inverse_d);

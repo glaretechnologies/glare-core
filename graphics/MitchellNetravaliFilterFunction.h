@@ -1,8 +1,11 @@
 /*=====================================================================
-
+MitchellNetravaliFilterFunction.h
+---------------------------------
+Copyright Glare Technologies Limited 2010 -
 =====================================================================*/
-#ifndef __MitchellNetravaliFilterFunction_H_666_
-#define __MitchellNetravaliFilterFunction_H_666_
+
+
+#pragma once
 
 #include "FilterFunction.h"
 #include "MitchellNetravali.h"
@@ -31,11 +34,3 @@ private:
 
 	double support_radius;
 };
-
-
-
-#endif //__MitchellNetravaliFilterFunction_H_666_
-
-
-
-

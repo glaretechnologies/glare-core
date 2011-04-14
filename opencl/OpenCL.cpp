@@ -715,11 +715,12 @@ cl_program OpenCL::buildProgram(
 		NULL // user data
 	);
 
-	if(result != CL_SUCCESS)
-	{
-		if(result != CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
-			throw Indigo::Exception("clBuildProgram failed");
-	}
+	//bool build_success = (result == CL_SUCCESS);
+	//if(!build_success)
+	//{
+	//	if(result != CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
+	//		throw Indigo::Exception("clBuildProgram failed");
+	//}
 
 	// Print build log
 #ifdef DISTRIBUTE_RELEASE
@@ -747,7 +748,7 @@ cl_program OpenCL::buildProgram(
 			CL_PROGRAM_BUILD_LOG,
 			buf.size(),
 			&buf[0],
-			&param_value_size_ret);
+			NULL);
 		if(result == CL_SUCCESS)
 		{
 			const std::string log(&buf[0], param_value_size_ret);
