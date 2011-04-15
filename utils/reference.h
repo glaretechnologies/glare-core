@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2009 -
 
 #include "refcounted.h"
 #include <cassert>
-
+#include <stdlib.h> // for NULL
 
 /*=====================================================================
 Reference
