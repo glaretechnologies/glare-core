@@ -34,11 +34,23 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 	// Copy camera position
 	position = cam_pos;
 
-	// Construct basis assuming world up direction is <0,0,1>
+	// Construct basis assuming world up direction is <0,0,1> if possible
 	Vec3d world_up = Vec3d(0, 0, 1);
-	Vec3d camera_forward = normalise(cam_forward);
-	Vec3d camera_up = world_up; camera_up.removeComponentInDir(camera_forward); camera_up.normalise();
-	Vec3d camera_right = ::crossProduct(camera_forward, camera_up);
+	Vec3d camera_up, camera_forward, camera_right;
+
+	// If camera forward dir is collinear with world up just use provided basis
+	if(::epsEqual(absDot(world_up, normalise(cam_forward)), 1.0))
+	{
+		camera_forward = normalise(cam_forward);
+		camera_up = normalise(cam_up);
+		camera_right = crossProduct(camera_forward, camera_up);
+	}
+	else
+	{
+		camera_forward = normalise(cam_forward);
+		camera_up = world_up; camera_up.removeComponentInDir(camera_forward); camera_up.normalise();
+		camera_right = crossProduct(camera_forward, camera_up);
+	}
 
 	rotation.x = acos(cam_forward.z / cam_forward.length());
 	rotation.y = atan2(cam_forward.y, cam_forward.x);

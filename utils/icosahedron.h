@@ -68,10 +68,10 @@ public:
 						t0(current.first),
 						t1(normalise(t0.v[0] + t0.v[1]), normalise(t0.v[1] + t0.v[2]), normalise(t0.v[2] + t0.v[0]));
 
-					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[0], t1.v[2], t1.v[1]), current.second + 1));
-					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[2], t1.v[0], t0.v[0]), current.second + 1));
-					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[0], t1.v[1], t0.v[1]), current.second + 1));
-					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[1], t1.v[2], t0.v[2]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t1.v[1], t1.v[2], t1.v[0]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t0.v[0], t1.v[0], t1.v[2]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t0.v[1], t1.v[1], t1.v[0]), current.second + 1));
+					triangle_stack.push(std::make_pair(subdiv_tri(t0.v[2], t1.v[2], t1.v[1]), current.second + 1));
 				}
 			}
 		}
