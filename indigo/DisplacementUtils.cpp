@@ -1521,6 +1521,7 @@ void DisplacementUtils::averagePass(
 
 	// Init vertex UVs to (0,0)
 	uvs_out.resize(uvs_in.size());
+	const bool has_uvs = uvs_in.size() > 0;
 	for(uint32_t v = 0; v < uvs_out.size(); ++v)
 		uvs_out[v] = Vec2f(0.f, 0.f);
 
@@ -1557,19 +1558,22 @@ void DisplacementUtils::averagePass(
 
 	// Set old_vert_uvs
 
-	for(uint32 t=0; t<tris.size(); ++t)
-		for(uint32 i=0; i<3; ++i)
-		{
-			const uint32 v_i = tris[t].vertex_indices[i];
-			old_vert_uvs[v_i] = uvs_in[tris[t].uv_indices[i]];
-		}
+	if(has_uvs)
+	{
+		for(uint32 t=0; t<tris.size(); ++t)
+			for(uint32 i=0; i<3; ++i)
+			{
+				const uint32 v_i = tris[t].vertex_indices[i];
+				old_vert_uvs[v_i] = uvs_in[tris[t].uv_indices[i]];
+			}
 
-	for(uint32 q=0; q<quads.size(); ++q)
-		for(uint32 i=0; i<4; ++i)
-		{
-			const uint32 v_i = quads[q].vertex_indices[i];
-			old_vert_uvs[v_i] = uvs_in[quads[q].uv_indices[i]];
-		}
+		for(uint32 q=0; q<quads.size(); ++q)
+			for(uint32 i=0; i<4; ++i)
+			{
+				const uint32 v_i = quads[q].vertex_indices[i];
+				old_vert_uvs[v_i] = uvs_in[quads[q].uv_indices[i]];
+			}
+	}
 
 
 	// For each vertex polygon
@@ -1744,28 +1748,31 @@ void DisplacementUtils::averagePass(
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
 
 
-	for(uint32 q=0; q<quads.size(); ++q)
-		for(uint32 i=0; i<4; ++i)
-		{
-			const uint32 v_i = quads[q].vertex_indices[i];
-			const uint32 uv_i = quads[q].uv_indices[i];
-			if(verts[v_i].uv_discontinuity)
-				uvs_out[uv_i] = uvs_in[uv_i];
-			else
-				uvs_out[uv_i] = new_vert_uvs[v_i];
-		}
+	if(has_uvs)
+	{
+		for(uint32 q=0; q<quads.size(); ++q)
+			for(uint32 i=0; i<4; ++i)
+			{
+				const uint32 v_i = quads[q].vertex_indices[i];
+				const uint32 uv_i = quads[q].uv_indices[i];
+				if(verts[v_i].uv_discontinuity)
+					uvs_out[uv_i] = uvs_in[uv_i];
+				else
+					uvs_out[uv_i] = new_vert_uvs[v_i];
+			}
 
-	for(uint32 t=0; t<tris.size(); ++t)
-		for(uint32 i=0; i<3; ++i)
-		{
-			const uint32 v_i = tris[t].vertex_indices[i];
-			const uint32 uv_i = tris[t].uv_indices[i];
+		for(uint32 t=0; t<tris.size(); ++t)
+			for(uint32 i=0; i<3; ++i)
+			{
+				const uint32 v_i = tris[t].vertex_indices[i];
+				const uint32 uv_i = tris[t].uv_indices[i];
 
-			if(verts[v_i].uv_discontinuity)
-				uvs_out[uv_i] = uvs_in[uv_i];
-			else
-				uvs_out[uv_i] = new_vert_uvs[v_i];
-		}
+				if(verts[v_i].uv_discontinuity)
+					uvs_out[uv_i] = uvs_in[uv_i];
+				else
+					uvs_out[uv_i] = new_vert_uvs[v_i];
+			}
+	}
 
 	// TEMP HACK:
 	//uvs_out = uvs_in;
