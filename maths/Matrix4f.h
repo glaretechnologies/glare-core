@@ -374,10 +374,10 @@ void Matrix4f::setColumn3(const Vec4f& c)
 }
 
 
-inline bool epsEqual(const Matrix4f& a, const Matrix4f& b)
+inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON)
 {
 	for(unsigned int i=0; i<16; ++i)
-		if(!epsEqual(a.e[i], b.e[i]))
+		if(!epsEqual(a.e[i], b.e[i], eps))
 			return false;
 	return true;
 }
