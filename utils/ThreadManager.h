@@ -37,7 +37,7 @@ public:
 	// Called by threads when they are about to terminate
 	void threadTerminating(MessageableThread* t);
 
-	//unsigned int getNumThreadsRunning();
+	unsigned int getNumThreads();
 
 private:
 	typedef ThreadSafeQueue<ThreadMessage*> MESSAGE_QUEUE_TYPE;

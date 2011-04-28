@@ -134,9 +134,9 @@ void ThreadManager::addThread(MessageableThread* t)
 }
 
 
-/*unsigned int ThreadManager::getNumThreadsRunning()
+unsigned int ThreadManager::getNumThreads()
 {
 	Lock lock(mutex);
 
 	return message_queues.size();
-}*/
+}
