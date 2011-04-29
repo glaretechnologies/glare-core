@@ -41,18 +41,6 @@ void ThreadManager::killThreadsBlocking()
 	// Send kill messages to all threads
 	killThreadsNonBlocking();
 
-	// Wait for threads to kill themselves
-	/*while(1)
-	{
-		//conPrint("Waiting..." + toString((int)message_queues.size()));
-		{
-		Lock lock(mutex);
-		if(message_queues.size() == 0)
-			break;
-		}
-		PlatformUtils::Sleep(100);
-	}*/
-
 	while(1)
 	{
 		{
@@ -138,5 +126,5 @@ unsigned int ThreadManager::getNumThreads()
 {
 	Lock lock(mutex);
 
-	return message_queues.size();
+	return (unsigned int)message_queues.size();
 }
