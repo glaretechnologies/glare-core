@@ -527,7 +527,7 @@ void BVH::doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris
 
 	
 	// Alloc space for this node
-	const unsigned int node_index = nodes.size();
+	const unsigned int node_index = (unsigned int)nodes.size();
 	nodes.resize(nodes.size() + 1);
 
 	//assert(node_index < num_nodes);
