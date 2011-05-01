@@ -80,7 +80,7 @@ Image& Image::operator = (const Image& other)
 
 
 // will throw ImageExcep if bytespp != 3
-void Image::setFromBitmap(const Bitmap& bmp)
+void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 {
 	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3)
 		throw ImageExcep("Image bytes per pixel must be 1 or 3.");
@@ -93,9 +93,9 @@ void Image::setFromBitmap(const Bitmap& bmp)
 		for(size_t y = 0; y < bmp.getHeight(); ++y)
 		for(size_t x = 0; x < bmp.getWidth();  ++x)
 		{
-			setPixel(x, y,
-				Colour3f((float)*bmp.getPixel(x, y) * factor)
-				);
+			setPixel(x, y, Colour3f(
+				std::pow((float)*bmp.getPixel(x, y) * factor, image_gamma)
+			));
 		}
 	}
 	else
@@ -108,9 +108,9 @@ void Image::setFromBitmap(const Bitmap& bmp)
 		{
 			setPixel(x, y,
 				Colour3f(
-					(float)bmp.getPixel(x, y)[0] * factor,
-					(float)bmp.getPixel(x, y)[1] * factor,
-					(float)bmp.getPixel(x, y)[2] * factor
+					std::pow((float)bmp.getPixel(x, y)[0] * factor, image_gamma),
+					std::pow((float)bmp.getPixel(x, y)[1] * factor, image_gamma),
+					std::pow((float)bmp.getPixel(x, y)[2] * factor, image_gamma)
 					)
 				);
 		}

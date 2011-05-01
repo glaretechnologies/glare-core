@@ -42,7 +42,7 @@ public:
 
 	typedef Colour3f ColourType;
 
-	void setFromBitmap(const Bitmap& bmp); // will throw ImageExcep if bytespp != 3
+	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw ImageExcep if bytespp != 3
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 

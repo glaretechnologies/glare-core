@@ -22,7 +22,10 @@ TextDrawer::TextDrawer(const std::string& font_image_path, const std::string& fo
 		Bitmap font_bmp;
 		PNGDecoder::decode(font_image_path, font_bmp); // Load png file
 
-		font.setFromBitmap(font_bmp);
+		font.setFromBitmap(
+			font_bmp,
+			2.2f // gamma
+		);
 
 		char_widths.resize(256);
 
