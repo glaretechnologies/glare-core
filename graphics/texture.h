@@ -50,6 +50,8 @@ public:
 
 	Reference<Map2D> getBlurredImage() const;
 
+	virtual Reference<Image> convertToImage() const;
+
 private:
 	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;
 	Value sampleTiled1BytePP(Coord x, Coord y) const;

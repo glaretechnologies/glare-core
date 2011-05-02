@@ -96,6 +96,11 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		Reference<Texture> texture(new Texture());
 		texture->resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
 
+		// Read gamma.  NOTE: this seems to just always be 1.
+		// We need to extract the ICC profile.
+		//const float gamma = cinfo.output_gamma;
+		//conPrint("JPEG output gamma: " + toString(gamma));
+
 
 		//------------------------------------------------------------------------
 		//alloc row buffer

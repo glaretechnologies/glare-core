@@ -1666,6 +1666,13 @@ Image::Value Image::scalarSampleTiled(Coord x, Coord y) const
 }
 
 
+Reference<Image> Image::convertToImage() const
+{
+	// Return copy of this image.
+	return Reference<Image>(new Image(*this));
+}
+
+
 #if (BUILD_TESTS)
 
 #include "../indigo/TestUtils.h"

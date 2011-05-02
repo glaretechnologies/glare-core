@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "EXRDecoder.h"
 
 
-#include "../graphics/FPImageMap16.h"
+//#include "../graphics/FPImageMap16.h"
 #include "../graphics/image.h"
 #include "../graphics/ImageMap.h"
 #include <ImfRgbaFile.h>

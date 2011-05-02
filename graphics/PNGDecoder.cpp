@@ -98,6 +98,29 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
 		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
+		// Work out gamma
+		double use_gamma = 2.2;
+
+		int intent = 0;
+		if(png_get_sRGB(png_ptr, info_ptr, &intent))
+		{
+			// There is a sRGB chunk in this file, so it uses the sRGB colour space,
+			// which in turn implies a specific gamma value.
+			use_gamma = 2.2;
+		}
+		else
+		{
+			// Read gamma
+			double file_gamma = 0;
+			if(png_get_gAMA(png_ptr, info_ptr, &file_gamma))
+			{
+				// There was gamma info in the file.
+				// File gamma is < 1, e.g. 0.45
+				use_gamma = 1.0 / file_gamma;
+			}
+		}
+
+
 		unsigned int bitmap_num_bytes_pp = num_channels;
 
 		if(color_type == PNG_COLOR_TYPE_PALETTE)
@@ -149,6 +172,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			//Texture* texture = new Texture();
 			//texture->resize(width, height, bitmap_num_bytes_pp);
 			ImageMap<uint8_t, UInt8ComponentValueTraits>* image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+			image_map->setGamma((float)use_gamma);
 
 			for(unsigned int y=0; y<height; ++y)
 				png_read_row(png_ptr, (png_bytep)image_map->getPixel(0, y), NULL);
@@ -165,6 +189,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			png_set_swap(png_ptr);
 
 			ImageMap<uint16_t, UInt16ComponentValueTraits>* image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+			image_map->setGamma((float)use_gamma);
 
 			// Read in actual image data
 			for(unsigned int y=0; y<height; ++y)

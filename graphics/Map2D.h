@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "colour3.h"
 #include "../utils/refcounted.h"
 #include "../utils/reference.h"
+class Image;
 
 
 /*=====================================================================
@@ -48,6 +49,8 @@ public:
 
 	virtual bool hasAlphaChannel() const { return false; }
 	virtual Reference<Map2D> extractAlphaChannel() const { return Reference<Map2D>(); }
+
+	virtual Reference<Image> convertToImage() const = 0;
 };
 
 

@@ -479,6 +479,37 @@ Reference<Map2D> Texture::getBlurredImage() const
 }
 
 
+Reference<Image> Texture::convertToImage() const
+{
+	Image* image = new Image();
+	image->setFromBitmap(
+		*this,
+		2.2f // gamma
+	);
+
+	/*Image* image = new Image(getWidth(), getHeight());
+	for(unsigned int y=0; y<getHeight(); ++y)
+		for(unsigned int x=0; x<getWidth(); ++x)
+		{
+			if(getBytesPP() < 3)
+			{
+				image->setPixel(x, y, Colour3f(
+					this->getPixel(x, y))
+				));
+			}
+			else
+			{
+				image->setPixel(x, y, Colour3f(
+					VTraits::scaleValue(this->getPixel(x, y)[0]),
+					VTraits::scaleValue(this->getPixel(x, y)[1]),
+					VTraits::scaleValue(this->getPixel(x, y)[2])
+				));
+			}
+		}*/
+	return Reference<Image>(image);
+}
+
+
 #if (BUILD_TESTS)
 
 

@@ -145,6 +145,8 @@ public:
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
+
+	virtual Reference<Image> convertToImage() const;
 	/////////////////////////////////
 
 	static void test();

@@ -8,6 +8,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 
 
 #include "Map2D.h"
+#include "image.h"
 #include <vector>
 
 
@@ -26,6 +27,8 @@ public:
 	// NOTE: divide by 255 now to be consistent with Texture.  BlendMaterial efficient blending when t = 0 or 1 depends on dividing by 255 as well.
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x * (1 / (Map2D::Value)255); }
 
+	// Scales to [0, 1), then applies gamma correction
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return std::pow(scaleValue(x), gamma); }
 };
 
 
@@ -36,6 +39,9 @@ public:
 
 	// Scale from [0, 2^16) down to [0, 1)
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x * (1 / (Map2D::Value)65535); }
+
+	// Scales to [0, 1), then applies gamma correction
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return std::pow(scaleValue(x), gamma); }
 };
 
 
@@ -45,6 +51,8 @@ public:
 	static inline bool isFloatingPoint() { return true; }
 
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
+
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
 };
 
 
@@ -54,6 +62,8 @@ public:
 	static inline bool isFloatingPoint() { return true; }
 
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
+
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
 };
 
 
@@ -64,6 +74,8 @@ public:
 	inline ImageMap();
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N);
 	inline ~ImageMap();
+
+	void setGamma(float g) { gamma = g; }
 
 	// X and Y are normalised image coordinates.
 	inline virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
@@ -80,6 +92,7 @@ public:
 	inline virtual bool hasAlphaChannel() const { return N == 2 || N == 4; }
 	inline virtual Reference<Map2D> extractAlphaChannel() const;
 
+	virtual Reference<Image> convertToImage() const;
 
 	V* getData() { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
@@ -87,16 +100,17 @@ public:
 private:
 	unsigned int width, height, N;
 	std::vector<V> data;
+	float gamma;
 };
 
 
 template <class V, class VTraits>
-ImageMap<V, VTraits>::ImageMap() : width(0), height(0) {}
+ImageMap<V, VTraits>::ImageMap() : width(0), height(0), gamma(2.2f) {}
 
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsigned int N_)
-:	width(width_), height(height_), N(N_)
+:	width(width_), height(height_), N(N_), gamma(2.2f)
 {
 	data.resize(width * height * N);
 }
@@ -348,4 +362,30 @@ Reference<Map2D> ImageMap<V, VTraits>::extractAlphaChannel() const
 		}
 
 	return Reference<Map2D>(alpha_map);
+}
+
+
+template <class V, class VTraits>
+Reference<Image> ImageMap<V, VTraits>::convertToImage() const
+{
+	Image* image = new Image(width, height);
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+		{
+			if(N < 3)
+			{
+				image->setPixel(x, y, Colour3f(
+					VTraits::toLinear(this->getPixel(x, y)[0], this->gamma)
+				));
+			}
+			else
+			{
+				image->setPixel(x, y, Colour3f(
+					VTraits::toLinear(this->getPixel(x, y)[0], this->gamma),
+					VTraits::toLinear(this->getPixel(x, y)[1], this->gamma),
+					VTraits::toLinear(this->getPixel(x, y)[2], this->gamma)
+				));
+			}
+		}
+	return Reference<Image>(image);
 }

@@ -8,6 +8,8 @@ Code By Nicholas Chapman.
 #define __FPIMAGEMAP16_H_666_
 
 
+//NOTE: Not used any more!!!
+
 #include "Map2D.h"
 #ifdef OPENEXR_SUPPORT
 #include <half.h>
@@ -20,6 +22,9 @@ Code By Nicholas Chapman.
 FPImageMap16
 ------------
 Tri-component 16-bit floating point image.
+
+//NOTE: Not used any more!!!
+
 =====================================================================*/
 class FPImageMap16 : public Map2D
 {
