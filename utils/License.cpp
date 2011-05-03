@@ -16,6 +16,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include <zlib.h> // for crc32()
+#include "Transmungify.h"
 
 #define USE_OPENSSL 1
 #if USE_OPENSSL
@@ -39,7 +40,83 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 //#define NO_HARDWARE_ID_SDK_LICENSING 1
 
 
-static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
+//static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
+
+
+// We encrypt the public key instead of storing it in plain text, so that it's harder to locate in the executable, so that it's not so easy to overwrite with an attacker's public key.
+static uint32 encrypted_public_key_size = 69;
+static uint32 encrypted_public_key[] = {
+	343977247u,
+	1015059973u,
+	524585692u,
+	861443587u,
+	910604295u,
+	341093663u,
+	1971367167u,
+	3645149951u,
+	978102281u,
+	978774489u,
+	239400456u,
+	1029477643u,
+	1079805195u,
+	829788939u,
+	1027971043u,
+	1029476325u,
+	3663501046u,
+	3377588925u,
+	3383533753u,
+	759334330u,
+	709221875u,
+	917955764u,
+	748986690u,
+	666406886u,
+	745929147u,
+	3444019945u,
+	162630617u,
+	666542337u,
+	3669615062u,
+	829811449u,
+	1035985891u,
+	3451496197u,
+	3668021496u,
+	832829162u,
+	3613189643u,
+	3735613915u,
+	3366056630u,
+	676103399u,
+	163573461u,
+	855873252u,
+	242581509u,
+	1001096445u,
+	677217467u,
+	677218808u,
+	985434553u,
+	312861706u,
+	263818169u,
+	197191688u,
+	693735868u,
+	800561625u,
+	677049590u,
+	192259617u,
+	195619546u,
+	744221370u,
+	800492034u,
+	3434630873u,
+	832668598u,
+	3680273404u,
+	676431584u,
+	3366167733u,
+	1078236379u,
+	1967953439u,
+	343977247u,
+	994609708u,
+	1029276928u,
+	524588801u,
+	340295967u,
+	343977282u,
+	3748577261u
+};
+
 
 /*
 Believe it or not, OpenSSL requires newline characters after every 64 characters, or at the end of the input if the total input len is < 64 chars.
@@ -102,6 +179,22 @@ const std::string License::decodeBase64(const std::string& data_)
 #endif // USE_OPENSSL
 
 
+// throws Indigo::Exception on failure
+static INDIGO_STRONG_INLINE const std::string unTransmunfigyPublicKey()
+{
+	std::string s;
+	const bool result = Transmungify::decrypt(
+		encrypted_public_key,
+		encrypted_public_key_size,
+		s
+	);
+
+	assert(result);
+
+	return s;
+}
+
+
 /*
 Verify that the hash is a public signature of key.
 
@@ -111,12 +204,16 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	if(hash.size() > std::numeric_limits<unsigned int>::max())
 		throw License::LicenseExcep("Data too big");
 
+	const std::string public_key_str = unTransmunfigyPublicKey();
+
 #if USE_OPENSSL
 	ERR_load_crypto_strings();
 
 	// Load the public key
-	BIO* public_key_mbio = BIO_new_mem_buf((void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
+	BIO* public_key_mbio = BIO_new_mem_buf((void*)public_key_str.c_str(), (int)public_key_str.size()); //(void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
 	EVP_PKEY* public_key = PEM_read_bio_PUBKEY(public_key_mbio, NULL, NULL, NULL);
+
+	assert(public_key);
 
 	// Initialize OpenSSL and pass in the data
 	EVP_MD_CTX ctx;
@@ -574,8 +671,28 @@ const std::string License::networkFloatingHash(const std::string& input)
 
 
 #if (BUILD_TESTS)
+
+
 void License::test()
 {
+	static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
+
+	std::vector<uint32> dst_dwords;
+	const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
+
+	std::cout << "static uint32 encrypted_public_key_size = " + toString(dst_dwords.size()) + ";\n";
+	std::cout << "static uint32 encrypted_public_key[] = {\n";
+	for(size_t i=0; i<dst_dwords.size(); ++i)
+	{
+		std::cout << toString(dst_dwords[i]) << "u";
+		if(i + 1 < dst_dwords.size())
+			std::cout << ",";
+		std::cout << "\n";
+	}
+	std::cout << "};\n";
+
+
+
 #if USE_OPENSSL
 	// Test long base-64 encoded block, with no embedded newlines
 	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
