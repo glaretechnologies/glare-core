@@ -296,6 +296,8 @@ private:
 	js::Vector<RayMeshTriangle, 16> triangles;
 	js::Vector<RayMeshQuad, 16> quads;
 
+	float bounding_radius; // Computed in build()
+
 	//std::vector<Vec3f> triangle_geom_normals;
 	
 	//unsigned int num_uvs;

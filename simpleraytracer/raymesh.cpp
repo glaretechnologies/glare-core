@@ -1,7 +1,8 @@
 /*=====================================================================
 raymesh.cpp
 -----------
-File created by ClassTemplate on Wed Nov 10 02:56:52 2004Code By Nicholas Chapman.
+File created by ClassTemplate on Wed Nov 10 02:56:52 2004
+Code By Nicholas Chapman.
 =====================================================================*/
 #include "raymesh.h"
 
@@ -368,6 +369,11 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	//NOTE: disabled due to questionable speed-up offered.
 	//mergeUVs(print_output, verbose);
+
+	float max_r2 = 0;
+	for(size_t i = 0; i < this->vertices.size(); ++i)
+		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
+	bounding_radius = std::sqrt(max_r2);
 
 
 	//NEW: Build triangle_geom_normals
@@ -1280,10 +1286,7 @@ bool RayMesh::areSubElementsCurved() const
 
 RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 {
-	float max_r2 = 0.0;
-	for(unsigned int i = 0; i < this->vertices.size(); ++i)
-		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
-	return std::sqrt(max_r2);
+	return bounding_radius;
 }
 
 
