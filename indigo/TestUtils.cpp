@@ -13,7 +13,13 @@ Code By Nicholas Chapman.
 #include <stdlib.h>
 
 
-#if (BUILD_TESTS)
+#if defined(BUILD_TESTS)
+
+
+namespace TestUtils
+{
+
+
 void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)
@@ -31,10 +37,6 @@ void doFailTest(const std::string& msg, long line, const char* file)
 	assert(0);
 	exit(1);
 }
-
-
-namespace TestUtils
-{
 
 
 // Reads from environment variable INDIGO_TEST_REPOS_DIR
