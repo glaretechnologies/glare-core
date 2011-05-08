@@ -172,7 +172,7 @@ public:
 
 	VEC3_INLINE void normalise()
 	{
-		assert(length() != 0);
+		//assert(length() != 0);
 		const Real inverselength = Real(1.0) / length();
 
 		x *= inverselength;
