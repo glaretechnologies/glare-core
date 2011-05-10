@@ -8,6 +8,7 @@
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../maths/vec2.h"
+#include "../graphics/ImageFilter.h"
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -1670,6 +1671,20 @@ Reference<Image> Image::convertToImage() const
 {
 	// Return copy of this image.
 	return Reference<Image>(new Image(*this));
+}
+
+
+Reference<Map2D> Image::getBlurredLinearGreyScaleImage() const
+{
+	// Blur the image
+	Image blurred_img(getWidth(), getHeight());
+	ImageFilter::gaussianFilter(
+		*this, 
+		blurred_img, 
+		(float)myMax(getWidth(), getHeight()) * 0.01f // standard dev in pixels
+		);
+
+	return Reference<Map2D>(new Image(blurred_img));
 }
 
 

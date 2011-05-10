@@ -147,6 +147,8 @@ public:
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 
 	virtual Reference<Image> convertToImage() const;
+
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
 	/////////////////////////////////
 
 	static void test();

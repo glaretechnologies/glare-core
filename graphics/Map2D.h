@@ -51,6 +51,8 @@ public:
 	virtual Reference<Map2D> extractAlphaChannel() const { return Reference<Map2D>(); }
 
 	virtual Reference<Image> convertToImage() const = 0;
+
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const = 0;
 };
 
 

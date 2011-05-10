@@ -449,8 +449,10 @@ void Texture::sampleTiled3BytesPP(Coord u, Coord v, Colour3<Value>& colour_out) 
 }
 
 
-Reference<Map2D> Texture::getBlurredImage() const
+Reference<Map2D> Texture::getBlurredLinearGreyScaleImage() const
 {
+	const float use_gamma = 2.2; // TEMP HACK
+
 	// Convert this low-bit texture to a 32 bit fp image.
 	const unsigned int w = getWidth();
 	const unsigned int h = getHeight();
@@ -463,7 +465,7 @@ Reference<Map2D> Texture::getBlurredImage() const
 			for(unsigned int c=0; c<getBytesPP(); ++c)
 				val += this->getPixelComp(x, y, c);
 
-			img.setPixel(x, y, Colour3f(val * scale));
+			img.setPixel(x, y, Colour3f(std::pow(val * scale, use_gamma)));
 		}
 
 

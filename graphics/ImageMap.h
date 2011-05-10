@@ -10,6 +10,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "Map2D.h"
 #include "image.h"
 #include <vector>
+#include "ImageFilter.h"
 
 
 /*=====================================================================
@@ -92,7 +93,9 @@ public:
 	inline virtual bool hasAlphaChannel() const { return N == 2 || N == 4; }
 	inline virtual Reference<Map2D> extractAlphaChannel() const;
 
-	virtual Reference<Image> convertToImage() const;
+	inline virtual Reference<Image> convertToImage() const;
+
+	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
 
 	V* getData() { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
@@ -388,4 +391,44 @@ Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 			}
 		}
 	return Reference<Image>(image);
+}
+
+
+template <class V, class VTraits>
+Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage() const
+{
+	// Convert this low-bit-depth texture to a 32 bit floating point image.
+
+	// We don't want to include the alpha channel in our blurred greyscale image.
+	unsigned int use_N = 1;
+	if(N == 1)
+		use_N = 1;
+	else if(N == 2)
+		use_N = 1;
+	else 
+		use_N = 3;
+
+	const float N_scale = 1.f / (float)use_N;
+
+	Image img(width, height);
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+		{
+			float val = 0;
+			for(unsigned int c=0; c<use_N; ++c)
+				val += this->getPixel(x, y)[c];
+
+			img.setPixel(x, y, Colour3f(VTraits::toLinear(val * N_scale, this->gamma)));
+		}
+
+
+	// Blur the floating point image
+	Image blurred_img(width, height);
+	ImageFilter::gaussianFilter(
+		img, 
+		blurred_img, 
+		(float)myMax(width, height) * 0.01f // standard dev in pixels
+		);
+
+	return Reference<Map2D>(new Image(blurred_img));
 }

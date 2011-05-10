@@ -48,9 +48,9 @@ public:
 
 	virtual bool takesOnlyUnitIntervalValues() const { return true; }
 
-	Reference<Map2D> getBlurredImage() const;
-
 	virtual Reference<Image> convertToImage() const;
+
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
 
 private:
 	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;
