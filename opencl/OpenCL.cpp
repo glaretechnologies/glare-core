@@ -276,7 +276,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
 			}
 
-			int current_device_number = (int)device_info.size();
+			int current_device_number = (int)d;
 
 			// Initialise device info structure
 			gpuDeviceInfo di;
@@ -286,6 +286,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			di.core_count = device_max_compute_units;
 			di.core_clock = device_max_clock_frequency;
 			di.CUDA = false;
+			device_info.push_back(di);
 
 			// estimate performance as # cores times clock speed
 			int64 device_perf = (uint64)device_max_compute_units * (uint64)device_max_clock_frequency;
@@ -293,16 +294,14 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			if(desired_device_number < 0) // If auto selecting device
 			{
 				// if this is the best performing GPU device found so far, select it
-				//if(((device_type & CL_DEVICE_TYPE_GPU) != 0) && best_device_perf < device_perf) // CPU devices disallowed
-				if(best_device_perf < device_perf) // CPU devices allowed
+				//if(((device_type & CL_DEVICE_TYPE_GPU) != 0)/* && best_device_perf < device_perf*/) // CPU devices disallowed
+				//if(best_device_perf < device_perf) // CPU devices allowed
 				{
 					device_to_use = device_ids[d];
 					platform_to_use = platform_ids[i];
 					chosen_device_number = current_device_number;
 
 					best_device_perf = device_perf;
-
-					device_info.push_back(di);
 				}
 			}
 			else if(desired_device_number == current_device_number) // else if we have the desired device number, use it
@@ -312,8 +311,6 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 				chosen_device_number = current_device_number;
 
 				best_device_perf = device_perf;
-
-				device_info.push_back(di);
 			}
 		}
 	}

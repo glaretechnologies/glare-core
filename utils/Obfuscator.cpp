@@ -476,6 +476,11 @@ void Obfuscator::obfuscateKernels()
 		conPrint("Error: " + e.what());
 		exit(1);
 	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		conPrint("Error: " + e.what());
+		exit(1);
+	}
 }
 
 
