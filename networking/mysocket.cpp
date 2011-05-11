@@ -63,7 +63,7 @@ MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallb
 		//-----------------------------------------------------------------
 		//do the connect using the looked up ip address
 		//-----------------------------------------------------------------
-		doConnect(serverips[0], port, should_abort_callback);
+		doConnect(serverips[0], hostname, port, should_abort_callback);
 
 	}
 	catch(NetworkingExcep& e)
@@ -81,7 +81,12 @@ MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallba
 
 	assert(Networking::isInited());
 
-	doConnect(ipaddress, port, should_abort_callback);
+	doConnect(
+		ipaddress, 
+		"", // hostname
+		port, 
+		should_abort_callback
+	);
 }
 
 
@@ -130,7 +135,10 @@ static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug
 }
 
 
-void MySocket::doConnect(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::doConnect(const IPAddress& ipaddress, 
+						 const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
+						 int port, 
+						 SocketShouldAbortCallback* should_abort_callback)
 {
 	otherend_ipaddr = ipaddress; // Remember ip of other end
 
@@ -173,7 +181,11 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port, SocketShouldAbort
 			// so we have to close the socket here.
 			closeSocket(sockethandle);
 			sockethandle = nullSocketHandle();
-			throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
+
+			if(hostname.empty())
+				throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
+			else
+				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + "), Error code: " + error_str);
 		}
 	}
 
@@ -215,7 +227,13 @@ void MySocket::doConnect(const IPAddress& ipaddress, int port, SocketShouldAbort
 		{
 			closeSocket(sockethandle);
 			sockethandle = nullSocketHandle();
-			throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
+			
+			//throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
+			
+			if(hostname.empty())
+				throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
+			else
+				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + ")");
 		}
 	}
 

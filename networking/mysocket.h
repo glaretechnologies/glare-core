@@ -114,7 +114,12 @@ private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
-	void doConnect(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback);
+	void doConnect(
+		const IPAddress& ipaddress, 
+		const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
+		int port, 
+		SocketShouldAbortCallback* should_abort_callback
+	);
 public:
 #if defined(WIN32) || defined(WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
