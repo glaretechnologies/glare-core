@@ -255,6 +255,12 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 
 		LicenceType desired_license_type = UNLICENSED;
 
+#ifdef INDIGO_RT
+		if(components[1] == "indigo-rt-3.x")
+			desired_license_type = RT_3_X;
+		if(components[1] == "indigo-full-3.x")
+			desired_license_type = FULL_3_X;
+#else
 		if(components[1] == "indigo-full-2.x")
 			desired_license_type = FULL_2_X;
 		else if(components[1] == "indigo-beta-2.x")
@@ -269,6 +275,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			desired_license_type = FULL_3_X;
 		else if(components[1] == "indigo-node-3.x")
 			desired_license_type = NODE_3_X;
+#endif
 		else
 			return;
 
@@ -388,6 +395,8 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return "Network Floating Full";
 	else if(t == NETWORK_FLOATING_NODE)
 		return "Network Floating Node";
+	else if(t == RT_3_X)
+		return "Indigo RT";
 	else
 		return "[Unknown]";
 }
@@ -437,6 +446,8 @@ bool License::shouldApplyWatermark(LicenceType t)
 		return false;
 	else if(t == NODE_3_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
+	else if(t == RT_3_X)
+		return false;
 	else
 	{
 		assert(0);
@@ -468,6 +479,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	else if(t == FULL_3_X)
 		return false;
 	else if(t == NODE_3_X)
+		return false;
+	else if(t == RT_3_X)
 		return false;
 	else
 	{
