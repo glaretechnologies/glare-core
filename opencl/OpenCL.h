@@ -91,6 +91,8 @@ public:
 		const std::string& compile_options
 	);
 
+	void dumpBuildLog(cl_program program);
+
 //private:
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

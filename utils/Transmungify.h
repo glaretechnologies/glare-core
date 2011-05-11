@@ -14,8 +14,8 @@ Generated at Sun May 30 21:03:25 +1200 2010
 // Some magic numbers...
 const static int permute[4] = { 3, 1, 0, 2 };
 const static int char_offsets[4] = { -79, 230, -27, 160 };
-const static uint32 magic0 = 0xDEADBEEF;
-const static uint32 magic1 = 0xC0FFEE;
+const static uint32 magic0 = 0xB77E0246; // random, nothing special
+const static uint32 magic1 = 0x2E479BAA; // random, nothing special
 
 
 /*=====================================================================
