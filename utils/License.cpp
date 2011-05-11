@@ -643,7 +643,6 @@ void License::test()
 		std::cout << "\n";
 	}
 	std::cout << "};\n";
-	exit(0);
 
 
 #if USE_OPENSSL
