@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "fractionlistener.h"
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
+#include "../utils/mythread.h"
 #include <vector>
 #include <string.h>
 #if defined(WIN32) || defined(WIN64)
@@ -440,12 +441,12 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 	while(datalen > 0)//while still bytes to write
 	{
-		const int numbytestowrite = (int)myMin((size_t)USE_BUFFERSIZE, datalen);
+		const int numbytestowrite = datalen;//(int)myMin((size_t)USE_BUFFERSIZE, datalen);
 
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or can write to socket
 		//------------------------------------------------------------------------
-		while(1)
+		/*while(1)
 		{
 			timeval wait_period;
 			wait_period.tv_sec = 0;
@@ -465,7 +466,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 			if(num_ready != 0)
 				break;
-		}
+		}*/
 
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
 
@@ -487,18 +488,36 @@ void MySocket::readTo(void* buffer, size_t readlen, SocketShouldAbortCallback* s
 }
 
 
+class ReaderThread : public MyThread
+{
+public:
+	ReaderThread(MySocket::SOCKETHANDLE_TYPE socket_handle_, char* buffer_, size_t num_bytes_, int* num_bytes_read_) : socket_handle(socket_handle_), buffer(buffer_), num_bytes(num_bytes_), num_bytes_read(num_bytes_read_) {}
+
+	virtual void run()
+	{
+		*num_bytes_read = recv(socket_handle, buffer, num_bytes, 0);
+	}
+
+private:
+	MySocket::SOCKETHANDLE_TYPE socket_handle;
+	char* buffer;
+	size_t num_bytes;
+	int* num_bytes_read;
+};
+
+
 void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
 {
 	const size_t totalnumbytestoread = readlen;
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = (int)myMin((size_t)USE_BUFFERSIZE, readlen);
+		const int numbytestoread = readlen;//(int)myMin((size_t)USE_BUFFERSIZE, readlen);
 
 		//------------------------------------------------------------------------
 		//Loop until either the prog is exiting or have incoming data
 		//------------------------------------------------------------------------
-		while(1)
+		/*while(1)
 		{
 			timeval wait_period;
 			wait_period.tv_sec = 0;
@@ -518,12 +537,20 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Sock
 
 			if(num_ready != 0)
 				break;
-		}
+		}*/
 
 		//------------------------------------------------------------------------
 		//do the read
 		//------------------------------------------------------------------------
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
+
+		/*int numbytesread = 0;
+		ReaderThread* reader_thread = new ReaderThread(sockethandle, (char*)buffer, numbytestoread, &numbytesread);
+		reader_thread->launch(
+			false // auto delete
+		);
+		reader_thread->join();
+		delete reader_thread;*/
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + Networking::getError());
