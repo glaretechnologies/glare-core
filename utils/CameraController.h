@@ -35,6 +35,8 @@ public:
 	Vec3d getUpForForwards(const Vec3d& forwards) const;
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 
+	void getAngles(Vec3d& angles_out);
+
 	bool invert_mouse;
 
 	static void test();

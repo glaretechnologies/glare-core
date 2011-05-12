@@ -141,6 +141,12 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 }
 
 
+void CameraController::getAngles(Vec3d& angles_out)
+{
+	angles_out = rotation;
+}
+
+
 #if BUILD_TESTS
 
 #include "../maths/mathstypes.h"
