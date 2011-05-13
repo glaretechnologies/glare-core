@@ -52,6 +52,8 @@ public:
 
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
 
+	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
+
 private:
 	void sampleTiled3BytesPP(Coord x, Coord y, Colour3<Value>& col_out) const;
 	Value sampleTiled1BytePP(Coord x, Coord y) const;

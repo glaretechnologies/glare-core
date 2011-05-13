@@ -481,6 +481,42 @@ Reference<Map2D> Texture::getBlurredLinearGreyScaleImage() const
 }
 
 
+Reference<Map2D> Texture::resizeToImage(const int target, bool& is_linear) const
+{
+	// Texture class always loads 8 bit data, so should never be in linear space
+	is_linear = false;
+
+	size_t tex_xres, tex_yres;
+	
+	if(this->getHeight() > this->getWidth())
+	{
+		tex_xres = (size_t)((float)this->getWidth() * (float)target / (float)this->getHeight());
+		tex_yres = (size_t)target;
+	}
+	else
+	{
+		tex_xres = (size_t)target;
+		tex_yres = (size_t)((float)this->getHeight() * (float)target / (float)this->getWidth());
+	}
+
+	const float inv_tex_xres = 1.0f / tex_xres;
+	const float inv_tex_yres = 1.0f / tex_yres;
+
+	Image* image = new Image(tex_xres, tex_yres);
+	Reference<Map2D> map_2d = Reference<Map2D>(image);
+
+	for(size_t y = 0; y < tex_yres; ++y)
+	for(size_t x = 0; x < tex_xres; ++x)
+	{
+		const Colour3<float> texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
+
+		image->setPixel(x, y, texel);
+	}
+
+	return map_2d;
+}
+
+
 Reference<Image> Texture::convertToImage() const
 {
 	Image* image = new Image();
