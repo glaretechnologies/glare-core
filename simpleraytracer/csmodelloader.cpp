@@ -22,7 +22,6 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../indigo/object.h"
 #include "../physics/jscol_triangle.h"
 #include "../graphics/image.h"
-#include "../graphics/texture.h"
 #include "../graphics/imformatdecoder.h"
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"

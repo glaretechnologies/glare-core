@@ -4,6 +4,7 @@ texture.cpp
 File created by ClassTemplate on Mon May 02 21:31:01 2005
 Code By Nicholas Chapman.
 =====================================================================*/
+#if 0
 #include "texture.h"
 
 
@@ -635,4 +636,5 @@ void Texture::test()
 
 	}*/
 }
+#endif
 #endif

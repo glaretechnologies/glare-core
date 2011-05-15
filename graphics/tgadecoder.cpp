@@ -7,13 +7,13 @@ Code By Nicholas Chapman.
 #include "tgadecoder.h"
 
 
-#include "bitmap.h"
-#include "texture.h"
+//#include "bitmap.h"
 #include "imformatdecoder.h"
 #include <assert.h>
 #include <memory.h>
 #include <stdlib.h>
 #include "../utils/fileutils.h"
+#include "../graphics/ImageMap.h"
 
 
 TGADecoder::TGADecoder()
@@ -102,8 +102,9 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 		throw ImFormatExcep("not enough data supplied");
 
 
-	Texture* texture = new Texture();
-	texture->resize(width, height, bytes_pp);
+	Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
+		width, height, bytes_pp
+		));
 
 	const byte* srcpointer = &(*encoded_img.begin()) + sizeof(TGA_HEADER);
 
@@ -123,7 +124,8 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 
 				//bitmap_out.getData()[dstoffset] = srcpointer[srcoffset];
 
-				texture->setPixelComp(x, y, 0, srcpointer[srcoffset]);
+				//texture->setPixelComp(x, y, 0, srcpointer[srcoffset]);
+				texture->getPixel(x, y)[0] = srcpointer[srcoffset];
 			}
 		}
 	}	
@@ -146,9 +148,13 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 				bitmap_out.getData()[dstoffset+1] = srcpointer[srcoffset+1];
 				bitmap_out.getData()[dstoffset+2] = srcpointer[srcoffset];*/
 
-				texture->setPixelComp(x, y, 0, srcpointer[srcoffset+2]);
-				texture->setPixelComp(x, y, 1, srcpointer[srcoffset+1]);
-				texture->setPixelComp(x, y, 2, srcpointer[srcoffset]);
+				//texture->setPixelComp(x, y, 0, srcpointer[srcoffset+2]);
+				//texture->setPixelComp(x, y, 1, srcpointer[srcoffset+1]);
+				//texture->setPixelComp(x, y, 2, srcpointer[srcoffset]);
+
+				texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
+				texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
+				texture->getPixel(x, y)[2] = srcpointer[srcoffset];
 			}
 		}
 	}
@@ -180,7 +186,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 		throw ImFormatExcep("invalid bytes per pixel.");
 	}
 
-	return Reference<Map2D>(texture);
+	return texture.upcast<Map2D>();
 }
 
 void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)

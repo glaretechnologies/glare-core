@@ -7,7 +7,6 @@ Code By Nicholas Chapman.
 #include "jpegdecoder.h"
 
 
-#include "../graphics/texture.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +17,7 @@ Code By Nicholas Chapman.
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
+#include "../graphics/ImageMap.h"
 #include <jpeglib.h>
 
 /*
@@ -93,8 +93,9 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 			throw ImFormatExcep("Only 1 or 3 component JPEGs are currently supported.");
 
 
-		Reference<Texture> texture(new Texture());
-		texture->resize(cinfo.output_width, cinfo.output_height, cinfo.num_components);
+		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
+			cinfo.output_width, cinfo.output_height, cinfo.num_components
+		));
 
 		// Read gamma.  NOTE: this seems to just always be 1.
 		// We need to extract the ICC profile.
@@ -130,7 +131,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 			/* Assume put_scanline_someplace wants a pointer and sample count. */
 			//put_scanline_someplace(buffer[0], row_stride);
 
-			memcpy(texture->rowPointer(y), buffer[0], row_stride);
+			memcpy(texture->getPixel(0, y), buffer[0], row_stride);
 			++y;
 	  }
 

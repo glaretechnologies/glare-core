@@ -14,6 +14,9 @@ Code By Nicholas Chapman.
 #include "../utils/reference.h"
 
 
+#error Not used any more.  ImageMap is used instead.
+
+
 /*=====================================================================
 Texture
 -------

@@ -8,8 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include <png.h>
-#include "bitmap.h"
-#include "texture.h"
+//#include "bitmap.h"
 #include "imformatdecoder.h"
 #include "ImageMap.h"
 #include "../utils/stringutils.h"
@@ -169,8 +168,6 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		Map2D* map_2d = NULL;
 		if(bit_depth == 8)
 		{
-			//Texture* texture = new Texture();
-			//texture->resize(width, height, bitmap_num_bytes_pp);
 			ImageMap<uint8_t, UInt8ComponentValueTraits>* image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
 			image_map->setGamma((float)use_gamma);
 

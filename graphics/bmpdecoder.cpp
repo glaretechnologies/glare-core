@@ -8,11 +8,11 @@ Code By Nicholas Chapman.
 
 
 #include "bitmap.h"
-#include "texture.h"
 #include "imformatdecoder.h"
 #include <assert.h>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
+#include "../graphics/ImageMap.h"
 #include <string.h>
 
 
@@ -120,8 +120,7 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 	if(height < 0 || height > MAX_DIMS) 
 		throw ImFormatExcep("bad image height.");
 
-	Texture* texture = new Texture();
-	texture->resize(width, height, bytespp);
+	ImageMap<uint8_t, UInt8ComponentValueTraits>* texture = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bytespp);
 
 	int rowpaddingbytes = 4 - ((width * bytespp) % 4);
 	if(rowpaddingbytes == 4)
@@ -148,7 +147,8 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 				//bitmap_out.getData()[i++] = encoded_img[srcindex++];
 				//*bitmap_out.getPixel(x, y) = encoded_img[srcindex++];
 				assert(srcindex < encoded_img.size());
-				texture->setPixelComp(x, y, 0, encoded_img[srcindex++]);
+				//texture->setPixelComp(x, y, 0, encoded_img[srcindex++]);
+				texture->getPixel(x, y)[0] = encoded_img[srcindex++];
 			}
 			else
 			{
@@ -163,9 +163,12 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 				bitmap_out.getData()[i++] = g;
 				bitmap_out.getData()[i++] = b;*/
 
-				texture->setPixelComp(x, y, 0, r);
-				texture->setPixelComp(x, y, 1, g);
-				texture->setPixelComp(x, y, 2, b);
+				//texture->setPixelComp(x, y, 0, r);
+				//texture->setPixelComp(x, y, 1, g);
+				//texture->setPixelComp(x, y, 2, b);
+				texture->getPixel(x, y)[0] = r;
+				texture->getPixel(x, y)[1] = g;
+				texture->getPixel(x, y)[2] = b;
 			}
 			/*bitmap_out.getData()[i++] = encoded_img[srcindex++];
 			bitmap_out.getData()[i++] = encoded_img[srcindex++];
