@@ -32,10 +32,11 @@ public:
 	void setMouseSensitivity(double sensitivity);
 	void setMoveScale(double move_scale);
 
-	Vec3d getUpForForwards(const Vec3d& forwards) const;
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
+	void getAngles(Vec3d& angles_out); // Specified as (heading, pitch, roll).
 
-	void getAngles(Vec3d& angles_out);
+	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);
+	static void getBasisForAngles(const Vec3d& angles_in, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
 
 	bool invert_mouse;
 
@@ -44,7 +45,7 @@ public:
 private:
 
 	Vec3d position;
-	Vec3d rotation; // Specified as (pitch, heading, roll).
+	Vec3d rotation; // Specified as (heading, pitch, roll).
 
 	Vec3d initialised_up;
 
