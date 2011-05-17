@@ -485,14 +485,15 @@ public:
 	//double ds_du_out, ds_dv_out, dt_du_out, dt_dv_out;
 };
 
-
-inline const Vec3d triGeomNormal(const std::vector<DUVertex>& verts, const DUTriangle& tri)
+/*
+inline static const Vec3d triGeomNormal(const std::vector<DUVertex>& verts, const DUTriangle& tri)
 {
 	return toVec3d(normalise(::crossProduct(
 		verts[tri.vertex_indices[1]].pos - verts[tri.vertex_indices[0]].pos,
 		verts[tri.vertex_indices[2]].pos - verts[tri.vertex_indices[0]].pos
 		)));
-}
+}*/
+
 
 /*
 
@@ -646,86 +647,81 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
-	VoidMedium temp_void_medium;
-
 	// For each triangle
 	for(uint32_t t = 0; t < triangles.size(); ++t)
 	{
-			const uint32_t material_index = triangles[t].tri_mat_index;
-			const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // &object.getMaterial(material_index); //materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
+		const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
-			if(material->displacing())
+		if(material->displacing())
+		{
+			//float min_displacement = std::numeric_limits<float>::infinity();
+
+			// For each vertex
+			for(uint32_t i = 0; i < 3; ++i)
 			{
-				const Vec3d N_g = triGeomNormal(verts_in, triangles[t]);
-	
+				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-				//hitinfo.hitobject = &object;
+				for(uint32_t z = 0; z < num_uv_sets; ++z)
+					du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
 
-				//const int uv_set_index = material->getDisplacementTextureUVSetIndex();
-				//assert(uv_set_index >= 0 && uv_set_index < (int)num_uv_sets);
+				const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
 
-				float min_displacement = std::numeric_limits<float>::infinity();
+				//min_displacement = myMin(min_displacement, displacement);
 
-				// For each vertex
-				for(uint32_t i = 0; i < 3; ++i)
-				{
-					/*const Vec3d& N_s = toVec3d(verts_in[triangles[t].vertex_indices[i]].normal);
-					assert(N_s.isUnitLength());
+				//if(!vert_displaced[triangles[t].vertex_indices[i]])
+				//{
+				
+				// Translate vertex position along vertex shading normal
+				const uint32 v_i = triangles[t].vertex_indices[i];
+				assert(verts_in[v_i].normal.isUnitLength());
 
-					//Basisd shading_basis;
-					//shading_basis.constructFromVector(N_s);
-					FullHitInfo hitinfo(
-						&object,
-						&temp_void_medium,
-						toVec3d(verts_in[triangles[t].vertex_indices[i]].pos), // position
-						N_g,
-						N_g,
-						N_s,
-						HitInfo(std::numeric_limits<unsigned int>::max(), Vec2d(-666.0, -666.0)) // NOTE: we use dummy values here because they will not be used, because of our custom texcoord evaluator.
-						);*/
+				verts_out[v_i].displacement = displacement;
+				verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
 
-					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-					//hitinfo.hitpos = toVec3d(verts_in[triangles[t].vertex_indices[i]].pos);
-
-					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
-
-					/*const Vec2f& uv = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], uv_set_index);
-					const float displacement = (float)material->displacement(
-						uv.x, //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].x, //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].x,
-						uv.y //uvs[triangles[t].uv_indices[i] * num_uv_sets + uv_set_index].y //verts_out[triangles[t].vertex_indices[i]].texcoords[uv_set_index].y
-						);*/
-					//const float displacement = (float)material->getDisplacementParam()->eval(context, hitinfo, *material, du_texcoord_evaluator);
-					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
-
-					min_displacement = myMin(min_displacement, displacement);
-
-					//if(!vert_displaced[triangles[t].vertex_indices[i]])
-					//{
-						// Translate vertex position along vertex shading normal
-						//verts_out[triangles[t].vertex_indices[i]].pos += verts_out[triangles[t].vertex_indices[i]].normal * displacement;
-					assert(verts_in[triangles[t].vertex_indices[i]].normal.isUnitLength());
-
-					verts_out[triangles[t].vertex_indices[i]].displacement = displacement;
-					verts_out[triangles[t].vertex_indices[i]].pos = verts_in[triangles[t].vertex_indices[i]].pos + verts_in[triangles[t].vertex_indices[i]].normal * displacement;
-
-
-						
-
-						//vertices[triangles[t].vertex_indices[i]].pos.x += sin(vertices[triangles[t].vertex_indices[i]].pos.z * 50.0f) * 0.03f;
-
-						//vert_displaced[triangles[t].vertex_indices[i]] = true;
-					//}
-				}
-
-				if(unclipped_tris_out)
-				{
-					(*unclipped_tris_out)[t] = true;//min_displacement > 0.2f;
-				}
+					//vert_displaced[triangles[t].vertex_indices[i]] = true;
+				//}
 			}
-		//}
+
+			if(unclipped_tris_out)
+			{
+				(*unclipped_tris_out)[t] = true;//min_displacement > 0.2f;
+			}
+		}
 	}
+
+
+	// For each quad
+	for(uint32_t q = 0; q < quads.size(); ++q)
+	{
+		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this triangle
+
+		if(material->displacing())
+		{
+			// For each vertex
+			for(uint32_t i = 0; i < 4; ++i)
+			{
+				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
+
+				for(uint32_t z = 0; z < num_uv_sets; ++z)
+					du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, quads[q].uv_indices[i], z);
+
+				const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
+
+				// Translate vertex position along vertex shading normal
+				const uint32 v_i = quads[q].vertex_indices[i];
+				assert(verts_in[v_i].normal.isUnitLength());
+
+				verts_out[v_i].displacement = displacement;
+				verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
+			}
+
+			if(unclipped_quads_out)
+			{
+				(*unclipped_quads_out)[q] = true;
+			}
+		}
+	}
+
 
 	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 	for(uint32_t v = 0; v < verts_out.size(); ++v)
