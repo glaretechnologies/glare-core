@@ -320,7 +320,7 @@ const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUt
 
 	char* result = getcwd(
 		path,
-		MAX_PATH
+		4096
 	);
 	if(result == NULL)
 		throw PlatformUtilsExcep("getcwd() failed.");

@@ -31,7 +31,11 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
 #include "../public/IndigoMesh.h"
+#if defined(WIN32) || defined(WIN64)
 #include <unordered_map>
+#else
+#include <tr1/unordered_map>
+#endif
 
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 

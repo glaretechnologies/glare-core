@@ -195,7 +195,7 @@ void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encode
 	memset(&header, 0, sizeof(TGA_HEADER));
 
 	header.identsize = 0;
-	header.colourmaptype;//no palette
+	//header.colourmaptype;//no palette
 	header.imagetype = 2;//rgb
 
 	header.xstart = 0;

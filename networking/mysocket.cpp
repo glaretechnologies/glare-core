@@ -21,6 +21,9 @@ Code By Nicholas Chapman.
 #include <sys/time.h> // fdset
 #include <sys/types.h> // fdset
 #include <sys/select.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <errno.h>
 #endif
 
 
@@ -111,29 +114,43 @@ static void closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 
 static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 {
+#if defined(WIN32) || defined(WIN64)
 	u_long nonblocking = blocking ? 0 : 1;
 	const int result = ioctlsocket(sockethandle, FIONBIO, &nonblocking);
+#else
+	u_long nonblocking = blocking ? 0 : 1;
+	const int result = ioctl(sockethandle, FIONBIO, &nonblocking);
+#endif
 	assert(result == 0);
 }
 
 
 static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 {
-	//linger lin;
-	//lin.l_onoff = 
-
+#if defined(WIN32) || defined(WIN64)	
 	const BOOL dont_linger = linger ? 0 : 1;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DONTLINGER, (const char*)&dont_linger, sizeof(dont_linger));
+#else
+	// TODO: test this
+	struct linger lin;
+	lin.l_onoff = linger ? 1 : 0;
+	lin.l_linger = 1; // Linger time
+
+	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_LINGER, (const char*)&lin, sizeof(lin));
+#endif
 	assert(result == 0);
+
 }
 
 
-static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
+/*static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
 {
+#if defined(WIN32) || defined(WIN64)	
 	const BOOL debug = enable_debug ? 1 : 0;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DEBUG, (const char*)&debug, sizeof(debug));
 	assert(result == 0);
-}
+#endif
+}*/
 
 
 void MySocket::doConnect(const IPAddress& ipaddress, 
@@ -173,7 +190,11 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
+#if defined(WIN32) || defined(WIN64)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+		if(errno != EINPROGRESS)
+#endif
 		{
 			const std::string error_str = Networking::getError(); // Get error before we call closeSocket(), which may overwrite it.
 

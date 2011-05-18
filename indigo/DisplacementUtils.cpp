@@ -29,7 +29,11 @@ by Joe Warren and Scott Schaefer
 #include "SpectrumMatParameter.h"
 #include "DisplaceMatParameter.h"
 #include "../utils/timer.h"
+#if defined(WIN32) || defined(WIN64)
 #include <unordered_map>
+#else
+#include <tr1/unordered_map>
+#endif
 
 
 DisplacementUtils::DisplacementUtils()
@@ -1508,7 +1512,7 @@ void DisplacementUtils::averagePass(
 	std::vector<Vec2f>& uvs_out
 	)
 {
-	const float UV_DISTANCE_THRESHOLD_SQD = 0.03f * 0.03f;
+	//const float UV_DISTANCE_THRESHOLD_SQD = 0.03f * 0.03f;
 
 	// Init vertex positions to (0,0,0)
 	new_verts_out = verts;
@@ -1526,7 +1530,7 @@ void DisplacementUtils::averagePass(
 	std::vector<uint32_t> n_t(verts.size(), 0); // array containing number of triangles touching each vertex
 	std::vector<uint32_t> n_q(verts.size(), 0); // array containing number of quads touching each vertex
 
-	const uint32 num_verts = (uint32)verts.size();
+	//const uint32 num_verts = (uint32)verts.size();
 	std::vector<Vec2f> old_vert_uvs(verts.size() * num_uv_sets, Vec2f(0.0f, 0.0f));
 	std::vector<Vec2f> new_vert_uvs(verts.size() * num_uv_sets, Vec2f(0.0f, 0.0f));
 

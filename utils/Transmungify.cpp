@@ -10,6 +10,13 @@ Generated at Sun May 30 21:03:25 +1200 2010
 #include "Exception.h"
 
 
+// Some magic numbers...
+const static int permute[4] = { 3, 1, 0, 2 };
+const static uint32 char_offsets[4] = { 177, 230, 229, 160 }; //{ -79, 230, -27, 160 };
+const static uint32 magic0 = 0xB77E0246; // random, nothing special
+const static uint32 magic1 = 0x2E479BAA; // random, nothing special
+
+
 Transmungify::Transmungify()
 {
 
@@ -19,6 +26,12 @@ Transmungify::Transmungify()
 Transmungify::~Transmungify()
 {
 
+}
+
+
+static inline unsigned char toUChar(uint32 x)
+{
+	return (unsigned char)(x % 256);
 }
 
 
@@ -33,9 +46,11 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& d
 	dst_dwords[encrypted_int32s] = (string_len ^ magic0) + magic1;
 
 	// Create padded string
-	std::vector<char> padded_string(encrypted_int32s * 4);
-	for(i = 0; i < string_len; ++i)			padded_string[i] = src_str[i];
-	for(; i < encrypted_int32s * 4; ++i)	padded_string[i] = src_str[(((i + 1) * string_len / 4) + string_len) % string_len]; // Use text from start (wrap around)
+	std::vector<unsigned char> padded_string(encrypted_int32s * 4);
+	for(i = 0; i < string_len; ++i)			
+		padded_string[i] = src_str[i];
+	for(; i < encrypted_int32s * 4; ++i)	
+		padded_string[i] = src_str[(((i + 1) * string_len / 4) + string_len) % string_len]; // Use text from start (wrap around)
 
 	// create encrypted data
 	for(i = 0; i < encrypted_int32s; ++i)
@@ -43,10 +58,10 @@ bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& d
 		// permute order, offset with wraparound
 		unsigned char chars[4] =
 		{
-			padded_string[i * 4 + permute[0]] + char_offsets[0],
-			padded_string[i * 4 + permute[1]] + char_offsets[1],
-			padded_string[i * 4 + permute[2]] + char_offsets[2],
-			padded_string[i * 4 + permute[3]] + char_offsets[3]
+			toUChar(padded_string[i * 4 + permute[0]] + char_offsets[0]),
+			toUChar(padded_string[i * 4 + permute[1]] + char_offsets[1]),
+			toUChar(padded_string[i * 4 + permute[2]] + char_offsets[2]),
+			toUChar(padded_string[i * 4 + permute[3]] + char_offsets[3])
 		};
 
 		// pack chars into single dword
@@ -84,8 +99,10 @@ bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 		const uint32 dword_value = (src_dwords[i] - magic1) ^ magic0;
 		unsigned char chars[4] =
 		{
-			((dword_value & 0x000000FF) >>  0), ((dword_value & 0x0000FF00) >>  8),
-			((dword_value & 0x00FF0000) >> 16), ((dword_value & 0xFF000000) >> 24)
+			toUChar((dword_value & 0x000000FF) >>  0), 
+			toUChar((dword_value & 0x0000FF00) >>  8),
+			toUChar((dword_value & 0x00FF0000) >> 16), 
+			toUChar((dword_value & 0xFF000000) >> 24)
 		};
 
 		dst_string[i * 4 + 0] = (chars[permute[3]] - char_offsets[2]);
