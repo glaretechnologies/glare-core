@@ -50,5 +50,5 @@ private:
 	Vec3d initialised_up;
 
 	double base_move_speed, base_rotate_speed;
-	double move_speed_scale, rotate_speed_scale;
+	double move_speed_scale, mouse_sensitivity_scale;
 };

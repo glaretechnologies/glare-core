@@ -18,8 +18,8 @@ CameraController::CameraController()
 	base_move_speed   = 0.035;
 	base_rotate_speed = 0.005;
 
-	move_speed_scale   = 1;
-	rotate_speed_scale = 1;
+	move_speed_scale = 1;
+	mouse_sensitivity_scale = 1;
 
 	invert_mouse = false;
 }
@@ -59,8 +59,8 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 
 void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 {
-	const double rotate_speed = base_rotate_speed * rotate_speed_scale;
-	const double move_speed   = base_move_speed * move_speed_scale;
+	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
+	const double move_speed   = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
 
 	// Accumulate rotation angles, taking into account mouse speed and invertedness.
 	rotation.x += rot_delta.y * -rotate_speed;
@@ -97,7 +97,8 @@ void CameraController::setPosition(const Vec3d& pos)
 
 void CameraController::setMouseSensitivity(double sensitivity)
 {
-	rotate_speed_scale = (float)pow(2.0, sensitivity);
+	const double speed_base = (1 + std::sqrt(5.0)) * 0.5;
+	mouse_sensitivity_scale = (float)pow(speed_base, sensitivity);
 }
 
 
