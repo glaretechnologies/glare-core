@@ -630,19 +630,28 @@ void License::test()
 {
 	static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
 
-	std::vector<uint32> dst_dwords;
-	const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
-
-	std::cout << "static uint32 encrypted_public_key_size = " + toString(dst_dwords.size()) + ";\n";
-	std::cout << "static uint32 encrypted_public_key[] = {\n";
-	for(size_t i=0; i<dst_dwords.size(); ++i)
+	const bool print_encrypted_public_key = false;
+	if(print_encrypted_public_key)
 	{
-		std::cout << toString(dst_dwords[i]) << "u";
-		if(i + 1 < dst_dwords.size())
-			std::cout << ",";
-		std::cout << "\n";
+		std::vector<uint32> dst_dwords;
+		const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
+
+		std::cout << "static uint32 encrypted_public_key_size = " + toString(dst_dwords.size()) + ";\n";
+		std::cout << "static uint32 encrypted_public_key[] = {\n";
+		for(size_t i=0; i<dst_dwords.size(); ++i)
+		{
+			std::cout << toString(dst_dwords[i]) << "u";
+			if(i + 1 < dst_dwords.size())
+				std::cout << ",";
+			std::cout << "\n";
+		}
+		std::cout << "};\n";
 	}
-	std::cout << "};\n";
+
+
+	// Make sure our un-transmungified public key is correct.
+	const std::string decoded_pubkey = unTransmunfigyPublicKey();
+	testAssert(decoded_pubkey == PUBLIC_CERTIFICATE_DATA);
 
 
 #if USE_OPENSSL
