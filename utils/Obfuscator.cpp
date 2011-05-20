@@ -15,6 +15,7 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "../utils/fileutils.h"
 #include <fstream>
 #include "Transmungify.h"
+#include <stdlib.h>
 
 
 Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool change_tokens_, bool cryptic_tokens_)
