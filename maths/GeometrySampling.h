@@ -71,6 +71,12 @@ namespace GeometrySampling
 	template <class Real> inline const Vec3<Real> dirForSphericalCoords(Real phi, Real theta); // Returns unit length vector
 	inline const Vec4f dirForSphericalCoords(float phi, float theta);
 
+
+	////// Sample aperture disc //////
+	// Assumes aperture is a disc with normal facing along j axis.
+	inline const Vec4f sampleApertureDisc(const SamplePair& unit_samples, const Vec4f& sensor_pos, const Vec4f& aperture_pos,
+		float aperture_radius);
+
 	void doTests();
 
 
@@ -442,6 +448,32 @@ template <class Real> const Vec2<Real> sphereToUnitSquare(const Vec3<Real>& on_u
 		return Vec2<Real>(u.x, (Real)0.5 + u.y * (Real)0.5);
 	}
 }
+
+
+/*const Vec4f sampleApertureDisc(const SamplePair& unit_samples, const Vec4f& sensor_pos, const Vec4f& aperture_pos,
+									  float aperture_radius)
+{
+	Vec4f to_ap_center = normalise(aperture_pos - sensor_pos);
+	Vec2f plane_ap_center(to_ap_center.x[0], to_ap_center.x[2]);
+
+	Vec4f to_ap_p_x = normalise(aperture_pos + Vec4f(aperture_radius,0,0,0) - sensor_pos);
+	Vec2f plane_p_x(to_ap_p_x.x[0], to_ap_p_x.x[2]);
+
+	Vec4f to_ap_p_z = normalise(aperture_pos + Vec4f(0,0,aperture_radius,0) - sensor_pos);
+	Vec2f plane_p_z(to_ap_p_z.x[0], to_ap_p_z.x[2]);
+
+	// Sample elipse on projection plane
+	const Vec2f disc_p = sampleUnitDisc(unit_samples);
+	const Vec2f p = plane_ap_center + Vec2f(
+		disc_p.x[0] * (plane_p_x.x[0] - plane_ap_center.x[0]),
+		disc_p.x[1] * (plane_p_z.x[1] - plane_ap_center.x[1]));
+
+	// Project back up onto sphere
+	const Vec4f sphere_p(disc_p.x[0], std::sqrt(1 - disc_p.length2()), disc_p.x[2], 1.0);
+
+	assert(
+
+}*/
 
 
 } // End namespace GeometrySampling

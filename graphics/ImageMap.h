@@ -102,6 +102,7 @@ public:
 	V* getData() { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
+
 private:
 	unsigned int width, height, N;
 	std::vector<V> data;
@@ -130,14 +131,8 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 {
 	Colour3<Value> colour_out;
 
-	Coord intpart; // not used
-	Coord u_frac_part = std::modf(u, &intpart);
-	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
-
-	if(u_frac_part < 0.0)
-		u_frac_part = 1 + u_frac_part;
-	if(v_frac_part < 0.0)
-		v_frac_part = 1 + v_frac_part;
+	Coord u_frac_part = Maths::fract(u);
+	Coord v_frac_part = Maths::fract(1 - v);
 
 	assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
 	assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
@@ -157,6 +152,13 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 
 	const unsigned int ut_1 = (ut + 1) % width;
 	const unsigned int vt_1 = (vt + 1) % height;
+	
+	/*unsigned int ut_1 = ut + 1;
+	if(ut_1 >= width)
+		ut_1 = 0;
+	unsigned int vt_1 = vt + 1;
+	if(vt_1 >= width)
+		vt_1 = 0;*/
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
@@ -167,43 +169,40 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 	{
 		// This is either grey, alpha or grey with alpha.
 		// Either way just use zeroth channel
+		
+		Value val;
 
 		// Top left pixel
 		{
 			const V* pixel = getPixel(ut, vt);
 			const Value factor = oneufrac * onevfrac;
-			colour_out.r = pixel[0] * factor;
-			colour_out.g = pixel[0] * factor;
-			colour_out.b = pixel[0] * factor;
+			val = pixel[0] * factor;
 		}
 
 		// Top right pixel
 		{
 			const V* pixel = getPixel(ut_1, vt);
 			const Value factor = ufrac * onevfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[0] * factor;
-			colour_out.b += pixel[0] * factor;
+			val += pixel[0] * factor;
 		}
 
 		// Bottom left pixel
 		{
 			const V* pixel = getPixel(ut, vt_1);
 			const Value factor = oneufrac * vfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[0] * factor;
-			colour_out.b += pixel[0] * factor;
+			val += pixel[0] * factor;
 		}
 
 		// Bottom right pixel
 		{
 			const V* pixel = getPixel(ut_1, vt_1);
 			const Value factor = ufrac * vfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[0] * factor;
-			colour_out.b += pixel[0] * factor;
+			val += pixel[0] * factor;
 		}
-		
+
+		colour_out.r = val;
+		colour_out.g = val;
+		colour_out.b = val;
 	}
 	else if(N >= 3)
 	{

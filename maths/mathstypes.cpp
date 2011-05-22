@@ -12,6 +12,44 @@
 #include "../utils/platform.h"
 
 #if (BUILD_TESTS)
+
+
+inline static float fastPosFract(float x)
+{
+	return x - (int)x;
+}
+
+
+inline static float fastFract(float x)
+{
+	if(x < 0)
+	{
+		// (int)-1.3 = -1
+		// -1.3 - (int)-1.3 = -1.3 - -1 = -0.3
+		// 1.f - (1.3 - (int)1.3) = 1 + -0.3 = 0.7
+		return 1.f + (x - (int)x);
+	}
+	else
+		return (x - (int)x);
+}
+
+
+inline static float modfFract(float x)
+{
+	if(x < 0)
+	{
+		float intpart; // not used
+		return 1.f + std::modf(x, &intpart);
+		
+	}
+	else
+	{	
+		float intpart; // not used
+		return std::modf(x, &intpart);
+	}
+}
+
+
 void Maths::test()
 {
 	
@@ -381,6 +419,74 @@ void Maths::test()
 		{
 			const double x = (double)i * 0.00001;
 			sum += std::pow(x, 2.2);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+
+	conPrint("fract() [float]");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += Maths::fract(x);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+	
+	testAssert(epsEqual(fract(1.3f), 0.3f));
+	testAssert(epsEqual(fract(-1.3f), 0.7f));
+	testAssert(epsEqual(fastFract(1.3f), 0.3f));
+	testAssert(epsEqual(fastFract(-1.3f), 0.7f));
+	testAssert(epsEqual(modfFract(1.3f), 0.3f));
+	testAssert(epsEqual(modfFract(-1.3f), 0.7f));
+
+	conPrint("fastFract() [float]");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += fastFract(x);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("fastPosFract() [float]");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += fastPosFract(x);
+		}
+		const double elapsed = timer.getSecondsElapsed();
+		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+	
+	conPrint("modfFract() [float]");
+	{
+		Timer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += modfFract(x);
 		}
 		const double elapsed = timer.getSecondsElapsed();
 		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
