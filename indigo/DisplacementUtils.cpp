@@ -135,10 +135,10 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 								 std::vector<DUVertex>& vertices)
 {
 	// Initialise vertex normals to null vector
-	for(uint32_t i = 0; i < vertices.size(); ++i) vertices[i].normal = Vec3f(0, 0, 0);
+	for(size_t i = 0; i < vertices.size(); ++i) vertices[i].normal = Vec3f(0, 0, 0);
 
 	// Add quad face normals to constituent vertices' normals
-	for(uint32_t q = 0; q < quads.size(); ++q)
+	for(size_t q = 0; q < quads.size(); ++q)
 	{
 		const Vec3f quad_normal = triGeometricNormal(vertices, quads[q].vertex_indices[0], quads[q].vertex_indices[1], quads[q].vertex_indices[2]);
 
@@ -147,7 +147,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 	}
 
 	// Add triangle face normals to constituent vertices' normals
-	for(uint32_t t = 0; t < triangles.size(); ++t)
+	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		const Vec3f tri_normal = triGeometricNormal(
 				vertices, 
@@ -156,11 +156,11 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 				triangles[t].vertex_indices[2]
 			);
 
-		for(uint32_t i = 0; i < 3; ++i)
+		for(size_t i = 0; i < 3; ++i)
 			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
 	}
 
-	for(uint32_t i = 0; i < vertices.size(); ++i)
+	for(size_t i = 0; i < vertices.size(); ++i)
 		vertices[i].normal.normalise();
 }
 
@@ -197,7 +197,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	std::vector<DUQuad> temp_quads(quads_in.size());
 
 	// Convert RayMeshTriangles to DUTriangles
-	for(uint32_t i = 0; i < triangles_in.size(); ++i)
+	for(size_t i = 0; i < triangles_in.size(); ++i)
 		temp_tris[i] = DUTriangle(
 			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2],
 			triangles_in[i].uv_indices[0], triangles_in[i].uv_indices[1], triangles_in[i].uv_indices[2],
@@ -206,7 +206,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 	// Convert RayMeshQuads to DUQuads
-	for(uint32_t i = 0; i < quads_in.size(); ++i)
+	for(size_t i = 0; i < quads_in.size(); ++i)
 		temp_quads[i] = DUQuad(
 			quads_in[i].vertex_indices[0], quads_in[i].vertex_indices[1], quads_in[i].vertex_indices[2], quads_in[i].vertex_indices[3],
 			quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
@@ -219,12 +219,12 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	uint32 new_uv_index = 0;
 
-	for(uint32 i=0; i<temp_tris.size(); ++i)
+	for(size_t i = 0; i < temp_tris.size(); ++i)
 	{
-		for(uint32 v=0; v<3; ++v)
+		for(size_t v = 0; v < 3; ++v)
 		{
 			// Create new UV
-			for(unsigned int z=0; z<num_uv_sets; ++z)
+			for(uint32 z = 0; z < num_uv_sets; ++z)
 				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_tris[i].uv_indices[v], z));
 			
 			// Update tri UV index
@@ -233,12 +233,12 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 	}
 
-	for(uint32 i=0; i<temp_quads.size(); ++i)
+	for(size_t i = 0; i < temp_quads.size(); ++i)
 	{
-		for(uint32 v=0; v<4; ++v)
+		for(uint32 v = 0; v < 4; ++v)
 		{
 			// Create new UV
-			for(unsigned int z=0; z<num_uv_sets; ++z)
+			for(uint32 z = 0; z < num_uv_sets; ++z)
 				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_quads[i].uv_indices[v], z));
 
 			// Update quad UV index
@@ -254,7 +254,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		//DUVertIndexPairHash hasher;
 		std::tr1::unordered_map<DUVertIndexPair, uint32, DUVertIndexPairHash> num_adjacent_polys;
 
-		for(uint32_t t = 0; t < temp_tris.size(); ++t)
+		for(size_t t = 0; t < temp_tris.size(); ++t)
 		{
 			const uint32_t v0 = temp_tris[t].vertex_indices[0];
 			const uint32_t v1 = temp_tris[t].vertex_indices[1];
@@ -265,7 +265,7 @@ void DisplacementUtils::subdivideAndDisplace(
 			num_adjacent_polys[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))]++;
 		}
 
-		const uint32_t initial_num_temp_tris = (uint32)temp_tris.size(); // Store number of original triangles
+		const uint32_t initial_num_temp_tris  = (uint32)temp_tris.size(); // Store number of original triangles
 		const uint32_t initial_num_temp_quads = (uint32)temp_quads.size(); // Store number of original quads
 
 		for(uint32_t q = 0; q < initial_num_temp_quads; ++q)
@@ -404,17 +404,17 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	// Build tris_out
 	tris_out.resize(0);
-	for(uint32_t i = 0; i < temp_tris.size(); ++i)
+	for(size_t i = 0; i < temp_tris.size(); ++i)
 		if(tris_unclipped[i])
 		{
 			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index));
 
-			for(uint32_t c = 0; c < 3; ++c)
+			for(size_t c = 0; c < 3; ++c)
 				tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
 		}
 
 	// TODO: optimise (prealloc tris etc..)
-	for(uint32_t i = 0; i < temp_quads.size(); ++i)
+	for(size_t i = 0; i < temp_quads.size(); ++i)
 	{
 		if(quads_unclipped[i])
 		{
@@ -439,7 +439,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
 	verts_out.resize(temp_verts.size());
-	for(uint32_t i = 0; i < verts_out.size(); ++i)
+	for(size_t i = 0; i < verts_out.size(); ++i)
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal);
 
 	uvs_out = temp_uvs;
@@ -589,22 +589,23 @@ static float displacementError(ThreadContext& context,
 
 	float max_error = -std::numeric_limits<float>::max();
 	const float recip_res = 1.0f / (float)res;
-	for(int x=0; x<=res; ++x)
-		for(int y=0; y<=(res - x); ++y)
-		{
-			const float nudge = 0.999f; // nudge so that barycentric coords are valid
-			const float b1 = x * recip_res * nudge;
-			const float b2 = y * recip_res * nudge;
 
-			assert(b1 + b2 <= 1.0f);
+	for(int x = 0; x <= res; ++x)
+	for(int y = 0; y <= (res - x); ++y)
+	{
+		const float nudge = 0.999f; // nudge so that barycentric coords are valid
+		const float b1 = x * recip_res * nudge;
+		const float b2 = y * recip_res * nudge;
 
-			const float error = fabs(
-				interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
-				evalDisplacement(context, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
-				);
+		assert(b1 + b2 <= 1.0f);
 
-			max_error = myMax(max_error, error);
-		}
+		const float error = fabs(
+			interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
+			evalDisplacement(context, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
+			);
+
+		max_error = myMax(max_error, error);
+	}
 
 	return max_error;
 }
@@ -652,7 +653,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
 	// For each triangle
-	for(uint32_t t = 0; t < triangles.size(); ++t)
+	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
@@ -661,7 +662,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 			//float min_displacement = std::numeric_limits<float>::infinity();
 
 			// For each vertex
-			for(uint32_t i = 0; i < 3; ++i)
+			for(size_t i = 0; i < 3; ++i)
 			{
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
@@ -695,14 +696,14 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 
 	// For each quad
-	for(uint32_t q = 0; q < quads.size(); ++q)
+	for(size_t q = 0; q < quads.size(); ++q)
 	{
 		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this triangle
 
 		if(material->displacing())
 		{
 			// For each vertex
-			for(uint32_t i = 0; i < 4; ++i)
+			for(size_t i = 0; i < 4; ++i)
 			{
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
@@ -728,7 +729,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 
 	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
-	for(uint32_t v = 0; v < verts_out.size(); ++v)
+	for(size_t v = 0; v < verts_out.size(); ++v)
 		if(verts_out[v].anchored)
 			verts_out[v].pos = (verts_out[verts_out[v].adjacent_vert_0].pos + verts_out[verts_out[v].adjacent_vert_1].pos) * 0.5f;
 }
@@ -887,7 +888,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
 
 	// For each triangle
-	for(uint32_t t = 0; t < tris_in.size(); ++t)
+	for(size_t t = 0; t < tris_in.size(); ++t)
 	{
 		// Decide if we are going to subdivide the triangle
 		bool subdivide_triangle = false;
@@ -919,7 +920,7 @@ void DisplacementUtils::linearSubdivision(
 				const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[0]);
 				Rect2f rect_ss(v0_ss, v0_ss);
 
-				for(uint32_t i = 1; i < clipped_tri_verts_cs.size(); ++i)
+				for(size_t i = 1; i < clipped_tri_verts_cs.size(); ++i)
 					rect_ss.enlargeToHoldPoint(
 						screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[i])
 						);
@@ -993,13 +994,12 @@ void DisplacementUtils::linearSubdivision(
 	const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
 	// For each triangle
-	for(uint32_t t = 0; t < tris_in.size(); ++t)
+	for(size_t t = 0; t < tris_in.size(); ++t)
 	{
 		if(subdividing_tri[t])
 		{
-			for(uint32_t v = 0; v < 3; ++v)
+			for(uint32 v = 0; v < 3; ++v)
 			{
-				
 				const unsigned int v0 = tris_in[t].vertex_indices[v];
 				const unsigned int v1 = tris_in[t].vertex_indices[mod3(v + 1)];
 
@@ -1100,7 +1100,7 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 	// For each quad
-	for(uint32_t q = 0; q < quads_in.size(); ++q)
+	for(size_t q = 0; q < quads_in.size(); ++q)
 	{
 		const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
 								quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
@@ -1239,7 +1239,7 @@ void DisplacementUtils::linearSubdivision(
 #endif
 
 	// Mark border edges
-	for(uint32 i=0; i<edges_in.size(); ++i)
+	for(size_t i = 0; i < edges_in.size(); ++i)
 	{
 		const uint32 v0 = edges_in[i].vertex_indices[0];
 		const uint32 v1 = edges_in[i].vertex_indices[1];
@@ -1269,7 +1269,7 @@ void DisplacementUtils::linearSubdivision(
 	vert_polygons_out = vert_polygons_in;
 
 	// For each edge
-	for(uint32 i=0; i<edges_in.size(); ++i)
+	for(size_t i = 0; i < edges_in.size(); ++i)
 	{
 		const DUEdge& edge_in = edges_in[i];
 
@@ -1324,7 +1324,7 @@ void DisplacementUtils::linearSubdivision(
 
 
 	// For each triangle
-	for(uint32_t t = 0; t < tris_in.size(); ++t)
+	for(size_t t = 0; t < tris_in.size(); ++t)
 	{
 		if(subdividing_tri[t]) // If we are subdividing this triangle...
 		{
@@ -1334,14 +1334,14 @@ void DisplacementUtils::linearSubdivision(
 			for(uint32_t v = 0; v < 3; ++v) // For each edge (v_i, v_i+1)
 			{
 				{
-				const uint32_t v0 = tris_in[t].vertex_indices[v];
-				const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
-				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+					const uint32_t v0 = tris_in[t].vertex_indices[v];
+					const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
+					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
-				const EdgeInfoMapType::iterator result = edge_info_map.find(edge);
-				assert(result != edge_info_map.end());
+					const EdgeInfoMapType::iterator result = edge_info_map.find(edge);
+					assert(result != edge_info_map.end());
 
-				midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
 				}
 				if(num_uv_sets > 0)
 				{
@@ -1409,7 +1409,7 @@ void DisplacementUtils::linearSubdivision(
 
 
 	// For each quad
-	for(uint32_t q = 0; q < quads_in.size(); ++q)
+	for(size_t q = 0; q < quads_in.size(); ++q)
 	{
 
 		//if(subdividing_quad[t]) // If we are subdividing this quad...
@@ -1516,13 +1516,13 @@ void DisplacementUtils::averagePass(
 
 	// Init vertex positions to (0,0,0)
 	new_verts_out = verts;
-	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
+	for(size_t v = 0; v < new_verts_out.size(); ++v)
 		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f);
 
 	// Init vertex UVs to (0,0)
 	uvs_out.resize(uvs_in.size());
 	const bool has_uvs = uvs_in.size() > 0;
-	for(uint32_t v = 0; v < uvs_out.size(); ++v)
+	for(size_t v = 0; v < uvs_out.size(); ++v)
 		uvs_out[v] = Vec2f(0.f, 0.f);
 
 	std::vector<uint32_t> dim(verts.size(), 2); // array containing dimension of each vertex
@@ -1536,22 +1536,22 @@ void DisplacementUtils::averagePass(
 
 
 	// Initialise dim
-	for(uint32 i=0; i<edges.size(); ++i)
+	for(size_t i = 0; i < edges.size(); ++i)
 	{
 		dim[edges[i].vertex_indices[0]] = 1;
 		dim[edges[i].vertex_indices[1]] = 1;
 	}
 
-	for(uint32 i=0; i<vert_polygons.size(); ++i)
+	for(size_t i = 0; i < vert_polygons.size(); ++i)
 		dim[vert_polygons[i].vertex_index] = 0;
 
 	// Initialise n_t
-	for(uint32_t t = 0; t < tris.size(); ++t)
+	for(size_t t = 0; t < tris.size(); ++t)
 		for(uint32_t v = 0; v < 3; ++v)
 			n_t[tris[t].vertex_indices[v]]++;
 
 	// Initialise n_q
-	for(uint32_t q = 0; q < quads.size(); ++q)
+	for(size_t q = 0; q < quads.size(); ++q)
 		for(uint32_t v = 0; v < 4; ++v)
 			n_q[quads[q].vertex_indices[v]]++;
 
@@ -1560,15 +1560,15 @@ void DisplacementUtils::averagePass(
 
 	if(has_uvs)
 	{
-		for(uint32 t=0; t<tris.size(); ++t)
-			for(uint32 i=0; i<3; ++i)
+		for(size_t t = 0; t < tris.size(); ++t)
+			for(size_t i = 0; i < 3; ++i)
 			{
 				const uint32 v_i = tris[t].vertex_indices[i];
 				old_vert_uvs[v_i] = uvs_in[tris[t].uv_indices[i]];
 			}
 
-		for(uint32 q=0; q<quads.size(); ++q)
-			for(uint32 i=0; i<4; ++i)
+		for(size_t q = 0; q < quads.size(); ++q)
+			for(size_t i = 0; i < 4; ++i)
 			{
 				const uint32 v_i = quads[q].vertex_indices[i];
 				old_vert_uvs[v_i] = uvs_in[quads[q].uv_indices[i]];
@@ -1577,7 +1577,7 @@ void DisplacementUtils::averagePass(
 
 
 	// For each vertex polygon
-	for(uint32 q=0; q<vert_polygons.size(); ++q)
+	for(size_t q = 0; q < vert_polygons.size(); ++q)
 	{
 		const DUVertexPolygon& v = vert_polygons[q];
 
@@ -1601,7 +1601,7 @@ void DisplacementUtils::averagePass(
 	}
 
 	// For each edge polygon
-	for(uint32 e=0; e<edges.size(); ++e)
+	for(size_t e = 0; e < edges.size(); ++e)
 	{
 		const DUEdge& edge = edges[e];
 
@@ -1636,8 +1636,7 @@ void DisplacementUtils::averagePass(
 	}
 
 
-
-	for(uint32_t t = 0; t < tris.size(); ++t) // For each triangle
+	for(size_t t = 0; t < tris.size(); ++t) // For each triangle
 	{
 		const DUTriangle& tri = tris[t];
 
@@ -1672,7 +1671,7 @@ void DisplacementUtils::averagePass(
 		}
 	}
 
-	for(uint32_t q = 0; q < quads.size(); ++q) // For each quad
+	for(size_t q = 0; q < quads.size(); ++q) // For each quad
 	{
 		const DUQuad& quad = quads[q];
 
@@ -1713,7 +1712,7 @@ void DisplacementUtils::averagePass(
 
 
 	// Do 'normalize vertices by the weights' and 'apply correction only for quads and triangles' step.
-	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
+	for(size_t v = 0; v < new_verts_out.size(); ++v)
 	{
 		const float weight = total_weight[v];
 
@@ -1743,15 +1742,15 @@ void DisplacementUtils::averagePass(
 	}
 
 	// Set all anchored vertex positions back to the midpoint between the vertex's 'parent positions'
-	for(uint32_t v = 0; v < new_verts_out.size(); ++v)
+	for(size_t v = 0; v < new_verts_out.size(); ++v)
 		if(verts[v].anchored)
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
 
 
 	if(has_uvs)
 	{
-		for(uint32 q=0; q<quads.size(); ++q)
-			for(uint32 i=0; i<4; ++i)
+		for(size_t q = 0; q < quads.size(); ++q)
+			for(uint32 i = 0; i < 4; ++i)
 			{
 				const uint32 v_i = quads[q].vertex_indices[i];
 				const uint32 uv_i = quads[q].uv_indices[i];
@@ -1761,8 +1760,8 @@ void DisplacementUtils::averagePass(
 					uvs_out[uv_i] = new_vert_uvs[v_i];
 			}
 
-		for(uint32 t=0; t<tris.size(); ++t)
-			for(uint32 i=0; i<3; ++i)
+		for(size_t t = 0; t < tris.size(); ++t)
+			for(uint32 i = 0; i < 3; ++i)
 			{
 				const uint32 v_i = tris[t].vertex_indices[i];
 				const uint32 uv_i = tris[t].uv_indices[i];
@@ -1960,22 +1959,22 @@ void DisplacementUtils::test()
 		);
 
 		conPrint("Vertex positions");
-		for(uint32 i=0; i<verts_out.size(); ++i)
+		for(size_t i = 0; i < verts_out.size(); ++i)
 		{
 			conPrint("vert " + toString(i) + ": " + toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
 		}
 
 		conPrint("UVs");
-		for(uint32 i=0; i<uvs_out.size(); ++i)
+		for(size_t i = 0; i < uvs_out.size(); ++i)
 		{
 			conPrint("UV " + toString(i) + ": " + toString(uvs_out[i].x) + ", " + toString(uvs_out[i].y));
 		}
 
-		for(uint32 i=0; i<triangles_out.size(); ++i)
+		for(size_t i = 0; i < triangles_out.size(); ++i)
 		{
 			conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
 
-			for(int v=0; v<3; ++v)
+			for(size_t v = 0; v < 3; ++v)
 			{
 				conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
 			}
