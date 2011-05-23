@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
 #include "../utils/mythread.h"
+#include "../utils/platformutils.h"
 #include <vector>
 #include <string.h>
 #if defined(WIN32) || defined(WIN64)
@@ -46,6 +47,10 @@ MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallb
 	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
+
+	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
+	// See http://support.microsoft.com/kb/201213 for more details on the bug.
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 65536 : 1000000000;
 
 	assert(Networking::isInited());
 
@@ -82,6 +87,10 @@ MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallba
 	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
+
+	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
+	// See http://support.microsoft.com/kb/201213 for more details on the bug.
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 65536 : 1000000000;
 
 	assert(Networking::isInited());
 
@@ -447,9 +456,6 @@ void MySocket::close()
 }
 
 
-static const int USE_BUFFERSIZE = 1024;
-
-
 void MySocket::write(const void* data, size_t datalen, SocketShouldAbortCallback* should_abort_callback)
 {
 	write(data, datalen, NULL, should_abort_callback);
@@ -462,7 +468,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 	while(datalen > 0)//while still bytes to write
 	{
-		const int numbytestowrite = datalen;//(int)myMin((size_t)USE_BUFFERSIZE, datalen);
+		const int numbytestowrite = (int)myMin(this->max_buffersize, datalen);
 
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or can write to socket
@@ -509,7 +515,7 @@ void MySocket::readTo(void* buffer, size_t readlen, SocketShouldAbortCallback* s
 }
 
 
-class ReaderThread : public MyThread
+/*class ReaderThread : public MyThread
 {
 public:
 	ReaderThread(MySocket::SOCKETHANDLE_TYPE socket_handle_, char* buffer_, size_t num_bytes_, int* num_bytes_read_) : socket_handle(socket_handle_), buffer(buffer_), num_bytes(num_bytes_), num_bytes_read(num_bytes_read_) {}
@@ -524,7 +530,7 @@ private:
 	char* buffer;
 	size_t num_bytes;
 	int* num_bytes_read;
-};
+};*/
 
 
 void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
@@ -533,7 +539,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Sock
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = readlen;//(int)myMin((size_t)USE_BUFFERSIZE, readlen);
+		const int numbytestoread = (int)myMin(this->max_buffersize, readlen);
 
 		//------------------------------------------------------------------------
 		//Loop until either the prog is exiting or have incoming data

@@ -396,9 +396,9 @@ inline int floorToInt(double x)
 template <class Real>
 inline Real fract(Real x)
 {
-	//return x - std::floor(x);
+	return x - std::floor(x);
 
-	if(x < 0)
+	/*if(x < 0)
 	{
 		// (int)-1.3 = -1
 		// -1.3 - (int)-1.3 = -1.3 - -1 = -0.3
@@ -406,7 +406,7 @@ inline Real fract(Real x)
 		return 1 + (x - (int)x);
 	}
 	else
-		return x - (int)x;
+		return x - (int)x;*/
 }
 
 

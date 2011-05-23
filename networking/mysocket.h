@@ -138,6 +138,8 @@ private:
 	IPAddress thisend_ipaddr;
 	int thisend_port;
 	int otherend_port;
+
+	size_t max_buffersize;
 };
 
 

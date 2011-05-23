@@ -134,15 +134,15 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 	Coord u_frac_part = Maths::fract(u);
 	Coord v_frac_part = Maths::fract(1 - v);
 
-	assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
+	//assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
+	//assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
 	const Coord v_pixels = v_frac_part * (Coord)height;
 
-	assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)width));
-	assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)height));
+	//assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)width));
+	//assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)height));
 
 	const unsigned int ut = (unsigned int)u_pixels;
 	const unsigned int vt = (unsigned int)v_pixels;

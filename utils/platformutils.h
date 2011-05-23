@@ -108,6 +108,9 @@ const std::string getEnvironmentVariable(const std::string& varname);
 const std::string readRegistryKey(const std::string& key, const std::string& value);
 
 
+bool isWindowsXPOrEarlier();
+
+
 void testPlatformUtils();
 
 
