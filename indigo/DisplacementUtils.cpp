@@ -1175,7 +1175,7 @@ void DisplacementUtils::linearSubdivision(
 			}
 			else
 			{
-				assert(edge_info.num_adjacent_subdividing_polys == 1);
+				//TEMP assert(edge_info.num_adjacent_subdividing_polys == 1);
 
 				Vec2f this_start_uv;
 				Vec2f this_end_uv;

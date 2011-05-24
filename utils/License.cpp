@@ -83,7 +83,7 @@ const std::string License::decodeBase64(const std::string& data_)
 {
 	const std::string data = ensureNewLinesPresent(data_);
 
-	if(data.size() > std::numeric_limits<int>::max())
+	if(data.size() > (size_t)std::numeric_limits<int>::max())
 		throw License::LicenseExcep("Data too big");
 
     try {
