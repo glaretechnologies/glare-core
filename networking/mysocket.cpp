@@ -50,7 +50,7 @@ MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallb
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 65536 : 1000000000;
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
 
 	assert(Networking::isInited());
 
@@ -90,7 +90,7 @@ MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallba
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 65536 : 1000000000;
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
 
 	assert(Networking::isInited());
 
