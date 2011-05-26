@@ -24,6 +24,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../graphics/image.h"
 #include "../graphics/imformatdecoder.h"
 #include "../utils/stringutils.h"
+#include "../utils/fileutils.h"
 #include "../indigo/globals.h"
 #include "../indigo/IndigoMeshDecoder.h"
 #include "../public/IndigoMesh.h"
@@ -83,8 +84,9 @@ void CSModelLoader::streamModel(const std::string& pathname, Indigo::IndigoMesh&
 	//------------------------------------------------------------------------
 	try
 	{
+		const std::string use_pathname = FileUtils::toPlatformSlashes(pathname);
 		//decoder->buildModel(&(*modeldata.begin()), modeldata.size(), pathname, model);
-		decoder->streamModel(/*&(*modeldata.begin()), modeldata.size(), */pathname, handler, scale);
+		decoder->streamModel(/*&(*modeldata.begin()), modeldata.size(), */use_pathname, handler, scale);
 	}
 	catch(ModelFormatDecoderExcep& e)
 	{
