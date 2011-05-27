@@ -372,7 +372,26 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
 #else
-	throw PlatformUtilsExcep("getFullPathToCurrentExecutable only supported on Windows.");
+
+	// From http://www.flipcode.com/archives/Path_To_Executable_On_Linux.shtml
+
+	const std::string linkname = "/proc/" + ::toString(getpid()) + "/exe";
+	
+	// Now read the symbolic link
+	char buf[4096];
+	const int ret = readlink(linkname.c_str(), buf, sizeof(buf));
+	
+	if(ret == -1)
+		throw PlatformUtilsExcep("getFullPathToCurrentExecutable: readlink failed [1].");
+	
+	// Insufficient buffer size
+	if(ret >= (int)sizeof(buf))
+		throw PlatformUtilsExcep("getFullPathToCurrentExecutable: readlink failed [2].");
+
+	// Ensure proper NULL termination
+	buf[ret] = 0;
+	
+	return std::string(buf);
 #endif
 }
 
@@ -605,6 +624,7 @@ void PlatformUtils::testPlatformUtils()
 
 	try
 	{
+		conPrint("PlatformUtils::getFullPathToCurrentExecutable(): " + PlatformUtils::getFullPathToCurrentExecutable());
 		conPrint("PlatformUtils::getCurrentWorkingDirPath(): " + PlatformUtils::getCurrentWorkingDirPath());
 
 		//openFileBrowserWindowAtLocation("C:\\testscenes");
