@@ -1781,6 +1781,9 @@ void DisplacementUtils::averagePass(
 
 
 #if (BUILD_TESTS)
+
+#include "../graphics/Map2D.h"
+
 void DisplacementUtils::test()
 {
 	/////////////////////	
@@ -1961,13 +1964,13 @@ void DisplacementUtils::test()
 		conPrint("Vertex positions");
 		for(size_t i = 0; i < verts_out.size(); ++i)
 		{
-			conPrint("vert " + toString(i) + ": " + toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
+			conPrint("vert " + toString((uint64)i) + ": " + toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
 		}
 
 		conPrint("UVs");
 		for(size_t i = 0; i < uvs_out.size(); ++i)
 		{
-			conPrint("UV " + toString(i) + ": " + toString(uvs_out[i].x) + ", " + toString(uvs_out[i].y));
+			conPrint("UV " + toString((uint64)i) + ": " + toString(uvs_out[i].x) + ", " + toString(uvs_out[i].y));
 		}
 
 		for(size_t i = 0; i < triangles_out.size(); ++i)

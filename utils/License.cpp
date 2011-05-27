@@ -636,7 +636,7 @@ void License::test()
 		std::vector<uint32> dst_dwords;
 		const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
 
-		std::cout << "static uint32 encrypted_public_key_size = " + toString(dst_dwords.size()) + ";\n";
+		std::cout << "static uint32 encrypted_public_key_size = " + toString((uint64)dst_dwords.size()) + ";\n";
 		std::cout << "static uint32 encrypted_public_key[] = {\n";
 		for(size_t i=0; i<dst_dwords.size(); ++i)
 		{
