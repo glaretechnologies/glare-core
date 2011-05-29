@@ -9,8 +9,11 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 
 #include "Map2D.h"
 #include "image.h"
-#include <vector>
+#include "../utils/Vector.h"
 #include "ImageFilter.h"
+
+
+// #define IMAGE_MAP_TILED 1
 
 
 /*=====================================================================
@@ -72,7 +75,7 @@ template <class V, class ComponentValueTraits>
 class ImageMap : public Map2D
 {
 public:
-	inline ImageMap();
+	//inline ImageMap();
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N);
 	inline ~ImageMap();
 
@@ -104,21 +107,30 @@ public:
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
 
 private:
+#if IMAGE_MAP_TILED
+	unsigned int w_blocks, h_blocks;
+#endif
 	unsigned int width, height, N;
-	std::vector<V> data;
+	js::Vector<V, 16> data;
 	float gamma;
 };
 
 
-template <class V, class VTraits>
-ImageMap<V, VTraits>::ImageMap() : width(0), height(0), gamma(2.2f) {}
+//template <class V, class VTraits>
+//ImageMap<V, VTraits>::ImageMap() : width(0), height(0), gamma(2.2f) {}
 
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsigned int N_)
 :	width(width_), height(height_), N(N_), gamma(2.2f)
 {
+#if IMAGE_MAP_TILED
+	w_blocks = width / 8 + 1; // TEMP fixme
+	h_blocks = height / 8 + 1;
+	data.resize(w_blocks * h_blocks * 64 * N);
+#else
 	data.resize(width * height * N);
+#endif
 }
 
 
@@ -260,16 +272,8 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 template <class V, class VTraits>
 Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 {
-	Value colour_out;
-
-	Coord intpart; // not used
-	Coord u_frac_part = std::modf(u, &intpart);
-	Coord v_frac_part = std::modf((Coord)1.0 - v, &intpart); // 1.0 - v because we want v=0 to be at top of image, and v=1 to be at bottom.
-
-	if(u_frac_part < 0.0)
-		u_frac_part = 1 + u_frac_part;
-	if(v_frac_part < 0.0)
-		v_frac_part = 1 + v_frac_part;
+	Coord u_frac_part = Maths::fract(u);
+	Coord v_frac_part = Maths::fract(1 - v);
 
 	//assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
 	//assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
@@ -295,6 +299,7 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
+	Value colour_out;
 
 	// Top left pixel
 	{
@@ -343,7 +348,18 @@ template <class V, class VTraits>
 inline V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y)
 {
 	assert(x < width && y < height);
+
+#if IMAGE_MAP_TILED
+	uint32 block_x = x >> 3;
+	uint32 block_y = y >> 3;
+
+	uint32 inblock_x = x & 7;
+	uint32 inblock_y = y & 7;
+
+	return &data[((block_y * w_blocks + block_x) * 64 + (inblock_y*8) + inblock_x) * N];
+#else
 	return &data[(x + width * y) * N];
+#endif
 }
 
 
@@ -351,7 +367,18 @@ template <class V, class VTraits>
 inline const V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y) const
 {
 	assert(x < width && y < height);
+
+#if IMAGE_MAP_TILED
+	uint32 block_x = x >> 3;
+	uint32 block_y = y >> 3;
+
+	uint32 inblock_x = x & 7;
+	uint32 inblock_y = y & 7;
+
+	return &data[((block_y * w_blocks + block_x) * 64 + (inblock_y*8) + inblock_x) * N];
+#else
 	return &data[(x + width * y) * N];
+#endif
 }
 
 

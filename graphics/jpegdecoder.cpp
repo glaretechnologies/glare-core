@@ -109,8 +109,9 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		const unsigned int row_stride = cinfo.output_width * cinfo.output_components;
 
 		// Make a one-row-high sample array that will go away when done with image
-		JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
-
+		//JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
+		std::vector<uint8_t> buffer(row_stride);
+		uint8_t* scanline_ptrs[1] = { &buffer[0] };
 		//------------------------------------------------------------------------
 		//read data
 		//------------------------------------------------------------------------
@@ -120,6 +121,8 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		Here we use the library's state variable cinfo.output_scanline as the
 		loop counter, so that we don't have to keep track ourselves.
 		*/
+		//std::vector<unsigned char> tempbuf(cinfo.output_width * )
+
 		int y = 0;
 		while (cinfo.output_scanline < cinfo.output_height)
 		{
@@ -127,11 +130,17 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 			* Here the array is only one element long, but you could ask for
 			* more than one scanline at a time if that's more convenient.
 			*/
-			jpeg_read_scanlines(&cinfo, buffer, 1);
+			jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
 			/* Assume put_scanline_someplace wants a pointer and sample count. */
 			//put_scanline_someplace(buffer[0], row_stride);
 
-			memcpy(texture->getPixel(0, y), buffer[0], row_stride);
+#if IMAGE_MAP_TILED
+			for(unsigned int x=0; x<cinfo.output_width; ++x)
+				for(int c=0; c<cinfo.num_components; ++c)
+					texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
+#else
+			memcpy(texture->getPixel(0, y), &buffer[0], row_stride);
+#endif
 			++y;
 	  }
 
