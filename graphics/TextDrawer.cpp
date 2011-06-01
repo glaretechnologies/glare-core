@@ -24,7 +24,7 @@ TextDrawer::TextDrawer(const std::string& font_image_path, const std::string& fo
 
 		font.setFromBitmap(
 			font_bmp,
-			2.2f // gamma
+			1.0f // gamma
 		);
 
 		char_widths.resize(256);
