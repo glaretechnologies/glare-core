@@ -36,7 +36,7 @@ public:
 	void getAngles(Vec3d& angles_out); // Specified as (heading, pitch, roll).
 
 	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);
-	static void getBasisForAngles(const Vec3d& angles_in, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
+	static void getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
 
 	bool invert_mouse;
 

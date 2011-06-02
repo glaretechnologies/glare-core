@@ -62,20 +62,22 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
 	const double move_speed   = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
 
-	// Accumulate rotation angles, taking into account mouse speed and invertedness.
-	rotation.x += rot_delta.y * -rotate_speed;
-	rotation.y += rot_delta.x * -rotate_speed * (invert_mouse ? -1 : 1);
+	if(rot_delta.x != 0 || rot_delta.y != 0)
+	{
+		// Accumulate rotation angles, taking into account mouse speed and invertedness.
+		rotation.x += rot_delta.y * -rotate_speed;
+		rotation.y += rot_delta.x * -rotate_speed * (invert_mouse ? -1 : 1);
 
-	const double pi = 3.1415926535897932384626433832795, cap = 1e-4;
-	rotation.y = std::max(cap, std::min(pi - cap, rotation.y));
+		const double pi = 3.1415926535897932384626433832795, cap = 1e-4;
+		rotation.y = std::max(cap, std::min(pi - cap, rotation.y));
+	}
 
 	// Construct camera basis.
-	Vec3d forwards(	sin(rotation.y) * cos(rotation.x),
-					sin(rotation.y) * sin(rotation.x),
-					cos(rotation.y));
-
-	Vec3d up(0, 0, 1); up.removeComponentInDir(forwards); up.normalise();
-	Vec3d right = ::crossProduct(forwards, up);
+	const Vec3d forwards(sin(rotation.y) * cos(rotation.x),
+						 sin(rotation.y) * sin(rotation.x),
+						 cos(rotation.y));
+	const Vec3d up = getUpForForwards(forwards, initialised_up);
+	const Vec3d right = ::crossProduct(forwards, up);
 
 	position += right		* pos_delta.x * move_speed +
 				forwards	* pos_delta.y * move_speed +
@@ -110,7 +112,7 @@ void CameraController::setMoveScale(double move_scale)
 
 void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const
 {
-	getBasisForAngles(rotation, right_out, up_out, forward_out);
+	getBasisForAngles(rotation, initialised_up, right_out, up_out, forward_out);
 }
 
 
@@ -125,7 +127,7 @@ Vec3d CameraController::getUpForForwards(const Vec3d& forwards, const Vec3d& sin
 	Vec3d up_out;
 	Vec3d world_up = Vec3d(0, 0, 1);
 
-	if(::epsEqual(absDot(world_up, forwards), 1.0))
+	if(absDot(world_up, forwards) == 1) // If we are exactly singular then use the provided 
 	{
 		up_out = singular_up;
 	}
@@ -139,13 +141,13 @@ Vec3d CameraController::getUpForForwards(const Vec3d& forwards, const Vec3d& sin
 }
 
 
-void CameraController::getBasisForAngles(const Vec3d& angles_in, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out)
+void CameraController::getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out)
 {
 	// Get un-rolled basis
 	forward_out = Vec3d(sin(angles_in.y) * cos(angles_in.x),
 						sin(angles_in.y) * sin(angles_in.x),
 						cos(angles_in.y));
-	up_out = getUpForForwards(forward_out, Vec3d(0, 1, 0));
+	up_out = getUpForForwards(forward_out, singular_up);
 	right_out = ::crossProduct(forward_out, up_out);
 
 	// Apply camera roll
@@ -190,7 +192,7 @@ void CameraController::test()
 
 	// Apply a rotation along z (roll) of 90 degrees, or pi/4 radians
 	angles.z = -NICKMATHS_PI_2;
-	CameraController::getBasisForAngles(angles, r, u, f);
+	CameraController::getBasisForAngles(angles, Vec3d(0, 1, 0), r, u, f);
 
 	//sdfgdfghd
 }
