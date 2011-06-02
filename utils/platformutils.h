@@ -71,9 +71,11 @@ const std::string getCurrentWorkingDirPath(); // throws PlatformUtilsExcep
 Returns a directory that is writeable by the app.
 On Vista, this can't be indigo_base_dir_path, because that path might be in program files, and so won't be writeable.
 */
-const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name); // throws PlatformUtilsExcep
+const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name); // throws PlatformUtilsExcep.
 
-const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep, only works on Windows.
+const std::string getResourceDirectoryPath(); // throws PlatformUtilsExcep
+	
+const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep.
 
 int execute(const std::string& command);
 
@@ -100,6 +102,9 @@ enum ProcessPriority
 };
 
 void setThisProcessPriority(ProcessPriority p);
+	
+	
+void ignoreUnixSignals();
 
 
 const std::string getEnvironmentVariable(const std::string& varname);

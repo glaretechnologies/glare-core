@@ -57,6 +57,7 @@ Code By Nicholas Chapman.
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <mach-o/dyld.h>
 #endif
 
 
@@ -356,8 +357,29 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 }
 
 
+const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUtilsExcep.
+{
+#if defined(WIN32) || defined(WIN64)
+	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
+#elif defined(OSX)
+	//std::vector<std::string> components;
+	
+	//FileUtils::getDirectoriesFromPath(FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable()), components);
+
+	//components.push_back("..");
+	
+	//components.push_back("Resources");
+	
+	//return StringUtils::join(components,"/");
+	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable()) + "/../Resources";
+#else // Linux.
+	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
+#endif
+}
+
+
 // http://stackoverflow.com/questions/143174/c-c-how-to-obtain-the-full-path-of-current-directory
-const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws PlatformUtilsExcep, only works on Windows.
+const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws PlatformUtilsExcep.
 {
 #if defined(WIN32) || defined(WIN64)
 	TCHAR buf[2048];
@@ -371,8 +393,16 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 		throw PlatformUtilsExcep("GetModuleFileName failed.");
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
+#elif defined(OSX)
+	char path[8192];
+	uint32_t size = sizeof(path);
+	if (_NSGetExecutablePath(path, &size) == 0)
+		printf("executable path is %s\n", path);
+	else
+		printf("buffer too small; need size %u\n", size);
+	
+	return std::string(path);
 #else
-
 	// From http://www.flipcode.com/archives/Path_To_Executable_On_Linux.shtml
 
 	const std::string linkname = "/proc/" + ::toString(getpid()) + "/exe";
@@ -530,6 +560,29 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 #else
 	// For now, we'll just make this a Null op.
 	//#error implement me, maybe?
+#endif
+}
+
+
+void PlatformUtils::ignoreUnixSignals()
+{
+#if defined(WIN32) || defined(WIN64)
+	 
+#else
+	// Ignore sigpipe in unix.
+	sigset_t sigset;
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGPIPE);
+	int res = pthread_sigmask(SIG_BLOCK, &sigset, NULL);
+	
+	if(res != 0)
+	{
+		conPrint("pthread_sigmask() failed.");
+		exit(1);
+	}
+	//else
+	//	conPrint("pthread_sigmask() success.");
+
 #endif
 }
 
