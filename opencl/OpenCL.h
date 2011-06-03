@@ -15,12 +15,20 @@ Code By Nicholas Chapman.
 
 #if USE_OPENCL
 
+#if defined(WIN32) || defined(WIN64)
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 
+#ifdef OSX
+#include <OpenCL/cl.h>
+#include <OpenCL/cl_platform.h>
+#else
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
+#endif
+
 //#include <CL/clext.h>
 
 
@@ -31,7 +39,13 @@ typedef cl_int (CL_API_CALL *clGetPlatformIDs_TYPE) (cl_uint num_entries, cl_pla
 typedef cl_int (CL_API_CALL *clGetPlatformInfo_TYPE) (cl_platform_id platform, cl_platform_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clGetDeviceIDs_TYPE) (cl_platform_id platform, cl_device_type device_type, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 typedef cl_int (CL_API_CALL *clGetDeviceInfo_TYPE) (cl_device_id device, cl_device_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
+#ifdef OSX
+typedef cl_context (CL_API_CALL *clCreateContextFromType_TYPE) (const cl_context_properties *properties, cl_device_type device_type, void (*pfn_notify)(const char *errinfo, const void *private_info, size_t cb, void *user_data), void *user_data, cl_int *errcode_ret);
+#else
 typedef cl_context (CL_API_CALL *clCreateContextFromType_TYPE) (cl_context_properties *properties, cl_device_type device_type, void (*pfn_notify)(const char *errinfo, const void *private_info, size_t cb, void *user_data), void *user_data, cl_int *errcode_ret);
+#endif
+	
 typedef cl_int (CL_API_CALL *clReleaseContext_TYPE) (cl_context context);
 typedef cl_command_queue (CL_API_CALL *clCreateCommandQueue_TYPE) (cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseCommandQueue_TYPE) (cl_command_queue command_queue);
@@ -95,7 +109,6 @@ public:
 	void dumpBuildLog(cl_program program);
 
 //private:
-
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
 	clGetPlatformInfo_TYPE clGetPlatformInfo;
 	clGetDeviceIDs_TYPE clGetDeviceIDs;
@@ -124,7 +137,10 @@ public:
 	clEnqueueMarker_TYPE clEnqueueMarker;
 	clWaitForEvents_TYPE clWaitForEvents;
 
+#if defined(WIN32) || defined(WIN64)
 	HMODULE module;
+#endif
+	
 	cl_platform_id platform_to_use;
 	cl_device_id device_to_use;
 	cl_context context;

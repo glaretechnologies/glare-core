@@ -58,6 +58,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	context = 0;
 	command_queue = 0;
 
+#if defined(WIN32) || defined(WIN64)
 	std::vector<std::string> opencl_paths;
 
 	opencl_paths.push_back("OpenCL.dll");
@@ -145,6 +146,36 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	{
 		throw Indigo::Exception("Failed to find OpenCL library.");
 	}
+#else
+	// Just get the function pointers directly
+	this->clGetPlatformIDs = ::clGetPlatformIDs;
+	this->clGetPlatformInfo = ::clGetPlatformInfo;
+	this->clGetDeviceIDs = ::clGetDeviceIDs;
+	this->clGetDeviceInfo = ::clGetDeviceInfo;
+	this->clCreateContextFromType = ::clCreateContextFromType;
+	this->clReleaseContext = ::clReleaseContext;
+	this->clCreateCommandQueue = ::clCreateCommandQueue;
+	this->clReleaseCommandQueue = ::clReleaseCommandQueue;
+	this->clCreateBuffer = ::clCreateBuffer;
+	this->clCreateImage2D = ::clCreateImage2D;
+	this->clReleaseMemObject = ::clReleaseMemObject;
+	this->clCreateProgramWithSource = ::clCreateProgramWithSource;
+	this->clBuildProgram = ::clBuildProgram;
+	this->clGetProgramBuildInfo = ::clGetProgramBuildInfo;
+	this->clCreateKernel = ::clCreateKernel;
+	this->clSetKernelArg = ::clSetKernelArg;
+	this->clEnqueueWriteBuffer = ::clEnqueueWriteBuffer;
+	this->clEnqueueReadBuffer = ::clEnqueueReadBuffer;
+	this->clEnqueueNDRangeKernel = ::clEnqueueNDRangeKernel;
+	this->clReleaseKernel = ::clReleaseKernel;
+	this->clReleaseProgram = ::clReleaseProgram;
+	this->clGetProgramInfo = ::clGetProgramInfo;
+	
+	this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
+	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
+	this->clEnqueueMarker = ::clEnqueueMarker;
+	this->clWaitForEvents = ::clWaitForEvents;
+#endif
 
 
 	device_to_use = 0;
@@ -636,8 +667,10 @@ OpenCL::~OpenCL()
 			throw Indigo::Exception("clReleaseContext failed");
 	}
 
+#if defined(WIN32) || defined(WIN64)
 	if(!::FreeLibrary(module))
 		throw Indigo::Exception("FreeLibrary failed");
+#endif
 
 	//std::cout << "Shut down OpenCL." << std::endl;
 #endif
