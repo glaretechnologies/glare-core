@@ -63,6 +63,7 @@ typedef cl_int (CL_API_CALL *clEnqueueNDRangeKernel_TYPE) (cl_command_queue comm
 typedef cl_int (CL_API_CALL *clReleaseKernel_TYPE) (cl_kernel kernel);
 typedef cl_int (CL_API_CALL *clReleaseProgram_TYPE) (cl_program program);
 typedef cl_int (CL_API_CALL *clGetProgramInfo_TYPE) (cl_program program, cl_program_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+typedef cl_int (CL_API_CALL *clGetKernelWorkGroupInfo_TYPE) (cl_kernel kernel, cl_device_id device, cl_kernel_work_group_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
 typedef cl_int (CL_API_CALL *clSetCommandQueueProperty_TYPE) (cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties *old_properties);
 typedef cl_int (CL_API_CALL *clGetEventProfilingInfo_TYPE) (cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
@@ -131,6 +132,7 @@ public:
 	clReleaseKernel_TYPE clReleaseKernel;
 	clReleaseProgram_TYPE clReleaseProgram;
 	clGetProgramInfo_TYPE clGetProgramInfo;
+	clGetKernelWorkGroupInfo_TYPE clGetKernelWorkGroupInfo;
 
 	clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;

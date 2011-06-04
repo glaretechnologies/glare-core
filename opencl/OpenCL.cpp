@@ -127,6 +127,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(module, "clReleaseKernel");
 			clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
 			clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
+			clGetKernelWorkGroupInfo = getFuncPointer<clGetKernelWorkGroupInfo_TYPE>(module, "clGetKernelWorkGroupInfo");
 
 			clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(module, "clSetCommandQueueProperty");
 			clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(module, "clGetEventProfilingInfo");
@@ -170,6 +171,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	this->clReleaseKernel = ::clReleaseKernel;
 	this->clReleaseProgram = ::clReleaseProgram;
 	this->clGetProgramInfo = ::clGetProgramInfo;
+	this->clGetKernelWorkGroupInfo = ::clGetKernelWorkGroupInfo;
 	
 	this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
