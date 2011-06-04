@@ -58,6 +58,7 @@ Code By Nicholas Chapman.
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <mach-o/dyld.h>
+//#include <signal.h>
 #endif
 
 
@@ -570,16 +571,18 @@ void PlatformUtils::ignoreUnixSignals()
 	 
 #else
 	// Ignore sigpipe in unix.
-	sigset_t sigset;
-	sigemptyset(&sigset);
-	sigaddset(&sigset, SIGPIPE);
-	int res = pthread_sigmask(SIG_BLOCK, &sigset, NULL);
+	signal(SIGPIPE, SIG_IGN);
+
+	//sigset_t sigset;
+	//sigemptyset(&sigset);
+	//sigaddset(&sigset, SIGPIPE);
+	//int res = pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	
-	if(res != 0)
-	{
-		conPrint("pthread_sigmask() failed.");
-		exit(1);
-	}
+	//if(res != 0)
+	//{
+	//	conPrint("pthread_sigmask() failed.");
+	//	exit(1);
+	//}
 	//else
 	//	conPrint("pthread_sigmask() success.");
 
