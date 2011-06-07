@@ -14,30 +14,16 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #endif
 
-#include <cmath>
-#include <fstream>
-#include <iostream>
-
 
 #include "../maths/mathstypes.h"
-
 #include "../utils/platformutils.h"
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
-
 #include "../indigo/gpuDeviceInfo.h"
-
-
-/*
-#define checkFunctionPointer(f) (_checkFunctionPointer(f, #f));
-
-template <class T>
-static void _checkFunctionPointer(T f, const std::string& name)
-{
-	if(!f)
-		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-}*/
+#include <cmath>
+#include <fstream>
+#include <iostream>
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -63,7 +49,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 
 	opencl_paths.push_back("OpenCL.dll");
 
-	try // ati/amd opencl
+	try // ATI/AMD OpenCL
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
 	#if defined(WIN64)
@@ -74,9 +60,9 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
 	#endif
 	}
-	catch(PlatformUtils::PlatformUtilsExcep&) { } // no ati/amd opencl found
+	catch(PlatformUtils::PlatformUtilsExcep&) { } // No ATI/AMD OpenCL found
 
-	try // intel opencl
+	try // Intel OpenCL
 	{
 		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
 
@@ -88,7 +74,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
 	#endif
 	}
-	catch(PlatformUtils::PlatformUtilsExcep&) { } // no intel opencl found
+	catch(PlatformUtils::PlatformUtilsExcep&) { } // No Intel OpenCL found
 
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
@@ -360,7 +346,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	this->context = clCreateContextFromType(
 		cps, // properties
 		CL_DEVICE_TYPE_ALL, // CL_DEVICE_TYPE_CPU, // TEMP CL_DEVICE_TYPE_GPU, // device type
-		NULL, // pfn notifiy
+		NULL, // pfn notify
 		NULL, // user data
 		&error_code
 	);
@@ -372,280 +358,12 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	this->command_queue = this->clCreateCommandQueue(
 		context,
 		device_to_use, // TEMP HACK, may not be same device as context
-		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties  TEMP enabled profiling.
+		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
 		&error_code);
 
 	if(command_queue == 0)
 		throw Indigo::Exception("clCreateCommandQueue failed");
 
-	////////////////////// Run a test ////////////////////////////////////////////
-	if(false)
-	{
-
-		// Create buffer
-		const int N = 10000 * 512; // Should be a multiple of work group size (512)
-		std::cout << "N: " << N << std::endl;
-		cl_mem buffer_a = clCreateBuffer(
-			context,
-			CL_MEM_READ_ONLY,
-			sizeof(cl_float) * N,
-			NULL, // host ptr
-			&error_code
-		);
-
-		if(!buffer_a)
-			throw Indigo::Exception("clCreateBuffer failed");
-
-
-
-		cl_mem buffer_c = clCreateBuffer(
-			context,
-			CL_MEM_WRITE_ONLY,
-			sizeof(cl_float) * N,
-			NULL, // host ptr
-			&error_code
-		);
-
-		if(!buffer_c)
-			throw Indigo::Exception("clCreateBuffer failed");
-
-
-		// Create program
-		std::vector<std::string> program_lines;
-		program_lines.push_back("__kernel void applyPow(__global const float* a, __global float* c, int iNumElements)\n");
-		program_lines.push_back("{\n");
-		program_lines.push_back("	int iGID = get_global_id(0);\n");
-		program_lines.push_back("	if (iGID >= iNumElements)\n");
-		program_lines.push_back("		return;\n");
-		program_lines.push_back("	c[iGID] = pow(a[iGID], 2.2f);\n");
-		program_lines.push_back("}\n");
-
-		std::vector<const char*> strings(program_lines.size());
-		for(size_t i=0; i<program_lines.size(); ++i)
-			strings[i] = program_lines[i].c_str();
-
-		cl_program program = clCreateProgramWithSource(
-			context,
-			(cl_uint)program_lines.size(),
-			&strings[0],
-			NULL, // lengths, can NULL because all strings are null-terminated.
-			&error_code
-		);
-
-		// Build program
-		const std::string options = "";
-		if(clBuildProgram(
-			program,
-			1, // num devices
-			&device_to_use, // device ids
-			options.c_str(), // options
-			NULL, // pfn_notify
-			NULL // user data
-		) !=  CL_SUCCESS)
-		{
-
-			//throw Indigo::Exception("clBuildProgram failed");
-
-			std::vector<char> buf(100000);
-			clGetProgramBuildInfo(
-				program,
-				device_to_use,
-				CL_PROGRAM_BUILD_LOG,
-				buf.size(),
-				&buf[0],
-				NULL);
-			const std::string log(&buf[0]);
-			std::cout << "build log: " << log << std::endl;
-		}
-
-		cl_kernel kernel = clCreateKernel(
-			program,
-			"applyPow",
-			&error_code
-		);
-		if(!kernel)
-			throw Indigo::Exception("clCreateKernel failed");
-
-
-		// Set kernel args
-		if(clSetKernelArg(
-			kernel,
-			0, // arg index
-			sizeof(cl_mem), // arg size
-			&buffer_a
-		) != CL_SUCCESS)
-			throw Indigo::Exception("clSetKernelArg failed");
-
-		if(clSetKernelArg(
-			kernel,
-			1, // arg index
-			sizeof(cl_mem), // arg size
-			&buffer_c
-		) != CL_SUCCESS)
-			throw Indigo::Exception("clSetKernelArg failed");
-
-		const cl_int numElements = N;
-		if(clSetKernelArg(
-			kernel,
-			2, // arg index
-			sizeof(cl_int), // arg size
-			&numElements
-		) != CL_SUCCESS)
-			throw Indigo::Exception("clSetKernelArg failed");
-
-		std::vector<float> host_buffer_a(N, 2.0f);
-		std::vector<float> host_buffer_c(N, 2.0f);
-		std::vector<float> ref_buffer_c(N, 2.0f);
-
-		const size_t global_work_size = N;
-		const size_t local_work_size = 512;
-
-
-		// Enqueue write event
-		clEnqueueWriteBuffer(
-			command_queue,
-			buffer_a,
-			CL_FALSE, // blocking write
-			0, // offset
-			sizeof(cl_float) * N, // size in bytes
-			&host_buffer_a[0], // host buffer pointer
-			0, // num events in wait list
-			NULL, // wait list
-			NULL // event
-		);
-
-		// Enqueue kernel execution
-		cl_int result = clEnqueueNDRangeKernel(
-			command_queue,
-			kernel,
-			1, // dimension
-			NULL, // global_work_offset
-			&global_work_size, // global_work_size
-			&local_work_size,
-			0, // num_events_in_wait_list
-			NULL, // event_wait_list
-			NULL // event
-		);
-		if(result != CL_SUCCESS)
-		{
-			if(result == CL_INVALID_WORK_DIMENSION)
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed: CL_INVALID_WORK_DIMENSION");
-			else if(result == CL_INVALID_WORK_GROUP_SIZE)
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed: CL_INVALID_WORK_GROUP_SIZE");
-			else
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed.");
-
-		}
-
-		// Enqueue read
-		clEnqueueReadBuffer(
-			command_queue,
-			buffer_c,
-			CL_TRUE, // blocking read
-			0, // offset
-			sizeof(cl_float) * N, // size in bytes
-			&host_buffer_c[0], // host buffer pointer
-			0, // num events in wait list
-			NULL, // wait list
-			NULL // event
-		);
-
-
-		// TEMP: do again
-		Timer timer;
-
-		// Enqueue write event
-		clEnqueueWriteBuffer(
-			command_queue,
-			buffer_a,
-			CL_FALSE, // blocking write
-			0, // offset
-			sizeof(cl_float) * N, // size in bytes
-			&host_buffer_a[0], // host buffer pointer
-			0, // num events in wait list
-			NULL, // wait list
-			NULL // event
-		);
-
-		// Enqueue kernel execution
-		result = clEnqueueNDRangeKernel(
-			command_queue,
-			kernel,
-			1, // dimension
-			NULL, // global_work_offset
-			&global_work_size, // global_work_size
-			&local_work_size,
-			0, // num_events_in_wait_list
-			NULL, // event_wait_list
-			NULL // event
-		);
-		if(result != CL_SUCCESS)
-		{
-			if(result == CL_INVALID_WORK_DIMENSION)
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed: CL_INVALID_WORK_DIMENSION");
-			else if(result == CL_INVALID_WORK_GROUP_SIZE)
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed: CL_INVALID_WORK_GROUP_SIZE");
-			else
-				throw Indigo::Exception("clEnqueueNDRangeKernel failed.");
-
-		}
-
-		// Enqueue read
-		clEnqueueReadBuffer(
-			command_queue,
-			buffer_c,
-			CL_TRUE, // blocking read
-			0, // offset
-			sizeof(cl_float) * N, // size in bytes
-			&host_buffer_c[0], // host buffer pointer
-			0, // num events in wait list
-			NULL, // wait list
-			NULL // event
-		);
-
-		// Computation should have finished by now.  
-		const double open_cl_elapsed = timer.elapsed();
-		// cycles/op = elapsed 
-		const double open_cl_cycles_per_op = open_cl_elapsed * 2.4e9     / (double)N;
-		//			cycles / op			  = s               * (cycles / s) / op
-
-		timer.reset();
-
-		// Compute on host
-		#pragma omp parallel for
-		for(int i=0; i<(int)host_buffer_c.size(); ++i)
-			ref_buffer_c[i] = std::pow(host_buffer_a[i], 2.2f);
-
-		const double host_elapsed = timer.elapsed();
-		const double host_cycles_per_op = host_elapsed * 2.4e9 / (double)N;
-
-		std::cout << "Open CL took " << open_cl_elapsed << " s" << std::endl;
-		std::cout << "open_cl_cycles_per_op " << open_cl_cycles_per_op << " cycles" << std::endl;
-		std::cout << "CPU took " << host_elapsed << " s" << std::endl;
-		std::cout << "host_cycles_per_op " << host_cycles_per_op << " cycles" << std::endl;
-
-		std::cout << "Speedup factor: " << (host_elapsed / open_cl_elapsed) << std::endl;
-
-		// Check against CPU version:
-		for(size_t i=0; i<host_buffer_c.size(); ++i)
-		{
-			const float expected = ref_buffer_c[i];
-			const float open_cl_computed = host_buffer_c[i];
-			if(!::epsEqual(expected, open_cl_computed))
-			{
-				std::cout << "expected: " << expected << std::endl;
-				std::cout << "open_cl_computed: " << open_cl_computed << std::endl;
-			}
-		}
-
-
-
-		// Free buffers
-		if(clReleaseMemObject(buffer_a) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseMemObject failed");
-		if(clReleaseMemObject(buffer_c) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseMemObject failed");
-	} // End of test
 #else
 	throw Indigo::Exception("Open CL disabled.");
 #endif
@@ -764,7 +482,7 @@ cl_program OpenCL::buildProgram(
 		NULL
 		);
 	if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
-		throw Indigo::Exception("Build failed");
+		throw Indigo::Exception("Build failed: " + errorString(result));
 
 	//================= TEMP: get program 'binary' ====================
 
