@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include <string>
 #include <vector>
+#include "../indigo/PrintOutput.h"
 #include "../utils/platform.h"
 #include "../indigo/gpuDeviceInfo.h"
 
@@ -104,10 +105,11 @@ public:
 	cl_program buildProgram(
 		const std::vector<std::string>& program_lines,
 		cl_device_id device,
-		const std::string& compile_options
+		const std::string& compile_options,
+		PrintOutput& print_output
 	);
 
-	void dumpBuildLog(cl_program program);
+	void dumpBuildLog(cl_program program, PrintOutput& print_output);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

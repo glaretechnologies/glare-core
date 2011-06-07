@@ -433,7 +433,8 @@ std::vector<gpuDeviceInfo> OpenCL::getDeviceInfo() const { return device_info; }
 cl_program OpenCL::buildProgram(
 							   const std::vector<std::string>& program_lines,
 							   cl_device_id device,
-							   const std::string& compile_options
+							   const std::string& compile_options,
+							   PrintOutput& print_output
 							   )
 {
 	std::vector<const char*> strings(program_lines.size());
@@ -465,7 +466,7 @@ cl_program OpenCL::buildProgram(
 	if(!build_success)
 	{
 		if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
-			dumpBuildLog(program);
+			dumpBuildLog(program, print_output);
 		else
 			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
 	}
@@ -553,7 +554,7 @@ cl_program OpenCL::buildProgram(
 }
 
 
-void OpenCL::dumpBuildLog(cl_program program)
+void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
 {
 	cl_int result;
 
@@ -579,7 +580,7 @@ void OpenCL::dumpBuildLog(cl_program program)
 	if(result == CL_SUCCESS)
 	{
 		const std::string log(&buf[0], param_value_size_ret);
-		std::cout << "OpenCL build log: " << log << std::endl;
+		print_output.print("OpenCL build log: " + log);
 
 		{
 			std::ofstream build_log("build_log.txt");
