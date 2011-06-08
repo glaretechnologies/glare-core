@@ -163,13 +163,13 @@ void NLogNKDTreeBuilder::doBuild(
 	// Check all our bounds are sorted correctly
 	for(int axis=0; axis<3; ++axis)
 	{
-		testAssert(layer.lower_bounds[axis].size() == num_lowers);
-		testAssert(layer.upper_bounds[axis].size() == num_lowers);
+		assert(layer.lower_bounds[axis].size() == num_lowers);
+		assert(layer.upper_bounds[axis].size() == num_lowers);
 
 		for(int z=1; z<layer.lower_bounds[axis].size(); ++z)
 		{
-			testAssert((layer.lower_bounds[axis])[z-1].lower <= (layer.lower_bounds[axis])[z].lower);
-			testAssert((layer.upper_bounds[axis])[z-1].upper <= (layer.upper_bounds[axis])[z].upper);
+			assert((layer.lower_bounds[axis])[z-1].lower <= (layer.lower_bounds[axis])[z].lower);
+			assert((layer.upper_bounds[axis])[z-1].upper <= (layer.upper_bounds[axis])[z].upper);
 		}
 	}
 #endif
