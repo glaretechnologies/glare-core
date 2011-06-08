@@ -527,7 +527,7 @@ const std::string License::currentLicenseSummaryString(const std::string& appdat
 	{}
 
 	if(licence_type != License::UNLICENSED)
-		return "Licence verified, licence type: " + License::licenseTypeToString(licence_type) + ", licensed to '" + licence_user_id + "'";
+		return "Licence verified.  \nLicence type: " + License::licenseTypeToString(licence_type) + ".  \nLicensed to '" + licence_user_id + "'";
 	else
 		return "Licence not verified, running in free mode.";
 }
