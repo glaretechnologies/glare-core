@@ -258,8 +258,10 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 #ifdef INDIGO_RT
 		if(components[1] == "indigo-rt-3.x")
 			desired_license_type = RT_3_X;
-		if(components[1] == "indigo-full-3.x")
+		else if(components[1] == "indigo-full-3.x")
 			desired_license_type = FULL_3_X;
+		else if(components[1] == "indigo-full-lifetime")
+			desired_license_type = FULL_LIFETIME;
 #else
 		if(components[1] == "indigo-full-2.x")
 			desired_license_type = FULL_2_X;
@@ -447,7 +449,11 @@ bool License::shouldApplyWatermark(LicenceType t)
 	else if(t == NODE_3_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
 	else if(t == RT_3_X)
+#ifdef INDIGO_RT
 		return false;
+#else
+		return true;
+#endif
 	else
 	{
 		assert(0);
@@ -481,7 +487,11 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	else if(t == NODE_3_X)
 		return false;
 	else if(t == RT_3_X)
+#ifdef INDIGO_RT
 		return false;
+#else
+		return true;
+#endif
 	else
 	{
 		assert(0);
