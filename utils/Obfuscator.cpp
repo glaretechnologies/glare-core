@@ -320,7 +320,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 
 		{
 			bool found = false;
-			for(int i=0; i<ignore_tokens.size() && !found; ++i)
+			for(size_t i=0; i<ignore_tokens.size() && !found; ++i)
 			{
 				if(p.parseChar(ignore_tokens[i]))
 				{

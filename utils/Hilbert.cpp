@@ -94,7 +94,7 @@ void Hilbert::test()
 		indices
 	);
 
-	for(int i=0; i<indices.size(); ++i)
+	for(size_t i=0; i<indices.size(); ++i)
 	{
 		conPrint("index " + ::toString(i) + ": " + toString(indices[i].first) + ", " + toString(indices[i].second));
 	}
