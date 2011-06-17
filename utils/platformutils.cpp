@@ -61,7 +61,7 @@ Code By Nicholas Chapman.
 //#include <signal.h>
 #endif
 
-#ifndef(WIN32) || !defined(WIN64)
+#ifndef(WIN32) && !defined(WIN64)
 #include <signal.h>
 #endif
 
