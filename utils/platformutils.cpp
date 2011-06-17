@@ -61,6 +61,10 @@ Code By Nicholas Chapman.
 //#include <signal.h>
 #endif
 
+#ifndef(WIN32) || !defined(WIN64)
+#include <signal.h>
+#endif
+
 
 // Make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
