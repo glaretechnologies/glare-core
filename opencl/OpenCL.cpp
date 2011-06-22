@@ -414,7 +414,7 @@ OpenCL::~OpenCL()
 	}
 
 #if defined(WIN32) || defined(WIN64)
-	if(!::FreeLibrary(module))
+	if(!::FreeLibrary(opencl_handle))
 		throw Indigo::Exception("FreeLibrary failed");
 #endif
 
