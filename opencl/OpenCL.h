@@ -4,8 +4,7 @@ OpenCL.h
 File created by ClassTemplate on Mon Nov 02 17:13:50 2009
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __OPENCL_H_666_
-#define __OPENCL_H_666_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -141,14 +140,16 @@ public:
 	clEnqueueMarker_TYPE clEnqueueMarker;
 	clWaitForEvents_TYPE clWaitForEvents;
 
-#if defined(WIN32) || defined(WIN64)
-	HMODULE module;
-#endif
-	
 	cl_platform_id platform_to_use;
 	cl_device_id device_to_use;
 	cl_context context;
 	cl_command_queue command_queue;
+#endif
+
+#if defined(WIN32) || defined(WIN64)
+	HMODULE opencl_handle;
+#else
+	void *opencl_handle;
 #endif
 
 	int chosen_device_number;
@@ -156,5 +157,3 @@ public:
 	std::vector<gpuDeviceInfo> device_info;
 };
 
-
-#endif //__OPENCL_H_666_

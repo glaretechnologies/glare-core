@@ -14,6 +14,13 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #endif
 
+#if defined(LINUX)
+#include <dlfcn.h>
+#endif
+
+#include <cmath>
+#include <fstream>
+#include <iostream>
 
 #include "../maths/mathstypes.h"
 #include "../utils/platformutils.h"
@@ -21,9 +28,6 @@ Code By Nicholas Chapman.
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
 #include "../indigo/gpuDeviceInfo.h"
-#include <cmath>
-#include <fstream>
-#include <iostream>
 
 
 #if defined(WIN32) || defined(WIN64)
@@ -31,6 +35,15 @@ template <class FuncPointerType>
 static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 {
 	FuncPointerType f = (FuncPointerType)::GetProcAddress(module, name.c_str());
+	if(!f)
+		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+	return f;
+}
+#else if defined(LINUX)
+template <class FuncPointerType>
+static FuncPointerType getFuncPointer(void *handle, const std::string& name)
+{
+	FuncPointerType f = (FuncPointerType)dlsym(handle, name.c_str());
 	if(!f)
 		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
 	return f;
@@ -44,9 +57,9 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	context = 0;
 	command_queue = 0;
 
-#if defined(WIN32) || defined(WIN64)
 	std::vector<std::string> opencl_paths;
 
+#if defined(WIN32) || defined(WIN64)
 	opencl_paths.push_back("OpenCL.dll");
 
 	try // ATI/AMD OpenCL
@@ -75,50 +88,63 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	#endif
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&) { } // No Intel OpenCL found
+#else
+	opencl_paths.push_back("libOpenCL.so");
+#endif
 
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
+#if defined(WIN32) || defined(WIN64)
 		const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding(opencl_paths[searched_paths]);
-		module = ::LoadLibrary(path.c_str());
-		if(!module)
+		opencl_handle = ::LoadLibrary(path.c_str());
+		if(!opencl_handle)
 		{
 			const DWORD error_code = GetLastError();
 			std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
 			continue;
 		}
+#else if defined(LINUX)
+		opencl_handle = dlopen(opencl_paths[searched_paths].c_str(), RTLD_LAZY);
+		if(!opencl_handle)
+		{
+			std::cout << "Failed to load OpenCL library" << std::endl;
+			continue;
+		}
+#endif
 
+#if defined(WIN32) || defined(WIN64) || defined(LINUX)
 		// Successfully loaded library, try to get required function pointers
 		try
 		{
-			clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(module, "clGetPlatformIDs");
-			clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(module, "clGetPlatformInfo");
-			clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(module, "clGetDeviceIDs");
-			clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(module, "clGetDeviceInfo");
-			clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(module, "clCreateContextFromType");
-			clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(module, "clReleaseContext");
-			clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(module, "clCreateCommandQueue");
-			clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(module, "clReleaseCommandQueue");
-			clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(module, "clCreateBuffer");
-			clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(module, "clCreateImage2D");
-			clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(module, "clReleaseMemObject");
-			clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(module, "clCreateProgramWithSource");
-			clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(module, "clBuildProgram");
-			clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(module, "clGetProgramBuildInfo");
-			clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(module, "clCreateKernel");
-			clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(module, "clSetKernelArg");
-			clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(module, "clEnqueueWriteBuffer");
-			clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(module, "clEnqueueReadBuffer");
-			clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(module, "clEnqueueNDRangeKernel");
-			clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(module, "clReleaseKernel");
-			clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(module, "clReleaseProgram");
-			clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(module, "clGetProgramInfo");
-			clGetKernelWorkGroupInfo = getFuncPointer<clGetKernelWorkGroupInfo_TYPE>(module, "clGetKernelWorkGroupInfo");
+			clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(opencl_handle, "clGetPlatformIDs");
+			clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(opencl_handle, "clGetPlatformInfo");
+			clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(opencl_handle, "clGetDeviceIDs");
+			clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(opencl_handle, "clGetDeviceInfo");
+			clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(opencl_handle, "clCreateContextFromType");
+			clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(opencl_handle, "clReleaseContext");
+			clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(opencl_handle, "clCreateCommandQueue");
+			clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(opencl_handle, "clReleaseCommandQueue");
+			clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(opencl_handle, "clCreateBuffer");
+			clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(opencl_handle, "clCreateImage2D");
+			clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(opencl_handle, "clReleaseMemObject");
+			clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(opencl_handle, "clCreateProgramWithSource");
+			clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(opencl_handle, "clBuildProgram");
+			clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(opencl_handle, "clGetProgramBuildInfo");
+			clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(opencl_handle, "clCreateKernel");
+			clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(opencl_handle, "clSetKernelArg");
+			clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(opencl_handle, "clEnqueueWriteBuffer");
+			clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(opencl_handle, "clEnqueueReadBuffer");
+			clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(opencl_handle, "clEnqueueNDRangeKernel");
+			clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(opencl_handle, "clReleaseKernel");
+			clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(opencl_handle, "clReleaseProgram");
+			clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(opencl_handle, "clGetProgramInfo");
+			clGetKernelWorkGroupInfo = getFuncPointer<clGetKernelWorkGroupInfo_TYPE>(opencl_handle, "clGetKernelWorkGroupInfo");
 
-			clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(module, "clSetCommandQueueProperty");
-			clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(module, "clGetEventProfilingInfo");
-			clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(module, "clEnqueueMarker");
-			clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(module, "clWaitForEvents");
+			clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(opencl_handle, "clSetCommandQueueProperty");
+			clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(opencl_handle, "clGetEventProfilingInfo");
+			clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(opencl_handle, "clEnqueueMarker");
+			clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(opencl_handle, "clWaitForEvents");
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -134,7 +160,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		throw Indigo::Exception("Failed to find OpenCL library.");
 	}
 #else
-	// Just get the function pointers directly
+	// Just get the function pointers directly for Mac OS X
 	this->clGetPlatformIDs = ::clGetPlatformIDs;
 	this->clGetPlatformInfo = ::clGetPlatformInfo;
 	this->clGetDeviceIDs = ::clGetDeviceIDs;
@@ -158,7 +184,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	this->clReleaseProgram = ::clReleaseProgram;
 	this->clGetProgramInfo = ::clGetProgramInfo;
 	this->clGetKernelWorkGroupInfo = ::clGetKernelWorkGroupInfo;
-	
+
 	this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
 	this->clEnqueueMarker = ::clEnqueueMarker;
