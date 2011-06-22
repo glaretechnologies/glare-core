@@ -1002,6 +1002,21 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 }
 
 
+const std::string getLineFromBuffer(const std::string& str, unsigned int charindex)
+{
+	assert(charindex < str.size());
+
+	std::string line;
+	while(charindex < str.size() && str[charindex] != '\n')
+	{
+		line += std::string(1, str[charindex]);
+		charindex++;
+	}
+
+	return line;
+}
+
+
 #if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
