@@ -89,39 +89,15 @@ Real PerlinNoise::noise(Real x, Real y, Real z)
       y -= Maths::floorToInt(y);                                // OF POINT IN CUBE.
       z -= Maths::floorToInt(z);*/
 
-	Real intpart_d;
-	int intpart;
-	int X, Y, Z;
-
-	x = std::modf(x, &intpart_d);
-	intpart = (int)intpart_d;
-	if(x < 0.0)
-	{
-		X = 255 - (-intpart & 255);
-		x = (Real)1.0 + x;
-	}
-	else
-		X = intpart & 255;
-
-	y = std::modf(y, &intpart_d);
-	intpart = (int)intpart_d;
-	if(y < 0.0)
-	{
-		Y = 255 - (-intpart & 255);
-		y = (Real)1.0 + y;
-	}
-	else
-		Y = intpart & 255;
-
-	z = std::modf(z, &intpart_d);
-	intpart = (int)intpart_d;
-	if(z < 0.0)
-	{
-		Z = 255 - (-intpart & 255);
-		z = (Real)1.0 + z;
-	}
-	else
-		Z = intpart & 255;
+	const int fx = (int)floor(x);
+	const int fy = (int)floor(y);
+	const int fz = (int)floor(z);
+	x = x - fx;
+	y = y - fy;
+	z = z - fz;
+	const int X = fx & 0xFF;
+	const int Y = fy & 0xFF;
+	const int Z = fz & 0xFF;
 
 	assert(Maths::inHalfClosedInterval(x, (Real)0.0, (Real)1.0));
 	assert(Maths::inHalfClosedInterval(y, (Real)0.0, (Real)1.0));
