@@ -509,7 +509,7 @@ cl_program OpenCL::buildProgram(
 		NULL
 		);
 	if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
-		throw Indigo::Exception("Build failed.");
+		throw Indigo::Exception("Kernel build failed.");
 
 	//================= TEMP: get program 'binary' ====================
 
