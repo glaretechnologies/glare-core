@@ -13,13 +13,15 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if USE_OPENCL
-
 #if defined(WIN32) || defined(WIN64)
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+
+
+#if USE_OPENCL
+
 
 #ifdef OSX
 #include <OpenCL/cl.h>
