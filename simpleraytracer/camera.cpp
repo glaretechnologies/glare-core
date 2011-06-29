@@ -750,8 +750,8 @@ double Camera::lensPosVisibility(const Vec3Type& lenspos_os) const
 	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
 	// TODO: precompute 1/lens_width
 	const Vec2f normed_lenspoint(
-		((lenspos_os[0] - lens_center.x) * recip_lens_width) + 0.5,
-		((lenspos_os[2] - lens_center.z) * recip_lens_width) + 0.5
+		((lenspos_os[0] - lens_center.x) * recip_lens_width) + 0.5f,
+		((lenspos_os[2] - lens_center.z) * recip_lens_width) + 0.5f
 		);
 
 	if(normed_lenspoint.x < 0.0 || normed_lenspoint.x >= 1.0 || normed_lenspoint.y < 0.0 || normed_lenspoint.y >= 1.0)
