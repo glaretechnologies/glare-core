@@ -148,7 +148,7 @@ Camera::Camera(
 	// Save aperture preview to disk
 	if(write_aperture_preview)
 	{
-		Array2d<double> ap_vis;
+		Array2d<float> ap_vis;
 		aperture->getVisibilityMap(ap_vis);
 
 		Image aperture_preview_image(ap_vis.getWidth(), ap_vis.getHeight());
@@ -322,7 +322,7 @@ void Camera::buildDiffractionFilterImage(PrintOutput& print_output) const
 }
 
 
-Image* Camera::doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
+Image* Camera::doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, 
 											 int ssf, PrintOutput& print_output)
 {
@@ -591,7 +591,7 @@ void Camera::sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos
 {
 	assert(aperture->sampleAperture(samples).inHalfClosedInterval(0.0, 1.0));
 
-	const Vec2d normed_lenspos = aperture->sampleAperture(samples);
+	const Vec2f normed_lenspos = aperture->sampleAperture(samples);
 
 	pos_os_out.set(
 		lens_center.x + (normed_lenspos.x - 0.5f) * lens_width,
@@ -608,7 +608,8 @@ void Camera::sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos
 	//		right * (2.0 * normed_lenspos.x - 1.0) * lens_radius;
 }
 
-Camera::PDType Camera::lensPosPDF(/*const Vec3d& lenspos, double time*/) const
+
+Camera::PDType Camera::lensPosPDF(const Vec3Type& lenspos_os/*const Vec3d& lenspos, double time*/) const
 {
 /*	if(aperture_image)
 	{
@@ -637,9 +638,17 @@ Camera::PDType Camera::lensPosPDF(/*const Vec3d& lenspos, double time*/) const
 	//assert(aperture->pdf(normed_lenspoint) > 0.0);
 	//assert(isFinite(aperture->pdf(normed_lenspoint)));
 
+	const Vec2f normed_lenspoint(
+		((lenspos_os[0] - lens_center.x) * recip_lens_width) + 0.5f,
+		((lenspos_os[2] - lens_center.z) * recip_lens_width) + 0.5f
+		);
+
+	if(normed_lenspoint.x < 0.0f || normed_lenspoint.x >= 1.0f || normed_lenspoint.y < 0.0f || normed_lenspoint.y >= 1.0f)
+		return 0.0;
+
 	//return aperture->pdf(normed_lenspoint) / (4.0 * lens_radius * lens_radius); // TEMP TODO: precompute divide
 	assert(epsEqual(recip_unoccluded_aperture_area, 1.0 / (4.0 * lens_radius * lens_radius)));
-	return aperture->pdf(/*normed_lenspoint*/) * recip_unoccluded_aperture_area;
+	return aperture->pdf(normed_lenspoint) * recip_unoccluded_aperture_area;
 }
 
 
@@ -657,7 +666,7 @@ Camera::PDType Camera::lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const 
 
 	const Real d2 = sensor_to_lens.length2();
 
-	return lensPosPDF() * d2 * std::sqrt(d2) / sensor_to_lens[1];
+	return lensPosPDF(lenspos_os) * d2 * std::sqrt(d2) / sensor_to_lens[1];
 
 	/*const double pdf_A = lensPosPDF(lenspos, time);
 
@@ -711,7 +720,7 @@ const Camera::Vec3Type Camera::lensExitDir(const Vec3Type& sensorpos_os, const V
 		focus_distance, // TEMP
 		lens_center.z + target_up_dist,
 		1.0f
-		);
+	);
 
 	// Resulting ray is a ray from the lens position, to the target position.
 	return transform_path.vecToWorld(normalise(target_point_os - lenspos_os), time);
@@ -734,13 +743,13 @@ const Camera::Vec3Type Camera::lensExitDir(const Vec3Type& sensorpos_os, const V
 }
 
 
-double Camera::lensPosVisibility(const Vec3Type& lenspos_os, double time) const
+double Camera::lensPosVisibility(const Vec3Type& lenspos_os) const
 {
 	//const Vec2d normed_lenspoint = normalisedLensPosForWSPoint(lenspos, time);
 
 	// Where x=0 is left, x=1 is on right of lens, y=0 is bottom, y=1 is top of lens.
 	// TODO: precompute 1/lens_width
-	const Vec2d normed_lenspoint(
+	const Vec2f normed_lenspoint(
 		((lenspos_os[0] - lens_center.x) * recip_lens_width) + 0.5,
 		((lenspos_os[2] - lens_center.z) * recip_lens_width) + 0.5
 		);

@@ -94,15 +94,20 @@ public:
 	PDType sensorPDF() const;
 
 	void sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
-	PDType lensPosPDF(/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
+	PDType lensPosPDF(const Vec3Type& lenspos_os/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
 	PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
-	double lensPosVisibility(const Vec3Type& lenspos_os, double time) const;
+	double lensPosVisibility(const Vec3Type& lenspos_os) const;
 
 	const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
 	void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const;
 
 	const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const;
 	void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const;
+
+	inline const Vec3Type worldToCameraObjectSpace(const Vec3Type& pos_ws, double time) const { return transform_path.vecToLocal(pos_ws, time); }
+	inline PDType lensPosPDFForWSPos(const Vec3Type& lenspos_ws, double time) const { return lensPosPDF(worldToCameraObjectSpace(lenspos_ws, time)); }
+
+
 
 	//const Vec3d& getSensorCenter(double time) const;// { return sensor_center; }
 
@@ -241,7 +246,7 @@ public:
 
 
 private:
-	static Image* doBuildDiffractionFilterImage(const Array2d<double>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
+	static Image* doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, int ssf, PrintOutput& print_output);
 
 	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
