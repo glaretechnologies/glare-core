@@ -39,7 +39,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
 	return f;
 }
-#else if defined(LINUX)
+#elif defined(LINUX)
 template <class FuncPointerType>
 static FuncPointerType getFuncPointer(void *handle, const std::string& name)
 {
@@ -92,6 +92,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	opencl_paths.push_back("libOpenCL.so");
 #endif
 
+#if defined(WIN32) || defined(WIN64) || defined(LINUX)
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
@@ -104,7 +105,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 			std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
 			continue;
 		}
-#else if defined(LINUX)
+#elif defined(LINUX)
 		opencl_handle = dlopen(opencl_paths[searched_paths].c_str(), RTLD_LAZY);
 		if(!opencl_handle)
 		{
@@ -113,7 +114,6 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 		}
 #endif
 
-#if defined(WIN32) || defined(WIN64) || defined(LINUX)
 		// Successfully loaded library, try to get required function pointers
 		try
 		{
