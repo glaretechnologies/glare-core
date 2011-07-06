@@ -842,6 +842,28 @@ void deleteEmptyDirectory(const std::string& path)
 }
 
 
+// Throws FileUtilsExcep
+void deleteDirectoryRecursive(const std::string& path)
+{
+	if(!isDirectory(path)) return;
+
+	const std::vector<std::string> files = getFilesInDir(path);
+
+	for(size_t i = 0; i < files.size(); ++i)
+	{
+		if(files[i] != "." && files[i] != "..")
+		{
+			std::string file_path = join(path, files[i]);
+
+			if(isDirectory(file_path)) deleteDirectoryRecursive(file_path);
+			else deleteFile(file_path);
+		}
+	}
+
+	deleteEmptyDirectory(path);
+}
+
+
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(WIN32) || defined(WIN64)
@@ -1124,7 +1146,20 @@ void doUnitTests()
 		deleteFile("TEMP_TESTING_DIR/a");
 		deleteFile("TEMP_TESTING_DIR/b");
 		deleteEmptyDirectory("TEMP_TESTING_DIR");
-	
+
+		// Test deleteDirectoryRecursive
+		createDir("TEMP_TESTING_DIR");
+		writeEntireFile("TEMP_TESTING_DIR/a", std::vector<unsigned char>(0, 100));
+		writeEntireFile("TEMP_TESTING_DIR/b", std::vector<unsigned char>(0, 100));
+		createDir("TEMP_TESTING_DIR/subdir");
+		writeEntireFile("TEMP_TESTING_DIR/subdir/b", std::vector<unsigned char>(0, 100));
+
+		deleteDirectoryRecursive("TEMP_TESTING_DIR");
+
+		// Test deletion of empty dir with deleteDirectoryRecursive
+		createDir("TEMP_TESTING_DIR");
+
+		deleteDirectoryRecursive("TEMP_TESTING_DIR");
 	}
 	catch(FileUtilsExcep& e)
 	{

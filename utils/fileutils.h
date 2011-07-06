@@ -95,6 +95,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath);
 void deleteFile(const std::string& path);
 
 void deleteEmptyDirectory(const std::string& path);
+void deleteDirectoryRecursive(const std::string& path);
 
 
 //fle must be closed 'cause this function opens it
