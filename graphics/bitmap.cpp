@@ -19,23 +19,19 @@ Bitmap::Bitmap()
 	bytespp = 3;
 }
 
-Bitmap::Bitmap(unsigned int width_, unsigned int height_, unsigned int bytespp_, const unsigned char* srcdata)
+Bitmap::Bitmap(size_t width_, size_t height_, size_t bytespp_, const uint8* srcdata)
 :	width(width_),
 	height(height_),
 	bytespp(bytespp_)
 {
-	assert(width >= 0 && height >= 0);
-	assert(bytespp >= 0);
-
 	assert(sizeof(unsigned char) == 1);
 
-	const unsigned int datasize = width * height * bytespp;
+	const size_t datasize = width * height * bytespp;
 	data.resize(datasize);
 
 	if(srcdata)
-		for(unsigned int i=0; i<datasize; ++i)
+		for(size_t i = 0; i<datasize; ++i)
 			data[i] = srcdata[i];
-
 }
 
 
@@ -45,13 +41,14 @@ Bitmap::~Bitmap()
 }
 
 
-void Bitmap::resize(unsigned int newwidth, unsigned int newheight, unsigned int new_bytes_pp)
+void Bitmap::resize(size_t newwidth, size_t newheight, size_t new_bytes_pp)
 {
 	if(width != newwidth || height != newheight || bytespp != new_bytes_pp)
 	{
 		width = newwidth;
 		height = newheight;
 		bytespp = new_bytes_pp;
+
 		data.resize(newwidth * newheight * new_bytes_pp);
 	}
 }
@@ -61,17 +58,13 @@ void Bitmap::raiseToPower(float exponent)
 {
 	const size_t datasize = data.size();
 	for(size_t i = 0; i < datasize; ++i)
-	{
-		const unsigned char c = data[i];
-
-		data[i] = (unsigned char)(std::pow(c * (1.0f / 255.0f), exponent) * 255.0f);
-	}
+		data[i] = (uint8)(std::pow(data[i] * (1.0f / 255.0f), exponent) * 255.0f);
 }
 
 
 unsigned int Bitmap::checksum() const
 {
-	const unsigned int initial_crc = crc32(0, 0, 0);
+	const uint32 initial_crc = crc32(0, 0, 0);
 	return crc32(initial_crc, &data[0], width * height * bytespp);
 }
 
@@ -176,10 +169,9 @@ void Bitmap::mulImage(const Bitmap& img, const int destx, const int desty, const
 			{
 				const float alpha255 = ((invert) ? 255 - img.getPixelComp(x, y, 0) : img.getPixelComp(x, y, 0)) * (alpha / 255.0f);
 
-				for(unsigned int c = 0; c < 3; ++c)
+				for(uint32 c = 0; c < 3; ++c)
 					setPixelComp(dx, dy, c, myMin(255, (int)(getPixelComp(dx, dy, c) * (1 - alpha) + getPixelComp(dx, dy, c) * alpha255)));
 			}
 		}
 	}
 }
-

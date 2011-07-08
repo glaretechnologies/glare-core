@@ -1,5 +1,4 @@
-#ifndef __IMAGE_666_H__
-#define __IMAGE_666_H__
+#pragma once
 
 
 #include "colour3.h"
@@ -122,7 +121,9 @@ public:
 
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
 
-	static void collapseImageNew(int factor, int border_width, int resize_filter_size, const float* const resize_filter, float max_component_value, const Image& in, Image& out);
+	static void downsampleImage(const size_t factor, const size_t border_width,
+								const size_t filter_span, const float * const resize_filter, const float pre_clamp,
+								const Image& img_in, Image& img_out);
 
 	size_t getByteSize() const;
 
@@ -130,7 +131,7 @@ public:
 	float maxLuminance() const;
 	double averageLuminance() const;
 
-	static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);
+	//static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);
 	//void convolve(const Image& filter, Image& result_out) const;
 
 	float minPixelComponent() const;
@@ -179,7 +180,7 @@ Image::ColourType& Image::getPixel(size_t i)
 
 const Image::ColourType& Image::getPixel(size_t x, size_t y) const
 {
-	assert(x >= 0 && x < pixels.getWidth() && y >= 0 && y < pixels.getHeight());
+	assert(x < pixels.getWidth() && y < pixels.getHeight());
 
 	return pixels.elem(x, y);
 }
@@ -187,7 +188,7 @@ const Image::ColourType& Image::getPixel(size_t x, size_t y) const
 
 Image::ColourType& Image::getPixel(size_t x, size_t y)
 {
-	assert(x >= 0 && x < pixels.getWidth() && y >= 0 && y < pixels.getHeight());
+	assert(x < pixels.getWidth() && y < pixels.getHeight());
 
 	return pixels.elem(x, y);
 }
@@ -249,7 +250,3 @@ void Image::incrPixel(size_t x, size_t y, const ColourType& colour)
 {
 	pixels.elem(x, y) += colour;
 }
-
-
-
-#endif //__IMAGE_666_H__

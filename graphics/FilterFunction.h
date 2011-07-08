@@ -1,11 +1,12 @@
 /*=====================================================================
 
 =====================================================================*/
-#ifndef __FILTERFUNCTION_H_666_
-#define __FILTERFUNCTION_H_666_
+#pragma once
 
-#include "../utils/refcounted.h"
+
+#include <vector>
 #include <string>
+#include "../utils/refcounted.h"
 
 /*=====================================================================
 FilterFunction
@@ -30,14 +31,5 @@ public:
 
 private:
 
-	int cached_supersample_factor;
-	float* cached_filter_data;
+	std::vector<float> filter_data;
 };
-
-
-
-#endif //__FILTERFUNCTION_H_666_
-
-
-
-

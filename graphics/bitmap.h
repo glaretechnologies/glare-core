@@ -11,6 +11,9 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include <vector>
 
+#include "../utils/platform.h"
+
+
 /*=====================================================================
 Bitmap
 ------
@@ -27,72 +30,69 @@ public:
 	------
 	srcdata may be NULL.
 	=====================================================================*/
-	Bitmap(unsigned int width, unsigned int height, unsigned int bytespp, const unsigned char* srcdata);
+	Bitmap(size_t width, size_t height, size_t bytespp, const uint8* srcdata);
 
 	~Bitmap();
 
-	void resize(unsigned int newwidth, unsigned int newheight, unsigned int new_bytes_pp);
+	void resize(size_t newwidth, size_t newheight, size_t new_bytes_pp);
 
-	//const unsigned char* getData() const { return data; }
-	//unsigned char* getData(){ return data; }
+	size_t getWidth()   const { return width;   }
+	size_t getHeight()  const { return height;  }
+	size_t getBytesPP() const { return bytespp; }
 
-	unsigned int getWidth() const { return width; }
-	unsigned int getHeight() const { return height; }
-	unsigned int getBytesPP() const { return bytespp; }
+	inline uint8* rowPointer(size_t y);
 
-	inline unsigned char* rowPointer(unsigned int y);
+	inline uint8* getPixelNonConst(size_t x, size_t y);
+	inline const uint8* getPixel(size_t x, size_t y) const;
 
-	inline unsigned char* getPixelNonConst(unsigned int x, unsigned int y);
-	inline const unsigned char* getPixel(unsigned int x, unsigned int y) const;
-
-	inline unsigned char getPixelComp(unsigned int x, unsigned y, unsigned int c) const;
-	inline void setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval);
+	inline unsigned char getPixelComp(size_t x, size_t y, uint32 c) const;
+	inline void setPixelComp(size_t x, size_t y, uint32 c, uint8 newval);
 
 	void raiseToPower(float exponent);
 
-	unsigned int checksum() const;
+	uint32 checksum() const;
 
 	void addImage(const Bitmap& img, int destx, int desty, float alpha = 1);
 	void mulImage(const Bitmap& img, int destx, int desty, float alpha = 1, bool invert = false);
-	void blendImage(const Bitmap& img, int destx, int desty, unsigned char solid_colour[3], float alpha = 1);
+	void blendImage(const Bitmap& img, int destx, int desty, uint8 solid_colour[3], float alpha = 1);
 
 private:
-	std::vector<unsigned char> data;
-	unsigned int width;
-	unsigned int height;
-	unsigned int bytespp;
+	std::vector<uint8> data;
+
+	size_t width, height;
+	size_t bytespp;
 };
 
 
-
-unsigned char* Bitmap::getPixelNonConst(unsigned int x, unsigned int y)
-{
-	assert(x < width);
-	assert(y < height);
-	assert((y*width + x) * bytespp < data.size());
-
-	return &data[(y*width + x) * bytespp];
-}
-
-unsigned char* Bitmap::rowPointer(unsigned int y)
+uint8* Bitmap::rowPointer(size_t y)
 {
 	assert(y < height);
 
 	return &data[y * width * bytespp];
 }
 
-const unsigned char* Bitmap::getPixel(unsigned int x, unsigned int y) const
+
+uint8* Bitmap::getPixelNonConst(size_t x, size_t y)
 {
 	assert(x < width);
 	assert(y < height);
-	assert((y*width + x) * bytespp < data.size());
+	assert((y * width + x) * bytespp < data.size());
 
-	//return data + (y*width + x) * bytespp;
-	return &data[(y*width + x) * bytespp];
+	return &data[(y * width + x) * bytespp];
 }
 
 
-unsigned char Bitmap::getPixelComp(unsigned int x, unsigned y, unsigned int c) const
+const uint8* Bitmap::getPixel(size_t x, size_t y) const
+{
+	assert(x < width);
+	assert(y < height);
+	assert((y * width + x) * bytespp < data.size());
+
+	return &data[(y * width + x) * bytespp];
+}
+
+
+uint8 Bitmap::getPixelComp(size_t x, size_t y, uint32 c) const
 {
 	assert(x < width);
 	assert(y < height);
@@ -102,7 +102,7 @@ unsigned char Bitmap::getPixelComp(unsigned int x, unsigned y, unsigned int c) c
 }
 
 
-void Bitmap::setPixelComp(unsigned int x, unsigned y, unsigned int c, unsigned char newval)
+void Bitmap::setPixelComp(size_t x, size_t y, uint32 c, uint8 newval)
 {
 	assert(x < width);
 	assert(y < height);
