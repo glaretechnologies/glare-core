@@ -4,8 +4,7 @@ Complex.h
 File created by ClassTemplate on Tue Jan 29 03:09:12 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __COMPLEX_H_666_
-#define __COMPLEX_H_666_
+#pragma once
 
 
 #include <cmath>
@@ -37,7 +36,7 @@ public:
 	inline Real re() const { return a; }
 	inline Real im() const { return b; }
 
-	inline Real norm() const { return sqrt(a*a + b*b); }
+	inline Real norm() const { return std::sqrt(a*a + b*b); }
 	inline Real norm2() const { return a*a + b*b; }
 
 	//value = a + b*i
@@ -74,7 +73,7 @@ const Complex<Real> Complex<Real>::operator * (const Complex<Real>& other) const
 template <class Real>
 const Complex<Real> Complex<Real>::operator / (const Complex<Real>& other) const
 {
-	return Complex<Real>(a*other.a + b*other.b, b*other.a - a*other.b) * ((Real)1.0 / other.norm2());
+	return Complex<Real>(a*other.a + b*other.b, b*other.a - a*other.b) * (1 / other.norm2());
 }
 
 
@@ -95,9 +94,3 @@ void Complex<Real>::operator += (const Complex<Real>& other)
 
 typedef Complex<float> Complexf;
 typedef Complex<double> Complexd;
-
-#endif //__COMPLEX_H_666_
-
-
-
-
