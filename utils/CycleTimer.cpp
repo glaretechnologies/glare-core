@@ -15,13 +15,13 @@ CycleTimer::CycleTimer()
 {
 	assert(sizeof(CYCLETIME_TYPE) == 8);
 	
-	cpuid_time = 10000000;
+	rdtsc_time = std::numeric_limits<CYCLETIME_TYPE>::max();
 
 	for(int i=0; i<3; ++i)
 	{
 		reset();
 		const CYCLETIME_TYPE t = getRawCyclesElapsed();
-		cpuid_time = myMin(cpuid_time, t);
+		rdtsc_time = myMin(rdtsc_time, t);
 	}
 	
 	/*CYCLETIME_TYPE cpuid_time_1 = getRawCyclesElapsed();

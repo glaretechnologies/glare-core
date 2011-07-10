@@ -50,12 +50,12 @@ public:
 	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
 	//double getSecondsElapsed() const;
 
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCPUIDTime() const { return cpuid_time; }
+	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRDTSCTime() const { return rdtsc_time; }
 private:
 	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
 
 	CYCLETIME_TYPE start_time;
-	CYCLETIME_TYPE cpuid_time;
+	CYCLETIME_TYPE rdtsc_time;
 };
 
 
@@ -74,14 +74,14 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getRawCyclesElapsed() const
 //NOTE: may be negative or 0.
 CycleTimer::CYCLETIME_TYPE CycleTimer::elapsed() const
 {
-	return (getCounter() - start_time) - cpuid_time;
+	return (getCounter() - start_time) - rdtsc_time;
 }
 
 
 //NOTE: may be negative or 0.
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 {
-	return (getCounter() - start_time) - cpuid_time;
+	return (getCounter() - start_time) - rdtsc_time;
 }
 
 
