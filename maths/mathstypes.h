@@ -573,6 +573,42 @@ inline const T uncheckedLerp(const T& a, const T& b, double t)
 	return a * (1 - t) + b * t;
 }
 
+
+// Code for a fast, approximate, pow() function: fastPow()
+// Runs in about 46 cycles on an Intel Core i5 as opposed to about 96 cycles for pow().
+// NOTE: could be SIMD'd
+// Adapted from 'Production Rendering', page 270.
+inline float fastLog2(float a)
+{
+	// This code basically extracts the exponent in floating point form.
+	float x = (float)*((int*)&a);
+	x *= 0.00000011920928955078125f; // 2^-23
+	x -= 127.0f;
+	
+	float y = x - std::floor(x);
+	y = (y-y*y) * 0.346607f;
+	return x + y;
+}
+
+
+inline float fastPow2(float i)
+{
+	float y = i - std::floor(i);
+	y = (y-y*y) * 0.33971f;
+
+	float x = i + 127.0f - y;
+	x *= 8388608.0f; // 2^23
+	*(int*)&x = (int)x;
+	return x;
+}
+
+
+inline float fastPow(float a, float b)
+{
+	return fastPow2(b*fastLog2(a));
+}
+
+
 }
 
 

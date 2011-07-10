@@ -295,14 +295,16 @@ void Maths::test()
 		conPrint("\tsum: " + toString(sum));
 	}*/
 
+	// Compute clock speed
+
 	const double clock_freq = 2.6e9;
 
 
 	conPrint("sin() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
-		double elapsed = 1000000000;
+		CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
 		for(int t=0; t<trials; ++t)
 		{
 			for(int i=0; i<N; ++i)
@@ -310,18 +312,18 @@ void Maths::test()
 				const float x = (float)i * 0.001f;
 				sum += std::sin(x);
 			}
-			elapsed = myMin(elapsed, timer.getSecondsElapsed());
+			elapsed = myMin(elapsed, timer.elapsed());
 		}
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("sin() [double]");
 	{
-	Timer timer;
+	CycleTimer timer;
 	double sum = 0.0;
-	double elapsed = 1000000000;
+	CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
 	for(int t=0; t<trials; ++t)
 	{
 		for(int i=0; i<N; ++i)
@@ -329,99 +331,114 @@ void Maths::test()
 			const double x = (double)i * 0.001;
 			sum += std::sin(x);
 		}
-		elapsed = myMin(elapsed, timer.getSecondsElapsed());
+		elapsed = myMin(elapsed, timer.elapsed());
 	}
-	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	const double cycles = elapsed / (double)N;
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("sqrt() [float]");
 	{
-	Timer timer;
+	CycleTimer timer;
 	float sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const float x = (float)i * 0.001f;
 		sum += std::sqrt(x);
 	}
-	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("sqrt() [double]");
 	{
-	Timer timer;
+	CycleTimer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const double x = (double)i * 0.001;
 		sum += std::sqrt(x);
 	}
-	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("exp() [float]");
 	{
-	Timer timer;
+	CycleTimer timer;
 	float sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const float x = (float)i * 0.00001f;
 		sum += std::exp(x);
 	}
-	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("exp() [double]");
 	{
-	Timer timer;
+	CycleTimer timer;
 	double sum = 0.0;
 	for(int i=0; i<N; ++i)
 	{
 		const double x = (double)i * 0.00001;
 		sum += std::exp(x);
 	}
-	const double elapsed = timer.getSecondsElapsed();
-	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("pow() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += std::pow(x, 2.2f);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("fastPow() [float]");
+	{
+		CycleTimer timer;
+		float sum = 0.0;
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			sum += fastPow(x, 2.2f);
+		}
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("pow() [double]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		double sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const double x = (double)i * 0.00001;
 			sum += std::pow(x, 2.2);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
@@ -429,15 +446,15 @@ void Maths::test()
 
 	conPrint("fract() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += Maths::fract(x);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
@@ -451,48 +468,56 @@ void Maths::test()
 
 	conPrint("fastFract() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += fastFract(x);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
 
 	conPrint("fastPosFract() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += fastPosFract(x);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
 	
 	conPrint("modfFract() [float]");
 	{
-		Timer timer;
+		CycleTimer timer;
 		float sum = 0.0;
 		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += modfFract(x);
 		}
-		const double elapsed = timer.getSecondsElapsed();
-		const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
+
+
+	/*for(float x=0; x<2.0f; x += 0.01f)
+	{
+		conPrint("x: " + toString(x));
+		conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
+		conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
+	}*/
 
 
 	// exit(0);
