@@ -69,11 +69,6 @@ Camera::Camera(
 {
 	plan = new FFTPlan();
 
-	// Alloc root_aabb, making sure it is at least 16-byte (SSE) aligned.
-	bbox_ws = (js::AABBox*)SSE::alignedMalloc(sizeof(js::AABBox), sizeof(js::AABBox));
-	new(bbox_ws) js::AABBox(Vec4f(-666.f), Vec4f(-666.f));
-
-
 	init(Vec3d(0,0,0), ws_updir, forwards,
 		lens_radius_, focus_distance_, sensor_width_, sensor_height_, lens_sensor_dist_,
 		exposure_duration_,
@@ -107,43 +102,18 @@ Camera::Camera(
 	const Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
 
 	js::AABBox aabb_os(min_os, max_os);
-	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+	bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
 
-	/*try
-	{
-		const Vec3d whitepoint = ColourSpaceConverter::whitepoint(white_balance);
-		colour_space_converter = new ColourSpaceConverter(whitepoint.x, whitepoint.y);
-	}
-	catch(ColourSpaceConverterExcep& e)
-	{
-		throw CameraExcep("ColourSpaceConverterExcep: " + e.what());
-	}/
-
+	
 	//------------------------------------------------------------------------
 	//calculate polarising Vector
 	//------------------------------------------------------------------------
-	this->polarising_vec = getRightDir();
+	/*this->polarising_vec = getRightDir();
 
 	const Vec2d components = Matrix2d::rotationMatrix(::degreeToRad(this->polarising_angle)) * Vec2d(1.0, 0.0);
 	this->polarising_vec = getRightDir() * components.x + getUpDir() * components.y;
-	assert(this->polarising_vec.isUnitLength());
+	assert(this->polarising_vec.isUnitLength());*/
 
-
-	assert(!aperture_image);
-	if(!circular_aperture_)
-	{
-		//TEMP
-		Bitmap aperture_bitmap;
-		PNGDecoder::decode("generated_aperture.png", aperture_bitmap);
-
-		Array2d<double> aperture_visibility(aperture_bitmap.getWidth(), aperture_bitmap.getHeight());
-
-		for(int y=0; y<aperture_bitmap.getHeight(); ++y)
-			for(int x=0; x<aperture_bitmap.getWidth(); ++x)
-				aperture_visibility.elem(x, y) = aperture_bitmap.getPixel(x, aperture_bitmap.getHeight() - 1 - y)[0] > 128 ? 1.0 : 0.0;//(float)aperture_bitmap.getPixel(x, y)[0] / 255.0f;
-
-		aperture_image = new Distribution2(aperture_visibility);
-	}*/
 
 	// Save aperture preview to disk
 	if(write_aperture_preview)
@@ -170,21 +140,13 @@ Camera::Camera(
 			conPrint("ImageExcep: " + e.what());
 		}
 	}
-
-	//// Construct RGB diffraction filter image if needed
-	//if(RendererSettings::getInstance().aperture_diffraction && RendererSettings::getInstance().post_process_diffraction)
 }
 
 
 Camera::~Camera()
 {
 	delete plan;
-
-	SSE::alignedSSEFree(bbox_ws);
-
 	delete aperture;
-	//delete diffraction_filter;
-	//delete colour_space_converter;
 }
 
 
@@ -266,11 +228,11 @@ void Camera::init(
 	recip_unoccluded_aperture_area = 1.0 / (4.0 * lens_radius * lens_radius);
 
 
-	const SSE_ALIGN Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
-	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
+	const Vec4f min_os((float)(lens_center.x - lens_radius), 0.0f, (float)(lens_center.z - lens_radius), 1.0f);
+	const Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
 
-	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
-	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+	js::AABBox aabb_os(min_os, max_os);
+	bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
 
 	makeClippingPlanesCameraSpace();
 }
@@ -285,26 +247,18 @@ void Camera::prepareForDiffractionFilter(/*const std::string& base_indigo_path_,
 }
 
 
-void Camera::buildDiffractionFilter(/*const std::string& base_indigo_path*/) const
+void Camera::buildDiffractionFilter()
 {
-	// Calculate diffraction distribution if needed.
-	//try
-	//{
-		diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
-			lens_radius,
-			*aperture,
-			appdata_path,
-			this->write_aperture_preview
-			));
-	//}
-	//catch(DiffractionFilterExcep& e)
-	//{
-	//	throw CameraExcep(e.what());
-	//}
+	diffraction_filter = std::auto_ptr<DiffractionFilter>(new DiffractionFilter(
+		lens_radius,
+		*aperture,
+		appdata_path,
+		this->write_aperture_preview
+	));
 }
 
 
-void Camera::buildDiffractionFilterImage(PrintOutput& print_output) const
+void Camera::buildDiffractionFilterImage(PrintOutput& print_output)
 {
 	this->diffraction_filter_image = std::auto_ptr<Image>(doBuildDiffractionFilterImage(
 		this->diffraction_filter->getDiffractionFilter(),
@@ -831,20 +785,18 @@ void Camera::sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) c
 		sensor_height * (imcoords.y - 0.5f),
 		1.0f
 	);
-
-	//pos_ws_out = transform_path.vecToWorld(pos_os_out, time);
 }
 
 
 Geometry::DistType Camera::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
-	return -1.0f;//TEMP
+	return -1.0f; // TEMP
 }
 
 
 const js::AABBox& Camera::getAABBoxWS() const
 {
-	return *bbox_ws;
+	return bbox_ws;
 }
 
 
@@ -944,21 +896,14 @@ void Camera::build(const std::string& indigo_base_dir_path, const RendererSettin
 
 const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const
 {
-	//assert(RendererSettings::getInstance().aperture_diffraction);
-	if(diffraction_filter.get() == NULL)
-	{
-		// Lazily construct diffraction filter + filter image
-		buildDiffractionFilter();
-	}
-
 	assert(diffraction_filter.get() != NULL);
 
-
-	//if(!this->diffraction_filter || !RendererSettings::getInstance().aperture_diffraction)
-	//{
-	//	weights_out.set(1.0);
-	//	return dir;
-	//}
+	if(diffraction_filter.get() == NULL)
+	{
+		// conPrint("Camera::diffractRay(): ERROR: diffraction_filter is NULL");
+		weights_out.set(1);
+		return dir;
+	}
 
 	// Form a basis with k in direction of ray, using cam right as i
 	const Vec3d k = dir;
@@ -990,12 +935,10 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 	return out;
 }
 
-// Static
+
+// Static + private
 void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan)
 {
-	//print_output.print("Applying diffraction filter...");
-
-	//Image out;
 	try
 	{
 		ImageFilter::convolveImage(
@@ -1003,20 +946,16 @@ void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_i
 			cam_diffraction_filter_image, //filter
 			out, // result out
 			plan
-			);
+		);
 	}
 	catch(Indigo::Exception& e)
 	{
 		throw CameraExcep(e.what());
 	}
-
-	//image = out;
-
-	//print_output.print("\tDone.");
 }
 
 
-void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out) const
+void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out)
 {
 	if(diffraction_filter_image.get() == NULL)
 	{
@@ -1260,7 +1199,7 @@ void Camera::setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir)
 	const SSE_ALIGN Vec4f max_os((float)(lens_center.x + lens_radius), 0.0f, (float)(lens_center.z + lens_radius), 1.0f);
 
 	SSE_ALIGN js::AABBox aabb_os(min_os, max_os);
-	*bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
+	bbox_ws = transform_path.worldSpaceAABB(aabb_os, this->getBoundingRadius());
 
 	makeClippingPlanesCameraSpace();
 }
@@ -1547,8 +1486,3 @@ void Camera::unitTest()
 	exit(0);*/
 }
 #endif
-
-
-
-
-

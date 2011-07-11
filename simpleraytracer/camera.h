@@ -200,16 +200,15 @@ public:
 
 	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const;
 
-	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan); // throws CameraExcep on failure.
-	void applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out) const;
+	void applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out);
 
 	const Image* getDiffractionFilterImage() const { return diffraction_filter_image.get(); }
 
 	
 
 	void prepareForDiffractionFilter(/*const std::string& base_indigo_path, */int main_buffer_width, int main_buffer_height, int ssf_);
-	void buildDiffractionFilter(/*const std::string& base_indigo_path*/) const;
-	void buildDiffractionFilterImage(PrintOutput& print_output) const;
+	void buildDiffractionFilter();
+	void buildDiffractionFilterImage(PrintOutput& print_output);
 
 
 	double sensorWidth() const { return sensor_width; }
@@ -231,7 +230,8 @@ public:
 	const std::vector<Plane<Vec3RealType> >& getViewVolumeClippingPlanesCameraSpace() const { return clipping_planes_camera_space; }
 	
 
-	SSE_ALIGN TransformPath transform_path;
+	TransformPath transform_path; // SSE Aligned
+	js::AABBox bbox_ws; // SSE Aligned
 
 	std::vector<const Medium*> containing_media;
 
@@ -246,6 +246,8 @@ public:
 
 
 private:
+	static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan); // throws CameraExcep on failure.
+	
 	static Image* doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 		double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, int ssf, PrintOutput& print_output);
 
@@ -260,17 +262,15 @@ private:
 
 	void makeClippingPlanesCameraSpace();
 
-	js::AABBox* bbox_ws;
-
 	std::vector<Plane<Vec3RealType> > clipping_planes_camera_space;
 
 
 	//Array2d<float>* aperture_image;
 	//Distribution2* aperture_image;
 
-	mutable std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
+	std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
 	Aperture* aperture;
-	mutable std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
+	std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
 
 	double lens_radius;
 	double lens_width;
