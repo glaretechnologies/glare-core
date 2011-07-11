@@ -21,8 +21,6 @@ int FilterFunction::getFilterSpan(int supersample_factor)
 
 float* FilterFunction::getFilterData(int supersample_factor)
 {
-	assert(supersample_factor > 1);
-
 	const double filter_pixel_span_f = supportRadius() * 2 * supersample_factor;
 	const int filter_pixel_span  = (int)ceil(supportRadius() * 2) * supersample_factor;
 	const int filter_pixel_bound = filter_pixel_span / 2 - 1;
