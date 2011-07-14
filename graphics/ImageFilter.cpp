@@ -1366,18 +1366,18 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		const double scale = 1.0 / (W * H);
 
 		// Blit component of input to padded input
-		for(int y=0; y<in.getHeight(); ++y)
+		for(size_t y = 0; y < in.getHeight(); ++y)
 		{
-			for(int x=0; x<in.getWidth(); ++x)
+			for(size_t x = 0; x < in.getWidth(); ++x)
 			{
 				plan.buffer_a[x*2 + y*py*2] = (double)in.getPixel(x, y)[comp]; // Re
 				plan.buffer_a[x*2 + y*py*2 + 1] = 0.0; // Im
 			}
-			for(int x=in.getWidth(); x<py; ++x)
+			for(size_t x = in.getWidth(); x < py; ++x)
 				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
 		}
-		for(int y=in.getHeight(); y<H; ++y)
-			for(int x=0; x<py; ++x)
+		for(size_t y = in.getHeight(); y < H; ++y)
+			for(size_t x = 0; x < py; ++x)
 				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
 
 		// Compute FT of input, writing to buffer 'product'.
@@ -1389,18 +1389,18 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		//	plan.buffer_a[i] = 0.0;
 
 		// Blit component of filter to padded filter
-		for(int y=0; y<filter.getHeight(); ++y)
+		for(size_t y = 0; y < filter.getHeight(); ++y)
 		{
-			for(int x=0; x<filter.getWidth(); ++x)
+			for(size_t x = 0; x < filter.getWidth(); ++x)
 			{
 				plan.buffer_a[x*2 + y*py*2] = (double)filter.getPixel(filter.getWidth() - x - 1, filter.getHeight() - y - 1)[comp]/* * scale*/; // Note: rotating filter around center point here.
 				plan.buffer_a[x*2 + y*py*2 + 1] = 0.0; // Im
 			}
-			for(int x=filter.getWidth(); x<py; ++x)
+			for(size_t x = filter.getWidth(); x < py; ++x)
 				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
 		}
-		for(int y=filter.getHeight(); y<H; ++y)
-			for(int x=0; x<py; ++x)
+		for(size_t y = filter.getHeight(); y < H; ++y)
+			for(size_t x = 0; x < py; ++x)
 				plan.buffer_a[x*2 + y*py*2] = plan.buffer_a[x*2 + y*py*2 + 1] = 0.0;
 
 		
@@ -1484,14 +1484,13 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 				conPrintStr("\n");
 			}
 		}*/
-
 		
 		// Read out real coefficients
-		for(unsigned int y=0; y<out.getHeight(); ++y)
-			for(unsigned int x=0; x<out.getWidth(); ++x)
-			{
-				out.getPixel(x, y)[comp] = (float)plan.buffer_a[(x + x_offset)*2 + py*(y + y_offset)*2] * scale;
-			}
+		for(size_t y = 0; y < out.getHeight(); ++y)
+		for(size_t x = 0; x < out.getWidth();  ++x)
+		{
+			out.getPixel(x, y)[comp] = (float)plan.buffer_a[(x + x_offset)*2 + py*(y + y_offset)*2] * scale;
+		}
 	}
 }
 

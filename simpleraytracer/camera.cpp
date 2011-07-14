@@ -977,7 +977,7 @@ void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Imag
 	}
 	catch(CameraExcep& e)
 	{
-		print_output.print("ERROR while performing aperture diffraction: " + e.what());
+		print_output.print("Error while performing aperture diffraction: " + e.what());
 
 		out = in;
 	}
