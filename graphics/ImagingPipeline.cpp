@@ -16,6 +16,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/ToneMapper.h"
+#include "../indigo/ReinhardToneMapper.h"
 
 #ifdef BUILD_TESTS
 
@@ -23,7 +24,6 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/MasterBuffer.h"
 
 #include "../indigo/LinearToneMapper.h"
-#include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/CameraToneMapper.h"
 
 #endif
