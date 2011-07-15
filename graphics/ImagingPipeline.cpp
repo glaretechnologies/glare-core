@@ -475,9 +475,12 @@ void test()
 
 			const double expected_sum = 0.78539816339744830961566084581988; // pi / 4
 			const double allowable_error = 2048.0 / temp_ldr_buffer.numPixels();
-			testAssert(fabs(expected_sum - integral) <= allowable_error);
 
-			std::cout << "Image integral: " << integral << ", abs error: " << fabs(expected_sum - integral) << ", allowable error: " << allowable_error << std::endl;
+			const double abs_error = fabs(expected_sum - integral);
+			
+			std::cout << "Image integral: " << integral << ", abs error: " << abs_error << ", allowable error: " << allowable_error << std::endl;
+
+			testAssert(abs_error <= allowable_error);
 		}
 	}
 }
