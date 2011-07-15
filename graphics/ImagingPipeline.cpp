@@ -170,15 +170,11 @@ void doTonemapFullBuffer(
 
 	// Zero out pixels not in the render region
 	if(renderer_settings.render_region)
-		for(size_t y = 0; y < ldr_buffer_out.getHeight(); ++y)
-		for(size_t x = 0; x < ldr_buffer_out.getWidth();  ++x)
+		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
+		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
 			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
 				y < renderer_settings.render_region_y1 || y >= renderer_settings.render_region_y2)
 				ldr_buffer_out.setPixel(x, y, Colour3f(0, 0, 0));
-
-	// Components should be in range [0, 1]
-	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
-	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 }
 
 
@@ -326,7 +322,7 @@ void doTonemap(
 
 				assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
 
-				//weighted_sum.lowerClampInPlace(0); // Ensure result is positive
+				weighted_sum.clampInPlace(0, 1); // Ensure result is in [0, 1]
 				ldr_buffer_out.getPixel(y * final_xres + x) = weighted_sum;
 			}
 		}
@@ -428,7 +424,7 @@ void test()
 		MasterBuffer master_buffer((uint32)image_ss_xres, (uint32)image_ss_yres, (int)image_layers, 1, 1);
 		master_buffer.setNumSamples(1);
 
-		std::vector<::Image>& layers = master_buffer.getBuffers();
+		std::vector< ::Image>& layers = master_buffer.getBuffers();
 		assert(layers.size() == image_layers);
 
 		// Fill the layers with a solid circle
@@ -449,7 +445,7 @@ void test()
 		std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
 
 		::Image temp_summed_buffer, temp_AD_buffer, temp_ldr_buffer;
-		std::vector<::Image> temp_tile_buffers;
+		std::vector< ::Image> temp_tile_buffers;
 
 
 		doTonemap(
