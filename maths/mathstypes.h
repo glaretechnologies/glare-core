@@ -581,7 +581,15 @@ inline const T uncheckedLerp(const T& a, const T& b, double t)
 inline float fastLog2(float a)
 {
 	// This code basically extracts the exponent in floating point form.
-	float x = (float)*((int*)&a);
+	union U
+	{
+		float f;
+		int i;
+	};
+	U u;
+	u.f = a;
+	float x = u.i;
+	//float x = (float)*((int*)&a);
 	x *= 0.00000011920928955078125f; // 2^-23
 	x -= 127.0f;
 	
@@ -598,7 +606,16 @@ inline float fastPow2(float i)
 
 	float x = i + 127.0f - y;
 	x *= 8388608.0f; // 2^23
-	*(int*)&x = (int)x;
+	
+	union U
+	{
+		float f;
+		int i;
+	};
+	U u;
+	u.i = (int)x;
+	x = u.f;
+	//*(int*)&x = (int)x;
 	return x;
 }
 

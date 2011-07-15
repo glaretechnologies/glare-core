@@ -512,12 +512,14 @@ void Maths::test()
 	}
 
 
-	/*for(float x=0; x<2.0f; x += 0.01f)
+
+	for(float x=0; x<1.0f; x += 0.01f)
 	{
 		conPrint("x: " + toString(x));
 		conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
 		conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
-	}*/
+		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
+	}
 
 
 	// exit(0);
