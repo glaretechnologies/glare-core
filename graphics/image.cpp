@@ -305,7 +305,7 @@ void Image::saveToBitmap(const std::string& pathname)
 		BITMAP_HEADER bitmap_header;
 		bitmap_header.offset = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER);
 		bitmap_header.type = BITMAP_ID;
-		bitmap_header.size = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER) + getWidth() * getHeight() * 3;
+		bitmap_header.size = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER) + (uint32)getWidth() * (uint32)getHeight() * 3;
 
 		fwrite(&bitmap_header, sizeof(BITMAP_HEADER), 1, f.getFile());
 
@@ -313,8 +313,8 @@ void Image::saveToBitmap(const std::string& pathname)
 		bitmap_infoheader.size = sizeof(BITMAP_INFOHEADER);
 		bitmap_infoheader.bits = 24;
 		bitmap_infoheader.compression = 0;
-		bitmap_infoheader.height = getHeight();
-		bitmap_infoheader.width = getWidth();
+		bitmap_infoheader.height = (int)getHeight();
+		bitmap_infoheader.width  = (int)getWidth();
 		bitmap_infoheader.imagesize = 0;//getWidth() * getHeight() * 3;
 		bitmap_infoheader.importantcolours = 0;//1 << 24;
 		bitmap_infoheader.ncolours = 0;//1 << 24;
@@ -550,7 +550,7 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 
-		Imf::Header header(getWidth(), getHeight());
+		Imf::Header header((int)getWidth(), (int)getHeight());
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
@@ -576,7 +576,7 @@ void Image::saveTo32BitExr(const std::string& pathname) const
 			sizeof(ColourType) * getWidth())// yStride
 			);
 		file.setFrameBuffer(frameBuffer);
-		file.writePixels(getHeight());
+		file.writePixels((int)getHeight());
 	}
 	catch(const std::exception& e)
 	{
@@ -672,7 +672,8 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 			const double pos_x = (double)x + 0.5; // x coordinate in src pixels
 			const double abs_dx_src = fabs(pos_x - radius_src);
 
-			filter.elem(x, y) = filter_function.eval(abs_dx_src / (double)factor) * filter_function.eval(abs_dy_src / (double)factor) / (float)(factor * factor);
+			filter.elem(x, y) = (float)(filter_function.eval(abs_dx_src / (double)factor) *
+										filter_function.eval(abs_dy_src / (double)factor) / (double)(factor * factor));
 			//sum += (double)filter.elem(x, y);
 		}
 	}
@@ -727,8 +728,8 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 }
 
 
-void Image::downsampleImage(const size_t factor, const size_t border_width,
-							const size_t filter_span, const float * const resize_filter, const float pre_clamp,
+void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
+							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
 							const Image& img_in, Image& img_out)
 {
 	assert(border_width >= 0);										// have padding pixels
@@ -742,11 +743,11 @@ void Image::downsampleImage(const size_t factor, const size_t border_width,
 	img_out.resize( (img_in.getWidth()  - (border_width * 2)) / factor,
 					(img_in.getHeight() - (border_width * 2)) / factor);
 
-	const int in_xres  = (int)img_in.getWidth();
-	const int in_yres  = (int)img_in.getHeight();
-	const int out_xres = (int)img_out.getWidth();
-	const int out_yres = (int)img_out.getHeight();
-	const int filter_bound = filter_span / 2 - 1;
+	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
+	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
+	const ptrdiff_t out_xres = (ptrdiff_t)img_out.getWidth();
+	const ptrdiff_t out_yres = (ptrdiff_t)img_out.getHeight();
+	const ptrdiff_t filter_bound = filter_span / 2 - 1;
 
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
 	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
@@ -760,8 +761,8 @@ void Image::downsampleImage(const size_t factor, const size_t border_width,
 		ColourType weighted_sum(0);
 		uint32 filter_addr = 0;
 
-		for(int v = -filter_bound; v <= filter_bound; ++v)
-		for(int u = -filter_bound; u <= filter_bound; ++u)
+		for(ptrdiff_t v = -filter_bound; v <= filter_bound; ++v)
+		for(ptrdiff_t u = -filter_bound; u <= filter_bound; ++u)
 		{
 			const int addr = (y * factor + factor / 2 + v + border_width) * in_xres +
 							  x * factor + factor / 2 + u + border_width;
@@ -795,7 +796,7 @@ float Image::minLuminance() const
 float Image::maxLuminance() const
 {
 	float maxlum = -std::numeric_limits<float>::max();
-	for(size_t i = 0; i<numPixels(); ++i)
+	for(size_t i = 0; i < numPixels(); ++i)
 		maxlum = myMax(maxlum, getPixel(i).luminance());
 	return maxlum;
 }
@@ -822,7 +823,7 @@ float Image::minPixelComponent() const
 float Image::maxPixelComponent() const
 {
 	float x = -std::numeric_limits<float>::max();
-	for(size_t i = 0; i<numPixels(); ++i)
+	for(size_t i = 0; i < numPixels(); ++i)
 		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
 	return x;
 }
@@ -971,6 +972,7 @@ Reference<Map2D> Image::resizeToImage(const int target, bool& is_linear) const
 #if (BUILD_TESTS)
 
 #include "../indigo/TestUtils.h"
+#include "../indigo/RendererSettings.h"
 #include "../graphics/MitchellNetravaliFilterFunction.h"
 
 void Image::test()
@@ -987,11 +989,8 @@ void Image::test()
 
 		MitchellNetravaliFilterFunction filter(mitchell_b, mitchell_c);
 
-		const int filter_pixel_span  = (int)ceil(filter.supportRadius() * 2) * supersample_factor;
-		const int filter_pixel_bound = filter_pixel_span / 2 - 1;
-
-		const int src_xres = 2 * filter_pixel_bound + supersample_factor * sqrt_image_size;
-		const int src_yres = 2 * filter_pixel_bound + supersample_factor * sqrt_image_size;
+		const int src_xres = (sqrt_image_size + RendererSettings::getMargin() * 2) * supersample_factor;
+		const int src_yres = (sqrt_image_size + RendererSettings::getMargin() * 2) * supersample_factor;
 		const int dst_xres = sqrt_image_size;
 		const int dst_yres = sqrt_image_size;
 
@@ -1001,7 +1000,7 @@ void Image::test()
 
 		Image::downsampleImage(
 			supersample_factor,	// factor
-			filter_pixel_bound,	// border width
+			RendererSettings::getMargin(),	// border width
 			filter.getFilterSpan(supersample_factor),
 			filter.getFilterData(supersample_factor),
 			1000000.0f, // max component value

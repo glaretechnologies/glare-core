@@ -15,10 +15,18 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../simpleraytracer/camera.h"
 
 #include "../indigo/ColourSpaceConverter.h"
+#include "../indigo/ToneMapper.h"
+
+#ifdef BUILD_TESTS
+
+#include "../indigo/TestUtils.h"
+#include "../indigo/MasterBuffer.h"
+
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/CameraToneMapper.h"
 
+#endif
 
 
 namespace ImagingPipeline
@@ -55,11 +63,10 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const std::vector<Image>
 // Tonemap HDR image to LDR image
 void doTonemapFullBuffer(
 	const std::vector<Image>& layers,
+	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	float image_scale,							// Accounts for the image's sample density
 	Camera* camera,
-
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
@@ -67,12 +74,6 @@ void doTonemapFullBuffer(
 {
 	//Timer t;
 	//const bool PROFILE = false;
-
-	// Build up vector of layer weights. The scales depend on the current layer blending controls (if present), and image scale which depends on resolution and num samples.
-	//const double image_scale = PathSampler::getScale((unsigned int)images[0].getWidth(), (unsigned int)images[0].getHeight(), num_samples);
-	std::vector<Vec3f> layer_weights(layers.size());
-	for(size_t z = 0; z < layers.size(); ++z)
-		layer_weights[z] = z < renderer_settings.layer_controls.size() ? toVec3f(renderer_settings.layer_controls[z].scale * image_scale) : Vec3f(image_scale);
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
@@ -184,38 +185,31 @@ void doTonemapFullBuffer(
 void doTonemap(	
 	std::vector<Image>& per_thread_tile_buffers,
 	const std::vector<Image>& layers,
+	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	const float image_scale,						// Accounts for the image's sample density
 	Camera* camera,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
-	bool image_buffer_in_XYZ)
+	bool XYZ_colourspace)
 {
 	// Apply diffraction filter if required
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && camera)
 	{
-		doTonemapFullBuffer(layers, renderer_settings, resize_filter, image_scale, camera,
+		doTonemapFullBuffer(layers, layer_weights, renderer_settings, resize_filter, camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, image_buffer_in_XYZ);
+							ldr_buffer_out, XYZ_colourspace);
 		return;
 	}
 
-	const ptrdiff_t layer_num = (ptrdiff_t)layers.size();
-
-	// Compute layer weights. The scales depend on the current layer blending controls (if present), plus the overall image scale which depends on resolution and num samples.
-	std::vector<Vec3f> layer_weights(layer_num);
-	for(ptrdiff_t z = 0; z < layer_num; ++z)
-		layer_weights[z] = z < renderer_settings.layer_controls.size() ? toVec3f(renderer_settings.layer_controls[z].scale * image_scale) : Vec3f(image_scale);
-
 	// Grab some unsigned constants for convenience
-	const ptrdiff_t gutter_pix  = (ptrdiff_t)renderer_settings.getMargin();
+	const ptrdiff_t xres		= (ptrdiff_t)layers[0].getWidth();
+	const ptrdiff_t yres		= (ptrdiff_t)layers[0].getHeight();
 	const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
+	const ptrdiff_t gutter_pix  = (ptrdiff_t)renderer_settings.getMargin();
 	const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFuncNonConst()->getFilterSpan((int)ss_factor);
 	const ptrdiff_t filter_span = filter_size / 2 - 1;
-	const ptrdiff_t xres		 = layers[0].getWidth();
-	const ptrdiff_t yres		 = layers[0].getHeight();
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
@@ -239,10 +233,9 @@ void doTonemap(
 	for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
 		per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
 
-
 	// Get float XYZ->sRGB matrix
 	Matrix3f XYZ_to_sRGB;
-	if(image_buffer_in_XYZ)
+	if(XYZ_colourspace)
 		for(int i = 0; i < 9; ++i)
 			XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
 	else
@@ -293,14 +286,14 @@ void doTonemap(
 				const ptrdiff_t src_addr = y * xres + x;
 				Image::ColourType sum(0.0f);
 
-				for(ptrdiff_t z = 0; z < layer_num; ++z)
+				for(ptrdiff_t z = 0; z < (ptrdiff_t)layers.size(); ++z)
 				{
 					const Image::ColourType& c = layers[z].getPixel(src_addr);
-					const Vec3f& scale = layer_weights[z];
+					const Vec3f& s = layer_weights[z];
 
-					sum.r += c.r * scale.x;
-					sum.g += c.g * scale.y;
-					sum.b += c.b * scale.z;
+					sum.r += c.r * s.x;
+					sum.g += c.g * s.y;
+					sum.b += c.b * s.z;
 				}
 
 				tile_buffer.getPixel(dst_addr++) = sum;
@@ -309,17 +302,12 @@ void doTonemap(
 			// Either tonemap, or do render foreground alpha
 			if(renderer_settings.render_foreground_alpha || renderer_settings.material_id_tracer || renderer_settings.depth_pass)
 			{
-				for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+				const ptrdiff_t tile_buffer_pixels = tile_buffer.numPixels();
+				for(ptrdiff_t i = 0; i < tile_buffer_pixels; ++i)
 					tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
 			}
 			else
-			{
 				renderer_settings.tone_mapper->toneMapImage(tonemap_params, tile_buffer);
-
-				// Components should be in range [0, 1]
-				assert(tile_buffer.minPixelComponent() >= 0.0f);
-				assert(tile_buffer.maxPixelComponent() <= 1.0f);
-			}
 
 			// Filter processed pixels into the final image
 			for(ptrdiff_t y = y_min; y < y_max; ++y)
@@ -338,7 +326,7 @@ void doTonemap(
 
 				assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
 
-				weighted_sum.clampInPlace(0.0f, 1.0f); // Make sure components can't go below zero or above pre_clamp (1.0f)
+				//weighted_sum.lowerClampInPlace(0); // Ensure result is positive
 				ldr_buffer_out.getPixel(y * final_xres + x) = weighted_sum;
 			}
 		}
@@ -358,7 +346,7 @@ void doTonemap(
 				const ptrdiff_t src_addr = y * xres + x;
 				Image::ColourType sum(0.0f);
 
-				for(size_t z = 0; z < layer_num; ++z)
+				for(ptrdiff_t z = 0; z < (ptrdiff_t)layers.size(); ++z)
 				{
 					const Image::ColourType& c = layers[z].getPixel(src_addr);
 					const Vec3f& scale = layer_weights[z];
@@ -373,35 +361,130 @@ void doTonemap(
 
 			// Either tonemap, or do render foreground alpha
 			if(renderer_settings.render_foreground_alpha || renderer_settings.material_id_tracer || renderer_settings.depth_pass)
-			{
 				for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
 					tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
-			}
 			else
-			{
 				renderer_settings.tone_mapper->toneMapImage(tonemap_params, tile_buffer);
-
-				// Components should be in range [0, 1]
-				assert(tile_buffer.minPixelComponent() >= 0.0f);
-				assert(tile_buffer.maxPixelComponent() <= 1.0f);
-			}
 
 			// Copy processed pixels into the final image
 			addr = 0;
-			for(size_t y = y_min; y < y_max; ++y)
-			for(size_t x = x_min; x < x_max; ++x)
+			for(ptrdiff_t y = y_min; y < y_max; ++y)
+			for(ptrdiff_t x = x_min; x < x_max; ++x)
 				ldr_buffer_out.getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
 		}
 	}
 
 	// Zero out pixels not in the render region
 	if(renderer_settings.render_region)
-		for(size_t y = 0; y < ldr_buffer_out.getHeight(); ++y)
-		for(size_t x = 0; x < ldr_buffer_out.getWidth();  ++x)
+		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
+		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
 			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
 				y < renderer_settings.render_region_y1 || y >= renderer_settings.render_region_y2)
 				ldr_buffer_out.setPixel(x, y, Colour3f(0, 0, 0));
 }
+
+
+#ifdef BUILD_TESTS
+
+void test()
+{
+	const int test_res_num = 6;
+	const int test_res[test_res_num] = { 1, 3, 5, 7, 11, 128 };
+
+	const int test_ss_num = 3;
+	const int test_ss[test_ss_num] = { 1, 2, 3 };
+
+	const int test_layers_num = 2;
+	const int test_layers[test_layers_num] = { 1, 2 };
+
+	const int test_tonemapper_num = 3;
+	Reference<ToneMapper> tone_mappers[test_tonemapper_num];
+	tone_mappers[0] = Reference<ToneMapper>(new LinearToneMapper(1));
+	tone_mappers[1] = Reference<ToneMapper>(new ReinhardToneMapper(4, 1, 6));
+	tone_mappers[2] = Reference<ToneMapper>(new CameraToneMapper(0, 200, "data/camera_response_functions/dscs315.txt"));
+
+
+	for(int res = 0; res < test_res_num; ++res)
+	for(int ss  = 0; ss  < test_ss_num; ++ss)
+	for(int l   = 0; l   < test_layers_num; ++l)
+	for(int tm  = 0; tm  < test_tonemapper_num; ++tm)
+	{
+		const int image_final_xres	= test_res[res];
+		const int image_final_yres	= test_res[res];
+		const int image_ss_factor	= test_ss[ss];
+		const int image_layers		= test_layers[l];
+
+		const int image_ss_xres = (image_final_xres + RendererSettings::getMargin() * 2) * image_ss_factor;
+		const int image_ss_yres = (image_final_yres + RendererSettings::getMargin() * 2) * image_ss_factor;
+
+		RendererSettings renderer_settings;
+		renderer_settings.logging = false;
+		renderer_settings.setWidth(image_final_xres);
+		renderer_settings.setHeight(image_final_yres);
+		renderer_settings.super_sample_factor = image_ss_factor;
+		renderer_settings.tone_mapper = tone_mappers[tm];
+
+
+		MasterBuffer master_buffer((uint32)image_ss_xres, (uint32)image_ss_yres, (int)image_layers, 1, 1);
+		master_buffer.setNumSamples(1);
+
+		std::vector<::Image>& layers = master_buffer.getBuffers();
+		assert(layers.size() == image_layers);
+
+		// Fill the layers with a solid circle
+		const int r_max = image_ss_xres / 2, ss = 4;
+		for(int i = 0; i < image_layers; ++i)
+		{
+			size_t addr = 0;
+			for(int y = 0; y < image_ss_yres; ++y)
+			for(int x = 0; x < image_ss_xres; ++x)
+			{
+				const int dx = x - r_max, dy = y - r_max;
+
+				layers[i].getPixel(addr++) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
+			}
+		}
+
+		const float layer_normalise = 1.0f / image_layers;
+		std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
+
+		::Image temp_summed_buffer, temp_AD_buffer, temp_ldr_buffer;
+		std::vector<::Image> temp_tile_buffers;
+
+
+		doTonemap(
+			temp_tile_buffers,
+			layers,
+			layer_weights,
+			renderer_settings,
+			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(image_ss_factor),
+			NULL, // Not testing AD yet, so don't need camera ptr
+			temp_summed_buffer,
+			temp_AD_buffer,
+			temp_ldr_buffer,
+			false);
+
+
+		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
+		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());
+
+		// Get the integral of all pixels in the image
+		double pixel_sum = 0;
+		for(size_t i = 0; i < temp_ldr_buffer.numPixels(); ++i)
+			pixel_sum += temp_ldr_buffer.getPixel(i).r;
+		const double integral = pixel_sum / (double)temp_ldr_buffer.numPixels();
+
+		const double expected_sum = 0.78539816339744830961566084581988; // pi / 4
+		const double allowable_error = 2000.0 / temp_ldr_buffer.numPixels();
+		testAssert(fabs(expected_sum - integral) <= allowable_error);
+
+		// On the biggest image report a quantitative difference
+		if(res == test_res_num - 1)
+			std::cout << "Image integral is " << integral << ", abs error is " << fabs(expected_sum - integral) << std::endl;
+	}
+}
+
+#endif
 
 
 } // namespace ImagingPipeline

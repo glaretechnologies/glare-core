@@ -42,28 +42,34 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const std::vector<Image>
 
 void doTonemapFullBuffer(
 	const std::vector<Image>& layers,
+	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	const float image_scale,						// Accounts for the image's sample density
-	Camera* camera,
-	Image& temp_summed_buffer,
-	Image& temp_AD_buffer,
-	Image& ldr_buffer_out,
-	bool image_buffer_in_XYZ,
-	bool using_trial_mode);
-
-
-void doTonemap(
-	std::vector<Image>& per_thread_tile_buffers,
-	const std::vector<Image>& layers,
-	const RendererSettings& renderer_settings,
-	const float* const resize_filter,
-	const float image_scale,						// Accounts for the image's sample density
 	Camera* camera,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
 	bool image_buffer_in_XYZ);
+
+
+void doTonemap(
+	std::vector<Image>& per_thread_tile_buffers,
+	const std::vector<Image>& layers,
+	const std::vector<Vec3f>& layer_weights,
+	const RendererSettings& renderer_settings,
+	const float* const resize_filter,
+	Camera* camera,
+	Image& temp_summed_buffer,
+	Image& temp_AD_buffer,
+	Image& ldr_buffer_out,
+	bool XYZ_colourspace);
+
+
+#ifdef BUILD_TESTS
+
+void test();
+
+#endif
 
 
 }; // namespace ImagingPipeline
