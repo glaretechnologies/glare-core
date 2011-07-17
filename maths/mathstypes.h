@@ -588,7 +588,7 @@ inline float fastLog2(float a)
 	};
 	U u;
 	u.f = a;
-	float x = u.i;
+	float x = (float)u.i;
 	//float x = (float)*((int*)&a);
 	x *= 0.00000011920928955078125f; // 2^-23
 	x -= 127.0f;
