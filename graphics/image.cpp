@@ -732,16 +732,17 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
 							const Image& img_in, Image& img_out)
 {
-	assert(border_width >= 0);										// have padding pixels
-	assert(img_in.getWidth()  > border_width * 2);					// have at least one interior pixel in x
-	assert(img_in.getHeight() > border_width * 2);					// have at least one interior pixel in y
-	assert((img_in.getWidth() - border_width * 2) % factor == 0);	// padded image is multiple of supersampling factor
+	assert(border_width >= 0);						// have padding pixels
+	assert(img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
+	assert(img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
+	assert(img_in.getWidth()  % factor == 0);		// padded image is multiple of supersampling factor
+	assert(img_in.getHeight() % factor == 0);		// padded image is multiple of supersampling factor
 
 	assert(filter_span > 0);
 	assert(resize_filter != 0);
 
-	img_out.resize( (img_in.getWidth()  - (border_width * 2)) / factor,
-					(img_in.getHeight() - (border_width * 2)) / factor);
+	img_out.resize( img_in.getWidth()  / factor - border_width * 2,
+					img_in.getHeight() / factor - border_width * 2);
 
 	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
 	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();

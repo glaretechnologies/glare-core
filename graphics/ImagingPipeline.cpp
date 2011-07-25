@@ -209,8 +209,10 @@ void doTonemap(
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const ptrdiff_t final_xres = xres / ss_factor - gutter_pix * 2; assert(final_xres == renderer_settings.getWidth());
-	const ptrdiff_t final_yres = yres / ss_factor - gutter_pix * 2; assert(final_yres == renderer_settings.getHeight());
+	const ptrdiff_t stripped_xres = xres / ss_factor - gutter_pix * 2;
+	const ptrdiff_t stripped_yres = yres / ss_factor - gutter_pix * 2;
+	const ptrdiff_t final_xres = stripped_xres; assert(final_xres == renderer_settings.getWidth());
+	const ptrdiff_t final_yres = stripped_yres; assert(final_yres == renderer_settings.getHeight());
 	ldr_buffer_out.resize(final_xres, final_yres);
 
 	const ptrdiff_t x_tiles = (final_xres + image_tile_size - 1) / image_tile_size; // rounded up :)
@@ -265,15 +267,15 @@ void doTonemap(
 		const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(final_xres, (tile_x + 1) * image_tile_size);
 		const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(final_yres, (tile_y + 1) * image_tile_size);
 
+		const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
+		const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
+		const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
+		const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
+		const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
+
 		// Perform downsampling if needed
 		if(ss_factor > 1)
 		{
-			const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
-			const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
-			const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x < xres);
-			const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y < yres);
-			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
-
 			// First we get the weighted sum of all pixels in the layers
 			size_t dst_addr = 0;
 			for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
@@ -328,12 +330,6 @@ void doTonemap(
 		}
 		else // No downsampling needed
 		{
-			const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2;
-			const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2;
-			const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + 1; assert(bucket_max_x < xres);
-			const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + 1; assert(bucket_max_y < yres);
-			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
-
 			// First we get the weighted sum of all pixels in the layers
 			size_t addr = 0;
 			for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
@@ -427,22 +423,19 @@ void test()
 		std::vector< ::Image>& layers = master_buffer.getBuffers();
 		assert(layers.size() == image_layers);
 
-		// Fill the layers with a solid circle
-		const int r_max = image_ss_xres / 2, ss = 4;
-		for(int i = 0; i < image_layers; ++i)
-		{
-			size_t addr = 0;
-			for(int y = 0; y < image_ss_yres; ++y)
-			for(int x = 0; x < image_ss_xres; ++x)
-			{
-				const int dx = x - r_max, dy = y - r_max;
-
-				layers[i].getPixel(addr++) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
-			}
-		}
-
 		const float layer_normalise = 1.0f / image_layers;
-		std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
+		std::vector<Vec3f> layer_weights(image_layers, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
+
+		// Fill the layers with a solid circle
+		const int r_max = image_ss_xres / 2;
+		for(int i = 0; i < image_layers;  ++i)
+		for(int y = 0; y < image_ss_yres; ++y)
+		for(int x = 0; x < image_ss_xres; ++x)
+		{
+			const int dx = x - r_max, dy = y - r_max;
+
+			layers[i].getPixel(y * image_ss_xres + x) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
+		}
 
 		::Image temp_summed_buffer, temp_AD_buffer, temp_ldr_buffer;
 		std::vector< ::Image> temp_tile_buffers;
@@ -474,7 +467,7 @@ void test()
 			const double integral = pixel_sum / (double)temp_ldr_buffer.numPixels();
 
 			const double expected_sum = 0.78539816339744830961566084581988; // pi / 4
-			const double allowable_error = 2048.0 / temp_ldr_buffer.numPixels();
+			const double allowable_error = 1200.0 / temp_ldr_buffer.numPixels();
 
 			const double abs_error = fabs(expected_sum - integral);
 			
