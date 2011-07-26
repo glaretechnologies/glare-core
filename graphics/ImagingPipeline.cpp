@@ -267,15 +267,15 @@ void doTonemap(
 		const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(final_xres, (tile_x + 1) * image_tile_size);
 		const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(final_yres, (tile_y + 1) * image_tile_size);
 
-		const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
-		const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
-		const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
-		const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
-		const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
-
 		// Perform downsampling if needed
 		if(ss_factor > 1)
 		{
+			const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
+			const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
+			const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
+			const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
+			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
+
 			// First we get the weighted sum of all pixels in the layers
 			size_t dst_addr = 0;
 			for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
@@ -330,6 +330,13 @@ void doTonemap(
 		}
 		else // No downsampling needed
 		{
+			// Since the pixels are 1:1 with the bucket bounds, simply offset the bucket rect by the left image margin / gutter pixels
+			const ptrdiff_t bucket_min_x = x_min + gutter_pix;
+			const ptrdiff_t bucket_min_y = y_min + gutter_pix;
+			const ptrdiff_t bucket_max_x = x_max + gutter_pix; assert(bucket_max_x <= xres);
+			const ptrdiff_t bucket_max_y = y_max + gutter_pix; assert(bucket_max_y <= yres);
+			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
+
 			// First we get the weighted sum of all pixels in the layers
 			size_t addr = 0;
 			for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
