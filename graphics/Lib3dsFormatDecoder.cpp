@@ -107,7 +107,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 
 		const unsigned int mat_index = mat_name_to_index.size();
 		mat_name_to_index[srcmatname] = mat_index;
-		handler.addMaterialUsed(srcmatname);
+		handler.addMaterialUsed(Indigo::IndigoString(srcmatname));
 	
 		material = material->next;
 	}

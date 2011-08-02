@@ -97,7 +97,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 				//conPrint("\tFound reference to material '" + material_name + "'.");
 				current_mat_index = materials.size();
 				materials.insert(material_name, current_mat_index);
-				handler.addMaterialUsed(material_name);
+				handler.addMaterialUsed(Indigo::IndigoString(material_name));
 			}
 		}
 		else if(token == "v")//vertex position

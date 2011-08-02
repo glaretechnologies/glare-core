@@ -653,7 +653,7 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
 	for(unsigned int i=0; i<mesh.used_materials.size(); ++i)
-		this->addMaterialUsed(mesh.used_materials[i]);
+		this->addMaterialUsed(mesh.used_materials[i].toStdString());
 
 	// Copy Vertices
 	this->vertices.resize(mesh.vert_positions.size());
