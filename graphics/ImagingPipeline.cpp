@@ -398,9 +398,16 @@ void test()
 
 	const int test_tonemapper_num = 3;
 	Reference<ToneMapper> tone_mappers[test_tonemapper_num];
-	tone_mappers[0] = Reference<ToneMapper>(new LinearToneMapper(1));
-	tone_mappers[1] = Reference<ToneMapper>(new ReinhardToneMapper(4, 1, 6));
-	tone_mappers[2] = Reference<ToneMapper>(new CameraToneMapper(0, 200, "data/camera_response_functions/dscs315.txt"));
+	try
+	{
+		tone_mappers[0] = Reference<ToneMapper>(new LinearToneMapper(1));
+		tone_mappers[1] = Reference<ToneMapper>(new ReinhardToneMapper(4, 1, 6));
+		tone_mappers[2] = Reference<ToneMapper>(new CameraToneMapper(0, 200, "data/camera_response_functions/dscs315.txt"));
+	}
+	catch(ToneMapperExcep& e)
+	{
+		failTest(e.what());
+	}
 
 
 	for(int res = 0; res < test_res_num; ++res)
