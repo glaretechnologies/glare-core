@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 #if defined(WIN32) || defined(WIN64)
 #include <unordered_map>
 #else

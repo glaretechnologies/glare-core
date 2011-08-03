@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include "../indigo/globals.h"
 
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 
 
 using namespace Indigo;
@@ -112,8 +112,8 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 		material = material->next;
 	}
 
-	std::vector<IndigoVec2f> texcoords(1);
-	std::vector<float> normals;//(mesh->faces * 9);
+	Indigo::IndigoVector<IndigoVec2f> texcoords(1);
+	Indigo::IndigoVector<float> normals;//(mesh->faces * 9);
 	unsigned int num_verts_added = 0;
 	for(Lib3dsMesh* mesh = file->meshes; mesh; mesh = mesh->next)
 	{

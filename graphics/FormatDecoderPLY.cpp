@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../rply-1.01/rply.h"
 #include <assert.h>
 
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 
 
 using namespace Indigo;

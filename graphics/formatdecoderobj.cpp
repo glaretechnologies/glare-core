@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../utils/timer.h"
 #include "../utils/Parser.h"
 
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 
 
 using namespace Indigo;
@@ -46,7 +46,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 
 	int current_mat_index = -1;
 
-	std::vector<IndigoVec2f> uv_vector(1);
+	Indigo::IndigoVector<IndigoVec2f> uv_vector(1);
 
 	/// Read .obj file from disk into RAM ///
 	std::vector<unsigned char> data;

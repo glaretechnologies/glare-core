@@ -27,7 +27,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../utils/fileutils.h"
 #include "../indigo/globals.h"
 #include "../indigo/IndigoMeshDecoder.h"
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 /*#include "../indigo/AnisoPhong.h"
 #include "../indigo/Phong.h"
 #include "../indigo/MatOverride.h"

@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 
 
 namespace js

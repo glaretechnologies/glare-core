@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "formatdecoderjpg.h"
 #include "formatdecodertxt.h"*/
 
-#include "../public/IndigoMesh.h"
+#include "../dll/include/IndigoMesh.h"
 
 ModelFormatDecoder::ModelFormatDecoder()
 {
