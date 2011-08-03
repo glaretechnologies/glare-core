@@ -42,6 +42,8 @@ public:
 		
 		FULL_3_X,
 		NODE_3_X,
+
+		REVIT_3_X,
 		
 		NETWORK_FLOATING_FULL,
 		NETWORK_FLOATING_NODE,

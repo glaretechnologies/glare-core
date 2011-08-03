@@ -275,8 +275,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			desired_license_type = SDK_2_X;
 		else if(components[1] == "indigo-full-3.x")
 			desired_license_type = FULL_3_X;
-		else if(components[1] == "indigo-node-3.x")
-			desired_license_type = NODE_3_X;
+		else if(components[1] == "indigo-revit-3.x")
+			desired_license_type = REVIT_3_X;
 #endif
 		else
 			return;
@@ -393,6 +393,9 @@ const std::string License::licenseTypeToString(LicenceType t)
 	else if(t == NODE_3_X)
 		return "Indigo 3.x Node";
 
+	else if(t == REVIT_3_X)
+		return "Indigo for Revit 3.x Full";
+
 	else if(t == NETWORK_FLOATING_FULL)
 		return "Network Floating Full";
 	else if(t == NETWORK_FLOATING_NODE)
@@ -448,6 +451,8 @@ bool License::shouldApplyWatermark(LicenceType t)
 		return false;
 	else if(t == NODE_3_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
+	else if(t == REVIT_3_X)
+		return false;
 	else if(t == RT_3_X)
 #ifdef INDIGO_RT
 		return false;
@@ -485,6 +490,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	else if(t == FULL_3_X)
 		return false;
 	else if(t == NODE_3_X)
+		return false;
+	else if(t == REVIT_3_X)
 		return false;
 	else if(t == RT_3_X)
 #ifdef INDIGO_RT
