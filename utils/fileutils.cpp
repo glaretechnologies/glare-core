@@ -974,6 +974,17 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 
 
 #if (BUILD_TESTS)
+
+}
+
+
+#include "PlatformUtils.h"
+
+
+namespace FileUtils
+{
+
+
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
@@ -1120,6 +1131,15 @@ void doUnitTests()
 		testAssert(fileExists("TEMP_TESTING_DIR/a"));
 		deleteEmptyDirectory("TEMP_TESTING_DIR/a");
 		deleteEmptyDirectory("TEMP_TESTING_DIR");
+
+		// Windows sometimes takes a while to delete the dir, so wait a while if it's not done yet.
+		for(int i=0; i<10; ++i)
+		{
+			if(fileExists("TEMP_TESTING_DIR"))
+				::PlatformUtils::Sleep(20);
+			else
+				break;
+		}
 		testAssert(!fileExists("TEMP_TESTING_DIR"));
 		testAssert(!fileExists("TEMP_TESTING_DIR/a"));
 
