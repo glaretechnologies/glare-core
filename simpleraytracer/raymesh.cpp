@@ -31,6 +31,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 #if defined(WIN32) || defined(WIN64)
 #include <unordered_map>
 #else
@@ -653,7 +654,7 @@ void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
 	for(unsigned int i=0; i<mesh.used_materials.size(); ++i)
-		this->addMaterialUsed(mesh.used_materials[i].toStdString());
+		this->addMaterialUsed(toStdString(mesh.used_materials[i]));
 
 	// Copy Vertices
 	this->vertices.resize(mesh.vert_positions.size());

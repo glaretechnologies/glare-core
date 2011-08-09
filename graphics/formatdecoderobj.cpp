@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "../utils/Parser.h"
 
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 
 
 using namespace Indigo;
@@ -97,7 +98,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 				//conPrint("\tFound reference to material '" + material_name + "'.");
 				current_mat_index = materials.size();
 				materials.insert(material_name, current_mat_index);
-				handler.addMaterialUsed(Indigo::IndigoString(material_name));
+				handler.addMaterialUsed(toIndigoString(material_name));
 			}
 		}
 		else if(token == "v")//vertex position

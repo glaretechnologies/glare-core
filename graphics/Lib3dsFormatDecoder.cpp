@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 
 
 using namespace Indigo;
@@ -107,7 +108,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 
 		const unsigned int mat_index = (unsigned int)mat_name_to_index.size();
 		mat_name_to_index[srcmatname] = mat_index;
-		handler.addMaterialUsed(Indigo::IndigoString(srcmatname));
+		handler.addMaterialUsed(toIndigoString(srcmatname));
 	
 		material = material->next;
 	}
