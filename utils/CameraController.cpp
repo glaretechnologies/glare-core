@@ -37,8 +37,7 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 	position = cam_pos;
 	initialised_up = cam_up;
 
-	// Construct basis assuming world up direction is <0,0,1> if possible
-	Vec3d world_up = Vec3d(0, 0, 1);
+	// Construct basis
 	Vec3d camera_up, camera_forward, camera_right;
 
 	camera_forward = normalise(cam_forward);
@@ -48,7 +47,7 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 	rotation.x = atan2(cam_forward.y, cam_forward.x);
 	rotation.y = acos(cam_forward.z / cam_forward.length());
 
-	const Vec3d rollplane_x_basis = crossProduct(camera_forward, cam_up);
+	const Vec3d rollplane_x_basis = crossProduct(camera_forward, initialised_up);
 	const Vec3d rollplane_y_basis = crossProduct(rollplane_x_basis, camera_forward);
 	const double rollplane_x = dot(camera_right, rollplane_x_basis);
 	const double rollplane_y = dot(camera_right, rollplane_y_basis);
