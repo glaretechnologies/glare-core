@@ -27,9 +27,8 @@ public:
 	-----
 	
 	=====================================================================*/
-	Map2D();
-
-	virtual ~Map2D();
+	Map2D() {}
+	virtual ~Map2D() {}
 
 
 	typedef float Value;

@@ -7,24 +7,24 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "ImagingPipeline.h"
 
 
-#include <omp.h>
-#include <iostream>
-
-#include "../utils/platform.h"
-
-#include "../simpleraytracer/camera.h"
-
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/ToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
+#include "../indigo/PostProDiffraction.h"
+#include "../simpleraytracer/camera.h"
+#include "../utils/platform.h"
+#include <omp.h>
+#include <iostream>
+
 
 #ifdef BUILD_TESTS
 
+
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
-
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/CameraToneMapper.h"
+
 
 #endif
 
@@ -66,7 +66,8 @@ void doTonemapFullBuffer(
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Camera* camera,
+	//Camera* camera,
+	Reference<PostProDiffraction>& post_pro_diffraction,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
@@ -81,12 +82,13 @@ void doTonemapFullBuffer(
 	//if(PROFILE) print_messages_out.push_back("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
-	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && camera)
+	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
 	{
 		BufferedPrintOutput bpo;
 		//if(PROFILE) t.reset();
 		temp_AD_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
-		camera->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
+		//camera->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
+		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
 		temp_summed_buffer = temp_AD_buffer;
 		//for(size_t z = 0; z < bpo.msgs.size(); ++z)
 		//	print_messages_out.push_back(bpo.msgs[z]);
@@ -184,16 +186,17 @@ void doTonemap(
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Camera* camera,
+	//Camera* camera,
+	Reference<PostProDiffraction>& post_pro_diffraction,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
 	bool XYZ_colourspace)
 {
 	// Apply diffraction filter if required
-	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && camera)
+	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
 	{
-		doTonemapFullBuffer(layers, layer_weights, renderer_settings, resize_filter, camera,
+		doTonemapFullBuffer(layers, layer_weights, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace);
 		return;
@@ -409,6 +412,8 @@ void test()
 		failTest(e.what());
 	}
 
+	Reference<PostProDiffraction> post_pro_diffraction(NULL); // Don't test post_pro_diffraction currently
+
 
 	for(int res = 0; res < test_res_num; ++res)
 	for(int ss  = 0; ss  < test_ss_num; ++ss)
@@ -461,7 +466,7 @@ void test()
 			layer_weights,
 			renderer_settings,
 			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(image_ss_factor),
-			NULL, // Not testing AD yet, so don't need camera ptr
+			post_pro_diffraction,
 			temp_summed_buffer,
 			temp_AD_buffer,
 			temp_ldr_buffer,

@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include <stdlib.h>
 #include "../utils/fileutils.h"
 #include "../graphics/ImageMap.h"
+#include "../graphics/bitmap.h"
 
 
 TGADecoder::TGADecoder()

@@ -7,8 +7,7 @@
 #include "../graphics/Map2D.h"
 #include "assert.h"
 #include <string>
-#include <map>
-#include "bitmap.h"
+class Bitmap;
 class FilterFunction;
 
 class ImageExcep
@@ -59,31 +58,8 @@ public:
 
 	inline const ColourType& getPixelTiled(int x, int y) const;
 
-	//const ColourType sample(float x, float y) const;
-	//const ColourType sampleTiled(float x, float y) const;
-
-	//static Image* loadFromBitmap(const std::string& pathname);
-	//throws ImageExcep
-	void loadFromBitmap(const std::string& pathname);
-	//throws ImageExcep
-	void saveToBitmap(const std::string& pathname);
-
-	//throws ImageExcep
-	//void loadFromRAW(const std::string& pathname, int width_, int height_,
-	//	float load_gain);
-
 	inline void setPixel(size_t x, size_t y, const ColourType& colour);
 	inline void incrPixel(size_t x, size_t y, const ColourType& colour);
-
-	//throws ImageExcep
-	void loadFromNFF(const std::string& pathname);
-	//throws ImageExcep
-	void saveAsNFF(const std::string& pathname);
-
-	//void saveTo16BitExr(const std::string& pathname) const;
-	void saveTo32BitExr(const std::string& pathname) const;
-
-	//void saveToPng(const std::string& pathname, const std::map<std::string, std::string>& metadata, int border_width) const;
 
 	void loadFromHDR(const std::string& pathname, int width, int height);
 

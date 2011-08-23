@@ -32,11 +32,6 @@ public:
 
 	~ImageFilter();
 
-
-	//adds the image in, convolved by a guassian filter, to out.
-	static void gaussianFilter(const Image& in, Image& out, float standard_deviation);
-
-
 	//adds the image in, convolved by a Chiu filter, to out.
 	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);
 

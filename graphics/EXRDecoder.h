@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "../utils/reference.h"
 class Map2D;
 class Bitmap;
+class Image;
 
 
 /*=====================================================================
@@ -38,6 +39,8 @@ public:
 	static Reference<Map2D> decode(const std::string& path);
 
 
+	// throws Indigo::Exception
+	static void saveImageTo32BitEXR(const Image& image, const std::string& pathname);
 };
 
 

@@ -15,10 +15,14 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
+#include "../utils/Exception.h"
 #include <fstream>
 #include <ImfStdIO.h>
 #include <ImfInputFile.h>
+#include <ImfOutputFile.h>
 #include <ImfChannelList.h>
+#include <ImfRgbaFile.h>
+#include <ImathBox.h>
 
 
 EXRDecoder::EXRDecoder()
@@ -208,4 +212,50 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 	throw ImFormatExcep("OPENEXR_SUPPORT disabled.");
 
 #endif //OPENEXR_SUPPORT
+}
+
+
+void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& pathname)
+{
+	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
+	try
+	{
+		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
+
+		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
+
+		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
+
+		Imf::Header header((int)image.getWidth(), (int)image.getHeight());
+		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
+		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
+		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
+		Imf::OutputFile file(exr_ofstream, header);                               
+		Imf::FrameBuffer frameBuffer;
+
+		frameBuffer.insert("R",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&image.getPixel(0).r,			// base
+			sizeof(Image::ColourType),				// xStride
+			sizeof(Image::ColourType) * image.getWidth())// yStride
+			);
+		frameBuffer.insert("G",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&image.getPixel(0).g,			// base
+			sizeof(Image::ColourType),				// xStride
+			sizeof(Image::ColourType) * image.getWidth())// yStride
+			);
+		frameBuffer.insert("B",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&image.getPixel(0).b,			// base
+			sizeof(Image::ColourType),				// xStride
+			sizeof(Image::ColourType) * image.getWidth())// yStride
+			);
+		file.setFrameBuffer(frameBuffer);
+		file.writePixels((int)image.getHeight());
+	}
+	catch(const std::exception& e)
+	{
+		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
+	}
 }

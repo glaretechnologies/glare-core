@@ -20,20 +20,20 @@ Code By Nicholas Chapman.
 #include "../indigo/DiffractionFilter.h"
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/bitmap.h"
-#include "../graphics/MitchellNetravali.h"
+//#include "../graphics/MitchellNetravali.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/Distribution2.h"
 #include "../indigo/Aperture.h"
 #include "../indigo/CircularAperture.h"
 #include "../utils/fileutils.h"
-#include "../utils/MTwister.h"
+//#include "../utils/MTwister.h"
 #include "../indigo/IndigoImage.h"
 #include "../graphics/imformatdecoder.h"
 #include "../indigo/SpectralVector.h"
 #include "../indigo/TransformPath.h"
 #include "../utils/timer.h"
 #include "../indigo/PrintOutput.h"
-#include "../graphics/FFTPlan.h"
+//#include "../graphics/FFTPlan.h"
 #include "../maths/GeometrySampling.h"
 
 
@@ -67,7 +67,7 @@ Camera::Camera(
 	appdata_path(appdata_path_),
 	write_aperture_preview(write_aperture_preview_)
 {
-	plan = new FFTPlan();
+//	plan = new FFTPlan();
 
 	init(Vec3d(0,0,0), ws_updir, forwards,
 		lens_radius_, focus_distance_, sensor_width_, sensor_height_, lens_sensor_dist_,
@@ -145,7 +145,7 @@ Camera::Camera(
 
 Camera::~Camera()
 {
-	delete plan;
+//	delete plan;
 	delete aperture;
 }
 
@@ -238,9 +238,8 @@ void Camera::init(
 }
 
 
-void Camera::prepareForDiffractionFilter(/*const std::string& base_indigo_path_, */int main_buffer_width_, int main_buffer_height_, int ssf_)
+void Camera::prepareForDiffractionFilter(int main_buffer_width_, int main_buffer_height_, int ssf_)
 {
-	//base_indigo_path = base_indigo_path_;
 	main_buffer_width = main_buffer_width_;
 	main_buffer_height = main_buffer_height_;
 	ssf = ssf_;
@@ -258,7 +257,7 @@ void Camera::buildDiffractionFilter()
 }
 
 
-void Camera::buildDiffractionFilterImage(PrintOutput& print_output)
+/*void Camera::buildDiffractionFilterImage(PrintOutput& print_output)
 {
 	this->diffraction_filter_image = std::auto_ptr<Image>(doBuildDiffractionFilterImage(
 		this->diffraction_filter->getDiffractionFilter(),
@@ -273,9 +272,9 @@ void Camera::buildDiffractionFilterImage(PrintOutput& print_output)
 		this->ssf,
 		print_output
 	));
-}
+}*/
 
-
+#if 0
 Image* Camera::doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
 											 double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, 
 											 int ssf, PrintOutput& print_output)
@@ -497,6 +496,8 @@ Image* Camera::doBuildDiffractionFilterImage(const Array2d<float>& filter_data, 
 
 	return diffraction_filter_image;
 }
+#endif
+
 
 /*      k
         ^          j
@@ -886,14 +887,6 @@ void Camera::subdivideAndDisplace(ThreadContext& context, const Object& object, 
 void Camera::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose) {} // throws GeometryExcep
 
 
-/*int Camera::UVSetIndexForName(const std::string& uvset_name) const
-{
-	::fatalError("Camera::UVSetIndexForName");
-	return 0;
-}*/
-
-
-
 const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const
 {
 	assert(diffraction_filter.get() != NULL);
@@ -937,7 +930,7 @@ const Vec3d Camera::diffractRay(const SamplePair& samples, const Vec3d& dir, con
 
 
 // Static + private
-void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan)
+/*void Camera::applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan)
 {
 	try
 	{
@@ -981,7 +974,7 @@ void Camera::applyDiffractionFilterToImage(PrintOutput& print_output, const Imag
 
 		out = in;
 	}
-}
+}*/
 
 
 /*double Camera::getHorizontalAngleOfView() const // including to left and right, in radians
@@ -1234,7 +1227,7 @@ void Camera::unitTest()
 {
 	conPrint("Camera::unitTest()");
 
-	MTwister rng(1);
+//	MTwister rng(1);
 	const Vec3d forwards(0,1,0);
 	const double lens_sensor_dist = 1.0;
 	const double sensor_width = 1.0;

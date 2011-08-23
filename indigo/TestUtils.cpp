@@ -7,10 +7,10 @@ Code By Nicholas Chapman.
 #include "TestUtils.h"
 
 
-#include "globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
 #include <stdlib.h>
+#include <iostream>
 
 
 #if defined(BUILD_TESTS)
@@ -24,7 +24,7 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)
 	{
-		conPrint("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test));
+		std::cout << ("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test)) << std::endl;
 		assert(0);
 		exit(1);
 	}
@@ -33,7 +33,7 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 
 void doFailTest(const std::string& msg, long line, const char* file)
 {
-	conPrint("Test Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg);
+	std::cout << ("Test Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg) << std::endl;
 	assert(0);
 	exit(1);
 }
@@ -49,7 +49,7 @@ const std::string getIndigoTestReposDir()
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& )
 	{
-		conPrint("Failed to read environment variable INDIGO_TEST_REPOS_DIR");
+		std::cout << ("Failed to read environment variable INDIGO_TEST_REPOS_DIR") << std::endl;
 		assert(0);
 		exit(1);
 	}

@@ -1,14 +1,15 @@
 #include "image.h"
 
 
-#include "MitchellNetravali.h"
+#include "bitmap.h"
 #include "BoxFilterFunction.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../maths/vec2.h"
-#include "../graphics/ImageFilter.h"
+//#include "../graphics/ImageFilter.h"
+#include "../graphics/GaussianImageFilter.h"
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -16,29 +17,9 @@
 #include <stdio.h>
 
 
-#ifndef BASIC_IMAGE
-
-#ifdef OPENEXR_SUPPORT
-#include <ImfRgbaFile.h>
-#include <ImathBox.h>
-#include <ImfChannelList.h>
-#include <ImfOutputFile.h>
-#include <ImfStdIO.h>
-#endif
-
-#include <png.h>
-extern "C"
-{
-#include "../hdr/rgbe.h"
-}
-#endif
-
-
 Image::Image()
 :	pixels(0, 0)
 {
-	//width = 0;
-	//height = 0;
 }
 
 Image::Image(size_t width_, size_t height_)
@@ -47,7 +28,8 @@ Image::Image(size_t width_, size_t height_)
 }
 
 
-Image::~Image() { }
+Image::~Image()
+{}
 
 
 Image& Image::operator = (const Image& other)
@@ -57,19 +39,9 @@ Image& Image::operator = (const Image& other)
 
 	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
 	{
-		//width = other.width;
-		//height = other.height;
-
 		pixels.resize(other.getWidth(), other.getHeight());
 	}
 
-	/*for(unsigned int x=0; x<width; ++x)
-		for(unsigned int y=0; y<height; ++y)
-		{
-			setPixel(x, y, other.getPixel(x, y));
-		}*/
-	//for(unsigned int i=0; i<other.numPixels(); ++i)
-	//	this->getPixel(i) = other.getPixel(i);
 	this->pixels = other.pixels;
 
 	return *this;
@@ -114,6 +86,7 @@ void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 	}
 }
 
+
 // Will throw ImageExcep if bytespp != 3 && bytespp != 4
 void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
@@ -152,209 +125,6 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 		pixel[0] = (unsigned char)(p.r * 255.0f);
 		pixel[1] = (unsigned char)(p.g * 255.0f);
 		pixel[2] = (unsigned char)(p.b * 255.0f);
-	}
-}
-
-
-typedef unsigned char BYTE;
-
-
-static inline float byteToFloat(BYTE c)
-{
-	return (float)c * (1.0f / 255.0f);
-}
-
-
-#define BITMAP_ID        0x4D42       // this is the universal id for a bitmap
-
-
-#pragma pack (push, 1)
-
-typedef struct {
-   unsigned short int type;                 /* Magic identifier            */
-   unsigned int size;                       /* File size in bytes          */
-   unsigned short int reserved1, reserved2;
-   unsigned int offset;                     /* Offset to image data, bytes */
-} BITMAP_HEADER;
-
-
-typedef struct {
-   unsigned int size;               /* Header size in bytes      */
-   int width,height;                /* Width and height of image */
-   unsigned short int planes;       /* Number of colour planes   */
-   unsigned short int bits;         /* Bits per pixel            */
-   unsigned int compression;        /* Compression type          */
-   unsigned int imagesize;          /* Image size in bytes       */
-   int xresolution,yresolution;     /* Pixels per meter          */
-   unsigned int ncolours;           /* Number of colours         */
-   unsigned int importantcolours;   /* Important colours         */
-} BITMAP_INFOHEADER;
-
-#pragma pack (pop)
-
-
-//Image* Image::loadFromBitmap(const std::string& pathname)
-void Image::loadFromBitmap(const std::string& pathname)
-{
-	try
-	{
-		//-----------------------------------------------------------------
-		//open file
-		//-----------------------------------------------------------------
-		FileHandle f(pathname, "rb");
-
-		//-----------------------------------------------------------------
-		//read bitmap header
-		//-----------------------------------------------------------------
-		BITMAP_HEADER bitmap_header;
-		const int header_size = sizeof(BITMAP_HEADER);
-		assert(header_size == 14);
-
-		fread(&bitmap_header, 14, 1, f.getFile());
-
-		//debugPrint("file size: %i\n", (int)bitmap_header.size);
-		//debugPrint("offset to image data in bytes: %i\n", (int)bitmap_header.offset);
-
-		//-----------------------------------------------------------------
-		//read bitmap info-header
-		//-----------------------------------------------------------------
-		assert(sizeof(BITMAP_INFOHEADER) == 40);
-
-		BITMAP_INFOHEADER infoheader;
-
-		fread(&infoheader, sizeof(BITMAP_INFOHEADER), 1, f.getFile());
-
-	//	debugPrint("width: %i\n", infoheader.width);
-	//	debugPrint("height: %i\n", infoheader.height);
-	//	debugPrint("bits per pixel: %i\n", (int)infoheader.bits);
-
-		assert(infoheader.bits == 24);
-		if(infoheader.bits != 24)
-			throw ImageExcep("unsupported bitdepth.");
-
-	//	debugPrint("number of planes: %i\n", infoheader.planes);
-	//	debugPrint("compression mode: %i\n", infoheader.compression);
-
-		//-----------------------------------------------------------------
-		//build image object
-		//-----------------------------------------------------------------
-		//Image* image = new Image(infoheader.width, infoheader.height);
-
-		const size_t width = infoheader.width;
-		const size_t height = infoheader.height;
-
-		const int MAX_DIMS = 10000;
-		if(width < 0 || width > MAX_DIMS)
-			throw ImageExcep("bad image width.");
-		if(height < 0 || height > MAX_DIMS)
-			throw ImageExcep("bad image height.");
-
-		pixels.resize(width, height);
-
-		int rowpaddingbytes = 4 - ((width*3) % 4);
-		if(rowpaddingbytes == 4)
-			rowpaddingbytes = 0;
-
-		const int DATASIZE = infoheader.height * (infoheader.width * 3 + rowpaddingbytes);
-
-		BYTE* data = new BYTE[DATASIZE];
-
-		fread(data, DATASIZE, 1, f.getFile());
-
-		//-----------------------------------------------------------------
-		//convert into colour array
-		//-----------------------------------------------------------------
-		int i = 0;
-		for(int y=infoheader.height-1; y>=0; --y)
-		{
-			for(int x=0; x<infoheader.width; ++x)
-			{
-				const float b = byteToFloat(data[i]);
-				const float g = byteToFloat(data[i + 1]);
-				const float r = byteToFloat(data[i + 2]);
-
-				this->setPixel(x, y, ColourType(r, g, b));
-
-				i += 3;
-			}
-
-			i += rowpaddingbytes;
-		}
-
-
-		delete[] data;
-
-		//-----------------------------------------------------------------
-		//close file
-		//-----------------------------------------------------------------
-		//fclose (f);
-	}
-	catch(Indigo::Exception& )
-	{
-		throw ImageExcep("could not open file '" + pathname + "'.");
-	}
-}
-
-
-void Image::saveToBitmap(const std::string& pathname)
-{
-	try
-	{
-		FileHandle f(pathname, "wb");
-
-		BITMAP_HEADER bitmap_header;
-		bitmap_header.offset = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER);
-		bitmap_header.type = BITMAP_ID;
-		bitmap_header.size = sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER) + (uint32)getWidth() * (uint32)getHeight() * 3;
-
-		fwrite(&bitmap_header, sizeof(BITMAP_HEADER), 1, f.getFile());
-
-		BITMAP_INFOHEADER bitmap_infoheader;
-		bitmap_infoheader.size = sizeof(BITMAP_INFOHEADER);
-		bitmap_infoheader.bits = 24;
-		bitmap_infoheader.compression = 0;
-		bitmap_infoheader.height = (int)getHeight();
-		bitmap_infoheader.width  = (int)getWidth();
-		bitmap_infoheader.imagesize = 0;//getWidth() * getHeight() * 3;
-		bitmap_infoheader.importantcolours = 0;//1 << 24;
-		bitmap_infoheader.ncolours = 0;//1 << 24;
-		bitmap_infoheader.planes = 1;
-		bitmap_infoheader.xresolution = 100;
-		bitmap_infoheader.yresolution = 100;
-
-		fwrite(&bitmap_infoheader, sizeof(BITMAP_INFOHEADER), 1, f.getFile());
-
-		int rowpaddingbytes = 4 - ((getWidth() * 3) % 4);
-		if(rowpaddingbytes == 4)
-			rowpaddingbytes = 0;
-
-		for(int y = (int)getHeight() - 1; y >= 0; --y)
-		{
-			for(int x = 0; x < (int)getWidth(); ++x)
-			{
-				ColourType pixelcol = getPixel(x, y);
-				pixelcol.positiveClipComponents();
-
-				const BYTE b = (BYTE)(pixelcol.b * 255.0f);
-				fwrite(&b, 1, 1, f.getFile());
-
-				const BYTE g = (BYTE)(pixelcol.g * 255.0f);
-				fwrite(&g, 1, 1, f.getFile());
-
-				const BYTE r = (BYTE)(pixelcol.r * 255.0f);
-				fwrite(&r, 1, 1, f.getFile());
-			}
-
-			const BYTE zerobyte = 0;
-			for(int i = 0; i < rowpaddingbytes; ++i)
-				fwrite(&zerobyte, 1, 1, f.getFile());
-		}
-
-		//fclose(f);
-	}
-	catch(Indigo::Exception& )
-	{
-		throw ImageExcep("could not open file '" + pathname + "'.");
 	}
 }
 
@@ -531,76 +301,7 @@ void Image::overwriteImage(const Image& img, int destx, int desty)
 }
 
 
-#ifndef BASIC_IMAGE
-
-
-
-#ifdef OPENEXR_SUPPORT
-
-
-
-void Image::saveTo32BitExr(const std::string& pathname) const
-{
-	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
-	try
-	{
-		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
-
-		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
-
-		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
-
-		Imf::Header header((int)getWidth(), (int)getHeight());
-		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
-		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
-		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
-		Imf::OutputFile file(exr_ofstream, header);                               
-		Imf::FrameBuffer frameBuffer;
-
-		frameBuffer.insert("R",				// name
-			Imf::Slice(Imf::FLOAT,			// type
-			(char*)&getPixel(0).r,			// base
-			sizeof(ColourType),				// xStride
-			sizeof(ColourType) * getWidth())// yStride
-		);
-		frameBuffer.insert("G",				// name
-			Imf::Slice(Imf::FLOAT,			// type
-			(char*)&getPixel(0).g,			// base
-			sizeof(ColourType),				// xStride
-			sizeof(ColourType) * getWidth())// yStride
-			);
-		frameBuffer.insert("B",				// name
-			Imf::Slice(Imf::FLOAT,			// type
-			(char*)&getPixel(0).b,			// base
-			sizeof(ColourType),				// xStride
-			sizeof(ColourType) * getWidth())// yStride
-			);
-		file.setFrameBuffer(frameBuffer);
-		file.writePixels((int)getHeight());
-	}
-	catch(const std::exception& e)
-	{
-		throw ImageExcep("Error writing EXR file: " + std::string(e.what()));
-	}
-}
-
-
-#else //OPENEXR_SUPPORT
-
-
-void Image::saveTo32BitExr(const std::string& pathname) const
-{
-	throw ImageExcep("Image::saveTo32BitExr: OPENEXR_SUPPORT disabled.");
-}
-
-
-#endif //OPENEXR_SUPPORT
-
-// NOTE There was tons of commented byte-level loading code here, check SVN.
-
-#endif
-
-//make the average pixel luminance == 1
+// Make the average pixel luminance == 1
 void Image::normalise()
 {
 	if(getHeight() == 0 || getWidth() == 0)
@@ -924,7 +625,7 @@ Reference<Map2D> Image::getBlurredLinearGreyScaleImage() const
 {
 	// Blur the image
 	Image blurred_img(getWidth(), getHeight());
-	ImageFilter::gaussianFilter(
+	GaussianImageFilter::gaussianFilter(
 		*this, 
 		blurred_img, 
 		(float)myMax(getWidth(), getHeight()) * 0.01f // standard dev in pixels
@@ -970,11 +671,13 @@ Reference<Map2D> Image::resizeToImage(const int target, bool& is_linear) const
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
 
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../graphics/MitchellNetravaliFilterFunction.h"
+
 
 void Image::test()
 {
@@ -1014,4 +717,5 @@ void Image::test()
 	}
 }
 
-#endif
+
+#endif // BUILD_TESTS

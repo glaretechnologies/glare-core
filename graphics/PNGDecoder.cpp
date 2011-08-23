@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include <png.h>
-//#include "bitmap.h"
+#include "bitmap.h"
 #include "imformatdecoder.h"
 #include "ImageMap.h"
 #include "../utils/stringutils.h"

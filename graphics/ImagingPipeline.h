@@ -6,15 +6,16 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #pragma once
 
-#include <vector>
 
-#include "image.h"
 
 #include "../indigo/PrintOutput.h"
 #include "../indigo/RendererSettings.h"
+#include "image.h"
+#include <vector>
 
 
 class Camera;
+class PostProDiffraction;
 
 
 namespace ImagingPipeline
@@ -45,7 +46,8 @@ void doTonemapFullBuffer(
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Camera* camera,
+	//Camera* camera,
+	Reference<PostProDiffraction>& post_pro_diffraction,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
@@ -58,7 +60,8 @@ void doTonemap(
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Camera* camera,
+	//Camera* camera,
+	Reference<PostProDiffraction>& post_pro_diffraction,
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,

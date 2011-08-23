@@ -9,8 +9,8 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 
 #include "Map2D.h"
 #include "image.h"
+#include "GaussianImageFilter.h"
 #include "../utils/Vector.h"
-#include "ImageFilter.h"
 
 
 // #define IMAGE_MAP_TILED 1
@@ -452,7 +452,7 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage() const
 
 	// Blur the floating point image
 	Image blurred_img(width, height);
-	ImageFilter::gaussianFilter(
+	GaussianImageFilter::gaussianFilter(
 		img, 
 		blurred_img, 
 		(float)myMax(width, height) * 0.01f // standard dev in pixels

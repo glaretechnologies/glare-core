@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 
-
+/*
 Map2D::Map2D()
 {
 	
@@ -22,6 +22,6 @@ Map2D::~Map2D()
 
 
 
-
+*/
 
 

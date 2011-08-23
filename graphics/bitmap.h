@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 
 #include <assert.h>
 #include <vector>
-
 #include "../utils/platform.h"
 
 
