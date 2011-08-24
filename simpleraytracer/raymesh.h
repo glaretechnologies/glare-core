@@ -24,7 +24,7 @@ namespace js{ class EdgeTri; }
 class Material;
 class RendererSettings;
 class PrintOutput;
-namespace Indigo{ class IndigoMesh; }
+namespace Indigo{ class Mesh; }
 
 
 class RayMeshTriangle
@@ -195,7 +195,7 @@ public:
 	//////////////////////////////////////////////////////////
 
 	
-	void fromIndigoMesh(const Indigo::IndigoMesh& mesh);
+	void fromIndigoMesh(const Indigo::Mesh& mesh);
 
 	//////////  old ModelLoadingStreamHandler interface /////////////
 	//////////  raymesh does not implement this interface ///////////

@@ -696,7 +696,7 @@ void TreeTest::doTests()
 	const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
 	CSModelLoader model_loader;
 	RayMesh raymesh("tricky", false);
-	Indigo::IndigoMesh indigoMesh;
+	Indigo::Mesh indigoMesh;
 	try
 	{
 		model_loader.streamModel(MODEL_PATH, indigoMesh, 1.0);
@@ -835,7 +835,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("bunny", false);
-	Indigo::IndigoMesh indigoMesh;
+	Indigo::Mesh indigoMesh;
 	try
 	{
 		model_loader.streamModel(BUNNY_PATH, indigoMesh, 1.0);
@@ -971,7 +971,7 @@ void TreeTest::buildSpeedTest()
 
 	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
-	Indigo::IndigoMesh indigoMesh;
+	Indigo::Mesh indigoMesh;
 	try
 	{
 		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", indigoMesh, 1.0);

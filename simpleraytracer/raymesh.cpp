@@ -613,13 +613,13 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 }
 
 
-inline static const ::Vec3f toVec3(const Indigo::IndigoVec3f& v)
+inline static const ::Vec3f toVec3(const Indigo::Vec3f& v)
 {
 	return ::Vec3f(v.x, v.y, v.z);
 }
 
 
-inline static const ::Vec2f toVec2(const Indigo::IndigoVec2f& v)
+inline static const ::Vec2f toVec2(const Indigo::Vec2f& v)
 {
 	return ::Vec2f(v.x, v.y);
 }
@@ -649,7 +649,7 @@ inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 }
 
 
-void RayMesh::fromIndigoMesh(const Indigo::IndigoMesh& mesh)
+void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 

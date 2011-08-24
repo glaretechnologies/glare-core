@@ -47,7 +47,7 @@ public:
 
 	void setScale(float newscale){ scale = newscale; }//set b4 calling buildModel()
 
-	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, Indigo::IndigoMesh& handler, float scale);// throw (ModelFormatDecoderExcep);
+	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, Indigo::Mesh& handler, float scale);// throw (ModelFormatDecoderExcep);
 
 
 private:

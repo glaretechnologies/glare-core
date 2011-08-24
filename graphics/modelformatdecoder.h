@@ -14,10 +14,7 @@ Code By Nicholas Chapman.
 namespace CS { class Model; }
 class ModelDecoder;
 
-namespace Indigo
-{
-	class IndigoMesh;
-}
+namespace Indigo { class Mesh; }
 
 class ModelFormatDecoderExcep
 {
@@ -51,7 +48,7 @@ public:
 	//void buildModel(const void* data, int datalen, const std::string& filename, CS::Model& model_out) throw (ModelFormatDecoderExcep);
 
 	//void streamModel(const void* data, int datalen, const std::string& filename, ModelLoadingStreamHandler& handler) throw (ModelFormatDecoderExcep);
-	void streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale);// throw (ModelFormatDecoderExcep);
+	void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale);// throw (ModelFormatDecoderExcep);
 
 
 	//takes ownership of pointer

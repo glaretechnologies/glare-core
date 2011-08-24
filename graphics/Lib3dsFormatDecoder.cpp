@@ -38,7 +38,7 @@ Lib3dsFormatDecoder::~Lib3dsFormatDecoder()
 
 #ifdef LIB3DS_SUPPORT
 
-void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale) // throw (ModelFormatDecoderExcep)
+void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale) // throw (ModelFormatDecoderExcep)
 {
 	Lib3dsFile* file = lib3ds_file_load(filename.c_str());
 	if(!file)
@@ -113,8 +113,8 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 		material = material->next;
 	}
 
-	Indigo::IndigoVector<IndigoVec2f> texcoords(1);
-	Indigo::IndigoVector<float> normals;//(mesh->faces * 9);
+	Indigo::Vector<Vec2f> texcoords(1);
+	Indigo::Vector<float> normals;//(mesh->faces * 9);
 	unsigned int num_verts_added = 0;
 	for(Lib3dsMesh* mesh = file->meshes; mesh; mesh = mesh->next)
 	{
@@ -154,7 +154,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 				{
 					const unsigned int srcvertindex = mesh->faceL[f].points[v];
 
-					const IndigoVec3f pos(
+					const Vec3f pos(
 							mesh->pointL[srcvertindex].pos[0],
 							mesh->pointL[srcvertindex].pos[1],
 							mesh->pointL[srcvertindex].pos[2]);
@@ -171,7 +171,7 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Indig
 						handler.addUVs(texcoords);
 					}
 
-					const IndigoVec3f normal(
+					const Vec3f normal(
 						normals[f*9+v*3],
 						normals[f*9+v*3 + 1],
 						normals[f*9+v*3 + 2]);

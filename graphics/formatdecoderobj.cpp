@@ -17,9 +17,6 @@ Code By Nicholas Chapman.
 #include "../dll/IndigoStringUtils.h"
 
 
-using namespace Indigo;
-
-
 FormatDecoderObj::FormatDecoderObj()
 {	
 }
@@ -36,7 +33,7 @@ const std::string FormatDecoderObj::getExtensionType() const
 }
 
 
-void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, 
+void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, 
 		float scale) // throws ModelFormatDecoderExcep
 {
 	Timer load_timer;
@@ -47,7 +44,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 
 	int current_mat_index = -1;
 
-	Indigo::IndigoVector<IndigoVec2f> uv_vector(1);
+	Indigo::Vector<Indigo::Vec2f> uv_vector(1);
 
 	/// Read .obj file from disk into RAM ///
 	std::vector<unsigned char> data;
@@ -63,8 +60,8 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 
 	unsigned int num_vertices_added = 0;
 
-	std::vector<IndigoVec3f> vert_positions;
-	std::vector<IndigoVec3f> vert_normals;
+	std::vector<Indigo::Vec3f> vert_positions;
+	std::vector<Indigo::Vec3f> vert_normals;
 
 	int linenum = 0;
 	std::string token;
@@ -103,7 +100,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 		}
 		else if(token == "v")//vertex position
 		{
-			IndigoVec3f pos(0,0,0);
+			Indigo::Vec3f pos(0,0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(pos.x);
 			parser.parseSpacesAndTabs();
@@ -121,7 +118,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 		}
 		else if(token == "vt")//vertex tex coordinate
 		{
-			IndigoVec2f texcoord(0,0);
+			Indigo::Vec2f texcoord(0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(texcoord.x);
 			parser.parseSpacesAndTabs();
@@ -145,7 +142,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::IndigoMe
 		}
 		else if(token == "vn") // vertex normal
 		{
-			IndigoVec3f normal(0,0,0);
+			Indigo::Vec3f normal(0,0,0);
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(normal.x);
 			parser.parseSpacesAndTabs();

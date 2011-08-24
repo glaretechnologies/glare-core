@@ -63,7 +63,7 @@ CSModelLoader::~CSModelLoader()
 {	
 }
 
-void CSModelLoader::streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale)// throw (ModelFormatDecoderExcep)
+void CSModelLoader::streamModel(const std::string& pathname, Indigo::Mesh& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	//------------------------------------------------------------------------
 	//read model file from disk

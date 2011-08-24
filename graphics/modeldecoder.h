@@ -11,10 +11,8 @@ File created by ClassTemplate on Sun Nov 07 02:05:28 2004Code By Nicholas Chapma
 #include <string>
 
 
-namespace Indigo
-{
-	class IndigoMesh;
-}
+namespace Indigo { class Mesh; }
+
 
 /*=====================================================================
 ModelDecoder
@@ -42,7 +40,7 @@ public:
 
 
 	//throws ModelFormatDecoderExcep
-	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, Indigo::IndigoMesh& handler, float scale) = 0;// throw (ModelFormatDecoderExcep) = 0;
+	virtual void streamModel(/*const void* data, int datalen, */const std::string& filename, Indigo::Mesh& handler, float scale) = 0;// throw (ModelFormatDecoderExcep) = 0;
 
 protected:
 	//throws ModelFormatDecoderExcep

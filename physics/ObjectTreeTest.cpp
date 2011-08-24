@@ -551,7 +551,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
 	AlignedRef<RayMesh, 16> raymesh(new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("raymesh", false));
-	Indigo::IndigoMesh indigoMesh;
+	Indigo::Mesh indigoMesh;
 	try
 	{
 		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", indigoMesh, 1.0);

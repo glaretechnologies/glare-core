@@ -29,8 +29,8 @@ FormatDecoderPLY::~FormatDecoderPLY()
 }
 
 //dirty nasty global variables
-static IndigoVec3f current_vert_pos;//NOTE TEMP HACK GLOBAL VAR
-static const std::vector<IndigoVec2f> texcoord_sets;
+static Vec3f current_vert_pos;//NOTE TEMP HACK GLOBAL VAR
+static const std::vector<Vec2f> texcoord_sets;
 static unsigned int current_vert_indices[3];
 static float ply_scale = 1.0f;//TEMP NASTY HACK
 
@@ -47,7 +47,7 @@ static int vertex_callback(p_ply_argument argument)
 	//PlyMesh* current_mesh = static_cast<PlyMesh*>(pointer_usrdata);
 	//assert(current_mesh);
 
-	Indigo::IndigoMesh* handler =  static_cast<Indigo::IndigoMesh*>(pointer_usrdata);
+	Indigo::Mesh* handler =  static_cast<Indigo::Mesh*>(pointer_usrdata);
 
 
 	//get vert index
@@ -79,7 +79,7 @@ static int face_callback(p_ply_argument argument)
 
 	//PlyMesh* current_mesh = static_cast<PlyMesh*>(pointer_usrdata);
 	//assert(current_mesh);
-	Indigo::IndigoMesh* handler =  static_cast<Indigo::IndigoMesh*>(pointer_usrdata);
+	Indigo::Mesh* handler =  static_cast<Indigo::Mesh*>(pointer_usrdata);
 
 
 	//get current tri index
@@ -108,7 +108,7 @@ static int face_callback(p_ply_argument argument)
 }
 
 
-void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale)// throw (ModelFormatDecoderExcep)
+void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& handler, float scale)// throw (ModelFormatDecoderExcep)
 {
 	ply_scale = scale;
 

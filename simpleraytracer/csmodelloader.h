@@ -20,7 +20,7 @@ class MatOverride;
 
 namespace Indigo
 {
-	class IndigoMesh;
+	class Mesh;
 }
 
 namespace CS{ class Material; }
@@ -64,7 +64,7 @@ public:
 	//IntermediateMesh* buildIntermediateMesh(const std::string& fullpathname,
 	//	NameMap<Material*>& materials);
 
-	void streamModel(const std::string& pathname, Indigo::IndigoMesh& handler, float scale);
+	void streamModel(const std::string& pathname, Indigo::Mesh& handler, float scale);
 
 
 

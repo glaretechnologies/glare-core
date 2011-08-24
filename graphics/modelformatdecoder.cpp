@@ -33,7 +33,7 @@ ModelFormatDecoder::~ModelFormatDecoder()
 
 
 
-void ModelFormatDecoder::streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale) //throw (ModelFormatDecoderExcep)
+void ModelFormatDecoder::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale) //throw (ModelFormatDecoderExcep)
 {
 	if(filename.length() < 4)
 		throw ModelFormatDecoderExcep("filename too short: '" + filename + "'");

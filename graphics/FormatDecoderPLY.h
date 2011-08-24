@@ -33,7 +33,7 @@ public:
 
 	virtual const std::string getExtensionType() const { return "ply"; }
 
-	virtual void streamModel(const std::string& filename, Indigo::IndigoMesh& handler, float scale);// throw (ModelFormatDecoderExcep);
+	virtual void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale);// throw (ModelFormatDecoderExcep);
 };
 
 
