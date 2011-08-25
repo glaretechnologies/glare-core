@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include <stdlib.h>//NULL seems to want this
 
+
 /*=====================================================================
 Singleton
 ---------
