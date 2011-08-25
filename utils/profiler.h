@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __PROFILER_H_666_
 #define __PROFILER_H_666_
 
-
+#error NOT USED ANY MORE
 
 #include "timer.h"
 class ProfilerItem;

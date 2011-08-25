@@ -7,6 +7,8 @@ Code By Nicholas Chapman.
 #ifndef __PROFILERRECORD_H_666_
 #define __PROFILERRECORD_H_666_
 
+#if 0
+
 #pragma warning(disable : 4786)//disable long debug name warning
 
 #include "profiler.h"
@@ -78,3 +80,4 @@ private:
 
 
 
+#endif

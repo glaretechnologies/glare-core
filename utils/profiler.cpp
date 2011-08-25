@@ -4,7 +4,9 @@ profiler.cpp
 File created by ClassTemplate on Sat Aug 23 04:35:35 2003
 Code By Nicholas Chapman.
 =====================================================================*/
+#if 0
 #include "profiler.h"
+
 
 #include "profileritem.h"
 #include <vector>
@@ -150,3 +152,4 @@ void Profiler::printResults(std::ostream& stream) const
 	}*/
 }
 
+#endif
