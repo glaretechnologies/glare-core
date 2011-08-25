@@ -34,7 +34,7 @@ BVH
 SSE_CLASS_ALIGN BVH : public Tree
 {
 public:
-	BVH(RayMesh* raymesh);
+	BVH(const RayMesh* const raymesh);
 	~BVH();
 
 	virtual void build(PrintOutput& print_output, bool verbose); // throws TreeExcep
@@ -77,7 +77,7 @@ private:
 	AABBox root_aabb; // AABB of whole thing
 
 
-	RayMesh* raymesh;
+	const RayMesh* const raymesh;
 
 	typedef js::Vector<BVHNode, BVHNode::REQUIRED_ALIGNMENT> NODE_VECTOR_TYPE;
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.

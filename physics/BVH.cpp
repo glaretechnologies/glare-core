@@ -24,7 +24,7 @@ namespace js
 {
 
 
-BVH::BVH(RayMesh* raymesh_)
+BVH::BVH(const RayMesh* const raymesh_)
 :	raymesh(raymesh_),
 	tri_aabbs(NULL)
 {

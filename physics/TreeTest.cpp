@@ -31,6 +31,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../indigo/EmbreeAccel.h"
 
 
 namespace js
@@ -320,7 +321,7 @@ static void testSelfIntersectionAvoidance()
 	}
 
 	//------------------------------------------------------------------------
-	//Init KD-tree and BVH
+	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
@@ -329,9 +330,12 @@ static void testSelfIntersectionAvoidance()
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh));
+	trees.back()->build(print_output, true);
+
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
-	for(unsigned int i=0; i<trees.size(); ++i)
+	for(size_t i = 0; i < trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
 	ThreadContext thread_context;
@@ -344,7 +348,7 @@ static void testSelfIntersectionAvoidance()
 #endif
 		);
 
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const Tree::Real dist = trees[i]->traceRay(ray, 500.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
@@ -357,7 +361,7 @@ static void testSelfIntersectionAvoidance()
 
 		// Trace the same ray, but with a max distance of 1.0 - nudge.
 		// So the ray shouldn't hit the other quad.
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const Tree::Real dist = trees[i]->traceRay(ray,
@@ -369,7 +373,7 @@ static void testSelfIntersectionAvoidance()
 
 		// Trace the same ray, but with a max distance of 1.0 + nudge.
 		// The ray *should* hit the other quad.
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const Tree::Real dist = trees[i]->traceRay(ray,
@@ -381,7 +385,7 @@ static void testSelfIntersectionAvoidance()
 		}
 
 		// Test doesFiniteRayHit
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const bool hit = trees[i]->doesFiniteRayHit(ray,
@@ -394,7 +398,7 @@ static void testSelfIntersectionAvoidance()
 			testAssert(!hit);
 		}
 
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const bool hit = trees[i]->doesFiniteRayHit(ray,
@@ -408,7 +412,7 @@ static void testSelfIntersectionAvoidance()
 		}
 
 		// Test doesFiniteRayHit, but setting ignore_tri = 2, so no intersection should be registered.
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const bool hit = trees[i]->doesFiniteRayHit(ray,
@@ -422,7 +426,7 @@ static void testSelfIntersectionAvoidance()
 		}
 
 		// Test doesFiniteRayHit, but setting ignore_tri = 3 so an intersection *should* be registered.
-		for(unsigned int i=0; i<trees.size(); ++i)
+		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
 			const bool hit = trees[i]->doesFiniteRayHit(ray,
@@ -437,7 +441,7 @@ static void testSelfIntersectionAvoidance()
 	}
 
 	// Delete trees
-	for(unsigned int i=0; i<trees.size(); ++i)
+	for(size_t i = 0; i < trees.size(); ++i)
 	{
 		trees[i]->~Tree();
 		SSE::alignedFree(trees[i]);
@@ -450,7 +454,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	StandardPrintOutput print_output;
 
 	//------------------------------------------------------------------------
-	//Init KD-tree and BVH
+	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
@@ -459,9 +463,12 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh));
+	trees.back()->build(print_output, true);
+
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
-	for(unsigned int i=0; i<trees.size(); ++i)
+	for(size_t i = 0; i < trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
 	ThreadContext thread_context;
@@ -490,7 +497,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
 
 		// Trace through the trees
-		for(unsigned int t=0; t<trees.size(); ++t)
+		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			HitInfo hitinfo;
 			unsigned int ignore_tri = std::numeric_limits<unsigned int>::max();
@@ -533,7 +540,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		// Compare results
 		testAssert(hitinfos.size() == hitinfos_d.size());
-		for(unsigned int z=0; z<hitinfos.size(); ++z)
+		for(size_t z = 0; z < hitinfos.size(); ++z)
 		{
 			testAssert(::epsEqual(hitinfos[z].dist, hitinfos_d[z].dist));
 			testAssert(hitinfos[z].sub_elem_index == hitinfos_d[z].sub_elem_index);
@@ -543,7 +550,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//Test getAllHits() on other trees
 		//------------------------------------------------------------------------
-		for(unsigned int t=0; t<trees.size(); ++t)
+		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			std::vector<DistanceHitInfo> hitinfos_other;
 			trees[t]->getAllHits(ray, thread_context/*, tree_context*/, NULL, hitinfos_other);
@@ -551,7 +558,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 			// Compare results
 			testAssert(hitinfos.size() == hitinfos_other.size());
-			for(unsigned int z=0; z<hitinfos.size(); ++z)
+			for(size_t z = 0; z < hitinfos.size(); ++z)
 			{
 				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist, 0.0001f));
 				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
@@ -567,7 +574,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const Tree::Real testlength = rng.unitRandom() * (Tree::Real)2.0;
 		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, NULL, std::numeric_limits<unsigned int>::max());
 
-		for(unsigned int t=0; t<trees.size(); ++t)
+		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, NULL, std::numeric_limits<unsigned int>::max());
 			testAssert(hit == hit_);
@@ -575,7 +582,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	}
 
 	// Delete trees
-	for(unsigned int i=0; i<trees.size(); ++i)
+	for(size_t i = 0; i < trees.size(); ++i)
 	{
 		trees[i]->~Tree();
 		SSE::alignedFree(trees[i]);
@@ -661,7 +668,7 @@ void TreeTest::doTests()
 {
 //	doVaryingNumtrisBuildTests();
 
-	testSelfIntersectionAvoidance();
+	//testSelfIntersectionAvoidance();
 
 	doEdgeCaseTests();
 

@@ -4,8 +4,9 @@ raymesh.cpp
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "raymesh.h"
+#include "../indigo/EmbreeAccel.h"
 
+#include "raymesh.h"
 
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
@@ -401,14 +402,21 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	try
 	{
-		if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
-			tritree = new (SSE::alignedSSEMalloc(sizeof(js::BVH))) js::BVH(this);
-			//tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
-			//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
+		if(renderer_settings.use_embree)
+		{
+			tritree = new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(this);
+		}
 		else
-			tritree = new (SSE::alignedSSEMalloc(sizeof(js::KDTree))) js::KDTree(this);
-			//tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
-	}
+		{
+			if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
+				tritree = new (SSE::alignedSSEMalloc(sizeof(js::BVH))) js::BVH(this);
+				//tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
+				//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
+			else
+				tritree = new (SSE::alignedSSEMalloc(sizeof(js::KDTree))) js::KDTree(this);
+				//tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
+		}
+}
 	catch(js::TreeExcep& e)
 	{
 		throw GeometryExcep("Exception while creating tree: " + e.what());
@@ -653,7 +661,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
-	for(unsigned int i=0; i<mesh.used_materials.size(); ++i)
+	for(size_t i = 0; i < mesh.used_materials.size(); ++i)
 		this->addMaterialUsed(toStdString(mesh.used_materials[i]));
 
 	// Copy Vertices
@@ -661,7 +669,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	if(mesh.vert_normals.size() == 0)
 	{
-		for(uint32 i=0; i<mesh.vert_positions.size(); ++i)
+		for(size_t i = 0; i < mesh.vert_positions.size(); ++i)
 		{
 			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
 			this->vertices[i].normal.set(0.f, 0.f, 0.f);
@@ -671,7 +679,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	{
 		assert(mesh.vert_normals.size() == mesh.vert_positions.size());
 
-		for(uint32 i=0; i<mesh.vert_positions.size(); ++i)
+		for(size_t i = 0; i < mesh.vert_positions.size(); ++i)
 		{
 			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
 			this->vertices[i].normal.set(mesh.vert_normals[i].x, mesh.vert_normals[i].y, mesh.vert_normals[i].z);
@@ -686,7 +694,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	this->uvs.resize(mesh.uv_pairs.size());
 
-	for(uint32 i=0; i<mesh.uv_pairs.size(); ++i)
+	for(size_t i = 0; i < mesh.uv_pairs.size(); ++i)
 		this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
 
 	this->num_uv_groups = mesh.num_uv_mappings == 0 ? 0 : (unsigned int)mesh.uv_pairs.size() / mesh.num_uv_mappings;
@@ -694,7 +702,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	// Triangles
 	this->triangles.reserve(mesh.triangles.size());
 	unsigned int dest_i = 0;
-	for(unsigned int i=0; i<mesh.triangles.size(); ++i)
+	for(size_t i = 0; i < mesh.triangles.size(); ++i)
 	{
 		const Indigo::Triangle& src_tri = mesh.triangles[i];
 
@@ -748,7 +756,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	// Quads
 	this->quads.resize(mesh.quads.size());
-	for(unsigned int i=0; i<mesh.quads.size(); ++i)
+	for(size_t i = 0; i < mesh.quads.size(); ++i)
 	{
 		// Check material index is in bounds
 		if(mesh.quads[i].mat_index >= getMaterialNameToIndexMap().size())
@@ -983,7 +991,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<d
 {
 	surface_areas_out.resize(triangles.size());
 
-	for(unsigned int i = 0; i < surface_areas_out.size(); ++i)
+	for(size_t i = 0; i < surface_areas_out.size(); ++i)
 		surface_areas_out[i] = (double)getTriArea(*this, i, to_parent);
 
 }
@@ -1072,10 +1080,10 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 
-	for(unsigned int i = 0; i < vertices.size(); ++i)
+	for(size_t i = 0; i < vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
 
-	for(unsigned int t = 0; t<triangles.size(); ++t)
+	for(size_t t = 0; t<triangles.size(); ++t)
 	{
 		const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
@@ -1088,7 +1096,7 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
 	}
 
-	for(unsigned int q = 0; q<quads.size(); ++q)
+	for(size_t q = 0; q < quads.size(); ++q)
 	{
 		const Vec3f normal = triGeometricNormal(
 			vertices, 
@@ -1101,7 +1109,7 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 			vertices[quads[q].vertex_indices[i]].normal += normal;
 	}
 
-	for(unsigned int i = 0; i < vertices.size(); ++i)
+	for(size_t i = 0; i < vertices.size(); ++i)
 		vertices[i].normal.normalise();
 }
 
@@ -1144,7 +1152,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	std::vector<RayMeshVertex> newverts;
 	newverts.reserve(vertices.size());
 	
-	for(unsigned int t = 0; t < triangles.size(); ++t)
+	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		for(unsigned int i = 0; i < 3; ++i)
 		{
@@ -1167,7 +1175,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 		}
 	}
 
-	for(unsigned int t = 0; t < quads.size(); ++t)
+	for(size_t t = 0; t < quads.size(); ++t)
 	{
 		for(unsigned int i = 0; i < 4; ++i)
 		{
@@ -1243,7 +1251,7 @@ void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
 
 	UVToIndexMap new_uv_indices;
 
-	for(unsigned int t = 0; t < triangles.size(); ++t)
+	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		for(unsigned int i = 0; i < 3; ++i)
 		{
