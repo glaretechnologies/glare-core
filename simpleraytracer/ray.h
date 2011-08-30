@@ -41,7 +41,13 @@ public:
 		//assert(unitdir_.isUnitLength()); // NOTE: taken out because rays don't always use unit vector directions
 		assert(SSE::isSSEAligned(this));
 
-		origin_error = startpos_.length() * 2.0e-5f;
+		//origin_error = startpos_.length() * 2.0e-5f;
+		
+		// Compute the following with SSE: origin_error = startpos_.length() * 2.0e-5f / unitdir_.length();
+		Vec4f unitdir_len2;
+		unitdir_len2.x[0] = unitdir_.length2();
+		Vec4f recip_sqrt(_mm_rsqrt_ss(unitdir_len2.v));
+		origin_error = startpos_.length() * 2.0e-5f * recip_sqrt.x[0];
 
 		/*
 			TEMP HACK:

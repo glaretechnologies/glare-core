@@ -7,9 +7,10 @@ Generated at Tue May 25 16:47:39 +1200 2010
 #include "VectorTest.h"
 
 
-//#include "../utils/timer.h"
-//#include "../utils/stringutils.h"
-//#include "../indigo/globals.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
+#include "../indigo/globals.h"
+#include "Vec4f.h"
 
 
 #if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
@@ -88,6 +89,20 @@ static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
 
 float VectorTest::test()
 {
+	Timer t;
+	Vec4f unitdir_(t.elapsed(), t.elapsed() + 2, t.elapsed() + 3, 0);
+	Vec4f startpos_(t.elapsed() + 4, t.elapsed() + 5, t.elapsed() + 6, 0);
+
+	Vec4f unitdir_len2;
+	unitdir_len2.x[0] = unitdir_.length2();
+	Vec4f recip_sqrt(_mm_rsqrt_ss(unitdir_len2.v));
+	float origin_error = startpos_.length() * 2.0e-5f * recip_sqrt.x[0];
+
+
+	printVar(origin_error);
+
+
+
 	TestVec3 a(1.f, 2.f, 3.f);
 
 	int N = 10000000;
