@@ -830,7 +830,7 @@ void Camera::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Typ
 }
 
 
-unsigned int Camera::getNumTexCoordSets() const { return 0; }
+unsigned int Camera::getNumUVCoordSets() const { return 0; }
 
 
 unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
@@ -874,7 +874,7 @@ double Camera::surfaceArea(const Matrix3d& to_parent) const
 }
 
 
-const Camera::TexCoordsType Camera::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const Camera::TexCoordsType Camera::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return TexCoordsType(0,0);
 }

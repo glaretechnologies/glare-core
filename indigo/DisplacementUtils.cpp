@@ -455,12 +455,12 @@ public:
 	DUTexCoordEvaluator(){}
 	~DUTexCoordEvaluator(){}
 
-	virtual const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 	{
 		return texcoords[texcoords_set];
 	}
 
-	virtual unsigned int getNumTexCoordSets() const { return (unsigned int)texcoords.size(); }
+	virtual unsigned int getNumUVCoordSets() const { return (unsigned int)texcoords.size(); }
 
 	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 	{

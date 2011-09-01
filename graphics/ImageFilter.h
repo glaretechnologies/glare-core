@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/array2d.h"
+#include "../utils/reference.h"
 #include "../utils/Exception.h"
 #include "../maths/Complex.h"
 class Image;
@@ -53,6 +54,8 @@ public:
 	static void realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
 
 	static void FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out); // throws Indigo::Exception on out of mem.
+
+	static Reference<Image> convertDebevecMappingToLatLong(const Reference<Image>& in);
 
 	static void test();
 

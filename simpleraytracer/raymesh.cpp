@@ -531,13 +531,13 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 }
 
 
-unsigned int RayMesh::getNumTexCoordSets() const
+unsigned int RayMesh::getNumUVCoordSets() const
 { 
 	return num_uv_sets; 
 }
 
 
-const RayMesh::TexCoordsType RayMesh::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	assert(texcoords_set < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());

@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 #include "../utils/timer.h"
 #include <omp.h>
 #include "FFTPlan.h"
+#include "../maths/GeometrySampling.h"
 
 
 // Defined in fft4f2d.c
@@ -1392,6 +1393,44 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	fftss_destroy_plan(plan);
 	fftss_free(in);
 	fftss_free(outbuf);
+}
+
+
+Reference<Image> ImageFilter::convertDebevecMappingToLatLong(const Reference<Image>& in)
+{
+	const size_t w = in->getWidth();
+	const size_t h = in->getHeight();
+	Reference<Image> out(new Image(w, w));
+
+	for(size_t y=0; y<h; ++y)
+		for(size_t x=0; x<w; ++x)
+		{
+			float phi = -NICKMATHS_2PIf * x / w;
+			float theta = NICKMATHS_PIf * y / h;
+			const Vec3f p = GeometrySampling::dirForSphericalCoords<float>(phi, theta);
+
+			const Vec3f D = Vec3f(p.x, -p.z, p.y);
+
+			const float denom = std::sqrt(D.x*D.x + D.y*D.y);
+			float r;
+			if(denom && D.z >= -1.0 && D.z <= 1.0)
+				r = NICKMATHS_RECIP_PIf * acos(D.z) / denom;
+			else
+				r = 0.0;
+
+			assert(Maths::inHalfClosedInterval(D.x * r * 0.5 + 0.5, 0.0, 1.0));
+			assert(Maths::inHalfClosedInterval(D.y * r * 0.5 + 0.5, 0.0, 1.0));
+			
+			float im_u = D.x*r;
+			float im_v = D.y*r;
+
+			float s = (im_u + 1) * 0.5f;
+			float t = (im_v + 1) * 0.5f;
+
+			out->setPixel(x, y, in->vec3SampleTiled(s, t));
+		}
+
+	return out;
 }
 
 

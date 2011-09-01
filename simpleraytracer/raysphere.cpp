@@ -267,7 +267,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const 
 }
 
 
-const RaySphere::TexCoordsType RaySphere::getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const RaySphere::TexCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return hitinfo.sub_elem_coords;
 }
@@ -346,7 +346,7 @@ void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSet
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 
 
-unsigned int RaySphere::getNumTexCoordSets() const { return 1; }
+unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
 #if (BUILD_TESTS)

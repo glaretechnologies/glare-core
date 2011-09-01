@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include <iostream>
 #include <vector>
 #include "Array4D.h"
+#include "platform.h"
 
 
 /*=====================================================================
@@ -128,6 +129,10 @@ namespace StreamUtils
 		x = Array4D<T>(dx, dy, dz, dw);
 		readBasicVector(stream, x.getData());
 	}
+
+
+	uint32 readUInt32(std::istream& stream);
+	void writeUInt32(std::ostream& stream, uint32 x);
 
 }
 

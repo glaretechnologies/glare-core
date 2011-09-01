@@ -81,6 +81,8 @@ public:
 
 	void setGamma(float g) { gamma = g; }
 
+	inline virtual const Colour3<Value> pixelColour(size_t x, size_t y) const;
+
 	// X and Y are normalised image coordinates.
 	inline virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
@@ -136,6 +138,25 @@ ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsign
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::~ImageMap() {}
+
+
+template <class V, class VTraits>
+const Colour3<Map2D::Value> ImageMap<V, VTraits>::pixelColour(size_t x_, size_t y_) const
+{
+	unsigned int x = (unsigned int)x_;
+	unsigned int y = (unsigned int)y_;
+	Colour3<Value> colour_out;
+	if(N < 3)
+		colour_out.r = colour_out.g = colour_out.b = VTraits::scaleValue(getPixel(x, y)[0]);
+	else
+	{
+		colour_out.r = VTraits::scaleValue(getPixel(x, y)[0]);
+		colour_out.g = VTraits::scaleValue(getPixel(x, y)[1]);
+		colour_out.b = VTraits::scaleValue(getPixel(x, y)[2]);
+	}
+
+	return colour_out;
+}
 
 
 template <class V, class VTraits>

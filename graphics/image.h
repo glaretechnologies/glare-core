@@ -117,6 +117,8 @@ public:
 	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
 	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
 
+	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return pixels.elem(x, y); }
+
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;

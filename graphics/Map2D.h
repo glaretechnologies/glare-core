@@ -34,6 +34,8 @@ public:
 	typedef float Value;
 	typedef float Coord;
 
+	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const = 0;
+
 	// X and Y are normalised image coordinates.
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const = 0;
 
@@ -56,6 +58,8 @@ public:
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const = 0;
 };
 
+
+typedef Reference<Map2D> Map2DRef;
 
 
 #endif //__MAP2D_H_666_

@@ -174,8 +174,8 @@ public:
 	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out) const;
-	const TexCoordsType getTexCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
-	virtual unsigned int getNumTexCoordSets() const;
+	const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
+	virtual unsigned int getNumUVCoordSets() const;
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const;
 	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;

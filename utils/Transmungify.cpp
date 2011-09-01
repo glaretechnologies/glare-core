@@ -37,10 +37,16 @@ static inline unsigned char toUChar(uint32 x)
 
 bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords)
 {
+	return encrypt(src_string.c_str(), src_string.size(), dst_dwords);
+}
+
+
+bool Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::vector<uint32>& dst_dwords)
+{
 	uint32 i;
-	const uint32 string_len = (uint32)src_string.size();
+	const uint32 string_len = src_string_size; // (uint32)src_string.size();
 	const uint32 encrypted_int32s = (string_len + 3) / 4;
-	const char* src_str = src_string.c_str();
+	const char* src_str = src_string; // src_string.c_str();
 
 	dst_dwords.resize(encrypted_int32s + 1);
 	dst_dwords[encrypted_int32s] = (string_len ^ magic0) + magic1;
