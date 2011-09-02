@@ -30,6 +30,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
 #include "../indigo/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
@@ -400,9 +401,21 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		tri.inv_cross_magnitude = (float)(1.0 / sqrt(nv[0] * nv[0] + nv[1] * nv[1] + nv[2] * nv[2]));
 	}
 
+	bool have_sse3 = false;
 	try
 	{
-		if(renderer_settings.use_embree)
+		PlatformUtils::CPUInfo cpu_info;
+		PlatformUtils::getCPUInfo(cpu_info);
+
+		have_sse3 = cpu_info.sse3;
+	}
+	catch(PlatformUtils::PlatformUtilsExcep&)
+	{
+	}
+
+	try
+	{
+		if(renderer_settings.use_embree && have_sse3)
 		{
 			tritree = new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(this);
 		}
@@ -416,7 +429,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 				tritree = new (SSE::alignedSSEMalloc(sizeof(js::KDTree))) js::KDTree(this);
 				//tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
 		}
-}
+	}
 	catch(js::TreeExcep& e)
 	{
 		throw GeometryExcep("Exception while creating tree: " + e.what());
