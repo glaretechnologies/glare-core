@@ -37,6 +37,7 @@ namespace GeometrySampling
 
 	///// Hemisphere  /////
 
+	template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePair& unit_samples);
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
@@ -253,6 +254,17 @@ template <class Real> Real solidAngleConePDF(Real angle)
 	// The sampling is uniform over the solid angle subtended by the cone.
 	const Real solid_angle = NICKMATHS_2PI * (1.0 - std::cos(angle));
 	return (Real)1.0 / solid_angle;
+}
+
+
+template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
+{
+	const Real z = unitsamples.x;
+	const Real theta = unitsamples.y * (Real)NICKMATHS_2PI;
+
+	const Real r = sqrt((Real)1.0 - z*z);
+
+	return Vec3<Real>(cos(theta) * r, sin(theta) * r, z);
 }
 
 
