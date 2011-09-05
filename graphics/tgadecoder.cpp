@@ -13,8 +13,13 @@ Code By Nicholas Chapman.
 #include <memory.h>
 #include <stdlib.h>
 #include "../utils/fileutils.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/bitmap.h"
+#include "../indigo/globals.h"
+#include "../utils/MemMappedFile.h"
+#include "../utils/Exception.h"
 
 
 TGADecoder::TGADecoder()
@@ -58,6 +63,122 @@ typedef struct
 
 Reference<Map2D> TGADecoder::decode(const std::string& path)
 {
+	//Timer timer;
+
+	assert(sizeof(TGA_HEADER) == 18);
+
+	try
+	{
+		MemMappedFile file(path);
+
+		// Read header
+		if(file.fileSize() < sizeof(TGA_HEADER))
+			throw ImFormatExcep("numimagebytes < sizeof(TGA_HEADER)");
+
+		TGA_HEADER header;
+		std::memcpy(&header, file.fileData(), sizeof(TGA_HEADER));
+
+		const int width = (int)header.width;
+
+		if(width < 0)
+			throw ImFormatExcep("width < 0");
+
+		const int height = (int)header.height;
+
+		if(height < 0)
+			throw ImFormatExcep("height < 0");
+
+		if(!(header.bits == 8 || header.bits == 24))
+			throw ImFormatExcep("Invalid TGA bit-depth; Only 8 or 24 supported.");
+
+
+		const int bytes_pp = header.bits / 8;
+
+		const size_t imagesize = width * height * bytes_pp;
+
+		if(!(header.imagetype == 2 || header.imagetype == 3)) // if image is not RGB or greyscale
+			throw ImFormatExcep("Invalid TGA type; Only non RLE-compressed greyscale or RGB supported.");
+
+		if(file.fileSize() < sizeof(TGA_HEADER) + imagesize)
+			throw ImFormatExcep("not enough data supplied");
+
+		//timer.reset();
+
+		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
+			width, height, bytes_pp
+			));
+
+		//conPrint("Allocated ImageMap.  Elapsed: " + timer.elapsedString());
+		//timer.reset();
+
+		const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
+
+		if(bytes_pp == 1)
+		{
+			for(int y=0; y<height; ++y)
+				for(int x=0; x<width; ++x)
+				{
+					const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+
+					texture->getPixel(x, y)[0] = srcpointer[srcoffset];
+				}
+		}	
+		else if(bytes_pp == 3)
+		{
+			for(int y=0; y<height; ++y)
+			{
+				/*const uint8* const src_ptr = srcpointer + width*(height - 1 - y)*bytes_pp;
+
+				for(int x=0; x<width; ++x)
+				{
+				uint8 b = src_ptr[0];
+				uint8 g = src_ptr[1];
+				uint8 r = src_ptr[2];
+
+				src_ptr += 3;
+
+				texture->getPixel(x, y)[0] = r;
+				texture->getPixel(x, y)[1] = g;
+				texture->getPixel(x, y)[2] = b;
+				}*/
+
+				for(int x=0; x<width; ++x)
+				{
+					const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+
+					texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
+					texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
+					texture->getPixel(x, y)[2] = srcpointer[srcoffset];
+				}
+			}
+		}
+		/*else if(bytes_pp == 4)
+		{
+		// TODO: Handle?
+		}*/
+		else
+		{
+			throw ImFormatExcep("invalid bytes per pixel.");
+		}
+
+		//conPrint("Copied data.  Elapsed: " + timer.elapsedString());
+
+		return texture.upcast<Map2D>();
+	}
+	catch(Indigo::Exception& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
+}
+
+
+#if 0
+// This is the old non-memmapped code:
+
+Reference<Map2D> TGADecoder::decode(const std::string& path)
+{
+	Timer timer;
+
 	assert(sizeof(TGA_HEADER) == 18);
 
 	// Read file into memory
@@ -70,6 +191,9 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 	{
 		throw ImFormatExcep(e.what());
 	}
+
+	double speed = (1.0 / (1024*1024)) * encoded_img.size() / timer.elapsed();
+	conPrint("Read file from disk.  Elapsed: " + timer.elapsedString() + ", " + toString(speed) + " MB/s");
 
 	// Read header
 	if(encoded_img.size() < sizeof(TGA_HEADER))
@@ -102,56 +226,49 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 	if((int)encoded_img.size() < (int)sizeof(TGA_HEADER) + imagesize)
 		throw ImFormatExcep("not enough data supplied");
 
+	timer.reset();
 
 	Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
 		width, height, bytes_pp
 		));
 
+	conPrint("Allocated ImageMap.  Elapsed: " + timer.elapsedString());
+	timer.reset();
+
 	const byte* srcpointer = &(*encoded_img.begin()) + sizeof(TGA_HEADER);
 
 	if(bytes_pp == 1)
 	{
-		/*for(int i=0; i<imagesize; i += bytes_pp)
-		{
-			imagedata[i] = srcpointer[i];
-		}*/
-		for(int x=0; x<width; ++x)
-		{
-			for(int y=0; y<height; ++y)
+		for(int y=0; y<height; ++y)
+			for(int x=0; x<width; ++x)
 			{
 				const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
 
-				//const int dstoffset = (x + width*y)*bytes_pp;
-
-				//bitmap_out.getData()[dstoffset] = srcpointer[srcoffset];
-
-				//texture->setPixelComp(x, y, 0, srcpointer[srcoffset]);
 				texture->getPixel(x, y)[0] = srcpointer[srcoffset];
 			}
-		}
 	}	
 	else if(bytes_pp == 3)
 	{
-		/*for(int i=0; i<imagesize; i += bytes_pp)
+		for(int y=0; y<height; ++y)
 		{
-			imagedata[i] = srcpointer[i+2];
-			imagedata[i+1] = srcpointer[i+1];
-			imagedata[i+2] = srcpointer[i];
-		}*/
-		for(int x=0; x<width; ++x)
-		{
-			for(int y=0; y<height; ++y)
+			/*const uint8* const src_ptr = srcpointer + width*(height - 1 - y)*bytes_pp;
+
+			for(int x=0; x<width; ++x)
+			{
+				uint8 b = src_ptr[0];
+				uint8 g = src_ptr[1];
+				uint8 r = src_ptr[2];
+
+				src_ptr += 3;
+
+				texture->getPixel(x, y)[0] = r;
+				texture->getPixel(x, y)[1] = g;
+				texture->getPixel(x, y)[2] = b;
+			}*/
+
+			for(int x=0; x<width; ++x)
 			{
 				const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
-				/*const int dstoffset = (x + width*y)*bytes_pp;
-
-				bitmap_out.getData()[dstoffset] = srcpointer[srcoffset+2];
-				bitmap_out.getData()[dstoffset+1] = srcpointer[srcoffset+1];
-				bitmap_out.getData()[dstoffset+2] = srcpointer[srcoffset];*/
-
-				//texture->setPixelComp(x, y, 0, srcpointer[srcoffset+2]);
-				//texture->setPixelComp(x, y, 1, srcpointer[srcoffset+1]);
-				//texture->setPixelComp(x, y, 2, srcpointer[srcoffset]);
 
 				texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
 				texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
@@ -161,34 +278,19 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 	}
 	/*else if(bytes_pp == 4)
 	{
-		for(int x=0; x<width; ++x)
-		{
-			for(int y=0; y<height; ++y)
-			{
-				const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
-				const int dstoffset = (x + width*y)*bytes_pp;
-
-				bitmap_out.getData()[dstoffset] = srcpointer[srcoffset+2];
-				bitmap_out.getData()[dstoffset+1] = srcpointer[srcoffset+1];
-				bitmap_out.getData()[dstoffset+2] = srcpointer[srcoffset];
-				bitmap_out.getData()[dstoffset+3] = srcpointer[srcoffset+3];
-			}
-		}
+		// TODO: Handle?
 	}*/
-				/*for(int i=0; i<imagesize; i += bytes_pp)
-				{
-					imagedata[i] = srcpointer[i+2];
-					imagedata[i+1] = srcpointer[i+1];
-					imagedata[i+2] = srcpointer[i];
-					imagedata[i+3] = srcpointer[i+3];
-				}*/
 	else
 	{
 		throw ImFormatExcep("invalid bytes per pixel.");
 	}
 
+	conPrint("Copied data.  Elapsed: " + timer.elapsedString());
+
 	return texture.upcast<Map2D>();
 }
+#endif
+
 
 void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)
 {
@@ -201,10 +303,10 @@ void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encode
 
 	header.xstart = 0;
 	header.ystart = 0;
-	header.width = bitmap.getWidth();
-	header.height = bitmap.getHeight();
+	header.width = (short)bitmap.getWidth(); // TODO: throw exception on too large bitmap.
+	header.height = (short)bitmap.getHeight();
 
-	header.bits = bitmap.getBytesPP() * 8;
+	header.bits = (byte)(bitmap.getBytesPP() * 8);
 	header.descriptor = 0;
 
 	encoded_img_out.resize(sizeof(TGA_HEADER));

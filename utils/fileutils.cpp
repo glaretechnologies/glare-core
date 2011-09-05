@@ -25,6 +25,8 @@ Code By Nicholas Chapman.
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
+#include "MemMappedFile.h"
+#include "Exception.h"
 
 
 namespace FileUtils
@@ -586,68 +588,37 @@ bool isPathSafe(const std::string& pathname)
 }
 
 
-void readEntireFile(std::ifstream& file, std::string& filecontents_out)
-{
-	filecontents_out = "";
-
-	if(!file)
-		return;
-
-	file.seekg(0, std::ios_base::end);
-
-	const std::ifstream::pos_type filesize = file.tellg();
-
-	file.seekg(0, std::ios_base::beg);
-
-	filecontents_out.resize(filesize);
-
-	if(filecontents_out.size() > 0)
-		file.read(&(*filecontents_out.begin()), filesize);
-}
-
-
-void readEntireFile(std::ifstream& file, std::vector<unsigned char>& filecontents_out)
-{
-	filecontents_out.resize(0);
-
-	if(!file)
-		return;
-
-	file.seekg(0, std::ios_base::end);
-
-	//const std::ifstream::pos_type filesize = file.tellg();
-	const size_t filesize = file.tellg();
-
-	file.seekg(0, std::ios_base::beg);
-
-	filecontents_out.resize(filesize);
-
-	if(filecontents_out.size() > 0)
-		file.read((char*)&(*filecontents_out.begin()), filesize);
-}
-
-
 void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {
-	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
-
-	if(!infile)
-		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-
-	readEntireFile(infile, filecontents_out);
+	try
+	{
+		MemMappedFile file(pathname);
+		filecontents_out.resize(file.fileSize());
+		if(file.fileSize() > 0)
+			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
+	}
+	catch(Indigo::Exception& )
+	{
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
+	}
 }
 
 
 void readEntireFile(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
-	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
-
-	if(!infile)
-		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-
-	readEntireFile(infile, filecontents_out);
+	try
+	{
+		MemMappedFile file(pathname);
+		filecontents_out.resize(file.fileSize());
+		if(file.fileSize() > 0)
+			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
+	}
+	catch(Indigo::Exception& )
+	{
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
+	}
 }
 
 
