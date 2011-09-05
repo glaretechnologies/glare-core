@@ -16,6 +16,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
+#include "../utils/PlatformUtils.h"
 #include <fstream>
 #include <ImfStdIO.h>
 #include <ImfInputFile.h>
@@ -23,6 +24,7 @@ Code By Nicholas Chapman.
 #include <ImfChannelList.h>
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
+#include <IlmThreadPool.h>
 
 
 EXRDecoder::EXRDecoder()
@@ -42,6 +44,11 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 #ifdef OPENEXR_SUPPORT
 	try
 	{
+		// Add some threads to the ILMBase thread-pool object.
+		// This greatly speeds up loading of large, compressed EXRs.
+		IlmThread::ThreadPool::globalThreadPool().setNumThreads(PlatformUtils::getNumLogicalProcessors());
+
+
 		std::ifstream infile(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 		Imf::StdIFStream exr_ifstream(infile, pathname.c_str());
