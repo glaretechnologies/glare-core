@@ -16,14 +16,16 @@ HaarWavelet
 -------------------
 
 =====================================================================*/
-namespace HaarWavelet
+class HaarWavelet
 {
+public:
 	typedef float Real;
 
 
-	void transform(const std::vector<Real>& v, std::vector<Real>& out);
-	void inverseTransform(const std::vector<Real>& v, std::vector<Real>& out);
-	void transform(Array2d<Real>& a);
+	static void transform(const std::vector<Real>& v, std::vector<Real>& out);
+	static void inverseTransform(const std::vector<Real>& v, std::vector<Real>& out);
+	static void transform(const Array2d<Real>& a, Array2d<Real>& out);
 
-	void test();
-}
+	static void test();
+};
+

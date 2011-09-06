@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
-#include "../utils/PlatformUtils.h"
+#include "../utils/platformutils.h"
 #include <fstream>
 #include <ImfStdIO.h>
 #include <ImfInputFile.h>

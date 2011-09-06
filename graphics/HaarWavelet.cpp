@@ -10,11 +10,6 @@ Generated at 2011-07-27 23:09:38 +0100
 #include "../maths/mathstypes.h"
 
 
-namespace HaarWavelet
-{
-
-
-
 /*
 
 6	8	4	6	2	6	4	8
@@ -72,7 +67,7 @@ void HaarWavelet::transform(const std::vector<Real>& v, std::vector<Real>& out)
 }
 
 
-void transform(const Array2d<Real>& a, Array2d<Real>& out)
+void HaarWavelet::transform(const Array2d<Real>& a, Array2d<Real>& out)
 {
 	assert(Maths::isPowerOfTwo(a.getWidth()));
 	assert(Maths::isPowerOfTwo(a.getHeight()));
@@ -142,7 +137,7 @@ void transform(const Array2d<Real>& a, Array2d<Real>& out)
 #if BUILD_TESTS
 
 
-void test()
+void HaarWavelet::test()
 {
 	float v[] = {	6,	8,	4,	6,	2,	6,	4,	8 };
 
@@ -161,4 +156,4 @@ void test()
 #endif
 
 
-}
+

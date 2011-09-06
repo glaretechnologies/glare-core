@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
+#include <cstring> // for std::memcpy()
 
 
 TGADecoder::TGADecoder()
