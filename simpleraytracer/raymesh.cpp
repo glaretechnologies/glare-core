@@ -320,7 +320,7 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		this->quads.clearAndFreeMem();
 
 		assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
-		this->num_uv_groups = num_uv_sets > 0 ? temp_uvs.size() / num_uv_sets : 0;
+		this->num_uv_groups = num_uv_sets > 0 ? (unsigned int)temp_uvs.size() / num_uv_sets : 0;
 
 		// Check data
 #ifdef DEBUG
@@ -401,23 +401,72 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		tri.inv_cross_magnitude = (float)(1.0 / sqrt(nv[0] * nv[0] + nv[1] * nv[1] + nv[2] * nv[2]));
 	}
 
+
 	bool have_sse3 = false;
-	try
-	{
-		PlatformUtils::CPUInfo cpu_info;
-		PlatformUtils::getCPUInfo(cpu_info);
+	bool try_spatial = false;
+	bool embree_mem_ok = false;
+	bool embree_spatial = false;
 
-		have_sse3 = cpu_info.sse3;
-	}
-	catch(PlatformUtils::PlatformUtilsExcep&)
+	if(renderer_settings.use_embree) // Do some extra checks if embree accelerator desired
 	{
-	}
-
-	try
-	{
-		if(renderer_settings.use_embree && have_sse3)
+		try
 		{
-			tritree = new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(this);
+			PlatformUtils::CPUInfo cpu_info;
+			PlatformUtils::getCPUInfo(cpu_info);
+
+			have_sse3 = cpu_info.sse3;
+		}
+		catch(PlatformUtils::PlatformUtilsExcep&)
+		{
+		}
+
+		if(try_spatial)
+		{
+			// Estimate memory usage for the embree accelerator and try to allocate it
+			size_t embree_spatial_mem = EmbreeAccel::estimateSpatialBuildMemoryUsage(triangles.size());
+			//std::cout << "Estimated embree spatial build memory usage: " << (embree_spatial_mem / 1024) << " kb" << std::endl;
+			try
+			{
+				void *big_mem = (void *)new char[embree_spatial_mem];
+				if(big_mem != NULL)
+				{
+					delete [] big_mem;
+					embree_mem_ok = true; // Flag that we can allocate enough memory,
+					embree_spatial = true; //  for the spatial BVH builder
+				}
+			}
+			catch(std::bad_alloc&)
+			{
+			}
+		}
+
+		if(!embree_spatial) // If we failed to allocate enough memory for the spatial BVH, try non-spatial
+		{
+			size_t embree_mem = EmbreeAccel::estimateBuildMemoryUsage(triangles.size());
+			//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
+			try
+			{
+				void *big_mem = (void *)new char[embree_mem];
+				if(big_mem != NULL)
+				{
+					delete [] big_mem;
+					embree_mem_ok = true; // Flag that we can allocate enough memory,
+					embree_spatial = false; // but not for the spatial BVH builder
+				}
+			}
+			catch(std::bad_alloc&)
+			{
+				print_output.print("Warning: insufficient memory for fast BVH");
+			}
+		}
+	}
+
+	try
+	{
+		if(renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
+		{
+			EmbreeAccel *embree_accel = new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(this, embree_spatial);
+			tritree = embree_accel;
 		}
 		else
 		{
@@ -434,11 +483,11 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	{
 		throw GeometryExcep("Exception while creating tree: " + e.what());
 	}
-		
+
 	//------------------------------------------------------------------------
 	//print out our mem usage
 	//------------------------------------------------------------------------
-	
+
 	if(verbose)
 	{
 		print_output.print("Building Mesh '" + name + "'...");
@@ -490,7 +539,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			}
 
 		}
-		
+
 		if(!built_from_cache)
 		{
 			try

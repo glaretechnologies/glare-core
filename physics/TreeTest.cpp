@@ -330,7 +330,7 @@ static void testSelfIntersectionAvoidance()
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh));
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true);
 
 	// Check AABBox
@@ -463,7 +463,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh));
+	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true);
 
 	// Check AABBox
