@@ -242,7 +242,7 @@ public:
 
 	VEC3_INLINE Real length() const
 	{
-		return sqrt(x*x + y*y + z*z);
+		return std::sqrt(x*x + y*y + z*z);
 	}
 
 	VEC3_INLINE Real length2() const
@@ -301,7 +301,7 @@ public:
 	{
 		//const Vec3 dif = other - *this;
 		//return dif.length();
-		return sqrt(getDist2(other));
+		return std::sqrt(getDist2(other));
 	}
 
 	VEC3_INLINE Real getDist2(const Vec3& other) const
@@ -333,7 +333,7 @@ public:
 #ifdef DEBUG
 		const Real len = length();
 
-		const Real var = fabs(1.0 - len);
+		const Real var = std::fabs(1 - len);
 
 		const Real EPSILON_ = 0.001;
 
@@ -461,12 +461,12 @@ public:
 	//will be in range [-Pi/2, Pi/2]
 	VEC3_INLINE Real theta() const
 	{
-		return atan2(sqrt(x*x + y*y), z);
+		return std::atan2(std::sqrt(x*x + y*y), z);
 	}
 
 	VEC3_INLINE Real phi() const
 	{
-		Real phi = atan2(x, y);
+		Real phi = std::atan2(x, y);
 		if(phi < 0.0)
 		    phi += NICKMATHS_2PI;
 		return phi;
@@ -592,8 +592,7 @@ VEC3_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>
 	(v1.y * v2.z) - (v1.z * v2.y),
 	(v1.z * v2.x) - (v1.x * v2.z),
 	(v1.x * v2.y) - (v1.y * v2.x)
-	);	//NOTE: check me
-
+	);
 }
 
 	//v1 and v2 unnormalized
@@ -607,13 +606,13 @@ VEC3_INLINE Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)
 
 	const Real dp = dotProduct(v1, v2);
 
-	return acos( dp / lf);
+	return std::acos(dp / lf);
 }
 
 template <class Real>
 VEC3_INLINE Real angleBetweenNormalized(const Vec3<Real>& v1, const Vec3<Real>& v2)
 {
-	return acos(dotProduct(v1, v2));
+	return std::acos(dotProduct(v1, v2));
 }
 
 
