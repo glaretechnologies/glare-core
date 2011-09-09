@@ -1017,6 +1017,35 @@ const std::string getLineFromBuffer(const std::string& str, unsigned int charind
 }
 
 
+const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
+{
+	if(hex.size() % 2 != 0)
+		throw StringUtilsExcep("Hex string must have an even number of hex chars.");
+
+	const size_t byte_size = hex.size() / 2; // (hex.size() % 2 == 0) ? hex.size() / 2 : hex.size() / 2 + 1;
+	/*std::string res(
+		byte_size, // Count
+		'\x0' // Char
+		);*/
+	std::vector<unsigned char> res(byte_size, 0);
+
+	for(size_t i=0; i<hex.size(); i+=2)
+	{
+		// first 4 bits of byte
+		unsigned int x = hexCharToUInt(hex[i]) << 4;
+
+		// Second 4 bits of byte
+		if(i + 1 < hex.size())
+			x |= hexCharToUInt(hex[i + 1]);
+
+		unsigned char c = (unsigned char)x; 
+
+		res[i/2] = c;// *((char*)&c);
+	}
+	return res;
+}
+
+
 #if defined(WIN32) || defined(WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
@@ -1423,6 +1452,16 @@ void doStringUtilsUnitTests()
 	assert(::isWhitespace(' '));
 	assert(::isWhitespace('\t'));
 	assert(::isWhitespace('	'));
+
+
+/*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
+
+	testAssert(StringUtils::convertHexToBinary("02") == "\x02");
+	testAssert(StringUtils::convertHexToBinary("5f") == "\x5f");
+	testAssert(StringUtils::convertHexToBinary("12") == "\x12");
+
+	testAssert(StringUtils::convertHexToBinary("12AB") == "\x12\xAB");*/
+
 /*
 	{
 	const std::string a = ::eatTailWhitespace("abc  \t    ");

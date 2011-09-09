@@ -222,6 +222,7 @@ inline const std::string PlatformToUTF8UnicodeEncoding(const std::string& s) { r
 // Replaces all occurrences of src with dest in string s.
 const std::string replaceCharacter(const std::string& s, char src, char dest);
 
+const std::vector<unsigned char> convertHexToBinary(const std::string& hex);
 
 
 }; // end namespace StringUtils
