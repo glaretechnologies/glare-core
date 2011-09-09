@@ -90,7 +90,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		jpeg_start_decompress(&cinfo);
 
 		if(!(cinfo.num_components == 1 || cinfo.num_components == 3))
-			throw ImFormatExcep("Only 1 or 3 component JPEGs are currently supported.");
+			throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + ": Only 1 or 3 component JPEGs are currently supported.");
 
 
 		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
