@@ -18,12 +18,21 @@ Generated at 2011-09-05 15:48:02 +0100
 #define NOMINMAX
 #endif
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
+#include <Windows.h>
 
+#elif defined LINUX
+
+#include <cstdio>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>	// For open / close
 
 #endif
 
+
+#if defined(WIN32) || defined(WIN64)
 
 MemMappedFile::MemMappedFile(const std::string& path)
 {
@@ -89,6 +98,44 @@ MemMappedFile::~MemMappedFile()
 	assert(res);
 }
 
+#elif defined LINUX
+
+MemMappedFile::MemMappedFile(const std::string& path)
+{
+	this->linux_file_handle = ::open(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
+		O_RDONLY);
+
+	if(this->linux_file_handle <= 0)
+		throw Indigo::Exception("File open failed.");
+
+	this->file_size = lseek(this->linux_file_handle, 0, SEEK_END);
+	lseek(this->linux_file_handle, 0, SEEK_SET);
+
+	this->file_data = mmap(0, this->file_size, PROT_READ, MAP_SHARED, this->linux_file_handle, 0);
+	if(this->file_data <= 0)
+		throw Indigo::Exception("File mmap failed.");
+}
+
+
+MemMappedFile::~MemMappedFile()
+{
+	if(this->file_data > 0)
+	{
+		munmap(this->file_data, this->file_size);
+		this->file_data = 0;
+		this->file_size = 0;
+	}
+
+	if(this->linux_file_handle != NULL)
+	{
+		::close(this->linux_file_handle);
+		this->linux_file_handle = 0;
+	}
+}
+
+#endif
+
 
 #if BUILD_TESTS
 
@@ -121,3 +168,4 @@ void MemMappedFile::test()
 
 
 #endif
+

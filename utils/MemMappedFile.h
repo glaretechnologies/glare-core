@@ -29,9 +29,10 @@ public:
 	static void test();
 
 private:
+	int linux_file_handle;
 	void* file_handle;
 	void* file_mapping_handle;
-	const void* file_data;
+	void* file_data;
 	size_t file_size;
 };
 

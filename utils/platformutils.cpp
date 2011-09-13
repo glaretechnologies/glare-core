@@ -8,34 +8,35 @@ Code By Nicholas Chapman.
 
 
 #if defined(WIN32) || defined(WIN64)
-// Stop windows.h from defining the min() and max() macros
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <Iphlpapi.h>
-//#define SECURITY_WIN32 1
-//#include <Security.h>
+	// Stop windows.h from defining the min() and max() macros
+	#define NOMINMAX
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+	#include <Iphlpapi.h>
+	//#define SECURITY_WIN32 1
+	//#include <Security.h>
 
-#if !defined(__MINGW32__)
-#include <intrin.h>
-#endif
+	#if !defined(__MINGW32__)
+		#include <intrin.h>
+	#endif
 
-#include <shlobj.h>
+	#include <shlobj.h>
 #else
-#include <errno.h>
-#include <time.h>
-#include <unistd.h>
-#include <string.h> /* for strncpy */
+	#include <errno.h>
+	#include <time.h>
+	#include <unistd.h>
+	#include <string.h> /* for strncpy */
 
-#ifndef OSX
-	#include <sys/sysinfo.h>
-#endif
+	#ifndef OSX
+		#include <sys/sysinfo.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
+	#endif
+
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <sys/ioctl.h>
+	#include <netinet/in.h>
+	#include <net/if.h>
 #endif
 
 #include <cassert>
@@ -48,21 +49,21 @@ Code By Nicholas Chapman.
 #include <algorithm>
 
 #if defined(OSX)
-#include <CoreServices/CoreServices.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/sysctl.h>
-#include <net/if.h>
-#include <net/if_dl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <mach-o/dyld.h>
-//#include <signal.h>
+	#include <CoreServices/CoreServices.h>
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <sys/ioctl.h>
+	#include <sys/sysctl.h>
+	#include <net/if.h>
+	#include <net/if_dl.h>
+	#include <netinet/in.h>
+	#include <arpa/inet.h>
+	#include <mach-o/dyld.h>
+	//#include <signal.h>
 #endif
 
 #if (!defined(WIN32) && !defined(WIN64))
-#include <signal.h>
+	#include <signal.h>
 #endif
 
 
@@ -111,18 +112,16 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 #else
 
 #ifdef OSX
+	int mib[2];
+	uint64_t memsize;
+	size_t len;
 
-	int mib[2];  
-	uint64_t memsize;  
-	size_t len;  
-
-	mib[0] = CTL_HW;  
-	mib[1] = HW_MEMSIZE; /*uint64_t: physical ram size */  
-	len = sizeof(memsize);  
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE; /*uint64_t: physical ram size */
+	len = sizeof(memsize);
 	sysctl(mib, 2, &memsize, &len, NULL, 0);
 
 	return memsize;
-
 #else
 	struct sysinfo info;
 	if(sysinfo(&info) != 0)
@@ -620,6 +619,7 @@ void PlatformUtils::ignoreUnixSignals()
 		0x00000002, // RRF_RT_REG_SZ = 0x00000002,
 		NULL,
 		&buf[0],
+
 		&bytesize
 		);
 	if(result != ERROR_SUCCESS)

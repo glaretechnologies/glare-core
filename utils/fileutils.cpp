@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 #include <dirent.h>
 #endif
 
-
+#include <cstring>
 #include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
