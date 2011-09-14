@@ -34,10 +34,10 @@ namespace FileUtils
 
 
 #if defined(WIN32) || defined(WIN64)
-const std::string PLATFORM_DIR_SEPARATOR = "\\";
+const char* PLATFORM_DIR_SEPARATOR = "\\";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 #else
-const std::string PLATFORM_DIR_SEPARATOR = "/";
+const char* PLATFORM_DIR_SEPARATOR = "/";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
 
