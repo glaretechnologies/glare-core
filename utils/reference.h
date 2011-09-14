@@ -3,13 +3,14 @@ reference.h
 -----------
 Copyright Glare Technologies Limited 2009 - 
 =====================================================================*/
-#ifndef __REFERENCE_H_666_
-#define __REFERENCE_H_666_
+#ifndef __REFERENCE_H__
+#define __REFERENCE_H__
 
 
 #include "refcounted.h"
 #include <cassert>
 #include <stdlib.h> // for NULL
+
 
 /*=====================================================================
 Reference
@@ -165,16 +166,6 @@ public:
 		return ob;
 	}
 
-	/*inline T& getRef()
-	{
-		return *ob;
-	}
-
-	inline const T& getRef() const
-	{
-		return *ob;
-	}*/
-
 private:
 	T* ob;
 };
@@ -183,7 +174,7 @@ private:
 //typedef Reference<T> Ref<T>;
 
 
-#endif //__REFERENCE_H_666_
+#endif //__REFERENCE_H__
 
 
 

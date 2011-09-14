@@ -3,8 +3,8 @@ refcounted.h
 ------------
 Copyright Glare Technologies Limited 2009 - 
 =====================================================================*/
-#ifndef __REFCOUNTED_H_666_
-#define __REFCOUNTED_H_666_
+#ifndef __REFCOUNTED_H__
+#define __REFCOUNTED_H__
 
 
 #include <cassert>
@@ -39,8 +39,6 @@ public:
 	{ 
 		refcount--;
 		assert(refcount >= 0);
-		//if(refcount == 0)
-		//	doNoRefsLeft();
 	}
 
 	inline void incRefCount()
@@ -56,14 +54,12 @@ public:
 	}
 	
 private:
-	//virtual void doNoRefsLeft(){}
-
 	int refcount;
 };
 
 
 
-#endif //__REFCOUNTED_H_666_
+#endif //__REFCOUNTED_H__
 
 
 
