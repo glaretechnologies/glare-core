@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 #include "../utils/platformutils.h"
 #include <vector>
 #include <string.h>
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #else
 #include <netinet/in.h>
 #include <unistd.h> // for close()
@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #endif
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
@@ -112,7 +112,7 @@ MySocket::MySocket()
 
 static void closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	const int result = closesocket(sockethandle);
 #else
 	const int result = ::close(sockethandle);
@@ -123,7 +123,7 @@ static void closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 
 static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	u_long nonblocking = blocking ? 0 : 1;
 	const int result = ioctlsocket(sockethandle, FIONBIO, &nonblocking);
 #else
@@ -136,7 +136,7 @@ static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 
 static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 {
-#if defined(WIN32) || defined(WIN64)	
+#if defined(_WIN32) || defined(_WIN64)	
 	const BOOL dont_linger = linger ? 0 : 1;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DONTLINGER, (const char*)&dont_linger, sizeof(dont_linger));
 #else
@@ -154,7 +154,7 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 
 /*static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
 {
-#if defined(WIN32) || defined(WIN64)	
+#if defined(_WIN32) || defined(_WIN64)	
 	const BOOL debug = enable_debug ? 1 : 0;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DEBUG, (const char*)&debug, sizeof(debug));
 	assert(result == 0);
@@ -199,7 +199,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
 #else
 		if(errno != EINPROGRESS)
@@ -725,7 +725,7 @@ bool MySocket::readable(double timeout_s)
 
 MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return INVALID_SOCKET;
 #else
 	return -1;
@@ -735,7 +735,7 @@ MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
 
 bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return handle != INVALID_SOCKET;
 #else
 	return handle >= 0;
@@ -745,7 +745,7 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 
 void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	BOOL enabled = enabled_;
 
 	::setsockopt(sockethandle, //socket handle

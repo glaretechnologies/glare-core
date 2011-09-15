@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 
 
 #include <cassert>
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -29,7 +29,7 @@ MyThread::MyThread()
 
 MyThread::~MyThread()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(!CloseHandle(thread_handle))
 	{
 		assert(0);
@@ -39,7 +39,7 @@ MyThread::~MyThread()
 }
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	static unsigned int __stdcall
 #else
 	void*
@@ -65,7 +65,7 @@ void MyThread::launch(bool autodelete_)
 
 	autodelete = autodelete_;
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	thread_handle = (HANDLE)_beginthreadex(
 		NULL, // security
 		0, // stack size
@@ -90,7 +90,7 @@ void MyThread::launch(bool autodelete_)
 
 void MyThread::join() // Wait for thread termination
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);
 #else
 	const int result = pthread_join(thread_handle, NULL);
@@ -100,7 +100,7 @@ void MyThread::join() // Wait for thread termination
 
 void MyThread::setPriority(Priority p)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	int pri = THREAD_PRIORITY_NORMAL;
 	if(p == Priority_Normal)
 		pri = THREAD_PRIORITY_NORMAL;

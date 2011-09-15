@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -148,7 +148,7 @@ public:
 	cl_command_queue command_queue;
 #endif
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	HMODULE opencl_handle;
 #else
 	void *opencl_handle;

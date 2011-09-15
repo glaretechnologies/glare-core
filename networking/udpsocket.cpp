@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 //#include "../utils/inifile.h"
 #include "../utils/stringutils.h"
 #include <string.h> // for memset()
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 #else
 #include <netinet/in.h>
@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #endif
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 static bool isSocketError(int result)
 {
 	return result == SOCKET_ERROR;
@@ -40,7 +40,7 @@ static bool isSocketError(ssize_t result)
 }
 #endif
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
@@ -123,7 +123,7 @@ UDPSocket::~UDPSocket()
 		//-----------------------------------------------------------------
 		//close socket
 		//-----------------------------------------------------------------
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		result = closesocket(socket_handle);
 #else
 		result = ::close(socket_handle);
@@ -303,7 +303,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 
 	if(isSocketError(numbytesrcvd)) // numbytesrcvd == SOCKET_ERROR)
 	{
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		if(WSAGetLastError() == WSAEWOULDBLOCK)
 		{
 			//doesn't matter.
@@ -439,7 +439,7 @@ bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out,
 
 void UDPSocket::setBlocking(bool blocking)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 	unsigned long b = blocking ? 0 : 1;
 
@@ -490,7 +490,7 @@ void UDPSocket::resetNumBytesRcvd()
 
 bool UDPSocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return handle != INVALID_SOCKET;
 #else
 	return handle >= 0;

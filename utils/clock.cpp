@@ -11,7 +11,7 @@ You may *not* use this code for any commercial project.
 #include "clock.h"
 	
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +30,7 @@ static double clock_period = 0;
 
 void Clock::init()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	LARGE_INTEGER freq;
 	const BOOL b = QueryPerformanceFrequency(&freq);
 	assert(b);
@@ -48,7 +48,7 @@ double getCurTimeRealSec()
 {
 	assert(clock_initialised);
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	LARGE_INTEGER count;
 	const BOOL b = QueryPerformanceCounter(&count); 
 	assert(b);

@@ -121,7 +121,7 @@ Changed slashes to platform slashes.  Also tries to guess the correct case by sc
 const std::string getActualOSPath(const std::string& path);
 
 
-#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 const std::wstring convertUTF8ToFStreamPath(const std::string& p);
 #else
 const std::string convertUTF8ToFStreamPath(const std::string& p);

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __MUTEX_H_666_
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
@@ -42,7 +42,7 @@ public:
 	void release();
 
 //private:
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	CRITICAL_SECTION mutex;
 #else
 	pthread_mutex_t mutex;

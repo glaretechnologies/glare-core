@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 // #pragma warning(disable : 4786)//disable long debug name warning
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -104,7 +104,7 @@ private:
 	//SOCKET insocket_handle;
 	//SOCKET outsocket_handle;
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #else

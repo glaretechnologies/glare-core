@@ -12,7 +12,7 @@
 #include <limits>
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -382,7 +382,7 @@ const std::string toString(uint64 x)
 	char buffer[32];
 
 	// u = unsigned decimal
-#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
 	sprintf(buffer, "%I64u", x);
 #else
@@ -398,7 +398,7 @@ const std::string toString(int64 x)
 	char buffer[32];
 
 	// i = signed decimal
-#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
 	sprintf(buffer, "%I64i", x);
 #else
@@ -1046,7 +1046,7 @@ const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
 }
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
 	assert(s.size() + 1 < std::numeric_limits<int>::max());
@@ -1234,7 +1234,7 @@ void doStringUtilsUnitTests()
 		conPrint("sumlen: " + toString(sumlen));
 	}*/
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	// test WToUTF8String and UTF8ToWString
 	{
 		const int a = sizeof(wchar_t);

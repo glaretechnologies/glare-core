@@ -11,7 +11,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #include "../utils/Exception.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
@@ -32,7 +32,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #endif
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 MemMappedFile::MemMappedFile(const std::string& path)
 {

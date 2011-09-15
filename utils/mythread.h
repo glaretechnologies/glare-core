@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #define __MYTHREAD_H_666_
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -53,14 +53,14 @@ public:
 	};
 	void setPriority(Priority p); // throws MyThreadExcep
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	HANDLE getHandle() { return thread_handle; }
 #endif
 
 	bool autoDelete() const { return autodelete; }
 
 private:
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	HANDLE thread_handle;
 #else
 	pthread_t thread_handle;

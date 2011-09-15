@@ -25,7 +25,7 @@ TIFFDecoder::~TIFFDecoder()
 
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "r");
 #else
 	TIFF* tif = TIFFOpen(path.c_str(), "r");

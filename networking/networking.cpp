@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "networking.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #include <winsock.h>
 #else
 //#include <net/inet.h>
@@ -22,7 +22,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #else
 const int SOCKET_ERROR = -1;
 #endif
@@ -35,7 +35,7 @@ Networking::Networking()
 	//-----------------------------------------------------------------
 	//do windows sockets startup
 	//-----------------------------------------------------------------
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	WSADATA wsaData;
 	#define USE_WINSOCK_VERSION 0x0101	// program requires Winsock V1.1
 	if(WSAStartup(USE_WINSOCK_VERSION, &wsaData))
@@ -106,7 +106,7 @@ Networking::~Networking()
 	//-----------------------------------------------------------------
 	//close down windows sockets
 	//-----------------------------------------------------------------
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	const int result = WSACleanup();
 	assert(result == 0);
 #endif
@@ -156,7 +156,7 @@ void Networking::setUsedIPAddr(const IPAddress& newip)
 
 const std::string Networking::getError()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	const int error = WSAGetLastError();
 
 	if(error == WSANOTINITIALISED)

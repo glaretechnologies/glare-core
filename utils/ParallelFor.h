@@ -101,7 +101,7 @@ public:
 
 		////////// Wait for threads to terminate //////////
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		// If we're on Windows, use WaitForMultipleObjects() instead of waiting for each thread individually, 
 		// because it seems to be somewhat faster.
 

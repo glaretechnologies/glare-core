@@ -124,7 +124,7 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 	u_out = alpha;
 	v_out = beta;
 
-#if defined(WIN32) && !defined(WIN64) && !defined(__MINGW32__)
+#if defined(_WIN32) && !defined(_WIN64) && !defined(__MINGW32__)
 	const float one = 1.0;
 	SSE_ALIGN unsigned int hit;
 	_asm
@@ -146,7 +146,7 @@ unsigned int BadouelTri::rayIntersect(const Ray& ray, float ray_t_max, float& di
 		movss	hit, xmm3		; hit := xmm3
 	}
 	return hit;
-#elif defined(WIN64)
+#elif defined(_WIN64)
 	return (unsigned int)(alpha >= 0.0f && beta >= 0.0f && (alpha + beta) <= 1.0f);
 
 	/*return _mm_and_ps( // (alpha >= 0.0) && (beta >= 0.0) && (alpha + beta <= 1.0) ? 0xFFFFFFFF : 0x0

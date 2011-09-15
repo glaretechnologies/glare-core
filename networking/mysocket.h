@@ -11,7 +11,7 @@ Code Copyright Nicholas Chapman 2005.
 #define __MYSOCKET_H_666_
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -121,7 +121,7 @@ private:
 		SocketShouldAbortCallback* should_abort_callback
 	);
 public:
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #else

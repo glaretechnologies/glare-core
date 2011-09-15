@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #include <winsock.h>//#include "winsock2.h"
 #else
 #include <netinet/in.h>

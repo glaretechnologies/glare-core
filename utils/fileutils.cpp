@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "fileutils.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -33,7 +33,7 @@ namespace FileUtils
 {
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 const char* PLATFORM_DIR_SEPARATOR = "\\";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 #else
@@ -153,7 +153,7 @@ const std::string getFirstNDirs(const std::string& dirname, int n)
 
 void createDir(const std::string& dirname)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToPlatformUnicodeEncoding(dirname).c_str(), NULL);
 	if(!result)
@@ -207,7 +207,7 @@ void createDirIfDoesNotExist(const std::string& dirname)
 
 
 /*
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 bool createDir(const std::string& dirname)
 {
 	bool created_dir = false;
@@ -352,7 +352,7 @@ const std::string getFilename(const std::string& pathname)
 
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(dir_path + "\\*").c_str(), &find_data);
 	if(search_handle == INVALID_HANDLE_VALUE)
@@ -394,7 +394,7 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 /*
 //creates the directory the file is in according to pathname
 //returns false if fails or directory already exists
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 bool createDirForPathname(const std::string& pathname)
 {
 	std::string dir = getDirectory(pathname);
@@ -416,7 +416,7 @@ bool createDirForPathname(const std::string& pathname)
 */
 
 /*
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 bool dirExists(const std::string& dirname)
 {
 	WIN32_FIND_DATA find_data;
@@ -437,7 +437,7 @@ bool dirExists(const std::string& dirname)
 
 bool fileExists(const std::string& pathname)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), &find_data);
@@ -518,7 +518,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 
 bool isDirectory(const std::string& pathname)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	WIN32_FILE_ATTRIBUTE_DATA file_data;
 	GetFileAttributesEx(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), GetFileExInfoStandard, &file_data);
 
@@ -755,7 +755,7 @@ const std::string widenToTwoChars(const std::string& numeral)
 }
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 const std::string getCurrentDir()
 {
 /*DWORD GetCurrentDirectory(
@@ -776,7 +776,7 @@ const std::string getCurrentDir()
 
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 	if(!CopyFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
@@ -797,7 +797,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 
 void deleteFile(const std::string& path)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(!DeleteFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
@@ -814,7 +814,7 @@ void deleteFile(const std::string& path)
 
 void deleteEmptyDirectory(const std::string& path)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(!RemoveDirectory(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
@@ -853,7 +853,7 @@ void deleteDirectoryRecursive(const std::string& path)
 
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(!MoveFileEx(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
 		StringUtils::UTF8ToPlatformUnicodeEncoding(dstpath).c_str(),
@@ -870,7 +870,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 
 bool isPathAbsolute(const std::string& p)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return (p.length() > 1 && hasPrefix(p.substr(1, p.length()-1), ":")) ||// e.g. C:/programming/
 		hasPrefix(p, "\\");//network share
 #else
@@ -881,7 +881,7 @@ bool isPathAbsolute(const std::string& p)
 
 FILE* openFile(const std::string& pathname, const std::string& openmode)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()
 	return _wfopen(StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
 #else
@@ -936,7 +936,7 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
-#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 
 const std::wstring convertUTF8ToFStreamPath(const std::string& p)
 {
@@ -986,7 +986,7 @@ void doUnitTests()
 		for(size_t i=0; i<files.size(); ++i)
 			conPrint("file: " + files[i]);
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
 #elif !defined(OSX)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
@@ -1048,7 +1048,7 @@ void doUnitTests()
 
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	testAssert(isPathAbsolute("C:/windows"));
 	testAssert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
 	testAssert(isPathAbsolute("a:\\dsfsdf"));

@@ -17,7 +17,7 @@ http://homepages.paradise.net.nz/nickamy/
 #include <string>
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #include <windows.h>
@@ -68,7 +68,7 @@ public:
 
 private:
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	HINSTANCE dll_handle;
 #else
 #endif

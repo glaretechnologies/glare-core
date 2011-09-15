@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 template <class FuncPointerType>
 static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 {
@@ -59,13 +59,13 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 
 	std::vector<std::string> opencl_paths;
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	opencl_paths.push_back("OpenCL.dll");
 
 	try // ATI/AMD OpenCL
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
-	#if defined(WIN64)
+	#if defined(_WIN64)
 		if(verbose_init) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86_64\\atiocl64.dll");
 	#else
@@ -79,7 +79,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	{
 		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
 
-	#if defined(WIN64)
+	#if defined(_WIN64)
 		if(verbose_init) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
 		opencl_paths.push_back(intel_sdk_root + "bin\\x64\\intelocl.dll");
 	#else
@@ -92,11 +92,11 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	opencl_paths.push_back("libOpenCL.so");
 #endif
 
-#if defined(WIN32) || defined(WIN64) || defined(LINUX)
+#if defined(_WIN32) || defined(_WIN64) || defined(LINUX)
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 		const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding(opencl_paths[searched_paths]);
 		opencl_handle = ::LoadLibrary(path.c_str());
 		if(!opencl_handle)
@@ -413,7 +413,7 @@ OpenCL::~OpenCL()
 			throw Indigo::Exception("clReleaseContext failed");
 	}
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(!::FreeLibrary(opencl_handle))
 		throw Indigo::Exception("FreeLibrary failed");
 #endif

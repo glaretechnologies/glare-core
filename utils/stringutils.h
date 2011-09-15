@@ -204,13 +204,13 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 const std::string getLineFromBuffer(const std::string& str, unsigned int charindex);
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 const std::wstring UTF8ToWString(const std::string& s);
 const std::string WToUTF8String(const std::wstring& s);
 #endif
 
  //  && !defined(__MINGW32__)
-#if (defined(WIN32) || defined(WIN64))
+#if (defined(_WIN32) || defined(_WIN64))
 inline const std::wstring UTF8ToPlatformUnicodeEncoding(const std::string& s) { return UTF8ToWString(s); }
 inline const std::string PlatformToUTF8UnicodeEncoding(const std::wstring& s) { return WToUTF8String(s); }
 #else

@@ -7,7 +7,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #pragma once
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 #endif
 
@@ -20,7 +20,7 @@ MiniDump
 namespace MiniDump
 {
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	int generateDump(EXCEPTION_POINTERS* pExceptionPointers);
 #endif
 

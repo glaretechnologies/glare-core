@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "platformutils.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	// Stop windows.h from defining the min() and max() macros
 	#define NOMINMAX
 	#define WIN32_LEAN_AND_MEAN
@@ -62,7 +62,7 @@ Code By Nicholas Chapman.
 	//#include <signal.h>
 #endif
 
-#if (!defined(WIN32) && !defined(WIN64))
+#if (!defined(_WIN32) && !defined(_WIN64))
 	#include <signal.h>
 #endif
 
@@ -70,7 +70,7 @@ Code By Nicholas Chapman.
 // Make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	::Sleep(x);
 #else
 	int numseconds = x / 1000;
@@ -85,7 +85,7 @@ void PlatformUtils::Sleep(int x)
 
 unsigned int PlatformUtils::getNumLogicalProcessors()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	SYSTEM_INFO system_info;
 	GetSystemInfo(&system_info);
 	return system_info.dwNumberOfProcessors;
@@ -97,7 +97,7 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 
 uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #if defined(__MINGW32__)
 	return 0; // TEMP HACK
 #else
@@ -136,7 +136,7 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 
 const std::string PlatformUtils::getLoggedInUserName()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return getEnvironmentVariable("USERNAME");
 #else
 	return getEnvironmentVariable("USER");
@@ -146,7 +146,7 @@ const std::string PlatformUtils::getLoggedInUserName()
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
-#if (defined(WIN32) || defined(WIN64)) && !defined(__MINGW32__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	int CPUInfo[4];
 	__cpuid(
 		CPUInfo,
@@ -240,7 +240,7 @@ std::string GetPathFromCFURLRef(CFURLRef urlRef)
 
 const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExcep
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	TCHAR path[MAX_PATH];
 	const HRESULT res = SHGetFolderPath(
 		NULL, // hwndOwner
@@ -285,7 +285,7 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 
 const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	TCHAR path[MAX_PATH];
 	const DWORD num_chars_rqrd = GetTempPath(
 		MAX_PATH,
@@ -308,7 +308,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 
 const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUtilsExcep
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	TCHAR path[MAX_PATH];
 
 	TCHAR* result = _wgetcwd(
@@ -337,7 +337,7 @@ const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUt
 
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name)
 {
-#if defined(WIN32) || defined(WIN64) || defined(OSX)
+#if defined(_WIN32) || defined(_WIN64) || defined(OSX)
 	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming
 	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
 
@@ -363,7 +363,7 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 
 const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUtilsExcep.
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
 #elif defined(OSX)
 	//std::vector<std::string> components;
@@ -385,7 +385,7 @@ const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUt
 // http://stackoverflow.com/questions/143174/c-c-how-to-obtain-the-full-path-of-current-directory
 const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws PlatformUtilsExcep.
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	TCHAR buf[2048];
 	const DWORD result = GetModuleFileName(
 		NULL, // hModule "If this parameter is NULL, GetModuleFileName retrieves the path of the executable file of the current process."
@@ -438,7 +438,7 @@ int PlatformUtils::execute(const std::string& command)
 
 void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_path)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 
 	//execute("Explorer.exe /select," + select_path + "");
 
@@ -516,7 +516,7 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 
 const std::string PlatformUtils::getLastErrorString()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	std::vector<wchar_t> buf(2048);
 
 	const DWORD result = FormatMessage(
@@ -540,7 +540,7 @@ const std::string PlatformUtils::getLastErrorString()
 
 uint64 PlatformUtils::getProcessID()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return ::GetCurrentProcessId();
 #else
 	return getpid();
@@ -550,7 +550,7 @@ uint64 PlatformUtils::getProcessID()
 
 void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	if(p == BelowNormal_Priority)
 	{
 		if(!::SetPriorityClass(::GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS))
@@ -570,7 +570,7 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 
 void PlatformUtils::ignoreUnixSignals()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	 
 #else
 	// Ignore sigpipe in unix.
@@ -595,7 +595,7 @@ void PlatformUtils::ignoreUnixSignals()
 
 /*const std::string PlatformUtils::readRegistryKey(const std::string& keystr, const std::string& value)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	HKEY key = 0;
 	LONG result = RegOpenKeyEx(
 		HKEY_LOCAL_MACHINE,
@@ -634,7 +634,7 @@ void PlatformUtils::ignoreUnixSignals()
 
 const std::string PlatformUtils::getEnvironmentVariable(const std::string& varname)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	//NOTE: Using GetEnvironmentVariable instead of getenv() here so we get the result in Unicode.
 
 	const std::wstring varname_w = StringUtils::UTF8ToWString(varname);
@@ -662,7 +662,7 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 
 bool PlatformUtils::isWindowsXPOrEarlier()
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	// See http://msdn.microsoft.com/en-us/library/ms724834.aspx for OSVERSIONINFO details.
 
 	OSVERSIONINFO info;

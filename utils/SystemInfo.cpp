@@ -7,7 +7,7 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 #include "SystemInfo.h"
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -52,7 +52,7 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 #endif
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 class MyAdapterInfo
 {
 public:
@@ -68,7 +68,7 @@ inline static bool myAdapterInfoComparisonPred(const MyAdapterInfo& a, const MyA
 #endif
 
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #else
 #ifndef OSX
 // From http://www.creatis.insa-lyon.fr/~malaterre/gdcm/getether/mac_addr_sys.c
@@ -119,7 +119,7 @@ long mac_addr_sys ( u_char *addr)
 
 void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information
 											// for up to 16 NICs
 	DWORD dwBufLen = sizeof(AdapterInfo);	// Save memory size of buffer

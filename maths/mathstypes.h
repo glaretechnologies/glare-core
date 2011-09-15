@@ -218,7 +218,7 @@ inline Real logBase2(Real x)
 
 inline bool isNAN(float x)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return _isnan(x) != 0;
 #else
 	return std::isnan(x) != 0;
@@ -227,7 +227,7 @@ inline bool isNAN(float x)
 
 inline bool isNAN(double x)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return _isnan(x) != 0;
 #else
 	return std::isnan(x) != 0;
@@ -236,7 +236,7 @@ inline bool isNAN(double x)
 
 inline bool isFinite(float x)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return _finite(x) != 0;//hopefully this works for floats :)
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -245,7 +245,7 @@ inline bool isFinite(float x)
 
 inline bool isFinite(double x)
 {
-#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 	return _finite(x) != 0;
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -290,7 +290,7 @@ template <class Real>
 inline int roundToInt(Real x)
 {
 	assert(x >= (Real)0.0);
-#if defined(WIN32) && !defined(WIN64)
+#if defined(_WIN32) && !defined(_WIN64)
 	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
 	/*int i;
 	_asm
@@ -299,7 +299,7 @@ inline int roundToInt(Real x)
 		fistp i;	; convert to integer and store in i.
 	}
 	return i;*/
-#elif defined(WIN64)
+#elif defined(_WIN64)
 	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
 #else
 	//int i;
