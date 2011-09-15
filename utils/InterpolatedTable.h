@@ -18,11 +18,11 @@ InterpolatedTable
 Will be laid out in memory like:
 
 Wavelengths: 380 390 400 410 ... 
-y:			x	x	x	x
-0			x	x	x	x
-1			x	x	x
-2
-3
+y:          
+0            x	 x	 x	 x
+1            x	 x	 x   x
+2            x	 x	 x   x
+3            x	 x	 x   x
 =====================================================================*/
 class InterpolatedTable
 {
