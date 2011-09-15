@@ -152,7 +152,7 @@ void MemMappedFile::test()
 	{
 		MemMappedFile file(pathname);
 
-		conPrint("file size: " + toString(file.fileSize()));
+		conPrint("file size: " + toString((int64)file.fileSize()));
 
 		for(int i=0; i<5; ++i)
 		{

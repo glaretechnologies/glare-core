@@ -127,7 +127,7 @@ static void testWithPlaintextLength(int N)
 	std::vector<unsigned char> cyphertext = aes.encrypt(plaintext);
 
 	conPrint("encrypt took " + timer.elapsedString());
-	conPrint("cyphertext len: " + toString(cyphertext.size()));
+	conPrint("cyphertext len: " + toString((int64)cyphertext.size()));
 	conPrint("cyphertext extract: ");
 	for(int i=0; i<myMin(64, (int)cyphertext.size()); ++i)
 	{
