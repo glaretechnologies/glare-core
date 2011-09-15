@@ -20,7 +20,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-#elif defined LINUX
+#else//if defined LINUX
 
 #include <cstdio>
 #include <fcntl.h>
@@ -98,7 +98,7 @@ MemMappedFile::~MemMappedFile()
 	assert(res);
 }
 
-#elif defined LINUX
+#else//if defined LINUX
 
 MemMappedFile::MemMappedFile(const std::string& path)
 {
