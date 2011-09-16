@@ -73,13 +73,11 @@ SOURCE_GROUP(zlib FILES ${zlib})
 SOURCE_GROUP(tinyxml FILES ${tinyxml})
 
 
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /D_SECURE_SCL=0 /GL")
-SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /D_SECURE_SCL=0")
+include(../indigo_console/shared_cxx_settings.txt)
 
 
 add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DLIB3DS_EXPORTS -DTIXML_USE_STL)
 
-add_definitions(/MP)
 
 add_library(indigo_libs
 ${fftss}
