@@ -79,6 +79,11 @@ include(../indigo_console/shared_cxx_settings.txt)
 add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DLIB3DS_EXPORTS -DTIXML_USE_STL)
 
 
+if(WIN32)
+	SET(STATIC_LIBRARY_FLAGS "${STATIC_LIBRARY_FLAGS} /LTCG")
+endif()
+
+
 add_library(indigo_libs
 ${fftss}
 ${ilmbase}
@@ -91,3 +96,8 @@ ${libtiff}
 ${zlib}
 ${tinyxml}
 )
+
+
+if(WIN32)
+	set_target_properties(indigo_libs PROPERTIES STATIC_LIBRARY_FLAGS_RELEASE "/LTCG")
+endif()
