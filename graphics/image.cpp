@@ -466,8 +466,8 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 		for(ptrdiff_t v = -filter_bound; v <= filter_bound; ++v)
 		for(ptrdiff_t u = -filter_bound; u <= filter_bound; ++u)
 		{
-			const int addr = (y * factor + factor / 2 + v + border_width) * in_xres +
-							  x * factor + factor / 2 + u + border_width;
+			const ptrdiff_t addr = (y * factor + factor / 2 + v + border_width) * in_xres +
+								    x * factor + factor / 2 + u + border_width;
 
 			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
 		}
@@ -564,8 +564,8 @@ const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1.0 - ufrac;
-	const Coord onevfrac = 1.0 - vfrac;
+	const Coord oneufrac = 1 - ufrac;
+	const Coord onevfrac = 1 - vfrac;
 
 	// Top left pixel
 	{

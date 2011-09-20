@@ -33,7 +33,7 @@ namespace ImagingPipeline
 {
 
 
-void sumBuffers(const std::vector<Vec3f>& layer_scales, const std::vector<Image>& buffers, Image& buffer_out)
+void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out)
 {
 	//Timer t;
 	buffer_out.resize(buffers[0].getWidth(), buffers[0].getHeight());
@@ -62,7 +62,7 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const std::vector<Image>
 
 // Tonemap HDR image to LDR image
 void doTonemapFullBuffer(
-	const std::vector<Image>& layers,
+	const Indigo::Vector<Image>& layers,
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
@@ -182,7 +182,7 @@ void doTonemapFullBuffer(
 
 void doTonemap(	
 	std::vector<Image>& per_thread_tile_buffers,
-	const std::vector<Image>& layers,
+	const Indigo::Vector<Image>& layers,
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
@@ -439,7 +439,7 @@ void test()
 		MasterBuffer master_buffer((uint32)image_ss_xres, (uint32)image_ss_yres, (int)image_layers, 1, 1);
 		master_buffer.setNumSamples(1);
 
-		std::vector< ::Image>& layers = master_buffer.getBuffers();
+		Indigo::Vector< ::Image>& layers = master_buffer.getBuffers();
 		assert(layers.size() == image_layers);
 
 		const float layer_normalise = 1.0f / image_layers;

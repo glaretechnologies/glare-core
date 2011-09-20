@@ -10,6 +10,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #include "../indigo/PrintOutput.h"
 #include "../indigo/RendererSettings.h"
+#include "../dll/include/IndigoVector.h"
 #include "image.h"
 #include <vector>
 
@@ -38,7 +39,7 @@ const uint32 image_tile_size = 64;
 
 
 
-void sumBuffers(const std::vector<Vec3f>& layer_scales, const std::vector<Image>& buffers, Image& buffer_out);
+void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out);
 
 
 void doTonemapFullBuffer(
@@ -56,7 +57,7 @@ void doTonemapFullBuffer(
 
 void doTonemap(
 	std::vector<Image>& per_thread_tile_buffers,
-	const std::vector<Image>& layers,
+	const Indigo::Vector<Image>& layers,
 	const std::vector<Vec3f>& layer_weights,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,

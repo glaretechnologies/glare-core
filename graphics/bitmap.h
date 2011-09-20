@@ -9,8 +9,9 @@ Code By Nicholas Chapman.
 
 
 #include <assert.h>
-#include <vector>
+//#include <vector>
 #include "../utils/platform.h"
+#include "../utils/Vector.h"
 
 
 /*=====================================================================
@@ -56,7 +57,8 @@ public:
 	void blendImage(const Bitmap& img, int destx, int desty, uint8 solid_colour[3], float alpha = 1);
 
 private:
-	std::vector<uint8> data;
+	//std::vector<uint8> data;
+	js::Vector<uint8, 16> data;
 
 	size_t width, height;
 	size_t bytespp;
