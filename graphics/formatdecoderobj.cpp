@@ -132,7 +132,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			if(!encountered_uvs)
 			{
 				handler.setMaxNumTexcoordSets(1);
-				handler.addUVSetExposition("default", 0);
+				//handler.addUVSetExposition("default", 0);
 				encountered_uvs = true;
 			}
 

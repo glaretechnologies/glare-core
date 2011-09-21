@@ -136,8 +136,8 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Mesh&
 				if(!encountered_uvs)
 				{
 					handler.setMaxNumTexcoordSets(1);
-					handler.addUVSetExposition("albedo", 0);
-					handler.addUVSetExposition("default", 0);
+					//handler.addUVSetExposition("albedo", 0);
+					//handler.addUVSetExposition("default", 0);
 				}
 
 			//find the part for this material
