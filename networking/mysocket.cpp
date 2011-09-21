@@ -240,7 +240,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			throw AbortedMySocketExcep();
 		}
 
-		select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &write_sockset, &error_sockset, &wait_period);
+		select((int)(sockethandle + SOCKETHANDLE_TYPE(1)), NULL, &write_sockset, &error_sockset, &wait_period);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 		{
@@ -371,7 +371,7 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 			throw AbortedMySocketExcep();
 
 		const int num_ready = select(
-			sockethandle + SOCKETHANDLE_TYPE(1), // nfds: range of file descriptors to test
+			(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
 			&sockset, // read fds
 			NULL, // write fds
 			NULL, // error fds
@@ -712,7 +712,8 @@ bool MySocket::readable(double timeout_s)
 	initFDSetWithSocket(sockset, sockethandle);
 
 	// Get number of handles that are ready to read from
-	const int num = select(sockethandle+1, 
+	const int num = select(
+		(int)(sockethandle + 1), 
 		&sockset, // Read fds
 		NULL, // Read fds
 		NULL, // Read fds

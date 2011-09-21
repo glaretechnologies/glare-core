@@ -45,7 +45,7 @@ void Packet::write(float x)
 {
 	assert(sizeof(unsigned int) == sizeof(float));
 
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(float));
 
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
@@ -53,7 +53,7 @@ void Packet::write(float x)
 
 void Packet::write(int x)
 {
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(int));
 
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
@@ -61,7 +61,7 @@ void Packet::write(int x)
 
 void Packet::write(unsigned short x)
 {
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned short));
 
 	*(unsigned short*)(getData() + writeindex) = htons(x);
@@ -69,7 +69,7 @@ void Packet::write(unsigned short x)
 
 void Packet::write(unsigned char x)
 {
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned char));
 
 	*(unsigned char*)(getData() + writeindex) = x;
@@ -77,23 +77,16 @@ void Packet::write(unsigned char x)
 }
 void Packet::write(char x)
 {
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(unsigned char));
 
 	*(unsigned char*)(getData() + writeindex) = *((unsigned char*)&x);
 }
 
 
-/*void Packet::write(const Vec3& vec)
+void Packet::write(const void* src, size_t numbytes)
 {
-	write(vec.x);
-	write(vec.y);
-	write(vec.z);
-}*/
-
-void Packet::write(const void* src, int numbytes)
-{
-	const unsigned int writeindex = data.size();
+	const size_t writeindex = data.size();
 	data.resize(writeindex + numbytes);
 
 	for(int i=0; i<numbytes; ++i)
@@ -103,20 +96,10 @@ void Packet::write(const void* src, int numbytes)
 }
 
 
-void Packet::write(const std::string& s)//writes null-terminated string
+void Packet::write(const std::string& s) // writes null-terminated string
 {
-	//assert(index + s.size() + 1 <= MAX_PACKETSIZE);
-	/*const unsigned int writeindex = data.size();
-	data.resize(writeindex + s.size() + 1);
-
-
-	for(unsigned int i=0; i<s.size()+1; ++i)
-	{
-		*(getData() + writeindex + i) = s.c_str()[i];
-	}*/
-
 	// Write length of string
-	write((int)s.length());
+	write((int32)s.length());
 
 	// Write string data
 	write(&(*s.begin()), s.length());

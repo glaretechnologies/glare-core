@@ -696,7 +696,7 @@ inline static const ::Vec2f toVec2(const Indigo::Vec2f& v)
 
 
 // This can be optimised quite a bit...
-inline static float getTriArea(const RayMesh& mesh, int tri_index, const Matrix4f& to_parent)
+inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, const Matrix4f& to_parent)
 {
 	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
 	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
@@ -1054,7 +1054,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<d
 	surface_areas_out.resize(triangles.size());
 
 	for(size_t i = 0; i < surface_areas_out.size(); ++i)
-		surface_areas_out[i] = (double)getTriArea(*this, i, to_parent);
+		surface_areas_out[i] = (double)getTriArea(*this, (unsigned int)i, to_parent);
 
 }
 

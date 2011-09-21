@@ -246,15 +246,15 @@ public:
 	
 	const Real length() const { return std::sqrt(r*r + g*g + b*b); }
 
-	Real& operator [] (int index)
+	Real& operator [] (size_t index)
 	{
-		assert(index >= 0 && index < 3);
+		assert(index < 3);
 		return *(&r + index);
 	}
 	
-	Real operator [] (int index) const
+	Real operator [] (size_t index) const
 	{
-		assert(index >= 0 && index < 3);
+		assert(index < 3);
 		return *(&r + index);
 	}
 

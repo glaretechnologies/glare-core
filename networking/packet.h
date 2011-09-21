@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 
 #include <vector>
 #include "mystream.h"
+#include "../utils/platform.h"
 
 
 /*class MyPacketExcep
@@ -31,7 +32,7 @@ Packet
 ------
 For UDP data and possibly for TCP data
 =====================================================================*/
-class Packet : public MyStream
+class Packet //: public MyStream
 {
 public:
 	/*=====================================================================
@@ -47,16 +48,16 @@ public:
 
 
 	virtual void write(float x);
-	virtual void write(int x);
+	virtual void write(int32 x);
 	virtual void write(unsigned short x);
 	virtual void write(char x);
 	virtual void write(unsigned char x);
 	//virtual void write(const Vec3& vec);
 	virtual void write(const std::string& s);//writes null-terminated string
-	virtual void write(const void* data, int numbytes);
+	virtual void write(const void* data, size_t numbytes);
 	
 	virtual void readTo(float& x);
-	virtual void readTo(int& x);
+	virtual void readTo(int32& x);
 	virtual void readTo(unsigned short& x);
 	virtual void readTo(char& x);
 	//virtual void readTo(Vec3& x);

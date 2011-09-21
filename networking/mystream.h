@@ -50,7 +50,7 @@ public:
 	virtual void write(int x) = 0;
 	virtual void write(float x) = 0;
 	virtual void write(const std::string& s) = 0;//writes null-terminated string
-	virtual void write(const void* data, int numbytes) = 0;
+	virtual void write(const void* data, size_t numbytes) = 0;
 	//virtual void write(const Vec3& vec) = 0;
 
 	inline void write(unsigned char x){ write( *(char*)&x ); }

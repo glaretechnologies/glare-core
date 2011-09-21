@@ -11,7 +11,7 @@ Code Copyright Nicholas Chapman 2005.
 #define __MYSOCKET_H_666_
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -23,7 +23,6 @@ Code Copyright Nicholas Chapman 2005.
 #endif
 
 #include "ipaddress.h"
-//#include "mystream.h"
 #include "../utils/platform.h"
 #include <string>
 class FractionListener;

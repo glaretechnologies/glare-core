@@ -451,7 +451,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		//------------------------------------------------------------------------
 		// Set some image info
 		//------------------------------------------------------------------------
-		png_set_IHDR(png, info, bitmap.getWidth(), bitmap.getHeight(),
+		png_set_IHDR(png, info, (png_uint_32)bitmap.getWidth(), (png_uint_32)bitmap.getHeight(),
 		   8, // bit depth of each channel
 		   colour_type, // colour type
 		   PNG_INTERLACE_NONE, // interlace type
