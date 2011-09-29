@@ -38,7 +38,7 @@ public:
 			-1,  0,  p, -p,  1,  0,  p,  1,  0,  p, -1,  0,
 			-p, -1,  0,  0, -p, -1,  0,  p, -1,  0,  p,  1
 		};
-		const uint icosahedron_indices[] =
+		const uint32 icosahedron_indices[] =
 		{
 			 1,  2,  6,  1,  7,  2,  3,  4,  5,  4,  3,  8,
 			 6,  5, 11,  5,  6, 10,  9, 10,  2, 10,  9,  3,

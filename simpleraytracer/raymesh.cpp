@@ -427,7 +427,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			//std::cout << "Estimated embree spatial build memory usage: " << (embree_spatial_mem / 1024) << " kb" << std::endl;
 			try
 			{
-				void *big_mem = (void *)new char[embree_spatial_mem];
+				char *big_mem = new char[embree_spatial_mem];
 				if(big_mem != NULL)
 				{
 					delete [] big_mem;
@@ -446,7 +446,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
 			try
 			{
-				void *big_mem = (void *)new char[embree_mem];
+				char *big_mem = new char[embree_mem];
 				if(big_mem != NULL)
 				{
 					delete [] big_mem;
