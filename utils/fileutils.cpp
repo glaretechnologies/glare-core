@@ -1029,7 +1029,7 @@ void doUnitTests()
 	// Test openFile() with a Unicode pathname
 	FILE* infile = FileUtils::openFile(euro_txt_pathname, "rb");
 	testAssert(infile != NULL);
-	fclose(infile);
+	if(infile) fclose(infile);
 
 
 	// Test std::ifstream with a Unicode pathname
