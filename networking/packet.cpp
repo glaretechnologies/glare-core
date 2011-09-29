@@ -89,7 +89,7 @@ void Packet::write(const void* src, size_t numbytes)
 	const size_t writeindex = data.size();
 	data.resize(writeindex + numbytes);
 
-	for(int i=0; i<numbytes; ++i)
+	for(size_t i=0; i<numbytes; ++i)
 	{
 		data[writeindex + i] = *((char*)src + i);
 	}

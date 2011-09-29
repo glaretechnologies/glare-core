@@ -598,7 +598,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);
-		RendererSettings settings;
+		//RendererSettings settings;
 		settings.cache_trees = false;
 		object->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 
