@@ -191,7 +191,7 @@ void Bitmap::blitToImage(int src_start_x, int src_start_y, int src_end_x, int sr
 			const int dx = (x - src_start_x) + destx;
 			const int dy = (y - src_start_y) + desty;
 
-			if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+			if(dx >= 0 && dx < (int)dest.getWidth() && dy >= 0 && dy < (int)dest.getHeight())
 				for(uint32 c = 0; c < 3; ++c)
 					dest.setPixelComp(dx, dy, c, getPixelComp(x, y, c));
 		}

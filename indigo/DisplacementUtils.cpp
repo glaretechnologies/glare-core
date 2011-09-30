@@ -1888,21 +1888,21 @@ void DisplacementUtils::test()
 
 
 		// Quad vertices in CCW order from top right, facing up
-		vertices[0] = RayMeshVertex(Vec3f(0.9,  1, 0), Vec3f(0, 0, 1));
+		vertices[0] = RayMeshVertex(Vec3f(0.9f,  1, 0), Vec3f(0, 0, 1));
 		vertices[1] = RayMeshVertex(Vec3f(1,  1, 0), Vec3f(0, 0, 1));
-		vertices[2] = RayMeshVertex(Vec3f(1.1, 1, 0), Vec3f(0, 0, 1));
-		vertices[3] = RayMeshVertex(Vec3f(0.9,  0, 0), Vec3f(0, 0, 1));
+		vertices[2] = RayMeshVertex(Vec3f(1.1f, 1, 0), Vec3f(0, 0, 1));
+		vertices[3] = RayMeshVertex(Vec3f(0.9f,  0, 0), Vec3f(0, 0, 1));
 		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1));
-		vertices[5] = RayMeshVertex(Vec3f(1.1, 0, 0), Vec3f(0, 0, 1));
+		vertices[5] = RayMeshVertex(Vec3f(1.1f, 0, 0), Vec3f(0, 0, 1));
 
-		uvs[0] = Vec2f(0.9, 0.6);
-		uvs[1] = Vec2f(1.0, 0.6);
-		uvs[2] = Vec2f(0, 0.6);
-		uvs[3] = Vec2f(0.1, 0.6);
-		uvs[4] = Vec2f(0.9, 0.4);
-		uvs[5] = Vec2f(1.0, 0.4);
-		uvs[6] = Vec2f(0, 0.4);
-		uvs[7] = Vec2f(0.1, 0.4);
+		uvs[0] = Vec2f(0.9f, 0.6f);
+		uvs[1] = Vec2f(1.0f, 0.6f);
+		uvs[2] = Vec2f(0, 0.6f);
+		uvs[3] = Vec2f(0.1f, 0.6f);
+		uvs[4] = Vec2f(0.9f, 0.4f);
+		uvs[5] = Vec2f(1.0f, 0.4f);
+		uvs[6] = Vec2f(0, 0.4f);
+		uvs[7] = Vec2f(0.1f, 0.4f);
 
 
 		quads[0] = RayMeshQuad(0, 3, 4, 1, 0);

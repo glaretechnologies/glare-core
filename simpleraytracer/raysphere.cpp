@@ -431,8 +431,8 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	//test doesFiniteRayHit()
 	//------------------------------------------------------------------------
-	testAssert(!sphere.doesFiniteRayHit(ray, 0.49, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
-	testAssert(sphere.doesFiniteRayHit(ray, 0.51, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
+	testAssert(!sphere.doesFiniteRayHit(ray, 0.49f, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
+	testAssert(sphere.doesFiniteRayHit(ray, 0.51f, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
 
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere
