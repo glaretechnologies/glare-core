@@ -175,3 +175,24 @@ void Bitmap::mulImage(const Bitmap& img, const int destx, const int desty, const
 		}
 	}
 }
+
+
+void Bitmap::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Bitmap& dest, int destx, int desty) const
+{
+	src_start_x = myMax(0, src_start_x);
+	src_start_y = myMax(0, src_start_y);
+
+	src_end_x = myMin(src_end_x, (int)getWidth());
+	src_end_y = myMin(src_end_y, (int)getHeight());
+
+	for(int y = src_start_y; y < src_end_y; ++y)
+		for(int x = src_start_x; x < src_end_x; ++x)
+		{
+			const int dx = (x - src_start_x) + destx;
+			const int dy = (y - src_start_y) + desty;
+
+			if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+				for(uint32 c = 0; c < 3; ++c)
+					dest.setPixelComp(dx, dy, c, getPixelComp(x, y, c));
+		}
+}

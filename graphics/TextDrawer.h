@@ -11,6 +11,9 @@ Code By Nicholas Chapman.
 #include <string>
 #include <vector>
 #include "image.h"
+#include "bitmap.h"
+#include "../utils/refcounted.h"
+#include "../utils/reference.h"
 
 
 class TextDrawerExcep
@@ -30,7 +33,7 @@ TextDrawer
 ----------
 
 =====================================================================*/
-class TextDrawer
+class TextDrawer : public RefCounted
 {
 public:
 	/*=====================================================================
@@ -44,12 +47,17 @@ public:
 
 
 	void drawText(const std::string& msg, Image& target, int target_x, int target_y) const;
+	void drawText(const std::string& msg, Bitmap& target, int target_x, int target_y) const;
 
 
 private:
+	Bitmap font_bmp;
 	Image font;
 	std::vector<int> char_widths;
 };
+
+
+typedef Reference<TextDrawer> TextDrawerRef;
 
 
 #endif //__TEXTDRAWER_H_666_

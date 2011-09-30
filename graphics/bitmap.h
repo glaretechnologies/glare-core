@@ -56,6 +56,8 @@ public:
 	void mulImage(const Bitmap& img, int destx, int desty, float alpha = 1, bool invert = false);
 	void blendImage(const Bitmap& img, int destx, int desty, uint8 solid_colour[3], float alpha = 1);
 
+	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Bitmap& dest, int destx, int desty) const;
+
 private:
 	//std::vector<uint8> data;
 	js::Vector<uint8, 16> data;
