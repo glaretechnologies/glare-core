@@ -90,8 +90,8 @@ static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
 float VectorTest::test()
 {
 	Timer t;
-	Vec4f unitdir_(t.elapsed(), t.elapsed() + 2, t.elapsed() + 3, 0);
-	Vec4f startpos_(t.elapsed() + 4, t.elapsed() + 5, t.elapsed() + 6, 0);
+	Vec4f unitdir_(t.elapsed(), t.elapsed() + 2.f, t.elapsed() + 3.f, 0);
+	Vec4f startpos_(t.elapsed() + 4.f, t.elapsed() + 5.f, t.elapsed() + 6.f, 0);
 
 	Vec4f unitdir_len2;
 	unitdir_len2.x[0] = unitdir_.length2();

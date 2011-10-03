@@ -485,8 +485,8 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const Ray ray(
-			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4f,
-			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
+			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0)))
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -515,8 +515,8 @@ void ObjectTreeTest::doSpeedTest()
 	for(int i=0; i<NUM_ITERS; ++i)
 	{
 		const Ray ray(
-			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2, 0.2, 0.2,0)) * 1.4,
-			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5, 0.5, 0.5,0)))
+			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0)))
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -584,7 +584,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		Object::Matrix3Type rot = Object::Matrix3Type::rotationMatrix(normalise(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom())), rng.unitRandom() * 6.0f);
 
-		rot.scale(0.3);
+		rot.scale(0.3f);
 
 		const Vec4f offset(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 

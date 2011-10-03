@@ -43,12 +43,12 @@ void PointTreeTest::test()
 
 		ThreadContext context;
 		{
-		const uint32 res = tree.getNearestPoint(Vec3f(0.05, 0.05, 0.0), context);
+		const uint32 res = tree.getNearestPoint(Vec3f(0.05f, 0.05f, 0.0), context);
 		testAssert(res == 0);
 		}
 
 		{
-		const uint32 res = tree.getNearestPoint(Vec3f(0.25, 0.25, 0.0), context);
+		const uint32 res = tree.getNearestPoint(Vec3f(0.25f, 0.25f, 0.0), context);
 		testAssert(res == 0);
 		}
 	}

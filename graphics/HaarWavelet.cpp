@@ -77,7 +77,7 @@ void HaarWavelet::transform(const Array2d<Real>& a, Array2d<Real>& out)
 	std::vector<float> temp(myMax(a.getWidth(), a.getHeight()));
 
 	// Transform rows
-	for(int y=0; y<a.getHeight(); ++y)
+	for(size_t y=0; y<a.getHeight(); ++y)
 	{
 		size_t N = a.getWidth();
 
@@ -105,7 +105,7 @@ void HaarWavelet::transform(const Array2d<Real>& a, Array2d<Real>& out)
 	}
 
 	// Transform columns
-	for(int x=0; x<a.getWidth(); ++x)
+	for(size_t x=0; x<a.getWidth(); ++x)
 	{
 		size_t N = a.getHeight();
 
