@@ -14,7 +14,7 @@ Mutex::Mutex()
 {
 //	created = false;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	InitializeCriticalSection(&mutex);
 #else
 	pthread_mutexattr_t mutex_attributes;
@@ -33,7 +33,7 @@ Mutex::~Mutex()
 {
 //	created = false;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	DeleteCriticalSection(&mutex);
 #else
 	pthread_mutex_destroy(&mutex);//, NULL);
@@ -44,7 +44,7 @@ void Mutex::acquire()
 {
 //	assert(created);
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	EnterCriticalSection(&mutex);
 #else
 	pthread_mutex_lock(&mutex);
@@ -55,7 +55,7 @@ void Mutex::release()
 {	
 //	assert(created);
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	LeaveCriticalSection(&mutex);
 #else
 	pthread_mutex_unlock(&mutex);

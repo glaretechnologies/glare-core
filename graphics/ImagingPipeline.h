@@ -10,6 +10,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #include "../indigo/PrintOutput.h"
 #include "../indigo/RendererSettings.h"
+#include "../indigo/BufferedPrintOutput.h"
 #include "../dll/include/IndigoVector.h"
 #include "image.h"
 #include <vector>
@@ -21,18 +22,6 @@ class PostProDiffraction;
 
 namespace ImagingPipeline
 {
-
-
-class BufferedPrintOutput : public PrintOutput
-{
-public:
-	virtual ~BufferedPrintOutput() { }
-
-	virtual void print(const std::string& s) { msgs.push_back(s); }
-	virtual void printStr(const std::string& s) { msgs.push_back(s); }
-
-	std::vector<std::string> msgs;
-};
 
 
 const uint32 image_tile_size = 64;
