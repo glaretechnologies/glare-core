@@ -197,13 +197,18 @@ void Image::scale(float factor)
 
 void Image::blitToImage(Image& dest, int destx, int desty) const
 {
-	for(int y = 0; y < (int)getHeight(); ++y)
-	for(int x = 0; x < (int)getWidth();  ++x)
+	const int s_h = (int)getHeight();
+	const int s_w = (int)getWidth();
+	const int d_h = (int)dest.getHeight();
+	const int d_w = (int)dest.getWidth();
+
+	for(int y = 0; y < s_h; ++y)
+	for(int x = 0; x < s_w;  ++x)
 	{
 		const int dx = x + destx;
 		const int dy = y + desty;
 
-		if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+		if(dx >= 0 && dx < d_w && dy >= 0 && dy < d_h)
 			dest.setPixel(dx, dy, getPixel(x, y));
 	}
 }
@@ -217,13 +222,16 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 	src_end_x = myMin(src_end_x, (int)getWidth());
 	src_end_y = myMin(src_end_y, (int)getHeight());
 
+	const int d_h = (int)dest.getHeight();
+	const int d_w = (int)dest.getWidth();
+
 	for(int y = src_start_y; y < src_end_y; ++y)
 	for(int x = src_start_x; x < src_end_x; ++x)
 	{
 		const int dx = (x - src_start_x) + destx;
 		const int dy = (y - src_start_y) + desty;
 
-		if(dx >= 0 && dx < dest.getWidth() && dy >= 0 && dy < dest.getHeight())
+		if(dx >= 0 && dx < d_w && dy >= 0 && dy < d_h)
 			dest.setPixel(dx, dy, getPixel(x, y));
 	}
 }
@@ -231,13 +239,16 @@ void Image::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src
 
 void Image::addImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/)
 {
-	for(int y = 0; y < (int)img.getHeight(); ++y)
-	for(int x = 0; x < (int)img.getWidth();  ++x)
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
+	for(int y = 0; y < h; ++y)
+	for(int x = 0; x < w;  ++x)
 	{
 		const int dx = x + destx;
 		const int dy = y + desty;
 
-		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
 			getPixel(dx, dy) += img.getPixel(x, y) * alpha;
 	}
 }
@@ -245,13 +256,16 @@ void Image::addImage(const Image& img, const int destx, const int desty, const f
 
 void Image::blendImage(const Image& img, const int destx, const int desty, const Colour3f& solid_colour, const float alpha/* = 1*/)
 {
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
 	for(int y = 0; y < (int)img.getHeight(); ++y)
 	for(int x = 0; x < (int)img.getWidth();  ++x)
 	{
 		const int dx = x + destx;
 		const int dy = y + desty;
 
-		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
 			setPixel(dx, dy, solid_colour * img.getPixel(x, y).r * alpha + getPixel(dx, dy) * (1 - img.getPixel(x, y).r * alpha));
 	}
 }
@@ -259,13 +273,16 @@ void Image::blendImage(const Image& img, const int destx, const int desty, const
 
 void Image::mulImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/, bool invert/* = false*/)
 {
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
 	for(int y = 0; y < (int)img.getHeight(); ++y)
 	for(int x = 0; x < (int)img.getWidth();  ++x)
 	{
 		const int dx = x + destx;
 		const int dy = y + desty;
 
-		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
 		{
 			const float inv_alpha = ((invert) ? 1 - img.getPixel(x, y).r : img.getPixel(x, y).r) * alpha;
 			setPixel(dx, dy, getPixel(dx, dy) * (1 - alpha) + getPixel(dx, dy) * inv_alpha);
@@ -276,13 +293,16 @@ void Image::mulImage(const Image& img, const int destx, const int desty, const f
 
 void Image::subImage(const Image& img, int destx, int desty)
 {
-	for(int y = 0; y < img.getHeight(); ++y)
-	for(int x = 0; x < img.getWidth();  ++x)
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
+	for(int y = 0; y < (int)img.getHeight(); ++y)
+	for(int x = 0; x < (int)img.getWidth();  ++x)
 	{
 		int dx = x + destx;
 		int dy = y + desty;
 
-		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
 			getPixel(dx, dy).addMult(img.getPixel(x, y), -1.0f); //NOTE: slow :)
 	}
 }
@@ -290,12 +310,15 @@ void Image::subImage(const Image& img, int destx, int desty)
 
 void Image::overwriteImage(const Image& img, int destx, int desty)
 {
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
 	for(int y = 0; y < (int)img.getHeight(); ++y)
 	for(int x = 0; x < (int)img.getWidth();  ++x)
 	{
 		const int dx = x + destx;
 		const int dy = y + desty;
-		if(dx >= 0 && dx < getWidth() && dy >= 0 && dy < getHeight())
+		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
 			setPixel(dx, dy, img.getPixel(x, y));
 	}
 }

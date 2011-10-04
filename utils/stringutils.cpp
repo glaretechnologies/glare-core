@@ -1049,7 +1049,7 @@ const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
 #if defined(_WIN32) || defined(_WIN64)
 const std::wstring UTF8ToWString(const std::string& s)
 {
-	assert(s.size() + 1 < std::numeric_limits<int>::max());
+	assert(s.size() + 1 < (size_t)std::numeric_limits<int>::max());
 
 	// Call initially to get size of buffer to allocate.
 	const int size_required = MultiByteToWideChar(
@@ -1106,7 +1106,7 @@ const std::wstring UTF8ToWString(const std::string& s)
 
 const std::string WToUTF8String(const std::wstring& wide_string)
 {
-	assert(wide_string.size() + 1 < std::numeric_limits<int>::max());
+	assert(wide_string.size() + 1 < (size_t)std::numeric_limits<int>::max());
 
 	// Call once to get number of bytes required for buffer.
 	const int size_required = WideCharToMultiByte(

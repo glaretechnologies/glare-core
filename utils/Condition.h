@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __CONDITION_H_666_
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
@@ -51,7 +51,7 @@ public:
 	///Resets condition so that threads will block on wait() again.
 	void resetToFalse();
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	HANDLE condition;
 #else
 	pthread_cond_t condition;
@@ -59,9 +59,4 @@ public:
 };
 
 
-
 #endif //__CONDITION_H_666_
-
-
-
-

@@ -34,7 +34,7 @@ double RunningAverage::getAv() const
 	
 void RunningAverage::addValue(double val)
 {
-	assert(values.size() <= this->history_len);
+	assert((int)values.size() <= this->history_len);
 
 	if(values.size() == this->history_len)
 	{

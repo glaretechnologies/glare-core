@@ -800,14 +800,14 @@ void TreeTest::doVaryingNumtrisBuildTests()
 		raymesh.addMaterialUsed("dummy");
 
 		const std::vector<Vec2f> texcoord_sets;
-		for(int i=0; i<num_tris; ++i)
+		for(int t=0; t<num_tris; ++t)
 		{
 			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
 
 			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
 			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
 			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
-			const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
+			const unsigned int vertex_indices[] = {t*3, t*3+1, t*3+2};
 			const unsigned int uv_indices[] = {0, 0, 0};
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}

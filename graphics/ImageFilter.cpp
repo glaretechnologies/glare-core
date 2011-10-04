@@ -418,13 +418,13 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 			{
 				//const int filter_y = (sy - y) + filter_h_2;
 				const int filter_y = sy - unclipped_src_y_min;
-				assert(filter_y >= 0 && filter_y < filter.getHeight());		
+				assert(filter_y >= 0 && filter_y < (int)filter.getHeight());		
 
 				for(int sx = src_x_min; sx < src_x_max; ++sx)
 				{
 					//const int filter_x = (sx - x) + filter_w_2;
 					const int filter_x = sx - unclipped_src_x_min;
-					assert(filter_x >= 0 && filter_x < filter.getWidth());	
+					assert(filter_x >= 0 && filter_x < (int)filter.getWidth());	
 
 					assert(in.getPixel(sx, sy).r >= 0.0 && in.getPixel(sx, sy).g >= 0.0 && in.getPixel(sx, sy).b >= 0.0);
 					assert(isFinite(in.getPixel(sx, sy).r) && isFinite(in.getPixel(sx, sy).g) && isFinite(in.getPixel(sx, sy).b));
@@ -714,12 +714,14 @@ void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
 	// Alloc working arrays
 	const int n1 = H;
 	const int n2 = W;
-	double** indata = new double*[H];
-
-	int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2 / 2))];
+	//double** indata = new double*[H];
+	//int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2 / 2))];
+	std::vector<double*> indata(H);
+	std::vector<int> ip(2 + (int)sqrt((double)myMax(n1, n2 / 2)));
 	ip[0] = 0; // ip[0] needs to be initialised to 0
 
-	double* work_area = new double[myMax(n1 / 2, n2 / 4) + n2 / 4];
+	//double* work_area = new double[myMax(n1 / 2, n2 / 4) + n2 / 4];
+	std::vector<double> work_area(myMax(n1 / 2, n2 / 4) + n2 / 4);
 
 	// Copy input data
 	Array2d<double> data = input;
@@ -732,9 +734,9 @@ void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
 		n1, // input data length (dim1)
 		n2, // input data length (dim2)
 		1, // input sign (1 for FFT)
-		indata,
-		ip,
-		work_area
+		&indata[0],
+		&ip[0],
+		&work_area[0]
 		);
 
 	// Now we need to decipher the output
@@ -782,9 +784,9 @@ void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
 	R(out, n1/2, 0) =		Complexd(a(data, n1/2, 0), 0.0);
 	R(out, n1/2, n2/2) =	Complexd(a(data, n1/2, 1), 0.0);
 
-	delete[] work_area;
-	delete[] ip;
-	delete[] indata;
+	//delete[] work_area;
+	//delete[] ip;
+	//delete[] indata;
 }
 
 
@@ -820,12 +822,15 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 	// Alloc working arrays
 	const int n1 = H;
 	const int n2 = W;
-	double** indata = new double*[H];
+	//double** indata = new double*[H];
 
-	int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2 / 2))];
+	//int* ip = new int[2 + (int)sqrt((double)myMax(n1, n2 / 2))];
+	std::vector<double*> indata(H);
+	std::vector<int> ip(2 + (int)sqrt((double)myMax(n1, n2 / 2)));
 	ip[0] = 0; // ip[0] needs to be initialised to 0
 
-	double* work_area = new double[myMax(n1 / 2, n2 / 4) + n2 / 4];
+	//double* work_area = new double[myMax(n1 / 2, n2 / 4) + n2 / 4];
+	std::vector<double> work_area(myMax(n1 / 2, n2 / 4) + n2 / 4);
 
 
 	for(size_t comp = 0; comp < 3; ++comp)
@@ -867,9 +872,9 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			n1, // input data length (dim1)
 			n2, // input data length (dim2)
 			1, // input sign (1 for FFT)
-			indata,
-			ip,
-			work_area
+			&indata[0],
+			&ip[0],
+			&work_area[0]
 			);
 
 		//Ok, now FT of input image should be in 'padded_in'.
@@ -882,9 +887,9 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			n1, // input data length (dim1)
 			n2, // input data length (dim2)
 			1, // input sign (1 for FFT)
-			indata,
-			ip,
-			work_area
+			&indata[0],
+			&ip[0],
+			&work_area[0]
 			);
 
 		
@@ -1024,9 +1029,9 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 			n1, // input data length (dim1)
 			n2, // input data length (dim2)
 			-1, // input sign (-1 for IFFT)
-			indata,
-			ip,
-			work_area
+			&indata[0],
+			&ip[0],
+			&work_area[0]
 			);
 		
 		/*Array2d<double> reference_convolution(W, H);
@@ -1062,9 +1067,9 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 	}
 
 	// Free working arrays
-	delete[] ip;
-	delete[] work_area;
-	delete[] indata;
+	//delete[] ip;
+	//delete[] work_area;
+	//delete[] indata;
 }
 
 
@@ -1082,16 +1087,16 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	const int x_offset = filter.getWidth() / 2;
 	const int y_offset = filter.getHeight() / 2;
 
-	const int W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
-	const int H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
+	const size_t W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
+	const size_t H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
 
 	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
 	assert(W >= 2);
 	assert(H >= 2);
 
 	// Stride between rows. FFTSS seems to like + 1 for some perverse reason.
-	const int py = W + 1; //TEMP
-	const int N = py * H * 2; // N = num doubles in arrays
+	const size_t py = W + 1; //TEMP
+	const size_t N = py * H * 2; // N = num doubles in arrays
 
 	// If we have previously failed, don't do aperture diffraction.
 	if(plan.failed_to_allocate_buffers)
@@ -1228,7 +1233,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		= ac + (ad + bc)i - bd
 		= (ac - bd) + (ad + bc)i
 		*/
-		for(int i=0; i<N/2; ++i)
+		for(size_t i=0; i<N/2; ++i)
 		{
 			const double a = plan.product[i*2]; // re
 			const double b = plan.product[i*2 + 1]; // im
@@ -1303,7 +1308,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		for(size_t y = 0; y < out.getHeight(); ++y)
 		for(size_t x = 0; x < out.getWidth();  ++x)
 		{
-			out.getPixel(x, y)[comp] = (float)plan.buffer_a[(x + x_offset)*2 + py*(y + y_offset)*2] * scale;
+			out.getPixel(x, y)[comp] = (float)(plan.buffer_a[(x + x_offset)*2 + py*(y + y_offset)*2] * scale);
 		}
 	}
 }
@@ -1326,7 +1331,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	if(!outbuf)
 		throw Indigo::Exception("Failed to allocate buffer.");
 
-	for(int i=0; i<py * data.getHeight() * 2; ++i)
+	for(int i=0; i<py * (int)data.getHeight() * 2; ++i)
 		in[i] = 0.0;
 	//double* out = (double*)fftss_malloc(data.getWidth() * data.getHeight() * sizeof(double) * 2);
 
@@ -1360,7 +1365,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 
 	conPrint("plan: " + t.elapsedString());
 
-	for(int i=0; i<py * data.getHeight() * 2; ++i)
+	for(int i=0; i<py * (int)data.getHeight() * 2; ++i)
 		in[i] = 0.0;
 	for(unsigned int y=0; y<data.getHeight(); ++y)
 		for(unsigned int x=0; x<data.getWidth(); ++x)

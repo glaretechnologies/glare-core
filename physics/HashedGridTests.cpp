@@ -74,7 +74,7 @@ void HashedGridTests::test()
 		for(int interior_y = 1; interior_y < (grid_res - 1); ++interior_y)
 		for(int interior_x = 1; interior_x < (grid_res - 1); ++interior_x)
 		{
-			insertion_point = aabb.min_ + Vec4f(interior_x , interior_y, interior_z, 0) * grid_cell_width;
+			insertion_point = aabb.min_ + Vec4f((float)interior_x , (float)interior_y, (float)interior_z, 0) * grid_cell_width;
 			//std::cout << "insertion point is (" << insertion_point.x[0] << ", " << insertion_point.x[1] << ", " << insertion_point.x[2] << ", " << ")" << std::endl;
 
 			const float aabb_size = grid_cell_width * insertion_scale;

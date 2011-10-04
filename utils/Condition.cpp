@@ -10,10 +10,9 @@ Code By Nicholas Chapman.
 #include "mutex.h"
 #include <assert.h>
 #include <cmath>
-//#include <iostream>
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #else
 #include <errno.h>
 #include <sys/time.h>
@@ -22,7 +21,7 @@ Code By Nicholas Chapman.
 
 Condition::Condition()
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	condition = CreateEvent(
         NULL,         // no security attributes
         TRUE,         // manual-reset event
@@ -40,9 +39,9 @@ Condition::Condition()
 
 Condition::~Condition()
 {
-#if defined(_WIN32) || defined(_WIN64)
-	const HRESULT result = CloseHandle(condition);
-	if(result == 0)//S_OK)
+#if defined(_WIN32)
+	const BOOL result = CloseHandle(condition);
+	if(result == 0)
 	{
 		//Function failed.
 		assert(false);
@@ -57,7 +56,7 @@ Condition::~Condition()
 ///Calling thread is suspended until conidition is met.
 bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_seconds)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 	///Release mutex///
 	mutex.release();
@@ -140,7 +139,7 @@ bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_sec
 ///Condition has been met: wake up one suspended thread.
 void Condition::notify()
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	///set event to signalled state
 	SetEvent(condition);
 #else
@@ -152,7 +151,7 @@ void Condition::notify()
 
 void Condition::resetToFalse()
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	///set event to non-signalled state
 	const BOOL result = ResetEvent(condition);
 	assert(result != FALSE);
@@ -160,11 +159,4 @@ void Condition::resetToFalse()
 
 #endif
 }
-
-
-
-
-
-
-
 
