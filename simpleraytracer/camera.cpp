@@ -1279,7 +1279,7 @@ void Camera::unitTest()
 	testAssert(epsEqual(sensor_center, sensorpos_ws));
 	}
 
-	Vec3d lenspos_os(0,0,0);
+	//Vec3d lenspos_os(0,0,0);
 
 	//Vec3f v = cam.lensExitDir(sensorpos_os, lenspos_os, time);
 	//testAssert(epsEqual(v, toVec3f(forwards)));
