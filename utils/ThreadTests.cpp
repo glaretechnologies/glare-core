@@ -197,22 +197,30 @@ void ThreadTests::test()
 
 
 
-
-
 	{
-		ThreadSafeQueue<int> queue;
-		Timer timer;
-		TestReaderThread* reader = new TestReaderThread(&queue); 
-		reader->launch();
+		TestReaderThread* reader = NULL;
+		TestWriterThread* writer = NULL;
+		try
+		{
+			ThreadSafeQueue<int> queue;
+			Timer timer;
+			reader = new TestReaderThread(&queue); 
+			writer = new TestWriterThread(&queue); 
 
-		TestWriterThread* writer = new TestWriterThread(&queue); 
-		writer->launch();
+			reader->launch();
+			writer->launch();
 
-		reader->join();
-		writer->join();
+			reader->join();
+			writer->join();
 
-		testAssert(queue.empty());
-		conPrint(toString(timer.getSecondsElapsed()));
+			testAssert(queue.empty());
+			conPrint(toString(timer.getSecondsElapsed()));
+		}
+		catch(MyThreadExcep& )
+		{
+			delete reader;
+			delete writer;
+		}
 	}
 
 	
