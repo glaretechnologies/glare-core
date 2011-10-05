@@ -11,7 +11,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #include "../utils/Exception.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
@@ -32,7 +32,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #endif
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 MemMappedFile::MemMappedFile(const std::string& path)
 {
@@ -70,7 +70,13 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	if(!res)
 		throw Indigo::Exception("GetFileSizeEx failed.");
 
-	this->file_size = file_size_li.QuadPart;
+	// If we are compiling in 32-bit mode, and the file is more than 2^32 bytes long, then fail.
+	// NOTE: boolean expression broken into 2 if statements to silence VS static analysis.
+	if(sizeof(size_t) == 4)
+		if(file_size_li.HighPart != 0)
+			throw Indigo::Exception("File is too large.");
+
+	this->file_size = (size_t)file_size_li.QuadPart;
 
 
 	this->file_data = MapViewOfFile(
@@ -98,7 +104,7 @@ MemMappedFile::~MemMappedFile()
 	assert(res);
 }
 
-#else//if defined LINUX
+#else // if defined LINUX or OSX
 
 MemMappedFile::MemMappedFile(const std::string& path)
 {
@@ -151,6 +157,8 @@ void MemMappedFile::test()
 	try
 	{
 		MemMappedFile file(pathname);
+
+		testAssert(file.fileSize() == 3033195);
 
 		conPrint("file size: " + toString((int64)file.fileSize()));
 
