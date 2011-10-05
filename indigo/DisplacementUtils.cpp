@@ -1107,7 +1107,7 @@ void DisplacementUtils::linearSubdivision(
 
 		// Create the quad's centroid vertex
 		const uint32_t centroid_vert_index = (uint32_t)verts_out.size();
-		const uint32_t centroid_uv_index = (uint32_t)uvs_out.size() / num_uv_sets;
+		const uint32_t centroid_uv_index = num_uv_sets > 0 ? (uint32_t)uvs_out.size() / num_uv_sets : 0;
 
 		quad_centre_data[q].first  = centroid_vert_index;
 		quad_centre_data[q].second = centroid_uv_index;
@@ -1177,26 +1177,29 @@ void DisplacementUtils::linearSubdivision(
 			{
 				//TEMP assert(edge_info.num_adjacent_subdividing_polys == 1);
 
-				Vec2f this_start_uv;
-				Vec2f this_end_uv;
-				if(v0 < v1)
+				if(num_uv_sets > 0)
 				{
-					this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
-					this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
-				}
-				else
-				{
-					this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
-					this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
-				}
+					Vec2f this_start_uv;
+					Vec2f this_end_uv;
+					if(v0 < v1)
+					{
+						this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+					}
+					else
+					{
+						this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+					}
 
-				if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
-					(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
-				{
-					// Mark vertices as having a UV discontinuity
-					verts_out[v0].uv_discontinuity = true;
-					verts_out[v1].uv_discontinuity = true;
-					verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+					if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
+						(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
+					{
+						// Mark vertices as having a UV discontinuity
+						verts_out[v0].uv_discontinuity = true;
+						verts_out[v1].uv_discontinuity = true;
+						verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+					}
 				}
 			}
 
