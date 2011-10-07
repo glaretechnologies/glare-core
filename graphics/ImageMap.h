@@ -104,6 +104,8 @@ public:
 
 	inline virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
 
+	inline virtual unsigned int getBytesPerPixel() const;
+
 	V* getData() { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
@@ -517,4 +519,11 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeToImage(const int target, bool& is_
 	}
 
 	return map_2d;
+}
+
+
+template <class V, class VTraits>
+unsigned int ImageMap<V, VTraits>::getBytesPerPixel() const
+{
+	return sizeof(V) * N;
 }

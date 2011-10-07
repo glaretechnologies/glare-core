@@ -694,6 +694,12 @@ Reference<Map2D> Image::resizeToImage(const int target, bool& is_linear) const
 }
 
 
+unsigned int Image::getBytesPerPixel() const
+{
+	return sizeof(ColourType);
+}
+
+
 #if BUILD_TESTS
 
 

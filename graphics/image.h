@@ -130,6 +130,8 @@ public:
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
 
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
+
+	virtual unsigned int getBytesPerPixel() const;
 	/////////////////////////////////
 
 	static void test();
