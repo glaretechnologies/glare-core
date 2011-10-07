@@ -26,6 +26,9 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../indigo/Diffuse.h"
+#include "../indigo/DisplaceMatParameter.h"
+#include "../indigo/SpectrumMatParameter.h"
 
 
 namespace js
@@ -45,6 +48,19 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	ThreadContext thread_context;
 	StandardPrintOutput print_output;
+
+
+	// Create basic material
+	Reference<Material> mat(new Diffuse(
+		std::vector<TextureUnit>(), // textures
+		Reference<SpectrumMatParameter>(NULL), // albedo spectrum
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<SpectrumMatParameter>(NULL), // base emission
+		Reference<SpectrumMatParameter>(NULL),
+		0,
+		false
+	));
 
 
 	RayMesh* raymesh = new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("quad", false);
@@ -77,9 +93,9 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			raymeshref,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1.f), Quatf::identity())),
 			Object::Matrix3Type::identity(),
-			std::vector<Reference<Material> >(),
-			std::vector<EmitterScale>(),
-			std::vector<const IESDatum*>()
+			std::vector<Reference<Material> >(1, mat),
+			std::vector<EmitterScale>(1),
+			std::vector<const IESDatum*>(1, NULL)
 			);
 
 		
@@ -93,9 +109,9 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			raymeshref,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(1.0f,0,0,1.f), Quatf::identity())),
 			Object::Matrix3Type::identity(),
-			std::vector<Reference<Material> >(),
-			std::vector<EmitterScale>(),
-			std::vector<const IESDatum*>()
+			std::vector<Reference<Material> >(1, mat),
+			std::vector<EmitterScale>(1),
+			std::vector<const IESDatum*>(1, NULL)
 			);
 
 		ob2->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
@@ -188,6 +204,18 @@ void ObjectTreeTest::doTests()
 	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 
+	// Create basic material
+	Reference<Material> mat(new Diffuse(
+		std::vector<TextureUnit>(), // textures
+		Reference<SpectrumMatParameter>(NULL), // albedo spectrum
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<DisplaceMatParameter>(NULL),
+		Reference<SpectrumMatParameter>(NULL), // base emission
+		Reference<SpectrumMatParameter>(NULL),
+		0,
+		false
+	));
+
 	std::vector<Object*> objects;
 
 	/// Add some random spheres ////
@@ -202,9 +230,9 @@ void ObjectTreeTest::doTests()
 			raysphere,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
-			std::vector<Reference<Material> >(),
-			std::vector<EmitterScale>(),
-			std::vector<const IESDatum*>()
+			std::vector<Reference<Material> >(1, mat),
+			std::vector<EmitterScale>(1),
+			std::vector<const IESDatum*>(1, NULL)
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;

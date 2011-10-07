@@ -30,6 +30,8 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 	int i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, num_rounds, key, iv);
 	if(i != 32)
 	{
+		EVP_CIPHER_CTX_cleanup(encrypt_context);
+		EVP_CIPHER_CTX_cleanup(decrypt_context);
 		delete encrypt_context; encrypt_context = NULL;
 		delete decrypt_context; decrypt_context = NULL;
 		throw Indigo::Exception("Invalid key size");
@@ -44,6 +46,8 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 
 AESEncryption::~AESEncryption()
 {
+	EVP_CIPHER_CTX_cleanup(encrypt_context);
+	EVP_CIPHER_CTX_cleanup(decrypt_context);
 	delete encrypt_context;
 	delete decrypt_context;
 }

@@ -147,7 +147,7 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	const std::string public_key_str = unTransmunfigyPublicKey();
 
 #if USE_OPENSSL
-	ERR_load_crypto_strings();
+	ERR_load_crypto_strings(); // NOTE: This seems to leak memory over multiple calls, see http://readlist.com/lists/openssl.org/openssl-users/0/394.html
 
 	// Load the public key
 	BIO* public_key_mbio = BIO_new_mem_buf((void*)public_key_str.c_str(), (int)public_key_str.size()); //(void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
@@ -688,7 +688,7 @@ void License::test()
 	// Test a signed key
 	Timer timer;
 
-	const int N = 10;
+	const int N = 3;
 	for(unsigned int i=0; i<N; ++i)
 	{
 		const std::string encoded_hash = 

@@ -400,7 +400,7 @@ void test()
 	const int test_layers[test_layers_num] = { 1, 2 };
 
 	const int test_tonemapper_num = 3;
-	Reference<ToneMapper> tone_mappers[test_tonemapper_num];
+	std::vector<Reference<ToneMapper> > tone_mappers(test_tonemapper_num);
 	try
 	{
 		tone_mappers[0] = Reference<ToneMapper>(new LinearToneMapper(1));
