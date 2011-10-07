@@ -374,8 +374,8 @@ void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 void Image::collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out)
 {
 	assert(border_width >= 0);
-	assert(in.getWidth()  > border_width * 2);
-	assert(in.getHeight() > border_width * 2);
+	assert((int)in.getWidth()  > border_width * 2);
+	assert((int)in.getHeight() > border_width * 2);
 	assert((in.getWidth() - (border_width * 2)) % factor == 0);
 
 	//Image out((width - (border_width * 2)) / factor, (height - (border_width * 2)) / factor);
@@ -457,8 +457,8 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 							const Image& img_in, Image& img_out)
 {
 	assert(border_width >= 0);						// have padding pixels
-	assert(img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
-	assert(img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
+	assert((int)img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
+	assert((int)img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
 	assert(img_in.getWidth()  % factor == 0);		// padded image is multiple of supersampling factor
 	assert(img_in.getHeight() % factor == 0);		// padded image is multiple of supersampling factor
 
