@@ -157,8 +157,8 @@ void NLogNKDTreeBuilder::doBuild(
 
 	LayerInfo& layer = this->layers[depth];
 
-#ifdef DEBUG
-	const unsigned int num_lowers = layer.lower_bounds[0].size();
+#ifdef _DEBUG
+	const size_t num_lowers = layer.lower_bounds[0].size();
 
 	// Check all our bounds are sorted correctly
 	for(int axis=0; axis<3; ++axis)
@@ -166,7 +166,7 @@ void NLogNKDTreeBuilder::doBuild(
 		assert(layer.lower_bounds[axis].size() == num_lowers);
 		assert(layer.upper_bounds[axis].size() == num_lowers);
 
-		for(int z=1; z<layer.lower_bounds[axis].size(); ++z)
+		for(size_t z=1; z<layer.lower_bounds[axis].size(); ++z)
 		{
 			assert((layer.lower_bounds[axis])[z-1].lower <= (layer.lower_bounds[axis])[z].lower);
 			assert((layer.upper_bounds[axis])[z-1].upper <= (layer.upper_bounds[axis])[z].upper);
