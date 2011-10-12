@@ -43,7 +43,7 @@ public:
 
 	Task* dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
-	void threadDead(); // called by TestRunnerThread
+	// void threadDead(); // called by TestRunnerThread
 private:
 	Condition num_unfinished_tasks_cond;
 	Mutex num_unfinished_tasks_mutex;

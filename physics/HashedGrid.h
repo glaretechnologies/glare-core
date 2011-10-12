@@ -104,7 +104,7 @@ public:
 				Lock lock(mutexes[id % num_mutexes]);
 
 				bool no_duplicate = true;
-				const unsigned int bucket_size = buckets[id].data.size();
+				const unsigned int bucket_size = (unsigned int)buckets[id].data.size();
 				for(unsigned int i = 0; i < bucket_size; ++i)
 				{
 					if(buckets[id].data[i] == t)
@@ -120,7 +120,7 @@ public:
  			else
 			{
 				bool no_duplicate = true;
-				const unsigned int bucket_size = buckets[id].data.size();
+				const unsigned int bucket_size = (unsigned int)buckets[id].data.size();
 				for(unsigned int i = 0; i < bucket_size; ++i)
 				{
 					if(buckets[id].data[i] == t)
