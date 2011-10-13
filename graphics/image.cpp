@@ -722,8 +722,8 @@ void Image::test()
 
 		MitchellNetravaliFilterFunction filter(mitchell_b, mitchell_c);
 
-		const int src_xres = (sqrt_image_size + RendererSettings::getMargin() * 2) * supersample_factor;
-		const int src_yres = (sqrt_image_size + RendererSettings::getMargin() * 2) * supersample_factor;
+		const int src_xres = RendererSettings::computeFullWidth(sqrt_image_size, supersample_factor);
+		const int src_yres = RendererSettings::computeFullHeight(sqrt_image_size, supersample_factor);
 		const int dst_xres = sqrt_image_size;
 		const int dst_yres = sqrt_image_size;
 

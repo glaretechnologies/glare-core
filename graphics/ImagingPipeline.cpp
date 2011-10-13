@@ -425,8 +425,8 @@ void test()
 		const int image_ss_factor	= test_ss[ss];
 		const int image_layers		= test_layers[l];
 
-		const int image_ss_xres = (image_final_xres + RendererSettings::getMargin() * 2) * image_ss_factor;
-		const int image_ss_yres = (image_final_yres + RendererSettings::getMargin() * 2) * image_ss_factor;
+		const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, image_ss_factor);
+		const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, image_ss_factor);
 
 		RendererSettings renderer_settings;
 		renderer_settings.logging = false;
