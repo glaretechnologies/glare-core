@@ -107,6 +107,12 @@ namespace SSE
 };
 
 
+#define INDIGO_ALIGNED_NEW_DELETE \
+	void* operator new(size_t size) { return SSE::alignedSSEMalloc(size); } \
+	void operator delete(void* ptr) { SSE::alignedSSEFree(ptr); }
+
+
+
 #define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
 
 
