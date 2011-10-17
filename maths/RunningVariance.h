@@ -81,6 +81,23 @@ public:
 	}
 
 
+	// Computes the standard deviation of the estimator formed by taking the mean of the samples taken.
+	Real meanEstimatorStdDev() const
+	{
+		/*
+			VAR(SUM(X_i)/N)
+			= VAR(SUM(X_I))/N^2
+			= SUM(VAR(X_I))/N^2
+			= SUM(V)/N^2
+			= (NV)/N^2
+			= V/N
+
+			sigma(SUM(X_i)/N) = sqrt(VAR(SUM(X_i)/N)) = sqrt(V/N)
+		*/
+		return std::sqrt(variance() / k);
+	}
+
+
 
 private:
 	//Real s_j; // Variance of the first j samples
