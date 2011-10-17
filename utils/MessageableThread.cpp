@@ -23,8 +23,8 @@ MessageableThread::MessageableThread()
 
 MessageableThread::~MessageableThread()
 {
-	assert(mesthread_thread_manager);
-	mesthread_thread_manager->threadTerminating(this);
+	if(mesthread_thread_manager)
+		mesthread_thread_manager->threadTerminating(this);
 }
 
 

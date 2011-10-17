@@ -13,9 +13,9 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "SystemInfo.h"
 #include "../indigo/TestUtils.h"
 #include "Exception.h"
-#include "../utils/timer.h"
+#include "timer.h"
+#include "Checksum.h"
 #include "../indigo/globals.h"
-#include <zlib.h> // for crc32()
 #include "Transmungify.h"
 
 #define USE_OPENSSL 1
@@ -630,11 +630,7 @@ const std::string License::networkFloatingHash(const std::string& input)
 
 	const std::string x = input + "9fssa3tnjh";
 
-	unsigned int crc = crc32(
-		0, 
-		(const Bytef*)x.c_str(), 
-		(int)x.size()
-	);
+	const uint32 crc = Checksum::checksum((void*)x.c_str(), x.size());
 
 	return ::toHexString(crc);
 }

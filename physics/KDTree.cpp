@@ -17,11 +17,11 @@ Code By Nicholas Chapman.
 #include "../indigo/DistanceHitInfo.h"
 #include "../maths/SSE.h"
 #include "../utils/platformutils.h"
+#include "../utils/Checksum.h"
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
 #include "OldKDTreeBuilder.h"
 #include "NLogNKDTreeBuilder.h"
-#include <zlib.h>
 #include <limits>
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
@@ -1166,7 +1166,8 @@ unsigned int KDTree::checksum()
 			buf[t * 3 + v] = triVertPos(t, v);
 		}
 
-	checksum_ = crc32(0, (const Bytef*)(&buf[0]), sizeof(Vec3f) * (unsigned int)buf.size());
+	checksum_ = Checksum::checksum((void*)&buf[0], sizeof(Vec3f) * buf.size());
+
 	calced_checksum = true;
 	return checksum_;
 }

@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include <assert.h>
 #include "../maths/mathstypes.h"
-#include <zlib.h>
+#include "../utils/Checksum.h"
 
 
 Bitmap::Bitmap()
@@ -64,8 +64,7 @@ void Bitmap::raiseToPower(float exponent)
 
 unsigned int Bitmap::checksum() const
 {
-	const uint32 initial_crc = crc32(0, 0, 0);
-	return crc32(initial_crc, &data[0], width * height * bytespp);
+	return Checksum::checksum((void*)&data[0], width * height * bytespp);
 }
 
 
