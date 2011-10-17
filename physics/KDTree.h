@@ -51,12 +51,15 @@ Kd-Tree
 =====================================================================*/
 SSE_CLASS_ALIGN KDTree : public Tree
 {
+public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	friend class FastKDTreeBuilder;
 	friend class OldKDTreeBuilder;
 	friend class ThreadedKDTreeBuilder;
 	friend class NLogNKDTreeBuilder;
 	friend class ThreadedBuilder::ThreadedNLogNKDTreeBuilder;
-public:
+
 	typedef uint32 NODE_INDEX;
 	/*=====================================================================
 	KDTree

@@ -12,6 +12,7 @@ template <class Real> class Vec3;
 SSE_CLASS_ALIGN Matrix4f
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
 
 	inline Matrix4f() {}
 	Matrix4f(const float* data);

@@ -144,6 +144,8 @@ RayMesh
 SSE_CLASS_ALIGN RayMesh : public Geometry
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	/*=====================================================================
 	RayMesh
 	-------

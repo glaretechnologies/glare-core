@@ -72,11 +72,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 
 RayMesh::~RayMesh()
 {	
-	if(tritree)
-	{
-		tritree->~Tree();
-		SSE::alignedFree(tritree);
-	}
+	delete tritree;
 }
 
 
@@ -465,18 +461,15 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	{
 		if(renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
 		{
-			EmbreeAccel *embree_accel = new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(this, embree_spatial);
+			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;
 		}
 		else
 		{
 			if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
-				tritree = new (SSE::alignedSSEMalloc(sizeof(js::BVH))) js::BVH(this);
-				//tritree = std::auto_ptr<js::Tree>(new js::BVH(this));
-				//tritree = std::auto_ptr<js::Tree>(new js::SimpleBVH(this));
+				tritree = new js::BVH(this);
 			else
-				tritree = new (SSE::alignedSSEMalloc(sizeof(js::KDTree))) js::KDTree(this);
-				//tritree = std::auto_ptr<js::Tree>(new js::KDTree(this));
+				tritree = new js::KDTree(this);
 		}
 	}
 	catch(js::TreeExcep& e)

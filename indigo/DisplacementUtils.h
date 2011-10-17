@@ -112,6 +112,8 @@ public:
 SSE_CLASS_ALIGN DUOptions
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	Matrix4f object_to_camera;
 
 	bool wrap_u;

@@ -324,13 +324,13 @@ static void testSelfIntersectionAvoidance()
 	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
+	trees.push_back(new KDTree(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
+	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh, true));
+	trees.push_back(new EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true);
 
 	// Check AABBox
@@ -442,10 +442,7 @@ static void testSelfIntersectionAvoidance()
 
 	// Delete trees
 	for(size_t i = 0; i < trees.size(); ++i)
-	{
-		trees[i]->~Tree();
-		SSE::alignedFree(trees[i]);
-	}
+		delete trees[i];
 }
 
 
@@ -457,13 +454,13 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(KDTree))) KDTree(&raymesh));
+	trees.push_back(new KDTree(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(BVH))) BVH(&raymesh));
+	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, true);
 
-	trees.push_back(new (SSE::alignedSSEMalloc(sizeof(EmbreeAccel))) EmbreeAccel(&raymesh, true));
+	trees.push_back(new EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true);
 
 	// Check AABBox
@@ -583,10 +580,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 	// Delete trees
 	for(size_t i = 0; i < trees.size(); ++i)
-	{
-		trees[i]->~Tree();
-		SSE::alignedFree(trees[i]);
-	}
+		delete trees[i];
 }
 
 

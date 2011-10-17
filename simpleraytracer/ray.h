@@ -23,6 +23,8 @@ You may *not* use this code for any commercial project.
 SSE_CLASS_ALIGN Ray
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	INDIGO_STRONG_INLINE Ray() {}
 
 	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_

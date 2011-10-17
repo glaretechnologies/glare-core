@@ -33,6 +33,8 @@ You may not use this code for any commercial project.
 SSE_CLASS_ALIGN RaySphere : public Geometry
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	RaySphere(double radius_);
 	virtual ~RaySphere();
 

@@ -23,6 +23,8 @@ Vec4
 SSE_CLASS_ALIGN Vec4f
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	typedef float RealType;
 
 

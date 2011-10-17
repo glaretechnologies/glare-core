@@ -34,6 +34,8 @@ BVH
 SSE_CLASS_ALIGN BVH : public Tree
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	BVH(const RayMesh* const raymesh);
 	~BVH();
 

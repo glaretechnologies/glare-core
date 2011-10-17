@@ -53,6 +53,8 @@ Camera
 SSE_CLASS_ALIGN Camera : public Geometry
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	/*=====================================================================
 	Camera
 	------

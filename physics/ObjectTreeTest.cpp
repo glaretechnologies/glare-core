@@ -63,7 +63,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	));
 
 
-	RayMesh* raymesh = new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("quad", false);
+	RayMesh* raymesh = new RayMesh("quad", false);
 	raymesh->addMaterialUsed("dummy");
 	const unsigned int uv_indices[] = {0, 0, 0};
 
@@ -89,7 +89,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	Object* ob1;
 	Object* ob2;
 	{
-		ob1 = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+		ob1 = new Object(
 			raymeshref,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1.f), Quatf::identity())),
 			Object::Matrix3Type::identity(),
@@ -105,7 +105,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	}
 
 	{
-		ob2 = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+		ob2 = new Object(
 			raymeshref,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(1.0f,0,0,1.f), Quatf::identity())),
 			Object::Matrix3Type::identity(),
@@ -177,10 +177,8 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		}
 	}
 
-	ob1->~Object();
-	SSE::alignedSSEFree(ob1);
-	ob2->~Object();
-	SSE::alignedSSEFree(ob2);
+	delete ob1;
+	delete ob2;
 }
 
 
@@ -222,11 +220,11 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
+		AlignedRef<Geometry, 16> raysphere(new RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
-		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+		Object* ob = new Object(
 			raysphere,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
 			Object::Matrix3Type::identity(),
@@ -308,10 +306,7 @@ void ObjectTreeTest::doTests()
 
 	// Delete objects
 	for(unsigned int i=0; i<objects.size(); ++i)
-	{
-		objects[i]->~Object();
-		SSE::alignedSSEFree(objects[i]);
-	}
+		delete objects[i];
 
 
 	/*{
@@ -475,11 +470,11 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		AlignedRef<Geometry, 16> raysphere(new(SSE::alignedSSEMalloc(sizeof(RaySphere))) RaySphere(rng.unitRandom() * 0.05));
+		AlignedRef<Geometry, 16> raysphere(new RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
-		Object* ob = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+		Object* ob = new Object(
 			raysphere,
 			//pos, pos,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, pos, Quatf::identity())),
@@ -578,7 +573,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//load bunny mesh
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
-	AlignedRef<RayMesh, 16> raymesh(new (SSE::alignedSSEMalloc(sizeof(RayMesh))) RayMesh("raymesh", false));
+	AlignedRef<RayMesh, 16> raymesh(new RayMesh("raymesh", false));
 	Indigo::Mesh indigoMesh;
 	try
 	{
@@ -616,7 +611,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		const Vec4f offset(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
-		Object* object = new(SSE::alignedSSEMalloc(sizeof(Object))) Object(
+		Object* object = new Object(
 			AlignedRef<Geometry, 16>(raymesh.getPointer()),
 			//offset, offset,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),

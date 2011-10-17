@@ -60,6 +60,8 @@ interface that represents the shape of an object
 SSE_CLASS_ALIGN Geometry : /*public js::Intersectable, */public RefCounted, public TexCoordEvaluator
 {
 public:
+	//INDIGO_ALIGNED_NEW_DELETE
+
 	/*=====================================================================
 	Geometry
 	--------

@@ -29,6 +29,8 @@ Must be 16-byte aligned.
 SSE_CLASS_ALIGN AABBox
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	/*=====================================================================
 	AABBox
 	------

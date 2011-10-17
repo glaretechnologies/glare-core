@@ -27,7 +27,6 @@ namespace js
 class ObjectTreeStats;
 
 
-
 /*=====================================================================
 ObjectTree
 ----------
@@ -36,6 +35,8 @@ ObjectTree
 SSE_CLASS_ALIGN ObjectTree
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	ObjectTree();
 	~ObjectTree();
 
