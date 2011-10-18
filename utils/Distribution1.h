@@ -25,7 +25,7 @@ public:
 
 	Distribution1(const std::vector<Real>& pdf, float guide_table_size_scale = 1)
 	{
-		const uint32 table_size = (uint32)pdf.size();
+		const size_t table_size = pdf.size();
 
 		cdfTable.resize(table_size);
 		guideTable.resize(table_size * guide_table_size_scale);
@@ -44,7 +44,7 @@ public:
 		}
 
 		// Build the guide table.
-		for(uint32 i = 0, j = 0; i < guideTable.size(); ++i)
+		for(size_t i = 0, j = 0; i < guideTable.size(); ++i)
 		{
 			// Find the largest j st. CDF[j] < target CDF[i]
 			const double target_cdf = i / (double)guideTable.size();
