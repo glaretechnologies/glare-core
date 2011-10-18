@@ -129,7 +129,7 @@ const URL URL::getDir() const//get everthing except the file at the end
 	{
 		if(file[i] == '/' || file[i] == '\\')
 		{
-			assert(i+1 <= file.length());
+			assert(i+1 <= (int)file.length());
 
 			return URL(host, file.substr(0, i+1));
 		}
@@ -167,7 +167,7 @@ const URL URL::getOneDirUp() const
 	{
 		if(curdir.getFile()[i] == '/' || curdir.getFile()[i] == '\\')
 		{
-			assert(i+1 <= curdir.getFile().length());
+			assert(i+1 <= (int)curdir.getFile().length());
 
 			return URL(curdir.getHost(), curdir.getFile().substr(0, i+1));
 		}
