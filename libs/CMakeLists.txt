@@ -26,7 +26,7 @@ SET(ilmthread "../../../ilmbase-1.0.1/IlmThread/IlmThread.cpp"
 "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosix.cpp"
 "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosixCompat.cpp")
 if(WIN32)
-	SET(ilmthread ${ilmthread} "../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadThreadWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphoreWin32.cpp")
+	SET(ilmthread ${ilmthread} "../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphoreWin32.cpp")
 endif()
 FILE(GLOB openexr "../../../openexr-1.6.1/IlmImf/*.cpp")
 FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
