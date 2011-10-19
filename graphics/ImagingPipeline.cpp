@@ -133,8 +133,8 @@ void doTonemapFullBuffer(
 	const size_t supersample_factor = (size_t)renderer_settings.super_sample_factor;
 	const size_t border_width = (size_t)renderer_settings.getMargin();
 
-	const size_t final_xres = layers[0].getWidth()  / supersample_factor - border_width * 2; assert(final_xres == renderer_settings.getWidth());
-	const size_t final_yres = layers[0].getHeight() / supersample_factor - border_width * 2; assert(final_yres == renderer_settings.getWidth());
+	const size_t final_xres = layers[0].getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
+	const size_t final_yres = layers[0].getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
 	ldr_buffer_out.resize(final_xres, final_yres);
 
 	// Collapse super-sampled image down to final image size
@@ -214,8 +214,8 @@ void doTonemap(
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
 	const ptrdiff_t stripped_xres = xres / ss_factor - gutter_pix * 2;
 	const ptrdiff_t stripped_yres = yres / ss_factor - gutter_pix * 2;
-	const ptrdiff_t final_xres = stripped_xres; assert(final_xres == renderer_settings.getWidth());
-	const ptrdiff_t final_yres = stripped_yres; assert(final_yres == renderer_settings.getHeight());
+	const ptrdiff_t final_xres = stripped_xres; //assert(final_xres == renderer_settings.getWidth());
+	const ptrdiff_t final_yres = stripped_yres; //assert(final_yres == renderer_settings.getHeight());
 	ldr_buffer_out.resize(final_xres, final_yres);
 
 	const ptrdiff_t x_tiles = (final_xres + image_tile_size - 1) / image_tile_size; // rounded up :)
