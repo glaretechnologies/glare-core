@@ -16,7 +16,18 @@ ${fftssdir}/r8_sse2_n.c ${fftssdir}/r8_sse2_o.c ${fftssdir}/r8_sse2_u1.c ${fftss
 #MESSAGE(${fftss})
 
 
-FILE(GLOB ilmbase "../../../ilmbase-1.0.1/Half/*.cpp" "../../../ilmbase-1.0.1/Iex/*.cpp" "../../../ilmbase-1.0.1/IlmThread/*.cpp" "../../../ilmbase-1.0.1/Imath/*.cpp")
+FILE(GLOB ilmbase "../../../ilmbase-1.0.1/Half/*.cpp" "../../../ilmbase-1.0.1/Iex/*.cpp" "../../../ilmbase-1.0.1/Imath/*.cpp")
+SET(ilmthread "../../../ilmbase-1.0.1/IlmThread/IlmThread.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadMutex.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexPosix.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadPool.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadPosix.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphore.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosix.cpp"
+"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosixCompat.cpp")
+if(WIN32)
+	SET(ilmthread ${ilmthread} "../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadThreadWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphoreWin32.cpp")
+endif()
 FILE(GLOB openexr "../../../openexr-1.6.1/IlmImf/*.cpp")
 FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 FILE(GLOB libjpg "${jpegdir}/ja*.c" "${jpegdir}/jc*.c" "${jpegdir}/jd*.c" "${jpegdir}/jf*.c" "${jpegdir}/ji*.c" "${jpegdir}/jq*.c"
@@ -63,6 +74,7 @@ ${tinyxmldir}/tinyxmlparser.cpp
 
 SOURCE_GROUP(fftss FILES ${fftss})
 SOURCE_GROUP(ilmbase FILES ${ilmbase})
+SOURCE_GROUP(ilmthread FILES ${ilmthread})
 SOURCE_GROUP(openexr FILES ${openexr})
 SOURCE_GROUP(lib3ds FILES ${lib3ds})
 SOURCE_GROUP(libjpg FILES ${libjpg})
@@ -79,9 +91,15 @@ include(../indigo_console/shared_cxx_settings.txt)
 add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DLIB3DS_EXPORTS -DTIXML_USE_STL)
 
 
+if(NOT WIN32)
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Xarch_i386 -D__i386__ -Xarch_x86_64 -D__x86_64__")
+endif()
+
+
 add_library(indigo_libs
 ${fftss}
 ${ilmbase}
+${ilmthread}
 ${openexr}
 ${lib3ds}
 ${libjpg}
