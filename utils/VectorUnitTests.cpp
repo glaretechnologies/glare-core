@@ -45,6 +45,24 @@ void VectorUnitTests::run()
 		}
 	}
 
+	// Test operator = 
+	{
+		Vector<int, 4> a;
+		Vector<int, 4> b;
+		a = b;
+	}
+
+	{
+		Vector<int, 4> a;
+		Vector<int, 4> b(2, 555);
+		a = b;
+
+		testAssert(b.size() == 2);
+		testAssert(b[0] = 555);
+		testAssert(b[1] = 555);
+	}
+
+
 
 	{
 		Vector<int, 4> v;

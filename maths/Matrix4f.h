@@ -36,8 +36,14 @@ public:
 
 	inline bool operator == (const Matrix4f& a) const;
 
+
+	
+// Disable a bogus VS 2010 Code analysis warning: 'warning C6385: Invalid data: accessing 'e', the readable size is '64' bytes, but '76' bytes might be read'
+#pragma warning(push)
+#pragma warning(disable:6385)
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 	inline float& elem(unsigned int row_index, unsigned int column_index) { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
+#pragma warning(pop)
 
 	inline void setColumn0(const Vec4f& c);
 	inline void setColumn1(const Vec4f& c);

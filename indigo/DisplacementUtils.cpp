@@ -1128,12 +1128,12 @@ void DisplacementUtils::linearSubdivision(
 
 
 		// Create the quad's edge vertices
-		for(uint32_t v = 0; v < 4; ++v)
+		for(uint32_t vi = 0; vi < 4; ++vi)
 		{
-			const unsigned int v0 = quads_in[q].vertex_indices[v];
-			const unsigned int v1 = quads_in[q].vertex_indices[mod4(v + 1)];
-			const unsigned int uv0 = quads_in[q].uv_indices[v];
-			const unsigned int uv1 = quads_in[q].uv_indices[mod4(v + 1)];
+			const unsigned int v0 = quads_in[q].vertex_indices[vi];
+			const unsigned int v1 = quads_in[q].vertex_indices[mod4(vi + 1)];
+			const unsigned int uv0 = quads_in[q].uv_indices[vi];
+			const unsigned int uv1 = quads_in[q].uv_indices[mod4(vi + 1)];
 
 			// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 

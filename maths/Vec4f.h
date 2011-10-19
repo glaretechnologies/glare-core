@@ -174,6 +174,11 @@ Vec4f& Vec4f::operator = (const Vec4f& a)
 }
 
 
+// Disable a bogus VS 2010 Code analysis warning: 'warning C6385: Invalid data: accessing 'x', the readable size is '16' bytes, but '20' bytes might be read'
+#pragma warning(push)
+#pragma warning(disable:6385)
+
+
 float& Vec4f::operator [] (unsigned int index)
 {
 	assert(index < 4);
@@ -186,6 +191,9 @@ const float& Vec4f::operator [] (unsigned int index) const
 	assert(index < 4);
 	return x[index];
 }
+
+
+#pragma warning(pop)
 
 
 void Vec4f::operator += (const Vec4f& a)
