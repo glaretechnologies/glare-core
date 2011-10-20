@@ -20,20 +20,17 @@ Code By Nicholas Chapman.
 #include "../indigo/DiffractionFilter.h"
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/bitmap.h"
-//#include "../graphics/MitchellNetravali.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/Distribution2.h"
 #include "../indigo/Aperture.h"
 #include "../indigo/CircularAperture.h"
 #include "../utils/fileutils.h"
-//#include "../utils/MTwister.h"
 #include "../indigo/IndigoImage.h"
 #include "../graphics/imformatdecoder.h"
 #include "../indigo/SpectralVector.h"
 #include "../indigo/TransformPath.h"
 #include "../utils/timer.h"
 #include "../indigo/PrintOutput.h"
-//#include "../graphics/FFTPlan.h"
 #include "../maths/GeometrySampling.h"
 
 
@@ -51,7 +48,7 @@ Camera::Camera(
 	bool polarising_filter_, double polarising_angle_,
 	double glare_weight_, double glare_radius_, int glare_num_blades_,
 	double exposure_duration_,
-	Aperture* aperture_,
+	ApertureRef& aperture_,
 	const std::string& appdata_path_,
 	double lens_shift_up_distance_,
 	double lens_shift_right_distance_,
@@ -67,8 +64,6 @@ Camera::Camera(
 	appdata_path(appdata_path_),
 	write_aperture_preview(write_aperture_preview_)
 {
-//	plan = new FFTPlan();
-
 	init(Vec3d(0,0,0), ws_updir, forwards,
 		lens_radius_, focus_distance_, sensor_width_, sensor_height_, lens_sensor_dist_,
 		exposure_duration_,
@@ -145,8 +140,6 @@ Camera::Camera(
 
 Camera::~Camera()
 {
-//	delete plan;
-	delete aperture;
 }
 
 
@@ -154,7 +147,7 @@ void Camera::init(
 	const Vec3d& cam_pos, const Vec3d& ws_updir, const Vec3d& forwards, 
 	double lens_radius_, double focus_distance_, double sensor_width_, double sensor_height_, double lens_sensor_dist_,
 	double exposure_duration_,
-	Aperture* aperture_,
+	Reference<Aperture>& aperture_,
 	double lens_shift_up_distance_,
 	double lens_shift_right_distance_)
 {
@@ -166,12 +159,8 @@ void Camera::init(
 	lens_shift_right_distance	= lens_shift_right_distance_;
 
 	// If we are given a new aperture then delete the old and reassign current
-	if(aperture_ != NULL)
-	{
-		delete aperture;
+	if(aperture_.nonNull())
 		aperture = aperture_;
-		assert(aperture);
-	}
 
 	if(lens_radius <= 0.0)
 		throw CameraExcep("lens_radius must be > 0.0");
@@ -256,23 +245,6 @@ void Camera::buildDiffractionFilter()
 	));
 }
 
-
-/*void Camera::buildDiffractionFilterImage(PrintOutput& print_output)
-{
-	this->diffraction_filter_image = std::auto_ptr<Image>(doBuildDiffractionFilterImage(
-		this->diffraction_filter->getDiffractionFilter(),
-		*this->diffraction_filter,
-		this->main_buffer_width,
-		this->main_buffer_height,
-		this->sensor_width,
-		this->sensor_height,
-		this->sensor_to_lens_dist,
-		this->write_aperture_preview,
-		this->appdata_path,
-		this->ssf,
-		print_output
-	));
-}*/
 
 #if 0
 Image* Camera::doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
@@ -1234,6 +1206,7 @@ void Camera::unitTest()
 	const double aspect_ratio = 1.0;
 	const double sensor_height = sensor_width / aspect_ratio;
 	const double focus_distance = 10.0;
+	ApertureRef aperture(new CircularAperture(Array2d<float>()));
 	Camera cam(
 		//Vec3d(0,0,0), // pos
 		js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1), Quatf::identity())),
@@ -1256,7 +1229,7 @@ void Camera::unitTest()
 		5, //glare
 		1.f / 200.f, //shutter_open_duration
 		//800.f //film speed
-		new CircularAperture(Array2d<float>()),
+		aperture,
 		".", // base indigo path
 		0.25, // lens_shift_up_distance
 		0.0, // lens_shift_right_distance

@@ -17,11 +17,14 @@ namespace Indigo
 {
 
 
-TaskManager::TaskManager()
+TaskManager::TaskManager(size_t num_threads)
 :	num_unfinished_tasks(0)
 	///num_threads(0)
 {
-	threads.resize(PlatformUtils::getNumLogicalProcessors());
+	if(num_threads == std::numeric_limits<size_t>::max()) // If auto-choosing num threads
+		threads.resize(PlatformUtils::getNumLogicalProcessors());
+	else
+		threads.resize(num_threads);
 
 	//num_threads = threads.size();
 

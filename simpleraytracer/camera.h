@@ -70,7 +70,7 @@ public:
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
 		double exposure_duration/*, double film_sensitivity*/,
-		Aperture* aperture,
+		Reference<Aperture>& aperture,
 		const std::string& appdata_path,
 		double lens_shift_up_distance,
 		double lens_shift_right_distance,
@@ -87,7 +87,7 @@ public:
 		const Vec3d& cam_pos, const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist,
 		double exposure_duration,
-		Aperture* aperture,
+		Reference<Aperture>& aperture,
 		double lens_shift_up_distance,
 		double lens_shift_right_distance);
 
@@ -202,15 +202,9 @@ public:
 
 	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const;
 
-	//void applyDiffractionFilterToImage(PrintOutput& print_output, const Image& in, Image& out);
 
-	//const Image* getDiffractionFilterImage() const { return diffraction_filter_image.get(); }
-
-	
-
-	void prepareForDiffractionFilter(/*const std::string& base_indigo_path, */int main_buffer_width, int main_buffer_height, int ssf_);
+	void prepareForDiffractionFilter(int main_buffer_width, int main_buffer_height, int ssf_);
 	void buildDiffractionFilter();
-	//void buildDiffractionFilterImage(PrintOutput& print_output);
 
 
 	double sensorWidth() const { return sensor_width; }
@@ -248,11 +242,6 @@ public:
 
 
 private:
-	//static void applyDiffractionFilterToImage(const Image& cam_diffraction_filter_image, const Image& in, Image& out, FFTPlan& plan); // throws CameraExcep on failure.
-	
-	//static Image* doBuildDiffractionFilterImage(const Array2d<float>& filter_data, const DiffractionFilter& diffraction_filter, int main_buffer_width, int main_buffer_height,
-	//	double sensor_width, double sensor_height, double sensor_to_lens_dist, bool write_aperture_preview, const std::string& appdata_path, int ssf, PrintOutput& print_output);
-
 	inline double distUpOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distRightOnSensorFromCenter(const Vec3d& pos) const;
 	inline double distUpOnLensFromCenter(const Vec3d& pos) const;
@@ -267,12 +256,8 @@ private:
 	std::vector<Plane<Vec3RealType> > clipping_planes_camera_space;
 
 
-	//Array2d<float>* aperture_image;
-	//Distribution2* aperture_image;
-
 	std::auto_ptr<DiffractionFilter> diffraction_filter; // Distribution for direct during-render sampling
-	Aperture* aperture;
-	//std::auto_ptr<Image> diffraction_filter_image; // Image for post-process convolution
+	Reference<Aperture> aperture;
 
 	double lens_radius;
 	double lens_width;
@@ -304,10 +289,7 @@ private:
 	double polarising_angle;
 	Vec3d polarising_vec;
 
-	//ColourSpaceConverter* colour_space_converter;
-
 	double exposure_duration; // aka shutter speed
-
 
 	// Stuff for Lazy calculation of diffraction filter
 	std::string appdata_path;
@@ -316,8 +298,6 @@ private:
 	int main_buffer_height;
 
 	bool write_aperture_preview;
-
-	//FFTPlan* plan;
 };
 
 

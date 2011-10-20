@@ -11,6 +11,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #include "mutex.h"
 #include "Condition.h"
 #include <vector>
+#include <limits>
 
 
 namespace Indigo
@@ -29,7 +30,14 @@ TaskManager
 class TaskManager
 {
 public:
-	TaskManager();
+	/*enum
+	{
+		NumThreadsChoice_Auto,
+		NumThreadsChoice_Explicit
+	} NumThreadsChoice;*/
+
+	TaskManager(size_t num_threads = std::numeric_limits<size_t>::max());
+
 	~TaskManager();
 
 	void addTask(Task* t);
