@@ -15,10 +15,10 @@ File created by ClassTemplate on Sun Nov 14 04:06:01 2004Code By Nicholas Chapma
 #include "../physics/jscol_aabbox.h"
 #include <vector>
 #include "geometry.h"
-#include "../graphics/image.h" //TEMP for diffraction
 #include "../indigo/Spectral.h"
 #include "../indigo/SampleTypes.h"
 #include "../indigo/TransformPath.h"
+#include "../utils/reference.h"
 #include <memory>
 #include <string>
 class ColourSpaceConverter;
@@ -60,16 +60,14 @@ public:
 	------
 	
 	=====================================================================*/
-	Camera(//const Vec3d& pos, 
+	Camera(
 		const js::Vector<TransformKeyFrame, 16>& frames,
-		//const Matrix3f& child_to_world,
 		const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist, 
-		//const std::string& white_balance, 
 		double bloom_weight, double bloom_radius, bool autofocus, bool polarising_filter, 
 		double polarising_angle,
 		double glare_weight, double glare_radius, int glare_num_blades,
-		double exposure_duration/*, double film_sensitivity*/,
+		double exposure_duration,
 		Reference<Aperture>& aperture,
 		const std::string& appdata_path,
 		double lens_shift_up_distance,
@@ -95,8 +93,8 @@ public:
 	//const Vec3d sampleSensor(const SamplePair& samples, double time) const;
 	PDType sensorPDF() const;
 
-	void sampleLensPos(const SamplePair& samples/*, const Vec3d& sensorpos*/, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
-	PDType lensPosPDF(const Vec3Type& lenspos_os/*const Vec3d& sensorpos,*/ /*const Vec3d& lenspos, double time*/) const;
+	void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const;
+	PDType lensPosPDF(const Vec3Type& lenspos_os) const;
 	PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
 	double lensPosVisibility(const Vec3Type& lenspos_os) const;
 
@@ -171,14 +169,6 @@ public:
 
 	static void unitTest();
 
-	//void convertFromXYZToSRGB(Image& image) const;
-
-	//double bloomRadius() const { return bloom_radius; }
-	//double bloomWeight() const { return bloom_weight; }
-	//double glareRadius() const { return glare_radius; }
-	//double glareWeight() const { return glare_weight; }
-	//int glareNumBlades() const { return glare_num_blades; }
-
 	bool isAutoFocus() const { return autofocus; }
 	
 	// NOTE: non-const
@@ -197,8 +187,6 @@ public:
 	//const Vec3d polarisingVec() const { return polarising_vec; }
 
 	double getExposureDuration() const { return exposure_duration; }
-
-	//virtual int UVSetIndexForName(const std::string& uvset_name) const;
 
 	const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const;
 
