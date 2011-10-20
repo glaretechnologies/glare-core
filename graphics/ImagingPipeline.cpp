@@ -171,7 +171,7 @@ void doTonemapFullBuffer(
 	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 
 	// Zero out pixels not in the render region
-	if(renderer_settings.render_region)
+	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
 		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
 			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
@@ -377,7 +377,7 @@ void doTonemap(
 	}
 
 	// Zero out pixels not in the render region
-	if(renderer_settings.render_region)
+	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
 		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
 			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
