@@ -277,9 +277,20 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			desired_license_type = FULL_3_X;
 		else if(components[1] == "indigo-revit-3.x")
 			desired_license_type = REVIT_3_X;
+		else if(components[1] == "indigo-rt-3.x")
+			desired_license_type = RT_3_X;
 #endif
 		else
 			return;
+
+
+#ifdef INDIGO_RT
+		// The user may run Indigo RT with an Indigo Full licence, without restrictions.
+#else
+		// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
+		if(desired_license_type == RT_3_X)
+			throw LicenseExcep("The licence key is for Indigo RT.  This is Indigo Full.  Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
+#endif
 
 		const std::string hash = decodeBase64(components[2]);
 
