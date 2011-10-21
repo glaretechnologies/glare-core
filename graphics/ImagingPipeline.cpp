@@ -19,7 +19,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #ifdef BUILD_TESTS
 
-
+#include "../utils/platformutils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
 #include "../indigo/LinearToneMapper.h"
@@ -388,6 +388,7 @@ void doTonemap(
 
 #ifdef BUILD_TESTS
 
+
 void test()
 {
 	const int test_res_num = 6;
@@ -405,7 +406,11 @@ void test()
 	{
 		tone_mappers[0] = Reference<ToneMapper>(new LinearToneMapper(1));
 		tone_mappers[1] = Reference<ToneMapper>(new ReinhardToneMapper(4, 1, 6));
-		tone_mappers[2] = Reference<ToneMapper>(new CameraToneMapper(0, 200, "data/camera_response_functions/dscs315.txt"));
+		tone_mappers[2] = Reference<ToneMapper>(new CameraToneMapper(0, 200, PlatformUtils::getResourceDirectoryPath() + "/data/camera_response_functions/dscs315.txt"));
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
 	}
 	catch(ToneMapperExcep& e)
 	{

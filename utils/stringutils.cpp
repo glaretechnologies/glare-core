@@ -409,6 +409,15 @@ const std::string toString(int64 x)
 }
 
 
+const std::string toString(size_t x)
+{
+	if(sizeof(size_t) == 4)
+		return toString((uint32)x);
+	else
+		return toString((uint64)x);
+}
+
+
 const std::string boolToString(bool b)
 {
 	return b ? "true" : "false";

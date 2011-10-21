@@ -73,6 +73,7 @@ const std::string toString(unsigned int x);
 const std::string toString(uint64 x);
 const std::string toString(int64 x);
 
+const std::string toString(size_t x);
 
 const std::string boolToString(bool b);
 

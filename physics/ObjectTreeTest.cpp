@@ -29,6 +29,8 @@ Code By Nicholas Chapman.
 #include "../indigo/Diffuse.h"
 #include "../indigo/DisplaceMatParameter.h"
 #include "../indigo/SpectrumMatParameter.h"
+#include "../graphics/Map2D.h"
+
 
 
 namespace js
@@ -95,7 +97,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(1, mat),
 			std::vector<EmitterScale>(1),
-			std::vector<const IESDatum*>(1, NULL)
+			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
 		
@@ -111,7 +113,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(1, mat),
 			std::vector<EmitterScale>(1),
-			std::vector<const IESDatum*>(1, NULL)
+			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
 		ob2->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
@@ -230,7 +232,7 @@ void ObjectTreeTest::doTests()
 			Object::Matrix3Type::identity(),
 			std::vector<Reference<Material> >(1, mat),
 			std::vector<EmitterScale>(1),
-			std::vector<const IESDatum*>(1, NULL)
+			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;

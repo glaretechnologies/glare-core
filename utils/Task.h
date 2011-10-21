@@ -7,6 +7,9 @@ Generated at 2011-10-05 21:56:27 +0100
 #pragma once
 
 
+#include <stdlib.h>
+
+
 namespace Indigo
 {
 
