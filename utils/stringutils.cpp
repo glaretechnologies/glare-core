@@ -409,6 +409,7 @@ const std::string toString(int64 x)
 }
 
 
+#ifdef OSX
 const std::string toString(size_t x)
 {
 	if(sizeof(size_t) == 4)
@@ -416,6 +417,7 @@ const std::string toString(size_t x)
 	else
 		return toString((uint64)x);
 }
+#endif
 
 
 const std::string boolToString(bool b)

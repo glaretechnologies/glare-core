@@ -189,6 +189,9 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
 	this->clEnqueueMarker = ::clEnqueueMarker;
 	this->clWaitForEvents = ::clWaitForEvents;
+	
+	if(this->clGetPlatformIDs == NULL)
+		throw Indigo::Exception("OpenCL is not available in this version of OSX.");
 #endif
 
 
