@@ -54,6 +54,7 @@ private:
 	static T* instance;
 };
 
+
 template <class T>
 T* Singleton<T>::instance = NULL;
 
@@ -62,16 +63,17 @@ template <class T>
 void Singleton<T>::createInstance()
 {
 	assert(!instance);
-	instance = new T(); 
+	instance = new T();
 }
+
 
 template <class T>
 void Singleton<T>::createInstance(T* new_inst)
 {
 	assert(!instance);
-	instance = new_inst; 
-
+	instance = new_inst;
 }
+
 
 template <class T>
 void Singleton<T>::destroyInstance()
@@ -80,6 +82,7 @@ void Singleton<T>::destroyInstance()
 	instance = NULL;
 }
 
+
 template <class T>
 T& Singleton<T>::getInstance()
 {
@@ -87,11 +90,13 @@ T& Singleton<T>::getInstance()
 	return *instance;
 }
 
+
 template <class T>
 bool Singleton<T>::isNull()
 {
 	return instance == NULL;
 }
+
 
 template <class T>
 bool Singleton<T>::isNonNull()
@@ -101,7 +106,3 @@ bool Singleton<T>::isNonNull()
 
 
 #endif //__SINGLETON_H_666_
-
-
-
-

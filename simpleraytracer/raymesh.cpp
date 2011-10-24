@@ -5,6 +5,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 Code By Nicholas Chapman.
 =====================================================================*/
 #include "../indigo/EmbreeAccel.h"
+#include "../indigo/EmbreeInstance.h"
 
 #include "raymesh.h"
 
@@ -400,10 +401,11 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	bool have_sse3 = false;
 	bool try_spatial = false;
+	bool embree_os_ok = EmbreeInstance::isNonNull();
 	bool embree_mem_ok = false;
 	bool embree_spatial = false;
 
-	if(renderer_settings.use_embree) // Do some extra checks if embree accelerator desired
+	if(embree_os_ok && renderer_settings.use_embree) // Do some extra checks if embree accelerator desired
 	{
 		try
 		{
@@ -459,7 +461,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 
 	try
 	{
-		if(renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
+		if(embree_os_ok && renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
 		{
 			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;

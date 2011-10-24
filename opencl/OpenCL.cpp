@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 template <class FuncPointerType>
 static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 {
@@ -59,7 +59,7 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 
 	std::vector<std::string> opencl_paths;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	opencl_paths.push_back("OpenCL.dll");
 
 	try // ATI/AMD OpenCL
@@ -92,17 +92,17 @@ OpenCL::OpenCL(int desired_device_number, bool verbose_init)
 	opencl_paths.push_back("libOpenCL.so");
 #endif
 
-#if defined(_WIN32) || defined(_WIN64) || defined(LINUX)
+#if defined(_WIN32) || defined(LINUX)
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 		const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding(opencl_paths[searched_paths]);
 		opencl_handle = ::LoadLibrary(path.c_str());
 		if(!opencl_handle)
 		{
 			const DWORD error_code = GetLastError();
-			std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
+			//std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
 			continue;
 		}
 #elif defined(LINUX)
@@ -416,7 +416,7 @@ OpenCL::~OpenCL()
 			throw Indigo::Exception("clReleaseContext failed");
 	}
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	if(!::FreeLibrary(opencl_handle))
 		throw Indigo::Exception("FreeLibrary failed");
 #endif
@@ -437,7 +437,7 @@ const std::string OpenCL::errorString(cl_int result)
 {
 	switch(result)
 	{
-		case 0: return "CL_SUCCESS";
+		case  0: return "CL_SUCCESS";
 		case -1: return "CL_DEVICE_NOT_FOUND";
 		case -2: return "CL_DEVICE_NOT_AVAILABLE";
 		case -3: return "CL_COMPILER_NOT_AVAILABLE";

@@ -660,6 +660,16 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 }
 
 
+bool PlatformUtils::isWindows()
+{
+#ifdef _WIN32
+	return true;
+#else
+	return false;
+#endif
+}
+
+
 bool PlatformUtils::isWindowsXPOrEarlier()
 {
 #if defined(_WIN32) || defined(_WIN64)

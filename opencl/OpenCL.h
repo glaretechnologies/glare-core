@@ -148,7 +148,7 @@ public:
 	cl_command_queue command_queue;
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	HMODULE opencl_handle;
 #else
 	void *opencl_handle;
