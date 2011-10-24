@@ -180,9 +180,9 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 void Compression::test()
 {
 
-	int n = 100000;
+	size_t n = 100000;
 	std::vector<char> d(n);
-	for(int i=0; i<n; ++i)
+	for(size_t i=0; i<n; ++i)
 	{
 		d[i] = i % 128;
 	}
@@ -203,11 +203,10 @@ void Compression::test()
 	Compression::decompress(&compressed[0], compressed.size(), &decompressed[0], decompressed.size());
 
 	testAssert(decompressed.size() == n);
-	for(int i=0; i<n; ++i)
+	for(size_t i=0; i<n; ++i)
 	{
 		testAssert(decompressed[i] == i % 128);
 	}
-
 }
 
 

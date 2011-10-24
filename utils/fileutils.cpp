@@ -965,7 +965,7 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 }
 
 
-#include "PlatformUtils.h"
+#include "platformutils.h"
 
 
 namespace FileUtils
