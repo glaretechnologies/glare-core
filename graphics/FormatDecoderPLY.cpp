@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 //grab rply src from: http://www.cs.princeton.edu/~diego/professional/rply/
 
-#include "../rply-1.01/rply.h"
+#include "../rply-1.1.1/rply.h"
 #include <assert.h>
 
 #include "../dll/include/IndigoMesh.h"
@@ -117,7 +117,7 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	//handler.addUVSetExposition("default", 0);
 
 
-	p_ply ply = ply_open(pathname.c_str(), NULL);
+	p_ply ply = ply_open(pathname.c_str(), NULL, 0, NULL);
 
     if(!ply) 
 		throw ModelFormatDecoderExcep("could not open file '" + pathname + "' for reading.");
