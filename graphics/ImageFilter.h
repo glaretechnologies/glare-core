@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/reference.h"
 #include "../utils/Exception.h"
 #include "../maths/Complex.h"
+#include "../maths/vec3.h"
 class Image;
 class FFTPlan;
 
@@ -32,6 +33,9 @@ public:
 	ImageFilter();
 
 	~ImageFilter();
+
+
+	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c);
 
 	//adds the image in, convolved by a Chiu filter, to out.
 	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);

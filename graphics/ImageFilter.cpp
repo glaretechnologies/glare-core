@@ -6,22 +6,137 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "ImageFilter.h"
 
+
+#include "MitchellNetravali.h"
+#include "PNGDecoder.h"
 #include "image.h"
+#include "bitmap.h"
 #include "../utils/array2d.h"
 #include "../utils/stringutils.h"
 #include "../indigo/globals.h"
 #include "../maths/vec2.h"
 #include "../maths/Matrix2.h"
-//#include "../utils/timer.h"
 #include "../maths/mathstypes.h"
 #include "../utils/MTwister.h" // just for testing
-//#include "fft2d.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
 #include "fftss.h"
 #include "../utils/timer.h"
 #include <omp.h>
 #include "FFTPlan.h"
 #include "../maths/GeometrySampling.h"
+
+
+void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c)
+{
+	assert(mn_b >= 0 && mn_b <= 1);
+	assert(mn_c >= 0 && mn_c <= 1);
+
+	MitchellNetravali<float> mn(mn_b, mn_c);
+
+	float pixel_scale = 1.0f / pixel_enlargement_factor;
+
+	float scale = myMax(1.0f, pixel_scale);
+	float recip_scale = 1.0f / scale;
+
+	float filter_radius = 2 * scale;
+	int r = (int)std::ceil(filter_radius);
+
+	
+
+	// Table that maps distance squared to mn value for distance
+	// Entry at index MN_TABLE_SCALE corresponds to MN filter evaluated at d^2 of 1, entry at index MN_TABLE_SCALE*2 corresponds to MN evaled at d^2 of 2, etc..
+	// So last non-zero entry will by at MN_TABLE_SCALE*4, which corresponds to a d^2 of 4, or a distance of 2, which is where the MN function becomes zero.
+	const int MN_TABLE_SCALE_I = 64;
+	const int MN_TABLE_SIZE = MN_TABLE_SCALE_I * 4;
+
+	float mn_table_factor = MN_TABLE_SCALE_I;
+
+	float mn_table[MN_TABLE_SIZE];
+	for(int i=0; i<MN_TABLE_SIZE; ++i)
+	{
+		float d2 = i * (1 / mn_table_factor);
+		float d = std::sqrt(d2);
+		mn_table[i] = mn.eval(d);
+	}
+
+	int out_w = (int)out.getWidth();
+	int out_h = (int)out.getHeight();
+
+	float out_w_2 = out_w * 0.5f;
+	float out_h_2 = out_h * 0.5f;
+
+	int in_w = (int)in.getWidth();
+	int in_h = (int)in.getHeight();
+
+	float in_w_2 = in_w * 0.5f;
+	float in_h_2 = in_h * 0.5f;
+
+	float recip_out_w = 1.0f / out_w;
+	float recip_out_h = 1.0f / out_h;
+
+	
+	for(int y=0; y<out_h; ++y)
+	for(int x=0; x<out_w; ++x)
+	{
+		// Get normalised dest coords, where (0,0) is center of dest image.
+		/*float destx = x * recip_out_w - 0.5f;
+		float desty = y * recip_out_h - 0.5f;
+
+		float sx = destx * pixel_scale;
+		float sy = desty * pixel_scale;
+
+		// Get src pixel coords
+		float sx_p = (sx + 0.5f) * in_w;
+		float sy_p = (sy + 0.5f) * in_h;*/
+		float destx = x - out_w_2;
+		float desty = y - out_h_2;
+
+		float sx = destx * pixel_scale;
+		float sy = desty * pixel_scale;
+
+		float sx_p = sx + in_w_2;
+		float sy_p = sy + in_h_2;
+
+
+		// floor to integer pixel indices
+		int sx_pi = (int)std::floor(sx_p);
+		int sy_pi = (int)std::floor(sy_p);
+
+		// compute src filter region
+		int x_begin = myMax(0, sx_pi - r + 1);
+		int y_begin = myMax(0, sy_pi - r + 1);
+
+		int x_end = myMin(in_w, sx_pi + r + 1);
+		int y_end = myMin(in_h, sy_pi + r + 1);
+
+		Colour3f c(0, 0, 0);
+		float f_sum = 0;
+		for(int sy=y_begin; sy<y_end; ++sy)
+		for(int sx=x_begin; sx<x_end; ++sx)
+		{
+			float dx = sx - sx_p; 
+			float dy = sy - sy_p;
+			float d2 = dx*dx + dy*dy;
+			float scaled_d2 = d2 * recip_scale;
+
+			assert(fabs(dx) <= ceil(2 * scale));
+			assert(fabs(dy) <= ceil(2 * scale));
+
+			//assert((int)(scaled_d2 * mn_table_factor) < 1024);
+			int i = (int)(scaled_d2 * mn_table_factor);
+			float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
+			f_sum += f;
+
+			c.r += in.getPixel(sx, sy).r * f/* * colour_scale.x*/;
+			c.g += in.getPixel(sx, sy).g * f/* * colour_scale.y*/;
+			c.b += in.getPixel(sx, sy).b * f/* * colour_scale.z*/;
+		}
+
+		//c *= (1 / f_sum);
+		out.setPixel(x, y, c);
+	}
+}
 
 
 // Defined in fft4f2d.c
@@ -1649,9 +1764,85 @@ static void performanceTestFT(int in_w, int in_h)
 }
 
 
+static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargement_factor)
+{
+	printVar(pixel_enlargement_factor);
+
+	Reference<Image> out(new Image(513, 513)); //new Image(im->getWidth(), im->getHeight()));
+
+	Timer timer;
+	ImageFilter::resizeImage(*im, *out, 
+		pixel_enlargement_factor,
+		// Vec3f(1,1,1),
+		0.33f, 
+		0.33f
+		);
+
+	conPrint("Resize took " + timer.elapsedString());
+
+	// Check that we didn't introduce INFs or NANs.
+	for(size_t i=0; i<im->numPixels(); ++i)
+	{
+		testAssert(im->getPixel(i).isFinite());
+	}
+
+	out->clampInPlace(0, 1);
+	out->gammaCorrect(1 / 2.2);
+
+	Bitmap bmp_out;
+	out->copyToBitmap(bmp_out);
+	PNGDecoder::write(bmp_out, "scaled_image_" + toString(pixel_enlargement_factor) + ".png");
+}
+
+
+static void testResizeImage()
+{
+	Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+	Reference<Image> im = map->convertToImage();
+
+	// Make black image with white dot in center
+	const size_t W = 2048;
+	im = Reference<Image>(new Image(W, W));
+	im->zero();
+	im->setPixel(W/2, W/2, Colour3f(1.0f));
+
+	testResizeImageWithScale(im, 0.1f);
+	testResizeImageWithScale(im, 0.5f);
+	testResizeImageWithScale(im, 0.8f);
+	testResizeImageWithScale(im, 1.0f);
+	testResizeImageWithScale(im, 1.2f);
+	testResizeImageWithScale(im, 2.0f);
+	testResizeImageWithScale(im, 10.0f);
+}
+
+
+static void makeSinImage()
+{
+	size_t W = 1024;
+	Reference<Image> image(new Image(W, W));
+	for(size_t y=0; y<W; ++y)
+	for(size_t x=0; x<W; ++x)
+	{
+		float num_cycles = 10.0f;
+		float val = std::sin(NICKMATHS_2PIf * x * num_cycles / W) * 0.5f + 0.5f;
+		image->setPixel(x, y, Colour3f(val));
+	}
+
+	Bitmap bmp_out;
+	image->copyToBitmap(bmp_out);
+	PNGDecoder::write(bmp_out, "grating.png");
+}
+
+
+
+
 void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
+
+	// makeSinImage();
+
+	testResizeImage();
 
 	//performanceTestFT(1024, 1024);
 

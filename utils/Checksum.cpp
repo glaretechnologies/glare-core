@@ -25,7 +25,7 @@ uint32 Checksum::initChecksum()
 }
 
 
-uint32 Checksum::updateChecksum(uint32 running_checksum, void* data, size_t datalen)
+uint32 Checksum::updateChecksum(uint32 running_checksum, const void* data, size_t datalen)
 {
 	for(size_t i = 0; i < datalen; i += std::numeric_limits<uint32>::max()) // For each chunk of 2^32 bytes
 	{

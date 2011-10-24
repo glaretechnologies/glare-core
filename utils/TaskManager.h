@@ -49,6 +49,9 @@ public:
 	size_t getNumThreads() const { return threads.size(); }
 
 
+	ThreadSafeQueue<Task*>& getTaskQueue() { return tasks; }
+	const ThreadSafeQueue<Task*>& getTaskQueue() const { return tasks; }
+
 	Task* dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
 	// void threadDead(); // called by TestRunnerThread

@@ -70,18 +70,18 @@ Real MitchellNetravali<Real>::eval(Real x) const
 {
 	assert(x >= 0.0);
 
-	if(x < (Real)1.0)
+	if(x < 1)
 	{
 		// Region '0'
 		return region_0_a * x*x*x + region_0_b * x*x + region_0_d;
 	}
-	else if(x < 2.0)
+	else if(x < 2)
 	{
 		// Region '1'
 		return region_1_a * x*x*x + region_1_b * x*x + region_1_c * x + region_1_d;
 	}
 	else
-		return 0.0;
+		return 0;
 }
 
 

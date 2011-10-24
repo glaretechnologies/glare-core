@@ -508,3 +508,10 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	}
 }
+
+
+void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
+{
+	std::map<std::string, std::string> metadata;
+	write(bitmap, metadata, pathname);
+}

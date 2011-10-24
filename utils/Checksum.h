@@ -29,7 +29,14 @@ public:
 	static uint32 initChecksum();
 
 	// Update a checksum value with a new buffer.
-	static uint32 updateChecksum(uint32 running_checksum, void* data, size_t datalen);
+	static uint32 updateChecksum(uint32 running_checksum, const void* data, size_t datalen);
+
+	template <class T>
+	static uint32 updateChecksumBasicType(uint32 running_checksum, T t)
+	{
+		return updateChecksum(running_checksum, &t, sizeof(T));
+	}
+
 
 	static void test();
 private:
