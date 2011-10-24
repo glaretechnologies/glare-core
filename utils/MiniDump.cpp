@@ -23,7 +23,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #if defined(_WIN32) || defined(_WIN64)
 
 
-int MiniDump::generateDump(EXCEPTION_POINTERS* pExceptionPointers)
+/*int MiniDump::generateDump(EXCEPTION_POINTERS* pExceptionPointers)
 {
 	BOOL bMiniDumpSuccessful;
 	WCHAR szPath[MAX_PATH]; 
@@ -60,7 +60,7 @@ int MiniDump::generateDump(EXCEPTION_POINTERS* pExceptionPointers)
 	//conPrint("MiniDump created at " + StringUtils::WToUTF8String(szFileName));
 
 	return EXCEPTION_EXECUTE_HANDLER;
-}
+}*/
 
 
 #endif
