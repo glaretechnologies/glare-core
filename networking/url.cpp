@@ -108,7 +108,7 @@ const std::string URL::getFile() const
 
 const std::string URL::getNoDirFilename() const
 {
-	for(int i=file.length() - 1; i>= 0; i--)
+	for(int i=(int)file.length() - 1; i>= 0; i--)
 	{
 		if(file[i] == '/' || file[i] == '\\')
 		{
@@ -125,7 +125,7 @@ const std::string URL::getNoDirFilename() const
 
 const URL URL::getDir() const//get everthing except the file at the end
 {
-	for(int i=file.length() - 1; i>= 0; i--)
+	for(int i=(int)file.length() - 1; i>= 0; i--)
 	{
 		if(file[i] == '/' || file[i] == '\\')
 		{
@@ -163,7 +163,7 @@ const URL URL::getOneDirUp() const
 	//-----------------------------------------------------------------
 	//find the rightmost slash
 	//-----------------------------------------------------------------
-	for(int i=curdir.getFile().length() - 1; i>= 0; i--)
+	for(int i=(int)curdir.getFile().length() - 1; i>= 0; i--)
 	{
 		if(curdir.getFile()[i] == '/' || curdir.getFile()[i] == '\\')
 		{
@@ -236,9 +236,9 @@ int URL::getFirstSlashPos(const std::string& urlstring)//returns -1 if no slash
 		return -1;
 
 
-	int first_slashpos = urlstring.length();
+	int first_slashpos = (int)urlstring.length();
 
-	for(int i=urlstring.length() - 1; i>= 0; i--)
+	for(int i=(int)urlstring.length() - 1; i>= 0; i--)
 	{
 		if(urlstring[i] == '/' || urlstring[i] == '\\')
 		{

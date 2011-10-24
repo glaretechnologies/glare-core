@@ -41,11 +41,11 @@ void DouglasPeuckerAlg::approximate(const std::vector<Vec2<Real> >& points, std:
 	points_out.resize(0);
 	simplified_indices_out.resize(0);
 
-	doApproximate(points, 0, points.size() - 1, points_out, simplified_indices_out, epsilon);
+	doApproximate(points, 0, (int)points.size() - 1, points_out, simplified_indices_out, epsilon);
 
 	points_out.push_back(points[points.size() - 1]);
 
-	simplified_indices_out.push_back(points.size() - 1);
+	simplified_indices_out.push_back((int)points.size() - 1);
 }
 
 
