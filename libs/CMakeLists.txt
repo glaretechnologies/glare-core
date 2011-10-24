@@ -56,11 +56,16 @@ ${tiffdir}/tif_unix.c ${tiffdir}/tif_version.c ${tiffdir}/tif_warning.c ${tiffdi
 
 FILE(GLOB lua "../../../lua-5.1.4/src/*.c")
 
-set(zlib
-${zlibdir}/adler32.c ${zlibdir}/compress.c ${zlibdir}/crc32.c ${zlibdir}/deflate.c ${zlibdir}/gzclose.c ${zlibdir}/gzlib.c ${zlibdir}/gzread.c ${zlibdir}/gzwrite.c
-${zlibdir}/infback.c ${zlibdir}/inffast.c ${zlibdir}/inflate.c ${zlibdir}/inftrees.c ${zlibdir}/trees.c ${zlibdir}/uncompr.c ${zlibdir}/zutil.c
-${zlibdir}/contrib/minizip/unzip.c ${zlibdir}/contrib/minizip/zip.c ${zlibdir}/contrib/minizip/ioapi.c
-)
+FILE(GLOB zlib "../${zlibdir}/*.c")
+SET(minizip "../${zlibdir}/contrib/minizip/ioapi.c"
+"../${zlibdir}/contrib/minizip/unzip.c"
+"../${zlibdir}/contrib/minizip/zip.c")
+
+#set(zlib
+#${zlibdir}/adler32.c ${zlibdir}/compress.c ${zlibdir}/crc32.c ${zlibdir}/deflate.c ${zlibdir}/gzclose.c ${zlibdir}/gzlib.c ${zlibdir}/gzread.c ${zlibdir}/gzwrite.c
+#${zlibdir}/infback.c ${zlibdir}/inffast.c ${zlibdir}/inflate.c ${zlibdir}/inftrees.c ${zlibdir}/trees.c ${zlibdir}/uncompr.c ${zlibdir}/zutil.c
+#${zlibdir}/contrib/minizip/unzip.c ${zlibdir}/contrib/minizip/zip.c ${zlibdir}/contrib/minizip/ioapi.c
+#)
 
 
 set(tinyxml
@@ -82,6 +87,7 @@ SOURCE_GROUP(libpng FILES ${libpng})
 SOURCE_GROUP(libtiff FILES ${libtiff})
 #SOURCE_GROUP(lua FILES ${lua})
 SOURCE_GROUP(zlib FILES ${zlib})
+SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(tinyxml FILES ${tinyxml})
 
 
@@ -107,6 +113,7 @@ ${libpng}
 ${libtiff}
 #${lua}
 ${zlib}
+${minizip}
 ${tinyxml}
 )
 
