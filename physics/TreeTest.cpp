@@ -32,13 +32,16 @@ Code By Nicholas Chapman.
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../indigo/EmbreeAccel.h"
+#include "../indigo/EmbreeInstance.h"
 
 
 namespace js
 {
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
@@ -459,6 +462,9 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, true);
+
+	// We want to test Embree, so let's require that the Embree DLL has been successfully loaded.
+	testAssert(EmbreeInstance::isNonNull());
 
 	trees.push_back(new EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true);
