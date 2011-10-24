@@ -133,7 +133,7 @@ MemMappedFile::~MemMappedFile()
 		this->file_size = 0;
 	}
 
-	if(this->linux_file_handle != NULL)
+	if(this->linux_file_handle > 0)
 	{
 		::close(this->linux_file_handle);
 		this->linux_file_handle = 0;

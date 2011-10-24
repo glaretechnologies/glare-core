@@ -84,6 +84,9 @@ bool Parser::parseInt(int& result_out)
 	}
 
 	result_out = sign * x;
+
+	if(!valid)
+		currentpos = initial_currentpos; // Restore currentpos.
 	
 	return valid; //currentpos - initial_currentpos > 0;
 }
