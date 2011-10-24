@@ -29,7 +29,6 @@ Code By Nicholas Chapman.
 
 	#ifndef OSX
 		#include <sys/sysinfo.h>
-
 	#endif
 
 	#include <sys/types.h>
@@ -124,6 +123,7 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	return memsize;
 #else
 	struct sysinfo info;
+
 	if(sysinfo(&info) != 0)
 		throw PlatformUtilsExcep("sysinfo failed.");
 

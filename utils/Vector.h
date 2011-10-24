@@ -306,13 +306,17 @@ void Vector<T, alignment>::copy(const T * const src, T* dst, size_t num)
 	assert(num == 0 || dst);
 
 	// Disable a bogus VS 2010 Code analysis warning: 'warning C6011: Dereferencing NULL pointer 'src'
+	#ifdef _WIN32
 	#pragma warning(push)
 	#pragma warning(disable:6011)
+	#endif
 
 	for(size_t i=0; i<num; ++i)
 		dst[i] = src[i];
 
+	#ifdef _WIN32
 	#pragma warning(pop)
+	#endif
 }
 
 

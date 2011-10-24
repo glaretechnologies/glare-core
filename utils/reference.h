@@ -109,13 +109,17 @@ public:
 	inline const T& operator * () const
 	{
 		// Disable a bogus VS 2010 Code analysis warning: 'warning C6011: Dereferencing NULL pointer 'ob': Lines: 111, 112'
+		#ifdef _WIN32
 		#pragma warning(push)
 		#pragma warning(disable:6011)
+		#endif
 		
 		assert(ob);
 		return *ob;
 
+		#ifdef _WIN32
 		#pragma warning(pop)
+		#endif
 	}
 
 	inline const T* operator -> () const

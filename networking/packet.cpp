@@ -11,6 +11,8 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
 #include "networking.h"
+#include <cstring>
+
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock.h>//#include "winsock2.h"
