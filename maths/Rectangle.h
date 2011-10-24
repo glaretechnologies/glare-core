@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 
-#include "../networking/mystream.h"
+//#include "../networking/mystream.h"
 
 
 namespace dlf
@@ -47,7 +47,7 @@ public:
 };
 
 
-inline MyStream& operator << (MyStream& stream, const Rectangle& rect)
+/*inline MyStream& operator << (MyStream& stream, const Rectangle& rect)
 {
 	stream << rect.x;
 	stream << rect.y;	
@@ -63,7 +63,7 @@ inline MyStream& operator >> (MyStream& stream, Rectangle& rect)
 	stream >> rect.width;
 	stream >> rect.height;
 	return stream;
-}
+}*/
 
 } //end namespace dlf
 

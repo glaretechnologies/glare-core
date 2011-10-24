@@ -4,7 +4,7 @@ mystream.cpp
 File created by ClassTemplate on Fri Apr 19 12:18:01 2002
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "mystream.h"
+//#include "mystream.h"
 
 
 

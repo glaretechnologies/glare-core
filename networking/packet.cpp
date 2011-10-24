@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #include "assert.h"
 #include "../maths/vec3.h"
 #include "../utils/stringutils.h"
+#include "networking.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock.h>//#include "winsock2.h"
@@ -41,7 +42,7 @@ Packet::~Packet()
 
 
 
-void Packet::write(float x)
+/*void Packet::write(float x)
 {
 	assert(sizeof(unsigned int) == sizeof(float));
 
@@ -49,16 +50,26 @@ void Packet::write(float x)
 	data.resize(writeindex + sizeof(float));
 
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
-}
+}*/
 
-void Packet::write(int x)
+void Packet::write(int32 x)
 {
 	const size_t writeindex = data.size();
-	data.resize(writeindex + sizeof(int));
+	data.resize(writeindex + sizeof(int32));
 
-	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
+	// Copy to uint32 in host byte order
+	uint32 val_h;
+	std::memcpy(&val_h, &x, sizeof(int32));
+
+	// Get in network order
+	uint32 val_n = htonl(val_h);
+
+	// Copy to buffer
+	std::memcpy(&data[writeindex], &val_n, sizeof(int32));
+
+	//*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
 }
-
+/*
 void Packet::write(unsigned short x)
 {
 	const size_t writeindex = data.size();
@@ -82,20 +93,22 @@ void Packet::write(char x)
 
 	*(unsigned char*)(getData() + writeindex) = *((unsigned char*)&x);
 }
-
+*/
 
 void Packet::write(const void* src, size_t numbytes)
 {
 	const size_t writeindex = data.size();
 	data.resize(writeindex + numbytes);
 
-	for(size_t i=0; i<numbytes; ++i)
+	std::memcpy(&data[writeindex], src, numbytes);
+
+	/*for(size_t i=0; i<numbytes; ++i)
 	{
 		data[writeindex + i] = *((char*)src + i);
-	}
+	}*/
 }
 
-
+/*
 void Packet::write(const std::string& s) // writes null-terminated string
 {
 	// Write length of string
@@ -104,9 +117,9 @@ void Packet::write(const std::string& s) // writes null-terminated string
 	// Write string data
 	write(&(*s.begin()), s.length());
 
-}
+}*/
 	
-void Packet::readTo(float& x)
+/*void Packet::readTo(float& x)
 {
 	assert(sizeof(unsigned int) == sizeof(float));
 
@@ -118,17 +131,27 @@ void Packet::readTo(float& x)
 	x = *((float*)&xi);
 	readindex += sizeof(float);
 }
-
-void Packet::readTo(int& x)
+*/
+void Packet::readTo(int32& x)
 {
-	if(readindex + sizeof(int) > data.size())
-		throw MyStreamExcep("read past end of packet.");
+	if(readindex + sizeof(int32) > data.size())
+		throw NetworkingExcep("read past end of packet.");
 
-	unsigned int xi = ntohl(*((unsigned int*)(getData() + readindex)));
-	x = *((int*)&xi);
-	readindex += sizeof(int);
+	// Get in network byte order
+	uint32 val_n;
+	std::memcpy(&val_n, getData() + readindex, sizeof(uint32));
+
+	// Convert to host order
+	uint32 val_h = ntohl(val_n);
+
+	// Copy to x
+	std::memcpy(&x, &val_h, sizeof(uint32));
+
+	//unsigned int xi = ntohl(*((unsigned int*)(getData() + readindex)));
+	//x = *((int*)&xi);
+	//readindex += sizeof(int);
 }
-
+/*
 void Packet::readTo(char& x)
 {
 	if(readindex + sizeof(char) > data.size())
@@ -145,7 +168,7 @@ void Packet::readTo(unsigned short& x)
 
 	x = ntohs(*(unsigned short*)(getData() + readindex));
 	readindex += sizeof(unsigned short);
-}
+}*/
 
 /*void Packet::readTo(Vec3& vec)
 {
@@ -154,25 +177,8 @@ void Packet::readTo(unsigned short& x)
 	readTo(vec.z);
 }*/
 
-void Packet::readTo(std::string& s, int maxlength)
+/*void Packet::readTo(std::string& s, int maxlength)
 {
-	/*std::vector<char> buffer(1000);
-
-	int i = 0;
-	while(1)
-	{
-		buffer.push_back('\0');
-		readTo(buffer[i]);
-
-		if(buffer[i] == '\0')
-			break;
-
-		//TODO: break after looping to long
-		++i;
-	}
-
-	s = &(*buffer.begin());*/
-	//assert(0);
 
 	int length;
 	readTo(length);
@@ -226,4 +232,4 @@ void Packet::writeToStream(MyStream& stream)
 {
 	stream.write(getData(), data.size());
 }
-
+*/

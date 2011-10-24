@@ -8,6 +8,9 @@ Code By Nicholas Chapman.
 #define __MYSTREAM_H_666_
 
 
+#error NO LONGER USING
+
+
 #include <string>
 
 

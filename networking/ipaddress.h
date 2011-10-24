@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 //#pragma warning(disable : 4786)//disable long debug name warning
 //#pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
-#include "mystream.h"
+//#include "mystream.h"
 #include <string>
 
 
@@ -62,15 +62,15 @@ public:
 	const std::string toString() const;//in form "255.255.255.255"
 
 		
-	void writeToStream(MyStream& stream) const;
-	void setFromStream(MyStream& stream);
+	//void writeToStream(MyStream& stream) const;
+	//void setFromStream(MyStream& stream);
 
 private:
 	unsigned int address;//in network byte order
 
 };
 
-inline MyStream& operator << (MyStream& stream, const IPAddress& ipaddress)
+/*inline MyStream& operator << (MyStream& stream, const IPAddress& ipaddress)
 {
 	ipaddress.writeToStream(stream);
 	return stream;
@@ -80,7 +80,7 @@ inline MyStream& operator >> (MyStream& stream, IPAddress& ipaddress)
 {
 	ipaddress.setFromStream(stream);
 	return stream;
-}
+}*/
 
 
 

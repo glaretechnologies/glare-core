@@ -12,7 +12,8 @@ Code By Nicholas Chapman.
 
 
 
-#include "mystream.h"
+//#include "mystream.h"
+#include <string>
 
 
 /*=====================================================================
@@ -54,7 +55,7 @@ private:
 
 
 
-inline MyStream& operator << (MyStream& stream, const Port& port)
+/*inline MyStream& operator << (MyStream& stream, const Port& port)
 {
 	stream << port.getPort();
 	return stream;
@@ -66,7 +67,7 @@ inline MyStream& operator >> (MyStream& stream, Port& port)
 	stream >> portnum;
 	port.setPort(portnum);
 	return stream;
-}
+}*/
 
 
 

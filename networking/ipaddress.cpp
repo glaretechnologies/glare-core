@@ -142,7 +142,7 @@ void IPAddress::getBytes(unsigned char& a_out, unsigned char& b_out,
 }
 
 
-void IPAddress::writeToStream(MyStream& stream) const
+/*void IPAddress::writeToStream(MyStream& stream) const
 {
 	//-----------------------------------------------------------------
 	//convert to h.b.o. as will be converted to n.b.o. by the stream implementation
@@ -164,7 +164,7 @@ void IPAddress::setFromStream(MyStream& stream)
 	//convert to n.b.o. as stream will have switched it to h.b.o.
 	//-----------------------------------------------------------------
 	address = htonl(address);
-}
+}*/
 
 const std::string IPAddress::toString() const//in form "255.255.255.255
 {

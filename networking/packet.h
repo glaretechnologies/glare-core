@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include <vector>
-#include "mystream.h"
+// #include "mystream.h"
 #include "../utils/platform.h"
 
 
@@ -47,31 +47,31 @@ public:
 	void resetReadIndex(){ readindex = 0; }
 
 
-	virtual void write(float x);
+	//virtual void write(float x);
 	virtual void write(int32 x);
-	virtual void write(unsigned short x);
-	virtual void write(char x);
-	virtual void write(unsigned char x);
+	//virtual void write(unsigned short x);
+	//virtual void write(char x);
+	//virtual void write(unsigned char x);
 	//virtual void write(const Vec3& vec);
-	virtual void write(const std::string& s);//writes null-terminated string
+	//virtual void write(const std::string& s);//writes null-terminated string
 	virtual void write(const void* data, size_t numbytes);
 	
-	virtual void readTo(float& x);
+	//virtual void readTo(float& x);
 	virtual void readTo(int32& x);
-	virtual void readTo(unsigned short& x);
-	virtual void readTo(char& x);
+	//virtual void readTo(unsigned short& x);
+	//virtual void readTo(char& x);
 	//virtual void readTo(Vec3& x);
-	virtual void readTo(std::string& x, int maxlength);
-	virtual void readTo(void* buffer, int numbytes);
+	//virtual void readTo(std::string& x, int maxlength);
+	//virtual void readTo(void* buffer, int numbytes);
 
 	inline const char* getData() const { return &(*data.begin()); }
 	inline char* getData(){ return &(*data.begin()); }
 	inline int getPacketSize() const { return (int)data.size(); }
 
-	void writeToStreamSized(MyStream& stream);//write to stream with an int indicating the size first.
-	void readFromStreamSize(MyStream& stream);
+//	void writeToStreamSized(MyStream& stream);//write to stream with an int indicating the size first.
+//	void readFromStreamSize(MyStream& stream);
 
-	void writeToStream(MyStream& stream);
+//	void writeToStream(MyStream& stream);
 
 	std::vector<char> data;//temp
 	mutable int readindex;

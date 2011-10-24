@@ -1842,7 +1842,7 @@ void ImageFilter::test()
 
 	// makeSinImage();
 
-	testResizeImage();
+	// testResizeImage();
 
 	//performanceTestFT(1024, 1024);
 
