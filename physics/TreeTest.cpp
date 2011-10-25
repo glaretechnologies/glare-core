@@ -354,7 +354,7 @@ static void testSelfIntersectionAvoidance()
 		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[i]->traceRay(ray, 500.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray, 500.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
@@ -367,7 +367,7 @@ static void testSelfIntersectionAvoidance()
 		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[i]->traceRay(ray,
+			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f - nudge, // max_t
 				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
@@ -379,7 +379,7 @@ static void testSelfIntersectionAvoidance()
 		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = trees[i]->traceRay(ray,
+			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f + nudge, // max_t
 				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 
@@ -504,7 +504,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		{
 			HitInfo hitinfo;
 			unsigned int ignore_tri = std::numeric_limits<unsigned int>::max();
-			const Tree::Real dist = trees[t]->traceRay(ray, max_t, thread_context, NULL, ignore_tri, hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, ignore_tri, hitinfo);
 
 			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
