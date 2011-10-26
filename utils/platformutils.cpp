@@ -688,6 +688,24 @@ bool PlatformUtils::isWindowsXPOrEarlier()
 }
 
 
+#if defined(OSX)
+void PlatformUtils::getOSXVersion(int32& majorVersion, int32& minorVersion, int32& bugFixVersion)
+{
+	SInt32 major, minor,bugFix;
+	
+	Gestalt(gestaltSystemVersionMajor, &major);
+    Gestalt(gestaltSystemVersionMinor, &minor);
+    Gestalt(gestaltSystemVersionBugFix, &bugFix);
+	
+	majorVersion = (int32)major;
+	minorVersion = (int32)minor;
+	bugFixVersion = (int32)bugFix;
+	
+	//printf("mjor: %d\nminor: %d\nbugfix: %d\n", majorVersion, minorVersion, bugFixVersion);
+}
+#endif
+
+
 #if (BUILD_TESTS)
 void PlatformUtils::testPlatformUtils()
 {

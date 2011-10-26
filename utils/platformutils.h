@@ -117,6 +117,11 @@ bool isWindows();
 
 
 bool isWindowsXPOrEarlier();
+	
+	
+#if defined(OSX)
+void getOSXVersion(int32& majorVersion, int32& minorVersion, int32& bugFixVersion);
+#endif
 
 
 void testPlatformUtils();
