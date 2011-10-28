@@ -400,10 +400,8 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 #elif defined(OSX)
 	char path[8192];
 	uint32_t size = sizeof(path);
-	if (_NSGetExecutablePath(path, &size) == 0)
-		printf("executable path is %s\n", path);
-	else
-		printf("buffer too small; need size %u\n", size);
+	if (_NSGetExecutablePath(path, &size) != 0)
+		throw PlatformUtilsExcep("getFullPathToCurrentExecutable(): buffer too small; need size " + ::toString(size));
 	
 	return std::string(path);
 #else
