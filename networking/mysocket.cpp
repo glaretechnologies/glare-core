@@ -44,13 +44,7 @@ const double BLOCK_DURATION = 0.5; // in seconds.
 
 MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback)
 {
-	thisend_port = -1;
-	otherend_port = -1;
-	sockethandle = nullSocketHandle();
-
-	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
-	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
+	init();
 
 	assert(Networking::isInited());
 
@@ -84,13 +78,7 @@ MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallb
 
 MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback)
 {
-	thisend_port = -1;
-	otherend_port = -1;
-	sockethandle = nullSocketHandle();
-
-	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
-	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
+	init();
 
 	assert(Networking::isInited());
 
@@ -105,19 +93,30 @@ MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallba
 
 MySocket::MySocket()
 {
-	thisend_port = -1;
-	sockethandle = nullSocketHandle();
+	init();
 }
 
 
-static void closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
+void MySocket::init()
+{
+	thisend_port = -1;
+	otherend_port = -1;
+	sockethandle = nullSocketHandle();
+
+
+	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
+	// See http://support.microsoft.com/kb/201213 for more details on the bug.
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
+}
+
+
+static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 {
 #if defined(_WIN32) || defined(_WIN64)
-	const int result = closesocket(sockethandle);
+	return closesocket(sockethandle);
 #else
-	const int result = ::close(sockethandle);
+	return ::close(sockethandle);
 #endif
-	assert(result == 0);
 }
 
 
@@ -131,6 +130,10 @@ static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 	const int result = ioctl(sockethandle, FIONBIO, &nonblocking);
 #endif
 	assert(result == 0);
+	if(result != 0)
+	{
+		// std::cout << "ERROR: setBlocking failed." << std::endl;
+	}
 }
 
 
@@ -149,6 +152,11 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 #endif
 	assert(result == 0);
 
+	assert(result == 0);
+	if(result != 0)
+	{
+		// std::cout << "ERROR: setLinger failed." << std::endl;
+	}
 }
 
 
@@ -366,6 +374,8 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 		// Create the file descriptor set
 		fd_set sockset;
 		initFDSetWithSocket(sockset, sockethandle);
+		fd_set error_sockset;
+		initFDSetWithSocket(error_sockset, sockethandle);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 			throw AbortedMySocketExcep();
@@ -374,9 +384,16 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 			(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
 			&sockset, // read fds
 			NULL, // write fds
-			NULL, // error fds
+			&error_sockset, // error fds
 			&wait_period // timeout
 			);
+
+		if(FD_ISSET(sockethandle, &error_sockset))
+		{
+			// Error occured
+			// std::cout << "!!!!!!!!!!! MySocket::acceptConnection(): error occured while waiting for connection." << std::endl;
+			throw MySocketExcep("Error while accepting connection.");
+		}
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 			throw AbortedMySocketExcep();
@@ -443,13 +460,18 @@ void MySocket::close()
 
 		//this seems to give an error on non-connected sockets (which may be the case)
 		//so just ignore the error
-		//assert(result == 0);
-		//if(result)
-		//{
-			//::printWarning("Error while shutting down TCP socket: " + Networking::getError());
-		//}
+		assert(result == 0);
+		if(result == SOCKET_ERROR)
+		{
+			// std::cout << "MySocket::close(): while calling shutdown: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
+		}
 
-		closeSocket(sockethandle);
+		result = closeSocket(sockethandle);
+		assert(result == 0);
+		if(result == SOCKET_ERROR)
+		{
+			// std::cout << "MySocket::close(): while calling closeSocket: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
+		}
 	}
 
 	sockethandle = nullSocketHandle();
@@ -469,6 +491,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 	while(datalen > 0)//while still bytes to write
 	{
 		const int numbytestowrite = (int)myMin(this->max_buffersize, datalen);
+		assert(numbytestowrite > 0);
 
 		//------------------------------------------------------------------------
 		//NEWCODE: loop until either the prog is exiting or can write to socket
@@ -540,6 +563,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Sock
 	while(readlen > 0) // While still bytes to read
 	{
 		const int numbytestoread = (int)myMin(this->max_buffersize, readlen);
+		assert(numbytestoread > 0);
 
 		//------------------------------------------------------------------------
 		//Loop until either the prog is exiting or have incoming data

@@ -113,6 +113,9 @@ private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
+
+	void init();
+
 	void doConnect(
 		const IPAddress& ipaddress, 
 		const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
