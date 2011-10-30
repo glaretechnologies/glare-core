@@ -232,7 +232,10 @@ void doTonemap(
 #endif
 	per_thread_tile_buffers.resize(omp_num_threads);
 	for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
+	{
 		per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
+		per_thread_tile_buffers[tile_buffer].zero(); // NEW
+	}
 
 	// Get float XYZ->sRGB matrix
 	Matrix3f XYZ_to_sRGB;

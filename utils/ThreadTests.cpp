@@ -207,8 +207,13 @@ void ThreadTests::test()
 			reader = new TestReaderThread(&queue); 
 			writer = new TestWriterThread(&queue); 
 
-			reader->launch();
-			writer->launch();
+			// We can't autodelete these threads because we want to join on them, and they might be killed before we call join() if autodelete is enabled.
+			reader->launch(
+				false // autodelete
+			);
+			writer->launch(
+				false // autodelete			
+			);
 
 			reader->join();
 			writer->join();
@@ -217,10 +222,11 @@ void ThreadTests::test()
 			conPrint(toString(timer.getSecondsElapsed()));
 		}
 		catch(MyThreadExcep& )
-		{
-			delete reader;
-			delete writer;
+		{		
 		}
+
+		delete reader;
+		delete writer;
 	}
 
 	
@@ -228,13 +234,16 @@ void ThreadTests::test()
 		ThreadSafeQueue<int> queue;
 		Timer timer;
 		TestReaderThread2* reader = new TestReaderThread2(&queue); 
-		reader->launch();
+		reader->launch(false);
 
 		TestWriterThread* writer = new TestWriterThread(&queue); 
-		writer->launch();
+		writer->launch(false);
 
 		reader->join();
 		writer->join();
+
+		delete reader;
+		delete writer;
 
 		testAssert(queue.empty());
 		conPrint(toString(timer.getSecondsElapsed()));
@@ -245,16 +254,20 @@ void ThreadTests::test()
 		ThreadSafeQueue<int> queue;
 		Timer timer;
 		TestReaderThread* reader = new TestReaderThread(&queue); 
-		reader->launch();
+		reader->launch(false);
 
 		TestWriterThread* writer = new TestWriterThread(&queue); 
-		writer->launch();
+		writer->launch(false);
 		TestWriterThread* writer2 = new TestWriterThread(&queue); 
-		writer2->launch();
+		writer2->launch(false);
 
 		reader->join();
 		writer->join();
 		writer2->join();
+
+		delete reader;
+		delete writer;
+		delete writer2;
 
 		conPrint(toString(timer.getSecondsElapsed()));
 	}

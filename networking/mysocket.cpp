@@ -460,14 +460,14 @@ void MySocket::close()
 
 		//this seems to give an error on non-connected sockets (which may be the case)
 		//so just ignore the error
-		assert(result == 0);
+		// TEMP assert(result == 0); // NOTE: failing on linux.
 		if(result == SOCKET_ERROR)
 		{
 			// std::cout << "MySocket::close(): while calling shutdown: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
 		}
 
 		result = closeSocket(sockethandle);
-		assert(result == 0);
+		// TEMP assert(result == 0);
 		if(result == SOCKET_ERROR)
 		{
 			// std::cout << "MySocket::close(): while calling closeSocket: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
