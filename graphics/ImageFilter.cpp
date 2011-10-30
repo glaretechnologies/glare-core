@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "MitchellNetravali.h"
 #include "PNGDecoder.h"
+#include "JPEGDecoder.h"
 #include "image.h"
 #include "bitmap.h"
 #include "../utils/array2d.h"
@@ -34,20 +35,51 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 
 	MitchellNetravali<float> mn(mn_b, mn_c);
 
+	// Pixel enlargement scale is the 'zoom factor' of out.
+
+	/*
+		Let the source image be f_s(u, v).
+		Let say we want to compute f_d(s, t) = f_s(s/A, t/A)
+		Let B = 1/A
+		f_d(s, t)
+		= f_s(s/A, t/A)
+		= f_s(s*B, t*B)
+
+		We want to reconstruct f_s at the point (s*B, t*B)
+
+		Suppose we are reconstructing at pointx, and x_i = floor(x).
+		Assuming a support radius of 2.
+		Therefore the point x_1-2 is the largest point before the filter support, and the point x_1+3 is the smallest point above the filter support.
+		So we want to loop over the indices like so:
+		for(int x=x_i-1; x<x_1+3; ++x)
+		In general, with radius r:
+		for(int x=x_i - r + 1; x<x_1 + r + 1; ++x)
+
+		                         
+x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
+  |----------|----------|----------|----------|----------|
+		                  ^
+						  x
+	*/
+
 	float pixel_scale = 1.0f / pixel_enlargement_factor;
 
+	// Scale is how much we enlarge the reconstruction filter on the source image.  We don't want the reconstruction filter less than the original size.
+	// On the other hand, when enlarging the image, we want to widen the filter to filter out high frequency detail.
 	float scale = myMax(1.0f, pixel_scale);
 	float recip_scale = 1.0f / scale;
 
 	float filter_radius = 2 * scale;
 	int r = (int)std::ceil(filter_radius);
 
+
+	
 	
 
 	// Table that maps distance squared to mn value for distance
 	// Entry at index MN_TABLE_SCALE corresponds to MN filter evaluated at d^2 of 1, entry at index MN_TABLE_SCALE*2 corresponds to MN evaled at d^2 of 2, etc..
 	// So last non-zero entry will by at MN_TABLE_SCALE*4, which corresponds to a d^2 of 4, or a distance of 2, which is where the MN function becomes zero.
-	const int MN_TABLE_SCALE_I = 64;
+	const int MN_TABLE_SCALE_I = 1024;
 	const int MN_TABLE_SIZE = MN_TABLE_SCALE_I * 4;
 
 	float mn_table_factor = MN_TABLE_SCALE_I;
@@ -57,8 +89,52 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 	{
 		float d2 = i * (1 / mn_table_factor);
 		float d = std::sqrt(d2);
-		mn_table[i] = mn.eval(d);
+		mn_table[i] = mn.eval(d) * recip_scale;
 	}
+
+	// Filter normalisation table.
+	// Normalisation factor varies with position
+	/*const int FNT_W = 512;
+	float recip_FNT_W = 1.f / FNT_W;
+
+	float filter_norm_table[FNT_W*FNT_W];
+	for(int y=0; y<FNT_W; ++y)
+	{
+		//conPrint("");
+	for(int x=0; x<FNT_W; ++x)
+	{
+		// Get (sx_p, sy_p) in [0, 1)^2
+		float sx_p = x * recip_FNT_W;
+		float sy_p = y * recip_FNT_W;
+
+		// compute src filter region
+		int x_begin = 0 - r + 1;
+		int y_begin = 0 - r + 1;
+
+		int x_end = 0 + r + 1;
+		int y_end = 0 + r + 1;
+
+		float f_sum = 0;
+		for(int sy=y_begin; sy<y_end; ++sy)
+		for(int sx=x_begin; sx<x_end; ++sx)
+		{
+			float dx = sx - sx_p; 
+			float dy = sy - sy_p;
+			float d2 = dx*dx + dy*dy;
+			float scaled_d2 = d2 * recip_scale;
+
+			int i = (int)(scaled_d2 * mn_table_factor);
+			float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
+			f_sum += f;
+		}
+
+		filter_norm_table[x + y*FNT_W] = 1.f / f_sum;
+
+		//conPrintStr(toString(f_sum) + " ");
+	}
+	}*/
+
+
 
 	int out_w = (int)out.getWidth();
 	int out_h = (int)out.getHeight();
@@ -74,6 +150,38 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 
 	float recip_out_w = 1.0f / out_w;
 	float recip_out_h = 1.0f / out_h;
+
+	// Get normalisation factor for filter
+	float norm_factor = 1;
+	float precomputed_f_sum = 1;
+	{
+		int x_begin = 0 - r + 1;
+		int y_begin = 0 - r + 1;
+
+		int x_end = 0 + r + 1;
+		int y_end = 0 + r + 1;
+
+		float f_sum = 0;
+		for(int sy=y_begin; sy<y_end; ++sy)
+		for(int sx=x_begin; sx<x_end; ++sx)
+		{
+			float dx = sx - 0.f; 
+			float dy = sy - 0.f;
+			float d2 = dx*dx + dy*dy;
+			float scaled_d2 = d2 * recip_scale;
+
+			assert(fabs(dx) <= ceil(2 * scale));
+			assert(fabs(dy) <= ceil(2 * scale));
+
+			float f = mn.eval(std::sqrt(scaled_d2));
+			f_sum += f;
+		}
+
+		precomputed_f_sum = f_sum;
+		norm_factor = 1 / f_sum;
+	}
+
+
 
 	
 	for(int y=0; y<out_h; ++y)
@@ -97,7 +205,6 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 
 		float sx_p = sx + in_w_2;
 		float sy_p = sy + in_h_2;
-
 
 		// floor to integer pixel indices
 		int sx_pi = (int)std::floor(sx_p);
@@ -124,8 +231,9 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 			assert(fabs(dy) <= ceil(2 * scale));
 
 			//assert((int)(scaled_d2 * mn_table_factor) < 1024);
-			int i = (int)(scaled_d2 * mn_table_factor);
-			float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
+			//int i = (int)(scaled_d2 * mn_table_factor);
+			//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
+			float f = mn.eval(std::sqrt(scaled_d2));
 			f_sum += f;
 
 			c.r += in.getPixel(sx, sy).r * f/* * colour_scale.x*/;
@@ -133,7 +241,30 @@ void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargeme
 			c.b += in.getPixel(sx, sy).b * f/* * colour_scale.z*/;
 		}
 
-		//c *= (1 / f_sum);
+		/*if(x == 400 && y == 400)
+		{
+			printVar(precomputed_f_sum);
+			printVar(f_sum);
+		}*/
+
+		// Lookup the filter normalisation term
+		/*int fnt_x = (int)((sx_p - (float)sx_pi) * (float)FNT_W);
+		int fnt_y = (int)((sy_p - (float)sy_pi) * (float)FNT_W);
+		assert(fnt_x >= 0 && fnt_x < FNT_W);
+		assert(fnt_y >= 0 && fnt_y < FNT_W);
+
+		float f_norm_scale = filter_norm_table[fnt_x + fnt_y * FNT_W];*/
+		
+		/*if(pixel_enlargement_factor == 1.003f)
+		{
+			conPrint("");
+			printVar(1.f / f_sum);
+			printVar(f_norm_scale);
+		}*/
+
+		//if(f_sum > 0)
+		//	c *= (1 / f_sum);
+		c *= norm_factor;
 		out.setPixel(x, y, c);
 	}
 }
@@ -403,26 +534,46 @@ static const Image::ColourType bilinearSampleImage(const Image& im, const Vec2f&
 void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
-	out.zero();
 
-	for(int y=0; y<(int)out.getHeight(); ++y)
+	size_t N = in.numPixels();
+
+	out.resize(in.getWidth(), in.getHeight());
+	Image temp(in.getWidth(), in.getHeight());
+	float mn_b = 0.33f;
+	float mn_c = 0.33f;
+
+	resizeImage(in, temp, 1 + amount, mn_b, mn_c);
+	for(size_t i=0; i<N; ++i)
+	{
+		out.getPixel(i).r = temp.getPixel(i).r;
+		out.getPixel(i).b = temp.getPixel(i).b;
+	}
+
+	resizeImage(in, temp, 1 - amount, mn_b, mn_c);
+	for(size_t i=0; i<N; ++i)
+	{
+		out.getPixel(i).g = temp.getPixel(i).g;
+	}
+
+
+	/*for(int y=0; y<(int)out.getHeight(); ++y)
 	{
 		for(int x=0; x<(int)out.getWidth(); ++x)
 		{
 			const Vec2f normed_pos(x/(float)out.getWidth(), y/(float)out.getHeight());
 			const Vec2f offset = normed_pos - Vec2f(0.5f, 0.5f);
 			const float offset_term = offset.length();
-			/*const Vec2 rb_offet = offset * (1.f + amount);
-			const Vec2 g_offet = offset * (1.f - amount);
-			const Vec2 rb_pos = Vec2(0.5f, 0.5f) + rb_offet;
-			const Vec2 g_pos = Vec2(0.5f, 0.5f) + g_offet;*/
+			//const Vec2 rb_offet = offset * (1.f + amount);
+			//const Vec2 g_offet = offset * (1.f - amount);
+			//const Vec2 rb_pos = Vec2(0.5f, 0.5f) + rb_offet;
+			//const Vec2 g_pos = Vec2(0.5f, 0.5f) + g_offet;
 			const Vec2f rb_pos = Vec2f(0.5f, 0.5f) + offset * (1.f + offset_term*amount);
 			const Vec2f g_pos = Vec2f(0.5f, 0.5f) + offset * (1.f - offset_term*amount);
 
 			out.getPixel(x, y) += Image::ColourType(1.f, 0.f, 1.f) * bilinearSampleImage(in, Vec2f(rb_pos.x*(float)out.getWidth(), rb_pos.y*(float)out.getHeight()));
 			out.getPixel(x, y) += Image::ColourType(0.f, 1.f, 0.f) * bilinearSampleImage(in, Vec2f(g_pos.x*(float)out.getWidth(), g_pos.y*(float)out.getHeight()));
 		}
-	}
+	}*/
 
 }
 
@@ -1764,11 +1915,11 @@ static void performanceTestFT(int in_w, int in_h)
 }
 
 
-static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargement_factor)
+static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargement_factor, const std::string& name)
 {
 	printVar(pixel_enlargement_factor);
 
-	Reference<Image> out(new Image(513, 513)); //new Image(im->getWidth(), im->getHeight()));
+	Reference<Image> out(new Image(im->getWidth(), im->getHeight()));
 
 	Timer timer;
 	ImageFilter::resizeImage(*im, *out, 
@@ -1786,33 +1937,80 @@ static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargemen
 		testAssert(im->getPixel(i).isFinite());
 	}
 
+	float in_av_lum = (float)im->averageLuminance();
+	float out_av_lum = (float)out->averageLuminance();
+
+	printVar(in_av_lum);
+	printVar(out_av_lum);
+
 	out->clampInPlace(0, 1);
 	out->gammaCorrect(1 / 2.2);
 
 	Bitmap bmp_out;
 	out->copyToBitmap(bmp_out);
-	PNGDecoder::write(bmp_out, "scaled_image_" + toString(pixel_enlargement_factor) + ".png");
+	PNGDecoder::write(bmp_out, "scaled_image_" + name + "_" + toString(pixel_enlargement_factor) + ".png");
 }
 
 
 static void testResizeImage()
 {
-	Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
-	Reference<Image> im = map->convertToImage();
+	{
+		size_t W = 1024;
+		Reference<Image> im(new Image(W, W));
+		for(size_t y=0; y<W; ++y)
+		for(size_t x=0; x<W; ++x)
+		{
+			float val = 0.5f;
+			im->setPixel(x, y, Colour3f(val));
+		}
 
-	// Make black image with white dot in center
-	const size_t W = 2048;
-	im = Reference<Image>(new Image(W, W));
-	im->zero();
-	im->setPixel(W/2, W/2, Colour3f(1.0f));
+		const std::string name = "grey";
+		testResizeImageWithScale(im, 0.1f, name);
+		testResizeImageWithScale(im, 0.5f, name);
+		testResizeImageWithScale(im, 0.8f, name);
+		testResizeImageWithScale(im, 0.997f, name);
+		testResizeImageWithScale(im, 1.0f, name);
+		testResizeImageWithScale(im, 1.003f, name);
+		testResizeImageWithScale(im, 1.2f, name);
+		testResizeImageWithScale(im, 2.0f, name);
+		testResizeImageWithScale(im, 10.0f, name);
 
-	testResizeImageWithScale(im, 0.1f);
-	testResizeImageWithScale(im, 0.5f);
-	testResizeImageWithScale(im, 0.8f);
-	testResizeImageWithScale(im, 1.0f);
-	testResizeImageWithScale(im, 1.2f);
-	testResizeImageWithScale(im, 2.0f);
-	testResizeImageWithScale(im, 10.0f);
+	}
+
+	{
+		Map2DRef map = JPEGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ny.jpg");
+		Reference<Image> im = map->convertToImage();
+
+		const std::string name = "NY";
+		testResizeImageWithScale(im, 0.1f, name);
+		testResizeImageWithScale(im, 0.5f, name);
+		testResizeImageWithScale(im, 0.8f, name);
+		testResizeImageWithScale(im, 1.0f, name);
+		testResizeImageWithScale(im, 1.2f, name);
+		testResizeImageWithScale(im, 2.0f, name);
+		testResizeImageWithScale(im, 10.0f, name);
+	}
+
+	{
+		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+		Reference<Image> im = map->convertToImage();
+
+		// Make black image with white dot in center
+		/*const size_t W = 2048;
+		im = Reference<Image>(new Image(W, W));
+		im->zero();
+		im->setPixel(W/2, W/2, Colour3f(1.0f));*/
+
+		const std::string name = "colourchecker";
+		testResizeImageWithScale(im, 0.1f, name);
+		testResizeImageWithScale(im, 0.5f, name);
+		testResizeImageWithScale(im, 0.8f, name);
+		testResizeImageWithScale(im, 1.0f, name);
+		testResizeImageWithScale(im, 1.2f, name);
+		testResizeImageWithScale(im, 2.0f, name);
+		testResizeImageWithScale(im, 10.0f, name);
+	}
+
 }
 
 
@@ -1842,7 +2040,9 @@ void ImageFilter::test()
 
 	// makeSinImage();
 
-	// testResizeImage();
+	//testResizeImage();
+
+	//exit(0);
 
 	//performanceTestFT(1024, 1024);
 

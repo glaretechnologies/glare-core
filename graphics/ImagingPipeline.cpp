@@ -12,6 +12,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
 #include "../simpleraytracer/camera.h"
+#include "../graphics/ImageFilter.h"
 #include "../utils/platform.h"
 #include <omp.h>
 #include <iostream>
@@ -378,6 +379,12 @@ void doTonemap(
 				ldr_buffer_out.getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
 		}
 	}
+
+	// TEMP HACK: Chromatic abberation
+	/*Image temp;
+	ImageFilter::chromaticAberration(ldr_buffer_out, temp, 0.002f);
+	ldr_buffer_out = temp;
+	ldr_buffer_out.clampInPlace(0, 1);*/
 
 	// Zero out pixels not in the render region
 	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
