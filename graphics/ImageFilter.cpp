@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "MitchellNetravali.h"
 #include "PNGDecoder.h"
-#include "JPEGDecoder.h"
+#include "jpegdecoder.h"
 #include "image.h"
 #include "bitmap.h"
 #include "../utils/array2d.h"
