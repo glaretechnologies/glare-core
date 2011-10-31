@@ -91,8 +91,8 @@ public:
 	
 	=====================================================================*/
 
-	// If desired_device_number < 0 it will automatically choose a device.
-	OpenCL(int desired_device_number, bool verbose_init);
+	// If desired_device_name is empty, it will try to auto-detect a device
+	OpenCL(const std::string& desired_device_name, bool verbose_init);
 
 	~OpenCL();
 
@@ -153,6 +153,8 @@ public:
 #else
 	void *opencl_handle;
 #endif
+
+	bool allow_CPU_devices;
 
 	int chosen_device_number;
 
