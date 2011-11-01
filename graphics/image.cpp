@@ -1,15 +1,15 @@
 #include "image.h"
 
 
-#include "bitmap.h"
-#include "BoxFilterFunction.h"
+#include "../indigo/RendererSettings.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../maths/vec2.h"
-//#include "../graphics/ImageFilter.h"
-#include "../graphics/GaussianImageFilter.h"
+#include "GaussianImageFilter.h"
+#include "BoxFilterFunction.h"
+#include "bitmap.h"
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -465,8 +465,8 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 	assert(filter_span > 0);
 	assert(resize_filter != 0);
 
-	img_out.resize( img_in.getWidth()  / factor - border_width * 2,
-					img_in.getHeight() / factor - border_width * 2);
+	img_out.resize(	(size_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor),
+					(size_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor));
 
 	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
 	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
@@ -483,21 +483,25 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 	for(int y = 0; y < out_yres; ++y)
 	for(int x = 0; x < out_xres; ++x)
 	{
+		const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
+		const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
+		const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < img_in.getWidth());
+		const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < img_in.getHeight());
+
 		ColourType weighted_sum(0);
 		uint32 filter_addr = 0;
-
-		for(ptrdiff_t v = -filter_bound; v <= filter_bound; ++v)
-		for(ptrdiff_t u = -filter_bound; u <= filter_bound; ++u)
+		for(ptrdiff_t v = v_min; v <= v_max; ++v)
+		for(ptrdiff_t u = u_min; u <= u_max; ++u)
 		{
-			const ptrdiff_t addr = (y * factor + factor / 2 + v + border_width) * in_xres +
-								    x * factor + factor / 2 + u + border_width;
+			const ptrdiff_t addr = v * in_xres + u;
+			assert(addr >= 0 && addr < img_in.numPixels());
 
 			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
 		}
 
 		assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
 
-		weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above max_component_value
+		weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
 		out_buffer[y * out_xres + x] = weighted_sum;
 	}
 }
@@ -713,7 +717,7 @@ void Image::test()
 	const int mitchell_b_steps = 6;
 
 	for(int mitchell_b_int = 0; mitchell_b_int < mitchell_b_steps; ++mitchell_b_int)
-	for(int supersample_factor = 2; supersample_factor < 4; ++supersample_factor)
+	for(int supersample_factor = 2; supersample_factor < 5; ++supersample_factor)
 	for(int sqrt_image_size = 1; sqrt_image_size < 3; ++sqrt_image_size)
 	{
 		// Compute Mitchell-Netravali B, C values from the relation 2C + B = 1
