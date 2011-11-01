@@ -1954,6 +1954,24 @@ static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargemen
 
 static void testResizeImage()
 {
+	// Test resizing image with white dot in center
+	{
+		// Make black image with white dot in center
+		const size_t W = 1024;
+		Reference<Image> im(new Image(W, W));
+		im->zero();
+		im->setPixel(W/2, W/2, Colour3f(1.0f));
+
+		const std::string name = "white_dot";
+		testResizeImageWithScale(im, 0.1f, name);
+		testResizeImageWithScale(im, 0.5f, name);
+		testResizeImageWithScale(im, 0.8f, name);
+		testResizeImageWithScale(im, 1.0f, name);
+		testResizeImageWithScale(im, 1.2f, name);
+		testResizeImageWithScale(im, 2.0f, name);
+		testResizeImageWithScale(im, 10.0f, name);
+	}
+
 	{
 		size_t W = 1024;
 		Reference<Image> im(new Image(W, W));
@@ -1977,7 +1995,7 @@ static void testResizeImage()
 
 	}
 
-	{
+	/*{
 		Map2DRef map = JPEGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ny.jpg");
 		Reference<Image> im = map->convertToImage();
 
@@ -1989,7 +2007,7 @@ static void testResizeImage()
 		testResizeImageWithScale(im, 1.2f, name);
 		testResizeImageWithScale(im, 2.0f, name);
 		testResizeImageWithScale(im, 10.0f, name);
-	}
+	}*/
 
 	{
 		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
@@ -2040,9 +2058,9 @@ void ImageFilter::test()
 
 	// makeSinImage();
 
-	//testResizeImage();
+	// testResizeImage();
 
-	//exit(0);
+	// exit(0);
 
 	//performanceTestFT(1024, 1024);
 
