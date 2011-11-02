@@ -10,6 +10,7 @@
 #include "../utils/timer.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/platform.h"
+#include "../utils/MTwister.h"
 
 #if (BUILD_TESTS)
 
@@ -443,16 +444,25 @@ void Maths::test()
 		conPrint("\tsum: " + toString(sum));
 	}
 
+	MTwister rng(1);
+
+	const int DATA_SIZE = 1 << 20; // 1048576;
+	float data[DATA_SIZE];
+	for(int i=0; i<DATA_SIZE; ++i)
+		data[i] = (rng.unitRandom() - 0.5f) * 100.0f;
 
 	conPrint("fract() [float]");
 	{
 		CycleTimer timer;
 		float sum = 0.0;
-		for(int i=0; i<N; ++i)
+		/*for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += Maths::fract(x);
-		}
+		}*/
+		for(int i=0; i<DATA_SIZE; ++i)
+			sum += Maths::fract(data[i]);
+
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
 		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
@@ -470,11 +480,14 @@ void Maths::test()
 	{
 		CycleTimer timer;
 		float sum = 0.0;
-		for(int i=0; i<N; ++i)
+		/*for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += fastFract(x);
-		}
+		}*/
+		for(int i=0; i<DATA_SIZE; ++i)
+			sum += fastFract(data[i]);
+
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
 		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
@@ -485,11 +498,14 @@ void Maths::test()
 	{
 		CycleTimer timer;
 		float sum = 0.0;
-		for(int i=0; i<N; ++i)
+		/*for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += fastPosFract(x);
-		}
+		}*/
+		for(int i=0; i<DATA_SIZE; ++i)
+			sum += fastPosFract(data[i]);
+
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
 		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
@@ -500,11 +516,13 @@ void Maths::test()
 	{
 		CycleTimer timer;
 		float sum = 0.0;
-		for(int i=0; i<N; ++i)
+		/*for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += modfFract(x);
-		}
+		}*/
+		for(int i=0; i<DATA_SIZE; ++i)
+			sum += modfFract(data[i]);
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
 		const double cycles = elapsed / (double)N;
 		conPrint("\tcycles: " + toString(cycles));
@@ -515,9 +533,9 @@ void Maths::test()
 
 	for(float x=0; x<1.0f; x += 0.01f)
 	{
-		conPrint("x: " + toString(x));
-		conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
-		conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
+		//conPrint("x: " + toString(x));
+		//conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
+		//conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
 		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
 	}
 
