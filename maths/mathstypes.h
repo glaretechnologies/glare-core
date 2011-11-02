@@ -80,18 +80,19 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 }
 
 
-
 template <class Real>
 inline Real radToDegree(Real rad)
 {
 	return rad * (Real)180.0 / (Real)NICKMATHS_PI;
 }
 
+
 template <class Real>
 inline Real degreeToRad(Real degree)
 {
 	return degree * (Real)NICKMATHS_PI / (Real)180.0;
 }
+
 
 /*template <class Real>
 inline Real absoluteVal(Real x)
@@ -133,7 +134,7 @@ inline Real absoluteVal(Real x)
 
 
 // Fast reciprocal square root
-//posted by DarkWIng on Flipcode
+//posted by DarkWing on Flipcode
 
 /*__inline float RSqrt( float number )
 {
@@ -151,6 +152,7 @@ inline Real absoluteVal(Real x)
 	return y;
 }*/
 
+
 template <class T>
 inline T myClamp(T x, T lowerbound, T upperbound)
 {
@@ -164,6 +166,7 @@ inline T myClamp(T x, T lowerbound, T upperbound)
 	return x < lowerbound ? lowerbound : (x > upperbound ? upperbound : x);
 }
 
+
 inline float absClamp(float x, float upperbound)
 {
 	if(fabs(x) <= upperbound)
@@ -173,12 +176,12 @@ inline float absClamp(float x, float upperbound)
 }
 
 
-
 template <class T>
 inline const T& myMin(const T& x, const T& y)
 {
 	return x <= y ? x : y;
 }
+
 
 template <class T>
 inline const T& myMin(const T& x, const T& y, const T& z)
@@ -186,17 +189,20 @@ inline const T& myMin(const T& x, const T& y, const T& z)
 	return myMin(x, myMin(y, z));
 }
 
+
 template <class T>
 inline const T& myMax(const T& x, const T& y)
 {
 	return x >= y ? x : y;
 }
 
+
 template <class T>
 inline const T& myMax(const T& x, const T& y, const T& z)
 {
 	return myMax(x, myMax(y, z));
 }
+
 
 template <class T>
 void mySwap(T& x, T& y)
@@ -207,14 +213,13 @@ void mySwap(T& x, T& y)
 }
 
 
-
-
 //log
 template <class Real>
 inline Real logBase2(Real x)
 {
 	return log(x) / (Real)LN_2;
 }
+
 
 inline bool isNAN(float x)
 {
@@ -225,6 +230,7 @@ inline bool isNAN(float x)
 #endif
 }
 
+
 inline bool isNAN(double x)
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -233,6 +239,7 @@ inline bool isNAN(double x)
 	return std::isnan(x) != 0;
 #endif
 }
+
 
 inline bool isFinite(float x)
 {
@@ -243,6 +250,7 @@ inline bool isFinite(float x)
 #endif
 }
 
+
 inline bool isFinite(double x)
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -252,29 +260,38 @@ inline bool isFinite(double x)
 #endif
 }
 
+
 inline bool isInf(float x)
 {
 	//return isNegInf(x) || isPosInf(x);
 	return !isFinite(x) && !isNAN(x);
 }
+
+
 inline bool isInf(double x)
 {
 	//return isNegInf(x) || isPosInf(x);
 	return !isFinite(x) && !isNAN(x);
 }
+
+
 inline bool isNegInf(float x)
 {
 	return isInf(x) && x < 0.0f;
 }
 
+
 inline bool isPosInf(float x)
 {
 	return isInf(x) && x > 0.0f;
 }
+
+
 inline bool isPosInf(double x)
 {
 	return isInf(x) && x > 0.0f;
 }
+
 
 /*inline bool isDenormed(float x)
 {
@@ -312,7 +329,6 @@ inline int roundToInt(Real x)
 }
 
 
-
 /*
 inline int roundToInt(double x)
 {
@@ -347,6 +363,7 @@ inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 	return fabs(a - b) / fabs(a) <= eps;
 }
 
+
 template <class Real>
 inline bool posUnderflowed(Real x)
 {
@@ -355,6 +372,7 @@ inline bool posUnderflowed(Real x)
 	// min returns the minimum normalised value for double.
 	return x != 0.0 && x < std::numeric_limits<Real>::min();
 }
+
 
 template <class Real>
 inline bool posOverflowed(Real x)
@@ -413,6 +431,7 @@ inline Real fract(Real x)
 const double SQRT_2PI = sqrt(NICKMATHS_2PI);
 const double RECIP_SQRT_2PI = 1.0f / sqrt(NICKMATHS_2PI);
 
+
 inline double eval1DGaussian(double x, double mean, double standard_dev)
 {
 	//return exp(-(x-mean)*(x-mean) / (2.0f*standard_dev*standard_dev)) / (standard_dev * sqrt(NICKMATHS_2PI));
@@ -421,6 +440,7 @@ inline double eval1DGaussian(double x, double mean, double standard_dev)
 
 	return recip_standard_dev * RECIP_SQRT_2PI * exp(-0.5 * (x-mean)*(x-mean) * recip_standard_dev * recip_standard_dev);
 }
+
 
 inline double eval1DGaussian(double dist, double standard_dev)
 {
@@ -431,11 +451,13 @@ inline double eval1DGaussian(double dist, double standard_dev)
 	return recip_standard_dev * RECIP_SQRT_2PI * exp(-0.5 * dist*dist * recip_standard_dev * recip_standard_dev);
 }
 
+
 //return positive solution
 inline double inverse1DGaussian(double G, double standard_dev)
 {
 	return sqrt(-2.f * standard_dev * standard_dev * log(SQRT_2PI * standard_dev * G));
 }
+
 
 inline double eval2DGaussian(double dist2, double standard_dev)
 {
@@ -443,7 +465,6 @@ inline double eval2DGaussian(double dist2, double standard_dev)
 
 	return NICKMATHS_RECIP_2PI * recip_standard_dev_2 * exp(-0.5 * dist2 * recip_standard_dev_2);
 }
-
 
 
 inline double mitchellNetravali(double B, double C, double x)
@@ -461,6 +482,7 @@ inline double mitchellNetravali(double B, double C, double x)
 		return (1.0 / 6.0) * ((12.0 - 9.0*B - 6.0*C)*x*x*x + (-18.0 + 12.0*B + 6.0*C)*x*x + (6.0 - 2.0*B));
 	}
 }
+
 
 // Returns B = C = 1/3 case
 inline double mitchellNetravali(double x)
@@ -486,6 +508,7 @@ inline double mitchellNetravali(double x)
 	}
 }
 
+
 inline double oldMitchellNetravali(double t)
 {
 	assert(t >= 0.0);
@@ -504,6 +527,7 @@ inline double oldMitchellNetravali(double t)
 	}
 }
 
+
 //inclusive
 template <class T>
 inline bool inRange(T x, T min, T max)
@@ -511,11 +535,13 @@ inline bool inRange(T x, T min, T max)
 	return x >= min && x <= max;
 }
 
+
 template <class T>
 inline bool inUnitInterval(T x)
 {
 	return x >= (T)0.0 && x <= (T)1.0;
 }
+
 
 template <class T>
 inline bool inHalfClosedInterval(T x, T min, T max)
@@ -523,17 +549,20 @@ inline bool inHalfClosedInterval(T x, T min, T max)
 	return x >= min && x < max;
 }
 
+
 template <class T>
 inline T square(T x)
 {
 	return x * x;
 }
 
+
 template <class T>
 inline T pow4(T x)
 {
 	return x * x * x * x;
 }
+
 
 template <class T>
 inline T tanForCos(T cos_theta)
@@ -545,6 +574,17 @@ inline T tanForCos(T cos_theta)
 	return sqrt((T)1.0 - cos_theta*cos_theta) / cos_theta;
 }
 
+
+// Note: this can overflow, and only works for x >= 0
+template <class T>
+inline T roundedUpDivide(T x, T N)
+{
+	assert(x >= 0);
+	assert(N >  0);
+	return (x + N - 1) / N;
+}
+
+
 // from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
 template <class T>
 inline bool isPowerOfTwo(T x)
@@ -554,6 +594,7 @@ inline bool isPowerOfTwo(T x)
 
 void test();
 
+
 template <class T, class Real>
 inline const T lerp(const T& a, const T& b, Real t)
 {
@@ -561,11 +602,13 @@ inline const T lerp(const T& a, const T& b, Real t)
 	return a * (1 - t) + b * t;
 }
 
+
 template <class T>
 inline const T uncheckedLerp(const T& a, const T& b, float t)
 {
 	return a * (1 - t) + b * t;
 }
+
 
 template <class T>
 inline const T uncheckedLerp(const T& a, const T& b, double t)
@@ -630,23 +673,3 @@ inline float fastPow(float a, float b)
 
 
 #endif //__MATHSTYPES_H__
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

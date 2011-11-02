@@ -116,6 +116,12 @@ void Maths::test()
 	testAssert(epsEqual(tanForCos(0.2), tan(acos(0.2))));
 
 
+	testAssert(roundedUpDivide(0, 1) == 0);
+	testAssert(roundedUpDivide(1, 1) == 1);
+	testAssert(roundedUpDivide(1, 2) == 1);
+	testAssert(roundedUpDivide(2, 2) == 1);
+	testAssert(roundedUpDivide(3, 2) == 2);
+
 	testAssert(!isPowerOfTwo((int)-4));
 	testAssert(!isPowerOfTwo((int)-3));
 	testAssert(!isPowerOfTwo((int)-2));

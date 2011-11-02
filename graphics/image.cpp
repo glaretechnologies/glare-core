@@ -465,14 +465,13 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 	assert(filter_span > 0);
 	assert(resize_filter != 0);
 
-	img_out.resize(	(size_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor),
-					(size_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor));
-
 	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
 	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
-	const ptrdiff_t out_xres = (ptrdiff_t)img_out.getWidth();
-	const ptrdiff_t out_yres = (ptrdiff_t)img_out.getHeight();
 	const ptrdiff_t filter_bound = filter_span / 2 - 1;
+
+	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor);
+	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor);
+	img_out.resize((size_t)out_xres, (size_t)out_yres);
 
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
 	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);

@@ -13,6 +13,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/PostProDiffraction.h"
 #include "../simpleraytracer/camera.h"
 #include "../graphics/ImageFilter.h"
+#include "../maths/mathstypes.h"
 #include "../utils/platform.h"
 #include <omp.h>
 #include <iostream>
@@ -39,14 +40,17 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Ima
 	//Timer t;
 	buffer_out.resize(buffers[0].getWidth(), buffers[0].getHeight());
 
+	const int num_pixels = (int)buffers[0].numPixels();
+	const int num_layers = (int)buffers.size();
+
 	#ifndef OSX
 	#pragma omp parallel for
 	#endif
-	for(int i = 0; i < (int)buffers[0].numPixels(); ++i)
+	for(int i = 0; i < num_pixels; ++i)
 	{
 		Image::ColourType c(0.0f);
 
-		for(size_t z = 0; z < buffers.size(); ++z)
+		for(int z = 0; z < num_layers; ++z)
 		{
 			const Vec3f& scale = layer_scales[z];
 
@@ -105,6 +109,7 @@ void doTonemapFullBuffer(
 	else
 	{
 		//if(PROFILE) t.reset();
+
 		// Get float XYZ->sRGB matrix
 		Matrix3f XYZ_to_sRGB;
 		if(image_buffer_in_XYZ)
@@ -121,7 +126,29 @@ void doTonemapFullBuffer(
 			reinhard->computeLumiScales(XYZ_to_sRGB, layers, layer_weights, avg_lumi, max_lumi);
 
 		const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
-		renderer_settings.tone_mapper->toneMapImage(tonemap_params, temp_summed_buffer);
+
+		const Reference<ToneMapper>& tone_mapper = renderer_settings.tone_mapper;
+
+		const int final_xres = (int)temp_summed_buffer.getWidth();
+		const int final_yres = (int)temp_summed_buffer.getHeight();
+		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
+		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
+		const int num_tiles = x_tiles * y_tiles;
+
+		#ifndef OSX
+		#pragma omp parallel for// schedule(dynamic, 1)
+		#endif
+		for(int tile = 0; tile < num_tiles; ++tile)
+		{
+			// Get the final image tile bounds for the tile index
+			const int tile_x = tile % x_tiles;
+			const int tile_y = tile / x_tiles;
+			const int x_min  = tile_x * image_tile_size, x_max = std::min<int>(final_xres, (tile_x + 1) * image_tile_size);
+			const int y_min  = tile_y * image_tile_size, y_max = std::min<int>(final_yres, (tile_y + 1) * image_tile_size);
+
+			renderer_settings.tone_mapper->toneMapSubImage(tonemap_params, temp_summed_buffer, x_min, y_min, x_max, y_max);
+		}
+
 		//if(PROFILE) print_messages_out.push_back("\tTone map: " + t.elapsedString());
 	}
 
@@ -195,7 +222,7 @@ void doTonemap(
 	bool XYZ_colourspace)
 {
 	// Apply diffraction filter if required
-	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
+	//if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
 	{
 		doTonemapFullBuffer(layers, layer_weights, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
@@ -213,14 +240,14 @@ void doTonemap(
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const ptrdiff_t stripped_xres = xres / ss_factor - gutter_pix * 2;
-	const ptrdiff_t stripped_yres = yres / ss_factor - gutter_pix * 2;
-	const ptrdiff_t final_xres = stripped_xres; //assert(final_xres == renderer_settings.getWidth());
-	const ptrdiff_t final_yres = stripped_yres; //assert(final_yres == renderer_settings.getHeight());
+	const ptrdiff_t final_xres = RendererSettings::computeFinalWidth((int)xres, (int)ss_factor);
+	const ptrdiff_t final_yres = RendererSettings::computeFinalWidth((int)yres, (int)ss_factor);
+	assert(final_xres == renderer_settings.getWidth());
+	assert(final_yres == renderer_settings.getHeight());
 	ldr_buffer_out.resize(final_xres, final_yres);
 
-	const ptrdiff_t x_tiles = (final_xres + image_tile_size - 1) / image_tile_size; // rounded up :)
-	const ptrdiff_t y_tiles = (final_yres + image_tile_size - 1) / image_tile_size;
+	const ptrdiff_t x_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_xres, (ptrdiff_t)image_tile_size - 1);
+	const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size - 1);
 	const ptrdiff_t num_tiles = x_tiles * y_tiles;
 	const ptrdiff_t tile_buffer_size = (image_tile_size * ss_factor) + filter_size;
 
@@ -277,8 +304,8 @@ void doTonemap(
 		// Perform downsampling if needed
 		if(ss_factor > 1)
 		{
-			const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
-			const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span;
+			const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_x >= 0);
+			const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_y >= 0);
 			const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
 			const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
 			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
