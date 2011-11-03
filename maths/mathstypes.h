@@ -415,16 +415,6 @@ template <class Real>
 inline Real fract(Real x)
 {
 	return x - std::floor(x);
-
-	/*if(x < 0)
-	{
-		// (int)-1.3 = -1
-		// -1.3 - (int)-1.3 = -1.3 - -1 = -0.3
-		// 1 + (1.3 - (int)1.3) = 1 + -0.3 = 0.7
-		return 1 + (x - (int)x);
-	}
-	else
-		return x - (int)x;*/
 }
 
 

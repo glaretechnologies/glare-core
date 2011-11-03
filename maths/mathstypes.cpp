@@ -11,6 +11,8 @@
 #include "../utils/CycleTimer.h"
 #include "../utils/platform.h"
 #include "../utils/MTwister.h"
+#include <vector>
+
 
 #if (BUILD_TESTS)
 
@@ -453,7 +455,7 @@ void Maths::test()
 	MTwister rng(1);
 
 	const int DATA_SIZE = 1 << 20; // 1048576;
-	float data[DATA_SIZE];
+	std::vector<float> data(DATA_SIZE);
 	for(int i=0; i<DATA_SIZE; ++i)
 		data[i] = (rng.unitRandom() - 0.5f) * 100.0f;
 
@@ -495,7 +497,7 @@ void Maths::test()
 			sum += fastFract(data[i]);
 
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
-		const double cycles = elapsed / (double)N;
+		const double cycles = elapsed / (double)DATA_SIZE;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
@@ -513,7 +515,7 @@ void Maths::test()
 			sum += fastPosFract(data[i]);
 
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
-		const double cycles = elapsed / (double)N;
+		const double cycles = elapsed / (double)DATA_SIZE;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
@@ -530,7 +532,7 @@ void Maths::test()
 		for(int i=0; i<DATA_SIZE; ++i)
 			sum += modfFract(data[i]);
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
-		const double cycles = elapsed / (double)N;
+		const double cycles = elapsed / (double)DATA_SIZE;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
