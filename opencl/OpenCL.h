@@ -92,7 +92,7 @@ public:
 	=====================================================================*/
 
 	// If desired_device_name is empty, it will try to auto-detect a device
-	OpenCL(const std::string& desired_device_name, bool verbose_init);
+	OpenCL(const std::string& desired_device_name, bool verbose_init, bool allow_CPU_devices);
 
 	~OpenCL();
 

@@ -51,9 +51,9 @@ static FuncPointerType getFuncPointer(void *handle, const std::string& name)
 #endif
 
 
-OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init)
+OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool allow_CPU_devices_)
+:	allow_CPU_devices(allow_CPU_devices_)
 {
-	allow_CPU_devices = false;
 
 #if USE_OPENCL
 	context = 0;
@@ -338,7 +338,7 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init)
 			int64 device_perf = (int64)device_max_compute_units * (int64)device_max_clock_frequency;
 
 			// No specific device asked for, so make the decision based on heuristics.
-			if((autodetect && !CPU_device) &&			// If autodetecting, don't select CPU devices, (even if they are allowed otherwise)
+			if(/*(autodetect && !CPU_device) &&*/			// If autodetecting, don't select CPU devices, (even if they are allowed otherwise)
 				best_device_perf < device_perf &&		//  choose the device with the highest est performance,
 				device_ok)								//  only allowing CPU devices if flag set.
 			{
