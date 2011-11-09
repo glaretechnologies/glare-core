@@ -97,8 +97,13 @@ include(../indigo_console/shared_cxx_settings.txt)
 add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DLIB3DS_EXPORTS -DTIXML_USE_STL)
 
 
-if(NOT WIN32)
+if(APPLE)
 	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Xarch_i386 -D__i386__ -Xarch_x86_64 -D__x86_64__")
+elseif(WIN32)
+
+else()
+	# Linux
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
 endif()
 
 
