@@ -264,6 +264,30 @@ ________|____/__
 */
 
 
+double Camera::focalLength() const
+{
+	/*
+	See http://en.wikipedia.org/wiki/Focal_length
+
+	Let S_1 = distance from lens to object
+	S_2 = distance from focus point of object behind lens to lens.
+	f = focal length
+
+	So
+	1/S_1 + 1/S_2 = 1/f
+	f(1/S_1 + 1/S_2) = 1
+	f = 1 / (1/S_1 + 1/S_2)
+	*/
+	return 1 / (1 / focusDistance() + 1 / sensorLensDist());
+}
+
+
+double Camera::fStop() const
+{
+	return focalLength() / (lens_radius * 2);
+}
+
+
 Camera::PDType Camera::sensorPDF() const
 {
 	assert(epsEqual(uniform_sensor_pos_pdf, 1.0 / (sensor_width * sensor_height)));

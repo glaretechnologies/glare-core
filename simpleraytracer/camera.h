@@ -200,6 +200,10 @@ public:
 	double sensorLensDist() const { return sensor_to_lens_dist; }
 	double lensRadius() const { return lens_radius; }
 	double lensWidth() const { return lens_width; }
+	double focusDistance() const { return focus_distance; }
+
+	double focalLength() const;
+	double fStop() const;
 
 	const Vec4f sensorCenter() const { return Vec4f((float)sensor_center.x, (float)sensor_center.y, (float)sensor_center.z, 1.f); }
 	const Vec4f lensCenter() const { return Vec4f((float)lens_center.x, (float)lens_center.y, (float)lens_center.z, 1.f); }
