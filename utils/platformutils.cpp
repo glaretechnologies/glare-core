@@ -361,6 +361,25 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 }
 
 
+const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback() // Doesn't throw.
+{
+	try
+	{
+		// Get the 'appdata_path', which will be indigo_base_dir_path on Linux/OS-X, but something like
+		// 'C:\Users\Nicolas Chapman\AppData\Roaming\Indigo Renderer' on Windows.
+		return PlatformUtils::getOrCreateAppDataDirectory(
+			PlatformUtils::getResourceDirectoryPath(),
+			"Indigo Renderer"
+		);
+	}
+	catch(PlatformUtils::PlatformUtilsExcep&)
+	{
+		std::cerr << "WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'." << std::endl;
+		return "dummy_appdata";
+	}
+}
+
+
 const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUtilsExcep.
 {
 #if defined(_WIN32) || defined(_WIN64)

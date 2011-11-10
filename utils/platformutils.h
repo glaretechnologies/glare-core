@@ -73,6 +73,8 @@ On Vista, this can't be indigo_base_dir_path, because that path might be in prog
 */
 const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name); // throws PlatformUtilsExcep.
 
+const std::string getOrCreateAppDataDirectoryWithDummyFallback(); // Doesn't throw.
+
 const std::string getResourceDirectoryPath(); // throws PlatformUtilsExcep
 	
 const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep.
