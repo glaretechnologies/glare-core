@@ -275,6 +275,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			desired_license_type = SDK_2_X;
 		else if(components[1] == "indigo-full-3.x")
 			desired_license_type = FULL_3_X;
+		else if(components[1] == "indigo-node-3.x")
+			desired_license_type = NODE_3_X;
 		else if(components[1] == "indigo-revit-3.x")
 			desired_license_type = REVIT_3_X;
 		else if(components[1] == "indigo-rt-3.x")
