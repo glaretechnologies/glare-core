@@ -51,10 +51,51 @@ static FuncPointerType getFuncPointer(void *handle, const std::string& name)
 #endif
 
 
-OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool allow_CPU_devices_)
-:	allow_CPU_devices(allow_CPU_devices_)
+OpenCL::OpenCL(bool verbose_)
+:	initialised(false),
+	verbose(verbose_),
+	allow_CPU_devices(false)
 {
+#if USE_OPENCL
 
+	// Initialise the OpenCL library, importing the function pointers etc.
+	libraryInit();
+
+#else
+	throw Indigo::Exception("OpenCL disabled.");
+#endif
+}
+
+
+OpenCL::~OpenCL()
+{
+#if USE_OPENCL
+	// Free command queue
+	if(this->command_queue)
+	{
+		if(clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
+			throw Indigo::Exception("clReleaseCommandQueue failed");
+	}
+
+	// Cleanup
+	if(this->context)
+	{
+		if(clReleaseContext(this->context) != CL_SUCCESS)
+			throw Indigo::Exception("clReleaseContext failed");
+	}
+
+#if defined(_WIN32)
+	if(!::FreeLibrary(opencl_handle))
+		throw Indigo::Exception("FreeLibrary failed");
+#endif
+
+	//std::cout << "Shut down OpenCL." << std::endl;
+#endif
+}
+
+
+void OpenCL::libraryInit()
+{
 #if USE_OPENCL
 	context = 0;
 	command_queue = 0;
@@ -68,10 +109,10 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
 	#if defined(_WIN64)
-		if(verbose_init) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		if(verbose) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86_64\\atiocl64.dll");
 	#else
-		if(verbose_init) std::cout << "Detected ATI 32 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		if(verbose) std::cout << "Detected ATI 32 bit OpenCL SDK at " << ati_sdk_root << std::endl;
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
 	#endif
 	}
@@ -82,10 +123,10 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
 
 	#if defined(_WIN64)
-		if(verbose_init) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		if(verbose) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
 		opencl_paths.push_back(intel_sdk_root + "bin\\x64\\intelocl.dll");
 	#else
-		if(verbose_init) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		if(verbose) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
 		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
 	#endif
 	}
@@ -150,11 +191,11 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 		}
 		catch(Indigo::Exception& e)
 		{
-			if(verbose_init) std::cout << "Error loading OpenCL library from " << opencl_paths[searched_paths] << ": " << e.what() << std::endl;
+			if(verbose) std::cout << "Error loading OpenCL library from " << opencl_paths[searched_paths] << ": " << e.what() << std::endl;
 			continue; // try the next library
 		}
 
-		if(verbose_init) std::cout << "Successfully loaded OpenCL functions from " << opencl_paths[searched_paths] << std::endl;
+		if(verbose) std::cout << "Successfully loaded OpenCL functions from " << opencl_paths[searched_paths] << std::endl;
 		break; // found all req functions, break out of search loop
 	}
 	if(searched_paths == opencl_paths.size())
@@ -196,14 +237,22 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 		throw Indigo::Exception("OpenCL is not available in this version of OSX.");
 #endif
 
+	initialised = true;
+
+#else
+	throw Indigo::Exception("OpenCL disabled.");
+#endif
+}
+
+
+void OpenCL::queryDevices()
+{
+	if(!initialised)
+		throw Indigo::Exception("OpenCL library not initialised");
+
 	// Temporary storage for the strings OpenCL returns
 	std::vector<char> char_buff(128 * 1024);
 
-	bool autodetect = desired_device_name.empty();
-
-	device_to_use = 0;
-	chosen_device_number = -1;
-	int64 best_device_perf = -1;
 	int current_device_number = 0;
 
 	std::vector<cl_platform_id> platform_ids(128);
@@ -212,11 +261,11 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 
-	if(verbose_init) std::cout << "Num platforms: " << num_platforms << std::endl;
+	if(verbose) std::cout << "Num platforms: " << num_platforms << std::endl;
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
-		if(verbose_init)
+		if(verbose)
 		{
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_PROFILE, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetPlatformInfo failed");
@@ -248,17 +297,17 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
 			throw Indigo::Exception("clGetDeviceIDs failed");
 
-		if(verbose_init) std::cout << num_devices << " device(s) found." << std::endl;
+		if(verbose) std::cout << num_devices << " device(s) found." << std::endl;
 
 		for(cl_uint d = 0; d < num_devices; ++d)
 		{
-			if(verbose_init) std::cout << "----------- Device " << current_device_number << " -----------" << std::endl;
+			if(verbose) std::cout << "----------- Device " << current_device_number << " -----------" << std::endl;
 
 			cl_device_type device_type;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
-			if(verbose_init)
+			if(verbose)
 			{
 				if(device_type & CL_DEVICE_TYPE_CPU)
 					std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
@@ -286,7 +335,7 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(device_max_clock_frequency), &device_max_clock_frequency, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
-			if(verbose_init)
+			if(verbose)
 			{
 				if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 					throw Indigo::Exception("clGetDeviceInfo failed");
@@ -330,57 +379,47 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
 			}
 
-
-			bool CPU_device = (device_type & CL_DEVICE_TYPE_CPU) != 0;
-			bool device_ok = CPU_device ? allow_CPU_devices : true;
-
-			// estimate performance as # cores times clock speed
-			int64 device_perf = (int64)device_max_compute_units * (int64)device_max_clock_frequency;
-
-			// No specific device asked for, so make the decision based on heuristics.
-			if(/*(autodetect && !CPU_device) &&*/			// If autodetecting, don't select CPU devices, (even if they are allowed otherwise)
-				best_device_perf < device_perf &&		//  choose the device with the highest est performance,
-				device_ok)								//  only allowing CPU devices if flag set.
-			{
-				device_to_use = device_ids[d];
-				platform_to_use = platform_ids[i];
-				chosen_device_number = current_device_number;
-
-				best_device_perf = device_perf;
-			}
-			else if(desired_device_name == device_name_) // Else if we found the desired device name, use it.
-			{
-				device_to_use = device_ids[d];
-				platform_to_use = platform_ids[i];
-				chosen_device_number = current_device_number;
-
-				best_device_perf = device_perf;
-			}
-
 			// Add device info structure to the vector.
 			gpuDeviceInfo di;
 			di.device_number = current_device_number;
 			di.device_name = device_name_;
 			di.memory_size = (uint64)device_global_mem_size;
 			di.core_count = device_max_compute_units;
-			di.core_clock = device_max_clock_frequency;
+			di.core_clock = device_max_clock_frequency; // in MHz
 			di.subsystem = Indigo::GPUDeviceSettings::SUBSYSTEM_OPENCL;
-			di.CPU = CPU_device;
+			di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
+
+			di.opencl_platform = platform_ids[i];
+			di.opencl_device = device_ids[d];
+
 			device_info.push_back(di);
 
 			++current_device_number;
 		}
 	}
+}
+
+
+void OpenCL::deviceInit(int device_number)
+{
+	if(!initialised)
+		throw Indigo::Exception("OpenCL library not initialised");
+
+	if(device_number < 0 || device_number >= (int)device_info.size())
+		throw Indigo::Exception("Invalid OpenCL device initialisation requested.");
+
+	chosen_device_number = device_number;
+
+	platform_to_use = device_info[chosen_device_number].opencl_platform;
+	device_to_use = device_info[chosen_device_number].opencl_device;
 
 	if(chosen_device_number == -1)
 		throw Indigo::Exception("Could not find appropriate OpenCL device.");
 
-	if(verbose_init) std::cout << "OpenCL: using device '" << device_info[chosen_device_number].device_name.c_str() << "'" << std::endl;
-
-	cl_context_properties cps[3] = 
+	cl_context_properties cps[3] =
     {
-        CL_CONTEXT_PLATFORM, 
-		(cl_context_properties)platform_to_use, 
+        CL_CONTEXT_PLATFORM,
+		(cl_context_properties)platform_to_use,
         0
     };
 
@@ -399,47 +438,43 @@ OpenCL::OpenCL(const std::string& desired_device_name, bool verbose_init, bool a
 	// Create command queue
 	this->command_queue = this->clCreateCommandQueue(
 		context,
-		device_to_use, // TEMP HACK, may not be same device as context
+		device_to_use,
 		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
 		&error_code);
 
 	if(command_queue == 0)
 		throw Indigo::Exception("clCreateCommandQueue failed");
-
-#else
-	throw Indigo::Exception("OpenCL disabled.");
-#endif
 }
 
 
-OpenCL::~OpenCL()
+int OpenCL::getSuggestedDeviceNumber(const std::string& preferred_dev_name) const
 {
-#if USE_OPENCL
-	// Free command queue
-	if(command_queue)
+	int64 chosen_device_perf = -1;
+	int chosen_device = -1;
+
+	for(size_t i = 0; i < device_info.size(); ++i)
 	{
-		if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseCommandQueue failed");
+		const gpuDeviceInfo& di = device_info[i];
+
+		// If we've asked for a particular device and the name matches exactly, return its device index
+		if(!preferred_dev_name.empty() && di.device_name == preferred_dev_name)
+			return (int)i;
+
+		bool device_ok = di.CPU ? allow_CPU_devices : true;
+
+		int64 device_perf = (int64)di.core_count * (int64)di.core_clock;
+		if(device_ok && device_perf > chosen_device_perf)
+		{
+			chosen_device_perf = device_perf;
+			chosen_device = (int)i;
+		}
 	}
 
-	// Cleanup
-	if(this->context)
-	{
-		if(clReleaseContext(this->context) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseContext failed");
-	}
-
-#if defined(_WIN32)
-	if(!::FreeLibrary(opencl_handle))
-		throw Indigo::Exception("FreeLibrary failed");
-#endif
-
-	//std::cout << "Shut down OpenCL." << std::endl;
-#endif
+	return chosen_device;
 }
 
 
-int OpenCL::getChosenDeviceNumber()
+int OpenCL::getChosenDeviceNumber() const
 {
 	return chosen_device_number;
 }

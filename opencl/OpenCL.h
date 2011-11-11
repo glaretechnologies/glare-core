@@ -13,10 +13,10 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <Windows.h>
 #endif
 
 
@@ -92,11 +92,18 @@ public:
 	=====================================================================*/
 
 	// If desired_device_name is empty, it will try to auto-detect a device
-	OpenCL(const std::string& desired_device_name, bool verbose_init, bool allow_CPU_devices);
+	OpenCL(bool verbose);
 
 	~OpenCL();
 
-	int getChosenDeviceNumber();
+	void libraryInit();
+	void queryDevices();
+	void deviceInit(int device_number);
+
+	// Returns the index of the suggested OpenCL device, -1 if none valid
+	int getSuggestedDeviceNumber(const std::string& preferred_dev_name) const;
+
+	int getChosenDeviceNumber() const;
 
 #if USE_OPENCL
 	static const std::string errorString(cl_int result);
@@ -153,6 +160,9 @@ public:
 #else
 	void *opencl_handle;
 #endif
+
+	bool initialised;
+	bool verbose;
 
 	bool allow_CPU_devices;
 
