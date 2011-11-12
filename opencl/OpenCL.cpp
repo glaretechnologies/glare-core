@@ -245,6 +245,7 @@ void OpenCL::libraryInit()
 }
 
 
+#if USE_OPENCL
 void OpenCL::queryDevices()
 {
 	if(!initialised)
@@ -445,6 +446,7 @@ void OpenCL::deviceInit(int device_number)
 	if(command_queue == 0)
 		throw Indigo::Exception("clCreateCommandQueue failed");
 }
+#endif
 
 
 int OpenCL::getSuggestedDeviceNumber(const std::string& preferred_dev_name) const
@@ -658,6 +660,7 @@ void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
 	{
 		const std::string log(&buf[0], param_value_size_ret);
 		print_output.print("OpenCL build log: " + log);
+
 
 		{
 			std::ofstream build_log("build_log.txt");

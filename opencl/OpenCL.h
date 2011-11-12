@@ -97,8 +97,6 @@ public:
 	~OpenCL();
 
 	void libraryInit();
-	void queryDevices();
-	void deviceInit(int device_number);
 
 	// Returns the index of the suggested OpenCL device, -1 if none valid
 	int getSuggestedDeviceNumber(const std::string& preferred_dev_name) const;
@@ -106,6 +104,9 @@ public:
 	int getChosenDeviceNumber() const;
 
 #if USE_OPENCL
+	void queryDevices();
+	void deviceInit(int device_number);
+
 	static const std::string errorString(cl_int result);
 
 	std::vector<gpuDeviceInfo> getDeviceInfo() const;
