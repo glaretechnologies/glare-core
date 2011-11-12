@@ -103,7 +103,7 @@ elseif(WIN32)
 
 else()
 	# Linux
-	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 endif()
 
 
