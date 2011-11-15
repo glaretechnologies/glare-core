@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <windows.h>
 #endif
 
-#if defined(LINUX)
+#if defined(__linux__)
 #include <dlfcn.h>
 #endif
 
@@ -39,7 +39,7 @@ static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
 		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
 	return f;
 }
-#elif defined(LINUX)
+#elif defined(__linux__)
 template <class FuncPointerType>
 static FuncPointerType getFuncPointer(void *handle, const std::string& name)
 {
@@ -135,7 +135,8 @@ void OpenCL::libraryInit()
 	opencl_paths.push_back("libOpenCL.so");
 #endif
 
-#if defined(_WIN32) || defined(LINUX)
+
+#if defined(_WIN32) || defined(__linux__)
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
@@ -148,7 +149,7 @@ void OpenCL::libraryInit()
 			//std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
 			continue;
 		}
-#elif defined(LINUX)
+#elif defined(__linux__)
 		opencl_handle = dlopen(opencl_paths[searched_paths].c_str(), RTLD_LAZY);
 		if(!opencl_handle)
 		{
