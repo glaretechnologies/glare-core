@@ -54,7 +54,7 @@ Packet::~Packet()
 	*(unsigned int*)(getData() + writeindex) = htonl(*((unsigned int*)&x));
 }*/
 
-void Packet::write(int32 x)
+void Packet::writeInt32(int32 x)
 {
 	const size_t writeindex = data.size();
 	data.resize(writeindex + sizeof(int32));
@@ -134,7 +134,7 @@ void Packet::write(const std::string& s) // writes null-terminated string
 	readindex += sizeof(float);
 }
 */
-void Packet::readTo(int32& x)
+void Packet::readInt32To(int32& x)
 {
 	if(readindex + sizeof(int32) > data.size())
 		throw NetworkingExcep("read past end of packet.");
@@ -151,7 +151,8 @@ void Packet::readTo(int32& x)
 
 	//unsigned int xi = ntohl(*((unsigned int*)(getData() + readindex)));
 	//x = *((int*)&xi);
-	//readindex += sizeof(int);
+	
+	readindex += sizeof(int32);
 }
 /*
 void Packet::readTo(char& x)

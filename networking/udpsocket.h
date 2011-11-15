@@ -70,12 +70,12 @@ public:
 
 
 	//returns num bytes read.  blocking.  notthreadsafe
-	void readPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, IPAddress& thisend_ip_out);
+	//void readPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, IPAddress& thisend_ip_out);
 	int readPacket(char* buf, int buflen, IPAddress& sender_ip_out, Port& senderport_out, 
 							IPAddress& thisend_ip_out, bool peek = false);
 
 	//returns true if packet waiting. NOTE: should set setBlocking = false
-	bool pollForPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, IPAddress& thisend_ip_out);
+	//bool pollForPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, IPAddress& thisend_ip_out);
 		
 	void setBlocking(bool blocking);
 
@@ -100,7 +100,7 @@ public:
 private:
 
 
-		//UDPPacketHandler* handler;
+	//UDPPacketHandler* handler;
 	//SOCKET insocket_handle;
 	//SOCKET outsocket_handle;
 

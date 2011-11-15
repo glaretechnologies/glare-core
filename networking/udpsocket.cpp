@@ -408,7 +408,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 }
 
 
-void UDPSocket::readPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, 
+/*void UDPSocket::readPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& senderport_out, 
 							IPAddress& thisend_ip_out)
 {
 	char data[1024];
@@ -417,11 +417,11 @@ void UDPSocket::readPacket(Packet& packet_out, IPAddress& sender_ip_out, Port& s
 
 	for(int i=0; i<num_bytes_read; ++i)
 		packet_out.write(data[i]);	//NOTE: grossly inefficient
-}
+}*/
 
 
 	//returns true if packet waiting
-bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out, 
+/*bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out, 
 										Port& senderport_out, IPAddress& thisend_ip_out)
 {
 	char data[1024];
@@ -435,7 +435,7 @@ bool UDPSocket::pollForPacket(Packet& packet_out, IPAddress& sender_ip_out,
 		packet_out.write(data[i]);	//NOTE: grossly inefficient
 
 	return true;
-}
+}*/
 
 void UDPSocket::setBlocking(bool blocking)
 {

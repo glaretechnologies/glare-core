@@ -48,7 +48,7 @@ public:
 
 
 	//virtual void write(float x);
-	virtual void write(int32 x);
+	virtual void writeInt32(int32 x);
 	//virtual void write(unsigned short x);
 	//virtual void write(char x);
 	//virtual void write(unsigned char x);
@@ -57,7 +57,7 @@ public:
 	virtual void write(const void* data, size_t numbytes);
 	
 	//virtual void readTo(float& x);
-	virtual void readTo(int32& x);
+	virtual void readInt32To(int32& x);
 	//virtual void readTo(unsigned short& x);
 	//virtual void readTo(char& x);
 	//virtual void readTo(Vec3& x);
