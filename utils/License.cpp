@@ -17,6 +17,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "Checksum.h"
 #include "../indigo/globals.h"
 #include "Transmungify.h"
+#include "x509Certificate.h"
 
 #define USE_OPENSSL 1
 #if USE_OPENSSL
@@ -191,20 +192,28 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 }
 
 
-void License::verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out)
+void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out)
 {
-	license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
+
+
+	// TEMP check for the test certificate GreenButton sent us
+	const std::string greenbutton_cert_subj = "GreenButton for Indigo";
+	const std::string greenbutton_cert_pubkey = "3082010a0282010100ba9de4caa44d4d2edaf43716024c07584bfab4403c590a050f4687c56c3884f273b7f94e86746b5bce2b4816d13d4fd4d0644d88f98344c559e4159ecd044b11077f3c75adffddb8811b3ec0bdedd29b9411d84f85febf42c8c6c2ac08ec6187ebdd9bf049090af3395eab8d8fc4aa621cea52200f5996130a22e2eda33879ba8e8f72778125a709079ca84456694e2d792f340009d4d87e9343b4dce4fca72f12aff86964d1eeb090b6e959c2d34ced33aec996a16c7bec2843f4e014c77ce0c40d465e52239eb6d0e231c071c2710c3162d69f54726e02de2b51098ffcf931cfa6f5ee1bbbdf498b81bda54ff8f6a188b3bbe7026670079c04659621a6aa010203010001";
+	if(x509Certificate::verifyCertificate(greenbutton_cert_subj, greenbutton_cert_pubkey))
+		conPrint("Found the GreenButton certificate");
+
 
 #if USE_OPENSSL
 
 	// Try and verifiy network licence first.
-	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, license_type_out, user_id_out);
+	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out);
 	if(have_net_floating_licence)
 		return;
 	else
 	{
-		license_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+		licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 		user_id_out = "";
 	}
 
@@ -253,34 +262,34 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 
 		user_id_out = components[0];
 
-		LicenceType desired_license_type = UNLICENSED;
+		LicenceType desired_licence_type = UNLICENSED;
 
 #ifdef INDIGO_RT
 		if(components[1] == "indigo-rt-3.x")
-			desired_license_type = RT_3_X;
+			desired_licence_type = RT_3_X;
 		else if(components[1] == "indigo-full-3.x")
-			desired_license_type = FULL_3_X;
+			desired_licence_type = FULL_3_X;
 		else if(components[1] == "indigo-full-lifetime")
-			desired_license_type = FULL_LIFETIME;
+			desired_licence_type = FULL_LIFETIME;
 #else
 		if(components[1] == "indigo-full-2.x")
-			desired_license_type = FULL_2_X;
+			desired_licence_type = FULL_2_X;
 		else if(components[1] == "indigo-beta-2.x")
-			desired_license_type = BETA_2_X;
+			desired_licence_type = BETA_2_X;
 		else if(components[1] == "indigo-node-2.x")
-			desired_license_type = NODE_2_X;
+			desired_licence_type = NODE_2_X;
 		else if(components[1] == "indigo-full-lifetime")
-			desired_license_type = FULL_LIFETIME;
+			desired_licence_type = FULL_LIFETIME;
 		else if(components[1] == "indigo-sdk-2.x")
-			desired_license_type = SDK_2_X;
+			desired_licence_type = SDK_2_X;
 		else if(components[1] == "indigo-full-3.x")
-			desired_license_type = FULL_3_X;
+			desired_licence_type = FULL_3_X;
 		else if(components[1] == "indigo-node-3.x")
-			desired_license_type = NODE_3_X;
+			desired_licence_type = NODE_3_X;
 		else if(components[1] == "indigo-revit-3.x")
-			desired_license_type = REVIT_3_X;
+			desired_licence_type = REVIT_3_X;
 		else if(components[1] == "indigo-rt-3.x")
-			desired_license_type = RT_3_X;
+			desired_licence_type = RT_3_X;
 #endif
 		else
 			return;
@@ -290,8 +299,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 		// The user may run Indigo RT with an Indigo Full licence, without restrictions.
 #else
 		// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
-		if(desired_license_type == RT_3_X)
-			throw LicenseExcep("The licence key is for Indigo RT.  This is Indigo Full.  Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
+		if(desired_licence_type == RT_3_X)
+			throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
 #endif
 
 		const std::string hash = decodeBase64(components[2]);
@@ -318,12 +327,12 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licens
 			if(verifyKey(constructed_key, hash))
 			{
 				// Key verified!
-				license_type_out = desired_license_type;
+				licence_type_out = desired_licence_type;
 				return; // We're done here, return
 			}
 			else
 			{
-				assert(license_type_out == UNLICENSED);
+				assert(licence_type_out == UNLICENSED);
 			}
 		}
 	}

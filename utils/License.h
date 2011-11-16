@@ -39,12 +39,12 @@ public:
 		BETA_2_X,
 		NODE_2_X,
 		SDK_2_X,
-		
+
 		FULL_3_X,
 		NODE_3_X,
 
 		REVIT_3_X,
-		
+
 		NETWORK_FLOATING_FULL,
 		NETWORK_FLOATING_NODE,
 
@@ -66,7 +66,7 @@ public:
 	static const std::string licenseTypeToString(LicenceType t);
 	static const std::string licenseTypeToCodeString(LicenceType t);
 
-	static void verifyLicense(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out); // throws LicenseExcep
+	static void verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
