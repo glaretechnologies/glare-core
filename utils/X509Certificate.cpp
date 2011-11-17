@@ -109,7 +109,7 @@ void X509Certificate::enumCertificates(const std::string& store)
 		//LPTSTR pszString;
 		LPTSTR pszName;
 		DWORD cbSize;
-		CERT_BLOB blobEncodedName;
+		//CERT_BLOB blobEncodedName;
 
 		//-----------------------------------------------------------
 		//        Get and display 
