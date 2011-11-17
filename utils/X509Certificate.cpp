@@ -13,6 +13,7 @@ Generated at Fri Nov 11 13:48:01 +0000 2011
 #include "platformutils.h"
 #include <Windows.h>
 #include <Wincrypt.h>
+#include <iostream> // Needed for the enumeration
 
 #define MY_ENCODING_TYPE (PKCS_7_ASN_ENCODING | X509_ASN_ENCODING)
 #define MY_STRING_TYPE (CERT_OID_NAME_STR)
@@ -21,19 +22,22 @@ Generated at Fri Nov 11 13:48:01 +0000 2011
 #endif
 
 
-bool X509Certificate::verifyCertificate(const std::string &subject, const std::string &public_key_string)
+bool X509Certificate::verifyCertificate(const std::string& store, const std::string &subject, const std::string &public_key_string)
 {
 #ifdef _WIN32
 	HCERTSTORE hCertStore;
+	HCERTSTORE hCollectionStore = NULL;     // The collection store handle
+
+	const std::wstring store_ = StringUtils::UTF8ToPlatformUnicodeEncoding(store);
 
 	//---------------------------------------------------------------
-	// Begin Processing by opening a certificate store.
+	// Begin Processing by opening a certificate store from the local machine.
 	if(!(hCertStore = CertOpenStore(
 		CERT_STORE_PROV_SYSTEM,
 		MY_ENCODING_TYPE,
 		NULL,
-		CERT_SYSTEM_STORE_CURRENT_USER,
-		L"Root")))
+		CERT_SYSTEM_STORE_LOCAL_MACHINE,
+		store_.c_str())))
 		throw Indigo::Exception("Couldn't open Root certificate store");
 
 	const std::wstring lpszCertSubject = StringUtils::UTF8ToPlatformUnicodeEncoding(subject);
@@ -72,33 +76,22 @@ bool X509Certificate::verifyCertificate(const std::string &subject, const std::s
 }
 
 
-#if BUILD_TESTS
-
-
-#include <iostream>
-
-
-void X509Certificate::test()
+void X509Certificate::enumCertificates(const std::string& store)
 {
-	const std::string greenbutton_cert_subj = "GreenButton for Indigo";
-	const std::string greenbutton_cert_pubkey = "3082010a0282010100ba9de4caa44d4d2edaf43716024c07584bfab4403c590a050f4687c56c3884f273b7f94e86746b5bce2b4816d13d4fd4d0644d88f98344c559e4159ecd044b11077f3c75adffddb8811b3ec0bdedd29b9411d84f85febf42c8c6c2ac08ec6187ebdd9bf049090af3395eab8d8fc4aa621cea52200f5996130a22e2eda33879ba8e8f72778125a709079ca84456694e2d792f340009d4d87e9343b4dce4fca72f12aff86964d1eeb090b6e959c2d34ced33aec996a16c7bec2843f4e014c77ce0c40d465e52239eb6d0e231c071c2710c3162d69f54726e02de2b51098ffcf931cfa6f5ee1bbbdf498b81bda54ff8f6a188b3bbe7026670079c04659621a6aa010203010001";
+	HCERTSTORE hCertStore;
 
-	try
-	{
-		const bool found_gb_cert = verifyCertificate(greenbutton_cert_subj, greenbutton_cert_pubkey);
+	const std::wstring store_ = StringUtils::UTF8ToPlatformUnicodeEncoding(store);
 
-		if(found_gb_cert)
-			std::cout << "Found GreenButton certificate" << std::endl;
-		else
-			std::cout << "Couldn't find GreenButton certificate" << std::endl;
-	}
-	catch(Indigo::Exception& e)
-	{
-		std::cout << "X.509 exception: " + e.what() << std::endl;
-	}
+	//---------------------------------------------------------------
+	// Begin Processing by opening a certificate store.
+	if(!(hCertStore = CertOpenStore(
+		CERT_STORE_PROV_SYSTEM,
+		MY_ENCODING_TYPE,
+		NULL,
+		CERT_SYSTEM_STORE_LOCAL_MACHINE,
+		store_.c_str())))
+		throw Indigo::Exception("Couldn't open Root certificate store");
 
-
-#if 0
 	//---------------------------------------------------------------
 	//       Loop through the certificates in the store. 
 	//       For each certificate,
@@ -109,7 +102,7 @@ void X509Certificate::test()
 	//                  octets from that string.
 	//             convert the encoded string back into its form 
 	//                  in the certificate.
-	pCertContext = NULL;
+	PCCERT_CONTEXT pCertContext = NULL;
 	while(pCertContext = CertEnumCertificatesInStore(
 		hCertStore,
 		pCertContext))
@@ -129,14 +122,10 @@ void X509Certificate::test()
 			NULL,
 			NULL,
 			0)))
-		{
-			MyHandleError(TEXT("CertGetName 1 failed."));
-		}
+			throw Indigo::Exception("CertGetName 1 failed");
 
 		if(!(pszName = (LPTSTR)malloc(cbSize * sizeof(TCHAR))))
-		{
-			MyHandleError(TEXT("Memory allocation failed."));
-		}
+			throw Indigo::Exception("Memory allocation failed");
 
 		std::string cert_subject;
 
@@ -148,21 +137,17 @@ void X509Certificate::test()
 			pszName,
 			cbSize))
 		{
-			_tprintf(TEXT("\nSubject -> %s.\n"), pszName);
-
 			cert_subject = StringUtils::PlatformToUTF8UnicodeEncoding(pszName);
 
 			//-------------------------------------------------------
 			//       Free the memory allocated for the string.
 			free(pszName);
 		}
-		else
-		{
-			MyHandleError(TEXT("CertGetName failed."));
-		}
+		else throw Indigo::Exception("CertGetName failed");
 
-		std::cout << "subject = " << cert_subject.c_str() << std::endl;
+		std::cout << "Subject: " << cert_subject.c_str() << std::endl;
 
+/*
 		//-----------------------------------------------------------
 		//        Get and display 
 		//        the name of Issuer of the certificate.
@@ -300,33 +285,42 @@ void X509Certificate::test()
 		//       Pause before information on the next certificate
 		//       is displayed.
 		//Local_wait();
+*/
 	}
-
-	DWORD derp = GetLastError();
-	if (derp == CRYPT_E_NOT_FOUND)
-		std::cout << "no certificates found or end of store's list" << std::endl;
-
-	_tprintf(
-		TEXT("\nThere are no more certificates in the store. \n"));
 
 	//---------------------------------------------------------------
-	//   Close the MY store.
-	if(CertCloseStore(
+	//   Close the certificate store.
+	if(!CertCloseStore(
 		hCertStore,
 		CERT_CLOSE_STORE_CHECK_FLAG))
-	{
-		_tprintf(TEXT("The store is closed. ")
-			TEXT("All certificates are released.\n"));
-	}
-	else
-	{
-		_tprintf(TEXT("The store was closed, ")
-			TEXT("but certificates still in use.\n"));
-	}
+		throw Indigo::Exception("The store was closed, but certificates are still in use");
+}
 
-	_tprintf(TEXT("This demonstration program ran to completion ")
-		TEXT("without error.\n"));
-#endif
+
+#if BUILD_TESTS
+
+
+#include <iostream>
+
+
+void X509Certificate::test()
+{
+	const std::string greenbutton_cert_subj = "GreenButton for Indigo";
+	const std::string greenbutton_cert_pubkey = "3082010a0282010100ba9de4caa44d4d2edaf43716024c07584bfab4403c590a050f4687c56c3884f273b7f94e86746b5bce2b4816d13d4fd4d0644d88f98344c559e4159ecd044b11077f3c75adffddb8811b3ec0bdedd29b9411d84f85febf42c8c6c2ac08ec6187ebdd9bf049090af3395eab8d8fc4aa621cea52200f5996130a22e2eda33879ba8e8f72778125a709079ca84456694e2d792f340009d4d87e9343b4dce4fca72f12aff86964d1eeb090b6e959c2d34ced33aec996a16c7bec2843f4e014c77ce0c40d465e52239eb6d0e231c071c2710c3162d69f54726e02de2b51098ffcf931cfa6f5ee1bbbdf498b81bda54ff8f6a188b3bbe7026670079c04659621a6aa010203010001";
+
+	try
+	{
+		const bool found_gb_cert = verifyCertificate("My", greenbutton_cert_subj, greenbutton_cert_pubkey);
+
+		if(found_gb_cert)
+			std::cout << "Found GreenButton certificate" << std::endl;
+		else
+			std::cout << "Couldn't find GreenButton certificate" << std::endl;
+	}
+	catch(Indigo::Exception& e)
+	{
+		std::cout << "X.509 exception: " + e.what() << std::endl;
+	}
 }
 
 
