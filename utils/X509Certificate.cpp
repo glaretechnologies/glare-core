@@ -26,7 +26,6 @@ bool X509Certificate::verifyCertificate(const std::string& store, const std::str
 {
 #ifdef _WIN32
 	HCERTSTORE hCertStore;
-	HCERTSTORE hCollectionStore = NULL;     // The collection store handle
 
 	const std::wstring store_ = StringUtils::UTF8ToPlatformUnicodeEncoding(store);
 
@@ -36,7 +35,7 @@ bool X509Certificate::verifyCertificate(const std::string& store, const std::str
 		CERT_STORE_PROV_SYSTEM,
 		MY_ENCODING_TYPE,
 		NULL,
-		CERT_SYSTEM_STORE_LOCAL_MACHINE,
+		CERT_SYSTEM_STORE_LOCAL_MACHINE | CERT_STORE_READONLY_FLAG, // Open the local system store in read-only mode
 		store_.c_str())))
 		throw Indigo::Exception("Couldn't open Root certificate store");
 
@@ -88,7 +87,7 @@ void X509Certificate::enumCertificates(const std::string& store)
 		CERT_STORE_PROV_SYSTEM,
 		MY_ENCODING_TYPE,
 		NULL,
-		CERT_SYSTEM_STORE_LOCAL_MACHINE,
+		CERT_SYSTEM_STORE_LOCAL_MACHINE | CERT_STORE_READONLY_FLAG, // Open the local system store in read-only mode
 		store_.c_str())))
 		throw Indigo::Exception("Couldn't open Root certificate store");
 
