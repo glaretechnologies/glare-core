@@ -206,8 +206,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 		conPrint("Found the GreenButton certificate in the 'Root' storage");
 	else if(X509Certificate::verifyCertificate("My", greenbutton_cert_subj, greenbutton_cert_pubkey))
 		conPrint("Found the GreenButton certificate in the 'My' storage");
-	else
-		conPrint("Could not find the GreenButton certificate");
+	//else
+	//	conPrint("Could not find the GreenButton certificate");
 
 
 #if USE_OPENSSL
