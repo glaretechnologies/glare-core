@@ -77,6 +77,7 @@ bool X509Certificate::verifyCertificate(const std::string& store, const std::str
 
 void X509Certificate::enumCertificates(const std::string& store)
 {
+#ifdef _WIN32
 	HCERTSTORE hCertStore;
 
 	const std::wstring store_ = StringUtils::UTF8ToPlatformUnicodeEncoding(store);
@@ -293,6 +294,7 @@ void X509Certificate::enumCertificates(const std::string& store)
 		hCertStore,
 		CERT_CLOSE_STORE_CHECK_FLAG))
 		throw Indigo::Exception("The store was closed, but certificates are still in use");
+#endif
 }
 
 
