@@ -106,7 +106,7 @@ void X509Certificate::enumCertificates(const std::string& store)
 		hCertStore,
 		pCertContext))
 	{
-		LPTSTR pszString;
+		//LPTSTR pszString;
 		LPTSTR pszName;
 		DWORD cbSize;
 		CERT_BLOB blobEncodedName;
