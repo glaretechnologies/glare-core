@@ -7,13 +7,13 @@ Code By Nicholas Chapman.
 #include "TestUtils.h"
 
 
+//#if defined(BUILD_TESTS)
+
+
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
 #include <stdlib.h>
 #include <iostream>
-
-
-#if defined(BUILD_TESTS)
 
 
 namespace TestUtils
@@ -57,4 +57,5 @@ const std::string getIndigoTestReposDir()
 
 
 }
-#endif
+
+//#endif
