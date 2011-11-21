@@ -223,6 +223,11 @@ void ThreadTests::test()
 		}
 		catch(MyThreadExcep& )
 		{		
+			failTest("MyThreadExcep");
+		}
+		catch(...)
+		{
+			failTest("Other exception");
 		}
 
 		delete reader;
