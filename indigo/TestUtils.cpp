@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "TestUtils.h"
 
 
-//#if defined(BUILD_TESTS)
+#if defined(BUILD_TESTS)
 
 
 #include "../utils/stringutils.h"
@@ -58,4 +58,4 @@ const std::string getIndigoTestReposDir()
 
 }
 
-//#endif
+#endif
