@@ -90,6 +90,7 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	return (CYCLETIME_TYPE)__rdtsc();
 #else
+	// NOTE: this crashes on Mac.
 	unsigned long long ret;
 	__asm__ __volatile__("rdtsc": "=A" (ret));
 

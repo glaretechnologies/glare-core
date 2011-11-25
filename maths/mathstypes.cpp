@@ -305,6 +305,9 @@ void Maths::test()
 	}*/
 
 	// Compute clock speed
+	
+#if !defined(OSX)
+	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
 
 	const double clock_freq = 2.6e9;
 
@@ -536,6 +539,8 @@ void Maths::test()
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
 	}
+	
+#endif // !defined(OSX)
 
 
 
