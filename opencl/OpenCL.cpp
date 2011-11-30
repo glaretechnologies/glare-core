@@ -460,12 +460,12 @@ int OpenCL::getSuggestedDeviceNumber(const std::string& preferred_dev_name) cons
 		const gpuDeviceInfo& di = device_info[i];
 
 		// If we've asked for a particular device and the name matches exactly, return its device index
-		if(!preferred_dev_name.empty() && di.device_name == preferred_dev_name)
+		if(di.device_name == preferred_dev_name)
 			return (int)i;
 
 		bool device_ok = di.CPU ? allow_CPU_devices : true;
+		int64 device_perf = di.CPU ? 0 : (int64)di.core_count * (int64)di.core_clock;
 
-		int64 device_perf = (int64)di.core_count * (int64)di.core_clock;
 		if(device_ok && device_perf > chosen_device_perf)
 		{
 			chosen_device_perf = device_perf;
