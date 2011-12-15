@@ -731,6 +731,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
 			this->vertices[i].normal.set(0.f, 0.f, 0.f);
 		}
+
+		vertex_shading_normals_provided = false;
 	}
 	else
 	{
@@ -741,8 +743,10 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 			this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
 			this->vertices[i].normal.set(mesh.vert_normals[i].x, mesh.vert_normals[i].y, mesh.vert_normals[i].z);
 
-			assert(::isFinite(mesh.vert_normals[i].x));
+			assert(::isFinite(mesh.vert_normals[i].x) && ::isFinite(mesh.vert_normals[i].y) && ::isFinite(mesh.vert_normals[i].z));
 		}
+
+		vertex_shading_normals_provided = true;
 	}
 
 	// UVs
@@ -886,9 +890,6 @@ void RayMesh::addVertexUnchecked(const Vec3f& pos, const Vec3f& normal)
 
 	this->vertex_shading_normals_provided = true;
 }
-
-
-
 
 
 void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
@@ -1129,7 +1130,12 @@ void RayMesh::printTraceStats()
 
 static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
-	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
+	const Vec3f& p0 = verts[v0].pos, p1 = verts[v1].pos, p2 = verts[v2].pos;
+	const Vec3f e0 = p1 - p0;
+	const Vec3f e1 = p2 - p0;
+	const Vec3f n  = crossProduct(e0, e1);
+
+	return normalise(n);
 }
 
 
@@ -1140,7 +1146,7 @@ void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
 	for(size_t i = 0; i < vertices.size(); ++i)
 		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
 
-	for(size_t t = 0; t<triangles.size(); ++t)
+	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
