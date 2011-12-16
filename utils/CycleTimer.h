@@ -16,6 +16,11 @@ Code By Nicholas Chapman.
 #pragma intrinsic(__rdtsc)
 #endif
 
+// We want to make sure that either __x86_64__ or __i386__ is defined when building on non windows platforms.
+#if !defined(_WIN32) && (!defined(__x86_64__) && !defined(__i386__))
+#error Either __x86_64__ or __i386_ need to be defined!
+#endif
+
 
 /*=====================================================================
 CycleTimer
@@ -90,11 +95,23 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	return (CYCLETIME_TYPE)__rdtsc();
 #else
-	// NOTE: this crashes on Mac.
+
+// On unix systems we need to have different rdtsc implementations for different achitectures for some obscure unixy reason.
+#if defined(__x86_64__)
+	long n;
+	asm volatile ("rdtsc\n"
+		"shlq $32,%%rdx\n"
+		"orq %%rdx,%%rax"
+		: "=a" (n) :: "%rdx");
+
+	return (CYCLETIME_TYPE)n;
+#elif defined(__i386__)
 	unsigned long long ret;
 	__asm__ __volatile__("rdtsc": "=A" (ret));
 
 	return (CYCLETIME_TYPE)ret;
+#endif
+
 #endif
 }
 
