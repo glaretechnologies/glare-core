@@ -61,7 +61,8 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		Reference<SpectrumMatParameter>(NULL), // base emission
 		Reference<SpectrumMatParameter>(NULL),
 		0,
-		false
+		false,
+		false // backface_emit
 	));
 
 
@@ -213,7 +214,8 @@ void ObjectTreeTest::doTests()
 		Reference<SpectrumMatParameter>(NULL), // base emission
 		Reference<SpectrumMatParameter>(NULL),
 		0,
-		false
+		false,
+		false // backface_emit
 	));
 
 	std::vector<Object*> objects;

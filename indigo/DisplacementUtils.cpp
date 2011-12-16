@@ -1932,7 +1932,8 @@ void DisplacementUtils::test()
 			Reference<SpectrumMatParameter>(NULL),
 			Reference<SpectrumMatParameter>(NULL),
 			0, // layer_index
-			false // random_triangle_colours
+			false, // random_triangle_colours
+			false // backface_emit
 		)));
 
 		//materials[0]->uv_set_indices.push_back(0);

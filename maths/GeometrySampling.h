@@ -41,6 +41,11 @@ namespace GeometrySampling
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
+	///// Both hemispheres with cosine weighting ////
+	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
+	template <class VecType> inline typename VecType::RealType bothHemispheresCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
+
+
 
 	////// Cone /////////
 
@@ -399,6 +404,26 @@ const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const Sam
 	assert(dir.isUnitLength());
 
 	return VecType(to_world * dir);
+}
+
+
+template <class VecType>
+const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples)
+{
+	if(unitsamples.x <= 0.5f)
+	{
+		return sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair(unitsamples.x * 2, unitsamples.y));
+	}
+	else
+	{
+		return sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y)) * -1.f;
+	}
+}
+
+
+template <class VecType> typename VecType::RealType bothHemispheresCosineWeightedPDF(const VecType& normal, const VecType& unitdir)
+{
+	return ::absDot(normal, unitdir) * NICKMATHS_RECIP_2PIf;
 }
 
 
