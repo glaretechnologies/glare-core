@@ -55,8 +55,8 @@ void DynamicLib::close()
 	if(lib_handle != NULL && !::FreeLibrary(lib_handle))
 		throw Indigo::Exception("FreeLibrary failed");
 #elif defined(__linux__)
-	if(lib_handle != NULL)
-		dlclose(lib_handle);
+	if(lib_handle != NULL && !dlclose(lib_handle))
+		throw Indigo::Exception("FreeLibrary failed");
 #endif
 }
 
