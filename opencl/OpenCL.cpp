@@ -30,25 +30,25 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(_WIN32)
-template <class FuncPointerType>
-static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
-{
-	FuncPointerType f = (FuncPointerType)::GetProcAddress(module, name.c_str());
-	if(!f)
-		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-	return f;
-}
-#elif defined(__linux__)
-template <class FuncPointerType>
-static FuncPointerType getFuncPointer(void *handle, const std::string& name)
-{
-	FuncPointerType f = (FuncPointerType)dlsym(handle, name.c_str());
-	if(!f)
-		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-	return f;
-}
-#endif
+//#if defined(_WIN32)
+//template <class FuncPointerType>
+//static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
+//{
+//	FuncPointerType f = (FuncPointerType)::GetProcAddress(module, name.c_str());
+//	if(!f)
+//		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+//	return f;
+//}
+//#elif defined(__linux__)
+//template <class FuncPointerType>
+//static FuncPointerType getFuncPointer(void *handle, const std::string& name)
+//{
+//	FuncPointerType f = (FuncPointerType)dlsym(handle, name.c_str());
+//	if(!f)
+//		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+//	return f;
+//}
+//#endif
 
 
 OpenCL::OpenCL(bool verbose_)
@@ -83,11 +83,6 @@ OpenCL::~OpenCL()
 		if(clReleaseContext(this->context) != CL_SUCCESS)
 			throw Indigo::Exception("clReleaseContext failed");
 	}
-
-#if defined(_WIN32)
-	if(!::FreeLibrary(opencl_handle))
-		throw Indigo::Exception("FreeLibrary failed");
-#endif
 
 	//std::cout << "Shut down OpenCL." << std::endl;
 #endif
@@ -140,55 +135,46 @@ void OpenCL::libraryInit()
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
-#if defined(_WIN32)
-		const std::wstring path = StringUtils::UTF8ToPlatformUnicodeEncoding(opencl_paths[searched_paths]);
-		opencl_handle = ::LoadLibrary(path.c_str());
-		if(!opencl_handle)
+		try
 		{
-			const DWORD error_code = GetLastError();
-			//std::cout << "Failed to load OpenCL library from '" << StringUtils::PlatformToUTF8UnicodeEncoding(path) << "', error_code: " << ::toString((uint32)error_code) << std::endl;
+			opencl_lib.open(opencl_paths[searched_paths]);
+		}
+		catch(Indigo::Exception&)
+		{
 			continue;
 		}
-#elif defined(__linux__)
-		opencl_handle = dlopen(opencl_paths[searched_paths].c_str(), RTLD_LAZY);
-		if(!opencl_handle)
-		{
-			std::cout << "Failed to load OpenCL library" << std::endl;
-			continue;
-		}
-#endif
 
 		// Successfully loaded library, try to get required function pointers
 		try
 		{
-			clGetPlatformIDs = getFuncPointer<clGetPlatformIDs_TYPE>(opencl_handle, "clGetPlatformIDs");
-			clGetPlatformInfo = getFuncPointer<clGetPlatformInfo_TYPE>(opencl_handle, "clGetPlatformInfo");
-			clGetDeviceIDs = getFuncPointer<clGetDeviceIDs_TYPE>(opencl_handle, "clGetDeviceIDs");
-			clGetDeviceInfo = getFuncPointer<clGetDeviceInfo_TYPE>(opencl_handle, "clGetDeviceInfo");
-			clCreateContextFromType = getFuncPointer<clCreateContextFromType_TYPE>(opencl_handle, "clCreateContextFromType");
-			clReleaseContext = getFuncPointer<clReleaseContext_TYPE>(opencl_handle, "clReleaseContext");
-			clCreateCommandQueue = getFuncPointer<clCreateCommandQueue_TYPE>(opencl_handle, "clCreateCommandQueue");
-			clReleaseCommandQueue = getFuncPointer<clReleaseCommandQueue_TYPE>(opencl_handle, "clReleaseCommandQueue");
-			clCreateBuffer = getFuncPointer<clCreateBuffer_TYPE>(opencl_handle, "clCreateBuffer");
-			clCreateImage2D = getFuncPointer<clCreateImage2D_TYPE>(opencl_handle, "clCreateImage2D");
-			clReleaseMemObject = getFuncPointer<clReleaseMemObject_TYPE>(opencl_handle, "clReleaseMemObject");
-			clCreateProgramWithSource = getFuncPointer<clCreateProgramWithSource_TYPE>(opencl_handle, "clCreateProgramWithSource");
-			clBuildProgram = getFuncPointer<clBuildProgram_TYPE>(opencl_handle, "clBuildProgram");
-			clGetProgramBuildInfo = getFuncPointer<clGetProgramBuildInfo_TYPE>(opencl_handle, "clGetProgramBuildInfo");
-			clCreateKernel = getFuncPointer<clCreateKernel_TYPE>(opencl_handle, "clCreateKernel");
-			clSetKernelArg = getFuncPointer<clSetKernelArg_TYPE>(opencl_handle, "clSetKernelArg");
-			clEnqueueWriteBuffer = getFuncPointer<clEnqueueWriteBuffer_TYPE>(opencl_handle, "clEnqueueWriteBuffer");
-			clEnqueueReadBuffer = getFuncPointer<clEnqueueReadBuffer_TYPE>(opencl_handle, "clEnqueueReadBuffer");
-			clEnqueueNDRangeKernel = getFuncPointer<clEnqueueNDRangeKernel_TYPE>(opencl_handle, "clEnqueueNDRangeKernel");
-			clReleaseKernel = getFuncPointer<clReleaseKernel_TYPE>(opencl_handle, "clReleaseKernel");
-			clReleaseProgram = getFuncPointer<clReleaseProgram_TYPE>(opencl_handle, "clReleaseProgram");
-			clGetProgramInfo = getFuncPointer<clGetProgramInfo_TYPE>(opencl_handle, "clGetProgramInfo");
-			clGetKernelWorkGroupInfo = getFuncPointer<clGetKernelWorkGroupInfo_TYPE>(opencl_handle, "clGetKernelWorkGroupInfo");
+			clGetPlatformIDs = opencl_lib.getFuncPointer<clGetPlatformIDs_TYPE>("clGetPlatformIDs");
+			clGetPlatformInfo = opencl_lib.getFuncPointer<clGetPlatformInfo_TYPE>("clGetPlatformInfo");
+			clGetDeviceIDs = opencl_lib.getFuncPointer<clGetDeviceIDs_TYPE>("clGetDeviceIDs");
+			clGetDeviceInfo = opencl_lib.getFuncPointer<clGetDeviceInfo_TYPE>("clGetDeviceInfo");
+			clCreateContextFromType = opencl_lib.getFuncPointer<clCreateContextFromType_TYPE>("clCreateContextFromType");
+			clReleaseContext = opencl_lib.getFuncPointer<clReleaseContext_TYPE>("clReleaseContext");
+			clCreateCommandQueue = opencl_lib.getFuncPointer<clCreateCommandQueue_TYPE>("clCreateCommandQueue");
+			clReleaseCommandQueue = opencl_lib.getFuncPointer<clReleaseCommandQueue_TYPE>("clReleaseCommandQueue");
+			clCreateBuffer = opencl_lib.getFuncPointer<clCreateBuffer_TYPE>("clCreateBuffer");
+			clCreateImage2D = opencl_lib.getFuncPointer<clCreateImage2D_TYPE>("clCreateImage2D");
+			clReleaseMemObject = opencl_lib.getFuncPointer<clReleaseMemObject_TYPE>("clReleaseMemObject");
+			clCreateProgramWithSource = opencl_lib.getFuncPointer<clCreateProgramWithSource_TYPE>("clCreateProgramWithSource");
+			clBuildProgram = opencl_lib.getFuncPointer<clBuildProgram_TYPE>("clBuildProgram");
+			clGetProgramBuildInfo = opencl_lib.getFuncPointer<clGetProgramBuildInfo_TYPE>("clGetProgramBuildInfo");
+			clCreateKernel = opencl_lib.getFuncPointer<clCreateKernel_TYPE>("clCreateKernel");
+			clSetKernelArg = opencl_lib.getFuncPointer<clSetKernelArg_TYPE>("clSetKernelArg");
+			clEnqueueWriteBuffer = opencl_lib.getFuncPointer<clEnqueueWriteBuffer_TYPE>("clEnqueueWriteBuffer");
+			clEnqueueReadBuffer = opencl_lib.getFuncPointer<clEnqueueReadBuffer_TYPE>("clEnqueueReadBuffer");
+			clEnqueueNDRangeKernel = opencl_lib.getFuncPointer<clEnqueueNDRangeKernel_TYPE>("clEnqueueNDRangeKernel");
+			clReleaseKernel = opencl_lib.getFuncPointer<clReleaseKernel_TYPE>("clReleaseKernel");
+			clReleaseProgram = opencl_lib.getFuncPointer<clReleaseProgram_TYPE>("clReleaseProgram");
+			clGetProgramInfo = opencl_lib.getFuncPointer<clGetProgramInfo_TYPE>("clGetProgramInfo");
+			clGetKernelWorkGroupInfo = opencl_lib.getFuncPointer<clGetKernelWorkGroupInfo_TYPE>("clGetKernelWorkGroupInfo");
 
-			clSetCommandQueueProperty = getFuncPointer<clSetCommandQueueProperty_TYPE>(opencl_handle, "clSetCommandQueueProperty");
-			clGetEventProfilingInfo = getFuncPointer<clGetEventProfilingInfo_TYPE>(opencl_handle, "clGetEventProfilingInfo");
-			clEnqueueMarker = getFuncPointer<clEnqueueMarker_TYPE>(opencl_handle, "clEnqueueMarker");
-			clWaitForEvents = getFuncPointer<clWaitForEvents_TYPE>(opencl_handle, "clWaitForEvents");
+			clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
+			clGetEventProfilingInfo = opencl_lib.getFuncPointer<clGetEventProfilingInfo_TYPE>("clGetEventProfilingInfo");
+			clEnqueueMarker = opencl_lib.getFuncPointer<clEnqueueMarker_TYPE>("clEnqueueMarker");
+			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
 		}
 		catch(Indigo::Exception& e)
 		{

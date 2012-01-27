@@ -10,14 +10,15 @@ Code By Nicholas Chapman.
 #include <vector>
 #include "../indigo/PrintOutput.h"
 #include "../utils/platform.h"
+#include "../utils/DynamicLib.h"
 #include "../indigo/gpuDeviceInfo.h"
 
 
-#if defined(_WIN32)
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#endif
+//#if defined(_WIN32)
+//#define NOMINMAX
+//#define WIN32_LEAN_AND_MEAN
+//#include <Windows.h>
+//#endif
 
 
 #if USE_OPENCL
@@ -156,10 +157,8 @@ public:
 	cl_command_queue command_queue;
 #endif
 
-#if defined(_WIN32)
-	HMODULE opencl_handle;
-#else
-	void *opencl_handle;
+#if defined(_WIN32) || defined(__linux__)
+	Indigo::DynamicLib opencl_lib;
 #endif
 
 	bool initialised;
