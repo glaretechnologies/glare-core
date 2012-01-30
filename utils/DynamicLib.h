@@ -37,6 +37,9 @@ public:
 	void open(const std::string& lib_path);
 	void close();
 
+
+	// Warning: the C99 standard leaves casting from void* to a function pointer undefined.
+	// Nevertheless, this seems to work..
 #ifdef _WIN32
 
 	template <class FuncPointerType>
@@ -69,8 +72,13 @@ public:
 
 #endif
 
-private:
 
+#if BUILD_TESTS
+	static void test();
+#endif
+
+
+private:
 
 #if defined(_WIN32)
 	HMODULE lib_handle;
