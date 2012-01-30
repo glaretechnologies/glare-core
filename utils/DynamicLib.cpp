@@ -9,6 +9,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 
 #include "stringutils.h"
 #if BUILD_TESTS
+#include "../indigo/TestUtils.h"
 #include <iostream>
 #endif
 
@@ -108,10 +109,10 @@ void DynamicLib::test()
 	try
 	{
 		DynamicLib math_lib("libm.so");
-		CreateThread_TYPE cos_func = math_lib.getFuncPointer<cos_TYPE>("cos");
+		cos_TYPE cos_func = math_lib.getFuncPointer<cos_TYPE>("cos");
 
 		// Make sure it worked
-		assert((*cos_func)(0.0) == 1.0);
+		testAssert((*cos_func)(0.0) == 1.0);
 	}
 	catch(Indigo::Exception& e)
 	{
