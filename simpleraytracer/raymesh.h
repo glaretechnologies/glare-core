@@ -30,7 +30,7 @@ namespace Indigo{ class Mesh; }
 class RayMeshTriangle
 {
 public:
-	RayMeshTriangle(){}
+	RayMeshTriangle() : tri_mat_index(0) {}
 	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex << 1)
 	{
 		vertex_indices[0] = v0_;
