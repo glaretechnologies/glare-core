@@ -57,7 +57,7 @@ public:
 	// void threadDead(); // called by TestRunnerThread
 private:
 	Condition num_unfinished_tasks_cond;
-	Mutex num_unfinished_tasks_mutex;
+	::Mutex num_unfinished_tasks_mutex;
 	int num_unfinished_tasks;
 
 	//Condition num_threads_cond;
