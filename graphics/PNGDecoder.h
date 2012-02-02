@@ -40,6 +40,7 @@ public:
 	
 	static void decode(const std::string& path, Bitmap& bitmap_out);
 
+	// throws ImFormatExcep
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata
 
