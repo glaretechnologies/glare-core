@@ -351,8 +351,11 @@ Camera::PDType Camera::lensPosPDF(const Vec3Type& lenspos_os/*const Vec3d& lensp
 		((lenspos_os[2] - lens_center.z) * recip_lens_width) + 0.5f
 		);
 
-	if(normed_lenspoint.x < 0.0f || normed_lenspoint.x >= 1.0f || normed_lenspoint.y < 0.0f || normed_lenspoint.y >= 1.0f)
-		return 0.0;
+	//NOTE: We will assume that the lens point was sampled from this camera, therefore it must lie on the lens.
+	// If we actually checked normed_lenspoint, it could appear to be out of bounds due to numeric precision issues, 
+	// resulting in an erroneous pd of zero.
+	//if(normed_lenspoint.x < 0.0f || normed_lenspoint.x >= 1.0f || normed_lenspoint.y < 0.0f || normed_lenspoint.y >= 1.0f)
+	//	return 0.0;
 
 	//return aperture->pdf(normed_lenspoint) / (4.0 * lens_radius * lens_radius); // TEMP TODO: precompute divide
 	assert(epsEqual(recip_unoccluded_aperture_area, 1.0 / (4.0 * lens_radius * lens_radius)));
