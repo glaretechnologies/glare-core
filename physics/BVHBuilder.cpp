@@ -77,8 +77,21 @@ void BVHBuilder::build(
 		   )
 {
 	if(num_objects <= 0)
+	{
+		// Create root node, and mark it as a leaf.
+		const uint32 root_node_index = callback.createNode();
+		callback.markAsLeafNode(root_node_index, 
+			objects[0], 
+			0, // left
+			0, // right
+			0, // parent_index 
+			false // is_left_child
+		);
+		num_under_thresh_leaves = 1;
+		//leaf_depth_sum += 0;
+		max_leaf_depth = 0;
 		return;
-		//throw Indigo::Exception("Must be at least one object in tree.");
+	}
 
 	this->aabbs = aabbs_;
 
