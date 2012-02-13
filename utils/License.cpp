@@ -674,6 +674,12 @@ const std::string License::networkFloatingHash(const std::string& input)
 }
 
 
+void License::cleanup() // Cleans up / frees OpenSSL global state.
+{
+	CRYPTO_cleanup_all_ex_data();
+}
+
+
 #if (BUILD_TESTS)
 
 

@@ -82,6 +82,9 @@ public:
 
 	static const std::string networkFloatingHash(const std::string& input);
 
+
+	static void cleanup(); // Cleans up / frees OpenSSL global state.
+
 	static void test();
 private:
 	static const std::string ensureNewLinesPresent(const std::string& data);
