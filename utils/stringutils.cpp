@@ -1338,6 +1338,9 @@ void doStringUtilsUnitTests()
 		testAssert(::floatToString(123.234f, 2) == "123.23");
 		testAssert(::floatToString(123.234f, 3) == "123.234");
 	}
+
+	std::string current_locale = std::setlocale(LC_ALL, NULL);
+
 	// Try German locale where decimal separtor is ','
 	{
 		const char* result = std::setlocale(LC_ALL, "german");
@@ -1354,7 +1357,7 @@ void doStringUtilsUnitTests()
 
 	// Reset Locale
 	{
-		const char* result = std::setlocale(LC_ALL, "");
+		const char* result = std::setlocale(LC_ALL, current_locale.c_str());
 		testAssert(result != NULL);
 	}
 
