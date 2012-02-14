@@ -24,6 +24,7 @@ MyThread::MyThread()
 {
 	thread_handle = 0;
 	autodelete = false;
+	joined = false;
 }
 
 
@@ -34,6 +35,17 @@ MyThread::~MyThread()
 	{
 		assert(0);
 		//std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
+	}
+#else
+	// Mark the thread resources as freeable if needed.
+	// Each pthread must either have pthread_join() or pthread_detach() call on it.
+	// So we'll call pthread_detach() only if we haven't joined it.
+	// See: http://www.kernel.org/doc/man-pages/online/pages/man3/pthread_detach.3.html
+	if(!joined)
+	{
+		
+		const int result = pthread_detach(thread_handle);
+		assert(result == 0);
 	}
 #endif
 }
@@ -61,7 +73,7 @@ threadFunction(void* the_thread_)
 
 void MyThread::launch(bool autodelete_)
 {
-	assert(thread_handle == NULL);
+	assert(thread_handle == 0);
 
 	autodelete = autodelete_;
 
@@ -90,10 +102,12 @@ void MyThread::launch(bool autodelete_)
 
 void MyThread::join() // Wait for thread termination
 {
+	joined = true;
 #if defined(_WIN32)
 	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);
 #else
 	const int result = pthread_join(thread_handle, NULL);
+	assert(result == 0);
 #endif
 }
 

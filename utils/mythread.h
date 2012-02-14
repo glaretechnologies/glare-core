@@ -67,6 +67,7 @@ private:
 #endif
 
 	bool autodelete;
+	bool joined; // True if this thread had join() called on it.
 };
 
 
