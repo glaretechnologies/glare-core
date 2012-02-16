@@ -191,7 +191,7 @@ void BVHBuilder::doBuild(
 
 	int best_N_L = -1;
 	int best_axis = -1;
-	float best_div_val;
+	float best_div_val = 0;
 
 	// for each axis 0..2
 	for(unsigned int axis=0; axis<3; ++axis)

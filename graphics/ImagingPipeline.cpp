@@ -127,8 +127,6 @@ void doTonemapFullBuffer(
 
 		const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
-		const Reference<ToneMapper>& tone_mapper = renderer_settings.tone_mapper;
-
 		const int final_xres = (int)temp_summed_buffer.getWidth();
 		const int final_yres = (int)temp_summed_buffer.getHeight();
 		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
@@ -369,7 +367,6 @@ void doTonemap(
 			const ptrdiff_t bucket_min_y = y_min + gutter_pix;
 			const ptrdiff_t bucket_max_x = x_max + gutter_pix; assert(bucket_max_x <= xres);
 			const ptrdiff_t bucket_max_y = y_max + gutter_pix; assert(bucket_max_y <= yres);
-			const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
 
 			// First we get the weighted sum of all pixels in the layers
 			size_t addr = 0;
