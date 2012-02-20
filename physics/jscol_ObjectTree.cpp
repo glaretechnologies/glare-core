@@ -662,8 +662,6 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 					assert(upper_index == numtris || upper[upper_index].upper > splitval);
 
 					const int num_in_neg = i;
-					if(i == 7500)
-						int a = 0;//TEMP
 					const int num_in_pos = numtris - upper_index;
 					assert(num_in_neg >= 0 && num_in_neg <= (int)numtris);
 					assert(num_in_pos >= 0 && num_in_pos <= (int)numtris);
@@ -1056,7 +1054,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 
 	const int num_in_pos = (int)pos_objs.size();
-	const int num_tris_in_both = num_in_neg + num_in_pos - numtris;
+	//const int num_tris_in_both = num_in_neg + num_in_pos - numtris;
 
 	//assert(num_in_neg == best_num_in_neg);
 	//assert(num_in_pos == best_num_in_pos);
