@@ -101,6 +101,8 @@ public:
 	const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const;
 	void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const;
 
+	// float pdScalingFactor(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os) const;
+
 	const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const;
 	void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const;
 

@@ -525,6 +525,38 @@ void Camera::sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3T
 }
 
 
+/*
+// Although this code is correct, we can compute it more efficiently outside the camera class, using the cosines
+// that are already hanging around.
+
+float Camera::pdScalingFactor(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os) const
+{
+	const double sensor_up = sensorpos_os[2] - sensor_center[2]; // Distance up from sensor center
+	const double sensor_right = sensorpos_os[0] - sensor_center[0]; // Distance right from sensor center
+
+	const double target_up_dist = (lens_shift_up_distance - sensor_up) * focus_dist_sensor_to_lens_dist_ratio;
+	const double target_right_dist = (lens_shift_right_distance - sensor_right) * focus_dist_sensor_to_lens_dist_ratio;
+
+	const Vec3Type target_point_os(
+		lens_center.x + target_right_dist,
+		focus_distance, // TEMP
+		lens_center.z + target_up_dist,
+		1.0f
+	);
+
+	Vec4f lens_to_target = normalise(target_point_os - lenspos_os);
+
+	Vec4f lens_to_sensor = normalise(sensorpos_os - lenspos_os);
+
+	float cos_theta_1 = ::absDot(lens_to_target, FORWARDS_OS);
+	float cos_theta_2 = ::absDot(lens_to_sensor, FORWARDS_OS);
+
+	float ratio = cos_theta_1*cos_theta_1*cos_theta_1 / (cos_theta_2*cos_theta_2*cos_theta_2);
+
+	return 1 / ratio;
+}*/
+
+
 const Vec2d Camera::imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const
 {
 	const double sensor_up_dist = sensorpos_os[2] - sensor_botleft.z; // dot(sensorpos - sensor_botleft, up);
