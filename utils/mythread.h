@@ -44,7 +44,9 @@ public:
 
 	void launch(bool autodelete = true);
 
-	void join(); // Wait for thread termination
+	// Wait for thread termination
+	// It's not allowed to join an autodeleting thread, because you get a race condition - the thread may terminate and delete itself before the join method runs.
+	void join();
 
 	enum Priority
 	{

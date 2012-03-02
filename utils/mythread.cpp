@@ -102,6 +102,8 @@ void MyThread::launch(bool autodelete_)
 
 void MyThread::join() // Wait for thread termination
 {
+	// It's not allowed to join an autodeleting thread, because you get a race condition - the thread may terminate and delete itself before the join method runs.
+	assert(!autodelete);
 	joined = true;
 #if defined(_WIN32)
 	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);

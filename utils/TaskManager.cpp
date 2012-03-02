@@ -31,7 +31,7 @@ TaskManager::TaskManager(size_t num_threads)
 	for(size_t i=0; i<threads.size(); ++i)
 	{
 		threads[i] = new TaskRunnerThread(this, i);
-		threads[i]->launch(true);
+		threads[i]->launch(false); // Don't autodelete, as we will be joining with the threads and then deleting them manually.
 	}
 }
 
@@ -39,13 +39,16 @@ TaskManager::TaskManager(size_t num_threads)
 TaskManager::~TaskManager()
 {
 	// Send null tasks to all threads, to tell them to quit.
-
 	for(size_t i=0; i<threads.size(); ++i)
 		tasks.enqueue(NULL);
 
 	// Wait for threads to quit.
 	for(size_t i=0; i<threads.size(); ++i)
 		threads[i]->join();
+
+	// Delete the threads.
+	for(size_t i=0; i<threads.size(); ++i)
+		delete threads[i];
 
 	/*while(1)
 	{
