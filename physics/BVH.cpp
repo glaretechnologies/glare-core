@@ -174,7 +174,7 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		// Had to disable this for mac because gcc 4.2 is too aids to do
 		// openmp in pthreads as per bug...
 		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		#pragma omp parallel for
 		#endif
 		for(int i=0; i<num_tris; ++i)
@@ -189,7 +189,7 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		if(verbose) print_output.print("\tSorting...");
 		Timer sort_timer;
 
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		#pragma omp parallel for
 		#endif
 		for(int axis=0; axis<3; ++axis)

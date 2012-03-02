@@ -127,7 +127,7 @@ void ThreadTests::test()
 		////////////// Try OpenMP ////////////////////////
 		timer.reset();
 
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		#pragma omp parallel for
 		#endif
 		for(int i=0; i<N; ++i)

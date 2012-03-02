@@ -65,7 +65,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 	const int h = (int)in.getHeight();
 	const int w = (int)in.getWidth();
 
-#ifndef OSX
+#ifndef INDIGO_NO_OPENMP
 #pragma omp parallel for
 #endif
 	for(int dy = 0; dy < h; ++dy)
@@ -91,7 +91,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 			temp.setPixel(dx, dy, c);
 		}
 
-#ifndef OSX
+#ifndef INDIGO_NO_OPENMP
 #pragma omp parallel for
 #endif
 		for(int dy = 0; dy < h; ++dy)

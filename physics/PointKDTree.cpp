@@ -265,7 +265,7 @@ void PointKDTree::build(const std::vector<Vec3f>& points)
 	}
 
 	// Sort bounds
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int axis=0; axis<3; ++axis)

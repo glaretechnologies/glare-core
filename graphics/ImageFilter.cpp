@@ -23,7 +23,9 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "fftss.h"
 #include "../utils/timer.h"
+#ifndef INDIGO_NO_OPENMP
 #include <omp.h>
+#endif
 #include "FFTPlan.h"
 #include "../maths/GeometrySampling.h"
 
@@ -1411,7 +1413,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.in_plan)
 	{
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.in_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.product,
@@ -1423,7 +1425,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.filter_plan)
 	{
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.filter_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.buffer_b,
@@ -1432,7 +1434,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.ift_plan)
 	{
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.ift_plan = fftss_plan_dft_2d(W, H, py, plan.product, plan.buffer_a,
@@ -1619,12 +1621,12 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	//TEMP
 	//for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
 	//	std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	conPrint("omp_get_max_threads: " + toString(omp_get_max_threads()));
 	#endif
 
 	t.reset();
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	fftss_plan_with_nthreads(omp_get_max_threads());
 	#endif
 	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, outbuf,

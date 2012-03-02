@@ -15,7 +15,9 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../graphics/ImageFilter.h"
 #include "../maths/mathstypes.h"
 #include "../utils/platform.h"
+#ifndef INDIGO_NO_OPENMP
 #include <omp.h>
+#endif
 #include <iostream>
 
 
@@ -43,7 +45,7 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Ima
 	const int num_pixels = (int)buffers[0].numPixels();
 	const int num_layers = (int)buffers.size();
 
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int i = 0; i < num_pixels; ++i)
@@ -133,7 +135,7 @@ void doTonemapFullBuffer(
 		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
 		const int num_tiles = x_tiles * y_tiles;
 
-		#ifndef OSX
+		#ifndef INDIGO_NO_OPENMP
 		#pragma omp parallel for// schedule(dynamic, 1)
 		#endif
 		for(int tile = 0; tile < num_tiles; ++tile)
@@ -251,7 +253,7 @@ void doTonemap(
 
 
 	// Ensure that we have sufficiently many buffers of sufficient size for as many threads as OpenMP will spawn
-#ifndef OSX
+#ifndef INDIGO_NO_OPENMP
 	const size_t omp_num_threads = (size_t)omp_get_max_threads();
 #else
 	const size_t omp_num_threads = 1;
@@ -281,12 +283,12 @@ void doTonemap(
 	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for// schedule(dynamic, 1)
 	#endif
 	for(int tile = 0; tile < (int)num_tiles; ++tile)
 	{
-#ifndef OSX
+#ifndef INDIGO_NO_OPENMP
 		const uint32 thread_num = (uint32_t)omp_get_thread_num();
 #else
 		const uint32 thread_num = 0;

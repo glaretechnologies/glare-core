@@ -99,7 +99,7 @@ void ThreadedNLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, 
 	//timer.reset();
 
 	// Sort bounds
-/*	#ifndef OSX
+/*	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int axis=0; axis<3; ++axis)

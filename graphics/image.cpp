@@ -402,7 +402,7 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		}
 	}
 
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int y=0; y<(int)out.getHeight(); ++y)
@@ -476,7 +476,7 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
 	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
 
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int y = 0; y < out_yres; ++y)

@@ -99,7 +99,7 @@ void BVHBuilder::build(
 	//std::vector<Vec3f> tri_centers(num_objects);
 	this->centers.resize(num_objects);
 
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int i=0; i<num_objects; ++i)
@@ -110,7 +110,7 @@ void BVHBuilder::build(
 	temp[1].resize(num_objects);
 
 	// Sort indices based on center position along the axes
-	#ifndef OSX
+	#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int axis=0; axis<3; ++axis)
