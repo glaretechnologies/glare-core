@@ -144,7 +144,11 @@ void Condition::notify()
 	SetEvent(condition);
 #else
 	///wake up a single suspended thread.
-	pthread_cond_signal(&condition);
+	//pthread_cond_signal(&condition);
+	
+	// NOTE: TaskManager destructor only seems to work with pthread_cond_broadcast
+	// instead of pthread_cond_signal.
+	pthread_cond_broadcast(&condition);
 #endif
 }
 

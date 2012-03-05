@@ -103,9 +103,35 @@ public:
 };
 
 
+
+class SimpleThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+	}
+};
+
+
 #if (BUILD_TESTS)
 void ThreadTests::test()
 {
+
+	// Create and run a single thread.  Wait for it to finish.
+	{
+		SimpleThread* t = new SimpleThread();
+		t->launch(false);
+		t->join();
+		delete t;
+	}
+
+	// Create and run a single thread.  Let it auto-delete itself.
+	{
+		SimpleThread* t = new SimpleThread();
+		t->launch(true);
+	}
+
+
 	// Test parallel For
 	for(int z=0; z<1; ++z)
 	{

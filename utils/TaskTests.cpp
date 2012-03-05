@@ -56,11 +56,15 @@ void TaskTests::test()
 	{
 		TaskManager m;
 	}
+
+	{
+		TaskManager m(1);
+	}
+
 	{
 		TaskManager m;
 		m.waitForTasksToComplete();
 	}
-
 
 	{
 		TaskManager m;
@@ -85,8 +89,6 @@ void TaskTests::test()
 
 		m.waitForTasksToComplete();
 	}
-
-
 
 	{
 		TaskManager m;
