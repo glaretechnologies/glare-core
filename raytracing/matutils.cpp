@@ -30,7 +30,8 @@ template void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients
 /*
 Compute the refracted ray.
 
-see http://en.wikipedia.org/wiki/Snell's_law#Vector_form
+see http://en.wikipedia.org/wiki/Snell's_law#Vector_form for a similar derivation.  
+It's not exactly the same though, as I don't negate the incident_raydir when computing the cosine.
 
 */
 template <class Real, class VecType>
@@ -43,39 +44,46 @@ void MatUtils::refractInSurface(const VecType& normal,
 	assert(src_refindex >= 1.0);
 	assert(dest_refindex >= 1.0);
 
-	const Real n_ratio = src_refindex / dest_refindex; // n_1 / n_2
+	const Real n1_over_n2 = src_refindex / dest_refindex; // n_1 / n_2
 	const Real n_dot_r = dot(normal, incident_raydir); // negative if ray towards interface is against normal
 
-	const Real a = (Real)1.0 - n_ratio*n_ratio * ((Real)1.0 - n_dot_r*n_dot_r);
-	// a is the expression inside the sqrt - is actually cos(theta_2) ^ 2
+	const Real cos_theta_2_sqd = 1 - n1_over_n2*n1_over_n2 * (1 - n_dot_r*n_dot_r);
 
-	if(a < 0.0)
+	if(cos_theta_2_sqd < 0)
 	{
-		totally_internally_reflected_out = true; // Total internal reflection occurred
+		totally_internally_reflected_out = true; // Total internal reflection occurred.
 
 		// Make the exit ray the reflected vector.
 		exit_raydir_out = incident_raydir;
-		//exit_raydir_out.subMult(normal, n_dot_r * (Real)2.0);
-		exit_raydir_out -= normal * (n_dot_r * (Real)2.0);
+		exit_raydir_out -= normal * (n_dot_r * 2);
 	}
 	else
 	{
 		totally_internally_reflected_out = false;
-		exit_raydir_out = n_dot_r < 0.0 ?
-			normal * (-sqrt(a) - n_ratio*n_dot_r) + incident_raydir * n_ratio : // n.r negative
-			normal * (sqrt(a) - n_ratio*n_dot_r) + incident_raydir * n_ratio;   // n.r positive
+		//exit_raydir_out = n_dot_r > 0 ?
+		//	normal * ( sqrt(cos_theta_2_sqd) - n1_over_n2*n_dot_r) + incident_raydir * n1_over_n2 : // n.r positive
+		//	normal * (-sqrt(cos_theta_2_sqd) - n1_over_n2*n_dot_r) + incident_raydir * n1_over_n2 ; // n.r negative		
+
+		exit_raydir_out = n_dot_r > 0 ?
+			incident_raydir * n1_over_n2 + normal * (- n1_over_n2*n_dot_r + sqrt(cos_theta_2_sqd) ) : // n.r positive
+			incident_raydir * n1_over_n2 + normal * (- n1_over_n2*n_dot_r - sqrt(cos_theta_2_sqd) ) ; // n.r negative		
 	}
 
 
 	//assert(epsEqual(exit_raydir_out.length(), (Real)1.0, (Real)0.0001));
+	
 
 	// Normalising here because there seems to be quite a lot of error introduced.
 	exit_raydir_out = normalise(exit_raydir_out);
 
-#ifdef DEBUG
-	double len = exit_raydir_out.length();
-	assert(epsEqual(len, 1.0, 0.0001));
+#ifndef NDEBUG
+	Real normal_len = normal.length();
+	Real incident_raydir_len = incident_raydir.length();
+	Real exit_raydir_out_len = exit_raydir_out.length();
+	//assert(epsEqual(exit_raydir_out_len, 1.0, 0.0001));
 #endif
+
+	assert(epsEqual(exit_raydir_out.length(), (Real)1.0));
 }
 
 
@@ -311,16 +319,75 @@ void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1,
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 void MatUtils::unitTest()
 {
 	conPrint("MatUtils::unitTest()");
 
 	
+	// Test refraction from n_a = 1 to n_b = 1.5 with shading normal pointing up
+	{
+		float n_a = 1;
+		float n_b = 1.5f;
+
+		Vec4f n_s(0,0,1,0);
+
+		float theta_a = NICKMATHS_PIf / 4;
+
+		// theta_b should be 0.4908826782893113
+		// so b should be (-sin(theta_b), 0, -cos(theta_b)) = (-0.4714045207910316, 0, -0.8819171036881969)
+
+		Vec4f incident_raydir(-sin(theta_a), 0, -cos(theta_a), 0);
+		Vec4f b;
+		bool totally_internally_reflected;
+		MatUtils::refractInSurface(
+			n_s,
+			incident_raydir,
+			n_a,
+			n_b,
+			b,
+			totally_internally_reflected
+		);
+
+		testAssert(!totally_internally_reflected);
+		testAssert(epsEqual(b, Vec4f(-0.4714045207910316f, 0, -0.8819171036881969f, 0)));
+	}
+
+	// Test refraction from n_a = 1 to n_b = 1.5 with shading normal pointing down
+	{
+		float n_a = 1;
+		float n_b = 1.5f;
+
+		Vec4f n_s(0,0,-1,0);
+
+		float theta_a = NICKMATHS_PIf / 4;
+
+		// theta_b should be 0.4908826782893113
+		// so b should be (-sin(theta_b), 0, -cos(theta_b)) = (-0.4714045207910316, 0, -0.8819171036881969)
+
+		Vec4f incident_raydir(-sin(theta_a), 0, -cos(theta_a), 0);
+		Vec4f b;
+		bool totally_internally_reflected;
+		MatUtils::refractInSurface(
+			n_s,
+			incident_raydir,
+			n_a,
+			n_b,
+			b,
+			totally_internally_reflected
+		);
+
+		testAssert(!totally_internally_reflected);
+		testAssert(epsEqual(b, Vec4f(-0.4714045207910316f, 0, -0.8819171036881969f, 0)));
+	}
+
+
 			
 
 
-	{
+	/*{
 		std::ofstream f("c:/temp/fresnel.txt");
 
 		const float n = 1.5f;
@@ -331,7 +398,7 @@ void MatUtils::unitTest()
 
 			f << theta << " " << F.x << " " << F.y << " " << (0.5f * (F.x + F.y)) << "\n";
 		}
-	}
+	}*/
 
 	/*{
 		std::ofstream f("c:/temp/fresnel_approx.txt");
@@ -358,8 +425,8 @@ void MatUtils::unitTest()
 
 			const float R2 = MatUtils::dielectricFresnelReflectance(1.0f, 1.5f, std::cos(theta));
 
-			printVar(R);
-			printVar(R2);
+			//printVar(R);
+			//printVar(R2);
 			testAssert(epsEqual(R, R2));
 		}
 	}
@@ -370,7 +437,7 @@ void MatUtils::unitTest()
 
 
 
-	double r;
+	/*double r;
 	double n1 = 1.0f;
 	double n2 = 1.5f;
 	r = dielectricFresnelReflectance<double>(n1, n2, 1.0f);
@@ -394,11 +461,11 @@ void MatUtils::unitTest()
 	r = dielectricFresnelReflectance<double>(n1, n2, 0.1f);
 	r = dielectricFresnelReflectance<double>(n1, n2, 0.05f);
 	r = dielectricFresnelReflectance<double>(n1, n2, 0.01f);
-	r = dielectricFresnelReflectance<double>(n1, n2, 0.0f);
+	r = dielectricFresnelReflectance<double>(n1, n2, 0.0f);*/
 
 
-	n1 = 1.0f;
-	n2 = 1.5f;
+	double n1 = 1.0;
+	double n2 = 1.5;
 	Vec3d normal(0,0,1);
 	Vec3d out;
 	bool tir;
@@ -484,4 +551,6 @@ void MatUtils::unitTest()
 	right = n2 * sin(outangle);
 	assert(::epsEqual(left, right));*/
 }
+
+
 #endif
