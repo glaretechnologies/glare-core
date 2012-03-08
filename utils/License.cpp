@@ -593,7 +593,16 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 			return false;
 
 		std::string sigfile_contents;
-		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
+		// NOTE: if we fail to read the file here (e.g. if it is opened in another thread), then we don't want to throw an exception (which can terminate the render),
+		// but just return false, which allows for the licence to be re-checked in a couple of seconds.
+		try
+		{
+			FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
+		}
+		catch(FileUtils::FileUtilsExcep& )
+		{
+			return false;
+		}
 
 		if(sigfile_contents.empty())
 			return false;
