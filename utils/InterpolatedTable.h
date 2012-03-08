@@ -31,14 +31,21 @@ public:
 
 	InterpolatedTable(
 		const Array2d<Real>& data, 
-		Real start_wavelen_m, Real end_wavelen_m,
+		Real start_x, Real end_x,
 		Real start_y, Real end_y
 	);
 	~InterpolatedTable();
 
+	Real getValue(Real wavelength, Real y) const;
 	void getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const;
 
 
+	const Array2d<Real>& getData() const { return data; }
+
+	Real getStartX() const { return start_x; }
+	Real getEndX() const { return end_x; }
+
+	static void test();
 
 private:
 	Real start_x;
