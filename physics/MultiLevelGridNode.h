@@ -1,7 +1,10 @@
 #pragma once
 
 
-const int MLG_RES = 2;
+#include "../utils/platform.h"
+
+
+const int MLG_RES = 4;
 
 
 class MultiLevelGridNode
@@ -11,8 +14,8 @@ public:
 	~MultiLevelGridNode();
 
 	/*
-		0 = interior
-		1 = empty leaf
+		0 = empty leaf
+		1 = interior
 		2 = leaf containing >= 1 object.
 	*/
 	inline bool cellIsInterior(int i, int j, int k) const;
@@ -23,6 +26,8 @@ public:
 	//unsigned int type;
 	//unsigned int child_index;
 
+	inline void markCellAsInterior(int i, int j, int k);
+
 	inline int cellChildIndex(int i, int j, int k) const;
 
 	inline void setCellChildIndex(int i, int j, int k, int index)
@@ -30,13 +35,14 @@ public:
 		cells[i*16 + j*4 + k] = index;
 	}
 
+	uint32 base_child_index;
 	int cells[MLG_RES * MLG_RES * MLG_RES];
 };
 
 
 bool MultiLevelGridNode::cellIsInterior(int i, int j, int k) const
 {
-	return cells[i*16 + j*4 + k] >= 1;
+	return cells[i*16 + j*4 + k] == 1;
 }
 
 
