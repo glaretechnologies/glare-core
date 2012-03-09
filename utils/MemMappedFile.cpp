@@ -9,6 +9,7 @@ Generated at 2011-09-05 15:48:02 +0100
 
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
+#include "../utils/platformutils.h"
 
 
 #if defined(_WIN32)
@@ -39,7 +40,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	this->file_handle = CreateFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
 		GENERIC_READ,
-		0, // share mode
+		FILE_SHARE_READ, // share mode - Use FILE_SHARE_READ so that other processes can read the file as well.
 		NULL, // security attributes
 		OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL,
@@ -47,7 +48,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw Indigo::Exception("CreateFile failed.");
+		throw Indigo::Exception("CreateFile failed: " + PlatformUtils::getLastErrorString());
 
 	this->file_mapping_handle = CreateFileMapping(
 		file_handle,
@@ -59,7 +60,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_mapping_handle == NULL)
-		throw Indigo::Exception("CreateFileMapping failed.");
+		throw Indigo::Exception("CreateFileMapping failed: "  + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;
@@ -68,7 +69,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		&file_size_li
 	);
 	if(!res)
-		throw Indigo::Exception("GetFileSizeEx failed.");
+		throw Indigo::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
 
 	// If we are compiling in 32-bit mode, and the file is more than 2^32 bytes long, then fail.
 	// NOTE: boolean expression broken into 2 if statements to silence VS static analysis.
@@ -88,7 +89,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_data == NULL)
-		throw Indigo::Exception("MapViewOfFile failed.");
+		throw Indigo::Exception("MapViewOfFile failed: " + PlatformUtils::getLastErrorString());
 }
 
 
@@ -167,6 +168,18 @@ void MemMappedFile::test()
 			conPrint(std::string(1, ((char*)file.fileData())[i]));
 		}
 
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try opening the same file twice
+	try
+	{
+		MemMappedFile file1(pathname);
+
+		MemMappedFile file2(pathname);
 	}
 	catch(Indigo::Exception& e)
 	{

@@ -598,9 +598,9 @@ void readEntireFile(const std::string& pathname,
 		if(file.fileSize() > 0)
 			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 	}
-	catch(Indigo::Exception& )
+	catch(Indigo::Exception& e)
 	{
-		throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
 }
 
@@ -615,9 +615,9 @@ void readEntireFile(const std::string& pathname,
 		if(file.fileSize() > 0)
 			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 	}
-	catch(Indigo::Exception& )
+	catch(Indigo::Exception& e)
 	{
-		throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
 }
 
