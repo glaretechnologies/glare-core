@@ -55,6 +55,13 @@ const std::string Vec3<double>::toString() const
 }
 
 
+template <>
+const std::string Vec3<int>::toString() const
+{
+	return "(" + ::toString(x) + "," + ::toString(y) + "," + ::toString(z) + ")";
+}
+
+
 template <class Real>
 const std::string Vec3<Real>::toStringFullPrecision() const
 {
