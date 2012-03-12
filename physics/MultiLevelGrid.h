@@ -35,7 +35,7 @@ template <class CellTest, class Result>
 class MultiLevelGrid
 {
 public:
-	inline MultiLevelGrid(const Vec4f& min, const Vec4f& max, CellTest& cell_test_);
+	inline MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_);
 	inline ~MultiLevelGrid();
 
 	inline void trace(const Ray& ray, float t_max, Result& result_out);
@@ -62,7 +62,7 @@ typedef Vec3<int> Vec3i;
 
 
 template <class CellTest, class Result>
-MultiLevelGrid<CellTest, Result>::MultiLevelGrid(const Vec4f& min, const Vec4f& max, CellTest& cell_test_)
+MultiLevelGrid<CellTest, Result>::MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_)
 :	cell_test(cell_test_)
 {
 	//grid_orig = min;
@@ -419,7 +419,7 @@ void MultiLevelGrid<CellTest, Result>::build(const std::vector<js::AABBox>& prim
 	for(size_t i=0; i<primitive_aabbs.size(); ++i)
 		primitives[i] = (uint32)i;
 
-	nodes.push_back();
+	nodes.push_back(MultiLevelGridNode());
 	doBuild(primitive_aabbs, 
 		0, // node index
 		aabb.min_, 
