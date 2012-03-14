@@ -17,6 +17,42 @@ namespace js
 {
 
 
+template <typename real>
+static inline bool rayTriScalar(const Vec3<real>& v0, const Vec3<real>& e1, const Vec3<real>& e2,
+								const Vec3<real>& ray_orig, const Vec3<real>& ray_dir,
+								const real t_min,
+								real& dist_out, real& u_out, real& v_out)
+{
+	const Vec3<real> pvec = crossProduct(ray_dir, e2);
+
+	const real det = dot(e1, pvec);
+	const real inv_det = 1 / det;
+
+	const Vec3<real> tvec = ray_orig - v0;
+
+	const real u = dot(tvec, pvec) * inv_det;
+	if(u < 0 || u > 1)
+		return false;
+
+	const Vec3<real> qvec = crossProduct(tvec, e1);
+
+	const real v = dot(ray_dir, qvec) * inv_det;
+	if(v < 0 || (u + v) > 1)
+		return false;
+
+	const real t = dot(e2, qvec) * inv_det;
+
+	if(t < t_min)// || t >= ray.far)
+		return false;
+
+	dist_out = t;
+	u_out = u;
+	v_out = v;
+
+	return true;
+}
+
+
 /*=====================================================================
 MollerTrumboreTri
 -----------------
