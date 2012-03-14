@@ -30,7 +30,7 @@ namespace GeometrySampling
 
 	///// Sphere  /////
 
-	template <class Real> inline const Vec3<Real> uniformlySampleSphere(const SamplePair& unit_samples); // Returns point on surface of sphere with radius 1
+	template <class Real> inline const Vec3<Real> uniformlySampleSphere(const Vec2<Real>& unit_samples); // Returns point on surface of sphere with radius 1
 	inline const Vec4f uniformlySampleSphere(const Vec2f& unitsamples); // Returns point on surface of sphere with radius 1
 	template <class Real> inline Real spherePDF();
 
@@ -162,8 +162,8 @@ template <class Real> const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& d
 
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	return Vec2<Real>(
-		atan2(dir.y, dir.x), // phi
-		acos(myClamp(dir.z * recip_dir_length, (Real)-1.0, (Real)1.0)) // theta
+		std::atan2(dir.y, dir.x), // phi
+		std::acos(myClamp(dir.z * recip_dir_length, (Real)-1.0, (Real)1.0)) // theta
 		);
 }
 
@@ -210,7 +210,7 @@ const Vec4f sphericalToCartesianCoords(float phi, float cos_theta, const Matrix4
 }
 
 
-template <class Real> const Vec3<Real> uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
+template <class Real> const Vec3<Real> uniformlySampleSphere(const Vec2<Real>& unitsamples) // returns point on surface of sphere with radius 1
 {
 	const Real z = (Real)-1.0 + unitsamples.x * (Real)2.0;
 	const Real theta = unitsamples.y * (Real)NICKMATHS_2PI;
