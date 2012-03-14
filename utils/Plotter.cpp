@@ -31,7 +31,8 @@ void Plotter::plot(
 		const std::string& title,
 		const std::string& x_label,
 		const std::string& y_label,
-		const std::vector<DataSet>& data
+		const std::vector<DataSet>& data,
+		PlotOptions options
 		)
 {
 	const std::string temp_dir = StringUtils::replaceCharacter(PlatformUtils::getTempDirPath(), '\\', '/'); // Gnuplot needs forwards slashes
@@ -62,6 +63,10 @@ void Plotter::plot(
 		f << "set ylabel \"" + y_label + "\"\n";
 		f << "set title \"" + title + "\"\n";
 		//f << "set encoding iso_8859_1\n"
+		if(options.x_axis_log)
+			f << "set logscale x\n";
+		if(options.y_axis_log)
+			f << "set logscale y\n";
 		f << "plot ";
 		for(unsigned int i=0; i<data.size(); ++i)
 			f << "\"" + temp_data_path + ::toString(i) + ".txt" + "\" using 1:2 title \"" + data[i].key + "\" " + (i < data.size() - 1 ? "," : "");

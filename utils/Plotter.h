@@ -40,19 +40,22 @@ public:
 		std::vector<Vec2f> points;
 	};
 
+	struct PlotOptions
+	{
+		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false) {}
+		int w, h;
+		bool x_axis_log;
+		bool y_axis_log;
+	};
+
 	static void plot(
 		const std::string& path,
 		const std::string& title,
 		const std::string& x_label,
 		const std::string& y_label,
-		const std::vector<DataSet>& data
+		const std::vector<DataSet>& data,
+		PlotOptions options = PlotOptions()
 		);
-
-	struct PlotOptions
-	{
-		PlotOptions() : w(1000), h(800) {}
-		int w, h;
-	};
 
 	// throws Indigo::Exception on failure.
 	static void plot3D(
