@@ -54,7 +54,7 @@ void Plotter::plot(
 	{
 		std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_path).c_str());
 
-		f << "set terminal png size 1000,800\n";
+		f << "set terminal png size " + toString(options.w) + "," + toString(options.h) + "\n";
 		f << "set output \"" + path + "\"\n";
 		f << "set style data lines\n";
 		f << "set grid linetype rgb \"blue\"  lw 0.4\n";
