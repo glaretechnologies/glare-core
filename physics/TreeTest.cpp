@@ -101,7 +101,8 @@ void TreeTest::testBuildCorrect()
 		);
 
 	{
-	const Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0)
+	const Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0),
+		1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 		, Vec4f(0,1,0,0)
 #endif
@@ -113,7 +114,8 @@ void TreeTest::testBuildCorrect()
 	}
 
 	{
-	const Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0)
+	const Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0),
+		1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 		, Vec4f(0,1,0,0)
 #endif
@@ -345,7 +347,8 @@ static void testSelfIntersectionAvoidance()
 
 	// Start a ray on one quad, trace to the other quad.
 	{
-		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
+		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -489,7 +492,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 
 		const Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
-			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0))
+			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0)),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -917,7 +921,8 @@ void TreeTest::doSpeedTest(int treetype)
 		rayorigin.pointToVec4f(rayorigin_f);
 		normalise(rayend - rayorigin).vectorToVec4f(dir_f);
 
-		const Ray ray(rayorigin_f, dir_f
+		const Ray ray(rayorigin_f, dir_f,
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, dir_f
 #endif

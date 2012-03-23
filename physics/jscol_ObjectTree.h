@@ -47,7 +47,7 @@ public:
 
 
 	void insertObject(INTERSECTABLE_TYPE* intersectable);
-	void build(PrintOutput& print_output);
+	void build(PrintOutput& print_output, bool verbose);
 
 	//js::ObjectTreePerThreadData* allocContext() const;
 

@@ -40,7 +40,7 @@ public:
 		const __m128 inv_dir = ray.getRecipRayDirF().v;
 
 		//const float use_min_t = ray.startPosF().length() * TREE_EPSILON_FACTOR;
-		const float use_min_t = ray.origin_error;
+		const float use_min_t = ray.minT();
 
 		/*
 		// Test against root AABB

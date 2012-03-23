@@ -54,7 +54,8 @@ void test()
 
 		Ray ray(
 			Vec4f(0, 1.f/8.f, 1.f/8.f, 1),
-			Vec4f(1, 0, 0, 0)
+			Vec4f(1, 0, 0, 0),
+			0 // min_t
 		);
 		float max_t = 1;
 
@@ -78,7 +79,8 @@ void test()
 
 		Ray ray(
 			Vec4f(0, 0, 1.f/8.f, 1),
-			normalise(Vec4f(1, 3.f/8.f, 0, 0))
+			normalise(Vec4f(1, 3.f/8.f, 0, 0)),
+			0 // min_t
 		);
 		float max_t = 1;
 
@@ -103,7 +105,8 @@ void test()
 
 		Ray ray(
 			Vec4f(11.f/8.f, 11.f/8.f, 9.f/8.f, 1),
-			Vec4f(1, 0, 0, 0)
+			Vec4f(1, 0, 0, 0),
+			0 // min_t
 		);
 		float max_t = 1;
 
@@ -129,7 +132,8 @@ void test()
 
 		Ray ray(
 			Vec4f(1, 1 + 0.15625f, 1 + 0.0001f, 1),
-			Vec4f(1, 0, 0, 0)
+			Vec4f(1, 0, 0, 0),
+			0 // min_t
 		);
 		float max_t = 1;
 
@@ -162,7 +166,8 @@ void test()
 
 		Ray ray(
 			Vec4f(0, 9.5f / 64, 0.0001f, 1),
-			Vec4f(1, 0, 0, 0)
+			Vec4f(1, 0, 0, 0),
+			0 // min_t
 		);
 		float max_t = 1;
 

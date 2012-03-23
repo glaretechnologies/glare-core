@@ -180,7 +180,7 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 	//assert(ray.minT() >= 0.0f);
 	assert(ray_max_t >= 0.0f);
 
-	const DistType epsilon = ray.origin_error;
+	const DistType epsilon = ray.minT();
 	//const DistType epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
@@ -314,7 +314,7 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);
 
 				float u, v;//, raydist;
-				double raydist;
+				MollerTrumboreTri::riReal raydist;
 				if(intersect_tris[triangle_index].rayIntersectReal(
 					ray,
 					//use_min_t, // ray t min
@@ -360,7 +360,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 	assert(ray_max_t >= 0.0);
 
 	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-	const DistType epsilon = ray.origin_error;
+	const DistType epsilon = ray.minT();
 
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
@@ -486,7 +486,7 @@ bool KDTree::doesFiniteRayHit(const ::Ray& ray, Real ray_max_t, ThreadContext& t
 				//_mm_prefetch((const char *)((const char *)leaftri + sizeof(js::Triangle)*(triindex + 1)), _MM_HINT_T0);
 
 				float u, v;//, raydist;
-				double raydist;
+				MollerTrumboreTri::riReal raydist;
 				if(intersect_tris[triangle_index].rayIntersectReal(
 					ray,
 					//use_min_t, // ray_t_min
@@ -522,7 +522,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 	assert(!nodes.empty());
 
 	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-	const DistType epsilon = ray.origin_error;
+	const DistType epsilon = ray.minT();
 
 	js::TriTreePerThreadData& context = thread_context.getTreeContext();
 
@@ -644,7 +644,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 			{
 			#endif
 				float u, v;//, raydist;
-				double raydist;
+				MollerTrumboreTri::riReal raydist;
 				if(intersect_tris[leafgeom[triindex]].rayIntersectReal(
 					ray, 
 					//use_min_t, // ray_t_min
@@ -1058,14 +1058,14 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 	hitinfo_out.sub_elem_coords.set(0.f, 0.f);
 
 	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-	const DistType epsilon = ray.origin_error;
+	const DistType epsilon = ray.minT();
 
 	Real closest_dist = std::numeric_limits<Real>::max(); //2e9f;//closest hit so far, also upper bound on hit dist
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
 		float u, v;//, raydist;
-		double raydist;
+		MollerTrumboreTri::riReal raydist;
 		//raydist is distance until hit if hit occurred
 
 		if(intersect_tris[i].rayIntersectReal(ray, 
@@ -1090,12 +1090,12 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	//const double epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-	const DistType epsilon = ray.origin_error;
+	const DistType epsilon = ray.minT();
 
 	for(unsigned int i=0; i<num_intersect_tris; ++i)
 	{
 		float u, v;//, raydist;
-		double raydist;
+		MollerTrumboreTri::riReal raydist;
 		//raydist is distance until hit if hit occurred
 
 		if(intersect_tris[i].rayIntersectReal(ray, 

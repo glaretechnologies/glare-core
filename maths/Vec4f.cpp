@@ -13,7 +13,8 @@ Code By Nicholas Chapman.
 
 const std::string Vec4f::toString() const
 {
-	return "(" + ::toString(x[0]) + "," + ::toString(x[1]) + "," + ::toString(x[2]) + "," + ::toString(x[3]) + ")";
+	//return "(" + ::toString(x[0]) + "," + ::toString(x[1]) + "," + ::toString(x[2]) + "," + ::toString(x[3]) + ")";
+	return "(" + ::doubleToStringScientific(x[0], 7) + "," + ::doubleToStringScientific(x[1], 7) + "," + ::doubleToStringScientific(x[2], 7) + "," + ::toString(x[3]) + ")";
 }
 
 

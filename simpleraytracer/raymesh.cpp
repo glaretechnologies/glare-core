@@ -194,7 +194,7 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 }
 
 
-void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out) const
+void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const
 {
 	// Set N_g_os_out
 	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
@@ -206,9 +206,16 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	N_g_os_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+	N_g_os_out.set((e0.y * e1.z - e0.z * e1.y)/* * tri.inv_cross_magnitude*/,
+				   (e0.z * e1.x - e0.x * e1.z)/* * tri.inv_cross_magnitude*/,
+				   (e0.x * e1.y - e0.y * e1.x)/* * tri.inv_cross_magnitude*/, 0);
+
+	// As e0 and e1 precision can suffer from catastrophic cancellation, N_g_os_out can be quite imprecise, particularly for long, skinny triangles.
+	// As a result the length sometimes differs significantly from one.
+	// So normalise it.
+	N_g_os_out = normalise(N_g_os_out);
+
+	
 
 	// Set N_s_os_out
 	//if(!this->enable_normal_smoothing)
@@ -242,6 +249,34 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		v0.pos.z * w + v1.pos.z * hitinfo.sub_elem_coords.x + v2.pos.z * hitinfo.sub_elem_coords.y,
 		1.f
 	);
+
+	// Compute absolute error in pos_os.
+	float u = hitinfo.sub_elem_coords.x;
+	float v = hitinfo.sub_elem_coords.y;
+	// NOTE: assume delta_u = delta_v = delta_m.
+	//float delta_u = std::numeric_limits<float>::epsilon(); // Relative error in u
+	//float delta_v = std::numeric_limits<float>::epsilon(); // Relative error in v
+	float del_m = std::numeric_limits<float>::epsilon(); // Machine epsilon
+	float v0_norm = v0.pos.length(); // NOTE: can use length() directly because these are Vec3fs.
+	float v1_norm = v1.pos.length();
+	float v2_norm = v2.pos.length();
+	float pos_os_norm = pos_os_out.getDist(Vec4f(0,0,0,1));
+
+	// Do the absolute error computation
+	/*float eps = ((u * (2*del_m + delta_u) + v * (2*del_m + delta_v)) * v0_norm) + 
+		((del_m + delta_u) * u * v1_norm) + 
+		((del_m + delta_v) * v * v2_norm) +
+		pos_os_norm * del_m + 
+		del_m;*/
+
+	// This expression comes from a Sage worksheet.
+	float a = v0_norm;
+	float b = v1_norm;
+	float c = v2_norm;
+	float eps = ((3*a + 4*c)*v + (3*a + 4*b)*u + 4*a)*del_m;
+
+	// Convert to relative error.
+	pos_os_rel_error_out = eps / pos_os_norm;
 }
 
 

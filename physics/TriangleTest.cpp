@@ -53,7 +53,7 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 {
 	//const float min_t = 0.0f;
 	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-	const float epsilon = ray.origin_error;
+	const float epsilon = ray.minT();
 
 	UnionVec4 u, v, t, hit;
 	MollerTrumboreTri::intersectTris(&ray,
@@ -108,7 +108,8 @@ static void testTriangleIntersection()
 
 		const Ray ray(
 			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
-			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
+			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f)),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
 #endif
@@ -160,7 +161,8 @@ void testBadouelTriIntersection()
 
 		const Ray ray(
 			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),1),
-			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0))
+			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0)),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0))
 #endif
@@ -178,7 +180,7 @@ void testBadouelTriIntersection()
 void TriangleTest::doTests()
 {
 
-
+#if 0
 	// Test self intersection avoidance
 	{
 		MollerTrumboreTri t;
@@ -191,14 +193,15 @@ void TriangleTest::doTests()
 		{
 		const Ray ray(
 			Vec4f(0.1f, 0.1f, -0.00001f, 1.f), // startpos
-			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)) // dir
+			normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f)), // dir
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			,Vec4f(0,0,1, 0.f) // launch normal
 #endif
 		);
 
 		//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
-		const float epsilon = ray.origin_error;
+		const float epsilon = ray.min_t;
 
 		float dist, u, v;
 		const unsigned int hit = t.rayIntersect(ray, 10000.0f, epsilon, dist, u, v);
@@ -227,6 +230,7 @@ void TriangleTest::doTests()
 		}*/
 
 	}
+#endif
 
 	testTriangleIntersection();
 	testBadouelTriIntersection();

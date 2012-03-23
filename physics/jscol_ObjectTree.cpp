@@ -419,10 +419,13 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 }
 
 
-void ObjectTree::build(PrintOutput& print_output)
+void ObjectTree::build(PrintOutput& print_output, bool verbose)
 {
-	print_output.print("Building Object Tree...");
-	print_output.print("\t" + ::toString((int)objects.size()) + " objects.");
+	if(verbose)
+	{
+		print_output.print("Building Object Tree...");
+		print_output.print("\t" + ::toString((int)objects.size()) + " objects.");
+	}
 
 	if(objects.size() == 0)
 	{
@@ -433,7 +436,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	//------------------------------------------------------------------------
 	//calc root node's aabbox
 	//------------------------------------------------------------------------
-	print_output.print("\tcalcing root AABB.");
+	if(verbose) print_output.print("\tcalcing root AABB.");
 	{
 
 	root_aabb = objects[0]->getAABBoxWS();
@@ -442,7 +445,7 @@ void ObjectTree::build(PrintOutput& print_output)
 		root_aabb.enlargeToHoldAABBox(objects[i]->getAABBoxWS());
 	}
 
-	print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
+	if(verbose) print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
 						"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")");
 
 	assert(root_aabb.invariant());
@@ -453,7 +456,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	const int numtris = (int)objects.size();
 	max_depth = (int)(2.0 + logBase2((double)numtris) * 2.0);
 
-	print_output.print("\tmax tree depth: " + ::toString(max_depth));
+	if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
 	// Alloc stack vector
 	nodestack_size = max_depth + 1;
@@ -462,7 +465,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	const int expected_numnodes = (int)((float)numtris * 1.0);
 	const int nodemem = expected_numnodes * sizeof(js::ObjectTreeNode);
 
-	print_output.print("\treserving N nodes: " + ::toString(expected_numnodes) + "("
+	if(verbose) print_output.print("\treserving N nodes: " + ::toString(expected_numnodes) + "("
 		+ ::getNiceByteSize(nodemem) + ")");
 
 	//------------------------------------------------------------------------
@@ -486,10 +489,10 @@ void ObjectTree::build(PrintOutput& print_output)
 	const uint64 numnodes = nodes.size();
 	const uint64 leafgeomsize = leafgeom.size();
 
-	print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" +
+	if(verbose) print_output.print("\ttotal nodes used: " + ::toString(numnodes) + " (" +
 		::getNiceByteSize((int)numnodes * sizeof(js::ObjectTreeNode)) + ")");
 
-	print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" +
+	if(verbose) print_output.print("\ttotal leafgeom size: " + ::toString(leafgeomsize) + " (" +
 		::getNiceByteSize((int)leafgeomsize * sizeof(INTERSECTABLE_TYPE*)) + ")");
 
 	/*ObjectTreeStats stats;
@@ -508,7 +511,7 @@ void ObjectTree::build(PrintOutput& print_output)
 	print_output.print("\tnum_maxdepth_leafs: " + toString(stats.num_maxdepth_leafs));
 	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));*/
 
-	print_output.print("Finished building tree.");
+	if(verbose) print_output.print("Finished building tree.");
 }
 
 class SortedBoundInfoLowerPred

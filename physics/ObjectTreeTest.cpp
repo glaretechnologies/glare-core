@@ -122,7 +122,9 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		ob_tree.insertObject(ob2);
 	}
 
-	ob_tree.build(print_output);
+	ob_tree.build(print_output, 
+		false // verbose
+	);
 
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
@@ -131,7 +133,8 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	{
 		Ray ray(
 			Vec4f(0.0f, 0.25f, 0.1f, 1.0f), // start position
-			Vec4f(1.0f, 0.0f, 0.0f, 0.0f) // dir
+			Vec4f(1.0f, 0.0f, 0.0f, 0.0f), // dir
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -244,7 +247,9 @@ void ObjectTreeTest::doTests()
 
 		objects.push_back(ob);
 	}
-	ob_tree.build(print_output);
+	ob_tree.build(print_output,
+		false // verbose
+	);
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -262,7 +267,8 @@ void ObjectTreeTest::doTests()
 	{
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) - Vec4f(0.2f, 0.2f, 0.2f, 0)) * 1.4f,
-			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0)))
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -493,7 +499,9 @@ void ObjectTreeTest::doSpeedTest()
 		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time);
 		ob_tree.insertObject(ob);
 	}
-	ob_tree.build(print_output);
+	ob_tree.build(print_output,
+		false // verbose
+	);
 
 	//ob_tree.printTree(0, 0, std::cout);
 	ObjectTreeStats stats;
@@ -513,7 +521,8 @@ void ObjectTreeTest::doSpeedTest()
 	{
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
-			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0)))
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -543,7 +552,8 @@ void ObjectTreeTest::doSpeedTest()
 	{
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
-			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0)))
+			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
@@ -635,7 +645,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//compile tree
 	//------------------------------------------------------------------------
-	ob_tree.build(print_output);
+	ob_tree.build(print_output,
+		false // verbose
+	);
 
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
@@ -662,7 +674,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 		const Ray ray(
 			start,
-			normalise(end - start)
+			normalise(end - start),
+			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
 #endif
