@@ -45,8 +45,9 @@ public:
 	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	
-	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
+	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
+	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const;
 	const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
 	virtual unsigned int getNumUVCoordSets() const;
@@ -65,7 +66,7 @@ public:
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
-	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
+	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
 	static double rayMinT(double radius) { return 0.0001f/*0.0003f*//*0.00005f*/ * radius; }

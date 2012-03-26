@@ -129,7 +129,7 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& th
 }
 
 
-const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
+/*const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	//if(!this->enable_normal_smoothing)
 	if(this->triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
@@ -170,7 +170,7 @@ const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 		v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y,
 		0.f
 		);
-}
+}*/
 
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
@@ -191,6 +191,59 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 	return RayMesh::Vec3Type((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
 							 (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
 							 (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+}
+
+
+void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
+{
+	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	const Vec3f e0(v1.pos - v0.pos);
+	const Vec3f e1(v2.pos - v0.pos);
+	N_g_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+
+
+	// Compute pos_os_out and pos_os_rel_error_out
+	const Vec3RealType w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	pos_os_out = Vec3Type(
+		v0.pos.x * w + v1.pos.x * hitinfo.sub_elem_coords.x + v2.pos.x * hitinfo.sub_elem_coords.y,
+		v0.pos.y * w + v1.pos.y * hitinfo.sub_elem_coords.x + v2.pos.y * hitinfo.sub_elem_coords.y,
+		v0.pos.z * w + v1.pos.z * hitinfo.sub_elem_coords.x + v2.pos.z * hitinfo.sub_elem_coords.y,
+		1.f
+	);
+
+	// Compute absolute error in pos_os.
+	float u = hitinfo.sub_elem_coords.x;
+	float v = hitinfo.sub_elem_coords.y;
+	// NOTE: assume delta_u = delta_v = delta_m.
+	//float delta_u = std::numeric_limits<float>::epsilon(); // Relative error in u
+	//float delta_v = std::numeric_limits<float>::epsilon(); // Relative error in v
+	float del_m = std::numeric_limits<float>::epsilon(); // Machine epsilon
+	float v0_norm = v0.pos.length(); // NOTE: can use length() directly because these are Vec3fs.
+	float v1_norm = v1.pos.length();
+	float v2_norm = v2.pos.length();
+	float pos_os_norm = pos_os_out.getDist(Vec4f(0,0,0,1));
+
+	// Do the absolute error computation
+	/*float eps = ((u * (2*del_m + delta_u) + v * (2*del_m + delta_v)) * v0_norm) + 
+		((del_m + delta_u) * u * v1_norm) + 
+		((del_m + delta_v) * v * v2_norm) +
+		pos_os_norm * del_m + 
+		del_m;*/
+
+	// This expression comes from a Sage worksheet.
+	float a = v0_norm;
+	float b = v1_norm;
+	float c = v2_norm;
+	float eps = ((3*a + 4*c)*v + (3*a + 4*b)*u + 4*a)*del_m;
+
+	// Convert to relative error.
+	pos_os_rel_error_out = eps / pos_os_norm;
+
 }
 
 
@@ -1409,7 +1462,7 @@ RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 }
 
 
-const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) const
+/*const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) const
 {
 	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
@@ -1424,4 +1477,4 @@ const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) cons
 		v0.z * w + v1.z * hitinfo.sub_elem_coords.x + v2.z * hitinfo.sub_elem_coords.y,
 		1.f
 	);
-}
+}*/

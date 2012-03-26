@@ -604,10 +604,18 @@ bool Camera::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thr
 const std::string Camera::getName() const { return "Camera"; }
 
 
-const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
+// const Camera::Vec3Type Camera::getShadingNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
 
 
 const Camera::Vec3Type Camera::getGeometricNormal(const HitInfo& hitinfo) const { return FORWARDS_OS; }
+
+
+void Camera::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_os_out) const
+{
+	N_g_os_out = FORWARDS_OS;
+	pos_os_out = Vec3Type(0,0,0,1);
+	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
+}
 
 
 void Camera::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_error_out) const
@@ -901,11 +909,11 @@ Camera::Vec3RealType Camera::getBoundingRadius() const
 }
 
 
-const Camera::Vec3Type Camera::positionForHitInfo(const HitInfo& hitinfo) const
+/*const Camera::Vec3Type Camera::positionForHitInfo(const HitInfo& hitinfo) const
 {
 	::fatalError("Camera::positionForHitInfo");
 	return Vec3Type(0,0,0,1);
-}
+}*/
 
 
 void Camera::setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir)

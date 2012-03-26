@@ -87,13 +87,15 @@ public:
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
-	virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const = 0;
+	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
 	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
 	virtual unsigned int getNumUVCoordSets() const = 0;
 	
+
+	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const = 0;
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const = 0;
 	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' alpha and beta.
@@ -129,7 +131,7 @@ public:
 
 	virtual Vec3RealType getBoundingRadius() const = 0;
 
-	virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const = 0;
+	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo, Real& pos_os_rel_error_out) const = 0;
 
 	virtual Real positionForInstrinsicCoordsJacobian(unsigned int sub_elem_index) const { return 1; }
 

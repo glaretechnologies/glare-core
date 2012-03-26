@@ -164,14 +164,15 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& 
 }
 
 
-const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const
+/*const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const
 {
 	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
 
 	//return (point - centerpos) * recip_radius;
 
-	return getGeometricNormal(hitinfo);
-}
+	//return getGeometricNormal(hitinfo);
+	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
+}*/
 
 
 const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
@@ -185,6 +186,14 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 }
 
 
+void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_os_out) const
+{
+	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
+	pos_os_out = Vec3Type(0,0,0,1) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
+	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
+}
+
+
 void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
@@ -195,10 +204,10 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 }
 
 
-const RaySphere::Vec3Type RaySphere::positionForHitInfo(const HitInfo& hitinfo) const
+/*const RaySphere::Vec3Type RaySphere::positionForHitInfo(const HitInfo& hitinfo) const
 {
 	return Vec3Type(0,0,0,1.f) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
-}
+}*/
 
 
 //TODO: test
@@ -426,10 +435,21 @@ void RaySphere::test()
 	//testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
 
 	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
+	//testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
 
 	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
-	testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
+	//testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
+
+	Vec3Type pos, N_g;
+	Vec3RealType pos_error;
+	sphere.getPosAndGeomNormal(hitinfos[0], pos, pos_error, N_g);
+
+	testAssert(epsEqual(N_g, Vec3Type(-1,0,0,0)));
+
+
+	sphere.getPosAndGeomNormal(hitinfos[1], pos, pos_error, N_g);
+
+	testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
 
 
 	//------------------------------------------------------------------------
