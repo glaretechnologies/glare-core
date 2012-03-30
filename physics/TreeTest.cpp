@@ -668,7 +668,7 @@ static void cornellBoxTest()
 }
 
 
-void TreeTest::doTests()
+void TreeTest::doTests(const std::string& appdata_path)
 {
 //	doVaryingNumtrisBuildTests();
 
@@ -678,6 +678,9 @@ void TreeTest::doTests()
 
 	conPrint("TreeTest::doTests()");
 
+	RendererSettings settings;
+	settings.cache_trees = false;
+	StandardPrintOutput print_output;
 	MTwister rng(1);
 
 	///////////////////////////////////////
@@ -712,6 +715,8 @@ void TreeTest::doTests()
 	{
 		model_loader.streamModel(MODEL_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
+
+		raymesh.build(appdata_path, settings, print_output, false);
 	}
 	catch(CSModelLoaderExcep&)
 	{
@@ -745,6 +750,8 @@ void TreeTest::doTests()
 		const unsigned int uv_indices[] = {0, 0, 0};
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
+
+	raymesh.build(appdata_path, settings, print_output, false);
 
 	testTree(rng, raymesh);
 	}
@@ -782,6 +789,8 @@ void TreeTest::doTests()
 		const unsigned int uv_indices[] = {0, 0, 0};
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
+
+	raymesh.build(appdata_path, settings, print_output, false);
 
 	testTree(rng, raymesh);
 	}

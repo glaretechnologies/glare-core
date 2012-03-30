@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __TREETEST_H_666_
 
 
-
+#include <string>
 
 
 namespace js
@@ -35,7 +35,7 @@ public:
 	~TreeTest();
 
 
-	static void doTests();
+	static void doTests(const std::string& appdata_path);
 	static void doSpeedTest(int treetype);
 	static void doVaryingNumtrisBuildTests();
 	static void buildSpeedTest();

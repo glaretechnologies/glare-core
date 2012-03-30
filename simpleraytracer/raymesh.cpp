@@ -175,6 +175,8 @@ bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& th
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
 {
+	assert(built());
+
 	//Vec4f n;
 	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
 	////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
@@ -196,15 +198,22 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 
 void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
 {
+	assert(built());
+
 	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
 	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
 	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	N_g_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+	N_g_out.set(			(e0.y * e1.z - e0.z * e1.y)/* * tri.inv_cross_magnitude*/,
+							(e0.z * e1.x - e0.x * e1.z)/* * tri.inv_cross_magnitude*/,
+							(e0.x * e1.y - e0.y * e1.x)/* * tri.inv_cross_magnitude*/, 0);
+
+	// As e0 and e1 precision can suffer from catastrophic cancellation, N_g_os_out can be quite imprecise, particularly for long, skinny triangles.
+	// As a result the length sometimes differs significantly from one.
+	// So normalise it.
+	N_g_out = normalise(N_g_out);
 
 
 	// Compute pos_os_out and pos_os_rel_error_out
@@ -249,6 +258,8 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 
 void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const
 {
+	assert(built());
+
 	// Set N_g_os_out
 	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(N_g_os_out);
 	////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(N_g_os_out);

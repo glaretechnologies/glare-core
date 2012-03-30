@@ -258,6 +258,7 @@ private:
 	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose);
 	void mergeUVs(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
+	bool built() const { return tritree != NULL; }
 
 	//inline unsigned int vertSize() const;
 	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
