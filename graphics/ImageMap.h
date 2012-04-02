@@ -311,8 +311,8 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 	const unsigned int ut = (unsigned int)u_pixels;
 	const unsigned int vt = (unsigned int)v_pixels;
 
-	//assert(ut >= 0 && ut < width);
-	//assert(vt >= 0 && vt < height);
+	assert(ut >= 0 && ut < width);
+	assert(vt >= 0 && vt < height);
 
 	const unsigned int ut_1 = (ut + 1) % width;
 	const unsigned int vt_1 = (vt + 1) % height;
