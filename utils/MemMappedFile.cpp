@@ -36,6 +36,9 @@ Generated at 2011-09-05 15:48:02 +0100
 #if defined(_WIN32)
 
 MemMappedFile::MemMappedFile(const std::string& path)
+:	file_handle(NULL),
+	file_mapping_handle(NULL),
+	file_data(NULL)
 {
 	this->file_handle = CreateFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
@@ -49,18 +52,6 @@ MemMappedFile::MemMappedFile(const std::string& path)
 
 	if(file_handle == INVALID_HANDLE_VALUE)
 		throw Indigo::Exception("CreateFile failed: " + PlatformUtils::getLastErrorString());
-
-	this->file_mapping_handle = CreateFileMapping(
-		file_handle,
-		NULL, // security attributes
-		PAGE_READONLY, // flprotect
-		0, // max size high
-		0, // max size low
-		NULL // name
-	);
-
-	if(file_mapping_handle == NULL)
-		throw Indigo::Exception("CreateFileMapping failed: "  + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;
@@ -79,30 +70,62 @@ MemMappedFile::MemMappedFile(const std::string& path)
 
 	this->file_size = (size_t)file_size_li.QuadPart;
 
+	// CreateFileMapping fails if the file size == 0.
+	// We don't want to throw an exception in this case however, as a file of size zero is perfectly valid.
+	// So don't try and map the file if it has size zero.
+	if(this->file_size > 0)
+	{
+		this->file_mapping_handle = CreateFileMapping(
+			file_handle,
+			NULL, // security attributes
+			PAGE_READONLY, // flprotect
+			0, // max size high
+			0, // max size low
+			NULL // name
+		);
 
-	this->file_data = MapViewOfFile(
-		file_mapping_handle,
-		FILE_MAP_READ,
-		0, // file offset high
-		0, // file offset low
-		file_size  // num bytes to map
-	);
+		if(file_mapping_handle == NULL)
+		{
+			const std::string error_string = PlatformUtils::getLastErrorString();
 
-	if(file_data == NULL)
-		throw Indigo::Exception("MapViewOfFile failed: " + PlatformUtils::getLastErrorString());
+			BOOL res = CloseHandle(this->file_handle);
+			assert(res);
+			throw Indigo::Exception("CreateFileMapping failed: " + error_string);
+		}
+
+		this->file_data = MapViewOfFile(
+			file_mapping_handle,
+			FILE_MAP_READ,
+			0, // file offset high
+			0, // file offset low
+			file_size  // num bytes to map
+		);
+
+		if(file_data == NULL)
+			throw Indigo::Exception("MapViewOfFile failed: " + PlatformUtils::getLastErrorString());
+	}
 }
 
 
 MemMappedFile::~MemMappedFile()
 {
-	BOOL res = UnmapViewOfFile(this->file_data);
-	assert(res);
+	if(this->file_data != NULL)
+	{
+		BOOL res = UnmapViewOfFile(this->file_data);
+		assert(res);
+	}
 
-	res = CloseHandle(this->file_mapping_handle);
-	assert(res);
+	if(this->file_mapping_handle != NULL)
+	{
+		BOOL res = CloseHandle(this->file_mapping_handle);
+		assert(res);
+	}
 
-	res = CloseHandle(this->file_handle);
-	assert(res);
+	if(this->file_handle != NULL)
+	{
+		BOOL res = CloseHandle(this->file_handle);
+		assert(res);
+	}
 }
 
 #else // if defined LINUX or OSX
@@ -153,37 +176,56 @@ MemMappedFile::~MemMappedFile()
 
 void MemMappedFile::test()
 {
-	const std::string pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
-
-	try
+	// Mem-map a file of size zero
 	{
-		MemMappedFile file(pathname);
+		const std::string pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file";
 
-		testAssert(file.fileSize() == 3033195);
-
-		conPrint("file size: " + toString((int64)file.fileSize()));
-
-		for(int i=0; i<5; ++i)
+		try
 		{
-			conPrint(std::string(1, ((char*)file.fileData())[i]));
+			MemMappedFile file(pathname);
+
+			testAssert(file.fileSize() == 0);
+			testAssert(file.fileData() == NULL);
+		}
+		catch(Indigo::Exception& e)
+		{
+			failTest(e.what());
+		}
+	}
+
+	{
+		const std::string pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
+
+		try
+		{
+			MemMappedFile file(pathname);
+
+			testAssert(file.fileSize() == 3033195);
+
+			conPrint("file size: " + toString((int64)file.fileSize()));
+
+			for(int i=0; i<5; ++i)
+			{
+				conPrint(std::string(1, ((char*)file.fileData())[i]));
+			}
+
+		}
+		catch(Indigo::Exception& e)
+		{
+			failTest(e.what());
 		}
 
-	}
-	catch(Indigo::Exception& e)
-	{
-		failTest(e.what());
-	}
+		// Try opening the same file twice
+		try
+		{
+			MemMappedFile file1(pathname);
 
-	// Try opening the same file twice
-	try
-	{
-		MemMappedFile file1(pathname);
-
-		MemMappedFile file2(pathname);
-	}
-	catch(Indigo::Exception& e)
-	{
-		failTest(e.what());
+			MemMappedFile file2(pathname);
+		}
+		catch(Indigo::Exception& e)
+		{
+			failTest(e.what());
+		}
 	}
 }
 
