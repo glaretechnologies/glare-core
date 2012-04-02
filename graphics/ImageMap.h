@@ -166,34 +166,22 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 {
 	Colour3<Value> colour_out;
 
+	// Get fractional normalised image coordinates
 	Coord u_frac_part = Maths::fract(u);
 	Coord v_frac_part = Maths::fract(1 - v);
-
-	//assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
-	//assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
 	const Coord v_pixels = v_frac_part * (Coord)height;
 
-	//assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)width));
-	//assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)height));
+	// Get pixel indices
+	const unsigned int ut = myMin((unsigned int)u_pixels, width - 1);
+	const unsigned int vt = myMin((unsigned int)v_pixels, height - 1);
 
-	const unsigned int ut = (unsigned int)u_pixels;
-	const unsigned int vt = (unsigned int)v_pixels;
-
-	assert(ut >= 0 && ut < width);
-	assert(vt >= 0 && vt < height);
+	assert(ut < width && vt < height);
 
 	const unsigned int ut_1 = (ut + 1) % width;
 	const unsigned int vt_1 = (vt + 1) % height;
-	
-	/*unsigned int ut_1 = ut + 1;
-	if(ut_1 >= width)
-		ut_1 = 0;
-	unsigned int vt_1 = vt + 1;
-	if(vt_1 >= width)
-		vt_1 = 0;*/
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
@@ -295,24 +283,19 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 template <class V, class VTraits>
 Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 {
+	// Get fractional normalised image coordinates
 	Coord u_frac_part = Maths::fract(u);
 	Coord v_frac_part = Maths::fract(1 - v);
-
-	//assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
-	//assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
 	const Coord v_pixels = v_frac_part * (Coord)height;
 
-	//assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)width));
-	//assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)height));
+	// Get pixel indices
+	const unsigned int ut = myMin((unsigned int)u_pixels, width - 1);
+	const unsigned int vt = myMin((unsigned int)v_pixels, height - 1);
 
-	const unsigned int ut = (unsigned int)u_pixels;
-	const unsigned int vt = (unsigned int)v_pixels;
-
-	assert(ut >= 0 && ut < width);
-	assert(vt >= 0 && vt < height);
+	assert(ut < width && vt < height);
 
 	const unsigned int ut_1 = (ut + 1) % width;
 	const unsigned int vt_1 = (vt + 1) % height;
