@@ -180,7 +180,7 @@ void createDirsForPath(const std::string& path)
 		if(dirs[i] == "")
 		{
 			assert(i == 0);
-			assert(PLATFORM_DIR_SEPARATOR == "/");
+			assert(std::string(PLATFORM_DIR_SEPARATOR) == "/");
 			// This is the root dir on Unix.  Don't try and create it.
 			dir = "/";
 		}
@@ -867,15 +867,16 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 }
 
 
-
 bool isPathAbsolute(const std::string& p)
 {
-#if defined(_WIN32) || defined(_WIN64)
-	return (p.length() > 1 && hasPrefix(p.substr(1, p.length()-1), ":")) ||// e.g. C:/programming/
-		hasPrefix(p, "\\");//network share
-#else
-	return hasPrefix(p, "/");
-#endif
+	// Take into account both Windows and Unix prefixes.
+	// This fixes a bug with network rendering across both Windows and Unix machines: http://www.indigorenderer.com/forum/viewtopic.php?f=5&t=11482
+	// Note that this is maybe not the ideal way to solve the problem.
+
+	return 
+		(p.length() > 1 && hasPrefix(p.substr(1, p.length()-1), ":")) || // e.g. C:/programming/
+		hasPrefix(p, "\\") || // Windows network share, e.g. \\Avarice
+		hasPrefix(p, "/"); // Unix root
 }
 
 
