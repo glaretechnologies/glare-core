@@ -342,7 +342,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 }
 
 
-void Obfuscator::obfuscateKernels()
+void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 {
 	//std::string header;
 
@@ -353,7 +353,7 @@ void Obfuscator::obfuscateKernels()
 		// Single level kernel
 		{
 			std::string s;
-			FileUtils::readEntireFile("OpenCLSingleLevelRayTracingKernel.cl", s);
+			FileUtils::readEntireFile(FileUtils::join(kernel_dir, "OpenCLSingleLevelRayTracingKernel.cl"), s);
 
 			Obfuscator ob(
 				true, // collapse_whitespace
@@ -415,7 +415,7 @@ void Obfuscator::obfuscateKernels()
 		// Two level kernel
 		{
 			std::string s;
-			FileUtils::readEntireFile("OpenCLRayTracingKernel.cl", s);
+			FileUtils::readEntireFile(FileUtils::join(kernel_dir, "OpenCLRayTracingKernel.cl"), s);
 
 			Obfuscator ob(
 				true, // collapse_whitespace

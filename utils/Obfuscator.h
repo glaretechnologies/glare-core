@@ -28,7 +28,7 @@ public:
 
 	const std::string obfuscate(const std::string& s);
 
-	static void obfuscateKernels();
+	static void obfuscateKernels(const std::string& kernel_dir);
 
 	static void test();
 private:
