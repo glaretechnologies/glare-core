@@ -131,6 +131,7 @@ MemMappedFile::~MemMappedFile()
 #else // if defined LINUX or OSX
 
 MemMappedFile::MemMappedFile(const std::string& path)
+:	file_data(NULL)
 {
 	this->linux_file_handle = ::open(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
@@ -142,25 +143,26 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	this->file_size = lseek(this->linux_file_handle, 0, SEEK_END);
 	lseek(this->linux_file_handle, 0, SEEK_SET);
 
-	this->file_data = mmap(0, this->file_size, PROT_READ, MAP_SHARED, this->linux_file_handle, 0);
-	if(this->file_data <= 0)
-		throw Indigo::Exception("File mmap failed.");
+	// Don't try and map the file if it has size zero, since it will fail.
+	if(this->file_size > 0)
+	{
+		this->file_data = mmap(0, this->file_size, PROT_READ, MAP_SHARED, this->linux_file_handle, 0);
+		if(this->file_data == MAP_FAILED)
+			throw Indigo::Exception("File mmap failed.");
+	}
 }
 
 
 MemMappedFile::~MemMappedFile()
 {
-	if(this->file_data > 0)
+	if(this->file_data != NULL)
 	{
 		munmap(this->file_data, this->file_size);
-		this->file_data = 0;
-		this->file_size = 0;
 	}
 
 	if(this->linux_file_handle > 0)
 	{
 		::close(this->linux_file_handle);
-		this->linux_file_handle = 0;
 	}
 }
 
