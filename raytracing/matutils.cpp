@@ -180,6 +180,8 @@ void MatUtils::conductorFresnelReflectance(const SpectralVector& n, const Spectr
 }
 
 
+// This is an approximate expression for the reflectance.
+// It seems reasonably close to that given by polarisedConductorFresnelReflectanceExact() below however.
 template <class Real>
 Real MatUtils::conductorFresnelReflectance(Real n, Real k, Real cos_theta)
 {
@@ -197,7 +199,7 @@ Real MatUtils::conductorFresnelReflectance(Real n, Real k, Real cos_theta)
 
 
 //NOTE TEMP: one of these is wrong, probably the polarised version
-template <class Real>
+/*template <class Real>
 const Vec2<Real> MatUtils::polarisedConductorFresnelReflectance(Real n, Real k, Real cos_theta)
 {
 	assert(cos_theta >= 0.0f);
@@ -209,7 +211,7 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectance(Real n, Real k, 
 	const Real r_perp = (n2_k2 - (Real)2.0*n*cos_theta + costheta2) / (n2_k2 + (Real)2.0*n*cos_theta + costheta2);
 
 	return Vec2<Real>(r_perp, r_par);
-}
+}*/
 
 
 // Returns (F_perp, F_par)

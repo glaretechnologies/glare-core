@@ -69,7 +69,7 @@ namespace MatUtils
 
 	void conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, float cos_incident_angle, SpectralVector& F_R_out);
 	template <class Real> Real conductorFresnelReflectance(Real n, Real k, Real cos_incident_angle);
-	template <class Real> const Vec2<Real> polarisedConductorFresnelReflectance(Real n, Real k, Real cos_theta);
+	//template <class Real> const Vec2<Real> polarisedConductorFresnelReflectance(Real n, Real k, Real cos_theta);
 
 	// Returns (F_perp, F_par)
 	template <class Real> const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta);
