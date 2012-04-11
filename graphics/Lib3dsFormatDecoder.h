@@ -8,6 +8,9 @@ Code By Nicholas Chapman.
 #define __LIB3DSFORMATDECODER_H_666_
 
 
+#error
+
+
 #include "../graphics/modeldecoder.h"
 //#include "../simple3D/colour.h"
 //#include "../graphics/colour3.h"

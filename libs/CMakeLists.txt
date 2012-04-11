@@ -29,7 +29,7 @@ if(WIN32)
 	SET(ilmthread ${ilmthread} "../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphoreWin32.cpp")
 endif()
 FILE(GLOB openexr "../../../openexr-1.6.1/IlmImf/*.cpp")
-FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
+# FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 
 
 if(WIN32 OR APPLE) # Use system libpng and libjpeg on linux
@@ -88,7 +88,7 @@ SOURCE_GROUP(fftss FILES ${fftss})
 SOURCE_GROUP(ilmbase FILES ${ilmbase})
 SOURCE_GROUP(ilmthread FILES ${ilmthread})
 SOURCE_GROUP(openexr FILES ${openexr})
-SOURCE_GROUP(lib3ds FILES ${lib3ds})
+#SOURCE_GROUP(lib3ds FILES ${lib3ds})
 SOURCE_GROUP(libjpg FILES ${libjpg})
 SOURCE_GROUP(libpng FILES ${libpng})
 SOURCE_GROUP(libtiff FILES ${libtiff})
@@ -100,8 +100,8 @@ SOURCE_GROUP(tinyxml FILES ${tinyxml})
 
 include(../indigo_console/shared_cxx_settings.txt)
 
-
-add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DLIB3DS_EXPORTS -DTIXML_USE_STL)
+#-DLIB3DS_EXPORTS
+add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DTIXML_USE_STL)
 
 
 if(APPLE)
@@ -119,7 +119,7 @@ ${fftss}
 ${ilmbase}
 ${ilmthread}
 ${openexr}
-${lib3ds}
+#${lib3ds}
 ${libjpg}
 ${libpng}
 ${libtiff}

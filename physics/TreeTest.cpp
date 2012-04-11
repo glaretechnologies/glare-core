@@ -347,7 +347,7 @@ static void testSelfIntersectionAvoidance()
 
 	// Start a ray on one quad, trace to the other quad.
 	{
-		Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f),
+		const Ray ray(Vec4f(0.0f, 0.25f, 0.1f, 1.0f), Vec4f(1.0f, 0.0f, 0.0f, 0.0f),
 			1.0e-5f // min_t
 #if USE_LAUNCH_NORMAL
 			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
@@ -513,7 +513,8 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
 				testAssert(dist >= 0.0 && alltrisdist >= 0.0);
-				testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);
+				testAssert(hitinfo.sub_elem_index == all_tris_hitinfo.sub_elem_index);//NOTE: FAILING on Linux 64 with release mode under valgrind, but only
+				// if this test is run in the middle of the testsuite.  Running at the start works fine.
 				testAssert(::epsEqual(dist, alltrisdist, (Tree::Real)0.0001));
 
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.x, all_tris_hitinfo.sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.0001));

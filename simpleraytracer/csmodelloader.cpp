@@ -8,7 +8,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 
 #include "../graphics/modelformatdecoder.h"
 //#include "../graphics/formatdecoder3ds.h"
-#include "../graphics/Lib3dsFormatDecoder.h"
+//#include "../graphics/Lib3dsFormatDecoder.h"
 #include "../graphics/formatdecoderobj.h"
 //#include "../graphics/formatdecodermd2.h"
 #include "../graphics/FormatDecoderPLY.h"
@@ -47,8 +47,8 @@ CSModelLoader::CSModelLoader()
 	//------------------------------------------------------------------------
 	//register decoders
 	//------------------------------------------------------------------------
-	Lib3dsFormatDecoder* decoder_3ds = new Lib3dsFormatDecoder();
-	decoder->registerModelDecoder(decoder_3ds);
+	//Lib3dsFormatDecoder* decoder_3ds = new Lib3dsFormatDecoder();
+	//decoder->registerModelDecoder(decoder_3ds);
 
 	decoder->registerModelDecoder(new FormatDecoderPLY());
 
@@ -90,11 +90,11 @@ void CSModelLoader::streamModel(const std::string& pathname, Indigo::Mesh& handl
 	}
 	catch(ModelFormatDecoderExcep& e)
 	{
-		throw CSModelLoaderExcep("ModelFormatDecoderExcep for model '" + pathname + "': " + e.what());
+		throw CSModelLoaderExcep("Error loading model '" + pathname + "': " + e.what());
 	}
 	catch(ModelLoadingStreamHandlerExcep& e)
 	{
-		throw CSModelLoaderExcep("ModelLoadingStreamHandlerExcep for model '" + pathname + "': " + e.what());
+		throw CSModelLoaderExcep("Error loading model '" + pathname + "': " + e.what());
 	}
 }
 

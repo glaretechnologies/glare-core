@@ -4,10 +4,10 @@ Lib3dsFormatDecoder.cpp
 File created by ClassTemplate on Fri Jun 17 04:11:35 2005
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "Lib3dsFormatDecoder.h"
+//#include "Lib3dsFormatDecoder.h"
 
 
-#define LIB3DS_SUPPORT 1
+// #define LIB3DS_SUPPORT 1
 
 
 #ifdef LIB3DS_SUPPORT
@@ -25,6 +25,8 @@ Code By Nicholas Chapman.
 
 using namespace Indigo;
 
+#ifdef LIB3DS_SUPPORT
+
 
 Lib3dsFormatDecoder::Lib3dsFormatDecoder()
 {
@@ -36,7 +38,7 @@ Lib3dsFormatDecoder::~Lib3dsFormatDecoder()
 }
 
 
-#ifdef LIB3DS_SUPPORT
+
 
 void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale) // throw (ModelFormatDecoderExcep)
 {
@@ -204,9 +206,9 @@ void Lib3dsFormatDecoder::streamModel(const std::string& filename, Indigo::Mesh&
 
 #else //LIB3DS_SUPPORT
 
-void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
-{
-	::fatalError("Lib3dsFormatDecoder::streamModel: LIB3DS_SUPPORT disabled.");
-}
+//void Lib3dsFormatDecoder::streamModel(/*const void* data, int datalen, */const std::string& filename, ModelLoadingStreamHandler& handler, float scale)// throw (ModelFormatDecoderExcep)
+//{
+//	::fatalError("Lib3dsFormatDecoder::streamModel: LIB3DS_SUPPORT disabled.");
+//}
 
 #endif //LIB3DS_SUPPORT
