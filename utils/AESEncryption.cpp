@@ -10,6 +10,7 @@ Generated at 2011-09-08 13:18:33 +0100
 #include "Exception.h"
 #include <openssl/evp.h>
 #include <openssl/aes.h>
+#include <assert.h>
 
 
 // Create an 256 bit key and IV using the supplied key_data. salt can be added for taste.
@@ -37,10 +38,12 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 		throw Indigo::Exception("Invalid key size");
 	}
 
-	EVP_CIPHER_CTX_init(encrypt_context);
-	EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv);
-	EVP_CIPHER_CTX_init(decrypt_context);
-	EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv);
+	EVP_CIPHER_CTX_init(encrypt_context); // void return
+	if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
+		throw Indigo::Exception("EVP_EncryptInit_ex failed.");
+	EVP_CIPHER_CTX_init(decrypt_context); // void return
+	if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
+		throw Indigo::Exception("EVP_DecryptInit_ex failed.");
 }
 
 
@@ -53,29 +56,31 @@ AESEncryption::~AESEncryption()
 }
 
 
-// Encrypt *len bytes of data
-// All data going in & out is considered binary (unsigned char[])
+// Encrypt plaintext.
 std::vector<unsigned char> AESEncryption::encrypt(const std::vector<unsigned char>& plaintext)
 {
 	if(plaintext.empty())
 		throw Indigo::Exception("plaintext cannot be empty.");
 
-	// max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes
+	// Max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes
 	int ciphertext_len = (int)plaintext.size() + AES_BLOCK_SIZE;
 
 	std::vector<unsigned char> ciphertext(ciphertext_len);
 
-	// allows reusing of 'e' for multiple encryption cycles
-	EVP_EncryptInit_ex(encrypt_context, NULL, NULL, NULL, NULL);
+	if(!EVP_EncryptInit_ex(encrypt_context, NULL, NULL, NULL, NULL))
+		throw Indigo::Exception("EVP_EncryptInit_ex failed.");
 
-	// Update ciphertext, c_len is filled with the length of ciphertext generated,
-	EVP_EncryptUpdate(encrypt_context, &ciphertext[0], &ciphertext_len, &plaintext[0], (int)plaintext.size());
+	// Update ciphertext, ciphertext_len is filled with the length of ciphertext generated,
+	if(!EVP_EncryptUpdate(encrypt_context, &ciphertext[0], &ciphertext_len, &plaintext[0], (int)plaintext.size()))
+		throw Indigo::Exception("EVP_EncryptUpdate failed.");
 
 	// Update ciphertext with the final remaining bytes
 	int final_len = 0;
-	EVP_EncryptFinal_ex(encrypt_context, &ciphertext[0] + ciphertext_len, &final_len);
+	if(!EVP_EncryptFinal_ex(encrypt_context, &ciphertext[0] + ciphertext_len, &final_len))
+		throw Indigo::Exception("EVP_EncryptFinal_ex failed.");
 
 	int len = ciphertext_len + final_len;
+	assert(len <= (int)ciphertext.size());
 	ciphertext.resize(len);
 	return ciphertext;
 }
@@ -87,16 +92,22 @@ std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned cha
 	if(ciphertext.empty())
 		throw Indigo::Exception("ciphertext cannot be empty.");
 
-	// Plaintext will always be equal to or lesser than length of ciphertext.
-	int plaintext_len = (int)ciphertext.size();
+	int plaintext_len = (int)ciphertext.size() + AES_BLOCK_SIZE;
 	std::vector<unsigned char> plaintext(plaintext_len);
 
-	EVP_DecryptInit_ex(decrypt_context, NULL, NULL, NULL, NULL);
-	EVP_DecryptUpdate(decrypt_context, &plaintext[0], &plaintext_len, &ciphertext[0], (int)ciphertext.size());
+	if(!EVP_DecryptInit_ex(decrypt_context, NULL, NULL, NULL, NULL))
+		throw Indigo::Exception("EVP_DecryptInit_ex failed.");
+
+	if(!EVP_DecryptUpdate(decrypt_context, &plaintext[0], &plaintext_len, &ciphertext[0], (int)ciphertext.size()))
+		throw Indigo::Exception("EVP_DecryptUpdate failed.");
+
 	int final_len = 0;
-	EVP_DecryptFinal_ex(decrypt_context, &plaintext[0] + plaintext_len, &final_len);
+	
+	if(!EVP_DecryptFinal_ex(decrypt_context, &plaintext[0] + plaintext_len, &final_len))
+		throw Indigo::Exception("EVP_DecryptFinal_ex failed.");
 
 	int len = plaintext_len + final_len;
+	assert(len <= plaintext.size());
 	plaintext.resize(len);
 	return plaintext;
 }
@@ -166,3 +177,4 @@ void AESEncryption::test()
 
 
 #endif
+
