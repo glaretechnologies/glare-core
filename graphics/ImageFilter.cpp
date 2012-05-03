@@ -170,12 +170,12 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			float dx = sx - 0.f; 
 			float dy = sy - 0.f;
 			float d2 = dx*dx + dy*dy;
-			float scaled_d2 = d2 * recip_scale;
+			//float scaled_d2 = d2 * recip_scale;
 
 			assert(fabs(dx) <= ceil(2 * scale));
 			assert(fabs(dy) <= ceil(2 * scale));
 
-			float f = mn.eval(std::sqrt(scaled_d2));
+			float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
 			f_sum += f;
 		}
 
@@ -227,7 +227,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			float dx = sx - sx_p; 
 			float dy = sy - sy_p;
 			float d2 = dx*dx + dy*dy;
-			float scaled_d2 = d2 * recip_scale;
+			//float scaled_d2 = d2 * recip_scale;
 
 			assert(fabs(dx) <= ceil(2 * scale));
 			assert(fabs(dy) <= ceil(2 * scale));
@@ -235,7 +235,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			//assert((int)(scaled_d2 * mn_table_factor) < 1024);
 			//int i = (int)(scaled_d2 * mn_table_factor);
 			//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
-			float f = mn.eval(std::sqrt(scaled_d2));
+			float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
 			f_sum += f;
 
 			c.r += in.getPixel(sx, sy).r * f/* * colour_scale.x*/;
@@ -2057,6 +2057,15 @@ static void makeSinImage()
 void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
+
+	/*Map2DRef map = JPEGDecoder::decode("C:\\art\\indigo\\thomas_GH_house\\thething_lightlayers.jpg");
+	Reference<Image> im = map->convertToImage();
+
+	const std::string name = "colourchecker";
+	const float scale = 480.f / 2208.f;
+	testResizeImageWithScale(im, scale, name);
+
+	exit(0);*/
 
 	// makeSinImage();
 
