@@ -10,7 +10,6 @@ Generated at Thu Jan 13 16:39:20 +1300 2011
 #include "Exception.h"
 #include "platform.h"
 #include <zlib.h>
-#include "../indigo/TestUtils.h"
 
 
 Compression::Compression()
@@ -175,6 +174,9 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 
 
 #if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
 
 
 void Compression::test()
