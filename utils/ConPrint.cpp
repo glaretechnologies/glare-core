@@ -10,6 +10,7 @@ Generated at 2012-05-03 12:20:21 +0100
 #include "../utils/lock.h"
 #include "../utils/mutex.h"
 #include <iostream>
+#include <stdlib.h>
 
 
 // Use a mutex for conPrint etc.. to avoid intermingling of messages from multiple threads.
