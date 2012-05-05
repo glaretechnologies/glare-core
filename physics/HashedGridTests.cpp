@@ -13,7 +13,7 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 //#include "HashedGridSTL.h"
 
 #include <iostream>
-#include "../utils/clock.h"
+#include "../utils/Clock.h"
 #include "../utils/MTwister.h"
 #include "../indigo/TestUtils.h"
 
