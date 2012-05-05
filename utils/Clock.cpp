@@ -1,17 +1,12 @@
 /*=====================================================================
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
+clock.cpp
+-------------------
+Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
-#include "clock.h"
+#include "Clock.h"
 	
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 // Stop windows.h from defining the min() and max() macros
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +25,7 @@ static double clock_period = 0;
 
 void Clock::init()
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	LARGE_INTEGER freq;
 	const BOOL b = QueryPerformanceFrequency(&freq);
 	assert(b);
@@ -48,7 +43,7 @@ double getCurTimeRealSec()
 {
 	assert(clock_initialised);
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	LARGE_INTEGER count;
 	const BOOL b = QueryPerformanceCounter(&count); 
 	assert(b);
@@ -87,7 +82,7 @@ const std::string getAsciiTime()
 }
 
 
-const std::string getAsciiTime(time_t t)//nicely formatted string
+const std::string getAsciiTime(time_t t)
 {
 	struct tm *newtime = localtime(&t);
 	if(!newtime)
@@ -106,12 +101,6 @@ time_t getSecsSince1970()
 {
 	return time(NULL);                 
 }
-
-
-/*bool leftTimeEarlier(const std::string& time_a, const std::string& time_b)
-{
-	return true;
-}*/
 
 
 const std::string humanReadableDuration(int seconds)
@@ -137,6 +126,7 @@ const std::string humanReadableDuration(int seconds)
 
 namespace Clock
 {
+
 
 /*
 	day = Day of month (1 – 31).

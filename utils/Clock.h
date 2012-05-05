@@ -1,15 +1,10 @@
 /*=====================================================================
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
+clock.h
+-------------------
+Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
-#ifndef __CLOCK_H_666_
-#define __CLOCK_H_666_
+#pragma once
+
 
 #include <string>
 #include <time.h>
@@ -19,25 +14,26 @@ You may *not* use this code for any commercial project.
 // IMPORTANT NOTE: must call Clock::init() first.
 double getCurTimeRealSec();
 
+const std::string getAsciiTime(); // Get current time as nicely formatted string
+const std::string getAsciiTime(time_t t); // Get current time as nicely formatted string
 
-const std::string getAsciiTime();//nicely formatted string
-const std::string getAsciiTime(time_t t);//nicely formatted string
+time_t getSecsSince1970();
 
-//bool leftTimeEarlier(const std::string& asciitime_a, const std::string& asciitime_b);
-
-time_t getSecsSince1970();//hehe
-
+// Returns a string like '2 h, 24 m, 12 s'
 const std::string humanReadableDuration(int seconds);
 
 namespace Clock
 {
-	void init();
+	
+void init();
+
 /*
 	day = Day of month (1 – 31).
 	month = Month (0 – 11; January = 0).
 	year = e.g. 2009
 */
+
 void getCurrentDay(int& day, int& month, int& year);
+
 }
 
-#endif //__CLOCK_H_666_

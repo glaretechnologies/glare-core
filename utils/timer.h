@@ -12,7 +12,7 @@ You may *not* use this code for any commercial project.
 #define __TIMER_H__
 
 
-#include "clock.h"
+#include "Clock.h"
 #include <assert.h>
 #include <string>
 
