@@ -30,27 +30,6 @@ Code By Nicholas Chapman.
 #include "../indigo/gpuDeviceInfo.h"
 
 
-//#if defined(_WIN32)
-//template <class FuncPointerType>
-//static FuncPointerType getFuncPointer(HMODULE module, const std::string& name)
-//{
-//	FuncPointerType f = (FuncPointerType)::GetProcAddress(module, name.c_str());
-//	if(!f)
-//		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-//	return f;
-//}
-//#elif defined(__linux__)
-//template <class FuncPointerType>
-//static FuncPointerType getFuncPointer(void *handle, const std::string& name)
-//{
-//	FuncPointerType f = (FuncPointerType)dlsym(handle, name.c_str());
-//	if(!f)
-//		throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-//	return f;
-//}
-//#endif
-
-
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
 	verbose(verbose_),
@@ -165,6 +144,8 @@ void OpenCL::libraryInit()
 			clSetKernelArg = opencl_lib.getFuncPointer<clSetKernelArg_TYPE>("clSetKernelArg");
 			clEnqueueWriteBuffer = opencl_lib.getFuncPointer<clEnqueueWriteBuffer_TYPE>("clEnqueueWriteBuffer");
 			clEnqueueReadBuffer = opencl_lib.getFuncPointer<clEnqueueReadBuffer_TYPE>("clEnqueueReadBuffer");
+			clEnqueueMapBuffer = opencl_lib.getFuncPointer<clEnqueueMapBuffer_TYPE>("clEnqueueMapBuffer");
+			clEnqueueUnmapMemObject = opencl_lib.getFuncPointer<clEnqueueUnmapMemObject_TYPE>("clEnqueueUnmapMemObject");
 			clEnqueueNDRangeKernel = opencl_lib.getFuncPointer<clEnqueueNDRangeKernel_TYPE>("clEnqueueNDRangeKernel");
 			clReleaseKernel = opencl_lib.getFuncPointer<clReleaseKernel_TYPE>("clReleaseKernel");
 			clReleaseProgram = opencl_lib.getFuncPointer<clReleaseProgram_TYPE>("clReleaseProgram");
@@ -173,8 +154,11 @@ void OpenCL::libraryInit()
 
 			clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
 			clGetEventProfilingInfo = opencl_lib.getFuncPointer<clGetEventProfilingInfo_TYPE>("clGetEventProfilingInfo");
+			clGetEventInfo = opencl_lib.getFuncPointer<clGetEventInfo_TYPE>("clGetEventInfo");
 			clEnqueueMarker = opencl_lib.getFuncPointer<clEnqueueMarker_TYPE>("clEnqueueMarker");
 			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
+
+			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -217,8 +201,11 @@ void OpenCL::libraryInit()
 
 	this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
+	this->clGetEventInfo = ::clGetEventInfo;
 	this->clEnqueueMarker = ::clEnqueueMarker;
 	this->clWaitForEvents = ::clWaitForEvents;
+
+	this->clFlush = ::clFlush;
 	
 	if(this->clGetPlatformIDs == NULL)
 		throw Indigo::Exception("OpenCL is not available in this version of OSX.");
@@ -373,7 +360,7 @@ void OpenCL::queryDevices()
 			gpuDeviceInfo di;
 			di.device_number = current_device_number;
 			di.device_name = device_name_;
-			di.memory_size = (size_t)device_global_mem_size;
+			di.total_memory_size = (size_t)device_global_mem_size;
 			di.core_count = device_max_compute_units;
 			di.core_clock = device_max_clock_frequency; // in MHz
 			di.subsystem = Indigo::GPUDeviceSettings::SUBSYSTEM_OPENCL;

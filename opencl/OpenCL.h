@@ -62,6 +62,8 @@ typedef cl_kernel (CL_API_CALL *clCreateKernel_TYPE) (cl_program program, const 
 typedef cl_int (CL_API_CALL *clSetKernelArg_TYPE) (cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value);
 typedef cl_int (CL_API_CALL *clEnqueueWriteBuffer_TYPE) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t cb, const void *ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clEnqueueReadBuffer_TYPE) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_read, size_t offset, size_t cb, void *ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+typedef cl_int (CL_API_CALL *clEnqueueMapBuffer_TYPE) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event, cl_int *errcode_ret);
+typedef cl_int (CL_API_CALL *clEnqueueUnmapMemObject_TYPE) (cl_command_queue command_queue, cl_mem memobj, void *mapped_ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clEnqueueNDRangeKernel_TYPE) (cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clReleaseKernel_TYPE) (cl_kernel kernel);
 typedef cl_int (CL_API_CALL *clReleaseProgram_TYPE) (cl_program program);
@@ -70,8 +72,11 @@ typedef cl_int (CL_API_CALL *clGetKernelWorkGroupInfo_TYPE) (cl_kernel kernel, c
 
 typedef cl_int (CL_API_CALL *clSetCommandQueueProperty_TYPE) (cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties *old_properties);
 typedef cl_int (CL_API_CALL *clGetEventProfilingInfo_TYPE) (cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+typedef cl_int (CL_API_CALL *clGetEventInfo_TYPE)  (cl_event event, cl_event_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clEnqueueMarker_TYPE) (cl_command_queue command_queue, cl_event *event);
 typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl_event *event_list);
+
+typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
 
 }
 
@@ -140,6 +145,8 @@ public:
 	clSetKernelArg_TYPE clSetKernelArg;
 	clEnqueueWriteBuffer_TYPE clEnqueueWriteBuffer;
 	clEnqueueReadBuffer_TYPE clEnqueueReadBuffer;
+	clEnqueueMapBuffer_TYPE clEnqueueMapBuffer;
+	clEnqueueUnmapMemObject_TYPE clEnqueueUnmapMemObject;
 	clEnqueueNDRangeKernel_TYPE clEnqueueNDRangeKernel;
 	clReleaseKernel_TYPE clReleaseKernel;
 	clReleaseProgram_TYPE clReleaseProgram;
@@ -148,8 +155,11 @@ public:
 
 	clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
+	clGetEventInfo_TYPE clGetEventInfo;
 	clEnqueueMarker_TYPE clEnqueueMarker;
 	clWaitForEvents_TYPE clWaitForEvents;
+
+	clFlush_TYPE clFlush;
 
 	cl_platform_id platform_to_use;
 	cl_device_id device_to_use;
