@@ -40,6 +40,16 @@ public:
 			ob->incRefCount();
 	}
 
+	template<class T2>
+	Reference(Reference<T2>& other)
+	{
+		ob = other.getPointer();
+
+		if(ob)
+			ob->incRefCount();
+	}
+	
+
 	~Reference()
 	{
 		if(ob)
@@ -81,11 +91,6 @@ public:
 		return *this;
 	}
 
-	//equality is defined as equality of the pointed to objects
-	/*bool operator == (const Reference& other) const
-	{
-		return *ob == *other.ob;
-	}*/
 
 	//less than is defined as less than for the pointed to objects
 	bool operator < (const Reference& other) const
@@ -96,15 +101,10 @@ public:
 
 	inline T& operator * ()
 	{
-		//assert(ob);
 		return *ob;
 	}
 
-	inline T* operator -> ()
-	{
-		//assert(ob);
-		return ob;
-	}
+	
 
 	inline const T& operator * () const
 	{
@@ -122,9 +122,14 @@ public:
 		#endif
 	}
 
-	inline const T* operator -> () const
+
+	inline T* operator -> () const
 	{
-		assert(ob);
+		return ob;
+	}
+
+	inline T* getPointer() const
+	{
 		return ob;
 	}
 
@@ -142,6 +147,7 @@ public:
 		return ob;
 	}
 
+	// NOTE: These upcast functions are not needed any more.  Valid conversions will be done automatically by the compiler.
 	template <class T2>
 	inline const Reference<T2> upcast() const
 	{
@@ -171,10 +177,7 @@ public:
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 	
-	inline const T* getPointer() const
-	{
-		return ob;
-	}
+	
 
 private:
 	T* ob;

@@ -39,6 +39,8 @@ public:
 		(*i)--;
 	}
 
+	int f() { return 5; }
+
 private:
 	int* i;
 };
@@ -55,6 +57,19 @@ static Reference<DerivedTestClass> someFunc(int* i)
 {
 	return Reference<DerivedTestClass>(new DerivedTestClass(i));
 }
+
+
+void functionWithByValueRefParam(Reference<TestClass> ref)
+{
+	int b = ref->f();
+}
+
+
+void functionWithByRefRefParam(const Reference<TestClass>& ref)
+{
+	int b = ref->f();
+}
+
 
 
 #if (BUILD_TESTS)
@@ -93,10 +108,11 @@ void ReferenceTest::run()
 	testAssert(i == 0);
 
 
+	// Test automatic conversion from derived to base class.
 	{
 		Reference<DerivedTestClass> d(new DerivedTestClass(&i));
 
-		Reference<TestClass> t = d.upcast<TestClass>();
+		Reference<TestClass> t = d;
 	}
 
 	testAssert(i == 0);
@@ -106,15 +122,34 @@ void ReferenceTest::run()
 	}
 
 	{
-		Reference<TestClass> t = someFunc(&i).upcast<TestClass>();
+		Reference<TestClass> t = someFunc(&i);
 	}
 
 	testAssert(i == 0);
 	
 
+	// Test automatic conversion from non-const to const ref
+	{
+		Reference<TestClass> t(new TestClass(&i));
+		Reference<const TestClass> t_const = t;
+	}
+
+	testAssert(i == 0);
 
 
+	{
+		Reference<TestClass> t(new TestClass(&i));
+		
+		functionWithByValueRefParam(t);
+	}
 
+	{
+		Reference<TestClass> t(new TestClass(&i));
+		
+		functionWithByRefRefParam(t);
+	}
+
+	testAssert(i == 0);
 }
 #endif
 

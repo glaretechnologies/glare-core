@@ -164,7 +164,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 
 		//conPrint("Copied data.  Elapsed: " + timer.elapsedString());
 
-		return texture.upcast<Map2D>();
+		return texture;
 	}
 	catch(Indigo::Exception& e)
 	{

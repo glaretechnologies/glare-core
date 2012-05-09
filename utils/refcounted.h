@@ -35,13 +35,13 @@ public:
 		assert(refcount == 0);
 	}
 
-	inline void decRefCount()
+	inline void decRefCount() const
 	{ 
 		refcount--;
 		assert(refcount >= 0);
 	}
 
-	inline void incRefCount()
+	inline void incRefCount() const
 	{ 
 		assert(refcount >= 0);
 		refcount++; 
@@ -54,7 +54,7 @@ public:
 	}
 	
 private:
-	int refcount;
+	mutable int refcount;
 };
 
 

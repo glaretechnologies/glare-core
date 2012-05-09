@@ -156,7 +156,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		/* This is an important step since it will release a good deal of memory. */
 		jpeg_destroy_decompress(&cinfo);
 
-		return texture.upcast<Map2D>();
+		return texture;
 	}
 	catch(Indigo::Exception& e)
 	{

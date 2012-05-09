@@ -81,7 +81,7 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 				}
 			}
 
-			result_tex = texture.upcast<Map2D>();
+			result_tex = texture;
 		}
 		else if(bits_per_sample == 16)
 		{
@@ -110,7 +110,7 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 				}
 			}
 
-			result_tex = texture.upcast<Map2D>();
+			result_tex = texture;
 		}
 		else
 		{
