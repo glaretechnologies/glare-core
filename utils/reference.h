@@ -41,7 +41,7 @@ public:
 	}
 
 	template<class T2>
-	Reference(Reference<T2>& other)
+	Reference(const Reference<T2>& other)
 	{
 		ob = other.getPointer();
 
