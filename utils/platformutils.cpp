@@ -531,6 +531,30 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 }
 
 
+const std::string PlatformUtils::getErrorStringForReturnCode(unsigned long return_code)
+{
+#if defined(_WIN32) || defined(_WIN64)
+	std::vector<wchar_t> buf(2048);
+
+	const DWORD result = FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, // See http://blogs.msdn.com/oldnewthing/archive/2007/11/28/6564257.aspx on why FORMAT_MESSAGE_IGNORE_INSERTS should be used.
+		NULL, // source
+		return_code,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		&buf[0],
+		(DWORD)buf.size(),
+		NULL // arguments
+	);
+	if(result == 0)
+		return "[Unknown (error code=" + toString((unsigned int)return_code) + ")]";
+	else
+		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((unsigned int)return_code) + ")";
+#else
+	return "[Unknown (error code=" + ::toString((unsigned int)return_code) + ")]";
+#endif
+}
+
+
 const std::string PlatformUtils::getLastErrorString()
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -546,11 +570,11 @@ const std::string PlatformUtils::getLastErrorString()
 		NULL // arguments
 	);
 	if(result == 0)
-		return "[Unknown (error code=" + toString((int)GetLastError()) + "]";
+		return "[Unknown (error code=" + toString((int)GetLastError()) + ")]";
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
 #else
-	return "[Unknown (error code=" + ::toString(errno) + "]";
+	return "[Unknown (error code=" + ::toString(errno) + ")]";
 #endif
 }
 

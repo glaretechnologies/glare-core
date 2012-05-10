@@ -91,6 +91,8 @@ NOTE: be vary careful to only path in valid paths here, or there will be massive
 void openFileBrowserWindowAtLocation(const std::string& select_path);
 
 
+const std::string getErrorStringForReturnCode(unsigned long return_code);
+
 const std::string getLastErrorString();
 
 

@@ -33,6 +33,7 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 
 #include <cassert>
 #include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
 #include "../indigo/globals.h"
@@ -130,7 +131,38 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	);
 
 	if(dwStatus != ERROR_SUCCESS)
-		throw Indigo::Exception("GetAdaptersInfo Failed.");
+	{
+		std::string error_string;
+
+		switch(dwStatus)
+		{
+		case ERROR_BUFFER_OVERFLOW:
+			error_string = "[ERROR_BUFFER_OVERFLOW (error code=" + ::toString((unsigned int)dwStatus) + ")]";
+			break;
+
+		case ERROR_INVALID_DATA:
+			error_string = "[ERROR_INVALID_DATA (error code=" + ::toString((unsigned int)dwStatus) + ")]";
+			break;
+
+		case ERROR_INVALID_PARAMETER:
+			error_string = "[ERROR_INVALID_PARAMETER (error code=" + ::toString((unsigned int)dwStatus) + ")]";
+			break;
+
+		case ERROR_NO_DATA:
+			error_string = "[ERROR_NO_DATA (error code=" + ::toString((unsigned int)dwStatus) + ")]";
+			break;
+
+		case ERROR_NOT_SUPPORTED:
+			error_string = "[ERROR_NOT_SUPPORTED (error code=" + ::toString((unsigned int)dwStatus) + ")]";
+			break;
+
+		default:
+			error_string = PlatformUtils::getErrorStringForReturnCode(dwStatus);
+			break;
+		}
+
+		throw Indigo::Exception("GetAdaptersInfo Failed: " + error_string);
+	}
 
 	PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo; // Contains pointer to current adapter info.
 
