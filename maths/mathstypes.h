@@ -548,6 +548,13 @@ inline T square(T x)
 
 
 template <class T>
+inline T pow3(T x)
+{
+	return x * x * x;
+}
+
+
+template <class T>
 inline T pow4(T x)
 {
 	return x * x * x * x;
