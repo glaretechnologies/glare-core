@@ -136,19 +136,7 @@ void alignedFree(void* mem)
 } // end namespace SSE
 
 
-inline float horizontalMax(const __m128& v)
-{
-	//const __m128 v = _mm_load_ps(f); // [d, c, b, a]
-	const __m128 aabb = _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0)); // [b, b, a, a]
-	const __m128 ccdd = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 2, 2)); // [d, d, c, c]
-	const __m128 m1 = _mm_max_ps(aabb, ccdd); // [m(b,d), m(b,d), m(a, c), m(a, c)]
-	const __m128 m2 = _mm_shuffle_ps(m1, m1, _MM_SHUFFLE(3, 3, 3, 3)); // [m(b,d), m(b,d), m(b,d), m(b,d)]
-	const __m128 m3 = _mm_max_ps(m1, m2);
 
-	SSE_ALIGN float x[4];
-	_mm_store_ps(x, m3);
-	return x[0];
-}
 
 
 #if (BUILD_TESTS)
@@ -233,7 +221,7 @@ void SSETest()
 	}
 
 	const double elapsed_time = timer.getSecondsElapsed();
-	const double clock_freq = 2.4e9;
+	const double clock_freq = 2.67e9;
 	const double elapsed_cycles = elapsed_time * clock_freq;
 	const double cycles_per_iteration = elapsed_cycles / (double)N;
 
