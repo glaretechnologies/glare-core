@@ -8,8 +8,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 
 #include "array2d.h"
-class SpectralVector;
-class PolarisationVec;
+#include "../indigo/PolarisationVec.h"
 
 
 /*=====================================================================
