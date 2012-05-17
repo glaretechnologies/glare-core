@@ -196,6 +196,8 @@ void OpenCL::libraryInit()
 	this->clSetKernelArg = ::clSetKernelArg;
 	this->clEnqueueWriteBuffer = ::clEnqueueWriteBuffer;
 	this->clEnqueueReadBuffer = ::clEnqueueReadBuffer;
+	this->clEnqueueMapBuffer = ::clEnqueueMapBuffer;
+	this->clEnqueueUnmapMemObject = ::clEnqueueUnmapMemObject;
 	this->clEnqueueNDRangeKernel = ::clEnqueueNDRangeKernel;
 	this->clReleaseKernel = ::clReleaseKernel;
 	this->clReleaseProgram = ::clReleaseProgram;
