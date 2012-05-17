@@ -33,7 +33,7 @@ Code By Nicholas Chapman.
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
 	verbose(verbose_),
-	allow_CPU_devices(false)
+	allow_CPU_devices(false) // Allow suggesting of CPU devices when auto-detecting OpenCL devices
 {
 #if USE_OPENCL
 
@@ -137,6 +137,7 @@ void OpenCL::libraryInit()
 			clCreateBuffer = opencl_lib.getFuncPointer<clCreateBuffer_TYPE>("clCreateBuffer");
 			clCreateImage2D = opencl_lib.getFuncPointer<clCreateImage2D_TYPE>("clCreateImage2D");
 			clReleaseMemObject = opencl_lib.getFuncPointer<clReleaseMemObject_TYPE>("clReleaseMemObject");
+			clRetainEvent = opencl_lib.getFuncPointer<clRetainEvent_TYPE>("clRetainEvent");
 			clCreateProgramWithSource = opencl_lib.getFuncPointer<clCreateProgramWithSource_TYPE>("clCreateProgramWithSource");
 			clBuildProgram = opencl_lib.getFuncPointer<clBuildProgram_TYPE>("clBuildProgram");
 			clGetProgramBuildInfo = opencl_lib.getFuncPointer<clGetProgramBuildInfo_TYPE>("clGetProgramBuildInfo");
@@ -149,6 +150,7 @@ void OpenCL::libraryInit()
 			clEnqueueNDRangeKernel = opencl_lib.getFuncPointer<clEnqueueNDRangeKernel_TYPE>("clEnqueueNDRangeKernel");
 			clReleaseKernel = opencl_lib.getFuncPointer<clReleaseKernel_TYPE>("clReleaseKernel");
 			clReleaseProgram = opencl_lib.getFuncPointer<clReleaseProgram_TYPE>("clReleaseProgram");
+			clReleaseEvent = opencl_lib.getFuncPointer<clReleaseEvent_TYPE>("clReleaseEvent");
 			clGetProgramInfo = opencl_lib.getFuncPointer<clGetProgramInfo_TYPE>("clGetProgramInfo");
 			clGetKernelWorkGroupInfo = opencl_lib.getFuncPointer<clGetKernelWorkGroupInfo_TYPE>("clGetKernelWorkGroupInfo");
 
@@ -186,6 +188,7 @@ void OpenCL::libraryInit()
 	this->clCreateBuffer = ::clCreateBuffer;
 	this->clCreateImage2D = ::clCreateImage2D;
 	this->clReleaseMemObject = ::clReleaseMemObject;
+	this->clRetainEvent = ::clRetainEvent;
 	this->clCreateProgramWithSource = ::clCreateProgramWithSource;
 	this->clBuildProgram = ::clBuildProgram;
 	this->clGetProgramBuildInfo = ::clGetProgramBuildInfo;
@@ -196,6 +199,7 @@ void OpenCL::libraryInit()
 	this->clEnqueueNDRangeKernel = ::clEnqueueNDRangeKernel;
 	this->clReleaseKernel = ::clReleaseKernel;
 	this->clReleaseProgram = ::clReleaseProgram;
+	this->clReleaseEvent = ::clReleaseEvent;
 	this->clGetProgramInfo = ::clGetProgramInfo;
 	this->clGetKernelWorkGroupInfo = ::clGetKernelWorkGroupInfo;
 
@@ -522,9 +526,11 @@ cl_program OpenCL::buildProgram(
 	bool build_success = (result == CL_SUCCESS);
 	if(!build_success)
 	{
-		if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
+#if BUILD_TESTS
+		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
 			dumpBuildLog(program, print_output);
-		else
+		//else
+#endif
 			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
 	}
 

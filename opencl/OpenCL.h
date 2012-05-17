@@ -35,6 +35,17 @@ Code By Nicholas Chapman.
 //#include <CL/clext.h>
 
 
+// If OPENCL_MEM_LOG is defined, all allocations and deallocations are printed to the console
+#if BUILD_TESTS
+#define OPENCL_MEM_LOG
+#endif
+
+#ifdef  OPENCL_MEM_LOG
+static size_t OpenCL_global_alloc = 0; // Total number of bytes allocated
+//static size_t OpenCL_global_pinned_alloc = 0; // Total number of bytes allocated in pinned host memory
+#endif
+
+
 extern "C"
 {
 
@@ -55,6 +66,7 @@ typedef cl_int (CL_API_CALL *clReleaseCommandQueue_TYPE) (cl_command_queue comma
 typedef cl_mem (CL_API_CALL *clCreateBuffer_TYPE) (cl_context context, cl_mem_flags flags, size_t size, void *host_ptr, cl_int *errcode_ret);
 typedef cl_mem (CL_API_CALL *clCreateImage2D_TYPE) (cl_context context, cl_mem_flags flags, const cl_image_format *image_format, size_t image_width, size_t image_height, size_t image_row_pitch, void *host_ptr, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseMemObject_TYPE) (cl_mem memobj);
+typedef cl_int (CL_API_CALL *clRetainEvent_TYPE) (cl_event event);
 typedef cl_program (CL_API_CALL *clCreateProgramWithSource_TYPE) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clBuildProgram_TYPE) (cl_program program, cl_uint num_devices, const cl_device_id *device_list, const char *options, void (*pfn_notify)(cl_program, void *user_data), void *user_data);
 typedef cl_int (CL_API_CALL *clGetProgramBuildInfo_TYPE) (cl_program program, cl_device_id device, cl_program_build_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
@@ -67,6 +79,7 @@ typedef cl_int (CL_API_CALL *clEnqueueUnmapMemObject_TYPE) (cl_command_queue com
 typedef cl_int (CL_API_CALL *clEnqueueNDRangeKernel_TYPE) (cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clReleaseKernel_TYPE) (cl_kernel kernel);
 typedef cl_int (CL_API_CALL *clReleaseProgram_TYPE) (cl_program program);
+typedef cl_int (CL_API_CALL *clReleaseEvent_TYPE) (cl_event event);
 typedef cl_int (CL_API_CALL *clGetProgramInfo_TYPE) (cl_program program, cl_program_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clGetKernelWorkGroupInfo_TYPE) (cl_kernel kernel, cl_device_id device, cl_kernel_work_group_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
@@ -138,6 +151,7 @@ public:
 	clCreateBuffer_TYPE clCreateBuffer;
 	clCreateImage2D_TYPE clCreateImage2D;
 	clReleaseMemObject_TYPE clReleaseMemObject;
+	clRetainEvent_TYPE clRetainEvent;
 	clCreateProgramWithSource_TYPE clCreateProgramWithSource;
 	clBuildProgram_TYPE clBuildProgram;
 	clGetProgramBuildInfo_TYPE clGetProgramBuildInfo;
@@ -150,6 +164,7 @@ public:
 	clEnqueueNDRangeKernel_TYPE clEnqueueNDRangeKernel;
 	clReleaseKernel_TYPE clReleaseKernel;
 	clReleaseProgram_TYPE clReleaseProgram;
+	clReleaseEvent_TYPE clReleaseEvent;
 	clGetProgramInfo_TYPE clGetProgramInfo;
 	clGetKernelWorkGroupInfo_TYPE clGetKernelWorkGroupInfo;
 
