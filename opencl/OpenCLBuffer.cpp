@@ -9,6 +9,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 
 #if USE_OPENCL
 
+
 #include "OpenCL.h"
 #include "../indigo/globals.h"
 #include "../utils/platform.h"
@@ -38,7 +39,7 @@ OpenCLBuffer::~OpenCLBuffer()
 }
 
 
-void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags_)
+void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
@@ -46,7 +47,7 @@ void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags_)
 	cl_int result;
 	opencl_mem = opencl.clCreateBuffer(
 		opencl.context,
-		flags_,
+		flags,
 		size_, // size
 		NULL, // host ptr
 		&result
@@ -55,8 +56,6 @@ void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags_)
 		throw Indigo::Exception("clCreateBuffer failed");
 
 	size = size_;
-	flags = flags_;
-
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc += size_;
@@ -68,11 +67,7 @@ void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags_)
 void OpenCLBuffer::free()
 {
 	if(!opencl_mem)
-	{
-		//throw Indigo::Exception("CudaBuffer::free() called on empty buffer");
-		//std::cout << "Warning: attempted to free() unallocated CudaBuffer" << std::endl;
 		return;
-	}
 
 	if(opencl.clReleaseMemObject(opencl_mem) != CL_SUCCESS)
 		throw Indigo::Exception("clReleaseMemObject failed");
@@ -88,7 +83,7 @@ void OpenCLBuffer::free()
 }
 
 
-void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags_)
+void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
@@ -96,7 +91,7 @@ void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_fl
 	cl_int result;
 	opencl_mem = opencl.clCreateBuffer(
 		opencl.context,
-		flags_ | CL_MEM_COPY_HOST_PTR,
+		flags | CL_MEM_COPY_HOST_PTR,
 		size_, // size
 		(void*)src_ptr, // host ptr
 		&result
@@ -105,7 +100,6 @@ void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_fl
 		throw Indigo::Exception("clCreateBuffer failed");
 
 	size = size_;
-	flags = flags_;
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc += size_;
@@ -171,34 +165,4 @@ cl_mem& OpenCLBuffer::getDevicePtr()
 }
 
 
-#if BUILD_TESTS
-
-
-void OpenCLBuffer::test()
-{
-	//OpenCL opencl;
-	////CudaContext cuda_context(cuda, 0);
-
-
-	//conPrint("CudaBuffer::test()");
-
-	//try
-	//{
-	//	CudaBuffer buffer(cuda, 65536);
-	//}
-	//catch(Indigo::Exception& e)
-	//{
-	//	conPrint("CudaBuffer exception: " + e.what());
-	//}
-
-
-	// TODO test all the other methods (copy, async copy, etc)
-
-	//exit(0);
-}
-
-
-#endif // BUILD_TESTS
-
-
-#endif // USE_CUDA
+#endif // USE_OPENCL

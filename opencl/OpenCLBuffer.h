@@ -6,34 +6,36 @@ Generated at Tue May 15 13:27:16 +0100 2012
 =====================================================================*/
 #pragma once
 
+
 #if USE_OPENCL
+
 
 #include "../utils/Vector.h"
 #include "OpenCL.h"
 
 
 /*=====================================================================
-CudaBuffer
-----------
+OpenCLBuffer
+------------
 
 =====================================================================*/
 class OpenCLBuffer
 {
 public:
 	OpenCLBuffer(OpenCL& opencl_);
-	OpenCLBuffer(OpenCL& opencl_, size_t size_, cl_mem_flags flags_);
+	OpenCLBuffer(OpenCL& opencl_, size_t size_, cl_mem_flags flags);
 	~OpenCLBuffer();
 
 
 	void alloc(size_t size_, cl_mem_flags flags);
 
-	void allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags_);
+	void allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags);
 
 	template<typename T, size_t align>
-	void allocFrom(const js::Vector<T, align>& src_vec, cl_mem_flags flags_);
+	void allocFrom(const js::Vector<T, align>& src_vec, cl_mem_flags flags);
 
 	template<typename T>
-	void allocFrom(const std::vector<T>& src_vec, cl_mem_flags flags_);
+	void allocFrom(const std::vector<T>& src_vec, cl_mem_flags flags);
 
 
 	void copyFrom(const void * const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write);
@@ -55,9 +57,6 @@ public:
 	cl_mem& getDevicePtr();
 
 
-	// Unit tests
-	static void test();
-
 private:
 
 	// No copy allowed
@@ -70,7 +69,6 @@ private:
 	size_t size;
 
 	cl_mem opencl_mem;
-	cl_mem_flags flags;
 };
 
 
@@ -102,4 +100,4 @@ void OpenCLBuffer::copyFrom(const std::vector<T>& src_vec, cl_command_queue comm
 }
 
 
-#endif // USE_CUDA
+#endif // USE_OPENCL
