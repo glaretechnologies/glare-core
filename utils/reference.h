@@ -1,10 +1,9 @@
 /*=====================================================================
 reference.h
 -----------
-Copyright Glare Technologies Limited 2009 - 
+Copyright Glare Technologies Limited 2012 - 
 =====================================================================*/
-#ifndef __REFERENCE_H__
-#define __REFERENCE_H__
+#pragma once
 
 
 #include "refcounted.h"
@@ -182,13 +181,3 @@ public:
 private:
 	T* ob;
 };
-
-
-//typedef Reference<T> Ref<T>;
-
-
-#endif //__REFERENCE_H__
-
-
-
-

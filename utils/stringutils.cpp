@@ -7,8 +7,10 @@
 #include <stdio.h>
 #include <clocale>
 #include "../utils/timer.h"
+#include "../maths/mathstypes.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
+#include "../double-conversion/double-conversion.h"
 #include <limits>
 
 
@@ -22,21 +24,49 @@
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep
 {
-	char* end_ptr = NULL;
+	/*char* end_ptr = NULL;
 	const float ret = (float)strtod(s.c_str(), &end_ptr);
 	if(end_ptr == s.c_str())
 		throw StringUtilsExcep("Failed to convert '" + s + "' to a float.");
-	return ret;
+	return ret;*/
+
+	double_conversion::StringToDoubleConverter s2d_converter(
+		double_conversion::StringToDoubleConverter::NO_FLAGS,
+		std::numeric_limits<float>::quiet_NaN(), // empty string value
+		std::numeric_limits<float>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
+		NULL, // infinity symbol
+		NULL // NaN symbol
+	);
+
+	int num_processed_chars = 0;
+	const float x = s2d_converter.StringToFloat(s.c_str(), (int)s.length(), &num_processed_chars);
+	if(::isNAN(x))
+		throw StringUtilsExcep("Failed to convert '" + s + "' to a float.");
+	return x;
 }
 
 
 double stringToDouble(const std::string& s) // throws StringUtilsExcep
 {
-	char* end_ptr = NULL;
+	/*char* end_ptr = NULL;
 	const double ret = strtod(s.c_str(), &end_ptr);
 	if(end_ptr == s.c_str())
 		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
-	return ret;
+	return ret;*/
+
+	double_conversion::StringToDoubleConverter s2d_converter(
+		double_conversion::StringToDoubleConverter::NO_FLAGS,
+		std::numeric_limits<double>::quiet_NaN(), // empty string value
+		std::numeric_limits<double>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
+		NULL, // infinity symbol
+		NULL // NaN symbol
+	);
+
+	int num_processed_chars = 0;
+	const double x = s2d_converter.StringToDouble(s.c_str(), (int)s.length(), &num_processed_chars);
+	if(::isNAN(x))
+		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
+	return x;
 }
 
 
@@ -282,24 +312,66 @@ const std::string uIntToString(uint32 i)
 
 const std::string floatToString(float f)
 {
+	// Convert double to string with Google's code
+	double_conversion::DoubleToStringConverter converter(
+		double_conversion::DoubleToStringConverter::NO_FLAGS,
+		"Inf", // Infinity symbol
+		"NaN", // NaN symbol
+		'e',
+		-6, // decimal_in_shortest_low
+		21, // decimal_in_shortest_high
+		0, // max_leading_padding_zeroes_in_precision_mode
+		0 // max_trailing_padding_zeroes_in_precision_mode
+	);
+
+	char buffer[64];
+	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
+
+	converter.ToShortestSingle(f, &builder);
+
+	return std::string(builder.Finalize());
+
+
 	// Not static for thread-safety.
-	char buffer[100];
+	/*char buffer[100];
 
 	sprintf(buffer, "%f", f);
 
-	return std::string(buffer);
+	return std::string(buffer);*/
 }
 
 
-const std::string doubleToString(double d, int num_decimal_places)
+
+const std::string doubleToString(double d)
+{
+	// Convert double to string with Google's code
+	double_conversion::DoubleToStringConverter converter(
+		double_conversion::DoubleToStringConverter::NO_FLAGS,
+		"Inf", // Infinity symbol
+		"NaN", // NaN symbol
+		'e',
+		-6, // decimal_in_shortest_low
+		21, // decimal_in_shortest_high
+		0, // max_leading_padding_zeroes_in_precision_mode
+		0 // max_trailing_padding_zeroes_in_precision_mode
+	);
+
+	char buffer[128];
+	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
+
+	converter.ToShortest(d, &builder);
+
+	return std::string(builder.Finalize());
+}
+
+
+const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places)
 {
 	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
 
-	//not static for thread-safety.
-	char buffer[512];//double can be up to ~1x10^38 :)
+	char buffer[128];
 
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
-	//sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
 
 	return std::string(buffer);
 }
@@ -308,20 +380,20 @@ const std::string doubleToString(double d, int num_decimal_places)
 const std::string doubleToStringScientific(double d, int num_decimal_places)
 {
 	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
-	char buffer[512];//double can be up to ~1x10^38 :)
+	
+	char buffer[512];
+	
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
+	
 	return std::string(buffer);
 }
 
 
-
-const std::string floatToString(float f, int num_decimal_places)
+const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 {
-	//not static for thread-safety.
-	char buffer[100];
-
-
 	assert(num_decimal_places >= 0);
+
+	char buffer[100];
 
 	if(num_decimal_places >= 10)
 		num_decimal_places = 9;
@@ -331,30 +403,6 @@ const std::string floatToString(float f, int num_decimal_places)
 	sprintf(buffer, format_string.c_str(), f);
 
 	return std::string(buffer);
-
-
-	//not static for thread-safety.
-	/*char buffer[100];
-
-	const std::string format_string = "%1.xf";
-
-	assert(num_decimal_places >= 0);
-
-	if(num_decimal_places >= 10)
-		num_decimal_places = 9;
-
-	const std::string dec_string = intToString(num_decimal_places);
-	assert(dec_string.size() == 1);
-
-	format_string[3] = dec_string[0];
-	//format[4] = 'f';
-	//format[5] = 0;
-
-	//"%1.2f"
-
-	sprintf(buffer, format_string.c_str(), f);
-
-	return std::string(buffer);*/
 }
 
 
@@ -912,19 +960,19 @@ const std::string getNiceByteSize(uint64 x)
 	{
 		const float kbsize = (float)x / 1024.0f;
 
-		return floatToString(kbsize, 3) + " KB";
+		return floatToStringNDecimalPlaces(kbsize, 3) + " KB";
 	}
 	else if(x < 1073741824)
 	{
 		const float mbsize = (float)x / 1048576.0f;
 
-		return floatToString(mbsize, 3) + " MB";
+		return floatToStringNDecimalPlaces(mbsize, 3) + " MB";
 	}
 	else
 	{
 		const float gbsize = (float)x / 1073741824.0f;
 
-		return floatToString(gbsize, 3) + " GB";
+		return floatToStringNDecimalPlaces(gbsize, 3) + " GB";
 	}
 }
 
@@ -1152,16 +1200,130 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 } // end namespace StringUtils
 
 
-template <class Real>
+/*template <class Real>
 static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 {
 	return fabs(a - b) <= epsilon;
+}*/
+
+
+#if BUILD_TESTS
+
+
+inline static float uintAsFloat(uint32 i)
+{
+	union u_type
+	{
+		float f;
+		uint32 i;
+	};
+
+	u_type u; 
+	u.i = i;
+	return u.f;
 }
 
 
-#if (BUILD_TESTS)
-void doStringUtilsUnitTests()
+void StringUtils::test()
 {
+	{
+		std::string s = floatToString(123.4567);
+		testAssert(s == "123.4567");
+	}
+	// Check positive Max representable finite float.
+	{
+		std::string s = floatToString(std::numeric_limits<float>::max());
+		testAssert(s == "3.4028235e38");
+	}
+	// Check negative Max representable finite float.
+	{
+		std::string s = floatToString(-std::numeric_limits<float>::max());
+		testAssert(s == "-3.4028235e38");
+	}
+
+	// Check NaN
+	{
+		std::string s = floatToString(std::numeric_limits<float>::quiet_NaN());
+		testAssert(s == "NaN");
+	}
+	// Check Inf
+	{
+		std::string s = floatToString(std::numeric_limits<float>::infinity());
+		testAssert(s == "Inf");
+	}
+	// Check -Inf
+	{
+		std::string s = floatToString(-std::numeric_limits<float>::infinity());
+		testAssert(s == "-Inf");
+	}
+
+
+	{
+		std::string s;
+		for(int i=0; i<100000; ++i)
+		{
+			float x = (float)i / 1000.0f;
+			//float x = uintAsFloat(i);
+			s = floatToString(x);
+
+			float x2 = stringToFloat(s);
+
+			testAssert(x == x2);
+		}
+	}
+
+
+	// Test float to string
+	{
+		testAssert(::epsEqual(::stringToFloat(::floatToString(123.456f)), 123.456f));
+
+		testAssert(::floatToStringNDecimalPlaces(123.456f, 0) == "123");
+		testAssert(::floatToStringNDecimalPlaces(123.234f, 1) == "123.2");
+		testAssert(::floatToStringNDecimalPlaces(123.234f, 2) == "123.23");
+		testAssert(::floatToStringNDecimalPlaces(123.234f, 3) == "123.234");
+	}
+
+	//================= Test string to float for invalid strings ================================
+
+	try
+	{
+		stringToFloat("bleh");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	// assert(epsEqual(stringToDouble("-631.3543e52"), -631.3543e52));
+
+	try
+	{
+		stringToFloat("-z631.3543");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat("");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat(" ");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+
+
+
+
+	// Test toString()
 	testAssert(toString(1234567) == "1234567");
 	testAssert(toString(-1234567) == "-1234567");
 	testAssert(toString(0) == "0");
@@ -1245,8 +1407,9 @@ void doStringUtilsUnitTests()
 		conPrint("sumlen: " + toString(sumlen));
 	}*/
 
+
+	// Test WToUTF8String and UTF8ToWString.
 #if defined(_WIN32) || defined(_WIN64)
-	// test WToUTF8String and UTF8ToWString
 	{
 		const int a = sizeof(wchar_t);
 
@@ -1291,8 +1454,7 @@ void doStringUtilsUnitTests()
 	}
 #endif
 
-
-
+	// Test split()
 	std::vector<std::string> parts = split("a:b:c", ':');
 	assert(parts.size() == 3);
 	assert(parts[0] == "a");
@@ -1314,11 +1476,11 @@ void doStringUtilsUnitTests()
 	assert(parts[0] == "a");
 	assert(parts[1] == "b");
 
+	// Test rightPad()
 	assert(rightPad("123", 'a', 5) == "123aa");
 	assert(rightPad("12345", 'a', 3) == "12345");
 
-
-
+	// Test join()
 	parts = split("a:b:c", ':');
 	assert(StringUtils::join(parts, ":") == "a:b:c");
 
@@ -1329,17 +1491,9 @@ void doStringUtilsUnitTests()
 	assert(StringUtils::join(parts, ":") == "");
 
 
-	// Test float to string
-	{
-		testAssert(::epsEqual(::stringToFloat(::floatToString(123.456f)), 123.456f));
+	
 
-		testAssert(::floatToString(123.456f, 0) == "123");
-		testAssert(::floatToString(123.234f, 1) == "123.2");
-		testAssert(::floatToString(123.234f, 2) == "123.23");
-		testAssert(::floatToString(123.234f, 3) == "123.234");
-	}
-
-	std::string current_locale = std::setlocale(LC_ALL, NULL);
+	/*std::string current_locale = std::setlocale(LC_ALL, NULL);
 
 	// Try German locale where decimal separtor is ','
 	{
@@ -1359,45 +1513,10 @@ void doStringUtilsUnitTests()
 	{
 		const char* result = std::setlocale(LC_ALL, current_locale.c_str());
 		testAssert(result != NULL);
-	}
+	}*/
 
 
-	// Test string to float
-	assert(epsEqual(stringToFloat("1.4"), 1.4f));
-
-	try
-	{
-		stringToFloat("bleh");
-		assert(false);
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	assert(epsEqual(stringToDouble("-631.3543e52"), -631.3543e52));
-
-	try
-	{
-		stringToFloat("-z631.3543");
-		assert(false);
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	try
-	{
-		stringToFloat("");
-		assert(false);
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	try
-	{
-		stringToFloat(" ");
-		assert(false);
-	}
-	catch(StringUtilsExcep& )
-	{}
+	
 
 	assert(epsEqual((double)stringToInt("-631"), (double)-631));
 
@@ -1523,7 +1642,7 @@ void doStringUtilsUnitTests()
 	/*assert(::concatWithChar("abc", 'd') == "abcd");
 	assert(::concatWithChar("", 'a') == "a");
 	assert(::concatWithChar("aa", '_') == "aa_");*/
-
 }
-#endif
 
+
+#endif

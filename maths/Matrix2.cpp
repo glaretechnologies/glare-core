@@ -13,20 +13,18 @@ Code By Nicholas Chapman.
 template <>
 const std::string Matrix2<float>::toString() const
 {
-	const int dp = 4;
 	std::string s;
 	for(int i=0; i<2; ++i)
-		s += "|" + floatToString(elem(i, 0), dp) + "," + floatToString(elem(i, 1), dp) + "|" + ((i < 1) ? "\n" : "");
+		s += "|" + floatToString(elem(i, 0)) + "," + floatToString(elem(i, 1)) + "|" + ((i < 1) ? "\n" : "");
 	return s;
 }
 
 template <>
 const std::string Matrix2<double>::toString() const
 {
-	const int dp = 4;
 	std::string s;
 	for(int i=0; i<2; ++i)
-		s += "|" + doubleToString(elem(i, 0), dp) + "," + doubleToString(elem(i, 1), dp) + "|" + ((i < 1) ? "\n" : "");
+		s += "|" + doubleToString(elem(i, 0)) + "," + doubleToString(elem(i, 1)) + "|" + ((i < 1) ? "\n" : "");
 	return s;
 }
 

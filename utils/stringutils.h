@@ -1,8 +1,7 @@
 /*===================================================================
-Copyright Glare Technologies Limited 2009 -
+Copyright Glare Technologies Limited 2012 -
 ====================================================================*/
-#ifndef __STRINGUTILS_H__
-#define __STRINGUTILS_H__
+#pragma once
 
 
 //NOTE: not all of this code has been used/tested for ages.
@@ -26,9 +25,11 @@ private:
 	std::string s;
 };
 
-
+//====================== String -> Number conversion ======================
+// These functions ignore the current locale.  Decimal seperator is always considered to be '.'.
 float stringToFloat(const std::string& s); // throws StringUtilsExcep
 double stringToDouble(const std::string& s); // throws StringUtilsExcep
+
 int stringToInt(const std::string& s); // throws StringUtilsExcep
 uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
@@ -43,16 +44,25 @@ unsigned int hexCharToUInt(char c);
 unsigned int hexStringToUInt(const std::string& s);
 unsigned long long hexStringTo64UInt(const std::string& s);
 
+//====================== Number -> String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
 const std::string toHexString(unsigned long long i);//for 64 bit integers
 const std::string intToString(int i);
 const std::string uIntToString(uint32 i);
-const std::string floatToString(float f);
-const std::string doubleToString(double d, int num_decimal_places = 5);
-const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
-const std::string floatToString(float f, int num_decimal_places);
 
-//argument overloaded toString functions:
+// These functions write the shortest string such that they can be re-read to get the original number.
+const std::string floatToString(float f);
+const std::string doubleToString(double d);
+
+// Write to a string with a certain number of decimal places.  Slow.
+const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places);
+const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places);
+
+// Write to a string with scientific notation, e.g. 4.0e10.
+const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
+
+
+// Overloaded toString functions:
 inline const std::string toString(double f)
 {
 	return doubleToString(f);
@@ -228,11 +238,7 @@ const std::string replaceCharacter(const std::string& s, char src, char dest);
 const std::vector<unsigned char> convertHexToBinary(const std::string& hex);
 
 
+void test();
+
+
 }; // end namespace StringUtils
-
-
-//NOTE: must be in debug mode for this to work
-void doStringUtilsUnitTests();
-
-
-#endif //__STRINGUTILS_H__

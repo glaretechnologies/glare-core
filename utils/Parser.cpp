@@ -12,6 +12,8 @@ Copyright Glare Technologies Limited 2009 -
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
+#include "../maths/mathstypes.h"
+#include "../double-conversion/double-conversion.h"
 
 
 Parser::Parser(const char* text_, unsigned int textsize_)
@@ -94,145 +96,39 @@ bool Parser::parseInt(int& result_out)
 
 bool Parser::parseFloat(float& result_out)
 {
-	double x;
+	if(eof())
+		return false;
+
+	double_conversion::StringToDoubleConverter s2d_converter(
+		double_conversion::StringToDoubleConverter::ALLOW_TRAILING_JUNK,
+		std::numeric_limits<float>::quiet_NaN(), // empty string value
+		std::numeric_limits<float>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
+		NULL, // infinity symbol
+		NULL // NaN symbol
+	);
+
+	const int remaining_len = textsize - currentpos;
+
+	int num_processed_chars = 0;
+	const float x = s2d_converter.StringToFloat(&text[currentpos], remaining_len, &num_processed_chars);
+	if(::isNAN(x))
+		return false; // Parsing failed
+
+	result_out = x;
+	currentpos += num_processed_chars;
+
+	// Parse optional 'f' or 'F' (single-precision floating point number specifier)
+	if(notEOF() && current() == 'f')
+		parseChar('f');
+	else if(notEOF() && current() == 'F')
+		parseChar('F');
+	
+	return true;
+
+	/*double x;
 	const bool result = parseDouble(x);
 	result_out = (float)x;
-	return result;
-
-
-
-	/*for(unsigned int i=0 ;notEOF() && !::isWhitespace(text[currentpos]) && i < PARSER_TMP_BUF_SIZE; ++currentpos, ++i)
-		tmp[i] = text[currentpos];
-	tmp[i] = '\0';
-
-	result_out = (float)atof(tmp);
-	return true;*/
-
-
-
-
-
-
-
-
-
-
-	/*const char* start = text + currentpos;
-
-	for(;notEOF(); ++currentpos)
-	{
-		if(isWhitespace(text[currentpos]))
-		{
-			char old = text[currentpos];
-			text[currentpos] = '\0';//evil hax >:)	
-			result_out = (float)atof(start);
-			text[currentpos] = old;
-			return true;
-		}
-	}
-	return false;*/
-
-
-
-
-
-
-
-
-
-
-
-	/*const char* startptr = text + currentpos;
-	char* endptr;
-	result_out = (float)strtod(startptr, &endptr);
-
-	currentpos = endptr - text;
-
-	return startptr != endptr;*/
-
-	//char tmp[256];
-/*
-	for(unsigned int i=0 ;notEOF() && !::isWhitespace(text[currentpos]); ++currentpos, ++i)
-		tmp[i] = text[currentpos];
-	tmp[i] = '\0';
-	
-
-	result_out = (float)atof(tmp);
-	//find next space
-	//for( ;notEOF() && !::isWhitespace(text[currentpos]); ++currentpos)
-	//{}
-	//currentpos += i;
-
-	return true;
-*/
-
-
-	
-	
-	/*const bool result = parseNonWSToken(temp);
-	if(!result)
-		return false;
-
-	result_out = (float)atof(temp.c_str());
-	return true;*/
-	
-	
-	
-	/*double d = 0.0;
-	if(parseChar('+'))
-	{}
-	else if(parseChar('-'))
-	{
-		d *= -1.0;
-	}
-
-	for( ;currentpos < textsize && ::isNumeric(text[currentpos]); ++currentpos)
-	{
-		x = 10*x + ((int)text[currentpos] - (int)'0');
-		found_int = true;
-	}*/
-
-
-
-	/*if(eof())
-		return false;
-
-	char* p = (char*)&text[currentpos];
-	const int numread = sscanf(p, "%f", &result_out);
-
-	/// parse sign
-	if(parseChar('+') || parseChar('-'))
-	{}
-
-	int x;
-	parseInt(x);
-	if(parseChar('.'))
-	{
-		parseInt(x);
-		if(parseChar('d') || parseChar('D') || parseChar('e') || parseChar('E'))
-		{
-			/// parse sign
-			if(parseChar('+') || parseChar('-'))
-			{}
-
-			parseInt(x);
-		}
-	}
-
-	
-	return numread == 1;*/
-
-
-
-	/*std::string s;
-	if(parseChar('+'))
-	{}
-	else if(parseChar('-'))
-	{
-		concatWithChar(s, '-');
-	}*/
-	
-
+	return result;*/
 }
 
 
@@ -296,7 +192,37 @@ bool Parser::fractionalNumberNext()
 //must be whitespace delimited
 bool Parser::parseDouble(double& result_out)
 {
-	const unsigned int initial_currentpos = currentpos;
+	if(eof())
+		return false;
+
+	double_conversion::StringToDoubleConverter s2d_converter(
+		double_conversion::StringToDoubleConverter::ALLOW_TRAILING_JUNK,
+		std::numeric_limits<double>::quiet_NaN(), // empty string value
+		std::numeric_limits<double>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
+		NULL, // infinity symbol
+		NULL // NaN symbol
+	);
+
+	const int remaining_len = textsize - currentpos;
+
+	int num_processed_chars = 0;
+	const double x = s2d_converter.StringToDouble(&text[currentpos], remaining_len, &num_processed_chars);
+	if(::isNAN(x))
+		return false; // Parsing failed
+
+	result_out = x;
+	currentpos += num_processed_chars;
+
+	// Parse optional 'f' or 'F' (single-precision floating point number specifier)
+	if(notEOF() && current() == 'f')
+		parseChar('f');
+	else if(notEOF() && current() == 'F')
+		parseChar('F');
+	
+	return true;
+
+
+	/*const unsigned int initial_currentpos = currentpos;
 
 	if(eof())
 		return false;
@@ -330,7 +256,7 @@ bool Parser::parseDouble(double& result_out)
 	/// Parse optional decimal point + digits ///
 	if(parseChar(this->decimal_separator)) // parseChar('.'))
 	{
-		//parse digits to right of decimal point
+		// Parse digits to right of decimal point
 		double place_val = 0.1;
 		while(notEOF() && isNumeric(current()))
 		{
@@ -346,7 +272,7 @@ bool Parser::parseDouble(double& result_out)
 	{
 		currentpos++;
 
-		//parse optional sign
+		// Parse optional sign
 		double exponent_sign = 1.;
 		if(parseChar('+'))
 		{}
@@ -360,7 +286,7 @@ bool Parser::parseDouble(double& result_out)
 		}
 
 
-		//parse exponent digits
+		// Parse exponent digits
 		int e = 0;
 		while(notEOF() && isNumeric(current()))
 		{
@@ -382,10 +308,9 @@ bool Parser::parseDouble(double& result_out)
 	else if(notEOF() && current() == 'F')
 		parseChar('F');
 
-
-	return reached_numerals;
-
+	return reached_numerals;*/
 }
+
 
 bool Parser::parseAlphaToken(std::string& token_out)
 {
@@ -460,38 +385,185 @@ bool Parser::parseString(const std::string& s)
 }*/
 
 
-template <class Real>
+/*template <class Real>
 inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 {
 	return fabs(a - b) <= epsilon;
-}
+}*/
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
+#include "../double-conversion/double-conversion.h"
+#include "../indigo/TestUtils.h"
+
+
 void Parser::doUnitTests()
 {
 
-	// Speedtest
+	/*char buffer[512];
+	conPrint("Doing functionality tests..");
+	int N = 1000000;
+	for(int i=0; i<N; ++i)
 	{
-		const std::string text = "123.456";
+		double x = i * 0.001;
+
+
+		//================ Test built-in C functions ==================
+		{
+			// Convert double to string with sprintf
+			sprintf(buffer, "%1.32f", x);
+			std::string s1(buffer);
+
+			// Convert string back to double
+			double x2 = stringToDouble(std::string(buffer));
+
+			// Check the original value is the same as the new value
+			testAssert(x == x2);
+		}
+
+		//=============== Test Google's double-to-string code ======================
+		{
+			// Convert double to string with Google's code
+			double_conversion::DoubleToStringConverter converter(
+				double_conversion::DoubleToStringConverter::NO_FLAGS,
+				"Inf",
+				"NaN",
+				'E',
+				-6, // decimal_in_shortest_low
+				21, // decimal_in_shortest_high
+				6, // max_leading_padding_zeroes_in_precision_mode
+				1 // max_trailing_padding_zeroes_in_precision_mode
+			);
+
+			double_conversion::StringBuilder builder(buffer, sizeof(buffer));
+
+			converter.ToShortest(x, &builder);
+
+			std::string s2(builder.Finalize());
+
+			// Convert back from string to double
+			double x2 = stringToDouble(s2);
+
+			// Check the original value is the same as the new value
+			testAssert(x == x2);
+
+			// Convert back from string to double with Google's code
+			double_conversion::StringToDoubleConverter s2d_converter(
+				double_conversion::StringToDoubleConverter::ALLOW_LEADING_SPACES,
+				0.0,
+				0.0,
+				"infinity",
+				"NaN"
+			);
+
+			int num_processed_chars = 0;
+			double x3 = s2d_converter.StringToDouble(s2.c_str(), (int)s2.length(), &num_processed_chars);
+			testAssert(x3 == x);
+		}
+	}
+
+	conPrint("\tDone.");
+
+
+
+
+	// Speedtest
+	
+
+	conPrint("stringToDouble");
+	{
+		Timer t;
+
+		double sum = 0;
+		for(int i=0; i<N; ++i)
+		{
+			double x = i * 0.001;
+
+			// Convert double to string
+			//std::string s = ::toString(x);
+
+			char buffer[512]; // Double can be up to ~1x10^38 :)
+			sprintf(buffer, "%1.32f", x);
+
+
+			// Convert string back to double
+			double x2 = stringToDouble(std::string(buffer));
+			//testAssert(x == x2);
+
+			sum += x2;
+		}
+		conPrint(t.elapsedString());
+		conPrint(::toString(sum));
+	}
+	conPrint("");
+
+	conPrint("double_conversion");
+	{
+		Timer t;
+
+		double sum = 0;
+		for(int i=0; i<N; ++i)
+		{
+			double x = i * 0.001;
+
+			// Convert double to string
+			char buffer[512]; // Double can be up to ~1x10^38 :)
+			sprintf(buffer, "%1.32f", x);
+			std::string s(buffer);
+
+			double_conversion::StringToDoubleConverter converter(
+				double_conversion::StringToDoubleConverter::ALLOW_LEADING_SPACES,
+				0.0,
+				0.0,
+				"infinity",
+				"NaN"
+			);
+
+			//double x = stringToFloat(text);
+			int num_processed_chars = 0;
+			double x2 = converter.StringToDouble(s.c_str(), (int)s.length(), &num_processed_chars);
+			//testAssert(x == x2);
+
+			sum += x2;
+		}
+		conPrint(t.elapsedString());
+		conPrint(::toString(sum));
+	}
+	conPrint("");
+
+	conPrint("Parser");
+	{
+		//const std::string text = "123.456E+2";
 
 		Timer t;
 
-		double y = 0;
-		for(int i=0; i<1000000; ++i)
+		double sum = 0;
+		for(int i=0; i<N; ++i)
 		{
-			Parser p(text.c_str(), (unsigned int)text.size());
+			double x = i * 0.001;
 
-			double x;
-			p.parseDouble(x);
-			y += x;
+			// Convert double to string
+			char buffer[512]; // Double can be up to ~1x10^38 :)
+			sprintf(buffer, "%1.32f", x);
+			std::string s(buffer);
+
+			// Convert string back to double
+			Parser p(s.c_str(), (unsigned int)s.size());
+			double x2;
+			p.parseDouble(x2);
+
+			//testAssert(x == x2);
+			sum += x2;
 		}
 		conPrint(t.elapsedString());
-		conPrint(::toString(y));
+		conPrint(::toString(sum));
 	}
-
+	conPrint("");
+	*/
 	// Speedtest
-	{
+	/*{
 		const std::string text = "123.456";
 
 		Timer t;
@@ -509,65 +581,93 @@ void Parser::doUnitTests()
 		}
 		conPrint(t.elapsedString());
 		conPrint(::toString(y));
-	}
+	}*/
 
 	
 
 #ifdef _DEBUG
 	{
-	std::string text = "-456.5456e21 673.234 -0.5e-53 .6 167/2/3 4/5/6";
+	std::string text = "-456.5456e21 673.234 -0.5e-13 .6 167/2/3 4/5/6";
 
-	Parser p(text.c_str(), text.size());
+	// Test parseFloat()
+	{
+		Parser p(text.c_str(), (unsigned int)text.size());
+		float f;
+		assert(p.parseFloat(f));
+		assert(f == -456.5456e21f);
+		assert(p.parseWhiteSpace());
 
-	float f;
-	assert(p.parseFloat(f));
-	assert(::epsEqual((float)f, -456.5456e21f));
-	assert(p.parseWhiteSpace());
+		assert(p.parseFloat(f));
+		assert(f == 673.234f);
+		assert(p.parseWhiteSpace());
 
-	assert(p.parseFloat(f));
-	assert(::epsEqual((float)f, 673.234f));
-	assert(p.parseWhiteSpace());
+		assert(p.parseFloat(f));
+		assert(f == -0.5e-13f);
+		assert(p.parseWhiteSpace());
 
-	assert(p.parseFloat(f));
-	assert(::epsEqual((float)f, -0.5e-53f));
-	assert(p.parseWhiteSpace());
+		assert(p.parseFloat(f));
+		assert(f == .6f);
+		assert(p.parseWhiteSpace());
+	}
+	
+	// Test parseDouble()
+	{
+		Parser p(text.c_str(), (unsigned int)text.size());
+		double f;
+		assert(p.parseDouble(f));
+		assert(f == -456.5456e21);
+		assert(p.parseWhiteSpace());
 
-	assert(p.parseFloat(f));
-	assert(::epsEqual((float)f, .6f));
-	assert(p.parseWhiteSpace());
+		assert(p.parseDouble(f));
+		assert(f == 673.234);
+		assert(p.parseWhiteSpace());
 
-	unsigned int x;
-	assert(p.parseUnsignedInt(x));
-	assert(x == 167);
-	assert(p.parseChar('/'));
-	assert(p.parseUnsignedInt(x));
-	assert(x == 2);
-	assert(p.parseChar('/'));
+		assert(p.parseDouble(f));
+		assert(f == -0.5e-13);
+		assert(p.parseWhiteSpace());
 
-	assert(p.parseUnsignedInt(x));
-	assert(x == 3);
+		assert(p.parseDouble(f));
+		assert(f == .6);
+		assert(p.parseWhiteSpace());
+	}
 
-	assert(p.parseWhiteSpace());
+	}
+	{
+		std::string text = "167/2/3 4/5/6";
 
-	assert(p.parseUnsignedInt(x));
-	assert(x == 4);
-	assert(p.parseChar('/'));
-	assert(p.parseUnsignedInt(x));
-	assert(x == 5);
-	assert(p.parseChar('/'));
-	assert(p.parseUnsignedInt(x));
-	assert(x == 6);
-	assert(p.eof());
+		Parser p(text.c_str(), (unsigned int)text.size());
+		unsigned int x;
+		assert(p.parseUnsignedInt(x));
+		assert(x == 167);
+		assert(p.parseChar('/'));
+		assert(p.parseUnsignedInt(x));
+		assert(x == 2);
+		assert(p.parseChar('/'));
 
-	assert(!p.parseChar('/'));
-	assert(!p.parseUnsignedInt(x));
-	assert(!p.parseWhiteSpace());
+		assert(p.parseUnsignedInt(x));
+		assert(x == 3);
+
+		assert(p.parseWhiteSpace());
+
+		assert(p.parseUnsignedInt(x));
+		assert(x == 4);
+		assert(p.parseChar('/'));
+		assert(p.parseUnsignedInt(x));
+		assert(x == 5);
+		assert(p.parseChar('/'));
+		assert(p.parseUnsignedInt(x));
+		assert(x == 6);
+		assert(p.eof());
+
+		assert(!p.parseChar('/'));
+		assert(!p.parseUnsignedInt(x));
+		assert(!p.parseWhiteSpace());
 	}
 
 	// Check parsing of 'f' suffix
 	{
 		const std::string text = "123.456e3f";
-		Parser p(text.c_str(), text.size());
+		Parser p(text.c_str(), (unsigned int)text.size());
 
 		double x;
 		assert(p.parseDouble(x));
@@ -598,7 +698,7 @@ void Parser::doUnitTests()
 	{
 	const std::string text = "123--456222";
 
-	Parser p(text.c_str(), text.size());
+	Parser p(text.c_str(), (unsigned int)text.size());
 
 	unsigned int x;
 	assert(p.parseNDigitUnsignedInt(3, x));
@@ -616,7 +716,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "bleh 123";
-	Parser p(text.c_str(), text.size());
+	Parser p(text.c_str(), (unsigned int)text.size());
 
 	double x;
 	assert(!p.parseDouble(x));
@@ -624,7 +724,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "123 -645 meh";
-	Parser p(text.c_str(), text.size());
+	Parser p(text.c_str(), (unsigned int)text.size());
 
 	int x;
 	assert(p.parseInt(x));
@@ -642,7 +742,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "BLEH";
-	Parser p(text.c_str(), text.size());
+	Parser p(text.c_str(), (unsigned int)text.size());
 
 	assert(!p.parseString("BLEHA"));
 	assert(p.parseString("BL"));
@@ -651,25 +751,25 @@ void Parser::doUnitTests()
 
 	{
 		const std::string text = ".";
-		Parser p(text.c_str(), text.size());
+		Parser p(text.c_str(), (unsigned int)text.size());
 
 		assert(!p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "1.3";
-		Parser p(text.c_str(), text.size());
+		Parser p(text.c_str(), (unsigned int)text.size());
 
 		assert(p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "13";
-		Parser p(text.c_str(), text.size());
+		Parser p(text.c_str(), (unsigned int)text.size());
 
 		assert(!p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "4e-5f";
-		Parser p(text.c_str(), text.size());
+		Parser p(text.c_str(), (unsigned int)text.size());
 
 		assert(p.fractionalNumberNext());
 
@@ -680,12 +780,6 @@ void Parser::doUnitTests()
 	}
 #endif
 }
+
+
 #endif
-
-
-
-
-
-
-
-
