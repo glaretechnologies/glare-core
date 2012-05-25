@@ -4,14 +4,9 @@ Copyright Glare Technologies Limited 2012 -
 #pragma once
 
 
-//NOTE: not all of this code has been used/tested for ages.
-//Your mileage may vary; test the code before you use it!!!!
-
 #include "../utils/platform.h"
 #include <string>
-#include <assert.h>
 #include <vector>
-#include <sstream>
 
 
 class StringUtilsExcep
@@ -24,6 +19,7 @@ public:
 private:
 	std::string s;
 };
+
 
 //====================== String -> Number conversion ======================
 // These functions ignore the current locale.  Decimal seperator is always considered to be '.'.
@@ -152,29 +148,15 @@ void writeToQuote(std::ostream& stream, const std::string& str); // Writes strin
 unsigned int stringChecksum(const std::string& s);
 
 
-template <class T>
-inline const std::string writeToStringStream(T& t)
-{
-	std::ostringstream outstream;
-	outstream << t;
-
-	return outstream.str();
-}
-
-template <class T>
-inline void readFromStringStream(const std::string& instring, T& t_out)
-{
-	std::istringstream instream(instring);
-	instream >> t_out;
-}
-
-
 // Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest);
 
 inline void concatWithChar(std::string& s, char c)
 {
-	s = s + std::string(1, c);
+	// s = s + std::string(1, c);
+	const size_t old_size = s.size();
+	s.resize(old_size + 1);
+	s[old_size] = c;
 }
 
 inline const std::string appendChar(const std::string& s, char c)

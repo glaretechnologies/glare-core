@@ -416,15 +416,6 @@ const std::string toString(unsigned int x)
 }
 
 
-// Slooooow
-const std::string toStringStrStream(unsigned int x)
-{
-	std::ostringstream stream;
-	stream << x;
-	return stream.str();
-}
-
-
 const std::string toString(uint64 x)
 {
 	char buffer[32];
@@ -1375,6 +1366,19 @@ void StringUtils::test()
 	}
 
 
+	// =========== test concatWithChar() ================
+	{
+		std::string s = "a";
+		concatWithChar(s, 'b');
+		testAssert(s == "ab");
+	}
+	{
+		std::string s = "";
+		concatWithChar(s, 'b');
+		testAssert(s == "b");
+	}
+
+
 	/*const int N = 100000;
 	{
 		Timer timer;
@@ -1585,6 +1589,8 @@ void StringUtils::test()
 	assert(::isWhitespace(' '));
 	assert(::isWhitespace('\t'));
 	assert(::isWhitespace('	'));
+
+
 
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");

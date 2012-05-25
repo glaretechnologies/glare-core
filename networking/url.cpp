@@ -1,6 +1,9 @@
 #include "url.h"
 
+
 #include "../utils/stringutils.h"
+#include <assert.h>
+
 
 URL::URL(const std::string& url_)
 {

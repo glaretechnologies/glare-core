@@ -8,6 +8,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 
 
 #include "stringutils.h"
+#include <assert.h>
 #if BUILD_TESTS
 #include "../indigo/TestUtils.h"
 #include <iostream>

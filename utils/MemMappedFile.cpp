@@ -10,6 +10,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/platformutils.h"
+#include <assert.h>
 
 
 #if defined(_WIN32)

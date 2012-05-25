@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "../utils/platformutils.h"
 #include <stdlib.h>
 #include <iostream>
+#include <assert.h>
 
 
 namespace TestUtils
