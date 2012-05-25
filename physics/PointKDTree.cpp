@@ -13,6 +13,7 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 #include <algorithm>
 #include <set>
 #include "../indigo/ThreadContext.h"
+#include <ostream>
 
 
 PointKDTree::PointKDTree(const std::vector<Vec3f>& points)
