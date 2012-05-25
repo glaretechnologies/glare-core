@@ -12,6 +12,7 @@
 #include "../indigo/TestUtils.h"
 #include "../double-conversion/double-conversion.h"
 #include <limits>
+#include <istream>
 
 
 #if defined(_WIN32) || defined(_WIN64)
