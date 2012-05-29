@@ -10,6 +10,7 @@ Generated at Wed Jul 14 11:41:12 +1200 2010
 #include "timer.h"
 #include "CycleTimer.h"
 #include "stringutils.h"
+#include "platformutils.h"
 #include "../indigo/globals.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
@@ -111,21 +112,21 @@ void UtilTests::test()
 		int n = 10;
 		for(int i=0; i<n; ++i)
 		{
-			FileHandle f(TestUtils::getIndigoTestReposDir() + "/testfiles/bleh", "w");
+			FileHandle f(PlatformUtils::getTempDirPath() + "/testfiles_indigo_bleh", "w");
 			fputc('a', f.getFile());
 		}
 
 		for(int i=0; i<n; ++i)
 		{
 			FileHandle f;
-			f.open(TestUtils::getIndigoTestReposDir() + "/testfiles/bleh", "w");
+			f.open(PlatformUtils::getTempDirPath() + "/testfiles_indigo_bleh", "w");
 			fputc('a', f.getFile());
 		}
 
 		// Try a file that doesn't exist
 		try
 		{
-			FileHandle f(TestUtils::getIndigoTestReposDir() + "/testfiles/idfhkjsdghkjfhgdkfj", "r");
+			FileHandle f(PlatformUtils::getTempDirPath() + "/testfiles_indigo_bleh_idfhkjsdghkjfhgdkfj", "r");
 			
 			failTest("Should have thrown an exception.");
 		}
