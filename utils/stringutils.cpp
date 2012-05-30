@@ -1219,7 +1219,7 @@ inline static float uintAsFloat(uint32 i)
 void StringUtils::test()
 {
 	{
-		std::string s = floatToString(123.4567);
+		std::string s = floatToString(123.4567f);
 		testAssert(s == "123.4567");
 	}
 	// Check positive Max representable finite float.

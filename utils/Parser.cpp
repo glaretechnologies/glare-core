@@ -584,6 +584,21 @@ void Parser::doUnitTests()
 	}*/
 
 	
+	// Test parseFloat()
+	{
+		std::string text = "0";
+
+		// Note that if we compile with floating point model fast (/fp:fast),
+		// then -0 and 0 are treated the same, and "0" will get parsed as -0.
+
+		Parser p(text.c_str(), (unsigned int)text.size());
+		
+		double x = 0;
+		testAssert(p.parseDouble(x));
+		testAssert(p.currentPos() == 1);
+
+		testAssert(x == -0.0 || x == 0.0);
+	}
 
 #ifdef _DEBUG
 	{
