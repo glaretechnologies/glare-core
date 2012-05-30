@@ -88,12 +88,16 @@ namespace GeometrySampling
 
 template <class Real> Real solidAngleToAreaPDF(Real solid_angle_pdf, Real dist2, Real costheta)
 {
+	assert(costheta >= 0 && costheta <= 1.01f);
+	assert(dist2 >= 0);
 	return solid_angle_pdf * costheta / dist2;
 }
 
 
 template <class Real> Real areaToSolidAnglePDF(Real area_pdf, Real dist2, Real costheta)
 {
+	assert(costheta >= 0 && costheta <= 1.01f);
+	assert(dist2 >= 0);
 	return area_pdf * dist2 / costheta;
 }
 
