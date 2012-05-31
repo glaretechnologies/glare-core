@@ -1,10 +1,8 @@
-/*=====================================================================
-License.h
----------
+/*===================================================================
+Copyright Glare Technologies Limited 2012 -
 File created by ClassTemplate on Thu Mar 19 14:06:32 2009
-=====================================================================*/
-#ifndef __LICENSE_H_666_
-#define __LICENSE_H_666_
+====================================================================*/
+#pragma once
 
 
 #include <string>
@@ -74,24 +72,25 @@ public:
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
 	static const std::vector<std::string> getHardwareIdentifiers(); // throws LicenseExcep
 
+	static const std::string networkFloatingHash(const std::string& input);
 
 	static const std::string currentLicenseSummaryString(const std::string& appdata_path);
 
 	static bool verifyKey(const std::string& key, const std::string& hash);
-	static const std::string decodeBase64(const std::string& data);
-
-	static const std::string networkFloatingHash(const std::string& input);
-
 
 	static void cleanup(); // Cleans up / frees OpenSSL global state.
 
 	static void test();
 private:
+	
+
+	
+	static const std::string decodeBase64(const std::string& data);
+
+	static void verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out);
+
 	static const std::string ensureNewLinesPresent(const std::string& data);
 
 	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out);
 
 };
-
-
-#endif //__LICENSE_H_666_

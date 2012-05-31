@@ -1,8 +1,7 @@
-/*=====================================================================
-License.cpp
------------
+/*===================================================================
+Copyright Glare Technologies Limited 2012 -
 File created by ClassTemplate on Thu Mar 19 14:06:32 2009
-=====================================================================*/
+====================================================================*/
 #include "License.h"
 
 
@@ -19,8 +18,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "Transmungify.h"
 #include "X509Certificate.h"
 
-#define USE_OPENSSL 1
-#if USE_OPENSSL
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
@@ -28,7 +25,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <openssl/x509.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
-#endif 
 
 #include <iostream>
 #include <fstream>
@@ -36,9 +32,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <string>
 #include <vector>
 #include <limits>
-
-
-//#define NO_HARDWARE_ID_SDK_LICENSING 1
 
 
 //static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
@@ -77,7 +70,6 @@ const std::string License::ensureNewLinesPresent(const std::string& data)
 }
 
 
-#if USE_OPENSSL
 // Modified from http://www.google.com/codesearch/p?hl=en#Q5tR35FJDOM/libopkele-0.2.1/lib/util.cc&q=decode_base64%20const%20string%20data%20lang:c%2B%2B
 
 const std::string License::decodeBase64(const std::string& data_)
@@ -117,7 +109,6 @@ const std::string License::decodeBase64(const std::string& data_)
         throw License::LicenseExcep("base64 decoder error");
     }
 }
-#endif // USE_OPENSSL
 
 
 // throws Indigo::Exception on failure
@@ -147,7 +138,6 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 
 	const std::string public_key_str = unTransmunfigyPublicKey();
 
-#if USE_OPENSSL
 	ERR_load_crypto_strings(); // NOTE: This seems to leak memory over multiple calls, see http://readlist.com/lists/openssl.org/openssl-users/0/394.html
 
 	// Load the public key
@@ -185,13 +175,16 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	}
 	else // Failure (other error)
 		throw LicenseExcep("Verification failed.");
-
-#else // #if USE_OPENSSL
-	return false;
-#endif // #if USE_OPENSSL
 }
 
 
+/*
+Verify the licence located on disk at appdata_path/licence.sig against the current machine's hardware ID.
+Checks the public signature of the licence key hash.
+Sets licence_type_out and user_id_out based on the results of the verification.
+
+Also checks for the presence of the Green Button certificate, as well as a network floating licence licence key cached on disk.
+*/
 void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out)
 {
 	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
@@ -215,8 +208,6 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 #endif
 
 
-#if USE_OPENSSL
-
 	// Try and verifiy network licence first.
 	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out);
 	if(have_net_floating_licence)
@@ -227,33 +218,14 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 		user_id_out = "";
 	}
 
-#ifdef NO_HARDWARE_ID_SDK_LICENSING
-	/*std::string hardware_id;
-	try
-	{
-		std::string licence_id;
-		FileUtils::readEntireFile(FileUtils::join(appdata_path, "licence-id.txt"), licence_id);
-		hardware_id = licence_id;
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw LicenseExcep(e.what());
-	}*/
-
-	//const std::string hardware_id = getHardwareIdentifier();
-#else
+	// Get the hardware IDs for the current machine.
 	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
-#endif
-
-#ifdef NO_HARDWARE_ID_SDK_LICENSING
-	const std::string licence_sig_path = "sdk-licence.txt";
-#else
-	const std::string licence_sig_path = "licence.sig";
-#endif
 
 	try
 	{
 		// Load the signature from disk and decode from base64
+		const std::string licence_sig_path = "licence.sig";
+
 		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_path);
 		if(!FileUtils::fileExists(licence_sig_full_path))
 			return;
@@ -261,82 +233,112 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 		std::string sigfile_contents;
 		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
 
-		if(sigfile_contents.empty())
-			return; // throw LicenseExcep("Signature empty.");
+		verifyLicenceString(sigfile_contents, hardware_ids, licence_type_out, user_id_out);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw LicenseExcep(e.what());
+	}
+}
 
-		// Split the license key up into (User Id, license type, sig)
-		const std::vector<std::string> components = ::split(sigfile_contents, ';');
 
-		if(components.size() != 3)
-			return;
+/*
+Verifies that the licence key is correctly signed with Glare's private key.  Also check that the signature matches that for at least one of the hardware IDs passsed in.
 
-		user_id_out = components[0];
+*/
+void License::verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out)
+{
+	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+	user_id_out = "";
 
-		LicenceType desired_licence_type = UNLICENSED;
+	if(licence_string.empty())
+		return; // throw LicenseExcep("Signature empty.");
 
-#ifdef INDIGO_RT
-		if(components[1] == "indigo-rt-3.x")
-			desired_licence_type = RT_3_X;
-		else if(components[1] == "indigo-full-3.x")
-			desired_licence_type = FULL_3_X;
-		else if(components[1] == "indigo-full-lifetime")
-			desired_licence_type = FULL_LIFETIME;
-#else
-		if(components[1] == "indigo-full-2.x")
-			desired_licence_type = FULL_2_X;
-		else if(components[1] == "indigo-beta-2.x")
-			desired_licence_type = BETA_2_X;
-		else if(components[1] == "indigo-node-2.x")
-			desired_licence_type = NODE_2_X;
-		else if(components[1] == "indigo-full-lifetime")
-			desired_licence_type = FULL_LIFETIME;
-		else if(components[1] == "indigo-sdk-2.x")
-			desired_licence_type = SDK_2_X;
-		else if(components[1] == "indigo-full-3.x")
-			desired_licence_type = FULL_3_X;
-		else if(components[1] == "indigo-node-3.x")
-			desired_licence_type = NODE_3_X;
-		else if(components[1] == "indigo-revit-3.x")
-			desired_licence_type = REVIT_3_X;
-		else if(components[1] == "indigo-rt-3.x")
-			desired_licence_type = RT_3_X;
-#endif
-		else
-			return;
+	// Split the license key up into (User Id, license type, sig)
+	const std::vector<std::string> components = ::split(licence_string, ';');
 
+	if(components.size() != 3)
+		return;
+
+	LicenceType desired_licence_type = UNLICENSED;
 
 #ifdef INDIGO_RT
-		// The user may run Indigo RT with an Indigo Full licence, without restrictions.
+	if(components[1] == "indigo-rt-3.x")
+		desired_licence_type = RT_3_X;
+	else if(components[1] == "indigo-full-3.x")
+		desired_licence_type = FULL_3_X;
+	else if(components[1] == "indigo-full-lifetime")
+		desired_licence_type = FULL_LIFETIME;
 #else
-		// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
-		if(desired_licence_type == RT_3_X)
-			throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
+	if(components[1] == "indigo-full-2.x")
+		desired_licence_type = FULL_2_X;
+	else if(components[1] == "indigo-beta-2.x")
+		desired_licence_type = BETA_2_X;
+	else if(components[1] == "indigo-node-2.x")
+		desired_licence_type = NODE_2_X;
+	else if(components[1] == "indigo-full-lifetime")
+		desired_licence_type = FULL_LIFETIME;
+	else if(components[1] == "indigo-sdk-2.x")
+		desired_licence_type = SDK_2_X;
+	else if(components[1] == "indigo-full-3.x")
+		desired_licence_type = FULL_3_X;
+	else if(components[1] == "indigo-node-3.x")
+		desired_licence_type = NODE_3_X;
+	else if(components[1] == "indigo-revit-3.x")
+		desired_licence_type = REVIT_3_X;
+	else if(components[1] == "indigo-rt-3.x")
+		desired_licence_type = RT_3_X;
+#endif
+	else
+		return;
+
+
+#ifdef INDIGO_RT
+	// The user may run Indigo RT with an Indigo Full licence, without restrictions.
+#else
+	// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
+	if(desired_licence_type == RT_3_X)
+		throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
 #endif
 
-		const std::string hash = decodeBase64(components[2]);
+	const std::string hash = decodeBase64(components[2]);
 
-		if(hash.empty())
-			return; // throw LicenseExcep("Signature empty.");
+	if(hash.empty())
+		return; // throw LicenseExcep("Signature empty.");
 
-		// Go through each hardware id, and see if it can be verified against the signature.
-		for(size_t i=0; i<hardware_ids.size(); ++i)
+	// Go through each hardware id, and see if it can be verified against the signature.
+	for(size_t i=0; i<hardware_ids.size(); ++i)
+	{
+		// Try with the unmodified hardware ID.
 		{
 			const std::string hardware_id = hardware_ids[i];
 
-			//std::string hash;
-			//std::string constructed_key; // = "User ID;Licence Type;Hardware Key"
-			// Or, in the case of the SDK DLL,
-			// = "Preamble and User ID;License Type"
-
-			#ifdef NO_HARDWARE_ID_SDK_LICENSING
-			constructed_key = components[0] + ";" + components[1];
-			#else
-			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
-			#endif
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
 
 			if(verifyKey(constructed_key, hash))
 			{
 				// Key verified!
+				user_id_out = components[0]; // The user id is the first component.
+				licence_type_out = desired_licence_type;
+				return; // We're done here, return
+			}
+			else
+			{
+				assert(licence_type_out == UNLICENSED);
+			}
+		}
+
+
+		// Try with the hardware ID with the leading whitespace stripped off
+		{
+			const std::string hardware_id = ::stripHeadWhitespace(hardware_ids[i]);
+	
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
+
+			if(verifyKey(constructed_key, hash))
+			{
+				// Key verified!
+				user_id_out = components[0]; // The user id is the first component.
 				licence_type_out = desired_licence_type;
 				return; // We're done here, return
 			}
@@ -346,15 +348,14 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 			}
 		}
 	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw LicenseExcep(e.what());
-	}
-
-#endif // #if USE_OPENSSL
 }
 
 
+/*
+Get the hardware IDs for the current machine.
+There wil be a hardware ID for each different MAC address.
+
+*/
 const std::vector<std::string> License::getHardwareIdentifiers()
 {
 	try
@@ -689,7 +690,7 @@ void License::cleanup() // Cleans up / frees OpenSSL global state.
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
 
 
 void License::test()
@@ -720,7 +721,6 @@ void License::test()
 	testAssert(decoded_pubkey == PUBLIC_CERTIFICATE_DATA);
 
 
-#if USE_OPENSSL
 	// Test long base-64 encoded block, with no embedded newlines
 	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
 		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
@@ -734,7 +734,12 @@ void License::test()
 	testAssert(decodeBase64("bGVhc3VyZS4=") == "leasure.");
 	testAssert(decodeBase64("bGVhc3VyZS4=\n") == "leasure.");
 
-	// Test a signed key
+	
+
+
+	
+
+	// Test verifyKey.
 	Timer timer;
 
 	const int N = 3;
@@ -750,7 +755,7 @@ void License::test()
 		testAssert(License::verifyKey(key, hash));	
 	}
 
-	conPrint("Verification took on average " + toString(timer.elapsed() / N) + " s");
+	conPrint("License::verifyKey() verification took on average " + toString(timer.elapsed() / N) + " s");
 
 	{
 		const std::string encoded_hash = 
@@ -764,6 +769,171 @@ void License::test()
 		
 		testAssert(License::verifyKey(key, hash));	
 	}
-#endif // USE_OPENSSL
+
+	// Test verifyKey returns false on invalid signature.
+	{
+		const std::string encoded_hash = 
+			"66620caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
+			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
+			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
+	
+		const std::string hash = License::decodeBase64(encoded_hash);
+		
+		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
+		
+		testAssert(License::verifyKey(key, hash) == false);	
+	}
+
+
+
+
+	// Test verifyLicenceString where it should succeed.
+	try
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
+
+		// Original key is "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"
+
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+		testAssert(user_id == "someoneawesome@awesome.com<S. Awesome>");
+		testAssert(licence_type == FULL_LIFETIME);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test verifyLicenceString detects an invalid signature in the licence key.
+	try
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
+
+		// NOTE: changed start of licence key to have a '666'.
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;6660oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+		
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+		testAssert(user_id == "");
+		testAssert(licence_type == UNLICENSED);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test verifyLicenceString detects a different licence type (indigo 3 full vs indigo lifetime) than was signed.
+	try
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
+
+		// NOTE: using 'indigo-full-3.x' here instead of 'indigo-full-lifetime'.
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-3.x;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+		testAssert(user_id == "");
+		testAssert(licence_type == UNLICENSED);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test verifyLicenceString detects a different user name than was signed.
+	try 
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
+
+		// NOTE: using 'Mr Bleh' here.
+		const std::string licence_key = 
+			"Mr Bleh;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+		testAssert(user_id == "");
+		testAssert(licence_type == UNLICENSED);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test verifyLicenceString detects a different hardware ID than was signed.
+	try 
+	{
+		std::vector<std::string> hardware_ids;
+		// NOTE: changed CPU freq here.
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 6.66GHz:00-25-21-7F-BB-3E");
+
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+		testAssert(user_id == "");
+		testAssert(licence_type == UNLICENSED);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+
+
+	/* 
+	Test verifyLicenceString works when the licence key signature has been generated from the hardware ID with the leading whitespace stripped off, e.g. with
+
+	N:\indigo\trunk\signing> ruby .\sign.rb "someoneawesome@awesome.com<S. Awesome>" "Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E" full-lifetime
+	*/
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"); // The actual hardware ID on the computer will be unchanged.
+
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;X4HDE8GqCxaiuJmmIFe33JAChHpVyOUhZ/sIaVpvwJpF+VBBSG5lH5RTxInv0UGQHtSQ1WZl+NIN/mT4aQqChHmGtZFil/3EjvEBcNrt81ihD9CclMK1Zj3L5nQ+YDWqg2+SppFRC410d6f49DHAXturu5aMiu08CYOSjkFyiEU=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		try
+		{
+			verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+
+			testAssert(user_id == "someoneawesome@awesome.com<S. Awesome>");
+			testAssert(licence_type == FULL_LIFETIME);
+		}
+		catch(LicenseExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
 }
-#endif
+
+
+#endif // BUILD_TESTS

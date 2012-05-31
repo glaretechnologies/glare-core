@@ -524,41 +524,39 @@ const std::string getLineFromText(int linenum, const char* textbuffer, int textb
 }
 
 
-const std::string eatHeadWhitespace(const std::string& text)
+const std::string stripHeadWhitespace(const std::string& text)
 {
 	for(unsigned int i=0; i<text.size(); i++)
 	{
 		if(!isWhitespace(text[i]))
 		{
-			//non-whitespace starts here
-
-		//	basic_string substr(size_type pos = 0,size_type n = npos) const;
+			// Non-whitespace starts here
 			return text.substr(i, text.size() - i);
 		}
 	}
 
-	return text;
+	// If got here, everything was whitespace.
+	return "";
 }
 
 
-const std::string eatTailWhitespace(const std::string& text)
+const std::string stripTailWhitespace(const std::string& text)
 {
 	for(int i=(int)text.size() - 1; i>=0; --i)//work backwards thru chars
 	{
 		if(!isWhitespace(text[i]))
 		{
-			//non-whitespace ends here
-
+			// Non-whitespace ends here.
 			return text.substr(0, i+1);
 		}
 	}
 
-	//if got here, everything was whitespace
+	// If got here, everything was whitespace.
 	return "";
 }
 
 
-const std::string eatWhitespace(const std::string& s)
+const std::string stripWhitespace(const std::string& s)
 {
 	std::string out;
 	for(size_t i=0; i<s.size(); ++i)
@@ -1218,6 +1216,30 @@ inline static float uintAsFloat(uint32 i)
 
 void StringUtils::test()
 {
+	// Test stripHeadWhitespace
+	testAssert(stripHeadWhitespace("a") == "a");
+	testAssert(stripHeadWhitespace("a ") == "a ");
+	testAssert(stripHeadWhitespace("a  ") == "a  ");
+	testAssert(stripHeadWhitespace(" a") == "a");
+	testAssert(stripHeadWhitespace(" ab") == "ab");
+	testAssert(stripHeadWhitespace("  ab") == "ab");
+	testAssert(stripHeadWhitespace("") == "");
+	testAssert(stripHeadWhitespace(" ") == "");
+	testAssert(stripHeadWhitespace("  ") == "");
+
+	// Test stripTailWhitespace
+	testAssert(stripTailWhitespace("a") == "a");
+	testAssert(stripTailWhitespace(" a") == " a");
+	testAssert(stripTailWhitespace("  a") == "  a");
+	testAssert(stripTailWhitespace("a ") == "a");
+	testAssert(stripTailWhitespace("a  ") == "a");
+	testAssert(stripTailWhitespace("ab  ") == "ab");
+	testAssert(stripTailWhitespace("  a  ") == "  a");
+	testAssert(stripTailWhitespace("") == "");
+	testAssert(stripTailWhitespace(" ") == "");
+	testAssert(stripTailWhitespace("  ") == "");
+
+
 	{
 		std::string s = floatToString(123.4567f);
 		testAssert(s == "123.4567");

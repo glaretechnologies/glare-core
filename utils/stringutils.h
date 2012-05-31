@@ -108,9 +108,9 @@ inline bool isAlphaNumeric(char c)
 	return isNumeric(c) || isAlphabetic(c);
 }
 
-const std::string eatHeadWhitespace(const std::string& text);
-const std::string eatTailWhitespace(const std::string& text);
-const std::string eatWhitespace(const std::string& s);
+const std::string stripHeadWhitespace(const std::string& text);
+const std::string stripTailWhitespace(const std::string& text);
+const std::string stripWhitespace(const std::string& s);
 
 const std::string toLowerCase(const std::string& text);
 const std::string toUpperCase(const std::string& text);
