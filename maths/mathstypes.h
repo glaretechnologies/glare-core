@@ -25,28 +25,63 @@ You may not use this code for any commercial project.
 #ifndef __MATHSTYPES_H__
 #define __MATHSTYPES_H__
 
-//#include <math.h>
+
 #include <cmath>
-//#include <float.h>
-//#include <assert.h>
 #include <cassert>
 #include <limits>
 
-/*using std::modf;
-using std::pow;
-using std::exp;
-using std::log;
-using std::sqrt;
-using std::sin;
-using std::cos;
-using std::tan;
-using std::acos;
-using std::asin;
-using std::atan;
-using std::fabs;*/
-
 
 const double NICKMATHS_EPSILON = 0.00001;
+
+
+namespace Maths
+{
+
+
+// Some template methods for getting Pi and various other values relating to Pi.
+// It makes faster code to use the correct template specialisation, instead of always using e.g. the double precision value and casting to single precision.
+
+template <class T> inline T pi();		// Pi
+template <class T> inline T get2Pi();	// 2 * Pi
+template <class T> inline T get4Pi();	// 4 * Pi
+
+template <class T> inline T pi_2();		// Pi / 2
+template <class T> inline T pi_4();		// Pi / 4
+
+template <class T> inline T recipPi();	// 1 / Pi
+template <class T> inline T recip2Pi(); // 1 / 2Pi
+template <class T> inline T recip4Pi();	// 1 / 4Pi
+
+
+template <> inline float  pi<float>()  { return 3.1415926535897932384626433832795f; };
+template <> inline double pi<double>() { return 3.1415926535897932384626433832795; };
+
+template <> inline float  get2Pi<float>()  { return 6.283185307179586476925286766559f; };
+template <> inline double get2Pi<double>() { return 6.283185307179586476925286766559; };
+
+template <> inline float  get4Pi<float>()  { return 12.566370614359172953850573533118f; };
+template <> inline double get4Pi<double>() { return 12.566370614359172953850573533118; };
+
+
+template <> inline float  pi_2<float>()  { return 1.5707963267948966192313216916398f; };
+template <> inline double pi_2<double>() { return 1.5707963267948966192313216916398; };
+
+template <> inline float  pi_4<float>()  { return 0.78539816339744830961566084581988f; };
+template <> inline double pi_4<double>() { return 0.78539816339744830961566084581988; };
+
+
+template <> inline float  recipPi<float>()  { return 0.31830988618379067153776752674503f; };
+template <> inline double recipPi<double>() { return 0.31830988618379067153776752674503; };
+
+template <> inline float  recip2Pi<float>()  { return 0.15915494309189533576888376337251f; };
+template <> inline double recip2Pi<double>() { return 0.15915494309189533576888376337251; };
+
+template <> inline float  recip4Pi<float>()  { return 0.07957747154594766788444188168626f; };
+template <> inline double recip4Pi<double>() { return 0.07957747154594766788444188168626; };
+
+
+} // end namespace Maths
+
 
 const double NICKMATHS_PI = 3.1415926535897932384626433832795;
 
@@ -83,74 +118,18 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 template <class Real>
 inline Real radToDegree(Real rad)
 {
-	return rad * (Real)180.0 / (Real)NICKMATHS_PI;
+	return rad * 180 * Maths::recipPi<Real>();
+	//return rad * (Real)180.0 / (Real)NICKMATHS_PI;
 }
 
 
 template <class Real>
 inline Real degreeToRad(Real degree)
 {
-	return degree * (Real)NICKMATHS_PI / (Real)180.0;
+	return degree * Maths::pi<Real>() * (Real)0.00555555555555555555555555555556;
+	//return degree * (Real)NICKMATHS_PI / (Real)180.0;
 }
 
-
-/*template <class Real>
-inline Real absoluteVal(Real x)
-{
-	if(x < 0.0f)
-		return -x;
-	else
-		return x;
-}*/
-
-
-/*inline float raiseBy2toN(float x, int n)
-{
-	//-----------------------------------------------------------------
-	//isolate exponent bits
-	//-----------------------------------------------------------------
-	unsigned int exponent_bits = *((int*)&x) & 0x7F400000;
-
-	//-----------------------------------------------------------------
-	//bitshift them
-	//-----------------------------------------------------------------
-	exponent_bits >>= n;
-
-	//-----------------------------------------------------------------
-	//blank out old bits
-	//-----------------------------------------------------------------
-	*((int*)&x) &= 0x8001FFFF;
-
-	//-----------------------------------------------------------------
-	//copy new bits in
-	//-----------------------------------------------------------------
-	*((int*)&x) &= exponent_bits;
-
-	return x;
-}*/
-
-
-
-
-
-// Fast reciprocal square root
-//posted by DarkWing on Flipcode
-
-/*__inline float RSqrt( float number )
-{
-	long i;
-	float x2, y;
-	const float threehalfs = 1.5f;
-
-	x2 = number * 0.5f;
-	y  = number;
-	i  = * (long *) &y;			// evil floating point bit level hacking
-	i  = 0x5f3759df - (i >> 1);             // what the f..k?
-	y  = * (float *) &i;
-	y  = y * (threehalfs - (x2 * y * y));   // 1st iteration
-
-	return y;
-}*/
 
 
 template <class T>
@@ -177,28 +156,32 @@ inline float absClamp(float x, float upperbound)
 
 
 template <class T>
-inline const T& myMin(const T& x, const T& y)
+inline const T myMin(const T x, const T y)
 {
 	return x <= y ? x : y;
 }
 
 
 template <class T>
-inline const T& myMin(const T& x, const T& y, const T& z)
+inline const T myMin(const T x, const T y, const T z)
 {
 	return myMin(x, myMin(y, z));
 }
 
 
+//#include <type_traits> // Need C++11 support for this
+
+
 template <class T>
-inline const T& myMax(const T& x, const T& y)
+inline const T myMax(const T x, const T y)
 {
+	// static_assert(std::is_pod<T>::value, "std::is_pod<T>::value");
 	return x >= y ? x : y;
 }
 
 
 template <class T>
-inline const T& myMax(const T& x, const T& y, const T& z)
+inline const T myMax(const T x, const T y, const T z)
 {
 	return myMax(x, myMax(y, z));
 }
@@ -223,7 +206,7 @@ inline Real logBase2(Real x)
 
 inline bool isNAN(float x)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return _isnan(x) != 0;
 #else
 	return std::isnan(x) != 0;
@@ -233,7 +216,7 @@ inline bool isNAN(float x)
 
 inline bool isNAN(double x)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return _isnan(x) != 0;
 #else
 	return std::isnan(x) != 0;
@@ -243,7 +226,7 @@ inline bool isNAN(double x)
 
 inline bool isFinite(float x)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return _finite(x) != 0;//hopefully this works for floats :)
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -253,7 +236,7 @@ inline bool isFinite(float x)
 
 inline bool isFinite(double x)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return _finite(x) != 0;
 #else
 	return finite(x) != 0;//false;//TEMP HACK
@@ -327,22 +310,6 @@ inline int roundToInt(Real x)
 	return lrint(x);
 #endif
 }
-
-
-/*
-inline int roundToInt(double x)
-{
-	int i;
-	_asm
-	{
-		fld x;
-		fistp i;
-	}
-	return i;
-}
-*/
-
-//From http://homepages.inf.ed.ac.uk/rbf/HIPR2/gsmooth.htm
 
 
 template <class VecType>
@@ -499,25 +466,6 @@ inline double mitchellNetravali(double x)
 }
 
 
-inline double oldMitchellNetravali(double t)
-{
-	assert(t >= 0.0);
-
-	if(t >= 2.0)
-		return 0.0;
-	else if(t >= 1.0)
-	{
-		const double two_t = 2.0 - t;
-		return (1.0 / 18.0) * (5.0 * two_t*two_t*two_t - 3.0 * two_t*two_t);
-	}
-	else
-	{
-		const double one_t = 1.0 - t;
-		return (1.0 / 18.0) * (-15.0 * one_t*one_t*one_t + 18.0 * one_t*one_t + 9.0 * one_t + 2.0);
-	}
-}
-
-
 //inclusive
 template <class T>
 inline bool inRange(T x, T min, T max)
@@ -566,8 +514,8 @@ inline T tanForCos(T cos_theta)
 {
 	assert(cos_theta >= (T)-1.0 && cos_theta <= (T)1.0);
 
-	//sin(theta)^2 + cos(theta)^2 + 1
-	//sin(theta) = sqrt(1 - cos(theta)^2)
+	// sin(theta)^2 + cos(theta)^2 + 1
+	// sin(theta) = sqrt(1 - cos(theta)^2)
 	return sqrt((T)1.0 - cos_theta*cos_theta) / cos_theta;
 }
 
@@ -588,8 +536,6 @@ inline bool isPowerOfTwo(T x)
 {
 	return (x > 0) && ((x & (x - 1)) == 0);
 }
-
-void test();
 
 
 template <class T, class Real>
@@ -666,7 +612,10 @@ inline float fastPow(float a, float b)
 }
 
 
-}
+void test();
+
+
+} // end namespace Maths
 
 
 #endif //__MATHSTYPES_H__
