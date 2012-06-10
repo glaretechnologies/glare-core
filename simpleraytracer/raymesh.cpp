@@ -727,6 +727,23 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 }
 
 
+/*void RayMesh::getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& m_out) const
+{
+	const Vec2f& v0 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
+	const Vec2f& v1 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
+	const Vec2f& v2 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
+
+	Matrix2f A(
+		v1.x - v0.x, v2.x - v0.x,
+		v1.y - v0.y, v2.y - v0.y
+	);
+
+	const Matrix2f A_1 = A.inverse();
+
+	m_out = A_1;
+}*/
+
+
 inline static const ::Vec3f toVec3(const Indigo::Vec3f& v)
 {
 	return ::Vec3f(v.x, v.y, v.z);
@@ -1131,12 +1148,14 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
 	//normal_out = crossProduct(e0, e1) * tri.inv_cross_magnitude;
-	normal_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+	normal_out.set((e0.y * e1.z - e0.z * e1.y)/* * tri.inv_cross_magnitude*/,
+				   (e0.z * e1.x - e0.x * e1.z)/* * tri.inv_cross_magnitude*/,
+				   (e0.x * e1.y - e0.y * e1.x)/* * tri.inv_cross_magnitude*/, 0);
 
 
-	assert(normal_out.isUnitLength());
+	//TEMP:
+	normal_out = normalise(normal_out);
+	//assert(normal_out.isUnitLength());
 
 	//Vec4f a, b, c;
 	//triVertPos(sub_elem_index, 0).pointToVec4f(a);
@@ -1162,6 +1181,23 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const
 {
 	return 1.0 / sub_elem_area_ws;
+}
+
+
+// NOTE: results pd will be invalid.
+void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_out) const
+{
+	// Choose triangle
+	const int t = myClamp((int)(samples.x * this->triangles.size()), 0, (int)this->triangles.size() - 1);
+
+	SamplePair remapped_samples(samples.x * (float)this->triangles.size() - t, samples.y);
+
+	sampleSubElement(t, remapped_samples, results_out.pos, results_out.N_g, results_out.hitinfo);
+
+	/*sampleSubElement(t, remapped_samples, 
+		1.f, // sub_elem_area_ws TEMP HACK - since this is wrong, the pd will be invalid.
+		results_out
+	);*/
 }
 
 

@@ -22,6 +22,7 @@ You may *not* use this code for any commercial project.
 #include "../utils/refcounted.h"
 #include "../indigo/TexCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
+#include "../raytracing/hitinfo.h"
 #include <vector>
 #include <map>
 class Ray;
@@ -114,6 +115,18 @@ public:
 	//virtual unsigned int getNumSubElems() const = 0;
 	// Sample the surface of the given sub-element.
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const = 0;
+
+	
+	class SampleResults
+	{
+	public:
+		Pos3Type pos;
+		Vec3Type N_g;
+		HitInfo hitinfo;
+		Real pd;
+	};
+	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const { assert(0); }
+
 
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const = 0;

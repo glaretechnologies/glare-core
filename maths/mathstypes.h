@@ -560,6 +560,18 @@ inline const T uncheckedLerp(const T& a, const T& b, double t)
 }
 
 
+// From http://en.wikipedia.org/wiki/Smoothstep
+template <class T>
+inline T smoothStep(T a, T b, T x)
+{
+	// Scale, and clamp x to 0..1 range
+	x = myClamp<T>((x - a)/(b - a), 0, 1);
+
+	// Evaluate polynomial
+	return x*x*x*(x*(x*6 - 15) + 10);
+}
+
+
 // Code for a fast, approximate, pow() function: fastPow()
 // Runs in about 46 cycles on an Intel Core i5 as opposed to about 96 cycles for pow().
 // NOTE: could be SIMD'd
