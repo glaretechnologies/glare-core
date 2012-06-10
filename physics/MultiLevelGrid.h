@@ -7,6 +7,7 @@
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4f.h"
 #include "../maths/vec3.h"
+#include "../maths/sse.h"
 #include "../utils/stringutils.h"
 #include <vector>
 
@@ -22,19 +23,17 @@ public:
 	unsigned int node_depth; // root node has depth zero.
 	unsigned int node_index;
 	Vec3<int> cell_i;
-	//int i, j, k; // Current cell indices.
-	// Should be 0 <= i < 4
-//	float cell_width;
 	Vec4f grid_orig;
 	Vec4f next_t;
-	//float t; // Distance along original r for point where ray enters (node, cell).
 };
 
 
-template <class CellTest, class Result>
+template <class CellTest, class Result, class NodeData> 
 class MultiLevelGrid
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	inline MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_);
 	inline ~MultiLevelGrid();
 
@@ -42,40 +41,34 @@ public:
 
 	inline void build(const std::vector<js::AABBox>& primitive_aabbs);
 
+	const static int MAX_DEPTH = 64;
+
 private:
 	inline void doBuild(const std::vector<js::AABBox>& primitive_aabbs, const std::vector<uint32>& primitives, uint32 node_index,
 		const Vec4f& node_orig, int depth);
 public:
-	CellTest cell_test;
-	//Vec4f grid_orig;
 	js::AABBox aabb;
-	//Vec3 grid_dims;
-	//float cell_width;
-	//float recip_cell_width;
-	std::vector<MultiLevelGridNode> nodes;
-	std::vector<float> cell_width; // cell width for depth
-	std::vector<float> recip_cell_width; // cell width for depth
+	CellTest cell_test;
+	std::vector<MultiLevelGridNode<NodeData> > nodes;
+	float cell_width[MAX_DEPTH]; // cell width for depth
+	float recip_cell_width[MAX_DEPTH]; // cell width for depth
 };
 
 
 typedef Vec3<int> Vec3i;
 
 
-template <class CellTest, class Result>
-MultiLevelGrid<CellTest, Result>::MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_)
+template <class CellTest, class Result, class NodeData>
+MultiLevelGrid<CellTest, Result, NodeData>::MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_)
 :	cell_test(cell_test_)
 {
-	//grid_orig = min;
-
 	js::AABBox cuboid_aabb(min, max);
-	float max_side_w = cuboid_aabb.axisLength(aabb.longestAxis());
+	float max_side_w = cuboid_aabb.axisLength(cuboid_aabb.longestAxis());
+	
 	aabb = js::AABBox(min, min + Vec4f(max_side_w, max_side_w, max_side_w, 0));
 
-	cell_width.resize(64);
-	recip_cell_width.resize(64);
-
-	double cell_w = 1.0 / MLG_RES;
-	for(size_t i=0; i<64; ++i)
+	double cell_w = max_side_w / MLG_RES;
+	for(size_t i=0; i<MAX_DEPTH; ++i)
 	{
 		cell_width[i] = (float)cell_w;
 		recip_cell_width[i] = (float)(1 / cell_w);
@@ -84,27 +77,39 @@ MultiLevelGrid<CellTest, Result>::MultiLevelGrid(const Vec4f& min, const Vec4f& 
 }
 
 
-template <class CellTest, class Result>
-MultiLevelGrid<CellTest, Result>::~MultiLevelGrid()
+template <class CellTest, class Result, class NodeData>
+MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
 {
 }
 
 
-inline Vec3i cellIndices(const Vec4f& offset, float recip_cell_w)
+inline Vec3i floor(const Vec4f& v)
+{
+	return Vec3i(
+		(int)v.x[0],
+		(int)v.x[1],
+		(int)v.x[2]
+	);
+}
+
+
+/*inline Vec3i cellIndices(const Vec4f& offset, float recip_cell_w)
 {
 	// Truncate offset_i / cell_w to get cell indices
-	return Vec3i(
-		(int)(offset.x[0] * recip_cell_w),
-		(int)(offset.x[1] * recip_cell_w),
-		(int)(offset.x[2] * recip_cell_w)
-		);
-}
+	//return Vec3i(
+	//	(int)(offset.x[0] * recip_cell_w),
+	//	(int)(offset.x[1] * recip_cell_w),
+	//	(int)(offset.x[2] * recip_cell_w)
+	//	);
+
+	return floor(offset * recip_cell_w);
+}*/
 
 
 /*
 Compute cell origin, given the grid origin, and the cell indices.
 */
-inline Vec4f cellOrigin(const Vec4f& grid_origin, const Vec3i& cell_i, float cell_width)
+/*inline Vec4f cellOrigin(const Vec4f& grid_origin, const Vec3i& cell_i, float cell_width)
 {
 	return Vec4f(
 		grid_origin.x[0] + cell_i.x * cell_width,
@@ -112,7 +117,14 @@ inline Vec4f cellOrigin(const Vec4f& grid_origin, const Vec3i& cell_i, float cel
 		grid_origin.x[2] + cell_i.z * cell_width,
 		1
 	);
+}*/
+
+
+inline Vec4f toVec(const Vec3i& v)
+{
+	return Vec4f((float)v.x, (float)v.y, (float)v.z, 0);
 }
+
 
 
 /*
@@ -129,7 +141,7 @@ else if dir_x <= 0:
 	 = -offset_within_cell_x / -dir_x
 	 = 0 - offset_within_cell_x / -dir_x
 */
-inline Vec4f nextT(const Vec4f& offset, const Vec4f& cell_orig, float cell_w, const Vec4f& recip_dir)
+/*inline Vec4f nextT(const Vec4f& offset, const Vec4f& cell_orig, float cell_w, const Vec4f& recip_dir)
 {
 	return Vec4f(
 		((recip_dir.x[0] > 0 ? cell_w : 0) - (offset.x[0] - cell_orig.x[0])) * recip_dir.x[0],
@@ -137,75 +149,72 @@ inline Vec4f nextT(const Vec4f& offset, const Vec4f& cell_orig, float cell_w, co
 		((recip_dir.x[2] > 0 ? cell_w : 0) - (offset.x[2] - cell_orig.x[2])) * recip_dir.x[2],
 		0
 	);
-}
+}*/
 
-
-// Returns true if next cell is in bounds
-inline bool nextCellIndex(const Vec3i& cell_i, const Vec3i& sign, const Vec3i& out, const Vec4f& next_t, const Vec4f& t_delta,
-	Vec3i& next_cell_out, Vec4f& new_next_t/*, float& t_out*/)
+// NOTE: this can be optimised.
+inline Vec4f nextT(const Vec4f& cell_orig_to_p, float cell_w, const Vec4f& recip_dir)
 {
-	next_cell_out = cell_i;
-	new_next_t = next_t;
-
-	if(next_t.x[0] < next_t.x[1])
-	{
-		if(next_t.x[0] <  next_t.x[2])
-		{
-			// x intersect is nearest
-			next_cell_out.x += sign.x; // Advance one cell in the x direction.
-			if(next_cell_out.x == out.x) // If we have traversed out of the grid:
-				return false;
-			//t_out = new_next_t.x[0];
-			new_next_t.x[0] += t_delta.x[0];
-		}
-		else
-		{
-			// z is nearest
-			next_cell_out.z += sign.z; // Advance one cell in the z direction.
-			if(next_cell_out.z == out.z) // If we have traversed out of the grid:
-				return false;
-			//t_out = new_next_t.x[0];
-			new_next_t.x[2] += t_delta.x[2];
-		}
-	}
-	else // else y <= x
-	{
-		if(next_t.x[1] < next_t.x[2])
-		{
-			// y intersect is nearest
-			next_cell_out.y += sign.y; // Advance one cell in the y direction.
-			if(next_cell_out.y == out.y) // If we have traversed out of the grid:
-				return false;
-			//t_out = new_next_t.x[1];
-			new_next_t.x[1] += t_delta.x[1];
-		}
-		else // else t_z <= t_y
-		{
-			// z is nearest
-			next_cell_out.z += sign.z; // Advance one cell in the z direction.
-			if(next_cell_out.z == out.z) // If we have traversed out of the grid:
-				return false;
-			//t_out = new_next_t.x[2];
-			new_next_t.x[2] += t_delta.x[2];
-		}
-	}
-	return true;
+	return Vec4f(
+		((recip_dir.x[0] > 0 ? cell_w : 0) - (cell_orig_to_p.x[0])) * recip_dir.x[0],
+		((recip_dir.x[1] > 0 ? cell_w : 0) - (cell_orig_to_p.x[1])) * recip_dir.x[1],
+		((recip_dir.x[2] > 0 ? cell_w : 0) - (cell_orig_to_p.x[2])) * recip_dir.x[2],
+		0
+	);
 }
+
+
+inline uint32 nextStepAxis(const Vec4f& next_t)
+{
+	uint32 mask =	(next_t.x[0] < next_t.x[1] ? 0x1 : 0) |
+					(next_t.x[0] < next_t.x[2] ? 0x2 : 0) |
+					(next_t.x[1] < next_t.x[2] ? 0x4 : 0);
+
+	assert(mask < 8);
+	/*
+	mask value: condition						->	smallest axis
+	0:	x >= y	&&	x >= z	&& y >= z			->	z
+	1:	x < y	&&	x >= z	&& y >= z			->	z
+	2:	x >= y	&&	x < z	&& y >= z			->	contradiction
+	3:	x < y	&&	x < z	&& y >= z			->	x
+	4:	x >= y	&&	x >= z	&& y < z			->	y
+	5:	x < y	&&	x >= z	&& y < z			->	contradiction
+	6:	x >= y	&&	x < z	&& y < z			->	y
+	7:	x < y	&&	x < z	&& y < z			->	x
+	*/
+	uint32 table[8] = {2, 2, 0, 0, 1, 0, 1, 0};
+
+	uint32 axis = table[mask];
+
+	assert(	mask != 2 && mask != 5 &&
+			next_t[axis] <= next_t.x[0] &&
+			next_t[axis] <= next_t.x[1] &&
+			next_t[axis] <= next_t.x[2]
+	);
+
+	return table[mask];
+}
+				
+
+inline bool isCellIndexValid(const Vec3i& cell)
+{
+	return	cell.x >= 0 && cell.x < MLG_RES &&
+			cell.y >= 0 && cell.y < MLG_RES &&
+			cell.z >= 0 && cell.z < MLG_RES;
+}
+
 
 /*
 	// setup initial state
 	node = root node
 	cell = cellForOrigin(node)
 
-	while cell is interior cell
-		compute next adjacent cell index
-		if(next is in bounds) push next cell index onto to-visit stack
+	while 1
+		while cell is interior cell
+			compute next adjacent cell index
+			if(next is in bounds) push next cell index onto to-visit stack
 
-		node = interior cell node
-		cell = cellForOrigin(node)
-
-	while(1)
-	{
+			node = interior cell node
+			cell = cellForOrigin(node)
 
 		// visit cell - trace against geometry etc..
 		vistCell(node, cell)
@@ -217,18 +226,13 @@ inline bool nextCellIndex(const Vec3i& cell_i, const Vec3i& sign, const Vec3i& o
 				goto finished
 			else
 				(node, cell) = pop from to-visit stack
-
-		while cell is interior cell
-			compute next adjacent cell index
-			if(next is in bounds) push next cell index onto to-visit stack
-
-			node = interior cell node
-			cell = cellForOrigin(node)
 */
-template <class CellTest, class Result>
-void MultiLevelGrid<CellTest, Result>::trace(const Ray& ray, float ray_max_t, Result& result_out)
+template <class CellTest, class Result, class NodeData>
+void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray_max_t, Result& result_out)
 {
-	StackElement stack[64];
+	const bool VERBOSE_TRAVERSAL = false;
+
+	StackElement stack[MAX_DEPTH];
 
 	// Trace ray against grid AABB
 	float min_t, max_t;
@@ -237,27 +241,28 @@ void MultiLevelGrid<CellTest, Result>::trace(const Ray& ray, float ray_max_t, Re
 	min_t = myMax(min_t, 0.f);
 	max_t = myMin(max_t, ray_max_t);
 
+	if(VERBOSE_TRAVERSAL) printVar(min_t);
+	if(VERBOSE_TRAVERSAL) printVar(max_t);
+
 	if(min_t > max_t)
 		return;
 
-	
-
 	// Compute step increments, based on the sign of the ray direction.
-	const int sign_x = ray.unitDir().x[0] >= 0.f ? 1 : -1;
-	const int sign_y = ray.unitDir().x[1] >= 0.f ? 1 : -1;
-	const int sign_z = ray.unitDir().x[2] >= 0.f ? 1 : -1;
-
-	Vec3i sign(sign_x, sign_y, sign_z);
+	const Vec3i sign(
+		ray.unitDir().x[0] >= 0.f ? 1 : -1, 
+		ray.unitDir().x[1] >= 0.f ? 1 : -1,
+		ray.unitDir().x[2] >= 0.f ? 1 : -1
+	);
 
 	// Compute the indices of the cell that we will traverse to when we step out of the grid bounds.
-	const int out_x = ray.unitDir().x[0] >= 0.f ? MLG_RES : -1;
-	const int out_y = ray.unitDir().x[1] >= 0.f ? MLG_RES : -1;
-	const int out_z = ray.unitDir().x[2] >= 0.f ? MLG_RES : -1;
-
-	Vec3i out(out_x, out_y, out_z);
+	const Vec3i out(
+		ray.unitDir().x[0] >= 0.f ? MLG_RES : -1, 
+		ray.unitDir().x[1] >= 0.f ? MLG_RES : -1, 
+		ray.unitDir().x[2] >= 0.f ? MLG_RES : -1
+	);
 
 	const Vec4f recip_dir = ray.getRecipRayDirF();
-
+	const Vec4f abs_recip_dir(std::fabs(recip_dir.x[0]), std::fabs(recip_dir.x[1]), std::fabs(recip_dir.x[2]), 0);
 
 	// Init
 	int node = 0; // Current node - set to root node
@@ -265,129 +270,43 @@ void MultiLevelGrid<CellTest, Result>::trace(const Ray& ray, float ray_max_t, Re
 	int stack_size = 0; // Size of stack.
 	float t = min_t;
 	Vec4f p = ray.pointf(min_t); // Current point
-	Vec4f cur_grid_orig = this->aabb.min_; // Origin of current node.	
-	Vec4f offset = p - cur_grid_orig; // Find the offset relative to the grid origin
-	Vec3i cell = cellIndices(offset, recip_cell_width[depth]); // Get current cell indices from offset
-	Vec4f cell_orig = cellOrigin(cur_grid_orig, cell, cell_width[depth]); // Get origin of current cell
+	Vec4f cur_grid_orig = this->aabb.min_; // Origin of current node.
+	Vec3i cell = floor((p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
 
-	Vec4f next_t = nextT(p, cell_orig, cell_width[depth], recip_dir); // distance along ray to next cell in each axis direction,
-	// from the original ray origin.
+	cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
 
-	Vec4f t_delta = recip_dir * cell_width[depth]; // Step in t for a cell step for each axis.
+	Vec4f cell_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get origin of current cell
+	Vec4f next_t = nextT(p - cell_orig, cell_width[depth], recip_dir); // distance along ray to next cell in each axis direction, from the original ray origin.
 
-	while(nodes[node].cellIsInterior(cell.x, cell.y, cell.z))
-	{	
-		// Get next cell
-		Vec3i next_cell;
-		Vec4f new_next_t;
-		//float new_t;
-		if(nextCellIndex(cell, sign, out, next_t, t_delta, next_cell, new_next_t))
-		{
-			// Push next cell onto stack
-			stack[stack_size].node_index = node;
-			stack[stack_size].node_depth = depth;
-			stack[stack_size].cell_i = next_cell;
-			stack[stack_size].grid_orig = cur_grid_orig;
-			stack[stack_size].next_t = new_next_t;
-			//stack[stack_size].t = new_t;
-		}
+	Vec4f t_delta = abs_recip_dir * cell_width[depth]; // Step in t for a cell step for each axis.
 
-		// Traverse to child node
-		node = nodes[node].cellChildIndex(cell.x, cell.y, cell.z); // Set node index to child index.			
-		cur_grid_orig = cellOrigin(cur_grid_orig, cell, cell_width[depth]); // Get child node grid origin
-		depth++;
-		offset = ray.startPos() - cur_grid_orig; // Find the offset relative to the grid origin
-		cell = cellIndices(offset, recip_cell_width[depth]); // Get current cell indices from offset
-		cell_orig = cellOrigin(cur_grid_orig, cell, cell_width[depth]); 
-		next_t = nextT(offset, cell_orig, cell_width[depth], recip_dir);
-		t_delta = recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
-	}
-
+	if(VERBOSE_TRAVERSAL) conPrint("------------------------Doing traversal------------------------");
+	if(VERBOSE_TRAVERSAL) conPrint("aabb min: " + aabb.min_.toString());
+	if(VERBOSE_TRAVERSAL) conPrint("aabb max: " + aabb.max_.toString());
+	
 	while(1)
 	{
-		// Visit cell
-		//conPrint("Visited (node, cell) = (" + toString(node) + ", " + cell.toString() + ")");
-		cell_test.visit(ray, node, cell, max_t, result_out);
-		//	break; // Finished trace.
+		assert(isCellIndexValid(cell));
 
-		// Advance to adjacent cell
-		if(next_t.x[0] < next_t.x[1])
-		{
-			if(next_t.x[0] <  next_t.x[2])
-			{
-				// x intersect is nearest
-				cell.x += sign_x; // Advance one cell in the x direction.
-				t = next_t.x[0];
-				if(cell.x == out_x) // If we have traversed out of the grid:
-					goto out_of_bounds;
-				
-				next_t.x[0] += t_delta.x[0];
-			}
-			else
-			{
-				// z is nearest
-				cell.z += sign_z; // Advance one cell in the z direction.
-				t = next_t.x[2];
-				if(cell.z == out_z) // If we have traversed out of the grid:
-					goto out_of_bounds;
-				
-				next_t.x[2] += t_delta.x[2];
-			}
-		}
-		else // else y <= x
-		{
-			if(next_t.x[1] < next_t.x[2])
-			{
-				// y intersect is nearest
-				cell.y += sign_y; // Advance one cell in the y direction.
-				t = next_t.x[1];
-				if(cell.y == out_y) // If we have traversed out of the grid:
-					goto out_of_bounds;
-				
-				next_t.x[1] += t_delta.x[1];
-			}
-			else // else t_z <= t_y
-			{
-				// z is nearest
-				cell.z += sign_z; // Advance one cell in the z direction.
-				t = next_t.x[2];
-				if(cell.z == out_z) // If we have traversed out of the grid:
-					goto out_of_bounds;
-				
-				next_t.x[2] += t_delta.x[2];
-			}
-		}
-
-		if(t > max_t) // If the t value at which we enter the cell is greater than the ray max t, then we are finished.
-			break;
-
-		goto valid_node_cell;
-
-out_of_bounds:
-		if(stack_size == 0)
-			break;
-		else
-		{
-			// pop from to-visit stack
-			stack_size--;
-			node = stack[stack_size].node_index;
-			cell = stack[stack_size].cell_i;
-			depth = stack[stack_size].node_depth;
-			cur_grid_orig = stack[stack_size].grid_orig;
-			next_t = stack[stack_size].next_t;
-		}
-
-valid_node_cell:
-
-		// Compute current position
 		p = ray.pointf(t);
 
-		while(nodes[node].cellIsInterior(cell.x, cell.y, cell.z))
+		if(VERBOSE_TRAVERSAL) conPrint("y: " + toString(t));
+		if(VERBOSE_TRAVERSAL) conPrint("p: " + p.toString());
+		if(VERBOSE_TRAVERSAL) conPrint("depth: " + toString(depth));
+		if(VERBOSE_TRAVERSAL) conPrint("cur_grid_orig: " + cur_grid_orig.toString());
+		if(VERBOSE_TRAVERSAL) conPrint("recip_cell_width: " + toString(recip_cell_width[depth]));
+		if(VERBOSE_TRAVERSAL) { conPrint("node " + toString(node) + ", cell " + cell.toString()); }
+
+		while(nodes[node].cellIsInterior(cell))
 		{	
 			// Get next cell
-			Vec3i next_cell;
-			Vec4f new_next_t;
-			if(nextCellIndex(cell, sign, out, next_t, t_delta, next_cell, new_next_t))
+			uint32 next_axis = nextStepAxis(next_t);
+			Vec3i next_cell = cell;
+			next_cell[next_axis] += sign[next_axis];
+			Vec4f new_next_t = next_t;
+			new_next_t.x[next_axis] += t_delta.x[next_axis];
+
+			if(next_cell[next_axis] != out[next_axis])
 			{
 				// Push next cell onto stack
 				stack[stack_size].node_index = node;
@@ -396,24 +315,83 @@ valid_node_cell:
 				stack[stack_size].grid_orig = cur_grid_orig;
 				stack[stack_size].next_t = new_next_t;
 				stack_size++;
+
+				if(VERBOSE_TRAVERSAL) { conPrint("\nPushed on to to-visit stack: node " + toString(node) + ", cell " + next_cell.toString()); }
 			}
 
 			// Traverse to child node
-			node = nodes[node].cellChildIndex(cell.x, cell.y, cell.z); // Set node index to child index.			
-			cur_grid_orig = cellOrigin(cur_grid_orig, cell, cell_width[depth]); // Get node grid origin
+			node = nodes[node].cellChildIndex(cell); // Go to child node.
+			cur_grid_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get child node grid origin
 			depth++;
-			offset = p - cur_grid_orig; // Find the offset relative to the grid origin
-			cell = cellIndices(offset, recip_cell_width[depth]); // Get current cell indices from offset
-			cell_orig = cellOrigin(cur_grid_orig, cell, cell_width[depth]); 
-			next_t = nextT(p, cell_orig, cell_width[depth], recip_dir);
-			t_delta = recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
-		} // End while cell is interior cell
-	}
+			cell = floor((p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
+
+			cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
+
+			cell_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get origin of current cell
+			next_t = Vec4f(t) + nextT(p - cell_orig, cell_width[depth], recip_dir);
+			t_delta = abs_recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
+
+			if(VERBOSE_TRAVERSAL) { conPrint("\nTraversed to child cell: node " + toString(node) + ", cell " + cell.toString()); }
+			if(VERBOSE_TRAVERSAL) conPrint("cell_orig: " + cell_orig.toString());
+			if(VERBOSE_TRAVERSAL) conPrint("next_t: " + next_t.toString());
+			if(VERBOSE_TRAVERSAL) conPrint("t_delta: " + t_delta.toString());
+
+			assert(isCellIndexValid(cell));
+		} // End while(interior cell)
+
+		uint32 next_axis = nextStepAxis(next_t);
+		
+		// Visit leaf cell
+		float t_enter = t;
+		float t_exit = next_t.x[next_axis];
+		
+		if(VERBOSE_TRAVERSAL) { printVar(t_enter); printVar(t_exit); conPrint("Visiting node " + toString(node) + ", cell " + cell.toString()); }
+
+		cell_test.visit(ray, node, cell, nodes[node].data, t_enter, t_exit, max_t, result_out);
+
+		// Advance to adjacent cell
+		t = next_t.x[next_axis];
+		cell[next_axis] += sign[next_axis];
+		next_t.x[next_axis] += t_delta.x[next_axis];
+		
+
+		if(VERBOSE_TRAVERSAL) { conPrint("Advanced to adjacent cell: node " + toString(node) + ", cell " + cell.toString()); }
+
+		if(t > max_t) // If the t value at which we enter the cell is greater than the ray max t, then we are finished.
+		{
+			if(VERBOSE_TRAVERSAL) { conPrint("t > max_t"); }
+			break;
+		}
+
+		if(cell[next_axis] == out[next_axis]) // If we have traversed out of the grid:
+		{
+			if(VERBOSE_TRAVERSAL) { conPrint("out of bounds"); }
+
+			if(stack_size == 0) // If to-visit stack is empty:
+				break; // Terminate traversal.
+			else
+			{
+				// Pop from to-visit stack
+				stack_size--;
+				node = stack[stack_size].node_index;
+				cell = stack[stack_size].cell_i;
+				depth = stack[stack_size].node_depth;
+				cur_grid_orig = stack[stack_size].grid_orig;
+				next_t = stack[stack_size].next_t;
+				
+				t_delta = abs_recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
+
+				assert(isCellIndexValid(cell));
+
+				if(VERBOSE_TRAVERSAL) { conPrint("Popped cell from stack: node " + toString(node) + ", cell " + cell.toString()); }
+			}
+		}
+	} // End while(1)
 }
 
 
-template <class CellTest, class Result>
-void MultiLevelGrid<CellTest, Result>::build(const std::vector<js::AABBox>& primitive_aabbs)
+template <class CellTest, class Result, class NodeData>
+void MultiLevelGrid<CellTest, Result, NodeData>::build(const std::vector<js::AABBox>& primitive_aabbs)
 {
 	std::vector<uint32> primitives(primitive_aabbs.size());
 	for(size_t i=0; i<primitive_aabbs.size(); ++i)
@@ -449,8 +427,8 @@ process_node(primitives)
 end
 
 */
-template <class CellTest, class Result>
-void MultiLevelGrid<CellTest, Result>::doBuild(const std::vector<js::AABBox>& primitive_aabbs, const std::vector<uint32>& primitives, uint32 node_index,
+template <class CellTest, class Result, class NodeData>
+void MultiLevelGrid<CellTest, Result, NodeData>::doBuild(const std::vector<js::AABBox>& primitive_aabbs, const std::vector<uint32>& primitives, uint32 node_index,
 	const Vec4f& node_orig, int depth)
 {
 	std::vector<uint32> cell_primitives[64];
@@ -513,6 +491,5 @@ void MultiLevelGrid<CellTest, Result>::doBuild(const std::vector<js::AABBox>& pr
 			nodes[node_index].markCellAsInterior(x, y, z);
 		}
 	}
-
-
 }
+

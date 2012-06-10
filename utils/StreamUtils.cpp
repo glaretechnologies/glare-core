@@ -25,4 +25,18 @@ void writeUInt32(std::ostream& stream, uint32 x)
 }
 
 
+int32 readInt32(std::istream& stream)
+{
+	int32 x;
+	stream.read((char*)&x, sizeof(int32));
+	return x;
+}
+
+
+void writeInt32(std::ostream& stream, int32 x)
+{
+	stream.write((const char*)&x, sizeof(int32));
+}
+
+
 }

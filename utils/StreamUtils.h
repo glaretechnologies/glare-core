@@ -134,6 +134,9 @@ namespace StreamUtils
 	uint32 readUInt32(std::istream& stream);
 	void writeUInt32(std::ostream& stream, uint32 x);
 
+	int32 readInt32(std::istream& stream);
+	void writeInt32(std::ostream& stream, int32 x);
+
 }
 
 
