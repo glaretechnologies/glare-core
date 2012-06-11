@@ -122,93 +122,39 @@ template <class Real> Real pow5(Real x)
 }
 
 
-//see Veach page 158
-//double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint)
-//{
-	/*the w_i.N_g factors in the denominators (extra from Veach) are to cancel with the same factor (cos theta) outside this call.
+/*
+Compute the 'smoothing factor'.
+This is a factor that changes BSDFs to make it look like the shading normal is the actual normal.
+See equation 5.17 in Veach's thesis for some further information.
 
-	K(w_i, w_o) = fs(w_i, w_o) * w_i.N_s			[figure 5.6]
-	but K(w_i, w_o) = f-s(w_i, w_o) * w_i.N_g		[defn of K, 5.20]
-	therfore
-	f-s(w_i, w_o) * w_i.N_g = fs(w_i, w_o) * w_i.N_s
-	or
-	f-s(w_i, w_o) = fs(w_i, w_o) * w_i.N_s / w_i.N_g
+in_dot_prebump_Ns: signed dot product of 'in' (vector to light) with the shading normal without bump-map perturbation.
 
-	for Adjoint:
+in_dot_Ns: signed dot product of 'in' (vector to light) with the shading normal.
 
-	K*(w_i, w_o) = fs(w_o, w_i) * w_o.N_s * w_i.N_g / w_o.N_g
-	but K*(w_i, w_o) = f-s*(w_i, w_o) * w_i.N_g					[defn of K*, 5.21]
-	therefore
-	f-s*(w_i, w_o) * w_i.N_g = fs(w_o, w_i) * w_o.N_s * w_i.N_g / w_o.N_g
-	or
-	f-s*(w_i, w_o) = fs(w_o, w_i) * w_o.N_s / w_o.N_g
-	*/
-
-/*	double geom_factor;
-	if(adjoint)
-		geom_factor = fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g()));
-	else
-		geom_factor = fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
-	return geom_factor;*/
-/*	return adjoint ?
-		fabs(dot(omega_out, hitinfo.N_s()) / dot(omega_out, hitinfo.N_g())) :
-		fabs(dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g()));
-}*/
-
-/*double MatUtils::smoothingFactor(const Vec3d& omega_in, const Vec3d& omega_out, const FullHitInfo& hitinfo, bool adjoint, double in_dot_Ng, double out_dot_Ng)
-{
-	return adjoint ?
-		fabs(dot(omega_out, hitinfo.N_s()) / out_dot_Ng) :
-		fabs(dot(omega_in, hitinfo.N_s()) / in_dot_Ng);
-}*/
-
-
-const double MAX_SMOOTHING_FACTOR = 2.0;
-
-
+in_dot_Ng: signed dot product of 'in' (vector to light) with the geometric normal.  It doesn't matter if this is the original or flipped N_g, as
+the absolute value of it is taken.
+*/
 template <class Real>
 Real smoothingFactor(Real in_dot_prebump_Ns, Real in_dot_Ns, Real in_dot_Ng)
 {
-	//if(in_dot_prebump_Ns <= 0)
-	//	return 0;
-
+	// Cap the smoothing factor due to the bump-mapped shading normal to N times what we would get from the un-bump-mapped shading normal.
+	// This helps to make terminator artifacts on bump mapped objects less severe.
+	// Without this you get very abrubt light->dark transitions on bump mapped objects at the terminator.
 	const Real use_dot = myMin(in_dot_prebump_Ns*5, in_dot_Ns);
 
 	return myMax<Real>(use_dot / std::fabs(in_dot_Ng), 0);
-
-	//return std::fabs(in_dot_Ns / in_dot_Ng);
-	//return myMax<Real>(in_dot_Ns / std::fabs(in_dot_Ng), 0);
-	/*return myMin(
-		(Real)MAX_SMOOTHING_FACTOR,
-		(Real)fabs(in_dot_Ns / in_dot_Ng)
-		);*/
 }
-
-
-// NOTE: This is rather slow :)
-//FullHitInfo::Vec3RealType smoothingFactor(const FullHitInfo::Vec3Type& omega_in, const FullHitInfo& hitinfo)
-//{
-//	return myMin(
-//		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
-//		(FullHitInfo::Vec3RealType)std::fabs((dot(omega_in, hitinfo.N_s()) / dot(omega_in, hitinfo.N_g())))
-//		);
-//
-//	/*return myMin(
-//		(FullHitInfo::Vec3RealType)MAX_SMOOTHING_FACTOR,
-//		(FullHitInfo::Vec3RealType)fabs((FullHitInfo::Vec3RealType)(dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_s()) / dot<FullHitInfo::Vec3RealType>(omega_in, hitinfo.N_g())))
-//		);*/
-//}
 
 
 bool raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
 {
-	return dot(a, hitinfo.original_N_g()) * dot(b, hitinfo.original_N_g()) < 0.0;
+	return dot(a, hitinfo.original_N_g()) * dot(b, hitinfo.original_N_g()) < 0;
 }
 
 
 bool raysOnOppositeGeometricSides(FullHitInfo::Vec3RealType a_dot_orig_Ng, FullHitInfo::Vec3RealType b_dot_orig_Ng)
 {
-	return a_dot_orig_Ng * b_dot_orig_Ng < 0.0;
+	return a_dot_orig_Ng * b_dot_orig_Ng < 0;
 }
 
 
@@ -266,6 +212,15 @@ template <class Real> Real schlickFresnelReflectance(Real R_0, Real cos_theta)
 
 	return R_0 + ((Real)1.0 - R_0) * MatUtils::pow5<Real>((Real)1.0 - cos_theta);
 }
+
+
+
+void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint, Material::Real target_pd);
+void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, Material::Real target_BSDF);
+void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint);
+void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint);
+void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths);
+void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths);
 
 
 } // End namespace MatUtils

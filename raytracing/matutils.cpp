@@ -25,6 +25,8 @@ template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, f
 template void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(float srcn, float destn, float incident_cos_theta, float& r_perp_out, float& r_par_out, float& t_perp_out, float& t_par_out);
 
 
+namespace MatUtils
+{
 
 
 /*
@@ -35,7 +37,7 @@ It's not exactly the same though, as I don't negate the incident_raydir when com
 
 */
 template <class Real, class VecType>
-void MatUtils::refractInSurface(const VecType& normal,
+void refractInSurface(const VecType& normal,
 		const VecType& incident_raydir, Real src_refindex, Real dest_refindex,
 		VecType& exit_raydir_out, bool& totally_internally_reflected_out)
 {
@@ -146,7 +148,7 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 
 
 // Samples a bivariate Gaussian distribution, with mean (0,0) and given standard_deviation
-const Vec2d MatUtils::boxMullerGaussian(double standard_deviation, MTwister& rng)
+const Vec2d boxMullerGaussian(double standard_deviation, MTwister& rng)
 {
 	//http://www.taygeta.com/random/gaussian.html
 	double w, x1, x2;
@@ -166,13 +168,13 @@ const Vec2d MatUtils::boxMullerGaussian(double standard_deviation, MTwister& rng
 }
 
 
-double MatUtils::evalNormalDist(double x, double mean, double standard_dev)
+double evalNormalDist(double x, double mean, double standard_dev)
 {
 	return exp(-(x-mean)*(x-mean) / (2.0*standard_dev*standard_dev)) / (standard_dev * sqrt(NICKMATHS_2PI));
 }
 
 
-void MatUtils::conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, float cos_incident_angle, SpectralVector& F_R_out)
+void conductorFresnelReflectance(const SpectralVector& n, const SpectralVector& k, float cos_incident_angle, SpectralVector& F_R_out)
 {
 	//NOTE: SSE this up?
 	for(unsigned int i=0; i<F_R_out.size(); ++i)
@@ -183,7 +185,7 @@ void MatUtils::conductorFresnelReflectance(const SpectralVector& n, const Spectr
 // This is an approximate expression for the reflectance.
 // It seems reasonably close to that given by polarisedConductorFresnelReflectanceExact() below however.
 template <class Real>
-Real MatUtils::conductorFresnelReflectance(Real n, Real k, Real cos_theta)
+Real conductorFresnelReflectance(Real n, Real k, Real cos_theta)
 {
 	assert(n >= 0.0 && k >= 0.0);
 	assert(cos_theta >= 0.0f);
@@ -219,7 +221,7 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectance(Real n, Real k, 
 // From 'Digital Modelling of Material Appearance', page 99, eq 5.24
 // Also in 'Ray tracing with polarization parameters', Wolff and Kurlander
 template <class Real>
-const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta)
+const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta)
 {
 	assert(cos_theta >= 0.0f && cos_theta <= 1.0f);
 
@@ -242,7 +244,7 @@ const Vec2<Real> MatUtils::polarisedConductorFresnelReflectanceExact(Real n, Rea
 
 
 template <class Real>
-Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
+Real dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 {
 	assert(n1 >= 1.0f && n2 >= 0.0f);
 	assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
@@ -272,7 +274,7 @@ Real MatUtils::dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
 // Returns (r_perp, r_par)
 // See Optics (Hecht) pg 117
 template <class Real>
-void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, Real cos_theta_i, 
+void dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, Real cos_theta_i, 
 																	 Real& r_perp_out, Real& r_par_out, Real& t_perp_out, Real& t_par_out)
 {
 	// Get transmitted cos theta using Snell's law
@@ -319,6 +321,73 @@ void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1,
 	//assert(epsEqual(R_par + T_par, (Real)1.0));
 #endif
 }
+
+
+void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint, Material::Real target_pd)
+{
+	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+		false, // sampled delta
+		adjoint // adjoint
+	);
+	testAssert(epsEqual(pd, target_pd));
+}
+
+
+void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, Material::Real target_BSDF)
+{
+	PolarisationVec bsdfs;
+	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+		false, // sampled delta
+		bsdfs);
+
+	for(unsigned int i=0; i<bsdfs.size(); ++i)
+		testAssert(epsEqual(bsdfs[i], target_BSDF));
+}
+
+
+void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint)
+{
+	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+		false, // sampled delta
+		adjoint // adjoint
+	);
+	testAssert(pd == 0);
+}
+
+
+void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint)
+{
+	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+		false, // sampled delta
+		adjoint // adjoint
+	);
+	testAssert(pd > 0);
+}
+
+
+void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
+{
+	PolarisationVec bsdfs;
+	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+		false, // sampled delta
+		bsdfs);
+
+	testAssert(bsdfs.isZero());
+}
+
+
+void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
+{
+	PolarisationVec bsdfs;
+	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+		false, // sampled delta
+		bsdfs);
+
+	testAssert(bsdfs.minVal() > 0);
+}
+
+
+} // end namespace MatUtils
 
 
 #if BUILD_TESTS
@@ -555,4 +624,4 @@ void MatUtils::unitTest()
 }
 
 
-#endif
+#endif // BUILD_TESTS

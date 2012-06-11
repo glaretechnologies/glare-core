@@ -104,8 +104,9 @@ template <class Real> Real areaToSolidAnglePDF(Real area_pdf, Real dist2, Real c
 
 template <class VecType> typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir)
 {
-	return myMax(/*(VecType::RealType)*/0.0f, dot(normal, unitdir)) * /*(VecType::RealType)*/(float)NICKMATHS_RECIP_PI;
+	return myMax<VecType::RealType>(0, dot(normal, unitdir)) * Maths::recipPi<VecType::RealType>();
 }
+
 
 inline const Vec4f dirForSphericalCoords(float phi, float theta)
 {
