@@ -66,15 +66,15 @@ static const Vec4f randomDir(MTwister& rng)
 void test()
 {
 	testAssert(mlgPopCount(0) == 0);
-	testAssert(mlgPopCount(0xFFFFu) == 16);
-	testAssert(mlgPopCount(0xFFFFFFFFu) == 32);
-	testAssert(mlgPopCount(0xFFFFFFFFFFFFFFFFu) == 64);
+	testAssert(mlgPopCount(0xFFFFull) == 16);
+	testAssert(mlgPopCount(0xFFFFFFFFull) == 32);
+	testAssert(mlgPopCount(0xFFFFFFFFFFFFFFFFull) == 64);
 
 
 	testAssert(mlgPopCount(0) == 0);
-	testAssert(mlgPopCount(0xFFFFu) == 16);
-	testAssert(mlgPopCount(0xFFFFFFFFu) == 32);
-	testAssert(mlgPopCount(0xFFFFFFFFFFFFFFFFu) == 64);
+	testAssert(mlgPopCount(0xFFFFull) == 16);
+	testAssert(mlgPopCount(0xFFFFFFFFull) == 32);
+	testAssert(mlgPopCount(0xFFFFFFFFFFFFFFFFull) == 64);
 	
 
 
