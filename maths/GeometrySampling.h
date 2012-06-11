@@ -102,9 +102,11 @@ template <class Real> Real areaToSolidAnglePDF(Real area_pdf, Real dist2, Real c
 }
 
 
+// NOTE: we have to write 'typename' in front of the dependent type VecType::RealType, otherwise the compiler gets confused.
+// See http://pages.cs.wisc.edu/~driscoll/typename.html.
 template <class VecType> typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir)
 {
-	return myMax<VecType::RealType>(0, dot(normal, unitdir)) * Maths::recipPi<VecType::RealType>();
+	return myMax<typename VecType::RealType>(0, dot(normal, unitdir)) * Maths::recipPi<typename VecType::RealType>();
 }
 
 
