@@ -84,7 +84,7 @@ inline uint64 mlgPopCount(uint64 x)
 	return c;*/
 	// See http://gcc.gnu.org/onlinedocs/gcc-3.4.3/gcc/Other-Builtins.html
 	//NOTE: check this works in 32 bit mode.
-	return __builtin_popcountll(x)
+	return __builtin_popcountll(x);
 #endif
 }
 
