@@ -86,7 +86,7 @@ Vector<T, alignment>::Vector()
 	size_(0),
 	capacity_(0)
 {
-	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+	//assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
 }
 
 
@@ -96,7 +96,7 @@ Vector<T, alignment>::Vector(size_t count)
 	size_(0),
 	capacity_(0)
 {
-	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+	//assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
 
 	resize(count);
 	// TODO: construct elements?
