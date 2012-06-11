@@ -127,7 +127,7 @@ int MultiLevelGridNode<NodeData>::cellChildIndex(const Vec3<int>& cell) const
 	int cell_i = cell.z*16 + cell.y*4 + cell.x;
 
 	// We want to count the number of bits with value 1 with index greater than i.
-	uint32 num_prev_cells = (uint32)mlgPopCount((interior << (63 - cell_i)) & 0x7FFFFFFFFFFFFFFFu); // (uint32)mlgPopCount(interior >> (cell_i + 1));
+	uint32 num_prev_cells = (uint32)mlgPopCount((interior << (63 - cell_i)) & 0x7FFFFFFFFFFFFFFFull); // (uint32)mlgPopCount(interior >> (cell_i + 1));
 
 	return base_child_index + num_prev_cells;
 }
