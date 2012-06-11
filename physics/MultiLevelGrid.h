@@ -7,7 +7,7 @@
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4f.h"
 #include "../maths/vec3.h"
-#include "../maths/sse.h"
+#include "../maths/SSE.h"
 #include "../utils/stringutils.h"
 #include <vector>
 
