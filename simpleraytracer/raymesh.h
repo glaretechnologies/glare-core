@@ -182,6 +182,8 @@ public:
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const;
 	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const;
 
+	virtual void getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& m_out) const;
+
 	//virtual void getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& m_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	

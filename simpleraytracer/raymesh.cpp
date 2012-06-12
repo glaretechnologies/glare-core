@@ -727,6 +727,23 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 }
 
 
+void RayMesh::getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& m_out) const
+{
+	const Vec2f& v0 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
+	const Vec2f& v1 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
+	const Vec2f& v2 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
+
+	Matrix2f A(
+		v1.x - v0.x, v2.x - v0.x,
+		v1.y - v0.y, v2.y - v0.y
+	);
+
+	const Matrix2f A_1 = A.inverse();
+
+	m_out = A_1;
+}
+
+
 /*void RayMesh::getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& m_out) const
 {
 	const Vec2f& v0 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
