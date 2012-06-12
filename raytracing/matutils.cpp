@@ -323,6 +323,9 @@ void dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, 
 }
 
 
+#if BUILD_TESTS
+
+
 void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint, Material::Real target_pd)
 {
 	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
@@ -387,13 +390,7 @@ void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitin
 }
 
 
-} // end namespace MatUtils
-
-
-#if BUILD_TESTS
-
-
-void MatUtils::unitTest()
+void unitTest()
 {
 	conPrint("MatUtils::unitTest()");
 
@@ -625,3 +622,6 @@ void MatUtils::unitTest()
 
 
 #endif // BUILD_TESTS
+
+
+} // end namespace MatUtils

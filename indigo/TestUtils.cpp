@@ -59,4 +59,6 @@ const std::string getIndigoTestReposDir()
 
 }
 
-#endif
+
+#endif // BUILD_TESTS
+
