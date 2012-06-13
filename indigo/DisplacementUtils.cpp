@@ -18,6 +18,7 @@ by Joe Warren and Scott Schaefer
 #include "../maths/mathstypes.h"
 #include "../graphics/TriBoxIntersection.h"
 #include "ScalarMatParameter.h"
+#include "Vec3MatParameter.h"
 #include "VoidMedium.h"
 #include "TestUtils.h"
 #include "globals.h"
@@ -1931,6 +1932,7 @@ void DisplacementUtils::test()
 			Reference<DisplaceMatParameter>(NULL),
 			Reference<SpectrumMatParameter>(NULL),
 			Reference<SpectrumMatParameter>(NULL),
+			Reference<Vec3MatParameter>(),
 			0, // layer_index
 			false, // random_triangle_colours
 			false // backface_emit

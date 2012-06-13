@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "jscol_ObjectTreePerThreadData.h"
+#include "../indigo/Vec3MatParameter.h"
 #include "../utils/random.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/MTwister.h"
@@ -60,6 +61,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		Reference<DisplaceMatParameter>(NULL),
 		Reference<SpectrumMatParameter>(NULL), // base emission
 		Reference<SpectrumMatParameter>(NULL),
+		Reference<Vec3MatParameter>(), // normal map param
 		0,
 		false,
 		false // backface_emit
@@ -216,6 +218,7 @@ void ObjectTreeTest::doTests()
 		Reference<DisplaceMatParameter>(NULL),
 		Reference<SpectrumMatParameter>(NULL), // base emission
 		Reference<SpectrumMatParameter>(NULL),
+		Reference<Vec3MatParameter>(), // normal map param
 		0,
 		false,
 		false // backface_emit
