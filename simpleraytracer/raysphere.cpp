@@ -347,8 +347,11 @@ double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3T
 const std::string RaySphere::getName() const { return "RaySphere"; }
 
 
-void RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, PrintOutput& print_output, bool verbose){}
+bool RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose)
+{
+	return false; // Spheres can't be clipped currently
+}
 
 
 void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose) {} // throws GeometryExcep

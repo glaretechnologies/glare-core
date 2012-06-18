@@ -96,6 +96,9 @@ private:
 };
 
 
+typedef Plane<float> Planef;
+
+
 template <class Real>
 Plane<Real>::Plane()
 {}

@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../maths/Matrix2.h"
 #include "../physics/KDTree.h"
 #include "../graphics/image.h"
+#include "../graphics/TriBoxIntersection.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
@@ -295,9 +296,9 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 }*/
 
 
-void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
-	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, PrintOutput& print_output, bool verbose
+	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
 	)
 {
 	if(subdivide_and_displace_done)
@@ -307,104 +308,266 @@ void RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		if(view_dependent_subdivision && max_num_subdivisions > 0)
 			throw GeometryExcep("Tried to do a view-dependent subdivision on an instanced mesh.");
 
-		// else not an error, but we don't need to subdivide again, so return.
-		return;
+		// else not an error, but we don't need to subdivide again.
 	}
-
-	if(merge_vertices_with_same_pos_and_normal)
-		mergeVerticesWithSamePosAndNormal(print_output, verbose);
-	
-	if(!vertex_shading_normals_provided)
-		computeShadingNormals(print_output, verbose);
-
-	if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
+	else
 	{
-		if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
-
-		// Convert to single precision floating point planes
-		/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
-		for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
-			camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
-
-		js::Vector<RayMeshTriangle, 16> temp_tris;
-		std::vector<RayMeshVertex> temp_verts;
-		std::vector<Vec2f> temp_uvs;
-
-		DUOptions options;
-		options.object_to_camera = object_to_camera;
-		options.wrap_u = wrap_u;
-		options.wrap_v = wrap_v;
-		options.view_dependent_subdivision = view_dependent_subdivision;
-		options.pixel_height_at_dist_one = pixel_height_at_dist_one;
-		options.subdivide_pixel_threshold = subdivide_pixel_threshold;
-		options.subdivide_curvature_threshold = subdivide_curvature_threshold;
-		options.displacement_error_threshold = displacement_error_threshold;
-		options.max_num_subdivisions = max_num_subdivisions;
-		options.camera_clip_planes_os = camera_clip_planes_os;
-
-		DisplacementUtils::subdivideAndDisplace(
-			print_output,
-			context,
-			object.getMaterials(),
-			subdivision_smoothing,
-			triangles,
-			quads,
-			vertices,
-			uvs,
-			this->num_uv_sets,
-			options,
-			temp_tris,
-			temp_verts,
-			temp_uvs
-			);
-
-		triangles = temp_tris;
-		vertices = temp_verts;
-		uvs = temp_uvs;
-
-		this->quads.clearAndFreeMem();
-
-		assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
-		this->num_uv_groups = num_uv_sets > 0 ? (unsigned int)temp_uvs.size() / num_uv_sets : 0;
-
-		// Check data
-#ifdef DEBUG
-		for(unsigned int i = 0; i < triangles.size(); ++i)
-			for(unsigned int c = 0; c < 3; ++c)
-			{
-				assert(triangles[i].vertex_indices[c] < vertices.size());
-				if(this->num_uv_sets > 0)
-				{
-					assert(triangles[i].uv_indices[c] < uvs.size());
-				}
-			}
-#endif	
-		if(verbose) print_output.print("\tDone.");
-	}
+		if(merge_vertices_with_same_pos_and_normal)
+			mergeVerticesWithSamePosAndNormal(print_output, verbose);
 	
-	// convert any quads to tris
-	if(this->getNumQuads() > 0)
-	{
-		for(size_t i=0; i<this->quads.size(); ++i)
+		if(!vertex_shading_normals_provided)
+			computeShadingNormals(print_output, verbose);
+
+		if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 		{
-			const RayMeshQuad& q = this->quads[i];
-			this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex()));
-			this->triangles.back().uv_indices[0] = q.uv_indices[0];
-			this->triangles.back().uv_indices[1] = q.uv_indices[1];
-			this->triangles.back().uv_indices[2] = q.uv_indices[2];
-			this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
-			this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex()));
-			this->triangles.back().uv_indices[0] = q.uv_indices[0];
-			this->triangles.back().uv_indices[1] = q.uv_indices[2];
-			this->triangles.back().uv_indices[2] = q.uv_indices[3];
-			this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+			// Convert to single precision floating point planes
+			/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
+			for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
+				camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
+
+			js::Vector<RayMeshTriangle, 16> temp_tris;
+			std::vector<RayMeshVertex> temp_verts;
+			std::vector<Vec2f> temp_uvs;
+
+			DUOptions options;
+			options.object_to_camera = object_to_camera;
+			options.wrap_u = wrap_u;
+			options.wrap_v = wrap_v;
+			options.view_dependent_subdivision = view_dependent_subdivision;
+			options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+			options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+			options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+			options.displacement_error_threshold = displacement_error_threshold;
+			options.max_num_subdivisions = max_num_subdivisions;
+			options.camera_clip_planes_os = camera_clip_planes_os;
+
+			DisplacementUtils::subdivideAndDisplace(
+				print_output,
+				context,
+				object.getMaterials(),
+				subdivision_smoothing,
+				triangles,
+				quads,
+				vertices,
+				uvs,
+				this->num_uv_sets,
+				options,
+				temp_tris,
+				temp_verts,
+				temp_uvs
+				);
+
+			triangles = temp_tris;
+			vertices = temp_verts;
+			uvs = temp_uvs;
+
+			this->quads.clearAndFreeMem();
+
+			assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+			this->num_uv_groups = num_uv_sets > 0 ? (unsigned int)temp_uvs.size() / num_uv_sets : 0;
+
+			// Check data
+	#ifdef DEBUG
+			for(unsigned int i = 0; i < triangles.size(); ++i)
+				for(unsigned int c = 0; c < 3; ++c)
+				{
+					assert(triangles[i].vertex_indices[c] < vertices.size());
+					if(this->num_uv_sets > 0)
+					{
+						assert(triangles[i].uv_indices[c] < uvs.size());
+					}
+				}
+	#endif	
+			if(verbose) print_output.print("\tDone.");
+		}
+	
+		// convert any quads to tris
+		if(this->getNumQuads() > 0)
+		{
+			for(size_t i=0; i<this->quads.size(); ++i)
+			{
+				const RayMeshQuad& q = this->quads[i];
+				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex()));
+				this->triangles.back().uv_indices[0] = q.uv_indices[0];
+				this->triangles.back().uv_indices[1] = q.uv_indices[1];
+				this->triangles.back().uv_indices[2] = q.uv_indices[2];
+				this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+
+				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex()));
+				this->triangles.back().uv_indices[0] = q.uv_indices[0];
+				this->triangles.back().uv_indices[1] = q.uv_indices[2];
+				this->triangles.back().uv_indices[2] = q.uv_indices[3];
+				this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
+			}
+
+			this->quads.clearAndFreeMem();
 		}
 
-		this->quads.clearAndFreeMem();
+		subdivide_and_displace_done = true;
 	}
 
-	subdivide_and_displace_done = true;
+	// Decide whether this object may be clipped by the section planes:
+	if(section_planes_os.empty())
+		return false;
+
+	for(size_t t=0; t<this->triangles.size(); ++t) // For each triangle
+	{
+		for(int v=0; v<3; ++v) // For each vertex
+		{
+			for(size_t i=0; i<section_planes_os.size(); ++i) // For each clipping plane
+			{
+				// If vertex position lies on back-face of section plane, then it will be clipped.
+				if(section_planes_os[i].signedDistToPoint( this->vertices[this->triangles[t].vertex_indices[v]].pos ) < 0)
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+
+AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
+{
+	AlignedRef<RayMesh, 16> new_mesh(new RayMesh(
+		name,
+		enable_normal_smoothing,
+		max_num_subdivisions,
+		subdivide_pixel_threshold, 
+		subdivision_smoothing, 
+		subdivide_curvature_threshold,
+		merge_vertices_with_same_pos_and_normal,
+		wrap_u,
+		wrap_v,
+		view_dependent_subdivision,
+		displacement_error_threshold
+	));
+
+	new_mesh->matname_to_index_map = matname_to_index_map;
+
+	// Copy the vertices
+	new_mesh->vertices = vertices;
+
+	// Copy the UVs
+	new_mesh->num_uv_sets = num_uv_sets;
+	new_mesh->num_uv_groups = num_uv_groups;
+	new_mesh->uvs = uvs;
+
+	// Should be no quads
+	assert(quads.empty());
+
+
+	js::Vector<RayMeshTriangle, 16> current_triangles = triangles;
+	js::Vector<RayMeshTriangle, 16> new_triangles;
+	
+	// For each plane
+	for(int p=0; p<section_planes_os.size(); ++p)
+	{
+		new_triangles.resize(0);
+
+		for(size_t t=0; t<current_triangles.size(); ++t)
+		{
+			float d[3]; // signed distance from plane to vertex i
+			for(int i=0; i<3; ++i)
+				d[i] = section_planes_os[p].signedDistToPoint(new_mesh->vertices[current_triangles[t].vertex_indices[i]].pos);
+
+			//printVar(d[0]);
+			if(d[0] >= 0 && d[1] >= 0 && d[2] >= 0)
+			{
+				// All tri vertices are on the front side of the plane.
+				// Copy over original triangle to output mesh directly.
+				new_triangles.push_back(current_triangles[t]);
+			}
+			else if(d[0] <= 0 && d[1] <= 0 && d[2] <= 0)
+			{
+				// All tri vertices are on the back side of the plane.
+			}
+			else
+			{
+				// Find the single vertex by itself on one side of the clipping plane
+				int v_i;
+				if(d[0] * d[1] <= 0 && d[0] * d[2] <= 0)
+					v_i = 0;
+				else if(d[1] * d[0] <= 0 && d[1] * d[2] <= 0)
+					v_i = 1;
+				else
+					v_i = 2;
+
+				int v_i1 = (v_i + 1) % 3;
+				int v_i2 = (v_i + 2) % 3;
+
+				// Make a new vertex along the edge (v_i, v_{i+1})
+				float t_1 = std::fabs(d[v_i] / (d[v_i] - d[v_i1]));
+				assert(t_1 >= 0 && t_1 <= 1);
+
+				// Make the new vertex
+				RayMeshVertex new_vert_1;
+				new_vert_1.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].pos,    t_1);
+				new_vert_1.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].normal, t_1);
+
+				// Add it to the vertices list
+				const unsigned int new_vert_1_index = (unsigned int)new_mesh->vertices.size();
+				new_mesh->vertices.push_back(new_vert_1);
+
+				// Make a new vertex along the edge (v_i, v_{i+2})
+				float t_2 = std::fabs(d[v_i] / (d[v_i] - d[v_i2]));
+				assert(t_2 >= 0 && t_2 <= 1);
+
+				// Make the new vertex
+				RayMeshVertex new_vert_2;
+				new_vert_2.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].pos,    t_2);
+				new_vert_2.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].normal, t_2);
+
+				// Add it to the vertices list
+				const unsigned int new_vert_2_index = (unsigned int)new_mesh->vertices.size();
+				new_mesh->vertices.push_back(new_vert_2);
+
+				// Make the triangle (v_i, v_new1, vnew2)
+				if(d[v_i] > 0) // If v_i is on front side of plane
+				{
+					RayMeshTriangle tri = current_triangles[t];
+					tri.vertex_indices[0] = current_triangles[t].vertex_indices[v_i];
+					tri.vertex_indices[1] = new_vert_1_index;
+					tri.vertex_indices[2] = new_vert_2_index;
+
+					new_triangles.push_back(tri);
+				}
+
+				
+				if(d[v_i] < 0)
+				{
+					// Make the triangle (v_new1, v_{i+1}, vnew2)
+					{
+						RayMeshTriangle tri = current_triangles[t];
+						tri.vertex_indices[0] = new_vert_1_index;
+						tri.vertex_indices[1] = current_triangles[t].vertex_indices[v_i1];
+						tri.vertex_indices[2] = new_vert_2_index;
+
+						new_triangles.push_back(tri);
+					}
+
+					// Make the triangle (v_new2, v_{i+1}, v_{i+2})
+					{
+						RayMeshTriangle tri = current_triangles[t];
+						tri.vertex_indices[0] = new_vert_2_index;
+						tri.vertex_indices[1] = current_triangles[t].vertex_indices[v_i1];
+						tri.vertex_indices[2] = current_triangles[t].vertex_indices[v_i2];
+
+						new_triangles.push_back(tri);
+					}
+				}
+			}
+		}
+
+		// Update current triangles
+		current_triangles = new_triangles;
+
+	} // End for each plane
+
+	new_mesh->triangles = current_triangles;
+
+	return new_mesh;
 }
 
 
