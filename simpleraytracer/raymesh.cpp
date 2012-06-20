@@ -69,7 +69,6 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	vertex_shading_normals_provided = false;
 
 	num_uv_sets = 0;
-	num_uv_groups = 0;
 }
 
 
@@ -366,7 +365,6 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 			this->quads.clearAndFreeMem();
 
 			assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
-			this->num_uv_groups = num_uv_sets > 0 ? (unsigned int)temp_uvs.size() / num_uv_sets : 0;
 
 			// Check data
 	#ifdef DEBUG
@@ -451,7 +449,6 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 
 	// Copy the UVs
 	new_mesh->num_uv_sets = num_uv_sets;
-	new_mesh->num_uv_groups = num_uv_groups;
 	new_mesh->uvs = uvs;
 
 	// Should be no quads
@@ -510,6 +507,15 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 				const unsigned int new_vert_1_index = (unsigned int)new_mesh->vertices.size();
 				new_mesh->vertices.push_back(new_vert_1);
 
+				// Make new UV coordinate pairs
+				const unsigned int new_uv_1_index   = (unsigned int)new_mesh->uvs.size();
+				for(unsigned int z=0; z<num_uv_sets; ++z)
+					new_mesh->uvs.push_back(Maths::uncheckedLerp(
+						new_mesh->uvs[current_triangles[t].uv_indices[v_i]  * num_uv_sets + z], 
+						new_mesh->uvs[current_triangles[t].uv_indices[v_i1] * num_uv_sets + z], 
+						t_1
+					));
+
 				// Make a new vertex along the edge (v_i, v_{i+2})
 				float t_2 = std::fabs(d[v_i] / (d[v_i] - d[v_i2]));
 				assert(t_2 >= 0 && t_2 <= 1);
@@ -523,6 +529,15 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 				const unsigned int new_vert_2_index = (unsigned int)new_mesh->vertices.size();
 				new_mesh->vertices.push_back(new_vert_2);
 
+				// Make new UV coordinate pairs
+				const unsigned int new_uv_2_index   = (unsigned int)new_mesh->uvs.size();
+				for(unsigned int z=0; z<num_uv_sets; ++z)
+					new_mesh->uvs.push_back(Maths::uncheckedLerp(
+						new_mesh->uvs[current_triangles[t].uv_indices[v_i]  * num_uv_sets + z], 
+						new_mesh->uvs[current_triangles[t].uv_indices[v_i2] * num_uv_sets + z], 
+						t_2
+					));
+
 				// Make the triangle (v_i, v_new1, vnew2)
 				if(d[v_i] > 0) // If v_i is on front side of plane
 				{
@@ -530,6 +545,9 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 					tri.vertex_indices[0] = current_triangles[t].vertex_indices[v_i];
 					tri.vertex_indices[1] = new_vert_1_index;
 					tri.vertex_indices[2] = new_vert_2_index;
+					tri.uv_indices[0] = current_triangles[t].uv_indices[v_i];
+					tri.uv_indices[1] = new_uv_1_index;
+					tri.uv_indices[2] = new_uv_2_index;
 
 					new_triangles.push_back(tri);
 				}
@@ -543,6 +561,9 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 						tri.vertex_indices[0] = new_vert_1_index;
 						tri.vertex_indices[1] = current_triangles[t].vertex_indices[v_i1];
 						tri.vertex_indices[2] = new_vert_2_index;
+						tri.uv_indices[0] = new_uv_1_index;
+						tri.uv_indices[1] = current_triangles[t].uv_indices[v_i1];
+						tri.uv_indices[2] = new_uv_2_index;
 
 						new_triangles.push_back(tri);
 					}
@@ -553,6 +574,9 @@ AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >
 						tri.vertex_indices[0] = new_vert_2_index;
 						tri.vertex_indices[1] = current_triangles[t].vertex_indices[v_i1];
 						tri.vertex_indices[2] = current_triangles[t].vertex_indices[v_i2];
+						tri.uv_indices[0] = new_uv_2_index;
+						tri.uv_indices[1] = current_triangles[t].uv_indices[v_i1];
+						tri.uv_indices[2] = current_triangles[t].uv_indices[v_i2];;
 
 						new_triangles.push_back(tri);
 					}
@@ -1004,7 +1028,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	for(size_t i = 0; i < mesh.uv_pairs.size(); ++i)
 		this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
 
-	this->num_uv_groups = mesh.num_uv_mappings == 0 ? 0 : (unsigned int)mesh.uv_pairs.size() / mesh.num_uv_mappings;
+	const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
 
 	// Triangles
 	this->triangles.reserve(mesh.triangles.size());
@@ -1149,8 +1173,6 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 		else
 			uvs.push_back(Vec2f(0.f, 0.f));
 	}
-
-	num_uv_groups++;
 }
 
 
@@ -1167,9 +1189,12 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 
 	// Check uv indices are in bounds
 	if(num_uv_sets > 0)
+	{
+		const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
 		for(unsigned int i = 0; i < 3; ++i)
 			if(uv_indices[i] >= num_uv_groups)
 				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
+	}
 
 
 	// Check the area of the triangle
@@ -1207,9 +1232,12 @@ void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv
 
 	// Check uv indices are in bounds
 	if(num_uv_sets > 0)
+	{
+		const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
 		for(unsigned int i = 0; i < 4; ++i)
 			if(uv_indices[i] >= num_uv_groups)
 				throw ModelLoadingStreamHandlerExcep("Quad uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
+	}
 
 
 	// Check the area of the triangle

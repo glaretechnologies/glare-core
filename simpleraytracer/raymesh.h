@@ -242,7 +242,8 @@ public:
 	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
-	INDIGO_STRONG_INLINE unsigned int getNumUVGroups() const { return num_uv_groups; }
+	// This is the number of UV pairs per uv set (layer).
+	inline unsigned int getNumUVGroups() const { return num_uv_sets == 0 ? 0 : (unsigned int)uvs.size() / num_uv_sets; }
 	
 	//Debugging:
 
@@ -312,11 +313,8 @@ private:
 
 	//std::vector<Vec3f> triangle_geom_normals;
 	
-	//unsigned int num_uvs;
-	
-	unsigned int num_uv_sets; // 0 - 4
-	unsigned int num_uv_groups; // will be roughly equal to number of vertices
-	std::vector<Vec2f> uvs; // will have num_uv_groups * num_uvs_per_group elements
+	unsigned int num_uv_sets;
+	std::vector<Vec2f> uvs;
 
 	unsigned int max_num_subdivisions;
 	double subdivide_pixel_threshold;
