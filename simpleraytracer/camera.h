@@ -18,7 +18,6 @@ Code By Nicholas Chapman.
 #include "../physics/jscol_aabbox.h"
 #include "../utils/reference.h"
 #include <vector>
-//#include <memory>
 #include <string>
 class ColourSpaceConverter;
 class HitInfo;
