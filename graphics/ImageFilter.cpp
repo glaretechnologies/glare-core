@@ -1352,11 +1352,11 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	assert(filter.getWidth() >= 2);
 	assert(filter.getHeight() >= 2);
 
-	const int x_offset = filter.getWidth() / 2;
-	const int y_offset = filter.getHeight() / 2;
+	const int x_offset = (int)filter.getWidth() / 2;
+	const int y_offset = (int)filter.getHeight() / 2;
 
-	const size_t W = smallestPowerOf2GE(myMax(in.getWidth(), filter.getWidth()) + x_offset);
-	const size_t H = smallestPowerOf2GE(myMax(in.getHeight(), filter.getHeight()) + y_offset);
+	const size_t W = smallestPowerOf2GE((int)myMax(in.getWidth(), filter.getWidth()) + x_offset);
+	const size_t H = smallestPowerOf2GE((int)myMax(in.getHeight(), filter.getHeight()) + y_offset);
 
 	assert(Maths::isPowerOfTwo(W) && Maths::isPowerOfTwo(H));
 	assert(W >= 2);
@@ -1416,7 +1416,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
-		plan.in_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.product,
+		plan.in_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.buffer_a, plan.product,
 						FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
 		//FFTSS_INOUT
 		//FFTSS_ESTIMATE
@@ -1428,7 +1428,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
-		plan.filter_plan = fftss_plan_dft_2d(W, H, py, plan.buffer_a, plan.buffer_b,
+		plan.filter_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.buffer_a, plan.buffer_b,
 							FFTSS_FORWARD, FFTSS_DESTROY_INPUT);
 	}
 
@@ -1437,7 +1437,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		#ifndef INDIGO_NO_OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
-		plan.ift_plan = fftss_plan_dft_2d(W, H, py, plan.product, plan.buffer_a,
+		plan.ift_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.product, plan.buffer_a,
 						FFTSS_BACKWARD, FFTSS_DESTROY_INPUT);
 		
 	}
@@ -1589,7 +1589,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 {
 	Timer t;
 
-	const int py = data.getWidth() + 1;
+	const int py = (int)data.getWidth() + 1;
 
 	double* in = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
 	if(!in)
@@ -1629,7 +1629,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	#ifndef INDIGO_NO_OPENMP
 	fftss_plan_with_nthreads(omp_get_max_threads());
 	#endif
-	fftss_plan plan = fftss_plan_dft_2d(data.getWidth(), data.getHeight(), py, in, outbuf,
+	fftss_plan plan = fftss_plan_dft_2d((long)data.getWidth(), (long)data.getHeight(), py, in, outbuf,
                            FFTSS_FORWARD, FFTSS_VERBOSE);
 
 	conPrint("plan: " + t.elapsedString());

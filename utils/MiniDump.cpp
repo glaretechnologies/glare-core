@@ -8,11 +8,11 @@ Generated at 2011-07-08 17:47:01 +0100
 
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <windows.h>
-#include <dbghelp.h>
-#include <shellapi.h>
-#include <shlobj.h>
-#include <Strsafe.h>
+//#include <windows.h>
+//#include <dbghelp.h>
+//#include <shellapi.h>
+//#include <shlobj.h>
+//#include <Strsafe.h>
 #endif
 
 
