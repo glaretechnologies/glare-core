@@ -261,7 +261,7 @@ void PointKDTree::build(const std::vector<Vec3f>& points)
 		for(size_t i=0; i<points.size(); ++i)
 		{
 			(layers[0].axis_points[axis])[i].val = (points[i])[axis];
-			(layers[0].axis_points[axis])[i].point_index = i;
+			(layers[0].axis_points[axis])[i].point_index = (uint32)i;
 		}
 	}
 
@@ -354,7 +354,7 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 	assert(num_points >= 1);
 
 	// Add new node
-	const unsigned int current = nodes.size();
+	const unsigned int current = (unsigned int)nodes.size();
 	nodes.push_back(PointKDTreeNode(NULL_NODE_INDEX, NULL_NODE_INDEX));
 
 	if(num_points == 1)

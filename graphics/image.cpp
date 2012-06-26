@@ -484,8 +484,8 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 	{
 		const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
 		const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
-		const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < img_in.getWidth());
-		const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < img_in.getHeight());
+		const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < (ptrdiff_t)img_in.getWidth());
+		const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < (ptrdiff_t)img_in.getHeight());
 
 		ColourType weighted_sum(0);
 		uint32 filter_addr = 0;
@@ -493,7 +493,7 @@ void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width
 		for(ptrdiff_t u = u_min; u <= u_max; ++u)
 		{
 			const ptrdiff_t addr = v * in_xres + u;
-			assert(addr >= 0 && addr < img_in.numPixels());
+			assert(addr >= 0 && addr < (ptrdiff_t)img_in.numPixels());
 
 			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
 		}
