@@ -1144,7 +1144,7 @@ void KDTree::saveTree(std::ostream& stream)
 	//write leafgeom
 	//------------------------------------------------------------------------
 	// Write number of leafgeom
-	temp = leafgeom.size();
+	temp = (unsigned int)leafgeom.size();
 	stream.write((const char*)&temp, sizeof(unsigned int));
 
 	// Write actual leafgeom data
