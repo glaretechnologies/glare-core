@@ -93,39 +93,32 @@ public:
 	virtual PDType sensitivityScale() const = 0;
 
 
-	virtual PDType sensorPDF() const = 0;
+	virtual PDType sensorPDF() const = 0; // used
 
-	virtual void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0;
-	virtual PDType lensPosPDF(const Vec3Type& lenspos_os) const = 0;
-	virtual PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0;
-	virtual double lensPosVisibility(const Vec3Type& lenspos_os) const = 0;
+	virtual void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
+	virtual PDType lensPosPDF(const Vec3Type& lenspos_os) const = 0; // used
+	virtual PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in generic path tracer.  TODO: remove.
+	virtual double lensPosVisibility(const Vec3Type& lenspos_os) const = 0; // only used in old code.
 
-	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0;
+	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in old code.
 	virtual void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const = 0;
 
 	virtual const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const = 0;
 	virtual void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const = 0;
 
 	virtual const Vec3Type worldToCameraObjectSpace(const Vec3Type& pos_ws, double time) const = 0;
-	virtual PDType lensPosPDFForWSPos(const Vec3Type& lenspos_ws, double time) const = 0;
+	virtual PDType lensPosPDFForWSPos(const Vec3Type& lenspos_ws, double time) const = 0; // only used in old code.
 
-
-
-	virtual void setPosForwardsWS(Vec3d cam_pos, Vec3d cam_dir) = 0;
-
-	virtual const Vec3d getUpDir(double time) const = 0;
-	virtual const Vec3d getRightDir(double time) const = 0;
-	virtual const Vec3d getForwardsDir(double time) const = 0;
 
 	virtual const Vec4f getForwardsDirF(double time) const = 0;
 
 	virtual const Vec4f getPosWS(double time) const = 0;
 	
 
-	virtual double getExposureDuration() const = 0;
+	virtual Real getExposureDuration() const = 0;
 
 
-	virtual const Vec3d diffractRay(const SamplePair& samples, const Vec3d& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const = 0;
+	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const = 0;
 
 
 	virtual void prepareForDiffractionFilter(int main_buffer_width, int main_buffer_height, int ssf_) = 0;

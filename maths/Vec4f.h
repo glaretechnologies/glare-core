@@ -167,6 +167,12 @@ INDIGO_STRONG_INLINE __m128 maskWToZero(const Vec4f& a)
 }
 
 
+INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& dir)
+{
+	return v - dir * dot(v, dir);
+}
+
+
 Vec4f& Vec4f::operator = (const Vec4f& a)
 {
 	v = a.v;
