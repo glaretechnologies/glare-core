@@ -501,14 +501,11 @@ inline static const Vec3d triGeomNormal(const std::vector<DUVertex>& verts, cons
 
 
 /*
-
 Returns the displacement at a point on a triangle, 
 evaluated at an arbitrary point on the triangle, according to the barycentric coordinates (b1, b2)
-
-
 */
 static float evalDisplacement(ThreadContext& context, 
-								//const Object& object,
+								DUTexCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
 								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
@@ -522,7 +519,6 @@ static float evalDisplacement(ThreadContext& context,
 	
 	if(material.displacing())
 	{
-		DUTexCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.texcoords.resize(num_uv_sets);
 
 		// Set up UVs
@@ -537,7 +533,7 @@ static float evalDisplacement(ThreadContext& context,
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		return (float)material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
+		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
 	}
 	else
 	{
@@ -547,9 +543,52 @@ static float evalDisplacement(ThreadContext& context,
 
 
 /*
+Returns the displacement at a point on a quad, 
+evaluated at an arbitrary point on the quad, according to the barycentric coordinates (alpha, beta)
+*/
+static float evalDisplacement(ThreadContext& context, 
+								DUTexCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
+								const std::vector<Reference<Material> >& materials,
+								const DUQuad& quad, 
+								const std::vector<DUVertex>& verts,
+								const std::vector<Vec2f>& uvs,
+								unsigned int num_uv_sets,
+								float alpha, // coords
+								float beta
+								)
+{
+	const Material& material = *materials[quad.mat_index];//->material;
+	
+	if(material.displacing())
+	{
+		du_texcoord_evaluator.texcoords.resize(num_uv_sets);
 
+		// Set up UVs
+		const float one_alpha = 1 - alpha;
+		const float one_beta  = 1 - beta;
+
+		for(uint32_t z = 0; z < num_uv_sets; ++z)
+		{
+			du_texcoord_evaluator.texcoords[z] = 
+				getUVs(uvs, num_uv_sets, quad.uv_indices[0], z) * one_alpha * one_beta + 
+				getUVs(uvs, num_uv_sets, quad.uv_indices[1], z) * alpha     * one_beta + 
+				getUVs(uvs, num_uv_sets, quad.uv_indices[2], z) * alpha     * beta     +
+				getUVs(uvs, num_uv_sets, quad.uv_indices[3], z) * one_alpha * beta;
+		}
+
+		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
+
+		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
+	}
+	else
+	{
+		return 0.0f;
+	}
+}
+
+
+/*
 Returns the displacement at a point on a triangle, interpolated from the stored displacement at the vertices.
-
 */
 static float interpolatedDisplacement(
 								const DUTriangle& triangle, 
@@ -560,22 +599,43 @@ static float interpolatedDisplacement(
 								float b2
 								)
 {
-		const float b0 = (1.0f - b1) - b2;
+	const float b0 = (1 - b1) - b2;
 
-		return 
-			verts[triangle.vertex_indices[0]].displacement * b0 + 
-			verts[triangle.vertex_indices[1]].displacement * b1 + 
-			verts[triangle.vertex_indices[2]].displacement * b2;
+	return 
+		verts[triangle.vertex_indices[0]].displacement * b0 + 
+		verts[triangle.vertex_indices[1]].displacement * b1 + 
+		verts[triangle.vertex_indices[2]].displacement * b2;
 }
 
 
 /*
+Returns the displacement at a point on a quad, interpolated from the stored displacement at the vertices.
+*/
+static float interpolatedDisplacement(
+								const DUQuad& quad, 
+								const std::vector<DUVertex>& verts,
+								const std::vector<Vec2f>& uvs,
+								unsigned int num_uv_sets,
+								float alpha, // coords
+								float beta
+								)
+{
+	const float one_alpha = 1 - alpha;
+	const float one_beta  = 1 - beta;
+	return 
+		verts[quad.vertex_indices[0]].displacement * one_alpha * one_beta + 
+		verts[quad.vertex_indices[1]].displacement * alpha     * one_beta + 
+		verts[quad.vertex_indices[2]].displacement * alpha     * beta     + 
+		verts[quad.vertex_indices[3]].displacement * one_alpha * beta;
+}
 
+
+/*
 Returns the maximum absolute difference between the displacement as interpolated from the vertices,
 and the displacement as evaluated directly.
-
 */
 static float displacementError(ThreadContext& context, 
+								DUTexCoordEvaluator& du_texcoord_evaluator,
 								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
@@ -588,7 +648,7 @@ static float displacementError(ThreadContext& context,
 	if(!materials[triangle.tri_mat_index]->displacing())
 		return 0.0f;
 
-	float max_error = -std::numeric_limits<float>::max();
+	float max_error = 0;
 	const float recip_res = 1.0f / (float)res;
 
 	for(int x = 0; x <= res; ++x)
@@ -602,8 +662,47 @@ static float displacementError(ThreadContext& context,
 
 		const float error = fabs(
 			interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
-			evalDisplacement(context, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
-			);
+			evalDisplacement(context, du_texcoord_evaluator, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
+		);
+
+		max_error = myMax(max_error, error);
+	}
+
+	return max_error;
+}
+
+
+// Quad version
+static float displacementError(ThreadContext& context, 
+								DUTexCoordEvaluator& du_texcoord_evaluator,
+								const std::vector<Reference<Material> >& materials,
+								const DUQuad& quad, 
+								const std::vector<DUVertex>& verts,
+								const std::vector<Vec2f>& uvs,
+								unsigned int num_uv_sets,
+								int res
+								)
+{
+	// Early out if material not displacing:
+	if(!materials[quad.mat_index]->displacing())
+		return 0.0f;
+
+	float max_error = 0;
+	const float recip_res = 1.0f / (float)res;
+
+	for(int x = 0; x <= res; ++x)
+	for(int y = 0; y <= res; ++y)
+	{
+		const float nudge = 0.999f; // nudge so that barycentric coords are valid
+		const float alpha = x * recip_res * nudge;
+		const float beta =  y * recip_res * nudge;
+
+		assert(alpha >= 0 && alpha < 1 && beta >= 0  && beta < 1);
+
+		const float error = fabs(
+			interpolatedDisplacement(quad, verts, uvs, num_uv_sets, alpha, beta) - 
+			evalDisplacement(context, du_texcoord_evaluator, materials, quad, verts, uvs, num_uv_sets, alpha, beta)
+		);
 
 		max_error = myMax(max_error, error);
 	}
@@ -699,7 +798,7 @@ void DisplacementUtils::displace(ThreadContext& context,
 	// For each quad
 	for(size_t q = 0; q < quads.size(); ++q)
 	{
-		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this triangle
+		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this quad
 
 		if(material->displacing())
 		{
@@ -743,6 +842,17 @@ static float triangleMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal
 	const float curvature_uv = ::angleBetweenNormalized(v1_normal, v2_normal);// / v1.pos.getDist(v2.pos);
 
 	return myMax(curvature_u, curvature_v, curvature_uv);
+}
+
+
+static float quadMaxCurvature(const Vec3f& v0_normal, const Vec3f& v1_normal, const Vec3f& v2_normal, const Vec3f& v3_normal)
+{
+	const float curvature_0 = ::angleBetweenNormalized(v0_normal, v1_normal);
+	const float curvature_1 = ::angleBetweenNormalized(v1_normal, v2_normal);
+	const float curvature_2 = ::angleBetweenNormalized(v2_normal, v3_normal);
+	const float curvature_3 = ::angleBetweenNormalized(v3_normal, v0_normal);
+
+	return myMax(curvature_0, curvature_1, myMax(curvature_2, curvature_3));
 }
 
 
@@ -847,13 +957,16 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
 	// Create some temporary buffers
-	std::vector<Vec3f> tri_verts_pos_os(3);
+	std::vector<Vec3f> poly_verts_pos_os(4);
 
-	std::vector<Vec3f> clipped_tri_verts_os;
-	clipped_tri_verts_os.reserve(32);
+	std::vector<Vec3f> clipped_poly_verts_os;
+	clipped_poly_verts_os.reserve(32);
 
-	std::vector<Vec3f> clipped_tri_verts_cs;
-	clipped_tri_verts_cs.reserve(32);
+	std::vector<Vec3f> clipped_poly_verts_cs;
+	clipped_poly_verts_cs.reserve(32);
+
+	DUTexCoordEvaluator temp_du_texcoord_evaluator;
+
 
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
 
@@ -898,32 +1011,32 @@ void DisplacementUtils::linearSubdivision(
 		{
 			// Build vector of displaced triangle vertex positions. (in object space)
 			for(uint32_t i = 0; i < 3; ++i)
-				tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
+				poly_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
 
 			// Clip triangle against frustrum planes
-			TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, tri_verts_pos_os, clipped_tri_verts_os);
+			TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, poly_verts_pos_os, clipped_poly_verts_os);
 
-			if(clipped_tri_verts_os.size() > 0) // If the triangle has not been completely clipped away
+			if(clipped_poly_verts_os.size() > 0) // If the triangle has not been completely clipped away
 			{
 				// Convert clipped verts to camera space
-				clipped_tri_verts_cs.resize(clipped_tri_verts_os.size());
-				for(uint32_t i = 0; i < clipped_tri_verts_cs.size(); ++i)
+				clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
+				for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
 				{
 					Vec4f v_os;
-					clipped_tri_verts_os[i].pointToVec4f(v_os);
+					clipped_poly_verts_os[i].pointToVec4f(v_os);
 
 					const Vec4f v_cs = options.object_to_camera * v_os;
 
-					clipped_tri_verts_cs[i] = Vec3f(v_cs);
+					clipped_poly_verts_cs[i] = Vec3f(v_cs);
 				}
 
 				// Compute 2D bounding box of clipped triangle in screen space
-				const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[0]);
+				const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
 				Rect2f rect_ss(v0_ss, v0_ss);
 
-				for(size_t i = 1; i < clipped_tri_verts_cs.size(); ++i)
+				for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
 					rect_ss.enlargeToHoldPoint(
-						screenSpacePosForCameraSpacePos(clipped_tri_verts_cs[i])
+						screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
 						);
 
 				// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
@@ -942,7 +1055,7 @@ void DisplacementUtils::linearSubdivision(
 					{
 						// Test displacement error
 						const int res = getDispErrorRes((unsigned int)tris_in.size());
-						const float displacement_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
+						const float displacement_error = displacementError(context, temp_du_texcoord_evaluator, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
 
 						subdivide_triangle = displacement_error >= options.displacement_error_threshold;
 					}
@@ -978,7 +1091,7 @@ void DisplacementUtils::linearSubdivision(
 					{
 						// Test displacement error
 						const int RES = 10;
-						const float displacment_error = displacementError(context, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
+						const float displacment_error = displacementError(context, temp_du_texcoord_evaluator, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
 
 						subdivide_triangle = displacment_error >= options.displacement_error_threshold;
 					}
@@ -1100,133 +1213,244 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
+
+	// Do a pass to decide whether or not to subdivide each quad, and create new vertices if subdividing.
+
+	std::vector<bool> subdividing_quad(quads_in.size(), false);
+
 	// For each quad
 	for(size_t q = 0; q < quads_in.size(); ++q)
 	{
-		const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
-								quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
+		// Decide if we are going to subdivide the quad
+		bool subdivide_quad = false;
 
-		// Create the quad's centroid vertex
-		const uint32_t centroid_vert_index = (uint32_t)verts_out.size();
-		const uint32_t centroid_uv_index = num_uv_sets > 0 ? (uint32_t)uvs_out.size() / num_uv_sets : 0;
-
-		quad_centre_data[q].first  = centroid_vert_index;
-		quad_centre_data[q].second = centroid_uv_index;
-
-		verts_out.push_back(DUVertex(
-			(verts_in[v[0]].pos + verts_in[v[1]].pos + verts_in[v[2]].pos + verts_in[v[3]].pos) * 0.25f,
-			(verts_in[v[0]].normal + verts_in[v[1]].normal + verts_in[v[2]].normal + verts_in[v[3]].normal)// * 0.25f
-			));
-
-		for(uint32_t z = 0; z < num_uv_sets; ++z)
+		if(options.view_dependent_subdivision)
 		{
-			uvs_out.push_back((
-				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
-				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z) +
-				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z) + 
-				getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z)) * 0.25f);
-		}
+			// Build vector of displaced quad vertex positions. (in object space)
+			for(uint32_t i = 0; i < 4; ++i)
+				poly_verts_pos_os[i] = displaced_in_verts[quads_in[q].vertex_indices[i]].pos;
 
+			// Clip quad against frustrum planes
+			TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, poly_verts_pos_os, clipped_poly_verts_os);
 
-		// Create the quad's edge vertices
-		for(uint32_t vi = 0; vi < 4; ++vi)
-		{
-			const unsigned int v0 = quads_in[q].vertex_indices[vi];
-			const unsigned int v1 = quads_in[q].vertex_indices[mod4(vi + 1)];
-			const unsigned int uv0 = quads_in[q].uv_indices[vi];
-			const unsigned int uv1 = quads_in[q].uv_indices[mod4(vi + 1)];
-
-			// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
-
-			const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
-
-			DUEdgeInfo& edge_info = edge_info_map[edge];
-
-			if(edge_info.num_adjacent_subdividing_polys == 0)
+			if(clipped_poly_verts_os.size() > 0) // If the quad has not been completely clipped away:
 			{
-				// Create the edge midpoint vertex
-				const uint32_t new_vert_index = (uint32)verts_out.size();
-
-				verts_out.push_back(DUVertex(
-					(verts_in[v0].pos + verts_in[v1].pos) * 0.5f,
-					(verts_in[v0].normal + verts_in[v1].normal)// * 0.5f
-					));
-
-				verts_out.back().adjacent_vert_0 = edge.v_a;
-				verts_out.back().adjacent_vert_1 = edge.v_b;
-
-				edge_info.midpoint_vert_index = new_vert_index;
-
-				if(num_uv_sets > 0)
+				// Convert clipped verts to camera space
+				clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
+				for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
 				{
-					// Store edge start and end UVs
-					// If v0 < v1, start_uv = uv(v0), end_uv = uv(v1), else
-					// start_uv = uv(v1), end_uv = uv(v0)
-					if(v0 < v1)
-					{
-						edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
-						edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
-					}
+					Vec4f v_os;
+					clipped_poly_verts_os[i].pointToVec4f(v_os);
+
+					const Vec4f v_cs = options.object_to_camera * v_os;
+
+					clipped_poly_verts_cs[i] = Vec3f(v_cs);
+				}
+
+				// Compute 2D bounding box of clipped quad in screen space
+				const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
+				Rect2f rect_ss(v0_ss, v0_ss);
+
+				for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
+					rect_ss.enlargeToHoldPoint(
+						screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
+					);
+
+				// Subdivide only if the width of height of the screen space quad bounding rectangle is bigger than the pixel height threshold
+				const bool exceeds_pixel_threshold = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > options.pixel_height_at_dist_one * options.subdivide_pixel_threshold;
+
+				if(exceeds_pixel_threshold)
+				{
+					const float curvature = quadMaxCurvature(
+						displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
+						displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
+						displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
+						displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
+
+					if(curvature >= (float)options.subdivide_curvature_threshold)
+						subdivide_quad = true;
 					else
 					{
-						edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
-						edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						// Test displacement error
+						const int res = getDispErrorRes((unsigned int)quads_in.size());
+						const float displacement_error = displacementError(context, temp_du_texcoord_evaluator, materials, quads_in[q], displaced_in_verts, uvs_in, num_uv_sets, res);
+
+						subdivide_quad = displacement_error >= options.displacement_error_threshold;
 					}
 				}
+			}
+		}
+		else
+		{
+			if(options.subdivide_curvature_threshold <= 0)
+			{
+				// If subdivide_curvature_threshold is <= 0, then since quad_curvature is always >= 0, then we will always subdivide the quad,
+				// so avoid computing the curvature.
+				subdivide_quad = true;
 			}
 			else
 			{
-				//TEMP assert(edge_info.num_adjacent_subdividing_polys == 1);
+				const float curvature = quadMaxCurvature(
+							displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
+							displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
+							displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
+							displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
 
-				if(num_uv_sets > 0)
+				if(curvature >= (float)options.subdivide_curvature_threshold)
+					subdivide_quad = true;
+				else
 				{
-					Vec2f this_start_uv;
-					Vec2f this_end_uv;
-					if(v0 < v1)
+					if(options.displacement_error_threshold <= 0)
 					{
-						this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
-						this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the quad.
+						// So avoid computing the displacment_error.
+						subdivide_quad = true;
 					}
 					else
 					{
-						this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
-						this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
-					}
+						// Test displacement error
+						const int RES = 10;
+						const float displacment_error = displacementError(context, temp_du_texcoord_evaluator, materials, quads_in[q], displaced_in_verts, uvs_in, num_uv_sets, RES);
 
-					if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
-						(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
-					{
-						// Mark vertices as having a UV discontinuity
-						verts_out[v0].uv_discontinuity = true;
-						verts_out[v1].uv_discontinuity = true;
-						verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+						subdivide_quad = displacment_error >= options.displacement_error_threshold;
 					}
 				}
 			}
+		}
 
-			edge_info.num_adjacent_subdividing_polys++;
+		subdividing_quad[q] = subdivide_quad;
+	}
 
-			// Create new uvs at edge midpoint, if not already created.
+	// For each quad
+	for(size_t q = 0; q < quads_in.size(); ++q)
+	{
+		if(subdividing_quad[q])
+		{
+			const uint32_t v[4] = { quads_in[q].vertex_indices[0], quads_in[q].vertex_indices[1],
+									quads_in[q].vertex_indices[2], quads_in[q].vertex_indices[3] };
 
-			if(num_uv_sets > 0)
+			// Create the quad's centroid vertex
+			const uint32_t centroid_vert_index = (uint32_t)verts_out.size();
+			const uint32_t centroid_uv_index = num_uv_sets > 0 ? (uint32_t)uvs_out.size() / num_uv_sets : 0;
+
+			quad_centre_data[q].first  = centroid_vert_index;
+			quad_centre_data[q].second = centroid_uv_index;
+
+			verts_out.push_back(DUVertex(
+				(verts_in[v[0]].pos + verts_in[v[1]].pos + verts_in[v[2]].pos + verts_in[v[3]].pos) * 0.25f,
+				(verts_in[v[0]].normal + verts_in[v[1]].normal + verts_in[v[2]].normal + verts_in[v[3]].normal)// * 0.25f
+				));
+
+			for(uint32_t z = 0; z < num_uv_sets; ++z)
 			{
+				uvs_out.push_back((
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z) +
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z) + 
+					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z)) * 0.25f);
+			}
 
-				const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
-				const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge_key);
-				if(result == uv_edge_map.end())
+			// Create the quad's edge vertices
+			for(uint32_t vi = 0; vi < 4; ++vi)
+			{
+				const unsigned int v0 = quads_in[q].vertex_indices[vi];
+				const unsigned int v1 = quads_in[q].vertex_indices[mod4(vi + 1)];
+				const unsigned int uv0 = quads_in[q].uv_indices[vi];
+				const unsigned int uv1 = quads_in[q].uv_indices[mod4(vi + 1)];
+
+				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
+
+				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+
+				DUEdgeInfo& edge_info = edge_info_map[edge];
+
+				if(edge_info.num_adjacent_subdividing_polys == 0)
 				{
-					uv_edge_map.insert(std::make_pair(edge_key, (unsigned int)(uvs_out.size() / num_uv_sets)));
+					// Create the edge midpoint vertex
+					const uint32_t new_vert_index = (uint32)verts_out.size();
 
-					for(uint32_t z = 0; z < num_uv_sets; ++z)
+					verts_out.push_back(DUVertex(
+						(verts_in[v0].pos + verts_in[v1].pos) * 0.5f,
+						(verts_in[v0].normal + verts_in[v1].normal)// * 0.5f
+						));
+
+					verts_out.back().adjacent_vert_0 = edge.v_a;
+					verts_out.back().adjacent_vert_1 = edge.v_b;
+
+					edge_info.midpoint_vert_index = new_vert_index;
+
+					if(num_uv_sets > 0)
 					{
-						const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
-						const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
-						uvs_out.push_back((uv_a + uv_b) * 0.5f);
+						// Store edge start and end UVs
+						// If v0 < v1, start_uv = uv(v0), end_uv = uv(v1), else
+						// start_uv = uv(v1), end_uv = uv(v0)
+						if(v0 < v1)
+						{
+							edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+							edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						}
+						else
+						{
+							edge_info.start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+							edge_info.end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						}
 					}
 				}
+				else
+				{
+					//TEMP assert(edge_info.num_adjacent_subdividing_polys == 1);
+
+					if(num_uv_sets > 0)
+					{
+						Vec2f this_start_uv;
+						Vec2f this_end_uv;
+						if(v0 < v1)
+						{
+							this_start_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+							this_end_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+						}
+						else
+						{
+							this_start_uv = getUVs(uvs_in, num_uv_sets, uv1, 0);
+							this_end_uv = getUVs(uvs_in, num_uv_sets, uv0, 0);
+						}
+
+						if((this_start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) ||
+							(this_end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD))
+						{
+							// Mark vertices as having a UV discontinuity
+							verts_out[v0].uv_discontinuity = true;
+							verts_out[v1].uv_discontinuity = true;
+							verts_out[edge_info.midpoint_vert_index].uv_discontinuity = true;
+						}
+					}
+				}
+
+				edge_info.num_adjacent_subdividing_polys++;
+
+				// Create new uvs at edge midpoint, if not already created.
+
+				if(num_uv_sets > 0)
+				{
+
+					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+
+					const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge_key);
+					if(result == uv_edge_map.end())
+					{
+						uv_edge_map.insert(std::make_pair(edge_key, (unsigned int)(uvs_out.size() / num_uv_sets)));
+
+						for(uint32_t z = 0; z < num_uv_sets; ++z)
+						{
+							const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
+							const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
+							uvs_out.push_back((uv_a + uv_b) * 0.5f);
+						}
+					}
 				
-				// else midpoint uvs already created
+					// else midpoint uvs already created
+				}
 			}
 		}
 	}
@@ -1415,8 +1639,7 @@ void DisplacementUtils::linearSubdivision(
 	// For each quad
 	for(size_t q = 0; q < quads_in.size(); ++q)
 	{
-
-		//if(subdividing_quad[t]) // If we are subdividing this quad...
+		if(subdividing_quad[q]) // If we are subdividing this quad...
 		{
 			uint32_t midpoint_vert_indices[4]; // Indices of edge midpoint vertices in verts_out
 			uint32_t midpoint_uv_indices[4] = { 0, 0, 0, 0 };
@@ -1450,42 +1673,38 @@ void DisplacementUtils::linearSubdivision(
 
 			quads_out.push_back(DUQuad(
 				quads_in[q].vertex_indices[0], midpoint_vert_indices[0], centre_vert_idx, midpoint_vert_indices[3],
-				quads_in[q].uv_indices[0], midpoint_uv_indices[0], centre_uv_idx, midpoint_uv_indices[3],
+				quads_in[q].uv_indices[0],     midpoint_uv_indices[0],   centre_uv_idx,   midpoint_uv_indices[3],
 				quads_in[q].mat_index
-				));
+			));
 
 			quads_out.push_back(DUQuad(
 				midpoint_vert_indices[0], quads_in[q].vertex_indices[1], midpoint_vert_indices[1], centre_vert_idx,
-				midpoint_uv_indices[0], quads_in[q].uv_indices[1], midpoint_uv_indices[1], centre_uv_idx,
+				midpoint_uv_indices[0],   quads_in[q].uv_indices[1],     midpoint_uv_indices[1],   centre_uv_idx,
 				quads_in[q].mat_index
-				));
+			));
 
 			quads_out.push_back(DUQuad(
 				centre_vert_idx, midpoint_vert_indices[1], quads_in[q].vertex_indices[2], midpoint_vert_indices[2],
-				centre_uv_idx, midpoint_uv_indices[1], quads_in[q].uv_indices[2], midpoint_uv_indices[2],
+				centre_uv_idx,   midpoint_uv_indices[1],   quads_in[q].uv_indices[2],     midpoint_uv_indices[2],
 				quads_in[q].mat_index
-				));
+			));
 
 			quads_out.push_back(DUQuad(
 				midpoint_vert_indices[3], centre_vert_idx, midpoint_vert_indices[2], quads_in[q].vertex_indices[3],
-				midpoint_uv_indices[3], centre_uv_idx, midpoint_uv_indices[2], quads_in[q].uv_indices[3],
+				midpoint_uv_indices[3],   centre_uv_idx,   midpoint_uv_indices[2],   quads_in[q].uv_indices[3],
 				quads_in[q].mat_index
-				));
+			));
 
 			num_quads_subdivided++;
 		}
-		//else
-		//{
-		//	// Else don't subdivide quad.
-		//	// Original vertices are already copied over, so just copy the triangle
-		//	tris_out.push_back(tris_in[t]);
-		//	num_tris_unchanged++;
-		//}
+		else
+		{
+			// Else don't subdivide quad.
+			// Original vertices are already copied over, so just copy the quad.
+			quads_out.push_back(quads_in[q]);
+			num_quads_unchanged++;
+		}
 	}
-
-
-
-
 
 	print_output.print("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
 	print_output.print("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
