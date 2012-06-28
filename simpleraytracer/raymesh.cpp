@@ -426,9 +426,9 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 }
 
 
-AlignedRef<RayMesh, 16> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
+Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
 {
-	AlignedRef<RayMesh, 16> new_mesh(new RayMesh(
+	Reference<RayMesh> new_mesh(new RayMesh(
 		name,
 		enable_normal_smoothing,
 		max_num_subdivisions,

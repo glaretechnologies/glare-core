@@ -87,7 +87,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	raymesh->addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	AlignedRef<Geometry, 16> raymeshref(raymesh);
+	Reference<Geometry> raymeshref(raymesh);
 
 	RendererSettings settings;
 	settings.cache_trees = false;
@@ -230,7 +230,7 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		AlignedRef<Geometry, 16> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
@@ -483,7 +483,7 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		AlignedRef<Geometry, 16> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
@@ -590,7 +590,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//load bunny mesh
 	//------------------------------------------------------------------------
 	CSModelLoader model_loader;
-	AlignedRef<RayMesh, 16> raymesh(new RayMesh("raymesh", false));
+	Reference<RayMesh> raymesh(new RayMesh("raymesh", false));
 	Indigo::Mesh indigoMesh;
 	try
 	{
@@ -629,7 +629,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		const Vec4f offset(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
 		Object* object = new Object(
-			AlignedRef<Geometry, 16>(raymesh.getPointer()),
+			Reference<Geometry>(raymesh.getPointer()),
 			//offset, offset,
 			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, offset, Quatf::identity())),
 			rot,

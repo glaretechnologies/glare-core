@@ -7,10 +7,15 @@ Code By Nicholas Chapman.
 #include "ReferenceTest.h"
 
 
+#if BUILD_TESTS
+
+
 #include "reference.h"
 #include "refcounted.h"
 #include "../indigo/TestUtils.h"
+#include "../maths/SSE.h"
 #include <vector>
+
 
 ReferenceTest::ReferenceTest()
 {
@@ -22,8 +27,6 @@ ReferenceTest::~ReferenceTest()
 {
 	
 }
-
-
 
 
 class TestClass : public RefCounted
@@ -71,8 +74,28 @@ void functionWithByRefRefParam(const Reference<TestClass>& ref)
 }
 
 
+SSE_CLASS_ALIGN AlignedTestClass : public RefCounted
+{
+public:
+	INDIGO_ALIGNED_NEW_DELETE
 
-#if (BUILD_TESTS)
+	AlignedTestClass(int* i_)
+	:	i(i_)
+	{
+		(*i)++;
+	}
+	virtual ~AlignedTestClass()
+	{
+		(*i)--;
+	}
+
+	int f() { return 5; }
+
+private:
+	int* i;
+};
+
+
 void ReferenceTest::run()
 {
 	int i = 0;
@@ -150,8 +173,23 @@ void ReferenceTest::run()
 	}
 
 	testAssert(i == 0);
+
+	// Test AlignedTestClass references, make sure it's always aligned
+	{
+		std::vector<Reference<AlignedTestClass> > refs;
+		for(int z=0; z<1000; ++z)
+		{
+			Reference<AlignedTestClass> ref(new AlignedTestClass(&i));
+
+			// Check the object is aligned.
+			testAssert(SSE::isAlignedTo(ref.getPointer(), 16));
+
+			refs.push_back(ref);
+		}
+	}
+
+	testAssert(i == 0);
 }
-#endif
 
 
-
+#endif // BUILD_TESTS

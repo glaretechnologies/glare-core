@@ -203,7 +203,7 @@ public:
 	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
-	AlignedRef<RayMesh, 16> getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const;
+	Reference<RayMesh> getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const;
 
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
