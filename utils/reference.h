@@ -53,8 +53,8 @@ public:
 	{
 		if(ob)
 		{
-			ob->decRefCount();
-			if(ob->getRefCount() == 0)
+			int new_ref_count = ob->decRefCount();
+			if(new_ref_count == 0)
 				delete ob;
 		}
 	}
@@ -77,8 +77,8 @@ public:
 		//-----------------------------------------------------------------
 		if(ob)
 		{
-			ob->decRefCount();
-			if(ob->getRefCount() == 0)
+			int new_ref_count = ob->decRefCount();
+			if(new_ref_count == 0)
 				delete ob;
 		}
 

@@ -7,6 +7,8 @@ Code By Nicholas Chapman.
 #include "TreeTest.h"
 
 
+#include "../indigo/EmbreeAccel.h"
+#include "../indigo/EmbreeInstance.h"
 #include "KDTree.h"
 #include "jscol_BIHTree.h"
 #include "BVH.h"
@@ -31,8 +33,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
-#include "../indigo/EmbreeAccel.h"
-#include "../indigo/EmbreeInstance.h"
+
 
 
 namespace js

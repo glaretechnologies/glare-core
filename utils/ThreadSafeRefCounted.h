@@ -1,23 +1,24 @@
 /*=====================================================================
-refcounted.h
-------------
-Copyright Glare Technologies Limited 2009 - 
+ThreadSafeRefCounted.h
+----------------------
+Copyright Glare Technologies Limited 2012 - 
 =====================================================================*/
-#ifndef __REFCOUNTED_H__
-#define __REFCOUNTED_H__
+#pragma once
 
 
 #include <cassert>
+#include "mutex.h"
+#include "lock.h"
 
 
 /*=====================================================================
-RefCounted
-----------
+ThreadSafeRefCounted
+--------------------
 derive from this to make class reference counted.
 Raw pointers to this subclasses are illegal.
 Use Reference<Subclass> instead.
 =====================================================================*/
-class RefCounted
+class ThreadSafeRefCounted
 {
 public:
 	/*=====================================================================
@@ -25,44 +26,40 @@ public:
 	----------
 	
 	=====================================================================*/
-	RefCounted()
+	ThreadSafeRefCounted()
 	:	refcount(0)
 	{
 	}
 
-	virtual ~RefCounted()
+	virtual ~ThreadSafeRefCounted()
 	{
 		assert(refcount == 0);
-	}
-
-	inline void incRefCount() const
-	{ 
-		assert(refcount >= 0);
-		refcount++; 
 	}
 
 	// Returns resulting decremented reference count
 	inline int decRefCount() const
 	{ 
+		Lock lock(mutex);
 		refcount--;
 		assert(refcount >= 0);
 		return refcount;
 	}
 
-	inline int getRefCount() const 
+	inline void incRefCount() const
 	{ 
+		Lock lock(mutex);
+		assert(refcount >= 0);
+		refcount++; 
+	}
+
+	inline int getRefCount() const 
+	{
+		Lock lock(mutex);
 		assert(refcount >= 0);
 		return refcount; 
 	}
 	
 private:
+	mutable Mutex mutex;
 	mutable int refcount;
 };
-
-
-
-#endif //__REFCOUNTED_H__
-
-
-
-
