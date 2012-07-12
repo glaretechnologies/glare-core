@@ -79,6 +79,7 @@ public:
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N);
 	inline ~ImageMap();
 
+	float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
 
 	inline virtual const Colour3<Value> pixelColour(size_t x, size_t y) const;
