@@ -114,9 +114,9 @@ void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& 
 	timer.reset();
 
 	// Sort bounds
-	#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
+	//#ifndef INDIGO_NO_OPENMP
+	//#pragma omp parallel for
+	//#endif
 	for(int axis=0; axis<3; ++axis)
 	{
 		Sort::floatKeyAscendingSort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred(), LowerKey());

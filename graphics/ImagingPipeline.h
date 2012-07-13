@@ -18,6 +18,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 class Camera;
 class PostProDiffraction;
+namespace Indigo { class TaskManager; }
 
 
 namespace ImagingPipeline
@@ -28,7 +29,7 @@ const uint32 image_tile_size = 64;
 
 
 
-void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out);
+void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out, Indigo::TaskManager& task_manager);
 
 
 void doTonemapFullBuffer(
@@ -41,7 +42,8 @@ void doTonemapFullBuffer(
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
-	bool image_buffer_in_XYZ);
+	bool image_buffer_in_XYZ,
+	Indigo::TaskManager& task_manager);
 
 
 void doTonemap(
@@ -55,7 +57,8 @@ void doTonemap(
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
-	bool XYZ_colourspace);
+	bool XYZ_colourspace,
+	Indigo::TaskManager& task_manager);
 
 
 #ifdef BUILD_TESTS

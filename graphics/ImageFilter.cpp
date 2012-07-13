@@ -1622,7 +1622,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	//for(int i=0; i<data.getWidth() * data.getHeight(); ++i)
 	//	std::cout << in[i*2] << ", " << in[i*2 + 1] << std::endl;
 	#ifndef INDIGO_NO_OPENMP
-	conPrint("omp_get_max_threads: " + toString(omp_get_max_threads()));
+	//conPrint("omp_get_max_threads: " + toString(omp_get_max_threads()));
 	#endif
 
 	t.reset();

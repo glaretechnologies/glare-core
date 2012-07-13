@@ -12,8 +12,10 @@ Generated at 2011-10-05 22:32:02 +0100
 
 #include "Task.h"
 #include "TaskManager.h"
-#include "../utils/platformutils.h"
 #include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/platformutils.h"
+#include "../utils/stringutils.h"
 
 
 namespace Indigo
@@ -47,6 +49,53 @@ public:
 
 	int x;
 };
+
+
+class ForLoopTaskClosure
+{
+public:
+	ForLoopTaskClosure() {}
+
+	std::vector<int>* touch_count;
+};
+
+
+class ForLoopTask : public Indigo::Task
+{
+public:
+	ForLoopTask(const ForLoopTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin(begin_), end(end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
+
+		for(size_t i = begin; i < end; ++i)
+		{
+			(*closure.touch_count)[i]++;
+		}
+	}
+
+	const ForLoopTaskClosure& closure;
+	size_t begin, end;
+};
+
+
+void testForLoopTaskRun(TaskManager& task_manager, size_t N)
+{
+	testAssert(task_manager.areAllTasksComplete());
+
+	std::vector<int> touch_count(N, 0);
+
+	ForLoopTaskClosure closure;
+	closure.touch_count = &touch_count;
+
+	task_manager.runParallelForTasks<ForLoopTask, ForLoopTaskClosure>(closure, 0, (int)N);
+
+	testAssert(task_manager.areAllTasksComplete());
+
+	for(size_t i=0; i<N; ++i)
+		testAssert(touch_count[i] == 1);
+}
 
 
 void TaskTests::test()
@@ -112,6 +161,39 @@ void TaskTests::test()
 
 		m.waitForTasksToComplete();
 	}
+
+
+	// Test for loop stuff
+	{
+		TaskManager m(1);
+
+		testForLoopTaskRun(m, 0);
+		testForLoopTaskRun(m, 1);
+		testForLoopTaskRun(m, 2);
+		testForLoopTaskRun(m, 3);
+		testForLoopTaskRun(m, 4);
+		testForLoopTaskRun(m, 7);
+		testForLoopTaskRun(m, 8);
+		testForLoopTaskRun(m, 9);
+		testForLoopTaskRun(m, 16);
+		testForLoopTaskRun(m, 1000000);
+	}
+
+	{
+		TaskManager m; // auto-pick num threads
+
+		testForLoopTaskRun(m, 0);
+		testForLoopTaskRun(m, 1);
+		testForLoopTaskRun(m, 2);
+		testForLoopTaskRun(m, 3);
+		testForLoopTaskRun(m, 4);
+		testForLoopTaskRun(m, 7);
+		testForLoopTaskRun(m, 8);
+		testForLoopTaskRun(m, 9);
+		testForLoopTaskRun(m, 16);
+		testForLoopTaskRun(m, 1000000);
+	}
+
 
 
 	conPrint("TaskTests done.");

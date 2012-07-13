@@ -8,9 +8,105 @@ Generated at 2011-08-16 17:22:50 +0100
 
 
 #include "image.h"
+#include "../utils/TaskManager.h"
+#include "../utils/Task.h"
 
 
-void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation)
+struct GaussianImageFilterTaskClosure
+{
+	GaussianImageFilterTaskClosure(Image& temp_, const Image& in_, Image& out_) : temp(temp_), in(in_), out(out_) {}
+
+	Image& temp;
+	const Image& in;
+	Image& out;
+	const float* filter_weights;
+	int pixel_rad;
+};
+
+
+class XBlurTask : public Indigo::Task
+{
+public:
+	XBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		int pixel_rad = closure.pixel_rad;
+		
+		const int h = (int)closure.in.getHeight();
+		const int w = (int)closure.in.getWidth();
+
+		for(int dy = begin; dy < end; ++dy)
+			for(int dx = 0; dx < w; ++dx)
+			{
+				Image::ColourType c(0);
+
+				const int start_x = dx - pixel_rad;
+				const int end_x = dx + pixel_rad + 1;
+
+				// Do input off left side of image: x < 0, so x is equal (mod w) to w + x
+				for(int x = start_x; x < 0; ++x)
+					c.addMult(closure.in.getPixel(w + x, dy), closure.filter_weights[x - start_x]);
+
+				// Do 0 <= x < w
+				for(int x = myMax(0, start_x); x < myMin(w, end_x); ++x)
+					c.addMult(closure.in.getPixel(x, dy), closure.filter_weights[x - start_x]);
+
+				// Do w < x, so x is equal (mod w) to x - w
+				for(int x = w; x < end_x; ++x)
+					c.addMult(closure.in.getPixel(x - w, dy), closure.filter_weights[x - start_x]);
+
+				closure.temp.setPixel(dx, dy, c);
+			}
+	}
+
+	const GaussianImageFilterTaskClosure& closure;
+	int begin, end;
+};
+
+
+class YBlurTask : public Indigo::Task
+{
+public:
+	YBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		int pixel_rad = closure.pixel_rad;
+		
+		const int h = (int)closure.in.getHeight();
+		const int w = (int)closure.in.getWidth();
+
+		for(int dy = 0; dy < h; ++dy)
+			for(int dx = 0; dx < w; ++dx)
+			{
+				Image::ColourType c(0);
+
+				const int start_y = dy - pixel_rad;
+				const int end_y = dy + pixel_rad + 1;
+
+				// y < 0
+				for(int y = start_y; y<0; ++y)
+					c.addMult(closure.temp.getPixel(dx, h + y), closure.filter_weights[y - start_y]);
+
+				// Do 0 <= y < h
+				for(int y = myMax(0, start_y); y < myMin(h, end_y); ++y)
+					c.addMult(closure.temp.getPixel(dx, y), closure.filter_weights[y - start_y]);
+
+				// Do h < y
+				for(int y = h; y < end_y; ++y)
+					c.addMult(closure.temp.getPixel(dx, y - h), closure.filter_weights[y - start_y]);
+
+				closure.out.setPixel(dx, dy, c);
+			}
+	}
+
+	const GaussianImageFilterTaskClosure& closure;
+	int begin, end;
+};
+
+
+void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, Indigo::TaskManager& task_manager)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 
@@ -65,7 +161,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 	const int h = (int)in.getHeight();
 	const int w = (int)in.getWidth();
 
-#ifndef INDIGO_NO_OPENMP
+/*#ifndef INDIGO_NO_OPENMP
 #pragma omp parallel for
 #endif
 	for(int dy = 0; dy < h; ++dy)
@@ -90,8 +186,19 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 
 			temp.setPixel(dx, dy, c);
 		}
+*/
 
-#ifndef INDIGO_NO_OPENMP
+	GaussianImageFilterTaskClosure closure(temp, in, out);
+	closure.filter_weights = filter_weights;
+	closure.pixel_rad = pixel_rad;
+
+	// Blur in x direction
+	task_manager.runParallelForTasks<XBlurTask, GaussianImageFilterTaskClosure>(closure, 0, h);
+
+	// Blur in y direction
+	task_manager.runParallelForTasks<YBlurTask, GaussianImageFilterTaskClosure>(closure, 0, h);
+
+/*#ifndef INDIGO_NO_OPENMP
 #pragma omp parallel for
 #endif
 		for(int dy = 0; dy < h; ++dy)
@@ -116,7 +223,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 
 				out.setPixel(dx, dy, c);
 			}
-
+*/
 
 			/*for(int y=0; y<in.getHeight(); ++y)
 			for(int x=0; x<in.getWidth(); ++x)
@@ -191,5 +298,5 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 			}
 			}*/
 
-			delete[] filter_weights;
+	delete[] filter_weights;
 }

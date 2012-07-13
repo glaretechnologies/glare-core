@@ -266,9 +266,9 @@ void PointKDTree::build(const std::vector<Vec3f>& points)
 	}
 
 	// Sort bounds
-	#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
+	//#ifndef INDIGO_NO_OPENMP
+	//#pragma omp parallel for
+	//#endif
 	for(int axis=0; axis<3; ++axis)
 	{
 		std::sort(layers[0].axis_points[axis].begin(), layers[0].axis_points[axis].end(), LowerPred());

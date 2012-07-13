@@ -24,7 +24,7 @@ public:
 
 	virtual double eval(double r) const = 0;
 
-	int getFilterSpan(int supersample_factor);
+	int getFilterSpan(int supersample_factor) const;
 	float* getFilterData(int supersample_factor);
 
 	virtual const std::string description() const = 0;

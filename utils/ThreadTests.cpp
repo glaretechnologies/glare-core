@@ -153,9 +153,9 @@ void ThreadTests::test()
 		////////////// Try OpenMP ////////////////////////
 		timer.reset();
 
-		#ifndef INDIGO_NO_OPENMP
-		#pragma omp parallel for
-		#endif
+		//#ifndef INDIGO_NO_OPENMP
+		//#pragma omp parallel for
+		//#endif
 		for(int i=0; i<N; ++i)
 			v[i] = (1.0 / std::pow(2.0, (double)i));
 

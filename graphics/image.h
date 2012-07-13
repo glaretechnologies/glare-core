@@ -99,7 +99,7 @@ public:
 
 	static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
 								const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
-								const Image& img_in, Image& img_out);
+								const Image& img_in, Image& img_out, Indigo::TaskManager& task_manager);
 
 	size_t getByteSize() const;
 
@@ -127,7 +127,7 @@ public:
 
 	virtual Reference<Image> convertToImage() const;
 
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
 

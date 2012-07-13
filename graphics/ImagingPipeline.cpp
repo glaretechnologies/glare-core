@@ -11,14 +11,18 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/ToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
+#include "../indigo/globals.h"
 #include "../simpleraytracer/camera.h"
 #include "../graphics/ImageFilter.h"
 #include "../maths/mathstypes.h"
 #include "../utils/platform.h"
+#include "../utils/TaskManager.h"
+#include "../utils/Task.h"
 #ifndef INDIGO_NO_OPENMP
-#include <omp.h>
+//#include <omp.h>
 #endif
 #include <iostream>
+
 
 
 #ifdef BUILD_TESTS
@@ -37,7 +41,49 @@ namespace ImagingPipeline
 {
 
 
-void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out)
+struct SumBuffersTaskClosure
+{
+	SumBuffersTaskClosure(const std::vector<Vec3f>& layer_scales_, const Indigo::Vector<Image>& buffers_, Image& buffer_out_) 
+		: layer_scales(layer_scales_), buffers(buffers_), buffer_out(buffer_out_) {}
+
+	const std::vector<Vec3f>& layer_scales;
+	const Indigo::Vector<Image>& buffers;
+	Image& buffer_out;
+};
+
+
+class SumBuffersTask : public Indigo::Task
+{
+public:
+	SumBuffersTask(const SumBuffersTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const int num_layers = (int)closure.buffers.size();
+
+		for(int i = begin; i < end; ++i)
+		{
+			Image::ColourType c(0.0f);
+
+			for(int z = 0; z < num_layers; ++z)
+			{
+				const Vec3f& scale = closure.layer_scales[z];
+
+				c.r += closure.buffers[z].getPixel(i).r * scale.x;
+				c.g += closure.buffers[z].getPixel(i).g * scale.y;
+				c.b += closure.buffers[z].getPixel(i).b * scale.z;
+			}
+
+			closure.buffer_out.getPixel(i) = c;
+		}
+	}
+
+	const SumBuffersTaskClosure& closure;
+	int begin, end;
+};
+
+
+void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out, Indigo::TaskManager& task_manager)
 {
 	//Timer t;
 	buffer_out.resize(buffers[0].getWidth(), buffers[0].getHeight());
@@ -45,7 +91,8 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Ima
 	const int num_pixels = (int)buffers[0].numPixels();
 	const int num_layers = (int)buffers.size();
 
-	#ifndef INDIGO_NO_OPENMP
+
+	/*#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for
 	#endif
 	for(int i = 0; i < num_pixels; ++i)
@@ -62,9 +109,47 @@ void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Ima
 		}
 
 		buffer_out.getPixel(i) = c;
-	}
+	}*/
+
+	SumBuffersTaskClosure closure(layer_scales, buffers, buffer_out);
+
+	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
+
 	//std::cout << "sumBuffers: " << t.elapsedString() << std::endl;
 }
+
+
+struct ToneMapTaskClosure
+{
+	const RendererSettings* renderer_settings;
+	const ToneMapperParams* tonemap_params;
+	Image* temp_summed_buffer;
+	int final_xres, final_yres, x_tiles;
+};
+
+
+class ToneMapTask : public Indigo::Task
+{
+public:
+	ToneMapTask(const ToneMapTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		for(int tile = begin; tile < end; ++tile)
+		{
+			// Get the final image tile bounds for the tile index
+			const int tile_x = tile % closure.x_tiles;
+			const int tile_y = tile / closure.x_tiles;
+			const int x_min  = tile_x * image_tile_size, x_max = std::min<int>(closure.final_xres, (tile_x + 1) * image_tile_size);
+			const int y_min  = tile_y * image_tile_size, y_max = std::min<int>(closure.final_yres, (tile_y + 1) * image_tile_size);
+
+			closure.renderer_settings->tone_mapper->toneMapSubImage(*closure.tonemap_params, *closure.temp_summed_buffer, x_min, y_min, x_max, y_max);
+		}
+	}
+
+	const ToneMapTaskClosure& closure;
+	int begin, end;
+};
 
 
 // Tonemap HDR image to LDR image
@@ -78,15 +163,16 @@ void doTonemapFullBuffer(
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
-	bool image_buffer_in_XYZ)
+	bool image_buffer_in_XYZ,
+	Indigo::TaskManager& task_manager)
 {
 	//Timer t;
 	//const bool PROFILE = false;
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
-	sumBuffers(layer_weights, layers, temp_summed_buffer);
-	//if(PROFILE) print_messages_out.push_back("\tsumBuffers: " + t.elapsedString());
+	sumBuffers(layer_weights, layers, temp_summed_buffer, task_manager);
+	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
@@ -135,7 +221,7 @@ void doTonemapFullBuffer(
 		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
 		const int num_tiles = x_tiles * y_tiles;
 
-		#ifndef INDIGO_NO_OPENMP
+		/*#ifndef INDIGO_NO_OPENMP
 		#pragma omp parallel for// schedule(dynamic, 1)
 		#endif
 		for(int tile = 0; tile < num_tiles; ++tile)
@@ -147,9 +233,19 @@ void doTonemapFullBuffer(
 			const int y_min  = tile_y * image_tile_size, y_max = std::min<int>(final_yres, (tile_y + 1) * image_tile_size);
 
 			renderer_settings.tone_mapper->toneMapSubImage(tonemap_params, temp_summed_buffer, x_min, y_min, x_max, y_max);
-		}
+		}*/
 
-		//if(PROFILE) print_messages_out.push_back("\tTone map: " + t.elapsedString());
+		ToneMapTaskClosure closure;
+		closure.renderer_settings = &renderer_settings;
+		closure.tonemap_params = &tonemap_params;
+		closure.temp_summed_buffer = &temp_summed_buffer;
+		closure.final_xres = final_xres;
+		closure.final_yres = final_yres;
+		closure.x_tiles = x_tiles;
+
+		task_manager.runParallelForTasks<ToneMapTask, ToneMapTaskClosure>(closure, 0, num_tiles);
+
+		//if(PROFILE) conPrint("\tTone map: " + t.elapsedString());
 	}
 
 	// Components should be in range [0, 1]
@@ -177,9 +273,10 @@ void doTonemapFullBuffer(
 			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(renderer_settings.super_sample_factor),
 			1.0f, // max component value
 			temp_summed_buffer, // in
-			ldr_buffer_out // out
-			);
-		//if(PROFILE) print_messages_out.push_back("\tcollapseImage: " + t.elapsedString());
+			ldr_buffer_out, // out
+			task_manager
+		);
+		//if(PROFILE) conPrint("\tcollapseImage: " + t.elapsedString());
 	}
 	else
 	{
@@ -208,6 +305,159 @@ void doTonemapFullBuffer(
 }
 
 
+struct ImagePipelineTaskClosure
+{
+	std::vector<Image>* per_thread_tile_buffers;
+	const Indigo::Vector<Image>* layers;
+	const std::vector<Vec3f>* layer_weights;
+	Image* ldr_buffer_out;
+	const RendererSettings* renderer_settings;
+	const float* resize_filter;
+	const ToneMapperParams* tonemap_params;
+
+	ptrdiff_t x_tiles, final_xres, final_yres, filter_size;
+};
+
+
+class ImagePipelineTask : public Indigo::Task
+{
+public:
+	ImagePipelineTask(const ImagePipelineTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const ptrdiff_t x_tiles = closure.x_tiles;
+		const ptrdiff_t final_xres = closure.final_xres;
+		const ptrdiff_t final_yres = closure.final_yres;
+		const ptrdiff_t filter_size = closure.filter_size;
+
+		const ptrdiff_t xres		= (ptrdiff_t)(*closure.layers)[0].getWidth();
+		const ptrdiff_t yres		= (ptrdiff_t)(*closure.layers)[0].getHeight();
+		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
+		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.renderer_settings->getMargin();
+		const ptrdiff_t filter_span = filter_size / 2 - 1;
+
+		for(int tile = begin; tile < end; ++tile)
+		{
+			Image& tile_buffer = (*closure.per_thread_tile_buffers)[thread_index];
+
+			// Get the final image tile bounds for the tile index
+			const ptrdiff_t tile_x = (ptrdiff_t)tile % closure.x_tiles;
+			const ptrdiff_t tile_y = (ptrdiff_t)tile / closure.x_tiles;
+			const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(closure.final_xres, (tile_x + 1) * image_tile_size);
+			const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(closure.final_yres, (tile_y + 1) * image_tile_size);
+
+			// Perform downsampling if needed
+			if(ss_factor > 1)
+			{
+				const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_x >= 0);
+				const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_y >= 0);
+				const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
+				const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
+				const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
+
+				// First we get the weighted sum of all pixels in the layers
+				size_t dst_addr = 0;
+				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+				{
+					const ptrdiff_t src_addr = y * xres + x;
+					Image::ColourType sum(0.0f);
+
+					for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.layers->size(); ++z)
+					{
+						const Image::ColourType& c = (*closure.layers)[z].getPixel(src_addr);
+						const Vec3f& s = (*closure.layer_weights)[z];
+
+						sum.r += c.r * s.x;
+						sum.g += c.g * s.y;
+						sum.b += c.b * s.z;
+					}
+
+					tile_buffer.getPixel(dst_addr++) = sum;
+				}
+
+				// Either tonemap, or do render foreground alpha
+				if(closure.renderer_settings->render_foreground_alpha || closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
+				{
+					const ptrdiff_t tile_buffer_pixels = tile_buffer.numPixels();
+					for(ptrdiff_t i = 0; i < tile_buffer_pixels; ++i)
+						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
+				}
+				else
+					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+
+				// Filter processed pixels into the final image
+				for(ptrdiff_t y = y_min; y < y_max; ++y)
+				for(ptrdiff_t x = x_min; x < x_max; ++x)
+				{
+					const ptrdiff_t pixel_min_x = (x + gutter_pix) * ss_factor + ss_factor / 2 - filter_span - bucket_min_x;
+					const ptrdiff_t pixel_min_y = (y + gutter_pix) * ss_factor + ss_factor / 2 - filter_span - bucket_min_y;
+					const ptrdiff_t pixel_max_x = (x + gutter_pix) * ss_factor + ss_factor / 2 + filter_span - bucket_min_x + 1;
+					const ptrdiff_t pixel_max_y = (y + gutter_pix) * ss_factor + ss_factor / 2 + filter_span - bucket_min_y + 1;
+
+					uint32 filter_addr = 0;
+					Colour3f weighted_sum(0);
+					for(ptrdiff_t v = pixel_min_y; v < pixel_max_y; ++v)
+					for(ptrdiff_t u = pixel_min_x; u < pixel_max_x; ++u)
+						weighted_sum.addMult(tile_buffer.getPixel(v * bucket_span + u), closure.resize_filter[filter_addr++]);
+
+					assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
+
+					weighted_sum.clampInPlace(0, 1); // Ensure result is in [0, 1]
+					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = weighted_sum;
+				}
+			}
+			else // No downsampling needed
+			{
+				// Since the pixels are 1:1 with the bucket bounds, simply offset the bucket rect by the left image margin / gutter pixels
+				const ptrdiff_t bucket_min_x = x_min + gutter_pix;
+				const ptrdiff_t bucket_min_y = y_min + gutter_pix;
+				const ptrdiff_t bucket_max_x = x_max + gutter_pix; assert(bucket_max_x <= xres);
+				const ptrdiff_t bucket_max_y = y_max + gutter_pix; assert(bucket_max_y <= yres);
+
+				// First we get the weighted sum of all pixels in the layers
+				size_t addr = 0;
+				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+				{
+					const ptrdiff_t src_addr = y * xres + x;
+					Image::ColourType sum(0.0f);
+
+					for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.layers->size(); ++z)
+					{
+						const Image::ColourType& c = (*closure.layers)[z].getPixel(src_addr);
+						const Vec3f& scale = (*closure.layer_weights)[z];
+
+						sum.r += c.r * scale.x;
+						sum.g += c.g * scale.y;
+						sum.b += c.b * scale.z;
+					}
+
+					tile_buffer.getPixel(addr++) = sum;
+				}
+
+				// Either tonemap, or do render foreground alpha
+				if(closure.renderer_settings->render_foreground_alpha || closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
+				else
+					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+
+				// Copy processed pixels into the final image
+				addr = 0;
+				for(ptrdiff_t y = y_min; y < y_max; ++y)
+				for(ptrdiff_t x = x_min; x < x_max; ++x)
+					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
+			}
+		}
+	}
+
+	const ImagePipelineTaskClosure& closure;
+	int begin, end;
+};
+
+
 void doTonemap(	
 	std::vector<Image>& per_thread_tile_buffers,
 	const Indigo::Vector<Image>& layers,
@@ -219,14 +469,16 @@ void doTonemap(
 	Image& temp_summed_buffer,
 	Image& temp_AD_buffer,
 	Image& ldr_buffer_out,
-	bool XYZ_colourspace)
+	bool XYZ_colourspace,
+	Indigo::TaskManager& task_manager
+	)
 {
 	// Apply diffraction filter if required
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
 	{
 		doTonemapFullBuffer(layers, layer_weights, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace);
+							ldr_buffer_out, XYZ_colourspace, task_manager);
 		return;
 	}
 
@@ -253,12 +505,14 @@ void doTonemap(
 
 
 	// Ensure that we have sufficiently many buffers of sufficient size for as many threads as OpenMP will spawn
-#ifndef INDIGO_NO_OPENMP
+/*#ifndef INDIGO_NO_OPENMP
 	const size_t omp_num_threads = (size_t)omp_get_max_threads();
 #else
 	const size_t omp_num_threads = 1;
 #endif
-	per_thread_tile_buffers.resize(omp_num_threads);
+	per_thread_tile_buffers.resize(omp_num_threads);*/
+
+	per_thread_tile_buffers.resize(task_manager.getNumThreads());
 	for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
 	{
 		per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
@@ -282,8 +536,10 @@ void doTonemap(
 
 	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
+	//Timer timer;
 
-	#ifndef INDIGO_NO_OPENMP
+
+	/*#ifndef INDIGO_NO_OPENMP
 	#pragma omp parallel for// schedule(dynamic, 1)
 	#endif
 	for(int tile = 0; tile < (int)num_tiles; ++tile)
@@ -404,7 +660,24 @@ void doTonemap(
 			for(ptrdiff_t x = x_min; x < x_max; ++x)
 				ldr_buffer_out.getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
 		}
-	}
+	}*/
+
+	ImagePipelineTaskClosure closure;
+	closure.per_thread_tile_buffers = &per_thread_tile_buffers;
+	closure.layers = &layers;
+	closure.layer_weights = &layer_weights;
+	closure.ldr_buffer_out = &ldr_buffer_out;
+	closure.renderer_settings = &renderer_settings;
+	closure.resize_filter = resize_filter;
+	closure.tonemap_params = &tonemap_params;
+	closure.x_tiles = x_tiles;
+	closure.final_xres = final_xres;
+	closure.final_yres = final_yres;
+	closure.filter_size = filter_size;
+
+	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
+
+	//conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 
 	// TEMP HACK: Chromatic abberation
 	/*Image temp;
@@ -427,6 +700,8 @@ void doTonemap(
 
 void test()
 {
+	Indigo::TaskManager task_manager;
+
 	const int test_res_num = 6;
 	const int test_res[test_res_num] = { 1, 3, 5, 7, 11, 128 };
 
@@ -511,7 +786,8 @@ void test()
 			temp_summed_buffer,
 			temp_AD_buffer,
 			temp_ldr_buffer,
-			false);
+			false,
+			task_manager);
 
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());

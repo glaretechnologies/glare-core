@@ -13,7 +13,7 @@ FilterFunction::~FilterFunction()
 }
 
 
-int FilterFunction::getFilterSpan(int supersample_factor)
+int FilterFunction::getFilterSpan(int supersample_factor) const
 {
 	return (int)ceil(supportRadius() * 2) * supersample_factor;
 }

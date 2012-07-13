@@ -11,6 +11,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "image.h"
 #include "GaussianImageFilter.h"
 #include "../utils/Vector.h"
+namespace Indigo { class TaskManager; }
 
 
 // #define IMAGE_MAP_TILED 1
@@ -101,7 +102,7 @@ public:
 
 	inline virtual Reference<Image> convertToImage() const;
 
-	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const;
+	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
 	inline virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
 
@@ -430,7 +431,7 @@ Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 
 
 template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage() const
+Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
 {
 	// Convert this low-bit-depth texture to a 32 bit floating point image.
 
@@ -462,7 +463,8 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage() const
 	GaussianImageFilter::gaussianFilter(
 		img, 
 		blurred_img, 
-		(float)myMax(width, height) * 0.01f // standard dev in pixels
+		(float)myMax(width, height) * 0.01f, // standard dev in pixels
+		task_manager
 		);
 
 	return Reference<Map2D>(new Image(blurred_img));

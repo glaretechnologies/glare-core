@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/refcounted.h"
 #include "../utils/reference.h"
 class Image;
+namespace Indigo { class TaskManager; }
 
 
 /*=====================================================================
@@ -53,7 +54,7 @@ public:
 
 	virtual Reference<Image> convertToImage() const = 0;
 
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage() const = 0;
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const = 0;
 
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const = 0;
 

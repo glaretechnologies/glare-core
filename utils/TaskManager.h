@@ -10,6 +10,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #include "threadsafequeue.h"
 #include "mutex.h"
 #include "Condition.h"
+#include "../maths/mathstypes.h"
 #include <vector>
 #include <limits>
 
@@ -49,6 +50,10 @@ public:
 	size_t getNumThreads() const { return threads.size(); }
 
 
+	template <class Task, class TaskClosure> 
+	void runParallelForTasks(const TaskClosure& closure, size_t begin, size_t end);
+
+
 	ThreadSafeQueue<Task*>& getTaskQueue() { return tasks; }
 	const ThreadSafeQueue<Task*>& getTaskQueue() const { return tasks; }
 
@@ -68,6 +73,51 @@ private:
 
 	std::vector<TaskRunnerThread*> threads;
 };
+
+
+template <class TaskType, class TaskClosure> 
+void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, size_t end)
+{
+	if(begin >= end)
+		return;
+
+	const size_t total = end - begin;
+	const size_t num_tasks = myMin(total, getNumThreads());
+
+	size_t num_indices_per_task = 0;
+	if(total % num_tasks == 0)
+	{
+		// If num_tasks divides total perfectly
+		num_indices_per_task = total / num_tasks;
+	}
+	else
+	{
+		num_indices_per_task = (total / num_tasks) + 1;
+	}
+
+	size_t i = begin;
+	for(size_t t=0; t<num_tasks; ++t)
+	{
+		const size_t task_begin = i;
+		const size_t task_end = myMin(i + num_indices_per_task, end);
+
+		assert(task_begin >= begin);
+		assert(task_end <= end);
+
+		if(task_begin < task_end)
+		{
+			TaskType* task = new TaskType(closure, task_begin, task_end);
+
+			addTask(task);
+		}
+
+		i += num_indices_per_task;
+	}
+	assert(i >= end);
+
+	// The tasks should be running.  Wait for them to complete.  This blocks.
+	waitForTasksToComplete();
+}
 
 
 } // end namespace Indigo 
