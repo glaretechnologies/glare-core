@@ -16,13 +16,13 @@ template <class T>
 class ParallelForThread : public MyThread
 {
 public:
-	ParallelForThread(T& t_, int begin_, int end_, int step_) : t(t_), begin(begin_), end(end_), step(step_) {}
-	T& t;
-	int begin, end, step;
+	ParallelForThread(const T& t_, int begin_, int end_, int step_, int thread_index_) : t(t_), begin(begin_), end(end_), step(step_), thread_index(thread_index_) {}
+	const T& t;
+	int begin, end, step, thread_index;
 	virtual void run()
 	{
 		for(int i=begin; i<end; ++i/*i+=step*/)
-			t(i);
+			t(i, thread_index);
 	}
 };
 
@@ -34,7 +34,7 @@ public:
 	~ParallelFor();
 	
 	template <class Task>
-	static void exec(Task& task, int begin, int end)
+	static void exec(const Task& task, int begin, int end)
 	{
 		if(begin >= end)
 			return;
@@ -79,8 +79,9 @@ public:
 				task, 
 				thread_begin, // begin
 				thread_end, // end
-				step
-				);
+				step,
+				t // thread index
+			);
 			threads[t]->launch(
 				false // autodelete
 			);

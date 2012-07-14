@@ -65,8 +65,9 @@ public:
 	friend class TraceRayFunctions;
 	friend class GetAllHitsFunctions;
 
-private:
 	typedef uint32 TRI_INDEX;
+private:
+	
 	
 	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, 
 		const std::vector<Vec3f>& tri_centers, int left, int right, int depth, unsigned int parent_index, unsigned int child_index);
@@ -85,7 +86,8 @@ private:
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
 
 
-	AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
+	js::Vector<js::AABBox, 16> tri_aabbs;
+	//AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
 
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 	//js::Vector<INTERSECT_TRI_TYPE, 16> intersect_tris;

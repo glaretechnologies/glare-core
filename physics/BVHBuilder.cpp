@@ -11,6 +11,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include <algorithm>
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
+#include "../utils/ParallelFor.h"
 
 
 BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, float intersection_cost_)
@@ -68,6 +69,40 @@ private:
 };
 
 
+class CentroidTask
+{
+public:
+	CentroidTask(BVHBuilder& builder_) : builder(builder_) {}
+	
+	void operator() (int i, int thread_index) const
+	{
+		builder.centers[i] = toVec3f(builder.aabbs[i].centroid());
+	}
+
+	BVHBuilder& builder;
+};
+
+
+class SortAxisTask
+{
+public:
+	SortAxisTask(BVHBuilder& builder_, int num_objects_) : builder(builder_), num_objects(num_objects_) {}
+	
+	void operator() (int axis, int thread_index) const
+	{
+		builder.objects[axis].resize(num_objects);
+		for(int i=0; i<num_objects; ++i)
+			builder.objects[axis][i] = i;
+
+		// Sort based on center along axis 'axis'
+		Sort::floatKeyAscendingSort(builder.objects[axis].begin(), builder.objects[axis].end(), CenterPredicate(axis, builder.centers), CenterKey(axis, builder.centers));
+	}
+
+	BVHBuilder& builder;
+	int num_objects;
+};
+
+
 void BVHBuilder::build(
 		   const js::AABBox* aabbs_,
 		   const int num_objects,
@@ -99,20 +134,21 @@ void BVHBuilder::build(
 	//std::vector<Vec3f> tri_centers(num_objects);
 	this->centers.resize(num_objects);
 
-	//#ifndef INDIGO_NO_OPENMP
-	//#pragma omp parallel for
-	//#endif
+	/*#ifndef INDIGO_NO_OPENMP
+	#pragma omp parallel for
+	#endif
 	for(int i=0; i<num_objects; ++i)
-		centers[i] = toVec3f(aabbs[i].centroid());
+		centers[i] = toVec3f(aabbs[i].centroid());*/
+	ParallelFor::exec(CentroidTask(*this), 0, num_objects);
 
 	// Reserve working space
 	temp[0].resize(num_objects);
 	temp[1].resize(num_objects);
 
 	// Sort indices based on center position along the axes
-	//#ifndef INDIGO_NO_OPENMP
-	//#pragma omp parallel for
-	//#endif
+	/*#ifndef INDIGO_NO_OPENMP
+	#pragma omp parallel for
+	#endif
 	for(int axis=0; axis<3; ++axis)
 	{
 		objects[axis].resize(num_objects);
@@ -121,7 +157,8 @@ void BVHBuilder::build(
 
 		// Sort based on center along axis 'axis'
 		Sort::floatKeyAscendingSort(objects[axis].begin(), objects[axis].end(), CenterPredicate(axis, centers), CenterKey(axis, centers));
-	}
+	}*/
+	ParallelFor::exec<SortAxisTask>(SortAxisTask(*this, num_objects), 0, 3);
 
 	// Build root aabb
 	js::AABBox root_aabb = aabbs[0];

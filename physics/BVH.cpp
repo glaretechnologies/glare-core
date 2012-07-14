@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../utils/Sort.h"
+#include "../utils/ParallelFor.h"
 
 
 namespace js
@@ -25,8 +26,7 @@ namespace js
 
 
 BVH::BVH(const RayMesh* const raymesh_)
-:	raymesh(raymesh_),
-	tri_aabbs(NULL)
+:	raymesh(raymesh_)
 {
 	assert(raymesh);
 
@@ -69,7 +69,6 @@ BVH::BVH(const RayMesh* const raymesh_)
 
 BVH::~BVH()
 {
-	assert(tri_aabbs == NULL);
 }
 
 
@@ -135,6 +134,58 @@ static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
 }
 
 
+class BVHCentroidTask
+{
+public:
+	BVHCentroidTask(std::vector<Vec3f>& tri_centers_, js::Vector<js::AABBox, 16>& tri_aabbs_) : tri_centers(tri_centers_), tri_aabbs(tri_aabbs_) {}
+	
+	void operator() (int i, int thread_index) const
+	{
+		tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
+	}
+
+	std::vector<Vec3f>& tri_centers;
+	js::Vector<js::AABBox, 16>& tri_aabbs;
+};
+
+
+class BVHSortAxisTask
+{
+public:
+	BVHSortAxisTask(std::vector<std::vector<BVH::TRI_INDEX> >& tris_, const std::vector<Vec3f>& tri_centers_) : tris(tris_), tri_centers(tri_centers_) {}
+	
+	void operator() (int axis, int thread_index) const
+	{
+		const unsigned int num_tris = tri_centers.size();
+
+		tris[axis].resize(num_tris);
+		for(unsigned int i=0; i<num_tris; ++i)
+			tris[axis][i] = i;
+
+		// Sort based on center along axis 'axis'
+
+			
+		Sort::floatKeyAscendingSort(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers), CenterKey(axis, tri_centers));
+
+		if(false) // Enable this code to check the triangle indices are sorted.
+		{
+			for(size_t i=1; i<tris[axis].size(); ++i)
+			{
+				if(tri_centers[tris[axis][i]][axis] <tri_centers[tris[axis][i-1]][axis])
+				{
+					assert(false);
+					conPrint("Error: not sorted!");	
+					exit(1);
+				}
+			}
+		}
+	}
+
+	std::vector<std::vector<BVH::TRI_INDEX> >& tris;
+	const std::vector<Vec3f>& tri_centers;
+};
+
+
 void BVH::build(PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("\tBVH::build()");
@@ -152,7 +203,8 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		{
 
 		// Build tri AABBs
-		SSE::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+		//SSE::alignedSSEArrayMalloc(numTris(), tri_aabbs);
+		tri_aabbs.resize(numTris());
 
 		for(unsigned int i=0; i<numTris(); ++i)
 		{
@@ -174,11 +226,12 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		// Had to disable this for mac because gcc 4.2 is too aids to do
 		// openmp in pthreads as per bug...
 		//		http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36242
-		//#ifndef INDIGO_NO_OPENMP
-		//#pragma omp parallel for
-		//#endif
+		/*#ifndef INDIGO_NO_OPENMP
+		#pragma omp parallel for
+		#endif
 		for(int i=0; i<num_tris; ++i)
-			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
+			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());*/
+		ParallelFor::exec(BVHCentroidTask(tri_centers, tri_aabbs), 0, num_tris);
 
 		std::vector<std::vector<TRI_INDEX> > tris(3);
 		std::vector<std::vector<TRI_INDEX> > temp(2);
@@ -189,9 +242,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		if(verbose) print_output.print("\tSorting...");
 		Timer sort_timer;
 
-		//#ifndef INDIGO_NO_OPENMP
-		//#pragma omp parallel for
-		//#endif
+		/*#ifndef INDIGO_NO_OPENMP
+		#pragma omp parallel for
+		#endif
 		for(int axis=0; axis<3; ++axis)
 		{
 			tris[axis].resize(numTris());
@@ -214,7 +267,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 					}
 				}
 			}
-		}
+		}*/
+		ParallelFor::exec(BVHSortAxisTask(tris, tri_centers), 0, 3);
+
 		if(verbose) print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 
 		// In the best case, Each leaf node has pointers to 4 tris for left AABB, and 4 tris for right AABB, for a total of 8 tris.
@@ -249,8 +304,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		}
 
 		// Free triangle AABB array.
-		SSE::alignedSSEArrayFree(tri_aabbs);
-		tri_aabbs = NULL;
+		//SSE::alignedSSEArrayFree(tri_aabbs);
+		//tri_aabbs = NULL;
+		tri_aabbs.clearAndFreeMem();
 
 		// Free tri_max
 		//delete this->tri_max;

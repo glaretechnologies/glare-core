@@ -33,6 +33,9 @@ BVHBuilder
 class BVHBuilder
 {
 public:
+	friend class SortAxisTask;
+	friend class CentroidTask;
+
 	BVHBuilder(int leaf_num_object_threshold, float intersection_cost);
 	~BVHBuilder();
 

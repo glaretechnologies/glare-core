@@ -114,6 +114,19 @@ public:
 
 
 #if (BUILD_TESTS)
+
+
+struct TestComputation
+{
+	TestComputation(std::vector<double>& v_) : v(v_) {}
+	std::vector<double>& v;
+	void operator() (int i, int thread_index) const
+	{
+		v[i] = (1.0 / std::pow(2.0, (double)i));
+	}
+};
+
+
 void ThreadTests::test()
 {
 
@@ -168,17 +181,7 @@ void ThreadTests::test()
 
 
 		//////////// Run ParallelFor ////////////////////
-		/*
-		// TEMP doesn't compile on linux :(
-		struct TestComputation
-		{
-			TestComputation(std::vector<double>& v_) : v(v_) {}
-			std::vector<double>& v;
-			void operator() (int i)
-			{
-				v[i] = (1.0 / std::pow(2.0, (double)i));
-			}
-		};
+		
 
 		timer.reset();
 		TestComputation t(v);
@@ -189,7 +192,7 @@ void ThreadTests::test()
 		// Compute sum
 		double sum_1 = 0;
 		for(int i=0; i<N; ++i)
-			sum_1 += v[i];*/
+			sum_1 += v[i];
 
 
 		/////////// Try single threaded performance /////////////
@@ -205,13 +208,13 @@ void ThreadTests::test()
 		for(int i=0; i<N; ++i)
 			sum_2 += v[i];
 
-		/*testAssert(sum_1 == sum_2);
+		testAssert(sum_1 == sum_2);
 		testAssert(sum_1 == sum_3);
 
 		conPrint("sum_1: " + toString(sum_1));
 		conPrint("parallel_for_elapsed: " + toString(parallel_for_elapsed));
 		conPrint("singlethread_elapased: " + toString(singlethread_elapased));
-		conPrint("openmp_elapsed: " + toString(openmp_elapsed));*/
+		conPrint("openmp_elapsed: " + toString(openmp_elapsed));
 	}
 	
 	//exit(0);//TEMP

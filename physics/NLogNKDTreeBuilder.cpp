@@ -14,6 +14,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
 #include "../utils/Sort.h"
+#include "../utils/ParallelFor.h"
 #include <algorithm>
 
 
@@ -75,6 +76,21 @@ public:
 };
 
 
+class SortAxisTask
+{
+public:
+	SortAxisTask(NLogNKDTreeBuilder::LayerInfo& root_layer_) : root_layer(root_layer_) {}
+	
+	void operator() (int axis, int thread_index) const
+	{
+		Sort::floatKeyAscendingSort(root_layer.lower_bounds[axis].begin(), root_layer.lower_bounds[axis].end(), LowerPred(), LowerKey());
+		Sort::floatKeyAscendingSort(root_layer.upper_bounds[axis].begin(), root_layer.upper_bounds[axis].end(), UpperPred(), UpperKey());
+	}
+
+	NLogNKDTreeBuilder::LayerInfo& root_layer;
+};
+
+
 void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& tree, const AABBox& root_aabb, KDTree::NODE_VECTOR_TYPE& nodes_out, KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out)
 {
 	unsigned int max_depth = tree.calcMaxDepth();
@@ -114,14 +130,16 @@ void NLogNKDTreeBuilder::build(PrintOutput& print_output, bool verbose, KDTree& 
 	timer.reset();
 
 	// Sort bounds
-	//#ifndef INDIGO_NO_OPENMP
-	//#pragma omp parallel for
-	//#endif
+	/*#ifndef INDIGO_NO_OPENMP
+	#pragma omp parallel for
+	#endif
 	for(int axis=0; axis<3; ++axis)
 	{
 		Sort::floatKeyAscendingSort(layers[0].lower_bounds[axis].begin(), layers[0].lower_bounds[axis].end(), LowerPred(), LowerKey());
 		Sort::floatKeyAscendingSort(layers[0].upper_bounds[axis].begin(), layers[0].upper_bounds[axis].end(), UpperPred(), UpperKey());
-	}
+	}*/
+	ParallelFor::exec<SortAxisTask>(SortAxisTask(layers[0]), 0, 3);
+
 	if(verbose) print_output.print("\t\tSort took " + timer.elapsedString());
 
 	doBuild(

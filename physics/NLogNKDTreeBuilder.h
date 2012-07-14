@@ -50,6 +50,13 @@ public:
 		uint32 tri_index;
 	};
 
+	class LayerInfo
+	{
+	public:
+		js::Vector<LowerBound, 4> lower_bounds[3]; // One for each axis
+		js::Vector<UpperBound, 4> upper_bounds[3];
+	};
+
 private:
 	void doBuild(
 		PrintOutput& print_output, 
@@ -61,15 +68,8 @@ private:
 		const AABBox& cur_aabb, 
 		KDTree::NODE_VECTOR_TYPE& nodes_out, 
 		KDTree::LEAF_GEOM_ARRAY_TYPE& leaf_tri_indices_out
-		);
-
-private:
-	class LayerInfo
-	{
-	public:
-		js::Vector<LowerBound, 4> lower_bounds[3]; // One for each axis
-		js::Vector<UpperBound, 4> upper_bounds[3];
-	};
+	);
+	
 	std::vector<LayerInfo> layers;
 	js::Vector<js::AABBox, 16> tri_aabbs;
 
