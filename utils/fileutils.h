@@ -65,6 +65,10 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path);
 //bool dirExists(const std::string& dirname);
 bool fileExists(const std::string& pathname); //NOTE: untested
 
+
+// Returns the size of the file in bytes.  Throws FileUtilsExcep on failure, for example if the file does not exist.
+uint64 getFileSize(const std::string& pathname);
+
 void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::string>& dirs_out);
 
 //bool isPathEqualOrLower(const std::string& pathname);

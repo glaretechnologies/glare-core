@@ -27,6 +27,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
+#include "PlatformUtils.h"
 
 
 namespace FileUtils
@@ -452,6 +453,57 @@ bool fileExists(const std::string& pathname)
 	struct stat buffer;
 	const int status = stat(pathname.c_str(), &buffer);
 	return status == 0;
+#endif
+}
+
+
+uint64 getFileSize(const std::string& path)
+{
+	// NOTE: This code is from MemMappedFile.  Could use GetFileAttributesEx instead (see http://msdn.microsoft.com/en-us/library/windows/desktop/aa364946(v=vs.85).aspx )
+#if defined(_WIN32)
+	HANDLE file_handle = CreateFile(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
+		GENERIC_READ,
+		FILE_SHARE_READ, // share mode - Use FILE_SHARE_READ so that other processes can read the file as well.
+		NULL, // security attributes
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+
+	if(file_handle == INVALID_HANDLE_VALUE)
+		throw Indigo::Exception("CreateFile failed: " + PlatformUtils::getLastErrorString());
+
+	// Get size of file
+	LARGE_INTEGER file_size_li;
+	BOOL res = GetFileSizeEx(
+		file_handle,
+		&file_size_li
+	);
+	if(!res)
+		throw Indigo::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
+
+	// Close the file
+	res = CloseHandle(file_handle);
+	assert(res);
+
+	return file_size_li.QuadPart;
+#else
+	//NOTE: could change to use stat(), see http://stackoverflow.com/questions/5793030/how-to-get-file-size-on-disk-on-linux
+
+	int linux_file_handle = ::open(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
+		O_RDONLY);
+
+	if(this->linux_file_handle <= 0)
+		throw Indigo::Exception("File open failed.");
+
+	off_t file_size = lseek(this->linux_file_handle, 0, SEEK_END);
+
+	// Close the file
+	::close(this->linux_file_handle);
+
+	return file_size;
 #endif
 }
 
@@ -1046,6 +1098,19 @@ void doUnitTests()
 
 	testAssert(file.is_open());
 	}
+
+
+	////////////// Test getFileSize() ////////////
+	try
+	{
+		testAssert(getFileSize(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") == 231);
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	/////////////////////////////////////////////
 
 
 
