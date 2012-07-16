@@ -17,6 +17,8 @@ Code By Nicholas Chapman.
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>	// For open / close
 #endif
 
 #include <cstring>
@@ -27,7 +29,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
-#include "PlatformUtils.h"
+#include "platformutils.h"
 
 
 namespace FileUtils
@@ -495,13 +497,13 @@ uint64 getFileSize(const std::string& path)
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
 		O_RDONLY);
 
-	if(this->linux_file_handle <= 0)
+	if(linux_file_handle <= 0)
 		throw Indigo::Exception("File open failed.");
 
-	off_t file_size = lseek(this->linux_file_handle, 0, SEEK_END);
+	off_t file_size = lseek(linux_file_handle, 0, SEEK_END);
 
 	// Close the file
-	::close(this->linux_file_handle);
+	::close(linux_file_handle);
 
 	return file_size;
 #endif
