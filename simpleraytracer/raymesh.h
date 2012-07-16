@@ -195,7 +195,7 @@ public:
 
 	virtual bool subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose);
-	virtual void build(const std::string& appdata_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose); // throws GeometryExcep
+	virtual void build(const std::string& appdata_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;

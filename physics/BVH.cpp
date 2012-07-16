@@ -18,7 +18,8 @@ Code By Nicholas Chapman.
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../utils/Sort.h"
-#include "../utils/ParallelFor.h"
+#include "../utils/Task.h"
+#include "../utils/TaskManager.h"
 
 
 namespace js
@@ -134,59 +135,85 @@ static inline void convertPos(const Vec3f& p, Vec4f& pos_out)
 }
 
 
-class BVHCentroidTask
+
+struct BVHCentroidTaskClosure
 {
-public:
-	BVHCentroidTask(std::vector<Vec3f>& tri_centers_, js::Vector<js::AABBox, 16>& tri_aabbs_) : tri_centers(tri_centers_), tri_aabbs(tri_aabbs_) {}
-	
-	void operator() (int i, int thread_index) const
-	{
-		tri_centers[i] = toVec3f(tri_aabbs[i].centroid());
-	}
+	BVHCentroidTaskClosure(std::vector<Vec3f>& tri_centers_, js::Vector<js::AABBox, 16>& tri_aabbs_) : tri_centers(tri_centers_), tri_aabbs(tri_aabbs_) {}
 
 	std::vector<Vec3f>& tri_centers;
 	js::Vector<js::AABBox, 16>& tri_aabbs;
 };
 
 
-class BVHSortAxisTask
+class BVHCentroidTask : public Indigo::Task
 {
 public:
-	BVHSortAxisTask(std::vector<std::vector<BVH::TRI_INDEX> >& tris_, const std::vector<Vec3f>& tri_centers_) : tris(tris_), tri_centers(tri_centers_) {}
-	
-	void operator() (int axis, int thread_index) const
+	BVHCentroidTask(const BVHCentroidTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
 	{
-		const unsigned int num_tris = tri_centers.size();
-
-		tris[axis].resize(num_tris);
-		for(unsigned int i=0; i<num_tris; ++i)
-			tris[axis][i] = i;
-
-		// Sort based on center along axis 'axis'
-
-			
-		Sort::floatKeyAscendingSort(tris[axis].begin(), tris[axis].end(), CenterPredicate(axis, tri_centers), CenterKey(axis, tri_centers));
-
-		if(false) // Enable this code to check the triangle indices are sorted.
+		for(int i = begin; i < end; ++i)
 		{
-			for(size_t i=1; i<tris[axis].size(); ++i)
-			{
-				if(tri_centers[tris[axis][i]][axis] <tri_centers[tris[axis][i-1]][axis])
-				{
-					assert(false);
-					conPrint("Error: not sorted!");	
-					exit(1);
-				}
-			}
+			closure.tri_centers[i] = toVec3f(closure.tri_aabbs[i].centroid());
 		}
 	}
+
+	const BVHCentroidTaskClosure& closure;
+	int begin, end;
+};
+
+
+
+struct BVHSortAxisTaskClosure
+{
+	BVHSortAxisTaskClosure(std::vector<std::vector<BVH::TRI_INDEX> >& tris_, const std::vector<Vec3f>& tri_centers_) : tris(tris_), tri_centers(tri_centers_) {}
 
 	std::vector<std::vector<BVH::TRI_INDEX> >& tris;
 	const std::vector<Vec3f>& tri_centers;
 };
 
 
-void BVH::build(PrintOutput& print_output, bool verbose)
+class BVHSortAxisTask : public Indigo::Task
+{
+public:
+	BVHSortAxisTask(const BVHSortAxisTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+	
+	virtual void run(size_t thread_index)
+	{
+		for(int axis = begin; axis < end; ++axis)
+		{
+			const unsigned int num_tris = (unsigned int)closure.tri_centers.size();
+
+			closure.tris[axis].resize(num_tris);
+			for(unsigned int i=0; i<num_tris; ++i)
+				closure.tris[axis][i] = i;
+
+			// Sort based on center along axis 'axis'
+
+			
+			Sort::floatKeyAscendingSort(closure.tris[axis].begin(), closure.tris[axis].end(), CenterPredicate(axis, closure.tri_centers), CenterKey(axis, closure.tri_centers));
+
+			if(false) // Enable this code to check the triangle indices are sorted.
+			{
+				for(size_t i=1; i<closure.tris[axis].size(); ++i)
+				{
+					if(closure.tri_centers[closure.tris[axis][i]][axis] < closure.tri_centers[closure.tris[axis][i-1]][axis])
+					{
+						assert(false);
+						conPrint("Error: not sorted!");	
+						exit(1);
+					}
+				}
+			}
+		}
+	}
+
+	const BVHSortAxisTaskClosure& closure;
+	int begin, end;
+};
+
+
+void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	if(verbose) print_output.print("\tBVH::build()");
 	
@@ -231,7 +258,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 		#endif
 		for(int i=0; i<num_tris; ++i)
 			tri_centers[i] = toVec3f(tri_aabbs[i].centroid());*/
-		ParallelFor::exec(BVHCentroidTask(tri_centers, tri_aabbs), 0, num_tris);
+		BVHCentroidTaskClosure centroid_closure(tri_centers, tri_aabbs);
+
+		task_manager.runParallelForTasks<BVHCentroidTask, BVHCentroidTaskClosure>(centroid_closure, 0, num_tris);
 
 		std::vector<std::vector<TRI_INDEX> > tris(3);
 		std::vector<std::vector<TRI_INDEX> > temp(2);
@@ -268,7 +297,9 @@ void BVH::build(PrintOutput& print_output, bool verbose)
 				}
 			}
 		}*/
-		ParallelFor::exec(BVHSortAxisTask(tris, tri_centers), 0, 3);
+		BVHSortAxisTaskClosure sort_axis_closure(tris, tri_centers);
+
+		task_manager.runParallelForTasks<BVHSortAxisTask, BVHSortAxisTaskClosure>(sort_axis_closure, 0, 3);
 
 		if(verbose) print_output.print("\t\tDone (" + toString(sort_timer.getSecondsElapsed()) + " s).");
 

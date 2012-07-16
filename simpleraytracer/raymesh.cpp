@@ -595,7 +595,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 }
 
 
-void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose)
+void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -775,7 +775,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		{
 			try
 			{
-				tritree->build(print_output, verbose);
+				tritree->build(print_output, verbose, task_manager);
 			}
 			catch(js::TreeExcep& e)
 			{
@@ -812,7 +812,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 	{
 		try
 		{
-			tritree->build(print_output, verbose);
+			tritree->build(print_output, verbose, task_manager);
 		}
 		catch(js::TreeExcep& e)
 		{

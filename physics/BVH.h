@@ -39,7 +39,7 @@ public:
 	BVH(const RayMesh* const raymesh);
 	~BVH();
 
-	virtual void build(PrintOutput& print_output, bool verbose); // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
 	virtual bool diskCachable() { return false; }
 	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose) {} // throws TreeExcep
 	virtual void saveTree(std::ostream& stream) {}

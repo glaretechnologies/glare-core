@@ -727,7 +727,7 @@ unsigned int KDTree::calcMaxDepth() const
 }
 
 
-void KDTree::build(PrintOutput& print_output, bool verbose)
+void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	if(verbose) print_output.print("\tBuilding kd-tree...");
 

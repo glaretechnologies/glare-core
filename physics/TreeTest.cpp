@@ -31,6 +31,7 @@ Code By Nicholas Chapman.
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../utils/TaskManager.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 
@@ -48,6 +49,7 @@ void TreeTest::testBuildCorrect()
 	conPrint("TreeTest::testBuildCorrect()");
 
 	ThreadContext thread_context;
+	Indigo::TaskManager task_manager;
 
 	{
 	RayMesh raymesh("raymesh", false);
@@ -98,7 +100,8 @@ void TreeTest::testBuildCorrect()
 		".",
 		settings,
 		print_output,
-		true
+		true,
+		task_manager
 		);
 
 	{
@@ -178,7 +181,8 @@ void TreeTest::testBuildCorrect()
 		".",
 		settings,
 		print_output,
-		true
+		true,
+		task_manager
 		);
 
 
@@ -257,7 +261,8 @@ void TreeTest::testBuildCorrect()
 		".",
 		settings,
 		print_output,
-		true
+		true,
+		task_manager
 		);
 
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
@@ -292,6 +297,7 @@ static void testSelfIntersectionAvoidance()
 	// We will construct a scene with two quads coplanar to the y-z plane, one at x=0, and the other at x=1.
 
 	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
 
 	RayMesh raymesh("testmesh", false);
 	raymesh.addMaterialUsed("dummy");
@@ -331,13 +337,13 @@ static void testSelfIntersectionAvoidance()
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new KDTree(&raymesh));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	trees.push_back(new EmbreeAccel(&raymesh, true));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
@@ -456,22 +462,23 @@ static void testSelfIntersectionAvoidance()
 static void testTree(MTwister& rng, RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
 
 	//------------------------------------------------------------------------
 	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 	trees.push_back(new KDTree(&raymesh));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	// We want to test Embree, so let's require that the Embree DLL has been successfully loaded.
 	testAssert(EmbreeInstance::isNonNull());
 
 	trees.push_back(new EmbreeAccel(&raymesh, true));
-	trees.back()->build(print_output, true);
+	trees.back()->build(print_output, true, task_manager);
 
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
@@ -683,6 +690,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 	RendererSettings settings;
 	settings.cache_trees = false;
 	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
 	MTwister rng(1);
 
 	///////////////////////////////////////
@@ -718,7 +726,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		model_loader.streamModel(MODEL_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 
-		raymesh.build(appdata_path, settings, print_output, false);
+		raymesh.build(appdata_path, settings, print_output, false, task_manager);
 	}
 	catch(CSModelLoaderExcep&)
 	{
@@ -753,7 +761,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	raymesh.build(appdata_path, settings, print_output, false);
+	raymesh.build(appdata_path, settings, print_output, false, task_manager);
 
 	testTree(rng, raymesh);
 	}
@@ -792,7 +800,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	raymesh.build(appdata_path, settings, print_output, false);
+	raymesh.build(appdata_path, settings, print_output, false, task_manager);
 
 	testTree(rng, raymesh);
 	}
@@ -804,6 +812,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 void TreeTest::doVaryingNumtrisBuildTests()
 {
 	MTwister rng(1);
+	Indigo::TaskManager task_manager;
 
 	int num_tris = 1;
 	for(int i=0; i<21; ++i)
@@ -836,7 +845,8 @@ void TreeTest::doVaryingNumtrisBuildTests()
 			".", // appdata path
 			settings,
 			print_output,
-			false // verbose
+			false, // verbose
+			task_manager
 		);
 
 		const double elapsed = timer.elapsed();
@@ -868,6 +878,10 @@ void TreeTest::doSpeedTest(int treetype)
 		testAssert(false);
 	}
 
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+
+
 	Timer buildtimer;
 
 	RendererSettings settings;
@@ -877,12 +891,13 @@ void TreeTest::doSpeedTest(int treetype)
 	else
 		settings.bih_tri_threshold = 0;
 
-	StandardPrintOutput print_output;
+	
 	raymesh.build(
 		".", // base indigo dir path
 		settings,
 		print_output,
-		true
+		true,
+		task_manager
 		);
 
 	conPrint("Build time: " + toString(buildtimer.getSecondsElapsed()) + " s");
@@ -992,6 +1007,9 @@ void TreeTest::buildSpeedTest()
 {
 	conPrint("TreeTest::buildSpeedTest()");
 
+	Indigo::TaskManager task_manager;
+
+
 	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
 	Indigo::Mesh indigoMesh;
@@ -1013,7 +1031,8 @@ void TreeTest::buildSpeedTest()
 		".", // base indigo dir path
 		settings,
 		print_output,
-		true
+		true,
+		task_manager
 		);
 
 	printVar(timer.getSecondsElapsed());

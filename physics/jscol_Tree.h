@@ -19,7 +19,7 @@ class Object;
 class ThreadContext;
 class PrintOutput;
 namespace js { class TriTreePerThreadData; };
-
+namespace Indigo { class TaskManager; }
 
 namespace js
 {
@@ -63,7 +63,7 @@ public:
 
 	static const unsigned int MAX_TREE_DEPTH = 63;
 
-	virtual void build(PrintOutput& print_output, bool verbose) = 0; // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws TreeExcep
 	virtual bool diskCachable() = 0;
 	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose) = 0; // throws TreeExcep
 	virtual void saveTree(std::ostream& stream) = 0;

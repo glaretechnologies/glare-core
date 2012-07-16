@@ -354,7 +354,7 @@ bool RaySphere::subdivideAndDisplace(ThreadContext& context, const Object& objec
 }
 
 
-void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose) {} // throws GeometryExcep
+void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
