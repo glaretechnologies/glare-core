@@ -113,6 +113,26 @@ public:
 };
 
 
+
+/*class OpenMPUsingThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		result = 0;
+		int N = 1000;
+
+		#pragma omp parallel for
+		for(int i=0; i<N; ++i)
+			result += pow(1.00001, (double)i);
+
+		conPrint("Result: " + toString(result));
+	}
+
+	double result;
+};*/
+
+
 #if (BUILD_TESTS)
 
 
@@ -129,6 +149,18 @@ struct TestComputation
 
 void ThreadTests::test()
 {
+	// Test OpenMP from another thread:
+	/*{
+		for(int i=0; i<100; ++i)
+		{
+			OpenMPUsingThread* t = new OpenMPUsingThread();
+			t->launch(false);
+			t->join();
+			delete t;
+
+			Sleep(1000);
+		}
+	}*/
 
 	// Create and run a single thread.  Wait for it to finish.
 	{
