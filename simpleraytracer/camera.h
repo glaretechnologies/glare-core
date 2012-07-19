@@ -79,6 +79,7 @@ public:
 		const SamplePair& samples,
 		double time,
 		bool vignetting,
+		Real recip_normed_image_rect_area,
 		Vec3Type& sensorpos_ws_out,
 		Vec3Type& lenspos_ws_out,
 		Vec3Type& sensor_to_lens_pos_os_out, // Needed for bidir
