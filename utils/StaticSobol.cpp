@@ -18,7 +18,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 	std::vector<uint32> direction_nums(418214);
 	{
 		const std::string dir_data_path = FileUtils::join(indigo_base_dir_path, "data/dirdata.bin");
-		std::ifstream dir_file(dir_data_path, std::ios::in | std::ios::binary);
+		std::ifstream dir_file(FileUtils::convertUTF8ToFStreamPath(dir_data_path).c_str(), std::ios::in | std::ios::binary);
 		if(!dir_file)
 			throw Indigo::Exception("Could not open direction number data file");
 
