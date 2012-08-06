@@ -31,10 +31,10 @@ class DynamicLib
 {
 public:
 	DynamicLib();
-	DynamicLib(const std::string& lib_path);
+	DynamicLib(const std::string& lib_path); // throws Indigo::Exception on failure
 	~DynamicLib();
 
-	void open(const std::string& lib_path);
+	void open(const std::string& lib_path); // throws Indigo::Exception on failure
 	void close();
 
 
