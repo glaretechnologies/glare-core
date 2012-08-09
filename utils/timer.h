@@ -26,6 +26,7 @@ public:
 	inline double getSecondsElapsed() const;
 	inline double elapsed() const { return getSecondsElapsed(); }
 	const std::string elapsedString() const; // e.g "30.4 s"
+	const std::string elapsedStringNPlaces(int n) const; // Print with n decimal places.
 
 	inline void reset();
 

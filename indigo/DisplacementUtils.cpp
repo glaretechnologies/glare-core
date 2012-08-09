@@ -445,7 +445,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	uvs_out = temp_uvs;
 
-	print_output.print("Subdivision and displacement took " + timer.elapsedString());
+	print_output.print("Subdivision and displacement took " + timer.elapsedStringNPlaces(3));
 }
 
 

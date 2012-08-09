@@ -820,7 +820,7 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 		}
 	}
 
-	if(verbose) print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + toString(timer.getSecondsElapsed()) + " s)");
+	if(verbose) print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
 }
 
 
@@ -1559,7 +1559,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	if(verbose)
 	{
 		print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
-		print_output.print("\tDone.  (Time taken: " + timer.elapsedString() + ")");
+		print_output.print("\tDone.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
 	}
 }
 
@@ -1636,7 +1636,7 @@ void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
 	if(verbose)
 	{
 		print_output.print("\tNew num uvs: " + toString((unsigned int)uvs.size()) + "");
-		print_output.print("\tDone.  (Time taken: " + timer.elapsedString() + ")");
+		print_output.print("\tDone.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
 	}
 }
 
