@@ -72,7 +72,7 @@ public:
 			//const int step = num_threads;
 
 			assert(thread_begin >= begin);
-			assert(thread_end >= thread_begin);
+			//assert(thread_end >= thread_begin);
 			assert(thread_end <= end);
 
 			threads[t] = new ParallelForThread<Task>(

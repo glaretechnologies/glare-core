@@ -119,7 +119,7 @@ public:
 	virtual Real getExposureDuration() const = 0;
 
 
-	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const SpectralVector& wavelengths, double direction_sign, double time, SpectralVector& weights_out) const = 0;
+	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const SpectralVector& wavelengths, float direction_sign, double time, SpectralVector& weights_out) const = 0;
 
 
 	virtual void prepareForDiffractionFilter(int main_buffer_width, int main_buffer_height, int ssf_) = 0;
