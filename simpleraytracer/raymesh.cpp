@@ -44,6 +44,17 @@ Code By Nicholas Chapman.
 #endif
 
 
+// #define INDIGO_OPENSUBDIV_SUPPORT 1
+#if INDIGO_OPENSUBDIV_SUPPORT
+#include <opensubdiv/hbr/mesh.h>
+#include <opensubdiv/hbr/subdivision.h>
+#include <opensubdiv/hbr/catmark.h>
+#include <opensubdiv/far/meshFactory.h>
+#include <opensubdiv/osd/cpuDispatcher.h>
+#include <opensubdiv/osd/cudaDispatcher.h>
+#endif
+
+
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				 bool merge_vertices_with_same_pos_and_normal_,
@@ -295,6 +306,61 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 }*/
 
 
+#if INDIGO_OPENSUBDIV_SUPPORT
+
+
+class RayMeshOsdVertex {
+public:
+    RayMeshOsdVertex() : pos(0,0,0) {}
+    RayMeshOsdVertex(int index) : pos(0,0,0) {}
+    RayMeshOsdVertex(const RayMeshOsdVertex &src) : pos(src.pos) {}
+
+	explicit RayMeshOsdVertex(const Vec3f& p) : pos(p) {}
+
+    void AddWithWeight(const RayMeshOsdVertex & i, float weight, void * = 0)
+	{
+		pos += i.pos * weight;
+		//uvs += i.uvs * weight;
+	}
+    void AddVaryingWithWeight(const RayMeshOsdVertex & i, float weight, void * = 0)
+	{
+		// pos += i.pos * weight;
+	}
+    void Clear(void * = 0)
+	{
+		pos.set(0, 0, 0);
+		//uvs.set(0, 0);
+	}
+    void ApplyVertexEdit(const OpenSubdiv::HbrVertexEdit<RayMeshOsdVertex> & edit)
+	{
+		const float *src = edit.GetEdit();
+        switch(edit.GetOperation()) {
+        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Set:
+            pos.x = src[0];
+            pos.y = src[1];
+            pos.z = src[2];
+            break;
+        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Add:
+            pos.x += src[0];
+            pos.y += src[1];
+            pos.z += src[2];
+            break;
+        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Subtract:
+            pos.x -= src[0];
+            pos.y -= src[1];
+            pos.z -= src[2];
+            break;
+        }
+	}
+    void ApplyMovingVertexEdit(const OpenSubdiv::HbrMovingVertexEdit<RayMeshOsdVertex> &) { }
+
+	Vec3f pos;
+};
+
+
+#endif // #if INDIGO_OPENSUBDIV_SUPPORT
+
+
 bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
 	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
@@ -321,65 +387,198 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
-			// Convert to single precision floating point planes
-			/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
-			for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
-				camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
+			
+#if INDIGO_OPENSUBDIV_SUPPORT
+			const bool USE_OSD = true;
+			if(USE_OSD)
+			{
+				// Register Osd compute kernels
+				OpenSubdiv::OsdCpuKernelDispatcher::Register();
 
-			js::Vector<RayMeshTriangle, 16> temp_tris;
-			std::vector<RayMeshVertex> temp_verts;
-			std::vector<Vec2f> temp_uvs;
+				//OpenSubdiv::OsdCudaKernelDispatcher::Register();
 
-			DUOptions options;
-			options.object_to_camera = object_to_camera;
-			options.wrap_u = wrap_u;
-			options.wrap_v = wrap_v;
-			options.view_dependent_subdivision = view_dependent_subdivision;
-			options.pixel_height_at_dist_one = pixel_height_at_dist_one;
-			options.subdivide_pixel_threshold = subdivide_pixel_threshold;
-			options.subdivide_curvature_threshold = subdivide_curvature_threshold;
-			options.displacement_error_threshold = displacement_error_threshold;
-			options.max_num_subdivisions = max_num_subdivisions;
-			options.camera_clip_planes_os = camera_clip_planes_os;
+				// TEMP HACK: remove tris
+				this->triangles.resize(0);
 
-			DisplacementUtils::subdivideAndDisplace(
-				print_output,
-				context,
-				object.getMaterials(),
-				subdivision_smoothing,
-				triangles,
-				quads,
-				vertices,
-				uvs,
-				this->num_uv_sets,
-				options,
-				temp_tris,
-				temp_verts,
-				temp_uvs
+				Timer timer;
+
+				// Make uv indices
+				std::vector<int> fvar_indices(this->quads.size() * 4);
+				for(size_t i=0; i<this->quads.size(); ++i)
+				{
+					fvar_indices[i * 4 + 0] = this->quads[i].uv_indices[0];
+					fvar_indices[i * 4 + 1] = this->quads[i].uv_indices[1];
+					fvar_indices[i * 4 + 2] = this->quads[i].uv_indices[2];
+					fvar_indices[i * 4 + 3] = this->quads[i].uv_indices[3];
+				}
+
+				// printVar(fvar_indices.size());
+
+				int fvar_widths[1] = { (int)fvar_indices.size() };
+
+				OpenSubdiv::v1_1::HbrMesh<RayMeshOsdVertex> hbr_mesh(
+					new OpenSubdiv::v1_1::HbrCatmarkSubdivision<RayMeshOsdVertex>(),
+					1, // fvarcount
+					&fvar_indices[0],
+					fvar_widths
 				);
 
-			triangles = temp_tris;
-			vertices = temp_verts;
-			uvs = temp_uvs;
 
-			this->quads.clearAndFreeMem();
+				/// Hack for one quad ///
+				/*hbr_mesh.NewVertex(0, RayMeshOsdVertex(Vec3f(0,0,0)));
+				hbr_mesh.NewVertex(1, RayMeshOsdVertex(Vec3f(1,0,0)));
+				hbr_mesh.NewVertex(2, RayMeshOsdVertex(Vec3f(1,1,0)));
+				hbr_mesh.NewVertex(3, RayMeshOsdVertex(Vec3f(0,1,0)));
 
-			assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+				int verts[4] = {0, 1, 2, 3};
 
-			// Check data
-	#ifdef DEBUG
-			for(unsigned int i = 0; i < triangles.size(); ++i)
-				for(unsigned int c = 0; c < 3; ++c)
+				hbr_mesh.NewFace(
+					4,
+					verts,
+					0 // index
+				);*/
+				/////////////////////////
+
+				// Add vertices to HBR mesh
+				for(size_t i=0; i<vertices.size(); ++i)
+					hbr_mesh.NewVertex((int)i, RayMeshOsdVertex(vertices[i].pos));
+
+				// Add quads
+				for(size_t i=0; i<quads.size(); ++i)
 				{
-					assert(triangles[i].vertex_indices[c] < vertices.size());
-					if(this->num_uv_sets > 0)
-					{
-						assert(triangles[i].uv_indices[c] < uvs.size());
-					}
+					int verts[4] = {quads[i].vertex_indices[0], quads[i].vertex_indices[1], quads[i].vertex_indices[2], quads[i].vertex_indices[3]};
+					hbr_mesh.NewFace(
+						4,
+						verts,
+						(int)i // index
+					);
 				}
-	#endif	
-			if(verbose) print_output.print("\tDone.");
+
+
+				hbr_mesh.SetInterpolateBoundaryMethod( OpenSubdiv::v1_1::HbrMesh<RayMeshOsdVertex>::k_InterpolateBoundaryEdgeOnly );
+
+				hbr_mesh.Finish();
+
+				const int subdiv_level = max_num_subdivisions + 1;
+
+				OpenSubdiv::v1_1::FarMeshFactory<RayMeshOsdVertex> factory(&hbr_mesh, subdiv_level);
+
+				OpenSubdiv::v1_1::FarMesh<RayMeshOsdVertex>* far_mesh = factory.Create(
+					/*new OpenSubdiv::v1_1::CpuKernelDispatcher(
+						subdiv_level, // levels
+						8 // num openmp threads
+					)*/
+				);
+
+				far_mesh->Subdivide(subdiv_level);
+
+				int firstvert = far_mesh->GetSubdivision()->GetFirstVertexOffset(max_num_subdivisions);
+				int numverts = far_mesh->GetSubdivision()->GetNumVertices(max_num_subdivisions);
+
+				// Read vertices
+				this->vertices.resize(numverts);
+
+				for(int i=0; i<numverts; ++i)
+				{
+					RayMeshOsdVertex& v = far_mesh->GetVertex(firstvert + i);
+
+					this->vertices[i].pos = v.pos;
+				}
+
+
+				// Read off faces
+				const std::vector<int>& face_vertices = far_mesh->GetFaceVertices(max_num_subdivisions);
+
+				this->quads.resize(face_vertices.size() / 4);
+
+				printVar(this->quads.size());
+				//printVar(hbr_mesh.GetFVarWidths()[0]);
+
+				for(size_t i=0; i<this->quads.size(); ++i)
+				{
+					this->quads[i].vertex_indices[0] = face_vertices[(i * 4) + 3] - firstvert;
+					this->quads[i].vertex_indices[1] = face_vertices[(i * 4) + 2] - firstvert;
+					this->quads[i].vertex_indices[2] = face_vertices[(i * 4) + 1] - firstvert;
+					this->quads[i].vertex_indices[3] = face_vertices[(i * 4) + 0] - firstvert;
+					this->quads[i].setMatIndex(0); // TEMP HACK
+					this->quads[i].setUseShadingNormals(false); // TEMP HACK
+
+					for(int z=0; z<4; ++z)
+						this->quads[i].uv_indices[z] = 0; // TEMP HACK
+				}
+
+				conPrint("OpenSubdiv took " + timer.elapsedStringNPlaces(4));
+
+				// TEMP NEW:
+				computeShadingNormals(print_output, verbose);
+			}
+			else
+			{
+#endif // #if INDIGO_OPENSUBDIV_SUPPORT
+
+				// Convert to single precision floating point planes
+				/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
+				for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
+					camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
+
+				js::Vector<RayMeshTriangle, 16> temp_tris;
+				std::vector<RayMeshVertex> temp_verts;
+				std::vector<Vec2f> temp_uvs;
+
+				DUOptions options;
+				options.object_to_camera = object_to_camera;
+				options.wrap_u = wrap_u;
+				options.wrap_v = wrap_v;
+				options.view_dependent_subdivision = view_dependent_subdivision;
+				options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+				options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+				options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+				options.displacement_error_threshold = displacement_error_threshold;
+				options.max_num_subdivisions = max_num_subdivisions;
+				options.camera_clip_planes_os = camera_clip_planes_os;
+
+				DisplacementUtils::subdivideAndDisplace(
+					print_output,
+					context,
+					object.getMaterials(),
+					subdivision_smoothing,
+					triangles,
+					quads,
+					vertices,
+					uvs,
+					this->num_uv_sets,
+					options,
+					temp_tris,
+					temp_verts,
+					temp_uvs
+					);
+
+				triangles = temp_tris;
+				vertices = temp_verts;
+				uvs = temp_uvs;
+
+				this->quads.clearAndFreeMem();
+
+				assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+
+				// Check data
+		#ifdef DEBUG
+				for(unsigned int i = 0; i < triangles.size(); ++i)
+					for(unsigned int c = 0; c < 3; ++c)
+					{
+						assert(triangles[i].vertex_indices[c] < vertices.size());
+						if(this->num_uv_sets > 0)
+						{
+							assert(triangles[i].uv_indices[c] < uvs.size());
+						}
+					}
+		#endif	
+				if(verbose) print_output.print("\tDone.");
+			}
+
+#if INDIGO_OPENSUBDIV_SUPPORT
 		}
+#endif // #if INDIGO_OPENSUBDIV_SUPPORT
 	
 		// convert any quads to tris
 		if(this->getNumQuads() > 0)
