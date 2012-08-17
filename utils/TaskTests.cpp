@@ -80,21 +80,93 @@ public:
 };
 
 
+class ForLoopTaskInterleaved : public Indigo::Task
+{
+public:
+	ForLoopTaskInterleaved(const ForLoopTaskClosure& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin(begin_), end(end_), stride(stride_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end) + ", stride: + " + toString(stride));
+
+		for(size_t i = begin; i < end; i += stride)
+		{
+			(*closure.touch_count)[i]++;
+		}
+	}
+
+	const ForLoopTaskClosure& closure;
+	size_t begin, end, stride;
+};
+
+
 void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 {
-	testAssert(task_manager.areAllTasksComplete());
+	{
+		testAssert(task_manager.areAllTasksComplete());
 
-	std::vector<int> touch_count(N, 0);
+		std::vector<int> touch_count(N, 0);
 
-	ForLoopTaskClosure closure;
-	closure.touch_count = &touch_count;
+		ForLoopTaskClosure closure;
+		closure.touch_count = &touch_count;
 
-	task_manager.runParallelForTasks<ForLoopTask, ForLoopTaskClosure>(closure, 0, (int)N);
+		task_manager.runParallelForTasks<ForLoopTask, ForLoopTaskClosure>(closure, 0, (int)N);
 
-	testAssert(task_manager.areAllTasksComplete());
+		testAssert(task_manager.areAllTasksComplete());
 
-	for(size_t i=0; i<N; ++i)
-		testAssert(touch_count[i] == 1);
+		for(size_t i=0; i<N; ++i)
+			testAssert(touch_count[i] == 1);
+	}
+
+	// Try runParallelForTasks() with begin != 0
+	{
+		testAssert(task_manager.areAllTasksComplete());
+
+		// We will add a border of elements that should be zero afterwards.
+		const int border = 10;
+		std::vector<int> touch_count(2*border + N, 0);
+
+		ForLoopTaskClosure closure;
+		closure.touch_count = &touch_count;
+
+		task_manager.runParallelForTasks<ForLoopTask, ForLoopTaskClosure>(closure, border, (int)N + border);
+
+		testAssert(task_manager.areAllTasksComplete());
+
+		for(size_t i=0; i<border; ++i)
+			testAssert(touch_count[i] == 0);
+
+		for(size_t i=border; i<N+border; ++i)
+			testAssert(touch_count[i] == 1);
+
+		for(size_t i=N+border; i<N+border*2; ++i)
+			testAssert(touch_count[i] == 0);
+	}
+
+	// Try runParallelForTasksInterleaved() with begin != 0
+	{
+		testAssert(task_manager.areAllTasksComplete());
+
+		// We will add a border of elements that should be zero afterwards.
+		const int border = 10;
+		std::vector<int> touch_count(2*border + N, 0);
+
+		ForLoopTaskClosure closure;
+		closure.touch_count = &touch_count;
+
+		task_manager.runParallelForTasksInterleaved<ForLoopTaskInterleaved, ForLoopTaskClosure>(closure, border, (int)N + border);
+
+		testAssert(task_manager.areAllTasksComplete());
+
+		for(size_t i=0; i<border; ++i)
+			testAssert(touch_count[i] == 0);
+
+		for(size_t i=border; i<N+border; ++i)
+			testAssert(touch_count[i] == 1);
+
+		for(size_t i=N+border; i<N+border*2; ++i)
+			testAssert(touch_count[i] == 0);
+	}
 }
 
 

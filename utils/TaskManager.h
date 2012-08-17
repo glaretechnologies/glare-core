@@ -141,12 +141,12 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 		const size_t task_begin = begin + t;
 		const size_t stride = num_tasks;
 
-		if(task_begin < end)
-		{
-			TaskType* task = new TaskType(closure, task_begin, end, stride);
+		assert(task_begin >= begin);
+		assert(task_begin < end);
 
-			addTask(task);
-		}
+		TaskType* task = new TaskType(closure, task_begin, end, stride);
+
+		addTask(task);
 	}
 
 	// The tasks should be running.  Wait for them to complete.  This blocks.
