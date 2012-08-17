@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 class Image;
 class FFTPlan;
+namespace Indigo { class TaskManager; }
 
 
 /*=====================================================================
@@ -35,18 +36,21 @@ public:
 	~ImageFilter();
 
 
-	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c);
+	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
 
 	//adds the image in, convolved by a Chiu filter, to out.
 	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);
 
-	static void chromaticAberration(const Image& in, Image& out, float amount);
+	static void chromaticAberration(const Image& in, Image& out, float amount, Indigo::TaskManager& task_manager);
 
 	//static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
+
+	static void lowResConvolve(const Image& in, const Image& filter_low, int ssf, Image& out, Indigo::TaskManager& task_manager);
 
 	// Chooses convolution technique depending on filter size etc..
 	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.
 	static void convolveImageSpatial(const Image& in, const Image& filter, Image& out);
+	static void convolveImageFFTBySections(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFT(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan);
 	static void convolveImageRobinDaviesFFT(const Image& in, const Image& filter, Image& out);

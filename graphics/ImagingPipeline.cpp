@@ -181,7 +181,7 @@ void doTonemapFullBuffer(
 		//if(PROFILE) t.reset();
 		temp_AD_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
 		//camera->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
-		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
+		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
 		temp_summed_buffer = temp_AD_buffer;
 		//for(size_t z = 0; z < bpo.msgs.size(); ++z)
 		//	print_messages_out.push_back(bpo.msgs[z]);

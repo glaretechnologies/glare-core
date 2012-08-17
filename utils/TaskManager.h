@@ -53,6 +53,13 @@ public:
 	template <class Task, class TaskClosure> 
 	void runParallelForTasks(const TaskClosure& closure, size_t begin, size_t end);
 
+	/*
+	In this method, each task has a particular offset and stride, where stride = num tasks.
+	So each task's work indices are interleaved with each other.
+	*/
+	template <class Task, class TaskClosure> 
+	void runParallelForTasksInterleaved(const TaskClosure& closure, size_t begin, size_t end);
+
 
 	ThreadSafeQueue<Task*>& getTaskQueue() { return tasks; }
 	const ThreadSafeQueue<Task*>& getTaskQueue() const { return tasks; }
@@ -114,6 +121,33 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 		i += num_indices_per_task;
 	}
 	assert(i >= end);
+
+	// The tasks should be running.  Wait for them to complete.  This blocks.
+	waitForTasksToComplete();
+}
+
+
+template <class TaskType, class TaskClosure> 
+void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, size_t begin, size_t end)
+{
+	if(begin >= end)
+		return;
+
+	const size_t total = end - begin;
+	const size_t num_tasks = myMin(total, getNumThreads());
+
+	for(size_t t=0; t<num_tasks; ++t)
+	{
+		const size_t task_begin = begin + t;
+		const size_t stride = num_tasks;
+
+		if(task_begin < end)
+		{
+			TaskType* task = new TaskType(closure, task_begin, end, stride);
+
+			addTask(task);
+		}
+	}
 
 	// The tasks should be running.  Wait for them to complete.  This blocks.
 	waitForTasksToComplete();
