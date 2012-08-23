@@ -4,26 +4,25 @@ raymesh.h
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __RAYMESH_H_666_
-#define __RAYMESH_H_666_
+#pragma once
 
 
-#include "../utils/platform.h"
 #include "geometry.h"
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
 #include "../physics/jscol_ObjectTree.h"
+#include "../utils/platform.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include <string>
 #include <memory>
 #include <vector>
 #include <map>
-namespace js{ class Triangle; }
-namespace js{ class EdgeTri; }
 class Material;
 class RendererSettings;
 class PrintOutput;
+namespace js{ class Triangle; }
+namespace js{ class EdgeTri; }
 namespace Indigo{ class Mesh; }
 
 
@@ -146,11 +145,7 @@ SSE_CLASS_ALIGN RayMesh : public Geometry
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	/*=====================================================================
-	RayMesh
-	-------
-	
-	=====================================================================*/
+
 	RayMesh(const std::string& name, bool enable_normal_smoothing, 
 		unsigned int max_num_subdivisions = 0, 
 		double subdivide_pixel_threshold = 0.0, 
@@ -200,7 +195,6 @@ public:
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
-	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
 	Reference<RayMesh> getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const;
@@ -208,45 +202,31 @@ public:
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
 
-	//////////  old ModelLoadingStreamHandler interface /////////////
-	//////////  raymesh does not implement this interface ///////////
-	//////////  anymore but functions are still used by /////////////
-	//////////  fromIndigoMesh() ////////////////////////////////////
+	///// These functions are used by various tests which construct RayMeshes directly. //////
+	// They are also used by World::mergeObjectsToIdentityObject().
+	// None of these functions check the validity of the data being passed in.
+	// This means that all indices should be valid, and normals should be unit length.
 	void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
-	//virtual void addVertex(const Vec3f& pos, const Vec3f& normal, const std::vector<Vec2f>& texcoord_sets);
-	//virtual void addTriangle(const unsigned int* vertex_indices, unsigned int material_index);
 	void addVertex(const Vec3f& pos);
 	void addVertex(const Vec3f& pos, const Vec3f& normal);
 	void addUVs(const std::vector<Vec2f>& uvs);
 	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
 	void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
-
-	//void addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index);
-	void addMaterialUsed(const std::string& material_name);
-	void endOfModel();
 	////////////////////////////////////////////////////////////////
-	void addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
-	void addVertexUnchecked(const Vec3f& pos, const Vec3f& normal);
-
 
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
 	INDIGO_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	//INDIGO_STRONG_INLINE const Vec3f triNormal(unsigned int triindex) const;
 	INDIGO_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
 	INDIGO_STRONG_INLINE const unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
-	//inline const unsigned int getNumVerts() const { return num_vertices; }
-
 	INDIGO_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
-
-	//inline const std::vector<unsigned int>& getTriMaterialIndices() const { return tri_mat_indices; }
 	////////////////////////////////////////////////////////////////////////////
 
 	// This is the number of UV pairs per uv set (layer).
 	inline unsigned int getNumUVGroups() const { return num_uv_sets == 0 ? 0 : (unsigned int)uvs.size() / num_uv_sets; }
 	
-	//Debugging:
-
+	
 	const js::Tree* getTreeDebug() const { return tritree; }
 
 	void printTreeStats();
@@ -254,7 +234,6 @@ public:
 
 
 	const std::vector<RayMeshVertex>& getVertices() const { return vertices; }
-	//const std::vector<RayMeshTriangle>& getTriangles() const { return triangles; }
 	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
@@ -269,49 +248,22 @@ private:
 	void doInitAsEmitter();
 	bool built() const { return tritree != NULL; }
 
-	//inline unsigned int vertSize() const;
-	//inline unsigned int vertOffset(unsigned int vertindex) const; //in units of floats
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
-	//inline const Vec2f& vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
 
 
 	std::string name;
 
-	//std::auto_ptr<js::Tree> tritree;
 	js::Tree* tritree;
 
 	bool enable_normal_smoothing;
 
-	//------------------------------------------------------------------------
-	//compact mesh stuff
-	//------------------------------------------------------------------------
-	/*
-		vertex_data has the following format:
 
-		float pos[3]
-		float normal[3]
-		float texcoords[2][num_texcoord_sets]
-
-		repeated num_vertices times
-
-		for a total size of num_vertices * (num_texcoord_sets*2 + 6) * sizeof(float)
-	*/
-
-	
-
-	
-	//unsigned int num_texcoord_sets;
-	//unsigned int num_vertices;
-	//std::vector<float> vertex_data;
 	std::vector<RayMeshVertex> vertices;
-	//std::vector<RayMeshTriangle> triangles;
 	js::Vector<RayMeshTriangle, 16> triangles;
 	js::Vector<RayMeshQuad, 16> quads;
 
 	float bounding_radius; // Computed in build()
-
-	//std::vector<Vec3f> triangle_geom_normals;
 	
 	unsigned int num_uv_sets;
 	std::vector<Vec2f> uvs;
@@ -336,57 +288,16 @@ private:
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
 {
 	return vertices[vertindex].pos;
-	//assert(vertindex < num_vertices);
-	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }
 
 
 const Vec3f& RayMesh::triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const
 {
-	
-	//const unsigned int vertindex = triangles[triindex].vertex_indices[vertindex_in_tri];
-	
 	return vertices[triangles[triindex].vertex_indices[vertindex_in_tri]].pos;
-	//assert(vertindex < num_vertices);
-	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex)]);
 }
 
 
-/*const Vec3f RayMesh::triNormal(unsigned int triindex) const
-{
-	return tritree->triGeometricNormal(triindex);
-}*/
-
-
-
-
-/*unsigned int RayMesh::vertSize() const
-{
-	return num_texcoord_sets*2 + 6;
-}
-
-unsigned int RayMesh::vertOffset(unsigned int vertindex) const //in units of float
-{
-	assert(vertindex < num_vertices);
-	return vertSize() * vertindex;
-}*/
-	
 const Vec3f& RayMesh::vertNormal(unsigned int vertindex) const
 {
 	return vertices[vertindex].normal;
-	//assert(vertindex < num_vertices);
-	//return *((const Vec3f*)&vertex_data[vertOffset(vertindex) + 3]);
 }
-
-/*const Vec2f& RayMesh::vertTexCoord(unsigned int vertindex, unsigned int texcoord_set_index) const
-{
-	return vertices[vertindex].texcoords[texcoord_set_index];
-
-	//assert(vertindex < num_vertices);
-	//assert(texcoord_set_index < num_texcoord_sets);
-	//return *((const Vec2f*)&vertex_data[vertOffset(vertindex) + 6 + texcoord_set_index*2]);
-}*/
-
-
-#endif //__RAYMESH_H_666_
-

@@ -7,7 +7,9 @@ Code By Nicholas Chapman.
 #include "../indigo/EmbreeAccel.h"
 #include "../indigo/EmbreeInstance.h"
 
+
 #include "raymesh.h"
+
 
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
@@ -641,7 +643,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		displacement_error_threshold
 	));
 
-	new_mesh->matname_to_index_map = matname_to_index_map;
+	// new_mesh->matname_to_index_map = matname_to_index_map;
 
 	// Copy the vertices
 	new_mesh->vertices = vertices;
@@ -1067,7 +1069,6 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, 
 	dp_dbeta_out = v2pos - v0pos;
 
 
-	//if(this->enable_normal_smoothing)
 	if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() != 0)
 	{
 		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
@@ -1187,9 +1188,6 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
-	for(size_t i = 0; i < mesh.used_materials.size(); ++i)
-		this->addMaterialUsed(toStdString(mesh.used_materials[i]));
-
 	// Copy Vertices
 	this->vertices.resize(mesh.vert_positions.size());
 
@@ -1237,7 +1235,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		const Indigo::Triangle& src_tri = mesh.triangles[i];
 
 		// Check material index is in bounds
-		if(src_tri.tri_mat_index >= getMaterialNameToIndexMap().size())
+		if(src_tri.tri_mat_index >= mesh.used_materials.size())
 			throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(mesh.triangles[i].tri_mat_index) + ")");
 
 		// Check vertex indices are in bounds
@@ -1289,7 +1287,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	for(size_t i = 0; i < mesh.quads.size(); ++i)
 	{
 		// Check material index is in bounds
-		if(mesh.quads[i].mat_index >= getMaterialNameToIndexMap().size())
+		if(mesh.quads[i].mat_index >= mesh.used_materials.size())
 			throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(mesh.quads[i].mat_index) + ")");
 
 		// Check vertex indices are in bounds
@@ -1317,12 +1315,6 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		this->quads[i].setMatIndex(mesh.quads[i].mat_index);
 		this->quads[i].setUseShadingNormals(this->enable_normal_smoothing);
 	}
-
-	// UV set expositions
-	//for(unsigned int i=0; i<mesh.uv_set_expositions.size(); ++i)
-	//	this->addUVSetExposition(mesh.uv_set_expositions[i].uv_set_name, mesh.uv_set_expositions[i].uv_set_index);
-
-	this->endOfModel();
 }
 
 
@@ -1334,28 +1326,13 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 
 void RayMesh::addVertex(const Vec3f& pos)
 {
-	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.0f)));
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.f)));
 }
 
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
-	const Vec3f n = normalise(normal);
-
-	if(!isFinite(normal.x) || !isFinite(normal.y) || !isFinite(normal.z))
-		throw ModelLoadingStreamHandlerExcep("Invalid normal");
-	
-	vertices.push_back(RayMeshVertex(pos, n));
-
-	this->vertex_shading_normals_provided = true;
-}
-
-
-void RayMesh::addVertexUnchecked(const Vec3f& pos, const Vec3f& normal)
-{
-	const Vec3f n = normalise(normal);
-
-	vertices.push_back(RayMeshVertex(pos, n));
+	vertices.push_back(RayMeshVertex(pos, normal));
 
 	this->vertex_shading_normals_provided = true;
 }
@@ -1377,25 +1354,6 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 
 void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
-	// Check material index is in bounds
-	if(material_index >= getMaterialNameToIndexMap().size())
-		throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(material_index) + ")");
-
-	// Check vertex indices are in bounds
-	for(unsigned int i = 0; i < 3; ++i)
-		if(vertex_indices[i] >= getNumVerts())
-			throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[i]) + ")");
-
-	// Check uv indices are in bounds
-	if(num_uv_sets > 0)
-	{
-		const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
-		for(unsigned int i = 0; i < 3; ++i)
-			if(uv_indices[i] >= num_uv_groups)
-				throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
-	}
-
-
 	// Check the area of the triangle
 	const float MIN_TRIANGLE_AREA = 1.0e-20f;
 	if(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2])) < MIN_TRIANGLE_AREA)
@@ -1404,64 +1362,35 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 		return;
 	}
 
-	// Push the triangle onto tri array.
-
 	triangles.push_back(RayMeshTriangle());
+	RayMeshTriangle& new_tri = triangles.back();
 	for(unsigned int i = 0; i < 3; ++i)
 	{
-		triangles.back().vertex_indices[i] = vertex_indices[i];
-		triangles.back().uv_indices[i] = uv_indices[i];
+		new_tri.vertex_indices[i] = vertex_indices[i];
+		new_tri.uv_indices[i]     = uv_indices[i];
 	}
 
-	triangles.back().setTriMatIndex(material_index);
-	triangles.back().setUseShadingNormals(this->enable_normal_smoothing);
+	new_tri.setTriMatIndex(material_index);
+	new_tri.setUseShadingNormals(this->enable_normal_smoothing);
 }
 
 
 void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
-	// Check material index is in bounds
-	if(material_index >= getMaterialNameToIndexMap().size())
-		throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(material_index) + ")");
-
-	// Check vertex indices are in bounds
-	for(unsigned int i = 0; i < 4; ++i)
-		if(vertex_indices[i] >= getNumVerts())
-			throw ModelLoadingStreamHandlerExcep("Quad vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[i]) + ")");
-
-	// Check uv indices are in bounds
-	if(num_uv_sets > 0)
-	{
-		const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
-		for(unsigned int i = 0; i < 4; ++i)
-			if(uv_indices[i] >= num_uv_groups)
-				throw ModelLoadingStreamHandlerExcep("Quad uv index is out of bounds.  (uv index=" + toString(uv_indices[i]) + ")");
-	}
-
-
-	// Check the area of the triangle
-/*	const float MIN_TRIANGLE_AREA = 1.0e-20f;
-	if(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2])) < MIN_TRIANGLE_AREA)
-	{
-		//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
-		return;
-	}
-*/
-	// Push the triangle onto tri array.
-
 	quads.push_back(RayMeshQuad());
+	RayMeshQuad& new_quad = quads.back();
 	for(unsigned int i = 0; i < 4; ++i)
 	{
-		quads.back().vertex_indices[i] = vertex_indices[i];
-		quads.back().uv_indices[i] = uv_indices[i];
+		new_quad.vertex_indices[i] = vertex_indices[i];
+		new_quad.uv_indices[i]     = uv_indices[i];
 	}
 
-	quads.back().setMatIndex(material_index);
-	quads.back().setUseShadingNormals(this->enable_normal_smoothing);
+	new_quad.setMatIndex(material_index);
+	new_quad.setUseShadingNormals(this->enable_normal_smoothing);
 }
 
 
-void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals)
+void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals)
 {
 	// Check the area of the triangle
 	const float MIN_TRIANGLE_AREA = 1.0e-20f;
@@ -1473,41 +1402,15 @@ void RayMesh::addTriangleUnchecked(const unsigned int* vertex_indices, const uns
 
 	// Push the triangle onto tri array.
 	triangles.push_back(RayMeshTriangle());
+	RayMeshTriangle& new_tri = triangles.back();
 	for(unsigned int i = 0; i < 3; ++i)
 	{
-		triangles.back().vertex_indices[i] = vertex_indices[i];
-		triangles.back().uv_indices[i] = uv_indices[i];
+		new_tri.vertex_indices[i] = vertex_indices[i];
+		new_tri.uv_indices[i]     = uv_indices[i];
 	}
 
-	triangles.back().setTriMatIndex(material_index);
-	triangles.back().setUseShadingNormals(use_shading_normals);
-}
-
-
-//void RayMesh::addUVSetExposition(const std::string& uv_set_name, unsigned int uv_set_index)
-//{
-//	this->getUVSetNameToIndexMap()[uv_set_name] = uv_set_index;
-//}
-
-
-void RayMesh::addMaterialUsed(const std::string& material_name)
-{
-	if(matname_to_index_map.find(material_name) == matname_to_index_map.end()) // If this name not already added...
-	{
-		const unsigned int mat_index = (unsigned int)matname_to_index_map.size();
-		this->matname_to_index_map[material_name] = mat_index;
-	}
-}
-
-
-void RayMesh::endOfModel()
-{
-	// Check that any UV set expositions actually have the corresponding uv data.
-	/*for(std::map<std::string, unsigned int>::const_iterator i=getUVSetNameToIndexMap().begin(); i != getUVSetNameToIndexMap().end(); ++i)
-	{
-		if((*i).second >= num_uv_sets)
-			throw ModelLoadingStreamHandlerExcep("UV set with index " + toString((*i).second) + " was exposed, but the UV set data was not provided.");
-	}*/
+	new_tri.setTriMatIndex(material_index);
+	new_tri.setUseShadingNormals(use_shading_normals);
 }
 
 
@@ -1856,21 +1759,3 @@ RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 {
 	return bounding_radius;
 }
-
-
-/*const RayMesh::Vec3Type RayMesh::positionForHitInfo(const HitInfo& hitinfo) const
-{
-	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
-
-	const Vec3f& v0 = vertPos( tri.vertex_indices[0] );
-	const Vec3f& v1 = vertPos( tri.vertex_indices[1] );
-	const Vec3f& v2 = vertPos( tri.vertex_indices[2] );
-
-	const Vec3RealType w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return Vec3Type(
-		v0.x * w + v1.x * hitinfo.sub_elem_coords.x + v2.x * hitinfo.sub_elem_coords.y,
-		v0.y * w + v1.y * hitinfo.sub_elem_coords.x + v2.y * hitinfo.sub_elem_coords.y,
-		v0.z * w + v1.z * hitinfo.sub_elem_coords.x + v2.z * hitinfo.sub_elem_coords.y,
-		1.f
-	);
-}*/

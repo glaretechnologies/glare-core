@@ -142,8 +142,6 @@ public:
 		) = 0; // throws GeometryExcep
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 
-	//virtual int UVSetIndexForName(const std::string& uvset_name) const = 0;
-
 	virtual Vec3RealType getBoundingRadius() const = 0;
 
 	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo, Real& pos_os_rel_error_out) const = 0;
@@ -153,17 +151,7 @@ public:
 	void incrementObjectUsageCount() { object_usage_count++; }
 	unsigned int getObjectUsageCount() const { return object_usage_count; }
 
-
-	const std::map<std::string, unsigned int>& getMaterialNameToIndexMap() const { return matname_to_index_map; }
-	//const std::map<std::string, unsigned int>& getUVSetNameToIndexMap() const { return uvset_name_to_index; }
-protected:
-	// Map from material name to the index of the material in the final per-object material array.
-	// Note that this could also be a vector.
-	std::map<std::string, unsigned int> matname_to_index_map;
-	//std::map<std::string, unsigned int>& getUVSetNameToIndexMap() { return uvset_name_to_index; }
-
 private:
-	//std::map<std::string, unsigned int> uvset_name_to_index;
 	unsigned int object_usage_count; // Number of objects that use this geometry.
 };
 

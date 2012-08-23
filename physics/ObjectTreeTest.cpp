@@ -71,7 +71,6 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 
 	RayMesh* raymesh = new RayMesh("quad", false);
-	raymesh->addMaterialUsed("dummy");
 	const unsigned int uv_indices[] = {0, 0, 0};
 
 	{

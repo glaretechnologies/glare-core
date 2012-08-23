@@ -53,7 +53,6 @@ void TreeTest::testBuildCorrect()
 
 	{
 	RayMesh raymesh("raymesh", false);
-	raymesh.addMaterialUsed("dummy");
 
 	const std::vector<Vec2f> texcoord_sets;
 
@@ -143,7 +142,6 @@ void TreeTest::testBuildCorrect()
 
 	{
 	RayMesh raymesh("raymesh", false);
-	raymesh.addMaterialUsed("dummy");
 
 	//const std::vector<Vec2f> texcoord_sets;
 	const unsigned int uv_indices[] = {0, 0, 0};
@@ -213,7 +211,6 @@ void TreeTest::testBuildCorrect()
 
 	{
 	RayMesh raymesh("raymesh", false);
-	raymesh.addMaterialUsed("dummy");
 
 	//const std::vector<Vec2f> texcoord_sets;
 	const unsigned int uv_indices[] = {0, 0, 0};
@@ -300,7 +297,6 @@ static void testSelfIntersectionAvoidance()
 	Indigo::TaskManager task_manager;
 
 	RayMesh raymesh("testmesh", false);
-	raymesh.addMaterialUsed("dummy");
 	const unsigned int uv_indices[] = {0, 0, 0};
 
 	{
@@ -745,7 +741,6 @@ void TreeTest::doTests(const std::string& appdata_path)
 	//------------------------------------------------------------------------
 	{
 	RayMesh raymesh("raymesh", false);
-	raymesh.addMaterialUsed("dummy");
 
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
@@ -771,7 +766,6 @@ void TreeTest::doTests(const std::string& appdata_path)
 	//------------------------------------------------------------------------
 	{
 	RayMesh raymesh("raymesh", false);
-	raymesh.addMaterialUsed("dummy");
 
 	const int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
@@ -821,7 +815,6 @@ void TreeTest::doVaryingNumtrisBuildTests()
 		//Build up a random set of triangles and inserting into a tree
 		//------------------------------------------------------------------------
 		RayMesh raymesh("raymesh", false);
-		raymesh.addMaterialUsed("dummy");
 
 		const std::vector<Vec2f> texcoord_sets;
 		for(int t=0; t<num_tris; ++t)
