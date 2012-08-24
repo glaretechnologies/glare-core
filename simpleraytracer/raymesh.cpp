@@ -1216,14 +1216,33 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		vertex_shading_normals_provided = true;
 	}
 
-	// UVs
+	// Copy UVs from Indigo::Mesh
 	assert(mesh.num_uv_mappings == 0 || (mesh.uv_pairs.size() % mesh.num_uv_mappings == 0));
 
 
 	this->uvs.resize(mesh.uv_pairs.size());
 
-	for(size_t i = 0; i < mesh.uv_pairs.size(); ++i)
-		this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
+	if(mesh.num_uv_mappings > 0) // Need to check this to avoid a divide by zero later.
+	{
+		if(mesh.uv_layout == Indigo::Mesh::UV_LAYOUT_VERTEX_LAYER)
+		{
+			for(size_t i = 0; i < mesh.uv_pairs.size(); ++i)
+				this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
+		}
+		else if(mesh.uv_layout == Indigo::Mesh::UV_LAYOUT_LAYER_VERTEX)
+		{
+			// Copy while re-ordering the UVs
+			size_t num_uvs_per_layer = mesh.uv_pairs.size() / mesh.num_uv_mappings;
+
+			for(uint32 layer=0; layer<mesh.num_uv_mappings; ++layer)
+				for(size_t uv_i = 0; uv_i < num_uvs_per_layer; ++uv_i)
+				{
+					const Indigo::Vec2f& src_pair = mesh.uv_pairs[layer * num_uvs_per_layer + uv_i];
+					// Write
+					this->uvs[uv_i*mesh.num_uv_mappings + layer].set(src_pair.x, src_pair.y);
+				}
+		}
+	}
 
 	const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
 
