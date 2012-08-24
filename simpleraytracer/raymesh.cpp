@@ -1224,12 +1224,12 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	if(mesh.num_uv_mappings > 0) // Need to check this to avoid a divide by zero later.
 	{
-		if(mesh.uv_layout == Indigo::Mesh::UV_LAYOUT_VERTEX_LAYER)
+		if(mesh.uv_layout == Indigo::MESH_UV_LAYOUT_VERTEX_LAYER)
 		{
 			for(size_t i = 0; i < mesh.uv_pairs.size(); ++i)
 				this->uvs[i].set(mesh.uv_pairs[i].x, mesh.uv_pairs[i].y);
 		}
-		else if(mesh.uv_layout == Indigo::Mesh::UV_LAYOUT_LAYER_VERTEX)
+		else if(mesh.uv_layout == Indigo::MESH_UV_LAYOUT_LAYER_VERTEX)
 		{
 			// Copy while re-ordering the UVs
 			size_t num_uvs_per_layer = mesh.uv_pairs.size() / mesh.num_uv_mappings;
