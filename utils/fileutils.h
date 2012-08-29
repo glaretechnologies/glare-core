@@ -59,7 +59,7 @@ const std::string getFilename(const std::string& pathname); // throws FileUtilsE
 /*
 Returns only the filenames, not the full paths
 */
-const std::vector<std::string> getFilesInDir(const std::string& dir_path);
+const std::vector<std::string> getFilesInDir(const std::string& dir_path); // throws FileUtilsExcep
 
 
 //bool dirExists(const std::string& dirname);
@@ -122,7 +122,7 @@ const std::string makeOSFriendlyFilename(const std::string& name);
 /*
 Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
 */
-const std::string getActualOSPath(const std::string& path);
+const std::string getActualOSPath(const std::string& path); // throws FileUtilsExcep
 
 
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
