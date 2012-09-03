@@ -29,6 +29,7 @@ Code By Nicholas Chapman.
 #include "../utils/Task.h"
 #include "fftss.h"
 #include "../utils/timer.h"
+#include "../utils/Plotter.h"
 #ifndef INDIGO_NO_OPENMP
 #include <omp.h>
 #endif
@@ -825,6 +826,10 @@ static void writeImage(const Image& image, const std::string& path)
 static void printImageStats(const Image& image, const std::string& name)
 {
 	conPrint("Image '" + name + "':");
+
+	double mean_sum = 0;
+	double min_val = std::numeric_limits<double>::infinity();
+	double max_val = -std::numeric_limits<double>::infinity();
 	
 	int num_nans = 0;
 	int num_infs = 0;
@@ -839,11 +844,38 @@ static void printImageStats(const Image& image, const std::string& name)
 			num_infs++;
 		else if(c.r < 0 || c.g < 0 || c.b < 0)
 			num_neg++;
+
+		mean_sum += c.averageVal();
+		min_val = myMin<double>(min_val,  c.averageVal());
+		max_val = myMax<double>(max_val,  c.averageVal());
 	}
 
+
+	double mean = mean_sum / image.numPixels();
+
+	printVar(mean);
+	printVar(min_val);
+	printVar(max_val);
 	printVar(num_nans);
 	printVar(num_infs);
 	printVar(num_neg);
+
+
+
+	// Plot intensity of horizontal slice through image.
+	const int y = image.getHeight() / 2;
+
+	Plotter::DataSet dataset;
+
+	int xr = 50;
+	for(int x=myMax(0, (int)image.getWidth()/2 - xr); x<myMin((int)image.getWidth()/2 + xr, (int)image.getWidth()); ++x)
+	{
+		dataset.points.push_back(Vec2f(x, image.getPixel(x, y).r));
+	}
+
+	Plotter::PlotOptions options;
+	//options.y_axis_log = true;
+	Plotter::plot(name + "_plot.png", name, "x", "r", std::vector<Plotter::DataSet>(1, dataset), options);
 }
 
 
@@ -861,6 +893,9 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 		//writeImage(filter_low, "filter.exr");
 
 	FFTPlan plan;
+
+		if(debug_output)
+			printImageStats(in, "in");
 
 	// Downsample in and filter
 	Image in_low(in.getWidth() / ssf, in.getHeight() / ssf);
@@ -885,6 +920,7 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 			writeImage(in_low, "in_low.exr");
 			writeImage(filter_low, "filter_low.exr");
 
+			printImageStats(in_low, "in_low");
 			printImageStats(filter_low, "filter_low");
 		}
 
@@ -929,9 +965,16 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 
 		resize_timer.reset();
 
-	resizeImage(diff_low, diff, (float)ssf, 0.6f, 0.2f, task_manager);
+	//TEMP resizeImage(diff_low, diff, (float)ssf, 0.6f, 0.2f, task_manager);
+	resizeImage(diff_low, diff, (float)ssf, 0.333f, 0.333f, task_manager);
 
 		if(verbose) conPrint("diff upsize took " + resize_timer.elapsedStringNPlaces(4));
+
+		if(debug_output)
+		{
+			writeImage(diff, "diff.exr");
+			printImageStats(diff, "diff");
+		}
 
 	//resizeImage(diff_low, diff, (float)ssf, 1.0f, 0.0f);
 
@@ -955,19 +998,111 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 	);
 
 		writeImage(blurred_diff, "blurred_diff.exr");*/
-		
+
+	// TEMP NEW:
+	//diff.clampInPlace(0, std::numeric_limits<float>::max());
 
 	// Add to in: out = in + diff = in + (convolved - in) = convolved
 
 	// NEW: 
 	// Do a blend between in and in + diff, with alpha based on how bright the pixel is
 
+	// TEMP HACK: Add a gaussian convolution of the in middle pixel around the middle of diff
+
+		//diff.zero(); // TEMP
+
+	////////////////////////////////////////////////////
+	// TEMP HACK: For every really dark pixel in diff, Add in a gaussian convolved with the input at the pixel.
+	/*double mean_sum = 0;
+	double min_val = std::numeric_limits<double>::infinity();
+	double max_val = -std::numeric_limits<double>::infinity();
+	
+	int num_nans = 0;
+	int num_infs = 0;
+	int num_neg = 0;
+	for(int i=0; i<diff.numPixels(); ++i)
+	{
+		const Colour3f& c = diff.getPixel(i);
+
+		if(::isNAN(c.r) || ::isNAN(c.g) || ::isNAN(c.b))
+			num_nans++;
+		else if(::isInf(c.r) || ::isInf(c.g) || ::isInf(c.b))
+			num_infs++;
+		else if(c.r < 0 || c.g < 0 || c.b < 0)
+			num_neg++;
+
+		mean_sum += ::fabs(c.averageVal());
+		min_val = myMin<double>(min_val,  c.averageVal());
+		max_val = myMax<double>(max_val,  c.averageVal());
+	}
+
+
+	double mean = mean_sum / diff.numPixels();
+
+	/////////////////////////////////////////////
+
+	//double threshold = mean * 10000.0f;
+	double threshold = myMax(fabs(min_val), fabs(max_val)) * 0.1f;*/
+
+	//conPrint("--------------- Doing Gaussian splat----------------");
+	//printVar(threshold);
+
+	//TEMP:
+	// Make an image of just the bright pixels
+	//Image threshold_image(diff.getWidth(), diff.getHeight());
+	//threshold_image.zero();
+	
+
+	/*for(int y=0; y<diff.getHeight(); ++y)
+	for(int x=0; x<diff.getWidth(); ++x)
+	{
+		if(fabs(diff.getPixel(x, y).averageVal()) > threshold)
+		{
+			//TEMP:
+			threshold_image.setPixel(x, y, Colour3f(1));
+
+			//conPrint("Pixel " + toString(x) + ", " + toString(y) + " is above threshold.");
+
+			const Colour3f in_middle = in.getPixel(x, y);
+
+			// Splat in a gaussian 
+			int filter_r = 16;
+			int dx_begin = myMax(x - filter_r, 0);
+			int dx_end   = myMin(x + filter_r, (int)diff.getWidth());
+			int dy_begin = myMax(y - filter_r, 0);
+			int dy_end   = myMin(y + filter_r, (int)diff.getHeight());
+
+			for(int dy=dy_begin; dy<dy_end; ++dy)
+			for(int dx=dx_begin; dx<dx_end;  ++dx)
+			{
+				const float r2 = Vec2f(dx, dy).getDist2(Vec2f(x, y));
+
+				diff.getPixel(dx, dy) += in_middle * Maths::eval2DGaussian(
+					r2,
+					3.0f // std deviation
+				);
+			}
+		}
+	}*/
+
+	//TEMP:
+	//writeImage(threshold_image, "threshold_image.exr");
+
+		if(debug_output)
+		{
+			
+			printImageStats(diff, "diff_with_gaussians");
+		}
+
+
 	out = in;
-	out.addImage(diff, 0, 0); // TEMP HACK using blurred_diff
+	out.addImage(diff, 0, 0);
+
 
 		if(debug_output)
 		{
 			writeImage(out, "out.exr");
+			printImageStats(out, "out");
 		}
 
 		if(verbose) conPrint("\tlowResConvolve done.  elapsed: " + t.elapsedStringNPlaces(4));

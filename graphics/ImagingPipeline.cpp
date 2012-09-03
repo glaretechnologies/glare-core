@@ -18,6 +18,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/platform.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
+#include "../utils/stringutils.h"
 #ifndef INDIGO_NO_OPENMP
 //#include <omp.h>
 #endif
@@ -187,6 +188,71 @@ void doTonemapFullBuffer(
 		//	print_messages_out.push_back(bpo.msgs[z]);
 		//if(PROFILE) print_messages_out.push_back("\tDiffraction filter application: " + t.elapsedString());
 	}
+
+
+	if(false) // TEMP renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
+	{
+		conPrint("--------------- Doing overbright pixel spreading----------------");
+
+		temp_AD_buffer.zero();
+
+		float threshold = 1;
+
+		const LinearToneMapper* linear = dynamic_cast<const LinearToneMapper*>(renderer_settings.tone_mapper.getPointer());
+		if(linear != NULL)
+			threshold = 100.f / linear->getScale();
+
+		printVar(threshold);
+
+		// TEMP NEW:
+		// If any pixel is much 'overbright', spread out its energy a bit.
+		// Write to temp_AD_buffer
+		for(int y=0; y<temp_summed_buffer.getHeight(); ++y)
+		for(int x=0; x<temp_summed_buffer.getWidth(); ++x)
+		{
+			const Colour3f in_colour = temp_summed_buffer.getPixel(x, y);
+
+			if(temp_summed_buffer.getPixel(x, y).averageVal() > threshold)
+			{
+				//TEMP:
+				//threshold_image.setPixel(x, y, Colour3f(1));
+
+				conPrint("Pixel " + toString(x) + ", " + toString(y) + " is above threshold.");
+
+			
+
+				// Splat in a gaussian 
+				int filter_r = 16;
+
+				// Get the value of the Gaussian at filter_r
+				const float std_dev = 3.0f;
+				const float offset = Maths::eval2DGaussian(filter_r*filter_r, std_dev);
+
+				printVar(offset);
+
+				int dx_begin = myMax(x - filter_r, 0);
+				int dx_end   = myMin(x + filter_r, (int)temp_summed_buffer.getWidth());
+				int dy_begin = myMax(y - filter_r, 0);
+				int dy_end   = myMin(y + filter_r, (int)temp_summed_buffer.getHeight());
+
+				for(int dy=dy_begin; dy<dy_end; ++dy)
+				for(int dx=dx_begin; dx<dx_end;  ++dx)
+				{
+					const float r2 = Vec2f(dx, dy).getDist2(Vec2f(x, y));
+
+					temp_AD_buffer.getPixel(dx, dy) += in_colour * myMax((float)Maths::eval2DGaussian(r2, std_dev) - offset, 0.0f);
+				}
+			}
+			else
+			{
+				temp_AD_buffer.getPixel(x, y) += in_colour;
+			}
+		}
+
+		temp_summed_buffer = temp_AD_buffer;
+	}
+
+
 
 	// Either tonemap, or do render foreground alpha
 	if(renderer_settings.render_foreground_alpha || renderer_settings.material_id_tracer || renderer_settings.depth_pass)
