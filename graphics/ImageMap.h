@@ -92,6 +92,9 @@ public:
 	inline virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
 
+	inline unsigned int getWidth() const { return width; }
+	inline unsigned int getHeight() const { return height; }
+
 	inline virtual unsigned int getMapWidth() const { return width; }
 	inline virtual unsigned int getMapHeight() const { return height; }
 
@@ -108,7 +111,15 @@ public:
 
 	inline virtual unsigned int getBytesPerPixel() const;
 
+	inline void zero(); // Set all pixels to zero.
+
+	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int destx, int desty) const;
+
+	// Get num components per pixel.
+	inline unsigned int getN() const { return N; }
+
 	V* getData() { return &data[0]; }
+	const V* getData() const { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
 
@@ -121,6 +132,9 @@ private:
 	float gamma;
 };
 
+
+typedef ImageMap<float, FloatComponentValueTraits> ImageMapFloat;
+typedef Reference<ImageMapFloat> ImageMapFloatRef;
 
 //template <class V, class VTraits>
 //ImageMap<V, VTraits>::ImageMap() : width(0), height(0), gamma(2.2f) {}
@@ -513,3 +527,37 @@ unsigned int ImageMap<V, VTraits>::getBytesPerPixel() const
 {
 	return sizeof(V) * N;
 }
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::zero()
+{
+	for(size_t i=0; i<data.size(); ++i)
+		data[i] = 0;
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int destx, int desty) const
+{
+	assert(N == dest.N);
+
+	const int s_h = (int)getHeight();
+	const int s_w = (int)getWidth();
+	const int d_h = (int)dest.getHeight();
+	const int d_w = (int)dest.getWidth();
+
+	// NOTE: this can be optimised to remove the destination pixel valid check.
+		
+	for(int y = 0; y < s_h; ++y)
+	for(int x = 0; x < s_w; ++x)
+	{
+		const int dx = x + destx;
+		const int dy = y + desty;
+
+		if(dx >= 0 && dx < d_w && dy >= 0 && dy < d_h)
+			for(unsigned int c=0; c<N; ++c)
+				dest.getPixel(x, y)[c] = getPixel(x, y)[c];
+	}
+}
+

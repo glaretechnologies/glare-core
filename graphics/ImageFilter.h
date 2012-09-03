@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __IMAGEFILTER_H_666_
 
 
+#include "../graphics/ImageMap.h"
 #include "../utils/array2d.h"
 #include "../utils/reference.h"
 #include "../utils/Exception.h"
@@ -37,6 +38,9 @@ public:
 
 
 	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
+
+	// in and out must have the same number of components (N) and we require N >= 1 and N <= 4
+	static void resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
 
 	//adds the image in, convolved by a Chiu filter, to out.
 	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);

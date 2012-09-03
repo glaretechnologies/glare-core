@@ -266,3 +266,63 @@ void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& path
 		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
 	}
 }
+
+
+//NOTE: Untested.
+void EXRDecoder::saveImageTo32BitEXR(const ImageMapFloat& image, const std::string& pathname)
+{
+	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
+	try
+	{
+		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
+
+		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
+
+		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
+
+		Imf::Header header((int)image.getWidth(), (int)image.getHeight());
+
+
+		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
+
+		if(!(image.getN() == 1 || image.getN() == 3))
+			throw Indigo::Exception("Require 1 or 3 components.");
+
+		if(image.getN() == 3)
+		{
+			header.channels().insert("G", Imf::Channel(Imf::FLOAT));
+			header.channels().insert("B", Imf::Channel(Imf::FLOAT));
+		}
+		Imf::OutputFile file(exr_ofstream, header);                               
+		Imf::FrameBuffer frameBuffer;
+
+		frameBuffer.insert("R",				// name
+			Imf::Slice(Imf::FLOAT,			// type
+			(char*)&image.getPixel(0, 0)[0],			// base
+			image.getBytesPerPixel(),				// xStride
+			image.getBytesPerPixel() * image.getWidth())// yStride
+			);
+
+		if(image.getN() == 3)
+		{
+			frameBuffer.insert("G",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)&image.getPixel(0, 0)[1],			// base
+				image.getBytesPerPixel(),				// xStride
+				image.getBytesPerPixel() * image.getWidth())// yStride
+				);
+			frameBuffer.insert("B",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)&image.getPixel(0, 0)[2],			// base
+				image.getBytesPerPixel(),				// xStride
+				image.getBytesPerPixel() * image.getWidth())// yStride
+				);
+		}
+		file.setFrameBuffer(frameBuffer);
+		file.writePixels((int)image.getHeight());
+	}
+	catch(const std::exception& e)
+	{
+		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
+	}
+}

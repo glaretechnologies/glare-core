@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __EXRDECODER_H_666_
 
 
+#include "ImageMap.h"
 #include <vector>
 #include <map>
 #include <string>
@@ -41,6 +42,7 @@ public:
 
 	// throws Indigo::Exception
 	static void saveImageTo32BitEXR(const Image& image, const std::string& pathname);
+	static void saveImageTo32BitEXR(const ImageMapFloat& image, const std::string& pathname);
 };
 
 

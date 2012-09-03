@@ -427,6 +427,281 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 }
 
 
+///==================================================================================================================
+
+
+struct ResizeImageMapFloatTaskClosure
+{
+	const ImageMapFloat* in;
+	ImageMapFloat* out;
+	float pixel_scale;
+	float recip_scale;
+	int r;
+	float mn_b, mn_c;
+	float norm_factor;
+};
+
+
+template <int N>
+class ResizeImageMapFloatTask : public Indigo::Task
+{
+public:
+	ResizeImageMapFloatTask(const ResizeImageMapFloatTaskClosure& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin((int)begin_), end((int)end_), stride((int)stride_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		// 'Unpack' data from closure ///////
+		const ImageMapFloat& in = *closure.in;
+		ImageMapFloat& out = *closure.out;
+		const float pixel_scale = closure.pixel_scale;
+		const float recip_scale = closure.recip_scale;
+		const int r = closure.r;
+		const float norm_factor = closure.norm_factor;
+
+		MitchellNetravali<float> mn(closure.mn_b, closure.mn_c);
+		//////////////////////////////////////
+
+
+		int out_w = (int)out.getWidth();
+		int out_h = (int)out.getHeight();
+
+		float out_w_2 = out_w * 0.5f;
+		float out_h_2 = out_h * 0.5f;
+
+		int in_w = (int)in.getWidth();
+		int in_h = (int)in.getHeight();
+
+		float in_w_2 = in_w * 0.5f;
+		float in_h_2 = in_h * 0.5f;
+
+		float recip_out_w = 1.0f / out_w;
+		float recip_out_h = 1.0f / out_h;
+
+		float sum[N];
+
+		for(int y = begin; y < end; y += stride)
+		{
+			for(int x=0; x<out_w; ++x)
+			{
+				float destx = x - out_w_2;
+				float desty = y - out_h_2;
+
+				float sx = destx * pixel_scale;
+				float sy = desty * pixel_scale;
+
+				float sx_p = sx + in_w_2;
+				float sy_p = sy + in_h_2;
+
+				// floor to integer pixel indices
+				int sx_pi = (int)std::floor(sx_p);
+				int sy_pi = (int)std::floor(sy_p);
+
+				// compute src filter region
+				int x_begin = myMax(0, sx_pi - r + 1);
+				int y_begin = myMax(0, sy_pi - r + 1);
+
+				int x_end = myMin(in_w, sx_pi + r + 1);
+				int y_end = myMin(in_h, sy_pi + r + 1);
+
+				for(int n=0; n<N; ++n)
+					sum[n] = 0;
+
+				float f_sum = 0;
+				for(int sy=y_begin; sy<y_end; ++sy)
+				for(int sx=x_begin; sx<x_end; ++sx)
+				{
+					float dx = sx - sx_p; 
+					float dy = sy - sy_p;
+					float d2 = dx*dx + dy*dy;
+
+					//assert(fabs(dx) <= ceil(2 * scale));
+					//assert(fabs(dy) <= ceil(2 * scale));
+
+					//assert((int)(scaled_d2 * mn_table_factor) < 1024);
+					//int i = (int)(scaled_d2 * mn_table_factor);
+					//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
+					float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
+					f_sum += f;
+
+					for(int n=0; n<N; ++n)
+						sum[n] += in.getPixel(sx, sy)[n] * f;
+				}
+
+				for(int n=0; n<N; ++n)
+					out.getPixel(x, y)[n] = sum[n] * norm_factor;
+			}
+		}
+	}
+
+	const ResizeImageMapFloatTaskClosure& closure;
+	int begin, end, stride;
+};
+
+
+void ImageFilter::resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+{
+	assert(mn_b >= 0 && mn_b <= 1);
+	assert(mn_c >= 0 && mn_c <= 1);
+
+	assert(in.getN() == out.getN());
+
+	MitchellNetravali<float> mn(mn_b, mn_c);
+
+	// Pixel enlargement scale is the 'zoom factor' of out.
+
+	/*
+		Let the source image be f_s(u, v).
+		Let say we want to compute f_d(s, t) = f_s(s/A, t/A)
+		Let B = 1/A
+		f_d(s, t)
+		= f_s(s/A, t/A)
+		= f_s(s*B, t*B)
+
+		We want to reconstruct f_s at the point (s*B, t*B)
+
+		Suppose we are reconstructing at pointx, and x_i = floor(x).
+		Assuming a support radius of 2.
+		Therefore the point x_1-2 is the largest point before the filter support, and the point x_1+3 is the smallest point above the filter support.
+		So we want to loop over the indices like so:
+		for(int x=x_i-1; x<x_1+3; ++x)
+		In general, with radius r:
+		for(int x=x_i - r + 1; x<x_1 + r + 1; ++x)
+
+		                         
+x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
+  |----------|----------|----------|----------|----------|
+		                  ^
+						  x
+	*/
+
+	float pixel_scale = 1.0f / pixel_enlargement_factor;
+
+	// Scale is how much we enlarge the reconstruction filter on the source image.  We don't want the reconstruction filter less than the original size.
+	// On the other hand, when enlarging the image, we want to widen the filter to filter out high frequency detail.
+	float scale = myMax(1.0f, pixel_scale);
+	float recip_scale = 1.0f / scale;
+
+	float filter_radius = 2 * scale;
+	int r = (int)std::ceil(filter_radius);
+
+
+	
+	
+
+	// Table that maps distance squared to mn value for distance
+	// Entry at index MN_TABLE_SCALE corresponds to MN filter evaluated at d^2 of 1, entry at index MN_TABLE_SCALE*2 corresponds to MN evaled at d^2 of 2, etc..
+	// So last non-zero entry will by at MN_TABLE_SCALE*4, which corresponds to a d^2 of 4, or a distance of 2, which is where the MN function becomes zero.
+	const int MN_TABLE_SCALE_I = 1024;
+	const int MN_TABLE_SIZE = MN_TABLE_SCALE_I * 4;
+
+	float mn_table_factor = MN_TABLE_SCALE_I;
+
+	float mn_table[MN_TABLE_SIZE];
+	for(int i=0; i<MN_TABLE_SIZE; ++i)
+	{
+		float d2 = i * (1 / mn_table_factor);
+		float d = std::sqrt(d2);
+		mn_table[i] = mn.eval(d) * recip_scale;
+	}
+
+
+	int out_w = (int)out.getWidth();
+	int out_h = (int)out.getHeight();
+
+	float out_w_2 = out_w * 0.5f;
+	float out_h_2 = out_h * 0.5f;
+
+	int in_w = (int)in.getWidth();
+	int in_h = (int)in.getHeight();
+
+	float in_w_2 = in_w * 0.5f;
+	float in_h_2 = in_h * 0.5f;
+
+	float recip_out_w = 1.0f / out_w;
+	float recip_out_h = 1.0f / out_h;
+
+	// Get normalisation factor for filter
+	float norm_factor = 1;
+	float precomputed_f_sum = 1;
+	{
+		int x_begin = 0 - r + 1;
+		int y_begin = 0 - r + 1;
+
+		int x_end = 0 + r + 1;
+		int y_end = 0 + r + 1;
+
+		float f_sum = 0;
+		for(int sy=y_begin; sy<y_end; ++sy)
+		for(int sx=x_begin; sx<x_end; ++sx)
+		{
+			float dx = sx - 0.f; 
+			float dy = sy - 0.f;
+			float d2 = dx*dx + dy*dy;
+			//float scaled_d2 = d2 * recip_scale;
+
+			assert(fabs(dx) <= ceil(2 * scale));
+			assert(fabs(dy) <= ceil(2 * scale));
+
+			float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
+			f_sum += f;
+		}
+
+		precomputed_f_sum = f_sum;
+		norm_factor = 1 / f_sum;
+	}
+
+
+	ResizeImageMapFloatTaskClosure closure;
+	closure.in = &in;
+	closure.out = &out;
+	closure.pixel_scale = pixel_scale;
+	closure.recip_scale = recip_scale;
+	closure.r = r;
+	closure.mn_b = mn_b;
+	closure.mn_c = mn_c;
+	closure.norm_factor = norm_factor;
+
+	if(in.getN() == 1)
+	{
+		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<1>, ResizeImageMapFloatTaskClosure>(
+			closure, 
+			0, // begin
+			out_h // end
+		);
+	}
+	else if(in.getN() == 2)
+	{
+		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<2>, ResizeImageMapFloatTaskClosure>(
+			closure, 
+			0, // begin
+			out_h // end
+		);
+	}
+	else if(in.getN() == 3)
+	{
+		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<3>, ResizeImageMapFloatTaskClosure>(
+			closure, 
+			0, // begin
+			out_h // end
+		);
+	}
+	else if(in.getN() == 4)
+	{
+		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<4>, ResizeImageMapFloatTaskClosure>(
+			closure, 
+			0, // begin
+			out_h // end
+		);
+	}
+	else
+	{
+		assert(0);
+	}
+
+}
+
+
+
 // Defined in fft4f2d.c
 extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
 
