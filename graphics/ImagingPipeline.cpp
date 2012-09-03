@@ -10,6 +10,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/ToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
+#include "../indigo/LinearToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
 #include "../indigo/globals.h"
 #include "../simpleraytracer/camera.h"
