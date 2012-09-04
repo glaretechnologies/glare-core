@@ -171,88 +171,117 @@ void doTonemapFullBuffer(
 	//Timer t;
 	//const bool PROFILE = false;
 
+
+	// Get float XYZ->sRGB matrix
+	Matrix3f XYZ_to_sRGB;
+	if(image_buffer_in_XYZ)
+		for(int i = 0; i < 9; ++i)
+			XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
+	else
+		XYZ_to_sRGB = Matrix3f::identity();
+
+	// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
+	// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
+	float avg_lumi = 0, max_lumi = 0;
+	const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
+	if(reinhard != NULL)
+		reinhard->computeLumiScales(XYZ_to_sRGB, layers, layer_weights, avg_lumi, max_lumi);
+
+	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+
+
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
 	sumBuffers(layer_weights, layers, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
-	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
+	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && post_pro_diffraction.nonNull())
 	{
 		BufferedPrintOutput bpo;
-		//if(PROFILE) t.reset();
 		temp_AD_buffer.resize(layers[0].getWidth(), layers[0].getHeight());
-		//camera->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer);
 		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
-		temp_summed_buffer = temp_AD_buffer;
-		//for(size_t z = 0; z < bpo.msgs.size(); ++z)
-		//	print_messages_out.push_back(bpo.msgs[z]);
-		//if(PROFILE) print_messages_out.push_back("\tDiffraction filter application: " + t.elapsedString());
-	}
-
-
-	if(false) // TEMP renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
-	{
-		conPrint("--------------- Doing overbright pixel spreading----------------");
-
-		temp_AD_buffer.zero();
-
-		float threshold = 1;
-
-		const LinearToneMapper* linear = dynamic_cast<const LinearToneMapper*>(renderer_settings.tone_mapper.getPointer());
-		if(linear != NULL)
-			threshold = 100.f / linear->getScale();
-
-		printVar(threshold);
-
-		// TEMP NEW:
-		// If any pixel is much 'overbright', spread out its energy a bit.
-		// Write to temp_AD_buffer
-		for(int y=0; y<temp_summed_buffer.getHeight(); ++y)
-		for(int x=0; x<temp_summed_buffer.getWidth(); ++x)
+		
+		// Do 'overbright' pixel spreading.
+		// The idea here is that any really bright pixels can cause artifacts due to aperture diffraction, such as dark rings
+		// a few pixels wide around bright, small light sources.
+		// So for such pixels, we spread out the pixel's energy over a small region with a Gaussian filter.
+		const bool DO_OVERBRIGHT_PIXEL_SPREADING = true;
+		if(DO_OVERBRIGHT_PIXEL_SPREADING)
 		{
-			const Colour3f in_colour = temp_summed_buffer.getPixel(x, y);
+			//conPrint("--------------- Doing overbright pixel spreading----------------");
+			Timer timer2;
 
-			if(temp_summed_buffer.getPixel(x, y).averageVal() > threshold)
+			// We will write modified image back to temp_summed_buffer, so clear it first.
+			temp_summed_buffer.zero();
+
+			// Compute white threshold for the current tone mapper.
+			// This is the value of a pixel that will get tone mapped to white.
+			const float white_threshold = renderer_settings.tone_mapper->getWhiteThreshold(tonemap_params);
+
+			// Compute the overbright threshold.
+			// The lower this value is, the greater the number of pixels that will get blurred.
+			// If it's too low too much of the image will be blurred.
+			// If it's too high however, we will let A.D. artifacts through.
+			const float overbright_threshold = 10.0f * white_threshold;
+
+			//printVar(white_threshold);
+			//printVar(overbright_threshold);
+
+			// This constant (5.0) is chosen so that offset will be pretty small (~= 1e-7).
+			const int filter_r = (int)ceil(renderer_settings.super_sample_factor * 5.0);
+
+			// Get the value of the Gaussian at filter_r
+			const float std_dev = (float)renderer_settings.super_sample_factor;
+			const float gaussian_scale_factor = 1 / (Maths::get2Pi<float>() * std_dev*std_dev);
+			const float gaussian_exponent_factor = -1 / (2*std_dev*std_dev);
+
+			const float offset = Maths::eval2DGaussian<float>((float)(filter_r*filter_r), std_dev);
+			//printVar(offset);
+			int num_overbright_pixels = 0;
+
+			for(int y=0; y<temp_AD_buffer.getHeight(); ++y)
+			for(int x=0; x<temp_AD_buffer.getWidth(); ++x)
 			{
-				//TEMP:
-				//threshold_image.setPixel(x, y, Colour3f(1));
+				const Colour3f& in_colour = temp_AD_buffer.getPixel(x, y);
 
-				conPrint("Pixel " + toString(x) + ", " + toString(y) + " is above threshold.");
-
-			
-
-				// Splat in a gaussian 
-				int filter_r = 16;
-
-				// Get the value of the Gaussian at filter_r
-				const float std_dev = 3.0f;
-				const float offset = Maths::eval2DGaussian(filter_r*filter_r, std_dev);
-
-				printVar(offset);
-
-				int dx_begin = myMax(x - filter_r, 0);
-				int dx_end   = myMin(x + filter_r, (int)temp_summed_buffer.getWidth());
-				int dy_begin = myMax(y - filter_r, 0);
-				int dy_end   = myMin(y + filter_r, (int)temp_summed_buffer.getHeight());
-
-				for(int dy=dy_begin; dy<dy_end; ++dy)
-				for(int dx=dx_begin; dx<dx_end;  ++dx)
+				if(temp_AD_buffer.getPixel(x, y).averageVal() > overbright_threshold)
 				{
-					const float r2 = Vec2f(dx, dy).getDist2(Vec2f(x, y));
+					// conPrint("Pixel " + toString(x) + ", " + toString(y) + " is above threshold.");
 
-					temp_AD_buffer.getPixel(dx, dy) += in_colour * myMax((float)Maths::eval2DGaussian(r2, std_dev) - offset, 0.0f);
+					// Splat in a gaussian 
+					int dx_begin = myMax(x - filter_r, 0);
+					int dx_end   = myMin(x + filter_r, (int)temp_AD_buffer.getWidth());
+					int dy_begin = myMax(y - filter_r, 0);
+					int dy_end   = myMin(y + filter_r, (int)temp_AD_buffer.getHeight());
+
+					for(int dy=dy_begin; dy<dy_end; ++dy)
+					for(int dx=dx_begin; dx<dx_end; ++dx)
+					{
+						const float r2 = Maths::square((float)dx - (float)x) + Maths::square((float)dy - (float)y);
+
+						// See http://mathworld.wolfram.com/GaussianFunction.html , eqn 9.
+						const float gaussian = gaussian_scale_factor * std::exp(gaussian_exponent_factor * r2); 
+
+						temp_summed_buffer.getPixel(dx, dy) += in_colour * myMax(gaussian - offset, 0.0f);
+					}
+
+					num_overbright_pixels++;
+				}
+				else
+				{
+					temp_summed_buffer.getPixel(x, y) += in_colour;
 				}
 			}
-			else
-			{
-				temp_AD_buffer.getPixel(x, y) += in_colour;
-			}
+
+			//printVar(num_overbright_pixels);
+			//conPrint("Overbright pixel spreading took " + timer2.elapsedStringNPlaces(5));
 		}
-
-		temp_summed_buffer = temp_AD_buffer;
+		else
+		{
+			temp_summed_buffer = temp_AD_buffer;
+		}
 	}
-
 
 
 	// Either tonemap, or do render foreground alpha
@@ -265,42 +294,11 @@ void doTonemapFullBuffer(
 	{
 		//if(PROFILE) t.reset();
 
-		// Get float XYZ->sRGB matrix
-		Matrix3f XYZ_to_sRGB;
-		if(image_buffer_in_XYZ)
-			for(int i = 0; i < 9; ++i)
-				XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
-		else
-			XYZ_to_sRGB = Matrix3f::identity();
-
-		// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
-		// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
-		float avg_lumi = 0, max_lumi = 0;
-		const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
-		if(reinhard != NULL)
-			reinhard->computeLumiScales(XYZ_to_sRGB, layers, layer_weights, avg_lumi, max_lumi);
-
-		const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
-
 		const int final_xres = (int)temp_summed_buffer.getWidth();
 		const int final_yres = (int)temp_summed_buffer.getHeight();
 		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
 		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
 		const int num_tiles = x_tiles * y_tiles;
-
-		/*#ifndef INDIGO_NO_OPENMP
-		#pragma omp parallel for// schedule(dynamic, 1)
-		#endif
-		for(int tile = 0; tile < num_tiles; ++tile)
-		{
-			// Get the final image tile bounds for the tile index
-			const int tile_x = tile % x_tiles;
-			const int tile_y = tile / x_tiles;
-			const int x_min  = tile_x * image_tile_size, x_max = std::min<int>(final_xres, (tile_x + 1) * image_tile_size);
-			const int y_min  = tile_y * image_tile_size, y_max = std::min<int>(final_yres, (tile_y + 1) * image_tile_size);
-
-			renderer_settings.tone_mapper->toneMapSubImage(tonemap_params, temp_summed_buffer, x_min, y_min, x_max, y_max);
-		}*/
 
 		ToneMapTaskClosure closure;
 		closure.renderer_settings = &renderer_settings;

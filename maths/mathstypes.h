@@ -416,11 +416,12 @@ inline double inverse1DGaussian(double G, double standard_dev)
 }
 
 
-inline double eval2DGaussian(double dist2, double standard_dev)
+template <class Real>
+inline Real eval2DGaussian(Real dist2, Real standard_dev)
 {
-	const double recip_standard_dev_2 = 1.0 / (standard_dev*standard_dev);
+	const Real recip_standard_dev_2 = 1 / (standard_dev*standard_dev);
 
-	return NICKMATHS_RECIP_2PI * recip_standard_dev_2 * exp(-0.5 * dist2 * recip_standard_dev_2);
+	return Maths::recip2Pi<Real>() * recip_standard_dev_2 * std::exp((Real)-0.5 * dist2 * recip_standard_dev_2); 
 }
 
 
