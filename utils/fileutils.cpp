@@ -896,8 +896,10 @@ void deleteDirectoryRecursive(const std::string& path)
 		{
 			std::string file_path = join(path, files[i]);
 
-			if(isDirectory(file_path)) deleteDirectoryRecursive(file_path);
-			else deleteFile(file_path);
+			if(isDirectory(file_path))
+				deleteDirectoryRecursive(file_path);
+			else 
+				deleteFile(file_path);
 		}
 	}
 
