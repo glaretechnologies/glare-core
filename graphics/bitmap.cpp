@@ -195,3 +195,11 @@ void Bitmap::blitToImage(int src_start_x, int src_start_y, int src_end_x, int sr
 					dest.setPixelComp(dx, dy, c, getPixelComp(x, y, c));
 		}
 }
+
+
+void Bitmap::zero()
+{
+	const size_t datasize = data.size();
+	for(size_t i=0; i<datasize; ++i)
+		data[i] = 0;
+}
