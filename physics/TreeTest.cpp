@@ -591,6 +591,90 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, NULL, std::numeric_limits<unsigned int>::max());
 			testAssert(hit == hit_);
 		}
+	} // End for each ray
+
+	//------------------------------------------------------------------------
+	// Test traceRay() with a ray with NaN components
+	// We just want to make sure the trace methods don't crash.  (Embree was crashing on Mac with NaN rays)
+	//------------------------------------------------------------------------
+	const float NaN = std::numeric_limits<float>::quiet_NaN();
+	const float max_t = 100000.0f;
+	for(size_t t = 0; t < trees.size(); ++t)
+	{
+		// Try with NaNs in the direction vector
+		{
+		Ray ray(
+			Vec4f(0, 0, 0, 1.0f), 
+			Vec4f(NaN, NaN, NaN, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		}
+		// Try with NaNs in the position vector
+		{
+		Ray ray(
+			Vec4f(NaN, NaN, NaN, 1.0f), 
+			Vec4f(0, 0, 0, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		}
+	}
+
+	//------------------------------------------------------------------------
+	//Test doesFiniteRayHit() with a ray with NaN components
+	//------------------------------------------------------------------------
+	for(size_t t = 0; t < trees.size(); ++t)
+	{
+		// Try with NaNs in the direction vector
+		{
+		Ray ray(
+			Vec4f(0, 0, 0, 1.0f), 
+			Vec4f(NaN, NaN, NaN, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		trees[t]->doesFiniteRayHit(ray, 1000.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max());
+		}
+		// Try with NaNs in the position vector
+		{
+		Ray ray(
+			Vec4f(NaN, NaN, NaN, 1.0f), 
+			Vec4f(0, 0, 0, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		trees[t]->doesFiniteRayHit(ray, 1000.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max());
+		}
+	}
+
+	//------------------------------------------------------------------------
+	// Test getAllHits() with a ray with NaN components
+	//------------------------------------------------------------------------
+	for(size_t t = 0; t < trees.size(); ++t)
+	{
+		// Try with NaNs in the direction vector
+		{
+		Ray ray(
+			Vec4f(0, 0, 0, 1.0f), 
+			Vec4f(NaN, NaN, NaN, 0),
+			1.0e-05f // t_min
+		);
+		std::vector<DistanceHitInfo> hitinfos;
+		trees[t]->getAllHits(ray, thread_context, NULL, hitinfos);
+		}
+		// Try with NaNs in the position vector
+		{
+		Ray ray(
+			Vec4f(NaN, NaN, NaN, 1.0f), 
+			Vec4f(0, 0, 0, 0),
+			1.0e-05f // t_min
+		);
+		std::vector<DistanceHitInfo> hitinfos;
+		trees[t]->getAllHits(ray, thread_context, NULL, hitinfos);
+		}
 	}
 
 	// Delete trees
