@@ -24,9 +24,12 @@ public:
 	----
 	
 	=====================================================================*/
-	Lock(Mutex& mutex);//blocking
+	Lock(Mutex& mutex); // blocking
 
 	~Lock();
+
+	// Just for debugging
+	const Mutex& getMutex() const { return mutex; }
 
 private:
 	Mutex& mutex;
