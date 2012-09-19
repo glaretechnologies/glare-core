@@ -373,7 +373,7 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		// Throw exception if we are supposed to do a view-dependent subdivision
 		//if(subdivide_pixel_threshold > 0.0)
 		if(view_dependent_subdivision && max_num_subdivisions > 0)
-			throw GeometryExcep("Tried to do a view-dependent subdivision on an instanced mesh.");
+			throw GeometryExcep("Tried to do a view-dependent subdivision on instanced mesh '" + object.getGeometry().getName() + "'.");
 
 		// else not an error, but we don't need to subdivide again.
 	}
