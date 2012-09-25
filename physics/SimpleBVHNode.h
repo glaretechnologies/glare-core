@@ -24,7 +24,6 @@ class SimpleBVHNode
 {
 public:
 	inline SimpleBVHNode() {}
-	inline ~SimpleBVHNode() {}
 
 	inline static size_t requiredAlignment() { return 64; }
 

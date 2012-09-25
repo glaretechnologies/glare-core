@@ -37,8 +37,8 @@ public:
 		z(other.z)
 	{}
 
-	NOTHROW VEC3_INLINE ~TestVec3() throw ()
-	{}
+	//NOTHROW VEC3_INLINE ~TestVec3() throw ()
+	//{}
 
 	NOTHROW VEC3_INLINE TestVec3(TVReal x_, TVReal y_, TVReal z_) throw ()
 	:	x(x_),
@@ -110,7 +110,7 @@ float VectorTest::test()
 
 	// Run a test using methods that return the vec3.
 	{
-		//Timer timer;
+		Timer timer;
 		TestVec3 c(0.f, 0.f, 0.f);
 		for(int i=0; i<N; ++i)
 		{
@@ -119,10 +119,10 @@ float VectorTest::test()
 			c += temp;
 		}
 
-		/*conPrint(toString(c.x));
+		conPrint(toString(c.x));
 		conPrint(toString(c.y));
 		conPrint(toString(c.z));
-		conPrint(timer.elapsedString());*/
+		conPrint(timer.elapsedString());
 		return c.x;
 	}
 

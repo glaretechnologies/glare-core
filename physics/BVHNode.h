@@ -26,8 +26,6 @@ public:
 
 	inline BVHNode() { assert(sizeof(BVHNode) == 64); }
 
-	inline ~BVHNode() {}
-
 	//inline static size_t requiredAlignment() { return 64; }
 	static const int REQUIRED_ALIGNMENT = 64;
 

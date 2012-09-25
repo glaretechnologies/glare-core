@@ -38,7 +38,6 @@ public:
 	=====================================================================*/
 	inline AABBox();
 	inline AABBox(const Vec4f& _min, const Vec4f& _max);
-	inline ~AABBox();
 
 	inline bool operator == (const AABBox& rhs) const;
 
@@ -86,10 +85,6 @@ AABBox::AABBox(const Vec4f& _min, const Vec4f& _max)
 	assert(sizeof(AABBox) == 32);
 }
 
-
-AABBox::~AABBox()
-{
-}
 
 /*
 void AABBox::enlargeToHoldPoint(const Vec3f& p)

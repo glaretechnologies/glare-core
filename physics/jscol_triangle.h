@@ -17,8 +17,6 @@ public:
 //	inline Triangle(const Triangle& rhs);
 	inline Triangle(const Vec3f& v1, const Vec3f& v2, const Vec3f& v3);
 
-	inline ~Triangle(){}
-
 	//inline Triangle& operator = (const Triangle& rhs);
 	inline bool operator == (const Triangle& rhs) const;
 

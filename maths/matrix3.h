@@ -52,8 +52,6 @@ public:
 	================================================================================*/
 	inline Matrix3(Real rot_around_xaxis, Real rot_around_y_axis, Real rot_around_z_axis);
 
-	inline ~Matrix3();
-
 	static const Matrix3 buildMatrixFromRows(const Vec3<Real>& row0, 
 							const Vec3<Real>& row1, const Vec3<Real>& row2);
 
@@ -230,11 +228,6 @@ Matrix3<Real>::Matrix3(Real rot_around_xaxis, Real rot_around_y_axis, Real rot_a
 }
 
 
-
-
-template <class Real>
-Matrix3<Real>::~Matrix3()
-{}
 
 template <class Real>
 Real& Matrix3<Real>::elem(unsigned int i, unsigned int j)

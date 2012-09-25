@@ -23,9 +23,7 @@ class Quat
 {
 public:
 	inline Quat() {}
-	inline Quat(const Quat& other);
 	inline Quat(const Vec3<Real>& v, Real w);
-	inline ~Quat() {}
 
 	static inline const Quat identity() { return Quat(Vec3<Real>(0.0), (Real)1.0); }
 
@@ -69,11 +67,6 @@ template <class Real> inline Real dotProduct(const Quat<Real>& a, const Quat<Rea
 {
 	return a.w * b.w + dot(a.v, b.v);
 }
-
-
-template <class Real> Quat<Real>::Quat(const Quat<Real>& other)
-:	v(other.v), w(other.w)
-{}
 
 
 template <class Real> Quat<Real>::Quat(const Vec3<Real>& v_, Real w_)

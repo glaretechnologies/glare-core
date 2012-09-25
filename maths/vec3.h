@@ -33,12 +33,9 @@ class Vec3
 {
 public:
 
-	typedef /*typename*/ Real RealType;
+	typedef Real RealType;
 
 	VEC3_INLINE Vec3()
-	{}
-
-	VEC3_INLINE ~Vec3()
 	{}
 
 	VEC3_INLINE explicit Vec3(Real x_)
@@ -52,15 +49,6 @@ public:
 		y(y_),
 		z(z_)
 	{}
-
-	/*
-	NEW:
-	VEC3_INLINE Vec3(const Vec3& rhs)
-	:	x(rhs.x),
-		y(rhs.y),
-		z(rhs.z)
-	{}*/
-
 
 	VEC3_INLINE Vec3(const Real* f)
 	:	x(f[0]),

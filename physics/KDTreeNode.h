@@ -78,8 +78,7 @@ public:
 	inline KDTreeNode();
 	inline KDTreeNode(/*uint32 node_type, */uint32 axis, float split, uint32 right_child_node_index); // Interior node constructor
 	inline KDTreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom); // Leaf constructor
-	inline ~KDTreeNode();
-	
+
 	static const uint32 NODE_TYPE_LEAF = 0;
 	static const uint32 NODE_TYPE_INTERIOR = 1;
 	//static const uint32 NODE_TYPE_LEFT_CHILD_ONLY = 1;
@@ -135,8 +134,6 @@ KDTreeNode::KDTreeNode(uint32 leaf_geom_index, uint32 num_leaf_geom) // Leaf con
 	data = leaf_geom_index << TREENODE_LEAF_DATA_OFFSET;
 }
 
-KDTreeNode::~KDTreeNode()
-{}
 
 uint32 KDTreeNode::getNodeType() const
 {

@@ -28,9 +28,6 @@ public:
 	inline Matrix2();
 	inline Matrix2(Real a, Real b, Real c, Real d);
 
-	inline ~Matrix2();
-
-
 	inline static const Matrix2 identity();
 
 	inline bool operator == (const Matrix2& rhs) const;
@@ -77,11 +74,6 @@ Matrix2<Real>::Matrix2(Real a, Real b, Real c, Real d)
 	e[2] = c;
 	e[3] = d;
 }
-
-
-template <class Real>
-Matrix2<Real>::~Matrix2()
-{}
 
 
 template <class Real>

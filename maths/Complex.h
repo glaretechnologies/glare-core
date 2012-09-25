@@ -22,7 +22,6 @@ public:
 
 	inline Complex(){}
 	inline Complex(Real a_, Real b_);
-	inline ~Complex(){}
 
 	inline static const Complex fromModulusAndArg(Real modulus, Real arg);
 

@@ -33,8 +33,6 @@ public:
 	INDIGO_STRONG_INLINE Vec4f(__m128 v_) : v(v_) {}
 	INDIGO_STRONG_INLINE explicit Vec4f(float f) { x[0] = f, x[1] = f, x[2] = f, x[3] = f; }
 
-	INDIGO_STRONG_INLINE ~Vec4f() {}
-
 	INDIGO_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
 
 	INDIGO_STRONG_INLINE Vec4f& operator = (const Vec4f& a);

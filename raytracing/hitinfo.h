@@ -38,8 +38,6 @@ public:
 
 	inline HitInfo(unsigned int sub_elem_index, const SubElemCoordsType& sub_elem_coords);
 
-	inline ~HitInfo(){}
-
 	inline bool operator == (const HitInfo& rhs) const;
 
 

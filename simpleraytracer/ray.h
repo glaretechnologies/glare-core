@@ -64,8 +64,6 @@ public:
 			);
 	}
 
-	INDIGO_STRONG_INLINE ~Ray(){}
-
 	INDIGO_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
 	INDIGO_STRONG_INLINE const Vec4f& unitDir() const { return unitdir_f; }
 

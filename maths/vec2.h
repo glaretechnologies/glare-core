@@ -37,16 +37,12 @@ Coded by NIck Chapman in the year 2000
 #include "mathstypes.h"
 
 
-
 template <class Real>
 class Vec2
 {
 public:
 
 	inline Vec2()
-	{}
-
-	inline ~Vec2()
 	{}
 
 	inline Vec2(Real v)
@@ -57,11 +53,6 @@ public:
 	inline Vec2(Real x_, Real y_)
 	:	x(x_),
 		y(y_)
-	{}
-
-	inline Vec2(const Vec2& rhs)
-	:	x(rhs.x),
-		y(rhs.y)
 	{}
 
 	inline void set(Real newx, Real newy)

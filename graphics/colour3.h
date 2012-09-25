@@ -33,25 +33,11 @@ public:
 	:	r(r_), g(g_), b(b_) 
 	{}
 
-	Colour3(const Colour3& rhs)
-	:	r(rhs.r),
-		g(rhs.g),
-		b(rhs.b)
-	{}
-
-	/*explicit Colour3(const Colour3<double>& rhs)
-	:	r((Real)rhs.r),
-		g((Real)rhs.g),
-		b((Real)rhs.b)
-	{}*/
-
 	explicit Colour3(const Vec3<Real>& v)
 	:	r(v.x),
 		g(v.y),
 		b(v.z)
 	{}
-
-	~Colour3(){}
 
 	const Colour3<double> toColour3d() const { return Colour3<double>(r, g, b); }
 

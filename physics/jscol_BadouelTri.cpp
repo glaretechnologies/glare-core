@@ -24,11 +24,6 @@ BadouelTri::BadouelTri()
 }
 
 
-BadouelTri::~BadouelTri()
-{
-
-}
-
 void BadouelTri::set(const Vec3f& vert0, const Vec3f& vert1, const Vec3f& vert2)
 {
 	//NOTE: counterclockwise winding order for front faces.

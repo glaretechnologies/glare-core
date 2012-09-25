@@ -13,7 +13,6 @@ class MultiLevelGridNode
 {
 public:
 	MultiLevelGridNode();
-	~MultiLevelGridNode();
 
 
 	inline void setBaseChildIndex(uint32 base_child_index_) { base_child_index = base_child_index_; }
@@ -54,12 +53,6 @@ MultiLevelGridNode<NodeData>::MultiLevelGridNode()
 {
 	base_child_index = 0;
 	interior = 0;
-}
-
-
-template <class NodeData>
-MultiLevelGridNode<NodeData>::~MultiLevelGridNode()
-{
 }
 
 

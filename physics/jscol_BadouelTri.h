@@ -29,7 +29,6 @@ class BadouelTri
 {
 public:
 	BadouelTri();
-	~BadouelTri();
 
 	void set(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2);
 
