@@ -474,7 +474,7 @@ uint64 getFileSize(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw Indigo::Exception("CreateFile failed: " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("CreateFile failed: " + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;
@@ -483,7 +483,7 @@ uint64 getFileSize(const std::string& path)
 		&file_size_li
 	);
 	if(!res)
-		throw Indigo::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
 
 	// Close the file
 	res = CloseHandle(file_handle);
@@ -498,7 +498,7 @@ uint64 getFileSize(const std::string& path)
 		O_RDONLY);
 
 	if(linux_file_handle <= 0)
-		throw Indigo::Exception("File open failed.");
+		throw FileUtilsExcep("File open failed.");
 
 	off_t file_size = lseek(linux_file_handle, 0, SEEK_END);
 
@@ -1112,6 +1112,21 @@ void doUnitTests()
 	catch(FileUtilsExcep& e)
 	{
 		failTest(e.what());
+	}
+
+	try
+	{
+		getFileSize(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh_that_doesnt_exist.obj");
+
+		failTest("No exception thrown by getFileSize() for nonexistent file.");
+	}
+	catch(FileUtilsExcep&)
+	{
+		//Test successful.
+	}
+	catch(...)
+	{
+		failTest("Wrong type of exception thrown by getFileSize()");
 	}
 
 	/////////////////////////////////////////////
