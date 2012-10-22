@@ -26,6 +26,7 @@ public:
 
 	int getFilterSpan(int supersample_factor) const;
 	float* getFilterData(int supersample_factor);
+	const std::vector<float> getFilterDataVec(int supersample_factor) const;
 
 	virtual const std::string description() const = 0;
 
