@@ -224,10 +224,33 @@ void doTonemapFullBuffer(
 			// The lower this value is, the greater the number of pixels that will get blurred.
 			// If it's too low too much of the image will be blurred.
 			// If it's too high however, we will let A.D. artifacts through.
-			const float overbright_threshold = 10.0f * white_threshold;
+			float overbright_threshold = 10.0f * white_threshold;
 
-			//printVar(white_threshold);
-			//printVar(overbright_threshold);
+			// Keep raising the overbright threshold until < NUM_OVERBRIGHT_PIXEL_THRESHOLD pixels are overbright.
+			for(int z=0; z<10; ++z)
+			{
+				size_t num_overbright_pixels = 0; // Might be more than 2^32
+
+				// Do a pass to get the number of overbright pixels.
+				// If there are too many then don't do overbright pixel spreading, because it will take too long.
+				for(int y=0; y<temp_AD_buffer.getHeight(); ++y)
+				for(int x=0; x<temp_AD_buffer.getWidth(); ++x)
+				{
+					if(temp_AD_buffer.getPixel(x, y).averageVal() > overbright_threshold)
+						num_overbright_pixels++;
+				}
+
+				// conPrint("overbright_threshold: " + toString(overbright_threshold));
+				// conPrint("num_overbright_pixels: " + toString(num_overbright_pixels));
+
+				// This threshold corresponds to about 10s of processing time at ssf5.
+				const size_t NUM_OVERBRIGHT_PIXEL_THRESHOLD = 100000;
+
+				if(num_overbright_pixels < NUM_OVERBRIGHT_PIXEL_THRESHOLD)
+					break;
+
+				overbright_threshold *= 10.0f;
+			}
 
 			// This constant (5.0) is chosen so that offset will be pretty small (~= 1e-7).
 			const int filter_r = (int)ceil(renderer_settings.super_sample_factor * 5.0);
@@ -239,14 +262,13 @@ void doTonemapFullBuffer(
 
 			const float offset = Maths::eval2DGaussian<float>((float)(filter_r*filter_r), std_dev);
 			//printVar(offset);
-			int num_overbright_pixels = 0;
 
 			for(int y=0; y<temp_AD_buffer.getHeight(); ++y)
 			for(int x=0; x<temp_AD_buffer.getWidth(); ++x)
 			{
 				const Colour3f& in_colour = temp_AD_buffer.getPixel(x, y);
 
-				if(temp_AD_buffer.getPixel(x, y).averageVal() > overbright_threshold)
+				if(in_colour.averageVal() > overbright_threshold)
 				{
 					// conPrint("Pixel " + toString(x) + ", " + toString(y) + " is above threshold.");
 
@@ -266,8 +288,6 @@ void doTonemapFullBuffer(
 
 						temp_summed_buffer.getPixel(dx, dy) += in_colour * myMax(gaussian - offset, 0.0f);
 					}
-
-					num_overbright_pixels++;
 				}
 				else
 				{
@@ -275,7 +295,6 @@ void doTonemapFullBuffer(
 				}
 			}
 
-			//printVar(num_overbright_pixels);
 			//conPrint("Overbright pixel spreading took " + timer2.elapsedStringNPlaces(5));
 		}
 		else
