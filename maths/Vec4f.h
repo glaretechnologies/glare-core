@@ -29,11 +29,11 @@ public:
 
 
 	INDIGO_STRONG_INLINE Vec4f() {}
-	INDIGO_STRONG_INLINE explicit Vec4f(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
+	INDIGO_STRONG_INLINE explicit Vec4f(float x_, float y_, float z_, float w_) : v(_mm_set_ps(w_, z_, y_, x_)) {}  //{ x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
 	INDIGO_STRONG_INLINE Vec4f(__m128 v_) : v(v_) {}
-	INDIGO_STRONG_INLINE explicit Vec4f(float f) { x[0] = f, x[1] = f, x[2] = f, x[3] = f; }
+	INDIGO_STRONG_INLINE explicit Vec4f(float f) : v(_mm_set1_ps(f)) {} //{ x[0] = f, x[1] = f, x[2] = f, x[3] = f; }
 
-	INDIGO_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
+	INDIGO_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { v = _mm_set_ps(w_, z_, y_, x_); } // { x[0] = x_; x[1] = y_; x[2] = z_; x[3] = w_; }
 
 	INDIGO_STRONG_INLINE Vec4f& operator = (const Vec4f& a);
 
@@ -98,7 +98,14 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 	res.v = _mm_dp_ps(a.v, b.v, 255);
 	return res.x[0];
 #else
-	const __m128 prod = _mm_mul_ps(a.v, b.v); // [w, z, y, x]
+	// Do the dot product horizontal add with scalar ops.
+	// It's much faster this way.  This is the way the Embree dudes do it when SSE4 is not available.
+	// See perf tests in Vec4f.cpp.
+	Vec4f prod(_mm_mul_ps(a.v, b.v));
+
+	return prod.x[0] + prod.x[1] + prod.x[2] + prod.x[3];
+
+	/*const __m128 prod = _mm_mul_ps(a.v, b.v); // [w, z, y, x]
 
 	const __m128 s = _mm_shuffle_ps(prod, prod, _MM_SHUFFLE(3, 3, 1, 1)); // [w, w, y, y]
 
@@ -108,7 +115,7 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 
 	const Vec4f res(_mm_add_ps(sum, s2)); // [x+y+z+w, ...]
 
-	return res.x[0];
+	return res.x[0];*/
 #endif
 }
 
@@ -212,7 +219,7 @@ void Vec4f::operator += (const Vec4f& a)
 
 void Vec4f::operator -= (const Vec4f& a)
 {
-	v = _mm_add_ps(v, a.v);
+	v = _mm_sub_ps(v, a.v);
 }
 
 

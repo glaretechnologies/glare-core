@@ -136,9 +136,6 @@ void alignedFree(void* mem)
 } // end namespace SSE
 
 
-
-
-
 #if (BUILD_TESTS)
 void SSETest()
 {
@@ -290,7 +287,7 @@ void SSETest()
 		printVar(sum);
 	}*/
 
-	conPrint("\n====================SSE horizontal max ===============");
+	conPrint("\n====================Test SSE horizontal max ===============");
 	{
 		CycleTimer cycle_timer;
 
@@ -330,6 +327,24 @@ void SSETest()
 	{
 		SSE_ALIGN float x[4] = { 5.f, 6.f, 7.f, 4.f };
 		testAssert(horizontalMax(_mm_load_ps(x)) == 7.f);
+	}
+
+	conPrint("\n====================Test SSE horizontal min ===============");
+	{
+		SSE_ALIGN float x[4] = { 1.f, 2.f, 3.f, 4.f };
+		testAssert(horizontalMin(_mm_load_ps(x)) == 1.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 2.f, 3.f, 4.f };
+		testAssert(horizontalMin(_mm_load_ps(x)) == 2.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 6.f, 3.f, 4.f };
+		testAssert(horizontalMin(_mm_load_ps(x)) == 3.f);
+	}
+	{
+		SSE_ALIGN float x[4] = { 5.f, 6.f, 7.f, 4.f };
+		testAssert(horizontalMin(_mm_load_ps(x)) == 4.f);
 	}
 	//exit(0);
 }
