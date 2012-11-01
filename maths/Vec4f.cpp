@@ -139,24 +139,6 @@ void Vec4f::test()
 		testAssert(Vec4f(1, 2, 3, 0) == maskWToZero(Vec4f(1, 2, 3, 4)));
 	}
 
-	// Test dot()
-	{
-		const Vec4f a(1, 2, 3, 4);
-		const Vec4f b(5, 6, 7, 8);
-
-		testAssert(epsEqual(dot(a, b), 70.0f));
-		testAssert(epsEqual(horizontalAddDotProduct(a, b), 70.0f));
-	}
-
-	// Test crossProduct
-	{
-		const Vec4f a(1, 0, 0, 0);
-		const Vec4f b(0, 1, 0, 0);
-
-		const Vec4f res(crossProduct(a, b));
-		testAssert(epsEqual(res, Vec4f(0, 0, 1, 0)));
-	}
-
 	// Test length(), length2(), normalise(), isUnitLength()
 	{
 		const Vec4f a(1, 2, 3, 4);
@@ -199,6 +181,35 @@ void Vec4f::test()
 
 		testAssert(epsEqual(Vec4f(a * 2.0f), Vec4f(20, 40, 60, 80)));
 	}
+
+	// Test dot()
+	{
+		const Vec4f a(1, 2, 3, 4);
+		const Vec4f b(5, 6, 7, 8);
+
+		testAssert(epsEqual(dot(a, b), 70.0f));
+		testAssert(epsEqual(horizontalAddDotProduct(a, b), 70.0f));
+	}
+
+	// Test crossProduct
+	{
+		const Vec4f a(1, 0, 0, 0);
+		const Vec4f b(0, 1, 0, 0);
+
+		const Vec4f res(crossProduct(a, b));
+		testAssert(epsEqual(res, Vec4f(0, 0, 1, 0)));
+	}
+
+	// Test removeComponentInDir
+	{
+		const Vec4f a(1, 0, 0, 0);
+
+		const Vec4f b(1, 2, 3, 4);
+
+		testAssert(epsEqual(removeComponentInDir(b, a), Vec4f(0, 2, 3, 4)));
+	}
+
+
 
 
 

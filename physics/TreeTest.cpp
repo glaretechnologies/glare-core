@@ -598,6 +598,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	// We just want to make sure the trace methods don't crash.  (Embree was crashing on Mac with NaN rays)
 	//------------------------------------------------------------------------
 	const float NaN = std::numeric_limits<float>::quiet_NaN();
+	const float inf = std::numeric_limits<float>::infinity();
 	const float max_t = 100000.0f;
 	for(size_t t = 0; t < trees.size(); ++t)
 	{
@@ -615,6 +616,29 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		{
 		Ray ray(
 			Vec4f(NaN, NaN, NaN, 1.0f), 
+			Vec4f(0, 0, 0, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		}
+
+		
+
+		// Try with Infs in the direction vector
+		{
+		Ray ray(
+			Vec4f(0, 0, 0, 1.0f), 
+			Vec4f(inf, inf, inf, 0),
+			1.0e-05f // t_min
+		);
+		HitInfo hitinfo;
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		}
+		// Try with Infs in the position vector
+		{
+		Ray ray(
+			Vec4f(inf, inf, inf, 1.0f), 
 			Vec4f(0, 0, 0, 0),
 			1.0e-05f // t_min
 		);
