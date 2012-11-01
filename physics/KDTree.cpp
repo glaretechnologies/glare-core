@@ -653,7 +653,8 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 					raydist, 
 					u, v))
 				{
-					assert(raydist < closest_dist);
+					// This assertion should be true, except for NaN rays.
+					// assert(raydist < closest_dist);
 
 					// Check to see if we have already recorded the hit against this triangle (while traversing another leaf volume)
 					// NOTE that this is a slow linear time check, but N should be small, hopefully :)
