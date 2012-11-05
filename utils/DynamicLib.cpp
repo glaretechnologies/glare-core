@@ -8,6 +8,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 
 
 #include "stringutils.h"
+#include "platformutils.h"
 #include <assert.h>
 #if BUILD_TESTS
 #include "../indigo/TestUtils.h"
@@ -45,13 +46,12 @@ void DynamicLib::open(const std::string& lib_path)
 	lib_handle = ::LoadLibrary(path.c_str());
 	if(!lib_handle)
 	{
-		const DWORD error_code = GetLastError();
-		throw Indigo::Exception("Failed to get open dynamic library '" + lib_path + "', error_code: " + ::toString((uint32)error_code));
+		throw Indigo::Exception("Failed to open dynamic library '" + lib_path + "': " + PlatformUtils::getLastErrorString());
 	}
 #else
 	lib_handle = dlopen(lib_path.c_str(), RTLD_LAZY);
 	if(!lib_handle)
-		throw Indigo::Exception("Failed to get open dynamic library '" + lib_path + "'");
+		throw Indigo::Exception("Failed to open dynamic library '" + lib_path + "'");
 #endif
 }
 
