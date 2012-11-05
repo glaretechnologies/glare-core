@@ -585,6 +585,8 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
 	Indigo::TaskManager task_manager;
 
+	const std::string cache_dir_path = ".";
+
 	MTwister rng(1);
 
 	double start_time = 0.0;
@@ -613,7 +615,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	RendererSettings settings;
 	settings.cache_trees = true;
 	raymesh->build(
-		".", // base indigo dir path
+		cache_dir_path,
 		settings,
 		print_output,
 		true,

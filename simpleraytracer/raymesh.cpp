@@ -796,7 +796,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 }
 
 
-void RayMesh::build(const std::string& appdata_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -940,8 +940,8 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 			//------------------------------------------------------------------------
 			const unsigned int tree_checksum = tritree->checksum();
 			const std::string path = FileUtils::join(
-				appdata_path, 
-				FileUtils::join("cache/tree_cache", toString(tree_checksum) + ".tre")
+				cache_dir_path, 
+				FileUtils::join("tree_cache", toString(tree_checksum) + ".tre")
 				);
 
 			std::ifstream file(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ifstream::binary);
@@ -989,8 +989,8 @@ void RayMesh::build(const std::string& appdata_path, const RendererSettings& ren
 				//Save to disk
 				//------------------------------------------------------------------------
 				const std::string path = FileUtils::join(
-					appdata_path, 
-					FileUtils::join("cache/tree_cache", toString(tritree->checksum()) + ".tre")
+					cache_dir_path, 
+					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
 					);
 
 				if(verbose) print_output.print("\tSaving tree to '" + path + "'...");
