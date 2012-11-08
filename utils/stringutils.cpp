@@ -678,13 +678,8 @@ bool hasExtension(const std::string& file, const std::string& extension)
 }
 
 
-const std::string getExtension(const std::string& filename)//3 letter extension
+const std::string getExtension(const std::string& filename)
 {
-	//if(filename.size() < 4)
-	//	return filename;//error
-
-	//return filename.substr(filename.size() - 3, 3);
-
 	const std::string::size_type dot_index = filename.find_last_of(".");
 
 	if(dot_index == std::string::npos)

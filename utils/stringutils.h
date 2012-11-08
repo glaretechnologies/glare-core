@@ -119,7 +119,7 @@ char toLowerCase(char c);
 char toUpperCase(char c);
 
 bool hasFileTypeExtension(const std::string& filename);
-const std::string getExtension(const std::string& filename);//returns 3 letter extension
+const std::string getExtension(const std::string& filename); // Returns everything after the last dot.
 
 const std::string eatExtension(const std::string& filename);
 const std::string eatDotAndExtension(const std::string& filename);
