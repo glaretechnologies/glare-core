@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __LOCK_H_666_
 
 
+#include "platform.h"
 class Mutex;
 
 
@@ -32,6 +33,8 @@ public:
 	const Mutex& getMutex() const { return mutex; }
 
 private:
+	INDIGO_DISABLE_COPY(Lock);
+
 	Mutex& mutex;
 };
 

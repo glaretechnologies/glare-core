@@ -10,6 +10,12 @@
 #endif
 
 
+// To disallow copy-construction and assignment operators, put this in the private part of a class:
+#define INDIGO_DISABLE_COPY(TypeName) \
+	TypeName(const TypeName &); \
+	TypeName &operator=(const TypeName &);
+
+
 //Compiler Definitiosn
 //#define COMPILER_GCC
 //#define COMPILER_MSVC 1
