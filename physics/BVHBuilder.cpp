@@ -14,8 +14,9 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/ParallelFor.h"
 
 
-BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, float intersection_cost_)
+BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
+	max_num_objects_per_leaf(max_num_objects_per_leaf_),
 	intersection_cost(intersection_cost_)
 {
 	assert(intersection_cost > 0.f);
@@ -30,6 +31,7 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, float intersection_cost_)
 	max_num_tris_per_leaf = 0;
 	leaf_depth_sum = 0;
 	max_leaf_depth = 0;
+	num_interior_nodes = 0;
 }
 
 
@@ -125,6 +127,7 @@ void BVHBuilder::build(
 		num_under_thresh_leaves = 1;
 		//leaf_depth_sum += 0;
 		max_leaf_depth = 0;
+		num_leaves = 1;
 		return;
 	}
 
@@ -201,6 +204,8 @@ void BVHBuilder::doBuild(
 
 	if(right - left <= leaf_num_object_threshold || depth >= MAX_DEPTH)
 	{
+		assert(right - left <= max_num_objects_per_leaf);
+
 		// Make this a leaf node
 		callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
 		//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
@@ -213,6 +218,8 @@ void BVHBuilder::doBuild(
 			num_under_thresh_leaves++;
 		leaf_depth_sum += depth;
 		max_leaf_depth = myMax(max_leaf_depth, depth);
+		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+		num_leaves++;
 		return;
 	}
 
@@ -296,7 +303,7 @@ void BVHBuilder::doBuild(
 		}
 	}
 
-	if(best_axis == -1)
+	if((best_axis == -1) && ((right - left) <= max_num_objects_per_leaf))
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
 		//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
@@ -306,6 +313,8 @@ void BVHBuilder::doBuild(
 		num_cheaper_nosplit_leaves++;
 		leaf_depth_sum += depth;
 		max_leaf_depth = myMax(max_leaf_depth, depth);
+		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+		num_leaves++;
 		return;
 	}
 
@@ -347,6 +356,8 @@ void BVHBuilder::doBuild(
 			num_could_not_split_leaves++;
 			leaf_depth_sum += depth;
 			max_leaf_depth = myMax(max_leaf_depth, depth);
+			max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+			num_leaves++;
 			return;
 		}
 	}
@@ -373,7 +384,8 @@ void BVHBuilder::doBuild(
 	const uint32 left_child = callback.createNode();
 	const uint32 right_child = callback.createNode();
 
-	callback.markAsInteriorNode(node_index, left_child, right_child, left_aabb, right_aabb, parent_index, is_left_child);
+	node_index = callback.markAsInteriorNode(node_index, left_child, right_child, left_aabb, right_aabb, parent_index, is_left_child);
+	num_interior_nodes++;
 
 	// Build left child
 	doBuild(

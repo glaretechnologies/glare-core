@@ -12,10 +12,9 @@ Code By Nicholas Chapman.
 extern "C"
 {
 #include <xmmintrin.h> //SSE header file
+#include <emmintrin.h> //SSE 2 header file
 };
-//#ifdef USE_SSE2
-//#include <emmintrin.h> //SSE 2 header file'
-//#endif
+
 
 //#define USE_SSE4 1
 #if USE_SSE4

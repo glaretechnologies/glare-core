@@ -7,9 +7,9 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #pragma once
 
 
-#include <vector>
 #include "../utils/platform.h"
 #include "../maths/vec3.h"
+#include <vector>
 namespace js { class AABBox; }
 class PrintOutput;
 
@@ -19,8 +19,13 @@ class BVHBuilderCallBacks
 public:
 	virtual ~BVHBuilderCallBacks(){}
 
+	// Create a node, then return the index of the node.
 	virtual uint32 createNode() = 0;
-	virtual void markAsInteriorNode(int node_index, int left_child_index, int right_child_index, const js::AABBox& left_aabb, const js::AABBox& right_aabb, int parent_index, bool is_left_child) = 0;
+
+	// Mark the node as indexed by 'node_index' as an interior node.
+	// Also return the possibly new index, if the node was not actually created yet (as it may have been a leaf)
+	virtual int markAsInteriorNode(int node_index, int left_child_index, int right_child_index, const js::AABBox& left_aabb, const js::AABBox& right_aabb, int parent_index, bool is_left_child) = 0;
+
 	virtual void markAsLeafNode(int node_index, const std::vector<uint32>& objects, int begin, int end, int parent_index, bool is_left_child) = 0;
 };
 
@@ -36,7 +41,7 @@ public:
 	friend class SortAxisTask;
 	friend class CentroidTask;
 
-	BVHBuilder(int leaf_num_object_threshold, float intersection_cost);
+	BVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost);
 	~BVHBuilder();
 
 	void build(
@@ -72,8 +77,9 @@ private:
 	std::vector<float> object_max;
 
 	int leaf_num_object_threshold; 
+	int max_num_objects_per_leaf;
 	float intersection_cost; // Relative to BVH node traversal cost.
-
+public:
 	/// build stats ///
 	int num_maxdepth_leaves;
 	int num_under_thresh_leaves;
@@ -83,4 +89,5 @@ private:
 	int max_num_tris_per_leaf;
 	int leaf_depth_sum;
 	int max_leaf_depth;
+	int num_interior_nodes;
 };
