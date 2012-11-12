@@ -197,7 +197,7 @@ stack_pop:
 
 			const Real dist = ob->traceRay(
 				ray,
-				std::numeric_limits<float>::max(), // far.x[0], //NOTE: if we use far.x[0] here we get precision problems.
+				closest_dist,
 				time,
 				thread_context,
 				(last_object_hit == ob ? last_triangle_hit : std::numeric_limits<unsigned int>::max()),
