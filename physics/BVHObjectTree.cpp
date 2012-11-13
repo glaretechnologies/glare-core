@@ -13,6 +13,7 @@ Generated at 2012-11-10 19:47:32 +0000
 #include "../maths/Vec4i.h"
 #include "../utils/stringutils.h"
 #include <limits>
+#include <tmmintrin.h> // SSSE3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8
 
 
 BVHObjectTree::BVHObjectTree()
