@@ -35,7 +35,7 @@ void BVHObjectTree::insertObject(const Object* ob)
 
 // NOTE: Uses SEE3 instruction _mm_shuffle_epi8.
 static INDIGO_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& shuf) { return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a.v), shuf.v)); }
-static INDIGO_STRONG_INLINE const Vec4f xor(const Vec4f& a, const Vec4i& b ) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v),b.v)); }
+static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b ) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v),b.v)); }
 
 
 BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
@@ -58,9 +58,9 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, ThreadContext& threa
 	const Vec4f r_z(ray.startPos().x[2]); // (r_z, r_z, r_z, r_z)
 
 	const Vec4i negate(0x00000000, 0x00000000, 0x80000000, 0x80000000); // To flip sign bits on floats 2 and 3.
-	const Vec4f rdir_x = xor(Vec4f(ray.getRecipRayDirF().x[0]), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
-	const Vec4f rdir_y = xor(Vec4f(ray.getRecipRayDirF().x[1]), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
-	const Vec4f rdir_z = xor(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
+	const Vec4f rdir_x = vec4XOR(Vec4f(ray.getRecipRayDirF().x[0]), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
+	const Vec4f rdir_y = vec4XOR(Vec4f(ray.getRecipRayDirF().x[1]), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
+	const Vec4f rdir_z = vec4XOR(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
 	Vec4f near_far(ray.minT(), ray.minT(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity());
@@ -105,7 +105,7 @@ stack_pop:
 			// far_left = min(far, max_left_d_x, max_left_d_y, max_left_d_z)
 			// -far_left = max(-far, -max_left_d_x, -max_left_d_y, -max_left_d_z)
 			const Vec4f new_near_far(_mm_max_ps(_mm_max_ps(minmax_d_x, minmax_d_y), _mm_max_ps(near_far.v, minmax_d_z))); // (near_left, near_right, -far_left, -far_right)
-			const Vec4f non_negated_near_far(xor(new_near_far, negate)); // (near_left, near_right, far_left, far_right)
+			const Vec4f non_negated_near_far(vec4XOR(new_near_far, negate)); // (near_left, near_right, far_left, far_right)
 			const Vec4f shuffled_near_far(shuffle8(non_negated_near_far, swap)); //  // (far_left, far_right, near_left, near_right)
 			const Vec4i near_le_far(_mm_castps_si128(_mm_cmple_ps(new_near_far.v, shuffled_near_far.v))); // (near_left <= far_left, near_right <= far_right, ., .)
 
@@ -233,9 +233,9 @@ bool BVHObjectTree::doesFiniteRayHit(const Ray& ray, Real max_t, ThreadContext& 
 	const Vec4f r_z(ray.startPos().x[2]);
 
 	const Vec4i negate(0x00000000, 0x00000000, 0x80000000, 0x80000000); // To flip sign bits on floats 2 and 3.
-	const Vec4f rdir_x = xor(Vec4f(ray.getRecipRayDirF().x[0]), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
-	const Vec4f rdir_y = xor(Vec4f(ray.getRecipRayDirF().x[1]), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
-	const Vec4f rdir_z = xor(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
+	const Vec4f rdir_x = vec4XOR(Vec4f(ray.getRecipRayDirF().x[0]), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
+	const Vec4f rdir_y = vec4XOR(Vec4f(ray.getRecipRayDirF().x[1]), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
+	const Vec4f rdir_z = vec4XOR(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
 	const Vec4f near_far(ray.minT(), ray.minT(), -max_t, -max_t);
@@ -270,7 +270,7 @@ stack_pop:
 			const __m128 minmax_d_z = _mm_mul_ps(near_far_z.v, rdir_z.v); // (min_left_d_x, min_right_d_x, -max_left_d_x, -max_right_d_x)
 
 			const Vec4f new_near_far(_mm_max_ps(_mm_max_ps(minmax_d_x, minmax_d_y), _mm_max_ps(near_far.v, minmax_d_z))); // (near_left, near_right, -far_left, -far_right)
-			const Vec4f non_negated_near_far(xor(new_near_far, negate)); // (near_left, near_right, far_left, far_right)
+			const Vec4f non_negated_near_far(vec4XOR(new_near_far, negate)); // (near_left, near_right, far_left, far_right)
 			const Vec4f shuffled_near_far(shuffle8(non_negated_near_far, swap)); //  // (far_left, far_right, near_left, near_right)
 			const Vec4i near_le_far(_mm_castps_si128(_mm_cmple_ps(new_near_far.v, shuffled_near_far.v))); // (near_left <= far_left, near_right <= far_right, ., .)
 
