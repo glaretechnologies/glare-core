@@ -2,19 +2,15 @@
 SSE.cpp
 -------
 File created by ClassTemplate on Sat Jun 25 08:01:25 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
 #include "SSE.h"
 
 
 #include "../utils/platform.h"
-#include "../utils/timer.h" // just for testing
-#include "../utils/CycleTimer.h" // just for testing
-#include "../indigo/globals.h" // just for testing
-#include "../utils/stringutils.h" // just for testing
-#include "../indigo/TestUtils.h" // just for testing
 #include "../maths/mathstypes.h"
 #include <assert.h>
+#include <new>
 #ifdef COMPILER_MSVC
 #include <intrin.h>
 #else
@@ -27,21 +23,7 @@ namespace SSE
 {
 
 
-static inline size_t allBitsOne()
-{
-	if(sizeof(size_t) == 4)
-		//return 0xFFFFFFFF;
-    return -1;
-	else if(sizeof(size_t) == 8)
-		return -1; //return 0xFFFFFFFFFFFFFFFF;
-	else
-	{
-		assert(0);
-	}
-	
-}
-
-void* myAlignedMalloc(size_t amount, size_t alignment)
+void* alignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
 	
@@ -73,7 +55,7 @@ void* myAlignedMalloc(size_t amount, size_t alignment)
 }
 
 
-void myAlignedFree(void* addr)
+void alignedFree(void* addr)
 {
 	if(addr == NULL)
 		return;
@@ -86,60 +68,22 @@ void myAlignedFree(void* addr)
 }
 
 
-void* alignedMalloc(size_t size, size_t alignment)
-{
-	/*
-	//assert(Maths::isPowerOfTwo(alignment % sizeof(void*))); // This is required for posix_memalign
-#ifdef COMPILER_MSVC
-	void* result = _aligned_malloc(size, alignment);
-	if(result == NULL)
-		throw std::bad_alloc("Memory allocation failed.");
-	return result;
-#elif defined(OSX)
-  return malloc(size);
-#else
-	void* mem_ptr;
-	const int result = posix_memalign(&mem_ptr, alignment, size);
-	if(result == EINVAL)
-	{
-		conPrint("Bad alignment: " + toString((unsigned int)alignment));
-		assert(0);
-		throw std::bad_alloc();
-	}
-	else if(result == ENOMEM)
-	{
-		throw std::bad_alloc();
-	}
-	else
-		return mem_ptr;
-#endif
-	*/
-	return myAlignedMalloc(size, alignment);
-}
-
-
-void alignedFree(void* mem)
-{
-	/*
-#ifdef COMPILER_MSVC
-	_aligned_free(mem);
-#else
-	// Apparently free() can handle aligned mem.
-	// see: http://www.opengroup.org/onlinepubs/000095399/functions/posix_memalign.html
-	free(mem);
-#endif
-	*/
-	myAlignedFree(mem);
-}
-
-
 } // end namespace SSE
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/stringutils.h"
+#include "../utils/timer.h"
+#include "../utils/CycleTimer.h"
+
+
 void SSETest()
 {
-//	conPrint("SSETest()");
+	conPrint("SSETest()");
 	{
 
 	// Test myAlignedMalloc, myAlignedFree
@@ -147,7 +91,7 @@ void SSETest()
 	{
 		for(int a=0; a<10; ++a)
 		{
-			void* m = SSE::myAlignedMalloc(i, 4 << a);
+			void* m = SSE::alignedMalloc(i, 4 << a);
 
 			// Write to the memory
 			for(int z=0; z<i; ++z)
@@ -155,7 +99,7 @@ void SSETest()
 				((unsigned char*)m)[z] = 0;
 			}
 
-			SSE::myAlignedFree(m);
+			SSE::alignedFree(m);
 		}
 	}
 
@@ -217,10 +161,10 @@ void SSETest()
 		store4Vec(div4Vec(load4Vec(data1 + i), load4Vec(data2 + i)), res + i);
 	}
 
-	const double elapsed_time = timer.getSecondsElapsed();
-	const double clock_freq = 2.67e9;
-	const double elapsed_cycles = elapsed_time * clock_freq;
-	const double cycles_per_iteration = elapsed_cycles / (double)N;
+	//const double elapsed_time = timer.getSecondsElapsed();
+	//const double clock_freq = 2.67e9;
+	//const double elapsed_cycles = elapsed_time * clock_freq;
+	//const double cycles_per_iteration = elapsed_cycles / (double)N;
 
 	double sum = 0;
 	for(int i=0; i<N; ++i)
@@ -346,6 +290,7 @@ void SSETest()
 		SSE_ALIGN float x[4] = { 5.f, 6.f, 7.f, 4.f };
 		testAssert(horizontalMin(_mm_load_ps(x)) == 4.f);
 	}
-	//exit(0);
 }
-#endif
+
+
+#endif // BUILD_TESTS

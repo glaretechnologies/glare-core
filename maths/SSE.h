@@ -2,24 +2,23 @@
 SSE.h
 -----
 File created by ClassTemplate on Sat Jun 25 08:01:25 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
-#ifndef __SSE_H_666_
-#define __SSE_H_666_
+#pragma once
 
 
 #include "../utils/platform.h"
 extern "C"
 {
-#include <xmmintrin.h> //SSE header file
-#include <emmintrin.h> //SSE 2 header file
+#include <xmmintrin.h> // SSE header file
+#include <emmintrin.h> // SSE 2 header file
+#include <tmmintrin.h> // SSSE 3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8
+#include <smmintrin.h> // SSE 4.1 header file
 };
 
 
 //#define USE_SSE4 1
-#if USE_SSE4
-#include <smmintrin.h>
-#endif
+
 
 #include <assert.h>
 #ifdef COMPILER_GCC
@@ -28,9 +27,9 @@ extern "C"
 #endif
 
 
-typedef __m128 SSE4Vec;//A vector of 4 single precision floats.  16 byte aligned by default.
+typedef __m128 SSE4Vec; // A vector of 4 single precision floats.  16 byte aligned by default.
 #ifdef USE_SSE2
-typedef __m128i SSE4Int;//A vector of 4 32 bit integers.  16 byte aligned by default.
+typedef __m128i SSE4Int; // A vector of 4 32 bit integers.  16 byte aligned by default.
 #endif
 
 
@@ -91,11 +90,6 @@ namespace SSE
 	inline void alignedSSEArrayFree(T* t)
 	{
 		alignedSSEFree(t);
-
-		//for(unsigned int i=0; i<numelems; ++i)
-		//	t[i].~T();
-		//alignedSSEFree(t);
-		//delete(t) []
 	}
 
 	template <class T>
@@ -321,17 +315,6 @@ inline const SSE4Int setMasked(const SSE4Int& a, const SSE4Int& b, const SSE4Int
 #endif
 
 
-
-
-
-//NOTE: this doesn't compile in GCC
-/*inline float dotSSE(const SSE4Vec& v1, const SSE4Vec& v2)
-{
-	const SSE4Vec prod = mult4Vec(v1, v2);
-
-	return prod.m128_f32[0] + prod.m128_f32[1] + prod.m128_f32[2];
-}*/
-
 //the returned SSE4Vec will have the value of the dot product in each of the components
 inline const SSE4Vec dotSSEIn4Vec(const SSE4Vec& v1, const SSE4Vec& v2)
 {
@@ -440,68 +423,6 @@ inline float horizontalAdd(const __m128& v)
 }
 
 
-/*
-#else //else if not USE_SSE
-
-//------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------
-
-#include <malloc.h>
-
-typedef float SSE4Vec[4];
-typedef int SSE4Int[4];
-
-#define SSE_ALIGN
-
-template <class T>
-inline bool isSSEAligned(T* ptr)
-{
-	return true;
-}
-
-#define assertSSEAligned(p) (assert(isSSEAligned((p))))
-
-inline void* alignedMalloc(unsigned int size, unsigned int alignment)
-{
-	return myAlignedMalloc(size, alignment);
-}
-
-#endif //USE_SSE
-
-*/
-
-
-
-/*
-inline void* myAlignedMalloc(unsigned int size, unsigned int alignment)
-{
-	assert(alignment >= 4);
-	const unsigned int usesize = size + alignment*2;
-
-	char* mem = (char*)malloc(usesize);
-	char* p = mem;
-	//snap up to next boundary
-	p += alignment - ((unsigned int)p % alignment);
-	assert((unsigned int)p % alignment == 0);
-
-	//write the original address returned by malloc at p
-	*(unsigned int*)p = (unsigned int)mem;
-	p += alignment;
-
-	assert(isAlignedTo(p, alignment));
-	return (void*)p;
-}
-
-
-inline void myAlignedFree(void* mem)
-{
-	//first 32 bits is location of original mem alloc
-	char* original = (char*)(*(unsigned int*)mem);
-	free(original);
-}*/
-
-
 typedef union {
 	__m128 v;
 	float f[4];
@@ -510,6 +431,3 @@ typedef union {
 
 
 void SSETest();
-
-
-#endif //__SSE_H_666_

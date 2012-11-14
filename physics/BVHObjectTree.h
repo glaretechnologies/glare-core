@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHObjectTree.h
 -------------------
-Copyright Glare Technologies Limited 2011 -
+Copyright Glare Technologies Limited 2012 -
 Generated at 2012-11-10 19:47:31 +0000
 =====================================================================*/
 #pragma once
