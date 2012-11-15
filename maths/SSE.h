@@ -8,12 +8,9 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include "../utils/platform.h"
-extern "C"
-{
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
 #include <tmmintrin.h> // SSSE 3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8
-};
 
 
 //#define USE_SSE4 1
