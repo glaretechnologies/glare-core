@@ -35,6 +35,8 @@ public:
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	void getAngles(Vec3d& angles_out); // Specified as (heading, pitch, roll).
 
+	void setAllowPitching(bool allow_pitching);
+
 	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);
 	static void getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
 
@@ -51,4 +53,7 @@ private:
 
 	double base_move_speed, base_rotate_speed;
 	double move_speed_scale, mouse_sensitivity_scale;
+
+	// Spherical camera doesn't allow looking up or down. So for spherical camera, allow_pitching should be set to false.
+	bool allow_pitching;
 };

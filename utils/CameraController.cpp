@@ -22,6 +22,7 @@ CameraController::CameraController()
 	mouse_sensitivity_scale = 1;
 
 	invert_mouse = false;
+	allow_pitching = true;
 }
 
 
@@ -53,6 +54,9 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 	const double rollplane_y = dot(camera_right, rollplane_y_basis);
 
 	rotation.z = atan2(rollplane_y, rollplane_x);
+
+	if(!allow_pitching)
+		rotation.y = Maths::pi_2<double>();
 }
 
 
@@ -69,6 +73,9 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 
 		const double pi = 3.1415926535897932384626433832795, cap = 1e-4;
 		rotation.y = std::max(cap, std::min(pi - cap, rotation.y));
+
+		if(!allow_pitching)
+			rotation.y = Maths::pi_2<double>();
 	}
 
 	// Construct camera basis.
@@ -118,6 +125,12 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 void CameraController::getAngles(Vec3d& angles_out)
 {
 	angles_out = rotation;
+}
+
+
+void CameraController::setAllowPitching(bool allow_pitching_)
+{
+	allow_pitching = allow_pitching_;
 }
 
 

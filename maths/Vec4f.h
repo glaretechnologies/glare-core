@@ -46,7 +46,7 @@ public:
 
 	inline bool operator == (const Vec4f& a) const;
 
-
+	
 	INDIGO_STRONG_INLINE float length() const;
 	INDIGO_STRONG_INLINE float length2() const;
 	INDIGO_STRONG_INLINE float getDist(const Vec4f& a) const;
@@ -162,6 +162,15 @@ INDIGO_STRONG_INLINE __m128 maskWToZero(const Vec4f& a)
 INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& dir)
 {
 	return v - dir * dot(v, dir);
+}
+
+
+// Unary -
+INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
+{
+	// Flip sign bits
+	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+    return _mm_xor_ps(v.v, mask);
 }
 
 

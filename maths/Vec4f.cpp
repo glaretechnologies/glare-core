@@ -210,6 +210,14 @@ void Vec4f::test()
 	}
 
 
+	// Test unary operator -
+	{
+		const Vec4f a(1, 2, 3, 4);
+
+		testAssert(epsEqual(Vec4f(-1, -2, -3, -4), -a));
+	}
+
+
 
 
 

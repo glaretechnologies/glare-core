@@ -56,7 +56,8 @@ public:
 	enum CameraType
 	{
 		CameraType_ThinLens,
-		CameraType_Orthographic
+		CameraType_Orthographic,
+		CameraType_Spherical
 	};
 
 
@@ -98,7 +99,6 @@ public:
 
 	virtual void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
 	virtual PDType lensPosPDF(const Vec3Type& lenspos_os) const = 0; // used
-	virtual PDType lensPosSolidAnglePDF(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in generic path tracer.  TODO: remove.
 	virtual double lensPosVisibility(const Vec3Type& lenspos_os) const = 0; // only used in old code.
 
 	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in old code.
@@ -140,6 +140,9 @@ public:
 	virtual double imageHeightAtDistanceOne() const = 0;
 
 	virtual Real cameraContribution(Real T, Real A_vis, const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, Real sensor_pd_A, Real lens_pd_A, bool vignetting) const = 0;
+
+	// Used in IndigoDriver::traceRay() for picking.
+	virtual void getRayForImagePos(const Vec2d& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
 
 	inline CameraType getCameraType() const { return camera_type; }
