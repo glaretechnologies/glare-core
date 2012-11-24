@@ -16,6 +16,7 @@ Code By Nicholas Chapman.
 #include "../physics/KDTree.h"
 #include "../graphics/image.h"
 #include "../graphics/TriBoxIntersection.h"
+#include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
@@ -110,7 +111,7 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadConte
 		object,
 		ignore_tri,
 		hitinfo_out
-		);
+	);
 }
 
 
@@ -550,6 +551,7 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 					uvs,
 					this->num_uv_sets,
 					options,
+					this->enable_normal_smoothing,
 					temp_tris,
 					temp_verts,
 					temp_uvs
@@ -588,17 +590,15 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 			for(size_t i=0; i<this->quads.size(); ++i)
 			{
 				const RayMeshQuad& q = this->quads[i];
-				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex()));
+				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex(), q.getUseShadingNormals()));
 				this->triangles.back().uv_indices[0] = q.uv_indices[0];
 				this->triangles.back().uv_indices[1] = q.uv_indices[1];
 				this->triangles.back().uv_indices[2] = q.uv_indices[2];
-				this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
 
-				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex()));
+				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex(), q.getUseShadingNormals()));
 				this->triangles.back().uv_indices[0] = q.uv_indices[0];
 				this->triangles.back().uv_indices[1] = q.uv_indices[2];
 				this->triangles.back().uv_indices[2] = q.uv_indices[3];
-				this->triangles.back().setUseShadingNormals(q.getUseShadingNormals());
 			}
 
 			this->quads.clearAndFreeMem();
@@ -1246,6 +1246,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
 
+	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
+
 	// Triangles
 	this->triangles.reserve(mesh.triangles.size());
 	unsigned int dest_i = 0;
@@ -1295,7 +1297,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 			dest_tri.uv_indices[2] = src_tri.uv_indices[2];
 		
 			dest_tri.setTriMatIndex(src_tri.tri_mat_index);
-			dest_tri.setUseShadingNormals(this->enable_normal_smoothing);
+			dest_tri.setUseShadingNormals(use_shading_normals_enum);
 
 			dest_i++;
 		}
@@ -1332,7 +1334,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		this->quads[i].uv_indices[3] = mesh.quads[i].uv_indices[3];
 
 		this->quads[i].setMatIndex(mesh.quads[i].mat_index);
-		this->quads[i].setUseShadingNormals(this->enable_normal_smoothing);
+		this->quads[i].setUseShadingNormals(use_shading_normals_enum);
 	}
 }
 
@@ -1390,7 +1392,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 	}
 
 	new_tri.setTriMatIndex(material_index);
-	new_tri.setUseShadingNormals(this->enable_normal_smoothing);
+	new_tri.setUseShadingNormals(this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 }
 
 
@@ -1405,7 +1407,7 @@ void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv
 	}
 
 	new_quad.setMatIndex(material_index);
-	new_quad.setUseShadingNormals(this->enable_normal_smoothing);
+	new_quad.setUseShadingNormals(this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 }
 
 
@@ -1429,7 +1431,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 	}
 
 	new_tri.setTriMatIndex(material_index);
-	new_tri.setUseShadingNormals(use_shading_normals);
+	new_tri.setUseShadingNormals(use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 }
 
 

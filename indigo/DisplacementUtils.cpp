@@ -179,6 +179,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	const std::vector<Vec2f>& uvs_in,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
+	bool use_shading_normals,
 	js::Vector<RayMeshTriangle, 16>& tris_out, 
 	std::vector<RayMeshVertex>& verts_out,
 	std::vector<Vec2f>& uvs_out
@@ -403,12 +404,14 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	temp_verts = temp_verts2;
 
+	const RayMesh_ShadingNormals use_s_n = use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
+
 	// Build tris_out
 	tris_out.resize(0);
 	for(size_t i = 0; i < temp_tris.size(); ++i)
 		if(tris_unclipped[i])
 		{
-			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index));
+			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n));
 
 			for(size_t c = 0; c < 3; ++c)
 				tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
@@ -420,8 +423,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		if(quads_unclipped[i])
 		{
 			// Split the quad into two triangles
-			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index));
-			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index));
+			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index, use_s_n));
+			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index, use_s_n));
 
 			tris_out[tris_out.size() - 2].uv_indices[0] = temp_quads[i].uv_indices[0];
 			tris_out[tris_out.size() - 2].uv_indices[1] = temp_quads[i].uv_indices[1];
@@ -2128,13 +2131,13 @@ void DisplacementUtils::test()
 		uvs[7] = Vec2f(0.1f, 0.4f);
 
 
-		quads[0] = RayMeshQuad(0, 3, 4, 1, 0);
+		quads[0] = RayMeshQuad(0, 3, 4, 1, 0, RayMesh_NoShadingNormals);
 		quads[0].uv_indices[0] = 0;
 		quads[0].uv_indices[1] = 4;
 		quads[0].uv_indices[2] = 5;
 		quads[0].uv_indices[3] = 1;
 
-		quads[1] = RayMeshQuad(1, 4, 5, 2, 0);
+		quads[1] = RayMeshQuad(1, 4, 5, 2, 0, RayMesh_NoShadingNormals);
 		quads[1].uv_indices[0] = 2;
 		quads[1].uv_indices[1] = 6;
 		quads[1].uv_indices[2] = 7;
@@ -2181,6 +2184,7 @@ void DisplacementUtils::test()
 			uvs,
 			1, // num uv sets
 			options,
+			false, // use_shading_normals
 			triangles_out,
 			verts_out,
 			uvs_out

@@ -159,6 +159,7 @@ public:
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
+		bool use_shading_normals,
 		js::Vector<RayMeshTriangle, 16>& tris_out,
 		std::vector<RayMeshVertex>& verts_out,
 		std::vector<Vec2f>& uvs_out

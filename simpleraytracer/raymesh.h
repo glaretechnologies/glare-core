@@ -17,7 +17,6 @@ Code By Nicholas Chapman.
 #include <string>
 #include <memory>
 #include <vector>
-#include <map>
 class Material;
 class RendererSettings;
 class PrintOutput;
@@ -26,11 +25,20 @@ namespace js{ class EdgeTri; }
 namespace Indigo{ class Mesh; }
 
 
+enum RayMesh_ShadingNormals
+{
+	RayMesh_NoShadingNormals  = 0,
+	RayMesh_UseShadingNormals = 1
+};
+
+
 class RayMeshTriangle
 {
 public:
+	
 	RayMeshTriangle() : tri_mat_index(0) {}
-	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex) : tri_mat_index(matindex << 1)
+	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, RayMesh_ShadingNormals use_shading_normals) 
+	:	tri_mat_index((matindex << 1) | (uint32)use_shading_normals)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -42,16 +50,15 @@ public:
 	//Vec3f geom_normal;
 	float inv_cross_magnitude;
 
-	inline void setUseShadingNormals(bool b)
+	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
 	{
-		if(b)
-			tri_mat_index |= 0x1;
-		else
-			tri_mat_index &= 0xFFFFFFFE;
+		tri_mat_index &= 0xFFFFFFFE; // Clear lower bit
+		tri_mat_index |= (uint32)use_shading_normals;
 	}
-	inline uint32 getUseShadingNormals() const
+
+	inline RayMesh_ShadingNormals getUseShadingNormals() const
 	{
-		return tri_mat_index & 0x1;
+		return (RayMesh_ShadingNormals)(tri_mat_index & 0x1);
 	}
 
 	inline void setTriMatIndex(uint32 i)
@@ -70,7 +77,8 @@ class RayMeshQuad
 {
 public:
 	RayMeshQuad(){}
-	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_) : mat_index(mat_index_ << 1)
+	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_, RayMesh_ShadingNormals use_shading_normals) 
+	:	mat_index((mat_index_ << 1) | (uint32)use_shading_normals)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -83,16 +91,15 @@ public:
 	//Vec3f geom_normal;
 	float inv_cross_magnitude;
 
-	inline void setUseShadingNormals(bool b)
+	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
 	{
-		if(b)
-			mat_index |= 0x1;
-		else
-			mat_index &= 0xFFFFFFFE;
+		mat_index &= 0xFFFFFFFE; // Clear lower bit
+		mat_index |= (uint32)use_shading_normals;
 	}
-	inline uint32 getUseShadingNormals() const
+
+	inline RayMesh_ShadingNormals getUseShadingNormals() const
 	{
-		return mat_index & 0x1;
+		return (RayMesh_ShadingNormals)(mat_index & 0x1);
 	}
 
 	inline void setMatIndex(uint32_t i)
