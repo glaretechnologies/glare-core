@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include <fstream>
 #include "platformutils.h"
+#include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/fileutils.h"
@@ -54,13 +55,34 @@ void Plotter::plot(
 	{
 		std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_path).c_str());
 
-		f << "set terminal png size " + toString(options.w) + "," + toString(options.h) + "\n";
+		// NOTE: old terminal type was 'png'
+
+		f << "set terminal pngcairo size " + toString(options.w) + "," + toString(options.h) + "\n";
 		f << "set output \"" + path + "\"\n";
+		if(options.polar)
+		{
+			float r_max = 0.5f;
+			f << "set polar\n";
+			f << "set grid polar\n";
+			f << "set view equal xy\n";
+			f << "set size ratio 0.5\n";
+			f << "set xrange [-" << r_max << ":" << r_max << "]\n";
+			f << "set yrange [0:" << r_max << "]\n";
+			//f << "set xrange [-10:10]\n";
+			//f << "set yrange [0:10]\n";
+			f << "set xtics 0.5\n";
+			//if(options.r_log)
+			//	f << "set logscale r 10\n";
+
+		}
 		f << "set style data lines\n";
-		f << "set grid linetype rgb \"blue\"  lw 0.4\n";
-		f << "set style data linespoints\n";
-		f << "set xlabel \"" + x_label + "\"\n";
-		f << "set ylabel \"" + y_label + "\"\n";
+		//f << "set grid linetype rgb \"blue\"  lw 0.4\n";
+		//f << "set style data linespoints\n";
+		if(!options.polar)
+		{
+			f << "set xlabel \"" + x_label + "\"\n";
+			f << "set ylabel \"" + y_label + "\"\n";
+		}
 		f << "set title \"" + title + "\"\n";
 		//f << "set encoding iso_8859_1\n"
 		if(options.x_axis_log)
@@ -113,13 +135,16 @@ void Plotter::plot3D(
 		// Write Gnuplot control script
 		const std::string temp_path = temp_dir + "/plot.txt";
 
+		conPrint("Writing plot instructions to '" + temp_path + "'...");
+
 		{
 			std::ofstream f(FileUtils::convertUTF8ToFStreamPath(temp_path).c_str());
 
-			f << "set terminal png size " << options.w << "," << options.h << "\n";
+			f << "set terminal pngcairo size " << options.w << "," << options.h << "\n";
 			f << "set output \"" + path + "\"\n";
 			f << "set style data lines\n";
-			f << "set grid linetype rgb \"blue\"  lw 0.4\n";
+			//f << "set grid linetype rgb \"blue\"  lw 0.4\n";
+			f << "set grid linetype rgb \"blue\"\n";
 			f << "set style data linespoints\n";
 			f << "set xlabel \"" + x_label + "\"\n";
 			f << "set ylabel \"" + y_label + "\"\n";
@@ -127,12 +152,15 @@ void Plotter::plot3D(
 			//f << "set encoding iso_8859_1\n"
 			f << "set contour\n";
 			f << "set cntrparam levels 10\n";
+			f << "set view 60, " + toString(options.z_rot) + "\n"; // TEMP
 
 			f << "splot	\"" + temp_data_path + "\" using 1:2:3 with lines title \"" + key + "\"\n";
 		}
 
 		// Execute Gnuplot
 		const int result = PlatformUtils::execute("pgnuplot " + temp_path);
+
+		conPrint("Gnuplot result: " + toString(result));
 
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
