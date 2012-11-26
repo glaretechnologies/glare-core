@@ -407,7 +407,7 @@ void BVHObjectTree::build(PrintOutput& print_output, bool verbose)
 	callback.bvh = this;
 
 	builder.build(
-		&aabbs[0],
+		aabbs.empty() ? NULL : &aabbs[0],
 		(int)objects.size(),
 		print_output,
 		verbose,

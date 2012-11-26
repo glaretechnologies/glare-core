@@ -1,9 +1,9 @@
 #include "Matrix4f.h"
 
 
-#include "../indigo/TestUtils.h"
 #include "matrix3.h"
 #include "vec3.h"
+#include "../utils/stringutils.h"
 
 
 Matrix4f::Matrix4f(const float* data)
@@ -107,7 +107,24 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 }
 
 
-#if (BUILD_TESTS)
+const std::string Matrix4f::rowString(int row_index) const
+{
+	return ::toString(e[row_index + 0]) + " " + ::toString(e[row_index + 4]) + " " + ::toString(e[row_index + 8]) + " " + ::toString(e[row_index + 12]);
+}
+
+
+const std::string Matrix4f::toString() const
+{
+	return rowString(0) + "\n" + rowString(1) + "\n" + rowString(2) + "\n" + rowString(3);
+}
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
 void Matrix4f::test()
 {
 	{
@@ -251,4 +268,6 @@ void Matrix4f::test()
 		}
 	}
 }
-#endif
+
+
+#endif // BUILD_TESTS

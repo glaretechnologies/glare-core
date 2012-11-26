@@ -332,6 +332,11 @@ void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referenc
 		false, // sampled delta
 		adjoint // adjoint
 	);
+	if(!epsEqual(pd, target_pd))
+	{
+		printVar(pd);
+		printVar(target_pd);
+	}
 	testAssert(epsEqual(pd, target_pd));
 }
 
@@ -344,7 +349,14 @@ void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referen
 		bsdfs);
 
 	for(unsigned int i=0; i<bsdfs.size(); ++i)
+	{
+		if(!epsEqual(bsdfs[i], target_BSDF))
+		{
+			printVar(bsdfs[i]);
+			printVar(target_BSDF);
+		}
 		testAssert(epsEqual(bsdfs[i], target_BSDF));
+	}
 }
 
 

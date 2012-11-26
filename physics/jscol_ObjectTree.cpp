@@ -79,10 +79,13 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
 
-	if(object_context.last_test_time.size() < objects.size())
-		object_context.last_test_time.resize(max_object_index + 1);//objects.size());
+	//if(object_context.last_test_time.size() < objects.size())
+	//	object_context.last_test_time.resize(max_object_index + 1);//objects.size());
 
-	object_context.time++;
+	//object_context.time++;
+
+	
+	
 
 	#ifdef OBJECTTREE_VERBOSE
 	printVar(object_context.time);
@@ -116,6 +119,12 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
+
+	const int NUM_LETTERBOXES = 8;
+	SSE_ALIGN int letterboxes[NUM_LETTERBOXES];
+	for(int i=0; i<NUM_LETTERBOXES; ++i)
+		letterboxes[i] = -1;
+
 
 #ifdef OBJECTTREE_VERBOSE
 	printVar(aabb_enterdist);
@@ -207,12 +216,13 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
 
-			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
+			//assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
 			#ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
 			#endif
 
-			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
+			//if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
+			if(letterboxes[ob->getObjectIndex() & 0x00000007] != ob->getObjectIndex())
 			{
 				const Real dist = ob->traceRay(
 					ray,
@@ -232,7 +242,8 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 					hitinfo_out = ob_hit_info;
 				}
 
-				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
+				//object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
+				letterboxes[ob->getObjectIndex() & 0x00000007] = ob->getObjectIndex();
 			}
 			leaf_geom_index++;
 		}
@@ -270,8 +281,8 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 #endif
 	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
 
-	if(object_context.last_test_time.size() < objects.size())
-		object_context.last_test_time.resize(objects.size());
+	//if(object_context.last_test_time.size() < objects.size())
+	//	object_context.last_test_time.resize(objects.size());
 
 	//assert(!thread_context.in_object_tree_traversal);
 	//thread_context.in_object_tree_traversal = true;
@@ -318,6 +329,11 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
 	TreeUtils::buildFlatRayChildIndices(ray, ray_child_indices);
+
+	const int NUM_LETTERBOXES = 8;
+	SSE_ALIGN int letterboxes[NUM_LETTERBOXES];
+	for(int i=0; i<NUM_LETTERBOXES; ++i)
+		letterboxes[i] = -1;
 
 	int stacktop = 0;//index of node on top of stack
 
@@ -395,8 +411,9 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 			#ifdef OBJECTTREE_VERBOSE
 			conPrint("considering intersection with object '" + ob->debugName() + "', object_index=" + toString(ob->object_index));
 			#endif
-			assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
-			if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time)
+			//assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
+			//if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time)
+			if(letterboxes[ob->getObjectIndex() & 0x00000007] != ob->getObjectIndex())
 			{
 				#ifdef OBJECTTREE_VERBOSE
 				conPrint("Intersecting with object...");
@@ -409,7 +426,8 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 					//thread_context.in_object_tree_traversal = false;
 					return true;
 				}
-				object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
+				//object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
+				letterboxes[ob->getObjectIndex() & 0x00000007] = ob->getObjectIndex();
 			}
 			leaf_geom_index++;
 		}

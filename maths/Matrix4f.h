@@ -4,6 +4,7 @@
 
 #include "Vec4f.h"
 #include "SSE.h"
+#include <string>
 // Template forwards declarations
 template <class Real> class Matrix3;
 template <class Real> class Vec3;
@@ -63,6 +64,8 @@ public:
 
 	//__forceinline const Vec4f operator * (const Vec4f& v) const;
 
+	const std::string rowString(int row_index) const;
+	const std::string toString() const;
 
 	static void test();
 
