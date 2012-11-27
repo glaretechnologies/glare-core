@@ -223,10 +223,8 @@ void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const R
 void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths);
 
 
-template <class Real> Real trowbridgeReitzPDF(Real cos_theta, Real alpha)
+template <class Real> Real trowbridgeReitzPDF(Real cos_theta, Real alpha2)
 {
-	const Real alpha2 = alpha * alpha;
-
 	return cos_theta * alpha2 / (Maths::pi<Real>() * Maths::square(Maths::square(cos_theta) * (alpha2 - 1) + 1));
 }
 
