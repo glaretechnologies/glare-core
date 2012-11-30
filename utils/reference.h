@@ -166,7 +166,7 @@ public:
 	inline const Reference<T2> downcast() const
 	{
 		//assert(dynamic_cast<const T2*>(ob) != NULL);
-		return Reference<T2>(static_cast<const T2*>(ob));
+		return Reference<T2>(static_cast<T2*>(ob));
 	}
 
 	template <class T2>

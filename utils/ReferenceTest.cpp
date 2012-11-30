@@ -147,6 +147,20 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 
+class BaseClass : public RefCounted
+{
+public:
+	int base_x;
+
+};
+
+class DerivedClass : public BaseClass
+{
+public:
+	int derived_x;
+};
+
+
 void ReferenceTest::run()
 {
 	{
@@ -276,6 +290,39 @@ void ReferenceTest::run()
 		conPrint("time elapsed: " + timer.elapsedString());
 		conPrint("total: " + toString(total));
 		conPrint("time per incr: " + doubleToStringScientific(time_per_incr) + " s");
+
+	}
+
+
+	///////////// Test downcasting from a const Reference //////////////////////////////
+	{
+
+		const Reference<BaseClass> ref(new DerivedClass());
+
+		int x = ref.downcast<DerivedClass>()->derived_x;
+	}
+
+	{
+
+		const Reference<const BaseClass> ref(new DerivedClass());
+
+		int x = ref.downcast<const DerivedClass>()->derived_x;
+
+		// This gives a compile error, as it should:
+		//ref.downcast<DerivedClass>()->derived_x++;
+	}
+
+
+	////////////// Test downcasting from std::vector of refs /////////////////////////
+	{
+		std::vector<Reference<BaseClass> > vec;
+
+		vec.push_back(Reference<BaseClass>(new DerivedClass()));
+
+		const std::vector<Reference<BaseClass> > const_vec = vec;
+
+		int x = const_vec[0]->base_x;
+		x = const_vec[0].downcast<DerivedClass>()->derived_x;
 
 	}
 }
