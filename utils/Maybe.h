@@ -1,37 +1,38 @@
 /*=====================================================================
-reference.h
+Maybe.h
 -----------
 Copyright Glare Technologies Limited 2012 - 
 =====================================================================*/
 #pragma once
 
 
-#include "refcounted.h"
+#include "reference.h"
 #include <cassert>
 #include <stdlib.h> // for NULL
 
 
 /*=====================================================================
-Reference
+Maybe
 ---------
 Handle to a reference-counted object.
+Handle may be 'null' (not reference an object; be invalid)
 Referenced object will be automatically deleted when no refs to it remain.
 T must be a subclass of 'RefCounted'
 =====================================================================*/
 template <class T>
-class Reference
+class Maybe
 {
 public:
 	/*=====================================================================
-	Reference
+	Maybe
 	---------
 	
 	=====================================================================*/
-	Reference()
+	Maybe()
 	:	ob(0)
 	{}
 
-	explicit Reference(T* ob_)
+	explicit Maybe(T* ob_)
 	{
 		ob = ob_;
 
@@ -39,8 +40,18 @@ public:
 			ob->incRefCount();
 	}
 
+
+	// Implicit copy-constructor from Reference<T>
+	Maybe(const Reference<T>& other)
+	{
+		ob = other.getPointer();
+
+		if(ob)
+			ob->incRefCount();
+	}
+
 	template<class T2>
-	Reference(const Reference<T2>& other)
+	Maybe(const Maybe<T2>& other)
 	{
 		ob = other.getPointer();
 
@@ -49,7 +60,7 @@ public:
 	}
 	
 
-	~Reference()
+	~Maybe()
 	{
 		if(ob)
 		{
@@ -59,7 +70,7 @@ public:
 		}
 	}
 
-	Reference(const Reference<T>& other)
+	Maybe(const Maybe<T>& other)
 	{
 		ob = other.ob;
 
@@ -67,29 +78,54 @@ public:
 			ob->incRefCount();
 	}
 
-	Reference& operator = (const Reference& other)
+	Maybe& operator = (const Maybe& other)
 	{
-		T* old_ob = ob;
+		if(&other == this)//assigning a Maybe object to itself
+			return *this;
+
+		//-----------------------------------------------------------------
+		//dec old ref that this object used to contain
+		//-----------------------------------------------------------------
+		if(ob)
+		{
+			int new_ref_count = ob->decRefCount();
+			if(new_ref_count == 0)
+				delete ob;
+		}
 
 		ob = other.ob;
-		// NOTE: if a reference is getting assigned to itself, old_ob == ob.  So make sure we increment before we decrement and delete.
+
 		if(ob)
 			ob->incRefCount();
-
-		// Dec old ref that this object used to contain
-		if(old_ob)
-		{
-			int ref_count = old_ob->decRefCount();
-			if(ref_count == 0)
-				delete old_ob;
-		}
 
 		return *this;
 	}
 
 
+	Maybe& operator = (const Reference<T>& other)
+	{
+		//-----------------------------------------------------------------
+		//dec old ref that this object used to contain
+		//-----------------------------------------------------------------
+		if(ob)
+		{
+			int new_ref_count = ob->decRefCount();
+			if(new_ref_count == 0)
+				delete ob;
+		}
+
+		ob = other.getPointer();
+
+		if(ob)
+			ob->incRefCount();
+
+		return *this;
+	}
+
+
+
 	//less than is defined as less than for the pointed to objects
-	bool operator < (const Reference& other) const
+	bool operator < (const Maybe& other) const
 	{
 		return *ob < *other.ob;
 	}
@@ -145,36 +181,32 @@ public:
 
 	// NOTE: These upcast functions are not needed any more.  Valid conversions will be done automatically by the compiler.
 	template <class T2>
-	inline const Reference<T2> upcast() const
+	inline const Maybe<T2> upcast() const
 	{
-		return Reference<T2>(ob);
+		return Maybe<T2>(ob);
 	}
 
 	template <class T2>
-	inline Reference<T2> upcast()
+	inline Maybe<T2> upcast()
 	{
-		return Reference<T2>(ob);
+		return Maybe<T2>(ob);
 	}
 
 
-	// Downcast to a reference to a derived type.  NOTE: only call this if you are sure the pointer is actually to an object of the derived type.
+	// Downcast to a Maybe to a derived type.  NOTE: only call this if you are sure the pointer is actually to an object of the derived type.
 	// Otherwise behaviour is undefined.
 	template <class T2>
-	inline const Reference<T2> downcast() const
+	inline const Maybe<T2> downcast() const
 	{
-		//assert(dynamic_cast<const T2*>(ob) != NULL);
-		return Reference<T2>(static_cast<T2*>(ob));
+		return Maybe<T2>(static_cast<T2*>(ob));
 	}
 
 	template <class T2>
-	inline Reference<T2> downcast()
+	inline Maybe<T2> downcast()
 	{
-		//assert(dynamic_cast<T2*>(ob) != NULL);
-		return Reference<T2>(static_cast<T2*>(ob));
+		return Maybe<T2>(static_cast<T2*>(ob));
 	}
 	
-	
-
 private:
 	T* ob;
 };

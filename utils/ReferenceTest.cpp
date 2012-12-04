@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 
 
 #include "reference.h"
+#include "Maybe.h"
 #include "refcounted.h"
 #include "ThreadSafeRefCounted.h"
 #include "../indigo/TestUtils.h"
@@ -164,7 +165,9 @@ public:
 void ReferenceTest::run()
 {
 	{
+
 		int i = 0;
+		// Basic Reference test
 		{
 			Reference<TestClass> t(new TestClass(&i));
 			testAssert(i == 1);
@@ -184,7 +187,7 @@ void ReferenceTest::run()
 		}
 		testAssert(i == 0);
 
-
+		// Test references in a vector
 		{
 		std::vector<Reference<TestClass> > v;
 		testAssert(i == 0);
@@ -206,6 +209,7 @@ void ReferenceTest::run()
 
 		testAssert(i == 0);
 
+		// Test returning refs from a function
 		{
 			Reference<DerivedTestClass> d = someFunc(&i);
 		}
@@ -213,7 +217,6 @@ void ReferenceTest::run()
 		{
 			Reference<TestClass> t = someFunc(&i);
 		}
-
 		testAssert(i == 0);
 	
 
@@ -222,22 +225,22 @@ void ReferenceTest::run()
 			Reference<TestClass> t(new TestClass(&i));
 			Reference<const TestClass> t_const = t;
 		}
-
 		testAssert(i == 0);
 
 
+		// Test passing reference to a function
 		{
 			Reference<TestClass> t(new TestClass(&i));
 		
 			functionWithByValueRefParam(t);
 		}
+		testAssert(i == 0);
 
 		{
 			Reference<TestClass> t(new TestClass(&i));
 		
 			functionWithByRefRefParam(t);
 		}
-
 		testAssert(i == 0);
 
 		// Test AlignedTestClass references, make sure it's always aligned
@@ -254,6 +257,32 @@ void ReferenceTest::run()
 			}
 		}
 
+		testAssert(i == 0);
+
+		// Test assigning reference to itself
+		{
+			Reference<TestClass> t(new TestClass(&i));
+		
+			t = t;
+		}
+		testAssert(i == 0);
+
+		// Test assigning reference to another when both point to same object.
+		{
+			Reference<TestClass> t(new TestClass(&i));
+			Reference<TestClass> t2 = t;
+		
+			t = t2;
+		}
+		testAssert(i == 0);
+
+		// Test assigning reference to another when both point to different objects
+		{
+			Reference<TestClass> t(new TestClass(&i));
+			Reference<TestClass> t2(new TestClass(&i));
+		
+			t = t2;
+		}
 		testAssert(i == 0);
 	}
 
@@ -323,6 +352,36 @@ void ReferenceTest::run()
 
 		int x = const_vec[0]->base_x;
 		x = const_vec[0].downcast<DerivedClass>()->derived_x;
+
+	}
+
+
+	/////////////////// Test Maybe ///////////////////////////////////
+	{
+		int i = 0;
+		{
+			Maybe<TestClass> maybe(new TestClass(&i));
+		}
+		testAssert(i == 0);
+	
+		// Test auto-conversion to Reference
+		{
+			
+			Reference<TestClass> ref(new TestClass(&i));
+
+			Maybe<TestClass> maybe(ref);
+		}
+		testAssert(i == 0);
+
+		// Test operator = from reference
+		{
+			// Test auto-conversion to Reference
+			Reference<TestClass> ref(new TestClass(&i));
+
+			Maybe<TestClass> maybe;
+			maybe = ref;
+		}
+		testAssert(i == 0);
 
 	}
 }
