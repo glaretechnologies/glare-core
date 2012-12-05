@@ -1433,7 +1433,7 @@ void StringUtils::test()
 	// Test WToUTF8String and UTF8ToWString.
 #if defined(_WIN32) || defined(_WIN64)
 	{
-		const int a = sizeof(wchar_t);
+		// const int a = sizeof(wchar_t);
 
 		const std::wstring w = L"A";
 
