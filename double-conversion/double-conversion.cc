@@ -98,7 +98,8 @@ void DoubleToStringConverter::CreateExponentialRepresentation(
   }
   ASSERT(exponent < 1e4);
   const int kMaxExponentLength = 5;
-  char buffer[kMaxExponentLength];
+  char buffer[kMaxExponentLength + 1];
+  buffer[kMaxExponentLength] = '\0';
   int first_char_pos = kMaxExponentLength;
   while (exponent > 0) {
     buffer[--first_char_pos] = '0' + (exponent % 10);
@@ -161,7 +162,7 @@ bool DoubleToStringConverter::ToShortestIeeeNumber(
     double value,
     StringBuilder* result_builder,
     DoubleToStringConverter::DtoaMode mode) const {
-  assert(mode == SHORTEST || mode == SHORTEST_SINGLE);
+  ASSERT(mode == SHORTEST || mode == SHORTEST_SINGLE);
   if (Double(value).IsSpecial()) {
     return HandleSpecialValues(value, result_builder);
   }
