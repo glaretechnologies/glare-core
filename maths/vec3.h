@@ -583,6 +583,14 @@ VEC3_INLINE const Vec3<Real> crossProduct(const Vec3<Real>& v1, const Vec3<Real>
 	);
 }
 
+
+// Unary -
+template <class Real>
+VEC3_INLINE const Vec3<Real> operator - (const Vec3<Real>& v)
+{
+	return Vec3<Real>(-v.x, -v.y, -v.z);
+}
+
 	//v1 and v2 unnormalized
 template <class Real>
 VEC3_INLINE Real angleBetween(const Vec3<Real>& v1, const Vec3<Real>& v2)

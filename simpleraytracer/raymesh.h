@@ -120,13 +120,16 @@ class RayMeshVertex
 {
 public:
 	RayMeshVertex(){}
-	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : 
+	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_, float H_) : 
 		pos(pos_), 
-		normal(normal_) 
+		normal(normal_),
+		H(H_)
 	{}
 
 	Vec3f pos;
 	Vec3f normal;
+	float H; // Mean curvature
+	float padding;
 
 	inline bool operator < (const RayMeshVertex& b) const
 	{
@@ -178,7 +181,7 @@ public:
 	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;
-	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_error_out) const;
+	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_error_out, Real& curvature_out) const;
 	const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const;
@@ -240,6 +243,7 @@ public:
 	void printTraceStats();
 
 
+	std::vector<RayMeshVertex>& getVertices() { return vertices; }
 	const std::vector<RayMeshVertex>& getVertices() const { return vertices; }
 	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
@@ -248,8 +252,10 @@ public:
 
 	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
 
+	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
+
 private:
-	void computeShadingNormals(PrintOutput& print_output, bool verbose);
+	void computeShadingNormalsAndMeanCurvature(bool update_shading_normals, PrintOutput& print_output, bool verbose);
 	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose);
 	void mergeUVs(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();

@@ -266,7 +266,7 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 }
 
 
-void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out) const
+void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Real& curvature_out) const
 {
 	assert(built());
 
@@ -296,6 +296,12 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 			0.f
 			);
 	}
+
+	// Compute curvature
+	curvature_out = 
+		vertices[tri.vertex_indices[0]].H * (1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y) + 
+		vertices[tri.vertex_indices[1]].H * hitinfo.sub_elem_coords.x + 
+		vertices[tri.vertex_indices[2]].H * hitinfo.sub_elem_coords.y;
 }
 
 
@@ -383,13 +389,17 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 		if(merge_vertices_with_same_pos_and_normal)
 			mergeVerticesWithSamePosAndNormal(print_output, verbose);
 	
-		if(!vertex_shading_normals_provided)
-			computeShadingNormals(print_output, verbose);
+		computeShadingNormalsAndMeanCurvature(
+			!vertex_shading_normals_provided, // update shading normals
+			print_output, verbose
+		);
+		bool recompute_H = false; // This will be set to true if we need to recompute H (mean curvature) later.  This will be the case for subdiv and displacement or if there are any quads in the mesh.
 
 		if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
+			recompute_H = true;
 			
 #if INDIGO_OPENSUBDIV_SUPPORT
 			const bool USE_OSD = true;
@@ -602,6 +612,17 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 			}
 
 			this->quads.clearAndFreeMem();
+
+			recompute_H = true;
+		}
+
+		// Recompute surface curvature if required.
+		if(recompute_H)
+		{
+			computeShadingNormalsAndMeanCurvature(
+				false, // update shading normals - these should have been computed already.
+				print_output, verbose
+			);
 		}
 
 		subdivide_and_displace_done = true;
@@ -1347,13 +1368,13 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 
 void RayMesh::addVertex(const Vec3f& pos)
 {
-	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.f)));
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.f), 0));
 }
 
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
-	vertices.push_back(RayMeshVertex(pos, normal));
+	vertices.push_back(RayMeshVertex(pos, normal, 0));
 
 	this->vertex_shading_normals_provided = true;
 }
@@ -1555,41 +1576,97 @@ static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& v
 }
 
 
-void RayMesh::computeShadingNormals(PrintOutput& print_output, bool verbose)
+static const uint32_t mod3_table[] = { 0, 1, 2, 0, 1, 2 };
+
+inline static uint32 mod3(uint32 x)
+{
+	return mod3_table[x];
+}
+
+inline static uint32 mod4(uint32 x)
+{
+	return x & 0x3;
+}
+
+
+void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals, PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 
-	for(size_t i = 0; i < vertices.size(); ++i)
-		vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
+	// See 'Discrete Differential Geometry: An Applied Introduction'
+	// http://mesh.brown.edu/3DPGP-2007/pdfs/sg06-course01.pdf
+	// Chapter 3, Section 2.3 'Mean Curvature'.
+	// We will compute h_p.
+	// Note that we currently ignore quads when computing curvature.
+	std::vector<Vec3f> H(vertices.size(), Vec3f(0,0,0));
+	std::vector<Vec3f> A(vertices.size(), Vec3f(0,0,0));
+
+	if(update_shading_normals)
+		for(size_t i = 0; i < vertices.size(); ++i)
+			vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
 
 	for(size_t t = 0; t < triangles.size(); ++t)
 	{
-		const Vec3f tri_normal = triGeometricNormal(
+		if(update_shading_normals)
+		{
+			const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
 					triangles[t].vertex_indices[0], 
 					triangles[t].vertex_indices[1], 
 					triangles[t].vertex_indices[2]
 				);
 
+			for(int i = 0; i < 3; ++i)
+				vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
+		}
+
 		for(int i = 0; i < 3; ++i)
-			vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
+		{
+			// Get positions of vertices in triangle
+			const Vec3f& v_i   = vertices[triangles[t].vertex_indices[i]].pos;
+			const Vec3f& v_i_1 = vertices[triangles[t].vertex_indices[mod3(i + 1)]].pos;
+			const Vec3f& v_i_2 = vertices[triangles[t].vertex_indices[mod3(i + 2)]].pos;
+
+			const Vec3f e0 = v_i_1 - v_i; // Edge vectors
+			const Vec3f e1 = v_i_2 - v_i;
+			const Vec3f e2 = v_i_2 - v_i_1;
+			
+			float alpha_i = ::angleBetween(e0, -e2);
+			float beta_i = ::angleBetween(e1, e2);
+
+			H[triangles[t].vertex_indices[i]] -= (1/std::tan(alpha_i)) * e1;
+			H[triangles[t].vertex_indices[i]] -= (1/std::tan(beta_i) ) * e0;
+
+			A[triangles[t].vertex_indices[i]] += crossProduct(v_i_1, v_i_2);
+		}
 	}
 
 	for(size_t q = 0; q < quads.size(); ++q)
 	{
-		const Vec3f normal = triGeometricNormal(
-			vertices, 
-			quads[q].vertex_indices[0], 
-			quads[q].vertex_indices[1], 
-			quads[q].vertex_indices[2]
-		);
+		if(update_shading_normals)
+		{
+			const Vec3f normal = triGeometricNormal(
+				vertices, 
+				quads[q].vertex_indices[0], 
+				quads[q].vertex_indices[1], 
+				quads[q].vertex_indices[2]
+			);
 
-		for(int i = 0; i < 4; ++i)
-			vertices[quads[q].vertex_indices[i]].normal += normal;
+			for(int i = 0; i < 4; ++i)
+				vertices[quads[q].vertex_indices[i]].normal += normal;
+		}
 	}
 
 	for(size_t i = 0; i < vertices.size(); ++i)
-		vertices[i].normal.normalise();
+	{
+		if(update_shading_normals)
+			vertices[i].normal.normalise();
+
+		float H_p_len = 0.25f * dot(H[i], vertices[i].normal);
+		float A_p_len = (1.0f / 6.0f) * A[i].length();
+
+		vertices[i].H = H_p_len / A_p_len;
+	}
 }
 
 
