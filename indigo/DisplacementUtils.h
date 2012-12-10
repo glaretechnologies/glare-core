@@ -30,6 +30,7 @@ public:
 	bool anchored;
 
 	bool uv_discontinuity;
+	bool displaced; // Used as a flag in DisplacementUtils::displace().
 
 	//Vec2f texcoords; // TEMP
 	

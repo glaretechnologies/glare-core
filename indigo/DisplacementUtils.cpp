@@ -538,7 +538,12 @@ static float evalDisplacement(ThreadContext& context,
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
+		const Vec3f pos_os = 
+			verts[triangle.vertex_indices[0]].pos * b0 + 
+			verts[triangle.vertex_indices[1]].pos * b1 + 
+			verts[triangle.vertex_indices[2]].pos * b2;
+
+		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
 	}
 	else
 	{
@@ -583,7 +588,13 @@ static float evalDisplacement(ThreadContext& context,
 
 		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
+		const Vec3f pos_os = 
+			verts[quad.vertex_indices[0]].pos * one_alpha * one_beta + 
+			verts[quad.vertex_indices[1]].pos * alpha     * one_beta + 
+			verts[quad.vertex_indices[2]].pos * alpha     * beta;
+			verts[quad.vertex_indices[3]].pos * one_alpha * beta;
+
+		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
 	}
 	else
 	{
@@ -735,6 +746,8 @@ void DisplacementUtils::displace(ThreadContext& context,
 								 )
 {
 	verts_out = verts_in;
+	for(size_t i=0; i<verts_in.size(); ++i)
+		verts_out[i].displaced = false;
 
 	if(unclipped_tris_out)
 	{
@@ -769,27 +782,37 @@ void DisplacementUtils::displace(ThreadContext& context,
 			// For each vertex
 			for(size_t i = 0; i < 3; ++i)
 			{
-				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-				for(uint32_t z = 0; z < num_uv_sets; ++z)
-					du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
-
-				const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
-
-				//min_displacement = myMin(min_displacement, displacement);
-
-				//if(!vert_displaced[triangles[t].vertex_indices[i]])
-				//{
-				
-				// Translate vertex position along vertex shading normal
 				const uint32 v_i = triangles[t].vertex_indices[i];
-				assert(verts_in[v_i].normal.isUnitLength());
 
-				verts_out[v_i].displacement = displacement;
-				verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
+				if(!verts_out[v_i].displaced) // If this vertex has not yet been displaced
+				{
+					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-					//vert_displaced[triangles[t].vertex_indices[i]] = true;
-				//}
+					for(uint32_t z = 0; z < num_uv_sets; ++z)
+						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
+
+					const Vec3f& pos_os = verts_in[triangles[t].vertex_indices[i]].pos;
+
+					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+
+					// NOTE: this is applying displacement multiple times to the same vertex.
+
+					//min_displacement = myMin(min_displacement, displacement);
+
+					//if(!vert_displaced[triangles[t].vertex_indices[i]])
+					//{
+				
+					// Translate vertex position along vertex shading normal
+					
+					assert(verts_in[v_i].normal.isUnitLength());
+
+					verts_out[v_i].displacement = displacement;
+					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
+					verts_out[v_i].displaced = true;
+
+						//vert_displaced[triangles[t].vertex_indices[i]] = true;
+					//}
+				}
 			}
 
 			if(unclipped_tris_out)
@@ -810,19 +833,27 @@ void DisplacementUtils::displace(ThreadContext& context,
 			// For each vertex
 			for(size_t i = 0; i < 4; ++i)
 			{
-				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-				for(uint32_t z = 0; z < num_uv_sets; ++z)
-					du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, quads[q].uv_indices[i], z);
-
-				const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator);
-
-				// Translate vertex position along vertex shading normal
 				const uint32 v_i = quads[q].vertex_indices[i];
-				assert(verts_in[v_i].normal.isUnitLength());
+				
+				if(!verts_out[v_i].displaced) // If this vertex has not yet been displaced
+				{
+					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-				verts_out[v_i].displacement = displacement;
-				verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
+					for(uint32_t z = 0; z < num_uv_sets; ++z)
+						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, quads[q].uv_indices[i], z);
+
+					const Vec3f& pos_os = verts_in[quads[q].vertex_indices[i]].pos;
+
+					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+
+					// Translate vertex position along vertex shading normal
+				
+					assert(verts_in[v_i].normal.isUnitLength());
+
+					verts_out[v_i].displacement = displacement;
+					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
+					verts_out[v_i].displaced = true;
+				}
 			}
 
 			if(unclipped_quads_out)
