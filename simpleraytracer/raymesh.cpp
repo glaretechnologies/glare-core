@@ -1662,10 +1662,10 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 		if(update_shading_normals)
 			vertices[i].normal.normalise();
 
-		float H_p_len = 0.25f * dot(H[i], vertices[i].normal);
+		float H_p_len_dot_N = -0.25f * dot(H[i], vertices[i].normal);
 		float A_p_len = (1.0f / 6.0f) * A[i].length();
 
-		vertices[i].H = H_p_len / A_p_len;
+		vertices[i].H = H_p_len_dot_N / A_p_len;
 	}
 }
 
