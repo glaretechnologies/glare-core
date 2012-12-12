@@ -148,15 +148,22 @@ Real PerlinNoise::FBM(Real x, Real y, Real z, unsigned int num_octaves)
 
 
 
-static inline float perlinBasisNoise(const Vec4f& p)
+static inline float perlinBasisNoise01(const Vec4f& p)
 {
 	return PerlinNoise::noise(p.x[0], p.x[1], p.x[2]) * 0.5f + 0.5f;
 }
 
-static inline float ridgedBasisNoise(const Vec4f& p)
+static inline float ridgedBasisNoise01(const Vec4f& p)
 {
 	return 1 - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
 }
+
+
+static inline float ridgedBasisNoise(const Vec4f& p)
+{
+	return 0.5f - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
+}
+
 
 
 /*
@@ -229,11 +236,11 @@ Real PerlinNoise::multifractal(const Vec4f& p, Real H, Real lacunarity, Real oct
 	Real weight = 1;
 	Real w_factor = std::pow(lacunarity, -H);
 
-	value += weight * (perlinBasisNoise(p * freq) + offset);
+	value += weight * (perlinBasisNoise01(p * freq) + offset);
 
 	for(int i=1; i<(int)octaves; ++i)
 	{
-		value += myMax<Real>(0, value) * weight * (perlinBasisNoise(p * freq) + offset);
+		value += myMax<Real>(0, value) * weight * (perlinBasisNoise01(p * freq) + offset);
 		
 		freq *= lacunarity;
 		weight *= w_factor;
@@ -250,11 +257,11 @@ Real PerlinNoise::ridgedMultifractal(const Vec4f& p, Real H, Real lacunarity, Re
 	Real weight = 1;
 	Real w_factor = std::pow(lacunarity, -H);
 
-	value += weight * (ridgedBasisNoise(p * freq) + offset);
+	value += weight * (ridgedBasisNoise01(p * freq) + offset);
 
 	for(int i=1; i<(int)octaves; ++i)
 	{
-		value += myMax<Real>(0, value) * weight * (ridgedBasisNoise(p * freq) + offset);
+		value += myMax<Real>(0, value) * weight * (ridgedBasisNoise01(p * freq) + offset);
 
 		freq *= lacunarity;
 		weight *= w_factor;

@@ -1592,6 +1592,7 @@ inline static uint32 mod4(uint32 x)
 void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals, PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
+	Timer timer;
 
 	// See 'Discrete Differential Geometry: An Applied Introduction'
 	// http://mesh.brown.edu/3DPGP-2007/pdfs/sg06-course01.pdf
@@ -1607,15 +1608,15 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 
 	for(size_t t = 0; t < triangles.size(); ++t)
 	{
-		if(update_shading_normals)
-		{
-			const Vec3f tri_normal = triGeometricNormal(
+		const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
 					triangles[t].vertex_indices[0], 
 					triangles[t].vertex_indices[1], 
 					triangles[t].vertex_indices[2]
 				);
 
+		if(update_shading_normals)
+		{
 			for(int i = 0; i < 3; ++i)
 				vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
 		}
@@ -1623,20 +1624,14 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 		for(int i = 0; i < 3; ++i)
 		{
 			// Get positions of vertices in triangle
-			const Vec3f& v_i   = vertices[triangles[t].vertex_indices[i]].pos;
 			const Vec3f& v_i_1 = vertices[triangles[t].vertex_indices[mod3(i + 1)]].pos;
 			const Vec3f& v_i_2 = vertices[triangles[t].vertex_indices[mod3(i + 2)]].pos;
 
-			const Vec3f e0 = v_i_1 - v_i; // Edge vectors
-			const Vec3f e1 = v_i_2 - v_i;
 			const Vec3f e2 = v_i_2 - v_i_1;
-			
-			float alpha_i = ::angleBetween(e0, -e2);
-			float beta_i = ::angleBetween(e1, e2);
 
-			H[triangles[t].vertex_indices[i]] -= (1/std::tan(alpha_i)) * e1;
-			H[triangles[t].vertex_indices[i]] -= (1/std::tan(beta_i) ) * e0;
-
+			// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
+			assert(tri_normal.isUnitLength()); 
+			H[triangles[t].vertex_indices[i]] += crossProduct(tri_normal, e2);
 			A[triangles[t].vertex_indices[i]] += crossProduct(v_i_1, v_i_2);
 		}
 	}
@@ -1667,6 +1662,8 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 
 		vertices[i].H = H_p_len_dot_N / A_p_len;
 	}
+
+	if(verbose) print_output.print("\tElapsed: " + timer.elapsedString());
 }
 
 

@@ -384,9 +384,6 @@ void DisplacementUtils::subdivideAndDisplace(
 		print_output.print("\t\tDone.");
 	}
 
-	std::vector<bool> tris_unclipped; // XXX this data can be made much more compact (bits)
-	std::vector<bool> quads_unclipped;
-
 	// Apply the final displacement
 	displace(
 		context,
@@ -397,10 +394,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_verts, // verts in
 		temp_uvs, // uvs in
 		num_uv_sets,
-		temp_verts2, // verts out
-		&tris_unclipped,
-		&quads_unclipped
-		);
+		temp_verts2 // verts out
+	);
 
 	temp_verts = temp_verts2;
 
@@ -409,31 +404,27 @@ void DisplacementUtils::subdivideAndDisplace(
 	// Build tris_out
 	tris_out.resize(0);
 	for(size_t i = 0; i < temp_tris.size(); ++i)
-		if(tris_unclipped[i])
-		{
-			tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n));
+	{
+		tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n));
 
-			for(size_t c = 0; c < 3; ++c)
-				tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
-		}
+		for(size_t c = 0; c < 3; ++c)
+			tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
+	}
 
 	// TODO: optimise (prealloc tris etc..)
 	for(size_t i = 0; i < temp_quads.size(); ++i)
 	{
-		if(quads_unclipped[i])
-		{
-			// Split the quad into two triangles
-			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index, use_s_n));
-			tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index, use_s_n));
+		// Split the quad into two triangles
+		tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index, use_s_n));
+		tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index, use_s_n));
 
-			tris_out[tris_out.size() - 2].uv_indices[0] = temp_quads[i].uv_indices[0];
-			tris_out[tris_out.size() - 2].uv_indices[1] = temp_quads[i].uv_indices[1];
-			tris_out[tris_out.size() - 2].uv_indices[2] = temp_quads[i].uv_indices[2];
+		tris_out[tris_out.size() - 2].uv_indices[0] = temp_quads[i].uv_indices[0];
+		tris_out[tris_out.size() - 2].uv_indices[1] = temp_quads[i].uv_indices[1];
+		tris_out[tris_out.size() - 2].uv_indices[2] = temp_quads[i].uv_indices[2];
 
-			tris_out[tris_out.size() - 1].uv_indices[0] = temp_quads[i].uv_indices[0];
-			tris_out[tris_out.size() - 1].uv_indices[1] = temp_quads[i].uv_indices[2];
-			tris_out[tris_out.size() - 1].uv_indices[2] = temp_quads[i].uv_indices[3];
-		}
+		tris_out[tris_out.size() - 1].uv_indices[0] = temp_quads[i].uv_indices[0];
+		tris_out[tris_out.size() - 1].uv_indices[1] = temp_quads[i].uv_indices[2];
+		tris_out[tris_out.size() - 1].uv_indices[2] = temp_quads[i].uv_indices[3];
 	}
 
 
@@ -756,35 +747,15 @@ void DisplacementUtils::displace(ThreadContext& context,
 								 const std::vector<DUVertex>& verts_in,
 								 const std::vector<Vec2f>& uvs,
 								 unsigned int num_uv_sets,
-								 std::vector<DUVertex>& verts_out,
-								 std::vector<bool>* unclipped_tris_out,
-								 std::vector<bool>* unclipped_quads_out
+								 std::vector<DUVertex>& verts_out
 								 )
 {
 	verts_out = verts_in;
 	for(size_t i=0; i<verts_in.size(); ++i)
 		verts_out[i].displaced = false;
 
-	if(unclipped_tris_out)
-	{
-		unclipped_tris_out->resize(triangles.size());
-		for(uint32_t i = 0; i < triangles.size(); ++i)
-			(*unclipped_tris_out)[i] = true;
-	}
-
-	if(unclipped_quads_out)
-	{
-		unclipped_quads_out->resize(quads.size());
-		for(uint32_t i = 0; i < quads.size(); ++i)
-			(*unclipped_quads_out)[i] = true;
-	}
-
-
 	DUTexCoordEvaluator du_texcoord_evaluator;
 	du_texcoord_evaluator.texcoords.resize(num_uv_sets);
-
-
-	//std::vector<bool> vert_displaced(verts_in.size(), false); // Only displace each vertex once
 
 	// For each triangle
 	for(size_t t = 0; t < triangles.size(); ++t)
@@ -833,15 +804,8 @@ void DisplacementUtils::displace(ThreadContext& context,
 					verts_out[v_i].displacement = displacement;
 					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
 					verts_out[v_i].displaced = true;
-
-						//vert_displaced[triangles[t].vertex_indices[i]] = true;
 					//}
 				}
-			}
-
-			if(unclipped_tris_out)
-			{
-				(*unclipped_tris_out)[t] = true;//min_displacement > 0.2f;
 			}
 		}
 	}
@@ -886,11 +850,6 @@ void DisplacementUtils::displace(ThreadContext& context,
 					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
 					verts_out[v_i].displaced = true;
 				}
-			}
-
-			if(unclipped_quads_out)
-			{
-				(*unclipped_quads_out)[q] = true;
 			}
 		}
 	}
@@ -1011,10 +970,8 @@ void DisplacementUtils::linearSubdivision(
 		verts_in,
 		uvs_in,
 		num_uv_sets,
-		displaced_in_verts, // verts out
-		NULL, // unclipped tris out
-		NULL // unclipped quads out
-		);
+		displaced_in_verts // verts out
+	);
 
 	// Calculate normals of the displaced vertices
 	computeVertexNormals(tris_in, quads_in, displaced_in_verts);

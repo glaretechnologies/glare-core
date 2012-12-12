@@ -179,9 +179,7 @@ private:
 		const std::vector<DUVertex>& verts_in,
 		const std::vector<Vec2f>& uvs,
 		unsigned int num_uv_sets,
-		std::vector<DUVertex>& verts_out,
-		std::vector<bool>* unclipped_tris_out,
-		std::vector<bool>* unclipped_quads_out
+		std::vector<DUVertex>& verts_out
 		);
 
 	static void linearSubdivision(
