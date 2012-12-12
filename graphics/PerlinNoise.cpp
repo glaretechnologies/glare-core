@@ -8,11 +8,17 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/mathstypes.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 // Explicit template instantiation
 template float PerlinNoise::noise(float x, float y, float z);
 template float PerlinNoise::FBM(float x, float y, float z, unsigned int num_octaves);
+template float PerlinNoise::FBM2(const Vec4f& p, float H, float lacunarity, float octaves);
+template float PerlinNoise::ridgedFBM(const Vec4f& p, float H, float lacunarity, float octaves);
+template float PerlinNoise::multifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
+template float PerlinNoise::ridgedMultifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
 
 
 PerlinNoise::PerlinNoise()
@@ -138,4 +144,120 @@ Real PerlinNoise::FBM(Real x, Real y, Real z, unsigned int num_octaves)
 	}
 
 	return sum;
+}
+
+
+
+static inline float perlinBasisNoise(const Vec4f& p)
+{
+	return PerlinNoise::noise(p.x[0], p.x[1], p.x[2]) * 0.5f + 0.5f;
+}
+
+static inline float ridgedBasisNoise(const Vec4f& p)
+{
+	return 1 - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
+}
+
+
+/*
+Adapted from 'Texturing and Modelling, a Procedural Approach'
+Page 437, fBm()
+
+Computing the weight for each frequency, from the book:
+w = f^-H
+f = l^n
+where n = octave, f = freq, l = lacunarity
+so
+w = (l^n)^-H
+  = l^(-nH)
+  = (l^-H)^n
+
+*/
+template <class Real>
+Real PerlinNoise::FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves)
+{
+	Real sum = 0;
+	Real freq = 1;
+	Real weight = 1;
+	Real w_factor = std::pow(lacunarity, -H);
+
+	for(int i=0; i<(int)octaves; ++i)
+	{
+		sum += weight * PerlinNoise::noise(p.x[0] * freq, p.x[1] * freq, p.x[2] * freq);
+		freq *= lacunarity;
+		weight *= w_factor;
+	}
+
+	// Do remaining octaves
+	Real d = octaves - (int)octaves;
+	if(d > 0)
+		sum += d * weight * PerlinNoise::noise(p.x[0] * freq, p.x[1] * freq, p.x[2] * freq);
+	
+	return sum;
+}
+
+
+template <class Real>
+Real PerlinNoise::ridgedFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves)
+{
+	Real sum = 0;
+	Real freq = 1;
+	Real weight = 1;
+	Real w_factor = std::pow(lacunarity, -H);
+
+	for(int i=0; i<(int)octaves; ++i)
+	{
+		sum += weight * ridgedBasisNoise(p * freq);
+		freq *= lacunarity;
+		weight *= w_factor;
+	}
+
+	// Do remaining octaves
+	Real d = octaves - (int)octaves;
+	if(d > 0)
+		sum += d * weight * ridgedBasisNoise(p * freq);
+	
+	return sum;
+}
+
+
+template <class Real>
+Real PerlinNoise::multifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
+{
+	Real value = 0;
+	Real freq = 1;
+	Real weight = 1;
+	Real w_factor = std::pow(lacunarity, -H);
+
+	value += weight * (perlinBasisNoise(p * freq) + offset);
+
+	for(int i=1; i<(int)octaves; ++i)
+	{
+		value += myMax<Real>(0, value) * weight * (perlinBasisNoise(p * freq) + offset);
+		
+		freq *= lacunarity;
+		weight *= w_factor;
+	}
+	return value;
+}
+
+
+template <class Real>
+Real PerlinNoise::ridgedMultifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
+{
+	Real value = 0;
+	Real freq = 1;
+	Real weight = 1;
+	Real w_factor = std::pow(lacunarity, -H);
+
+	value += weight * (ridgedBasisNoise(p * freq) + offset);
+
+	for(int i=1; i<(int)octaves; ++i)
+	{
+		value += myMax<Real>(0, value) * weight * (ridgedBasisNoise(p * freq) + offset);
+
+		freq *= lacunarity;
+		weight *= w_factor;
+	}
+	return value;
 }

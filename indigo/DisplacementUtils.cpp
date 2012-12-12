@@ -543,7 +543,15 @@ static float evalDisplacement(ThreadContext& context,
 			verts[triangle.vertex_indices[1]].pos * b1 + 
 			verts[triangle.vertex_indices[2]].pos * b2;
 
-		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+		Material::EvalDisplaceArgs args(
+			context,
+			hitinfo,
+			du_texcoord_evaluator,
+			pos_os.toVec4fPoint(),
+			0 // H (mean curvature).  TEMP HACK
+		);
+
+		return material.evaluateDisplacement(args);
 	}
 	else
 	{
@@ -594,7 +602,15 @@ static float evalDisplacement(ThreadContext& context,
 			verts[quad.vertex_indices[2]].pos * alpha     * beta;
 			verts[quad.vertex_indices[3]].pos * one_alpha * beta;
 
-		return material.evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+		Material::EvalDisplaceArgs args(
+			context,
+			hitinfo,
+			du_texcoord_evaluator,
+			pos_os.toVec4fPoint(),
+			0 // H (mean curvature).  TEMP HACK
+		);
+
+		return material.evaluateDisplacement(args);
 	}
 	else
 	{
@@ -793,7 +809,15 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 					const Vec3f& pos_os = verts_in[triangles[t].vertex_indices[i]].pos;
 
-					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+					Material::EvalDisplaceArgs args(
+						context,
+						hitinfo,
+						du_texcoord_evaluator,
+						pos_os.toVec4fPoint(),
+						0 // H (mean curvature).  TEMP HACK
+					);
+
+					const float displacement = (float)material->evaluateDisplacement(args);
 
 					// NOTE: this is applying displacement multiple times to the same vertex.
 
@@ -844,7 +868,15 @@ void DisplacementUtils::displace(ThreadContext& context,
 
 					const Vec3f& pos_os = verts_in[quads[q].vertex_indices[i]].pos;
 
-					const float displacement = (float)material->evaluateDisplacement(context, hitinfo, du_texcoord_evaluator, pos_os.toVec4fPoint());
+					Material::EvalDisplaceArgs args(
+						context,
+						hitinfo,
+						du_texcoord_evaluator,
+						pos_os.toVec4fPoint(),
+						0 // H (mean curvature).  TEMP HACK
+					);
+
+					const float displacement = (float)material->evaluateDisplacement(args);
 
 					// Translate vertex position along vertex shading normal
 				
