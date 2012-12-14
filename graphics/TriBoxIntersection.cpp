@@ -181,15 +181,13 @@ void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, con
 	}
 }
 
-void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Plane<float> >& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
+void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Plane<float> >& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& temp_vert_buffer, std::vector<Vec3f>& polygon_verts_out)
 {
-	std::vector<Vec3f> temp_verts;
-
-	temp_verts = polygon_verts;
+	temp_vert_buffer = polygon_verts;
 	for(unsigned int i=0; i<planes.size(); ++i)
 	{
-		clipPolyToPlaneHalfSpace(planes[i], temp_verts, polygon_verts_out);
-		temp_verts = polygon_verts_out;
+		clipPolyToPlaneHalfSpace(planes[i], temp_vert_buffer, polygon_verts_out);
+		temp_vert_buffer = polygon_verts_out;
 	}
 }
 

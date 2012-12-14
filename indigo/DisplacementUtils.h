@@ -195,6 +195,7 @@ private:
 		const std::vector<DUVertex>& verts_in,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
+		unsigned int num_subdivs_done,
 		const DUOptions& options,
 		std::vector<DUVertexPolygon>& vert_polygons_out,
 		std::vector<DUEdge>& edges_out,
