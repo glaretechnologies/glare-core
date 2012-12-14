@@ -4,14 +4,14 @@ DisplacementUtils.h
 File created by ClassTemplate on Thu May 15 20:31:26 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __DISPLACEMENTUTILS_H_666_
-#define __DISPLACEMENTUTILS_H_666_
+#pragma once
 
 
 #include "../utils/platform.h"
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
 class PrintOutput;
+namespace Indigo { class TaskManager; }
 
 
 class DUVertex
@@ -30,7 +30,6 @@ public:
 	bool anchored;
 
 	bool uv_discontinuity;
-	bool displaced; // Used as a flag in DisplacementUtils::displace().
 
 	//Vec2f texcoords; // TEMP
 	
@@ -150,6 +149,7 @@ public:
 
 
 	static void subdivideAndDisplace(
+		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
@@ -171,6 +171,7 @@ public:
 
 private:
 	static void displace(
+		Indigo::TaskManager& task_manager,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
 		bool use_anchoring,
@@ -183,6 +184,7 @@ private:
 		);
 
 	static void linearSubdivision(
+		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
@@ -203,6 +205,7 @@ private:
 		);
 
 	static void averagePass(
+		Indigo::TaskManager& task_manager,
 		const std::vector<DUVertexPolygon>& vert_polygons,
 		const std::vector<DUEdge>& edges,
 		const std::vector<DUTriangle>& tris,
@@ -215,6 +218,3 @@ private:
 		std::vector<Vec2f>& uvs_out
 		);
 };
-
-
-#endif //__DISPLACEMENTUTILS_H_666_

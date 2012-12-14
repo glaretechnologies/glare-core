@@ -30,11 +30,18 @@ by Joe Warren and Scott Schaefer
 #include "SpectrumMatParameter.h"
 #include "DisplaceMatParameter.h"
 #include "../utils/timer.h"
+#include "../utils/Task.h"
+#include "../dll/include/IndigoMap.h"
+#include "../utils/TaskManager.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <unordered_map>
 #else
 #include <tr1/unordered_map>
 #endif
+#include <sparsehash/dense_hash_map>
+
+
+static const bool PROFILE = false;
 
 
 DisplacementUtils::DisplacementUtils()
@@ -98,13 +105,56 @@ public:
 };
 
 
+/*static inline uint32_t pixelHash(uint32_t x)
+{
+	x  = (x ^ 12345391u) * 2654435769u;
+	x ^= (x << 6) ^ (x >> 26);
+	x *= 2654435769u;
+	x += (x << 5) ^ (x >> 12);
+
+	return x;
+}*/
+
+
+// Total subdiv and displace times on terrain_test.igs:
+// Using just key.v_a:
+// Time with identity hash: ~9.0s
+// Time with std::hash<size_t>: 10.3s
+// Time with pixelHash: 9.3s
+
+// Time using both key.v_a and key.v_b:
+// v_a XOR v_b: extremely slow
+// Time with std::hash<unsigned int>: 10.73, 10.9, 10.87
+// Time with _mm_crc32_u64: 10.08, 10.06
+
+// Using Google dense hash map:
+// Time with std::hash<unsigned int>: 9.06, 9.09, 9.07
+// with _mm_crc32_u64: 8.62, 8.62, 8.59
+
+// Using Google dense hash map: with resize first:
+// Time with std::hash<unsigned int>: 8.47, 8.53, 8.58
+// with _mm_crc32_u64: 8.14, 8.14, 8.17
+
 class DUVertIndexPairHash
 {	// hash functor
 public:
 	inline size_t operator()(const DUVertIndexPair& key) const
 	{	// hash _Keyval to size_t value by pseudorandomizing transform
 		
-		return (size_t)key.v_a;
+		//return (size_t)(key.v_a ^ key.v_b);
+		//return (size_t)(pixelHash(key.v_a);
+
+		/*const uint64 crc = 0x000011115555AAAA;
+
+		unsigned __int64 res = _mm_crc32_u64(crc, key.v_a);
+		res =  _mm_crc32_u64(res, key.v_b);
+		return res;*/
+
+		std::hash<unsigned int> h;
+		return h(key.v_a) ^ h(key.v_b);
+
+		//std::hash<unsigned int> h;
+		//return h(key.v_a ^ key.v_b);
 	}
 };
 
@@ -169,6 +219,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 
 
 void DisplacementUtils::subdivideAndDisplace(
+	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
 	const std::vector<Reference<Material> >& materials,
@@ -185,7 +236,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	std::vector<Vec2f>& uvs_out
 	)
 {
-	Timer timer;
+	Timer total_timer;
 
 	// Convert RayMeshVertices to DUVertices
 	std::vector<DUVertex> temp_verts(vertices_in.size());
@@ -330,10 +381,11 @@ void DisplacementUtils::subdivideAndDisplace(
 	{
 		print_output.print("\tDoing subdivision level " + toString(i) + "...");
 
-		//Timer linear_timer;
+		Timer linear_timer;
 		
 
 		linearSubdivision(
+			task_manager,
 			print_output,
 			context,
 			materials,
@@ -353,13 +405,13 @@ void DisplacementUtils::subdivideAndDisplace(
 			temp_uvs2 // uvs out
 			);
 
-		//conPrint("linearSubdivision took " + linear_timer.elapsedString());
+		if(PROFILE) conPrint("linearSubdivision took " + linear_timer.elapsedString());
 
 		if(smooth)
 		{
-			//Timer avpass_timer;
-			averagePass(temp_vert_polygons2, temp_edges2, temp_tris2, temp_quads2, temp_verts2, temp_uvs2, num_uv_sets, options, temp_verts, temp_uvs);
-			//conPrint("averagePass took " + avpass_timer.elapsedString());
+			Timer avpass_timer;
+			averagePass(task_manager, temp_vert_polygons2, temp_edges2, temp_tris2, temp_quads2, temp_verts2, temp_uvs2, num_uv_sets, options, temp_verts, temp_uvs);
+			if(PROFILE) conPrint("averagePass took " + avpass_timer.elapsedString());
 		}
 		else
 		{
@@ -376,7 +428,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_quads = temp_quads2;
 
 		// Recompute vertex normals
+		Timer recompute_vertex_normals;
 		computeVertexNormals(temp_tris, temp_quads, temp_verts);
+		if(PROFILE) conPrint("computeVertexNormals took " + recompute_vertex_normals.elapsedString());
 
 		print_output.print("\t\tresulting num vertices: " + toString((unsigned int)temp_verts.size()));
 		print_output.print("\t\tresulting num triangles: " + toString((unsigned int)temp_tris.size()));
@@ -385,7 +439,9 @@ void DisplacementUtils::subdivideAndDisplace(
 	}
 
 	// Apply the final displacement
+	Timer timer;
 	displace(
+		task_manager,
 		context,
 		materials,
 		true, // use anchoring
@@ -396,6 +452,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		num_uv_sets,
 		temp_verts2 // verts out
 	);
+	if(PROFILE) conPrint("final displace took " + timer.elapsedString());
 
 	temp_verts = temp_verts2;
 
@@ -429,7 +486,9 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 	// Recompute all vertex normals, as they will be completely wrong by now due to any displacement.
+	timer.reset();
 	computeVertexNormals(temp_tris, temp_quads, temp_verts);
+	if(PROFILE) conPrint("final computeVertexNormals() took " + timer.elapsedString());
 
 
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
@@ -441,7 +500,8 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	uvs_out = temp_uvs;
 
-	print_output.print("Subdivision and displacement took " + timer.elapsedStringNPlaces(3));
+	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(3));
+	if(PROFILE) conPrint("Total time elapsed: " + total_timer.elapsedString());
 }
 
 
@@ -739,7 +799,63 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 
 
 */
-void DisplacementUtils::displace(ThreadContext& context,
+struct DisplaceTaskClosure
+{
+	unsigned int num_uv_sets;
+	const std::vector<Vec2f>* vert_uvs;
+	const std::vector<DUVertex>* verts_in;
+	std::vector<DUVertex>* verts_out;
+	const std::vector<const Material*>* vert_materials;
+};
+
+
+class DisplaceTask : public Indigo::Task
+{
+public:
+	DisplaceTask(const DisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		ThreadContext context;
+		DUTexCoordEvaluator du_texcoord_evaluator;
+		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+
+		for(int v_i = begin; v_i < end; ++v_i)
+		{
+			if((*closure.vert_materials)[v_i]->displacing())
+			{
+				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
+
+				for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+					du_texcoord_evaluator.texcoords[z] = (*closure.vert_uvs)[v_i*closure.num_uv_sets + z];
+
+				const Vec3f& pos_os = (*closure.verts_in)[v_i].pos;
+
+				Material::EvalDisplaceArgs args(
+					context,
+					hitinfo,
+					du_texcoord_evaluator,
+					pos_os.toVec4fPoint(),
+					0 // H (mean curvature).  TEMP HACK
+				);
+
+				const float displacement = (*closure.vert_materials)[v_i]->evaluateDisplacement(args);
+					
+				assert(verts_in[v_i].normal.isUnitLength());
+
+				(*closure.verts_out)[v_i].displacement = displacement;
+				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos + (*closure.verts_in)[v_i].normal * displacement;
+			}
+		}
+	}
+
+	const DisplaceTaskClosure& closure;
+	int begin, end;
+};
+
+
+void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
+								 ThreadContext& context,
 								 const std::vector<Reference<Material> >& materials,
 								 bool use_anchoring,
 								 const std::vector<DUTriangle>& triangles,
@@ -751,109 +867,47 @@ void DisplacementUtils::displace(ThreadContext& context,
 								 )
 {
 	verts_out = verts_in;
-	for(size_t i=0; i<verts_in.size(); ++i)
-		verts_out[i].displaced = false;
 
-	DUTexCoordEvaluator du_texcoord_evaluator;
-	du_texcoord_evaluator.texcoords.resize(num_uv_sets);
+	// Work out which material applies to each vertex.
+	// Also get UVs for each vertex.
+	// NOTE: this ignores the case when multiple materials are assigned to a single vertex.  The 'last' material assigned is used.
 
-	// For each triangle
+	std::vector<const Material*> vert_materials(verts_in.size(), NULL);
+	std::vector<Vec2f> vert_uvs(verts_in.size() * num_uv_sets);
+
 	for(size_t t = 0; t < triangles.size(); ++t)
 	{
 		const Material* material = materials[triangles[t].tri_mat_index].getPointer(); // Get the material assigned to this triangle
 
-		if(material->displacing())
+		for(size_t i = 0; i < 3; ++i)
 		{
-			//float min_displacement = std::numeric_limits<float>::infinity();
+			vert_materials[triangles[t].vertex_indices[i]] = material;
 
-			// For each vertex
-			for(size_t i = 0; i < 3; ++i)
-			{
-				const uint32 v_i = triangles[t].vertex_indices[i];
-
-				if(!verts_out[v_i].displaced) // If this vertex has not yet been displaced
-				{
-					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
-
-					const Vec3f& pos_os = verts_in[triangles[t].vertex_indices[i]].pos;
-
-					Material::EvalDisplaceArgs args(
-						context,
-						hitinfo,
-						du_texcoord_evaluator,
-						pos_os.toVec4fPoint(),
-						0 // H (mean curvature).  TEMP HACK
-					);
-
-					const float displacement = (float)material->evaluateDisplacement(args);
-
-					// NOTE: this is applying displacement multiple times to the same vertex.
-
-					//min_displacement = myMin(min_displacement, displacement);
-
-					//if(!vert_displaced[triangles[t].vertex_indices[i]])
-					//{
-				
-					// Translate vertex position along vertex shading normal
-					
-					assert(verts_in[v_i].normal.isUnitLength());
-
-					verts_out[v_i].displacement = displacement;
-					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
-					verts_out[v_i].displaced = true;
-					//}
-				}
-			}
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				vert_uvs[triangles[t].vertex_indices[i] * num_uv_sets + z] = getUVs(uvs, num_uv_sets, triangles[t].uv_indices[i], z);
 		}
 	}
 
-
-	// For each quad
 	for(size_t q = 0; q < quads.size(); ++q)
 	{
-		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this quad
+		const Material* material = materials[quads[q].mat_index].getPointer(); // Get the material assigned to this triangle
 
-		if(material->displacing())
+		for(size_t i = 0; i < 4; ++i)
 		{
-			// For each vertex
-			for(size_t i = 0; i < 4; ++i)
-			{
-				const uint32 v_i = quads[q].vertex_indices[i];
-				
-				if(!verts_out[v_i].displaced) // If this vertex has not yet been displaced
-				{
-					HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
+			vert_materials[quads[q].vertex_indices[i]] = material;
 
-					for(uint32_t z = 0; z < num_uv_sets; ++z)
-						du_texcoord_evaluator.texcoords[z] = getUVs(uvs, num_uv_sets, quads[q].uv_indices[i], z);
-
-					const Vec3f& pos_os = verts_in[quads[q].vertex_indices[i]].pos;
-
-					Material::EvalDisplaceArgs args(
-						context,
-						hitinfo,
-						du_texcoord_evaluator,
-						pos_os.toVec4fPoint(),
-						0 // H (mean curvature).  TEMP HACK
-					);
-
-					const float displacement = (float)material->evaluateDisplacement(args);
-
-					// Translate vertex position along vertex shading normal
-				
-					assert(verts_in[v_i].normal.isUnitLength());
-
-					verts_out[v_i].displacement = displacement;
-					verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
-					verts_out[v_i].displaced = true;
-				}
-			}
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				vert_uvs[quads[q].vertex_indices[i] * num_uv_sets + z] = getUVs(uvs, num_uv_sets, quads[q].uv_indices[i], z);
 		}
 	}
 
+	DisplaceTaskClosure closure;
+	closure.num_uv_sets = num_uv_sets;
+	closure.vert_uvs = &vert_uvs;
+	closure.verts_in = &verts_in;
+	closure.verts_out = &verts_out;
+	closure.vert_materials = &vert_materials;
+	task_manager.runParallelForTasks<DisplaceTask, DisplaceTaskClosure>(closure, 0, verts_in.size());
 
 	// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 	for(size_t v = 0; v < verts_out.size(); ++v)
@@ -923,11 +977,14 @@ static inline int getDispErrorRes(unsigned int num_tris)
 
 //std::map<DUVertIndexPair, DUEdgeInfo> edge_info_map;
 //std::map<DUVertIndexPair, unsigned int> uv_edge_map;
-typedef std::tr1::unordered_map<DUVertIndexPair, DUEdgeInfo, DUVertIndexPairHash> EdgeInfoMapType;
-typedef std::tr1::unordered_map<DUVertIndexPair, unsigned int, DUVertIndexPairHash> UVEdgeMapType;
+typedef google::dense_hash_map<DUVertIndexPair, DUEdgeInfo, DUVertIndexPairHash> EdgeInfoMapType;
+typedef google::dense_hash_map<DUVertIndexPair, unsigned int, DUVertIndexPairHash> UVEdgeMapType;
+//typedef std::tr1::unordered_map<DUVertIndexPair, DUEdgeInfo, DUVertIndexPairHash> EdgeInfoMapType;
+//typedef std::tr1::unordered_map<DUVertIndexPair, unsigned int, DUVertIndexPairHash> UVEdgeMapType;
 
 
 void DisplacementUtils::linearSubdivision(
+	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
 	const std::vector<Reference<Material> >& materials,
@@ -947,6 +1004,8 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<Vec2f>& uvs_out
 	)
 {
+	Timer timer;
+
 	verts_out = verts_in; // Copy over original vertices
 	uvs_out = uvs_in; // Copy over uvs
 
@@ -959,25 +1018,41 @@ void DisplacementUtils::linearSubdivision(
 	quads_out.reserve(quads_in.size() * 4);
 
 
-	// Get displaced vertices, which are needed for testing if subdivision is needed
+	// Get displaced vertices, which are needed for testing if subdivision is needed, in some cases.
 	std::vector<DUVertex> displaced_in_verts;
-	displace(
-		context,
-		materials,
-		true, // use anchoring
-		tris_in,
-		quads_in,
-		verts_in,
-		uvs_in,
-		num_uv_sets,
-		displaced_in_verts // verts out
-	);
+	if(options.view_dependent_subdivision || options.subdivide_curvature_threshold > 0) // Only generate if needed.
+	{
+		displace(
+			task_manager,
+			context,
+			materials,
+			true, // use anchoring
+			tris_in,
+			quads_in,
+			verts_in,
+			uvs_in,
+			num_uv_sets,
+			displaced_in_verts // verts out
+		);
 
-	// Calculate normals of the displaced vertices
-	computeVertexNormals(tris_in, quads_in, displaced_in_verts);
+		// Calculate normals of the displaced vertices
+		computeVertexNormals(tris_in, quads_in, displaced_in_verts);
+	}
 
 	EdgeInfoMapType edge_info_map;
 	UVEdgeMapType uv_edge_map;
+	
+
+	edge_info_map.set_empty_key(DUVertIndexPair(std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()));
+	uv_edge_map.set_empty_key(DUVertIndexPair(std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()));
+
+	// google::dense_hash_map doesn't have reserve(), but resize seems to work fine.
+	edge_info_map.resize((int)((double)tris_in.size() * 1.5));
+	uv_edge_map.resize((int)((double)tris_in.size() * 1.5));
+
+	// Reserve some space for the edges.  There should be about 1.5 edges per triangle.
+	//edge_info_map.reserve((int)((double)tris_in.size() * 1.5));
+	//uv_edge_map.reserve((int)((double)tris_in.size() * 1.5));
 
 	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
@@ -1023,6 +1098,7 @@ void DisplacementUtils::linearSubdivision(
 				(curvature >= curvature_threshold OR 
 				displacement_error >= displacement_error_threshold)
 	*/
+	timer.reset();
 
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
 
@@ -1127,10 +1203,16 @@ void DisplacementUtils::linearSubdivision(
 		subdividing_tri[t] = subdivide_triangle;
 	}
 
+	if(PROFILE) conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3));
+
 
 	// Create edge midpoint vertices for triangle and quads
 
+	timer.reset();
+
 	const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
+
+	if(PROFILE) conPrint("Create edge midpoint verts, tris_in.size(): " + toString(tris_in.size()));
 
 	// For each triangle
 	for(size_t t = 0; t < tris_in.size(); ++t)
@@ -1150,7 +1232,7 @@ void DisplacementUtils::linearSubdivision(
 
 				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
-				DUEdgeInfo& edge_info = edge_info_map[edge];
+				DUEdgeInfo& edge_info = edge_info_map[edge]; // Look up edge in map
 
 				if(edge_info.num_adjacent_subdividing_polys == 0)
 				{
@@ -1237,6 +1319,8 @@ void DisplacementUtils::linearSubdivision(
 			}
 		}
 	}
+
+	if(PROFILE) conPrint("   building edge mid point vertices: " + timer.elapsedStringNPlaces(3));
 
 
 	// Do a pass to decide whether or not to subdivide each quad, and create new vertices if subdividing.
@@ -1518,6 +1602,8 @@ void DisplacementUtils::linearSubdivision(
 	uint32_t num_quads_subdivided = 0;
 	uint32_t num_quads_unchanged = 0;
 
+	timer.reset();
+
 	// Vertex polygons can't be subdivided, so just copy over
 	vert_polygons_out = vert_polygons_in;
 
@@ -1660,6 +1746,8 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
+	if(PROFILE) conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3));
+
 
 	// For each quad
 	for(size_t q = 0; q < quads_in.size(); ++q)
@@ -1748,6 +1836,7 @@ static inline float evalW(unsigned int n_t, unsigned int n_q)
 
 
 void DisplacementUtils::averagePass(
+	Indigo::TaskManager& task_manager,
 	const std::vector<DUVertexPolygon>& vert_polygons,
 	const std::vector<DUEdge>& edges,
 	const std::vector<DUTriangle>& tris, 
@@ -2123,6 +2212,8 @@ void DisplacementUtils::test()
 	//		}
 	//	}
 	//}
+	Indigo::TaskManager task_manager(1);
+
 	///////////////
 	{
 		std::vector<RayMeshVertex> vertices(6);
@@ -2196,6 +2287,7 @@ void DisplacementUtils::test()
 		options.max_num_subdivisions = 1;
 
 		DisplacementUtils::subdivideAndDisplace(
+			task_manager,
 			print_output,
 			context,
 			materials,

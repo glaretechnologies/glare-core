@@ -370,7 +370,7 @@ public:
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
 
 
-bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
 	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
 	)
@@ -551,6 +551,7 @@ bool RayMesh::subdivideAndDisplace(ThreadContext& context, const Object& object,
 				options.camera_clip_planes_os = camera_clip_planes_os;
 
 				DisplacementUtils::subdivideAndDisplace(
+					task_manager,
 					print_output,
 					context,
 					object.getMaterials(),
