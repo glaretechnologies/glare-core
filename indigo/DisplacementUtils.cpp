@@ -150,7 +150,11 @@ public:
 		res =  _mm_crc32_u64(res, key.v_b);
 		return res;*/
 
+#if defined(_WIN32)
 		std::hash<unsigned int> h;
+#else
+		std::tr1::hash<unsigned int> h;
+#endif
 		return h(key.v_a) ^ h(key.v_b);
 
 		//std::hash<unsigned int> h;
