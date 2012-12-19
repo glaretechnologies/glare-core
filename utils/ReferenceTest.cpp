@@ -200,6 +200,25 @@ void ReferenceTest::run()
 		testAssert(i == 0);
 
 
+		// Test copy constructor
+		{
+			Reference<TestClass> t = Reference<TestClass>(new TestClass(&i));
+		}
+		testAssert(i == 0);
+
+		// Test from-pointer constructor
+		{
+			Reference<TestClass> t = new TestClass(&i);
+		}
+		testAssert(i == 0);
+
+		{
+			Reference<TestClass> t;
+			t = new TestClass(&i);
+		}
+		testAssert(i == 0);
+
+
 		// Test automatic conversion from derived to base class.
 		{
 			Reference<DerivedTestClass> d(new DerivedTestClass(&i));

@@ -31,7 +31,7 @@ public:
 	:	ob(0)
 	{}
 
-	explicit Reference(T* ob_)
+	Reference(T* ob_)
 	{
 		ob = ob_;
 
