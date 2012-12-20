@@ -150,7 +150,7 @@ public:
 		res =  _mm_crc32_u64(res, key.v_b);
 		return res;*/
 
-#if defined(_WIN32)
+#if defined(_WIN32) && _MSC_VER > 1500 // If Windows and VS version is newer than Visual Studio 2008:  (std::hash is only in VS 2010 or newer)
 		std::hash<unsigned int> h;
 #else
 		std::tr1::hash<unsigned int> h;
