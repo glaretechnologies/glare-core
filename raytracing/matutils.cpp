@@ -244,21 +244,22 @@ const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real 
 
 
 template <class Real>
-Real dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i)
+Real dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i_)
 {
-	assert(n1 >= 1.0f && n2 >= 0.0f);
-	assert(cos_theta_i >= 0.0f && cos_theta_i <= 1.0f);
+	assert(n1 >= 1 && n2 >= 1);
+	assert(cos_theta_i_ >= 0);
+	const Real cos_theta_i = myMin<Real>(1, cos_theta_i_);
 
-	//Get transmitted cos theta using Snell's law
-	//http://en.wikipedia.org/wiki/Snell%27s_law
+	// Get transmitted cos theta using Snell's law
+	// http://en.wikipedia.org/wiki/Snell%27s_law
 
-	const Real sintheta_i = sqrt((Real)1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	const Real sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
 	const Real sintheta_t = sintheta_i * n1 / n2; // Use Snell's law to get sin(theta_t)
 
-	if(sintheta_t >= (Real)1.0)
-		return (Real)1.0; // Total internal reflection
+	if(sintheta_t >= 1)
+		return 1; // Total internal reflection
 
-	const Real costheta_t = sqrt((Real)1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
+	const Real costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
 
 	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
 
