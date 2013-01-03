@@ -223,6 +223,7 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 
 
 void DisplacementUtils::subdivideAndDisplace(
+	const std::string& mesh_name,
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
@@ -383,7 +384,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	for(uint32_t i = 0; i < options.max_num_subdivisions; ++i)
 	{
-		print_output.print("\tDoing subdivision level " + toString(i) + "...");
+		print_output.print("\tSubdividing '" + mesh_name + "', level " + toString(i) + "...");
 
 		Timer linear_timer;
 		
@@ -2352,6 +2353,7 @@ void DisplacementUtils::test()
 		options.max_num_subdivisions = 1;
 
 		DisplacementUtils::subdivideAndDisplace(
+			"test mesh",
 			task_manager,
 			print_output,
 			context,

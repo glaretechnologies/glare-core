@@ -149,6 +149,7 @@ public:
 
 
 	static void subdivideAndDisplace(
+		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
 		ThreadContext& context,

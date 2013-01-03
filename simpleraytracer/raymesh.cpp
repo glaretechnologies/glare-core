@@ -551,6 +551,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				options.camera_clip_planes_os = camera_clip_planes_os;
 
 				DisplacementUtils::subdivideAndDisplace(
+					this->getName(),
 					task_manager,
 					print_output,
 					context,
