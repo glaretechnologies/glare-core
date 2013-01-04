@@ -135,6 +135,52 @@ public:
 // Time with std::hash<unsigned int>: 8.47, 8.53, 8.58
 // with _mm_crc32_u64: 8.14, 8.14, 8.17
 
+
+// Taken from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
+#if defined(_WIN32)
+
+static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+	#ifdef _M_X64
+	//static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
+	const size_t _FNV_offset_basis = 14695981039346656037ULL;
+	const size_t _FNV_prime = 1099511628211ULL;
+
+	#else // _M_X64
+	//static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
+	const size_t _FNV_offset_basis = 2166136261U;
+	const size_t _FNV_prime = 16777619U;
+	#endif // _M_X64
+
+	size_t _Val = _FNV_offset_basis;
+	for (size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+		_Val ^= (size_t)_First[_Next];
+		_Val *= _FNV_prime;
+		}
+
+	#ifdef _M_X64
+	//static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
+	_Val ^= _Val >> 32;
+
+	#else // _M_X64
+	//static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
+	#endif // _M_X64
+
+	return (_Val);
+}
+
+
+template <class T>
+static inline size_t useHash(const T& t)
+{
+	return use_Hash_seq((const unsigned char*)&t, sizeof(T));
+}
+
+#endif // _WIN32
+
+
 class DUVertIndexPairHash
 {	// hash functor
 public:
@@ -150,15 +196,12 @@ public:
 		res =  _mm_crc32_u64(res, key.v_b);
 		return res;*/
 
-#if defined(_WIN32) && _MSC_VER > 1500 // If Windows and VS version is newer than Visual Studio 2008:  (std::hash is only in VS 2010 or newer)
-		std::hash<unsigned int> h;
+#if defined(_WIN32)
+		return useHash(key.v_a) ^ useHash(key.v_b);
 #else
 		std::tr1::hash<unsigned int> h;
-#endif
 		return h(key.v_a) ^ h(key.v_b);
-
-		//std::hash<unsigned int> h;
-		//return h(key.v_a ^ key.v_b);
+#endif
 	}
 };
 
