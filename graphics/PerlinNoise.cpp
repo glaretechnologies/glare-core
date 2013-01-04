@@ -7,7 +7,10 @@ Code By Nicholas Chapman.
 #include "PerlinNoise.h"
 
 
+#include "GridNoise.h"
+#include "Voronoi.h"
 #include "../maths/mathstypes.h"
+#include "../maths/vec2.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 
@@ -17,8 +20,10 @@ template float PerlinNoise::noise(float x, float y, float z);
 template float PerlinNoise::FBM(float x, float y, float z, unsigned int num_octaves);
 template float PerlinNoise::FBM2(const Vec4f& p, float H, float lacunarity, float octaves);
 template float PerlinNoise::ridgedFBM(const Vec4f& p, float H, float lacunarity, float octaves);
+template float PerlinNoise::voronoiFBM(const Vec4f& p, float H, float lacunarity, float octaves);
 template float PerlinNoise::multifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
 template float PerlinNoise::ridgedMultifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
+template float PerlinNoise::voronoiMultifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
 
 
 PerlinNoise::PerlinNoise()
@@ -147,23 +152,58 @@ Real PerlinNoise::FBM(Real x, Real y, Real z, unsigned int num_octaves)
 }
 
 
+//================================== Noise basis functions =============================================
 
-static inline float perlinBasisNoise01(const Vec4f& p)
+
+struct PerlinBasisNoise01
 {
-	return PerlinNoise::noise(p.x[0], p.x[1], p.x[2]) * 0.5f + 0.5f;
-}
+	inline float eval(const Vec4f& p)
+	{
+		return PerlinNoise::noise(p.x[0], p.x[1], p.x[2]) * 0.5f + 0.5f;
+	}
+};
 
-static inline float ridgedBasisNoise01(const Vec4f& p)
+
+struct PerlinBasisNoise
 {
-	return 1 - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
-}
+	inline float eval(const Vec4f& p)
+	{
+		return PerlinNoise::noise(p.x[0], p.x[1], p.x[2]);
+	}
+};
 
 
-static inline float ridgedBasisNoise(const Vec4f& p)
+struct RidgedBasisNoise01
 {
-	return 0.5f - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
-}
+	inline float eval(const Vec4f& p)
+	{
+		return 1 - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
+	}
+};
 
+
+struct RidgedBasisNoise
+{
+	inline float eval(const Vec4f& p)
+	{
+		return 0.5f - std::fabs(PerlinNoise::noise(p.x[0], p.x[1], p.x[2]));
+	}
+};
+
+
+struct VoronoiBasisNoise01
+{
+	inline float eval(const Vec4f& p)
+	{
+		Vec2f closest_p;
+		float dist;
+		Voronoi::evaluate(Vec2f(p.x[0], p.x[1]), 1.0f, closest_p, dist);
+		return dist;
+	}
+};
+
+
+//================================== New (more general) FBM =============================================
 
 
 /*
@@ -180,8 +220,10 @@ w = (l^n)^-H
   = (l^-H)^n
 
 */
-template <class Real>
-Real PerlinNoise::FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves)
+
+
+template <class Real, class BasisFunction>
+Real genericFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves, BasisFunction basis_func)
 {
 	Real sum = 0;
 	Real freq = 1;
@@ -190,7 +232,7 @@ Real PerlinNoise::FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves)
 
 	for(int i=0; i<(int)octaves; ++i)
 	{
-		sum += weight * PerlinNoise::noise(p.x[0] * freq, p.x[1] * freq, p.x[2] * freq);
+		sum += weight * basis_func.eval(p * freq);
 		freq *= lacunarity;
 		weight *= w_factor;
 	}
@@ -198,49 +240,49 @@ Real PerlinNoise::FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves)
 	// Do remaining octaves
 	Real d = octaves - (int)octaves;
 	if(d > 0)
-		sum += d * weight * PerlinNoise::noise(p.x[0] * freq, p.x[1] * freq, p.x[2] * freq);
+		sum += d * weight * basis_func.eval(p * freq);
 	
 	return sum;
+}
+
+
+template <class Real>
+Real PerlinNoise::FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves)
+{
+	return genericFBM<Real, PerlinBasisNoise>(p, H, lacunarity, octaves, PerlinBasisNoise());
 }
 
 
 template <class Real>
 Real PerlinNoise::ridgedFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves)
 {
-	Real sum = 0;
-	Real freq = 1;
-	Real weight = 1;
-	Real w_factor = std::pow(lacunarity, -H);
-
-	for(int i=0; i<(int)octaves; ++i)
-	{
-		sum += weight * ridgedBasisNoise(p * freq);
-		freq *= lacunarity;
-		weight *= w_factor;
-	}
-
-	// Do remaining octaves
-	Real d = octaves - (int)octaves;
-	if(d > 0)
-		sum += d * weight * ridgedBasisNoise(p * freq);
-	
-	return sum;
+	return genericFBM<Real, RidgedBasisNoise>(p, H, lacunarity, octaves, RidgedBasisNoise());
 }
 
 
 template <class Real>
-Real PerlinNoise::multifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
+Real PerlinNoise::voronoiFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves)
+{
+	return genericFBM<Real, VoronoiBasisNoise01>(p, H, lacunarity, octaves, VoronoiBasisNoise01());
+}
+
+
+//================================== Multifractal =============================================
+
+
+template <class Real, class BasisFunction>
+Real genericMultifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset, BasisFunction basis_func)
 {
 	Real value = 0;
 	Real freq = 1;
 	Real weight = 1;
 	Real w_factor = std::pow(lacunarity, -H);
 
-	value += weight * (perlinBasisNoise01(p * freq) + offset);
+	value += weight * (basis_func.eval(p * freq) + offset);
 
 	for(int i=1; i<(int)octaves; ++i)
 	{
-		value += myMax<Real>(0, value) * weight * (perlinBasisNoise01(p * freq) + offset);
+		value += myMax<Real>(0, value) * weight * (basis_func.eval(p * freq) + offset);
 		
 		freq *= lacunarity;
 		weight *= w_factor;
@@ -250,21 +292,21 @@ Real PerlinNoise::multifractal(const Vec4f& p, Real H, Real lacunarity, Real oct
 
 
 template <class Real>
+Real PerlinNoise::multifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
+{
+	return genericMultifractal<Real, PerlinBasisNoise01>(p, H, lacunarity, octaves, offset, PerlinBasisNoise01());
+}
+
+
+template <class Real>
 Real PerlinNoise::ridgedMultifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
 {
-	Real value = 0;
-	Real freq = 1;
-	Real weight = 1;
-	Real w_factor = std::pow(lacunarity, -H);
+	return genericMultifractal<Real, RidgedBasisNoise01>(p, H, lacunarity, octaves, offset, RidgedBasisNoise01());
+}
 
-	value += weight * (ridgedBasisNoise01(p * freq) + offset);
 
-	for(int i=1; i<(int)octaves; ++i)
-	{
-		value += myMax<Real>(0, value) * weight * (ridgedBasisNoise01(p * freq) + offset);
-
-		freq *= lacunarity;
-		weight *= w_factor;
-	}
-	return value;
+template <class Real>
+Real PerlinNoise::voronoiMultifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, Real offset)
+{
+	return genericMultifractal<Real, VoronoiBasisNoise01>(p, H, lacunarity, octaves, offset, VoronoiBasisNoise01());
 }
