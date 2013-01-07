@@ -82,7 +82,7 @@ InterpolatedTable::Real InterpolatedTable::getValue(Real wavelength, Real y) con
 	// Calculate interpolation parameter along x axis.
 	const Real t_x = (w - (start_x + (float)x_index * x_step)) * recip_x_step;
 
-	assert(t_x >= 0 && t_x <= 1.01);
+	assert(t_x >= -0.01f && t_x <= 1.01);
 
 	return biLerp(
 		data.elem(x_index, y_index),
