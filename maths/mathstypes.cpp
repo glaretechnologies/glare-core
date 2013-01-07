@@ -90,7 +90,7 @@ void Maths::test()
 
 
 	double one = 1.0;
-	double zero = 0.0;
+	//double zero = 0.0;
 	//testAssert(posOverflowed(one / zero));
 	testAssert(!posOverflowed(one / 0.000000001));
 
@@ -308,9 +308,6 @@ void Maths::test()
 	
 #if !defined(OSX)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
-
-	const double clock_freq = 2.6e9;
-
 
 	conPrint("sin() [float]");
 	{
