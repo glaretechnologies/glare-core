@@ -45,7 +45,7 @@ public:
 	inline Vec2()
 	{}
 
-	inline Vec2(Real v)
+	inline explicit Vec2(Real v)
 	:	x(v),
 		y(v)
 	{}
@@ -97,6 +97,11 @@ public:
 	inline bool operator == (const Vec2& rhs) const
 	{
 		return (x == rhs.x) && (y == rhs.y);
+	}
+
+	inline bool operator != (const Vec2& rhs) const
+	{
+		return (x != rhs.x) || (y != rhs.y);
 	}
 
 		//for sorting Vec2's
