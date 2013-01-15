@@ -33,7 +33,7 @@ by Joe Warren and Scott Schaefer
 #include "../utils/Task.h"
 #include "../dll/include/IndigoMap.h"
 #include "../utils/TaskManager.h"
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #include <unordered_map>
 #else
 #include <tr1/unordered_map>
@@ -136,10 +136,46 @@ public:
 // with _mm_crc32_u64: 8.14, 8.14, 8.17
 
 
-// Taken from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
 // I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
-#if defined(_WIN32)
+//#if defined(_WIN32)
 
+static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+	
+	if(sizeof(size_t) == 8)
+	{
+		const size_t _FNV_offset_basis = 14695981039346656037ULL;
+		const size_t _FNV_prime = 1099511628211ULL;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		_Val ^= _Val >> 32;
+		return _Val;
+	}
+	else
+	{
+		const size_t _FNV_offset_basis = 2166136261U;
+		const size_t _FNV_prime = 16777619U;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		return _Val;
+	}
+}
+
+
+/*
 static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
 {	// FNV-1a hash function for bytes in [_First, _First+_Count)
 	#ifdef _M_X64
@@ -169,7 +205,7 @@ static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
 	#endif // _M_X64
 
 	return (_Val);
-}
+}*/
 
 
 template <class T>
@@ -178,7 +214,7 @@ static inline size_t useHash(const T& t)
 	return use_Hash_seq((const unsigned char*)&t, sizeof(T));
 }
 
-#endif // _WIN32
+//#endif // _WIN32
 
 
 class DUVertIndexPairHash
@@ -196,12 +232,12 @@ public:
 		res =  _mm_crc32_u64(res, key.v_b);
 		return res;*/
 
-#if defined(_WIN32)
+//#if defined(_WIN32)
 		return useHash(key.v_a) ^ useHash(key.v_b);
-#else
-		std::tr1::hash<unsigned int> h;
-		return h(key.v_a) ^ h(key.v_b);
-#endif
+//#else
+//		std::tr1::hash<unsigned int> h;
+//		return h(key.v_a) ^ h(key.v_b);
+//#endif
 	}
 };
 
