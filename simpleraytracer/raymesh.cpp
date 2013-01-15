@@ -1279,8 +1279,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		const Indigo::Triangle& src_tri = mesh.triangles[i];
 
 		// Check material index is in bounds
-		if(src_tri.tri_mat_index >= mesh.used_materials.size())
-			throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(mesh.triangles[i].tri_mat_index) + ")");
+		//if(src_tri.tri_mat_index >= mesh.used_materials.size())
+		//	throw ModelLoadingStreamHandlerExcep("Triangle material_index is out of bounds.  (material index=" + toString(mesh.triangles[i].tri_mat_index) + ")");
 
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 3; ++v)
@@ -1331,8 +1331,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	for(size_t i = 0; i < mesh.quads.size(); ++i)
 	{
 		// Check material index is in bounds
-		if(mesh.quads[i].mat_index >= mesh.used_materials.size())
-			throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(mesh.quads[i].mat_index) + ")");
+		//if(mesh.quads[i].mat_index >= mesh.used_materials.size())
+		//	throw ModelLoadingStreamHandlerExcep("Quad material_index is out of bounds.  (material index=" + toString(mesh.quads[i].mat_index) + ")");
 
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 4; ++v)
