@@ -182,7 +182,7 @@ const std::string rightPad(const std::string& s, char c, unsigned int minwidth);
 namespace StringUtils
 {
 template<class T>
-const std::string join(const T& iterable, const std::string joinstring)
+const std::string join(const T& iterable, const std::string& joinstring)
 {
 	std::string s;
 	bool first_elem = true;
