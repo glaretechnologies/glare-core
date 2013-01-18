@@ -265,3 +265,15 @@ bool Vec4f::isUnitLength() const
 {
 	return ::epsEqual(1.0f, length());
 }
+
+
+inline Vec4f min(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_min_ps(a.v, b.v);
+}
+
+
+inline Vec4f max(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_max_ps(a.v, b.v);
+}

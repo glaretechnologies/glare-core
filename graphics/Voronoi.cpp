@@ -60,4 +60,58 @@ void evaluate(const Vec2f& uv, float irregularity, Vec2f& coords_ret_out, float&
 }
 
 
+static inline Vec4f getPoint3d(int x, int y, int z, float irregularity)
+{
+	// Generate random values in range [-0.5, 0.5]
+	float x_offset = -0.5f + GridNoise::eval(x, y, z);
+	float y_offset = -0.5f + GridNoise::eval(x + 45645, y, z);
+	float z_offset = -0.5f + GridNoise::eval(x, y + 85445, z);
+
+	return Vec4f(
+		x + 0.5f + x_offset * irregularity,
+		y + 0.5f + y_offset * irregularity,
+		z + 0.5f + z_offset * irregularity,
+		1
+	);
+}
+
+
+void evaluate3d(
+		const Vec4f& p, // input point
+		float irregularity, // irregularity: Should be in [0, 1] for best results.  default is 1.
+		Vec4f& closest_p_out, // Closest point found
+		float& dist_out // Distance to closest point.
+	)
+{
+	const int fx = (int)floor(p.x[0]);
+	const int fy = (int)floor(p.x[1]);
+	const int fz = (int)floor(p.x[2]);
+
+	/*Vec4f points[27];
+	for(int x=-1; x<2; ++x)
+	for(int y=-1; y<2; ++y)
+	for(int z=-1; z<2; ++z)
+		points[x*9 + y*3 + z] = getPoint3d(fx + x, fy + y, fz + z, irregularity);*/
+
+	Vec4f best_point;
+	float least_d2 = std::numeric_limits<float>::max();
+	for(int x=-1; x<2; ++x)
+	for(int y=-1; y<2; ++y)
+	for(int z=-1; z<2; ++z)
+	{
+		Vec4f v_p = getPoint3d(fx + x, fy + y, fz + z, irregularity);
+
+		float d2 = p.getDist2(v_p);
+		if(d2 < least_d2)
+		{
+			least_d2 = d2;
+			best_point = v_p;
+		}
+	}
+
+	closest_p_out = best_point;
+	dist_out = std::sqrt(least_d2);
+}
+
+
 } // end namespace Voronoi

@@ -55,8 +55,6 @@ inline static float modfFract(float x)
 
 void Maths::test()
 {
-	
-
 	conPrint("Maths::test()");
 
 
@@ -347,6 +345,44 @@ void Maths::test()
 	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("cos() [float]");
+	{
+		CycleTimer timer;
+		float sum = 0.0;
+		CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+		for(int t=0; t<trials; ++t)
+		{
+			for(int i=0; i<N; ++i)
+			{
+				const float x = (float)i * 0.001f;
+				sum += std::cos(x);
+			}
+			elapsed = myMin(elapsed, timer.elapsed());
+		}
+		const double cycles = elapsed / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("cos() [double]");
+	{
+	CycleTimer timer;
+	double sum = 0.0;
+	CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+	for(int t=0; t<trials; ++t)
+	{
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * 0.001;
+			sum += std::cos(x);
+		}
+		elapsed = myMin(elapsed, timer.elapsed());
+	}
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
 	conPrint("sqrt() [float]");
 	{
 	CycleTimer timer;
@@ -535,6 +571,49 @@ void Maths::test()
 		const double cycles = elapsed / (double)DATA_SIZE;
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + toString(sum));
+	}
+
+	//================= Test pow vectorisation on Vec4f =================
+	conPrint("Vec4f pow() [float]");
+	{
+		CycleTimer timer;
+		Vec4f sum(0.0f);
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			Vec4f v(x, x, x, x);
+			Vec4f res;
+			for(int z=0; z<4; ++z)
+				res.x[z] = std::pow(v.x[z], 2.2f);
+			sum += res; // Vec4f(std::pow(v.x[0], 2.2f), std::pow(v.x[1], 2.2f), std::pow(v.x[2], 2.2f), std::pow(v.x[3], 2.2f));
+		}
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + sum.toString());
+	}
+	
+	conPrint("Vec4f pow() take 2 [float]");
+	{
+		CycleTimer timer;
+		Vec4f sum(0.0f);
+		for(int i=0; i<N; ++i)
+		{
+			const float x = (float)i * 0.00001f;
+			Vec4f v(x, x, x, x);
+			Vec4f res(powf4(v.v, Vec4f(2.2f).v));
+
+			//float res[4];
+			//for(int z=0; z<4; ++z)
+			//	sum.x[z] += std::pow(x + z, 2.2f);
+			
+			//sum += Vec4f(res[0], res[1], res[2], res[3]);
+			sum += res; // Vec4f(std::pow(v.x[0], 2.2f), std::pow(v.x[1], 2.2f), std::pow(v.x[2], 2.2f), std::pow(v.x[3], 2.2f));
+		}
+		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+		const double cycles = elapsed / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + sum.toString());
 	}
 	
 #endif // !defined(OSX)

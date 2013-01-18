@@ -672,7 +672,7 @@ VEC3_INLINE const Vec3<Real> lerp(const Vec3<Real>& a, const Vec3<Real>& b, Real
 
 
 template <class Real>
-VEC3_INLINE const std::string toString(const Vec3<Real>& v)
+inline const std::string toString(const Vec3<Real>& v)
 {
 	return v.toString();
 }

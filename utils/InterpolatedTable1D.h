@@ -59,7 +59,11 @@ InterpolatedTable1D<Real, Datum>::InterpolatedTable1D(
 template <class Real, class Datum>
 Datum InterpolatedTable1D<Real, Datum>::getValue(Real x) const
 {
+	if(x < start_x)
+		return data[0];
+
 	const int index = (int)((x - start_x) * recip_gap_width);
+	//const int index = Maths::floorToInt((x - start_x) * recip_gap_width);
 
 	if(index < 0)
 		return data[0];
