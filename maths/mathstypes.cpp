@@ -307,6 +307,118 @@ void Maths::test()
 #if !defined(OSX)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
 
+	/*
+	Performance results on i7 920, VS 2010 RelWithDebInfo x64
+	=========================================================
+	sin() [float]
+			cycles: 46.822795
+			sum: 1749.0287
+	sin() [double]
+			cycles: 62.940231
+			sum: 1748.829789882393
+	cos() [float]
+			cycles: 47.293724
+			sum: 3308.5215
+	cos() [double]
+			cycles: 62.665445999999996
+			sum: 3308.3931283487846
+	sqrt() [float]
+			cycles: 17.198042
+			sum: 21090482
+	sqrt() [double]
+			cycles: 30.747671999999998
+			sum: 21081835.249828096
+	exp() [float]
+			cycles: 30.691259
+			sum: 2202528000
+	exp() [double]
+			cycles: 49.276868
+			sum: 2202535566.766156
+	pow() [float]
+			cycles: 148.209637
+			sum: 49526670
+	fastPow() [float]
+			cycles: 49.554341
+			sum: 49375020
+	pow() [double]
+			cycles: 155.310506
+			sum: 49527833.01978005
+	fract() [float]
+			cycles: 7.21622
+			sum: 524392.8
+	fastFract() [float]
+			cycles: 16.67572593688965
+			sum: 524393.9
+	fastPosFract() [float]
+			cycles: 3.9148454666137695
+			sum: 495.09283
+	modfFract() [float]
+			cycles: 28.831317901611328
+			sum: 524393.9
+	Vec4f pow() [float]
+			cycles: 397.72076699999997
+			sum: (4.9526672E+007,4.9526672E+007,4.9526672E+007,49526670)
+	Vec4f pow() take 2 [float]
+			cycles: 44.687275
+	sum: (4.9527412E+007,4.9527412E+007,4.9527412E+007,49527412)
+
+	Performance results on i7 920, VS 2012 RelWithDebInfo x64
+	=========================================================
+	Note that autovectorisation is being done in this case.
+
+	sin() [float]
+			cycles: 7.51387
+			sum: 1749.0292
+	sin() [double]
+			cycles: 21.525688
+			sum: 1748.8297898825363
+	cos() [float]
+			cycles: 8.698518
+			sum: 3308.531
+	cos() [double]
+			cycles: 23.039825
+			sum: 3308.3931283490383
+	sqrt() [float]
+			cycles: 4.288883
+			sum: 21082504
+	sqrt() [double]
+			cycles: 15.248222
+			sum: 21081835.24982831
+	exp() [float]
+			cycles: 8.037737
+			sum: 2202537700
+	exp() [double]
+			cycles: 18.258219
+			sum: 2202535566.7661266
+	pow() [float]
+			cycles: 27.652151
+			sum: 49527576
+	fastPow() [float]
+			cycles: 55.227899
+			sum: 49375020
+	pow() [double]
+			cycles: 60.218455999999996
+			sum: 49527833.01977931
+	fract() [float]
+			cycles: 21.037748
+			sum: 524392.8
+	fastFract() [float]
+			cycles: 28.883559226989746
+			sum: 524393.9
+	fastPosFract() [float]
+			cycles: 13.387301445007324
+			sum: 495.09283
+	modfFract() [float]
+			cycles: 39.44554901123047
+			sum: 524393.9
+	Vec4f pow() [float]
+			cycles: 403.621428
+			sum: (4.9526672E+007,4.9526672E+007,4.9526672E+007,49526670)
+	Vec4f pow() take 2 [float]
+			cycles: 43.942569
+			sum: (4.9527412E+007,4.9527412E+007,4.9527412E+007,49527412)
+	 */
+
 	conPrint("sin() [float]");
 	{
 		CycleTimer timer;
