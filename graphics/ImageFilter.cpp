@@ -2945,11 +2945,34 @@ static void testLowResConvolve()
 }
 
 
+static void plotImageProfileAlongScanline(const std::string& path, float y)
+{
+	Reference<Map2D> map = EXRDecoder::decode(path);
+
+	size_t W = map->getMapWidth();
+
+	Reference<Image> image(new Image(W, W));
+	for(size_t x=0; x<W; ++x)
+	{
+		float val = map->scalarSampleTiled((float)x/W, y);
+
+		float splat_y = W*0.5f - val * (W * 0.5f);
+
+		image->setPixel(x, splat_y, Colour3f(1.0f));
+	}
+
+	Bitmap bmp_out;
+	image->copyToBitmap(bmp_out);
+	PNGDecoder::write(bmp_out, "scanline_profile.png");
+}
 
 
 void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
+
+	//plotImageProfileAlongScanline("C:\\programming\\models\\SGR bump problem\\MS_G1W3.exr", 0.25f);
+	//return;
 
 	//testLowResConvolve();
 	//return;

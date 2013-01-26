@@ -705,7 +705,7 @@ void Maths::test()
 		conPrint("\tsum: " + sum.toString());
 	}
 	
-	conPrint("Vec4f pow() take 2 [float]");
+	conPrint("Vec4f powf4() [float]");
 	{
 		CycleTimer timer;
 		Vec4f sum(0.0f);
