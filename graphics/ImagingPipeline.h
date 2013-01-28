@@ -11,13 +11,14 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/PrintOutput.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/BufferedPrintOutput.h"
+#include "../indigo/RenderChannels.h"
 #include "../dll/include/IndigoVector.h"
 #include "image.h"
 #include <vector>
 
 
-class Camera;
 class PostProDiffraction;
+class Image4f;
 namespace Indigo { class TaskManager; }
 
 
@@ -25,47 +26,41 @@ namespace ImagingPipeline
 {
 
 
-const uint32 image_tile_size = 64;
+//const uint32 image_tile_size = 64;
 
 
-
-void sumBuffers(const std::vector<Vec3f>& layer_scales, const Indigo::Vector<Image>& buffers, Image& buffer_out, Indigo::TaskManager& task_manager);
-
-
-void doTonemapFullBuffer(
-	const std::vector<Image>& layers,
-	const std::vector<Vec3f>& layer_weights,
-	const RendererSettings& renderer_settings,
-	const float* const resize_filter,
-	//Camera* camera,
-	Reference<PostProDiffraction>& post_pro_diffraction,
-	Image& temp_summed_buffer,
-	Image& temp_AD_buffer,
-	Image& ldr_buffer_out,
-	bool image_buffer_in_XYZ,
-	Indigo::TaskManager& task_manager);
+//void sumBuffers(
+//	const std::vector<Vec3f>& layer_scales, 
+//	const Indigo::Vector<Image>& buffers, 
+//	Image& buffer_out, 
+//	Indigo::TaskManager& task_manager
+//	);
+void sumBuffers(
+	const std::vector<Vec3f>& layer_scales, 
+	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
+	const RenderChannels& render_channels, // Input image data
+	Image4f& summed_buffer_out, 
+	Indigo::TaskManager& task_manager
+);
 
 
 void doTonemap(
-	std::vector<Image>& per_thread_tile_buffers,
-	const Indigo::Vector<Image>& layers,
-	const std::vector<Vec3f>& layer_weights,
+	std::vector<Image4f>& per_thread_tile_buffers, // Working memory
+	const RenderChannels& render_channels, // Input image data
+	const std::vector<Vec3f>& layer_weights, // Layer weights, with num samples scale factor folded in.
+	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	//Camera* camera,
 	Reference<PostProDiffraction>& post_pro_diffraction,
-	Image& temp_summed_buffer,
-	Image& temp_AD_buffer,
-	Image& ldr_buffer_out,
-	bool XYZ_colourspace,
-	Indigo::TaskManager& task_manager);
+	Image4f& temp_summed_buffer, // Working memory
+	Image4f& temp_AD_buffer, // Working memory
+	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
+	Indigo::TaskManager& task_manager
+);
 
-
-#ifdef BUILD_TESTS
 
 void test();
-
-#endif
 
 
 }; // namespace ImagingPipeline

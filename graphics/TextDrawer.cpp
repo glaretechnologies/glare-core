@@ -27,6 +27,11 @@ TextDrawer::TextDrawer(const std::string& font_image_path, const std::string& fo
 			1.0f // gamma
 		);
 
+		font_image4.setFromBitmap(
+			font_bmp,
+			1.0f // gamma
+		);
+
 		char_widths.resize(256);
 
 		std::string contents;
@@ -85,6 +90,30 @@ void TextDrawer::drawText(const std::string& msg, Image& target, int target_x, i
 		const int src_x = ((int)msg[i] % 16) * GLYPH_W + (GLYPH_W - char_w)/2;
 
 		font.blitToImage(src_x, src_y, src_x + char_w, src_y + GLYPH_W - (VERT_PADDING*2), target, dx, dy);
+
+		dx += char_w;
+	}
+}
+
+
+void TextDrawer::drawText(const std::string& msg, Image4f& target, int target_x, int target_y) const
+{
+	const int GLYPH_W = 16;
+	
+	const int VERT_PADDING = 1;
+
+	int dx = target_x;
+
+	for(unsigned int i=0; i<msg.size(); ++i)
+	{
+		const int dy = target_y;
+
+		const int char_w = char_widths[msg[i]];
+
+		const int src_y = ((int)msg[i] / 16) * GLYPH_W + VERT_PADDING;
+		const int src_x = ((int)msg[i] % 16) * GLYPH_W + (GLYPH_W - char_w)/2;
+
+		font_image4.blitToImage(src_x, src_y, src_x + char_w, src_y + GLYPH_W - (VERT_PADDING*2), target, dx, dy);
 
 		dx += char_w;
 	}

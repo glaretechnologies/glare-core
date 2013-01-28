@@ -12,6 +12,8 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "GaussianImageFilter.h"
 #include "../utils/Vector.h"
 namespace Indigo { class TaskManager; }
+class OutStream;
+class InStream;
 
 
 // #define IMAGE_MAP_TILED 1
@@ -76,9 +78,11 @@ template <class V, class ComponentValueTraits>
 class ImageMap : public Map2D
 {
 public:
-	//inline ImageMap();
+	inline ImageMap();
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N);
 	inline ~ImageMap();
+
+	void resize(unsigned int width_, unsigned int height_, unsigned int N_);
 
 	float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
@@ -111,7 +115,10 @@ public:
 
 	inline virtual unsigned int getBytesPerPixel() const;
 
+	inline size_t getByteSize() const;
+
 	inline void zero(); // Set all pixels to zero.
+	inline void set(V value); // Set all pixel components to value.
 
 	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int destx, int desty) const;
 
@@ -136,8 +143,18 @@ private:
 typedef ImageMap<float, FloatComponentValueTraits> ImageMapFloat;
 typedef Reference<ImageMapFloat> ImageMapFloatRef;
 
-//template <class V, class VTraits>
-//ImageMap<V, VTraits>::ImageMap() : width(0), height(0), gamma(2.2f) {}
+
+template <class V, class VTraits>
+void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream);
+template <class V, class VTraits>
+void readFromStream(InStream& stream, ImageMap<V, VTraits>& image);
+
+
+template <class V, class VTraits>
+ImageMap<V, VTraits>::ImageMap()
+:	width(0), height(0), N(0), gamma(2.2f)
+{
+}
 
 
 template <class V, class VTraits>
@@ -156,6 +173,17 @@ ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsign
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::~ImageMap() {}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, unsigned int N_)
+{
+	width = width_;
+	height = height_;
+	N = N_;
+
+	data.resize(width * height * N);
+}
 
 
 template <class V, class VTraits>
@@ -530,10 +558,24 @@ unsigned int ImageMap<V, VTraits>::getBytesPerPixel() const
 
 
 template <class V, class VTraits>
-void ImageMap<V, VTraits>::zero()
+size_t ImageMap<V, VTraits>::getByteSize() const
+{
+	return getWidth() * getHeight() * getN() * sizeof(V);
+}
+
+
+template <class V, class VTraits>
+inline void ImageMap<V, VTraits>::set(V value) // Set all pixel components to value.
 {
 	for(size_t i=0; i<data.size(); ++i)
-		data[i] = 0;
+		data[i] = value;
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::zero()
+{
+	set(0);
 }
 
 

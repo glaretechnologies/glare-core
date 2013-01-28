@@ -748,6 +748,36 @@ bool MySocket::readable(double timeout_s)
 }
 
 
+uint32 MySocket::readUInt32()
+{
+	return readUInt32(NULL);
+}
+
+
+void MySocket::readData(void* buf, size_t num_bytes)
+{
+	readTo(buf, num_bytes, NULL, NULL);
+}
+
+
+bool MySocket::endOfStream()
+{
+	return false;
+}
+
+
+void MySocket::writeUInt32(uint32 x)
+{
+	writeUInt32(x, NULL);
+}
+
+
+void MySocket::writeData(const void* data, size_t num_bytes)
+{
+	write(data, num_bytes, NULL, NULL);
+}
+
+
 MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
 {
 #if defined(_WIN32) || defined(_WIN64)

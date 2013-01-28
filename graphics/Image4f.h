@@ -1,48 +1,38 @@
+/*=====================================================================
+Image4f.h
+---------
+Copyright Glare Technologies Limited 2013 - 
+=====================================================================*/
 #pragma once
 
 
-#include "colour3.h"
+#include "Map2D.h"
+#include "Colour4f.h"
 #include "../utils/array2d.h"
-#include "../utils/platform.h"
-#include "../graphics/Map2D.h"
-#include "assert.h"
-#include <string>
 class Bitmap;
 class FilterFunction;
-class OutStream;
-class InStream;
-
-class ImageExcep
-{
-public:
-	ImageExcep(const std::string& s_) : s(s_) {}
-	~ImageExcep(){}
-
-	const std::string& what() const { return s; }
-private:
-	std::string s;
-};
-
+//#include "ImageMap.h"
+//typedef ImageMap<float, FloatComponentValueTraits> Image4f;
 
 
 /*=====================================================================
-Image
------
-A floating point tri-component image class.
+Image4f
+-------
+A floating point quad-component image class.
 Each component is stored as a 32-bit float.
 =====================================================================*/
-class Image : public Map2D
+class Image4f //  : public Map2D
 {
 public:
-	Image();
-	Image(size_t width, size_t height);
-	~Image();
+	Image4f();
+	Image4f(size_t width, size_t height);
+	~Image4f();
 
-	Image& operator = (const Image& other);
+	Image4f& operator = (const Image4f& other);
 
-	typedef Colour3f ColourType;
+	typedef Colour4f ColourType;
 
-	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw ImageExcep if bytespp != 3
+	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw Indigo::Exception if bytespp != 3 or 4
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
@@ -75,12 +65,12 @@ public:
 
 	void gammaCorrect(float exponent);
 
-	void blitToImage(Image& dest, int destx, int desty) const;
-	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image& dest, int destx, int desty) const;
-	void addImage(const Image& other, int destx, int desty, float alpha = 1);
-	void subImage(const Image& dest, int destx, int desty);
-	void mulImage(const Image& other, int destx, int desty, float alpha = 1, bool invert = false);
-	void blendImage(const Image& dest, int destx, int desty, const Colour3f& solid_colour, float alpha = 1);
+	void blitToImage(Image4f& dest, int destx, int desty) const;
+	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image4f& dest, int destx, int desty) const;
+	void addImage(const Image4f& other, int destx, int desty, float alpha = 1);
+	void subImage(const Image4f& dest, int destx, int desty);
+	void mulImage(const Image4f& other, int destx, int desty, float alpha = 1, bool invert = false);
+	void blendImage(const Image4f& dest, int destx, int desty, const Colour4f& colour);
 	
 	void overwriteImage(const Image& src, int destx, int desty);
 
@@ -97,11 +87,11 @@ public:
 	void collapseSizeBoxFilter(int factor); // trims off border before collapsing
 	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
 
-	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
+	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image4f& in, Image4f& out);
 
-	//static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-	//							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
-	//							const Image& img_in, Image& img_out, Indigo::TaskManager& task_manager);
+	static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
+								const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+								const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager);
 
 	size_t getByteSize() const;
 
@@ -116,10 +106,10 @@ public:
 	float maxPixelComponent() const;
 
 	////// Map2D interface //////////
-	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
+	/*virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
 	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
 
-	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return pixels.elem(x, y); }
+	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return Colour3<Value>(pixels.elem(x, y).x[0], pixels.elem(x, y).x[1], pixels.elem(x, y).x[2]); }
 
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
@@ -133,38 +123,31 @@ public:
 
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
 
-	virtual unsigned int getBytesPerPixel() const;
+	virtual unsigned int getBytesPerPixel() const;*/
 	/////////////////////////////////
 
 	static void test();
 
 private:
-	//unsigned int width;
-	//unsigned int height;
-
 	Array2d<ColourType> pixels;
 };
 
 
-void writeToStream(const Image& im, OutStream& stream);
-void readFromStream(InStream& stream, Image& image);
-
-
-const Image::ColourType& Image::getPixel(size_t i) const
+const Image4f::ColourType& Image4f::getPixel(size_t i) const
 {
 	assert(i < numPixels());
 	return pixels.getData()[i];
 }
 
 
-Image::ColourType& Image::getPixel(size_t i)
+Image4f::ColourType& Image4f::getPixel(size_t i)
 {
 	assert(i < numPixels());
 	return pixels.getData()[i];
 }
 
 
-const Image::ColourType& Image::getPixel(size_t x, size_t y) const
+const Image4f::ColourType& Image4f::getPixel(size_t x, size_t y) const
 {
 	assert(x < pixels.getWidth() && y < pixels.getHeight());
 
@@ -172,7 +155,7 @@ const Image::ColourType& Image::getPixel(size_t x, size_t y) const
 }
 
 
-Image::ColourType& Image::getPixel(size_t x, size_t y)
+Image4f::ColourType& Image4f::getPixel(size_t x, size_t y)
 {
 	assert(x < pixels.getWidth() && y < pixels.getHeight());
 
@@ -180,59 +163,13 @@ Image::ColourType& Image::getPixel(size_t x, size_t y)
 }
 
 
-const Image::ColourType& Image::getPixelTiled(int x, int y) const
-{
-	const int w = (int)getWidth();
-	const int h = (int)getHeight();
-
-	if(x < 0)
-	{
-		//note: could use modulo here somehow
-		//while(x < 0)
-		//	x += width;
-		x = 0 - x;//x = -x		, so now x is positive
-					//NOTE: could use bitmask here
-		x = x % w;
-
-		x = w - x - 1;
-
-		//say x = -1;
-		//x = (width - x) % width; //x = 700 - (-1) = 70;
-	}
-	else
-	{
-		x = x % w;
-	}
-
-	if(y < 0)
-	{
-		//note: could use modulo here somehow
-		//while(y < 0)
-		//	y += height;
-
-		y = 0 - y;
-					
-		y = y % h;
-
-		y = h - y - 1;
-
-		//y = (height - y) % height;
-	}
-	else
-	{
-		y = y % h;
-	}
-
-	return getPixel(x, y);
-}
-
-
-void Image::setPixel(size_t x, size_t y, const ColourType& colour)
+void Image4f::setPixel(size_t x, size_t y, const ColourType& colour)
 {
 	pixels.elem(x, y) = colour;
 }
 
-void Image::incrPixel(size_t x, size_t y, const ColourType& colour)
+
+void Image4f::incrPixel(size_t x, size_t y, const ColourType& colour)
 {
 	pixels.elem(x, y) += colour;
 }

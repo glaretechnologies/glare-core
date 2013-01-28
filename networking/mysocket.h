@@ -7,8 +7,7 @@ Code By Nicholas Chapman.
 Code Copyright Nicholas Chapman 2005.
 
 =====================================================================*/
-#ifndef __MYSOCKET_H_666_
-#define __MYSOCKET_H_666_
+#pragma once
 
 
 #if defined(_WIN32)
@@ -24,6 +23,8 @@ Code Copyright Nicholas Chapman 2005.
 
 #include "ipaddress.h"
 #include "../utils/platform.h"
+#include "../utils/InStream.h"
+#include "../utils/OutStream.h"
 #include <string>
 class FractionListener;
 
@@ -64,7 +65,7 @@ TCP socket class.
 Blocking.
 Does both client and server sockets.
 =====================================================================*/
-class MySocket
+class MySocket : public InStream, public OutStream
 {
 public:
 	MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback); // Client connect via DNS lookup
@@ -109,6 +110,18 @@ public:
 
 	bool readable(double timeout_s);
 
+
+	//------------------------ InStream ---------------------------------
+	virtual uint32 readUInt32();
+	virtual void readData(void* buf, size_t num_bytes);
+	virtual bool endOfStream();
+	//------------------------------------------------------------------
+
+	//------------------------ OutStream --------------------------------
+	virtual void writeUInt32(uint32 x);
+	virtual void writeData(const void* data, size_t num_bytes);
+	//------------------------------------------------------------------
+
 private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
@@ -143,6 +156,3 @@ private:
 
 	size_t max_buffersize;
 };
-
-
-#endif //__MYSOCKET_H_666_

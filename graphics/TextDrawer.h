@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include <string>
 #include <vector>
 #include "image.h"
+#include "Image4f.h"
 #include "bitmap.h"
 #include "../utils/refcounted.h"
 #include "../utils/reference.h"
@@ -47,12 +48,14 @@ public:
 
 
 	void drawText(const std::string& msg, Image& target, int target_x, int target_y) const;
+	void drawText(const std::string& msg, Image4f& target, int target_x, int target_y) const;
 	void drawText(const std::string& msg, Bitmap& target, int target_x, int target_y) const;
 
 
 private:
 	Bitmap font_bmp;
 	Image font;
+	Image4f font_image4;
 	std::vector<int> char_widths;
 };
 
