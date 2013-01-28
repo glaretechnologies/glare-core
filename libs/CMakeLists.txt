@@ -98,7 +98,7 @@ SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(tinyxml FILES ${tinyxml})
 
 
-include(../indigo_console/shared_cxx_settings.txt)
+include(../indigo_console/shared_cxx_settings.cmake)
 
 #-DLIB3DS_EXPORTS
 add_definitions(-DOPENEXR_SUPPORT -DPNG_ALLOW_BENIGN_ERRORS -DTIXML_USE_STL)
