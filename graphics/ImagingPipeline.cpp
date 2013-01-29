@@ -444,7 +444,7 @@ public:
 		const ptrdiff_t filter_size = closure.filter_size;
 
 		const ptrdiff_t xres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getWidth();
-		//const ptrdiff_t yres		= (ptrdiff_t)(closure.render_channels->layers)[0].getHeight();
+		const ptrdiff_t yres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getHeight();
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
@@ -520,7 +520,7 @@ public:
 					for(ptrdiff_t u = pixel_min_x; u < pixel_max_x; ++u)
 						weighted_sum.addMult(tile_buffer.getPixel(v * bucket_span + u), closure.resize_filter[filter_addr++]);
 
-					assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
+					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
 					weighted_sum.clampInPlace(0, 1); // Ensure result is in [0, 1]
 					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = weighted_sum;

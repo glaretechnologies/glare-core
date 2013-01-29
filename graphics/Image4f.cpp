@@ -435,15 +435,15 @@ void Image4f::collapseImage(int factor, int border_width, const FilterFunction& 
 					const int filter_x = sx - support_x; //(sx - src_x_center) + neg_rad;
 					assert(filter_x >= 0 && filter_x < filter_width);
 
-					assert(in.getPixel(sx, sy).r >= 0.0 && in.getPixel(sx, sy).g >= 0.0 && in.getPixel(sx, sy).b >= 0.0);
-					assert(isFinite(in.getPixel(sx, sy).r) && isFinite(in.getPixel(sx, sy).g) && isFinite(in.getPixel(sx, sy).b));
+					assert(in.getPixel(sx, sy).x[0] >= 0.0 && in.getPixel(sx, sy).x[1] >= 0.0 && in.getPixel(sx, sy).x[2] >= 0.0);
+					assert(isFinite(in.getPixel(sx, sy).x[0]) && isFinite(in.getPixel(sx, sy).x[1]) && isFinite(in.getPixel(sx, sy).x[2]));
 
 					c.addMult(in.getPixel(sx, sy), filter.elem(filter_x, filter_y));
 				}
 			}
 
 			//assert(c.r >= 0.0 && c.g >= 0.0 && c.b >= 0.0);
-			assert(isFinite(c.r) && isFinite(c.g) && isFinite(c.b));
+			assert(isFinite(c.x[0]) && isFinite(c.x[1]) && isFinite(c.x[2]));
 
 			c.clampInPlace(0.0f, max_component_value); // Make sure components can't go below zero or above max_component_value
 			out.setPixel(x, y, c);
@@ -481,7 +481,7 @@ public:
 		const ptrdiff_t in_yres = closure.in_yres;
 		const ptrdiff_t filter_bound = closure.filter_bound;
 		const ptrdiff_t out_xres = closure.out_xres;
-		const ptrdiff_t out_yres = closure.out_yres;
+		//const ptrdiff_t out_yres = closure.out_yres;
 		const float pre_clamp = closure.pre_clamp;
 
 		for(int y = begin; y < end; ++y)
