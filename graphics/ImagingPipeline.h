@@ -8,12 +8,8 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 
 
-#include "../indigo/PrintOutput.h"
 #include "../indigo/RendererSettings.h"
-#include "../indigo/BufferedPrintOutput.h"
 #include "../indigo/RenderChannels.h"
-#include "../dll/include/IndigoVector.h"
-#include "image.h"
 #include <vector>
 
 
@@ -26,16 +22,14 @@ namespace ImagingPipeline
 {
 
 
-//const uint32 image_tile_size = 64;
-
-
-//void sumBuffers(
-//	const std::vector<Vec3f>& layer_scales, 
-//	const Indigo::Vector<Image>& buffers, 
-//	Image& buffer_out, 
-//	Indigo::TaskManager& task_manager
-//	);
-void sumBuffers(
+/*
+Adds together the weighted pixel values from each light layer.
+Each layer is weighted by layer_scales.
+Takes the alpha value from render_channels.alpha (and scales it by image_scale) if it is valid, otherwise uses alpha 1.
+Writes the output to summed_buffer_out.
+Multithreaded using task manager.
+*/
+void sumLightLayers(
 	const std::vector<Vec3f>& layer_scales, 
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	const RenderChannels& render_channels, // Input image data
