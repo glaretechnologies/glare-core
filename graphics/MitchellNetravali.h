@@ -4,10 +4,10 @@ MitchellNetravali.h
 File created by ClassTemplate on Fri Jan 25 04:45:14 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MITCHELLNETRAVALI_H_666_
-#define __MITCHELLNETRAVALI_H_666_
+#pragma once
 
 
+#include "platform.h"
 #include <assert.h>
 
 
@@ -31,7 +31,8 @@ public:
 
 
 	// require x >= 0
-	inline Real eval(Real x) const;
+	INDIGO_STRONG_INLINE Real eval(Real x) const;
+	INDIGO_STRONG_INLINE Real evalXSmallerEqual2(Real x) const;
 
 	inline Real getB() const { return B; }
 	inline Real getC() const { return C; }
@@ -85,8 +86,19 @@ Real MitchellNetravali<Real>::eval(Real x) const
 }
 
 
-#endif //__MITCHELLNETRAVALI_H_666_
+template <class Real>
+Real MitchellNetravali<Real>::evalXSmallerEqual2(Real x) const
+{
+	assert(x >= 0 && x <= 2);
 
-
-
-
+	if(x < 1)
+	{
+		// Region '0'
+		return region_0_a * x*x*x + region_0_b * x*x + region_0_d;
+	}
+	else
+	{
+		// Region '1'
+		return region_1_a * x*x*x + region_1_b * x*x + region_1_c * x + region_1_d;
+	}
+}
