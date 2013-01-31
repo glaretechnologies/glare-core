@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 
 #include "Reference.h"
 #include "Maybe.h"
-#include "refcounted.h"
+#include "RefCounted.h"
 #include "ThreadSafeRefCounted.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/SSE.h"

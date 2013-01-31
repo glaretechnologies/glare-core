@@ -1,12 +1,12 @@
 /*=====================================================================
-reference.h
+Reference.h
 -----------
 Copyright Glare Technologies Limited 2012 - 
 =====================================================================*/
 #pragma once
 
 
-#include "refcounted.h"
+#include "RefCounted.h"
 #include <cassert>
 #include <stdlib.h> // for NULL
 

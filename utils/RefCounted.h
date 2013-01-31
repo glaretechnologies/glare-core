@@ -1,10 +1,9 @@
 /*=====================================================================
-refcounted.h
+RefCounted.h
 ------------
-Copyright Glare Technologies Limited 2009 - 
+Copyright Glare Technologies Limited 2013 - 
 =====================================================================*/
-#ifndef __REFCOUNTED_H__
-#define __REFCOUNTED_H__
+#pragma once
 
 
 #include <cassert>
@@ -58,11 +57,3 @@ public:
 private:
 	mutable int refcount;
 };
-
-
-
-#endif //__REFCOUNTED_H__
-
-
-
-
