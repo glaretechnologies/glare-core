@@ -20,11 +20,11 @@ ThreadShouldAbortCallback
 class ThreadShouldAbortCallback : public SocketShouldAbortCallback
 {
 public:
-	ThreadShouldAbortCallback(ThreadSafeQueue<ThreadMessage*>* message_queue);
+	ThreadShouldAbortCallback(ThreadSafeQueue<Reference<ThreadMessage> >* message_queue);
 	virtual ~ThreadShouldAbortCallback();
 
 	virtual bool shouldAbort();
 
 private:
-	ThreadSafeQueue<ThreadMessage*>* message_queue;
+	ThreadSafeQueue<Reference<ThreadMessage> >* message_queue;
 };

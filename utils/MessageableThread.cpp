@@ -29,7 +29,7 @@ MessageableThread::~MessageableThread()
 
 
 
-void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessage*>* message_queue)
+void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessageRef>* message_queue)
 {
 	assert(!mesthread_message_queue && !mesthread_thread_manager);
 	mesthread_thread_manager = thread_manager;
@@ -80,16 +80,15 @@ void MessageableThread::waitForPeriod(double wait_period, bool& keep_running_in_
 		const double wait_time = myMax(0.1, wait_period - wait_timer.elapsed());
 
 		// Block until timeout or thread message is ready to dequeue
-		ThreadMessage* message = NULL;
+		ThreadMessageRef message;
 		const bool got_message = getMessageQueue().dequeueWithTimeout(
 			wait_time,
 			message
 			);
 		if(got_message)
 		{
-			if(dynamic_cast<KillThreadMessage*>(message))
+			if(dynamic_cast<KillThreadMessage*>(message.getPointer()))
 				keep_running_in_out = false;
-			delete message;
 		}
 	}
 }

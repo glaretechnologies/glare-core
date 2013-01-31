@@ -4,10 +4,11 @@ ThreadMessage.h
 File created by ClassTemplate on Sat Nov 03 08:25:44 2007
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __THREADMESSAGE_H_666_
-#define __THREADMESSAGE_H_666_
+#pragma once
 
 
+#include "ThreadSafeRefCounted.h"
+#include "reference.h"
 #include <string>
 
 
@@ -16,7 +17,7 @@ ThreadMessage
 -------------
 
 =====================================================================*/
-class ThreadMessage
+class ThreadMessage : public ThreadSafeRefCounted
 {
 public:
 	/*=====================================================================
@@ -36,4 +37,4 @@ public:
 };
 
 
-#endif //__THREADMESSAGE_H_666_
+typedef Reference<ThreadMessage> ThreadMessageRef;

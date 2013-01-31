@@ -10,7 +10,7 @@ Generated at Tue Mar 09 15:48:35 +1300 2010
 #include "KillThreadMessage.h"
 
 
-ThreadShouldAbortCallback::ThreadShouldAbortCallback(ThreadSafeQueue<ThreadMessage*>* message_queue_)
+ThreadShouldAbortCallback::ThreadShouldAbortCallback(ThreadSafeQueue<Reference<ThreadMessage> >* message_queue_)
 :	message_queue(message_queue_)
 {
 	assert(message_queue);
@@ -32,13 +32,11 @@ bool ThreadShouldAbortCallback::shouldAbort()
 	while(!message_queue->unlockedEmpty()) // While there are messages in the queue...
 	{
 		// Dequeue message.
-		ThreadMessage* message;
+		ThreadMessageRef message;
 		message_queue->unlockedDequeue(message); 
 
-		if(dynamic_cast<KillThreadMessage*>(message))
+		if(dynamic_cast<KillThreadMessage*>(message.getPointer()))
 			suicide = true;
-
-		delete message;
 	}
 
 	return suicide;

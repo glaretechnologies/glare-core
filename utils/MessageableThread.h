@@ -31,9 +31,9 @@ public:
 	virtual void doRun() = 0;
 
 
-	void set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessage*>* message_queue);
+	void set(ThreadManager* thread_manager, ThreadSafeQueue<Reference<ThreadMessage> >* message_queue);
 
-	ThreadSafeQueue<ThreadMessage*>& getMessageQueue() { return *mesthread_message_queue; }
+	ThreadSafeQueue<Reference<ThreadMessage> >& getMessageQueue() { return *mesthread_message_queue; }
 protected:
 	//bool deleteQueuedMessages(); // Returns true if a KillThreadMessage was in the queue.
 
@@ -49,7 +49,7 @@ protected:
 	ThreadManager& getThreadManager() { return *mesthread_thread_manager; }
 
 private:
-	ThreadSafeQueue<ThreadMessage*>* mesthread_message_queue;
+	ThreadSafeQueue<Reference<ThreadMessage> >* mesthread_message_queue;
 	ThreadManager* mesthread_thread_manager;
 
 	virtual void run();

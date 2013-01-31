@@ -48,7 +48,7 @@ public:
 	static void test();
 
 private:
-	typedef ThreadSafeQueue<ThreadMessage*> MESSAGE_QUEUE_TYPE;
+	typedef ThreadSafeQueue<Reference<ThreadMessage> > MESSAGE_QUEUE_TYPE;
 	typedef std::map<Reference<MessageableThread>, MESSAGE_QUEUE_TYPE*> MESSAGE_QUEUE_MAP_TYPE;
 	MESSAGE_QUEUE_MAP_TYPE message_queues;
 

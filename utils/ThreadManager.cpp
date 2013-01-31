@@ -87,9 +87,8 @@ void ThreadManager::threadFinished(MessageableThread* t)
 
 			while(!queue->unlockedEmpty())
 			{
-				ThreadMessage* m;
+				ThreadMessageRef m;
 				queue->unlockedDequeue(m);
-				delete m;
 			}
 		} // End of queue lock scope.
 
@@ -174,14 +173,12 @@ public:
 		while(keep_running)
 		{
 			// Dequeue message from message queue
-			ThreadMessage* m;
+			ThreadMessageRef m;
 			this->getMessageQueue().dequeue(m);
 
 			// If it's a kill message, break
-			if(dynamic_cast<KillThreadMessage*>(m))
+			if(dynamic_cast<KillThreadMessage*>(m.getPointer()))
 				keep_running = false;
-
-			delete m;
 
 			PlatformUtils::Sleep(0);
 		}
