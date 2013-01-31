@@ -14,7 +14,7 @@ double InStream::readDouble()
 	return x;
 }
 
-const std::string InStream::readString()
+const std::string InStream::readStringLengthFirst()
 {
 	// Read string byte size
 	const uint32 size = readUInt32();

@@ -3,10 +3,11 @@ MyThread.h
 ----------
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MYTHREAD_H_666_
-#define __MYTHREAD_H_666_
+#pragma once
 
 
+#include "ThreadSafeRefCounted.h"
+#include "reference.h"
 #if defined(_WIN32)
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
@@ -32,9 +33,8 @@ private:
 /*=====================================================================
 MyThread
 --------
-Thanks to someone from the COTD on flipcode for some of this code
 =====================================================================*/
-class MyThread
+class MyThread : public ThreadSafeRefCounted
 {
 public:
 	MyThread();
@@ -42,7 +42,7 @@ public:
 
 	virtual void run() = 0;
 
-	void launch(bool autodelete = true);
+	void launch(/*bool autodelete = true*/);
 
 	// Wait for thread termination
 	// It's not allowed to join an autodeleting thread, because you get a race condition - the thread may terminate and delete itself before the join method runs.
@@ -73,4 +73,4 @@ private:
 };
 
 
-#endif //__MYTHREAD_H_666_
+typedef Reference<MyThread> MyThreadRef;

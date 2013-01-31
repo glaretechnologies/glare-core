@@ -71,7 +71,7 @@ void ThreadManager::killThreadsNonBlocking()
 }
 
 
-void ThreadManager::threadTerminating(MessageableThread* t)
+void ThreadManager::threadFinished(MessageableThread* t)
 {
 	assert(t);
 
@@ -104,7 +104,7 @@ void ThreadManager::threadTerminating(MessageableThread* t)
 }
 
 
-void ThreadManager::addThread(MessageableThread* t)
+void ThreadManager::addThread(const Reference<MessageableThread>& t)
 {
 	Lock lock(mutex);
 
@@ -118,7 +118,7 @@ void ThreadManager::addThread(MessageableThread* t)
 	t->set(this, msg_queue);
 
 	// Launch the thread
-	t->launch(true);
+	t->launch(/*true*/);
 }
 
 
@@ -128,3 +128,121 @@ unsigned int ThreadManager::getNumThreads()
 
 	return (unsigned int)message_queues.size();
 }
+
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
+#include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
+
+
+class SimpleMessageableThread : public MessageableThread
+{
+public:
+	SimpleMessageableThread() { /*conPrint("SimpleMessageableThread()"); */}
+	~SimpleMessageableThread() { /*conPrint("~SimpleMessageableThread()");*/ }
+	virtual void doRun()
+	{
+	}
+};
+
+
+class SimpleMessageableThreadWithPause : public MessageableThread
+{
+public:
+	SimpleMessageableThreadWithPause() { /*conPrint("SimpleMessageableThreadWithPause()");*/ }
+	~SimpleMessageableThreadWithPause() { /*conPrint("~SimpleMessageableThreadWithPause()");*/ }
+	virtual void doRun()
+	{
+		PlatformUtils::Sleep(50);
+	}
+};
+
+
+class MessageHandlingTestThread : public MessageableThread
+{
+public:
+	MessageHandlingTestThread() { /*conPrint("MessageHandlingTestThread() {()");*/ }
+	~MessageHandlingTestThread() { /*conPrint("~MessageHandlingTestThread() {()");*/ }
+	virtual void doRun()
+	{
+		bool keep_running = true;
+		while(keep_running)
+		{
+			// Dequeue message from message queue
+			ThreadMessage* m;
+			this->getMessageQueue().dequeue(m);
+
+			// If it's a kill message, break
+			if(dynamic_cast<KillThreadMessage*>(m))
+				keep_running = false;
+
+			delete m;
+
+			PlatformUtils::Sleep(0);
+		}
+	}
+};
+
+
+
+void ThreadManager::test()
+{
+	{
+		ThreadManager m;
+		testAssert(m.getNumThreads() == 0);
+	}
+
+	{
+		ThreadManager m;
+		m.addThread(new SimpleMessageableThread());
+
+		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 1); // The thread may have terminated and been removed from the manager by the time we get here.
+	}
+
+	{
+		ThreadManager m;
+		m.addThread(new SimpleMessageableThread());
+		m.addThread(new SimpleMessageableThread());
+
+		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 2);
+	}
+
+	{
+		ThreadManager m;
+		for(int i=0; i<1000; ++i)
+			m.addThread(new SimpleMessageableThread());
+
+		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 1000);
+	}
+
+
+	// Test with threads that pause a while, so we can check that killThreadsBlocking() works for live threads.
+	{
+		ThreadManager m;
+		for(int i=0; i<100; ++i)
+			m.addThread(new SimpleMessageableThreadWithPause());
+
+		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 100);
+
+		m.killThreadsBlocking();
+	}
+
+
+	// Test with threads that wait for a kill message before terminating.
+	{
+		ThreadManager m;
+		for(int i=0; i<100; ++i)
+			m.addThread(new MessageHandlingTestThread());
+
+		// All the threads won't finish until a kill message is sent to them
+		testAssert(m.getNumThreads() == 100);
+	}
+}
+
+
+#endif

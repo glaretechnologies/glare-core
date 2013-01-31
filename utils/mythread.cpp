@@ -17,7 +17,6 @@ Code By Nicholas Chapman.
 #include <process.h>
 #endif
 #include "stringutils.h"
-//#include <iostream>
 
 
 MyThread::MyThread()
@@ -64,18 +63,29 @@ threadFunction(void* the_thread_)
 
 	the_thread->run();
 
-	if(the_thread->autoDelete())
+	// Decrement the reference count
+	int new_ref_count = the_thread->decRefCount();
+	assert(new_ref_count >= 0);
+	if(new_ref_count == 0)
 		delete the_thread;
+
+	//if(the_thread->autoDelete())
+	//	delete the_thread;
 
 	return 0;
 }
 
 
-void MyThread::launch(bool autodelete_)
+void MyThread::launch(/*bool autodelete_*/)
 {
 	assert(thread_handle == 0);
 
-	autodelete = autodelete_;
+	//autodelete = autodelete_;
+
+	// Increment the thread reference count.
+	// This is because there is a pointer to the the thread that is passed as an argument to _beginthreadex() (this passed as the arglist param),
+	// That isn't a Reference object.
+	this->incRefCount();
 
 #if defined(_WIN32)
 	thread_handle = (HANDLE)_beginthreadex(
@@ -103,7 +113,7 @@ void MyThread::launch(bool autodelete_)
 void MyThread::join() // Wait for thread termination
 {
 	// It's not allowed to join an autodeleting thread, because you get a race condition - the thread may terminate and delete itself before the join method runs.
-	assert(!autodelete);
+	//assert(!autodelete);
 	joined = true;
 #if defined(_WIN32)
 	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);

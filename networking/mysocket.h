@@ -25,6 +25,8 @@ Code Copyright Nicholas Chapman 2005.
 #include "../utils/platform.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
+#include "../utils/ThreadSafeRefCounted.h"
+#include "../utils/reference.h"
 #include <string>
 class FractionListener;
 
@@ -65,7 +67,7 @@ TCP socket class.
 Blocking.
 Does both client and server sockets.
 =====================================================================*/
-class MySocket : public InStream, public OutStream
+class MySocket : public InStream, public OutStream, public ThreadSafeRefCounted
 {
 public:
 	MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback); // Client connect via DNS lookup
@@ -77,7 +79,7 @@ public:
 	void bindAndListen(int port); // throw (MySocketExcep);
 
 
-	void acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback); // throw (MySocketExcep);
+	Reference<MySocket> acceptConnection(SocketShouldAbortCallback* should_abort_callback); // throw (MySocketExcep);
 
 	void close();
 
@@ -156,3 +158,6 @@ private:
 
 	size_t max_buffersize;
 };
+
+
+typedef Reference<MySocket> MySocketRef;

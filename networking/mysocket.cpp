@@ -331,7 +331,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Accept on any interface
-	server_addr.sin_port = htons(port);
+	server_addr.sin_port = htons((uint16_t)port);
 
 
 	//-----------------------------------------------------------------
@@ -360,7 +360,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 }
 
 
-void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
+MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
 
@@ -417,15 +417,16 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
 	//-----------------------------------------------------------------
-	new_socket.sockethandle = newsockethandle;
+	MySocketRef new_socket(new MySocket());
+	new_socket->sockethandle = newsockethandle;
 
 	//-----------------------------------------------------------------
 	//get other end ip and port
 	//-----------------------------------------------------------------
-	new_socket.otherend_ipaddr = IPAddress(client_addr.sin_addr.s_addr);
+	new_socket->otherend_ipaddr = IPAddress(client_addr.sin_addr.s_addr);
 	//NEWCODE removed ntohl
 
-	new_socket.otherend_port = ntohs(client_addr.sin_port);
+	new_socket->otherend_port = ntohs(client_addr.sin_port);
 
 	//-----------------------------------------------------------------
 	//get the interface address of this host used for the connection
@@ -446,6 +447,8 @@ void MySocket::acceptConnection(MySocket& new_socket, SocketShouldAbortCallback*
 		//if(thisend_ipaddr != IPAddress("127.0.0.1"))//loopback connection, ignore
 		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
 	}
+
+	return new_socket;
 }
 
 

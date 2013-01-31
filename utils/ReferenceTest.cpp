@@ -165,7 +165,6 @@ public:
 void ReferenceTest::run()
 {
 	{
-
 		int i = 0;
 		// Basic Reference test
 		{
@@ -312,11 +311,11 @@ void ReferenceTest::run()
 
 		Reference<ThreadSafeTestClass> shared_ref(new ThreadSafeTestClass());
 
-		std::vector<TestThread*> threads;
+		std::vector<Reference<TestThread> > threads;
 		for(int i=0; i<8; ++i)
 		{
 			threads.push_back(new TestThread(shared_ref));
-			threads.back()->launch(false);
+			threads.back()->launch(/*false*/);
 		}
 
 		// Wait for completion, then delete threads
@@ -326,9 +325,11 @@ void ReferenceTest::run()
 			threads[i]->join();
 
 			total += threads[i]->sum;
-
-			delete threads[i];
 		}
+
+		// Delete threads
+		threads.resize(0);
+
 
 		testAssert(shared_ref->getRefCount() == 1);
 

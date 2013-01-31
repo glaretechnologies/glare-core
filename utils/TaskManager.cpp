@@ -31,7 +31,7 @@ TaskManager::TaskManager(size_t num_threads)
 	for(size_t i=0; i<threads.size(); ++i)
 	{
 		threads[i] = new TaskRunnerThread(this, i);
-		threads[i]->launch(false); // Don't autodelete, as we will be joining with the threads and then deleting them manually.
+		threads[i]->launch(/*false*/); // Don't autodelete, as we will be joining with the threads and then deleting them manually.
 	}
 }
 
@@ -47,8 +47,8 @@ TaskManager::~TaskManager()
 		threads[i]->join();
 
 	// Delete the threads.
-	for(size_t i=0; i<threads.size(); ++i)
-		delete threads[i];
+	//for(size_t i=0; i<threads.size(); ++i)
+	//	delete threads[i];
 
 	/*while(1)
 	{

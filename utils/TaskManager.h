@@ -9,6 +9,7 @@ Generated at 2011-10-05 21:56:22 +0100
 
 #include "threadsafequeue.h"
 #include "mutex.h"
+#include "reference.h"
 #include "Condition.h"
 #include "../maths/mathstypes.h"
 #include <vector>
@@ -78,7 +79,7 @@ private:
 
 	ThreadSafeQueue<Task*> tasks;
 
-	std::vector<TaskRunnerThread*> threads;
+	std::vector<Reference<TaskRunnerThread> > threads;
 };
 
 

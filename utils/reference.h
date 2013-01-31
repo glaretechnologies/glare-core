@@ -91,7 +91,8 @@ public:
 	//less than is defined as less than for the pointed to objects
 	bool operator < (const Reference& other) const
 	{
-		return *ob < *other.ob;
+		//return *ob < *other.ob;
+		return ob < other.ob;
 	}
 
 

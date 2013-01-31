@@ -27,7 +27,7 @@ public:
 	virtual void writeData(const void* data, size_t num_bytes) = 0;
 
 	// Write a string.  Must be less than 2^32 bytes long.
-	virtual void writeString(const std::string& s);
+	virtual void writeStringLengthFirst(const std::string& s);
 
 	virtual void writeDouble(double x);
 };

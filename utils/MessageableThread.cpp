@@ -23,8 +23,8 @@ MessageableThread::MessageableThread()
 
 MessageableThread::~MessageableThread()
 {
-	if(mesthread_thread_manager)
-		mesthread_thread_manager->threadTerminating(this);
+	//if(mesthread_thread_manager)
+	//	mesthread_thread_manager->threadTerminating(this);
 }
 
 
@@ -34,6 +34,14 @@ void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<Threa
 	assert(!mesthread_message_queue && !mesthread_thread_manager);
 	mesthread_thread_manager = thread_manager;
 	mesthread_message_queue = message_queue;
+}
+
+
+void MessageableThread::run()
+{
+	this->doRun();
+	if(mesthread_thread_manager)
+		mesthread_thread_manager->threadFinished(this);
 }
 
 

@@ -36,5 +36,5 @@ public:
 	virtual bool endOfStream() = 0;
 
 
-	const std::string readString();
+	const std::string readStringLengthFirst();
 };

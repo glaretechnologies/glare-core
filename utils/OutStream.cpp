@@ -18,7 +18,7 @@ OutStream::~OutStream()
 }
 
 
-void OutStream::writeString(const std::string& s) 
+void OutStream::writeStringLengthFirst(const std::string& s) 
 {
 	// Write string length
 	writeUInt32((uint32)s.length());

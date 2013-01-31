@@ -107,6 +107,8 @@ public:
 class SimpleThread : public MyThread
 {
 public:
+	SimpleThread() { conPrint("SimpleThread()"); }
+	~SimpleThread() { conPrint("~SimpleThread()"); }
 	virtual void run()
 	{
 	}
@@ -164,16 +166,16 @@ void ThreadTests::test()
 
 	// Create and run a single thread.  Wait for it to finish.
 	{
-		SimpleThread* t = new SimpleThread();
-		t->launch(false);
+		Reference<SimpleThread> t = new SimpleThread();
+		t->launch(/*false*/);
 		t->join();
-		delete t;
+		//delete t;
 	}
 
 	// Create and run a single thread.  Let it auto-delete itself.
 	{
-		SimpleThread* t = new SimpleThread();
-		t->launch(true);
+		Reference<SimpleThread> t = new SimpleThread();
+		t->launch(/*true*/);
 	}
 
 
@@ -259,8 +261,8 @@ void ThreadTests::test()
 
 
 	{
-		TestReaderThread* reader = NULL;
-		TestWriterThread* writer = NULL;
+		Reference<TestReaderThread> reader;
+		Reference<TestWriterThread> writer;
 		try
 		{
 			ThreadSafeQueue<int> queue;
@@ -270,10 +272,10 @@ void ThreadTests::test()
 
 			// We can't autodelete these threads because we want to join on them, and they might be killed before we call join() if autodelete is enabled.
 			reader->launch(
-				false // autodelete
+				//false // autodelete
 			);
 			writer->launch(
-				false // autodelete			
+				//false // autodelete			
 			);
 
 			reader->join();
@@ -291,25 +293,25 @@ void ThreadTests::test()
 			failTest("Other exception");
 		}
 
-		delete reader;
-		delete writer;
+		//delete reader;
+		//delete writer;
 	}
 
 	
 	{
 		ThreadSafeQueue<int> queue;
 		Timer timer;
-		TestReaderThread2* reader = new TestReaderThread2(&queue); 
-		reader->launch(false);
+		Reference<TestReaderThread2> reader = new TestReaderThread2(&queue); 
+		reader->launch(/*false*/);
 
-		TestWriterThread* writer = new TestWriterThread(&queue); 
-		writer->launch(false);
+		Reference<TestWriterThread> writer = new TestWriterThread(&queue); 
+		writer->launch(/*false*/);
 
 		reader->join();
 		writer->join();
 
-		delete reader;
-		delete writer;
+		//delete reader;
+		//delete writer;
 
 		testAssert(queue.empty());
 		conPrint(toString(timer.getSecondsElapsed()));
@@ -319,21 +321,21 @@ void ThreadTests::test()
 	{
 		ThreadSafeQueue<int> queue;
 		Timer timer;
-		TestReaderThread* reader = new TestReaderThread(&queue); 
-		reader->launch(false);
+		Reference<TestReaderThread> reader = new TestReaderThread(&queue); 
+		reader->launch(/*false*/);
 
-		TestWriterThread* writer = new TestWriterThread(&queue); 
-		writer->launch(false);
-		TestWriterThread* writer2 = new TestWriterThread(&queue); 
-		writer2->launch(false);
+		Reference<TestWriterThread> writer = new TestWriterThread(&queue); 
+		writer->launch(/*false*/);
+		Reference<TestWriterThread> writer2 = new TestWriterThread(&queue); 
+		writer2->launch(/*false*/);
 
 		reader->join();
 		writer->join();
 		writer2->join();
 
-		delete reader;
-		delete writer;
-		delete writer2;
+		//delete reader;
+		//delete writer;
+		//delete writer2;
 
 		conPrint(toString(timer.getSecondsElapsed()));
 	}

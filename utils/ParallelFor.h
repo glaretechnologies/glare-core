@@ -60,7 +60,7 @@ public:
 			num_indices_per_thread = (total / num_threads) + 1;
 		}
 
-		std::vector<ParallelForThread<Task>*> threads(num_threads);
+		std::vector<Reference<ParallelForThread<Task> > > threads(num_threads);
 		int i=begin;
 		for(int t=0; t<num_threads; ++t)
 		{
@@ -83,7 +83,7 @@ public:
 				t // thread index
 			);
 			threads[t]->launch(
-				false // autodelete
+				//false // autodelete
 			);
 
 			i += num_indices_per_thread;
@@ -134,7 +134,7 @@ public:
 			threads[i]->join();
 #endif
 		// Delete threads
-		for(int i=0; i<num_threads; ++i)
-			delete threads[i];
+		//for(int i=0; i<num_threads; ++i)
+		//	delete threads[i];
 	}
 };

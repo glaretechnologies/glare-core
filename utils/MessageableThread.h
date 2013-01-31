@@ -27,6 +27,10 @@ public:
 	virtual ~MessageableThread();
 
 
+	// Deriving classes should implement this method.
+	virtual void doRun() = 0;
+
+
 	void set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessage*>* message_queue);
 
 	ThreadSafeQueue<ThreadMessage*>& getMessageQueue() { return *mesthread_message_queue; }
@@ -47,6 +51,8 @@ protected:
 private:
 	ThreadSafeQueue<ThreadMessage*>* mesthread_message_queue;
 	ThreadManager* mesthread_thread_manager;
+
+	virtual void run();
 };
 
 
