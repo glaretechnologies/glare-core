@@ -45,24 +45,6 @@ void MessageableThread::run()
 }
 
 
-/*bool MessageableThread::deleteQueuedMessages() // Returns true if a KillThreadMessage was in the queue.
-{
-	bool found_kill_thread_message = false;
-	
-	Lock lock(getMessageQueue().getMutex());
-		
-	while(!getMessageQueue().unlockedEmpty())
-	{
-		ThreadMessage* message;
-		getMessageQueue().unlockedDequeue(message);
-		found_kill_thread_message = found_kill_thread_message || dynamic_cast<KillThreadMessage*>(message) != NULL;
-		delete message;
-	}
-
-	return found_kill_thread_message;
-}*/
-
-
 /*
 	Suspend thread for wait_period_s, while waiting on the message queue.
 	Will Consume all messages on the thread message queue, and break the wait if a kill message is received,

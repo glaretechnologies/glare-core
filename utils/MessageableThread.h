@@ -4,8 +4,7 @@ MessageableThread.h
 File created by ClassTemplate on Sat Nov 03 09:15:49 2007
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MESSAGEABLETHREAD_H_666_
-#define __MESSAGEABLETHREAD_H_666_
+#pragma once
 
 
 #include "mythread.h"
@@ -54,6 +53,3 @@ private:
 
 	virtual void run();
 };
-
-
-#endif //__MESSAGEABLETHREAD_H_666_

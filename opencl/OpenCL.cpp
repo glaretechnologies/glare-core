@@ -7,12 +7,7 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#if defined(_WIN32)
-// Stop windows.h from defining the min() and max() macros
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
+#include "../utils/IncludeWindows.h"
 
 #if defined(__linux__)
 #include <dlfcn.h>

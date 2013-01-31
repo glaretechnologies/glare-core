@@ -6,23 +6,16 @@ Code By Nicholas Chapman.
 #include "mythread.h"
 
 
+#include "stringutils.h"
 #include <cassert>
 #if defined(_WIN32)
-// Stop windows.h from defining the min() and max() macros
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <process.h>
 #endif
-#include "stringutils.h"
 
 
 MyThread::MyThread()
 {
 	thread_handle = 0;
-	autodelete = false;
 	joined = false;
 }
 
@@ -69,22 +62,17 @@ threadFunction(void* the_thread_)
 	if(new_ref_count == 0)
 		delete the_thread;
 
-	//if(the_thread->autoDelete())
-	//	delete the_thread;
-
 	return 0;
 }
 
 
-void MyThread::launch(/*bool autodelete_*/)
+void MyThread::launch()
 {
 	assert(thread_handle == 0);
 
-	//autodelete = autodelete_;
-
 	// Increment the thread reference count.
-	// This is because there is a pointer to the the thread that is passed as an argument to _beginthreadex() (this passed as the arglist param),
-	// That isn't a Reference object.
+	// This is because there is a pointer to the the thread that is passed as an argument to _beginthreadex() ('this' passed as the arglist param),
+	// that isn't a Reference object.
 	this->incRefCount();
 
 #if defined(_WIN32)
@@ -112,8 +100,6 @@ void MyThread::launch(/*bool autodelete_*/)
 
 void MyThread::join() // Wait for thread termination
 {
-	// It's not allowed to join an autodeleting thread, because you get a race condition - the thread may terminate and delete itself before the join method runs.
-	//assert(!autodelete);
 	joined = true;
 #if defined(_WIN32)
 	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);

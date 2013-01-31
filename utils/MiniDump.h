@@ -7,9 +7,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #pragma once
 
 
-#if defined(_WIN32) || defined(_WIN64)
-#include <windows.h>
-#endif
+#include "../utils/IncludeWindows.h"
 
 
 /*=====================================================================

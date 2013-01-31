@@ -6,12 +6,8 @@ Copyright Glare Technologies Limited 2012 -
 #include "Clock.h"
 	
 
-#if defined(_WIN32)
-// Stop windows.h from defining the min() and max() macros
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
+#include "../utils/IncludeWindows.h"
+#if !defined(_WIN32)
 #include <sys/time.h>
 #endif
 

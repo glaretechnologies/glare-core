@@ -12,7 +12,7 @@ Generated at Wed May 26 14:52:09 +1200 2010
 
 #ifdef _MSC_VER
 
-#include <windows.h>
+#include "../utils/IncludeWindows.h"
 #include <Softpub.h>
 #include <Wincrypt.h>
 #include <tchar.h>

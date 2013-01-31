@@ -1,6 +1,7 @@
 // Copyright Glare Technologies Limited 2009 -
 #include "stringutils.h"
 
+#include "IncludeWindows.h"
 #include <cmath>
 #include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
@@ -14,13 +15,6 @@
 #include <limits>
 #include <istream>
 
-
-#if defined(_WIN32) || defined(_WIN64)
-// Stop windows.h from defining the min() and max() macros
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep

@@ -133,8 +133,5 @@ public:
 		for(int i=0; i<num_threads; ++i)
 			threads[i]->join();
 #endif
-		// Delete threads
-		//for(int i=0; i<num_threads; ++i)
-		//	delete threads[i];
 	}
 };
