@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 class ThreadMessage;
 
 

@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "ThreadSafeRefCounted.h"
-#include "reference.h"
+#include "Reference.h"
 #include "IncludeWindows.h"
 #if !defined(_WIN32)
 #include <pthread.h>
@@ -58,7 +58,7 @@ public:
 	HANDLE getHandle() { return thread_handle; }
 #endif
 
-	bool autoDelete() const { return autodelete; }
+	// bool autoDelete() const { return autodelete; }
 
 private:
 #if defined(_WIN32)
@@ -67,7 +67,6 @@ private:
 	pthread_t thread_handle;
 #endif
 
-	bool autodelete;
 	bool joined; // True if this thread had join() called on it.
 };
 

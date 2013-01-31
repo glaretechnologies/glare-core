@@ -9,7 +9,7 @@ Generated at 2011-10-05 21:56:22 +0100
 
 #include "threadsafequeue.h"
 #include "mutex.h"
-#include "reference.h"
+#include "Reference.h"
 #include "Condition.h"
 #include "../maths/mathstypes.h"
 #include <vector>

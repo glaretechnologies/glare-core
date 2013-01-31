@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 
 #include <vector>
 #include <string>
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 class Map2D;
 
 

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __BMPDECODER_H_666_
 
 
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 #include <string>
 #include <vector>
 class Map2D;

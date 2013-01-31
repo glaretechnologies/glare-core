@@ -6,7 +6,7 @@
 
 #include <vector>
 #include <string>
-#include "../utils/refcounted.h"
+#include "../utils/RefCounted.h"
 
 /*=====================================================================
 FilterFunction

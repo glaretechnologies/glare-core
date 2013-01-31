@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #if BUILD_TESTS
 
 
-#include "reference.h"
+#include "Reference.h"
 #include "Maybe.h"
 #include "refcounted.h"
 #include "ThreadSafeRefCounted.h"

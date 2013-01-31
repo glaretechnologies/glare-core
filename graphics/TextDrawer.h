@@ -13,8 +13,8 @@ Code By Nicholas Chapman.
 #include "image.h"
 #include "Image4f.h"
 #include "bitmap.h"
-#include "../utils/refcounted.h"
-#include "../utils/reference.h"
+#include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 
 
 class TextDrawerExcep

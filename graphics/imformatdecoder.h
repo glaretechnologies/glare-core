@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include <vector>
 //class Bitmap;
 class Map2D;
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 
 
 class ImFormatExcep

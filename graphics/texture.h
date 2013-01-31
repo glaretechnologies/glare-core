@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "colour3.h"
 #include "Map2D.h"
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 
 
 #error Not used any more.  ImageMap is used instead.

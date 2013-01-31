@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include <vector>
 #include <map>
 #include <string>
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 class Map2D;
 class Bitmap;
 class Image;

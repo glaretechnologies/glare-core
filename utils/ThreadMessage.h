@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "ThreadSafeRefCounted.h"
-#include "reference.h"
+#include "Reference.h"
 #include <string>
 
 

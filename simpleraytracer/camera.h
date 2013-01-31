@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../physics/jscol_aabbox.h"
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 #include <vector>
 #include <string>
 class ColourSpaceConverter;

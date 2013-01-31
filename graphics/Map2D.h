@@ -9,8 +9,8 @@ Code By Nicholas Chapman.
 
 
 #include "colour3.h"
-#include "../utils/refcounted.h"
-#include "../utils/reference.h"
+#include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 class Image;
 namespace Indigo { class TaskManager; }
 

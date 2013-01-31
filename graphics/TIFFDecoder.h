@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include <string>
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 class Map2D;
 
 

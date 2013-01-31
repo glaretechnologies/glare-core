@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __TGADECODER_H_666_
 
 
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 #include <vector>
 #include <string>
 class Map2D;

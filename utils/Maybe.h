@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2012 -
 #pragma once
 
 
-#include "reference.h"
+#include "Reference.h"
 #include <cassert>
 #include <stdlib.h> // for NULL
 

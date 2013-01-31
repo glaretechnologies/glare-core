@@ -26,7 +26,7 @@ Code Copyright Nicholas Chapman 2005.
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
 #include "../utils/ThreadSafeRefCounted.h"
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 #include <string>
 class FractionListener;
 

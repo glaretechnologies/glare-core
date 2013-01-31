@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 
 #include "../graphics/ImageMap.h"
 #include "../utils/array2d.h"
-#include "../utils/reference.h"
+#include "../utils/Reference.h"
 #include "../utils/Exception.h"
 #include "../maths/Complex.h"
 #include "../maths/vec3.h"

@@ -19,7 +19,7 @@ You may *not* use this code for any commercial project.
 #include "../maths/coordframe.h"
 #include "../maths/plane.h"
 #include "../physics/jscol_aabbox.h"
-#include "../utils/refcounted.h"
+#include "../utils/RefCounted.h"
 #include "../indigo/TexCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
 #include "../raytracing/hitinfo.h"
