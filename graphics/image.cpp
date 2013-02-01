@@ -622,6 +622,15 @@ double Image::averageLuminance() const
 }
 
 
+double Image::averageValue() const
+{
+	double sum = 0;
+	for(size_t i = 0; i < numPixels(); ++i)
+		sum += (double)getPixel(i).averageVal();
+	return sum / (double)numPixels();
+}
+
+
 float Image::minPixelComponent() const
 {
 	float x = std::numeric_limits<float>::max();

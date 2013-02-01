@@ -108,6 +108,17 @@ void Image4f::setFromBitmap(const Bitmap& bmp, float image_gamma)
 }
 
 
+/*
+We want a value of 0.99999 or so to map to 255.
+Otherwise we will get, for example, noise in the alpha channel.
+So we want to multiply by a value > 255.
+*/
+static INDIGO_STRONG_INLINE uint8_t floatToUInt8(float x)
+{
+	return (uint8_t)(x * 255.9f);
+}
+
+
 // Will throw ImageExcep if bytespp != 3 && bytespp != 4
 void Image4f::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
@@ -126,11 +137,11 @@ void Image4f::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2
 	for(int x = x1; x < x2; ++x)
 	{
 		unsigned char* pixel = bmp_out.getPixelNonConst(x - x1, y - y1);
-		pixel[0] = (unsigned char)(getPixel(x, y).x[0] * 255.0f);
-		pixel[1] = (unsigned char)(getPixel(x, y).x[1] * 255.0f);
-		pixel[2] = (unsigned char)(getPixel(x, y).x[2] * 255.0f);
+		pixel[0] = floatToUInt8(getPixel(x, y).x[0]);
+		pixel[1] = floatToUInt8(getPixel(x, y).x[1]);
+		pixel[2] = floatToUInt8(getPixel(x, y).x[2]);
 		if(bmp_out.getBytesPP() == 4)
-			pixel[3] = (unsigned char)(getPixel(x, y).x[3] * 255.0f);
+			pixel[3] = floatToUInt8(getPixel(x, y).x[3]);
 	}
 }
 
@@ -145,10 +156,10 @@ void Image4f::copyToBitmap(Bitmap& bmp_out) const
 		const ColourType& p = getPixel(x, y);
 
 		unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
-		pixel[0] = (unsigned char)(p.x[0] * 255.0f);
-		pixel[1] = (unsigned char)(p.x[1] * 255.0f);
-		pixel[2] = (unsigned char)(p.x[2] * 255.0f);
-		pixel[3] = (unsigned char)(p.x[3] * 255.0f);
+		pixel[0] = floatToUInt8(p.x[0]);
+		pixel[1] = floatToUInt8(p.x[1]);
+		pixel[2] = floatToUInt8(p.x[2]);
+		pixel[3] = floatToUInt8(p.x[3]);
 	}
 }
 
@@ -176,47 +187,6 @@ void Image4f::resize(size_t newwidth, size_t newheight)
 
 	pixels.resize(newwidth, newheight);
 }
-
-
-//void Image4f::posClamp()
-//{
-//	const size_t num = numPixels();
-//	for(size_t i = 0; i < num; ++i)
-//		getPixel(i).positiveClipComponents();
-//}
-//
-//
-//void Image4f::clampInPlace(float min, float max)
-//{
-//	const size_t num = numPixels();
-//	for(size_t i = 0; i < num; ++i)
-//		getPixel(i).clampInPlace(min, max);
-//}
-
-//
-//void Image4f::gammaCorrect(float exponent)
-//{
-//	const size_t num = numPixels();
-//	for(size_t i = 0; i < num; ++i)
-//	{
-//		const ColourType colour = getPixel(i);
-//		ColourType newcolour(
-//			std::pow(colour.r, exponent),
-//			std::pow(colour.g, exponent),
-//			std::pow(colour.b, exponent)
-//		);
-//
-//		getPixel(i) = newcolour;
-//	}
-//}
-//
-//
-//void Image4f::scale(float factor)
-//{
-//	const size_t num = numPixels();
-//	for(size_t i = 0; i < num; ++i)
-//		getPixel(i) *= factor;
-//}
 
 
 void Image4f::blitToImage(Image4f& dest, int destx, int desty) const
@@ -539,34 +509,6 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
 	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
 
-	/*#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
-	for(int y = 0; y < out_yres; ++y)
-	for(int x = 0; x < out_xres; ++x)
-	{
-		const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
-		const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
-		const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < (ptrdiff_t)img_in.getWidth());
-		const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < (ptrdiff_t)img_in.getHeight());
-
-		ColourType weighted_sum(0);
-		uint32 filter_addr = 0;
-		for(ptrdiff_t v = v_min; v <= v_max; ++v)
-		for(ptrdiff_t u = u_min; u <= u_max; ++u)
-		{
-			const ptrdiff_t addr = v * in_xres + u;
-			assert(addr >= 0 && addr < (ptrdiff_t)img_in.numPixels());
-
-			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
-		}
-
-		assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
-
-		weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
-		out_buffer[y * out_xres + x] = weighted_sum;
-	}*/
-
 	DownsampleImageTaskClosure closure;
 	closure.in_buffer = in_buffer;
 	closure.out_buffer = out_buffer;
@@ -589,25 +531,7 @@ size_t Image4f::getByteSize() const
 {
 	return numPixels() * 3 * sizeof(float);
 }
-/*
 
-float Image4f::minLuminance() const
-{
-	float minlum = std::numeric_limits<float>::max();
-	for(size_t i = 0; i < numPixels(); ++i)
-		minlum = myMin(minlum, getPixel(i).luminance());
-	return minlum;
-}
-
-
-float Image4f::maxLuminance() const
-{
-	float maxlum = -std::numeric_limits<float>::max();
-	for(size_t i = 0; i < numPixels(); ++i)
-		maxlum = myMax(maxlum, getPixel(i).luminance());
-	return maxlum;
-}
-*/
 
 double Image4f::averageLuminance() const
 {
@@ -649,155 +573,6 @@ float Image4f::maxPixelComponent() const
 		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
 	return x;*/
 }
-
-
-
-/*
-const Colour3<Image4f::Value> Image4f::vec3SampleTiled(Coord u, Coord v) const
-{
-	//return sampleTiled((float)x, (float)y).toColour3d();
-
-	Colour3<Value> colour_out;
-
-	Coord intpart; // not used
-	Coord u_frac_part = std::modf(u, &intpart);
-	Coord v_frac_part = std::modf(1 - v, &intpart); // 1.0 - v because we want v=0 to be at top of Image4f, and v=1 to be at bottom.
-
-	if(u_frac_part < 0)
-		u_frac_part = 1 + u_frac_part;
-	if(v_frac_part < 0)
-		v_frac_part = 1 + v_frac_part;
-	assert(Maths::inHalfClosedInterval<Coord>(u_frac_part, 0.0, 1.0));
-	assert(Maths::inHalfClosedInterval<Coord>(v_frac_part, 0.0, 1.0));
-
-	// Convert from normalised Image4f coords to pixel coordinates
-	const Coord u_pixels = u_frac_part * (Coord)getWidth();
-	const Coord v_pixels = v_frac_part * (Coord)getHeight();
-	assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)getWidth()));
-	assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)getHeight()));
-
-	const unsigned int ut = (unsigned int)u_pixels;
-	const unsigned int vt = (unsigned int)v_pixels;
-	assert(ut >= 0 && ut < getWidth());
-	assert(vt >= 0 && vt < getHeight());
-
-	const unsigned int ut_1 = (ut + 1) % getWidth();
-	const unsigned int vt_1 = (vt + 1) % getHeight();
-
-	const Coord ufrac = u_pixels - (Coord)ut;
-	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1 - ufrac;
-	const Coord onevfrac = 1 - vfrac;
-
-	// Top left pixel
-	{
-		const float* pixel = getPixel(ut, vt).data();
-		const Value factor = oneufrac * onevfrac;
-		colour_out.r = pixel[0] * factor;
-		colour_out.g = pixel[1] * factor;
-		colour_out.b = pixel[2] * factor;
-	}
-
-	// Top right pixel
-	{
-		const float* pixel = getPixel(ut_1, vt).data();
-		const Value factor = ufrac * onevfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
-	}
-
-	// Bottom left pixel
-	{
-		const float* pixel = getPixel(ut, vt_1).data();
-		const Value factor = oneufrac * vfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
-	}
-
-	// Bottom right pixel
-	{
-		const float* pixel = getPixel(ut_1, vt_1).data();
-		const Value factor = ufrac * vfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
-	}
-
-	return colour_out;
-}*/
-
-
-//Image4f::Value Image4f::scalarSampleTiled(Coord x, Coord y) const
-//{
-//	const Colour3<Value> col = vec3SampleTiled(x, y);
-//	return (col.r + col.g + col.b) * static_cast<Image4f::Value>(1.0 / 3.0);
-//}
-//
-//
-//Reference<Image4f> Image4f::convertToImage() const
-//{
-//	// Return copy of this Image4f.
-//	return Reference<Image4f>(new Image4f(*this));
-//}
-
-//
-//Reference<Map2D> Image4f::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
-//{
-//	// Blur the Image4f
-//	Image4f blurred_img(getWidth(), getHeight());
-//	GaussianImageFilter::gaussianFilter(
-//		*this, 
-//		blurred_img, 
-//		(float)myMax(getWidth(), getHeight()) * 0.01f, // standard dev in pixels
-//		task_manager
-//		);
-//
-//	return Reference<Map2D>(new Image4f(blurred_img));
-//}
-//
-//
-//Reference<Map2D> Image4f::resizeToImage(const int target, bool& is_linear) const
-//{
-//	// Image4f class always loads fp data, so should always be in linear space
-//	is_linear = true;
-//
-//	size_t tex_xres, tex_yres;
-//	
-//	if(this->getHeight() > this->getWidth())
-//	{
-//		tex_xres = (size_t)((float)this->getWidth() * (float)target / (float)this->getHeight());
-//		tex_yres = (size_t)target;
-//	}
-//	else
-//	{
-//		tex_xres = (size_t)target;
-//		tex_yres = (size_t)((float)this->getHeight() * (float)target / (float)this->getWidth());
-//	}
-//
-//	const float inv_tex_xres = 1.0f / tex_xres;
-//	const float inv_tex_yres = 1.0f / tex_yres;
-//
-//	Image4f* Image4f = new Image4f(tex_xres, tex_yres);
-//	Reference<Map2D> map_2d = Reference<Map2D>(Image4f);
-//
-//	for(size_t y = 0; y < tex_yres; ++y)
-//	for(size_t x = 0; x < tex_xres; ++x)
-//	{
-//		const ColourType texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
-//
-//		Image4f->setPixel(x, y, texel);
-//	}
-//
-//	return map_2d;
-//}
-
-
-//unsigned int Image4f::getBytesPerPixel() const
-//{
-//	return sizeof(ColourType);
-//}
 
 
 #if BUILD_TESTS
