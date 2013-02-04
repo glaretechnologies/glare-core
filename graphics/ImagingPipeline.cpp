@@ -161,7 +161,7 @@ void doTonemapFullBuffer(
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Reference<PostProDiffraction>& post_pro_diffraction,
+	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& temp_summed_buffer,
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
@@ -462,7 +462,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					if(closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
+					if(closure.render_channels->hasAlpha())//closure.render_channels->alpha.getWidth() > 0)
 						sum.x[3] = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * closure.image_scale;
 					else
 						sum.x[3] = 1.0f;
@@ -497,6 +497,10 @@ public:
 
 					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
+					////// Do alpha divide //////
+					const float recip_alpha = 1 / weighted_sum.x[3];
+					weighted_sum *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
+
 					weighted_sum.clampInPlace(0, 1); // Ensure result is in [0, 1]
 					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = weighted_sum;
 				}
@@ -528,7 +532,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					if(closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
+					if(closure.render_channels->hasAlpha()) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
 						sum.x[3] = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * closure.image_scale;
 					else
 						sum.x[3] = 1.0f;
@@ -547,7 +551,16 @@ public:
 				addr = 0;
 				for(ptrdiff_t y = y_min; y < y_max; ++y)
 				for(ptrdiff_t x = x_min; x < x_max; ++x)
-					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
+				{
+					Colour4f col = tile_buffer.getPixel(addr++);
+
+					////// Do alpha divide //////
+					const float recip_alpha = 1 / col.x[3];
+					col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
+					col = min(Colour4f(1.0f), col); // Make sure components are <= 1
+
+					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = col;
+				}
 			}
 		}
 	}
@@ -564,7 +577,7 @@ void doTonemap(
 	float image_scale,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Reference<PostProDiffraction>& post_pro_diffraction,
+	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& temp_summed_buffer,
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
@@ -663,8 +676,134 @@ void doTonemap(
 #ifdef BUILD_TESTS
 
 
+static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out)
+{
+	Indigo::TaskManager task_manager(1);
+
+	// Temp buffers
+	::Image4f temp_summed_buffer, temp_AD_buffer;
+	std::vector< ::Image4f> temp_tile_buffers;
+
+	const float layer_normalise = 1;
+	std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain	
+
+	RendererSettings renderer_settings;
+	renderer_settings.logging = false;
+	renderer_settings.setWidth(W);
+	renderer_settings.setHeight(W);
+	renderer_settings.super_sample_factor = ssf;
+	renderer_settings.tone_mapper = new LinearToneMapper(1);
+	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+
+	ImagingPipeline::doTonemap(
+		temp_tile_buffers,
+		render_channels,
+		layer_weights,
+		layer_normalise,
+		renderer_settings,
+		renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(ssf),
+		Reference<PostProDiffraction>(),
+		temp_summed_buffer,
+		temp_AD_buffer,
+		ldr_image_out,
+		false, // XYZ_colourspace
+		task_manager
+	);
+}
+
+
 void test()
 {
+	// Constant colour of (1,1,1), no alpha, ssf1
+	{
+		const int W = 1000;
+		const int ssf = 1;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+		
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(1.0f));
+
+		Image4f ldr_buffer;
+		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
+		
+		for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			//printVar(ldr_buffer.getPixel(x, y));
+			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(1, 1, 1, 1), 1.0e-4f));
+		}
+	}
+
+
+	// Constant colour of (1,1,1), no alpha, ssf2
+	{
+		const int W = 1000;
+		const int ssf = 2;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(1.0f));
+
+		Image4f ldr_buffer;
+		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
+		
+		for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			//printVar(ldr_buffer.getPixel(x, y));
+			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(1, 1, 1, 1), 1.0e-4f));
+		}
+	}
+
+
+	{
+		const int W = 1000;
+		const int ssf = 1;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+
+		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.65
+		const float alpha = 0.5f;
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f));
+
+		render_channels.alpha.resize(full_W, full_W, 1);
+		render_channels.alpha.set(alpha);
+
+		Image4f ldr_buffer;
+		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
+		
+		for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			/*
+			gamma-corrected alpha is 0.5^(1/2.2) = 0.7297400528407231
+			gamma-corrected red = 0.2^(1/2.2) = 0.4811565050522864
+
+			so final red = 0.2^(1/2.2) / 0.5^(1/2.2) = (0.2/0.5)^(1/2.2) = 0.6593532905028939
+
+			final green = (0.4/0.5)^(1/2.2) = 0.9035454309190944
+
+			final blue = 1 as is clamped to 1.
+			*/
+
+			//printVar(ldr_buffer.getPixel(x, y));
+			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(0.6593532905028939f, 0.9035454309190944f, 1.0f, 0.7297400528407231f), 1.0e-4f));
+		}
+	}
+
+
+
+
+	{
 	Indigo::TaskManager task_manager;
 
 	const int test_res_num = 6;
@@ -779,6 +918,8 @@ void test()
 
 			testAssert(abs_error <= allowable_error);
 		}
+	}
+
 	}
 }
 

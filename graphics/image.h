@@ -66,7 +66,7 @@ public:
 	void loadFromHDR(const std::string& pathname, int width, int height);
 
 	void zero();
-	void set(float s);
+	void set(const ColourType& c);
 
 	void resize(size_t newwidth, size_t newheight);
 

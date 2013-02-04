@@ -1849,7 +1849,7 @@ void ImageFilter::convolveImageFFTBySections(const Image& in, const Image& filte
 
 
 
-			temp_in.set(0);
+			temp_in.zero();
 
 			conPrint("blitting from begin=(" + toString(x - fw_2) + ", " + toString(y - fw_2) + "), end=(" + toString(x + fw) + ", " + toString(y + fw) + ")");
 

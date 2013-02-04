@@ -135,17 +135,15 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 
 void Image::zero()
 {
-	set(0);
+	set(ColourType(0));
 }
 
 
-void Image::set(const float s)
+void Image::set(const ColourType& c)
 {
-	const ColourType s_colour(s, s, s);
-
 	const size_t num = numPixels();
 	for(size_t i = 0; i < num; ++i)
-		getPixel(i) = s_colour;
+		getPixel(i) = c;
 }
 
 

@@ -45,7 +45,7 @@ void doTonemap(
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	Reference<PostProDiffraction>& post_pro_diffraction,
+	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& temp_summed_buffer, // Working memory
 	Image4f& temp_AD_buffer, // Working memory
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
