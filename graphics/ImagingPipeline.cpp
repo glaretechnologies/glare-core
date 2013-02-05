@@ -166,6 +166,7 @@ void doTonemapFullBuffer(
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
 	bool image_buffer_in_XYZ,
+	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager)
 {
 	//Timer t;
@@ -339,7 +340,7 @@ void doTonemapFullBuffer(
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
 	const size_t supersample_factor = (size_t)renderer_settings.super_sample_factor;
-	const size_t border_width = (size_t)renderer_settings.getMargin();
+	const size_t border_width = (size_t)margin_ssf1;
 
 	const size_t final_xres = render_channels.layers[0].image.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
 	const size_t final_yres = render_channels.layers[0].image.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
@@ -365,7 +366,7 @@ void doTonemapFullBuffer(
 	else
 	{
 		// Copy to temp_buffer 3, removing border.
-		const int b = RendererSettings::getMargin();
+		const int b = margin_ssf1;
 
 		temp_summed_buffer.blitToImage(b, b, (int)temp_summed_buffer.getWidth() - b, (int)temp_summed_buffer.getHeight() - b, ldr_buffer_out, 0, 0);
 	}
@@ -400,7 +401,7 @@ struct ImagePipelineTaskClosure
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
 
-	ptrdiff_t x_tiles, final_xres, final_yres, filter_size;
+	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 };
 
 
@@ -421,7 +422,7 @@ public:
 		const ptrdiff_t yres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getHeight();
 		#endif
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
-		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.renderer_settings->getMargin();
+		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 
 		for(int tile = begin; tile < end; ++tile)
@@ -582,6 +583,7 @@ void doTonemap(
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
 	bool XYZ_colourspace,
+	int margin_ssf1,
 	Indigo::TaskManager& task_manager
 	)
 {
@@ -590,7 +592,7 @@ void doTonemap(
 	{
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, task_manager);
+							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager);
 		return;
 	}
 
@@ -602,8 +604,8 @@ void doTonemap(
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const ptrdiff_t final_xres = RendererSettings::computeFinalWidth((int)xres, (int)ss_factor);
-	const ptrdiff_t final_yres = RendererSettings::computeFinalWidth((int)yres, (int)ss_factor);
+	const ptrdiff_t final_xres = RendererSettings::computeFinalWidth((int)xres, (int)ss_factor, margin_ssf1);
+	const ptrdiff_t final_yres = RendererSettings::computeFinalWidth((int)yres, (int)ss_factor, margin_ssf1);
 	assert(final_xres == renderer_settings.getWidth());
 	assert(final_yres == renderer_settings.getHeight());
 	ldr_buffer_out.resize(final_xres, final_yres);
@@ -652,6 +654,7 @@ void doTonemap(
 	closure.final_xres = final_xres;
 	closure.final_yres = final_yres;
 	closure.filter_size = filter_size;
+	closure.margin_ssf1 = margin_ssf1;
 
 	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
 
@@ -707,6 +710,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		temp_AD_buffer,
 		ldr_image_out,
 		false, // XYZ_colourspace
+		RendererSettings::getMargin(), // margin at ssf1
 		task_manager
 	);
 }
@@ -855,8 +859,16 @@ void test()
 		renderer_settings.super_sample_factor = image_ss_factor;
 		renderer_settings.tone_mapper = tone_mappers[tm];
 
+		std::vector<std::string> layer_names(image_layers, "");
 
-		MasterBuffer master_buffer((uint32)image_ss_xres, (uint32)image_ss_yres, (int)image_layers, 1, 1);
+		MasterBuffer master_buffer(
+			(uint32)image_ss_xres, 
+			(uint32)image_ss_yres, 
+			(int)image_layers,
+			image_final_xres,
+			image_final_yres,
+			layer_names
+		);
 		master_buffer.setNumSamples(1);
 
 		Indigo::Vector< ::Layer>& layers = master_buffer.getRenderChannels().layers;
@@ -894,6 +906,7 @@ void test()
 			temp_AD_buffer,
 			temp_ldr_buffer,
 			false,
+			RendererSettings::getMargin(), // margin at ssf1
 			task_manager);
 
 
