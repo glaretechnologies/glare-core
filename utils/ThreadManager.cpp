@@ -189,6 +189,8 @@ public:
 
 void ThreadManager::test()
 {
+	conPrint("ThreadManager::test()");
+
 	{
 		ThreadManager m;
 		testAssert(m.getNumThreads() == 0);
@@ -239,6 +241,8 @@ void ThreadManager::test()
 		// All the threads won't finish until a kill message is sent to them
 		testAssert(m.getNumThreads() == 100);
 	}
+
+	conPrint("ThreadManager::test() done.");
 }
 
 
