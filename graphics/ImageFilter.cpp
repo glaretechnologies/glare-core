@@ -124,7 +124,7 @@ public:
 				int x_end = myMin(in_w, sx_pi + r + 1);
 				int y_end = myMin(in_h, sy_pi + r + 1);
 
-				ImageType::ColourType c(0.0f);
+				typename ImageType::ColourType c(0.0f);
 				float f_sum = 0;
 				for(int sy=y_begin; sy<y_end; ++sy)
 				for(int sx=x_begin; sx<x_end; ++sx)
