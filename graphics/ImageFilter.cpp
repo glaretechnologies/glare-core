@@ -145,7 +145,7 @@ public:
 					//c.r += in.getPixel(sx, sy).r * f;
 					//c.g += in.getPixel(sx, sy).g * f;
 					//c.b += in.getPixel(sx, sy).b * f;
-					c += in.getPixel(sx, sy) * ImageType::ColourType(f);
+					c += in.getPixel(sx, sy) * typename ImageType::ColourType(f);
 				}
 
 				// Lookup the filter normalisation term
