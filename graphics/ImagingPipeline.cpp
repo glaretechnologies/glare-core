@@ -200,8 +200,7 @@ void doTonemapFullBuffer(
 	{
 		BufferedPrintOutput bpo;
 		temp_AD_buffer.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
-		//TEMP HACK IMPORTANT post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
-		temp_AD_buffer = temp_summed_buffer;
+		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
 		
 		// Do 'overbright' pixel spreading.
 		// The idea here is that any really bright pixels can cause artifacts due to aperture diffraction, such as dark rings
@@ -293,6 +292,9 @@ void doTonemapFullBuffer(
 				{
 					temp_summed_buffer.getPixel(x, y) += in_colour;
 				}
+
+				// Just copy over the alpha directly, as we don't want to convolve it.
+				temp_summed_buffer.getPixel(x, y).x[3] = in_colour.x[3];
 			}
 
 			//conPrint("Overbright pixel spreading took " + timer2.elapsedStringNPlaces(5));
@@ -305,7 +307,7 @@ void doTonemapFullBuffer(
 
 
 	// Either tonemap, or do render foreground alpha
-	if(renderer_settings.render_foreground_alpha || renderer_settings.material_id_tracer || renderer_settings.depth_pass)
+	if(/*renderer_settings.render_foreground_alpha || */renderer_settings.material_id_tracer || renderer_settings.depth_pass)
 	{
 		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
 			temp_summed_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
@@ -372,9 +374,25 @@ void doTonemapFullBuffer(
 	}
 
 	//conPrint("ldr_buffer_out.maxPixelComponent(): " + toString(ldr_buffer_out.maxPixelComponent()));
-
+	
 	assert(ldr_buffer_out.getWidth()  == final_xres); // renderer_settings.getWidth());
 	assert(ldr_buffer_out.getHeight() == final_yres); // renderer_settings.getHeight());
+
+	// Components should be in range [0, 1]
+	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
+	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
+
+	////// Do alpha divide //////
+	for(size_t z=0; z<ldr_buffer_out.numPixels(); ++z)
+	{
+		Colour4f col = ldr_buffer_out.getPixel(z);
+		col = max(Colour4f(0.0f), min(Colour4f(1.0f), col));
+
+		const float recip_alpha = 1 / col.x[3];
+		col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
+		col = min(Colour4f(1.0f), col); // Make sure components are <= 1
+		ldr_buffer_out.getPixel(z) = col;
+	}
 
 	// Components should be in range [0, 1]
 	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
@@ -463,7 +481,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					if(closure.render_channels->hasAlpha())//closure.render_channels->alpha.getWidth() > 0)
+					if(closure.render_channels->hasAlpha())
 						sum.x[3] = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * closure.image_scale;
 					else
 						sum.x[3] = 1.0f;

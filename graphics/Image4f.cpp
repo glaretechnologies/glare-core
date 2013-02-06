@@ -272,8 +272,6 @@ void Image4f::blendImage(const Image4f& img, const int destx, const int desty, c
 }
 
 
-/*
-
 void Image4f::subImage(const Image4f& img, int destx, int desty)
 {
 	const int h = (int)getHeight();
@@ -291,6 +289,7 @@ void Image4f::subImage(const Image4f& img, int destx, int desty)
 }
 
 
+/*
 void Image4f::overwriteImage(const Image4f& img, int destx, int desty)
 {
 	const int h = (int)getHeight();

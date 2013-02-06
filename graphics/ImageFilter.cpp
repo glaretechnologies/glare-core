@@ -37,10 +37,26 @@ Code By Nicholas Chapman.
 #include "../maths/GeometrySampling.h"
 
 
+// Defined in fft4f2d.c
+extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
+
+
+ImageFilter::ImageFilter()
+{
+}
+
+
+ImageFilter::~ImageFilter()
+{
+}
+
+
+
+template <class ImageType>
 struct ResizeImageTaskClosure
 {
-	const Image* in;
-	Image* out;
+	const ImageType* in;
+	ImageType* out;
 	float pixel_scale;
 	float recip_scale;
 	int r;
@@ -49,16 +65,17 @@ struct ResizeImageTaskClosure
 };
 
 
+template <class ImageType>
 class ResizeImageTask : public Indigo::Task
 {
 public:
-	ResizeImageTask(const ResizeImageTaskClosure& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin((int)begin_), end((int)end_), stride((int)stride_) {}
+	ResizeImageTask(const ResizeImageTaskClosure<ImageType>& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin((int)begin_), end((int)end_), stride((int)stride_) {}
 
 	virtual void run(size_t thread_index)
 	{
 		// 'Unpack' data from closure ///////
-		const Image& in = *closure.in;
-		Image& out = *closure.out;
+		const ImageType& in = *closure.in;
+		ImageType& out = *closure.out;
 		const float pixel_scale = closure.pixel_scale;
 		const float recip_scale = closure.recip_scale;
 		const int r = closure.r;
@@ -80,8 +97,8 @@ public:
 		float in_w_2 = in_w * 0.5f;
 		float in_h_2 = in_h * 0.5f;
 
-		float recip_out_w = 1.0f / out_w;
-		float recip_out_h = 1.0f / out_h;
+		//float recip_out_w = 1.0f / out_w;
+		//float recip_out_h = 1.0f / out_h;
 
 		for(int y = begin; y < end; y += stride)
 		{
@@ -107,7 +124,7 @@ public:
 				int x_end = myMin(in_w, sx_pi + r + 1);
 				int y_end = myMin(in_h, sy_pi + r + 1);
 
-				Colour3f c(0, 0, 0);
+				ImageType::ColourType c(0.0f);
 				float f_sum = 0;
 				for(int sy=y_begin; sy<y_end; ++sy)
 				for(int sx=x_begin; sx<x_end; ++sx)
@@ -125,16 +142,11 @@ public:
 					float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
 					f_sum += f;
 
-					c.r += in.getPixel(sx, sy).r * f;
-					c.g += in.getPixel(sx, sy).g * f;
-					c.b += in.getPixel(sx, sy).b * f;
+					//c.r += in.getPixel(sx, sy).r * f;
+					//c.g += in.getPixel(sx, sy).g * f;
+					//c.b += in.getPixel(sx, sy).b * f;
+					c += in.getPixel(sx, sy) * ImageType::ColourType(f);
 				}
-
-				/*if(x == 400 && y == 400)
-				{
-					printVar(precomputed_f_sum);
-					printVar(f_sum);
-				}*/
 
 				// Lookup the filter normalisation term
 				/*int fnt_x = (int)((sx_p - (float)sx_pi) * (float)FNT_W);
@@ -144,27 +156,19 @@ public:
 
 				float f_norm_scale = filter_norm_table[fnt_x + fnt_y * FNT_W];*/
 		
-				/*if(pixel_enlargement_factor == 1.003f)
-				{
-					conPrint("");
-					printVar(1.f / f_sum);
-					printVar(f_norm_scale);
-				}*/
-
-				//if(f_sum > 0)
-				//	c *= (1 / f_sum);
 				c *= norm_factor;
 				out.setPixel(x, y, c);
 			}
 		}
 	}
 
-	const ResizeImageTaskClosure& closure;
+	const ResizeImageTaskClosure<ImageType>& closure;
 	int begin, end, stride;
 };
 
 
-void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargement_factor/*, const Vec3f& colour_scale*/, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+template <class ImageType>
+static inline void doResizeImage(const ImageType& in, ImageType& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
 {
 	assert(mn_b >= 0 && mn_b <= 1);
 	assert(mn_c >= 0 && mn_c <= 1);
@@ -209,13 +213,10 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 	int r = (int)std::ceil(filter_radius);
 
 
-	
-	
-
 	// Table that maps distance squared to mn value for distance
 	// Entry at index MN_TABLE_SCALE corresponds to MN filter evaluated at d^2 of 1, entry at index MN_TABLE_SCALE*2 corresponds to MN evaled at d^2 of 2, etc..
 	// So last non-zero entry will by at MN_TABLE_SCALE*4, which corresponds to a d^2 of 4, or a distance of 2, which is where the MN function becomes zero.
-	const int MN_TABLE_SCALE_I = 1024;
+	/*const int MN_TABLE_SCALE_I = 1024;
 	const int MN_TABLE_SIZE = MN_TABLE_SCALE_I * 4;
 
 	float mn_table_factor = MN_TABLE_SCALE_I;
@@ -226,7 +227,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		float d2 = i * (1 / mn_table_factor);
 		float d = std::sqrt(d2);
 		mn_table[i] = mn.eval(d) * recip_scale;
-	}
+	}*/
 
 	// Filter normalisation table.
 	// Normalisation factor varies with position
@@ -271,22 +272,6 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 	}*/
 
 
-
-	int out_w = (int)out.getWidth();
-	int out_h = (int)out.getHeight();
-
-	float out_w_2 = out_w * 0.5f;
-	float out_h_2 = out_h * 0.5f;
-
-	int in_w = (int)in.getWidth();
-	int in_h = (int)in.getHeight();
-
-	float in_w_2 = in_w * 0.5f;
-	float in_h_2 = in_h * 0.5f;
-
-	float recip_out_w = 1.0f / out_w;
-	float recip_out_h = 1.0f / out_h;
-
 	// Get normalisation factor for filter
 	float norm_factor = 1;
 	float precomputed_f_sum = 1;
@@ -304,12 +289,11 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			float dx = sx - 0.f; 
 			float dy = sy - 0.f;
 			float d2 = dx*dx + dy*dy;
-			//float scaled_d2 = d2 * recip_scale;
 
 			assert(fabs(dx) <= ceil(2 * scale));
 			assert(fabs(dy) <= ceil(2 * scale));
 
-			float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
+			float f = mn.eval(std::sqrt(d2) * recip_scale);
 			f_sum += f;
 		}
 
@@ -318,7 +302,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 	}
 
 
-	ResizeImageTaskClosure closure;
+	ResizeImageTaskClosure<ImageType> closure;
 	closure.in = &in;
 	closure.out = &out;
 	closure.pixel_scale = pixel_scale;
@@ -328,102 +312,26 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 	closure.mn_c = mn_c;
 	closure.norm_factor = norm_factor;
 
-	/*task_manager.runParallelForTasks<ResizeImageTask, ResizeImageTaskClosure>(
+	task_manager.runParallelForTasksInterleaved<ResizeImageTask<ImageType>, ResizeImageTaskClosure<ImageType> >(
 		closure, 
 		0, // begin
-		out_h // end
-	);*/
-	task_manager.runParallelForTasksInterleaved<ResizeImageTask, ResizeImageTaskClosure>(
-		closure, 
-		0, // begin
-		out_h // end
+		out.getHeight() // end
 	);
-	
-#if 0
-	for(int y=0; y<out_h; ++y)
-	for(int x=0; x<out_w; ++x)
-	{
-		// Get normalised dest coords, where (0,0) is center of dest image.
-		/*float destx = x * recip_out_w - 0.5f;
-		float desty = y * recip_out_h - 0.5f;
+}
 
-		float sx = destx * pixel_scale;
-		float sy = desty * pixel_scale;
 
-		// Get src pixel coords
-		float sx_p = (sx + 0.5f) * in_w;
-		float sy_p = (sy + 0.5f) * in_h;*/
-		float destx = x - out_w_2;
-		float desty = y - out_h_2;
+///==================================================================================================================
 
-		float sx = destx * pixel_scale;
-		float sy = desty * pixel_scale;
 
-		float sx_p = sx + in_w_2;
-		float sy_p = sy + in_h_2;
+void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+{
+	doResizeImage<Image>(in, out, pixel_enlargement_factor, mn_b, mn_c, task_manager);
+}
 
-		// floor to integer pixel indices
-		int sx_pi = (int)std::floor(sx_p);
-		int sy_pi = (int)std::floor(sy_p);
 
-		// compute src filter region
-		int x_begin = myMax(0, sx_pi - r + 1);
-		int y_begin = myMax(0, sy_pi - r + 1);
-
-		int x_end = myMin(in_w, sx_pi + r + 1);
-		int y_end = myMin(in_h, sy_pi + r + 1);
-
-		Colour3f c(0, 0, 0);
-		float f_sum = 0;
-		for(int sy=y_begin; sy<y_end; ++sy)
-		for(int sx=x_begin; sx<x_end; ++sx)
-		{
-			float dx = sx - sx_p; 
-			float dy = sy - sy_p;
-			float d2 = dx*dx + dy*dy;
-			//float scaled_d2 = d2 * recip_scale;
-
-			assert(fabs(dx) <= ceil(2 * scale));
-			assert(fabs(dy) <= ceil(2 * scale));
-
-			//assert((int)(scaled_d2 * mn_table_factor) < 1024);
-			//int i = (int)(scaled_d2 * mn_table_factor);
-			//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
-			float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
-			f_sum += f;
-
-			c.r += in.getPixel(sx, sy).r * f/* * colour_scale.x*/;
-			c.g += in.getPixel(sx, sy).g * f/* * colour_scale.y*/;
-			c.b += in.getPixel(sx, sy).b * f/* * colour_scale.z*/;
-		}
-
-		/*if(x == 400 && y == 400)
-		{
-			printVar(precomputed_f_sum);
-			printVar(f_sum);
-		}*/
-
-		// Lookup the filter normalisation term
-		/*int fnt_x = (int)((sx_p - (float)sx_pi) * (float)FNT_W);
-		int fnt_y = (int)((sy_p - (float)sy_pi) * (float)FNT_W);
-		assert(fnt_x >= 0 && fnt_x < FNT_W);
-		assert(fnt_y >= 0 && fnt_y < FNT_W);
-
-		float f_norm_scale = filter_norm_table[fnt_x + fnt_y * FNT_W];*/
-		
-		/*if(pixel_enlargement_factor == 1.003f)
-		{
-			conPrint("");
-			printVar(1.f / f_sum);
-			printVar(f_norm_scale);
-		}*/
-
-		//if(f_sum > 0)
-		//	c *= (1 / f_sum);
-		c *= norm_factor;
-		out.setPixel(x, y, c);
-	}
-#endif
+void ImageFilter::resizeImage(const Image4f& in, Image4f& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+{
+	doResizeImage<Image4f>(in, out, pixel_enlargement_factor, mn_b, mn_c, task_manager);
 }
 
 
@@ -473,9 +381,6 @@ public:
 
 		float in_w_2 = in_w * 0.5f;
 		float in_h_2 = in_h * 0.5f;
-
-		float recip_out_w = 1.0f / out_w;
-		float recip_out_h = 1.0f / out_h;
 
 		float sum[N];
 
@@ -591,7 +496,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 	// Table that maps distance squared to mn value for distance
 	// Entry at index MN_TABLE_SCALE corresponds to MN filter evaluated at d^2 of 1, entry at index MN_TABLE_SCALE*2 corresponds to MN evaled at d^2 of 2, etc..
 	// So last non-zero entry will by at MN_TABLE_SCALE*4, which corresponds to a d^2 of 4, or a distance of 2, which is where the MN function becomes zero.
-	const int MN_TABLE_SCALE_I = 1024;
+	/*const int MN_TABLE_SCALE_I = 1024;
 	const int MN_TABLE_SIZE = MN_TABLE_SCALE_I * 4;
 
 	float mn_table_factor = MN_TABLE_SCALE_I;
@@ -602,23 +507,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		float d2 = i * (1 / mn_table_factor);
 		float d = std::sqrt(d2);
 		mn_table[i] = mn.eval(d) * recip_scale;
-	}
-
-
-	int out_w = (int)out.getWidth();
-	int out_h = (int)out.getHeight();
-
-	float out_w_2 = out_w * 0.5f;
-	float out_h_2 = out_h * 0.5f;
-
-	int in_w = (int)in.getWidth();
-	int in_h = (int)in.getHeight();
-
-	float in_w_2 = in_w * 0.5f;
-	float in_h_2 = in_h * 0.5f;
-
-	float recip_out_w = 1.0f / out_w;
-	float recip_out_h = 1.0f / out_h;
+	}*/
 
 	// Get normalisation factor for filter
 	float norm_factor = 1;
@@ -666,7 +555,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<1>, ResizeImageMapFloatTaskClosure>(
 			closure, 
 			0, // begin
-			out_h // end
+			out.getHeight() // end
 		);
 	}
 	else if(in.getN() == 2)
@@ -674,7 +563,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<2>, ResizeImageMapFloatTaskClosure>(
 			closure, 
 			0, // begin
-			out_h // end
+			out.getHeight() // end
 		);
 	}
 	else if(in.getN() == 3)
@@ -682,7 +571,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<3>, ResizeImageMapFloatTaskClosure>(
 			closure, 
 			0, // begin
-			out_h // end
+			out.getHeight() // end
 		);
 	}
 	else if(in.getN() == 4)
@@ -690,7 +579,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 		task_manager.runParallelForTasksInterleaved<ResizeImageMapFloatTask<4>, ResizeImageMapFloatTaskClosure>(
 			closure, 
 			0, // begin
-			out_h // end
+			out.getHeight() // end
 		);
 	}
 	else
@@ -701,266 +590,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 }
 
 
-
-// Defined in fft4f2d.c
-extern "C" void rdft2d(int n1, int n2, int isgn, double **a, int *ip, double *w);
-
-
-ImageFilter::ImageFilter()
-{
-	
-}
-
-
-ImageFilter::~ImageFilter()
-{
-	
-}
-
-
-/*static void horizontalGaussianBlur(const Image& in, Image& out, float standard_deviation)
-{
-	assert(standard_deviation > 0.f);
-	out.resize(in.getWidth(), in.getHeight());
-
-	const float rad_needed = (float)Maths::inverse1DGaussian(0.00001, standard_deviation);
-
-	const float z = (float)Maths::eval1DGaussian(rad_needed, standard_deviation);
-
-	const int pixel_rad = myMax(1, (int)rad_needed);//kernel_radius;
-
-	const int lookup_size = pixel_rad + pixel_rad + 1;
-	//build filter lookup table
-	float* filter_weights = new float[lookup_size];
-	for(int x=0; x<lookup_size; ++x)
-	{
-		const float dist = (float)x - (float)pixel_rad;
-		filter_weights[x] = Maths::eval1DGaussian(dist, standard_deviation);
-		if(filter_weights[x] < 1.0e-12f)
-			filter_weights[x] = 0.0f;
-	}
-
-	//normalise filter kernel
-	float sumweight = 0.0f;
-	for(int x=0; x<lookup_size; ++x)
-		sumweight += filter_weights[x];
-
-	for(int x=0; x<lookup_size; ++x)
-		filter_weights[x] *= 1.0f / sumweight;
-
-	//check weights are properly normalised now
-	sumweight = 0.0f;
-	for(int x=0; x<lookup_size; ++x)
-		sumweight += filter_weights[x];
-
-	assert(::epsEqual(sumweight, 1.0f));
-
-	//------------------------------------------------------------------------
-	//blur in x direction
-	//------------------------------------------------------------------------
-	out.zero();
-
-	for(int y=0; y<in.getHeight(); ++y)
-		for(int x=0; x<in.getWidth(); ++x)
-		{
-			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
-
-			const Image::ColourType incol = in.getPixel(x, y);
-
-			//int weightindex = minx - x + pixel_rad;
-			for(int tx=minx; tx<maxx; ++tx)
-			{
-				//const int dx = tx - x + pixel_rad;
-				//assert(dx >= 0 && dx < lookup_size);
-
-				out.getPixel(tx, y).addMult(incol, filter_weights[tx - x + pixel_rad]);
-			}
-	}
-
-	delete[] filter_weights;
-}*/
-
-
-
-#if 0
-void ImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, int kernel_radius)
-{ 
-	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
-
-	const int pixel_rad = kernel_radius;
-	const int lookup_size = pixel_rad + pixel_rad + 1;
-	//build filter lookup table
-	float* filter_weights = new float[lookup_size];
-	//float filter_weights[10];
-	for(int x=0; x<lookup_size; ++x)
-	{
-		const float dist = (float)x - (float)pixel_rad;
-		filter_weights[x] = Maths::eval1DGaussian(dist, standard_deviation);
-//		printVar(x);
-		//printVar(filter_weights[x]);
-		if(filter_weights[x] < 1.0e-12f)
-			filter_weights[x] = 0.0f;
-	}
-
-		//normalise filter kernel
-	float sumweight = 0.0f;
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-			sumweight += filter_weights[x]*filter_weights[y];
-
-	for(int x=0; x<lookup_size; ++x)
-		filter_weights[x] *= sqrt(1.0f / sumweight);
-
-	sumweight = 0.0f;
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-			sumweight += filter_weights[x]*filter_weights[y];
-
-	assert(::epsEqual(sumweight, 1.0f));
-
-	//for each pixel in the source image
-	for(int y=0; y<in.getHeight(); ++y)
-	{
-		//get min and max of current filter rect along y axis
-		const int miny = myMax(0, y - pixel_rad);
-		const int maxy = myMin(in.getHeight(), y + pixel_rad + 1);
-
-		for(int x=0; x<in.getWidth(); ++x)
-		{
-			//get min and max of current filter rect along x axis
-			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin(in.getWidth(), x + pixel_rad + 1);
-	
-			//for each pixel in the out image, in the filter radius
-			for(int ty=miny; ty<maxy; ++ty)
-				for(int tx=minx; tx<maxx; ++tx)
-				{
-					const int dx = tx - x + pixel_rad;
-					const int dy = ty - y + pixel_rad;
-					assert(dx >= 0 && dx < lookup_size);
-					assert(dy >= 0 && dy < lookup_size);
-					//printVar(dx);
-					//printVar(dy);
-					const float factor = filter_weights[dx]*filter_weights[dy];
-
-					out.getPixel(tx, ty).addMult(in.getPixel(x, y), factor);
-				}
-
-		}
-	}
-
-	delete[] filter_weights;
-}
-
-#endif
-
-/*void ImageFilter::chiuFilter(const Image& in, Image& out, float radius, bool include_center)
-{
-	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
-
-	const int pixel_rad = (int)radius;// + 1;
-	const int lookup_size = pixel_rad + pixel_rad + 1;
-	//build filter lookup table
-	//std::vector<float> weights(lookup_size * lookup_size);
-	Array2d<float> weights(lookup_size, lookup_size);
-	
-	//float weights[lookup_size][lookup_size];
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-		{
-			if(x == pixel_rad && y == pixel_rad)
-			{
-				weights.elem(x, y) = include_center ? 1.0f : 0.0f;
-			}
-			else
-			{
-				const float dx = (float)(x - pixel_rad);
-				const float dy = (float)(y - pixel_rad);
-				const float dist = sqrt(dx*dx + dy*dy);
-				const float weight = pow(myMax(0.0f, 1.0f - dist / radius), 4.0f);
-				weights.elem(x, y) = weight;
-			}
-		}
-
-	float sumweight = 0.0f;
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-			sumweight += weights.elem(x, y);
-
-	//normalise filter kernel
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-		{
-			weights.elem(x, y) /= sumweight;
-			//conPrint("weights[" + toString(x) + "][" + toString(y) + "]: " + toString(weights.elem(x, y)));
-		}
-
-	//check is normalised correctly
-	sumweight = 0.0f;
-	for(int y=0; y<lookup_size; ++y)
-		for(int x=0; x<lookup_size; ++x)
-			sumweight += weights.elem(x, y);
-
-	assert(::epsEqual(sumweight, 1.0f));
-
-	//for each pixel in the source image
-	for(int y=0; y<in.getHeight(); ++y)
-	{
-		//get min and max of current filter rect along y axis
-		const int miny = myMax(0, y - pixel_rad);
-		const int maxy = myMin((int)in.getHeight(), y + pixel_rad + 1);
-
-		for(int x=0; x<in.getWidth(); ++x)
-		{
-			//get min and max of current filter rect along x axis
-			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
-	
-			//for each pixel in the out image, in the filter radius
-			for(int ty=miny; ty<maxy; ++ty)
-				for(int tx=minx; tx<maxx; ++tx)
-				{
-					const int dx=x-tx+pixel_rad;
-					const int dy=y-ty+pixel_rad;
-					assert(dx >= 0 && dx < lookup_size);
-					assert(dy >= 0 && dy < lookup_size);
-					const float factor = weights.elem(dx, dy);
-
-					out.getPixel(tx, ty).addMult(in.getPixel(x, y), factor);
-				}
-
-		}
-	}
-}*/
-
-
-static const Image::ColourType bilinearSampleImage(const Image& im, const Vec2f& pos)
-{
-	//const Vec2 pos(normed_pos.x * (float)im.getWidth(), normed_pos.y * (float)im.getHeight());
-
-	const int min_x = myMax(0, (int)floor(pos.x));
-	const int max_x = myMin(min_x+1, (int)im.getWidth()-1);
-
-	const int min_y = myMax(0, (int)floor(pos.y));
-	const int max_y = myMin(min_y+1, (int)im.getHeight()-1);
-
-	Image::ColourType sum(0,0,0);
-	for(int y=min_y; y<=max_y; ++y)
-	{
-		const float d_y = pos.y - (float)y;
-		const float y_fac = myMax(0.f, 1.f - (float)fabs(d_y));
-
-		for(int x=min_x; x<=max_x; ++x)
-		{
-			const float d_x = pos.x - (float)x;
-			const float x_fac = myMax(0.f, 1.f - (float)fabs(d_x));
-
-			sum.addMult(im.getPixel(x, y), x_fac * y_fac);
-		}
-	}
-	return sum;
-}
+///==================================================================================================================
 
 
 void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount, Indigo::TaskManager& task_manager)
@@ -986,78 +616,7 @@ void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount,
 	{
 		out.getPixel(i).g = temp.getPixel(i).g;
 	}
-
-
-	/*for(int y=0; y<(int)out.getHeight(); ++y)
-	{
-		for(int x=0; x<(int)out.getWidth(); ++x)
-		{
-			const Vec2f normed_pos(x/(float)out.getWidth(), y/(float)out.getHeight());
-			const Vec2f offset = normed_pos - Vec2f(0.5f, 0.5f);
-			const float offset_term = offset.length();
-			//const Vec2 rb_offet = offset * (1.f + amount);
-			//const Vec2 g_offet = offset * (1.f - amount);
-			//const Vec2 rb_pos = Vec2(0.5f, 0.5f) + rb_offet;
-			//const Vec2 g_pos = Vec2(0.5f, 0.5f) + g_offet;
-			const Vec2f rb_pos = Vec2f(0.5f, 0.5f) + offset * (1.f + offset_term*amount);
-			const Vec2f g_pos = Vec2f(0.5f, 0.5f) + offset * (1.f - offset_term*amount);
-
-			out.getPixel(x, y) += Image::ColourType(1.f, 0.f, 1.f) * bilinearSampleImage(in, Vec2f(rb_pos.x*(float)out.getWidth(), rb_pos.y*(float)out.getHeight()));
-			out.getPixel(x, y) += Image::ColourType(0.f, 1.f, 0.f) * bilinearSampleImage(in, Vec2f(g_pos.x*(float)out.getWidth(), g_pos.y*(float)out.getHeight()));
-		}
-	}*/
-
 }
-
-//rotates image around center
-//angle is in radians
-static void rotateImage(const Image& in, Image& out, float angle)
-{
-	out.resize(in.getWidth(), in.getHeight());
-
-	const Matrix2f m(cos(-angle), -sin(-angle), sin(-angle), cos(-angle));
-
-	const Vec2f center((float)in.getWidth() * 0.5f, (float)in.getHeight()  * 0.5f);
-
-	//for each output pixel...
-	for(int y=0; y<(int)out.getHeight(); ++y)
-		for(int x=0; x<(int)out.getWidth(); ++x)
-		{
-			//get floating point vector from center of image.
-			const Vec2f d = Vec2f((float)x, (float)y) - center;
-			const Vec2f rot_d = (m * d) + center;//rotate it
-
-			out.setPixel(x, y, bilinearSampleImage(in, rot_d));//Vec2(rot_d.x / (float)in.getWidth(), rot_d.y / (float)in.getHeight())));
-		}
-}
-
-
-
-/*void ImageFilter::glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation)
-{
-	out.resize(in.getWidth(), in.getHeight());
-	out.zero();
-
-	Image temp;
-	Image temp2;
-	for(int i=0; i<num_blades; ++i)
-	{
-		//Put rotated input image into temp
-		const float angle = (float)i * NICKMATHS_2PI / (float)num_blades;
-		rotateImage(in, temp, angle);
-
-		//Put blurred temp into temp2
-		horizontalGaussianBlur(temp, temp2, standard_deviation);
-
-		//Rotate back into temp
-		rotateImage(temp2, temp, -angle);
-
-		//Accumulate onto output image
-		out.addImage(temp, 0, 0);
-	}
-
-	out.scale(1.f / (float)num_blades);
-}*/
 
 
 static int smallestPowerOf2GE(int x)
@@ -1138,14 +697,14 @@ static void printImageStats(const Image& image, const std::string& name)
 
 
 	// Plot intensity of horizontal slice through image.
-	const int y = image.getHeight() / 2;
+	const int y = (int)image.getHeight() / 2;
 
 	Plotter::DataSet dataset;
 
 	int xr = 50;
 	for(int x=myMax(0, (int)image.getWidth()/2 - xr); x<myMin((int)image.getWidth()/2 + xr, (int)image.getWidth()); ++x)
 	{
-		dataset.points.push_back(Vec2f(x, image.getPixel(x, y).r));
+		dataset.points.push_back(Vec2f((float)x, image.getPixel(x, y).r));
 	}
 
 	Plotter::PlotOptions options;
@@ -1154,7 +713,7 @@ static void printImageStats(const Image& image, const std::string& name)
 }
 
 
-void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int ssf, Image& out, Indigo::TaskManager& task_manager)
+void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, Indigo::TaskManager& task_manager)
 {
 		const bool debug_output = false;
 		const bool verbose = false;
@@ -1169,11 +728,11 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 
 	FFTPlan plan;
 
-		if(debug_output)
-			printImageStats(in, "in");
+		//if(debug_output)
+		//	printImageStats(in, "in");
 
 	// Downsample in and filter
-	Image in_low(in.getWidth() / ssf, in.getHeight() / ssf);
+	Image4f in_low(in.getWidth() / ssf, in.getHeight() / ssf);
 	//Image filter_low(filter.getWidth() / ssf, filter.getHeight() / ssf);
 
 		Timer resize_timer;
@@ -1192,21 +751,21 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 
 		if(debug_output)
 		{
-			writeImage(in_low, "in_low.exr");
-			writeImage(filter_low, "filter_low.exr");
+			//writeImage(in_low, "in_low.exr");
+			//writeImage(filter_low, "filter_low.exr");
 
-			printImageStats(in_low, "in_low");
-			printImageStats(filter_low, "filter_low");
+			//printImageStats(in_low, "in_low");
+			//printImageStats(filter_low, "filter_low");
 		}
 
 	// convolve
-	Image convolved_low;
+	Image4f convolved_low;
 	convolveImage(in_low, filter_low, convolved_low, plan);
 
 		if(debug_output)
 		{
-			writeImage(convolved_low, "convolved_low.exr");
-			printImageStats(convolved_low, "convolved_low");
+			//writeImage(convolved_low, "convolved_low.exr");
+			//printImageStats(convolved_low, "convolved_low");
 		}
 
 	//convolved_low.posClamp();
@@ -1214,14 +773,14 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 
 
 	// Compute difference image: diff = convolved - in
-	Image diff_low = convolved_low;
+	Image4f diff_low = convolved_low;
 	diff_low.subImage(in_low, 0, 0); // TEMP HACK OFFSET
 
 
 		if(debug_output)
 		{
-			writeImage(diff_low, "diff_low.exr");
-			printImageStats(diff_low, "diff_low");
+			//writeImage(diff_low, "diff_low.exr");
+			//printImageStats(diff_low, "diff_low");
 		}
 
 
@@ -1236,7 +795,7 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 		writeImage(blurred_diff_low, "blurred_diff_low.exr");*/
 	
 	// upsample difference image.
-	Image diff(in.getWidth(), in.getHeight());
+	Image4f diff(in.getWidth(), in.getHeight());
 
 		resize_timer.reset();
 
@@ -1247,8 +806,8 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 
 		if(debug_output)
 		{
-			writeImage(diff, "diff.exr");
-			printImageStats(diff, "diff");
+			//writeImage(diff, "diff.exr");
+			//printImageStats(diff, "diff");
 		}
 
 	//resizeImage(diff_low, diff, (float)ssf, 1.0f, 0.0f);
@@ -1366,7 +925,7 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 		if(debug_output)
 		{
 			
-			printImageStats(diff, "diff_with_gaussians");
+			//printImageStats(diff, "diff_with_gaussians");
 		}
 
 
@@ -1374,13 +933,19 @@ void ImageFilter::lowResConvolve(const Image& in, const Image& filter_low, int s
 	out.addImage(diff, 0, 0);
 
 
+	// Just copy the alpha over from in for now.
+	for(size_t z=0; z<in.numPixels(); ++z)
+		out.getPixel(z).x[3] = in.getPixel(z).x[3];
+
+
 		if(debug_output)
 		{
-			writeImage(out, "out.exr");
-			printImageStats(out, "out");
+			//writeImage(out, "out.exr");
+			//printImageStats(out, "out");
 		}
 
 		if(verbose) conPrint("\tlowResConvolve done.  elapsed: " + t.elapsedStringNPlaces(4));
+
 }
 
 
@@ -1409,6 +974,18 @@ void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out
 	{
 		convolveImageSpatial(in, filter, out);
 	}
+}
+
+
+void ImageFilter::convolveImage(const Image4f& in, const Image& filter, Image4f& out, FFTPlan& plan) // throws Indigo::Exception on out of mem.
+{
+	convolveImageFFT(in, filter, out);
+
+	assert(out.getWidth() == in.getWidth() && out.getHeight() == in.getHeight());
+
+	// Copy alpha over from in to out
+	for(size_t z=0; z<in.numPixels(); ++z)
+		out.getPixel(z).x[3] = in.getPixel(z).x[3];
 }
 
 
@@ -1697,29 +1274,6 @@ void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static inline double& a(Array2d<double>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
@@ -1733,7 +1287,6 @@ static inline Complexd& R(Array2d<Complexd>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
 }
-
 
 
 void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
@@ -1824,13 +1377,11 @@ void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
 }
 
 
-
-
 void ImageFilter::convolveImageFFTBySections(const Image& in, const Image& filter, Image& out)
 {
 	conPrint("-----------ImageFilter::convolveImageFFTBySections()-----------");
 
-	const int fw = filter.getWidth();
+	const int fw = (int)filter.getWidth();
 	const int fw_2 = fw / 2;
 
 	const int block_w = 3 * fw_2;
@@ -1867,7 +1418,8 @@ void ImageFilter::convolveImageFFTBySections(const Image& in, const Image& filte
 }
 
 
-void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& out)
+template <class ImageType>
+static inline void doConvolveImageFFT(const ImageType& in, const Image& filter, ImageType& out)
 {
 	const bool verbose = false;
 
@@ -1929,7 +1481,7 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 		// Blit component of input to padded input
 		for(size_t y = 0; y < in.getHeight(); ++y)
 		for(size_t x = 0; x < in.getWidth();  ++x)
-			padded_in.elem(x, y) = (double)in.getPixel(x, y)[comp];
+			padded_in.elem(x, y) = (double)in.getPixel(x, y)[(unsigned int)comp];
 
 		// Zero pad filter
 		padded_filter.setAllElems(0.0);
@@ -2149,7 +1701,7 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 		// Read out real coefficients
 		for(unsigned int y=0; y<out.getHeight(); ++y)
 			for(unsigned int x=0; x<out.getWidth(); ++x)
-				out.getPixel(x, y)[comp] = (float)(product.elem(
+				out.getPixel(x, y)[(unsigned int)comp] = (float)(product.elem(
 					x + x_offset, //(x + filter.getWidth()/2) % W, 
 					y + y_offset //(y + filter.getHeight()/2) % H
 					) * scale);
@@ -2159,6 +1711,18 @@ void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& 
 	//delete[] ip;
 	//delete[] work_area;
 	//delete[] indata;
+}
+
+
+void ImageFilter::convolveImageFFT(const Image& in, const Image& filter, Image& out)
+{
+	doConvolveImageFFT<Image>(in, filter, out);
+}
+
+
+void ImageFilter::convolveImageFFT(const Image4f& in, const Image& filter, Image4f& out)
+{
+	doConvolveImageFFT<Image4f>(in, filter, out);
 }
 
 
@@ -2197,7 +1761,8 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	
 	if(!plan.buffer_a)
 	{
-		plan.buffer_a = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		// TODO: Throw an exception if buffer size is > max long value.
+		plan.buffer_a = (double*)fftss_malloc((long)(py * H * sizeof(double) * 2));
 		if(!plan.buffer_a)
 		{
 			plan.failed_to_allocate_buffers = true;
@@ -2206,7 +1771,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	}
 	if(!plan.buffer_b)
 	{
-		plan.buffer_b = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		plan.buffer_b = (double*)fftss_malloc((long)(py * H * sizeof(double) * 2));
 		if(!plan.buffer_b)
 		{
 			plan.failed_to_allocate_buffers = true;
@@ -2215,7 +1780,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	}
 	if(!plan.product)
 	{
-		plan.product = (double*)fftss_malloc(py * H * sizeof(double) * 2);
+		plan.product = (double*)fftss_malloc((long)(py * H * sizeof(double) * 2));
 		if(!plan.product)
 		{
 			plan.failed_to_allocate_buffers = true;
@@ -2410,20 +1975,17 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 }
 
 
-//#include <iostream>//TEMP
-
-
 void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out)
 {
 	Timer t;
 
 	const int py = (int)data.getWidth() + 1;
 
-	double* in = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
+	double* in = (double*)fftss_malloc((long)(py * data.getHeight() * sizeof(double) * 2));
 	if(!in)
 		throw Indigo::Exception("Failed to allocate buffer.");
 
-	double* outbuf = (double*)fftss_malloc(py * data.getHeight() * sizeof(double) * 2);
+	double* outbuf = (double*)fftss_malloc((long)(py * data.getHeight() * sizeof(double) * 2));
 	if(!outbuf)
 		throw Indigo::Exception("Failed to allocate buffer.");
 
@@ -2437,7 +1999,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 		in[i*2    ] = data.getData()[i];
 		in[i*2 + 1] = 0.0;
 	}*/
-	const double scale = 1.0 / (data.getWidth() * data.getHeight());
+	//const double scale = 1.0 / (data.getWidth() * data.getHeight());
 
 	for(unsigned int y=0; y<data.getHeight(); ++y)
 		for(unsigned int x=0; x<data.getWidth(); ++x)
@@ -2536,7 +2098,9 @@ Reference<Image> ImageFilter::convertDebevecMappingToLatLong(const Reference<Ima
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 {
 	conPrint("testConvolutionWithDims()");
@@ -2604,7 +2168,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 			{
 				const float ref = ref_ft_out.getPixel(i)[comp];
 				const float a = fast_ft_out.getPixel(i)[comp];
-				const float b = spatial_convolution_out.getPixel(i)[comp];
+				//const float b = spatial_convolution_out.getPixel(i)[comp];
 				const float c = fftss_ft_out.getPixel(i)[comp];
 
 				if(!epsEqual(ref, c, 0.0001f))
@@ -2958,7 +2522,7 @@ static void plotImageProfileAlongScanline(const std::string& path, float y)
 
 		float splat_y = W*0.5f - val * (W * 0.5f);
 
-		image->setPixel(x, splat_y, Colour3f(1.0f));
+		image->setPixel(x, (size_t)splat_y, Colour3f(1.0f));
 	}
 
 	Bitmap bmp_out;
@@ -3031,4 +2595,6 @@ void ImageFilter::test()
 
 	//exit(1);
 }
-#endif
+
+
+#endif // BUILD_TESTS
