@@ -2475,6 +2475,7 @@ static void makeSinImage()
 
 static void testLowResConvolve()
 {
+#if 0
 //	Reference<Map2D> map = EXRDecoder::decode("C:\\art\\indigo\\tests\\sun glare\\sun_glare_test_ssf2.exr");
 //	Reference<Map2D> map = EXRDecoder::decode("C:\\art\\indigo\\tests\\sun glare\\antialias_test.exr");
 //	Reference<Map2D> map = EXRDecoder::decode("C:\\art\\indigo\\tests\\sun glare\\diffraction_test.exr");
@@ -2506,6 +2507,7 @@ static void testLowResConvolve()
 		out,
 		task_manager
 	);
+#endif
 }
 
 
