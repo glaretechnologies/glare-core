@@ -40,6 +40,7 @@ void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<Threa
 void MessageableThread::run()
 {
 	this->doRun();
+	assert(mesthread_thread_manager);
 	if(mesthread_thread_manager)
 		mesthread_thread_manager->threadFinished(this);
 }

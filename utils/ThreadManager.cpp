@@ -95,6 +95,10 @@ void ThreadManager::threadFinished(MessageableThread* t)
 		// Delete the queue
 		delete queue;
 	}
+	else
+	{
+		assert(false);
+	}
 
 	// Remove queue from list of queues
 	message_queues.erase(t);
@@ -116,8 +120,22 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 	// Tell the thread the message queue and 'this'.
 	t->set(this, msg_queue);
 
-	// Launch the thread
-	t->launch(/*true*/);
+	try
+	{
+		// Launch the thread
+		t->launch(/*true*/);
+	}
+	catch(MyThreadExcep& e)
+	{
+		// Thread could not be created for some reason.
+
+		// Delete queue and remove from list of queues.
+		delete msg_queue;
+		message_queues.erase(t);
+
+		// Re-throw exception
+		throw e;
+	}	
 }
 
 
@@ -142,19 +160,33 @@ unsigned int ThreadManager::getNumThreads()
 class SimpleMessageableThread : public MessageableThread
 {
 public:
-	SimpleMessageableThread() { /*conPrint("SimpleMessageableThread()"); */}
-	~SimpleMessageableThread() { /*conPrint("~SimpleMessageableThread()");*/ }
+	SimpleMessageableThread() {}
+	~SimpleMessageableThread() {}
+	virtual void doRun() {}
+};
+
+
+class SimpleMessageableThreadWithNumRuns : public MessageableThread
+{
+public:
+	SimpleMessageableThreadWithNumRuns(int* num_runs_, Mutex* num_runs_mutex_) : num_runs(num_runs_), num_runs_mutex(num_runs_mutex_) {}
+	~SimpleMessageableThreadWithNumRuns() {}
 	virtual void doRun()
 	{
+		Lock lock(*num_runs_mutex);
+		(*num_runs)++;
 	}
+
+	int* num_runs;
+	Mutex* num_runs_mutex;
 };
 
 
 class SimpleMessageableThreadWithPause : public MessageableThread
 {
 public:
-	SimpleMessageableThreadWithPause() { /*conPrint("SimpleMessageableThreadWithPause()");*/ }
-	~SimpleMessageableThreadWithPause() { /*conPrint("~SimpleMessageableThreadWithPause()");*/ }
+	SimpleMessageableThreadWithPause() {}
+	~SimpleMessageableThreadWithPause() {}
 	virtual void doRun()
 	{
 		PlatformUtils::Sleep(50);
@@ -165,8 +197,8 @@ public:
 class MessageHandlingTestThread : public MessageableThread
 {
 public:
-	MessageHandlingTestThread() { /*conPrint("MessageHandlingTestThread() {()");*/ }
-	~MessageHandlingTestThread() { /*conPrint("~MessageHandlingTestThread() {()");*/ }
+	MessageHandlingTestThread() {}
+	~MessageHandlingTestThread() {}
 	virtual void doRun()
 	{
 		bool keep_running = true;
@@ -186,15 +218,18 @@ public:
 };
 
 
-
 void ThreadManager::test()
 {
-	conPrint("ThreadManager::test()");
+	
+	conPrint("------------ThreadManager::test()---------------");
+	conPrint("test 1:");
 
 	{
 		ThreadManager m;
 		testAssert(m.getNumThreads() == 0);
 	}
+
+	conPrint("test 2:");
 
 	{
 		ThreadManager m;
@@ -202,6 +237,8 @@ void ThreadManager::test()
 
 		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 1); // The thread may have terminated and been removed from the manager by the time we get here.
 	}
+
+	conPrint("test 3:");
 
 	{
 		ThreadManager m;
@@ -211,14 +248,33 @@ void ThreadManager::test()
 		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 2);
 	}
 
-	{
-		ThreadManager m;
-		for(int i=0; i<1000; ++i)
-			m.addThread(new SimpleMessageableThread());
+	conPrint("test 4:");
 
-		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 1000);
+	try
+	{
+		int num_runs = 0;
+		Mutex num_runs_mutex;
+
+		// NOTE: If we try to create more theads, e.g. 1000, thread creation starts failing in our Linux VMs.
+		ThreadManager m;
+		for(int i=0; i<100; ++i)
+			m.addThread(new SimpleMessageableThreadWithNumRuns(&num_runs, &num_runs_mutex));
+
+		testAssert(m.getNumThreads() >= 0 && m.getNumThreads() <= 10000);
+
+		PlatformUtils::Sleep(50);
+		
+		{
+			Lock lock(num_runs_mutex);
+			conPrint("num_runs: " + toString(num_runs));
+		}
+	}
+	catch(MyThreadExcep& e)
+	{
+		failTest(e.what());
 	}
 
+	conPrint("test 5:");
 
 	// Test with threads that pause a while, so we can check that killThreadsBlocking() works for live threads.
 	{
@@ -231,6 +287,7 @@ void ThreadManager::test()
 		m.killThreadsBlocking();
 	}
 
+	conPrint("test 6:");
 
 	// Test with threads that wait for a kill message before terminating.
 	{

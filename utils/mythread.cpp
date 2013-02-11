@@ -10,6 +10,8 @@ Code By Nicholas Chapman.
 #include <cassert>
 #if defined(_WIN32)
 #include <process.h>
+#else
+#include <errno.h>
 #endif
 
 
@@ -88,12 +90,23 @@ void MyThread::launch()
 	if(thread_handle == 0)
 		throw MyThreadExcep("Thread creation failed.");
 #else
-	pthread_create(
+	const int result = pthread_create(
 		&thread_handle, // Thread
 		NULL, // attr
 		threadFunction, // start routine
 		this // arg
 		);
+	if(result != 0)
+	{
+		if(result == EAGAIN)
+			throw MyThreadExcep("Thread creation failed.  (EAGAIN)");
+		else if(result == EINVAL)
+			throw MyThreadExcep("Thread creation failed.  (EINVAL)");
+		else if(result == EPERM)
+			throw MyThreadExcep("Thread creation failed.  (EPERM)");
+		else
+			throw MyThreadExcep("Thread creation failed.  (Error code: " + toString(result) + ")");
+	}
 #endif
 }
 
