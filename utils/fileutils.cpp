@@ -989,6 +989,18 @@ const std::string getActualOSPath(const std::string& path_)
 }
 
 
+const std::string getPathKey(const std::string& pathname)
+{
+	const std::string use_path = FileUtils::getActualOSPath(pathname);
+
+#if defined(_WIN32)
+	return ::toLowerCase(use_path);
+#else
+	return use_path;
+#endif
+}
+
+
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 
 const std::wstring convertUTF8ToFStreamPath(const std::string& p)

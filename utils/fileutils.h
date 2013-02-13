@@ -124,6 +124,12 @@ Changed slashes to platform slashes.  Also tries to guess the correct case by sc
 */
 const std::string getActualOSPath(const std::string& path); // throws FileUtilsExcep
 
+// This is used in TextureServer and ThumbnailCache. We want the key into the textures map to have a 1-1 correspondence with the actual file.
+// This is to avoid multiple copies of the same texture being loaded if the queried pathname differs in just e.g. case.
+// The best way to do this would be to get the canonical path name.  This doesn't seem possible in Windows XP currently.
+// GetFinalPathNameByHandle may work for Vista+ (see http://msdn.microsoft.com/en-nz/library/windows/desktop/aa364962(v=vs.85).aspx)
+// Since windows file system is not case sensitive, we will downcase, to do a simple 'canonicalisation'.
+const std::string getPathKey(const std::string& pathname);
 
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 const std::wstring convertUTF8ToFStreamPath(const std::string& p);
