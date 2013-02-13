@@ -15,10 +15,11 @@ Code By Nicholas Chapman.
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>	// For open / close
+#include <errno.h>
+#include <limits.h>
 #endif
 
 #include <cstring>
-#include <limits.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
@@ -975,7 +976,9 @@ static const std::string getCanonicalPath(const std::string& p)
 static const std::string getCanonicalPath(const std::string& p)
 {
 	char buf[PATH_MAX];
-	realpath(p.c_str(), buf);
+	char* result = realpath(p.c_str(), buf);
+	if(result == NULL)
+		throw FileUtilsExcep("realpath failed.  errno: " + toString(errno));
 	return std::string(buf);
 }
 
