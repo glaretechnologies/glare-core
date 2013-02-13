@@ -120,7 +120,8 @@ FILE* openFile(const std::string& pathname, const std::string& openmode);
 const std::string makeOSFriendlyFilename(const std::string& name);
 
 /*
-Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+Changes slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+On Unix (Linux / OS X) will also return the canonical path name.
 */
 const std::string getActualOSPath(const std::string& path); // throws FileUtilsExcep
 

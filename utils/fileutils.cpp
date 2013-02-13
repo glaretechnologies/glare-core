@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #endif
 
 #include <cstring>
+#include <limits.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
@@ -961,15 +962,36 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 }
 
 
+#if defined(_WIN32)
+
+static const std::string getCanonicalPath(const std::string& p)
+{
+	// NOTE: When we can assume Vista support, use GetFinalPathNameByHandle().
+	return p;
+}
+
+#else
+
+static const std::string getCanonicalPath(const std::string& p)
+{
+	char buf[PATH_MAX];
+	realpath(p.c_str(), buf);
+	return std::string(buf);
+}
+
+#endif
+
+
 /*
-Changed slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+Changes slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+On Unix (Linux / OS X) will also return the canonical path name.
 */
 const std::string getActualOSPath(const std::string& path_)
 {
 	const std::string path = toPlatformSlashes(path_);
 
 	if(fileExists(path))
-		return path;
+		return getCanonicalPath(path);
 	
 	// We don't have an exact match.
 	// Try to guess the correct case by scanning directory and doing case-insensitive matches.
@@ -982,7 +1004,7 @@ const std::string getActualOSPath(const std::string& path_)
 	for(size_t i=0; i<files.size(); ++i)
 	{
 		if(::toLowerCase(files[i]) == target_filename_lowercase)
-			return join(dir, files[i]);
+			return getCanonicalPath(join(dir, files[i]));
 	}
 
 	throw FileUtilsExcep("Could not find file '" + path_ + "'");
@@ -1052,8 +1074,10 @@ void doUnitTests()
 			conPrint("file: " + files[i]);
 
 #if defined(_WIN32) || defined(_WIN64)
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
-#elif !defined(OSX)
+#else
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
