@@ -4,14 +4,12 @@ bitmap.h
 File created by ClassTemplate on Wed Oct 27 03:44:34 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BITMAP_H_666_
-#define __BITMAP_H_666_
+#pragma once
 
 
-#include <assert.h>
-//#include <vector>
 #include "../utils/platform.h"
 #include "../utils/Vector.h"
+#include <assert.h>
 
 
 /*=====================================================================
@@ -48,20 +46,18 @@ public:
 	inline unsigned char getPixelComp(size_t x, size_t y, uint32 c) const;
 	inline void setPixelComp(size_t x, size_t y, uint32 c, uint8 newval);
 
-	void raiseToPower(float exponent);
-
 	uint32 checksum() const;
 
-	void addImage(const Bitmap& img, int destx, int desty, float alpha = 1);
-	void mulImage(const Bitmap& img, int destx, int desty, float alpha = 1, bool invert = false);
-	void blendImage(const Bitmap& img, int destx, int desty, uint8 solid_colour[3], float alpha = 1);
+	// Blend the current bitmap with white, based on the zeroth channel of img.  Used by Watermarker.
+	// TODO: Remove this and use proper alpha compositing.
+	void blendImageWithWhite(const Bitmap& img, int destx, int desty, float alpha = 1);
 
+	// Used by TextDrawer.  Assumes getBytesPP() >= 3 and dest.getBytesPP() >= 3.
 	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Bitmap& dest, int destx, int desty) const;
 
 	void zero();
 
 private:
-	//std::vector<uint8> data;
 	js::Vector<uint8, 16> data;
 
 	size_t width, height;
@@ -115,11 +111,3 @@ void Bitmap::setPixelComp(size_t x, size_t y, uint32 c, uint8 newval)
 
 	data[(y*width + x) * bytespp + c] = newval;
 }
-
-
-
-#endif //__BITMAP_H_666_
-
-
-
-

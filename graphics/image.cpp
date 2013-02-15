@@ -273,26 +273,6 @@ void Image::blendImage(const Image& img, const int destx, const int desty, const
 }
 
 
-void Image::mulImage(const Image& img, const int destx, const int desty, const float alpha/* = 1*/, bool invert/* = false*/)
-{
-	const int h = (int)getHeight();
-	const int w = (int)getWidth();
-
-	for(int y = 0; y < (int)img.getHeight(); ++y)
-	for(int x = 0; x < (int)img.getWidth();  ++x)
-	{
-		const int dx = x + destx;
-		const int dy = y + desty;
-
-		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
-		{
-			const float inv_alpha = ((invert) ? 1 - img.getPixel(x, y).r : img.getPixel(x, y).r) * alpha;
-			setPixel(dx, dy, getPixel(dx, dy) * (1 - alpha) + getPixel(dx, dy) * inv_alpha);
-		}
-	}
-}
-
-
 void Image::subImage(const Image& img, int destx, int desty)
 {
 	const int h = (int)getHeight();

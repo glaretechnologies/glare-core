@@ -69,7 +69,6 @@ public:
 	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image4f& dest, int destx, int desty) const;
 	void addImage(const Image4f& other, int destx, int desty, float alpha = 1);
 	void subImage(const Image4f& dest, int destx, int desty);
-	void mulImage(const Image4f& other, int destx, int desty, float alpha = 1, bool invert = false);
 	void blendImage(const Image4f& dest, int destx, int desty, const Colour4f& colour);
 	
 	void overwriteImage(const Image& src, int destx, int desty);
