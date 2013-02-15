@@ -28,10 +28,10 @@ void ThreadManager::enqueueMessage(const ThreadMessage& m)
 {
 	Lock lock(mutex);
 
-	for(MESSAGE_QUEUE_MAP_TYPE::iterator i=message_queues.begin(); i!=message_queues.end(); ++i)
+	for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
 	{
 		ThreadMessage* cloned_message = m.clone();
-		(*i).second->enqueue(cloned_message);
+		(*i)->getMessageQueue().enqueue(cloned_message);
 	}
 }
 
@@ -41,25 +41,20 @@ void ThreadManager::killThreadsBlocking()
 	// Send kill messages to all threads
 	killThreadsNonBlocking();
 
-	while(1)
+	// Get list of threads to wait on.
+	std::vector<Reference<MessageableThread> > threads_to_wait_on;
+
+	// Build the list of threads.  Only hold the 'threads' mutex while building this list.
+	// We don't want to hold the mutex while joining threads, as threads will be getting removed from the threads set during the joining process.
 	{
-		{
-			Lock lock(mutex);
-
-			if(message_queues.size() == 0)
-				break;
-
-			// Suspend this thread until one of the worker threads terminates and calls thread_terminated_condition.notify().
-			/*const bool signalled = */thread_terminated_condition.wait(
-				mutex,
-				true, // infinite wait time
-				0.0 // wait time (s) (n/a)
-				);
-
-			if(message_queues.size() == 0)
-				break;
-		}
+		Lock lock(mutex);
+		for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
+			threads_to_wait_on.push_back(*i);
 	}
+	
+	// Wait for each thread to terminate.  NOTE: Could use WaitForMulitpleObjects on Windows.
+	for(size_t i=0; i<threads_to_wait_on.size(); ++i)
+		threads_to_wait_on[i]->join();
 }
 
 
@@ -75,35 +70,10 @@ void ThreadManager::threadFinished(MessageableThread* t)
 {
 	assert(t);
 
+	// Remove the thread from our set of threads.
 	Lock lock(mutex);
 
-	// Delete any messages in the queue for this thread
-	MESSAGE_QUEUE_TYPE* queue = (*message_queues.find(t)).second;
-	if(queue)
-	{
-		// Delete any messages still in the queue
-		{
-			Lock queue_lock(queue->getMutex());
-
-			while(!queue->unlockedEmpty())
-			{
-				ThreadMessageRef m;
-				queue->unlockedDequeue(m);
-			}
-		} // End of queue lock scope.
-
-		// Delete the queue
-		delete queue;
-	}
-	else
-	{
-		assert(false);
-	}
-
-	// Remove queue from list of queues
-	message_queues.erase(t);
-
-	thread_terminated_condition.notify();
+	threads.erase(Reference<MessageableThread>(t));
 }
 
 
@@ -111,27 +81,23 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 {
 	Lock lock(mutex);
 
-	// Create a message queue for the thread
-	MESSAGE_QUEUE_TYPE* msg_queue = new MESSAGE_QUEUE_TYPE();
+	// Set the point back to this.
+	t->set(this);
 
-	// Add it to list of message queues
-	message_queues[t] = msg_queue;
-
-	// Tell the thread the message queue and 'this'.
-	t->set(this, msg_queue);
+	// Add to set of threads.
+	threads.insert(t);
 
 	try
 	{
 		// Launch the thread
-		t->launch(/*true*/);
+		t->launch();
 	}
 	catch(MyThreadExcep& e)
 	{
 		// Thread could not be created for some reason.
 
-		// Delete queue and remove from list of queues.
-		delete msg_queue;
-		message_queues.erase(t);
+		// Remove from list of threads
+		threads.erase(t);
 
 		// Re-throw exception
 		throw e;
@@ -143,9 +109,8 @@ unsigned int ThreadManager::getNumThreads()
 {
 	Lock lock(mutex);
 
-	return (unsigned int)message_queues.size();
+	return (unsigned int)threads.size();
 }
-
 
 
 #if BUILD_TESTS
@@ -297,6 +262,30 @@ void ThreadManager::test()
 
 		// All the threads won't finish until a kill message is sent to them
 		testAssert(m.getNumThreads() == 100);
+	}
+
+	conPrint("test 7:");
+
+	// Test killThreadsNonBlocking
+	{
+		ThreadManager m;
+		m.addThread(new SimpleMessageableThreadWithPause());
+		m.killThreadsNonBlocking();
+		m.addThread(new SimpleMessageableThreadWithPause());
+		m.killThreadsNonBlocking();
+	}
+
+	conPrint("test 8:");
+
+	// Test killThreadsBlocking
+	{
+		ThreadManager m;
+		m.addThread(new SimpleMessageableThreadWithPause());
+		m.killThreadsBlocking();
+		testAssert(m.getNumThreads() == 0);
+		m.addThread(new SimpleMessageableThreadWithPause());
+		m.killThreadsBlocking();
+		testAssert(m.getNumThreads() == 0);
 	}
 
 	conPrint("ThreadManager::test() done.");

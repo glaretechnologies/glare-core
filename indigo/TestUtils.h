@@ -4,8 +4,8 @@ TestUtils.h
 File created by ClassTemplate on Wed Jul 18 14:25:06 2007
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TESTUTILS_H_666_
-#define __TESTUTILS_H_666_
+#pragma once
+
 
 #include <string>
 
@@ -32,6 +32,3 @@ const std::string getIndigoTestReposDir();
 
 
 }
-
-
-#endif //__TESTUTILS_H_666_

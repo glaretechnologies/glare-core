@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "threadsafequeue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
-#include <map>
+#include <set>
 
 
 /*=====================================================================
@@ -48,11 +48,8 @@ public:
 	static void test();
 
 private:
-	typedef ThreadSafeQueue<Reference<ThreadMessage> > MESSAGE_QUEUE_TYPE;
-	typedef std::map<Reference<MessageableThread>, MESSAGE_QUEUE_TYPE*> MESSAGE_QUEUE_MAP_TYPE;
-	MESSAGE_QUEUE_MAP_TYPE message_queues;
+	typedef std::set<Reference<MessageableThread> > THREAD_SET_TYPE;
+	THREAD_SET_TYPE threads;
 
-	Mutex mutex;
-
-	Condition thread_terminated_condition;
+	Mutex mutex; // Protects 'threads' set.
 };

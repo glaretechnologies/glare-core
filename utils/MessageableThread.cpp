@@ -14,26 +14,21 @@ Code By Nicholas Chapman.
 
 
 MessageableThread::MessageableThread()
-:	mesthread_message_queue(NULL),
-	mesthread_thread_manager(NULL)
+:	mesthread_thread_manager(NULL)
 {
-	
 }
 
 
 MessageableThread::~MessageableThread()
 {
-	//if(mesthread_thread_manager)
-	//	mesthread_thread_manager->threadTerminating(this);
 }
 
 
-
-void MessageableThread::set(ThreadManager* thread_manager, ThreadSafeQueue<ThreadMessageRef>* message_queue)
+void MessageableThread::set(ThreadManager* thread_manager)
 {
-	assert(!mesthread_message_queue && !mesthread_thread_manager);
+	assert(!mesthread_thread_manager);
+	assert(thread_manager);
 	mesthread_thread_manager = thread_manager;
-	mesthread_message_queue = message_queue;
 }
 
 

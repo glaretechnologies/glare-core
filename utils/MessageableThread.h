@@ -16,7 +16,8 @@ class ThreadManager;
 /*=====================================================================
 MessageableThread
 -----------------
-
+A thread that has a message queue.
+Should be used in conjunction with ThreadManager.
 =====================================================================*/
 class MessageableThread : public MyThread
 {
@@ -25,17 +26,14 @@ public:
 
 	virtual ~MessageableThread();
 
-
 	// Deriving classes should implement this method.
 	virtual void doRun() = 0;
 
+	// Called by ThreadManager.
+	void set(ThreadManager* thread_manager);
 
-	void set(ThreadManager* thread_manager, ThreadSafeQueue<Reference<ThreadMessage> >* message_queue);
-
-	ThreadSafeQueue<Reference<ThreadMessage> >& getMessageQueue() { return *mesthread_message_queue; }
+	ThreadSafeQueue<Reference<ThreadMessage> >& getMessageQueue() { return mesthread_message_queue; }
 protected:
-	//bool deleteQueuedMessages(); // Returns true if a KillThreadMessage was in the queue.
-
 	/*
 		Suspend thread for wait_period_s, while waiting on the message queue.
 		Will Consume all messages on the thread message queue, and break the wait if a kill message is received,
@@ -48,7 +46,7 @@ protected:
 	ThreadManager& getThreadManager() { return *mesthread_thread_manager; }
 
 private:
-	ThreadSafeQueue<Reference<ThreadMessage> >* mesthread_message_queue;
+	ThreadSafeQueue<Reference<ThreadMessage> > mesthread_message_queue; // Slightly weird and long name to avoid inheritance name clashes with other member vars.
 	ThreadManager* mesthread_thread_manager;
 
 	virtual void run();
