@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<scenedata>
+	<material>
+		<name>Test mat</name>
+		<phong>
+			<exponent>11000</exponent>
+			<diffuse_albedo_spectrum>
+				<rgb>
+					<rgb>1 1 1</rgb>
+					<gamma>2.2</gamma>
+				</rgb>
+			</diffuse_albedo_spectrum>
+			<ior>1.45</ior>
+      
+			<albedo_texture>
+				<path>textures/checker.jpg</path>
+				<uv_set>uv</uv_set>
+				<exponent>2.300000</exponent>
+				<a>0</a>
+				<b>1</b>
+				<c>0</c>
+			</albedo_texture>
+      
+      
+			<bump_map>
+				<path>checker.jpg</path>
+				<uv_set>uv</uv_set>
+				<exponent>1.000000</exponent>
+				<a>0</a>
+				<b>0.0005</b>
+				<c>0</c>
+			</bump_map>
+
+      <texture>
+        <path>checker.jpg</path>
+      </texture>
+
+      <texture>
+        <path>textures2/checker.jpg</path>
+      </texture>
+      
+		</phong>
+	</material>
+
+</scenedata>
