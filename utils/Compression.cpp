@@ -47,11 +47,12 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 
 	uLong dest_len = bound;
 	
-	int result = ::compress(
+	int result = ::compress2(
 		(Bytef*)&data_out[4], // dest
 		&dest_len, // dest len
 		(Bytef*)data, // source
-		(uLong)size // source len
+		(uLong)size, // source len
+		Z_BEST_COMPRESSION // Compression level
 	);
 
 	if(result != Z_OK)
@@ -176,38 +177,70 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 #if BUILD_TESTS
 
 
+#include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/timer.h"
 
 
 void Compression::test()
 {
-
-	size_t n = 100000;
-	std::vector<char> d(n);
-	for(size_t i=0; i<n; ++i)
 	{
-		d[i] = i % 128;
+		size_t n = 100000;
+		std::vector<char> d(n);
+		for(size_t i=0; i<n; ++i)
+		{
+			d[i] = i % 128;
+		}
+
+		std::vector<char> compressed;
+
+
+		Compression::compress((const char*)&d[0], d.size(), compressed);
+
+		testAssert(Compression::decompressedSize(&compressed[0], compressed.size()) == n);
+
+		// Alloc buffer for decompressed data
+		std::vector<char> decompressed(
+			Compression::decompressedSize(&compressed[0], compressed.size())
+		);
+
+
+		Compression::decompress(&compressed[0], compressed.size(), &decompressed[0], decompressed.size());
+
+		testAssert(decompressed.size() == n);
+		for(size_t i=0; i<n; ++i)
+		{
+			testAssert(decompressed[i] == i % 128);
+		}
 	}
 
-	std::vector<char> compressed;
 
-
-	Compression::compress((const char*)&d[0], d.size(), compressed);
-
-	testAssert(Compression::decompressedSize(&compressed[0], compressed.size()) == n);
-
-	// Alloc buffer for decompressed data
-	std::vector<char> decompressed(
-		Compression::decompressedSize(&compressed[0], compressed.size())
-	);
-
-
-	Compression::decompress(&compressed[0], compressed.size(), &decompressed[0], decompressed.size());
-
-	testAssert(decompressed.size() == n);
-	for(size_t i=0; i<n; ++i)
+	// Do performance test
 	{
-		testAssert(decompressed[i] == i % 128);
+		
+		size_t n = 100000;
+		std::vector<char> d(n);
+		for(size_t i=0; i<n; ++i)
+		{
+			d[i] = i % 128;
+		}
+
+		std::vector<char> compressed;
+
+		Timer timer;
+
+		Compression::compress((const char*)&d[0], d.size(), compressed);
+
+		testAssert(Compression::decompressedSize(&compressed[0], compressed.size()) == n);
+
+		// Alloc buffer for decompressed data
+		std::vector<char> decompressed(
+			Compression::decompressedSize(&compressed[0], compressed.size())
+		);
+
+		Compression::decompress(&compressed[0], compressed.size(), &decompressed[0], decompressed.size());
+
+		conPrint(timer.elapsedString());
 	}
 }
 
