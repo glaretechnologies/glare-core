@@ -106,7 +106,7 @@ void MySocket::init()
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : 1000000000;
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
 }
 
 
@@ -531,6 +531,9 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
+
+		if(should_abort_callback && should_abort_callback->shouldAbort())
+			throw AbortedMySocketExcep();
 	}
 }
 
