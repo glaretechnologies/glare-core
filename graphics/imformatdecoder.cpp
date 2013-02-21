@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 #include "EXRDecoder.h"
 #endif
 #include "FloatDecoder.h"
+#include "GIFDecoder.h"
 #include "../graphics/Map2D.h"
 
 
@@ -67,6 +68,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws
 	else if(hasExtension(path, "float"))
 	{
 		return FloatDecoder::decode(path);
+	}
+	else if(hasExtension(path, "gif"))
+	{
+		return GIFDecoder::decode(path);
 	}
 	else
 	{
