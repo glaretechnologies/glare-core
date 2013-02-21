@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<uid>500</uid>
+		<name>bunny_mat</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.7 0.3 0.3</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<mesh>
+		<uid>600</uid>
+		<name>bunny</name>
+		<max_num_subdivisions>0</max_num_subdivisions>
+		<subdivide_pixel_threshold>0</subdivide_pixel_threshold>
+		<subdivide_curvature_threshold>0</subdivide_curvature_threshold>
+		<displacement_error_threshold>0</displacement_error_threshold>
+		<view_dependent_subdivision>false</view_dependent_subdivision>
+		<subdivision_smoothing>true</subdivision_smoothing>
+		<normal_smoothing>false</normal_smoothing>
+		<merge_vertices_with_same_pos_and_normal>true</merge_vertices_with_same_pos_and_normal>
+		<wrap_u>false</wrap_u>
+		<wrap_v>false</wrap_v>
+		<view_dependent_subdivision>false</view_dependent_subdivision>
+		<scale>1</scale>
+		<external>
+			<path>N:/indigo/trunk/testfiles/scatter_material_meshes\mesh_1166651899_2376003.igmesh</path>
+		</external>
+	</mesh>
+	<scatter>
+		<uid>700</uid>
+		<name>the scatter</name>
+		<shader>
+			<shader><![CDATA[  
+                				   
+def evalScale(int index) real :
+  0.05
+    
+def evalCreate(int index, vec3 pos) bool :
+  true
+						]]></shader>
+		</shader>
+		<density>10000</density>
+		<seed>1</seed>
+		<geometry_uid>600</geometry_uid>
+		<materials>
+			<material_uid>500</material_uid>
+		</materials>
+		<target_object_uid>4294967295</target_object_uid>
+	</scatter>
+	<material>
+		<uid>11</uid>
+		<name>teapot material</name>
+		<phong>
+			<specular_reflectivity>
+				<constant>
+					<uniform>
+						<value>0.6</value>
+					</uniform>
+				</constant>
+			</specular_reflectivity>
+			<exponent>
+					<constant>200</constant>
+			</exponent>
+			<layer>0</layer>
+			<ior>1.5</ior>
+			<nk_data></nk_data>
+		</phong>
+		<scatter_uids>
+			<uid>700</uid>
+		</scatter_uids>
+	</material>
+</scenedata>

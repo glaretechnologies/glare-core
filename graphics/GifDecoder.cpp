@@ -51,8 +51,6 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 
 	try
 	{
-		
-
 		int res = DGifSlurp(gif_file);
 		if(res != GIF_OK)
 			throw ImFormatExcep("failed to process gif file.");
