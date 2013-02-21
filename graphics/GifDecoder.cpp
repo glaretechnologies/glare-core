@@ -1,10 +1,10 @@
 /*=====================================================================
-GIFDecoder.cpp
+GifDecoder.cpp
 -------------------
 Copyright Glare Technologies Limited 2013 -
 Generated at 2013-02-21 14:06:25 +0000
 =====================================================================*/
-#include "GIFDecoder.h"
+#include "GifDecoder.h"
 
 
 #include "imformatdecoder.h"

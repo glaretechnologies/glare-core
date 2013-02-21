@@ -1,5 +1,5 @@
 /*=====================================================================
-GIFDecoder.h
+GifDecoder.h
 -------------------
 Copyright Glare Technologies Limited 2013 -
 Generated at 2013-02-21 14:06:25 +0000
