@@ -21,7 +21,7 @@ Code By Nicholas Chapman.
 #include "EXRDecoder.h"
 #endif
 #include "FloatDecoder.h"
-#include "GIFDecoder.h"
+#include "GifDecoder.h"
 #include "../graphics/Map2D.h"
 
 
