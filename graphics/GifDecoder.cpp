@@ -42,12 +42,16 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 	if(file_descriptor == -1)
 		throw ImFormatExcep("failed to open gif file '" + path + "'");
 
+
+	// NOTE: if DGifOpenFileHandle fails to open the gif file, it closes the handle itself.
+	int error_code = 0;
+	GifFileType* gif_file = DGifOpenFileHandle(file_descriptor, &error_code);
+	if(gif_file == NULL)
+		throw ImFormatExcep("failed to open gif file '" + path + "': " + GifErrorString(error_code));
+
 	try
 	{
-		int error_code = 0;
-		GifFileType* gif_file = DGifOpenFileHandle(file_descriptor, &error_code);
-		if(gif_file == NULL)
-			throw ImFormatExcep("failed to open gif file '" + path + "': " + GifErrorString(error_code));
+		
 
 		int res = DGifSlurp(gif_file);
 		if(res != GIF_OK)
@@ -112,6 +116,28 @@ void GIFDecoder::test()
 	{
 		failTest(e.what());
 	}
+
+	// Test that failure to load an image is handled gracefully.
+
+	// Try with an invalid path
+	try
+	{
+		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/NO_SUCH_FILE.gif");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try with a JPG file
+	try
+	{
+		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
 }
 
 
