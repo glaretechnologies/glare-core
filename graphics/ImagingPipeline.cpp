@@ -154,6 +154,25 @@ inline static float averageXYZVal(const Colour4f& c)
 }
 
 
+inline static uint32_t pixelHash(uint32_t x)
+{
+	x  = (x ^ 12345391u) * 2654435769u;
+	x ^= (x << 6) ^ (x >> 26);
+	x *= 2654435769u;
+	x += (x << 5) ^ (x >> 12);
+
+	return x;
+}
+
+
+// NOTE: Do we want to dither alpha?
+inline Colour4f ditherPixel(const Colour4f& c, ptrdiff_t pixel_i)
+{
+	const float ur = pixelHash((uint32)pixel_i) * (1.0f / 4294967296.0f);
+	return c + Colour4f(-0.5f + ur, -0.5f + ur, -0.5f + ur, 0) * (1.0f / 255.0f);
+}
+
+
 // Tonemap HDR image to LDR image
 void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
@@ -382,15 +401,25 @@ void doTonemapFullBuffer(
 	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
 	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 
-	////// Do alpha divide //////
+
+	const bool dithering = renderer_settings.dithering;
+	
 	for(size_t z=0; z<ldr_buffer_out.numPixels(); ++z)
 	{
 		Colour4f col = ldr_buffer_out.getPixel(z);
-		col = max(Colour4f(0.0f), min(Colour4f(1.0f), col));
+
+		////// Dither ///////
+		if(dithering)
+			col = ditherPixel(col, z); 
+
+		////// Do alpha divide //////
+		col = max(Colour4f(0.0f), col); // Make sure alpha > 0
 
 		const float recip_alpha = 1 / col.x[3];
 		col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-		col = min(Colour4f(1.0f), col); // Make sure components are <= 1
+		
+		col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
+
 		ldr_buffer_out.getPixel(z) = col;
 	}
 
@@ -442,6 +471,7 @@ public:
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
+		const bool      dithering   = closure.renderer_settings->dithering; // Compute outside loop.
 
 		for(int tile = begin; tile < end; ++tile)
 		{
@@ -516,6 +546,10 @@ public:
 
 					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
+					////// Dither ///////
+					if(dithering)
+						weighted_sum = ditherPixel(weighted_sum, y*xres + x); 
+
 					////// Do alpha divide //////
 					const float recip_alpha = 1 / weighted_sum.x[3];
 					weighted_sum *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
@@ -573,10 +607,15 @@ public:
 				{
 					Colour4f col = tile_buffer.getPixel(addr++);
 
+					////// Dither ///////
+					if(dithering)
+						col = ditherPixel(col, y*xres + x); 
+
 					////// Do alpha divide //////
 					const float recip_alpha = 1 / col.x[3];
 					col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-					col = min(Colour4f(1.0f), col); // Make sure components are <= 1
+					
+					col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
 
 					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = col;
 				}
@@ -715,6 +754,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	renderer_settings.super_sample_factor = ssf;
 	renderer_settings.tone_mapper = new LinearToneMapper(1);
 	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+	renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
 
 	ImagingPipeline::doTonemap(
 		temp_tile_buffers,

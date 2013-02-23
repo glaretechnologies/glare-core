@@ -145,6 +145,11 @@ INDIGO_STRONG_INLINE Colour4f max(const Colour4f& a, const Colour4f& b)
 }
 
 
+INDIGO_STRONG_INLINE Colour4f clamp(const Colour4f& c, const Colour4f& lower, const Colour4f& upper)
+{
+	return min(max(c, lower), upper);
+}
+
 
 INDIGO_STRONG_INLINE Colour4f normalise(const Colour4f& a)
 {
