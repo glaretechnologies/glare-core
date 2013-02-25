@@ -29,6 +29,10 @@ OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_)
 OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_, size_t size_, cl_mem_flags flags)
 :	opencl(opencl_)
 {
+	// Initialise to null state
+	size = 0;
+	opencl_mem = NULL;
+
 	alloc(size_, flags);
 }
 
