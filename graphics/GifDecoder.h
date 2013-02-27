@@ -7,7 +7,6 @@ Generated at 2013-02-21 14:06:25 +0000
 #pragma once
 
 
-
 #include <string>
 #include "../utils/Reference.h"
 class Map2D;
