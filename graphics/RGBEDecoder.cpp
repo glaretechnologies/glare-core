@@ -103,7 +103,8 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 
 			parser.parseSpacesAndTabs();
 
-			parser.parseInt(header_data.height);
+			if(!parser.parseInt(header_data.height))
+				throw ImFormatExcep("Failed to parse height");
 
 			parser.parseSpacesAndTabs();
 
@@ -114,7 +115,8 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 
 				parser.parseSpacesAndTabs();
 
-				parser.parseInt(header_data.width);
+				if(!parser.parseInt(header_data.width))
+					throw ImFormatExcep("Failed to parse width");
 			}
 			else
 				throw ImFormatExcep("Failed to parse resolution");
@@ -132,7 +134,8 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			{
 				parser.parseSpacesAndTabs();
 			
-				parser.parseNonWSToken(header_data.format);
+				if(!parser.parseNonWSToken(header_data.format))
+					throw ImFormatExcep("Failed to parse FORMAT");
 
 				if(header_data.format != "32-bit_rle_rgbe")
 				{
@@ -150,10 +153,11 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			{
 				parser.parseSpacesAndTabs();
 
-				parser.parseFloat(header_data.exposure);
+				if(!parser.parseFloat(header_data.exposure))
+					throw ImFormatExcep("Failed to parse EXPOSURE");
 			}
 			else
-				throw ImFormatExcep("Failed to parse EXPONENT");
+				throw ImFormatExcep("Failed to parse EXPOSURE");
 		}
 		else if(token == "GAMMA")  // gamma
 		{
@@ -163,7 +167,8 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			{
 				parser.parseSpacesAndTabs();
 
-				parser.parseFloat(header_data.gamma);
+				if(!parser.parseFloat(header_data.gamma))
+					throw ImFormatExcep("Failed to parse GAMMA");
 			}
 			else
 				throw ImFormatExcep("Failed to parse GAMMA");
