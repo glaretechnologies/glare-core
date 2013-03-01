@@ -325,8 +325,19 @@ void doTonemapFullBuffer(
 	}
 
 
-	// Either tonemap, or do render foreground alpha
-	if(/*renderer_settings.render_foreground_alpha || */renderer_settings.material_id_tracer || renderer_settings.depth_pass)
+	// Either tonemap, or do equivalent operation for non-colour passes.
+	if(renderer_settings.shadow_pass)
+	{
+		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
+		{
+			float occluded_luminance   = temp_summed_buffer.getPixel(i).x[0];
+			float unoccluded_luminance = temp_summed_buffer.getPixel(i).x[1];
+			float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
+			// Set to a black colour, with alpha value equal to the 'shadow fraction'.
+			temp_summed_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
+		}
+	}
+	else if(renderer_settings.material_id_tracer || renderer_settings.depth_pass)
 	{
 		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
 			temp_summed_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
@@ -519,8 +530,19 @@ public:
 					tile_buffer.getPixel(dst_addr++) = sum;
 				}
 
-				// Either tonemap, or do render foreground alpha
-				if(/*closure.renderer_settings->render_foreground_alpha || */closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
+				// Either tonemap, or do equivalent operation for non-colour passes.
+				if(closure.renderer_settings->shadow_pass)
+				{
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+					{
+						float occluded_luminance   = tile_buffer.getPixel(i).x[0];
+						float unoccluded_luminance = tile_buffer.getPixel(i).x[1];
+						float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
+						// Set to a black colour, with alpha value equal to the 'shadow fraction'.
+						tile_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
+					}
+				}
+				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
 				{
 					const ptrdiff_t tile_buffer_pixels = tile_buffer.numPixels();
 					for(ptrdiff_t i = 0; i < tile_buffer_pixels; ++i)
@@ -593,6 +615,7 @@ public:
 					tile_buffer.getPixel(addr++) = sum;
 				}
 
+				// Either tonemap, or do equivalent operation for non-colour passes.
 				if(closure.renderer_settings->shadow_pass)
 				{
 					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
@@ -604,15 +627,16 @@ public:
 						tile_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
+				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
+				{
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
+				}
 				else
 				{
-					// Either tonemap, or do render foreground alpha
-					if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
-						for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
-							tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
-					else
-						closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
 				}
+			
 
 				// Copy processed pixels into the final image
 				addr = 0;
