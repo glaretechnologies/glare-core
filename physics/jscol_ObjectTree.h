@@ -57,13 +57,13 @@ public:
 		unsigned int last_triangle_hit,
 		const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const INTERSECTABLE_TYPE* ignore_object, unsigned int ignore_tri) const;
+	//bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const INTERSECTABLE_TYPE* ignore_object, unsigned int ignore_tri) const;
 
 	INDIGO_STRONG_INLINE const js::AABBox& getAABBoxWS() const { return root_aabb; }
 
 	///-------- debugging methods ---------///
 	Real traceRayAgainstAllObjects(const Ray& ray, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time, const INTERSECTABLE_TYPE*& hitob_out, HitInfo& hitinfo_out) const;
-	bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
+	//bool allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length, ThreadContext& thread_context/*, js::ObjectTreePerThreadData& object_context*/, double time) const;
 	void writeTreeModel(std::ostream& stream);
 	void printTree(int currentnode, int depth, std::ostream& out);
 	void getTreeStats(ObjectTreeStats& stats_out, int cur = 0, int depth = 0);

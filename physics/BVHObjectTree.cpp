@@ -222,6 +222,7 @@ stack_pop:
 }
 
 
+#if 0
 bool BVHObjectTree::doesFiniteRayHit(const Ray& ray, Real max_t, ThreadContext& thread_context, double time, const Object* ignore_object, unsigned int ignore_tri) const
 {
 	int stack[64];
@@ -321,6 +322,7 @@ stack_pop:
 	}
 	return false;
 }
+#endif
 
 
 class BVHObjectTreeCallBack : public BVHBuilderCallBacks

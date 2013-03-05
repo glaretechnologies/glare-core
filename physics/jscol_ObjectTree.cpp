@@ -264,17 +264,18 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 
 //For debugging
-bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length,
-													ThreadContext& thread_context,
-													double time) const
-{
-	const INTERSECTABLE_TYPE* hitob = NULL;
-	HitInfo hitinfo;
-	const Real dist = this->traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo);
-	return dist >= 0.0 && dist < length;
-}
+//bool ObjectTree::allObjectsDoesFiniteRayHitAnything(const Ray& ray, Real length,
+//													ThreadContext& thread_context,
+//													double time) const
+//{
+//	const INTERSECTABLE_TYPE* hitob = NULL;
+//	HitInfo hitinfo;
+//	const Real dist = this->traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo);
+//	return dist >= 0.0 && dist < length;
+//}
 
 
+#if 0
 bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 								  ThreadContext& thread_context,
 								  double time, const INTERSECTABLE_TYPE* ignore_object, unsigned int ignore_tri) const
@@ -438,6 +439,7 @@ bool ObjectTree::doesFiniteRayHit(const Ray& ray, Real ray_max_t,
 	//thread_context.in_object_tree_traversal = false;
 	return false;
 }
+#endif
 
 
 void ObjectTree::build(PrintOutput& print_output, bool verbose)
