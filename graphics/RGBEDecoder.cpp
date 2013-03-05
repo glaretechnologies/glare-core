@@ -62,7 +62,7 @@ void RGBEDecoder::readHeaderString(FileHandle& file, std::string& s_out) // thro
 	char* res = NULL;
 	bool last_line_was_eoh = false;
 
-	while(res = fgets(buf, sizeof(buf) / sizeof(buf[0]), file.getFile()))
+	while((res = fgets(buf, sizeof(buf) / sizeof(buf[0]), file.getFile())) != NULL)
 	{
 		if(res == NULL)
 			throw ImFormatExcep("Reached end of file without finding end of header");
