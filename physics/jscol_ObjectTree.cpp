@@ -60,6 +60,7 @@ void ObjectTree::insertObject(INTERSECTABLE_TYPE* intersectable)
 
 // Returns dist till hit tri, neg number if missed.
 ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
+						   Real ray_length,
 						   ThreadContext& thread_context,
 						   double time,
 						   const INTERSECTABLE_TYPE* last_object_hit,
@@ -109,6 +110,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	__m128 near_t, far_t;
 	root_aabb.rayAABBTrace(ray.startPosF().v, ray.getRecipRayDirF().v, near_t, far_t);
 	near_t = _mm_max_ss(near_t, zeroVec()); // near_t = max(near_t, 0)
+	far_t  = _mm_min_ss(far_t, Vec4f(ray_length).v); // far_t = min(far_t, ray_length)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
 	{
@@ -130,7 +132,8 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	printVar(aabb_enterdist);
 	printVar(aabb_exitdist);
 #endif
-	Real closest_dist = std::numeric_limits<Real>::max();
+	Real closest_dist = ray_length; // std::numeric_limits<Real>::max();
+	//_mm_store_ss(&closest_dist, far_t); // closest_dist = far_t
 
 	object_context.nodestack[0].node = 0;
 	_mm_store_ss(&object_context.nodestack[0].tmin, near_t);
