@@ -303,7 +303,7 @@ void Vector<T, alignment>::push_back(const T& t)
 	}
 
 	// Construct e[size_] from t
-	::new ((e + size_)) typename T(t);
+	::new ((e + size_)) T(t);
 
 	size_++;
 
