@@ -45,6 +45,7 @@ public:
 	INDIGO_STRONG_INLINE void operator *= (float f);
 
 	inline bool operator == (const Vec4f& a) const;
+	inline bool operator != (const Vec4f& a) const;
 
 	
 	INDIGO_STRONG_INLINE float length() const;
@@ -234,6 +235,18 @@ bool Vec4f::operator == (const Vec4f& a) const
 		x[1] == a.x[1] &&
 		x[2] == a.x[2] &&
 		x[3] == a.x[3];
+}
+
+
+bool Vec4f::operator != (const Vec4f& a) const
+{
+	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
+	// Exact floating point comparison should be rare.
+	return
+		x[0] != a.x[0] ||
+		x[1] != a.x[1] ||
+		x[2] != a.x[2] ||
+		x[3] != a.x[3];
 }
 
 

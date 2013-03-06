@@ -1,16 +1,17 @@
 /*=====================================================================
 Vector.h
 --------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Sat Sep 02 19:47:39 2006
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef VECTOR_H_666
-#define VECTOR_H_666
+#pragma once
 
 
 #include "../maths/SSE.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
+#include <memory>
+#include <new>
 
 
 // If this is defined, prints out messages on allocing and deallocing in reserve()
@@ -32,21 +33,21 @@ namespace js
 Vector
 ------
 Similar to std::vector, but aligns the elements.
+Unit tests for this class are in VectorUnitTests.cpp
 =====================================================================*/
 template <class T, size_t alignment>
 class Vector
 {
 public:
-	inline Vector();
-	inline Vector(size_t count);
-	inline Vector(size_t count, const T& val);
-	inline Vector(const Vector& other);
+	inline Vector(); // Initialise as an empty vector.
+	inline Vector(size_t count, const T& val = T()); // Initialise with count copies of val.
+	inline Vector(const Vector& other); // Initialise as a copy of other
 	inline ~Vector();
 
 	inline Vector& operator=(const Vector& other);
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
-	inline void resize(size_t N);
+	inline void resize(size_t N, const T& val = T()); // Resize to size N, using copies of val if N > size().
 	inline size_t capacity() const { return capacity_; }
 	inline size_t size() const;
 	inline bool empty() const;
@@ -70,13 +71,9 @@ public:
 	inline const_iterator end() const;
 
 private:
-	
-	
-	static inline void copy(const T* const src, T* dst, size_t num);
-
-	T* e;
-	size_t size_;
-	size_t capacity_;
+	T* e; // Elements
+	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
+	size_t capacity_; // This is the number of elements we have roon for in e.
 };
 
 
@@ -91,19 +88,6 @@ Vector<T, alignment>::Vector()
 
 
 template <class T, size_t alignment>
-Vector<T, alignment>::Vector(size_t count)
-:	e(0),
-	size_(0),
-	capacity_(0)
-{
-	//assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
-
-	resize(count);
-	// TODO: construct elements?
-}
-
-
-template <class T, size_t alignment>
 Vector<T, alignment>::Vector(size_t count, const T& val)
 :	e(0),
 	size_(0),
@@ -111,19 +95,23 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 {
 	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
 
-	resize(count);
-	for(size_t i=0; i<count; ++i)
-		e[i] = val;
+	resize(count, val);
 }
 
 
 template <class T, size_t alignment>
 Vector<T, alignment>::Vector(const Vector<T, alignment>& other)
-:	e(0),
-	size_(0),
-	capacity_(0)
 {
-	*this = other;
+	// Allocate new memory
+	e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * other.size_, alignment));
+
+	// Copy-construct new objects from existing objects in 'other'.
+	std::uninitialized_copy(other.e, other.e + other.size_, 
+		e // dest
+	);
+		
+	size_ = other.size_;
+	capacity_ = other.size_;
 }
 
 
@@ -133,6 +121,10 @@ Vector<T, alignment>::~Vector()
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
 
+	// Destroy objects
+	for(size_t i=0; i<size_; ++i)
+		e[i].~T();
+
 	SSE::alignedFree(e);
 }
 
@@ -141,14 +133,50 @@ template <class T, size_t alignment>
 Vector<T, alignment>& Vector<T, alignment>::operator=(const Vector& other)
 {
 	assert(capacity_ >= size_);
-	
+
 	if(this == &other)
 		return *this;
 
-	resize(other.size());
+	/*
+	if we already have the capacity that we need, just copy objects over.
+
+	otherwise free existing mem, alloc mem, copy elems over
+	*/
+
+	if(capacity_ >= other.size_)
+	{
+		// Destroy existing objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+
+		// Copy elements over from other
+		if(e) 
+			std::uninitialized_copy(other.e, other.e + other.size_, e);
+
+		size_ = other.size_;
+	}
+	else
+	{
+		// Destroy existing objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+
+		// Free existing mem
+		SSE::alignedFree(e);
+
+		// Allocate new memory
+		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * other.size_, alignment));
+
+		// Copy elements over from other
+		if(e)
+			std::uninitialized_copy(other.e, other.e + other.size_, e);
+
+		size_ = other.size_;
+		capacity_ = other.size_;
+	}
+
 	assert(size() == other.size());
-	assert(capacity_ >= size_);
-	copy(other.e, e, size_);
+
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
@@ -168,16 +196,22 @@ void Vector<T, alignment>::reserve(size_t n)
 		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
 		#endif
 		
-		// NOTE: bother constructing these objects?
+		// Allocate new memory
 		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
+
+		// Copy-construct new objects from existing objects.
+		// e[0] to e[size_-1] will now be proper initialised objects.
+		std::uninitialized_copy(e, e + size_, new_e);
 		
 		if(e)
 		{
-			copy(e, new_e, size_); // Copy existing data to new buffer
-
 			#if JS_VECTOR_VERBOSE
 			conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
 			#endif
+
+			// Destroy old objects
+			for(size_t i=0; i<size_; ++i)
+				e[i].~T();
 
 			SSE::alignedFree(e); // Free old buffer.
 		}
@@ -191,17 +225,26 @@ void Vector<T, alignment>::reserve(size_t n)
 
 
 template <class T, size_t alignment>
-void Vector<T, alignment>::resize(size_t n)
+void Vector<T, alignment>::resize(size_t n, const T& val)
 {
 	assert(capacity_ >= size_);
 
-	//reserve(n);
-	if(n > capacity_)
+	if(n > size_)
 	{
-		const size_t newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
-		//const unsigned int newcapacity = ideal_newcapacity > (size_ + 1) ? ideal_newcapacity : (size_ + 1); //(size_ + 1) * 2;
-		//assert(newcapacity >= size_ + 1);
-		reserve(newcapacity);
+		if(n > capacity_)
+		{
+			const size_t newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
+			reserve(newcapacity);
+		}
+
+		// Initialise elements e[size_] to e[n-1] as a copy of val.
+		std::uninitialized_fill(e + size_, e + n, val);
+	}
+	else if(n < size_)
+	{
+		// Destroy elements e[n] to e[size-1]
+		for(size_t i=n; i<size_; ++i)
+			e[i].~T();
 	}
 
 	size_ = n;
@@ -228,6 +271,10 @@ bool Vector<T, alignment>::empty() const
 template <class T, size_t alignment>
 void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees actual array memory.
 {
+	// Destroy objects
+	for(size_t i=0; i<size_; ++i)
+		e[i].~T();
+
 	SSE::alignedFree(e); // Free old buffer.
 	e = NULL;
 	size_ = 0;
@@ -248,17 +295,17 @@ void Vector<T, alignment>::push_back(const T& t)
 {
 	assert(capacity_ >= size_);
 
-	/*if(size_ >= capacity_) // If next write would exceed capacity
+	// Check to see if we are out of capacity:
+	if(size_ + 1 > capacity_)
 	{
-		const unsigned int ideal_newcapacity = size_ + size_ / 2; // current size * 1.5
-		const unsigned int newcapacity = ideal_newcapacity > (size_ + 1) ? ideal_newcapacity : (size_ + 1); //(size_ + 1) * 2;
-		assert(newcapacity >= size_ + 1);
+		const size_t newcapacity = myMax(size_ + 1, capacity_ + capacity_ / 2); // current size * 1.5
 		reserve(newcapacity);
-	}*/
-	const size_t old_size = size_;
-	resize(size_ + 1);
+	}
 
-	e[old_size] = t;
+	// Construct e[size_] from t
+	::new ((e + size_)) typename T(t);
+
+	size_++;
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
@@ -270,9 +317,12 @@ void Vector<T, alignment>::pop_back()
 {
 	assert(capacity_ >= size_);
 	assert(size_ >= 1);
+
+	// It's undefined to pop_back() on an empty vector.
 	
-	if(size_ >= 1)
-		size_--;
+	// Destroy object
+	e[size_ - 1].~T();
+	size_--;
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
@@ -296,27 +346,6 @@ T& Vector<T, alignment>::back()
 	assert(capacity_ >= size_);
 
 	return e[size_-1];
-}
-
-
-template <class T, size_t alignment>
-void Vector<T, alignment>::copy(const T * const src, T* dst, size_t num)
-{
-	assert(num == 0 || src);
-	assert(num == 0 || dst);
-
-	// Disable a bogus VS 2010 Code analysis warning: 'warning C6011: Dereferencing NULL pointer 'src'
-	#ifdef _WIN32
-	#pragma warning(push)
-	#pragma warning(disable:6011)
-	#endif
-
-	for(size_t i=0; i<num; ++i)
-		dst[i] = src[i];
-
-	#ifdef _WIN32
-	#pragma warning(pop)
-	#endif
 }
 
 
@@ -369,6 +398,3 @@ typename Vector<T, alignment>::const_iterator Vector<T, alignment>::end() const
 
 
 } //end namespace js
-
-
-#endif //VECTOR_H_666
