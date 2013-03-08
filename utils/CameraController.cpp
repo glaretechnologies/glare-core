@@ -13,8 +13,6 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 
 CameraController::CameraController()
 {
-	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
-
 	base_move_speed   = 0.035;
 	base_rotate_speed = 0.005;
 
@@ -23,6 +21,9 @@ CameraController::CameraController()
 
 	invert_mouse = false;
 	allow_pitching = true;
+
+	// NOTE: Call initialise after the member variables above have been initialised.
+	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
 }
 
 
