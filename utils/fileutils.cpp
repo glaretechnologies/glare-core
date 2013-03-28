@@ -357,7 +357,7 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(dir_path + "\\*").c_str(), &find_data);
 	if(search_handle == INVALID_HANDLE_VALUE)
-		throw FileUtilsExcep("FindFirstFile() failed: " + toString((int)GetLastError()));
+		throw FileUtilsExcep("Failed to open dir '" + dir_path + "': " + PlatformUtils::getLastErrorString());
 
 
 	std::vector<std::string> paths;
