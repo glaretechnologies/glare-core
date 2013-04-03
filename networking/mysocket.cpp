@@ -341,20 +341,18 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	sockethandle = socket(PF_INET, SOCK_STREAM, DEFAULT_PROTOCOL);
 
 	if(!isSockHandleValid(sockethandle))
-	{
-		throw MySocketExcep("could not create a socket.  Error code == " + Networking::getError());
-	}
+		throw MySocketExcep("Could not create a socket: " + Networking::getError());
 
 
 	if(::bind(sockethandle, (struct sockaddr*)&server_addr, sizeof(server_addr)) ==
 															SOCKET_ERROR)
-		throw MySocketExcep("bind failed");
+		throw MySocketExcep("Failed to bind to port " + toString(port) + ": " + Networking::getError());
 
 
-	const int backlog = 100; // NOTE: wtf should this be?
+	const int backlog = 5;
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
-		throw MySocketExcep("listen failed");
+		throw MySocketExcep("listen failed: " + Networking::getError());
 
 	thisend_port = port;
 }
@@ -459,22 +457,33 @@ void MySocket::close()
 		//------------------------------------------------------------------------
 		//try shutting down the socket
 		//------------------------------------------------------------------------
-		int result = shutdown(sockethandle,  2);//2 == SD_BOTH, was 1
+		//int result = shutdown(sockethandle, 2); // 2 == SD_BOTH
+		//conPrint("Shutdown result: " + toString(result));
+		//result = closeSocket(sockethandle);
+		//conPrint("closeSocket result: " + toString(result));
 
-		//this seems to give an error on non-connected sockets (which may be the case)
-		//so just ignore the error
-		// TEMP assert(result == 0); // NOTE: failing on linux.
-		if(result == SOCKET_ERROR)
+		// Initiate graceful shutdown.
+		shutdown(sockethandle,  1); // 1 == SD_SEND
+
+		// Wait for graceful shutdown
+		while(1)
 		{
-			// std::cout << "MySocket::close(): while calling shutdown: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
+			char buf[1024];
+			const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
+			if(numbytesread == 0)
+			{
+				// Socket has been closed gracefully
+				// conPrint("numbytesread == 0, socket closed gracefully.");
+				break;
+			}
+			else if(numbytesread == SOCKET_ERROR)
+			{
+				// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());
+				break;
+			}
 		}
 
-		result = closeSocket(sockethandle);
-		// TEMP assert(result == 0);
-		if(result == SOCKET_ERROR)
-		{
-			// std::cout << "MySocket::close(): while calling closeSocket: SOCKET_ERROR occurred.  Error code == " << Networking::getError() << std::endl;
-		}
+		closeSocket(sockethandle);
 	}
 
 	sockethandle = nullSocketHandle();

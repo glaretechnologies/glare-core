@@ -264,7 +264,7 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 	hostaddr = ::gethostbyname(hostname.c_str());
 
 	if(!hostaddr)
-		throw NetworkingExcep("gethostbyname() failed");
+		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "'");
 
 	//-----------------------------------------------------------------
 	//get the host's IP addresses
