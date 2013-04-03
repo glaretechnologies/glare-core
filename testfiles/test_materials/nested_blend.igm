@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Material Child A Child A</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.8 0.8</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<material>
+		<name>Material Child A Child B</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.8 0.8</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<material>
+		<name>Material Child A</name>
+		<blend>
+			<a_name>Material Child A Child A</a_name>
+			<b_name>Material Child A Child B</b_name>
+			<blend>
+				<constant>
+					0.5
+				</constant>
+			</blend>
+			<step_blend>false</step_blend>
+		</blend>
+	</material>
+	<material>
+		<name>Material Child B</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.8 0.8</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<material>
+		<name>Material</name>
+		<blend>
+			<a_name>Material Child A</a_name>
+			<b_name>Material Child B</b_name>
+			<blend>
+				<constant>
+					0.5
+				</constant>
+			</blend>
+			<step_blend>false</step_blend>
+		</blend>
+	</material>
+</scenedata>

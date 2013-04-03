@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Material Front</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.36 0.3</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<material>
+		<name>Material Back</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.3 0.43 0.8</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+	<material>
+		<name>Material</name>
+		<double_sided_thin>
+			<layer>0</layer>
+			<front_material_name>Material Front</front_material_name>
+			<back_material_name>Material Back</back_material_name>
+			<r_f>
+					<constant>0.2</constant>
+			</r_f>
+			<transmittance>
+				<constant>
+					<rgb>
+						<rgb>0.56 0.78 0.38</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</transmittance>
+			<front_roughness>
+					<constant>0.1</constant>
+			</front_roughness>
+			<back_roughness>
+					<constant>0.3</constant>
+			</back_roughness>
+			<front_fresnel_scale>
+					<constant>1</constant>
+			</front_fresnel_scale>
+			<back_fresnel_scale>
+					<constant>1</constant>
+			</back_fresnel_scale>
+			<ior>1.5</ior>
+		</double_sided_thin>
+	</material>
+</scenedata>

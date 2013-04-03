@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<medium>
+		<name>Material Medium</name>
+			<precedence>10</precedence>
+			<basic>
+				<ior>1.5</ior>
+				<cauchy_b_coeff>0</cauchy_b_coeff>
+				<step_size>0.1</step_size>
+				<absorption_coefficient>
+					<constant>
+						<rgb>
+							<rgb>80 0 17</rgb>
+							<gamma>2.2</gamma>
+						</rgb>
+					</constant>
+				</absorption_coefficient>
+			</basic>
+	</medium>
+	<material>
+		<name>Material</name>
+		<diffuse_transmitter>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.69 0.37</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<layer>0</layer>
+			<internal_medium_name>Material Medium</internal_medium_name>
+		</diffuse_transmitter>
+	</material>
+</scenedata>
