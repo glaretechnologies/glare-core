@@ -105,6 +105,8 @@ public:
 	uint64 readUInt64(SocketShouldAbortCallback* should_abort_callback);
 	const std::string readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback); // Read null-terminated string.
 
+	void waitForGracefulDisconnect();
+
 	void readTo(void* buffer, size_t numbytes, SocketShouldAbortCallback* should_abort_callback);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
