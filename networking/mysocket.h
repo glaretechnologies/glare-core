@@ -157,6 +157,8 @@ private:
 	int otherend_port;
 
 	size_t max_buffersize;
+
+	bool connected;
 };
 
 

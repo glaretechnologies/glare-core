@@ -102,6 +102,7 @@ void MySocket::init()
 	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
+	connected = false;
 
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
@@ -301,6 +302,8 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 		//if(ipaddress != IPAddress("127.0.0.1"))//loopback connection, ignore
 		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
 	}
+
+	connected = true;
 }
 
 
@@ -446,12 +449,15 @@ MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_c
 		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
 	}
 
+	new_socket->connected = true;
+
 	return new_socket;
 }
 
 
 void MySocket::close()
 {
+	// conPrint("---MySocket::close()---");
 	if(isSockHandleValid(sockethandle))
 	{
 		//------------------------------------------------------------------------
@@ -461,25 +467,29 @@ void MySocket::close()
 		//conPrint("Shutdown result: " + toString(result));
 		//result = closeSocket(sockethandle);
 		//conPrint("closeSocket result: " + toString(result));
+		// printVar(connected);
 
-		// Initiate graceful shutdown.
-		shutdown(sockethandle,  1); // 1 == SD_SEND
-
-		// Wait for graceful shutdown
-		while(1)
+		if(connected)
 		{
-			char buf[1024];
-			const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
-			if(numbytesread == 0)
+			// Initiate graceful shutdown.
+			shutdown(sockethandle,  1); // 1 == SD_SEND
+
+			// Wait for graceful shutdown
+			while(1)
 			{
-				// Socket has been closed gracefully
-				// conPrint("numbytesread == 0, socket closed gracefully.");
-				break;
-			}
-			else if(numbytesread == SOCKET_ERROR)
-			{
-				// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());
-				break;
+				char buf[1024];
+				const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
+				if(numbytesread == 0)
+				{
+					// Socket has been closed gracefully
+					// conPrint("numbytesread == 0, socket closed gracefully.");
+					break;
+				}
+				else if(numbytesread == SOCKET_ERROR)
+				{
+					// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
+					break;
+				}
 			}
 		}
 

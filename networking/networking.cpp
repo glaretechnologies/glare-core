@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -112,6 +113,7 @@ Networking::~Networking()
 #endif
 }
 	
+
 /*const IPAddress& Networking::getUsedIPAddr() const 
 {
 	if(!used_ipaddr_determined)
@@ -119,6 +121,7 @@ Networking::~Networking()
 
 	return used_ipaddr; 
 }
+
 
 void Networking::setUsedIPAddr(const IPAddress& newip)
 { 
@@ -159,6 +162,8 @@ const std::string Networking::getError()
 #if defined(_WIN32) || defined(_WIN64)
 	const int error = WSAGetLastError();
 
+	return PlatformUtils::getErrorStringForReturnCode(error);
+	/*
 	if(error == WSANOTINITIALISED)
 		return "WSANOTINITIALISED";
 	else if(error == WSAENETDOWN)
@@ -204,7 +209,7 @@ const std::string Networking::getError()
 	else if(error == WSAEACCES)
 		return "WSAEACCES";
 	else
-		return "[unknown]";
+		return "[unknown]";*/
 #else
 	if(errno == EADDRINUSE)
 		return "Address in use";
@@ -254,6 +259,7 @@ const std::string Networking::getError()
 
 #endif
 }
+
 
 const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname) // throw (NetworkingExcep)
 {
