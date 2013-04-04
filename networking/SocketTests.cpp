@@ -12,6 +12,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "networking.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
+#include "../utils/stringutils.h"
 
 
 #if BUILD_TESTS
@@ -36,7 +37,7 @@ public:
 
 	virtual void run()
 	{
-		conPrint("TestServerSocketThread::run()");
+		// conPrint("TestServerSocketThread::run()");
 		try
 		{
 			// Read Uint32
@@ -57,6 +58,8 @@ public:
 			socket->readData(&buf[0], sizeof(int32) * buf.size());
 			testAssert(buf == makeBuffer());
 
+			// Keep reading until we fail to read any more
+			socket->waitForGracefulDisconnect();
 		}
 		catch(MySocketExcep& e)
 		{
@@ -71,15 +74,15 @@ public:
 class TestClientThread : public MyThread
 {
 public:
-	TestClientThread() {}
+	TestClientThread(int port_) : port(port_) {}
 	~TestClientThread() {}
 
 	virtual void run()
 	{
-		conPrint("TestClientThread::run()");
+		// conPrint("TestClientThread::run()");
 		try
 		{
-			MySocket socket("localhost", 5000, NULL);
+			MySocket socket("localhost", port, NULL);
 
 			// Write Uint32
 			socket.writeUInt32(1);
@@ -97,13 +100,14 @@ public:
 			// Write a buffer of 3 int32s
 			const std::vector<int32> buf = makeBuffer();
 			socket.writeData(&buf[0], sizeof(int32) * buf.size());
-
 		}
 		catch(MySocketExcep& e)
 		{
 			failTest(e.what());
 		}
 	}
+
+	int port;
 };
 
 
@@ -111,28 +115,27 @@ public:
 class TestListenerThread : public MyThread
 {
 public:
-	TestListenerThread() {}
+	TestListenerThread(int port_) : port(port_) {}
 	~TestListenerThread() {}
 
 	virtual void run()
 	{
-		conPrint("TestListenerThread::run()");
+		conPrint("TestListenerThread::run() (port: " + toString(port) + ")");
 		try
 		{
 			// Create listener socket
 			MySocket listener;
-			listener.bindAndListen(5000);
-
+			listener.bindAndListen(port);
+			
+		
 			// Accept connection
 			MySocketRef server_socket = listener.acceptConnection(NULL);
 
 			Reference<TestServerSocketThread> server_thread = new TestServerSocketThread(server_socket);
-			server_thread->launch(/*false*/);
+			server_thread->launch();
 
 			// Wait for server thread
 			server_thread->join();
-			
-			//delete server_thread;
 
 			// Terminate thread.
 		}
@@ -141,22 +144,31 @@ public:
 			failTest(e.what());
 		}
 	}
+
+	int port;
 };
 
 
 void SocketTests::test()
 {
+	conPrint("SocketTests::test()");
+
 	testAssert(Networking::isNonNull());
 
-	Reference<TestListenerThread> listener_thread = new TestListenerThread();
-	listener_thread->launch();
+	const int port = 5000;
 
-	Reference<TestClientThread> client_thread = new TestClientThread();
-	client_thread->launch();
+	// for(int i=0; i<1; ++i)
+	{
+		Reference<TestListenerThread> listener_thread = new TestListenerThread(port);
+		listener_thread->launch();
+
+		Reference<TestClientThread> client_thread = new TestClientThread(port);
+		client_thread->launch();
 
 
-	listener_thread->join();
-	client_thread->join();
+		listener_thread->join();
+		client_thread->join();
+	}
 
 	//delete listener_thread;
 	//delete client_thread;

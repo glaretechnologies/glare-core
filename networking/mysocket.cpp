@@ -208,8 +208,6 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	// Turn off blocking while connecting
 	setBlocking(sockethandle, false);
 
-	Timer timer;
-
 	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
 #if defined(_WIN32) || defined(_WIN64)
@@ -280,8 +278,6 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + ")");
 		}
 	}
-
-	conPrint("Connect took " + timer.elapsedStringNPlaces(8));
 
 	// Return to normal blocking mode.
 	setBlocking(sockethandle, true);
@@ -365,8 +361,6 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 		throw MySocketExcep("listen failed: " + Networking::getError());
 
 	thisend_port = port;
-
-	//conPrint("bindAndListen took " + timer.elapsedStringNPlaces(8));
 }
 
 
@@ -423,8 +417,6 @@ MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_c
 
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
-	//conPrint("accept time: " + accept_timer.elapsedStringNPlaces(8));
-
 	if(!isSockHandleValid(newsockethandle))
 		throw MySocketExcep("accept failed");
 
@@ -470,7 +462,7 @@ MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_c
 
 void MySocket::close()
 {
-	conPrint("---MySocket::close()---");
+	// conPrint("---MySocket::close()---");
 	if(isSockHandleValid(sockethandle))
 	{
 		//------------------------------------------------------------------------
@@ -482,7 +474,7 @@ void MySocket::close()
 		//conPrint("closeSocket result: " + toString(result));
 		// printVar(connected);
 
-		printVar(connected);
+		// printVar(connected);
 
 		if(connected)
 		{
@@ -492,19 +484,19 @@ void MySocket::close()
 			// Wait for graceful shutdown
 			while(1)
 			{
-				conPrint("Waiting for graceful shutdown...");
+				// conPrint("Waiting for graceful shutdown...");
 
 				char buf[1024];
 				const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
 				if(numbytesread == 0)
 				{
 					// Socket has been closed gracefully
-					conPrint("numbytesread == 0, socket closed gracefully.");
+					// conPrint("numbytesread == 0, socket closed gracefully.");
 					break;
 				}
 				else if(numbytesread == SOCKET_ERROR)
 				{
-					conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
+					// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
 					break;
 				}
 			}
@@ -664,7 +656,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Sock
 
 void MySocket::waitForGracefulDisconnect()
 {
-	conPrint("---------waitForGracefulDisconnect-------");
+	// conPrint("---------waitForGracefulDisconnect-------");
 	while(1)
 	{
 		char buf[1024];
@@ -674,7 +666,7 @@ void MySocket::waitForGracefulDisconnect()
 			throw MySocketExcep("Read failed, error: " + Networking::getError());
 		else if(numbytesread == 0) // Connection was closed gracefully
 		{
-			conPrint("\tConnection was closed gracefully.");
+			// conPrint("\tConnection was closed gracefully.");
 			return;
 		}
 	}
