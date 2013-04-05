@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "fftss.h"
 #include "../utils/timer.h"
 #include "../utils/Plotter.h"
-#ifndef INDIGO_NO_OPENMP
+#ifdef _OPENMP
 #include <omp.h>
 #endif
 #include "FFTPlan.h"
@@ -1804,7 +1804,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.in_plan)
 	{
-		#ifndef INDIGO_NO_OPENMP
+		#ifdef _OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.in_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.buffer_a, plan.product,
@@ -1816,7 +1816,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.filter_plan)
 	{
-		#ifndef INDIGO_NO_OPENMP
+		#ifdef _OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.filter_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.buffer_a, plan.buffer_b,
@@ -1825,7 +1825,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 
 	if(!plan.ift_plan)
 	{
-		#ifndef INDIGO_NO_OPENMP
+		#ifdef _OPENMP
 		fftss_plan_with_nthreads(omp_get_max_threads());
 		#endif
 		plan.ift_plan = fftss_plan_dft_2d((long)W, (long)H, (long)py, plan.product, plan.buffer_a,
@@ -2016,7 +2016,7 @@ void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& 
 	#endif
 
 	t.reset();
-	#ifndef INDIGO_NO_OPENMP
+	#ifdef _OPENMP
 	fftss_plan_with_nthreads(omp_get_max_threads());
 	#endif
 	fftss_plan plan = fftss_plan_dft_2d((long)data.getWidth(), (long)data.getHeight(), py, in, outbuf,
