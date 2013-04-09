@@ -95,71 +95,201 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 
 		const int bytes_pp = header.bits / 8;
 
-		const size_t imagesize = width * height * bytes_pp;
+		bool uses_RLE = false;
 
-		if(!(header.imagetype == 2 || header.imagetype == 3)) // if image is not RGB or greyscale
-			throw ImFormatExcep("Invalid TGA type; Only non RLE-compressed greyscale or RGB supported.");
+		if(header.imagetype == 2 || header.imagetype == 3)
+		{
+			// RGB / greyscale
 
-		if(file.fileSize() < sizeof(TGA_HEADER) + imagesize)
-			throw ImFormatExcep("not enough data supplied");
-
-		//timer.reset();
+			const size_t imagesize = width * height * bytes_pp;
+			if(file.fileSize() < sizeof(TGA_HEADER) + imagesize)
+				throw ImFormatExcep("not enough data supplied");
+		}
+		else if(header.imagetype == 10 || header.imagetype == 11)
+		{
+			// RGB / greyscale with RLE
+			uses_RLE = true;
+		}
+		else
+		{
+			throw ImFormatExcep("Invalid TGA type " + toString(header.imagetype) + ": Only greyscale or RGB supported.");
+		}
 
 		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
 			width, height, bytes_pp
 			));
 
-		//conPrint("Allocated ImageMap.  Elapsed: " + timer.elapsedString());
-		//timer.reset();
-
-		const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
-
-		if(bytes_pp == 1)
+		if(uses_RLE)
 		{
-			for(int y=0; y<height; ++y)
-				for(int x=0; x<width; ++x)
-				{
-					const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
-
-					texture->getPixel(x, y)[0] = srcpointer[srcoffset];
-				}
-		}	
-		else if(bytes_pp == 3)
-		{
-			for(int y=0; y<height; ++y)
+			size_t cur = sizeof(TGA_HEADER);
+			const size_t end = file.fileSize();
+			const uint8* const data = (const uint8*)file.fileData();
+			if(bytes_pp == 1)
 			{
-				/*const uint8* const src_ptr = srcpointer + width*(height - 1 - y)*bytes_pp;
-
-				for(int x=0; x<width; ++x)
+				for(int y=0; y<height; ++y)
 				{
-				uint8 b = src_ptr[0];
-				uint8 g = src_ptr[1];
-				uint8 r = src_ptr[2];
+					const int dest_y = height - 1 - y;
 
-				src_ptr += 3;
+					for(int x=0; x<width; )
+					{
+						if(cur >= end)
+							throw ImFormatExcep("Decoding error.");
 
-				texture->getPixel(x, y)[0] = r;
-				texture->getPixel(x, y)[1] = g;
-				texture->getPixel(x, y)[2] = b;
-				}*/
+						if(data[cur] & 0x00000080u) // If high bit of byte is set
+						{
+							// Run-length packet:
+							const int repeat_count = (int)data[cur] - 127;
+							cur++;
 
-				for(int x=0; x<width; ++x)
+							// Check the read of the next byte is in-bounds.
+							if(cur >= end)
+								throw ImFormatExcep("Decoding error.");
+
+							// Read colour value
+							uint8 col = data[cur];
+							cur++;
+
+							// Write it out repeat_count times
+
+							// Check we are writing in-bounds
+							if(x + repeat_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<repeat_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = col;
+								x++;
+							}
+						}
+						else
+						{
+							// Raw packet:
+							const int direct_count = (int)data[cur] + 1;
+							cur++;
+
+							// Check we are writing in-bounds
+							if(x + direct_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							// Check we are reading in-bounds
+							if(cur + direct_count > end)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<direct_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = data[cur];
+								x++;
+								cur++;
+							}
+						}
+					}
+				}
+			}	
+			else if(bytes_pp == 3)
+			{
+				for(int y=0; y<height; ++y)
 				{
-					const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+					const int dest_y = height - 1 - y;
 
-					texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
-					texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
-					texture->getPixel(x, y)[2] = srcpointer[srcoffset];
+					for(int x=0; x<width; )
+					{
+						if(cur >= end)
+							throw ImFormatExcep("Decoding error.");
+
+						if(data[cur] & 0x00000080u) // If high bit is set
+						{
+							// Run-length packet:
+							const int repeat_count = (int)data[cur] - 127;
+							cur++;
+
+							// Check the read of the next 3 bytes is in-bounds.
+							if(cur + 2 >= end)
+								throw ImFormatExcep("Decoding error.");
+
+							// Read colour value
+							uint8 col[3];
+							col[0] = data[cur + 2];
+							col[1] = data[cur + 1];
+							col[2] = data[cur + 0];
+							cur += 3;
+
+							// Write it out repeat_count times
+
+							// Check we are writing in-bounds
+							if(x + repeat_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<repeat_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = col[0];
+								texture->getPixel(x, dest_y)[1] = col[1];
+								texture->getPixel(x, dest_y)[2] = col[2];
+								x++;
+							}
+						}
+						else
+						{
+							// Raw packet:
+							const int direct_count = (int)data[cur] + 1;
+							cur++;
+
+							// Check we are writing in-bounds
+							if(x + direct_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							// Check we are reading in-bounds
+							if(cur + direct_count * 3 > end)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<direct_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = data[cur + 2];
+								texture->getPixel(x, dest_y)[1] = data[cur + 1];
+								texture->getPixel(x, dest_y)[2] = data[cur + 0];
+								x++;
+								cur += 3;
+							}
+						}
+					}
 				}
 			}
 		}
-		/*else if(bytes_pp == 4)
-		{
-		// TODO: Handle?
-		}*/
 		else
 		{
-			throw ImFormatExcep("invalid bytes per pixel.");
+			if(bytes_pp == 1)
+			{
+				const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
+				for(int y=0; y<height; ++y)
+					for(int x=0; x<width; ++x)
+					{
+						const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+
+						texture->getPixel(x, y)[0] = srcpointer[srcoffset];
+					}
+			}	
+			else if(bytes_pp == 3)
+			{
+				const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
+				for(int y=0; y<height; ++y)
+				{
+					for(int x=0; x<width; ++x)
+					{
+						const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+
+						texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
+						texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
+						texture->getPixel(x, y)[2] = srcpointer[srcoffset];
+					}
+				}
+			}
+			/*else if(bytes_pp == 4)
+			{
+			// TODO: Handle?
+			}*/
+			else
+			{
+				throw ImFormatExcep("invalid bytes per pixel.");
+			}
 		}
 
 		//conPrint("Copied data.  Elapsed: " + timer.elapsedString());
@@ -171,126 +301,6 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 		throw ImFormatExcep(e.what());
 	}
 }
-
-
-#if 0
-// This is the old non-memmapped code:
-
-Reference<Map2D> TGADecoder::decode(const std::string& path)
-{
-	Timer timer;
-
-	assert(sizeof(TGA_HEADER) == 18);
-
-	// Read file into memory
-	std::vector<unsigned char> encoded_img;
-	try
-	{
-		FileUtils::readEntireFile(path, encoded_img);
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw ImFormatExcep(e.what());
-	}
-
-	double speed = (1.0 / (1024*1024)) * encoded_img.size() / timer.elapsed();
-	conPrint("Read file from disk.  Elapsed: " + timer.elapsedString() + ", " + toString(speed) + " MB/s");
-
-	// Read header
-	if(encoded_img.size() < sizeof(TGA_HEADER))
-		throw ImFormatExcep("numimagebytes < sizeof(TGA_HEADER)");
-
-	TGA_HEADER header;
-	memcpy(&header, &(*encoded_img.begin()), sizeof(TGA_HEADER));
-
-	const int width = (int)header.width;
-
-	if(width < 0)
-		throw ImFormatExcep("width < 0");
-
-	const int height = (int)header.height;
-
-	if(height < 0)
-		throw ImFormatExcep("height < 0");
-	
-	if(!(header.bits == 8 || header.bits == 24))
-		throw ImFormatExcep("Invalid TGA bit-depth; Only 8 or 24 supported.");
-
-
-	const int bytes_pp = header.bits / 8;
-
-	const int imagesize = width * height * bytes_pp;
-
-	if(!(header.imagetype == 2 || header.imagetype == 3)) // if image is not RGB or greyscale
-		throw ImFormatExcep("Invalid TGA type; Only non RLE-compressed greyscale or RGB supported.");
-
-	if((int)encoded_img.size() < (int)sizeof(TGA_HEADER) + imagesize)
-		throw ImFormatExcep("not enough data supplied");
-
-	timer.reset();
-
-	Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
-		width, height, bytes_pp
-		));
-
-	conPrint("Allocated ImageMap.  Elapsed: " + timer.elapsedString());
-	timer.reset();
-
-	const byte* srcpointer = &(*encoded_img.begin()) + sizeof(TGA_HEADER);
-
-	if(bytes_pp == 1)
-	{
-		for(int y=0; y<height; ++y)
-			for(int x=0; x<width; ++x)
-			{
-				const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
-
-				texture->getPixel(x, y)[0] = srcpointer[srcoffset];
-			}
-	}	
-	else if(bytes_pp == 3)
-	{
-		for(int y=0; y<height; ++y)
-		{
-			/*const uint8* const src_ptr = srcpointer + width*(height - 1 - y)*bytes_pp;
-
-			for(int x=0; x<width; ++x)
-			{
-				uint8 b = src_ptr[0];
-				uint8 g = src_ptr[1];
-				uint8 r = src_ptr[2];
-
-				src_ptr += 3;
-
-				texture->getPixel(x, y)[0] = r;
-				texture->getPixel(x, y)[1] = g;
-				texture->getPixel(x, y)[2] = b;
-			}*/
-
-			for(int x=0; x<width; ++x)
-			{
-				const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
-
-				texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
-				texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
-				texture->getPixel(x, y)[2] = srcpointer[srcoffset];
-			}
-		}
-	}
-	/*else if(bytes_pp == 4)
-	{
-		// TODO: Handle?
-	}*/
-	else
-	{
-		throw ImFormatExcep("invalid bytes per pixel.");
-	}
-
-	conPrint("Copied data.  Elapsed: " + timer.elapsedString());
-
-	return texture.upcast<Map2D>();
-}
-#endif
 
 
 void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)
@@ -333,3 +343,100 @@ void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encode
 }
 
 
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void TGADecoder::test()
+{
+	// Try loading a RGB TGA without RLE
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.tga");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try loading a greyscale TGA without RLE
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.tga");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 1);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try loading a RGB TGA with RLE
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_with_RLE.tga");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try loading a greyscale TGA with RLE
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale_with_RLE.tga");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 1);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test Unicode path
+	try
+	{
+		// Test Unicode path
+		const std::string euro = "\xE2\x82\xAC";
+		Reference<Map2D> im2 = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".tga");
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test that failure to load an image is handled gracefully.
+
+	// Try with an invalid path
+	try
+	{
+		TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/NO_SUCH_FILE.gif");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try with a JPG file
+	try
+	{
+		TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+}
+
+
+#endif // BUILD_TESTS

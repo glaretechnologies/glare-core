@@ -36,6 +36,8 @@ public:
 
 	static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
 
+	static void test();
+
 private:
 	TGADecoder();
 
