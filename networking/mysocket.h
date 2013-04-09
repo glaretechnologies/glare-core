@@ -105,6 +105,10 @@ public:
 	uint64 readUInt64(SocketShouldAbortCallback* should_abort_callback);
 	const std::string readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback); // Read null-terminated string.
 
+	// Wait for the other end to 'gracefully disconnect'
+	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
+	// This is good because it allows the server to rebind to the same port without a long 30s wait on e.g. OS X.
+	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	void waitForGracefulDisconnect();
 
 	void readTo(void* buffer, size_t numbytes, SocketShouldAbortCallback* should_abort_callback);

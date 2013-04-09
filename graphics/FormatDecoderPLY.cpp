@@ -6,12 +6,13 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "FormatDecoderPLY.h"
 
-//grab rply src from: http://www.cs.princeton.edu/~diego/professional/rply/
 
-#include "../rply-1.1.1/rply.h"
-#include <assert.h>
+// Grab rply src from: http://www.cs.princeton.edu/~diego/professional/rply/
+
 
 #include "../dll/include/IndigoMesh.h"
+#include "../rply-1.1.1/rply.h"
+#include <assert.h>
 
 
 using namespace Indigo;
@@ -19,20 +20,20 @@ using namespace Indigo;
 
 FormatDecoderPLY::FormatDecoderPLY()
 {
-	
 }
 
 
 FormatDecoderPLY::~FormatDecoderPLY()
 {
-	
 }
+
 
 //dirty nasty global variables
 static Vec3f current_vert_pos;//NOTE TEMP HACK GLOBAL VAR
 static const std::vector<Vec2f> texcoord_sets;
 static unsigned int current_vert_indices[3];
 static float ply_scale = 1.0f;//TEMP NASTY HACK
+
 
 static int vertex_callback(p_ply_argument argument) 
 {
@@ -61,12 +62,8 @@ static int vertex_callback(p_ply_argument argument)
 		handler->addVertex(current_vert_pos * ply_scale/*, Vec3f(0, 0, 1)*/); // , texcoord_sets);//NOTE: FUCKING NASTY HARD CODED NORMAL HERE
 	}
 		
-
-
     return 1;
 }
-
-
 
 
 static int face_callback(p_ply_argument argument) 
@@ -143,7 +140,3 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 
 	handler.endOfModel();
 }
-
-
-
-

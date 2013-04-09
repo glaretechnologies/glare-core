@@ -4,10 +4,7 @@ FormatDecoderPLY.h
 File created by ClassTemplate on Sat Dec 02 04:33:29 2006
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __FORMATDECODERPLY_H_666_
-#define __FORMATDECODERPLY_H_666_
-
-
+#pragma once
 
 
 #include "modeldecoder.h"
@@ -22,24 +19,10 @@ FormatDecoderPLY
 class FormatDecoderPLY : public ModelDecoder
 {
 public:
-	/*=====================================================================
-	FormatDecoderPLY
-	----------------
-	
-	=====================================================================*/
 	FormatDecoderPLY();
-
-	~FormatDecoderPLY();
+	virtual ~FormatDecoderPLY();
 
 	virtual const std::string getExtensionType() const { return "ply"; }
 
-	virtual void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale);// throw (ModelFormatDecoderExcep);
+	virtual void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); 
 };
-
-
-
-#endif //__FORMATDECODERPLY_H_666_
-
-
-
-
