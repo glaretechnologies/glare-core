@@ -17,8 +17,10 @@ Code By Nicholas Chapman.
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
+#include "../utils/MemMappedFile.h"
 #include "../graphics/ImageMap.h"
 #include <jpeglib.h>
+#include <lcms2.h>
 
 /*
 //#if JPEG_LIB_VERSION < 70
@@ -48,7 +50,7 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
-Reference<Map2D> JPEGDecoder::decode(const std::string& path)
+Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path)
 {
 	try
 	{
@@ -82,19 +84,58 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		jpeg_stdio_src(&cinfo, infile.getFile());
 
 
+		// Make libjpeg save the 'special markers'
+		//jpeg_save_markers(&cinfo, JPEG_COM, 0xFFFF);
+		//for(int i=0; i<16; ++i)
+		//	jpeg_save_markers(&cinfo, JPEG_APP0 + i, 0xFFFF);
+
+
 		//------------------------------------------------------------------------
 		//read header
 		//------------------------------------------------------------------------
 		jpeg_read_header(&cinfo, TRUE);
 
+		// Go through markers until we find the icc profile
+		//jpeg_saved_marker_ptr marker = cinfo.marker_list;
+		//while(marker != NULL)
+		//{
+		//	//conPrint(marker->);
+
+		//	// ICC_PROFILE
+		//	if(marker->data_length >= 11 && strncmp((const char*)marker->data, "ICC_PROFILE", 11) == 0)
+		//	{
+		//		conPrint("Found ICC profile");
+		//		hInProfile = cmsOpenProfileFromMem(marker->data + 14, marker->data_length);
+		//		break;
+		//	}
+
+		//	marker = marker->next;
+		//}
+
+		/*printVar(cinfo.jpeg_color_space);
+		if(cinfo.jpeg_color_space == JCS_RGB)
+			conPrint("JCS_RGB");
+		else if(cinfo.jpeg_color_space == JCS_YCbCr)
+			conPrint("JCS_YCbCr");
+		if(cinfo.jpeg_color_space == JCS_CMYK)
+			conPrint("JCS_CMYK");
+		else if(cinfo.jpeg_color_space == JCS_YCCK)
+			conPrint("JCS_YCCK");*/
+
+		// If the JPEG colour space is JCS_YCCK (Used by Photoshop for CMYK files), then get libjpeg to convert it to CMYK.  It can't convert to RGB, we have to do that ourselves.
+		if(cinfo.jpeg_color_space == JCS_YCCK)
+			cinfo.out_color_space = JCS_CMYK;
+
 		jpeg_start_decompress(&cinfo);
 
-		if(!(cinfo.num_components == 1 || cinfo.num_components == 3))
-			throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + ": Only 1 or 3 component JPEGs are currently supported.");
+		if(!(cinfo.num_components == 1 || cinfo.num_components == 3 || cinfo.num_components == 4))
+			throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + ": Only 1, 3 or 4 component JPEGs are currently supported.");
 
+		// Num components to use for our returned image.  JPEG never has alpha so we have a max of 3 channels.
+		const int final_num_components = myMin(3, cinfo.num_components);
 
 		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
-			cinfo.output_width, cinfo.output_height, cinfo.num_components
+			cinfo.output_width, cinfo.output_height, final_num_components
 		));
 
 		// Read gamma.  NOTE: this seems to just always be 1.
@@ -102,47 +143,93 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		//const float gamma = cinfo.output_gamma;
 		//conPrint("JPEG output gamma: " + toString(gamma));
 
-
 		//------------------------------------------------------------------------
 		//alloc row buffer
 		//------------------------------------------------------------------------
 		const unsigned int row_stride = cinfo.output_width * cinfo.output_components;
+		const int final_W_pixels = cinfo.output_width;
 
 		// Make a one-row-high sample array that will go away when done with image
-		//JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
 		std::vector<uint8_t> buffer(row_stride);
 		uint8_t* scanline_ptrs[1] = { &buffer[0] };
-		//------------------------------------------------------------------------
-		//read data
-		//------------------------------------------------------------------------
-		/* Step 6: while (scan lines remain to be read)
-				 jpeg_read_scanlines(...);
 
-		Here we use the library's state variable cinfo.output_scanline as the
-		loop counter, so that we don't have to keep track ourselves.
-		*/
-		//std::vector<unsigned char> tempbuf(cinfo.output_width * )
-
-		int y = 0;
-		while (cinfo.output_scanline < cinfo.output_height)
+		if(cinfo.out_color_space == JCS_CMYK)
 		{
-			/* jpeg_read_scanlines expects an array of pointers to scanlines.
-			* Here the array is only one element long, but you could ask for
-			* more than one scanline at a time if that's more convenient.
-			*/
-			jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
-			/* Assume put_scanline_someplace wants a pointer and sample count. */
-			//put_scanline_someplace(buffer[0], row_stride);
+			std::vector<uint8_t> modified_buffer(row_stride); // Used for storing inverted CMYK colours.
 
-#if IMAGE_MAP_TILED
-			for(unsigned int x=0; x<cinfo.output_width; ++x)
-				for(int c=0; c<cinfo.num_components; ++c)
-					texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
-#else
-			memcpy(texture->getPixel(0, y), &buffer[0], row_stride);
-#endif
-			++y;
-	  }
+			// Make a little CMS transform
+			MemMappedFile in_profile_file(indigo_base_dir + "/data/ICC_profiles/USWebCoatedSWOP.icc");
+			cmsHPROFILE hInProfile = cmsOpenProfileFromMem(in_profile_file.fileData(), (cmsUInt32Number)in_profile_file.fileSize());
+			if(!hInProfile)
+				throw ImFormatExcep("Failed to create in-profile");
+
+			MemMappedFile out_profile_file(indigo_base_dir + "/data/ICC_profiles/sRGB_v4_ICC_preference.icc");
+			cmsHPROFILE hOutProfile = cmsOpenProfileFromMem(out_profile_file.fileData(), (cmsUInt32Number)out_profile_file.fileSize());
+			if(!hOutProfile)
+				throw ImFormatExcep("Failed to create out-profile");
+
+			cmsHTRANSFORM hTransform = cmsCreateTransform(
+				hInProfile, 
+				TYPE_CMYK_8, 
+				hOutProfile, 
+				TYPE_RGB_8, 
+				INTENT_PERCEPTUAL, 
+				0
+			);
+			if(!hTransform)
+				throw ImFormatExcep("Failed to create transform");
+
+			cmsCloseProfile(hInProfile); 
+			cmsCloseProfile(hOutProfile); 
+
+			int y = 0;
+			while (cinfo.output_scanline < cinfo.output_height)
+			{
+				jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
+
+				for(int x=0; x<final_W_pixels * 4; ++x)
+					modified_buffer[x] = 255 - buffer[x];
+
+				// Transform scanline from CMYK to sRGB
+				cmsDoTransform(
+					hTransform, 
+					&modified_buffer[0], // input buffer
+					texture->getPixel(0, y), //  output buffer,
+					cinfo.output_width // Size in pixels
+				);
+			
+				++y;
+			}
+
+			cmsDeleteTransform(hTransform); 
+		}
+		else
+		{
+			int y = 0;
+			while (cinfo.output_scanline < cinfo.output_height)
+			{
+				/* jpeg_read_scanlines expects an array of pointers to scanlines.
+				* Here the array is only one element long, but you could ask for
+				* more than one scanline at a time if that's more convenient.
+				*/
+				jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
+				/* Assume put_scanline_someplace wants a pointer and sample count. */
+				//put_scanline_someplace(buffer[0], row_stride);
+
+	#if IMAGE_MAP_TILED
+				for(unsigned int x=0; x<cinfo.output_width; ++x)
+					for(int c=0; c<use_num_components/*num_components*/; ++c)
+						texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
+	#else
+				for(int x=0; x<final_W_pixels; ++x)
+					for(int c=0; c<final_num_components; ++c)
+						texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
+
+				//memcpy(texture->getPixel(0, y), &buffer[0], cinfo.output_width * use_num_components); // row_stride);
+	#endif
+				++y;
+			}
+		}
 
 		/* Step 7: Finish decompression */
 
@@ -163,3 +250,59 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& path)
 		throw ImFormatExcep(e.what());
 	}
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void JPEGDecoder::test(const std::string& indigo_base_dir)
+{
+	// Try loading a JPEG using the RGB colour space
+	try
+	{
+		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	// Try loading a JPEG using the CMYK colour space
+	try
+	{
+		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try loading a greyscale JPEG
+	try
+	{
+		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 1);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	
+}
+
+
+#endif // BUILD_TESTS
+

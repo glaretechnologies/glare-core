@@ -44,7 +44,7 @@ public:
 
 	//static void decodeImage(const std::string& path, Bitmap& bitmap_out); // throws ImFormatExcep on failure
 
-	static Reference<Map2D> decodeImage(const std::string& path);
+	static Reference<Map2D> decodeImage(const std::string& indigo_base_dir, const std::string& path);
 
 private:
 	ImFormatDecoder();

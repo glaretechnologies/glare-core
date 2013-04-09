@@ -84,6 +84,7 @@ ${tinyxmldir}/tinyxmlparser.cpp
 # MESSAGE(${libpng})
 
 FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
+FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
 
 
 SOURCE_GROUP(fftss FILES ${fftss})
@@ -99,6 +100,7 @@ SOURCE_GROUP(zlib FILES ${zlib})
 SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(tinyxml FILES ${tinyxml})
 SOURCE_GROUP(giflib FILES ${giflib})
+SOURCE_GROUP(little_cms FILES ${little_cms})
 
 include(../indigo_console/shared_cxx_settings.cmake)
 
@@ -130,6 +132,7 @@ ${zlib}
 ${minizip}
 ${tinyxml}
 ${giflib}
+${little_cms}
 )
 
 

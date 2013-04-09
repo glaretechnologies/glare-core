@@ -2349,7 +2349,7 @@ static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargemen
 }
 
 
-static void testResizeImage()
+static void testResizeImage(const std::string& indigo_base_dir)
 {
 	try
 	{
@@ -2398,7 +2398,7 @@ static void testResizeImage()
 	}
 
 	{
-		Map2DRef map = JPEGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+		Map2DRef map = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 		Reference<Image> im = map->convertToImage();
 
 		const std::string name = "Italy";

@@ -36,7 +36,7 @@ public:
 
 //	static void* decode(const void* image, int numimagebytes, //size of encoded image
 //					int& bpp_out, int& width_out, int& height_out);
-	static Reference<Map2D> decode(const std::string& path);
+	static Reference<Map2D> decode(const std::string& indigo_base_dir, const std::string& path);
 
 
 
@@ -47,6 +47,8 @@ public:
                          int &len, // returns length of compressed data
                          int quality=75); // image quality as a percentage
 */
+
+	static void test(const std::string& indigo_base_dir);
 
 private:
 	JPEGDecoder();

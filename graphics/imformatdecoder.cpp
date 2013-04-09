@@ -38,11 +38,11 @@ ImFormatDecoder::~ImFormatDecoder()
 }
 
 
-Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& path) // throws ImFormatExcep on failure
+Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir, const std::string& path) // throws ImFormatExcep on failure
 {
 	if(hasExtension(path, "jpg") || hasExtension(path, "jpeg"))
 	{
-		return JPEGDecoder::decode(path);
+		return JPEGDecoder::decode(indigo_base_dir, path);
 	}
 	else if(hasExtension(path, "tga"))
 	{
