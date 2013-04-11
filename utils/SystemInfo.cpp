@@ -38,7 +38,6 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 #include "../utils/Exception.h"
 #include "../indigo/globals.h"
 #include <cstdlib>
-#include <iostream>//TEMP
 #include <algorithm>
 
 #if defined(OSX)
@@ -121,51 +120,44 @@ long mac_addr_sys ( u_char *addr)
 void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(_WIN32) || defined(_WIN64)
-	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information
-											// for up to 16 NICs
-	DWORD dwBufLen = sizeof(AdapterInfo);	// Save memory size of buffer
+	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information for up to 16 NICs
 
-	const DWORD dwStatus = GetAdaptersInfo(      // Call GetAdapterInfo
-		AdapterInfo,	// [out] buffer to receive data
-		&dwBufLen		// [in] size of receive data buffer
-	);
+	// GetAdaptersInfo seems to randomly fail with ERROR_NO_DATA on older versions of Windows.
+	// To try to work around this, we will loop and attempt again if we get this error message.
+	// NOTE: GetAdaptersInfo() is quite slow, takes ~0.6ms on my Win8 Ivy bridge box. --Nick
+	// NOTE: We should probably change to use GetAdaptersAddresses().
 
-	if(dwStatus != ERROR_SUCCESS)
+	const int MAX_NUM_CALLS = 20;
+	int num_calls_done = 0;
+	while(1) // Loop until GetAdaptersInfo() succeeds or we exceed the max number of attempts.
 	{
-		std::string error_string;
+		DWORD dwBufLen = sizeof(AdapterInfo);	// Save memory size of buffer
+		const DWORD dwStatus = GetAdaptersInfo(
+			AdapterInfo,	// [out] buffer to receive data
+			&dwBufLen		// [in] size of receive data buffer
+		);
+		num_calls_done++;
 
-		switch(dwStatus)
+		if(dwStatus == ERROR_SUCCESS)
 		{
-		case ERROR_BUFFER_OVERFLOW:
-			error_string = "[ERROR_BUFFER_OVERFLOW (error code=" + ::toString((unsigned int)dwStatus) + ")]";
-			break;
-
-		case ERROR_INVALID_DATA:
-			error_string = "[ERROR_INVALID_DATA (error code=" + ::toString((unsigned int)dwStatus) + ")]";
-			break;
-
-		case ERROR_INVALID_PARAMETER:
-			error_string = "[ERROR_INVALID_PARAMETER (error code=" + ::toString((unsigned int)dwStatus) + ")]";
-			break;
-
-		case ERROR_NO_DATA:
-			error_string = "[ERROR_NO_DATA (error code=" + ::toString((unsigned int)dwStatus) + ")]";
-			break;
-
-		case ERROR_NOT_SUPPORTED:
-			error_string = "[ERROR_NOT_SUPPORTED (error code=" + ::toString((unsigned int)dwStatus) + ")]";
-			break;
-
-		default:
-			error_string = PlatformUtils::getErrorStringForReturnCode(dwStatus);
 			break;
 		}
+		else if(dwStatus == ERROR_NO_DATA)
+		{
+			// Sleep a while then try again.
+			PlatformUtils::Sleep(50);
 
-		throw Indigo::Exception("GetAdaptersInfo Failed: " + error_string);
+			if(num_calls_done >= MAX_NUM_CALLS)
+				throw Indigo::Exception("GetAdaptersInfo Failed (after " + toString(num_calls_done) + " attempts): " + PlatformUtils::getErrorStringForReturnCode(dwStatus));
+		}
+		else
+		{
+			// Some other error occurred.
+			throw Indigo::Exception("GetAdaptersInfo Failed: " + PlatformUtils::getErrorStringForReturnCode(dwStatus));
+		}
 	}
 
 	PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo; // Contains pointer to current adapter info.
-
 	
 	std::vector<MyAdapterInfo> adapters;
 
@@ -248,3 +240,38 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 #endif
 }
 
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
+
+
+void SystemInfo::test()
+{
+	conPrint("SystemInfo::test()");
+
+	try
+	{
+		// Timer timer;
+		int N = 10;
+		std::vector<std::string> addresses;
+		for(int i=0; i<N; ++i)
+		{
+			getMACAddresses(addresses);
+		}
+
+		// double per_call_time = timer.elapsed() / N;
+		// conPrint("per_call_time: " + toString(per_call_time) + " s");
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+#endif

@@ -19,4 +19,6 @@ SystemInfo
 namespace SystemInfo
 {
 	void getMACAddresses(std::vector<std::string>& addresses_out); // throws Indigo::Exception
+
+	void test();
 };
