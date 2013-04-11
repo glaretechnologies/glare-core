@@ -1,27 +1,8 @@
-/*===================================================================
-
-
-  digital liberation front 2002
-
-  _______    ______      _______
- /______/\  |______|    /\______\
-|       \ \ |      |   / /       |
-|        \| |      |  |/         |
-|_____    \ |      |_ /    ______|
- ____|    | |      |_||    |_____
-     |____| |________||____|
-
-
-
-
-Code by Nicholas Chapman[/ Ono-Sendai]
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
+/*=====================================================================
+raysphere.cpp
+-------------
+Copyright Glare Technologies Limited 2013 - 
+=====================================================================*/
 #include "raysphere.h"
 
 
@@ -29,9 +10,6 @@ You may not use this code for any commercial project.
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../raytracing/hitinfo.h"
-#include "../indigo/TestUtils.h"
-#include "../physics/jscol_TriTreePerThreadData.h"
-#include <algorithm>
 #include "../indigo/ThreadContext.h"
 #include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
@@ -39,14 +17,12 @@ You may not use this code for any commercial project.
 
 RaySphere::RaySphere(double radius_)
 {
-	radius = radius_;
-	radius_squared = radius_ * radius_;
-	recip_radius = 1.0 / radius;
+	radius = (Real)radius_;
+	radius_squared = (Real)(radius_ * radius_);
+	recip_radius = (Real)(1 / radius_);
 
-	const SSE_ALIGN Vec4f min(-(float)radius, -(float)radius, -(float)radius, 1.f);
-	const SSE_ALIGN Vec4f max((float)radius, (float)radius, (float)radius, 1.f);
-	aabbox.min_ = min;
-	aabbox.max_ = max;
+	aabbox.min_ = Vec4f(-(float)radius_, -(float)radius_, -(float)radius_, 1.f);
+	aabbox.max_ = Vec4f((float)radius_, (float)radius_, (float)radius_, 1.f);
 }
 
 
@@ -55,102 +31,49 @@ RaySphere::~RaySphere()
 }
 
 
-//returns neg num if object not hit by the ray
-//NOTE: ignoring max_t for now.
 Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
 {
-	//if(ignore_tri == 0)
-	//	return -1.0;
+	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
+	// Sphere origin is at (0,0,0,1).
 
-	hitinfo_out.sub_elem_index = 0;
-	//hitinfo_out.sub_elem_coords.set(0.0, 0.0);
+	const Vec4f raystart_to_centre = Vec4f(0,0,0,1) - ray.startPos();
 
-	const Vec3d center_to_raystart = toVec3d(ray.startPos());
+	const Real u_dot_del_p = dot(raystart_to_centre, ray.unitDir());
 
-//http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
-	/*const double B = 2.0 * (
-		ray.unitdir.x * (ray.startpos.x - centerpos.x) +
-		ray.unitdir.y * (ray.startpos.y - centerpos.y) +
-		ray.unitdir.z * (ray.startpos.z - centerpos.z)
-		);*/
+	const Real discriminant = radius_squared - raystart_to_centre.getDist2(ray.unitDir() * u_dot_del_p);
 
-	const double B = dot(center_to_raystart, toVec3d(ray.unitDir()));
+	if(discriminant < 0)
+		return -1; // No intersection.
 
-	const double C = center_to_raystart.length2() - radius_squared;
+	const Real sqrt_discriminant = std::sqrt(discriminant);
 
-	const double discriminant = B*B - C;
+	const Real use_min_t = rayMinT(radius);
 
-	if(discriminant < 0.0)
-		return -1.0;//no intersection
-
-	const double sqrt_discriminant = sqrt(discriminant);
-
-	const double use_min_t = rayMinT(radius);
-
+	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
+	if(t_0 >= use_min_t && t_0 <= max_t)
 	{
-		const double t0 = -B - sqrt_discriminant; // t0 is the smaller of the two solutions
-		if(t0 >= use_min_t/*ray.minT()*/)
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - Vec4f(0,0,0,1), recip_radius);
+		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
 		{
-			//const float r = toVec3f(ray.point(t0) - centerpos).length(); //TEMP
-			//assert(epsEqual(r, (float)radius));
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t0) - Vec4f(0,0,0,1.f), (Vec3RealType)recip_radius);
-			if(!object || object->isNonNullAtHit(thread_context, ray, t0, 0, uvs.x, uvs.y))
-			{
-				hitinfo_out.sub_elem_coords = uvs;
-				return t0;
-			}
+			hitinfo_out.sub_elem_index = 0;
+			hitinfo_out.sub_elem_coords = uvs;
+			return t_0;
 		}
 	}
 
+	const Real t_1 = u_dot_del_p + sqrt_discriminant;
+	if(t_1 >= use_min_t && t_1 <= max_t)
 	{
-		const double t = -B + sqrt_discriminant;
-		if(t >= use_min_t/*ray.minT()*/)
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - Vec4f(0,0,0,1.f), recip_radius);
+		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
 		{
-			const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t) - Vec4f(0,0,0,1.f), (Vec3RealType)recip_radius);
-			if(!object || object->isNonNullAtHit(thread_context, ray, t, 0, uvs.x, uvs.y))
-			{
-				hitinfo_out.sub_elem_coords = uvs;
-				return t;
-			}
+			hitinfo_out.sub_elem_index = 0;
+			hitinfo_out.sub_elem_coords = uvs;
+			return t_1;
 		}
 	}
 
-	return -1.0;
-
-
-	/*const Vec3d raystarttosphere = this->centerpos - ray.startpos;
-
-	const double dist_to_rayclosest = dotProduct(raystarttosphere, ray.unitdir);
-
-
-	//-----------------------------------------------------------------
-	//check if center of sphere lies behind ray startpos (in dir of ray)
-	//-----------------------------------------------------------------
-//	if(dist_to_rayclosest < 0.0f)//will think of rays as having infinite length || q_closest > ray.length)
-//		return -666.0f;
-
-
-	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() -
-		dist_to_rayclosest*dist_to_rayclosest;
-
-	//-----------------------------------------------------------------
-	//ray has missed sphere?
-	//-----------------------------------------------------------------
-	if(sph_cen_to_ray_closest_len2 > this->radius_squared)
-		return -666.0;
-
-
-	//ray has hit sphere...
-
-
-	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-	double dist = dist_to_rayclosest - a;
-
-	if(dist < 0.0f)
-		return dist_to_rayclosest + a;
-	else
-		return dist;*/
+	return -1;
 }
 
 
@@ -164,24 +87,8 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& 
 }
 
 
-/*const RaySphere::Vec3Type RaySphere::getShadingNormal(const HitInfo& hitinfo) const
-{
-	//assert(::epsEqual(point.getDist(centerpos), this->radius, 0.01f));
-
-	//return (point - centerpos) * recip_radius;
-
-	//return getGeometricNormal(hitinfo);
-	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
-}*/
-
-
 const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	//Vec3 normal = hitinfo.hitpos - centerpos;
-	//normal.normalise();
-	//return normal;
-	//return normalise(hitinfo.hitpos - centerpos);
-
 	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 }
 
@@ -189,7 +96,7 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_os_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
-	pos_os_out = Vec3Type(0,0,0,1) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
+	pos_os_out = Vec3Type(0,0,0,1) + N_g_os_out * this->radius;
 	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
 }
 
@@ -199,19 +106,13 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	N_s_os_out = N_g_os_out;
 	mat_index_out = 0;
-	pos_os_out = Vec3Type(0,0,0,1.f) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
+	pos_os_out = Vec3Type(0,0,0,1) + N_g_os_out * this->radius;
 	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
 	curvature_out = -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.
 }
 
 
-/*const RaySphere::Vec3Type RaySphere::positionForHitInfo(const HitInfo& hitinfo) const
-{
-	return Vec3Type(0,0,0,1.f) + GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * this->radius;
-}*/
-
-
-//TODO: test
+//TODO: improve this to use the numerically robust intersection algorithm
 void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
@@ -290,9 +191,6 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 	const Vec3RealType theta = hitinfo.sub_elem_coords.x;
 	const Vec3RealType phi = hitinfo.sub_elem_coords.y;
 
-	//const double theta = atan2(hitinfo.original_geometric_normal.y, hitinfo.original_geometric_normal.x);
-	//const double phi = acos(hitinfo.original_geometric_normal.z);
-
 	//(dx/du, dy/du, dz/du)
 	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f, 0.0f) * ((Vec3RealType)NICKMATHS_2PI * (Vec3RealType)radius);
 
@@ -308,9 +206,9 @@ void RaySphere::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord
 								   TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const
 {
 	// (alpha, beta) -> (u, v) is the identity mapping
-	du_dalpha_out = dv_dbeta_out = (TexCoordsRealType)1.0;
+	du_dalpha_out = dv_dbeta_out = 1;
 
-	du_dbeta_out = dv_dalpha_out = 0.0;
+	du_dbeta_out = dv_dalpha_out = 0;
 }
 
 
@@ -341,7 +239,7 @@ void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& 
 
 double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const
 {
-	return 1.0 / sub_elem_area_ws;
+	return 1 / sub_elem_area_ws;
 }
 
 
@@ -364,7 +262,13 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include <algorithm>
+
+
 void RaySphere::test()
 {
 	conPrint("RaySphere::test()");
@@ -522,5 +426,5 @@ bool RaySphere::areSubElementsCurved() const
 
 RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
 {
-	return (Vec3RealType)radius;
+	return radius;
 }

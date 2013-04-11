@@ -1,29 +1,10 @@
-/*===================================================================
+/*=====================================================================
+raysphere.h
+-----------
+Copyright Glare Technologies Limited 2013 - 
+=====================================================================*/
+#pragma once
 
-  
-  digital liberation front 2002
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|        \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
-
-
-
-Code by Nicholas Chapman[/ Ono-Sendai]
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __RAYSPHERE_H__
-#define __RAYSPHERE_H__
 
 #include "geometry.h"
 #include "../maths/vec3.h"
@@ -38,14 +19,12 @@ public:
 	RaySphere(double radius_);
 	virtual ~RaySphere();
 
-	
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	
-	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Real& curvature_out) const;
@@ -66,24 +45,16 @@ public:
 	virtual bool isEnvSphereGeometry() const;
 	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
-	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 
-	static double rayMinT(double radius) { return 0.0001f/*0.0003f*//*0.00005f*/ * radius; }
+	static Real rayMinT(Real radius) { return 0.0001f/*0.0003f*//*0.00005f*/ * radius; }
 
 	static void test();
 
 private:
 	js::AABBox aabbox;
-	double radius;
-
-	//stuff below is precomputed for efficiency
-	double radius_squared;
-	double recip_radius;
+	Real radius;
+	// Stuff below is precomputed for efficiency.
+	Real radius_squared;
+	Real recip_radius;
 };
-
-
-
-
-
-#endif //__RAYSPHERE_H__
