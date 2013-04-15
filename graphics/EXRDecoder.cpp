@@ -7,16 +7,15 @@ Code By Nicholas Chapman.
 #include "EXRDecoder.h"
 
 
-//#include "../graphics/FPImageMap16.h"
+#include "imformatdecoder.h"
 #include "../graphics/image.h"
 #include "../graphics/ImageMap.h"
-#include <ImfRgbaFile.h>
-#include <ImathBox.h>
-#include "imformatdecoder.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
 #include "../utils/platformutils.h"
+#include <ImfRgbaFile.h>
+#include <ImathBox.h>
 #include <fstream>
 #include <ImfStdIO.h>
 #include <ImfInputFile.h>
@@ -29,13 +28,11 @@ Code By Nicholas Chapman.
 
 EXRDecoder::EXRDecoder()
 {
-	
 }
 
 
 EXRDecoder::~EXRDecoder()
 {
-	
 }
 
 
@@ -52,21 +49,26 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		std::ifstream infile(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 		Imf::StdIFStream exr_ifstream(infile, pathname.c_str());
-		
 
 		Imf::InputFile file(exr_ifstream);
 
 		Imf::PixelType use_pixel_type = Imf::FLOAT;
 
+		bool has_alpha = false;
+
 		for(Imf::ChannelList::ConstIterator i = file.header().channels().begin(); i != file.header().channels().end(); ++i)
 		{
 			const std::string channel_name = i.name();
+			if(channel_name == "a" || channel_name == "A")
+				has_alpha = true;
 			const Imf::Channel& channel = i.channel();
 
 			const Imf::PixelType pixel_type = channel.type;
 
 			use_pixel_type = pixel_type;
 		}
+
+		const int use_num_channels = has_alpha ? 4 : 3;
 
 		Imath::Box2i dw = file.header().dataWindow();
 		const int width = dw.max.x - dw.min.x + 1;
@@ -76,46 +78,40 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 
 		if(use_pixel_type == Imf::FLOAT)
 		{
-			/*Image* new_image = new Image(width, height);
+			ImageMap<float, FloatComponentValueTraits>* new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, use_num_channels);
+			new_image->setGamma(1); // HDR images should have gamma 1.
 
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&new_image->getPixel(0).r,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
-				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&new_image->getPixel(0).g,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
-				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&new_image->getPixel(0).b,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
-				);*/
+			const size_t x_stride = sizeof(float) * use_num_channels;
+			const size_t y_stride = sizeof(float) * use_num_channels * width;
 
-			ImageMap<float, FloatComponentValueTraits>* new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, 3);
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::FLOAT,			// type
 				(char*)(new_image->getData() + 0),			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
-				);
+				x_stride,
+				y_stride)
+			);
 			frameBuffer.insert("G",				// name
 				Imf::Slice(Imf::FLOAT,			// type
 				(char*)(new_image->getData() + 1),			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
-				);
+				x_stride,
+				y_stride)
+			);
 			frameBuffer.insert("B",				// name
 				Imf::Slice(Imf::FLOAT,			// type
 				(char*)(new_image->getData() + 2),			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * width)// yStride
+				x_stride,
+				y_stride)
+			);
+
+			if(has_alpha)
+			{
+				frameBuffer.insert("A",				// name
+					Imf::Slice(Imf::FLOAT,			// type
+					(char*)(new_image->getData() + 3),			// base
+					x_stride,
+					y_stride)
 				);
+			}
 
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
@@ -124,47 +120,40 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		}
 		else if(use_pixel_type == Imf::HALF)
 		{
-			/*FPImageMap16* new_image = new FPImageMap16(width, height);
+			ImageMap<half, HalfComponentValueTraits>* new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, use_num_channels);
+			new_image->setGamma(1); // HDR images should have gamma 1.
 
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(&new_image->getData()[0]),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
-				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(&new_image->getData()[1]),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
-				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(&new_image->getData()[2]),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
-				);*/
-
-			ImageMap<half, HalfComponentValueTraits>* new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, 3);
+			const size_t x_stride = sizeof(half) * use_num_channels;
+			const size_t y_stride = sizeof(half) * use_num_channels * width;
 
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::HALF,			// type
 				(char*)(new_image->getData() + 0),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
-				);
+				x_stride,
+				y_stride)
+			);
 			frameBuffer.insert("G",				// name
 				Imf::Slice(Imf::HALF,			// type
 				(char*)(new_image->getData() + 1),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
-				);
+				x_stride,
+				y_stride)
+			);
 			frameBuffer.insert("B",				// name
 				Imf::Slice(Imf::HALF,			// type
 				(char*)(new_image->getData() + 2),			// base
-				sizeof(half)*3,				// xStride
-				sizeof(half)*3 * width)// yStride
+				x_stride,
+				y_stride)
+			);
+
+			if(has_alpha)
+			{
+				frameBuffer.insert("A",				// name
+					Imf::Slice(Imf::HALF,			// type
+					(char*)(new_image->getData() + 3),			// base
+					x_stride,
+					y_stride)
 				);
+			}
 
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
@@ -175,39 +164,6 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		{
 			throw ImFormatExcep("EXR pixel type must be HALF or FLOAT.");
 		}
-
-/*
-		Imf::RgbaInputFile file(exr_ifstream);
-
-		const Imath::Box2i dw = file.dataWindow();
-
-		const unsigned int filewidth = (unsigned int)(dw.max.x - dw.min.x + 1);
-		const unsigned int fileheight = (unsigned int)(dw.max.y - dw.min.y + 1);
-
-		if(filewidth < 0 || fileheight < 0)
-			throw ImFormatExcep("invalid image dimensions");
-
-		FPImageMap16* image = new FPImageMap16(filewidth, fileheight);
-
-		std::vector<Imf::Rgba> data(filewidth * fileheight);
-
-		file.setFrameBuffer(
-			&data[0], // base
-			1, // x stride
-			filewidth // y stride
-			);
-		file.readPixels(dw.min.y, dw.max.y);
-
-		unsigned int c=0;
-		for(unsigned int y=0; y<fileheight; ++y)
-			for(unsigned int x=0; x<filewidth; ++x)
-			{
-				image->getData()[c++] = data[y*filewidth + x].r;
-				image->getData()[c++] = data[y*filewidth + x].g;
-				image->getData()[c++] = data[y*filewidth + x].b;
-			}
-
-		return Reference<Map2D>(image);*/
 	}
 	catch(const std::exception& e)
 	{
@@ -290,26 +246,26 @@ void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pa
 		frameBuffer.insert("R",				// name
 			Imf::Slice(Imf::FLOAT,			// type
 			(char*)&image.getPixel(0).x[0],			// base
-			sizeof(Image::ColourType),				// xStride
-			sizeof(Image::ColourType) * image.getWidth())// yStride
+			sizeof(Image4f::ColourType),				// xStride
+			sizeof(Image4f::ColourType) * image.getWidth())// yStride
 			);
 		frameBuffer.insert("G",				// name
 			Imf::Slice(Imf::FLOAT,			// type
 			(char*)&image.getPixel(0).x[1],			// base
-			sizeof(Image::ColourType),				// xStride
-			sizeof(Image::ColourType) * image.getWidth())// yStride
+			sizeof(Image4f::ColourType),				// xStride
+			sizeof(Image4f::ColourType) * image.getWidth())// yStride
 			);
 		frameBuffer.insert("B",				// name
 			Imf::Slice(Imf::FLOAT,			// type
 			(char*)&image.getPixel(0).x[2],			// base
-			sizeof(Image::ColourType),				// xStride
-			sizeof(Image::ColourType) * image.getWidth())// yStride
+			sizeof(Image4f::ColourType),				// xStride
+			sizeof(Image4f::ColourType) * image.getWidth())// yStride
 			);
 		frameBuffer.insert("A",				// name
 			Imf::Slice(Imf::FLOAT,			// type
 			(char*)&image.getPixel(0).x[3],			// base
-			sizeof(Image::ColourType),				// xStride
-			sizeof(Image::ColourType) * image.getWidth())// yStride
+			sizeof(Image4f::ColourType),				// xStride
+			sizeof(Image4f::ColourType) * image.getWidth())// yStride
 			);
 		file.setFrameBuffer(frameBuffer);
 		file.writePixels((int)image.getHeight());
