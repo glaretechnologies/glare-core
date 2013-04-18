@@ -62,8 +62,7 @@ Returns only the filenames, not the full paths
 const std::vector<std::string> getFilesInDir(const std::string& dir_path); // throws FileUtilsExcep
 
 
-//bool dirExists(const std::string& dirname);
-bool fileExists(const std::string& pathname); //NOTE: untested
+bool fileExists(const std::string& pathname); // Does not throw any exceptions.
 
 
 // Returns the size of the file in bytes.  Throws FileUtilsExcep on failure, for example if the file does not exist.
