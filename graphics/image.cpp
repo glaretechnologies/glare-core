@@ -256,6 +256,18 @@ void Image::addImage(const Image& img, const int destx, const int desty, const f
 }
 
 
+void Image::addImage(const Image& other)
+{
+	if(other.getWidth() != getWidth() || other.getHeight() != getHeight())
+		throw ImageExcep("Dimensions not the same");
+
+	const size_t N = numPixels();
+	
+	for(size_t i=0; i<N;  ++i)
+		getPixel(i) += other.getPixel(i);
+}
+
+
 void Image::blendImage(const Image& img, const int destx, const int desty, const Colour3f& solid_colour, const float alpha/* = 1*/)
 {
 	const int h = (int)getHeight();
