@@ -122,10 +122,16 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 #if defined(_WIN32) || defined(_WIN64)
 	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information for up to 16 NICs
 
-	// GetAdaptersInfo seems to randomly fail with ERROR_NO_DATA on older versions of Windows.
-	// To try to work around this, we will loop and attempt again if we get this error message.
-	// NOTE: GetAdaptersInfo() is quite slow, takes ~0.6ms on my Win8 Ivy bridge box. --Nick
-	// NOTE: We should probably change to use GetAdaptersAddresses().
+	/*
+	GetAdaptersInfo seems to randomly fail with ERROR_NO_DATA or ERROR_NOACCESS on older versions of Windows.
+	To try to work around this, we will loop and attempt again if we get this error message.
+	For more info see
+	http://alax.info/blog/1195
+	http://connect.microsoft.com/VisualStudio/feedback/details/665383/getadaptersaddresses-api-incorrectly-returns-no-adapters-for-a-process-with-high-memory-consumption
+
+	NOTE: GetAdaptersInfo() is quite slow, takes ~0.6ms on my Win8 Ivy bridge box. --Nick
+	NOTE: We should probably change to use GetAdaptersAddresses().
+	*/
 
 	const int MAX_NUM_CALLS = 20;
 	int num_calls_done = 0;
@@ -142,7 +148,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 		{
 			break;
 		}
-		else if(dwStatus == ERROR_NO_DATA)
+		else if(dwStatus == ERROR_NO_DATA || dwStatus == ERROR_NOACCESS)
 		{
 			// Sleep a while then try again.
 			PlatformUtils::Sleep(50);
