@@ -71,12 +71,14 @@ static Reference<DerivedTestClass> someFunc(int* i)
 void functionWithByValueRefParam(Reference<TestClass> ref)
 {
 	int b = ref->f();
+	b;
 }
 
 
 void functionWithByRefRefParam(const Reference<TestClass>& ref)
 {
 	int b = ref->f();
+	b;
 }
 
 
@@ -99,6 +101,7 @@ public:
 
 private:
 	int* i;
+	int* padding;
 };
 
 
@@ -349,6 +352,7 @@ void ReferenceTest::run()
 		const Reference<BaseClass> ref(new DerivedClass());
 
 		int x = ref.downcast<DerivedClass>()->derived_x;
+		x;
 	}
 
 	{
@@ -356,6 +360,7 @@ void ReferenceTest::run()
 		const Reference<const BaseClass> ref(new DerivedClass());
 
 		int x = ref.downcast<const DerivedClass>()->derived_x;
+		x;
 
 		// This gives a compile error, as it should:
 		//ref.downcast<DerivedClass>()->derived_x++;
