@@ -16,6 +16,18 @@
 	TypeName &operator=(const TypeName &);
 
 
+// Declare a variable as used.  This can be used to avoid the Visual Studio 'local variable is initialized but not referenced' warning.
+#define GLARE_DECLARE_USED(x) (x)
+
+// This is like the usual assert() macro, except in NDEBUG mode ('release' mode) it marks the variable as used by writing the expression as a statement.
+// NOTE: Use with care as the expression may have side effects.
+#ifdef NDEBUG
+#define assertOrDeclareUsed(expr) (expr)
+#else
+#define assertOrDeclareUsed(expr) assert(expr)
+#endif
+
+
 //Compiler Definitiosn
 //#define COMPILER_GCC
 //#define COMPILER_MSVC 1

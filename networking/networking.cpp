@@ -109,7 +109,7 @@ Networking::~Networking()
 	//-----------------------------------------------------------------
 #if defined(_WIN32) || defined(_WIN64)
 	const int result = WSACleanup();
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
 	

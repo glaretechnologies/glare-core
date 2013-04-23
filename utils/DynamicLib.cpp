@@ -100,7 +100,7 @@ void DynamicLib::test()
 		CreateThread_TYPE create_thread_func = kernel_lib.getFuncPointer<CreateThread_TYPE>("CreateThread");
 
 		// Make sure it worked
-		assert(create_thread_func != NULL);
+		assertOrDeclareUsed(create_thread_func != NULL);
 	}
 	catch(Indigo::Exception& e)
 	{

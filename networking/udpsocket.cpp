@@ -194,7 +194,7 @@ void UDPSocket::enableBroadcast()
 		sizeof(optval) // optlen
 		);
 
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
 }
 
 

@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2012 -
 
 #include <assert.h>
 #include "stringutils.h"
+#include "platform.h"
 
 
 static bool clock_initialised = false;
@@ -24,7 +25,7 @@ void Clock::init()
 #if defined(_WIN32)
 	LARGE_INTEGER freq;
 	const BOOL b = QueryPerformanceFrequency(&freq);
-	assert(b);
+	assertOrDeclareUsed(b);
 
 	clock_period = 1.0 / (double)(freq.QuadPart);
 #else
@@ -42,7 +43,7 @@ double getCurTimeRealSec()
 #if defined(_WIN32)
 	LARGE_INTEGER count;
 	const BOOL b = QueryPerformanceCounter(&count); 
-	assert(b);
+	assertOrDeclareUsed(b);
 
 	return (double)(count.QuadPart) * clock_period;
 #else

@@ -88,7 +88,7 @@ void HashedGridTests::test()
 			grid.insert(666, insert_aabb);
 
 			// Now check that the grid cells have a data in the cells we expect it to
-			unsigned int num_refs = 0;
+			//unsigned int num_refs = 0;
 			for(int z = 0; z < grid_res; ++z)
 			for(int y = 0; y < grid_res; ++y)
 			for(int x = 0; x < grid_res; ++x)

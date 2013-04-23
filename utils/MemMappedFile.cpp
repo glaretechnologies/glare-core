@@ -81,7 +81,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 			const std::string error_string = PlatformUtils::getLastErrorString();
 
 			BOOL res = CloseHandle(this->file_handle);
-			assert(res);
+			assertOrDeclareUsed(res);
 			throw Indigo::Exception("CreateFileMapping failed: " + error_string);
 		}
 
@@ -104,19 +104,19 @@ MemMappedFile::~MemMappedFile()
 	if(this->file_data != NULL)
 	{
 		BOOL res = UnmapViewOfFile(this->file_data);
-		assert(res);
+		assertOrDeclareUsed(res);
 	}
 
 	if(this->file_mapping_handle != NULL)
 	{
 		BOOL res = CloseHandle(this->file_mapping_handle);
-		assert(res);
+		assertOrDeclareUsed(res);
 	}
 
 	if(this->file_handle != NULL)
 	{
 		BOOL res = CloseHandle(this->file_handle);
-		assert(res);
+		assertOrDeclareUsed(res);
 	}
 }
 

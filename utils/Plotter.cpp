@@ -96,7 +96,7 @@ void Plotter::plot(
 	}
 
 	// Execute Gnuplot
-	const int result = PlatformUtils::execute("pgnuplot " + temp_path);
+	/*const int result = */PlatformUtils::execute("pgnuplot " + temp_path);
 
 	//printVar(result);
 }

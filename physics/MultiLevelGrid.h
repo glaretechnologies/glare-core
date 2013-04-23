@@ -9,6 +9,7 @@
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
 #include "../utils/stringutils.h"
+#include "../utils/platform.h"
 #include <vector>
 
 
@@ -185,7 +186,7 @@ inline uint32 nextStepAxis(const Vec4f& next_t)
 
 	uint32 axis = table[mask];
 
-	assert(	mask != 2 && mask != 5 &&
+	assertOrDeclareUsed(	mask != 2 && mask != 5 &&
 			next_t[axis] <= next_t.x[0] &&
 			next_t[axis] <= next_t.x[1] &&
 			next_t[axis] <= next_t.x[2]

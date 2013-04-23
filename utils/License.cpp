@@ -121,7 +121,7 @@ static INDIGO_STRONG_INLINE const std::string unTransmunfigyPublicKey()
 		s
 	);
 
-	assert(result);
+	assertOrDeclareUsed(result);
 
 	return s;
 }
@@ -702,6 +702,7 @@ void License::test()
 	{
 		std::vector<uint32> dst_dwords;
 		const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
+		testAssert(result);
 
 		std::cout << "static uint32 encrypted_public_key_size = " + toString((uint64)dst_dwords.size()) + ";\n";
 		std::cout << "static uint32 encrypted_public_key[] = {\n";

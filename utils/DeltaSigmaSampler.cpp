@@ -13,7 +13,7 @@ Generated at Fri Jul 22 18:12:30 +0100 2011
 template <>
 void DeltaSigmaSampler<RampFunction, RampFunction>::test()
 {
-	int num_primes = 50;
+	//int num_primes = 50;
 	int primes[50] =
 	{
 		  2,   3,   5,   7,  11,  13,  17,  19,  23,  29,	// 10

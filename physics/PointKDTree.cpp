@@ -334,9 +334,6 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 {	
 	c++;
 
-	if(c == 121)
-		int a = 9;
-
 	if(depth >= max_depth)
 	{
 		assert(0);

@@ -115,7 +115,7 @@ void MyThread::join() // Wait for thread termination
 {
 	joined = true;
 #if defined(_WIN32)
-	const DWORD result = ::WaitForSingleObject(thread_handle, INFINITE);
+	/*const DWORD result =*/ ::WaitForSingleObject(thread_handle, INFINITE);
 #else
 	const int result = pthread_join(thread_handle, NULL);
 	assert(result == 0);

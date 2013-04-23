@@ -1074,7 +1074,7 @@ void TreeTest::doSpeedTest(int treetype)
 	printVar(traces_per_sec);
 
 	//raymesh.printTraceStats();
-	const double clock_freq = 2.4e9;
+	//const double clock_freq = 2.4e9;
 
 	/*
 	TEMP COMMENTED OUT WHILE DOING SUBDIVISION STUFFS
