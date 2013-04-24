@@ -9,7 +9,6 @@ Generated at Fri Jul 22 18:12:30 +0100 2011
 #include <vector>
 #include <math.h>
 #include <assert.h>
-#include <iostream>
 
 
 class RampFunction
@@ -71,15 +70,15 @@ public:
 		const int num_dims = (int)bases.size();
 		const int num_samples = numSamples(dim_res);
 
-		std::cout << "initialising delta sigma sampler with ";
-		for (int i = 0; i < num_dims - 1; ++i)
-			std::cout << dim_res[i] << " x ";
-		std::cout << dim_res[num_dims - 1] << " = " << num_samples << " importance samples" << std::endl;
+		//std::cout << "initialising delta sigma sampler with ";
+		//for (int i = 0; i < num_dims - 1; ++i)
+		//	std::cout << dim_res[i] << " x ";
+		//std::cout << dim_res[num_dims - 1] << " = " << num_samples << " importance samples" << std::endl;
 
 		sample_points.resize((size_t)num_samples);
 		std::vector<double> sample(num_dims);
 		std::vector<int> cell_indices(num_dims);
-		std::cout << "estimating total importance... " << std::endl;
+		//std::cout << "estimating total importance... " << std::endl;
 
 		for (int i = 0; i < num_samples; ++i)
 			sample_points[i].error = -666;
@@ -103,8 +102,8 @@ public:
 			const double I = importance.eval(sample);
 			samplePoint& s = sample_points[sample_idx];
 
-			if (s.error != -666)
-				std::cout << "cell " << sample_idx << " processed more than once!" << std::endl;
+			//if (s.error != -666)
+			//	std::cout << "cell " << sample_idx << " processed more than once!" << std::endl;
 
 			s.importance = I;
 			s.error = I;
@@ -113,15 +112,15 @@ public:
 
 			importance_sum += I;
 		}
-		std::cout << "importance sum: " << importance_sum << std::endl << std::endl;
+		//std::cout << "importance sum: " << importance_sum << std::endl << std::endl;
 
-		for (int i = 0; i < num_samples; ++i)
+		/*for (int i = 0; i < num_samples; ++i)
 			if (sample_points[i].error == -666)
 				std::cout << "cell " << i << " is uninitialised!" << std::endl;
 			else if (false)
 				std::cout << "cell " << i << " holds sample " << sample_points[i].sample_number << std::endl;
 
-		std::cout << "estimating integral with " << final_samples << " samples (allegedly)... " << std::endl;
+		std::cout << "estimating integral with " << final_samples << " samples (allegedly)... " << std::endl;*/
 
 		const double error_thresh = importance_sum / final_samples;
 

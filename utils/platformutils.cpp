@@ -44,7 +44,6 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
 #include <cstdlib>
-#include <iostream>//TEMP
 #include <algorithm>
 
 #if defined(OSX)
@@ -374,7 +373,7 @@ const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback() 
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&)
 	{
-		std::cerr << "WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'." << std::endl;
+		conPrint("WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'.");
 		return "dummy_appdata";
 	}
 }

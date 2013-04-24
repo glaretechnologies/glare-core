@@ -8,7 +8,8 @@ Code By Nicholas Chapman.
 #define __STREAMUTILS_H_666_
 
 
-#include <iostream>
+#include <istream>
+#include <ostream>
 #include <vector>
 #include "Array4D.h"
 #include "platform.h"

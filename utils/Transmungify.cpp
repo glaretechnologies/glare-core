@@ -124,11 +124,10 @@ bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 
 #if (BUILD_TESTS)
 
-#include <assert.h>
-#include <iostream>
-#include <stdlib.h>
 
 #include "../indigo/TestUtils.h"
+#include <stdlib.h>
+
 
 void Transmungify::test()
 {
@@ -140,15 +139,12 @@ void Transmungify::test()
 	std::string unmunged_program_string;
 	if(!decrypt(munged_program_string, unmunged_program_string))
 	{
-		std::cout << "error decrypting string" << std::endl;
-		exit(1);
+		failTest("error decrypting string");
 	}
 
 	if(unmunged_program_string != program_string)
 	{
-		std::cout << "original and unmunged strings don't match!" << std::endl;
-		assert(false);
-		exit(0);
+		failTest("original and unmunged strings don't match!");
 	}
 
 	srand(1337);

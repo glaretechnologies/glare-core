@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "StandardPrintOutput.h"
 
 
-#include <iostream>
+#include "../utils/ConPrint.h"
 
 
 StandardPrintOutput::StandardPrintOutput()
@@ -22,11 +22,11 @@ StandardPrintOutput::~StandardPrintOutput()
 
 void StandardPrintOutput::print(const std::string& s)
 {
-	std::cout << s << std::endl;
+	conPrint(s);
 }
 
 
 void StandardPrintOutput::printStr(const std::string& s)
 {
-	std::cout << s;
+	conPrintStr(s);
 }

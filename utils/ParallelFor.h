@@ -9,7 +9,6 @@
 #include "platformutils.h"
 #include "../maths/mathstypes.h"
 #include <vector>
-//#include <iostream> //TEMP
 
 
 template <class T>

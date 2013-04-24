@@ -9,7 +9,6 @@ Generated at Wed Apr 07 14:22:30 +1200 2010
 
 #include "PointKDTree.h"
 #include "../indigo/ThreadContext.h"
-#include <iostream>
 #include "../indigo/TestUtils.h"
 #include "../maths/vec3.h"
 #include "../utils/MTwister.h"
@@ -39,7 +38,7 @@ void PointTreeTest::test()
 
 		PointKDTree tree(points);
 
-		tree.printTree(std::cout, 0, 0);
+		//tree.printTree(std::cout, 0, 0);
 
 		ThreadContext context;
 		{

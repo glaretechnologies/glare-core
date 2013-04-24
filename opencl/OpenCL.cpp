@@ -22,6 +22,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
+#include "../utils/ConPrint.h"
 #include "../indigo/gpuDeviceInfo.h"
 
 
@@ -78,10 +79,10 @@ void OpenCL::libraryInit()
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
 	#if defined(_WIN64)
-		if(verbose) std::cout << "Detected ATI 64 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		if(verbose) conPrint("Detected ATI 64 bit OpenCL SDK at " + ati_sdk_root);
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86_64\\atiocl64.dll");
 	#else
-		if(verbose) std::cout << "Detected ATI 32 bit OpenCL SDK at " << ati_sdk_root << std::endl;
+		if(verbose) conPrint("Detected ATI 32 bit OpenCL SDK at " + ati_sdk_root);
 		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
 	#endif
 	}
@@ -92,10 +93,10 @@ void OpenCL::libraryInit()
 		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
 
 	#if defined(_WIN64)
-		if(verbose) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		if(verbose) conPrint("Detected Intel 64 bit OpenCL SDK at " + intel_sdk_root);
 		opencl_paths.push_back(intel_sdk_root + "bin\\x64\\intelocl.dll");
 	#else
-		if(verbose) std::cout << "Detected Intel 64 bit OpenCL SDK at " << intel_sdk_root << std::endl;
+		if(verbose) conPrint("Detected Intel 64 bit OpenCL SDK at " + intel_sdk_root);
 		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
 	#endif
 	}
@@ -159,11 +160,11 @@ void OpenCL::libraryInit()
 		}
 		catch(Indigo::Exception& e)
 		{
-			if(verbose) std::cout << "Error loading OpenCL library from " << opencl_paths[searched_paths] << ": " << e.what() << std::endl;
+			if(verbose) conPrint("Error loading OpenCL library from " + opencl_paths[searched_paths] + ": " + e.what());
 			continue; // try the next library
 		}
 
-		if(verbose) std::cout << "Successfully loaded OpenCL functions from " << opencl_paths[searched_paths] << std::endl;
+		if(verbose) conPrint("Successfully loaded OpenCL functions from " + opencl_paths[searched_paths]);
 		break; // found all req functions, break out of search loop
 	}
 	if(searched_paths == opencl_paths.size())
@@ -237,7 +238,7 @@ void OpenCL::queryDevices()
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 
-	if(verbose) std::cout << "Num platforms: " << num_platforms << std::endl;
+	if(verbose) conPrint("Num platforms: " + toString(num_platforms));
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
@@ -259,13 +260,13 @@ void OpenCL::queryDevices()
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_extensions(&char_buff[0]);
 
-			std::cout << std::endl;
-			std::cout << "platform_id: " << platform_ids[i] << std::endl;
-			std::cout << "platform_profile: " << platform_profile << std::endl;
-			std::cout << "platform_version: " << platform_version << std::endl;
-			std::cout << "platform_name: " << platform_name << std::endl;
-			std::cout << "platform_vendor: " << platform_vendor << std::endl;
-			std::cout << "platform_extensions: " << platform_extensions << std::endl;
+			conPrint("");
+			conPrint("platform_id: " + toString((uint64)platform_ids[i]));
+			conPrint("platform_profile: " + platform_profile);
+			conPrint("platform_version: " + platform_version);
+			conPrint("platform_name: " + platform_name);
+			conPrint("platform_vendor: " + platform_vendor);
+			conPrint("platform_extensions: " + platform_extensions);
 		}
 
 		std::vector<cl_device_id> device_ids(16);
@@ -273,11 +274,11 @@ void OpenCL::queryDevices()
 		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
 			throw Indigo::Exception("clGetDeviceIDs failed");
 
-		if(verbose) std::cout << num_devices << " device(s) found." << std::endl;
+		if(verbose) conPrint(toString(num_devices) + " device(s) found.");
 
 		for(cl_uint d = 0; d < num_devices; ++d)
 		{
-			if(verbose) std::cout << "----------- Device " << current_device_number << " -----------" << std::endl;
+			if(verbose) conPrint("----------- Device " + toString(current_device_number) + " -----------");
 
 			cl_device_type device_type;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)

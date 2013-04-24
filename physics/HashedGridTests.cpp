@@ -9,13 +9,14 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 
 #if (BUILD_TESTS)
 
-#include "HashedGrid.h"
-//#include "HashedGridSTL.h"
 
-#include <iostream>
+#include "HashedGrid.h"
 #include "../utils/Clock.h"
 #include "../utils/MTwister.h"
+#include "../utils/ConPrint.h"
+#include "../utils/stringutils.h"
 #include "../indigo/TestUtils.h"
+
 
 HashedGridTests::HashedGridTests()
 {
@@ -62,13 +63,13 @@ void HashedGridTests::test()
 		HashedGrid<int, true> grid(aabb, grid_res, grid_res, grid_res);
 		//HashedGridSTL<int, true> grid(aabb, grid_res, grid_res, grid_res);
 
-		std::cout << "testing grid resolution " << grid_res << "^3, size = " << grid_size << "^3, insertion box scale = " << insertion_scale << std::endl;
+		conPrint("testing grid resolution " + toString(grid_res) + "^3, size = " + toString(grid_size) + "^3, insertion box scale = " + toString(insertion_scale));
 
 
 		// --------------------------------------------------------------------------------------------------------
 		// --------------------------------------------------------------------------------------------------------
 
-		std::cout << "testing insertion at " << (grid_res - 2) * (grid_res - 2) * (grid_res - 2) << " interior integer lattice points" << std::endl;
+		conPrint("testing insertion at " + toString((grid_res - 2) * (grid_res - 2) * (grid_res - 2)) + " interior integer lattice points");
 
 		for(int interior_z = 1; interior_z < (grid_res - 1); ++interior_z)
 		for(int interior_y = 1; interior_y < (grid_res - 1); ++interior_y)
@@ -112,7 +113,7 @@ void HashedGridTests::test()
 
 				if(should_have_data && bucket.data.size() < 1)
 				{
-					std::cout << "error: bucket " << x << ", " << y << ", " << z << " has no data elements (insertion at " << interior_x << ", " << interior_y << ", " << interior_z << ")" << std::endl;
+					conPrint("error: bucket " + toString(x) + ", " + toString(y) + ", " + toString(z) + " has no data elements (insertion at " + toString(interior_x) + ", " + toString(interior_y) + ", " + toString(interior_z) + ")");
 					exit(1);
 				}
 			}
@@ -124,7 +125,7 @@ void HashedGridTests::test()
 		// Now we test with random insertion points
 
 		int num_random_insertions = grid_res * grid_res * grid_res * 4;//64;
-		std::cout << "testing insertion at " << num_random_insertions << " random points." << std::endl;
+		//std::cout << "testing insertion at " << num_random_insertions << " random points." << std::endl;
 
 		MTwister rng((uint32)::getSecsSince1970());
 
@@ -163,13 +164,13 @@ void HashedGridTests::test()
 
 				if(should_have_data && bucket.data.size() < 1)
 				{
-					std::cout << "error: bucket " << x << ", " << y << ", " << z << " has no data elements" << std::endl;
+					conPrint("error: bucket " + toString(x) + ", " + toString(y) + ", " + toString(z) + " has no data elements");
 					exit(1);
 				}
 			}
 		}
 
-		std::cout << std::endl;
+		//std::cout << std::endl;
 	}
 }
 

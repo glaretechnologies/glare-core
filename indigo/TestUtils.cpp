@@ -13,8 +13,8 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
 #include "../utils/prebuild_repos_info.h"
+#include "../utils/conPrint.h"
 #include <stdlib.h>
-#include <iostream>
 #include <assert.h>
 
 
@@ -26,7 +26,7 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)
 	{
-		std::cout << ("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test)) << std::endl;
+		conPrint("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test));
 		assert(0);
 		exit(1);
 	}
@@ -35,7 +35,7 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 
 void doFailTest(const std::string& msg, long line, const char* file)
 {
-	std::cout << ("Test Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg) << std::endl;
+	conPrint("Test Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg);
 	assert(0);
 	exit(1);
 }
@@ -64,4 +64,3 @@ const std::string getIndigoTestReposDir()
 
 
 #endif // BUILD_TESTS
-

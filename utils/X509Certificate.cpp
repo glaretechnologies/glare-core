@@ -14,7 +14,6 @@ Generated at Fri Nov 11 13:48:01 +0000 2011
 #include "platformutils.h"
 #include <Windows.h>
 #include <Wincrypt.h>
-#include <iostream> // Needed for the enumeration
 
 #define MY_ENCODING_TYPE (PKCS_7_ASN_ENCODING | X509_ASN_ENCODING)
 #define MY_STRING_TYPE (CERT_OID_NAME_STR)
@@ -146,7 +145,7 @@ void X509Certificate::enumCertificates(const std::string& store)
 		}
 		else throw Indigo::Exception("CertGetName failed");
 
-		std::cout << "Subject: " << cert_subject.c_str() << std::endl;
+		//std::cout << "Subject: " << cert_subject.c_str() << std::endl;
 
 /*
 		//-----------------------------------------------------------
@@ -302,9 +301,6 @@ void X509Certificate::enumCertificates(const std::string& store)
 #if BUILD_TESTS
 
 
-#include <iostream>
-
-
 void X509Certificate::test()
 {
 #ifdef _WIN32
@@ -313,16 +309,16 @@ void X509Certificate::test()
 
 	try
 	{
-		const bool found_gb_cert = verifyCertificate("My", greenbutton_cert_subj, greenbutton_cert_pubkey);
+		/*const bool found_gb_cert = */verifyCertificate("My", greenbutton_cert_subj, greenbutton_cert_pubkey);
 
-		if(found_gb_cert)
-			std::cout << "Found GreenButton certificate" << std::endl;
-		else
-			std::cout << "Couldn't find GreenButton certificate" << std::endl;
+		//if(found_gb_cert)
+		//	std::cout << "Found GreenButton certificate" << std::endl;
+		//else
+		//	std::cout << "Couldn't find GreenButton certificate" << std::endl;
 	}
-	catch(Indigo::Exception& e)
+	catch(Indigo::Exception& )
 	{
-		std::cout << "X.509 exception: " + e.what() << std::endl;
+		//std::cout << "X.509 exception: " + e.what() << std::endl;
 	}
 #endif
 }

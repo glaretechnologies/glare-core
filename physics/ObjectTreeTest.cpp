@@ -16,7 +16,6 @@ Code By Nicholas Chapman.
 #include "../utils/random.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/MTwister.h"
-//#include <iostream>
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/timer.h"

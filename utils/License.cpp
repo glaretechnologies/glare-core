@@ -26,7 +26,6 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <openssl/err.h>
 #include <openssl/pem.h>
 
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -704,16 +703,16 @@ void License::test()
 		const bool result = Transmungify::encrypt(PUBLIC_CERTIFICATE_DATA, dst_dwords);
 		testAssert(result);
 
-		std::cout << "static uint32 encrypted_public_key_size = " + toString((uint64)dst_dwords.size()) + ";\n";
-		std::cout << "static uint32 encrypted_public_key[] = {\n";
+		//std::cout << "static uint32 encrypted_public_key_size = " + toString((uint64)dst_dwords.size()) + ";\n";
+		//std::cout << "static uint32 encrypted_public_key[] = {\n";
 		for(size_t i=0; i<dst_dwords.size(); ++i)
 		{
-			std::cout << toString(dst_dwords[i]) << "u";
-			if(i + 1 < dst_dwords.size())
-				std::cout << ",";
-			std::cout << "\n";
+			//std::cout << toString(dst_dwords[i]) << "u";
+			//if(i + 1 < dst_dwords.size())
+			//	std::cout << ",";
+			//std::cout << "\n";
 		}
-		std::cout << "};\n";
+		//std::cout << "};\n";
 	}
 
 

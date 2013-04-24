@@ -12,7 +12,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 #include <assert.h>
 #if BUILD_TESTS
 #include "../indigo/TestUtils.h"
-#include <iostream>
+#include "../utils/ConPrint.h"
 #endif
 
 
@@ -90,7 +90,7 @@ typedef double (*cos_TYPE)(double x);
 
 void DynamicLib::test()
 {
-	std::cout << "DynamicLib::test():" << std::endl;
+	conPrint("DynamicLib::test():");
 
 #ifdef _WIN32
 	try
@@ -104,7 +104,7 @@ void DynamicLib::test()
 	}
 	catch(Indigo::Exception& e)
 	{
-		std::cout << "DynamicLib exception: " + e.what() << std::endl;
+		conPrint("DynamicLib exception: " + e.what());
 	}
 #elif defined(__linux)
 	try
@@ -117,7 +117,7 @@ void DynamicLib::test()
 	}
 	catch(Indigo::Exception& e)
 	{
-		std::cout << "DynamicLib exception: " + e.what() << std::endl;
+		conPrint("DynamicLib exception: " + e.what());
 	}
 #endif
 }

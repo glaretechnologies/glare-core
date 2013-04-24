@@ -6,7 +6,7 @@ Generated at Wed May 26 14:52:09 +1200 2010
 =====================================================================*/
 #include "CheckDLLSignature.h"
 
-#include <iostream>
+
 #include "stringutils.h"
 #include <assert.h>
 

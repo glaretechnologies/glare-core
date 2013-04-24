@@ -123,13 +123,13 @@ inline uint32 StaticSobol::evalSampleRefRandomised(const uint64 sample_num, cons
 
 #if BUILD_TESTS
 
-#include <iostream>
+
 #include "stringutils.h"
 #include "../indigo/TestUtils.h"
 
 void StaticSobol::test(const std::string& indigo_base_dir_path)
 {
-	std::cout << "StaticSobol::test()" << std::endl;
+	///std::cout << "StaticSobol::test()" << std::endl;
 
 	StaticSobol sobol(indigo_base_dir_path);
 
@@ -156,17 +156,17 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 	// Print out the first few randomised Sobol samples
 	for(uint32 s = 0; s < 8; ++s)
 	{
-		std::cout << "Randomised Sobol sample " << s << ": ";
+		//std::cout << "Randomised Sobol sample " << s << ": ";
 
 		for(uint32 d = 0; d < 5; ++d)
 		{
-			const double fixed2float = 1.0 / 4294967296.0;
-			const double x_d_float = sobol.evalSampleRandomised(s, d) * fixed2float;
+			//const double fixed2float = 1.0 / 4294967296.0;
+			//const double x_d_float = sobol.evalSampleRandomised(s, d) * fixed2float;
 
-			std::cout << doubleToStringNDecimalPlaces(x_d_float, 5) << " ";
+			//std::cout << doubleToStringNDecimalPlaces(x_d_float, 5) << " ";
 		}
 
-		std::cout << std::endl;
+		//std::cout << std::endl;
 	}	
 }
 
