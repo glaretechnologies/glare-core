@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
 #include "../utils/prebuild_repos_info.h"
-#include "../utils/conPrint.h"
+#include "../utils/ConPrint.h"
 #include <stdlib.h>
 #include <assert.h>
 
