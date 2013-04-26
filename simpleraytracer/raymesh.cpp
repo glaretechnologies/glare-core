@@ -1471,7 +1471,6 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<d
 
 	for(size_t i = 0; i < surface_areas_out.size(); ++i)
 		surface_areas_out[i] = (double)getTriArea(*this, (unsigned int)i, to_parent);
-
 }
 
 
