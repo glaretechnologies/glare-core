@@ -1,13 +1,13 @@
 /*=====================================================================
 Parser.h
 --------
-Copyright Glare Technologies Limited 2009 - 
+Copyright Glare Technologies Limited 2013 - 
 =====================================================================*/
-#ifndef __PARSER_H_666_
-#define __PARSER_H_666_
+#pragma once
 
 
 #include "../utils/stringutils.h"
+#include "../utils/platform.h"
 #include <string>
 
 
@@ -19,11 +19,6 @@ Parser
 class Parser
 {
 public:
-	/*=====================================================================
-	Parser
-	------
-	
-	=====================================================================*/
 	Parser();
 	Parser(const char* text, unsigned int textsize);
 
@@ -35,16 +30,23 @@ public:
 	//if it was, currentpos will be pointing to the next character.
 	//if not, it won't be moved.
 	inline bool parseChar(char target);
-	bool parseInt(int& result_out);
-	inline bool parseUnsignedInt(unsigned int& result_out);
-	inline bool parseNDigitUnsignedInt(unsigned int N, unsigned int& result_out);
+	bool parseInt(int32& result_out);
+	bool parseUnsignedInt(uint32& result_out);
+	//bool parseNDigitUnsignedInt(unsigned int N, uint32& result_out);
 	bool parseFloat(float& result_out);
 	bool parseDouble(double& result_out);
 	inline bool parseWhiteSpace();
 	inline void parseSpacesAndTabs();
 	inline void advancePastLine();
+
+	// Advances until current() == target, or EOF is reached.
+	// Returns true iff EOF was not reached.
+	// returns in 'result_out' a string from current to target, not including target.
+	inline bool parseToChar(char target, std::string& result_out);
+	inline bool parseToOneOfChars(char target_a, char target_b, std::string& result_out);
+	inline void parseToCharOrEOF(char target_a, std::string& result_out);
 	inline void parseLine();
-	//bool parseString(const std::string& s);
+	
 	bool parseAlphaToken(std::string& token_out);
 	bool parseIdentifier(std::string& token_out);
 	bool parseNonWSToken(std::string& token_out);
@@ -52,9 +54,7 @@ public:
 
 	bool fractionalNumberNext();
 
-	static void doUnitTests();
-
-	//Only defined if eof() is not true.
+	// Only defined if eof() is not true.
 	inline char current() const;
 	inline unsigned int currentPos() const { return currentpos; }
 
@@ -72,14 +72,14 @@ public:
 
 	inline const char* getText() const { return text; }
 	inline unsigned int getTextSize() const { return textsize; }
+
+	static void doUnitTests();
 private:
 	const char* text;
 	unsigned int currentpos;
 	unsigned int textsize;
 	char decimal_separator;
 };
-
-
 
 
 bool Parser::parseChar(char target)
@@ -94,33 +94,21 @@ bool Parser::parseChar(char target)
 }
 
 
-bool Parser::parseUnsignedInt(unsigned int& result_out)
-{
-	unsigned int x = 0;
-	const int initial_currentpos = currentpos;
-	for( ;notEOF() && ::isNumeric(text[currentpos]); ++currentpos)
-		x = 10*x + ((int)text[currentpos] - (int)'0');
-	result_out = x;
-	return currentpos - initial_currentpos > 0;
-}
-
-bool Parser::parseNDigitUnsignedInt(unsigned int N, unsigned int& result_out)
-{
-	unsigned int x = 0;
-	const int initial_currentpos = currentpos;
-	for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
-		x = 10*x + ((int)text[currentpos] - (int)'0');
-	result_out = x;
-	return currentpos - initial_currentpos == N;
-}
-
 bool Parser::parseWhiteSpace()
 {
-	bool found = false;
+	/*bool found = false;
 	for( ;notEOF() && ::isWhitespace(text[currentpos]); ++currentpos)
 		found = true;
 
-	return found;
+	return found;*/
+
+	const unsigned int initial_pos = this->currentpos;
+	unsigned int pos = this->currentpos;
+	for( ; (pos < textsize) && ::isWhitespace(text[pos]); ++pos)
+	{}
+
+	this->currentpos = pos;
+	return pos > initial_pos;
 }
 
 
@@ -129,17 +117,6 @@ void Parser::parseSpacesAndTabs()
 	for( ;notEOF() && (text[currentpos] == ' ' || text[currentpos] == '\t') ; ++currentpos)
 	{}
 }
-/*
-bool Parser::parseFloat(float& result_out)
-{
-	for(unsigned int i=0 ;notEOF() && !::isWhitespace(text[currentpos]) && i < PARSER_TMP_BUF_SIZE; ++currentpos, ++i)
-		tmp[i] = text[currentpos];
-	tmp[i] = '\0';
-	
-	result_out = (float)atof(tmp);
-	return true;
-}*/
-
 
 
 void Parser::advancePastLine()
@@ -166,6 +143,58 @@ void Parser::advancePastLine()
 			}
 			return;
 		}
+	}
+}
+
+
+// Advances until current() == target, or EOF is reached.
+// Returns true iff EOF was not reached.
+// returns in 'result_out' a string from current to target, not including target.
+bool Parser::parseToChar(char target, std::string& result_out)
+{
+	const int initial_currentpos = currentpos;
+	while(1)
+	{
+		if(eof())
+			return false;
+		if(current() == target)
+		{
+			result_out = std::string(text + initial_currentpos, text + currentpos);
+			return true;
+		}
+		currentpos++;
+	}
+}
+
+
+bool Parser::parseToOneOfChars(char target_a, char target_b, std::string& result_out)
+{
+	const int initial_currentpos = currentpos;
+	while(1)
+	{
+		if(eof())
+			return false;
+		if(current() == target_a || current() == target_b)
+		{
+			result_out = std::string(text + initial_currentpos, text + currentpos);
+			return true;
+		}
+		currentpos++;
+	}
+}
+
+
+void Parser::parseToCharOrEOF(char target, std::string& result_out)
+{
+	const int initial_currentpos = currentpos;
+	while(1)
+	{
+		if(eof() || current() == target)
+		{
+			result_out = std::string(text + initial_currentpos, text + currentpos);
+			return;
+		}
+		currentpos++;
 	}
 }
 
@@ -201,6 +230,3 @@ void Parser::advance()
 {
 	currentpos++;
 }
-
-
-#endif //__PARSER_H_666_

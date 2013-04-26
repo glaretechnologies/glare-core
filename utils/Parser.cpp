@@ -1,19 +1,17 @@
 /*=====================================================================
 Parser.cpp
 ----------
-Copyright Glare Technologies Limited 2009 - 
+Copyright Glare Technologies Limited 2013 - 
 =====================================================================*/
 #include "Parser.h"
 
 
-#include <cmath>
-#include <clocale>
-#include <cstring>
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"
+#include <limits>
 
 
 Parser::Parser(const char* text_, unsigned int textsize_)
@@ -62,36 +60,154 @@ void Parser::reset(const char* text_, unsigned int textsize_)
 }
 
 
-static const int ASCII_ZERO_INT = (int)'0';
+static const unsigned int ASCII_ZERO_UINT = (unsigned int)'0';
 
 
-bool Parser::parseInt(int& result_out)
+/*
+will consider overflowed if x > 2147483648
+
+Suppose x = 214748364
+x * 10 = 2147483640
+suppose x = 214748365
+x * 10 = 2147483650   [Overflow]
+
+
+Let us consider our result overflowed if > 2147483648
+
+say we have x >= 0 && x <= 2147483648
+and we are adding an integer 'd' such that d >= 0 && d <= 9.
+Result x + d will overflow iff
+x + d > 2147483648
+=> d > 2147483648 - x
+*/
+bool Parser::parseInt(int32& result_out)
 {
-	const unsigned int initial_currentpos = currentpos;
+	unsigned int pos = currentpos;
 
 	/// Parse sign ///
 	int sign = 1;
-	if(parseChar('+'))
-	{}
-	else if(parseChar('-'))
-		sign = -1;
-
-	bool valid = false;
-	unsigned int x = 0;
-	//const int initial_currentpos = currentpos;
-	for( ;notEOF() && ::isNumeric(text[currentpos]); ++currentpos)
+	if(pos >= textsize) // if EOF
+		return false;
+	if(text[pos] == '+')
+		pos++;
+	else if(text[pos] == '-')
 	{
-		x = 10*x + ((int)text[currentpos] - ASCII_ZERO_INT);
-		valid = true;
+		pos++;
+		sign = -1;
 	}
 
-	result_out = sign * x;
+	/// Parse digits ///
+	const unsigned int digit_start_pos = pos;
+	unsigned int x = 0;
+	for( ; (pos < textsize) && ::isNumeric(text[pos]); ++pos)
+	{
+		if(x > 214748364u) // If x will overflow when multiplied by 10:
+			return false;
 
-	if(!valid)
-		currentpos = initial_currentpos; // Restore currentpos.
-	
-	return valid; //currentpos - initial_currentpos > 0;
+		// At this point we know:
+		assert(x <= 214748364u);
+		assert(10*x <= 2147483640u);
+		
+		x *= 10;
+
+		assert(x <= 2147483640u);
+
+		const unsigned int d = (unsigned int)text[pos] - ASCII_ZERO_UINT;
+		assert(d >= 0 && d <= 9);
+
+		x += d;
+
+		assert(x <= 2147483649u);
+	}
+
+	// If there were no digits, then this is not a valid integer literal
+	if(pos == digit_start_pos)
+		return false;
+
+	assert(x <= 2147483649u);
+	if(x >= 2147483648u)
+	{
+		// Possible overflow
+		if(x == 2147483648u)
+		{
+			if(sign == 1) // 2147483648 is not representable as a positive signed integer.
+				return false;
+			
+			// else if sign = -1, then result = -2147483648, which is valid.
+		}
+		else
+		{
+			// x > 2147483648u, overflow.
+			assert(x > 2147483648u);
+			return false;
+		}
+	}
+
+	assert(x <= 2147483647u || (sign == -1 && x == 2147483648u));
+
+	result_out = sign * (int)x;
+	this->currentpos = pos;
+	return true;
 }
+
+
+bool Parser::parseUnsignedInt(uint32& result_out)
+{
+	// Use 64 bit var
+	uint64 x = 0;
+	
+	unsigned int pos = this->currentpos;
+	const unsigned int initial_pos = this->currentpos;
+	
+	for( ;pos < textsize && ::isNumeric(text[pos]); ++pos)
+	{
+		x = 10*x + ((uint64)text[pos] - (uint64)'0');
+
+		// Check if the value is too large to hold in a 32 bit uint:
+		if(x > 4294967295u)
+			return false;
+	}
+
+	result_out = (uint32)x;
+	this->currentpos = pos;
+
+	return pos - initial_pos > 0;
+
+	/*unsigned int x = 0;
+	const int initial_currentpos = currentpos;
+	for( ;notEOF() && ::isNumeric(text[currentpos]); ++currentpos)
+		x = 10*x + ((int)text[currentpos] - (int)'0');
+	result_out = x;
+	return currentpos - initial_currentpos > 0;*/
+}
+
+
+/*bool Parser::parseNDigitUnsignedInt(unsigned int N, uint32& result_out)
+{
+	// Use 64 bit var
+	uint64 x = 0;
+	const int initial_currentpos = currentpos;
+	for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
+	{
+		x = 10*x + ((uint64)text[currentpos] - (uint64)'0');
+
+		// Check if the value is too large to hold in a 32 bit uint:
+		if(x > 4294967295u)
+		{
+			currentpos = initial_currentpos; // Restore currentpos.
+			return false;
+		}
+	}
+	result_out = (uint32)x;
+	return currentpos - initial_currentpos == N;
+
+	//unsigned int x = 0;
+	//const int initial_currentpos = currentpos;
+	//for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
+	//	x = 10*x + ((int)text[currentpos] - (int)'0');
+	//result_out = x;
+	//return currentpos - initial_currentpos == N;
+}*/
 
 
 bool Parser::parseFloat(float& result_out)
@@ -124,11 +240,6 @@ bool Parser::parseFloat(float& result_out)
 		parseChar('F');
 	
 	return true;
-
-	/*double x;
-	const bool result = parseDouble(x);
-	result_out = (float)x;
-	return result;*/
 }
 
 
@@ -324,6 +435,7 @@ bool Parser::parseAlphaToken(std::string& token_out)
 	return found;
 }
 
+
 bool Parser::parseIdentifier(std::string& token_out)
 {
 	token_out = "";
@@ -347,6 +459,7 @@ bool Parser::parseIdentifier(std::string& token_out)
 	return true;//found;
 }
 
+
 bool Parser::parseNonWSToken(std::string& token_out)
 {
 	token_out = "";
@@ -358,6 +471,7 @@ bool Parser::parseNonWSToken(std::string& token_out)
 	}
 	return found;
 }
+
 
 bool Parser::parseString(const std::string& s)
 {
@@ -376,22 +490,7 @@ bool Parser::parseString(const std::string& s)
 }
 
 
-/*bool Parser::parseString(const std::string& s)
-{
-	if(currentpos + s.size() >= textsize)
-		return false;
-
-	for(unsigned int i=0; i<s.size(); ++i)
-}*/
-
-
-/*template <class Real>
-inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
-{
-	return fabs(a - b) <= epsilon;
-}*/
-
-
+//======================================================================== Unit Tests ========================================================================
 #if BUILD_TESTS
 
 
@@ -399,8 +498,423 @@ inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
 #include "../indigo/TestUtils.h"
 
 
+static void testFailsToParseInt(const std::string& s)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	int x;
+	testAssert(!p.parseInt(x));
+	testAssert(p.currentPos() == 0);
+}
+
+
+static void testParseInt(const std::string& s, int target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	int x;
+	testAssert(p.parseInt(x));
+	testAssert(p.currentPos() == s.length());
+	testAssert(x == target);
+}
+
+
+static void testParseIntFromLongerString(const std::string& s, int target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	int x;
+	testAssert(p.parseInt(x));
+	testAssert(p.currentPos() <= s.length());
+	testAssert(x == target);
+}
+
+
+static void testFailsToParseUnsignedInt(const std::string& s)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	uint32 x;
+	testAssert(!p.parseUnsignedInt(x));
+	testAssert(p.currentPos() == 0);
+}
+
+
+static void testParseUnsignedInt(const std::string& s, uint32 target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	uint32 x;
+	testAssert(p.parseUnsignedInt(x));
+	testAssert(p.currentPos() == s.length());
+	testAssert(x == target);
+}
+
+
+static void testParseUnsignedIntFromLongerString(const std::string& s, uint32 target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	uint32 x;
+	testAssert(p.parseUnsignedInt(x));
+	testAssert(p.currentPos() <= s.length());
+	testAssert(x == target);
+}
+
+
+static void testFailsToParseFloat(const std::string& s)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	float x;
+	testAssert(!p.parseFloat(x));
+	testAssert(p.currentPos() == 0);
+}
+
+
+static void testParseFloat(const std::string& s, float target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	float x;
+	testAssert(p.parseFloat(x));
+	testAssert(p.currentPos() == s.length());
+	testAssert(x == target);
+}
+
+
 void Parser::doUnitTests()
 {
+	conPrint("Parser::doUnitTests()");
+
+	//===================== parseChar ===============================
+	{
+		const std::string s = "a";
+		Parser p(s.c_str(), (unsigned int)s.length());
+
+		testAssert(p.parseChar('a'));
+		testAssert(p.currentPos() == 1);
+	}
+
+	{
+		const std::string s = "a";
+		Parser p(s.c_str(), (unsigned int)s.length());
+
+		testAssert(!p.parseChar('b'));
+		testAssert(p.currentPos() == 0); // Should not advance if failed to parse char
+	}
+
+	
+
+	// Perf test
+	if(false)
+	{
+		{
+			Timer timer;
+
+			const std::string s = "123456789";
+
+			const int N = 1000000;
+			size_t sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				Parser parser(s.c_str(), (unsigned int)s.length());
+				uint32 x;
+				parser.parseUnsignedInt(x);
+				sum += x;
+			}
+
+			const double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("parseUnsignedInt() per iter time: " + toString(1e9 * elapsed / N) + " ns");
+		}
+
+		{
+			Timer timer;
+
+			const std::string s = "   1";
+
+			const int N = 1000000;
+			size_t sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				Parser parser(s.c_str(), (unsigned int)s.length());
+				parser.parseWhiteSpace();
+				sum += parser.currentPos();
+			}
+
+			const double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("parseWhiteSpace() per iter time: " + toString(1e9 * elapsed / N) + " ns");
+		}
+	}
+
+
+	//===================== parseInt ===============================
+
+	// Test some failure cases
+	testFailsToParseInt("");
+	testFailsToParseInt(" ");
+	testFailsToParseInt("a");
+	testFailsToParseInt("aa");
+	testFailsToParseInt("-");
+	testFailsToParseInt("+");
+	testFailsToParseInt("--");
+	testFailsToParseInt("++");
+	testFailsToParseInt(" 1");
+	testFailsToParseInt(" -");
+	testFailsToParseInt(" +");
+
+	// Test some valid integers with non-numeric chars after integer
+	for(int i=-10000; i<10000; ++i)
+		testParseIntFromLongerString(::intToString(i) + "a", i);
+
+	testParseInt("0", 0);
+	testParseInt("-0", 0);
+	testParseInt("-0", -0);
+
+	for(int i=-10000; i<10000; ++i)
+		testParseInt(::intToString(i), i);
+
+	// NOTE: max representable signed 32 bit int is 2147483647
+	testAssert(std::numeric_limits<int>::min() == -2147483647 - 1);
+	testAssert(std::numeric_limits<int>::max() == 2147483647);
+
+	// Test very large integer but valid 32-bit integers
+	testParseInt("2147483639", 2147483639);
+	testParseInt("2147483640", 2147483640);
+	testParseInt("2147483641", 2147483641);
+	testParseInt("2147483646", 2147483646);
+	testParseInt("2147483647", 2147483647);
+
+	// Test very large integers that are too large
+	// NOTE: max representable signed 32 bit int is 2147483647
+	testFailsToParseInt("2147483648");
+	testFailsToParseInt("2147483649");
+	testFailsToParseInt("2147483650");
+	testFailsToParseInt("2147483651");
+	testFailsToParseInt("2147483652");
+	testFailsToParseInt("2147483653");
+	testFailsToParseInt("2147483654");
+	testFailsToParseInt("2147483655");
+	testFailsToParseInt("2147483656");
+	testFailsToParseInt("2147483657");
+	testFailsToParseInt("2147483658");
+	testFailsToParseInt("2147483659");
+
+
+	testFailsToParseInt("21474836480");
+
+	testFailsToParseInt("1000000000000");
+
+	// Test negative ints
+
+	// Test very large magnitude integers but valid 32-bit integers
+	testParseInt("-2147483639", -2147483639);
+	testParseInt("-2147483640", -2147483640);
+	testParseInt("-2147483641", -2147483641);
+	testParseInt("-2147483646", -2147483646);
+	testParseInt("-2147483647", -2147483647);
+	testParseInt("-2147483648", -2147483647 - 1); // NOTE: -2147483648 can't be written directly as 2147483648 is too large for a signed integer.
+
+	// Test very large magnitude integers that are too large
+	testFailsToParseInt("-2147483649");
+	testFailsToParseInt("-2147483650");
+	testFailsToParseInt("-2147483651");
+	testFailsToParseInt("-2147483652");
+	testFailsToParseInt("-2147483653");
+	testFailsToParseInt("-2147483654");
+	testFailsToParseInt("-2147483655");
+	testFailsToParseInt("-2147483656");
+	testFailsToParseInt("-2147483657");
+	testFailsToParseInt("-2147483658");
+
+
+	testFailsToParseInt("-21474836480");
+
+	testFailsToParseInt("-1000000000000");
+
+
+
+	//================== parseUnsignedInt =======================
+
+	// Test some failure cases
+	testFailsToParseUnsignedInt("");
+	testFailsToParseUnsignedInt(" ");
+	testFailsToParseUnsignedInt("a");
+	testFailsToParseUnsignedInt("aa");
+	testFailsToParseUnsignedInt("-");
+	testFailsToParseUnsignedInt("+");
+	testFailsToParseUnsignedInt("--");
+	testFailsToParseUnsignedInt("++");
+	testFailsToParseUnsignedInt(" 1");
+	testFailsToParseUnsignedInt(" -");
+	testFailsToParseUnsignedInt(" +");
+
+	testFailsToParseUnsignedInt("-1");
+	testFailsToParseUnsignedInt("-123");
+
+
+	// Test some valid integers with non-numeric chars after integer
+	for(int i=0; i<10000; ++i)
+		testParseUnsignedIntFromLongerString(::intToString(i) + "a", i);
+
+	// Test some valid uints
+	testParseInt("0", 0);
+
+	for(int i=0; i<10000; ++i)
+		testParseUnsignedInt(::intToString(i), i);
+
+	// Test very large integer but valid 32-bit integers
+	// Note that 4294967295 is the largest representable 32 bit uint.
+	testAssert(std::numeric_limits<unsigned int>::max() == 4294967295);
+
+	testParseUnsignedInt("4294967291", 4294967291u);
+	testParseUnsignedInt("4294967292", 4294967292u);
+	testParseUnsignedInt("4294967293", 4294967293u);
+	testParseUnsignedInt("4294967294", 4294967294u);
+	testParseUnsignedInt("4294967295", 4294967295u);
+
+	// Test very large integers that are too large
+	// NOTE: max representable unsigned 32 bit int is 4294967295
+	testFailsToParseUnsignedInt("4294967296");
+	testFailsToParseUnsignedInt("4294967297");
+	testFailsToParseUnsignedInt("4294967298");
+	testFailsToParseUnsignedInt("4294967299");
+	testFailsToParseUnsignedInt("4294967300");
+	testFailsToParseUnsignedInt("4294967301");
+	testFailsToParseUnsignedInt("4294967302");
+	testFailsToParseUnsignedInt("4294967303");
+	testFailsToParseUnsignedInt("4294967304");
+	testFailsToParseUnsignedInt("4294967305");
+
+	testFailsToParseUnsignedInt("1000000000000");
+	testFailsToParseUnsignedInt("1000000000000000");
+
+	
+	//================== parseFloat=======================
+
+	//NOTE: general grammar for floats: [whitespace] [sign] [digits] [.digits] [ {d | D | e | E }[sign]digits]
+	// We do not allow leading whitespace though.
+
+	// Test some failure cases
+	testFailsToParseFloat("");
+	testFailsToParseFloat(" ");
+	testFailsToParseFloat("a");
+	testFailsToParseFloat("aa");
+	testFailsToParseFloat("-");
+	testFailsToParseFloat("+");
+	testFailsToParseFloat("--");
+	testFailsToParseFloat("++");
+	testFailsToParseFloat(" 1");
+	testFailsToParseFloat(" -");
+	testFailsToParseFloat(" +");
+	testFailsToParseFloat(" 1.0");
+
+	// Positive integers
+	testParseFloat("0", 0.0f);
+	testParseFloat("1", 1.0f);
+	testParseFloat("2", 2.0f);
+	testParseFloat("3", 3.0f);
+
+	// Positive integers with leading '+'
+	testParseFloat("+0", 0.0f);
+	testParseFloat("+1", 1.0f);
+	testParseFloat("+2", 2.0f);
+	testParseFloat("+3", 3.0f);
+
+	// Negative integers
+	testParseFloat("-0", -0.0f);
+	testParseFloat("-1", -1.0f);
+	testParseFloat("-2", -2.0f);
+	testParseFloat("-3", -3.0f);
+
+	// Positive floats
+	testParseFloat("0.1", 0.1f);
+	testParseFloat("1.1", 1.1f);
+	testParseFloat("2.1", 2.1f);
+	testParseFloat("3.1", 3.1f);
+
+	// Positive floats with leading +
+	testParseFloat("+0.1", 0.1f);
+	testParseFloat("+1.1", 1.1f);
+	testParseFloat("+2.1", 2.1f);
+	testParseFloat("+3.1", 3.1f);
+
+	// Negative floats
+	testParseFloat("-0.1", -0.1f);
+	testParseFloat("-1.1", -1.1f);
+	testParseFloat("-2.1", -2.1f);
+	testParseFloat("-3.1", -3.1f);
+
+	// 'f' suffix
+	testParseFloat("0.1f", 0.1f);
+	testParseFloat("1.1f", 1.1f);
+	testParseFloat("2.1f", 2.1f);
+	testParseFloat("3.f", 3.f);
+
+	// TODO: this should probably fail to parse:
+	// testFailsToParseFloat("3f");
+
+	// 'F' suffix
+	testParseFloat("0.1F", 0.1F);
+	testParseFloat("1.1F", 1.1F);
+	testParseFloat("2.1F", 2.1F);
+	testParseFloat("3.1F", 3.1F);
+
+	// Check exponent notation
+	testParseFloat("1.23e30", 1.23e30f);
+	testParseFloat("1.23E30", 1.23e30f);
+	testParseFloat("1.23e+30f", 1.23e30f);
+	testParseFloat("1.23E+30F", 1.23e30f);
+	testParseFloat("1.23e-30", 1.23e-30f);
+	testParseFloat("1.23E-30", 1.23e-30f);
+	testParseFloat("1.23e-30f", 1.23e-30f);
+	testParseFloat("1.23E-30F", 1.23e-30f);
+	testParseFloat("-1.23e-30", -1.23e-30f);
+	testParseFloat("-1.23E-30", -1.23e-30f);
+	testParseFloat("-1.23e-30f", -1.23e-30f);
+	testParseFloat("-1.23E-30F", -1.23e-30f);
+
+	//================== parseWhiteSpace =======================
+
+	{
+		const std::string s = "";
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseWhiteSpace());
+		testAssert(p.currentPos() == 0);
+	}
+
+	{
+		const std::string s = " ";
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseWhiteSpace());
+		testAssert(p.currentPos() == 1);
+	}
+
+	{
+		const std::string s = " \t\r\n";
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseWhiteSpace());
+		testAssert(p.currentPos() == 4);
+	}
+
+	{
+		const std::string s = "a";
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseWhiteSpace());
+		testAssert(p.currentPos() == 0);
+	}
+
+	{
+		const std::string s = " a ";
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseWhiteSpace());
+		testAssert(p.currentPos() == 1);
+		testAssert(p.parseChar('a'));
+		testAssert(p.parseWhiteSpace());
+		testAssert(p.currentPos() == 3);
+	}
 
 	/*char buffer[512];
 	conPrint("Doing functionality tests..");
@@ -710,7 +1224,7 @@ void Parser::doUnitTests()
 	}*/
 
 
-	{
+	/*{
 	const std::string text = "123--456222";
 
 	Parser p(text.c_str(), (unsigned int)text.size());
@@ -727,7 +1241,7 @@ void Parser::doUnitTests()
 
 	assert(p.parseNDigitUnsignedInt(3, x));
 	assert(x == 222);
-	}
+	}*/
 
 	{
 	const std::string text = "bleh 123";
@@ -794,7 +1308,8 @@ void Parser::doUnitTests()
 		assert(::epsEqual((float)x, 4e-5f));
 	}
 #endif
+	conPrint("Done.");
 }
 
 
-#endif
+#endif // BUILD_TESTS
