@@ -130,7 +130,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		O_RDONLY);
 
 	if(this->linux_file_handle <= 0)
-		throw Indigo::Exception("File open failed.");
+		throw Indigo::Exception("Failed to open file '" + path + "'");
 
 	this->file_size = lseek(this->linux_file_handle, 0, SEEK_END);
 	lseek(this->linux_file_handle, 0, SEEK_SET);
