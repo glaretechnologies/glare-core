@@ -907,7 +907,9 @@ public:
 
 		for(int v_i = begin; v_i < end; ++v_i)
 		{
-			if((*closure.vert_materials)[v_i]->displacing())
+			const Material* vert_material = (*closure.vert_materials)[v_i];
+
+			if(vert_material != NULL && vert_material->displacing())
 			{
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
@@ -930,6 +932,12 @@ public:
 
 				(*closure.verts_out)[v_i].displacement = displacement;
 				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos + (*closure.verts_in)[v_i].normal * displacement;
+			}
+			else
+			{
+				// No tri or quad references this vert, or the applied material is not displacing.
+				(*closure.verts_out)[v_i].displacement = 0;
+				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos;
 			}
 		}
 	}
