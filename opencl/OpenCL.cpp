@@ -150,7 +150,8 @@ void OpenCL::libraryInit()
 			clGetProgramInfo = opencl_lib.getFuncPointer<clGetProgramInfo_TYPE>("clGetProgramInfo");
 			clGetKernelWorkGroupInfo = opencl_lib.getFuncPointer<clGetKernelWorkGroupInfo_TYPE>("clGetKernelWorkGroupInfo");
 
-			clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
+			// OpenCL 1.0 function deprecated in 1.1.
+			//clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
 			clGetEventProfilingInfo = opencl_lib.getFuncPointer<clGetEventProfilingInfo_TYPE>("clGetEventProfilingInfo");
 			clGetEventInfo = opencl_lib.getFuncPointer<clGetEventInfo_TYPE>("clGetEventInfo");
 			clEnqueueMarker = opencl_lib.getFuncPointer<clEnqueueMarker_TYPE>("clEnqueueMarker");
@@ -201,7 +202,8 @@ void OpenCL::libraryInit()
 	this->clGetProgramInfo = ::clGetProgramInfo;
 	this->clGetKernelWorkGroupInfo = ::clGetKernelWorkGroupInfo;
 
-	this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
+	// OpenCL 1.0 function deprecated in 1.1.
+	//this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
 	this->clGetEventInfo = ::clGetEventInfo;
 	this->clEnqueueMarker = ::clEnqueueMarker;

@@ -168,7 +168,8 @@ public:
 	clGetProgramInfo_TYPE clGetProgramInfo;
 	clGetKernelWorkGroupInfo_TYPE clGetKernelWorkGroupInfo;
 
-	clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
+	// OpenCL 1.0 function deprecated in 1.1.
+	//clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
 	clGetEventInfo_TYPE clGetEventInfo;
 	clEnqueueMarker_TYPE clEnqueueMarker;
