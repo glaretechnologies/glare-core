@@ -158,7 +158,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& 
 	//------------------------------------------------------------------------
 	//test for termination of splitting
 	//------------------------------------------------------------------------
-	const int SPLIT_THRESHOLD = 1;
+	const size_t SPLIT_THRESHOLD = 1;
 	if(nodetris.size() <= SPLIT_THRESHOLD || depth >= maxdepth || cur_aabb.getSurfaceArea() == 0.0f)
 	{
 		// Make this node a leaf node.
@@ -505,7 +505,7 @@ void OldKDTreeBuilder::doBuild(PrintOutput& print_output, bool verbose, KDTree& 
 	AABBox posbox(cur_aabb.min_, cur_aabb.max_);
 	posbox.min_.x[best_axis] = best_div_val;
 
-	if(best_num_in_neg == numtris && best_num_in_pos == numtris)
+	if(best_num_in_neg == (int)numtris && best_num_in_pos == (int)numtris)
 	{
 		// If we were unable to get a reduction in the number of tris in either of the children,
 		// then splitting is pointless.  So make this a leaf node.

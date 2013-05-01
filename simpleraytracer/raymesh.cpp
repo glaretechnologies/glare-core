@@ -683,7 +683,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 	js::Vector<RayMeshTriangle, 16> new_triangles;
 	
 	// For each plane
-	for(int p=0; p<section_planes_os.size(); ++p)
+	for(size_t p=0; p<section_planes_os.size(); ++p)
 	{
 		new_triangles.resize(0);
 

@@ -292,10 +292,12 @@ void PointKDTree::checkLayerLists(const std::vector<Vec3f>& points, LayerInfo& l
 
 		for(size_t z=1; z<layer.axis_points[axis].size(); ++z)
 		{
+#ifndef NDEBUG
 			const uint32 prev_point_index = (layer.axis_points[axis])[z-1].point_index;
 			const uint32 point_index = (layer.axis_points[axis])[z].point_index;
 
 			assert((points[prev_point_index])[axis] <= (points[point_index])[axis]);
+#endif
 		}
 	}
 
@@ -344,7 +346,7 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 
 	const unsigned int num_points = (unsigned int)layer.axis_points[0].size();
 
-#ifdef DEBUG
+#ifndef NDEBUG
 	checkLayerLists(points, layer);
 #endif
 
@@ -364,7 +366,7 @@ void PointKDTree::doBuild(const std::vector<Vec3f>& points, int depth, int max_d
 
 	int best_axis = -1;
 	float best_div_val = -std::numeric_limits<float>::max();
-	float smallest_cost = std::numeric_limits<float>::max();
+	//float smallest_cost = std::numeric_limits<float>::max();
 	float largest_axis_length = -1.0f;
 	uint32 best_point_index = std::numeric_limits<uint32>::max();
 

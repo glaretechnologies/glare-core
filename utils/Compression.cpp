@@ -210,7 +210,7 @@ void Compression::test()
 		testAssert(decompressed.size() == n);
 		for(size_t i=0; i<n; ++i)
 		{
-			testAssert(decompressed[i] == i % 128);
+			testAssert(decompressed[i] == (char)(i % 128));
 		}
 	}
 
