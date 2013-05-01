@@ -101,7 +101,6 @@ private:
 	Vec4f recip_unitdir_f;
 
 	float min_t;
-	float padding[3];
 };
 
 

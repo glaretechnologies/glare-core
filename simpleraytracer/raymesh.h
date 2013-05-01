@@ -73,9 +73,11 @@ private:
 };
 
 
-class RayMeshQuad
+SSE_CLASS_ALIGN RayMeshQuad
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	RayMeshQuad(){}
 	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_, RayMesh_ShadingNormals use_shading_normals) 
 	:	mat_index((mat_index_ << 1) | (uint32)use_shading_normals)
@@ -111,8 +113,6 @@ public:
 
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
-
-	uint32_t padding[2]; // to make structure multiple of 4 32bit ints
 };
 
 
