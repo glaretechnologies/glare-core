@@ -1,6 +1,7 @@
 // Copyright Glare Technologies Limited 2009 -
 #include "stringutils.h"
 
+
 #include "IncludeWindows.h"
 #include <cmath>
 #include <stdarg.h>//NOTE: fixme
@@ -283,28 +284,6 @@ const std::string toHexString(unsigned long long i)
 }
 
 
-const std::string intToString(int i)
-{
-	// Not static for thread-safety.
-	char buffer[16];
-
-	sprintf(buffer, "%i", i);
-
-	return std::string(buffer);
-}
-
-
-const std::string uIntToString(uint32 i)
-{
-	// Not static for thread-safety.
-	char buffer[16];
-
-	sprintf(buffer, "%u", i);
-
-	return std::string(buffer);
-}
-
-
 const std::string floatToString(float f)
 {
 	// Convert double to string with Google's code
@@ -401,17 +380,86 @@ const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 }
 
 
-const std::string toString(unsigned int x)
+// NOTE: Max uint32 is 4294967295. (10 digits)
+static int numDigitsUInt32(uint32 x)
 {
-	char buffer[16];
-
-	sprintf(buffer, "%u", x);
-
-	return std::string(buffer);
+	if(x < 10000u) // if d(x) < 5
+	{
+		if(x < 100u) // if d(x) < 3
+			return x < 10u ? 1 : 2;
+		else // else if d(x) >= 3
+			return x < 1000u ? 3 : 4;
+	}
+	else // else if d(x) >= 5
+	{
+		if(x < 10000000u) // if d(x) < 8  (d(x) e {5, 6, 7})
+			return x < 100000u ? 5 : (x < 1000000u ? 6 : 7);
+		else // else if d(x) >= 8   (d(x) e {8, 9, 10})
+			return x < 100000000u ? 8 : (x < 1000000000u ? 9 : 10);
+	}
 }
 
 
-const std::string toString(uint64 x)
+// NOTE: Max uint64 is 18446744073709551615. (20 digits)
+static int numDigitsUInt64(uint64 x)
+{
+	if(x < 1000000000u) // if d(x) < 10
+	{
+		if(x < 10000u) // if d(x) < 5
+		{
+			if(x < 100) // 3 digits
+				return x < 10u ? 1 : 2;
+			else // else x >= 100
+				return x < 1000u ? 3 : 4;
+		}
+		else // else if d(x) >= 5
+		{
+			if(x < 1000000u) // if d(x) < 7
+				return x < 100000u ? 5 : 6;
+			else // else if d(x) >= 7
+				return x < 10000000u ? 7 : (x < 100000000u ? 8 : 9);
+		}
+	}
+	else // else if d(x) >= 10
+	{
+		if(x < 100000000000000ull) // 15 digits
+		{
+			if(x < 1000000000000ull) // 13 digits
+				return x < 10000000000ull ? 10 : (x < 100000000000ull ? 11 : 12);
+			else // else x >= 1000000000000u
+				return x < 10000000000000ull ? 13 : 14;
+		}
+		else // else if x >= 100000000000000u: (15 digits)
+		{
+			if(x < 100000000000000000ull) // if d(x) < 18
+				return x < 1000000000000000ull ? 15 : (x < 10000000000000000ull ? 16 : 17);
+			else // // if d(x) >= 18
+				return x < 1000000000000000000ull ? 18 : (x < 10000000000000000000ull ? 19 : 20);
+		}
+	}
+}
+
+
+const std::string uInt32ToString(uint32 x)
+{
+	const int num_digits = numDigitsUInt32(x);
+	char buffer[16];
+	int i = num_digits - 1;
+
+	while(i >= 0)
+	{
+		const uint32 x_div_10 = x / 10u;
+		const uint32 last_digit = x - x_div_10*10;
+		buffer[i] = '0' + (char)last_digit;
+		i--;
+		x = x_div_10;
+	}
+
+	return std::string(buffer, buffer + num_digits);
+}
+
+
+const std::string oldUInt64ToString(uint64 x)
 {
 	char buffer[32];
 
@@ -427,7 +475,71 @@ const std::string toString(uint64 x)
 }
 
 
-const std::string toString(int64 x)
+const std::string uInt64ToString(uint64 x)
+{
+	const int num_digits = numDigitsUInt64(x);
+	char buffer[32];
+	int i = num_digits - 1;
+
+	while(i >= 0)
+	{
+		const uint64 x_div_10 = x / 10u;
+		const uint64 last_digit = x - x_div_10*10;
+		buffer[i] = '0' + (char)last_digit;
+		i--;
+		x = x_div_10;
+	}
+
+	return std::string(buffer, buffer + num_digits);
+}
+
+
+const std::string referenceInt32ToString(int32 i)
+{
+	char buffer[16];
+
+	sprintf(buffer, "%i", i);
+
+	return std::string(buffer);
+}
+
+
+const std::string int32ToString(int32 i)
+{
+	if(i >= 0)
+		return uInt32ToString((uint32)i);
+	else
+	{
+		if(i == std::numeric_limits<int32>::min()) // -2147483648 can't be represented as a positive integer.
+		{
+			return "-2147483648";
+		}
+		else
+		{
+			// Write out the number string in a similar way as for toString(uint32), but leave space for a leading '-' character.
+			uint32 x = (uint32)(-i);
+			const int num_digits = numDigitsUInt32(x);
+			char buffer[16];
+			int i = num_digits;
+
+			while(i >= 1)
+			{
+				const uint32 x_div_10 = x / 10u;
+				const uint32 last_digit = x - x_div_10*10;
+				buffer[i] = '0' + (char)last_digit;
+				i--;
+				x = x_div_10;
+			}
+
+			buffer[0] = '-';
+
+			return std::string(buffer, buffer + num_digits + 1);
+		}
+	}
+}
+
+
+const std::string referenceInt64ToString(int64 x)
 {
 	char buffer[32];
 
@@ -440,6 +552,41 @@ const std::string toString(int64 x)
 #endif
 
 	return std::string(buffer);
+}
+
+
+const std::string int64ToString(int64 i)
+{
+	if(i >= 0)
+		return uInt64ToString((uint64)i);
+	else
+	{
+		if(i == std::numeric_limits<int64>::min()) // -9223372036854775808 can't be represented as a positive int64.
+		{
+			return "-9223372036854775808";
+		}
+		else
+		{
+			// Write out the number string in a similar way as for toString(uint64), but leave space for a leading '-' character.
+			uint64 x = (uint64)(-i);
+			const int num_digits = numDigitsUInt64(x);
+			char buffer[32];
+			int i = num_digits;
+
+			while(i >= 1)
+			{
+				const uint64 x_div_10 = x / 10u;
+				const uint64 last_digit = x - x_div_10*10;
+				buffer[i] = '0' + (char)last_digit;
+				i--;
+				x = x_div_10;
+			}
+
+			buffer[0] = '-';
+
+			return std::string(buffer, buffer + num_digits + 1);
+		}
+	}
 }
 
 
@@ -1179,28 +1326,10 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 } // end namespace StringUtils
 
 
-/*template <class Real>
-static inline bool epsEqual(Real a, Real b, Real epsilon = 0.00001f)
-{
-	return fabs(a - b) <= epsilon;
-}*/
-
-
 #if BUILD_TESTS
 
 
-inline static float uintAsFloat(uint32 i)
-{
-	union u_type
-	{
-		float f;
-		uint32 i;
-	};
-
-	u_type u; 
-	u.i = i;
-	return u.f;
-}
+#include "../utils/MTwister.h"
 
 
 void StringUtils::test()
@@ -1322,21 +1451,302 @@ void StringUtils::test()
 	catch(StringUtilsExcep& )
 	{}
 
+	//=========================== Test numDigits() ====================================
+	for(uint32 i=0; i<10; ++i)
+		testAssert(numDigitsUInt32(i) == 1);
+	for(uint32 i=10; i<100; ++i)
+		testAssert(numDigitsUInt32(i) == 2);
+	for(uint32 i=100; i<1000; ++i)
+		testAssert(numDigitsUInt32(i) == 3);
+	for(uint32 i=1000; i<10000; ++i)
+		testAssert(numDigitsUInt32(i) == 4);
+
+	testAssert(numDigitsUInt32(10000u) == 5);
+	testAssert(numDigitsUInt32(99999u) == 5);
+	testAssert(numDigitsUInt32(100000u) == 6);
+	testAssert(numDigitsUInt32(999999u) == 6);
+	testAssert(numDigitsUInt32(1000000u) == 7);
+	testAssert(numDigitsUInt32(9999999u) == 7);
+	testAssert(numDigitsUInt32(10000000u) == 8);
+	testAssert(numDigitsUInt32(99999999u) == 8);
+	testAssert(numDigitsUInt32(100000000u) == 9);
+	testAssert(numDigitsUInt32(999999999u) == 9);
+	testAssert(numDigitsUInt32(1000000000u) == 10);
+	testAssert(numDigitsUInt32(4294967295u) == 10); // max representable uint32
+
+	testAssert((uint32)4294967295u == std::numeric_limits<uint32>::max());
+
+
+	for(uint64 i=0; i<10; ++i)
+		testAssert(numDigitsUInt64(i) == 1);
+	for(uint64 i=10; i<100; ++i)
+		testAssert(numDigitsUInt64(i) == 2);
+	for(uint64 i=100; i<1000; ++i)
+		testAssert(numDigitsUInt64(i) == 3);
+	for(uint64 i=1000; i<10000; ++i)
+		testAssert(numDigitsUInt64(i) == 4);
+
+	testAssert(numDigitsUInt64(10000ull) == 5);
+	testAssert(numDigitsUInt64(99999ull) == 5);
+	testAssert(numDigitsUInt64(100000ull) == 6);
+	testAssert(numDigitsUInt64(999999ull) == 6);
+	testAssert(numDigitsUInt64(1000000ull) == 7);
+	testAssert(numDigitsUInt64(9999999ull) == 7);
+	testAssert(numDigitsUInt64(10000000ull) == 8);
+	testAssert(numDigitsUInt64(99999999ull) == 8);
+	testAssert(numDigitsUInt64(100000000ull) == 9);
+	testAssert(numDigitsUInt64(999999999ull) == 9);
+	testAssert(numDigitsUInt64(1000000000ull) == 10);
+	testAssert(numDigitsUInt64(9999999999ull) == 10);
+	testAssert(numDigitsUInt64(10000000000ull) == 11);
+	testAssert(numDigitsUInt64(99999999999ull) == 11);
+	testAssert(numDigitsUInt64(100000000000ull) == 12);
+	testAssert(numDigitsUInt64(999999999999ull) == 12);
+	testAssert(numDigitsUInt64(1000000000000ull) == 13);
+	testAssert(numDigitsUInt64(9999999999999ull) == 13);
+	testAssert(numDigitsUInt64(10000000000000ull) == 14);
+	testAssert(numDigitsUInt64(99999999999999ull) == 14);
+	testAssert(numDigitsUInt64(100000000000000ull) == 15);
+	testAssert(numDigitsUInt64(999999999999999ull) == 15);
+	testAssert(numDigitsUInt64(1000000000000000ull) == 16);
+	testAssert(numDigitsUInt64(9999999999999999ull) == 16);
+	testAssert(numDigitsUInt64(10000000000000000ull) == 17);
+	testAssert(numDigitsUInt64(99999999999999999ull) == 17);
+	testAssert(numDigitsUInt64(100000000000000000ull) == 18);
+	testAssert(numDigitsUInt64(999999999999999999ull) == 18);
+	testAssert(numDigitsUInt64(1000000000000000000ull) == 19);
+	testAssert(numDigitsUInt64(9999999999999999999ull) == 19);
+	testAssert(numDigitsUInt64(10000000000000000000ull) == 20);
+	testAssert(numDigitsUInt64(18446744073709551615ull) == 20); // max representable uint64
+
+	testAssert((uint64)18446744073709551615ULL == std::numeric_limits<uint64>::max());
+
+	//=========================== Test uInt32ToString() ====================================
+	
+	testAssert(uInt32ToString(1234) == "1234");
+	testAssert(uInt32ToString(0) == "0");
+	testAssert(uInt32ToString(1) == "1");
+	testAssert(uInt32ToString(9) == "9");
+	testAssert(uInt32ToString(10) == "10");
+	testAssert(uInt32ToString(11) == "11");
+	testAssert(uInt32ToString(99) == "99");
+	testAssert(uInt32ToString(100) == "100");
+	testAssert(uInt32ToString(101) == "101");
+	testAssert(uInt32ToString(999) == "999");
+	testAssert(uInt32ToString(1000) == "1000");
+	testAssert(uInt32ToString(1001) == "1001");
+	testAssert(uInt32ToString(9999) == "9999");
+	testAssert(uInt32ToString(10000) == "10000");
+	testAssert(uInt32ToString(10001) == "10001");
+	testAssert(uInt32ToString(99999) == "99999");
+	testAssert(uInt32ToString(100000) == "100000");
+	testAssert(uInt32ToString(100001) == "100001");
+	testAssert(uInt32ToString(999999) == "999999");
+
+	testAssert(uInt32ToString(1234567) == "1234567");
+
+	testAssert(uInt32ToString(1000000) == "1000000");
+	testAssert(uInt32ToString(1000001) == "1000001");
+	testAssert(uInt32ToString(9999999) == "9999999");
+	testAssert(uInt32ToString(10000000) == "10000000");
+	testAssert(uInt32ToString(10000001) == "10000001");
+	testAssert(uInt32ToString(99999999) == "99999999");
+	testAssert(uInt32ToString(100000000) == "100000000");
+	testAssert(uInt32ToString(100000001) == "100000001");
+	testAssert(uInt32ToString(999999999) == "999999999");
+
+	testAssert(uInt32ToString(1000000000) == "1000000000");
+	testAssert(uInt32ToString(1000000001) == "1000000001");
+
+	testAssert(uInt32ToString(4294967294u) == "4294967294");
+	testAssert(uInt32ToString(4294967295u) == "4294967295"); // max representable uint32
+
+
+	//=========================== Test uInt64ToString() ====================================
+	
+	testAssert(uInt64ToString(1234LL) == "1234");
+	testAssert(uInt64ToString(12345671234567LL) == "12345671234567");
+	testAssert(uInt64ToString(0) == "0");
+	testAssert(uInt64ToString(1) == "1");
+	testAssert(uInt64ToString(9) == "9");
+	testAssert(uInt64ToString(10) == "10");
+	testAssert(uInt64ToString(11) == "11");
+	testAssert(uInt64ToString(99) == "99");
+	testAssert(uInt64ToString(100) == "100");
+	testAssert(uInt64ToString(101) == "101");
+	testAssert(uInt64ToString(999) == "999");
+	testAssert(uInt64ToString(1000) == "1000");
+	testAssert(uInt64ToString(1001) == "1001");
+	testAssert(uInt64ToString(9999) == "9999");
+	testAssert(uInt64ToString(10000) == "10000");
+	testAssert(uInt64ToString(10001) == "10001");
+	testAssert(uInt64ToString(99999) == "99999");
+	testAssert(uInt64ToString(100000) == "100000");
+	testAssert(uInt64ToString(100001) == "100001");
+	testAssert(uInt64ToString(999999) == "999999");
+	testAssert(uInt64ToString(1234567) == "1234567");
+	testAssert(uInt64ToString(100000000000ULL) == "100000000000");
+	testAssert(uInt64ToString(100000000001ULL) == "100000000001");
+	testAssert(uInt64ToString(999999999999ULL) == "999999999999");
+	testAssert(uInt64ToString(10000000000000000ULL) == "10000000000000000");
+	testAssert(uInt64ToString(10000000000000001ULL) == "10000000000000001");
+	testAssert(uInt64ToString(99999999999999999ULL) == "99999999999999999");
+	testAssert(uInt64ToString(18446744073709551614ULL) == "18446744073709551614");
+	testAssert(uInt64ToString(18446744073709551615ULL) == "18446744073709551615"); // max representable uint64
+	
+	/*
+	Performance tests
+
+	On Nick's i7 3770:
+	
+	referenceInt32ToString() time: 154.28920611157082 ns
+	int32ToString() time: 45.05886929109693 ns
+	oldUInt64ToString() time: 158.7496156571433 ns
+	uInt64ToString() time: 43.24579276726581 ns
+	per numDigitsUInt64 time: 2.343145606573671 ns
+	randomised per numDigitsUInt64 time: 4.963372484780848 ns
+	*/
+	if(false)
+	{
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				const std::string s = referenceInt32ToString(i);
+				sum += (int)s[0];
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("referenceInt32ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				const std::string s = int32ToString(i);
+				sum += (int)s[0];
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("int32ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				const std::string s = oldUInt64ToString((uint64)i);
+				sum += (int)s[0];
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("oldUInt64ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				const std::string s = uInt64ToString((uint64)i);
+				sum += (int)s[0];
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("uInt64ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				sum += numDigitsUInt64(i);
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("per numDigitsUInt64 time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
+		{
+			const int N = 100000;
+			MTwister rng(1);
+			std::vector<int> v(N);
+			for(int i=0; i<N; ++i)
+				v[i] = (int)(rng.unitRandom() * N);
+
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				sum += numDigitsUInt64(v[i]);
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("randomised per numDigitsUInt64 time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+	}
+
+
+	//===================================== int32ToString() ============================================
+	
+	// Test numbers near to int32 min.
+	for(int32 i=std::numeric_limits<int32>::min(); i != std::numeric_limits<int32>::min() + 1000; ++i)
+		testAssert(int32ToString(i) == referenceInt32ToString(i));
+
+	// Test numbers near to int32 max
+	for(int32 i=std::numeric_limits<int32>::max() - 1000; i != std::numeric_limits<int32>::max(); ++i)
+		testAssert(int32ToString(i) == referenceInt32ToString(i));
+
+	// Test numbers around zero.
+	for(int32 i=-1000; i != 1000; ++i)
+		testAssert(int32ToString(i) == referenceInt32ToString(i));
+
+
+	testAssert(int32ToString(1234567) == "1234567");
+	testAssert(int32ToString(-1234567) == "-1234567");
+	testAssert(int32ToString(0) == "0");
+
+	//===================================== int64ToString() ============================================
+
+	// Test numbers near to int64 min.
+	for(int64 i=std::numeric_limits<int64>::min(); i != std::numeric_limits<int64>::min() + 1000; ++i)
+		testAssert(int64ToString(i) == referenceInt64ToString(i));
+
+	// Test numbers near to int32 max
+	for(int64 i=std::numeric_limits<int32>::max() - 1000; i != std::numeric_limits<int32>::max(); ++i)
+		testAssert(int64ToString(i) == referenceInt64ToString(i));
+
+	// Test numbers around zero.
+	for(int64 i=-1000; i != 1000; ++i)
+		testAssert(int64ToString(i) == referenceInt64ToString(i));
+
+
+	testAssert(int64ToString(1234567) == "1234567");
+	testAssert(int64ToString(-1234567) == "-1234567");
+	testAssert(int64ToString(0) == "0");
 
 
 
 
-	// Test toString()
-	testAssert(toString(1234567) == "1234567");
-	testAssert(toString(-1234567) == "-1234567");
-	testAssert(toString(0) == "0");
 
-	// 64 bit unsigned integer <-> string conversion
-	testAssert(toString((uint64)12345671234567LL) == "12345671234567");
-	testAssert(toString((uint64)0) == "0");
-	testAssert(toString((uint64)1) == "1");
-	testAssert(toString((uint64)1234567) == "1234567");
-	testAssert(toString((uint64)18446744073709551615ULL) == "18446744073709551615"); // max representable uint64
+
+
 
 	testAssert(stringToUInt64("12345671234567") == 12345671234567LL);
 	testAssert(stringToUInt64("0") == 0);

@@ -171,6 +171,6 @@ const std::string IPAddress::toString() const//in form "255.255.255.255
 	unsigned char a, b, c, d;
 	getBytes(a, b, c, d);
 
-	return intToString(a) + "." + intToString(b) + "." + 
-							intToString(c) + "." + intToString(d);
+	return int32ToString(a) + "." + int32ToString(b) + "." + 
+							int32ToString(c) + "." + int32ToString(d);
 }

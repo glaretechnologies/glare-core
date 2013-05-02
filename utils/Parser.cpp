@@ -667,14 +667,14 @@ void Parser::doUnitTests()
 
 	// Test some valid integers with non-numeric chars after integer
 	for(int i=-10000; i<10000; ++i)
-		testParseIntFromLongerString(::intToString(i) + "a", i);
+		testParseIntFromLongerString(::int32ToString(i) + "a", i);
 
 	testParseInt("0", 0);
 	testParseInt("-0", 0);
 	testParseInt("-0", -0);
 
 	for(int i=-10000; i<10000; ++i)
-		testParseInt(::intToString(i), i);
+		testParseInt(::int32ToString(i), i);
 
 	// NOTE: max representable signed 32 bit int is 2147483647
 	testAssert(std::numeric_limits<int>::min() == -2147483647 - 1);
@@ -757,13 +757,13 @@ void Parser::doUnitTests()
 
 	// Test some valid integers with non-numeric chars after integer
 	for(int i=0; i<10000; ++i)
-		testParseUnsignedIntFromLongerString(::intToString(i) + "a", i);
+		testParseUnsignedIntFromLongerString(::int32ToString(i) + "a", i);
 
 	// Test some valid uints
 	testParseInt("0", 0);
 
 	for(int i=0; i<10000; ++i)
-		testParseUnsignedInt(::intToString(i), i);
+		testParseUnsignedInt(::int32ToString(i), i);
 
 	// Test very large integer but valid 32-bit integers
 	// Note that 4294967295 is the largest representable 32 bit uint.

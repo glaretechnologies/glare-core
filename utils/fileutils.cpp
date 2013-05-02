@@ -956,7 +956,7 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 		if(::isAlphaNumeric(name[i]) || name[i] == ' ' || name[i] == '_' || name[i] == '.' || name[i] == '(' || name[i] == ')' || name[i] == '-')
 			r = ::appendChar(r, name[i]); //r[i] = name[i];
 		else
-			r += "_" + intToString(r[i]); //r[i] = '_' + ;
+			r += "_" + int32ToString(r[i]); //r[i] = '_' + ;
 	}
 
 	return r;

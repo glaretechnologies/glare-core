@@ -43,8 +43,10 @@ unsigned long long hexStringTo64UInt(const std::string& s);
 //====================== Number -> String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
 const std::string toHexString(unsigned long long i);//for 64 bit integers
-const std::string intToString(int i);
-const std::string uIntToString(uint32 i);
+const std::string int32ToString(int32 i);
+const std::string int64ToString(int64 i);
+const std::string uInt32ToString(uint32 x);
+const std::string uInt64ToString(uint64 x);
 
 // These functions write the shortest string such that they can be re-read to get the original number.
 const std::string floatToString(float f);
@@ -69,15 +71,26 @@ inline const std::string toString(float f)
 	return floatToString(f);
 }
 
-inline const std::string toString(int i)
+inline const std::string toString(int32 i)
 {
-	return intToString(i);
+	return int32ToString(i);
 }
 
-const std::string toString(unsigned int x);
+inline const std::string toString(int64 i)
+{
+	return int64ToString(i);
+}
 
-const std::string toString(uint64 x);
-const std::string toString(int64 x);
+inline const std::string toString(uint32 x)
+{
+	return uInt32ToString(x);
+}
+
+inline const std::string toString(uint64 x)
+{
+	return uInt64ToString(x);
+}
+
 
 #ifdef OSX
 const std::string toString(size_t x);
@@ -169,7 +182,7 @@ const std::string getTailSubString(const std::string& s, size_t first_char_index
 
 const std::string forceCopyString(const std::string& s);
 
-// Returns as 4.6MB etc.. instead of 46287567B
+// Returns as 4.6 MB etc.. instead of 46287567B
 const std::string getNiceByteSize(uint64 x);
 
 const std::string getPrefixBeforeDelim(const std::string& s, char delim);

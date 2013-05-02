@@ -146,7 +146,7 @@ static void testWithPlaintextLength(int N)
 	conPrint("cyphertext extract: ");
 	for(int i=0; i<myMin(64, (int)cyphertext.size()); ++i)
 	{
-		conPrintStr(intToString(cyphertext[i]) + " ");
+		conPrintStr(int32ToString(cyphertext[i]) + " ");
 		if(i % 16 == 15)
 			conPrint("");
 	}
