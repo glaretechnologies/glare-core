@@ -464,6 +464,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//Init KD-tree, BVH and Embree accel
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
+
 	trees.push_back(new KDTree(&raymesh));
 	trees.back()->build(print_output, true, task_manager);
 
@@ -596,8 +597,10 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	// Test traceRay() with a ray with NaN components
 	// We just want to make sure the trace methods don't crash.  (Embree was crashing on Mac with NaN rays)
+
+	// NOTE: the NaN check is now done in objecttree, so this will crash embree.
 	//------------------------------------------------------------------------
-	const float NaN = std::numeric_limits<float>::quiet_NaN();
+	/*const float NaN = std::numeric_limits<float>::quiet_NaN();
 	const float inf = std::numeric_limits<float>::infinity();
 	const float max_t = 100000.0f;
 	for(size_t t = 0; t < trees.size(); ++t)
@@ -699,7 +702,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		std::vector<DistanceHitInfo> hitinfos;
 		trees[t]->getAllHits(ray, thread_context, NULL, hitinfos);
 		}
-	}
+	}*/
 
 	// Delete trees
 	for(size_t i = 0; i < trees.size(); ++i)

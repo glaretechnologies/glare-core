@@ -73,6 +73,19 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 #endif
 	assertSSEAligned(this);
 	assertSSEAligned(&ray);
+
+	// Embree crashes on OS X (and maybe Linux x64) if the direction component is a NaN.
+	// So if any components of the position or direction are NaN, don't trace.
+	// NOTE: We should check if Embree still crashes when we upgrade to version 1.1.
+#if !defined(_WIN32)
+	if( !::isFinite(p.x[0]) || !::isFinite(p.x[1]) || !::isFinite(p.x[2]) ||
+		!::isFinite(d.x[0]) || !::isFinite(d.x[1]) || !::isFinite(d.x[2]))
+	{
+		hitob_out = NULL;
+		return -1.0f;
+	}
+#endif
+
 	assert(ray.unitDir().isUnitLength());
 
 	//assert(!thread_context.in_object_tree_traversal);
