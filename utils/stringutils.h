@@ -1,6 +1,8 @@
-/*===================================================================
-Copyright Glare Technologies Limited 2012 -
-====================================================================*/
+/*=====================================================================
+stringutils.h
+-------------------
+Copyright Glare Technologies Limited 2013 -
+=====================================================================*/
 #pragma once
 
 
@@ -21,28 +23,23 @@ private:
 };
 
 
-//====================== String -> Number conversion ======================
+//====================== String to Number conversion ======================
 // These functions ignore the current locale.  Decimal seperator is always considered to be '.'.
+
 float stringToFloat(const std::string& s); // throws StringUtilsExcep
 double stringToDouble(const std::string& s); // throws StringUtilsExcep
 
 int stringToInt(const std::string& s); // throws StringUtilsExcep
 uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
-
-inline const std::string toString(char c)
-{
-	return std::string(1, c);
-}
-
-
 unsigned int hexCharToUInt(char c);
 unsigned int hexStringToUInt(const std::string& s);
 unsigned long long hexStringTo64UInt(const std::string& s);
 
-//====================== Number -> String conversion ======================
+//====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
 const std::string toHexString(unsigned long long i);//for 64 bit integers
+
 const std::string int32ToString(int32 i);
 const std::string int64ToString(int64 i);
 const std::string uInt32ToString(uint32 x);
@@ -96,10 +93,14 @@ inline const std::string toString(uint64 x)
 const std::string toString(size_t x);
 #endif
 
-const std::string boolToString(bool b);
+//====================== End Number -> String conversion ======================
 
-//get line, where the first line is line number 1!
-const std::string getLineFromText(int linenum, const char* textbuffer, int textbufferlength);
+inline const std::string toString(char c)
+{
+	return std::string(1, c);
+}
+
+const std::string boolToString(bool b);
 
 inline bool isWhitespace(char c)
 {
@@ -147,19 +148,6 @@ const std::string eatPrefix(const std::string& s, const std::string& prefix);
 const std::string eatSuffix(const std::string& s, const std::string& suffix);
 
 int getNumMatches(const std::string& s, char target);
-
-void tokenise(const std::string& text, std::vector<std::string>& tokens_out);
-
-//bool containsString(const std::string& text, const std::string& target_string);
-
-// Can handle multiple words in quotes
-void readInToken(std::istream& stream, std::string& str_out);
-
-void readQuote(std::istream& stream, std::string& str_out); // Reads string from between double quotes.
-void writeToQuote(std::ostream& stream, const std::string& str); // Writes string to between double quotes.
-
-unsigned int stringChecksum(const std::string& s);
-
 
 // Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest);
@@ -212,13 +200,12 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 const std::string getLineFromBuffer(const std::string& str, unsigned int charindex);
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 const std::wstring UTF8ToWString(const std::string& s);
 const std::string WToUTF8String(const std::wstring& s);
 #endif
 
- //  && !defined(__MINGW32__)
-#if (defined(_WIN32) || defined(_WIN64))
+#if defined(_WIN32)
 inline const std::wstring UTF8ToPlatformUnicodeEncoding(const std::string& s) { return UTF8ToWString(s); }
 inline const std::string PlatformToUTF8UnicodeEncoding(const std::wstring& s) { return WToUTF8String(s); }
 #else
@@ -231,6 +218,10 @@ inline const std::string PlatformToUTF8UnicodeEncoding(const std::string& s) { r
 const std::string replaceCharacter(const std::string& s, char src, char dest);
 
 const std::vector<unsigned char> convertHexToBinary(const std::string& hex);
+const std::string convertByteArrayToHexString(const std::vector<unsigned char>& bytes);
+
+const std::vector<unsigned char> stringToByteArray(const std::string& s);
+const std::string byteArrayToString(const std::vector<unsigned char>& bytes);
 
 
 void test();

@@ -1,21 +1,18 @@
-// Copyright Glare Technologies Limited 2009 -
+/*=====================================================================
+stringutils.cpp
+-------------------
+Copyright Glare Technologies Limited 2013 -
+=====================================================================*/
 #include "stringutils.h"
 
 
 #include "IncludeWindows.h"
+#include "../maths/mathstypes.h"
+#include "../double-conversion/double-conversion.h"
 #include <cmath>
-#include <stdarg.h>//NOTE: fixme
 #include <stdlib.h>
 #include <stdio.h>
-#include <clocale>
-#include "../utils/timer.h"
-#include "../maths/mathstypes.h"
-#include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
-#include "../double-conversion/double-conversion.h"
 #include <limits>
-#include <istream>
-
 
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep
@@ -380,9 +377,11 @@ const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 }
 
 
+// Returns the number of digits in the base-10 representation of x.
 // NOTE: Max uint32 is 4294967295. (10 digits)
 static int numDigitsUInt32(uint32 x)
 {
+	// Let d(x) be the number of digits in the base-10 representation of x.
 	if(x < 10000u) // if d(x) < 5
 	{
 		if(x < 100u) // if d(x) < 3
@@ -400,16 +399,18 @@ static int numDigitsUInt32(uint32 x)
 }
 
 
+// Returns the number of digits in the base-10 representation of x.
 // NOTE: Max uint64 is 18446744073709551615. (20 digits)
 static int numDigitsUInt64(uint64 x)
 {
+	// Let d(x) be the number of digits in the base-10 representation of x.
 	if(x < 1000000000u) // if d(x) < 10
 	{
 		if(x < 10000u) // if d(x) < 5
 		{
-			if(x < 100) // 3 digits
+			if(x < 100) // if d(x) < 3
 				return x < 10u ? 1 : 2;
-			else // else x >= 100
+			else // else d(x) >= 3
 				return x < 1000u ? 3 : 4;
 		}
 		else // else if d(x) >= 5
@@ -422,14 +423,14 @@ static int numDigitsUInt64(uint64 x)
 	}
 	else // else if d(x) >= 10
 	{
-		if(x < 100000000000000ull) // 15 digits
+		if(x < 100000000000000ull) // if d(x) < 15
 		{
-			if(x < 1000000000000ull) // 13 digits
+			if(x < 1000000000000ull) // if d(x) < 13
 				return x < 10000000000ull ? 10 : (x < 100000000000ull ? 11 : 12);
-			else // else x >= 1000000000000u
+			else // else d(x) >= 13
 				return x < 10000000000000ull ? 13 : 14;
 		}
-		else // else if x >= 100000000000000u: (15 digits)
+		else // else if d(x) >= 15
 		{
 			if(x < 100000000000000000ull) // if d(x) < 18
 				return x < 1000000000000000ull ? 15 : (x < 10000000000000000ull ? 16 : 17);
@@ -607,74 +608,11 @@ const std::string boolToString(bool b)
 }
 
 
-const std::string getLineFromText(int linenum, const char* textbuffer, int textbufferlength)
-{
-	assert(linenum >= 1);
-	assert(textbuffer);
-	assert(textbufferlength >= 0);
-
-	//-----------------------------------------------------------------
-	//go through text to 1st char after 'linenum' - 1 newlines
-	//-----------------------------------------------------------------
-	int curline = 1;
-	int pos = 0;
-	if(linenum > 1)
-	{
-		for(int i=0; i<textbufferlength; i++)
-		{
-			const char currentchar = textbuffer[i];
-			if(currentchar == '\n')
-			{
-				curline++;
-
-				if(curline == linenum)
-				{
-					pos = i;//save position of the '\n'
-					break;
-				}
-			}
-		}
-	}
-
-
-	pos++;//move to char after the '\n'
-
-	if(curline < linenum)
-		return "---no such line---";
-
-	std::string linestring;
-
-	for(int i=pos; i<textbufferlength; i++)
-	{
-		const char currentchar = textbuffer[i];
-
-		if(currentchar == '\n')
-			break;
-
-		linestring += textbuffer[i];
-	}
-
-	assert(linestring.size() >= 1);
-
-	//linestring.resize( linestring.size() - 1);
-		//just lop off the last char
-
-	//NOTE: lop off the cariage return here?
-
-	return linestring;
-}
-
-
 const std::string stripHeadWhitespace(const std::string& text)
 {
 	for(unsigned int i=0; i<text.size(); i++)
-	{
 		if(!isWhitespace(text[i]))
-		{
-			// Non-whitespace starts here
-			return text.substr(i, text.size() - i);
-		}
-	}
+			return text.substr(i, text.size() - i); // Non-whitespace starts here
 
 	// If got here, everything was whitespace.
 	return "";
@@ -683,14 +621,9 @@ const std::string stripHeadWhitespace(const std::string& text)
 
 const std::string stripTailWhitespace(const std::string& text)
 {
-	for(int i=(int)text.size() - 1; i>=0; --i)//work backwards thru chars
-	{
+	for(int i=(int)text.size() - 1; i>=0; --i) // Work backwards through characters
 		if(!isWhitespace(text[i]))
-		{
-			// Non-whitespace ends here.
-			return text.substr(0, i+1);
-		}
-	}
+			return text.substr(0, i+1); // Non-whitespace ends here.
 
 	// If got here, everything was whitespace.
 	return "";
@@ -699,12 +632,11 @@ const std::string stripTailWhitespace(const std::string& text)
 
 const std::string stripWhitespace(const std::string& s)
 {
+	// NOTE: this could be a lot faster.
 	std::string out;
 	for(size_t i=0; i<s.size(); ++i)
-	{
 		if(!::isWhitespace(s[i]))
 			out += std::string(1, s[i]);
-	}
 	return out;
 }
 
@@ -811,11 +743,7 @@ bool hasExtension(const std::string& file, const std::string& extension)
 	if(file.length() < extension.length() + 1)
 		return false;
 
-	if(toUpperCase(file.substr(file.length() - dot_plus_extension.length(), dot_plus_extension.length()))
-			== dot_plus_extension)
-		return true;
-	else
-		return false;
+	return toUpperCase(file.substr(file.length() - dot_plus_extension.length(), dot_plus_extension.length())) == dot_plus_extension;
 }
 
 
@@ -884,53 +812,6 @@ int getNumMatches(const std::string& s, char target)
 }
 
 
-void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
-{
-	unsigned int i = 0;
-
-	while(1)
-	{
-		//-----------------------------------------------------------------
-		//read in token
-		//-----------------------------------------------------------------
-
-		//-----------------------------------------------------------------
-		//eat whitespace
-		//-----------------------------------------------------------------
-		while(1)
-		{
-			if(i >= text.length())//eof
-				return;
-
-			if(!isWhitespace(text[i]))//got to a non-whitespace char
-				break;
-
-			i++;
-		}
-
-		//-----------------------------------------------------------------
-		//read token
-		//-----------------------------------------------------------------
-		std::string token;
-		while(1)
-		{
-			if(i >= text.size() || isWhitespace(text[i]))
-			{
-				//-----------------------------------------------------------------
-				//end of token
-				//-----------------------------------------------------------------
-				tokens_out.push_back(token);
-				break;
-			}
-
-			token += text[i];
-			i++;
-		}
-
-	}
-}
-
-
 /*bool containsString(const std::string& text, const std::string& target_string)
 {
 	const int lengthdif = (int)text.length() - (int)target_string.length();
@@ -948,95 +829,7 @@ void tokenise(const std::string& text, std::vector<std::string>& tokens_out)
 }*/
 
 
-void readInToken(std::istream& stream, std::string& str_out)
-{
-	//NOTE: untested
-
-	stream >> str_out;
-
-	if(str_out.size() >= 1 && str_out[0] == '\"')
-	{
-		//-----------------------------------------------------------------
-		//keep on reading shit in until we hit another "
-		//-----------------------------------------------------------------
-		int loopcount = 0;//avoid infinite loops
-		while(stream && loopcount < 1000)
-		{
-			std::string nextword;
-			stream >> nextword;
-
-			str_out += " ";
-			str_out += nextword;
-
-			if(nextword.size() == 0 || nextword.find_first_of('\"') != std::string::npos)
-			{
-				break;
-			}
-		}
-	}
-}
-
-
-void readQuote(std::istream& stream, std::string& str_out)//reads string from between double quotes.
-{
-	stream >> str_out;
-	if(str_out.empty() || str_out[0] != '\"')
-		return;
-
-	str_out = getTailSubString(str_out, 1);//lop off quote
-
-	if(::hasSuffix(str_out, "\""))
-	{
-		str_out = str_out.substr(0, str_out.size() - 1);
-		return;
-	}
-
-	//------------------------------------------------------------------------
-	//read thru char by char until hit next quote
-	//------------------------------------------------------------------------
-	while(stream.good())
-	{
-		char c;
-		stream.get(c);
-
-		if(c == '\"')
-			break;
-
-		::concatWithChar(str_out, c);
-	}
-
-	/*readInToken(stream, str_out);
-
-	assert(str_out[0] == '\"' && str_out[(int)str_out.size() - 1] == '\"');
-
-	//---------------------------------------------------------------------------
-	//lop off the quotes
-	//---------------------------------------------------------------------------
-	str_out = str_out.substr(1, (int)str_out.size() - 2);*/
-}
-
-
-void writeToQuote(std::ostream& stream, const std::string& str)//writes string to between double quotes.
-{
-	stream << '\"';
-	stream << str;
-	stream << '\"';
-}
-
-
-/*unsigned int stringChecksum(const std::string& s)
-{
-	int sum = 1;
-	for(int i=0; i<s.size(); ++i)
-	{
-		sum *= 1 + (unsigned int)s[i] + i;
-	}
-
-	return sum;
-}*/
-
-
-//replaces all occurences of src with dest in string s.
+// Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest)
 {
 	for(unsigned int i=0; i<s.size(); ++i)
@@ -1231,7 +1024,49 @@ const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
 }
 
 
-#if defined(_WIN32) || defined(_WIN64)
+const std::string convertByteArrayToHexString(const std::vector<unsigned char>& bytes)
+{
+	std::string res;
+	res.resize(bytes.size() * 2);
+	for(size_t i=0; i<bytes.size(); ++i)
+	{
+		unsigned char b = bytes[i];
+		unsigned char upper_nibble = (b & 0xF0u) >> 4;
+		unsigned char lower_nibble = b & 0x0Fu;
+		if(upper_nibble < 10)
+			res[i*2] = '0' + (char)upper_nibble;
+		else
+			res[i*2] = 'a' + (char)upper_nibble - 10;
+
+		if(lower_nibble < 10)
+			res[i*2+1] = '0' + (char)lower_nibble;
+		else
+			res[i*2+1] = 'a' + (char)lower_nibble - 10;
+	}
+	return res;
+}
+
+
+const std::vector<unsigned char> stringToByteArray(const std::string& s)
+{
+	std::vector<unsigned char> bytes(s.size());
+	for(size_t i=0; i<s.size(); ++i)
+		bytes[i] = s[i];
+	return bytes;
+}
+
+
+const std::string byteArrayToString(const std::vector<unsigned char>& bytes)
+{
+	std::string s;
+	s.resize(bytes.size());
+	for(size_t i=0; i<bytes.size(); ++i)
+		s[i] = bytes[i];
+	return s; 
+}
+
+
+#if defined(_WIN32)
 const std::wstring UTF8ToWString(const std::string& s)
 {
 	assert(s.size() + 1 < (size_t)std::numeric_limits<int>::max());
@@ -1320,7 +1155,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 
 	return std::string(buffer.begin(), buffer.end() - 1);
 }
-#endif
+#endif // defined(_WIN32)
 
 
 } // end namespace StringUtils
@@ -1330,11 +1165,14 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 
 
 #include "../utils/MTwister.h"
+#include "../utils/timer.h"
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
 
 
 void StringUtils::test()
 {
-	// Test stripHeadWhitespace
+	//==================================== Test stripHeadWhitespace ====================================
 	testAssert(stripHeadWhitespace("a") == "a");
 	testAssert(stripHeadWhitespace("a ") == "a ");
 	testAssert(stripHeadWhitespace("a  ") == "a  ");
@@ -1345,7 +1183,7 @@ void StringUtils::test()
 	testAssert(stripHeadWhitespace(" ") == "");
 	testAssert(stripHeadWhitespace("  ") == "");
 
-	// Test stripTailWhitespace
+	//==================================== Test stripTailWhitespace ====================================
 	testAssert(stripTailWhitespace("a") == "a");
 	testAssert(stripTailWhitespace(" a") == " a");
 	testAssert(stripTailWhitespace("  a") == "  a");
@@ -1357,7 +1195,7 @@ void StringUtils::test()
 	testAssert(stripTailWhitespace(" ") == "");
 	testAssert(stripTailWhitespace("  ") == "");
 
-
+	//==================================== floatToString ====================================
 	{
 		std::string s = floatToString(123.4567f);
 		testAssert(s == "123.4567");
@@ -1451,7 +1289,7 @@ void StringUtils::test()
 	catch(StringUtilsExcep& )
 	{}
 
-	//=========================== Test numDigits() ====================================
+	//==================================== Test numDigits() ====================================
 	for(uint32 i=0; i<10; ++i)
 		testAssert(numDigitsUInt32(i) == 1);
 	for(uint32 i=10; i<100; ++i)
@@ -1788,7 +1626,7 @@ void StringUtils::test()
 	}
 
 
-	// =========== test concatWithChar() ================
+	// ==================================== test concatWithChar() ====================================
 	{
 		std::string s = "a";
 		concatWithChar(s, 'b');
@@ -1835,7 +1673,7 @@ void StringUtils::test()
 
 
 	// Test WToUTF8String and UTF8ToWString.
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	{
 		// const int a = sizeof(wchar_t);
 
@@ -2073,4 +1911,4 @@ void StringUtils::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
