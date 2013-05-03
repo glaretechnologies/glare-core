@@ -78,8 +78,8 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	// So if any components of the position or direction are NaN, don't trace.
 	// NOTE: We should check if Embree still crashes when we upgrade to version 1.1.
 #if !defined(_WIN32)
-	if( !::isFinite(p.x[0]) || !::isFinite(p.x[1]) || !::isFinite(p.x[2]) ||
-		!::isFinite(d.x[0]) || !::isFinite(d.x[1]) || !::isFinite(d.x[2]))
+	if( !::isFinite(ray.startPos().x[0]) || !::isFinite(ray.startPos().x[1]) || !::isFinite(ray.startPos().x[2]) ||
+		!::isFinite(ray.unitDir() .x[0]) || !::isFinite(ray.unitDir() .x[1]) || !::isFinite(ray.unitDir() .x[2]))
 	{
 		hitob_out = NULL;
 		return -1.0f;
@@ -1147,6 +1147,7 @@ bool ObjectTree::doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const 
 
 	const Vec4f origin(0,0,0,1.f);
 
+
 	for(unsigned int i=0; i<8; ++i) // For each corner of 'aabb'
 	{
 		const unsigned int x = i & 0x1;
@@ -1417,6 +1418,7 @@ ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;
+
 			hitob_out = objects[i];
 			closest_dist = dist;
 		}
