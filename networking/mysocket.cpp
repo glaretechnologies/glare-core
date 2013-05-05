@@ -566,6 +566,19 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 }
 
 
+size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
+{
+	const int numbytesread = recv(sockethandle, (char*)buffer, (int)max_num_bytes, 0);
+
+	if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+		throw MySocketExcep("Read failed, error: " + Networking::getError());
+	else if(numbytesread == 0) // Connection was closed gracefully
+		throw MySocketExcep("Connection Closed.");
+
+	return (size_t)numbytesread;
+}
+
+
 void MySocket::readTo(void* buffer, size_t readlen, SocketShouldAbortCallback* should_abort_callback)
 {
 	readTo(buffer, readlen, NULL, should_abort_callback);

@@ -111,6 +111,10 @@ public:
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	void waitForGracefulDisconnect();
 
+	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
+	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
+
+
 	void readTo(void* buffer, size_t numbytes, SocketShouldAbortCallback* should_abort_callback);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback);
 
