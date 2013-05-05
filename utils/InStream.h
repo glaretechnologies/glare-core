@@ -30,7 +30,10 @@ public:
 	virtual void readData(void* buf, size_t num_bytes) = 0;
 
 	// Read double
-	virtual double readDouble();
+	double readDouble();
+
+	// Read uint64
+	uint64 readUInt64();
 
 	// Are we at the end of the stream?  If the stream has no natural end (e.g. a socket connection) then returns false.
 	virtual bool endOfStream() = 0;

@@ -14,6 +14,16 @@ double InStream::readDouble()
 	return x;
 }
 
+
+// Read uint64
+uint64 InStream::readUInt64()
+{
+	uint64 x;
+	readData(&x, sizeof(x));
+	return x;
+}
+
+
 const std::string InStream::readStringLengthFirst()
 {
 	// Read string byte size

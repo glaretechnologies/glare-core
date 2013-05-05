@@ -29,5 +29,6 @@ public:
 	// Write a string.  Must be less than 2^32 bytes long.
 	virtual void writeStringLengthFirst(const std::string& s);
 
+	virtual void writeUInt64(uint64 x);
 	virtual void writeDouble(double x);
 };
