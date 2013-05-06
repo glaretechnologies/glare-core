@@ -41,8 +41,6 @@ Code By Nicholas Chapman.
 #include <cassert>
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
-#include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
 #include <cstdlib>
 #include <algorithm>
 
@@ -373,7 +371,7 @@ const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback() 
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&)
 	{
-		conPrint("WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'.");
+		//conPrint("WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'.");
 		return "dummy_appdata";
 	}
 }
@@ -746,7 +744,13 @@ void PlatformUtils::getOSXVersion(int32& majorVersion, int32& minorVersion, int3
 #endif
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
+
+
 void PlatformUtils::testPlatformUtils()
 {
 
@@ -767,4 +771,6 @@ void PlatformUtils::testPlatformUtils()
 		testAssert(!"test Failed.");
 	}
 }
-#endif
+
+
+#endif // BUILD_TESTS

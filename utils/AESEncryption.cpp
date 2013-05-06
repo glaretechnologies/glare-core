@@ -107,7 +107,7 @@ std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned cha
 		throw Indigo::Exception("EVP_DecryptFinal_ex failed.");
 
 	int len = plaintext_len + final_len;
-	assert(len <= plaintext.size());
+	assert(len <= (int)plaintext.size());
 	plaintext.resize(len);
 	return plaintext;
 }

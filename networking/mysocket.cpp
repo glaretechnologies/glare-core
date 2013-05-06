@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "networking.h"
 #include "fractionlistener.h"
-#include "../maths/vec3.h"
+#include "../maths/mathstypes.h"
 #include "../utils/stringutils.h"
 #include "../utils/mythread.h"
 #include "../utils/platformutils.h"

@@ -27,7 +27,7 @@ public:
 	)
 	{
 		if(message_text.empty())
-			hash(NULL, NULL, digest_out);
+			hash(0, 0, digest_out);
 		else
 			hash(&(*message_text.begin()), &(*message_text.begin()) + message_text.size(), digest_out);
 	}

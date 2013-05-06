@@ -23,8 +23,6 @@ Code By Nicholas Chapman.
 #include <stdlib.h>
 #include <assert.h>
 #include "stringutils.h"
-#include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "platformutils.h"
@@ -1056,6 +1054,8 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 
 
 #include "platformutils.h"
+#include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
 
 
 namespace FileUtils

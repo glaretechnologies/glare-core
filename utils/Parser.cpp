@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2013 -
 #include "Parser.h"
 
 
-#include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
 #include "../maths/mathstypes.h"
@@ -494,8 +493,9 @@ bool Parser::parseString(const std::string& s)
 #if BUILD_TESTS
 
 
-#include "../double-conversion/double-conversion.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
+#include "../double-conversion/double-conversion.h"
 
 
 static void testFailsToParseInt(const std::string& s)
@@ -767,7 +767,7 @@ void Parser::doUnitTests()
 
 	// Test very large integer but valid 32-bit integers
 	// Note that 4294967295 is the largest representable 32 bit uint.
-	testAssert(std::numeric_limits<unsigned int>::max() == 4294967295);
+	testAssert(std::numeric_limits<unsigned int>::max() == 4294967295u);
 
 	testParseUnsignedInt("4294967291", 4294967291u);
 	testParseUnsignedInt("4294967292", 4294967292u);

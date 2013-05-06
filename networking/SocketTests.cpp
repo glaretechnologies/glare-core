@@ -13,6 +13,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
 
 
 #if BUILD_TESTS

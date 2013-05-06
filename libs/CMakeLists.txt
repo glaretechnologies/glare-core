@@ -63,7 +63,20 @@ ${tiffdir}/tif_unix.c ${tiffdir}/tif_version.c ${tiffdir}/tif_warning.c ${tiffdi
 
 FILE(GLOB lua "../../../lua-5.1.4/src/*.c")
 
-FILE(GLOB zlib "../${zlibdir}/*.c")
+set(zlib
+../${zlibdir}/adler32.c
+../${zlibdir}/compress.c
+../${zlibdir}/crc32.c
+../${zlibdir}/deflate.c
+../${zlibdir}/infback.c
+../${zlibdir}/inffast.c
+../${zlibdir}/inflate.c
+../${zlibdir}/inftrees.c
+../${zlibdir}/trees.c
+../${zlibdir}/uncompr.c
+../${zlibdir}/zutil.c
+)
+
 SET(minizip "../${zlibdir}/contrib/minizip/ioapi.c"
 "../${zlibdir}/contrib/minizip/unzip.c"
 "../${zlibdir}/contrib/minizip/zip.c")

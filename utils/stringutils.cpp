@@ -1164,7 +1164,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 #if BUILD_TESTS
 
 
-#include "../utils/MTwister.h"
+//#include "../utils/MTwister.h"
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
@@ -1520,7 +1520,7 @@ void StringUtils::test()
 			conPrint("per numDigitsUInt64 time: " + toString(1.0e9 * elapsed / N) + " ns");
 		}
 
-		{
+		/*{
 			const int N = 100000;
 			MTwister rng(1);
 			std::vector<int> v(N);
@@ -1537,7 +1537,7 @@ void StringUtils::test()
 			double elapsed = timer.elapsed();
 			printVar(sum);
 			conPrint("randomised per numDigitsUInt64 time: " + toString(1.0e9 * elapsed / N) + " ns");
-		}
+		}*/
 	}
 
 
