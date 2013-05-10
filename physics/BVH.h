@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 
 #include "BVHNode.h"
 #include "jscol_Tree.h"
-#include "jscol_Intersectable.h"
 //#include "jscol_BadouelTri.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
@@ -46,11 +45,9 @@ public:
 	virtual uint32 checksum() { return 0; }
 
 
-	//intersectable interface
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "BVH"; }
-	//end
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 

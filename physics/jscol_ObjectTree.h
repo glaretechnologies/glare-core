@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 
 #include "../maths/SSE.h"
 #include "../indigo/object.h"
-#include "jscol_Intersectable.h"
 #include "ObjectTreeNode.h"
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"

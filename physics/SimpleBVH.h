@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 
 #include "SimpleBVHNode.h"
 #include "jscol_Tree.h"
-#include "jscol_Intersectable.h"
 #include "jscol_BadouelTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
@@ -41,11 +40,9 @@ public:
 	virtual uint32 checksum() { return 0; }
 
 
-	//intersectable interface
 	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "BVH"; }
-	//end
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual bool doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const;

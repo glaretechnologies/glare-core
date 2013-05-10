@@ -9,7 +9,6 @@ Code By Nicholas Chapman.
 
 #include "jscol_Tree.h"
 #include "jscol_BIHTreeNode.h"
-#include "jscol_Intersectable.h"
 #include "jscol_BadouelTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"

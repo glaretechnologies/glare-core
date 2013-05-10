@@ -1,22 +1,13 @@
 /*=====================================================================
 geometry.h
 ----------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Wed Apr 14 21:19:37 2004
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
 =====================================================================*/
-#ifndef __GEOMETRY_H_666_
-#define __GEOMETRY_H_666_
+#pragma once
 
 
 #include "../maths/vec2.h"
-#include "../maths/coordframe.h"
 #include "../maths/plane.h"
 #include "../physics/jscol_aabbox.h"
 #include "../utils/RefCounted.h"
@@ -24,16 +15,11 @@ You may *not* use this code for any commercial project.
 #include "../indigo/SampleTypes.h"
 #include "../raytracing/hitinfo.h"
 #include <vector>
-#include <map>
 class Ray;
-class RayBundle;
 class World;
-class PointTree;
-class PhotonHit;
 class HitInfo;
 class FullHitInfo;
 class DistanceHitInfo;
-class PerThreadData;
 class Object;
 class RendererSettings;
 class ThreadContext;
@@ -59,16 +45,9 @@ Geometry
 --------
 interface that represents the shape of an object
 =====================================================================*/
-SSE_CLASS_ALIGN Geometry : /*public js::Intersectable, */public RefCounted, public TexCoordEvaluator
+SSE_CLASS_ALIGN Geometry : public RefCounted, public TexCoordEvaluator
 {
 public:
-	//INDIGO_ALIGNED_NEW_DELETE
-
-	/*=====================================================================
-	Geometry
-	--------
-	
-	=====================================================================*/
 	Geometry() : object_usage_count(0) {}
 	virtual ~Geometry(){}
 
@@ -77,7 +56,7 @@ public:
 	typedef float Vec3RealType;
 	typedef float Real;
 	typedef double DistType;
-	typedef Vec4f Vec3Type; //Vec3<Vec3RealType> Vec3Type;
+	typedef Vec4f Vec3Type;
 	
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const = 0;
@@ -86,7 +65,6 @@ public:
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
-	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const = 0;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
@@ -101,16 +79,11 @@ public:
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' alpha and beta.
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const = 0;
 	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const = 0;
-	//returns true if could construct a suitable basis
-	//virtual bool getTangents(const FullHitInfo& hitinfo, unsigned int texcoord_set, Vec3d& tangent_out, Vec3d& bitangent_out) const;
+	
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 
-	//virtual void emitterInit() = 0;
-	//virtual const Vec3d sampleSurface(const Vec2d& samples, const Vec3d& viewer_point, Vec3d& normal_out, HitInfo& hitinfo_out) const = 0;
-	//virtual double surfacePDF(const Vec3d& pos, const Vec3d& normal, const Matrix3d& to_parent) const = 0; // PDF with respect to surface area metric, in parent space
-	//virtual double surfaceArea(const Matrix3d& to_parent) const = 0; //get surface area in parent space
 	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const = 0;
-	//virtual unsigned int getNumSubElems() const = 0;
+	
 	// Sample the surface of the given sub-element.
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out) const = 0;
 
@@ -128,7 +101,6 @@ public:
 
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const = 0;
-	//virtual double subElementSamplingPDF(unsigned int sub_elem_index) const = 0;
 
 	virtual bool isEnvSphereGeometry() const = 0;
 	virtual bool areSubElementsCurved() const = 0; // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
@@ -141,8 +113,6 @@ public:
 
 	virtual Vec3RealType getBoundingRadius() const = 0;
 
-	//virtual const Vec3Type positionForHitInfo(const HitInfo& hitinfo, Real& pos_os_rel_error_out) const = 0;
-
 	virtual Real positionForInstrinsicCoordsJacobian(unsigned int sub_elem_index) const { return 1; }
 
 	void incrementObjectUsageCount() { object_usage_count++; }
@@ -152,5 +122,3 @@ private:
 	unsigned int object_usage_count; // Number of objects that use this geometry.
 };
 
-
-#endif //__GEOMETRY_H_666_

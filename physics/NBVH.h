@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 
 #include "NBVHNode.h"
 #include "jscol_Tree.h"
-#include "jscol_Intersectable.h"
 #include "jscol_BadouelTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"

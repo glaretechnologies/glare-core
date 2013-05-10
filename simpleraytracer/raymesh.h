@@ -175,9 +175,7 @@ public:
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	//virtual const std::string debugName() const;
 	
-	//virtual const Vec3Type getShadingNormal(const HitInfo& hitinfo) const;
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_error_out, Real& curvature_out) const;
@@ -188,7 +186,6 @@ public:
 
 	virtual void getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& m_out) const;
 
-	//virtual void getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& m_out) const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
 	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const;

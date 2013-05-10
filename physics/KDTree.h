@@ -14,7 +14,6 @@ Code By Nicholas Chapman.
 #include "KDTreeNode.h"
 #include "jscol_aabbox.h"
 #include "jscol_StackFrame.h"
-#include "jscol_Intersectable.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/SSE.h"
 #include "../maths/vec3.h"
