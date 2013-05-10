@@ -54,8 +54,6 @@ public:
 		unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	//bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const Object* ignore_object, unsigned int ignore_tri) const;
-
 	void build(PrintOutput& print_output, bool verbose);
 
 private:

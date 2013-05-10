@@ -22,7 +22,6 @@ public:
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;

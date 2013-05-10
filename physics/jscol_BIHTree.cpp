@@ -878,15 +878,6 @@ void BIHTree::getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriT
 }
 
 
-bool BIHTree::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
-{
-	//NOTE: can speed this up
-	HitInfo hitinfo;
-	const float dist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
-	return dist >= 0.0f && dist < raylength;
-}
-
-
 //returns dist till hit tri, neg number if missed.
 double BIHTree::traceRayAgainstAllTris(const ::Ray& ray, double tmax, HitInfo& hitinfo_out) const
 {

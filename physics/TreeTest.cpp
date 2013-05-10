@@ -392,61 +392,6 @@ static void testSelfIntersectionAvoidance()
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
 		}
-
-		// Test doesFiniteRayHit
-		for(size_t i = 0; i < trees.size(); ++i)
-		{
-			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray,
-				1.0f - nudge, // max_t
-				thread_context,
-				NULL,
-				std::numeric_limits<unsigned int>::max()
-				);
-
-			testAssert(!hit);
-		}
-
-		for(size_t i = 0; i < trees.size(); ++i)
-		{
-			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray,
-				1.0f + nudge, // max_t
-				thread_context,
-				NULL,
-				std::numeric_limits<unsigned int>::max()
-				);
-
-			testAssert(hit);
-		}
-
-		// Test doesFiniteRayHit, but setting ignore_tri = 2, so no intersection should be registered.
-		for(size_t i = 0; i < trees.size(); ++i)
-		{
-			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray,
-				1.0f + nudge, // max_t
-				thread_context,
-				NULL,
-				2
-				);
-
-			testAssert(!hit);
-		}
-
-		// Test doesFiniteRayHit, but setting ignore_tri = 3 so an intersection *should* be registered.
-		for(size_t i = 0; i < trees.size(); ++i)
-		{
-			HitInfo hitinfo;
-			const bool hit = trees[i]->doesFiniteRayHit(ray,
-				1.0f + nudge, // max_t
-				thread_context,
-				NULL,
-				3
-				);
-
-			testAssert(hit);
-		}
 	}
 
 	// Delete trees
@@ -578,18 +523,6 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.001));
 				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.001));
 			}
-		}
-
-		//------------------------------------------------------------------------
-		//Test doesFiniteRayHit()
-		//------------------------------------------------------------------------
-		const Tree::Real testlength = rng.unitRandom() * (Tree::Real)2.0;
-		const bool hit = trees[0]->doesFiniteRayHit(ray, testlength, thread_context, NULL, std::numeric_limits<unsigned int>::max());
-
-		for(size_t t = 0; t < trees.size(); ++t)
-		{
-			const bool hit_ = trees[t]->doesFiniteRayHit(ray, testlength, thread_context, NULL, std::numeric_limits<unsigned int>::max());
-			testAssert(hit == hit_);
 		}
 	} // End for each ray
 

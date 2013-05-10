@@ -78,7 +78,6 @@ public:
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const;
 
 	//inline virtual const Vec3f triGeometricNormal(unsigned int tri_index) const; //slow
 
@@ -121,7 +120,6 @@ public:
 	unsigned int calcMaxDepth() const;
 
 	friend class KDTreeImpl;
-	friend class DoesFiniteRayHitFunctions;
 	friend class TraceRayFunctions;
 	friend class GetAllHitsFunctions;
 

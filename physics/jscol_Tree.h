@@ -79,7 +79,6 @@ public:
 	//end
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
-	virtual bool doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const = 0;
 
 	//virtual const Vec3f triGeometricNormal(unsigned int tri_index) const = 0;
 

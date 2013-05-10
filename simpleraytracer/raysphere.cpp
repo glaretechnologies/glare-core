@@ -77,16 +77,6 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 }
 
 
-bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
-{
-	HitInfo hitinfo;
-	const double hitdist = traceRay(ray, raylength, thread_context, 
-		object, hitinfo);
-
-	return hitdist >= rayMinT(radius) && hitdist < raylength;
-}
-
-
 const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
 {
 	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
@@ -359,12 +349,6 @@ void RaySphere::test()
 
 	testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
 
-
-	//------------------------------------------------------------------------
-	//test doesFiniteRayHit()
-	//------------------------------------------------------------------------
-	testAssert(!sphere.doesFiniteRayHit(ray, 0.49f, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
-	testAssert(sphere.doesFiniteRayHit(ray, 0.51f, thread_context, NULL, std::numeric_limits<unsigned int>::max()));
 
 	//------------------------------------------------------------------------
 	//try tracing from inside sphere

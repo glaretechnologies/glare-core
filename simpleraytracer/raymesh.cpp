@@ -128,18 +128,6 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, const Ob
 }
 
 
-bool RayMesh::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
-{
-	return tritree->doesFiniteRayHit(
-		ray,
-		raylength,
-		thread_context,
-		object,
-		ignore_tri
-		);
-}
-
-
 /*const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
 {
 	//if(!this->enable_normal_smoothing)

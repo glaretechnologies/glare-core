@@ -717,61 +717,6 @@ BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& t
 }
 
 
-class DoesFiniteRayHitFunctions
-{
-public:
-	inline static bool testAgainstTriangles(const BVH& bvh, unsigned int leaf_geom_index, unsigned int num_leaf_tris, 
-		const Ray& ray,
-		//float use_min_t,
-		float epsilon,
-		HitInfo& hitinfo_out,
-		float& best_t,
-		ThreadContext& thread_context,
-		const Object* object
-		)
-	{
-		for(unsigned int i=0; i<num_leaf_tris; ++i)
-		{
-			const float* const t0 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 0]].data;
-			const float* const t1 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 1]].data;
-			const float* const t2 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 2]].data;
-			const float* const t3 = bvh.intersect_tris[bvh.leafgeom[leaf_geom_index + 3]].data;
-
-			UnionVec4 u, v, t, hit;
-			MollerTrumboreTri::intersectTris(&ray, /*use_min_t, */epsilon, t0, t1, t2, t3, 
-				&u, &v, &t, &hit
-				);
-
-			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])))
-				return true;
-			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])))
-				return true;
-			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])))
-				return true;
-			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])))
-				return true;
-
-			leaf_geom_index += 4;
-		}
-
-		return false; // Don't early out from BVHImpl::traceRay()
-	}
-};
-
-
-bool BVH::doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri) const
-{
-	HitInfo hitinfo;
-	const double t = BVHImpl::traceRay<DoesFiniteRayHitFunctions>(*this, ray, raylength, 
-		thread_context, 
-		thread_context.getTreeContext(), // context, 
-		object,
-		hitinfo
-	);
-	return t >= 0.0;
-}
-
-
 inline static void recordHit(float t, float u, float v, unsigned int tri_index, std::vector<DistanceHitInfo>& hitinfos_out)
 {
 	bool already_got_hit = false;
