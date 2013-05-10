@@ -7,6 +7,7 @@ Code By Nicholas Chapman.
 #include "Condition.h"
 
 
+#include "platform.h"
 #include "mutex.h"
 #include <assert.h>
 #include <cmath>
@@ -158,7 +159,7 @@ void Condition::resetToFalse()
 #if defined(_WIN32)
 	///set event to non-signalled state
 	const BOOL result = ResetEvent(condition);
-	assert(result != FALSE);
+	assertOrDeclareUsed(result != FALSE);
 #else
 
 #endif

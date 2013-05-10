@@ -50,7 +50,7 @@ typedef socklen_t SOCKLEN_TYPE;
 
 UDPSocket::UDPSocket()//create outgoing socket
 {
-	thisend_port = -1;
+	thisend_port = 0;
 	socket_handle = 0;
 
 	assert(Networking::isInited());
