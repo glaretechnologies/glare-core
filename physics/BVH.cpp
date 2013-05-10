@@ -658,8 +658,7 @@ public:
 		HitInfo& hitinfo_out,
 		float& best_t,
 		ThreadContext& thread_context,
-		const Object* object,
-		unsigned int ignore_tri
+		const Object* object
 		)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -707,13 +706,12 @@ public:
 };
 
 
-BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, 
 		thread_context, 
 		thread_context.getTreeContext(),
 		object, 
-		ignore_tri,
 		hitinfo_out
 		);
 }
@@ -729,8 +727,7 @@ public:
 		HitInfo& hitinfo_out,
 		float& best_t,
 		ThreadContext& thread_context,
-		const Object* object,
-		unsigned int ignore_tri
+		const Object* object
 		)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -745,13 +742,13 @@ public:
 				&u, &v, &t, &hit
 				);
 
-			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])) && bvh.leafgeom[leaf_geom_index + 0] != ignore_tri)
+			if((hit.i[0] != 0) && t.f[0] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[0], bvh.leafgeom[leaf_geom_index + 0], u.f[0], v.f[0])))
 				return true;
-			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])) && bvh.leafgeom[leaf_geom_index + 1] != ignore_tri)
+			if((hit.i[1] != 0) && t.f[1] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[1], bvh.leafgeom[leaf_geom_index + 1], u.f[1], v.f[1])))
 				return true;
-			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])) && bvh.leafgeom[leaf_geom_index + 2] != ignore_tri)
+			if((hit.i[2] != 0) && t.f[2] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[2], bvh.leafgeom[leaf_geom_index + 2], u.f[2], v.f[2])))
 				return true;
-			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])) && bvh.leafgeom[leaf_geom_index + 3] != ignore_tri)
+			if((hit.i[3] != 0) && t.f[3] < best_t && (!object || object->isNonNullAtHit(thread_context, ray, (double)t.f[3], bvh.leafgeom[leaf_geom_index + 3], u.f[3], v.f[3])))
 				return true;
 
 			leaf_geom_index += 4;
@@ -769,7 +766,6 @@ bool BVH::doesFiniteRayHit(const ::Ray& ray, Real raylength, ThreadContext& thre
 		thread_context, 
 		thread_context.getTreeContext(), // context, 
 		object,
-		ignore_tri,
 		hitinfo
 	);
 	return t >= 0.0;
@@ -803,8 +799,7 @@ public:
 		std::vector<DistanceHitInfo>& hitinfos_out,
 		float& best_t,
 		ThreadContext& thread_context,
-		const Object* object,
-		unsigned int ignore_tri
+		const Object* object
 		)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -846,7 +841,6 @@ void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object
 	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, 
 		thread_context.getTreeContext(), // context, 
 		object, 
-		std::numeric_limits<unsigned int>::max(), // ignore_tri
 		hitinfos_out
 	);
 }

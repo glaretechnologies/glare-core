@@ -63,8 +63,6 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 						   Real ray_length,
 						   ThreadContext& thread_context,
 						   double time,
-						   const INTERSECTABLE_TYPE* last_object_hit,
-						   unsigned int last_triangle_hit,
 						   const INTERSECTABLE_TYPE*& hitob_out,
 						   HitInfo& hitinfo_out) const
 {
@@ -245,7 +243,6 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 					closest_dist,
 					time,
 					thread_context,
-					(last_object_hit == ob ? last_triangle_hit : std::numeric_limits<unsigned int>::max()),
 					ob_hit_info
 					);
 				#ifdef OBJECTTREE_VERBOSE
@@ -1414,7 +1411,7 @@ ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 	for(unsigned int i=0; i<objects.size(); ++i)
 	{
 		HitInfo hitinfo;
-		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, hitinfo);
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;

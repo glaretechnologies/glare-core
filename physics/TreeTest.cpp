@@ -111,7 +111,7 @@ void TreeTest::testBuildCorrect()
 #endif
 		);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.sub_elem_index == 0);
 	}
@@ -124,7 +124,7 @@ void TreeTest::testBuildCorrect()
 #endif
 	);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.sub_elem_index == 3);
 	}
@@ -360,7 +360,7 @@ static void testSelfIntersectionAvoidance()
 		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray, 500.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray, 500.0f, thread_context, NULL, hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
@@ -375,7 +375,7 @@ static void testSelfIntersectionAvoidance()
 			HitInfo hitinfo;
 			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f - nudge, // max_t
-				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+				thread_context, NULL, hitinfo);
 
 			testAssert(dist < 0.0f);
 		}
@@ -387,7 +387,7 @@ static void testSelfIntersectionAvoidance()
 			HitInfo hitinfo;
 			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f + nudge, // max_t
-				thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+				thread_context, NULL, hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
@@ -512,8 +512,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			HitInfo hitinfo;
-			unsigned int ignore_tri = std::numeric_limits<unsigned int>::max();
-			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, ignore_tri, hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, hitinfo);
 
 			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
@@ -1060,7 +1059,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, NULL, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.

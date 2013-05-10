@@ -147,7 +147,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			const Object* hitob;
 			const ObjectTree::Real dist = ob_tree.traceRay(ray, 
 				std::numeric_limits<float>::infinity(), // ray length
-				thread_context, 0.0, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
+				thread_context, 0.0, hitob, hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitob == ob2);
@@ -291,7 +291,7 @@ void ObjectTreeTest::doTests()
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
 		const double t = ob_tree.traceRay(ray, 
 			std::numeric_limits<float>::infinity(), // ray length
-			thread_context, time, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
+			thread_context, time, hitob, hitinfo);
 		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
@@ -545,7 +545,7 @@ void ObjectTreeTest::doSpeedTest()
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
 		/*const double t = */ob_tree.traceRay(ray, std::numeric_limits<float>::infinity(), // ray length
-			thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max(), hitob, hitinfo);
+			thread_context, start_time, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();

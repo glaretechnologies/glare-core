@@ -31,7 +31,7 @@ RaySphere::~RaySphere()
 }
 
 
-Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
 {
 	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
 	// Sphere origin is at (0,0,0,1).
@@ -81,7 +81,7 @@ bool RaySphere::doesFiniteRayHit(const Ray& ray, Real raylength, ThreadContext& 
 {
 	HitInfo hitinfo;
 	const double hitdist = traceRay(ray, raylength, thread_context, 
-		object, ignore_tri, hitinfo);
+		object, hitinfo);
 
 	return hitdist >= rayMinT(radius) && hitdist < raylength;
 }
@@ -292,7 +292,7 @@ void RaySphere::test()
 	//------------------------------------------------------------------------
 	HitInfo hitinfo;
 	double d = sphere.traceRay(ray, 1000.0, thread_context, 
-		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		NULL, hitinfo);
 
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
@@ -313,12 +313,12 @@ void RaySphere::test()
 #endif
 		);
 	d = sphere.traceRay(ray2, 1000.0, thread_context, 
-		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.5));
 	testAssert(hitinfo.sub_elem_index == 0);
 
 	d = sphere.traceRay(ray2, 0.1, thread_context, 
-		NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		NULL, hitinfo);
 	//ignoring this for now: testAssert(d < 0.0);
 
 
@@ -377,10 +377,10 @@ void RaySphere::test()
 		, Vec4f(1,0,0,0) // launch normal
 #endif
 		);
-	d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+	d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, hitinfo);
 	testAssert(::epsEqual(d, 0.25));
 
-	d = sphere.traceRay(ray3, 0.24, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+	d = sphere.traceRay(ray3, 0.24, thread_context, NULL, hitinfo);
 	//NOTE: ignoring this for now.  testAssert(d < 0.0);
 
 	//------------------------------------------------------------------------

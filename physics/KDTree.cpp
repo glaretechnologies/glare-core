@@ -170,7 +170,7 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, unsigned int ignore_tri, HitInfo& hitinfo_out) const
+KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 

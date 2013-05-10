@@ -201,7 +201,6 @@ stack_pop:
 				closest_dist,
 				time,
 				thread_context,
-				(last_object_hit == ob ? last_triangle_hit : std::numeric_limits<unsigned int>::max()),
 				ob_hit_info
 			);
 
