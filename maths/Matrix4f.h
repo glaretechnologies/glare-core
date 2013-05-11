@@ -1,5 +1,9 @@
-#ifndef INDIGO_MATRIX4F_H
-#define INDIGO_MATRIX4F_H
+/*=====================================================================
+Matrix4f.h
+----------
+Copyright Glare Technologies Limited 2013 -
+=====================================================================*/
+#pragma once
 
 
 #include "Vec4f.h"
@@ -10,6 +14,12 @@ template <class Real> class Matrix3;
 template <class Real> class Vec3;
 
 
+/*=====================================================================
+Matrix4f
+--------
+4x4 Matrix class with single-precision float elements.
+Optimised for multiplications with Vec4fs.
+=====================================================================*/
 SSE_CLASS_ALIGN Matrix4f
 {
 public:
@@ -22,13 +32,9 @@ public:
 
 	inline void setToTranslationMatrix(float x, float y, float z);
 
-	//const Matrix4f operator * (const Matrix4f& a) const;
-
 	inline const Vec4f transposeMult(const Vec4f& v) const;
 
 	inline void getTranspose(Matrix4f& transpose_out) const;
-
-	//bool inverse(Matrix4f& inverse_out);
 
 	void getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const;
 
@@ -38,17 +44,8 @@ public:
 	inline bool operator == (const Matrix4f& a) const;
 
 
-	
-// Disable a bogus VS 2010 Code analysis warning: 'warning C6385: Invalid data: accessing 'e', the readable size is '64' bytes, but '76' bytes might be read'
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:6385)
-#endif
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 	inline float& elem(unsigned int row_index, unsigned int column_index) { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
-#ifdef _WIN32
-#pragma warning(pop)
-#endif
 
 	inline void setColumn0(const Vec4f& c);
 	inline void setColumn1(const Vec4f& c);
@@ -62,22 +59,21 @@ public:
 
 	static const Matrix4f identity();
 
-	//__forceinline const Vec4f operator * (const Vec4f& v) const;
-
 	const std::string rowString(int row_index) const;
 	const std::string toString() const;
 
 	static void test();
 
 	/*
+	Elements are laid out in the following way.
+	This layout is for fast matrix-vector SSE multiplication.
+
 	0	4	8	12
 	1	5	9	13
 	2	6	10	14
 	3	7	11	15
 	*/
 	float e[16];
-
-
 };
 
 
@@ -178,20 +174,22 @@ const Vec4f Matrix4f::transposeMult(const Vec4f& v) const
 	8	9	10	11
 	12	13	14	15
 	*/
-	/*const __m128 a = _mm_load_ps(e); //		[	e41	e31	e21	e11]
-	const __m128 b = _mm_load_ps(e+4); //	[	e42	e32	e22	e12]
-	const __m128 c = _mm_load_ps(e+8); //	[	e43	e33	e23	e13]
-	const __m128 d = _mm_load_ps(e+12); //	[	e44	e34	e24	e14]*/
-
-	// Want v.x * [	e14,	e13,	e12,	e11]
-
-	//TEMP:
+	
+	// NOTE: it's currently faster to use scalar ops (~11ns vs ~14ns, Core i7 920)
+	// This is not surprising considering Vec4f dot is most efficiently done with scalar ops. (assuming not using SSE 4)
 	return Vec4f(
+		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2] + e[3] *v.x[3],
+		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2] + e[7] *v.x[3],
+		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2] + e[11]*v.x[3],
+		e[12]*v.x[0] + e[13]*v.x[1] + e[14]*v.x[2] + e[15]*v.x[3]
+	);
+
+	/*return Vec4f(
 		dot(Vec4f(_mm_load_ps(e)), v),
 		dot(Vec4f(_mm_load_ps(e+4)), v),
 		dot(Vec4f(_mm_load_ps(e+8)), v),
 		dot(Vec4f(_mm_load_ps(e+12)), v)
-		);
+	);*/
 }
 
 
@@ -218,41 +216,6 @@ void Matrix4f::getTranspose(Matrix4f& transpose_out) const
 
 void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out);
 
-
-/*
-__forceinline void mul(const Matrix4f& m, const Vec4f& v, Vec4f& res_out)
-{
-	const __m128 vx = indigoCopyToAll(v.v, 0);
-	const __m128 vy = indigoCopyToAll(v.v, 1);
-	const __m128 vz = indigoCopyToAll(v.v, 2);
-	const __m128 vw = indigoCopyToAll(v.v, 3);
-
-	res_out = Vec4f(
-		_mm_add_ps(
-			_mm_add_ps(
-				_mm_mul_ps(
-					vx,
-					_mm_load_ps(m.e) // e[0]-e[3]
-					),
-				_mm_mul_ps(
-					vy,
-					_mm_load_ps(m.e + 4) // e[4]-e[7]
-					)
-				),
-			_mm_add_ps(
-				_mm_mul_ps(
-					vz,
-					_mm_load_ps(m.e + 8) // e[8]-e[11]
-					),
-				_mm_mul_ps(
-					vw,
-					_mm_load_ps(m.e + 12) // e[12]-e[15]
-					)
-				)
-			)
-		);
-}
-*/
 
 INDIGO_STRONG_INLINE __m128 operator * (const Matrix4f& m, const Vec4f& v)
 {
@@ -298,7 +261,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	assert(SSE::isSSEAligned(&vec));
 	assert(vec.isUnitLength());
 
-	SSE_ALIGN Vec4f v2; // x axis
+	Vec4f v2; // x axis
 
 	// From PBR
 	if(std::fabs(vec[0]) > std::fabs(vec[1]))
@@ -328,7 +291,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	e[2] = v2[2];
 	e[3] = v2[3];
 
-	const SSE_ALIGN Vec4f v1(crossProduct(vec, v2));
+	const Vec4f v1(crossProduct(vec, v2));
 
 	e[4] = v1[0];
 	e[5] = v1[1];
@@ -344,14 +307,6 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	e[13] = 0.0f;
 	e[14] = 0.0f;
 	e[15] = 1.0f;
-
-	//mat.setColumn0(v2);
-	//mat.setColumn1(::crossProduct(vec, v2));
-	//mat.setColumn2(vec);
-
-	//assert(::epsEqual(dot(mat.getColumn0(), mat.getColumn1()), (Real)0.0));
-	//assert(::epsEqual(dot(mat.getColumn0(), mat.getColumn2()), (Real)0.0));
-	//assert(::epsEqual(dot(mat.getColumn1(), mat.getColumn2()), (Real)0.0));
 }
 
 
@@ -395,6 +350,3 @@ inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS
 			return false;
 	return true;
 }
-
-
-#endif // INDIGO_MATRIX4F_H

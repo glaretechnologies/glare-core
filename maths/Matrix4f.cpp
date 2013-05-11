@@ -1,3 +1,8 @@
+/*=====================================================================
+Matrix4f.h
+----------
+Copyright Glare Technologies Limited 2013 -
+=====================================================================*/
 #include "Matrix4f.h"
 
 
@@ -74,14 +79,11 @@ void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 	1	5	9	13
 	2	6	10	14
 	3	7	11	15
-*/
-/*
+
 	0 1 2
-
 	3 4 5
-
 	6 7 8
-	*/
+*/
 void Matrix4f::getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const
 {
 	upper_left_mat_out.e[0] = e[0];
@@ -123,10 +125,66 @@ const std::string Matrix4f::toString() const
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
+#include "../indigo/globals.h"
 
 
 void Matrix4f::test()
 {
+	// Perf test //
+	if(false)
+	{
+		// Test speed of transposeMult()
+		{
+			Timer timer;
+
+			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f res = m.transposeMult(v);
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("transposeMult time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			printVar(scalarsum);
+		}
+
+		// Test speed of matrix / vec mul
+		{
+			Timer timer;
+
+			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f res = m * v;
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			printVar(scalarsum);
+		}
+	}
+
+
 	{
 		const Matrix4f m = Matrix4f::identity();
 
