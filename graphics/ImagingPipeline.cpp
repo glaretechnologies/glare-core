@@ -186,6 +186,7 @@ void doTonemapFullBuffer(
 	Image4f& ldr_buffer_out,
 	bool image_buffer_in_XYZ,
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
+	float gamma,
 	Indigo::TaskManager& task_manager)
 {
 	//Timer t;
@@ -206,7 +207,7 @@ void doTonemapFullBuffer(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi, gamma);
 
 
 	//if(PROFILE) t.reset();
@@ -679,6 +680,7 @@ void doTonemap(
 	Image4f& ldr_buffer_out,
 	bool XYZ_colourspace,
 	int margin_ssf1,
+	float gamma,
 	Indigo::TaskManager& task_manager
 	)
 {
@@ -687,7 +689,7 @@ void doTonemap(
 	{
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager);
+							ldr_buffer_out, XYZ_colourspace, margin_ssf1, gamma, task_manager);
 		return;
 	}
 
@@ -734,7 +736,7 @@ void doTonemap(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi, gamma);
 
 	ImagePipelineTaskClosure closure;
 	closure.per_thread_tile_buffers = &per_thread_tile_buffers;
@@ -807,6 +809,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		ldr_image_out,
 		false, // XYZ_colourspace
 		RendererSettings::getMargin(), // margin at ssf1
+		2.2f, // gamma
 		task_manager
 	);
 }
@@ -1003,6 +1006,7 @@ void test()
 			temp_ldr_buffer,
 			false,
 			RendererSettings::getMargin(), // margin at ssf1
+			2.2f, // gamma
 			task_manager);
 
 
