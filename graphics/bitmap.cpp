@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../maths/mathstypes.h"
 #include "../utils/Checksum.h"
+#include "../utils/Exception.h"
 
 
 Bitmap::Bitmap()
@@ -26,11 +27,19 @@ Bitmap::Bitmap(size_t width_, size_t height_, size_t bytespp_, const uint8* srcd
 	assert(sizeof(unsigned char) == 1);
 
 	const size_t datasize = width * height * bytespp;
-	data.resize(datasize);
 
-	if(srcdata)
-		for(size_t i = 0; i<datasize; ++i)
-			data[i] = srcdata[i];
+	try
+	{
+		data.resize(datasize);
+
+		if(srcdata)
+			for(size_t i = 0; i<datasize; ++i)
+				data[i] = srcdata[i];
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+	}
 }
 
 
@@ -47,7 +56,14 @@ void Bitmap::resize(size_t newwidth, size_t newheight, size_t new_bytes_pp)
 		height = newheight;
 		bytespp = new_bytes_pp;
 
-		data.resize(newwidth * newheight * new_bytes_pp);
+		try
+		{
+			data.resize(newwidth * newheight * new_bytes_pp);
+		}
+		catch(std::bad_alloc&)
+		{
+			throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+		}
 	}
 }
 

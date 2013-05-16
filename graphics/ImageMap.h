@@ -11,6 +11,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "image.h"
 #include "GaussianImageFilter.h"
 #include "../utils/Vector.h"
+#include "../utils/Exception.h"
 namespace Indigo { class TaskManager; }
 class OutStream;
 class InStream;
@@ -79,10 +80,10 @@ class ImageMap : public Map2D
 {
 public:
 	inline ImageMap();
-	inline ImageMap(unsigned int width, unsigned int height, unsigned int N);
+	inline ImageMap(unsigned int width, unsigned int height, unsigned int N); // throws Indigo::Exception
 	inline ~ImageMap();
 
-	void resize(unsigned int width_, unsigned int height_, unsigned int N_);
+	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
 	float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
@@ -161,13 +162,20 @@ template <class V, class VTraits>
 ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsigned int N_)
 :	width(width_), height(height_), N(N_), gamma(2.2f)
 {
+	try
+	{
 #if IMAGE_MAP_TILED
-	w_blocks = width / 8 + 1; // TEMP fixme
-	h_blocks = height / 8 + 1;
-	data.resize(w_blocks * h_blocks * 64 * N);
+		w_blocks = width / 8 + 1; // TEMP fixme
+		h_blocks = height / 8 + 1;
+		data.resize(w_blocks * h_blocks * 64 * N);
 #else
-	data.resize(width * height * N);
+		data.resize(width * height * N);
 #endif
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+	}
 }
 
 
@@ -182,7 +190,14 @@ void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, uns
 	height = height_;
 	N = N_;
 
-	data.resize(width * height * N);
+	try
+	{
+		data.resize(width * height * N);
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+	}
 }
 
 

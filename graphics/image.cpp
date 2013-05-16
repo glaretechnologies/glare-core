@@ -26,9 +26,17 @@ Image::Image()
 {
 }
 
-Image::Image(size_t width_, size_t height_)
-:	pixels(width_, height_)
+Image::Image(size_t width, size_t height)
 {
+	try
+	{
+		pixels.resize(width, height);
+	}
+	catch(std::bad_alloc& )
+	{
+		const size_t alloc_size = width * height * sizeof(ColourType);
+		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+	}
 }
 
 
@@ -42,9 +50,7 @@ Image& Image::operator = (const Image& other)
 		return *this;
 
 	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
-	{
-		pixels.resize(other.getWidth(), other.getHeight());
-	}
+		resize(other.getWidth(), other.getHeight());
 
 	this->pixels = other.pixels;
 
@@ -56,7 +62,7 @@ Image& Image::operator = (const Image& other)
 void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 {
 	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3)
-		throw ImageExcep("Image bytes per pixel must be 1 or 3.");
+		throw Indigo::Exception("Image bytes per pixel must be 1 or 3.");
 
 	resize(bmp.getWidth(), bmp.getHeight());
 
@@ -95,10 +101,10 @@ void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
 	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
-		throw ImageExcep("BytesPP != 3");
+		throw Indigo::Exception("BytesPP != 3");
 
 	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > (int)getWidth() || y2 > (int)getHeight())
-		throw ImageExcep("Region coordinates are invalid");
+		throw Indigo::Exception("Region coordinates are invalid");
 
 	const int out_width = x2 - x1;
 	const int out_height = y2 - y1;
@@ -152,7 +158,15 @@ void Image::resize(size_t newwidth, size_t newheight)
 	if(getWidth() == newwidth && getHeight() == newheight)
 		return;
 
-	pixels.resize(newwidth, newheight);
+	try
+	{
+		pixels.resize(newwidth, newheight);
+	}
+	catch(std::bad_alloc& )
+	{
+		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
+		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+	}
 }
 
 
@@ -259,7 +273,7 @@ void Image::addImage(const Image& img, const int destx, const int desty, const f
 void Image::addImage(const Image& other)
 {
 	if(other.getWidth() != getWidth() || other.getHeight() != getHeight())
-		throw ImageExcep("Dimensions not the same");
+		throw Indigo::Exception("Dimensions not the same");
 
 	const size_t N = numPixels();
 	
@@ -820,6 +834,7 @@ void readFromStream(InStream& stream, Image& image)
 #include "../indigo/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
+#include "../utils/timer.h"
 #include "../indigo/globals.h"
 
 

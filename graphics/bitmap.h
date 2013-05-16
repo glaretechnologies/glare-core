@@ -27,12 +27,13 @@ public:
 	Bitmap
 	------
 	srcdata may be NULL.
+	Throw Indigo::Exception on mem alloc failure.
 	=====================================================================*/
 	Bitmap(size_t width, size_t height, size_t bytespp, const uint8* srcdata);
 
 	~Bitmap();
 
-	void resize(size_t newwidth, size_t newheight, size_t new_bytes_pp);
+	void resize(size_t newwidth, size_t newheight, size_t new_bytes_pp); // Throws Indigo::Exception
 
 	size_t getWidth()   const { return width;   }
 	size_t getHeight()  const { return height;  }

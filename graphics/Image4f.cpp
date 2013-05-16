@@ -24,9 +24,18 @@ Image4f::Image4f()
 {
 }
 
-Image4f::Image4f(size_t width_, size_t height_)
-:	pixels(width_, height_)
+
+Image4f::Image4f(size_t width, size_t height)
 {
+	try
+	{
+		pixels.resize(width, height);
+	}
+	catch(std::bad_alloc& )
+	{
+		const size_t alloc_size = width * height * sizeof(ColourType);
+		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+	}
 }
 
 
@@ -40,9 +49,7 @@ Image4f& Image4f::operator = (const Image4f& other)
 		return *this;
 
 	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
-	{
-		pixels.resize(other.getWidth(), other.getHeight());
-	}
+		resize(other.getWidth(), other.getHeight());
 
 	this->pixels = other.pixels;
 
@@ -54,6 +61,7 @@ void Image4f::setFromBitmap(const Bitmap& bmp, float image_gamma)
 {
 	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3 && bmp.getBytesPP() != 4)
 		throw Indigo::Exception("Image bytes per pixel must be 1, 3, or 4.");
+
 
 	resize(bmp.getWidth(), bmp.getHeight());
 
@@ -185,7 +193,15 @@ void Image4f::resize(size_t newwidth, size_t newheight)
 	if(getWidth() == newwidth && getHeight() == newheight)
 		return;
 
-	pixels.resize(newwidth, newheight);
+	try
+	{
+		pixels.resize(newwidth, newheight);
+	}
+	catch(std::bad_alloc& )
+	{
+		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
+		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+	}
 }
 
 

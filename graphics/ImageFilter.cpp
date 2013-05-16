@@ -642,9 +642,9 @@ static void saveImageToPng(const Image& im, const std::string& path)
 
 		PNGDecoder::write(ldr_image, path);
 	}
-	catch(ImageExcep& e)
+	catch(Indigo::Exception& e)
 	{
-		conPrint("ImageExcep: " + e.what());
+		conPrint(e.what());
 	}
 }
 

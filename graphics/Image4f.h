@@ -25,7 +25,7 @@ class Image4f //  : public Map2D
 {
 public:
 	Image4f();
-	Image4f(size_t width, size_t height);
+	Image4f(size_t width, size_t height); // throws Indigo::Exception
 	~Image4f();
 
 	Image4f& operator = (const Image4f& other);
@@ -58,7 +58,7 @@ public:
 	void zero();
 	void set(float s);
 
-	void resize(size_t newwidth, size_t newheight);
+	void resize(size_t newwidth, size_t newheight); // throws Indigo::Exception
 
 	void posClamp();
 	void clampInPlace(float min, float max);
