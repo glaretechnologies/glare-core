@@ -12,14 +12,19 @@ Generated at 2013-05-16 16:42:23 +0100
 
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
+#include "../utils/MTwister.h"
+#include "../utils/stringutils.h"
 #include "../indigo/globals.h"
 
 
 void circularBufferTest()
 {
+	conPrint("circularBufferTest()");
+
 	//======================== Test construction and destruction ========================
 	{
 		CircularBuffer<int> buf;
+		testAssert(buf.empty());
 	}
 
 	//======================== Test push_back ========================
@@ -31,6 +36,7 @@ void circularBufferTest()
 		testAssert(buf.size() == 1);
 		testAssert(buf.front() == 1);
 		testAssert(buf.back() == 1);
+		testAssert(!buf.empty());
 
 		buf.push_back(2);
 
@@ -243,6 +249,39 @@ void circularBufferTest()
 		testAssert(buf.size() == 0);
 	}
 
+
+	//======================== Try stress testing with random operations ========================
+	{
+		for(int t=0; t<1000; ++t)
+		{
+			MTwister rng(t);
+
+			CircularBuffer<int> buf;
+
+			for(int i=0; i<1000; ++i)
+			{
+				const float r = rng.unitRandom();
+				if(r < 0.25f)
+				{
+					buf.push_back(123);
+				}
+				else if(r < 0.5f)
+				{
+					buf.push_front(124);
+				}
+				else if(r < 0.75f)
+				{
+					if(!buf.empty())
+						buf.pop_back();
+				}
+				else
+				{
+					if(!buf.empty())
+						buf.pop_front();
+				}
+			}
+		}
+	}
 }
 
 

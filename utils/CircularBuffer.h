@@ -1,4 +1,4 @@
-;/*=====================================================================
+/*=====================================================================
 CircularBuffer.h
 -------------------
 Copyright Glare Technologies Limited 2013 -
@@ -15,7 +15,8 @@ Generated at 2013-05-16 16:42:23 +0100
 /*=====================================================================
 CircularBuffer
 -------------------
-
+A dynamically growable circular buffer.
+The interface should be similar to std::list
 =====================================================================*/
 template <class T>
 class CircularBuffer
@@ -28,8 +29,10 @@ public:
 	
 	inline void push_front(const T& t);
 
+	// Undefined if empty.
 	inline void pop_back();
 	
+	// Undefined if empty.
 	inline void pop_front();
 
 	inline T& front();
@@ -37,6 +40,8 @@ public:
 	inline T& back();
 	
 	inline size_t size() const;
+
+	inline bool empty() const { return size() == 0; }
 
 
 	friend void circularBufferTest();
@@ -46,9 +51,10 @@ private:
 	inline void invariant();
 	
 
-	size_t begin, end;
-	size_t num_items;
-	std::vector<T> data;
+	size_t begin; // Index of first item in buffer
+	size_t end; // Index one past last item in buffer.
+	size_t num_items; // Number of items in buffer
+	std::vector<T> data; // Underlying linear buffer.  Size will be >= num_items.
 };
 
 
@@ -163,6 +169,7 @@ size_t CircularBuffer<T>::size() const { return num_items; }
 template <class T>
 void CircularBuffer<T>::invariant()
 {
+#ifndef NDEBUG // If in debug mode:
 	assert(num_items <= data.size());
 
 	if(data.size() == 0)
@@ -181,6 +188,7 @@ void CircularBuffer<T>::invariant()
 	}
 	else if(begin == end)
 	{
+		assert(num_items == 0 || num_items == data.size());
 	}
 	else
 	{
@@ -188,22 +196,28 @@ void CircularBuffer<T>::invariant()
 		assert(begin > end);
 		assert((data.size() - begin) + end == num_items);
 	}
+#endif
 }
 
 
+// Resize buffer.  Need to make it least twice as bug so that we can copy all the wrapped elements directly.
 template <class T>
 void CircularBuffer<T>::increaseSize()
 {
-	// Resize buffer
-	size_t old_size = data.size();
+	const size_t old_size = data.size();
 
 	data.resize(myMax<size_t>(1, old_size) * 2);
 
-	// Copy data from [0, end) to [old_size, old_size + end)
-	for(size_t i=0; i<end; ++i)
-		data[old_size + i] = data[i];
+	if(end <= begin) // If the data was wrapping before the resize:
+	{
+		// Copy data from [0, end) to [old_size, old_size + end)
+		for(size_t i=0; i<end; ++i)
+			data[old_size + i] = data[i];
 
-	// Update end
-	end = begin + num_items;
+		// Update end since data is no longer wrapping.
+		end = begin + num_items;
+	}
+
+	assert(end == begin + num_items);
 	assert(end < data.size());
 }
