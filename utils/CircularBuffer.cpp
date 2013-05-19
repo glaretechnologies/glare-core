@@ -250,6 +250,45 @@ void circularBufferTest()
 	}
 
 
+	//======================== CircularBufferIterator ========================
+	{
+		CircularBuffer<int> buf;
+
+		testAssert(buf.beginIt() == buf.endIt());
+
+		// Make a queue (0, 1, 2, ... n-2, n-1)
+		const size_t N = 1000;
+		for(size_t i=0; i<N; ++i)
+			buf.push_back((int)i);
+
+		size_t i = 0;
+		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+		{
+			testAssert((*it) == i);
+			i++;
+		}
+		testAssert(i == N);
+	}
+
+	{
+		for(int n=0; n<100; ++n)
+		{
+			CircularBuffer<int> buf;
+
+			// Make a queue (n-1, n-2, ...., 2, 1, 0)
+			for(size_t i=0; i<n; ++i)
+				buf.push_front((int)i);
+
+			size_t i = 0;
+			for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+			{
+				testAssert((*it) == (int) n - 1 - i);
+				i++;
+			}
+			testAssert(i == n);
+		}
+	}
+
 	//======================== Try stress testing with random operations ========================
 	{
 		for(int t=0; t<1000; ++t)

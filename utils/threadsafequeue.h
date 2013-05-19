@@ -81,7 +81,12 @@ public:
 
 	inline bool unlockedEmpty() const;
 
-	const std::list<T>& getQueueDebug() const { return queue; }
+	//const std::list<T>& getQueueDebug() const { return queue; }
+
+	typedef typename std::list<T>::iterator iterator;
+	// Not threadsafe, caller needs to have the mutex first.
+	iterator begin() { return queue.begin(); }
+	iterator end() { return queue.end(); }
 
 private:
 	std::list<T> queue;

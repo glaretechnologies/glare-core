@@ -18,6 +18,11 @@ CircularBuffer
 A dynamically growable circular buffer.
 The interface should be similar to std::list
 =====================================================================*/
+
+
+template <class T> class CircularBufferIterator;
+
+
 template <class T>
 class CircularBuffer
 {
@@ -44,7 +49,15 @@ public:
 	inline bool empty() const { return size() == 0; }
 
 
+	typedef CircularBufferIterator<T> iterator;
+
+
+	inline iterator beginIt() { return CircularBufferIterator<T>(this, begin, false); }
+	inline iterator endIt() { return CircularBufferIterator<T>(this, end, !empty() && end <= begin); }
+
+
 	friend void circularBufferTest();
+	friend class CircularBufferIterator<T>;
 
 private:
 	inline void increaseSize();
@@ -59,6 +72,64 @@ private:
 
 
 void circularBufferTest();
+
+
+/*
+Because begin=end can happen in two circumstances - num_items = 0 or num_items = data.size(), we need to distinguish between the two.
+So we will keep track of if an iterator has wrapped past the end of the buffer back to the beginning.
+So beginIt() == endIt() if they both index the same element, *and* they are both unwrapped or wrapped.
+*/
+template <class T>
+class CircularBufferIterator
+{
+public:
+	CircularBufferIterator(CircularBuffer<T>* buffer, size_t i_, bool wrapped_) : buffer(buffer), i(i_), wrapped(wrapped_) {}
+	~CircularBufferIterator(){}
+
+	bool operator == (const CircularBufferIterator& other) const
+	{
+		return i == other.i && wrapped == other.wrapped;
+	}
+
+	bool operator != (const CircularBufferIterator& other) const
+	{
+		return i != other.i || wrapped != other.wrapped;
+	}
+
+	void operator ++ ()
+	{
+		i++;
+		if(i >= buffer->data.size())
+		{
+			i = 0;
+			wrapped = true;
+		}
+	}
+
+	T& operator * ()
+	{
+        return buffer->data[i];
+    }
+	const T& operator * () const
+	{
+        return buffer->data[i];
+    }
+
+
+
+	T* operator -> ()
+	{
+		return &buffer->data[i];
+	}
+	const T* operator -> () const
+	{
+		return &buffer->data[i];
+	}
+
+	CircularBuffer<T>* buffer;
+	size_t i;
+	bool wrapped;
+};
 
 
 template <class T>
