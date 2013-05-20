@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 
 
 #include "assert.h"
-#include "../maths/vec3.h"
 #include "../utils/stringutils.h"
 #include "networking.h"
 #include <cstring>

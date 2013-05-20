@@ -9,8 +9,8 @@ Code By Nicholas Chapman.
 
 
 #include <vector>
-// #include "mystream.h"
 #include "../utils/platform.h"
+#include <cstring> // for size_t
 
 
 /*class MyPacketExcep

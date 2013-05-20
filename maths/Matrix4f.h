@@ -47,10 +47,9 @@ public:
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 	inline float& elem(unsigned int row_index, unsigned int column_index) { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
 
-	inline void setColumn0(const Vec4f& c);
-	inline void setColumn1(const Vec4f& c);
-	inline void setColumn2(const Vec4f& c);
-	inline void setColumn3(const Vec4f& c);
+
+	// Get column (col_index is a zero-based index)
+	inline const Vec4f getColumn(unsigned int col_index) const;
 
 
 	// Is A the inverse of B?
@@ -319,27 +318,10 @@ bool Matrix4f::operator == (const Matrix4f& a) const
 }
 
 
-void Matrix4f::setColumn0(const Vec4f& c)
+const Vec4f Matrix4f::getColumn(unsigned int col_index) const
 {
-	_mm_store_ps(e, c.v);
-}
-
-
-void Matrix4f::setColumn1(const Vec4f& c)
-{
-	_mm_store_ps(e + 4, c.v);
-}
-
-
-void Matrix4f::setColumn2(const Vec4f& c)
-{
-	_mm_store_ps(e + 8, c.v);
-}
-
-
-void Matrix4f::setColumn3(const Vec4f& c)
-{
-	_mm_store_ps(e + 12, c.v);
+	assert(col_index < 4);
+	return Vec4f(_mm_load_ps(e + 4*col_index));
 }
 
 

@@ -67,7 +67,7 @@ void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 			float x = 0.0f;
 
 			for(unsigned int i=0; i<4; ++i)
-					x += a.elem(outrow, i) * b.elem(i, outcol);
+				x += a.elem(outrow, i) * b.elem(i, outcol);
 		
 			result_out.elem(outrow, outcol) = x;
 		}
