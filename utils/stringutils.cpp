@@ -630,6 +630,12 @@ const std::string stripTailWhitespace(const std::string& text)
 }
 
 
+const std::string stripHeadAndTailWhitespace(const std::string& text)
+{
+	return stripHeadWhitespace(stripTailWhitespace(text));
+}
+
+
 const std::string stripWhitespace(const std::string& s)
 {
 	// NOTE: this could be a lot faster.
@@ -1194,6 +1200,20 @@ void StringUtils::test()
 	testAssert(stripTailWhitespace("") == "");
 	testAssert(stripTailWhitespace(" ") == "");
 	testAssert(stripTailWhitespace("  ") == "");
+
+	//==================================== Test stripHeadAndTailWhitespace ====================================
+	testAssert(stripHeadAndTailWhitespace("a") == "a");
+	testAssert(stripHeadAndTailWhitespace(" a") == "a");
+	testAssert(stripHeadAndTailWhitespace("  a") == "a");
+	testAssert(stripHeadAndTailWhitespace("a ") == "a");
+	testAssert(stripHeadAndTailWhitespace("a  ") == "a");
+	testAssert(stripHeadAndTailWhitespace("ab  ") == "ab");
+	testAssert(stripHeadAndTailWhitespace("  a  ") == "a");
+	testAssert(stripHeadAndTailWhitespace(" a ") == "a");
+	testAssert(stripHeadAndTailWhitespace("") == "");
+	testAssert(stripHeadAndTailWhitespace(" ") == "");
+	testAssert(stripHeadAndTailWhitespace("  ") == "");
+
 
 	//==================================== floatToString ====================================
 	{

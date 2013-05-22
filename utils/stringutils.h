@@ -124,7 +124,8 @@ inline bool isAlphaNumeric(char c)
 
 const std::string stripHeadWhitespace(const std::string& text);
 const std::string stripTailWhitespace(const std::string& text);
-const std::string stripWhitespace(const std::string& s);
+const std::string stripHeadAndTailWhitespace(const std::string& text);
+const std::string stripWhitespace(const std::string& s); // Strip all whitespace, included interior whitespace.
 
 const std::string toLowerCase(const std::string& text);
 const std::string toUpperCase(const std::string& text);

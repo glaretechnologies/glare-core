@@ -440,8 +440,9 @@ int OpenCL::getSuggestedDeviceNumber(const std::string& preferred_dev_name) cons
 	{
 		const gpuDeviceInfo& di = device_info[i];
 
-		// If we've asked for a particular device and the name matches exactly, return its device index
-		if(di.device_name == preferred_dev_name)
+		// If we've asked for a particular device and the name matches exactly, return its device index.
+		// We will strip leading and trailing whitespace, as some device names have lots of leading whitespace.
+		if(::stripHeadAndTailWhitespace(di.device_name) == ::stripHeadAndTailWhitespace(preferred_dev_name))
 			return (int)i;
 
 		bool device_ok = di.CPU ? allow_CPU_devices : true;
