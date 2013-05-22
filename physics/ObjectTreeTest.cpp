@@ -569,13 +569,6 @@ void ObjectTreeTest::doSpeedTest()
 #endif
 			);
 
-		//ray.buildRecipRayDir();
-
-		//------------------------------------------------------------------------
-		//Do a doesFiniteRayHitAnything() test
-		//------------------------------------------------------------------------
-		//const ObjectTree::Real len = rng.unitRandom() * 1.5f;
-		//const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max());
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();

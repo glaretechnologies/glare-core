@@ -113,6 +113,7 @@ public:
 
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
+	uint32_t padding[2];
 };
 
 

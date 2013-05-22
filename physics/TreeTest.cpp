@@ -583,33 +583,6 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	}
 
 	//------------------------------------------------------------------------
-	//Test doesFiniteRayHit() with a ray with NaN components
-	//------------------------------------------------------------------------
-	for(size_t t = 0; t < trees.size(); ++t)
-	{
-		// Try with NaNs in the direction vector
-		{
-		Ray ray(
-			Vec4f(0, 0, 0, 1.0f), 
-			Vec4f(NaN, NaN, NaN, 0),
-			1.0e-05f // t_min
-		);
-		HitInfo hitinfo;
-		trees[t]->doesFiniteRayHit(ray, 1000.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max());
-		}
-		// Try with NaNs in the position vector
-		{
-		Ray ray(
-			Vec4f(NaN, NaN, NaN, 1.0f), 
-			Vec4f(0, 0, 0, 0),
-			1.0e-05f // t_min
-		);
-		HitInfo hitinfo;
-		trees[t]->doesFiniteRayHit(ray, 1000.0f, thread_context, NULL, std::numeric_limits<unsigned int>::max());
-		}
-	}
-
-	//------------------------------------------------------------------------
 	// Test getAllHits() with a ray with NaN components
 	//------------------------------------------------------------------------
 	for(size_t t = 0; t < trees.size(); ++t)

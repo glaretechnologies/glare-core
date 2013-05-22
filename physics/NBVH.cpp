@@ -233,15 +233,6 @@ void NBVH::doBuild(std::vector<TRI_INDEX>& tris, int left, int right, unsigned i
 }
 
 
-bool NBVH::doesFiniteRayHit(const ::Ray& ray, double raylength, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object) const
-{
-	//NOTE: can speed this up
-	HitInfo hitinfo;
-	const double dist = traceRay(ray, raylength, thread_context, context, object, hitinfo);
-	return dist >= 0.0 && dist < raylength;
-}
-
-
 double NBVH::traceRay(const Ray& ray, double ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const
 {
 	return -1.0;
