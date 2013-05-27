@@ -46,7 +46,7 @@ namespace BitUtils
 		return pos;
 #else
 		// __builtin_ctz: Returns the number of trailing 0-bits in x, starting at the least significant bit position. If x is 0, the result is undefined.  (http://gcc.gnu.org/onlinedocs/gcc-4.4.5/gcc/Other-Builtins.html)
-		return __builtin_ctz(negated);
+		return __builtin_ctz(x);
 #endif
 	}
 
