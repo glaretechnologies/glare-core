@@ -8,7 +8,9 @@ Generated at 2013-05-27 18:54:17 +0100
 
 
 #include "platform.h"
+#ifdef _WIN32
 #include <intrin.h>
+#endif
 
 
 /*=====================================================================
@@ -33,7 +35,7 @@ namespace BitUtils
 
 	//==================================== Implementation ====================================
 
-	uint32 BitUtils::lowestSetBitIndex(uint32 x)
+	uint32 lowestSetBitIndex(uint32 x)
 	{
 		if(x == 0)
 			return 0;
