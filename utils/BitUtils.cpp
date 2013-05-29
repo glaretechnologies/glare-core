@@ -26,6 +26,11 @@ namespace BitUtils
 
 
 #include "../indigo/TestUtils.h"
+#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
+#include "../utils/CycleTimer.h"
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
 
 
 namespace BitUtils
@@ -34,6 +39,8 @@ namespace BitUtils
 
 void test()
 {
+	conPrint("BitUtils::test()");
+
 	//===================================== lowestSetBitIndex =====================================
 	testAssert(lowestSetBitIndex(0) == 0); // 0
 	testAssert(lowestSetBitIndex(1) == 0); // 1
@@ -64,12 +71,32 @@ void test()
 	testAssert(lowestZeroBitIndex(0x80000000u) == 0); // Most significant bit set only.
 	testAssert(lowestZeroBitIndex(0x7FFFFFFFu) == 31); // Only most significant bit set set to zero.
 	testAssert(lowestZeroBitIndex(0xFFFFFFFFu) == 0); // All bits set
+
+	// Do a performance test of lowestSetBitIndex():
+	// On Nick's Ivy Bridge i7:
+	// sum: 9999985
+	// elapsed: 2.2220452 cycles
+	/*{
+		//Timer timer;
+		CycleTimer cycle_timer;
+
+		int sum = 0;
+		const int n = 10000000;
+		for(int i=0; i<n; ++i)
+		{
+			sum += lowestSetBitIndex(i);
+		}
+
+		int64_t cycles = cycle_timer.elapsed();
+		//const double elapsed = timer.elapsed();
+
+		printVar(sum);
+
+		//conPrint("elapsed: " + toString(1.0e9 * elapsed / n) + " ns");
+		conPrint("elapsed: " + toString((float)cycles / n) + " cycles");
+	}*/
+
 }
-
-
-
-
-
 
 
 } // end namespace BitUtils
