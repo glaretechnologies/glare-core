@@ -1,9 +1,16 @@
 # indigo libs
 
-FILE(GLOB fftss "../../../fftss-3.0-20071031/fftss-3.0/libfftss/fftss*.c")
-
 set(fftss 
-${fftss}
+${fftssdir}/fftss_2d.c    ${fftssdir}/fftss_counter.c       ${fftssdir}/fftss_execute_dft_1d.c          
+#${fftssdir}/fftss_fortran.c   
+${fftssdir}/fftss_set.c      ${fftssdir}/fftss_version.c
+${fftssdir}/fftss_3d.c    ${fftssdir}/fftss_cpuid.c         ${fftssdir}/fftss_execute_dft.c             
+${fftssdir}/fftss_get_wtime.c  ${fftssdir}/fftss_table.c
+${fftssdir}/fftss.c       ${fftssdir}/fftss_destroy_plan.c  ${fftssdir}/fftss_execute_inplace_dft_1d.c  
+${fftssdir}/fftss_kset.c       ${fftssdir}/fftss_test.c
+${fftssdir}/fftss_copy.c  ${fftssdir}/fftss_execute.c       ${fftssdir}/fftss_fma.c                     
+${fftssdir}/fftss_malloc.c     ${fftssdir}/fftss_threads.c
+
 ${fftssdir}/r4_cmplx_n.c  ${fftssdir}/r4_fma_n.c  ${fftssdir}/r4_fma_o.c  ${fftssdir}/r4_fma_u1.c  ${fftssdir}/r4_fma_u4.c ${fftssdir}/r4_n.c ${fftssdir}/r4_o.c 
 ${fftssdir}/r4_sse2_1_n.c ${fftssdir}/r4_sse2_o.c ${fftssdir}/r4_sse2_u1.c ${fftssdir}/r4_sse2_u4.c
 ${fftssdir}/r4_sse3_h_n.c ${fftssdir}/r4_sse3_h_o.c ${fftssdir}/r4_sse3_h_u1.c ${fftssdir}/r4_sse3_n.c ${fftssdir}/r4_sse3_o.c ${fftssdir}/r4_sse3_u1.c ${fftssdir}/r4_sse3_u4.c 
