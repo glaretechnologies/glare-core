@@ -39,10 +39,12 @@ namespace GeometrySampling
 
 	template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePair& unit_samples);
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
+	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 	///// Both hemispheres with cosine weighting ////
 	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
+	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType bothHemispheresCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 
@@ -51,6 +53,7 @@ namespace GeometrySampling
 
 	// k() of the basis should point towards center of cone.
 	inline const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle);
+	inline const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle, float& p_out);
 	template <class Real> inline Real solidAngleConePDF(Real angle);
 
 
@@ -114,7 +117,12 @@ inline const Vec4f dirForSphericalCoords(float phi, float theta)
 {
 	//assert(theta >= 0.0 && theta <= NICKMATHS_PI);
 	const float cos_theta = std::cos(theta);
-	const float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);
+
+	// Although mathematically speaking, sin(theta) = sqrt(1 - cos(theta)^2)
+	// It's much more numerically precise to compute sin(theta) directly from theta, when theta is very small.
+
+	//const float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);
+	const float sin_theta = std::sin(theta);
 
 	return Vec4f(
 		std::cos(phi) * sin_theta,
@@ -123,6 +131,8 @@ inline const Vec4f dirForSphericalCoords(float phi, float theta)
 		0.0f
 		);
 }
+
+
 template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real theta)
 {
 	// http://mathworld.wolfram.com/SphericalCoordinates.html
@@ -136,7 +146,8 @@ template <class Real> const Vec3<Real> dirForSphericalCoords(Real phi, Real thet
 
 	assert(theta >= 0.0 && theta <= NICKMATHS_PI);
 	const Real cos_theta = std::cos(theta);
-	const Real sin_theta = std::sqrt((Real)1.0 - cos_theta * cos_theta);
+	//const Real sin_theta = std::sqrt((Real)1.0 - cos_theta * cos_theta);
+	const Real sin_theta = std::sin(theta);
 
 	return Vec3<Real>(
 		std::cos(phi) * sin_theta,
@@ -254,6 +265,28 @@ const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basi
 
 	const float sin_alpha = std::sin(alpha);
 	const SSE_ALIGN Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
+
+	return Vec4f(basis * dir); //basis.transformVectorToParent(dir);
+}
+
+
+const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle, float& p_out)
+{
+	assert(angle > 0.0);
+
+	const float phi = samples.x * (float)NICKMATHS_2PI;
+	const float alpha = std::sqrt(samples.y) * angle;
+
+	//const float r = sqrt(unitsamples.x);
+	//const float phi = unitsamples.y * NICKMATHS_2PI;
+
+	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
+
+	const float sin_alpha = std::sin(alpha);
+	const SSE_ALIGN Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
+
+	const float solid_angle = NICKMATHS_2PIf * (1 - std::cos(angle));
+	p_out = 1 / solid_angle;
 
 	return Vec4f(basis * dir); //basis.transformVectorToParent(dir);
 }
@@ -415,6 +448,28 @@ const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const Sam
 
 
 template <class VecType>
+const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out)
+{
+	// Sample unit disc
+	Vec2<typename VecType::RealType> disc = shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples);
+
+	const float z = std::sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y)));
+
+	const VecType dir(
+		disc.x, 
+		disc.y, 
+		z, 
+		0
+	);
+	assert(dir.isUnitLength());
+
+	p_out = z * Maths::recipPi<float>();
+
+	return VecType(to_world * dir);
+}
+
+
+template <class VecType>
 const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples)
 {
 	if(unitsamples.x <= 0.5f)
@@ -424,6 +479,26 @@ const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, cons
 	else
 	{
 		return sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y)) * -1.f;
+	}
+}
+
+
+template <class VecType>
+const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out)
+{
+	if(unitsamples.x <= 0.5f)
+	{
+		float p;
+		const VecType d = sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair(unitsamples.x * 2, unitsamples.y), p);
+		p_out = p * 0.5f;
+		return d;
+	}
+	else
+	{
+		float p;
+		const VecType d = -sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y), p);
+		p_out = p * 0.5f;
+		return d;
 	}
 }
 

@@ -23,10 +23,52 @@ namespace GeometrySampling
 {
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 void doTests()
 {
-	// Check shirleyUnitSquareToDisk and inverse
+	//=========================== sampleHemisphereCosineWeighted ===========================
+	{
+		MTwister rng(1);
+		for(int i=0; i<1000000; ++i)
+		{
+			const Vec2f u(rng.unitRandom(), rng.unitRandom());
+			
+			const Vec4f n = normalise(Vec4f(1,1,1,0));
+			Matrix4f m;
+			m.constructFromVector(n);
+			float p;
+			const Vec4f dir = sampleHemisphereCosineWeighted<Vec4f>(m, u, p);
+
+			testAssert(dir.isUnitLength());
+			testAssert(dot(dir, n) > 0);
+			testAssert(epsEqual(p, dot(dir, n) * Maths::recipPi<float>()));
+			testAssert(epsEqual(p, hemisphereCosineWeightedPDF(n, dir)));
+		}
+	}
+
+
+	//=========================== sampleBothHemispheresCosineWeighted ===========================
+	{
+		MTwister rng(1);
+		for(int i=0; i<1000000; ++i)
+		{
+			const Vec2f u(rng.unitRandom(), rng.unitRandom());
+			
+			const Vec4f n = normalise(Vec4f(1,1,1,0));
+			Matrix4f m;
+			m.constructFromVector(n);
+			float p;
+			const Vec4f dir = sampleBothHemispheresCosineWeighted<Vec4f>(m, u, p);
+
+			testAssert(dir.isUnitLength());
+			testAssert(epsEqual(p, bothHemispheresCosineWeightedPDF(n, dir)));
+			testAssert(epsEqual(p, ::absDot(dir, n) * Maths::recip2Pi<float>()));
+		}
+	}
+
+	//=========================== Check shirleyUnitSquareToDisk and inverse ===========================
 	{
 		MTwister rng(1);
 		for(int i=0; i<1000000; ++i)
@@ -39,7 +81,7 @@ void doTests()
 		}
 	}
 	
-	// Check unitSquareToHemisphere and inverse
+	//=========================== Check unitSquareToHemisphere and inverse ===========================
 	{
 		MTwister rng(1);
 		for(int i=0; i<1000000; ++i)
@@ -53,7 +95,7 @@ void doTests()
 		}
 	}
 
-	// Check unitSquareToSphere and inverse
+	//=========================== Check unitSquareToSphere and inverse ===========================
 	{
 			const Vec2f u(0.2f, 0.5f);
 			const Vec3f p = unitSquareToSphere<float>(u);
@@ -115,8 +157,9 @@ void doTests()
 	testAssert(dot(v, res) > 0.95);
 
 }
-#endif
 
+
+#endif // BUILD_TESTS
 
 
 } // end namespace GeometrySampling
