@@ -283,7 +283,7 @@ const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basi
 	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
 
 	const float sin_alpha = std::sin(alpha);
-	const SSE_ALIGN Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
+	const Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
 
 	const float solid_angle = NICKMATHS_2PIf * (1 - std::cos(angle));
 	p_out = 1 / solid_angle;
@@ -294,11 +294,11 @@ const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basi
 
 template <class Real> Real solidAngleConePDF(Real angle)
 {
-	assert(angle > 0.0);
+	assert(angle > 0);
 
 	// The sampling is uniform over the solid angle subtended by the cone.
-	const Real solid_angle = NICKMATHS_2PI * (1.0 - std::cos(angle));
-	return (Real)1.0 / solid_angle;
+	const Real solid_angle = Maths::get2Pi<Real>() * (1 - std::cos(angle));
+	return 1 / solid_angle;
 }
 
 
