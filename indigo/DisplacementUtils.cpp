@@ -684,6 +684,8 @@ static float evalDisplacement(ThreadContext& context,
 			hitinfo,
 			du_texcoord_evaluator,
 			pos_os.toVec4fPoint(),
+			Vec4f(0), // dp_dalpha  TEMP HACK
+			Vec4f(0), // dp_dbeta  TEMP HACK
 			0 // H (mean curvature).  TEMP HACK
 		);
 
@@ -743,6 +745,8 @@ static float evalDisplacement(ThreadContext& context,
 			hitinfo,
 			du_texcoord_evaluator,
 			pos_os.toVec4fPoint(),
+			Vec4f(0), // dp_dalpha  TEMP HACK
+			Vec4f(0), // dp_dbeta  TEMP HACK
 			0 // H (mean curvature).  TEMP HACK
 		);
 
@@ -923,6 +927,8 @@ public:
 					hitinfo,
 					du_texcoord_evaluator,
 					pos_os.toVec4fPoint(),
+					Vec4f(0), // dp_dalpha  TEMP HACK
+					Vec4f(0), // dp_dbeta  TEMP HACK
 					0 // H (mean curvature).  TEMP HACK
 				);
 
