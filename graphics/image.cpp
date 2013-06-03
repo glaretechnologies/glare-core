@@ -818,8 +818,8 @@ void readFromStream(InStream& stream, Image& image)
 	if(v != IMAGE_SERIALISATION_VERSION)
 		throw Indigo::Exception("Unknown version " + toString(v) + ", expected " + toString(IMAGE_SERIALISATION_VERSION) + ".");
 
-	const uint32 w = stream.readUInt32();
-	const uint32 h = stream.readUInt32();
+	const size_t w = stream.readUInt32();
+	const size_t h = stream.readUInt32();
 
 	// TODO: handle max image size
 

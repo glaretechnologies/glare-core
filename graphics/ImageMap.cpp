@@ -28,7 +28,7 @@ void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream)
 	stream.writeUInt32((uint32)im.getWidth());
 	stream.writeUInt32((uint32)im.getHeight());
 	stream.writeUInt32((uint32)im.getN());
-	stream.writeData(im.getData(), im.getWidth() * im.getHeight() * im.getN() * sizeof(V));
+	stream.writeData(im.getData(), (size_t)im.getWidth() * (size_t)im.getHeight() * (size_t)im.getN() * sizeof(V));
 }
 
 
@@ -46,5 +46,5 @@ void readFromStream(InStream& stream, ImageMap<V, VTraits>& image)
 	// TODO: handle max image size
 
 	image.resize(w, h, N);
-	stream.readData((void*)image.getData(), w * h * N * sizeof(V));
+	stream.readData((void*)image.getData(), (size_t)w * (size_t)h * (size_t)N * sizeof(V));
 }
