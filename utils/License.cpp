@@ -640,7 +640,7 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 			if(networkFloatingHash(constructed_key) == hash)
 			{
 				// Are we in the licence period?
-				if((uint64)::getSecsSince1970() < end_time)
+				if((uint64)Clock::getSecsSince1970() < end_time)
 				{
 					// Key verified!
 					license_type_out = desired_license_type;

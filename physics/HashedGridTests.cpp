@@ -127,7 +127,7 @@ void HashedGridTests::test()
 		int num_random_insertions = grid_res * grid_res * grid_res * 4;//64;
 		//std::cout << "testing insertion at " << num_random_insertions << " random points." << std::endl;
 
-		MTwister rng((uint32)::getSecsSince1970());
+		MTwister rng((uint32)Clock::getSecsSince1970());
 
 		for(int i = 0; i < num_random_insertions; ++i)
 		{

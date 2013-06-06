@@ -16,11 +16,15 @@ Copyright Glare Technologies Limited 2013 -
 #include "platform.h"
 
 
+namespace Clock
+{
+
+
 static bool clock_initialised = false;
 static double clock_period = 0;
 
 
-void Clock::init()
+void init()
 {
 #if defined(_WIN32)
 	LARGE_INTEGER freq;
@@ -146,8 +150,7 @@ const std::string humanReadableDuration(int seconds)
 }
 
 
-namespace Clock
-{
+
 
 
 /*
@@ -166,7 +169,7 @@ void getCurrentDay(int& day, int& month, int& year)
 }
 
 
-}
+} // end namespace Clock
 
 
 #if BUILD_TESTS

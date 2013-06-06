@@ -45,7 +45,7 @@ private:
 Timer::Timer()
 {
 	paused = false;
-	last_time_started = getCurTimeRealSec();
+	last_time_started = Clock::getCurTimeRealSec();
 	timesofar = 0;
 }
 
@@ -57,7 +57,7 @@ double Timer::getSecondsElapsed() const
 	if(paused)
 		return timesofar;
 	else
-		return timesofar + getCurTimeRealSec() - last_time_started;
+		return timesofar + Clock::getCurTimeRealSec() - last_time_started;
 
 
 	//return GetCurTimeRealSec() - time_started;
@@ -65,7 +65,7 @@ double Timer::getSecondsElapsed() const
 
 void Timer::reset()
 {
-	last_time_started = getCurTimeRealSec();
+	last_time_started = Clock::getCurTimeRealSec();
 	timesofar = 0;
 }
 
@@ -82,7 +82,7 @@ void Timer::pause()
 
 	paused = true;
 
-	timesofar += getCurTimeRealSec() - last_time_started;
+	timesofar += Clock::getCurTimeRealSec() - last_time_started;
 }
 
 void Timer::unpause()
@@ -91,7 +91,7 @@ void Timer::unpause()
 
 	paused = false;
 
-	last_time_started = getCurTimeRealSec();
+	last_time_started = Clock::getCurTimeRealSec();
 }
 
 	
