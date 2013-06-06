@@ -1,7 +1,7 @@
 /*=====================================================================
 clock.cpp
 -------------------
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2013 -
 =====================================================================*/
 #include "Clock.h"
 	
@@ -62,35 +62,60 @@ double getCurTimeRealSec()
 
 const std::string getAsciiTime()
 {
-	time_t currenttime;
+	// Get current system time
+	time_t current_time;
+	time(&current_time);    
 
-	time(&currenttime);                 
-	
-	struct tm *newtime = localtime(&currenttime);
-	if(!newtime)
-		return "";
-                                   
-	std::string s = asctime(newtime);
-
-	if(!s.empty() && s[(int)s.size() - 1] == '\n')
-		s = s.substr(0, (int)s.size() - 1);
-
-	return s;
+	return getAsciiTime(current_time);
 }
 
 
 const std::string getAsciiTime(time_t t)
 {
-	struct tm *newtime = localtime(&t);
-	if(!newtime)
+#ifdef _WIN32
+	// NOTE: We will use localtime_s and asctime_s, as they seem to be safer than localtime and asctime.
+
+	struct tm local_time;
+	if(localtime_s(&local_time, &t) != 0)
+	{
+		// Error occurred.
+		assert(0);
 		return "";
-                                   
-	std::string s = asctime(newtime);
+	}
+	
+	char buf[32];
+	if(asctime_s(buf, sizeof(buf), &local_time) != 0)
+	{
+		// Error occurred
+		assert(0);
+		return "";
+	}
 
-	if(!s.empty() && s[(int)s.size() - 1] == '\n')
-		s = s.substr(0, (int)s.size() - 1);
+	// Remove trailing newline character
+	return ::stripTailWhitespace(std::string(buf));
+#else
+	// NOTE: We will use the thread-safe versions (with an _r suffix) of localtime and asctime.
 
-	return s;
+	struct tm local_time;
+	if(localtime_r(&t, &local_time) == 0)
+	{
+		// Error occurred.
+		assert(0);
+		return "";
+	}
+	
+	// The asctime_r() function does the same, but stores the string in a user-supplied buffer which should have room for at least 26 bytes.
+	char buf[32];
+	if(asctime_r(&local_time, buf) == 0)
+	{
+		// Error occurred
+		assert(0);
+		return "";
+	}
+
+	// Remove trailing newline character
+	return ::stripTailWhitespace(std::string(buf));
+#endif
 }
 
 
@@ -142,3 +167,28 @@ void getCurrentDay(int& day, int& month, int& year)
 
 
 }
+
+
+#if BUILD_TESTS
+
+
+#include "ConPrint.h"
+#include "../indigo/TestUtils.h"
+
+
+void Clock::test()
+{
+	conPrint("Clock::test()");
+
+	getSecsSince1970();
+
+	{
+		const std::string time_str = getAsciiTime();
+
+		testAssert(!time_str.empty());
+		conPrint("getAsciiTime(): '" + time_str + "'");
+	}
+}
+
+
+#endif // BUILD_TESTS

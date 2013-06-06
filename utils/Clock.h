@@ -1,7 +1,7 @@
 /*=====================================================================
 clock.h
 -------------------
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2013 -
 =====================================================================*/
 #pragma once
 
@@ -35,5 +35,7 @@ void init();
 
 void getCurrentDay(int& day, int& month, int& year);
 
-}
 
+void test();
+
+}
