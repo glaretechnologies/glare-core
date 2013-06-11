@@ -52,6 +52,23 @@ public:
 	};
 
 
+	enum LicenceErrorCode
+	{
+		LicenceErrorCode_NoError = 0,
+		LicenceErrorCode_NetworkLicenceFileNotFound = 1,
+		LicenceErrorCode_LicenceSigFileNotFound = 2,
+		LicenceErrorCode_FileReadFailed = 3,
+		LicenceErrorCode_FileEmpty = 4,
+		LicenceErrorCode_WrongNumComponents = 5,
+		LicenceErrorCode_BadLicenceType = 6,
+		LicenceErrorCode_EmptyHash = 7,
+		LicenceErrorCode_NoHashMatch = 8,
+		LicenceErrorCode_LicenceExpired = 9,
+		LicenceErrorCode_MiscFileExcep = 10,
+		LicenceErrorCode_IndigoRTUsedForIndigoRenderer = 11
+	};
+
+
 	static bool licenceIsForOldVersion(LicenceType t);
 	/*
 	Should we apply a watermark?
@@ -66,7 +83,8 @@ public:
 	static const std::string licenseTypeToString(LicenceType t);
 	static const std::string licenseTypeToCodeString(LicenceType t);
 
-	static void verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out); // throws LicenseExcep
+	static void verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out,
+		LicenceErrorCode& local_err_code_out, LicenceErrorCode& network_lic_err_code_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
@@ -87,10 +105,10 @@ private:
 	
 	static const std::string decodeBase64(const std::string& data);
 
-	static void verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out);
+	static void verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
 
 	static const std::string ensureNewLinesPresent(const std::string& data);
 
-	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out);
+	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
 
 };

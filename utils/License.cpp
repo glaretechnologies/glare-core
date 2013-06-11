@@ -184,10 +184,13 @@ Sets licence_type_out and user_id_out based on the results of the verification.
 
 Also checks for the presence of the Green Button certificate, as well as a network floating licence licence key cached on disk.
 */
-void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out)
+void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out,
+							LicenceErrorCode& local_err_code_out, LicenceErrorCode& network_lic_err_code_out)
 {
 	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
+	local_err_code_out = LicenceErrorCode_NoError;
+	network_lic_err_code_out = LicenceErrorCode_NoError;
 
 
 	// TEMP check for the test certificate GreenButton sent us
@@ -208,7 +211,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 
 
 	// Try and verifiy network licence first.
-	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out);
+	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
 	if(have_net_floating_licence)
 		return;
 	else
@@ -227,15 +230,19 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 
 		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_path);
 		if(!FileUtils::fileExists(licence_sig_full_path))
+		{
+			local_err_code_out = LicenceErrorCode_LicenceSigFileNotFound;
 			return;
+		}
 
 		std::string sigfile_contents;
 		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
 
-		verifyLicenceString(sigfile_contents, hardware_ids, licence_type_out, user_id_out);
+		verifyLicenceString(sigfile_contents, hardware_ids, licence_type_out, user_id_out, local_err_code_out);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
+		local_err_code_out = LicenceErrorCode_MiscFileExcep;
 		throw LicenseExcep(e.what());
 	}
 }
@@ -245,19 +252,26 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 Verifies that the licence key is correctly signed with Glare's private key.  Also check that the signature matches that for at least one of the hardware IDs passsed in.
 
 */
-void License::verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out)
+void License::verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out)
 {
 	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
+	error_code_out = LicenceErrorCode_NoError;
 
 	if(licence_string.empty())
-		return; // throw LicenseExcep("Signature empty.");
+	{
+		error_code_out = LicenceErrorCode_FileEmpty;
+		return;
+	}
 
 	// Split the license key up into (User Id, license type, sig)
 	const std::vector<std::string> components = ::split(licence_string, ';');
 
 	if(components.size() != 3)
+	{
+		error_code_out = LicenceErrorCode_WrongNumComponents;
 		return;
+	}
 
 	LicenceType desired_licence_type = UNLICENSED;
 
@@ -289,7 +303,10 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		desired_licence_type = RT_3_X;
 #endif
 	else
+	{
+		error_code_out = LicenceErrorCode_BadLicenceType;
 		return;
+	}
 
 
 #ifdef INDIGO_RT
@@ -297,13 +314,19 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 #else
 	// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
 	if(desired_licence_type == RT_3_X)
+	{
+		error_code_out = LicenceErrorCode_IndigoRTUsedForIndigoRenderer;
 		throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
+	}
 #endif
 
 	const std::string hash = decodeBase64(components[2]);
 
 	if(hash.empty())
-		return; // throw LicenseExcep("Signature empty.");
+	{
+		error_code_out = LicenceErrorCode_EmptyHash;
+		return;
+	}
 
 	// Go through each hardware id, and see if it can be verified against the signature.
 	for(size_t i=0; i<hardware_ids.size(); ++i)
@@ -319,6 +342,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
 				licence_type_out = desired_licence_type;
+				error_code_out = LicenceErrorCode_NoError;
 				return; // We're done here, return
 			}
 			else
@@ -339,6 +363,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
 				licence_type_out = desired_licence_type;
+				error_code_out = LicenceErrorCode_NoError;
 				return; // We're done here, return
 			}
 			else
@@ -347,6 +372,8 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 			}
 		}
 	}
+
+	error_code_out = LicenceErrorCode_NoHashMatch;
 }
 
 
@@ -564,9 +591,10 @@ const std::string License::currentLicenseSummaryString(const std::string& appdat
 {
 	LicenceType licence_type = License::UNLICENSED;
 	std::string licence_user_id;
+	License::LicenceErrorCode local_error_code, network_error_code;
 	try
 	{
-		License::verifyLicense(appdata_path, licence_type, licence_user_id);
+		License::verifyLicense(appdata_path, licence_type, licence_user_id, local_error_code, network_error_code);
 	}
 	catch(License::LicenseExcep&)
 	{}
@@ -578,7 +606,7 @@ const std::string License::currentLicenseSummaryString(const std::string& appdat
 }
 
 
-bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out)
+bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out)
 {
 	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
 
@@ -590,7 +618,10 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 
 		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_filename);
 		if(!FileUtils::fileExists(licence_sig_full_path))
+		{
+			error_code_out = LicenceErrorCode_NetworkLicenceFileNotFound;
 			return false;
+		}
 
 		std::string sigfile_contents;
 		// NOTE: if we fail to read the file here (e.g. if it is opened in another thread), then we don't want to throw an exception (which can terminate the render),
@@ -601,17 +632,24 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 		}
 		catch(FileUtils::FileUtilsExcep& )
 		{
+			error_code_out = LicenceErrorCode_FileReadFailed;
 			return false;
 		}
 
 		if(sigfile_contents.empty())
+		{
+			error_code_out = LicenceErrorCode_FileEmpty;
 			return false;
+		}
 
 		// Split the license key up into (user_id, type, end_time, sig)
 		const std::vector<std::string> components = ::split(sigfile_contents, ';');
 
 		if(components.size() != 4)
+		{
+			error_code_out = LicenceErrorCode_WrongNumComponents;
 			return false;
+		}
 
 		user_id_out = components[0];
 
@@ -622,13 +660,19 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 		else if(components[1] == "network-floating-node")
 			desired_license_type = NETWORK_FLOATING_NODE;
 		else
+		{
+			error_code_out = LicenceErrorCode_BadLicenceType;
 			return false;
+		}
 
 		const uint64 end_time = ::stringToUInt64(components[2]);
 
 		const std::string hash = components[3]; // decodeBase64(components[3]);
 		if(hash.empty())
+		{
+			error_code_out = LicenceErrorCode_EmptyHash;
 			return false;
+		}
 
 		// Go through each hardware id, and see if it can be verified against the signature.
 		for(size_t i=0; i<hardware_ids.size(); ++i)
@@ -648,10 +692,14 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 					//std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
 					//std::cout << "end_time:" << end_time << std::endl;
 					//std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
+					error_code_out = LicenceErrorCode_NoError;
 					return true; // We're done here, return
 				}
 				else
+				{
+					error_code_out = LicenceErrorCode_LicenceExpired;
 					return false; // Licence has expired
+				}
 			}
 			else
 			{
@@ -659,10 +707,12 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 			}
 		}
 
+		error_code_out = LicenceErrorCode_NoHashMatch;
 		return false;
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
+		error_code_out = LicenceErrorCode_MiscFileExcep;
 		throw LicenseExcep(e.what());
 	}
 }
@@ -800,11 +850,12 @@ void License::test()
 	
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
-
-		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 		testAssert(user_id == "someoneawesome@awesome.com<S. Awesome>");
 		testAssert(licence_type == FULL_LIFETIME);
+		testAssert(error_code == LicenceErrorCode_NoError);
 	}
 	catch(LicenseExcep& e)
 	{
@@ -823,11 +874,12 @@ void License::test()
 	
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
-		
-		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 		testAssert(user_id == "");
 		testAssert(licence_type == UNLICENSED);
+		testAssert(error_code == LicenceErrorCode_NoHashMatch);
 	}
 	catch(LicenseExcep& e)
 	{
@@ -846,11 +898,12 @@ void License::test()
 	
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
-
-		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 		testAssert(user_id == "");
 		testAssert(licence_type == UNLICENSED);
+		testAssert(error_code == LicenceErrorCode_NoHashMatch);
 	}
 	catch(LicenseExcep& e)
 	{
@@ -869,11 +922,12 @@ void License::test()
 	
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
-
-		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 		testAssert(user_id == "");
 		testAssert(licence_type == UNLICENSED);
+		testAssert(error_code == LicenceErrorCode_NoHashMatch);
 	}
 	catch(LicenseExcep& e)
 	{
@@ -892,11 +946,12 @@ void License::test()
 	
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
-
-		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 		testAssert(user_id == "");
 		testAssert(licence_type == UNLICENSED);
+		testAssert(error_code == LicenceErrorCode_NoHashMatch);
 	}
 	catch(LicenseExcep& e)
 	{
@@ -923,10 +978,12 @@ void License::test()
 
 		try
 		{
-			verifyLicenceString(licence_key, hardware_ids, licence_type, user_id);
+			LicenceErrorCode error_code;
+			verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
 
 			testAssert(user_id == "someoneawesome@awesome.com<S. Awesome>");
 			testAssert(licence_type == FULL_LIFETIME);
+			testAssert(error_code == LicenceErrorCode_NoError);
 		}
 		catch(LicenseExcep& e)
 		{
