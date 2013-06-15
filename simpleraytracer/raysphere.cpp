@@ -205,11 +205,11 @@ void RaySphere::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord
 const js::AABBox& RaySphere::getAABBoxWS() const { return aabbox; }
 
 
-void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const
+void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const
 {
 	assert(to_parent == Matrix4f::identity());
 	surface_areas_out.resize(1);
-	surface_areas_out[0] = 4.0 * NICKMATHS_PI * radius * radius;
+	surface_areas_out[0] = 4 * NICKMATHS_PIf * radius * radius;
 }
 
 
@@ -257,6 +257,7 @@ unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
 #include <algorithm>
 
 

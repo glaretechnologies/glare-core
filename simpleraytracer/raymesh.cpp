@@ -1449,12 +1449,12 @@ unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 }
 
 
-void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<double>& surface_areas_out) const
+void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const
 {
 	surface_areas_out.resize(triangles.size());
 
 	for(size_t i = 0; i < surface_areas_out.size(); ++i)
-		surface_areas_out[i] = (double)getTriArea(*this, (unsigned int)i, to_parent);
+		surface_areas_out[i] = getTriArea(*this, (unsigned int)i, to_parent);
 }
 
 

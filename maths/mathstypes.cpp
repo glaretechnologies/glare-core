@@ -740,6 +740,47 @@ void Maths::test()
 		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
 	}
 
+	// Test oneMinusCosX()
+
+	float max_direct_error = 0;
+	float max_func_error = 0;
+	float max_direct_relative_error = 0;
+	float max_func_relative_error = 0;
+
+	for(float x=0; x<1.f; x += 0.0001f)
+	{
+		const float one_minus_cos_x_d = (float)(1 - std::cos((double)x));
+
+		const float one_minus_cos_x_f = 1 - std::cos(x);
+
+		const float one_minus_cos_x_func = oneMinusCosX(x);
+
+		const float direct_error = std::fabs(one_minus_cos_x_f    - one_minus_cos_x_d);
+		const float func_error   = std::fabs(one_minus_cos_x_func - one_minus_cos_x_d);
+
+		const float direct_relative_error = one_minus_cos_x_d == 0 ? 0 : direct_error / one_minus_cos_x_d;
+		const float func_relative_error   = one_minus_cos_x_d == 0 ? 0 : func_error   / one_minus_cos_x_d;
+
+		max_direct_error = myMax(max_direct_error, direct_error);
+		max_func_error   = myMax(max_func_error,   func_error);
+		max_direct_relative_error = myMax(max_direct_relative_error, direct_relative_error);
+		max_func_relative_error   = myMax(max_func_relative_error,   func_relative_error);
+
+		/*conPrint("");
+		printVar(one_minus_cos_x_d);
+		printVar(one_minus_cos_x_f);
+		printVar(one_minus_cos_x_func);
+
+		printVar(x);
+		printVar(direct_error);
+		printVar(func_error);*/
+	}
+
+	printVar(max_direct_error);
+	printVar(max_func_error);
+	printVar(max_direct_relative_error);
+	printVar(max_func_relative_error);
+
 
 	// exit(0);
 

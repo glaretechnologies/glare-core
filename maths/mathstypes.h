@@ -625,6 +625,34 @@ inline float fastPow(float a, float b)
 }
 
 
+/*
+Evaluate 1 - cos(x) for x >= 0.
+
+This can suffer from catastrophic cancellation when x is close to zero when evaluated directly.
+Instead we can evaluate in a different way when x is close to zero:
+
+cos(x) = 1 - x^2/2! + x^4/4! - x^6/6! + ...
+so
+1 - cos(x) = 1 - (1 - x^2/2! + x^4/4! - x^6/6! + ...)
+           = x^2/2! - x^4/4! + x^6/6! - ...
+*/
+template <class Real>
+inline Real oneMinusCosX(Real x)
+{
+	assert(x >= 0);
+
+	if(x < (Real)0.3)
+	{
+		return x*x/2 - x*x*x*x/24 + x*x*x*x*x*x/720;
+	}
+	else
+	{
+		return 1 - std::cos(x);
+	}
+}
+
+
+
 void test();
 
 
