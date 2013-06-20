@@ -283,6 +283,11 @@ const std::string toHexString(unsigned long long i)
 
 const std::string floatToString(float f)
 {
+	// Due to fast maths optimisations with VS that treat -0 like 0, a float value of -0.0 will sometimes get passed in to this function instead of 0.0.
+	// We want to print "0" for this, so handle this case explicitly here.
+	if(f == 0 && !isNAN(f))
+		return "0";
+
 	// Convert double to string with Google's code
 	double_conversion::DoubleToStringConverter converter(
 		double_conversion::DoubleToStringConverter::NO_FLAGS,
@@ -301,20 +306,16 @@ const std::string floatToString(float f)
 	converter.ToShortestSingle(f, &builder);
 
 	return std::string(builder.Finalize());
-
-
-	// Not static for thread-safety.
-	/*char buffer[100];
-
-	sprintf(buffer, "%f", f);
-
-	return std::string(buffer);*/
 }
-
 
 
 const std::string doubleToString(double d)
 {
+	// Due to fast maths optimisations with VS that treat -0 like 0, a float value of -0.0 will sometimes get passed in to this function instead of 0.0.
+	// We want to print "0" for this, so handle this case explicitly here.
+	if(d == 0 && !isNAN(d))
+		return "0";
+
 	// Convert double to string with Google's code
 	double_conversion::DoubleToStringConverter converter(
 		double_conversion::DoubleToStringConverter::NO_FLAGS,
@@ -1231,6 +1232,17 @@ void StringUtils::test()
 		testAssert(s == "-3.4028235e38");
 	}
 
+	// Check zero
+	{
+		std::string s = floatToString(0.f);
+		testAssert(s == "0");
+	}
+	// Check negative (signed) zero.  We want to convert this to "0".
+	{
+		std::string s = floatToString(-0.f);
+		testAssert(s == "0");
+	}
+
 	// Check NaN
 	{
 		std::string s = floatToString(std::numeric_limits<float>::quiet_NaN());
@@ -1308,6 +1320,68 @@ void StringUtils::test()
 	}
 	catch(StringUtilsExcep& )
 	{}
+
+	//==================================== doubleToString ====================================
+	{
+		std::string s = doubleToString(123.4567);
+		testAssert(s == "123.4567");
+	}
+	// Check positive Max representable finite float.
+	{
+		std::string s = doubleToString(std::numeric_limits<double>::max());
+
+		// Google's code returns "1.7976931348623157e308", which differs in the last digit.  Bug in Google's code?
+
+		//testAssert(s == "1.7976931348623158e+308");
+	}
+	// Check negative Max representable finite float.
+	{
+		std::string s = doubleToString(-std::numeric_limits<double>::max());
+		//testAssert(s == "-1.7976931348623158e+308");
+	}
+
+	// Check zero
+	{
+		std::string s = doubleToString(0.0);
+		testAssert(s == "0");
+	}
+	// Check negative (signed) zero.  We want to convert this to "0".
+	{
+		std::string s = doubleToString(-0.0);
+		testAssert(s == "0");
+	}
+
+	// Check NaN
+	{
+		std::string s = doubleToString(std::numeric_limits<double>::quiet_NaN());
+		testAssert(s == "NaN");
+	}
+	// Check Inf
+	{
+		std::string s = doubleToString(std::numeric_limits<double>::infinity());
+		testAssert(s == "Inf");
+	}
+	// Check -Inf
+	{
+		std::string s = doubleToString(-std::numeric_limits<double>::infinity());
+		testAssert(s == "-Inf");
+	}
+
+
+	{
+		std::string s;
+		for(int i=0; i<100000; ++i)
+		{
+			double x = (float)i / 1000.0;
+
+			s = doubleToString(x);
+
+			double x2 = stringToDouble(s);
+
+			testAssert(x == x2);
+		}
+	}
+
 
 	//==================================== Test numDigits() ====================================
 	for(uint32 i=0; i<10; ++i)
