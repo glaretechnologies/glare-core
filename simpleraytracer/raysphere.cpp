@@ -102,69 +102,49 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 }
 
 
-//TODO: improve this to use the numerically robust intersection algorithm
 void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
-	const Vec3d raystarttosphere = toVec3d(ray.startPos()) * -1.0f;
+	const Vec4f raystart_to_centre = Vec4f(0,0,0,1) - ray.startPos();
 
-	const double dist_to_rayclosest = dot(raystarttosphere, toVec3d(ray.unitDir()));
+	const Real u_dot_del_p = dot(raystart_to_centre, ray.unitDir());
 
-	const double sph_cen_to_ray_closest_len2 = raystarttosphere.length2() -
-		dist_to_rayclosest*dist_to_rayclosest;
+	const Real discriminant = radius_squared - raystart_to_centre.getDist2(ray.unitDir() * u_dot_del_p);
 
-	//-----------------------------------------------------------------
-	//ray has missed sphere?
-	//-----------------------------------------------------------------
-	if(sph_cen_to_ray_closest_len2 > this->radius_squared)
-		return;
+	if(discriminant < 0)
+		return; // No intersection.
 
-	//ray has hit sphere...
+	const Real sqrt_discriminant = std::sqrt(discriminant);
 
+	const Real use_min_t = rayMinT(radius);
 
-	//return dist_to_rayclosest - sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-	const double a = sqrt(this->radius_squared - sph_cen_to_ray_closest_len2);
-
-	const double use_min_t = rayMinT(radius);
-
-	if(dist_to_rayclosest + a >= use_min_t/*ray.minT()*/)
+	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
+	if(t_0 >= use_min_t)
 	{
-		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest + a));
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - Vec4f(0,0,0,1), recip_radius);
 
-		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest + a, 0, uvs.x, uvs.y))
+		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
 		{
-			/*hitinfos_out.push_back(DistanceFullHitInfo());
-			hitinfos_out.back().dist = dist_to_rayclosest + a;
-			hitinfos_out.back().hitpos = hitpos;
-			hitinfos_out.back().hitinfo.sub_elem_index = 0;
-			hitinfos_out.back().hitinfo.sub_elem_coords = uvs;*/
 			hitinfos_out.push_back(DistanceHitInfo(
-				0,
+				0, // sub elem index
 				uvs,
-				dist_to_rayclosest + a
-				));
+				t_0 // dist
+			));
 		}
 	}
 
-	if(dist_to_rayclosest - a >= use_min_t/*ray.minT()*/)
+	const Real t_1 = u_dot_del_p + sqrt_discriminant;
+	if(t_1 >= use_min_t)
 	{
-		const Vec3d hitpos = toVec3d(ray.pointf(dist_to_rayclosest - a));
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir<Vec3RealType>(toVec3f(hitpos), (Vec3RealType)recip_radius);
-
-		if(!object || object->isNonNullAtHit(thread_context, ray, dist_to_rayclosest - a, 0, uvs.x, uvs.y))
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - Vec4f(0,0,0,1.f), recip_radius);
+		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
 		{
-			/*hitinfos_out.push_back(DistanceFullHitInfo());
-			hitinfos_out.back().dist = dist_to_rayclosest - a;
-			hitinfos_out.back().hitpos = hitpos;
-			hitinfos_out.back().hitinfo.sub_elem_index = 0;
-			hitinfos_out.back().hitinfo.sub_elem_coords = uvs;*/
 			hitinfos_out.push_back(DistanceHitInfo(
-				0,
+				0, // sub elem index
 				uvs,
-				dist_to_rayclosest - a
-				));
+				t_1 // dist
+			));
 		}
 	}
 }
@@ -253,151 +233,6 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
-#if BUILD_TESTS
-
-
-#include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
-#include <algorithm>
-
-
-void RaySphere::test()
-{
-	conPrint("RaySphere::test()");
-
-	const SSE_ALIGN Ray ray(
-		Vec4f(-1,0,0,1),
-		Vec4f(1,0,0,0),
-		1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-		, Vec4f(1,0,0,0) // launch normal
-#endif
-		);
-
-	RaySphere sphere(/*Vec3d(0,0,1), */0.5);
-
-	//js::ObjectTreePerThreadData context;//(true);
-	ThreadContext thread_context;
-
-	//------------------------------------------------------------------------
-	//test traceRay()
-	//------------------------------------------------------------------------
-	HitInfo hitinfo;
-	double d = sphere.traceRay(ray, 1000.0, thread_context, 
-		NULL, hitinfo);
-
-	testAssert(::epsEqual(d, 0.5));
-	testAssert(hitinfo.sub_elem_index == 0);
-	//testAssert(hitinfo.hittricoords
-
-
-
-
-	//------------------------------------------------------------------------
-	//test traceRay() in reverse direction
-	//------------------------------------------------------------------------
-	const SSE_ALIGN Ray ray2(
-		Vec4f(1,0,0,1),
-		Vec4f(-1,0,0,0),
-		1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-		, Vec4f(-1,0,0,0) // launch normal
-#endif
-		);
-	d = sphere.traceRay(ray2, 1000.0, thread_context, 
-		NULL, hitinfo);
-	testAssert(::epsEqual(d, 0.5));
-	testAssert(hitinfo.sub_elem_index == 0);
-
-	d = sphere.traceRay(ray2, 0.1, thread_context, 
-		NULL, hitinfo);
-	//ignoring this for now: testAssert(d < 0.0);
-
-
-	//------------------------------------------------------------------------
-	//test getAllHits()
-	//------------------------------------------------------------------------
-#ifndef COMPILER_GCC
-	std::vector<DistanceHitInfo> hitinfos;
-	sphere.getAllHits(ray, thread_context, 
-		//context, 
-		NULL, hitinfos);
-	std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
-
-	testAssert(hitinfos.size() == 2);
-
-	testAssert(epsEqual(hitinfos[0].dist, 0.5f));
-	//testAssert(epsEqual(hitinfos[0].geometric_normal, Vec3d(-1,0,0)));
-	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(-0.5, 0, 1)));
-
-	testAssert(epsEqual(hitinfos[1].dist, 1.5f));
-	//testAssert(epsEqual(hitinfos[1].geometric_normal, Vec3d(1,0,0)));
-	//testAssert(epsEqual(hitinfos[1].hitpos, Vec3d(0.5, 0, 1)));
-
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
-	//testAssert(epsEqual(sphere.getShadingNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
-
-	testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
-	//testAssert(epsEqual(sphere.getShadingNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
-
-	Vec3Type pos, N_g;
-	Vec3RealType pos_error;
-	sphere.getPosAndGeomNormal(hitinfos[0], pos, pos_error, N_g);
-
-	testAssert(epsEqual(N_g, Vec3Type(-1,0,0,0)));
-
-
-	sphere.getPosAndGeomNormal(hitinfos[1], pos, pos_error, N_g);
-
-	testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
-
-
-	//------------------------------------------------------------------------
-	//try tracing from inside sphere
-	//------------------------------------------------------------------------
-	const SSE_ALIGN Ray ray3(
-		Vec4f(0.25,0,0,1),
-		Vec4f(1,0,0,0),
-		1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-		, Vec4f(1,0,0,0) // launch normal
-#endif
-		);
-	d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, hitinfo);
-	testAssert(::epsEqual(d, 0.25));
-
-	d = sphere.traceRay(ray3, 0.24, thread_context, NULL, hitinfo);
-	//NOTE: ignoring this for now.  testAssert(d < 0.0);
-
-	//------------------------------------------------------------------------
-	//try getAllHits() from inside sphere
-	//------------------------------------------------------------------------
-	sphere.getAllHits(ray3, thread_context/*, context*/, NULL, hitinfos);
-
-	testAssert(hitinfos.size() == 1);
-	testAssert(epsEqual(hitinfos[0].dist, 0.25f));
-	//testAssert(epsEqual(hitinfos[0].hitpos, Vec3d(0.5, 0, 1)));
-
-
-#endif
-
-	//TODO: test normal stuff
-
-	//------------------------------------------------------------------------
-	//test emitter  stuff
-	//------------------------------------------------------------------------
-	/*sphere.emitterInit();
-
-	//4*pi*r^2
-	//4*pi*(0.5)^2
-	//pi
-	testAssert(epsEqual(sphere.surfaceArea(), NICKMATHS_PI));
-	testAssert(epsEqual(sphere.surfacePDF(), 1.0 / NICKMATHS_PI));*/
-
-}
-#endif
-
-
 bool RaySphere::isEnvSphereGeometry() const
 {
 	return false;
@@ -414,3 +249,126 @@ RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
 {
 	return radius;
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
+
+
+void RaySphere::test()
+{
+	conPrint("RaySphere::test()");
+
+	ThreadContext thread_context;
+
+	// Test traceRay()
+	{
+		RaySphere sphere(0.5);
+
+		const Ray ray(
+			Vec4f(-1,0,0,1),
+			Vec4f(1,0,0,0),
+			1.0e-5f // min_t
+		);
+		
+		HitInfo hitinfo;
+		double d = sphere.traceRay(ray, 1000.0, thread_context, 
+			NULL, hitinfo);
+
+		testAssert(::epsEqual(d, 0.5));
+		testAssert(hitinfo.sub_elem_index == 0);
+	}
+
+	// Test traceRay() in reverse direction
+	{
+		RaySphere sphere(0.5);
+
+		const Ray ray2(
+			Vec4f(1,0,0,1),
+			Vec4f(-1,0,0,0),
+			1.0e-5f // min_t
+		);
+
+		HitInfo hitinfo;
+		double d = sphere.traceRay(ray2, 1000.0, thread_context, NULL, hitinfo);
+		testAssert(::epsEqual(d, 0.5));
+		testAssert(hitinfo.sub_elem_index == 0);
+
+		// Test with max dist = 0.1
+		d = sphere.traceRay(ray2, 0.1, thread_context, NULL, hitinfo);
+		testAssert(d < 0.0);
+	}
+
+
+	// Test getAllHits()
+	{
+		RaySphere sphere(0.5);
+
+		const Ray ray(
+			Vec4f(-1,0,0,1),
+			Vec4f(1,0,0,0),
+			1.0e-5f // min_t
+		);
+		std::vector<DistanceHitInfo> hitinfos;
+		sphere.getAllHits(ray, thread_context, NULL, hitinfos);
+
+		testAssert(hitinfos.size() == 2);
+
+		testAssert(epsEqual(hitinfos[0].dist, 0.5f));
+		testAssert(epsEqual(hitinfos[1].dist, 1.5f));
+
+		testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
+		testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
+
+		Vec3Type pos, N_g;
+		Vec3RealType pos_error;
+		sphere.getPosAndGeomNormal(hitinfos[0], pos, pos_error, N_g);
+
+		testAssert(epsEqual(N_g, Vec3Type(-1,0,0,0)));
+
+		sphere.getPosAndGeomNormal(hitinfos[1], pos, pos_error, N_g);
+
+		testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
+	}
+
+
+	// Try tracing from inside sphere
+	{
+		RaySphere sphere(0.5);
+
+		const Ray ray3(
+			Vec4f(0.25f,0,0,1),
+			Vec4f(1,0,0,0),
+			1.0e-5f // min_t
+		);
+
+		HitInfo hitinfo;
+		double d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, hitinfo);
+		testAssert(::epsEqual(d, 0.25));
+
+		d = sphere.traceRay(ray3, 0.24, thread_context, NULL, hitinfo);
+		testAssert(d < 0.0);
+	}
+
+	// Try getAllHits() from inside sphere
+	{
+		RaySphere sphere(0.5);
+
+		const Ray ray3(
+			Vec4f(0.25f,0,0,1),
+			Vec4f(1,0,0,0),
+			1.0e-5f // min_t
+		);
+		std::vector<DistanceHitInfo> hitinfos;
+		sphere.getAllHits(ray3, thread_context, NULL, hitinfos);
+
+		testAssert(hitinfos.size() == 1);
+		testAssert(epsEqual(hitinfos[0].dist, 0.25f));
+	}
+}
+
+
+#endif // BUILD_TESTS
