@@ -47,6 +47,9 @@ public:
 	//static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
 
 	static const std::map<std::string, std::string> getMetaData(const std::string& image_path);
+
+
+	static void test();
 };
 
 

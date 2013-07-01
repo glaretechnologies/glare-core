@@ -36,6 +36,11 @@ PNGDecoder::~PNGDecoder()
 	
 }
 
+// TRY:
+// png_set_keep_unknown_chunks(png_ptr, 0, NULL, 0);
+// or
+// png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
+
 
 //typedef void (PNGAPI *png_error_ptr) PNGARG((png_structp, png_const_charp));
 void pngdecoder_error_func(png_structp png, const char* msg)
@@ -515,3 +520,25 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 	std::map<std::string, std::string> metadata;
 	write(bitmap, metadata, pathname);
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void PNGDecoder::test()
+{
+	try
+	{
+		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+#endif // BUILD_TESTS
