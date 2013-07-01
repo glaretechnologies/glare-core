@@ -295,7 +295,12 @@ inline Vec4f max(const Vec4f& a, const Vec4f& b)
 
 inline const Vec4f floor(const Vec4f& v)
 {
+#if _MSC_VER
 	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
+#else
+	// Since we're not using SSE4 on GCC/Clang yet, just use std::floor().
+	return Vec4f(std::floor(v.x[0]), std::floor(v.x[1]), std::floor(v.x[2]), std::floor(v.x[3]));
+#endif
 }
 
 

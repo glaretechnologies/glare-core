@@ -11,7 +11,10 @@ Copyright Glare Technologies Limited 2012 -
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
 #include <tmmintrin.h> // SSSE 3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8
+#if _MSC_VER
+// Stupid GCC doesn't allow including of smmintrin.h without turning on SSE 4.1 codegen, which we don't want.
 #include <smmintrin.h> // SSE 4.1 header file
+#endif
 
 //#define USE_SSE4 1
 #if USE_SSE4
