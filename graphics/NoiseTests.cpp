@@ -30,24 +30,24 @@ void NoiseTests::test()
 	{
 		const float v = PerlinNoise::noise(Vec4f(0.f, 0.f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(0.f, 0.f);
-		testAssert(v == v2);
+		testAssert(epsEqual(v, v2));
 	}
 	{
 		const float v = PerlinNoise::noise(Vec4f(1.3f, 0.3f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(1.3f, 0.3f);
-		testAssert(v == v2);
+		testAssert(epsEqual(v, v2));
 	}
 
 	{
 		const float v = PerlinNoise::noise(Vec4f(-1.3f, 0.3f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(-1.3f, 0.3f);
-		testAssert(v == v2);
+		testAssert(epsEqual(v, v2));
 	}
 
 	{
 		const float v = PerlinNoise::noise(Vec4f(546.3f, 67876.5675f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(546.3f, 67876.5675f);
-		testAssert(v == v2);
+		testAssert(epsEqual(v, v2));
 	}
 
 
