@@ -8,6 +8,7 @@ File created by ClassTemplate on Thu Mar 26 15:28:20 2009
 
 
 #include "SSE.h"
+#include "Vec4i.h"
 #include "mathstypes.h"
 #include <assert.h>
 #include <string>
@@ -289,4 +290,35 @@ inline Vec4f min(const Vec4f& a, const Vec4f& b)
 inline Vec4f max(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_max_ps(a.v, b.v);
+}
+
+
+inline const Vec4f floor(const Vec4f& v)
+{
+	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
+}
+
+
+inline const Vec4i toVec4i(const Vec4f& v)
+{
+	return Vec4i(_mm_cvttps_epi32(v.v)); // _mm_cvttps_epi32 (CVTTPS2DQ) is SSE 2
+}
+
+
+template <int index>
+INDIGO_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index, index, index, index)); } // SSE 1
+
+// From Embree
+INDIGO_STRONG_INLINE Vec4f unpacklo( const Vec4f& a, const Vec4f& b ) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
+INDIGO_STRONG_INLINE Vec4f unpackhi( const Vec4f& a, const Vec4f& b ) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
+
+INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3) {
+	Vec4f l02 = unpacklo(r0,r2);
+	Vec4f h02 = unpackhi(r0,r2);
+	Vec4f l13 = unpacklo(r1,r3);
+	Vec4f h13 = unpackhi(r1,r3);
+	c0 = unpacklo(l02,l13);
+	c1 = unpackhi(l02,l13);
+	c2 = unpacklo(h02,h13);
+	c3 = unpackhi(h02,h13);
 }

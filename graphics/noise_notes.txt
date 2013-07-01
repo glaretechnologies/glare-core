@@ -1,0 +1,63 @@
+
+// Return 8 bits of hash
+/*static inline const uint64 hash(int x, int y, int z)
+{
+	// return _mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(0x000011115555AAAA, x ), y ), z) & 0xFF;
+	uint64 packed_input = ((x & 0xFF) << 16) + ((y & 0xFF) << 8) + (z & 0xFF);
+	return _mm_crc32_u64(0x000011115555AAAA, packed_input) & 0xF; // _mm_crc32_u64 (crc32) instr is SSE4
+}*/
+
+
+/*const uint64 crc_0 = hash(fx  , fy  , fz  );
+	const uint64 crc_1 = hash(fx+1, fy  , fz  );
+	const uint64 crc_2 = hash(fx  , fy+1, fz  );
+	const uint64 crc_3 = hash(fx+1, fy+1, fz  );
+	const uint64 crc_4 = hash(fx  , fy  , fz+1);
+	const uint64 crc_5 = hash(fx+1, fy  , fz+1);
+	const uint64 crc_6 = hash(fx  , fy+1, fz+1);
+	const uint64 crc_7 = hash(fx+1, fy+1, fz+1);*/
+
+
+
+
+
+
+
+
+
+
+
+	/*
+const Vec4i floored_i = toVec4i(floored);// & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
+	//const Vec4i floored_i1 = (toVec4i(floored) + Vec4i(1)) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
+
+	const Vec4i floored_x = copyToAll<0>(floored_i);
+	const Vec4i floored_y = copyToAll<1>(floored_i);
+	const Vec4i floored_z = copyToAll<2>(floored_i);
+
+	//const Vec4i floored_x1 = copyToAll<0>(floored_i1);
+	//const Vec4i floored_y1 = copyToAll<1>(floored_i1);
+	//const Vec4i floored_z1 = copyToAll<2>(floored_i1);
+
+	//
+	//x & y & z,   x & y+1 & z,   x+1 & y & z,  x+1 & y+1 & z, x & y & z+1,   x & y+1 & z+1,   x+1 & y & z+1,  x+1 & y+1 & z+1
+//
+	const Vec4i xvec = (floored_x + Vec4i(0, 0, 1, 1)) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF); // (x, x, x+1, x+1) & 0xFF
+	const Vec4i yvec = (floored_y + Vec4i(0, 1, 0, 1)) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF); // (y, y+1, y, y+1) & 0xFF
+
+	const Vec4i key0123 = (xvec << 16) + (yvec << 8) + (floored_z & Vec4i(0xFF, 0xFF, 0xFF, 0xFF));
+	const Vec4i hash0123 = parallelHash(key0123) & Vec4i(0xF, 0xF, 0xF, 0xF);
+
+	const Vec4i key4567 = (xvec << 16) + (yvec << 8) + ((floored_z + Vec4i(1)) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF));
+	const Vec4i hash4567 = parallelHash(key4567) & Vec4i(0xF, 0xF, 0xF, 0xF);
+
+		const Vec4f gradient_i_0 = gradients[hash0123.x[0]];
+	const Vec4f gradient_i_1 = gradients[hash0123.x[1]];
+	const Vec4f gradient_i_2 = gradients[hash0123.x[2]];
+	const Vec4f gradient_i_3 = gradients[hash0123.x[3]];
+
+	const Vec4f gradient_i_4 = gradients[hash4567.x[0]];
+	const Vec4f gradient_i_5 = gradients[hash4567.x[1]];
+	const Vec4f gradient_i_6 = gradients[hash4567.x[2]];
+	const Vec4f gradient_i_7 = gradients[hash4567.x[3]];
+	*/

@@ -84,7 +84,7 @@ MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
 }
 
 
-inline Vec3i floor(const Vec4f& v)
+inline Vec3i floorToVec3i(const Vec4f& v)
 {
 	return Vec3i(
 		(int)v.x[0],
@@ -272,7 +272,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	float t = min_t;
 	Vec4f p = ray.pointf(min_t); // Current point
 	Vec4f cur_grid_orig = this->aabb.min_; // Origin of current node.
-	Vec3i cell = floor(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
+	Vec3i cell = floorToVec3i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
 
 	cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
 
@@ -324,7 +324,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			node = nodes[node].cellChildIndex(cell); // Go to child node.
 			cur_grid_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get child node grid origin
 			depth++;
-			cell = floor(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
+			cell = floorToVec3i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
 
 			cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
 
