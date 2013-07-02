@@ -506,7 +506,17 @@ inline T pow3(T x)
 template <class T>
 inline T pow4(T x)
 {
-	return x * x * x * x;
+	const T x2 = x*x;
+	return x2 * x2;
+}
+
+
+template <class T>
+inline T pow8(T x)
+{
+	const T x2 = x*x;
+	const T x4 = x2*x2;
+	return x4*x4;
 }
 
 
