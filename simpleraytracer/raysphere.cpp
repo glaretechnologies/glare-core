@@ -187,7 +187,7 @@ const js::AABBox& RaySphere::getAABBoxWS() const { return aabbox; }
 
 void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const
 {
-	assert(to_parent == Matrix4f::identity());
+	//assert(to_parent == Matrix4f::identity());
 	surface_areas_out.resize(1);
 	surface_areas_out[0] = 4 * NICKMATHS_PIf * radius * radius;
 }
