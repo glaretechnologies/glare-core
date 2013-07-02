@@ -295,7 +295,7 @@ inline Vec4f max(const Vec4f& a, const Vec4f& b)
 
 inline const Vec4f floor(const Vec4f& v)
 {
-#if _MSC_VER
+#if _MSC_VER && (_MSC_VER >= 1600) // If on Visual Studio 2010 or later (which _mm_floor_ps requires) 
 	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
 #else
 	// Since we're not using SSE4 on GCC/Clang yet, just use std::floor().
