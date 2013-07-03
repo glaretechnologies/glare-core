@@ -419,7 +419,9 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 	try
 	{
 		int colour_type;
-		if(bitmap.getBytesPP() == 3)
+		if(bitmap.getBytesPP() == 1)
+			colour_type = PNG_COLOR_TYPE_GRAY;
+		else if(bitmap.getBytesPP() == 3)
 			colour_type = PNG_COLOR_TYPE_RGB;
 		else if(bitmap.getBytesPP() == 4)
 			colour_type = PNG_COLOR_TYPE_RGB_ALPHA;
