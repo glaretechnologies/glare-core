@@ -68,7 +68,6 @@ void PerlinNoise::init()
 		PlatformUtils::getCPUInfo(info);
 
 		have_sse4 = info.sse4_1;
-		printVar(have_sse4);
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&)
 	{
