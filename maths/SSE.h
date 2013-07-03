@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2012 -
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
 #include <tmmintrin.h> // SSSE 3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8
-#if _MSC_VER
+#if _MSC_VER && (_MSC_VER >= 1600) // If on Visual Studio 2010 or later (VS 2008 has problems with SSE 4 due to Embree SSE 4 emulation)
 // Stupid GCC doesn't allow including of smmintrin.h without turning on SSE 4.1 codegen, which we don't want.
 #include <smmintrin.h> // SSE 4.1 header file
 #endif
