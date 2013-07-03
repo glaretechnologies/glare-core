@@ -1,19 +1,18 @@
 #include "image.h"
 
 
-#include "../indigo/RendererSettings.h"
+#include "GaussianImageFilter.h"
+#include "BoxFilterFunction.h"
+#include "bitmap.h"
+#include "../maths/vec2.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
-#include "../maths/vec2.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
 #include "../utils/OutStream.h"
 #include "../utils/InStream.h"
-#include "GaussianImageFilter.h"
-#include "BoxFilterFunction.h"
-#include "bitmap.h"
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -458,139 +457,6 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		}
 	}
 }
-
-
-#if 0 // Moved to Image4f
-struct DownsampleImageTaskClosure
-{
-	Image::ColourType const * in_buffer;
-	Image::ColourType		 * out_buffer;
-	const float * resize_filter;
-	ptrdiff_t factor, border_width, in_xres, in_yres, filter_bound, out_xres, out_yres;
-	float pre_clamp;
-};
-
-
-class DownsampleImageTask : public Indigo::Task
-{
-public:
-	DownsampleImageTask(const DownsampleImageTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
-
-	virtual void run(size_t thread_index)
-	{
-		// Copy to local variables for performance reasons.
-		Image::ColourType const * const in_buffer  = closure.in_buffer;
-		Image::ColourType		* const out_buffer = closure.out_buffer;
-		const float * const resize_filter = closure.resize_filter;
-		const ptrdiff_t factor = closure.factor;
-		const ptrdiff_t border_width = closure.border_width;
-		const ptrdiff_t in_xres = closure.in_xres;
-		const ptrdiff_t in_yres = closure.in_yres;
-		const ptrdiff_t filter_bound = closure.filter_bound;
-		const ptrdiff_t out_xres = closure.out_xres;
-		const ptrdiff_t out_yres = closure.out_yres;
-		const float pre_clamp = closure.pre_clamp;
-
-		for(int y = begin; y < end; ++y)
-		for(int x = 0; x < out_xres; ++x)
-		{
-			const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
-			const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
-			const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < in_xres);
-			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < in_yres);
-
-			Image::ColourType weighted_sum(0);
-			uint32 filter_addr = 0;
-			for(ptrdiff_t v = v_min; v <= v_max; ++v)
-			for(ptrdiff_t u = u_min; u <= u_max; ++u)
-			{
-				const ptrdiff_t addr = v * in_xres + u;
-				assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * in_yres)/*img_in.numPixels()*/);
-
-				weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
-			}
-
-			assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
-
-			weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
-			out_buffer[y * out_xres + x] = weighted_sum;
-		}
-	}
-
-	const DownsampleImageTaskClosure& closure;
-	int begin, end;
-};
-
-
-void Image::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
-							const Image& img_in, Image& img_out, Indigo::TaskManager& task_manager)
-{
-	assert(border_width >= 0);						// have padding pixels
-	assert((int)img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
-	assert((int)img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
-	assert(img_in.getWidth()  % factor == 0);		// padded image is multiple of supersampling factor
-	assert(img_in.getHeight() % factor == 0);		// padded image is multiple of supersampling factor
-
-	assert(filter_span > 0);
-	assert(resize_filter != 0);
-
-	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
-	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
-	const ptrdiff_t filter_bound = filter_span / 2 - 1;
-
-	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor);
-	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor);
-	img_out.resize((size_t)out_xres, (size_t)out_yres);
-
-	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
-	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
-
-	/*#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
-	for(int y = 0; y < out_yres; ++y)
-	for(int x = 0; x < out_xres; ++x)
-	{
-		const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
-		const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
-		const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < (ptrdiff_t)img_in.getWidth());
-		const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < (ptrdiff_t)img_in.getHeight());
-
-		ColourType weighted_sum(0);
-		uint32 filter_addr = 0;
-		for(ptrdiff_t v = v_min; v <= v_max; ++v)
-		for(ptrdiff_t u = u_min; u <= u_max; ++u)
-		{
-			const ptrdiff_t addr = v * in_xres + u;
-			assert(addr >= 0 && addr < (ptrdiff_t)img_in.numPixels());
-
-			weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
-		}
-
-		assert(isFinite(weighted_sum.r) && isFinite(weighted_sum.g) && isFinite(weighted_sum.b));
-
-		weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
-		out_buffer[y * out_xres + x] = weighted_sum;
-	}*/
-
-	DownsampleImageTaskClosure closure;
-	closure.in_buffer = in_buffer;
-	closure.out_buffer = out_buffer;
-	closure.resize_filter = resize_filter;
-	closure.factor = factor;
-	closure.border_width = border_width;
-	closure.in_xres = in_xres;
-	closure.in_yres = in_yres;
-	closure.filter_bound = filter_bound;
-	closure.out_xres = out_xres;
-	closure.out_yres = out_yres;
-	closure.pre_clamp = pre_clamp;
-
-	// Blur in x direction
-	task_manager.runParallelForTasks<DownsampleImageTask, DownsampleImageTaskClosure>(closure, 0, out_yres);
-}
-#endif
 
 
 size_t Image::getByteSize() const
