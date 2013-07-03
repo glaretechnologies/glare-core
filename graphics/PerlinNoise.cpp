@@ -27,17 +27,6 @@ template float PerlinNoise::ridgedMultifractal(const Vec4f& p, float H, float la
 template float PerlinNoise::voronoiMultifractal(const Vec4f& p, float H, float lacunarity, float octaves, float offset);
 
 
-PerlinNoise::PerlinNoise()
-{
-	have_sse4 = false;
-}
-
-
-PerlinNoise::~PerlinNoise()
-{
-}
-
-
 const static uint8 permutation[] = { 151,160,137,91,90,15,
    131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
    190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
@@ -61,6 +50,8 @@ void PerlinNoise::init()
 
 	for(int i=0; i<512 ;i++)
 		p_masked[i] = p[i] & 0xF;
+
+	have_sse4 = false;
 
 	try
 	{

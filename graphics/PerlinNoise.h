@@ -19,9 +19,6 @@ PerlinNoise
 class PerlinNoise
 {
 public:
-	PerlinNoise();
-	~PerlinNoise();
-
 	static void init();
 
 	//==================== Perlin noise ======================
