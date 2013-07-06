@@ -87,6 +87,10 @@ private:
 	template <bool use_sse4>
 	static const Vec4f noise4ValuedImpl(float x, float y);
 
+	static uint8 p_x[256];
+	static uint8 p_y[256];
+	static uint8 p_z[256];
+
 	static uint8 p[512];
 	static uint8 p_masked[512];
 	static bool have_sse4;

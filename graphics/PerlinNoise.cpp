@@ -13,8 +13,19 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../maths/Vec4i.h"
 #include "../indigo/globals.h"
+#include "../indigo/HaltonSampler.h"
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
+#include "../utils/MTwister.h"
+#include "../maths/GeometrySampling.h"
+
+
+/*
+
+See http://mrl.nyu.edu/~perlin/noise/
+also http://www.cs.utah.edu/~aek/research/noise.pdf
+
+*/
 
 
 // Explicit template instantiation
@@ -43,6 +54,9 @@ const static uint8 permutation[] = { 151,160,137,91,90,15,
 };
 
 
+static Vec4f new_gradients[256];
+static int masks[4]; // For perlin 4-valued noise
+
 void PerlinNoise::init()
 {
 	for(int i=0; i<256 ;i++) 
@@ -64,9 +78,73 @@ void PerlinNoise::init()
 	{
 		assert(0);
 	}
+
+	MTwister rng(1);
+
+	const int N = 256;
+	for(int i=0; i<N; ++i)
+		p_x[i] = p_y[i] = p_z[i] = (uint8)i;
+
+	// Permute
+	for(int t=N-1; t>=0; --t)
+	{
+		{
+			int k = (int)(rng.unitRandom() * N);
+			mySwap(p_x[t], p_x[k]);
+		}
+		{
+			int k = (int)(rng.unitRandom() * N);
+			mySwap(p_y[t], p_y[k]);
+		}
+		{
+			int k = (int)(rng.unitRandom() * N);
+			mySwap(p_z[t], p_z[k]);
+		}
+	}
+	/*
+	conPrint("\np_x");
+	for(int i=0; i<N; ++i)
+		conPrintStr(toString(p_x[i]) + " ");
+
+	conPrint("\np_y");
+	for(int i=0; i<N; ++i)
+		conPrintStr(toString(p_y[i]) + " ");
+
+	conPrint("\np_z");
+	for(int i=0; i<N; ++i)
+		conPrintStr(toString(p_z[i]) + " ");*/
+
+
+	// Make new_gradients
+	HaltonSampler halton;
+	
+	for(int i=0; i<N; ++i)
+	{
+		//float samples[2];
+		//halton.getSamples(samples, 2);
+
+		//new_gradients[i] = GeometrySampling::unitSquareToSphere(Vec2f(samples[0], samples[1])).toVec4fVector() * std::sqrt(2.f);
+		new_gradients[i] = GeometrySampling::unitSquareToSphere(Vec2f(rng.unitRandom(), rng.unitRandom())).toVec4fVector() * std::sqrt(2.f);
+	}
+
+	// Permute directions
+	/*for(int t=N-1; t>=0; --t)
+	{
+		{
+			int k = (int)(rng.unitRandom() * N);
+			mySwap(new_gradients[t], new_gradients[k]);
+		}
+	}*/
+
+	// Compute a random bit mask for each result dimension
+	for(int i=0; i<4; ++i)
+		masks[i] = (int)rng.genrand_int32() & 0xFF;
 }
 
 
+uint8 PerlinNoise::p_x[256];
+uint8 PerlinNoise::p_y[256];
+uint8 PerlinNoise::p_z[256];
 uint8 PerlinNoise::p[512];
 uint8 PerlinNoise::p_masked[512];
 bool PerlinNoise::have_sse4;
@@ -258,9 +336,16 @@ float PerlinNoise::noiseImpl(const Vec4f& point)
 	const int X = floored_i.x[0];
 	const int Y = floored_i.x[1];
 	const int Z = floored_i.x[2];
-	
-	const int A = p[X  ]+Y, AA = p[A]+Z, AB = p[A+1]+Z,
-		B = p[X+1]+Y, BA = p[B]+Z, BB = p[B+1]+Z;
+	assert(X >= 0 && X < 256);
+	assert(Y >= 0 && Y < 256);
+	assert(Z >= 0 && Z < 256);
+
+	const int hash_x  = p_x[X];
+	const int hash_x1 = p_x[(X + 1) & 0xFF];
+	const int hash_y  = p_y[Y];
+	const int hash_y1 = p_y[(Y + 1) & 0xFF];
+	const int hash_z  = p_z[Z];
+	const int hash_z1 = p_z[(Z + 1) & 0xFF];
 
 	
 	const Vec4f fractional = point - floored;
@@ -285,15 +370,15 @@ float PerlinNoise::noiseImpl(const Vec4f& point)
 
 	const Vec4f uv = uvec * vvec; // ((1 - u)(1 - v), u(1 - v), (1 - u)v, uv)
 
-	const Vec4f gradient_i_0 = gradients[p_masked[AA  ]];
-	const Vec4f gradient_i_1 = gradients[p_masked[BA  ]];
-	const Vec4f gradient_i_2 = gradients[p_masked[AB  ]];
-	const Vec4f gradient_i_3 = gradients[p_masked[BB  ]];
-	const Vec4f gradient_i_4 = gradients[p_masked[AA+1]];
-	const Vec4f gradient_i_5 = gradients[p_masked[BA+1]];
-	const Vec4f gradient_i_6 = gradients[p_masked[AB+1]];
-	const Vec4f gradient_i_7 = gradients[p_masked[BB+1]];
-
+	const Vec4f gradient_i_0 = new_gradients[hash_x  ^ hash_y  ^ hash_z ];
+	const Vec4f gradient_i_1 = new_gradients[hash_x1 ^ hash_y  ^ hash_z ];
+	const Vec4f gradient_i_2 = new_gradients[hash_x  ^ hash_y1 ^ hash_z ];
+	const Vec4f gradient_i_3 = new_gradients[hash_x1 ^ hash_y1 ^ hash_z ];
+	const Vec4f gradient_i_4 = new_gradients[hash_x  ^ hash_y  ^ hash_z1];
+	const Vec4f gradient_i_5 = new_gradients[hash_x1 ^ hash_y  ^ hash_z1];
+	const Vec4f gradient_i_6 = new_gradients[hash_x  ^ hash_y1 ^ hash_z1];
+	const Vec4f gradient_i_7 = new_gradients[hash_x1 ^ hash_y1 ^ hash_z1];
+	
 	/*
 	Offsets (cube corners) are
 	Vec4f(0,0,0,0),
@@ -354,8 +439,10 @@ float PerlinNoise::noiseImpl(float x, float y)
 	const int X = floored_i.x[0];
 	const int Y = floored_i.x[1];
 	
-	const int A = p[X  ]+Y, AA = p[A], AB = p[A+1],      // HASH COORDINATES OF
-		B = p[X+1]+Y, BA = p[B], BB = p[B+1];      // THE 8 CUBE CORNERS,
+	const int hash_x  = p_x[X];
+	const int hash_x1 = p_x[(X + 1) & 0xFF];
+	const int hash_y  = p_y[Y];
+	const int hash_y1 = p_y[(Y + 1) & 0xFF];
 
 	
 	const Vec4f fractional = point - floored;
@@ -376,10 +463,10 @@ float PerlinNoise::noiseImpl(float x, float y)
 
 	const Vec4f uv = uvec * vvec; // ((1 - u)(1 - v), u(1 - v), (1 - u)v, uv)
 
-	const Vec4f gradient_i_0 = gradients[p_masked[AA]];
-	const Vec4f gradient_i_1 = gradients[p_masked[BA]];
-	const Vec4f gradient_i_2 = gradients[p_masked[AB]];
-	const Vec4f gradient_i_3 = gradients[p_masked[BB]];
+	const Vec4f gradient_i_0 = new_gradients[hash_x  ^ hash_y ];
+	const Vec4f gradient_i_1 = new_gradients[hash_x1 ^ hash_y ];
+	const Vec4f gradient_i_2 = new_gradients[hash_x  ^ hash_y1];
+	const Vec4f gradient_i_3 = new_gradients[hash_x1 ^ hash_y1];
 
 	/*
 	Offsets (cube corners) are
@@ -425,15 +512,14 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 	const int Y = floored_i.x[1];
 	const int Z = floored_i.x[2];
 	
-	const int A = p[X  ]+Y, AA = p[A]+Z, AB = p[A+1]+Z,
-		B = p[X+1]+Y, BA = p[B]+Z, BB = p[B+1]+Z;
+	const int hash_x  = p_x[X];
+	const int hash_x1 = p_x[(X + 1) & 0xFF];
+	const int hash_y  = p_y[Y];
+	const int hash_y1 = p_y[(Y + 1) & 0xFF];
+	const int hash_z  = p_z[Z];
+	const int hash_z1 = p_z[(Z + 1) & 0xFF];
 
-	assert(A >= 0 && A <= 510);
-	assert(AA >= 0 && AA <= 510);
-	assert(AB >= 0 && AB <= 510);
-	assert(B >= 0 && B <= 510);
-	assert(BA >= 0 && BA <= 510);
-	assert(BB >= 0 && BB <= 510);
+
 
 	const Vec4f fractional = point - floored;
 	const Vec4f uvw = fade(fractional);
@@ -463,16 +549,26 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 	const Vec4f rel_offset_z = fractional_z;
 	const Vec4f rel_offset_z2 = fractional_z - Vec4f(1,1,1,1);
 
+	const int h0 = hash_x  ^ hash_y  ^ hash_z ;
+	const int h1 = hash_x1 ^ hash_y  ^ hash_z ;
+	const int h2 = hash_x  ^ hash_y1 ^ hash_z ;
+	const int h3 = hash_x1 ^ hash_y1 ^ hash_z ;
+	const int h4 = hash_x  ^ hash_y  ^ hash_z1;
+	const int h5 = hash_x1 ^ hash_y  ^ hash_z1;
+	const int h6 = hash_x  ^ hash_y1 ^ hash_z1;
+	const int h7 = hash_x1 ^ hash_y1 ^ hash_z1;
+
 	Vec4f gradients_x, gradients_y, gradients_z, gradients_w;
 	{
-		const Vec4f gradient_0 = gradients[p_masked[AA  ]];
-		const Vec4f gradient_1 = gradients[p_masked[BA  ]];
-		const Vec4f gradient_2 = gradients[p_masked[AB  ]];
-		const Vec4f gradient_3 = gradients[p_masked[BB  ]];
-		const Vec4f gradient_4 = gradients[p_masked[AA+1]];
-		const Vec4f gradient_5 = gradients[p_masked[BA+1]];
-		const Vec4f gradient_6 = gradients[p_masked[AB+1]];
-		const Vec4f gradient_7 = gradients[p_masked[BB+1]];
+		const int mask = masks[0];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
+		const Vec4f gradient_4 = new_gradients[h4 ^ mask];
+		const Vec4f gradient_5 = new_gradients[h5 ^ mask];
+		const Vec4f gradient_6 = new_gradients[h6 ^ mask];
+		const Vec4f gradient_7 = new_gradients[h7 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum_weighted_dot =   (rel_offset_x * gradients_x + rel_offset_y * gradients_y + rel_offset_z  * gradients_z) * copyToAll<2>(one_uvw);
@@ -482,15 +578,15 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 		res.x[0] = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 	}
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]]];
-		const Vec4f gradient_4 = gradients[p_masked[p[AA+1]]];
-		const Vec4f gradient_5 = gradients[p_masked[p[BA+1]]];
-		const Vec4f gradient_6 = gradients[p_masked[p[AB+1]]];
-		const Vec4f gradient_7 = gradients[p_masked[p[BB+1]]];
+		const int mask = masks[1];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
+		const Vec4f gradient_4 = new_gradients[h4 ^ mask];
+		const Vec4f gradient_5 = new_gradients[h5 ^ mask];
+		const Vec4f gradient_6 = new_gradients[h6 ^ mask];
+		const Vec4f gradient_7 = new_gradients[h7 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum_weighted_dot =   (rel_offset_x * gradients_x + rel_offset_y * gradients_y + rel_offset_z  * gradients_z) * copyToAll<2>(one_uvw);
@@ -501,15 +597,15 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 	}
 
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]+1]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]+1]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]+1]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]+1]];
-		const Vec4f gradient_4 = gradients[p_masked[p[AA+1]+1]];
-		const Vec4f gradient_5 = gradients[p_masked[p[BA+1]+1]];
-		const Vec4f gradient_6 = gradients[p_masked[p[AB+1]+1]];
-		const Vec4f gradient_7 = gradients[p_masked[p[BB+1]+1]];
+		const int mask = masks[2];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
+		const Vec4f gradient_4 = new_gradients[h4 ^ mask];
+		const Vec4f gradient_5 = new_gradients[h5 ^ mask];
+		const Vec4f gradient_6 = new_gradients[h6 ^ mask];
+		const Vec4f gradient_7 = new_gradients[h7 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum_weighted_dot =   (rel_offset_x * gradients_x + rel_offset_y * gradients_y + rel_offset_z  * gradients_z) * copyToAll<2>(one_uvw);
@@ -520,15 +616,15 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 	}
 
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]+2]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]+2]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]+2]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]+2]];
-		const Vec4f gradient_4 = gradients[p_masked[p[AA+1]+2]];
-		const Vec4f gradient_5 = gradients[p_masked[p[BA+1]+2]];
-		const Vec4f gradient_6 = gradients[p_masked[p[AB+1]+2]];
-		const Vec4f gradient_7 = gradients[p_masked[p[BB+1]+2]];
+		const int mask = masks[3];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
+		const Vec4f gradient_4 = new_gradients[h4 ^ mask];
+		const Vec4f gradient_5 = new_gradients[h5 ^ mask];
+		const Vec4f gradient_6 = new_gradients[h6 ^ mask];
+		const Vec4f gradient_7 = new_gradients[h7 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum_weighted_dot =   (rel_offset_x * gradients_x + rel_offset_y * gradients_y + rel_offset_z  * gradients_z) * copyToAll<2>(one_uvw);
@@ -561,8 +657,10 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 	const int X = floored_i.x[0];
 	const int Y = floored_i.x[1];
 	
-	const int A = p[X  ]+Y, AA = p[A], AB = p[A+1],      // HASH COORDINATES OF
-		B = p[X+1]+Y, BA = p[B], BB = p[B+1];      // THE 8 CUBE CORNERS,
+	const int hash_x  = p_x[X];
+	const int hash_x1 = p_x[(X + 1) & 0xFF];
+	const int hash_y  = p_y[Y];
+	const int hash_y1 = p_y[(Y + 1) & 0xFF];
 
 	const Vec4f fractional = point - floored;
 	const Vec4f uvw = fade(fractional);
@@ -589,23 +687,29 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 	const Vec4f rel_offset_x = fractional_x - offsets_x;
 	const Vec4f rel_offset_y = fractional_y - offsets_y;
 
+	const int h0 = hash_x  ^ hash_y ;
+	const int h1 = hash_x1 ^ hash_y ;
+	const int h2 = hash_x  ^ hash_y1;
+	const int h3 = hash_x1 ^ hash_y1;
+
 	Vec4f gradients_x, gradients_y, gradients_z, gradients_w;
 	{
-		const Vec4f gradient_0 = gradients[p_masked[AA  ]];
-		const Vec4f gradient_1 = gradients[p_masked[BA  ]];
-		const Vec4f gradient_2 = gradients[p_masked[AB  ]];
-		const Vec4f gradient_3 = gradients[p_masked[BB  ]];
+		const int mask = masks[0];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum = (rel_offset_x * gradients_x + rel_offset_y * gradients_y) * uv;
 		res.x[0] = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 	}
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]]];
+		const int mask = masks[1];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum = (rel_offset_x * gradients_x + rel_offset_y * gradients_y) * uv;
@@ -613,11 +717,11 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 	}
 
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]+1]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]+1]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]+1]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]+1]];
+		const int mask = masks[2];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum = (rel_offset_x * gradients_x + rel_offset_y * gradients_y) * uv;
@@ -625,11 +729,11 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 	}
 
 	{
-		// Permute once more
-		const Vec4f gradient_0 = gradients[p_masked[p[AA  ]+2]];
-		const Vec4f gradient_1 = gradients[p_masked[p[BA  ]+2]];
-		const Vec4f gradient_2 = gradients[p_masked[p[AB  ]+2]];
-		const Vec4f gradient_3 = gradients[p_masked[p[BB  ]+2]];
+		const int mask = masks[3];
+		const Vec4f gradient_0 = new_gradients[h0 ^ mask];
+		const Vec4f gradient_1 = new_gradients[h1 ^ mask];
+		const Vec4f gradient_2 = new_gradients[h2 ^ mask];
+		const Vec4f gradient_3 = new_gradients[h3 ^ mask];
 
 		transpose(gradient_0, gradient_1, gradient_2, gradient_3, gradients_x, gradients_y, gradients_z, gradients_w);
 		const Vec4f sum = (rel_offset_x * gradients_x + rel_offset_y * gradients_y) * uv;

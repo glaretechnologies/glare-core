@@ -27,7 +27,7 @@ void NoiseTests::test()
 
 
 	// Check that noise(x, y, 0) gives the same result as noise(x, y).
-	{
+	/*{
 		const float v = PerlinNoise::noise(Vec4f(0.f, 0.f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(0.f, 0.f);
 		testAssert(epsEqual(v, v2));
@@ -48,16 +48,15 @@ void NoiseTests::test()
 		const float v = PerlinNoise::noise(Vec4f(546.3f, 67876.5675f, 0.f, 0));
 		const float v2 = PerlinNoise::noise(546.3f, 67876.5675f);
 		testAssert(epsEqual(v, v2));
-	}
+	}*/
 
 
-	PerlinNoise::noise(Vec4f(1.1f, 2.2f, 3.3f, 0));
-	{
+	/*{
 		float ref_v = PerlinNoise::noiseRef<float>(1.1f, 2.2f, 3.3f);
 		float v     = PerlinNoise::noise(Vec4f(1.1f, 2.2f, 3.3f, 0));
 		testAssert(epsEqual(ref_v, v));
-	}
-
+	}*/
+	
 
 
 	//============================== Performance tests /==============================
