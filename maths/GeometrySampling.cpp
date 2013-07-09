@@ -11,12 +11,9 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-
-
-// Explicit template instantiation
-//template const Vec4f GeometrySampling::sampleHemisphereCosineWeighted(const Matrix4f& basis, const SamplePair& unitsamples);
-//template const Vec2<float> GeometrySampling::sampleUnitDisc(const SamplePair& unitsamples);
-//template const Vec2<double> GeometrySampling::sampleUnitDisc(const SamplePair& unitsamples);
+#include "../utils/timer.h"
+#include "../utils/stringutils.h"
+#include "../utils/MTwister.h"
 
 
 namespace GeometrySampling
@@ -26,8 +23,59 @@ namespace GeometrySampling
 #if BUILD_TESTS
 
 
+
 void doTests()
 {
+	
+	// Performance tests
+	if(false)
+	{
+		{
+			MTwister rng(1);
+			const int N = 100000;
+			std::vector<Vec2f> unitr(N);
+			for(int i=0; i<N; ++i)
+				unitr[i] = Vec2f(rng.unitRandom(), rng.unitRandom());
+
+			{
+				conPrint("");
+				conPrint("shirleyUnitSquareToDisk()");
+				Timer t;
+			
+				Vec2f sum(0.f);
+				for(int i=0; i<N; ++i)
+				{
+					Vec2f d = shirleyUnitSquareToDisk(unitr[i]);
+					sum += d;
+				}
+
+				double elapsed = t.elapsed();
+				conPrint("sum: " + sum.toString());
+				conPrint("elapsed: " + toString(1.0e9 * elapsed / N) + " ns");
+			}
+
+			{
+				conPrint("");
+				conPrint("shirleyUnitSquareToDiskOld()");
+				Timer t;
+			
+				Vec2f sum(0.f);
+				for(int i=0; i<N; ++i)
+				{
+					Vec2f d = shirleyUnitSquareToDiskOld(unitr[i]);
+					sum += d;
+				}
+
+				double elapsed = t.elapsed();
+				conPrint("sum: " + sum.toString());
+				conPrint("elapsed: " + toString(1.0e9 * elapsed / N) + " ns");
+			}
+		}
+
+		conPrint("");
+		conPrint("");
+	}
+
 	//=========================== sampleHemisphereCosineWeighted ===========================
 	{
 		MTwister rng(1);
@@ -76,8 +124,25 @@ void doTests()
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());
 			const Vec2f p = shirleyUnitSquareToDisk<float>(u);
 			testAssert(p.length() <= 1.0f);
+
 			const Vec2f u_primed = shirleyDiskToUnitSquare<float>(p);
 			testAssert(epsEqual(u, u_primed));
+
+			const Vec2f p_old = shirleyUnitSquareToDiskOld<float>(u);
+			testAssert(epsEqual(p_old, p));
+		}
+
+		// Check (0,0) case
+		{
+			const Vec2f p = shirleyUnitSquareToDisk<float>(Vec2f(0.5f, 0.5f));
+			testAssert(isFinite(p.x));
+			testAssert(p.length() <= 1.0f);
+			testAssert(epsEqual(p, p));
+
+			const Vec2f p_old = shirleyUnitSquareToDiskOld<float>(Vec2f(0.5f, 0.5f));
+			testAssert(isFinite(p_old.x));
+			testAssert(p_old.length() <= 1.0f);
+			testAssert(epsEqual(p_old, p));
 		}
 	}
 	

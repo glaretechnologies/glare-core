@@ -22,6 +22,7 @@ namespace GeometrySampling
 	template <class Real> const Vec2<Real> sampleUnitDisc(const SamplePair& unit_samples);
 	
 	template <class Real> inline const Vec2<Real> shirleyUnitSquareToDisk(const Vec2<Real>& unitsamples);
+	template <class Real> inline const Vec2<Real> shirleyUnitSquareToDiskOld(const Vec2<Real>& unitsamples); // Old, slower implementation for reference.
 	template <class Real> inline const Vec2<Real> shirleyDiskToUnitSquare(const Vec2<Real>& on_disk);
 	template <class Real> inline const Vec3<Real> unitSquareToHemisphere(const Vec2<Real>& unitsamples);
 	template <class Real> inline const Vec3<Real> unitSquareToSphere(const Vec2<Real>& unitsamples);
@@ -315,6 +316,29 @@ template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePai
 }
 
 
+// Based on http://psgraphics.blogspot.co.uk/2011/01/improved-code-for-concentric-map.html
+template <class Real>
+inline const Vec2<Real> shirleyUnitSquareToDisk(const Vec2<Real>& unitsamples)
+{
+	Real phi, r;
+	Real a = 2*unitsamples.x - 1;
+	Real b = 2*unitsamples.y - 1;
+	if(std::fabs(a) > std::fabs(b)) // It's faster to compare abs values than squares.
+	{ 
+		r = a;
+		phi = Maths::pi_4<Real>()*(b/a);
+	}
+	else
+	{
+		r = b;
+		if(b != 0)
+			phi = Maths::pi_2<Real>() - Maths::pi_4<Real>()*(a/b);
+		else
+			phi = 0;
+	}
+	return Vec2<Real>(r*std::cos(phi), r*std::sin(phi));
+}
+
 
 /*-----------------------------------------------------------------------------------------------
 A Low Distortion Map Between Disk and Square
@@ -347,7 +371,7 @@ change log:
 */
 
 template <class Real>
-inline const Vec2<Real> shirleyUnitSquareToDisk(const Vec2<Real>& unitsamples)
+inline const Vec2<Real> shirleyUnitSquareToDiskOld(const Vec2<Real>& unitsamples)
 {
 	const Real a = (Real)2.0*unitsamples.x - (Real)1.0;   /* (a,b) is now on [-1,1]^2 */
 	const Real b = (Real)2.0*unitsamples.y - (Real)1.0;
