@@ -20,7 +20,7 @@ See http://cvs.gna.org/cvsweb/radius/src/sys_map.cc?rev=1.2;content-type=text%2F
 class MemMappedFile
 {
 public:
-	MemMappedFile(const std::string& path);
+	MemMappedFile(const std::string& path); // Throws Indigo::Exception on failure.
 	~MemMappedFile();
 
 	size_t fileSize() const { return file_size; } // Returns file size in bytes.
