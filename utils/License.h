@@ -18,6 +18,8 @@ class License
 {
 public:
 
+	friend class LicenseTestThread;
+
 	class LicenseExcep
 	{
 	public:

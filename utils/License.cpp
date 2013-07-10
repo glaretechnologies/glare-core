@@ -15,6 +15,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "timer.h"
 #include "Checksum.h"
 #include "../indigo/globals.h"
+#include "../utils/mythread.h"
 #include "Transmungify.h"
 #include "X509Certificate.h"
 
@@ -137,8 +138,6 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 
 	const std::string public_key_str = unTransmunfigyPublicKey();
 
-	ERR_load_crypto_strings(); // NOTE: This seems to leak memory over multiple calls, see http://readlist.com/lists/openssl.org/openssl-users/0/394.html
-
 	// Load the public key
 	BIO* public_key_mbio = BIO_new_mem_buf((void*)public_key_str.c_str(), (int)public_key_str.size()); //(void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
 	EVP_PKEY* public_key = PEM_read_bio_PUBKEY(public_key_mbio, NULL, NULL, NULL);
@@ -161,8 +160,6 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	// Free the public key
 	EVP_PKEY_free(public_key);
 	BIO_free_all(public_key_mbio);
-
-	ERR_free_strings();
 
 	if(result == 1) // Correct signature
 	{
@@ -742,10 +739,51 @@ void License::cleanup() // Cleans up / frees OpenSSL global state.
 #if BUILD_TESTS
 
 
+class LicenseTestThread : public MyThread
+{
+public:
+	LicenseTestThread() {}
+
+	void run()
+	{
+		const int N = 1000;
+		for(unsigned int i=0; i<N; ++i)
+		{
+			const std::string encoded_hash = 
+				"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+
+			const std::string hash = License::decodeBase64(encoded_hash);
+
+			const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
+		
+			testAssert(License::verifyKey(key, hash));	
+		}
+	}
+};
+
+
 void License::test()
 {
-	static const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
+	conPrint("License::test()");
 
+	// Test using OpenSSL functions from multiple threads concurrently.  This is important to test because this may be the case in in real-world usage of Indigo.
+	{
+		// Create the threads
+		std::vector<Reference<LicenseTestThread> > threads(8);
+		for(size_t i=0; i<threads.size(); ++i)
+		{
+			threads[i] = new LicenseTestThread();
+			threads[i]->launch();
+		}
+
+		// Wait for threads to terminate
+		for(size_t i=0; i<threads.size(); ++i)
+			threads[i]->join();
+	}
+
+
+	const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
+	/*
 	const bool print_encrypted_public_key = false;
 	if(print_encrypted_public_key)
 	{
@@ -763,7 +801,7 @@ void License::test()
 			//std::cout << "\n";
 		}
 		//std::cout << "};\n";
-	}
+	}*/
 
 
 	// Make sure our un-transmungified public key is correct.
@@ -831,6 +869,7 @@ void License::test()
 		
 		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
 		
+		// NOTE: the line below still leaks memory due to stupid OpenSSL.  (at least with OpenSSL 0.9.8.x)
 		testAssert(License::verifyKey(key, hash) == false);	
 	}
 
