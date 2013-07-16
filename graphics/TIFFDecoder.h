@@ -1,15 +1,14 @@
 /*=====================================================================
 TIFFDecoder.h
 -------------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Fri May 02 16:51:32 2008
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TIFFDECODER_H_666_
-#define __TIFFDECODER_H_666_
+#pragma once
 
 
-#include <string>
 #include "../utils/Reference.h"
+#include <string>
 class Map2D;
 
 
@@ -21,27 +20,13 @@ TIFFDecoder
 class TIFFDecoder
 {
 public:
-	/*=====================================================================
-	TIFFDecoder
-	-----------
-	
-	=====================================================================*/
-	TIFFDecoder();
-
-	~TIFFDecoder();
-
 
 	// throws ImFormatExcep
 	static Reference<Map2D> decode(const std::string& path);
 
+	// throws ImFormatExcep if could not open tiff for reading
+	static bool isTiffCompressed(const std::string& path);
 
 
+	static void test();
 };
-
-
-
-#endif //__TIFFDECODER_H_666_
-
-
-
-

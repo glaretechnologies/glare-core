@@ -1,31 +1,21 @@
 /*=====================================================================
 TIFFDecoder.cpp
 ---------------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Fri May 02 16:51:32 2008
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "TIFFDecoder.h"
 
 
-#include <tiffio.h>
+#include "ImageMap.h"
 #include "imformatdecoder.h"
 #include "../utils/stringutils.h"
-#include "../graphics/ImageMap.h"
-
-
-TIFFDecoder::TIFFDecoder()
-{
-}
-
-
-TIFFDecoder::~TIFFDecoder()
-{
-}
+#include <tiffio.h>
 
 
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "r");
 #else
 	TIFF* tif = TIFFOpen(path.c_str(), "r");
@@ -125,3 +115,83 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 	}
 }
+
+
+bool TIFFDecoder::isTiffCompressed(const std::string& path)
+{
+#if defined(_WIN32)
+	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "r");
+#else
+	TIFF* tif = TIFFOpen(path.c_str(), "r");
+#endif
+
+	if(tif)
+	{
+		uint16 compression;
+		TIFFGetField(tif, TIFFTAG_COMPRESSION, &compression);
+		
+		TIFFClose(tif);
+
+		return compression != COMPRESSION_NONE;
+	}
+	else // else if !tif
+	{
+		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
+	}
+}
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void TIFFDecoder::test()
+{
+	try
+	{
+		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+
+		// This file Uses LZW compression according to Windows
+		testAssert(TIFFDecoder::isTiffCompressed(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff"));
+
+		testAssert(!TIFFDecoder::isTiffCompressed(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_small_uncompressed.tiff"));
+
+		// Test Unicode path
+		const std::string euro = "\xE2\x82\xAC";
+		Reference<Map2D> im2 = TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".tiff");
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test that failure to load an image is handled gracefully.
+
+	// Try with an invalid path
+	try
+	{
+		TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/NO_SUCH_FILE.tiff");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try with a JPG file
+	try
+	{
+		TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+}
+
+
+#endif // BUILD_TESTS
