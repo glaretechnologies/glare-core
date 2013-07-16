@@ -307,7 +307,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	PrintOutput& print_output,
 	ThreadContext& context,
 	const std::vector<Reference<Material> >& materials,
-	bool smooth,
+	bool subdivision_smoothing,
 	const js::Vector<RayMeshTriangle, 16>& triangles_in, 
 	const js::Vector<RayMeshQuad, 16>& quads_in,
 	const std::vector<RayMeshVertex>& vertices_in,
@@ -320,7 +320,12 @@ void DisplacementUtils::subdivideAndDisplace(
 	std::vector<Vec2f>& uvs_out
 	)
 {
+	if(PROFILE) conPrint("\n-----------subdivideAndDisplace-----------");
+	if(PROFILE) conPrint("mesh: " + mesh_name);
+
 	Timer total_timer;
+	
+	Timer timer;
 
 	// Convert RayMeshVertices to DUVertices
 	std::vector<DUVertex> temp_verts(vertices_in.size());
@@ -349,6 +354,9 @@ void DisplacementUtils::subdivideAndDisplace(
 			quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
 			quads_in[i].getMatIndex()
 		);
+
+	if(PROFILE) conPrint("Converting to DUTriangles, DUQuads: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
 
 	//NEW: explode UVs
 	std::vector<Vec2f> temp_uvs;
@@ -385,30 +393,34 @@ void DisplacementUtils::subdivideAndDisplace(
 	}
 
 
+	if(PROFILE) conPrint("Exploding UVs: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
+
+
 	// Add edge and vertex polygons
 	{
 		//std::map<DUVertIndexPair, uint32_t> num_adjacent_polys; // Map from edge -> num adjacent tris
 		//DUVertIndexPairHash hasher;
 		std::tr1::unordered_map<DUVertIndexPair, uint32, DUVertIndexPairHash> num_adjacent_polys;
 
-		for(size_t t = 0; t < temp_tris.size(); ++t)
+		const uint32 num_temp_tris  = (uint32)temp_tris.size(); // Store number of original triangles
+		const uint32 num_temp_quads = (uint32)temp_quads.size(); // Store number of original quads
+
+		for(uint32 t = 0; t < num_temp_tris; ++t)
 		{
-			const uint32_t v0 = temp_tris[t].vertex_indices[0];
-			const uint32_t v1 = temp_tris[t].vertex_indices[1];
-			const uint32_t v2 = temp_tris[t].vertex_indices[2];
+			const uint32 v0 = temp_tris[t].vertex_indices[0];
+			const uint32 v1 = temp_tris[t].vertex_indices[1];
+			const uint32 v2 = temp_tris[t].vertex_indices[2];
 
 			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
 			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
 			num_adjacent_polys[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))]++;
 		}
 
-		const uint32_t initial_num_temp_tris  = (uint32)temp_tris.size(); // Store number of original triangles
-		const uint32_t initial_num_temp_quads = (uint32)temp_quads.size(); // Store number of original quads
-
-		for(uint32_t q = 0; q < initial_num_temp_quads; ++q)
+		for(uint32 q = 0; q < num_temp_quads; ++q)
 		{
-			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
-			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
+			const uint32 v0 = temp_quads[q].vertex_indices[0]; const uint32 v1 = temp_quads[q].vertex_indices[1];
+			const uint32 v2 = temp_quads[q].vertex_indices[2]; const uint32 v3 = temp_quads[q].vertex_indices[3];
 
 			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
 			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
@@ -418,7 +430,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 
-		for(uint32_t t = 0; t < initial_num_temp_tris; ++t) // For each original triangle...
+		for(uint32_t t = 0; t < num_temp_tris; ++t) // For each original triangle...
 		{
 			const uint32_t v0 = temp_tris[t].vertex_indices[0];
 			const uint32_t v1 = temp_tris[t].vertex_indices[1];
@@ -434,7 +446,7 @@ void DisplacementUtils::subdivideAndDisplace(
 				temp_edges.push_back(DUEdge(v2, v0, temp_tris[t].uv_indices[2], temp_tris[t].uv_indices[0]));
 		}
 
-		for(uint32_t q = 0; q < initial_num_temp_quads; ++q) // For each original quad...
+		for(uint32_t q = 0; q < num_temp_quads; ++q) // For each original quad...
 		{
 			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
 			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
@@ -453,6 +465,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 	}
 
+	if(PROFILE) conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
+
 
 	std::vector<DUVertexPolygon> temp_vert_polygons2;
 	std::vector<DUEdge> temp_edges2;
@@ -461,11 +476,25 @@ void DisplacementUtils::subdivideAndDisplace(
 	std::vector<DUVertex> temp_verts2;
 	std::vector<Vec2f> temp_uvs2;
 
+	if(PROFILE)
+	{
+		conPrint("---Subdiv options---");
+		printVar(subdivision_smoothing);
+		printVar(options.displacement_error_threshold);
+		printVar(options.max_num_subdivisions);
+		printVar(options.view_dependent_subdivision);
+		printVar(options.pixel_height_at_dist_one);
+		printVar(options.subdivide_curvature_threshold);
+		printVar(options.subdivide_pixel_threshold);
+	}
+
+
 	for(uint32_t i = 0; i < options.max_num_subdivisions; ++i)
 	{
 		print_output.print("\tSubdividing '" + mesh_name + "', level " + toString(i) + "...");
 
 		Timer linear_timer;
+		if(PROFILE) conPrint("\nDoing linearSubdivision for mesh '" + mesh_name + "', level " + toString(i) + "...");
 		
 
 		linearSubdivision(
@@ -492,7 +521,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		if(PROFILE) conPrint("linearSubdivision took " + linear_timer.elapsedString());
 
-		if(smooth)
+		if(subdivision_smoothing)
 		{
 			Timer avpass_timer;
 			averagePass(task_manager, temp_vert_polygons2, temp_edges2, temp_tris2, temp_quads2, temp_verts2, temp_uvs2, num_uv_sets, options, temp_verts, temp_uvs);
@@ -524,7 +553,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	}
 
 	// Apply the final displacement
-	Timer timer;
+	timer.reset();
 	displace(
 		task_manager,
 		context,
@@ -538,36 +567,55 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_verts2 // verts out
 	);
 	if(PROFILE) conPrint("final displace took " + timer.elapsedString());
+	timer.reset();
 
 	temp_verts = temp_verts2;
 
 	const RayMesh_ShadingNormals use_s_n = use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
-	// Build tris_out
-	tris_out.resize(0);
+	// Build tris_out from temp_tris and temp_quads
+	tris_out.resize(temp_tris.size() + temp_quads.size() * 2); // Pre-allocate space
+
 	for(size_t i = 0; i < temp_tris.size(); ++i)
 	{
-		tris_out.push_back(RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n));
+		tris_out[i] = RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n);
 
 		for(size_t c = 0; c < 3; ++c)
-			tris_out.back().uv_indices[c] = temp_tris[i].uv_indices[c];
+			tris_out[i].uv_indices[c] = temp_tris[i].uv_indices[c];
 	}
 
-	// TODO: optimise (prealloc tris etc..)
+	const size_t tris_out_offset = temp_tris.size();
 	for(size_t i = 0; i < temp_quads.size(); ++i)
 	{
 		// Split the quad into two triangles
-		tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[1], temp_quads[i].vertex_indices[2], temp_quads[i].mat_index, use_s_n));
-		tris_out.push_back(RayMeshTriangle(temp_quads[i].vertex_indices[0], temp_quads[i].vertex_indices[2], temp_quads[i].vertex_indices[3], temp_quads[i].mat_index, use_s_n));
+		RayMeshTriangle& tri_a = tris_out[tris_out_offset + i*2 + 0];
+		RayMeshTriangle& tri_b = tris_out[tris_out_offset + i*2 + 1];
 
-		tris_out[tris_out.size() - 2].uv_indices[0] = temp_quads[i].uv_indices[0];
-		tris_out[tris_out.size() - 2].uv_indices[1] = temp_quads[i].uv_indices[1];
-		tris_out[tris_out.size() - 2].uv_indices[2] = temp_quads[i].uv_indices[2];
+		tri_a.vertex_indices[0] = temp_quads[i].vertex_indices[0];
+		tri_a.vertex_indices[1] = temp_quads[i].vertex_indices[1];
+		tri_a.vertex_indices[2] = temp_quads[i].vertex_indices[2];
 
-		tris_out[tris_out.size() - 1].uv_indices[0] = temp_quads[i].uv_indices[0];
-		tris_out[tris_out.size() - 1].uv_indices[1] = temp_quads[i].uv_indices[2];
-		tris_out[tris_out.size() - 1].uv_indices[2] = temp_quads[i].uv_indices[3];
+		tri_a.uv_indices[0] = temp_quads[i].uv_indices[0];
+		tri_a.uv_indices[1] = temp_quads[i].uv_indices[1];
+		tri_a.uv_indices[2] = temp_quads[i].uv_indices[2];
+
+		tri_a.setTriMatIndex(temp_quads[i].mat_index);
+		tri_a.setUseShadingNormals(use_s_n);
+
+
+		tri_b.vertex_indices[0] = temp_quads[i].vertex_indices[0];
+		tri_b.vertex_indices[1] = temp_quads[i].vertex_indices[2];
+		tri_b.vertex_indices[2] = temp_quads[i].vertex_indices[3];
+
+		tri_b.uv_indices[0] = temp_quads[i].uv_indices[0];
+		tri_b.uv_indices[1] = temp_quads[i].uv_indices[2];
+		tri_b.uv_indices[2] = temp_quads[i].uv_indices[3];
+
+		tri_b.setTriMatIndex(temp_quads[i].mat_index);
+		tri_b.setUseShadingNormals(use_s_n);
 	}
+
+	if(PROFILE) conPrint("Writing to tris_out took " + timer.elapsedString());
 
 
 	// Recompute all vertex normals, as they will be completely wrong by now due to any displacement.
@@ -1209,6 +1257,7 @@ void DisplacementUtils::linearSubdivision(
 	*/
 	timer.reset();
 
+	//========================== Work out if we are subdividing each triangle ==========================
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
 
 	// For each triangle
@@ -1337,15 +1386,13 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 	if(PROFILE) conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3));
-
-
-	// Create edge midpoint vertices for triangle and quads
-
 	timer.reset();
 
+
+	//========================== Create edge midpoint vertices for triangles ==========================
 	const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
-	if(PROFILE) conPrint("Create edge midpoint verts, tris_in.size(): " + toString(tris_in.size()));
+	if(PROFILE) conPrint("   Creating edge midpoint verts, tris_in.size(): " + toString(tris_in.size()));
 
 	// For each triangle
 	for(size_t t = 0; t < tris_in.size(); ++t)
@@ -1453,11 +1500,12 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	if(PROFILE) conPrint("   building edge mid point vertices: " + timer.elapsedStringNPlaces(3));
+	if(PROFILE) conPrint("   building tri edge mid point vertices: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
 
 
-	// Do a pass to decide whether or not to subdivide each quad, and create new vertices if subdividing.
-
+	//========================== Work out if we are subdividing each quad ==========================
+	
 	std::vector<bool> subdividing_quad(quads_in.size(), false);
 
 	std::vector<Vec3f> quad_verts_pos_os(4);
@@ -1588,6 +1636,12 @@ done_quad_unclipped_check:
 
 		subdividing_quad[q] = subdivide_quad;
 	}
+
+
+	if(PROFILE) conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
+
+	//========================== Create edge midpoint vertices for quads ==========================
 
 	// For each quad
 	for(size_t q = 0; q < quads_in.size(); ++q)
@@ -1722,6 +1776,9 @@ done_quad_unclipped_check:
 			}
 		}
 	}
+
+	if(PROFILE) conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
 
 
 	//TEMP: Check we have seen each edge twice
@@ -1906,6 +1963,7 @@ done_quad_unclipped_check:
 	}
 
 	if(PROFILE) conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3));
+	timer.reset();
 
 
 	// For each quad
@@ -1977,6 +2035,8 @@ done_quad_unclipped_check:
 			num_quads_unchanged++;
 		}
 	}
+
+	if(PROFILE) conPrint("   Making new subdivided quads: " + timer.elapsedStringNPlaces(3));
 
 	print_output.print("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
 	print_output.print("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));

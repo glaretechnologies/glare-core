@@ -154,7 +154,7 @@ public:
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
-		bool smooth,
+		bool subdivision_smoothing,
 		const js::Vector<RayMeshTriangle, 16>& tris_in,
 		const js::Vector<RayMeshQuad, 16>& quads_in,
 		const std::vector<RayMeshVertex>& verts_in,
