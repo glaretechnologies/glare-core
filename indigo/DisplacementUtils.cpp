@@ -2336,9 +2336,11 @@ void DisplacementUtils::averagePass(
 
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
 
 #include "../graphics/Map2D.h"
+
 
 void DisplacementUtils::test()
 {
@@ -2433,7 +2435,7 @@ void DisplacementUtils::test()
 	//}
 	Indigo::TaskManager task_manager(1);
 
-	///////////////
+	//=========================== Test subdivision of quads ==========================
 	{
 		std::vector<RayMeshVertex> vertices(6);
 		std::vector<Vec2f> uvs(8);
@@ -2546,7 +2548,106 @@ void DisplacementUtils::test()
 			}
 		}
 	}
+
+	//=========================== Test subdivision of a mesh composed of both tris and quads ==========================
+	{
+		std::vector<RayMeshVertex> vertices(6);
+		std::vector<Vec2f> uvs(8);
+		js::Vector<RayMeshTriangle, 16> triangles(2);
+		js::Vector<RayMeshQuad, 16> quads(1);
+
+		js::Vector<RayMeshTriangle, 16> triangles_out;
+		std::vector<RayMeshVertex> verts_out;
+		std::vector<Vec2f> uvs_out;
+
+
+		// Quad vertices in CCW order from top right, facing up
+		vertices[0] = RayMeshVertex(Vec3f(0.9f,  1, 0), Vec3f(0, 0, 1), 0);
+		vertices[1] = RayMeshVertex(Vec3f(1,  1, 0), Vec3f(0, 0, 1), 0);
+		vertices[2] = RayMeshVertex(Vec3f(1.1f, 1, 0), Vec3f(0, 0, 1), 0);
+		vertices[3] = RayMeshVertex(Vec3f(0.9f,  0, 0), Vec3f(0, 0, 1), 0);
+		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1), 0);
+		vertices[5] = RayMeshVertex(Vec3f(1.1f, 0, 0), Vec3f(0, 0, 1), 0);
+
+		uvs[0] = Vec2f(0.9f, 0.6f);
+		uvs[1] = Vec2f(1.0f, 0.6f);
+		uvs[2] = Vec2f(0, 0.6f);
+		uvs[3] = Vec2f(0.1f, 0.6f);
+		uvs[4] = Vec2f(0.9f, 0.4f);
+		uvs[5] = Vec2f(1.0f, 0.4f);
+		uvs[6] = Vec2f(0, 0.4f);
+		uvs[7] = Vec2f(0.1f, 0.4f);
+
+
+		quads[0] = RayMeshQuad(0, 3, 4, 1, 0, RayMesh_NoShadingNormals);
+		quads[0].uv_indices[0] = 0;
+		quads[0].uv_indices[1] = 4;
+		quads[0].uv_indices[2] = 5;
+		quads[0].uv_indices[3] = 1;
+
+		// NOTE: not sure if these indices make sense.
+		triangles[0] = RayMeshTriangle(1, 4, 5, 0, RayMesh_NoShadingNormals);
+		triangles[0].uv_indices[0] = 2;
+		triangles[0].uv_indices[1] = 6;
+		triangles[0].uv_indices[2] = 7;
+
+		triangles[1] = RayMeshTriangle(2, 4, 5, 0, RayMesh_NoShadingNormals);
+		triangles[1].uv_indices[0] = 2;
+		triangles[1].uv_indices[1] = 6;
+		triangles[1].uv_indices[2] = 7;
+
+		StandardPrintOutput print_output;
+		ThreadContext context;
+
+		std::vector<Reference<Material> > materials;
+		materials.push_back(Reference<Material>(new Diffuse(
+			std::vector<TextureUnit>(),
+			Reference<SpectrumMatParameter>(NULL),
+			Reference<DisplaceMatParameter>(NULL),
+			Reference<DisplaceMatParameter>(NULL),
+			Reference<SpectrumMatParameter>(NULL),
+			Reference<SpectrumMatParameter>(NULL),
+			Reference<Vec3MatParameter>(),
+			0, // layer_index
+			false, // random_triangle_colours
+			false // backface_emit
+		)));
+
+		DUOptions options;
+		options.object_to_camera = Matrix4f::identity();
+		options.wrap_u = true;
+		options.wrap_v = false;
+		options.view_dependent_subdivision = false;
+		options.pixel_height_at_dist_one = 1;
+		options.subdivide_pixel_threshold = 0;
+		options.subdivide_curvature_threshold = 0;
+		options.displacement_error_threshold = 0;
+		options.max_num_subdivisions = 1;
+
+		DisplacementUtils::subdivideAndDisplace(
+			"test mesh",
+			task_manager,
+			print_output,
+			context,
+			materials,
+			true, // smooth
+			triangles,
+			quads,
+			vertices,
+			uvs,
+			1, // num uv sets
+			options,
+			false, // use_shading_normals
+			triangles_out,
+			verts_out,
+			uvs_out
+		);
+
+		// Each tri gets subdivided into 4 tris, for a total of 2*4 = 8 tris
+		// Plus 4 quads * 2 tris/quad for the subdivided quad gives 8 + 8 = 16 tris.
+		testAssert(triangles_out.size() == 16);
+	}
 }
 
 
-#endif
+#endif // BUILD_TESTS
