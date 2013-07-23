@@ -331,9 +331,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		// Try with the unmodified hardware ID.
 		{
 			const std::string hardware_id = hardware_ids[i];
-
 			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
-
 			if(verifyKey(constructed_key, hash))
 			{
 				// Key verified!
@@ -352,9 +350,44 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		// Try with the hardware ID with the leading whitespace stripped off
 		{
 			const std::string hardware_id = ::stripHeadWhitespace(hardware_ids[i]);
-	
 			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
+			if(verifyKey(constructed_key, hash))
+			{
+				// Key verified!
+				user_id_out = components[0]; // The user id is the first component.
+				licence_type_out = desired_licence_type;
+				error_code_out = LicenceErrorCode_NoError;
+				return; // We're done here, return
+			}
+			else
+			{
+				assert(licence_type_out == UNLICENSED);
+			}
+		}
 
+		// Try with the hardware ID without whitespace stripping, but with lower-cased MAC address.
+		{
+			const std::string hardware_id = getLowerCaseMACAddrHardwareID(hardware_ids[i]);
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
+			if(verifyKey(constructed_key, hash))
+			{
+				// Key verified!
+				user_id_out = components[0]; // The user id is the first component.
+				licence_type_out = desired_licence_type;
+				error_code_out = LicenceErrorCode_NoError;
+				return; // We're done here, return
+			}
+			else
+			{
+				assert(licence_type_out == UNLICENSED);
+			}
+		}
+
+
+		// Try with the hardware ID with the leading whitespace stripped off, and with lower-cased MAC address
+		{
+			const std::string hardware_id = ::stripHeadWhitespace(getLowerCaseMACAddrHardwareID(hardware_ids[i]));
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
 			if(verifyKey(constructed_key, hash))
 			{
 				// Key verified!
@@ -415,6 +448,38 @@ const std::string License::getPrimaryHardwareIdentifier()
 	if(ids.empty())
 		throw LicenseExcep("ids.empty()");
 	return ids[0];
+}
+
+
+// Licence key will look like
+// Intel(R) Core(TM) i7 CPU         920  @ 2.67GHz:00-24-1D-C9-51-98
+const std::string License::getLowerCaseMACAddrHardwareID(const std::string& hardware_id)
+{
+	// Find location of ':':
+	const size_t dotpos = hardware_id.find_last_of(':');
+	if(dotpos == std::string::npos)
+		return hardware_id;
+	
+	std::string newstr = hardware_id;
+	
+	for(size_t i=dotpos; i<hardware_id.size(); ++i)
+		newstr[i] = ::toLowerCase(newstr[i]);
+	
+	return newstr;
+}
+
+
+// The MAC address used to be lower-case on OS X.  For backwards compatibility, this method exists to return the old lower-case MAC address primary hardware ID.
+const std::string License::getOldPrimaryHardwareId()
+{
+#if defined(_WIN32)
+	return getPrimaryHardwareIdentifier();
+#elif defined(OSX)
+	return getLowerCaseMACAddrHardwareID(getPrimaryHardwareIdentifier());
+#else
+	// Linux
+	return getPrimaryHardwareIdentifier();
+#endif
 }
 
 
@@ -998,6 +1063,31 @@ void License::test()
 	}
 
 
+	// Test verifyLicenceString doesn't crash on missing MAC address part of hardware ID
+	try 
+	{
+		std::vector<std::string> hardware_ids;
+		// NOTE: changed CPU freq here.
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 6.66GHz");
+
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+		LicenceErrorCode error_code;
+		verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
+
+		testAssert(user_id == "");
+		testAssert(licence_type == UNLICENSED);
+		testAssert(error_code == LicenceErrorCode_NoHashMatch);
+	}
+	catch(LicenseExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
 
 
 	/* 
@@ -1028,6 +1118,42 @@ void License::test()
 		{
 			failTest(e.what());
 		}
+	}
+
+
+	/* 
+	Test verifyLicenceString works when the licence key signature has been generated from the hardware ID with the MAC address lower-cased.
+
+	N:\indigo\trunk\signing> ruby .\sign.rb "someoneawesome@awesome.com<S. Awesome>" "              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7f-bb-3e" full-lifetime
+	*/
+	{
+		std::vector<std::string> hardware_ids;
+		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"); // The actual hardware ID on the computer will be unchanged.
+
+		const std::string licence_key = 
+			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;R2qjttT95f0JouUWCW/NiQ6wr/DbBlLE8I1CJ5vA8O5FDuskG36baoBY/0rwHUL3a+1X6GehAat8HBNuwMgLnGanQxL33wAYjsOH0wd1LrUTmrl3HY0vRlsU914Olfa/bI82i1I1yGE9Qi7yRbVsYGTPZebrY91y08hFy+FLXFw=";
+	
+		LicenceType licence_type = UNLICENSED;
+		std::string user_id;
+
+		try
+		{
+			LicenceErrorCode error_code;
+			verifyLicenceString(licence_key, hardware_ids, licence_type, user_id, error_code);
+
+			testAssert(user_id == "someoneawesome@awesome.com<S. Awesome>");
+			testAssert(licence_type == FULL_LIFETIME);
+			testAssert(error_code == LicenceErrorCode_NoError);
+		}
+		catch(LicenseExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
+
+
+	{
+		testAssert(getLowerCaseMACAddrHardwareID("Intel(R) Core(TM) i7 CPU         920  @ 2.67GHz:00-24-1D-C9-51-98") == "Intel(R) Core(TM) i7 CPU         920  @ 2.67GHz:00-24-1d-c9-51-98");
 	}
 }
 

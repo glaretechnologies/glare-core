@@ -193,13 +193,10 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 		addresses_out[i] = adapters[i].MAC;
 
 #elif defined(OSX)
-	int			mib[6];
-	size_t	 	len;
-	char			*buf;
-	unsigned char		*ptr;
-	struct if_msghdr	*ifm;
-	struct sockaddr_dl	*sdl;
 
+	// See https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/sysctl.3.html for info on sysctl()
+
+	int	mib[6];
 	mib[0] = CTL_NET;
 	mib[1] = AF_ROUTE;
 	mib[2] = 0;
@@ -209,28 +206,37 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 		throw Indigo::Exception("if_nametoindex error");
 	}
 
+	// Get buffer length needed
+	size_t len;
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
 		throw Indigo::Exception("sysctl 1 error");
 	}
 
+	// Allocate buffer
+	char* buf;
 	if ((buf = (char *)malloc(len)) == NULL) {
 		throw Indigo::Exception("malloc error");
 	}
 
+	// Get information (will be placed into buf)
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
 		throw Indigo::Exception("sysctl 2 error");
 	}
 
-	ifm = (struct if_msghdr *)buf;
-	sdl = (struct sockaddr_dl *)(ifm + 1);
-	ptr = (unsigned char *)LLADDR(sdl);
+	struct if_msghdr* ifm = (struct if_msghdr*)buf;
+	struct sockaddr_dl* sdl = (struct sockaddr_dl*)(ifm + 1);
+	unsigned char* ptr = (unsigned char*)LLADDR(sdl);
 
+	// Convert binary MAC address to hexadecimal representation.
 	char buffer[100];
 
-	sprintf(buffer, "%02x-%02x-%02x-%02x-%02x-%02x", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+	sprintf(buffer, "%02X-%02X-%02X-%02X-%02X-%02X", *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
 
 	addresses_out.resize(0);
 	addresses_out.push_back(std::string(buffer));
+
+	// Free buffer
+	free(buf);
 
 #else
 	// else Linux

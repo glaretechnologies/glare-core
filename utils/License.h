@@ -92,6 +92,9 @@ public:
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
 	static const std::vector<std::string> getHardwareIdentifiers(); // throws LicenseExcep
 
+	// The MAC address used to be lower-case on OS X.  For backwards compatibility, this method exists to return the old lower-case MAC address primary hardware ID.
+	static const std::string getOldPrimaryHardwareId();
+
 	static const std::string networkFloatingHash(const std::string& input);
 
 	static const std::string currentLicenseSummaryString(const std::string& appdata_path);
@@ -103,7 +106,7 @@ public:
 	static void test();
 private:
 	
-
+	static const std::string getLowerCaseMACAddrHardwareID(const std::string& hardware_id);
 	
 	static const std::string decodeBase64(const std::string& data);
 
