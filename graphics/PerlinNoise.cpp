@@ -89,15 +89,15 @@ void PerlinNoise::init()
 	for(int t=N-1; t>=0; --t)
 	{
 		{
-			int k = (int)(rng.unitRandom() * N);
+			int k = (int)(rng.unitRandom() * t);
 			mySwap(p_x[t], p_x[k]);
 		}
 		{
-			int k = (int)(rng.unitRandom() * N);
+			int k = (int)(rng.unitRandom() * t);
 			mySwap(p_y[t], p_y[k]);
 		}
 		{
-			int k = (int)(rng.unitRandom() * N);
+			int k = (int)(rng.unitRandom() * t);
 			mySwap(p_z[t], p_z[k]);
 		}
 	}

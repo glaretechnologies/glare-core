@@ -25,7 +25,7 @@ void GridNoise::init()
 	// Permute
 	for(int t=N-1; t>=0; --t)
 	{
-		int k = (int)(rng.unitRandom() * N);
+		int k = (int)(rng.unitRandom() * t);
 		mySwap(data[t], data[k]);
 	}
 }
