@@ -2,7 +2,7 @@
 
 
 class Image;
-
+class Image4f;
 
 class ImageErrorMetric
 {
@@ -12,7 +12,7 @@ public:
 
 
 
-	static float standardDeviation(const Image& a, const Image& b);
+	static float rootMeanSquaredError(const Image4f& a, const Image4f& b);
 
 
 };
