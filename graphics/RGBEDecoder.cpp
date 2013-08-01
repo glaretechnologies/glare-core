@@ -155,6 +155,11 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 
 				if(!parser.parseFloat(header_data.exposure))
 					throw ImFormatExcep("Failed to parse EXPOSURE");
+
+				// This is a workaround for hrd files that have the exposure in the header but it's 0.
+				// Since we don't ignore the exposure, it can't be 0.
+				if(epsEqual<float>(0.0f, header_data.exposure, 0.00000001))
+					header_data.exposure = 1.0f;
 			}
 			else
 				throw ImFormatExcep("Failed to parse EXPOSURE");
