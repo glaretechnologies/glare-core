@@ -47,7 +47,7 @@
 		<name>blend mat</name>
 		<blend>
 			<texture>
-				<path>C:/programming/indigosvn/trunk/testfiles/test_materials/blackrose_pattern.jpg</path>
+				<path>blackrose_pattern.jpg</path>
 				<a>0</a>
 				<b>1</b>
 				<c>0</c>
