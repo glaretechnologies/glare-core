@@ -38,7 +38,7 @@ uint32 FileInStream::readUInt32()
 }
 
 
-void FileInStream::readData(void* buf, size_t num_bytes)
+void FileInStream::readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
 {
 	// There's a bug on OS X that causes reads to fail when num_bytes >= 2^31 or so.
 	// Work around it by breaking the read into chunks.

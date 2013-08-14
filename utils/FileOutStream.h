@@ -24,7 +24,7 @@ public:
 	~FileOutStream();
 
 	virtual void writeUInt32(uint32 x);
-	virtual void writeData(const void* data, size_t num_bytes);
+	virtual void writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
 
 private:
 	std::ofstream file;

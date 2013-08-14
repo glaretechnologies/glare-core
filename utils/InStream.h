@@ -7,6 +7,7 @@ Generated at 2013-01-27 17:47:46 +0000
 #pragma once
 
 
+#include "StreamShouldAbortCallback.h"
 #include "platform.h"
 #include <string>
 
@@ -27,7 +28,7 @@ public:
 	virtual uint32 readUInt32() = 0;
 
 	// Read 'num_bytes' bytes to buf.  Buf must point at a buffer of at least num_bytes bytes.
-	virtual void readData(void* buf, size_t num_bytes) = 0;
+	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback) = 0;
 
 	// Read double
 	double readDouble();

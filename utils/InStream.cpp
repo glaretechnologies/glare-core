@@ -10,7 +10,7 @@ Generated at 2013-01-27 17:47:46 +0000
 double InStream::readDouble()
 {
 	double x;
-	readData(&x, sizeof(x));
+	readData(&x, sizeof(x), NULL);
 	return x;
 }
 
@@ -19,7 +19,7 @@ double InStream::readDouble()
 uint64 InStream::readUInt64()
 {
 	uint64 x;
-	readData(&x, sizeof(x));
+	readData(&x, sizeof(x), NULL);
 	return x;
 }
 
@@ -33,7 +33,7 @@ const std::string InStream::readStringLengthFirst()
 
 	// Read content
 	if(size > 0)
-		readData(&s[0], size);
+		readData(&s[0], size, NULL);
 
 	return s;
 }

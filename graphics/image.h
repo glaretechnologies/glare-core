@@ -11,6 +11,7 @@ class Bitmap;
 class FilterFunction;
 class OutStream;
 class InStream;
+class StreamShouldAbortCallback;
 
 
 /*=====================================================================
@@ -135,8 +136,8 @@ private:
 };
 
 
-void writeToStream(const Image& im, OutStream& stream);
-void readFromStream(InStream& stream, Image& image);
+void writeToStream(const Image& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback);
+void readFromStream(InStream& stream, Image& image, StreamShouldAbortCallback* should_abort_callback);
 
 
 const Image::ColourType& Image::getPixel(size_t i) const

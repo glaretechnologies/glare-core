@@ -23,7 +23,7 @@ public:
 	virtual ~BufferInStream();
 
 	virtual uint32 readUInt32();
-	virtual void readData(void* buf, size_t num_bytes);
+	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
 	virtual bool endOfStream();
 
 private:

@@ -24,17 +24,17 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 	writeUInt32((uint32)s.length());
 
 	// Write string content
-	writeData(s.c_str(), s.length());
+	writeData(s.c_str(), s.length(), NULL);
 }
 
 
 void OutStream::writeUInt64(uint64 x)
 {
-	writeData(&x, sizeof(x));
+	writeData(&x, sizeof(x), NULL);
 }
 
 
 void OutStream::writeDouble(double x)
 {
-	writeData(&x, sizeof(x));
+	writeData(&x, sizeof(x), NULL);
 }

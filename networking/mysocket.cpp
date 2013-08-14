@@ -44,7 +44,7 @@ const int SOCKET_ERROR = -1;
 const double BLOCK_DURATION = 0.5; // in seconds.
 
 
-MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallback* should_abort_callback)
+MySocket::MySocket(const std::string& hostname, int port, StreamShouldAbortCallback* should_abort_callback)
 {
 	init();
 
@@ -78,7 +78,7 @@ MySocket::MySocket(const std::string& hostname, int port, SocketShouldAbortCallb
 }
 
 
-MySocket::MySocket(const IPAddress& ipaddress, int port, SocketShouldAbortCallback* should_abort_callback)
+MySocket::MySocket(const IPAddress& ipaddress, int port, StreamShouldAbortCallback* should_abort_callback)
 {
 	init();
 
@@ -105,6 +105,7 @@ void MySocket::init()
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	connected = false;
+	do_graceful_disconnect = true;
 
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
@@ -176,7 +177,7 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 void MySocket::doConnect(const IPAddress& ipaddress, 
 						 const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
 						 int port, 
-						 SocketShouldAbortCallback* should_abort_callback)
+						 StreamShouldAbortCallback* should_abort_callback)
 {
 	otherend_ipaddr = ipaddress; // Remember ip of other end
 
@@ -245,6 +246,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 		{
+			do_graceful_disconnect = false;
 			setLinger(sockethandle, false);
 			closeSocket(sockethandle);
 			sockethandle = nullSocketHandle();
@@ -255,6 +257,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 		{
+			do_graceful_disconnect = false;
 			setLinger(sockethandle, false);
 			closeSocket(sockethandle);
 			sockethandle = nullSocketHandle();
@@ -364,7 +367,7 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 }
 
 
-MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
+MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
 
@@ -384,7 +387,10 @@ MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_c
 		initFDSetWithSocket(error_sockset, sockethandle);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			do_graceful_disconnect = false;
 			throw AbortedMySocketExcep();
+		}
 
 		const int num_ready = select(
 			(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
@@ -402,7 +408,10 @@ MySocketRef MySocket::acceptConnection(SocketShouldAbortCallback* should_abort_c
 		}
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			do_graceful_disconnect = false;
 			throw AbortedMySocketExcep();
+		}
 
 		if(num_ready != 0)
 			break;
@@ -482,22 +491,25 @@ void MySocket::close()
 			shutdown(sockethandle,  1); // 1 == SD_SEND
 
 			// Wait for graceful shutdown
-			while(1)
+			if(do_graceful_disconnect)
 			{
-				// conPrint("Waiting for graceful shutdown...");
+				while(1)
+				{
+					// conPrint("Waiting for graceful shutdown...");
 
-				char buf[1024];
-				const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
-				if(numbytesread == 0)
-				{
-					// Socket has been closed gracefully
-					// conPrint("numbytesread == 0, socket closed gracefully.");
-					break;
-				}
-				else if(numbytesread == SOCKET_ERROR)
-				{
-					// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
-					break;
+					char buf[1024];
+					const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
+					if(numbytesread == 0)
+					{
+						// Socket has been closed gracefully
+						// conPrint("numbytesread == 0, socket closed gracefully.");
+						break;
+					}
+					else if(numbytesread == SOCKET_ERROR)
+					{
+						// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
+						break;
+					}
 				}
 			}
 		}
@@ -509,13 +521,13 @@ void MySocket::close()
 }
 
 
-void MySocket::write(const void* data, size_t datalen, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::write(const void* data, size_t datalen, StreamShouldAbortCallback* should_abort_callback)
 {
 	write(data, datalen, NULL, should_abort_callback);
 }
 
 
-void MySocket::write(const void* data, size_t datalen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::write(const void* data, size_t datalen, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback)
 {
 	const size_t totalnumbytestowrite = datalen;
 
@@ -561,7 +573,10 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			do_graceful_disconnect = false;
 			throw AbortedMySocketExcep();
+		}
 	}
 }
 
@@ -579,7 +594,7 @@ size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 }
 
 
-void MySocket::readTo(void* buffer, size_t readlen, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen, StreamShouldAbortCallback* should_abort_callback)
 {
 	readTo(buffer, readlen, NULL, should_abort_callback);
 }
@@ -603,7 +618,7 @@ private:
 };*/
 
 
-void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback)
 {
 	const size_t totalnumbytestoread = readlen;
 
@@ -662,7 +677,10 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Sock
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
+		{
+			do_graceful_disconnect = false;
 			throw AbortedMySocketExcep();
+		}
 	}
 }
 
@@ -686,7 +704,7 @@ void MySocket::waitForGracefulDisconnect()
 }
 
 
-const std::string MySocket::readString(size_t max_string_length, SocketShouldAbortCallback* should_abort_callback) // Read null-terminated string.
+const std::string MySocket::readString(size_t max_string_length, StreamShouldAbortCallback* should_abort_callback) // Read null-terminated string.
 {
 	std::string s;
 	while(1)
@@ -705,7 +723,7 @@ const std::string MySocket::readString(size_t max_string_length, SocketShouldAbo
 }
 
 
-void MySocket::writeInt32(int32 x, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::writeInt32(int32 x, StreamShouldAbortCallback* should_abort_callback)
 {
 	union data
 	{
@@ -719,14 +737,14 @@ void MySocket::writeInt32(int32 x, SocketShouldAbortCallback* should_abort_callb
 }
 
 
-void MySocket::writeUInt32(uint32 x, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::writeUInt32(uint32 x, StreamShouldAbortCallback* should_abort_callback)
 {
 	const uint32 i = htonl(x); // Convert to network byte ordering.
 	write(&i, sizeof(uint32), should_abort_callback);
 }
 
 
-void MySocket::writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_callback)
+void MySocket::writeUInt64(uint64 x, StreamShouldAbortCallback* should_abort_callback)
 {
 	//NOTE: not sure if this byte ordering is correct.
 	union data
@@ -742,7 +760,7 @@ void MySocket::writeUInt64(uint64 x, SocketShouldAbortCallback* should_abort_cal
 }
 
 
-void MySocket::writeString(const std::string& s, SocketShouldAbortCallback* should_abort_callback) // Write null-terminated string.
+void MySocket::writeString(const std::string& s, StreamShouldAbortCallback* should_abort_callback) // Write null-terminated string.
 {
 	this->write(
 		s.c_str(), 
@@ -752,7 +770,7 @@ void MySocket::writeString(const std::string& s, SocketShouldAbortCallback* shou
 }
 
 
-int MySocket::readInt32(SocketShouldAbortCallback* should_abort_callback)
+int MySocket::readInt32(StreamShouldAbortCallback* should_abort_callback)
 {
 	union data
 	{
@@ -766,7 +784,7 @@ int MySocket::readInt32(SocketShouldAbortCallback* should_abort_callback)
 }
 
 
-uint32 MySocket::readUInt32(SocketShouldAbortCallback* should_abort_callback)
+uint32 MySocket::readUInt32(StreamShouldAbortCallback* should_abort_callback)
 {
 	uint32 x;
 	readTo(&x, sizeof(uint32), should_abort_callback);
@@ -774,7 +792,7 @@ uint32 MySocket::readUInt32(SocketShouldAbortCallback* should_abort_callback)
 }
 
 
-uint64 MySocket::readUInt64(SocketShouldAbortCallback* should_abort_callback)
+uint64 MySocket::readUInt64(StreamShouldAbortCallback* should_abort_callback)
 {
 	//NOTE: not sure if this byte ordering is correct.
 	union data
@@ -820,9 +838,12 @@ uint32 MySocket::readUInt32()
 }
 
 
-void MySocket::readData(void* buf, size_t num_bytes)
+void MySocket::readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
 {
-	readTo(buf, num_bytes, NULL, NULL);
+	readTo(buf, num_bytes, 
+		NULL, // fraction listener
+		should_abort_callback
+	);
 }
 
 
@@ -838,9 +859,12 @@ void MySocket::writeUInt32(uint32 x)
 }
 
 
-void MySocket::writeData(const void* data, size_t num_bytes)
+void MySocket::writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
 {
-	write(data, num_bytes, NULL, NULL);
+	write(data, num_bytes, 
+		NULL, // fraction listener
+		should_abort_callback
+	);
 }
 
 

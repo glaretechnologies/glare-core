@@ -35,7 +35,7 @@ uint32 BufferInStream::readUInt32()
 }
 
 
-void BufferInStream::readData(void* target_buf, size_t num_bytes)
+void BufferInStream::readData(void* target_buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
 {
 	if(read_index + num_bytes > buf.size())
 		throw Indigo::Exception("Read past end of buffer.");

@@ -29,7 +29,7 @@ NetworkingTests::~NetworkingTests()
 #include "../indigo/globals.h"
 
 
-class NetworkingTests_ShouldAbortCallback : public SocketShouldAbortCallback
+class NetworkingTests_ShouldAbortCallback : public StreamShouldAbortCallback
 {
 public:
 	NetworkingTests_ShouldAbortCallback()

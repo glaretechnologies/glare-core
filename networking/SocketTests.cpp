@@ -56,7 +56,7 @@ public:
 
 			// Read a buffer of 3 int32s
 			std::vector<int32> buf(3);
-			socket->readData(&buf[0], sizeof(int32) * buf.size());
+			socket->readData(&buf[0], sizeof(int32) * buf.size(), NULL);
 			testAssert(buf == makeBuffer());
 
 			// Keep reading until we fail to read any more
@@ -100,7 +100,7 @@ public:
 
 			// Write a buffer of 3 int32s
 			const std::vector<int32> buf = makeBuffer();
-			socket.writeData(&buf[0], sizeof(int32) * buf.size());
+			socket.writeData(&buf[0], sizeof(int32) * buf.size(), NULL);
 		}
 		catch(MySocketExcep& e)
 		{

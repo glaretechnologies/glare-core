@@ -17,7 +17,7 @@ ThreadShouldAbortCallback
 -------------------
 
 =====================================================================*/
-class ThreadShouldAbortCallback : public SocketShouldAbortCallback
+class ThreadShouldAbortCallback : public StreamShouldAbortCallback
 {
 public:
 	ThreadShouldAbortCallback(ThreadSafeQueue<Reference<ThreadMessage> >* message_queue);
