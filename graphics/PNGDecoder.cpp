@@ -146,7 +146,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		Reference<Map2D> map_2d;
 		if(bit_depth == 8)
 		{
-			Reference<ImageMap<uint8_t, UInt8ComponentValueTraits>> image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, num_channels);
+			Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, num_channels);
 			image_map->setGamma((float)use_gamma);
 
 			std::vector<png_bytep> row_pointers(height);
@@ -162,7 +162,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			// Swap to little-endian (Intel) byte order, from network byte order, which is what PNG uses.
 			png_set_swap(png_ptr);
 
-			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits>> image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, num_channels);
+			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits> > image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, num_channels);
 			image_map->setGamma((float)use_gamma);
 
 			std::vector<png_bytep> row_pointers(height);
