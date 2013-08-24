@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "../maths/mathstypes.h"
 #include "../utils/Checksum.h"
 #include "../utils/Exception.h"
-#include <memory.h>
+#include <cstring> // For std::memcpy
 
 
 Bitmap::Bitmap()
