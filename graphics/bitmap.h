@@ -7,6 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
+#include "ImageMap.h"
 #include "../utils/platform.h"
 #include "../utils/Vector.h"
 #include <assert.h>
@@ -55,6 +56,8 @@ public:
 
 	// Used by TextDrawer.  Assumes getBytesPP() >= 3 and dest.getBytesPP() >= 3.
 	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Bitmap& dest, int destx, int desty) const;
+
+	void setFromImageMap(const ImageMap<uint8, UInt8ComponentValueTraits>& image_map);
 
 	void zero();
 

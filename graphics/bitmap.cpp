@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #include "../maths/mathstypes.h"
 #include "../utils/Checksum.h"
 #include "../utils/Exception.h"
+#include <memory.h>
 
 
 Bitmap::Bitmap()
@@ -18,6 +19,7 @@ Bitmap::Bitmap()
 	height = 0;
 	bytespp = 3;
 }
+
 
 Bitmap::Bitmap(size_t width_, size_t height_, size_t bytespp_, const uint8* srcdata)
 :	width(width_),
@@ -140,6 +142,21 @@ void Bitmap::blitToImage(int src_start_x, int src_start_y, int src_end_x, int sr
 					dest.setPixelComp(dx, dy, 3, 255); // Set alpha to one for now.
 			}
 		}
+}
+
+
+void Bitmap::setFromImageMap(const ImageMap<uint8_t, UInt8ComponentValueTraits>& image_map)
+{
+	this->resize(image_map.getMapWidth(), image_map.getMapHeight(), image_map.getBytesPerPixel());
+
+
+	// We are assuming ImageMap is laid out in the same was as BitMap.
+#if IMAGE_MAP_TILED
+#error 
+#endif
+		
+	const int image_map_size_B = image_map.getMapWidth() * image_map.getMapHeight() * image_map.getBytesPerPixel();
+	std::memcpy(this->getPixelNonConst(0, 0), image_map.getData(), image_map_size_B);
 }
 
 

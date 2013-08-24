@@ -1,8 +1,8 @@
 /*=====================================================================
 PNGDecoder.cpp
 --------------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Wed Jul 26 22:08:57 2006
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "PNGDecoder.h"
 
@@ -11,11 +11,11 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "ImageMap.h"
+#include "../utils/ConPrint.h"
 #include "../utils/stringutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
-#include "../indigo/globals.h"
 
 
 #ifndef PNG_ALLOW_BENIGN_ERRORS
@@ -23,17 +23,13 @@ Code By Nicholas Chapman.
 #endif
 
 
-
-
 PNGDecoder::PNGDecoder()
 {
-	
 }
 
 
 PNGDecoder::~PNGDecoder()
 {
-	
 }
 
 // TRY:
@@ -42,7 +38,6 @@ PNGDecoder::~PNGDecoder()
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
 
-//typedef void (PNGAPI *png_error_ptr) PNGARG((png_structp, png_const_charp));
 void pngdecoder_error_func(png_structp png, const char* msg)
 {
 	throw ImFormatExcep("LibPNG error: " + std::string(msg));
@@ -62,10 +57,10 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 	{
 		png_structp png_ptr = png_create_read_struct(
 			PNG_LIBPNG_VER_STRING, 
-			(png_voidp)&path, // Pass a pointer to the path string as out user-data, so we can use it when printing a warning.
+			(png_voidp)&path, // Pass a pointer to the path string as our user-data, so we can use it when printing a warning.
 			pngdecoder_error_func, 
 			pngdecoder_warning_func
-			);
+		);
 
 		if (!png_ptr)
 			throw ImFormatExcep("Failed to create PNG struct.");
@@ -81,13 +76,6 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			throw ImFormatExcep("Failed to create PNG info struct.");
 		}
 
-		png_infop end_info = png_create_info_struct(png_ptr);
-		if (!end_info)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
-
-			throw ImFormatExcep("Failed to create PNG info struct.");
-		}
 
 		// Open file and start reading from it.
 		FileHandle fp(path, "rb");
@@ -96,11 +84,6 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 
 		png_read_info(png_ptr, info_ptr);
 
-		const unsigned int width = png_get_image_width(png_ptr, info_ptr);
-		const unsigned int height = png_get_image_height(png_ptr, info_ptr);
-		const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-		const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
-		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
 		// Work out gamma
 		double use_gamma = 2.2;
@@ -125,63 +108,52 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		}
 
 
-		unsigned int bitmap_num_bytes_pp = num_channels;
+		// Set up the transformations that we want to run.
+		png_set_palette_to_rgb(png_ptr);
+		png_set_expand_gray_1_2_4_to_8(png_ptr);
 
-		if(color_type == PNG_COLOR_TYPE_PALETTE)
-		{
-			 png_set_palette_to_rgb(png_ptr);
+		// Re-read info, which will be changed based on our transformations.
+		png_read_update_info(png_ptr, info_ptr);
 
-			 assert(bitmap_num_bytes_pp == 1);
-			 bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
-		}
-
-		//conPrint("bitmap_num_bytes_pp before alpha stripping: " + toString(bitmap_num_bytes_pp));
-		
-		///Remove alpha channel///
-		if(color_type & PNG_COLOR_MASK_ALPHA)
-		{
-			//png_set_strip_alpha(png_ptr);
-
-			// We either had Grey + alpha, or RGB + alpha
-			//assert(bitmap_num_bytes_pp == 2 || bitmap_num_bytes_pp == 4);
-			//bitmap_num_bytes_pp--;
-		}
-
-		//conPrint("bitmap_num_bytes_pp after stripping: " + toString(bitmap_num_bytes_pp));
+		const unsigned int width = png_get_image_width(png_ptr, info_ptr);
+		const unsigned int height = png_get_image_height(png_ptr, info_ptr);
+		const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
 		if(width >= 1000000)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("invalid width: " + toString(width));
 		}
 		if(height >= 1000000)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("invalid height: " + toString(height));
+		}
+
+		if(num_channels > 4)
+		{
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+			throw ImFormatExcep("Invalid num channels: " + toString(num_channels));
 		}
 
 		if(bit_depth != 8 && bit_depth != 16)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			throw ImFormatExcep("Only PNGs with per-channel bit depths of 8 and 16 supported.");
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+			throw ImFormatExcep("Invalid bit depth found: " + toString(bit_depth));
 		}
 
-		// num_channels == 4 case should be stripped alpha case.
-		if(!(num_channels == 1 || num_channels == 2 || num_channels == 3 || num_channels == 4))
-			throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 2, 3 or 4 channels supported.");
-
-		Map2D* map_2d = NULL;
+		Reference<Map2D> map_2d;
 		if(bit_depth == 8)
 		{
-			ImageMap<uint8_t, UInt8ComponentValueTraits>* image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+			Reference<ImageMap<uint8_t, UInt8ComponentValueTraits>> image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, num_channels);
 			image_map->setGamma((float)use_gamma);
 
+			std::vector<png_bytep> row_pointers(height);
 			for(unsigned int y=0; y<height; ++y)
-				png_read_row(png_ptr, (png_bytep)image_map->getPixel(0, y), NULL);
+				row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
 
-			// Read in actual image data
-			//for(unsigned int y=0; y<height; ++y)
-			//	png_read_row(png_ptr, texture->rowPointer(y), NULL);
+			png_read_image(png_ptr, &row_pointers[0]);
 
 			map_2d = image_map;
 		}
@@ -190,12 +162,14 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			// Swap to little-endian (Intel) byte order, from network byte order, which is what PNG uses.
 			png_set_swap(png_ptr);
 
-			ImageMap<uint16_t, UInt16ComponentValueTraits>* image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, bitmap_num_bytes_pp);
+			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits>> image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, num_channels);
 			image_map->setGamma((float)use_gamma);
 
-			// Read in actual image data
+			std::vector<png_bytep> row_pointers(height);
 			for(unsigned int y=0; y<height; ++y)
-				png_read_row(png_ptr, (png_bytep)image_map->getPixel(0, y), NULL);
+				row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
+
+			png_read_image(png_ptr, &row_pointers[0]);
 
 			map_2d = image_map;
 		}
@@ -204,128 +178,12 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			assert(0);
 		}
 
-	
-		// Read the info at the end of the PNG file
-		png_read_end(png_ptr, end_info);
-
 		// Free structures
-		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
-		return Reference<Map2D>(map_2d);
+		return map_2d;
 	}
 	catch(Indigo::Exception& )
-	{
-		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
-	}
-}
-
-void PNGDecoder::decode(const std::string& path, Bitmap& bitmap_out)
-{
-	try
-	{
-		png_structp png_ptr = png_create_read_struct(
-			PNG_LIBPNG_VER_STRING, 
-			(png_voidp)NULL,
-			pngdecoder_error_func, 
-			pngdecoder_warning_func
-			);
-
-		if (!png_ptr)
-			throw ImFormatExcep("Failed to create PNG struct.");
-
-		png_infop info_ptr = png_create_info_struct(png_ptr);
-		if (!info_ptr)
-		{
-			png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
-
-			throw ImFormatExcep("Failed to create PNG info struct.");
-		}
-
-		png_infop end_info = png_create_info_struct(png_ptr);
-		if (!end_info)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
-
-			throw ImFormatExcep("Failed to create PNG info struct.");
-		}
-
-		// Open file and start reading from it.
-		FileHandle fp(path, "rb");
-
-		png_init_io(png_ptr, fp.getFile());
-
-		png_read_info(png_ptr, info_ptr);
-
-		const unsigned int width = png_get_image_width(png_ptr, info_ptr);
-		const unsigned int height = png_get_image_height(png_ptr, info_ptr);
-		const unsigned int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-		const unsigned int color_type = png_get_color_type(png_ptr, info_ptr);
-		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
-
-		unsigned int bitmap_num_bytes_pp = num_channels;
-
-		if(color_type == PNG_COLOR_TYPE_PALETTE)
-		{
-			 png_set_palette_to_rgb(png_ptr);
-
-			 assert(bitmap_num_bytes_pp == 1);
-			 bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
-		}
-
-		 
-
-		// actually pretty much every colour type is supported :)
-		//if(!(color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_RGB))
-		//	throw ImFormatExcep("PNG has unsupported colour type.");
-
-		//PNG can have files with 16 bits per channel.  If you only can handle
-		//8 bits per channel, this will strip the pixels down to 8 bit.
-		if(bit_depth == 16)
-			png_set_strip_16(png_ptr);
-
-		///Remove alpha channel///
-		if(color_type & PNG_COLOR_MASK_ALPHA)
-		{
-			png_set_strip_alpha(png_ptr);
-
-			assert(bitmap_num_bytes_pp == 4);
-			bitmap_num_bytes_pp = 3; // We are converting to 3 bytes per pixel
-		}
-
-		if(width >= 1000000)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			throw ImFormatExcep("invalid width: " + toString(width));
-		}
-		if(height >= 1000000)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			throw ImFormatExcep("invalid height: " + toString(height));
-		}
-
-		if(bit_depth != 8 && bit_depth != 16)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			throw ImFormatExcep("Only PNGs with per-channel bit depth of 8 supported.");
-		}
-
-		// num_channels == 4 case should be stripped alpha case.
-		if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
-			throw ImFormatExcep("PNG had " + toString(num_channels) + " channels, only 1, 3 or 4 channels supported.");
-
-		bitmap_out.resize(width, height, bitmap_num_bytes_pp);
-
-		// Read in actual image data
-		for(unsigned int y=0; y<height; ++y)
-			png_read_row(png_ptr, bitmap_out.rowPointer(y), NULL);
-
-		// Read the info at the end of the PNG file
-		png_read_end(png_ptr, end_info);
-
-		// Free structures
-		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-	}
-	catch(Indigo::Exception&)
 	{
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
 	}
@@ -528,18 +386,208 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/fileutils.h"
 
 
 void PNGDecoder::test()
 {
+	conPrint("PNGDecoder::test()");
+
 	try
 	{
+		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/pino.png");
 		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
 	}
 	catch(ImFormatExcep& e)
 	{
 		failTest(e.what());
 	}
+
+
+	// Test PNG files in PngSuite-2013jan13 (From http://www.schaik.com/pngsuite/)
+	try
+	{
+		const std::string png_suite_dir = TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/PngSuite-2013jan13";
+		const std::vector<std::string> files = FileUtils::getFilesInDir(png_suite_dir);
+
+		for(size_t i=0; i<files.size(); ++i)
+		{
+			const std::string path = png_suite_dir + "/" + files[i];
+
+			if(::hasExtension(path, "png") && !::hasPrefix(files[i], "x"))
+			{
+				// conPrint("Processing '" + path + "'...");
+
+				PNGDecoder::decode(path);
+			}
+		}
+
+		// Test some particular files, see http://www.schaik.com/pngsuite/pngsuite_bas_png.html
+		
+		//==================== Test basic formats =====================
+		// black & white
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g01.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 2 bit (4 level) grayscale
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g02.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 8 bit (256 level) grayscale 
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g08.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 16 bit (64k level) grayscale
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g16.png");
+			testAssert(map->getBytesPerPixel() == 2);
+		}
+
+		// 3x8 bits rgb color
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn2c08.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 3x16 bits rgb color
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn2c16.png");
+			testAssert(map->getBytesPerPixel() == 6);
+		}
+
+		// 1 bit (2 color) paletted - will get converted to RGB
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn3p01.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 8 bit (256 color) paletted - will get converted to RGB
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn3p08.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 8 bit grayscale + 8 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn4a08.png");
+			testAssert(map->getBytesPerPixel() == 2);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 16 bit grayscale + 16 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn4a16.png");
+			testAssert(map->getBytesPerPixel() == 4);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 3x8 bits rgb color + 8 bit alpha-channel 
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn6a08.png");
+			testAssert(map->getBytesPerPixel() == 4);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 3x16 bits rgb color + 16 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn6a16.png");
+			testAssert(map->getBytesPerPixel() == 8);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		//==================== Test some interlaced files =====================
+		// black & white
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g01.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 2 bit (4 level) grayscale
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g02.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 8 bit (256 level) grayscale 
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g08.png");
+			testAssert(map->getBytesPerPixel() == 1);
+		}
+
+		// 16 bit (64k level) grayscale
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g16.png");
+			testAssert(map->getBytesPerPixel() == 2);
+		}
+
+		// 3x8 bits rgb color
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi2c08.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 3x16 bits rgb color
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi2c16.png");
+			testAssert(map->getBytesPerPixel() == 6);
+		}
+
+		// 1 bit (2 color) paletted - will get converted to RGB
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi3p01.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 8 bit (256 color) paletted - will get converted to RGB
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi3p08.png");
+			testAssert(map->getBytesPerPixel() == 3);
+		}
+
+		// 8 bit grayscale + 8 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi4a08.png");
+			testAssert(map->getBytesPerPixel() == 2);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 16 bit grayscale + 16 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi4a16.png");
+			testAssert(map->getBytesPerPixel() == 4);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 3x8 bits rgb color + 8 bit alpha-channel 
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi6a08.png");
+			testAssert(map->getBytesPerPixel() == 4);
+			testAssert(map->hasAlphaChannel());
+		}
+
+		// 3x16 bits rgb color + 16 bit alpha-channel
+		{
+			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi6a16.png");
+			testAssert(map->getBytesPerPixel() == 8);
+			testAssert(map->hasAlphaChannel());
+		}
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	conPrint("PNGDecoder::test() done.");
 }
 
 
