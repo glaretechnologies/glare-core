@@ -14,6 +14,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
 #include "../utils/platformutils.h"
+#include "../utils/SocketBufferOutStream.h"
 
 
 #if BUILD_TESTS
@@ -46,9 +47,43 @@ public:
 			testAssert(socket->readUInt32() == 2);
 			testAssert(socket->readUInt32() == 3);
 
+			// Read Uint64
+			testAssert(socket->readUInt64(NULL) == 1);
+			testAssert(socket->readUInt64(NULL) == 2);
+			testAssert(socket->readUInt64(NULL) == 3);
+			testAssert(socket->readUInt64(NULL) == 0x1234567800112233ULL);
+
 			// Read strings
 			testAssert(socket->readStringLengthFirst() == "hello");
 			testAssert(socket->readStringLengthFirst() == "world");
+
+			// Read double
+			testAssert(socket->readDouble() == 0.0);
+			testAssert(socket->readDouble() == 1.23456789112233445566);
+
+			//=========== Test data from SocketBufferOutStream ===========
+
+			// Read Uint32
+			testAssert(socket->readUInt32() == 1);
+			testAssert(socket->readUInt32() == 2);
+			testAssert(socket->readUInt32() == 3);
+
+			// Read Uint64
+			testAssert(socket->readUInt64(NULL) == 1);
+			testAssert(socket->readUInt64(NULL) == 2);
+			testAssert(socket->readUInt64(NULL) == 3);
+			testAssert(socket->readUInt64(NULL) == 0x1234567800112233ULL);
+
+			// Read strings
+			testAssert(socket->readStringLengthFirst() == "hello");
+			testAssert(socket->readStringLengthFirst() == "world");
+
+			// Read double
+			testAssert(socket->readDouble() == 0.0);
+			testAssert(socket->readDouble() == 1.23456789112233445566);
+
+
+			//=========== End Test data from SocketBufferOutStream ===========
 
 			// Read strings
 			testAssert(socket->readString(1000, NULL) == "hello1");
@@ -90,9 +125,41 @@ public:
 			socket.writeUInt32(2);
 			socket.writeUInt32(3);
 
+			// Write Uint64
+			socket.writeUInt64(1, NULL);
+			socket.writeUInt64(2, NULL);
+			socket.writeUInt64(3, NULL);
+			socket.writeUInt64(0x1234567800112233ULL, NULL);
+
 			// Write some strings with writeStringLengthFirst()
 			socket.writeStringLengthFirst("hello");
 			socket.writeStringLengthFirst("world");
+
+			socket.writeDouble(0.0);
+			socket.writeDouble(1.23456789112233445566);
+
+			//=========== Test SocketBufferOutStream ===========
+			SocketBufferOutStream buffer;
+			buffer.writeUInt32(1);
+			buffer.writeUInt32(2);
+			buffer.writeUInt32(3);
+
+			// Write Uint64
+			buffer.writeUInt64(1);
+			buffer.writeUInt64(2);
+			buffer.writeUInt64(3);
+			buffer.writeUInt64(0x1234567800112233ULL);
+
+			// Write some strings with writeStringLengthFirst()
+			buffer.writeStringLengthFirst("hello");
+			buffer.writeStringLengthFirst("world");
+
+			buffer.writeDouble(0.0);
+			buffer.writeDouble(1.23456789112233445566);
+
+			// write the buffer contents to the socket
+			socket.writeData(&buffer.buf[0], buffer.buf.size(), NULL);
+			//=========== End Test SocketBufferOutStream ===========
 
 			// Write some strings with null termination
 			socket.writeString("hello1", NULL);
@@ -171,8 +238,7 @@ void SocketTests::test()
 		client_thread->join();
 	}
 
-	//delete listener_thread;
-	//delete client_thread;
+	conPrint("SocketTests::test(): done.");
 }
 
 
