@@ -37,7 +37,7 @@ const std::string FormatDecoderObj::getExtensionType() const
 
 void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale)
 {
-	Timer load_timer;
+	// Timer load_timer;
 
 	bool encountered_uvs = false;
 

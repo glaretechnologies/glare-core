@@ -230,7 +230,7 @@ void doTonemapFullBuffer(
 		if(DO_OVERBRIGHT_PIXEL_SPREADING)
 		{
 			//conPrint("--------------- Doing overbright pixel spreading----------------");
-			Timer timer2;
+			//Timer timer2;
 
 			// We will write modified image back to temp_summed_buffer, so clear it first.
 			temp_summed_buffer.zero();

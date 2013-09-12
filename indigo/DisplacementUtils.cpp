@@ -42,6 +42,16 @@ by Joe Warren and Scott Schaefer
 
 
 static const bool PROFILE = false;
+//#define DISPLACEMENT_UTILS_STATS 1
+#if DISPLACEMENT_UTILS_STATS
+#define DISPLACEMENT_CREATE_TIMER(timer) Timer (timer)
+#define DISPLACEMENT_RESET_TIMER(timer) ((timer).reset())
+#define DISPLACEMENT_PRINT_RESULTS(expr) (expr)
+#else
+#define DISPLACEMENT_CREATE_TIMER(timer)
+#define DISPLACEMENT_RESET_TIMER(timer)
+#define DISPLACEMENT_PRINT_RESULTS(expr)
+#endif
 
 
 DisplacementUtils::DisplacementUtils()
@@ -323,9 +333,8 @@ void DisplacementUtils::subdivideAndDisplace(
 	if(PROFILE) conPrint("\n-----------subdivideAndDisplace-----------");
 	if(PROFILE) conPrint("mesh: " + mesh_name);
 
-	Timer total_timer;
-	
-	Timer timer;
+	Timer total_timer; // This one is used to create a message that is always printed.
+	DISPLACEMENT_CREATE_TIMER(timer);
 
 	// Convert RayMeshVertices to DUVertices
 	std::vector<DUVertex> temp_verts(vertices_in.size());
@@ -355,8 +364,8 @@ void DisplacementUtils::subdivideAndDisplace(
 			quads_in[i].getMatIndex()
 		);
 
-	if(PROFILE) conPrint("Converting to DUTriangles, DUQuads: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Converting to DUTriangles, DUQuads: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 	//NEW: explode UVs
 	std::vector<Vec2f> temp_uvs;
@@ -393,8 +402,8 @@ void DisplacementUtils::subdivideAndDisplace(
 	}
 
 
-	if(PROFILE) conPrint("Exploding UVs: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Exploding UVs: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	// Add edge and vertex polygons
@@ -465,8 +474,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 	}
 
-	if(PROFILE) conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	std::vector<DUVertexPolygon> temp_vert_polygons2;
@@ -493,7 +502,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	{
 		print_output.print("\tSubdividing '" + mesh_name + "', level " + toString(i) + "...");
 
-		Timer linear_timer;
+		DISPLACEMENT_CREATE_TIMER(linear_timer);
 		if(PROFILE) conPrint("\nDoing linearSubdivision for mesh '" + mesh_name + "', level " + toString(i) + "...");
 		
 
@@ -519,13 +528,13 @@ void DisplacementUtils::subdivideAndDisplace(
 			temp_uvs2 // uvs out
 			);
 
-		if(PROFILE) conPrint("linearSubdivision took " + linear_timer.elapsedString());
+		DISPLACEMENT_PRINT_RESULTS(conPrint("linearSubdivision took " + linear_timer.elapsedString()));
 
 		if(subdivision_smoothing)
 		{
-			Timer avpass_timer;
+			DISPLACEMENT_CREATE_TIMER(avpass_timer);
 			averagePass(task_manager, temp_vert_polygons2, temp_edges2, temp_tris2, temp_quads2, temp_verts2, temp_uvs2, num_uv_sets, options, temp_verts, temp_uvs);
-			if(PROFILE) conPrint("averagePass took " + avpass_timer.elapsedString());
+			DISPLACEMENT_PRINT_RESULTS(conPrint("averagePass took " + avpass_timer.elapsedString()));
 		}
 		else
 		{
@@ -542,9 +551,9 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_quads = temp_quads2;
 
 		// Recompute vertex normals
-		Timer recompute_vertex_normals;
+		DISPLACEMENT_CREATE_TIMER(recompute_vertex_normals);
 		computeVertexNormals(temp_tris, temp_quads, temp_verts);
-		if(PROFILE) conPrint("computeVertexNormals took " + recompute_vertex_normals.elapsedString());
+		DISPLACEMENT_PRINT_RESULTS(conPrint("computeVertexNormals took " + recompute_vertex_normals.elapsedString()));
 
 		print_output.print("\t\tresulting num vertices: " + toString((unsigned int)temp_verts.size()));
 		print_output.print("\t\tresulting num triangles: " + toString((unsigned int)temp_tris.size()));
@@ -553,7 +562,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	}
 
 	// Apply the final displacement
-	timer.reset();
+	DISPLACEMENT_RESET_TIMER(timer);
 	displace(
 		task_manager,
 		context,
@@ -566,8 +575,8 @@ void DisplacementUtils::subdivideAndDisplace(
 		num_uv_sets,
 		temp_verts2 // verts out
 	);
-	if(PROFILE) conPrint("final displace took " + timer.elapsedString());
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("final displace took " + timer.elapsedString()));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 	temp_verts = temp_verts2;
 
@@ -615,13 +624,13 @@ void DisplacementUtils::subdivideAndDisplace(
 		tri_b.setUseShadingNormals(use_s_n);
 	}
 
-	if(PROFILE) conPrint("Writing to tris_out took " + timer.elapsedString());
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Writing to tris_out took " + timer.elapsedString()));
 
 
 	// Recompute all vertex normals, as they will be completely wrong by now due to any displacement.
-	timer.reset();
+	DISPLACEMENT_RESET_TIMER(timer);
 	computeVertexNormals(temp_tris, temp_quads, temp_verts);
-	if(PROFILE) conPrint("final computeVertexNormals() took " + timer.elapsedString());
+	DISPLACEMENT_PRINT_RESULTS(conPrint("final computeVertexNormals() took " + timer.elapsedString()));
 
 
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
@@ -634,7 +643,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	uvs_out = temp_uvs;
 
 	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(3));
-	if(PROFILE) conPrint("Total time elapsed: " + total_timer.elapsedString());
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Total time elapsed: " + total_timer.elapsedString()));
 }
 
 
@@ -1153,7 +1162,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<Vec2f>& uvs_out
 	)
 {
-	Timer timer;
+	DISPLACEMENT_CREATE_TIMER(timer);
 
 	verts_out = verts_in; // Copy over original vertices
 	uvs_out = uvs_in; // Copy over uvs
@@ -1255,7 +1264,7 @@ void DisplacementUtils::linearSubdivision(
 				(curvature >= curvature_threshold OR 
 				displacement_error >= displacement_error_threshold)
 	*/
-	timer.reset();
+	DISPLACEMENT_RESET_TIMER(timer);
 
 	//========================== Work out if we are subdividing each triangle ==========================
 	std::vector<bool> subdividing_tri(tris_in.size(), false);
@@ -1385,8 +1394,8 @@ void DisplacementUtils::linearSubdivision(
 		subdividing_tri[t] = subdivide_triangle;
 	}
 
-	if(PROFILE) conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	//========================== Create edge midpoint vertices for triangles ==========================
@@ -1500,8 +1509,8 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	if(PROFILE) conPrint("   building tri edge mid point vertices: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building tri edge mid point vertices: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	//========================== Work out if we are subdividing each quad ==========================
@@ -1638,8 +1647,8 @@ done_quad_unclipped_check:
 	}
 
 
-	if(PROFILE) conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 	//========================== Create edge midpoint vertices for quads ==========================
 
@@ -1777,8 +1786,8 @@ done_quad_unclipped_check:
 		}
 	}
 
-	if(PROFILE) conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	//TEMP: Check we have seen each edge twice
@@ -1818,7 +1827,7 @@ done_quad_unclipped_check:
 	uint32 num_quads_subdivided = 0;
 	uint32 num_quads_unchanged = 0;
 
-	timer.reset();
+	DISPLACEMENT_RESET_TIMER(timer);
 
 	// Vertex polygons can't be subdivided, so just copy over
 	vert_polygons_out = vert_polygons_in;
@@ -1962,8 +1971,8 @@ done_quad_unclipped_check:
 		}
 	}
 
-	if(PROFILE) conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3));
-	timer.reset();
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	// For each quad
@@ -2036,7 +2045,7 @@ done_quad_unclipped_check:
 		}
 	}
 
-	if(PROFILE) conPrint("   Making new subdivided quads: " + timer.elapsedStringNPlaces(3));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided quads: " + timer.elapsedStringNPlaces(3)));
 
 	print_output.print("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
 	print_output.print("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
