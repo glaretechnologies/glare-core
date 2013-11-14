@@ -64,7 +64,7 @@ TaskManager::~TaskManager()
 }
 
 
-void TaskManager::addTask(Task* t)
+void TaskManager::addTask(const Reference<Task>& t)
 {
 	{
 		Lock lock(num_unfinished_tasks_mutex);
@@ -103,9 +103,9 @@ void TaskManager::waitForTasksToComplete()
 }
 
 
-Task* TaskManager::dequeueTask() // called by Tasks
+Reference<Task> TaskManager::dequeueTask() // called by Tasks
 {
-	Task* task = NULL;
+	Reference<Task> task;
 	tasks.dequeue(task);
 	return task;
 }

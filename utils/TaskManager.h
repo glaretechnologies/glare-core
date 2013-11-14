@@ -7,6 +7,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #pragma once
 
 
+#include "Task.h"
 #include "threadsafequeue.h"
 #include "mutex.h"
 #include "Reference.h"
@@ -20,7 +21,6 @@ namespace Indigo
 {
 
 
-class Task;
 class TaskRunnerThread;
 
 
@@ -42,7 +42,7 @@ public:
 
 	~TaskManager();
 
-	void addTask(Task* t);
+	void addTask(const Reference<Task>& t);
 
 	bool areAllTasksComplete();
 
@@ -62,10 +62,10 @@ public:
 	void runParallelForTasksInterleaved(const TaskClosure& closure, size_t begin, size_t end);
 
 
-	ThreadSafeQueue<Task*>& getTaskQueue() { return tasks; }
-	const ThreadSafeQueue<Task*>& getTaskQueue() const { return tasks; }
+	ThreadSafeQueue<Reference<Task> >& getTaskQueue() { return tasks; }
+	const ThreadSafeQueue<Reference<Task> >& getTaskQueue() const { return tasks; }
 
-	Task* dequeueTask(); // called by TestRunnerThread
+	Reference<Task> dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
 	// void threadDead(); // called by TestRunnerThread
 private:
@@ -77,7 +77,7 @@ private:
 	//Mutex num_threads_mutex;
 	//int num_threads;
 
-	ThreadSafeQueue<Task*> tasks;
+	ThreadSafeQueue<Reference<Task> > tasks;
 
 	std::vector<Reference<TaskRunnerThread> > threads;
 };

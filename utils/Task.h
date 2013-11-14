@@ -7,6 +7,8 @@ Generated at 2011-10-05 21:56:27 +0100
 #pragma once
 
 
+#include "ThreadSafeRefCounted.h"
+#include "Reference.h"
 #include <stdlib.h>
 
 
@@ -19,7 +21,7 @@ Task
 -------------------
 
 =====================================================================*/
-class Task
+class Task : public ::ThreadSafeRefCounted
 {
 public:
 	Task();
@@ -29,6 +31,9 @@ public:
 private:
 
 };
+
+
+typedef Reference<Task> TaskRef;
 
 
 } // end namespace Indigo 

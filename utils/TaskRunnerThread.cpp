@@ -35,14 +35,12 @@ void TaskRunnerThread::run()
 {
 	while(1)
 	{
-		Task* task = manager->dequeueTask();
-		if(task == NULL)
+		Reference<Task> task = manager->dequeueTask();
+		if(task.isNull())
 			break;
 
 		// Execute the task
 		task->run(thread_index);
-
-		delete task;
 
 		// Inform the task manager that we have executed the task.
 		manager->taskFinished();

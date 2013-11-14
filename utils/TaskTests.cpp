@@ -16,6 +16,8 @@ Generated at 2011-10-05 22:32:02 +0100
 #include "../indigo/TestUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/stringutils.h"
+//#include "../utils/FixedSizeAllocator.h"
+#include "../utils/timer.h"
 
 
 namespace Indigo
@@ -234,6 +236,17 @@ void TaskTests::test()
 		m.waitForTasksToComplete();
 	}
 
+	// Test mem allocator
+	/*{
+		::FixedSizeAllocator allocator(sizeof(TestTask), 16, 8);
+		TaskManager m(1, &allocator);
+
+		for(int i=0; i<1000; ++i)
+			m.addTask(new (allocator.allocate(sizeof(TestTask), 16)) TestTask(i));
+
+		m.waitForTasksToComplete();
+	}*/
+
 
 	// Test for loop stuff
 	{
@@ -267,6 +280,40 @@ void TaskTests::test()
 	}
 
 
+
+	// Perf test - fixed size allocator vs global allocator
+	/*{
+
+		const int N = 100000;
+		{
+			::FixedSizeAllocator allocator(sizeof(TestTask), 16, 8);
+			TaskManager m(8, &allocator);
+			Timer timer;
+			for(int test=0; test<N; ++test)
+			{
+				for(int i=0; i<8; ++i)
+					m.addTask(new (allocator.allocate(sizeof(TestTask), 16)) TestTask(i));
+
+				m.waitForTasksToComplete();
+			}
+
+			conPrint("FixedSizeAllocator elapsed: " + timer.elapsedStringNPlaces(3));
+		}
+
+		{
+			TaskManager m(8, NULL);
+			Timer timer;
+			for(int test=0; test<N; ++test)
+			{
+				for(int i=0; i<8; ++i)
+					m.addTask(new TestTask(i));
+
+				m.waitForTasksToComplete();
+			}
+
+			conPrint("global new/delete elapsed: " + timer.elapsedStringNPlaces(3));
+		}
+	}*/
 
 	conPrint("TaskTests done.");
 }
