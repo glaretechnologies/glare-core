@@ -648,6 +648,29 @@ const std::string stripWhitespace(const std::string& s)
 }
 
 
+const std::string collapseWhitespace(const std::string& s) // Convert runs of 1 or more whitespace characters to just the first whitespace char.
+{
+	std::string out;
+	bool last_char_was_whitespace = false;
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if(::isWhitespace(s[i]))
+		{
+			if(!last_char_was_whitespace)
+				out += std::string(1, s[i]);
+
+			last_char_was_whitespace = true;
+		}
+		else
+		{
+			out += std::string(1, s[i]);
+			last_char_was_whitespace = false;
+		}
+	}
+	return out;
+}
+
+
 const std::string eatPrefix(const std::string& s, const std::string& prefix)
 {
 	if(::hasPrefix(s, prefix))
@@ -1214,6 +1237,20 @@ void StringUtils::test()
 	testAssert(stripHeadAndTailWhitespace("") == "");
 	testAssert(stripHeadAndTailWhitespace(" ") == "");
 	testAssert(stripHeadAndTailWhitespace("  ") == "");
+
+	//==================================== Test collapseWhitespace ====================================
+	testAssert(collapseWhitespace("a") == "a");
+	testAssert(collapseWhitespace(" a") == " a");
+	testAssert(collapseWhitespace("  a") == " a");
+	testAssert(collapseWhitespace("a ") == "a ");
+	testAssert(collapseWhitespace("a  ") == "a ");
+	testAssert(collapseWhitespace("ab  ") == "ab ");
+	testAssert(collapseWhitespace("  a  ") == " a ");
+	testAssert(collapseWhitespace(" a ") == " a ");
+	testAssert(collapseWhitespace("") == "");
+	testAssert(collapseWhitespace(" ") == " ");
+	testAssert(collapseWhitespace("  ") == " ");
+	testAssert(collapseWhitespace("a b  c   d    e") == "a b c d e");
 
 
 	//==================================== floatToString ====================================

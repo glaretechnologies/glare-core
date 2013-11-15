@@ -552,6 +552,10 @@ bool License::licenceIsForOldVersion(LicenceType t)
 
 bool License::shouldApplyWatermark(LicenceType t)
 {
+#if BENCHMARK_BUILD
+	return false;
+#else
+
 	if(t == UNLICENSED)
 		return true;
 	else if(t == FULL_2_X)
@@ -589,11 +593,17 @@ bool License::shouldApplyWatermark(LicenceType t)
 		assert(0);
 		return true;
 	}
+
+#endif // !BENCHMARK_BUILD
 }
 
 
 bool License::shouldApplyResolutionLimits(LicenceType t)
 {
+#if BENCHMARK_BUILD
+	return false;
+#else
+
 	if(t == UNLICENSED)
 		return true;
 	else if(t == FULL_LIFETIME)
@@ -631,6 +641,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 		assert(0);
 		return true;
 	}
+
+#endif // !BENCHMARK_BUILD
 }
 
 
