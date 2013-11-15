@@ -1,11 +1,8 @@
 /*=====================================================================
 mysocket.h
 ----------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
-Code By Nicholas Chapman.
-
-Code Copyright Nicholas Chapman 2005.
-
 =====================================================================*/
 #pragma once
 
@@ -16,7 +13,7 @@ Code Copyright Nicholas Chapman 2005.
 #define NOMINMAX
 #endif
 #define WIN32_LEAN_AND_MEAN
-#include <winsock.h>
+#include <winsock2.h>
 #else
 #include <sys/select.h>
 #endif
@@ -35,10 +32,7 @@ class FractionListener;
 class MySocketExcep
 {
 public:
-	MySocketExcep(){}
 	MySocketExcep(const std::string& message_) : message(message_) {}
-	~MySocketExcep(){}
-
 	const std::string& what() const { return message; }
 private:
 	std::string message;
@@ -68,10 +62,10 @@ public:
 
 	~MySocket();
 
-	void bindAndListen(int port); // throw (MySocketExcep);
+	void bindAndListen(int port); // throws MySocketExcep
 
 
-	Reference<MySocket> acceptConnection(StreamShouldAbortCallback* should_abort_callback); // throw (MySocketExcep);
+	Reference<MySocket> acceptConnection(StreamShouldAbortCallback* should_abort_callback); // throws MySocketExcep
 
 	void close();
 
@@ -140,7 +134,7 @@ private:
 		StreamShouldAbortCallback* should_abort_callback
 	);
 public:
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	typedef SOCKET SOCKETHANDLE_TYPE;
 	SOCKETHANDLE_TYPE sockethandle;
 #else

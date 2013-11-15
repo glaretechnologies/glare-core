@@ -82,7 +82,7 @@ UDPSocket::UDPSocket()//create outgoing socket
 	{
 		//thisend_port = ntohs(interface_addr.sin_port);
 		//::debugPrint("UDPSocket socket thisend port: " + toString(thisend_port));
-		IPAddress ip_used = interface_addr.sin_addr.s_addr; 
+		//IPAddress ip_used = interface_addr.sin_addr.s_addr; 
 	}
 	else
 	{
@@ -214,12 +214,8 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 	//-----------------------------------------------------------------
 	//create the destination address structure
 	//-----------------------------------------------------------------
-	struct sockaddr_in dest_address;
-
-	memset(&dest_address, 0, sizeof(sockaddr_in));//0 it
-	dest_address.sin_family = AF_INET;
-	dest_address.sin_addr.s_addr = dest_ip.getAddr();//NEWCODE removed htonl
-	dest_address.sin_port = htons(destport.getPort());
+	sockaddr dest_address;
+	dest_ip.fillOutSockAddr(dest_address, destport.getPort());
 
 
 	//const unsigned long binary_ip = htonl(dest_ip.getAddr());
@@ -268,7 +264,7 @@ void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_
 
 	if(!isSocketError(result)) // result != SOCKET_ERROR)
 	{
-		IPAddress ip_used = interface_addr.sin_addr.s_addr; 
+		//IPAddress ip_used = interface_addr.sin_addr.s_addr; 
 		//NEWCODE removed htonl
 	}
 	else
@@ -287,18 +283,18 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 						  Port& senderport_out, IPAddress& thisend_ip_out, bool peek)
 {
 
-	struct sockaddr_in from_address; // senders's address information
+	struct sockaddr from_address; // senders's address information
 
 	int flags = 0;
 	//if(peek)
 	//	flags = MSG_PEEK;
 
-	SOCKLEN_TYPE from_add_size = sizeof(struct sockaddr_in);
+	SOCKLEN_TYPE from_add_size = sizeof(from_address);
 	//-----------------------------------------------------------------
 	//get one packet.
 	//-----------------------------------------------------------------
 	const int numbytesrcvd = ::recvfrom(socket_handle, buf, buflen, flags, 
-								(struct sockaddr*)&from_address, &from_add_size);
+								&from_address, &from_add_size);
 
 
 	if(isSocketError(numbytesrcvd)) // numbytesrcvd == SOCKET_ERROR)
@@ -379,23 +375,22 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out,
 	//-----------------------------------------------------------------
 	//get the sender IP and port
 	//-----------------------------------------------------------------
-	sender_ip_out = IPAddress(from_address.sin_addr.s_addr);//NEWCODE removed htonl
-
-	senderport_out.setPort( ntohs(from_address.sin_port) );
+	sender_ip_out = IPAddress(from_address);
+	senderport_out = (unsigned short)Networking::getPortFromSockAddr(from_address);
 
 	
 	//-----------------------------------------------------------------
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
-	struct sockaddr_in interface_addr;
+	struct sockaddr interface_addr;
 	SOCKLEN_TYPE length = sizeof(interface_addr);
 
 	memset(&interface_addr, 0, length);
-	const int result = getsockname(socket_handle, (struct sockaddr*)&interface_addr, &length);
+	const int result = getsockname(socket_handle, &interface_addr, &length);
 
 	if(!isSocketError(result)) // result != SOCKET_ERROR)
 	{
-		thisend_ip_out = interface_addr.sin_addr.s_addr; //NEWCODE removed htonl		
+		thisend_ip_out = IPAddress(interface_addr);
 	}
 	else
 	{

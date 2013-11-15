@@ -110,7 +110,7 @@ public:
 class TestClientThread : public MyThread
 {
 public:
-	TestClientThread(int port_) : port(port_) {}
+	TestClientThread(const std::string& server_hostname_, int port_) : server_hostname(server_hostname_), port(port_) {}
 	~TestClientThread() {}
 
 	virtual void run()
@@ -118,7 +118,12 @@ public:
 		// conPrint("TestClientThread::run()");
 		try
 		{
-			MySocket socket("localhost", port, NULL);
+			conPrint("TestClientThread: Connecting to " + server_hostname + ":" + toString(port));
+
+			MySocket socket(server_hostname, port, NULL);
+
+			conPrint("TestClientThread: mysocket connected!");
+			conPrint("TestClientThread: other end IP: " + socket.getOtherEndIPAddress().toString());
 
 			// Write Uint32
 			socket.writeUInt32(1);
@@ -175,6 +180,7 @@ public:
 		}
 	}
 
+	std::string server_hostname;
 	int port;
 };
 
@@ -217,6 +223,19 @@ public:
 };
 
 
+static void doTestWithHostname(const std::string& hostname, int port)
+{
+	Reference<TestListenerThread> listener_thread = new TestListenerThread(port);
+	listener_thread->launch();
+
+	Reference<TestClientThread> client_thread = new TestClientThread(hostname, port);
+	client_thread->launch();
+
+	listener_thread->join();
+	client_thread->join();
+}
+
+
 void SocketTests::test()
 {
 	conPrint("SocketTests::test()");
@@ -225,18 +244,14 @@ void SocketTests::test()
 
 	const int port = 5000;
 
-	// for(int i=0; i<1; ++i)
-	{
-		Reference<TestListenerThread> listener_thread = new TestListenerThread(port);
-		listener_thread->launch();
+	doTestWithHostname("127.0.0.1", port);
 
-		Reference<TestClientThread> client_thread = new TestClientThread(port);
-		client_thread->launch();
+	// Test with IPv6 address
+	doTestWithHostname("::1", port);
 
+	// Test with IPv6 address
+	doTestWithHostname("localhost", port);
 
-		listener_thread->join();
-		client_thread->join();
-	}
 
 	conPrint("SocketTests::test(): done.");
 }

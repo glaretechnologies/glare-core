@@ -1,8 +1,8 @@
 /*=====================================================================
 mysocket.cpp
 ------------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "mysocket.h"
 
@@ -14,10 +14,12 @@ Code By Nicholas Chapman.
 #include "../utils/mythread.h"
 #include "../utils/platformutils.h"
 #include "../utils/timer.h"
-#include "../indigo/globals.h"
 #include <vector>
 #include <string.h>
-#if defined(_WIN32) || defined(_WIN64)
+#include <algorithm>
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
 #include <unistd.h> // for close()
@@ -30,7 +32,7 @@ Code By Nicholas Chapman.
 #endif
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
@@ -49,27 +51,24 @@ MySocket::MySocket(const std::string& hostname, int port, StreamShouldAbortCallb
 	init();
 
 	assert(Networking::isInited());
-
 	if(!Networking::isInited())
 		throw MySocketExcep("Networking not inited or destroyed.");
 
-
 	//-----------------------------------------------------------------
-	//do DNS lookup to get server host IP
+	//Do DNS lookup to get server host IP
 	//-----------------------------------------------------------------
 	try
 	{
-		std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
+		const std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
 
 		assert(!serverips.empty());
 		if(serverips.empty())
 			throw MySocketExcep("could not lookup host IP with DNS");
 
 		//-----------------------------------------------------------------
-		//do the connect using the looked up ip address
+		//Do the connect using the first looked-up IP address
 		//-----------------------------------------------------------------
 		doConnect(serverips[0], hostname, port, should_abort_callback);
-
 	}
 	catch(NetworkingExcep& e)
 	{
@@ -116,7 +115,7 @@ void MySocket::init()
 
 static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return closesocket(sockethandle);
 #else
 	return ::close(sockethandle);
@@ -126,7 +125,7 @@ static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 
 static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	u_long nonblocking = blocking ? 0 : 1;
 	const int result = ioctlsocket(sockethandle, FIONBIO, &nonblocking);
 #else
@@ -143,19 +142,18 @@ static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 
 static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 {
-#if defined(_WIN32) || defined(_WIN64)	
+#if defined(_WIN32)	
 	const BOOL dont_linger = linger ? 0 : 1;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DONTLINGER, (const char*)&dont_linger, sizeof(dont_linger));
 #else
 	// TODO: test this
-	struct linger lin;
-	lin.l_onoff = linger ? 1 : 0;
-	lin.l_linger = 1; // Linger time
+//TEMP HACK	linger lin;
+//	lin.l_onoff = linger ? 1 : 0;
+//	lin.l_linger = 1; // Linger time
 
-	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_LINGER, (const char*)&lin, sizeof(lin));
+//	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_LINGER, (const char*)&lin, sizeof(lin));
+	const int result = 0;
 #endif
-	assert(result == 0);
-
 	assert(result == 0);
 	if(result != 0)
 	{
@@ -166,7 +164,7 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 
 /*static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
 {
-#if defined(_WIN32) || defined(_WIN64)	
+#if defined(_WIN32)	
 	const BOOL debug = enable_debug ? 1 : 0;
 	const int result = setsockopt(sockethandle, SOL_SOCKET, SO_DEBUG, (const char*)&debug, sizeof(debug));
 	assert(result == 0);
@@ -184,23 +182,21 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	assert(port >= 0 && port <= 65536);
 
 	//-----------------------------------------------------------------
-	//fill out server address structure
-	//-----------------------------------------------------------------
-	struct sockaddr_in server_address;
-
-	memset(&server_address, 0, sizeof(server_address));//clear struct
-	server_address.sin_family = AF_INET;
-	server_address.sin_port = htons((unsigned short)port);
-	server_address.sin_addr.s_addr = ipaddress.getAddr();
-
-	//-----------------------------------------------------------------
-	//create the socket
+	//Create the socket
 	//-----------------------------------------------------------------
 	const int DEFAULT_PROTOCOL = 0; // Use default protocol
-	sockethandle = socket(PF_INET, SOCK_STREAM, DEFAULT_PROTOCOL);
+	const int address_family = ipaddress.getVersion() == IPAddress::Version_4 ? PF_INET : PF_INET6;
+	sockethandle = socket(address_family, SOCK_STREAM, DEFAULT_PROTOCOL);
 
 	if(!isSockHandleValid(sockethandle))
 		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
+
+	//-----------------------------------------------------------------
+	//Fill out server address structure
+	//-----------------------------------------------------------------
+	sockaddr_storage server_address;
+	memset(&server_address, 0, sizeof(server_address)); // Clear struct.
+	ipaddress.fillOutSockAddr((sockaddr&)server_address, port);
 
 	//-----------------------------------------------------------------
 	//Connect to server
@@ -209,9 +205,9 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	// Turn off blocking while connecting
 	setBlocking(sockethandle, false);
 
-	if(connect(sockethandle, (struct sockaddr*)&server_address, sizeof(server_address)) != 0)
+	if(connect(sockethandle, (sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
 #else
 		if(errno != EINPROGRESS)
@@ -285,26 +281,20 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	// Return to normal blocking mode.
 	setBlocking(sockethandle, true);
 
-
 	otherend_port = port;
 
 	//-----------------------------------------------------------------
 	//get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
-	struct sockaddr_in interface_addr;
+	sockaddr_storage interface_addr;
 	SOCKLEN_TYPE length = sizeof(interface_addr);
-
 	memset(&interface_addr, 0, length);
-	const int result = getsockname(sockethandle, (struct sockaddr*)&interface_addr, &length);
+	const int result = getsockname(sockethandle, (sockaddr*)&interface_addr, &length);
 
 	if(result != SOCKET_ERROR)
 	{
-		thisend_ipaddr = interface_addr.sin_addr.s_addr; //NEWCODE: removed ntohl
-
-		thisend_port = ntohs(interface_addr.sin_port);
-
-		//if(ipaddress != IPAddress("127.0.0.1"))//loopback connection, ignore
-		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
+		thisend_ipaddr = IPAddress((const sockaddr&)interface_addr);
+		thisend_port = Networking::getPortFromSockAddr((const sockaddr&)interface_addr);
 	}
 
 	connected = true;
@@ -317,14 +307,14 @@ MySocket::~MySocket()
 }
 
 
-void MySocket::bindAndListen(int port) // throw (MySocketExcep)
+void MySocket::bindAndListen(int port)
 {
 	Timer timer;
 
 	assert(Networking::isInited());
 
 	//-----------------------------------------------------------------
-	//if socket already exists, destroy it
+	//If socket already exists, destroy it
 	//-----------------------------------------------------------------
 	if(isSockHandleValid(sockethandle))
 	{
@@ -333,32 +323,42 @@ void MySocket::bindAndListen(int port) // throw (MySocketExcep)
 	}
 
 	//-----------------------------------------------------------------
-	//set up address struct for this host, the server.
+	//Set up address struct for this host, the server.
 	//-----------------------------------------------------------------
-	struct sockaddr_in server_addr;
-
+	sockaddr_storage server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Accept on any interface
-	server_addr.sin_port = htons((uint16_t)port);
 
+	// Use IPv6 'any address'.  Will allow IPv4 connections as well.
+	sockaddr_in6* ipv6_addr = (sockaddr_in6*)&server_addr;
+	ipv6_addr->sin6_family = AF_INET6;
+	ipv6_addr->sin6_addr = in6addr_any; // Accept on any interface
+	ipv6_addr->sin6_port = htons((uint16_t)port);
 
 	//-----------------------------------------------------------------
-	//create the socket
+	//Create the socket
 	//-----------------------------------------------------------------
-	const int DEFAULT_PROTOCOL = 0;			// use default protocol
-	sockethandle = socket(PF_INET, SOCK_STREAM, DEFAULT_PROTOCOL);
+	sockethandle = socket(
+		PF_INET6, SOCK_STREAM,
+		0 // protocol - default
+	);
 
 	if(!isSockHandleValid(sockethandle))
 		throw MySocketExcep("Could not create a socket: " + Networking::getError());
 
 
-	if(::bind(sockethandle, (struct sockaddr*)&server_addr, sizeof(server_addr)) ==
-															SOCKET_ERROR)
+	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
+	int no = 0;     
+	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	{
+		assert(0);
+		//conPrint("Warning: setsockopt failed.");
+	}
+
+	if(::bind(sockethandle, (const sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
 		throw MySocketExcep("Failed to bind to port " + toString(port) + ": " + Networking::getError());
 
 
-	const int backlog = 5;
+	const int backlog = 10;
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
 		throw MySocketExcep("listen failed: " + Networking::getError());
@@ -403,7 +403,6 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 		if(FD_ISSET(sockethandle, &error_sockset))
 		{
 			// Error occured
-			// std::cout << "!!!!!!!!!!! MySocket::acceptConnection(): error occured while waiting for connection." << std::endl;
 			throw MySocketExcep("Error while accepting connection.");
 		}
 
@@ -419,11 +418,9 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 
 	// Now this should accept immediately .... :)
 
-	sockaddr_in client_addr; // Data struct to get the client IP
+	sockaddr_storage client_addr; // Data struct to get the client IP
 	SOCKLEN_TYPE length = sizeof(client_addr);
-
 	memset(&client_addr, 0, length);
-
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
 	if(!isSockHandleValid(newsockethandle))
@@ -436,31 +433,23 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 	new_socket->sockethandle = newsockethandle;
 
 	//-----------------------------------------------------------------
-	//get other end ip and port
+	// Get other end ip and port
 	//-----------------------------------------------------------------
-	new_socket->otherend_ipaddr = IPAddress(client_addr.sin_addr.s_addr);
-	//NEWCODE removed ntohl
-
-	new_socket->otherend_port = ntohs(client_addr.sin_port);
+	new_socket->otherend_ipaddr = IPAddress((const sockaddr&)client_addr);
+	new_socket->otherend_port = Networking::getPortFromSockAddr((const sockaddr&)client_addr);
 
 	//-----------------------------------------------------------------
-	//get the interface address of this host used for the connection
+	// Get the interface address of this host used for the connection
 	//-----------------------------------------------------------------
-	sockaddr_in interface_addr;
+	sockaddr_storage interface_addr;
 	length = sizeof(interface_addr);
-
 	memset(&interface_addr, 0, length);
-	const int result = getsockname(sockethandle, (struct sockaddr*)&interface_addr, &length);
+	const int result = getsockname(sockethandle, (sockaddr*)&interface_addr, &length);
 
 	if(result != SOCKET_ERROR)
 	{
-		thisend_ipaddr = interface_addr.sin_addr.s_addr;
-		//NEWCODE removed ntohl
-
-		thisend_port = ntohs(interface_addr.sin_port);
-
-		//if(thisend_ipaddr != IPAddress("127.0.0.1"))//loopback connection, ignore
-		//	Networking::getInstance().setUsedIPAddr(thisend_ipaddr);
+		thisend_ipaddr = IPAddress((const sockaddr&)interface_addr);
+		thisend_port = Networking::getPortFromSockAddr((const sockaddr&)interface_addr);
 	}
 
 	new_socket->connected = true;
@@ -533,7 +522,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 	while(datalen > 0)//while still bytes to write
 	{
-		const int numbytestowrite = (int)myMin(this->max_buffersize, datalen);
+		const int numbytestowrite = (int)std::min(this->max_buffersize, datalen);
 		assert(numbytestowrite > 0);
 
 		//------------------------------------------------------------------------
@@ -624,7 +613,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Stre
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = (int)myMin(this->max_buffersize, readlen);
+		const int numbytestoread = (int)std::min(this->max_buffersize, readlen);
 		assert(numbytestoread > 0);
 
 		//------------------------------------------------------------------------
@@ -870,7 +859,7 @@ void MySocket::writeData(const void* data, size_t num_bytes, StreamShouldAbortCa
 
 MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return INVALID_SOCKET;
 #else
 	return -1;
@@ -880,7 +869,7 @@ MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
 
 bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return handle != INVALID_SOCKET;
 #else
 	return handle >= 0;
@@ -890,7 +879,7 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 
 void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	BOOL enabled = enabled_;
 
 	::setsockopt(sockethandle, //socket handle

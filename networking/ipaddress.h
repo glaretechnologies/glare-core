@@ -1,125 +1,67 @@
 /*=====================================================================
 ipaddress.h
 -----------
+Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Mon Mar 04 05:05:01 2002
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __IPADDRESS_H_666_
-#define __IPADDRESS_H_666_
+#pragma once
 
-//#pragma warning(disable : 4786)//disable long debug name warning
-//#pragma warning(disable : 4290)//disable exception specification warning in VS2003
 
-//#include "mystream.h"
+#include "../utils/platform.h"
 #include <string>
-
+struct sockaddr;
 
 
 class MalformedIPStringExcep
 {
 public:
-	MalformedIPStringExcep(){}
-	~MalformedIPStringExcep(){}
+	MalformedIPStringExcep(const std::string& message_) : message(message_) {}
+	const std::string& what() const { return message; }
+private:
+	std::string message;
 };
 
 
 /*=====================================================================
 IPAddress
 ---------
-Represents a 32 bit IPv4 address.
+Represents an IPv4 or IPv6 address
 =====================================================================*/
 class IPAddress
 {
 public:
-	/*=====================================================================
-	IPAddress
-	---------
-	
-	=====================================================================*/
+	enum Version
+	{
+		Version_4,
+		Version_6
+	};
+
 	inline IPAddress();
-	inline IPAddress(unsigned int address);//'address' must be in network byte order
-	//inline IPAddress(char* abcd);
-	//IPAddress(unsigned char a, unsigned char b, unsigned char c, unsigned char d);
-	IPAddress(const std::string& address);// throw (MalformedIPStringExcep);//in form "255.255.255.255"
 
-	inline IPAddress(const IPAddress& other);
+	// Construct from a sockets API address
+	explicit IPAddress(const sockaddr& sock_addr);
 
-	inline ~IPAddress();
+	// Construct from a string
+	// Can be an IPv4 string like "127.0.0.1", or an IPv6 string like "::1".
+	explicit IPAddress(const std::string& address); // throws MalformedIPStringExcep on failure
 
+	// Is this an IPv4 or IPv6 address?
+	Version getVersion() const { return version; }
 
-	inline bool operator < (const IPAddress& other) const;
-	inline bool operator == (const IPAddress& other) const;
-	inline bool operator != (const IPAddress& other) const;
+	// Fill out a sockets API address structure.  Takes a port argument for the structure as well.
+	void fillOutSockAddr(sockaddr& sock_addr, int port) const;
 
+	// Return as a string like "127.0.0.1" or "::1".
+	const std::string toString() const;
 
-	//returns in network byte order as unsigned int
-	inline unsigned int getAddr() const { return address; }
-
-	void getBytes(unsigned char& a_out, unsigned char& b_out, 
-						unsigned char& c_out, unsigned char& d_out) const;
-
-	//void setCharArray(char* chars_out) const; //in char[4] form
-	const std::string toString() const;//in form "255.255.255.255"
-
-		
-	//void writeToStream(MyStream& stream) const;
-	//void setFromStream(MyStream& stream);
-
+	static void test();
 private:
-	unsigned int address;//in network byte order
-
+	uint8 address[16];
+	Version version;
 };
-
-/*inline MyStream& operator << (MyStream& stream, const IPAddress& ipaddress)
-{
-	ipaddress.writeToStream(stream);
-	return stream;
-}
-
-inline MyStream& operator >> (MyStream& stream, IPAddress& ipaddress)
-{
-	ipaddress.setFromStream(stream);
-	return stream;
-}*/
-
-
 
 
 IPAddress::IPAddress()
-:	address(0)
-{}
-
-IPAddress::IPAddress(unsigned int address_)
-:	address(address_)
-{}
-
-
-	
-IPAddress::IPAddress(const IPAddress& other)
-:	address(other.address)
-{}
-
-IPAddress::~IPAddress()
-{}
-
-bool IPAddress::operator < (const IPAddress& other) const
+:	version(Version_4)
 {
-	return address < other.address;
 }
-
-
-bool IPAddress::operator == (const IPAddress& other) const
-{
-	return address == other.address;
-}
-
-bool IPAddress::operator != (const IPAddress& other) const
-{
-	return address != other.address;
-}
-
-#endif //__IPADDRESS_H_666_
-
-
-
-

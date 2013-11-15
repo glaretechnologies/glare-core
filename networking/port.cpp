@@ -9,10 +9,12 @@ Code By Nicholas Chapman.
 
 #include "../utils/stringutils.h"
 
+
 Port::Port()
 {
 	port = 0;	
 }
+
 
 Port::Port(unsigned short port_)
 :	port(port_)
@@ -31,8 +33,3 @@ const std::string Port::toString() const
 {
 	return ::toString((int)port);
 }
-
-
-
-
-
