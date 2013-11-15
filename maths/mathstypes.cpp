@@ -53,9 +53,170 @@ inline static float modfFract(float x)
 }
 
 
+template <class T>
+inline T pow4Fast(T x)
+{
+	T x2 = x*x;
+	return x2 * x2;
+}
+
+
+template <class T>
+inline T pow8(T x)
+{
+	return x*x * x*x * x*x * x*x;
+}
+
+
+template <class T>
+inline T pow8Fast(T x)
+{
+	T x2 = x*x;
+	T x4 = x2*x2;
+	return x4*x4;
+}
+
+
+template <class T>
+inline T powOneOverEight(T x)
+{
+	T xOneOver2 = std::sqrt(x);
+	T xOneOver4 = std::sqrt(xOneOver2);
+	return std::sqrt(xOneOver4);
+}
+
+
+
 void Maths::test()
 {
 	conPrint("Maths::test()");
+
+	{
+		const int trials = 1;
+		const int N = 1000000;
+		conPrint("pow4() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow4(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow4Fast() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow4Fast(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow8() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow8(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow8Fast() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow8Fast(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow(x, 1/8)() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += std::pow(x, (1.0f / 8));
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("powOneOverEight() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += powOneOverEight(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+	}
+
+
+	return;
 
 
 	{

@@ -145,6 +145,18 @@ Real smoothingFactor(Real in_dot_prebump_Ns, Real in_dot_Ns, Real in_dot_Ng)
 	return myMax<Real>(use_dot / std::fabs(in_dot_Ng), 0);
 }
 
+template <class Real>
+Real scatterSmoothingFactor(const FullHitInfo& hitinfo, const Vec4f& dir_in, const Vec4f& scattered_dir, bool adjoint)
+{
+	const Vec4f& a = adjoint ? -dir_in : scattered_dir;				// a = vector in light direction
+
+	const Real a_dot_Ns = dot(a, hitinfo.N_s());					// Dot product of a and shading normal
+	const Real pre_dot  = dot(a, hitinfo.pre_bump_shading_normal);	// Dot product of incident vector and pre-bump-perturbed shading normal
+	const Real a_dot_Ng = dot(a, hitinfo.N_g());
+
+	return MatUtils::smoothingFactor(pre_dot, a_dot_Ns, a_dot_Ng);
+}
+
 
 bool raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
 {
@@ -174,7 +186,7 @@ n1 will be set to the IOR of the medium that V points into.
 template <class Real>
 void getN1AndN2(Real external_ior, Real internal_ior, Real v_dot_orig_Ng, Real& n1_out, Real& n2_out)
 {
-	if(v_dot_orig_Ng >= 0.0)
+	if(v_dot_orig_Ng >= 0)
 	{
 		// V points into the external medium
 		n1_out = external_ior;

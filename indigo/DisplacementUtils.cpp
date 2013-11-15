@@ -991,7 +991,7 @@ public:
 
 				const float displacement = (*closure.vert_materials)[v_i]->evaluateDisplacement(args);
 					
-				assert((*closure.verts_in)[v_i].normal.isUnitLength());
+				//TEMPassert((*closure.verts_in)[v_i].normal.isUnitLength());
 
 				(*closure.verts_out)[v_i].displacement = displacement;
 				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos + (*closure.verts_in)[v_i].normal * displacement;

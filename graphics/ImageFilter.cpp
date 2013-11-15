@@ -2543,14 +2543,16 @@ void ImageFilter::test()
 	//testLowResConvolve();
 	//return;
 
-	/*Map2DRef map = JPEGDecoder::decode("C:\\art\\indigo\\thomas_GH_house\\thething_lightlayers.jpg");
+	Map2DRef map = JPEGDecoder::decode(".", "D:\\art\\indigo site\\new features page\\Apart-grundstuck-5-9_0.jpg");
 	Reference<Image> im = map->convertToImage();
 
 	const std::string name = "colourchecker";
-	const float scale = 480.f / 2208.f;
-	testResizeImageWithScale(im, scale, name);
+	const float scale = 482.f / im->getWidth();
 
-	exit(0);*/
+	Indigo::TaskManager task_manager;
+	testResizeImageWithScale(im, scale, name, task_manager);
+
+	exit(0);
 
 	// makeSinImage();
 
