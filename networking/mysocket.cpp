@@ -354,7 +354,7 @@ void MySocket::bindAndListen(int port)
 		//conPrint("Warning: setsockopt failed.");
 	}
 
-	if(::bind(sockethandle, (const sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
+	if(::bind(sockethandle, (const sockaddr*)&server_addr, sizeof(sockaddr_in6)) == SOCKET_ERROR)
 		throw MySocketExcep("Failed to bind to port " + toString(port) + ": " + Networking::getError());
 
 
