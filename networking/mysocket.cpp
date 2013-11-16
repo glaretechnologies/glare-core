@@ -205,7 +205,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	// Turn off blocking while connecting
 	setBlocking(sockethandle, false);
 
-	if(connect(sockethandle, (sockaddr*)&server_address, sizeof(server_address)) != 0)
+	if(connect(sockethandle, (sockaddr*)&server_address, ipaddress.getVersion() == IPAddress::Version_4 ? sizeof(sockaddr_in) : sizeof(sockaddr_in6)) != 0)
 	{
 #if defined(_WIN32)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
