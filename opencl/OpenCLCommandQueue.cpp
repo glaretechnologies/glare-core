@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #include "OpenCLCommandQueue.h"
 
 
+#if USE_OPENCL
+
+
 #include "OpenCL.h"
 
 
@@ -38,3 +41,7 @@ OpenCLCommandQueue::~OpenCLCommandQueue()
 		}
 	}
 }
+
+
+#endif // USE_OPENCL
+
