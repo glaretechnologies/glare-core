@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "../utils/platform.h"
 #include <string>
 #include <vector>
+#include <string.h> // for strcmp()
 
 
 class StringUtilsExcep
