@@ -17,6 +17,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/PrintOutput.h"
 #include "../utils/stringutils.h"
+#include "../utils/timer.h"
 #include "../indigo/EnvSphereGeometry.h"
 #include "../indigo/ThreadContext.h"
 #include <string.h>
@@ -275,6 +276,8 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 void ObjectTree::build(PrintOutput& print_output, bool verbose)
 {
+	Timer timer;
+
 	if(verbose)
 	{
 		print_output.print("Building Object Tree...");
@@ -365,7 +368,8 @@ void ObjectTree::build(PrintOutput& print_output, bool verbose)
 	print_output.print("\tnum_maxdepth_leafs: " + toString(stats.num_maxdepth_leafs));
 	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));*/
 
-	if(verbose) print_output.print("Finished building tree.");
+	if(verbose) print_output.print("Finished building tree.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
+
 }
 
 class SortedBoundInfoLowerPred

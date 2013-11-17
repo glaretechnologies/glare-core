@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "FileHandle.h"
-#include <tinyxml/tinyxml.h>
+#include <pugixml.hpp>
 #include <string>
 
 
@@ -34,20 +34,23 @@ class IndigoXMLDoc
 public:
 	IndigoXMLDoc(const std::string& path); // throws IndigoXMLDocExcep
 
+	// From memory buffer
+	IndigoXMLDoc(const char* mem_buf, size_t len); // throws IndigoXMLDocExcep
+
 	~IndigoXMLDoc();
 
 
-	TiXmlElement& getRootElement();  // throws IndigoXMLDocExcep if no such root element
-	TiXmlElement& getRootElement(const std::string& name);  // throws IndigoXMLDocExcep if no such root element
+	pugi::xml_node getRootElement();  // throws IndigoXMLDocExcep if no such root element
+	pugi::xml_node getRootElement(const std::string& name);  // throws IndigoXMLDocExcep if no such root element
 
 	void saveDoc(const std::string& path);
+
+	static const std::string getErrorPositionDesc(const std::string& buffer_str, int offset);
 	
 	static void test();
 
 private:
-	//FILE* file;
-	//FileHandle file;
-	TiXmlDocument doc;
+	pugi::xml_document doc;
 	std::string path;
 };
 

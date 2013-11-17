@@ -102,6 +102,12 @@ ${tinyxmldir}/tinyxmlerror.cpp
 ${tinyxmldir}/tinyxmlparser.cpp
 )
 
+set(pugixml
+${pugixmldir}/pugixml.cpp
+${pugixmldir}/pugixml.hpp
+${pugixmldir}/pugiconfig.hpp
+)
+
 # MESSAGE(${libpng})
 
 FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
@@ -152,6 +158,7 @@ ${libtiff}
 ${zlib}
 ${minizip}
 ${tinyxml}
+${pugixml}
 ${giflib}
 ${little_cms}
 )

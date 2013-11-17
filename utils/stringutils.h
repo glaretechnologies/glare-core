@@ -182,6 +182,11 @@ const std::vector<std::string> split(const std::string& s, char delim);
 const std::string leftPad(const std::string& s, char c, unsigned int minwidth);
 const std::string rightPad(const std::string& s, char c, unsigned int minwidth);
 
+static inline bool stringEqual(const char* a, const char* b)
+{
+	return ::strcmp(a, b) == 0;
+}
+
 namespace StringUtils
 {
 template<class T>
