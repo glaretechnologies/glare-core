@@ -143,7 +143,6 @@ void IndigoXMLDoc::saveDoc(const std::string& savepath)
 #include "../utils/timer.h"
 #include "../utils/ConPrint.h"
 #include "../utils/MemMappedFile.h"
-#include <tinyxml\tinyxml.h>
 #include <string.h>
 
 
