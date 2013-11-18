@@ -99,7 +99,7 @@ public:
 		}
 		catch(MySocketExcep& e)
 		{
-			failTest(e.what());
+			failTest("TestServerSocketThread excep: " + e.what());
 		}
 	}
 
@@ -113,20 +113,13 @@ public:
 	TestClientThread(const std::string& server_hostname_, int port_) : server_hostname(server_hostname_), port(port_) {}
 	~TestClientThread() {}
 
-	virtual void run()
+	// socket should be connected
+	void doReadingAndWriting(MySocket& socket)
 	{
-		// conPrint("TestClientThread::run()");
 		try
 		{
-			conPrint("TestClientThread: Connecting to " + server_hostname + ":" + toString(port));
-
-			MySocket socket(server_hostname, port, NULL);
-
-			conPrint("TestClientThread: mysocket connected!");
-			conPrint("TestClientThread: other end IP: " + socket.getOtherEndIPAddress().toString());
-
 			// Write Uint32
-			socket.writeUInt32(1);
+			//socket.writeUInt32(1); // already done
 			socket.writeUInt32(2);
 			socket.writeUInt32(3);
 
@@ -176,8 +169,45 @@ public:
 		}
 		catch(MySocketExcep& e)
 		{
-			failTest(e.what());
+			failTest("TestClientThread: " + e.what());
 		}
+	}
+
+	virtual void run()
+	{
+		// conPrint("TestClientThread::run()");
+		bool succeeded = false;
+		for(int i=0; i<10; ++i)
+		{
+			try
+			{
+				conPrint("TestClientThread: Connecting to " + server_hostname + ":" + toString(port));
+
+				MySocket socket(server_hostname, port, NULL);
+
+				// Write Uint32.
+				// On Linux an error connecting will show up on the first write due to use of non-blocking mode.
+				// So write the first uint here.
+				socket.writeUInt32(1);
+
+				conPrint("TestClientThread: mysocket connected!");
+				conPrint("TestClientThread: other end IP: " + socket.getOtherEndIPAddress().toString());
+
+				doReadingAndWriting(socket);
+
+				succeeded = true;
+				break;
+			}
+			catch(MySocketExcep& e)
+			{
+				conPrint("Exception occurred.. waiting");
+				// Server socket may not be accepting connections yet, so wait a while
+				PlatformUtils::Sleep(100);
+			}
+		}
+
+		if(!succeeded)
+			failTest("TestClientThread: failed to connect to server");
 	}
 
 	std::string server_hostname;
@@ -215,7 +245,7 @@ public:
 		}
 		catch(MySocketExcep& e)
 		{
-			failTest(e.what());
+			failTest("TestListenerThread excep: " + e.what());
 		}
 	}
 
@@ -240,6 +270,7 @@ void SocketTests::test()
 {
 	conPrint("SocketTests::test()");
 
+
 	testAssert(Networking::isNonNull());
 
 	const int port = 5000;
@@ -247,11 +278,10 @@ void SocketTests::test()
 	doTestWithHostname("127.0.0.1", port);
 
 	// Test with IPv6 address
-	// NOTE: This test is disabled because it fails under Valgrind (and *only* under Valgrind!)
-	//doTestWithHostname("::1", port + 1);
+	doTestWithHostname("::1", port);
 
 	// Test with IPv6 address
-	doTestWithHostname("localhost", port + 2);
+	doTestWithHostname("localhost", port);
 
 
 	conPrint("SocketTests::test(): done.");
