@@ -32,8 +32,8 @@ public:
 
 	inline SmallVector& operator=(const SmallVector& other);
 
-	inline void reserve(size_t N); // Make sure capacity is at least N.
-	inline void resize(size_t N, const T& val = T()); // Resize to size N, using copies of val if N > size().
+	inline void reserve(size_t M); // Make sure capacity is at least M.
+	inline void resize(size_t new_size, const T& val = T()); // Resize to size new_size, using copies of val if new_size > size().
 	inline size_t capacity() const;
 	inline size_t size() const;
 	inline bool empty() const;
