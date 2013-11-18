@@ -248,10 +248,10 @@ void SocketTests::test()
 
 	// Test with IPv6 address
 	// NOTE: This test is disabled because it fails under Valgrind (and *only* under Valgrind!)
-	//doTestWithHostname("::1", port);
+	//doTestWithHostname("::1", port + 1);
 
 	// Test with IPv6 address
-	doTestWithHostname("localhost", port);
+	doTestWithHostname("localhost", port + 2);
 
 
 	conPrint("SocketTests::test(): done.");
