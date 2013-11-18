@@ -23,16 +23,8 @@ Code By Nicholas Chapman.
 #include <vector>
 
 
-ReferenceTest::ReferenceTest()
+namespace ReferenceTest
 {
-	
-}
-
-
-ReferenceTest::~ReferenceTest()
-{
-	
-}
 
 
 class TestClass : public RefCounted
@@ -68,14 +60,14 @@ static Reference<DerivedTestClass> someFunc(int* i)
 }
 
 
-void functionWithByValueRefParam(Reference<TestClass> ref)
+static void functionWithByValueRefParam(Reference<TestClass> ref)
 {
 	//int b = ref->f();
 	//b;
 }
 
 
-void functionWithByRefRefParam(const Reference<TestClass>& ref)
+static void functionWithByRefRefParam(const Reference<TestClass>& ref)
 {
 	//int b = ref->f();
 	//b;
@@ -410,6 +402,9 @@ void ReferenceTest::run()
 
 	}
 }
+
+
+} // end namespace ReferenceTest
 
 
 #endif // BUILD_TESTS

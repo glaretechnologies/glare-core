@@ -82,7 +82,10 @@ private:
 };
 
 
-void SmallVectorTest();
+namespace SmallVectorTest
+{
+void test();
+}
 
 
 template <class T, int N>

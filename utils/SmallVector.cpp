@@ -19,6 +19,10 @@ Generated at 2013-03-07 14:27:12 +0000
 #include <assert.h>
 
 
+namespace SmallVectorTest
+{
+
+
 class TestClass
 {};
 
@@ -37,9 +41,11 @@ private:
 };
 
 
-void SmallVectorTest()
+void test()
 {
 	conPrint("SmallVectorTest()");
+
+	printVar(sizeof(TestClass));
 
 	//========================= No-arg constructor =========================
 
@@ -582,10 +588,10 @@ void SmallVectorTest()
 
 		testAssert(ob_count == 1);
 	}
-
-
-
 }
+
+
+} // end namespace SmallVectorTest
 
 
 #endif // BUILD_TESTS

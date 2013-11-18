@@ -1,43 +1,13 @@
 /*=====================================================================
 referencetest.h
 ---------------
-File created by ClassTemplate on Tue Aug 28 18:25:25 2007Code By Nicholas Chapman.
+File created by ClassTemplate on Tue Aug 28 18:25:25 2007
+Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __REFERENCETEST_H_666_
-#define __REFERENCETEST_H_666_
+#pragma once
 
 
-
-
-
-/*=====================================================================
-ReferenceTest
--------------
-
-=====================================================================*/
-class ReferenceTest
+namespace ReferenceTest
 {
-public:
-	/*=====================================================================
-	ReferenceTest
-	-------------
-	
-	=====================================================================*/
-	ReferenceTest();
-
-	~ReferenceTest();
-
-
-
-	static void run();
-
-
-};
-
-
-
-#endif //__REFERENCETEST_H_666_
-
-
-
-
+	void run();
+}
