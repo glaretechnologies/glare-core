@@ -249,6 +249,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			throw AbortedMySocketExcep();
 		}
 
+		// TODO: handle select return code error.
 		select((int)(sockethandle + SOCKETHANDLE_TYPE(1)), NULL, &write_sockset, &error_sockset, &wait_period);
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
@@ -260,10 +261,7 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			throw AbortedMySocketExcep();
 		}
 
-		// If socket is writeable, then the connect has succeeded.
-		if(FD_ISSET(sockethandle, &write_sockset))
-			 break;
-
+		// Handle errors first
 		if(FD_ISSET(sockethandle, &error_sockset))
 		{
 			closeSocket(sockethandle);
@@ -276,6 +274,10 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			else
 				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + ")");
 		}
+
+		// If socket is writeable, then the connect has succeeded.
+		if(FD_ISSET(sockethandle, &write_sockset))
+			 break;
 	}
 
 	// Return to normal blocking mode.
