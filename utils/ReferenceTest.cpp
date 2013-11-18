@@ -157,7 +157,7 @@ public:
 };
 
 
-void ReferenceTest::run()
+void run()
 {
 	{
 		int i = 0;
