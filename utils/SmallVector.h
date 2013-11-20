@@ -66,7 +66,8 @@ private:
 
 	struct SmallVectorDirect
 	{
-		//T e[N];
+		// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
+		// NOTE: This is probably incorrect for T objects with alignment.
 		unsigned char e[sizeof(T) * N];
 	};
 
@@ -447,7 +448,6 @@ void SmallVector<T, N>::push_back(const T& t)
 		size_++;
 	}
 	
-
 	invariant();
 }
 
@@ -554,7 +554,7 @@ template <class T, int N>
 void SmallVector<T, N>::invariant() const
 {
 #ifndef NDEBUG
-	if(size_ < N)
+	if(size_ <= N)
 	{
 		// Elements are directly stored in class.
 		// Nothing to check
@@ -572,9 +572,7 @@ void SmallVector<T, N>::invariant() const
 			assert(data.heap.e == NULL);
 		}
 	}
-
 #endif
-
 }
 
 
