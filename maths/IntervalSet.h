@@ -197,14 +197,14 @@ inline IntervalSet<T> intervalSetUnion(const IntervalSet<T>& a, const IntervalSe
 
 	for(size_t i=0; i<a.intervals.size(); ++i)
 	{
-		events.push_back(IntervalEvent(a.intervals[i].x, true, true));
-		events.push_back(IntervalEvent(a.intervals[i].y, true, false));
+		events.push_back(IntervalEvent<T>(a.intervals[i].x, true, true));
+		events.push_back(IntervalEvent<T>(a.intervals[i].y, true, false));
 	}
 
 	for(size_t i=0; i<b.intervals.size(); ++i)
 	{
-		events.push_back(IntervalEvent(b.intervals[i].x, false, true));
-		events.push_back(IntervalEvent(b.intervals[i].y, false, false));
+		events.push_back(IntervalEvent<T>(b.intervals[i].x, false, true));
+		events.push_back(IntervalEvent<T>(b.intervals[i].y, false, false));
 	}
 
 	std::sort(events);
@@ -247,7 +247,7 @@ inline IntervalSet<T> intervalSetUnion(const IntervalSet<T>& a, const IntervalSe
 	}
 
 	if(res.intervals.empty())
-		return emptySet();
+		return IntervalSet<T>::emptySet();
 	else
 		return res;
 }
