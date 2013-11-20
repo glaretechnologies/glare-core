@@ -15,6 +15,12 @@ File created by ClassTemplate on Fri May 02 16:51:32 2008
 
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 {
+	// Stop LibTiff writing to stderr by setting NULL handlers.
+	// NOTE: restore old handlers at end of method?
+	// NOTE: threadsafe?
+	TIFFSetWarningHandler(NULL);
+	TIFFSetErrorHandler(NULL);
+
 #if defined(_WIN32)
 	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "r");
 #else
