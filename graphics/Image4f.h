@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2013 -
 #pragma once
 
 
+#include <stddef.h>
 #include "Map2D.h"
 #include "Colour4f.h"
 #include "../utils/array2d.h"
