@@ -5,6 +5,7 @@
 #include "../maths/mathstypes.h"
 #include <cassert>
 #include <vector>
+#include <stddef.h>
 
 
 template <class Real>

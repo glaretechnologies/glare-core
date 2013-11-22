@@ -9,6 +9,7 @@ Generated at Fri Jul 22 18:12:30 +0100 2011
 #include <vector>
 #include <math.h>
 #include <assert.h>
+#include <stddef.h>
 
 
 class RampFunction

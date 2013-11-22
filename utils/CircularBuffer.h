@@ -10,6 +10,7 @@ Generated at 2013-05-16 16:42:23 +0100
 #include "../maths/mathstypes.h"
 #include <vector>
 #include <assert.h>
+#include <stddef.h>
 
 
 /*=====================================================================
