@@ -39,22 +39,19 @@ FILE(GLOB openexr "../../../openexr-1.6.1/IlmImf/*.cpp")
 # FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 
 
-if(WIN32 OR APPLE) # Use system libpng and libjpeg on linux
-	FILE(GLOB libjpg "${jpegdir}/ja*.c" "${jpegdir}/jc*.c" "${jpegdir}/jd*.c" "${jpegdir}/jf*.c" "${jpegdir}/ji*.c" "${jpegdir}/jq*.c"
-	"${jpegdir}/jutils.c"
-	"${jpegdir}/jmemmgr.c"
-	"${jpegdir}/jmemnobs.c"
-	"${jpegdir}/jerror.c"
-	)
+FILE(GLOB libjpg "${jpegdir}/ja*.c" "${jpegdir}/jc*.c" "${jpegdir}/jd*.c" "${jpegdir}/jf*.c" "${jpegdir}/ji*.c" "${jpegdir}/jq*.c"
+"${jpegdir}/jutils.c"
+"${jpegdir}/jmemmgr.c"
+"${jpegdir}/jmemnobs.c"
+"${jpegdir}/jerror.c"
+)
 
-	set(libpng
-	${pngdir}/png.c ${pngdir}/pngerror.c ${pngdir}/pngget.c ${pngdir}/pngmem.c ${pngdir}/pngpread.c ${pngdir}/pngread.c ${pngdir}/pngrio.c ${pngdir}/pngrtran.c
-	${pngdir}/pngrutil.c ${pngdir}/pngset.c ${pngdir}/pngtrans.c ${pngdir}/pngwio.c ${pngdir}/pngwrite.c ${pngdir}/pngwtran.c ${pngdir}/pngwutil.c
-	${pngdir}/png.h ${pngdir}/pngconf.h ${pngdir}/pngpriv.h 
-	)
-else()
-	MESSAGE("Using system libpng and libjpeg.")
-endif()
+
+set(libpng
+${pngdir}/png.c ${pngdir}/pngerror.c ${pngdir}/pngget.c ${pngdir}/pngmem.c ${pngdir}/pngpread.c ${pngdir}/pngread.c ${pngdir}/pngrio.c ${pngdir}/pngrtran.c
+${pngdir}/pngrutil.c ${pngdir}/pngset.c ${pngdir}/pngtrans.c ${pngdir}/pngwio.c ${pngdir}/pngwrite.c ${pngdir}/pngwtran.c ${pngdir}/pngwutil.c
+${pngdir}/png.h ${pngdir}/pngconf.h ${pngdir}/pngpriv.h 
+)
 
 
 set(libtiff
