@@ -46,8 +46,8 @@ void pngdecoder_error_func(png_structp png, const char* msg)
 
 void pngdecoder_warning_func(png_structp png, const char* msg)
 {
-	const std::string* path = (const std::string*)png->error_ptr;
-	conPrint("PNG Warning while loading file '" + *path + "': " + std::string(msg));
+	//const std::string* path = (const std::string*)png->error_ptr;
+	//conPrint("PNG Warning while loading file '" + *path + "': " + std::string(msg));
 }
 
 
