@@ -14,3 +14,9 @@ Camera::Camera(CameraType camera_type_)
 
 Camera::~Camera()
 {}
+
+
+void Camera::setContainingMedia(const std::vector<const Medium*>& media_)
+{
+	containing_media = media_;
+}

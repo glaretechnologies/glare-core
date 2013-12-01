@@ -75,20 +75,29 @@ public:
 		double lens_shift_right_distance) = 0;
 
 
-	virtual void sampleLens(
+	struct SampleLensResults
+	{
+		Vec3Type forwards_dir_ws;
+		Vec3Type sensorpos_ws;
+		Vec3Type lenspos_ws;
+		Vec3Type sensor_to_lens_pos_os; // Needed for bidir
+		Vec3Type lens_exit_dir_ws;
+		const std::vector<const Medium*>* containing_media;
+		Real sensorpos_p;
+		Real lenspos_p;
+		Real aperture_vis;
+		Real F; // camera contribution
+		Real exposure_duration;
+		Real sensitivity_scale;
+	};
+
+
+	virtual SampleLensResults sampleLens(
 		const Vec2d& imagepos,
 		const SamplePair& samples,
 		double time,
 		bool vignetting,
-		Real recip_normed_image_rect_area,
-		Vec3Type& sensorpos_ws_out,
-		Vec3Type& lenspos_ws_out,
-		Vec3Type& sensor_to_lens_pos_os_out, // Needed for bidir
-		Vec3Type& lens_exit_dir_ws_out,
-		Real& sensorpos_p_out,
-		Real& lenspos_p_out,
-		Real& aperture_vis_out,
-		Real& F_out // camera contribution
+		Real recip_normed_image_rect_area
 	) const = 0;
 
 
@@ -128,8 +137,7 @@ public:
 
 	virtual const std::vector<Plane<Vec3RealType> >& getViewVolumeClippingPlanesCameraSpace() const = 0;
 
-	virtual void setContainingMedia(const std::vector<const Medium*>& media) = 0;
-	virtual const std::vector<const Medium*>& getContainingMedia() const = 0;
+	
 
 	virtual const TransformPath& getTransformPath() const = 0;
 
@@ -145,7 +153,15 @@ public:
 	virtual void getRayForImagePos(const Vec2d& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
 
+
+	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }
+
+	void setContainingMedia(const std::vector<const Medium*>& media);
+	inline const std::vector<const Medium*>& getContainingMedia() const { return containing_media; }
+
+protected:
+	std::vector<const Medium*> containing_media;
 private:
 	CameraType camera_type;
 };
