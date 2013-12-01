@@ -147,8 +147,6 @@ public:
 
 	virtual double imageHeightAtDistanceOne() const = 0;
 
-	virtual Real cameraContribution(Real T, Real A_vis, const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, Real sensor_pd_A, Real lens_pd_A, bool vignetting) const = 0;
-
 	// Used in IndigoDriver::traceRay() for picking.
 	virtual void getRayForImagePos(const Vec2d& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
