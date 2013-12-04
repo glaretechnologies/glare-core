@@ -383,6 +383,52 @@ void VectorUnitTests::test()
 
 
 
+	//========================= clear =========================
+
+
+	// With int type, zero size
+	{
+		Vector<int, 4> v;
+		v.clear();
+		testAssert(v.size() == 0);
+	}
+
+
+	// With int type
+	{
+		Vector<int, 4> v(
+			10, // count
+			123 // val
+		);
+
+		v.clear();
+		testAssert(v.size() == 0);
+	}
+
+
+	// With TestCounterClass
+	{
+		int ob_count = 0;
+		TestCounterClass dummy(ob_count);
+		testAssert(ob_count == 1);
+
+		{
+			Vector<TestCounterClass, 4> v(
+				10, // count
+				dummy
+			);
+			testAssert(v.size() == 10);
+			testAssert(ob_count == 11);
+			
+			v.clear();
+
+			testAssert(v.size() == 0);
+		}
+
+		testAssert(ob_count == 1);
+	}
+
+
 	//========================= clearAndFreeMem =========================
 
 

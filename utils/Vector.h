@@ -48,9 +48,11 @@ public:
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
 	inline void resize(size_t N, const T& val = T()); // Resize to size N, using copies of val if N > size().
+	inline void resizeUninitialised(size_t N); // Resize to size N, but don't destroy or construct objects.
 	inline size_t capacity() const { return capacity_; }
 	inline size_t size() const;
 	inline bool empty() const;
+	inline void clear(); // Resize to size zero, does not free mem.
 	inline void clearAndFreeMem(); // Set size to zero, but also frees actual array memory.
 
 	inline void clearAndSetCapacity(size_t N);
@@ -260,6 +262,24 @@ void Vector<T, alignment>::resize(size_t n, const T& val)
 
 
 template <class T, size_t alignment>
+void Vector<T, alignment>::resizeUninitialised(size_t n)
+{
+	assert(capacity_ >= size_);
+
+	if(n > capacity_)
+	{
+		const size_t newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
+		reserve(newcapacity);
+	}
+
+	size_ = n;
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
 size_t Vector<T, alignment>::size() const
 {
 	return size_;
@@ -270,6 +290,17 @@ template <class T, size_t alignment>
 bool Vector<T, alignment>::empty() const
 {
 	return size_ == 0;
+}
+
+
+template <class T, size_t alignment>
+void Vector<T, alignment>::clear()
+{
+	// Destroy objects
+	for(size_t i=0; i<size_; ++i)
+		e[i].~T();
+
+	size_ = 0;
 }
 
 
