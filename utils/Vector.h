@@ -56,6 +56,7 @@ public:
 	inline void clearAndSetCapacity(size_t N);
 
 	inline void push_back(const T& t);
+	inline void push_back_uninitialised();
 	inline void pop_back();
 	inline const T& back() const;
 	inline T& back();
@@ -238,7 +239,11 @@ void Vector<T, alignment>::resize(size_t n, const T& val)
 		}
 
 		// Initialise elements e[size_] to e[n-1] as a copy of val.
-		std::uninitialized_fill(e + size_, e + n, val);
+		//std::uninitialized_fill(e + size_, e + n, val);
+		for(T* elem=e + size_; elem<e + n; ++elem)
+		{
+			::new (elem) T(val);
+		}
 	}
 	else if(n < size_)
 	{
@@ -304,6 +309,27 @@ void Vector<T, alignment>::push_back(const T& t)
 
 	// Construct e[size_] from t
 	::new ((e + size_)) T(t);
+
+	size_++;
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
+void Vector<T, alignment>::push_back_uninitialised()
+{
+	assert(capacity_ >= size_);
+
+	// Check to see if we are out of capacity:
+	if(size_ + 1 > capacity_)
+	{
+		const size_t newcapacity = myMax(size_ + 1, capacity_ + capacity_ / 2); // current size * 1.5
+		reserve(newcapacity);
+	}
+
+	// Don't construct e[size_] !
 
 	size_++;
 
