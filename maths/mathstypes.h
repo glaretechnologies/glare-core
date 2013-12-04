@@ -26,6 +26,8 @@ You may not use this code for any commercial project.
 #define __MATHSTYPES_H__
 
 
+#include "platform.h"
+#include <cstring> // For std::memcpy()
 #include <cmath>
 #include <cassert>
 #include <limits>
@@ -226,11 +228,32 @@ inline bool isNAN(double x)
 
 inline bool isFinite(float x)
 {
-#if defined(_WIN32)
+	// If a floating point number is a NaN or INF, then all the exponent bits are 1.
+	// So extract the exponent bits, and if they are less than the value which has 1 in all exponent bits (0x7f800000), then
+	// this x is finite (not INF or NaN).
+	// See http://www.h-schmidt.net/FloatConverter/
+
+	// Use memcpy here to get around strict aliasing rules which disallow casting a float value to an int etc..
+	// Compile should be able to 'see through' the memcpy and generate efficient code (confirmed in VS2012 x64 target)
+	uint32 i;
+	std::memcpy(&i, &x, 4);
+	return (i & 0x7fffffff) < 0x7f800000;
+
+	// Comparing use of _finite() with the code above:
+	//
+	// _finite() [float]
+    //     cycles: 10.486554
+    //     sum: 1000000
+	// fastIsFinite() [float]    (code above)
+    //     cycles: 4.863068999999999
+    //     sum: 1000000
+
+/*#if defined(_WIN32)
 	return _finite(x) != 0;//hopefully this works for floats :)
 #else
 	return finite(x) != 0;//false;//TEMP HACK
 #endif
+	*/
 }
 
 

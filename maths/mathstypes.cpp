@@ -12,9 +12,10 @@
 #include "../utils/platform.h"
 #include "../utils/MTwister.h"
 #include <vector>
+#include <limits>
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
 
 
 inline static float fastPosFract(float x)
@@ -86,138 +87,51 @@ inline T powOneOverEight(T x)
 }
 
 
-
 void Maths::test()
 {
 	conPrint("Maths::test()");
 
+
+	//======================================== isFinite() ========================================
+	// Test for floats
 	{
-		const int trials = 1;
+		testAssert(isFinite(0.f));
+		testAssert(isFinite(1.0f));
+		testAssert(isFinite(1.0e30f));
+		testAssert(isFinite(1.0e-30f));
+		testAssert(isFinite(std::numeric_limits<float>::max()));
+		testAssert(isFinite(-std::numeric_limits<float>::max()));
+		testAssert(isFinite(std::numeric_limits<float>::min()));
+		testAssert(isFinite(-std::numeric_limits<float>::min()));
+		testAssert(isFinite(std::numeric_limits<float>::denorm_min()));
+		testAssert(isFinite(-std::numeric_limits<float>::denorm_min()));
+		
+		testAssert(!isFinite(std::numeric_limits<float>::infinity()));
+		testAssert(!isFinite(-std::numeric_limits<float>::infinity()));
+	
+		testAssert(!isFinite(std::numeric_limits<float>::quiet_NaN()));
+		testAssert(!isFinite(-std::numeric_limits<float>::quiet_NaN()));
+	}
+
+	// Speedtest for isFinite()
+	{
 		const int N = 1000000;
-		conPrint("pow4() [float]");
-		{
-		
-			CycleTimer timer;
-			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
-			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += pow4(x);
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
-			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
-			conPrint("\tsum: " + toString(sum));
-		}
 
-		conPrint("pow4Fast() [float]");
+		conPrint("isFinite() [float]");
 		{
-		
-			CycleTimer timer;
+			Timer timer;
 			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
+			for(int i=0; i<N; ++i)
 			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += pow4Fast(x);
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
+				const float x = isFinite((float)i) ? 1.0f : 0.0f;
+				sum += x;
 			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
-			conPrint("\tsum: " + toString(sum));
-		}
 
-		conPrint("pow8() [float]");
-		{
-		
-			CycleTimer timer;
-			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
-			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += pow8(x);
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
-			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
-			conPrint("\tsum: " + toString(sum));
-		}
-
-		conPrint("pow8Fast() [float]");
-		{
-		
-			CycleTimer timer;
-			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
-			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += pow8Fast(x);
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
-			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
-			conPrint("\tsum: " + toString(sum));
-		}
-
-		conPrint("pow(x, 1/8)() [float]");
-		{
-		
-			CycleTimer timer;
-			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
-			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += std::pow(x, (1.0f / 8));
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
-			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
-			conPrint("\tsum: " + toString(sum));
-		}
-
-		conPrint("powOneOverEight() [float]");
-		{
-		
-			CycleTimer timer;
-			float sum = 0.0;
-			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
-			for(int t=0; t<trials; ++t)
-			{
-				for(int i=0; i<N; ++i)
-				{
-					const float x = (float)i * 0.0001f;
-					sum += powOneOverEight(x);
-				}
-				elapsed = myMin(elapsed, timer.elapsed());
-			}
-			const double cycles = elapsed / (double)N;
-			conPrint("\tcycles: " + toString(cycles));
+			const double elapsed = timer.elapsed();
+			conPrint("\telapsed / iter: " + toString(elapsed * 1.0e9 / N) + " ns");
 			conPrint("\tsum: " + toString(sum));
 		}
 	}
-
-
-	return;
-
 
 	{
 	Quatd identity = Quatd::identity();
@@ -383,10 +297,66 @@ void Maths::test()
 	}
 
 
+
+	for(float x=0; x<1.0f; x += 0.01f)
+	{
+		//conPrint("x: " + toString(x));
+		//conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
+		//conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
+		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
+	}
+
+	// Test oneMinusCosX()
+
+	float max_direct_error = 0;
+	float max_func_error = 0;
+	float max_direct_relative_error = 0;
+	float max_func_relative_error = 0;
+
+	for(float x=0; x<1.f; x += 0.0001f)
+	{
+		const float one_minus_cos_x_d = (float)(1 - std::cos((double)x));
+
+		const float one_minus_cos_x_f = 1 - std::cos(x);
+
+		const float one_minus_cos_x_func = oneMinusCosX(x);
+
+		const float direct_error = std::fabs(one_minus_cos_x_f    - one_minus_cos_x_d);
+		const float func_error   = std::fabs(one_minus_cos_x_func - one_minus_cos_x_d);
+
+		const float direct_relative_error = one_minus_cos_x_d == 0 ? 0 : direct_error / one_minus_cos_x_d;
+		const float func_relative_error   = one_minus_cos_x_d == 0 ? 0 : func_error   / one_minus_cos_x_d;
+
+		max_direct_error = myMax(max_direct_error, direct_error);
+		max_func_error   = myMax(max_func_error,   func_error);
+		max_direct_relative_error = myMax(max_direct_relative_error, direct_relative_error);
+		max_func_relative_error   = myMax(max_func_relative_error,   func_relative_error);
+
+		/*conPrint("");
+		printVar(one_minus_cos_x_d);
+		printVar(one_minus_cos_x_f);
+		printVar(one_minus_cos_x_func);
+
+		printVar(x);
+		printVar(direct_error);
+		printVar(func_error);*/
+	}
+
+	conPrint("");
+	printVar(max_direct_error);
+	printVar(max_func_error);
+	printVar(max_direct_relative_error);
+	printVar(max_func_relative_error);
+	conPrint("");
+
+
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
 	const int N = 1000000;
 	const int trials = 4;
+
+
+
 
 	/*conPrint("float sin()");
 	
@@ -888,62 +858,136 @@ void Maths::test()
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + sum.toString());
 	}
+
+
+
+	{
+		const int trials = 1;
+		const int N = 1000000;
+		conPrint("pow4() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow4(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow4Fast() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow4Fast(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow8() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow8(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow8Fast() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += pow8Fast(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("pow(x, 1/8)() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += std::pow(x, (1.0f / 8));
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		conPrint("powOneOverEight() [float]");
+		{
+		
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * 0.0001f;
+					sum += powOneOverEight(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+	}
 	
 #endif // !defined(OSX)
 
-
-
-	for(float x=0; x<1.0f; x += 0.01f)
-	{
-		//conPrint("x: " + toString(x));
-		//conPrint("pow(" + toString(x) + ", 2.2f):     " + toString(pow(x, 2.2f)));
-		//conPrint("fastPow(" + toString(x) + ", 2.2f): " + toString(fastPow(x, 2.2f)));
-		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
-	}
-
-	// Test oneMinusCosX()
-
-	float max_direct_error = 0;
-	float max_func_error = 0;
-	float max_direct_relative_error = 0;
-	float max_func_relative_error = 0;
-
-	for(float x=0; x<1.f; x += 0.0001f)
-	{
-		const float one_minus_cos_x_d = (float)(1 - std::cos((double)x));
-
-		const float one_minus_cos_x_f = 1 - std::cos(x);
-
-		const float one_minus_cos_x_func = oneMinusCosX(x);
-
-		const float direct_error = std::fabs(one_minus_cos_x_f    - one_minus_cos_x_d);
-		const float func_error   = std::fabs(one_minus_cos_x_func - one_minus_cos_x_d);
-
-		const float direct_relative_error = one_minus_cos_x_d == 0 ? 0 : direct_error / one_minus_cos_x_d;
-		const float func_relative_error   = one_minus_cos_x_d == 0 ? 0 : func_error   / one_minus_cos_x_d;
-
-		max_direct_error = myMax(max_direct_error, direct_error);
-		max_func_error   = myMax(max_func_error,   func_error);
-		max_direct_relative_error = myMax(max_direct_relative_error, direct_relative_error);
-		max_func_relative_error   = myMax(max_func_relative_error,   func_relative_error);
-
-		/*conPrint("");
-		printVar(one_minus_cos_x_d);
-		printVar(one_minus_cos_x_f);
-		printVar(one_minus_cos_x_func);
-
-		printVar(x);
-		printVar(direct_error);
-		printVar(func_error);*/
-	}
-
-	printVar(max_direct_error);
-	printVar(max_func_error);
-	printVar(max_direct_relative_error);
-	printVar(max_func_relative_error);
-
-
-	// exit(0);
-
 }
-#endif
+
+
+#endif // BUILD_TESTS
