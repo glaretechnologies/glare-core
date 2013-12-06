@@ -852,7 +852,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	const float split = best_div_val;
 	for(unsigned int i=0; i<numtris; ++i)//for each tri
 	{
-		if(nodeobjs[i]->isEnvSphereGeometry())
+		if(nodeobjs[i]->isEnvSphere())
 		{
 			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], negbox))
 				neg_objs.push_back(nodeobjs[i]);
@@ -886,7 +886,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	for(unsigned int i=0; i<numtris; ++i) // For each tri
 	{
-		if(nodeobjs[i]->isEnvSphereGeometry())
+		if(nodeobjs[i]->isEnvSphere())
 		{
 			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], posbox))
 				pos_objs.push_back(nodeobjs[i]);
@@ -965,7 +965,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 bool ObjectTree::doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb)
 {
-	assert(ob->isEnvSphereGeometry());
+	assert(ob->isEnvSphere());
 
 	const Vec4f origin(0,0,0,1.f);
 
@@ -998,7 +998,7 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 	const AABBox& ob_aabb = ob->getAABBoxWS();
 
 	// Test for special case in which aabb lies entirely inside the environment sphere geometry.
-	if(ob->isEnvSphereGeometry())
+	if(ob->isEnvSphere())
 	{
 		const Vec4f origin(0,0,0,1.f);
 
