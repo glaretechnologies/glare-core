@@ -641,6 +641,12 @@ VEC3_INLINE bool epsEqual(const Vec3<double>& a, const Vec3<double>& b, double e
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps);
 }
 
+template <class Real>
+inline bool approxEq(const Vec3<Real>& a, const Vec3<Real>& b, Real eps = NICKMATHS_EPSILON)
+{
+	return Maths::approxEq(a.x, b.x, eps) && Maths::approxEq(a.y, b.y, eps) && Maths::approxEq(a.z, b.z, eps);
+}
+
 
 //for sorting Vec3's
 template <class Real>
