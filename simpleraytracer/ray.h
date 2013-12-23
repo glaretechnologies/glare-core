@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "../maths/SSE.h"
 
 
-// From o:\indigo\trunk\embree\common\simd\smmintrin_emu.h
+// Modified from o:\indigo\trunk\embree\common\simd\smmintrin_emu.h
 INDIGO_STRONG_INLINE __m128 glare_mm_blendv_ps(__m128 value, __m128 input, __m128 mask) { 
     return _mm_or_ps(_mm_and_ps(mask, input), _mm_andnot_ps(mask, value)); 
 }

@@ -10,15 +10,15 @@ File created by ClassTemplate on Thu Mar 26 15:28:20 2009
 #include "SSE.h"
 #include "Vec4i.h"
 #include "mathstypes.h"
+#include "../utils/platform.h"
 #include <assert.h>
 #include <string>
-#include "../utils/platform.h"
 
 
 /*=====================================================================
-Vec4
-----
-
+Vec4f
+-----
+Four component vector class that uses SSE 4-vectors.
 =====================================================================*/
 SSE_CLASS_ALIGN Vec4f
 {
@@ -47,7 +47,6 @@ public:
 
 	inline bool operator == (const Vec4f& a) const;
 	inline bool operator != (const Vec4f& a) const;
-
 	
 	INDIGO_STRONG_INLINE float length() const;
 	INDIGO_STRONG_INLINE float length2() const;
@@ -58,9 +57,7 @@ public:
 
 	const std::string toString() const;
 
-
 	static void test();
-
 
 	union
 	{
@@ -73,20 +70,19 @@ public:
 // Some stand-alone functions that operate on Vec4fs
 
 
-// NOTE: This returns __m128 instead of 'const Vec4f', because VC9 won't inline the function if it returns 'const Vec4f'.
-INDIGO_STRONG_INLINE __m128 operator + (const Vec4f& a, const Vec4f& b)
+INDIGO_STRONG_INLINE const Vec4f operator + (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_add_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE __m128 operator - (const Vec4f& a, const Vec4f& b)
+INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_sub_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE __m128 operator * (const Vec4f& a, float f)
+INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, float f)
 {
 	return _mm_mul_ps(a.v, _mm_load_ps1(&f));
 }
@@ -109,7 +105,7 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 }
 
 
-INDIGO_STRONG_INLINE __m128 crossProduct(const Vec4f& a, const Vec4f& b)
+INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
 {
 	/*
 		want (aybz - azby, azbx - axbz, axby - aybx, 0.0f)
@@ -140,13 +136,13 @@ inline bool epsEqual(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSIL
 }
 
 
-INDIGO_STRONG_INLINE __m128 normalise(const Vec4f& a)
+INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a)
 {
 	return a * (1.0f / a.length());
 }
 
 
-INDIGO_STRONG_INLINE __m128 normalise(const Vec4f& a, float& length_out)
+INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
 {
 	length_out = a.length();
 
@@ -154,7 +150,7 @@ INDIGO_STRONG_INLINE __m128 normalise(const Vec4f& a, float& length_out)
 }
 
 
-INDIGO_STRONG_INLINE __m128 maskWToZero(const Vec4f& a)
+INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 {
 	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
 	return _mm_and_ps(a.v, _mm_load_ps((const float*)mask));
@@ -281,19 +277,19 @@ bool Vec4f::isUnitLength() const
 }
 
 
-inline Vec4f min(const Vec4f& a, const Vec4f& b)
+INDIGO_STRONG_INLINE const Vec4f min(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_min_ps(a.v, b.v);
 }
 
 
-inline Vec4f max(const Vec4f& a, const Vec4f& b)
+INDIGO_STRONG_INLINE const Vec4f max(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_max_ps(a.v, b.v);
 }
 
 
-inline const Vec4f floor(const Vec4f& v)
+INDIGO_STRONG_INLINE const Vec4f floor(const Vec4f& v)
 {
 #if _MSC_VER && (_MSC_VER >= 1600) // If on Visual Studio 2010 or later (which _mm_floor_ps requires) 
 	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
@@ -304,7 +300,7 @@ inline const Vec4f floor(const Vec4f& v)
 }
 
 
-inline const Vec4i toVec4i(const Vec4f& v)
+INDIGO_STRONG_INLINE const Vec4i toVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_cvttps_epi32(v.v)); // _mm_cvttps_epi32 (CVTTPS2DQ) is SSE 2
 }
