@@ -87,34 +87,17 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 
 	assert(ray.unitDir().isUnitLength());
 
-	//assert(!thread_context.in_object_tree_traversal);
-	//thread_context.in_object_tree_traversal = true;
-
-	js::ObjectTreePerThreadData& object_context = thread_context.getObjectTreeContext();
-
 	//if(object_context.last_test_time.size() < objects.size())
 	//	object_context.last_test_time.resize(max_object_index + 1);//objects.size());
-
 	//object_context.time++;
-
 	
-	
-
-	#ifdef OBJECTTREE_VERBOSE
-	printVar(object_context.time);
-	#endif
 
 	hitob_out = NULL;
-	hitinfo_out.sub_elem_index = 0;
-	hitinfo_out.sub_elem_coords.set(0.0f, 0.0f);
 
 	HitInfo ob_hit_info;
 
 	if(leafgeom.empty())
-	{
-		//thread_context.in_object_tree_traversal = false;
-		return -1.0;
-	}
+		return -1;
 
 	assert(nodestack_size > 0);
 	assert(!nodes.empty());
@@ -125,10 +108,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	far_t  = _mm_min_ss(far_t, Vec4f(ray_length).v); // far_t = min(far_t, ray_length)
 
 	if(_mm_comile_ss(near_t, far_t) == 0) // if(!(near_t <= far_t) == if near_t > far_t
-	{
-		//thread_context.in_object_tree_traversal = false;
-		return -1.0;
-	}
+		return -1;
 
 
 	SSE_ALIGN unsigned int ray_child_indices[8];
@@ -140,6 +120,12 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 		letterboxes[i] = -1;
 
 
+	// NOTE: Using thread_context.getObjectTreeContext().nodestack instead of a stack-allocated node stack seems to be very slightly faster.  Pretty close though.
+	assert(nodestack_size <= 64);
+	//SSE_ALIGN js::StackFrame nodestack[64];
+	js::StackFrame* nodestack = thread_context.getObjectTreeContext().nodestack;
+
+
 #ifdef OBJECTTREE_VERBOSE
 	printVar(aabb_enterdist);
 	printVar(aabb_exitdist);
@@ -147,19 +133,19 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 	Real closest_dist = ray_length; // std::numeric_limits<Real>::max();
 	//_mm_store_ss(&closest_dist, far_t); // closest_dist = far_t
 
-	object_context.nodestack[0].node = 0;
-	_mm_store_ss(&object_context.nodestack[0].tmin, near_t);
-	_mm_store_ss(&object_context.nodestack[0].tmax, far_t);
+	nodestack[0].node = 0;
+	_mm_store_ss(&nodestack[0].tmin, near_t);
+	_mm_store_ss(&nodestack[0].tmax, far_t);
 
 	int stacktop = 0;//index of node on top of stack
 
 	while(stacktop >= 0)//!nodestack.empty())
 	{
 		//pop node off stack
-		unsigned int current = object_context.nodestack[stacktop].node;
+		unsigned int current = nodestack[stacktop].node;
 		assert(current < nodes.size());
-		__m128 tmin = _mm_load_ss(&object_context.nodestack[stacktop].tmin);
-		__m128 tmax = _mm_load_ss(&object_context.nodestack[stacktop].tmax);
+		__m128 tmin = _mm_load_ss(&nodestack[stacktop].tmin);
+		__m128 tmax = _mm_load_ss(&nodestack[stacktop].tmax);
 
 		stacktop--;
 
@@ -200,10 +186,10 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 					// Ray hits plane - double recursion, into both near and far cells.
 					// Push far node onto stack to process later.
 					stacktop++;
-					assert(stacktop < object_context.nodestack_size);
-					object_context.nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
-					_mm_store_ss(&object_context.nodestack[stacktop].tmin, t_split);
-					_mm_store_ss(&object_context.nodestack[stacktop].tmax, tmax);
+					assert(stacktop < nodestack_size);
+					nodestack[stacktop].node = child_nodes[ray_child_indices[splitting_axis + 4]]; // far node
+					_mm_store_ss(&nodestack[stacktop].tmin, t_split);
+					_mm_store_ss(&nodestack[stacktop].tmax, tmax);
 
 					#ifdef DO_PREFETCHING
 					_mm_prefetch((const char *)(&nodes[child_nodes[ray_child_indices[splitting_axis + 4]]]), _MM_HINT_T0);	// Prefetch pushed child
@@ -229,7 +215,8 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 		{
 			assert(leaf_geom_index >= 0 && leaf_geom_index < leafgeom.size());
 
-			const INTERSECTABLE_TYPE* ob = leafgeom[leaf_geom_index];//get pointer to intersectable
+			const INTERSECTABLE_TYPE* const ob = leafgeom[leaf_geom_index];//get pointer to intersectable
+			const int ob_index = ob->getObjectIndex();
 
 			//assert(ob->getObjectIndex() >= 0 && ob->getObjectIndex() < (int)object_context.last_test_time.size());
 			#ifdef OBJECTTREE_VERBOSE
@@ -237,7 +224,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 			#endif
 
 			//if(object_context.last_test_time[ob->getObjectIndex()] != object_context.time) // If this object has not already been intersected against during this traversal
-			if(letterboxes[ob->getObjectIndex() & 0x00000007] != ob->getObjectIndex())
+			if(letterboxes[ob_index & 0x00000007] != ob_index)
 			{
 				const Real dist = ob->traceRay(
 					ray,
@@ -257,20 +244,16 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 				}
 
 				//object_context.last_test_time[ob->getObjectIndex()] = object_context.time;
-				letterboxes[ob->getObjectIndex() & 0x00000007] = ob->getObjectIndex();
+				letterboxes[ob_index & 0x00000007] = ob_index;
 			}
 			leaf_geom_index++;
 		}
 
 		if(_mm_comile_ss(_mm_load_ss(&closest_dist), tmax) != 0) // if(closest_dist <= tmax)
-		{
-			//thread_context.in_object_tree_traversal = false;
 			return closest_dist; // If intersection point lies before ray exit from this leaf volume, then finished.
-		}
 	}
 
-	//thread_context.in_object_tree_traversal = false;
-	return hitob_out ? closest_dist : (Real)-1.0;
+	return hitob_out ? closest_dist : -1;
 }
 
 
