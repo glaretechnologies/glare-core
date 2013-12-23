@@ -254,38 +254,85 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 {
 	assert(built());
 
-	// Compute pos_os_out, pos_os_rel_error_out, N_g_os_out
-	getPosAndGeomNormal(hitinfo, pos_os_out, pos_os_rel_error_out, N_g_os_out);
+	// NOTE: We'll manually inline the body of getPosAndGeomNormal() here in order to avoid the overhead of the virtual method call, and so we can reuse some variables.
 
-	mat_index_out = this->triangles[hitinfo.sub_elem_index].getTriMatIndex();
+
+	const float u = hitinfo.sub_elem_coords.x;
+	const float v = hitinfo.sub_elem_coords.y;
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+
+
+	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+
+	// Compute N_g_os_out
+	const Vec3f e0(v1.pos - v0.pos);
+	const Vec3f e1(v2.pos - v0.pos);
+	N_g_os_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+
+	assert(N_g_os_out.isUnitLength());
+
+
+	// Compute pos_os_out and pos_os_rel_error_out
+	pos_os_out = Vec3Type(
+		v0.pos.x * w + v1.pos.x * u + v2.pos.x * v,
+		v0.pos.y * w + v1.pos.y * u + v2.pos.y * v,
+		v0.pos.z * w + v1.pos.z * u + v2.pos.z * v,
+		1.f
+	);
+
+	// Compute absolute error in pos_os.
+	
+	// NOTE: assume delta_u = delta_v = delta_m.
+	//float del_u = std::numeric_limits<float>::epsilon(); // abs value of Relative error in u
+	//float del_v = std::numeric_limits<float>::epsilon(); // abs value of Relative error in v
+	float del_m = std::numeric_limits<float>::epsilon(); // Machine epsilon
+	float v0_norm = Numeric::L1Norm(v0.pos);
+	float v1_norm = Numeric::L1Norm(v1.pos);
+	float v2_norm = Numeric::L1Norm(v2.pos);
+
+	float pos_os_norm = Numeric::L1Norm(pos_os_out); // pos_os_out.getDist(Vec4f(0,0,0,1));
+
+	// Do the absolute error computation
+	float a = v0_norm;
+	float b = v1_norm;
+	float c = v2_norm;
+	//float eps = ((3*a + 4*c)*v + (3*a + 4*b)*u + 4*a)*del_m;  // Sage version
+	//float eps = (u*(del_u + 4*del_m) + v*(del_v + 4*del_m) + 3*del_m)*a + (del_u + 3*del_m)*u*b + (del_v + 3*del_m)*v*c; // Version if del_u, del_v != del_m
+	// Assuming |del_u| = |del_v| = del_m:
+	float eps = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
+
+	// Convert to relative error.
+	pos_os_rel_error_out = eps / pos_os_norm;
+
+
+	mat_index_out = tri.getTriMatIndex();
 
 	// Compute shading normal - set N_s_os_out.
-	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
 	if(tri.getUseShadingNormals() == 0)
 	{
 		N_s_os_out = N_g_os_out;
 	}
 	else
 	{
-		const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
-		const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
-		const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
+		const Vec3f& v0norm = v0.normal;
+		const Vec3f& v1norm = v1.normal;
+		const Vec3f& v2norm = v2.normal;
 
-		// Gratuitous removal of function calls
-		const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 		N_s_os_out = Vec3Type(
-			v0norm.x * w + v1norm.x * hitinfo.sub_elem_coords.x + v2norm.x * hitinfo.sub_elem_coords.y,
-			v0norm.y * w + v1norm.y * hitinfo.sub_elem_coords.x + v2norm.y * hitinfo.sub_elem_coords.y,
-			v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y,
+			v0norm.x * w + v1norm.x * u + v2norm.x * v,
+			v0norm.y * w + v1norm.y * u + v2norm.y * v,
+			v0norm.z * w + v1norm.z * u + v2norm.z * v,
 			0.f
-			);
+		);
 	}
 
 	// Compute curvature
-	curvature_out = 
-		vertices[tri.vertex_indices[0]].H * (1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y) + 
-		vertices[tri.vertex_indices[1]].H * hitinfo.sub_elem_coords.x + 
-		vertices[tri.vertex_indices[2]].H * hitinfo.sub_elem_coords.y;
+	curvature_out = v0.H * w + v1.H * u + v2.H * v;
 }
 
 
