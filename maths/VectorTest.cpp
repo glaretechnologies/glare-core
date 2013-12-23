@@ -87,9 +87,59 @@ static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
 }
 
 
+INDIGO_STRONG_INLINE const Vec4f testMulLoad(const Vec4f& a, float f)
+{
+	return _mm_mul_ps(a.v, _mm_load_ps1(&f));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f testMulSet(const Vec4f& a, float f)
+{
+	return _mm_mul_ps(a.v, _mm_set1_ps(f));
+}
+
+
 float VectorTest::test()
 {
-	Timer t;
+	int N = 10000000;
+
+	{
+		Timer timer;
+		Vec4f c(0.f);
+		Vec4f v(1.f, 2.f, 3.f, 4.f);
+		for(int i=0; i<N; ++i)
+		{
+			const float factor = (float)i;
+			const Vec4f temp = testMulSet(v, factor);
+			c += temp;
+		}
+
+		const double elapsed = timer.elapsed();
+		conPrint(c.toString());
+		conPrint("testMulSet : " + toString(elapsed));
+	}
+
+	{
+		Timer timer;
+		Vec4f c(0.f);
+		Vec4f v(1.f, 2.f, 3.f, 4.f);
+		for(int i=0; i<N; ++i)
+		{
+			const float factor = (float)i;
+			const Vec4f temp = testMulLoad(v, factor);
+			c += temp;
+		}
+
+		const double elapsed = timer.elapsed();
+		conPrint(c.toString());
+		conPrint("testMulLoad: " + toString(elapsed));
+	}
+
+	
+
+	return 1;
+
+	/*Timer t;
 	float elapsed = (float)t.elapsed();
 	Vec4f unitdir_(elapsed, elapsed + 2.f, elapsed + 3.f, 0);
 	Vec4f startpos_(elapsed + 4.f, elapsed + 5.f, elapsed + 6.f, 0);
@@ -124,7 +174,7 @@ float VectorTest::test()
 		conPrint(toString(c.z));
 		conPrint(timer.elapsedString());
 		return c.x;
-	}
+	}*/
 
 //	exit(0);
 	

@@ -359,7 +359,7 @@ inline void addScaledVec4SSE(const float* a, const float* b, float scale, float*
 			_mm_load_ps(a),
 			_mm_mul_ps(
 				_mm_load_ps(b),
-				_mm_load_ps1(&scale)
+				_mm_set1_ps(scale)
 				)
 			)
 		);

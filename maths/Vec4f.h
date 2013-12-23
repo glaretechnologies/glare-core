@@ -84,7 +84,13 @@ INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& a, const Vec4f& b)
 
 INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, float f)
 {
-	return _mm_mul_ps(a.v, _mm_load_ps1(&f));
+	return _mm_mul_ps(a.v, _mm_set1_ps(f));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f operator / (const Vec4f& a, float f)
+{
+	return _mm_div_ps(a.v, _mm_set1_ps(f));
 }
 
 
@@ -219,7 +225,7 @@ void Vec4f::operator -= (const Vec4f& a)
 
 void Vec4f::operator *= (float f)
 {
-	v = _mm_mul_ps(v, _mm_load_ps1(&f));
+	v = _mm_mul_ps(v, _mm_set1_ps(f));
 }
 
 

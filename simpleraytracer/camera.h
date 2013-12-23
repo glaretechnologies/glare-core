@@ -80,7 +80,6 @@ public:
 		Vec3Type forwards_dir_ws;
 		Vec3Type sensorpos_ws;
 		Vec3Type lenspos_ws;
-		Vec3Type sensor_to_lens_pos_os; // Needed for bidir
 		Vec3Type lens_exit_dir_ws;
 		const std::vector<const Medium*>* containing_media;
 		Real sensorpos_p;
@@ -89,6 +88,7 @@ public:
 		Real F; // camera contribution
 		Real exposure_duration;
 		Real sensitivity_scale;
+		//Real sensorpos_to_lenspos_dist;
 	};
 
 

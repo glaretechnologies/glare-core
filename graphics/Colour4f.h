@@ -96,7 +96,7 @@ INDIGO_STRONG_INLINE Colour4f operator - (const Colour4f& a, const Colour4f& b)
 
 INDIGO_STRONG_INLINE Colour4f operator * (const Colour4f& a, float f)
 {
-	return Colour4f(_mm_mul_ps(a.v, _mm_load_ps1(&f)));
+	return Colour4f(_mm_mul_ps(a.v, _mm_set1_ps(f)));
 }
 
 
@@ -228,7 +228,7 @@ void Colour4f::operator -= (const Colour4f& a)
 
 void Colour4f::operator *= (float f)
 {
-	v = _mm_mul_ps(v, _mm_load_ps1(&f));
+	v = _mm_mul_ps(v, _mm_set1_ps(f));
 }
 
 
@@ -246,7 +246,7 @@ bool Colour4f::operator == (const Colour4f& a) const
 
 void Colour4f::addMult(const Colour4f& a, float x)
 {
-	v = _mm_add_ps(v, _mm_mul_ps(a.v, _mm_load_ps1(&x)));
+	v = _mm_add_ps(v, _mm_mul_ps(a.v, _mm_set1_ps(x)));
 }
 
 
