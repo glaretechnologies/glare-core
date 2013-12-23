@@ -1,15 +1,7 @@
 /*=====================================================================
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
+Copyright Glare Technologies Limited 2013 -
 =====================================================================*/
-#ifndef __RAY_H_666_
-#define __RAY_H_666_
+#pragma once
 
 
 #include "../maths/Vec4f.h"
@@ -17,9 +9,21 @@ You may *not* use this code for any commercial project.
 #include "../maths/SSE.h"
 
 
-//#define USE_LAUNCH_NORMAL 1
+// From o:\indigo\trunk\embree\common\simd\smmintrin_emu.h
+INDIGO_STRONG_INLINE __m128 glare_mm_blendv_ps(__m128 value, __m128 input, __m128 mask) { 
+    return _mm_or_ps(_mm_and_ps(mask, input), _mm_andnot_ps(mask, value)); 
+}
+
+INDIGO_STRONG_INLINE __m128 glare_set_if_zero(const Vec4f& a, const Vec4f& b) {
+    return glare_mm_blendv_ps(a.v, b.v, _mm_cmpeq_ps (a.v, _mm_setzero_ps()));
+}
 
 
+/*=====================================================================
+Ray
+---
+Need not be normalised.
+=====================================================================*/
 SSE_CLASS_ALIGN Ray
 {
 public:
@@ -27,41 +31,20 @@ public:
 
 	INDIGO_STRONG_INLINE Ray() {}
 
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, 
-		float min_t_
-#if USE_LAUNCH_NORMAL
-		, const Vec4f& launch_normal_
-#endif
-		)
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
 		min_t(min_t_)
-#if USE_LAUNCH_NORMAL
-		,launch_normal(launch_normal_)//,
-#endif
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
 		assert(SSE::isSSEAligned(this));
 
-		/*
-			TEMP HACK:
-			We want to avoid 1/+0 = +Inf or 1/-0 = -Inf
-			so we set a maximum value that the reciprocal can take, and set
-			use_recip = clamp(recip, MIN_RECIP, MAX_RECIP),
-		*/
-		const float MAX_RECIP = 1.0e26f;
-		const SSE_ALIGN float MAX_RECIP_vec[4] = {MAX_RECIP, MAX_RECIP, MAX_RECIP, MAX_RECIP};
-
-		this->recip_unitdir_f = Vec4f(
-			_mm_min_ps(
-				_mm_load_ps(MAX_RECIP_vec),
-				_mm_div_ps(
-					_mm_load_ps(one_4vec),
-					unitdir_.v
-					)
-				)
-			);
+		// Compute reciprocal ray direction, but avoid infinities.  Code modified from Embree Ray class.
+		recip_unitdir_f = Vec4f(_mm_div_ps(
+			_mm_load_ps(one_4vec),
+			glare_set_if_zero(unitdir_, Vec4f(std::numeric_limits<float>::min())) // if unitdir is zero, use std::numeric_limits<float>::min() instead.
+		));
 	}
 
 	INDIGO_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
@@ -70,15 +53,8 @@ public:
 	INDIGO_STRONG_INLINE const Vec4f& startPosF() const { return startpos_f; }
 	INDIGO_STRONG_INLINE const Vec4f& unitDirF() const { return unitdir_f; }
 
-	//inline void setStartPos(const Vec3d& p) { startpos = p; startpos_f = Vec4f((float)p.x, (float)p.y, (float)p.z, 1.0f); }
-	//inline void setUnitDir(const Vec3d& p) { unitdir = p; unitdir_f = Vec4f((float)p.x, (float)p.y, (float)p.z, 0.0f); buildRecipRayDir(); }
-
-	//inline const Vec3d& getRecipRayDir() const;
 	INDIGO_STRONG_INLINE const Vec4f& getRecipRayDirF() const { return recip_unitdir_f; }
 
-	//inline void translateStartPos(const Vec3d& delta) { setStartPos(startPos() + delta); }
-
-	//inline const Vec3d point(const double t) const { return startPos() + unitDir() * t; }
 	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return Vec4f(startpos_f + Vec4f(unitdir_f * t)); }
 
 	INDIGO_STRONG_INLINE static float computeMinT(float origin_error, float cos_theta)
@@ -88,20 +64,9 @@ public:
 
 	INDIGO_STRONG_INLINE const float minT() const { return min_t; }
 	
-#if USE_LAUNCH_NORMAL
-	INDIGO_STRONG_INLINE const Vec4f& launchNormal() const { return launch_normal; }
-#endif
-
 private:
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
-#if USE_LAUNCH_NORMAL
-	Vec4f launch_normal;
-#endif
 	Vec4f recip_unitdir_f;
-
 	float min_t;
 };
-
-
-#endif //__RAY_H_666_
