@@ -8,13 +8,16 @@ Code By Nicholas Chapman.
 #define __MATUTILS_H_666_
 
 
+#include "../indigo/material.h"
+#include "../indigo/FullHitInfo.h"
+#include "../indigo/SampleTypes.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/basis.h"
-#include "../indigo/FullHitInfo.h"
-#include "../indigo/SampleTypes.h"
 class MTwister;
 class SpectralVector;
+class ThreadContext;
+
 
 
 /*=====================================================================
