@@ -6,10 +6,10 @@
 #include "../indigo/globals.h"
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4f.h"
-#include "../maths/vec3.h"
+#include "../maths/Vec4i.h"
 #include "../maths/SSE.h"
 #include "../utils/stringutils.h"
-#include "../utils/platform.h"
+#include "../utils/Vector.h"
 #include <vector>
 
 
@@ -23,7 +23,7 @@ class StackElement
 public:
 	unsigned int node_depth; // root node has depth zero.
 	unsigned int node_index;
-	Vec3<int> cell_i;
+	Vec4i cell_i;
 	Vec4f grid_orig;
 	Vec4f next_t;
 };
@@ -40,23 +40,15 @@ public:
 
 	inline void trace(const Ray& ray, float t_max, Result& result_out);
 
-	inline void build(const std::vector<js::AABBox>& primitive_aabbs);
-
 	const static int MAX_DEPTH = 64;
 
-private:
-	inline void doBuild(const std::vector<js::AABBox>& primitive_aabbs, const std::vector<uint32>& primitives, uint32 node_index,
-		const Vec4f& node_orig, int depth);
-public:
+
 	js::AABBox aabb;
 	CellTest cell_test;
 	std::vector<MultiLevelGridNode<NodeData> > nodes;
 	float cell_width[MAX_DEPTH]; // cell width for depth
 	float recip_cell_width[MAX_DEPTH]; // cell width for depth
 };
-
-
-typedef Vec3<int> Vec3i;
 
 
 template <class CellTest, class Result, class NodeData>
@@ -81,16 +73,6 @@ MultiLevelGrid<CellTest, Result, NodeData>::MultiLevelGrid(const Vec4f& min, con
 template <class CellTest, class Result, class NodeData>
 MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
 {
-}
-
-
-inline Vec3i floorToVec3i(const Vec4f& v)
-{
-	return Vec3i(
-		(int)v.x[0],
-		(int)v.x[1],
-		(int)v.x[2]
-	);
 }
 
 
@@ -121,9 +103,10 @@ Compute cell origin, given the grid origin, and the cell indices.
 }*/
 
 
-inline Vec4f toVec(const Vec3i& v)
+inline Vec4f toVec4f(const Vec4i& v)
 {
-	return Vec4f((float)v.x, (float)v.y, (float)v.z, 0);
+	return Vec4f(_mm_cvtepi32_ps(v.v));
+	//return Vec4f((float)v.x, (float)v.y, (float)v.z, 0);
 }
 
 
@@ -184,23 +167,23 @@ inline uint32 nextStepAxis(const Vec4f& next_t)
 	*/
 	uint32 table[8] = {2, 2, 0, 0, 1, 0, 1, 0};
 
-	uint32 axis = table[mask];
+/*	uint32 axis = table[mask];
 
-	assertOrDeclareUsed(	mask != 2 && mask != 5 &&
+	assert(	mask != 2 && mask != 5 &&
 			next_t[axis] <= next_t.x[0] &&
 			next_t[axis] <= next_t.x[1] &&
 			next_t[axis] <= next_t.x[2]
-	);
+	);*/
 
 	return table[mask];
 }
 				
 
-inline bool isCellIndexValid(const Vec3i& cell)
+inline bool isCellIndexValid(const Vec4i& cell)
 {
-	return	cell.x >= 0 && cell.x < MLG_RES &&
-			cell.y >= 0 && cell.y < MLG_RES &&
-			cell.z >= 0 && cell.z < MLG_RES;
+	return	cell.x[0] >= 0 && cell.x[0] < MLG_RES &&
+			cell.x[1] >= 0 && cell.x[1] < MLG_RES &&
+			cell.x[2] >= 0 && cell.x[2] < MLG_RES;
 }
 
 
@@ -249,17 +232,19 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 		return;
 
 	// Compute step increments, based on the sign of the ray direction.
-	const Vec3i sign(
+	const Vec4i sign(
 		ray.unitDir().x[0] >= 0.f ? 1 : -1, 
 		ray.unitDir().x[1] >= 0.f ? 1 : -1,
-		ray.unitDir().x[2] >= 0.f ? 1 : -1
+		ray.unitDir().x[2] >= 0.f ? 1 : -1,
+		1
 	);
 
 	// Compute the indices of the cell that we will traverse to when we step out of the grid bounds.
-	const Vec3i out(
+	const Vec4i out(
 		ray.unitDir().x[0] >= 0.f ? MLG_RES : -1, 
 		ray.unitDir().x[1] >= 0.f ? MLG_RES : -1, 
-		ray.unitDir().x[2] >= 0.f ? MLG_RES : -1
+		ray.unitDir().x[2] >= 0.f ? MLG_RES : -1,
+		1
 	);
 
 	const Vec4f recip_dir = ray.getRecipRayDirF();
@@ -272,11 +257,11 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	float t = min_t;
 	Vec4f p = ray.pointf(min_t); // Current point
 	Vec4f cur_grid_orig = this->aabb.min_; // Origin of current node.
-	Vec3i cell = floorToVec3i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
+	Vec4i cell = floorToVec4i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
 
-	cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
+	cell = clamp(cell, Vec4i(0), Vec4i(MLG_RES - 1)); // Clamp cell indices
 
-	Vec4f cell_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get origin of current cell
+	Vec4f cell_orig = cur_grid_orig + toVec4f(cell) * cell_width[depth]; // Get origin of current cell
 	Vec4f next_t = nextT(p - cell_orig, cell_width[depth], recip_dir); // distance along ray to next cell in each axis direction, from the original ray origin.
 
 	Vec4f t_delta = abs_recip_dir * cell_width[depth]; // Step in t for a cell step for each axis.
@@ -302,7 +287,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 		{	
 			// Get next cell
 			uint32 next_axis = nextStepAxis(next_t);
-			Vec3i next_cell = cell;
+			Vec4i next_cell = cell;
 			next_cell[next_axis] += sign[next_axis];
 			Vec4f new_next_t = next_t;
 			new_next_t.x[next_axis] += t_delta.x[next_axis];
@@ -322,13 +307,13 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 
 			// Traverse to child node
 			node = nodes[node].cellChildIndex(cell); // Go to child node.
-			cur_grid_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get child node grid origin
+			cur_grid_orig = cur_grid_orig + toVec4f(cell) * cell_width[depth]; // Get child node grid origin
 			depth++;
-			cell = floorToVec3i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
+			cell = floorToVec4i(Vec4f(p - cur_grid_orig) * recip_cell_width[depth]); // Get current cell indices from offset
 
-			cell = cell.clamp(Vec3i(0), Vec3i(MLG_RES - 1)); // Clamp cell indices
+			cell = clamp(cell, Vec4i(0), Vec4i(MLG_RES - 1)); // Clamp cell indices
 
-			cell_orig = cur_grid_orig + toVec(cell) * cell_width[depth]; // Get origin of current cell
+			cell_orig = cur_grid_orig + toVec4f(cell) * cell_width[depth]; // Get origin of current cell
 			next_t = Vec4f(t) + nextT(p - cell_orig, cell_width[depth], recip_dir);
 			t_delta = abs_recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
 
@@ -389,108 +374,3 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 		}
 	} // End while(1)
 }
-
-
-template <class CellTest, class Result, class NodeData>
-void MultiLevelGrid<CellTest, Result, NodeData>::build(const std::vector<js::AABBox>& primitive_aabbs)
-{
-	std::vector<uint32> primitives(primitive_aabbs.size());
-	for(size_t i=0; i<primitive_aabbs.size(); ++i)
-		primitives[i] = (uint32)i;
-
-	nodes.push_back(MultiLevelGridNode<NodeData>());
-	doBuild(primitive_aabbs, 
-		0, // node index
-		aabb.min_, 
-		0); // depth
-}
-
-
-/*
-process_node(primitives)
-
-	// for each cell, a list of primitives
-	list cell_primitives[64]
-
-	For each primitive
-
-		// Rasterise primitive:
-		for(z = floor((prim.aabb.min.z - node.min.z) / cell_w) z <= floor(prim.aabb.max); ++z)
-		for(y ...  )
-		for(x ...  )
-			add primitive to cell list
-
-	for each cell
-		if cell primitive list size > threshold
-			process_node(cell primitive list)   // Recurse
-		else
-			// Make this cell a leaf
-end
-
-*/
-template <class CellTest, class Result, class NodeData>
-void MultiLevelGrid<CellTest, Result, NodeData>::doBuild(const std::vector<js::AABBox>& primitive_aabbs, const std::vector<uint32>& primitives, uint32 node_index,
-	const Vec4f& node_orig, int depth)
-{
-	std::vector<uint32> cell_primitives[64];
-
-	for(size_t i=0; i<primitives.size(); ++i)
-	{
-		const js::AABBox& prim_aabb = primitive_aabbs[primitives[i]];
-
-		int z_begin = myMax(0, (int)((prim_aabb.min_.x[0] - node_orig.x[0]) * recip_cell_width[depth]));
-		int z_end = myMin(MLG_RES - 1, (int)((prim_aabb.min_.x[0] - node_orig.x[0]) * recip_cell_width[depth]));
-
-		for(int z=z_begin; z<z_end; ++z)
-		{
-			int y_begin = myMax(0, (int)((prim_aabb.min_.x[1] - node_orig.x[1]) * recip_cell_width[depth]));
-			int y_end = myMin(MLG_RES - 1, (int)((prim_aabb.min_.x[1] - node_orig.x[1]) * recip_cell_width[depth]));
-
-			for(int y=y_begin; y<y_end; ++y)
-			{
-				int x_begin = myMax(0, (int)((prim_aabb.min_.x[0] - node_orig.x[0]) * recip_cell_width[depth]));
-				int x_end = myMin(MLG_RES - 1, (int)((prim_aabb.min_.x[0] - node_orig.x[0]) * recip_cell_width[depth]));
-
-				for(int x=x_begin; x<x_end; ++x)
-				{
-					int cell_i = x + MLG_RES * (y + MLG_RES * z);
-
-					cell_primitives[cell_i].push_back(primitives[i]);
-				}
-			}
-		}
-	}
-
-	const size_t INTERIOR_THRESHOLD = 2;
-
-
-	int num_children = 0;
-
-	for(int z=0; z<MLG_RES; ++z)
-	for(int y=0; y<MLG_RES; ++y)
-	for(int x=0; x<MLG_RES; ++x)
-	{
-		int cell_i = x + MLG_RES * (y + MLG_RES * z);
-		if(cell_primitives[cell_i].size() >= INTERIOR_THRESHOLD)
-		{
-			// Make interior cell
-			if(num_children == 0)
-				nodes[node_index].base_child_index = nodes.size();
-
-			
-			nodes.push_back(MultiLevelGridNode<NodeData>()); // Create child node
-
-			Vec4f child_origin = node_orig + Vec4f(x, y, z, 0) * cell_width[depth];
-
-			// Recurse:
-			doBuild(primitive_aabbs, cell_primitives[cell_i], nodes.size() - 1, child_origin, depth + 1);
-
-			num_children++;
-		}
-		else
-		{
-			nodes[node_index].markCellAsInterior(x, y, z);
-		}
-	}
-}
-

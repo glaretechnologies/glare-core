@@ -329,3 +329,10 @@ INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4
 	c2 = unpacklo(h02,h13);
 	c3 = unpackhi(h02,h13);
 }
+
+
+INDIGO_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v) 
+{
+	//NOTE: round_ps is SSE4: http://msdn.microsoft.com/en-us/library/bb514047(v=vs.90).aspx
+	return Vec4i(_mm_cvtps_epi32(_mm_round_ps(v.v, _MM_FROUND_FLOOR)));
+}

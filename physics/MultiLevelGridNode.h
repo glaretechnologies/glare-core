@@ -2,7 +2,7 @@
 
 
 #include "../utils/platform.h"
-#include "../maths/vec3.h"
+#include "../maths/Vec4i.h"
 
 
 const int MLG_RES = 4;
@@ -23,7 +23,7 @@ public:
 		1 = interior
 		2 = leaf containing >= 1 object.
 	*/
-	inline bool cellIsInterior(const Vec3<int>& cell) const;
+	inline bool cellIsInterior(const Vec4i& cell) const;
 	//bool cellIsEmpty(int i, int j, int k);
 	//bool cellIsNonEmptyLeaf(int i, int j, int k);
 
@@ -31,9 +31,9 @@ public:
 	//unsigned int type;
 	//unsigned int child_index;
 
-	inline void markCellAsInterior(const Vec3<int>& cell);
+	inline void markCellAsInterior(const Vec4i& cell);
 
-	inline int cellChildIndex(const Vec3<int>& cell) const;
+	inline int cellChildIndex(const Vec4i& cell) const;
 
 	/*inline void setCellChildIndex(int i, int j, int k, int index)
 	{
@@ -63,6 +63,7 @@ MultiLevelGridNode<NodeData>::MultiLevelGridNode()
 
 inline uint64 mlgPopCount(uint64 x)
 {
+	//NOTE: popcnt was introduced with SSE4.2 (see http://en.wikipedia.org/wiki/SSE4)
 #if defined _WIN64
 	return __popcnt64(x);
 #elif defined _WIN32
@@ -83,18 +84,18 @@ inline uint64 mlgPopCount(uint64 x)
 
 
 template <class NodeData>
-bool MultiLevelGridNode<NodeData>::cellIsInterior(const Vec3<int>& cell) const
+bool MultiLevelGridNode<NodeData>::cellIsInterior(const Vec4i& cell) const
 {
-	int cell_i = cell.z*16 + cell.y*4 + cell.x;
+	int cell_i = cell.x[2]*16 + cell.x[1]*4 + cell.x[0];
 	return (interior >> cell_i) & 0x1; // Get ith bit
 }
 
 
 template <class NodeData>
-void MultiLevelGridNode<NodeData>::markCellAsInterior(const Vec3<int>& cell)
+void MultiLevelGridNode<NodeData>::markCellAsInterior(const Vec4i& cell)
 {
 	// Set bit i in interior to 1.
-	int cell_i = cell.z*16 + cell.y*4 + cell.x;
+	int cell_i = cell.x[2]*16 + cell.x[1]*4 + cell.x[0];
 	uint64 newbit = (uint64)1 << cell_i;
 	interior |= newbit;
 }
@@ -115,9 +116,9 @@ _	5	4	3	2	1	0	_
 */
 
 template <class NodeData>
-int MultiLevelGridNode<NodeData>::cellChildIndex(const Vec3<int>& cell) const
+int MultiLevelGridNode<NodeData>::cellChildIndex(const Vec4i& cell) const
 {
-	int cell_i = cell.z*16 + cell.y*4 + cell.x;
+	int cell_i = cell.x[2]*16 + cell.x[1]*4 + cell.x[0];
 
 	// We want to count the number of bits with value 1 with index greater than i.
 	uint32 num_prev_cells = (uint32)mlgPopCount((interior << (63 - cell_i)) & 0x7FFFFFFFFFFFFFFFull); // (uint32)mlgPopCount(interior >> (cell_i + 1));
