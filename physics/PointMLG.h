@@ -112,6 +112,9 @@ void PointMLG<PointData>::build(const std::vector<Point<PointData> >& points_)
 template <class PointData>
 void PointMLG<PointData>::doBuild(int node_i, const Vec4f& node_min, std::vector<Point<PointData> >& points, int begin, int end, std::vector<Point<PointData> >& temp, int depth)
 {
+	/*
+	//TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
+
 	// Update build stats
 	max_depth = myMax(max_depth, depth);
 
@@ -247,7 +250,7 @@ void PointMLG<PointData>::doBuild(int node_i, const Vec4f& node_min, std::vector
 
 			doBuild(child_indices[c], child_node_min, points, cell_begin, cell_end, temp, depth + 1);
 		}
-	}
+	}*/
 }
 
 template <class PointData>
@@ -271,6 +274,9 @@ void PointMLG<PointData>::getPointsInRadius(const Vec4f& query_p, float radius, 
 template <class PointData>
 void PointMLG<PointData>::doGetPointsInRadius(const Vec4f& p, float r, int node_i, const Vec4f& node_min, int depth, std::vector<Point<PointData> >& points_out) const
 {
+#if 0
+	//TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
+
 	//conPrint("doGetPointsInRadius(), node_i: " + toString(node_i) + ", depth: " + toString(depth) + "");
 
 	int num_node_points = grid->nodes[node_i].data.num_points;
@@ -334,5 +340,5 @@ void PointMLG<PointData>::doGetPointsInRadius(const Vec4f& p, float r, int node_
 			}
 		}
 	}
-
+#endif
 }

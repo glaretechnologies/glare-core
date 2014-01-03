@@ -214,6 +214,8 @@ inline bool isCellIndexValid(const Vec4i& cell)
 template <class CellTest, class Result, class NodeData>
 void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray_max_t, Result& result_out)
 {
+/*	//TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
+
 	const bool VERBOSE_TRAVERSAL = false;
 
 	StackElement stack[MAX_DEPTH];
@@ -373,4 +375,5 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			}
 		}
 	} // End while(1)
+	*/
 }

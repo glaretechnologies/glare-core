@@ -60,8 +60,11 @@ INDIGO_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) 
 
 
 // Note: _mm_min_epi32 and _mm_max_epi32 are SSE 4!
+/*
+TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
+
 INDIGO_STRONG_INLINE Vec4i min(const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_min_epi32(a.v, b.v)); } // SSE 4
 INDIGO_STRONG_INLINE Vec4i max(const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_max_epi32(a.v, b.v)); } // SSE 4
 
 INDIGO_STRONG_INLINE Vec4i clamp(const Vec4i& v, const Vec4i& a, const Vec4i& b) { return max(a, min(v, b)); }
-
+*/
