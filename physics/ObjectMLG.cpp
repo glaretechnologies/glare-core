@@ -122,7 +122,7 @@ void ObjectMLGCellTest::visit(const Ray& ray, uint32 node, const Vec4i& cell, co
 	for(size_t i=offset; i<offset + num; ++i)
 	{
 		HitInfo hitinfo;
-		float d = object_mlg->leaf_objects[i]->traceRay(ray, max_t_in_out, result_out.time, *result_out.thread_context, std::numeric_limits<unsigned int>::max(), hitinfo);
+		float d = 0.0; // TEMP object_mlg->leaf_objects[i]->traceRay(ray, max_t_in_out, result_out.time, *result_out.thread_context, std::numeric_limits<unsigned int>::max(), hitinfo);
 		if(d >= 0 && d < max_t_in_out)
 		{
 			max_t_in_out = d;
