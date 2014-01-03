@@ -41,7 +41,6 @@ private:
 	int data_size;
 	Real start_x;
 	Real end_x;
-	Real gap_width;
 	Real recip_gap_width;
 };
 
@@ -71,7 +70,6 @@ void InterpolatedTable1D<Real, Datum>::init(
 
 	assert(data.size() >= 2);
 	assert(end_x > start_x);
-	gap_width = (end_x - start_x) / (Real)(data.size() - 1);
 	recip_gap_width = (Real)(data.size() - 1) / (end_x - start_x);
 }
 
