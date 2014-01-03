@@ -20,12 +20,18 @@ template <class Real, class Datum>
 class InterpolatedTable1D
 {
 public:
+	inline InterpolatedTable1D(){}
 	inline InterpolatedTable1D(
 		const std::vector<Datum>& data,
 		Real start_x,
 		Real end_x
-		);
+	);
 	inline ~InterpolatedTable1D(){}
+
+	inline void init(const std::vector<Datum>& data,
+		Real start_x,
+		Real end_x
+	);
 
 
 	inline Datum getValue(Real x) const;
@@ -46,11 +52,23 @@ InterpolatedTable1D<Real, Datum>::InterpolatedTable1D(
 		Real start_x_,
 		Real end_x_
 )
-:	data(data_),
-	start_x(start_x_),
-	end_x(end_x_),
-	data_size((int)data_.size())
 {
+	init(data_, start_x_, end_x_);
+}
+
+
+template <class Real, class Datum>
+void InterpolatedTable1D<Real, Datum>::init(
+		const std::vector<Datum>& data_,
+		Real start_x_,
+		Real end_x_
+)
+{
+	data = data_;
+	start_x = start_x_;
+	end_x = end_x_;
+	data_size = (int)data_.size();
+
 	assert(data.size() >= 2);
 	assert(end_x > start_x);
 	gap_width = (end_x - start_x) / (Real)(data.size() - 1);
@@ -64,7 +82,7 @@ Datum InterpolatedTable1D<Real, Datum>::getValue(Real x) const
 	const float offset = (x - start_x) * recip_gap_width;
 	const int index = (int)offset;
 
-	if(index < 0)
+	if(offset < 0) // In the case where x < start_x, offset can be e.g. -0.1, which will be truncated to index = 0.  In this case we just want to return data[0].
 		return data[0];
 	if(index + 1 >= data_size)
 		return data[data_size - 1];
