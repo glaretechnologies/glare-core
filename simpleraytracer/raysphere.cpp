@@ -15,14 +15,15 @@ Copyright Glare Technologies Limited 2013 -
 #include "../indigo/object.h"
 
 
-RaySphere::RaySphere(double radius_)
+RaySphere::RaySphere(const Vec4f& centre_, double radius_)
+:	centre(centre_)
 {
 	radius = (Real)radius_;
 	radius_squared = (Real)(radius_ * radius_);
 	recip_radius = (Real)(1 / radius_);
 
-	aabbox.min_ = Vec4f(-(float)radius_, -(float)radius_, -(float)radius_, 1.f);
-	aabbox.max_ = Vec4f((float)radius_, (float)radius_, (float)radius_, 1.f);
+	aabbox.min_ = centre + Vec4f(-(float)radius_, -(float)radius_, -(float)radius_, 0.f);
+	aabbox.max_ = centre + Vec4f((float)radius_, (float)radius_, (float)radius_, 0.f);
 }
 
 
@@ -34,9 +35,8 @@ RaySphere::~RaySphere()
 Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
 {
 	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
-	// Sphere origin is at (0,0,0,1).
 
-	const Vec4f raystart_to_centre = Vec4f(0,0,0,1) - ray.startPos();
+	const Vec4f raystart_to_centre = centre - ray.startPos();
 
 	const Real u_dot_del_p = dot(raystart_to_centre, ray.unitDir());
 
@@ -52,7 +52,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t && t_0 <= max_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - Vec4f(0,0,0,1), recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
 		{
 			hitinfo_out.sub_elem_index = 0;
@@ -64,7 +64,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t && t_1 <= max_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - Vec4f(0,0,0,1.f), recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
 		{
 			hitinfo_out.sub_elem_index = 0;
@@ -86,7 +86,7 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_os_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
-	pos_os_out = Vec3Type(0,0,0,1) + N_g_os_out * this->radius;
+	pos_os_out = centre + N_g_os_out * this->radius;
 	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
 }
 
@@ -96,7 +96,7 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	N_s_os_out = N_g_os_out;
 	mat_index_out = 0;
-	pos_os_out = Vec3Type(0,0,0,1) + N_g_os_out * this->radius;
+	pos_os_out = centre + N_g_os_out * this->radius;
 	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
 	curvature_out = -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.
 }
@@ -106,7 +106,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const 
 {
 	hitinfos_out.resize(0);
 
-	const Vec4f raystart_to_centre = Vec4f(0,0,0,1) - ray.startPos();
+	const Vec4f raystart_to_centre = centre - ray.startPos();
 
 	const Real u_dot_del_p = dot(raystart_to_centre, ray.unitDir());
 
@@ -122,7 +122,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const 
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - Vec4f(0,0,0,1), recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 
 		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
 		{
@@ -137,7 +137,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const 
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - Vec4f(0,0,0,1.f), recip_radius);
+		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
 		{
 			hitinfos_out.push_back(DistanceHitInfo(
@@ -266,7 +266,7 @@ void RaySphere::test()
 
 	// Test traceRay()
 	{
-		RaySphere sphere(0.5);
+		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
 		const Ray ray(
 			Vec4f(-1,0,0,1),
@@ -284,7 +284,7 @@ void RaySphere::test()
 
 	// Test traceRay() in reverse direction
 	{
-		RaySphere sphere(0.5);
+		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
 		const Ray ray2(
 			Vec4f(1,0,0,1),
@@ -305,7 +305,7 @@ void RaySphere::test()
 
 	// Test getAllHits()
 	{
-		RaySphere sphere(0.5);
+		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
 		const Ray ray(
 			Vec4f(-1,0,0,1),
@@ -337,7 +337,7 @@ void RaySphere::test()
 
 	// Try tracing from inside sphere
 	{
-		RaySphere sphere(0.5);
+		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
 		const Ray ray3(
 			Vec4f(0.25f,0,0,1),
@@ -355,7 +355,7 @@ void RaySphere::test()
 
 	// Try getAllHits() from inside sphere
 	{
-		RaySphere sphere(0.5);
+		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
 		const Ray ray3(
 			Vec4f(0.25f,0,0,1),

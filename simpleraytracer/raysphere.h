@@ -16,7 +16,7 @@ SSE_CLASS_ALIGN RaySphere : public Geometry
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	RaySphere(double radius_);
+	RaySphere(const Vec4f& centre, double radius_);
 	virtual ~RaySphere();
 
 	////////////////////// Geometry interface ///////////////////
@@ -52,6 +52,7 @@ public:
 
 private:
 	js::AABBox aabbox;
+	Vec4f centre;
 	Real radius;
 	// Stuff below is precomputed for efficiency.
 	Real radius_squared;

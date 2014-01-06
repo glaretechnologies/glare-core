@@ -233,7 +233,7 @@ void ObjectTreeTest::doTests()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		Reference<Geometry> raysphere(new RaySphere(Vec4f(0,0,0,1), rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
@@ -489,7 +489,7 @@ void ObjectTreeTest::doSpeedTest()
 	const int N = 1000;
 	for(int i=0; i<N; ++i)
 	{
-		Reference<Geometry> raysphere(new RaySphere(rng.unitRandom() * 0.05));
+		Reference<Geometry> raysphere(new RaySphere(Vec4f(0,0,0,1), rng.unitRandom() * 0.05));
 
 		const Vec4f pos(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f);
 
