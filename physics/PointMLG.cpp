@@ -33,6 +33,7 @@ static bool operator == (const Point<TestPointData>& a, const Point<TestPointDat
 }
 
 
+#ifdef BUILD_TESTS
 void doPointMLGTests()
 {
 	{
@@ -112,3 +113,4 @@ void doPointMLGTests()
 		}
 	}
 }
+#endif
