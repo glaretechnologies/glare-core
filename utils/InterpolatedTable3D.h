@@ -37,6 +37,15 @@ public:
 
 	Real getStartX() const { return start_x; }
 	Real getEndX() const { return end_x; }
+	Real getInvXStep() const { return recip_x_step; }
+
+	Real getStartY() const { return start_y; }
+	Real getEndY() const { return end_y; }
+	Real getInvYStep() const { return recip_y_step; }
+
+	Real getStartZ() const { return start_z; }
+	Real getEndZ() const { return end_z; }
+	Real getInvZStep() const { return recip_z_step; }
 
 	static void test();
 

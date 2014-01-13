@@ -34,7 +34,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 
 
 	// Compute direction numbers V[1] to V[L], scaled by pow(2,32)
-	for(uint32 i = 1; i <= 32; i++) 
+	for(uint32 i = 1; i <= 32; i++)
 		V[0][i] = 1 << (32 - i); // all m's = 1
 
 	// ----- Read V for other dimensions -----
