@@ -40,6 +40,7 @@ public:
 
 
 	inline void constructFromVector(const Vec4f& vec);
+	static inline const Vec4f constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v);
 
 	inline bool operator == (const Matrix4f& a) const;
 
@@ -306,6 +307,39 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	e[13] = 0.0f;
 	e[14] = 0.0f;
 	e[15] = 1.0f;
+}
+
+
+inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v)
+{
+	Vec4f v2; // x axis
+
+	// From PBR
+	if(std::fabs(vec[0]) > std::fabs(vec[1]))
+	{
+		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
+
+		v2.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
+	}
+	else
+	{
+		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
+
+		v2.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
+	}
+
+	assert(v2.isUnitLength());
+
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
+
+	const Vec4f v1 = crossProduct(vec, v2);
+
+	return v2 * other_v.x[0] + v1 * other_v.x[1] + vec * other_v.x[2];
 }
 
 

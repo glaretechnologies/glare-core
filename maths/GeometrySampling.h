@@ -41,6 +41,7 @@ namespace GeometrySampling
 	template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePair& unit_samples);
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
+	template <class VecType> const VecType sampleHemisphereCosineWeighted(const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 	///// Both hemispheres with cosine weighting ////
@@ -492,6 +493,28 @@ const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const Sam
 	p_out = z * Maths::recipPi<float>();
 
 	return VecType(to_world * dir);
+}
+
+
+template <class VecType>
+const VecType sampleHemisphereCosineWeighted(const SamplePair& unitsamples, float& p_out)
+{
+	// Sample unit disc
+	Vec2<typename VecType::RealType> disc = shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples);
+
+	const float z = std::sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y)));
+
+	const VecType dir(
+		disc.x, 
+		disc.y, 
+		z, 
+		0
+	);
+	assert(dir.isUnitLength());
+
+	p_out = z * Maths::recipPi<float>();
+
+	return dir;
 }
 
 
