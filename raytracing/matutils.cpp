@@ -254,7 +254,7 @@ Real dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i_)
 	// http://en.wikipedia.org/wiki/Snell%27s_law
 
 	const Real sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
-	const Real sintheta_t = sintheta_i * n1 / n2; // Use Snell's law to get sin(theta_t)
+	const Real sintheta_t = sintheta_i * (n1 / n2); // Use Snell's law to get sin(theta_t)
 
 	if(sintheta_t >= 1)
 		return 1; // Total internal reflection
@@ -263,10 +263,23 @@ Real dielectricFresnelReflectance(Real n1, Real n2, Real cos_theta_i_)
 
 	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
 
+	// New method that only needs one divide:
+	const Real a2 = Maths::square(n1*cos_theta_i - n2*costheta_t);
+	const Real b2 = Maths::square(n1*cos_theta_i + n2*costheta_t);
+
+	const Real c2 = Maths::square(n2*cos_theta_i - n1*costheta_t);
+	const Real d2 = Maths::square(n1*costheta_t + n2*cos_theta_i);
+
+	const Real r = (Real)0.5 * (a2*d2 + b2*c2) / (b2*d2);
+
+#ifndef NDEBUG
 	const Real r_perp = (n1*cos_theta_i - n2*costheta_t) / (n1*cos_theta_i + n2*costheta_t); // R_s in wikipedia, electric field polarised along material surface
 	const Real r_par = (n2*cos_theta_i - n1*costheta_t) / (n1*costheta_t + n2*cos_theta_i); // R_p in wikipedia, electric field polarised on plane of incidence
+	const Real ref_r = (r_par*r_par + r_perp*r_perp) * (Real)0.5;
 
-	const Real r = (r_par*r_par + r_perp*r_perp) * (Real)0.5;
+	assert(Maths::approxEq(r, ref_r, 1.0e-6f));
+#endif
+
 	assert(Maths::inUnitInterval(r));
 	return r;
 }
