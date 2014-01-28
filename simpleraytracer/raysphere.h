@@ -20,8 +20,8 @@ public:
 	virtual ~RaySphere();
 
 	////////////////////// Geometry interface ///////////////////
-	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;

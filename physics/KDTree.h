@@ -74,9 +74,9 @@ public:
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
-	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, std::vector<DistanceHitInfo>& hitinfos_out) const;
 
 	//inline virtual const Vec3f triGeometricNormal(unsigned int tri_index) const; //slow
 

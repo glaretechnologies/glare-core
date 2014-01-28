@@ -32,7 +32,7 @@ RaySphere::~RaySphere()
 }
 
 
-Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
 	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
 
@@ -53,24 +53,18 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	if(t_0 >= use_min_t && t_0 <= max_t)
 	{
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
-		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
-		{
-			hitinfo_out.sub_elem_index = 0;
-			hitinfo_out.sub_elem_coords = uvs;
-			return t_0;
-		}
+		hitinfo_out.sub_elem_index = 0;
+		hitinfo_out.sub_elem_coords = uvs;
+		return t_0;
 	}
 
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t && t_1 <= max_t)
 	{
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
-		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
-		{
-			hitinfo_out.sub_elem_index = 0;
-			hitinfo_out.sub_elem_coords = uvs;
-			return t_1;
-		}
+		hitinfo_out.sub_elem_index = 0;
+		hitinfo_out.sub_elem_coords = uvs;
+		return t_1;
 	}
 
 	return -1;
@@ -102,7 +96,7 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 }
 
 
-void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -124,28 +118,23 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, const 
 	{
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 
-		if(!object || object->isNonNullAtHit(thread_context, ray, t_0, 0, uvs.x, uvs.y))
-		{
-			hitinfos_out.push_back(DistanceHitInfo(
-				0, // sub elem index
-				uvs,
-				t_0 // dist
-			));
-		}
+		hitinfos_out.push_back(DistanceHitInfo(
+			0, // sub elem index
+			uvs,
+			t_0 // dist
+		));
 	}
 
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t)
 	{
 		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
-		if(!object || object->isNonNullAtHit(thread_context, ray, t_1, 0, uvs.x, uvs.y))
-		{
-			hitinfos_out.push_back(DistanceHitInfo(
-				0, // sub elem index
-				uvs,
-				t_1 // dist
-			));
-		}
+		
+		hitinfos_out.push_back(DistanceHitInfo(
+			0, // sub elem index
+			uvs,
+			t_1 // dist
+		));
 	}
 }
 
@@ -276,7 +265,7 @@ void RaySphere::test()
 		
 		HitInfo hitinfo;
 		double d = sphere.traceRay(ray, 1000.0, thread_context, 
-			NULL, hitinfo);
+			hitinfo);
 
 		testAssert(::epsEqual(d, 0.5));
 		testAssert(hitinfo.sub_elem_index == 0);
@@ -293,12 +282,12 @@ void RaySphere::test()
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray2, 1000.0, thread_context, NULL, hitinfo);
+		double d = sphere.traceRay(ray2, 1000.0, thread_context, hitinfo);
 		testAssert(::epsEqual(d, 0.5));
 		testAssert(hitinfo.sub_elem_index == 0);
 
 		// Test with max dist = 0.1
-		d = sphere.traceRay(ray2, 0.1, thread_context, NULL, hitinfo);
+		d = sphere.traceRay(ray2, 0.1, thread_context, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -313,7 +302,7 @@ void RaySphere::test()
 			1.0e-5f // min_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray, thread_context, NULL, hitinfos);
+		sphere.getAllHits(ray, thread_context, hitinfos);
 
 		testAssert(hitinfos.size() == 2);
 
@@ -346,10 +335,10 @@ void RaySphere::test()
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray3, 1000.0, thread_context, NULL, hitinfo);
+		double d = sphere.traceRay(ray3, 1000.0, thread_context, hitinfo);
 		testAssert(::epsEqual(d, 0.25));
 
-		d = sphere.traceRay(ray3, 0.24, thread_context, NULL, hitinfo);
+		d = sphere.traceRay(ray3, 0.24, thread_context, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -363,7 +352,7 @@ void RaySphere::test()
 			1.0e-5f // min_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray3, thread_context, NULL, hitinfos);
+		sphere.getAllHits(ray3, thread_context, hitinfos);
 
 		testAssert(hitinfos.size() == 1);
 		testAssert(epsEqual(hitinfos[0].dist, 0.25f));

@@ -99,13 +99,12 @@ const std::string RayMesh::getName() const
 
 
 //returns negative number if object not hit by the ray
-Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
+Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
 	return tritree->traceRay(
 		ray,
 		max_t,
 		thread_context,
-		object,
 		hitinfo_out
 	);
 }
@@ -117,12 +116,11 @@ const js::AABBox& RayMesh::getAABBoxWS() const
 }
 
 
-void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	tritree->getAllHits(
 		ray, // ray 
 		thread_context, 
-		object, // object context
 		hitinfos_out
 		);
 }

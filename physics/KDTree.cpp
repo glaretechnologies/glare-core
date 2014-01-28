@@ -170,7 +170,7 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, const Object* object, HitInfo& hitinfo_out) const
+KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
@@ -326,13 +326,10 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 				{
 					//TEMP assert(raydist < closest_dist);
 
-					if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, triangle_index, u, v)) // Do visiblity check for null materials etc..
-					{
-						closest_dist = raydist;
-						closest_dist_d = raydist;
-						hitinfo_out.sub_elem_index = triangle_index;
-						hitinfo_out.sub_elem_coords.set(u, v);
-					}
+					closest_dist = raydist;
+					closest_dist_d = raydist;
+					hitinfo_out.sub_elem_index = triangle_index;
+					hitinfo_out.sub_elem_coords.set(u, v);
 				}
 
 			#ifdef USE_LETTERBOX
@@ -352,10 +349,9 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadCont
 }
 
 
-void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const
+void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::TriTreePerThreadData& context*/, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	assertSSEAligned(&ray);
-	assertSSEAligned(object);
 	assert(!nodes.empty());
 
 	//const float epsilon = ray.startPos().length() * TREE_EPSILON_FACTOR;
@@ -502,14 +498,11 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 
 					if(!already_got_hit)
 					{
-						if(!object || object->isNonNullAtHit(thread_context, ray, (double)raydist, leafgeom[triindex], u, v)) // Do visiblity check for null materials etc..
-						{
-							hitinfos_out.push_back(DistanceHitInfo(
-								leafgeom[triindex],
-								HitInfo::SubElemCoordsType(u, v),
-								raydist
-								));
-						}
+						hitinfos_out.push_back(DistanceHitInfo(
+							leafgeom[triindex],
+							HitInfo::SubElemCoordsType(u, v),
+							raydist
+						));
 					}
 				}
 			#ifdef USE_LETTERBOX
