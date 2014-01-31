@@ -249,7 +249,7 @@ int URL::getFirstSlashPos(const std::string& urlstring)//returns -1 if no slash
 		}
 	}
 
-	if(first_slashpos == urlstring.length())
+	if(first_slashpos == (int)urlstring.length())
 	{
 		//no slash found
 		return -1;
