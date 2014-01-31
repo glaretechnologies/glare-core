@@ -357,22 +357,20 @@ void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referenc
 
 void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, Material::Real target_BSDF)
 {
-	PolarisationVec bsdfs;
-	float p_a_given_b;
-
+	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
 		false, // sampled delta
-		bsdfs,
-		p_a_given_b, NULL);
+		true, 
+		res);
 
-	for(unsigned int i=0; i<bsdfs.size(); ++i)
+	for(unsigned int i=0; i<res.bsdfs.size(); ++i)
 	{
-		if(!epsEqual(bsdfs[i], target_BSDF))
+		if(!epsEqual(res.bsdfs[i], target_BSDF))
 		{
-			printVar(bsdfs[i]);
+			printVar(res.bsdfs[i]);
 			printVar(target_BSDF);
 		}
-		testAssert(epsEqual(bsdfs[i], target_BSDF));
+		testAssert(epsEqual(res.bsdfs[i], target_BSDF));
 	}
 }
 
@@ -399,25 +397,25 @@ void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinf
 
 void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
 {
-	PolarisationVec bsdfs;
-	float p_a_given_b;
+	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
 		false, // sampled delta
-		bsdfs, p_a_given_b, NULL);
+		true, 
+		res);
 
-	testAssert(bsdfs.isZero());
+	testAssert(res.bsdfs.isZero());
 }
 
 
 void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
 {
-	PolarisationVec bsdfs;
-	float p_a_given_b;
+	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
 		false, // sampled delta
-		bsdfs, p_a_given_b, NULL);
+		true,
+		res);
 
-	testAssert(bsdfs.minVal() > 0);
+	testAssert(res.bsdfs.minVal() > 0);
 }
 
 
