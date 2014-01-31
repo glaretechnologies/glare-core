@@ -36,15 +36,15 @@ public:
 
 	~BIHTree();
 
-	virtual void build(PrintOutput& print_output);
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
 	virtual bool diskCachable();
 	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output);
 	virtual void saveTree(std::ostream& stream);
 	virtual uint32 checksum();
 
-	virtual double traceRay(const Ray& ray, double max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, HitInfo& hitinfo_out) const;
+	virtual double traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, const Object* object, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const std::string debugName() const { return "BIH"; }
 
 	virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
