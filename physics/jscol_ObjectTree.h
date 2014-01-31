@@ -76,8 +76,8 @@ private:
 					std::vector<SortedBoundInfo>& upper,
 					std::vector<SortedBoundInfo>& lower);
 
-	bool intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb, int split_axis,
-								bool is_neg_child);
+	//bool intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb, int split_axis,
+	//							bool is_neg_child);
 
 	void doWriteModel(int currentnode, const AABBox& node_aabb, std::ostream& stream, int& num_verts) const;
 

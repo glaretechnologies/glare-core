@@ -975,6 +975,7 @@ bool ObjectTree::doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const 
 }
 
 
+#if 0
 bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb, int split_axis,
 								bool is_neg_child)
 {
@@ -1090,6 +1091,7 @@ bool ObjectTree::intersectableIntersectsAABB(INTERSECTABLE_TYPE* ob, const AABBo
 	return true;
 #endif
 }
+#endif
 
 
 /*
