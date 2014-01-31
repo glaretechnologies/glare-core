@@ -40,11 +40,6 @@ Code By Nicholas Chapman.
 #define OPENCL_MEM_LOG
 #endif
 
-#ifdef  OPENCL_MEM_LOG
-static size_t OpenCL_global_alloc = 0; // Total number of bytes allocated
-//static size_t OpenCL_global_pinned_alloc = 0; // Total number of bytes allocated in pinned host memory
-#endif
-
 
 extern "C"
 {

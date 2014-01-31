@@ -318,15 +318,15 @@ void DisplacementUtils::subdivideAndDisplace(
 	ThreadContext& context,
 	const std::vector<Reference<Material> >& materials,
 	bool subdivision_smoothing,
-	const js::Vector<RayMeshTriangle, 16>& triangles_in, 
-	const js::Vector<RayMeshQuad, 16>& quads_in,
-	const std::vector<RayMeshVertex>& vertices_in,
+	const RayMesh::TriangleVectorType& triangles_in, 
+	const RayMesh::QuadVectorType& quads_in,
+	const RayMesh::VertexVectorType& vertices_in,
 	const std::vector<Vec2f>& uvs_in,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
 	bool use_shading_normals,
-	js::Vector<RayMeshTriangle, 16>& tris_out, 
-	std::vector<RayMeshVertex>& verts_out,
+	RayMesh::TriangleVectorType& tris_out, 
+	RayMesh::VertexVectorType& verts_out,
 	std::vector<Vec2f>& uvs_out
 	)
 {
@@ -2446,13 +2446,13 @@ void DisplacementUtils::test()
 
 	//=========================== Test subdivision of quads ==========================
 	{
-		std::vector<RayMeshVertex> vertices(6);
+		RayMesh::VertexVectorType vertices(6);
 		std::vector<Vec2f> uvs(8);
-		js::Vector<RayMeshTriangle, 16> triangles;
-		js::Vector<RayMeshQuad, 16> quads(2);
+		RayMesh::TriangleVectorType triangles;
+		RayMesh::QuadVectorType quads(2);
 
-		js::Vector<RayMeshTriangle, 16> triangles_out;
-		std::vector<RayMeshVertex> verts_out;
+		RayMesh::TriangleVectorType triangles_out;
+		RayMesh::VertexVectorType verts_out;
 		std::vector<Vec2f> uvs_out;
 
 
@@ -2560,13 +2560,13 @@ void DisplacementUtils::test()
 
 	//=========================== Test subdivision of a mesh composed of both tris and quads ==========================
 	{
-		std::vector<RayMeshVertex> vertices(6);
+		RayMesh::VertexVectorType vertices(6);
 		std::vector<Vec2f> uvs(8);
-		js::Vector<RayMeshTriangle, 16> triangles(2);
-		js::Vector<RayMeshQuad, 16> quads(1);
+		RayMesh::TriangleVectorType triangles(2);
+		RayMesh::QuadVectorType quads(1);
 
-		js::Vector<RayMeshTriangle, 16> triangles_out;
-		std::vector<RayMeshVertex> verts_out;
+		RayMesh::TriangleVectorType triangles_out;
+		RayMesh::VertexVectorType verts_out;
 		std::vector<Vec2f> uvs_out;
 
 

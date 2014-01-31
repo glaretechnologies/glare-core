@@ -155,15 +155,15 @@ public:
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
 		bool subdivision_smoothing,
-		const js::Vector<RayMeshTriangle, 16>& tris_in,
-		const js::Vector<RayMeshQuad, 16>& quads_in,
-		const std::vector<RayMeshVertex>& verts_in,
+		const RayMesh::TriangleVectorType& tris_in,
+		const RayMesh::QuadVectorType& quads_in,
+		const RayMesh::VertexVectorType& verts_in,
 		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
 		bool use_shading_normals,
-		js::Vector<RayMeshTriangle, 16>& tris_out,
-		std::vector<RayMeshVertex>& verts_out,
+		RayMesh::TriangleVectorType& tris_out,
+		RayMesh::VertexVectorType& verts_out,
 		std::vector<Vec2f>& uvs_out
 	);
 

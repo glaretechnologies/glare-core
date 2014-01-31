@@ -32,10 +32,16 @@ enum RayMesh_ShadingNormals
 };
 
 
-class RayMeshTriangle
+#ifdef _MSC_VER // If we are compiling with visual studio:
+#pragma warning ( push )
+#pragma warning ( disable: 4324 ) // Disable 'structure was padded due to __declspec(align())'
+#endif
+
+
+// Should have a size of 32 bytes
+SSE_CLASS_ALIGN RayMeshTriangle
 {
 public:
-	
 	RayMeshTriangle() : tri_mat_index(0) {}
 	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, RayMesh_ShadingNormals use_shading_normals) 
 	:	tri_mat_index((matindex << 1) | (uint32)use_shading_normals)
@@ -73,6 +79,7 @@ private:
 };
 
 
+// Should have a size of 48 bytes.
 SSE_CLASS_ALIGN RayMeshQuad
 {
 public:
@@ -113,11 +120,12 @@ public:
 
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
-	uint32_t padding[2];
+	//uint32_t padding[2];
 };
 
 
-class RayMeshVertex
+// Should have a size of 32 bytes.
+SSE_CLASS_ALIGN RayMeshVertex
 {
 public:
 	RayMeshVertex(){}
@@ -130,7 +138,7 @@ public:
 	Vec3f pos;
 	Vec3f normal;
 	float H; // Mean curvature
-	float padding;
+	//float padding;
 
 	inline bool operator < (const RayMeshVertex& b) const
 	{
@@ -144,6 +152,11 @@ public:
 
 	inline bool operator == (const RayMeshVertex& other) const { return pos == other.pos && normal == other.normal; }
 };
+
+
+#ifdef _MSC_VER // If we are compiling with visual studio:
+#pragma warning ( pop ) // re-enable 'structure was padded due to __declspec(align())'
+#endif
 
 
 /*=====================================================================
@@ -239,10 +252,14 @@ public:
 	void printTreeStats();
 	void printTraceStats();
 
+	typedef js::Vector<RayMeshVertex, 32> VertexVectorType;
+	typedef js::Vector<RayMeshTriangle, 32> TriangleVectorType;
+	typedef js::Vector<RayMeshQuad, 16> QuadVectorType;
 
-	std::vector<RayMeshVertex>& getVertices() { return vertices; }
-	const std::vector<RayMeshVertex>& getVertices() const { return vertices; }
-	const js::Vector<RayMeshTriangle, 16>& getTriangles() const { return triangles; }
+
+	VertexVectorType& getVertices() { return vertices; }
+	const VertexVectorType& getVertices() const { return vertices; }
+	const TriangleVectorType& getTriangles() const { return triangles; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
 	const unsigned int numUVSets() const { return num_uv_sets; }
@@ -269,9 +286,9 @@ private:
 	bool enable_normal_smoothing;
 
 
-	std::vector<RayMeshVertex> vertices;
-	js::Vector<RayMeshTriangle, 16> triangles;
-	js::Vector<RayMeshQuad, 16> quads;
+	VertexVectorType vertices;
+	TriangleVectorType triangles;
+	QuadVectorType quads;
 
 	float bounding_radius; // Computed in build()
 	

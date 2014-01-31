@@ -563,8 +563,8 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
 					camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
 
-				js::Vector<RayMeshTriangle, 16> temp_tris;
-				std::vector<RayMeshVertex> temp_verts;
+				js::Vector<RayMeshTriangle, 32> temp_tris;
+				js::Vector<RayMeshVertex, 32> temp_verts;
 				std::vector<Vec2f> temp_uvs;
 
 				DUOptions options;
@@ -708,8 +708,8 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 	assert(quads.empty());
 
 
-	js::Vector<RayMeshTriangle, 16> current_triangles = triangles;
-	js::Vector<RayMeshTriangle, 16> new_triangles;
+	RayMesh::TriangleVectorType current_triangles = triangles;
+	RayMesh::TriangleVectorType new_triangles;
 	
 	// For each plane
 	for(size_t p=0; p<section_planes_os.size(); ++p)
@@ -1600,7 +1600,7 @@ void RayMesh::printTraceStats()
 }
 
 
-static inline const Vec3f triGeometricNormal(const std::vector<RayMeshVertex>& verts, unsigned int v0, unsigned int v1, unsigned int v2)
+static inline const Vec3f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
 	const Vec3f& p0 = verts[v0].pos, p1 = verts[v1].pos, p2 = verts[v2].pos;
 	const Vec3f e0 = p1 - p0;
@@ -1737,7 +1737,7 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	}
 
 	VertToIndexMap new_vert_indices;
-	std::vector<RayMeshVertex> newverts;
+	RayMesh::VertexVectorType newverts;
 	newverts.reserve(vertices.size());
 	
 	for(size_t t = 0; t < triangles.size(); ++t)

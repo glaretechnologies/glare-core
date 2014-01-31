@@ -17,6 +17,12 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #include "../utils/stringutils.h"
 
 
+#ifdef OPENCL_MEM_LOG
+static size_t OpenCL_global_alloc = 0; // Total number of bytes allocated
+//static size_t OpenCL_global_pinned_alloc = 0; // Total number of bytes allocated in pinned host memory
+#endif
+
+
 OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_)
 :	opencl(opencl_)
 {
