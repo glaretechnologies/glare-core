@@ -198,7 +198,7 @@ void doTests()
 
 	{
 		const Vec4f d = sphericalToCartesianCoords((float)NICKMATHS_PI * (3.0f/2.0f), cos((float)NICKMATHS_PI_2), Matrix4f::identity());
-		assert(epsEqual(d, Vec4f(0, -1, 0,0)));
+		testAssert(epsEqual(d, Vec4f(0, -1, 0,0)));
 	}
 
 	testAssert(epsEqual(sphericalCoordsForDir(Vec3d(1,0,0), 1.0), Vec2d(0.0, NICKMATHS_PI_2)));

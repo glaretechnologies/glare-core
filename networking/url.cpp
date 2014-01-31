@@ -16,7 +16,7 @@ URL::URL(const std::string& url_)
 		url = url.substr(7, url.length() - 7);
 
 	//-----------------------------------------------------------------
-	//find first / or \
+	//find first '/' or '\'
 	//-----------------------------------------------------------------
 	const int first_slashpos = getFirstSlashPos(url);
 
