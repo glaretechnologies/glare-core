@@ -11,6 +11,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 #include "../indigo/PolarisationVec.h"
 #include "../indigo/globals.h"
 #include "../utils/stringutils.h"
+#include "../utils/platformutils.h"
 
 
 InterpolatedTable::InterpolatedTable(
@@ -26,9 +27,10 @@ InterpolatedTable::InterpolatedTable(
 	end_y(end_y_),
 	y_step((end_y_ - start_y_) / (data_.getHeight() - 1)),
 	recip_y_step((data_.getHeight() - 1) / (end_y_ - start_y_)),
-	data(data_)
+	data(data_),
+	width_minus_1((int)data_.getWidth() - 1),
+	height_minus_1((int)data_.getHeight() - 1)
 {
-
 }
 
 
@@ -53,7 +55,7 @@ t_x*t_y*d
 */
 
 template <class Real> 
-Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
+static inline Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 {
 	const Real one_t_x = 1 - t_x;
 	const Real one_t_y = 1 - t_y;
@@ -65,24 +67,21 @@ Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 }
 
 
-InterpolatedTable::Real InterpolatedTable::getValue(Real wavelength, Real y) const
+InterpolatedTable::Real InterpolatedTable::getValue(Real x_, Real y_) const
 {
-	const int y_index = myClamp((int)((y - start_y) * recip_y_step), 0, (int)data.getHeight() - 1);
-	const int y_index_1 = myMin(y_index + 1, (int)data.getHeight() - 1);
+	// Do the max with zero with the floating point input, otherwise t will end up < 0 for input < 0.
 
-	// Calculate interpolation parameter along y axis.
-	const Real t_y = (y - (start_y + (float)y_index * y_step)) * recip_y_step;
+	const Real x = ((myMax<Real>(x_, 0) - start_x) * recip_x_step);
+	const int x_index =   myMin((int)x,      width_minus_1);
+	const int x_index_1 = myMin(x_index + 1, width_minus_1);
+	const Real t_x = x - x_index;
 
-	assert(t_y >= -0.01f && t_y <= 1.01f);
+	const Real y = (myMax<Real>(y_, 0) - start_y) * recip_y_step;
+	const int y_index   = myMin((int)y,      height_minus_1);
+	const int y_index_1 = myMin(y_index + 1, height_minus_1);
+	const Real t_y = y - y_index;
 
-	const Real w = wavelength;
-	const int x_index = myClamp((int)((w - start_x) * recip_x_step), 0, (int)data.getWidth() - 1);
-	const int x_index_1 = myMin(x_index + 1, (int)data.getWidth() - 1);
-
-	// Calculate interpolation parameter along x axis.
-	const Real t_x = (w - (start_x + (float)x_index * x_step)) * recip_x_step;
-
-	assert(t_x >= -0.01f && t_x <= 1.01);
+	assert(t_x >= 0.0f && t_y >= 0.0f);
 
 	return biLerp(
 		data.elem(x_index, y_index),
@@ -142,6 +141,7 @@ void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, Pol
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/CycleTimer.h"
 
 
 void InterpolatedTable::test()
@@ -172,6 +172,34 @@ void InterpolatedTable::test()
 
 	// Test bottom edge to right
 	testAssert(epsEqual(table.getValue(0.75f, 1.0f), 2.75f));
+
+
+	// Test out-of-bounds access
+	testAssert(epsEqual(table.getValue(-0.1f, -0.1f), 0.f));
+	testAssert(epsEqual(table.getValue(1.1f, 1.1f), 3.f));
+
+
+
+	// Perf test
+#if !defined(OSX) // Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+	{
+		// Run test
+		CycleTimer timer;
+		float sum = 0;
+		const int N = 1000000;
+		for(int n=0; n<N; ++n)
+		{
+			float x = n * 0.000001f;
+			float y = n * 0.000045f;
+
+			sum += table.getValue(x, y);
+		}
+
+		const double cycles = timer.getCyclesElapsed() / (double)(N);
+		conPrint("cycles: " + toString(cycles));
+		printVar(sum);
+	}
+#endif
 }
 
 

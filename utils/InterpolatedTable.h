@@ -52,13 +52,16 @@ public:
 	static void test();
 
 private:
-	Real start_x;
-	Real end_x;
-	Real x_step;
-	Real recip_x_step;
-	Real start_y;
-	Real end_y;
-	Real y_step;
-	Real recip_y_step;
 	Array2d<Real> data;
+	Real start_x;
+	Real start_y;
+	Real recip_x_step;
+	Real recip_y_step;
+	int width_minus_1;
+	int height_minus_1;
+
+	Real x_step;
+	Real y_step;
+	Real end_x;
+	Real end_y;
 };

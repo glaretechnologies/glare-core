@@ -31,6 +31,10 @@ InterpolatedTable3D::InterpolatedTable3D(
 	z_step((end_z_ - start_z_) / (data_.dZ() - 1)),
 	recip_z_step((data_.dZ() - 1) / (end_z_ - start_z_)),
 
+	num_x_minus_1((int)data_.dX() - 1),
+	num_y_minus_1((int)data_.dY() - 1),
+	num_z_minus_1((int)data_.dZ() - 1),
+
 	data(data_)
 {
 }
@@ -56,7 +60,7 @@ t_x*t_y*d
 */
 
 template <class Real> 
-Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
+static inline Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 {
 	const Real one_t_x = 1 - t_x;
 	const Real one_t_y = 1 - t_y;
@@ -68,37 +72,26 @@ Real biLerp(Real a, Real b, Real c, Real d, Real t_x, Real t_y)
 }
 
 
-InterpolatedTable3D::Real InterpolatedTable3D::getValue(Real x, Real y, Real z) const
+InterpolatedTable3D::Real InterpolatedTable3D::getValue(Real x_, Real y_, Real z_) const
 {
 	//NOTE: could optimise this by doing the evaluation of the indices and t values with SSE.
 
-	//////////// z ///////////
-	const int z_index = myClamp((int)((z - start_z) * recip_z_step), 0, (int)data.dZ() - 1);
-	const int z_index_1 = myMin(z_index + 1, (int)data.dZ() - 1);
+	// Do the max with zero with the floating point input, otherwise t will end up < 0 for input < 0.
 
-	// Calculate interpolation parameter along z axis.
-	const Real t_z = (z - (start_z + z_index * z_step)) * recip_z_step;
+	const Real x = ((myMax<Real>(x_, 0) - start_x) * recip_x_step);
+	const int x_index =   myMin((int)x,      num_x_minus_1);
+	const int x_index_1 = myMin(x_index + 1, num_x_minus_1);
+	const Real t_x = x - x_index;
 
-	assert(t_z >= -0.01f && t_z <= 1.01f);
+	const Real y = (myMax<Real>(y_, 0) - start_y) * recip_y_step;
+	const int y_index   = myMin((int)y,      num_y_minus_1);
+	const int y_index_1 = myMin(y_index + 1, num_y_minus_1);
+	const Real t_y = y - y_index;
 
-	//////////// y ///////////
-	const int y_index = myClamp((int)((y - start_y) * recip_y_step), 0, (int)data.dY() - 1);
-	const int y_index_1 = myMin(y_index + 1, (int)data.dY() - 1);
-
-	// Calculate interpolation parameter along y axis.
-	const Real t_y = (y - (start_y + y_index * y_step)) * recip_y_step;
-
-	assert(t_y >= -0.01f && t_y <= 1.01f);
-
-	//////////// x ///////////
-	const int x_index = myClamp((int)((x - start_x) * recip_x_step), 0, (int)data.dX() - 1);
-	const int x_index_1 = myMin(x_index + 1, (int)data.dX() - 1);
-
-	// Calculate interpolation parameter along x axis.
-	const Real t_x = (x - (start_x + x_index * x_step)) * recip_x_step;
-
-	assert(t_x >= 0 && t_x <= 1.01);
-
+	const Real z = (myMax<Real>(z_, 0) - start_z) * recip_z_step;
+	const int z_index   = myMin((int)z,      num_z_minus_1);
+	const int z_index_1 = myMin(z_index + 1, num_z_minus_1);
+	const Real t_z = z - z_index;
 
 	const Real val_z = biLerp(
 		data.e(x_index,   y_index,   z_index),
@@ -123,11 +116,11 @@ InterpolatedTable3D::Real InterpolatedTable3D::getValue(Real x, Real y, Real z) 
 }
 
 
-
 #if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/CycleTimer.h"
 
 
 void InterpolatedTable3D::test()
@@ -184,6 +177,28 @@ void InterpolatedTable3D::test()
 
 	// Test bottom edge to right
 	testAssert(epsEqual(table.getValue(0.75f, 1.0f, 1.f), 5.75f));
+
+		// Perf test
+#if !defined(OSX) // Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+	{
+		// Run test
+		CycleTimer timer;
+		float sum = 0;
+		const int N = 1000000;
+		for(int n=0; n<N; ++n)
+		{
+			float x = n * 0.000001f;
+			float y = n * 0.000045f;
+			float z = n * 0.00005465f;
+
+			sum += table.getValue(x, y, z);
+		}
+
+		const double cycles = timer.getCyclesElapsed() / (double)(N);
+		conPrint("cycles: " + toString(cycles));
+		printVar(sum);
+	}
+#endif
 }
 
 

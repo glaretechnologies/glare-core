@@ -50,20 +50,21 @@ public:
 	static void test();
 
 private:
-	Real start_x;
-	Real end_x;
-	Real x_step;
-	Real recip_x_step;
-
-	Real start_y;
-	Real end_y;
-	Real y_step;
-	Real recip_y_step;
-
-	Real start_z;
-	Real end_z;
-	Real z_step;
-	Real recip_z_step;
-
 	Array3D<Real> data;
+	Real start_x;
+	Real start_y;
+	Real start_z;
+	Real recip_x_step;
+	Real recip_y_step;
+	Real recip_z_step;
+	int num_x_minus_1;
+	int num_y_minus_1;
+	int num_z_minus_1;
+
+	Real end_x;
+	Real end_y;
+	Real end_z;
+	Real x_step;
+	Real y_step;
+	Real z_step;
 };

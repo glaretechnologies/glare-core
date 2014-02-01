@@ -34,8 +34,8 @@ public:
 	js::Vector<T, 16>& getData() { return data; }
 	const js::Vector<T, 16>& getData() const { return data; }
 private:
-	unsigned int dx, dy, dz;
 	js::Vector<T, 16> data;
+	unsigned int dx, dy, dz;
 };
 
 
