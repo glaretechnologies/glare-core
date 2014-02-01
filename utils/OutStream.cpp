@@ -28,12 +28,6 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 }
 
 
-void OutStream::writeUInt64(uint64 x)
-{
-	writeData(&x, sizeof(x), NULL);
-}
-
-
 void OutStream::writeDouble(double x)
 {
 	writeData(&x, sizeof(x), NULL);

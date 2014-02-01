@@ -198,7 +198,7 @@ public:
 				succeeded = true;
 				break;
 			}
-			catch(MySocketExcep& e)
+			catch(MySocketExcep& )
 			{
 				conPrint("Exception occurred.. waiting");
 				// Server socket may not be accepting connections yet, so wait a while
