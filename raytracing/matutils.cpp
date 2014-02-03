@@ -22,6 +22,7 @@ Code By Nicholas Chapman.
 // Explicit template instantiation
 template void MatUtils::refractInSurface(const Vec4f& surface_normal, const Vec4f& incident_raydir, float src_refindex, float dest_refindex, Vec4f& exit_raydir_out, bool& totally_internally_reflected_out);
 template float MatUtils::dielectricFresnelReflectance(float srcn, float destn, float incident_cos_theta);
+template float MatUtils::dielectricFresnelReflectanceForSrcIOROne(float n2, float recip_n2, float cos_theta_i_);
 template void MatUtils::dielectricAmplitudeReflectionAndTransmissionCoefficients(float srcn, float destn, float incident_cos_theta, float& r_perp_out, float& r_par_out, float& t_perp_out, float& t_par_out);
 
 
@@ -240,6 +241,48 @@ const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real 
 	const Real F_par = F_perp * (a2 + b2 - 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta) / (a2 + b2 + 2.0f*a*sin_theta*tan_theta + sin2_theta*tan_theta*tan_theta);
 
 	return Vec2<Real>(F_perp, F_par);
+}
+
+
+template <class Real>
+Real dielectricFresnelReflectanceForSrcIOROne(Real n2, Real recip_n2, Real cos_theta_i_)
+{
+	assert(recip_n2 <= 1);
+	assert(cos_theta_i_ >= 0);
+	const Real cos_theta_i = myMin<Real>(1, cos_theta_i_);
+
+	// Get transmitted cos theta using Snell's law
+	// http://en.wikipedia.org/wiki/Snell%27s_law
+
+	const Real sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	const Real sintheta_t = sintheta_i * recip_n2; // Use Snell's law to get sin(theta_t)
+	
+	// Since n1 = 1, n2 >= 1, so TIR won't occur.
+	assert(sintheta_t <= 1);
+
+	const Real costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
+
+	// Now get the fraction reflected vs refracted with the Fresnel equations: http://en.wikipedia.org/wiki/Fresnel_equations
+
+	// New method that only needs one divide:
+	const Real a2 = Maths::square(cos_theta_i - n2*costheta_t);
+	const Real b2 = Maths::square(cos_theta_i + n2*costheta_t);
+
+	const Real c2 = Maths::square(n2*cos_theta_i - costheta_t);
+	const Real d2 = Maths::square(costheta_t + n2*cos_theta_i);
+
+	const Real r = (Real)0.5 * (a2*d2 + b2*c2) / (b2*d2);
+
+#ifndef NDEBUG
+	const Real r_perp = (cos_theta_i - n2*costheta_t) / (cos_theta_i + n2*costheta_t); // R_s in wikipedia, electric field polarised along material surface
+	const Real r_par = (n2*cos_theta_i - costheta_t) / (costheta_t + n2*cos_theta_i); // R_p in wikipedia, electric field polarised on plane of incidence
+	const Real ref_r = (r_par*r_par + r_perp*r_perp) * (Real)0.5;
+
+	assert(Maths::approxEq(r, ref_r, 1.0e-6f));
+#endif
+
+	assert(Maths::inUnitInterval(r));
+	return r;
 }
 
 

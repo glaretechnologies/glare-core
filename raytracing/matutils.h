@@ -78,6 +78,7 @@ namespace MatUtils
 	template <class Real> const Vec2<Real> polarisedConductorFresnelReflectanceExact(Real n, Real k, Real cos_theta);
 
 	template <class Real> Real dielectricFresnelReflectance(Real srcn, Real destn, Real incident_cos_theta);
+	template <class Real> Real dielectricFresnelReflectanceForSrcIOROne(Real n2, Real recip_n2, Real cos_theta_i_);
 
 	// Returns (r_perp, r_par)
 	template <class Real> void dielectricAmplitudeReflectionAndTransmissionCoefficients(Real srcn, Real destn, Real incident_cos_theta,

@@ -9,6 +9,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 #include "array2d.h"
 #include "../indigo/PolarisationVec.h"
+#include "../maths/vec2.h"
 
 
 /*=====================================================================
@@ -36,6 +37,7 @@ public:
 	~InterpolatedTable();
 
 	Real getValue(Real wavelength, Real y) const;
+	const Vec2f getValues(const Vec2f& x_vals, Real y) const;
 	void getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const;
 
 

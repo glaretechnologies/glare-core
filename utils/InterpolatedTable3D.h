@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include "Array3D.h"
+#include "../maths/vec2.h"
 
 
 /*=====================================================================
@@ -31,6 +32,7 @@ public:
 
 	// Get interpolated value
 	Real getValue(Real x, Real y, Real z) const;
+	const Vec2f getValues(const Vec2f& x_vals, Real y, Real z) const;
 
 
 	const Array3D<Real>& getData() const { return data; }
