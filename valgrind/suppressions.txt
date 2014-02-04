@@ -7,3 +7,13 @@
 	fun:zipCloseFileInZipRaw
 	fun:zipCloseFileInZip
 }
+
+{
+	IndigoScenePacker_fill_window_issue
+	Memcheck:Cond
+	fun:fill_window
+	fun:deflate_stored
+	fun:deflate
+	fun:zipWriteInFileInZip
+}
+
