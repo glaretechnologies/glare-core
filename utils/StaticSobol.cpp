@@ -9,6 +9,7 @@ Generated at Mon Jul 30 23:42:17 +0100 2012
 
 #include "Exception.h"
 #include "fileutils.h"
+#include "BitUtils.h"
 #include <vector>
 #include <fstream>
 
@@ -20,7 +21,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 		const std::string dir_data_path = FileUtils::join(indigo_base_dir_path, "data/dirdata.bin");
 		std::ifstream dir_file(FileUtils::convertUTF8ToFStreamPath(dir_data_path).c_str(), std::ios::in | std::ios::binary);
 		if(!dir_file)
-			throw Indigo::Exception("Could not open direction number data file");
+			throw Indigo::Exception("Could not open dirdata.bin data file");
 
 		dir_file.read((char *)&direction_nums[0], 418214 * sizeof(uint32));
 	}
@@ -75,6 +76,11 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 	for(uint32 z = 0; z < 32; ++z)
 		dir_nums[d * 32 + z] = V[d][z + 1];
 
+	transposed_dir_nums.resize(num_dims * 32);
+	for (int i = 0; i < 32; ++i)
+	for (int d = 0; d < num_dims; ++d)
+		transposed_dir_nums[i * num_dims + d] = V[d][i + 1];
+
 	// Free temporary memory used in intialising the Sobol direction numbers
 	for(uint32 j = 0; j < num_dims; ++j)
 		delete[] V[j];
@@ -94,6 +100,70 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 StaticSobol::~StaticSobol()
 {
 
+}
+
+
+void StaticSobol::evalRecursiveSSE(const uint32_t sample_idx, uint32_t * const sample_out) const
+{
+	const uint32_t bit_index = BitUtils::lowestZeroBitIndex(sample_idx - 1);
+	float const * const dir_nums = (float const * const)&transposed_dir_nums[bit_index * num_dims];
+
+	for (int d = 0; d < num_dims; d += 16)
+	{
+		const __m128 s0 = _mm_load_ps((const float *)&sample_out[d +  0]);
+		const __m128 s1 = _mm_load_ps((const float *)&sample_out[d +  4]);
+		const __m128 s2 = _mm_load_ps((const float *)&sample_out[d +  8]);
+		const __m128 s3 = _mm_load_ps((const float *)&sample_out[d + 12]);
+
+		const __m128 v0 = _mm_load_ps((const float *)&dir_nums[d +  0]);
+		const __m128 v1 = _mm_load_ps((const float *)&dir_nums[d +  4]);
+		const __m128 v2 = _mm_load_ps((const float *)&dir_nums[d +  8]);
+		const __m128 v3 = _mm_load_ps((const float *)&dir_nums[d + 12]);
+
+		_mm_store_ps((float *)&sample_out[d +  0], _mm_xor_ps(s0, v0));
+		_mm_store_ps((float *)&sample_out[d +  4], _mm_xor_ps(s1, v1));
+		_mm_store_ps((float *)&sample_out[d +  8], _mm_xor_ps(s2, v2));
+		_mm_store_ps((float *)&sample_out[d + 12], _mm_xor_ps(s3, v3));
+	}
+}
+
+
+void StaticSobol::evalSampleBlock(const uint32_t base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32_t * const samples_out) const
+{
+	assert(sample_block_size % 16 == 0); // Because we unroll the sample computation with SSE
+
+	// Compute the first sample via "random access" evaluation in greycode order
+	{
+		const uint32 graycode_sample_idx = base_sample_idx ^ (base_sample_idx / 2);
+		for(uint32 z = 0; z < sample_depth; ++z)
+			samples_out[z] = evalSample(graycode_sample_idx, z);
+	}
+
+	for(uint32 i = 1; i < sample_block_size; ++i)
+	{
+		const uint32 sample_idx = base_sample_idx + i;
+		const uint32 bit_index = BitUtils::lowestZeroBitIndex(sample_idx);
+
+		float const * const dir_nums = (float const * const)&transposed_dir_nums[bit_index * StaticSobol::num_dims];
+
+		for (int d = 0; d < sample_depth; d += 16)
+		{
+			const __m128 s0 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  0]);
+			const __m128 s1 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  4]);
+			const __m128 s2 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  8]);
+			const __m128 s3 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d + 12]);
+
+			const __m128 v0 = _mm_load_ps((const float *)&dir_nums[d +  0]);
+			const __m128 v1 = _mm_load_ps((const float *)&dir_nums[d +  4]);
+			const __m128 v2 = _mm_load_ps((const float *)&dir_nums[d +  8]);
+			const __m128 v3 = _mm_load_ps((const float *)&dir_nums[d + 12]);
+
+			_mm_store_ps((float *)&samples_out[i * sample_depth + d +  0], _mm_xor_ps(s0, v0));
+			_mm_store_ps((float *)&samples_out[i * sample_depth + d +  4], _mm_xor_ps(s1, v1));
+			_mm_store_ps((float *)&samples_out[i * sample_depth + d +  8], _mm_xor_ps(s2, v2));
+			_mm_store_ps((float *)&samples_out[i * sample_depth + d + 12], _mm_xor_ps(s3, v3));
+		}
+	}
 }
 
 
