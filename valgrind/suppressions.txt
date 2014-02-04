@@ -1,0 +1,9 @@
+{
+	IndigoScenePacker_zipCloseFileInZipRaw64_issue
+	Memcheck:Param
+	write(buf)
+	...
+	fun:zipCloseFileInZipRaw64
+	fun:zipCloseFileInZipRaw
+	fun:zipCloseFileInZip
+}
