@@ -84,7 +84,7 @@ void alignedFree(void* addr)
 void SSETest()
 {
 	conPrint("SSETest()");
-	{
+	
 
 	// Test myAlignedMalloc, myAlignedFree
 	for(int i=0; i<1000; ++i)
@@ -104,109 +104,6 @@ void SSETest()
 	}
 
 
-	// Test accuracy of divisions
-	const SSE_ALIGN float a[4] = {1.0e0f, 1.0e-1f, 1.0e-2f, 1.0e-3f};
-	const SSE_ALIGN float b[4] = {1.1f,1.01f,1.001f,1.0001f};
-	const SSE_ALIGN float c[4] = {0.99999999999f,0.99999999f,0.9999999f,0.999999f};
-	SSE_ALIGN float r1[4] = {1,1,1,1};
-	SSE_ALIGN float r2[4] = {1,1,1,1};
-
-	// r1 := a / (b-c)
-
-	_mm_store_ps(
-		r1,
-		_mm_div_ps(
-			_mm_load_ps(a),
-			_mm_sub_ps(
-				_mm_load_ps(b),
-				_mm_load_ps(c)
-				)
-			)
-		);
-
-	for(int z=0; z<4; ++z)
-	{
-		r2[z] = a[z] / (b[z] - c[z]);
-
-		//conPrint(::floatToString(r1[z], 20));
-		//conPrint(::floatToString(r2[z], 20));
-	}
-
-
-	const int N = 200000 * 4;
-	float* data1 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
-	float* data2 = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
-	float* res = (float*)SSE::alignedMalloc(sizeof(float) * N, 16);
-
-	for(int i=0; i<N; ++i)
-	{
-		data1[i] = 1.0;
-		data2[i] = (float)(i + 1);
-	}
-
-	//conPrint("running divisions...");
-
-	Timer timer;
-
-	/*for(int i=0; i<N; ++i)
-	{
-		res[i] = data1[i] / data2[i];
-	}*/
-	for(int i=0; i<N; i+=4)
-	{
-		/*const __m128 d1 = _mm_load_ps(data1 + i);
-		const __m128 d2 = _mm_load_ps(data2 + i);
-		const __m128 r = _mm_div_ps(d1, d2);
-		_mm_store_ps(res + i, r);*/
-		store4Vec(div4Vec(load4Vec(data1 + i), load4Vec(data2 + i)), res + i);
-	}
-
-	//const double elapsed_time = timer.getSecondsElapsed();
-	//const double clock_freq = 2.67e9;
-	//const double elapsed_cycles = elapsed_time * clock_freq;
-	//const double cycles_per_iteration = elapsed_cycles / (double)N;
-
-	double sum = 0;
-	for(int i=0; i<N; ++i)
-		sum += (double)res[i];
-
-	//printVar(sum);
-	//printVar(elapsed_time);
-	//printVar(elapsed_cycles);
-	//printVar(cycles_per_iteration);
-
-	SSE::alignedFree(data1);
-	SSE::alignedFree(data2);
-	SSE::alignedFree(res);
-
-	}
-
-
-	{
-		CycleTimer cycle_timer;
-
-		const float N = 100000;
-		int actual_num_cycles = 0;
-
-		SSE_ALIGN float c[4];
-
-		float f;
-		for( f=0; f<N; f += 1.f)
-		{
-			__m128 i_v = _mm_load1_ps(&f);
-
-			_mm_store_ps(c, i_v);
-
-			actual_num_cycles++;
-		}
-
-		const uint64 cycles = cycle_timer.elapsed();
-		printVar((float)cycles);
-		printVar((float)cycles / N);
-		printVar(actual_num_cycles);
-		printVar(f);
-		printVar(c[0]);
-	}
 
 	/*conPrint("\n====================Scalar max ===============");
 	{
@@ -231,6 +128,7 @@ void SSETest()
 		printVar(sum);
 	}*/
 
+#if !defined(OSX)
 	conPrint("\n====================Test SSE horizontal max ===============");
 	{
 		CycleTimer cycle_timer;
@@ -255,6 +153,7 @@ void SSETest()
 		printVar((float)cycles / N);
 		printVar(sum);
 	}
+#endif // !defined(OSX)
 
 	{
 		SSE_ALIGN float x[4] = { 1.f, 2.f, 3.f, 4.f };
