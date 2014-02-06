@@ -1,41 +1,43 @@
 # indigo libs
 
+set (fftsssrcdir "${fftssdir}/libfftss")
+
 set(fftss 
-${fftssdir}/fftss_2d.c    ${fftssdir}/fftss_counter.c       ${fftssdir}/fftss_execute_dft_1d.c          
-#${fftssdir}/fftss_fortran.c   
-${fftssdir}/fftss_set.c      ${fftssdir}/fftss_version.c
-${fftssdir}/fftss_3d.c    ${fftssdir}/fftss_cpuid.c         ${fftssdir}/fftss_execute_dft.c             
-${fftssdir}/fftss_get_wtime.c  ${fftssdir}/fftss_table.c
-${fftssdir}/fftss.c       ${fftssdir}/fftss_destroy_plan.c  ${fftssdir}/fftss_execute_inplace_dft_1d.c  
-${fftssdir}/fftss_kset.c       ${fftssdir}/fftss_test.c
-${fftssdir}/fftss_copy.c  ${fftssdir}/fftss_execute.c       ${fftssdir}/fftss_fma.c                     
-${fftssdir}/fftss_malloc.c     ${fftssdir}/fftss_threads.c
+${fftsssrcdir}/fftss_2d.c    ${fftsssrcdir}/fftss_counter.c       ${fftsssrcdir}/fftss_execute_dft_1d.c          
+#${fftsssrcdir}/fftss_fortran.c   
+${fftsssrcdir}/fftss_set.c      ${fftsssrcdir}/fftss_version.c
+${fftsssrcdir}/fftss_3d.c    ${fftsssrcdir}/fftss_cpuid.c         ${fftsssrcdir}/fftss_execute_dft.c             
+${fftsssrcdir}/fftss_get_wtime.c  ${fftsssrcdir}/fftss_table.c
+${fftsssrcdir}/fftss.c       ${fftsssrcdir}/fftss_destroy_plan.c  ${fftsssrcdir}/fftss_execute_inplace_dft_1d.c  
+${fftsssrcdir}/fftss_kset.c       ${fftsssrcdir}/fftss_test.c
+${fftsssrcdir}/fftss_copy.c  ${fftsssrcdir}/fftss_execute.c       ${fftsssrcdir}/fftss_fma.c                     
+${fftsssrcdir}/fftss_malloc.c     ${fftsssrcdir}/fftss_threads.c
 
-${fftssdir}/r4_cmplx_n.c  ${fftssdir}/r4_fma_n.c  ${fftssdir}/r4_fma_o.c  ${fftssdir}/r4_fma_u1.c  ${fftssdir}/r4_fma_u4.c ${fftssdir}/r4_n.c ${fftssdir}/r4_o.c 
-${fftssdir}/r4_sse2_1_n.c ${fftssdir}/r4_sse2_o.c ${fftssdir}/r4_sse2_u1.c ${fftssdir}/r4_sse2_u4.c
-${fftssdir}/r4_sse3_h_n.c ${fftssdir}/r4_sse3_h_o.c ${fftssdir}/r4_sse3_h_u1.c ${fftssdir}/r4_sse3_n.c ${fftssdir}/r4_sse3_o.c ${fftssdir}/r4_sse3_u1.c ${fftssdir}/r4_sse3_u4.c 
-${fftssdir}/r4_u1.c ${fftssdir}/r4_u4.c
+${fftsssrcdir}/r4_cmplx_n.c  ${fftsssrcdir}/r4_fma_n.c  ${fftsssrcdir}/r4_fma_o.c  ${fftsssrcdir}/r4_fma_u1.c  ${fftsssrcdir}/r4_fma_u4.c ${fftsssrcdir}/r4_n.c ${fftsssrcdir}/r4_o.c 
+${fftsssrcdir}/r4_sse2_1_n.c ${fftsssrcdir}/r4_sse2_o.c ${fftsssrcdir}/r4_sse2_u1.c ${fftsssrcdir}/r4_sse2_u4.c
+${fftsssrcdir}/r4_sse3_h_n.c ${fftsssrcdir}/r4_sse3_h_o.c ${fftsssrcdir}/r4_sse3_h_u1.c ${fftsssrcdir}/r4_sse3_n.c ${fftsssrcdir}/r4_sse3_o.c ${fftsssrcdir}/r4_sse3_u1.c ${fftsssrcdir}/r4_sse3_u4.c 
+${fftsssrcdir}/r4_u1.c ${fftsssrcdir}/r4_u4.c
 
-${fftssdir}/r8_fma_n.c ${fftssdir}/r8_fma_o.c ${fftssdir}/r8_fma_u1.c ${fftssdir}/r8_n.c ${fftssdir}/r8_o.c 
-${fftssdir}/r8_sse2_n.c ${fftssdir}/r8_sse2_o.c ${fftssdir}/r8_sse2_u1.c ${fftssdir}/r8_u1.c
+${fftsssrcdir}/r8_fma_n.c ${fftsssrcdir}/r8_fma_o.c ${fftsssrcdir}/r8_fma_u1.c ${fftsssrcdir}/r8_n.c ${fftsssrcdir}/r8_o.c 
+${fftsssrcdir}/r8_sse2_n.c ${fftsssrcdir}/r8_sse2_o.c ${fftsssrcdir}/r8_sse2_u1.c ${fftsssrcdir}/r8_u1.c
 )
 
 #MESSAGE(${fftss})
 
 
-FILE(GLOB ilmbase "../../../ilmbase-1.0.1/Half/*.cpp" "../../../ilmbase-1.0.1/Iex/*.cpp" "../../../ilmbase-1.0.1/Imath/*.cpp")
-SET(ilmthread "../../../ilmbase-1.0.1/IlmThread/IlmThread.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadMutex.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexPosix.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadPool.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadPosix.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphore.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosix.cpp"
-"../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphorePosixCompat.cpp")
+FILE(GLOB ilmbase "${ilmbasedir}/Half/*.cpp" "${ilmbasedir}/Iex/*.cpp" "${ilmbasedir}/Imath/*.cpp")
+SET(ilmthread "${ilmbasedir}/IlmThread/IlmThread.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadMutex.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadPool.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadPosix.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp"
+"${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp")
 if(WIN32)
-	SET(ilmthread ${ilmthread} "../../../ilmbase-1.0.1/IlmThread/IlmThreadMutexWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadWin32.cpp" "../../../ilmbase-1.0.1/IlmThread/IlmThreadSemaphoreWin32.cpp")
+	SET(ilmthread ${ilmthread} "${ilmbasedir}/IlmThread/IlmThreadMutexWin32.cpp" "${ilmbasedir}/IlmThread/IlmThreadWin32.cpp" "${ilmbasedir}/IlmThread/IlmThreadSemaphoreWin32.cpp")
 endif()
-FILE(GLOB openexr "../../../openexr-1.6.1/IlmImf/*.cpp")
+FILE(GLOB openexr "${openexrdir}/IlmImf/*.cpp")
 # FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 
 
@@ -66,25 +68,25 @@ ${tiffdir}/tif_read.c ${tiffdir}/tif_strip.c ${tiffdir}/tif_swab.c ${tiffdir}/ti
 ${tiffdir}/tif_unix.c ${tiffdir}/tif_version.c ${tiffdir}/tif_warning.c ${tiffdir}/tif_write.c ${tiffdir}/tif_zip.c
 )
 
-FILE(GLOB lua "../../../lua-5.1.4/src/*.c")
+FILE(GLOB lua "${luadir}/src/*.c")
 
 set(zlib
-../${zlibdir}/adler32.c
-../${zlibdir}/compress.c
-../${zlibdir}/crc32.c
-../${zlibdir}/deflate.c
-../${zlibdir}/infback.c
-../${zlibdir}/inffast.c
-../${zlibdir}/inflate.c
-../${zlibdir}/inftrees.c
-../${zlibdir}/trees.c
-../${zlibdir}/uncompr.c
-../${zlibdir}/zutil.c
+${zlibdir}/adler32.c
+${zlibdir}/compress.c
+${zlibdir}/crc32.c
+${zlibdir}/deflate.c
+${zlibdir}/infback.c
+${zlibdir}/inffast.c
+${zlibdir}/inflate.c
+${zlibdir}/inftrees.c
+${zlibdir}/trees.c
+${zlibdir}/uncompr.c
+${zlibdir}/zutil.c
 )
 
-SET(minizip "../${zlibdir}/contrib/minizip/ioapi.c"
-"../${zlibdir}/contrib/minizip/unzip.c"
-"../${zlibdir}/contrib/minizip/zip.c")
+SET(minizip "${zlibdir}/contrib/minizip/ioapi.c"
+"${zlibdir}/contrib/minizip/unzip.c"
+"${zlibdir}/contrib/minizip/zip.c")
 
 #set(zlib
 #${zlibdir}/adler32.c ${zlibdir}/compress.c ${zlibdir}/crc32.c ${zlibdir}/deflate.c ${zlibdir}/gzclose.c ${zlibdir}/gzlib.c ${zlibdir}/gzread.c ${zlibdir}/gzwrite.c
@@ -94,9 +96,9 @@ SET(minizip "../${zlibdir}/contrib/minizip/ioapi.c"
 
 
 set(tinyxml
-${tinyxmldir}/tinyxml.cpp
-${tinyxmldir}/tinyxmlerror.cpp
-${tinyxmldir}/tinyxmlparser.cpp
+${tinyxmldir}/tinyxml/tinyxml.cpp
+${tinyxmldir}/tinyxml/tinyxmlerror.cpp
+${tinyxmldir}/tinyxml/tinyxmlparser.cpp
 )
 
 set(pugixml
@@ -105,7 +107,7 @@ ${pugixmldir}/pugixml.hpp
 ${pugixmldir}/pugiconfig.hpp
 )
 
-# MESSAGE(${libpng})
+# MESSAGE(${pugixml})
 
 FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
@@ -123,6 +125,7 @@ SOURCE_GROUP(libtiff FILES ${libtiff})
 SOURCE_GROUP(zlib FILES ${zlib})
 SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(tinyxml FILES ${tinyxml})
+SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
 
