@@ -1503,7 +1503,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<f
 }
 
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float sub_elem_area_ws, Real& p_out) const
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
@@ -1559,6 +1559,7 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 		;*/
 
 	p_out = 1 / sub_elem_area_ws;
+	mat_index_out = tri.getTriMatIndex();
 }
 
 
@@ -1577,9 +1578,11 @@ void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_ou
 	SamplePair remapped_samples(samples.x * (float)this->triangles.size() - t, samples.y);
 
 	float p;
+	unsigned int mat_index;
 	sampleSubElement(t, remapped_samples, results_out.pos, results_out.N_g, results_out.hitinfo, 
 		1.0f,  // TEMP HACK
-		p);
+		p,
+		mat_index);
 
 	/*sampleSubElement(t, remapped_samples, 
 		1.f, // sub_elem_area_ws TEMP HACK - since this is wrong, the pd will be invalid.
