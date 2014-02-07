@@ -36,9 +36,7 @@ Code By Nicholas Chapman.
 
 
 // If OPENCL_MEM_LOG is defined, all allocations and deallocations are printed to the console
-#if BUILD_TESTS
-#define OPENCL_MEM_LOG
-#endif
+//#define OPENCL_MEM_LOG
 
 
 extern "C"
