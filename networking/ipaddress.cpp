@@ -71,7 +71,7 @@ static int glare_inet_pton(int family, const char *src, void *dst)
 #if defined(_WIN32)
 
     struct sockaddr_storage addr;
-    addr.ss_family = family;
+    addr.ss_family = (ADDRESS_FAMILY)family;
 
 	int addr_len = sizeof(addr);
 
@@ -89,7 +89,7 @@ static int glare_inet_pton(int family, const char *src, void *dst)
 	{
 		std::memcpy(dst, &((struct sockaddr_in *) &addr)->sin_addr, sizeof(struct in_addr));
     }
-	else if (family == AF_INET6)
+	else if(family == AF_INET6)
 	{
 		std::memcpy(dst, &((struct sockaddr_in6 *)&addr)->sin6_addr, sizeof(struct in6_addr));
     }
@@ -100,8 +100,8 @@ static int glare_inet_pton(int family, const char *src, void *dst)
 	
 	return inet_pton(
 		family
-		addr_string.c_str(),
-		this->address
+		src,
+		dst
 	);
 
 #endif
