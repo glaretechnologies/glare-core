@@ -755,6 +755,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 				RayMeshVertex new_vert_1;
 				new_vert_1.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].pos,    t_1);
 				new_vert_1.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].normal, t_1);
+				new_vert_1.H =      Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].H,      new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].H,		t_1);
 
 				// Add it to the vertices list
 				const unsigned int new_vert_1_index = (unsigned int)new_mesh->vertices.size();
@@ -777,6 +778,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 				RayMeshVertex new_vert_2;
 				new_vert_2.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].pos,    t_2);
 				new_vert_2.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].normal, t_2);
+				new_vert_2.H =		Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].H,	  new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].H,		t_2);
 
 				// Add it to the vertices list
 				const unsigned int new_vert_2_index = (unsigned int)new_mesh->vertices.size();
