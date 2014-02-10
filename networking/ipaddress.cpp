@@ -99,7 +99,7 @@ static int glare_inet_pton(int family, const char *src, void *dst)
 #else // #else if !defined(_WIN32):
 	
 	return inet_pton(
-		family
+		family,
 		src,
 		dst
 	);
@@ -188,8 +188,8 @@ void IPAddress::test()
 		failTest(e.what());
 	}
 
-	// Apparently Windows thinks '127' is a valid IP address string.
-	try
+	// Apparently Windows thinks '127' is a valid IP address string.  Linux doesn't however.
+	/*try
 	{
 		IPAddress a("127");
 		testAssert(a.getVersion() == IPAddress::Version_4);
@@ -198,7 +198,7 @@ void IPAddress::test()
 	catch(MalformedIPStringExcep& e)
 	{
 		failTest(e.what());
-	}
+	}*/
 
 	// Test an IPv6 address
 	try
