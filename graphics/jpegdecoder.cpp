@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
+#include "../utils/timer.h"
 #include "../graphics/ImageMap.h"
 #include <jpeglib.h>
 #include <lcms2.h>
@@ -50,8 +51,13 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
+//static double total_jpeg_decoding_time = 0;
+
+
 Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path)
 {
+	//conPrint("JPEGDecoder::decode(), path: " + path);
+	//Timer timer;
 	try
 	{
 		//------------------------------------------------------------------------
@@ -149,12 +155,12 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 		const unsigned int row_stride = cinfo.output_width * cinfo.output_components;
 		const int final_W_pixels = cinfo.output_width;
 
-		// Make a one-row-high sample array that will go away when done with image
-		std::vector<uint8_t> buffer(row_stride);
-		uint8_t* scanline_ptrs[1] = { &buffer[0] };
-
 		if(cinfo.out_color_space == JCS_CMYK)
 		{
+			// Make a one-row-high sample array that will go away when done with image
+			std::vector<uint8_t> buffer(row_stride);
+			uint8_t* scanline_ptrs[1] = { &buffer[0] };
+
 			std::vector<uint8_t> modified_buffer(row_stride); // Used for storing inverted CMYK colours.
 
 			// Make a little CMS transform
@@ -205,43 +211,34 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 		}
 		else
 		{
-			int y = 0;
-			while (cinfo.output_scanline < cinfo.output_height)
+			if(cinfo.num_components == 4)
+				throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + " for non-CMYK colour space");
+
+			// Build array of scanline pointers
+			const unsigned int H = texture->getHeight();
+			std::vector<uint8_t*> scanline_ptrs(H);
+			for(unsigned int i=0; i<H; ++i)
+				scanline_ptrs[i] = texture->getPixel(0, i);
+
+
+			// Read scanlines.  jpeg_read_scanlines doesn't do all scanlines at once so need to loop until done.
+			while(cinfo.output_scanline < cinfo.output_height)
 			{
-				/* jpeg_read_scanlines expects an array of pointers to scanlines.
-				* Here the array is only one element long, but you could ask for
-				* more than one scanline at a time if that's more convenient.
-				*/
-				jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
-				/* Assume put_scanline_someplace wants a pointer and sample count. */
-				//put_scanline_someplace(buffer[0], row_stride);
-
-	#if IMAGE_MAP_TILED
-				for(unsigned int x=0; x<cinfo.output_width; ++x)
-					for(int c=0; c<use_num_components/*num_components*/; ++c)
-						texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
-	#else
-				for(int x=0; x<final_W_pixels; ++x)
-					for(int c=0; c<final_num_components; ++c)
-						texture->getPixel(x, y)[c] = buffer[x*cinfo.num_components + c];
-
-				//memcpy(texture->getPixel(0, y), &buffer[0], cinfo.output_width * use_num_components); // row_stride);
-	#endif
-				++y;
+				jpeg_read_scanlines(&cinfo, &scanline_ptrs[cinfo.output_scanline], (JDIMENSION)H - cinfo.output_scanline);
 			}
+
+#if IMAGE_MAP_TILED
+#error TODO
+#endif
 		}
 
-		/* Step 7: Finish decompression */
-
 		jpeg_finish_decompress(&cinfo);
-		/* We can ignore the return value since suspension is not possible
-		* with the stdio data source.
-		*/
-
-		/* Step 8: Release JPEG decompression object */
-
-		/* This is an important step since it will release a good deal of memory. */
+		
+		// Release JPEG decompression object
 		jpeg_destroy_decompress(&cinfo);
+
+		//conPrint("   Finished, elapsed: " + timer.elapsedString() + ", total time: " + doubleToStringNDecimalPlaces(total_jpeg_decoding_time, 3) + "s");
+		//total_jpeg_decoding_time += timer.elapsed();
 
 		return texture;
 	}
