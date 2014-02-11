@@ -49,14 +49,18 @@ OpenCL::~OpenCL()
 	if(this->command_queue)
 	{
 		if(clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseCommandQueue failed");
+		{
+			assert(0);
+		}
 	}
 
 	// Cleanup
 	if(this->context)
 	{
 		if(clReleaseContext(this->context) != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseContext failed");
+		{
+			assert(0);
+		}
 	}
 
 	//std::cout << "Shut down OpenCL." << std::endl;

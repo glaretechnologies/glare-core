@@ -170,7 +170,7 @@ bool Parser::parseUnsignedInt(uint32& result_out)
 	result_out = (uint32)x;
 	this->currentpos = pos;
 
-	return pos - initial_pos > 0;
+	return pos != initial_pos;
 
 	/*unsigned int x = 0;
 	const int initial_currentpos = currentpos;
