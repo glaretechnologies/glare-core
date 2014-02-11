@@ -2080,8 +2080,9 @@ void DisplacementUtils::averagePass(
 	//const float UV_DISTANCE_THRESHOLD_SQD = 0.03f * 0.03f;
 
 	// Init vertex positions to (0,0,0)
+	const size_t verts_size = verts.size();
 	new_verts_out = verts;
-	for(size_t v = 0; v < new_verts_out.size(); ++v)
+	for(size_t v = 0; v < verts_size; ++v)
 		new_verts_out[v].pos = new_verts_out[v].normal = Vec3f(0.f, 0.f, 0.f);
 
 	// Init vertex UVs to (0,0)
@@ -2090,14 +2091,14 @@ void DisplacementUtils::averagePass(
 	for(size_t v = 0; v < uvs_out.size(); ++v)
 		uvs_out[v] = Vec2f(0.f, 0.f);
 
-	std::vector<uint32_t> dim(verts.size(), 2); // array containing dimension of each vertex
-	std::vector<float> total_weight(verts.size(), 0.0f); // total weights per vertex
-	std::vector<uint32_t> n_t(verts.size(), 0); // array containing number of triangles touching each vertex
-	std::vector<uint32_t> n_q(verts.size(), 0); // array containing number of quads touching each vertex
+	std::vector<uint32_t> dim(verts_size, 2); // array containing dimension of each vertex
+	std::vector<float> total_weight(verts_size, 0.0f); // total weights per vertex
+	std::vector<uint32_t> n_t(verts_size, 0); // array containing number of triangles touching each vertex
+	std::vector<uint32_t> n_q(verts_size, 0); // array containing number of quads touching each vertex
 
 	//const uint32 num_verts = (uint32)verts.size();
-	std::vector<Vec2f> old_vert_uvs(verts.size() * num_uv_sets, Vec2f(0.0f, 0.0f));
-	std::vector<Vec2f> new_vert_uvs(verts.size() * num_uv_sets, Vec2f(0.0f, 0.0f));
+	std::vector<Vec2f> old_vert_uvs(verts_size * num_uv_sets, Vec2f(0.0f, 0.0f));
+	std::vector<Vec2f> new_vert_uvs(verts_size * num_uv_sets, Vec2f(0.0f, 0.0f));
 
 
 	// Initialise dim
