@@ -55,6 +55,16 @@ void VectorUnitTests::test()
 {
 	conPrint("VectorUnitTests::test()");
 
+
+	//========================= No-arg constructor =========================
+	{
+		// Test initialisation of vector of integers
+		std::vector<int> stdvec(10);
+
+		js::Vector<int,4> jsvec(10);
+
+	}
+
 	//========================= No-arg constructor =========================
 
 	// int type

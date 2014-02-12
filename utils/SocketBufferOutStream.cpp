@@ -39,7 +39,8 @@ void SocketBufferOutStream::writeData(const void* data, size_t num_bytes, Stream
 	{
 		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
 		buf.resize(pos + num_bytes); // Resize buffer to make room for new data
-		std::memcpy(&buf[pos], data, num_bytes); // Copy data to buffer.
+		if(num_bytes > 0)
+			std::memcpy(&buf[pos], data, num_bytes); // Copy data to buffer.
 	}
 	catch(std::bad_alloc&)
 	{

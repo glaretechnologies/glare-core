@@ -170,7 +170,8 @@ ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsign
 		h_blocks = height / 8 + 1;
 		data.resize(w_blocks * h_blocks * 64 * N);
 #else
-		data.resize(width * height * N);
+		//data.resize(width * height * N);
+		data.resizeUninitialised(width * height * N);
 #endif
 	}
 	catch(std::bad_alloc&)
@@ -193,7 +194,8 @@ void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, uns
 
 	try
 	{
-		data.resize(width * height * N);
+		//data.resize(width * height * N);
+		data.resizeUninitialised(width * height * N);
 	}
 	catch(std::bad_alloc&)
 	{
