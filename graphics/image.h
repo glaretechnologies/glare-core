@@ -25,7 +25,7 @@ class Image : public Map2D
 public:
 	Image();
 	Image(size_t width, size_t height); // throws Indigo::Exception
-	~Image();
+	virtual ~Image();
 
 	Image& operator = (const Image& other);
 

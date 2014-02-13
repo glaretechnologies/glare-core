@@ -7,8 +7,6 @@ Code By Nicholas Chapman.
 #include "Map2D.h"
 
 
-
-/*
 Map2D::Map2D()
 {
 	
@@ -19,9 +17,3 @@ Map2D::~Map2D()
 {
 	
 }
-
-
-
-*/
-
-

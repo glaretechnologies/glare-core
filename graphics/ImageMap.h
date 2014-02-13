@@ -82,7 +82,7 @@ class ImageMap : public Map2D
 public:
 	inline ImageMap();
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N); // throws Indigo::Exception
-	inline ~ImageMap();
+	inline virtual ~ImageMap();
 
 	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
@@ -289,7 +289,7 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 		colour_out.g = val;
 		colour_out.b = val;
 	}
-	else if(N >= 3)
+	else // else if(N >= 3)
 	{
 		// This map is either RGB or RGB with alpha
 		// Ignore alpha and just return the interpolated RGB colour.
@@ -329,10 +329,6 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 			colour_out.g += pixel[1] * factor;
 			colour_out.b += pixel[2] * factor;
 		}	
-	}
-	else
-	{
-		assert(0);
 	}
 
 	colour_out.r = VTraits::scaleValue(colour_out.r);
@@ -519,15 +515,15 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 
 
 	// Blur the floating point image
-	Image blurred_img(width, height);
+	Reference<Image> blurred_img = new Image(width, height);
 	GaussianImageFilter::gaussianFilter(
 		img, 
-		blurred_img, 
+		*blurred_img, 
 		(float)myMax(width, height) * 0.01f, // standard dev in pixels
 		task_manager
 		);
 
-	return Reference<Map2D>(new Image(blurred_img));
+	return blurred_img;
 }
 
 

@@ -25,6 +25,7 @@ Image::Image()
 {
 }
 
+
 Image::Image(size_t width, size_t height)
 {
 	try

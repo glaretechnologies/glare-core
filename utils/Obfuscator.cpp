@@ -485,12 +485,13 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 void Obfuscator::test()
 {
 	//const std::string s = "int /*a = b[3] + */a;";
-	return;
-
+	/*
 	std::string s;
 	FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\opencl\\OpenCLSingleLevelRayTracingKernel.cl", s);
 
@@ -511,9 +512,9 @@ void Obfuscator::test()
 		{
 			//std::ofstream f("munged.cpp");
 			//f << ob_s;
-			/*const std::string outpath = "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
-			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");*/
+		//	const std::string outpath = "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
+		//	FileUtils::writeEntireFile(outpath, ob_s);
+		//	conPrint("Written '" + outpath + "'");
 		}
 	}
 	catch(Indigo::Exception& e)
@@ -521,10 +522,8 @@ void Obfuscator::test()
 		conPrint("Error: " + e.what());
 		exit(1);
 	}
-
-	
-	
-
-	//exit(0);
+	*/
 }
+
+
 #endif
