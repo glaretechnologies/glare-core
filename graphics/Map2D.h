@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include "colour3.h"
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 class Image;
 namespace Indigo { class TaskManager; }
@@ -19,8 +19,10 @@ namespace Indigo { class TaskManager; }
 Map2D
 -----
 Base class for two-dimensional textures.
+Since both core threads and UI threads might be accessing a map concurrently, 
+make ThreadSafeRefCounted.
 =====================================================================*/
-class Map2D : public RefCounted
+class Map2D : public ThreadSafeRefCounted
 {
 public:
 	/*=====================================================================
