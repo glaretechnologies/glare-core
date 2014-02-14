@@ -8,7 +8,6 @@ Generated at 2014-02-13 22:44:00 +0000
 
 
 #include "VBO.h"
-#include <GL/GL.h>
 
 
 VBO::VBO(const float* data, size_t data_num_floats)
