@@ -64,6 +64,8 @@ public:
 	inline iterator begin() { return namemap.begin(); }
 	inline iterator end() { return namemap.end(); }
 
+	inline void erase(iterator& i);
+
 private:
 	std::map<std::string, T> namemap;
 };
@@ -123,6 +125,14 @@ const T& NameMap<T>::getValue(const std::string& key)
 	else
 		return (*result).second;
 }
+
+
+template <class T>
+void NameMap<T>::erase(iterator& i)
+{
+	namemap.erase(i);
+}
+
 
 #endif //__NAMEMAP_H_666_
 
