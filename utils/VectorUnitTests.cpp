@@ -85,7 +85,7 @@ void VectorUnitTests::test()
 		testAssert(v.size() == 0);
 	}
 
-	// Count constructor with int type
+	// Count constructor with int type, count > 0.
 	{
 		const Vector<int, 4> v(
 			10, // count
@@ -661,6 +661,33 @@ void VectorUnitTests::test()
 	//========================= Performance test vs std::vector =========================
 #if 0 // Commented out due to annoying GCC requiring operator = for TestCounterClass with std::vector
 	{
+
+		//========================= construction of vector of ints =========================
+		{
+		conPrint("construction of vector of ints");
+
+		const size_t n = 10000000;
+		{
+			Timer timer;
+			
+			js::Vector<int, 4> v(n);
+			
+			conPrint("js::Vector:  " + timer.elapsedStringNPlaces(5));
+			printVar(v.size());
+		}
+
+		{
+			Timer timer;
+			
+			std::vector<int> v(n);
+
+			conPrint("std::vector: " + timer.elapsedStringNPlaces(5));
+			printVar(v.size());
+		}
+
+		conPrint("");
+		}
+
 
 		//========================= push_back() =========================
 		conPrint("int push_back()");

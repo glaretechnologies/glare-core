@@ -33,6 +33,8 @@ namespace js
 Vector
 ------
 Similar to std::vector, but aligns the elements.
+Has some slightly different semantics:
+Doesn't do default (zero) initialisation of POD types.
 Unit tests for this class are in VectorUnitTests.cpp
 =====================================================================*/
 template <class T, size_t alignment>
@@ -40,14 +42,16 @@ class Vector
 {
 public:
 	inline Vector(); // Initialise as an empty vector.
-	inline Vector(size_t count, const T& val = T()); // Initialise with count copies of val.
+	inline Vector(size_t count); // Initialise with default initialisation.
+	inline Vector(size_t count, const T& val); // Initialise with count copies of val.
 	inline Vector(const Vector& other); // Initialise as a copy of other
 	inline ~Vector();
 
 	inline Vector& operator=(const Vector& other);
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
-	inline void resize(size_t N, const T& val = T()); // Resize to size N, using copies of val if N > size().
+	inline void resize(size_t N); // Resize to size N, using default constructor if N > size().
+	inline void resize(size_t N, const T& val); // Resize to size N, using copies of val if N > size().
 	inline void resizeUninitialised(size_t N); // Resize to size N, but don't destroy or construct objects.
 	inline size_t capacity() const { return capacity_; }
 	inline size_t size() const;
@@ -91,14 +95,50 @@ Vector<T, alignment>::Vector()
 
 
 template <class T, size_t alignment>
-Vector<T, alignment>::Vector(size_t count, const T& val)
+Vector<T, alignment>::Vector(size_t count)
 :	e(0),
-	size_(0),
-	capacity_(0)
+	size_(count),
+	capacity_(count)
 {
 	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
 
-	resize(count, val);
+	if(count > 0)
+	{
+		// Allocate new memory
+		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * count, alignment));
+
+		// Initialise elements
+		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+		// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+		for(T* elem=e; elem<e + count; ++elem)
+			::new (elem) T;
+	}
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
+Vector<T, alignment>::Vector(size_t count, const T& val)
+:	e(0),
+	size_(count),
+	capacity_(count)
+{
+	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+
+	if(count > 0)
+	{
+		// Allocate new memory
+		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * count, alignment));
+		
+		// Initialise elements as a copy of val.
+		for(T* elem=e; elem<e + count; ++elem)
+			::new (elem) T(val);
+	}
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
 }
 
 
@@ -236,7 +276,7 @@ void Vector<T, alignment>::resize(size_t n, const T& val)
 	{
 		if(n > capacity_)
 		{
-			const size_t newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
+			const size_t newcapacity = myMax(n, 2 * capacity_);
 			reserve(newcapacity);
 		}
 
@@ -262,13 +302,48 @@ void Vector<T, alignment>::resize(size_t n, const T& val)
 
 
 template <class T, size_t alignment>
+void Vector<T, alignment>::resize(size_t n)
+{
+	assert(capacity_ >= size_);
+
+	if(n > size_)
+	{
+		if(n > capacity_)
+		{
+			const size_t newcapacity = myMax(n, 2 * capacity_);
+			reserve(newcapacity);
+		}
+
+		// Initialise elements e[size_] to e[n-1]
+		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+		// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+		for(T* elem=e + size_; elem<e + n; ++elem)
+		{
+			::new (elem) T;
+		}
+	}
+	else if(n < size_)
+	{
+		// Destroy elements e[n] to e[size-1]
+		for(size_t i=n; i<size_; ++i)
+			e[i].~T();
+	}
+
+	size_ = n;
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
 void Vector<T, alignment>::resizeUninitialised(size_t n)
 {
 	assert(capacity_ >= size_);
 
 	if(n > capacity_)
 	{
-		const size_t newcapacity = myMax(n, capacity_ + capacity_ / 2); // current size * 1.5
+		const size_t newcapacity = myMax(n, 2 * capacity_);
 		reserve(newcapacity);
 	}
 
@@ -332,9 +407,9 @@ void Vector<T, alignment>::push_back(const T& t)
 	assert(capacity_ >= size_);
 
 	// Check to see if we are out of capacity:
-	if(size_ + 1 > capacity_)
+	if(size_ == capacity_)
 	{
-		const size_t newcapacity = myMax(size_ + 1, capacity_ + capacity_ / 2); // current size * 1.5
+		const size_t newcapacity = myMax(size_ + 1, 2 * capacity_);
 		reserve(newcapacity);
 	}
 
@@ -354,9 +429,9 @@ void Vector<T, alignment>::push_back_uninitialised()
 	assert(capacity_ >= size_);
 
 	// Check to see if we are out of capacity:
-	if(size_ + 1 > capacity_)
+	if(size_ == capacity_)
 	{
-		const size_t newcapacity = myMax(size_ + 1, capacity_ + capacity_ / 2); // current size * 1.5
+		const size_t newcapacity = myMax(size_ + 1, 2 * capacity_);
 		reserve(newcapacity);
 	}
 
