@@ -625,21 +625,34 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		}
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
 	
-		// convert any quads to tris
-		if(this->getNumQuads() > 0)
+		// Convert any quads to tris.
+		const size_t num_quads = this->quads.size();
+		if(num_quads > 0)
 		{
-			for(size_t i=0; i<this->quads.size(); ++i)
+			const size_t initial_num_tris = this->triangles.size();
+			this->triangles.resizeUninitialised(initial_num_tris + num_quads * 2);
+
+			for(size_t i=0; i<num_quads; ++i)
 			{
 				const RayMeshQuad& q = this->quads[i];
-				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[1], q.vertex_indices[2], q.getMatIndex(), q.getUseShadingNormals()));
-				this->triangles.back().uv_indices[0] = q.uv_indices[0];
-				this->triangles.back().uv_indices[1] = q.uv_indices[1];
-				this->triangles.back().uv_indices[2] = q.uv_indices[2];
+				RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
+				RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
 
-				this->triangles.push_back(RayMeshTriangle(q.vertex_indices[0], q.vertex_indices[2], q.vertex_indices[3], q.getMatIndex(), q.getUseShadingNormals()));
-				this->triangles.back().uv_indices[0] = q.uv_indices[0];
-				this->triangles.back().uv_indices[1] = q.uv_indices[2];
-				this->triangles.back().uv_indices[2] = q.uv_indices[3];
+				tri_1.vertex_indices[0] = q.vertex_indices[0];
+				tri_1.vertex_indices[1] = q.vertex_indices[1];
+				tri_1.vertex_indices[2] = q.vertex_indices[2];
+				tri_1.uv_indices[0] = q.uv_indices[0];
+				tri_1.uv_indices[1] = q.uv_indices[1];
+				tri_1.uv_indices[2] = q.uv_indices[2];
+				tri_1.setRawTriMatIndex(q.getRawMatIndex());
+
+				tri_2.vertex_indices[0] = q.vertex_indices[0];
+				tri_2.vertex_indices[1] = q.vertex_indices[2];
+				tri_2.vertex_indices[2] = q.vertex_indices[3];
+				tri_2.uv_indices[0] = q.uv_indices[0];
+				tri_2.uv_indices[1] = q.uv_indices[2];
+				tri_2.uv_indices[2] = q.uv_indices[3];
+				tri_2.setRawTriMatIndex(q.getRawMatIndex());
 			}
 
 			this->quads.clearAndFreeMem();

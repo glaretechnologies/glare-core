@@ -74,6 +74,8 @@ public:
 	}
 	inline uint32 getTriMatIndex() const { return tri_mat_index >> 1; }
 
+	inline uint32 getRawTriMatIndex() const { return tri_mat_index; }
+	inline void setRawTriMatIndex(uint32 i) { tri_mat_index = i; }
 private:
 	uint32 tri_mat_index; // least significant bit is normal smoothing flag.
 };
@@ -118,6 +120,7 @@ public:
 	}
 	inline uint32 getMatIndex() const { return mat_index >> 1; }
 
+	inline uint32 getRawMatIndex() const { return mat_index; }
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
 	//uint32_t padding[2];
