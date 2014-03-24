@@ -3,7 +3,7 @@
 
 #include "../indigo/RendererSettings.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../maths/vec2.h"

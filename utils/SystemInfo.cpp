@@ -33,8 +33,8 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 
 #include <cassert>
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
-#include "../utils/fileutils.h"
+#include "../utils/PlatformUtils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../indigo/globals.h"
 #include <cstdlib>

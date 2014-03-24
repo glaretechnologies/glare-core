@@ -11,7 +11,7 @@ Generated at Fri Nov 11 13:48:01 +0000 2011
 #ifdef _WIN32
 #include "Exception.h"
 #include "StringUtils.h"
-#include "platformutils.h"
+#include "PlatformUtils.h"
 #include <Windows.h>
 #include <Wincrypt.h>
 

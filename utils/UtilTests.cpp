@@ -10,7 +10,7 @@ Generated at Wed Jul 14 11:41:12 +1200 2010
 #include "Timer.h"
 #include "CycleTimer.h"
 #include "StringUtils.h"
-#include "platformutils.h"
+#include "PlatformUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "KillThreadMessage.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
@@ -119,7 +119,7 @@ unsigned int ThreadManager::getNumThreads()
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 
 
 class SimpleMessageableThread : public MessageableThread

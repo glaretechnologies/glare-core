@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/HaltonSampler.h"
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/MTwister.h"
 #include "../maths/GeometrySampling.h"
 

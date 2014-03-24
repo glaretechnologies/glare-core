@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "mythread.h"
+#include "MyThread.h"
 #include "threadsafequeue.h"
 #include "ThreadMessage.h"
 class ThreadManager;

@@ -1,15 +1,9 @@
 /*=====================================================================
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
+Timer.h
+-------------------
+Copyright Glare Technologies Limited 2014 -
 =====================================================================*/
-#ifndef __TIMER_H__
-#define __TIMER_H__
+#pragma once
 
 
 #include "Clock.h"
@@ -93,8 +87,3 @@ void Timer::unpause()
 
 	last_time_started = Clock::getCurTimeRealSec();
 }
-
-	
-
-
-#endif //__TIMER_H__

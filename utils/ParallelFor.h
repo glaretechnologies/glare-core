@@ -5,8 +5,8 @@
 #pragma once
 
 
-#include "mythread.h"
-#include "platformutils.h"
+#include "MyThread.h"
+#include "PlatformUtils.h"
 #include "../maths/mathstypes.h"
 #include <vector>
 

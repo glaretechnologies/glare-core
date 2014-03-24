@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "ThreadSafeRefCounted.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/SSE.h"
-#include "mythread.h"
+#include "MyThread.h"
 #include "../indigo/globals.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"

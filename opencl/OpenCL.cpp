@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include <iostream>
 
 #include "../maths/mathstypes.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"

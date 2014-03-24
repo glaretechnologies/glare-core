@@ -13,7 +13,7 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #include "ImageMap.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 
@@ -386,7 +386,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 
 
 #include "../indigo/TestUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 
 
 void PNGDecoder::test()

@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "image.h"
 #include "PNGDecoder.h"
 #include "imformatdecoder.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Parser.h"
 
 

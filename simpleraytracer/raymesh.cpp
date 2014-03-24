@@ -28,14 +28,14 @@ Code By Nicholas Chapman.
 #include "../physics/SimpleBVH.h"
 #include "../physics/NBVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/Numeric.h"
 #include "../indigo/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"

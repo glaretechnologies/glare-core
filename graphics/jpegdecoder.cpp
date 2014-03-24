@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"

@@ -14,7 +14,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../graphics/FormatDecoderPLY.h"
 //#include "../cyberspace/model.h"
 #include <fstream>
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "raymesh.h"
 //#include "material.h"
 //#include "object.h"
@@ -24,7 +24,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include "../graphics/image.h"
 #include "../graphics/imformatdecoder.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../indigo/globals.h"
 #include "../indigo/IndigoMeshDecoder.h"
 #include "../dll/include/IndigoMesh.h"

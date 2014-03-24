@@ -8,8 +8,8 @@ Generated at Tue Sep 07 16:03:27 +1200 2010
 
 
 #include "../utils/Vector.h"
-#include "../utils/mutex.h"
-#include "../utils/lock.h"
+#include "../utils/Mutex.h"
+#include "../utils/Lock.h"
 #include "../maths/Vec4f.h"
 #include "../maths/SSE.h"
 #include "jscol_aabbox.h"

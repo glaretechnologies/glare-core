@@ -4,7 +4,7 @@ platformutils.cpp
 File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "platformutils.h"
+#include "PlatformUtils.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -40,7 +40,7 @@ Code By Nicholas Chapman.
 
 #include <cassert>
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include <cstdlib>
 #include <algorithm>
 

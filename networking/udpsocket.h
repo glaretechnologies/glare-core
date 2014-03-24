@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 #endif
 
 #include "port.h"
-#include "../utils/mutex.h"
+#include "../utils/Mutex.h"
 #include <string>
 class IPAddress;
 class Packet;

@@ -28,7 +28,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #if BUILD_TESTS
 
 
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
 #include "../indigo/LinearToneMapper.h"

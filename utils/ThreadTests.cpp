@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../utils/Timer.h"
 #include "ThreadManager.h"
 #include "threadsafequeue.h"
-#include "mythread.h"
+#include "MyThread.h"
 #include "ParallelFor.h"
 #include <cmath>
 

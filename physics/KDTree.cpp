@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../maths/SSE.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/Checksum.h"
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"

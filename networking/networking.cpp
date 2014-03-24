@@ -8,7 +8,7 @@ File created by ClassTemplate on Thu Apr 18 15:19:22 2002
 
 
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/ConPrint.h"
 #include <cstring>
 #if defined(_WIN32)

@@ -11,9 +11,9 @@ Code By Nicholas Chapman.
 #include "../graphics/image.h"
 #include "../graphics/ImageMap.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #include <fstream>

@@ -9,7 +9,7 @@ Generated at 2011-09-05 15:48:02 +0100
 
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/IncludeWindows.h"
 #include <assert.h>
 

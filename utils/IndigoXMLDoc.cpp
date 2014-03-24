@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "IndigoXMLDoc.h"
 
 
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/Exception.h"

@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include <memory.h>
 #include <stdlib.h>
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../graphics/ImageMap.h"

@@ -7,7 +7,7 @@ Generated at Wed Nov 17 12:56:10 +1300 2010
 #include "IndigoAtomic.h"
 
 
-#include "lock.h"
+#include "Lock.h"
 
 
 

@@ -8,7 +8,7 @@ Generated at Mon Jul 30 23:42:17 +0100 2012
 
 
 #include "Exception.h"
-#include "fileutils.h"
+#include "FileUtils.h"
 #include "BitUtils.h"
 #include <vector>
 #include <fstream>

@@ -4,7 +4,7 @@ fileutils.cpp
 File created by ClassTemplate on Sat Mar 01 18:05:09 2003
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "fileutils.h"
+#include "FileUtils.h"
 
 
 #include "../utils/IncludeWindows.h"
@@ -25,7 +25,7 @@ Code By Nicholas Chapman.
 #include "StringUtils.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
-#include "platformutils.h"
+#include "PlatformUtils.h"
 
 
 namespace FileUtils
@@ -1053,7 +1053,7 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 }
 
 
-#include "platformutils.h"
+#include "PlatformUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 

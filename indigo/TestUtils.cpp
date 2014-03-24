@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/prebuild_repos_info.h"
 #include "../utils/ConPrint.h"
 #include <stdlib.h>

@@ -8,7 +8,7 @@ Generated at Thu Jul 22 13:00:48 +1200 2010
 
 
 #include "ThreadMessage.h"
-#include "mutex.h"
+#include "Mutex.h"
 #include "Condition.h"
 
 

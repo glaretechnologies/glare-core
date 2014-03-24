@@ -5,8 +5,8 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "License.h"
 
 
-#include "platformutils.h"
-#include "fileutils.h"
+#include "PlatformUtils.h"
+#include "FileUtils.h"
 #include "StringUtils.h"
 #include "Clock.h"
 #include "SystemInfo.h"
@@ -15,7 +15,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "Timer.h"
 #include "Checksum.h"
 #include "../indigo/globals.h"
-#include "../utils/mythread.h"
+#include "../utils/MyThread.h"
 #include "Transmungify.h"
 #include "X509Certificate.h"
 

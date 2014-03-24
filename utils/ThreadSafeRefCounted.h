@@ -7,8 +7,8 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include <cassert>
-#include "mutex.h"
-#include "lock.h"
+#include "Mutex.h"
+#include "Lock.h"
 
 
 /*=====================================================================

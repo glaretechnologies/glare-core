@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include <assert.h>
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../graphics/ImageMap.h"
 #include <string.h>
 

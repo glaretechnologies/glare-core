@@ -4,10 +4,10 @@ lock.cpp
 Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Wed Jul 24 13:28:21 2002
 =====================================================================*/
-#include "lock.h"
+#include "Lock.h"
 
 
-#include "mutex.h"
+#include "Mutex.h"
 
 
 Lock::Lock(Mutex& mutex_)

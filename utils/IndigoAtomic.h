@@ -7,8 +7,8 @@ Generated at Wed Nov 17 12:56:10 +1300 2010
 #pragma once
 
 #include "Platform.h"
-#include "mutex.h"
-//#include "lock.h"
+#include "Mutex.h"
+//#include "Lock.h"
 
 
 

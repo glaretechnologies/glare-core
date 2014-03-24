@@ -8,8 +8,8 @@ Code By Nicholas Chapman.
 #define __THREADSAFEQUEUE_H_666_
 
 
-#include "mutex.h"
-#include "lock.h"
+#include "Mutex.h"
+#include "Lock.h"
 #include "Condition.h"
 #include <list>
 #include <vector>

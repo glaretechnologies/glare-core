@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "ipaddress.h"
 #include "packet.h"
 #include <assert.h>
-#include "../utils/lock.h"
+#include "../utils/Lock.h"
 //#include "../utils/inifile.h"
 #include "../utils/StringUtils.h"
 #include <string.h> // for memset()

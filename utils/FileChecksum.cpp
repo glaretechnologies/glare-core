@@ -8,7 +8,7 @@ Generated at Tue Mar 02 14:36:09 +1300 2010
 
 
 #include "Exception.h"
-#include "fileutils.h"
+#include "FileUtils.h"
 #include "Checksum.h"
 #include <vector>
 

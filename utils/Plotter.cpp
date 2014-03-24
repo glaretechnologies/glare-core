@@ -8,11 +8,11 @@ Code By Nicholas Chapman.
 
 
 #include <fstream>
-#include "platformutils.h"
+#include "PlatformUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 
 
 Plotter::Plotter()

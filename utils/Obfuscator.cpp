@@ -12,7 +12,7 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include <fstream>
 #include "Transmungify.h"
 #include <stdlib.h>

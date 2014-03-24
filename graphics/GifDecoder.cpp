@@ -10,7 +10,7 @@ Generated at 2013-02-21 14:06:25 +0000
 #include "imformatdecoder.h"
 #include "ImageMap.h"
 #include "../utils/StringUtils.h"
-#include "../utils/fileutils.h"
+#include "../utils/FileUtils.h"
 #include "../indigo/globals.h"
 #include <stdio.h>
 #include <fcntl.h>

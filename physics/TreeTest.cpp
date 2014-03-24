@@ -25,7 +25,7 @@ Code By Nicholas Chapman.
 #include "../utils/sphereunitvecpool.h"
 #include "../utils/Timer.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../indigo/ThreadContext.h"
 #include "../maths/SSE.h"
 #include "MollerTrumboreTri.h"

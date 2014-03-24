@@ -14,7 +14,7 @@ Generated at 2011-10-05 22:32:02 +0100
 #include "TaskManager.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 //#include "../utils/FixedSizeAllocator.h"
 #include "../utils/Timer.h"

@@ -8,12 +8,12 @@ Generated at 2013-01-30 13:47:58 +0000
 
 
 #include "mysocket.h"
-#include "mythread.h"
+#include "MyThread.h"
 #include "networking.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/platformutils.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/SocketBufferOutStream.h"
 
 

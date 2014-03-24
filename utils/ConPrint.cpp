@@ -7,8 +7,8 @@ Generated at 2012-05-03 12:20:21 +0100
 #include "ConPrint.h"
 
 
-#include "../utils/lock.h"
-#include "../utils/mutex.h"
+#include "../utils/Lock.h"
+#include "../utils/Mutex.h"
 #include <iostream>
 #include <stdlib.h>
 

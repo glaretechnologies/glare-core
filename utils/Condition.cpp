@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "Platform.h"
-#include "mutex.h"
+#include "Mutex.h"
 #include <assert.h>
 #include <cmath>
 

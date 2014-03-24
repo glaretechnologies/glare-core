@@ -3,7 +3,7 @@ MyThread.cpp
 ------------
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "mythread.h"
+#include "MyThread.h"
 
 
 #include "StringUtils.h"
