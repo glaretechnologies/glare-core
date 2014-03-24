@@ -24,7 +24,7 @@ public:
 
 	static void transform(const std::vector<Real>& v, std::vector<Real>& out);
 	static void inverseTransform(const std::vector<Real>& v, std::vector<Real>& out);
-	static void transform(const Array2d<Real>& a, Array2d<Real>& out);
+	static void transform(const Array2D<Real>& a, Array2D<Real>& out);
 
 	static void test();
 };

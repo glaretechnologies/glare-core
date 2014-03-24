@@ -1,29 +1,9 @@
-/*===================================================================
-
-  
-  digital liberation front 2001
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
-
-
-
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __ARRAY2D__
-#define __ARRAY2D__
+/*=====================================================================
+Array2D.cpp
+-------------------
+Copyright Glare Technologies Limited 2014 -
+=====================================================================*/
+#pragma once
 
 
 #include "../maths/SSE.h" // for SSE::alignedMalloc etc..
@@ -33,19 +13,19 @@ You may not use this code for any commercial project.
 
 
 template <class Field>
-class Array2d
+class Array2D
 {
 public:
-	inline Array2d();
-	inline Array2d(size_t dim1, size_t dim2);
-	inline Array2d(const Array2d& rhs);
-	inline ~Array2d();
+	inline Array2D();
+	inline Array2D(size_t dim1, size_t dim2);
+	inline Array2D(const Array2D& rhs);
+	inline ~Array2D();
 
 	inline Field& elem(size_t dim1, size_t dim2);
 	inline const Field& elem(size_t dim1, size_t dim2) const;
 
-	Array2d& operator = (const Array2d& rhs);
-	bool operator == (const Array2d& rhs) const;
+	Array2D& operator = (const Array2D& rhs);
+	bool operator == (const Array2D& rhs) const;
 
 	inline void setAllElems(const Field& newval);
 
@@ -64,7 +44,7 @@ public:
 	inline const Field* rowBegin(size_t y) const;
 	inline const Field* rowEnd(size_t y) const;
 
-	void getTranspose(Array2d<Field>& transpose_out) const;
+	void getTranspose(Array2D<Field>& transpose_out) const;
 
 private:
 	void resizeAndScrapData(size_t newdim1, size_t newdim2);
@@ -77,7 +57,7 @@ private:
 
 
 template <class Field>
-Array2d<Field>::Array2d()
+Array2D<Field>::Array2D()
 :	data(NULL),
 	dim1(0),
 	dim2(0)
@@ -86,7 +66,7 @@ Array2d<Field>::Array2d()
 
 
 template <class Field>
-Array2d<Field>::Array2d(size_t dim1_, size_t dim2_)
+Array2D<Field>::Array2D(size_t dim1_, size_t dim2_)
 :	data(NULL),
 	dim1(dim1_),
 	dim2(dim2_)
@@ -97,7 +77,7 @@ Array2d<Field>::Array2d(size_t dim1_, size_t dim2_)
 
 
 template <class Field>
-Array2d<Field>::Array2d(const Array2d& rhs)
+Array2D<Field>::Array2D(const Array2D& rhs)
 :	dim1(rhs.dim1),
 	dim2(rhs.dim2)
 {
@@ -112,7 +92,7 @@ Array2d<Field>::Array2d(const Array2d& rhs)
 
 
 template <class Field>
-Array2d<Field>::~Array2d()
+Array2D<Field>::~Array2D()
 {
 	//delete[] data;
 	SSE::alignedFree(data);
@@ -120,7 +100,7 @@ Array2d<Field>::~Array2d()
 
 
 template <class Field>
-Field& Array2d<Field>::elem(size_t x, size_t y)
+Field& Array2D<Field>::elem(size_t x, size_t y)
 {
 	assert(x < dim1 && y < dim2);
 	return data[y * dim1 + x];
@@ -128,7 +108,7 @@ Field& Array2d<Field>::elem(size_t x, size_t y)
 
 
 template <class Field>
-const Field& Array2d<Field>::elem(size_t x, size_t y) const
+const Field& Array2D<Field>::elem(size_t x, size_t y) const
 {
 	assert(x < dim1 && y < dim2);
 	return data[y * dim1 + x];
@@ -136,7 +116,7 @@ const Field& Array2d<Field>::elem(size_t x, size_t y) const
 
 
 template <class Field>
-Array2d<Field>& Array2d<Field>::operator = (const Array2d<Field>& rhs)
+Array2D<Field>& Array2D<Field>::operator = (const Array2D<Field>& rhs)
 {
 	if(this == &rhs) return *this;
 
@@ -153,7 +133,7 @@ Array2d<Field>& Array2d<Field>::operator = (const Array2d<Field>& rhs)
 
 
 template <class Field>
-bool Array2d<Field>::operator == (const Array2d<Field>& rhs) const
+bool Array2D<Field>::operator == (const Array2D<Field>& rhs) const
 {
 	if(rhs.dim1 != dim1 || rhs.dim2 != dim2)
 		return false;
@@ -168,7 +148,7 @@ bool Array2d<Field>::operator == (const Array2d<Field>& rhs) const
 
 
 template <class Field>
-void Array2d<Field>::setAllElems(const Field& newval)
+void Array2D<Field>::setAllElems(const Field& newval)
 {
 	const size_t num_elems = dim1 * dim2;
 	for(size_t i = 0; i < num_elems; ++i)
@@ -177,7 +157,7 @@ void Array2d<Field>::setAllElems(const Field& newval)
 
 
 template <class Field>
-void Array2d<Field>::resize(size_t newdim1, size_t newdim2)
+void Array2D<Field>::resize(size_t newdim1, size_t newdim2)
 {
 	//Field* newdata = new Field[newdim1 * newdim2];
 	Field* newdata = (Field*)SSE::alignedMalloc(newdim1 * newdim2 * sizeof(Field), 64);
@@ -199,7 +179,7 @@ void Array2d<Field>::resize(size_t newdim1, size_t newdim2)
 
 
 template <class Field>
-void Array2d<Field>::resizeAndScrapData(size_t newdim1, size_t newdim2)
+void Array2D<Field>::resizeAndScrapData(size_t newdim1, size_t newdim2)
 {
 	//delete[] data;
 	//data = new Field[newdim1 * newdim2];
@@ -212,7 +192,7 @@ void Array2d<Field>::resizeAndScrapData(size_t newdim1, size_t newdim2)
 
 
 template <class Field>
-void Array2d<Field>::checkResize(size_t xindex, size_t yindex)
+void Array2D<Field>::checkResize(size_t xindex, size_t yindex)
 {
 	if(xindex >= dim1 || yindex >= dim2)
 		resize( myMax(xindex + 1, dim1), myMax(yindex + 1, dim2) );
@@ -220,35 +200,35 @@ void Array2d<Field>::checkResize(size_t xindex, size_t yindex)
 
 
 template <class Field>
-Field* Array2d<Field>::rowBegin(size_t y)
+Field* Array2D<Field>::rowBegin(size_t y)
 {
 	return data + (y * dim1);
 }
 
 
 template <class Field>
-Field* Array2d<Field>::rowEnd(size_t y)
+Field* Array2D<Field>::rowEnd(size_t y)
 {
 	return data + ((y + 1) * dim1);
 }
 
 
 template <class Field>
-const Field* Array2d<Field>::rowBegin(size_t y) const
+const Field* Array2D<Field>::rowBegin(size_t y) const
 {
 	return data + (y * dim1);
 }
 
 
 template <class Field>
-const Field* Array2d<Field>::rowEnd(size_t y) const
+const Field* Array2D<Field>::rowEnd(size_t y) const
 {
 	return data + ((y + 1) * dim1);
 }
 
 
 template <class Field>
-void Array2d<Field>::getTranspose(Array2d<Field>& transpose_out) const
+void Array2D<Field>::getTranspose(Array2D<Field>& transpose_out) const
 {
 	transpose_out.resize(getHeight(), getWidth());
 
@@ -256,6 +236,3 @@ void Array2d<Field>::getTranspose(Array2d<Field>& transpose_out) const
 		for(size_t x=0; x<getWidth(); ++x)
 			transpose_out.elem(y, x) = elem(x, y);
 }
-
-
-#endif //__ARRAY2D__

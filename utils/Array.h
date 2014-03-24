@@ -1,32 +1,14 @@
-/*===================================================================
+/*=====================================================================
+Array.cpp
+-------------------
+Copyright Glare Technologies Limited 2014 -
+=====================================================================*/
+#pragma once
 
-  
-  digital liberation front 2001
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
-
-
-
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __ARRAY_H__
-#define __ARRAY_H__
 
 #include <assert.h>
 #include <algorithm>
+
 
 /*======================================================================================
 Array
@@ -205,10 +187,3 @@ const Value& Array<Value>::operator[] (int index) const
 	assert(index >= 0 && index < siz);
 	return data[index];
 }
-
-
-
-
-
-
-#endif //__ARRAY_H__

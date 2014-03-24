@@ -1058,9 +1058,9 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 	const int W = smallestPowerOf2GE((int)myMax(in.getWidth(),  filter.getWidth())  + x_offset);
 	const int H = smallestPowerOf2GE((int)myMax(in.getHeight(), filter.getHeight()) + y_offset);
 
-	Array2d<double> padded_in(W, H);
-	Array2d<double> padded_filter(W, H);
-	Array2d<double> padded_convolution(W, H);
+	Array2D<double> padded_in(W, H);
+	Array2D<double> padded_filter(W, H);
+	Array2D<double> padded_convolution(W, H);
 
 	out.resize(in.getWidth(), in.getHeight());
 
@@ -1083,10 +1083,10 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 			padded_filter.elem(x, y) = (double)filter.getPixel((filter.getWidth() - x) % filter.getWidth(), (filter.getHeight() - y) % filter.getHeight())[comp];
 			//padded_filter.elem(x, y) = (double)filter.getPixel(filter.getWidth() - 1 - x, filter.getHeight() - 1 - y)[comp];
 
-		Array2d<Complexd> ft_in;
+		Array2D<Complexd> ft_in;
 		realFT(padded_in, ft_in);
 
-		Array2d<Complexd> ft_filter;
+		Array2D<Complexd> ft_filter;
 		realFT(padded_filter, ft_filter);
 
 		//TEMP:
@@ -1112,7 +1112,7 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 			}
 		}*/
 
-		Array2d<Complexd> product(W, H);
+		Array2D<Complexd> product(W, H);
 		for(int y = 0; y < H; ++y)
 		for(int x = 0; x < W; ++x)
 			product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
@@ -1159,7 +1159,7 @@ void ImageFilter::slowConvolveImageFFT(const Image& in, const Image& filter, Ima
 }
 
 
-void ImageFilter::realFT(const Array2d<double>& data, Array2d<Complexd>& out)
+void ImageFilter::realFT(const Array2D<double>& data, Array2D<Complexd>& out)
 {
 	out.resize(data.getWidth(), data.getHeight());
 
@@ -1185,7 +1185,7 @@ void ImageFilter::realFT(const Array2d<double>& data, Array2d<Complexd>& out)
 }
 
 
-void ImageFilter::realIFT(const Array2d<Complexd>& data, Array2d<double>& real_out)
+void ImageFilter::realIFT(const Array2D<Complexd>& data, Array2D<double>& real_out)
 {
 	real_out.resize(data.getWidth(), data.getHeight());
 
@@ -1274,22 +1274,22 @@ void ImageFilter::convolveImageRobinDaviesFFT(const Image& in_image, const Image
 }
 
 
-static inline double& a(Array2d<double>& data, int k1, int k2)
+static inline double& a(Array2D<double>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
 }
-static inline double a(const Array2d<double>& data, int k1, int k2)
-{
-	return data.elem(k2, k1);
-}
-
-static inline Complexd& R(Array2d<Complexd>& data, int k1, int k2)
+static inline double a(const Array2D<double>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
 }
 
+static inline Complexd& R(Array2D<Complexd>& data, int k1, int k2)
+{
+	return data.elem(k2, k1);
+}
 
-void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
+
+void ImageFilter::realFFT(const Array2D<double>& input, Array2D<Complexd>& out)
 {
 	assert(Maths::isPowerOfTwo(input.getWidth()));
 	assert(Maths::isPowerOfTwo(input.getHeight()));
@@ -1311,7 +1311,7 @@ void ImageFilter::realFFT(const Array2d<double>& input, Array2d<Complexd>& out)
 	std::vector<double> work_area(myMax(n1 / 2, n2 / 4) + n2 / 4);
 
 	// Copy input data
-	Array2d<double> data = input;
+	Array2D<double> data = input;
 
 	// Compute FT of input
 	for(int y = 0; y < H; ++y)
@@ -1442,9 +1442,9 @@ static inline void doConvolveImageFFT(const ImageType& in, const Image& filter, 
 	assert(W >= 2);
 	assert(H >= 2);
 
-	Array2d<double> padded_in(W, H);
-	Array2d<double> padded_filter(W, H);
-	Array2d<double> product(W, H);
+	Array2D<double> padded_in(W, H);
+	Array2D<double> padded_filter(W, H);
+	Array2D<double> product(W, H);
 
 	if(verbose) printVar(in.getWidth());
 	if(verbose) printVar(filter.getWidth());
@@ -1494,12 +1494,12 @@ static inline void doConvolveImageFFT(const ImageType& in, const Image& filter, 
 
 
 		//TEMP:
-		//Array2d<Complexd> ft_in;
+		//Array2D<Complexd> ft_in;
 		//realFT(padded_in, ft_in);
-		//Array2d<Complexd> ft_filter;
+		//Array2D<Complexd> ft_filter;
 		//realFT(padded_filter, ft_filter);
 		//// Compute slow reference product
-		//Array2d<Complexd> ref_product(W, H);
+		//Array2D<Complexd> ref_product(W, H);
 		//for(int y=0; y<H; ++y)
 		//	for(int x=0; x<W; ++x)
 		//		ref_product.elem(x, y) = ft_in.elem(x, y) * ft_filter.elem(x, y);
@@ -1675,7 +1675,7 @@ static inline void doConvolveImageFFT(const ImageType& in, const Image& filter, 
 			&work_area[0]
 			);
 		
-		/*Array2d<double> reference_convolution(W, H);
+		/*Array2D<double> reference_convolution(W, H);
 		realIFT(ref_product, reference_convolution);
 
 		conPrint("--------------reference_convolution-----------------");
@@ -1975,7 +1975,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 }
 
 
-void ImageFilter::FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out)
+void ImageFilter::FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& out)
 {
 	Timer t;
 
@@ -2203,25 +2203,25 @@ static void testFT(int in_w, int in_h)
 
 	MTwister rng(1);
 
-	Array2d<double> in(in_w, in_h);
+	Array2D<double> in(in_w, in_h);
 	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
 		in.getData()[i] = rng.unitRandom();
 
 	// Fast FT convolution
-	Array2d<Complexd> fast_ft_out;
+	Array2D<Complexd> fast_ft_out;
 	t.reset();
 	ImageFilter::realFFT(in, fast_ft_out);
 	conPrint("realFFT: " + t.elapsedString());
 
 	// FFTSS FFT
-	Array2d<Complexd> fftss_ft_out;
+	Array2D<Complexd> fftss_ft_out;
 	t.reset();
 	ImageFilter::FFTSS_realFFT(in, fftss_ft_out);
 	conPrint("FFTSS_realFFT: " + t.elapsedString());
 
 
 	// Reference FT convolution
-	Array2d<Complexd> ref_ft_out;
+	Array2D<Complexd> ref_ft_out;
 	t.reset();
 	ImageFilter::realFT(in, ref_ft_out);
 	conPrint("realFT: " + t.elapsedString());
@@ -2280,18 +2280,18 @@ static void performanceTestFT(int in_w, int in_h)
 
 	MTwister rng(1);
 
-	Array2d<double> in(in_w, in_h);
+	Array2D<double> in(in_w, in_h);
 	for(unsigned int i=0; i<in.getHeight() * in.getWidth(); ++i)
 		in.getData()[i] = rng.unitRandom();
 
 	// Fast FT convolution
-	Array2d<Complexd> fast_ft_out;
+	Array2D<Complexd> fast_ft_out;
 	t.reset();
 	ImageFilter::realFFT(in, fast_ft_out);
 	conPrint("realFFT: " + t.elapsedString());
 
 	// FFTSS FFT
-	Array2d<Complexd> fftss_ft_out;
+	Array2D<Complexd> fftss_ft_out;
 	t.reset();
 	ImageFilter::FFTSS_realFFT(in, fftss_ft_out);
 	conPrint("FFTSS_realFFT: " + t.elapsedString());

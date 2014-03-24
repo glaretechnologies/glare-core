@@ -30,7 +30,7 @@ public:
 	typedef float Real;
 
 	InterpolatedTable(
-		const Array2d<Real>& data, 
+		const Array2D<Real>& data, 
 		Real start_x, Real end_x,
 		Real start_y, Real end_y
 	);
@@ -41,7 +41,7 @@ public:
 	void getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const;
 
 
-	const Array2d<Real>& getData() const { return data; }
+	const Array2D<Real>& getData() const { return data; }
 
 	Real getStartX() const { return start_x; }
 	Real getEndX() const { return end_x; }
@@ -54,7 +54,7 @@ public:
 	static void test();
 
 private:
-	Array2d<Real> data;
+	Array2D<Real> data;
 	Real start_x;
 	Real start_y;
 	Real recip_x_step;

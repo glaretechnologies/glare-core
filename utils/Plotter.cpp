@@ -108,7 +108,7 @@ void Plotter::plot3D(
 		const std::string& x_label,
 		const std::string& y_label,
 		const std::string& key,
-		const Array2d<Vec3f>& data,
+		const Array2D<Vec3f>& data,
 		PlotOptions options
 		)
 {

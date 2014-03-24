@@ -372,7 +372,7 @@ void Image4f::collapseImage(int factor, int border_width, const FilterFunction& 
 	const int filter_width = (int)ceil(radius_src * 2.0); // neg_rad_src + pos_rad_src;
 
 	//double sum = 0.0;
-	Array2d<float> filter(filter_width, filter_width);
+	Array2D<float> filter(filter_width, filter_width);
 	for(int y = 0; y < filter_width; ++y)
 	{
 		const double pos_y = (double)y + 0.5; // y coordinate in src pixels

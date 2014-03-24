@@ -130,7 +130,7 @@ public:
 	static void test();
 
 private:
-	Array2d<ColourType> pixels;
+	Array2D<ColourType> pixels;
 };
 
 

@@ -67,7 +67,7 @@ void HaarWavelet::transform(const std::vector<Real>& v, std::vector<Real>& out)
 }
 
 
-void HaarWavelet::transform(const Array2d<Real>& a, Array2d<Real>& out)
+void HaarWavelet::transform(const Array2D<Real>& a, Array2D<Real>& out)
 {
 	assert(Maths::isPowerOfTwo(a.getWidth()));
 	assert(Maths::isPowerOfTwo(a.getHeight()));

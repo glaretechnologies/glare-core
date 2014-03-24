@@ -65,12 +65,12 @@ public:
 	static void convolveImageRobinDaviesFFT(const Image& in, const Image& filter, Image& out);
 	static void slowConvolveImageFFT(const Image& in, const Image& filter, Image& out);
 
-	static void realFT(const Array2d<double>& data, Array2d<Complexd>& out);
-	static void realIFT(const Array2d<Complexd>& data, Array2d<double>& real_out);
+	static void realFT(const Array2D<double>& data, Array2D<Complexd>& out);
+	static void realIFT(const Array2D<Complexd>& data, Array2D<double>& real_out);
 
-	static void realFFT(const Array2d<double>& data, Array2d<Complexd>& out);
+	static void realFFT(const Array2D<double>& data, Array2D<Complexd>& out);
 
-	static void FFTSS_realFFT(const Array2d<double>& data, Array2d<Complexd>& out); // throws Indigo::Exception on out of mem.
+	static void FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& out); // throws Indigo::Exception on out of mem.
 
 	static Reference<Image> convertDebevecMappingToLatLong(const Reference<Image>& in);
 

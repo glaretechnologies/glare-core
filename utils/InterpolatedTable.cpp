@@ -15,7 +15,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 
 
 InterpolatedTable::InterpolatedTable(
-	const Array2d<Real>& data_, 
+	const Array2D<Real>& data_, 
 	Real start_x_, Real end_x_,
 	Real start_y_, Real end_y_
 	)
@@ -189,7 +189,7 @@ void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, Pol
 
 void InterpolatedTable::test()
 {
-	Array2d<Real> d(2, 2);
+	Array2D<Real> d(2, 2);
 	d.elem(0, 0) = 0;  d.elem(1, 0) = 1;
 	d.elem(0, 1) = 2;  d.elem(1, 1) = 3;
 
