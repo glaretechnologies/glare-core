@@ -1,5 +1,5 @@
 /*=====================================================================
-mutex.h
+Mutex.h
 -------
 Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Wed Jul 24 13:24:30 2002
