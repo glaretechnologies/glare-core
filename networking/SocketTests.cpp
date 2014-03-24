@@ -12,7 +12,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "networking.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/SocketBufferOutStream.h"
 

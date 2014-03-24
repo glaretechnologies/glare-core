@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "Matrix2.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 template <>

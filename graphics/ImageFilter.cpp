@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "../utils/array2d.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/TaskManager.h"
 #include "../maths/vec2.h"

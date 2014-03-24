@@ -8,7 +8,7 @@
 #include "../maths/Vec4f.h"
 #include "../maths/Vec4i.h"
 #include "../maths/SSE.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Vector.h"
 #include <vector>
 

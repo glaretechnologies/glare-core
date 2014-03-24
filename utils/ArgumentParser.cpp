@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "ArgumentParser.h"
 
 #include <assert.h>
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
 :	//args(args_),

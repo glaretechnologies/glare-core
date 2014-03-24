@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "assert.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "networking.h"
 #include <cstring>
 

@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include <stdlib.h>
 #include "../utils/fileutils.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/bitmap.h"
 #include "../indigo/globals.h"

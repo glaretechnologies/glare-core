@@ -14,7 +14,7 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 #include "../utils/Clock.h"
 #include "../utils/MTwister.h"
 #include "../utils/ConPrint.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/TestUtils.h"
 
 

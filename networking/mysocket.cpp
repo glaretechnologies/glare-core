@@ -10,7 +10,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "networking.h"
 #include "fractionlistener.h"
 #include "../maths/mathstypes.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/mythread.h"
 #include "../utils/platformutils.h"
 #include "../utils/timer.h"

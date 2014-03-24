@@ -32,7 +32,7 @@ Generated at Mon Mar 01 14:37:00 +1300 2010
 
 
 #include <cassert>
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
@@ -259,7 +259,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 void SystemInfo::test()

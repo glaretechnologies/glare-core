@@ -7,7 +7,7 @@ Generated at 2010-10-26 22:57:11 +1300
 #include "FileHandle.h"
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "Exception.h"
 #include <assert.h>
 

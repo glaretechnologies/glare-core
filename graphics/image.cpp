@@ -5,7 +5,7 @@
 #include "BoxFilterFunction.h"
 #include "bitmap.h"
 #include "../maths/vec2.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"

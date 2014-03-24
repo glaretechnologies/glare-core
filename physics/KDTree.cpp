@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "KDTreeNode.h"
 #include "jscol_TriHash.h"
 #include "jscol_TriTreePerThreadData.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"

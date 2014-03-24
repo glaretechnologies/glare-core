@@ -11,7 +11,7 @@ Generated at 2013-03-07 14:27:12 +0000
 
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "timer.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"

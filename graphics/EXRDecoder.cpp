@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 #include "../graphics/image.h"
 #include "../graphics/ImageMap.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Exception.h"
 #include "../utils/platformutils.h"

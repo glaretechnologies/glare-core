@@ -116,7 +116,7 @@ std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned cha
 #if BUILD_TESTS
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"

@@ -1,6 +1,6 @@
 #include "BoxFilterFunction.h"
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 BoxFilterFunction::BoxFilterFunction()
 {}

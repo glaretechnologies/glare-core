@@ -6,7 +6,7 @@
 
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
 

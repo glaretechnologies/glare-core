@@ -20,7 +20,7 @@ Code By Nicholas Chapman.
 #include "../utils/random.h"
 #include <limits>
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 namespace js

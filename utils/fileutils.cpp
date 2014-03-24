@@ -22,7 +22,7 @@ Code By Nicholas Chapman.
 #include <cstring>
 #include <stdlib.h>
 #include <assert.h>
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "platformutils.h"

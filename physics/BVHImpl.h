@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "BVH.h"
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 class ThreadContext;

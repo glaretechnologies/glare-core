@@ -10,7 +10,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 #include "../indigo/SpectralVector.h"
 #include "../indigo/PolarisationVec.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 
 

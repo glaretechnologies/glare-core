@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 InterpolatedTable3D::InterpolatedTable3D(

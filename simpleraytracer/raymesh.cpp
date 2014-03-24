@@ -34,7 +34,7 @@ Code By Nicholas Chapman.
 #include <fstream>
 #include <algorithm>
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/Numeric.h"
 #include "../indigo/PrintOutput.h"

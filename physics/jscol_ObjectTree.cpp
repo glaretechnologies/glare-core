@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "TreeUtils.h"
 #include "../indigo/globals.h"
 #include "../indigo/PrintOutput.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 #include "../indigo/EnvSphereGeometry.h"
 #include "../indigo/ThreadContext.h"

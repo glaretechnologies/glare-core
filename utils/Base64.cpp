@@ -8,7 +8,7 @@ Generated at 2014-03-22 11:44:41 +0000
 
 
 #include "Platform.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "Exception.h"
 #include "../indigo/TestUtils.h"
 #include <assert.h>

@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2013 -
 
 #include "matrix3.h"
 #include "vec3.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 Matrix4f::Matrix4f(const float* data)
@@ -126,7 +126,7 @@ const std::string Matrix4f::toString() const
 
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
 

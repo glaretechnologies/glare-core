@@ -7,7 +7,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 #include "DynamicLib.h"
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "platformutils.h"
 #include <assert.h>
 #if BUILD_TESTS

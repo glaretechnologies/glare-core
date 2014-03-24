@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "modeldecoder.h"
 #include "../dll/include/IndigoMesh.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 ModelFormatDecoder::ModelFormatDecoder()

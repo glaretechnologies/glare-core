@@ -28,7 +28,7 @@ You may not use this code for any commercial project.
 #include "Matrix2.h"
 #include "mathstypes.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 template <>

@@ -10,7 +10,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "../utils/OutStream.h"
 #include "../utils/InStream.h"
 #include "../utils/Exception.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 // Explicit template instantiation

@@ -39,7 +39,7 @@ Code By Nicholas Chapman.
 #endif
 
 #include <cassert>
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include <cstdlib>
 #include <algorithm>

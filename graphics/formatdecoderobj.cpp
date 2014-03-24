@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/namemap.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"

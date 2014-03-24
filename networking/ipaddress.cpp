@@ -7,7 +7,7 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 #include "ipaddress.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>

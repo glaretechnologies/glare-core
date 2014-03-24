@@ -15,7 +15,7 @@ Generated at 2013-06-27 10:45:37 +0100
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
 

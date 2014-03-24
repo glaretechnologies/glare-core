@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "Vec4f.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 const std::string Vec4f::toString() const

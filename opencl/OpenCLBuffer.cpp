@@ -14,7 +14,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #include "../indigo/globals.h"
 #include "../utils/Platform.h"
 #include "../utils/Exception.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 #ifdef OPENCL_MEM_LOG

@@ -12,7 +12,7 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #include "imformatdecoder.h"
 #include "ImageMap.h"
 #include "../utils/ConPrint.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"

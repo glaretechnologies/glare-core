@@ -1,9 +1,9 @@
 /*=====================================================================
-stringutils.cpp
+StringUtils.cpp
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2014 -
 =====================================================================*/
-#include "stringutils.h"
+#include "StringUtils.h"
 
 
 #include "IncludeWindows.h"

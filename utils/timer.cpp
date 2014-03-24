@@ -1,7 +1,7 @@
 #include "timer.h"
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 
 
 const std::string Timer::elapsedString() const // e.g "30.4 s"

@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "GaussianFilterFunction.h"
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../maths/mathstypes.h"
 
 

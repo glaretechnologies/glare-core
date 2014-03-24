@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/fileutils.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"

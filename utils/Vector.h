@@ -20,7 +20,7 @@ File created by ClassTemplate on Sat Sep 02 19:47:39 2006
 
 #if JS_VECTOR_VERBOSE
 #include "../indigo/globals.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include <typeinfo.h>
 #endif
 

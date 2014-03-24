@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include <assert.h>
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include "../graphics/ImageMap.h"
 #include <string.h>

@@ -30,7 +30,7 @@ namespace BitUtils
 #include "../utils/ConPrint.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 namespace BitUtils

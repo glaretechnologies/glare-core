@@ -21,7 +21,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/Platform.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 
 

@@ -9,7 +9,7 @@ Generated at Tue Feb 26 22:12:22 +0100 2013
 
 #include "imformatdecoder.h"
 #include "ImageMap.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/fileutils.h"
 #include "../utils/Parser.h"
 #include "../utils/Exception.h"

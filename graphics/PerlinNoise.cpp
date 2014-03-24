@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "../maths/Vec4i.h"
 #include "../indigo/globals.h"
 #include "../indigo/HaltonSampler.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/MTwister.h"
 #include "../maths/GeometrySampling.h"

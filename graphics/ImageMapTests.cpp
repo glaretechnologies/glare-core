@@ -12,7 +12,7 @@ Generated at 2011-05-22 19:51:52 +0100
 
 
 #include "ImageMap.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
 #include "../utils/Plotter.h"

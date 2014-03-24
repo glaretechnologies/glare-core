@@ -10,7 +10,7 @@ Generated at Fri Nov 11 13:48:01 +0000 2011
 #include <assert.h>
 #ifdef _WIN32
 #include "Exception.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "platformutils.h"
 #include <Windows.h>
 #include <Wincrypt.h>

@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 #include "mythread.h"
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include <vector>
 
 

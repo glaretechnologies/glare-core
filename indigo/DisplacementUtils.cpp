@@ -22,7 +22,7 @@ by Joe Warren and Scott Schaefer
 #include "VoidMedium.h"
 #include "TestUtils.h"
 #include "globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "PrintOutput.h"
 #include "StandardPrintOutput.h"
 #include "ThreadContext.h"

@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../maths/SSE.h"
 #include "../simpleraytracer/ray.h"
 //#include "../indigo/globals.h"
-//#include "../utils/stringutils.h"
+//#include "../utils/StringUtils.h"
 
 
 namespace js

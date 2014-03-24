@@ -1,7 +1,7 @@
 #include "Colour4f.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 const std::string Colour4f::toString() const

@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2013 -
 #pragma once
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Platform.h"
 #include <string>
 

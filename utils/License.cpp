@@ -7,7 +7,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 #include "platformutils.h"
 #include "fileutils.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "Clock.h"
 #include "SystemInfo.h"
 #include "../indigo/TestUtils.h"

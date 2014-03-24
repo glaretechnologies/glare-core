@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "Parser.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/timer.h"
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"

@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "port.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 Port::Port()

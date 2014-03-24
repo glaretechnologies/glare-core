@@ -9,7 +9,7 @@ File created by ClassTemplate on Fri May 02 16:51:32 2008
 
 #include "ImageMap.h"
 #include "imformatdecoder.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include <tiffio.h>
 
 

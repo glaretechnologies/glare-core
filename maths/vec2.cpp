@@ -1,7 +1,7 @@
 #include "vec2.h"
 
 #include "../utils/random.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 /*
 const Vec2 Vec2::randomVec(float component_lowbound, float component_highbound)

@@ -11,7 +11,7 @@ Generated at 2012-11-10 19:47:32 +0000
 #include "../indigo/object.h"
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4i.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include <limits>
 

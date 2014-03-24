@@ -1,6 +1,6 @@
 #include "MitchellNetravaliFilterFunction.h"
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 MitchellNetravaliFilterFunction::MitchellNetravaliFilterFunction(double B_, double C_, double radius/* = 2.0*/)

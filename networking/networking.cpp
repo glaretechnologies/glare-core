@@ -7,7 +7,7 @@ File created by ClassTemplate on Thu Apr 18 15:19:22 2002
 #include "networking.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/ConPrint.h"
 #include <cstring>

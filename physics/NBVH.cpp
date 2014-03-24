@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/timer.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 namespace js
 {

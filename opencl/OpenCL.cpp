@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 
 #include "../maths/mathstypes.h"
 #include "../utils/platformutils.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/timer.h"
 #include "../utils/ConPrint.h"

@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/PrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"

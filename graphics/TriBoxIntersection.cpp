@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/timer.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 #if 0

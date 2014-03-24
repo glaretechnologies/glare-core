@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include <assert.h>
 #include "../utils/lock.h"
 //#include "../utils/inifile.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include <string.h> // for memset()
 #if defined(_WIN32) || defined(_WIN64)
 

@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 
 #include "mathstypes.h"
 #include <string>
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 /*=====================================================================
 NVec

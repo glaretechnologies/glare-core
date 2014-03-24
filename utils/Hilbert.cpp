@@ -9,7 +9,7 @@ Generated at Fri Nov 26 14:59:10 +1300 2010
 
 #include <vector>
 #include "../maths/Matrix2.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
 

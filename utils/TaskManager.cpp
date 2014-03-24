@@ -9,7 +9,7 @@ Generated at 2011-10-05 21:56:22 +0100
 
 #include "TaskRunnerThread.h"
 #include "platformutils.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "../indigo/globals.h"
 
 

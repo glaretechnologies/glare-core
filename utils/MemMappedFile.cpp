@@ -7,7 +7,7 @@ Generated at 2011-09-05 15:48:02 +0100
 #include "MemMappedFile.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/platformutils.h"
 #include "../utils/IncludeWindows.h"

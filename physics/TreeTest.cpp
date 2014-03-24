@@ -30,7 +30,7 @@ Code By Nicholas Chapman.
 #include "../maths/SSE.h"
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"

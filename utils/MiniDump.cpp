@@ -16,7 +16,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #endif
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "../indigo/globals.h"
 
 

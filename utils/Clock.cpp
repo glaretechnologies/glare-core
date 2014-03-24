@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2013 -
 #endif
 
 #include <assert.h>
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "Platform.h"
 
 

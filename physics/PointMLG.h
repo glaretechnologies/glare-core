@@ -10,7 +10,7 @@ Generated at 2012-08-18 21:52:10 +0100
 #include "MultiLevelGrid.h"
 #include "../maths/vec3.h"
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 // A point and some associated data

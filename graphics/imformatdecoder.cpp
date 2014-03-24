@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "imformatdecoder.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include <stdlib.h>//for NULL
 #include "bitmap.h"
 #include <fstream>

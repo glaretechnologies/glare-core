@@ -1,6 +1,6 @@
 #include "SharpFilterFunction.h"
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 SharpFilterFunction::SharpFilterFunction()

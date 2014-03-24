@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "Vector.h"
-#include "stringutils.h"
+#include "StringUtils.h"
 #include "timer.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"

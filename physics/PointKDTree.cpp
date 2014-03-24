@@ -9,7 +9,7 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 
 #include "../maths/vec3.h"
 #include "../utils/Exception.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include <algorithm>
 #include <set>
 #include "../indigo/ThreadContext.h"

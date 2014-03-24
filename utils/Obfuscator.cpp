@@ -10,7 +10,7 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "Parser.h"
 #include <string>
 #include "../indigo/globals.h"
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/fileutils.h"
 #include <fstream>

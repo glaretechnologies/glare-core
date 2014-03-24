@@ -7,7 +7,7 @@ Generated at 2012-11-10 21:02:10 +0000
 #include "Vec4i.h"
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 
 
 const std::string Vec4i::toString() const

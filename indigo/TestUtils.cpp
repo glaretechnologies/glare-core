@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #if defined(BUILD_TESTS)
 
 
-#include "../utils/stringutils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/platformutils.h"
 #include "../utils/prebuild_repos_info.h"
 #include "../utils/ConPrint.h"

@@ -7,7 +7,7 @@ Generated at Fri Jul 22 18:12:30 +0100 2011
 #include "DeltaSigmaSampler.h"
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 
 
 template <>

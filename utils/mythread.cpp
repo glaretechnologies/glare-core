@@ -6,7 +6,7 @@ Code By Nicholas Chapman.
 #include "mythread.h"
 
 
-#include "stringutils.h"
+#include "StringUtils.h"
 #include <cassert>
 #if defined(_WIN32)
 #include <process.h>
