@@ -93,7 +93,7 @@ void OpenCLBuffer::free()
 }
 
 
-void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags)
+void OpenCLBuffer::allocFrom(const void* const src_ptr, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
@@ -112,13 +112,56 @@ void OpenCLBuffer::allocFrom(const void * const src_ptr, size_t size_, cl_mem_fl
 	size = size_;
 
 #ifdef OPENCL_MEM_LOG
-	OpenCL_global_alloc += size_;
-	conPrint("OpenCLBuffer::allocFrom(): size = " + getNiceByteSize(size_) + ", total = " + getNiceByteSize(OpenCL_global_alloc));
+	OpenCL_global_alloc += size;
+	conPrint("OpenCLBuffer::allocFrom(): size = " + getNiceByteSize(size) + ", total = " + getNiceByteSize(OpenCL_global_alloc));
 #endif
 }
 
 
-void OpenCLBuffer::copyFrom(const void * const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write)
+void OpenCLBuffer::allocFromPadded(const void* const src_ptr, size_t size_, cl_mem_flags flags)
+{
+	if(opencl_mem)
+		free();
+
+	cl_int result;
+	if(size > 0)
+	{
+		opencl_mem = opencl.clCreateBuffer(
+			opencl.context,
+			flags | CL_MEM_COPY_HOST_PTR,
+			size_, // size
+			(void*)src_ptr, // host ptr
+			&result
+			);
+
+		size = size_;
+	}
+	else // Avoid allocations of zero-sized buffers
+	{
+		uint32 dummy_data = 0;
+
+		opencl_mem = opencl.clCreateBuffer(
+			opencl.context,
+			flags | CL_MEM_COPY_HOST_PTR,
+			sizeof(uint32), // size
+			(void*)&dummy_data, // host ptr
+			&result
+			);
+
+		size = sizeof(uint32);
+	}
+
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clCreateBuffer failed");
+
+#ifdef OPENCL_MEM_LOG
+	OpenCL_global_alloc += size;
+	conPrint("OpenCLBuffer::allocFrom(): size = " + getNiceByteSize(size) + ", total = " + getNiceByteSize(OpenCL_global_alloc));
+#endif
+}
+
+
+void OpenCLBuffer::copyFrom(const void* const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write)
 {
 	assert(size_ <= size);
 
@@ -138,7 +181,7 @@ void OpenCLBuffer::copyFrom(const void * const src_ptr, size_t size_, cl_command
 }
 
 
-//void OpenCLBuffer::copyFromAsync(const void * const src_ptr, size_t size_, CUstream& stream)
+//void OpenCLBuffer::copyFromAsync(const void* const src_ptr, size_t size_, CUstream& stream)
 //{
 //	assert(size_ <= size);
 //
@@ -148,7 +191,7 @@ void OpenCLBuffer::copyFrom(const void * const src_ptr, size_t size_, cl_command
 //}
 
 
-void OpenCLBuffer::copyTo(void * const dst_ptr, size_t size_)
+void OpenCLBuffer::copyTo(void* const dst_ptr, size_t size_)
 {
 	assert(size_ <= size);
 
@@ -158,7 +201,7 @@ void OpenCLBuffer::copyTo(void * const dst_ptr, size_t size_)
 }
 
 
-//void OpenCLBuffer::copyToAsync(void * const dst_ptr, size_t size_, CUstream& stream)
+//void OpenCLBuffer::copyToAsync(void* const dst_ptr, size_t size_, CUstream& stream)
 //{
 //	assert(size_ <= size);
 //

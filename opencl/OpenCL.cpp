@@ -531,7 +531,7 @@ cl_program OpenCL::buildProgram(
 	bool build_success = (result == CL_SUCCESS);
 	if(!build_success)
 	{
-#if BUILD_TESTS
+#if defined(_DEBUG) | defined(BUILD_TESTS)
 		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
 			dumpBuildLog(program, print_output);
 		//else
@@ -650,10 +650,11 @@ void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
 		const std::string log(&buf[0], param_value_size_ret);
 		print_output.print("OpenCL build log: " + log);
 
-
 		{
 			std::ofstream build_log("build_log.txt");
 			build_log << log;
+
+			std::cout << log;
 		}
 	}
 	else

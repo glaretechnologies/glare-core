@@ -29,16 +29,22 @@ public:
 
 	void alloc(size_t size_, cl_mem_flags flags);
 
-	void allocFrom(const void * const src_ptr, size_t size_, cl_mem_flags flags);
+	void allocFrom(const void* const src_ptr, size_t size_, cl_mem_flags flags);
+	void allocFromPadded(const void* const src_ptr, size_t size_, cl_mem_flags flags);
 
 	template<typename T, size_t align>
 	void allocFrom(const js::Vector<T, align>& src_vec, cl_mem_flags flags);
 
+	template<typename T, size_t align>
+	void allocFromPadded(const js::Vector<T, align>& src_vec, cl_mem_flags flags);
+
 	template<typename T>
 	void allocFrom(const std::vector<T>& src_vec, cl_mem_flags flags);
 
+	template<typename T>
+	void allocFromPadded(const std::vector<T>& src_vec, cl_mem_flags flags);
 
-	void copyFrom(const void * const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write);
+	void copyFrom(const void* const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write);
 
 	template<typename T, size_t align>
 	void copyFrom(const js::Vector<T, align>& src_vec, cl_command_queue command_queue, cl_bool blocking_write);
@@ -79,10 +85,30 @@ void OpenCLBuffer::allocFrom(const js::Vector<T, align>& src_vec, cl_mem_flags f
 }
 
 
+template<typename T, size_t align>
+void OpenCLBuffer::allocFromPadded(const js::Vector<T, align>& src_vec, cl_mem_flags flags_)
+{
+	if(src_vec.size() == 0)
+		allocFromPadded(NULL, 0, flags_);
+	else
+		allocFromPadded(&src_vec[0], src_vec.size() * sizeof(T), flags_);
+}
+
+
 template<typename T>
 void OpenCLBuffer::allocFrom(const std::vector<T>& src_vec, cl_mem_flags flags_)
 {
 	allocFrom(&src_vec[0], src_vec.size() * sizeof(T), flags_);
+}
+
+
+template<typename T>
+void OpenCLBuffer::allocFromPadded(const std::vector<T>& src_vec, cl_mem_flags flags_)
+{
+	if(src_vec.size() == 0)
+		allocFromPadded(NULL, 0, flags_);
+	else
+		allocFromPadded(&src_vec[0], src_vec.size() * sizeof(T), flags_);
 }
 
 

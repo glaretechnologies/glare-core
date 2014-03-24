@@ -103,31 +103,6 @@ StaticSobol::~StaticSobol()
 }
 
 
-void StaticSobol::evalRecursiveSSE(const uint32_t sample_idx, uint32_t * const sample_out) const
-{
-	const uint32_t bit_index = BitUtils::lowestZeroBitIndex(sample_idx - 1);
-	float const * const dir_nums = (float const * const)&transposed_dir_nums[bit_index * num_dims];
-
-	for (int d = 0; d < num_dims; d += 16)
-	{
-		const __m128 s0 = _mm_load_ps((const float *)&sample_out[d +  0]);
-		const __m128 s1 = _mm_load_ps((const float *)&sample_out[d +  4]);
-		const __m128 s2 = _mm_load_ps((const float *)&sample_out[d +  8]);
-		const __m128 s3 = _mm_load_ps((const float *)&sample_out[d + 12]);
-
-		const __m128 v0 = _mm_load_ps((const float *)&dir_nums[d +  0]);
-		const __m128 v1 = _mm_load_ps((const float *)&dir_nums[d +  4]);
-		const __m128 v2 = _mm_load_ps((const float *)&dir_nums[d +  8]);
-		const __m128 v3 = _mm_load_ps((const float *)&dir_nums[d + 12]);
-
-		_mm_store_ps((float *)&sample_out[d +  0], _mm_xor_ps(s0, v0));
-		_mm_store_ps((float *)&sample_out[d +  4], _mm_xor_ps(s1, v1));
-		_mm_store_ps((float *)&sample_out[d +  8], _mm_xor_ps(s2, v2));
-		_mm_store_ps((float *)&sample_out[d + 12], _mm_xor_ps(s3, v3));
-	}
-}
-
-
 void StaticSobol::evalSampleBlock(const uint32_t base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32_t * const samples_out) const
 {
 	assert(sample_block_size % 16 == 0); // Because we unroll the sample computation with SSE

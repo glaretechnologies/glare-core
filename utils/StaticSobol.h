@@ -65,12 +65,14 @@ public:
 		return evalSample(sample_num_32, d) + static_random(random_index * 21211 + d);
 	}
 
-	void evalRecursiveSSE(const uint32_t sample_idx, uint32_t * const sample_out) const;
-
 	void evalSampleBlock(const uint32_t base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32_t * const samples_out) const;
 
 	static void test(const std::string& indigo_base_dir_path);
 
+	// The Sobol "direction numbers"
+	js::Vector<uint32, 16> dir_nums;
+
+	// Transposed direction numbers
 	js::Vector<uint32, 16> transposed_dir_nums;
 private:
 
@@ -93,9 +95,6 @@ private:
 
 	inline uint32 evalSampleRefRandomised(const uint64 sample_num, const uint32 d) const;
 
-
-	// The Sobol "direction numbers"
-	js::Vector<uint32, 16> dir_nums;
 
 	// Small lookup table to accelerate the SIMD xor-computations in evaluation.
 	__m128 xor_LUT[16];
