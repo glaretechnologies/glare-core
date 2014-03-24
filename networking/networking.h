@@ -8,7 +8,7 @@ File created by ClassTemplate on Thu Apr 18 15:19:22 2002
 
 
 #include "ipaddress.h"
-#include "../utils/singleton.h"
+#include "../utils/Singleton.h"
 #include <vector>
 #include <string>
 

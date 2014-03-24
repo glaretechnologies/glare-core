@@ -1,11 +1,10 @@
 /*=====================================================================
-singleton.h
+Singleton.h
 -----------
 File created by ClassTemplate on Mon Jun 03 15:02:43 2002
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __SINGLETON_H_666_
-#define __SINGLETON_H_666_
+#pragma once
 
 
 #include <assert.h>
@@ -103,6 +102,3 @@ bool Singleton<T>::isNonNull()
 {
 	return instance != NULL;
 }
-
-
-#endif //__SINGLETON_H_666_
