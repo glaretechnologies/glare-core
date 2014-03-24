@@ -13,7 +13,6 @@ Code By Nicholas Chapman.
 #include "jscol_TriTreePerThreadData.h"
 #include "jscol_ObjectTreePerThreadData.h"
 #include "../indigo/Vec3MatParameter.h"
-#include "../utils/random.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/MTwister.h"
 #include "../indigo/TestUtils.h"
