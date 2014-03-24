@@ -7,7 +7,7 @@ Generated at Sun Aug 08 21:34:59 +1200 2010
 #pragma once
 
 
-#include "array2d.h"
+#include "Array2D.h"
 #include "../indigo/PolarisationVec.h"
 #include "../maths/vec2.h"
 

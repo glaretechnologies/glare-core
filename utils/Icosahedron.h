@@ -1,5 +1,5 @@
 /*=====================================================================
-icosahedron.h
+Icosahedron.h
 -------------
 Copyright Glare Technologies Limited 2010 -
 Generated at Fri Mar 04 20:29:28 +1300 2011
@@ -7,22 +7,23 @@ Generated at Fri Mar 04 20:29:28 +1300 2011
 #pragma once
 
 
+#include "../maths/vec3.h"
 #include <map>
 #include <stack>
 #include <vector>
 #include <utility>
 
-#include "../maths/vec3.h"
+
 
 /*=====================================================================
-icosahedron
+Icosahedron
 -----------
 
 =====================================================================*/
-class icosahedron
+class Icosahedron
 {
 public:
-	icosahedron(uint32 num_subdivs = 0) { setSubdivision(num_subdivs); }
+	Icosahedron(uint32 num_subdivs = 0) { setSubdivision(num_subdivs); }
 
 	std::vector<Vec3f> vertices;
 	std::vector<uint32> indices;
@@ -49,7 +50,7 @@ public:
 
 		std::vector<subdiv_tri> triangles_out;
 		std::stack<std::pair<subdiv_tri, uint32> > triangle_stack;
-		for(uint32 i = 0; i < 20; ++i) // for each face of the icosahedron
+		for(uint32 i = 0; i < 20; ++i) // for each face of the Icosahedron
 		{
 			const uint32 v0 = icosahedron_indices[i * 3], v1 = icosahedron_indices[i * 3 + 1], v2 = icosahedron_indices[i * 3 + 2];
 			const subdiv_tri t_orig(normalise(Vec3d(icosahedron_verts[v0*3], icosahedron_verts[v0*3+1], icosahedron_verts[v0*3+2])),

@@ -2,7 +2,7 @@
 
 
 #include "colour3.h"
-#include "../utils/array2d.h"
+#include "../utils/Array2D.h"
 #include "../utils/Platform.h"
 #include "../graphics/Map2D.h"
 #include "assert.h"

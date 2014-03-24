@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2013 -
 #include <stddef.h>
 #include "Map2D.h"
 #include "Colour4f.h"
-#include "../utils/array2d.h"
+#include "../utils/Array2D.h"
 class Bitmap;
 class FilterFunction;
 //#include "ImageMap.h"
