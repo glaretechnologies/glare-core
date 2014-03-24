@@ -11,7 +11,7 @@ File created by ClassTemplate on Sat Nov 13 06:32:42 2004Code By Nicholas Chapma
 #include <string>
 #include <memory>
 #include <map>
-#include "../utils/namemap.h"
+#include "../utils/NameMap.h"
 class Object;
 class ModelFormatDecoder;
 class Texture;

@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/Platform.h"
-#include "../utils/namemap.h"
+#include "../utils/NameMap.h"
 #include <string>
 #include <vector>
 namespace CS { class Model; }

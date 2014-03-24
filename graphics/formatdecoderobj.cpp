@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/globals.h"
-#include "../utils/namemap.h"
+#include "../utils/NameMap.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Parser.h"

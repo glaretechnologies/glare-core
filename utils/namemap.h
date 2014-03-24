@@ -1,10 +1,11 @@
 /*=====================================================================
-namemap.h
+NameMap.h
 ---------
-File created by ClassTemplate on Sun Nov 07 02:10:07 2004Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2014 -
+File created by ClassTemplate on Sun Nov 07 02:10:07 2004
 =====================================================================*/
-#ifndef __NAMEMAP_H_666_
-#define __NAMEMAP_H_666_
+#pragma once
+
 
 #include "Platform.h"
 #include <map>
@@ -132,10 +133,3 @@ void NameMap<T>::erase(iterator& i)
 {
 	namemap.erase(i);
 }
-
-
-#endif //__NAMEMAP_H_666_
-
-
-
-
