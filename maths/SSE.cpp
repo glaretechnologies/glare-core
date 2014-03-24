@@ -141,10 +141,10 @@ void SSETest()
 				void* m = SSE::alignedMalloc(i, 4 << a);
 
 				// Write to the memory
-				/*for(int z=0; z<i; ++z)
-				{
-					((unsigned char*)m)[z] = 0;
-				}*/
+				//for(int z=0; z<i; ++z)
+				//{
+				//	((unsigned char*)m)[z] = 0;
+				//}
 
 				SSE::alignedFree(m);
 			}
@@ -161,10 +161,10 @@ void SSETest()
 				void* m = _mm_malloc(i, 4 << a);
 
 				// Write to the memory
-				/*for(int z=0; z<i; ++z)
-				{
-					((unsigned char*)m)[z] = 0;
-				}*/
+				//for(int z=0; z<i; ++z)
+				//{
+				//	((unsigned char*)m)[z] = 0;
+				//}
 
 				_mm_free(m);
 			}
@@ -182,10 +182,10 @@ void SSETest()
 				void* m = SSE::alignedMalloc(i, 4 << a);
 
 				// Write to the memory
-				/*for(int z=0; z<i; ++z)
-				{
-					((unsigned char*)m)[z] = 0;
-				}*/
+				//for(int z=0; z<i; ++z)
+				//{
+				//	((unsigned char*)m)[z] = 0;
+				//}
 
 				SSE::alignedFree(m);
 			}
