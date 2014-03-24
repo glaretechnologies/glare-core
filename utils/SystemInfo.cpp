@@ -120,7 +120,7 @@ long mac_addr_sys ( u_char *addr)
 void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 {
 #if defined(_WIN32) || defined(_WIN64)
-	IP_ADAPTER_INFO AdapterInfo[16];		// Allocate information for up to 16 NICs
+	std::vector<IP_ADAPTER_INFO> AdapterInfo(16);
 
 	/*
 	GetAdaptersInfo seems to randomly fail with ERROR_NO_DATA or ERROR_NOACCESS on older versions of Windows.
@@ -137,12 +137,24 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	int num_calls_done = 0;
 	while(1) // Loop until GetAdaptersInfo() succeeds or we exceed the max number of attempts.
 	{
-		DWORD dwBufLen = sizeof(AdapterInfo);	// Save memory size of buffer
-		const DWORD dwStatus = GetAdaptersInfo(
-			AdapterInfo,	// [out] buffer to receive data
+		DWORD dwBufLen = AdapterInfo.size() * sizeof(IP_ADAPTER_INFO); // The size of the buffer.
+		DWORD dwStatus = GetAdaptersInfo(
+			AdapterInfo.data(),	// [out] buffer to receive data
 			&dwBufLen		// [in] size of receive data buffer
 		);
 		num_calls_done++;
+
+		// If we get an ERROR_BUFFER_OVERFLOW it means the buffer was too small.
+		// Allocate a buffer that is large enough and call GetAdaptersInfo again.
+		if (dwStatus == ERROR_BUFFER_OVERFLOW)
+		{
+			AdapterInfo.resize(dwBufLen / sizeof(IP_ADAPTER_INFO));
+
+			dwStatus = GetAdaptersInfo(
+				AdapterInfo.data(),	// [out] buffer to receive data
+				&dwBufLen		// [in] size of receive data buffer
+				);
+		}
 
 		if(dwStatus == ERROR_SUCCESS)
 		{
@@ -163,7 +175,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 		}
 	}
 
-	PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo; // Contains pointer to current adapter info.
+	PIP_ADAPTER_INFO pAdapterInfo = (PIP_ADAPTER_INFO)AdapterInfo.data(); // Contains pointer to current adapter info.
 	
 	std::vector<MyAdapterInfo> adapters;
 
