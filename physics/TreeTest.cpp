@@ -22,7 +22,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/sphereunitvecpool.h"
+#include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/PlatformUtils.h"

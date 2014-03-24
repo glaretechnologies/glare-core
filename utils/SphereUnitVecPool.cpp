@@ -1,10 +1,10 @@
 /*=====================================================================
-sphereunitvecpool.cpp
+SphereUnitVecPool.cpp
 ---------------------
 File created by ClassTemplate on Mon Nov 22 02:42:22 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "sphereunitvecpool.h"
+#include "SphereUnitVecPool.h"
 
 
 #include "../maths/mathstypes.h"
