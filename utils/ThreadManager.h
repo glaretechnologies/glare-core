@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "threadsafequeue.h"
+#include "ThreadSafeQueue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
 #include <set>

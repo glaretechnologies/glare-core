@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "ThreadManager.h"
-#include "threadsafequeue.h"
+#include "ThreadSafeQueue.h"
 #include "MyThread.h"
 #include "ParallelFor.h"
 #include <cmath>

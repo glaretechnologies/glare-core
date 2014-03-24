@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "MyThread.h"
-#include "threadsafequeue.h"
+#include "ThreadSafeQueue.h"
 #include "ThreadMessage.h"
 class ThreadManager;
 

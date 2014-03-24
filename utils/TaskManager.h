@@ -8,7 +8,7 @@ Generated at 2011-10-05 21:56:22 +0100
 
 
 #include "Task.h"
-#include "threadsafequeue.h"
+#include "ThreadSafeQueue.h"
 #include "Mutex.h"
 #include "Reference.h"
 #include "Condition.h"

@@ -8,7 +8,7 @@ Generated at Tue Mar 09 15:48:35 +1300 2010
 
 
 #include "../networking/mysocket.h"
-#include "../utils/threadsafequeue.h"
+#include "../utils/ThreadSafeQueue.h"
 class ThreadMessage;
 
 

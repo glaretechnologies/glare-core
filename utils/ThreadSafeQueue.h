@@ -1,11 +1,10 @@
 /*=====================================================================
-threadsafequeue.h
+ThreadSafeQueue.h
 -----------------
 File created by ClassTemplate on Fri Sep 19 01:55:10 2003
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __THREADSAFEQUEUE_H_666_
-#define __THREADSAFEQUEUE_H_666_
+#pragma once
 
 
 #include "Mutex.h"
@@ -307,6 +306,3 @@ void ThreadSafeQueue<T>::dequeueAppendToVector(std::vector<T>& vec_out)
 
 	nonempty.resetToFalse();
 }*/
-
-
-#endif //__THREADSAFEQUEUE_H_666_
