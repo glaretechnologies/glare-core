@@ -34,7 +34,27 @@ public:
 	}
 
 	// Throws Indigo::Exception on failure
+	inline static void hash(
+		const std::string& message_text,
+		std::vector<unsigned char>& digest_out
+	)
+	{
+		if(message_text.empty())
+			hash(0, 0, digest_out);
+		else
+			hash((const unsigned char*)&(*message_text.begin()), (const unsigned char*)&(*message_text.begin()) + message_text.size(), digest_out);
+	}
+
+	// Throws Indigo::Exception on failure
 	static void hash(
+		const unsigned char* message_text_begin,
+		const unsigned char* message_text_end,
+		std::vector<unsigned char>& digest_out
+	);
+
+
+	// Throws Indigo::Exception on failure
+	static void SHA1Hash(
 		const unsigned char* message_text_begin,
 		const unsigned char* message_text_end,
 		std::vector<unsigned char>& digest_out

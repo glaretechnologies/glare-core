@@ -1,11 +1,10 @@
 /*=====================================================================
 lock.h
 ------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Wed Jul 24 13:28:21 2002
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __LOCK_H_666_
-#define __LOCK_H_666_
+#pragma once
 
 
 #include "platform.h"
@@ -37,11 +36,3 @@ private:
 
 	Mutex& mutex;
 };
-
-
-
-#endif //__LOCK_H_666_
-
-
-
-

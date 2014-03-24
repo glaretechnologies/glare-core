@@ -61,6 +61,9 @@ public:
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const = 0;
 
 	virtual unsigned int getBytesPerPixel() const = 0;
+
+private:
+	INDIGO_DISABLE_COPY(Map2D)
 };
 
 

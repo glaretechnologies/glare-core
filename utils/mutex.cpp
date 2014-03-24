@@ -1,8 +1,8 @@
 /*=====================================================================
 mutex.cpp
 ---------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Wed Jul 24 13:24:30 2002
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "mutex.h"
 
@@ -12,8 +12,6 @@ Code By Nicholas Chapman.
 
 Mutex::Mutex()
 {
-//	created = false;
-
 #if defined(_WIN32)
 	InitializeCriticalSection(&mutex);
 #else
@@ -26,13 +24,11 @@ Mutex::Mutex()
 	result = pthread_mutex_init(&mutex, &mutex_attributes);
 	assert(result == 0);
 #endif
-//	created = true;
 }
+
 
 Mutex::~Mutex()
 {
-//	created = false;
-
 #if defined(_WIN32)
 	DeleteCriticalSection(&mutex);
 #else
@@ -40,10 +36,9 @@ Mutex::~Mutex()
 #endif
 }
 
+
 void Mutex::acquire()
 {
-//	assert(created);
-
 #if defined(_WIN32)
 	EnterCriticalSection(&mutex);
 #else
@@ -53,13 +48,9 @@ void Mutex::acquire()
 
 void Mutex::release()
 {	
-//	assert(created);
-
 #if defined(_WIN32)
 	LeaveCriticalSection(&mutex);
 #else
 	pthread_mutex_unlock(&mutex);
 #endif
 }
-
-

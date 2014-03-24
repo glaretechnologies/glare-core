@@ -45,6 +45,27 @@ void SHA256::hash(
 }
 
 
+void SHA256::SHA1Hash(
+		const unsigned char* message_text_begin,
+		const unsigned char* message_text_end,
+		std::vector<unsigned char>& digest_out
+	)
+{
+	SHA_CTX context;
+	digest_out.resize(SHA_DIGEST_LENGTH);
+
+	if(SHA1_Init(&context) == 0)
+		throw Indigo::Exception("Hash init failed");
+
+	if(message_text_end > message_text_begin)
+		if(SHA1_Update(&context, message_text_begin, message_text_end - message_text_begin) == 0)
+			throw Indigo::Exception("Hash update failed");
+
+	if(SHA1_Final(&digest_out[0], &context) == 0)
+		throw Indigo::Exception("Hash finalise failed");
+}
+
+
 #if BUILD_TESTS
 
 

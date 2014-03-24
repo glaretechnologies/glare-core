@@ -1,15 +1,13 @@
 /*=====================================================================
 mutex.h
 -------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Wed Jul 24 13:24:30 2002
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MUTEX_H_666_
-#define __MUTEX_H_666_
+#pragma once
 
 
 #if defined(_WIN32)
-
 // Stop windows.h from defining the min() and max() macros
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -20,6 +18,8 @@ Code By Nicholas Chapman.
 #else
 #include <pthread.h>
 #endif
+#include "platform.h"
+
 
 /*=====================================================================
 Mutex
@@ -29,13 +29,7 @@ Mutex
 class Mutex
 {
 public:
-	/*=====================================================================
-	Mutex
-	-----
-	
-	=====================================================================*/
 	Mutex();
-
 	~Mutex();
 
 	void acquire();
@@ -47,14 +41,8 @@ public:
 #else
 	pthread_mutex_t mutex;
 #endif
-	//TEMP DEBUG:
-//	bool created;
+
+private:
+	// Mutex is non-copyable, as copying the CRITICAL_SECTION structure causes crashes.
+	INDIGO_DISABLE_COPY(Mutex);
 };
-
-
-
-#endif //__MUTEX_H_666_
-
-
-
-

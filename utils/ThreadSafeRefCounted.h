@@ -60,6 +60,7 @@ public:
 	}
 	
 private:
+	INDIGO_DISABLE_COPY(ThreadSafeRefCounted)
 	mutable Mutex mutex;
 	mutable int refcount;
 };

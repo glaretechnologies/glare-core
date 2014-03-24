@@ -262,6 +262,7 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 
 		task_manager.runParallelForTasks<BVHCentroidTask, BVHCentroidTaskClosure>(centroid_closure, 0, num_tris);
 
+		// TODO: use js::Vector here to avoid default zero-initialisation
 		std::vector<std::vector<TRI_INDEX> > tris(3);
 		std::vector<std::vector<TRI_INDEX> > temp(2);
 		temp[0].resize(numTris());

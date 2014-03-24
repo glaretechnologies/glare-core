@@ -24,6 +24,7 @@ class Image : public Map2D
 {
 public:
 	Image();
+	Image(const Image& other);
 	Image(size_t width, size_t height); // throws Indigo::Exception
 	virtual ~Image();
 
@@ -129,9 +130,6 @@ public:
 	static void test();
 
 private:
-	//unsigned int width;
-	//unsigned int height;
-
 	Array2d<ColourType> pixels;
 };
 

@@ -26,6 +26,12 @@ Image::Image()
 }
 
 
+Image::Image(const Image& other)
+{
+	this->pixels = other.pixels;
+}
+
+
 Image::Image(size_t width, size_t height)
 {
 	try
@@ -48,9 +54,6 @@ Image& Image::operator = (const Image& other)
 {
 	if(&other == this)
 		return *this;
-
-	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
-		resize(other.getWidth(), other.getHeight());
 
 	this->pixels = other.pixels;
 
