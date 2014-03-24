@@ -22,7 +22,7 @@ Coded by Nick Chapman in the year 2000-
 #include "Vec4f.h" // For toVec3d()
 #include <assert.h>
 #include <string>
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 
 
 #define VEC3_INLINE INDIGO_STRONG_INLINE

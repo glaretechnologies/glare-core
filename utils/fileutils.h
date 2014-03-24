@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __FILEUTILS_H_666_
 #define __FILEUTILS_H_666_
 
-#include "platform.h"
+#include "Platform.h"
 #include <string>
 #include <vector>
 #include <fstream>

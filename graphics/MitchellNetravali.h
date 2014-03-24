@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 #include <assert.h>
 
 

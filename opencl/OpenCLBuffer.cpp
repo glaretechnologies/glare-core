@@ -12,7 +12,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 
 #include "OpenCL.h"
 #include "../indigo/globals.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/Exception.h"
 #include "../utils/stringutils.h"
 

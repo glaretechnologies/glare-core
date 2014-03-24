@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include <ostream>
 #include <vector>
 #include "Array4D.h"
-#include "platform.h"
+#include "Platform.h"
 
 
 /*=====================================================================

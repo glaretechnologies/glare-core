@@ -7,7 +7,7 @@ Generated at Fri Oct 29 14:08:44 +1300 2010
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 
 
 /*=====================================================================

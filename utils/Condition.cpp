@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "Condition.h"
 
 
-#include "platform.h"
+#include "Platform.h"
 #include "mutex.h"
 #include <assert.h>
 #include <cmath>

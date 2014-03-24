@@ -7,7 +7,7 @@ Generated at Sat May 15 15:39:54 +1200 2010
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 #include <assert.h>
 #include <algorithm>
 

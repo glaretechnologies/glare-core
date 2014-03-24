@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __AABBOX_H_666_
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 //#include "../maths/PaddedVec3.h"
 #include "../maths/Vec4f.h"
 #include "../maths/SSE.h"

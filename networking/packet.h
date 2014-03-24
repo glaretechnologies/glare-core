@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include <vector>
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <cstring> // for size_t
 
 

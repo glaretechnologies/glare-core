@@ -8,7 +8,7 @@ File created by ClassTemplate on Mon Oct 22 22:05:33 2007Code By Nicholas Chapma
 
 
 
-#include "platform.h"
+#include "Platform.h"
 
 /*=====================================================================
 ParkMillerCartaRNG

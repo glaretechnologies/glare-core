@@ -10,7 +10,7 @@ File created by ClassTemplate on Thu Mar 26 15:28:20 2009
 #include "SSE.h"
 #include "Vec4i.h"
 #include "mathstypes.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <assert.h>
 #include <string>
 

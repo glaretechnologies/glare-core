@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2012 -
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
 #include <tmmintrin.h> // SSSE 3 (Supplemental Streaming SIMD Extensions 3) header for _mm_shuffle_epi8

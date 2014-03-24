@@ -7,7 +7,7 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <string>
 struct sockaddr;
 

@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #ifndef __OBJECTTREENODE_H_666_
 #define __OBJECTTREENODE_H_666_
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 
 namespace js
 {

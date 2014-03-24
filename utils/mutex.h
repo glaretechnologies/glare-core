@@ -18,7 +18,7 @@ File created by ClassTemplate on Wed Jul 24 13:24:30 2002
 #else
 #include <pthread.h>
 #endif
-#include "platform.h"
+#include "Platform.h"
 
 
 /*=====================================================================

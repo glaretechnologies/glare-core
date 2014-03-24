@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
 #include "../physics/jscol_ObjectTree.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include <string>

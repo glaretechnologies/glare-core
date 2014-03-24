@@ -7,7 +7,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/vec3.h"
 #include <vector>
 namespace js { class AABBox; }

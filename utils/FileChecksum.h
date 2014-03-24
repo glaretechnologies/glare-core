@@ -7,7 +7,7 @@ Generated at Tue Mar 02 14:36:09 +1300 2010
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 #include <string>
 
 

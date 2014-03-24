@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "ImageMap.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include <assert.h>
 

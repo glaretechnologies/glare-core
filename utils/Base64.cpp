@@ -7,7 +7,7 @@ Generated at 2014-03-22 11:44:41 +0000
 #include "Base64.h"
 
 
-#include "platform.h"
+#include "Platform.h"
 #include "stringutils.h"
 #include "Exception.h"
 #include "../indigo/TestUtils.h"

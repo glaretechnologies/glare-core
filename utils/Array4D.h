@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __ARRAY4D_H_666_
 
 
-#include "platform.h"
+#include "Platform.h"
 #include <vector>
 #include <cassert>
 

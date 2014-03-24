@@ -4,7 +4,7 @@ Copyright Glare Technologies Limited 2012 -
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 #include "../utils/Vector.h"
 #include <cassert>
 

@@ -8,7 +8,7 @@ Generated at Thu Jan 13 16:39:20 +1300 2011
 
 
 #include "Exception.h"
-#include "platform.h"
+#include "Platform.h"
 #include <zlib.h>
 
 

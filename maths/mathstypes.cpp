@@ -9,7 +9,7 @@
 #include "../utils/stringutils.h"
 #include "../utils/timer.h"
 #include "../utils/CycleTimer.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/MTwister.h"
 #include <vector>
 #include <limits>

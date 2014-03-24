@@ -7,7 +7,7 @@ Generated at Wed Apr 07 12:57:48 +1200 2010
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/vec3.h"
 
 

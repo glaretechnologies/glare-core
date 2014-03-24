@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 
 #include <assert.h>
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 
 
 namespace js

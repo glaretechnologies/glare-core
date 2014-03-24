@@ -6,7 +6,7 @@ File created by ClassTemplate on Sun Nov 07 02:10:07 2004Code By Nicholas Chapma
 #ifndef __NAMEMAP_H_666_
 #define __NAMEMAP_H_666_
 
-#include "platform.h"
+#include "Platform.h"
 #include <map>
 #include <string>
 

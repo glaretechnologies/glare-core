@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 
 #include <vector>
 #include <string>
-#include "platform.h"
+#include "Platform.h"
 
 
 /*=====================================================================

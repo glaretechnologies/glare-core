@@ -8,7 +8,7 @@ Generated at Wed Apr 07 12:56:37 +1200 2010
 
 
 #include "PointKDTreeNode.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/vec3.h"
 #include <vector>
 #include <limits>

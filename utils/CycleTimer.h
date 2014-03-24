@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __CYCLETIMER_H_666_
 
 
-#include "platform.h"
+#include "Platform.h"
 
 
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)

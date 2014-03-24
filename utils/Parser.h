@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "../utils/stringutils.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <string>
 
 

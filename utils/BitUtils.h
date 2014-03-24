@@ -7,7 +7,7 @@ Generated at 2013-05-27 18:54:17 +0100
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 #ifdef _WIN32
 #include <intrin.h>
 #endif

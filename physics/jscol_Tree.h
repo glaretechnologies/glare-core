@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2013 -
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <istream>
 #include <ostream>
 #include <vector>

@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 #include <string>
 #include <vector>
 #include "../indigo/PrintOutput.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
 #include "../indigo/gpuDeviceInfo.h"
 

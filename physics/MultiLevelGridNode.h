@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/Vec4i.h"
 
 

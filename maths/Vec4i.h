@@ -8,7 +8,7 @@ Generated at 2012-11-10 21:02:10 +0000
 
 
 #include "../maths/SSE.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <string>
 
 

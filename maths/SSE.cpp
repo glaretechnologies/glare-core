@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2012 -
 #include "SSE.h"
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #include <new>

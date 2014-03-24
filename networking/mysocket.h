@@ -19,7 +19,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #endif
 
 #include "ipaddress.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
 #include "../utils/StreamShouldAbortCallback.h"

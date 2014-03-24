@@ -13,7 +13,7 @@ Copyright Glare Technologies Limited 2013 -
 
 #include <assert.h>
 #include "stringutils.h"
-#include "platform.h"
+#include "Platform.h"
 
 
 namespace Clock

@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/namemap.h"
 #include <string>
 #include <vector>

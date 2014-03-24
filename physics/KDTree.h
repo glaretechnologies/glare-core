@@ -19,7 +19,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec3.h"
 #include "../maths/PaddedVec3.h"
 #include "../utils/Vector.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include <ostream>
 #include <vector>
 #include <map>

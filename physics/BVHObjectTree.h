@@ -7,7 +7,7 @@ Generated at 2012-11-10 19:47:31 +0000
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../maths/Vec4f.h"
 #include <vector>

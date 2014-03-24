@@ -7,7 +7,7 @@ File created by ClassTemplate on Wed Jul 24 13:28:21 2002
 #pragma once
 
 
-#include "platform.h"
+#include "Platform.h"
 class Mutex;
 
 

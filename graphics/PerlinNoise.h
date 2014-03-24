@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/Vec4f.h"
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 
 
 /*=====================================================================

@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "../utils/platform.h"
+#include "../utils/Platform.h"
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
 class PrintOutput;
