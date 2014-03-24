@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"
 #include <limits>

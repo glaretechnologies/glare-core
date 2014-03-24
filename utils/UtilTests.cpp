@@ -7,7 +7,7 @@ Generated at Wed Jul 14 11:41:12 +1200 2010
 #include "UtilTests.h"
 
 
-#include "timer.h"
+#include "Timer.h"
 #include "CycleTimer.h"
 #include "StringUtils.h"
 #include "platformutils.h"

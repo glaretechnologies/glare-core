@@ -704,7 +704,7 @@ void readFromStream(InStream& stream, Image& image, StreamShouldAbortCallback* s
 #include "../indigo/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/globals.h"
 
 

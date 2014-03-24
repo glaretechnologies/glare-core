@@ -77,7 +77,7 @@ void alignedFree(void* addr)
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/CycleTimer.h"
 
 

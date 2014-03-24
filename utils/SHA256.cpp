@@ -70,7 +70,7 @@ void SHA256::SHA1Hash(
 
 
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"

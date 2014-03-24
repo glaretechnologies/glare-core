@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "ThreadManager.h"
 #include "../utils/KillThreadMessage.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
 
 

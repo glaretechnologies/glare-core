@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include <memory.h>
 #include <stdlib.h>
 #include "../utils/fileutils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/bitmap.h"

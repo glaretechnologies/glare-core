@@ -29,7 +29,7 @@ namespace BitUtils
 #include "../indigo/globals.h"
 #include "../utils/ConPrint.h"
 #include "../utils/CycleTimer.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 
 

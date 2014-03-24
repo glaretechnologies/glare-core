@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "../maths/SSE.h"
 #include "mythread.h"
 #include "../indigo/globals.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include <vector>
 

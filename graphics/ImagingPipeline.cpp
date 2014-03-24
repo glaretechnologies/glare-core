@@ -22,7 +22,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 
 
 #if BUILD_TESTS

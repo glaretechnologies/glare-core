@@ -258,7 +258,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 
 

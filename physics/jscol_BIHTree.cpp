@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/random.h"
 #include <limits>
 #include "../indigo/globals.h"

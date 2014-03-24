@@ -21,7 +21,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/sphereunitvecpool.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/platformutils.h"
 #include "../indigo/ThreadContext.h"

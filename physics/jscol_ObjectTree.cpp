@@ -17,7 +17,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/PrintOutput.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/EnvSphereGeometry.h"
 #include "../indigo/ThreadContext.h"
 #include <string.h>

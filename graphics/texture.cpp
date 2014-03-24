@@ -554,7 +554,7 @@ Reference<Image> Texture::convertToImage() const
 
 #include "../graphics/ImFormatDecoder.h"
 #include "../graphics/PNGDecoder.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/globals.h"
 
 

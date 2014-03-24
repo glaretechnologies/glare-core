@@ -179,7 +179,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 
 
 void Compression::test()

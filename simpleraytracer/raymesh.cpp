@@ -29,7 +29,7 @@ Code By Nicholas Chapman.
 #include "../physics/NBVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/fileutils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>

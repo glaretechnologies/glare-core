@@ -9,7 +9,7 @@ Generated at 2012-08-18 21:52:11 +0100
 
 #include "../indigo/TestUtils.h"
 #include "../utils/MTwister.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include <set>
 
 

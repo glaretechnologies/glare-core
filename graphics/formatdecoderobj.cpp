@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/namemap.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"

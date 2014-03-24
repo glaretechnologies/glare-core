@@ -21,7 +21,7 @@ Code By Nicholas Chapman.
 #include "../utils/platformutils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 #include "../indigo/gpuDeviceInfo.h"
 

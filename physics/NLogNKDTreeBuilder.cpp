@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../utils/StringUtils.h"
 #include "../indigo/PrintOutput.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/Sort.h"
 #include "../utils/ParallelFor.h"
 #include <algorithm>

@@ -1,7 +1,7 @@
 /*=====================================================================
 StringUtils.h
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2014 -
 =====================================================================*/
 #pragma once
 

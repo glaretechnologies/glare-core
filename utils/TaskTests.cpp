@@ -17,7 +17,7 @@ Generated at 2011-10-05 22:32:02 +0100
 #include "../utils/platformutils.h"
 #include "../utils/StringUtils.h"
 //#include "../utils/FixedSizeAllocator.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 
 
 namespace Indigo

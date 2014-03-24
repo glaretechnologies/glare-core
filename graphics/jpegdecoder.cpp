@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../graphics/ImageMap.h"
 #include <jpeglib.h>
 #include <lcms2.h>

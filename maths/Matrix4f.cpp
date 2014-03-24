@@ -125,7 +125,7 @@ const std::string Matrix4f::toString() const
 
 
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 

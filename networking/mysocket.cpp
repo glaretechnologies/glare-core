@@ -13,7 +13,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "../utils/StringUtils.h"
 #include "../utils/mythread.h"
 #include "../utils/platformutils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>

@@ -12,7 +12,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "SystemInfo.h"
 #include "../indigo/TestUtils.h"
 #include "Exception.h"
-#include "timer.h"
+#include "Timer.h"
 #include "Checksum.h"
 #include "../indigo/globals.h"
 #include "../utils/mythread.h"

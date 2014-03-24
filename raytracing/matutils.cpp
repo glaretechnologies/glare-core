@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "../maths/basis.h"
 #include "../maths/vec2.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include <fstream>
 

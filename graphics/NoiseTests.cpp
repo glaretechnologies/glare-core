@@ -14,7 +14,7 @@ Generated at 2013-06-27 10:45:37 +0100
 #include "../indigo/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 

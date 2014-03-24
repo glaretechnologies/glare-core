@@ -12,7 +12,7 @@ Generated at 2013-03-07 14:27:12 +0000
 
 
 #include "StringUtils.h"
-#include "timer.h"
+#include "Timer.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include <vector>

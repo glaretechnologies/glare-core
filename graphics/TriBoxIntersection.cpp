@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "TriBoxIntersection.h"
 
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 

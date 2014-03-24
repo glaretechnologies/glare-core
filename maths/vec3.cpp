@@ -29,7 +29,7 @@ You may not use this code for any commercial project.
 #include "../indigo/globals.h"
 #include "../utils/random.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include <stdio.h>
 #include <string>

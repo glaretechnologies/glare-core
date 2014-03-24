@@ -26,7 +26,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 #include "../graphics/TriBoxIntersection.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "KDTreeImpl.h"
 #include "../indigo/PrintOutput.h"
 #include "../indigo/ThreadContext.h"

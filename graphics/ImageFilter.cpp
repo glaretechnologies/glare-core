@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
 #include "fftss.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/Plotter.h"
 #ifdef _OPENMP
 #include <omp.h>

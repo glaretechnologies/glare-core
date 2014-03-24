@@ -29,7 +29,7 @@ by Joe Warren and Scott Schaefer
 #include "Diffuse.h"
 #include "SpectrumMatParameter.h"
 #include "DisplaceMatParameter.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/Task.h"
 #include "../dll/include/IndigoMap.h"
 #include "../utils/TaskManager.h"

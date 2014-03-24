@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "ThreadManager.h"
 #include "threadsafequeue.h"
 #include "mythread.h"

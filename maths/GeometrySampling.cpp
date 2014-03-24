@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../utils/MTwister.h"
 

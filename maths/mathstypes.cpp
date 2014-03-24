@@ -7,7 +7,7 @@
 #include "Quat.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/Platform.h"
 #include "../utils/MTwister.h"

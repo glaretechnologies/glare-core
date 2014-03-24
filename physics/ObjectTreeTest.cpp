@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "../utils/MTwister.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/TaskManager.h"
 #include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"

@@ -7,7 +7,7 @@ Generated at Tue May 25 16:47:39 +1200 2010
 #include "VectorTest.h"
 
 
-#include "../utils/timer.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 #include "Vec4f.h"
