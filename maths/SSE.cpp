@@ -129,6 +129,71 @@ void SSETest()
 	}*/
 
 #if !defined(OSX)
+
+	/*conPrint("\n==================== myAlignedMalloc vs _mm_malloc speed test ===============");
+	{
+		Timer timer;
+		// Test myAlignedMalloc, myAlignedFree
+		for(int i=0; i<1000; ++i)
+		{
+			for(int a=0; a<10; ++a)
+			{
+				void* m = SSE::alignedMalloc(i, 4 << a);
+
+				// Write to the memory
+				/*for(int z=0; z<i; ++z)
+				{
+					((unsigned char*)m)[z] = 0;
+				}*/
+
+				SSE::alignedFree(m);
+			}
+		}
+
+		conPrint("alignedMalloc(): " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		for(int i=0; i<1000; ++i)
+		{
+			for(int a=0; a<10; ++a)
+			{
+				void* m = _mm_malloc(i, 4 << a);
+
+				// Write to the memory
+				/*for(int z=0; z<i; ++z)
+				{
+					((unsigned char*)m)[z] = 0;
+				}*/
+
+				_mm_free(m);
+			}
+		}
+
+		conPrint("_mm_malloc: " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		// Test myAlignedMalloc, myAlignedFree
+		for(int i=0; i<1000; ++i)
+		{
+			for(int a=0; a<10; ++a)
+			{
+				void* m = SSE::alignedMalloc(i, 4 << a);
+
+				// Write to the memory
+				/*for(int z=0; z<i; ++z)
+				{
+					((unsigned char*)m)[z] = 0;
+				}*/
+
+				SSE::alignedFree(m);
+			}
+		}
+
+		conPrint("alignedMalloc(): " + timer.elapsedString());
+	}*/
+
 	conPrint("\n====================Test SSE horizontal max ===============");
 	{
 		CycleTimer cycle_timer;
