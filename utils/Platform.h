@@ -1,6 +1,9 @@
-// Copyright Glare Technologies Limited 2009 - 
-#ifndef PLATFORM_H_GT
-#define PLATFORM_H_GT
+/*=====================================================================
+Platform.h
+-------------------
+Copyright Glare Technologies Limited 2014 -
+=====================================================================*/
+#pragma once
 
 
 #if defined(_WIN32) && !defined(__MINGW32__)
@@ -58,6 +61,3 @@ typedef int32_t int32;
 typedef uint32_t uint32;
 typedef int64_t int64;
 typedef uint64_t uint64;
-
-
-#endif //PLATFORM_H_GT

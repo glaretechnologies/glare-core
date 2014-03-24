@@ -1,11 +1,10 @@
 /*=====================================================================
-platformutils.h
+PlatformUtils.h
 ---------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Mon Jun 06 00:24:52 2005
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __PLATFORMUTILS_H_666_
-#define __PLATFORMUTILS_H_666_
+#pragma once
 
 
 #include <vector>
@@ -131,9 +130,4 @@ void getOSXVersion(int32& majorVersion, int32& minorVersion, int32& bugFixVersio
 void testPlatformUtils();
 
 
-
-
 } // end namespace PlatformUtils
-
-
-#endif //__PLATFORMUTILS_H_666_
