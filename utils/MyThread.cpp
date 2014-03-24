@@ -1,7 +1,7 @@
 /*=====================================================================
 MyThread.cpp
 ------------
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2014 -
 =====================================================================*/
 #include "MyThread.h"
 
