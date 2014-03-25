@@ -181,7 +181,7 @@ public:
 		{
 			try
 			{
-				conPrint("TestClientThread: Connecting to " + server_hostname + ":" + toString(port));
+				conPrint("TestClientThread: Connecting to " + IPAddress::formatIPAddressAndPort(server_hostname, port));
 
 				MySocket socket(server_hostname, port, NULL);
 

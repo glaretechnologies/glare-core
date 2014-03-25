@@ -222,9 +222,9 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			sockethandle = nullSocketHandle();
 
 			if(hostname.empty())
-				throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port) + ", Error code: " + error_str);
+				throw MySocketExcep("Could not make a TCP connection to server " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ", Error code: " + error_str);
 			else
-				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + "), Error code: " + error_str);
+				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "), Error code: " + error_str);
 		}
 	}
 
@@ -267,12 +267,10 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 			closeSocket(sockethandle);
 			sockethandle = nullSocketHandle();
 			
-			//throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
-			
 			if(hostname.empty())
-				throw MySocketExcep("Could not make a TCP connection to server " + ipaddress.toString() + ":" + ::toString(port));
+				throw MySocketExcep("Could not make a TCP connection to server " + IPAddress::formatIPAddressAndPort(ipaddress, port));
 			else
-				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + ipaddress.toString() + ":" + ::toString(port) + ")");
+				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + ")");
 		}
 
 		// If socket is writeable, then the connect has succeeded.

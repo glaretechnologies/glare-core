@@ -8,6 +8,7 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 
 
 #include "../utils/StringUtils.h"
+#include "../utils/Parser.h"
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -155,6 +156,84 @@ const std::string IPAddress::toString() const
 }
 
 
+const std::string IPAddress::formatIPAddressAndPort(const IPAddress& ipaddress, int port)
+{
+	if(ipaddress.getVersion() == IPAddress::Version_6)
+	{
+		// This is an IPv6 address, so enclose in square brackets:
+		return "[" + ipaddress.toString() + "]:" + ::toString(port);
+	}
+	else
+	{
+		return ipaddress.toString() + ":" + ::toString(port);
+	}
+}
+
+
+const std::string IPAddress::formatIPAddressAndPort(const std::string& ipaddress, int port)
+{
+	if(ipaddress.find_first_of(':') != std::string::npos)
+	{
+		// This is an IPv6 address, so enclose in square brackets:
+		return "[" + ipaddress + "]:" + ::toString(port);
+	}
+	else
+	{
+		return ipaddress + ":" + ::toString(port);
+	}
+}
+
+
+// Sets port_out to zero if not present
+void IPAddress::parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::string& hostname_or_ip_out, int& port_out)
+{
+	hostname_or_ip_out = "";
+	port_out = 0;
+
+	Parser parser(s.c_str(), (unsigned int)s.size());
+
+	if(parser.currentIsChar('['))
+	{
+		// This is an IPv6 address with a port, like '[1fff:0:a88:85a3::ac1f]:8001'
+
+		parser.advance();
+
+		if(!parser.parseToChar(']', hostname_or_ip_out))
+			return; // Parse error.
+
+		if(!parser.parseChar(']'))
+			return; // Parse error.
+
+		if(parser.currentIsChar(':')) // If we have a port suffix:
+		{
+			parser.advance();
+			
+			if(!parser.parseInt(port_out))
+				return; // Parse error.
+		}
+	}
+	else if(::getNumMatches(s, ':') > 1)
+	{
+		// This is an IPv6 address without the port, e.g. '1fff:0:a88:85a3::ac1f'.
+		hostname_or_ip_out = s;
+	}
+	else
+	{
+		Parser parser(s.c_str(), (unsigned int)s.size());
+
+		parser.parseToCharOrEOF(':', hostname_or_ip_out);
+
+		if(parser.currentIsChar(':')) // If we have a port suffix:
+		{
+			parser.advance();
+			
+			if(!parser.parseInt(port_out))
+				return; // Parse error.
+		}
+	}
+}
+
+
 #if BUILD_TESTS
 
 
@@ -229,6 +308,57 @@ void IPAddress::test()
 	//testMalformedIPAddress("127.0.0");
 	testMalformedIPAddress("127.0.0.300");
 	testMalformedIPAddress("127.0.0.1.1");
+
+
+	// ===================== Test parseIPAddrOrHostnameAndPort =========================
+
+	// Test for IPv6 addresses:
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("[1fff:0:a88:85a3::ac1f]:8001", ip, port);
+		testAssert(ip == "1fff:0:a88:85a3::ac1f" && port == 8001);
+	}
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("[1fff:0:a88:85a3::ac1f]", ip, port);
+		testAssert(ip == "1fff:0:a88:85a3::ac1f" && port == 0);
+	}
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("1fff:0:a88:85a3::ac1f", ip, port);
+		testAssert(ip == "1fff:0:a88:85a3::ac1f" && port == 0);
+	}
+
+	// Test for IPv4 addresses:
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("192.168.1.1:8001", ip, port);
+		testAssert(ip == "192.168.1.1" && port == 8001);
+	}
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("192.168.1.1", ip, port);
+		testAssert(ip == "192.168.1.1" && port == 0);
+	}
+
+	// Test for hostname and port:
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("localhost:8001", ip, port);
+		testAssert(ip == "localhost" && port == 8001);
+	}
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameAndOptionalPort("localhost", ip, port);
+		testAssert(ip == "localhost" && port == 0);
+	}
 }
 
 
