@@ -135,6 +135,34 @@ void Matrix4f::test()
 	// Perf test //
 	if(false)
 	{
+		// Test speed of constructFromVector()
+		{
+			Timer timer;
+
+			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				
+				Matrix4f m;
+				m.constructFromVector(v);
+				sum += m * Vec4f(1,0,0,0);
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("constructFromVector time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			printVar(scalarsum);
+		}
+
+
+
 		// Test speed of transposeMult()
 		{
 			Timer timer;

@@ -266,15 +266,15 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	// From PBR
 	if(std::fabs(vec[0]) > std::fabs(vec[1]))
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
+		const float recip_len = 1 / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
 
-		v2.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
+		v2 = Vec4f(-vec[2] * recip_len, 0, vec[0] * recip_len, 0);
 	}
 	else
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
+		const float recip_len = 1 / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
 
-		v2.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
+		v2 = Vec4f(0, vec[2] * recip_len, -vec[1] * recip_len, 0);
 	}
 
 	assert(v2.isUnitLength());
@@ -286,27 +286,19 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	3	7	11	15
 	*/
 
-	e[0] = v2[0];
-	e[1] = v2[1];
-	e[2] = v2[2];
-	e[3] = v2[3];
+	const Vec4f v1 = crossProduct(vec, v2);
 
-	const Vec4f v1(crossProduct(vec, v2));
+	// elems 0...3 = v2
+	_mm_store_ps(e, v2.v);
 
-	e[4] = v1[0];
-	e[5] = v1[1];
-	e[6] = v1[2];
-	e[7] = v1[3];
+	// elems 4...7 = v1
+	_mm_store_ps(e + 4, v1.v);
 
-	e[8] = vec[0];
-	e[9] = vec[1];
-	e[10] = vec[2];
-	e[11] = vec[3];
+	// elems 8...11 = vec
+	_mm_store_ps(e + 8, vec.v);
 
-	e[12] = 0.0f;
-	e[13] = 0.0f;
-	e[14] = 0.0f;
-	e[15] = 1.0f;
+	// elems 12...15 = (0,0,0,1)
+	_mm_store_ps(e + 12, Vec4f(0,0,0,1).v);
 }
 
 
