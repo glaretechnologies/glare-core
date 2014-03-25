@@ -1,0 +1,3 @@
+Double conversion code from https://code.google.com/p/double-conversion/
+Version here is 2.0.1. 
+--Nick
