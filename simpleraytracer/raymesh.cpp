@@ -948,13 +948,10 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 			//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
 			try
 			{
-				char *big_mem = new char[embree_mem];
-				if(big_mem != NULL)
-				{
-					delete [] big_mem;
-					embree_mem_ok = true; // Flag that we can allocate enough memory,
-					embree_spatial = false; // but not for the spatial BVH builder
-				}
+				char* big_mem = new char[embree_mem];
+				delete[] big_mem;
+				embree_mem_ok = true; // Flag that we can allocate enough memory,
+				embree_spatial = false; // but not for the spatial BVH builder
 			}
 			catch(std::bad_alloc&)
 			{

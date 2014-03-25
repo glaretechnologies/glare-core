@@ -271,51 +271,10 @@ void IndigoXMLDoc::test()
 	//============ Perf test ============
 	{
 		{
-			// Warm up cache
-			/*{
-				TiXmlDocument doc;
-				doc.LoadFile(TestUtils::getIndigoTestReposDir() + "/testscenes/instancing_test4.igs");
-			}*/
-
 			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/instancing_test4.igs";
 			const size_t filesize = FileUtils::getFileSize(path);
 
 			const int NUM_ITERS = 1;
-
-			/*for(int i=0; i<NUM_ITERS; ++i)
-			{
-				Timer timer;
-
-				TiXmlDocument doc;
-				doc.LoadFile(path);
-
-				conPrint("TinyXML 1 elapsed: " + timer.elapsedStringNPlaces(3) + ", " + doubleToStringNDecimalPlaces(filesize * 1.0e-6 / timer.elapsed(), 3) + " MB/s");
-				
-			}*/
-
-			/*for(int i=0; i<NUM_ITERS; ++i)
-			{
-				Timer timer;
-
-				tinyxml2::XMLDocument doc;
-				doc.LoadFile(path.c_str());
-
-				conPrint("TinyXML 2 elapsed: " + timer.elapsedStringNPlaces(3) + ", " + doubleToStringNDecimalPlaces(filesize * 1.0e-6 / timer.elapsed(), 3) + " MB/s");
-			}*/
-
-			/*for(int i=0; i<NUM_ITERS; ++i)
-			{
-				Timer timer;
-
-				tinyxml2::XMLDocument doc;
-
-				MemMappedFile file(path);
-
-				doc.Parse((const char*)file.fileData(), file.fileSize());
-
-				conPrint("TinyXML 2 parse() from MemMappedFile elapsed: " + timer.elapsedStringNPlaces(3) + ", " + floatToStringNDecimalPlaces(filesize * 1.0e-6 / timer.elapsed(), 3) + " MB/s");
-			}*/
-
 
 			/*for(int i=0; i<NUM_ITERS; ++i)
 			{

@@ -428,7 +428,7 @@ bool Parser::parseAlphaToken(std::string& token_out)
 	bool found = false;
 	for( ;notEOF() && ::isAlphabetic(text[currentpos]); ++currentpos)
 	{
-		::concatWithChar(token_out, text[currentpos]);
+		token_out.push_back(text[currentpos]);
 		found = true;
 	}
 	return found;
@@ -438,24 +438,21 @@ bool Parser::parseAlphaToken(std::string& token_out)
 bool Parser::parseIdentifier(std::string& token_out)
 {
 	token_out = "";
-	//bool found = false;
 
 	// Read first character of identifier
 	if(notEOF() && (::isAlphabetic(text[currentpos]) || text[currentpos] == '_'))
 	{
-		::concatWithChar(token_out, text[currentpos]);
+		token_out.push_back(text[currentpos]);
 		currentpos++;
-		//found = true;
 	}
 	else
 		return false;
 
 	for( ;notEOF() && (::isAlphabetic(text[currentpos]) || isNumeric(text[currentpos]) || text[currentpos] == '_'); ++currentpos)
 	{
-		::concatWithChar(token_out, text[currentpos]);
-		//found = true;
+		token_out.push_back(text[currentpos]);
 	}
-	return true;//found;
+	return true;
 }
 
 
@@ -465,7 +462,7 @@ bool Parser::parseNonWSToken(std::string& token_out)
 	bool found = false;
 	for( ;notEOF() && !::isWhitespace(text[currentpos]); ++currentpos)
 	{
-		::concatWithChar(token_out, text[currentpos]);
+		token_out.push_back(text[currentpos]);
 		found = true;
 	}
 	return found;

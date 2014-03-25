@@ -157,10 +157,7 @@ void replaceChar(std::string& s, char src, char dest);
 
 inline void concatWithChar(std::string& s, char c)
 {
-	// s = s + std::string(1, c);
-	const size_t old_size = s.size();
-	s.resize(old_size + 1);
-	s[old_size] = c;
+	s.push_back(c);
 }
 
 inline const std::string appendChar(const std::string& s, char c)

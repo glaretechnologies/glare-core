@@ -98,13 +98,6 @@ SET(minizip "${zlibdir}/contrib/minizip/ioapi.c"
 #${zlibdir}/contrib/minizip/unzip.c ${zlibdir}/contrib/minizip/zip.c ${zlibdir}/contrib/minizip/ioapi.c
 #)
 
-
-set(tinyxml
-${tinyxmldir}/tinyxml/tinyxml.cpp
-${tinyxmldir}/tinyxml/tinyxmlerror.cpp
-${tinyxmldir}/tinyxml/tinyxmlparser.cpp
-)
-
 set(pugixml
 ${pugixmldir}/pugixml.cpp
 ${pugixmldir}/pugixml.hpp
@@ -128,7 +121,6 @@ SOURCE_GROUP(libtiff FILES ${libtiff})
 #SOURCE_GROUP(lua FILES ${lua})
 SOURCE_GROUP(zlib FILES ${zlib})
 SOURCE_GROUP(zlib\\minizip FILES ${minizip})
-SOURCE_GROUP(tinyxml FILES ${tinyxml})
 SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
@@ -161,7 +153,6 @@ ${libtiff}
 #${lua}
 ${zlib}
 ${minizip}
-${tinyxml}
 ${pugixml}
 ${giflib}
 ${little_cms}
