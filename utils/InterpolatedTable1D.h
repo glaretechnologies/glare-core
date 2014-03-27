@@ -14,7 +14,8 @@ Generated at Thu Oct 07 22:28:38 +1300 2010
 /*=====================================================================
 InterpolatedTable1D
 -------------------
-data.size() must be < 2^31
+data[0] corresponds to start_x, data.back() corresponds to end_x.
+data.size() must be < 2^31.
 =====================================================================*/
 template <class Real, class Datum>
 class InterpolatedTable1D
@@ -43,6 +44,9 @@ private:
 	Real end_x;
 	Real recip_gap_width;
 };
+
+
+void testInterpolatedTable1D();
 
 
 template <class Real, class Datum>
@@ -79,13 +83,15 @@ Datum InterpolatedTable1D<Real, Datum>::getValue(Real x) const
 	const float offset = (x - start_x) * recip_gap_width;
 	const int index = (int)offset;
 
-	if(offset < 0) // In the case where x < start_x, offset can be e.g. -0.1, which will be truncated to index = 0.  In this case we just want to return data[0].
+	// We do these bounds checks with integers, not floats.
+	// If we do them with floats, then NaNs will cause the bounds checks to not return early when x=NaN, causing a crash.
+	if(index < 0)
 		return data[0];
 	if(index + 1 >= data_size)
 		return data[data_size - 1];
 
 	const float t = offset - index;
-	assert(t >= 0 && t <= 1);
+	assert(t <= 1);
 
 	return Maths::uncheckedLerp(data[index], data[index+1], t);
 }
