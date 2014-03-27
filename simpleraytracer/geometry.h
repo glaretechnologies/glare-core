@@ -85,7 +85,7 @@ public:
 	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const = 0;
 	
 	// Sample the surface of the given sub-element.
-	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const = 0;
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const = 0;
 
 	
 	class SampleResults
@@ -100,7 +100,7 @@ public:
 
 
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
-	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const = 0;
+	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const = 0;
 
 	virtual bool isEnvSphereGeometry() const = 0;
 	virtual bool areSubElementsCurved() const = 0; // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?

@@ -1515,7 +1515,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<f
 }
 
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
@@ -1570,14 +1570,14 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 		triVertPos(sub_elem_index, 2) * v
 		;*/
 
-	p_out = 1 / sub_elem_area_ws;
+	p_out = recip_sub_elem_area_ws;
 	mat_index_out = tri.getTriMatIndex();
 }
 
 
-double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, double sub_elem_area_ws) const
+double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const
 {
-	return 1.0 / sub_elem_area_ws;
+	return recip_sub_elem_area_ws;
 }
 
 
