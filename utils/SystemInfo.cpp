@@ -139,7 +139,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	{
 		DWORD dwBufLen = (DWORD)(AdapterInfo.size() * sizeof(IP_ADAPTER_INFO)); // The size of the buffer.
 		DWORD dwStatus = GetAdaptersInfo(
-			AdapterInfo.data(),	// [out] buffer to receive data
+			&AdapterInfo[0],	// [out] buffer to receive data
 			&dwBufLen		// [in] size of receive data buffer
 		);
 		num_calls_done++;
@@ -151,7 +151,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 			AdapterInfo.resize(dwBufLen / sizeof(IP_ADAPTER_INFO));
 
 			dwStatus = GetAdaptersInfo(
-				AdapterInfo.data(),	// [out] buffer to receive data
+				&AdapterInfo[0],	// [out] buffer to receive data
 				&dwBufLen		// [in] size of receive data buffer
 			);
 		}
@@ -175,7 +175,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 		}
 	}
 
-	PIP_ADAPTER_INFO pAdapterInfo = (PIP_ADAPTER_INFO)AdapterInfo.data(); // Contains pointer to current adapter info.
+	PIP_ADAPTER_INFO pAdapterInfo = (PIP_ADAPTER_INFO)&AdapterInfo[0]; // Contains pointer to current adapter info.
 	
 	std::vector<MyAdapterInfo> adapters;
 
