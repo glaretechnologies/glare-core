@@ -486,6 +486,23 @@ bool Parser::parseString(const std::string& s)
 }
 
 
+bool Parser::parseCString(const char* const s)
+{
+	const unsigned int initial_pos = currentPos();
+
+	for(unsigned int i=0; s[i] != 0; ++i)
+	{
+		if(eof() || current() != s[i])
+		{
+			currentpos = initial_pos;
+			return false;
+		}
+		advance();
+	}
+	return true;
+}
+
+
 //======================================================================== Unit Tests ========================================================================
 #if BUILD_TESTS
 
@@ -872,6 +889,57 @@ void Parser::doUnitTests()
 	testParseFloat("-1.23E-30", -1.23e-30f);
 	testParseFloat("-1.23e-30f", -1.23e-30f);
 	testParseFloat("-1.23E-30F", -1.23e-30f);
+
+
+	//================== parseString =======================
+	{
+		const std::string s = "Hello World";
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseString("Hello World"));
+		testAssert(p.eof());
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseString("Hello"));
+		testAssert(p.currentPos() == 5);
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseString("AHello"));
+		testAssert(p.currentPos() == 0);
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseString("Hello World AA"));
+		testAssert(p.currentPos() == 0);
+		}
+	}
+
+	//================== parseCString =======================
+	{
+		const std::string s = "Hello World";
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseCString("Hello World"));
+		testAssert(p.eof());
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(p.parseCString("Hello"));
+		testAssert(p.currentPos() == 5);
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseCString("AHello"));
+		testAssert(p.currentPos() == 0);
+		}
+		{
+		Parser p(s.c_str(), (unsigned int)s.size());
+		testAssert(!p.parseCString("Hello World AA"));
+		testAssert(p.currentPos() == 0);
+		}
+	}
 
 	//================== parseWhiteSpace =======================
 

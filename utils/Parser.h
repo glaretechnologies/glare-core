@@ -51,6 +51,7 @@ public:
 	bool parseIdentifier(std::string& token_out);
 	bool parseNonWSToken(std::string& token_out);
 	bool parseString(const std::string& s);
+	bool parseCString(const char* const s);
 
 	bool fractionalNumberNext();
 
