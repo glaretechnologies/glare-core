@@ -36,7 +36,9 @@ public:
 
 
 	inline Datum getValue(Real x) const;
+	inline Datum getValueNoBoundsCheck(Real x) const;
 
+	const std::vector<Datum>& getData() const { return data; }
 private:
 	std::vector<Datum> data;
 	int data_size;
@@ -89,6 +91,19 @@ Datum InterpolatedTable1D<Real, Datum>::getValue(Real x) const
 		return data[0];
 	if(index + 1 >= data_size)
 		return data[data_size - 1];
+
+	const float t = offset - index;
+	assert(t <= 1);
+
+	return Maths::uncheckedLerp(data[index], data[index+1], t);
+}
+
+
+template <class Real, class Datum>
+Datum InterpolatedTable1D<Real, Datum>::getValueNoBoundsCheck(Real x) const
+{
+	const float offset = (x - start_x) * recip_gap_width;
+	const int index = (int)offset;
 
 	const float t = offset - index;
 	assert(t <= 1);
