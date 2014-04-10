@@ -28,6 +28,12 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 }
 
 
+void OutStream::writeFloat(float x)
+{
+	writeData(&x, sizeof(x), NULL);
+}
+
+
 void OutStream::writeDouble(double x)
 {
 	writeData(&x, sizeof(x), NULL);

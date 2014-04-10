@@ -7,6 +7,14 @@ Generated at 2013-01-27 17:47:46 +0000
 #include "InStream.h"
 
 
+float InStream::readFloat()
+{
+	float x;
+	readData(&x, sizeof(x), NULL);
+	return x;
+}
+
+
 double InStream::readDouble()
 {
 	double x;

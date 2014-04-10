@@ -30,6 +30,9 @@ public:
 	// Read 'num_bytes' bytes to buf.  Buf must point at a buffer of at least num_bytes bytes.
 	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback) = 0;
 
+	// Read float
+	float readFloat();
+
 	// Read double
 	double readDouble();
 
