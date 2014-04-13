@@ -16,6 +16,8 @@ Generated at 2013-02-21 14:06:25 +0000
 #include <fcntl.h>
 #ifdef _WIN32
 #include <io.h>
+#else
+#include <unistd.h>
 #endif
 #include <gif_lib.h>
 

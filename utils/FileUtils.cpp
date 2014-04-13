@@ -17,6 +17,7 @@ Code By Nicholas Chapman.
 #include <sys/stat.h>	// For open / close
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 #endif
 
 #include <cstring>
