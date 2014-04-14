@@ -176,10 +176,17 @@ void IndigoXMLDoc::test()
 
 		pugi::xml_node a = root.child("a");
 
-		testAssert(a != false);
+		testAssert(a.type() != pugi::node_null);
+		//testAssert(a != false); // Checking this way gives compile warnings in Clang.
 
 		const std::string content = a.child_value();
 		testAssert(content == "content");
+
+
+		// Test searching for a missing node
+		pugi::xml_node b = root.child("BLEH");
+
+		testAssert(b.type() == pugi::node_null);
 	}
 
 
@@ -194,8 +201,7 @@ void IndigoXMLDoc::test()
 		testAssert(std::string(root.name()) == "root");
 
 		pugi::xml_node a = root.child("a");
-
-		testAssert(a != false);
+		testAssert(a.type() != pugi::node_null);
 
 		const std::string content = a.child_value();
 		testAssert(content == "hello");
