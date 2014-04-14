@@ -10,6 +10,7 @@ Generated at 2014-03-22 11:44:41 +0000
 #include "Platform.h"
 #include "StringUtils.h"
 #include "Exception.h"
+#include <limits>
 #include "../indigo/TestUtils.h"
 #include <assert.h>
 
@@ -137,10 +138,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 		if(sextet_a == 64 || sextet_b == 64 || sextet_c == 64 || sextet_d == 64)
 			throw Indigo::Exception("Invalid character");
 
-        uint32_t triple = (sextet_a << 3 * 6)
-        + (sextet_b << 2 * 6)
-        + (sextet_c << 1 * 6)
-        + (sextet_d << 0 * 6);
+        uint32_t triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
 
         if (j < output_length) data_out[j++] = (triple >> 2 * 8) & 0xFF;
         if (j < output_length) data_out[j++] = (triple >> 1 * 8) & 0xFF;
