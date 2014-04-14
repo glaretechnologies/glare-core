@@ -57,8 +57,8 @@ void encode(const void* data, size_t datalen, std::string& res_out)
 	const size_t required_size = (remainder == 0) ? (4 * (datalen / 3)) : (4 * (1 + (datalen / 3)));
 	res_out.resize(required_size);
 
-	int j = 0;
-	for (int i = 0; i < datalen;)
+	size_t j = 0;
+	for (size_t i = 0; i < datalen;)
 	{
         uint32_t octet_a = i < datalen ? ((unsigned char*)data)[i++] : 0;
         uint32_t octet_b = i < datalen ? ((unsigned char*)data)[i++] : 0;
@@ -91,27 +91,50 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 	const size_t input_length = s.size();
 	if(input_length % 4 != 0)
 		throw Indigo::Exception("Invalid length");
+	if(input_length == 0)
+	{
+		data_out.resize(0);
+		return;
+	}
+	assert((input_length % 4 == 0) && (input_length >= 4));
 
 	size_t output_length = input_length / 4 * 3;
-    if (s[input_length - 1] == '=') output_length--;
-    if (s[input_length - 2] == '=') output_length--;
+    if(s[input_length - 1] == '=') output_length--;
+    if(s[input_length - 2] == '=') output_length--;
 
 	data_out.resize(output_length);
 
-    for(int i = 0, j = 0; i < input_length;)
-	{
-        uint32_t sextet_a = s[i] == '=' ? 0 : base64_decoding_table[s[i]];  i++;
-        uint32_t sextet_b = s[i] == '=' ? 0 : base64_decoding_table[s[i]];  i++;
-        uint32_t sextet_c = s[i] == '=' ? 0 : base64_decoding_table[s[i]];  i++;
-        uint32_t sextet_d = s[i] == '=' ? 0 : base64_decoding_table[s[i]];  i++;
+	// Handle intial blocks, which aren't allowed to have padding characters in them.
+	size_t last_input_block_index = input_length - 4;
 
-		if(sextet_a == 64)
+	for(size_t i = 0, j = 0; i < last_input_block_index; i += 4, j += 3)
+	{
+        uint32_t sextet_a = base64_decoding_table[(unsigned char)s[i + 0]];
+        uint32_t sextet_b = base64_decoding_table[(unsigned char)s[i + 1]];
+        uint32_t sextet_c = base64_decoding_table[(unsigned char)s[i + 2]];
+        uint32_t sextet_d = base64_decoding_table[(unsigned char)s[i + 3]];
+
+		if(sextet_a == 64 || sextet_b == 64 || sextet_c == 64 || sextet_d == 64)
 			throw Indigo::Exception("Invalid character");
-		if(sextet_b == 64)
-			throw Indigo::Exception("Invalid character");
-		if(sextet_c == 64)
-			throw Indigo::Exception("Invalid character");
-		if(sextet_d == 64)
+
+        uint32_t triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
+
+		assert(j + 2 < output_length);
+        data_out[j + 0] = (triple >> 2 * 8) & 0xFF;
+        data_out[j + 1] = (triple >> 1 * 8) & 0xFF;
+        data_out[j + 2] = (triple >> 0 * 8) & 0xFF;
+    }
+
+	// Handle last block, which may have '=' padding characters in it.
+	{
+		size_t i = last_input_block_index;
+		size_t j = last_input_block_index / 4 * 3;
+        uint32_t sextet_a = base64_decoding_table[(unsigned char)s[i]];  i++;
+        uint32_t sextet_b = base64_decoding_table[(unsigned char)s[i]];  i++;
+        uint32_t sextet_c = s[i] == '=' ? 0 : base64_decoding_table[(unsigned char)s[i]];  i++;
+        uint32_t sextet_d = s[i] == '=' ? 0 : base64_decoding_table[(unsigned char)s[i]];  i++;
+
+		if(sextet_a == 64 || sextet_b == 64 || sextet_c == 64 || sextet_d == 64)
 			throw Indigo::Exception("Invalid character");
 
         uint32_t triple = (sextet_a << 3 * 6)
@@ -163,6 +186,23 @@ static void doEncodeAndDecodeTest(const std::vector<unsigned char>& plaintext)
 }
 
 
+static void doDecodeEncodeTest(const std::string& encoded)
+{
+	// Decode
+	std::vector<unsigned char> decoded;
+	Base64::decode(encoded, decoded);
+
+	// Re-encode
+	std::string reencoded;
+	Base64::encode(&decoded[0], decoded.size(), reencoded);
+
+	// Check reencoded == encoded
+	testAssert(encoded.size() == reencoded.size());
+	for(size_t i=0; i<encoded.size(); ++i)
+		testAssert(encoded[i] == reencoded[i]);
+}
+
+
 static void testDecodingFailure(const std::string& encoded)
 {
 	try
@@ -204,12 +244,17 @@ void test()
 	}*/
 
 
-	{
+	/*{
 		std::string res;
 		encode(NULL, 0, res);
 		testAssert(res == "");
-	}
+	}*/
 
+	// Test empty string.  Should encode to empty string.
+	{
+		const std::string s = "";
+		doTest(s, "");
+	}
 	{
 		const std::string s = "Man";
 		doTest(s, "TWFu");
@@ -314,13 +359,49 @@ void test()
 
 	//==================== Test decoding failure cases ================================
 
-	// Invalid length
+	// Invalid length (non multiple of 4)
 	testDecodingFailure("a");
 	testDecodingFailure("aa");
 	testDecodingFailure("aaa");
+	testDecodingFailure("aaaaa");
 
 	// Test invalid characters
+	testDecodingFailure("!aaa");
+	testDecodingFailure("a!aa");
+	testDecodingFailure("aa!a");
 	testDecodingFailure("aaa!");
+
+	// Test all padding chars
+	testDecodingFailure("====");
+
+	// Test padding char in index 1.
+	testDecodingFailure("A===");
+
+	// Test negative character values.  Need to test since std::string usually has a signed char type.
+	testDecodingFailure("\255aaa");
+
+	// Test decoding strings of all possible characters.
+	{
+		for(int i = (int)std::numeric_limits<char>::min(); i <= (int)std::numeric_limits<char>::max(); i++)
+		{
+			const char c = (char)i;
+			std::string encoded;
+			for(int z=0; z<4; ++z)
+				encoded.push_back(c);
+
+			testAssert(encoded.size() == 4);
+
+			if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '+') || (c == '/'))
+			{
+				// c is a valid char for base 64
+				doDecodeEncodeTest(encoded);
+			}
+			else
+			{
+				testDecodingFailure(encoded);
+			}
+		}
+	}
 }
 
 
