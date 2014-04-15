@@ -29,9 +29,12 @@ public:
 	static void test();
 
 private:
-	int linux_file_handle;
+#if defined(_WIN32)
 	void* file_handle;
 	void* file_mapping_handle;
+#else
+	int linux_file_handle;
+#endif
 	void* file_data;
 	size_t file_size;
 };

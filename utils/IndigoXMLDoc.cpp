@@ -306,6 +306,7 @@ void IndigoXMLDoc::test()
 				MemMappedFile file(path);
 
 				pugi::xml_parse_result result = doc.load_buffer(file.fileData(), file.fileSize(), pugi::parse_default, pugi::encoding_utf8);
+				testAssert(result);
 
 				conPrint("pugixml load_buffer() elapsed: " + timer.elapsedStringNPlaces(3) + ", " + doubleToStringNDecimalPlaces(filesize * 1.0e-6 / timer.elapsed(), 3) + " MB/s");
 			}
@@ -322,6 +323,7 @@ void IndigoXMLDoc::test()
 				data[file.fileSize()] = 0; // Null terminate
 
 				pugi::xml_parse_result result = doc.load_buffer_inplace(&data[0], file.fileSize(), pugi::parse_default, pugi::encoding_utf8);
+				testAssert(result);
 
 				conPrint("pugixml load_buffer_inplace() elapsed: " + timer.elapsedStringNPlaces(3) + ", " + doubleToStringNDecimalPlaces(filesize * 1.0e-6 / timer.elapsed(), 3) + " MB/s");
 			}

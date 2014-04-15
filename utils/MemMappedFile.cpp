@@ -27,6 +27,7 @@ Generated at 2011-09-05 15:48:02 +0100
 
 #if defined(_WIN32)
 
+
 MemMappedFile::MemMappedFile(const std::string& path)
 :	file_handle(NULL),
 	file_mapping_handle(NULL),
@@ -120,7 +121,9 @@ MemMappedFile::~MemMappedFile()
 	}
 }
 
+
 #else // if defined LINUX or OSX
+
 
 MemMappedFile::MemMappedFile(const std::string& path)
 :	file_data(NULL)
@@ -140,7 +143,10 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	{
 		this->file_data = mmap(0, this->file_size, PROT_READ, MAP_SHARED, this->linux_file_handle, 0);
 		if(this->file_data == MAP_FAILED)
+		{
+			// TODO: Close file handle.
 			throw Indigo::Exception("File mmap failed.");
+		}
 	}
 }
 
@@ -157,6 +163,7 @@ MemMappedFile::~MemMappedFile()
 		::close(this->linux_file_handle);
 	}
 }
+
 
 #endif
 
@@ -224,5 +231,4 @@ void MemMappedFile::test()
 }
 
 
-#endif
-
+#endif // BUILD_TESTS

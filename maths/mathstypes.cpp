@@ -352,8 +352,7 @@ void Maths::test()
 
 	//assert(epsEqual(r, Matrix2d::identity(), Matrix2d(NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON, NICKMATHS_EPSILON)));
 
-	const int N = 1000000;
-	const int trials = 4;
+	
 
 
 
@@ -437,6 +436,10 @@ void Maths::test()
 	
 #if !defined(OSX)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+
+	const int N = 1000000;
+	const int trials = 4;
+
 
 	/*
 	Performance results on i7 920, VS 2010 RelWithDebInfo x64
