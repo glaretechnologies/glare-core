@@ -37,18 +37,18 @@ Reference<Map2D> FloatDecoder::decode(const std::string& pathname)
 		const unsigned int pixel_size = sizeof(float) * 3;
 		const unsigned int num_pixels = (unsigned int)data.size() / pixel_size;
 		
-		const int width = (unsigned int)sqrt((double)num_pixels);
+		const unsigned int width = (unsigned int)sqrt((double)num_pixels);
 
 		if(width * width != num_pixels)
 			throw ImFormatExcep("Image has invalid size");
 
 		Image* image = new Image(width, width);
 
-		for(int y=0; y<width; ++y)
-			for(int x=0; x<width; ++x)
+		for(unsigned int y=0; y<width; ++y)
+			for(unsigned int x=0; x<width; ++x)
 			{
-				const int srcy = width - 1 - y; // invert the image at load time
-				const int src = (x + y*width) * 3;
+				//const unsigned int srcy = width - 1 - y; // invert the image at load time
+				const unsigned int src = (x + y*width) * 3;
 
 				image->setPixel(x, y, Colour3f(
 					((float*)(&data[0]))[src],

@@ -27,7 +27,7 @@ static Colour3f testTexture(int res, double& elapsed_out)
 	for(int x=0; x<W; ++x)
 		for(int y=0; y<H; ++y)
 			for(int c=0; c<channels; ++c)
-				m.getPixel(x, y)[c] = x + y + c;
+				m.getPixel(x, y)[c] = (unsigned char)(x + y + c);
 
 	double clock_freq = 2.53e9;
 

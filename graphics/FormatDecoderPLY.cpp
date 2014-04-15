@@ -122,14 +122,16 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	if(!ply_read_header(ply))
 		throw ModelFormatDecoderExcep("could not read header.");
 		
-    const long nvertices = ply_set_read_cb(ply, "vertex", "x", vertex_callback, &handler, 0);
+    //const long nvertices =
+	ply_set_read_cb(ply, "vertex", "x", vertex_callback, &handler, 0);
 
 	//mesh_out.verts.resize(nvertices);
 
     ply_set_read_cb(ply, "vertex", "y", vertex_callback, &handler, 1);
     ply_set_read_cb(ply, "vertex", "z", vertex_callback, &handler, 2);
 
-    const long ntriangles = ply_set_read_cb(ply, "face", "vertex_indices", face_callback, &handler, 0);
+    //const long ntriangles = 
+	ply_set_read_cb(ply, "face", "vertex_indices", face_callback, &handler, 0);
 
 	//mesh_out.tris.resize(ntriangles);
 	

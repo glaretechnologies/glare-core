@@ -33,7 +33,6 @@ public:
 	{
 		int pixel_rad = closure.pixel_rad;
 		
-		const int h = (int)closure.in.getHeight();
 		const int w = (int)closure.in.getWidth();
 
 		for(int dy = begin; dy < end; ++dy)
@@ -112,7 +111,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 
 	const double rad_needed = Maths::inverse1DGaussian(0.00001f, standard_deviation);
 
-	const double z = Maths::eval1DGaussian(rad_needed, standard_deviation);
+	//const double z = Maths::eval1DGaussian(rad_needed, standard_deviation);
 
 	const int pixel_rad = myClamp<int>(
 		(int)rad_needed,
@@ -159,7 +158,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 	//temp.zero();
 
 	const int h = (int)in.getHeight();
-	const int w = (int)in.getWidth();
+//	const int w = (int)in.getWidth();
 
 /*#ifndef INDIGO_NO_OPENMP
 #pragma omp parallel for

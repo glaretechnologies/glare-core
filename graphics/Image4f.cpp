@@ -474,7 +474,7 @@ public:
 			const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
 			const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
 			const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < in_xres);
-			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < in_yres);
+			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < closure.in_yres);
 
 			Image4f::ColourType weighted_sum(0);
 			uint32 filter_addr = 0;

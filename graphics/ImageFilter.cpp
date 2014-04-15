@@ -628,7 +628,7 @@ static int smallestPowerOf2GE(int x)
 }
 
 
-static void saveImageToPng(const Image& im, const std::string& path)
+/*static void saveImageToPng(const Image& im, const std::string& path)
 {
 	try
 	{
@@ -646,7 +646,10 @@ static void saveImageToPng(const Image& im, const std::string& path)
 	{
 		conPrint(e.what());
 	}
-}
+}*/
+
+
+#if 0
 
 
 static void writeImage(const Image& image, const std::string& path)
@@ -711,6 +714,9 @@ static void printImageStats(const Image& image, const std::string& name)
 	//options.y_axis_log = true;
 	Plotter::plot(name + "_plot.png", name, "x", "r", std::vector<Plotter::DataSet>(1, dataset), options);
 }
+
+
+#endif
 
 
 void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, Indigo::TaskManager& task_manager)
@@ -2193,6 +2199,8 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 }
 
 
+#if 0
+
 static void testFT(int in_w, int in_h)
 {
 	conPrint("testFT()");
@@ -2531,6 +2539,9 @@ static void plotImageProfileAlongScanline(const std::string& path, float y)
 	image->copyToBitmap(bmp_out);
 	PNGDecoder::write(bmp_out, "scanline_profile.png");
 }
+
+
+#endif
 
 
 void ImageFilter::test()
