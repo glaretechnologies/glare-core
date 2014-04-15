@@ -45,7 +45,7 @@ public:
 
 	void saveDoc(const std::string& path);
 
-	static const std::string getErrorPositionDesc(const std::string& buffer_str, int offset);
+	static const std::string getErrorPositionDesc(const std::string& buffer_str, ptrdiff_t offset);
 	
 	static void test();
 

@@ -159,7 +159,7 @@ bool CheckDLLSignature::verifyDLL(std::string dll_path, std::string expected_sig
                 // The file was not signed.
                 //wprintf_s(L"The file \"%s\" is not signed.\n",
                 //    pwszSourceFile);
-				int notsigned = 3;
+				//int notsigned = 3;
             } 
             else 
             {
@@ -169,7 +169,7 @@ bool CheckDLLSignature::verifyDLL(std::string dll_path, std::string expected_sig
                 //    L"verify the signature of the \"%s\" file.\n",
                 //    pwszSourceFile);
 
-				int notvalid_error_opening_file = 3;
+				//int notvalid_error_opening_file = 3;
 			}
 
             break;

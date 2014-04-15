@@ -15,19 +15,19 @@ Code By Nicholas Chapman.
 #include "../maths/mathstypes.h"
 
 
-const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_str, int offset_)
+const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_str, ptrdiff_t offset_)
 {
 	// NOTE: PugiXML result offset seems to be one-based.
 
 	assert(offset_ > 0);
-	const int offset = (int)offset_ - 1; // Get zero based index.
+	const ptrdiff_t offset = offset_ - 1; // Get zero based index.
 	std::string line_desc;
-	if(offset >= 0 && offset < buffer_str.size())
+	if(offset >= 0 && offset < (ptrdiff_t)buffer_str.size())
 	{
-		unsigned int line_num, column_num;
+		size_t line_num, column_num;
 		StringUtils::getPosition(buffer_str, offset, line_num, column_num);
 
-		const std::string line = StringUtils::getLineFromBuffer(buffer_str, myMax(0, (int)offset - (int)column_num));
+		const std::string line = StringUtils::getLineFromBuffer(buffer_str, myMax<ptrdiff_t>(0, offset - (ptrdiff_t)column_num));
 
 		line_desc += "Line " + toString(line_num + 1) + ", column " + toString(column_num + 1) + ".";
 
@@ -37,7 +37,7 @@ const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_s
 			line_desc += "\nXML around error:\n";
 			line_desc += line;
 			line_desc += "\n";
-			for(int i=0; i<(int)column_num; ++i)
+			for(size_t i=0; i<column_num; ++i)
 				line_desc += " ";
 			line_desc += "^";
 		}

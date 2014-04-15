@@ -461,7 +461,7 @@ const std::string uInt32ToString(uint32 x)
 }
 
 
-const std::string oldUInt64ToString(uint64 x)
+/*const std::string oldUInt64ToString(uint64 x)
 {
 	char buffer[32];
 
@@ -474,7 +474,7 @@ const std::string oldUInt64ToString(uint64 x)
 #endif
 
 	return std::string(buffer);
-}
+}*/
 
 
 const std::string uInt64ToString(uint64 x)
@@ -541,7 +541,7 @@ const std::string int32ToString(int32 i)
 }
 
 
-const std::string referenceInt64ToString(int64 x)
+static const std::string referenceInt64ToString(int64 x)
 {
 	char buffer[32];
 
@@ -983,7 +983,7 @@ namespace StringUtils
 {
 
 
-void getPosition(const std::string& str, unsigned int charindex, unsigned int& line_num_out, unsigned int& column_out)
+void getPosition(const std::string& str, size_t charindex, size_t& line_num_out, size_t& column_out)
 {
 	assert(charindex < str.size());
 	if(charindex >= str.size())
@@ -992,9 +992,9 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 		return;
 	}
 
-	unsigned int line = 0;
-	unsigned int col = 0;
-	for(unsigned int i=0; i<charindex; ++i)
+	size_t line = 0;
+	size_t col = 0;
+	for(size_t i=0; i<charindex; ++i)
 	{
 		if(str[i] == '\n')
 		{
@@ -1010,7 +1010,7 @@ void getPosition(const std::string& str, unsigned int charindex, unsigned int& l
 }
 
 
-const std::string getLineFromBuffer(const std::string& str, unsigned int charindex)
+const std::string getLineFromBuffer(const std::string& str, size_t charindex)
 {
 	assert(charindex < str.size());
 
@@ -1607,7 +1607,7 @@ void StringUtils::test()
 			conPrint("int32ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
 		}
 
-		{
+		/*{
 			const int N = 100000;
 			Timer timer;
 			int sum = 0;
@@ -1620,7 +1620,7 @@ void StringUtils::test()
 			double elapsed = timer.elapsed();
 			printVar(sum);
 			conPrint("oldUInt64ToString() time: " + toString(1.0e9 * elapsed / N) + " ns");
-		}
+		}*/
 
 		{
 			const int N = 100000;
@@ -1931,7 +1931,7 @@ void StringUtils::test()
 			line2\n\
 			line3";
 
-		unsigned int line, col;
+		size_t line, col;
 		StringUtils::getPosition(s, 4, line, col);
 		assert(line == 1 && col == 3);
 	}
