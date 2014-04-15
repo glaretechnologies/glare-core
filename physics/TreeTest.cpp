@@ -683,12 +683,6 @@ static void doEdgeCaseTests()
 }
 
 
-static void cornellBoxTest()
-{
-	//cornellbox_jotero\cornellbox_jotero.3DS
-}
-
-
 void TreeTest::doTests(const std::string& appdata_path)
 {
 //	doVaryingNumtrisBuildTests();

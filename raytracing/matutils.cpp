@@ -80,9 +80,9 @@ void refractInSurface(const VecType& normal,
 	exit_raydir_out = normalise(exit_raydir_out);
 
 #ifndef NDEBUG
-	Real normal_len = normal.length();
-	Real incident_raydir_len = incident_raydir.length();
-	Real exit_raydir_out_len = exit_raydir_out.length();
+	//Real normal_len = normal.length();
+	//Real incident_raydir_len = incident_raydir.length();
+	//Real exit_raydir_out_len = exit_raydir_out.length();
 	//assert(epsEqual(exit_raydir_out_len, 1.0, 0.0001));
 #endif
 

@@ -576,7 +576,7 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 		const unsigned int max_depth = calcMaxDepth();
 		if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
 
-		const int expected_numnodes = (int)((float)numTris() * 1.0f);
+		//const int expected_numnodes = (int)((float)numTris() * 1.0f);
 		//const int nodemem = expected_numnodes * sizeof(js::KDTreeNode);
 
 		//print_output.print("reserving N nodes: " + ::toString(expected_numnodes) + "("

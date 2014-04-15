@@ -533,7 +533,7 @@ void NLogNKDTreeBuilder::doBuild(
 	AABBox posbox(cur_aabb.min_, cur_aabb.max_);
 	posbox.min_.x[best_axis] = best_div_val;
 
-	if(best_num_in_neg == numtris && best_num_in_pos == numtris)
+	if(best_num_in_neg == (int)numtris && best_num_in_pos == (int)numtris)
 	{
 		// If we were unable to get a reduction in the number of tris in either of the children,
 		// then splitting is pointless.  So make this a leaf node.
@@ -629,7 +629,7 @@ void NLogNKDTreeBuilder::doBuild(
 	//create negative child node, next in the array.
 	//------------------------------------------------------------------------
 	const unsigned int actual_num_neg_tris = (unsigned int)childlayer.lower_bounds[0].size();
-	assert(actual_num_neg_tris == best_num_in_neg);
+	assert((int)actual_num_neg_tris == best_num_in_neg);
 
 	//if(actual_num_neg_tris > 0)
 	//{
@@ -717,7 +717,7 @@ void NLogNKDTreeBuilder::doBuild(
 	//create positive child
 	//------------------------------------------------------------------------
 	const unsigned int actual_num_pos_tris = (unsigned int)childlayer.lower_bounds[0].size();
-	assert(actual_num_pos_tris == best_num_in_pos);
+	assert((int)actual_num_pos_tris == best_num_in_pos);
 
 	if(actual_num_pos_tris > 0)
 	{

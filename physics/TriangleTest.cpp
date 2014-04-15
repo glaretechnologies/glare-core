@@ -79,14 +79,14 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 }
 
 
-static void testSingleTriIntersection(const Ray& ray, const MollerTrumboreTri& tri)
+/*static void testSingleTriIntersection(const Ray& ray, const MollerTrumboreTri& tri)
 {
 	MollerTrumboreTri tris[4];
 	tris[0] = tris[1] = tris[2] = tris[3] = tri;
 
 
 	testIntersection(ray, tris);
-}
+}*/
 
 
 static void testTriangleIntersection()

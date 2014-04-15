@@ -906,7 +906,7 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	//::triTreeDebugPrint("split " + ::toString(nodetris.size()) + " tris: left: " + ::toString(neg_tris.size())
 	//	+ ", right: " + ::toString(pos_tris.size()) + ", both: " + ::toString(num_tris_in_both) );
 
-	if(num_in_neg == numtris && num_in_pos == numtris)
+	if(num_in_neg == (int)numtris && num_in_pos == (int)numtris)
 	{
 		//If we were unable to get a reduction in the number of tris in either of the children,
 		//then splitting is pointless.  So make this a leaf node.
