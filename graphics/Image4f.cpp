@@ -463,7 +463,6 @@ public:
 		const ptrdiff_t factor = closure.factor;
 		const ptrdiff_t border_width = closure.border_width;
 		const ptrdiff_t in_xres = closure.in_xres;
-		const ptrdiff_t in_yres = closure.in_yres;
 		const ptrdiff_t filter_bound = closure.filter_bound;
 		const ptrdiff_t out_xres = closure.out_xres;
 		//const ptrdiff_t out_yres = closure.out_yres;
@@ -483,7 +482,7 @@ public:
 			for(ptrdiff_t u = u_min; u <= u_max; ++u)
 			{
 				const ptrdiff_t addr = v * in_xres + u;
-				assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * in_yres)/*img_in.numPixels()*/);
+				assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * closure.in_yres)/*img_in.numPixels()*/);
 
 				weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
 			}

@@ -159,7 +159,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			{
 				int numfaceverts = 0;
 
-				for(int i=0; i<MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
+				for(int i=0; i<(int)MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
 				{
 					parser.parseSpacesAndTabs();
 					if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')

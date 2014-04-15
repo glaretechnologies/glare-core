@@ -219,13 +219,17 @@ Reference<Map2D> RGBEDecoder::decode(const std::string& path)
 
 	RGBEHeaderData info = parseHeaderString(header_string);
 
+	// Check width and height are >= 0 before we cast them to size_t.
+	if(info.width < 0 || info.height < 0)
+		throw ImFormatExcep("Invalid width or height.");
+
 
 	Reference<ImageMap<float, FloatComponentValueTraits> > image_map = new ImageMap<float, FloatComponentValueTraits>(info.width, info.height, 3);
 	image_map->setGamma(1.0f);
 
 	float* image_data = image_map->getData();
 
-	for(size_t i = 0; i < info.height; ++i)
+	for(size_t i = 0; i < (size_t)info.height; ++i)
 	{
 		int result = RGBE_ReadPixels_RLE(rgbe_file.getFile(), &image_data[info.width * 3 * i], info.width, 1);
 
@@ -233,7 +237,7 @@ Reference<Map2D> RGBEDecoder::decode(const std::string& path)
 			throw ImFormatExcep("failed to read .hdr file");
 	}
 
-	// if exposure != 1.0 go over all pixels an devide by exposure.
+	// if exposure != 1.0 go over all pixels and devide by exposure.
 	if(!epsEqual<float>(info.exposure , 1.0f))
 	{
 		float recip_exp = 1 / info.exposure;
