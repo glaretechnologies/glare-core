@@ -116,9 +116,6 @@ public:
 	virtual const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const = 0;
 	virtual void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const = 0;
 
-	virtual const Vec3Type worldToCameraObjectSpace(const Vec3Type& pos_ws, double time) const = 0;
-	virtual PDType lensPosPDFForWSPos(const Vec3Type& lenspos_ws, double time) const = 0; // only used in old code.
-
 
 	virtual const Vec4f getForwardsDirF(double time) const = 0;
 
