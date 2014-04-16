@@ -26,6 +26,35 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include <IlmThreadPool.h>
 
 
+/*
+
+Some test of various compression methods:
+OpenEXR version: 1.6.1.
+
+Uffizi large:
+----------------------------------------
+PIZ:
+Saving exr took 0.13391521475023183 s
+File size: 12.6 MB
+
+ZIP:
+Saving exr took 0.5872966223396361 s
+File size: 12.2 MB
+
+
+Zom-b bedroom image (quite noisy interior archviz, large image)
+---------------------------------------------------------
+PIZ:
+Saving exr took 0.8719152554804168 s
+File size: 81.2 MB
+
+ZIP:
+Saving exr took 1.4644417400650127 s
+File size: 90.6 MB
+
+*/
+
+
 EXRDecoder::EXRDecoder()
 {
 }
@@ -368,6 +397,8 @@ void EXRDecoder::saveImageTo32BitEXR(const ImageMapFloat& image, const std::stri
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/Timer.h"
+#include "../utils/ConPrint.h"
 
 
 void EXRDecoder::test()
@@ -411,6 +442,23 @@ void EXRDecoder::test()
 	{}
 
 	// TODO: test writing of EXR files.
+
+	/*try
+	{
+		Reference<Map2D> im = EXRDecoder::decode("C:\\Users\\nick\\Downloads\\EXR_compression\\final_frame000330_tonemapped.exr");
+		//testAssert(im->getMapWidth() == 2400);
+		//testAssert(im->getMapHeight() == 1200);
+		//testAssert(im->getBytesPerPixel() == 2 * 3); // Half precision * 3 components
+
+		// Write out
+		Timer timer;
+		EXRDecoder::saveImageTo32BitEXR(*im->convertToImage(), "C:\\art\\indigo\\tests\\exr tests\\zomb_bedroom_piz.exr");
+		conPrint("Saving exr took " + timer.elapsedString());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}*/
 }
 
 
