@@ -1,8 +1,8 @@
 /*=====================================================================
 EXRDecoder.cpp
 --------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Fri Jul 11 02:36:44 2008
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "EXRDecoder.h"
 
@@ -36,15 +36,19 @@ EXRDecoder::~EXRDecoder()
 }
 
 
+void EXRDecoder::setEXRThreadPoolSize()
+{
+	// Make sure there are enough threads in the ILMBase thread-pool object.
+	// This greatly speeds up loading of large, compressed EXRs.
+	IlmThread::ThreadPool::globalThreadPool().setNumThreads(PlatformUtils::getNumLogicalProcessors());
+}
+
+
 Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 {
-#ifdef OPENEXR_SUPPORT
 	try
 	{
-		// Add some threads to the ILMBase thread-pool object.
-		// This greatly speeds up loading of large, compressed EXRs.
-		IlmThread::ThreadPool::globalThreadPool().setNumThreads(PlatformUtils::getNumLogicalProcessors());
-
+		setEXRThreadPoolSize();
 
 		std::ifstream infile(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
@@ -169,17 +173,13 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 	{
 		throw ImFormatExcep("Error reading EXR file: " + std::string(e.what()));
 	}
-
-#else //OPENEXR_SUPPORT
-
-	throw ImFormatExcep("OPENEXR_SUPPORT disabled.");
-
-#endif //OPENEXR_SUPPORT
 }
 
 
 void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& pathname)
 {
+	setEXRThreadPoolSize();
+
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
 	try
 	{
@@ -189,7 +189,15 @@ void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& path
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight());
+		// NOTE: We will use PIZ compression here, as it's apparently better for grainy images.  See Arthur's bug report here: https://bugs.glaretechnologies.com/issues/183
+		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
+			1.f, // pixel aspect ratio
+			Imath::V2f(0,0), // screenWindowCenter
+			1.f, // screenWindowWidth
+			Imf::INCREASING_Y, // lineOrder
+			Imf::PIZ_COMPRESSION // compression method
+		);
+
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
@@ -226,6 +234,8 @@ void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& path
 
 void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pathname)
 {
+	setEXRThreadPoolSize();
+
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
 	try
 	{
@@ -235,7 +245,15 @@ void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pa
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight());
+		// NOTE: We will use PIZ compression here, as it's apparently better for grainy images.  See Arthur's bug report here: https://bugs.glaretechnologies.com/issues/183
+		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
+			1.f, // pixel aspect ratio
+			Imath::V2f(0,0), // screenWindowCenter
+			1.f, // screenWindowWidth
+			Imf::INCREASING_Y, // lineOrder
+			Imf::PIZ_COMPRESSION // compression method
+		);
+
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
@@ -280,6 +298,8 @@ void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pa
 //NOTE: Untested.
 void EXRDecoder::saveImageTo32BitEXR(const ImageMapFloat& image, const std::string& pathname)
 {
+	setEXRThreadPoolSize();
+
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
 	try
 	{
@@ -289,7 +309,14 @@ void EXRDecoder::saveImageTo32BitEXR(const ImageMapFloat& image, const std::stri
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight());
+		// NOTE: We will use PIZ compression here, as it's apparently better for grainy images.  See Arthur's bug report here: https://bugs.glaretechnologies.com/issues/183
+		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
+			1.f, // pixel aspect ratio
+			Imath::V2f(0,0), // screenWindowCenter
+			1.f, // screenWindowWidth
+			Imf::INCREASING_Y, // lineOrder
+			Imf::PIZ_COMPRESSION // compression method
+		);
 
 
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
@@ -335,3 +362,56 @@ void EXRDecoder::saveImageTo32BitEXR(const ImageMapFloat& image, const std::stri
 		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
 	}
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void EXRDecoder::test()
+{
+	try
+	{
+		Reference<Map2D> im = EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/uffizi-large.exr");
+		testAssert(im->getMapWidth() == 2400);
+		testAssert(im->getMapHeight() == 1200);
+		testAssert(im->getBytesPerPixel() == 2 * 3); // Half precision * 3 components
+
+		// Test Unicode path
+		const std::string euro = "\xE2\x82\xAC";
+		Reference<Map2D> im2 = EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".exr");
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test that failure to load an image is handled gracefully.
+
+	// Try with an invalid path
+	try
+	{
+		EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/NO_SUCH_FILE.exr");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try with a JPG file
+	try
+	{
+		EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// TODO: test writing of EXR files.
+}
+
+
+#endif // BUILD_TESTS

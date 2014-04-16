@@ -1,39 +1,29 @@
 /*=====================================================================
 EXRDecoder.h
 ------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Fri Jul 11 02:36:44 2008
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __EXRDECODER_H_666_
-#define __EXRDECODER_H_666_
+#pragma once
 
 
 #include "ImageMap.h"
 #include "Image4f.h"
-#include <vector>
-#include <map>
-#include <string>
 #include "../utils/Reference.h"
+#include <string>
 class Map2D;
-class Bitmap;
 class Image;
 
 
 /*=====================================================================
 EXRDecoder
 ----------
-
+Reading and writing of images in EXR format.
 =====================================================================*/
 class EXRDecoder
 {
 public:
-	/*=====================================================================
-	EXRDecoder
-	----------
-	
-	=====================================================================*/
 	EXRDecoder();
-
 	~EXRDecoder();
 
 
@@ -45,12 +35,9 @@ public:
 	static void saveImageTo32BitEXR(const Image& image, const std::string& pathname);
 	static void saveImageTo32BitEXR(const Image4f& image, const std::string& pathname);
 	static void saveImageTo32BitEXR(const ImageMapFloat& image, const std::string& pathname);
+	
+	static void test();
+
+private:
+	static void setEXRThreadPoolSize();
 };
-
-
-
-#endif //__EXRDECODER_H_666_
-
-
-
-
