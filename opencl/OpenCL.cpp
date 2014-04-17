@@ -432,6 +432,68 @@ void OpenCL::deviceInit(int device_number)
 	if(command_queue == 0)
 		throw Indigo::Exception("clCreateCommandQueue failed");
 }
+
+
+void OpenCL::deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out)
+{
+	if(!initialised)
+		throw Indigo::Exception("OpenCL library not initialised");
+
+	cl_context_properties cps[3] =
+    {
+        CL_CONTEXT_PLATFORM,
+		(cl_context_properties)chosen_device.opencl_platform,
+        0
+    };
+
+	cl_int error_code;
+
+	cl_context new_context = clCreateContextFromType(
+		cps, // properties
+		CL_DEVICE_TYPE_ALL, // CL_DEVICE_TYPE_CPU, // TEMP CL_DEVICE_TYPE_GPU, // device type
+		NULL, // pfn notify
+		NULL, // user data
+		&error_code
+	);
+	if(new_context == 0)
+		throw Indigo::Exception("clCreateContextFromType failed: " + errorString(error_code));
+
+	// Create command queue
+	cl_command_queue new_command_queue = this->clCreateCommandQueue(
+		new_context,
+		chosen_device.opencl_device,
+		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
+		&error_code);
+	if(new_command_queue == 0)
+		throw Indigo::Exception("clCreateCommandQueue failed"); // XXX BUG If this exception is thrown, context gets leaked. Need to use wrapper classes.
+
+	context_out = new_context;
+	command_queue_out = new_command_queue;
+}
+
+
+void OpenCL::deviceFree(cl_context& context, cl_command_queue& command_queue)
+{
+	// Free command queue
+	if(this->command_queue)
+	{
+		if(clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
+		{
+			assert(0);
+		}
+	}
+
+	// Cleanup
+	if(this->context)
+	{
+		if(clReleaseContext(this->context) != CL_SUCCESS)
+		{
+			assert(0);
+		}
+	}
+}
+
+
 #endif
 
 
@@ -493,23 +555,24 @@ const std::string OpenCL::errorString(cl_int result)
 
 
 // Accessor method for device data queried in the constructor.
-std::vector<gpuDeviceInfo> OpenCL::getDeviceInfo() const { return device_info; }
+const std::vector<gpuDeviceInfo>& OpenCL::getDeviceInfo() const { return device_info; }
 
 
 cl_program OpenCL::buildProgram(
-							   const std::vector<std::string>& program_lines,
-							   cl_device_id device,
-							   const std::string& compile_options,
-							   PrintOutput& print_output
-							   )
+	const std::vector<std::string>& program_lines,
+	cl_context opencl_context,
+	cl_device_id opencl_device,
+	const std::string& compile_options,
+	PrintOutput& print_output
+)
 {
 	std::vector<const char*> strings(program_lines.size());
-	for(size_t i=0; i<program_lines.size(); ++i)
+	for(size_t i = 0; i < program_lines.size(); ++i)
 		strings[i] = program_lines[i].c_str();
 
 	cl_int result;
 	cl_program program = this->clCreateProgramWithSource(
-		this->context,
+		opencl_context,
 		(cl_uint)program_lines.size(),
 		&strings[0],
 		NULL, // lengths, can be NULL because all strings are null-terminated.
@@ -522,7 +585,7 @@ cl_program OpenCL::buildProgram(
 	result = this->clBuildProgram(
 		program,
 		1, // num devices
-		&device, // device ids
+		&opencl_device, // device ids
 		compile_options.c_str(), // options
 		NULL, // pfn_notify
 		NULL // user data
@@ -533,7 +596,7 @@ cl_program OpenCL::buildProgram(
 	{
 #if defined(_DEBUG) | defined(BUILD_TESTS)
 		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
-			dumpBuildLog(program, print_output);
+			dumpBuildLog(program, opencl_device, print_output);
 		//else
 #endif
 			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
@@ -544,7 +607,7 @@ cl_program OpenCL::buildProgram(
 	cl_build_status build_status;
 	this->clGetProgramBuildInfo(
 		program,
-		this->device_to_use,
+		opencl_device,
 		CL_PROGRAM_BUILD_STATUS,
 		sizeof(build_status), // param value size
 		&build_status, // param value
@@ -622,7 +685,7 @@ cl_program OpenCL::buildProgram(
 }
 
 
-void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
+void OpenCL::dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& print_output)
 {
 	cl_int result;
 
@@ -630,7 +693,7 @@ void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
 	size_t param_value_size_ret;
 	result = this->clGetProgramBuildInfo(
 		program,
-		this->device_to_use,
+		device,
 		CL_PROGRAM_BUILD_LOG,
 		0, // param value size
 		NULL, // param value
@@ -640,7 +703,7 @@ void OpenCL::dumpBuildLog(cl_program program, PrintOutput& print_output)
 
 	result = this->clGetProgramBuildInfo(
 		program,
-		this->device_to_use,
+		device,
 		CL_PROGRAM_BUILD_LOG,
 		buf.size(),
 		&buf[0],

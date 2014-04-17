@@ -117,20 +117,24 @@ public:
 
 #if USE_OPENCL
 	void queryDevices();
-	void deviceInit(int device_number);
+	const std::vector<gpuDeviceInfo>& getDeviceInfo() const;
+
+	void deviceInit(int device_number); // TODO remove
+
+	void deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out);
+	void deviceFree(cl_context& context, cl_command_queue& command_queue);
 
 	static const std::string errorString(cl_int result);
 
-	std::vector<gpuDeviceInfo> getDeviceInfo() const;
-
 	cl_program buildProgram(
 		const std::vector<std::string>& program_lines,
-		cl_device_id device,
+		cl_context opencl_context,
+		cl_device_id opencl_device,
 		const std::string& compile_options,
 		PrintOutput& print_output
 	);
 
-	void dumpBuildLog(cl_program program, PrintOutput& print_output);
+	void dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& print_output);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
