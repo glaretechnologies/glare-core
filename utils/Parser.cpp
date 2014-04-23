@@ -131,8 +131,16 @@ bool Parser::parseInt(int32& result_out)
 		{
 			if(sign == 1) // 2147483648 is not representable as a positive signed integer.
 				return false;
-			
-			// else if sign = -1, then result = -2147483648, which is valid.
+			else
+			{			
+				assert(sign == -1);
+				// else if sign = -1, then result = -2147483648, which is valid.
+				// We can't cast x to int though, as it will overflow.  So just return the result directly.
+				// -2147483648 can't be written directly as 2147483648 is too large for a signed integer.
+				result_out = -2147483647 - 1;
+				this->currentpos = pos;
+				return true;
+			}
 		}
 		else
 		{
@@ -142,7 +150,7 @@ bool Parser::parseInt(int32& result_out)
 		}
 	}
 
-	assert(x <= 2147483647u || (sign == -1 && x == 2147483648u));
+	assert(x <= 2147483647u);
 
 	result_out = sign * (int)x;
 	this->currentpos = pos;
