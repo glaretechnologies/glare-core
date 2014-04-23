@@ -18,9 +18,8 @@ GaussianImageFilter
 =====================================================================*/
 namespace GaussianImageFilter
 {
-
-
-	// Adds the image in, convolved by a guassian filter, to out.
+	// Adds the image in, convolved by a guassian filter, to out.  Standard_deviation is measured in pixels.
 	void gaussianFilter(const Image& in, Image& out, float standard_deviation, Indigo::TaskManager& task_manager);
 
+	void test();
 };

@@ -31,9 +31,11 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		int pixel_rad = closure.pixel_rad;
-		
+		const int pixel_rad = closure.pixel_rad;
 		const int w = (int)closure.in.getWidth();
+		const float* const filter_weights = closure.filter_weights;
+		const Image& in = closure.in;
+		Image& temp = closure.temp;
 
 		for(int dy = begin; dy < end; ++dy)
 			for(int dx = 0; dx < w; ++dx)
@@ -45,17 +47,17 @@ public:
 
 				// Do input off left side of image: x < 0, so x is equal (mod w) to w + x
 				for(int x = start_x; x < 0; ++x)
-					c.addMult(closure.in.getPixel(w + x, dy), closure.filter_weights[x - start_x]);
+					c.addMult(in.getPixel(w + x, dy), filter_weights[x - start_x]);
 
 				// Do 0 <= x < w
 				for(int x = myMax(0, start_x); x < myMin(w, end_x); ++x)
-					c.addMult(closure.in.getPixel(x, dy), closure.filter_weights[x - start_x]);
+					c.addMult(in.getPixel(x, dy), filter_weights[x - start_x]);
 
 				// Do w < x, so x is equal (mod w) to x - w
 				for(int x = w; x < end_x; ++x)
-					c.addMult(closure.in.getPixel(x - w, dy), closure.filter_weights[x - start_x]);
+					c.addMult(in.getPixel(x - w, dy), filter_weights[x - start_x]);
 
-				closure.temp.setPixel(dx, dy, c);
+				temp.setPixel(dx, dy, c);
 			}
 	}
 
@@ -71,32 +73,34 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		int pixel_rad = closure.pixel_rad;
-		
+		const int pixel_rad = closure.pixel_rad;
 		const int h = (int)closure.in.getHeight();
 		const int w = (int)closure.in.getWidth();
+		const float* const filter_weights = closure.filter_weights;
+		const Image& temp = closure.temp;
+		Image& out = closure.out;
 
-		for(int dy = 0; dy < h; ++dy)
+		for(int dy = begin; dy < end; ++dy)
 			for(int dx = 0; dx < w; ++dx)
 			{
 				Image::ColourType c(0);
-
+				
 				const int start_y = dy - pixel_rad;
 				const int end_y = dy + pixel_rad + 1;
 
 				// y < 0
 				for(int y = start_y; y<0; ++y)
-					c.addMult(closure.temp.getPixel(dx, h + y), closure.filter_weights[y - start_y]);
+					c.addMult(temp.getPixel(dx, h + y), filter_weights[y - start_y]);
 
 				// Do 0 <= y < h
 				for(int y = myMax(0, start_y); y < myMin(h, end_y); ++y)
-					c.addMult(closure.temp.getPixel(dx, y), closure.filter_weights[y - start_y]);
+					c.addMult(temp.getPixel(dx, y), filter_weights[y - start_y]);
 
 				// Do h < y
 				for(int y = h; y < end_y; ++y)
-					c.addMult(closure.temp.getPixel(dx, y - h), closure.filter_weights[y - start_y]);
+					c.addMult(temp.getPixel(dx, y - h), filter_weights[y - start_y]);
 
-				closure.out.setPixel(dx, dy, c);
+				out.setPixel(dx, dy, c);
 			}
 	}
 
@@ -133,7 +137,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 			filter_weights[x] = 0.0f;
 	}
 
-	//normalise filter kernel
+	// Normalise filter kernel
 	float sumweight = 0.0f;
 	for(int y = 0; y < lookup_size; ++y)
 		for(int x = 0; x < lookup_size; ++x)
@@ -142,7 +146,7 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 	for(int x = 0; x < lookup_size; ++x)
 		filter_weights[x] *= sqrt(1.0f / sumweight);
 
-	//check weights are properly normalised now
+	// Check weights are properly normalised now
 	sumweight = 0.0f;
 	for(int y = 0; y < lookup_size; ++y)
 		for(int x = 0; x < lookup_size; ++x)
@@ -151,151 +155,75 @@ void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float stan
 	assert(::epsEqual(sumweight, 1.0f));
 
 	//------------------------------------------------------------------------
-	//try separable blur
+	// Do separable blur
 	//------------------------------------------------------------------------
-	//blur in x direction
 	Image temp(in.getWidth(), in.getHeight());
-	//temp.zero();
-
-	const int h = (int)in.getHeight();
-//	const int w = (int)in.getWidth();
-
-/*#ifndef INDIGO_NO_OPENMP
-#pragma omp parallel for
-#endif
-	for(int dy = 0; dy < h; ++dy)
-		for(int dx = 0; dx < w; ++dx)
-		{
-			Image::ColourType c(0);
-
-			const int start_x = dx - pixel_rad;
-			const int end_x = dx + pixel_rad + 1;
-
-			// Do input off left side of image: x < 0, so x is equal (mod w) to w + x
-			for(int x = start_x; x < 0; ++x)
-				c.addMult(in.getPixel(w + x, dy), filter_weights[x - start_x]);
-
-			// Do 0 <= x < w
-			for(int x = myMax(0, start_x); x < myMin(w, end_x); ++x)
-				c.addMult(in.getPixel(x, dy), filter_weights[x - start_x]);
-
-			// Do w < x, so x is equal (mod w) to x - w
-			for(int x = w; x < end_x; ++x)
-				c.addMult(in.getPixel(x - w, dy), filter_weights[x - start_x]);
-
-			temp.setPixel(dx, dy, c);
-		}
-*/
 
 	GaussianImageFilterTaskClosure closure(temp, in, out);
 	closure.filter_weights = filter_weights;
 	closure.pixel_rad = pixel_rad;
 
-	// Blur in x direction
+	// Blur in x direction, reading from 'in' and writing to 'temp'.
+	const int h = (int)in.getHeight();
 	task_manager.runParallelForTasks<XBlurTask, GaussianImageFilterTaskClosure>(closure, 0, h);
 
-	// Blur in y direction
+	// Blur in y direction, reading from 'temp' and writing to 'out'.
 	task_manager.runParallelForTasks<YBlurTask, GaussianImageFilterTaskClosure>(closure, 0, h);
-
-/*#ifndef INDIGO_NO_OPENMP
-#pragma omp parallel for
-#endif
-		for(int dy = 0; dy < h; ++dy)
-			for(int dx = 0; dx < w; ++dx)
-			{
-				Image::ColourType c(0);
-
-				const int start_y = dy - pixel_rad;
-				const int end_y = dy + pixel_rad + 1;
-
-				// y < 0
-				for(int y = start_y; y<0; ++y)
-					c.addMult(temp.getPixel(dx, h + y), filter_weights[y - start_y]);
-
-				// Do 0 <= y < h
-				for(int y = myMax(0, start_y); y < myMin(h, end_y); ++y)
-					c.addMult(temp.getPixel(dx, y), filter_weights[y - start_y]);
-
-				// Do h < y
-				for(int y = h; y < end_y; ++y)
-					c.addMult(temp.getPixel(dx, y - h), filter_weights[y - start_y]);
-
-				out.setPixel(dx, dy, c);
-			}
-*/
-
-			/*for(int y=0; y<in.getHeight(); ++y)
-			for(int x=0; x<in.getWidth(); ++x)
-			{
-			//const int minx = myMax(0, x - pixel_rad);
-			//const int maxx = myMin((int)in.getWidth(), x + pixel_rad + 1);
-			const int minx = x - pixel_rad;
-			const int maxx = x + pixel_rad + 1;
-
-			const Image::ColourType incol = in.getPixel(x, y);
-
-			//int weightindex = minx - x + pixel_rad;
-			for(int tx=minx; tx<maxx; ++tx)
-			{
-			//const int dx = tx - x + pixel_rad;
-			//assert(dx >= 0 && dx < lookup_size);
-
-			temp.getPixel(tx, y).addMult(incol, filter_weights[tx - x + pixel_rad]);
-			}
-			}
-
-			//temp is now in blurred in x direction
-			//temp;
-
-			//blur in y direction
-			for(int y=0; y<in.getHeight(); ++y)
-			for(int x=0; x<in.getWidth(); ++x)
-			{
-			const int miny = myMax(0, y - pixel_rad);
-			const int maxy = myMin((int)in.getHeight(), y + pixel_rad + 1);
-
-			const Image::ColourType incol = temp.getPixel(x, y);
-
-			//int weightindex = miny - y + pixel_rad;
-			for(int ty=miny; ty<maxy; ++ty)
-			{
-			//const int dy = ty - y + pixel_rad;
-			//assert(dy >= 0 && dy < lookup_size);
-
-			out.getPixel(x, ty).addMult(incol, filter_weights[ty - y + pixel_rad]);
-			}
-			}*/
-
-			/*//for each pixel in the source image
-			for(int y=0; y<in.getHeight(); ++y)
-			{
-			//get min and max of current filter rect along y axis
-			const int miny = myMax(0, y - pixel_rad);
-			const int maxy = myMin(in.getHeight(), y + pixel_rad + 1);
-
-			for(int x=0; x<in.getWidth(); ++x)
-			{
-			//get min and max of current filter rect along x axis
-			const int minx = myMax(0, x - pixel_rad);
-			const int maxx = myMin(in.getWidth(), x + pixel_rad + 1);
-
-			//for each pixel in the out image, in the filter radius
-			for(int ty=miny; ty<maxy; ++ty)
-			for(int tx=minx; tx<maxx; ++tx)
-			{
-			const int dx = tx - x + pixel_rad;
-			const int dy = ty - y + pixel_rad;
-			assert(dx >= 0 && dx < lookup_size);
-			assert(dy >= 0 && dy < lookup_size);
-			//printVar(dx);
-			//printVar(dy);
-			const float factor = filter_weights[dx]*filter_weights[dy];
-
-			out.getPixel(tx, ty).addMult(in.getPixel(x, y), factor);
-			}
-
-			}
-			}*/
 
 	delete[] filter_weights;
 }
+
+
+#if BUILD_TESTS
+
+
+#include "jpegdecoder.h"
+#include "PNGDecoder.h"
+#include "bitmap.h"
+#include "imformatdecoder.h"
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/StringUtils.h"
+#include "../utils/Timer.h"
+
+
+void GaussianImageFilter::test()
+{
+	try
+	{
+		// Load JPEG, convert to Image
+		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+		Reference<Image> im = map->convertToImage();
+
+		// Gaussian blur it
+		Indigo::TaskManager task_manager;
+
+		Timer timer;
+
+		Reference<Image> blurred = new Image(im->getWidth(), im->getHeight());
+		gaussianFilter(*im, *blurred, 
+			2.0f, // std dev (pixels)
+			task_manager
+		);
+
+		conPrint("Blur took " + timer.elapsedString());
+		conPrint("Average luminance: " + toString(blurred->averageLuminance()));
+
+		if(false)
+		{
+			// Save it to disk
+			blurred->clampInPlace(0, 1);
+			blurred->gammaCorrect(1 / 2.2);
+			Bitmap bmp_out;
+			blurred->copyToBitmap(bmp_out);
+			PNGDecoder::write(bmp_out, "blurred.png");
+		}
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+#endif // BUILD_TESTS
