@@ -115,6 +115,28 @@ public:
 };
 
 
+// This class is just for testing thread sanitizer.
+class RaceTestThread : public MyThread
+{
+public:
+	RaceTestThread(int* i_): i(i_) { conPrint("RaceTestThread()"); }
+	~RaceTestThread() { conPrint("~RaceTestThread()"); }
+	virtual void run()
+	{
+		for(int z=0; z<1000; ++z)
+		{
+			if(z % 2 == 0)
+				(*i)++;
+			else
+				(*i)--;
+		}
+	}
+
+private:
+	int* i;
+};
+
+
 
 /*class OpenMPUsingThread : public MyThread
 {
@@ -162,6 +184,19 @@ void ThreadTests::test()
 
 			Sleep(1000);
 		}
+	}*/
+
+	// Create and run race test threads.  This is just for testing thread sanitizer.
+	/*{
+		int i = 0;
+		Reference<RaceTestThread> t = new RaceTestThread(&i);
+		t->launch();
+		Reference<RaceTestThread> t2 = new RaceTestThread(&i);
+		t2->launch();
+		t->join();
+		t2->join();
+
+		printVar(i);
 	}*/
 
 	// Create and run a single thread.  Wait for it to finish.
