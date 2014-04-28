@@ -83,7 +83,7 @@ public:
 		Vec3Type lens_exit_dir_ws;
 		const std::vector<const Medium*>* containing_media;
 		Real sensorpos_p;
-		Real lenspos_p;
+		Real recip_lenspos_p;
 		Real aperture_vis;
 		Real F; // camera contribution
 		Real exposure_duration;
