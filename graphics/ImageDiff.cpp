@@ -9,9 +9,9 @@ Generated at 2014-04-30 12:12:50 +0100
 
 #include "PNGDecoder.h"
 #include "Map2D.h"
-#include "Image.h"
+#include "image.h"
 #include "ImageMap.h"
-#include "Bitmap.h"
+#include "bitmap.h"
 #include "imformatdecoder.h"
 #include "TextDrawer.h"
 #include "../utils/Exception.h"
