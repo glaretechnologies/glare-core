@@ -29,6 +29,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 
 	const char* keywords_[] = {
 "auto",
+"bool",
 "break",
 "case",
 "char",
@@ -40,6 +41,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "else",
 "enum",
 "extern",
+"false",
 "float",
 "for",
 "goto",
@@ -54,15 +56,20 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "static",
 "struct",
 "switch",
+"true",
 "typedef",
 "union",
 "unsigned",
 "void",
 "volatile",
+"restrict",
 "while",
 
-// Cuda keywords
+// CUDA and OpenCL keywords
 
+"as_int",
+"float2",
+"float3",
 "float4",
 "uint",
 "uint4",
@@ -74,23 +81,31 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "tex1Dfetch",
 "__float_as_int",
 
+"abs",
 "acos",
 "asin",
 "atan2",
 "cos",
+"exp",
+"fabs",
+"pow",
+"rsqrt",
 "sin",
 "tan",
 "sqrt",
 "min",
 "max",
-"rsqrt",
-"pow",
+
+"clamp",
 
 // float4 elements:
 "x",
 "y",
 "z",
 "w",
+
+// swizzles:
+"xyz",
 
 // OpenCL: see '6.1.9 Keywords' in OpenCL 1.1 spec.
 "__global",
@@ -122,11 +137,20 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "as_uint4",
 "as_float",
 "as_uint",
+
+"dot",
 "cross",
+"length",
+"normalize",
 
 "CLK_NORMALIZED_COORDS_FALSE", "CLK_ADDRESS_CLAMP_TO_EDGE", "CLK_FILTER_NEAREST",
 
 // preprocessor definitions: need to be unchanged.
+
+// OpenCL path tracer defs:
+"ENVMAP_SPHERE", "IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
+
+"USE_FLOAT3_SWIZZLES", // XXX TODO this should be renamed to something cryptic
 
 "OPENCL_BACKGROUND_SPHERE", "OBS",
 "OPENCL_RAY_BLOCK_HEIGHT", "ORBH",
@@ -143,6 +167,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "OPENCL_SKIP_LIST", "OSL",
 
 // Externally accesible functions
+"zero_kernel",
+"QMC_kernel",
 "RayTracingKernel",
 "RayTracingKernelSkip",
 "RTK",
@@ -220,7 +246,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 	std::string res;
 
 
-	const std::string ignore_tokens = "f[](){}<>/*-+=;,.&!|?:%";
+	const std::string ignore_tokens = "f[](){}<>/*-+=;,.^&!|?:%";
 
 
 	while(p.notEOF())
@@ -229,6 +255,12 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 
 		//const char debug_current_char = p.current();
 		//conPrint(std::string(1, debug_current_char));
+
+		//if((p.current() == 'x' && p.nextIsChar('<')) ||
+		//	(p.current() == '>' && p.nextIsChar('>')))
+		//{
+		//	conPrint("found 'x  ='");
+		//}
 
 		if(p.current() == '/' && p.nextIsChar('/'))
 		{
@@ -241,6 +273,21 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		else if(p.current() == '#') // preprocessor def
 		{
 			int last_currentpos = p.currentPos();
+
+			if(s.substr(last_currentpos, 7) == "#define")
+			{
+				// skip past the "#define " string to token
+				for(int z = 0; z < 8; ++z)
+					p.advance();
+
+				bool valid_token_parse = p.parseIdentifier(t);
+				if(valid_token_parse)
+					conPrint("found #define " + t);
+
+				res += "#define " + mapToken(t);
+				continue;
+			}
+
 			p.advancePastLine();
 			if(res.substr(res.size() - 1, 1) != "\n")
 				res += "\r\n";
@@ -279,7 +326,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 				res += s.substr(last_currentpos, p.currentPos() - last_currentpos); // append comment to output
 			continue;
 		}
-		else if(::isWhitespace(p.current()))
+		else if(::isWhitespace(p.current())) // Note that if we are removing whitespace and not removing comments, then newlines at end of comments can give incorrect results
 		{
 			int last_currentpos = p.currentPos();
 			p.parseWhiteSpace();
@@ -287,6 +334,37 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 				res += " ";
 			else
 				res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
+			continue;
+		}
+		else if(p.current() == '0' && p.next() == 'x') // Hex number
+		{
+			const int num_hex_chars = 10 + 6 + 1; // 0-9, a-e and x
+			const char hex_chars[num_hex_chars] =
+			{
+				'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+				'a', 'b', 'c', 'd', 'e', 'f',
+				'x'
+			};
+
+			int last_currentpos = p.currentPos();
+
+			while(p.notEOF())
+			{
+				const char current_char = toLowerCase(p.current());
+
+				bool found_hex_char = false;
+				for(int z = 0; z < num_hex_chars; ++z)
+					if(current_char == hex_chars[z])
+					{
+						found_hex_char = true;
+						break;
+					}
+
+				if(!found_hex_char) break;
+				else p.advance();
+			}
+
+			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
 			continue;
 		}
 		else if(p.parseIdentifier(t))
@@ -305,12 +383,24 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		else if(::isNumeric(p.current()))
 		{
 			int last_currentpos = p.currentPos();
+
 			int val;
-			p.parseInt(val);
+			const bool valid_int_parse = p.parseInt(val);
+			if(!valid_int_parse)
+			{
+				// Try parsing as an unsigned int
+				uint32 uint_val;
+				const bool valid_uint_parse = p.parseUnsignedInt(uint_val);
+
+				// Fail, might need to try 64bit integer
+				if(!valid_uint_parse)
+					throw Indigo::Exception("Int parse failed at start of '" + s.substr(p.currentPos(), 10) + "'");
+			}
+
 			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
 			continue;
 		}
-		
+
 		/*if(p.parseInt())
 		{
 			int last_currentpos = p.currentPos();
@@ -366,8 +456,6 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			// Obfuscate the code
 			const std::string ob_s = ob.obfuscate(s);
 
-			
-			
 			// Add to header
 			/*header += "const int OpenCLSingleLevelRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
 			header += "const unsigned int OpenCLSingleLevelRayTracingKernel[" + toString(dwords.size()) + "] = {\n";
@@ -468,6 +556,46 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			}*/
 		}
 
+		// OpenCL path tracer kernels
+		{
+			const int num_files = 7;
+			std::string files[num_files] =
+			{
+				"OpenCLPathTracingKernel.h",
+				"ptkernel_bvh.h",
+				"ptkernel_materials.h",
+				"ptkernel_maths.h",
+				"ptkernel_samplingutils.h",
+				"ptkernel_spectral.h",
+				"OpenCLPathTracingKernel.cl"
+			};
+
+			// It's important that the same Obfuscator instance is used for all files,
+			//  since structs in one can be referred to in others.
+			Obfuscator ob(
+				false, // collapse_whitespace
+				true, // remove_comments
+				true, // change tokens
+				true // cryptic_tokens
+				);
+
+			for(int z = 0; z < num_files; ++z)
+			{
+				std::string s;
+				FileUtils::readEntireFile(FileUtils::join(kernel_dir, files[z]), s);
+
+				// Obfuscate the code
+				const std::string ob_s = ob.obfuscate(s);
+
+				//const std::string outpath = std::string("data/obfuscated_") + files[z];
+				const std::string outpath = std::string("data/") + files[z];
+
+				FileUtils::writeEntireFile(outpath, ob_s);
+
+				conPrint("Wrote '" + outpath + "'");	
+			}
+		}
+
 		//FileUtils::writeEntireFile("encrypted_OpenCLKernels.h", header);
 		//conPrint("Written encrypted_OpenCLKernels.h.");
 
@@ -491,9 +619,10 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 void Obfuscator::test()
 {
 	//const std::string s = "int /*a = b[3] + */a;";
-	/*
-	std::string s;
-	FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\opencl\\OpenCLSingleLevelRayTracingKernel.cl", s);
+	const std::string s = "x  = (x ^ 12345391) * 2654435769;";
+
+	//std::string s;
+	//FileUtils::readEntireFile("c:\\programming\\indigo\\trunk\\opencl\\OpenCLSingleLevelRayTracingKernel.cl", s);
 
 	
 	Obfuscator ob(
@@ -507,7 +636,7 @@ void Obfuscator::test()
 	{
 		const std::string ob_s = ob.obfuscate(s);
 
-		//conPrint(ob_s);
+		conPrint(ob_s);
 
 		{
 			//std::ofstream f("munged.cpp");
@@ -522,7 +651,6 @@ void Obfuscator::test()
 		conPrint("Error: " + e.what());
 		exit(1);
 	}
-	*/
 }
 
 
