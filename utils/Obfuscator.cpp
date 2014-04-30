@@ -280,11 +280,24 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 				for(int z = 0; z < 8; ++z)
 					p.advance();
 
+				// Parse the token
 				bool valid_token_parse = p.parseIdentifier(t);
 				if(valid_token_parse)
 					conPrint("found #define " + t);
 
+				// Make sure the output has a newline at the end (defines have to be on their own line I think)
+				if(res.substr(res.size() - 1, 1) != "\n")
+					res += "\r\n";
+
+				// Output the (modified) #define
 				res += "#define " + mapToken(t);
+
+				// Read in the the definition of the define:
+				int last_currentpos = p.currentPos();
+				p.advancePastLine(); // Go past line with #define in it.
+
+				// Output the rest of the define line
+				res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
 				continue;
 			}
 
@@ -573,7 +586,7 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			// It's important that the same Obfuscator instance is used for all files,
 			//  since structs in one can be referred to in others.
 			Obfuscator ob(
-				false, // collapse_whitespace
+				true, // collapse_whitespace
 				true, // remove_comments
 				true, // change tokens
 				true // cryptic_tokens
