@@ -110,12 +110,14 @@ public:
 
 
 	//------------------------ InStream ---------------------------------
+	virtual int32 readInt32();
 	virtual uint32 readUInt32();
 	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
 	virtual bool endOfStream();
 	//------------------------------------------------------------------
 
 	//------------------------ OutStream --------------------------------
+	virtual void writeInt32(int32 x);
 	virtual void writeUInt32(uint32 x);
 	virtual void writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
 	//------------------------------------------------------------------

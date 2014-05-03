@@ -22,6 +22,7 @@ public:
 	BufferInStream(const std::vector<unsigned char>& buf);
 	virtual ~BufferInStream();
 
+	virtual int32 readInt32();
 	virtual uint32 readUInt32();
 	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
 	virtual bool endOfStream();

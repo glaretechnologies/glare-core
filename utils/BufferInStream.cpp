@@ -23,6 +23,18 @@ BufferInStream::~BufferInStream()
 }
 
 
+int32 BufferInStream::readInt32()
+{
+	if(read_index + sizeof(int32) > buf.size())
+		throw Indigo::Exception("Read past end of buffer.");
+
+	int32 x;
+	std::memcpy(&x, &buf[read_index], sizeof(x));
+	read_index += sizeof(x);
+	return x;
+}
+
+
 uint32 BufferInStream::readUInt32()
 {
 	if(read_index + sizeof(uint32) > buf.size())

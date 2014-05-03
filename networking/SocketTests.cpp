@@ -47,6 +47,11 @@ public:
 			testAssert(socket->readUInt32() == 2);
 			testAssert(socket->readUInt32() == 3);
 
+			// Read int32
+			testAssert(socket->readInt32() == 1);
+			testAssert(socket->readInt32() == -2);
+			testAssert(socket->readInt32() == 3);
+
 			// Read Uint64
 			testAssert(socket->readUInt64(NULL) == 1);
 			testAssert(socket->readUInt64(NULL) == 2);
@@ -67,6 +72,11 @@ public:
 			testAssert(socket->readUInt32() == 1);
 			testAssert(socket->readUInt32() == 2);
 			testAssert(socket->readUInt32() == 3);
+
+			// Read int32
+			testAssert(socket->readInt32() == 1);
+			testAssert(socket->readInt32() == -2);
+			testAssert(socket->readInt32() == 3);
 
 			// Read Uint64
 			testAssert(socket->readUInt64(NULL) == 1);
@@ -123,6 +133,11 @@ public:
 			socket.writeUInt32(2);
 			socket.writeUInt32(3);
 
+			// Write Int32
+			socket.writeInt32(1);
+			socket.writeInt32(-2);
+			socket.writeInt32(3);
+
 			// Write Uint64
 			socket.writeUInt64(1, NULL);
 			socket.writeUInt64(2, NULL);
@@ -141,6 +156,12 @@ public:
 			buffer.writeUInt32(1);
 			buffer.writeUInt32(2);
 			buffer.writeUInt32(3);
+
+			// Write Int32
+			buffer.writeInt32(1);
+			buffer.writeInt32(-2);
+			buffer.writeInt32(3);
+
 
 			// Write Uint64
 			buffer.writeUInt64(1);

@@ -821,6 +821,12 @@ bool MySocket::readable(double timeout_s)
 }
 
 
+int32 MySocket::readInt32()
+{
+	return readInt32(NULL);
+}
+
+
 uint32 MySocket::readUInt32()
 {
 	return readUInt32(NULL);
@@ -839,6 +845,12 @@ void MySocket::readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* 
 bool MySocket::endOfStream()
 {
 	return false;
+}
+
+
+void MySocket::writeInt32(int32 x)
+{
+	writeInt32(x, NULL);
 }
 
 

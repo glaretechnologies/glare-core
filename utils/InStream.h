@@ -24,7 +24,10 @@ public:
 	InStream() {}
 	virtual ~InStream() {}
 
-	// Read a single 32-bit unsigned int.
+	// Read a single 32-bit signed int.  May do network->host byte reordering.
+	virtual int32 readInt32() = 0;
+
+	// Read a single 32-bit unsigned int.  May do network->host byte reordering.
 	virtual uint32 readUInt32() = 0;
 
 	// Read 'num_bytes' bytes to buf.  Buf must point at a buffer of at least num_bytes bytes.

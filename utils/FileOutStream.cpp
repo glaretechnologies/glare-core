@@ -25,6 +25,15 @@ FileOutStream::~FileOutStream()
 }
 
 
+void FileOutStream::writeInt32(int32 x)
+{
+	file.write((const char*)&x, sizeof(int32));
+
+	if(file.fail())
+		throw Indigo::Exception("Write to file failed.");
+}
+
+
 void FileOutStream::writeUInt32(uint32 x)
 {
 	file.write((const char*)&x, sizeof(uint32));

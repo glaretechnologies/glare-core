@@ -49,6 +49,26 @@ void SocketBufferOutStream::writeData(const void* data, size_t num_bytes, Stream
 }
 
 
+void SocketBufferOutStream::writeInt32(int32 x_)
+{
+	try
+	{
+		uint32 ux_;
+		std::memcpy(&ux_, &x_, sizeof(int32));
+
+		const uint32 ux = htonl(ux_);
+
+		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
+		buf.resize(pos + sizeof(ux)); // Resize buffer to make room for new uint32
+		std::memcpy(&buf[pos], &ux, sizeof(ux)); // Copy x to buffer.
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+	}
+}
+
+
 void SocketBufferOutStream::writeUInt32(uint32 x_)
 {
 	try

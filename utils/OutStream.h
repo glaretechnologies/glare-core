@@ -24,6 +24,9 @@ public:
 	OutStream();
 	virtual ~OutStream();
 
+	// May do host->network byte reordering.
+	virtual void writeInt32(int32 x) = 0;
+	// May do host->network byte reordering.
 	virtual void writeUInt32(uint32 x) = 0;
 
 	// should_abort_callback can be NULL.

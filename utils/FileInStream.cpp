@@ -26,6 +26,18 @@ FileInStream::~FileInStream()
 }
 
 
+int32 FileInStream::readInt32()
+{
+	int32 x;
+	file.read((char*)&x, sizeof(int32));
+
+	if(file.fail())
+		throw Indigo::Exception("Read from file failed.");
+
+	return x;
+}
+
+
 uint32 FileInStream::readUInt32()
 {
 	uint32 x;
