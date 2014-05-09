@@ -98,6 +98,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 
 "clamp",
 
+"printf",
+
 // float4 elements:
 "x",
 "y",
@@ -574,17 +576,27 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			const int num_files = 7;
 			std::string files[num_files] =
 			{
+				// Include files. Note that the order here matters, because we can't use #include statements and #pragma once etc
+				"ptkernel_spectral.h",
 				"OpenCLPathTracingKernel.h",
 				"ptkernel_bvh.h",
-				"ptkernel_materials.h",
 				"ptkernel_maths.h",
 				"ptkernel_samplingutils.h",
-				"ptkernel_spectral.h",
+				"ptkernel_materials.h",
+
+				// Main kernel file
 				"OpenCLPathTracingKernel.cl"
 			};
 
-			// It's important that the same Obfuscator instance is used for all files,
-			//  since structs in one can be referred to in others.
+			std::string complete_kernel_string;
+			for(int z = 0; z < num_files; ++z)
+			{
+				std::string s;
+				FileUtils::readEntireFile(FileUtils::join(kernel_dir, files[z]), s);
+
+				complete_kernel_string += s + "\n";
+			}
+
 			Obfuscator ob(
 				true, // collapse_whitespace
 				true, // remove_comments
@@ -592,26 +604,15 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 				true // cryptic_tokens
 				);
 
-			for(int z = 0; z < num_files; ++z)
-			{
-				std::string s;
-				FileUtils::readEntireFile(FileUtils::join(kernel_dir, files[z]), s);
+			// Obfuscate the code
+			const std::string ob_s = ob.obfuscate(complete_kernel_string);
 
-				// Obfuscate the code
-				const std::string ob_s = ob.obfuscate(s);
+			const std::string outpath = std::string("data/OPT");
 
-				//const std::string outpath = std::string("data/obfuscated_") + files[z];
-				const std::string outpath = std::string("data/") + files[z];
+			FileUtils::writeEntireFile(outpath, ob_s);
 
-				FileUtils::writeEntireFile(outpath, ob_s);
-
-				conPrint("Wrote '" + outpath + "'");	
-			}
+			conPrint("Wrote '" + outpath + "'");	
 		}
-
-		//FileUtils::writeEntireFile("encrypted_OpenCLKernels.h", header);
-		//conPrint("Written encrypted_OpenCLKernels.h.");
-
 	}
 	catch(Indigo::Exception& e)
 	{

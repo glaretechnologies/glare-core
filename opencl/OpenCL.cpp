@@ -248,6 +248,11 @@ void OpenCL::queryDevices()
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
+		std::string platform_vendor;
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+			throw Indigo::Exception("clGetPlatformInfo failed");
+		platform_vendor = std::string(&char_buff[0]);
+
 		if(verbose)
 		{
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_PROFILE, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
@@ -259,9 +264,6 @@ void OpenCL::queryDevices()
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_name(&char_buff[0]);
-			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetPlatformInfo failed");
-			const std::string platform_vendor(&char_buff[0]);
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_extensions(&char_buff[0]);
@@ -376,6 +378,7 @@ void OpenCL::queryDevices()
 
 			di.opencl_platform = platform_ids[i];
 			di.opencl_device = device_ids[d];
+			di.opencl_platform_vendor = platform_vendor;
 			di.OpenCL_version = device_version;
 			di.OpenCL_driver_info = driver_version;
 
