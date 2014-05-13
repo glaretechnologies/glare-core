@@ -1,30 +1,28 @@
 /*=====================================================================
 bmpdecoder.cpp
 --------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Mon May 02 22:00:30 2005
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "bmpdecoder.h"
 
 
 #include "bitmap.h"
 #include "imformatdecoder.h"
-#include <assert.h>
-#include "../utils/StringUtils.h"
-#include "../utils/FileUtils.h"
 #include "../graphics/ImageMap.h"
+#include "../utils/FileUtils.h"
+#include "../utils/StringUtils.h"
+#include <assert.h>
 #include <string.h>
 
 
 BMPDecoder::BMPDecoder()
 {
-	
 }
 
 
 BMPDecoder::~BMPDecoder()
 {
-	
 }
 
 
@@ -111,16 +109,18 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 		throw ImFormatExcep("Only uncompressed BMPs supported.");
 
 	const int width = infoheader.width;
-	const int height = infoheader.height;
+	const int signed_height = infoheader.height; // Height can be negative, this means data is stored top-to-bottom. (see http://en.wikipedia.org/wiki/BMP_file_format)
 	const int bytespp = infoheader.bits / 8;
+
+	const int abs_height = std::abs(signed_height);
 
 	const int MAX_DIMS = 10000;
 	if(width < 0 || width > MAX_DIMS) 
-		throw ImFormatExcep("bad image width.");
-	if(height < 0 || height > MAX_DIMS) 
-		throw ImFormatExcep("bad image height.");
+		throw ImFormatExcep("Invalid image width (" + toString(width) + ")");
+	if(abs_height < 0 || abs_height > MAX_DIMS) 
+		throw ImFormatExcep("Invalid image height (" + toString(signed_height) + ")");
 
-	ImageMap<uint8_t, UInt8ComponentValueTraits>* texture = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, height, bytespp);
+	Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture = new ImageMap<uint8_t, UInt8ComponentValueTraits>(width, abs_height, bytespp);
 
 	int rowpaddingbytes = 4 - ((width * bytespp) % 4);
 	if(rowpaddingbytes == 4)
@@ -129,65 +129,71 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 	//-----------------------------------------------------------------
 	//convert into colour array
 	//-----------------------------------------------------------------
-	//int i = 0;
-	for(int y=infoheader.height-1; y>=0; --y)
+	if(signed_height < 0)
 	{
-		// Make sure we're not going to read past end of encoded_img
-		if(srcindex + infoheader.width * bytespp > (int)encoded_img.size())
-			throw ImFormatExcep("Error while parsing BMP");
-
-		//int i = y * width * bytespp;//destination pixel index at start of row
-		for(int x=0; x<infoheader.width; ++x)
+		// This is a top-to-bottom bitmap:
+		for(int y=0; y<abs_height; ++y)
 		{
-			//assert(srcindex >= 0 && srcindex + 2 < (int)encoded_img.size());
-			//assert(i >= 0 && i < (int)(bitmap_out.getWidth() * bitmap_out.getHeight() * bitmap_out.getBytesPP()));
+			// Make sure we're not going to read past end of encoded_img
+			if(srcindex + infoheader.width * bytespp > (int)encoded_img.size())
+				throw ImFormatExcep("Error while parsing BMP");
 
-			if(bytespp == 1)
+			for(int x=0; x<infoheader.width; ++x)
 			{
-				//bitmap_out.getData()[i++] = encoded_img[srcindex++];
-				//*bitmap_out.getPixel(x, y) = encoded_img[srcindex++];
-				assert(srcindex < encoded_img.size());
-				//texture->setPixelComp(x, y, 0, encoded_img[srcindex++]);
-				texture->getPixel(x, y)[0] = encoded_img[srcindex++];
+				if(bytespp == 1)
+				{
+					assert(srcindex < encoded_img.size());
+					texture->getPixel(x, y)[0] = encoded_img[srcindex++];
+				}
+				else
+				{
+					assert(srcindex + 2 < encoded_img.size());
+
+					unsigned char r, g, b;
+					b = encoded_img[srcindex++];
+					g = encoded_img[srcindex++];
+					r = encoded_img[srcindex++];
+
+					texture->getPixel(x, y)[0] = r;
+					texture->getPixel(x, y)[1] = g;
+					texture->getPixel(x, y)[2] = b;
+				}
 			}
-			else
-			{
-				assert(srcindex + 2 < encoded_img.size());
-
-				unsigned char r, g, b;
-				b = encoded_img[srcindex++];
-				g = encoded_img[srcindex++];
-				r = encoded_img[srcindex++];
-
-				/*bitmap_out.getData()[i++] = r;
-				bitmap_out.getData()[i++] = g;
-				bitmap_out.getData()[i++] = b;*/
-
-				//texture->setPixelComp(x, y, 0, r);
-				//texture->setPixelComp(x, y, 1, g);
-				//texture->setPixelComp(x, y, 2, b);
-				texture->getPixel(x, y)[0] = r;
-				texture->getPixel(x, y)[1] = g;
-				texture->getPixel(x, y)[2] = b;
-			}
-			/*bitmap_out.getData()[i++] = encoded_img[srcindex++];
-			bitmap_out.getData()[i++] = encoded_img[srcindex++];
-			bitmap_out.getData()[i++] = encoded_img[srcindex++];*/
+			srcindex += rowpaddingbytes;
 		}
-		//i += rowpaddingbytes;
-		srcindex += rowpaddingbytes;
+	}
+	else
+	{
+		for(int y=abs_height-1; y>=0; --y)
+		{
+			// Make sure we're not going to read past end of encoded_img
+			if(srcindex + infoheader.width * bytespp > (int)encoded_img.size())
+				throw ImFormatExcep("Error while parsing BMP");
+
+			for(int x=0; x<infoheader.width; ++x)
+			{
+				if(bytespp == 1)
+				{
+					assert(srcindex < encoded_img.size());
+					texture->getPixel(x, y)[0] = encoded_img[srcindex++];
+				}
+				else
+				{
+					assert(srcindex + 2 < encoded_img.size());
+
+					unsigned char r, g, b;
+					b = encoded_img[srcindex++];
+					g = encoded_img[srcindex++];
+					r = encoded_img[srcindex++];
+
+					texture->getPixel(x, y)[0] = r;
+					texture->getPixel(x, y)[1] = g;
+					texture->getPixel(x, y)[2] = b;
+				}
+			}
+			srcindex += rowpaddingbytes;
+		}
 	}
 
-	return Reference<Map2D>(texture);
+	return texture;
 }
-
-/*
-void BMPDecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)
-{
-	throw ImFormatExcep("saving BMPs unsupported.");
-}
-
-*/
-
-
-

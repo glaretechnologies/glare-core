@@ -1,18 +1,16 @@
 /*=====================================================================
 bmpdecoder.h
 ------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Mon May 02 22:00:30 2005
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BMPDECODER_H_666_
-#define __BMPDECODER_H_666_
+#pragma once
 
 
 #include "../utils/Reference.h"
 #include <string>
 #include <vector>
 class Map2D;
-//class Bitmap;
 
 
 /*=====================================================================
@@ -23,11 +21,6 @@ BMPDecoder
 class BMPDecoder
 {
 public:
-	/*=====================================================================
-	BMPDecoder
-	----------
-	
-	=====================================================================*/
 
 	~BMPDecoder();
 
@@ -35,17 +28,7 @@ public:
 	static Reference<Map2D> decode(const std::string& path);
 
 
-	//static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
-
 private:
 	BMPDecoder();
 
 };
-
-
-
-#endif //__BMPDECODER_H_666_
-
-
-
-
