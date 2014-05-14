@@ -383,12 +383,24 @@ void dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, 
 #if BUILD_TESTS
 
 
-void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint, Material::Real target_pd)
+void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint, Material::Real target_pd)
 {
-	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
-		false, // sampled delta
-		adjoint // adjoint
+	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+	//	false, // sampled delta
+	//	adjoint // adjoint
+	//);
+
+	Vec4f to_light = !adjoint ? a : b;
+	Vec4f to_eye = !adjoint ? b : a;
+
+	Material::EvaluateBSDFResults res;
+	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+		true, // compute adjoint info
+		res
 	);
+
+	const float pd = adjoint ? res.p_b_given_a : res.p_a_given_b;
+
 	if(!epsEqual(pd, target_pd))
 	{
 		printVar(pd);
@@ -402,7 +414,6 @@ void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referen
 {
 	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
-		false, // sampled delta
 		true, 
 		res);
 
@@ -418,22 +429,44 @@ void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referen
 }
 
 
-void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint)
+void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint)
 {
-	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
-		false, // sampled delta
-		adjoint // adjoint
+	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+	//	false, // sampled delta
+	//	adjoint // adjoint
+	//);
+	Vec4f to_light = !adjoint ? a : b;
+	Vec4f to_eye = !adjoint ? b : a;
+
+	Material::EvaluateBSDFResults res;
+	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+		true, // compute adjoint info
+		res
 	);
+
+	const float pd = adjoint ? res.p_b_given_a : res.p_a_given_b;
+
 	testAssert(pd == 0);
 }
 
 
-void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, Material::Real wavelen, bool adjoint)
+void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint)
 {
-	Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
-		false, // sampled delta
-		adjoint // adjoint
+	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
+	//	false, // sampled delta
+	//	adjoint // adjoint
+	//);
+	Vec4f to_light = !adjoint ? a : b;
+	Vec4f to_eye = !adjoint ? b : a;
+
+	Material::EvaluateBSDFResults res;
+	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+		true, // compute adjoint info
+		res
 	);
+
+	const float pd = adjoint ? res.p_b_given_a : res.p_a_given_b;
+
 	testAssert(pd > 0);
 }
 
@@ -442,7 +475,6 @@ void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const R
 {
 	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
-		false, // sampled delta
 		true, 
 		res);
 
@@ -454,7 +486,6 @@ void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitin
 {
 	Material::EvaluateBSDFResults res;
 	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
-		false, // sampled delta
 		true,
 		res);
 
