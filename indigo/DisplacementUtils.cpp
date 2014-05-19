@@ -743,6 +743,7 @@ static float evalDisplacement(ThreadContext& context,
 			pos_os.toVec4fPoint(),
 			Vec4f(0), // dp_dalpha  TEMP HACK
 			Vec4f(0), // dp_dbeta  TEMP HACK
+			Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
 			0 // H (mean curvature).  TEMP HACK
 		);
 
@@ -804,6 +805,7 @@ static float evalDisplacement(ThreadContext& context,
 			pos_os.toVec4fPoint(),
 			Vec4f(0), // dp_dalpha  TEMP HACK
 			Vec4f(0), // dp_dbeta  TEMP HACK
+			Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
 			0 // H (mean curvature).  TEMP HACK
 		);
 
@@ -986,6 +988,7 @@ public:
 					pos_os.toVec4fPoint(),
 					Vec4f(0), // dp_dalpha  TEMP HACK
 					Vec4f(0), // dp_dbeta  TEMP HACK
+					Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
 					0 // H (mean curvature).  TEMP HACK
 				);
 
