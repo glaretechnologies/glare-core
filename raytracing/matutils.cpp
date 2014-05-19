@@ -16,6 +16,15 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
+#include "../indigo/TestUtils.h"
+#include "../indigo/VoidMedium.h"
+#include "../indigo/ThreadContext.h"
+#include "../indigo/object.h"
+#include "../indigo/StandardPrintOutput.h"
+#include "../indigo/DataManagers.h"
+#include "../indigo/SampleServerWrapper.h"
+#include "../simpleraytracer/raysphere.h"
+#include "../utils/TaskManager.h"
 #include <fstream>
 
 
@@ -721,6 +730,118 @@ void unitTest()
 	/*left = n1 * sin(inangle);
 	right = n2 * sin(outangle);
 	assert(::epsEqual(left, right));*/
+}
+
+
+// Test some scatters
+void testScatters(const Reference<Material>& material_, float epsilon)
+{
+	const Material& material = *material_;
+	const Vec4f N_s(0,0,1,0);
+	const Vec4f N_g(0,0,1,0);
+
+	ThreadContext context;
+	VoidMedium void_medium;
+	const float wavelen = 600.0f;
+	const SpectralVector wavelengths(wavelen);
+
+	Object ob(
+		Reference<Geometry>(new RaySphere(Vec4f(0,0,0,1), 1.0)),
+		js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1), Quatf::identity())),
+		Object::Matrix3Type::identity(), // child to world
+		std::vector<Reference<Material> >(1, material_),
+		std::vector<EmitterScale>(), // emitter scalings
+		std::vector<const IESDatum*>()
+	);
+
+	FullHitInfo hitinfo(
+		&ob,
+		ob.getMaterialForHit(HitInfo(0, HitInfo::SubElemCoordsType(0,0))),
+		&void_medium,
+		FullHitInfo::Pos3Type(0,0,0,1),
+		N_g, // N_g
+		N_g, // original N_g
+		N_s, // shading normal
+		N_s, // pre-bump shading normal
+		HitInfo(0, HitInfo::SubElemCoordsType(0,0))
+	);
+
+	// Test non-adjoint scatters
+	const int N = 1000;
+	for(int i=0; i<N; ++i)
+	{
+		float samples[1] = { 0.f };
+		MTwister rng(1);
+		SampleServerWrapper ssw(samples, 0, rng, 0, 1);
+		const Vec4f in = normalise(Vec4f(-1,0,-1,0));
+		Material::ScatterResults scatter_res;
+		const bool valid = material.scatter(context, ssw, hitinfo, wavelengths, in,
+			false, // adjoint
+			true, // compute adjoint info
+			scatter_res
+		);
+
+		testAssert(valid);
+		testAssert(!scatter_res.sampled_delta);
+		testAssert(scatter_res.dir.isUnitLength());
+
+		// Test BSDF
+		Material::EvaluateBSDFResults bsdf_res;
+		material.evaluateBSDF(context, hitinfo, scatter_res.dir, -in, wavelengths, true, bsdf_res);
+
+		for(unsigned int w=0; w<bsdf_res.bsdfs.size(); ++w)
+			testAssert(bsdf_res.bsdfs[w] > 0);
+
+		// Compute contribution from evaluateBSDF:
+		SpectralVector C;
+		mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_a_given_b, C);
+
+		testAssert(epsEqual(C, scatter_res.C));
+
+		// Check probabilities are the same for scatter_res and bsdf_res
+		testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_a_given_b, epsilon));
+		testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_b_given_a, epsilon));
+		testAssert(Maths::approxEq(scatter_res.rr_live_prob, bsdf_res.rr_live_prob, epsilon));
+		testAssert(Maths::approxEq(scatter_res.backwards_rr_live_prob, bsdf_res.backwards_rr_live_prob, epsilon));
+	}
+
+	// Test adjoint scatters
+	for(int i=0; i<N; ++i)
+	{
+		float samples[1] = { 0.f };
+		MTwister rng(1);
+		SampleServerWrapper ssw(samples, 0, rng, 0, 1);
+		const Vec4f in = normalise(Vec4f(-1,0,-1,0));
+		Material::ScatterResults scatter_res;
+		const bool valid = material.scatter(context, ssw, hitinfo, wavelengths, in,
+			true, // adjoint
+			true, // compute adjoint info
+			scatter_res
+		);
+
+		testAssert(valid);
+		testAssert(!scatter_res.sampled_delta);
+		testAssert(scatter_res.dir.isUnitLength());
+
+		// Test BSDF
+		Material::EvaluateBSDFResults bsdf_res;
+		material.evaluateBSDF(context, hitinfo, -in, scatter_res.dir, wavelengths, true, bsdf_res);
+
+		for(unsigned int w=0; w<bsdf_res.bsdfs.size(); ++w)
+			testAssert(bsdf_res.bsdfs[w] > 0);
+
+		// Compute contribution from evaluateBSDF:
+		SpectralVector C_adjoint;
+		mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_b_given_a, C_adjoint); // Since we want to get the (adjoint) contribution factor, use p(b|a)
+
+		testAssert(epsEqual(C_adjoint, scatter_res.C));
+
+		// Check probabilities are the same for scatter_res and bsdf_res
+		testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_b_given_a, epsilon));
+		testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_a_given_b, epsilon));
+		testAssert(Maths::approxEq(scatter_res.rr_live_prob, bsdf_res.backwards_rr_live_prob, epsilon));
+		testAssert(Maths::approxEq(scatter_res.backwards_rr_live_prob, bsdf_res.rr_live_prob, epsilon));
+	}
 }
 
 

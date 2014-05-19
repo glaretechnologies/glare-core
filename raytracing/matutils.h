@@ -238,6 +238,7 @@ void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinf
 void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths);
 void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths);
 
+void testScatters(const Reference<Material>& material, float epsilon);
 
 template <class Real> Real trowbridgeReitzPDF(Real cos_theta, Real alpha2)
 {
