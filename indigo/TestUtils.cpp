@@ -10,6 +10,7 @@ Code By Nicholas Chapman.
 #if defined(BUILD_TESTS)
 
 
+#include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/prebuild_repos_info.h"
@@ -26,16 +27,20 @@ void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)
 	{
-		conPrint("Test Assertion Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test));
-		assert(0);
-		exit(1);
+		printMessageAndFail("Test assertion failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + std::string(test));
 	}
 }
 
 
 void doFailTest(const std::string& msg, long line, const char* file)
 {
-	conPrint("Test Failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg);
+	printMessageAndFail("Test failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + msg);
+}
+
+
+void printMessageAndFail(const std::string& msg)
+{
+	conPrint(msg);
 	assert(0);
 	exit(1);
 }
@@ -60,7 +65,7 @@ const std::string getIndigoTestReposDir()
 }
 
 
-}
+} // end namespace TestUtils
 
 
 #endif // BUILD_TESTS
