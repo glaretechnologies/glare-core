@@ -8,6 +8,8 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/mathstypes.h"
+#include "../maths/vec3.h"
+#include "../utils/StringUtils.h"
 #include <string>
 
 // Wrap test assert functions in macros, so we can print out a nice error messsage with the variable names and line number.
