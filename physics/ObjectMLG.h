@@ -37,7 +37,7 @@ struct ObjectMLGResult
 class ObjectMLG;
 struct ObjectMLGCellTest
 {
-	void visit(const Ray& ray, uint32 node, const Vec4i& cell, const ObjectMLGNodeData& data, float t_enter, float t_exit, float& max_t_in_out, ObjectMLGResult& result_out);
+	void visitLeafCell(const Ray& ray, uint32 node_index, const Vec4i& cell, int depth, const MultiLevelGridNode<ObjectMLGNodeData>& node, float t_enter, float t_exit, float& max_t_in_out, ObjectMLGResult& result_out);
 
 	ObjectMLG* object_mlg;
 };

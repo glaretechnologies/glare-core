@@ -45,9 +45,9 @@ public:
 class RecordCellVisitor
 {
 public:
-	void visit(const Ray& ray, uint32 node, const Vec4i& cell, const RecordCellData& data, float t_enter, float t_exit, float& max_t_in_out, RecordCellResults& result_out)
+	void visitLeafCell(const Ray& ray, uint32 node_index, const Vec4i& cell, int depth, const MultiLevelGridNode<RecordCellData>& node, float t_enter, float t_exit, float& max_t_in_out, RecordCellResults& result_out)
 	{
-		result_out.cells.push_back(NodeCell(node, cell, t_enter, t_exit));
+		result_out.cells.push_back(NodeCell(node_index, cell, t_enter, t_exit));
 	}
 };
 
@@ -92,19 +92,45 @@ void test()
 	{
 		MultiLevelGridNode<RecordCellData> n;
 		n.setBaseChildIndex(100);
-		n.markCellAsInterior(Vec4i(0, 0, 0, 0));
-		n.markCellAsInterior(Vec4i(1, 0, 0, 0));
-		n.markCellAsInterior(Vec4i(2, 0, 0, 0));
+		n.markCell(Vec4i(0, 0, 0, 0));
+		n.markCell(Vec4i(1, 0, 0, 0));
+		n.markCell(Vec4i(2, 0, 0, 0));
 
-		testAssert(n.cellIsInterior(Vec4i(0, 0, 0, 0)));
-		testAssert(n.cellIsInterior(Vec4i(1, 0, 0, 0)));
-		testAssert(n.cellIsInterior(Vec4i(2, 0, 0, 0)));
+		testAssert(n.isCellMarked(Vec4i(0, 0, 0, 0)));
+		testAssert(n.isCellMarked(Vec4i(1, 0, 0, 0)));
+		testAssert(n.isCellMarked(Vec4i(2, 0, 0, 0)));
 
-		testAssert(!n.cellIsInterior(Vec4i(3, 0, 0, 0)));
+		testAssert(!n.isCellMarked(Vec4i(3, 0, 0, 0)));
 
 		testAssert(n.cellChildIndex(Vec4i(0,0,0, 0)) == 100);
 		testAssert(n.cellChildIndex(Vec4i(1,0,0, 0)) == 101);
 		testAssert(n.cellChildIndex(Vec4i(2,0,0, 0)) == 102);
+	}
+
+	{
+		MultiLevelGridNode<RecordCellData> n;
+		
+		n.markCell(0);
+		testAssert(n.isCellMarked(0));
+		n.unmarkCell(0);
+		testAssert(!n.isCellMarked(0));
+
+		n.markCell(3);
+		n.markCell(13);
+		n.markCell(53);
+
+		testAssert(n.isCellMarked(3));
+		testAssert(n.isCellMarked(13));
+		testAssert(n.isCellMarked(53));
+
+		testAssert(!n.isCellMarked(2));
+		testAssert(!n.isCellMarked(12));
+		testAssert(!n.isCellMarked(52));
+		testAssert(!n.isCellMarked(54));
+
+		n.unmarkCell(13);
+		testAssert(!n.isCellMarked(13));
+
 	}
 
 	// Test MultiLevelGridNode node with all interior cells
@@ -115,14 +141,14 @@ void test()
 		for(int y=0; y<MLG_RES; ++y)
 		for(int x=0; x<MLG_RES; ++x)
 		{
-			n.markCellAsInterior(Vec4i(x, y, z, 0));
+			n.markCell(Vec4i(x, y, z, 0));
 		}
 
 		for(int z=0; z<MLG_RES; ++z)
 		for(int y=0; y<MLG_RES; ++y)
 		for(int x=0; x<MLG_RES; ++x)
 		{
-			testAssert(n.cellIsInterior(Vec4i(x, y, z, 0)));
+			testAssert(n.isCellMarked(Vec4i(x, y, z, 0)));
 			testAssert(n.cellChildIndex(Vec4i(x, y, z, 0)) == 100 + (z*16 + y*4 + x));
 		}
 	}
@@ -213,7 +239,7 @@ void test()
 		grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Add Root node
 
 		grid.nodes.back().setBaseChildIndex(1);
-		grid.nodes.back().markCellAsInterior(Vec4i(1,0,0, 0));
+		grid.nodes.back().markCell(Vec4i(1,0,0, 0));
 		//grid.nodes.back().setCellChildIndex(1, 0, 0,    1);
 
 		grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Add Child node
@@ -249,12 +275,12 @@ void test()
 		grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Root node
 		
 		grid.nodes.back().setBaseChildIndex(1);
-		grid.nodes.back().markCellAsInterior(Vec4i(1,0,0, 0));
+		grid.nodes.back().markCell(Vec4i(1,0,0, 0));
 		//grid.nodes.back().setCellChildIndex(1, 0, 0,    1);
 		grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Child node
 		
 		grid.nodes.back().setBaseChildIndex(2);
-		grid.nodes.back().markCellAsInterior(Vec4i(0,2,0, 0));
+		grid.nodes.back().markCell(Vec4i(0,2,0, 0));
 		//grid.nodes.back().setCellChildIndex(0, 2, 0,    2);
 		grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Child node (depth 2)
 
@@ -301,7 +327,7 @@ void test()
 		for(int y=0; y<MLG_RES; ++y)
 		for(int x=0; x<MLG_RES; ++x)
 		{
-			grid.nodes[0].markCellAsInterior(Vec4i(x,y,z, 0));
+			grid.nodes[0].markCell(Vec4i(x,y,z, 0));
 			grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Child node
 		}
 		
@@ -338,7 +364,7 @@ void test()
 		for(int y=0; y<MLG_RES; ++y)
 		for(int x=0; x<MLG_RES; ++x)
 		{
-			grid.nodes[0].markCellAsInterior(Vec4i(x,y,z, 0));
+			grid.nodes[0].markCell(Vec4i(x,y,z, 0));
 			grid.nodes.push_back(MultiLevelGridNode<RecordCellData>()); // Child node
 		}
 

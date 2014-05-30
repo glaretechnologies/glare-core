@@ -114,10 +114,10 @@ void ObjectMLG::build(PrintOutput& print_output, bool verbose)
 /*
 The traversal has hit a cell.
 */
-void ObjectMLGCellTest::visit(const Ray& ray, uint32 node, const Vec4i& cell, const ObjectMLGNodeData& data, float t_enter, float t_exit, float& max_t_in_out, ObjectMLGResult& result_out)
+void ObjectMLGCellTest::visitLeafCell(const Ray& ray, uint32 node_index, const Vec4i& cell, int depth, const MultiLevelGridNode<ObjectMLGNodeData>& node, float t_enter, float t_exit, float& max_t_in_out, ObjectMLGResult& result_out)
 {
-	size_t offset = data.objects_index;
-	size_t num = data.num_objects;
+	size_t offset = node.data.objects_index;
+	size_t num = node.data.num_objects;
 
 	for(size_t i=offset; i<offset + num; ++i)
 	{

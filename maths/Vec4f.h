@@ -331,11 +331,19 @@ INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4
 }
 
 
-/*
-TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
+#if COMPILE_SSE4_CODE
 INDIGO_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v) 
 {
 	//NOTE: round_ps is SSE4: http://msdn.microsoft.com/en-us/library/bb514047(v=vs.90).aspx
 	return Vec4i(_mm_cvtps_epi32(_mm_round_ps(v.v, _MM_FROUND_FLOOR)));
 }
-*/
+#endif
+
+
+INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)
+{
+	// Zero the sign bits.
+	// _mm_castsi128_ps, _mm_set1_epi32 are SSE2.
+	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
+	return _mm_and_ps(a.v, mask);
+}

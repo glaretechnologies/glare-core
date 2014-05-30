@@ -47,7 +47,7 @@ public:
 	CellTest cell_test;
 	std::vector<MultiLevelGridNode<NodeData> > nodes;
 	float cell_width[MAX_DEPTH]; // cell width for depth
-	float recip_cell_width[MAX_DEPTH]; // cell width for depth
+	float recip_cell_width[MAX_DEPTH]; // 1/cell width for depth
 };
 
 
@@ -76,39 +76,33 @@ MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
 }
 
 
-/*inline Vec3i cellIndices(const Vec4f& offset, float recip_cell_w)
-{
-	// Truncate offset_i / cell_w to get cell indices
-	//return Vec3i(
-	//	(int)(offset.x[0] * recip_cell_w),
-	//	(int)(offset.x[1] * recip_cell_w),
-	//	(int)(offset.x[2] * recip_cell_w)
-	//	);
-
-	return floor(offset * recip_cell_w);
-}*/
-
-
-/*
-Compute cell origin, given the grid origin, and the cell indices.
-*/
-/*inline Vec4f cellOrigin(const Vec4f& grid_origin, const Vec3i& cell_i, float cell_width)
-{
-	return Vec4f(
-		grid_origin.x[0] + cell_i.x * cell_width,
-		grid_origin.x[1] + cell_i.y * cell_width,
-		grid_origin.x[2] + cell_i.z * cell_width,
-		1
-	);
-}*/
-
-
+// SSE2
 inline Vec4f toVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_cvtepi32_ps(v.v));
-	//return Vec4f((float)v.x, (float)v.y, (float)v.z, 0);
 }
 
+
+#if COMPILE_SSE4_CODE
+// Modified from Embree embree\common\simd\ssef.h
+// NOTE: blendvps is SSE4.
+ /*! workaround for compiler bug in VS2008 */
+#if defined(_MSC_VER) && (_MSC_VER < 1600)
+// mask[i] ? a : b
+INDIGO_STRONG_INLINE const Vec4f select( const __m128& mask, const Vec4f& a, const Vec4f& b ) { return _mm_or_ps(_mm_and_ps(mask, a.v), _mm_andnot_ps(mask, b.v)); }
+INDIGO_STRONG_INLINE const ssei select( const sseb& mask, const ssei& a, const ssei& b )
+{ 
+	return _mm_castps_si128(_mm_or_ps(_mm_and_ps(mask, _mm_castsi128_ps(a)), _mm_andnot_ps(mask, _mm_castsi128_ps(b)))); 
+}
+#else
+// mask[i] ? a : b
+INDIGO_STRONG_INLINE const Vec4f select( const __m128& mask, const Vec4f& t, const Vec4f& f ) { return _mm_blendv_ps(f.v, t.v, mask); }
+INDIGO_STRONG_INLINE const Vec4i select( const __m128& mask, const Vec4i& a, const Vec4i& b )
+{ 
+	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask)); 
+}
+#endif
+#endif // COMPILE_SSE4_CODE
 
 
 /*
@@ -135,18 +129,26 @@ else if dir_x <= 0:
 	);
 }*/
 
+// Compute t for each dimension at entry to next cell in each dimension
+// t_x = (next_cell_x - p_x) / d_x
 // NOTE: this can be optimised.
-inline Vec4f nextT(const Vec4f& cell_orig_to_p, float cell_w, const Vec4f& recip_dir)
+//inline Vec4f nextT(const Vec4f& cell_orig_to_p, const Vec4f& cell_orig, const Vec4f& cell_w_factor, float cell_w, const Vec4f& recip_dir)
+//{
+//	return Vec4f(
+//		(cell_orig[0] + (recip_dir.x[0] > 0 ? cell_w : 0) - cell_orig_to_p.x[0]) * recip_dir.x[0],
+//		(cell_orig[1] + (recip_dir.x[1] > 0 ? cell_w : 0) - cell_orig_to_p.x[1]) * recip_dir.x[1],
+//		(cell_orig[2] + (recip_dir.x[2] > 0 ? cell_w : 0) - cell_orig_to_p.x[2]) * recip_dir.x[2],
+//		0
+//	);
+//}
+
+inline Vec4f nextT(const Vec4f& ray_origin, const Vec4f& cell_orig, const Vec4f& cell_w_factor, float cell_w, const Vec4f& recip_dir)
 {
-	return Vec4f(
-		((recip_dir.x[0] > 0 ? cell_w : 0) - (cell_orig_to_p.x[0])) * recip_dir.x[0],
-		((recip_dir.x[1] > 0 ? cell_w : 0) - (cell_orig_to_p.x[1])) * recip_dir.x[1],
-		((recip_dir.x[2] > 0 ? cell_w : 0) - (cell_orig_to_p.x[2])) * recip_dir.x[2],
-		0
-	);
+	return Vec4f(_mm_mul_ps((cell_orig + cell_w_factor*cell_w - ray_origin).v, recip_dir.v));
 }
 
 
+// Returns the index of the smallest value in next_t. (from the first three values)
 inline uint32 nextStepAxis(const Vec4f& next_t)
 {
 	uint32 mask =	(next_t.x[0] < next_t.x[1] ? 0x1 : 0) |
@@ -179,6 +181,7 @@ inline uint32 nextStepAxis(const Vec4f& next_t)
 }
 				
 
+// Just used for asserts, can be slow.
 inline bool isCellIndexValid(const Vec4i& cell)
 {
 	return	cell.x[0] >= 0 && cell.x[0] < MLG_RES &&
@@ -214,8 +217,7 @@ inline bool isCellIndexValid(const Vec4i& cell)
 template <class CellTest, class Result, class NodeData>
 void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray_max_t, Result& result_out)
 {
-/*	//TEMP: Disabled because SSE4 intrinsics are causing errors on Linux and OS X.
-
+#if COMPILE_SSE4_CODE
 	const bool VERBOSE_TRAVERSAL = false;
 
 	StackElement stack[MAX_DEPTH];
@@ -224,7 +226,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	float min_t, max_t;
 	aabb.rayAABBTrace(ray.startPos(), ray.getRecipRayDirF(), min_t, max_t);
 
-	min_t = myMax(min_t, 0.f);
+	min_t = myMax(min_t, ray.minT());
 	max_t = myMin(max_t, ray_max_t);
 
 	if(VERBOSE_TRAVERSAL) printVar(min_t);
@@ -233,24 +235,18 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	if(min_t > max_t)
 		return;
 
+	const __m128 mask = _mm_cmpge_ps(ray.unitDir().v, Vec4f(0.f).v); // [v[i] >= 0]
+
 	// Compute step increments, based on the sign of the ray direction.
-	const Vec4i sign(
-		ray.unitDir().x[0] >= 0.f ? 1 : -1, 
-		ray.unitDir().x[1] >= 0.f ? 1 : -1,
-		ray.unitDir().x[2] >= 0.f ? 1 : -1,
-		1
-	);
+	const Vec4i sign = select(mask, Vec4i(1), Vec4i(-1));
 
 	// Compute the indices of the cell that we will traverse to when we step out of the grid bounds.
-	const Vec4i out(
-		ray.unitDir().x[0] >= 0.f ? MLG_RES : -1, 
-		ray.unitDir().x[1] >= 0.f ? MLG_RES : -1, 
-		ray.unitDir().x[2] >= 0.f ? MLG_RES : -1,
-		1
-	);
+	const Vec4i out = select(mask, Vec4i(MLG_RES), Vec4i(-1));
+
+	const Vec4f cell_w_factor = select(mask, Vec4f(1.f), Vec4f(0.f));
 
 	const Vec4f recip_dir = ray.getRecipRayDirF();
-	const Vec4f abs_recip_dir(std::fabs(recip_dir.x[0]), std::fabs(recip_dir.x[1]), std::fabs(recip_dir.x[2]), 0);
+	const Vec4f abs_recip_dir = abs(recip_dir);
 
 	// Init
 	int node = 0; // Current node - set to root node
@@ -264,13 +260,15 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	cell = clamp(cell, Vec4i(0), Vec4i(MLG_RES - 1)); // Clamp cell indices
 
 	Vec4f cell_orig = cur_grid_orig + toVec4f(cell) * cell_width[depth]; // Get origin of current cell
-	Vec4f next_t = nextT(p - cell_orig, cell_width[depth], recip_dir); // distance along ray to next cell in each axis direction, from the original ray origin.
+	Vec4f next_t = nextT(ray.startPos()/*p - ray.startPos()*//* - cell_orig*/, cell_orig, cell_w_factor, cell_width[depth], recip_dir); // distance along ray to next cell in each axis direction, from the original ray origin.
 
 	Vec4f t_delta = abs_recip_dir * cell_width[depth]; // Step in t for a cell step for each axis.
 
 	if(VERBOSE_TRAVERSAL) conPrint("------------------------Doing traversal------------------------");
 	if(VERBOSE_TRAVERSAL) conPrint("aabb min: " + aabb.min_.toString());
 	if(VERBOSE_TRAVERSAL) conPrint("aabb max: " + aabb.max_.toString());
+	if(VERBOSE_TRAVERSAL) conPrint("cell_orig: " + cell_orig.toString());
+	if(VERBOSE_TRAVERSAL) conPrint("next_t: " + next_t.toString());
 	
 	while(1)
 	{
@@ -278,14 +276,15 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 
 		p = ray.pointf(t);
 
-		if(VERBOSE_TRAVERSAL) conPrint("y: " + toString(t));
+		if(VERBOSE_TRAVERSAL) conPrint("t: " + toString(t));
 		if(VERBOSE_TRAVERSAL) conPrint("p: " + p.toString());
 		if(VERBOSE_TRAVERSAL) conPrint("depth: " + toString(depth));
 		if(VERBOSE_TRAVERSAL) conPrint("cur_grid_orig: " + cur_grid_orig.toString());
 		if(VERBOSE_TRAVERSAL) conPrint("recip_cell_width: " + toString(recip_cell_width[depth]));
-		if(VERBOSE_TRAVERSAL) { conPrint("node " + toString(node) + ", cell " + cell.toString()); }
+		if(VERBOSE_TRAVERSAL) conPrint("node " + toString(node) + ", cell " + cell.toString());
 
-		while(nodes[node].cellIsInterior(cell))
+		// While node is an interior node, and the current cell in the node is marked as an interior cell (e.g. 'points' to child):
+		while(nodes[node].getBaseChildIndex() != 0 && nodes[node].isCellMarked(cell))
 		{	
 			// Get next cell
 			uint32 next_axis = nextStepAxis(next_t);
@@ -316,10 +315,10 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			cell = clamp(cell, Vec4i(0), Vec4i(MLG_RES - 1)); // Clamp cell indices
 
 			cell_orig = cur_grid_orig + toVec4f(cell) * cell_width[depth]; // Get origin of current cell
-			next_t = Vec4f(t) + nextT(p - cell_orig, cell_width[depth], recip_dir);
+			next_t = /*Vec4f(t) + */nextT(ray.startPos()/*p - cell_orig*/, cell_orig, cell_w_factor, cell_width[depth], recip_dir);
 			t_delta = abs_recip_dir * cell_width[depth]; // Compute step in t for a cell step for each axis.
 
-			if(VERBOSE_TRAVERSAL) { conPrint("\nTraversed to child cell: node " + toString(node) + ", cell " + cell.toString()); }
+			if(VERBOSE_TRAVERSAL) conPrint("\nTraversed to child cell: node " + toString(node) + ", cell " + cell.toString());
 			if(VERBOSE_TRAVERSAL) conPrint("cell_orig: " + cell_orig.toString());
 			if(VERBOSE_TRAVERSAL) conPrint("next_t: " + next_t.toString());
 			if(VERBOSE_TRAVERSAL) conPrint("t_delta: " + t_delta.toString());
@@ -327,15 +326,16 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			assert(isCellIndexValid(cell));
 		} // End while(interior cell)
 
-		uint32 next_axis = nextStepAxis(next_t);
+		const uint32 next_axis = nextStepAxis(next_t);
 		
 		// Visit leaf cell
-		float t_enter = t;
-		float t_exit = next_t.x[next_axis];
+		const float t_enter = t;
+		const float t_exit = next_t.x[next_axis];
+		//TEMPassert(t_exit >= t_enter);
 		
 		if(VERBOSE_TRAVERSAL) { printVar(t_enter); printVar(t_exit); conPrint("Visiting node " + toString(node) + ", cell " + cell.toString()); }
 
-		cell_test.visit(ray, node, cell, nodes[node].data, t_enter, t_exit, max_t, result_out);
+		cell_test.visitLeafCell(ray, node, cell, depth, nodes[node], t_enter, t_exit, max_t, result_out);
 
 		// Advance to adjacent cell
 		t = next_t.x[next_axis];
@@ -348,7 +348,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 		if(t > max_t) // If the t value at which we enter the cell is greater than the ray max t, then we are finished.
 		{
 			if(VERBOSE_TRAVERSAL) { conPrint("t > max_t"); }
-			break;
+			return;
 		}
 
 		if(cell[next_axis] == out[next_axis]) // If we have traversed out of the grid:
@@ -356,7 +356,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			if(VERBOSE_TRAVERSAL) { conPrint("out of bounds"); }
 
 			if(stack_size == 0) // If to-visit stack is empty:
-				break; // Terminate traversal.
+				return; // Terminate traversal.
 			else
 			{
 				// Pop from to-visit stack
@@ -375,5 +375,5 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 			}
 		}
 	} // End while(1)
-	*/
+#endif // COMPILE_SSE4_CODE
 }

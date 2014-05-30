@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2012 -
 #if _MSC_VER && (_MSC_VER >= 1600) // If on Visual Studio 2010 or later (VS 2008 has problems with SSE 4 due to Embree SSE 4 emulation)
 // Stupid GCC doesn't allow including of smmintrin.h without turning on SSE 4.1 codegen, which we don't want.
 #include <smmintrin.h> // SSE 4.1 header file
+#define COMPILE_SSE4_CODE 1
 #endif
 
 //#define USE_SSE4 1
