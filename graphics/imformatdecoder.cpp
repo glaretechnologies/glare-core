@@ -76,6 +76,6 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	}
 	else
 	{
-		throw ImFormatExcep("unhandled format ('" + path + "'");
+		throw ImFormatExcep("Unhandled image format ('" + path + "')");
 	}
 }
