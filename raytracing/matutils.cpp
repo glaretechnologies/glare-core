@@ -809,13 +809,16 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 
 				// Check that the results are the same
 				testEqual(valid_a, valid_b);
-				testEqual(scatter_res_a.C, scatter_res_b.C);
-				testEqual(scatter_res_a.dir, scatter_res_b.dir);
-				testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
-				testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
-				testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
-				testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
-				testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
+				if(valid_a)
+				{
+					testEqual(scatter_res_a.C, scatter_res_b.C);
+					testEqual(scatter_res_a.dir, scatter_res_b.dir);
+					testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
+					testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
+					testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
+					testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
+					testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
+				}
 			}
 
 			// Do the same test, this time with adjoint = true
@@ -846,13 +849,16 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 
 				// Check that the results are the same
 				testEqual(valid_a, valid_b);
-				testEqual(scatter_res_a.C, scatter_res_b.C);
-				testEqual(scatter_res_a.dir, scatter_res_b.dir);
-				testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
-				testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
-				testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
-				testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
-				testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
+				if(valid_a)
+				{
+					testEqual(scatter_res_a.C, scatter_res_b.C);
+					testEqual(scatter_res_a.dir, scatter_res_b.dir);
+					testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
+					testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
+					testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
+					testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
+					testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
+				}
 			}
 		}
 	}
