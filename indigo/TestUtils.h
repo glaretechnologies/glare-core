@@ -38,17 +38,17 @@ void doTestAssert(bool expr, const char* test, long line, const char* file);
 
 
 template <class T>
-inline void doTestEqual(T a, T b, const char* a_str, const char* b_str, long line, const char* file);
+inline void doTestEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file);
 
 template <class T>
-inline void doTestEpsEqual(T a, T b, const char* a_str, const char* b_str, long line, const char* file);
+inline void doTestEpsEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file);
 template <class T>
-inline void doTestEpsEqualWithEps(T a, T b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file);
+inline void doTestEpsEqualWithEps(const T& a, const T& b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file);
 
 template <class T>
-inline void doTestApproxEq(T a, T b, const char* a_str, const char* b_str, long line, const char* file);
+inline void doTestApproxEq(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file);
 template <class T>
-inline void doTestApproxEqWithEps(T a, T b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file);
+inline void doTestApproxEqWithEps(const T& a, const T& b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file);
 
 
 void doFailTest(const std::string& msg, long line, const char* file);
@@ -70,7 +70,7 @@ const std::string getIndigoTestReposDir();
 //======================= Inline definitions ======================
 
 template <class T>
-void doTestEqual(T a, T b, const char* a_str, const char* b_str, long line, const char* file)
+void doTestEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file)
 {
 	if(a != b)
 	{
@@ -81,7 +81,7 @@ void doTestEqual(T a, T b, const char* a_str, const char* b_str, long line, cons
 
 
 template <class T>
-void doTestEpsEqual(T a, T b, const char* a_str, const char* b_str, long line, const char* file)
+void doTestEpsEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file)
 {
 	if(!epsEqual(a, b))
 	{
@@ -92,7 +92,7 @@ void doTestEpsEqual(T a, T b, const char* a_str, const char* b_str, long line, c
 
 
 template <class T>
-void doTestEpsEqualWithEps(T a, T b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file)
+void doTestEpsEqualWithEps(const T& a, const T& b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file)
 {
 	if(!epsEqual(a, b, eps))
 	{
@@ -103,7 +103,7 @@ void doTestEpsEqualWithEps(T a, T b, float eps, const char* a_str, const char* b
 
 
 template <class T>
-void doTestMathsApproxEq(T a, T b, const char* a_str, const char* b_str, long line, const char* file)
+void doTestMathsApproxEq(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file)
 {
 	if(!Maths::approxEq(a, b))
 	{
@@ -114,7 +114,7 @@ void doTestMathsApproxEq(T a, T b, const char* a_str, const char* b_str, long li
 
 
 template <class T>
-void doTestApproxEq(T a, T b, const char* a_str, const char* b_str, long line, const char* file)
+void doTestApproxEq(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file)
 {
 	if(!::approxEq(a, b))
 	{
@@ -125,7 +125,7 @@ void doTestApproxEq(T a, T b, const char* a_str, const char* b_str, long line, c
 
 
 template <class T>
-void doTestApproxEqWithEps(T a, T b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file)
+void doTestApproxEqWithEps(const T& a, const T& b, float eps, const char* a_str, const char* b_str, const char* eps_str, long line, const char* file)
 {
 	if(!Maths::approxEq(a, b, eps))
 	{

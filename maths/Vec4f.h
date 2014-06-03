@@ -347,3 +347,6 @@ INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)
 	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
 	return _mm_and_ps(a.v, mask);
 }
+
+
+inline const std::string toString(const Vec4f& v) { return v.toString(); }

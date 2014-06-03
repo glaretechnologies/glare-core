@@ -164,7 +164,7 @@ Real scatterSmoothingFactor(const FullHitInfo& hitinfo, const Vec4f& dir_in, con
 
 bool raysOnOppositeGeometricSides(const FullHitInfo::Vec3Type& a, const FullHitInfo::Vec3Type& b, const FullHitInfo& hitinfo)
 {
-	return dot(a, hitinfo.original_N_g()) * dot(b, hitinfo.original_N_g()) < 0;
+	return dot(a, hitinfo.N_g()) * dot(b, hitinfo.N_g()) < 0;
 }
 
 
