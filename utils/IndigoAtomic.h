@@ -70,7 +70,7 @@ INDIGO_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, 
 
 INDIGO_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
 {
-	return _InterlockedExchangeAdd(val, 1);
+	return _InterlockedExchangeAdd((volatile long*)val, delta);
 }
 
 #endif
