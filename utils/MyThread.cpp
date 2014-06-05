@@ -59,7 +59,7 @@ threadFunction(void* the_thread_)
 	the_thread->run();
 
 	// Decrement the reference count
-	int new_ref_count = the_thread->decRefCount();
+	int64 new_ref_count = the_thread->decRefCount();
 	assert(new_ref_count >= 0);
 	if(new_ref_count == 0)
 		delete the_thread;

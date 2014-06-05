@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include "RefCounted.h"
+#include "Platform.h"
 #include <cassert>
 #include <stdlib.h> // for NULL
 
@@ -53,7 +54,7 @@ public:
 	{
 		if(ob)
 		{
-			int new_ref_count = ob->decRefCount();
+			int64 new_ref_count = ob->decRefCount();
 			if(new_ref_count == 0)
 				delete ob;
 		}
@@ -79,7 +80,7 @@ public:
 		// Dec old ref that this object used to contain
 		if(old_ob)
 		{
-			int ref_count = old_ob->decRefCount();
+			int64 ref_count = old_ob->decRefCount();
 			if(ref_count == 0)
 				delete old_ob;
 		}

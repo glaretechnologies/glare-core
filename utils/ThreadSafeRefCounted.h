@@ -1,7 +1,7 @@
 /*=====================================================================
 ThreadSafeRefCounted.h
 ----------------------
-Copyright Glare Technologies Limited 2012 - 
+Copyright Glare Technologies Limited 2014 - 
 =====================================================================*/
 #pragma once
 
@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2012 -
 #include <cassert>
 #include "Mutex.h"
 #include "Lock.h"
+#include "IndigoAtomic.h"
 
 
 /*=====================================================================
@@ -21,11 +22,6 @@ Use Reference<Subclass> instead.
 class ThreadSafeRefCounted
 {
 public:
-	/*=====================================================================
-	RefCounted
-	----------
-	
-	=====================================================================*/
 	ThreadSafeRefCounted()
 	:	refcount(0)
 	{
@@ -37,30 +33,23 @@ public:
 	}
 
 	// Returns resulting decremented reference count
-	inline int decRefCount() const
+	inline glare_atomic_int decRefCount() const
 	{ 
-		Lock lock(mutex);
-		refcount--;
-		assert(refcount >= 0);
-		return refcount;
+		return refcount.decrement() - 1;
 	}
 
 	inline void incRefCount() const
 	{ 
-		Lock lock(mutex);
-		assert(refcount >= 0);
-		refcount++; 
+		refcount.increment();
 	}
 
-	inline int getRefCount() const 
+	inline glare_atomic_int getRefCount() const 
 	{
-		Lock lock(mutex);
-		assert(refcount >= 0);
-		return refcount; 
+		return refcount;
 	}
 	
 private:
 	INDIGO_DISABLE_COPY(ThreadSafeRefCounted)
-	mutable Mutex mutex;
-	mutable int refcount;
+
+	mutable IndigoAtomic refcount;
 };
