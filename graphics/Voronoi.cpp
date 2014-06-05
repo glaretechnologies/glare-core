@@ -63,9 +63,9 @@ void evaluate(const Vec2f& uv, float irregularity, Vec2f& coords_ret_out, float&
 static inline Vec4f getPoint3d(int x, int y, int z, float irregularity)
 {
 	// Generate random values in range [-0.5, 0.5]
-	float x_offset = -0.5f + GridNoise::eval(x, y, z);
-	float y_offset = -0.5f + GridNoise::eval(x + 45645, y, z);
-	float z_offset = -0.5f + GridNoise::eval(x, y + 85445, z);
+	float x_offset = -0.5f + GridNoise::eval(x, y, z, 0);
+	float y_offset = -0.5f + GridNoise::eval(x, y, z, 1);
+	float z_offset = -0.5f + GridNoise::eval(x, y, z, 2);
 
 	return Vec4f(
 		x + 0.5f + x_offset * irregularity,

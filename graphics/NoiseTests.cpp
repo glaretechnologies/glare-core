@@ -11,6 +11,7 @@ Generated at 2013-06-27 10:45:37 +0100
 
 
 #include "PerlinNoise.h"
+#include "GridNoise.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
@@ -23,6 +24,7 @@ void NoiseTests::test()
 {
 	conPrint("NoiseTests::test()");
 
+	GridNoise::init();
 	PerlinNoise::init();
 
 
@@ -62,6 +64,22 @@ void NoiseTests::test()
 	//============================== Performance tests /==============================
 	if(false)
 	{
+		{
+			conPrint("GridNoise::eval()");
+			Timer t;
+			const int N = 1000000;
+			float sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				float x = GridNoise::eval(i * 0.1f, i * 0.2f, i*0.3f, 0.f);
+				sum += x;
+			}
+
+			double elapsed = t.elapsed();
+			printVar(sum);
+			conPrint("elapsed: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+
 		{
 			conPrint("PerlinNoise::noise()");
 			Timer t;

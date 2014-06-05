@@ -17,6 +17,7 @@ namespace GridNoise
 	void init();
 
 	float eval(float x, float y, float z);
+	float eval(float x, float y, float z, float w);
 	float eval(int x, int y, int z);
-
+	float eval(int x, int y, int z, int w);
 }
