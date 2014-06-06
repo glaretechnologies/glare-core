@@ -26,7 +26,7 @@ You may not use this code for any commercial project.
 #define __MATHSTYPES_H__
 
 
-#include "Platform.h"
+#include "../utils/Platform.h"
 #include <cstring> // For std::memcpy()
 #include <cmath>
 #include <cassert>
