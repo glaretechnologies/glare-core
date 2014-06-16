@@ -770,7 +770,8 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			Vec4f(0,0,1,0), // N_g
 			N_s, // shading normal
 			N_s, // pre-bump shading normal
-			HitInfo(0, HitInfo::SubElemCoordsType(0,0))
+			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
+			false // shading normals flipped
 		);
 
 		
@@ -898,7 +899,8 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			N_g, // N_g
 			N_s, // shading normal
 			N_s, // pre-bump shading normal
-			HitInfo(0, HitInfo::SubElemCoordsType(0,0))
+			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
+			false // shading normals flipped
 		);
 
 		// Test non-adjoint scatters
