@@ -403,8 +403,9 @@ void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referenc
 	Vec4f to_light = !adjoint ? a : b;
 	Vec4f to_eye = !adjoint ? b : a;
 
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, to_light, to_eye, wavelengths, 
 		true, // compute adjoint info
 		res
 	);
@@ -422,8 +423,9 @@ void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referenc
 
 void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, Material::Real target_BSDF)
 {
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, a, b, wavelengths, 
 		true, 
 		res);
 
@@ -448,8 +450,9 @@ void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Re
 	Vec4f to_light = !adjoint ? a : b;
 	Vec4f to_eye = !adjoint ? b : a;
 
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, to_light, to_eye, wavelengths, 
 		true, // compute adjoint info
 		res
 	);
@@ -469,8 +472,9 @@ void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinf
 	Vec4f to_light = !adjoint ? a : b;
 	Vec4f to_eye = !adjoint ? b : a;
 
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, to_light, to_eye, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, to_light, to_eye, wavelengths, 
 		true, // compute adjoint info
 		res
 	);
@@ -483,8 +487,9 @@ void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinf
 
 void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
 {
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, a, b, wavelengths, 
 		true, 
 		res);
 
@@ -494,8 +499,9 @@ void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const R
 
 void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
 {
+	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
-	mat->evaluateBSDF(context, hitinfo, a, b, wavelengths, 
+	mat->evaluateBSDF(context, args, hitinfo, a, b, wavelengths, 
 		true,
 		res);
 
@@ -787,7 +793,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 				hitinfo.geometric_normal = Vec4f(0,0,1,0); // N_g up
 
 				SampleServerWrapper ssw_a(samples, 32, rng, 0, 1);
-				Material::ScatterArgs scatter_args_a(hitinfo, in);
+				Material::ScatterArgs scatter_args_a(hitinfo, in, 0.0);
 				Material::ScatterResults scatter_res_a;
 				const bool valid_a = material.scatter(context, scatter_args_a, ssw_a, hitinfo, wavelengths, in,
 					false, // adjoint
@@ -799,7 +805,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 				hitinfo.geometric_normal = Vec4f(0,0,-1,0); // N_g down
 
 				SampleServerWrapper ssw_b(samples, 32, rng, 0, 1);
-				Material::ScatterArgs scatter_args_b(hitinfo, in);
+				Material::ScatterArgs scatter_args_b(hitinfo, in, 0.0);
 				Material::ScatterResults scatter_res_b;
 				const bool valid_b = material.scatter(context, scatter_args_b, ssw_b, hitinfo, wavelengths, in,
 					false, // adjoint
@@ -827,7 +833,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 				hitinfo.geometric_normal = Vec4f(0,0,1,0); // N_g up
 
 				SampleServerWrapper ssw_a(samples, 32, rng, 0, 1);
-				Material::ScatterArgs scatter_args_a(hitinfo, in);
+				Material::ScatterArgs scatter_args_a(hitinfo, in, 0.0);
 				Material::ScatterResults scatter_res_a;
 				const bool valid_a = material.scatter(context, scatter_args_a, ssw_a, hitinfo, wavelengths, in,
 					true, // adjoint
@@ -839,7 +845,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 				hitinfo.geometric_normal = Vec4f(0,0,-1,0); // N_g down
 
 				SampleServerWrapper ssw_b(samples, 32, rng, 0, 1);
-				Material::ScatterArgs scatter_args_b(hitinfo, in);
+				Material::ScatterArgs scatter_args_b(hitinfo, in, 0.0);
 				Material::ScatterResults scatter_res_b;
 				const bool valid_b = material.scatter(context, scatter_args_b, ssw_b, hitinfo, wavelengths, in,
 					true, // adjoint
@@ -871,6 +877,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 
 		ThreadContext context;
 		VoidMedium void_medium;
+		const double time = 0.0;
 		const float wavelen = 600.0f;
 		const SpectralVector wavelengths(wavelen);
 
@@ -902,7 +909,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			MTwister rng(1);
 			SampleServerWrapper ssw(samples, 0, rng, 0, 1);
 			const Vec4f in = normalise(Vec4f(-1,0,-1,0));
-			Material::ScatterArgs scatter_args(hitinfo, in);
+			Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
 			Material::ScatterResults scatter_res;
 			const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
 				false, // adjoint
@@ -915,8 +922,9 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			testAssert(scatter_res.dir.isUnitLength());
 
 			// Test BSDF
+			Material::EvaluateBSDFArgs args(time);
 			Material::EvaluateBSDFResults bsdf_res;
-			material.evaluateBSDF(context, hitinfo, scatter_res.dir, -in, wavelengths, true, bsdf_res);
+			material.evaluateBSDF(context, args, hitinfo, scatter_res.dir, -in, wavelengths, true, bsdf_res);
 
 			for(unsigned int w=0; w<bsdf_res.bsdfs.size(); ++w)
 				testAssert(bsdf_res.bsdfs[w] > 0);
@@ -941,7 +949,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			MTwister rng(1);
 			SampleServerWrapper ssw(samples, 0, rng, 0, 1);
 			const Vec4f in = normalise(Vec4f(-1,0,-1,0));
-			Material::ScatterArgs scatter_args(hitinfo, in);
+			Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
 			Material::ScatterResults scatter_res;
 			const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
 				true, // adjoint
@@ -954,8 +962,9 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			testAssert(scatter_res.dir.isUnitLength());
 
 			// Test BSDF
+			Material::EvaluateBSDFArgs args(0.0);
 			Material::EvaluateBSDFResults bsdf_res;
-			material.evaluateBSDF(context, hitinfo, -in, scatter_res.dir, wavelengths, true, bsdf_res);
+			material.evaluateBSDF(context, args, hitinfo, -in, scatter_res.dir, wavelengths, true, bsdf_res);
 
 			for(unsigned int w=0; w<bsdf_res.bsdfs.size(); ++w)
 				testAssert(bsdf_res.bsdfs[w] > 0);
