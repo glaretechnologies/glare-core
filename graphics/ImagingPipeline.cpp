@@ -524,7 +524,10 @@ public:
 
 					// Get alpha from alpha channel if it exists
 					if(closure.render_channels->hasAlpha())
-						sum.x[3] = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * closure.image_scale;
+					{
+						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
+						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
+					}
 					else
 						sum.x[3] = 1.0f;
 
@@ -609,7 +612,10 @@ public:
 
 					// Get alpha from alpha channel if it exists
 					if(closure.render_channels->hasAlpha()) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
-						sum.x[3] = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * closure.image_scale;
+					{
+						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
+						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
+					}
 					else
 						sum.x[3] = 1.0f;
 

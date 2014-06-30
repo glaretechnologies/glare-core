@@ -72,7 +72,8 @@ public:
 		double exposure_duration,
 		Reference<Aperture>& aperture,
 		double lens_shift_up_distance,
-		double lens_shift_right_distance) = 0;
+		double lens_shift_right_distance,
+		bool build_alpha_splat_factor_data) = 0;
 
 
 	struct SampleLensResults
@@ -89,6 +90,7 @@ public:
 		Real exposure_duration;
 		Real sensitivity_scale;
 		//Real sensorpos_to_lenspos_dist;
+		Real alpha_splat_weight;
 	};
 
 
@@ -97,7 +99,8 @@ public:
 		const SamplePair& samples,
 		double time,
 		bool vignetting,
-		Real recip_normed_image_rect_area
+		Real recip_normed_image_rect_area,
+		bool compute_alpha_weight
 	) const = 0;
 
 
