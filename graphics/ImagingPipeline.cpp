@@ -782,7 +782,7 @@ void doTonemap(
 #ifdef BUILD_TESTS
 
 
-static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out)
+static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale)
 {
 	Indigo::TaskManager task_manager(1);
 
@@ -790,7 +790,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	::Image4f temp_summed_buffer, temp_AD_buffer;
 	std::vector< ::Image4f> temp_tile_buffers;
 
-	const float layer_normalise = 1;
+	const float layer_normalise = image_scale;
 	std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain	
 
 	RendererSettings renderer_settings;
@@ -806,7 +806,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		temp_tile_buffers,
 		render_channels,
 		layer_weights,
-		layer_normalise,
+		layer_normalise, // image scale
 		renderer_settings,
 		renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(ssf),
 		Reference<PostProDiffraction>(),
@@ -835,7 +835,8 @@ void test()
 		render_channels.layers.back().image.set(Colour3f(1.0f));
 
 		Image4f ldr_buffer;
-		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		const float image_scale = 1.f;
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -859,7 +860,8 @@ void test()
 		render_channels.layers.back().image.set(Colour3f(1.0f));
 
 		Image4f ldr_buffer;
-		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		const float image_scale = 1.f;
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -876,18 +878,22 @@ void test()
 		const int ssf = 1;
 		const int full_W = RendererSettings::computeFullWidth(W, ssf);
 
-		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.65
+		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
+		const float value_factor = 10000.f;
+
+		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
 		render_channels.layers.push_back(Layer());
 		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f));
+		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
 
 		render_channels.alpha.resize(full_W, full_W, 1);
-		render_channels.alpha.set(alpha);
+		render_channels.alpha.set(alpha * value_factor);
 
 		Image4f ldr_buffer;
-		checkToneMap(W, ssf, render_channels, ldr_buffer);
+		const float image_scale = 1.f / value_factor;
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
