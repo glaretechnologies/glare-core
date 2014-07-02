@@ -92,9 +92,9 @@ void ImmutableVectorNode<T, B>::operator = (const ImmutableVectorNode& other)
 {
 	interior = other.interior;
 	num = other.num;
-	for(int i=0; i<B; ++i) // NOTE: just go to num here?
+	for(size_t i=0; i<B; ++i) // NOTE: just go to num here?
 		items[i] = other.items[i];
-	for(int i=0; i<B; ++i)
+	for(size_t i=0; i<B; ++i)
 		children[i] = other.children[i];
 }
 
@@ -192,7 +192,7 @@ void ImmutableVector<T, B>::update(size_t index, const T& item, ImmutableVector&
 			// Leaf node.  This should already be a copy of the original leaf node.
 
 			assert(offset < B);
-			assert(offset < n->num);
+			assert((int)offset < n->num);
 
 			n->items[offset] = item;
 			break;
@@ -339,7 +339,7 @@ void ImmutableVector<T, B>::rebalanceIfNeeded(ImmutableVectorNode<T, B>** stack,
 			for(int z=depth-2; z>=0; --z)
 			{
 				// If we have found an interior node that is not full, at level z:
-				if(stack[z]->num < B)
+				if(stack[z]->num < (int)B)
 				{
 					// Walk back down to bottom level, creating new nodes as necessary
 
@@ -391,6 +391,6 @@ const T& ImmutableVector<T, B>::operator [] (size_t index) const
 
 	// Leaf node
 	assert(offset < B);
-	assert(offset < n->num);
+	assert((int)offset < n->num);
 	return n->items[offset];
 }
