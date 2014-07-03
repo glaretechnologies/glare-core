@@ -13,7 +13,7 @@ Generated at Sat May 15 15:39:54 +1200 2010
 #include "StringUtils.h"
 #include <vector>
 #include <algorithm>
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../indigo/TestUtils.h"
 
 

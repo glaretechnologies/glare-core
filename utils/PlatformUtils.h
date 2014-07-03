@@ -40,6 +40,9 @@ uint64 getPhysicalRAMSize(); // Number of bytes of physical RAM
 
 const std::string getLoggedInUserName();
 
+// Only implemented for Windows currently.
+unsigned int getNumThreadsInCurrentProcess(); // throws PlatformUtilsExcep
+
 
 
 

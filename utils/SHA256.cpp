@@ -73,7 +73,7 @@ void SHA256::SHA1Hash(
 #include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 static std::vector<unsigned char> stringToByteArray(const std::string& s)

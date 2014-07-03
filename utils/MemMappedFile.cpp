@@ -172,7 +172,7 @@ MemMappedFile::~MemMappedFile()
 
 
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 void MemMappedFile::test()

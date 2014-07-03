@@ -9,7 +9,7 @@ Generated at 2011-10-05 22:17:09 +0100
 
 #include "TaskManager.h"
 #include "Task.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 
 

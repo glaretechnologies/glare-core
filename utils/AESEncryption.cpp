@@ -120,7 +120,7 @@ std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned cha
 #include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 static void testWithPlaintextLength(int N)

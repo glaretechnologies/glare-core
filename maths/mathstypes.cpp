@@ -1,10 +1,10 @@
 #include "mathstypes.h"
 
 
-#include "../indigo/TestUtils.h"
 #include "Matrix2.h"
 #include "matrix3.h"
 #include "Quat.h"
+#include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
@@ -90,6 +90,19 @@ inline T powOneOverEight(T x)
 void Maths::test()
 {
 	conPrint("Maths::test()");
+
+
+	//======================================== sqrt2Pi(), recipSqrt2Pi() ========================================
+	testAssert(epsEqual(sqrt2Pi<float>(), std::sqrt(2 * pi<float>())));
+	testAssert(epsEqual(recipSqrt2Pi<float>(), 1 / std::sqrt(2 * pi<float>())));
+
+	//======================================== logBase2() ========================================
+	testAssert(epsEqual(logBase2(0.5), -1.0));
+	testAssert(epsEqual(logBase2(1.0), 0.0));
+	testAssert(epsEqual(logBase2(2.0), 1.0));
+	testAssert(epsEqual(logBase2(4.0), 2.0));
+	testAssert(epsEqual(logBase2(32.0), 5.0));
+	testAssert(epsEqual(logBase2(25.281321979628068984528066732234), 4.66)); // 2^4.66 = 25.281321979628068984528066732234
 
 
 	//======================================== isFinite() ========================================

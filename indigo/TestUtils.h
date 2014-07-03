@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/mathstypes.h"
-#include "../maths/vec3.h"
+//#include "../maths/vec3.h"
 #include "../utils/StringUtils.h"
 #include <string>
 
@@ -113,7 +113,7 @@ void doTestMathsApproxEq(const T& a, const T& b, const char* a_str, const char* 
 }
 
 
-template <class T>
+/*template <class T>
 void doTestApproxEq(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file)
 {
 	if(!::approxEq(a, b))
@@ -121,7 +121,7 @@ void doTestApproxEq(const T& a, const T& b, const char* a_str, const char* b_str
 		printMessageAndFail("Test approxEqual failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + 
 			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b));
 	}
-}
+}*/
 
 
 template <class T>

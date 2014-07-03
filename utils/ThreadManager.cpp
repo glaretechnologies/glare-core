@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "KillThreadMessage.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 ThreadManager::ThreadManager()
@@ -117,7 +117,7 @@ unsigned int ThreadManager::getNumThreads()
 
 
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 

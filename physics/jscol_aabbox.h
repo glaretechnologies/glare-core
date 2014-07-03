@@ -4,15 +4,14 @@ aabbox.h
 File created by ClassTemplate on Thu Nov 18 03:48:29 2004
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __AABBOX_H_666_
-#define __AABBOX_H_666_
+#pragma once
 
 
-#include "../utils/Platform.h"
-//#include "../maths/PaddedVec3.h"
 #include "../maths/Vec4f.h"
 #include "../maths/SSE.h"
 #include "../maths/mathstypes.h"
+#include "../utils/Platform.h"
+#include <limits>
 
 
 namespace js
@@ -23,7 +22,7 @@ namespace js
 AABBox
 ------
 Axis aligned bounding box.
-single-precision floating point.
+Single-precision floating point.
 Must be 16-byte aligned.
 =====================================================================*/
 SSE_CLASS_ALIGN AABBox
@@ -31,28 +30,21 @@ SSE_CLASS_ALIGN AABBox
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	/*=====================================================================
-	AABBox
-	------
-	
-	=====================================================================*/
-	inline AABBox();
-	inline AABBox(const Vec4f& _min, const Vec4f& _max);
+	INDIGO_STRONG_INLINE AABBox();
+	INDIGO_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);
 
 	inline bool operator == (const AABBox& rhs) const;
 
 	inline bool contains(const Vec4f& p) const;
 
-	//inline void enlargeToHoldPoint(const Vec3f& p);
-	inline void enlargeToHoldPoint(const Vec4f& p);
-	//inline void enlargeToHoldAlignedPoint(const PaddedVec3f& p);
-	inline void enlargeToHoldAABBox(const AABBox& aabb);
+	INDIGO_STRONG_INLINE void enlargeToHoldPoint(const Vec4f& p);
+	INDIGO_STRONG_INLINE void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
 
 	INDIGO_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
-	INDIGO_STRONG_INLINE void rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
+	INDIGO_STRONG_INLINE void rayAABBTrace(const __m128 pos, const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 
 	static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
@@ -63,10 +55,8 @@ public:
 	inline float axisLength(unsigned int axis) const { return max_.x[axis] - min_.x[axis]; }
 	inline unsigned int longestAxis() const;
 
-	inline const Vec4f centroid() const;
+	INDIGO_STRONG_INLINE const Vec4f centroid() const;
 
-	//SSE_ALIGN PaddedVec3f min_;
-	//SSE_ALIGN PaddedVec3f max_;
 	Vec4f min_;
 	Vec4f max_;
 };
@@ -86,46 +76,6 @@ AABBox::AABBox(const Vec4f& _min, const Vec4f& _max)
 }
 
 
-/*
-void AABBox::enlargeToHoldPoint(const Vec3f& p)
-{
-	//for(unsigned int c=0; c<3; ++c)//for each component
-	//{
-	//	if(p[c] < min_[c])
-	//		min_[c] = p[c];
-
-	//	if(p[c] > max_[c])
-	//		max_[c] = p[c];
-	//}
-	min_.x = myMin(min_.x, p.x);
-	min_.y = myMin(min_.y, p.y);
-	min_.z = myMin(min_.z, p.z);
-
-	max_.x = myMax(max_.x, p.x);
-	max_.y = myMax(max_.y, p.y);
-	max_.z = myMax(max_.z, p.z);
-}*/
-
-/*
-void AABBox::enlargeToHoldAlignedPoint(const PaddedVec3f& p)
-{
-	_mm_store_ps(
-		&min_.x,
-		_mm_min_ps(
-			_mm_load_ps(&min_.x),
-			_mm_load_ps(&p.x)
-			)
-		);
-	_mm_store_ps(
-		&max_.x,
-		_mm_max_ps(
-			_mm_load_ps(&max_.x),
-			_mm_load_ps(&p.x)
-			)
-		);
-}
-*/
-
 void AABBox::enlargeToHoldPoint(const Vec4f& p)
 {
 	min_.v = _mm_min_ps(min_.v, p.v);
@@ -137,30 +87,6 @@ void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 {
 	min_.v = _mm_min_ps(min_.v, aabb.min_.v);
 	max_.v = _mm_max_ps(max_.v, aabb.max_.v);
-
-	/*for(int unsigned c=0; c<3; ++c)//for each axis
-	{
-		if(aabb.min_[c] < min_[c])
-			min_[c] = aabb.min_[c];
-
-		if(aabb.max_[c] > max_[c])
-			max_[c] = aabb.max_[c];
-	}*/
-
-	/*_mm_store_ps(
-		&min_.x,
-		_mm_min_ps(
-			_mm_load_ps(&min_.x),
-			_mm_load_ps(&aabb.min_.x)
-			)
-		);
-	_mm_store_ps(
-		&max_.x,
-		_mm_max_ps(
-			_mm_load_ps(&max_.x),
-			_mm_load_ps(&aabb.max_.x)
-			)
-		);*/
 }
 
 
@@ -184,29 +110,11 @@ bool AABBox::containsAABBox(const AABBox& other) const
 }
 
 
-/*
-float AABBox::getXDims() const
-{
-	return max.x - min.x;
-}
-
-float AABBox::getYDims() const
-{
-	return max.y - min.y;
-}
-
-float AABBox::getZDims() const
-{
-	return max.z - min.z;
-}*/
-
-
 // From http://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
 
-const float flt_plus_inf = -logf(0);	// let's keep C and C++ compilers happy.
 const float SSE_ALIGN
-	ps_cst_plus_inf[4]	= {  flt_plus_inf,  flt_plus_inf,  flt_plus_inf,  flt_plus_inf },
-	ps_cst_minus_inf[4]	= { -flt_plus_inf, -flt_plus_inf, -flt_plus_inf, -flt_plus_inf };
+	ps_cst_plus_inf[4]	= {  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity() },
+	ps_cst_minus_inf[4]	= { -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity() };
 
 #define rotatelps(ps)		_mm_shuffle_ps((ps),(ps), 0x39)	// a,b,c,d -> b,c,d,a
 #define muxhps(low,high)	_mm_movehl_ps((low),(high))	// low{a,b,c,d}|high{e,f,g,h} = {c,d,g,h}
@@ -226,6 +134,10 @@ int AABBox::rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir
 	const SSE4Vec
 		plus_inf	= load4Vec(ps_cst_plus_inf),
 		minus_inf	= load4Vec(ps_cst_minus_inf);
+	
+	// Load using _mm_set1_ps, to avoid having ps_cst_plus_inf memory in every translaton unit that includes jscol_aabbox.h
+	//const SSE4Vec plus_inf = _mm_set1_ps(std::numeric_limits<float>::infinity());
+	//const SSE4Vec minus_inf = _mm_set1_ps(-std::numeric_limits<float>::infinity());
 
 	// use whatever's apropriate to load.
 	const SSE4Vec
@@ -273,44 +185,6 @@ int AABBox::rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir
 	storeLowWord(lmax, &far_hitd_out);
 
 	return ret;
-
-
-/*
-
-	const SSE4Vec startpos = load4Vec(&raystartpos.x);//ray origin
-	const SSE4Vec recipdir = load4Vec(&recip_unitraydir.x);//unit ray direction
-
-	SSE4Vec dist1 = mult4Vec(sub4Vec(load4Vec(&min.x), startpos), recipdir);//distances to smaller coord planes
-	SSE4Vec dist2 = mult4Vec(sub4Vec(load4Vec(&max.x), startpos), recipdir);//distances to larger coord planes
-
-	SSE4Vec tmin = min4Vec(dist1, dist2);//interval minima, one for each axis slab
-	SSE4Vec tmax = max4Vec(dist1, dist2);//interval maxima, one for each axis slab
-
-	//save SSE registers
-	SSE_ALIGN PaddedVec3 tmin_f;
-	SSE_ALIGN PaddedVec3 tmax_f;
-	store4Vec(tmin, &tmin_f.x);//save minima
-	store4Vec(tmax, &tmax_f.x);//save maxima
-
-	//get the maximum of the 3 interval minimam, and 0
-	const float zero_f = 0.0f;
-	tmin = max4Vec( loadScalarLow(&zero_f), 
-		max4Vec( max4Vec(loadScalarLow(&tmin_f.x), loadScalarLow(&tmin_f.y)), loadScalarLow(&tmin_f.z) ) );
-
-	//get the minimum of the 3 interval maxima
-	tmax = min4Vec( min4Vec(loadScalarLow(&tmax_f.x), loadScalarLow(&tmax_f.y)), loadScalarLow(&tmax_f.z) );
-
-	//save the final interval minimum and maximum
-	storeLowWord(tmin, &near_hitd_out);
-	storeLowWord(tmax, &far_hitd_out);
-
-	//compare the minimum and maximum,
-	//save the comparison result
-	int result;
-	storeLowWord(lessThanLowWord(tmin, tmax), (float*)&result);
-
-
-	return result;//near_hitd_out <= far_hitd_out;*/
 }
 
 
@@ -359,12 +233,7 @@ unsigned int AABBox::longestAxis() const
 
 inline const Vec4f AABBox::centroid() const
 {
-	/*return Vec3f(
-		(max_.x[0] + min_.x[0]) * 0.5f,
-		(max_.x[0] + min_.y) * 0.5f,
-		(max_.z + min_.z) * 0.5f
-		);*/
-	return Vec4f(Vec4f(min_ + max_) * 0.5f);
+	return Vec4f(min_ + max_) * 0.5f;
 }
 
 
@@ -389,6 +258,3 @@ float AABBox::getSurfaceArea() const
 
 
 } //end namespace js
-
-
-#endif //__AABBOX_H_666_

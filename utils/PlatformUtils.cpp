@@ -21,6 +21,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 	#endif
 
 	#include <shlobj.h>
+	#include <tlhelp32.h>
 #else
 	#include <errno.h>
 	#include <time.h>
@@ -137,6 +138,44 @@ const std::string PlatformUtils::getLoggedInUserName()
 	return getEnvironmentVariable("USERNAME");
 #else
 	return getEnvironmentVariable("USER");
+#endif
+}
+
+
+unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
+{
+#if defined(_WIN32)
+	// See http://msdn.microsoft.com/en-us/library/ms686701(v=VS.85).aspx
+
+    const DWORD process_id = GetCurrentProcessId();
+
+    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if(snapshot == INVALID_HANDLE_VALUE)
+		throw PlatformUtilsExcep("CreateToolhelp32Snapshot failed.");
+
+    THREADENTRY32 entry;
+    entry.dwSize = sizeof(THREADENTRY32);
+
+    BOOL result = Thread32First(snapshot, &entry);
+	if(!result)
+	{
+		CloseHandle(snapshot);
+		throw PlatformUtilsExcep("Thread32First failed.");
+	}
+
+	unsigned int thread_count = 0;
+	while(result)
+	{
+		if(entry.th32OwnerProcessID == process_id)
+			thread_count++;
+		result = Thread32Next(snapshot, &entry);
+	}
+
+    CloseHandle(snapshot);
+    
+	return thread_count;
+#else
+	throw PlatformUtilsExcep("getNumThreadsInCurrentProcess not implemented.");
 #endif
 }
 
@@ -747,7 +786,7 @@ void PlatformUtils::getOSXVersion(int32& majorVersion, int32& minorVersion, int3
 #if BUILD_TESTS
 
 
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../indigo/TestUtils.h"
 
 

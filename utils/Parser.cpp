@@ -516,7 +516,7 @@ bool Parser::parseCString(const char* const s)
 
 
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../double-conversion/double-conversion.h"
 
 

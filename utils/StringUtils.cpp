@@ -1196,7 +1196,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 
 //#include "../utils/MTwister.h"
 #include "../utils/Timer.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../indigo/TestUtils.h"
 
 

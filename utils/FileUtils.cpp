@@ -907,6 +907,8 @@ void deleteDirectoryRecursive(const std::string& path)
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
 #if defined(_WIN32) || defined(_WIN64)
+	// NOTE: To make this atomic on Windows, we could use ReplaceFile, with some care.
+	// See http://msdn.microsoft.com/en-us/library/windows/desktop/aa365512(v=vs.85).aspx
 	if(!MoveFileEx(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
 		StringUtils::UTF8ToPlatformUnicodeEncoding(dstpath).c_str(),
@@ -915,7 +917,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
 #else
 	if(rename(srcpath.c_str(), dstpath.c_str()) != 0)
-		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
+		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -1056,7 +1058,7 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 
 #include "PlatformUtils.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 namespace FileUtils
