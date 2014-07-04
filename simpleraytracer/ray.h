@@ -63,7 +63,11 @@ public:
 	}
 
 	INDIGO_STRONG_INLINE const float minT() const { return min_t; }
-	
+
+
+	INDIGO_STRONG_INLINE void setStartPos(const Vec4f& s) { startpos_f = s; }
+	INDIGO_STRONG_INLINE void setMinT(float min_t_) { min_t = min_t_; }
+
 private:
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
