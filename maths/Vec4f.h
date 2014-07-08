@@ -350,3 +350,15 @@ INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)
 
 
 inline const std::string toString(const Vec4f& v) { return v.toString(); }
+
+
+INDIGO_STRONG_INLINE const Vec4f loadVec4f(const float* const data)
+{
+	return Vec4f(_mm_load_ps(data));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
+{
+	return Vec4f(_mm_mul_ps(a.v, b.v));
+}
