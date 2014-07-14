@@ -55,7 +55,6 @@ namespace GeometrySampling
 
 	// k() of the basis should point towards center of cone.
 	inline const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle);
-	inline const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle, float& p_out);
 	template <class Real> inline Real solidAngleConePDF(Real angle);
 
 
@@ -252,46 +251,23 @@ const Vec4f uniformlySampleSphere(const SamplePair& unitsamples) // returns poin
 }
 
 
-// See Monte Carlo Ray Tracing siggraph course 2003 page 33.
-const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle)
+// See Dutre's Global Illumination Compendium, http://people.cs.kuleuven.be/~philip.dutre/GI/TotalCompendium.pdf, section 34.
+// Also 'Monte Carlo Ray Tracing' Siggraph 2003 course page 33.
+const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float one_minus_cos_theta_max)
 {
-	assert(angle > 0.0);
+	assert(one_minus_cos_theta_max > 0.0);
 
-	const float phi = samples.x * (float)NICKMATHS_2PI;
-	const float alpha = std::sqrt(samples.y) * angle;
+	const float phi = samples.x * NICKMATHS_2PIf;
+	const float r_2_A = samples.y * one_minus_cos_theta_max; // Let r_2 = samples.y, and A = 1 - cos(theta_max)
+	const float cos_theta = 1 - r_2_A;
 
-	//const float r = sqrt(unitsamples.x);
-	//const float phi = unitsamples.y * NICKMATHS_2PI;
+	const float sin_theta = std::sqrt(r_2_A*(2 - r_2_A)); // std::sqrt(-2*r_2_one_minus_cos_theta_max + r_2_one_minus_cos_theta_max*r_2_one_minus_cos_theta_max);
 
-	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
+	assert(epsEqual(cos_theta*cos_theta + sin_theta*sin_theta, 1.f));
 
-	const float sin_alpha = std::sin(alpha);
-	const SSE_ALIGN Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
+	const Vec4f dir(std::cos(phi) * sin_theta, std::sin(phi) * sin_theta, cos_theta, 0);
 
-	return Vec4f(basis * dir); //basis.transformVectorToParent(dir);
-}
-
-
-const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basis, float angle, float& p_out)
-{
-	assert(angle > 0.0);
-
-	const float phi = samples.x * (float)NICKMATHS_2PI;
-	const float alpha = std::sqrt(samples.y) * angle;
-
-	//const float r = sqrt(unitsamples.x);
-	//const float phi = unitsamples.y * NICKMATHS_2PI;
-
-	//Vec3d dir(disc.x*sin(alpha), disc.y*sin(alpha), cos(alpha));
-
-	const float sin_alpha = std::sin(alpha);
-	const Vec4f dir(std::cos(phi)*sin_alpha, std::sin(phi)*sin_alpha, std::cos(alpha), 0.0f);
-
-	// NOTE: Using the more numerically robust oneMinusCosX() func here.
-	const float solid_angle = NICKMATHS_2PIf * Maths::oneMinusCosX(angle);
-	p_out = 1 / solid_angle;
-
-	return Vec4f(basis * dir); //basis.transformVectorToParent(dir);
+	return Vec4f(basis * dir);
 }
 
 

@@ -23,9 +23,9 @@ namespace GeometrySampling
 #if BUILD_TESTS
 
 
-
 void doTests()
 {
+	conPrint("GeometrySampling::doTests()");
 	
 	// Performance tests
 	if(false)
@@ -70,10 +70,53 @@ void doTests()
 				conPrint("sum: " + sum.toString());
 				conPrint("elapsed: " + toString(1.0e9 * elapsed / N) + " ns");
 			}
+
+			{
+				conPrint("");
+				conPrint("sampleSolidAngleCone()");
+				Timer t;
+
+				Matrix4f basis = Matrix4f::identity();
+				const float theta_max = 0.1;
+				const float one_minus_cos_theta_max = 1 - std::cos(theta_max);
+			
+				Vec4f sum(0.f);
+				for(int i=0; i<N; ++i)
+				{
+					Vec4f d = sampleSolidAngleCone(unitr[i], basis, one_minus_cos_theta_max);
+					testAssert(d.isUnitLength());
+					sum += d;
+				}
+
+				double elapsed = t.elapsed();
+				conPrint("sum: " + sum.toString());
+				conPrint("elapsed: " + toString(1.0e9 * elapsed / N) + " ns");
+			}
 		}
 
 		conPrint("");
 		conPrint("");
+	}
+
+	//=========================== Test sampleSolidAngleCone() ===========================
+	{
+		MTwister rng(1);
+		const float theta_max = 0.4;
+		const float one_minus_cos_theta_max = 1 - std::cos(theta_max);
+		const Vec4f n = normalise(Vec4f(1,1,1,0));
+		Matrix4f m;
+		m.constructFromVector(n);
+			
+
+		for(int i=0; i<1000000; ++i)
+		{
+			const Vec2f u(rng.unitRandom(), rng.unitRandom());
+			
+			const Vec4f dir = sampleSolidAngleCone(u, m, one_minus_cos_theta_max);
+
+			testAssert(dir.isUnitLength());
+			testAssert(dot(dir, n) >= std::cos(theta_max)); 
+		}
 	}
 
 	//=========================== sampleHemisphereCosineWeighted ===========================
@@ -212,15 +255,6 @@ void doTests()
 	testAssert(epsEqual(dirForSphericalCoords(-NICKMATHS_PI_2, NICKMATHS_PI_2), Vec3d(0,-1,0)));
 	testAssert(epsEqual(dirForSphericalCoords(0.0, 0.0), Vec3d(0,0,1)));
 	testAssert(epsEqual(dirForSphericalCoords(0.0, NICKMATHS_PI), Vec3d(0,0,-1)));
-
-	SSE_ALIGN Matrix4f basis;
-	const Vec4f v = normalise(Vec4f(1,1,1, 0.f));
-	basis.constructFromVector(v);
-
-	const Vec4f res = sampleSolidAngleCone(SamplePair(0.5, 0.5), basis, 0.01f);
-
-	testAssert(dot(v, res) > 0.95);
-
 }
 
 
