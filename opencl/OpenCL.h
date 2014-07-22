@@ -82,6 +82,7 @@ typedef cl_int (CL_API_CALL *clGetEventInfo_TYPE)  (cl_event event, cl_event_inf
 typedef cl_int (CL_API_CALL *clEnqueueMarker_TYPE) (cl_command_queue command_queue, cl_event *event);
 typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl_event *event_list);
 
+typedef cl_int (CL_API_CALL *clFinish_TYPE) (cl_command_queue command_queue);
 typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
 
 }
@@ -172,6 +173,7 @@ public:
 	clEnqueueMarker_TYPE clEnqueueMarker;
 	clWaitForEvents_TYPE clWaitForEvents;
 
+	clFinish_TYPE clFinish;
 	clFlush_TYPE clFlush;
 
 	cl_platform_id platform_to_use;

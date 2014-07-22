@@ -161,6 +161,7 @@ void OpenCL::libraryInit()
 			clEnqueueMarker = opencl_lib.getFuncPointer<clEnqueueMarker_TYPE>("clEnqueueMarker");
 			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
 
+			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
 			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
 		}
 		catch(Indigo::Exception& e)

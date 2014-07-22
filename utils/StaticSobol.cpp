@@ -43,7 +43,8 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 	for(uint32 j = 1; j <= num_dims - 1; j++)
 	{
 		// Read in parameters from file 
-		const uint32 d = *dir_iter++, s = *dir_iter++, a = *dir_iter++;
+		dir_iter++; // Skip unused "d" parameter
+		const uint32 s = *dir_iter++, a = *dir_iter++;
 
 		for(uint32 i = 1; i <= s; i++)
 			m[i] = *dir_iter++;
@@ -88,7 +89,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 
 
 	// Initialise the xor-table
-	for(uint32 c = 0; c < 16; ++c)
+	for(int c = 0; c < 16; ++c)
 	{
 		const uint32 i[4] = { -(c & 1), -((c >> 1) & 1), -((c >> 2) & 1), -(c >> 3) };
 
@@ -121,7 +122,7 @@ void StaticSobol::evalSampleBlock(const uint32_t base_sample_idx, const uint32 s
 
 		float const * const dir_nums = (float const * const)&transposed_dir_nums[bit_index * StaticSobol::num_dims];
 
-		for (int d = 0; d < sample_depth; d += 16)
+		for (uint32 d = 0; d < sample_depth; d += 16)
 		{
 			const __m128 s0 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  0]);
 			const __m128 s1 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  4]);
@@ -181,7 +182,7 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 
 	// Test that we get the desired Sobol sequence
 	{
-		const uint32 desired_Sobol[2] = { 0, 1 << 31 }; // The first two Sobol samples are 0 and 0.5 (in fixed point) in all dimensions
+		const uint32 desired_Sobol[2] = { 0, 1UL << 31 }; // The first two Sobol samples are 0 and 0.5 (in fixed point) in all dimensions
 
 		for(uint32 s = 0; s < 2; ++s)
 		{

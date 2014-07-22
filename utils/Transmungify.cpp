@@ -111,10 +111,10 @@ bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 			toUChar((dword_value & 0xFF000000) >> 24)
 		};
 
-		dst_string[i * 4 + 0] = (chars[permute[3]] - char_offsets[2]);
-		dst_string[i * 4 + 1] = (chars[permute[1]] - char_offsets[1]);
-		dst_string[i * 4 + 2] = (chars[permute[0]] - char_offsets[3]);
-		dst_string[i * 4 + 3] = (chars[permute[2]] - char_offsets[0]);
+		dst_string[i * 4 + 0] = toUChar(chars[permute[3]] - char_offsets[2]);
+		dst_string[i * 4 + 1] = toUChar(chars[permute[1]] - char_offsets[1]);
+		dst_string[i * 4 + 2] = toUChar(chars[permute[0]] - char_offsets[3]);
+		dst_string[i * 4 + 3] = toUChar(chars[permute[2]] - char_offsets[0]);
 	}
 	dst_string.erase(string_len, dst_string.size() - string_len);
 
