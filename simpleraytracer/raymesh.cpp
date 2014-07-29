@@ -1326,7 +1326,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 3; ++v)
 			if(src_tri.vertex_indices[v] >= getNumVerts())
-				throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ")");
+				throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ", num verts: " + toString(getNumVerts()) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
