@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../maths/Vec4i.h"
 #include "../indigo/globals.h"
-#include "../indigo/HaltonSampler.h"
+//#include "../indigo/HaltonSampler.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/MTwister.h"
@@ -116,7 +116,7 @@ void PerlinNoise::init()
 
 
 	// Make new_gradients
-	HaltonSampler halton;
+	//HaltonSampler halton;
 	
 	for(int i=0; i<N; ++i)
 	{
