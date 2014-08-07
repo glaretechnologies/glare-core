@@ -155,30 +155,6 @@ const Vec3d MatUtils::sampleSphere(const Vec2d& unitsamples, const Vec3d& normal
 */
 
 
-
-
-
-// Samples a bivariate Gaussian distribution, with mean (0,0) and given standard_deviation
-const Vec2d boxMullerGaussian(double standard_deviation, MTwister& rng)
-{
-	//http://www.taygeta.com/random/gaussian.html
-	double w, x1, x2;
-	do
-	{
-		x1 = 2.0 * rng.unitRandom() - 1.0;
-		x2 = 2.0 * rng.unitRandom() - 1.0;
-		w = x1 * x1 + x2 * x2;
-	}
-	while(w >= 1.0);
-
-	w = sqrt((-2.0 * log(w)) / w) * standard_deviation;
-
-	return Vec2d(x1 * w, x2 * w);
-	//y1 = x1 * w;
-    //y2 = x2 * w;
-}
-
-
 double evalNormalDist(double x, double mean, double standard_dev)
 {
 	return exp(-(x-mean)*(x-mean) / (2.0*standard_dev*standard_dev)) / (standard_dev * sqrt(NICKMATHS_2PI));

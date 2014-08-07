@@ -61,11 +61,6 @@ namespace MatUtils
 
 
 
-
-
-	// Samples a bivariate Gaussian distribution, with mean (0,0) and given standard_deviation
-	const Vec2d boxMullerGaussian(double standard_deviation, MTwister& rng);
-
 	double evalNormalDist(double x, double mean, double standard_dev);
 
 
