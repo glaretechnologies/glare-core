@@ -43,7 +43,7 @@ private:
 /*=====================================================================
 Geometry
 --------
-interface that represents the shape of an object
+Interface that represents the shape of an object
 =====================================================================*/
 SSE_CLASS_ALIGN Geometry : public RefCounted, public TexCoordEvaluator
 {
@@ -60,7 +60,7 @@ public:
 	
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
-	virtual const js::AABBox& getAABBoxWS() const = 0;
+	virtual const js::AABBox getAABBoxWS() const = 0;
 	virtual const std::string getName() const = 0;
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;

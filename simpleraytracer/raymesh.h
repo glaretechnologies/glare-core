@@ -191,7 +191,7 @@ public:
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual const js::AABBox& getAABBoxWS() const;
+	virtual const js::AABBox getAABBoxWS() const;
 	
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;

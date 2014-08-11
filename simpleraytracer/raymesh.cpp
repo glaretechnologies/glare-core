@@ -110,9 +110,20 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadConte
 }
 
 
-const js::AABBox& RayMesh::getAABBoxWS() const
+const js::AABBox RayMesh::getAABBoxWS() const
 {
-	return tritree->getAABBoxWS();
+	if(tritree)
+		return tritree->getAABBoxWS();
+	else
+	{
+		if(vertices.empty())
+			return js::AABBox(Vec4f(0,0,0,1), Vec4f(0,0,0,1));
+
+		js::AABBox box(vertices[0].pos.toVec4fPoint(), vertices[0].pos.toVec4fPoint());
+		for(size_t v=0; v<vertices.size(); ++v)
+			box.enlargeToHoldPoint(vertices[v].pos.toVec4fPoint());
+		return box;
+	}
 }
 
 

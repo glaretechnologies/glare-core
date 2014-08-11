@@ -171,7 +171,7 @@ void RaySphere::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord
 }
 
 
-const js::AABBox& RaySphere::getAABBoxWS() const { return aabbox; }
+const js::AABBox RaySphere::getAABBoxWS() const { return aabbox; }
 
 
 void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const

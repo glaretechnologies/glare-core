@@ -14,8 +14,10 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 #include "../utils/Clock.h"
 #include "../utils/MTwister.h"
 #include "../utils/ConPrint.h"
+#include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/TestUtils.h"
+#include "../maths/vec3.h"
 
 
 HashedGridTests::HashedGridTests()
@@ -30,8 +32,75 @@ HashedGridTests::~HashedGridTests()
 }
 
 
+static void perfTests()
+{
+	const int num_points = 1000000;
+
+	float grid_w = 400;
+	js::AABBox aabb(Vec4f(0,0,0,1), Vec4f(grid_w,grid_w,grid_w,1));
+	HashedGrid<Vec3f> grid(aabb, 1.0f, num_points * 2);
+
+	
+
+	MTwister rng(1);
+
+	
+
+	conPrint("num buckets: " + toString(grid.getNumBuckets()));
+	conPrint("num points:  " + toString(num_points));
+
+	Timer timer;
+
+	for(int i=0; i<num_points; ++i)
+	{
+		Vec3f p = Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * grid_w;
+		//js::AABBox query_box(p.toVec4fPoint() - Vec4f(1,1,1,0), p.toVec4fPoint() + Vec4f(1,1,1,0));
+		grid.insert(p, p.toVec4fPoint());
+	}
+
+	conPrint("Insertion took " + timer.elapsedString());
+	timer.reset();
+
+	int count = 0;
+	for(int i=0; i<num_points; ++i)
+	{
+		// Do a lookup for the query box around some random points
+		Vec3f p = Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * grid_w;
+		const Vec4f p_vec4f = p.toVec4fPoint();
+		js::AABBox query_box(p.toVec4fPoint() - Vec4f(1,1,1,0), p.toVec4fPoint() + Vec4f(1,1,1,0));
+
+		const Vec4i begin = grid.getGridMinBound(query_box.min_);
+		const Vec4i end   = grid.getGridMaxBound(query_box.max_);
+
+		for(int z = begin[2]; z <= end[2]; ++z)
+		for(int y = begin[1]; y <= end[1]; ++y)
+		for(int x = begin[0]; x <= end[0]; ++x)
+		{
+			const HashBucket<Vec3f>& bucket = grid.getBucketForIndices(x, y, z);
+
+			for(size_t n=0; n<bucket.data.size(); ++n)
+			{
+				if(bucket.data[n].getDist2(p) < 1.0f)
+					count++;
+			}
+		}
+	}
+
+	conPrint("Lookups took " + timer.elapsedString());
+	printVar(count);
+
+
+
+}
+
+
 void HashedGridTests::test()
 {
+	conPrint("HashedGridTests::test()");
+
+	perfTests();
+
+	/*
 	int num_grid_resolutions = 6;
 	int grid_resolutions[] = { 3, 4, 8, 16, 64, 1024 };
 
@@ -127,7 +196,7 @@ void HashedGridTests::test()
 		int num_random_insertions = grid_res * grid_res * grid_res * 4;//64;
 		//std::cout << "testing insertion at " << num_random_insertions << " random points." << std::endl;
 
-		MTwister rng((uint32)Clock::getSecsSince1970());
+		MTwister rng(1);
 
 		for(int i = 0; i < num_random_insertions; ++i)
 		{
@@ -171,7 +240,7 @@ void HashedGridTests::test()
 		}
 
 		//std::cout << std::endl;
-	}
+	}*/
 }
 
 

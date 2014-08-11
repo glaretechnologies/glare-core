@@ -48,6 +48,7 @@ public:
 
 	static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
+	inline float volume() const;
 	inline float getSurfaceArea() const;
 	bool invariant() const;
 	static void test();
@@ -246,6 +247,14 @@ bool AABBox::operator == (const AABBox& rhs) const
 inline bool epsEqual(const AABBox& a, const AABBox& b, float eps = (float)NICKMATHS_EPSILON)
 {
 	return epsEqual(a.min_, b.min_) && epsEqual(a.max_, b.max_);
+}
+
+
+float AABBox::volume() const
+{
+	const Vec4f diff(max_ - min_);
+
+	return diff[0] * diff[1] * diff[2];
 }
 
 
