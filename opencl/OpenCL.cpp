@@ -214,6 +214,7 @@ void OpenCL::libraryInit()
 	this->clEnqueueMarker = ::clEnqueueMarker;
 	this->clWaitForEvents = ::clWaitForEvents;
 
+	this->clFinish = ::clFinish;
 	this->clFlush = ::clFlush;
 	
 	if(this->clGetPlatformIDs == NULL)
