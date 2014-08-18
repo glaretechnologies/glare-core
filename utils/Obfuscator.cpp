@@ -573,15 +573,16 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 
 		// OpenCL path tracer kernels
 		{
-			const int num_files = 7;
+			const int num_files = 8;
 			std::string files[num_files] =
 			{
 				// Include files. Note that the order here matters, because we can't use #include statements and #pragma once etc
-				"ptkernel_spectral.h",
 				"OpenCLPathTracingKernel.h",
+				"ptkernel_spectral.h",
 				"ptkernel_bvh.h",
 				"ptkernel_maths.h",
 				"ptkernel_samplingutils.h",
+				"ptkernel_textures.h",
 				"ptkernel_materials.h",
 
 				// Main kernel file
