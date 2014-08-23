@@ -261,33 +261,13 @@ INDIGO_STRONG_INLINE bool isFinite(double x)
 
 INDIGO_STRONG_INLINE bool isInf(float x)
 {
-	//return isNegInf(x) || isPosInf(x);
 	return !isFinite(x) && !isNAN(x);
 }
 
 
 INDIGO_STRONG_INLINE bool isInf(double x)
 {
-	//return isNegInf(x) || isPosInf(x);
 	return !isFinite(x) && !isNAN(x);
-}
-
-
-INDIGO_STRONG_INLINE bool isNegInf(float x)
-{
-	return isInf(x) && x < 0.0f;
-}
-
-
-INDIGO_STRONG_INLINE bool isPosInf(float x)
-{
-	return isInf(x) && x > 0.0f;
-}
-
-
-INDIGO_STRONG_INLINE bool isPosInf(double x)
-{
-	return isInf(x) && x > 0.0f;
 }
 
 

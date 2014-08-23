@@ -146,6 +146,84 @@ void Maths::test()
 		}
 	}
 
+	// Test for doubles
+	{
+		testAssert(isFinite(0.));
+		testAssert(isFinite(1.0));
+		testAssert(isFinite(1.0e30));
+		testAssert(isFinite(1.0e-30));
+		testAssert(isFinite(std::numeric_limits<double>::max()));
+		testAssert(isFinite(-std::numeric_limits<double>::max()));
+		testAssert(isFinite(std::numeric_limits<double>::min()));
+		testAssert(isFinite(-std::numeric_limits<double>::min()));
+		testAssert(isFinite(std::numeric_limits<double>::denorm_min()));
+		testAssert(isFinite(-std::numeric_limits<double>::denorm_min()));
+		
+		testAssert(!isFinite(std::numeric_limits<double>::infinity()));
+		testAssert(!isFinite(-std::numeric_limits<double>::infinity()));
+	
+		testAssert(!isFinite(std::numeric_limits<double>::quiet_NaN()));
+		testAssert(!isFinite(-std::numeric_limits<double>::quiet_NaN()));
+	}
+
+	// Speedtest for isFinite()
+	{
+		const int N = 1000000;
+
+		conPrint("isFinite() [double]");
+		{
+			Timer timer;
+			float sum = 0.0;
+			for(int i=0; i<N; ++i)
+			{
+				const float x = isFinite((double)i) ? 1.0f : 0.0f;
+				sum += x;
+			}
+
+			const double elapsed = timer.elapsed();
+			conPrint("\telapsed / iter: " + toString(elapsed * 1.0e9 / N) + " ns");
+			conPrint("\tsum: " + toString(sum));
+		}
+	}
+
+
+	//======================================== isInf () ========================================
+	testAssert(!isInf(0.0f));
+	testAssert(!isInf(-std::numeric_limits<float>::quiet_NaN()));
+	testAssert(!isInf(std::numeric_limits<float>::quiet_NaN()));
+
+	testAssert(isInf(std::numeric_limits<float>::infinity()));
+	testAssert(isInf(-std::numeric_limits<float>::infinity()));
+
+
+	testAssert(!isInf(0.0));
+	testAssert(!isInf(-std::numeric_limits<double>::quiet_NaN()));
+	testAssert(!isInf(std::numeric_limits<double>::quiet_NaN()));
+
+	testAssert(isInf(std::numeric_limits<double>::infinity()));
+	testAssert(isInf(-std::numeric_limits<double>::infinity()));
+
+
+	//======================================== isNAN () ========================================
+	testAssert(!isNAN(0.0f));
+	testAssert(!isNAN(std::numeric_limits<float>::infinity()));
+	testAssert(!isNAN(-std::numeric_limits<float>::infinity()));
+
+	testAssert(isNAN(-std::numeric_limits<float>::quiet_NaN()));
+	testAssert(isNAN(std::numeric_limits<float>::quiet_NaN()));
+
+	
+
+	testAssert(!isNAN(0.0));
+	testAssert(!isNAN(std::numeric_limits<double>::infinity()));
+	testAssert(!isNAN(-std::numeric_limits<double>::infinity()));
+
+	testAssert(isNAN(-std::numeric_limits<double>::quiet_NaN()));
+	testAssert(isNAN(std::numeric_limits<double>::quiet_NaN()));
+
+
+
+
 	{
 	Quatd identity = Quatd::identity();
 	Quatd q = Quatd::fromAxisAndAngle(Vec3d(0,0,1), 20.0);
