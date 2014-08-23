@@ -145,7 +145,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		if(this->file_data == MAP_FAILED)
 		{
 			// TODO: Close file handle.
-			throw Indigo::Exception("File mmap failed.");
+			throw Indigo::Exception("File mmap failed for path '" + path +"'");
 		}
 	}
 }
