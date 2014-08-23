@@ -33,11 +33,7 @@ by Joe Warren and Scott Schaefer
 #include "../utils/Task.h"
 #include "../dll/include/IndigoMap.h"
 #include "../utils/TaskManager.h"
-#if defined(_WIN32)
 #include <unordered_map>
-#else
-#include <tr1/unordered_map>
-#endif
 #include <sparsehash/dense_hash_map>
 
 
@@ -410,7 +406,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	{
 		//std::map<DUVertIndexPair, uint32_t> num_adjacent_polys; // Map from edge -> num adjacent tris
 		//DUVertIndexPairHash hasher;
-		std::tr1::unordered_map<DUVertIndexPair, uint32, DUVertIndexPairHash> num_adjacent_polys;
+		std::unordered_map<DUVertIndexPair, uint32, DUVertIndexPairHash> num_adjacent_polys;
 
 		const uint32 num_temp_tris  = (uint32)temp_tris.size(); // Store number of original triangles
 		const uint32 num_temp_quads = (uint32)temp_quads.size(); // Store number of original quads

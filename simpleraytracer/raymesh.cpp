@@ -40,11 +40,7 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
-#if defined(_WIN32) || defined(_WIN64)
 #include <unordered_map>
-#else
-#include <tr1/unordered_map>
-#endif
 
 
 // #define INDIGO_OPENSUBDIV_SUPPORT 1
@@ -1750,7 +1746,7 @@ public:
 
 
 //typedef std::map<RayMeshVertex, unsigned int> VertToIndexMap;
-typedef std::tr1::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
+typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
 
 
 void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose)
@@ -1843,7 +1839,7 @@ public:
 };
 
 
-typedef std::tr1::unordered_map<Vec2f, unsigned int, UVHash> UVToIndexMap;
+typedef std::unordered_map<Vec2f, unsigned int, UVHash> UVToIndexMap;
 
 
 void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
