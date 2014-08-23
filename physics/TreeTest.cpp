@@ -752,9 +752,9 @@ void TreeTest::doTests(const std::string& appdata_path)
 	{
 	RayMesh raymesh("raymesh", false);
 
-	const int NUM_TRIS = 1000;
+	const unsigned int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
-	for(int i=0; i<NUM_TRIS; ++i)
+	for(unsigned int i=0; i<NUM_TRIS; ++i)
 	{
 		const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
 
@@ -777,9 +777,9 @@ void TreeTest::doTests(const std::string& appdata_path)
 	{
 	RayMesh raymesh("raymesh", false);
 
-	const int NUM_TRIS = 1000;
+	const unsigned int NUM_TRIS = 1000;
 	const std::vector<Vec2f> texcoord_sets;
-	for(int i=0; i<NUM_TRIS; ++i)
+	for(unsigned int i=0; i<NUM_TRIS; ++i)
 	{
 		const unsigned int axis = rng.genrand_int32() % 3;
 		const float axis_val = rng.unitRandom();
@@ -818,8 +818,8 @@ void TreeTest::doVaryingNumtrisBuildTests()
 	MTwister rng(1);
 	Indigo::TaskManager task_manager;
 
-	int num_tris = 1;
-	for(int i=0; i<21; ++i)
+	unsigned int num_tris = 1;
+	for(unsigned int i=0; i<21; ++i)
 	{
 		//------------------------------------------------------------------------
 		//Build up a random set of triangles and inserting into a tree
@@ -827,7 +827,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 		RayMesh raymesh("raymesh", false);
 
 		const std::vector<Vec2f> texcoord_sets;
-		for(int t=0; t<num_tris; ++t)
+		for(unsigned int t=0; t<num_tris; ++t)
 		{
 			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
 

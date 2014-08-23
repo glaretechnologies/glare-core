@@ -91,7 +91,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 	// Initialise the xor-table
 	for(int c = 0; c < 16; ++c)
 	{
-		const uint32 i[4] = { -(c & 1), -((c >> 1) & 1), -((c >> 2) & 1), -(c >> 3) };
+		const uint32 i[4] = { (uint32)-(c & 1), (uint32)-((c >> 1) & 1), (uint32)-((c >> 2) & 1), (uint32)-(c >> 3) };
 
 		xor_LUT[c] = _mm_set_ps(floatCast(i[3]), floatCast(i[2]), floatCast(i[1]), floatCast(i[0]));
 	}
