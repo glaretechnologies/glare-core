@@ -254,7 +254,7 @@ INDIGO_STRONG_INLINE bool isFinite(double x)
 #if defined(_WIN32)
 	return _finite(x) != 0;
 #else
-	return finite(x) != 0;
+	return std::isfinite(x) != 0;
 #endif
 }
 
