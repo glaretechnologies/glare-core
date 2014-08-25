@@ -13,7 +13,7 @@ Code By Nicholas Chapman.
 
 CycleTimer::CycleTimer()
 {
-	assert(sizeof(CYCLETIME_TYPE) == 8);
+	static_assert(sizeof(CYCLETIME_TYPE) == 8, "sizeof(CYCLETIME_TYPE) == 8");
 	
 	rdtsc_time = std::numeric_limits<CYCLETIME_TYPE>::max();
 

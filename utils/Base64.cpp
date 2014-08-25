@@ -219,8 +219,8 @@ static void testDecodingFailure(const std::string& encoded)
 
 void test()
 {
-	testAssert(sizeof(base64_encoding_table) / sizeof(char) == 64);
-	testAssert(sizeof(base64_decoding_table) / sizeof(unsigned char) == 256);
+	static_assert(sizeof(base64_encoding_table) / sizeof(char) == 64, "sizeof(base64_encoding_table) / sizeof(char) == 64");
+	static_assert(sizeof(base64_decoding_table) / sizeof(unsigned char) == 256, "sizeof(base64_decoding_table) / sizeof(unsigned char) == 256");
 
 	// Make decoding table - effectively a map from base64 char to original sextet
 	/*{

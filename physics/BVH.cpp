@@ -64,7 +64,7 @@ BVH::BVH(const RayMesh* const raymesh_)
 	num_cheaper_nosplit_leaves = 0;
 	num_could_not_split_leaves = 0;
 
-	assert(sizeof(BVHNode) == 64);
+	static_assert(sizeof(BVHNode) == 64, "sizeof(BVHNode) == 64");
 }
 
 

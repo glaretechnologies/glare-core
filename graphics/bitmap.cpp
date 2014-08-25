@@ -26,7 +26,7 @@ Bitmap::Bitmap(size_t width_, size_t height_, size_t bytespp_, const uint8* srcd
 	height(height_),
 	bytespp(bytespp_)
 {
-	assert(sizeof(unsigned char) == 1);
+	static_assert(sizeof(unsigned char) == 1, "sizeof(unsigned char) must be 1");
 
 	const size_t datasize = width * height * bytespp;
 

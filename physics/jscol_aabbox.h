@@ -65,7 +65,7 @@ public:
 
 AABBox::AABBox()
 {
-	assert(sizeof(AABBox) == 32);
+	static_assert(sizeof(AABBox) == 32, "sizeof(AABBox) == 32");
 }
 
 
@@ -73,7 +73,6 @@ AABBox::AABBox(const Vec4f& _min, const Vec4f& _max)
 :	min_(_min), 
 	max_(_max)
 {
-	assert(sizeof(AABBox) == 32);
 }
 
 

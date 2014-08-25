@@ -161,10 +161,8 @@ unsigned int hexStringToUInt(const std::string& s)
 }
 
 
-unsigned long long hexStringTo64UInt(const std::string& s)
+uint64 hexStringTo64UInt(const std::string& s)
 {
-	assert(sizeof(unsigned long long) == 8);
-
 	if(s.size() < 3)
 		return 0;//too short, parse error
 	else if(s.size() > 18)
@@ -243,10 +241,8 @@ unsigned long long hexStringTo64UInt(const std::string& s)
 //for 64 bit integers
 //NOTE: this function is unchanged from the 32 bit version... so turn into template?
 //or could cast 32 bit ints into 64 bit ints and always use this version.
-const std::string toHexString(unsigned long long i)
+const std::string toHexString(uint64 i)
 {
-	assert(sizeof(unsigned long long) == 8);
-
 	//------------------------------------------------------------------------
 	//build the hex string in reverse order
 	//------------------------------------------------------------------------

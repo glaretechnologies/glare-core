@@ -35,11 +35,11 @@ uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
 unsigned int hexCharToUInt(char c);
 unsigned int hexStringToUInt(const std::string& s);
-unsigned long long hexStringTo64UInt(const std::string& s);
+uint64 hexStringTo64UInt(const std::string& s);
 
 //====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
-const std::string toHexString(unsigned long long i);//for 64 bit integers
+const std::string toHexString(uint64 i);//for 64 bit integers
 
 const std::string int32ToString(int32 i);
 const std::string int64ToString(int64 i);

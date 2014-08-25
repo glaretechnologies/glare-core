@@ -78,7 +78,7 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 
 
 	BITMAP_HEADER header;
-	assert(sizeof(BITMAP_HEADER) == 14);
+	static_assert(sizeof(BITMAP_HEADER) == 14, "sizeof(BITMAP_HEADER) == 14");
 
 	memcpy(&header, &encoded_img[srcindex], sizeof(BITMAP_HEADER));
 	srcindex += sizeof(BITMAP_HEADER);
@@ -87,7 +87,7 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 	//-----------------------------------------------------------------
 	//read bitmap info-header
 	//-----------------------------------------------------------------
-	assert(sizeof(BITMAP_INFOHEADER) == 40);
+	static_assert(sizeof(BITMAP_INFOHEADER) == 40, "sizeof(BITMAP_INFOHEADER) == 14");
 	BITMAP_INFOHEADER infoheader;
 
 	if(encoded_img.size() < sizeof(BITMAP_HEADER) + sizeof(BITMAP_INFOHEADER))

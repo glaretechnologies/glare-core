@@ -17,7 +17,7 @@ namespace js
 
 BadouelTri::BadouelTri()
 {
-	assert(sizeof(BadouelTri) == 48);
+	static_assert(sizeof(BadouelTri) == 48, "sizeof(BadouelTri) == 48");
 
 	project_axis_1 = 0;
 	project_axis_2 = 1;

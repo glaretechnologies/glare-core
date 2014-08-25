@@ -29,7 +29,7 @@ Packet::Packet()
 {
 	readindex = 0;
 
-	assert(sizeof(char) == 1);
+	static_assert(sizeof(char) == 1, "sizeof(char) == 1");
 }
 
 

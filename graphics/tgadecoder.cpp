@@ -66,7 +66,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 {
 	//Timer timer;
 
-	assert(sizeof(TGA_HEADER) == 18);
+	static_assert(sizeof(TGA_HEADER) == 18, "sizeof(TGA_HEADER) == 18");
 
 	try
 	{
