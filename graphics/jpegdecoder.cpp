@@ -1,16 +1,15 @@
 /*=====================================================================
 jpegdecoder.cpp
 ---------------
+Copyright Glare Technologies Limited 2014 -
 File created by ClassTemplate on Sat Apr 27 16:22:59 2002
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "jpegdecoder.h"
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+#include "ImageMap.h"
+#include "image.h"
+#include "bitmap.h"
 #include "imformatdecoder.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
@@ -19,15 +18,20 @@ Code By Nicholas Chapman.
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Timer.h"
-#include "../graphics/ImageMap.h"
 #include <jpeglib.h>
 #include <lcms2.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
 
 /*
 //#if JPEG_LIB_VERSION < 70
 //#error Please compile with Libjpeg 7.0
 //#endif
 */
+
 
 JPEGDecoder::JPEGDecoder()
 {
@@ -249,6 +253,96 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 }
 
 
+// Saves a JPEG with 95% image quality, and in the sRGB colour space. (embeds an ICC sRGB colour profile)
+void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path)
+{
+	try
+	{
+		// Open file to write to.
+		FileHandle file_handle(path, "wb");
+
+		struct jpeg_compress_struct cinfo;
+	
+		// Fill in standard error-handling methods
+		struct jpeg_error_mgr error_manager;
+		error_manager.error_exit = my_error_exit; // Override error_exit;
+		cinfo.err = jpeg_std_error(&error_manager);
+
+		jpeg_create_compress(&cinfo); // Create compress struct.  Should come after we set the error handler above.
+
+		jpeg_stdio_dest(&cinfo, file_handle.getFile());
+		
+		cinfo.image_width = (JDIMENSION)image->getWidth(); // image width and height, in pixels
+		cinfo.image_height = (JDIMENSION)image->getHeight();
+		cinfo.input_components = image->getN();	// # of color components per pixel
+		cinfo.in_color_space = image->getN() >= 3 ? JCS_RGB : JCS_GRAYSCALE; // colorspace of input image
+
+		jpeg_set_defaults(&cinfo); // Set default parameters for compression.
+		jpeg_set_quality(&cinfo, 95, TRUE);
+
+		// Build array of scanline pointers
+		const unsigned int H = (unsigned int)image->getHeight();
+		std::vector<uint8_t*> scanline_ptrs(H);
+		for(unsigned int i=0; i<H; ++i)
+			scanline_ptrs[i] = (uint8_t*)image->getPixel(0, i);
+
+		jpeg_start_compress(&cinfo, TRUE);
+
+		// Save sRGB Profile
+		// "You can write special markers immediately following the datastream header by
+		// calling jpeg_write_marker() after jpeg_start_compress() and before the first
+		// call to jpeg_write_scanlines()" - libjpeg.txt
+		{
+			cmsHPROFILE profile = cmsCreate_sRGBProfile();
+			if(profile == NULL)
+				throw ImFormatExcep("Failed to create colour profile.");
+
+			// Get num bytes needed to store the encoded profile.
+			cmsUInt32Number profile_size = 0;
+			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			// ICC_HEADER_SIZE: The ICC signature is 'ICC_PROFILE' (with null terminator) + 2 bytes.
+			// See http://www.color.org/specification/ICC1v43_2010-12.pdf  (section B.4 Embedding ICC profiles in JPEG files)
+			// and http://repositorium.googlecode.com/svn-history/r164/trunk/FreeImage/Source/PluginJPEG.cpp
+			
+			const size_t ICC_HEADER_SIZE = 14;
+			std::vector<uint8> buf(ICC_HEADER_SIZE + profile_size);
+
+			const char* header_str = "ICC_PROFILE";
+			const size_t HEADER_STR_LEN_WITH_NULL = 12;
+			std::memcpy(&buf[0], header_str, HEADER_STR_LEN_WITH_NULL);
+
+			// Just assume the profile size is <= 65519 (max size).
+			assert(profile_size <= 65519);
+			buf[HEADER_STR_LEN_WITH_NULL + 0] = 1; // Sequence number (starts at 1).
+			buf[HEADER_STR_LEN_WITH_NULL + 1] = 1; // Number of markers (1).
+
+			// Now write the actual profile.
+			if(cmsSaveProfileToMem(profile, &buf[ICC_HEADER_SIZE], &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			cmsCloseProfile(profile); 
+
+			const int ICC_MARKER = JPEG_APP0 + 2; // ICC profile marker
+			jpeg_write_marker(&cinfo, ICC_MARKER, &buf[0], (unsigned int)buf.size());
+		}
+
+		while (cinfo.next_scanline < cinfo.image_height) {
+			jpeg_write_scanlines(&cinfo, &scanline_ptrs[cinfo.next_scanline], (JDIMENSION)H - cinfo.next_scanline);
+		}
+
+		jpeg_finish_compress(&cinfo);
+
+		jpeg_destroy_compress(&cinfo);
+	}
+	catch(Indigo::Exception& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
+}
+
+
 #if BUILD_TESTS
 
 
@@ -257,10 +351,30 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 
 void JPEGDecoder::test(const std::string& indigo_base_dir)
 {
+	conPrint("JPEGDecoder::test()");
+
+	const std::string tempdir = "jpeg_temp_testing_dir";
+	if(FileUtils::fileExists(tempdir))
+		FileUtils::deleteDirectoryRecursive(tempdir);
+	FileUtils::createDirIfDoesNotExist(tempdir);
+
+	const std::string save_path = tempdir + "/saved.jpg";
+
 	// Try loading a JPEG using the RGB colour space
 	try
 	{
 		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+
+		// Try saving it.
+		
+		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+		// Load it again to check it is valid.
+		im = JPEGDecoder::decode(indigo_base_dir, save_path);
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 3);
@@ -278,6 +392,16 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 3);
+
+		// Try saving it.
+		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+		// Load it again to check it is valid.
+		im = JPEGDecoder::decode(indigo_base_dir, save_path);
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -291,15 +415,40 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 1);
+
+		// Try saving it.
+		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+		// Load it again to check it is valid.
+		im = JPEGDecoder::decode(indigo_base_dir, save_path);
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 1);
 	}
 	catch(ImFormatExcep& e)
 	{
 		failTest(e.what());
 	}
 
-	
+	// Try loading an invalid file
+	try
+	{
+		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try loading an absent file
+	try
+	{
+		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/not a file.bmp");
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
 }
 
 
 #endif // BUILD_TESTS
-

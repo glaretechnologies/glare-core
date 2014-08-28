@@ -145,6 +145,9 @@ private:
 typedef ImageMap<float, FloatComponentValueTraits> ImageMapFloat;
 typedef Reference<ImageMapFloat> ImageMapFloatRef;
 
+typedef ImageMap<uint8, UInt8ComponentValueTraits> ImageMapUInt8;
+typedef Reference<ImageMapUInt8> ImageMapUInt8Ref;
+
 
 template <class V, class VTraits>
 void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback);
