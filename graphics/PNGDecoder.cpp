@@ -7,7 +7,6 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #include "PNGDecoder.h"
 
 
-#include <png.h>
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "ImageMap.h"
@@ -16,6 +15,9 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
+#include "../utils/Timer.h"
+#include <png.h>
+#include <lcms2.h>
 
 
 #ifndef PNG_ALLOW_BENIGN_ERRORS
@@ -324,6 +326,30 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
 		   );
 
+		// Write an ICC sRGB colour profile.
+		{
+			cmsHPROFILE profile = cmsCreate_sRGBProfile();
+			if(profile == NULL)
+				throw ImFormatExcep("Failed to create colour profile.");
+
+			// Get num bytes needed to store the encoded profile.
+			cmsUInt32Number profile_size = 0;
+			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			std::vector<uint8> buf(profile_size);
+
+			// Now write the actual profile.
+			if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			cmsCloseProfile(profile); 
+
+			png_set_iCCP(png, info, "Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+		}
+		
+		
+
 		//------------------------------------------------------------------------
 		// Write metadata pairs if present
 		//------------------------------------------------------------------------
@@ -392,6 +418,16 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 void PNGDecoder::test()
 {
 	conPrint("PNGDecoder::test()");
+
+	/*{
+		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+
+		Bitmap bitmap;
+		bitmap.setFromImageMap(*map.downcast<ImageMapUInt8>());
+
+		PNGDecoder::write(bitmap, "saved.png");
+	}*/
+
 
 	try
 	{
