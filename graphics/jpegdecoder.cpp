@@ -34,13 +34,11 @@ File created by ClassTemplate on Sat Apr 27 16:22:59 2002
 
 
 JPEGDecoder::JPEGDecoder()
-{
-}
+{}
 
 
 JPEGDecoder::~JPEGDecoder()
-{
-}
+{}
 
 
 static void my_error_exit(j_common_ptr cinfo)
@@ -55,34 +53,51 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
+static void my_emit_message(j_common_ptr cinfo, int msg_level)
+{}
+
+static void my_output_message(j_common_ptr cinfo)
+{}
+
+
 //static double total_jpeg_decoding_time = 0;
+
+
+// RAII wrapper for jpeg_decompress_struct, so jpeg_destroy_decompress() will always be called, even if an exception is thrown.
+class JpegDecompress
+{
+public:
+	JpegDecompress() {}
+	~JpegDecompress() { jpeg_destroy_decompress(&cinfo); }
+
+	struct jpeg_decompress_struct cinfo;
+};
 
 
 Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path)
 {
 	//conPrint("JPEGDecoder::decode(), path: " + path);
 	//Timer timer;
+
 	try
 	{
+		JpegDecompress decompress;
+		jpeg_decompress_struct& cinfo = decompress.cinfo;
+
 		//------------------------------------------------------------------------
 		//set error handling
 		//------------------------------------------------------------------------
 		struct jpeg_error_mgr error_manager;
-
-		// Fill in standard error-handling methods
-		jpeg_std_error(&error_manager);
-
-		// Override error_exit;
+		jpeg_std_error(&error_manager); // Initialise.  NOTE: Assuming this won't throw an exception.
+		error_manager.emit_message = my_emit_message;
 		error_manager.error_exit = my_error_exit;
+		error_manager.output_message = my_output_message;
+		
+		cinfo.err = &error_manager; // Set error manager
 
 		//------------------------------------------------------------------------
 		//Init main struct
 		//------------------------------------------------------------------------
-		struct jpeg_decompress_struct cinfo;
-
-		// Set error manager
-		cinfo.err = &error_manager;
-
 		jpeg_create_decompress(&cinfo);
 
 		//------------------------------------------------------------------------
@@ -92,12 +107,6 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 
 		// Specify file data source
 		jpeg_stdio_src(&cinfo, infile.getFile());
-
-
-		// Make libjpeg save the 'special markers'
-		//jpeg_save_markers(&cinfo, JPEG_COM, 0xFFFF);
-		//for(int i=0; i<16; ++i)
-		//	jpeg_save_markers(&cinfo, JPEG_APP0 + i, 0xFFFF);
 
 
 		//------------------------------------------------------------------------
@@ -238,9 +247,6 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 
 		jpeg_finish_decompress(&cinfo);
 		
-		// Release JPEG decompression object
-		jpeg_destroy_decompress(&cinfo);
-
 		//conPrint("   Finished, elapsed: " + timer.elapsedString() + ", total time: " + doubleToStringNDecimalPlaces(total_jpeg_decoding_time, 3) + "s");
 		//total_jpeg_decoding_time += timer.elapsed();
 
@@ -253,6 +259,17 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 }
 
 
+// RAII wrapper for jpeg_compress_struct, so jpeg_destroy_compress() will always be called, even if an exception is thrown.
+class JpegCompress
+{
+public:
+	JpegCompress() {}
+	~JpegCompress() { jpeg_destroy_compress(&cinfo); }
+
+	struct jpeg_compress_struct cinfo;
+};
+
+
 // Saves a JPEG with 95% image quality, and in the sRGB colour space. (embeds an ICC sRGB colour profile)
 void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path)
 {
@@ -261,12 +278,18 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		// Open file to write to.
 		FileHandle file_handle(path, "wb");
 
-		struct jpeg_compress_struct cinfo;
+		JpegCompress compress;
+		jpeg_compress_struct& cinfo = compress.cinfo;
 	
-		// Fill in standard error-handling methods
+		// Set up error handler
 		struct jpeg_error_mgr error_manager;
-		error_manager.error_exit = my_error_exit; // Override error_exit;
-		cinfo.err = jpeg_std_error(&error_manager);
+		jpeg_std_error(&error_manager); // Initialise.  NOTE: Assuming this won't throw an exception.
+		error_manager.emit_message = my_emit_message;
+		error_manager.error_exit = my_error_exit;
+		error_manager.output_message = my_output_message;
+		
+		cinfo.err = &error_manager; // Set error manager
+
 
 		jpeg_create_compress(&cinfo); // Create compress struct.  Should come after we set the error handler above.
 
@@ -333,8 +356,6 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		}
 
 		jpeg_finish_compress(&cinfo);
-
-		jpeg_destroy_compress(&cinfo);
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -448,6 +469,36 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 	}
 	catch(ImFormatExcep&)
 	{}
+
+	// Try saving an image that can't be saved as a valid JPEG. (5 components)
+	try
+	{
+		Reference<ImageMapUInt8> im = new ImageMapUInt8(10, 10, 5); // 5 components
+
+		// Try saving it.
+		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+		failTest("Expected failure.");
+	}
+	catch(ImFormatExcep&)
+	{
+	}
+
+	// Try saving an image that can't be saved as a valid JPEG. (zero width and height)
+	try
+	{
+		Reference<ImageMapUInt8> im = new ImageMapUInt8(0, 0, 3); // 5 components
+
+		// Try saving it.
+		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+		failTest("Expected failure.");
+	}
+	catch(ImFormatExcep&)
+	{
+	}
 }
 
 
