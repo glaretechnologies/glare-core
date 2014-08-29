@@ -374,130 +374,139 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 {
 	conPrint("JPEGDecoder::test()");
 
-	const std::string tempdir = "jpeg_temp_testing_dir";
-	if(FileUtils::fileExists(tempdir))
-		FileUtils::deleteDirectoryRecursive(tempdir);
-	FileUtils::createDirIfDoesNotExist(tempdir);
-
-	const std::string save_path = tempdir + "/saved.jpg";
-
-	// Try loading a JPEG using the RGB colour space
 	try
 	{
-		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		const std::string tempdir = "jpeg_temp_testing_dir";
+		if(FileUtils::fileExists(tempdir))
+			FileUtils::deleteDirectoryRecursive(tempdir);
+		FileUtils::createDirIfDoesNotExist(tempdir);
+	
 
-		// Try saving it.
+		const std::string save_path = tempdir + "/saved.jpg";
+
+		// Try loading a JPEG using the RGB colour space
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 3);
+
+			// Try saving it.
 		
-		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
 
-		// Load it again to check it is valid.
-		im = JPEGDecoder::decode(indigo_base_dir, save_path);
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+			// Load it again to check it is valid.
+			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 3);
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
+		}
+
+
+		// Try loading a JPEG using the CMYK colour space
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 3);
+
+			// Try saving it.
+			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+			// Load it again to check it is valid.
+			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 3);
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
+		}
+
+		// Try loading a greyscale JPEG
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 1);
+
+			// Try saving it.
+			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+			// Load it again to check it is valid.
+			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			testAssert(im->getMapWidth() == 1080);
+			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getBytesPerPixel() == 1);
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
+		}
+
+		// Try loading an invalid file
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
+			failTest("Shouldn't get here.");
+		}
+		catch(ImFormatExcep&)
+		{}
+
+		// Try loading an absent file
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/not a file.bmp");
+			failTest("Shouldn't get here.");
+		}
+		catch(ImFormatExcep&)
+		{}
+
+		// Try saving an image that can't be saved as a valid JPEG. (5 components)
+		try
+		{
+			Reference<ImageMapUInt8> im = new ImageMapUInt8(10, 10, 5); // 5 components
+
+			// Try saving it.
+			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+			failTest("Expected failure.");
+		}
+		catch(ImFormatExcep&)
+		{
+		}
+
+		// Try saving an image that can't be saved as a valid JPEG. (zero width and height)
+		try
+		{
+			Reference<ImageMapUInt8> im = new ImageMapUInt8(0, 0, 3); // 5 components
+
+			// Try saving it.
+			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+
+			failTest("Expected failure.");
+		}
+		catch(ImFormatExcep&)
+		{
+		}
+
 	}
-	catch(ImFormatExcep& e)
+	catch(FileUtils::FileUtilsExcep& e)
 	{
 		failTest(e.what());
-	}
-
-
-	// Try loading a JPEG using the CMYK colour space
-	try
-	{
-		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
-
-		// Try saving it.
-		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
-
-		// Load it again to check it is valid.
-		im = JPEGDecoder::decode(indigo_base_dir, save_path);
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
-	}
-	catch(ImFormatExcep& e)
-	{
-		failTest(e.what());
-	}
-
-	// Try loading a greyscale JPEG
-	try
-	{
-		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 1);
-
-		// Try saving it.
-		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
-
-		// Load it again to check it is valid.
-		im = JPEGDecoder::decode(indigo_base_dir, save_path);
-		testAssert(im->getMapWidth() == 1080);
-		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 1);
-	}
-	catch(ImFormatExcep& e)
-	{
-		failTest(e.what());
-	}
-
-	// Try loading an invalid file
-	try
-	{
-		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
-		failTest("Shouldn't get here.");
-	}
-	catch(ImFormatExcep&)
-	{}
-
-	// Try loading an absent file
-	try
-	{
-		Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/not a file.bmp");
-		failTest("Shouldn't get here.");
-	}
-	catch(ImFormatExcep&)
-	{}
-
-	// Try saving an image that can't be saved as a valid JPEG. (5 components)
-	try
-	{
-		Reference<ImageMapUInt8> im = new ImageMapUInt8(10, 10, 5); // 5 components
-
-		// Try saving it.
-		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
-
-		failTest("Expected failure.");
-	}
-	catch(ImFormatExcep&)
-	{
-	}
-
-	// Try saving an image that can't be saved as a valid JPEG. (zero width and height)
-	try
-	{
-		Reference<ImageMapUInt8> im = new ImageMapUInt8(0, 0, 3); // 5 components
-
-		// Try saving it.
-		testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-		JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
-
-		failTest("Expected failure.");
-	}
-	catch(ImFormatExcep&)
-	{
 	}
 }
 
