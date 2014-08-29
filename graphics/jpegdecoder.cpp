@@ -63,12 +63,12 @@ static void my_output_message(j_common_ptr cinfo)
 //static double total_jpeg_decoding_time = 0;
 
 
-// RAII wrapper for jpeg_decompress_struct, so jpeg_destroy_decompress() will always be called, even if an exception is thrown.
+// RAII wrapper for jpeg_decompress_struct, so jpeg_destroy() will always be called, even if an exception is thrown.
 class JpegDecompress
 {
 public:
 	JpegDecompress() {}
-	~JpegDecompress() { jpeg_destroy_decompress(&cinfo); }
+	~JpegDecompress() { jpeg_destroy((j_common_ptr)&cinfo); }
 
 	struct jpeg_decompress_struct cinfo;
 };
@@ -259,12 +259,12 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 }
 
 
-// RAII wrapper for jpeg_compress_struct, so jpeg_destroy_compress() will always be called, even if an exception is thrown.
+// RAII wrapper for jpeg_compress_struct, so jpeg_destroy() will always be called, even if an exception is thrown.
 class JpegCompress
 {
 public:
 	JpegCompress() {}
-	~JpegCompress() { jpeg_destroy_compress(&cinfo); }
+	~JpegCompress() { jpeg_destroy((j_common_ptr)&cinfo); }
 
 	struct jpeg_compress_struct cinfo;
 };
