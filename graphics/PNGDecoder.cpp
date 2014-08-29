@@ -327,6 +327,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		   );
 
 		// Write an ICC sRGB colour profile.
+		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
 		{
 			cmsHPROFILE profile = cmsCreate_sRGBProfile();
 			if(profile == NULL)

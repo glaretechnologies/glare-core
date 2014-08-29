@@ -385,6 +385,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		const std::string save_path = tempdir + "/saved.jpg";
 
 		// Try loading a JPEG using the RGB colour space
+		conPrint("test 1");
 		try
 		{
 			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
@@ -410,6 +411,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 
 		// Try loading a JPEG using the CMYK colour space
+		conPrint("test 2");
 		try
 		{
 			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
@@ -433,6 +435,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		}
 
 		// Try loading a greyscale JPEG
+		conPrint("test 3");
 		try
 		{
 			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
@@ -456,6 +459,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		}
 
 		// Try loading an invalid file
+		conPrint("test 4");
 		try
 		{
 			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
@@ -465,6 +469,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		{}
 
 		// Try loading an absent file
+		conPrint("test 5");
 		try
 		{
 			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/not a file.bmp");
@@ -474,6 +479,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		{}
 
 		// Try saving an image that can't be saved as a valid JPEG. (5 components)
+		conPrint("test 6");
 		try
 		{
 			Reference<ImageMapUInt8> im = new ImageMapUInt8(10, 10, 5); // 5 components
@@ -489,6 +495,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		}
 
 		// Try saving an image that can't be saved as a valid JPEG. (zero width and height)
+		conPrint("test 7");
 		try
 		{
 			Reference<ImageMapUInt8> im = new ImageMapUInt8(0, 0, 3); // 5 components
