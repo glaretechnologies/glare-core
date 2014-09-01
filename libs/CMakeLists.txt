@@ -132,7 +132,7 @@ add_definitions(-DPNG_ALLOW_BENIGN_ERRORS -DTIXML_USE_STL)
 
 
 if(APPLE)
-	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Xarch_i386 -D__i386__ -Xarch_x86_64 -D__x86_64__")
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Xarch_x86_64 -D__x86_64__")
 elseif(WIN32)
 
 else()
