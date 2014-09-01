@@ -112,6 +112,63 @@ static int glare_inet_pton(int family, const char *src, void *dst)
 }
 
 
+// Since XP doesn't support inet_ntop, we'll provide our own implementation here
+// inet_ntop - convert IPv4 and IPv6 addresses from binary to text form
+static const char* glare_inet_ntop(int family, const void* src, char* dst, socklen_t size)
+{
+#if defined(_WIN32)
+	struct sockaddr_storage addr;
+	memset(&addr, 0, sizeof(struct sockaddr_storage));
+	
+	addr.ss_family = (ADDRESS_FAMILY)family;
+	if(family == AF_INET)
+	{
+		std::memcpy(&((struct sockaddr_in *)&addr)->sin_addr , src, sizeof(struct in_addr));
+    }
+	else if(family == AF_INET6)
+	{
+		std::memcpy(&((struct sockaddr_in6*)&addr)->sin6_addr, src, sizeof(struct in6_addr));
+    }
+
+	const int addr_len = sizeof(addr);
+
+
+	wchar_t buf[INET6_ADDRSTRLEN];
+	DWORD buflen = INET6_ADDRSTRLEN;
+
+	if(WSAAddressToString(
+		(struct sockaddr*)&addr,
+		addr_len,
+		NULL, // lpProtocolInfo
+		buf, // lpszAddressString
+		&buflen // lpdwAddressStringLength
+	) != 0)
+		return NULL;
+
+	// Convert to UTF-8
+	const std::string s = StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(buf));
+
+	// Copy to output buffer (dst).  Copy null terminator as well.
+	if(s.length() + 1 <= size)
+		std::memcpy(dst, s.c_str(), s.length() + 1);
+	else
+		return NULL;
+
+    return dst;
+
+#else // #else if !defined(_WIN32):
+	
+	return inet_ntop(
+		family,
+		src,
+		dst,
+		size
+	);
+
+#endif
+}
+
+
 IPAddress::IPAddress(const std::string& addr_string)
 {
 	if(addr_string.find(':') == std::string::npos)
@@ -153,9 +210,12 @@ const std::string IPAddress::toString() const
 	
 	const int family = version == Version_4 ? AF_INET : AF_INET6;
 	
-	inet_ntop(family, (void*)address, ipstr, sizeof(ipstr));
+	const char* result = glare_inet_ntop(family, (void*)address, ipstr, sizeof(ipstr));
 
-	return std::string(ipstr);
+	if(result != NULL)
+		return std::string(result);
+	else
+		return "[Error]";
 }
 
 
@@ -295,6 +355,12 @@ void IPAddress::test()
 		IPAddress a("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
 		testAssert(a.getVersion() == IPAddress::Version_6);
 		testAssert(a.toString() == "2001:db8:85a3::8a2e:370:7334" || a.toString() == "2001:db8:85a3:0:0:8a2e:370:7334" || a.toString() == "2001:0db8:85a3:0000:0000:8a2e:0370:7334" );
+		}
+
+		{
+		IPAddress a("2001:1db8:85a3:1234:5678:8a2e:1370:7334");
+		testAssert(a.getVersion() == IPAddress::Version_6);
+		testAssert(a.toString() == "2001:1db8:85a3:1234:5678:8a2e:1370:7334");
 		}
 	}
 	catch(MalformedIPStringExcep& e)
