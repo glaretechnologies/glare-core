@@ -19,9 +19,11 @@ StaticSobol
 Fast, static evaluation of Sobol sequences.
 Based on Carsten Waechter's PhD thesis: http://vts.uni-ulm.de/query/longview.meta.asp?document_id=6265
 =====================================================================*/
-class StaticSobol
+SSE_CLASS_ALIGN StaticSobol
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	StaticSobol(const std::string& indigo_base_dir_path);
 	~StaticSobol();
 
@@ -69,11 +71,7 @@ public:
 
 	static void test(const std::string& indigo_base_dir_path);
 
-	// The Sobol "direction numbers"
-	js::Vector<uint32, 16> dir_nums;
-
-	// Transposed direction numbers
-	js::Vector<uint32, 16> transposed_dir_nums;
+	
 private:
 
 	inline float floatCast(uint32 x) { const float f = (float&)x; return f; }
@@ -98,4 +96,11 @@ private:
 
 	// Small lookup table to accelerate the SIMD xor-computations in evaluation.
 	__m128 xor_LUT[16];
+
+public:
+	// The Sobol "direction numbers"
+	js::Vector<uint32, 16> dir_nums;
+
+	// Transposed direction numbers
+	js::Vector<uint32, 16> transposed_dir_nums;
 };
