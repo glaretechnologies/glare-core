@@ -171,49 +171,40 @@ inline uint32 StaticSobol::evalSampleRefRandomised(const uint64 sample_num, cons
 
 
 #include "StringUtils.h"
+#include "../indigo/SobolSequence.h" // For testing against reference Sobol implementation
 #include "../indigo/TestUtils.h"
+
 
 void StaticSobol::test(const std::string& indigo_base_dir_path)
 {
-	///std::cout << "StaticSobol::test()" << std::endl;
-
 	StaticSobol sobol(indigo_base_dir_path);
-
 
 	// Test that we get the desired Sobol sequence
 	{
-		const uint32 desired_Sobol[2] = { 0, 1UL << 31 }; // The first two Sobol samples are 0 and 0.5 (in fixed point) in all dimensions
+		const uint32 max_num_samples = 4294967295UL;
+		const uint32 max_dims = 32;
+		SobolSequence sobol_ref(max_num_samples, max_dims);
 
-		for(uint32 s = 0; s < 2; ++s)
+		uint32 test_samples = 32;
+		for(uint32 s = 0; s < test_samples; ++s)
 		{
-			for(uint32 d = 0; d < num_dims; ++d)
+			uint32 ref_sample[max_dims];
+			sobol_ref.evalPoints(ref_sample); // Evaluate the reference Sobol sequence sample (in greycode order)
+
+			const uint32 greycode_sample_idx = s ^ (s / 2); // Get greycode sample index to match orig Sobol order
+
+			for(uint32 d = 0; d < max_dims; ++d)
 			{
-				const uint32 x_d = sobol.evalSampleRef(s, d);
-				const uint32 x_d_SSE = sobol.evalSample(s, d);
+				const uint32 x_d = sobol.evalSampleRef(greycode_sample_idx, d);
+				const uint32 x_d_SSE = sobol.evalSample(greycode_sample_idx, d);
 
-				testAssert(x_d == desired_Sobol[s]);
-				testAssert(x_d_SSE == desired_Sobol[s]);
+				testAssert(x_d == ref_sample[d]);
+				testAssert(x_d_SSE == ref_sample[d]);
 			}
-
 		}
 	}
 
-
-	// Print out the first few randomised Sobol samples
-	for(uint32 s = 0; s < 8; ++s)
-	{
-		//std::cout << "Randomised Sobol sample " << s << ": ";
-
-		for(uint32 d = 0; d < 5; ++d)
-		{
-			//const double fixed2float = 1.0 / 4294967296.0;
-			//const double x_d_float = sobol.evalSampleRandomised(s, d) * fixed2float;
-
-			//std::cout << doubleToStringNDecimalPlaces(x_d_float, 5) << " ";
-		}
-
-		//std::cout << std::endl;
-	}	
+	// TODO test block eval
 }
 
 #endif
