@@ -107,6 +107,8 @@ void deleteDirectoryRecursive(const std::string& path);
 
 //const Date getFileLastModifiedDate(const std::string& filename);
 
+uint64 getFileCreatedTime(const std::string& filename);
+
 bool isPathAbsolute(const std::string& p);
 
 //uint32 fileChecksum(const std::string& p); // throws FileUtilsExcep

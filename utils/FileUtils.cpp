@@ -1027,6 +1027,42 @@ const std::string getPathKey(const std::string& pathname)
 }
 
 
+uint64 getFileCreatedTime(const std::string& filename)
+{
+#if defined(_WIN32)
+	HANDLE file = CreateFile(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(filename).c_str(), 
+		GENERIC_READ, 
+		FILE_SHARE_READ,
+		NULL, // lpSecurityAttributes 
+		OPEN_EXISTING, // OPEN_EXISTING = Opens a file or device, only if it exists.
+		FILE_ATTRIBUTE_NORMAL, // dwFlagsAndAttributes
+		NULL // hTemplateFile
+	);
+
+	if(file == INVALID_HANDLE_VALUE)
+		throw FileUtilsExcep("Failed to open file '" + filename + "': " + PlatformUtils::getLastErrorString());
+
+	FILETIME creation_time;
+	BOOL res = GetFileTime(
+		file,
+		&creation_time,
+		nullptr,
+		nullptr
+	);
+
+	if(res == FALSE)
+		throw FileUtilsExcep("Failed to get created time for file '" + filename + "': " + PlatformUtils::getLastErrorString());
+
+	const uint64 time_uint64 = ((uint64)creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime;
+	return time_uint64;
+#else
+	throw FileUtilsExcep("getFileCreatedTime() not implemented on non-Windows.");
+#endif
+}
+
+
+
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 
 const std::wstring convertUTF8ToFStreamPath(const std::string& p)
@@ -1290,6 +1326,13 @@ void doUnitTests()
 		createDir("TEMP_TESTING_DIR");
 
 		deleteDirectoryRecursive("TEMP_TESTING_DIR");
+
+
+
+		//============ Test getFileCreatedTime() ====================
+#if defined(_WIN32)
+		testAssert(getFileCreatedTime(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") > 0);
+#endif
 	}
 	catch(FileUtilsExcep& e)
 	{

@@ -7,7 +7,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #include "MiniDump.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 //#include <windows.h>
 //#include <dbghelp.h>
 //#include <shellapi.h>
@@ -16,12 +16,88 @@ Generated at 2011-07-08 17:47:01 +0100
 #endif
 
 
+#include "IncludeWindows.h"
+#include <Shellapi.h>
 #include "StringUtils.h"
 #include "../indigo/globals.h"
+#include "PlatformUtils.h"
+#include "Exception.h"
+#include "FileUtils.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+MiniDump::MiniDumpResult MiniDump::checkForNewMiniDumps(const std::string& appdata_dir, uint64 most_recent_dump_creation_time)
+{
+#if defined(_WIN32)
+	try
+	{
+		const std::string minidump_dir = FileUtils::join(appdata_dir, "crash dumps");
 
+		const std::vector<std::string> filenames = FileUtils::getFilesInDir(minidump_dir);
+		for(size_t i=0; i<filenames.size(); ++i)
+		{
+			if(::hasExtension(filenames[i], "dmp"))
+			{
+				const uint64 minidump_t = FileUtils::getFileCreatedTime(FileUtils::join(minidump_dir, filenames[i]));
+
+				if(minidump_t > most_recent_dump_creation_time) // If minidump is more recent than 'most_recent_dump_creation_time', return it
+				{
+					MiniDumpResult res;
+					res.path = FileUtils::join(minidump_dir, filenames[i]);
+					res.created_time = minidump_t;
+					return res;
+				}
+			}
+		}
+
+		MiniDumpResult res;
+		res.created_time = 0;
+		return res;
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		MiniDumpResult res;
+		res.created_time = 0;
+		return res;
+	}
+#else
+	MiniDumpResult res;
+	res.created_time = 0;
+	return res;
+#endif
+}
+
+
+/*
+void MiniDump::checkEnableMiniDumps()
+{
+	try
+	{
+		// Run this process again, in admin mode
+
+		// Get the path to this process
+		const std::string process_path = PlatformUtils::getFullPathToCurrentExecutable();
+
+		HINSTANCE result = ShellExecute(
+			NULL, // hwnd
+			StringUtils::UTF8ToWString("runas").c_str(), // lpOperation
+			StringUtils::UTF8ToWString(process_path).c_str(), // file
+			StringUtils::UTF8ToWString(" --set_crash_dump_key").c_str(), // lpParameters
+			NULL, // default working dir for action
+			SW_SHOWNORMAL // nShowCmd
+		);
+
+		// "If the function succeeds, it returns a value greater than 32."
+		if((int)result <= 32)
+			throw Indigo::Exception("ShellExecute failed: " + toString((int)result));
+
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{}
+	catch(Indigo::Exception& e)
+	{}
+}
+
+*/
 
 /*int MiniDump::generateDump(EXCEPTION_POINTERS* pExceptionPointers)
 {
@@ -61,6 +137,3 @@ Generated at 2011-07-08 17:47:01 +0100
 
 	return EXCEPTION_EXECUTE_HANDLER;
 }*/
-
-
-#endif
