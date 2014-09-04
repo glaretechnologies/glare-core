@@ -16,10 +16,7 @@ Generated at 2011-07-08 17:47:01 +0100
 #endif
 
 
-#include "IncludeWindows.h"
-#include <Shellapi.h>
 #include "StringUtils.h"
-#include "../indigo/globals.h"
 #include "PlatformUtils.h"
 #include "Exception.h"
 #include "FileUtils.h"
@@ -53,7 +50,7 @@ MiniDump::MiniDumpResult MiniDump::checkForNewMiniDumps(const std::string& appda
 		res.created_time = 0;
 		return res;
 	}
-	catch(FileUtils::FileUtilsExcep& e)
+	catch(FileUtils::FileUtilsExcep&)
 	{
 		MiniDumpResult res;
 		res.created_time = 0;

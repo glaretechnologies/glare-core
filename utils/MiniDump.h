@@ -7,7 +7,6 @@ Generated at 2011-07-08 17:47:01 +0100
 #pragma once
 
 
-#include "IncludeWindows.h"
 #include "Platform.h"
 #include <string>
 
