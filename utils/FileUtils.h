@@ -102,11 +102,6 @@ void deleteEmptyDirectory(const std::string& path);
 void deleteDirectoryRecursive(const std::string& path);
 
 
-//fle must be closed 'cause this function opens it
-//const std::string getAscTimeFileLastModified(const std::string& filename);
-
-//const Date getFileLastModifiedDate(const std::string& filename);
-
 uint64 getFileCreatedTime(const std::string& filename);
 
 bool isPathAbsolute(const std::string& p);
