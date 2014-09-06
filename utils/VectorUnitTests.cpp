@@ -595,6 +595,44 @@ void VectorUnitTests::test()
 	}
 
 
+
+	//========================= operator ==, operator != =========================
+
+	{
+		Vector<int, 4> v;
+		testAssert(v == v);
+		testAssert(!(v != v));
+	}
+
+	{
+		Vector<int, 4> v;
+		Vector<int, 4> v2;
+		testAssert(v == v2);
+		testAssert(!(v != v2));
+	}
+
+	{
+		Vector<int, 4> v;
+		v.push_back(1);
+
+		Vector<int, 4> v2;
+
+		testAssert(!(v == v2));
+		testAssert(v != v2);
+	}
+
+	{
+		Vector<int, 4> v;
+		v.push_back(1);
+
+		Vector<int, 4> v2;
+		v2.push_back(100);
+
+		testAssert(!(v == v2));
+		testAssert(v != v2);
+	}
+
+
 	//========================= Old tests =========================
 
 

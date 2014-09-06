@@ -69,6 +69,9 @@ public:
 	inline T& operator[](size_t index);
 	inline const T& operator[](size_t index) const;
 
+	inline bool operator==(const Vector& other) const;
+	inline bool operator!=(const Vector& other) const;
+
 	typedef T* iterator;
 	typedef const T* const_iterator;
 
@@ -498,6 +501,40 @@ const T& Vector<T, alignment>::operator[](size_t index) const
 	assert(capacity_ >= size_);
 
 	return e[index];
+}
+
+
+template <class T, size_t alignment>
+bool Vector<T, alignment>::operator==(const Vector<T, alignment>& other) const
+{
+	assert(index < size_);
+	assert(capacity_ >= size_);
+
+	if(size() != other.size())
+		return false;
+
+	for(size_t i=0; i<size_; ++i)
+		if(e[i] != other[i])
+			return false;
+
+	return true;
+}
+
+
+template <class T, size_t alignment>
+bool Vector<T, alignment>::operator!=(const Vector<T, alignment>& other) const
+{
+	assert(index < size_);
+	assert(capacity_ >= size_);
+
+	if(size() != other.size())
+		return true;
+
+	for(size_t i=0; i<size_; ++i)
+		if(e[i] != other[i])
+			return true;
+
+	return false;
 }
 
 
