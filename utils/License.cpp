@@ -189,7 +189,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 	local_err_code_out = LicenceErrorCode_NoError;
 	network_lic_err_code_out = LicenceErrorCode_NoError;
 
-
+	/*
 	// TEMP check for the test certificate GreenButton sent us
 	const std::string greenbutton_cert_subj = "GreenButton for Indigo";
 	const std::string greenbutton_cert_pubkey = "3082010a0282010100ba9de4caa44d4d2edaf43716024c07584bfab4403c590a050f4687c56c3884f273b7f94e86746b5bce2b4816d13d4fd4d0644d88f98344c559e4159ecd044b11077f3c75adffddb8811b3ec0bdedd29b9411d84f85febf42c8c6c2ac08ec6187ebdd9bf049090af3395eab8d8fc4aa621cea52200f5996130a22e2eda33879ba8e8f72778125a709079ca84456694e2d792f340009d4d87e9343b4dce4fca72f12aff86964d1eeb090b6e959c2d34ced33aec996a16c7bec2843f4e014c77ce0c40d465e52239eb6d0e231c071c2710c3162d69f54726e02de2b51098ffcf931cfa6f5ee1bbbdf498b81bda54ff8f6a188b3bbe7026670079c04659621a6aa010203010001";
@@ -205,7 +205,7 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 	//else
 	//	conPrint("Could not find the GreenButton certificate");
 #endif
-
+	*/
 
 	// Try and verifiy network licence first.
 	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);

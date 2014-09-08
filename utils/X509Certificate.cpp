@@ -1,3 +1,7 @@
+// Disabled as it is actually unused and at most presents a security risk.
+
+#if 0
+
 /*=====================================================================
 X509Certificate.cpp
 -------------------
@@ -323,5 +327,7 @@ void X509Certificate::test()
 #endif
 }
 
+
+#endif
 
 #endif
