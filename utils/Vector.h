@@ -507,7 +507,6 @@ const T& Vector<T, alignment>::operator[](size_t index) const
 template <class T, size_t alignment>
 bool Vector<T, alignment>::operator==(const Vector<T, alignment>& other) const
 {
-	assert(index < size_);
 	assert(capacity_ >= size_);
 
 	if(size() != other.size())
@@ -524,7 +523,6 @@ bool Vector<T, alignment>::operator==(const Vector<T, alignment>& other) const
 template <class T, size_t alignment>
 bool Vector<T, alignment>::operator!=(const Vector<T, alignment>& other) const
 {
-	assert(index < size_);
 	assert(capacity_ >= size_);
 
 	if(size() != other.size())
