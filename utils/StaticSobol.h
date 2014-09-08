@@ -24,15 +24,14 @@ SSE_CLASS_ALIGN StaticSobol
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
+	const static uint32 num_dims = 21200; // We actually have 21201 dimensions but round it down
+
 	StaticSobol(const std::string& indigo_base_dir_path);
 	~StaticSobol();
 
 
-	const static uint32 num_dims = 21200; // We actually have 21201 dimensions but round it down
-
-
 	// Evaluate the d'th dimension of the given Sobol sample number, without randomisation
-	inline uint32 evalSample(const uint32 sample_num, const uint32 d) const
+	inline uint32 evalSample(const uint32 sample_num, const int d) const
 	{
 		assert(d < num_dims);
 		const __m128 * const dir_nums_SSE = (const __m128 * const)&dir_nums[0];
@@ -40,7 +39,7 @@ public:
 		const __m128 result =
 			_mm_xor_ps(
 				_mm_xor_ps(
-					_mm_xor_ps(	_mm_and_ps(xor_LUT[sample_num         & 15], dir_nums_SSE[d * 8 + 0]),
+					_mm_xor_ps(	_mm_and_ps(xor_LUT[ sample_num        & 15], dir_nums_SSE[d * 8 + 0]),
 								_mm_and_ps(xor_LUT[(sample_num >>  4) & 15], dir_nums_SSE[d * 8 + 1])),
 					_mm_xor_ps(	_mm_and_ps(xor_LUT[(sample_num >>  8) & 15], dir_nums_SSE[d * 8 + 2]),
 								_mm_and_ps(xor_LUT[(sample_num >> 12) & 15], dir_nums_SSE[d * 8 + 3]))),
@@ -67,16 +66,13 @@ public:
 		return evalSample(sample_num_32, d) + static_random(random_index * 21211 + d);
 	}
 
-	void evalSampleBlock(const uint32_t base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32_t * const samples_out) const;
+
+	void evalSampleBlock(const uint32 base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32 * const samples_out) const;
 
 	static void test(const std::string& indigo_base_dir_path);
 
 	
 private:
-
-	inline float floatCast(uint32 x) { const float f = (float&)x; return f; }
-
-
 	inline uint32 static_random(uint32 x) const
 	{
 		x  = (x ^ 12345391u) * 2654435769u;
@@ -87,20 +83,15 @@ private:
 		return x;
 	}
 
-
 	// This method is kept private since the SSE version is much faster, but having an unoptimised reference in normal C can be useful
 	inline uint32 evalSampleRef(const uint32 sample_num, const uint32 d) const;
 
 	inline uint32 evalSampleRefRandomised(const uint64 sample_num, const uint32 d) const;
 
-
 	// Small lookup table to accelerate the SIMD xor-computations in evaluation.
 	__m128 xor_LUT[16];
 
 public:
-	// The Sobol "direction numbers"
-	js::Vector<uint32, 16> dir_nums;
-
-	// Transposed direction numbers
-	js::Vector<uint32, 16> transposed_dir_nums;
+	js::Vector<uint32, 64> dir_nums; // The Sobol direction numbers
+	js::Vector<uint32, 64> transposed_dir_nums; // Transposed direction numbers
 };

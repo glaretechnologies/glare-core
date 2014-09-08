@@ -14,6 +14,15 @@ Generated at Mon Jul 30 23:42:17 +0100 2012
 #include <fstream>
 
 
+inline static float floatCast(const uint32 x)
+{
+	float f;
+	memcpy(&f, &x, sizeof(uint32)); // Let's hope the compiler optimises this silly little dance away...
+
+	return f;
+}
+
+
 StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 {
 	std::vector<uint32> direction_nums(418214);
@@ -91,7 +100,7 @@ StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 	// Initialise the xor-table
 	for(int c = 0; c < 16; ++c)
 	{
-		const uint32 i[4] = { (uint32)-(c & 1), (uint32)-((c >> 1) & 1), (uint32)-((c >> 2) & 1), (uint32)-(c >> 3) };
+		const int i[4] = { -(c & 1), -((c >> 1) & 1), -((c >> 2) & 1), -(c >> 3) };
 
 		xor_LUT[c] = _mm_set_ps(floatCast(i[3]), floatCast(i[2]), floatCast(i[1]), floatCast(i[0]));
 	}
@@ -104,7 +113,7 @@ StaticSobol::~StaticSobol()
 }
 
 
-void StaticSobol::evalSampleBlock(const uint32_t base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32_t * const samples_out) const
+void StaticSobol::evalSampleBlock(const uint32 base_sample_idx, const uint32 sample_block_size, const uint32 sample_depth, uint32 * const samples_out) const
 {
 	assert(sample_block_size % 16 == 0); // Because we unroll the sample computation with SSE
 
@@ -174,7 +183,6 @@ inline uint32 StaticSobol::evalSampleRefRandomised(const uint64 sample_num, cons
 #include "../indigo/SobolSequence.h" // For testing against reference Sobol implementation
 #include "../indigo/TestUtils.h"
 
-
 void StaticSobol::test(const std::string& indigo_base_dir_path)
 {
 	StaticSobol sobol(indigo_base_dir_path);
@@ -183,9 +191,9 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 	{
 		const uint32 max_num_samples = 4294967295UL;
 		const uint32 max_dims = 32;
+		const uint32 test_samples = 32;
 		SobolSequence sobol_ref(max_num_samples, max_dims);
 
-		uint32 test_samples = 32;
 		for(uint32 s = 0; s < test_samples; ++s)
 		{
 			uint32 ref_sample[max_dims];
