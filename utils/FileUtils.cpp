@@ -495,7 +495,7 @@ uint64 getFileSize(const std::string& path)
 		O_RDONLY);
 
 	if(linux_file_handle <= 0)
-		throw FileUtilsExcep("File open failed.");
+		throw FileUtilsExcep("File open failed: " + PlatformUtils::getLastErrorString());
 
 	off_t file_size = lseek(linux_file_handle, 0, SEEK_END);
 
