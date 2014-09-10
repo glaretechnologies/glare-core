@@ -13,7 +13,8 @@ File created by ClassTemplate on Mon May 02 22:00:30 2005
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include <assert.h>
-#include <string.h>
+#include <string.h>	
+#include <cstdlib> // For std::abs()
 
 
 BMPDecoder::BMPDecoder()
