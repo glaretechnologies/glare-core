@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
 #include "../maths/mathstypes.h"
+#include <fstream>
 
 
 const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_str, ptrdiff_t offset_)

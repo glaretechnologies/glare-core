@@ -1,5 +1,5 @@
 /*=====================================================================
-fileutils.cpp
+FileUtils.cpp
 -------------
 File created by ClassTemplate on Sat Mar 01 18:05:09 2003
 Code By Nicholas Chapman.
@@ -20,29 +20,27 @@ Code By Nicholas Chapman.
 #include <unistd.h>
 #endif
 
-#include <cstring>
-#include <stdlib.h>
-#include <assert.h>
 #include "StringUtils.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
+#include <cstring>
+#include <stdlib.h>
+#include <assert.h>
+#include <fstream>
 
 
 namespace FileUtils
 {
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 const char* PLATFORM_DIR_SEPARATOR = "\\";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 #else
 const char* PLATFORM_DIR_SEPARATOR = "/";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
-
-
-
 
 
 const std::string join(const std::string& dirpath, const std::string& filename)
@@ -81,83 +79,13 @@ int getNumDirs(const std::string& dirname)
 }
 
 
-/*
-const std::string getFirstNDirs(const std::string& dirname, int n)
-{
-	assert(n >= 1);
-
-	//const std::string& path = toPlatformSlashes(dirname);
-
-
-
-	int nthslashpos = 0;
-
-	for(int i=0; i<n && nthslashpos != std::string::npos; ++i)
-	{
-		if(i == 0)
-		{
-			nthslashpos = dirname.find_first_of('\\');
-
-			if(nthslashpos == std::string::npos)
-				nthslashpos = dirname.find_first_of('/');
-		}
-		else
-		{
-			int lastnthslashpos = nthslashpos;
-			nthslashpos = dirname.find_first_of('\\', lastnthslashpos + 1);
-
-			if(nthslashpos == std::string::npos)
-				nthslashpos = dirname.find_first_of('/', lastnthslashpos + 1);
-		}
-	}
-
-	if(nthslashpos != std::string::npos)
-	{
-		return dirname.substr(0, nthslashpos);
-	}
-	else
-		return dirname;
-
-		//if(firstslashpos == std::string::npos)
-		//	firstslashpos = dirname.find_first_of('/');
-
-
-}*/
-
-
-/*void splitDirName(const std::string& dirname, std::string& rootdir_out,
-						std::string& rest_out)
-{
-	std::string::size_type firstslashpos = dirname.find_first_of('\\');
-
-	if(firstslashpos == std::string::npos)
-		firstslashpos = dirname.find_first_of('/');
-
-	if(firstslashpos == std::string::npos)
-	{
-		rootdir_out = "";
-		rest_out = dirname;
-		return;
-	}
-
-	rootdir_out = dirname.substr(0, firstslashpos);
-
-	if(dirname.size() > firstslashpos + 1)
-		rest_out = dirname.substr(firstslashpos + 1, (int)dirname.size() - (firstslashpos + 1));
-	else
-		rest_out = "";
-
-	return;
-}*/
-
-
 void createDir(const std::string& dirname)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 	const BOOL result = ::CreateDirectory(StringUtils::UTF8ToPlatformUnicodeEncoding(dirname).c_str(), NULL);
 	if(!result)
-		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
+		throw FileUtilsExcep("Failed to create directory '" + dirname + "': " + PlatformUtils::getLastErrorString());
 #else
 	// Create with r/w/x permissions for user and group
 	if(mkdir(dirname.c_str(), S_IRWXU | S_IRWXG) != 0)
@@ -206,83 +134,6 @@ void createDirIfDoesNotExist(const std::string& dirname)
 }
 
 
-/*
-#if defined(_WIN32) || defined(_WIN64)
-bool createDir(const std::string& dirname)
-{
-	bool created_dir = false;
-
-	const int numdirs = getNumDirs(dirname);
-
-	for(int i=1; i<=numdirs; ++i)
-	{
-		const std::string firstndirs = getFirstNDirs(dirname, i);
-
-		if(!dirExists(firstndirs))
-		{
-			const BOOL result = ::CreateDirectoryA(firstndirs.c_str(), NULL);
-
-			assert(result);
-
-			created_dir = true;
-		}
-	}
-
-	return created_dir;
-}
-#endif
-*/
-
-
-
-
-
-
-	/*std::string dirname = dirname_;
-	bool created_dir = false;
-
-	while(1)
-	{
-		std::string rootdir, restdirs;
-
-		splitDirName(dirname, rootdir, restdirs);
-
-		if(rootdir == "")
-		{
-			if(restdirs != "")
-				if(!dirExists(restdirs))
-				{
-					const BOOL result = ::CreateDirectory(restdirs.c_str(), NULL);
-
-					assert(result);
-
-					created_dir = true;
-				}
-
-			break;
-		}
-		else
-		{
-			if(!dirExists(rootdir))
-			{
-				const BOOL result = ::CreateDirectory(rootdir.c_str(), NULL);
-
-				assert(result);
-
-				created_dir = true;
-			}
-		}
-
-		dirname = restdirs;//recurse
-	}
-
-	return created_dir;
-
-//	return (bool)::CreateDirectory(dirname.c_str(), NULL);
-}*/
-
-
-
 const std::string getDirectory(const std::string& pathname_)
 {
 	const std::string path = toPlatformSlashes(pathname_);
@@ -293,33 +144,6 @@ const std::string getDirectory(const std::string& pathname_)
 		return "";
 
 	return path.substr(0, lastslashpos);
-
-
-	/*std::string forwardslashpath = pathname;
-	::replaceChar(forwardslashpath, '\\', '/');
-
-	int lastslashpos = pathname.find_last_of('/');
-
-	if(lastslashpos == std::string::npos)
-		return "";
-
-	assert(lastslashpos < pathname.size());
-
-	return pathname.substr(0, lastslashpos+1);*/
-
-
-
-	/*int lastslashpos = pathname.find_last_of('\\');
-
-	if(lastslashpos == std::string::npos)
-		lastslashpos = pathname.find_last_of('/');
-
-	if(lastslashpos == std::string::npos)
-		return "";
-
-	assert(lastslashpos < pathname.size());
-
-	return pathname.substr(0, lastslashpos+1);*/
 }
 
 
@@ -330,7 +154,6 @@ const std::string getFilename(const std::string& pathname)
 	//-----------------------------------------------------------------
 	std::string pathname_copy = pathname;
 	replaceChar(pathname_copy, '\\', '/');
-
 
 	const size_t lastslashpos = pathname_copy.find_last_of('/');
 
@@ -352,7 +175,7 @@ const std::string getFilename(const std::string& pathname)
 
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(dir_path + "\\*").c_str(), &find_data);
 	if(search_handle == INVALID_HANDLE_VALUE)
@@ -390,54 +213,9 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 }
 
 
-
-/*
-//creates the directory the file is in according to pathname
-//returns false if fails or directory already exists
-#if defined(_WIN32) || defined(_WIN64)
-bool createDirForPathname(const std::string& pathname)
-{
-	std::string dir = getDirectory(pathname);
-
-	if(dir != "")
-	{
-		//lopp of '\' or '/'
-		if(!dir.empty() && dir[(int)dir.size() - 1] == '\\' || dir[(int)dir.size() - 1] == '/')
-			dir = dir.substr(0, (int)dir.size() - 1);
-
-		return createDir(dir);
-	}
-	else
-	{
-		return false;//cause already exists
-	}
-}
-#endif
-*/
-
-/*
-#if defined(_WIN32) || defined(_WIN64)
-bool dirExists(const std::string& dirname)
-{
-	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFileA(dirname.c_str(), &find_data);
-
-	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
-
-	//FIXME: should check this is actually a dir
-
-	FindClose(search_handle);
-
-	return foundit;
-
-}
-#endif
-*/
-
-
 bool fileExists(const std::string& pathname)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 	WIN32_FIND_DATA find_data;
 	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), &find_data);
@@ -511,19 +289,16 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 {
 	dirs_out.clear();
 
-
 	//-----------------------------------------------------------------
 	//replace all /'s with \'s.
 	//-----------------------------------------------------------------
 	std::string pathname = pathname_;
 	replaceChar(pathname, '/', '\\');
 
-
 	std::string::size_type startpos = 0;
 
 	while(1)
 	{
-
 		const std::string::size_type slashpos = pathname.find_first_of('\\', startpos);
 
 		if(slashpos == std::string::npos)
@@ -541,35 +316,9 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 }
 
 
-/*bool isPathEqualOrLower(const std::string& pathname)
-{
-	std::vector<std::string> dirs;
-	FileUtils::getDirs(pathname, dirs);
-
-	int relative_height = 0;//positive means higher up file tree (root at top)
-
-	for(unsigned int i=0; i<dirs.size(); ++i)
-	{
-		if(dirs[i] == "..")
-		{
-			relative_height++;
-		}
-		else if(dirs[i] == ".")
-		{
-		}
-		else
-		{
-			relative_height--;
-		}
-	}
-
-	return relative_height <= 0;
-}*/
-
-
 bool isDirectory(const std::string& pathname)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	WIN32_FILE_ATTRIBUTE_DATA file_data;
 	GetFileAttributesEx(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), GetFileExInfoStandard, &file_data);
 
@@ -603,39 +352,6 @@ bool isPathSafe(const std::string& pathname)
 			return false;
 
 	return true;
-
-	//int charindex = 0;
-
-	//if(pathname[0] == '\\')//can't start with backslash
-	//	return false;
-
-	/*bool lastcharwasslash = true;//treat as starting with backslash
-
-	for(unsigned int i=0; i<pathname.size(); ++i)
-	{
-		if(pathname[i] == '\\')
-		{
-			if(lastcharwasslash)
-				return false;//don't allow two in a row
-
-			lastcharwasslash = true;
-		}
-		else if(::isAlphaNumeric(pathname[i]) || pathname[i] == '_' ||
-				pathname[i] == '.' || pathname[i] == '-' || pathname[i] == '+')
-		{
-			lastcharwasslash = false;
-		}
-		else
-		{
-			//invalid char
-			return false;
-		}
-	}
-
-	if(lastcharwasslash)
-		return false;
-
-	return isPathEqualOrLower(pathname);*/
 }
 
 
@@ -756,78 +472,9 @@ void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // 
 }
 
 
-const std::string dayOfWeek(int day)
-{
-	if(day == 0) return "Sun";
-	else if(day == 1) return "Mon";
-	else if(day == 2) return "Tue";
-	else if(day == 3) return "Wed";
-	else if(day == 4) return "Thu";
-	else if(day == 5) return "Fri";
-	else if(day == 6) return "Sat";
-	else
-	{
-		assert(0);
-		return "";
-	}
-}
-
-
-const std::string getMonthString(int month)
-{
-	if(month == 1) return "Jan";
-	else if(month == 2) return "Feb";
-	else if(month == 3) return "Mar";
-	else if(month == 4) return "Apr";
-	else if(month == 5) return "May";
-	else if(month == 6) return "Jun";
-	else if(month == 7) return "Jul";
-	else if(month == 8) return "Aug";
-	else if(month == 9) return "Sep";
-	else if(month == 10) return "Oct";
-	else if(month == 11) return "Nov";
-	else if(month == 12) return "Dec";
-	else
-	{
-		assert(0);
-		return "";
-	}
-}
-
-
-const std::string widenToTwoChars(const std::string& numeral)
-{
-	assert(numeral.size() >= 1 && numeral.size() <= 2);
-
-	if(numeral.size() == 1)
-		return "0" + numeral;
-	else
-		return numeral;
-}
-
-
-#if defined(_WIN32) || defined(_WIN64)
-const std::string getCurrentDir()
-{
-/*DWORD GetCurrentDirectory(
-  DWORD nBufferLength,  // size, in characters, of directory buffer
-  LPTSTR lpBuffer       // pointer to buffer for current directory
-);
-*/
-
-	char buf[512];
-
-	GetCurrentDirectoryA(511, buf);
-
-	return std::string(buf);
-}
-
-#endif
-
-
 void copyFile(const std::string& srcpath, const std::string& dstpath)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 	if(!CopyFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(srcpath).c_str(),
@@ -835,7 +482,7 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 		FALSE // fail if exists
 		))
 	{
-		throw FileUtilsExcep("Failed to copy file '" + srcpath + "' to '" + dstpath + "'.");
+		throw FileUtilsExcep("Failed to copy file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
 	}
 
 #else
@@ -848,12 +495,12 @@ void copyFile(const std::string& srcpath, const std::string& dstpath)
 
 void deleteFile(const std::string& path)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	if(!DeleteFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
 	{
-		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
+		throw FileUtilsExcep("Failed to delete file '" + path + "': " + PlatformUtils::getLastErrorString());
 	}
 
 #else
@@ -865,12 +512,12 @@ void deleteFile(const std::string& path)
 
 void deleteEmptyDirectory(const std::string& path)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	if(!RemoveDirectory(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str()
 		))
 	{
-		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
+		throw FileUtilsExcep("Failed to delete directory '" + path + "': " + PlatformUtils::getLastErrorString());
 	}
 
 #else
@@ -906,7 +553,7 @@ void deleteDirectoryRecursive(const std::string& path)
 
 void moveFile(const std::string& srcpath, const std::string& dstpath)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	// NOTE: To make this atomic on Windows, we could use ReplaceFile, with some care.
 	// See http://msdn.microsoft.com/en-us/library/windows/desktop/aa365512(v=vs.85).aspx
 	if(!MoveFileEx(
@@ -914,7 +561,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 		StringUtils::UTF8ToPlatformUnicodeEncoding(dstpath).c_str(),
 		MOVEFILE_REPLACE_EXISTING
 	))
-		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "'.");
+		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
 #else
 	if(rename(srcpath.c_str(), dstpath.c_str()) != 0)
 		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
@@ -937,7 +584,7 @@ bool isPathAbsolute(const std::string& p)
 
 FILE* openFile(const std::string& pathname, const std::string& openmode)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()
 	return _wfopen(StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
 #else
@@ -1063,7 +710,7 @@ uint64 getFileCreatedTime(const std::string& filename)
 
 
 
-#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
+#if defined(_WIN32) && !defined(__MINGW32__)
 
 const std::wstring convertUTF8ToFStreamPath(const std::string& p)
 {
@@ -1087,9 +734,10 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 #endif
 
 
-#if (BUILD_TESTS)
+} // End namespace FileUtils
 
-}
+
+#if BUILD_TESTS
 
 
 #include "PlatformUtils.h"
@@ -1115,7 +763,7 @@ void doUnitTests()
 		for(size_t i=0; i<files.size(); ++i)
 			conPrint("file: " + files[i]);
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
 #else
@@ -1207,7 +855,7 @@ void doUnitTests()
 
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	testAssert(isPathAbsolute("C:/windows"));
 	testAssert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
 	testAssert(isPathAbsolute("a:\\dsfsdf"));
@@ -1344,7 +992,9 @@ void doUnitTests()
 
 	conPrint("FileUtils::doUnitTests() Done.");
 }
-#endif
 
 
 } // end namespace FileUtils
+
+
+#endif // BUILD_TESTS
