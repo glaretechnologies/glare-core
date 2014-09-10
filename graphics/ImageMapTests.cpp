@@ -1,11 +1,10 @@
 /*=====================================================================
 ImageMapTests.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2014 -
 Generated at 2011-05-22 19:51:52 +0100
 =====================================================================*/
 #include "ImageMapTests.h"
-
 
 
 #ifdef BUILD_TESTS
@@ -15,7 +14,11 @@ Generated at 2011-05-22 19:51:52 +0100
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
 #include "../utils/Plotter.h"
+
+
+#if 0 // If do perf tests
 
 
 static Colour3f testTexture(int res, double& elapsed_out)
@@ -29,9 +32,9 @@ static Colour3f testTexture(int res, double& elapsed_out)
 			for(int c=0; c<channels; ++c)
 				m.getPixel(x, y)[c] = (unsigned char)(x + y + c);
 
-	double clock_freq = 2.53e9;
+	double clock_freq = 2.798e9;
 
-	conPrint("\n\n");
+	//conPrint("\n\n");
 
 	Timer timer;
 	const int N = 10000000;
@@ -49,7 +52,7 @@ static Colour3f testTexture(int res, double& elapsed_out)
 	conPrint("xy sum: " + toString(xy_sum));
 	double elapsed = timer.elapsed();
 	double overhead_cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
-	conPrint("Over head cycles: " + toString(overhead_cycles));
+	//conPrint("Over head cycles: " + toString(overhead_cycles));
 
 
 	timer.reset();
@@ -69,7 +72,7 @@ static Colour3f testTexture(int res, double& elapsed_out)
 	elapsed = timer.elapsed();
 	conPrint(sum.toVec3().toString());
 	conPrint("xy sum: " + toString(xy_sum));
-	conPrint("Elapsed: " + toString(elapsed) + " s");
+	//conPrint("Elapsed: " + toString(elapsed) + " s");
 	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
 	//conPrint("cycles: " + toString(cycles));
 
@@ -78,9 +81,134 @@ static Colour3f testTexture(int res, double& elapsed_out)
 }
 
 
+static void perfTestWithTextureWidth(int width)
+{
+	conPrint("-----------------");
+	conPrint("width: " + toString(width));
+
+	double elapsed;
+	Colour3f col = testTexture(width, elapsed);
+	conPrint("elapsed: " + toString(elapsed) + " cycles / sample");
+}
+
+
+#endif // End if do perf tests
+
+
 void ImageMapTests::test()
 {
-	Plotter::DataSet dataset;
+	conPrint("ImageMapTests::test()");
+
+	// Test UInt8 map with single channel
+	{
+		const int W = 10;
+		ImageMapUInt8 map(W, W, 1);
+		map.set(0);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
+		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+
+		map.set(255);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+	}
+		
+	// Test UInt8 map with 3 channels
+	{
+		const int W = 10;
+		ImageMapUInt8 map(W, W, 3);
+		map.set(0);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
+		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+
+		map.set(255);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+	}
+
+	// Test float map with single channel
+	{
+		const int W = 10;
+		ImageMapFloat map(W, W, 1);
+		map.set(0.f);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+
+		map.set(1.f);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+	}
+		
+	// Test float map with 3 channels
+	{
+		const int W = 10;
+		ImageMapFloat map(W, W, 3);
+		map.set(0.f);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+
+		map.set(1.f);
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
+		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
+
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+	}
+
+	
+	// Do some test with non-constant values
+	{
+		const int W = 4;
+		ImageMapFloat map(W, W, 3);
+		for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			map.getPixel(x, y)[0] = (float)x / (W);
+			map.getPixel(x, y)[1] = (float)x / (W);
+			map.getPixel(x, y)[2] = (float)x / (W);
+		}
+
+		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(epsEqual(map.scalarSampleTiled(0.3f, 0.7f), 0.3f));
+		testAssert(epsEqual(map.scalarSampleTiled(0.6123f, 0.7f), 0.6123f));
+		testAssert(epsEqual(map.scalarSampleTiled(0.999999f, 0.7f), 0.0f));
+	}
+
+
+
+	/*
+	// Do perf tests
+	perfTestWithTextureWidth(10);
+	perfTestWithTextureWidth(100);
+	perfTestWithTextureWidth(1000);
+	perfTestWithTextureWidth(10000);
+	*/
+
+	/*Plotter::DataSet dataset;
 	dataset.key = "elapsed (s)";
 
 	Colour3f sum(0);
@@ -108,8 +236,8 @@ void ImageMapTests::test()
 		"elapsed cycles",
 		datasets
 		);
-
+*/
 }
 
 
-#endif
+#endif // BUILD_TESTS

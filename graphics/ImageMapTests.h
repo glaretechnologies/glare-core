@@ -1,7 +1,7 @@
 /*=====================================================================
 ImageMapTests.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2014 -
 Generated at 2011-05-22 19:51:52 +0100
 =====================================================================*/
 #pragma once

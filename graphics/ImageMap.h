@@ -1,7 +1,7 @@
 /*=====================================================================
 ImageMap.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2014 -
 Generated at Fri Mar 11 13:14:38 +0000 2011
 =====================================================================*/
 #pragma once
@@ -24,7 +24,7 @@ class StreamShouldAbortCallback;
 /*=====================================================================
 ImageMap
 -------------------
-
+Tests in ImageMapTests class.
 =====================================================================*/
 
 class UInt8ComponentValueTraits
@@ -232,8 +232,8 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 	Colour3<Value> colour_out;
 
 	// Get fractional normalised image coordinates
-	Coord u_frac_part = Maths::fract(u);
-	Coord v_frac_part = Maths::fract(1 - v);
+	const Coord u_frac_part = Maths::fract(u);
+	const Coord v_frac_part = Maths::fract(1 - v);
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
@@ -245,49 +245,31 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 
 	assert(ut < width && vt < height);
 
-	const unsigned int ut_1 = (ut + 1) % width;
-	const unsigned int vt_1 = (vt + 1) % height;
+	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
+	const V* const use_data = &data[0];
+
+	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N;
+	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N;
+	const V* const bot_left_pixel  = use_data + (ut   + width * vt_1) * N;
+	const V* const bot_right_pixel = use_data + (ut_1 + width * vt_1) * N;
+
+	const Value a = oneufrac * onevfrac; // Top left pixel weight
+	const Value b = ufrac * onevfrac; // Top right pixel weight
+	const Value c = oneufrac * vfrac; // Bottom left pixel weight
+	const Value d = ufrac * vfrac; // Bottom right pixel weight
+
 	if(N < 3)
 	{
 		// This is either grey, alpha or grey with alpha.
-		// Either way just use zeroth channel
-		
-		Value val;
-
-		// Top left pixel
-		{
-			const V* pixel = getPixel(ut, vt);
-			const Value factor = oneufrac * onevfrac;
-			val = pixel[0] * factor;
-		}
-
-		// Top right pixel
-		{
-			const V* pixel = getPixel(ut_1, vt);
-			const Value factor = ufrac * onevfrac;
-			val += pixel[0] * factor;
-		}
-
-		// Bottom left pixel
-		{
-			const V* pixel = getPixel(ut, vt_1);
-			const Value factor = oneufrac * vfrac;
-			val += pixel[0] * factor;
-		}
-
-		// Bottom right pixel
-		{
-			const V* pixel = getPixel(ut_1, vt_1);
-			const Value factor = ufrac * vfrac;
-			val += pixel[0] * factor;
-		}
-
+		// Either way just use the zeroth channel.
+		const float val = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
 		colour_out.r = val;
 		colour_out.g = val;
 		colour_out.b = val;
@@ -296,47 +278,11 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 	{
 		// This map is either RGB or RGB with alpha
 		// Ignore alpha and just return the interpolated RGB colour.
-
-		// Top left pixel
-		{
-			const V* pixel = getPixel(ut, vt);
-			const Value factor = oneufrac * onevfrac;
-			colour_out.r = pixel[0] * factor;
-			colour_out.g = pixel[1] * factor;
-			colour_out.b = pixel[2] * factor;
-		}
-
-		// Top right pixel
-		{
-			const V* pixel = getPixel(ut_1, vt);
-			const Value factor = ufrac * onevfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[1] * factor;
-			colour_out.b += pixel[2] * factor;
-		}
-
-		// Bottom left pixel
-		{
-			const V* pixel = getPixel(ut, vt_1);
-			const Value factor = oneufrac * vfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[1] * factor;
-			colour_out.b += pixel[2] * factor;
-		}
-
-		// Bottom right pixel
-		{
-			const V* pixel = getPixel(ut_1, vt_1);
-			const Value factor = ufrac * vfrac;
-			colour_out.r += pixel[0] * factor;
-			colour_out.g += pixel[1] * factor;
-			colour_out.b += pixel[2] * factor;
-		}	
+		colour_out.r = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
+		colour_out.g = VTraits::scaleValue(a * top_left_pixel[1] + b * top_right_pixel[1] + c * bot_left_pixel[1] + d * bot_right_pixel[1]);
+		colour_out.b = VTraits::scaleValue(a * top_left_pixel[2] + b * top_right_pixel[2] + c * bot_left_pixel[2] + d * bot_right_pixel[2]);
 	}
-
-	colour_out.r = VTraits::scaleValue(colour_out.r);
-	colour_out.g = VTraits::scaleValue(colour_out.g);
-	colour_out.b = VTraits::scaleValue(colour_out.b);
+	
 	return colour_out;
 }
 
@@ -345,8 +291,8 @@ template <class V, class VTraits>
 Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 {
 	// Get fractional normalised image coordinates
-	Coord u_frac_part = Maths::fract(u);
-	Coord v_frac_part = Maths::fract(1 - v);
+	const Coord u_frac_part = Maths::fract(u);
+	const Coord v_frac_part = Maths::fract(1 - v);
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
@@ -358,56 +304,27 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 
 	assert(ut < width && vt < height);
 
-	const unsigned int ut_1 = (ut + 1) % width;
-	const unsigned int vt_1 = (vt + 1) % height;
+	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
-	Value colour_out;
+	const V* const use_data = &data[0];
 
-	// Top left pixel
-	{
-		const V* pixel = getPixel(ut, vt);
-		const Value factor = oneufrac * onevfrac;
-		//for(unsigned int i=0; i<N; ++i)
-		//	colour_out = pixel[i] * factor;
-		colour_out = pixel[0] * factor;
-	}
+	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N;
+	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N;
+	const V* const bot_left_pixel  = use_data + (ut   + width * vt_1) * N;
+	const V* const bot_right_pixel = use_data + (ut_1 + width * vt_1) * N;
 
-	// Top right pixel
-	{
-		const V* pixel = getPixel(ut_1, vt);
-		const Value factor = ufrac * onevfrac;
-		//for(unsigned int i=0; i<N; ++i)
-		//	colour_out += pixel[i] * factor;
-		colour_out += pixel[0] * factor;
-	}
+	const Value a = oneufrac * onevfrac; // Top left pixel weight
+	const Value b = ufrac * onevfrac; // Top right pixel weight
+	const Value c = oneufrac * vfrac; // Bottom left pixel weight
+	const Value d = ufrac * vfrac; // Bottom right pixel weight
 
-	// Bottom left pixel
-	{
-		const V* pixel = getPixel(ut, vt_1);
-		const Value factor = oneufrac * vfrac;
-		//for(unsigned int i=0; i<N; ++i)
-		//	colour_out += pixel[i] * factor;
-		colour_out += pixel[0] * factor;
-	}
-
-	// Bottom right pixel
-	{
-		const V* pixel = getPixel(ut_1, vt_1);
-		const Value factor = ufrac * vfrac;
-		//for(unsigned int i=0; i<N; ++i)
-		//	colour_out += pixel[i] * factor;
-		colour_out += pixel[0] * factor;
-	}
-
-	// Divide by number of colour components
-	//const Value N_factor = ((Value)1 / (Value)N); // TODO: test this is computed at compile time.
-
-	return VTraits::scaleValue(colour_out)/* * N_factor*/;
+	return VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
 }
 
 
@@ -619,4 +536,3 @@ void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int destx, in
 				dest.getPixel(x, y)[c] = getPixel(x, y)[c];
 	}
 }
-
