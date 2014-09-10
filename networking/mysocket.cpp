@@ -371,8 +371,6 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 {
 	assert(Networking::isInited());
 
-	Timer accept_timer;
-
 	// Wait until the accept() will succeed.
 	while(1)
 	{
@@ -910,12 +908,5 @@ void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle)
 {
 	FD_ZERO(&sockset);
-
-	//FD_SET doesn't seem to work when targeting x64 in gcc.
-#ifdef COMPILER_GCC
-	//sockset.fds_bits[0] = sockhandle;
 	FD_SET(sockhandle, &sockset);
-#else
-	FD_SET(sockhandle, &sockset);
-#endif
 }
