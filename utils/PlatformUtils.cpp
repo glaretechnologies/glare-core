@@ -590,10 +590,10 @@ const std::string PlatformUtils::getErrorStringForReturnCode(unsigned long retur
 #endif
 }
 
-
 const std::string PlatformUtils::getLastErrorString()
 {
 #if defined(_WIN32) || defined(_WIN64)
+
 	std::vector<wchar_t> buf(2048);
 
 	const DWORD result = FormatMessage(
@@ -609,8 +609,29 @@ const std::string PlatformUtils::getLastErrorString()
 		return "[Unknown (error code=" + toString((int)GetLastError()) + ")]";
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
+		
+#elif defined(OSX)
+	
+	if(strerror_r(errno, buf, sizeof(buf)) == 0) // returns 0 upon success: https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/strerror.3.html
+		return std::string(buf);
+	else
+		return "[Unknown (error code=" + toString(errno) + ")]";
+		
 #else
-	return "[Unknown (error code=" + ::toString(errno) + ")]";
+
+	// Linux:
+	char buf[4096];
+#if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && ! _GNU_SOURCE
+	// XSI-compliant version of strerror_r(), returns zero on success.  See http://linux.die.net/man/3/strerror_r
+	if(strerror_r(errno, buf, sizeof(buf)) == 0)
+		return std::string(buf);
+	else
+		return "[Unknown (error code=" + toString(errno) + ")]";
+#else
+	const char* msg = strerror_r(errno, buf, sizeof(buf));
+	return std::string(msg);
+#endif
+
 #endif
 }
 
