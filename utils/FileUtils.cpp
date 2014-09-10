@@ -161,7 +161,7 @@ void createDir(const std::string& dirname)
 #else
 	// Create with r/w/x permissions for user and group
 	if(mkdir(dirname.c_str(), S_IRWXU | S_IRWXG) != 0)
-		throw FileUtilsExcep("Failed to create directory '" + dirname + "'");
+		throw FileUtilsExcep("Failed to create directory '" + dirname + "': " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -373,7 +373,7 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 #else
 	DIR* dir = opendir(dir_path.c_str());
 	if(!dir)
-		throw FileUtilsExcep("Failed to open dir '" + dir_path + "'");
+		throw FileUtilsExcep("Failed to open dir '" + dir_path + "': " + PlatformUtils::getLastErrorString());
 
 	std::vector<std::string> paths;
 
@@ -858,7 +858,7 @@ void deleteFile(const std::string& path)
 
 #else
 	if(remove(path.c_str()) != 0)
-		throw FileUtilsExcep("Failed to delete file '" + path + "'.");
+		throw FileUtilsExcep("Failed to delete file '" + path + "': " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -875,7 +875,7 @@ void deleteEmptyDirectory(const std::string& path)
 
 #else
 	if(rmdir(path.c_str()) != 0)
-		throw FileUtilsExcep("Failed to delete directory '" + path + "'.");
+		throw FileUtilsExcep("Failed to delete directory '" + path + "': " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -979,7 +979,7 @@ static const std::string getCanonicalPath(const std::string& p)
 	char buf[PATH_MAX];
 	char* result = realpath(p.c_str(), buf);
 	if(result == NULL)
-		throw FileUtilsExcep("realpath failed.  errno: " + toString(errno));
+		throw FileUtilsExcep("realpath failed: " + PlatformUtils::getLastErrorString());
 	return std::string(buf);
 }
 

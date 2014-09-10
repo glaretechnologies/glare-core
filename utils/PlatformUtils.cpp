@@ -612,6 +612,7 @@ const std::string PlatformUtils::getLastErrorString()
 		
 #elif defined(OSX)
 	
+	char buf[4096];
 	if(strerror_r(errno, buf, sizeof(buf)) == 0) // returns 0 upon success: https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/strerror.3.html
 		return std::string(buf);
 	else
