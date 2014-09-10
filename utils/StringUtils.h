@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2014 -
 #pragma once
 
 
-#include "../utils/Platform.h"
+#include "Platform.h"
 #include <string>
 #include <vector>
 #include <string.h> // for strcmp()
