@@ -899,14 +899,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
 		const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
 		const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-		/*const double p0[3] = { (double)v0.pos.x, (double)v0.pos.y, (double)v0.pos.z };
-		const double e0[3] = { (double)v1.pos.x - p0[0], (double)v1.pos.y - p0[1], (double)v1.pos.z - p0[2] };
-		const double e1[3] = { (double)v2.pos.x - p0[0], (double)v2.pos.y - p0[1], (double)v2.pos.z - p0[2] };
-		const double nv[3] = {  e0[1] * e1[2] - e0[2] * e1[1],
-								e0[2] * e1[0] - e0[0] * e1[2],
-								e0[0] * e1[1] - e0[1] * e1[0] };
-		tri.inv_cross_magnitude = (float)(1.0 / sqrt(nv[0] * nv[0] + nv[1] * nv[1] + nv[2] * nv[2]));*/
-		tri.inv_cross_magnitude = (float)(1.0 / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length());
+		tri.inv_cross_magnitude = 1.0f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
 	}
 
 
@@ -1097,7 +1090,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 
 
 unsigned int RayMesh::getNumUVCoordSets() const
-{ 
+{
 	return num_uv_sets; 
 }
 
@@ -1106,14 +1099,17 @@ const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsign
 {
 	assert(texcoords_set < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());
-	const Vec2f& v0tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
-	const Vec2f& v1tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
-	const Vec2f& v2tex = uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
+	const int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
+	const int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
+	const int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
+	const Vec2f& v0tex = uvs[uv0idx];
+	const Vec2f& v1tex = uvs[uv1idx];
+	const Vec2f& v2tex = uvs[uv2idx];
 
 	//const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
 	//const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
 	//const Vec2f& v2tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
-	
+
 	//return toVec2d(
 	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
 
@@ -1135,29 +1131,27 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, 
 	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
 	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
 
-
 	dp_dalpha_out = v1pos - v0pos;
-	dp_dbeta_out = v2pos - v0pos;
+	dp_dbeta_out  = v2pos - v0pos;
 
+	//if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() != 0)
+	//{
+	//	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
 
-	if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() != 0)
-	{
-		const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
+	//	Vec4f v0norm;
+	//	Vec4f v1norm;
+	//	Vec4f v2norm;
+	//	vertNormal( tri.vertex_indices[0] ).vectorToVec4f(v0norm);
+	//	vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
+	//	vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
 
-		Vec4f v0norm;
-		Vec4f v1norm;
-		Vec4f v2norm;
-		vertNormal( tri.vertex_indices[0] ).vectorToVec4f(v0norm);
-		vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
-		vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
-
-		dNs_dalpha_out = v1norm - v0norm;
-		dNs_dbeta_out = v2norm - v0norm;
-	}
-	else
-	{
-		dNs_dalpha_out = dNs_dbeta_out = Vec3Type(0,0,0,0);
-	}
+	//	dNs_dalpha_out = v1norm - v0norm;
+	//	dNs_dbeta_out = v2norm - v0norm;
+	//}
+	//else
+	//{
+	//	dNs_dalpha_out = dNs_dbeta_out = Vec3Type(0,0,0,0);
+	//}
 }
 
 
@@ -1167,21 +1161,19 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 									   ) const
 {
 	assert(texcoords_set < num_uv_sets);
-	const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
-	const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
-	const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
 
-	/*ds_du_out = v1tex.x - v0tex.x;
-	dt_du_out = v1tex.y - v0tex.y;
+	unsigned int v0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
+	unsigned int v1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
+	unsigned int v2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
 
-	ds_dv_out = v2tex.x - v0tex.x;
-	dt_dv_out = v2tex.y - v0tex.y;*/
+	const Vec2f& v0tex = this->uvs[v0idx];
+	const Vec2f& v1tex = this->uvs[v1idx];
+	const Vec2f& v2tex = this->uvs[v2idx];
 
 	du_dalpha_out =  v1tex.x - v0tex.x;
 	dv_dalpha_out =  v1tex.y - v0tex.y;
-
-	du_dbeta_out =  v2tex.x - v0tex.x;
-	dv_dbeta_out =  v2tex.y - v0tex.y;
+	du_dbeta_out  =  v2tex.x - v0tex.x;
+	dv_dbeta_out  =  v2tex.y - v0tex.y;
 }
 
 
@@ -1539,43 +1531,19 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
-	//triNormal(sub_elem_index).vectorToVec4f(normal_out);
-	//this->triangle_geom_normals[sub_elem_index].vectorToVec4f(normal_out);
-	//this->triangles[sub_elem_index].geom_normal.vectorToVec4f(normal_out);
 	const RayMeshTriangle& tri(this->triangles[sub_elem_index]);
 	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
 	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	//normal_out = crossProduct(e0, e1) * tri.inv_cross_magnitude;
-	normal_out.set((e0.y * e1.z - e0.z * e1.y)/* * tri.inv_cross_magnitude*/,
-				   (e0.z * e1.x - e0.x * e1.z)/* * tri.inv_cross_magnitude*/,
-				   (e0.x * e1.y - e0.y * e1.x)/* * tri.inv_cross_magnitude*/, 0);
+	normal_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
+				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
+				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
 
-
-	//TEMP:
-	normal_out = normalise(normal_out);
-	//assert(normal_out.isUnitLength());
-
-	//Vec4f a, b, c;
-	//triVertPos(sub_elem_index, 0).pointToVec4f(a);
-	//triVertPos(sub_elem_index, 1).pointToVec4f(b);
-	//triVertPos(sub_elem_index, 2).pointToVec4f(c);
-
-	//pos_out = 
-	//	v0.pos * (1.0f - s) + 
-	//	v1.pos * u + 
-	//	v2.pos * v;
 	pos_out.set(v0.pos.x * (1 - s) + v1.pos.x * u + v2.pos.x * v,
 				v0.pos.y * (1 - s) + v1.pos.y * u + v2.pos.y * v,
 				v0.pos.z * (1 - s) + v1.pos.z * u + v2.pos.z * v, 1);
-
-	/*pos_out = 
-		triVertPos(sub_elem_index, 0) * (1.0f - s) + 
-		triVertPos(sub_elem_index, 1) * u + 
-		triVertPos(sub_elem_index, 2) * v
-		;*/
 
 	p_out = recip_sub_elem_area_ws;
 	mat_index_out = tri.getTriMatIndex();
@@ -1591,6 +1559,8 @@ double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Typ
 // NOTE: results pd will be invalid.
 void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_out) const
 {
+	assert(false); // We really should make this not renormalise!
+
 	// Choose triangle
 	const int t = myClamp((int)(samples.x * this->triangles.size()), 0, (int)this->triangles.size() - 1);
 
