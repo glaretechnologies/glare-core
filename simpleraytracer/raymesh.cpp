@@ -1155,7 +1155,7 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, 
 }
 
 
-void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, 
+const RayMesh::TexCoordsType RayMesh::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, 
 										TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, 
 										TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out
 									   ) const
@@ -1174,41 +1174,13 @@ void RayMesh::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_
 	dv_dalpha_out =  v1tex.y - v0tex.y;
 	du_dbeta_out  =  v2tex.x - v0tex.x;
 	dv_dbeta_out  =  v2tex.y - v0tex.y;
-}
 
-
-void RayMesh::getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& m_out) const
-{
-	const Vec2f& v0 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
-	const Vec2f& v1 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
-	const Vec2f& v2 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
-
-	Matrix2f A(
-		v1.x - v0.x, v2.x - v0.x,
-		v1.y - v0.y, v2.y - v0.y
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	return RayMesh::TexCoordsType(
+		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
+		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
 	);
-
-	const Matrix2f A_1 = A.inverse();
-
-	m_out = A_1;
 }
-
-
-/*void RayMesh::getAlphaBetaPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& m_out) const
-{
-	const Vec2f& v0 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set];
-	const Vec2f& v1 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set];
-	const Vec2f& v2 = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set];
-
-	Matrix2f A(
-		v1.x - v0.x, v2.x - v0.x,
-		v1.y - v0.y, v2.y - v0.y
-	);
-
-	const Matrix2f A_1 = A.inverse();
-
-	m_out = A_1;
-}*/
 
 
 inline static const ::Vec3f toVec3(const Indigo::Vec3f& v)

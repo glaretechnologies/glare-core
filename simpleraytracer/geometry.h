@@ -78,7 +78,7 @@ public:
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' alpha and beta.
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' alpha and beta.
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const = 0;
-	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const = 0;
+	virtual const TexCoordsType getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const = 0;
 	
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 

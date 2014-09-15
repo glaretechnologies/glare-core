@@ -147,27 +147,29 @@ const RaySphere::TexCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, un
 
 void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
 {
-	const Vec3RealType theta = hitinfo.sub_elem_coords.x;
-	const Vec3RealType phi = hitinfo.sub_elem_coords.y;
+	const Vec3RealType phi = hitinfo.sub_elem_coords.x;
+	const Vec3RealType theta = hitinfo.sub_elem_coords.y;
 
 	//(dx/du, dy/du, dz/du)
-	dp_du_out = Vec3Type(-sin(theta)*sin(phi), cos(theta)*sin(phi), 0.0f, 0.0f) * ((Vec3RealType)NICKMATHS_2PI * (Vec3RealType)radius);
+	dp_du_out = Vec3Type(-sin(phi)*sin(theta), cos(phi)*sin(theta), 0.0f, 0.0f) * radius;
 
 	//(dx/dv, dy/dv, dz/dv)
-	dp_dv_out = Vec3Type(-cos(theta)*cos(phi), -sin(theta)*cos(phi), sin(phi), 0.0f) * ((Vec3RealType)NICKMATHS_PI * (Vec3RealType)radius);
+	dp_dv_out = Vec3Type(cos(phi)*cos(theta), sin(phi)*cos(theta), -sin(theta), 0.0f) * radius;
 
 	//TEMP HACK:
 	dNs_du_out = dNs_dv_out = Vec3Type(0.0);
 }
 
 
-void RaySphere::getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
+const RaySphere::TexCoordsType RaySphere::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
 								   TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const
 {
 	// (alpha, beta) -> (u, v) is the identity mapping
 	du_dalpha_out = dv_dbeta_out = 1;
 
 	du_dbeta_out = dv_dalpha_out = 0;
+
+	return hitinfo.sub_elem_coords;
 }
 
 

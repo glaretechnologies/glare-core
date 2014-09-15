@@ -657,7 +657,7 @@ public:
 
 	virtual unsigned int getNumUVCoordSets() const { return (unsigned int)texcoords.size(); }
 
-	virtual void getUVPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
+	virtual const TexCoordsType getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
 	{
 		// This should never be evaluated, because we don't need to know the partial derives when doing displacement.
 
@@ -675,6 +675,7 @@ public:
 
 		assert(0);
 		ds_du_out = ds_dv_out = dt_du_out = dt_dv_out = 0.0;
+		return TexCoordsType(0, 0);
 	}
 
 
