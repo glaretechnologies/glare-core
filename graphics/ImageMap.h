@@ -237,7 +237,7 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 
 	// Get fractional normalised image coordinates
 	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(1 - v);
+	const Coord v_frac_part = Maths::fract(-v);
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
@@ -296,7 +296,7 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 {
 	// Get fractional normalised image coordinates
 	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(1 - v);
+	const Coord v_frac_part = Maths::fract(-v);
 
 	// Convert from normalised image coords to pixel coordinates
 	const Coord u_pixels = u_frac_part * (Coord)width;
