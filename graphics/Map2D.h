@@ -45,6 +45,11 @@ public:
 	// X and Y are normalised image coordinates.
 	virtual Value scalarSampleTiled(Coord x, Coord y) const = 0;
 
+	// s and t are normalised image coordinates.
+	// Returns texture value (v) at (s, t)
+	// Also returns dv/ds and dv/dt.
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const = 0;
+
 
 	virtual unsigned int getMapWidth() const = 0;
 	virtual unsigned int getMapHeight() const = 0;

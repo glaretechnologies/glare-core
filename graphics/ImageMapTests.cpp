@@ -65,7 +65,9 @@ static Colour3f testTexture(int res, double& elapsed_out)
 		float y = (float)(-67878 + ((i * 5354) % 45445)) * 0.007345f;
 
 		//conPrint(toString(x) + " " + toString(y));
-		Colour3f c = m.vec3SampleTiled(x, y);
+		//Colour3f c = m.vec3SampleTiled(x, y);
+		float dv_ds, dv_dt;
+		Colour3f c(m.getDerivs(x, y, dv_ds, dv_dt));
 		sum += c;
 		xy_sum += x + y;
 	}
@@ -118,6 +120,11 @@ void ImageMapTests::test()
 
 		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
 		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+
+		float dv_ds, dv_dt;
+		testAssert(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt) == 1.0f);
+		testAssert(dv_ds == 0);
+		testAssert(dv_dt == 0);
 	}
 		
 	// Test UInt8 map with 3 channels
@@ -196,17 +203,59 @@ void ImageMapTests::test()
 		testAssert(epsEqual(map.scalarSampleTiled(0.3f, 0.7f), 0.3f));
 		testAssert(epsEqual(map.scalarSampleTiled(0.6123f, 0.7f), 0.6123f));
 		testAssert(epsEqual(map.scalarSampleTiled(0.999999f, 0.7f), 0.0f));
+
+
+		float dv_ds, dv_dt;
+		testAssert(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt) == 0.5f); // Value should be 0.5.
+		testAssert(epsEqual(dv_ds, 1.f)); // Value is increasing with s.
+		testAssert(epsEqual(dv_dt, 0.f));
+
+		testAssert(epsEqual(map.getDerivs(0.43f, 0.2f, dv_ds, dv_dt), 0.43f)); // Value should be 0.43.
+		testAssert(epsEqual(dv_ds, 1.f)); // Value is increasing with s.
+		testAssert(epsEqual(dv_dt, 0.f));
+	}
+
+	// Do some test with non-constant values
+	{
+		const int W = 10;
+		const int H = 20;
+		ImageMapFloat map(W, H, 3);
+		for(int y=0; y<H; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			const float v = (float)x/W   +   0.5f*(1 - (float)y/H);
+			map.getPixel(x, y)[0] = v;
+			map.getPixel(x, y)[1] = v;
+			map.getPixel(x, y)[2] = v;
+		}
+
+		//testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
+		testAssert(epsEqual(map.scalarSampleTiled(0.3f, 0.7f), 0.3f + 0.7f/2));
+		testAssert(epsEqual(map.scalarSampleTiled(0.6123f, 0.7f), 0.6123f + 0.7f/2));
+		//testAssert(epsEqual(map.scalarSampleTiled(0.999999f, 0.999999f), 0.0f));
+		
+		// Apart from at the texture borders, where the reads will wrap around, the values should be the simple linear function above,
+		// and the derivatives are 1 and 0.5.
+
+		for(float s=0.5001f/W; s<1 - 1.5001f/W; s += 0.01f)
+		for(float t=1.5001f/H; t<1 - 0.5001f/H; t += 0.01f)
+		{
+			float dv_ds, dv_dt;
+			testEpsEqual(map.getDerivs(s, t, dv_ds, dv_dt), s + t/2);
+			testAssert(epsEqual(dv_ds, 1.0f));
+			testAssert(epsEqual(dv_dt, 0.5f));
+		}
 	}
 
 
 
-	/*
+	
 	// Do perf tests
-	perfTestWithTextureWidth(10);
+	/*perfTestWithTextureWidth(10);
 	perfTestWithTextureWidth(100);
 	perfTestWithTextureWidth(1000);
-	perfTestWithTextureWidth(10000);
-	*/
+	perfTestWithTextureWidth(10000);*/
+	
 
 	/*Plotter::DataSet dataset;
 	dataset.key = "elapsed (s)";

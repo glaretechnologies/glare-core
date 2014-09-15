@@ -116,6 +116,8 @@ public:
 
 	virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
+
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
 
 	virtual Reference<Image> convertToImage() const;

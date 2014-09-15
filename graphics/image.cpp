@@ -606,6 +606,15 @@ Image::Value Image::scalarSampleTiled(Coord x, Coord y) const
 }
 
 
+Image::Value Image::getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const
+{
+	// Since most image format decoding functions return ImageMap<>s now, this shouldn't be called.
+	assert(0);
+	dv_ds_out = dv_dt_out = 0;
+	return 0;
+}
+
+
 Reference<Image> Image::convertToImage() const
 {
 	// Return copy of this image.

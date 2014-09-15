@@ -97,6 +97,8 @@ public:
 	// X and Y are normalised image coordinates.
 	inline virtual Value scalarSampleTiled(Coord x, Coord y) const;
 
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
+
 
 	inline unsigned int getWidth() const { return width; }
 	inline unsigned int getHeight() const { return height; }
@@ -138,7 +140,7 @@ private:
 #endif
 	unsigned int width, height, N;
 	js::Vector<V, 16> data;
-	float gamma;
+	float gamma, ds_over_2, dt_over_2;
 };
 
 
@@ -164,7 +166,7 @@ ImageMap<V, VTraits>::ImageMap()
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsigned int N_)
-:	width(width_), height(height_), N(N_), gamma(2.2f)
+:	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_)
 {
 	try
 	{
@@ -194,6 +196,8 @@ void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, uns
 	width = width_;
 	height = height_;
 	N = N_;
+	ds_over_2 = 0.5f / width_;
+	dt_over_2 = 0.5f / height_;
 
 	try
 	{
@@ -325,6 +329,108 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 	const Value d = ufrac * vfrac; // Bottom right pixel weight
 
 	return VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
+}
+
+
+// s and t are normalised image coordinates.
+// Returns texture value (v) at (s, t)
+// Also returns dv/ds and dv/dt.
+template <class V, class VTraits>
+Map2D::Value ImageMap<V, VTraits>::getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const
+{
+	// Get fractional normalised image coordinates
+	const Coord s_frac_part = Maths::fract(s - ds_over_2);
+	const Coord t_frac_part = Maths::fract(-t - dt_over_2);
+
+	// Convert from normalised image coords to pixel coordinates
+	const Coord s_pixels = s_frac_part * (Coord)width;
+	const Coord t_pixels = t_frac_part * (Coord)height;
+
+	// Get pixel indices
+	const unsigned int ut = myMin((unsigned int)s_pixels, width - 1);
+	const unsigned int vt = myMin((unsigned int)t_pixels, height - 1);
+
+	assert(ut < width && vt < height);
+
+	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	const unsigned int ut_2 = (ut + 2) >= width  ? ((ut + 2) - width ) : ut + 2;
+	const unsigned int vt_2 = (vt + 2) >= height ? ((vt + 2) - height) : vt + 2;
+
+	const V* const use_data = &data[0];
+
+	const float f0 = use_data[(ut   + width * vt  ) * N];
+	const float f1 = use_data[(ut_1 + width * vt  ) * N];
+	const float f2 = use_data[(ut_2 + width * vt  ) * N];
+	const float f3 = use_data[(ut   + width * vt_1) * N];
+	const float f4 = use_data[(ut_1 + width * vt_1) * N];
+	const float f5 = use_data[(ut_2 + width * vt_1) * N];
+	const float f6 = use_data[(ut   + width * vt_2) * N];
+	const float f7 = use_data[(ut_1 + width * vt_2) * N];
+	const float f8 = use_data[(ut_2 + width * vt_2) * N];
+
+	float f_p1_minus_f_p0;
+	float f_p3_minus_f_p2;
+	float f_centre;
+	Coord centre_v;
+
+	// Compute f_p1_minus_f_p0 - the 'horizontal' central difference numerator.
+	const Coord top_u = s_pixels - (Coord)ut;
+	const Coord offset_v = t_pixels - (Coord)vt + 0.5f; // Samples are offset 0.5 downwards from top left of square.
+	if(offset_v < 1.f)
+	{
+		const Coord u = top_u;
+		const Coord v = offset_v;
+		centre_v = offset_v;
+		const Coord oneu = 1 - u;
+		const Coord onev = 1 - offset_v;
+		f_p1_minus_f_p0 = VTraits::scaleValue(-oneu*onev*f0 + (1-2*u)*onev*f1 + u*onev*f2 - oneu*v*f3 + (1-2*u)*v*f4 + u*v*f5);
+	}
+	else // Else if f0 and f1 are in the bottom pixels, 'move' the pixel filter support down by one pixel:
+	{
+		const Coord u = top_u;
+		const Coord v = offset_v - 1.f;
+		centre_v = v;
+		const Coord oneu = 1 - u;
+		const Coord onev = 1 - v;
+		f_p1_minus_f_p0 = VTraits::scaleValue(-oneu*onev*f3 + (1-2*u)*onev*f4 + u*onev*f5 - oneu*v*f6 + (1-2*u)*v*f7 + u*v*f8);
+	}
+
+	assert(centre_v >= 0 && centre_v <= 1);
+	const float one_centre_v = 1 - centre_v;
+
+	// Compute f_p3_minus_f_p2 - the 'vertical' central difference numerator.
+	const Coord offset_u = s_pixels - (Coord)ut + 0.5f; // Samples are offset 0.5 rightwards from top left of square.
+	const Coord v = t_pixels - (Coord)vt;
+	if(offset_u < 1.f) // if f2 and f3 are in the left pixels, pixel filter support is the left pixels:
+	{
+		const Coord u = offset_u;
+		const Coord oneu = 1 - u;
+		const Coord onev = 1 - v;
+		f_p3_minus_f_p2 = VTraits::scaleValue(-oneu*onev*f0 - u*onev*f1 + oneu*(1-2*v)*f3 + u*(1-2*v)*f4 + oneu*v*f6 + u*v*f7);
+
+		if(offset_v < 1.f) // If centre needs to read from top pixel block:
+			f_centre = VTraits::scaleValue(oneu*one_centre_v*f0 + u*one_centre_v*f1 + oneu*centre_v*f3 + u*centre_v*f4); // Centre point is interpolated from upper left pixel (f0, f1, f3, f4)
+		else // Else if centre needs to read from bottom pixel block:
+			f_centre = VTraits::scaleValue(oneu*one_centre_v*f3 + u*one_centre_v*f4 + oneu*centre_v*f6 + u*centre_v*f7); // Centre point is interpolated from bottom left pixel (f3, f4, f6, f7)
+	}
+	else // Else if f2 and f3 are in the right pixels, 'move' the pixel filter support right by one pixel:
+	{
+		const Coord u = offset_u - 1.f;
+		const Coord oneu = 1 - u;
+		const Coord onev = 1 - v;
+		f_p3_minus_f_p2 = VTraits::scaleValue(-oneu*onev*f1 - u*onev*f2 + oneu*(1-2*v)*f4 + u*(1-2*v)*f5 + oneu*v*f7 + u*v*f8);
+
+		if(offset_v < 1.f) // If centre needs to read from top pixel block:
+			f_centre = VTraits::scaleValue(oneu*one_centre_v*f1 + u*one_centre_v*f2 + oneu*centre_v*f4 + u*centre_v*f5); // Centre point is interpolated from upper right pixel (f1, f2, f4, f5)
+		else // Else if centre needs to read from bottom pixel block:
+			f_centre = VTraits::scaleValue(oneu*one_centre_v*f4 + u*one_centre_v*f5 + oneu*centre_v*f7 + u*centre_v*f8); // Centre point is interpolated from bottom right pixel (f4, f5, f7, f8)
+	}
+
+	// dv/ds = (f(p1) - f(p0)) / ds,     but ds = 1 / width,   so dv/ds = (f(p1) - f(p0)) * width.   Likewise for dv/dt.
+	dv_ds_out = f_p1_minus_f_p0 * width;
+	dv_dt_out = -f_p3_minus_f_p2 * height;
+	return f_centre;
 }
 
 
