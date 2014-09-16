@@ -186,6 +186,18 @@ void ImageMapTests::test()
 		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
 	}
 
+
+	// Test that all interpolated reads from a UInt8 map with zero values return zero.
+	{
+		const int W = 10;
+		ImageMapUInt8 map(W, W, 1);
+		map.set(0);
+
+		for(float s = -10.f; s <= 10.f; s += 0.14f)
+		for(float t = -10.f; t <= 10.f; t += 0.13f)
+			testAssert(map.scalarSampleTiled(s, t) == 0.f);
+	}
+
 	
 	// Do some test with non-constant values
 	{
