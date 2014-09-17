@@ -93,9 +93,11 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "sin",
 "tan",
 "sqrt",
+
 "min",
 "max",
-
+"floor",
+"ceil",
 "clamp",
 
 "printf",
@@ -150,9 +152,12 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 // preprocessor definitions: need to be unchanged.
 
 // OpenCL path tracer defs:
-"ENVMAP_SPHERE", "IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
 
-"USE_FLOAT3_SWIZZLES", // XXX TODO this should be renamed to something cryptic
+// XXX TODO this should be renamed to something cryptic
+"ENVMAP_SPHERE", "IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
+"USE_FLOAT3_SWIZZLES",
+"RANDOMISE_SAMPLES",
+"NUM_LIGHTS",
 
 "OPENCL_BACKGROUND_SPHERE", "OBS",
 "OPENCL_RAY_BLOCK_HEIGHT", "ORBH",
@@ -599,10 +604,10 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			}
 
 			Obfuscator ob(
-				true, // collapse_whitespace
-				true, // remove_comments
+				false, // collapse_whitespace
+				false, // remove_comments
 				true, // change tokens
-				true // cryptic_tokens
+				false // cryptic_tokens
 				);
 
 			// Obfuscate the code
