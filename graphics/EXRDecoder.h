@@ -33,7 +33,7 @@ public:
 
 	// throws Indigo::Exception
 	static void saveImageTo32BitEXR(const Image& image, const std::string& pathname);
-	static void saveImageTo32BitEXR(const Image4f& image, const std::string& pathname);
+	static void saveImageTo32BitEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname);
 	static void saveImageTo32BitEXR(const ImageMapFloat& image, const std::string& pathname);
 	
 	static void test();

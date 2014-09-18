@@ -261,7 +261,7 @@ void EXRDecoder::saveImageTo32BitEXR(const Image& image, const std::string& path
 }
 
 
-void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pathname)
+void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname)
 {
 	setEXRThreadPoolSize();
 
@@ -286,7 +286,8 @@ void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pa
 		header.channels().insert("R", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("G", Imf::Channel(Imf::FLOAT));
 		header.channels().insert("B", Imf::Channel(Imf::FLOAT));
-		header.channels().insert("A", Imf::Channel(Imf::FLOAT));
+		if(save_alpha_channel)
+			header.channels().insert("A", Imf::Channel(Imf::FLOAT));
 		Imf::OutputFile file(exr_ofstream, header);                               
 		Imf::FrameBuffer frameBuffer;
 
@@ -308,12 +309,13 @@ void EXRDecoder::saveImageTo32BitEXR(const Image4f& image, const std::string& pa
 			sizeof(Image4f::ColourType),				// xStride
 			sizeof(Image4f::ColourType) * image.getWidth())// yStride
 			);
-		frameBuffer.insert("A",				// name
-			Imf::Slice(Imf::FLOAT,			// type
-			(char*)&image.getPixel(0).x[3],			// base
-			sizeof(Image4f::ColourType),				// xStride
-			sizeof(Image4f::ColourType) * image.getWidth())// yStride
-			);
+		if(save_alpha_channel)
+			frameBuffer.insert("A",				// name
+				Imf::Slice(Imf::FLOAT,			// type
+				(char*)&image.getPixel(0).x[3],			// base
+				sizeof(Image4f::ColourType),				// xStride
+				sizeof(Image4f::ColourType) * image.getWidth())// yStride
+				);
 		file.setFrameBuffer(frameBuffer);
 		file.writePixels((int)image.getHeight());
 	}
