@@ -39,5 +39,5 @@ double MitchellNetravaliFilterFunction::eval(double r_01) const
 
 const std::string MitchellNetravaliFilterFunction::description() const
 {
-	return "mn_cubic, blur=" + toString(mn.getB()) + ", ring=" + toString(mn.getC()) + ", support=" + toString(supportRadius() * 2) + "px";
+	return "mn_cubic, blur=" + doubleToStringNDecimalPlaces(mn.getB(), 3) + ", ring=" + doubleToStringNDecimalPlaces(mn.getC(), 3) + ", support=" + doubleToStringNDecimalPlaces(supportRadius() * 2, 3) + "px";
 }
