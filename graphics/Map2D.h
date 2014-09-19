@@ -53,11 +53,14 @@ public:
 
 	virtual unsigned int getMapWidth() const = 0;
 	virtual unsigned int getMapHeight() const = 0;
+	virtual unsigned int numChannels() const = 0;
 
 	virtual bool takesOnlyUnitIntervalValues() const = 0;
 
 	virtual bool hasAlphaChannel() const { return false; }
 	virtual Reference<Map2D> extractAlphaChannel() const { return Reference<Map2D>(); }
+
+	virtual Reference<Map2D> extractChannelZero() const = 0;
 
 	virtual Reference<Image> convertToImage() const = 0;
 

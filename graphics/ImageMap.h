@@ -105,6 +105,7 @@ public:
 
 	inline virtual unsigned int getMapWidth() const { return width; }
 	inline virtual unsigned int getMapHeight() const { return height; }
+	inline virtual unsigned int numChannels() const { return N; }
 
 	inline virtual bool takesOnlyUnitIntervalValues() const { return !ComponentValueTraits::isFloatingPoint(); }
 
@@ -112,6 +113,8 @@ public:
 	inline virtual Reference<Map2D> extractAlphaChannel() const;
 
 	inline virtual Reference<Image> convertToImage() const;
+
+	inline virtual Reference<Map2D> extractChannelZero() const;
 
 	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
@@ -483,6 +486,20 @@ Reference<Map2D> ImageMap<V, VTraits>::extractAlphaChannel() const
 		}
 
 	return Reference<Map2D>(alpha_map);
+}
+
+
+template <class V, class VTraits>
+Reference<Map2D> ImageMap<V, VTraits>::extractChannelZero() const
+{
+	ImageMap<V, VTraits>* new_map = new ImageMap<V, VTraits>(width, height, 1);
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+		{	
+			new_map->getPixel(x, y)[0] = this->getPixel(x, y)[0];
+		}
+
+	return Reference<Map2D>(new_map);
 }
 
 

@@ -109,6 +109,7 @@ public:
 	////// Map2D interface //////////
 	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
 	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
+	virtual unsigned int numChannels() const { return 3; }
 
 	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return pixels.elem(x, y); }
 
@@ -119,6 +120,8 @@ public:
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }
+
+	virtual Reference<Map2D> extractChannelZero() const;
 
 	virtual Reference<Image> convertToImage() const;
 

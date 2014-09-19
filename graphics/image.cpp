@@ -4,6 +4,7 @@
 #include "GaussianImageFilter.h"
 #include "BoxFilterFunction.h"
 #include "bitmap.h"
+#include "ImageMap.h"
 #include "../maths/vec2.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
@@ -619,6 +620,16 @@ Reference<Image> Image::convertToImage() const
 {
 	// Return copy of this image.
 	return Reference<Image>(new Image(*this));
+}
+
+
+Reference<Map2D> Image::extractChannelZero() const
+{
+	Reference<ImageMapFloat> m = new ImageMapFloat((unsigned int)getWidth(), (unsigned int)getHeight(), 1);
+	for(size_t y=0; y<getHeight(); ++y)
+	for(size_t x=0; x<getWidth(); ++x)
+		m->getPixel((unsigned int)x, (unsigned int)y)[0] = getPixel(x, y).r;
+	return m;
 }
 
 
