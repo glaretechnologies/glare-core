@@ -24,7 +24,7 @@ TextDrawer::TextDrawer(const std::string& font_image_path, const std::string& fo
 		// Downcast to 8-bit ImageMap.
 		const ImageMap<uint8_t, UInt8ComponentValueTraits>* image_map_ptr = dynamic_cast<const ImageMap<uint8_t, UInt8ComponentValueTraits>* >(map.getPointer());
 		if(!image_map_ptr)
-			TextDrawerExcep("Bitmap file is invalid."); 
+			throw TextDrawerExcep("Bitmap file is invalid."); 
 
 		this->font_bmp.setFromImageMap(*image_map_ptr);
 
