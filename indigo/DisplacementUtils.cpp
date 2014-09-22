@@ -644,15 +644,20 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 
-class DUTexCoordEvaluator : public TexCoordEvaluator
+SSE_CLASS_ALIGN DUTexCoordEvaluator : public TexCoordEvaluator
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	DUTexCoordEvaluator(){}
 	~DUTexCoordEvaluator(){}
 
 	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 	{
-		return texcoords[texcoords_set];
+		if(texcoords_set < (unsigned int)texcoords.size())
+			return texcoords[texcoords_set];
+		else
+			return Vec2f(0,0);
 	}
 
 	virtual unsigned int getNumUVCoordSets() const { return (unsigned int)texcoords.size(); }
@@ -679,6 +684,21 @@ public:
 	}
 
 
+	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
+	{
+		pos_out = pos_os;
+		pos_os_rel_error_out = 0;
+		N_g_out = Vec4f(0,0,0,1); // TEMP HACK, isn't used currently anyway.
+	}
+
+
+	virtual float meanCurvature(const HitInfo& hitinfo) const
+	{
+		return 0;//TEMP HACK
+	}
+
+
+	Vec4f pos_os;
 	std::vector<TexCoordsType> texcoords;
 
 	//Matrix2d d_st_d_uv;
@@ -733,15 +753,14 @@ static float evalDisplacement(ThreadContext& context,
 			verts[triangle.vertex_indices[1]].pos * b1 + 
 			verts[triangle.vertex_indices[2]].pos * b2;
 
-		Material::EvalDisplaceArgs args(
+		du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
+		EvalDisplaceArgs args(
 			context,
 			hitinfo,
 			du_texcoord_evaluator,
-			pos_os.toVec4fPoint(),
 			Vec4f(0), // dp_dalpha  TEMP HACK
 			Vec4f(0), // dp_dbeta  TEMP HACK
-			Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
-			0 // H (mean curvature).  TEMP HACK
+			Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
 		);
 
 		return material.evaluateDisplacement(args);
@@ -795,15 +814,14 @@ static float evalDisplacement(ThreadContext& context,
 			verts[quad.vertex_indices[2]].pos * alpha     * beta;
 			verts[quad.vertex_indices[3]].pos * one_alpha * beta;
 
-		Material::EvalDisplaceArgs args(
+		du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
+		EvalDisplaceArgs args(
 			context,
 			hitinfo,
 			du_texcoord_evaluator,
-			pos_os.toVec4fPoint(),
 			Vec4f(0), // dp_dalpha  TEMP HACK
 			Vec4f(0), // dp_dbeta  TEMP HACK
-			Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
-			0 // H (mean curvature).  TEMP HACK
+			Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
 		);
 
 		return material.evaluateDisplacement(args);
@@ -978,15 +996,15 @@ public:
 
 				const Vec3f& pos_os = (*closure.verts_in)[v_i].pos;
 
-				Material::EvalDisplaceArgs args(
+				du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
+
+				EvalDisplaceArgs args(
 					context,
 					hitinfo,
 					du_texcoord_evaluator,
-					pos_os.toVec4fPoint(),
 					Vec4f(0), // dp_dalpha  TEMP HACK
 					Vec4f(0), // dp_dbeta  TEMP HACK
-					Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
-					0 // H (mean curvature).  TEMP HACK
+					Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
 				);
 
 				const float displacement = (*closure.vert_materials)[v_i]->evaluateDisplacement(args);
@@ -2492,7 +2510,6 @@ void DisplacementUtils::test()
 
 		std::vector<Reference<Material> > materials;
 		materials.push_back(Reference<Material>(new Diffuse(
-			std::vector<TextureUnit>(),
 			Reference<SpectrumMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),
@@ -2611,7 +2628,6 @@ void DisplacementUtils::test()
 
 		std::vector<Reference<Material> > materials;
 		materials.push_back(Reference<Material>(new Diffuse(
-			std::vector<TextureUnit>(),
 			Reference<SpectrumMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),
 			Reference<DisplaceMatParameter>(NULL),

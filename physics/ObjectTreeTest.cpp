@@ -55,7 +55,6 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	// Create basic material
 	Reference<Material> mat(new Diffuse(
-		std::vector<TextureUnit>(), // textures
 		Reference<SpectrumMatParameter>(NULL), // albedo spectrum
 		Reference<DisplaceMatParameter>(NULL),
 		Reference<DisplaceMatParameter>(NULL),
@@ -214,7 +213,6 @@ void ObjectTreeTest::doTests()
 
 	// Create basic material
 	Reference<Material> mat(new Diffuse(
-		std::vector<TextureUnit>(), // textures
 		Reference<SpectrumMatParameter>(NULL), // albedo spectrum
 		Reference<DisplaceMatParameter>(NULL),
 		Reference<DisplaceMatParameter>(NULL),

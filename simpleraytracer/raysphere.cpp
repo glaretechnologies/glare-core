@@ -85,14 +85,14 @@ void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out
 }
 
 
-void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Real& curvature_out) const
+void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	N_s_os_out = N_g_os_out;
 	mat_index_out = 0;
 	pos_os_out = centre + N_g_os_out * this->radius;
 	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
-	curvature_out = -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.
+	uv0_out = hitinfo.sub_elem_coords;
 }
 
 
@@ -240,6 +240,12 @@ bool RaySphere::areSubElementsCurved() const
 RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
 {
 	return radius;
+}
+
+
+RaySphere::Real RaySphere::meanCurvature(const HitInfo& hitinfo) const
+{
+	return -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.
 }
 
 

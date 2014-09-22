@@ -73,7 +73,7 @@ public:
 	
 
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const = 0;
-	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Real& curvature_out) const = 0;
+	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const = 0;
 	
 	// Get the partial derivatives of the surface position relative to the 'intrinsic parameters' alpha and beta.
 	// Also gets the partial derivatives of the shading normal relative to the 'intrinsic parameters' alpha and beta.
@@ -114,6 +114,8 @@ public:
 	virtual Vec3RealType getBoundingRadius() const = 0;
 
 	virtual Real positionForInstrinsicCoordsJacobian(unsigned int sub_elem_index) const { return 1; }
+
+	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 
 	void incrementObjectUsageCount() { object_usage_count++; }
 	unsigned int getObjectUsageCount() const { return object_usage_count; }

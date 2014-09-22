@@ -151,6 +151,7 @@ public:
 	virtual void getRayForImagePos(const Vec2d& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
 
+	virtual Real meanCurvature(const HitInfo& hitinfo) const { return 0; }
 
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }

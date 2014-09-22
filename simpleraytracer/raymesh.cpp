@@ -255,7 +255,7 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 }
 
 
-void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Real& curvature_out) const
+void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const
 {
 	assert(built());
 
@@ -336,8 +336,25 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		);
 	}
 
-	// Compute curvature
-	curvature_out = v0.H * w + v1.H * u + v2.H * v;
+	if(num_uv_sets == 0)
+	{
+		uv0_out.set(0, 0);
+	}
+	else
+	{
+		unsigned int v0idx = tri.uv_indices[0] * num_uv_sets;
+		unsigned int v1idx = tri.uv_indices[1] * num_uv_sets;
+		unsigned int v2idx = tri.uv_indices[2] * num_uv_sets;
+
+		const Vec2f& v0tex = this->uvs[v0idx];
+		const Vec2f& v1tex = this->uvs[v1idx];
+		const Vec2f& v2tex = this->uvs[v2idx];
+
+		uv0_out = RayMesh::TexCoordsType(
+			v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
+			v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
+		);
+	}
 }
 
 
@@ -1097,6 +1114,9 @@ unsigned int RayMesh::getNumUVCoordSets() const
 
 const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
+	if(texcoords_set >= num_uv_sets)
+		return RayMesh::TexCoordsType(0, 0);
+
 	assert(texcoords_set < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());
 	const int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
@@ -1160,6 +1180,12 @@ const RayMesh::TexCoordsType RayMesh::getUVCoordsAndPartialDerivs(const HitInfo&
 										TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out
 									   ) const
 {
+	if(texcoords_set >= num_uv_sets)
+	{
+		du_dalpha_out = 1; du_dbeta_out = 0;
+		dv_dalpha_out = 0; dv_dbeta_out = 1;
+		return RayMesh::TexCoordsType(0, 0);
+	}
 	assert(texcoords_set < num_uv_sets);
 
 	unsigned int v0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
@@ -1852,4 +1878,21 @@ bool RayMesh::areSubElementsCurved() const
 RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 {
 	return bounding_radius;
+}
+
+
+float RayMesh::meanCurvature(const HitInfo& hitinfo) const
+{
+	assert(built());
+
+	const float u = hitinfo.sub_elem_coords.x;
+	const float v = hitinfo.sub_elem_coords.y;
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+
+	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
+	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+
+	return v0.H * w + v1.H * u + v2.H * v;
 }
