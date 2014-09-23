@@ -422,7 +422,7 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
 	if(!isSockHandleValid(newsockethandle))
-		throw MySocketExcep("accept failed");
+		throw MySocketExcep("accept failed: " + PlatformUtils::getLastErrorString());
 
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
