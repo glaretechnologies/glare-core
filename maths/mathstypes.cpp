@@ -91,6 +91,12 @@ void Maths::test()
 {
 	conPrint("Maths::test()");
 
+	//======================================= uInt32ToUnitFloatScale() ========================================
+	{
+		const float x = 4294967295u * Maths::uInt32ToUnitFloatScale();
+		// NOTE: 0.99999994f is the largest float value below 1.0f.  See http://www.h-schmidt.net/FloatConverter/IEEE754.html
+		testAssert(x == 0.99999994f);
+	}
 
 	//======================================== sqrt2Pi(), recipSqrt2Pi() ========================================
 	testAssert(epsEqual(sqrt2Pi<float>(), std::sqrt(2 * pi<float>())));
@@ -780,6 +786,22 @@ void Maths::test()
 	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("uint32 mod");
+	{
+	CycleTimer timer;
+	uint32 sum = 0;
+	for(int i=0; i<N; ++i)
+	{
+		const uint32 x = (uint32)i;
+		sum += sum % (x + 1000);
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+
 	conPrint("pow() [float]");
 	{
 		CycleTimer timer;
@@ -836,13 +858,13 @@ void Maths::test()
 	{
 		CycleTimer timer;
 		float sum = 0.0;
-		/*for(int i=0; i<N; ++i)
+		for(int i=0; i<N; ++i)
 		{
 			const float x = (float)i * 0.00001f;
 			sum += Maths::fract(x);
-		}*/
-		for(int i=0; i<DATA_SIZE; ++i)
-			sum += Maths::fract(data[i]);
+		}
+		//for(int i=0; i<DATA_SIZE; ++i)
+		//	sum += Maths::fract(data[i]);
 
 		const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
 		const double cycles = elapsed / (double)N;

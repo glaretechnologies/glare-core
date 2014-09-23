@@ -318,6 +318,17 @@ namespace Maths
 {
 
 
+// Multiply by this constant to convert a unsigned 32 bit integer to a float in [0, 1).
+// 1 / 2^32 = 2^-32 = 2.3283064365386963e-10, which is exactly representable as a float.
+// However 4294967295 * (2^-32) = 0.9999999997671694, which when rounded to the nearest float, gives 1.0f.
+// Let's say we want to multiply by x, such that:
+// 4294967295 * x = 0.99999994f			(0.99999994f is the largest float value below 1.0f)
+// Then x = 0.99999994 / 4294967295 = 2.3283062973824113e-10
+// or rounded to the nearest float: 2.3283063E-10.
+// So we will multiply our uint32s by 2.3283063E-10f instead of 2^-32.
+inline float uInt32ToUnitFloatScale() { return 2.3283063E-10f; }
+
+
 template <class Real>
 inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 {

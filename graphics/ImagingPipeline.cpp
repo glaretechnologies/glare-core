@@ -168,7 +168,7 @@ inline static uint32_t pixelHash(uint32_t x)
 // NOTE: Do we want to dither alpha?
 inline Colour4f ditherPixel(const Colour4f& c, ptrdiff_t pixel_i)
 {
-	const float ur = pixelHash((uint32)pixel_i) * (1.0f / 4294967296.0f);
+	const float ur = pixelHash((uint32)pixel_i) * Maths::uInt32ToUnitFloatScale();
 	return c + Colour4f(-0.5f + ur, -0.5f + ur, -0.5f + ur, 0) * (1.0f / 255.0f);
 }
 
