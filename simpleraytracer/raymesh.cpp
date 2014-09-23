@@ -1305,7 +1305,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		}
 	}
 
-	const unsigned int num_uv_groups = this->getNumUVGroups(); // Compute out of loop below.
+	const unsigned int num_uv_groups = this->getNumUVsPerSet(); // Compute out of loop below.
 
 	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 

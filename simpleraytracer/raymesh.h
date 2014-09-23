@@ -246,7 +246,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////
 
 	// This is the number of UV pairs per uv set (layer).
-	inline unsigned int getNumUVGroups() const { return num_uv_sets == 0 ? 0 : (unsigned int)uvs.size() / num_uv_sets; }
+	inline unsigned int getNumUVsPerSet() const { return num_uv_sets == 0 ? 0 : (unsigned int)uvs.size() / num_uv_sets; }
 	
 	
 	const js::Tree* getTreeDebug() const { return tritree; }
