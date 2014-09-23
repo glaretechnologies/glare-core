@@ -747,6 +747,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			N_s, // shading normal
 			N_s, // pre-bump shading normal
 			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
+			Vec2f(0,0), // uv 0
 			false // shading normals flipped
 		);
 
@@ -876,6 +877,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			N_s, // shading normal
 			N_s, // pre-bump shading normal
 			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
+			Vec2f(0,0), // uv 0
 			false // shading normals flipped
 		);
 
