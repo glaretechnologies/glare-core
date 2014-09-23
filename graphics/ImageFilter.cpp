@@ -2193,7 +2193,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 				const float a = fast_ft_out.getPixel(i)[comp];
 				const float c = fftss_ft_out.getPixel(i)[comp];
 
-				testAssert(epsEqual(a, c, 0.0001f));
+				testAssert(Maths::approxEq(a, c));
 			}
 		}
 }
