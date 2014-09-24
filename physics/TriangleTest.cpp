@@ -71,6 +71,12 @@ static void testIntersection(const Ray& ray, const MollerTrumboreTri* tri)
 		if(ref_hit || (hit.i[i] != 0))
 		{
 			testAssert(::epsEqual(ref_t, t.f[i]));
+			if(!::epsEqual(ref_u, u.f[i]))
+			{
+				printVar(i);
+				printVar(ref_u);
+				printVar(u.f[i]);
+			}
 			testAssert(::epsEqual(ref_u, u.f[i]));
 			testAssert(::epsEqual(ref_v, v.f[i]));
 			testAssert(ref_hit == (hit.i[i] != 0));
