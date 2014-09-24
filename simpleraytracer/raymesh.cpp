@@ -1512,7 +1512,8 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<f
 }
 
 
-void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const
+void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
+							   float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out, Vec2f& uv0_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
@@ -1545,6 +1546,28 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 
 	p_out = recip_sub_elem_area_ws;
 	mat_index_out = tri.getTriMatIndex();
+
+	if(num_uv_sets == 0)
+	{
+		uv0_out.set(0, 0);
+	}
+	else
+	{
+		unsigned int v0idx = tri.uv_indices[0] * num_uv_sets;
+		unsigned int v1idx = tri.uv_indices[1] * num_uv_sets;
+		unsigned int v2idx = tri.uv_indices[2] * num_uv_sets;
+
+		const Vec2f& v0tex = this->uvs[v0idx];
+		const Vec2f& v1tex = this->uvs[v1idx];
+		const Vec2f& v2tex = this->uvs[v2idx];
+
+		const float w = 1 - u - v;
+
+		uv0_out = RayMesh::TexCoordsType(
+			v0tex.x * w + v1tex.x * u + v2tex.x * v,
+			v0tex.y * w + v1tex.y * u + v2tex.y * v
+		);
+	}
 }
 
 
@@ -1566,10 +1589,11 @@ void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_ou
 
 	float p;
 	unsigned int mat_index;
+	Vec2f uv0;
 	sampleSubElement(t, remapped_samples, results_out.pos, results_out.N_g, results_out.hitinfo, 
 		1.0f,  // TEMP HACK
 		p,
-		mat_index);
+		mat_index, uv0);
 
 	/*sampleSubElement(t, remapped_samples, 
 		1.f, // sub_elem_area_ws TEMP HACK - since this is wrong, the pd will be invalid.

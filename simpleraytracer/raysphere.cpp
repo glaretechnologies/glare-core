@@ -184,7 +184,8 @@ void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector
 }
 
 
-void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out) const
+void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
+								 float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out, Vec2f& uv0_out) const
 {
 	assert(sub_elem_index == 0);
 	const Vec4f n = GeometrySampling::uniformlySampleSphere(samples);
@@ -197,6 +198,7 @@ void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& 
 	hitinfo_out.sub_elem_coords = GeometrySampling::sphericalCoordsForDir(n, (Vec3RealType)this->recip_radius);
 	p_out = recip_sub_elem_area_ws;
 	mat_index_out = 0;
+	uv0_out = hitinfo_out.sub_elem_coords;
 }
 
 
