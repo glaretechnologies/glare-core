@@ -57,8 +57,6 @@ Code By Nicholas Chapman.
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				 bool merge_vertices_with_same_pos_and_normal_,
-				bool wrap_u_,
-				bool wrap_v_,
 				bool view_dependent_subdivision_,
 				double displacement_error_threshold_
 				 )
@@ -70,8 +68,6 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
 	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_),
-	wrap_u(wrap_u_),
-	wrap_v(wrap_v_),
 	view_dependent_subdivision(view_dependent_subdivision_),
 	displacement_error_threshold(displacement_error_threshold_)
 {
@@ -593,8 +589,6 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 
 				DUOptions options;
 				options.object_to_camera = object_to_camera;
-				options.wrap_u = wrap_u;
-				options.wrap_v = wrap_v;
 				options.view_dependent_subdivision = view_dependent_subdivision;
 				options.pixel_height_at_dist_one = pixel_height_at_dist_one;
 				options.subdivide_pixel_threshold = subdivide_pixel_threshold;
@@ -726,8 +720,6 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		subdivision_smoothing, 
 		subdivide_curvature_threshold,
 		merge_vertices_with_same_pos_and_normal,
-		wrap_u,
-		wrap_v,
 		view_dependent_subdivision,
 		displacement_error_threshold
 	));

@@ -2525,8 +2525,6 @@ void DisplacementUtils::test()
 
 		DUOptions options;
 		options.object_to_camera = Matrix4f::identity();
-		options.wrap_u = true;
-		options.wrap_v = false;
 		options.view_dependent_subdivision = false;
 		options.pixel_height_at_dist_one = 1;
 		options.subdivide_pixel_threshold = 0;
@@ -2641,8 +2639,6 @@ void DisplacementUtils::test()
 
 		DUOptions options;
 		options.object_to_camera = Matrix4f::identity();
-		options.wrap_u = true;
-		options.wrap_v = false;
 		options.view_dependent_subdivision = false;
 		options.pixel_height_at_dist_one = 1;
 		options.subdivide_pixel_threshold = 0;

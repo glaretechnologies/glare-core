@@ -116,9 +116,6 @@ public:
 
 	Matrix4f object_to_camera;
 
-	bool wrap_u;
-	bool wrap_v;
-
 	bool view_dependent_subdivision;
 	double pixel_height_at_dist_one;
 	double subdivide_pixel_threshold;

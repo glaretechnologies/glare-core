@@ -179,8 +179,6 @@ public:
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
 		bool merge_vertices_with_same_pos_and_normal = false,
-		bool wrap_u = false,
-		bool wrap_v = false,
 		bool view_dependent_subdivision = false,
 		double displacement_error_threshold = 0.0
 		);
@@ -309,9 +307,6 @@ private:
 	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
-
-	bool wrap_u;
-	bool wrap_v;
 };
 
 
