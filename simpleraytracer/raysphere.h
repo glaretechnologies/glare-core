@@ -43,7 +43,6 @@ public:
 	virtual void build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual bool isEnvSphereGeometry() const;
-	virtual bool areSubElementsCurved() const;
 	virtual Vec3RealType getBoundingRadius() const;
 	virtual Real meanCurvature(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////

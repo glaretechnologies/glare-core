@@ -16,7 +16,10 @@ Copyright Glare Technologies Limited 2013 -
 
 
 RaySphere::RaySphere(const Vec4f& centre_, double radius_)
-:	centre(centre_)
+:	Geometry(
+		true // sub-elements curved
+	),
+	centre(centre_)
 {
 	radius = (Real)radius_;
 	radius_squared = (Real)(radius_ * radius_);
@@ -230,12 +233,6 @@ unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 bool RaySphere::isEnvSphereGeometry() const
 {
 	return false;
-}
-
-
-bool RaySphere::areSubElementsCurved() const
-{
-	return true;
 }
 
 

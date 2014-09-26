@@ -48,7 +48,7 @@ Interface that represents the shape of an object
 SSE_CLASS_ALIGN Geometry : public RefCounted, public TexCoordEvaluator
 {
 public:
-	Geometry() : object_usage_count(0) {}
+	Geometry(bool sub_elements_curved_) : object_usage_count(0), sub_elements_curved(sub_elements_curved_) {}
 	virtual ~Geometry(){}
 
 
@@ -104,7 +104,6 @@ public:
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const = 0;
 
 	virtual bool isEnvSphereGeometry() const = 0;
-	virtual bool areSubElementsCurved() const = 0; // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
 
 	// Returns true if possibly clipped by section planes, false otherwise.
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
@@ -121,7 +120,10 @@ public:
 	void incrementObjectUsageCount() { object_usage_count++; }
 	unsigned int getObjectUsageCount() const { return object_usage_count; }
 
+	inline bool areSubElementsCurved() const { return sub_elements_curved; } // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
+
 private:
 	unsigned int object_usage_count; // Number of objects that use this geometry.
+	bool sub_elements_curved;
 };
 

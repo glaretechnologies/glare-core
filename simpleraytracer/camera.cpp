@@ -8,7 +8,10 @@ Code By Nicholas Chapman.
 
 
 Camera::Camera(CameraType camera_type_)
-:	camera_type(camera_type_)
+:	Geometry(
+		false // sub-elements curved
+	),
+	camera_type(camera_type_)
 {}
 
 

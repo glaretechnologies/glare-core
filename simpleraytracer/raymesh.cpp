@@ -60,7 +60,10 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 				bool view_dependent_subdivision_,
 				double displacement_error_threshold_
 				 )
-:	name(name_),
+:	Geometry(
+		false // sub-elements curved
+	),
+	name(name_),
 	tritree(NULL),
 	enable_normal_smoothing(enable_normal_smoothing_),
 	max_num_subdivisions(max_num_subdivisions_),
@@ -1880,12 +1883,6 @@ void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
 
 
 bool RayMesh::isEnvSphereGeometry() const
-{
-	return false;
-}
-
-
-bool RayMesh::areSubElementsCurved() const
 {
 	return false;
 }
