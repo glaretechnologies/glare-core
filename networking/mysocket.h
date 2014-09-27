@@ -70,7 +70,6 @@ public:
 	void close();
 
 	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
-	int getThisEndPort() const { return thisend_port; }
 	int getOtherEndPort() const { return otherend_port; }
 
 
@@ -98,6 +97,7 @@ public:
 	void waitForGracefulDisconnect();
 
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
+	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
 
@@ -150,8 +150,6 @@ private:
 
 
 	IPAddress otherend_ipaddr;
-	IPAddress thisend_ipaddr;
-	int thisend_port;
 	int otherend_port;
 
 	size_t max_buffersize;

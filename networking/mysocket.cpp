@@ -100,7 +100,6 @@ MySocket::MySocket()
 
 void MySocket::init()
 {
-	thisend_port = -1;
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	connected = false;
@@ -283,20 +282,6 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 	otherend_port = port;
 
-	//-----------------------------------------------------------------
-	//get the interface address of this host used for the connection
-	//-----------------------------------------------------------------
-	sockaddr_storage interface_addr;
-	SOCKLEN_TYPE length = sizeof(interface_addr);
-	memset(&interface_addr, 0, length);
-	const int result = getsockname(sockethandle, (sockaddr*)&interface_addr, &length);
-
-	if(result != SOCKET_ERROR)
-	{
-		thisend_ipaddr = IPAddress((const sockaddr&)interface_addr);
-		thisend_port = Networking::getPortFromSockAddr((const sockaddr&)interface_addr);
-	}
-
 	connected = true;
 }
 
@@ -362,8 +347,6 @@ void MySocket::bindAndListen(int port)
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
 		throw MySocketExcep("listen failed: " + Networking::getError());
-
-	thisend_port = port;
 }
 
 
@@ -372,46 +355,49 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 	assert(Networking::isInited());
 
 	// Wait until the accept() will succeed.
-	while(1)
+	if(should_abort_callback)
 	{
-		timeval wait_period;
-		wait_period.tv_sec = 0; // seconds
-		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds
-
-		// Create the file descriptor set
-		fd_set sockset;
-		initFDSetWithSocket(sockset, sockethandle);
-		fd_set error_sockset;
-		initFDSetWithSocket(error_sockset, sockethandle);
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
+		while(1)
 		{
-			do_graceful_disconnect = false;
-			throw AbortedMySocketExcep();
+			timeval wait_period;
+			wait_period.tv_sec = 0; // seconds
+			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds
+
+			// Create the file descriptor set
+			fd_set sockset;
+			initFDSetWithSocket(sockset, sockethandle);
+			fd_set error_sockset;
+			initFDSetWithSocket(error_sockset, sockethandle);
+
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+			{
+				do_graceful_disconnect = false;
+				throw AbortedMySocketExcep();
+			}
+
+			const int num_ready = select(
+				(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
+				&sockset, // read fds
+				NULL, // write fds
+				&error_sockset, // error fds
+				&wait_period // timeout
+				);
+
+			if(FD_ISSET(sockethandle, &error_sockset))
+			{
+				// Error occured
+				throw MySocketExcep("Error while accepting connection.");
+			}
+
+			if(should_abort_callback && should_abort_callback->shouldAbort())
+			{
+				do_graceful_disconnect = false;
+				throw AbortedMySocketExcep();
+			}
+
+			if(num_ready != 0)
+				break;
 		}
-
-		const int num_ready = select(
-			(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
-			&sockset, // read fds
-			NULL, // write fds
-			&error_sockset, // error fds
-			&wait_period // timeout
-			);
-
-		if(FD_ISSET(sockethandle, &error_sockset))
-		{
-			// Error occured
-			throw MySocketExcep("Error while accepting connection.");
-		}
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
-		{
-			do_graceful_disconnect = false;
-			throw AbortedMySocketExcep();
-		}
-
-		if(num_ready != 0)
-			break;
 	}
 
 	// Now this should accept immediately .... :)
@@ -435,20 +421,6 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 	//-----------------------------------------------------------------
 	new_socket->otherend_ipaddr = IPAddress((const sockaddr&)client_addr);
 	new_socket->otherend_port = Networking::getPortFromSockAddr((const sockaddr&)client_addr);
-
-	//-----------------------------------------------------------------
-	// Get the interface address of this host used for the connection
-	//-----------------------------------------------------------------
-	sockaddr_storage interface_addr;
-	length = sizeof(interface_addr);
-	memset(&interface_addr, 0, length);
-	const int result = getsockname(sockethandle, (sockaddr*)&interface_addr, &length);
-
-	if(result != SOCKET_ERROR)
-	{
-		thisend_ipaddr = IPAddress((const sockaddr&)interface_addr);
-		thisend_port = Networking::getPortFromSockAddr((const sockaddr&)interface_addr);
-	}
 
 	new_socket->connected = true;
 
@@ -574,8 +546,6 @@ size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 
 	if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
 		throw MySocketExcep("Read failed, error: " + Networking::getError());
-	else if(numbytesread == 0) // Connection was closed gracefully
-		throw MySocketExcep("Connection Closed.");
 
 	return (size_t)numbytesread;
 }
