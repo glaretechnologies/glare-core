@@ -190,6 +190,13 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 	if(!isSockHandleValid(sockethandle))
 		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
 
+	// Turn off IPV6_V6ONLY so that we can make IPv4 connections as well.
+	int no = 0;     
+	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	{
+		assert(0);
+	}
+
 	//-----------------------------------------------------------------
 	//Fill out server address structure
 	//-----------------------------------------------------------------
@@ -773,17 +780,23 @@ bool MySocket::readable(double timeout_s)
 	wait_period.tv_sec = 0;
 	wait_period.tv_usec = (long)(timeout_s * 1000000.0);
 
-	fd_set sockset;
-	initFDSetWithSocket(sockset, sockethandle);
+	fd_set read_sockset;
+	initFDSetWithSocket(read_sockset, sockethandle);
+
+	fd_set error_sockset;
+	initFDSetWithSocket(error_sockset, sockethandle);
 
 	// Get number of handles that are ready to read from
 	const int num = select(
 		(int)(sockethandle + 1), 
-		&sockset, // Read fds
-		NULL, // Read fds
-		NULL, // Read fds
+		&read_sockset, // Read fds
+		NULL, // Write fds
+		&error_sockset, // Error fds
 		&wait_period
-		);
+	);
+
+	if(FD_ISSET(sockethandle, &error_sockset))
+		throw MySocketExcep(Networking::getError()); 
 
 	return num > 0;
 }
@@ -862,11 +875,13 @@ void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
 #if defined(_WIN32)
 	BOOL enabled = enabled_;
 
-	::setsockopt(sockethandle, //socket handle
+	const int result = ::setsockopt(sockethandle, //socket handle
 		IPPROTO_TCP, //level
 		TCP_NODELAY, //option name
 		(const char*)&enabled,//value
 		sizeof(BOOL));//size of value buffer
+	if(result == SOCKET_ERROR)
+		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
 #else
 	//int enabled = enabled_;
 	//TODO
