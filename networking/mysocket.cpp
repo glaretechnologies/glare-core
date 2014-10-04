@@ -38,13 +38,13 @@ typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
 
-const int SOCKET_ERROR = -1;
+static const int SOCKET_ERROR = -1;
 #endif
 
 
 // Block period.  This is how long any socket operations will block for, before calling the 'Should Abort' call-back.
 // Must be < 1.
-const double BLOCK_DURATION = 0.5; // in seconds.
+static const double BLOCK_DURATION = 0.5; // in seconds.
 
 
 MySocket::MySocket(const std::string& hostname, int port, StreamShouldAbortCallback* should_abort_callback)
@@ -257,7 +257,9 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 		}
 
 		// TODO: handle select return code error.
-		select((int)(sockethandle + SOCKETHANDLE_TYPE(1)), NULL, &write_sockset, &error_sockset, &wait_period);
+		const int num = select((int)(sockethandle + SOCKETHANDLE_TYPE(1)), NULL, &write_sockset, &error_sockset, &wait_period);
+		if(num == SOCKET_ERROR)
+			throw MySocketExcep("select failed: " + Networking::getError());
 
 		if(should_abort_callback && should_abort_callback->shouldAbort())
 		{
@@ -390,6 +392,8 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 				&error_sockset, // error fds
 				&wait_period // timeout
 				);
+			if(num_ready == SOCKET_ERROR)
+				throw MySocketExcep("select failed: " + Networking::getError());
 
 			if(FD_ISSET(sockethandle, &error_sockset))
 			{
@@ -796,6 +800,9 @@ bool MySocket::readable(double timeout_s)
 		&wait_period
 	);
 
+	if(num == SOCKET_ERROR)
+		throw MySocketExcep("select failed: " + Networking::getError());
+
 	if(FD_ISSET(sockethandle, &error_sockset))
 		throw MySocketExcep(Networking::getError()); 
 
@@ -831,12 +838,16 @@ bool MySocket::readable(EventFD& event_fd)
 		NULL // timout - use NULL to block indefinitely.
 	);
 
+	if(num == SOCKET_ERROR)
+		throw MySocketExcep("select failed: " + Networking::getError());
+
 	if(FD_ISSET(sockethandle, &error_sockset))
 		throw MySocketExcep(Networking::getError()); 
 
 	return FD_ISSET(sockethandle, &read_sockset);
 #endif
 }
+
 
 int32 MySocket::readInt32()
 {
@@ -906,23 +917,16 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 }
 
 
-void MySocket::setNagleAlgEnabled(bool enabled_)//on by default.
+void MySocket::setNoDelayEnabled(bool enabled_)
 {
-#if defined(_WIN32)
-	BOOL enabled = enabled_;
-
-	const int result = ::setsockopt(sockethandle, //socket handle
-		IPPROTO_TCP, //level
-		TCP_NODELAY, //option name
-		(const char*)&enabled,//value
-		sizeof(BOOL));//size of value buffer
-	if(result == SOCKET_ERROR)
+	int enabled = enabled_ ? 1 : 0;
+	if(::setsockopt(sockethandle, // socket handle
+		IPPROTO_TCP, // level
+		TCP_NODELAY, // option name
+		(const char*)&enabled, // value
+		sizeof(enabled) // size of value buffer
+		) != 0)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
-#else
-	//int enabled = enabled_;
-	//TODO
-	assert(0);
-#endif
 }
 
 

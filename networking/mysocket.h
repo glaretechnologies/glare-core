@@ -105,7 +105,7 @@ public:
 	void readTo(void* buffer, size_t numbytes, StreamShouldAbortCallback* should_abort_callback);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback);
 
-	void setNagleAlgEnabled(bool enabled); // On by default.
+	void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
 
 	bool readable(double timeout_s);
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
