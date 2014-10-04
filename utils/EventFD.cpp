@@ -28,6 +28,7 @@ EventFD::EventFD()
 
 EventFD::~EventFD()
 {
+	close(efd);
 }
 
 
