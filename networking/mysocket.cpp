@@ -23,6 +23,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
+#include <netinet/tcp.h> // For TCP_NODELAY
 #include <unistd.h> // for close()
 #include <sys/time.h> // fdset
 #include <sys/types.h> // fdset
