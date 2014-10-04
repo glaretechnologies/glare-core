@@ -27,6 +27,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "../utils/Reference.h"
 #include <string>
 class FractionListener;
+class EventFD;
 
 
 class MySocketExcep
@@ -107,6 +108,9 @@ public:
 	void setNagleAlgEnabled(bool enabled); // On by default.
 
 	bool readable(double timeout_s);
+	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
+	// Returns true if the socket was readable, false if the event_fd was signalled.
+	
 
 
 	//------------------------ InStream ---------------------------------
