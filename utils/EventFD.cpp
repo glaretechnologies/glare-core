@@ -28,7 +28,10 @@ EventFD::EventFD()
 
 EventFD::~EventFD()
 {
+#if defined(_WIN32) || defined(OSX)
+#else
 	close(efd);
+#endif
 }
 
 
