@@ -193,10 +193,11 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
 
 	// Turn off IPV6_V6ONLY so that we can make IPv4 connections as well.
+	// Ignore failure  (may fail on IPv4 only systems?).
 	int no = 0;     
 	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
 	{
-		assert(0);
+		// Ignore failure.
 	}
 
 	//-----------------------------------------------------------------
