@@ -50,7 +50,9 @@ public:
 
 		RT_3_X,
 
-		GREENBUTTON_CLOUD
+		GREENBUTTON_CLOUD,
+
+		INDIGO_RT_ICLONE // Restricted version of Indigo RT, works just with Reallusion's iClone software.
 	};
 
 

@@ -279,6 +279,8 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		desired_licence_type = FULL_3_X;
 	else if(components[1] == "indigo-full-lifetime")
 		desired_licence_type = FULL_LIFETIME;
+	else if(components[1] == "indigo-rt-iclone")
+		desired_licence_type = INDIGO_RT_ICLONE;
 #else
 	if(components[1] == "indigo-full-2.x")
 		desired_licence_type = FULL_2_X;
@@ -298,6 +300,8 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		desired_licence_type = REVIT_3_X;
 	else if(components[1] == "indigo-rt-3.x")
 		desired_licence_type = RT_3_X;
+	else if(components[1] == "indigo-rt-iclone")
+		desired_licence_type = INDIGO_RT_ICLONE;
 #endif
 	else
 	{
@@ -310,7 +314,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 	// The user may run Indigo RT with an Indigo Full licence, without restrictions.
 #else
 	// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
-	if(desired_licence_type == RT_3_X)
+	if(desired_licence_type == RT_3_X || desired_licence_type == INDIGO_RT_ICLONE)
 	{
 		error_code_out = LicenceErrorCode_IndigoRTUsedForIndigoRenderer;
 		throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
@@ -525,6 +529,8 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return "Indigo RT";
 	else if(t == GREENBUTTON_CLOUD)
 		return "Indigo Cloud Node";
+	else if(t == INDIGO_RT_ICLONE)
+		return "Indigo RT for iClone";
 	else
 		return "[Unknown]";
 }
@@ -588,6 +594,8 @@ bool License::shouldApplyWatermark(LicenceType t)
 #endif
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
+	else if(t == INDIGO_RT_ICLONE)
+		return false; // Although we return false here, additional checking (that the scene is exported from iClone) is done in MainWindow and IndigoDriver.
 	else
 	{
 		assert(0);
@@ -636,6 +644,8 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 #endif
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
+	else if(t == INDIGO_RT_ICLONE)
+		return false; // Although we return false here, additional checking (that the scene is exported from iClone) is done in MainWindow and IndigoDriver.
 	else
 	{
 		assert(0);
