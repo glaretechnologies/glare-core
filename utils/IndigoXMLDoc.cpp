@@ -209,6 +209,24 @@ void IndigoXMLDoc::test()
 	}
 
 
+	//============ Testing parsing of CDATA ============
+	{
+		const std::string xml = header + "<root><a><![CDATA[hello <> world]]></a></root>";
+
+		IndigoXMLDoc doc(xml.c_str(), xml.size());
+
+		pugi::xml_node root = doc.getRootElement();
+
+		testAssert(std::string(root.name()) == "root");
+
+		pugi::xml_node a = root.child("a");
+		testAssert(a.type() != pugi::node_null);
+
+		const std::string content = a.child_value();
+		testAssert(content == "hello <> world");
+	}
+
+
 	//============ Testing parsing of malformed XML - empty file ============
 	/*try
 	{
