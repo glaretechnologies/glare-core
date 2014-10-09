@@ -970,6 +970,20 @@ void MySocket::enableTCPKeepAlive(float period)
 		) != 0)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
 
+#if defined(OSX)
+	// OS X has TCP_KEEPALIVE instead of TCP_KEEPIDLE.
+	// Set TCP_KEEPALIVE - the amount of time, in seconds, thatthe connection must be idle before keepalive probes (if enabled) are sent.  
+	// (See https://developer.apple.com/library/mac/DOCUMENTATION/Darwin/Reference/ManPages/man4/tcp.4.html)
+	const int keepalive = myMax(1, (int)period);
+	if(::setsockopt(sockethandle, // socket handle
+		IPPROTO_TCP, // level
+		TCP_KEEPALIVE, // option name
+		(const char*)&keepalive, // value
+		sizeof(keepalive) // size of value buffer
+		) != 0)
+		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
+#else
+	// Else if Linux:
 	// Set TCP_KEEPIDLE - the time (in seconds) the connection needs to remain idle before TCP starts sending keepalive probes.  (See http://linux.die.net/man/7/tcp)
 	const int keepidle = myMax(1, (int)period);
 	if(::setsockopt(sockethandle, // socket handle
@@ -981,6 +995,8 @@ void MySocket::enableTCPKeepAlive(float period)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
 
 	// We will leave the TCP_KEEPINTVL unchanged at the default value.
+#endif
+
 #endif
 }
 
