@@ -21,6 +21,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <Mstcpip.h>
 #else
 #include <netinet/in.h>
 #include <netinet/tcp.h> // For TCP_NODELAY
@@ -929,6 +930,58 @@ void MySocket::setNoDelayEnabled(bool enabled_)
 		sizeof(enabled) // size of value buffer
 		) != 0)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
+}
+
+
+void MySocket::enableTCPKeepAlive(float period)
+{
+#if defined(_WIN32)
+	assert(period <= std::numeric_limits<ULONG>::max() / 1000.f); // Make sure period is representable in an ULONG.
+
+	struct tcp_keepalive keepalive;
+	keepalive.onoff = 1; // Turn on keepalive
+	keepalive.keepalivetime = (ULONG)(period * 1000.0); // Convert to ms
+	keepalive.keepaliveinterval = 1000; // 1s
+
+	// See 'SIO_KEEPALIVE_VALS control code', (http://msdn.microsoft.com/en-us/library/windows/desktop/dd877220(v=vs.85).aspx)
+	DWORD num_bytes_returned;
+	const int result = WSAIoctl(
+		sockethandle,		// descriptor identifying a socket
+		SIO_KEEPALIVE_VALS,	// dwIoControlCode
+		(void*)&keepalive,	// pointer to tcp_keepalive struct 
+		(DWORD)sizeof(keepalive),		// length of input buffer 
+		NULL,				// output buffer
+		0,					// size of output buffer
+		(LPDWORD)&num_bytes_returned,	// number of bytes returned
+		NULL,				// OVERLAPPED structure
+		NULL				// completion routine
+	);
+	if(result != 0)
+		throw MySocketExcep("WSAIoctl failed, error: " + Networking::getError());
+#else
+
+	// Enable keepalive
+	const int enabled = 1;
+	if(::setsockopt(sockethandle, // socket handle
+		SOL_SOCKET, // level
+		SO_KEEPALIVE, // option name
+		(const char*)&enabled, // value
+		sizeof(enabled) // size of value buffer
+		) != 0)
+		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
+
+	// Set TCP_KEEPIDLE - the time (in seconds) the connection needs to remain idle before TCP starts sending keepalive probes.  (See http://linux.die.net/man/7/tcp)
+	const int keepidle = myMax(1, (int)period);
+	if(::setsockopt(sockethandle, // socket handle
+		SOL_SOCKET, // level
+		TCP_KEEPIDLE, // option name
+		(const char*)&keepidle, // value
+		sizeof(keepidle) // size of value buffer
+		) != 0)
+		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
+
+	// We will leave the TCP_KEEPINTVL unchanged at the default value.
+#endif
 }
 
 

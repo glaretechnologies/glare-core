@@ -206,6 +206,9 @@ public:
 
 				MySocket socket(server_hostname, port, NULL);
 
+				// Try enabling TCP keepalive
+				socket.enableTCPKeepAlive(5.0);
+
 				// Write Uint32.
 				// On Linux an error connecting will show up on the first write due to use of non-blocking mode.
 				// So write the first uint here.
