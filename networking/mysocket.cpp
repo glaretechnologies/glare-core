@@ -973,7 +973,7 @@ void MySocket::enableTCPKeepAlive(float period)
 	// Set TCP_KEEPIDLE - the time (in seconds) the connection needs to remain idle before TCP starts sending keepalive probes.  (See http://linux.die.net/man/7/tcp)
 	const int keepidle = myMax(1, (int)period);
 	if(::setsockopt(sockethandle, // socket handle
-		SOL_SOCKET, // level
+		IPPROTO_TCP, // level
 		TCP_KEEPIDLE, // option name
 		(const char*)&keepidle, // value
 		sizeof(keepidle) // size of value buffer
