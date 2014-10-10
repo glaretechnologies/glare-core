@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "vec3.h"
 #include "matrix3.h"
 #include "Matrix4f.h"
+#include <string>
 
 
 /*=====================================================================
@@ -51,6 +52,8 @@ public:
 
 	static const Quat slerp(const Quat& a, const Quat& b, Real t);
 	static const Quat nlerp(const Quat& a, const Quat& b, Real t);
+
+	const std::string toString() const;
 
 	Vec3<Real> v;
 	Real w;

@@ -8,20 +8,19 @@ Code By Nicholas Chapman.
 
 
 #include "geometry.h"
-#include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../physics/jscol_Tree.h"
-#include "../physics/jscol_ObjectTree.h"
-#include "../utils/Platform.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
+#include "../utils/Platform.h"
+#include "../utils/Reference.h"
+#include "../utils/Vector.h"
 #include <string>
 #include <memory>
 #include <vector>
+#include <limits>
 class Material;
 class RendererSettings;
 class PrintOutput;
-namespace js{ class Triangle; }
-namespace js{ class EdgeTri; }
 namespace Indigo{ class Mesh; }
 
 
@@ -42,20 +41,25 @@ enum RayMesh_ShadingNormals
 SSE_CLASS_ALIGN RayMeshTriangle
 {
 public:
-	RayMeshTriangle() : tri_mat_index(0) {}
+	RayMeshTriangle() : tri_mat_index(0)
+	{
+#ifndef NDEBUG
+		inv_cross_magnitude = std::numeric_limits<float>::quiet_NaN();
+#endif
+	}
+
 	RayMeshTriangle(unsigned int v0_, unsigned int v1_, unsigned int v2_, unsigned int matindex, RayMesh_ShadingNormals use_shading_normals) 
 	:	tri_mat_index((matindex << 1) | (uint32)use_shading_normals)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
 		vertex_indices[2] = v2_;
+
+#ifndef NDEBUG
+		inv_cross_magnitude = std::numeric_limits<float>::quiet_NaN();
+#endif
 	}
-	uint32 vertex_indices[3];
-	uint32 uv_indices[3];
-
-	//Vec3f geom_normal;
-	float inv_cross_magnitude;
-
+	
 	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
 	{
 		tri_mat_index &= 0xFFFFFFFE; // Clear lower bit
@@ -76,6 +80,11 @@ public:
 
 	inline uint32 getRawTriMatIndex() const { return tri_mat_index; }
 	inline void setRawTriMatIndex(uint32 i) { tri_mat_index = i; }
+
+public:
+	uint32 vertex_indices[3];
+	uint32 uv_indices[3];
+	float inv_cross_magnitude;
 private:
 	uint32 tri_mat_index; // least significant bit is normal smoothing flag.
 };
@@ -88,6 +97,7 @@ public:
 	INDIGO_ALIGNED_NEW_DELETE
 
 	RayMeshQuad(){}
+
 	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_, RayMesh_ShadingNormals use_shading_normals) 
 	:	mat_index((mat_index_ << 1) | (uint32)use_shading_normals)
 	{
@@ -96,11 +106,6 @@ public:
 		vertex_indices[2] = v2_;
 		vertex_indices[3] = v3_;
 	}
-	uint32_t vertex_indices[4];
-	uint32_t uv_indices[4];
-
-	//Vec3f geom_normal;
-	float inv_cross_magnitude;
 
 	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
 	{
@@ -121,9 +126,12 @@ public:
 	inline uint32 getMatIndex() const { return mat_index >> 1; }
 
 	inline uint32 getRawMatIndex() const { return mat_index; }
+
+public:
+	uint32_t vertex_indices[4];
+	uint32_t uv_indices[4];
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
-	//uint32_t padding[2];
 };
 
 
@@ -274,6 +282,7 @@ private:
 	void mergeUVs(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
 	bool built() const { return tritree != NULL; }
+	void checkBuildInvCrossMagnitudes(); // Build triangle inv_cross_magnitudes if not already built.   (e.g if !built_inv_cross_magnitudes)
 
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
@@ -306,6 +315,8 @@ private:
 	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
+
+	bool built_inv_cross_magnitudes;
 };
 
 

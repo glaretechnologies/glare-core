@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/Platform.h"
+#include "../maths/Matrix4f.h"
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
 class PrintOutput;
