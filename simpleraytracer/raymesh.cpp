@@ -73,8 +73,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivision_smoothing(subdivision_smoothing_),
 	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_),
 	view_dependent_subdivision(view_dependent_subdivision_),
-	displacement_error_threshold(displacement_error_threshold_),
-	built_inv_cross_magnitudes(false)
+	displacement_error_threshold(displacement_error_threshold_)
 {
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
@@ -195,7 +194,7 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	assert(built_inv_cross_magnitudes && !isNAN(tri.inv_cross_magnitude));
+	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
 	const RayMesh::Vec3Type N_g((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
 								(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
 								(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
@@ -215,7 +214,7 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	assert(built_inv_cross_magnitudes && !isNAN(tri.inv_cross_magnitude));
+	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
 	N_g_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
 							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
 							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
@@ -278,7 +277,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	// Compute N_g_os_out
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	assert(built_inv_cross_magnitudes && !isNAN(tri.inv_cross_magnitude));
+	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
 	N_g_os_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
 							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
 							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
@@ -661,6 +660,11 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			for(size_t i=0; i<num_quads; ++i)
 			{
 				const RayMeshQuad& q = this->quads[i];
+				const RayMeshVertex& v0(vertices[q.vertex_indices[0]]);
+				const RayMeshVertex& v1(vertices[q.vertex_indices[1]]);
+				const RayMeshVertex& v2(vertices[q.vertex_indices[2]]);
+				const RayMeshVertex& v3(vertices[q.vertex_indices[3]]);
+
 				RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
 				RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
 
@@ -671,6 +675,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				tri_1.uv_indices[1] = q.uv_indices[1];
 				tri_1.uv_indices[2] = q.uv_indices[2];
 				tri_1.setRawTriMatIndex(q.getRawMatIndex());
+				tri_1.inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
 
 				tri_2.vertex_indices[0] = q.vertex_indices[0];
 				tri_2.vertex_indices[1] = q.vertex_indices[2];
@@ -679,6 +684,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				tri_2.uv_indices[1] = q.uv_indices[2];
 				tri_2.uv_indices[2] = q.uv_indices[3];
 				tri_2.setRawTriMatIndex(q.getRawMatIndex());
+				tri_2.inv_cross_magnitude = 1.f / ::crossProduct(v2.pos - v0.pos, v3.pos - v0.pos).length();
 			}
 
 			this->quads.clearAndFreeMem();
@@ -694,8 +700,6 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				print_output, verbose
 			);
 		}
-
-		checkBuildInvCrossMagnitudes();
 
 		subdivide_and_displace_done = true;
 	}
@@ -898,9 +902,6 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 
 	if(tritree != NULL)
 		return; // build() has already been called.
-
-	checkBuildInvCrossMagnitudes();
-
 
 	//NOTE: disabled due to questionable speed-up offered.
 	//mergeUVs(print_output, verbose);
@@ -1299,7 +1300,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
-	// Triangles
+	// Copy Triangles
 	this->triangles.reserve(mesh.triangles.size());
 	unsigned int dest_i = 0;
 	for(size_t i = 0; i < mesh.triangles.size(); ++i)
@@ -1324,10 +1325,13 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check the area of the triangle.
 		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
 		const float MIN_TRIANGLE_AREA = 1.0e-20f;
-		if(getTriArea(
-			vertPos(src_tri.vertex_indices[0]), 
-			vertPos(src_tri.vertex_indices[1]), 
-			vertPos(src_tri.vertex_indices[2])) < MIN_TRIANGLE_AREA)
+
+		const RayMeshVertex& v0(vertices[src_tri.vertex_indices[0]]);
+		const RayMeshVertex& v1(vertices[src_tri.vertex_indices[1]]);
+		const RayMeshVertex& v2(vertices[src_tri.vertex_indices[2]]);
+		const float cross_prod_len = ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+
+		if((cross_prod_len * 0.5f) < MIN_TRIANGLE_AREA)
 		{
 			//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
 			//return;
@@ -1349,6 +1353,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		
 			dest_tri.setTriMatIndex(src_tri.tri_mat_index);
 			dest_tri.setUseShadingNormals(use_shading_normals_enum);
+			dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
 
 			dest_i++;
 		}
@@ -1542,7 +1547,7 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
-	assert(built_inv_cross_magnitudes && !isNAN(tri.inv_cross_magnitude));
+	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
 	normal_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
 				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
 				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
@@ -1920,24 +1925,4 @@ float RayMesh::meanCurvature(const HitInfo& hitinfo) const
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 
 	return v0.H * w + v1.H * u + v2.H * v;
-}
-
-
-void RayMesh::checkBuildInvCrossMagnitudes()
-{
-	if(!built_inv_cross_magnitudes)
-	{
-		// Build triangle inv_cross_magnitudes
-		const size_t num_tris = triangles.size();
-		for(size_t i = 0; i < num_tris; ++i)
-		{
-			RayMeshTriangle& tri(triangles[i]);
-			const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-			const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-			const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-			tri.inv_cross_magnitude = 1.0f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
-		}
-
-		built_inv_cross_magnitudes = true;
-	}
 }

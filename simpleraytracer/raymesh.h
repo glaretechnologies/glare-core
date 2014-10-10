@@ -282,7 +282,6 @@ private:
 	void mergeUVs(PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
 	bool built() const { return tritree != NULL; }
-	void checkBuildInvCrossMagnitudes(); // Build triangle inv_cross_magnitudes if not already built.   (e.g if !built_inv_cross_magnitudes)
 
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
@@ -315,8 +314,6 @@ private:
 	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
-
-	bool built_inv_cross_magnitudes;
 };
 
 
