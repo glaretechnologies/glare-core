@@ -112,7 +112,7 @@ const std::string License::decodeBase64(const std::string& data_)
 
 
 // throws Indigo::Exception on failure
-static INDIGO_STRONG_INLINE const std::string unTransmunfigyPublicKey()
+static INDIGO_STRONG_INLINE const std::string unTransmungifyPublicKey()
 {
 	std::string s;
 	const bool result = Transmungify::decrypt(
@@ -136,7 +136,7 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	if(hash.size() > std::numeric_limits<unsigned int>::max())
 		throw License::LicenseExcep("Data too big");
 
-	const std::string public_key_str = unTransmunfigyPublicKey();
+	const std::string public_key_str = unTransmungifyPublicKey();
 
 	// Load the public key
 	BIO* public_key_mbio = BIO_new_mem_buf((void*)public_key_str.c_str(), (int)public_key_str.size()); //(void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
@@ -842,7 +842,7 @@ public:
 			const std::string hash = License::decodeBase64(encoded_hash);
 
 			const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
-		
+
 			testAssert(License::verifyKey(key, hash));	
 		}
 	}
@@ -892,7 +892,7 @@ void License::test()
 
 
 	// Make sure our un-transmungified public key is correct.
-	const std::string decoded_pubkey = unTransmunfigyPublicKey();
+	const std::string decoded_pubkey = unTransmungifyPublicKey();
 	testAssert(decoded_pubkey == PUBLIC_CERTIFICATE_DATA);
 
 
@@ -909,10 +909,9 @@ void License::test()
 	testAssert(decodeBase64("bGVhc3VyZS4=") == "leasure.");
 	testAssert(decodeBase64("bGVhc3VyZS4=\n") == "leasure.");
 
-	
 
 
-	
+
 
 	// Test verifyKey.
 	Timer timer;
@@ -937,11 +936,11 @@ void License::test()
 			"Lb+20caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
-	
+
 		const std::string hash = License::decodeBase64(encoded_hash);
-		
+
 		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
-		
+
 		testAssert(License::verifyKey(key, hash));	
 	}
 
@@ -951,11 +950,11 @@ void License::test()
 			"66620caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
-	
+
 		const std::string hash = License::decodeBase64(encoded_hash);
-		
+
 		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
-		
+
 		// NOTE: the line below still leaks memory due to stupid OpenSSL.  (at least with OpenSSL 0.9.8.x)
 		testAssert(License::verifyKey(key, hash) == false);	
 	}

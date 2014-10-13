@@ -154,7 +154,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 // OpenCL path tracer defs:
 
 // XXX TODO this should be renamed to something cryptic
-"ENVMAP_SPHERE", "IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
+"IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
+"ENVMAP_SPHERE", "SUNSKY",
 "USE_FLOAT3_SWIZZLES",
 "RANDOMISE_SAMPLES",
 "NUM_LIGHTS",
