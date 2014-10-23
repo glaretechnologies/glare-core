@@ -91,6 +91,19 @@ void Maths::test()
 {
 	conPrint("Maths::test()");
 
+	//======================================= epsEqual() ==============================================
+	testAssert(epsEqual(1.f, 1.000001f));
+	testAssert(!epsEqual(1.f, 2.f));
+	testAssert(!epsEqual(1.f, std::numeric_limits<float>::quiet_NaN()));
+	testAssert(!epsEqual(std::numeric_limits<float>::quiet_NaN(), 1.f));
+	testAssert(!epsEqual(1.f, std::numeric_limits<float>::infinity()));
+	testAssert(!epsEqual(std::numeric_limits<float>::infinity(), 1.f));
+
+	testAssert(epsEqual(1.0, 1.000001));
+	testAssert(!epsEqual(1.0, 2.0));
+	testAssert(!epsEqual(1.0, std::numeric_limits<double>::quiet_NaN()));
+	testAssert(!epsEqual(std::numeric_limits<double>::quiet_NaN(), 1.0));
+
 	//======================================= uInt32ToUnitFloatScale() ========================================
 	{
 		const float x = 4294967295u * Maths::uInt32ToUnitFloatScale();

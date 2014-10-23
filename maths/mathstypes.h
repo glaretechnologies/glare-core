@@ -111,13 +111,6 @@ const float NICKMATHS_RECIP_2PIf = 0.15915494309189533576888376337251f;
 
 
 template <class Real>
-inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
-{
-	return fabs(a - b) <= epsilon;
-}
-
-
-template <class Real>
 INDIGO_STRONG_INLINE Real radToDegree(Real rad)
 {
 	return rad * (180 * Maths::recipPi<Real>());
@@ -278,6 +271,18 @@ INDIGO_STRONG_INLINE bool isInf(double x)
 	//TODO: test
 	return (*(unsigned int*)(&x) & 0x7F800000) == 0 && (*(unsigned int*)(&x) & 0x7FFFFF) != 0;
 }*/
+
+
+template <class Real>
+inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
+{
+	// With fast-math (/fp:fast) enabled, comparisons are not checked for NAN compares (the 'unordered predicate').
+	// So we need to do this explicitly ourselves.
+	const Real fabs_diff = fabs(a - b);
+	if(isNAN(fabs_diff))
+		return false;
+	return fabs_diff <= epsilon;
+}
 
 
 //see http://mega-nerd.com/FPcast/
