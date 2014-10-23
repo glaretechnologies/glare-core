@@ -649,6 +649,19 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 #if INDIGO_OPENSUBDIV_SUPPORT
 		}
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
+
+		// Build inv_cross_magnitude for triangles
+		{
+			const size_t num_tris = this->triangles.size();
+			for(size_t i=0; i<num_tris; ++i)
+			{
+				const RayMeshTriangle& tri = this->triangles[i];
+				const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
+				const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
+				const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+				triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+			}
+		}
 	
 		// Convert any quads to tris.
 		const size_t num_quads = this->quads.size();
