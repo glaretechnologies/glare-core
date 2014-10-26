@@ -37,6 +37,9 @@ public:
 
 	inline void operator = (glare_atomic_int val_);
 
+	inline glare_atomic_int operator++ (int); // postfix ++ operator
+	inline glare_atomic_int operator-- (int); // postfix -- operator
+
 	// Returns the old value. (value before increment)
 	inline glare_atomic_int increment();
 
@@ -46,13 +49,28 @@ public:
 private:
 	INDIGO_DISABLE_COPY(IndigoAtomic);
 
-	glare_atomic_int val;
+	// The volatile keyword here is required, otherwise, for example, Visual C++ will hoist the load out of a while loop.
+	volatile glare_atomic_int val;
 };
 
 
 inline void IndigoAtomic::operator = (glare_atomic_int val_)
 {
 	val = val_;
+}
+
+
+inline glare_atomic_int IndigoAtomic::operator++ (int)
+{
+	glare_atomic_int old_val = increment();
+	return old_val;
+}
+
+
+inline glare_atomic_int IndigoAtomic::operator-- (int)
+{
+	glare_atomic_int old_val = decrement();
+	return old_val;
 }
 
 
