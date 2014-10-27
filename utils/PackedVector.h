@@ -451,7 +451,6 @@ void PackedVector<T, alignment>::pop_back()
 template <class T, size_t alignment>
 const T& PackedVector<T, alignment>::back() const
 {
-	assert(capacity_ >= size_);
 	assert(size_ >= 1);
 
 	return backing_vector[start_i + size_-1];
