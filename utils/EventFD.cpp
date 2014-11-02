@@ -7,6 +7,10 @@ Generated at 2014-10-03 22:57:41 +0100
 #include "EventFD.h"
 
 
+#include "Exception.h"
+#include "PlatformUtils.h"
+
+
 #if defined(_WIN32) || defined(OSX)
 #else
 #include <sys/eventfd.h>
@@ -22,6 +26,10 @@ EventFD::EventFD()
 		0, // initial value
 		0 // flags
 	);
+	if(efd == -1) // "On error, -1 is returned and errno is set to indicate the error."
+	{
+		throw Indigo::Exception("eventfd() failed: " + PlatformUtils::getLastErrorString());
+	}
 #endif
 }
 
