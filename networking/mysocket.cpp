@@ -32,6 +32,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <poll.h>
 #endif
 
 
@@ -821,8 +822,41 @@ bool MySocket::readable(EventFD& event_fd)
 	assert(0);
 	return false;
 #else
+	
+	// Make an array of 2 poll_fds
+	struct pollfd poll_fds[2];
+	poll_fds[0].fd = sockethandle;
+	poll_fds[0].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
+	poll_fds[0].revents = 0;
+	
+	poll_fds[1].fd = event_fd.efd;
+	poll_fds[1].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
+	poll_fds[1].revents = 0;
+	
+	const int num = poll(
+		poll_fds,
+		2, // num fds
+		-1 // timeout: -1 = infinite.
+	);
+	
+	if(num == SOCKET_ERROR)
+		throw MySocketExcep("poll failed: " + Networking::getError());
+
+	// Check for errors on either fd.
+	if(poll_fds[0].revents & POLLERR)
+		throw MySocketExcep(Networking::getError());
+	if(poll_fds[1].revents & POLLERR)
+		throw MySocketExcep(Networking::getError());
+		
+	//conPrint("poll_fds[0].revents & POLLIN:    " + toString((int)poll_fds[0].revents & POLLIN));
+	//conPrint("poll_fds[0].revents & POLLRDHUP: " + toString((int)poll_fds[0].revents & POLLRDHUP));
+	//conPrint("poll_fds[0].revents & POLLERR:   " + toString((int)poll_fds[0].revents & POLLERR));
+
+	// Return if socket was readable.
+	return (poll_fds[0].revents & POLLIN) || (poll_fds[0].revents & POLLRDHUP);
+	
 	// Make read socket set, add event_fd as well as the socket handle.
-	fd_set read_sockset;
+	/*fd_set read_sockset;
 	FD_ZERO(&read_sockset);
 	FD_SET(sockethandle, &read_sockset);
 	FD_SET(event_fd.efd, &read_sockset);
@@ -847,7 +881,7 @@ bool MySocket::readable(EventFD& event_fd)
 	if(FD_ISSET(sockethandle, &error_sockset))
 		throw MySocketExcep(Networking::getError()); 
 
-	return FD_ISSET(sockethandle, &read_sockset);
+	return FD_ISSET(sockethandle, &read_sockset);*/
 #endif
 }
 
