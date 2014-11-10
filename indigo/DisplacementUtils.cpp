@@ -1126,9 +1126,6 @@ public:
 		num_adjacent_subdividing_polys(0), 
 		border(false) 
 	{}
-	DUEdgeInfo(unsigned int midpoint_vert_index_, unsigned int num_adjacent_subdividing_polys_) :
-		midpoint_vert_index(midpoint_vert_index_), num_adjacent_subdividing_polys(num_adjacent_subdividing_polys_)
-		{}
 	~DUEdgeInfo(){}
 	unsigned int midpoint_vert_index;
 	unsigned int num_adjacent_subdividing_polys;

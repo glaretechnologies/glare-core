@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"
+#include <limits>
 
 
 namespace js
@@ -17,10 +18,10 @@ namespace js
 
 AABBox AABBox::emptyAABBox()
 {
-	const static float positive_inf = -logf(0.0f);
-	const static float negative_inf =  logf(0.0f);
-	return AABBox(	Vec4f(positive_inf, positive_inf, positive_inf, 1.0f),
-		Vec4f(negative_inf, negative_inf, negative_inf, 1.0f));
+	return AABBox(
+		Vec4f( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f),
+		Vec4f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f)
+	);
 }
 
 

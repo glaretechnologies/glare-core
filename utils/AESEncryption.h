@@ -8,6 +8,7 @@ Generated at 2011-09-08 13:18:33 +0100
 
 
 #include <vector>
+#include <Platform.h>
 struct evp_cipher_ctx_st;
 
 
@@ -30,6 +31,7 @@ public:
 
 	static void test();
 private:
+	INDIGO_DISABLE_COPY(AESEncryption);
 
 	// struct evp_cipher_ctx_st = EVP_CIPHER_CTX
 	struct evp_cipher_ctx_st *encrypt_context;
