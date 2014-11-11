@@ -241,23 +241,6 @@ void Maths::test()
 	testAssert(isNAN(std::numeric_limits<double>::quiet_NaN()));
 
 
-
-
-	{
-	Quatd identity = Quatd::identity();
-	Quatd q = Quatd::fromAxisAndAngle(Vec3d(0,0,1), 20.0);
-
-	Matrix3d mat;
-	Maths::lerp(identity, q, 0.5).toMatrix(mat);
-
-	Matrix3d rot = Matrix3d::rotationMatrix(Vec3d(0,0,1), 10.0);
-
-	testAssert(epsMatrixEqual(mat, rot));
-
-	}
-
-
-
 	testAssert(approxEq(1.0, 1.0));
 	testAssert(approxEq(1.0, 1.0000001));
 	testAssert(!approxEq(1.0, 1.0001));

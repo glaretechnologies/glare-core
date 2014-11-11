@@ -1,13 +1,14 @@
 /*=====================================================================
 Quat.h
 ------
+Copyright Glare Technologies Limited 2014 - 
 File created by ClassTemplate on Thu Mar 12 16:27:07 2009
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __QUAT_H_666_
-#define __QUAT_H_666_
+#pragma once
 
 
+#include "SSE.h"
+#include "Vec4f.h"
 #include "vec3.h"
 #include "matrix3.h"
 #include "Matrix4f.h"
@@ -18,13 +19,18 @@ Code By Nicholas Chapman.
 Quat
 ----
 Quaternion.
+A lot of the definitions below are from 'Quaternions' by Ken Shoemake:
+http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
 =====================================================================*/
 template <class Real>
 class Quat
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	inline Quat() {}
 	inline Quat(const Vec3<Real>& v, Real w);
+	explicit inline Quat(const Vec4f& v_) : v(v_) {}
 
 	static inline const Quat identity() { return Quat(Vec3<Real>(0.0), (Real)1.0); }
 
@@ -32,16 +38,14 @@ public:
 
 	inline const Quat operator + (const Quat& other) const;
 	inline const Quat operator - (const Quat& other) const;
-	inline const Quat operator * (const Quat& other) const;
+	//inline const Quat operator * (const Quat& other) const;
 	inline const Quat operator * (Real factor) const;
 	
 	inline bool operator == (const Quat& other) const;
 	inline bool operator != (const Quat& other) const;
 
-	inline Real norm() const;
+	inline Real norm() const; // length()^2
 	inline Real length() const;
-
-	inline void setToNormalised();
 
 	inline const Quat inverse() const;
 
@@ -50,30 +54,43 @@ public:
 	inline void toMatrix(Matrix3<Real>& mat_out) const;
 	inline void toMatrix(Matrix4f& mat_out) const;
 
+	// Assumes norm() = 1
+	const Vec4f rotateVector(const Vec4f& v) const;
+	// Assumes norm() = 1
+	const Vec4f inverseRotateVector(const Vec4f& v) const;
+
 	static const Quat slerp(const Quat& a, const Quat& b, Real t);
 	static const Quat nlerp(const Quat& a, const Quat& b, Real t);
 
 	const std::string toString() const;
 
-	Vec3<Real> v;
-	Real w;
+	Vec4f v; // Complex vector first, then scalar part.
 };
+
+
+void quaternionTests();
 
 
 template <class Real> inline const Quat<Real> normalise(const Quat<Real>& q)
 {
-	return q * ((Real)1.0 / q.length());
+	return q * (1 / q.length());
 }
 
 
 template <class Real> inline Real dotProduct(const Quat<Real>& a, const Quat<Real>& b)
 {
-	return a.w * b.w + dot(a.v, b.v);
+	return dot(a.v, b.v);
+}
+
+
+template <class Real> inline bool epsEqual(const Quat<Real>& a, const Quat<Real>& b)
+{
+	return ::epsEqual(a.v, b.v);
 }
 
 
 template <class Real> Quat<Real>::Quat(const Vec3<Real>& v_, Real w_)
-:	v(v_), w(w_)
+:	v(v_.x, v_.y, v_.z, w_)
 {}
 
 
@@ -88,86 +105,77 @@ template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec3<R
 
 template <class Real> const Quat<Real> Quat<Real>::operator + (const Quat<Real>& other) const
 {
-	return Quat(v + other.v, w + other.w);
+	return Quat(v + other.v);
 }
 
 
 template <class Real> const Quat<Real> Quat<Real>::operator - (const Quat<Real>& other) const
 {
-	return Quat(v - other.v, w - other.w);
+	return Quat(v - other.v);
 }
 
 
-template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
-{
-	return Quat(
-		::crossProduct(v, other.v) + other.v * w + v * other.w, 
-		w * other.w - ::dot(v, other.v)
-		);
-}
+//template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
+//{
+//	return Quat(
+//		::crossProduct(v, other.v) + other.v * w + v * other.w, 
+//		w * other.w - ::dot(v, other.v)
+//		);
+//}
 
 
 template <class Real> const Quat<Real> Quat<Real>::operator * (Real factor) const
 {
-	return Quat(
-		v * factor,
-		w * factor
-		);
+	return Quat(v * factor);
 }
 
 
 template <class Real> bool Quat<Real>::operator == (const Quat<Real>& other) const
 {
-	return v == other.v && w == other.w;
+	return v == other.v;
 }
 
 
 template <class Real> bool Quat<Real>::operator != (const Quat<Real>& other) const
 {
-	return v != other.v || w != other.w;
+	return v != other.v;
 }
 
 
 template <class Real> Real Quat<Real>::norm() const
 {
-	return w*w + dot(v, v);
+	return dot(v, v);
 }
 
 
 template <class Real> Real Quat<Real>::length() const
 {
-	return std::sqrt(w*w + dot(v, v));
-}
-
-
-template <class Real> void Quat<Real>::setToNormalised()
-{
-	*this = normalise(*this);
+	return v.length();
 }
 
 
 template <class Real> const Quat<Real> Quat<Real>::inverse() const
 {
-	return conjugate() * ((Real)1.0 / norm());
+	return conjugate() * (1 / norm());
 }
 
 
 template <class Real> const Quat<Real> Quat<Real>::conjugate() const
 {
-	return Quat(v * (Real)-1.0, w);
+	return Quat(Vec4f(-v.x[0], -v.x[1], -v.x[2], v.x[3]));
 }
 
 
 // From Quaternions - Ken Shoemake
-// http://www.sfu.ca/~jwa3/cmpt461/files/quatut.pdf
+// http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
 template <class Real> void Quat<Real>::toMatrix(Matrix3<Real>& mat) const
 {
 	const Real Nq = norm();
 	const Real s = (Nq > (Real)0.0) ? ((Real)2.0 / Nq) : (Real)0.0;
-	const Real xs = v.x*s, ys = v.y*s, zs = v.z*s;
-	const Real wx = w*xs, wy = w*ys, wz = w*zs;
-	const Real xx = v.x*xs, xy = v.x*ys, xz = v.x*zs;
-	const Real yy = v.y*ys, yz = v.y*zs, zz = v.z*zs;
+	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
+	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
+	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
+	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
 
 	mat.e[0] = (Real)1.0 - (yy + zz);
 	mat.e[1] = xy - wz;
@@ -185,10 +193,10 @@ template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
 {
 	const Real Nq = norm();
 	const Real s = (Nq > (Real)0.0) ? ((Real)2.0 / Nq) : (Real)0.0;
-	const Real xs = v.x*s, ys = v.y*s, zs = v.z*s;
-	const Real wx = w*xs, wy = w*ys, wz = w*zs;
-	const Real xx = v.x*xs, xy = v.x*ys, xz = v.x*zs;
-	const Real yy = v.y*ys, yz = v.y*zs, zz = v.z*zs;
+	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
+	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
+	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
+	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
 
 	/*
 	Matrix4f layout:
@@ -209,6 +217,40 @@ template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
 
 	mat.e[3] = mat.e[7] = mat.e[11] = mat.e[12] = mat.e[13] = mat.e[14] = 0.0f;
 	mat.e[15] = 1.0f;
+}
+
+
+// Assumes norm() = 1
+template <class Real> const Vec4f Quat<Real>::rotateVector(const Vec4f& vec) const
+{
+	assert(epsEqual(norm(), (Real)1));
+	const Real s = 2;
+	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
+	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
+	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
+	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
+
+	return Vec4f(
+		(1 - (yy + zz))*vec.x[0] + (xy - wz)      *vec.x[1] + (xz + wy)      *vec.x[2],
+		(xy + wz)      *vec.x[0] + (1 - (xx + zz))*vec.x[1] + (yz - wx)      *vec.x[2],
+		(xz - wy)      *vec.x[0] + (yz + wx)      *vec.x[1] + (1 - (xx + yy))*vec.x[2],
+		vec.x[3]
+	);
+
+	// This code below was slower:
+	//const Vec4f& p = vec;
+	/*const float w = v[3];
+	const Vec4f v3 = maskWToZero(v);
+	return vec + crossProduct(v3, vec)*2*w + crossProduct(v3, crossProduct(v3, vec))*2;*/
+}
+
+
+// Assumes norm() = 1
+template <class Real> const Vec4f Quat<Real>::inverseRotateVector(const Vec4f& vec) const
+{
+	assert(epsEqual(norm(), (Real)1));
+	const Quat<Real> inv = this->conjugate(); // Should be pretty cheap.  Since norm() = 1, the inverse is the conjugate.
+	return inv.rotateVector(vec);
 }
 
 
@@ -266,6 +308,3 @@ template <class Real> const Quat<Real> Quat<Real>::nlerp(const Quat<Real>& q0, c
 
 typedef Quat<float> Quatf;
 typedef Quat<double> Quatd;
-
-
-#endif //__QUAT_H_666_
