@@ -185,66 +185,69 @@ void quaternionTests()
 
 	}
 
-	// Time some lerps
+	if(false)
 	{
-		Timer timer;
-		const int num = 1000;
-		float sum = 0;
-		for(int i=0; i<num; ++i)
+		// Time some lerps
 		{
-			float x = (float)i;
-			Quatf a(Vec3f(x, x, x + 1), x + 2);
-			Quatf b(Vec3f(x + 1, x + 2, x + 3), x + 4);
+			Timer timer;
+			const int num = 1000;
+			float sum = 0;
+			for(int i=0; i<num; ++i)
+			{
+				float x = (float)i;
+				Quatf a(Vec3f(x, x, x + 1), x + 2);
+				Quatf b(Vec3f(x + 1, x + 2, x + 3), x + 4);
 
-			Quatf c = Quatf::nlerp(a, b, x * 0.00001f);
-			sum += c.norm();
+				Quatf c = Quatf::nlerp(a, b, x * 0.00001f);
+				sum += c.norm();
+			}
+
+			conPrint("nlerp() Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
+			printVar(sum);
 		}
 
-		conPrint("nlerp() Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
-		printVar(sum);
-	}
-
-	// Time some vector rotations done with toMatrix()
-	{
-		Timer timer;
-		const int num = 1000;
-		float sum = 0;
-		for(int i=0; i<num; ++i)
+		// Time some vector rotations done with toMatrix()
 		{
-			float x = (float)i;
-			Quatf q(Vec3f(x + 1, x + 2, x + 3), x + 4);
+			Timer timer;
+			const int num = 1000;
+			float sum = 0;
+			for(int i=0; i<num; ++i)
+			{
+				float x = (float)i;
+				Quatf q(Vec3f(x + 1, x + 2, x + 3), x + 4);
 
-			const Vec4f v(x, x+1, x+2, 0);
+				const Vec4f v(x, x+1, x+2, 0);
 
-			Matrix4f m;
-			q.toMatrix(m);
+				Matrix4f m;
+				q.toMatrix(m);
 
-			const Vec4f rot = m * v;
-			sum += dot(rot, rot);
+				const Vec4f rot = m * v;
+				sum += dot(rot, rot);
+			}
+
+			conPrint("rotateVector() with matrix Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
+			printVar(sum);
 		}
 
-		conPrint("rotateVector() with matrix Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
-		printVar(sum);
-	}
-
-	// Time some vector rotations
-	{
-		Timer timer;
-		const int num = 1000;
-		float sum = 0;
-		for(int i=0; i<num; ++i)
+		// Time some vector rotations
 		{
-			float x = (float)i;
-			Quatf q(Vec3f(x + 1, x + 2, x + 3), x + 4);
+			Timer timer;
+			const int num = 1000;
+			float sum = 0;
+			for(int i=0; i<num; ++i)
+			{
+				float x = (float)i;
+				Quatf q(Vec3f(x + 1, x + 2, x + 3), x + 4);
 
-			const Vec4f v(x, x+1, x+2, 0);
+				const Vec4f v(x, x+1, x+2, 0);
 
-			const Vec4f rot = q.rotateVector(v);
-			sum += dot(rot, rot);
+				const Vec4f rot = q.rotateVector(v);
+				sum += dot(rot, rot);
+			}
+
+			conPrint("rotateVector() Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
+			printVar(sum);
 		}
-
-		conPrint("rotateVector() Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
-		printVar(sum);
 	}
 }
 
