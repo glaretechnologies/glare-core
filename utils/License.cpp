@@ -595,7 +595,11 @@ bool License::shouldApplyWatermark(LicenceType t)
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
 	else if(t == INDIGO_RT_ICLONE)
+#ifdef INDIGO_RT
 		return false; // Although we return false here, additional checking (that the scene is exported from iClone) is done in MainWindow and IndigoDriver.
+#else
+		return true;
+#endif
 	else
 	{
 		assert(0);
@@ -645,7 +649,11 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
 	else if(t == INDIGO_RT_ICLONE)
+#ifdef INDIGO_RT
 		return false; // Although we return false here, additional checking (that the scene is exported from iClone) is done in MainWindow and IndigoDriver.
+#else
+		return true;
+#endif
 	else
 	{
 		assert(0);
