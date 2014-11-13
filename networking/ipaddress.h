@@ -63,6 +63,12 @@ public:
 	// Sets port_out to zero if not present
 	static void parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::string& hostname_or_ip_out, int& port_out);
 
+	// Parse IP address or hostname and optional port.  If port is present, return it (in port_out), otherwise return the default port
+	static void parseIPAddrOrHostnameWithDefaultPort(const std::string& s, int default_port, std::string& hostname_or_ip_out, int& port_out);
+
+	// Append the port to he IP Address or hostname string, if a port is not already present.
+	static const std::string appendPortToAddrOrHostname(const std::string& s, int port);
+
 	static void test();
 private:
 	uint8 address[16];

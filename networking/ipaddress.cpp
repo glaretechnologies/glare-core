@@ -297,6 +297,39 @@ void IPAddress::parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::
 }
 
 
+// Parse IP address or hostname and optional port.  If port is present, return it (in port_out), otherwise return the default port
+void IPAddress::parseIPAddrOrHostnameWithDefaultPort(const std::string& s, int default_port, std::string& hostname_or_ip_out, int& port_out)
+{
+	int parsed_port;
+	parseIPAddrOrHostnameAndOptionalPort(s, hostname_or_ip_out, parsed_port);
+	if(parsed_port == 0) // If there was no port present:
+		port_out = default_port;
+	else
+		port_out = parsed_port;
+}
+
+
+
+// Append the port to he IP Address or hostname string, if a port is not already present.
+const std::string IPAddress::appendPortToAddrOrHostname(const std::string& s, int port)
+{
+	std::string hostname;
+	int existing_port;
+	parseIPAddrOrHostnameAndOptionalPort(s, hostname, existing_port);
+	
+	if(existing_port == 0)
+	{
+		// If there was no port:
+		return formatIPAddressAndPort(s, port);
+	}
+	else
+	{
+		return s;
+	}
+}
+
+
+
 #if BUILD_TESTS
 
 
@@ -427,6 +460,53 @@ void IPAddress::test()
 		int port;
 		parseIPAddrOrHostnameAndOptionalPort("localhost", ip, port);
 		testAssert(ip == "localhost" && port == 0);
+	}
+
+	//==================== Test parseIPAddrOrHostnameWithDefaultPort() ====================
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameWithDefaultPort("1fff:0:a88:85a3::ac1f", 1000, ip, port);
+		testAssert(ip == "1fff:0:a88:85a3::ac1f" && port == 1000);
+	}
+
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameWithDefaultPort("localhost", 1000, ip, port);
+		testAssert(ip == "localhost" && port == 1000);
+	}
+
+
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameWithDefaultPort("[1fff:0:a88:85a3::ac1f]:8000", 1000, ip, port);
+		testAssert(ip == "1fff:0:a88:85a3::ac1f" && port == 8000);
+	}
+
+	{
+		std::string ip;
+		int port;
+		parseIPAddrOrHostnameWithDefaultPort("localhost:8000", 1000, ip, port);
+		testAssert(ip == "localhost" && port == 8000);
+	}
+
+	//==================== Test appendPortToAddrOrHostname() =====================
+	// Test for port already present.
+	{
+		testAssert(appendPortToAddrOrHostname("192.168.1.1:80", 1000) == "192.168.1.1:80");
+		testAssert(appendPortToAddrOrHostname("[1fff:0:a88:85a3::ac1f]:80", 1000) == "[1fff:0:a88:85a3::ac1f]:80");
+		testAssert(appendPortToAddrOrHostname("localhost:80", 1000) == "localhost:80");
+		testAssert(appendPortToAddrOrHostname("www.google.com:80", 1000) == "www.google.com:80");
+	}
+
+	// Test when port is not already present
+	{
+		testAssert(appendPortToAddrOrHostname("192.168.1.1", 1000) == "192.168.1.1:1000");
+		testAssert(appendPortToAddrOrHostname("1fff:0:a88:85a3::ac1f", 1000) == "[1fff:0:a88:85a3::ac1f]:1000");
+		testAssert(appendPortToAddrOrHostname("localhost", 1000) == "localhost:1000");
+		testAssert(appendPortToAddrOrHostname("www.google.com", 1000) == "www.google.com:1000");
 	}
 }
 
