@@ -34,6 +34,9 @@ public:
 
 	inline const Vec4f transposeMult(const Vec4f& v) const;
 
+	// Ignores W component of vector, returns vector with W component of 0.
+	inline const Vec4f transposeMultVector(const Vec4f& v) const;
+
 	inline void getTranspose(Matrix4f& transpose_out) const;
 
 	void getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const;
@@ -190,6 +193,18 @@ const Vec4f Matrix4f::transposeMult(const Vec4f& v) const
 		dot(Vec4f(_mm_load_ps(e+8)), v),
 		dot(Vec4f(_mm_load_ps(e+12)), v)
 	);*/
+}
+
+
+// Ignores W component of vector, returns vector with W component of 0.
+const Vec4f Matrix4f::transposeMultVector(const Vec4f& v) const
+{
+	return Vec4f(
+		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2],
+		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2],
+		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2],
+		0
+	);
 }
 
 
