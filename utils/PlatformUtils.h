@@ -64,6 +64,10 @@ This is something like "C:\Documents and Settings\username\Application Data" on 
 */
 const std::string getAPPDataDirPath(); // throws PlatformUtilsExcep
 
+
+// Only works on Windows, returns CSIDL_COMMON_DOCUMENTS, e.g. 'C:\Users\Public\Documents'.
+const std::string getCommonDocumentsDirPath(); // throws PlatformUtilsExcep
+
 const std::string getTempDirPath(); // throws PlatformUtilsExcep
 
 const std::string getCurrentWorkingDirPath(); // throws PlatformUtilsExcep

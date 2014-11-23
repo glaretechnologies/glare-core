@@ -319,6 +319,28 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 }
 
 
+const std::string PlatformUtils::getCommonDocumentsDirPath() // throws PlatformUtilsExcep
+{
+#if defined(_WIN32) || defined(_WIN64)
+	TCHAR path[MAX_PATH];
+	const HRESULT res = SHGetFolderPath(
+		NULL, // hwndOwner
+		CSIDL_COMMON_DOCUMENTS, // nFolder
+		NULL, // hToken
+		0, // 0=SHGFP_TYPE_CURRENT, // dwFlags
+		path // pszPath
+	);
+
+	if(res != S_OK)
+		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString((int)res));
+
+	return StringUtils::PlatformToUTF8UnicodeEncoding(path);
+#else
+	throw PlatformUtilsExcep("getCommonDocumentsDirPath() is only valid on Windows");
+#endif
+}
+
+
 const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 {
 #if defined(_WIN32) || defined(_WIN64)
