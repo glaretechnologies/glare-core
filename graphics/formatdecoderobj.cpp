@@ -62,6 +62,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 		std::vector<Indigo::Vec3f> vert_positions;
 		std::vector<Indigo::Vec3f> vert_normals;
+		std::vector<Indigo::Vec2f> uvs;
 
 		int linenum = 0;
 		std::string token;
@@ -139,6 +140,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 				assert(uv_vector.size() == 1);
 				uv_vector[0] = texcoord;
 				handler.addUVs(uv_vector);
+				uvs.push_back(texcoord);
 			}
 			else if(token == "vn") // vertex normal
 			{
@@ -171,40 +173,46 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					bool read_normal_index = false;
 
 					// Read vertex position index
-					if(parser.parseUnsignedInt(face_vertex_indices[i]))
+					int vert_index;
+					if(parser.parseInt(vert_index))
 					{
 						numfaceverts++;
 
-						// Bounds check
-						if(face_vertex_indices[i] == 0)
-							throw ModelFormatDecoderExcep("Position index invalid. (index '" + toString(face_vertex_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
-
-						face_vertex_indices[i]--; // make index 0-based
+						if(vert_index < 0)
+							face_vertex_indices[i] = vert_positions.size() + vert_index;
+						else if(vert_index > 0)
+							face_vertex_indices[i] = vert_index - 1; // Convert to 0-based index
+						else
+							throw ModelFormatDecoderExcep("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 						// Try and read vertex texcoord index
 						if(parser.parseChar('/'))
 						{
-							if(parser.parseUnsignedInt(face_uv_indices[i]))
+							int uv_index;
+							if(parser.parseInt(uv_index))
 							{
-								if(face_uv_indices[i] == 0)
-									throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(face_uv_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
-							
-								face_uv_indices[i]--; // make index 0-based
-								//got_texcoord = true;
+								if(uv_index < 0)
+									face_uv_indices[i] = uvs.size() + uv_index;
+								else if(uv_index > 0)
+									face_uv_indices[i] = uv_index - 1; // Convert to 0-based index
+								else
+									throw ModelFormatDecoderExcep("Invalid tex coord index. (index '" + toString(uv_index) + "' out of bounds, on line " + toString(linenum) + ")");
 							}
 
 							// Try and read vertex normal index
 							if(parser.parseChar('/'))
 							{
-								//unsigned int vert_normal_index; // don't actually do anything with this.
-
-								if(!parser.parseUnsignedInt(face_normal_indices[i]))
+								int normal_index;
+								if(!parser.parseInt(normal_index))
 									throw ModelFormatDecoderExcep("syntax error: no integer following '/' (line " + toString(linenum) + ")");
+
+								if(normal_index < 0)
+									face_normal_indices[i] = vert_normals.size() + normal_index;
+								else if(normal_index > 0)
+									face_normal_indices[i] = normal_index - 1; // Convert to 0-based index
+								else
+									throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						
-								if(face_normal_indices[i] == 0)
-									throw ModelFormatDecoderExcep("Invalid normal index. (index '" + toString(face_normal_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
-							
-								face_normal_indices[i]--; // make index 0 based
 								read_normal_index = true;
 							}
 						}
