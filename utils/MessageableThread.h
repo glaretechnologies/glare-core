@@ -29,6 +29,8 @@ public:
 	// Deriving classes should implement this method.
 	virtual void doRun() = 0;
 
+	virtual void kill() {}
+
 	// Called by ThreadManager.
 	void set(ThreadManager* thread_manager);
 

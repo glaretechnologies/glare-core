@@ -10,7 +10,7 @@ Generated at 2013-01-27 17:47:46 +0000
 float InStream::readFloat()
 {
 	float x;
-	readData(&x, sizeof(x), NULL);
+	readData(&x, sizeof(x));
 	return x;
 }
 
@@ -18,7 +18,7 @@ float InStream::readFloat()
 double InStream::readDouble()
 {
 	double x;
-	readData(&x, sizeof(x), NULL);
+	readData(&x, sizeof(x));
 	return x;
 }
 
@@ -27,7 +27,7 @@ double InStream::readDouble()
 uint64 InStream::readUInt64()
 {
 	uint64 x;
-	readData(&x, sizeof(x), NULL);
+	readData(&x, sizeof(x));
 	return x;
 }
 
@@ -41,7 +41,7 @@ const std::string InStream::readStringLengthFirst()
 
 	// Read content
 	if(size > 0)
-		readData(&s[0], size, NULL);
+		readData(&s[0], size);
 
 	return s;
 }

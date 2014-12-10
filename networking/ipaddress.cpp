@@ -68,6 +68,30 @@ void IPAddress::fillOutSockAddr(sockaddr& sock_addr, int port) const
 }
 
 
+void IPAddress::fillOutIPV6SockAddr(sockaddr_storage& sock_addr, int port) const
+{
+	memset(&sock_addr, 0, sizeof(sockaddr_storage)); // Clear struct.
+
+	sockaddr_in6* ipv6_address = (sockaddr_in6*)&sock_addr;
+	ipv6_address->sin6_family = AF_INET6;
+	ipv6_address->sin6_port = htons((unsigned short)port);
+
+	if(getVersion() == IPAddress::Version_4)
+	{
+		// See section "IP Addresses with a Dual-Stack Socket", from Dual-Stack Sockets for IPv6 Winsock Applications
+		// http://msdn.microsoft.com/en-us/library/windows/desktop/bb513665(v=vs.85).aspx
+		const uint8 FF = 0xFFu;
+		std::memcpy((uint8*)&ipv6_address->sin6_addr + 10, &FF, 1);
+		std::memcpy((uint8*)&ipv6_address->sin6_addr + 11, &FF, 1);
+		std::memcpy((uint8*)&ipv6_address->sin6_addr + 12, this->address, 4);
+	}
+	else
+	{
+		std::memcpy(&ipv6_address->sin6_addr, this->address, 16);
+	}
+}
+
+
 // Since XP doesn't support inet_pton, we'll provide our own implementation here, based on WSAStringToAddress, which is defined in Windows 2000 Professional onwards.
 // TODO: Take out when we don't support Windows XP any more.
 static int glare_inet_pton(int family, const char *src, void *dst)

@@ -25,7 +25,7 @@ public:
 
 	virtual int32 readInt32();
 	virtual uint32 readUInt32();
-	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
+	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
 private:

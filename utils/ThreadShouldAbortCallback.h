@@ -9,6 +9,7 @@ Generated at Tue Mar 09 15:48:35 +1300 2010
 
 #include "../networking/mysocket.h"
 #include "../utils/ThreadSafeQueue.h"
+#include "../utils/StreamShouldAbortCallback.h"
 class ThreadMessage;
 
 

@@ -693,16 +693,16 @@ unsigned int Image::getBytesPerPixel() const
 static const uint32 IMAGE_SERIALISATION_VERSION = 1;
 
 
-void writeToStream(const Image& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback)
+void writeToStream(const Image& im, OutStream& stream)
 {
 	stream.writeUInt32(IMAGE_SERIALISATION_VERSION);
 	stream.writeUInt32((uint32)im.getWidth());
 	stream.writeUInt32((uint32)im.getHeight());
-	stream.writeData(&im.getPixel(0).r, im.getWidth() * im.getHeight() * sizeof(Image::ColourType), should_abort_callback);
+	stream.writeData(&im.getPixel(0).r, im.getWidth() * im.getHeight() * sizeof(Image::ColourType));
 }
 
 
-void readFromStream(InStream& stream, Image& image, StreamShouldAbortCallback* should_abort_callback)
+void readFromStream(InStream& stream, Image& image)
 {
 	const uint32 v = stream.readUInt32();
 	if(v != IMAGE_SERIALISATION_VERSION)
@@ -714,7 +714,7 @@ void readFromStream(InStream& stream, Image& image, StreamShouldAbortCallback* s
 	// TODO: handle max image size
 
 	image.resize(w, h);
-	stream.readData((void*)&image.getPixel(0).r, w * h * sizeof(Image::ColourType), should_abort_callback);
+	stream.readData((void*)&image.getPixel(0).r, w * h * sizeof(Image::ColourType));
 }
 
 
@@ -742,13 +742,13 @@ void Image::test()
 
 		// Write to stream
 		BufferOutStream buf;
-		writeToStream(im, buf, NULL);
+		writeToStream(im, buf);
 
 		// Read back from stream
 		BufferInStream in_stream(buf.buf);
 
 		Image image2;
-		readFromStream(in_stream, image2, NULL);
+		readFromStream(in_stream, image2);
 
 		testAssert(image2.getWidth() == w);
 		testAssert(image2.getHeight() == h);

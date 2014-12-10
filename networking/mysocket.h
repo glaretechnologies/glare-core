@@ -22,7 +22,6 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "../utils/Platform.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
-#include "../utils/StreamShouldAbortCallback.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include <string>
@@ -40,13 +39,6 @@ private:
 };
 
 
-class AbortedMySocketExcep : public MySocketExcep
-{
-public:
-	AbortedMySocketExcep() : MySocketExcep("Aborted.") {}
-};
-
-
 /*=====================================================================
 MySocket
 --------
@@ -57,39 +49,34 @@ Does both client and server sockets.
 class MySocket : public InStream, public OutStream, public ThreadSafeRefCounted
 {
 public:
-	MySocket(const std::string& hostname, int port, StreamShouldAbortCallback* should_abort_callback); // Client connect via DNS lookup
-	MySocket(const IPAddress& ipaddress, int port, StreamShouldAbortCallback* should_abort_callback); // Client connect
-	MySocket(); // For server socket
+	MySocket(const std::string& hostname, int port); // Client connect via DNS lookup
+	MySocket(const IPAddress& ipaddress, int port); // Client connect
+	MySocket();
 
 	~MySocket();
+
+	// Connect given a hostname
+	void connect(
+		const std::string& hostname,
+		int port
+	);
+
+	// Connect given an IP address
+	void connect(
+		const IPAddress& ipaddress, 
+		const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
+		int port
+	);
+
 
 	void bindAndListen(int port); // throws MySocketExcep
 
 
-	Reference<MySocket> acceptConnection(StreamShouldAbortCallback* should_abort_callback); // throws MySocketExcep
+	Reference<MySocket> acceptConnection(); // throws MySocketExcep
 
-	void close();
-
-	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
-	int getOtherEndPort() const { return otherend_port; }
-
-
-	void writeInt32(int32 x, StreamShouldAbortCallback* should_abort_callback);
-	void writeUInt32(uint32 x, StreamShouldAbortCallback* should_abort_callback);
-	void writeUInt64(uint64 x, StreamShouldAbortCallback* should_abort_callback);
-	void writeString(const std::string& s, StreamShouldAbortCallback* should_abort_callback); // Write null-terminated string.
-
-	//-----------------------------------------------------------------
-	//if you use this directly you must do host->network and vice versa byte reordering yourself
-	//-----------------------------------------------------------------
-	void write(const void* data, size_t numbytes, StreamShouldAbortCallback* should_abort_callback);
-	void write(const void* data, size_t numbytes, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback);
-
-
-	int32 readInt32(StreamShouldAbortCallback* should_abort_callback);
-	uint32 readUInt32(StreamShouldAbortCallback* should_abort_callback);
-	uint64 readUInt64(StreamShouldAbortCallback* should_abort_callback);
-	const std::string readString(size_t max_string_length, StreamShouldAbortCallback* should_abort_callback); // Read null-terminated string.
+	// Calls shutdown on the socket, then closes the socket handle.
+	// This will cause the socket to return from any blocking calls.
+	void ungracefulShutdown();
 
 	// Wait for the other end to 'gracefully disconnect'
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
@@ -97,13 +84,36 @@ public:
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	void waitForGracefulDisconnect();
 
+	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
+	int getOtherEndPort() const { return otherend_port; }
+
+
+	//void writeInt32(int32 x);
+	//void writeUInt32(uint32 x);
+	void writeUInt64(uint64 x);
+	void writeString(const std::string& s); // Write null-terminated string.
+
+	//-----------------------------------------------------------------
+	//if you use this directly you must do host->network and vice versa byte reordering yourself
+	//-----------------------------------------------------------------
+	void write(const void* data, size_t numbytes);
+	void write(const void* data, size_t numbytes, FractionListener* frac);
+
+
+	//int32 readInt32();
+	//uint32 readUInt32();
+	uint64 readUInt64();
+	const std::string readString(size_t max_string_length); // Read null-terminated string.
+
+
+
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
 
-	void readTo(void* buffer, size_t numbytes, StreamShouldAbortCallback* should_abort_callback);
-	void readTo(void* buffer, size_t numbytes, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback);
+	void readTo(void* buffer, size_t numbytes);
+	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
 
 	void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
 
@@ -119,29 +129,25 @@ public:
 	//------------------------ InStream ---------------------------------
 	virtual int32 readInt32();
 	virtual uint32 readUInt32();
-	virtual void readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
+	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 	//------------------------------------------------------------------
 
 	//------------------------ OutStream --------------------------------
 	virtual void writeInt32(int32 x);
 	virtual void writeUInt32(uint32 x);
-	virtual void writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
+	virtual void writeData(const void* data, size_t num_bytes);
 	//------------------------------------------------------------------
 
 private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
+	void shutdown();
+
 
 	void init();
 
-	void doConnect(
-		const IPAddress& ipaddress, 
-		const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
-		int port, 
-		StreamShouldAbortCallback* should_abort_callback
-	);
 public:
 #if defined(_WIN32)
 	typedef SOCKET SOCKETHANDLE_TYPE;

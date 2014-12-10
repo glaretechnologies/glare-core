@@ -61,8 +61,13 @@ void ThreadManager::killThreadsBlocking()
 void ThreadManager::killThreadsNonBlocking()
 {
 	// Send kill messages to all threads
-	const KillThreadMessage m;
-	enqueueMessage(m);
+	Lock lock(mutex);
+
+	for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
+	{
+		(*i)->getMessageQueue().enqueue(new KillThreadMessage());
+		(*i)->kill();
+	}
 }
 
 

@@ -51,7 +51,7 @@ void BufferOutStream::writeUInt32(uint32 x)
 }
 
 
-void BufferOutStream::writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
+void BufferOutStream::writeData(const void* data, size_t num_bytes)
 {
 	try
 	{

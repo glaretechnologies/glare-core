@@ -24,17 +24,17 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 	writeUInt32((uint32)s.length());
 
 	// Write string content
-	writeData(s.c_str(), s.length(), NULL);
+	writeData(s.c_str(), s.length());
 }
 
 
 void OutStream::writeFloat(float x)
 {
-	writeData(&x, sizeof(x), NULL);
+	writeData(&x, sizeof(x));
 }
 
 
 void OutStream::writeDouble(double x)
 {
-	writeData(&x, sizeof(x), NULL);
+	writeData(&x, sizeof(x));
 }

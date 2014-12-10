@@ -53,10 +53,10 @@ public:
 			testAssert(socket->readInt32() == 3);
 
 			// Read Uint64
-			testAssert(socket->readUInt64(NULL) == 1);
-			testAssert(socket->readUInt64(NULL) == 2);
-			testAssert(socket->readUInt64(NULL) == 3);
-			testAssert(socket->readUInt64(NULL) == 0x1234567800112233ULL);
+			testAssert(socket->readUInt64() == 1);
+			testAssert(socket->readUInt64() == 2);
+			testAssert(socket->readUInt64() == 3);
+			testAssert(socket->readUInt64() == 0x1234567800112233ULL);
 
 			// Read strings
 			testAssert(socket->readStringLengthFirst() == "hello");
@@ -79,10 +79,10 @@ public:
 			testAssert(socket->readInt32() == 3);
 
 			// Read Uint64
-			testAssert(socket->readUInt64(NULL) == 1);
-			testAssert(socket->readUInt64(NULL) == 2);
-			testAssert(socket->readUInt64(NULL) == 3);
-			testAssert(socket->readUInt64(NULL) == 0x1234567800112233ULL);
+			testAssert(socket->readUInt64() == 1);
+			testAssert(socket->readUInt64() == 2);
+			testAssert(socket->readUInt64() == 3);
+			testAssert(socket->readUInt64() == 0x1234567800112233ULL);
 
 			// Read strings
 			testAssert(socket->readStringLengthFirst() == "hello");
@@ -96,12 +96,12 @@ public:
 			//=========== End Test data from SocketBufferOutStream ===========
 
 			// Read strings
-			testAssert(socket->readString(1000, NULL) == "hello1");
-			testAssert(socket->readString(1000, NULL) == "world1");
+			testAssert(socket->readString(1000) == "hello1");
+			testAssert(socket->readString(1000) == "world1");
 
 			// Read a buffer of 3 int32s
 			std::vector<int32> buf(3);
-			socket->readData(&buf[0], sizeof(int32) * buf.size(), NULL);
+			socket->readData(&buf[0], sizeof(int32) * buf.size());
 			testAssert(buf == makeBuffer());
 
 			// Keep reading until we fail to read any more
@@ -139,10 +139,10 @@ public:
 			socket.writeInt32(3);
 
 			// Write Uint64
-			socket.writeUInt64(1, NULL);
-			socket.writeUInt64(2, NULL);
-			socket.writeUInt64(3, NULL);
-			socket.writeUInt64(0x1234567800112233ULL, NULL);
+			socket.writeUInt64(1);
+			socket.writeUInt64(2);
+			socket.writeUInt64(3);
+			socket.writeUInt64(0x1234567800112233ULL);
 
 			// Write some strings with writeStringLengthFirst()
 			socket.writeStringLengthFirst("hello");
@@ -177,16 +177,16 @@ public:
 			buffer.writeDouble(1.23456789112233445566);
 
 			// write the buffer contents to the socket
-			socket.writeData(&buffer.buf[0], buffer.buf.size(), NULL);
+			socket.writeData(&buffer.buf[0], buffer.buf.size());
 			//=========== End Test SocketBufferOutStream ===========
 
 			// Write some strings with null termination
-			socket.writeString("hello1", NULL);
-			socket.writeString("world1", NULL);
+			socket.writeString("hello1");
+			socket.writeString("world1");
 
 			// Write a buffer of 3 int32s
 			const std::vector<int32> buf = makeBuffer();
-			socket.writeData(&buf[0], sizeof(int32) * buf.size(), NULL);
+			socket.writeData(&buf[0], sizeof(int32) * buf.size());
 		}
 		catch(MySocketExcep& e)
 		{
@@ -204,7 +204,7 @@ public:
 			{
 				conPrint("TestClientThread: Connecting to " + IPAddress::formatIPAddressAndPort(server_hostname, port));
 
-				MySocket socket(server_hostname, port, NULL);
+				MySocket socket(server_hostname, port);
 
 				// Try enabling TCP keepalive
 				socket.enableTCPKeepAlive(5.0);
@@ -257,7 +257,7 @@ public:
 			
 		
 			// Accept connection
-			MySocketRef server_socket = listener.acceptConnection(NULL);
+			MySocketRef server_socket = listener.acceptConnection();
 
 			Reference<TestServerSocketThread> server_thread = new TestServerSocketThread(server_socket);
 			server_thread->launch();
@@ -290,15 +290,277 @@ static void doTestWithHostname(const std::string& hostname, int port)
 }
 
 
+
+
+
+
+
+//==============================================================================================================
+
+
+class TestServerSocketReadWriteThread : public MyThread
+{
+public:
+	TestServerSocketReadWriteThread(MySocketRef socket_) : socket(socket_) {}
+
+	virtual void run()
+	{
+		conPrint("TestServerSocketReadWriteThread::run()");
+		try
+		{
+			socket->readUInt32();
+			//socket->readUInt32();
+			//socket->readUInt32();
+
+			socket->writeUInt32(1);
+			for(int i=0; i<1000000; ++i)
+			{
+				//conPrint("server writing uint " + toString(i) + "...");
+				char buf[1024];
+				std::memset(buf, 0, sizeof(buf));
+				socket->writeData(buf, sizeof(buf)); // This should block eventually, when the send buffer is full.
+			}
+			/*socket->writeUInt32(1);
+			socket->writeUInt32(2);
+			socket->writeUInt32(3);*/
+
+			// Keep reading until we fail to read any more
+			socket->waitForGracefulDisconnect();
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestServerSocketReadWriteThread MySocketExcep: " + e.what());
+		}
+	}
+
+	MySocketRef socket;
+};
+
+
+class TestReadClientThread : public MyThread
+{
+public:
+	TestReadClientThread(const std::string& hostname_, int port_) : hostname(hostname_), port(port_)
+	{
+		try
+		{
+			socket = new MySocket(hostname, port); 
+		}
+		catch(MySocketExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
+
+	virtual void run()
+	{
+		try
+		{
+			socket->readUInt32(); // This should block, as server thread doesn't send data yet.
+			failTest("Shouldn't get here."); // Shouln't get here as there should be an exception thrown from the readUInt32 call above. 
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestReadClientThread MySocketExcep: " + e.what());
+		}
+	}
+
+	std::string hostname;
+	int port;
+	MySocketRef socket;
+};
+
+
+class TestBlockingConnectThread : public MyThread
+{
+public:
+	TestBlockingConnectThread(const std::string& hostname_, int port_) : hostname(hostname_), port(port_)
+	{
+		try
+		{
+			socket = new MySocket();
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint(e.what());
+		}
+	}
+
+	virtual void run()
+	{
+		try
+		{
+			conPrint("TestBlockingConnectThread Connecting...");
+			socket->connect(hostname, port);
+			conPrint("TestBlockingConnectThread connected.");
+
+			socket->readUInt32(); // This should block, as server thread doesn't send data yet.
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestReadClientThread MySocketExcep: " + e.what());
+		}
+	}
+
+	std::string hostname;
+	int port;
+	MySocketRef socket;
+};
+
+
+class TestWriteClientThread : public MyThread
+{
+public:
+	TestWriteClientThread(int port)
+	{
+		try
+		{
+			socket = new MySocket("localhost", port);
+		}
+		catch(MySocketExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
+
+	virtual void run()
+	{
+		try
+		{
+			for(int i=0; i<1000000; ++i)
+			{
+				//conPrint("client writing uint " + toString(i) + "...");
+				char buf[1024];
+				std::memset(buf, 0, sizeof(buf));
+				socket->writeData(buf, sizeof(buf)); // This should block eventually, when the send buffer is full.
+				//socket->writeUInt32(1); // This should block eventually, when the send buffer is full.
+			}
+			failTest("Shouldn't get here."); // Shouln't get here as there should be an exception thrown from one of the 1000000 calls above. 
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestWriteClientThread MySocketExcep: " + e.what());
+		}
+	}
+
+	MySocketRef socket;
+};
+
+
+// Lanuches TestServerSocketReadWriteThread to handle client connections.
+class TestListenerThread2 : public MyThread
+{
+public:
+	TestListenerThread2(int port_) : port(port_)
+	{
+		listener_sock = new MySocket();
+	}
+
+	virtual void run()
+	{
+		conPrint("TestListenerThread2::run() (port: " + toString(port) + ")");
+		try
+		{
+			listener_sock->bindAndListen(port);
+			MySocketRef server_socket = listener_sock->acceptConnection();
+			Reference<TestServerSocketReadWriteThread> server_thread = new TestServerSocketReadWriteThread(server_socket);
+			server_thread->launch();
+			server_thread->join(); // Wait for server thread
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestListenerThread2 MySocketExcep: " + e.what());
+		}
+	}
+	MySocketRef listener_sock;
+	int port;
+};
+
+
+//==============================================================================================================
+
+
 void SocketTests::test()
 {
 	conPrint("SocketTests::test()");
-
 
 	testAssert(Networking::isNonNull());
 
 	const int port = 5000;
 
+
+
+	//==================== Test interruption of a blocking read call. ========================
+	{
+		Reference<TestListenerThread2> listener_thread = new TestListenerThread2(port);
+		listener_thread->launch();
+
+		// Launch client thread, should block on socket read call
+		Reference<TestReadClientThread> client_thread = new TestReadClientThread("localhost", port);
+		client_thread->launch();
+
+		// We need to wait a little while, until the read call in the TestReadClientThread has been started.
+		PlatformUtils::Sleep(500);
+
+		// Shutdown the client socket, which should unblock it from the read call.
+		client_thread->socket->ungracefulShutdown();
+
+		listener_thread->join();
+		client_thread->join();
+	}
+
+	//==================== Test interruption of a blocking write call. ========================
+	{
+		Reference<TestListenerThread2> listener_thread = new TestListenerThread2(port);
+		listener_thread->launch();
+
+		// Launch client thread, should block on socket write call
+		Reference<TestWriteClientThread> client_thread = new TestWriteClientThread(port);
+		client_thread->launch();
+
+		// We need to wait a little while, until the write call in the TestReadClientThread has been started.
+		PlatformUtils::Sleep(500);
+
+		// Shutdown the client socket, which should unblock it from the write call.
+		client_thread->socket->ungracefulShutdown();
+
+		listener_thread->join();
+		client_thread->join();
+	}
+
+
+	//===================== Test interruption of a blocking acceptConnection() call. ==========================
+	{
+		Reference<TestListenerThread2> listener_thread = new TestListenerThread2(port);
+		listener_thread->launch();
+
+		// We need to wait a little while, until the accept call has been started.
+		PlatformUtils::Sleep(500);
+
+		listener_thread->listener_sock->ungracefulShutdown();
+
+		listener_thread->join();
+	}
+
+	//===================== Test interruption of a blocking connect() call. ==========================
+	{
+		// Launch client thread, should block on socket read call
+		Reference<TestBlockingConnectThread> client_thread = new TestBlockingConnectThread("192.168.1.50", 80);
+		client_thread->launch();
+
+		// We need to wait a little while, until the read call in the TestReadClientThread has been started.
+		PlatformUtils::Sleep(500);
+
+		// Shutdown the client socket, which should unblock it from the read call.
+		client_thread->socket->ungracefulShutdown();
+
+		//listener_thread->join();
+		client_thread->join();
+	}
+
+	
+	//===================== Do read/write tests ==========================
+	
 	doTestWithHostname("127.0.0.1", port);
 
 	// Test with IPv6 address
@@ -306,7 +568,6 @@ void SocketTests::test()
 
 	// Test with IPv6 address
 	doTestWithHostname("localhost", port);
-
 
 	conPrint("SocketTests::test(): done.");
 }

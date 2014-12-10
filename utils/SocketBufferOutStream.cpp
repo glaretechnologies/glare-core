@@ -33,7 +33,7 @@ SocketBufferOutStream::~SocketBufferOutStream()
 }
 
 
-void SocketBufferOutStream::writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
+void SocketBufferOutStream::writeData(const void* data, size_t num_bytes)
 {
 	try
 	{

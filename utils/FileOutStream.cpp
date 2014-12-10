@@ -43,7 +43,7 @@ void FileOutStream::writeUInt32(uint32 x)
 }
 
 
-void FileOutStream::writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
+void FileOutStream::writeData(const void* data, size_t num_bytes)
 {
 	file.write((const char*)data, num_bytes);
 

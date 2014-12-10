@@ -43,12 +43,15 @@ public:
 	// Get number of threads that are being managed.
 	unsigned int getNumThreads();
 
+	Mutex& getMutex() { return mutex; }
+
+	typedef std::set<Reference<MessageableThread> > THREAD_SET_TYPE;
+	THREAD_SET_TYPE& getThreads() { return threads; }
 
 	// Run unit tests
 	static void test();
 
 private:
-	typedef std::set<Reference<MessageableThread> > THREAD_SET_TYPE;
 	THREAD_SET_TYPE threads;
 
 	Mutex mutex; // Protects 'threads' set.

@@ -14,26 +14,26 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 
 
 // Explicit template instantiation
-template void writeToStream(const ImageMap<float, FloatComponentValueTraits>& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback);
-template void readFromStream(InStream& stream, ImageMap<float, FloatComponentValueTraits>& image, StreamShouldAbortCallback* should_abort_callback);
+template void writeToStream(const ImageMap<float, FloatComponentValueTraits>& im, OutStream& stream);
+template void readFromStream(InStream& stream, ImageMap<float, FloatComponentValueTraits>& image);
 
 
 static const uint32 IMAGEMAP_SERIALISATION_VERSION = 1;
 
 
 template <class V, class VTraits>
-void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback)
+void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream)
 {
 	stream.writeUInt32(IMAGEMAP_SERIALISATION_VERSION);
 	stream.writeUInt32((uint32)im.getWidth());
 	stream.writeUInt32((uint32)im.getHeight());
 	stream.writeUInt32((uint32)im.getN());
-	stream.writeData(im.getData(), (size_t)im.getWidth() * (size_t)im.getHeight() * (size_t)im.getN() * sizeof(V), should_abort_callback);
+	stream.writeData(im.getData(), (size_t)im.getWidth() * (size_t)im.getHeight() * (size_t)im.getN() * sizeof(V));
 }
 
 
 template <class V, class VTraits>
-void readFromStream(InStream& stream, ImageMap<V, VTraits>& image, StreamShouldAbortCallback* should_abort_callback)
+void readFromStream(InStream& stream, ImageMap<V, VTraits>& image)
 {
 	const uint32 v = stream.readUInt32();
 	if(v != IMAGEMAP_SERIALISATION_VERSION)
@@ -46,5 +46,5 @@ void readFromStream(InStream& stream, ImageMap<V, VTraits>& image, StreamShouldA
 	// TODO: handle max image size
 
 	image.resize(w, h, N);
-	stream.readData((void*)image.getData(), (size_t)w * (size_t)h * (size_t)N * sizeof(V), should_abort_callback);
+	stream.readData((void*)image.getData(), (size_t)w * (size_t)h * (size_t)N * sizeof(V));
 }

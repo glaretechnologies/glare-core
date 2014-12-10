@@ -15,7 +15,6 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 namespace Indigo { class TaskManager; }
 class OutStream;
 class InStream;
-class StreamShouldAbortCallback;
 
 
 // #define IMAGE_MAP_TILED 1
@@ -155,9 +154,9 @@ typedef Reference<ImageMapUInt8> ImageMapUInt8Ref;
 
 
 template <class V, class VTraits>
-void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream, StreamShouldAbortCallback* should_abort_callback);
+void writeToStream(const ImageMap<V, VTraits>& im, OutStream& stream);
 template <class V, class VTraits>
-void readFromStream(InStream& stream, ImageMap<V, VTraits>& image, StreamShouldAbortCallback* should_abort_callback);
+void readFromStream(InStream& stream, ImageMap<V, VTraits>& image);
 
 
 template <class V, class VTraits>

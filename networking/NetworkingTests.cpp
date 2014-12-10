@@ -29,37 +29,18 @@ NetworkingTests::~NetworkingTests()
 #include "../indigo/globals.h"
 
 
-class NetworkingTests_ShouldAbortCallback : public StreamShouldAbortCallback
-{
-public:
-	NetworkingTests_ShouldAbortCallback()
-	{}
-
-	virtual ~NetworkingTests_ShouldAbortCallback(){}
-
-	virtual bool shouldAbort()
-	{
-		return false;
-	}
-
-private:
-};
-
-
 void NetworkingTests::test()
 {
 	conPrint("NetworkingTests::test()");
 
 	const int N = 1;
 
-	NetworkingTests_ShouldAbortCallback callback;
-
 	for(int i=0; i<N; ++i)
 	{
 		try
 		{
 			conPrint("Connecting to localhost:6666");
-			MySocket sock("localhost", 6666, &callback);
+			MySocket sock("localhost", 6666);
 		}
 		catch(MySocketExcep& )
 		{
@@ -72,7 +53,7 @@ void NetworkingTests::test()
 		try
 		{
 			conPrint("Connecting to not_a_resolvable_dns_name:6666");
-			MySocket sock("not_a_resolvable_dns_name", 6666, &callback);
+			MySocket sock("not_a_resolvable_dns_name", 6666);
 		}
 		catch(MySocketExcep& )
 		{

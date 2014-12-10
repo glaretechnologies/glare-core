@@ -10,6 +10,7 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 #include "../utils/Platform.h"
 #include <string>
 struct sockaddr;
+struct sockaddr_storage;
 
 
 class MalformedIPStringExcep
@@ -50,6 +51,9 @@ public:
 
 	// Fill out a sockets API address structure.  Takes a port argument for the structure as well.
 	void fillOutSockAddr(sockaddr& sock_addr, int port) const;
+
+	// Fill out a sockets API address structure.  Takes a port argument for the structure as well.
+	void fillOutIPV6SockAddr(sockaddr_storage& sock_addr, int port) const;
 
 	// Return as a string like "127.0.0.1" or "::1".
 	const std::string toString() const;

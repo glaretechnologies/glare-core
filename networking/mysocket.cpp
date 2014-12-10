@@ -15,6 +15,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "../utils/PlatformUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/EventFD.h"
+#include "../utils/ConPrint.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
@@ -45,54 +46,65 @@ static const int SOCKET_ERROR = -1;
 #endif
 
 
-// Block period.  This is how long any socket operations will block for, before calling the 'Should Abort' call-back.
-// Must be < 1.
-static const double BLOCK_DURATION = 0.5; // in seconds.
-
-
-MySocket::MySocket(const std::string& hostname, int port, StreamShouldAbortCallback* should_abort_callback)
+static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 {
-	init();
+#if defined(_WIN32)
+	return closesocket(sockethandle);
+#else
+	return ::close(sockethandle);
+#endif
+}
 
+
+MySocket::MySocket(const std::string& hostname, int port)
+{
 	assert(Networking::isInited());
 	if(!Networking::isInited())
 		throw MySocketExcep("Networking not inited or destroyed.");
 
-	//-----------------------------------------------------------------
-	//Do DNS lookup to get server host IP
-	//-----------------------------------------------------------------
+	init();
+	
 	try
 	{
-		const std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
-
-		assert(!serverips.empty());
-		if(serverips.empty())
-			throw MySocketExcep("could not lookup host IP with DNS");
-
-		//-----------------------------------------------------------------
-		//Do the connect using the first looked-up IP address
-		//-----------------------------------------------------------------
-		doConnect(serverips[0], hostname, port, should_abort_callback);
+		connect(hostname, port);
 	}
 	catch(NetworkingExcep& e)
 	{
 		throw MySocketExcep("DNS Lookup failed: " + std::string(e.what()));
 	}
+	catch(MySocketExcep& e)
+	{
+		// Connect failed.
+		// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
+		// so we have to close the socket here.
+		closeSocket(sockethandle);
+		throw e;
+	}
 }
 
 
-MySocket::MySocket(const IPAddress& ipaddress, int port, StreamShouldAbortCallback* should_abort_callback)
+MySocket::MySocket(const IPAddress& ipaddress, int port)
 {
-	init();
-
 	assert(Networking::isInited());
 
-	doConnect(
-		ipaddress, 
-		"", // hostname
-		port, 
-		should_abort_callback
-	);
+	init();
+
+	try
+	{
+		connect(
+			ipaddress, 
+			"", // hostname
+			port
+		);
+	}
+	catch(MySocketExcep& e)
+	{
+		// Connect failed.
+		// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
+		// so we have to close the socket here.
+		closeSocket(sockethandle);
+		throw e;
+	}
 }
 
 
@@ -109,24 +121,30 @@ void MySocket::init()
 	connected = false;
 	do_graceful_disconnect = true;
 
-
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
 	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
+
+	// Create socket
+	sockethandle = socket(
+		PF_INET6, SOCK_STREAM,
+		0 // protocol - default
+	);
+
+	if(!isSockHandleValid(sockethandle))
+		throw MySocketExcep("Could not create a socket: " + Networking::getError());
+
+	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
+	int no = 0;     
+	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	{
+		assert(0);
+		//conPrint("Warning: setsockopt failed.");
+	}
 }
 
 
-static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
-{
-#if defined(_WIN32)
-	return closesocket(sockethandle);
-#else
-	return ::close(sockethandle);
-#endif
-}
-
-
-static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
+/*static void setBlocking(MySocket::SOCKETHANDLE_TYPE sockethandle, bool blocking)
 {
 #if defined(_WIN32)
 	u_long nonblocking = blocking ? 0 : 1;
@@ -162,7 +180,7 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 	{
 		// std::cout << "ERROR: setLinger failed." << std::endl;
 	}
-}
+}*/
 
 
 /*static void setDebug(MySocket::SOCKETHANDLE_TYPE sockethandle, bool enable_debug)
@@ -175,48 +193,49 @@ static void setLinger(MySocket::SOCKETHANDLE_TYPE sockethandle, bool linger)
 }*/
 
 
-void MySocket::doConnect(const IPAddress& ipaddress, 
+void MySocket::connect(const std::string& hostname,
+						 int port)
+{
+	try
+	{
+		//-----------------------------------------------------------------
+		//Do DNS lookup to get server host IP
+		//-----------------------------------------------------------------
+		const std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
+		assert(!serverips.empty());
+		if(serverips.empty())
+			throw MySocketExcep("could not lookup host IP with DNS");
+
+		//-----------------------------------------------------------------
+		//Do the connect using the first looked-up IP address
+		//-----------------------------------------------------------------
+		connect(serverips[0], hostname, port);
+	}
+	catch(NetworkingExcep& e)
+	{
+		throw MySocketExcep("DNS Lookup failed: " + std::string(e.what()));
+	}
+}
+
+
+void MySocket::connect(const IPAddress& ipaddress, 
 						 const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
-						 int port, 
-						 StreamShouldAbortCallback* should_abort_callback)
+						 int port)
 {
 	otherend_ipaddr = ipaddress; // Remember ip of other end
 
 	assert(port >= 0 && port <= 65536);
 
 	//-----------------------------------------------------------------
-	//Create the socket
-	//-----------------------------------------------------------------
-	const int DEFAULT_PROTOCOL = 0; // Use default protocol
-	const int address_family = ipaddress.getVersion() == IPAddress::Version_4 ? PF_INET : PF_INET6;
-	sockethandle = socket(address_family, SOCK_STREAM, DEFAULT_PROTOCOL);
-
-	if(!isSockHandleValid(sockethandle))
-		throw MySocketExcep("Could not create a socket.  Error code == " + Networking::getError());
-
-	// Turn off IPV6_V6ONLY so that we can make IPv4 connections as well.
-	// Ignore failure  (may fail on IPv4 only systems?).
-	int no = 0;     
-	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
-	{
-		// Ignore failure.
-	}
-
-	//-----------------------------------------------------------------
 	//Fill out server address structure
 	//-----------------------------------------------------------------
 	sockaddr_storage server_address;
-	memset(&server_address, 0, sizeof(server_address)); // Clear struct.
-	ipaddress.fillOutSockAddr((sockaddr&)server_address, port);
+	ipaddress.fillOutIPV6SockAddr(server_address, port);
 
 	//-----------------------------------------------------------------
 	//Connect to server
 	//-----------------------------------------------------------------
-
-	// Turn off blocking while connecting
-	setBlocking(sockethandle, false);
-
-	if(connect(sockethandle, (sockaddr*)&server_address, ipaddress.getVersion() == IPAddress::Version_4 ? sizeof(sockaddr_in) : sizeof(sockaddr_in6)) != 0)
+	if(::connect(sockethandle, (sockaddr*)&server_address, sizeof(sockaddr_in6)) != 0)
 	{
 #if defined(_WIN32)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
@@ -224,75 +243,13 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 		if(errno != EINPROGRESS)
 #endif
 		{
-			const std::string error_str = Networking::getError(); // Get error before we call closeSocket(), which may overwrite it.
-
-			// Because we are about to throw an exception, and because doConnect() is always called only from a constructor, we are about to throw an exception from a constructor.
-			// When throwing an exception from a constructor, the destructor is not called, ( http://www.parashift.com/c++-faq-lite/exceptions.html#faq-17.10 )
-			// so we have to close the socket here.
-			closeSocket(sockethandle);
-			sockethandle = nullSocketHandle();
-
+			const std::string error_str = Networking::getError(); // Get error before we call anything else, which may overwrite it.
 			if(hostname.empty())
 				throw MySocketExcep("Could not make a TCP connection to server " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ", Error code: " + error_str);
 			else
 				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "), Error code: " + error_str);
 		}
 	}
-
-	// While we are not either connected or in an error state...
-	while(1)
-	{
-		timeval wait_period;
-		wait_period.tv_sec = 0;
-		wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
-
-		fd_set write_sockset;
-		initFDSetWithSocket(write_sockset, sockethandle);
-		fd_set error_sockset;
-		initFDSetWithSocket(error_sockset, sockethandle);
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
-		{
-			do_graceful_disconnect = false;
-			setLinger(sockethandle, false);
-			closeSocket(sockethandle);
-			sockethandle = nullSocketHandle();
-			throw AbortedMySocketExcep();
-		}
-
-		// TODO: handle select return code error.
-		const int num = select((int)(sockethandle + SOCKETHANDLE_TYPE(1)), NULL, &write_sockset, &error_sockset, &wait_period);
-		if(num == SOCKET_ERROR)
-			throw MySocketExcep("select failed: " + Networking::getError());
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
-		{
-			do_graceful_disconnect = false;
-			setLinger(sockethandle, false);
-			closeSocket(sockethandle);
-			sockethandle = nullSocketHandle();
-			throw AbortedMySocketExcep();
-		}
-
-		// Handle errors first
-		if(FD_ISSET(sockethandle, &error_sockset))
-		{
-			closeSocket(sockethandle);
-			sockethandle = nullSocketHandle();
-			
-			if(hostname.empty())
-				throw MySocketExcep("Could not make a TCP connection to server " + IPAddress::formatIPAddressAndPort(ipaddress, port));
-			else
-				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + ")");
-		}
-
-		// If socket is writeable, then the connect has succeeded.
-		if(FD_ISSET(sockethandle, &write_sockset))
-			 break;
-	}
-
-	// Return to normal blocking mode.
-	setBlocking(sockethandle, true);
 
 	otherend_port = port;
 
@@ -302,7 +259,9 @@ void MySocket::doConnect(const IPAddress& ipaddress,
 
 MySocket::~MySocket()
 {
-	close();
+	shutdown();
+
+	closeSocket(sockethandle);
 }
 
 
@@ -311,15 +270,6 @@ void MySocket::bindAndListen(int port)
 	Timer timer;
 
 	assert(Networking::isInited());
-
-	//-----------------------------------------------------------------
-	//If socket already exists, destroy it
-	//-----------------------------------------------------------------
-	if(isSockHandleValid(sockethandle))
-	{
-		assert(0);
-		throw MySocketExcep("Socket already created.");
-	}
 
 	//-----------------------------------------------------------------
 	//Set up address struct for this host, the server.
@@ -333,25 +283,6 @@ void MySocket::bindAndListen(int port)
 	ipv6_addr->sin6_addr = in6addr_any; // Accept on any interface
 	ipv6_addr->sin6_port = htons((uint16_t)port);
 
-	//-----------------------------------------------------------------
-	//Create the socket
-	//-----------------------------------------------------------------
-	sockethandle = socket(
-		PF_INET6, SOCK_STREAM,
-		0 // protocol - default
-	);
-
-	if(!isSockHandleValid(sockethandle))
-		throw MySocketExcep("Could not create a socket: " + Networking::getError());
-
-
-	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
-	int no = 0;     
-	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
-	{
-		assert(0);
-		//conPrint("Warning: setsockopt failed.");
-	}
 
 	if(::bind(sockethandle, (const sockaddr*)&server_addr, sizeof(sockaddr_in6)) == SOCKET_ERROR)
 		throw MySocketExcep("Failed to bind to port " + toString(port) + ": " + Networking::getError());
@@ -364,59 +295,9 @@ void MySocket::bindAndListen(int port)
 }
 
 
-MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_callback) // throw (MySocketExcep)
+MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
-
-	// Wait until the accept() will succeed.
-	if(should_abort_callback)
-	{
-		while(1)
-		{
-			timeval wait_period;
-			wait_period.tv_sec = 0; // seconds
-			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0); // and microseconds
-
-			// Create the file descriptor set
-			fd_set sockset;
-			initFDSetWithSocket(sockset, sockethandle);
-			fd_set error_sockset;
-			initFDSetWithSocket(error_sockset, sockethandle);
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-			{
-				do_graceful_disconnect = false;
-				throw AbortedMySocketExcep();
-			}
-
-			const int num_ready = select(
-				(int)(sockethandle + SOCKETHANDLE_TYPE(1)), // nfds: range of file descriptors to test
-				&sockset, // read fds
-				NULL, // write fds
-				&error_sockset, // error fds
-				&wait_period // timeout
-				);
-			if(num_ready == SOCKET_ERROR)
-				throw MySocketExcep("select failed: " + Networking::getError());
-
-			if(FD_ISSET(sockethandle, &error_sockset))
-			{
-				// Error occured
-				throw MySocketExcep("Error while accepting connection.");
-			}
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-			{
-				do_graceful_disconnect = false;
-				throw AbortedMySocketExcep();
-			}
-
-			if(num_ready != 0)
-				break;
-		}
-	}
-
-	// Now this should accept immediately .... :)
 
 	sockaddr_storage client_addr; // Data struct to get the client IP
 	SOCKLEN_TYPE length = sizeof(client_addr);
@@ -429,7 +310,7 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
 	//-----------------------------------------------------------------
-	MySocketRef new_socket(new MySocket());
+	MySocketRef new_socket = new MySocket();
 	new_socket->sockethandle = newsockethandle;
 
 	//-----------------------------------------------------------------
@@ -444,7 +325,7 @@ MySocketRef MySocket::acceptConnection(StreamShouldAbortCallback* should_abort_c
 }
 
 
-void MySocket::close()
+void MySocket::shutdown()
 {
 	// conPrint("---MySocket::close()---");
 	if(isSockHandleValid(sockethandle))
@@ -463,7 +344,7 @@ void MySocket::close()
 		if(connected)
 		{
 			// Initiate graceful shutdown.
-			shutdown(sockethandle,  1); // 1 == SD_SEND
+			::shutdown(sockethandle,  1); // 1 == SD_SEND
 
 			// Wait for graceful shutdown
 			if(do_graceful_disconnect)
@@ -489,20 +370,31 @@ void MySocket::close()
 			}
 		}
 
-		closeSocket(sockethandle);
+		//closeSocket(sockethandle);
 	}
 
-	sockethandle = nullSocketHandle();
+	//sockethandle = nullSocketHandle();
 }
 
 
-void MySocket::write(const void* data, size_t datalen, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::ungracefulShutdown()
 {
-	write(data, datalen, NULL, should_abort_callback);
+	if(isSockHandleValid(sockethandle))
+	{
+		::shutdown(sockethandle, 2); // 2 == SD_BOTH
+		closeSocket(sockethandle); // Clost the socket.  This will cause the socket to return from any blocking calls.
+		sockethandle = nullSocketHandle();
+	}
 }
 
 
-void MySocket::write(const void* data, size_t datalen, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::write(const void* data, size_t datalen)
+{
+	write(data, datalen, NULL);
+}
+
+
+void MySocket::write(const void* data, size_t datalen, FractionListener* frac)
 {
 	const size_t totalnumbytestowrite = datalen;
 
@@ -510,31 +402,6 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 	{
 		const int numbytestowrite = (int)std::min(this->max_buffersize, datalen);
 		assert(numbytestowrite > 0);
-
-		//------------------------------------------------------------------------
-		//NEWCODE: loop until either the prog is exiting or can write to socket
-		//------------------------------------------------------------------------
-		/*while(1)
-		{
-			timeval wait_period;
-			wait_period.tv_sec = 0;
-			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
-
-			fd_set sockset;
-			initFDSetWithSocket(sockset, sockethandle);
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-				throw AbortedMySocketExcep();
-
-			// Get number of handles that are ready to write to
-			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), NULL, &sockset, NULL, &wait_period);
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-				throw AbortedMySocketExcep();
-
-			if(num_ready != 0)
-				break;
-		}*/
 
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
 
@@ -546,12 +413,6 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac, S
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
-		{
-			do_graceful_disconnect = false;
-			throw AbortedMySocketExcep();
-		}
 	}
 }
 
@@ -567,31 +428,13 @@ size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 }
 
 
-void MySocket::readTo(void* buffer, size_t readlen, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen)
 {
-	readTo(buffer, readlen, NULL, should_abort_callback);
+	readTo(buffer, readlen, NULL);
 }
 
 
-/*class ReaderThread : public MyThread
-{
-public:
-	ReaderThread(MySocket::SOCKETHANDLE_TYPE socket_handle_, char* buffer_, size_t num_bytes_, int* num_bytes_read_) : socket_handle(socket_handle_), buffer(buffer_), num_bytes(num_bytes_), num_bytes_read(num_bytes_read_) {}
-
-	virtual void run()
-	{
-		*num_bytes_read = recv(socket_handle, buffer, num_bytes, 0);
-	}
-
-private:
-	MySocket::SOCKETHANDLE_TYPE socket_handle;
-	char* buffer;
-	size_t num_bytes;
-	int* num_bytes_read;
-};*/
-
-
-void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 {
 	const size_t totalnumbytestoread = readlen;
 
@@ -601,42 +444,12 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Stre
 		assert(numbytestoread > 0);
 
 		//------------------------------------------------------------------------
-		//Loop until either the prog is exiting or have incoming data
-		//------------------------------------------------------------------------
-		/*while(1)
-		{
-			timeval wait_period;
-			wait_period.tv_sec = 0;
-			wait_period.tv_usec = (long)(BLOCK_DURATION * 1000000.0f);
-
-			fd_set sockset;
-			initFDSetWithSocket(sockset, sockethandle);
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-				throw AbortedMySocketExcep();
-
-			// Get number of handles that are ready to read from
-			const int num_ready = select(sockethandle + SOCKETHANDLE_TYPE(1), &sockset, NULL, NULL, &wait_period);
-
-			if(should_abort_callback && should_abort_callback->shouldAbort())
-				throw AbortedMySocketExcep();
-
-			if(num_ready != 0)
-				break;
-		}*/
-
-		//------------------------------------------------------------------------
 		//do the read
 		//------------------------------------------------------------------------
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
-		/*int numbytesread = 0;
-		ReaderThread* reader_thread = new ReaderThread(sockethandle, (char*)buffer, numbytestoread, &numbytesread);
-		reader_thread->launch(
-			false // auto delete
-		);
-		reader_thread->join();
-		delete reader_thread;*/
+		//printVar(numbytesread);
+		//printVar(readlen);
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + Networking::getError());
@@ -648,12 +461,6 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac, Stre
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
-
-		if(should_abort_callback && should_abort_callback->shouldAbort())
-		{
-			do_graceful_disconnect = false;
-			throw AbortedMySocketExcep();
-		}
 	}
 }
 
@@ -677,13 +484,13 @@ void MySocket::waitForGracefulDisconnect()
 }
 
 
-const std::string MySocket::readString(size_t max_string_length, StreamShouldAbortCallback* should_abort_callback) // Read null-terminated string.
+const std::string MySocket::readString(size_t max_string_length) // Read null-terminated string.
 {
 	std::string s;
 	while(1)
 	{
 		char c;
-		this->readTo(&c, sizeof(c), should_abort_callback);
+		this->readTo(&c, sizeof(c));
 		if(c == 0) // If we just read the null terminator.
 			return s;
 		else
@@ -696,7 +503,7 @@ const std::string MySocket::readString(size_t max_string_length, StreamShouldAbo
 }
 
 
-void MySocket::writeInt32(int32 x, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::writeInt32(int32 x)
 {
 	union data
 	{
@@ -706,18 +513,18 @@ void MySocket::writeInt32(int32 x, StreamShouldAbortCallback* should_abort_callb
 	data d;
 	d.signed_i = x;
 	const unsigned int i = htonl(d.unsigned_i);
-	write(&i, sizeof(int), should_abort_callback);
+	write(&i, sizeof(int));
 }
 
 
-void MySocket::writeUInt32(uint32 x, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::writeUInt32(uint32 x)
 {
 	const uint32 i = htonl(x); // Convert to network byte ordering.
-	write(&i, sizeof(uint32), should_abort_callback);
+	write(&i, sizeof(uint32));
 }
 
 
-void MySocket::writeUInt64(uint64 x, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::writeUInt64(uint64 x)
 {
 	//NOTE: not sure if this byte ordering is correct.
 	union data
@@ -728,22 +535,21 @@ void MySocket::writeUInt64(uint64 x, StreamShouldAbortCallback* should_abort_cal
 
 	data d;
 	d.i64 = x;
-	writeUInt32(d.i32[0], should_abort_callback);
-	writeUInt32(d.i32[1], should_abort_callback);
+	writeUInt32(d.i32[0]);
+	writeUInt32(d.i32[1]);
 }
 
 
-void MySocket::writeString(const std::string& s, StreamShouldAbortCallback* should_abort_callback) // Write null-terminated string.
+void MySocket::writeString(const std::string& s) // Write null-terminated string.
 {
 	this->write(
 		s.c_str(), 
-		s.size() + 1, // num bytes: + 1 for null terminator.
-		should_abort_callback
+		s.size() + 1 // num bytes: + 1 for null terminator.
 	);
 }
 
 
-int MySocket::readInt32(StreamShouldAbortCallback* should_abort_callback)
+int MySocket::readInt32()
 {
 	union data
 	{
@@ -751,21 +557,21 @@ int MySocket::readInt32(StreamShouldAbortCallback* should_abort_callback)
 		uint32 i;
 	};
 	data d;
-	readTo(&d.i, sizeof(uint32), should_abort_callback);
+	readTo(&d.i, sizeof(uint32));
 	d.i = ntohl(d.i);
 	return d.si;
 }
 
 
-uint32 MySocket::readUInt32(StreamShouldAbortCallback* should_abort_callback)
+uint32 MySocket::readUInt32()
 {
 	uint32 x;
-	readTo(&x, sizeof(uint32), should_abort_callback);
+	readTo(&x, sizeof(uint32));
 	return ntohl(x);
 }
 
 
-uint64 MySocket::readUInt64(StreamShouldAbortCallback* should_abort_callback)
+uint64 MySocket::readUInt64()
 {
 	//NOTE: not sure if this byte ordering is correct.
 	union data
@@ -775,8 +581,8 @@ uint64 MySocket::readUInt64(StreamShouldAbortCallback* should_abort_callback)
 	};
 
 	data d;
-	d.i32[0] = readUInt32(should_abort_callback);
-	d.i32[1] = readUInt32(should_abort_callback);
+	d.i32[0] = readUInt32();
+	d.i32[1] = readUInt32();
 	return d.i64;
 }
 
@@ -886,23 +692,10 @@ bool MySocket::readable(EventFD& event_fd)
 }
 
 
-int32 MySocket::readInt32()
-{
-	return readInt32(NULL);
-}
-
-
-uint32 MySocket::readUInt32()
-{
-	return readUInt32(NULL);
-}
-
-
-void MySocket::readData(void* buf, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::readData(void* buf, size_t num_bytes)
 {
 	readTo(buf, num_bytes, 
-		NULL, // fraction listener
-		should_abort_callback
+		NULL // fraction listener
 	);
 }
 
@@ -913,23 +706,10 @@ bool MySocket::endOfStream()
 }
 
 
-void MySocket::writeInt32(int32 x)
-{
-	writeInt32(x, NULL);
-}
-
-
-void MySocket::writeUInt32(uint32 x)
-{
-	writeUInt32(x, NULL);
-}
-
-
-void MySocket::writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback)
+void MySocket::writeData(const void* data, size_t num_bytes)
 {
 	write(data, num_bytes, 
-		NULL, // fraction listener
-		should_abort_callback
+		NULL // fraction listener
 	);
 }
 

@@ -22,7 +22,7 @@ public:
 	SocketBufferOutStream();
 	virtual ~SocketBufferOutStream();
 
-	virtual void writeData(const void* data, size_t num_bytes, StreamShouldAbortCallback* should_abort_callback);
+	virtual void writeData(const void* data, size_t num_bytes);
 
 	virtual void writeInt32(int32 x);
 	virtual void writeUInt32(uint32 x);
