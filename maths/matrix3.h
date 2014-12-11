@@ -181,6 +181,8 @@ public:
 
 	inline void constructFromVector(const Vec3<Real>& vec);
 
+	bool polarDecomposition(Matrix3& rot_out, Matrix3& rest_out);
+
 
 	static void test();
 
