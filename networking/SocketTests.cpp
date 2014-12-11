@@ -494,6 +494,9 @@ void SocketTests::test()
 	{
 		Reference<TestListenerThread2> listener_thread = new TestListenerThread2(port);
 		listener_thread->launch();
+    
+		// Wait for a while until the listener thread has called bindAndListen()
+		PlatformUtils::Sleep(500);
 
 		// Launch client thread, should block on socket read call
 		Reference<TestReadClientThread> client_thread = new TestReadClientThread("localhost", port);
@@ -513,6 +516,9 @@ void SocketTests::test()
 	{
 		Reference<TestListenerThread2> listener_thread = new TestListenerThread2(port);
 		listener_thread->launch();
+    
+		// Wait for a while until the listener thread has called bindAndListen()
+		PlatformUtils::Sleep(500);
 
 		// Launch client thread, should block on socket write call
 		Reference<TestWriteClientThread> client_thread = new TestWriteClientThread(port);
