@@ -633,6 +633,38 @@ inline Real oneMinusCosX(Real x)
 }
 
 
+// Euclidean modulo: result will be in [0, y) for positive y.
+// e.g.
+// floatMod(-3.f, 4.f) = 1.f
+// floatMod(-2.f, 4.f) = 2.f
+// ...
+inline float floatMod(float x, float y)
+{
+	if(x < 0)
+	{
+		const float z = y - std::fmod(-x, y); // This will return a number in [0, y]
+		return z == y ? 0.f : z;
+	}
+	else
+		return std::fmod(x, y);
+}
+
+
+// Euclidean modulo: result will be in {0, 1, ...y-1} for positive y.
+// e.g.
+// intMod(-3, 4) = 1
+// intMod(-2, 4) = 2
+// ...
+inline int intMod(int x, int y)
+{
+	const int r = x % y;
+	if(r < 0)
+		return y + r;
+	else
+		return r;
+}
+
+
 void test();
 
 

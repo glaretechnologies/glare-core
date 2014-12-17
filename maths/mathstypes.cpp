@@ -241,6 +241,43 @@ void Maths::test()
 	testAssert(isNAN(std::numeric_limits<double>::quiet_NaN()));
 
 
+	//======================================= intMod() ==============================================
+	testAssert(intMod(-6, 4) == 2);
+	testAssert(intMod(-5, 4) == 3);
+	testAssert(intMod(-4, 4) == 0);
+	testAssert(intMod(-3, 4) == 1);
+	testAssert(intMod(-2, 4) == 2);
+	testAssert(intMod(-1, 4) == 3);
+	testAssert(intMod(0, 4)  == 0);
+	testAssert(intMod(1, 4)  == 1);
+	testAssert(intMod(2, 4)  == 2);
+	testAssert(intMod(3, 4)  == 3);
+	testAssert(intMod(4, 4)  == 0);
+	testAssert(intMod(5, 4)  == 1);
+	testAssert(intMod(6, 4)  == 2);
+
+
+	//======================================= floatMod() ==============================================
+	testAssert(floatMod(-6, 4) == 2.f);
+	testAssert(floatMod(-5, 4) == 3.f);
+	testAssert(floatMod(-4, 4) == 0.f);
+	testAssert(floatMod(-3, 4) == 1.f);
+	testAssert(floatMod(-2, 4) == 2.f);
+	testAssert(floatMod(-1, 4) == 3.f);
+	testAssert(floatMod(0, 4)  == 0.f);
+	testAssert(floatMod(1, 4)  == 1.f);
+	testAssert(floatMod(2, 4)  == 2.f);
+	testAssert(floatMod(3, 4)  == 3.f);
+	testAssert(floatMod(4, 4)  == 0.f);
+	testAssert(floatMod(5, 4)  == 1.f);
+	testAssert(floatMod(6, 4)  == 2.f);
+
+
+
+
+
+
+
 	testAssert(approxEq(1.0, 1.0));
 	testAssert(approxEq(1.0, 1.0000001));
 	testAssert(!approxEq(1.0, 1.0001));
