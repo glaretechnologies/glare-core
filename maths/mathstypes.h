@@ -657,11 +657,7 @@ inline float floatMod(float x, float y)
 // ...
 inline int intMod(int x, int y)
 {
-	const int r = x % y;
-	if(r < 0)
-		return y + r;
-	else
-		return r;
+	return (unsigned int)x % y;
 }
 
 

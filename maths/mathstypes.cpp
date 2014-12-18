@@ -256,6 +256,21 @@ void Maths::test()
 	testAssert(intMod(5, 4)  == 1);
 	testAssert(intMod(6, 4)  == 2);
 
+	// Test some edge cases
+	testAssert(intMod(std::numeric_limits<int>::min() + 0, 4) == 0);
+	testAssert(intMod(std::numeric_limits<int>::min() + 1, 4) == 1);
+	testAssert(intMod(std::numeric_limits<int>::min() + 2, 4) == 2);
+	testAssert(intMod(std::numeric_limits<int>::min() + 3, 4) == 3);
+	testAssert(intMod(std::numeric_limits<int>::min() + 4, 4) == 0);
+
+	testAssert(intMod(std::numeric_limits<int>::max() - 4, 4) == 3);
+	testAssert(intMod(std::numeric_limits<int>::max() - 3, 4) == 0); //(2147483647 - 3) / 4.0 = 536870911.0
+	testAssert(intMod(std::numeric_limits<int>::max() - 2, 4) == 1);
+	testAssert(intMod(std::numeric_limits<int>::max() - 1, 4) == 2);
+	testAssert(intMod(std::numeric_limits<int>::max() - 0, 4) == 3);
+
+	// TODO: Test for really large divisors
+
 
 	//======================================= floatMod() ==============================================
 	testAssert(floatMod(-6, 4) == 2.f);
