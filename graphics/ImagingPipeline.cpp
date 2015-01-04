@@ -23,6 +23,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/Task.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
+#include <algorithm>
 
 
 #if BUILD_TESTS

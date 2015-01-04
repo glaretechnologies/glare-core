@@ -9,6 +9,7 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 #include <math.h>
 
 #include "../maths/mathstypes.h"
+#include <algorithm>
 
 
 CameraController::CameraController()
