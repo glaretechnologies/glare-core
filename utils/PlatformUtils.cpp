@@ -37,6 +37,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 	#include <sys/ioctl.h>
 	#include <netinet/in.h>
 	#include <net/if.h>
+	#include <cpuid.h>
 #endif
 
 #include <cassert>
@@ -190,8 +191,10 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 		);
 	memcpy(out, CPUInfo, 16);
 #else
+	__get_cpuid(infotype, out, out + 1, out + 2, out + 3);
+	
 	// ebx saving is necessary for PIC
-	__asm__ volatile(
+	/*__asm__ volatile(
 			"mov %%ebx, %%esi\n\t"
 			"cpuid\n\t"
 			"xchg %%ebx, %%esi"
@@ -200,7 +203,7 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
             "=c" (out[2]),
             "=d" (out[3])
             : "0" (infotype)
-     );
+     );*/
 #endif
 }
 
