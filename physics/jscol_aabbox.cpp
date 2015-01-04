@@ -31,18 +31,6 @@ bool AABBox::invariant() const
 }
 
 
-static inline float myMin(float a, float b, float c)
-{
-	return ::myMin(a, ::myMin(b, c));
-}
-
-
-static inline float myMax(float a, float b, float c)
-{
-	return ::myMax(a, ::myMax(b, c));
-}
-
-
 } // End namespace namespace js
 
 
