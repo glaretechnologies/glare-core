@@ -47,6 +47,8 @@ const std::string getFilename(const std::string& pathname); // throws FileUtilsE
 
 // Returns only the filenames, not the full paths
 const std::vector<std::string> getFilesInDir(const std::string& dir_path); // throws FileUtilsExcep
+// Returns the full filenames.  Ignores the pseudo-files '.' and '..'.
+const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_path); // throws FileUtilsExcep
 
 bool fileExists(const std::string& pathname); // Does not throw any exceptions.
 
