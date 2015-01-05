@@ -14,6 +14,7 @@
 #include "../utils/Task.h"
 #include "../utils/OutStream.h"
 #include "../utils/InStream.h"
+#include "../utils/ConPrint.h"
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -636,6 +637,11 @@ Reference<Map2D> Image::extractChannelZero() const
 Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
 {
 	// Blur the image
+
+	// This shouldn't be called for Image any more.
+	assert(0);
+	//fatalError("Image::getBlurredLinearGreyScaleImage()");
+	/*
 	Image blurred_img(getWidth(), getHeight());
 	GaussianImageFilter::gaussianFilter(
 		*this, 
@@ -643,8 +649,9 @@ Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task
 		(float)myMax(getWidth(), getHeight()) * 0.01f, // standard dev in pixels
 		task_manager
 		);
-
 	return Reference<Map2D>(new Image(blurred_img));
+	*/
+	return Reference<Map2D>(new Image(*this));
 }
 
 

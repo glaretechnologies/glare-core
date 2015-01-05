@@ -544,7 +544,7 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 
 	const float N_scale = 1.f / (float)use_N;
 
-	Image img(width, height);
+	ImageMapFloat img(width, height, 1);
 	for(unsigned int y=0; y<height; ++y)
 		for(unsigned int x=0; x<width; ++x)
 		{
@@ -552,18 +552,18 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 			for(unsigned int c=0; c<use_N; ++c)
 				val += this->getPixel(x, y)[c];
 
-			img.setPixel(x, y, Colour3f(VTraits::toLinear(val * N_scale, this->gamma)));
+			img.getPixel(x, y)[0] = VTraits::toLinear(val * N_scale, this->gamma);
 		}
 
 
 	// Blur the floating point image
-	Reference<Image> blurred_img = new Image(width, height);
+	Reference<ImageMapFloat> blurred_img = new ImageMapFloat(width, height, 1);
 	GaussianImageFilter::gaussianFilter(
 		img, 
 		*blurred_img, 
 		(float)myMax(width, height) * 0.01f, // standard dev in pixels
 		task_manager
-		);
+	);
 
 	return blurred_img;
 }
