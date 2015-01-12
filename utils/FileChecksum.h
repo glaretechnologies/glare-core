@@ -1,7 +1,7 @@
 /*=====================================================================
 FileChecksum.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2015 -
 Generated at Tue Mar 02 14:36:09 +1300 2010
 =====================================================================*/
 #pragma once
@@ -20,7 +20,7 @@ namespace FileChecksum
 {
 
 
-uint32 fileChecksum(const std::string& p); // throws Indigo::Exception
+uint64 fileChecksum(const std::string& p); // throws Indigo::Exception
 
 
 };

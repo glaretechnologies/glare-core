@@ -1,39 +1,29 @@
 /*=====================================================================
 FileChecksum.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2015 -
 Generated at Tue Mar 02 14:36:09 +1300 2010
 =====================================================================*/
 #include "FileChecksum.h"
 
 
 #include "Exception.h"
-#include "FileUtils.h"
-#include "Checksum.h"
-#include <vector>
-
+#include "MemMappedFile.h"
+#include <xxhash.h>
 
 
 namespace FileChecksum
 {
 
 
-uint32 fileChecksum(const std::string& p) // throws Indigo::Exception if file not found.
+uint64 fileChecksum(const std::string& p) // throws Indigo::Exception if file not found.
 {
-	try
-	{
-		std::vector<unsigned char> contents;
-		FileUtils::readEntireFile(p, contents);
+	MemMappedFile file(p);
 
-		if(contents.size() == 0)
-			throw Indigo::Exception("Failed to compute checksum over file '" + p + ", file is empty.");
+	if(file.fileSize() == 0)
+		throw Indigo::Exception("Failed to compute checksum over file '" + p + ", file is empty.");
 
-		return Checksum::checksum((void*)&contents[0], contents.size() * sizeof(unsigned char));
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw Indigo::Exception(e.what());
-	}
+	return XXH64(file.fileData(), file.fileSize(), 1);
 }
 
 
