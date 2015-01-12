@@ -108,6 +108,7 @@ ${pugixmldir}/pugiconfig.hpp
 
 FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
+FILE(GLOB xxhash "../xxHash-r39/*.c"  "../xxHash-r39/*.h")
 
 
 SOURCE_GROUP(fftss FILES ${fftss})
@@ -124,6 +125,7 @@ SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
+SOURCE_GROUP(xxhash FILES ${xxhash})
 
 include(../indigo_console/shared_cxx_settings.cmake)
 
@@ -156,6 +158,7 @@ ${minizip}
 ${pugixml}
 ${giflib}
 ${little_cms}
+${xxhash}
 )
 
 
