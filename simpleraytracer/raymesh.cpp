@@ -442,8 +442,9 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 	}
 	else
 	{
-		if(merge_vertices_with_same_pos_and_normal)
-			mergeVerticesWithSamePosAndNormal(print_output, verbose);
+		// Don't need to do merge_vertices_with_same_pos_and_normal any more, doing the equivalent in DisplacementUtils.
+		//if(merge_vertices_with_same_pos_and_normal)
+		//	mergeVerticesWithSamePosAndNormal(print_output, verbose);
 	
 		computeShadingNormalsAndMeanCurvature(
 			!vertex_shading_normals_provided, // update shading normals
@@ -1747,22 +1748,15 @@ class RayMeshVertexHash
 public:
 	inline size_t operator()(const RayMeshVertex& v) const
 	{	// hash _Keyval to size_t value by pseudorandomizing transform
-
-		union A
-		{
-			uint32 i;
-			float x;
-		};
-
-		A a;
-		a.x = v.pos.x + v.pos.y + v.pos.z;
-
-		return (size_t)a.i;
+		float sum = v.pos.x + v.pos.y + v.pos.z;
+		uint32 i;
+		std::memcpy(&i, &sum, 4);
+		return i;
 	}
 };
 
 
-//typedef std::map<RayMeshVertex, unsigned int> VertToIndexMap;
+// Hash table from RayMeshVertex to new vertex index.
 typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
 
 
@@ -1783,20 +1777,21 @@ void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool 
 	{
 		for(unsigned int i = 0; i < 3; ++i)
 		{
-			const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]];
+			const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]]; // Get old vertex
 
 			unsigned int new_vert_index;
 
-			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert);
+			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
 
-			if(result == new_vert_indices.end())
+			if(result == new_vert_indices.end()) // If not found:
 			{
+				// Add new vertex index to map with old vertex as key.
 				new_vert_index = (unsigned int)newverts.size();
 				newverts.push_back(old_vert);
 				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
 			}
 			else
-				new_vert_index = (*result).second;
+				new_vert_index = (*result).second; // Use existing vertex index.
 
 			triangles[t].vertex_indices[i] = new_vert_index;
 		}

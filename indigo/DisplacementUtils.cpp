@@ -305,7 +305,32 @@ static void computeVertexNormals(const std::vector<DUTriangle>& triangles,
 }
 
 
+// Hash function for RayMeshVertex
+class RayMeshVertexHash
+{
+public:
+	inline size_t operator()(const RayMeshVertex& v) const
+	{	// hash _Keyval to size_t value by pseudorandomizing transform
+		const float sum = v.pos.x + v.pos.y + v.pos.z;
+		uint32 i;
+		std::memcpy(&i, &sum, 4);
+		return i;
+	}
+};
 
+
+// Hash table from RayMeshVertex to new vertex index pair
+typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
+
+
+struct EdgeInfo
+{
+	EdgeInfo() : num_adjacent_polys(0) {}
+	EdgeInfo(const DUVertIndexPair& old_edge_, int num_adjacent_polys_) : old_edge(old_edge_), num_adjacent_polys(num_adjacent_polys_) {}
+
+	DUVertIndexPair old_edge;
+	int num_adjacent_polys;
+};
 
 void DisplacementUtils::subdivideAndDisplace(
 	const std::string& mesh_name,
@@ -333,142 +358,229 @@ void DisplacementUtils::subdivideAndDisplace(
 	DISPLACEMENT_CREATE_TIMER(timer);
 
 	// Convert RayMeshVertices to DUVertices
-	std::vector<DUVertex> temp_verts(vertices_in.size());
-	for(uint32_t i = 0; i < vertices_in.size(); ++i)
-		temp_verts[i] = DUVertex(vertices_in[i].pos, vertices_in[i].normal);
-
+	std::vector<DUVertex> temp_verts;
+	temp_verts.reserve(vertices_in.size());
 
 	std::vector<DUVertexPolygon> temp_vert_polygons;
 	std::vector<DUEdge> temp_edges;
 	std::vector<DUTriangle> temp_tris(triangles_in.size());
 	std::vector<DUQuad> temp_quads(quads_in.size());
 
-	// Convert RayMeshTriangles to DUTriangles
-	for(size_t i = 0; i < triangles_in.size(); ++i)
-		temp_tris[i] = DUTriangle(
-			triangles_in[i].vertex_indices[0], triangles_in[i].vertex_indices[1], triangles_in[i].vertex_indices[2],
-			triangles_in[i].uv_indices[0], triangles_in[i].uv_indices[1], triangles_in[i].uv_indices[2],
-			triangles_in[i].getTriMatIndex()
-			);
-
-
-	// Convert RayMeshQuads to DUQuads
-	for(size_t i = 0; i < quads_in.size(); ++i)
-		temp_quads[i] = DUQuad(
-			quads_in[i].vertex_indices[0], quads_in[i].vertex_indices[1], quads_in[i].vertex_indices[2], quads_in[i].vertex_indices[3],
-			quads_in[i].uv_indices[0], quads_in[i].uv_indices[1], quads_in[i].uv_indices[2], quads_in[i].uv_indices[3],
-			quads_in[i].getMatIndex()
-		);
-
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Converting to DUTriangles, DUQuads: " + timer.elapsedStringNPlaces(3)));
-	DISPLACEMENT_RESET_TIMER(timer);
-
-	//NEW: explode UVs
 	std::vector<Vec2f> temp_uvs;
-	temp_uvs.reserve((temp_tris.size() * 3 + temp_quads.size() * 4) * num_uv_sets);
+	temp_uvs.resize((temp_tris.size() * 3 + temp_quads.size() * 4) * num_uv_sets);
+	uint32 temp_uvs_next_i = 0; // Next index in temp_uvs to write to.
+	uint32 new_uv_index = 0; // = temp_uvs_next_i / num_uv_sets
 
-	uint32 new_uv_index = 0;
+	// Map from new edge (smaller new vert index, larger new vert index) to first old edge: (smaller old vert index, larger old vert index).
+	// If there are different old edges, then this edge is a discontinuity.
 
-	for(size_t i = 0; i < temp_tris.size(); ++i)
+	std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash> new_edge_info;
+
+
+	VertToIndexMap new_vert_indices;
+
+	for(size_t t = 0; t < triangles_in.size(); ++t) // For each triangle
 	{
-		for(size_t v = 0; v < 3; ++v)
+		const RayMeshTriangle& tri = triangles_in[t];
+
+		// Explode UVs
+		for(unsigned int i = 0; i < 3; ++i)
 		{
 			// Create new UV
-			for(uint32 z = 0; z < num_uv_sets; ++z)
-				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_tris[i].uv_indices[v], z));
+			for(unsigned int z = 0; z < num_uv_sets; ++z)
+				temp_uvs[temp_uvs_next_i++] = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], z);
+				//temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], z));
 			
-			// Update tri UV index
-			temp_tris[i].uv_indices[v] = new_uv_index;
+			// Set new tri UV index
+			temp_tris[t].uv_indices[i] = new_uv_index;
 			new_uv_index++;
 		}
+
+		unsigned int tri_new_vert_indices[3];
+
+		for(unsigned int i = 0; i < 3; ++i)
+		{
+			const unsigned int old_vert_index = tri.vertex_indices[i];
+			const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
+
+			unsigned int new_vert_index;
+
+			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
+
+			if(result == new_vert_indices.end()) // If not found:
+			{
+				// Add new vertex index to map with old vertex as key.
+				new_vert_index = (unsigned int)temp_verts.size();
+				temp_verts.push_back(DUVertex(old_vert.pos, old_vert.normal));
+				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+			}
+			else
+				new_vert_index = (*result).second; // Use existing vertex index.
+
+			temp_tris[t].vertex_indices[i] = new_vert_index;
+			tri_new_vert_indices[i] = new_vert_index;
+		}
+
+		for(unsigned int i = 0; i < 3; ++i) // For each edge
+		{
+			const unsigned int i1 = mod3(i + 1); // Next vert
+			DUVertIndexPair edge_key(myMin(tri_new_vert_indices[i], tri_new_vert_indices[i1]), myMax(tri_new_vert_indices[i], tri_new_vert_indices[i1]));
+			DUVertIndexPair old_edge(myMin(tri.vertex_indices[i], tri.vertex_indices[i1]), myMax(tri.vertex_indices[i], tri.vertex_indices[i1]));
+
+			std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
+			if(result == new_edge_info.end()) // If edge not added yet:
+				new_edge_info.insert(std::make_pair(edge_key, EdgeInfo(old_edge, /*num_adjacent_polys=*/1)));
+			else
+			{
+				if(!(result->second.old_edge == old_edge)) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
+				{
+					if(	(vertices_in[old_edge.v_a].normal != vertices_in[result->second.old_edge.v_a].normal) || 
+						(vertices_in[old_edge.v_b].normal != vertices_in[result->second.old_edge.v_b].normal)) // If shading normals are different on the old edge vertices:
+						temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
+				}
+
+				result->second.num_adjacent_polys++;
+			}
+		}
+
+		temp_tris[t].tri_mat_index = tri.getTriMatIndex();
 	}
 
-	for(size_t i = 0; i < temp_quads.size(); ++i)
+
+
+	for(size_t q = 0; q < quads_in.size(); ++q) // For each quad
 	{
-		for(uint32 v = 0; v < 4; ++v)
+		const RayMeshQuad& quad = quads_in[q];
+
+		// Explode UVs
+		for(unsigned int i = 0; i < 4; ++i)
 		{
 			// Create new UV
-			for(uint32 z = 0; z < num_uv_sets; ++z)
-				temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, temp_quads[i].uv_indices[v], z));
-
-			// Update quad UV index
-			temp_quads[i].uv_indices[v] = new_uv_index;
+			for(unsigned int z = 0; z < num_uv_sets; ++z)
+				temp_uvs[temp_uvs_next_i++] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], z);
+				//temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], z));
+			
+			// Set new quad UV index
+			temp_quads[q].uv_indices[i] = new_uv_index;
 			new_uv_index++;
 		}
+
+		unsigned int quad_new_vert_indices[4];
+
+		for(unsigned int i = 0; i < 4; ++i)
+		{
+			const unsigned int old_vert_index = quad.vertex_indices[i];
+			const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
+
+			unsigned int new_vert_index;
+
+			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
+
+			if(result == new_vert_indices.end()) // If not found:
+			{
+				// Add new vertex index to map with old vertex as key.
+				new_vert_index = (unsigned int)temp_verts.size();
+				temp_verts.push_back(DUVertex(old_vert.pos, old_vert.normal));
+				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
+			}
+			else
+				new_vert_index = (*result).second; // Use existing vertex index.
+
+			temp_quads[q].vertex_indices[i] = new_vert_index;
+			quad_new_vert_indices[i] = new_vert_index;
+		}
+
+		for(unsigned int i = 0; i < 4; ++i) // For each edge
+		{
+			const unsigned int i1 = mod4(i + 1); // Next vert
+			DUVertIndexPair edge_key(myMin(quad_new_vert_indices[i], quad_new_vert_indices[i1]), myMax(quad_new_vert_indices[i], quad_new_vert_indices[i1]));
+			DUVertIndexPair old_edge(myMin(quad.vertex_indices[i], quad.vertex_indices[i1]), myMax(quad.vertex_indices[i], quad.vertex_indices[i1]));
+
+			std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
+			if(result == new_edge_info.end()) // If edge not added yet:
+				new_edge_info.insert(std::make_pair(edge_key, EdgeInfo(old_edge, /*num_adjacent_polys=*/1)));
+			else
+			{
+				if(!(result->second.old_edge == old_edge)) // If adjacent polygon used different edge vertices then there is a discontinuity.
+				{
+					if(	(vertices_in[old_edge.v_a].normal != vertices_in[result->second.old_edge.v_a].normal) || 
+						(vertices_in[old_edge.v_b].normal != vertices_in[result->second.old_edge.v_b].normal)) // If shading normals are different on the old edge vertices:
+						temp_edges.push_back(DUEdge(quad_new_vert_indices[i], quad_new_vert_indices[i1], temp_quads[q].uv_indices[i], temp_quads[q].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
+				}
+
+				result->second.num_adjacent_polys++;
+			}
+		}
+
+		temp_quads[q].mat_index = quad.getMatIndex();
 	}
 
+	assert(temp_uvs_next_i == (uint32)temp_uvs.size());
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Exploding UVs: " + timer.elapsedStringNPlaces(3)));
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-
-	// Add edge and vertex polygons
+	const uint32 num_temp_tris  = (uint32)temp_tris.size();
+	for(uint32_t t = 0; t < num_temp_tris; ++t) // For each original triangle...
 	{
-		//std::map<DUVertIndexPair, uint32_t> num_adjacent_polys; // Map from edge -> num adjacent tris
-		//DUVertIndexPairHash hasher;
-		std::unordered_map<DUVertIndexPair, uint32, DUVertIndexPairHash> num_adjacent_polys;
+		const uint32_t v0 = temp_tris[t].vertex_indices[0];
+		const uint32_t v1 = temp_tris[t].vertex_indices[1];
+		const uint32_t v2 = temp_tris[t].vertex_indices[2];
 
-		const uint32 num_temp_tris  = (uint32)temp_tris.size(); // Store number of original triangles
-		const uint32 num_temp_quads = (uint32)temp_quads.size(); // Store number of original quads
+		if(new_edge_info[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v0, v1, temp_tris[t].uv_indices[0], temp_tris[t].uv_indices[1]));
 
-		for(uint32 t = 0; t < num_temp_tris; ++t)
+		if(new_edge_info[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v1, v2, temp_tris[t].uv_indices[1], temp_tris[t].uv_indices[2]));
+
+		if(new_edge_info[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v2, v0, temp_tris[t].uv_indices[2], temp_tris[t].uv_indices[0]));
+	}
+
+	const uint32 num_temp_quads = (uint32)temp_quads.size();
+	for(uint32_t q = 0; q < num_temp_quads; ++q) // For each original quad...
+	{
+		const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
+		const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
+
+		if(new_edge_info[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v0, v1, temp_quads[q].uv_indices[0], temp_quads[q].uv_indices[1]));
+
+		if(new_edge_info[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v1, v2, temp_quads[q].uv_indices[1], temp_quads[q].uv_indices[2]));
+
+		if(new_edge_info[DUVertIndexPair(myMin(v2, v3), myMax(v2, v3))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v2, v3, temp_quads[q].uv_indices[2], temp_quads[q].uv_indices[3]));
+
+		if(new_edge_info[DUVertIndexPair(myMin(v3, v0), myMax(v3, v0))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
+			temp_edges.push_back(DUEdge(v3, v0, temp_quads[q].uv_indices[3], temp_quads[q].uv_indices[0]));
+	}
+
+	//conPrint("num boundary edges: " + toString(temp_edges.size()));
+
+
+	// Count number of edges adjacent to each vertex.
+	// If the number of edges adjacent to the vertex is > 2, then make this a fixed vertex.
+	std::vector<unsigned int> num_edges_adjacent(temp_verts.size(), 0);
+
+	for(size_t i=0; i<temp_edges.size(); ++i)
+	{
+		num_edges_adjacent[temp_edges[i].vertex_indices[0]]++;
+		num_edges_adjacent[temp_edges[i].vertex_indices[1]]++;
+	}
+
+	for(size_t i=0; i<num_edges_adjacent.size(); ++i)
+	{
+		if(num_edges_adjacent[i] > 2)
 		{
-			const uint32 v0 = temp_tris[t].vertex_indices[0];
-			const uint32 v1 = temp_tris[t].vertex_indices[1];
-			const uint32 v2 = temp_tris[t].vertex_indices[2];
-
-			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
-			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
-			num_adjacent_polys[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))]++;
-		}
-
-		for(uint32 q = 0; q < num_temp_quads; ++q)
-		{
-			const uint32 v0 = temp_quads[q].vertex_indices[0]; const uint32 v1 = temp_quads[q].vertex_indices[1];
-			const uint32 v2 = temp_quads[q].vertex_indices[2]; const uint32 v3 = temp_quads[q].vertex_indices[3];
-
-			num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))]++;
-			num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))]++;
-			num_adjacent_polys[DUVertIndexPair(myMin(v2, v3), myMax(v2, v3))]++;
-			num_adjacent_polys[DUVertIndexPair(myMin(v3, v0), myMax(v3, v0))]++;
-		}
-
-
-
-		for(uint32_t t = 0; t < num_temp_tris; ++t) // For each original triangle...
-		{
-			const uint32_t v0 = temp_tris[t].vertex_indices[0];
-			const uint32_t v1 = temp_tris[t].vertex_indices[1];
-			const uint32_t v2 = temp_tris[t].vertex_indices[2];
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v0, v1, temp_tris[t].uv_indices[0], temp_tris[t].uv_indices[1]));
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v1, v2, temp_tris[t].uv_indices[1], temp_tris[t].uv_indices[2]));
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v2, v0, temp_tris[t].uv_indices[2], temp_tris[t].uv_indices[0]));
-		}
-
-		for(uint32_t q = 0; q < num_temp_quads; ++q) // For each original quad...
-		{
-			const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
-			const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v0, v1, temp_quads[q].uv_indices[0], temp_quads[q].uv_indices[1]));
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v1, v2, temp_quads[q].uv_indices[1], temp_quads[q].uv_indices[2]));
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v2, v3), myMax(v2, v3))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v2, v3, temp_quads[q].uv_indices[2], temp_quads[q].uv_indices[3]));
-
-			if(num_adjacent_polys[DUVertIndexPair(myMin(v3, v0), myMax(v3, v0))] == 1) // Boundary edge (has only 1 adjacent poly)
-				temp_edges.push_back(DUEdge(v3, v0, temp_quads[q].uv_indices[3], temp_quads[q].uv_indices[0]));
+			temp_vert_polygons.push_back(DUVertexPolygon());
+			temp_vert_polygons.back().vertex_index = (uint32)i;
+			temp_vert_polygons.back().uv_index = (uint32)i;
 		}
 	}
+
+	//conPrint("num fixed verts created: " + toString(temp_vert_polygons.size()));
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
