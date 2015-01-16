@@ -183,36 +183,45 @@ inline uint32 StaticSobol::evalSampleRefRandomised(const uint64 sample_num, cons
 #include "../indigo/SobolSequence.h" // For testing against reference Sobol implementation
 #include "../indigo/TestUtils.h"
 
+
 void StaticSobol::test(const std::string& indigo_base_dir_path)
 {
-	StaticSobol sobol(indigo_base_dir_path);
-
-	// Test that we get the desired Sobol sequence
+	try
 	{
-		const uint32 max_num_samples = 4294967295UL;
-		const uint32 max_dims = 32;
-		const uint32 test_samples = 32;
-		SobolSequence sobol_ref(max_num_samples, max_dims);
+		StaticSobol sobol(indigo_base_dir_path);
 
-		for(uint32 s = 0; s < test_samples; ++s)
+		// Test that we get the desired Sobol sequence
 		{
-			uint32 ref_sample[max_dims];
-			sobol_ref.evalPoints(ref_sample); // Evaluate the reference Sobol sequence sample (in greycode order)
+			const uint32 max_num_samples = 4294967295UL;
+			const uint32 max_dims = 32;
+			const uint32 test_samples = 32;
+			SobolSequence sobol_ref(max_num_samples, max_dims);
 
-			const uint32 greycode_sample_idx = s ^ (s / 2); // Get greycode sample index to match orig Sobol order
-
-			for(uint32 d = 0; d < max_dims; ++d)
+			for(uint32 s = 0; s < test_samples; ++s)
 			{
-				const uint32 x_d = sobol.evalSampleRef(greycode_sample_idx, d);
-				const uint32 x_d_SSE = sobol.evalSample(greycode_sample_idx, d);
+				uint32 ref_sample[max_dims];
+				sobol_ref.evalPoints(ref_sample); // Evaluate the reference Sobol sequence sample (in greycode order)
 
-				testAssert(x_d == ref_sample[d]);
-				testAssert(x_d_SSE == ref_sample[d]);
+				const uint32 greycode_sample_idx = s ^ (s / 2); // Get greycode sample index to match orig Sobol order
+
+				for(uint32 d = 0; d < max_dims; ++d)
+				{
+					const uint32 x_d = sobol.evalSampleRef(greycode_sample_idx, d);
+					const uint32 x_d_SSE = sobol.evalSample(greycode_sample_idx, d);
+
+					testAssert(x_d == ref_sample[d]);
+					testAssert(x_d_SSE == ref_sample[d]);
+				}
 			}
 		}
-	}
 
-	// TODO test block eval
+		// TODO test block eval
+
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
 }
 
 #endif
