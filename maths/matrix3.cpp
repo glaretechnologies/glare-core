@@ -32,7 +32,7 @@ You may not use this code for any commercial project.
 
 
 // Do explicit template instantiation
-template bool Matrix3<float>::polarDecomposition(Matrix3<float>&, Matrix3<float>&);
+template bool Matrix3<float>::polarDecomposition(Matrix3<float>&, Matrix3<float>&) const;
 
 
 template <>
@@ -67,7 +67,7 @@ inline static bool isSignificantDiff(const Matrix3<Real>& a, const Matrix3<Real>
 // See 'Matrix Animation and Polar Decomposition' by Ken Shoemake & Tom Duff
 // http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
 template <class Real>
-bool Matrix3<Real>::polarDecomposition(Matrix3<Real>& rot_out, Matrix3<Real>& rest_out)
+bool Matrix3<Real>::polarDecomposition(Matrix3<Real>& rot_out, Matrix3<Real>& rest_out) const
 {
 	Matrix3<Real> Q = *this;
 

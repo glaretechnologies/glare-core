@@ -30,8 +30,11 @@ public:
 
 	Matrix4f(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 
+	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
+
 	inline void setToTranslationMatrix(float x, float y, float z);
 
+	inline const Vec4f mul3Vector(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;
 
 	// Ignores W component of vector, returns vector with W component of 0.
@@ -232,7 +235,7 @@ void Matrix4f::getTranspose(Matrix4f& transpose_out) const
 void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out);
 
 
-INDIGO_STRONG_INLINE __m128 operator * (const Matrix4f& m, const Vec4f& v)
+INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
 {
 	assert(SSE::isSSEAligned(&m));
 	assert(SSE::isSSEAligned(&v));
@@ -242,7 +245,7 @@ INDIGO_STRONG_INLINE __m128 operator * (const Matrix4f& m, const Vec4f& v)
 	const __m128 vz = indigoCopyToAll(v.v, 2);
 	const __m128 vw = indigoCopyToAll(v.v, 3);
 
-	return
+	return Vec4f(
 		_mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(
@@ -265,7 +268,34 @@ INDIGO_STRONG_INLINE __m128 operator * (const Matrix4f& m, const Vec4f& v)
 					)
 				)
 			)
-		;
+		);
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f Matrix4f::mul3Vector(const Vec4f& v) const
+{
+	const __m128 vx = indigoCopyToAll(v.v, 0);
+	const __m128 vy = indigoCopyToAll(v.v, 1);
+	const __m128 vz = indigoCopyToAll(v.v, 2);
+
+	return Vec4f(
+		_mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(
+					vx,
+					_mm_load_ps(e) // e[0]-e[3]
+					),
+				_mm_mul_ps(
+					vy,
+					_mm_load_ps(e + 4) // e[4]-e[7]
+					)
+				),
+			_mm_mul_ps(
+				vz,
+				_mm_load_ps(e + 8) // e[8]-e[11]
+			)
+		)
+	);
 }
 
 

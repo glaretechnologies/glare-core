@@ -182,7 +182,61 @@ void quaternionTests()
 			const Vec4f inv_rotated_b = q.inverseRotateVector(b);
 			testAssert(epsEqual(inv_m_b, inv_rotated_b));
 		}
+	}
 
+	//================================== fromMatrix() =======================================
+	{
+		{
+			const Matrix3f rot_matrix = Matrix3f::rotationMatrix(Vec3f(0,0,1), Maths::pi_2<float>());
+
+			// Convert rotation matrix back to quaternion
+			Quatf q2 = Quatf::fromMatrix(rot_matrix);
+
+			// Convert back to matrix again
+			Matrix3f rot_matrix2;
+			q2.toMatrix(rot_matrix2);
+
+			testAssert(::epsMatrixEqual(rot_matrix, rot_matrix2));
+		}
+
+		{
+			const Matrix3f rot_matrix = Matrix3f::rotationMatrix(Vec3f(0,0,1), Maths::pi<float>());
+
+			Quatf q = Quatf::fromAxisAndAngle(Vec3f(0,0,1), Maths::pi<float>());
+
+			// Convert rotation matrix back to quaternion
+			Quatf q2 = Quatf::fromMatrix(rot_matrix);
+
+			// Convert back to matrix again
+			Matrix3f rot_matrix2;
+			q2.toMatrix(rot_matrix2);
+
+			testAssert(::epsMatrixEqual(rot_matrix, rot_matrix2));
+		}
+
+		MTwister rng(1);
+		const int num = 1000;
+		for(int i=0; i<num; ++i)
+		{
+			// Make random normalised quaternion
+			const Vec4f axis = normalise(Vec4f(-1 + 2*rng.unitRandom(), -1 + 2*rng.unitRandom(), -1  + 2*rng.unitRandom(), 0));
+			const float angle = -10 + 20*rng.unitRandom();
+			const Quatf q = Quatf::fromAxisAndAngle(Vec3f(axis), angle);
+
+			// Convert to rotation matrix
+			//const Matrix3f ref_rot_matrix = Matrix3f::rotationMatrix(Vec3f(axis), angle);
+			Matrix3f rot_matrix;
+			q.toMatrix(rot_matrix);
+
+			// Convert rotation matrix back to quaternion
+			Quatf q2 = Quatf::fromMatrix(rot_matrix);
+
+			// Convert back to matrix again
+			Matrix3f rot_matrix2;
+			q2.toMatrix(rot_matrix2);
+
+			testAssert(::epsMatrixEqual(rot_matrix, rot_matrix2));
+		}
 	}
 
 	if(false)
