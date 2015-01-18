@@ -19,16 +19,17 @@ Code By Nicholas Chapman.
 #include "../indigo/RendererSettings.h"
 #include "../utils/Timer.h"
 #include "../utils/TaskManager.h"
-#include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../indigo/ThreadContext.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Exception.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../indigo/Diffuse.h"
 #include "../indigo/DisplaceMatParameter.h"
 #include "../indigo/SpectrumMatParameter.h"
+#include "../indigo/MeshLoader.h"
 #include "../graphics/Map2D.h"
 
 
@@ -574,6 +575,7 @@ void ObjectTreeTest::doSpeedTest()
 	}
 }
 
+
 void ObjectTreeTest::instancedMeshSpeedTest()
 {
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
@@ -589,15 +591,14 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//load bunny mesh
 	//------------------------------------------------------------------------
-	CSModelLoader model_loader;
 	Reference<RayMesh> raymesh(new RayMesh("raymesh", false));
 	Indigo::Mesh indigoMesh;
 	try
 	{
-		model_loader.streamModel("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", indigoMesh, 1.0);
+		MeshLoader::loadMesh("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", indigoMesh, 1.0);
 		raymesh->fromIndigoMesh(indigoMesh);
 	}
-	catch(CSModelLoaderExcep&)
+	catch(Indigo::Exception&)
 	{
 		testAssert(false);
 	}

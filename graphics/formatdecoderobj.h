@@ -7,12 +7,8 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "modeldecoder.h"
-#include "../maths/vec3.h"
-#include "../maths/coordframe.h"
-#include <vector>
-namespace CS { class Model; }
-namespace CS { class ModelPart; }
+#include <string>
+namespace Indigo { class Mesh; }
 
 
 /*=====================================================================
@@ -20,13 +16,8 @@ FormatDecoderObj
 ----------------
 
 =====================================================================*/
-class FormatDecoderObj : public ModelDecoder
+class FormatDecoderObj
 {
 public:
-	FormatDecoderObj();
-	virtual ~FormatDecoderObj();
-
-	virtual const std::string getExtensionType() const;
-
-	virtual void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws ModelFormatDecoderExcep on failure.
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws Indigo::Exception on failure.
 };

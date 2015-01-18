@@ -16,7 +16,6 @@ Code By Nicholas Chapman.
 #include "../physics/KDTree.h"
 #include "../graphics/image.h"
 #include "../graphics/TriBoxIntersection.h"
-#include "../simpleraytracer/ModelLoadingStreamHandler.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
@@ -31,6 +30,7 @@ Code By Nicholas Chapman.
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
+#include "../utils/Exception.h"
 #include "../indigo/DisplacementUtils.h"
 #include <fstream>
 #include <algorithm>
@@ -1328,13 +1328,13 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 3; ++v)
 			if(src_tri.vertex_indices[v] >= getNumVerts())
-				throw ModelLoadingStreamHandlerExcep("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ", num verts: " + toString(getNumVerts()) + ")");
+				throw Indigo::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ", num verts: " + toString(getNumVerts()) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
 			for(unsigned int v = 0; v < 3; ++v)
 				if(src_tri.uv_indices[v] >= num_uv_groups)
-					throw ModelLoadingStreamHandlerExcep("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
+					throw Indigo::Exception("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
 
 		// Check the area of the triangle.
 		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
@@ -1384,13 +1384,13 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 4; ++v)
 			if(mesh.quads[i].vertex_indices[v] >= getNumVerts())
-				throw ModelLoadingStreamHandlerExcep("Quad vertex index is out of bounds.  (vertex index=" + toString(mesh.quads[i].vertex_indices[v]) + ")");
+				throw Indigo::Exception("Quad vertex index is out of bounds.  (vertex index=" + toString(mesh.quads[i].vertex_indices[v]) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
 			for(unsigned int v = 0; v < 4; ++v)
 				if(mesh.quads[i].uv_indices[v] >= num_uv_groups)
-					throw ModelLoadingStreamHandlerExcep("Quad uv index is out of bounds.  (uv index=" + toString(mesh.quads[i].uv_indices[v]) + ")");
+					throw Indigo::Exception("Quad uv index is out of bounds.  (uv index=" + toString(mesh.quads[i].uv_indices[v]) + ")");
 
 
 		this->quads[i].vertex_indices[0] = mesh.quads[i].vertex_indices[0];

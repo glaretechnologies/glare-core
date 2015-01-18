@@ -18,7 +18,6 @@ Code By Nicholas Chapman.
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
 #include <algorithm>
-#include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"

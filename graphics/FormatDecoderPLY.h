@@ -7,8 +7,8 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include "modeldecoder.h"
-#include "modelformatdecoder.h"//just for the exception
+#include <string>
+namespace Indigo { class Mesh; }
 
 
 /*=====================================================================
@@ -16,13 +16,8 @@ FormatDecoderPLY
 ----------------
 
 =====================================================================*/
-class FormatDecoderPLY : public ModelDecoder
+class FormatDecoderPLY
 {
 public:
-	FormatDecoderPLY();
-	virtual ~FormatDecoderPLY();
-
-	virtual const std::string getExtensionType() const { return "ply"; }
-
-	virtual void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); 
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale);
 };

@@ -20,11 +20,12 @@ Code By Nicholas Chapman.
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
 #include <algorithm>
-#include "../simpleraytracer/csmodelloader.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/MeshLoader.h"
+#include "../utils/Exception.h"
 #include "../utils/PlatformUtils.h"
 #include "../indigo/ThreadContext.h"
 #include "../maths/SSE.h"
@@ -724,17 +725,16 @@ void TreeTest::doTests(const std::string& appdata_path)
 	{
 	// Load tricky mesh from disk
 	const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
-	CSModelLoader model_loader;
 	RayMesh raymesh("tricky", false);
 	Indigo::Mesh indigoMesh;
 	try
 	{
-		model_loader.streamModel(MODEL_PATH, indigoMesh, 1.0);
+		MeshLoader::loadMesh(MODEL_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 
 		raymesh.build(appdata_path, settings, print_output, false, task_manager);
 	}
-	catch(CSModelLoaderExcep&)
+	catch(Indigo::Exception&)
 	{
 		testAssert(false);
 	}
@@ -868,15 +868,14 @@ void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
 
-	CSModelLoader model_loader;
 	RayMesh raymesh("bunny", false);
 	Indigo::Mesh indigoMesh;
 	try
 	{
-		model_loader.streamModel(BUNNY_PATH, indigoMesh, 1.0);
+		MeshLoader::loadMesh(BUNNY_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 	}
-	catch(CSModelLoaderExcep&)
+	catch(Indigo::Exception&)
 	{
 		testAssert(false);
 	}
@@ -1013,15 +1012,14 @@ void TreeTest::buildSpeedTest()
 	Indigo::TaskManager task_manager;
 
 
-	CSModelLoader model_loader;
 	RayMesh raymesh("raymesh", false);
 	Indigo::Mesh indigoMesh;
 	try
 	{
-		model_loader.streamModel("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", indigoMesh, 1.0);
+		MeshLoader::loadMesh("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 	}
-	catch(CSModelLoaderExcep&)
+	catch(Indigo::Exception&)
 	{
 		testAssert(false);
 	}

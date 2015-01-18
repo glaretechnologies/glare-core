@@ -11,21 +11,13 @@ Code By Nicholas Chapman.
 
 
 #include "../dll/include/IndigoMesh.h"
+#include "../utils/Exception.h"
 #include "../rply-1.1.1/rply.h"
 #include <assert.h>
+#include <vector>
 
 
 using namespace Indigo;
-
-
-FormatDecoderPLY::FormatDecoderPLY()
-{
-}
-
-
-FormatDecoderPLY::~FormatDecoderPLY()
-{
-}
 
 
 //dirty nasty global variables
@@ -117,10 +109,10 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	p_ply ply = ply_open(pathname.c_str(), NULL, 0, NULL);
 
     if(!ply) 
-		throw ModelFormatDecoderExcep("could not open file '" + pathname + "' for reading.");
+		throw Indigo::Exception("could not open file '" + pathname + "' for reading.");
     
 	if(!ply_read_header(ply))
-		throw ModelFormatDecoderExcep("could not read header.");
+		throw Indigo::Exception("could not read header.");
 		
     //const long nvertices =
 	ply_set_read_cb(ply, "vertex", "x", vertex_callback, &handler, 0);
@@ -136,7 +128,7 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	//mesh_out.tris.resize(ntriangles);
 	
     if(!ply_read(ply)) 
-		throw ModelFormatDecoderExcep("read of body failed.");
+		throw Indigo::Exception("read of body failed.");
 
     ply_close(ply);
 
