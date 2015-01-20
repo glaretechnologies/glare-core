@@ -165,12 +165,14 @@ void OpenCL::libraryInit()
 			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
 			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
 
+#if OPENCL_OPENGL_INTEROP
 			clGetExtensionFunctionAddress = opencl_lib.getFuncPointer<clGetExtensionFunctionAddress_TYPE>("clGetExtensionFunctionAddress");
 			clGetGLContextInfoKHR = (clGetGLContextInfoKHR_TYPE)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
 			clCreateFromGLTexture = (clCreateFromGLTexture_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture");
 			clCreateFromGLTexture2D = (clCreateFromGLTexture2D_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture2D");
 			clEnqueueAcquireGLObjects = (clEnqueueAcquireGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueAcquireGLObjects");
 			clEnqueueReleaseGLObjects = (clEnqueueReleaseGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueReleaseGLObjects");
+#endif
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -280,6 +282,7 @@ void OpenCL::queryDevices()
 		const std::string platform_extensions_string(&char_buff[0]);
 		const std::vector<std::string> platform_extensions = split(platform_extensions_string, ' ');
 
+#if OPENCL_OPENGL_INTEROP
 		// Check extensions for OpenGL interop
 		bool platform_OpenGL_interop = false;
 		for(size_t j = 0; j < platform_extensions.size(); ++j)
@@ -309,6 +312,7 @@ void OpenCL::queryDevices()
 			if(clGetGLContextInfoKHR(properties, CL_DEVICES_FOR_GL_CONTEXT_KHR, 32 * sizeof(cl_device_id), platform_GL_devices, &devices_size) == CL_SUCCESS)
 			platform_num_GL_devices = (int)(devices_size / sizeof(cl_device_id));
 		}
+#endif
 
 		if(verbose)
 		{
@@ -329,7 +333,9 @@ void OpenCL::queryDevices()
 			conPrint("platform_name: " + platform_name);
 			conPrint("platform_vendor: " + platform_vendor);
 			conPrint("platform_extensions: " + platform_extensions_string);
+#if OPENCL_OPENGL_INTEROP
 			conPrint("platform_num_GL_devices: " + platform_num_GL_devices);
+#endif
 		}
 
 		OpenCLPlatform opencl_platform;
@@ -391,9 +397,11 @@ void OpenCL::queryDevices()
 				throw Indigo::Exception("clGetDeviceInfo failed");
 			const std::string driver_version(&char_buff[0]);
 
+#if OPENCL_OPENGL_INTEROP
 			bool device_OpenGL_interop = false;
 			for(int j = 0; j < platform_num_GL_devices; ++j)
 				if(platform_GL_devices[j] == device_ids[d]) { device_OpenGL_interop = true; break; }
+#endif
 
 			if(verbose)
 			{
@@ -450,8 +458,11 @@ void OpenCL::queryDevices()
 				di.OpenCL_version = device_version;
 				di.OpenCL_driver_info = driver_version;
 
+#if OPENCL_OPENGL_INTEROP
 				di.supports_OpenGL_interop = device_OpenGL_interop;
-
+#else
+				di.supports_OpenGL_interop = false;
+#endif
 				device_info.push_back(di);
 			}
 
@@ -468,7 +479,11 @@ void OpenCL::queryDevices()
 				opencl_device.compute_units = device_max_compute_units;
 				opencl_device.clock_speed = device_max_clock_frequency;
 
+#if OPENCL_OPENGL_INTEROP
 				opencl_device.supports_GL_interop = device_OpenGL_interop;
+#else
+				opencl_device.supports_GL_interop = false;
+#endif
 
 				opencl_platform.devices.push_back(opencl_device);
 			}

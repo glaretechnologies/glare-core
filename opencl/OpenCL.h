@@ -24,6 +24,8 @@ Code By Nicholas Chapman.
 
 #if USE_OPENCL
 
+#define OPENCL_OPENGL_INTEROP 0
+
 
 #ifdef OSX
 #include <OpenCL/cl.h>
@@ -86,12 +88,14 @@ typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl
 typedef cl_int (CL_API_CALL *clFinish_TYPE) (cl_command_queue command_queue);
 typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
 
+#if OPENCL_OPENGL_INTEROP
 typedef void * (CL_API_CALL *clGetExtensionFunctionAddress_TYPE) (const char *funcname);
 typedef cl_int (CL_API_CALL *clGetGLContextInfoKHR_TYPE) (cl_context_properties *properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_mem (CL_API_CALL *clCreateFromGLTexture_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
 typedef cl_mem (CL_API_CALL *clCreateFromGLTexture2D_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clEnqueueAcquireGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+#endif
 
 }
 
@@ -228,6 +232,7 @@ public:
 	clFinish_TYPE clFinish;
 	clFlush_TYPE clFlush;
 
+#if OPENCL_OPENGL_INTEROP
 	// Extensions
 	clGetExtensionFunctionAddress_TYPE clGetExtensionFunctionAddress;
 	clGetGLContextInfoKHR_TYPE clGetGLContextInfoKHR;
@@ -235,6 +240,7 @@ public:
 	clCreateFromGLTexture2D_TYPE clCreateFromGLTexture2D;
 	clEnqueueAcquireGLObjects_TYPE clEnqueueAcquireGLObjects;
 	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
+#endif
 
 
 	cl_platform_id platform_to_use;
