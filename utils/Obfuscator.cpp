@@ -605,10 +605,10 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			}
 
 			Obfuscator ob(
-				false, // collapse_whitespace
-				false, // remove_comments
+				true, // collapse_whitespace
+				true, // remove_comments
 				true, // change tokens
-				false // cryptic_tokens
+				true // cryptic_tokens
 				);
 
 			// Obfuscate the code

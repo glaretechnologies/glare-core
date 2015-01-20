@@ -8,9 +8,10 @@ Code By Nicholas Chapman.
 
 #include <string>
 #include <vector>
-#include "../indigo/PrintOutput.h"
+#include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
+#include "../indigo/PrintOutput.h"
 #include "../indigo/gpuDeviceInfo.h"
 
 
@@ -30,6 +31,8 @@ Code By Nicholas Chapman.
 #else
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
+#include <CL/cl_ext.h>
+#include <CL/cl_gl.h>
 #endif
 
 //#include <CL/clext.h>
@@ -75,8 +78,6 @@ typedef cl_int (CL_API_CALL *clReleaseProgram_TYPE) (cl_program program);
 typedef cl_int (CL_API_CALL *clReleaseEvent_TYPE) (cl_event event);
 typedef cl_int (CL_API_CALL *clGetProgramInfo_TYPE) (cl_program program, cl_program_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clGetKernelWorkGroupInfo_TYPE) (cl_kernel kernel, cl_device_id device, cl_kernel_work_group_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
-
-typedef cl_int (CL_API_CALL *clSetCommandQueueProperty_TYPE) (cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties *old_properties);
 typedef cl_int (CL_API_CALL *clGetEventProfilingInfo_TYPE) (cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clGetEventInfo_TYPE)  (cl_event event, cl_event_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clEnqueueMarker_TYPE) (cl_command_queue command_queue, cl_event *event);
@@ -85,9 +86,63 @@ typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl
 typedef cl_int (CL_API_CALL *clFinish_TYPE) (cl_command_queue command_queue);
 typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
 
+typedef void * (CL_API_CALL *clGetExtensionFunctionAddress_TYPE) (const char *funcname);
+typedef cl_int (CL_API_CALL *clGetGLContextInfoKHR_TYPE) (cl_context_properties *properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+typedef cl_mem (CL_API_CALL *clCreateFromGLTexture_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
+typedef cl_mem (CL_API_CALL *clCreateFromGLTexture2D_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
+typedef cl_int (CL_API_CALL *clEnqueueAcquireGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+
 }
 
 #endif
+
+
+class OpenCLDevice
+{
+public:
+#if USE_OPENCL
+	cl_device_id device_id;
+	cl_device_type device_type;
+#endif
+
+	std::string name;
+
+	size_t global_mem_size;
+	size_t max_mem_alloc_size;
+	size_t compute_units;
+	size_t clock_speed;
+
+	bool supports_GL_interop;
+};
+
+
+class OpenCLPlatform
+{
+public:
+#if USE_OPENCL
+	cl_platform_id platform_id;
+#endif
+
+	std::string vendor_name;
+
+	std::vector<OpenCLDevice> devices;
+};
+
+
+class OpenCLInfo
+{
+public:
+	size_t getTotalNumDevices() const
+	{
+		size_t total_num_devices = 0;
+		for(size_t i = 0; i < platforms.size(); ++i)
+			total_num_devices += platforms[i].devices.size();
+		return total_num_devices;
+	}
+
+	std::vector<OpenCLPlatform> platforms;
+};
 
 
 /*=====================================================================
@@ -165,9 +220,6 @@ public:
 	clReleaseEvent_TYPE clReleaseEvent;
 	clGetProgramInfo_TYPE clGetProgramInfo;
 	clGetKernelWorkGroupInfo_TYPE clGetKernelWorkGroupInfo;
-
-	// OpenCL 1.0 function deprecated in 1.1.
-	//clSetCommandQueueProperty_TYPE clSetCommandQueueProperty;
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
 	clGetEventInfo_TYPE clGetEventInfo;
 	clEnqueueMarker_TYPE clEnqueueMarker;
@@ -175,6 +227,15 @@ public:
 
 	clFinish_TYPE clFinish;
 	clFlush_TYPE clFlush;
+
+	// Extensions
+	clGetExtensionFunctionAddress_TYPE clGetExtensionFunctionAddress;
+	clGetGLContextInfoKHR_TYPE clGetGLContextInfoKHR;
+	clCreateFromGLTexture_TYPE clCreateFromGLTexture;
+	clCreateFromGLTexture2D_TYPE clCreateFromGLTexture2D;
+	clEnqueueAcquireGLObjects_TYPE clEnqueueAcquireGLObjects;
+	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
+
 
 	cl_platform_id platform_to_use;
 	cl_device_id device_to_use;
@@ -194,5 +255,7 @@ public:
 	int chosen_device_number;
 
 	std::vector<gpuDeviceInfo> device_info;
+
+	OpenCLInfo info;
 };
 

@@ -78,7 +78,7 @@ void OpenCL::libraryInit()
 
 #if defined(_WIN32)
 	opencl_paths.push_back("OpenCL.dll");
-
+/*
 	try // ATI/AMD OpenCL
 	{
 		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
@@ -105,6 +105,7 @@ void OpenCL::libraryInit()
 	#endif
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&) { } // No Intel OpenCL found
+*/
 #else
 	opencl_paths.push_back("libOpenCL.so");
 #endif
@@ -163,6 +164,13 @@ void OpenCL::libraryInit()
 
 			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
 			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
+
+			clGetExtensionFunctionAddress = opencl_lib.getFuncPointer<clGetExtensionFunctionAddress_TYPE>("clGetExtensionFunctionAddress");
+			clGetGLContextInfoKHR = (clGetGLContextInfoKHR_TYPE)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
+			clCreateFromGLTexture = (clCreateFromGLTexture_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture");
+			clCreateFromGLTexture2D = (clCreateFromGLTexture2D_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture2D");
+			clEnqueueAcquireGLObjects = (clEnqueueAcquireGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueAcquireGLObjects");
+			clEnqueueReleaseGLObjects = (clEnqueueReleaseGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueReleaseGLObjects");
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -246,7 +254,19 @@ void OpenCL::queryDevices()
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 
+#ifdef _WIN32
+	const cl_context_properties current_context = (cl_context_properties)wglGetCurrentContext();
+	const cl_context_properties current_DC = (cl_context_properties)wglGetCurrentDC();
+#else
+	// TODO mac and linux
+	const cl_context_properties current_context = 0;
+	const cl_context_properties current_DC = 0;
+#endif
+
 	if(verbose) conPrint("Num platforms: " + toString(num_platforms));
+
+	device_info.clear();
+	info.platforms.clear();
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
@@ -254,6 +274,41 @@ void OpenCL::queryDevices()
 		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
 		platform_vendor = std::string(&char_buff[0]);
+
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+			throw Indigo::Exception("clGetPlatformInfo failed");
+		const std::string platform_extensions_string(&char_buff[0]);
+		const std::vector<std::string> platform_extensions = split(platform_extensions_string, ' ');
+
+		// Check extensions for OpenGL interop
+		bool platform_OpenGL_interop = false;
+		for(size_t j = 0; j < platform_extensions.size(); ++j)
+		{
+			if(platform_extensions[j] == "cl_khr_gl_sharing" || platform_extensions[j] == "cl_APPLE_gl_sharing")
+			{
+				platform_OpenGL_interop = true;
+				break;
+			}
+		}
+
+		cl_device_id platform_GL_devices[32];
+		int platform_num_GL_devices = 0;
+		if(platform_OpenGL_interop)
+		{
+			// Create CL context properties, add WGL context & handle to DC
+			cl_context_properties properties[] =
+			{
+				CL_GL_CONTEXT_KHR, current_context, // WGL Context
+				CL_WGL_HDC_KHR, current_DC, // WGL HDC
+				CL_CONTEXT_PLATFORM, (cl_context_properties)platform_ids[i], // OpenCL platform
+				0
+			};
+
+			// Find CL capable devices in the current GL context
+			size_t devices_size;
+			if(clGetGLContextInfoKHR(properties, CL_DEVICES_FOR_GL_CONTEXT_KHR, 32 * sizeof(cl_device_id), platform_GL_devices, &devices_size) == CL_SUCCESS)
+			platform_num_GL_devices = (int)(devices_size / sizeof(cl_device_id));
+		}
 
 		if(verbose)
 		{
@@ -266,9 +321,6 @@ void OpenCL::queryDevices()
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_name(&char_buff[0]);
-			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_EXTENSIONS, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetPlatformInfo failed");
-			const std::string platform_extensions(&char_buff[0]);
 
 			conPrint("");
 			conPrint("platform_id: " + toString((uint64)platform_ids[i]));
@@ -276,8 +328,13 @@ void OpenCL::queryDevices()
 			conPrint("platform_version: " + platform_version);
 			conPrint("platform_name: " + platform_name);
 			conPrint("platform_vendor: " + platform_vendor);
-			conPrint("platform_extensions: " + platform_extensions);
+			conPrint("platform_extensions: " + platform_extensions_string);
+			conPrint("platform_num_GL_devices: " + platform_num_GL_devices);
 		}
+
+		OpenCLPlatform opencl_platform;
+		opencl_platform.platform_id = platform_ids[i];
+		opencl_platform.vendor_name = platform_vendor;
 
 		std::vector<cl_device_id> device_ids(16);
 		cl_uint num_devices = 0;
@@ -314,6 +371,10 @@ void OpenCL::queryDevices()
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(device_global_mem_size), &device_global_mem_size, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
+			cl_ulong device_max_mem_alloc_size = 0;
+			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(device_max_mem_alloc_size), &device_max_mem_alloc_size, NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetDeviceInfo failed");
+
 			cl_uint device_max_compute_units = 0;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(device_max_compute_units), &device_max_compute_units, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
@@ -329,6 +390,10 @@ void OpenCL::queryDevices()
 			if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 			const std::string driver_version(&char_buff[0]);
+
+			bool device_OpenGL_interop = false;
+			for(int j = 0; j < platform_num_GL_devices; ++j)
+				if(platform_GL_devices[j] == device_ids[d]) { device_OpenGL_interop = true; break; }
 
 			if(verbose)
 			{
@@ -369,25 +434,50 @@ void OpenCL::queryDevices()
 			}
 
 			// Add device info structure to the vector.
-			gpuDeviceInfo di;
-			di.device_number = current_device_number;
-			di.device_name = device_name_;
-			di.total_memory_size = (size_t)device_global_mem_size;
-			di.core_count = device_max_compute_units;
-			di.core_clock = device_max_clock_frequency; // in MHz
-			di.subsystem = Indigo::GPUDeviceSettings::SUBSYSTEM_OPENCL;
-			di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
+			{
+				gpuDeviceInfo di;
+				di.device_number = current_device_number;
+				di.device_name = device_name_;
+				di.total_memory_size = (size_t)device_global_mem_size;
+				di.core_count = device_max_compute_units;
+				di.core_clock = device_max_clock_frequency; // in MHz
+				di.subsystem = Indigo::GPUDeviceSettings::SUBSYSTEM_OPENCL;
+				di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
 
-			di.opencl_platform = platform_ids[i];
-			di.opencl_device = device_ids[d];
-			di.opencl_platform_vendor = platform_vendor;
-			di.OpenCL_version = device_version;
-			di.OpenCL_driver_info = driver_version;
+				di.opencl_platform = platform_ids[i];
+				di.opencl_device = device_ids[d];
+				di.opencl_platform_vendor = platform_vendor;
+				di.OpenCL_version = device_version;
+				di.OpenCL_driver_info = driver_version;
 
-			device_info.push_back(di);
+				di.supports_OpenGL_interop = device_OpenGL_interop;
+
+				device_info.push_back(di);
+			}
+
+			// NEW
+			{
+				OpenCLDevice opencl_device;
+				opencl_device.device_id = device_ids[d];
+				opencl_device.device_type = device_type;
+
+				opencl_device.name = device_name_;
+
+				opencl_device.global_mem_size = device_global_mem_size;
+				opencl_device.max_mem_alloc_size = device_max_mem_alloc_size;
+				opencl_device.compute_units = device_max_compute_units;
+				opencl_device.clock_speed = device_max_clock_frequency;
+
+				opencl_device.supports_GL_interop = device_OpenGL_interop;
+
+				opencl_platform.devices.push_back(opencl_device);
+			}
 
 			++current_device_number;
 		}
+
+		// Add this platform and all its devices to the platforms list
+		info.platforms.push_back(opencl_platform);
 	}
 }
 

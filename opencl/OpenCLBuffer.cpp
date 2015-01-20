@@ -32,14 +32,14 @@ OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_)
 }
 
 
-OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_, size_t size_, cl_mem_flags flags)
+OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_, cl_context context, size_t size_, cl_mem_flags flags)
 :	opencl(opencl_)
 {
 	// Initialise to null state
 	size = 0;
 	opencl_mem = NULL;
 
-	alloc(size_, flags);
+	alloc(context, size_, flags);
 }
 
 
@@ -49,14 +49,14 @@ OpenCLBuffer::~OpenCLBuffer()
 }
 
 
-void OpenCLBuffer::alloc(size_t size_, cl_mem_flags flags)
+void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
 
 	cl_int result;
 	opencl_mem = opencl.clCreateBuffer(
-		opencl.context,
+		context,
 		flags,
 		size_, // size
 		NULL, // host ptr
@@ -93,14 +93,14 @@ void OpenCLBuffer::free()
 }
 
 
-void OpenCLBuffer::allocFrom(const void* const src_ptr, size_t size_, cl_mem_flags flags)
+void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
 
 	cl_int result;
 	opencl_mem = opencl.clCreateBuffer(
-		opencl.context,
+		context,
 		flags | CL_MEM_COPY_HOST_PTR,
 		size_, // size
 		(void*)src_ptr, // host ptr
@@ -118,50 +118,7 @@ void OpenCLBuffer::allocFrom(const void* const src_ptr, size_t size_, cl_mem_fla
 }
 
 
-void OpenCLBuffer::allocFromPadded(const void* const src_ptr, size_t size_, cl_mem_flags flags)
-{
-	if(opencl_mem)
-		free();
-
-	cl_int result;
-	if(size > 0)
-	{
-		opencl_mem = opencl.clCreateBuffer(
-			opencl.context,
-			flags | CL_MEM_COPY_HOST_PTR,
-			size_, // size
-			(void*)src_ptr, // host ptr
-			&result
-			);
-
-		size = size_;
-	}
-	else // Avoid allocations of zero-sized buffers
-	{
-		uint32 dummy_data = 0;
-
-		opencl_mem = opencl.clCreateBuffer(
-			opencl.context,
-			flags | CL_MEM_COPY_HOST_PTR,
-			sizeof(uint32), // size
-			(void*)&dummy_data, // host ptr
-			&result
-			);
-
-		size = sizeof(uint32);
-	}
-
-	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clCreateBuffer failed");
-
-#ifdef OPENCL_MEM_LOG
-	OpenCL_global_alloc += size;
-	conPrint("OpenCLBuffer::allocFrom(): size = " + getNiceByteSize(size) + ", total = " + getNiceByteSize(OpenCL_global_alloc));
-#endif
-}
-
-
-void OpenCLBuffer::copyFrom(const void* const src_ptr, size_t size_, cl_command_queue command_queue, cl_bool blocking_write)
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, cl_bool blocking_write)
 {
 	assert(size_ <= size);
 
@@ -179,36 +136,6 @@ void OpenCLBuffer::copyFrom(const void* const src_ptr, size_t size_, cl_command_
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clEnqueueWriteBuffer failed: " + OpenCL::errorString(result));
 }
-
-
-//void OpenCLBuffer::copyFromAsync(const void* const src_ptr, size_t size_, CUstream& stream)
-//{
-//	assert(size_ <= size);
-//
-//	CUresult result = cuda.cuMemcpyHtoDAsync(cuda_device_ptr, src_ptr, size_, stream);
-//	if(result != CUDA_SUCCESS)
-//		throw Indigo::Exception("cuMemcpyHtoDAsync failed");
-//}
-
-
-void OpenCLBuffer::copyTo(void* const dst_ptr, size_t size_)
-{
-	assert(size_ <= size);
-
-	//CUresult result = cuda.cuMemcpyDtoH(dst_ptr, cuda_device_ptr, size_);
-	//if(result != CUDA_SUCCESS)
-	//	throw Indigo::Exception("cuMemcpyDtoH failed");
-}
-
-
-//void OpenCLBuffer::copyToAsync(void* const dst_ptr, size_t size_, CUstream& stream)
-//{
-//	assert(size_ <= size);
-//
-//	CUresult result = cuda.cuMemcpyDtoHAsync(dst_ptr, cuda_device_ptr, size_, stream);
-//	if(result != CUDA_SUCCESS)
-//		throw Indigo::Exception("cuMemcpyDtoHAsync failed");
-//}
 
 
 cl_mem& OpenCLBuffer::getDevicePtr()
