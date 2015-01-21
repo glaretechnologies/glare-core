@@ -153,15 +153,16 @@ public:
 
 	inline bool operator < (const RayMeshVertex& b) const
 	{
-		if(pos < b.pos)
+		/*if(pos < b.pos)
 			return true;
 		else if(b.pos < pos) // else if a.pos > b.pos
 			return false;
 		else	// else pos == b.pos
-			return normal < b.normal;
+			return normal < b.normal;*/
+		return pos < b.pos;
 	}
 
-	inline bool operator == (const RayMeshVertex& other) const { return pos == other.pos && normal == other.normal; }
+	inline bool operator == (const RayMeshVertex& other) const { return pos == other.pos;/* && normal == other.normal;*/ }
 };
 
 
@@ -204,8 +205,7 @@ public:
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_error_out, Vec2f& uv0_out) const;
 	const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const;
 	virtual unsigned int getNumUVCoordSets() const;
-	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const;
-	virtual const TexCoordsType getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const;
+	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const;
 
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 	
@@ -302,7 +302,10 @@ private:
 	
 	unsigned int num_uv_sets;
 	std::vector<Vec2f> uvs;
-
+public:
+	std::vector<Vec3f> vert_dp_du;
+	std::vector<Vec3f> vert_dp_dv;
+private:
 	unsigned int max_num_subdivisions;
 	double subdivide_pixel_threshold;
 	double subdivide_curvature_threshold;

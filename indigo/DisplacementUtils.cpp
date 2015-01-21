@@ -774,27 +774,6 @@ public:
 
 	virtual unsigned int getNumUVCoordSets() const { return (unsigned int)texcoords.size(); }
 
-	virtual const TexCoordsType getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, TexCoordsRealType& ds_du_out, TexCoordsRealType& ds_dv_out, TexCoordsRealType& dt_du_out, TexCoordsRealType& dt_dv_out) const
-	{
-		// This should never be evaluated, because we don't need to know the partial derives when doing displacement.
-
-		/*assert(texcoords_set < texcoords.size());
-
-		const Vec2f& v0tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uvs_per_group + texcoords_set];
-		const Vec2f& v1tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uvs_per_group + texcoords_set];
-		const Vec2f& v2tex = this->uvs[triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uvs_per_group + texcoords_set];
-
-		ds_du_out = v1tex.x - v0tex.x;
-		dt_du_out = v1tex.y - v0tex.y;
-
-		ds_dv_out = v2tex.x - v0tex.x;
-		dt_dv_out = v2tex.y - v0tex.y;*/
-
-		assert(0);
-		ds_du_out = ds_dv_out = dt_du_out = dt_dv_out = 0.0;
-		return TexCoordsType(0, 0);
-	}
-
 
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
 	{

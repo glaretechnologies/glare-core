@@ -1147,7 +1147,7 @@ const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsign
 }
 
 
-void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out) const
+void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const
 {
 	Vec4f v0pos;
 	Vec4f v1pos;
@@ -1156,61 +1156,19 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, 
 	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
 	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
 
-	dp_dalpha_out = v1pos - v0pos;
-	dp_dbeta_out  = v2pos - v0pos;
-
-	//if(triangles[hitinfo.sub_elem_index].getUseShadingNormals() != 0)
-	//{
-	//	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
-
-	//	Vec4f v0norm;
-	//	Vec4f v1norm;
-	//	Vec4f v2norm;
-	//	vertNormal( tri.vertex_indices[0] ).vectorToVec4f(v0norm);
-	//	vertNormal( tri.vertex_indices[1] ).vectorToVec4f(v1norm);
-	//	vertNormal( tri.vertex_indices[2] ).vectorToVec4f(v2norm);
-
-	//	dNs_dalpha_out = v1norm - v0norm;
-	//	dNs_dbeta_out = v2norm - v0norm;
-	//}
-	//else
-	//{
-	//	dNs_dalpha_out = dNs_dbeta_out = Vec3Type(0,0,0,0);
-	//}
-}
-
-
-const RayMesh::TexCoordsType RayMesh::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, 
-										TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, 
-										TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out
-									   ) const
-{
-	if(texcoords_set >= num_uv_sets)
-	{
-		du_dalpha_out = 1; du_dbeta_out = 0;
-		dv_dalpha_out = 0; dv_dbeta_out = 1;
-		return RayMesh::TexCoordsType(0, 0);
-	}
-	assert(texcoords_set < num_uv_sets);
-
-	unsigned int v0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
-	unsigned int v1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
-	unsigned int v2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
-
-	const Vec2f& v0tex = this->uvs[v0idx];
-	const Vec2f& v1tex = this->uvs[v1idx];
-	const Vec2f& v2tex = this->uvs[v2idx];
-
-	du_dalpha_out =  v1tex.x - v0tex.x;
-	dv_dalpha_out =  v1tex.y - v0tex.y;
-	du_dbeta_out  =  v2tex.x - v0tex.x;
-	dv_dbeta_out  =  v2tex.y - v0tex.y;
-
 	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return RayMesh::TexCoordsType(
-		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
-		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
-	);
+	const float alpha = hitinfo.sub_elem_coords.x;
+	const float beta  = hitinfo.sub_elem_coords.y;
+
+	const unsigned int v0 = triangles[hitinfo.sub_elem_index].vertex_indices[0];
+	const unsigned int v1 = triangles[hitinfo.sub_elem_index].vertex_indices[1];
+	const unsigned int v2 = triangles[hitinfo.sub_elem_index].vertex_indices[2];
+
+	const Vec3f use_dp_du = vert_dp_du[v0]*w + vert_dp_du[v1]*alpha + vert_dp_du[v2]*beta;
+	const Vec3f use_dp_dv = vert_dp_dv[v0]*w + vert_dp_dv[v1]*alpha + vert_dp_dv[v2]*beta;
+
+	dp_du_out = use_dp_du.toVec4fVector();
+	dp_dv_out = use_dp_dv.toVec4fVector();
 }
 
 
@@ -1677,6 +1635,10 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 	std::vector<Vec3f> H(vertices.size(), Vec3f(0,0,0));
 	std::vector<Vec3f> A(vertices.size(), Vec3f(0,0,0));
 
+	vert_dp_du = std::vector<Vec3f>(vertices.size(), Vec3f(0,0,0));
+	vert_dp_dv = std::vector<Vec3f>(vertices.size(), Vec3f(0,0,0));
+	std::vector<int> vert_sum(vertices.size(), 0);
+
 	if(update_shading_normals)
 		for(size_t i = 0; i < vertices.size(); ++i)
 			vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
@@ -1709,6 +1671,53 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 			H[triangles[t].vertex_indices[i]] += crossProduct(tri_normal, e2);
 			A[triangles[t].vertex_indices[i]] += crossProduct(v_i_1, v_i_2);
 		}
+
+		if(num_uv_sets > 0)
+		{
+			// Compute dp/du, dp/dv for this triangle.
+			const Vec3f N = tri_normal;
+			const Vec3f v0 = vertices[triangles[t].vertex_indices[0]].pos;
+			const Vec3f v1 = vertices[triangles[t].vertex_indices[1]].pos;
+			const Vec3f v2 = vertices[triangles[t].vertex_indices[2]].pos;
+
+			unsigned int v0idx = triangles[t].uv_indices[0] * num_uv_sets;
+			unsigned int v1idx = triangles[t].uv_indices[1] * num_uv_sets;
+			unsigned int v2idx = triangles[t].uv_indices[2] * num_uv_sets;
+
+			const Vec2f& v0tex = this->uvs[v0idx];
+			const Vec2f& v1tex = this->uvs[v1idx];
+			const Vec2f& v2tex = this->uvs[v2idx];
+
+			const Vec3f dp_dalpha = v1 - v0;
+			const Vec3f dp_dbeta  = v2 - v0;
+
+			// Compute d(alpha, beta) / d(u, v)
+			const Real du_dalpha =  v1tex.x - v0tex.x;
+			const Real dv_dalpha =  v1tex.y - v0tex.y;
+			const Real du_dbeta =  v2tex.x - v0tex.x;
+			const Real dv_dbeta =  v2tex.y - v0tex.y;
+
+			Matrix2f A(du_dalpha, du_dbeta, dv_dalpha, dv_dbeta);
+			Matrix2f A_inv = A.inverse();
+
+			// Compute dp/du and dp/dv
+			// dp/du = dp/dalpha dalpha/du + dp/dbeta dbeta/du
+			// dp/dv = dp/dalpha dalpha/dv + dp/dbeta dbeta/dv
+
+			Vec3f dp_du = dp_dalpha*A_inv.elem(0, 0) + dp_dbeta*A_inv.elem(1, 0);
+			Vec3f dp_dv = dp_dalpha*A_inv.elem(0, 1) + dp_dbeta*A_inv.elem(1, 1); 
+
+			//const float A = getTriAraea(v0, v1, v2);
+			//const Vec3f grad_u = -(1 / (2*A)) * ::crossProduct(N, (v2 - v1)*v0tex.x + (v0 - v2)*v1tex.x + (v1 - v0)*v2tex.x);
+			//const Vec3f grad_v = -(1 / (2*A)) * ::crossProduct(N, (v2 - v1)*v0tex.y + (v0 - v2)*v1tex.y + (v1 - v0)*v2tex.y);
+			
+			for(int i = 0; i < 3; ++i)
+			{
+				vert_dp_du[triangles[t].vertex_indices[i]] += dp_du;
+				vert_dp_dv[triangles[t].vertex_indices[i]] += dp_dv;
+				vert_sum[triangles[t].vertex_indices[i]]++;
+			}
+		}
 	}
 
 	for(size_t q = 0; q < quads.size(); ++q)
@@ -1736,6 +1745,15 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 		float A_p_len = (1.0f / 6.0f) * A[i].length();
 
 		vertices[i].H = H_p_len_dot_N / A_p_len;
+
+		if(vert_sum[i] > 0)
+		{
+			vert_dp_du[i] /= (float)vert_sum[i];
+			vert_dp_dv[i] /= (float)vert_sum[i];
+		}
+
+		//conPrint("vert " + toString(i) + " dp/du: " + vert_grad_u[i].toString());
+		//conPrint("vert " + toString(i) + " dp/dv: " + vert_grad_v[i].toString() + "\n");
 	}
 
 	if(verbose) print_output.print("\tElapsed: " + timer.elapsedString());

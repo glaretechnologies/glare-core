@@ -50,7 +50,8 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 
 	const Real sqrt_discriminant = std::sqrt(discriminant);
 
-	const Real use_min_t = rayMinT(radius);
+	//const Real use_min_t = rayMinT(radius);
+	const Real use_min_t = this->radius * std::numeric_limits<float>::epsilon() * 50; //ray.minT(); // rayMinT(radius);
 
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t && t_0 <= max_t)
@@ -84,7 +85,7 @@ void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	pos_os_out = centre + N_g_os_out * this->radius;
-	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
+	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon() * 5;
 }
 
 
@@ -94,7 +95,7 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 	N_s_os_out = N_g_os_out;
 	mat_index_out = 0;
 	pos_os_out = centre + N_g_os_out * this->radius;
-	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon();
+	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon() * 5;
 	uv0_out = hitinfo.sub_elem_coords;
 }
 
@@ -148,7 +149,7 @@ const RaySphere::TexCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, un
 }
 
 
-void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out, Vec3Type& dNs_du_out, Vec3Type& dNs_dv_out) const
+void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const
 {
 	const Vec3RealType phi = hitinfo.sub_elem_coords.x;
 	const Vec3RealType theta = hitinfo.sub_elem_coords.y;
@@ -158,21 +159,6 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 
 	//(dx/dv, dy/dv, dz/dv)
 	dp_dv_out = Vec3Type(cos(phi)*cos(theta), sin(phi)*cos(theta), -sin(theta), 0.0f) * radius;
-
-	//TEMP HACK:
-	dNs_du_out = dNs_dv_out = Vec3Type(0.0);
-}
-
-
-const RaySphere::TexCoordsType RaySphere::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, 
-								   TexCoordsRealType& du_dalpha_out, TexCoordsRealType& du_dbeta_out, TexCoordsRealType& dv_dalpha_out, TexCoordsRealType& dv_dbeta_out) const
-{
-	// (alpha, beta) -> (u, v) is the identity mapping
-	du_dalpha_out = dv_dbeta_out = 1;
-
-	du_dbeta_out = dv_dalpha_out = 0;
-
-	return hitinfo.sub_elem_coords;
 }
 
 
