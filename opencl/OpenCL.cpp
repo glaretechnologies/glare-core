@@ -256,7 +256,7 @@ void OpenCL::queryDevices()
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 
-#ifdef _WIN32
+#if defined(_WIN32) && OPENCL_OPENGL_INTEROP
 	const cl_context_properties current_context = (cl_context_properties)wglGetCurrentContext();
 	const cl_context_properties current_DC = (cl_context_properties)wglGetCurrentDC();
 #else
