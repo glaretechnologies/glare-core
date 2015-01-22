@@ -903,6 +903,19 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 
 	new_mesh->triangles = current_triangles;
 
+	// Build inv_cross_magnitude for triangles.  Needs to be recomputed as triangles may have changed.
+	{
+		const size_t num_tris = new_mesh->triangles.size();
+		for(size_t i=0; i<num_tris; ++i)
+		{
+			const RayMeshTriangle& tri = new_mesh->triangles[i];
+			const RayMeshVertex& v0(new_mesh->vertices[tri.vertex_indices[0]]);
+			const RayMeshVertex& v1(new_mesh->vertices[tri.vertex_indices[1]]);
+			const RayMeshVertex& v2(new_mesh->vertices[tri.vertex_indices[2]]);
+			new_mesh->triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+		}
+	}
+
 	return new_mesh;
 }
 
