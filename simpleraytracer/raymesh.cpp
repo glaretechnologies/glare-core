@@ -761,6 +761,10 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 	new_mesh->num_uv_sets = num_uv_sets;
 	new_mesh->uvs = uvs;
 
+	// Copy dp/du, dp/dv
+	new_mesh->vert_dp_du = vert_dp_du;
+	new_mesh->vert_dp_dv = vert_dp_dv;
+
 	// Should be no quads
 	assert(quads.empty());
 
@@ -827,6 +831,10 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 						t_1
 					));
 
+				// Add new dp_du etc.. for new vert
+				new_mesh->vert_dp_du.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i1]], t_1));
+				new_mesh->vert_dp_dv.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i1]], t_1));
+
 				// Make a new vertex along the edge (v_i, v_{i+2})
 				float t_2 = std::fabs(d[v_i] / (d[v_i] - d[v_i2]));
 				assert(t_2 >= 0 && t_2 <= 1);
@@ -849,6 +857,10 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 						new_mesh->uvs[current_triangles[t].uv_indices[v_i2] * num_uv_sets + z], 
 						t_2
 					));
+
+				// Add new dp_du etc.. for new vert
+				new_mesh->vert_dp_du.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i2]], t_2));
+				new_mesh->vert_dp_dv.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i2]], t_2));
 
 				// Make the triangle (v_i, v_new1, vnew2)
 				if(d[v_i] > 0) // If v_i is on front side of plane
