@@ -39,4 +39,11 @@ void writeInt32(std::ostream& stream, int32 x)
 }
 
 
+float readFloat(std::istream& stream)
+{
+	float x;
+	stream.read((char*)&x, sizeof(float));
+	return x;
+}
+
 }
