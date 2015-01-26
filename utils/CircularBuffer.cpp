@@ -14,7 +14,7 @@ Generated at 2013-05-16 16:42:23 +0100
 #include "../utils/Timer.h"
 #include "../utils/MTwister.h"
 #include "../utils/StringUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 
 
 void circularBufferTest()
@@ -256,12 +256,29 @@ void circularBufferTest()
 
 		testAssert(buf.beginIt() == buf.endIt());
 
+		// Make sure iteration over an empty buffer does nothing.
+		size_t i = 0;
+		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+			i++;
+		testAssert(i == 0);
+
+		buf.push_back(1);
+		buf.pop_back();
+
+		// Make sure iteration over an empty buffer (with data.size() > 0) does nothing.
+		i = 0;
+		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+			i++;
+		testAssert(i == 0);
+
+
+
 		// Make a queue (0, 1, 2, ... n-2, n-1)
 		const size_t N = 1000;
 		for(size_t i=0; i<N; ++i)
 			buf.push_back((int)i);
 
-		size_t i = 0;
+		i = 0;
 		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
 		{
 			testAssert((*it) == i);
@@ -318,7 +335,15 @@ void circularBufferTest()
 					if(!buf.empty())
 						buf.pop_front();
 				}
+
+				// Test iterating over resulting buffer
+				size_t c = 0;
+				for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+					c++;
+				testAssert(c == buf.size());
 			}
+
+			
 		}
 	}
 }
