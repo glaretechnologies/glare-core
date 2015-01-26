@@ -542,6 +542,9 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 		throw PlatformUtilsExcep("openFileBrowserWindowAtLocation Failed: error code: " + toString((unsigned int)GetLastError()));
 	}
 
+	// "Handles in PROCESS_INFORMATION must be closed with CloseHandle when they are no longer needed." - MSDN 'CreateProcess function'.
+	CloseHandle(procInfo.hProcess);
+
 	/*const HINSTANCE res = ShellExecute(
 		NULL,
 		L"explore", // operation
