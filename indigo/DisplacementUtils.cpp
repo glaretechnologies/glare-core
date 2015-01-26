@@ -106,6 +106,10 @@ public:
 	{
 		return v_a == other.v_a && v_b == other.v_b;
 	}
+	inline bool operator != (const DUVertIndexPair& other) const
+	{
+		return v_a != other.v_a || v_b != other.v_b;
+	}
 
 	unsigned int v_a, v_b;
 };
@@ -427,15 +431,23 @@ void DisplacementUtils::subdivideAndDisplace(
 			DUVertIndexPair edge_key(myMin(tri_new_vert_indices[i], tri_new_vert_indices[i1]), myMax(tri_new_vert_indices[i], tri_new_vert_indices[i1]));
 			DUVertIndexPair old_edge(myMin(tri.vertex_indices[i], tri.vertex_indices[i1]), myMax(tri.vertex_indices[i], tri.vertex_indices[i1]));
 
-			std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
+			std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key); // Lookup edge
 			if(result == new_edge_info.end()) // If edge not added yet:
-				new_edge_info.insert(std::make_pair(edge_key, EdgeInfo(old_edge, /*num_adjacent_polys=*/1)));
+				new_edge_info.insert(std::make_pair(edge_key, EdgeInfo(old_edge, /*num_adjacent_polys=*/1))); // Add edge
 			else
 			{
-				if(!(result->second.old_edge == old_edge)) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
+				if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
 				{
-					if(	(vertices_in[old_edge.v_a].normal != vertices_in[result->second.old_edge.v_a].normal) || 
-						(vertices_in[old_edge.v_b].normal != vertices_in[result->second.old_edge.v_b].normal)) // If shading normals are different on the old edge vertices:
+					// Get edges sorted by vertex position, compare normals at the ends of the edges.
+					const DUVertIndexPair& old_edge2 = result->second.old_edge;
+
+					const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
+					const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
+
+					const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
+					const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
+
+					if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
 						temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
 				}
 
@@ -501,10 +513,18 @@ void DisplacementUtils::subdivideAndDisplace(
 				new_edge_info.insert(std::make_pair(edge_key, EdgeInfo(old_edge, /*num_adjacent_polys=*/1)));
 			else
 			{
-				if(!(result->second.old_edge == old_edge)) // If adjacent polygon used different edge vertices then there is a discontinuity.
+				if(result->second.old_edge != old_edge) // If adjacent polygon used different edge vertices then there is a discontinuity.
 				{
-					if(	(vertices_in[old_edge.v_a].normal != vertices_in[result->second.old_edge.v_a].normal) || 
-						(vertices_in[old_edge.v_b].normal != vertices_in[result->second.old_edge.v_b].normal)) // If shading normals are different on the old edge vertices:
+					// Get edges sorted by vertex position, compare normals at the ends of the edges.
+					const DUVertIndexPair& old_edge2 = result->second.old_edge;
+
+					const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
+					const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
+
+					const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
+					const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
+
+					if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
 						temp_edges.push_back(DUEdge(quad_new_vert_indices[i], quad_new_vert_indices[i1], temp_quads[q].uv_indices[i], temp_quads[q].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
 				}
 
