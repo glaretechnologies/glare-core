@@ -14,6 +14,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
 #include "../indigo/globals.h"
+#include "../indigo/SingleFreq.h"
 #include "../simpleraytracer/camera.h"
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
@@ -601,14 +602,29 @@ public:
 					const ptrdiff_t src_addr = y * xres + x;
 					Colour4f sum(0.0f);
 
-					for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->layers.size(); ++z)
+					if(closure.render_channels->hasSpectral())
 					{
-						const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
-						const Vec3f& scale = (*closure.layer_weights)[z];
+						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
+						{
+							const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels->spectral.getN();
+							const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
+							const float pixel_comp_val = closure.render_channels->spectral.getPixel(x, y)[z] * closure.image_scale;
+							sum[0] += xyz.x * pixel_comp_val;
+							sum[1] += xyz.y * pixel_comp_val;
+							sum[2] += xyz.z * pixel_comp_val;
+						}
+					}
+					else
+					{
+						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->layers.size(); ++z)
+						{
+							const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
+							const Vec3f& scale = (*closure.layer_weights)[z];
 
-						sum.x[0] += c.r * scale.x;
-						sum.x[1] += c.g * scale.y;
-						sum.x[2] += c.b * scale.z;
+							sum.x[0] += c.r * scale.x;
+							sum.x[1] += c.g * scale.y;
+							sum.x[2] += c.b * scale.z;
+						}
 					}
 
 					// Get alpha from alpha channel if it exists

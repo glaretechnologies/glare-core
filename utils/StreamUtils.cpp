@@ -46,4 +46,11 @@ float readFloat(std::istream& stream)
 	return x;
 }
 
+
+void writeFloat(std::ostream& stream, float x)
+{
+	stream.write((const char*)&x, sizeof(float));
+}
+
+
 }
