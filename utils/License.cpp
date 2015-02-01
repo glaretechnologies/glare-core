@@ -161,6 +161,9 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	EVP_PKEY_free(public_key);
 	BIO_free_all(public_key_mbio);
 
+//	ERR_clear_error();
+	ERR_remove_state(0);
+
 	if(result == 1) // Correct signature
 	{
 		return true;
@@ -300,6 +303,16 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		desired_licence_type = REVIT_3_X;
 	else if(components[1] == "indigo-rt-3.x")
 		desired_licence_type = RT_3_X;
+
+	else if(components[1] == "indigo-full-4.x")
+		desired_licence_type = FULL_4_X;
+	else if(components[1] == "indigo-node-4.x")
+		desired_licence_type = NODE_4_X;
+	else if(components[1] == "indigo-revit-4.x")
+		desired_licence_type = REVIT_4_X;
+	else if(components[1] == "indigo-rt-4.x")
+		desired_licence_type = RT_4_X;
+
 	else if(components[1] == "indigo-rt-iclone")
 		desired_licence_type = INDIGO_RT_ICLONE;
 #endif
@@ -517,16 +530,25 @@ const std::string License::licenseTypeToString(LicenceType t)
 		return "Indigo 3.x Full";
 	else if(t == NODE_3_X)
 		return "Indigo 3.x Node";
-
 	else if(t == REVIT_3_X)
 		return "Indigo for Revit 3.x Full";
+	else if(t == RT_3_X)
+		return "Indigo RT";
+
+	else if(t == FULL_4_X)
+		return "Indigo 4.x Full";
+	else if(t == NODE_4_X)
+		return "Indigo 4.x Node";
+	else if(t == REVIT_4_X)
+		return "Indigo for Revit 4.x Full";
+	else if(t == RT_4_X)
+		return "Indigo RT";
 
 	else if(t == NETWORK_FLOATING_FULL)
 		return "Network Floating Full";
 	else if(t == NETWORK_FLOATING_NODE)
 		return "Network Floating Node";
-	else if(t == RT_3_X)
-		return "Indigo RT";
+
 	else if(t == GREENBUTTON_CLOUD)
 		return "Indigo Cloud Node";
 	else if(t == INDIGO_RT_ICLONE)
@@ -549,8 +571,8 @@ const std::string License::licenseTypeToCodeString(LicenceType t)
 
 bool License::licenceIsForOldVersion(LicenceType t)
 {
-	if(t == FULL_2_X || t == NODE_2_X)
-		return true; // we're at 3.0 now.
+	if(t == FULL_2_X || t == NODE_2_X || t == FULL_3_X || t == NODE_3_X || t == RT_3_X || t == REVIT_3_X)
+		return true; // we're at 4.0 now.
 
 	return false;
 }
@@ -565,7 +587,7 @@ bool License::shouldApplyWatermark(LicenceType t)
 	if(t == UNLICENSED)
 		return true;
 	else if(t == FULL_2_X)
-		return true; // we're at 3.0 now.
+		return true; // we're at 4.0 now.
 	else if(t == NODE_2_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
 	else if(t == BETA_2_X)
@@ -581,17 +603,27 @@ bool License::shouldApplyWatermark(LicenceType t)
 	else if(t == NETWORK_FLOATING_NODE)
 		return false;
 	else if(t == FULL_3_X)
-		return false;
+		return true; // we're at 4.0 now.
 	else if(t == NODE_3_X)
 		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
 	else if(t == REVIT_3_X)
-		return false;
+		return true; // we're at 4.0 now.
 	else if(t == RT_3_X)
+		return true; // we're at 4.0 now.
+
+	else if(t == FULL_4_X)
+		return false;
+	else if(t == NODE_4_X)
+		return true; // Nodes just send stuff over the network, so if used as a standalone, will apply watermarks.
+	else if(t == REVIT_4_X)
+		return false;
+	else if(t == RT_4_X)
 #ifdef INDIGO_RT
 		return false;
 #else
 		return true;
 #endif
+
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
 	else if(t == INDIGO_RT_ICLONE)
@@ -621,31 +653,42 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 	else if(t == FULL_LIFETIME)
 		return false;
 	else if(t == FULL_2_X)
-		return true; // we're at 3.0 now, so apply res limits.
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == NODE_2_X)
-		return true; // we're at 3.0 now, so apply res limits.
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == BETA_2_X)
 	{
 		return !isCurrentDayInBetaPeriod(); // Apply res limits if not in beta period.
 	}
 	else if(t == SDK_2_X)
-		return true; // we're at 3.0 now, so apply res limits.
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == NETWORK_FLOATING_FULL)
 		return false;
 	else if(t == NETWORK_FLOATING_NODE)
 		return false;
+
 	else if(t == FULL_3_X)
-		return false;
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == NODE_3_X)
-		return false;
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == REVIT_3_X)
-		return false;
+		return true; // we're at 4.0 now, so apply res limits.
 	else if(t == RT_3_X)
+		return true; // we're at 4.0 now, so apply res limits.
+
+	else if(t == FULL_4_X)
+		return false;
+	else if(t == NODE_4_X)
+		return false;
+	else if(t == REVIT_4_X)
+		return false;
+	else if(t == RT_4_X)
 #ifdef INDIGO_RT
 		return false;
 #else
 		return true;
 #endif
+
 	else if(t == GREENBUTTON_CLOUD)
 		return false;
 	else if(t == INDIGO_RT_ICLONE)

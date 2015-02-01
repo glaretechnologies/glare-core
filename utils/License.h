@@ -43,12 +43,17 @@ public:
 		FULL_3_X,
 		NODE_3_X,
 
+		FULL_4_X,
+		NODE_4_X,
+
 		REVIT_3_X,
+		REVIT_4_X,
 
 		NETWORK_FLOATING_FULL,
 		NETWORK_FLOATING_NODE,
 
 		RT_3_X,
+		RT_4_X,
 
 		GREENBUTTON_CLOUD,
 
