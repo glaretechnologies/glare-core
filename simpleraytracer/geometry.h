@@ -11,7 +11,7 @@ File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 #include "../maths/plane.h"
 #include "../physics/jscol_aabbox.h"
 #include "../utils/RefCounted.h"
-#include "../indigo/TexCoordEvaluator.h"
+#include "../indigo/UVCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
 #include "../raytracing/hitinfo.h"
 #include <vector>
@@ -45,7 +45,7 @@ Geometry
 --------
 Interface that represents the shape of an object
 =====================================================================*/
-SSE_CLASS_ALIGN Geometry : public RefCounted, public TexCoordEvaluator
+SSE_CLASS_ALIGN Geometry : public RefCounted, public UVCoordEvaluator
 {
 public:
 	Geometry(bool sub_elements_curved_) : object_usage_count(0), sub_elements_curved(sub_elements_curved_) {}

@@ -776,13 +776,13 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 
-SSE_CLASS_ALIGN DUTexCoordEvaluator : public TexCoordEvaluator
+SSE_CLASS_ALIGN DUUVCoordEvaluator : public UVCoordEvaluator
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	DUTexCoordEvaluator(){}
-	~DUTexCoordEvaluator(){}
+	DUUVCoordEvaluator(){}
+	~DUUVCoordEvaluator(){}
 
 	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 	{
@@ -831,7 +831,7 @@ Returns the displacement at a point on a triangle,
 evaluated at an arbitrary point on the triangle, according to the barycentric coordinates (b1, b2)
 */
 static float evalDisplacement(ThreadContext& context, 
-								DUTexCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
+								DUUVCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
 								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
@@ -888,7 +888,7 @@ Returns the displacement at a point on a quad,
 evaluated at an arbitrary point on the quad, according to the barycentric coordinates (alpha, beta)
 */
 static float evalDisplacement(ThreadContext& context, 
-								DUTexCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
+								DUUVCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
 								const std::vector<Reference<Material> >& materials,
 								const DUQuad& quad, 
 								const std::vector<DUVertex>& verts,
@@ -992,7 +992,7 @@ Returns the maximum absolute difference between the displacement as interpolated
 and the displacement as evaluated directly.
 */
 static float displacementError(ThreadContext& context, 
-								DUTexCoordEvaluator& du_texcoord_evaluator,
+								DUUVCoordEvaluator& du_texcoord_evaluator,
 								const std::vector<Reference<Material> >& materials,
 								const DUTriangle& triangle, 
 								const std::vector<DUVertex>& verts,
@@ -1031,7 +1031,7 @@ static float displacementError(ThreadContext& context,
 
 // Quad version
 static float displacementError(ThreadContext& context, 
-								DUTexCoordEvaluator& du_texcoord_evaluator,
+								DUUVCoordEvaluator& du_texcoord_evaluator,
 								const std::vector<Reference<Material> >& materials,
 								const DUQuad& quad, 
 								const std::vector<DUVertex>& verts,
@@ -1091,7 +1091,7 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		ThreadContext context;
-		DUTexCoordEvaluator du_texcoord_evaluator;
+		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
 
 		for(int v_i = begin; v_i < end; ++v_i)
@@ -1352,7 +1352,7 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<Vec3f> temp_vert_buffer;
 	temp_vert_buffer.reserve(32);
 
-	DUTexCoordEvaluator temp_du_texcoord_evaluator;
+	DUUVCoordEvaluator temp_du_texcoord_evaluator;
 
 
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.

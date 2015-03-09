@@ -1142,16 +1142,16 @@ unsigned int RayMesh::getNumUVCoordSets() const
 }
 
 
-const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int uv_set_index) const
 {
-	if(texcoords_set >= num_uv_sets)
+	if(uv_set_index >= num_uv_sets)
 		return RayMesh::TexCoordsType(0, 0);
 
-	assert(texcoords_set < num_uv_sets);
+	assert(uv_set_index < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());
-	const int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
-	const int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
-	const int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
+	const int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + uv_set_index;
+	const int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + uv_set_index;
+	const int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + uv_set_index;
 	const Vec2f& v0tex = uvs[uv0idx];
 	const Vec2f& v1tex = uvs[uv1idx];
 	const Vec2f& v2tex = uvs[uv2idx];
