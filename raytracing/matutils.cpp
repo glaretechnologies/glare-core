@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #include "../indigo/VoidMedium.h"
 #include "../indigo/ThreadContext.h"
 #include "../indigo/object.h"
+#include "../indigo/world.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../indigo/DataManagers.h"
 #include "../indigo/SampleServerWrapper.h"
@@ -723,6 +724,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 	{
 		ThreadContext context;
 		VoidMedium void_medium;
+		World world;
 		const float wavelen = 600.0f;
 		const SpectralVector wavelengths(wavelen);
 
@@ -748,6 +750,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			N_s, // pre-bump shading normal
 			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
 			Vec2f(0,0), // uv 0
+			&world,
 			false // shading normals flipped
 		);
 
@@ -855,6 +858,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 
 		ThreadContext context;
 		VoidMedium void_medium;
+		World world;
 		const double time = 0.0;
 		const float wavelen = 600.0f;
 		const SpectralVector wavelengths(wavelen);
@@ -878,6 +882,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			N_s, // pre-bump shading normal
 			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
 			Vec2f(0,0), // uv 0
+			&world,
 			false // shading normals flipped
 		);
 
