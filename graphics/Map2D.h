@@ -70,6 +70,8 @@ public:
 
 	virtual unsigned int getBytesPerPixel() const = 0;
 
+	virtual float getGamma() const = 0;
+
 private:
 	INDIGO_DISABLE_COPY(Map2D)
 };

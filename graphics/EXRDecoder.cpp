@@ -411,6 +411,7 @@ void EXRDecoder::test()
 		testAssert(im->getMapWidth() == 2400);
 		testAssert(im->getMapHeight() == 1200);
 		testAssert(im->getBytesPerPixel() == 2 * 3); // Half precision * 3 components
+		testAssert(im->getGamma() == 1.f);
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";

@@ -85,7 +85,7 @@ public:
 
 	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
-	float getGamma() const { return gamma; }
+	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
 
 	inline virtual const Colour3<Value> pixelColour(size_t x, size_t y) const;

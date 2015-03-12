@@ -129,6 +129,8 @@ public:
 	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
 
 	virtual unsigned int getBytesPerPixel() const;
+
+	virtual float getGamma() const { return 1.0f; }
 	/////////////////////////////////
 
 	static void test();
