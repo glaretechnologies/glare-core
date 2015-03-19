@@ -43,6 +43,8 @@ public:
 	// Returns the old value. (value before decrement)
 	inline glare_atomic_int decrement();
 
+	static void test();
+
 private:
 	INDIGO_DISABLE_COPY(IndigoAtomic);
 
@@ -59,15 +61,13 @@ inline void IndigoAtomic::operator = (glare_atomic_int val_)
 
 inline glare_atomic_int IndigoAtomic::operator++ (int)
 {
-	glare_atomic_int old_val = increment();
-	return old_val;
+	return increment();
 }
 
 
 inline glare_atomic_int IndigoAtomic::operator-- (int)
 {
-	glare_atomic_int old_val = decrement();
-	return old_val;
+	return decrement();
 }
 
 
