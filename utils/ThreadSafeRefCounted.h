@@ -7,8 +7,6 @@ Copyright Glare Technologies Limited 2014 -
 
 
 #include <cassert>
-#include "Mutex.h"
-#include "Lock.h"
 #include "IndigoAtomic.h"
 
 
