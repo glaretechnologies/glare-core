@@ -16,6 +16,39 @@ Code By Nicholas Chapman.
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
+#include <unordered_map>
+
+
+struct Vert
+{
+	unsigned int vert_i;
+	unsigned int norm_i;
+
+	inline bool operator < (const Vert& b) const
+	{
+		if(vert_i == b.vert_i)
+			return norm_i < b.norm_i;
+		else
+			return vert_i < b.vert_i;
+	}
+	inline bool operator == (const Vert& b) const
+	{
+		return vert_i == b.vert_i && norm_i == b.norm_i;
+	}
+};
+
+
+// Hash function for Vert
+class VertHash
+{
+public:
+	inline size_t operator()(const Vert& v) const
+	{	
+		// hash _Keyval to size_t value by pseudorandomizing transform.
+		// Since there shouldn't be a lot of vertices with the same position but different normals, this should hopefully be adequate as a hash function.
+		return (size_t)v.vert_i;
+	}
+};
 
 
 void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale)
@@ -35,15 +68,17 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 	Parser parser((const char*)file.fileData(), (unsigned int)file.fileSize());
 
 	const unsigned int MAX_NUM_FACE_VERTICES = 256;
-	std::vector<unsigned int> face_vertex_indices(MAX_NUM_FACE_VERTICES);
-	std::vector<unsigned int> face_normal_indices(MAX_NUM_FACE_VERTICES);
 	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES, 0);
 
-	unsigned int num_vertices_added = 0;
-
+	// Positions, normals and UVs as parsed from the OBJ file.
 	std::vector<Indigo::Vec3f> vert_positions;
 	std::vector<Indigo::Vec3f> vert_normals;
 	std::vector<Indigo::Vec2f> uvs;
+
+	std::unordered_map<Vert, unsigned int, VertHash> added_verts; // Hash map from Vertex to index of where the vertex was added to the Indigo Mesh.
+	unsigned int num_verts_added = 0;
+	std::vector<unsigned int> face_added_vert_indices(MAX_NUM_FACE_VERTICES);
+
 
 	int linenum = 0;
 	std::string token;
@@ -80,9 +115,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 				handler.addMaterialUsed(toIndigoString(material_name));
 			}
 		}
-		else if(token == "v")//vertex position
+		else if(token == "v") // vertex position
 		{
-			Indigo::Vec3f pos(0,0,0);
+			Indigo::Vec3f pos;
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(pos.x);
 			parser.parseSpacesAndTabs();
@@ -95,12 +130,11 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 			pos *= scale;
 			
-			//handler.addVertex(pos);//, Vec3f(0,0,1));
 			vert_positions.push_back(pos);
 		}
-		else if(token == "vt")//vertex tex coordinate
+		else if(token == "vt") // vertex tex coordinate
 		{
-			Indigo::Vec2f texcoord(0,0);
+			Indigo::Vec2f texcoord;
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(texcoord.x);
 			parser.parseSpacesAndTabs();
@@ -114,7 +148,6 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			if(!encountered_uvs)
 			{
 				handler.setMaxNumTexcoordSets(1);
-				//handler.addUVSetExposition("default", 0);
 				encountered_uvs = true;
 			}
 
@@ -125,7 +158,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 		}
 		else if(token == "vn") // vertex normal
 		{
-			Indigo::Vec3f normal(0,0,0);
+			Indigo::Vec3f normal;
 			parser.parseSpacesAndTabs();
 			const bool r1 = parser.parseFloat(normal.x);
 			parser.parseSpacesAndTabs();
@@ -138,20 +171,22 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 			vert_normals.push_back(normal);
 		}
-		else if(token == "f")//face
+		else if(token == "f") // face
 		{
 			int numfaceverts = 0;
 
 			for(int i=0; i<(int)MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
 			{
 				parser.parseSpacesAndTabs();
-				if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
-					break; // end of line, we're done parsing this vertex.
+				if(parser.current() == '\n' || parser.current() == '\r' || parser.eof())
+					break; // end of line, we're done parsing this face.
 
 				//------------------------------------------------------------------------
 				//Parse vert, texcoord, normal indices
 				//------------------------------------------------------------------------
 				bool read_normal_index = false;
+				int zero_based_vert_index;
+				int zero_based_normal_index = 0;
 
 				// Read vertex position index
 				int vert_index;
@@ -160,9 +195,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					numfaceverts++;
 
 					if(vert_index < 0)
-						face_vertex_indices[i] = vert_positions.size() + vert_index;
+						zero_based_vert_index = (unsigned int)vert_positions.size() + vert_index;
 					else if(vert_index > 0)
-						face_vertex_indices[i] = vert_index - 1; // Convert to 0-based index
+						zero_based_vert_index = vert_index - 1; // Convert to 0-based index
 					else
 						throw Indigo::Exception("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
@@ -173,7 +208,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 						if(parser.parseInt(uv_index))
 						{
 							if(uv_index < 0)
-								face_uv_indices[i] = uvs.size() + uv_index;
+								face_uv_indices[i] = (unsigned int)uvs.size() + uv_index;
 							else if(uv_index > 0)
 								face_uv_indices[i] = uv_index - 1; // Convert to 0-based index
 							else
@@ -188,9 +223,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 								throw Indigo::Exception("syntax error: no integer following '/' (line " + toString(linenum) + ")");
 
 							if(normal_index < 0)
-								face_normal_indices[i] = vert_normals.size() + normal_index;
+								zero_based_normal_index = (unsigned int)vert_normals.size() + normal_index;
 							else if(normal_index > 0)
-								face_normal_indices[i] = normal_index - 1; // Convert to 0-based index
+								zero_based_normal_index = normal_index - 1; // Convert to 0-based index
 							else
 								throw Indigo::Exception("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						
@@ -201,21 +236,47 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 				else 
 					throw Indigo::Exception("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
 
-				// Add the vertex to the mesh
+				// Add the vertex to the mesh, if it hasn't been added already.
 
-				if(face_vertex_indices[i] >= vert_positions.size())
-					throw Indigo::Exception("Position index invalid. (index '" + toString(face_vertex_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+				if(zero_based_vert_index >= vert_positions.size())
+					throw Indigo::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 				if(read_normal_index)
 				{
-					if(face_normal_indices[i] >= vert_normals.size())
-						throw Indigo::Exception("Normal index invalid. (index '" + toString(face_normal_indices[i]) + "' out of bounds, on line " + toString(linenum) + ")");
+					if(zero_based_normal_index >= vert_normals.size())
+						throw Indigo::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
-					handler.addVertex(vert_positions[face_vertex_indices[i]], vert_normals[face_normal_indices[i]]);
+					Vert v;
+					v.vert_i = zero_based_vert_index;
+					v.norm_i = zero_based_normal_index;
+					const std::unordered_map<Vert, unsigned int, VertHash>::iterator res = added_verts.find(v);
+					if(res == added_verts.end())
+					{
+						// Not added yet, add:
+						handler.addVertex(vert_positions[zero_based_vert_index], vert_normals[zero_based_normal_index]);
+						added_verts.insert(std::make_pair(v, num_verts_added));
+						face_added_vert_indices[i] = num_verts_added;
+						num_verts_added++;
+					}
+					else
+						face_added_vert_indices[i] = res->second;
 				}
 				else
 				{
-					handler.addVertex(vert_positions[face_vertex_indices[i]]);
+					Vert v;
+					v.vert_i = zero_based_vert_index;
+					v.norm_i = 0;
+					const std::unordered_map<Vert, unsigned int, VertHash>::iterator res = added_verts.find(v);
+					if(res == added_verts.end())
+					{
+						// Not added yet, add:
+						handler.addVertex(vert_positions[zero_based_vert_index]);
+						added_verts.insert(std::make_pair(v, num_verts_added));
+						face_added_vert_indices[i] = num_verts_added;
+						num_verts_added++;
+					}
+					else
+						face_added_vert_indices[i] = res->second;
 				}
 
 			}//end for each vertex
@@ -239,29 +300,22 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 			if(numfaceverts == 3)
 			{
-				const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + 1, num_vertices_added + 2 };
-				const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[1], face_uv_indices[2] };
-				handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
+				handler.addTriangle(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
 			}
 			else if(numfaceverts == 4)
 			{
-				const unsigned int v_indices[4] = { num_vertices_added, num_vertices_added + 1, num_vertices_added + 2, num_vertices_added + 3 };
-				const unsigned int uv_indices[4] = { face_uv_indices[0], face_uv_indices[1], face_uv_indices[2], face_uv_indices[3] };
-				handler.addQuad(v_indices, uv_indices, current_mat_index);
+				handler.addQuad(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
 			}
 			else
 			{
 				// Add all tris needed to make up the face polygon
 				for(int i=2; i<numfaceverts; ++i)
 				{
-					//const unsigned int v_indices[3] = { face_vertex_indices[0], face_vertex_indices[i-1], face_vertex_indices[i] };
-					const unsigned int v_indices[3] = { num_vertices_added, num_vertices_added + i - 1, num_vertices_added + i };
+					const unsigned int v_indices[3] = { face_added_vert_indices[0], face_added_vert_indices[i - 1], face_added_vert_indices[i] };
 					const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
 					handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
 				}
 			}
-
-			num_vertices_added += numfaceverts;
 
 			// Finished handling face.
 		}
