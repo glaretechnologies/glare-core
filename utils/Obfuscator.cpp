@@ -131,6 +131,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "sampler_t",
 "image2d_t",
 "read_imagef",
+"write_imagef",
 "int2",
 "get_local_id",
 "get_global_id",
@@ -154,7 +155,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 // OpenCL path tracer defs:
 
 // XXX TODO this should be renamed to something cryptic
-"IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE",
+"IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE", "X_BUCKET_SIZE", "Y_BUCKET_SIZE", "PASS_SAMPLES",
 "ENVMAP_SPHERE", "SUNSKY",
 "USE_FLOAT3_SWIZZLES",
 "RANDOMISE_SAMPLES",
@@ -176,11 +177,10 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 
 // Externally accesible functions
 "zero_kernel",
+"filtering_kernel",
+"imaging_kernel",
 "QMC_kernel",
-"RayTracingKernel",
-"RayTracingKernelSkip",
 "RTK",
-"RTKS",
 
 
 NULL
@@ -457,129 +457,11 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 {
 	//std::string header;
 
-	const bool transmungify_kernels = true;
-
 	try
 	{
-		// Single level kernel
-		{
-			std::string s;
-			FileUtils::readEntireFile(FileUtils::join(kernel_dir, "OpenCLSingleLevelRayTracingKernel.cl"), s);
-
-			Obfuscator ob(
-				true, // collapse_whitespace
-				true, // remove_comments
-				true, // change tokens
-				true // cryptic_tokens
-				);
-
-
-			// Obfuscate the code
-			const std::string ob_s = ob.obfuscate(s);
-
-			// Add to header
-			/*header += "const int OpenCLSingleLevelRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
-			header += "const unsigned int OpenCLSingleLevelRayTracingKernel[" + toString(dwords.size()) + "] = {\n";
-			for(int i=0; i<dwords.size(); ++i)
-			{
-				header += "0x" + ::toHexString(dwords[i]) + ", ";
-				if((i > 0) && (i%10 == 0))
-					header += "\n";
-			}
-			header += "\n};\n";*/
-
-
-			const std::string outpath = "data/OSL"; // "OpenCLSingleLevelRayTracingKernel_obfuscated.cl";
-
-			if(!transmungify_kernels)
-			{
-				FileUtils::writeEntireFile(outpath, ob_s);
-			}
-			else
-			{
-				// Transmungify
-				std::vector<unsigned int> dwords;
-				Transmungify::encrypt(ob_s, dwords);
-
-				FileUtils::writeEntireFile(outpath, (const char*)&dwords[0], dwords.size() * sizeof(unsigned int));
-			}
-
-			conPrint("Written '" + outpath + "'");
-
-
-			/*{
-			const std::string outpath = "data/OSL";
-			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");
-			}*/
-			
-			//{
-			//	// Write to dist dir.  Note: this kinda sux.
-			//	const std::string outpath = PlatformUtils::getEnvironmentVariable("INDIGO_TEST_REPOS_DIR") + "dist/shared/data/OSL";
-			//	FileUtils::writeEntireFile(outpath, ob_s);
-			//	conPrint("Written '" + outpath + "'");
-			//}
-		}
-
-		// Two level kernel
-		{
-			std::string s;
-			FileUtils::readEntireFile(FileUtils::join(kernel_dir, "OpenCLRayTracingKernel.cl"), s);
-
-			Obfuscator ob(
-				true, // collapse_whitespace
-				true, // remove_comments
-				true, // change tokens
-				true // cryptic_tokens
-				);
-
-
-			// Obfuscate the code
-			const std::string ob_s = ob.obfuscate(s);
-
-			// Transmungify
-			std::vector<unsigned int> dwords;
-			Transmungify::encrypt(ob_s, dwords);
-
-			// Add to header
-			/*header += "\n\n";
-			header += "const int OpenCLRayTracingKernel_size = " + toString(ob_s.size()) + ";\n";
-			header += "const unsigned int OpenCLRayTracingKernel[" + toString(dwords.size()) + "] = {\n";
-			for(int i=0; i<dwords.size(); ++i)
-			{
-				header += "0x" + ::toHexString(dwords[i]) + ", ";
-				if((i > 0) && (i%10 == 0))
-					header += "\n";
-			}
-			header += "\n};\n";*/
-
-			const std::string outpath = "data/ODL"; // "OpenCLRayTracingKernel_obfuscated.cl";
-
-			if(!transmungify_kernels)
-			{
-				FileUtils::writeEntireFile(outpath, ob_s);
-			}
-			else
-			{
-				// Transmungify
-				std::vector<unsigned int> dwords;
-				Transmungify::encrypt(ob_s, dwords);
-
-				FileUtils::writeEntireFile(outpath, (const char*)&dwords[0], dwords.size() * sizeof(unsigned int));
-			}
-
-			conPrint("Written '" + outpath + "'");	
-
-			/*{
-			const std::string outpath = "data/ODL";
-			FileUtils::writeEntireFile(outpath, ob_s);
-			conPrint("Written '" + outpath + "'");
-			}*/
-		}
-
 		// OpenCL path tracer kernels
 		{
-			const int num_files = 8;
+			const int num_files = 9;
 			std::string files[num_files] =
 			{
 				// Include files. Note that the order here matters, because we can't use #include statements and #pragma once etc
@@ -590,6 +472,7 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 				"ptkernel_samplingutils.h",
 				"ptkernel_textures.h",
 				"ptkernel_materials.h",
+				"ptkernel_imaging.h",
 
 				// Main kernel file
 				"OpenCLPathTracingKernel.cl"
