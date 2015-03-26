@@ -1745,9 +1745,9 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 		}
 	}
 
-	for(size_t q = 0; q < quads.size(); ++q)
+	if(update_shading_normals)
 	{
-		if(update_shading_normals)
+		for(size_t q = 0; q < quads.size(); ++q)
 		{
 			const Vec3f normal = triGeometricNormal(
 				vertices, 
