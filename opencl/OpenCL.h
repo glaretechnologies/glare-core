@@ -162,24 +162,16 @@ public:
 	------
 	
 	=====================================================================*/
-
-	// If desired_device_name is empty, it will try to auto-detect a device
 	OpenCL(bool verbose);
 
 	~OpenCL();
 
 	void libraryInit();
 
-	// Returns the index of the suggested OpenCL device, -1 if none valid
-	int getSuggestedDeviceNumber(const std::string& preferred_dev_name) const;
-
-	int getChosenDeviceNumber() const;
 
 #if USE_OPENCL
 	void queryDevices();
 	const std::vector<gpuDeviceInfo>& getDeviceInfo() const;
-
-	void deviceInit(int device_number); // TODO remove
 
 	void deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out);
 	void deviceFree(cl_context& context, cl_command_queue& command_queue);
@@ -243,10 +235,6 @@ public:
 #endif
 
 
-	cl_platform_id platform_to_use;
-	cl_device_id device_to_use;
-	cl_context context;
-	cl_command_queue command_queue;
 #endif
 
 #if defined(_WIN32) || defined(__linux__)
@@ -256,12 +244,10 @@ public:
 	bool initialised;
 	bool verbose;
 
-	bool allow_CPU_devices;
-
-	int chosen_device_number;
-
 	std::vector<gpuDeviceInfo> device_info;
-
 	OpenCLInfo info;
 };
 
+
+OpenCL* getGlobalOpenCL();
+void destroyGlobalOpenCL();

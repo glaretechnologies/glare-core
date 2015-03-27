@@ -7,29 +7,27 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#include "../utils/IncludeWindows.h"
-
-#if defined(__linux__)
-#include <dlfcn.h>
-#endif
-
-#include <cmath>
-#include <fstream>
-#include <iostream>
-
+#include "../indigo/gpuDeviceInfo.h"
 #include "../maths/mathstypes.h"
+#include "../utils/IncludeWindows.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
-#include "../indigo/gpuDeviceInfo.h"
+#include "../utils/Mutex.h"
+#include "../utils/Lock.h"
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
 
 
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
-	verbose(verbose_),
-	allow_CPU_devices(false) // Allow suggesting of CPU devices when auto-detecting OpenCL devices
+	verbose(verbose_)
 {
 #if USE_OPENCL
 
@@ -44,35 +42,12 @@ OpenCL::OpenCL(bool verbose_)
 
 OpenCL::~OpenCL()
 {
-#if USE_OPENCL
-	// Free command queue
-	if(this->command_queue)
-	{
-		if(clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
-		{
-			assert(0);
-		}
-	}
-
-	// Cleanup
-	if(this->context)
-	{
-		if(clReleaseContext(this->context) != CL_SUCCESS)
-		{
-			assert(0);
-		}
-	}
-
-	//std::cout << "Shut down OpenCL." << std::endl;
-#endif
 }
 
 
 void OpenCL::libraryInit()
 {
 #if USE_OPENCL
-	context = 0;
-	command_queue = 0;
 
 	std::vector<std::string> opencl_paths;
 
@@ -256,13 +231,15 @@ void OpenCL::queryDevices()
 		throw Indigo::Exception("clGetPlatformIDs failed");
 
 
-#if defined(_WIN32) && OPENCL_OPENGL_INTEROP
+#if OPENCL_OPENGL_INTEROP
+#if defined(_WIN32)
 	const cl_context_properties current_context = (cl_context_properties)wglGetCurrentContext();
 	const cl_context_properties current_DC = (cl_context_properties)wglGetCurrentDC();
 #else
 	// TODO mac and linux
 	const cl_context_properties current_context = 0;
 	const cl_context_properties current_DC = 0;
+#endif
 #endif
 
 	if(verbose) conPrint("Num platforms: " + toString(num_platforms));
@@ -497,53 +474,6 @@ void OpenCL::queryDevices()
 }
 
 
-void OpenCL::deviceInit(int device_number)
-{
-	if(!initialised)
-		throw Indigo::Exception("OpenCL library not initialised");
-
-	if(device_number < 0 || device_number >= (int)device_info.size())
-		throw Indigo::Exception("Invalid OpenCL device initialisation requested.");
-
-	chosen_device_number = device_number;
-
-	platform_to_use = device_info[chosen_device_number].opencl_platform;
-	device_to_use = device_info[chosen_device_number].opencl_device;
-
-	if(chosen_device_number == -1)
-		throw Indigo::Exception("Could not find appropriate OpenCL device.");
-
-	cl_context_properties cps[3] =
-    {
-        CL_CONTEXT_PLATFORM,
-		(cl_context_properties)platform_to_use,
-        0
-    };
-
-	cl_int error_code;
-	this->context = clCreateContextFromType(
-		cps, // properties
-		CL_DEVICE_TYPE_ALL, // CL_DEVICE_TYPE_CPU, // TEMP CL_DEVICE_TYPE_GPU, // device type
-		NULL, // pfn notify
-		NULL, // user data
-		&error_code
-	);
-
-	if(this->context == 0)
-		throw Indigo::Exception("clCreateContextFromType failed: " + errorString(error_code));
-
-	// Create command queue
-	this->command_queue = this->clCreateCommandQueue(
-		context,
-		device_to_use,
-		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
-		&error_code);
-
-	if(command_queue == 0)
-		throw Indigo::Exception("clCreateCommandQueue failed");
-}
-
-
 void OpenCL::deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out)
 {
 	if(!initialised)
@@ -585,18 +515,18 @@ void OpenCL::deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, c
 void OpenCL::deviceFree(cl_context& context, cl_command_queue& command_queue)
 {
 	// Free command queue
-	if(this->command_queue)
+	if(command_queue)
 	{
-		if(clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
+		if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
 		{
 			assert(0);
 		}
 	}
 
 	// Cleanup
-	if(this->context)
+	if(context)
 	{
-		if(clReleaseContext(this->context) != CL_SUCCESS)
+		if(clReleaseContext(context) != CL_SUCCESS)
 		{
 			assert(0);
 		}
@@ -607,41 +537,9 @@ void OpenCL::deviceFree(cl_context& context, cl_command_queue& command_queue)
 #endif
 
 
-int OpenCL::getSuggestedDeviceNumber(const std::string& preferred_dev_name) const
-{
-	int64 chosen_device_perf = -1;
-	int chosen_device = -1;
-
-	for(size_t i = 0; i < device_info.size(); ++i)
-	{
-		const gpuDeviceInfo& di = device_info[i];
-
-		// If we've asked for a particular device and the name matches exactly, return its device index.
-		// We will strip leading and trailing whitespace, as some device names have lots of leading whitespace.
-		if(::stripHeadAndTailWhitespace(di.device_name) == ::stripHeadAndTailWhitespace(preferred_dev_name))
-			return (int)i;
-
-		bool device_ok = di.CPU ? allow_CPU_devices : true;
-		int64 device_perf = di.CPU ? 0 : (int64)di.core_count * (int64)di.core_clock;
-
-		if(device_ok && device_perf > chosen_device_perf)
-		{
-			chosen_device_perf = device_perf;
-			chosen_device = (int)i;
-		}
-	}
-
-	return chosen_device;
-}
-
-
-int OpenCL::getChosenDeviceNumber() const
-{
-	return chosen_device_number;
-}
-
-
 #if USE_OPENCL
+
+
 const std::string OpenCL::errorString(cl_int result)
 {
 	switch(result)
@@ -835,4 +733,44 @@ void OpenCL::dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& 
 }
 
 
-#endif
+#endif // USE_OPENCL
+
+
+static Mutex global_opencl_mutex;
+static OpenCL* global_opencl = NULL;
+static bool open_cl_load_failed = false;
+
+
+OpenCL* getGlobalOpenCL()
+{
+	Lock lock(global_opencl_mutex);
+	
+	if(global_opencl == NULL)
+	{
+		// If OpenCL creation failed last time, don't try again.
+		if(open_cl_load_failed)
+			return NULL;
+		
+		try
+		{
+			global_opencl = new OpenCL(false);
+			global_opencl->queryDevices();
+		}
+		catch(Indigo::Exception&)
+		{
+			assert(global_opencl == NULL);
+			open_cl_load_failed = true;
+		}
+	}
+		
+	return global_opencl;
+}
+
+
+void destroyGlobalOpenCL()
+{
+	Lock lock(global_opencl_mutex);
+	delete global_opencl;
+	global_opencl = NULL;
+	open_cl_load_failed = false;
+}
