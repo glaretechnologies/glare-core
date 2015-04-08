@@ -1,7 +1,7 @@
 /*=====================================================================
 Parser.cpp
 ----------
-Copyright Glare Technologies Limited 2013 - 
+Copyright Glare Technologies Limited 2015 - 
 =====================================================================*/
 #include "Parser.h"
 
@@ -25,7 +25,7 @@ Parser::Parser(const char* text_, unsigned int textsize_)
 	if(std::strlen(lc->decimal_point) >= 1)
 		this->decimal_separator = lc->decimal_point[0];
 	else*/
-		this->decimal_separator = '.';
+	//	this->decimal_separator = '.';
 }
 
 
@@ -41,7 +41,7 @@ Parser::Parser()
 	if(std::strlen(lc->decimal_point) >= 1)
 		this->decimal_separator = lc->decimal_point[0];
 	else*/
-		this->decimal_separator = '.';
+	//	this->decimal_separator = '.';
 }
 
 
@@ -64,6 +64,7 @@ static const unsigned int ASCII_ZERO_UINT = (unsigned int)'0';
 
 /*
 will consider overflowed if x > 2147483648
+e.g. x > 2^31
 
 Suppose x = 214748364
 x * 10 = 2147483640
@@ -158,9 +159,102 @@ bool Parser::parseInt(int32& result_out)
 }
 
 
+/*
+will consider overflowed if x > 2^63
+where 2^63 = 9223372036854775808
+
+Suppose x = 922337203685477580
+x * 10 = 9223372036854775800
+so x * 10 <= 2^63, so no overflow.
+
+suppose x = 922337203685477581
+x * 10 = 9223372036854775810
+so x * 10 > 2^63, so overflow.
+*/
+bool Parser::parseInt64(int64& result_out)
+{
+	unsigned int pos = currentpos;
+
+	/// Parse sign ///
+	int64 sign = 1;
+	if(pos >= textsize) // if EOF
+		return false;
+	if(text[pos] == '+')
+		pos++;
+	else if(text[pos] == '-')
+	{
+		pos++;
+		sign = -1;
+	}
+
+	const uint64 two_pow_63 = 9223372036854775808ull; // 2^63
+
+	/// Parse digits ///
+	const unsigned int digit_start_pos = pos;
+	uint64 x = 0;
+	for( ; (pos < textsize) && ::isNumeric(text[pos]); ++pos)
+	{
+		if(x > 922337203685477580ull) // If x will overflow when multiplied by 10:
+			return false;
+
+		// At this point we know:
+		assert(x <= 922337203685477580ull);
+		assert(10*x <= two_pow_63);
+		
+		x *= 10;
+
+		assert(x <= two_pow_63);
+
+		const unsigned int d = (unsigned int)text[pos] - ASCII_ZERO_UINT;
+		assert(d >= 0 && d <= 9);
+
+		x += d;
+
+		assert(x <= two_pow_63 + 9);
+	}
+
+	// If there were no digits, then this is not a valid integer literal
+	if(pos == digit_start_pos)
+		return false;
+
+	assert(x <= two_pow_63 + 9);
+	if(x >= two_pow_63)
+	{
+		// Possible overflow
+		if(x == two_pow_63)
+		{
+			if(sign == 1) // 2^63 is not representable as a positive signed integer.
+				return false;
+			else
+			{			
+				assert(sign == -1);
+				// else if sign = -1, then result = -2^63, which is valid.
+				// We can't cast x to int64 though, as it will overflow.  So just return the result directly.
+				// -2^63 can't be written directly as 2^63 is too large for a signed integer.
+				result_out = -9223372036854775807LL - 1;
+				this->currentpos = pos;
+				return true;
+			}
+		}
+		else
+		{
+			// x > 2^63, overflow.
+			assert(x > two_pow_63);
+			return false;
+		}
+	}
+
+	assert(x < two_pow_63);
+
+	result_out = sign * (int64)x;
+	this->currentpos = pos;
+	return true;
+}
+
+
 bool Parser::parseUnsignedInt(uint32& result_out)
 {
-	// Use 64 bit var
+	// Use 64 bit var to make the overflow checks simpler.
 	uint64 x = 0;
 	
 	unsigned int pos = this->currentpos;
@@ -171,50 +265,16 @@ bool Parser::parseUnsignedInt(uint32& result_out)
 		x = 10*x + ((uint64)text[pos] - (uint64)'0');
 
 		// Check if the value is too large to hold in a 32 bit uint:
-		if(x > 4294967295u)
+		if(x > 4294967295ULL)
 			return false;
 	}
+
+	assert(x <= 4294967295ULL);
 
 	result_out = (uint32)x;
 	this->currentpos = pos;
-
 	return pos != initial_pos;
-
-	/*unsigned int x = 0;
-	const int initial_currentpos = currentpos;
-	for( ;notEOF() && ::isNumeric(text[currentpos]); ++currentpos)
-		x = 10*x + ((int)text[currentpos] - (int)'0');
-	result_out = x;
-	return currentpos - initial_currentpos > 0;*/
 }
-
-
-/*bool Parser::parseNDigitUnsignedInt(unsigned int N, uint32& result_out)
-{
-	// Use 64 bit var
-	uint64 x = 0;
-	const int initial_currentpos = currentpos;
-	for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
-	{
-		x = 10*x + ((uint64)text[currentpos] - (uint64)'0');
-
-		// Check if the value is too large to hold in a 32 bit uint:
-		if(x > 4294967295u)
-		{
-			currentpos = initial_currentpos; // Restore currentpos.
-			return false;
-		}
-	}
-	result_out = (uint32)x;
-	return currentpos - initial_currentpos == N;
-
-	//unsigned int x = 0;
-	//const int initial_currentpos = currentpos;
-	//for( ;notEOF() && ::isNumeric(text[currentpos]) && (currentpos - initial_currentpos < N); ++currentpos)
-	//	x = 10*x + ((int)text[currentpos] - (int)'0');
-	//result_out = x;
-	//return currentpos - initial_currentpos == N;
-}*/
 
 
 bool Parser::parseFloat(float& result_out)
@@ -530,12 +590,33 @@ static void testFailsToParseInt(const std::string& s)
 }
 
 
+static void testFailsToParseInt64(const std::string& s)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	int64 x;
+	testAssert(!p.parseInt64(x));
+	testAssert(p.currentPos() == 0);
+}
+
+
 static void testParseInt(const std::string& s, int target)
 {
 	Parser p(s.c_str(), (unsigned int)s.length());
 
 	int x;
 	testAssert(p.parseInt(x));
+	testAssert(p.currentPos() == s.length());
+	testAssert(x == target);
+}
+
+
+static void testParseInt64(const std::string& s, int64 target)
+{
+	Parser p(s.c_str(), (unsigned int)s.length());
+
+	int64 x;
+	testAssert(p.parseInt64(x));
 	testAssert(p.currentPos() == s.length());
 	testAssert(x == target);
 }
@@ -739,7 +820,7 @@ void Parser::doUnitTests()
 	testParseInt("-2147483647", -2147483647);
 	testParseInt("-2147483648", -2147483647 - 1); // NOTE: -2147483648 can't be written directly as 2147483648 is too large for a signed integer.
 
-	// Test very large magnitude integers that are too large
+	// Test very large magnitude integers that are too small
 	testFailsToParseInt("-2147483649");
 	testFailsToParseInt("-2147483650");
 	testFailsToParseInt("-2147483651");
@@ -756,6 +837,72 @@ void Parser::doUnitTests()
 
 	testFailsToParseInt("-1000000000000");
 
+
+	//===================== parseInt64 ===============================
+	testParseInt64("0", 0);
+	testParseInt64("-0", 0);
+	testParseInt64("-0", -0);
+
+	for(int i=-10000; i<10000; ++i)
+		testParseInt64(::int64ToString(i), i);
+
+	// NOTE: max representable signed 64 bit int is 9223372036854775807
+	testAssert(std::numeric_limits<int64>::min() == -9223372036854775807LL - 1);
+	testAssert(std::numeric_limits<int64>::max() == 9223372036854775807LL);
+
+	// Test very large integer but valid 64-bit integers
+	testParseInt64("9223372036854775797", 9223372036854775797LL);
+	testParseInt64("9223372036854775800", 9223372036854775800LL);
+	testParseInt64("9223372036854775801", 9223372036854775801LL);
+	testParseInt64("9223372036854775806", 9223372036854775806LL);
+	testParseInt64("9223372036854775807", 9223372036854775807LL);
+
+	// Test very large integers that are too large
+	// NOTE: max representable signed 64 bit int is 9223372036854775807
+	testFailsToParseInt64("9223372036854775808");
+	testFailsToParseInt64("9223372036854775809");
+	testFailsToParseInt64("9223372036854775810");
+	testFailsToParseInt64("9223372036854775811");
+	testFailsToParseInt64("9223372036854775812");
+	testFailsToParseInt64("9223372036854775813");
+	testFailsToParseInt64("9223372036854775814");
+	testFailsToParseInt64("9223372036854775815");
+	testFailsToParseInt64("9223372036854775816");
+	testFailsToParseInt64("9223372036854775817");
+	testFailsToParseInt64("9223372036854775818");
+	testFailsToParseInt64("9223372036854775898");
+
+
+	testFailsToParseInt64("92233720368547758080");
+
+	testFailsToParseInt64("100000000000000000000");
+
+	// Test negative ints
+
+	// Test very large magnitude integers but valid 64-bit integers
+	testParseInt64("-9223372036854775797", -9223372036854775797LL);
+	testParseInt64("-9223372036854775800", -9223372036854775800LL);
+	testParseInt64("-9223372036854775801", -9223372036854775801LL);
+	testParseInt64("-9223372036854775806", -9223372036854775806LL);
+	testParseInt64("-9223372036854775807", -9223372036854775807LL);
+	testParseInt64("-9223372036854775808", -9223372036854775807LL - 1); // NOTE: -9223372036854775808 can't be written directly as 9223372036854775808 is too large for a signed integer.
+
+	// Test very large magnitude integers that are too small
+	testFailsToParseInt64("-9223372036854775809");
+	testFailsToParseInt64("-9223372036854775810");
+	testFailsToParseInt64("-9223372036854775811");
+	testFailsToParseInt64("-9223372036854775812");
+	testFailsToParseInt64("-9223372036854775813");
+	testFailsToParseInt64("-9223372036854775814");
+	testFailsToParseInt64("-9223372036854775815");
+	testFailsToParseInt64("-9223372036854775816");
+	testFailsToParseInt64("-9223372036854775817");
+	testFailsToParseInt64("-9223372036854775818");
+
+
+	testFailsToParseInt64("-92233720368547758080");
+
+	testFailsToParseInt64("-100000000000000000000");
 
 
 	//================== parseUnsignedInt =======================
@@ -1296,25 +1443,6 @@ void Parser::doUnitTests()
 		assert(result);
 	}*/
 
-
-	/*{
-	const std::string text = "123--456222";
-
-	Parser p(text.c_str(), (unsigned int)text.size());
-
-	unsigned int x;
-	assert(p.parseNDigitUnsignedInt(3, x));
-	assert(x == 123);
-	
-	assert(p.parseChar('-'));
-	assert(p.parseChar('-'));
-
-	assert(p.parseNDigitUnsignedInt(3, x));
-	assert(x == 456);
-
-	assert(p.parseNDigitUnsignedInt(3, x));
-	assert(x == 222);
-	}*/
 
 	{
 	const std::string text = "bleh 123";

@@ -1,7 +1,7 @@
 /*=====================================================================
 Parser.h
 --------
-Copyright Glare Technologies Limited 2013 - 
+Copyright Glare Technologies Limited 2015 - 
 =====================================================================*/
 #pragma once
 
@@ -26,13 +26,13 @@ public:
 
 	void reset(const char* text, unsigned int textsize);
 
-	//returns if character was found
-	//if it was, currentpos will be pointing to the next character.
-	//if not, it won't be moved.
+	// Returns if character was found.
+	// If it was, currentpos will be pointing to the next character.
+	// If not, it won't be moved.
 	inline bool parseChar(char target);
 	bool parseInt(int32& result_out);
+	bool parseInt64(int64& result_out);
 	bool parseUnsignedInt(uint32& result_out);
-	//bool parseNDigitUnsignedInt(unsigned int N, uint32& result_out);
 	bool parseFloat(float& result_out);
 	bool parseDouble(double& result_out);
 	inline bool parseWhiteSpace();
@@ -61,7 +61,7 @@ public:
 
 	inline bool eof() const;
 	inline bool notEOF() const;
-	inline void advance();
+	inline void advance(); // Advance current forwards one character
 
 	inline bool currentIsChar(char c) const { return notEOF() && current() == c; }
 
@@ -79,7 +79,7 @@ private:
 	const char* text;
 	unsigned int currentpos;
 	unsigned int textsize;
-	char decimal_separator;
+	//char decimal_separator;
 };
 
 
