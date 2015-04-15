@@ -270,6 +270,21 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		//	conPrint("found 'x  ='");
 		//}
 
+		if(p.parseString("//BEGIN_INCLUDES"))
+		{
+			// Skip lines until we get to the line with '//END_INCLUDES'.
+			while(1)
+			{
+				p.advancePastLine();
+				if(p.eof())
+					throw Indigo::Exception("End of file while looking for //END_INCLUDES");
+				if(p.parseString("//END_INCLUDES"))
+				{
+					p.advancePastLine();
+					break;
+				}
+			}
+		}
 		if(p.current() == '/' && p.nextIsChar('/'))
 		{
 			int last_currentpos = p.currentPos();
