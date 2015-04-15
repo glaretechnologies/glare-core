@@ -1,7 +1,7 @@
 /*=====================================================================
 Reference.h
 -----------
-Copyright Glare Technologies Limited 2012 - 
+Copyright Glare Technologies Limited 2015 - 
 =====================================================================*/
 #pragma once
 
@@ -17,7 +17,7 @@ Reference
 ---------
 Handle to a reference-counted object.
 Referenced object will be automatically deleted when no refs to it remain.
-T must be a subclass of 'RefCounted'
+T must be a subclass of 'RefCounted' or 'ThreadSafeRefCounted'.
 =====================================================================*/
 template <class T>
 class Reference
@@ -48,7 +48,14 @@ public:
 		if(ob)
 			ob->incRefCount();
 	}
-	
+
+	Reference(const Reference<T>& other)
+	{
+		ob = other.ob;
+
+		if(ob)
+			ob->incRefCount();
+	}
 
 	~Reference()
 	{
@@ -60,24 +67,17 @@ public:
 		}
 	}
 
-	Reference(const Reference<T>& other)
-	{
-		ob = other.ob;
-
-		if(ob)
-			ob->incRefCount();
-	}
-
+	
 	Reference& operator = (const Reference& other)
 	{
 		T* old_ob = ob;
 
 		ob = other.ob;
-		// NOTE: if a reference is getting assigned to itself, old_ob == ob.  So make sure we increment before we decrement and delete.
+		// NOTE: if a reference is getting assigned to itself, old_ob == ob.  So make sure we increment before we decrement, to avoid deletion.
 		if(ob)
 			ob->incRefCount();
 
-		// Dec old ref that this object used to contain
+		// Decrement reference count for the object that this reference used to refer to.
 		if(old_ob)
 		{
 			int64 ref_count = old_ob->decRefCount();
@@ -89,10 +89,9 @@ public:
 	}
 
 
-	//less than is defined as less than for the pointed to objects
+	// Compares the pointer values.
 	bool operator < (const Reference& other) const
 	{
-		//return *ob < *other.ob;
 		return ob < other.ob;
 	}
 
@@ -121,6 +120,12 @@ public:
 		return ob;
 	}
 
+	// Alias for getPointer()
+	inline T* ptr() const
+	{
+		return ob;
+	}
+
 	inline bool isNull() const
 	{
 		return ob == 0;
@@ -131,6 +136,12 @@ public:
 	}
 
 	inline T* getPointer()
+	{
+		return ob;
+	}
+
+	// Alias for getPointer()
+	inline T* ptr()
 	{
 		return ob;
 	}
@@ -154,19 +165,15 @@ public:
 	template <class T2>
 	inline const Reference<T2> downcast() const
 	{
-		//assert(dynamic_cast<const T2*>(ob) != NULL);
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 
 	template <class T2>
 	inline Reference<T2> downcast()
 	{
-		//assert(dynamic_cast<T2*>(ob) != NULL);
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 	
-	
-
 private:
 	T* ob;
 };
