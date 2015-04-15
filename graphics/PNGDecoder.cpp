@@ -17,7 +17,9 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include <png.h>
+#if !defined NO_LCMS_SUPPORT
 #include <lcms2.h>
+#endif
 
 
 #ifndef PNG_ALLOW_BENIGN_ERRORS
@@ -328,6 +330,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
+#if !defined NO_LCMS_SUPPORT
 		{
 			cmsHPROFILE profile = cmsCreate_sRGBProfile();
 			if(profile == NULL)
@@ -348,7 +351,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 
 			png_set_iCCP(png, info, "Embedded Profile", 0, (png_charp)&buf[0], profile_size);
 		}
-		
+#endif
 		
 
 		//------------------------------------------------------------------------
