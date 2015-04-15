@@ -1,7 +1,7 @@
 /*=====================================================================
 StringUtils.h
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2015 -
 =====================================================================*/
 #pragma once
 
@@ -39,6 +39,9 @@ uint64 hexStringTo64UInt(const std::string& s);
 
 //====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
+
+const char intToHexChar(int i);
+
 const std::string toHexString(uint64 i);//for 64 bit integers
 
 const std::string int32ToString(int32 i);
@@ -96,7 +99,7 @@ const std::string toString(size_t x);
 
 //====================== End Number -> String conversion ======================
 
-inline const std::string toString(char c)
+inline const std::string charToString(char c)
 {
 	return std::string(1, c);
 }
@@ -160,6 +163,7 @@ inline void concatWithChar(std::string& s, char c)
 	s.push_back(c);
 }
 
+// NOTE: Very slow, use push_back() or concatWithChar() above instead.
 inline const std::string appendChar(const std::string& s, char c)
 {
 	return s + std::string(1, c);
@@ -185,8 +189,11 @@ static inline bool stringEqual(const char* a, const char* b)
 	return ::strcmp(a, b) == 0;
 }
 
+
 namespace StringUtils
 {
+
+
 template<class T>
 const std::string join(const T& iterable, const std::string& joinstring)
 {
@@ -229,7 +236,21 @@ const std::vector<unsigned char> stringToByteArray(const std::string& s);
 const std::string byteArrayToString(const std::vector<unsigned char>& bytes);
 
 
+const std::string replaceFirst(const std::string& s, const std::string& target, const std::string& replacement);
+
+const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement);
+
+bool containsChar(const std::string& s, char c);
+
 void test();
 
 
 }; // end namespace StringUtils
+
+
+// Not really a string method, just put here for now.
+template <typename T>
+static void append(std::vector<T>& v1, const std::vector<T>& v2)
+{
+    v1.insert(v1.end(), v2.begin(), v2.end());
+}

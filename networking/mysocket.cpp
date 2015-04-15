@@ -494,7 +494,7 @@ const std::string MySocket::readString(size_t max_string_length) // Read null-te
 		if(c == 0) // If we just read the null terminator.
 			return s;
 		else
-			s += std::string(1, c); // Append the character to the string. NOTE: maybe faster way to do this?
+			s.push_back(c); // Append the character to the string.
 
 		if(s.size() > max_string_length)
 			throw MySocketExcep("String too long");

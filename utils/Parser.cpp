@@ -1101,38 +1101,38 @@ void Parser::doUnitTests()
 	{
 		const std::string s = "";
 		Parser p(s.c_str(), (unsigned int)s.size());
-		testAssert(!p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 0);
 	}
 
 	{
 		const std::string s = " ";
 		Parser p(s.c_str(), (unsigned int)s.size());
-		testAssert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 1);
 	}
 
 	{
 		const std::string s = " \t\r\n";
 		Parser p(s.c_str(), (unsigned int)s.size());
-		testAssert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 4);
 	}
 
 	{
 		const std::string s = "a";
 		Parser p(s.c_str(), (unsigned int)s.size());
-		testAssert(!p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 0);
 	}
 
 	{
 		const std::string s = " a ";
 		Parser p(s.c_str(), (unsigned int)s.size());
-		testAssert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 1);
 		testAssert(p.parseChar('a'));
-		testAssert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 3);
 	}
 
@@ -1344,19 +1344,19 @@ void Parser::doUnitTests()
 		float f;
 		assert(p.parseFloat(f));
 		assert(f == -456.5456e21f);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseFloat(f));
 		assert(f == 673.234f);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseFloat(f));
 		assert(f == -0.5e-13f);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseFloat(f));
 		assert(f == .6f);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 	}
 	
 	// Test parseDouble()
@@ -1365,19 +1365,19 @@ void Parser::doUnitTests()
 		double f;
 		assert(p.parseDouble(f));
 		assert(f == -456.5456e21);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseDouble(f));
 		assert(f == 673.234);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseDouble(f));
 		assert(f == -0.5e-13);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseDouble(f));
 		assert(f == .6);
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 	}
 
 	}
@@ -1396,7 +1396,7 @@ void Parser::doUnitTests()
 		assert(p.parseUnsignedInt(x));
 		assert(x == 3);
 
-		assert(p.parseWhiteSpace());
+		p.parseWhiteSpace();
 
 		assert(p.parseUnsignedInt(x));
 		assert(x == 4);
@@ -1410,7 +1410,7 @@ void Parser::doUnitTests()
 
 		assert(!p.parseChar('/'));
 		assert(!p.parseUnsignedInt(x));
-		assert(!p.parseWhiteSpace());
+		p.parseWhiteSpace();
 	}
 
 	// Check parsing of 'f' suffix
@@ -1460,12 +1460,12 @@ void Parser::doUnitTests()
 	assert(p.parseInt(x));
 	assert(x == 123);
 
-	assert(p.parseWhiteSpace());
+	p.parseWhiteSpace();
 
 	assert(p.parseInt(x));
 	assert(x == -645);
 	
-	assert(p.parseWhiteSpace());
+	p.parseWhiteSpace();
 
 	assert(!p.parseInt(x));
 	}

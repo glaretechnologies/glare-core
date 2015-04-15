@@ -238,6 +238,15 @@ uint64 hexStringTo64UInt(const std::string& s)
 }*/
 
 
+const char intToHexChar(int i)
+{
+	if(i <= 9)
+		return '0' + i;
+	else
+		return 'A' + (i - 10);
+}
+
+
 //for 64 bit integers
 //NOTE: this function is unchanged from the 32 bit version... so turn into template?
 //or could cast 32 bit ints into 64 bit ints and always use this version.
@@ -635,11 +644,11 @@ const std::string stripHeadAndTailWhitespace(const std::string& text)
 
 const std::string stripWhitespace(const std::string& s)
 {
-	// NOTE: this could be a lot faster.
 	std::string out;
+	out.reserve(s.size());
 	for(size_t i=0; i<s.size(); ++i)
 		if(!::isWhitespace(s[i]))
-			out += std::string(1, s[i]);
+			out.push_back(s[i]);
 	return out;
 }
 
@@ -647,19 +656,20 @@ const std::string stripWhitespace(const std::string& s)
 const std::string collapseWhitespace(const std::string& s) // Convert runs of 1 or more whitespace characters to just the first whitespace char.
 {
 	std::string out;
+	out.reserve(s.size());
 	bool last_char_was_whitespace = false;
 	for(size_t i=0; i<s.size(); ++i)
 	{
 		if(::isWhitespace(s[i]))
 		{
 			if(!last_char_was_whitespace)
-				out += std::string(1, s[i]);
+				out.push_back(s[i]);
 
 			last_char_was_whitespace = true;
 		}
 		else
 		{
-			out += std::string(1, s[i]);
+			out.push_back(s[i]);
 			last_char_was_whitespace = false;
 		}
 	}
@@ -687,18 +697,6 @@ const std::string eatSuffix(const std::string& s, const std::string& suffix)
 
 const std::string toLowerCase(const std::string& text)
 {
-	/*char* strbuffer = new char[text.length() + 1];
-
-	strcpy(strbuffer, text.c_str());
-
-	_strlwr(strbuffer);
-
-	std::string lowercasestring(strbuffer);
-
-	delete[] strbuffer;
-
-	return lowercasestring;*/
-
 	std::string lowerstr = text;
 	for(unsigned int i=0; i<lowerstr.size(); ++i)
 		if(lowerstr[i] >= 'A' && lowerstr[i] <= 'Z')
@@ -710,17 +708,6 @@ const std::string toLowerCase(const std::string& text)
 
 const std::string toUpperCase(const std::string& text)
 {
-	/*char* strbuffer = new char[text.length() + 1];
-
-	strcpy(strbuffer, text.c_str());
-
-	_strupr(strbuffer);
-
-	std::string uppercasestring(strbuffer);
-
-	delete[] strbuffer;
-
-	return uppercasestring;*/
 	std::string upperstr = text;
 	for(unsigned int i=0; i<upperstr.size(); ++i)
 		if(upperstr[i] >= 'a' && upperstr[i] <= 'z')
@@ -732,13 +719,6 @@ const std::string toUpperCase(const std::string& text)
 
 char toLowerCase(char c)
 {
-	//TEMP NASTY HACK
-	/*char hackstring[2] = { c, 0 };
-
-	_strlwr(hackstring);
-
-	return hackstring[0];*/
-
 	if(c >= 'A' && c <= 'Z')
 		return c - 'A' + 'a';
 	else
@@ -748,13 +728,6 @@ char toLowerCase(char c)
 
 char toUpperCase(char c)
 {
-	//TEMP NASTY HACK
-	/*char hackstring[2] = { c, 0 };
-
-	_strupr(hackstring);
-
-	return hackstring[0];*/
-
 	if(c >= 'a' && c <= 'z')
 		return c - 'a' + 'A';
 	else
@@ -1013,7 +986,7 @@ const std::string getLineFromBuffer(const std::string& str, size_t charindex)
 	std::string line;
 	while(charindex < str.size() && str[charindex] != '\n')
 	{
-		line += std::string(1, str[charindex]);
+		line.push_back(str[charindex]);
 		charindex++;
 	}
 
@@ -1184,16 +1157,62 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 #endif // defined(_WIN32)
 
 
+const std::string StringUtils::replaceFirst(const std::string& s, const std::string& target, const std::string& replacement)
+{
+	const size_t pos = s.find(target);
+	if(pos == std::string::npos)
+		return s;
+	else
+	{
+		std::string new_string = s;
+		new_string.replace(pos, target.length(), replacement);
+		return new_string;
+	}
+}
+
+
+const std::string StringUtils::replaceAll(const std::string& s, const std::string& target, const std::string& replacement)
+{
+	size_t searchpos = 0;
+	std::string newstring;
+	while(1)
+	{
+		size_t next = s.find(target, searchpos);
+		if(next == std::string::npos)
+		{
+			// No more matches.
+			return newstring + s.substr(searchpos, s.size() - searchpos); // Add remaining part of string
+		}
+		else
+		{
+			// Found a match at 'next'
+			newstring += s.substr(searchpos, next - searchpos); // Add string up to location of target
+			newstring += replacement;
+
+			searchpos = next + target.size(); // Advance search pos to one past end of found target.
+		}
+	}
+}
+
+
+bool containsChar(const std::string& s, char c)
+{
+	for(size_t i=0; i<s.size(); ++i)
+		if(s[i] == c)
+			return true;
+	return false;
+}
+
+
 } // end namespace StringUtils
 
 
 #if BUILD_TESTS
 
 
-//#include "../utils/MTwister.h"
+#include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
-#include "../indigo/TestUtils.h"
 
 
 void StringUtils::test()
@@ -1765,6 +1784,25 @@ void StringUtils::test()
 		testAssert(s == "b");
 	}
 
+	//===================================== test replaceFirst() =======================================
+	// const std::string replaceFirst(const std::string& s, const std::string& target, const std::string& replacement);
+	testAssert(replaceFirst("", "", "01") == "01");
+	testAssert(replaceFirst("abcd", "", "01") == "01abcd");
+
+	// Test single occurrence of target.
+	testAssert(replaceFirst("abcd", "ab", "01") == "01cd");
+	
+	// Test multiple occurrences of target.
+	testAssert(replaceFirst("abab", "ab", "01") == "01ab");
+
+	// Test long replacement string
+	testAssert(replaceFirst("abcd", "ab", "0123456") == "0123456cd");
+	testAssert(replaceFirst("abcd", "cd", "0123456") == "ab0123456");
+
+	// Test no match
+	testAssert(replaceFirst("", "ef", "0123456") == "");
+	testAssert(replaceFirst("abcd", "ef", "0123456") == "abcd");
+	testAssert(replaceFirst("abcd", "abcde", "0123456") == "abcd");
 
 	/*const int N = 100000;
 	{
@@ -1964,8 +2002,8 @@ void StringUtils::test()
 	assert(::hexStringToUInt("skjhsdg") == 0);//parse error
 
 
-	assert(::toString('a') == std::string("a"));
-	assert(::toString(' ') == std::string(" "));
+	assert(::charToString('a') == std::string("a"));
+	assert(::charToString(' ') == std::string(" "));
 
 	assert(::hasSuffix("test", "st"));
 	assert(::hasSuffix("test", "t"));

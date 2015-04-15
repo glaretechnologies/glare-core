@@ -35,7 +35,7 @@ public:
 	bool parseUnsignedInt(uint32& result_out);
 	bool parseFloat(float& result_out);
 	bool parseDouble(double& result_out);
-	inline bool parseWhiteSpace();
+	inline void parseWhiteSpace();
 	inline void parseSpacesAndTabs();
 	inline void advancePastLine();
 
@@ -95,21 +95,10 @@ bool Parser::parseChar(char target)
 }
 
 
-bool Parser::parseWhiteSpace()
+void Parser::parseWhiteSpace()
 {
-	/*bool found = false;
 	for( ;notEOF() && ::isWhitespace(text[currentpos]); ++currentpos)
-		found = true;
-
-	return found;*/
-
-	const unsigned int initial_pos = this->currentpos;
-	unsigned int pos = this->currentpos;
-	for( ; (pos < textsize) && ::isWhitespace(text[pos]); ++pos)
 	{}
-
-	this->currentpos = pos;
-	return pos > initial_pos;
 }
 
 
@@ -124,22 +113,17 @@ void Parser::advancePastLine()
 {
 	for( ; !eof(); ++currentpos)
 	{
-		/*if(current() == '\n' || current() == '\r')
-		{
-			currentpos++;
-			return;
-		}*/
-		if(current() == '\n')//line feed (Unix)
+		if(current() == '\n') // line feed (Unix)
 		{
 			currentpos++;
 			return;
 		}
-		else if(current() == '\r')//carriage return
+		else if(current() == '\r') // carriage return
 		{
 			currentpos++;
 			if(current() == '\n')
 			{
-				//assume we are seeing a CRLF on windows.  Treat as one new line.
+				// Assume we are seeing a CRLF on windows.  Treat as one new line.
 				currentpos++;
 			}
 			return;
