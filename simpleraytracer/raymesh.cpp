@@ -1700,7 +1700,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 		if(num_uv_sets > 0)
 		{
 			// Compute dp/du, dp/dv for this triangle.
-			const Vec3f N = tri_normal;
+			//const Vec3f N = tri_normal;
 			const Vec3f v0 = vertices[triangles[t].vertex_indices[0]].pos;
 			const Vec3f v1 = vertices[triangles[t].vertex_indices[1]].pos;
 			const Vec3f v2 = vertices[triangles[t].vertex_indices[2]].pos;

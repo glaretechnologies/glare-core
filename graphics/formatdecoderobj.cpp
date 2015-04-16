@@ -238,12 +238,12 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 				// Add the vertex to the mesh, if it hasn't been added already.
 
-				if(zero_based_vert_index >= vert_positions.size())
+				if(zero_based_vert_index >= (int)vert_positions.size())
 					throw Indigo::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 				if(read_normal_index)
 				{
-					if(zero_based_normal_index >= vert_normals.size())
+					if(zero_based_normal_index >= (int)vert_normals.size())
 						throw Indigo::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 					Vert v;

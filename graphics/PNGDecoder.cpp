@@ -349,7 +349,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 
 			cmsCloseProfile(profile); 
 
-			png_set_iCCP(png, info, "Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
 		}
 #endif
 		
