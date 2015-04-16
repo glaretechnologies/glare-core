@@ -240,6 +240,8 @@ const std::string replaceFirst(const std::string& s, const std::string& target, 
 
 const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement);
 
+void appendTabbed(std::string& s, const std::string& addition, int num_tabs);
+
 bool containsChar(const std::string& s, char c);
 
 void test();

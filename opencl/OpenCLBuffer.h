@@ -10,6 +10,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #if USE_OPENCL
 
 
+#include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "OpenCL.h"
 
@@ -22,8 +23,8 @@ OpenCLBuffer
 class OpenCLBuffer
 {
 public:
-	OpenCLBuffer(OpenCL& opencl_);
-	OpenCLBuffer(OpenCL& opencl_, cl_context context, size_t size_, cl_mem_flags flags);
+	OpenCLBuffer();
+	OpenCLBuffer(cl_context context, size_t size_, cl_mem_flags flags);
 	~OpenCLBuffer();
 
 
@@ -54,13 +55,7 @@ public:
 
 
 private:
-
-	// No copy allowed
-	OpenCLBuffer(const OpenCLBuffer& c);
-	OpenCLBuffer& operator = (const OpenCLBuffer& c);
-
-
-	OpenCL& opencl;
+	INDIGO_DISABLE_COPY(OpenCLBuffer)
 
 	size_t size;
 

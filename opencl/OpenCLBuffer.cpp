@@ -23,8 +23,7 @@ static size_t OpenCL_global_alloc = 0; // Total number of bytes allocated
 #endif
 
 
-OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_)
-:	opencl(opencl_)
+OpenCLBuffer::OpenCLBuffer()
 {
 	// Initialise to null state
 	size = 0;
@@ -32,8 +31,7 @@ OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_)
 }
 
 
-OpenCLBuffer::OpenCLBuffer(OpenCL& opencl_, cl_context context, size_t size_, cl_mem_flags flags)
-:	opencl(opencl_)
+OpenCLBuffer::OpenCLBuffer(cl_context context, size_t size_, cl_mem_flags flags)
 {
 	// Initialise to null state
 	size = 0;
@@ -55,7 +53,7 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 		free();
 
 	cl_int result;
-	opencl_mem = opencl.clCreateBuffer(
+	opencl_mem = getGlobalOpenCL()->clCreateBuffer(
 		context,
 		flags,
 		size_, // size
@@ -79,7 +77,7 @@ void OpenCLBuffer::free()
 	if(!opencl_mem)
 		return;
 
-	if(opencl.clReleaseMemObject(opencl_mem) != CL_SUCCESS)
+	if(getGlobalOpenCL()->clReleaseMemObject(opencl_mem) != CL_SUCCESS)
 		throw Indigo::Exception("clReleaseMemObject failed");
 
 #ifdef OPENCL_MEM_LOG
@@ -99,7 +97,7 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 		free();
 
 	cl_int result;
-	opencl_mem = opencl.clCreateBuffer(
+	opencl_mem = getGlobalOpenCL()->clCreateBuffer(
 		context,
 		flags | CL_MEM_COPY_HOST_PTR,
 		size_, // size
@@ -122,7 +120,7 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const sr
 {
 	assert(size_ <= size);
 
-	cl_int result = opencl.clEnqueueWriteBuffer(
+	cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
 		command_queue, // command queue
 		opencl_mem, // buffer
 		blocking_write, // blocking write

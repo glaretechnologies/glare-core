@@ -474,7 +474,7 @@ void OpenCL::queryDevices()
 }
 
 
-void OpenCL::deviceInit(gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out)
+void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out)
 {
 	if(!initialised)
 		throw Indigo::Exception("OpenCL library not initialised");

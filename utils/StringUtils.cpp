@@ -1157,7 +1157,7 @@ const std::string WToUTF8String(const std::wstring& wide_string)
 #endif // defined(_WIN32)
 
 
-const std::string StringUtils::replaceFirst(const std::string& s, const std::string& target, const std::string& replacement)
+const std::string replaceFirst(const std::string& s, const std::string& target, const std::string& replacement)
 {
 	const size_t pos = s.find(target);
 	if(pos == std::string::npos)
@@ -1171,7 +1171,7 @@ const std::string StringUtils::replaceFirst(const std::string& s, const std::str
 }
 
 
-const std::string StringUtils::replaceAll(const std::string& s, const std::string& target, const std::string& replacement)
+const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement)
 {
 	size_t searchpos = 0;
 	std::string newstring;
@@ -1191,6 +1191,30 @@ const std::string StringUtils::replaceAll(const std::string& s, const std::strin
 
 			searchpos = next + target.size(); // Advance search pos to one past end of found target.
 		}
+	}
+}
+
+
+void appendTabbed(std::string& s, const std::string& addition, int num_tabs)
+{
+	// Add initial tabs
+	if(!addition.empty())
+		for(int z=0; z<num_tabs; ++z)
+			s.push_back('\t');
+
+	for(size_t i=0; i<addition.size(); ++i)
+	{
+		const char c = addition[i];
+		if(c == '\n' && i + 1 < addition.size())
+		{
+			s.push_back('\n');
+
+			// Add tabs
+			for(int z=0; z<num_tabs; ++z)
+				s.push_back('\t');
+		}
+		else
+			s.push_back(c);
 	}
 }
 

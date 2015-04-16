@@ -44,8 +44,8 @@ public:
 	//unsigned int hittriindex;
 	//Vec2d hittricoords; // Hit position in triangle barycentric coordinates. 
 
-	unsigned int sub_elem_index;
 	SubElemCoordsType sub_elem_coords;
+	unsigned int sub_elem_index;
 };
 
 

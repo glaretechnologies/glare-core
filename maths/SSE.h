@@ -44,6 +44,14 @@ typedef __m128i SSE4Int; // A vector of 4 32 bit integers.  16 byte aligned by d
 #define SSE_ALIGN __attribute__ ((aligned (16)))
 #endif
 
+#ifdef COMPILER_MSVC
+#define AVX_CLASS_ALIGN _CRT_ALIGN(32) class
+#define AVX_ALIGN _CRT_ALIGN(32)
+#else
+#define AVX_CLASS_ALIGN class __attribute__ ((aligned (32)))
+#define AVX_ALIGN __attribute__ ((aligned (32)))
+#endif
+
 
 namespace SSE
 {
@@ -104,8 +112,8 @@ namespace SSE
 
 
 #define INDIGO_ALIGNED_NEW_DELETE \
-	void* operator new(size_t size) { return SSE::alignedSSEMalloc(size); } \
-	void operator delete(void* ptr) { SSE::alignedSSEFree(ptr); }
+	void* operator new(size_t size) { return SSE::alignedMalloc(size, 32); } \
+	void operator delete(void* ptr) { SSE::alignedFree(ptr); }
 
 
 
