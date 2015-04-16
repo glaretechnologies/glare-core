@@ -736,6 +736,9 @@ void OpenCL::dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& 
 #endif // USE_OPENCL
 
 
+#if USE_OPENCL
+
+
 static Mutex global_opencl_mutex;
 static OpenCL* global_opencl = NULL;
 static bool open_cl_load_failed = false;
@@ -774,3 +777,13 @@ void destroyGlobalOpenCL()
 	global_opencl = NULL;
 	open_cl_load_failed = false;
 }
+
+
+#else // USE_OPENCL
+
+
+OpenCL* getGlobalOpenCL() { return NULL; }
+void destroyGlobalOpenCL() {}
+
+
+#endif // USE_OPENCL
