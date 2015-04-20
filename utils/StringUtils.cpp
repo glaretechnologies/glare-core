@@ -1228,6 +1228,17 @@ bool containsChar(const std::string& s, char c)
 }
 
 
+// Replace non-printable chars with '?'
+const std::string removeNonPrintableChars(const std::string& s)
+{
+	std::string res = s;
+	for(size_t i=0; i<s.size(); ++i)
+		if(!isprint(s[i]))
+			res[i] = '?';
+	return res;
+}
+
+
 } // end namespace StringUtils
 
 

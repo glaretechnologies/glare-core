@@ -244,6 +244,9 @@ void appendTabbed(std::string& s, const std::string& addition, int num_tabs);
 
 bool containsChar(const std::string& s, char c);
 
+// Replace non-printable chars with '?'
+const std::string removeNonPrintableChars(const std::string& s);
+
 void test();
 
 
@@ -252,7 +255,20 @@ void test();
 
 // Not really a string method, just put here for now.
 template <typename T>
-static void append(std::vector<T>& v1, const std::vector<T>& v2)
+void append(std::vector<T>& v1, const std::vector<T>& v2)
 {
     v1.insert(v1.end(), v2.begin(), v2.end());
+}
+
+
+// Does vector 'v' contain element 'target'?
+// Not really a string method, just put here for now.
+template <typename T>
+bool contains(const std::vector<T>& v, T target)
+{
+	const size_t sz = v.size();
+	for(size_t i=0; i<sz; ++i)
+		if(v[i] == target)
+			return true;
+	return false;
 }
