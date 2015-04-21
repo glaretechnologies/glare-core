@@ -677,6 +677,15 @@ const std::string collapseWhitespace(const std::string& s) // Convert runs of 1 
 }
 
 
+bool isAllWhitespace(const std::string& s)
+{
+	for(size_t i=0; i<s.size(); ++i)
+		if(!::isWhitespace(s[i]))
+			return false;
+	return true;
+}
+
+
 const std::string eatPrefix(const std::string& s, const std::string& prefix)
 {
 	if(::hasPrefix(s, prefix))
@@ -918,13 +927,11 @@ const std::vector<std::string> split(const std::string& s, char delim)
 		std::string::size_type delimpos = s.find_first_of(delim, start);
 		if(delimpos == std::string::npos)
 		{
-			if(start < s.size())
-				parts.push_back(s.substr(start, s.size() - start));
+			parts.push_back(s.substr(start, s.size() - start));
 			return parts;
 		}
 
-		if(delimpos > start)
-			parts.push_back(s.substr(start, delimpos-start));
+		parts.push_back(s.substr(start, delimpos-start));
 		start = delimpos + 1;
 	}
 }
@@ -1881,13 +1888,13 @@ void StringUtils::test()
 
 		const std::string s = StringUtils::WToUTF8String(w);
 
-		assert(s.size() == 1);
-		assert(s.c_str()[0] == 'A');
-		assert(s.c_str()[1] == '\0');
+		testAssert(s.size() == 1);
+		testAssert(s.c_str()[0] == 'A');
+		testAssert(s.c_str()[1] == '\0');
 
 		const std::wstring w2 = StringUtils::UTF8ToWString(s);
 
-		assert(w == w2);
+		testAssert(w == w2);
 	}
 
 	// Test with empty string
@@ -1896,11 +1903,11 @@ void StringUtils::test()
 
 		const std::string s = StringUtils::WToUTF8String(w);
 
-		assert(s.size() == 0);
+		testAssert(s.size() == 0);
 
 		const std::wstring w2 = StringUtils::UTF8ToWString(s);
 
-		assert(w == w2);
+		testAssert(w == w2);
 	}
 
 
@@ -1908,51 +1915,75 @@ void StringUtils::test()
 		// This is the Euro sign, encoded in UTF-8: see http://en.wikipedia.org/wiki/UTF-8
 		const std::string s = "\xE2\x82\xAC";
 
-		assert(s.size() == 3);
+		testAssert(s.size() == 3);
 
 		const std::wstring w = StringUtils::UTF8ToWString(s);
 
 		const std::string s2 = StringUtils::WToUTF8String(w);
 
-		assert(s == s2);
+		testAssert(s == s2);
 	}
 #endif
 
 	// Test split()
-	std::vector<std::string> parts = split("a:b:c", ':');
-	assert(parts.size() == 3);
-	assert(parts[0] == "a");
-	assert(parts[1] == "b");
-	assert(parts[2] == "c");
+	std::vector<std::string> parts;
+
+	parts = split("", ':');
+	testAssert(parts.size() == 1 && parts[0] == "");
+	testAssert(StringUtils::join(parts, ":") == "");
+
+	parts = split(":", ':');
+	testAssert(parts.size() == 2 && parts[0] == "" && parts[1] == "");
+	testAssert(StringUtils::join(parts, ":") == ":");
+
+	parts = split("::", ':');
+	testAssert(parts.size() == 3 && parts[0] == "" && parts[1] == "" && parts[2] == "");
+	testAssert(StringUtils::join(parts, ":") == "::");
+
+	
+	parts = split("a::b", ':');
+	testAssert(parts.size() == 3 && parts[0] == "a" && parts[1] == "" && parts[2] == "b");
+	testAssert(StringUtils::join(parts, ":") == "a::b");
+
+	parts = split("a:b:c", ':');
+	testAssert(parts.size() == 3);
+	testAssert(parts[0] == "a");
+	testAssert(parts[1] == "b");
+	testAssert(parts[2] == "c");
+
 
 	parts = split("a:b:", ':');
-	assert(parts.size() == 2);
-	assert(parts[0] == "a");
-	assert(parts[1] == "b");
+	testAssert(parts.size() == 3);
+	testAssert(parts[0] == "a");
+	testAssert(parts[1] == "b");
+	testAssert(parts[2] == "");
 
 	parts = split(":a:b:", ':');
-	assert(parts.size() == 2);
-	assert(parts[0] == "a");
-	assert(parts[1] == "b");
+	testAssert(parts.size() == 4);
+	testAssert(parts[0] == "");
+	testAssert(parts[1] == "a");
+	testAssert(parts[2] == "b");
+	testAssert(parts[3] == "");
 
 	parts = split(":a:b", ':');
-	assert(parts.size() == 2);
-	assert(parts[0] == "a");
-	assert(parts[1] == "b");
+	testAssert(parts.size() == 3);
+	testAssert(parts[0] == "");
+	testAssert(parts[1] == "a");
+	testAssert(parts[2] == "b");
 
 	// Test rightPad()
-	assert(rightPad("123", 'a', 5) == "123aa");
-	assert(rightPad("12345", 'a', 3) == "12345");
+	testAssert(rightPad("123", 'a', 5) == "123aa");
+	testAssert(rightPad("12345", 'a', 3) == "12345");
 
 	// Test join()
 	parts = split("a:b:c", ':');
-	assert(StringUtils::join(parts, ":") == "a:b:c");
+	testAssert(StringUtils::join(parts, ":") == "a:b:c");
 
 	parts = split("a", ':');
-	assert(StringUtils::join(parts, ":") == "a");
+	testAssert(StringUtils::join(parts, ":") == "a");
 
 	parts = split("", ':');
-	assert(StringUtils::join(parts, ":") == "");
+	testAssert(StringUtils::join(parts, ":") == "");
 
 
 	
@@ -1982,13 +2013,13 @@ void StringUtils::test()
 
 	
 
-	assert(epsEqual((double)stringToInt("-631"), (double)-631));
+	testAssert(epsEqual((double)stringToInt("-631"), (double)-631));
 
 
 	try
 	{
 		stringToInt("dfgg");
-		assert(false);
+		testAssert(false);
 	}
 	catch(StringUtilsExcep& )
 	{}
@@ -2002,53 +2033,53 @@ void StringUtils::test()
 
 		size_t line, col;
 		StringUtils::getPosition(s, 4, line, col);
-		assert(line == 1 && col == 3);
+		testAssert(line == 1 && col == 3);
 	}
 
 
 
-	assert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
+	testAssert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
 
-	assert(::toLowerCase("meh666XYZ") == "meh666xyz");
+	testAssert(::toLowerCase("meh666XYZ") == "meh666xyz");
 
-	assert(::toLowerCase('C') == 'c');
-	assert(::toLowerCase('1') == '1');
-	assert(::toLowerCase('c') == 'c');
+	testAssert(::toLowerCase('C') == 'c');
+	testAssert(::toLowerCase('1') == '1');
+	testAssert(::toLowerCase('c') == 'c');
 
-	assert(::toUpperCase('C') == 'C');
-	assert(::toUpperCase('1') == '1');
-	assert(::toUpperCase('c') == 'C');
+	testAssert(::toUpperCase('C') == 'C');
+	testAssert(::toUpperCase('1') == '1');
+	testAssert(::toUpperCase('c') == 'C');
 
-	assert(getPrefixBeforeDelim("meh666", '6') == "meh");
-	assert(getPrefixBeforeDelim("meh666", '3') == "meh666");
-	assert(getPrefixBeforeDelim("meh666", 'm') == "");
+	testAssert(getPrefixBeforeDelim("meh666", '6') == "meh");
+	testAssert(getPrefixBeforeDelim("meh666", '3') == "meh666");
+	testAssert(getPrefixBeforeDelim("meh666", 'm') == "");
 
-	assert(::toHexString(0x34bc8106) == "34BC8106");
-	assert(::toHexString(0x0) == "0");
-	assert(::toHexString(0x00000) == "0");
-	assert(::toHexString(0x1) == "1");
-	assert(::toHexString(0x00000001) == "1");
-	assert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
-	assert(::toHexString(0xA4) == "A4");
+	testAssert(::toHexString(0x34bc8106) == "34BC8106");
+	testAssert(::toHexString(0x0) == "0");
+	testAssert(::toHexString(0x00000) == "0");
+	testAssert(::toHexString(0x1) == "1");
+	testAssert(::toHexString(0x00000001) == "1");
+	testAssert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
+	testAssert(::toHexString(0xA4) == "A4");
 
-	assert(::hexStringToUInt("0x34bc8106") == 0x34bc8106);
-	assert(::hexStringToUInt("0x0005F") == 0x0005F);
-	assert(::hexStringToUInt("0x0") == 0x0);
-	assert(::hexStringToUInt("skjhsdg") == 0);//parse error
+	testAssert(::hexStringToUInt("0x34bc8106") == 0x34bc8106);
+	testAssert(::hexStringToUInt("0x0005F") == 0x0005F);
+	testAssert(::hexStringToUInt("0x0") == 0x0);
+	testAssert(::hexStringToUInt("skjhsdg") == 0);//parse error
 
 
-	assert(::charToString('a') == std::string("a"));
-	assert(::charToString(' ') == std::string(" "));
+	testAssert(::charToString('a') == std::string("a"));
+	testAssert(::charToString(' ') == std::string(" "));
 
-	assert(::hasSuffix("test", "st"));
-	assert(::hasSuffix("test", "t"));
-	assert(::hasSuffix("test", "est"));
-	assert(::hasSuffix("test", "test"));
-	assert(::hasSuffix("test", ""));
+	testAssert(::hasSuffix("test", "st"));
+	testAssert(::hasSuffix("test", "t"));
+	testAssert(::hasSuffix("test", "est"));
+	testAssert(::hasSuffix("test", "test"));
+	testAssert(::hasSuffix("test", ""));
 
-	assert(::isWhitespace(' '));
-	assert(::isWhitespace('\t'));
-	assert(::isWhitespace('	'));
+	testAssert(::isWhitespace(' '));
+	testAssert(::isWhitespace('\t'));
+	testAssert(::isWhitespace('	'));
 
 
 
