@@ -173,6 +173,20 @@ public:
 	{
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
+
+	template <class T2>
+	inline const T2* downcastToPtr() const
+	{
+		assert(dynamic_cast<const T2*>(ob));
+		return static_cast<const T2*>(ob);
+	}
+
+	template <class T2>
+	inline T2* downcastToPtr()
+	{
+		assert(dynamic_cast<T2*>(ob));
+		return static_cast<T2*>(ob);
+	}
 	
 private:
 	T* ob;
