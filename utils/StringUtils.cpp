@@ -961,7 +961,7 @@ namespace StringUtils
 
 void getPosition(const std::string& str, size_t charindex, size_t& line_num_out, size_t& column_out)
 {
-	assert(charindex < str.size());
+//	assert(charindex < str.size());
 	if(charindex >= str.size())
 	{
 		line_num_out = column_out = 0;
@@ -988,7 +988,7 @@ void getPosition(const std::string& str, size_t charindex, size_t& line_num_out,
 
 const std::string getLineFromBuffer(const std::string& str, size_t charindex)
 {
-	assert(charindex < str.size());
+//	assert(charindex < str.size());
 
 	std::string line;
 	while(charindex < str.size() && str[charindex] != '\n')
