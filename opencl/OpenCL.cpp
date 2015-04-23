@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #if defined(__linux__)
 #include <dlfcn.h>
 #endif
@@ -215,6 +216,14 @@ void OpenCL::libraryInit()
 
 
 #if USE_OPENCL
+// Comparison operator for sorting by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
+bool devicePlatformSort(const gpuDeviceInfo& lhs, const gpuDeviceInfo& rhs)
+{
+	//return lhs.opencl_platform_vendor < rhs.opencl_platform_vendor;
+	return lhs.opencl_platform >= rhs.opencl_platform;
+}
+
+
 void OpenCL::queryDevices()
 {
 	if(!initialised)
@@ -471,6 +480,10 @@ void OpenCL::queryDevices()
 		// Add this platform and all its devices to the platforms list
 		info.platforms.push_back(opencl_platform);
 	}
+
+	// Sort by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
+	std::stable_sort(device_info.begin(), device_info.end());
+	std::stable_sort(info.platforms.begin(), info.platforms.end());
 }
 
 

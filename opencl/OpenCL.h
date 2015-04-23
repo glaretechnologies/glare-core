@@ -131,6 +131,9 @@ public:
 	std::string vendor_name;
 
 	std::vector<OpenCLDevice> devices;
+
+	// Comparison operator for sorting by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
+	bool operator<(const OpenCLPlatform& rhs) const { return vendor_name < rhs.vendor_name; }
 };
 
 
