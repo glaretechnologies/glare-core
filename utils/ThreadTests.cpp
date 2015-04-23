@@ -157,7 +157,7 @@ public:
 };*/
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
 
 
 struct TestComputation
@@ -173,6 +173,8 @@ struct TestComputation
 
 void ThreadTests::test()
 {
+	conPrint("ThreadTests::test()");
+
 	// Test OpenMP from another thread:
 	/*{
 		for(int i=0; i<100; ++i)
@@ -374,9 +376,9 @@ void ThreadTests::test()
 
 		conPrint(toString(timer.getSecondsElapsed()));
 	}
+
+	conPrint("ThreadTests::test() done.");
 }
-#endif
 
 
-
-
+#endif // BUILD_TESTS
