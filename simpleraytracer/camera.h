@@ -110,8 +110,6 @@ public:
 	virtual PDType sensorPDF() const = 0; // used
 
 	virtual void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
-	virtual PDType lensPosPDF(const Vec3Type& lenspos_os) const = 0; // used
-	virtual double lensPosVisibility(const Vec3Type& lenspos_os) const = 0; // only used in old code.
 
 	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in old code.
 	virtual void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const = 0;
@@ -152,6 +150,8 @@ public:
 
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const { return 0; }
+
+	virtual const std::string emitWinterCode() const { assert(0); return ""; }
 
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }
