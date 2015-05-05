@@ -54,7 +54,7 @@ Condition::~Condition()
 }
 
 
-///Calling thread is suspended until conidition is met.
+///Calling thread is suspended until condition is met.
 bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_seconds)
 {
 #if defined(_WIN32)
