@@ -46,6 +46,7 @@ public:
 
 	SubElemCoordsType sub_elem_coords;
 	unsigned int sub_elem_index;
+	unsigned int padding; // To make this 16B, so it matches what LLVM does.
 };
 
 
