@@ -60,6 +60,9 @@ const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places)
 // Write to a string with scientific notation, e.g. 4.0e10.
 const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
 
+// Returns in form x.f or x.yf, e.g instead of returning 2 it returns 2.f
+const std::string floatLiteralString(float x);
+
 
 // Overloaded toString functions:
 inline const std::string toString(double f)
@@ -252,24 +255,3 @@ void test();
 
 
 }; // end namespace StringUtils
-
-
-// Not really a string method, just put here for now.
-template <typename T>
-void append(std::vector<T>& v1, const std::vector<T>& v2)
-{
-    v1.insert(v1.end(), v2.begin(), v2.end());
-}
-
-
-// Does vector 'v' contain element 'target'?
-// Not really a string method, just put here for now.
-template <typename T>
-bool contains(const std::vector<T>& v, T target)
-{
-	const size_t sz = v.size();
-	for(size_t i=0; i<sz; ++i)
-		if(v[i] == target)
-			return true;
-	return false;
-}

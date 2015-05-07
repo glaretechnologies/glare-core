@@ -383,6 +383,29 @@ const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 }
 
 
+// Returns in form x.f or x.yf, e.g instead of returning 2 it returns 2.f
+const std::string floatLiteralString(float x)
+{
+	if(isNAN(x))
+		return "NaN";
+	else if(x == std::numeric_limits<float>::infinity())
+		return "Inf";
+	else if(x == -std::numeric_limits<float>::infinity())
+		return "-Inf";
+
+	const std::string s = floatToString(x);
+
+	// Make sure we have a 'f' suffix on our float literals.
+	if(StringUtils::containsChar(s, 'e')) // Scientific notation: something like "1e-30".
+		return s + "f"; // e.g '2.3' -> '2.3f'
+
+	if(StringUtils::containsChar(s, '.'))
+		return s + "f"; // e.g '2.3' -> '2.3f'
+	else
+		return s + ".f"; // e.g. '2'  ->  '2.f'
+}
+
+
 // Returns the number of digits in the base-10 representation of x.
 // NOTE: Max uint32 is 4294967295. (10 digits)
 static int numDigitsUInt32(uint32 x)
@@ -1845,6 +1868,16 @@ void StringUtils::test()
 	testAssert(replaceFirst("", "ef", "0123456") == "");
 	testAssert(replaceFirst("abcd", "ef", "0123456") == "abcd");
 	testAssert(replaceFirst("abcd", "abcde", "0123456") == "abcd");
+
+	//===================================== test floatLiteralString() ==================================
+	testAssert(floatLiteralString(1.2f) == "1.2f");
+	testAssert(floatLiteralString(1.f) == "1.f");
+	testAssert(floatLiteralString(2.0f) == "2.f");
+	testAssert(floatLiteralString(std::numeric_limits<float>::infinity()) == "Inf");
+	testAssert(floatLiteralString(-std::numeric_limits<float>::infinity()) == "-Inf");
+	testAssert(floatLiteralString(std::numeric_limits<float>::quiet_NaN()) == "NaN");
+
+	testAssert(floatLiteralString(1.0e-30f) == "1.0e-30f" || floatLiteralString(1.0e-30f) == "1.e-30f" || floatLiteralString(1.0e-30f) == "1e-30f");
 
 	/*const int N = 100000;
 	{
