@@ -215,12 +215,6 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
-bool RaySphere::isEnvSphereGeometry() const
-{
-	return false;
-}
-
-
 RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
 {
 	return radius;

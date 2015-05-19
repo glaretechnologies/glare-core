@@ -18,7 +18,6 @@ Code By Nicholas Chapman.
 #include "../indigo/PrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
-#include "../indigo/EnvSphereGeometry.h"
 #include "../indigo/ThreadContext.h"
 #include <string.h>
 
@@ -835,31 +834,23 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 	const float split = best_div_val;
 	for(unsigned int i=0; i<numtris; ++i)//for each tri
 	{
-		if(nodeobjs[i]->isEnvSphere())
-		{
-			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], negbox))
-				neg_objs.push_back(nodeobjs[i]);
-		}
-		else
-		{
-			const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
-			const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
+		const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
+		const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
 
-			if(tri_lower <= split) // Tri touches left volume, including splitting plane
+		if(tri_lower <= split) // Tri touches left volume, including splitting plane
+		{
+			if(tri_lower < split) // Tri touches left volume, not including splitting plane
 			{
-				if(tri_lower < split) // Tri touches left volume, not including splitting plane
-				{
-					neg_objs.push_back(nodeobjs[i]);
-				}
-				else
-				{
-					// else tri_lower == split
-					if(tri_upper == split && !best_push_right)
-						neg_objs.push_back(nodeobjs[i]);
-				}
+				neg_objs.push_back(nodeobjs[i]);
 			}
-			// Else tri_lower > split, so doesn't intersect left box of splitting plane.
+			else
+			{
+				// else tri_lower == split
+				if(tri_upper == split && !best_push_right)
+					neg_objs.push_back(nodeobjs[i]);
+			}
 		}
+		// Else tri_lower > split, so doesn't intersect left box of splitting plane.
 	}
 
 	const int num_in_neg = (int)neg_objs.size();
@@ -869,31 +860,23 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	for(unsigned int i=0; i<numtris; ++i) // For each tri
 	{
-		if(nodeobjs[i]->isEnvSphere())
-		{
-			if(doesEnvSphereObjectIntersectAABB(nodeobjs[i], posbox))
-				pos_objs.push_back(nodeobjs[i]);
-		}
-		else
-		{
-			const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
-			const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
+		const float tri_lower = nodeobjs[i]->getAABBoxWS().min_[best_axis]; //nodetris[i].lower[best_axis];
+		const float tri_upper = nodeobjs[i]->getAABBoxWS().max_[best_axis]; //nodetris[i].upper[best_axis];
 
-			if(tri_upper >= split) // Tri touches right volume, including splitting plane
+		if(tri_upper >= split) // Tri touches right volume, including splitting plane
+		{
+			if(tri_upper > split) // Tri touches right volume, not including splitting plane
 			{
-				if(tri_upper > split) // Tri touches right volume, not including splitting plane
-				{
-					pos_objs.push_back(nodeobjs[i]);
-				}
-				else
-				{
-					// else tri_upper == split
-					if(tri_lower == split && best_push_right)
-						pos_objs.push_back(nodeobjs[i]);
-				}
+				pos_objs.push_back(nodeobjs[i]);
 			}
-			// Else tri_upper < split, so doesn't intersect right box of splitting plane.
+			else
+			{
+				// else tri_upper == split
+				if(tri_lower == split && best_push_right)
+					pos_objs.push_back(nodeobjs[i]);
+			}
 		}
+		// Else tri_upper < split, so doesn't intersect right box of splitting plane.
 	}
 
 
@@ -943,35 +926,6 @@ void ObjectTree::doBuild(int cur, //index of current node getting built
 
 	// Build right subtree
 	doBuild(nodes[cur].getPosChildIndex(), pos_objs, depth + 1, maxdepth, posbox, lower, upper);
-}
-
-
-bool ObjectTree::doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb)
-{
-	assert(ob->isEnvSphere());
-
-	const Vec4f origin(0,0,0,1.f);
-
-
-	for(unsigned int i=0; i<8; ++i) // For each corner of 'aabb'
-	{
-		const unsigned int x = i & 0x1;
-		const unsigned int y = (i >> 1) & 0x1;
-		const unsigned int z = (i >> 2) & 0x1;
-
-		const Vec4f corner(
-			x == 0 ? aabb.min_.x[0] : aabb.max_.x[0],
-			y == 0 ? aabb.min_.x[1] : aabb.max_.x[1],
-			z == 0 ? aabb.min_.x[2] : aabb.max_.x[2],
-			1.0f);
-
-		const float corner_dist = corner.getDist(origin);
-
-		if(corner_dist >= ((const EnvSphereGeometry*)(&ob->getGeometry()))->getBoundingRadius())
-			return true;
-	}
-
-	return false;
 }
 
 

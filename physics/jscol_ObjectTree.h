@@ -70,7 +70,6 @@ public:
 	};
 
 private:
-	bool doesEnvSphereObjectIntersectAABB(INTERSECTABLE_TYPE* ob, const AABBox& aabb);
 	void doBuild(int cur, const std::vector<INTERSECTABLE_TYPE*>& objs, 
 					int depth, int maxdepth, const AABBox& cur_aabb,
 					std::vector<SortedBoundInfo>& upper,

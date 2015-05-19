@@ -1950,12 +1950,6 @@ void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
 }
 
 
-bool RayMesh::isEnvSphereGeometry() const
-{
-	return false;
-}
-
-
 RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
 {
 	return bounding_radius;

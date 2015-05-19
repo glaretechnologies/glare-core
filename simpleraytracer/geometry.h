@@ -101,8 +101,6 @@ public:
 	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
 	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const = 0;
 
-	virtual bool isEnvSphereGeometry() const = 0;
-
 	// Returns true if possibly clipped by section planes, false otherwise.
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
