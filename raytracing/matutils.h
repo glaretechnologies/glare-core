@@ -147,7 +147,7 @@ Real smoothingFactor(Real in_dot_prebump_Ns, Real in_dot_Ns, Real in_dot_Ng)
 template <class Real>
 Real scatterSmoothingFactor(const FullHitInfo& hitinfo, const Vec4f& dir_in, const Vec4f& scattered_dir, bool adjoint)
 {
-	const Vec4f& a = adjoint ? -dir_in : scattered_dir;				// a = vector in light direction
+	const Vec4f a = adjoint ? -dir_in : scattered_dir;				// a = vector in light direction
 
 	const Real a_dot_Ns = dot(a, hitinfo.N_s());					// Dot product of a and shading normal
 	const Real pre_dot  = dot(a, hitinfo.pre_bump_shading_normal);	// Dot product of incident vector and pre-bump-perturbed shading normal
