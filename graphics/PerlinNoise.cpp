@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 #include "../utils/PlatformUtils.h"
 #include "../utils/MTwister.h"
 #include "../maths/GeometrySampling.h"
+#include <fstream>
 
 
 /*
@@ -101,18 +102,8 @@ void PerlinNoise::init()
 			mySwap(p_z[t], p_z[k]);
 		}
 	}
-	/*
-	conPrint("\np_x");
-	for(int i=0; i<N; ++i)
-		conPrintStr(toString(p_x[i]) + " ");
-
-	conPrint("\np_y");
-	for(int i=0; i<N; ++i)
-		conPrintStr(toString(p_y[i]) + " ");
-
-	conPrint("\np_z");
-	for(int i=0; i<N; ++i)
-		conPrintStr(toString(p_z[i]) + " ");*/
+	
+	
 
 
 	// Make new_gradients
@@ -139,6 +130,32 @@ void PerlinNoise::init()
 	// Compute a random bit mask for each result dimension
 	for(int i=0; i<4; ++i)
 		masks[i] = (int)rng.genrand_int32() & 0xFF;
+
+
+	// Some code to print out the tables used, so the OpenCL implementation can use the same data
+	/*{
+		std::ofstream file("perlin_data.txt");
+
+		file << "\np_x = ";
+		for(int i=0; i<N; ++i)
+			file << toString(p_x[i]) + ", ";
+
+		file << "\np_y = ";
+		for(int i=0; i<N; ++i)
+			file << toString(p_y[i]) + ", ";
+
+		file << "\np_z = ";
+		for(int i=0; i<N; ++i)
+			file << toString(p_z[i]) + ", ";
+
+		file << "\nnew_gradients = ";
+		for(int i=0; i<N; ++i)
+			file << ::floatLiteralString(new_gradients[i].x[0]) << ", " << ::floatLiteralString(new_gradients[i].x[1]) << ", " << ::floatLiteralString(new_gradients[i].x[2]) << ", 0.0f, ";
+		
+		file << "\nmasks = ";
+		for(int i=0; i<4; ++i)
+			file << toString(masks[i]) + ", ";
+	}*/
 }
 
 
@@ -301,7 +318,7 @@ const Vec4f PerlinNoise::noise4Valued(float x, float y)
 
 
 // Chosen to match Perlin's grad() function
-static const Vec4f gradients[16] = {
+/*static const Vec4f gradients[16] = {
 	Vec4f(1,1,0,0),
 	Vec4f(-1,1,0,0),
 	Vec4f(1,-1,0,0),
@@ -318,7 +335,7 @@ static const Vec4f gradients[16] = {
 	Vec4f(0,-1,1,0),
 	Vec4f(-1,1,0,0),
 	Vec4f(0,-1,-1,0)
-};
+};*/
 
 
 template <bool use_sse4>
