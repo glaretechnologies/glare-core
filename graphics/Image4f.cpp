@@ -499,6 +499,7 @@ public:
 };
 
 
+// border width = margin @ ssf1
 void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
 							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
 							const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager)
@@ -516,8 +517,8 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
 	const ptrdiff_t filter_bound = filter_span / 2 - 1;
 
-	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor);
-	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor);
+	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
+	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
 	img_out.resize((size_t)out_xres, (size_t)out_yres);
 
 	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);

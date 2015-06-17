@@ -846,7 +846,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		temp_AD_buffer,
 		ldr_image_out,
 		false, // XYZ_colourspace
-		RendererSettings::getMargin(), // margin at ssf1
+		renderer_settings.getMargin(), // margin at ssf1
 		2.2f, // gamma
 		task_manager
 	);
@@ -859,7 +859,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 		
 		RenderChannels render_channels;
 		render_channels.layers.push_back(Layer());
@@ -884,7 +884,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 2;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
 		render_channels.layers.push_back(Layer());
@@ -908,7 +908,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf);
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
 		const float value_factor = 10000.f;
@@ -992,8 +992,8 @@ void test()
 		const int image_ss_factor	= test_ss[ss];
 		const int image_layers		= test_layers[l];
 
-		const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, image_ss_factor);
-		const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, image_ss_factor);
+		const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, image_ss_factor, RendererSettings::defaultMargin());
+		const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, image_ss_factor, RendererSettings::defaultMargin());
 
 		RendererSettings renderer_settings;
 		renderer_settings.logging = false;
@@ -1049,7 +1049,7 @@ void test()
 			temp_AD_buffer,
 			temp_ldr_buffer,
 			false,
-			RendererSettings::getMargin(), // margin at ssf1
+			renderer_settings.getMargin(), // margin at ssf1
 			2.2f, // gamma
 			task_manager);
 
