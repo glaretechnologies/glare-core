@@ -434,6 +434,12 @@ void doTonemapFullBuffer(
 	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
 	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 
+	// For receiver/spectral rendering (which has margin 0), force alpha values to 1.  
+	// Otherwise pixels on the edge of the image get alpha < 1, which results in scaling when doing the alpha divide below.
+	if(render_channels.hasSpectral())
+		for(size_t i=0; i<ldr_buffer_out.numPixels(); ++i)
+			ldr_buffer_out.getPixel(i).x[3] = 1; 
+
 
 	const bool dithering = renderer_settings.dithering;
 	
