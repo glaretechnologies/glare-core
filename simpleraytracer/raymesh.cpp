@@ -1293,6 +1293,16 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		}
 	}
 
+	// Check all UVs are not NaNs, as NaN UVs cause NaN filtered texture values, which cause a crash in TextureUnit table look-up.  See https://bugs.glaretechnologies.com/issues/271
+	const size_t uv_size = this->uvs.size();
+	for(size_t i=0; i<uv_size; ++i)
+	{
+		if(!isFinite(this->uvs[i].x))
+			this->uvs[i].x = 0;
+		if(!isFinite(this->uvs[i].y))
+			this->uvs[i].y = 0;
+	}
+
 	const unsigned int num_uv_groups = this->getNumUVsPerSet(); // Compute out of loop below.
 
 	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
