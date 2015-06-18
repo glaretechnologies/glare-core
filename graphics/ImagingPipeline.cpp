@@ -66,28 +66,47 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		const int num_layers = (int)closure.render_channels.layers.size();
-
-		for(int i = begin; i < end; ++i)
+		if(closure.render_channels.hasSpectral())
 		{
-			Colour4f sum(0.0f);
-
-			for(int z = 0; z < num_layers; ++z)
+			for(int i = begin; i < end; ++i)
 			{
-				const Vec3f& scale = closure.layer_scales[z];
-
-				sum.x[0] += closure.render_channels.layers[z].image.getPixel(i).r * scale.x;
-				sum.x[1] += closure.render_channels.layers[z].image.getPixel(i).g * scale.y;
-				sum.x[2] += closure.render_channels.layers[z].image.getPixel(i).b * scale.z;
+				Colour4f sum(0.0f);
+				for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels.spectral.getN(); ++z) // For each wavelength bin:
+				{
+					const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels.spectral.getN();
+					const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
+					const float pixel_comp_val = closure.render_channels.spectral.getData()[i * closure.render_channels.spectral.getN() + z] * closure.image_scale;
+					sum[0] += xyz.x * pixel_comp_val;
+					sum[1] += xyz.y * pixel_comp_val;
+					sum[2] += xyz.z * pixel_comp_val;
+				}
+				sum.x[3] = 1;
+				closure.buffer_out.getPixel(i) = sum;
 			}
+		}
+		else
+		{
+			const int num_layers = (int)closure.render_channels.layers.size();
 
-			// Get alpha from alpha channel if it exists
-			if(closure.render_channels.hasAlpha())
-				sum.x[3] = closure.render_channels.alpha.getData()[i] * closure.image_scale;
-			else
-				sum.x[3] = 1.0f;
+			for(int i = begin; i < end; ++i)
+			{
+				Colour4f sum(0.0f);
+				for(int z = 0; z < num_layers; ++z)
+				{
+					const Vec3f& scale = closure.layer_scales[z];
+					sum.x[0] += closure.render_channels.layers[z].image.getPixel(i).r * scale.x;
+					sum.x[1] += closure.render_channels.layers[z].image.getPixel(i).g * scale.y;
+					sum.x[2] += closure.render_channels.layers[z].image.getPixel(i).b * scale.z;
+				}
 
-			closure.buffer_out.getPixel(i) = sum;
+				// Get alpha from alpha channel if it exists
+				if(closure.render_channels.hasAlpha())
+					sum.x[3] = closure.render_channels.alpha.getData()[i] * closure.image_scale;
+				else
+					sum.x[3] = 1.0f;
+
+				closure.buffer_out.getPixel(i) = sum;
+			}
 		}
 	}
 
@@ -514,7 +533,7 @@ public:
 					const ptrdiff_t src_addr = y * xres + x;
 					Colour4f sum(0.0f);
 
-					if(closure.render_channels->hasSpectral())
+					/*if(closure.render_channels->hasSpectral())
 					{
 						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
 						{
@@ -526,7 +545,7 @@ public:
 							sum[2] += xyz.z * pixel_comp_val;
 						}
 					}
-					else
+					else*/
 					{
 						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->layers.size(); ++z)
 						{
@@ -722,8 +741,9 @@ void doTonemap(
 	Indigo::TaskManager& task_manager
 	)
 {
-	// Apply diffraction filter if required
-	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())
+	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
+	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
+	if((renderer_settings.getMargin() == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,

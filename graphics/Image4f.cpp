@@ -463,28 +463,43 @@ public:
 		const ptrdiff_t factor = closure.factor;
 		const ptrdiff_t border_width = closure.border_width;
 		const ptrdiff_t in_xres = closure.in_xres;
+		const ptrdiff_t in_yres = closure.in_yres;
 		const ptrdiff_t filter_bound = closure.filter_bound;
 		const ptrdiff_t out_xres = closure.out_xres;
-		//const ptrdiff_t out_yres = closure.out_yres;
 		const float pre_clamp = closure.pre_clamp;
 
 		for(int y = begin; y < end; ++y)
 		for(int x = 0; x < out_xres; ++x)
 		{
-			const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound; assert(u_min >= 0);
-			const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound; assert(v_min >= 0);
-			const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound; assert(u_max < in_xres);
-			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound; assert(v_max < closure.in_yres);
+			const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound;
+			const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound;
+			const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound;
+			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound;
 
 			Image4f::ColourType weighted_sum(0);
-			uint32 filter_addr = 0;
-			for(ptrdiff_t v = v_min; v <= v_max; ++v)
-			for(ptrdiff_t u = u_min; u <= u_max; ++u)
+			if(u_min >= 0 && v_min >= 0 && u_max < in_xres && v_max < in_yres) // If filter support is completely in bounds:
 			{
-				const ptrdiff_t addr = v * in_xres + u;
-				assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * closure.in_yres)/*img_in.numPixels()*/);
+				uint32 filter_addr = 0;
+				for(ptrdiff_t v = v_min; v <= v_max; ++v)
+				for(ptrdiff_t u = u_min; u <= u_max; ++u)
+				{
+					const ptrdiff_t addr = v * in_xres + u;
+					assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * in_yres));
 
-				weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
+					weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr++]);
+				}
+			}
+			else
+			{
+				uint32 filter_addr = 0;
+				for(ptrdiff_t v = v_min; v <= v_max; ++v)
+				for(ptrdiff_t u = u_min; u <= u_max; ++u)
+				{
+					const ptrdiff_t addr = v * in_xres + u;
+					if(u >= 0 && v >= 0 && u < in_xres && v < in_yres) // Check position we are reading from is in bounds
+						weighted_sum.addMult(in_buffer[addr], resize_filter[filter_addr]);
+					filter_addr++;
+				}
 			}
 
 			assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
@@ -537,7 +552,6 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	closure.out_yres = out_yres;
 	closure.pre_clamp = pre_clamp;
 
-	// Blur in x direction
 	task_manager.runParallelForTasks<DownsampleImageTask, DownsampleImageTaskClosure>(closure, 0, out_yres);
 }
 
