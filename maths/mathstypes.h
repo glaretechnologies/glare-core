@@ -54,6 +54,7 @@ template <class T> INDIGO_STRONG_INLINE T pi_2();		// Pi / 2
 template <class T> INDIGO_STRONG_INLINE T pi_4();		// Pi / 4
 
 template <class T> INDIGO_STRONG_INLINE T recipPi();	// 1 / Pi
+template <class T> INDIGO_STRONG_INLINE T recipPiSqd();	// 1 / Pi^2
 template <class T> INDIGO_STRONG_INLINE T recip2Pi(); // 1 / 2Pi
 template <class T> INDIGO_STRONG_INLINE T recip4Pi();	// 1 / 4Pi
 
@@ -77,6 +78,9 @@ template <> INDIGO_STRONG_INLINE double pi_4<double>() { return 0.78539816339744
 
 template <> INDIGO_STRONG_INLINE float  recipPi<float>()  { return 0.31830988618379067153776752674503f; };
 template <> INDIGO_STRONG_INLINE double recipPi<double>() { return 0.31830988618379067153776752674503; };
+
+template <> INDIGO_STRONG_INLINE float  recipPiSqd<float>()  { return 0.10132118364233777144387946320973f; };
+template <> INDIGO_STRONG_INLINE double recipPiSqd<double>() { return 0.10132118364233777144387946320973; };
 
 template <> INDIGO_STRONG_INLINE float  recip2Pi<float>()  { return 0.15915494309189533576888376337251f; };
 template <> INDIGO_STRONG_INLINE double recip2Pi<double>() { return 0.15915494309189533576888376337251; };

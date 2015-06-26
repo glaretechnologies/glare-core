@@ -774,6 +774,44 @@ void Maths::test()
 	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("tan() [float]");
+	{
+		CycleTimer timer;
+		float sum = 0.0;
+		CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+		for(int t=0; t<trials; ++t)
+		{
+			for(int i=0; i<N; ++i)
+			{
+				const float x = (float)i * 0.001f;
+				sum += std::tan(x);
+			}
+			elapsed = myMin(elapsed, timer.elapsed());
+		}
+		const double cycles = elapsed / (double)N;
+		conPrint("\tcycles: " + toString(cycles));
+		conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("tan() [double]");
+	{
+	CycleTimer timer;
+	double sum = 0.0;
+	CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+	for(int t=0; t<trials; ++t)
+	{
+		for(int i=0; i<N; ++i)
+		{
+			const double x = (double)i * 0.001;
+			sum += std::tan(x);
+		}
+		elapsed = myMin(elapsed, timer.elapsed());
+	}
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
 	conPrint("sqrt() [float]");
 	{
 	CycleTimer timer;
