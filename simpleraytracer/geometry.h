@@ -11,6 +11,7 @@ File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 #include "../maths/plane.h"
 #include "../physics/jscol_aabbox.h"
 #include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 #include "../indigo/UVCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
 #include "../raytracing/hitinfo.h"
@@ -123,3 +124,5 @@ private:
 	bool sub_elements_curved;
 };
 
+
+typedef Reference<Geometry> GeometryRef;
