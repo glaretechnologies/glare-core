@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/StringUtils.h"
 #include "../utils/Platform.h"
 #include <string>
+#include <assert.h>
 
 
 /*=====================================================================
@@ -195,6 +196,7 @@ void Parser::parseLine()
 
 char Parser::current() const
 {
+	assert(currentpos < textsize);
 	return text[currentpos];
 }
 

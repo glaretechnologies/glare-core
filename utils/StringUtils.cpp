@@ -121,27 +121,17 @@ unsigned int hexCharToUInt(char c)
 }
 
 
-unsigned int hexStringToUInt(const std::string& s)
+uint32 hexStringToUInt32(const std::string& s)
 {
-	if(s.size() < 3)
-		return 0;//too short, parse error
-	else if(s.size() > 10)
-		return 0;//too long, parse error
+	if(s.empty())
+		throw StringUtilsExcep("Failed to convert '" + s + "', string was empty.");
+	else if(s.size() > 8)
+		throw StringUtilsExcep("Failed to convert '" + s + "', string was too long.");
 
-	unsigned int i = 0;
-	unsigned int x = 0;
-	unsigned int nibble;
-
-	//eat '0'
-	if(s[i++] != '0')
-		return 0;//parse error
-
-	//eat 'x'
-	if(s[i++] != 'x')
-		return 0;//parse error
-
-	while(i < s.size())
+	uint32 x = 0;
+	for(size_t i=0; i<s.size(); ++i)
 	{
+		uint32 nibble;
 		if(s[i] >= '0' && s[i] <= '9')
 			nibble = s[i] - '0';
 		else if(s[i] >= 'a' && s[i] <= 'f')
@@ -149,12 +139,10 @@ unsigned int hexStringToUInt(const std::string& s)
 		else if(s[i] >= 'A' && s[i] <= 'F')
 			nibble = s[i] - 'A' + 10;
 		else
-			return 0;//parse error
+			throw StringUtilsExcep("Invalid character '" + std::string(1, s[i]) + "'.");
 
 		x <<= 4;
-		x |= nibble;//set lower 4 bits to nibble
-
-		i++;
+		x |= nibble; // Set lower 4 bits to nibble
 	}
 
 	return x;
@@ -2095,10 +2083,10 @@ void StringUtils::test()
 	testAssert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
 	testAssert(::toHexString(0xA4) == "A4");
 
-	testAssert(::hexStringToUInt("0x34bc8106") == 0x34bc8106);
-	testAssert(::hexStringToUInt("0x0005F") == 0x0005F);
-	testAssert(::hexStringToUInt("0x0") == 0x0);
-	testAssert(::hexStringToUInt("skjhsdg") == 0);//parse error
+	testAssert(::hexStringToUInt32("34bc8106") == 0x34bc8106);
+	testAssert(::hexStringToUInt32("0005F") == 0x0005F);
+	testAssert(::hexStringToUInt32("0") == 0x0);
+	//testAssert(::hexStringToUInt32("skjhsdg") == 0);//parse error
 
 
 	testAssert(::charToString('a') == std::string("a"));

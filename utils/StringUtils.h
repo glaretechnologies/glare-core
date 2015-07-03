@@ -34,7 +34,7 @@ int stringToInt(const std::string& s); // throws StringUtilsExcep
 uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
 unsigned int hexCharToUInt(char c);
-unsigned int hexStringToUInt(const std::string& s);
+uint32 hexStringToUInt32(const std::string& s); // Input: something like "AABBCCDD"
 uint64 hexStringTo64UInt(const std::string& s);
 
 //====================== Number to String conversion ======================
