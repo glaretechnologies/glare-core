@@ -11,6 +11,7 @@ Generated at 2015-07-01 22:26:50 +0100
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include <assert.h>
+#include <cstring>
 
 
 namespace UTF8Utils
