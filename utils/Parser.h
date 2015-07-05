@@ -69,7 +69,7 @@ public:
 
 	inline bool nextIsEOF() const { return currentpos + 1 >= textsize; }
 	inline bool nextIsNotEOF() const { return currentpos + 1 < textsize; }
-	inline char next() const { return text[currentpos + 1]; }
+	inline char next() const { assert(currentpos + 1 < textsize); return text[currentpos + 1]; }
 	inline bool nextIsChar(char c) const { return nextIsNotEOF() && next() == c; }
 
 	inline const char* getText() const { return text; }

@@ -26,6 +26,13 @@ namespace UTF8Utils
 	// Codepoint must be <= 0x10FFFF
 	const std::string encodeCodePoint(uint32 codepoint);
 
+	// Convert a single unicode character, encoded in UTF-8 and store in a uint32, to the Unicode code point value.
+	uint32 codePointForUTF8Char(uint32 utf8_char);
+
+	// Convert a single unicode character, encoded in UTF-8 and store in a std::string, to the Unicode code point value.
+	uint32 codePointForUTF8CharString(const std::string& s);
+
+
 	size_t numCodePointsInString(const std::string& s);
 
 	size_t numCodePointsInString(const char* data, size_t num_bytes);

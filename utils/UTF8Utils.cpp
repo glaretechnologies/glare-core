@@ -65,6 +65,82 @@ const std::string encodeCodePoint(uint32 codepoint)
 }
 
 
+// Convert a single unicode character, encoded in UTF-8 and store in a uint32, to the Unicode code point value.
+uint32 codePointForUTF8Char(uint32 utf8_char)
+{
+	if((utf8_char & 0x80) == 0) // If left bit of byte 0 is 0:
+	{
+		// 1 byte UTF8-rep:
+		return utf8_char;
+	}
+	else if((utf8_char & 0xE0) == 0xC0) // If left 3 bits of byte 0 are 110:
+	{
+		return	((utf8_char & 0x1F) << 6) |  // right five bits of byte 0
+				((utf8_char & 0x3F00) >> 8); // right 6 bits of byte 1
+	}
+	else if((utf8_char & 0xF0) == 0xE0) // If left 4 bits of byte 0 are 1110:
+	{
+		return	((utf8_char & 0x0F) << 12) |  // right four bits of byte 0
+				((utf8_char & 0x3F00) >> 2) | // right 6 bits of byte 1
+				((utf8_char & 0x3F0000) >> 16);  // right 6 bits of byte 2
+	}
+	else
+	{
+		assert((utf8_char & 0xF8) == 0xF0); // left 5 bits of byte 0 should be 11110.
+		return	((utf8_char & 0x07) << 18) |  // right 3 bits of byte 0
+				((utf8_char & 0x3F00) << 4) | // right 6 bits of byte 1
+				((utf8_char & 0x3F0000) >> 10) |  // right 6 bits of byte 2
+				((utf8_char & 0x3F000000) >> 24);  // right 6 bits of byte 3
+	}
+}
+
+
+// Convert a single unicode character, encoded in UTF-8 and store in a std::string, to the Unicode code point value.
+uint32 codePointForUTF8CharString(const std::string& s)
+{
+	if(s.empty())
+		throw Indigo::Exception("Invalid Unicode character");
+	const uint8* const data = (const uint8*)s.c_str();
+
+	if(data[0] <= 0x7F) // (data[0] & 0x80) == 0) // If left bit of byte 0 is 0:
+	{
+		// 1 byte UTF8-rep:
+		return data[0];
+	}
+	else if(data[0] < 0xE0) // (data[0] & 0xE0) == 0xC0) // If left 3 bits of byte 0 are 110:
+	{
+		if(s.size() < 2)
+			throw Indigo::Exception("Invalid Unicode character");
+
+		//return	((data[0] & 0x1F) << 6) |  // right five bits of byte 0
+		//		((data[1] & 0x3F)); // right 6 bits of byte 1
+		return ((uint32)data[0] << 6) + (uint32)data[1] - ((0xC0 << 6) | 0x80);
+	}
+	else if(data[0] < 0xF0) // (data[0] & 0xF0) == 0xE0) // If left 4 bits of byte 0 are 1110:
+	{
+		if(s.size() < 3)
+			throw Indigo::Exception("Invalid Unicode character");
+
+		//return	((data[0] & 0x0F) << 12) |  // right four bits of byte 0
+		//		((data[1] & 0x3F) << 6) | // right 6 bits of byte 1
+		//		((data[2] & 0x3F));  // right 6 bits of byte 2
+		return ((uint32)data[0] << 12) + ((uint32)data[1] << 6) + (uint32)data[2] - ((0xE0 << 12) | (0x80 << 6) | 0x80);
+	}
+	else
+	{
+		assert((data[0] & 0xF8) == 0xF0); // left 5 bits of byte 0 should be 11110.
+		if(s.size() < 4)
+			throw Indigo::Exception("Invalid Unicode character");
+		
+		//return	((data[0] & 0x07) << 18) |  // right 3 bits of byte 0
+		//		((data[1] & 0x3F) << 12) | // right 6 bits of byte 1
+		//		((data[2] & 0x3F) << 6) |  // right 6 bits of byte 2
+		//		((data[3] & 0x3F));  // right 6 bits of byte 3
+		return ((uint32)data[0] << 18) + ((uint32)data[1] << 12) + ((uint32)data[2] << 6) + (uint32)data[3] - ((0xF0 << 18) | (0x80 << 12) | (0x80 << 6) | 0x80);
+	}
+}
+
+
 size_t numCodePointsInString(const std::string& s)
 {
 	const uint8* data = (const uint8*)s.c_str();
@@ -188,11 +264,40 @@ void test()
 	testAssert(codePointEncodedLength(0x20AC) == 3);
 	testAssert(codePointEncodedLength(0x2005A) == 4);
 
-	//========================= encode =============================
+	//========================= encodeCodePoint =============================
 	testAssert(encodeCodePoint('a') == "a");
 	testAssert(encodeCodePoint(0x393) == gamma);
 	testAssert(encodeCodePoint(0x20AC) == euro);
 	testAssert(encodeCodePoint(0x2005A) == cui);
+
+	//========================= codePointForUTF8Char =============================
+	testAssert(codePointForUTF8Char(0x61) == 0x61); // 'a'
+	testAssert(codePointForUTF8Char(0x93CE) == 0x393); // Assuming little-endian, so byte 0 (with value 0xCE) is least-significant byte in the uint32.
+	testAssert(codePointForUTF8Char(0xAC82E2) == 0x20AC);
+	testAssert(codePointForUTF8Char(0x9A81A0F0) == 0x2005A);
+
+	//========================= codePointForUTF8CharString =============================
+	testAssert(codePointForUTF8CharString("a") == 0x61); // 'a'
+	testAssert(codePointForUTF8CharString(gamma) == 0x393); // Assuming little-endian, so byte 0 (with value 0xCE) is least-significant byte in the uint32.
+	testAssert(codePointForUTF8CharString(euro) == 0x20AC);
+	testAssert(codePointForUTF8CharString(cui) == 0x2005A);
+
+	// Check that the encodeCodePoint -> codePointForUTF8CharString round trip is correct.
+	for(uint32 code_point=0; code_point<0x10FFFF; ++code_point)
+	{
+		const std::string encoded = encodeCodePoint(code_point);
+		testAssert(codePointEncodedLength(code_point) == encoded.length()); // Check codePointEncodedLength() is correct.
+
+		// Convert encoded string into encoded uint32.
+		uint32 x = 0;
+		std::memcpy((char*)&x, &encoded[0], encoded.length());
+
+		testAssert(codePointForUTF8Char(x) == code_point);
+
+		testAssert(codePointForUTF8CharString(encoded) == code_point);
+
+		testAssert(numBytesForChar(encoded[0]) == encoded.length());
+	}
 
 	//========================= numCodePointsInString ==============================
 	testAssert(numCodePointsInString("") == 0);
