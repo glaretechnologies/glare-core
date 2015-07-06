@@ -183,6 +183,16 @@ size_t numBytesForChar(uint8 first_byte)
 }
 
 
+const std::string charString(uint32 utf8_char)
+{
+	const size_t num_bytes = numBytesForChar((uint8)(utf8_char & 0xFF));
+	std::string s;
+	s.resize(num_bytes);
+	std::memcpy(&s[0], &utf8_char, num_bytes);
+	return s;
+}
+
+
 // Returns the byte index of the given character
 // Throws an Indigo::Exception if char_index is out of bounds.
 size_t byteIndex(const uint8* data, size_t num_bytes, size_t char_index)
@@ -213,7 +223,7 @@ uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index)
 
 	// Copy character bytes to uint32 to return
 	uint32 res = 0;
-	std::memcpy(&res, data, bytes_for_char);
+	std::memcpy(&res, data + byte_i, bytes_for_char);
 	return res;
 }
 
@@ -244,6 +254,19 @@ void testByteIndexThrowsExcep(const uint8* data, size_t num_bytes, size_t char_i
 	catch(Indigo::Exception&)
 	{}
 }
+
+
+void testCharAtThrowsExcep(const uint8* data, size_t num_bytes, size_t char_index)
+{
+	try
+	{
+		charAt(data, num_bytes, char_index);
+		failTest("Expected excep.");
+	}
+	catch(Indigo::Exception&)
+	{}
+}
+
 
 
 void test()
@@ -292,6 +315,8 @@ void test()
 		uint32 x = 0;
 		std::memcpy((char*)&x, &encoded[0], encoded.length());
 
+		testAssert(charString(x) == encoded);
+
 		testAssert(codePointForUTF8Char(x) == code_point);
 
 		testAssert(codePointForUTF8CharString(encoded) == code_point);
@@ -310,11 +335,17 @@ void test()
 	testAssert(numCodePointsInString(" " + euro + euro) == 3);
 	testAssert(numCodePointsInString("a" + euro + "b" + euro) == 4);
 
-	//========================= numCodePointsInString ==============================
+	//========================= numBytesForChar ==============================
 	testAssert(numBytesForChar((uint8)'a') == 1);
 	testAssert(numBytesForChar((uint8)'\xCE') == 2);
 	testAssert(numBytesForChar((uint8)'\xE2') == 3);
 	testAssert(numBytesForChar((uint8)'\xF0') == 4);
+
+	//========================= charString ==============================
+	testAssert(charString('a') == "a");
+	testAssert(charString(0x93CE) == gamma);
+	testAssert(charString(0xAC82E2) == euro);
+	testAssert(charString(0x9A81A0F0) == cui);
 
 	//========================= byteIndex ==============================
 	{
@@ -351,6 +382,43 @@ void test()
 		testAssert(byteIndex((const uint8*)s.data(), s.size(), 2) == 5);
 		testAssert(byteIndex((const uint8*)s.data(), s.size(), 3) == 9);
 		testByteIndexThrowsExcep((const uint8*)s.data(), s.size(), 4);
+	}
+
+	//========================= charAt ==============================
+	{
+		std::string s = "";
+		testCharAtThrowsExcep(NULL, s.size(), 0);
+	}
+
+	{
+		std::string s = euro;
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 0)) == euro);
+		testCharAtThrowsExcep((const uint8*)s.data(), s.size(), 1);
+	}
+	{
+		std::string s = euro + "a" + euro + "b";
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 0)) == euro);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 1)) == "a");
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 2)) == euro);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 3)) == "b");
+		testCharAtThrowsExcep((const uint8*)s.data(), s.size(), 4);
+	}
+	{
+		std::string s = gamma + "a" + gamma + "b";
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 0)) == gamma);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 1)) == "a");
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 2)) == gamma);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 3)) == "b");
+		testCharAtThrowsExcep((const uint8*)s.data(), s.size(), 4);
+	}
+
+	{
+		std::string s = cui + "a" + cui + "b";
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 0)) == cui);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 1)) == "a");
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 2)) == cui);
+		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 3)) == "b");
+		testCharAtThrowsExcep((const uint8*)s.data(), s.size(), 4);
 	}
 
 }

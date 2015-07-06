@@ -40,6 +40,9 @@ namespace UTF8Utils
 
 	size_t numBytesForChar(uint8 first_byte);
 
+	// Convert from a single Unicode char, encoded in UTF-8 and store in a uint32, to one stored in a std::string.
+	const std::string charString(uint32 utf8_char);
+
 	// Returns the byte index of the given character
 	// Throws an Indigo::Exception if char_index is out of bounds.
 	size_t byteIndex(const uint8* data, size_t num_bytes, size_t char_index);
