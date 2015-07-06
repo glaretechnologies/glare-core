@@ -61,7 +61,7 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 		&result
 		);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clCreateBuffer failed");
+		throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
 
 	size = size_;
 
@@ -77,8 +77,9 @@ void OpenCLBuffer::free()
 	if(!opencl_mem)
 		return;
 
-	if(getGlobalOpenCL()->clReleaseMemObject(opencl_mem) != CL_SUCCESS)
-		throw Indigo::Exception("clReleaseMemObject failed");
+	cl_int result = getGlobalOpenCL()->clReleaseMemObject(opencl_mem);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clReleaseMemObject failed: " + OpenCL::errorString(result));
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc -= size;
@@ -105,7 +106,7 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 		&result
 		);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clCreateBuffer failed");
+		throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
 
 	size = size_;
 
@@ -138,7 +139,6 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const sr
 
 cl_mem& OpenCLBuffer::getDevicePtr()
 {
-	assert(opencl_mem);
 	return opencl_mem;
 }
 
