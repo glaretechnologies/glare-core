@@ -16,8 +16,10 @@ Copyright Glare Technologies Limited 2013 -
 template <class T> inline T intervalSetMinValue();
 template <class T> inline T intervalSetMaxValue();
 
-template<> inline int intervalSetMinValue<int>() { return std::numeric_limits<int>::min(); }
-template<> inline int intervalSetMaxValue<int>() { return std::numeric_limits<int>::max(); }
+template<> inline int32 intervalSetMinValue<int32>() { return std::numeric_limits<int32>::min(); }
+template<> inline int32 intervalSetMaxValue<int32>() { return std::numeric_limits<int32>::max(); }
+template<> inline int64 intervalSetMinValue<int64>() { return std::numeric_limits<int64>::min(); }
+template<> inline int64 intervalSetMaxValue<int64>() { return std::numeric_limits<int64>::max(); }
 template<> inline float intervalSetMinValue<float>() { return -std::numeric_limits<float>::infinity(); }
 template<> inline float intervalSetMaxValue<float>() { return std::numeric_limits<float>::infinity(); }
 
@@ -61,7 +63,8 @@ public:
 void intervalSetTest();
 
 
-typedef IntervalSet<int> IntervalSetInt;
+typedef IntervalSet<int32> IntervalSetInt32;
+typedef IntervalSet<int64> IntervalSetInt64;
 typedef IntervalSet<float> IntervalSetFloat;
 
 
