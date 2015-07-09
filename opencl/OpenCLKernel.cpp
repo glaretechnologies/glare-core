@@ -26,6 +26,8 @@ OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, c
 {
 	kernel = 0;
 	kernel_arg_index = 0;
+	work_group_size = 1;
+	work_group_size_multiple = 1;
 
 	createKernel(program, kernel_name, opencl_device_id);
 }
@@ -33,7 +35,9 @@ OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, c
 
 OpenCLKernel::~OpenCLKernel()
 {
-
+	cl_int result = getGlobalOpenCL()->clReleaseKernel(kernel);
+	if(result != CL_SUCCESS)
+		conPrint("Warning: clReleaseKernel failed: " + OpenCL::errorString(result));
 }
 
 
@@ -46,6 +50,7 @@ void OpenCLKernel::createKernel(cl_program program, const std::string& kernel_na
 	if(!this->kernel)
 		throw Indigo::Exception("Failed to created kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
+	// Query work-group size multiple.
 	size_t worksize[3];
 	result = getGlobalOpenCL()->clGetKernelWorkGroupInfo(
 		this->kernel,
@@ -56,7 +61,18 @@ void OpenCLKernel::createKernel(cl_program program, const std::string& kernel_na
 		NULL // param_value_size_ret. Can be null.
 	);
 	
-	this->work_size = (result != CL_SUCCESS) ? 64 : worksize[0];
+	this->work_group_size_multiple = (result != CL_SUCCESS) ? 64 : worksize[0];
+
+	this->work_group_size = this->work_group_size_multiple;
+
+	conPrint("work group size multiple for kernel '" + kernel_name + "' = " + toString(this->work_group_size_multiple));
+}
+
+
+void OpenCLKernel::setWorkGroupSize(size_t work_group_size_)
+{ 
+	assert(work_group_size_ >= 1);
+	work_group_size = work_group_size_;
 }
 
 
@@ -91,7 +107,7 @@ void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t gl
 		1,					// dimension
 		NULL,				// global_work_offset
 		&global_work_size,	// global_work_size
-		&work_size,			// local_work_size,
+		&work_group_size,	// local_work_size (work-group size),
 		0,					// num_events_in_wait_list
 		NULL,				// event_wait_list
 		NULL				// event

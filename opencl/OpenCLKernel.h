@@ -30,6 +30,10 @@ public:
 	//NOTE: opencl_device_id is just used for querying work group size.
 	void createKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id);
 
+	size_t getWorkGroupSizeMulitple() const { return work_group_size; }
+	size_t getWorkGroupSize() const { return work_group_size; }
+	void setWorkGroupSize(size_t work_group_size_);
+
 
 	void setKernelArgUInt(size_t index, cl_uint val);
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
@@ -48,7 +52,8 @@ private:
 
 	std::string kernel_name;
 	cl_kernel kernel;
-	size_t work_size;
+	size_t work_group_size_multiple;
+	size_t work_group_size;
 
 	size_t kernel_arg_index;
 };
