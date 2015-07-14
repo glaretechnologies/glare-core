@@ -144,4 +144,23 @@ void OpenCLTests::test()
 }
 
 
+#else // USE_OPENCL
+
+
+OpenCLTests::OpenCLTests()
+{
+}
+
+
+OpenCLTests::~OpenCLTests()
+{
+}
+
+
+void OpenCLTests::test()
+{
+	conPrint("OpenCLTests::test(): Skipping as USE_OPENCL is not defined.");
+}
+
+
 #endif // USE_OPENCL
