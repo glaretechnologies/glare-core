@@ -1,9 +1,9 @@
 /*=====================================================================
-OpenCLPathTracerTests.cpp
--------------------------
+OpenCLTests.cpp
+---------------
 Copyright Glare Technologies Limited 2015 -
 =====================================================================*/
-#include "OpenCLPathTracerTests.h"
+#include "OpenCLTests.h"
 
 
 #include "OpenCLKernel.h"
@@ -21,19 +21,19 @@ Copyright Glare Technologies Limited 2015 -
 #if USE_OPENCL
 
 
-OpenCLPathTracerTests::OpenCLPathTracerTests()
+OpenCLTests::OpenCLTests()
 {
 }
 
 
-OpenCLPathTracerTests::~OpenCLPathTracerTests()
+OpenCLTests::~OpenCLTests()
 {
 }
 
 
-void OpenCLPathTracerTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
+void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 {
-	conPrint("OpenCLPathTracerTests::runTestsOnDevice(), device: " + opencl_device.device_name);
+	conPrint("OpenCLTests::runTestsOnDevice(), device: " + opencl_device.device_name);
 
 	try
 	{
@@ -101,7 +101,7 @@ void OpenCLPathTracerTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		if(test_result != 0)
 		{
 			conPrint("Error: An OpenCL unit test failed.");
-			exit(1);
+			exit(10);
 		}
 
 		// Free the context and command queue for this device.
@@ -118,9 +118,9 @@ void OpenCLPathTracerTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 }
 
 
-void OpenCLPathTracerTests::test()
+void OpenCLTests::test()
 {
-	conPrint("OpenCLPathTracerTests::test()");
+	conPrint("OpenCLTests::test()");
 
 	try
 	{

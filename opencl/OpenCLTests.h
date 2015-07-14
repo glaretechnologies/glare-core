@@ -1,6 +1,6 @@
 /*=====================================================================
-OpenCLPathTracerTests.h
------------------------
+OpenCLTests.h
+-------------
 Copyright Glare Technologies Limited 2015 -
 =====================================================================*/
 #pragma once
@@ -10,16 +10,16 @@ class gpuDeviceInfo;
 
 
 /*=====================================================================
-OpenCLPathTracerTests
----------------------
+OpenCLTests
+-----------
 Runs some tests, written in OpenCL, in the kernel OpenCLPathTracingTestKernel.cl,
 that test various things from the OpenCL code used in the OpenCL path tracer.
 =====================================================================*/
-class OpenCLPathTracerTests
+class OpenCLTests
 {
 public:
-	OpenCLPathTracerTests();
-	~OpenCLPathTracerTests();
+	OpenCLTests();
+	~OpenCLTests();
 
 	static void test();
 
