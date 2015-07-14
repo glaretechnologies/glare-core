@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2015 -
 
 #include "OpenCLKernel.h"
 #include "OpenCLBuffer.h"
+#include "OpenCLPathTracingKernel.h"
 #include "../indigo/StandardPrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/ConPrint.h"
@@ -56,7 +57,8 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		
 
 		std::string options =	std::string(" -cl-fast-relaxed-math") +
-								std::string(" -cl-mad-enable");
+								std::string(" -cl-mad-enable") + 
+								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
 		StandardPrintOutput print_output;
@@ -75,10 +77,54 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device);
 
 
+		//============== Test-specific buffers ====================
+		std::vector<OCLPTTexDescriptor> tex_descriptors(1);
+
+		tex_descriptors[0].xres			= 4;
+		tex_descriptors[0].yres			= 4;
+		tex_descriptors[0].bpp			= 3;
+		tex_descriptors[0].byte_offset	= 0;
+		tex_descriptors[0].inv_gamma	= 1.f;
+		tex_descriptors[0].quadratic	= 0;
+		tex_descriptors[0].scale		= 1;
+		tex_descriptors[0].bias			= 0;
+
+		//tex_descriptors[0].texmatrix_rotscale[0] = scene_builder->used_textures[i].first.texmatrix_rotscale[0];
+		//tex_descriptors[0].texmatrix_rotscale[1] = scene_builder->used_textures[i].first.texmatrix_rotscale[1];
+		//tex_descriptors[0].texmatrix_offset		 = scene_builder->used_textures[i].first.texmatrix_offset;
+
+		OpenCLBuffer cl_texture_desc;
+		cl_texture_desc.allocFrom(context, tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+
+
+		std::vector<uint8> texture_data(48);
+
+		// Make a texture with RGB values steadily increasing as x increases.
+		// so val(0, y) = 0, val(1, y) = 0.25*256 = 64, val(2, y) = 128, val(3, y) = 192
+		const int W = 4;
+		for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			texture_data[(y*W + x)*3 + 0] = (uint8)(256 * (float)x / W);
+			texture_data[(y*W + x)*3 + 1] = (uint8)(256 * (float)x / W);
+			texture_data[(y*W + x)*3 + 2] = (uint8)(256 * (float)x / W);
+		}
+
+
+		OpenCLBuffer cl_texture_data;
+		cl_texture_data.allocFrom(context, texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+
+		//============== End test-specific buffers ====================
+
+
+
 		OpenCLBuffer result_buffer(context, sizeof(int32), CL_MEM_READ_WRITE);
 
 		// Launch the kernel:
 		testKernel->setNextKernelArg(result_buffer.getDevicePtr());
+		testKernel->setNextKernelArg(cl_texture_desc.getDevicePtr());
+		testKernel->setNextKernelArg(cl_texture_data.getDevicePtr());
+
 		testKernel->launchKernel(command_queue, 1); 
 
 		// Read back result
@@ -124,13 +170,15 @@ void OpenCLTests::test()
 
 	try
 	{
-		OpenCL& opencl = *getGlobalOpenCL();
+		OpenCL* opencl = getGlobalOpenCL();
 
-		opencl.queryDevices();
+		testAssert(opencl != NULL);
 
-		for(size_t i=0; i<opencl.getDeviceInfo().size(); ++i)
+		opencl->queryDevices();
+
+		for(size_t i=0; i<opencl->getDeviceInfo().size(); ++i)
 		{
-			const gpuDeviceInfo& device_info = opencl.getDeviceInfo()[i];
+			const gpuDeviceInfo& device_info = opencl->getDeviceInfo()[i];
 			if(device_info.CPU) // If this is a CPU device:
 			{
 				runTestsOnDevice(device_info);
