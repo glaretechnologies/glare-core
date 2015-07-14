@@ -37,16 +37,16 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 	try
 	{
-		OpenCL& opencl = *getGlobalOpenCL();
+		OpenCL* opencl = getGlobalOpenCL();
+		testAssert(opencl != NULL);
 
 		// Initialise OpenCL context and command queue for this device
 		cl_context context;
 		cl_command_queue command_queue;
-		opencl.deviceInit(opencl_device, context, command_queue);
+		opencl->deviceInit(opencl_device, context, command_queue);
 
 
 		// Read test kernel from disk
-		
 		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/OpenCLPathTracingTestKernel.cl";
 		std::string contents;
 		FileUtils::readEntireFileTextMode(kernel_path, contents);
@@ -60,7 +60,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		// Compile and build program.
 		StandardPrintOutput print_output;
-		cl_program program = opencl.buildProgram(
+		cl_program program = opencl->buildProgram(
 			program_lines,
 			context,
 			opencl_device.opencl_device,
@@ -70,7 +70,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		conPrint("Program built.");
 
-		opencl.dumpBuildLog(program, opencl_device.opencl_device, print_output); 
+		opencl->dumpBuildLog(program, opencl_device.opencl_device, print_output); 
 
 		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device);
 
@@ -82,13 +82,13 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		testKernel->launchKernel(command_queue, 1); 
 
 		// Read back result
-		SSE_ALIGN uint32 test_result;
-		cl_int result = opencl.clEnqueueReadBuffer(
+		SSE_ALIGN int32 test_result;
+		cl_int result = opencl->clEnqueueReadBuffer(
 			command_queue,
 			result_buffer.getDevicePtr(), // buffer
 			CL_TRUE, // blocking read
 			0, // offset
-			sizeof(uint32), // size in bytes
+			sizeof(int32), // size in bytes
 			&test_result, // host buffer pointer
 			0, // num events in wait list
 			NULL, // wait list
@@ -105,7 +105,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		}
 
 		// Free the context and command queue for this device.
-		opencl.deviceFree(context, command_queue);
+		opencl->deviceFree(context, command_queue);
 	}
 	catch(Indigo::Exception& e)
 	{
