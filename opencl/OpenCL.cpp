@@ -827,7 +827,12 @@ OpenCL* getGlobalOpenCL()
 		
 		try
 		{
-			global_opencl = new OpenCL(false);
+#if BUILD_TESTS
+			const bool verbose = true;
+#else
+			const bool verbose = false;
+#endif
+			global_opencl = new OpenCL(verbose);
 			global_opencl->queryDevices();
 		}
 		catch(Indigo::Exception&)
