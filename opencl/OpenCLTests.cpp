@@ -19,6 +19,9 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/PlatformUtils.h"
 
 
+#if BUILD_TESTS
+
+
 #if USE_OPENCL
 
 
@@ -212,3 +215,6 @@ void OpenCLTests::test()
 
 
 #endif // USE_OPENCL
+
+
+#endif // BUILD_TESTS
