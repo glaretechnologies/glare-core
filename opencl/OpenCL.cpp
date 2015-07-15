@@ -236,8 +236,9 @@ void OpenCL::queryDevices()
 
 	std::vector<cl_platform_id> platform_ids(128);
 	cl_uint num_platforms = 0;
-	if(this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms) != CL_SUCCESS)
-		throw Indigo::Exception("clGetPlatformIDs failed");
+	cl_int result = this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clGetPlatformIDs failed: " + errorString(result));
 
 
 #if OPENCL_OPENGL_INTEROP
