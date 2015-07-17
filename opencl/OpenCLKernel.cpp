@@ -101,13 +101,16 @@ void OpenCLKernel::setNextKernelArg(cl_mem buffer)
 
 void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
 {
+	// Make sure the work group size we use is <= the global work size.
+	const size_t use_work_group_size = myMin(work_group_size, global_work_size);
+
 	cl_int result = getGlobalOpenCL()->clEnqueueNDRangeKernel(
 		opencl_command_queue,
 		this->kernel,
 		1,					// dimension
 		NULL,				// global_work_offset
 		&global_work_size,	// global_work_size
-		&work_group_size,	// local_work_size (work-group size),
+		&use_work_group_size,	// local_work_size (work-group size),
 		0,					// num_events_in_wait_list
 		NULL,				// event_wait_list
 		NULL				// event
