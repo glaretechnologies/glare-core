@@ -187,6 +187,13 @@ public:
 		assert(dynamic_cast<T2*>(ob));
 		return static_cast<T2*>(ob);
 	}
+
+
+	template <class T2>
+	inline bool isType() const
+	{
+		return dynamic_cast<const T2*>(ob) != NULL;
+	}
 	
 private:
 	T* ob;

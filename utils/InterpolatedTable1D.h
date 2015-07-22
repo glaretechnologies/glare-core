@@ -39,6 +39,8 @@ public:
 	inline Datum getValueNoBoundsCheck(Real x) const;
 
 	const std::vector<Datum>& getData() const { return data; }
+	inline Real getStartX() const { return start_x; }
+	inline Real getRecipGapWidth() const { return recip_gap_width; }
 private:
 	std::vector<Datum> data;
 	int data_size;
