@@ -156,7 +156,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 
 // XXX TODO this should be renamed to something cryptic
 "IMAGE_XRES", "IMAGE_YRES", "BUCKET_SIZE", "PASS_SAMPLES", "SPLAT_RADIUS",
-"ENV_EMITTER", "SUNSKY",
+"ENV_EMITTER", "SUNSKY_ENV_EMITTER",
 "USE_FLOAT3_SWIZZLES",
 "RANDOMISE_SAMPLES",
 "NUM_LIGHTS",
