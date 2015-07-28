@@ -1174,13 +1174,6 @@ const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsign
 
 void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const
 {
-	Vec4f v0pos;
-	Vec4f v1pos;
-	Vec4f v2pos;
-	triVertPos(hitinfo.sub_elem_index, 0).pointToVec4f(v0pos);
-	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
-	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
-
 	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	const float alpha = hitinfo.sub_elem_coords.x;
 	const float beta  = hitinfo.sub_elem_coords.y;
