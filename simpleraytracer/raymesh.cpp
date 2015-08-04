@@ -762,8 +762,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 	new_mesh->uvs = uvs;
 
 	// Copy dp/du, dp/dv
-	new_mesh->vert_dp_du = vert_dp_du;
-	new_mesh->vert_dp_dv = vert_dp_dv;
+	new_mesh->vert_derivs = vert_derivs;
 
 	// Should be no quads
 	assert(quads.empty());
@@ -832,8 +831,12 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 					));
 
 				// Add new dp_du etc.. for new vert
-				new_mesh->vert_dp_du.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i1]], t_1));
-				new_mesh->vert_dp_dv.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i1]], t_1));
+				{
+					VertDerivs d;
+					d.dp_du = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_du, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i1]].dp_du, t_1);
+					d.dp_dv = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_dv, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i1]].dp_dv, t_1);
+					new_mesh->vert_derivs.push_back(d);
+				}
 
 				// Make a new vertex along the edge (v_i, v_{i+2})
 				float t_2 = std::fabs(d[v_i] / (d[v_i] - d[v_i2]));
@@ -859,8 +862,12 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 					));
 
 				// Add new dp_du etc.. for new vert
-				new_mesh->vert_dp_du.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_du[current_triangles[t].vertex_indices[v_i2]], t_2));
-				new_mesh->vert_dp_dv.push_back(Maths::uncheckedLerp(new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i]], new_mesh->vert_dp_dv[current_triangles[t].vertex_indices[v_i2]], t_2));
+				{
+					VertDerivs d;
+					d.dp_du = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_du, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i2]].dp_du, t_1);
+					d.dp_dv = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_dv, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i2]].dp_dv, t_1);
+					new_mesh->vert_derivs.push_back(d);
+				}
 
 				// Make the triangle (v_i, v_new1, vnew2)
 				if(d[v_i] > 0) // If v_i is on front side of plane
@@ -1182,8 +1189,8 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 	const unsigned int v1 = triangles[hitinfo.sub_elem_index].vertex_indices[1];
 	const unsigned int v2 = triangles[hitinfo.sub_elem_index].vertex_indices[2];
 
-	const Vec3f use_dp_du = vert_dp_du[v0]*w + vert_dp_du[v1]*alpha + vert_dp_du[v2]*beta;
-	const Vec3f use_dp_dv = vert_dp_dv[v0]*w + vert_dp_dv[v1]*alpha + vert_dp_dv[v2]*beta;
+	const Vec3f use_dp_du = vert_derivs[v0].dp_du*w + vert_derivs[v1].dp_du*alpha + vert_derivs[v2].dp_du*beta;
+	const Vec3f use_dp_dv = vert_derivs[v0].dp_dv*w + vert_derivs[v1].dp_dv*alpha + vert_derivs[v2].dp_dv*beta;
 
 	dp_du_out = use_dp_du.toVec4fVector();
 	dp_dv_out = use_dp_dv.toVec4fVector();
@@ -1663,8 +1670,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 	std::vector<Vec3f> H(vertices.size(), Vec3f(0,0,0));
 	std::vector<Vec3f> A(vertices.size(), Vec3f(0,0,0));
 
-	vert_dp_du = std::vector<Vec3f>(vertices.size(), Vec3f(0,0,0));
-	vert_dp_dv = std::vector<Vec3f>(vertices.size(), Vec3f(0,0,0));
+	vert_derivs = std::vector<VertDerivs>(vertices.size(), VertDerivs(Vec3f(0,0,0), Vec3f(0,0,0)));
 	std::vector<int> vert_sum(vertices.size(), 0);
 
 	if(update_shading_normals)
@@ -1741,8 +1747,8 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 			
 			for(int i = 0; i < 3; ++i)
 			{
-				vert_dp_du[triangles[t].vertex_indices[i]] += dp_du;
-				vert_dp_dv[triangles[t].vertex_indices[i]] += dp_dv;
+				vert_derivs[triangles[t].vertex_indices[i]].dp_du += dp_du;
+				vert_derivs[triangles[t].vertex_indices[i]].dp_dv += dp_dv;
 				vert_sum[triangles[t].vertex_indices[i]]++;
 			}
 		}
@@ -1776,8 +1782,8 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 
 		if(vert_sum[i] > 0)
 		{
-			vert_dp_du[i] /= (float)vert_sum[i];
-			vert_dp_dv[i] /= (float)vert_sum[i];
+			vert_derivs[i].dp_du /= (float)vert_sum[i];
+			vert_derivs[i].dp_dv /= (float)vert_sum[i];
 		}
 
 		//conPrint("vert " + toString(i) + " dp/du: " + vert_grad_u[i].toString());

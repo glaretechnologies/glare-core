@@ -305,12 +305,12 @@ public:
 	// TODO: should pack vertex dp_du and dp_dv together for cache reasons, since they are accessed at the same time.
 	struct VertDerivs
 	{
+		VertDerivs() {}
+		VertDerivs(const Vec3f& dp_du_, const Vec3f& dp_dv_) : dp_du(dp_du_), dp_dv(dp_dv_) {}
 		Vec3f dp_du;
 		Vec3f dp_dv;
 	};
-
-	std::vector<Vec3f> vert_dp_du;
-	std::vector<Vec3f> vert_dp_dv;
+	std::vector<VertDerivs> vert_derivs;
 private:
 	unsigned int max_num_subdivisions;
 	double subdivide_pixel_threshold;
