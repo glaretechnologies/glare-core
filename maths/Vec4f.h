@@ -142,6 +142,15 @@ inline bool epsEqual(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSIL
 }
 
 
+inline bool approxEq(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSILON)
+{
+	return Maths::approxEq(a.x[0], b.x[0], eps) &&
+		Maths::approxEq(a.x[1], b.x[1], eps) &&
+		Maths::approxEq(a.x[2], b.x[2], eps) &&
+		Maths::approxEq(a.x[3], b.x[3], eps);
+}
+
+
 INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a)
 {
 	return a * (1.0f / a.length());

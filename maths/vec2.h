@@ -360,6 +360,11 @@ inline bool epsEqual(const Vec2<Real>& a, const Vec2<Real>& b)
 	return ::epsEqual(a.x, b.x) && ::epsEqual(a.y, b.y);
 }
 
+template <class Real>
+inline bool epsEqualWithEps(const Vec2<Real>& a, const Vec2<Real>& b, float eps)
+{
+	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps);
+}
 
 //#ifdef CYBERSPACE
 /*

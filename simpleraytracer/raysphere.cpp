@@ -27,6 +27,8 @@ RaySphere::RaySphere(const Vec4f& centre_, double radius_)
 
 	aabbox.min_ = centre + Vec4f(-(float)radius_, -(float)radius_, -(float)radius_, 0.f);
 	aabbox.max_ = centre + Vec4f((float)radius_, (float)radius_, (float)radius_, 0.f);
+
+	area = (Real)(4 * Maths::pi<double>() * radius_*radius_);
 }
 
 
@@ -77,7 +79,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 
 const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
 {
-	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
+	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * area;
 }
 
 
@@ -174,25 +176,25 @@ void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector
 
 
 void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
-								 float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out, Vec2f& uv0_out) const
+								 unsigned int& mat_index_out, Vec2f& uv0_out) const
 {
 	assert(sub_elem_index == 0);
-	const Vec4f n = GeometrySampling::uniformlySampleSphere(samples);
-	normal_out.set(n.x[0], n.x[1], n.x[2], 0.0f);
-	assert(normal_out.isUnitLength());
-	pos_out = centre + normal_out * (float)radius;
+	const float phi = samples.x * Maths::get2Pi<float>();
+	const float z = 1 - samples.y * 2;
+	const float r = sqrt(1 - z*z);
+	const Vec4f n(cos(phi) * r, sin(phi) * r, z, 0.0f);
+
+	assert(n.isUnitLength());
+
+	normal_out = n * area;
+	
+	pos_out = centre + n * radius;
 
 	hitinfo_out.sub_elem_index = 0;
-	hitinfo_out.sub_elem_coords = GeometrySampling::sphericalCoordsForDir(n, (Vec3RealType)this->recip_radius);
-	p_out = recip_sub_elem_area_ws;
+	hitinfo_out.sub_elem_coords = Vec2f(phi, std::acos(z));
+
 	mat_index_out = 0;
 	uv0_out = hitinfo_out.sub_elem_coords;
-}
-
-
-double RaySphere::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const
-{
-	return recip_sub_elem_area_ws;
 }
 
 
@@ -239,6 +241,67 @@ void RaySphere::test()
 	conPrint("RaySphere::test()");
 
 	ThreadContext thread_context;
+
+	// Test getGeometricNormal()
+	{
+		const float radius = 0.5f;
+		RaySphere sphere(Vec4f(0,0,0,1), radius);
+		testEpsEqual(sphere.getGeometricNormal(HitInfo(0, Vec2f(0, 0))), Vec4f(0,0,4*Maths::pi<float>()*radius*radius,0)); // phi=0, theta=0 => straight up
+
+		testEpsEqual(sphere.getGeometricNormal(HitInfo(0, Vec2f(0, Maths::pi_2<float>()))), Vec4f(4*Maths::pi<float>()*radius*radius,0,0,0)); // phi=0, theta=pi/2
+	}
+
+
+	// Test getPartialDerivs()
+	{
+		const float radius = 1.f;
+		RaySphere sphere(Vec4f(0,0,0,1), radius);
+
+		Vec4f dp_du, dp_dv;
+		sphere.getPartialDerivs(HitInfo(0, Vec2f(0, Maths::pi_2<float>())), dp_du, dp_dv);
+		testEpsEqual(dp_du, Vec4f(0,1,0,0));
+		testEpsEqual(dp_dv, Vec4f(0,0,-1,0));
+	}
+	{
+		const float radius = 0.5f;
+		RaySphere sphere(Vec4f(0,0,0,1), radius);
+
+		Vec4f dp_du, dp_dv;
+		sphere.getPartialDerivs(HitInfo(0, Vec2f(0, Maths::pi_2<float>())), dp_du, dp_dv);
+		testEpsEqual(dp_du, Vec4f(0,radius,0,0));
+		testEpsEqual(dp_dv, Vec4f(0,0,-radius,0));
+	}
+
+	// Test sampleSubElement
+	{
+		const float radius = 0.5f;
+		RaySphere sphere(Vec4f(1,1,1,1), radius);
+
+		Vec4f pos_os, n_os;
+		HitInfo hitinfo;
+		unsigned int mat_index;
+		Vec2f uv_0;
+
+		sphere.sampleSubElement(0, SamplePair(0, 0.5f), pos_os, n_os, hitinfo, mat_index, uv_0); // Should map to phi=0, theta=pi/2
+		testEpsEqual(pos_os, Vec4f(1,1,1,1) + Vec4f(radius,0,0,0));
+		testEpsEqual(n_os, Vec4f(4*Maths::pi<float>()*radius*radius,0,0,0)); // length of normal should be equal to pdf.
+		testEqual(mat_index, 0u);
+		testEpsEqual(uv_0, Vec2f(0, Maths::pi_2<float>()));
+
+		sphere.sampleSubElement(0, SamplePair(0, 0.0f), pos_os, n_os, hitinfo, mat_index, uv_0); // Should map to phi=0, theta=0
+		testEpsEqual(pos_os, Vec4f(1,1,1,1) + Vec4f(0,0,radius,0));
+		testEpsEqual(n_os, Vec4f(0,0,4*Maths::pi<float>()*radius*radius,0)); // length of normal should be equal to pdf.
+		testEqual(mat_index, 0u);
+		testEpsEqual(uv_0, Vec2f(0, 0));
+
+		const float nearly_one = 0.99999994f;
+		testAssert(nearly_one < 1);
+		sphere.sampleSubElement(0, SamplePair(0, nearly_one), pos_os, n_os, hitinfo, mat_index, uv_0); // Should map to phi=0, theta=pi
+		testAssert(epsEqual(pos_os, Vec4f(1,1,1,1) + Vec4f(0,0,-radius,0), 1.0e-3f));
+		testAssert(epsEqual(n_os, Vec4f(0,0,-4*Maths::pi<float>()*radius*radius,0), 2e-3f)); // length of normal should be equal to pdf.
+		testEqual(mat_index, 0u);
+		testAssert(epsEqualWithEps(uv_0, Vec2f(0, Maths::pi<float>()), 1.0e-3f));
+	}
 
 	// Test traceRay()
 	{
@@ -296,8 +359,8 @@ void RaySphere::test()
 		testAssert(epsEqual(hitinfos[0].dist, 0.5f));
 		testAssert(epsEqual(hitinfos[1].dist, 1.5f));
 
-		testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
-		testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
+		//testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
+		//testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
 
 		Vec3Type pos, N_g;
 		Vec3RealType pos_error;
@@ -307,7 +370,7 @@ void RaySphere::test()
 
 		sphere.getPosAndGeomNormal(hitinfos[1], pos, pos_error, N_g);
 
-		testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
+		//testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
 	}
 
 

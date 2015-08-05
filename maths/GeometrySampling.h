@@ -32,7 +32,7 @@ namespace GeometrySampling
 	///// Sphere  /////
 
 	template <class Real> inline const Vec3<Real> uniformlySampleSphere(const Vec2<Real>& unit_samples); // Returns point on surface of sphere with radius 1
-	inline const Vec4f uniformlySampleSphere(const Vec2f& unitsamples); // Returns point on surface of sphere with radius 1
+	inline const Vec4f uniformlySampleSphereDir(const Vec2f& unitsamples); // Returns vector from origin to point on surface of sphere with radius 1 centered at origin.
 	template <class Real> inline Real spherePDF();
 
 
@@ -240,14 +240,14 @@ template <class Real> const Vec3<Real> uniformlySampleSphere(const Vec2<Real>& u
 }
 
 
-const Vec4f uniformlySampleSphere(const SamplePair& unitsamples) // returns point on surface of sphere with radius 1
+const Vec4f uniformlySampleSphereDir(const SamplePair& unitsamples)
 {
 	const float z = (float)-1.0 + unitsamples.x * (float)2.0;
 	const float theta = unitsamples.y * (float)NICKMATHS_2PI;
 
 	const float r = sqrt((float)1.0 - z*z);
 
-	return Vec4f(cos(theta) * r, sin(theta) * r, z, 1.0f);
+	return Vec4f(cos(theta) * r, sin(theta) * r, z, 0.0f);
 }
 
 

@@ -153,6 +153,20 @@ public:
 
 	virtual const std::string emitWinterCode() const { assert(0); return ""; }
 
+
+
+	/////////////// Geometry interface //////////////
+
+	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const;
+
+	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const;
+	
+	// Sample the surface of the given sub-element.
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
+		unsigned int& mat_index_out, Vec2f& uv0_out) const;
+
+
+
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }
 

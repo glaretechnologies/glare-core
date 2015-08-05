@@ -195,11 +195,11 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
 	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
-	const RayMesh::Vec3Type N_g((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-								(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-								(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
 
-	assert(N_g.isUnitLength());
+	// Length should be equal to area of triangle.
+	const RayMesh::Vec3Type N_g((e0.y * e1.z - e0.z * e1.y) * 0.5f,
+								(e0.z * e1.x - e0.x * e1.z) * 0.5f,
+								(e0.x * e1.y - e0.y * e1.x) * 0.5f, 0);
 	return N_g;
 }
 
@@ -1531,7 +1531,7 @@ void RayMesh::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<f
 
 
 void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
-							   float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out, Vec2f& uv0_out) const
+							   unsigned int& mat_index_out, Vec2f& uv0_out) const
 {
 	//------------------------------------------------------------------------
 	//pick point using barycentric coords
@@ -1555,15 +1555,16 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const Vec3f e0(v1.pos - v0.pos);
 	const Vec3f e1(v2.pos - v0.pos);
 	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
-	normal_out.set((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-				   (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-				   (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+
+	// length should be equal to area of triangle.
+	normal_out.set((e0.y * e1.z - e0.z * e1.y) * 0.5f,
+				   (e0.z * e1.x - e0.x * e1.z) * 0.5f,
+				   (e0.x * e1.y - e0.y * e1.x) * 0.5f, 0);
 
 	pos_out.set(v0.pos.x * (1 - s) + v1.pos.x * u + v2.pos.x * v,
 				v0.pos.y * (1 - s) + v1.pos.y * u + v2.pos.y * v,
 				v0.pos.z * (1 - s) + v1.pos.z * u + v2.pos.z * v, 1);
 
-	p_out = recip_sub_elem_area_ws;
 	mat_index_out = tri.getTriMatIndex();
 
 	if(num_uv_sets == 0)
@@ -1590,12 +1591,6 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 }
 
 
-double RayMesh::subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const
-{
-	return recip_sub_elem_area_ws;
-}
-
-
 // NOTE: results pd will be invalid.
 void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_out) const
 {
@@ -1606,18 +1601,10 @@ void RayMesh::sampleSurface(const SamplePair& samples, SampleResults& results_ou
 
 	SamplePair remapped_samples(samples.x * (float)this->triangles.size() - t, samples.y);
 
-	float p;
 	unsigned int mat_index;
 	Vec2f uv0;
 	sampleSubElement(t, remapped_samples, results_out.pos, results_out.N_g, results_out.hitinfo, 
-		1.0f,  // TEMP HACK
-		p,
 		mat_index, uv0);
-
-	/*sampleSubElement(t, remapped_samples, 
-		1.f, // sub_elem_area_ws TEMP HACK - since this is wrong, the pd will be invalid.
-		results_out
-	);*/
 }
 
 

@@ -66,6 +66,8 @@ public:
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
+	// Returns a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
+	// This is equal to the area in object space of the surface sub-element for uniformly sampled sub-elements (e.g. triangles).
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
@@ -84,8 +86,9 @@ public:
 	virtual void getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const = 0;
 	
 	// Sample the surface of the given sub-element.
-	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
-		float recip_sub_elem_area_ws, Real& p_out, unsigned int& mat_index_out, Vec2f& uv0_out) const = 0;
+	// normal_os_out will be set to a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
+	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_os_out, Vec3Type& normal_os_out, HitInfo& hitinfo_out, 
+		unsigned int& mat_index_out, Vec2f& uv0_out) const = 0;
 
 	
 	class SampleResults
@@ -97,10 +100,6 @@ public:
 		Real pd;
 	};
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const { assert(0); }
-
-
-	// Get the probability density of sampling the given point on the surface of the given sub-element, with respect to the world space area measure.
-	virtual double subElementSamplingPDF(unsigned int sub_elem_index, const Pos3Type& pos, float recip_sub_elem_area_ws) const = 0;
 
 	// Returns true if possibly clipped by section planes, false otherwise.
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 

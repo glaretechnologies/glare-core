@@ -169,6 +169,7 @@ public:
 	void scale(Real factor);
 	Real determinant() const;
 	bool inverse(Matrix3& inverse_out) const;
+	bool inverse(Matrix3& inverse_out, float& det_out) const;
 	bool invert();
 	const Matrix3 adjoint() const;
 	const Matrix3 cofactorMatrix() const;
@@ -743,10 +744,35 @@ Real Matrix3<Real>::determinant() const
 		- elem(0,2)*elem(1,1)*elem(2,0) - elem(0,1)*elem(1,0)*elem(2,2)  - elem(0,0)*elem(1,2)*elem(2,1);
 }
 
+
 template <class Real>
 bool Matrix3<Real>::inverse(Matrix3& inverse_out) const
 {
 	const Real d = determinant();
+	if(std::fabs(d) == 0.0f)//< 1.e-9)
+		return false; // Singular matrix
+
+	inverse_out = adjoint();
+	inverse_out.scale((Real)1.0 / d);
+
+#ifdef DEBUG
+	// Check our inverse is correct.
+	Matrix3<Real> product = *this * inverse_out;
+	assert(epsMatrixEqual(product, Matrix3<Real>::identity()));
+
+	product = inverse_out * *this;
+	assert(epsMatrixEqual(product, Matrix3<Real>::identity()));
+#endif
+
+	return true;
+}
+
+
+template <class Real>
+bool Matrix3<Real>::inverse(Matrix3& inverse_out, float& det_out) const
+{
+	const Real d = determinant();
+	det_out = d;
 	if(std::fabs(d) == 0.0f)//< 1.e-9)
 		return false; // Singular matrix
 
