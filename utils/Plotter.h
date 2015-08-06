@@ -42,13 +42,17 @@ public:
 
 	struct PlotOptions
 	{
-		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30) {}
+		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30), explicit_x_range(false) {}
 		int w, h;
 		bool x_axis_log;
 		bool y_axis_log;
 		bool r_log;
 		bool polar;
 		float z_rot;
+
+		bool explicit_x_range;
+		float x_start;
+		float x_end;
 	};
 
 	static void plot(

@@ -75,6 +75,12 @@ void Plotter::plot(
 			//	f << "set logscale r 10\n";
 
 		}
+		
+		if(options.explicit_x_range)
+		{
+			f << "set xrange [" << options.x_start << ":" << options.x_end << "]\n";
+		}
+
 		f << "set style data lines\n";
 		//f << "set grid linetype rgb \"blue\"  lw 0.4\n";
 		//f << "set style data linespoints\n";
