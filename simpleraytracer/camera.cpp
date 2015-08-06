@@ -42,3 +42,9 @@ void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3T
 {
 	assert(0);
 }
+
+
+unsigned int Camera::getNumUVCoordSets() const { return 0; }
+
+
+unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

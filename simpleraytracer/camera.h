@@ -165,7 +165,8 @@ public:
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
 		unsigned int& mat_index_out, Vec2f& uv0_out) const;
 
-
+	virtual unsigned int getNumUVCoordSets() const;
+	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }

@@ -1,20 +1,20 @@
 /*=====================================================================
 geometry.h
 ----------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2015 -
 File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 =====================================================================*/
 #pragma once
 
 
-#include "../maths/vec2.h"
-#include "../maths/plane.h"
-#include "../physics/jscol_aabbox.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
 #include "../indigo/UVCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
 #include "../raytracing/hitinfo.h"
+#include "../physics/jscol_aabbox.h"
+#include "../maths/vec2.h"
+#include "../maths/plane.h"
+#include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 #include <vector>
 class Ray;
 class World;
@@ -60,10 +60,12 @@ public:
 	typedef Vec4f Vec3Type;
 	
 
-	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
-	virtual const js::AABBox getAABBoxWS() const = 0;
 	virtual const std::string getName() const = 0;
 
+	virtual const js::AABBox getAABBoxWS() const = 0;
+
+	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
+	
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	// Returns a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
@@ -105,11 +107,10 @@ public:
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
 		) = 0; // throws GeometryExcep
+
 	virtual void build(const std::string& cache_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 
 	virtual Vec3RealType getBoundingRadius() const = 0;
-
-	virtual Real positionForInstrinsicCoordsJacobian(unsigned int sub_elem_index) const { return 1; }
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 
