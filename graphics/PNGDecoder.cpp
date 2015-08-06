@@ -412,6 +412,117 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 }
 
 
+void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagemap, const std::string& pathname) // Write with no metadata
+{
+	try
+	{
+		int colour_type;
+		if(imagemap.getN() == 1)
+			colour_type = PNG_COLOR_TYPE_GRAY;
+		else if(imagemap.getN() == 2)
+			colour_type = PNG_COLOR_TYPE_GRAY_ALPHA;
+		else if(imagemap.getN() == 3)
+			colour_type = PNG_COLOR_TYPE_RGB;
+		else if(imagemap.getN() == 4)
+			colour_type = PNG_COLOR_TYPE_RGB_ALPHA;
+		else
+			throw ImFormatExcep("Invalid bytes pp");
+			
+
+		// Open the file
+		FileHandle fp(pathname, "wb");
+		
+		//Create and initialize the png_struct with the desired error handler functions.
+		png_struct* png = png_create_write_struct(
+			PNG_LIBPNG_VER_STRING,
+			NULL, //const_cast<Image*>(this), // error user pointer
+			error_func, // error func
+			warning_func // warning func
+			);
+
+		if(!png)
+			throw ImFormatExcep("Failed to create PNG object.");
+
+		png_info* info = png_create_info_struct(png);
+
+		if(!info)
+		{
+			png_destroy_write_struct(&png, (png_infop*)NULL);//free png struct
+
+			throw ImFormatExcep("Failed to create PNG info object.");
+		}
+		
+		// set up the output control if you are using standard C stream
+		png_init_io(png, fp.getFile());
+
+		//------------------------------------------------------------------------
+		// Set some image info
+		//------------------------------------------------------------------------
+		png_set_IHDR(png, info, (png_uint_32)imagemap.getWidth(), (png_uint_32)imagemap.getHeight(),
+		   8, // bit depth of each channel
+		   colour_type, // colour type
+		   PNG_INTERLACE_NONE, // interlace type
+		   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
+		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
+		   );
+
+		// Write an ICC sRGB colour profile.
+		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
+#if !defined NO_LCMS_SUPPORT
+		{
+			cmsHPROFILE profile = cmsCreate_sRGBProfile();
+			if(profile == NULL)
+				throw ImFormatExcep("Failed to create colour profile.");
+
+			// Get num bytes needed to store the encoded profile.
+			cmsUInt32Number profile_size = 0;
+			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			std::vector<uint8> buf(profile_size);
+
+			// Now write the actual profile.
+			if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
+
+			cmsCloseProfile(profile); 
+
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+		}
+#endif
+		
+		//png_set_gAMA(png_ptr, info_ptr, 2.3);
+
+		// Write info
+		png_write_info(png, info);
+
+
+		for(unsigned int y=0; y<imagemap.getHeight(); ++y)
+		{
+			png_write_row(
+				png, 
+				(png_bytep)imagemap.getPixel(0, y) // Pointer to row data
+				);
+		}
+
+		//------------------------------------------------------------------------
+		//finish writing file
+		//------------------------------------------------------------------------
+		png_write_end(png, info);
+
+		//------------------------------------------------------------------------
+		//free structs
+		//------------------------------------------------------------------------
+		png_destroy_write_struct(&png, &info);
+	}
+	catch(Indigo::Exception& )
+	{
+		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
+	}
+
+}
+
+
 #if BUILD_TESTS
 
 
