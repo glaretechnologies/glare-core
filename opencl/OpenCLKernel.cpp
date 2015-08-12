@@ -119,11 +119,19 @@ void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t gl
 
 	if(profile)
 	{
-		getGlobalOpenCL()->clWaitForEvents(1, &profile_event);
+		result = getGlobalOpenCL()->clWaitForEvents(1, &profile_event);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clWaitForEvents failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 		cl_ulong time_start, time_end;
-		getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
-		getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+		result = getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+
+		result = getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+
 		const double elapsed_ns = (double)time_end - (double)time_start;
 		const double elapsed_s = elapsed_ns * 1.0e-9;
 		total_exec_time_s += elapsed_s;
