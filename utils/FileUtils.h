@@ -70,6 +70,7 @@ void writeEntireFileTextMode(const std::string& pathname, const std::string& fil
 void writeEntireFile(const std::string& pathname, const char* data, size_t data_size); // throws FileUtilsExcep
 
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out); // throws FileUtilsExcep
+std::string readEntireFileTextMode(const std::string& pathname); // throws FileUtilsExcep
 
 void copyFile(const std::string& srcpath, const std::string& dstpath);
 
