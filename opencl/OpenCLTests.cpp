@@ -47,7 +47,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		// Initialise OpenCL context and command queue for this device
 		cl_context context;
 		cl_command_queue command_queue;
-		opencl->deviceInit(opencl_device, context, command_queue);
+		opencl->deviceInit(opencl_device, /*enable_profiling=*/false, context, command_queue);
 
 
 		// Read test kernel from disk
@@ -77,7 +77,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		opencl->dumpBuildLog(program, opencl_device.opencl_device, print_output); 
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/false);
 
 
 		//============== Test-specific buffers ====================

@@ -23,7 +23,7 @@ OpenCLKernel
 class OpenCLKernel : public ThreadSafeRefCounted
 {
 public:
-	OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id);
+	OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile);
 	~OpenCLKernel();
 
 
@@ -47,6 +47,7 @@ public:
 
 	cl_kernel getKernel() { return kernel; }
 
+	double getTotalExecTimeS() const { return total_exec_time_s; }
 private:
 	INDIGO_DISABLE_COPY(OpenCLKernel)
 
@@ -56,6 +57,9 @@ private:
 	size_t work_group_size;
 
 	size_t kernel_arg_index;
+
+	double total_exec_time_s;
+	bool profile;
 };
 
 

@@ -16,18 +16,14 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/StringUtils.h"
 
 
-#ifdef OPENCL_MEM_LOG
-static size_t OpenCL_global_alloc = 0; // Total number of bytes allocated
-//static size_t OpenCL_global_pinned_alloc = 0; // Total number of bytes allocated in pinned host memory
-#endif
-
-
-OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id)
+OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile_)
 {
 	kernel = 0;
 	kernel_arg_index = 0;
 	work_group_size = 1;
 	work_group_size_multiple = 1;
+	total_exec_time_s = 0;
+	profile = profile_;
 
 	createKernel(program, kernel_name, opencl_device_id);
 }
@@ -104,6 +100,9 @@ void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t gl
 	// Make sure the work group size we use is <= the global work size.
 	const size_t use_work_group_size = myMin(work_group_size, global_work_size);
 
+	//conPrint("launching kernel " + kernel_name);
+
+	cl_event profile_event;
 	cl_int result = getGlobalOpenCL()->clEnqueueNDRangeKernel(
 		opencl_command_queue,
 		this->kernel,
@@ -113,10 +112,22 @@ void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t gl
 		&use_work_group_size,	// local_work_size (work-group size),
 		0,					// num_events_in_wait_list
 		NULL,				// event_wait_list
-		NULL				// event
+		profile ? &profile_event : NULL		// event
 	);
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clEnqueueNDRangeKernel failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+
+	if(profile)
+	{
+		getGlobalOpenCL()->clWaitForEvents(1, &profile_event);
+
+		cl_ulong time_start, time_end;
+		getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+		getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+		const double elapsed_ns = (double)time_end - (double)time_start;
+		const double elapsed_s = elapsed_ns * 1.0e-9;
+		total_exec_time_s += elapsed_s;
+	}
 }
 
 

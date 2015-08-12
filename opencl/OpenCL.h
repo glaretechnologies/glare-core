@@ -176,7 +176,7 @@ public:
 	void queryDevices();
 	const std::vector<gpuDeviceInfo>& getDeviceInfo() const;
 
-	void deviceInit(const gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out);
+	void deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out);
 	void deviceFree(cl_context& context, cl_command_queue& command_queue);
 
 	static const std::string errorString(cl_int result);

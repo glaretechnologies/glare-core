@@ -488,7 +488,7 @@ void OpenCL::queryDevices()
 }
 
 
-void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, cl_context& context_out, cl_command_queue& command_queue_out)
+void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out)
 {
 	if(!initialised)
 		throw Indigo::Exception("OpenCL library not initialised");
@@ -516,7 +516,7 @@ void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, cl_context& context_
 	cl_command_queue new_command_queue = this->clCreateCommandQueue(
 		new_context,
 		chosen_device.opencl_device,
-		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
+		enable_profiling ? CL_QUEUE_PROFILING_ENABLE : 0, // queue properties
 		&error_code);
 	if(new_command_queue == 0)
 		throw Indigo::Exception("clCreateCommandQueue failed"); // XXX BUG If this exception is thrown, context gets leaked. Need to use wrapper classes.
