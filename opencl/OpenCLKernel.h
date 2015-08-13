@@ -41,8 +41,8 @@ public:
 	void setNextKernelArg(cl_mem buffer);
 	size_t getNextKernelIndex() const { return kernel_arg_index; }
 
-
-	void launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size);
+	// Returns execution time in seconds if profiling was enabled, or 0 otherwise.
+	double launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size);
 
 
 	cl_kernel getKernel() { return kernel; }

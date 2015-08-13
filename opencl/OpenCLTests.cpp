@@ -37,7 +37,7 @@ OpenCLTests::~OpenCLTests()
 
 void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 {
-	conPrint("OpenCLTests::runTestsOnDevice(), device: " + opencl_device.device_name);
+	conPrint("\nOpenCLTests::runTestsOnDevice(), device: " + opencl_device.description());
 
 	try
 	{
@@ -47,7 +47,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		// Initialise OpenCL context and command queue for this device
 		cl_context context;
 		cl_command_queue command_queue;
-		opencl->deviceInit(opencl_device, /*enable_profiling=*/false, context, command_queue);
+		opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
 
 
 		// Read test kernel from disk
@@ -75,11 +75,11 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		opencl->dumpBuildLog(program, opencl_device.opencl_device); 
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/false);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
 
 
 		//============== Test-specific buffers ====================
-		std::vector<OCLPTTexDescriptor> tex_descriptors(1);
+		js::Vector<OCLPTTexDescriptor, 64> tex_descriptors(1);
 
 		tex_descriptors[0].xres			= 4;
 		tex_descriptors[0].yres			= 4;
@@ -98,7 +98,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		cl_texture_desc.allocFrom(context, tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 
-		std::vector<uint8> texture_data(48);
+		js::Vector<uint8, 64> texture_data(48);
 
 		// Make a texture with RGB values steadily increasing as x increases.
 		// so val(0, y) = 0, val(1, y) = 0.25*256 = 64, val(2, y) = 128, val(3, y) = 192
@@ -126,30 +126,39 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		testKernel->setNextKernelArg(cl_texture_desc.getDevicePtr());
 		testKernel->setNextKernelArg(cl_texture_data.getDevicePtr());
 
-		testKernel->launchKernel(command_queue, 1); 
-
-		// Read back result
-		SSE_ALIGN int32 test_result;
-		cl_int result = opencl->clEnqueueReadBuffer(
-			command_queue,
-			result_buffer.getDevicePtr(), // buffer
-			CL_TRUE, // blocking read
-			0, // offset
-			sizeof(int32), // size in bytes
-			&test_result, // host buffer pointer
-			0, // num events in wait list
-			NULL, // wait list
-			NULL // event
-			);
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
-
-
-		if(test_result != 0)
+		// Run the kernel a few times
+		const int N = 5;
+		for(int i=0; i<N; ++i)
 		{
-			conPrint("Error: An OpenCL unit test failed.");
-			exit(10);
+			Timer timer;
+			const double exec_time_s = testKernel->launchKernel(command_queue, 1); 
+			const double timer_elapsed_s = timer.elapsed();
+
+			// Read back result
+			SSE_ALIGN int32 test_result;
+			cl_int result = opencl->clEnqueueReadBuffer(
+				command_queue,
+				result_buffer.getDevicePtr(), // buffer
+				CL_TRUE, // blocking read
+				0, // offset
+				sizeof(int32), // size in bytes
+				&test_result, // host buffer pointer
+				0, // num events in wait list
+				NULL, // wait list
+				NULL // event
+				);
+			if(result != CL_SUCCESS)
+				throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
+
+			if(test_result != 0)
+			{
+				conPrint("Error: An OpenCL unit test failed.");
+				exit(10);
+			}
+
+			conPrint("Kernel profiled exec time: " + doubleToStringNDecimalPlaces(exec_time_s, 8) + " s, timer elapsed: " + doubleToStringNDecimalPlaces(timer_elapsed_s, 8) + " s");
 		}
+
 
 		// Free the context and command queue for this device.
 		opencl->deviceFree(context, command_queue);
@@ -180,7 +189,7 @@ void OpenCLTests::test()
 		for(size_t i=0; i<opencl->getDeviceInfo().size(); ++i)
 		{
 			const gpuDeviceInfo& device_info = opencl->getDeviceInfo()[i];
-			if(device_info.CPU) // If this is a CPU device:
+			// if(device_info.CPU) // If this is a CPU device:
 			{
 				runTestsOnDevice(device_info);
 			}

@@ -95,7 +95,7 @@ void OpenCLKernel::setNextKernelArg(cl_mem buffer)
 }
 
 
-void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
+double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
 {
 	// Make sure the work group size we use is <= the global work size.
 	const size_t use_work_group_size = myMin(work_group_size, global_work_size);
@@ -135,7 +135,10 @@ void OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t gl
 		const double elapsed_ns = (double)time_end - (double)time_start;
 		const double elapsed_s = elapsed_ns * 1.0e-9;
 		total_exec_time_s += elapsed_s;
+		return elapsed_s;
 	}
+	else
+		return 0;
 }
 
 
