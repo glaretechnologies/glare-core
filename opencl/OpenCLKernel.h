@@ -35,6 +35,7 @@ public:
 	void setWorkGroupSize(size_t work_group_size_);
 
 
+	void setKernelArgInt(size_t index, cl_int val);
 	void setKernelArgUInt(size_t index, cl_uint val);
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
 
