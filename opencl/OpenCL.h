@@ -11,7 +11,6 @@ Code By Nicholas Chapman.
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
-#include "../indigo/PrintOutput.h"
 #include "../indigo/gpuDeviceInfo.h"
 
 
@@ -185,11 +184,10 @@ public:
 		const std::vector<std::string>& program_lines,
 		cl_context opencl_context,
 		cl_device_id opencl_device,
-		const std::string& compile_options,
-		PrintOutput& print_output
+		const std::string& compile_options
 	);
 
-	void dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& print_output);
+	void dumpBuildLog(cl_program program, cl_device_id device);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

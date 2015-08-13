@@ -642,8 +642,7 @@ cl_program OpenCL::buildProgram(
 	const std::vector<std::string>& program_lines,
 	cl_context opencl_context,
 	cl_device_id opencl_device,
-	const std::string& compile_options,
-	PrintOutput& print_output
+	const std::string& compile_options
 )
 {
 	std::vector<const char*> strings(program_lines.size());
@@ -676,7 +675,7 @@ cl_program OpenCL::buildProgram(
 	{
 #if defined(_DEBUG) | defined(BUILD_TESTS)
 		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
-			dumpBuildLog(program, opencl_device, print_output);
+			dumpBuildLog(program, opencl_device);
 		//else
 #endif
 			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
@@ -765,7 +764,7 @@ cl_program OpenCL::buildProgram(
 }
 
 
-void OpenCL::dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& print_output)
+void OpenCL::dumpBuildLog(cl_program program, cl_device_id device)
 {
 	cl_int result;
 
@@ -791,7 +790,7 @@ void OpenCL::dumpBuildLog(cl_program program, cl_device_id device, PrintOutput& 
 	if(result == CL_SUCCESS)
 	{
 		const std::string log(&buf[0], param_value_size_ret);
-		print_output.print("OpenCL build log: " + log);
+		//print_output.print("OpenCL build log: " + log);
 
 		{
 			std::ofstream build_log("build_log.txt");

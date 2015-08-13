@@ -64,18 +64,16 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
-		StandardPrintOutput print_output;
 		cl_program program = opencl->buildProgram(
 			program_lines,
 			context,
 			opencl_device.opencl_device,
-			options,
-			print_output
+			options
 		);
 
 		conPrint("Program built.");
 
-		opencl->dumpBuildLog(program, opencl_device.opencl_device, print_output); 
+		opencl->dumpBuildLog(program, opencl_device.opencl_device); 
 
 		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/false);
 
