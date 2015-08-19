@@ -176,6 +176,10 @@ RayMesh
 -------
 
 =====================================================================*/
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
+#endif
 SSE_CLASS_ALIGN RayMesh : public Geometry
 {
 public:
@@ -323,6 +327,10 @@ private:
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
 };
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
 
 
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const

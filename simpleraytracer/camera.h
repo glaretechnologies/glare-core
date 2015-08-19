@@ -48,6 +48,10 @@ Camera
 ------
 
 =====================================================================*/
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
+#endif
 SSE_CLASS_ALIGN Camera : public Geometry
 {
 public:
@@ -156,6 +160,7 @@ public:
 
 
 	/////////////// Geometry interface //////////////
+	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const;
 
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const;
 
@@ -179,3 +184,7 @@ protected:
 private:
 	CameraType camera_type;
 };
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif

@@ -456,6 +456,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 
 		temp_tris[t].tri_mat_index = tri.getTriMatIndex();
+		temp_tris[t].dead = false;
 	}
 
 
@@ -533,6 +534,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 
 		temp_quads[q].mat_index = quad.getMatIndex();
+		temp_quads[q].dead = false;
 	}
 
 	assert(temp_uvs_next_i == (uint32)temp_uvs.size());
@@ -775,303 +777,8 @@ void DisplacementUtils::subdivideAndDisplace(
 }
 
 
-
-SSE_CLASS_ALIGN DUUVCoordEvaluator : public UVCoordEvaluator
-{
-public:
-	INDIGO_ALIGNED_NEW_DELETE
-
-	DUUVCoordEvaluator(){}
-	~DUUVCoordEvaluator(){}
-
-	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
-	{
-		if(texcoords_set < (unsigned int)texcoords.size())
-			return texcoords[texcoords_set];
-		else
-			return Vec2f(0,0);
-	}
-
-	virtual unsigned int getNumUVCoordSets() const { return (unsigned int)texcoords.size(); }
-
-
-	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
-	{
-		pos_out = pos_os;
-		pos_os_rel_error_out = 0;
-		N_g_out = Vec4f(0,0,0,1); // TEMP HACK, isn't used currently anyway.
-	}
-
-
-	virtual float meanCurvature(const HitInfo& hitinfo) const
-	{
-		return 0;//TEMP HACK
-	}
-
-
-	Vec4f pos_os;
-	std::vector<TexCoordsType> texcoords;
-
-	//Matrix2d d_st_d_uv;
-	//double ds_du_out, ds_dv_out, dt_du_out, dt_dv_out;
-};
-
-/*
-inline static const Vec3d triGeomNormal(const std::vector<DUVertex>& verts, const DUTriangle& tri)
-{
-	return toVec3d(normalise(::crossProduct(
-		verts[tri.vertex_indices[1]].pos - verts[tri.vertex_indices[0]].pos,
-		verts[tri.vertex_indices[2]].pos - verts[tri.vertex_indices[0]].pos
-		)));
-}*/
-
-
-/*
-Returns the displacement at a point on a triangle, 
-evaluated at an arbitrary point on the triangle, according to the barycentric coordinates (b1, b2)
-*/
-static float evalDisplacement(ThreadContext& context, 
-								DUUVCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
-								const std::vector<Reference<Material> >& materials,
-								const DUTriangle& triangle, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								float b1, // barycentric coords
-								float b2
-								)
-{
-	const Material& material = *materials[triangle.tri_mat_index];//->material;
-	
-	if(material.displacing())
-	{
-		du_texcoord_evaluator.texcoords.resize(num_uv_sets);
-
-		// Set up UVs
-		const float b0 = (1 - b1) - b2;
-		for(uint32_t z = 0; z < num_uv_sets; ++z)
-		{
-			du_texcoord_evaluator.texcoords[z] = 
-				getUVs(uvs, num_uv_sets, triangle.uv_indices[0], z) * b0 + 
-				getUVs(uvs, num_uv_sets, triangle.uv_indices[1], z) * b1 + 
-				getUVs(uvs, num_uv_sets, triangle.uv_indices[2], z) * b2;
-		}
-
-		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-		const Vec3f pos_os = 
-			verts[triangle.vertex_indices[0]].pos * b0 + 
-			verts[triangle.vertex_indices[1]].pos * b1 + 
-			verts[triangle.vertex_indices[2]].pos * b2;
-
-		du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
-		EvalDisplaceArgs args(
-			context,
-			hitinfo,
-			du_texcoord_evaluator,
-			Vec4f(0), // dp_dalpha  TEMP HACK
-			Vec4f(0), // dp_dbeta  TEMP HACK
-			Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
-		);
-
-		return material.evaluateDisplacement(args);
-	}
-	else
-	{
-		return 0.0f;
-	}
-}
-
-
-/*
-Returns the displacement at a point on a quad, 
-evaluated at an arbitrary point on the quad, according to the barycentric coordinates (alpha, beta)
-*/
-static float evalDisplacement(ThreadContext& context, 
-								DUUVCoordEvaluator& du_texcoord_evaluator, // Re-use this object to avoid allocs and deallocs of its std::vector member.
-								const std::vector<Reference<Material> >& materials,
-								const DUQuad& quad, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								float alpha, // coords
-								float beta
-								)
-{
-	const Material& material = *materials[quad.mat_index];//->material;
-	
-	if(material.displacing())
-	{
-		du_texcoord_evaluator.texcoords.resize(num_uv_sets);
-
-		// Set up UVs
-		const float one_alpha = 1 - alpha;
-		const float one_beta  = 1 - beta;
-
-		for(uint32_t z = 0; z < num_uv_sets; ++z)
-		{
-			du_texcoord_evaluator.texcoords[z] = 
-				getUVs(uvs, num_uv_sets, quad.uv_indices[0], z) * one_alpha * one_beta + 
-				getUVs(uvs, num_uv_sets, quad.uv_indices[1], z) * alpha     * one_beta + 
-				getUVs(uvs, num_uv_sets, quad.uv_indices[2], z) * alpha     * beta     +
-				getUVs(uvs, num_uv_sets, quad.uv_indices[3], z) * one_alpha * beta;
-		}
-
-		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-
-		const Vec3f pos_os = 
-			verts[quad.vertex_indices[0]].pos * one_alpha * one_beta + 
-			verts[quad.vertex_indices[1]].pos * alpha     * one_beta + 
-			verts[quad.vertex_indices[2]].pos * alpha     * beta;
-			verts[quad.vertex_indices[3]].pos * one_alpha * beta;
-
-		du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
-		EvalDisplaceArgs args(
-			context,
-			hitinfo,
-			du_texcoord_evaluator,
-			Vec4f(0), // dp_dalpha  TEMP HACK
-			Vec4f(0), // dp_dbeta  TEMP HACK
-			Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
-		);
-
-		return material.evaluateDisplacement(args);
-	}
-	else
-	{
-		return 0.0f;
-	}
-}
-
-
-/*
-Returns the displacement at a point on a triangle, interpolated from the stored displacement at the vertices.
-*/
-static float interpolatedDisplacement(
-								const DUTriangle& triangle, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								float b1, // barycentric coords
-								float b2
-								)
-{
-	const float b0 = (1 - b1) - b2;
-
-	return 
-		verts[triangle.vertex_indices[0]].displacement * b0 + 
-		verts[triangle.vertex_indices[1]].displacement * b1 + 
-		verts[triangle.vertex_indices[2]].displacement * b2;
-}
-
-
-/*
-Returns the displacement at a point on a quad, interpolated from the stored displacement at the vertices.
-*/
-static float interpolatedDisplacement(
-								const DUQuad& quad, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								float alpha, // coords
-								float beta
-								)
-{
-	const float one_alpha = 1 - alpha;
-	const float one_beta  = 1 - beta;
-	return 
-		verts[quad.vertex_indices[0]].displacement * one_alpha * one_beta + 
-		verts[quad.vertex_indices[1]].displacement * alpha     * one_beta + 
-		verts[quad.vertex_indices[2]].displacement * alpha     * beta     + 
-		verts[quad.vertex_indices[3]].displacement * one_alpha * beta;
-}
-
-
-/*
-Returns the maximum absolute difference between the displacement as interpolated from the vertices,
-and the displacement as evaluated directly.
-*/
-static float displacementError(ThreadContext& context, 
-								DUUVCoordEvaluator& du_texcoord_evaluator,
-								const std::vector<Reference<Material> >& materials,
-								const DUTriangle& triangle, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								int res
-								)
-{
-	// Early out if material not displacing:
-	if(!materials[triangle.tri_mat_index]->displacing())
-		return 0.0f;
-
-	float max_error = 0;
-	const float recip_res = 1.0f / (float)res;
-
-	for(int x = 0; x <= res; ++x)
-	for(int y = 0; y <= (res - x); ++y)
-	{
-		const float nudge = 0.999f; // nudge so that barycentric coords are valid
-		const float b1 = x * recip_res * nudge;
-		const float b2 = y * recip_res * nudge;
-
-		assert(b1 + b2 <= 1.0f);
-
-		const float error = fabs(
-			interpolatedDisplacement(triangle, verts, uvs, num_uv_sets, b1, b2) - 
-			evalDisplacement(context, du_texcoord_evaluator, materials, triangle, verts, uvs, num_uv_sets, b1, b2)
-		);
-
-		max_error = myMax(max_error, error);
-	}
-
-	return max_error;
-}
-
-
-// Quad version
-static float displacementError(ThreadContext& context, 
-								DUUVCoordEvaluator& du_texcoord_evaluator,
-								const std::vector<Reference<Material> >& materials,
-								const DUQuad& quad, 
-								const std::vector<DUVertex>& verts,
-								const std::vector<Vec2f>& uvs,
-								unsigned int num_uv_sets,
-								int res
-								)
-{
-	// Early out if material not displacing:
-	if(!materials[quad.mat_index]->displacing())
-		return 0.0f;
-
-	float max_error = 0;
-	const float recip_res = 1.0f / (float)res;
-
-	for(int x = 0; x <= res; ++x)
-	for(int y = 0; y <= res; ++y)
-	{
-		const float nudge = 0.999f; // nudge so that barycentric coords are valid
-		const float alpha = x * recip_res * nudge;
-		const float beta =  y * recip_res * nudge;
-
-		assert(alpha >= 0 && alpha < 1 && beta >= 0  && beta < 1);
-
-		const float error = fabs(
-			interpolatedDisplacement(quad, verts, uvs, num_uv_sets, alpha, beta) - 
-			evalDisplacement(context, du_texcoord_evaluator, materials, quad, verts, uvs, num_uv_sets, alpha, beta)
-		);
-
-		max_error = myMax(max_error, error);
-	}
-
-	return max_error;
-}
-
-
 /*
 Apply displacement to the given vertices, storing the displaced vertices in verts_out
-
-
 */
 struct DisplaceTaskClosure
 {
@@ -1093,21 +800,23 @@ public:
 		ThreadContext context;
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+		const int num_uv_sets = closure.num_uv_sets;
+		const std::vector<Vec2f>& vert_uvs = *closure.vert_uvs;
+		const std::vector<DUVertex>& verts_in = *closure.verts_in;
+		std::vector<DUVertex>& verts_out = *closure.verts_out;
 
 		for(int v_i = begin; v_i < end; ++v_i)
 		{
-			const Material* vert_material = (*closure.vert_materials)[v_i];
+			const Material* const vert_material = (*closure.vert_materials)[v_i];
 
 			if(vert_material != NULL && vert_material->displacing())
 			{
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-				for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
-					du_texcoord_evaluator.texcoords[z] = (*closure.vert_uvs)[v_i*closure.num_uv_sets + z];
+				for(int z = 0; z < num_uv_sets; ++z)
+					du_texcoord_evaluator.texcoords[z] = vert_uvs[v_i*num_uv_sets + z];
 
-				const Vec3f& pos_os = (*closure.verts_in)[v_i].pos;
-
-				du_texcoord_evaluator.pos_os = pos_os.toVec4fPoint();
+				du_texcoord_evaluator.pos_os = verts_in[v_i].pos.toVec4fPoint();
 
 				EvalDisplaceArgs args(
 					context,
@@ -1118,18 +827,18 @@ public:
 					Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
 				);
 
-				const float displacement = (*closure.vert_materials)[v_i]->evaluateDisplacement(args);
+				const float displacement = vert_material->evaluateDisplacement(args);
 					
 				//TEMPassert((*closure.verts_in)[v_i].normal.isUnitLength());
 
-				(*closure.verts_out)[v_i].displacement = displacement;
-				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos + (*closure.verts_in)[v_i].normal * displacement;
+				verts_out[v_i].displacement = displacement;
+				verts_out[v_i].pos = verts_in[v_i].pos + verts_in[v_i].normal * displacement;
 			}
 			else
 			{
 				// No tri or quad references this vert, or the applied material is not displacing.
-				(*closure.verts_out)[v_i].displacement = 0;
-				(*closure.verts_out)[v_i].pos = (*closure.verts_in)[v_i].pos;
+				verts_out[v_i].displacement = 0;
+				verts_out[v_i].pos = verts_in[v_i].pos;
 			}
 		}
 	}
@@ -1247,14 +956,36 @@ public:
 };
 
 
-static inline int getDispErrorRes(unsigned int num_tris)
+// Heuristic for getting a reasonable sampling rate, when computing the max displacement error across a quad.
+// The constant below (512) was chosen as the smallest value that allowed adaptive_tri_tex_shader_displacement_test.igs to displace without major artifacts.
+// This heuristic won't be used if the texture space footprint of the quad can be determined. (e.g. in the TextureDisplaceMatParameter case)
+static int getDispErrorSamplingResForQuads(size_t num_quads)
 {
-	if(num_tris < 100)
-		return 15;
-	else if(num_tris < 10000)
-		return 10;
-	else
-		return 4;
+	const float side_res = std::sqrt((float)num_quads); // assuming uniform subidivsion
+
+	const float res = 512 / side_res;
+
+	const int final_res = myMax(4, (int)res);
+
+	return final_res;
+
+	/*
+	side_res	=>  res
+	-------------------
+	1			=>	512
+	2			=>	256
+	4			=>	128
+	8			=>	64
+	16			=>	32
+	32			=>  16
+	etc..
+	*/
+}
+
+
+static int getDispErrorSamplingResForTris(size_t num_tris)
+{
+	return getDispErrorSamplingResForQuads(num_tris / 2);
 }
 
 
@@ -1264,6 +995,443 @@ typedef google::dense_hash_map<DUVertIndexPair, DUEdgeInfo, DUVertIndexPairHash>
 typedef google::dense_hash_map<DUVertIndexPair, unsigned int, DUVertIndexPairHash> UVEdgeMapType;
 //typedef std::tr1::unordered_map<DUVertIndexPair, DUEdgeInfo, DUVertIndexPairHash> EdgeInfoMapType;
 //typedef std::tr1::unordered_map<DUVertIndexPair, unsigned int, DUVertIndexPairHash> UVEdgeMapType;
+
+
+struct BuildSubdividingPrimitiveTaskClosure
+{
+	const DUOptions* options;
+	int num_subdivs_done;
+	int min_num_subdivisions;
+	unsigned int num_uv_sets;
+	std::vector<int>* subdividing_tri;
+	std::vector<int>* subdividing_quad;
+
+	const std::vector<DUVertex>* displaced_in_verts;
+	const std::vector<DUTriangle>* tris_in;
+	const std::vector<DUQuad>* quads_in;
+	const std::vector<Vec2f>* uvs_in;
+	const std::vector<Reference<Material> >* materials;
+};
+
+
+class BuildSubdividingTriTask : public Indigo::Task
+{
+public:
+	BuildSubdividingTriTask(const BuildSubdividingPrimitiveTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const std::vector<DUVertex>& displaced_in_verts = *closure.displaced_in_verts;
+		const std::vector<DUTriangle>& tris_in = *closure.tris_in;
+
+		// Create some temporary buffers
+		std::vector<Vec3f> tri_verts_pos_os(3);
+
+		std::vector<Vec3f> clipped_poly_verts_os;
+		clipped_poly_verts_os.reserve(32);
+
+		std::vector<Vec3f> clipped_poly_verts_cs;
+		clipped_poly_verts_cs.reserve(32);
+
+		std::vector<Vec3f> temp_vert_buffer;
+		temp_vert_buffer.reserve(32);
+
+		DUUVCoordEvaluator temp_du_texcoord_evaluator;
+		temp_du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+
+		ThreadContext context;
+
+		std::vector<Vec2f> temp_uv_buffer;
+		temp_uv_buffer.resize(closure.num_uv_sets * 3);
+
+		for(int t = begin; t < end; ++t)
+		{
+			// Decide if we are going to subdivide the triangle
+			bool subdivide_triangle = false;
+
+			if(tris_in[t].dead)
+			{
+				subdivide_triangle = false;
+			}
+			else
+			{
+				if(closure.num_subdivs_done < closure.min_num_subdivisions)
+				{
+					subdivide_triangle = true;
+				}
+				else
+				{
+					if(closure.options->view_dependent_subdivision)
+					{
+						// Build vector of displaced triangle vertex positions. (in object space)
+						for(uint32_t i = 0; i < 3; ++i)
+							tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
+
+						// Fast path to see if all verts are completely inside all clipping planes
+						bool completely_unclipped = true;
+						for(size_t p=0; p<closure.options->camera_clip_planes_os.size(); ++p)
+							for(uint32_t i = 0; i < 3; ++i)
+								if(closure.options->camera_clip_planes_os[p].signedDistToPoint(tri_verts_pos_os[i]) > 0)
+								{
+									completely_unclipped = false;
+									goto done_unclipped_check;
+								}
+done_unclipped_check:
+						if(completely_unclipped)
+							clipped_poly_verts_os = tri_verts_pos_os;
+						else
+						{
+							// Clip triangle against frustrum planes
+							TriBoxIntersection::clipPolyToPlaneHalfSpaces(closure.options->camera_clip_planes_os, tri_verts_pos_os, temp_vert_buffer, clipped_poly_verts_os);
+						}
+
+						if(clipped_poly_verts_os.size() > 0) // If the triangle has not been completely clipped away
+						{
+							// Convert clipped verts to camera space
+							clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
+							for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
+							{
+								Vec4f v_os;
+								clipped_poly_verts_os[i].pointToVec4f(v_os);
+
+								const Vec4f v_cs = closure.options->object_to_camera * v_os;
+
+								clipped_poly_verts_cs[i] = Vec3f(v_cs);
+							}
+
+							// Compute 2D bounding box of clipped triangle in screen space
+							const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
+							Rect2f rect_ss(v0_ss, v0_ss);
+
+							for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
+								rect_ss.enlargeToHoldPoint(
+									screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
+									);
+
+							const float max_rect_pixels = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y);
+
+							// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
+							const bool exceeds_pixel_threshold = max_rect_pixels > closure.options->pixel_height_at_dist_one * closure.options->subdivide_pixel_threshold;
+
+							if(exceeds_pixel_threshold)
+							{
+								const float tri_curvature = triangleMaxCurvature(
+									displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
+									displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
+									displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
+
+								if(tri_curvature >= (float)closure.options->subdivide_curvature_threshold)
+									subdivide_triangle = true;
+								else
+								{
+									// Test displacement error
+									
+									// Eval UVs
+									for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+									{
+										temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[0], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[1], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[2], z);
+									}
+
+									EvalDispBoundsInfo eval_info;
+									for(int i=0; i<3; ++i)
+										eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[tris_in[t].vertex_indices[i]].pos.toVec4fPoint();
+									eval_info.context = &context;
+									eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
+									eval_info.uvs = &temp_uv_buffer[0];
+									eval_info.num_verts = 3;
+									eval_info.num_uv_sets = closure.num_uv_sets;
+									for(int i=0; i<3; ++i)
+										eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[tris_in[t].vertex_indices[i]].displacement;
+									eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+								
+									eval_info.suggested_sampling_res = getDispErrorSamplingResForTris(closure.tris_in->size());
+								
+									subdivide_triangle = (*closure.materials)[tris_in[t].tri_mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+								}
+							}
+						}
+					}
+					else // Else if not view_dependent_subdivision:
+					{
+						if(closure.options->subdivide_curvature_threshold <= 0)
+						{
+							// If subdivide_curvature_threshold is <= 0, then since tri_curvature is always >= 0, then we will always subdivide the triangle,
+							// so avoid computing the tri_curvature.
+							subdivide_triangle = true;
+						}
+						else
+						{
+							const float tri_curvature = triangleMaxCurvature(
+										displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
+										displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
+										displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
+
+							if(tri_curvature >= (float)closure.options->subdivide_curvature_threshold)
+								subdivide_triangle = true;
+							else
+							{
+								if(closure.options->displacement_error_threshold <= 0)
+								{
+									// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the triangle.
+									// So avoid computing the displacment_error.
+									subdivide_triangle = true;
+								}
+								else
+								{
+									// Test displacement error
+
+									// Eval UVs
+									for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+									{
+										temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[0], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[1], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, tris_in[t].uv_indices[2], z);
+									}
+
+									EvalDispBoundsInfo eval_info;
+									for(int i=0; i<3; ++i)
+										eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[tris_in[t].vertex_indices[i]].pos.toVec4fPoint();
+									eval_info.context = &context;
+									eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
+									eval_info.uvs = &temp_uv_buffer[0];
+									eval_info.num_verts = 3;
+									eval_info.num_uv_sets = closure.num_uv_sets;
+									for(int i=0; i<3; ++i)
+										eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[tris_in[t].vertex_indices[i]].displacement;
+									eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+
+									eval_info.suggested_sampling_res = getDispErrorSamplingResForTris(closure.tris_in->size());
+								
+									subdivide_triangle = (*closure.materials)[tris_in[t].tri_mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+								
+								}
+							}
+						}
+					}
+				}
+			}
+
+			(*closure.subdividing_tri)[t] = subdivide_triangle;
+		}
+	}
+
+	const BuildSubdividingPrimitiveTaskClosure& closure;
+	int begin, end;
+};
+
+
+class BuildSubdividingQuadTask : public Indigo::Task
+{
+public:
+	BuildSubdividingQuadTask(const BuildSubdividingPrimitiveTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const std::vector<DUVertex>& displaced_in_verts = *closure.displaced_in_verts;
+		const std::vector<DUQuad>& quads_in = *closure.quads_in;
+
+		// Create some temporary buffers
+		std::vector<Vec3f> quad_verts_pos_os(4);
+
+		std::vector<Vec3f> clipped_poly_verts_os;
+		clipped_poly_verts_os.reserve(32);
+
+		std::vector<Vec3f> clipped_poly_verts_cs;
+		clipped_poly_verts_cs.reserve(32);
+
+		std::vector<Vec3f> temp_vert_buffer;
+		temp_vert_buffer.reserve(32);
+
+		DUUVCoordEvaluator temp_du_texcoord_evaluator;
+		temp_du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+
+		ThreadContext context;
+
+		std::vector<Vec2f> temp_uv_buffer;
+		temp_uv_buffer.resize(closure.num_uv_sets * 4);
+
+		for(int q = begin; q < end; ++q)
+		{
+			// Decide if we are going to subdivide the quad
+			bool subdivide_quad = false;
+
+			if(quads_in[q].dead)
+			{
+				subdivide_quad = false;
+			}
+			else
+			{
+				if(closure.num_subdivs_done < closure.min_num_subdivisions)
+				{
+					subdivide_quad = true;
+				}
+				else
+				{
+					if(closure.options->view_dependent_subdivision)
+					{
+						// Build vector of displaced quad vertex positions. (in object space)
+						for(uint32_t i = 0; i < 4; ++i)
+							quad_verts_pos_os[i] = displaced_in_verts[quads_in[q].vertex_indices[i]].pos;
+
+						// Fast path to see if all verts are completely inside all clipping planes
+						bool completely_unclipped = true;
+						for(size_t p=0; p<closure.options->camera_clip_planes_os.size(); ++p)
+							for(uint32_t i = 0; i < 4; ++i)
+								if(closure.options->camera_clip_planes_os[p].signedDistToPoint(quad_verts_pos_os[i]) > 0)
+								{
+									completely_unclipped = false;
+									goto done_quad_unclipped_check;
+								}
+done_quad_unclipped_check:
+						if(completely_unclipped)
+							clipped_poly_verts_os = quad_verts_pos_os;
+						else
+						{
+							// Clip quad against frustrum planes
+							TriBoxIntersection::clipPolyToPlaneHalfSpaces(closure.options->camera_clip_planes_os, quad_verts_pos_os, temp_vert_buffer, clipped_poly_verts_os);
+						}
+
+				
+
+						if(clipped_poly_verts_os.size() > 0) // If the quad has not been completely clipped away:
+						{
+							// Convert clipped verts to camera space
+							clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
+							for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
+							{
+								Vec4f v_os;
+								clipped_poly_verts_os[i].pointToVec4f(v_os);
+
+								const Vec4f v_cs = closure.options->object_to_camera * v_os;
+
+								clipped_poly_verts_cs[i] = Vec3f(v_cs);
+							}
+
+							// Compute 2D bounding box of clipped quad in screen space
+							const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
+							Rect2f rect_ss(v0_ss, v0_ss);
+
+							for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
+								rect_ss.enlargeToHoldPoint(
+									screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
+								);
+
+							// Subdivide only if the width of height of the screen space quad bounding rectangle is bigger than the pixel height threshold
+							const bool exceeds_pixel_threshold = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > closure.options->pixel_height_at_dist_one * closure.options->subdivide_pixel_threshold;
+
+							if(exceeds_pixel_threshold)
+							{
+								const float curvature = quadMaxCurvature(
+									displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
+									displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
+									displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
+									displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
+
+								if(curvature >= (float)closure.options->subdivide_curvature_threshold)
+									subdivide_quad = true;
+								else
+								{
+									// Test displacement error
+
+									// Eval UVs
+									for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+									{
+										temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[0], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[1], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[2], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 3] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[3], z);
+									}
+
+									EvalDispBoundsInfo eval_info;
+									for(int i=0; i<4; ++i)
+										eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].pos.toVec4fPoint();
+									eval_info.context = &context;
+									eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
+									eval_info.uvs = &temp_uv_buffer[0];
+									eval_info.num_verts = 4;
+									eval_info.num_uv_sets = closure.num_uv_sets;
+									for(int i=0; i<4; ++i)
+										eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].displacement;
+									eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+
+									eval_info.suggested_sampling_res = getDispErrorSamplingResForQuads(closure.quads_in->size());
+								
+									subdivide_quad = (*closure.materials)[quads_in[q].mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+								}
+							}
+						}
+					}
+					else
+					{
+						if(closure.options->subdivide_curvature_threshold <= 0)
+						{
+							// If subdivide_curvature_threshold is <= 0, then since quad_curvature is always >= 0, then we will always subdivide the quad,
+							// so avoid computing the curvature.
+							subdivide_quad = true;
+						}
+						else
+						{
+							const float curvature = quadMaxCurvature(
+										displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
+										displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
+										displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
+										displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
+
+							if(curvature >= (float)closure.options->subdivide_curvature_threshold)
+								subdivide_quad = true;
+							else
+							{
+								if(closure.options->displacement_error_threshold <= 0)
+								{
+									// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the quad.
+									// So avoid computing the displacment_error.
+									subdivide_quad = true;
+								}
+								else
+								{
+									// Test displacement error
+									
+									// Eval UVs
+									for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+									{
+										temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[0], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[1], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[2], z);
+										temp_uv_buffer[z*closure.num_uv_sets + 3] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].uv_indices[3], z);
+									}
+
+									EvalDispBoundsInfo eval_info;
+									for(int i=0; i<4; ++i)
+										eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].pos.toVec4fPoint();
+									eval_info.context = &context;
+									eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
+									eval_info.uvs = &temp_uv_buffer[0];
+									eval_info.num_verts = 4;
+									eval_info.num_uv_sets = closure.num_uv_sets;
+									for(int i=0; i<4; ++i)
+										eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].displacement;
+									eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+
+									eval_info.suggested_sampling_res = getDispErrorSamplingResForQuads(closure.quads_in->size());
+								
+									subdivide_quad = (*closure.materials)[quads_in[q].mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			(*closure.subdividing_quad)[q] = subdivide_quad;
+		}
+	}
+
+	const BuildSubdividingPrimitiveTaskClosure& closure;
+	int begin, end;
+};
+
 
 
 void DisplacementUtils::linearSubdivision(
@@ -1340,24 +1508,12 @@ void DisplacementUtils::linearSubdivision(
 
 	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
-	// Create some temporary buffers
-	std::vector<Vec3f> tri_verts_pos_os(3);
-
-	std::vector<Vec3f> clipped_poly_verts_os;
-	clipped_poly_verts_os.reserve(32);
-
-	std::vector<Vec3f> clipped_poly_verts_cs;
-	clipped_poly_verts_cs.reserve(32);
-
-	std::vector<Vec3f> temp_vert_buffer;
-	temp_vert_buffer.reserve(32);
-
-	DUUVCoordEvaluator temp_du_texcoord_evaluator;
-
-
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
 
-	const unsigned int min_num_subdivisions = options.max_num_subdivisions / 2;
+	// If we are doing view-dependent subdivisions, then do a few levels of subdivision, without the fine detail.
+	// Otherwise we get situations like view-dependent subdivision done to create mountains, where outside of the camera frustum the mountains
+	// fall away immediately to zero height.  This is bad for several reasons - including shading and lighting artifacts.
+	const unsigned int min_num_subdivisions = options.view_dependent_subdivision ? options.max_num_subdivisions / 2 : 0;
 
 	/*
 
@@ -1393,132 +1549,23 @@ void DisplacementUtils::linearSubdivision(
 	DISPLACEMENT_RESET_TIMER(timer);
 
 	//========================== Work out if we are subdividing each triangle ==========================
-	std::vector<bool> subdividing_tri(tris_in.size(), false);
+	std::vector<int> subdividing_tri(tris_in.size(), false); // NOTE: can't use bool here, as vector<bool> does bitpacking, so each word is not independent across each thread.
+	std::vector<int> subdividing_quad(quads_in.size(), false);
 
-	// For each triangle
-	for(size_t t = 0; t < tris_in.size(); ++t)
-	{
-		// Decide if we are going to subdivide the triangle
-		bool subdivide_triangle = false;
+	BuildSubdividingPrimitiveTaskClosure sub_prim_closure;
+	sub_prim_closure.options = &options;
+	sub_prim_closure.num_subdivs_done = num_subdivs_done;
+	sub_prim_closure.min_num_subdivisions = min_num_subdivisions;
+	sub_prim_closure.num_uv_sets = num_uv_sets;
+	sub_prim_closure.subdividing_tri = &subdividing_tri;
+	sub_prim_closure.subdividing_quad = &subdividing_quad;
+	sub_prim_closure.displaced_in_verts = &displaced_in_verts;
+	sub_prim_closure.tris_in = &tris_in;
+	sub_prim_closure.quads_in = &quads_in;
+	sub_prim_closure.uvs_in = &uvs_in;
+	sub_prim_closure.materials = &materials;
 
-		if(num_subdivs_done < min_num_subdivisions)
-		{
-			subdivide_triangle = true;
-		}
-		else
-		{
-			if(options.view_dependent_subdivision)
-			{
-				// Build vector of displaced triangle vertex positions. (in object space)
-				for(uint32_t i = 0; i < 3; ++i)
-					tri_verts_pos_os[i] = displaced_in_verts[tris_in[t].vertex_indices[i]].pos;
-
-				// Fast path to see if all verts are completely inside all clipping planes
-				bool completely_unclipped = true;
-				for(size_t p=0; p<options.camera_clip_planes_os.size(); ++p)
-					for(uint32_t i = 0; i < 3; ++i)
-						if(options.camera_clip_planes_os[p].signedDistToPoint(tri_verts_pos_os[i]) > 0)
-						{
-							completely_unclipped = false;
-							goto done_unclipped_check;
-						}
-	done_unclipped_check:
-				if(completely_unclipped)
-					clipped_poly_verts_os = tri_verts_pos_os;
-				else
-				{
-					// Clip triangle against frustrum planes
-					TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, tri_verts_pos_os, temp_vert_buffer, clipped_poly_verts_os);
-				}
-
-				if(clipped_poly_verts_os.size() > 0) // If the triangle has not been completely clipped away
-				{
-					// Convert clipped verts to camera space
-					clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
-					for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
-					{
-						Vec4f v_os;
-						clipped_poly_verts_os[i].pointToVec4f(v_os);
-
-						const Vec4f v_cs = options.object_to_camera * v_os;
-
-						clipped_poly_verts_cs[i] = Vec3f(v_cs);
-					}
-
-					// Compute 2D bounding box of clipped triangle in screen space
-					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
-					Rect2f rect_ss(v0_ss, v0_ss);
-
-					for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
-						rect_ss.enlargeToHoldPoint(
-							screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
-							);
-
-					const float max_rect_pixels = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y);
-
-					// Subdivide only if the width of height of the screen space triangle bounding rectangle is bigger than the pixel height threshold
-					const bool exceeds_pixel_threshold = max_rect_pixels > options.pixel_height_at_dist_one * options.subdivide_pixel_threshold;
-
-					if(exceeds_pixel_threshold)
-					{
-						const float tri_curvature = triangleMaxCurvature(
-							displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
-							displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
-							displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
-
-						if(tri_curvature >= (float)options.subdivide_curvature_threshold)
-							subdivide_triangle = true;
-						else
-						{
-							// Test displacement error
-							const int res = getDispErrorRes((unsigned int)tris_in.size());
-							const float displacement_error = displacementError(context, temp_du_texcoord_evaluator, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, res);
-
-							subdivide_triangle = displacement_error >= options.displacement_error_threshold;
-						}
-					}
-				}
-			}
-			else
-			{
-				if(options.subdivide_curvature_threshold <= 0)
-				{
-					// If subdivide_curvature_threshold is <= 0, then since tri_curvature is always >= 0, then we will always subdivide the triangle,
-					// so avoid computing the tri_curvature.
-					subdivide_triangle = true;
-				}
-				else
-				{
-					const float tri_curvature = triangleMaxCurvature(
-								displaced_in_verts[tris_in[t].vertex_indices[0]].normal, 
-								displaced_in_verts[tris_in[t].vertex_indices[1]].normal, 
-								displaced_in_verts[tris_in[t].vertex_indices[2]].normal);
-
-					if(tri_curvature >= (float)options.subdivide_curvature_threshold)
-						subdivide_triangle = true;
-					else
-					{
-						if(options.displacement_error_threshold <= 0)
-						{
-							// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the triangle.
-							// So avoid computing the displacment_error.
-							subdivide_triangle = true;
-						}
-						else
-						{
-							// Test displacement error
-							const int RES = 10;
-							const float displacment_error = displacementError(context, temp_du_texcoord_evaluator, materials, tris_in[t], displaced_in_verts, uvs_in, num_uv_sets, RES);
-
-							subdivide_triangle = displacment_error >= options.displacement_error_threshold;
-						}
-					}
-				}
-			}
-		}
-
-		subdividing_tri[t] = subdivide_triangle;
-	}
+	task_manager.runParallelForTasks<BuildSubdividingTriTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, tris_in.size());
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
@@ -1641,136 +1688,7 @@ void DisplacementUtils::linearSubdivision(
 
 	//========================== Work out if we are subdividing each quad ==========================
 	
-	std::vector<bool> subdividing_quad(quads_in.size(), false);
-
-	std::vector<Vec3f> quad_verts_pos_os(4);
-
-	// For each quad
-	for(size_t q = 0; q < quads_in.size(); ++q)
-	{
-		// Decide if we are going to subdivide the quad
-		bool subdivide_quad = false;
-
-		if(num_subdivs_done < min_num_subdivisions)
-		{
-			subdivide_quad = true;
-		}
-		else
-		{
-			if(options.view_dependent_subdivision)
-			{
-				// Build vector of displaced quad vertex positions. (in object space)
-				for(uint32_t i = 0; i < 4; ++i)
-					quad_verts_pos_os[i] = displaced_in_verts[quads_in[q].vertex_indices[i]].pos;
-
-				// Fast path to see if all verts are completely inside all clipping planes
-				bool completely_unclipped = true;
-				for(size_t p=0; p<options.camera_clip_planes_os.size(); ++p)
-					for(uint32_t i = 0; i < 4; ++i)
-						if(options.camera_clip_planes_os[p].signedDistToPoint(quad_verts_pos_os[i]) > 0)
-						{
-							completely_unclipped = false;
-							goto done_quad_unclipped_check;
-						}
-done_quad_unclipped_check:
-				if(completely_unclipped)
-					clipped_poly_verts_os = quad_verts_pos_os;
-				else
-				{
-					// Clip quad against frustrum planes
-					TriBoxIntersection::clipPolyToPlaneHalfSpaces(options.camera_clip_planes_os, quad_verts_pos_os, temp_vert_buffer, clipped_poly_verts_os);
-				}
-
-				
-
-				if(clipped_poly_verts_os.size() > 0) // If the quad has not been completely clipped away:
-				{
-					// Convert clipped verts to camera space
-					clipped_poly_verts_cs.resize(clipped_poly_verts_os.size());
-					for(uint32_t i = 0; i < clipped_poly_verts_cs.size(); ++i)
-					{
-						Vec4f v_os;
-						clipped_poly_verts_os[i].pointToVec4f(v_os);
-
-						const Vec4f v_cs = options.object_to_camera * v_os;
-
-						clipped_poly_verts_cs[i] = Vec3f(v_cs);
-					}
-
-					// Compute 2D bounding box of clipped quad in screen space
-					const Vec2f v0_ss = screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[0]);
-					Rect2f rect_ss(v0_ss, v0_ss);
-
-					for(size_t i = 1; i < clipped_poly_verts_cs.size(); ++i)
-						rect_ss.enlargeToHoldPoint(
-							screenSpacePosForCameraSpacePos(clipped_poly_verts_cs[i])
-						);
-
-					// Subdivide only if the width of height of the screen space quad bounding rectangle is bigger than the pixel height threshold
-					const bool exceeds_pixel_threshold = myMax(rect_ss.getWidths().x, rect_ss.getWidths().y) > options.pixel_height_at_dist_one * options.subdivide_pixel_threshold;
-
-					if(exceeds_pixel_threshold)
-					{
-						const float curvature = quadMaxCurvature(
-							displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
-							displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
-							displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
-							displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
-
-						if(curvature >= (float)options.subdivide_curvature_threshold)
-							subdivide_quad = true;
-						else
-						{
-							// Test displacement error
-							const int res = getDispErrorRes((unsigned int)quads_in.size());
-							const float displacement_error = displacementError(context, temp_du_texcoord_evaluator, materials, quads_in[q], displaced_in_verts, uvs_in, num_uv_sets, res);
-
-							subdivide_quad = displacement_error >= options.displacement_error_threshold;
-						}
-					}
-				}
-			}
-			else
-			{
-				if(options.subdivide_curvature_threshold <= 0)
-				{
-					// If subdivide_curvature_threshold is <= 0, then since quad_curvature is always >= 0, then we will always subdivide the quad,
-					// so avoid computing the curvature.
-					subdivide_quad = true;
-				}
-				else
-				{
-					const float curvature = quadMaxCurvature(
-								displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
-								displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
-								displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
-								displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
-
-					if(curvature >= (float)options.subdivide_curvature_threshold)
-						subdivide_quad = true;
-					else
-					{
-						if(options.displacement_error_threshold <= 0)
-						{
-							// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the quad.
-							// So avoid computing the displacment_error.
-							subdivide_quad = true;
-						}
-						else
-						{
-							// Test displacement error
-							const int RES = 10;
-							const float displacment_error = displacementError(context, temp_du_texcoord_evaluator, materials, quads_in[q], displaced_in_verts, uvs_in, num_uv_sets, RES);
-
-							subdivide_quad = displacment_error >= options.displacement_error_threshold;
-						}
-					}
-				}
-			}
-		}
-
-		subdividing_quad[q] = subdivide_quad;
-	}
+	task_manager.runParallelForTasks<BuildSubdividingQuadTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, quads_in.size());
 
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3)));
@@ -2093,6 +2011,7 @@ done_quad_unclipped_check:
 			// Else don't subdivide triangle.
 			// Original vertices are already copied over, so just copy the triangle
 			tris_out.push_back(tris_in[t]);
+			tris_out.back().dead = true;
 			num_tris_unchanged++;
 		}
 	}
@@ -2167,6 +2086,7 @@ done_quad_unclipped_check:
 			// Else don't subdivide quad.
 			// Original vertices are already copied over, so just copy the quad.
 			quads_out.push_back(quads_in[q]);
+			quads_out.back().dead = true;
 			num_quads_unchanged++;
 		}
 	}

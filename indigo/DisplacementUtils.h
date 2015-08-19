@@ -78,10 +78,14 @@ public:
 		uv_indices[0] = uv0;
 		uv_indices[1] = uv1;
 		uv_indices[2] = uv2;
+
+		dead = false;
 	}
 	unsigned int vertex_indices[3];
 	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
+
+	bool dead; // Have we stopped subdividing this tri?  If so, mark it as dead so we can easily choose to not subdivide it in subsequent passes.
 };
 
 class DUQuad
@@ -101,12 +105,15 @@ public:
 		uv_indices[1] = uv1;
 		uv_indices[2] = uv2;
 		uv_indices[3] = uv3;
+
+		dead = false;
 	}
 	uint32_t vertex_indices[4];
 	uint32_t uv_indices[4];
 	uint32_t mat_index;
 
 	//uint32_t padding[2];
+	bool dead;
 };
 
 
