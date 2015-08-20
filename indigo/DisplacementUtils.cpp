@@ -1569,8 +1569,8 @@ void DisplacementUtils::linearSubdivision(
 	std::vector<int> subdividing_tri(tris_in.size(), false); // NOTE: can't use bool here, as vector<bool> does bitpacking, so each word is not independent across each thread.
 	std::vector<int> subdividing_quad(quads_in.size(), false);
 
-	IndigoAtomic num_subdivided_tris = 0;
-	IndigoAtomic num_subdivided_quads = 0;
+	IndigoAtomic num_subdivided_tris;
+	IndigoAtomic num_subdivided_quads;
 	BuildSubdividingPrimitiveTaskClosure sub_prim_closure;
 	sub_prim_closure.options = &options;
 	sub_prim_closure.num_subdivs_done = num_subdivs_done;
