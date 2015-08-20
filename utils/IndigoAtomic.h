@@ -37,6 +37,9 @@ public:
 	inline glare_atomic_int operator++ (int); // postfix ++ operator
 	inline glare_atomic_int operator-- (int); // postfix -- operator
 
+	inline glare_atomic_int operator += (glare_atomic_int x);
+	inline glare_atomic_int operator -= (glare_atomic_int x);
+
 	// Returns the old value. (value before increment)
 	inline glare_atomic_int increment();
 
@@ -117,7 +120,20 @@ inline glare_atomic_int IndigoAtomic::increment()
 	return atomicAdd(&val, 1);
 }
 
+
 inline glare_atomic_int IndigoAtomic::decrement()
 {
 	return atomicAdd(&val, -1);
+}
+
+
+inline glare_atomic_int IndigoAtomic::operator += (glare_atomic_int x)
+{
+	return atomicAdd(&val, x);
+}
+
+
+inline glare_atomic_int IndigoAtomic::operator -= (glare_atomic_int x)
+{
+	return atomicAdd(&val, -x);
 }

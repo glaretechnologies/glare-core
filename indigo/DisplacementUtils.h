@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 class ThreadContext;
 class PrintOutput;
+struct DUScratchInfo;
 namespace Indigo { class TaskManager; }
 
 
@@ -203,6 +204,7 @@ private:
 		unsigned int num_uv_sets,
 		unsigned int num_subdivs_done,
 		const DUOptions& options,
+		DUScratchInfo& scratch_info,
 		std::vector<DUVertexPolygon>& vert_polygons_out,
 		std::vector<DUEdge>& edges_out,
 		std::vector<DUTriangle>& tris_out,

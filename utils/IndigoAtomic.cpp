@@ -72,6 +72,27 @@ void IndigoAtomic::test()
 		testAssert(i == 1);
 	}
 
+
+	// Test operator+=
+	{
+		IndigoAtomic i = 3;
+		i += 10;
+		testAssert(i == 13);
+		i += 20;
+		testAssert(i == 33);
+	}
+
+
+	// Test operator-=
+	{
+		IndigoAtomic i = 30;
+		i -= 10;
+		testAssert(i == 20);
+		i -= 40;
+		testAssert(i == -20);
+	}
+
+
 	// Test increment()
 	{
 		IndigoAtomic i = 3;
