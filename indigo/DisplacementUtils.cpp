@@ -1492,8 +1492,7 @@ void DisplacementUtils::linearSubdivision(
 
 	verts_out = verts_in; // Copy over original vertices
 	uvs_out = uvs_in; // Copy over uvs
-
-	vert_polygons_out.resize(0);
+	
 	edges_out.resize(0);
 
 
@@ -1522,8 +1521,6 @@ void DisplacementUtils::linearSubdivision(
 	UVEdgeMapType& uv_edge_map = scratch_info.uv_edge_map;
 	edge_info_map.clear_no_resize();
 	uv_edge_map.clear_no_resize();
-
-	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
 
@@ -1716,7 +1713,8 @@ void DisplacementUtils::linearSubdivision(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	//========================== Create edge midpoint vertices for quads ==========================
+	//========================== Create edge midpoint and centroid vertices for quads ==========================
+	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
 	// For each quad
 	const size_t quads_in_size = quads_in.size();
@@ -1740,13 +1738,11 @@ void DisplacementUtils::linearSubdivision(
 				));
 
 			for(uint32_t z = 0; z < num_uv_sets; ++z)
-			{
 				uvs_out.push_back((
 					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[0], z) +
 					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[1], z) +
 					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[2], z) + 
 					getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[3], z)) * 0.25f);
-			}
 
 
 			// Create the quad's edge vertices
@@ -1761,7 +1757,7 @@ void DisplacementUtils::linearSubdivision(
 
 				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
-				DUEdgeInfo& edge_info = edge_info_map[edge];
+				DUEdgeInfo& edge_info = edge_info_map[edge]; // NOTE: SLOW!!
 
 				if(edge_info.num_adjacent_subdividing_polys == 0)
 				{
@@ -1828,10 +1824,8 @@ void DisplacementUtils::linearSubdivision(
 				edge_info.num_adjacent_subdividing_polys++;
 
 				// Create new uvs at edge midpoint, if not already created.
-
 				if(num_uv_sets > 0)
 				{
-
 					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
 					const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge_key);
@@ -1886,7 +1880,7 @@ void DisplacementUtils::linearSubdivision(
 		}
 
 
-	// Subdivide polygons
+	//========================== Subdivide polygons ==========================
 
 	// Counters
 	uint32 num_tris_subdivided = 0;
@@ -1899,7 +1893,7 @@ void DisplacementUtils::linearSubdivision(
 	// Vertex polygons can't be subdivided, so just copy over
 	vert_polygons_out = vert_polygons_in;
 
-	// For each edge
+	//========================== Subdivide edges ==========================
 	for(size_t i = 0; i < edges_in.size(); ++i)
 	{
 		const DUEdge& edge_in = edges_in[i];
@@ -1953,6 +1947,7 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
+	//========================== Subdivide triangles ==========================
 	tris_out.resize(num_subdivided_tris);
 
 	// For each triangle
@@ -2048,7 +2043,7 @@ void DisplacementUtils::linearSubdivision(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-
+	//========================== Subdivide quads ==========================
 	quads_out.resize(num_subdivided_quads);
 
 	// For each quad
