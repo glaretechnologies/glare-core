@@ -38,8 +38,8 @@ by Joe Warren and Scott Schaefer
 #include <sparsehash/dense_hash_map>
 
 
-static const bool PROFILE = false;
-//#define DISPLACEMENT_UTILS_STATS 1
+static const bool PROFILE = true;
+#define DISPLACEMENT_UTILS_STATS 1
 #if DISPLACEMENT_UTILS_STATS
 #define DISPLACEMENT_CREATE_TIMER(timer) Timer (timer)
 #define DISPLACEMENT_RESET_TIMER(timer) ((timer).reset())
@@ -576,7 +576,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	assert(temp_uvs_next_i == (uint32)temp_uvs.size());
 
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
 	const uint32 num_temp_tris  = (uint32)temp_tris.size();
@@ -640,7 +640,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	//conPrint("num fixed verts created: " + toString(temp_vert_polygons.size()));
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
 
@@ -814,7 +814,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	uvs_out = temp_uvs;
 
-	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(3));
+	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(5));
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Total time elapsed: " + total_timer.elapsedString()));
 }
 
@@ -1027,9 +1027,6 @@ struct BuildSubdividingPrimitiveTaskClosure
 	const std::vector<DUQuad>* quads_in;
 	const std::vector<Vec2f>* uvs_in;
 	const std::vector<Reference<Material> >* materials;
-
-	IndigoAtomic* num_subdivided_tris;
-	IndigoAtomic* num_subdivided_quads;
 };
 
 
@@ -1062,8 +1059,6 @@ public:
 
 		std::vector<Vec2f> temp_uv_buffer;
 		temp_uv_buffer.resize(closure.num_uv_sets * 3);
-
-		int num_subdivided_tris = 0;
 
 		for(int t = begin; t < end; ++t)
 		{
@@ -1235,11 +1230,7 @@ done_unclipped_check:
 			}
 
 			(*closure.subdividing_tri)[t] = subdivide_triangle;
-
-			num_subdivided_tris += subdivide_triangle ? 4 : 1;
 		}
-
-		*closure.num_subdivided_tris += num_subdivided_tris;
 	}
 
 	const BuildSubdividingPrimitiveTaskClosure& closure;
@@ -1276,8 +1267,6 @@ public:
 
 		std::vector<Vec2f> temp_uv_buffer;
 		temp_uv_buffer.resize(closure.num_uv_sets * 4);
-
-		int num_subdivided_quads = 0;
 
 		for(int q = begin; q < end; ++q)
 		{
@@ -1452,14 +1441,224 @@ done_quad_unclipped_check:
 			}
 
 			(*closure.subdividing_quad)[q] = subdivide_quad;
-
-			num_subdivided_quads += subdivide_quad ? 4 : 1;
 		}
-
-		*closure.num_subdivided_quads += num_subdivided_quads;
 	}
 
 	const BuildSubdividingPrimitiveTaskClosure& closure;
+	int begin, end;
+};
+
+
+struct SubdividePrimitiveTaskClosure
+{
+	const std::vector<int>* subdividing_tri;
+	const std::vector<int>* subdividing_quad;
+	const std::vector<int>* tri_write_index;
+	const std::vector<int>* quad_write_index;
+
+	unsigned int num_uv_sets;
+	const std::vector<DUTriangle>* tris_in;
+	std::vector<DUTriangle>* tris_out;
+	const std::vector<DUQuad>* quads_in;
+	std::vector<DUQuad>* quads_out;
+	const std::vector<std::pair<uint32_t, uint32_t> >* quad_centre_data;
+	const EdgeInfoMapType* edge_info_map;
+	const UVEdgeMapType* uv_edge_map;
+};
+
+
+class SubdivideTriTask : public Indigo::Task
+{
+public:
+	SubdivideTriTask(const SubdividePrimitiveTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const std::vector<int>& subdividing_tri = *closure.subdividing_tri;
+		const std::vector<int>& tri_write_index = *closure.tri_write_index;
+		const int num_uv_sets = closure.num_uv_sets;
+		const std::vector<DUTriangle>& tris_in = *closure.tris_in;
+		std::vector<DUTriangle>& tris_out = *closure.tris_out;
+		const EdgeInfoMapType& edge_info_map = *closure.edge_info_map;
+		const UVEdgeMapType& uv_edge_map = *closure.uv_edge_map;
+		//IndigoAtomic& tri_out_index = *closure.tri_out_index;
+
+		for(size_t t = begin; t < end; ++t)
+		{
+			const int64 write_index = tri_write_index[t];
+
+			if(subdividing_tri[t]) // If we are subdividing this triangle...
+			{
+				uint32_t midpoint_vert_indices[3]; // Indices of edge midpoint vertices in verts_out
+				uint32_t midpoint_uv_indices[3] = { 0, 0, 0 };
+
+				for(uint32_t v = 0; v < 3; ++v) // For each edge (v_i, v_i+1)
+				{
+					{
+						const uint32_t v0 = tris_in[t].vertex_indices[v];
+						const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
+						const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+
+						const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
+						assert(result != edge_info_map.end());
+
+						midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+					}
+					if(num_uv_sets > 0)
+					{
+						const uint32_t uv0 = tris_in[t].uv_indices[v];
+						const uint32_t uv1 = tris_in[t].uv_indices[mod3(v + 1)];
+						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+
+						const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge);
+						assert(result != uv_edge_map.end());
+
+						midpoint_uv_indices[v] = (*result).second;
+					}
+				}
+
+				tris_out[write_index + 0] = DUTriangle(
+						tris_in[t].vertex_indices[0],
+						midpoint_vert_indices[0],
+						midpoint_vert_indices[2],
+						tris_in[t].uv_indices[0],
+						midpoint_uv_indices[0],
+						midpoint_uv_indices[2],
+						tris_in[t].tri_mat_index
+				);
+
+				tris_out[write_index + 1] = DUTriangle(
+						midpoint_vert_indices[1],
+						midpoint_vert_indices[2],
+						midpoint_vert_indices[0],
+						midpoint_uv_indices[1],
+						midpoint_uv_indices[2],
+						midpoint_uv_indices[0],
+						tris_in[t].tri_mat_index
+				);
+
+				tris_out[write_index + 2] = DUTriangle(
+						midpoint_vert_indices[0],
+						tris_in[t].vertex_indices[1],
+						midpoint_vert_indices[1],
+						midpoint_uv_indices[0],
+						tris_in[t].uv_indices[1],
+						midpoint_uv_indices[1],
+						tris_in[t].tri_mat_index
+				);
+
+				tris_out[write_index + 3] = DUTriangle(
+						midpoint_vert_indices[2],
+						midpoint_vert_indices[1],
+						tris_in[t].vertex_indices[2],
+						midpoint_uv_indices[2],
+						midpoint_uv_indices[1],
+						tris_in[t].uv_indices[2],
+						tris_in[t].tri_mat_index
+				);
+			}
+			else
+			{
+				// Else don't subdivide triangle.
+				// Original vertices are already copied over, so just copy the triangle
+				tris_out[write_index] = tris_in[t];
+				tris_out[write_index].dead = true;
+			}
+		}
+	}
+
+	const SubdividePrimitiveTaskClosure& closure;
+	int begin, end;
+};
+
+	
+class SubdivideQuadTask : public Indigo::Task
+{
+public:
+	SubdivideQuadTask(const SubdividePrimitiveTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const std::vector<int>& subdividing_quad = *closure.subdividing_quad;
+		const std::vector<int>& quad_write_index = *closure.quad_write_index;
+		const int num_uv_sets = closure.num_uv_sets;
+		const std::vector<DUQuad>& quads_in = *closure.quads_in;
+		std::vector<DUQuad>& quads_out = *closure.quads_out;
+		const std::vector<std::pair<uint32_t, uint32_t> >& quad_centre_data = *closure.quad_centre_data;
+		const EdgeInfoMapType& edge_info_map = *closure.edge_info_map;
+		const UVEdgeMapType& uv_edge_map = *closure.uv_edge_map;
+
+		for(size_t q = begin; q < end; ++q)
+		{
+			const int64 write_index = quad_write_index[q];
+
+			if(subdividing_quad[q]) // If we are subdividing this quad...
+			{
+				uint32_t midpoint_vert_indices[4]; // Indices of edge midpoint vertices in verts_out
+				uint32_t midpoint_uv_indices[4] = { 0, 0, 0, 0 };
+				const uint32_t centre_vert_idx = quad_centre_data[q].first;
+				const uint32_t centre_uv_idx   = quad_centre_data[q].second;
+
+				for(uint32_t v = 0; v < 4; ++v) // For each edge
+				{
+					{
+						const uint32_t v0 = quads_in[q].vertex_indices[v];
+						const uint32_t v1 = quads_in[q].vertex_indices[mod4(v + 1)];
+						const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+
+						const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
+						assert(result != edge_info_map.end());
+
+						midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+					}
+					if(num_uv_sets > 0)
+					{
+						const uint32_t uv0 = quads_in[q].uv_indices[v];
+						const uint32_t uv1 = quads_in[q].uv_indices[mod4(v + 1)];
+						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+
+						const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge);
+						assert(result != uv_edge_map.end());
+
+						midpoint_uv_indices[v] = (*result).second;
+					}
+				}
+
+				quads_out[write_index + 0] = DUQuad(
+					quads_in[q].vertex_indices[0], midpoint_vert_indices[0], centre_vert_idx, midpoint_vert_indices[3],
+					quads_in[q].uv_indices[0],     midpoint_uv_indices[0],   centre_uv_idx,   midpoint_uv_indices[3],
+					quads_in[q].mat_index
+				);
+
+				quads_out[write_index + 1] = DUQuad(
+					midpoint_vert_indices[0], quads_in[q].vertex_indices[1], midpoint_vert_indices[1], centre_vert_idx,
+					midpoint_uv_indices[0],   quads_in[q].uv_indices[1],     midpoint_uv_indices[1],   centre_uv_idx,
+					quads_in[q].mat_index
+				);
+
+				quads_out[write_index + 2] = DUQuad(
+					centre_vert_idx, midpoint_vert_indices[1], quads_in[q].vertex_indices[2], midpoint_vert_indices[2],
+					centre_uv_idx,   midpoint_uv_indices[1],   quads_in[q].uv_indices[2],     midpoint_uv_indices[2],
+					quads_in[q].mat_index
+				);
+
+				quads_out[write_index + 3] = DUQuad(
+					midpoint_vert_indices[3], centre_vert_idx, midpoint_vert_indices[2], quads_in[q].vertex_indices[3],
+					midpoint_uv_indices[3],   centre_uv_idx,   midpoint_uv_indices[2],   quads_in[q].uv_indices[3],
+					quads_in[q].mat_index
+				);
+			}
+			else
+			{
+				// Else don't subdivide quad.
+				// Original vertices are already copied over, so just copy the quad.
+				quads_out[write_index] = quads_in[q];
+				quads_out[write_index].dead = true;
+			}
+		}
+	}
+
+	const SubdividePrimitiveTaskClosure& closure;
 	int begin, end;
 };
 
@@ -1560,14 +1759,15 @@ void DisplacementUtils::linearSubdivision(
 				(curvature >= curvature_threshold OR 
 				displacement_error >= displacement_error_threshold)
 	*/
-	DISPLACEMENT_RESET_TIMER(timer);
 
 	//========================== Work out if we are subdividing each triangle ==========================
-	std::vector<int> subdividing_tri(tris_in.size(), false); // NOTE: can't use bool here, as vector<bool> does bitpacking, so each word is not independent across each thread.
-	std::vector<int> subdividing_quad(quads_in.size(), false);
+	DISPLACEMENT_RESET_TIMER(timer);
+	const size_t tris_in_size = tris_in.size();
+	const size_t quads_in_size = quads_in.size();
 
-	IndigoAtomic num_subdivided_tris;
-	IndigoAtomic num_subdivided_quads;
+	std::vector<int> subdividing_tri(tris_in_size); // NOTE: can't use bool here, as vector<bool> does bitpacking, so each word is not independent across each thread.
+	std::vector<int> subdividing_quad(quads_in_size);
+	
 	BuildSubdividingPrimitiveTaskClosure sub_prim_closure;
 	sub_prim_closure.options = &options;
 	sub_prim_closure.num_subdivs_done = num_subdivs_done;
@@ -1580,13 +1780,30 @@ void DisplacementUtils::linearSubdivision(
 	sub_prim_closure.quads_in = &quads_in;
 	sub_prim_closure.uvs_in = &uvs_in;
 	sub_prim_closure.materials = &materials;
-	sub_prim_closure.num_subdivided_tris = &num_subdivided_tris;
-	sub_prim_closure.num_subdivided_quads = &num_subdivided_quads;
 
 	task_manager.runParallelForTasks<BuildSubdividingTriTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, tris_in.size());
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_tri[]: " + timer.elapsedStringNPlaces(5)));
+
+	
+	//========================== Build tri_write_index array ==========================
+	// This gives the index that the subdivided triangles generated from triangle i will be written to.
+	// Note that we maintain the original triangle order here, e.g. new triangles will have a 
+	// similar relative position in the triangle list to the old triangles.
+	// This is important for coherency reasons.  (gave a noticable slowdown with an interleaved order)
+	// Generating this array is a serial operation but it's pretty fast.
 	DISPLACEMENT_RESET_TIMER(timer);
+	std::vector<int> tri_write_index(tris_in.size());
+
+	int current_tri_write_index = 0;
+	for(size_t i=0; i<tris_in_size; ++i)
+	{
+		tri_write_index[i] = current_tri_write_index;
+		current_tri_write_index += subdividing_tri[i] ? 4 : 1;
+	}
+	const int total_new_tris = current_tri_write_index;
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building tri_write_index[]: " + timer.elapsedStringNPlaces(5)));
 
 
 	//========================== Create edge midpoint vertices for triangles ==========================
@@ -1595,7 +1812,7 @@ void DisplacementUtils::linearSubdivision(
 	if(PROFILE) conPrint("   Creating edge midpoint verts, tris_in.size(): " + toString(tris_in.size()));
 
 	// For each triangle
-	const size_t tris_in_size = tris_in.size();
+	
 	for(size_t t = 0; t < tris_in_size; ++t)
 	{
 		if(subdividing_tri[t])
@@ -1701,23 +1918,37 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   building tri edge mid point vertices: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building tri edge mid point vertices: " + timer.elapsedStringNPlaces(5)));
+	
+	//========================== Work out if we are subdividing each quad ==========================
 	DISPLACEMENT_RESET_TIMER(timer);
 
-
-	//========================== Work out if we are subdividing each quad ==========================
-	
 	task_manager.runParallelForTasks<BuildSubdividingQuadTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, quads_in.size());
 
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(5)));
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(3)));
+
+	//========================== Build quad_write_index array ==========================
 	DISPLACEMENT_RESET_TIMER(timer);
+	std::vector<int> quad_write_index(quads_in.size());
+
+	int current_quad_write_index = 0;
+	for(size_t i=0; i<quads_in_size; ++i)
+	{
+		quad_write_index[i] = current_quad_write_index;
+		current_quad_write_index += subdividing_quad[i] ? 4 : 1;
+	}
+	const int total_new_quads = current_quad_write_index;
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building quad_write_index[]: " + timer.elapsedStringNPlaces(5)));
+
 
 	//========================== Create edge midpoint and centroid vertices for quads ==========================
+	DISPLACEMENT_RESET_TIMER(timer);
 	std::vector<std::pair<uint32_t, uint32_t> > quad_centre_data(quads_in.size()); // (vertex index, uv set index)
 
 	// For each quad
-	const size_t quads_in_size = quads_in.size();
+	
 	for(size_t q = 0; q < quads_in_size; ++q)
 	{
 		if(subdividing_quad[q])
@@ -1847,7 +2078,7 @@ void DisplacementUtils::linearSubdivision(
 		}
 	}
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(3)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
 
@@ -1948,181 +2179,38 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 	//========================== Subdivide triangles ==========================
-	tris_out.resize(num_subdivided_tris);
-
-	// For each triangle
-	size_t tri_out_index = 0;
-	for(size_t t = 0; t < tris_in_size; ++t)
-	{
-		if(subdividing_tri[t]) // If we are subdividing this triangle...
-		{
-			uint32_t midpoint_vert_indices[3]; // Indices of edge midpoint vertices in verts_out
-			uint32_t midpoint_uv_indices[3] = { 0, 0, 0 };
-
-			for(uint32_t v = 0; v < 3; ++v) // For each edge (v_i, v_i+1)
-			{
-				{
-					const uint32_t v0 = tris_in[t].vertex_indices[v];
-					const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
-					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
-
-					const EdgeInfoMapType::iterator result = edge_info_map.find(edge);
-					assert(result != edge_info_map.end());
-
-					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
-				}
-				if(num_uv_sets > 0)
-				{
-					const uint32_t uv0 = tris_in[t].uv_indices[v];
-					const uint32_t uv1 = tris_in[t].uv_indices[mod3(v + 1)];
-					const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
-
-					const UVEdgeMapType::iterator result = uv_edge_map.find(edge);
-					assert(result != uv_edge_map.end());
-
-					midpoint_uv_indices[v] = (*result).second;
-				}
-			}
-
-			tris_out[tri_out_index + 0] = DUTriangle(
-					tris_in[t].vertex_indices[0],
-					midpoint_vert_indices[0],
-					midpoint_vert_indices[2],
-					tris_in[t].uv_indices[0],
-					midpoint_uv_indices[0],
-					midpoint_uv_indices[2],
-					tris_in[t].tri_mat_index
-			);
-
-			tris_out[tri_out_index + 1] = DUTriangle(
-					midpoint_vert_indices[1],
-					midpoint_vert_indices[2],
-					midpoint_vert_indices[0],
-					midpoint_uv_indices[1],
-					midpoint_uv_indices[2],
-					midpoint_uv_indices[0],
-					tris_in[t].tri_mat_index
-			);
-
-			tris_out[tri_out_index + 2] = DUTriangle(
-					midpoint_vert_indices[0],
-					tris_in[t].vertex_indices[1],
-					midpoint_vert_indices[1],
-					midpoint_uv_indices[0],
-					tris_in[t].uv_indices[1],
-					midpoint_uv_indices[1],
-					tris_in[t].tri_mat_index
-			);
-
-			tris_out[tri_out_index + 3] = DUTriangle(
-					midpoint_vert_indices[2],
-					midpoint_vert_indices[1],
-					tris_in[t].vertex_indices[2],
-					midpoint_uv_indices[2],
-					midpoint_uv_indices[1],
-					tris_in[t].uv_indices[2],
-					tris_in[t].tri_mat_index
-			);
-
-			tri_out_index += 4;
-			num_tris_subdivided++;
-		}
-		else
-		{
-			// Else don't subdivide triangle.
-			// Original vertices are already copied over, so just copy the triangle
-			tris_out[tri_out_index] = tris_in[t];
-			tris_out[tri_out_index].dead = true;
-			tri_out_index++;
-			num_tris_unchanged++;
-		}
-	}
-
-	assert((glare_atomic_int)tri_out_index == num_subdivided_tris);
-
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(3)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
+	tris_out.resize(total_new_tris);
+
+	SubdividePrimitiveTaskClosure subdiv_closure;
+	subdiv_closure.subdividing_tri = &subdividing_tri;
+	subdiv_closure.subdividing_quad = &subdividing_quad;
+	subdiv_closure.tri_write_index = &tri_write_index;
+	subdiv_closure.quad_write_index = &quad_write_index;
+	subdiv_closure.num_uv_sets = num_uv_sets;
+	subdiv_closure.tris_in = &tris_in;
+	subdiv_closure.tris_out = &tris_out;
+	subdiv_closure.quads_in = &quads_in;
+	subdiv_closure.quads_out = &quads_out;
+	subdiv_closure.quad_centre_data = &quad_centre_data;
+	subdiv_closure.edge_info_map = &edge_info_map;
+	subdiv_closure.uv_edge_map = &uv_edge_map;
+
+	task_manager.runParallelForTasks<SubdivideTriTask, SubdividePrimitiveTaskClosure>(subdiv_closure, 0, tris_in.size());
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided tris: " + timer.elapsedStringNPlaces(5)));
+
 	//========================== Subdivide quads ==========================
-	quads_out.resize(num_subdivided_quads);
+	DISPLACEMENT_RESET_TIMER(timer);
 
-	// For each quad
-	size_t quad_out_index = 0;
-	for(size_t q = 0; q < quads_in_size; ++q)
-	{
-		if(subdividing_quad[q]) // If we are subdividing this quad...
-		{
-			uint32_t midpoint_vert_indices[4]; // Indices of edge midpoint vertices in verts_out
-			uint32_t midpoint_uv_indices[4] = { 0, 0, 0, 0 };
-			const uint32_t centre_vert_idx = quad_centre_data[q].first;
-			const uint32_t centre_uv_idx   = quad_centre_data[q].second;
+	quads_out.resize(total_new_quads);
 
-			for(uint32_t v = 0; v < 4; ++v) // For each edge
-			{
-				{
-					const uint32_t v0 = quads_in[q].vertex_indices[v];
-					const uint32_t v1 = quads_in[q].vertex_indices[mod4(v + 1)];
-					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+	task_manager.runParallelForTasks<SubdivideQuadTask, SubdividePrimitiveTaskClosure>(subdiv_closure, 0, quads_in.size());
 
-					const EdgeInfoMapType::iterator result = edge_info_map.find(edge);
-					assert(result != edge_info_map.end());
+	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided quads: " + timer.elapsedStringNPlaces(5)));
 
-					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
-				}
-				if(num_uv_sets > 0)
-				{
-					const uint32_t uv0 = quads_in[q].uv_indices[v];
-					const uint32_t uv1 = quads_in[q].uv_indices[mod4(v + 1)];
-					const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
-					const UVEdgeMapType::iterator result = uv_edge_map.find(edge);
-					assert(result != uv_edge_map.end());
-
-					midpoint_uv_indices[v] = (*result).second;
-				}
-			}
-
-			quads_out[quad_out_index + 0] = DUQuad(
-				quads_in[q].vertex_indices[0], midpoint_vert_indices[0], centre_vert_idx, midpoint_vert_indices[3],
-				quads_in[q].uv_indices[0],     midpoint_uv_indices[0],   centre_uv_idx,   midpoint_uv_indices[3],
-				quads_in[q].mat_index
-			);
-
-			quads_out[quad_out_index + 1] = DUQuad(
-				midpoint_vert_indices[0], quads_in[q].vertex_indices[1], midpoint_vert_indices[1], centre_vert_idx,
-				midpoint_uv_indices[0],   quads_in[q].uv_indices[1],     midpoint_uv_indices[1],   centre_uv_idx,
-				quads_in[q].mat_index
-			);
-
-			quads_out[quad_out_index + 2] = DUQuad(
-				centre_vert_idx, midpoint_vert_indices[1], quads_in[q].vertex_indices[2], midpoint_vert_indices[2],
-				centre_uv_idx,   midpoint_uv_indices[1],   quads_in[q].uv_indices[2],     midpoint_uv_indices[2],
-				quads_in[q].mat_index
-			);
-
-			quads_out[quad_out_index + 3] = DUQuad(
-				midpoint_vert_indices[3], centre_vert_idx, midpoint_vert_indices[2], quads_in[q].vertex_indices[3],
-				midpoint_uv_indices[3],   centre_uv_idx,   midpoint_uv_indices[2],   quads_in[q].uv_indices[3],
-				quads_in[q].mat_index
-			);
-
-			quad_out_index += 4;
-			num_quads_subdivided++;
-		}
-		else
-		{
-			// Else don't subdivide quad.
-			// Original vertices are already copied over, so just copy the quad.
-			quads_out[quad_out_index] = quads_in[q];
-			quads_out[quad_out_index].dead = true;
-			quad_out_index++;
-			num_quads_unchanged++;
-		}
-	}
-
-	assert((glare_atomic_int)quad_out_index == num_subdivided_quads);
-
-	DISPLACEMENT_PRINT_RESULTS(conPrint("   Making new subdivided quads: " + timer.elapsedStringNPlaces(3)));
 
 	print_output.print("\t\tnum triangles subdivided: " + toString(num_tris_subdivided));
 	print_output.print("\t\tnum triangles unchanged: " + toString(num_tris_unchanged));
