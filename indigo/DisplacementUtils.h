@@ -22,7 +22,7 @@ public:
 	DUVertex(){ anchored = false; }
 	DUVertex(const Vec3f& pos_, const Vec3f& normal_) : pos(pos_), normal(normal_) { 
 		//texcoords[0] = texcoords[1] = texcoords[2] = texcoords[3] = Vec2f(0.f, 0.f); 
-		anchored = false; uv_discontinuity = false; }
+		anchored = false; }
 	Vec3f pos;
 	Vec3f normal;
 	//Vec2f texcoords[4];
@@ -30,8 +30,6 @@ public:
 	int adjacent_vert_0, adjacent_vert_1;
 	float displacement; // will be set after displace() is called.
 	bool anchored;
-
-	bool uv_discontinuity;
 
 	//Vec2f texcoords; // TEMP
 	
@@ -80,14 +78,21 @@ public:
 		uv_indices[1] = uv1;
 		uv_indices[2] = uv2;
 
+		edge_uv_discontinuity[0] = false;
+		edge_uv_discontinuity[1] = false;
+		edge_uv_discontinuity[2] = false;
+
 		dead = false;
 	}
 	unsigned int vertex_indices[3];
 	unsigned int uv_indices[3];
 	unsigned int tri_mat_index;
 
+	bool edge_uv_discontinuity[3];
+
 	bool dead; // Have we stopped subdividing this tri?  If so, mark it as dead so we can easily choose to not subdivide it in subsequent passes.
 };
+
 
 class DUQuad
 {
@@ -107,11 +112,18 @@ public:
 		uv_indices[2] = uv2;
 		uv_indices[3] = uv3;
 
+		edge_uv_discontinuity[0] = false;
+		edge_uv_discontinuity[1] = false;
+		edge_uv_discontinuity[2] = false;
+		edge_uv_discontinuity[3] = false;
+
 		dead = false;
 	}
 	uint32_t vertex_indices[4];
 	uint32_t uv_indices[4];
 	uint32_t mat_index;
+
+	bool edge_uv_discontinuity[4];
 
 	//uint32_t padding[2];
 	bool dead;
