@@ -2256,8 +2256,6 @@ void DisplacementUtils::averagePass(
 	std::vector<Vec2f>& uvs_out
 	)
 {
-	//const float UV_DISTANCE_THRESHOLD_SQD = 0.03f * 0.03f;
-
 	// Init vertex positions to (0,0,0)
 	const size_t verts_size = verts.size();
 	new_verts_out = verts;
@@ -2270,12 +2268,14 @@ void DisplacementUtils::averagePass(
 	for(size_t v = 0; v < uvs_out.size(); ++v)
 		uvs_out[v] = Vec2f(0.f, 0.f);
 
+	const size_t tris_size = tris.size();
+	const size_t quads_size = quads.size();
+
 	std::vector<uint32_t> dim(verts_size, 2); // array containing dimension of each vertex
 	std::vector<float> total_weight(verts_size, 0.0f); // total weights per vertex
 	std::vector<uint32_t> n_t(verts_size, 0); // array containing number of triangles touching each vertex
 	std::vector<uint32_t> n_q(verts_size, 0); // array containing number of quads touching each vertex
 
-	//const uint32 num_verts = (uint32)verts.size();
 	std::vector<Vec2f> old_vert_uvs(verts_size * num_uv_sets, Vec2f(0.0f, 0.0f));
 	std::vector<Vec2f> new_vert_uvs(verts_size * num_uv_sets, Vec2f(0.0f, 0.0f));
 
@@ -2291,12 +2291,12 @@ void DisplacementUtils::averagePass(
 		dim[vert_polygons[i].vertex_index] = 0;
 
 	// Initialise n_t
-	for(size_t t = 0; t < tris.size(); ++t)
+	for(size_t t = 0; t < tris_size; ++t)
 		for(uint32_t v = 0; v < 3; ++v)
 			n_t[tris[t].vertex_indices[v]]++;
 
 	// Initialise n_q
-	for(size_t q = 0; q < quads.size(); ++q)
+	for(size_t q = 0; q < quads_size; ++q)
 		for(uint32_t v = 0; v < 4; ++v)
 			n_q[quads[q].vertex_indices[v]]++;
 
@@ -2305,14 +2305,14 @@ void DisplacementUtils::averagePass(
 
 	if(has_uvs)
 	{
-		for(size_t t = 0; t < tris.size(); ++t)
+		for(size_t t = 0; t < tris_size; ++t)
 			for(size_t i = 0; i < 3; ++i)
 			{
 				const uint32 v_i = tris[t].vertex_indices[i];
 				old_vert_uvs[v_i] = uvs_in[tris[t].uv_indices[i]];
 			}
 
-		for(size_t q = 0; q < quads.size(); ++q)
+		for(size_t q = 0; q < quads_size; ++q)
 			for(size_t i = 0; i < 4; ++i)
 			{
 				const uint32 v_i = quads[q].vertex_indices[i];
@@ -2380,8 +2380,8 @@ void DisplacementUtils::averagePass(
 		}
 	}
 
-
-	for(size_t t = 0; t < tris.size(); ++t) // For each triangle
+	
+	for(size_t t = 0; t < tris_size; ++t) // For each triangle
 	{
 		const DUTriangle& tri = tris[t];
 
@@ -2416,7 +2416,8 @@ void DisplacementUtils::averagePass(
 		}
 	}
 
-	for(size_t q = 0; q < quads.size(); ++q) // For each quad
+	
+	for(size_t q = 0; q < quads_size; ++q) // For each quad
 	{
 		const DUQuad& quad = quads[q];
 
@@ -2457,7 +2458,8 @@ void DisplacementUtils::averagePass(
 
 
 	// Do 'normalize vertices by the weights' and 'apply correction only for quads and triangles' step.
-	for(size_t v = 0; v < new_verts_out.size(); ++v)
+	assert(verts_size == new_verts_out.size());
+	for(size_t v = 0; v < verts_size; ++v)
 	{
 		const float weight = total_weight[v];
 
@@ -2469,7 +2471,6 @@ void DisplacementUtils::averagePass(
 		if(dim[v] == 2) // Apply correction only for quads and triangles
 		{
 			const float w = evalW(n_t[v], n_q[v]);
-
 
 			new_verts_out[v].pos = Maths::uncheckedLerp(
 				verts[v].pos, 
@@ -2487,14 +2488,14 @@ void DisplacementUtils::averagePass(
 	}
 
 	// Set all anchored vertex positions back to the midpoint between the vertex's 'parent positions'
-	for(size_t v = 0; v < new_verts_out.size(); ++v)
+	for(size_t v = 0; v < verts_size; ++v)
 		if(verts[v].anchored)
 			new_verts_out[v].pos = (new_verts_out[verts[v].adjacent_vert_0].pos + new_verts_out[verts[v].adjacent_vert_1].pos) * 0.5f;
 
 
 	if(has_uvs)
 	{
-		for(size_t q = 0; q < quads.size(); ++q)
+		for(size_t q = 0; q < quads_size; ++q)
 			for(uint32 i = 0; i < 4; ++i)
 			{
 				// If edge i has a UV discontinuity, this means we should use the un-averaged UVs at vertex i and vertex i + 1.
@@ -2507,7 +2508,7 @@ void DisplacementUtils::averagePass(
 					uvs_out[uv_i] = new_vert_uvs[v_i];
 			}
 
-		for(size_t t = 0; t < tris.size(); ++t)
+		for(size_t t = 0; t < tris_size; ++t)
 			for(uint32 i = 0; i < 3; ++i)
 			{
 				const uint32 v_i = tris[t].vertex_indices[i];
