@@ -130,6 +130,22 @@ public:
 };
 
 
+struct Polygons
+{
+	std::vector<DUVertexPolygon> vert_polygons;
+	std::vector<DUEdge> edges;  // Boundary and crease edges.
+	std::vector<DUTriangle> tris;
+	std::vector<DUQuad> quads;
+};
+
+
+struct VertsAndUVs
+{
+	std::vector<DUVertex> verts;
+	std::vector<Vec2f> uvs;
+};
+
+
 SSE_CLASS_ALIGN DUOptions
 {
 public:
@@ -156,13 +172,7 @@ DisplacementUtils
 class DisplacementUtils
 {
 public:
-	/*=====================================================================
-	DisplacementUtils
-	-----------------
-	
-	=====================================================================*/
 	DisplacementUtils();
-
 	~DisplacementUtils();
 
 
@@ -207,35 +217,22 @@ private:
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
-		const std::vector<DUVertexPolygon>& vert_polygons_in,
-		const std::vector<DUEdge>& edges_in,
-		const std::vector<DUTriangle>& tris_in,
-		const std::vector<DUQuad>& quads_in,
-		const std::vector<DUVertex>& verts_in,
-		const std::vector<Vec2f>& uvs_in,
+		const Polygons& polygons_in,
+		const VertsAndUVs& verts_and_uvs_in,
 		unsigned int num_uv_sets,
 		unsigned int num_subdivs_done,
 		const DUOptions& options,
 		DUScratchInfo& scratch_info,
-		std::vector<DUVertexPolygon>& vert_polygons_out,
-		std::vector<DUEdge>& edges_out,
-		std::vector<DUTriangle>& tris_out,
-		std::vector<DUQuad>& quads_out,
-		std::vector<DUVertex>& verts_out,
-		std::vector<Vec2f>& uvs_out
+		Polygons& polygons_out,
+		VertsAndUVs& verts_and_uvs_out
 		);
 
 	static void averagePass(
 		Indigo::TaskManager& task_manager,
-		const std::vector<DUVertexPolygon>& vert_polygons,
-		const std::vector<DUEdge>& edges,
-		const std::vector<DUTriangle>& tris,
-		const std::vector<DUQuad>& quads,
-		const std::vector<DUVertex>& verts,
-		const std::vector<Vec2f>& uvs_in,
+		const Polygons& polygons_in,
+		const VertsAndUVs& verts_and_uvs_in,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		std::vector<DUVertex>& new_verts_out,
-		std::vector<Vec2f>& uvs_out
+		VertsAndUVs& verts_and_uvs_out
 		);
 };
