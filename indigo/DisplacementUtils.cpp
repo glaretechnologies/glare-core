@@ -354,6 +354,12 @@ public:
 	unsigned int midpoint_vert_index;
 	unsigned int num_adjacent_subdividing_polys;
 	bool border;
+
+	// If the edge endpoints have these uv indices, then the new midpoint UV index is given by prim_a_midpoint_uv_index, otherwise prim_b_midpoint_uv_index.
+	uint32 prim_a_uv_i_start;
+	uint32 prim_a_uv_i_end;
+	unsigned int prim_a_midpoint_uv_index;
+	unsigned int prim_b_midpoint_uv_index;
 };
 
 
@@ -369,7 +375,6 @@ typedef google::dense_hash_map<DUVertIndexPair, unsigned int, DUVertIndexPairHas
 struct DUScratchInfo
 {
 	EdgeInfoMapType edge_info_map;
-	UVEdgeMapType uv_edge_map;
 };
 
 
@@ -403,7 +408,7 @@ void DisplacementUtils::subdivideAndDisplace(
 	temp_verts.reserve(vertices_in.size());
 
 	std::vector<DUVertexPolygon> temp_vert_polygons;
-	std::vector<DUEdge> temp_edges;
+	std::vector<DUEdge> temp_edges; // Boundary and crease edges.
 	std::vector<DUTriangle> temp_tris(triangles_in.size());
 	std::vector<DUQuad> temp_quads(quads_in.size());
 
@@ -446,10 +451,9 @@ void DisplacementUtils::subdivideAndDisplace(
 			const unsigned int old_vert_index = tri.vertex_indices[i];
 			const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
 
-			unsigned int new_vert_index;
-
 			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
 
+			unsigned int new_vert_index;
 			if(result == new_vert_indices.end()) // If not found:
 			{
 				// Add new vertex index to map with old vertex as key.
@@ -467,19 +471,24 @@ void DisplacementUtils::subdivideAndDisplace(
 		for(unsigned int i = 0; i < 3; ++i) // For each edge
 		{
 			const unsigned int i1 = mod3(i + 1); // Next vert
-
-			const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], /*uv_set=*/0);
-			const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i1], /*uv_set=*/0);
-			Vec2f start_uv, end_uv;
-			if(tri_new_vert_indices[i] < tri_new_vert_indices[i1])
+			
+			// Get UVs at start and end of this edge, for this tri.
+			Vec2f start_uv(0.f);
+			Vec2f end_uv(0.f);
+			if(num_uv_sets > 0)
 			{
-				start_uv = uv_i;
-				end_uv = uv_i1;
-			}
-			else
-			{
-				start_uv = uv_i1;
-				end_uv = uv_i;
+				const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], /*uv_set=*/0);
+				const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i1], /*uv_set=*/0);
+				if(tri_new_vert_indices[i] < tri_new_vert_indices[i1])
+				{
+					start_uv = uv_i;
+					end_uv = uv_i1;
+				}
+				else
+				{
+					start_uv = uv_i1;
+					end_uv = uv_i;
+				}
 			}
 
 			DUVertIndexPair edge_key(myMin(tri_new_vert_indices[i], tri_new_vert_indices[i1]), myMax(tri_new_vert_indices[i], tri_new_vert_indices[i1]));
@@ -511,8 +520,7 @@ void DisplacementUtils::subdivideAndDisplace(
 				}
 
 				// Check for uv discontinuity:
-				if((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) ||
-					(end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD))
+				if((num_uv_sets > 0) && ((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD)))
 					result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
 
 				result->second.num_adjacent_polys++;
@@ -548,10 +556,9 @@ void DisplacementUtils::subdivideAndDisplace(
 			const unsigned int old_vert_index = quad.vertex_indices[i];
 			const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
 
-			unsigned int new_vert_index;
-
 			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
 
+			unsigned int new_vert_index;
 			if(result == new_vert_indices.end()) // If not found:
 			{
 				// Add new vertex index to map with old vertex as key.
@@ -570,18 +577,23 @@ void DisplacementUtils::subdivideAndDisplace(
 		{
 			const unsigned int i1 = mod4(i + 1); // Next vert
 
-			const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], /*uv_set=*/0);
-			const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i1], /*uv_set=*/0);
-			Vec2f start_uv, end_uv;
-			if(quad_new_vert_indices[i] < quad_new_vert_indices[i1])
+			// Get UVs at start and end of this edge, for this quad.
+			Vec2f start_uv(0.f);
+			Vec2f end_uv(0.f);
+			if(num_uv_sets > 0)
 			{
-				start_uv = uv_i;
-				end_uv = uv_i1;
-			}
-			else
-			{
-				start_uv = uv_i1;
-				end_uv = uv_i;
+				const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], /*uv_set=*/0);
+				const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i1], /*uv_set=*/0);
+				if(quad_new_vert_indices[i] < quad_new_vert_indices[i1])
+				{
+					start_uv = uv_i;
+					end_uv = uv_i1;
+				}
+				else
+				{
+					start_uv = uv_i1;
+					end_uv = uv_i;
+				}
 			}
 
 			DUVertIndexPair edge_key(myMin(quad_new_vert_indices[i], quad_new_vert_indices[i1]), myMax(quad_new_vert_indices[i], quad_new_vert_indices[i1]));
@@ -613,8 +625,7 @@ void DisplacementUtils::subdivideAndDisplace(
 				}
 
 				// Check for uv discontinuity:
-				if((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) ||
-					(end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD))
+				if((num_uv_sets > 0) && ((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD)))
 					result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
 
 				result->second.num_adjacent_polys++;
@@ -625,7 +636,13 @@ void DisplacementUtils::subdivideAndDisplace(
 		temp_quads[q].dead = false;
 	}
 
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(5)));
+	DISPLACEMENT_RESET_TIMER(timer);
+
+	//========================== Create Boundary edge polygons, mark UV discontinuities ==========================
 	// Now that we have marked all edges that have UV discontinuities, do a pass over the (temp) primitives to put that information in the primitives themselves.
+	// Create boundary edge polygons while we are doing this as well.
+
 	for(size_t t = 0; t < triangles_in_size; ++t) // For each tri
 	{
 		DUTriangle& tri = temp_tris[t];
@@ -638,6 +655,9 @@ void DisplacementUtils::subdivideAndDisplace(
 			assert(result != new_edge_info.end());
 
 			tri.edge_uv_discontinuity[i] = result->second.uv_discontinuity;
+
+			if(result->second.num_adjacent_polys == 1) // If this is a boundary edge (has only 1 adjacent poly):
+				temp_edges.push_back(DUEdge(tri.vertex_indices[i], tri.vertex_indices[i1], tri.uv_indices[i], tri.uv_indices[i1]));
 		}
 	}
 	
@@ -652,54 +672,20 @@ void DisplacementUtils::subdivideAndDisplace(
 			const std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
 			assert(result != new_edge_info.end());
 
-			//conPrint("!!!!!!!!!!!! quad " + toString(q) + " has UV disc. on edge " + toString(i));
+			//conPrint("!!! Quad " + toString(q) + " has UV disc. on edge " + toString(i));
 			quad.edge_uv_discontinuity[i] = result->second.uv_discontinuity;
+
+			if(result->second.num_adjacent_polys == 1) // If this is a boundary edge (has only 1 adjacent poly):
+				temp_edges.push_back(DUEdge(quad.vertex_indices[i], quad.vertex_indices[i1], quad.uv_indices[i], quad.uv_indices[i1]));
 		}
 	}
 
 	assert(temp_uvs_next_i == (uint32)temp_uvs.size());
 
-
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(5)));
-	DISPLACEMENT_RESET_TIMER(timer);
-
-	const uint32 num_temp_tris  = (uint32)temp_tris.size();
-	for(uint32_t t = 0; t < num_temp_tris; ++t) // For each original triangle...
-	{
-		const uint32_t v0 = temp_tris[t].vertex_indices[0];
-		const uint32_t v1 = temp_tris[t].vertex_indices[1];
-		const uint32_t v2 = temp_tris[t].vertex_indices[2];
-
-		if(new_edge_info[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v0, v1, temp_tris[t].uv_indices[0], temp_tris[t].uv_indices[1]));
-
-		if(new_edge_info[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v1, v2, temp_tris[t].uv_indices[1], temp_tris[t].uv_indices[2]));
-
-		if(new_edge_info[DUVertIndexPair(myMin(v2, v0), myMax(v2, v0))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v2, v0, temp_tris[t].uv_indices[2], temp_tris[t].uv_indices[0]));
-	}
-
-	const uint32 num_temp_quads = (uint32)temp_quads.size();
-	for(uint32_t q = 0; q < num_temp_quads; ++q) // For each original quad...
-	{
-		const uint32_t v0 = temp_quads[q].vertex_indices[0]; const uint32_t v1 = temp_quads[q].vertex_indices[1];
-		const uint32_t v2 = temp_quads[q].vertex_indices[2]; const uint32_t v3 = temp_quads[q].vertex_indices[3];
-
-		if(new_edge_info[DUVertIndexPair(myMin(v0, v1), myMax(v0, v1))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v0, v1, temp_quads[q].uv_indices[0], temp_quads[q].uv_indices[1]));
-
-		if(new_edge_info[DUVertIndexPair(myMin(v1, v2), myMax(v1, v2))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v1, v2, temp_quads[q].uv_indices[1], temp_quads[q].uv_indices[2]));
-
-		if(new_edge_info[DUVertIndexPair(myMin(v2, v3), myMax(v2, v3))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v2, v3, temp_quads[q].uv_indices[2], temp_quads[q].uv_indices[3]));
-
-		if(new_edge_info[DUVertIndexPair(myMin(v3, v0), myMax(v3, v0))].num_adjacent_polys == 1) // Boundary edge (has only 1 adjacent poly)
-			temp_edges.push_back(DUEdge(v3, v0, temp_quads[q].uv_indices[3], temp_quads[q].uv_indices[0]));
-	}
-
 	//conPrint("num boundary edges: " + toString(temp_edges.size()));
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Create Boundary edge polygons, mark UV discontinuities: " + timer.elapsedStringNPlaces(5)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
 
 	// Count number of edges adjacent to each vertex.
@@ -724,7 +710,7 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	//conPrint("num fixed verts created: " + toString(temp_vert_polygons.size()));
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding edge and vertex polygons: " + timer.elapsedStringNPlaces(5)));
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding vertex polygons: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
 
@@ -737,7 +723,6 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	DUScratchInfo scratch_info;
 	scratch_info.edge_info_map.set_empty_key(DUVertIndexPair(std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()));
-	scratch_info.uv_edge_map.set_empty_key(DUVertIndexPair(std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()));
 
 
 	if(PROFILE)
@@ -801,10 +786,12 @@ void DisplacementUtils::subdivideAndDisplace(
 		}
 
 		// XXX slow!
+		DISPLACEMENT_CREATE_TIMER(avpass_timer);
 		temp_vert_polygons = temp_vert_polygons2;
 		temp_edges = temp_edges2;
 		temp_tris = temp_tris2;
 		temp_quads = temp_quads2;
+		DISPLACEMENT_PRINT_RESULTS(conPrint("Copying temp data: " + avpass_timer.elapsedString()));
 
 		// Recompute vertex normals
 		DISPLACEMENT_CREATE_TIMER(recompute_vertex_normals);
@@ -839,9 +826,14 @@ void DisplacementUtils::subdivideAndDisplace(
 	const RayMesh_ShadingNormals use_s_n = use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
 	// Build tris_out from temp_tris and temp_quads
-	tris_out.resize(temp_tris.size() + temp_quads.size() * 2); // Pre-allocate space
+	const size_t temp_tris_size = temp_tris.size();
+	const size_t temp_quads_size = temp_quads.size();
+	tris_out.resize(temp_tris_size + temp_quads_size * 2); // Pre-allocate space
 
-	for(size_t i = 0; i < temp_tris.size(); ++i)
+	DISPLACEMENT_PRINT_RESULTS(conPrint("tris_out alloc took " + timer.elapsedString()));
+	DISPLACEMENT_RESET_TIMER(timer);
+	
+	for(size_t i = 0; i < temp_tris_size; ++i)
 	{
 		tris_out[i] = RayMeshTriangle(temp_tris[i].vertex_indices[0], temp_tris[i].vertex_indices[1], temp_tris[i].vertex_indices[2], temp_tris[i].tri_mat_index, use_s_n);
 
@@ -849,12 +841,11 @@ void DisplacementUtils::subdivideAndDisplace(
 			tris_out[i].uv_indices[c] = temp_tris[i].uv_indices[c];
 	}
 
-	const size_t tris_out_offset = temp_tris.size();
-	for(size_t i = 0; i < temp_quads.size(); ++i)
+	size_t tri_write_i = temp_tris_size;
+	for(size_t i = 0; i < temp_quads_size; ++i)
 	{
 		// Split the quad into two triangles
-		RayMeshTriangle& tri_a = tris_out[tris_out_offset + i*2 + 0];
-		RayMeshTriangle& tri_b = tris_out[tris_out_offset + i*2 + 1];
+		RayMeshTriangle& tri_a = tris_out[tri_write_i];
 
 		tri_a.vertex_indices[0] = temp_quads[i].vertex_indices[0];
 		tri_a.vertex_indices[1] = temp_quads[i].vertex_indices[1];
@@ -867,6 +858,7 @@ void DisplacementUtils::subdivideAndDisplace(
 		tri_a.setTriMatIndex(temp_quads[i].mat_index);
 		tri_a.setUseShadingNormals(use_s_n);
 
+		RayMeshTriangle& tri_b = tris_out[tri_write_i + 1];
 
 		tri_b.vertex_indices[0] = temp_quads[i].vertex_indices[0];
 		tri_b.vertex_indices[1] = temp_quads[i].vertex_indices[2];
@@ -878,6 +870,8 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		tri_b.setTriMatIndex(temp_quads[i].mat_index);
 		tri_b.setUseShadingNormals(use_s_n);
+
+		tri_write_i += 2;
 	}
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Writing to tris_out took " + timer.elapsedString()));
@@ -890,13 +884,17 @@ void DisplacementUtils::subdivideAndDisplace(
 
 
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
-	verts_out.resize(temp_verts.size());
-	for(size_t i = 0; i < verts_out.size(); ++i)
+	DISPLACEMENT_RESET_TIMER(timer);
+	const size_t temp_verts_size = temp_verts.size();
+	verts_out.resize(temp_verts_size);
+	for(size_t i = 0; i < temp_verts_size; ++i)
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal,
 			0 // H - mean curvature - just set to zero, we will recompute it later.
 		);
 
 	uvs_out = temp_uvs;
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("creating verts_out and uvs_out: " + timer.elapsedString()));
 
 	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(5));
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Total time elapsed: " + total_timer.elapsedString()));
@@ -1547,7 +1545,6 @@ struct SubdividePrimitiveTaskClosure
 	std::vector<DUQuad>* quads_out;
 	const std::vector<std::pair<uint32_t, uint32_t> >* quad_centre_data;
 	const EdgeInfoMapType* edge_info_map;
-	const UVEdgeMapType* uv_edge_map;
 };
 
 
@@ -1564,7 +1561,6 @@ public:
 		const std::vector<DUTriangle>& tris_in = *closure.tris_in;
 		std::vector<DUTriangle>& tris_out = *closure.tris_out;
 		const EdgeInfoMapType& edge_info_map = *closure.edge_info_map;
-		const UVEdgeMapType& uv_edge_map = *closure.uv_edge_map;
 
 		for(size_t t = begin; t < end; ++t)
 		{
@@ -1577,26 +1573,29 @@ public:
 
 				for(uint32_t v = 0; v < 3; ++v) // For each edge (v_i, v_i+1)
 				{
-					{
-						const uint32_t v0 = tris_in[t].vertex_indices[v];
-						const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
-						const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+					const uint32_t v0 = tris_in[t].vertex_indices[v];
+					const uint32_t v1 = tris_in[t].vertex_indices[mod3(v + 1)];
+					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
-						const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
-						assert(result != edge_info_map.end());
+					const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
+					assert(result != edge_info_map.end());
 
-						midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
-					}
+					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+
 					if(num_uv_sets > 0)
 					{
+						// Work out if we're using the 'a' or 'b' tri uvs
 						const uint32_t uv0 = tris_in[t].uv_indices[v];
 						const uint32_t uv1 = tris_in[t].uv_indices[mod3(v + 1)];
-						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+						const DUVertIndexPair edge_uv_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
-						const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge);
-						assert(result != uv_edge_map.end());
-
-						midpoint_uv_indices[v] = (*result).second;
+						if((*result).second.prim_a_uv_i_start == edge_uv_key.v_a && (*result).second.prim_a_uv_i_end == edge_uv_key.v_b)
+							midpoint_uv_indices[v] = (*result).second.prim_a_midpoint_uv_index;
+						else
+						{
+							//assert((*result).second.left_uv_i_start == edge_key.v_a && (*result).second.left_uv_i_end == edge_key.v_b);
+							midpoint_uv_indices[v] = (*result).second.prim_b_midpoint_uv_index;
+						}
 					}
 				}
 
@@ -1679,7 +1678,6 @@ public:
 		std::vector<DUQuad>& quads_out = *closure.quads_out;
 		const std::vector<std::pair<uint32_t, uint32_t> >& quad_centre_data = *closure.quad_centre_data;
 		const EdgeInfoMapType& edge_info_map = *closure.edge_info_map;
-		const UVEdgeMapType& uv_edge_map = *closure.uv_edge_map;
 
 		for(size_t q = begin; q < end; ++q)
 		{
@@ -1694,26 +1692,29 @@ public:
 
 				for(uint32_t v = 0; v < 4; ++v) // For each edge
 				{
-					{
-						const uint32_t v0 = quads_in[q].vertex_indices[v];
-						const uint32_t v1 = quads_in[q].vertex_indices[mod4(v + 1)];
-						const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+					const uint32_t v0 = quads_in[q].vertex_indices[v];
+					const uint32_t v1 = quads_in[q].vertex_indices[mod4(v + 1)];
+					const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
 
-						const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
-						assert(result != edge_info_map.end());
+					const EdgeInfoMapType::const_iterator result = edge_info_map.find(edge);
+					assert(result != edge_info_map.end());
 
-						midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
-					}
+					midpoint_vert_indices[v] = (*result).second.midpoint_vert_index;
+
 					if(num_uv_sets > 0)
 					{
+						// Work out if we're using the 'a' or 'b' quad uvs
 						const uint32_t uv0 = quads_in[q].uv_indices[v];
 						const uint32_t uv1 = quads_in[q].uv_indices[mod4(v + 1)];
-						const DUVertIndexPair edge(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
+						const DUVertIndexPair edge_uv_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
-						const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge);
-						assert(result != uv_edge_map.end());
-
-						midpoint_uv_indices[v] = (*result).second;
+						if((*result).second.prim_a_uv_i_start == edge_uv_key.v_a && (*result).second.prim_a_uv_i_end == edge_uv_key.v_b)
+							midpoint_uv_indices[v] = (*result).second.prim_a_midpoint_uv_index;
+						else
+						{
+							//assert((*result).second.left_uv_i_start == edge_key.v_a && (*result).second.left_uv_i_end == edge_key.v_b);
+							midpoint_uv_indices[v] = (*result).second.prim_b_midpoint_uv_index;
+						}
 					}
 				}
 
@@ -1821,9 +1822,7 @@ void DisplacementUtils::linearSubdivision(
 	}
 
 	EdgeInfoMapType& edge_info_map = scratch_info.edge_info_map;
-	UVEdgeMapType& uv_edge_map = scratch_info.uv_edge_map;
 	edge_info_map.clear_no_resize();
-	uv_edge_map.clear_no_resize();
 
 	// Do a pass to decide whether or not to subdivide each triangle, and create new vertices if subdividing.
 
@@ -1895,7 +1894,7 @@ void DisplacementUtils::linearSubdivision(
 	// Note that we maintain the original triangle order here, e.g. new triangles will have a 
 	// similar relative position in the triangle list to the old triangles.
 	// This is important for coherency reasons.  (gave a noticable slowdown with an interleaved order)
-	// Generating this array is a serial operation but it's pretty fast.
+	// Generating this array is a serial operation, but it's pretty fast.
 	DISPLACEMENT_RESET_TIMER(timer);
 	std::vector<int> tri_write_index(tris_in.size());
 
@@ -1912,7 +1911,6 @@ void DisplacementUtils::linearSubdivision(
 
 	//========================== Create edge midpoint vertices for triangles ==========================
 	
-
 	if(PROFILE) conPrint("   Creating edge midpoint verts, tris_in.size(): " + toString(tris_in.size()));
 
 	// For each triangle
@@ -1928,11 +1926,11 @@ void DisplacementUtils::linearSubdivision(
 
 				const unsigned int uv0 = tris_in[t].uv_indices[v];
 				const unsigned int uv1 = tris_in[t].uv_indices[mod3(v + 1)];
-				{
 
 				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 
 				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+				const DUVertIndexPair edge_uv_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
 				DUEdgeInfo& edge_info = edge_info_map[edge]; // Look up edge in map
 
@@ -1950,30 +1948,39 @@ void DisplacementUtils::linearSubdivision(
 					verts_out.back().adjacent_vert_1 = edge.v_b;
 
 					edge_info.midpoint_vert_index = new_vert_index;
+
+					// Create the edge midpoint UV
+					const int uv_index = (int)uvs_out.size() / num_uv_sets;
+					for(uint32_t z = 0; z < num_uv_sets; ++z)
+					{
+						const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
+						const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
+						uvs_out.push_back((uv_a + uv_b) * 0.5f);
+					}
+
+					edge_info.prim_a_uv_i_start = edge_uv_key.v_a;
+					edge_info.prim_a_uv_i_end   = edge_uv_key.v_b;
+
+					edge_info.prim_a_midpoint_uv_index = uv_index;
+				}
+				else
+				{
+					if(edge_info.prim_a_uv_i_start != edge_uv_key.v_a || edge_info.prim_a_uv_i_end != edge_uv_key.v_b)
+					{
+						// UVs differ, so create some new UVs and set as the 'b' quad UVs.
+						const int uv_index = (int)uvs_out.size() / num_uv_sets;
+						for(uint32_t z = 0; z < num_uv_sets; ++z)
+						{
+							const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
+							const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
+							uvs_out.push_back((uv_a + uv_b) * 0.5f);
+						}
+
+						edge_info.prim_b_midpoint_uv_index = uv_index;
+					}
 				}
 
 				edge_info.num_adjacent_subdividing_polys++;
-				}
-
-				// Create new uvs at edge midpoint, if not already created.
-
-				if(num_uv_sets > 0)
-				{
-
-					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
-
-					const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge_key);
-					if(result == uv_edge_map.end())
-					{
-						uv_edge_map.insert(std::make_pair(edge_key, (unsigned int)(uvs_out.size() / num_uv_sets)));
-
-						for(uint32_t z = 0; z < num_uv_sets; ++z)
-						{
-							uvs_out.push_back((getUVs(uvs_in, num_uv_sets, uv0, z) + getUVs(uvs_in, num_uv_sets, uv1, z)) * 0.5f);
-						}
-					}
-					// else midpoint uvs already created
-				}
 			}
 		}
 	}
@@ -2047,6 +2054,7 @@ void DisplacementUtils::linearSubdivision(
 				// Get vertex at the midpoint of this edge, or create it if it doesn't exist yet.
 
 				const DUVertIndexPair edge(myMin(v0, v1), myMax(v0, v1)); // Key for the edge
+				const DUVertIndexPair edge_uv_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
 
 				DUEdgeInfo& edge_info = edge_info_map[edge]; // NOTE: SLOW!!
 
@@ -2064,47 +2072,45 @@ void DisplacementUtils::linearSubdivision(
 					verts_out.back().adjacent_vert_1 = edge.v_b;
 
 					edge_info.midpoint_vert_index = new_vert_index;
-				}
 
-				edge_info.num_adjacent_subdividing_polys++;
-
-				// Create new uvs at edge midpoint, if not already created.
-				if(num_uv_sets > 0)
-				{
-					const DUVertIndexPair edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
-
-					const UVEdgeMapType::const_iterator result = uv_edge_map.find(edge_key);
-					if(result == uv_edge_map.end())
+					// Create the edge midpoint UV
+					const int uv_index = (int)uvs_out.size() / num_uv_sets;
+					for(uint32_t z = 0; z < num_uv_sets; ++z)
 					{
-						uv_edge_map.insert(std::make_pair(edge_key, (unsigned int)(uvs_out.size() / num_uv_sets)));
+						const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
+						const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
+						uvs_out.push_back((uv_a + uv_b) * 0.5f);
+					}
 
+					edge_info.prim_a_uv_i_start = edge_uv_key.v_a;
+					edge_info.prim_a_uv_i_end   = edge_uv_key.v_b;
+
+					edge_info.prim_a_midpoint_uv_index = uv_index;
+				}
+				else
+				{
+					if(edge_info.prim_a_uv_i_start != edge_uv_key.v_a || edge_info.prim_a_uv_i_end != edge_uv_key.v_b)
+					{
+						// UVs differ, so create some new UVs and set as the 'b' quad UVs.
+						const int uv_index = (int)uvs_out.size() / num_uv_sets;
 						for(uint32_t z = 0; z < num_uv_sets; ++z)
 						{
 							const Vec2f uv_a = getUVs(uvs_in, num_uv_sets, uv0, z);
 							const Vec2f uv_b = getUVs(uvs_in, num_uv_sets, uv1, z);
 							uvs_out.push_back((uv_a + uv_b) * 0.5f);
 						}
+
+						edge_info.prim_b_midpoint_uv_index = uv_index;
 					}
-				
-					// else midpoint uvs already created
 				}
+
+				edge_info.num_adjacent_subdividing_polys++;
 			}
 		}
 	}
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   building quad edge mid point vertices: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
-
-
-	//TEMP: Check we have seen each edge twice
-#ifdef DEBUG
-	for(EdgeInfoMapType::const_iterator i = edge_info_map.begin(); i != edge_info_map.end(); ++i)
-	{
-		const DUEdgeInfo& edge_info = i->second;
-
-		//assert(edge_info.num_adjacent_subdividing_polys == 2);
-	}
-#endif
 
 	// Mark border edges
 	for(size_t i = 0; i < edges_in.size(); ++i)
@@ -2160,15 +2166,19 @@ void DisplacementUtils::linearSubdivision(
 			assert(edge_info.midpoint_vert_index > 0);
 
 			// Get the midpoint uv index
-			unsigned int midpoint_uv_index = 0;
+			/*unsigned int midpoint_uv_index = 0;
 			if(num_uv_sets > 0)
 			{
 				const uint32_t uv0 = edge_in.uv_indices[0];
 				const uint32_t uv1 = edge_in.uv_indices[1];
 				const DUVertIndexPair uv_edge_key(myMin(uv0, uv1), myMax(uv0, uv1)); // Key for the edge
-				assert(uv_edge_map.find(uv_edge_key) != uv_edge_map.end());
-				midpoint_uv_index = uv_edge_map[uv_edge_key];
-			}
+				//assert(uv_edge_map.find(uv_edge_key) != uv_edge_map.end());
+				//TEMP midpoint_uv_index = uv_edge_map[uv_edge_key];
+			}*/
+
+			// NOTE TODO: We have up to 2 UVs to choose from here, UV from primitive 'a' and UV from primitive 'b'.
+			// Just use prim 'a' UV for now. Might be wrong, look into this.
+			unsigned int midpoint_uv_index = edge_info.prim_a_midpoint_uv_index;
 
 			// Create new edges
 			edges_out.push_back(DUEdge(
@@ -2209,7 +2219,6 @@ void DisplacementUtils::linearSubdivision(
 	subdiv_closure.quads_out = &quads_out;
 	subdiv_closure.quad_centre_data = &quad_centre_data;
 	subdiv_closure.edge_info_map = &edge_info_map;
-	subdiv_closure.uv_edge_map = &uv_edge_map;
 
 	task_manager.runParallelForTasks<SubdivideTriTask, SubdividePrimitiveTaskClosure>(subdiv_closure, 0, tris_in.size());
 
@@ -2502,6 +2511,7 @@ void DisplacementUtils::averagePass(
 				// So a vertex i should use the un-averaged UVs if edge i or edge i-1 have UV discontinuities.
 				const uint32 v_i = quads[q].vertex_indices[i];
 				const uint32 uv_i = quads[q].uv_indices[i];
+
 				if(quads[q].edge_uv_discontinuity[i] || quads[q].edge_uv_discontinuity[mod4(i + 3)])
 					uvs_out[uv_i] = uvs_in[uv_i];
 				else
