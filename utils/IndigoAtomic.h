@@ -49,7 +49,7 @@ public:
 	static void test();
 
 private:
-	INDIGO_DISABLE_COPY(IndigoAtomic);
+	//INDIGO_DISABLE_COPY(IndigoAtomic);
 
 	// The volatile keyword here is required, otherwise, for example, Visual C++ will hoist the load out of a while loop.
 	volatile glare_atomic_int val;
