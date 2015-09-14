@@ -3067,9 +3067,9 @@ void DisplacementUtils::test()
 			uvs_out
 		);
 
-		// Each tri gets subdivided into 4 tris, for a total of 2*4 = 8 tris
-		// Plus 4 quads * 2 tris/quad for the subdivided quad gives 8 + 8 = 16 tris.
-		testAssert(triangles_out.size() == 16);
+		// Each tri gets subdivided into 3 quads, for a total of 2*3 = 6 quads = 12 tris
+		// Plus 4 quads * 2 tris/quad for the subdivided quad gives 12 + 8 = 20 tris.
+		testAssert(triangles_out.size() == 20);
 	}
 }
 
