@@ -1188,13 +1188,10 @@ void DisplacementUtils::subdivideAndDisplace(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("final displace took " + timer.elapsedString()));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	current_verts_and_uvs->verts = next_verts_and_uvs->verts; // TODO: optimise this away.
-
 	const RayMesh_ShadingNormals use_s_n = use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
 	DUQuadVector& temp_quads = current_polygons->quads;
-
-	DUVertexVector& temp_verts = current_verts_and_uvs->verts;
+	DUVertexVector& temp_verts = next_verts_and_uvs->verts;
 
 	// Build triangles_in_out from temp_quads
 	const size_t temp_quads_size = temp_quads.size();
