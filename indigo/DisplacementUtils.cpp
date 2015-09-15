@@ -7,7 +7,6 @@ File created by ClassTemplate on Thu May 15 20:31:26 2008
 #include "DisplacementUtils.h"
 
 /*
-
 This code does Catmull-Clark subdivision, as well as displacement of the subdivided mesh.
 
 http://www.cs.berkeley.edu/~sequin/CS284/PAPERS/CatmullClark_SDSurf.pdf
@@ -89,7 +88,7 @@ inline static uint32 mod4(uint32 x)
 }
 
 
-static inline const Vec3f triGeometricNormal(const std::vector<DUVertex>& verts, uint32_t v0, uint32_t v1, uint32_t v2)
+static inline const Vec3f triGeometricNormal(const DUVertexVector& verts, uint32_t v0, uint32_t v1, uint32_t v2)
 {
 	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
 }
@@ -271,13 +270,7 @@ static inline const Vec2f& getUVs(const std::vector<Vec2f>& uvs, uint32_t num_uv
 }
 
 
-static inline uint32_t uvIndex(uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
-{
-	return uv_index * num_uv_sets + set_index;
-}
-
-
-static inline Vec2f& getUVs(std::vector<Vec2f>& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
+static inline const Vec2f& getUVs(const UVVector& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
 {
 	assert(num_uv_sets > 0);
 	assert(set_index < num_uv_sets);
@@ -285,8 +278,22 @@ static inline Vec2f& getUVs(std::vector<Vec2f>& uvs, uint32_t num_uv_sets, uint3
 }
 
 
-static void computeVertexNormals(const std::vector<DUQuad>& quads,
-								 std::vector<DUVertex>& vertices)
+static inline uint32_t uvIndex(uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
+{
+	return uv_index * num_uv_sets + set_index;
+}
+
+
+static inline Vec2f& getUVs(UVVector& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
+{
+	assert(num_uv_sets > 0);
+	assert(set_index < num_uv_sets);
+	return uvs[uv_index * num_uv_sets + set_index];
+}
+
+
+static void computeVertexNormals(const DUQuadVector& quads,
+								 DUVertexVector& vertices)
 {
 	// Initialise vertex normals to null vector
 	for(size_t i = 0; i < vertices.size(); ++i) vertices[i].normal = Vec3f(0, 0, 0);
@@ -412,9 +419,9 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	// Copying incoming data to temp_polygons_1, temp_verts_uvs_1.
 	{ 
-		std::vector<DUQuad>& temp_quads = temp_polygons_1.quads;
-		std::vector<DUVertex>& temp_verts = temp_verts_uvs_1.verts;
-		std::vector<Vec2f>& temp_uvs = temp_verts_uvs_1.uvs;
+		js::Vector<DUQuad, 64>& temp_quads = temp_polygons_1.quads;
+		js::Vector<DUVertex, 16>& temp_verts = temp_verts_uvs_1.verts;
+		js::Vector<Vec2f, 16>& temp_uvs = temp_verts_uvs_1.uvs;
 
 		const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
@@ -1183,13 +1190,13 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	const RayMesh_ShadingNormals use_s_n = use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
-	std::vector<DUQuad>& temp_quads = current_polygons->quads;
+	DUQuadVector& temp_quads = current_polygons->quads;
 
-	std::vector<DUVertex>& temp_verts = current_verts_and_uvs->verts;
+	DUVertexVector& temp_verts = current_verts_and_uvs->verts;
 
 	// Build tris_out from temp_tris and temp_quads
 	const size_t temp_quads_size = temp_quads.size();
-	tris_out.resize(temp_quads_size * 2); // Pre-allocate space
+	tris_out.resizeUninitialised(temp_quads_size * 2); // Pre-allocate space
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("tris_out alloc took " + timer.elapsedString()));
 	DISPLACEMENT_RESET_TIMER(timer);
@@ -1240,13 +1247,16 @@ void DisplacementUtils::subdivideAndDisplace(
 	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
 	DISPLACEMENT_RESET_TIMER(timer);
 	const size_t temp_verts_size = temp_verts.size();
-	verts_out.resize(temp_verts_size);
+	verts_out.resizeUninitialised(temp_verts_size);
 	for(size_t i = 0; i < temp_verts_size; ++i)
 		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal,
 			0 // H - mean curvature - just set to zero, we will recompute it later.
 		);
 
-	uvs_out = current_verts_and_uvs->uvs;
+	//uvs_out = current_verts_and_uvs->uvs;
+	uvs_out.resize(current_verts_and_uvs->uvs.size());
+	if(!current_verts_and_uvs->uvs.empty())
+		std::memcpy(&uvs_out[0], &current_verts_and_uvs->uvs[0], current_verts_and_uvs->uvs.size() * sizeof(Vec2f));
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("creating verts_out and uvs_out: " + timer.elapsedString()));
 
@@ -1261,9 +1271,9 @@ Apply displacement to the given vertices, storing the displaced vertices in vert
 struct DisplaceTaskClosure
 {
 	unsigned int num_uv_sets;
-	const std::vector<Vec2f>* vert_uvs;
-	const std::vector<DUVertex>* verts_in;
-	std::vector<DUVertex>* verts_out;
+	const UVVector* vert_uvs;
+	const DUVertexVector* verts_in;
+	DUVertexVector* verts_out;
 	const std::vector<const Material*>* vert_materials;
 };
 
@@ -1279,9 +1289,9 @@ public:
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
 		const int num_uv_sets = closure.num_uv_sets;
-		const std::vector<Vec2f>& vert_uvs = *closure.vert_uvs;
-		const std::vector<DUVertex>& verts_in = *closure.verts_in;
-		std::vector<DUVertex>& verts_out = *closure.verts_out;
+		const UVVector& vert_uvs = *closure.vert_uvs;
+		const DUVertexVector& verts_in = *closure.verts_in;
+		DUVertexVector& verts_out = *closure.verts_out;
 
 		for(int v_i = begin; v_i < end; ++v_i)
 		{
@@ -1329,11 +1339,11 @@ public:
 void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 								 ThreadContext& context,
 								 const std::vector<Reference<Material> >& materials,
-								 const std::vector<DUQuad>& quads,
-								 const std::vector<DUVertex>& verts_in,
-								 const std::vector<Vec2f>& uvs,
+								 const DUQuadVector& quads,
+								 const DUVertexVector& verts_in,
+								 const UVVector& uvs,
 								 unsigned int num_uv_sets,
-								 std::vector<DUVertex>& verts_out
+								 DUVertexVector& verts_out
 								 )
 {
 	verts_out = verts_in;
@@ -1343,7 +1353,7 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 	// NOTE: this ignores the case when multiple materials are assigned to a single vertex.  The 'last' material assigned is used.
 
 	std::vector<const Material*> vert_materials(verts_in.size(), NULL);
-	std::vector<Vec2f> vert_uvs(verts_in.size() * num_uv_sets);
+	UVVector vert_uvs(verts_in.size() * num_uv_sets);
 
 	for(size_t q = 0; q < quads.size(); ++q)
 	{
@@ -1425,12 +1435,11 @@ struct BuildSubdividingPrimitiveTaskClosure
 	int num_subdivs_done;
 	int min_num_subdivisions;
 	unsigned int num_uv_sets;
-	std::vector<int>* subdividing_tri;
-	std::vector<int>* subdividing_quad;
+	js::Vector<int, 16>* subdividing_quad;
 
-	const std::vector<DUVertex>* displaced_in_verts;
-	const std::vector<DUQuad>* quads_in;
-	const std::vector<Vec2f>* uvs_in;
+	const DUVertexVector* displaced_in_verts;
+	const DUQuadVector* quads_in;
+	const UVVector* uvs_in;
 	const std::vector<Reference<Material> >* materials;
 };
 
@@ -1442,8 +1451,8 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		const std::vector<DUVertex>& displaced_in_verts = *closure.displaced_in_verts;
-		const std::vector<DUQuad>& quads_in = *closure.quads_in;
+		const DUVertexVector& displaced_in_verts = *closure.displaced_in_verts;
+		const DUQuadVector& quads_in = *closure.quads_in;
 
 		// Create some temporary buffers
 		std::vector<Vec3f> quad_verts_pos_os(4);
@@ -1651,18 +1660,18 @@ done_quad_unclipped_check:
 
 struct ProcessQuadsTaskClosure
 {
-	const std::vector<int>* subdividing_quad;
-	const std::vector<int>* quad_write_index;
+	const js::Vector<int, 16>* subdividing_quad;
+	const js::Vector<int, 16>* quad_write_index;
 
 	unsigned int num_uv_sets;
 	int num_subdivs_done;
 	bool averaging;
-	const std::vector<DUVertex>* verts_in;
-	std::vector<DUVertex>* verts_out;
-	const std::vector<Vec2f>* uvs_in;
-	std::vector<Vec2f>* uvs_out;
-	const std::vector<DUQuad>* quads_in;
-	std::vector<DUQuad>* quads_out;
+	const DUVertexVector* verts_in;
+	DUVertexVector* verts_out;
+	const UVVector* uvs_in;
+	UVVector* uvs_out;
+	const DUQuadVector* quads_in;
+	DUQuadVector* quads_out;
 
 	std::vector<IndigoAtomic>* verts_processed; // Which vertices from verts_out have been processed.
 
@@ -1679,12 +1688,12 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		const std::vector<int>& subdividing_quad = *closure.subdividing_quad;
-		const std::vector<DUVertex>& verts_in = *closure.verts_in;
-		std::vector<DUVertex>& verts_out = *closure.verts_out;
-		const std::vector<Vec2f>& uvs_in = *closure.uvs_in;
-		std::vector<Vec2f>& uvs_out = *closure.uvs_out;
-		const std::vector<DUQuad>& quads_in = *closure.quads_in;
+		const js::Vector<int, 16>& subdividing_quad = *closure.subdividing_quad;
+		const DUVertexVector& verts_in = *closure.verts_in;
+		DUVertexVector& verts_out = *closure.verts_out;
+		const UVVector& uvs_in = *closure.uvs_in;
+		UVVector& uvs_out = *closure.uvs_out;
+		const DUQuadVector& quads_in = *closure.quads_in;
 		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
 		const std::vector<int>& existing_vert_new_index = *closure.existing_vert_new_index;
 		const int num_uv_sets = closure.num_uv_sets;
@@ -1803,9 +1812,6 @@ public:
 					const int new_vi = existing_vert_new_index[vi];
 					if(verts_processed[new_vi].increment() == 0) // If this vert has not been processed yet:
 					{
-						if(closure.num_subdivs_done == 1 && vi == 0)
-							int a = 9;
-
 						if(no_averaging)
 						{
 							verts_out[new_vi].pos = verts_in[vi].pos;
@@ -2030,16 +2036,16 @@ void DisplacementUtils::linearSubdivision(
 {
 	DISPLACEMENT_CREATE_TIMER(timer);
 
-	std::vector<DUQuad>& quads_in = polygons_in.quads;
-	const std::vector<DUVertex>& verts_in = verts_and_uvs_in.verts;
-	const std::vector<Vec2f>& uvs_in = verts_and_uvs_in.uvs;
+	DUQuadVector& quads_in = polygons_in.quads;
+	const DUVertexVector& verts_in = verts_and_uvs_in.verts;
+	const UVVector& uvs_in = verts_and_uvs_in.uvs;
 
-	std::vector<DUQuad>& quads_out = polygons_out.quads;
-	std::vector<DUVertex>& verts_out = verts_and_uvs_out.verts;
-	std::vector<Vec2f>& uvs_out = verts_and_uvs_out.uvs;
+	DUQuadVector& quads_out = polygons_out.quads;
+	DUVertexVector& verts_out = verts_and_uvs_out.verts;
+	UVVector& uvs_out = verts_and_uvs_out.uvs;
 
 	// Get displaced vertices, which are needed for testing if subdivision is needed, in some cases.
-	std::vector<DUVertex> displaced_in_verts;
+	DUVertexVector displaced_in_verts;
 	if(options.view_dependent_subdivision || options.subdivide_curvature_threshold > 0) // Only generate if needed.
 	{
 		displace(
@@ -2100,8 +2106,8 @@ void DisplacementUtils::linearSubdivision(
 	//DISPLACEMENT_RESET_TIMER(timer);
 	const size_t quads_in_size = quads_in.size();
 
-	std::vector<int> subdividing_quad(quads_in_size); // Store the number of new quads in each element.  1 = not subdividing.
-	
+	js::Vector<int, 16> subdividing_quad(quads_in_size); // Store the number of new quads in each element.  1 = not subdividing.
+
 	BuildSubdividingPrimitiveTaskClosure sub_prim_closure;
 	sub_prim_closure.options = &options;
 	sub_prim_closure.num_subdivs_done = num_subdivs_done;
@@ -2123,7 +2129,7 @@ void DisplacementUtils::linearSubdivision(
 
 	//========================== Build quad_write_index array ==========================
 	DISPLACEMENT_RESET_TIMER(timer);
-	std::vector<int> quad_write_index(quads_in.size());
+	js::Vector<int, 16> quad_write_index(quads_in.size());
 
 	int current_quad_write_index = 0;
 	for(size_t i=0; i<quads_in_size; ++i)
@@ -2139,10 +2145,12 @@ void DisplacementUtils::linearSubdivision(
 	//========================== Subdivide quads ==========================
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	quads_out.resize(total_new_quads);
-	//TEMP:
+	quads_out.resizeUninitialised(total_new_quads);
+	
 	verts_out.resize(0);
 	uvs_out.resize(0);
+
+	// Reserve space for the new Verts and UVs.  This is very important for performance.
 	verts_out.reserve(verts_in.size() * 4);
 	uvs_out.reserve(uvs_in.size() * 4);
 	std::vector<int> existing_vert_new_index(verts_in.size(), -1);

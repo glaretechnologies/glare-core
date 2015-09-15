@@ -7,9 +7,10 @@ File created by ClassTemplate on Thu May 15 20:31:26 2008
 #pragma once
 
 
-#include "../utils/Platform.h"
-#include "../maths/Matrix4f.h"
 #include "../simpleraytracer/raymesh.h"
+#include "../maths/Matrix4f.h"
+#include "../utils/Platform.h"
+#include "../utils/Vector.h"
 class ThreadContext;
 class PrintOutput;
 struct DUScratchInfo;
@@ -87,16 +88,21 @@ public:
 };
 
 
+typedef js::Vector<DUQuad, 64> DUQuadVector;
+typedef js::Vector<DUVertex, 16> DUVertexVector;
+typedef js::Vector<Vec2f, 16> UVVector;
+
+
 struct Polygons
 {
-	std::vector<DUQuad> quads;
+	js::Vector<DUQuad, 64> quads;
 };
 
 
 struct VertsAndUVs
 {
-	std::vector<DUVertex> verts;
-	std::vector<Vec2f> uvs;
+	js::Vector<DUVertex, 16> verts;
+	js::Vector<Vec2f, 16> uvs;
 };
 
 
@@ -153,15 +159,18 @@ public:
 	static void test();
 
 private:
+
+	
+
 	static void displace(
 		Indigo::TaskManager& task_manager,
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
-		const std::vector<DUQuad>& quads,
-		const std::vector<DUVertex>& verts_in,
-		const std::vector<Vec2f>& uvs,
+		const DUQuadVector& quads,
+		const DUVertexVector& verts_in,
+		const UVVector& uvs,
 		unsigned int num_uv_sets,
-		std::vector<DUVertex>& verts_out
+		DUVertexVector& verts_out
 	);
 
 	static void linearSubdivision(
