@@ -1429,6 +1429,35 @@ static int getDispErrorSamplingResForQuads(size_t num_quads)
 }
 
 
+// Determine curvature >= curvature_threshold
+static bool isQuadCurvatureGrEqThreshold(const DUVertexVector& displaced_in_verts, const DUQuad& quad_in, float c_threshold, float dot_threshold)
+{
+	// Define a measure of curvature c = max angle (in radians) between quad vertex normals.
+	// Therefore maximum possible c is pi.  Maximum reasonable c is pi/2.
+	// let d = cos(c)  (e.g. min dot product between quad vert normals)
+	// d ranges from 0 to 1 for reasonable quads.
+	// c >= c_thresh   <=>  d <= d_thresh
+
+	// If c_threshold is greater than any resonable c can be, don't compute c, just return false.
+	if(c_threshold > Maths::pi_2<float>())
+		return false;
+
+	const Vec3f nnorm0 = normalise(displaced_in_verts[quad_in.vertex_indices[0]].normal);
+	const Vec3f nnorm1 = normalise(displaced_in_verts[quad_in.vertex_indices[1]].normal);
+	const Vec3f nnorm2 = normalise(displaced_in_verts[quad_in.vertex_indices[2]].normal);
+	const Vec3f nnorm3 = normalise(displaced_in_verts[quad_in.vertex_indices[3]].normal);
+
+	const float dot_0 = dot(nnorm0, nnorm1);
+	const float dot_1 = dot(nnorm1, nnorm2);
+	const float dot_2 = dot(nnorm2, nnorm3);
+	const float dot_3 = dot(nnorm3, nnorm0);
+
+	const float mindot = myMin(myMin(dot_0, dot_1), myMin(dot_2, dot_3));
+
+	return mindot <= dot_threshold;
+}
+
+
 struct BuildSubdividingPrimitiveTaskClosure
 {
 	const DUOptions* options;
@@ -1444,6 +1473,36 @@ struct BuildSubdividingPrimitiveTaskClosure
 };
 
 
+/*
+	view dependent subdivision:
+		* triangle in view frustrum
+		* screen space pixel size > subdivide_pixel_threshold
+
+	subdivide = 
+		num_subdivs < min_num_subdivisions ||
+		(
+		num_subdivs < max_num_subdivs && 
+		(curvature >= curvature_threshold && 
+		triangle in view frustrum &&
+		screen space pixel size > subdivide_pixel_threshold ) ||
+		displacement_error > displacement_error_threshold
+		)
+
+
+		if view_dependent:
+			subdivide = 
+				num_subdivs < max_num_subdivs AND
+				triangle in view frustrum AND
+				screen space pixel size > subdivide_pixel_threshold AND
+				(curvature >= curvature_threshold OR 
+				displacement_error >= displacement_error_threshold)
+
+		else if not view dependent:
+			subdivide = 
+				num_subdivs < max_num_subdivs AND
+				(curvature >= curvature_threshold OR 
+				displacement_error >= displacement_error_threshold)
+*/
 class BuildSubdividingQuadTask : public Indigo::Task
 {
 public:
@@ -1453,6 +1512,14 @@ public:
 	{
 		const DUVertexVector& displaced_in_verts = *closure.displaced_in_verts;
 		const DUQuadVector& quads_in = *closure.quads_in;
+
+		float curvature_dot_thresh;
+		if(closure.options->subdivide_curvature_threshold < 0)
+			curvature_dot_thresh = 1; // Treat subdivide_curvature_threshold as 0, cos(0) = 1.
+		else if(closure.options->subdivide_curvature_threshold > Maths::pi_2<double>())
+			curvature_dot_thresh = 0;
+		else 
+			curvature_dot_thresh = (float)std::cos(closure.options->subdivide_curvature_threshold);
 
 		// Create some temporary buffers
 		std::vector<Vec3f> quad_verts_pos_os(4);
@@ -1548,42 +1615,45 @@ done_quad_unclipped_check:
 
 							if(exceeds_pixel_threshold)
 							{
-								const float curvature = quadMaxCurvature(
-									displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
-									displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
-									displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
-									displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
-
-								if(curvature >= (float)closure.options->subdivide_curvature_threshold)
+								if(isQuadCurvatureGrEqThreshold(displaced_in_verts, quads_in[q], (float)closure.options->subdivide_curvature_threshold, curvature_dot_thresh))
 									subdivide_quad = true;
 								else
 								{
-									// Test displacement error
-
-									// Eval UVs
-									for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+									if(closure.options->displacement_error_threshold <= 0)
 									{
-										temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[0], z);
-										temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[1], z);
-										temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[2], z);
-										temp_uv_buffer[z*closure.num_uv_sets + 3] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[3], z);
+										// If displacement_error_threshold is <= 0, then since displacment_error is always >= 0, then we will always subdivide the quad.
+										// So avoid computing the displacment_error.
+										subdivide_quad = true;
 									}
+									else
+									{
+										// Test displacement error
 
-									EvalDispBoundsInfo eval_info;
-									for(int i=0; i<4; ++i)
-										eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].pos.toVec4fPoint();
-									eval_info.context = &context;
-									eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
-									eval_info.uvs = &temp_uv_buffer[0];
-									eval_info.num_verts = 4;
-									eval_info.num_uv_sets = closure.num_uv_sets;
-									for(int i=0; i<4; ++i)
-										eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].displacement;
-									eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+										// Eval UVs
+										for(uint32_t z = 0; z < closure.num_uv_sets; ++z)
+										{
+											temp_uv_buffer[z*closure.num_uv_sets + 0] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[0], z);
+											temp_uv_buffer[z*closure.num_uv_sets + 1] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[1], z);
+											temp_uv_buffer[z*closure.num_uv_sets + 2] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[2], z);
+											temp_uv_buffer[z*closure.num_uv_sets + 3] = getUVs(*closure.uvs_in, closure.num_uv_sets, quads_in[q].vertex_indices[3], z);
+										}
 
-									eval_info.suggested_sampling_res = getDispErrorSamplingResForQuads(closure.quads_in->size());
+										EvalDispBoundsInfo eval_info;
+										for(int i=0; i<4; ++i)
+											eval_info.vert_pos_os[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].pos.toVec4fPoint();
+										eval_info.context = &context;
+										eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
+										eval_info.uvs = &temp_uv_buffer[0];
+										eval_info.num_verts = 4;
+										eval_info.num_uv_sets = closure.num_uv_sets;
+										for(int i=0; i<4; ++i)
+											eval_info.vert_displacements[i] = (*closure.displaced_in_verts)[quads_in[q].vertex_indices[i]].displacement;
+										eval_info.error_threshold = (float)closure.options->displacement_error_threshold;
+
+										eval_info.suggested_sampling_res = getDispErrorSamplingResForQuads(closure.quads_in->size());
 								
-									subdivide_quad = (*closure.materials)[quads_in[q].mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+										subdivide_quad = (*closure.materials)[quads_in[q].mat_index]->doesDisplacementErrorExceedThreshold(eval_info);
+									}
 								}
 							}
 						}
@@ -1598,19 +1668,13 @@ done_quad_unclipped_check:
 						}
 						else
 						{
-							const float curvature = quadMaxCurvature(
-										displaced_in_verts[quads_in[q].vertex_indices[0]].normal, 
-										displaced_in_verts[quads_in[q].vertex_indices[1]].normal, 
-										displaced_in_verts[quads_in[q].vertex_indices[2]].normal,
-										displaced_in_verts[quads_in[q].vertex_indices[3]].normal);
-
-							if(curvature >= (float)closure.options->subdivide_curvature_threshold)
+							if(isQuadCurvatureGrEqThreshold(displaced_in_verts, quads_in[q], (float)closure.options->subdivide_curvature_threshold, curvature_dot_thresh))
 								subdivide_quad = true;
 							else
 							{
 								if(closure.options->displacement_error_threshold <= 0)
 								{
-									// If displacement_error_threshold is <= then since displacment_error is always >= 0, then we will always subdivide the quad.
+									// If displacement_error_threshold is <= 0, then since displacment_error is always >= 0, then we will always subdivide the quad.
 									// So avoid computing the displacment_error.
 									subdivide_quad = true;
 								}
@@ -2069,38 +2133,6 @@ void DisplacementUtils::linearSubdivision(
 	// Otherwise we get situations like view-dependent subdivision done to create mountains, where outside of the camera frustum the mountains
 	// fall away immediately to zero height.  This is bad for several reasons - including shading and lighting artifacts.
 	const unsigned int min_num_subdivisions = options.view_dependent_subdivision ? options.max_num_subdivisions / 2 : 0;
-
-	/*
-
-	view dependent subdivision:
-		* triangle in view frustrum
-		* screen space pixel size > subdivide_pixel_threshold
-
-	subdivide = 
-		num_subdivs < min_num_subdivisions ||
-		(
-		num_subdivs < max_num_subdivs && 
-		(curvature >= curvature_threshold && 
-		triangle in view frustrum &&
-		screen space pixel size > subdivide_pixel_threshold ) ||
-		displacement_error > displacement_error_threshold
-		)
-
-
-		if view_dependent:
-			subdivide = 
-				num_subdivs < max_num_subdivs AND
-				triangle in view frustrum AND
-				screen space pixel size > subdivide_pixel_threshold AND
-				(curvature >= curvature_threshold OR 
-				displacement_error >= displacement_error_threshold)
-
-		else if not view dependent:
-			subdivide = 
-				num_subdivs < max_num_subdivs AND
-				(curvature >= curvature_threshold OR 
-				displacement_error >= displacement_error_threshold)
-	*/
 
 	//========================== Work out if we are subdividing each triangle ==========================
 	//DISPLACEMENT_RESET_TIMER(timer);
