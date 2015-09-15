@@ -388,16 +388,13 @@ void DisplacementUtils::subdivideAndDisplace(
 	ThreadContext& context,
 	const std::vector<Reference<Material> >& materials,
 	bool subdivision_smoothing,
-	const RayMesh::TriangleVectorType& triangles_in, 
+	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
-	const RayMesh::VertexVectorType& vertices_in,
-	const std::vector<Vec2f>& uvs_in,
+	RayMesh::VertexVectorType& vertices_in_out,
+	std::vector<Vec2f>& uvs_in_out,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
-	bool use_shading_normals,
-	RayMesh::TriangleVectorType& tris_out, 
-	RayMesh::VertexVectorType& verts_out,
-	std::vector<Vec2f>& uvs_out
+	bool use_shading_normals
 	)
 {
 	if(PROFILE) conPrint("\n-----------subdivideAndDisplace-----------");
@@ -405,6 +402,11 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	Timer total_timer; // This one is used to create a message that is always printed.
 	DISPLACEMENT_CREATE_TIMER(timer);
+
+	const RayMesh::TriangleVectorType& triangles_in = triangles_in_out;
+	const RayMesh::VertexVectorType& vertices_in = vertices_in_out;
+	const std::vector<Vec2f>& uvs_in = uvs_in_out;
+
 
 	// We will maintain two sets of geometry information, and 'ping-pong' between them.
 	Polygons temp_polygons_1;
@@ -1194,9 +1196,9 @@ void DisplacementUtils::subdivideAndDisplace(
 
 	DUVertexVector& temp_verts = current_verts_and_uvs->verts;
 
-	// Build tris_out from temp_tris and temp_quads
+	// Build triangles_in_out from temp_quads
 	const size_t temp_quads_size = temp_quads.size();
-	tris_out.resizeUninitialised(temp_quads_size * 2); // Pre-allocate space
+	triangles_in_out.resizeUninitialised(temp_quads_size * 2); // Pre-allocate space
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("tris_out alloc took " + timer.elapsedString()));
 	DISPLACEMENT_RESET_TIMER(timer);
@@ -1204,8 +1206,10 @@ void DisplacementUtils::subdivideAndDisplace(
 	size_t tri_write_i = 0;
 	for(size_t i = 0; i < temp_quads_size; ++i)
 	{
+		assert(temp_quads[i].isQuad());
+
 		// Split the quad into two triangles
-		RayMeshTriangle& tri_a = tris_out[tri_write_i];
+		RayMeshTriangle& tri_a = triangles_in_out[tri_write_i];
 
 		tri_a.vertex_indices[0] = temp_quads[i].vertex_indices[0];
 		tri_a.vertex_indices[1] = temp_quads[i].vertex_indices[1];
@@ -1215,11 +1219,10 @@ void DisplacementUtils::subdivideAndDisplace(
 		tri_a.uv_indices[1] = temp_quads[i].vertex_indices[1];
 		tri_a.uv_indices[2] = temp_quads[i].vertex_indices[2];
 
-
 		tri_a.setTriMatIndex(temp_quads[i].mat_index);
 		tri_a.setUseShadingNormals(use_s_n);
 
-		RayMeshTriangle& tri_b = tris_out[tri_write_i + 1];
+		RayMeshTriangle& tri_b = triangles_in_out[tri_write_i + 1];
 
 		tri_b.vertex_indices[0] = temp_quads[i].vertex_indices[0];
 		tri_b.vertex_indices[1] = temp_quads[i].vertex_indices[2];
@@ -1244,19 +1247,18 @@ void DisplacementUtils::subdivideAndDisplace(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("final computeVertexNormals() took " + timer.elapsedString()));
 
 
-	// Convert DUVertex's back into RayMeshVertex and store in verts_out.
+	// Convert DUVertex's back into RayMeshVertex and store in vertices_in_out.
 	DISPLACEMENT_RESET_TIMER(timer);
 	const size_t temp_verts_size = temp_verts.size();
-	verts_out.resizeUninitialised(temp_verts_size);
+	vertices_in_out.resizeUninitialised(temp_verts_size);
 	for(size_t i = 0; i < temp_verts_size; ++i)
-		verts_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal,
+		vertices_in_out[i] = RayMeshVertex(temp_verts[i].pos, temp_verts[i].normal,
 			0 // H - mean curvature - just set to zero, we will recompute it later.
 		);
 
-	//uvs_out = current_verts_and_uvs->uvs;
-	uvs_out.resize(current_verts_and_uvs->uvs.size());
+	uvs_in_out.resize(current_verts_and_uvs->uvs.size());
 	if(!current_verts_and_uvs->uvs.empty())
-		std::memcpy(&uvs_out[0], &current_verts_and_uvs->uvs[0], current_verts_and_uvs->uvs.size() * sizeof(Vec2f));
+		std::memcpy(&uvs_in_out[0], &current_verts_and_uvs->uvs[0], current_verts_and_uvs->uvs.size() * sizeof(Vec2f));
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("creating verts_out and uvs_out: " + timer.elapsedString()));
 
@@ -2972,6 +2974,7 @@ void DisplacementUtils::test()
 	//}
 	Indigo::TaskManager task_manager(1);
 
+#if 0
 	//=========================== Test subdivision of quads ==========================
 	{
 		RayMesh::VertexVectorType vertices(6);
@@ -3178,6 +3181,7 @@ void DisplacementUtils::test()
 		// Plus 4 quads * 2 tris/quad for the subdivided quad gives 12 + 8 = 20 tris.
 		testAssert(triangles_out.size() == 20);
 	}
+#endif
 }
 
 

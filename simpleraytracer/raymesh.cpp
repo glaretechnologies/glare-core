@@ -586,15 +586,6 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			{
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
 
-				// Convert to single precision floating point planes
-				/*std::vector<Plane<float> > camera_clip_planes_f(camera_clip_planes.size());
-				for(unsigned int i=0; i<camera_clip_planes_f.size(); ++i)
-					camera_clip_planes_f[i] = Plane<float>(toVec3f(camera_clip_planes[i].getNormal()), (float)camera_clip_planes[i].getD());*/
-
-				js::Vector<RayMeshTriangle, 32> temp_tris;
-				js::Vector<RayMeshVertex, 32> temp_verts;
-				std::vector<Vec2f> temp_uvs;
-
 				DUOptions options;
 				options.object_to_camera = object_to_camera;
 				options.view_dependent_subdivision = view_dependent_subdivision;
@@ -612,28 +603,22 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					context,
 					object.getMaterials(),
 					subdivision_smoothing,
-					triangles,
+					triangles, // triangles_in_out
 					quads,
-					vertices,
-					uvs,
+					vertices, // vertices_in_out
+					uvs, // uvs_in_out
 					this->num_uv_sets,
 					options,
-					this->enable_normal_smoothing,
-					temp_tris,
-					temp_verts,
-					temp_uvs
-					);
-
-				triangles = temp_tris;
-				vertices = temp_verts;
-				uvs = temp_uvs;
-
+					this->enable_normal_smoothing
+				);
+				
+				// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
 				this->quads.clearAndFreeMem();
 
-				assert(num_uv_sets == 0 || ((temp_uvs.size() % num_uv_sets) == 0));
+				assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
 
 				// Check data
-		#ifdef DEBUG
+#ifndef NDEBUG
 				for(unsigned int i = 0; i < triangles.size(); ++i)
 					for(unsigned int c = 0; c < 3; ++c)
 					{
@@ -643,7 +628,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 							assert(triangles[i].uv_indices[c] < uvs.size());
 						}
 					}
-		#endif	
+#endif	
 				if(verbose) print_output.print("\tDone.");
 			}
 

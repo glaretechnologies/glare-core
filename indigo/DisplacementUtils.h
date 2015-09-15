@@ -136,6 +136,8 @@ public:
 	~DisplacementUtils();
 
 
+	// Subdivide and displace the mesh.
+	// All quads will be converted to triangles.
 	static void subdivideAndDisplace(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
@@ -143,16 +145,13 @@ public:
 		ThreadContext& context,
 		const std::vector<Reference<Material> >& materials,
 		bool subdivision_smoothing,
-		const RayMesh::TriangleVectorType& tris_in,
+		RayMesh::TriangleVectorType& tris_in_out,
 		const RayMesh::QuadVectorType& quads_in,
-		const RayMesh::VertexVectorType& verts_in,
-		const std::vector<Vec2f>& uvs_in,
+		RayMesh::VertexVectorType& verts_in_out,
+		std::vector<Vec2f>& uvs_in_out,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		bool use_shading_normals,
-		RayMesh::TriangleVectorType& tris_out,
-		RayMesh::VertexVectorType& verts_out,
-		std::vector<Vec2f>& uvs_out
+		bool use_shading_normals
 	);
 
 
