@@ -2379,7 +2379,7 @@ void DisplacementUtils::linearSubdivision(
 
 			if(num_sides == 3)
 			{
-				const uint32_t midpoint_vert_indices[3] = { quad_in.edge_midpoint_vert_index[0], quad_in.edge_midpoint_vert_index[1], quad_in.edge_midpoint_vert_index[2] };
+				const uint32 midpoint_vert_indices[3] = { (uint32)quad_in.edge_midpoint_vert_index[0], (uint32)quad_in.edge_midpoint_vert_index[1], (uint32)quad_in.edge_midpoint_vert_index[2] };
 
 				//--------------- Create bottom left tri---------------
 				quads_out[write_index + 0] = DUQuad(
@@ -2407,7 +2407,7 @@ void DisplacementUtils::linearSubdivision(
 			}
 			else
 			{
-				const uint32_t midpoint_vert_indices[4] = { quad_in.edge_midpoint_vert_index[0], quad_in.edge_midpoint_vert_index[1], quad_in.edge_midpoint_vert_index[2], quad_in.edge_midpoint_vert_index[3] };
+				const uint32 midpoint_vert_indices[4] = { (uint32)quad_in.edge_midpoint_vert_index[0], (uint32)quad_in.edge_midpoint_vert_index[1], (uint32)quad_in.edge_midpoint_vert_index[2], (uint32)quad_in.edge_midpoint_vert_index[3] };
 
 				//--------------- Create bottom left quad ---------------
 				quads_out[write_index + 0] = DUQuad(
