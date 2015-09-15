@@ -58,7 +58,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t && t_0 <= max_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
+		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
 		return t_0;
@@ -67,7 +67,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t && t_1 <= max_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
+		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
 		return t_1;
@@ -122,7 +122,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, std::v
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
+		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 
 		hitinfos_out.push_back(DistanceHitInfo(
 			0, // sub elem index
@@ -134,7 +134,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, std::v
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
 	if(t_1 >= use_min_t)
 	{
-		const TexCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
+		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		
 		hitinfos_out.push_back(DistanceHitInfo(
 			0, // sub elem index
@@ -145,7 +145,7 @@ void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, std::v
 }
 
 
-const RaySphere::TexCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
+const RaySphere::UVCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return hitinfo.sub_elem_coords;
 }

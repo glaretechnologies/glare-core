@@ -45,10 +45,6 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include <unordered_map>
 
 
-// TODO: enforce this limit elsewhere
-static const int MAX_NUM_UV_SETS = 8;
-
-
 static const bool PROFILE = true;
 #define DISPLACEMENT_UTILS_STATS 1
 #if DISPLACEMENT_UTILS_STATS
@@ -1282,7 +1278,7 @@ public:
 	{
 		ThreadContext context;
 		DUUVCoordEvaluator du_texcoord_evaluator;
-		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const int num_uv_sets = closure.num_uv_sets;
 		const UVVector& vert_uvs = *closure.vert_uvs;
 		RayMesh::VertexVectorType& verts = *closure.verts;
@@ -1296,7 +1292,7 @@ public:
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
 				for(int z = 0; z < num_uv_sets; ++z)
-					du_texcoord_evaluator.texcoords[z] = vert_uvs[v_i*num_uv_sets + z];
+					du_texcoord_evaluator.uvs[z] = vert_uvs[v_i*num_uv_sets + z];
 
 				du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
 
@@ -1405,7 +1401,7 @@ public:
 	{
 		ThreadContext context;
 		DUUVCoordEvaluator du_texcoord_evaluator;
-		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const int num_uv_sets = closure.num_uv_sets;
 		const UVVector& vert_uvs = *closure.vert_uvs;
 		const DUVertexVector& verts_in = *closure.verts_in;
@@ -1420,7 +1416,7 @@ public:
 				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
 				for(int z = 0; z < num_uv_sets; ++z)
-					du_texcoord_evaluator.texcoords[z] = vert_uvs[v_i*num_uv_sets + z];
+					du_texcoord_evaluator.uvs[z] = vert_uvs[v_i*num_uv_sets + z];
 
 				du_texcoord_evaluator.pos_os = verts_in[v_i].pos.toVec4fPoint();
 
@@ -1645,7 +1641,7 @@ public:
 		temp_vert_buffer.reserve(32);
 
 		DUUVCoordEvaluator temp_du_texcoord_evaluator;
-		temp_du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+		temp_du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 
 		ThreadContext context;
 

@@ -73,7 +73,7 @@ public:
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
-	virtual const TexCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
+	virtual const UVCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
 	virtual unsigned int getNumUVCoordSets() const = 0;
 	
 

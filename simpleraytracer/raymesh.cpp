@@ -353,7 +353,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		const Vec2f& v1tex = this->uvs[v1idx];
 		const Vec2f& v2tex = this->uvs[v2idx];
 
-		uv0_out = RayMesh::TexCoordsType(
+		uv0_out = RayMesh::UVCoordsType(
 			v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
 			v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
 		);
@@ -1154,10 +1154,10 @@ unsigned int RayMesh::getNumUVCoordSets() const
 }
 
 
-const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int uv_set_index) const
+const RayMesh::UVCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigned int uv_set_index) const
 {
 	if(uv_set_index >= num_uv_sets)
-		return RayMesh::TexCoordsType(0, 0);
+		return RayMesh::UVCoordsType(0, 0);
 
 	assert(uv_set_index < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());
@@ -1177,7 +1177,7 @@ const RayMesh::TexCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsign
 
 	// Gratuitous removal of function calls
 	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return RayMesh::TexCoordsType(
+	return RayMesh::UVCoordsType(
 		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
 		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
 		);
@@ -1250,6 +1250,8 @@ inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
 
 void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
+	if(mesh.num_uv_mappings > MAX_NUM_UV_SETS)
+		throw Indigo::Exception("Too many UV sets: " + toString(mesh.num_uv_mappings) + ", max is " + toString(MAX_NUM_UV_SETS));
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
 	// Copy Vertices
@@ -1598,7 +1600,7 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 
 		const float w = 1 - u - v;
 
-		uv0_out = RayMesh::TexCoordsType(
+		uv0_out = RayMesh::UVCoordsType(
 			v0tex.x * w + v1tex.x * u + v2tex.x * v,
 			v0tex.y * w + v1tex.y * u + v2tex.y * v
 		);
