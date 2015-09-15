@@ -1265,6 +1265,125 @@ void DisplacementUtils::subdivideAndDisplace(
 }
 
 
+struct RayMeshDisplaceTaskClosure
+{
+	unsigned int num_uv_sets;
+	const UVVector* vert_uvs;
+	RayMesh::VertexVectorType* verts;
+	const std::vector<const Material*>* vert_materials;
+};
+
+
+class RayMeshDisplaceTask : public Indigo::Task
+{
+public:
+	RayMeshDisplaceTask(const RayMeshDisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		ThreadContext context;
+		DUUVCoordEvaluator du_texcoord_evaluator;
+		du_texcoord_evaluator.texcoords.resize(closure.num_uv_sets);
+		const int num_uv_sets = closure.num_uv_sets;
+		const UVVector& vert_uvs = *closure.vert_uvs;
+		RayMesh::VertexVectorType& verts = *closure.verts;
+
+		for(int v_i = begin; v_i < end; ++v_i)
+		{
+			const Material* const vert_material = (*closure.vert_materials)[v_i];
+
+			if(vert_material != NULL && vert_material->displacing())
+			{
+				HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
+
+				for(int z = 0; z < num_uv_sets; ++z)
+					du_texcoord_evaluator.texcoords[z] = vert_uvs[v_i*num_uv_sets + z];
+
+				du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
+
+				EvalDisplaceArgs args(
+					context,
+					hitinfo,
+					du_texcoord_evaluator,
+					Vec4f(0), // dp_dalpha  TEMP HACK
+					Vec4f(0), // dp_dbeta  TEMP HACK
+					Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
+				);
+
+				const float displacement = vert_material->evaluateDisplacement(args);
+
+				const Vec3f& normal = verts[v_i].normal;
+				assert(epsEqual(normal.length(), 1.0f, 1.0e-4f));
+				verts[v_i].pos += normal * displacement;
+			}
+		}
+	}
+
+	const RayMeshDisplaceTaskClosure& closure;
+	int begin, end;
+};
+
+
+// Displace all vertices - updates verts_in_out.pos
+void DisplacementUtils::doDisplacementOnly(
+		const std::string& mesh_name,
+		Indigo::TaskManager& task_manager,
+		PrintOutput& print_output,
+		ThreadContext& context,
+		const std::vector<Reference<Material> >& materials,
+		const RayMesh::TriangleVectorType& tris_in,
+		const RayMesh::QuadVectorType& quads_in,
+		RayMesh::VertexVectorType& verts_in_out,
+		const std::vector<Vec2f>& uvs_in,
+		unsigned int num_uv_sets
+	)
+{
+	if(PROFILE) conPrint("\n-----------doDisplacementOnly-----------");
+	if(PROFILE) conPrint("mesh: " + mesh_name);
+	DISPLACEMENT_CREATE_TIMER(timer);
+
+	// Get the material and UVs for each vertex.
+	std::vector<const Material*> vert_materials(verts_in_out.size(), NULL);
+	UVVector vert_uvs(verts_in_out.size() * num_uv_sets);
+
+	for(size_t t = 0; t < tris_in.size(); ++t)
+	{
+		const Material* material = materials[tris_in[t].getTriMatIndex()].getPointer(); // Get the material assigned to this tri
+		for(int i = 0; i < 3; ++i)
+		{
+			vert_materials[tris_in[t].vertex_indices[i]] = material;
+
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				vert_uvs[tris_in[t].vertex_indices[i] * num_uv_sets + z] = getUVs(uvs_in, num_uv_sets, tris_in[t].uv_indices[i], z);
+		}
+	}
+
+	for(size_t q = 0; q < quads_in.size(); ++q)
+	{
+		const Material* material = materials[quads_in[q].getMatIndex()].getPointer(); // Get the material assigned to this quad
+		for(int i = 0; i < 4; ++i)
+		{
+			vert_materials[quads_in[q].vertex_indices[i]] = material;
+
+			for(unsigned int z=0; z<num_uv_sets; ++z)
+				vert_uvs[quads_in[q].vertex_indices[i] * num_uv_sets + z] = getUVs(uvs_in, num_uv_sets, quads_in[q].uv_indices[i], z);
+		}
+	}
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Get the material and UVs for each vertex took " + timer.elapsedString()));
+	DISPLACEMENT_RESET_TIMER(timer);
+
+	RayMeshDisplaceTaskClosure closure;
+	closure.num_uv_sets = num_uv_sets;
+	closure.vert_uvs = &vert_uvs;
+	closure.verts = &verts_in_out;
+	closure.vert_materials = &vert_materials;
+	task_manager.runParallelForTasks<RayMeshDisplaceTask, RayMeshDisplaceTaskClosure>(closure, 0, verts_in_out.size());
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("final displace took " + timer.elapsedString()));
+}
+
+
 /*
 Apply displacement to the given vertices, storing the displaced vertices in verts_out
 */

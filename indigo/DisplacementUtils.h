@@ -156,6 +156,22 @@ public:
 	);
 
 
+	// Displace all vertices - updates verts_in_out.pos
+	static void doDisplacementOnly(
+		const std::string& mesh_name,
+		Indigo::TaskManager& task_manager,
+		PrintOutput& print_output,
+		ThreadContext& context,
+		const std::vector<Reference<Material> >& materials,
+		const RayMesh::TriangleVectorType& tris_in,
+		const RayMesh::QuadVectorType& quads_in,
+		RayMesh::VertexVectorType& verts_in_out,
+		const std::vector<Vec2f>& uvs_in,
+		unsigned int num_uv_sets
+	);
+	
+
+
 	static void test();
 
 private:

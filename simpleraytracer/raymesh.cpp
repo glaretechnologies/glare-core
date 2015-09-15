@@ -452,7 +452,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		);
 		bool recompute_H = false; // This will be set to true if we need to recompute H (mean curvature) later.  This will be the case for subdiv and displacement or if there are any quads in the mesh.
 
-		if(object.hasDisplacingMaterial() || max_num_subdivisions > 0)
+		if(max_num_subdivisions > 0)
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
@@ -650,6 +650,26 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 #if INDIGO_OPENSUBDIV_SUPPORT
 		}
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
+		else // else if max_num_subdivisions = 0
+		{
+			assert(max_num_subdivisions == 0);
+			if(object.hasDisplacingMaterial())
+			{
+				DisplacementUtils::doDisplacementOnly(
+					this->getName(),
+					task_manager,
+					print_output,
+					context,
+					object.getMaterials(),
+					triangles,
+					quads,
+					vertices,
+					uvs,
+					this->num_uv_sets
+				);
+			}
+		}
+
 
 		// Build inv_cross_magnitude for triangles
 		{
@@ -1189,8 +1209,18 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 	const unsigned int v1 = triangles[hitinfo.sub_elem_index].vertex_indices[1];
 	const unsigned int v2 = triangles[hitinfo.sub_elem_index].vertex_indices[2];
 
-	const Vec3f use_dp_du = vert_derivs[v0].dp_du*w + vert_derivs[v1].dp_du*alpha + vert_derivs[v2].dp_du*beta;
-	const Vec3f use_dp_dv = vert_derivs[v0].dp_dv*w + vert_derivs[v1].dp_dv*alpha + vert_derivs[v2].dp_dv*beta;
+	Vec3f use_dp_du, use_dp_dv;
+	/*if(this->num_uv_sets == 0)
+	{
+		// If there is no UV mapping, then we can't return dp/du and dp/dv.  So just return dp/dalpha and dp/dbeta.
+		use_dp_du = this->vertices[v1].pos - this->vertices[v0].pos;
+		use_dp_dv = this->vertices[v2].pos - this->vertices[v0].pos;
+	}
+	else*/
+	{
+		use_dp_du = vert_derivs[v0].dp_du*w + vert_derivs[v1].dp_du*alpha + vert_derivs[v2].dp_du*beta;
+		use_dp_dv = vert_derivs[v0].dp_dv*w + vert_derivs[v1].dp_dv*alpha + vert_derivs[v2].dp_dv*beta;
+	}
 
 	dp_du_out = use_dp_du.toVec4fVector();
 	dp_dv_out = use_dp_dv.toVec4fVector();
@@ -1773,8 +1803,9 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals,
 			vert_derivs[i].dp_dv /= (float)vert_sum[i];
 		}
 
-		//conPrint("vert " + toString(i) + " dp/du: " + vert_grad_u[i].toString());
-		//conPrint("vert " + toString(i) + " dp/dv: " + vert_grad_v[i].toString() + "\n");
+		//conPrint("vert " + toString(i) + " normal: " + vertices[i].normal.toString());
+		//conPrint("vert " + toString(i) + " dp/du: " + vert_derivs[i].dp_du.toString());
+		//conPrint("vert " + toString(i) + " dp/dv: " + vert_derivs[i].dp_dv.toString() + "\n");
 	}
 
 	if(verbose) print_output.print("\tElapsed: " + timer.elapsedString());
