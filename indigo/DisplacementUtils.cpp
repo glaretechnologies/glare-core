@@ -352,28 +352,60 @@ public:
 typedef std::unordered_map<VertKey, unsigned int, VertKeyHash> VertToIndexMap;
 
 
+struct EdgeKey
+{
+	Vec3f start;
+	Vec3f end;
+
+	inline bool operator == (const EdgeKey& other) const { return start == other.start && end == other.end; }
+};
+
+
+class EdgeKeyHash
+{
+public:
+	inline size_t operator()(const EdgeKey& v) const
+	{	// hash _Keyval to size_t value by pseudorandomizing transform
+		const float sum = v.start.x + v.start.y + v.start.z;
+		uint32 i;
+		std::memcpy(&i, &sum, 4);
+		return i;
+	}
+};
+
+
 struct EdgeInfo
 {
-	EdgeInfo() : num_adjacent_polys(0), uv_discontinuity(false), adjacent_quad_a(-1), adjacent_quad_b(-1) {}
-	EdgeInfo(const DUVertIndexPair& old_edge_, int num_adjacent_polys_) : old_edge(old_edge_), num_adjacent_polys(num_adjacent_polys_), uv_discontinuity(false), adjacent_quad_a(-1), adjacent_quad_b(-1) {}
+	EdgeInfo() : /*num_adjacent_polys(0), *//*uv_discontinuity(false), */adjacent_quad_a(-1)/*, adjacent_quad_b(-1)*/ {}
+	//EdgeInfo(/*const DUVertIndexPair& old_edge_, */int num_adjacent_polys_) : /*old_edge(old_edge_), num_adjacent_polys(num_adjacent_polys_), uv_discontinuity(false), */adjacent_quad_a(-1), adjacent_quad_b(-1) {}
 
-	DUVertIndexPair old_edge;
-	int num_adjacent_polys;
+	//DUVertIndexPair old_edge;
+	//int num_adjacent_polys;
 
 	Vec2f start_uv;
 	Vec2f end_uv;
-	bool uv_discontinuity;
+	//bool uv_discontinuity;
 
 	int adjacent_quad_a;
-	int adjacent_quad_b;
+	//int adjacent_quad_b;
 	int adj_a_side_i;
-	int adj_b_side_i;
+	//int adj_b_side_i;
+	bool quad_a_flipped;
 };
 
 
 struct DUScratchInfo
 {
 	//EdgeInfoMapType edge_info_map;
+};
+
+
+struct QuadInfo
+{
+	QuadInfo(){}
+	QuadInfo(int i_, bool r) : i(i_), reversed(r) {}
+	int i;
+	bool reversed;
 };
 
 
@@ -423,27 +455,30 @@ void DisplacementUtils::subdivideAndDisplace(
 
 		const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
-		std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash> edges;
+		std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
 
 		temp_quads.resize(triangles_in.size() + quads_in.size());
 		temp_verts.reserve(vertices_in.size());
 		temp_uvs.reserve(uvs_in.size());
 
-		// Build adjacency info
+		// Build adjacency info.
+		// OLD: Two polygons will be considered adjacent if they share a common edge, where an edge is defined as an ordered pair of vertex indices.
+		// Two polygons will be considered adjacent if they share a common edge, where an edge is defined as an ordered pair of vertex positions
+
+		//============== Process tris ===============
+
 		const size_t triangles_in_size = triangles_in.size();
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
 			const RayMeshTriangle& tri_in = triangles_in[t];
 
+			temp_quads[t].bitfield = BitField<uint32>(0);
 			temp_quads[t].adjacent_quad_index[3] = -1;
-			temp_quads[t].edge_uv_discontinuity[3] = false;
 
 			for(unsigned int i = 0; i < 3; ++i) // For each edge
 			{
-				temp_quads[t].edge_uv_discontinuity[i] = false;
-
 				const unsigned int i1 = mod3(i + 1); // Next vert
-				const uint32 vi = tri_in.vertex_indices[i];
+				const uint32 vi  = tri_in.vertex_indices[i];
 				const uint32 vi1 = tri_in.vertex_indices[i1];
 			
 				// Get UVs at start and end of this edge, for this tri.
@@ -451,7 +486,7 @@ void DisplacementUtils::subdivideAndDisplace(
 				Vec2f end_uv(0.f);
 				if(num_uv_sets > 0)
 				{
-					const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[i], /*uv_set=*/0);
+					const Vec2f uv_i  = getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[i], /*uv_set=*/0);
 					const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[i1], /*uv_set=*/0);
 					if(tri_in.vertex_indices[i] < tri_in.vertex_indices[i1]) 
 						{ start_uv = uv_i; end_uv = uv_i1; } 
@@ -459,14 +494,24 @@ void DisplacementUtils::subdivideAndDisplace(
 						{ start_uv = uv_i1; end_uv = uv_i; }
 				}
 				
-				DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
-				std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = edges.find(edge_key); // Lookup edge
+				//DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
+				bool flipped;
+				EdgeKey edge_key;
+				const Vec3f vi_pos  = vertices_in[vi].pos;
+				const Vec3f vi1_pos = vertices_in[vi1].pos;
+				if(vi_pos < vi1_pos)
+					{ edge_key.start = vi_pos;  edge_key.end = vi1_pos; flipped = false; }
+				else
+					{ edge_key.start = vi1_pos; edge_key.end = vi_pos;  flipped = true; }
+
+				std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash>::iterator result = edges.find(edge_key); // Lookup edge
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
-					edge_info.num_adjacent_polys = 1;
+					//edge_info.num_adjacent_polys = 1;
 					edge_info.start_uv = start_uv;
 					edge_info.end_uv = end_uv;
+					edge_info.quad_a_flipped = flipped;
 
 					assert(edge_info.adjacent_quad_a == -1);
 					edge_info.adjacent_quad_a = (int)t; // Since this edge is just created, it won't have any adjacent quads marked yet.
@@ -504,21 +549,29 @@ void DisplacementUtils::subdivideAndDisplace(
 					// Check for uv discontinuity:
 					if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
 					{
-						result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-						temp_quads[t].edge_uv_discontinuity[i] = true; // Mark edge of polygon
-						adj_quad.edge_uv_discontinuity[edge_info.adj_a_side_i] = true; // Mark edge of adjacent polygon
+						//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
+						temp_quads[t].setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
+						adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 					}
 
-					edge_info.num_adjacent_polys++;
+					//edge_info.num_adjacent_polys++;
 
 					// Mark this quad as the 'b' adjacent quad.
-					edge_info.adjacent_quad_b = (int)t;
-					edge_info.adj_b_side_i = i;
+					//edge_info.adjacent_quad_b = (int)t;
+					//edge_info.adj_b_side_i = i;
 
 					temp_quads[t].adjacent_quad_index[i] = edge_info.adjacent_quad_a;
 					
 					// Mark this quad as adjacent to the other quad.
 					adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = (int)t;
+
+					if(edge_info.quad_a_flipped == flipped)
+					{
+						// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
+						//conPrint("================!!!!!!!!!Surface orientation differs!");
+						temp_quads[t].setOrienReversedTrue(i);
+						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+					}
 				}
 			}
 
@@ -541,11 +594,10 @@ void DisplacementUtils::subdivideAndDisplace(
 
 			const int new_quad_index = (int)(q + triangles_in_size);
 			DUQuad& quad_out = temp_quads[new_quad_index];
+			quad_out.bitfield = BitField<uint32>(0);
 
 			for(unsigned int i = 0; i < 4; ++i) // For each edge
 			{
-				quad_out.edge_uv_discontinuity[i] = false;
-
 				const unsigned int i1 = mod4(i + 1); // Next vert
 				const uint32 vi  = quad_in.vertex_indices[i];
 				const uint32 vi1 = quad_in.vertex_indices[i1];
@@ -563,14 +615,24 @@ void DisplacementUtils::subdivideAndDisplace(
 						{ start_uv = uv_i1; end_uv = uv_i; }
 				}
 				
-				DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
-				std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = edges.find(edge_key); // Lookup edge
+				//DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
+				bool flipped;
+				EdgeKey edge_key;
+				const Vec3f vi_pos  = vertices_in[vi].pos;
+				const Vec3f vi1_pos = vertices_in[vi1].pos;
+				if(vi_pos < vi1_pos)
+					{ edge_key.start = vi_pos;  edge_key.end = vi1_pos; flipped = false; }
+				else
+					{ edge_key.start = vi1_pos; edge_key.end = vi_pos;  flipped = true; }
+
+				std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash>::iterator result = edges.find(edge_key); // Lookup edge
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
-					edge_info.num_adjacent_polys = 1;
+					//edge_info.num_adjacent_polys = 1;
 					edge_info.start_uv = start_uv;
 					edge_info.end_uv = end_uv;
+					edge_info.quad_a_flipped = flipped;
 
 					assert(edge_info.adjacent_quad_a == -1);
 					edge_info.adjacent_quad_a = (int)new_quad_index; // Since this edge is just created, it won't have any adjacent quads marked yet.
@@ -608,21 +670,29 @@ void DisplacementUtils::subdivideAndDisplace(
 					// Check for uv discontinuity:
 					if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
 					{
-						result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-						quad_out.edge_uv_discontinuity[i] = true; // Mark edge of polygon
-						adj_quad.edge_uv_discontinuity[edge_info.adj_a_side_i] = true; // Mark edge of adjacent polygon
+						//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
+						quad_out.setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
+						adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 					}
 
-					edge_info.num_adjacent_polys++;
+					//edge_info.num_adjacent_polys++;
 
 					// Mark this quad as the 'b' adjacent quad.
-					edge_info.adjacent_quad_b = new_quad_index;
-					edge_info.adj_b_side_i = i;
+					//edge_info.adjacent_quad_b = new_quad_index;
+					//edge_info.adj_b_side_i = i;
 
 					quad_out.adjacent_quad_index[i] = edge_info.adjacent_quad_a;
 					
 					// Mark this quad as adjacent to the other quad.
 					adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = new_quad_index;
+
+					if(edge_info.quad_a_flipped == flipped)
+					{
+						// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
+						// conPrint("================!!!!!!!!!Surface orientation differs!");
+						quad_out.setOrienReversedTrue(i);
+						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+					}
 				}
 			}
 
@@ -632,16 +702,77 @@ void DisplacementUtils::subdivideAndDisplace(
 				quad_out.edge_midpoint_vert_index[v] = -1;
 		}
 
+
+
+		// Do a traversal over the mesh to work out any quads we should reverse.
+		// We will do this by doing a traversal over each connected component of the mesh.
+		// After we are done all quads in each connected component will have a consistent winding order.
+
+		// TODO: Show an error message or abort subdivision if we detect an inconsistent winding that we can't fix? (e.g. a moebius twist)
+		const int temp_quads_size = (int)temp_quads.size();
+		std::vector<bool> initial_poly_reversed(temp_quads_size, false);
+		std::vector<bool> processed(temp_quads_size, false);
+		int first_unprocessed_i = 0;
+		
+		std::vector<QuadInfo> stack;
+		stack.reserve(1000);
+
+		while(1)
+		{
+			// Increment first_unprocessed_i until we find the first unprocessed quad.
+			while(processed[first_unprocessed_i])
+			{
+				first_unprocessed_i++;
+				if(first_unprocessed_i >= temp_quads_size) // If all quads are processed, we are done.
+					goto done;
+			}
+		
+			// Traverse until we have processed all quads in this connected component of the mesh.
+			bool reverse = false;
+			assert(stack.empty());
+			stack.push_back(QuadInfo(first_unprocessed_i, reverse));
+			while(!stack.empty())
+			{
+				const QuadInfo quad_info = stack.back();
+				stack.pop_back();
+				const int q = quad_info.i;
+				const bool q_reversed = quad_info.reversed;
+
+				initial_poly_reversed[q] = q_reversed;
+				processed[q] = true;
+
+				// Add adjacent quad on each edge to stack
+				for(int v=0; v<4; ++v)
+				{
+					const int adj_quad_i = temp_quads[q].adjacent_quad_index[v];
+					if(adj_quad_i != -1 && !processed[adj_quad_i]) // If there is an adjacent quad, and we haven't already processed it:
+					{
+						bool adj_reversed = q_reversed;
+						if(temp_quads[q].isOrienReversed(v) != 0)
+							adj_reversed = !adj_reversed;
+
+						stack.push_back(QuadInfo(adj_quad_i, adj_reversed));
+					}
+				}
+			}
+		}
+done:	1;
+
+
+
+
 		// Create vertices for each input triangle.  Each vertex should have a unique (position, uv).
 		VertToIndexMap new_vert_indices;
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
 			const RayMeshTriangle& tri_in = triangles_in[t];
+			const bool reverse = initial_poly_reversed[t];
 
 			for(unsigned int i = 0; i < 3; ++i) // For each edge
 			{
-				const Vec3f pos = vertices_in[tri_in.vertex_indices[i]].pos;
-				const Vec2f uv0 = getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[i], /*uv_set=*/0);
+				const unsigned int src_i = reverse ? 2 - i : i;
+				const Vec3f pos = vertices_in[tri_in.vertex_indices[src_i]].pos;
+				const Vec2f uv0 = getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[src_i], /*uv_set=*/0);
 
 				VertKey key;  key.pos = pos;  key.uv = uv0;
 				VertToIndexMap::iterator res = new_vert_indices.find(key);
@@ -649,10 +780,9 @@ void DisplacementUtils::subdivideAndDisplace(
 				if(res == new_vert_indices.end())
 				{
 					new_vert_index = (unsigned int)temp_verts.size();
-					temp_verts.push_back(DUVertex(pos, vertices_in[tri_in.vertex_indices[i]].normal));
-					//temp_verts.back().uv = uv;
+					temp_verts.push_back(DUVertex(pos, vertices_in[tri_in.vertex_indices[src_i]].normal));
 					for(uint32 z=0; z<num_uv_sets; ++z)
-						temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[i], z));
+						temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, tri_in.uv_indices[src_i], z));
 					
 					new_vert_indices.insert(std::make_pair(key, new_vert_index));
 				}
@@ -661,12 +791,22 @@ void DisplacementUtils::subdivideAndDisplace(
 				
 				temp_quads[t].vertex_indices[i] = new_vert_index;
 
-				// Mark the vertex as having a UV discontinuity.
-				if(temp_quads[t].edge_uv_discontinuity[i] || temp_quads[t].edge_uv_discontinuity[mod3(i + 2)])
+				// Mark the vertex as having a UV discontinuity.  NOTE: should these be using src_i?
+				if(temp_quads[t].isUVEdgeDiscontinuity(i) != 0 || temp_quads[t].isUVEdgeDiscontinuity(mod3(i + 2)) != 0)
 					temp_verts[new_vert_index].uv_discontinuity = true;
 			}
 
 			temp_quads[t].vertex_indices[3] = std::numeric_limits<uint32>::max();
+
+			// if we have reversed the vertex order, have to swap edge info as well.  Edge 0 and 1 swap, edge 2 stays the same.
+			if(reverse)
+			{
+				mySwap(temp_quads[t].adjacent_quad_index[0], temp_quads[t].adjacent_quad_index[1]); // Swap adjacent_quad_index
+				const int e0_uv_disc = temp_quads[t].getUVEdgeDiscontinuity(0); // Swap UVEdgeDiscontinuity
+				const int e1_uv_disc = temp_quads[t].getUVEdgeDiscontinuity(1);
+				temp_quads[t].setUVEdgeDiscontinuity(0, e1_uv_disc);
+				temp_quads[t].setUVEdgeDiscontinuity(1, e0_uv_disc);
+			}
 		}
 
 		// Create vertices for each input quad.  Each vertex should have a unique (position, uv).
@@ -674,11 +814,13 @@ void DisplacementUtils::subdivideAndDisplace(
 		{
 			const RayMeshQuad& quad_in = quads_in[q];
 			const int new_quad_index = (int)(q + triangles_in_size);
+			const bool reverse = initial_poly_reversed[new_quad_index];
 
 			for(unsigned int i = 0; i < 4; ++i) // For each edge
 			{
-				const Vec3f pos = vertices_in[quad_in.vertex_indices[i]].pos;
-				const Vec2f uv0 = getUVs(uvs_in, num_uv_sets, quad_in.uv_indices[i], /*uv_set=*/0);
+				const unsigned int src_i = reverse ? 3 - i : i;
+				const Vec3f pos = vertices_in[quad_in.vertex_indices[src_i]].pos;
+				const Vec2f uv0 = getUVs(uvs_in, num_uv_sets, quad_in.uv_indices[src_i], /*uv_set=*/0);
 
 				VertKey key;  key.pos = pos;  key.uv = uv0;
 				VertToIndexMap::iterator res = new_vert_indices.find(key);
@@ -686,10 +828,9 @@ void DisplacementUtils::subdivideAndDisplace(
 				if(res == new_vert_indices.end())
 				{
 					new_vert_index = (unsigned int)temp_verts.size();
-					temp_verts.push_back(DUVertex(pos, vertices_in[quad_in.vertex_indices[i]].normal));
-					//temp_verts.back().uv = uv;
+					temp_verts.push_back(DUVertex(pos, vertices_in[quad_in.vertex_indices[src_i]].normal));
 					for(uint32 z=0; z<num_uv_sets; ++z)
-						temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, quad_in.uv_indices[i], z));
+						temp_uvs.push_back(getUVs(uvs_in, num_uv_sets, quad_in.uv_indices[src_i], z));
 					
 					new_vert_indices.insert(std::make_pair(key, new_vert_index));
 				}
@@ -699,8 +840,18 @@ void DisplacementUtils::subdivideAndDisplace(
 				temp_quads[new_quad_index].vertex_indices[i] = new_vert_index;
 
 				// Mark the vertex as having a UV discontinuity.
-				if(temp_quads[new_quad_index].edge_uv_discontinuity[i] || temp_quads[new_quad_index].edge_uv_discontinuity[mod4(i + 3)])
+				if(temp_quads[new_quad_index].isUVEdgeDiscontinuity(i) != 0 || temp_quads[new_quad_index].isUVEdgeDiscontinuity(mod4(i + 3)) != 0)
 					temp_verts[new_vert_index].uv_discontinuity = true;
+			}
+
+			// If we have reversed the vertex order, have to swap edge info as well.  Edge 0 and 2 swap, edges 0 and 3 stay the same.
+			if(reverse)
+			{
+				mySwap(temp_quads[new_quad_index].adjacent_quad_index[0], temp_quads[new_quad_index].adjacent_quad_index[2]); // Swap adjacent_quad_index
+				const int e0_uv_disc = temp_quads[new_quad_index].getUVEdgeDiscontinuity(0); // Swap UVEdgeDiscontinuity
+				const int e2_uv_disc = temp_quads[new_quad_index].getUVEdgeDiscontinuity(2);
+				temp_quads[new_quad_index].setUVEdgeDiscontinuity(0, e2_uv_disc);
+				temp_quads[new_quad_index].setUVEdgeDiscontinuity(2, e0_uv_disc);
 			}
 		}
 
@@ -1944,7 +2095,6 @@ public:
 							verts_out[new_vi].normal = verts_in[vi].normal;
 							for(int z=0; z<num_uv_sets; ++z)
 								getUVs(uvs_out, num_uv_sets, new_vi, z) = getUVs(uvs_in, num_uv_sets, vi, z);
-								//verts_out[vi].uv  = verts_in[vi].uv;
 						}
 						else
 						{
@@ -1964,7 +2114,7 @@ public:
 						Vec3f clockwise_border_n_midpoint  = (verts_in[vi].normal + verts_in[vi1].normal) * 0.5f;
 						Vec2f clockwise_border_uv_midpoint[MAX_NUM_UV_SETS];
 						for(int z=0; z<num_uv_sets; ++z)
-							clockwise_border_uv_midpoint[z] = (getUVs(uvs_in, num_uv_sets, vi, z) + getUVs(uvs_in, num_uv_sets, vi1, z)) * 0.5f;//verts_in[vi].uv  + verts_in[vi1].uv ) * 0.5f;
+							clockwise_border_uv_midpoint[z] = (getUVs(uvs_in, num_uv_sets, vi, z) + getUVs(uvs_in, num_uv_sets, vi1, z)) * 0.5f;
 
 						// 'R = the average of the midpoints of all old edges incident on the old vertex point'
 						Vec3f R_sum = clockwise_border_midpoint;
@@ -2013,6 +2163,19 @@ public:
 							for(int z=0; z<num_uv_sets; ++z)
 								Q_sum_uvs[z] += uv_centroid[z];
 
+							/*
+							cur_q is the next quad from quad q when doing a clockwise traversal around v_i.
+							___________________________________________
+							v_c+2   c+1    v_c+1|v_i              v_i-1
+							                    |
+							                    |
+							         cur_q     c|v         quad q
+							                    |
+							                    |
+							                    |
+							_________________v_c|v_i+1_________________   
+							
+							*/
 							const int next_quad_i = cur_quad.adjacent_quad_index[cur_quad_sides == 4 ? mod4(c + 1) : mod3(c + 1)];
 
 							// Accumulate edge midpoint position from leading edge (unless we have done this edge already)
@@ -2047,7 +2210,7 @@ public:
 							Vec3f cntr_clockwise_border_n_midpoint  = (verts_in[vi].normal + verts_in[v_i_minus_1].normal) * 0.5f;
 							Vec2f cntr_clockwise_border_uv_midpoint[MAX_NUM_UV_SETS];
 							for(int z=0; z<num_uv_sets; ++z)
-								cntr_clockwise_border_uv_midpoint[z] = (getUVs(uvs_in, num_uv_sets, vi, z) + getUVs(uvs_in, num_uv_sets, v_i_minus_1, z)) * 0.5f;//(verts_in[vi].uv  + verts_in[v_i_minus_1].uv ) * 0.5f;
+								cntr_clockwise_border_uv_midpoint[z] = (getUVs(uvs_in, num_uv_sets, vi, z) + getUVs(uvs_in, num_uv_sets, v_i_minus_1, z)) * 0.5f;
 
 							num_adjacent_edges++; // Add the edge leading to vert v.
 							prev_quad_i = (int)q;
@@ -2062,6 +2225,20 @@ public:
 								for(int z=0; z<4; ++z)
 									if(cur_quad.adjacent_quad_index[z] == prev_quad_i)
 										c = z;
+
+								/*
+								Now cur_q is the next quad from quad q when doing a counter-clockwise traversal around v_i.
+								___________________________________________
+								v_i+1            v_i|v_c       c-1     v_c-1
+								                    |
+								                    |
+								        quad q     v|c         cur_q
+								                    |
+								                    |
+								                    |
+								_______________v_i-1|v_c+1_________________   
+
+								*/
 
 								const int far_edge_v_i  = cur_quad.vertex_indices[cur_quad_sides == 4 ? mod4(c + 3) : mod3(c + 2)];
 								const Vec3f edge_midpoint    = (verts_in[vi].pos + verts_in[far_edge_v_i].pos) * 0.5f;
@@ -2344,7 +2521,7 @@ void DisplacementUtils::linearSubdivision(
 						// If the adjacent quad has been processed first, and has already created the edge midpoint vertex, use it:
 						quad_in.edge_midpoint_vert_index[v] = adj_quad.edge_midpoint_vert_index[cur_c];
 						
-						if(quad_in.edge_uv_discontinuity[v])
+						if(quad_in.isUVEdgeDiscontinuity(v) != 0)
 						{
 							// Since there is a UV discontinuity along this edge, we can't use the midpoint UV from the adjacent quad, but have to create
 							// our own midpoint UV.
@@ -2366,7 +2543,7 @@ void DisplacementUtils::linearSubdivision(
 					verts_out[new_vert_index].adjacent_vert_0 = vi;
 					verts_out[new_vert_index].adjacent_vert_1 = vi1;
 					verts_out[new_vert_index].anchored = false;
-					verts_out[new_vert_index].uv_discontinuity = quad_in.edge_uv_discontinuity[v]; // Mark the vertex as having a UV discontinuity if it lies on an edge with a UV discontinuity.
+					verts_out[new_vert_index].uv_discontinuity = quad_in.isUVEdgeDiscontinuity(v) != 0; // Mark the vertex as having a UV discontinuity if it lies on an edge with a UV discontinuity.
 
 					quad_in.edge_midpoint_vert_index[v] = new_vert_index;
 
@@ -2379,6 +2556,21 @@ void DisplacementUtils::linearSubdivision(
 
 			if(num_sides == 3)
 			{
+				/*
+				Child quads and edges for a single original tri:
+				  |\
+				  |  \
+				  |    \
+				  |     1\
+				  |2  q2   \  1
+				  |     0 /  \
+				2 |___3__/ 2   \
+				  |   2  |      1\
+				  |3 q0 1|3  q1    \
+				  |___0__|____0______\
+				           0
+				*/
+
 				const uint32 midpoint_vert_indices[3] = { (uint32)quad_in.edge_midpoint_vert_index[0], (uint32)quad_in.edge_midpoint_vert_index[1], (uint32)quad_in.edge_midpoint_vert_index[2] };
 
 				//--------------- Create bottom left tri---------------
@@ -2386,60 +2578,74 @@ void DisplacementUtils::linearSubdivision(
 					new_corner_vert_i[0], midpoint_vert_indices[0], centroid_vert_index, midpoint_vert_indices[2],
 					quad_in.mat_index
 				);
-				quads_out[write_index + 0].edge_uv_discontinuity[0] = quad_in.edge_uv_discontinuity[0];
-				quads_out[write_index + 0].edge_uv_discontinuity[3] = quad_in.edge_uv_discontinuity[2];
+
+				// NOTE: because edge 2 gets mapped to edge 3, we can't use the AND trick here.
+				quads_out[write_index + 0].setUVEdgeDiscontinuity(0, quad_in.getUVEdgeDiscontinuity(0));
+				quads_out[write_index + 0].setUVEdgeDiscontinuity(3, quad_in.getUVEdgeDiscontinuity(2));
 
 				//--------------- Create bottom right tri ---------------
 				quads_out[write_index + 1] = DUQuad(
 					midpoint_vert_indices[0], new_corner_vert_i[1], midpoint_vert_indices[1], centroid_vert_index,
 					quad_in.mat_index
 				);
-				quads_out[write_index + 1].edge_uv_discontinuity[0] = quad_in.edge_uv_discontinuity[0];
-				quads_out[write_index + 1].edge_uv_discontinuity[1] = quad_in.edge_uv_discontinuity[1];
+				// AND with 0011b = 0x3
+				quads_out[write_index + 1].bitfield.v = quad_in.bitfield.v & 0x3;
 
 				//--------------- Create top tri ---------------
 				quads_out[write_index + 2] = DUQuad(
 					centroid_vert_index, midpoint_vert_indices[1], new_corner_vert_i[2], midpoint_vert_indices[2],
 					quad_in.mat_index
 				);
-				quads_out[write_index + 2].edge_uv_discontinuity[1] = quad_in.edge_uv_discontinuity[1];
-				quads_out[write_index + 2].edge_uv_discontinuity[2] = quad_in.edge_uv_discontinuity[2];
+				// AND with 0110b = 0x6
+				quads_out[write_index + 2].bitfield.v = quad_in.bitfield.v & 0x6;
 			}
 			else
 			{
 				const uint32 midpoint_vert_indices[4] = { (uint32)quad_in.edge_midpoint_vert_index[0], (uint32)quad_in.edge_midpoint_vert_index[1], (uint32)quad_in.edge_midpoint_vert_index[2], (uint32)quad_in.edge_midpoint_vert_index[3] };
+
+				/*
+				Child quads and edges for a single original quad:
+				  _________2_________
+				  |    2   |    2   |
+				  |3  q3  1|3  q2  1|
+				3 |____0___|____0___| 1
+				  |    2   |    2   |
+				  |3  q0  1|3  q1  1|
+				  |____0___|____0___|
+				           0
+				*/
 
 				//--------------- Create bottom left quad ---------------
 				quads_out[write_index + 0] = DUQuad(
 					new_corner_vert_i[0], midpoint_vert_indices[0], centroid_vert_index, midpoint_vert_indices[3],
 					quad_in.mat_index
 				);
-				quads_out[write_index + 0].edge_uv_discontinuity[0] = quad_in.edge_uv_discontinuity[0];
-				quads_out[write_index + 0].edge_uv_discontinuity[3] = quad_in.edge_uv_discontinuity[3];
+				// Copy UV edge discon. info for edges 0 and 3 - AND with 10011001b
+				quads_out[write_index + 0].bitfield.v = quad_in.bitfield.v & 153u;
 
 				//--------------- Create bottom right quad ---------------
 				quads_out[write_index + 1] = DUQuad(
 					midpoint_vert_indices[0], new_corner_vert_i[1], midpoint_vert_indices[1], centroid_vert_index,
 					quad_in.mat_index
 				);
-				quads_out[write_index + 1].edge_uv_discontinuity[0] = quad_in.edge_uv_discontinuity[0];
-				quads_out[write_index + 1].edge_uv_discontinuity[1] = quad_in.edge_uv_discontinuity[1];
+				// Copy UV edge discon. info for edges 0 and 1 - AND with 00110011b = 
+				quads_out[write_index + 1].bitfield.v = quad_in.bitfield.v & 51u;
 
 				//--------------- Create top right quad ---------------
 				quads_out[write_index + 2] = DUQuad(
 					centroid_vert_index, midpoint_vert_indices[1], new_corner_vert_i[2], midpoint_vert_indices[2],
 					quad_in.mat_index
 				);
-				quads_out[write_index + 2].edge_uv_discontinuity[1] = quad_in.edge_uv_discontinuity[1];
-				quads_out[write_index + 2].edge_uv_discontinuity[2] = quad_in.edge_uv_discontinuity[2];
+				// Copy UV edge discon. info for edges 1 and 2 - AND with 01100110b = 
+				quads_out[write_index + 2].bitfield.v = quad_in.bitfield.v & 102u;
 
 				//--------------- Create top left quad ---------------
 				quads_out[write_index + 3] = DUQuad(
 					midpoint_vert_indices[3], centroid_vert_index, midpoint_vert_indices[2], new_corner_vert_i[3],
 					quad_in.mat_index
 				);
-				quads_out[write_index + 3].edge_uv_discontinuity[2] = quad_in.edge_uv_discontinuity[2];
-				quads_out[write_index + 3].edge_uv_discontinuity[3] = quad_in.edge_uv_discontinuity[3];
+				// Copy UV edge discon. info for edges 2 and 3 - AND with 11001100b = 
+				quads_out[write_index + 3].bitfield.v = quad_in.bitfield.v & 204u;
 			}
 		}
 		else
@@ -2612,6 +2818,39 @@ void DisplacementUtils::linearSubdivision(
 			}
 			else
 			{
+
+				/*
+
+				Example for edge 1, where the adjacent quad for q is aq, and the winding order is the same:
+				
+				  v3_______2_______v2     v3_______2________v2
+				  |    2   |    2   |     |    2   |    2   |
+				  |3  q3  1|3  q2  1|     |3 aq3  1|3 aq2  1|
+				3 |____0___|____0___| 1 3 |____0___|____0___| 1
+				  |    2   |    2   |     |    2   |    2   |
+				  |3  q0  1|3  q1  1|     |3 aq0  1|3 aq1  1|
+				  |____0___|____0___|     |____0___|____0___|
+				  v0       0       v1     v0       0       v1
+
+				In this case q1 on edge 1 is adjcent to aq0, q2 on edge1 is adjacent to aq3.
+				the adj quad edge index is 3.
+				So q1 is adjacent to (3 + 1) % 4, q2 is adjacent to 3.
+
+
+				Case when adjacent quad (here along edge 1) is dead:
+				Result: child adjacent quad indices stay the same.
+
+				  _________2_________     _________2_________
+				  |    2   |    2   |     |                 |
+				  |3  q3  1|3  q2  1|     |                 |
+				3 |____0___|____0___| 1 3 |        aq       | 1
+				  |    2   |    2   |     |                 |
+				  |3  q0  1|3  q1  1|     |                 |
+				  |____0___|____0___|     |_________________|
+				           0                       0
+				*/
+
+
 				//--------------- bottom left quad ---------------
 				if(adj_quad_0 != -1) // If there is an adjacent quad along edge 0:
 				{
@@ -2765,7 +3004,7 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 		const Vec3f screen_right(24.f, 0, 0);
 		const Vec3f screen_up(0, 24.f, 0);
 
-		const int res = 4000;
+		const int res = 2000;
 		Bitmap map(res, res, 3, NULL);
 		map.zero();
 
@@ -2797,7 +3036,7 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 				else
 				{
 					Colour3f col = Colour3f(0.6f, 0.6f, 0.6f);
-					if(polygons.quads[q].edge_uv_discontinuity[v])
+					if(polygons.quads[q].isUVEdgeDiscontinuity(v) != 0)
 						col = Colour3f(0.0f, 0.6f, 0.2f);
 					//Drawing::drawLine(map, col, obToSS(screen_botleft, screen_right, screen_up, start) * (float)map.getWidth(), obToSS(screen_botleft, screen_right, screen_up, end)) * (float)map.getHeight());
 

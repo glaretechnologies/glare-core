@@ -11,6 +11,7 @@ File created by ClassTemplate on Thu May 15 20:31:26 2008
 #include "../maths/Matrix4f.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
+#include "../utils/BitField.h"
 class ThreadContext;
 class PrintOutput;
 struct DUScratchInfo;
@@ -59,17 +60,28 @@ public:
 		edge_midpoint_vert_index[2] = -1;
 		edge_midpoint_vert_index[3] = -1;
 
-		edge_uv_discontinuity[0] = false;
-		edge_uv_discontinuity[1] = false;
-		edge_uv_discontinuity[2] = false;
-		edge_uv_discontinuity[3] = false;
+		bitfield = BitField<uint32>(0);
 
 		dead = false;
 	}
 
-	inline bool isTri() const { return vertex_indices[3] == std::numeric_limits<uint32>::max(); }
-	inline bool isQuad() const { return vertex_indices[3] != std::numeric_limits<uint32>::max(); }
+	inline bool isTri()   const { return vertex_indices[3] == std::numeric_limits<uint32>::max(); }
+	inline bool isQuad()  const { return vertex_indices[3] != std::numeric_limits<uint32>::max(); }
 	inline int numSides() const { return vertex_indices[3] == std::numeric_limits<uint32>::max() ? 3 : 4; }
+
+
+	// Returns 0 if not, non-zero if there is a UV edge discontinuity.
+	inline uint32 isUVEdgeDiscontinuity(int edge) const { return bitfield.getBitMasked(edge); }
+	inline uint32 getUVEdgeDiscontinuity(int edge) const { return bitfield.getBit(edge); }
+
+	inline void setUVEdgeDiscontinuity(int edge, uint32 val) { assert(val == 0 || val == 1); bitfield.setBit(edge, val); }
+	inline void setUVEdgeDiscontinuityFalse(int edge) { bitfield.setBitToZero(edge); }
+	inline void setUVEdgeDiscontinuityTrue(int edge)  { bitfield.setBitToOne(edge); }
+
+
+	inline uint32 isOrienReversed(int edge) const { return bitfield.getBitMasked(4 + edge); } // Returns non-zero if orientation is reversed.
+	inline void setOrienReversedTrue(int edge) { bitfield.setBitToOne(4 + edge); }
+
 
 	uint32_t vertex_indices[4]; // Indices of the corner vertices.  If vertex_indices[3] == std::numeric_limits<uint32>::max(), then this is a triangle.
 	//16 bytes
@@ -82,7 +94,11 @@ public:
 
 	int child_quads_index; // Index of the first child (result of subdivision) quad of this quad.
 
-	bool edge_uv_discontinuity[4];
+	/*
+	bits 0-3: edge_uv_discontinuity for edge 0-3
+	bits 4-7: adjacent quad over edge has reversed orientation relative to this quad.
+	*/
+	BitField<uint32> bitfield;
 	
 	bool dead; // A dead quad is a quad that does not need to be subdivided any more.
 };
