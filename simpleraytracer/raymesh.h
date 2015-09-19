@@ -319,6 +319,9 @@ public:
 	std::vector<VertDerivs> vert_derivs;
 private:
 	unsigned int max_num_subdivisions;
+public:
+	unsigned int num_smoothings;
+private:
 	double subdivide_pixel_threshold;
 	double subdivide_curvature_threshold;
 	bool subdivision_smoothing;

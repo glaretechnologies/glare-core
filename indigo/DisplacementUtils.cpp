@@ -857,6 +857,24 @@ done:	1;
 
 
 
+		// Sanity check quads
+#ifndef NDEBUG
+		for(size_t q=0; q<temp_quads.size(); ++q)
+			for(int v=0; v<4; ++v)
+				if(temp_quads[q].adjacent_quad_index[v] != -1)
+				{
+					assert(temp_quads[q].adjacent_quad_index[v] >= 0 && temp_quads[q].adjacent_quad_index[v] < temp_quads.size());
+					const DUQuad& adj_quad = temp_quads[temp_quads[q].adjacent_quad_index[v]];
+
+					int c = -1;
+					for(int z=0; z<4; ++z)
+						if(adj_quad.adjacent_quad_index[z] == q)
+							c = z;
+					assert(c != -1);
+				}
+#endif
+
+
 		// Build adjacent_quad_index
 		//for(size_t q = 0; q < temp_quads.size(); ++q) // For each quad
 		//{
@@ -1262,6 +1280,7 @@ done:	1;
 		printVar(subdivision_smoothing);
 		printVar(options.displacement_error_threshold);
 		printVar(options.max_num_subdivisions);
+		printVar(options.num_smoothings);
 		printVar(options.view_dependent_subdivision);
 		printVar(options.pixel_height_at_dist_one);
 		printVar(options.subdivide_curvature_threshold);
@@ -1291,7 +1310,7 @@ done:	1;
 			*current_verts_and_uvs, // verts_and_uvs_in
 			num_uv_sets,
 			i, // num subdivs done
-			subdivision_smoothing,
+			subdivision_smoothing && (i < options.num_smoothings), // do subdivision smoothing
 			options,
 			scratch_info,
 			*next_polygons, // polygons_out
@@ -2221,10 +2240,11 @@ public:
 								const int cur_quad_sides = cur_quad.numSides();
 
 								// Find which edge of cur_quad is adjacent to prev_quad.
-								int c=0;
+								int c = -1;
 								for(int z=0; z<4; ++z)
 									if(cur_quad.adjacent_quad_index[z] == prev_quad_i)
 										c = z;
+								assert(c != -1);
 
 								/*
 								Now cur_q is the next quad from quad q when doing a counter-clockwise traversal around v_i.
@@ -2392,8 +2412,14 @@ void DisplacementUtils::linearSubdivision(
 
 	//========================== Work out if we are subdividing each quad ==========================
 	DISPLACEMENT_RESET_TIMER(timer);
-
-	task_manager.runParallelForTasks<BuildSubdividingQuadTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, quads_in.size());
+	if(subdivision_smoothing)
+	{
+		// Mark all quads as subdividing.
+		for(size_t q=0; q<quads_in_size; ++q)
+			subdividing_quad[q] = quads_in[q].numSides();
+	}
+	else
+		task_manager.runParallelForTasks<BuildSubdividingQuadTask, BuildSubdividingPrimitiveTaskClosure>(sub_prim_closure, 0, quads_in.size());
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   building subdividing_quad[]: " + timer.elapsedStringNPlaces(5)));
 
@@ -2681,6 +2707,8 @@ void DisplacementUtils::linearSubdivision(
 			quad_in.dead = true;
 			quad_in.child_quads_index = (int)write_index;
 			quads_out[write_index].dead = true;
+			for(int v=0; v<4; ++v)
+				quads_out[write_index].adjacent_quad_index[v] = -1;
 		}
 	}
 
@@ -2818,9 +2846,7 @@ void DisplacementUtils::linearSubdivision(
 			}
 			else
 			{
-
 				/*
-
 				Example for edge 1, where the adjacent quad for q is aq, and the winding order is the same:
 				
 				  v3_______2_______v2     v3_______2________v2
@@ -2856,7 +2882,7 @@ void DisplacementUtils::linearSubdivision(
 				{
 					DUQuad& adj_quad = quads_in[adj_quad_0]; // Adjacent quad along edge 0.
 					if(adj_quad.dead)
-						quads_out[write_index + 0].adjacent_quad_index[0] = adj_quad.child_quads_index;
+						quads_out[write_index + 0].adjacent_quad_index[0] = -1;//adj_quad.child_quads_index;
 					else
 					{
 						const int adj_c = c[0];// Which edge of the adjacent quad is adjacent to the current quad
@@ -2867,13 +2893,13 @@ void DisplacementUtils::linearSubdivision(
 				quads_out[write_index + 0].adjacent_quad_index[1] = (int)write_index + 1;
 				quads_out[write_index + 0].adjacent_quad_index[2] = (int)write_index + 3;
 				if(adj_quad_3 != -1) // If adjacent quad along edge 3:
-					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? quads_in[adj_quad_3].child_quads_index : quads_in[adj_quad_3].child_quads_index + c[3]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
+					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + c[3]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
 
 				//--------------- bottom right quad ---------------
 				if(adj_quad_0 != -1) // If adjacent quad along edge 0:
-					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].dead ? quads_in[adj_quad_0].child_quads_index : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
+					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].dead ? -1/*quads_in[adj_quad_0].child_quads_index*/ : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
+					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
 				quads_out[write_index + 1].adjacent_quad_index[2] = (int)write_index + 2;
 				quads_out[write_index + 1].adjacent_quad_index[3] = (int)write_index + 0;
 
@@ -2881,18 +2907,18 @@ void DisplacementUtils::linearSubdivision(
 				//--------------- top right quad ---------------
 				quads_out[write_index + 2].adjacent_quad_index[0] = (int)write_index + 1;
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
+					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
+					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
 				quads_out[write_index + 2].adjacent_quad_index[3] = (int)write_index + 3;
 
 				//--------------- top left quad ---------------
 				quads_out[write_index + 3].adjacent_quad_index[0] = (int)write_index + 0;
 				quads_out[write_index + 3].adjacent_quad_index[1] = (int)write_index + 2;
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 3].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + c[2]; // child_quads[mod4(c[2] + 0)];
+					quads_out[write_index + 3].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + c[2]; // child_quads[mod4(c[2] + 0)];
 				if(adj_quad_3 != -1) // If adjacent quad along edge 3:
-					quads_out[write_index + 3].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? quads_in[adj_quad_3].child_quads_index : quads_in[adj_quad_3].child_quads_index + (quads_in[adj_quad_3].isTri() ? mod3(c[3] + 1) : mod4(c[3] + 1)); // child_quads[mod4(c[3] + 1)];
+					quads_out[write_index + 3].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + (quads_in[adj_quad_3].isTri() ? mod3(c[3] + 1) : mod4(c[3] + 1)); // child_quads[mod4(c[3] + 1)];
 			
 				if(adj_quad_0 != -1 && quads_in[adj_quad_0].dead)
 					verts_out[quads_in[q].edge_midpoint_vert_index[0]].anchored = true; // Mark the edge midpoint vert along edge 0 as anchored.
@@ -2909,11 +2935,23 @@ void DisplacementUtils::linearSubdivision(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   Setting adjacent_quad_index: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	// TEMP: check quads_out.
+#ifndef NDEBUG
+	// Sanity check quads
 	for(size_t q=0; q<quads_out.size(); ++q)
 		for(int v=0; v<4; ++v)
-			assert(quads_out[q].adjacent_quad_index[v] == -1 || quads_out[q].adjacent_quad_index[v] >= 0);
+			if(quads_out[q].adjacent_quad_index[v] != -1)
+			{
+				assert(quads_out[q].adjacent_quad_index[v] >= 0 && quads_out[q].adjacent_quad_index[v] < quads_out.size());
+				const DUQuad& adj_quad = quads_out[quads_out[q].adjacent_quad_index[v]];
 
+				int c = -1;
+				for(int z=0; z<4; ++z)
+					if(adj_quad.adjacent_quad_index[z] == q)
+						c = z;
+				assert(c != -1);
+				//if(c == -1) conPrint("!!!!!!!!!!!!!!!!!!!!!!!! Error, quad q: " + toString(q) + ", adj quad i: " + toString(quads_out[q].adjacent_quad_index[v]));
+			}
+#endif
 	
 	//TEMP:
 	const size_t quad_mem = quads_out.size() * sizeof(DUQuad);
@@ -3004,7 +3042,7 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 		const Vec3f screen_right(24.f, 0, 0);
 		const Vec3f screen_up(0, 24.f, 0);
 
-		const int res = 2000;
+		const int res = 1000;
 		Bitmap map(res, res, 3, NULL);
 		map.zero();
 

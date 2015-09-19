@@ -594,6 +594,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				options.subdivide_curvature_threshold = subdivide_curvature_threshold;
 				options.displacement_error_threshold = displacement_error_threshold;
 				options.max_num_subdivisions = max_num_subdivisions;
+				options.num_smoothings = num_smoothings;
 				options.camera_clip_planes_os = camera_clip_planes_os;
 
 				DisplacementUtils::subdivideAndDisplace(

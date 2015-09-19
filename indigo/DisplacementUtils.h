@@ -136,6 +136,12 @@ public:
 	double displacement_error_threshold;
 	unsigned int max_num_subdivisions;
 
+	// This is the max number of smoothing/averaging passes. 
+	// While smoothing/averaging passes are being done, all quads are subdivided, e.g. adaptive subdivision is not done.
+	// This is because smoothing doesn't currently work with adaptive subdivision, as adjacency information can't be maintained
+	// properly for adaptively subdivided meshes.
+	unsigned int num_smoothings;
+
 	std::vector<Plane<float> > camera_clip_planes_os; // Camera clip planes in object space.
 };
 
