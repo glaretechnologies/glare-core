@@ -32,15 +32,17 @@ Code By Nicholas Chapman.
 #include "../utils/Timer.h"
 #include "../utils/Exception.h"
 #include "../indigo/DisplacementUtils.h"
-#include <fstream>
-#include <algorithm>
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/Numeric.h"
+#include "../utils/Task.h"
+#include "../utils/TaskManager.h"
 #include "../indigo/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
+#include <fstream>
+#include <algorithm>
 #include <unordered_map>
 
 
@@ -442,11 +444,8 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 	}
 	else
 	{
-		// Don't need to do merge_vertices_with_same_pos_and_normal any more, doing the equivalent in DisplacementUtils.
-		//if(merge_vertices_with_same_pos_and_normal)
-		//	mergeVerticesWithSamePosAndNormal(print_output, verbose);
-	
 		computeShadingNormalsAndMeanCurvature(
+			task_manager,
 			!vertex_shading_normals_provided, // update shading normals
 			print_output, verbose
 		);
@@ -716,6 +715,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		if(recompute_H)
 		{
 			computeShadingNormalsAndMeanCurvature(
+				task_manager,
 				false, // update shading normals - these should have been computed already.
 				print_output, verbose
 			);
@@ -1656,312 +1656,292 @@ inline static uint32 mod3(uint32 x)
 	return mod3_table[x];
 }
 
-inline static uint32 mod4(uint32 x)
+
+// Per-tri and quad information computed by ComputePolyInfoTask.
+struct PolyTempInfo
 {
-	return x & 0x3;
-}
+	Vec3f normal;
+	Vec3f dp_du;
+	Vec3f dp_dv;
+};
 
 
-void RayMesh::computeShadingNormalsAndMeanCurvature(bool update_shading_normals, PrintOutput& print_output, bool verbose)
+struct ComputePolyInfoTaskClosure
 {
-	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
-	Timer timer;
+	js::Vector<PolyTempInfo, 64>* poly_info;
+	RayMesh::VertexVectorType* vertices;
+	RayMesh::TriangleVectorType* triangles;
+	RayMesh::QuadVectorType* quads;
+	std::vector<Vec2f>* uvs;
+	int num_uv_sets;
+	std::vector<RayMesh::VertDerivs>* vert_derivs;
+	bool update_shading_normals;
+	std::vector<int>* vert_num_polys;
+	js::Vector<int, 16>* vert_polys;
+	js::Vector<int, 16>* vert_polys_offset;
+	size_t total_num_tris;
+};
 
-	// See 'Discrete Differential Geometry: An Applied Introduction'
-	// http://mesh.brown.edu/3DPGP-2007/pdfs/sg06-course01.pdf
-	// Chapter 3, Section 2.3 'Mean Curvature'.
-	// We will compute h_p.
-	// Note that we currently ignore quads when computing curvature.
-	std::vector<Vec3f> H(vertices.size(), Vec3f(0,0,0));
-	std::vector<Vec3f> A(vertices.size(), Vec3f(0,0,0));
 
-	vert_derivs = std::vector<VertDerivs>(vertices.size(), VertDerivs(Vec3f(0,0,0), Vec3f(0,0,0)));
-	std::vector<int> vert_sum(vertices.size(), 0);
+// Computes normal for quads, and normal, dp_du, and dp_dv for triangles.  Stores in closure.poly_info.
+class ComputePolyInfoTask : public Indigo::Task
+{
+public:
+	ComputePolyInfoTask(const ComputePolyInfoTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
 
-	if(update_shading_normals)
-		for(size_t i = 0; i < vertices.size(); ++i)
-			vertices[i].normal = Vec3f(0.f, 0.f, 0.f);
-
-	for(size_t t = 0; t < triangles.size(); ++t)
+	virtual void run(size_t thread_index)
 	{
-		const Vec3f tri_normal = triGeometricNormal(
+		js::Vector<PolyTempInfo, 64>& poly_info = *closure.poly_info;
+		const RayMesh::VertexVectorType& vertices = *closure.vertices;
+		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
+		const RayMesh::QuadVectorType& quads = *closure.quads;
+		const std::vector<Vec2f>& uvs = *closure.uvs;
+		const int num_uv_sets = closure.num_uv_sets;
+		const size_t total_num_tris = closure.total_num_tris;
+		
+		for(size_t t = begin; t < end; ++t)
+		{
+			if(t >= total_num_tris) // If this refers to a quad, not a tri:
+			{
+				poly_info[t].normal = triGeometricNormal(
+					vertices, 
+					quads[t - total_num_tris].vertex_indices[0], 
+					quads[t - total_num_tris].vertex_indices[1], 
+					quads[t - total_num_tris].vertex_indices[2]
+				);
+			}
+			else
+			{
+				const Vec3f tri_normal = triGeometricNormal(
 					vertices, 
 					triangles[t].vertex_indices[0], 
 					triangles[t].vertex_indices[1], 
 					triangles[t].vertex_indices[2]
 				);
 
-		if(update_shading_normals)
-		{
-			for(int i = 0; i < 3; ++i)
-				vertices[triangles[t].vertex_indices[i]].normal += tri_normal;
-		}
+				Vec3f dp_du(0.f);
+				Vec3f dp_dv(0.f);
+				if(num_uv_sets > 0)
+				{
+					// Compute dp/du, dp/dv for this triangle.
+					//const Vec3f N = tri_normal;
+					const Vec3f v0 = vertices[triangles[t].vertex_indices[0]].pos;
+					const Vec3f v1 = vertices[triangles[t].vertex_indices[1]].pos;
+					const Vec3f v2 = vertices[triangles[t].vertex_indices[2]].pos;
 
+					unsigned int v0idx = triangles[t].uv_indices[0] * num_uv_sets;
+					unsigned int v1idx = triangles[t].uv_indices[1] * num_uv_sets;
+					unsigned int v2idx = triangles[t].uv_indices[2] * num_uv_sets;
+
+					const Vec2f& v0tex = uvs[v0idx];
+					const Vec2f& v1tex = uvs[v1idx];
+					const Vec2f& v2tex = uvs[v2idx];
+
+					const Vec3f dp_dalpha = v1 - v0;
+					const Vec3f dp_dbeta  = v2 - v0;
+
+					// Compute d(alpha, beta) / d(u, v)
+					const float du_dalpha =  v1tex.x - v0tex.x;
+					const float dv_dalpha =  v1tex.y - v0tex.y;
+					const float du_dbeta =  v2tex.x - v0tex.x;
+					const float dv_dbeta =  v2tex.y - v0tex.y;
+
+					Matrix2f A(du_dalpha, du_dbeta, dv_dalpha, dv_dbeta);
+					Matrix2f A_inv = A.inverse();
+
+					// Compute dp/du and dp/dv
+					// dp/du = dp/dalpha dalpha/du + dp/dbeta dbeta/du
+					// dp/dv = dp/dalpha dalpha/dv + dp/dbeta dbeta/dv
+
+					dp_du = dp_dalpha*A_inv.elem(0, 0) + dp_dbeta*A_inv.elem(1, 0);
+					dp_dv = dp_dalpha*A_inv.elem(0, 1) + dp_dbeta*A_inv.elem(1, 1); 
+				}
+
+				poly_info[t].normal = tri_normal;
+				poly_info[t].dp_du = dp_du;
+				poly_info[t].dp_dv = dp_dv;
+			}
+		}
+	}
+
+	const ComputePolyInfoTaskClosure& closure;
+	size_t begin, end;
+};
+
+
+// Computes shading normal (if update_shading_normals is true), and dp_du, dp_dv and mean curvature (H) for vertices.
+class ComputeVertInfoTask : public Indigo::Task
+{
+public:
+	ComputeVertInfoTask(const ComputePolyInfoTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const js::Vector<PolyTempInfo, 64>& poly_info = *closure.poly_info;
+		RayMesh::VertexVectorType& vertices = *closure.vertices;
+		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
+		const int num_uv_sets = closure.num_uv_sets;
+		std::vector<RayMesh::VertDerivs>& vert_derivs = *closure.vert_derivs;
+		const int update_shading_normals = closure.update_shading_normals;
+		const std::vector<int>& vert_num_polys = *closure.vert_num_polys;
+		const js::Vector<int, 16>& vert_polys = *closure.vert_polys;
+		const js::Vector<int, 16>& vert_polys_offset = *closure.vert_polys_offset;
+		const size_t total_num_tris = closure.total_num_tris;
+
+		for(size_t v = begin; v < end; ++v)
+		{
+			const int num_polys = vert_num_polys[v];
+			const int offset = vert_polys_offset[v];
+			
+			Vec3f H(0.f);
+			Vec3f A(0.f);
+			Vec3f dp_du(0.f);
+			Vec3f dp_dv(0.f);
+			Vec3f n(0.f);
+			for(int i=0; i<num_polys; ++i)
+			{
+				const int t = vert_polys[offset + i];
+				if(t < total_num_tris) // Only compute dp/du for tris, not quads
+				{
+					int c;
+					if(triangles[t].vertex_indices[0] == v)
+						c = 0;
+					else if(triangles[t].vertex_indices[1] == v)
+						c = 1;
+					else
+						c = 2;
+					assert(triangles[t].vertex_indices[c] == v);
+
+					// Get positions of vertices in triangle
+					const Vec3f& v_i_1 = vertices[triangles[t].vertex_indices[mod3(c + 1)]].pos;
+					const Vec3f& v_i_2 = vertices[triangles[t].vertex_indices[mod3(c + 2)]].pos;
+
+					const Vec3f e2 = v_i_2 - v_i_1;
+
+					// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
+					assert(poly_info[t].normal.isUnitLength()); 
+					H += crossProduct(poly_info[t].normal, e2);
+					A += crossProduct(v_i_1, v_i_2);
+
+					if(num_uv_sets > 0)
+					{
+						dp_du += poly_info[t].dp_du;
+						dp_dv += poly_info[t].dp_dv;
+					}
+				}
+
+				n += poly_info[t].normal;
+			}
+
+			if(update_shading_normals)
+				vertices[v].normal = normalise(n);
+
+			float H_p_len_dot_N = -0.25f * dot(H, vertices[v].normal);
+			float A_p_len = (1.0f / 6.0f) * A.length();
+			vertices[v].H = H_p_len_dot_N / A_p_len;
+
+			if(num_polys > 0)
+			{
+				dp_du /= (float)num_polys;
+				dp_dv /= (float)num_polys;
+			}
+			vert_derivs[v].dp_du = dp_du;
+			vert_derivs[v].dp_dv = dp_dv;
+		}
+	}
+
+	const ComputePolyInfoTaskClosure& closure;
+	size_t begin, end;
+};
+
+
+// Compute shading normals. (if update_shading_normals is true)
+// Computes mesh mean curvature.
+// Computes dp/du and dp/dv. (used for bump mapping).
+// NOTE: If we can work out when bump mapping and mean curvature is needed for each mesh, we can maybe skip calling this method altogether in some cases.
+void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose)
+{
+	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
+	Timer timer;
+
+	// See 'Discrete Differential Geometry: An Applied Introduction'
+	// http://mesh.brown.edu/DGP/pdfs/sg06-course01.pdf
+	// Chapter 3, Section 2.3 'Mean Curvature'.
+	// We will compute h_p.
+	// Note that we currently ignore quads when computing curvature.  This is because all quads should have been converted to triangles before this method is called for the final time for each mesh.
+
+	const size_t vertices_size  = vertices.size();
+	const size_t triangles_size = triangles.size();
+	const size_t quads_size     = quads.size();
+
+	//Timer timer2;
+
+	// Do a pass to count number of polygons adjacent to each vert.
+	std::vector<int> vert_num_polys(vertices_size, 0);
+	for(size_t t=0; t<triangles_size; ++t)
+		for(int i = 0; i < 3; ++i)
+			vert_num_polys[triangles[t].vertex_indices[i]]++;
+	for(size_t t=0; t<quads_size; ++t)
+		for(int i = 0; i < 4; ++i)
+			vert_num_polys[quads[t].vertex_indices[i]]++;
+
+	//conPrint("compute vert_num_tris elapsed: " + timer2.elapsedString());
+
+	// Now do a counting sort, sorting the tri indices for each vertex by vertex index.
+	// Compute the prefix sum for vert_num_tris, put it in vert_tris_offset:
+	js::Vector<int, 16> vert_polys_offset(vertices_size);
+	js::Vector<int, 16> vert_polys_offset_temp(vertices_size); // offsets that will be incremented later.
+	int offset = 0;
+	for(size_t v=0; v<vertices_size; ++v)
+	{
+		vert_polys_offset[v] = offset;
+		vert_polys_offset_temp[v] = offset;
+		offset += vert_num_polys[v];
+	}
+
+	// Now iterate over the tris again and put the indices into the correct sorted place.
+	js::Vector<int, 16> vert_polys(offset);
+	for(size_t t=0; t<triangles_size; ++t)
 		for(int i = 0; i < 3; ++i)
 		{
-			// Get positions of vertices in triangle
-			const Vec3f& v_i_1 = vertices[triangles[t].vertex_indices[mod3(i + 1)]].pos;
-			const Vec3f& v_i_2 = vertices[triangles[t].vertex_indices[mod3(i + 2)]].pos;
-
-			const Vec3f e2 = v_i_2 - v_i_1;
-
-			// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
-			assert(tri_normal.isUnitLength()); 
-			H[triangles[t].vertex_indices[i]] += crossProduct(tri_normal, e2);
-			A[triangles[t].vertex_indices[i]] += crossProduct(v_i_1, v_i_2);
+			const int vi = triangles[t].vertex_indices[i];
+			const int offset = vert_polys_offset_temp[vi]++;
+			vert_polys[offset] = (int)t;
 		}
-
-		if(num_uv_sets > 0)
+	for(size_t q=0; q<quads_size; ++q)
+		for(int i = 0; i < 4; ++i)
 		{
-			// Compute dp/du, dp/dv for this triangle.
-			//const Vec3f N = tri_normal;
-			const Vec3f v0 = vertices[triangles[t].vertex_indices[0]].pos;
-			const Vec3f v1 = vertices[triangles[t].vertex_indices[1]].pos;
-			const Vec3f v2 = vertices[triangles[t].vertex_indices[2]].pos;
-
-			unsigned int v0idx = triangles[t].uv_indices[0] * num_uv_sets;
-			unsigned int v1idx = triangles[t].uv_indices[1] * num_uv_sets;
-			unsigned int v2idx = triangles[t].uv_indices[2] * num_uv_sets;
-
-			const Vec2f& v0tex = this->uvs[v0idx];
-			const Vec2f& v1tex = this->uvs[v1idx];
-			const Vec2f& v2tex = this->uvs[v2idx];
-
-			const Vec3f dp_dalpha = v1 - v0;
-			const Vec3f dp_dbeta  = v2 - v0;
-
-			// Compute d(alpha, beta) / d(u, v)
-			const Real du_dalpha =  v1tex.x - v0tex.x;
-			const Real dv_dalpha =  v1tex.y - v0tex.y;
-			const Real du_dbeta =  v2tex.x - v0tex.x;
-			const Real dv_dbeta =  v2tex.y - v0tex.y;
-
-			Matrix2f A(du_dalpha, du_dbeta, dv_dalpha, dv_dbeta);
-			Matrix2f A_inv = A.inverse();
-
-			// Compute dp/du and dp/dv
-			// dp/du = dp/dalpha dalpha/du + dp/dbeta dbeta/du
-			// dp/dv = dp/dalpha dalpha/dv + dp/dbeta dbeta/dv
-
-			Vec3f dp_du = dp_dalpha*A_inv.elem(0, 0) + dp_dbeta*A_inv.elem(1, 0);
-			Vec3f dp_dv = dp_dalpha*A_inv.elem(0, 1) + dp_dbeta*A_inv.elem(1, 1); 
-
-			//const float A = getTriAraea(v0, v1, v2);
-			//const Vec3f grad_u = -(1 / (2*A)) * ::crossProduct(N, (v2 - v1)*v0tex.x + (v0 - v2)*v1tex.x + (v1 - v0)*v2tex.x);
-			//const Vec3f grad_v = -(1 / (2*A)) * ::crossProduct(N, (v2 - v1)*v0tex.y + (v0 - v2)*v1tex.y + (v1 - v0)*v2tex.y);
-			
-			for(int i = 0; i < 3; ++i)
-			{
-				vert_derivs[triangles[t].vertex_indices[i]].dp_du += dp_du;
-				vert_derivs[triangles[t].vertex_indices[i]].dp_dv += dp_dv;
-				vert_sum[triangles[t].vertex_indices[i]]++;
-			}
+			const int vi = quads[q].vertex_indices[i];
+			const int offset = vert_polys_offset_temp[vi]++;
+			vert_polys[offset] = (int)(q + triangles_size);
 		}
-	}
+	//conPrint("timer 2 elapsed: " + timer2.elapsedString());
 
-	if(update_shading_normals)
-	{
-		for(size_t q = 0; q < quads.size(); ++q)
-		{
-			const Vec3f normal = triGeometricNormal(
-				vertices, 
-				quads[q].vertex_indices[0], 
-				quads[q].vertex_indices[1], 
-				quads[q].vertex_indices[2]
-			);
+	vert_derivs.resize(vertices_size);
 
-			for(int i = 0; i < 4; ++i)
-				vertices[quads[q].vertex_indices[i]].normal += normal;
-		}
-	}
+	js::Vector<PolyTempInfo, 64> poly_info(triangles_size + quads_size);
 
-	for(size_t i = 0; i < vertices.size(); ++i)
-	{
-		if(update_shading_normals)
-			vertices[i].normal.normalise();
+	ComputePolyInfoTaskClosure closure;
+	closure.poly_info = &poly_info;
+	closure.vertices = &vertices;
+	closure.triangles = &triangles;
+	closure.quads = &quads;
+	closure.uvs = &uvs;
+	closure.num_uv_sets = num_uv_sets;
+	closure.vert_derivs = &vert_derivs;
+	closure.update_shading_normals = update_shading_normals;
+	closure.vert_num_polys = &vert_num_polys;
+	closure.vert_polys = &vert_polys;
+	closure.vert_polys_offset = &vert_polys_offset;
+	closure.total_num_tris = triangles_size;
+	
+	// Compute poly_info
+	task_manager.runParallelForTasks<ComputePolyInfoTask, ComputePolyInfoTaskClosure>(closure, 0, triangles_size + quads_size);
 
-		float H_p_len_dot_N = -0.25f * dot(H[i], vertices[i].normal);
-		float A_p_len = (1.0f / 6.0f) * A[i].length();
-
-		vertices[i].H = H_p_len_dot_N / A_p_len;
-
-		if(vert_sum[i] > 0)
-		{
-			vert_derivs[i].dp_du /= (float)vert_sum[i];
-			vert_derivs[i].dp_dv /= (float)vert_sum[i];
-		}
-
-		//conPrint("vert " + toString(i) + " normal: " + vertices[i].normal.toString());
-		//conPrint("vert " + toString(i) + " dp/du: " + vert_derivs[i].dp_du.toString());
-		//conPrint("vert " + toString(i) + " dp/dv: " + vert_derivs[i].dp_dv.toString() + "\n");
-	}
+	// Compute vertex information
+	task_manager.runParallelForTasks<ComputeVertInfoTask, ComputePolyInfoTaskClosure>(closure, 0, vertices_size);
 
 	if(verbose) print_output.print("\tElapsed: " + timer.elapsedString());
-}
-
-
-// Hash function for RayMeshVertex
-class RayMeshVertexHash
-{
-public:
-	inline size_t operator()(const RayMeshVertex& v) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
-		float sum = v.pos.x + v.pos.y + v.pos.z;
-		uint32 i;
-		std::memcpy(&i, &sum, 4);
-		return i;
-	}
-};
-
-
-// Hash table from RayMeshVertex to new vertex index.
-typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
-
-
-void RayMesh::mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose)
-{
-	Timer timer;
-	if(verbose)
-	{
-		print_output.print("Merging vertices for mesh '" + this->getName() + "'...");
-		print_output.print("\tInitial num vertices: " + toString((unsigned int)vertices.size()));
-	}
-
-	VertToIndexMap new_vert_indices;
-	RayMesh::VertexVectorType newverts;
-	newverts.reserve(vertices.size());
-	
-	for(size_t t = 0; t < triangles.size(); ++t)
-	{
-		for(unsigned int i = 0; i < 3; ++i)
-		{
-			const RayMeshVertex& old_vert = vertices[triangles[t].vertex_indices[i]]; // Get old vertex
-
-			unsigned int new_vert_index;
-
-			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
-
-			if(result == new_vert_indices.end()) // If not found:
-			{
-				// Add new vertex index to map with old vertex as key.
-				new_vert_index = (unsigned int)newverts.size();
-				newverts.push_back(old_vert);
-				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
-			}
-			else
-				new_vert_index = (*result).second; // Use existing vertex index.
-
-			triangles[t].vertex_indices[i] = new_vert_index;
-		}
-	}
-
-	for(size_t t = 0; t < quads.size(); ++t)
-	{
-		for(unsigned int i = 0; i < 4; ++i)
-		{
-			const RayMeshVertex& old_vert = vertices[quads[t].vertex_indices[i]];
-
-			unsigned int new_vert_index;
-
-			const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert);
-
-			if(result == new_vert_indices.end())
-			{
-				new_vert_index = (unsigned int)newverts.size();
-				newverts.push_back(old_vert);
-				new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
-			}
-			else
-				new_vert_index = (*result).second;
-
-			quads[t].vertex_indices[i] = new_vert_index;
-		}
-	}
-
-	vertices = newverts;
-
-	if(verbose)
-	{
-		print_output.print("\tNew num vertices: " + toString((unsigned int)vertices.size()) + "");
-		print_output.print("\tDone.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
-	}
-}
-
-
-// Hash function for UV
-class UVHash
-{
-public:
-	inline size_t operator()(const Vec2f& v) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
-
-		union A
-		{
-			uint32 i;
-			float x;
-		};
-
-		A a;
-		a.x = v.x + v.y;
-
-		return (size_t)a.i;
-	}
-};
-
-
-typedef std::unordered_map<Vec2f, unsigned int, UVHash> UVToIndexMap;
-
-
-void RayMesh::mergeUVs(PrintOutput& print_output, bool verbose)
-{
-	assert(quads.size() == 0);
-
-	// NOTE: This code only works in the case of num_uv_sets == 1 currently.
-	if(num_uv_sets != 1)
-		return;
-
-	Timer timer;
-	if(verbose)
-	{
-		print_output.print("Merging uvs for mesh '" + this->getName() + "'...");
-		print_output.print("\tInitial num uvs: " + toString((unsigned int)uvs.size()));
-	}
-
-	std::vector<Vec2f> new_uvs;
-
-	UVToIndexMap new_uv_indices;
-
-	for(size_t t = 0; t < triangles.size(); ++t)
-	{
-		for(unsigned int i = 0; i < 3; ++i)
-		{
-			const Vec2f& old_uv = uvs[triangles[t].uv_indices[i]];
-
-			unsigned int new_index;
-
-			const UVToIndexMap::const_iterator result = new_uv_indices.find(old_uv);
-
-			if(result == new_uv_indices.end())
-			{
-				new_index = (unsigned int)new_uvs.size();
-				new_uvs.push_back(old_uv);
-				new_uv_indices.insert(std::make_pair(old_uv, new_index));
-			}
-			else
-				new_index = (*result).second;
-
-			triangles[t].uv_indices[i] = new_index;
-		}
-	}
-
-	uvs = new_uvs;
-
-
-	if(verbose)
-	{
-		print_output.print("\tNew num uvs: " + toString((unsigned int)uvs.size()) + "");
-		print_output.print("\tDone.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
-	}
 }
 
 

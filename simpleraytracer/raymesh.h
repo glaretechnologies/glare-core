@@ -194,7 +194,7 @@ public:
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
-		bool merge_vertices_with_same_pos_and_normal = false,
+		bool merge_vertices_with_same_pos_and_normal = false, // Not used any more.
 		bool view_dependent_subdivision = false,
 		double displacement_error_threshold = 0.0
 		);
@@ -282,9 +282,7 @@ public:
 	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
 
 private:
-	void computeShadingNormalsAndMeanCurvature(bool update_shading_normals, PrintOutput& print_output, bool verbose);
-	void mergeVerticesWithSamePosAndNormal(PrintOutput& print_output, bool verbose);
-	void mergeUVs(PrintOutput& print_output, bool verbose);
+	void computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose);
 	void doInitAsEmitter();
 	bool built() const { return tritree != NULL; }
 
