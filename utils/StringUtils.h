@@ -63,6 +63,9 @@ const std::string doubleToStringScientific(double d, int num_decimal_places = 5)
 // Returns in form x.f or x.yf, e.g instead of returning 2 it returns 2.f
 const std::string floatLiteralString(float x);
 
+// Returns in form x. or x.y, e.g instead of returning 2 it returns 2.
+const std::string doubleLiteralString(double x);
+
 
 // Overloaded toString functions:
 inline const std::string toString(double f)

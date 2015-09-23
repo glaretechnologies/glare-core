@@ -72,6 +72,8 @@ public:
 	inline char next() const { assert(currentpos + 1 < textsize); return text[currentpos + 1]; }
 	inline bool nextIsChar(char c) const { return nextIsNotEOF() && next() == c; }
 
+	inline char prev() const { assert(currentpos >= 1); return text[currentpos - 1]; }
+
 	inline const char* getText() const { return text; }
 	inline unsigned int getTextSize() const { return textsize; }
 

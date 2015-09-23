@@ -385,12 +385,34 @@ const std::string floatLiteralString(float x)
 
 	// Make sure we have a 'f' suffix on our float literals.
 	if(StringUtils::containsChar(s, 'e')) // Scientific notation: something like "1e-30".
-		return s + "f"; // e.g '2.3' -> '2.3f'
+		return s + "f"; // e.g '2.3e8' -> '2.3e8f'
 
 	if(StringUtils::containsChar(s, '.'))
 		return s + "f"; // e.g '2.3' -> '2.3f'
 	else
 		return s + ".f"; // e.g. '2'  ->  '2.f'
+}
+
+
+// Returns in form x. or x.y, e.g instead of returning 2 it returns 2.
+const std::string doubleLiteralString(double x)
+{
+	if(isNAN(x))
+		return "NaN";
+	else if(x == std::numeric_limits<double>::infinity())
+		return "Inf";
+	else if(x == -std::numeric_limits<double>::infinity())
+		return "-Inf";
+
+	const std::string s = doubleToString(x);
+
+	if(StringUtils::containsChar(s, 'e')) // Scientific notation: something like "1e-30".
+		return s;
+
+	if(!StringUtils::containsChar(s, '.'))
+		return s + "."; // e.g. '2'  ->  '2.'
+	else
+		return s;
 }
 
 
@@ -1866,6 +1888,19 @@ void StringUtils::test()
 	testAssert(floatLiteralString(std::numeric_limits<float>::quiet_NaN()) == "NaN");
 
 	testAssert(floatLiteralString(1.0e-30f) == "1.0e-30f" || floatLiteralString(1.0e-30f) == "1.e-30f" || floatLiteralString(1.0e-30f) == "1e-30f");
+
+	//===================================== test doubleLiteralString() ==================================
+	testAssert(doubleLiteralString(1.2) == "1.2");
+	testAssert(doubleLiteralString(1.) == "1.");
+	testAssert(doubleLiteralString(2.0) == "2.");
+	testAssert(doubleLiteralString(std::numeric_limits<double>::infinity()) == "Inf");
+	testAssert(doubleLiteralString(-std::numeric_limits<double>::infinity()) == "-Inf");
+	testAssert(doubleLiteralString(std::numeric_limits<double>::quiet_NaN()) == "NaN");
+
+	{
+		const std::string s = doubleLiteralString(1.0e-30);
+		testAssert(s == "1.0e-30" || s == "1.e-30" || s == "1e-30");
+	}
 
 	/*const int N = 100000;
 	{
