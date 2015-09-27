@@ -1,7 +1,7 @@
 /*=====================================================================
 mysocket.cpp
 ------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2015 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 =====================================================================*/
 #include "mysocket.h"
@@ -105,6 +105,22 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 		closeSocket(sockethandle);
 		throw e;
 	}
+}
+
+
+MySocket::MySocket(SOCKETHANDLE_TYPE sockethandle_)
+{
+	assert(Networking::isInited());
+
+	sockethandle = sockethandle_;
+
+	otherend_port = -1;
+	connected = false;
+	do_graceful_disconnect = true;
+
+	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
+	// See http://support.microsoft.com/kb/201213 for more details on the bug.
+	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
 }
 
 
@@ -310,8 +326,7 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
 	//-----------------------------------------------------------------
-	MySocketRef new_socket = new MySocket();
-	new_socket->sockethandle = newsockethandle;
+	MySocketRef new_socket = new MySocket(newsockethandle);
 
 	//-----------------------------------------------------------------
 	// Get other end ip and port

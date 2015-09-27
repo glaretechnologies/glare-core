@@ -1,7 +1,7 @@
 /*=====================================================================
 mysocket.h
 ----------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2015 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 =====================================================================*/
 #pragma once
@@ -49,8 +49,15 @@ Does both client and server sockets.
 class MySocket : public InStream, public OutStream, public ThreadSafeRefCounted
 {
 public:
+#if defined(_WIN32)
+	typedef SOCKET SOCKETHANDLE_TYPE;
+#else
+	typedef int SOCKETHANDLE_TYPE;
+#endif
+
 	MySocket(const std::string& hostname, int port); // Client connect via DNS lookup
 	MySocket(const IPAddress& ipaddress, int port); // Client connect
+	MySocket(SOCKETHANDLE_TYPE sockethandle_); // For sockets returned from acceptConnection().
 	MySocket();
 
 	~MySocket();
@@ -144,23 +151,13 @@ private:
 	MySocket& operator = (const MySocket& other);
 
 	void shutdown();
-
-
 	void init();
-
-public:
-#if defined(_WIN32)
-	typedef SOCKET SOCKETHANDLE_TYPE;
-	SOCKETHANDLE_TYPE sockethandle;
-#else
-	typedef int SOCKETHANDLE_TYPE;
-	SOCKETHANDLE_TYPE sockethandle;
-#endif
-private:
 	SOCKETHANDLE_TYPE nullSocketHandle() const;
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
+
+	SOCKETHANDLE_TYPE sockethandle;
 
 	IPAddress otherend_ipaddr;
 	int otherend_port;
