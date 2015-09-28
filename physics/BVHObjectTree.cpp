@@ -304,7 +304,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 
 	builder.build(
 		task_manager,
-		aabbs.empty() ? NULL : &aabbs[0],
+		aabbs.data(),
 		(int)objects.size(),
 		print_output,
 		verbose,

@@ -1941,7 +1941,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 	// Compute vertex information
 	task_manager.runParallelForTasks<ComputeVertInfoTask, ComputePolyInfoTaskClosure>(closure, 0, vertices_size);
 
-	if(verbose) print_output.print("\tElapsed: " + timer.elapsedString());
+	if(verbose) print_output.print("\tElapsed: " + timer.elapsedStringNPlaces(3));
 }
 
 
