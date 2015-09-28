@@ -351,7 +351,7 @@ void ObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_out
 	print_output.print("\tnum_under_thresh_leafs: " + toString(stats.num_under_thresh_leafs));*/
 
 	if(verbose) print_output.print("Finished building tree.  (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
-
+	//conPrint("ObjectTree::build done  (Elapsed: " + timer.elapsedStringNPlaces(4) + ")");
 }
 
 class SortedBoundInfoLowerPred

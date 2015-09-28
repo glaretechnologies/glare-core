@@ -9,10 +9,12 @@ Generated at 2012-11-10 19:47:32 +0000
 
 #include "BVHBuilder.h"
 #include "../indigo/object.h"
+#include "../indigo/PrintOutput.h"
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4i.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/Timer.h"
 #include <limits>
 
 
@@ -28,31 +30,24 @@ BVHObjectTree::~BVHObjectTree()
 }
 
 
-void BVHObjectTree::insertObject(const Object* ob)
-{
-	objects.push_back(ob);
-}
-
-
 // NOTE: Uses SEE3 instruction _mm_shuffle_epi8.
 static INDIGO_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& shuf) { return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a.v), shuf.v)); }
 static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b ) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v),b.v)); }
 
 
+// Uses some code and ideas from embree\rtcore\bvh2\bvh2_traverser.cpp
 BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
-		//const Object* last_object_hit,
-		//unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
 	HitInfo ob_hit_info;
-	float closest_dist = std::numeric_limits<float>::infinity();
+	float closest_dist = ray_length;
 
 	int stack[64];
 	float dist_stack[64];
 	int stack_top = 0;
 	stack[0] = root_node_index; // Push root node onto stack
-	dist_stack[0] = std::numeric_limits<float>::infinity(); // Near distances to nodes on the stack.
+	dist_stack[0] = -std::numeric_limits<float>::infinity(); // Near distances to nodes on the stack.
 
 	const Vec4f r_x(ray.startPos().x[0]); // (r_x, r_x, r_x, r_x)
 	const Vec4f r_y(ray.startPos().x[1]); // (r_y, r_y, r_y, r_y)
@@ -64,7 +59,7 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, Thr
 	const Vec4f rdir_z = vec4XOR(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
-	Vec4f near_far(ray.minT(), ray.minT(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity());
+	Vec4f near_far(ray.minT(), ray.minT(), -ray_length, -ray_length);
 
 	const Vec4i identity(	_mm_set_epi8(15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 0));
 	const Vec4i swap(		_mm_set_epi8( 7,  6,  5,  4,  3,  2,  1,  0, 15, 14, 13, 12, 11, 10,  9, 8));
@@ -288,7 +283,8 @@ public:
 
 void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose)
 {
-	conPrint("BVHObjectTree::build");
+	// conPrint("BVHObjectTree::build");
+	Timer timer;
 
 	leaf_objects.reserve(objects.size());
 
@@ -315,7 +311,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 		callback
 	);
 
-	printVar(builder.num_maxdepth_leaves);
+	/*printVar(builder.num_maxdepth_leaves);
 	printVar(builder.num_under_thresh_leaves);
 	printVar(builder.num_cheaper_nosplit_leaves);
 	printVar(builder.num_could_not_split_leaves);
@@ -325,10 +321,11 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 	printVar(builder.max_leaf_depth);
 	printVar(builder.num_interior_nodes);
 	printVar(builder.num_arbitrary_split_leaves);
-	conPrint("av leaf depth: " + toString((float)builder.leaf_depth_sum / builder.num_leaves));
+	conPrint("av leaf depth: " + toString((float)builder.leaf_depth_sum / builder.num_leaves));*/
 
 	// Don't need objects array any more.
 	objects.clearAndFreeMem();
 
-	conPrint("BVHObjectTree::build done");
+	//conPrint("BVHObjectTree::build done  (Elapsed: " + timer.elapsedStringNPlaces(4) + ")");
+	print_output.print("Object tree build done. (Time Taken: " + timer.elapsedStringNPlaces(3) + ")");
 }

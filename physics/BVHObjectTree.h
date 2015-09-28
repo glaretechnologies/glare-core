@@ -47,17 +47,15 @@ public:
 	typedef float Real;
 
 
-	void insertObject(const Object* object);
+	//void insertObject(const Object* object);
 	
 
 	Real traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
-		//const Object* last_object_hit,
-		//unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	void build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose);
 
-private:
+//private:
 	int32 root_node_index;
 	js::Vector<const Object*, 16> objects;
 	js::Vector<BVHObjectTreeNode, 64> nodes;
