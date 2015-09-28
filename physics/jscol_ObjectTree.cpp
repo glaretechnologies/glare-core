@@ -256,7 +256,7 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 }
 
 
-void ObjectTree::build(PrintOutput& print_output, bool verbose)
+void ObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose)
 {
 	Timer timer;
 

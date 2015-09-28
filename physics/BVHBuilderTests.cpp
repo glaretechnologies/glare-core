@@ -10,11 +10,12 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "BVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Vector.h"
 #include "../utils/MTwister.h"
-#include "../indigo/StandardPrintOutput.h"
+#include "../utils/TaskManager.h"
 
 
 #if BUILD_TESTS
@@ -61,13 +62,15 @@ void test()
 
 	StandardPrintOutput print_output;
 	MTwister rng(1);
+	Indigo::TaskManager task_manager(4);
 
 	//==================== Test building a BVH with zero objects ====================
 	{
 		const int max_num_leaf_objects = 16;
 		BVHBuilder builder(1, max_num_leaf_objects, 1.0f);
 		BVHBuilderTestsCallBack callback(max_num_leaf_objects);
-		builder.build(NULL, // aabbs
+		builder.build(task_manager, 
+			NULL, // aabbs
 			0, // num objects
 			print_output, 
 			false, // verbose
@@ -89,7 +92,8 @@ void test()
 		const int max_num_leaf_objects = 16;
 		BVHBuilder builder(1, max_num_leaf_objects, 1.0f);
 		BVHBuilderTestsCallBack callback(max_num_leaf_objects);
-		builder.build(&aabbs[0], // aabbs
+		builder.build(task_manager,
+			&aabbs[0], // aabbs
 			i, // num objects
 			print_output, 
 			false, // verbose
@@ -113,7 +117,8 @@ void test()
 		const int max_num_leaf_objects = 16;
 		BVHBuilder builder(1, max_num_leaf_objects, 1.0f);
 		BVHBuilderTestsCallBack callback(max_num_leaf_objects);
-		builder.build(&aabbs[0], // aabbs
+		builder.build(task_manager,
+			&aabbs[0], // aabbs
 			i, // num objects
 			print_output, 
 			false, // verbose

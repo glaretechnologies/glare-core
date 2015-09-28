@@ -14,6 +14,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/ParallelFor.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/TaskManager.h"
 
 
 BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
@@ -74,26 +75,40 @@ private:
 };
 
 
-class CentroidTask
+class CentroidTaskClosure
 {
 public:
-	CentroidTask(BVHBuilder& builder_) : builder(builder_) {}
-	
-	void operator() (int i, int thread_index) const
-	{
-		builder.centers[i] = toVec3f(builder.aabbs[i].centroid());
-	}
-
-	BVHBuilder& builder;
+	BVHBuilder* builder;
 };
 
 
-class SortAxisTask
+// Compute objects (AABB) centres.
+class CentroidTask : public Indigo::Task
 {
 public:
-	SortAxisTask(BVHBuilder& builder_, int num_objects_) : builder(builder_), num_objects(num_objects_) {}
+	CentroidTask(const CentroidTaskClosure& closure_, size_t begin_, size_t end_) : begin(begin_), end(end_), closure(closure_) {}
 	
-	void operator() (int axis, int thread_index) const
+	virtual void run(size_t thread_index)
+	{
+		assert(!closure.builder->centers.empty());
+		Vec3f* const centers = &closure.builder->centers[0];
+		const js::AABBox* const aabbs = closure.builder->aabbs;
+
+		for(size_t i = begin; i < end; ++i)
+			centers[i] = toVec3f(aabbs[i].centroid());
+	}
+
+	const CentroidTaskClosure& closure;
+	size_t begin, end;
+};
+
+
+class SortAxisTask : public Indigo::Task
+{
+public:
+	SortAxisTask(BVHBuilder& builder_, int num_objects_, int axis_) : builder(builder_), num_objects(num_objects_), axis(axis_) {}
+	
+	virtual void run(size_t thread_index)
 	{
 		builder.objects[axis].resize(num_objects);
 		for(int i=0; i<num_objects; ++i)
@@ -103,12 +118,15 @@ public:
 		Sort::floatKeyAscendingSort(builder.objects[axis].begin(), builder.objects[axis].end(), CenterPredicate(axis, builder.centers), CenterKey(axis, builder.centers));
 	}
 
+
 	BVHBuilder& builder;
 	int num_objects;
+	int axis;
 };
 
 
 void BVHBuilder::build(
+		   Indigo::TaskManager& task_manager,
 		   const js::AABBox* aabbs_,
 		   const int num_objects,
 		   PrintOutput& print_output, 
@@ -116,6 +134,8 @@ void BVHBuilder::build(
 		   BVHBuilderCallBacks& callback
 		   )
 {
+	this->aabbs = aabbs_;
+
 	if(num_objects <= 0)
 	{
 		// Create root node, and mark it as a leaf.
@@ -134,37 +154,24 @@ void BVHBuilder::build(
 		return;
 	}
 
-	this->aabbs = aabbs_;
-
 	// Build triangle centers
-	//std::vector<Vec3f> tri_centers(num_objects);
 	this->centers.resize(num_objects);
 
-	/*#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
-	for(int i=0; i<num_objects; ++i)
-		centers[i] = toVec3f(aabbs[i].centroid());*/
-	ParallelFor::exec(CentroidTask(*this), 0, num_objects);
+	CentroidTaskClosure centroid_closure;
+	centroid_closure.builder = this;
+	task_manager.runParallelForTasks<CentroidTask, CentroidTaskClosure>(centroid_closure, 0, num_objects);
+	
 
 	// Reserve working space
 	temp[0].resize(num_objects);
 	temp[1].resize(num_objects);
 
-	// Sort indices based on center position along the axes
-	/*#ifndef INDIGO_NO_OPENMP
-	#pragma omp parallel for
-	#endif
-	for(int axis=0; axis<3; ++axis)
-	{
-		objects[axis].resize(num_objects);
-		for(int i=0; i<num_objects; ++i)
-			objects[axis][i] = i;
 
-		// Sort based on center along axis 'axis'
-		Sort::floatKeyAscendingSort(objects[axis].begin(), objects[axis].end(), CenterPredicate(axis, centers), CenterKey(axis, centers));
-	}*/
-	ParallelFor::exec<SortAxisTask>(SortAxisTask(*this, num_objects), 0, 3);
+	// Sort indices based on center position along the axes
+	for(int axis=0; axis<3; ++axis)
+		task_manager.addTask(new SortAxisTask(*this, num_objects, axis));
+	task_manager.waitForTasksToComplete();
+
 
 	// Build root aabb
 	js::AABBox root_aabb = aabbs[0];
@@ -377,13 +384,8 @@ void BVHBuilder::doBuild(
 	}
 
 	// Compute AABBs for children
-	js::AABBox left_aabb;
-	left_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
-	left_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
-
-	js::AABBox right_aabb;
-	right_aabb.min_.set(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
-	right_aabb.max_.set(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
+	js::AABBox left_aabb  = js::AABBox::emptyAABBox();
+	js::AABBox right_aabb = js::AABBox::emptyAABBox();
 
 	for(int i=left; i<split_i; ++i)
 		left_aabb.enlargeToHoldAABBox(aabbs[objects[0][i]]);
@@ -466,7 +468,7 @@ void BVHBuilder::doArbitrarySplits(
 
 
 	// Compute AABBs for children
-	js::AABBox left_aabb = js::AABBox::emptyAABBox();
+	js::AABBox left_aabb  = js::AABBox::emptyAABBox();
 	js::AABBox right_aabb = js::AABBox::emptyAABBox();
 
 	for(int i=left; i<split_i; ++i)

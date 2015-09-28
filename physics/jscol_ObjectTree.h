@@ -15,6 +15,7 @@ Code By Nicholas Chapman.
 #include "jscol_StackFrame.h"
 namespace js{ class TriTreePerThreadData; }
 namespace js{ class ObjectTreePerThreadData; }
+namespace Indigo { class TaskManager; }
 class HitInfo;
 class PrintOutput;
 
@@ -46,7 +47,7 @@ public:
 
 
 	void insertObject(INTERSECTABLE_TYPE* intersectable);
-	void build(PrintOutput& print_output, bool verbose);
+	void build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose);
 
 	//js::ObjectTreePerThreadData* allocContext() const;
 

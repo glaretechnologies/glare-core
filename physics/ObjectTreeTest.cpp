@@ -123,7 +123,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		ob_tree.insertObject(ob2);
 	}
 
-	ob_tree.build(print_output, 
+	ob_tree.build(task_manager, print_output, 
 		false // verbose
 	);
 
@@ -251,7 +251,7 @@ void ObjectTreeTest::doTests()
 
 		objects.push_back(ob);
 	}
-	ob_tree.build(print_output,
+	ob_tree.build(task_manager, print_output,
 		false // verbose
 	);
 
@@ -506,7 +506,7 @@ void ObjectTreeTest::doSpeedTest()
 		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
 		ob_tree.insertObject(ob);
 	}
-	ob_tree.build(print_output,
+	ob_tree.build(task_manager, print_output,
 		false // verbose
 	);
 
@@ -650,7 +650,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//compile tree
 	//------------------------------------------------------------------------
-	ob_tree.build(print_output,
+	ob_tree.build(task_manager, print_output,
 		false // verbose
 	);
 

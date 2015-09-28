@@ -39,9 +39,9 @@ static INDIGO_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& sh
 static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b ) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v),b.v)); }
 
 
-BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
-		const Object* last_object_hit,
-		unsigned int last_triangle_hit,
+BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
+		//const Object* last_object_hit,
+		//unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
 {
 	hitob_out = NULL;
@@ -286,7 +286,7 @@ public:
 };
 
 
-void BVHObjectTree::build(PrintOutput& print_output, bool verbose)
+void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose)
 {
 	conPrint("BVHObjectTree::build");
 
@@ -307,6 +307,7 @@ void BVHObjectTree::build(PrintOutput& print_output, bool verbose)
 	callback.bvh = this;
 
 	builder.build(
+		task_manager,
 		aabbs.empty() ? NULL : &aabbs[0],
 		(int)objects.size(),
 		print_output,
@@ -323,6 +324,7 @@ void BVHObjectTree::build(PrintOutput& print_output, bool verbose)
 	printVar(builder.leaf_depth_sum);
 	printVar(builder.max_leaf_depth);
 	printVar(builder.num_interior_nodes);
+	printVar(builder.num_arbitrary_split_leaves);
 	conPrint("av leaf depth: " + toString((float)builder.leaf_depth_sum / builder.num_leaves));
 
 	// Don't need objects array any more.

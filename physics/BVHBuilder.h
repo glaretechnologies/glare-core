@@ -11,6 +11,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../maths/vec3.h"
 #include <vector>
 namespace js { class AABBox; }
+namespace Indigo { class TaskManager; }
 class PrintOutput;
 
 
@@ -48,6 +49,7 @@ public:
 	~BVHBuilder();
 
 	void build(
+		Indigo::TaskManager& task_manager,
 		const js::AABBox* aabbs,
 		const int num_objects,
 		PrintOutput& print_output, 

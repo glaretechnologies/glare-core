@@ -11,6 +11,7 @@ Generated at 2012-11-10 19:47:31 +0000
 #include "../utils/Vector.h"
 #include "../maths/Vec4f.h"
 #include <vector>
+namespace Indigo { class TaskManager; }
 class Object;
 class PrintOutput;
 class ThreadContext;
@@ -49,12 +50,12 @@ public:
 	void insertObject(const Object* object);
 	
 
-	Real traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
-		const Object* last_object_hit,
-		unsigned int last_triangle_hit,
+	Real traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
+		//const Object* last_object_hit,
+		//unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	void build(PrintOutput& print_output, bool verbose);
+	void build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose);
 
 private:
 	int32 root_node_index;
