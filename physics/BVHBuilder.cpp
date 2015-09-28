@@ -12,6 +12,8 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
 #include "../utils/ParallelFor.h"
+#include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
 
 
 BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
@@ -32,6 +34,7 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_l
 	leaf_depth_sum = 0;
 	max_leaf_depth = 0;
 	num_interior_nodes = 0;
+	num_arbitrary_split_leaves = 0;
 }
 
 
@@ -208,8 +211,6 @@ void BVHBuilder::doBuild(
 
 		// Make this a leaf node
 		callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
-		//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
-		
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -231,8 +232,9 @@ void BVHBuilder::doBuild(
 	const unsigned int nonsplit_axes[3][2] = {{1, 2}, {0, 2}, {0, 1}};
 
 	// Compute non-split cost
-	float smallest_cost = (float)(right - left) * intersection_cost;
+	const float non_split_cost = (float)(right - left) * intersection_cost;
 
+	float smallest_split_cost = std::numeric_limits<float>::infinity();
 	int best_N_L = -1;
 	int best_axis = -1;
 	float best_div_val = 0;
@@ -291,10 +293,10 @@ void BVHBuilder::doBuild(
 				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
 					recip_aabb_surf_area * intersection_cost;
 
-				if(cost < smallest_cost)
+				if(cost < smallest_split_cost)
 				{
 					best_N_L = N_L;
-					smallest_cost = cost;
+					smallest_split_cost = cost;
 					best_axis = axis;
 					best_div_val = splitval;
 				}
@@ -303,10 +305,12 @@ void BVHBuilder::doBuild(
 		}
 	}
 
-	if((best_axis == -1) && ((right - left) <= max_num_objects_per_leaf))
+	assert(best_axis != -1);
+
+	// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
+	if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
-		//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
 		callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
 
 		// Update build stats
@@ -317,6 +321,7 @@ void BVHBuilder::doBuild(
 		num_leaves++;
 		return;
 	}
+		
 
 	// Now we need to partition the triangle index lists, while maintaining ordering.
 	int split_i;
@@ -350,15 +355,24 @@ void BVHBuilder::doBuild(
 
 		if(num_left_tris == 0 || num_left_tris == right - left)
 		{
-			//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
-			callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
+			if((right - left) <= max_num_objects_per_leaf)
+			{
+				//markBVHLeafNode(node_index, left, right, triangles_ws, indices, parent_index, is_left_child);
+				callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
 
-			num_could_not_split_leaves++;
-			leaf_depth_sum += depth;
-			max_leaf_depth = myMax(max_leaf_depth, depth);
-			max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
-			num_leaves++;
-			return;
+				num_could_not_split_leaves++;
+				leaf_depth_sum += depth;
+				max_leaf_depth = myMax(max_leaf_depth, depth);
+				max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+				num_leaves++;
+				return;
+			}
+			else
+			{
+				// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
+				doArbitrarySplits(aabb, node_index, left, right, depth, parent_index, is_left_child, callback);
+				return;
+			}
 		}
 	}
 
@@ -401,6 +415,87 @@ void BVHBuilder::doBuild(
 
 	// Build right child
 	doBuild(
+		right_aabb, // aabb
+		right_child, // node index
+		split_i, // left
+		right, // right
+		depth + 1, // depth
+		node_index, // parent index (index of this node)
+		false, // is left child
+		callback
+	);
+}
+
+
+void BVHBuilder::doArbitrarySplits(
+		const js::AABBox& aabb,
+		uint32 node_index, 
+		int left, 
+		int right, 
+		int depth,
+		uint32 parent_index,
+		bool is_left_child,
+		BVHBuilderCallBacks& callback
+	)
+{
+	/*conPrint("------------doArbitrarySplits()------------");
+	for(int i=left; i<right; ++i)
+	{
+		const int aabb_index = objects[0][i];
+		const js::AABBox ob_aabb = aabbs[aabb_index];
+		conPrint("ob " + toString(aabb_index) + " min: " + ob_aabb.min_.toString());
+		conPrint("ob " + toString(aabb_index) + " max: " + ob_aabb.max_.toString());
+		conPrint("");
+	}*/
+
+	if(right - left <= max_num_objects_per_leaf)
+	{
+		// Make this a leaf node
+		callback.markAsLeafNode(node_index, objects[0], left, right, parent_index, is_left_child);
+		
+		// Update build stats
+		num_arbitrary_split_leaves++;
+		leaf_depth_sum += depth;
+		max_leaf_depth = myMax(max_leaf_depth, depth);
+		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
+		num_leaves++;
+		return;
+	}
+
+	const int split_i = left + (right - left)/2;
+
+
+	// Compute AABBs for children
+	js::AABBox left_aabb = js::AABBox::emptyAABBox();
+	js::AABBox right_aabb = js::AABBox::emptyAABBox();
+
+	for(int i=left; i<split_i; ++i)
+		left_aabb.enlargeToHoldAABBox(aabbs[objects[0][i]]);
+
+	for(int i=split_i; i<right; ++i)
+		right_aabb.enlargeToHoldAABBox(aabbs[objects[0][i]]);
+
+	// Create child nodes
+	const uint32 left_child = callback.createNode();
+	const uint32 right_child = callback.createNode();
+
+	node_index = callback.markAsInteriorNode(node_index, left_child, right_child, left_aabb, right_aabb, parent_index, is_left_child);
+	num_interior_nodes++;
+
+	// Build left child
+	doArbitrarySplits(
+		left_aabb, // aabb
+		left_child, // node index
+		left, // left
+		split_i, // right
+		depth + 1, // depth
+		node_index, // parent index (index of this node)
+		true, // is left child
+		callback
+	);
+
+	// Build right child
+	doArbitrarySplits(
 		right_aabb, // aabb
 		right_child, // node index
 		split_i, // left

@@ -41,6 +41,9 @@ public:
 	friend class SortAxisTask;
 	friend class CentroidTask;
 
+	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.
+	// max_num_objects_per_leaf - maximum num objects per leaf node.
+	// intersection_cost - cost of ray-object intersection for SAH computation.
 	BVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost);
 	~BVHBuilder();
 
@@ -56,12 +59,27 @@ public:
 	int getMaxLeafDepth() const { return max_leaf_depth; }
 
 private:
-	/*
-	Assumptions: root node for subtree is already created and is at node_index
-	*/
+	
+	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
 		const js::AABBox& aabb,
 		uint32 node_index, 
+		int left, 
+		int right, 
+		int depth,
+		uint32 parent_index,
+		bool is_left_child,
+		BVHBuilderCallBacks& callback
+	);
+
+
+	// We may get multiple objects with the same bounding box.
+	// These objects can't be split in the usual way.
+	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
+	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
+	void doArbitrarySplits(
+		const js::AABBox& aabb,
+		uint32 node_index,
 		int left, 
 		int right, 
 		int depth,
@@ -90,4 +108,5 @@ public:
 	int leaf_depth_sum;
 	int max_leaf_depth;
 	int num_interior_nodes;
+	int num_arbitrary_split_leaves;
 };
