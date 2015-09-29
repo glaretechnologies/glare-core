@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHBuilder.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2015 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #include "BVHBuilder.h"
@@ -232,6 +232,8 @@ void BVHBuilder::doBuild(
 	}
 
 	// Compute best split plane
+	const Vec3f* const use_centers = centers.data();
+	float* const use_object_max = object_max.data();
 	const float traversal_cost = 1.0f;
 	const float aabb_surface_area = aabb.getSurfaceArea();
 	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
@@ -265,18 +267,18 @@ void BVHBuilder::doBuild(
 		for(int i=left; i<right; ++i)
 		{
 			running_max = myMax(running_max, aabbs[axis_tris[i]].max_[axis]);
-			(object_max)[i-left] = running_max;
+			use_object_max[i-left] = running_max;
 		}
 
 		// For Each triangle centroid
 		float running_min = std::numeric_limits<float>::infinity();
 		for(int i=right-2; i>=left; --i)
 		{
-			const float splitval = centers[axis_tris[i]][axis];
+			const float splitval = use_centers[axis_tris[i]][axis];
 			if(splitval != last_split_val) // If this is the first such split position seen.
 			{
 				running_min = myMin(running_min, aabbs[axis_tris[i]].min_[axis]);
-				const float current_max = (object_max)[i-left];
+				const float current_max = use_object_max[i-left];
 
 				// Compute the SAH cost at the centroid position
 				const int N_L = (i - left) + 1;
@@ -341,7 +343,7 @@ void BVHBuilder::doBuild(
 
 		for(int i=left; i<right; ++i)
 		{
-			if(centers[axis_tris[i]][best_axis] <= best_div_val) // If on Left side
+			if(use_centers[axis_tris[i]][best_axis] <= best_div_val) // If on Left side
 				temp[0][num_left_tris++] = axis_tris[i];
 			else // else if on Right side
 				temp[1][num_right_tris++] = axis_tris[i];

@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHBuilder.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2015 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #pragma once
@@ -21,12 +21,14 @@ public:
 	virtual ~BVHBuilderCallBacks(){}
 
 	// Create a node, then return the index of the node.
+	// Actually node creation can be deferred until later and this can return 0 if needed.
 	virtual uint32 createNode() = 0;
 
 	// Mark the node as indexed by 'node_index' as an interior node.
 	// Also return the possibly new index, if the node was not actually created yet (as it may have been a leaf)
 	virtual int markAsInteriorNode(int node_index, int left_child_index, int right_child_index, const js::AABBox& left_aabb, const js::AABBox& right_aabb, int parent_index, bool is_left_child) = 0;
 
+	// Mark the node with index 'node_index' as a leaf node.  It has objects[begin], objects[begin+1] ... objects[end-1] assigned to it.
 	virtual void markAsLeafNode(int node_index, const std::vector<uint32>& objects, int begin, int end, int parent_index, bool is_left_child) = 0;
 };
 
@@ -34,7 +36,8 @@ public:
 /*=====================================================================
 BVHBuilder
 -------------------
-
+TODO: multi-thread the building.
+Is a bit tricky with the callback style of adding nodes however.
 =====================================================================*/
 class BVHBuilder
 {
