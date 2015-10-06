@@ -8,7 +8,7 @@ Generated at 2013-05-27 18:54:17 +0100
 
 
 #include "Platform.h"
-#include <string.h>
+#include <cstring>
 #ifdef _WIN32
 #include <intrin.h>
 #endif
