@@ -143,6 +143,8 @@ May spawn new BuildSubtreeTasks.
 class BuildSubtreeTask : public Indigo::Task
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	BuildSubtreeTask(BVHBuilder& builder_) : builder(builder_) {}
 	
 	virtual void run(size_t thread_index)
