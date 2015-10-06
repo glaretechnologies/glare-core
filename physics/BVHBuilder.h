@@ -7,45 +7,84 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #pragma once
 
 
-#include "../utils/Platform.h"
+#include "../physics/jscol_aabbox.h"
 #include "../maths/vec3.h"
+#include "../utils/Platform.h"
+#include "../utils/Vector.h"
+#include "../utils/Mutex.h"
+#include "../utils/IndigoAtomic.h"
 #include <vector>
 namespace js { class AABBox; }
 namespace Indigo { class TaskManager; }
 class PrintOutput;
 
 
-class BVHBuilderCallBacks
+struct ResultNode
 {
-public:
-	virtual ~BVHBuilderCallBacks(){}
+	js::AABBox left_aabb;  // if interior
+	js::AABBox right_aabb;  // if interior
+	int left;  // if interior, this is the index of the left child node.  Will be zero if this is the root node of a different chunk.  If Leaf, this is the object begin index.
+	int right; // if interior, this is the index of the right child node.  Will be zero if this is the root node of a different chunk.  If Leaf, this is the object end index.
+	
+	int right_child_chunk_index; // if interior: -1 if right child is in the same chunk as this node.
+	bool interior;
 
-	// Create a node, then return the index of the node.
-	// Actually node creation can be deferred until later and this can return 0 if needed.
-	virtual uint32 createNode() = 0;
 
-	// Mark the node as indexed by 'node_index' as an interior node.
-	// Also return the possibly new index, if the node was not actually created yet (as it may have been a leaf)
-	virtual int markAsInteriorNode(int node_index, int left_child_index, int right_child_index, const js::AABBox& left_aabb, const js::AABBox& right_aabb, int parent_index, bool is_left_child) = 0;
+	inline void operator = (const ResultNode& other)
+	{
+		left_aabb = other.left_aabb;
+		right_aabb = other.right_aabb;
+		_mm_store_ps((float*)this + 16, _mm_load_ps((float*)&other + 16));
+	}
+};
 
-	// Mark the node with index 'node_index' as a leaf node.  It has objects[begin], objects[begin+1] ... objects[end-1] assigned to it.
-	virtual void markAsLeafNode(int node_index, const std::vector<uint32>& objects, int begin, int end, int parent_index, bool is_left_child) = 0;
+
+struct Ob
+{
+	js::AABBox aabb;
+	Vec3f centre;
+	int index;
+
+	inline void operator = (const Ob& other)
+	{
+		aabb = other.aabb;
+		_mm_store_ps((float*)this + 8, _mm_load_ps((float*)&other + 8));
+	}
+};
+
+
+struct PerThreadTempInfo
+{
+	js::Vector<Ob, 64> temp[2];
+	js::Vector<Vec4f, 16> object_max;
+	js::Vector<ResultNode, 64> result_buf;
+};
+
+
+struct PerAxisThreadTempInfo
+{
+	js::Vector<Ob, 64> temp[2];
+	js::Vector<float, 16> object_max;
+};
+
+
+struct ResultChunk
+{
+	int thread_index; // The index of the thread that computed this chunk.
+	int offset; // Offset in thread's result_buf
+	int size; // num nodes created by the task in thread's result_buf;
 };
 
 
 /*=====================================================================
 BVHBuilder
 -------------------
-TODO: multi-thread the building.
-Is a bit tricky with the callback style of adding nodes however.
+Multi-threaded SAH BVH builder.
 =====================================================================*/
 class BVHBuilder
 {
 public:
-	friend class SortAxisTask;
-	friend class CentroidTask;
-
-	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.
+	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.
 	// intersection_cost - cost of ray-object intersection for SAH computation.
 	BVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost);
@@ -57,52 +96,70 @@ public:
 		const int num_objects,
 		PrintOutput& print_output, 
 		bool verbose, 
-		BVHBuilderCallBacks& callback
+		js::Vector<ResultNode, 64>& result_nodes_out
 	);
 
+	typedef js::Vector<uint32, 16> ResultObIndicesVec;
+	const ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
 
 	int getMaxLeafDepth() const { return max_leaf_depth; }
 
+	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
+
+	friend class CentroidTask;
+	friend class BuildSubtreeTask;
+	friend class BestSplitSearchTask;
+	friend class PartitionTask;
+	friend class SortAxisTask;
+
 private:
-	
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
+		PerThreadTempInfo& per_thread_temp_info,
 		const js::AABBox& aabb,
 		uint32 node_index, 
 		int left, 
 		int right, 
 		int depth,
-		uint32 parent_index,
-		bool is_left_child,
-		BVHBuilderCallBacks& callback
+		ResultChunk& result_chunk
 	);
-
 
 	// We may get multiple objects with the same bounding box.
 	// These objects can't be split in the usual way.
 	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
 	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
 	void doArbitrarySplits(
+		PerThreadTempInfo& per_thread_temp_info,
 		const js::AABBox& aabb,
 		uint32 node_index,
 		int left, 
 		int right, 
 		int depth,
-		uint32 parent_index,
-		bool is_left_child,
-		BVHBuilderCallBacks& callback
+		ResultChunk& result_chunk
 	);
 
-	const js::AABBox* aabbs;
-	std::vector<Vec3f> centers;
-	std::vector<uint32> objects[3];
-	std::vector<uint32> temp[2];
-	std::vector<float> object_max;
 
+
+	const js::AABBox* aabbs;
+	js::Vector<Ob, 64> objects[3];
+	std::vector<PerThreadTempInfo> per_thread_temp_info;
+	std::vector<PerAxisThreadTempInfo> per_axis_thread_temp_info;
+
+	IndigoAtomic next_result_chunk; // Index of next free result chunk
+	js::Vector<ResultChunk, 16> result_chunks;
+
+	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	float intersection_cost; // Relative to BVH node traversal cost.
+
+	Indigo::TaskManager* local_task_manager;
+
+	js::Vector<uint32, 16> result_indices;
 public:
+	int axis_parallel_num_ob_threshold;
+	int new_task_num_ob_threshold;
+
 	/// build stats ///
 	int num_maxdepth_leaves;
 	int num_under_thresh_leaves;

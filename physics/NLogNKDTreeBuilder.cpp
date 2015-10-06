@@ -83,8 +83,8 @@ public:
 	
 	void operator() (int axis, int thread_index) const
 	{
-		Sort::floatKeyAscendingSort(root_layer.lower_bounds[axis].begin(), root_layer.lower_bounds[axis].end(), LowerPred(), LowerKey());
-		Sort::floatKeyAscendingSort(root_layer.upper_bounds[axis].begin(), root_layer.upper_bounds[axis].end(), UpperPred(), UpperKey());
+		Sort::floatKeyAscendingSort(root_layer.lower_bounds[axis].begin(), root_layer.lower_bounds[axis].end() - root_layer.lower_bounds[axis].begin(), LowerPred(), LowerKey());
+		Sort::floatKeyAscendingSort(root_layer.upper_bounds[axis].begin(), root_layer.upper_bounds[axis].end() - root_layer.upper_bounds[axis].begin(), UpperPred(), UpperKey());
 	}
 
 	NLogNKDTreeBuilder::LayerInfo& root_layer;

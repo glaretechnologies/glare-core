@@ -69,6 +69,7 @@ public:
 	inline T& operator[](size_t index);
 	inline const T& operator[](size_t index) const;
 	inline const T* data() const; // Returns e (a pointer to the contained data).  e may be NULL.
+	inline T* data(); // Returns e (a pointer to the contained data).  e may be NULL.
 
 	inline bool operator==(const Vector& other) const;
 	inline bool operator!=(const Vector& other) const;
@@ -507,6 +508,13 @@ const T& Vector<T, alignment>::operator[](size_t index) const
 
 template <class T, size_t alignment>
 const T* Vector<T, alignment>::data() const
+{
+	return e;
+}
+
+
+template <class T, size_t alignment>
+T* Vector<T, alignment>::data()
 {
 	return e;
 }

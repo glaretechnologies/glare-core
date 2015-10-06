@@ -8,9 +8,22 @@ Generated at 2013-05-27 18:54:17 +0100
 
 
 #include "Platform.h"
+#include <string.h>
 #ifdef _WIN32
 #include <intrin.h>
 #endif
+
+
+// See http://www.forwardscattering.org/post/27
+// NOTE: put in some more suitable header file?
+template <class Dest, class Src> 
+INDIGO_STRONG_INLINE Dest bitCast(const Src& x)
+{
+	static_assert(sizeof(Src) == sizeof(Dest), "sizeof(Src) == sizeof(Dest)");
+	Dest d;
+	std::memcpy(&d, &x, sizeof(Dest));
+	return d;
+}
 
 
 /*=====================================================================

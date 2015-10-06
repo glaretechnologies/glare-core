@@ -1,15 +1,15 @@
 /*=====================================================================
 BVHObjectTree.h
 -------------------
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2015 -
 Generated at 2012-11-10 19:47:31 +0000
 =====================================================================*/
 #pragma once
 
 
+#include "../maths/Vec4f.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
-#include "../maths/Vec4f.h"
 #include <vector>
 namespace Indigo { class TaskManager; }
 class Object;

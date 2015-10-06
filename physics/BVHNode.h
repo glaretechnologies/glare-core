@@ -1,11 +1,10 @@
 /*=====================================================================
 BVHNode.h
 ---------
+Copyright Glare Technologies Limited 2015 -
 File created by ClassTemplate on Sun Oct 26 17:19:33 2008
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BVHNODE_H_666_
-#define __BVHNODE_H_666_
+#pragma once
 
 
 #include "jscol_aabbox.h"
@@ -18,16 +17,13 @@ namespace js
 /*=====================================================================
 BVHNode
 -------
-
+Used by BVH class.
+64 bytes.
 =====================================================================*/
 class BVHNode
 {
 public:
-
 	inline BVHNode() {}
-
-	//inline static size_t requiredAlignment() { return 64; }
-	static const int REQUIRED_ALIGNMENT = 64;
 
 	inline static unsigned int maxNumGeom() { return 0xFFFF; }
 
@@ -91,13 +87,10 @@ public:
 	float box[12]; // 48 bytes
 private:
 	unsigned int leaf; // bit 0: left is leaf, bit 1: right is leaf.
-	unsigned int left; // left child index, or left geometry index
-	unsigned int right; // right child index, or right geometry index
-	unsigned int num_geom;
+	unsigned int left; // left child node index, or left geometry index
+	unsigned int right; // right child node index, or right geometry index
+	unsigned int num_geom; // left 16 bits are the number of triangles for left child/AABB, right 16 bits are number of tris for right child/AABB.
 };
 
 
 } //end namespace js
-
-
-#endif //__BVHNODE_H_666_

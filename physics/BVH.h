@@ -1,16 +1,14 @@
 /*=====================================================================
 BVH.h
 -----
+Copyright Glare Technologies Limited 2015 -
 File created by ClassTemplate on Sun Oct 26 17:19:14 2008
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __BVH_H_666_
-#define __BVH_H_666_
+#pragma once
 
 
 #include "BVHNode.h"
 #include "jscol_Tree.h"
-//#include "jscol_BadouelTri.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
 #include "../maths/SSE.h"
@@ -18,7 +16,6 @@ Code By Nicholas Chapman.
 
 
 class RayMesh;
-class FullHitInfo;
 
 
 namespace js
@@ -28,7 +25,7 @@ namespace js
 /*=====================================================================
 BVH
 ----
-
+Triangle mesh acceleration structure.
 =====================================================================*/
 SSE_CLASS_ALIGN BVH : public Tree
 {
@@ -36,7 +33,7 @@ public:
 	INDIGO_ALIGNED_NEW_DELETE
 
 	BVH(const RayMesh* const raymesh);
-	~BVH();
+	virtual ~BVH();
 
 	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
 	virtual bool diskCachable() { return false; }
@@ -62,57 +59,17 @@ public:
 
 	typedef uint32 TRI_INDEX;
 private:
-	
-	
-	void doBuild(const AABBox& aabb, std::vector<std::vector<TRI_INDEX> >& tris, std::vector<std::vector<TRI_INDEX> >& temp, 
-		const std::vector<Vec3f>& tri_centers, int left, int right, int depth, unsigned int parent_index, unsigned int child_index);
-
-	void markLeafNode(unsigned int parent_index, unsigned int child_index, int left, int right, const std::vector<std::vector<TRI_INDEX> >& tris);
-
-	const Vec3f& triVertPos(unsigned int tri_index, unsigned int vert_index_in_tri) const;
-	unsigned int numTris() const;
+	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
+	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 
 	AABBox root_aabb; // AABB of whole thing
-
-
-	const RayMesh* const raymesh;
-
-	typedef js::Vector<BVHNode, BVHNode::REQUIRED_ALIGNMENT> NODE_VECTOR_TYPE;
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
-
-
-	js::Vector<js::AABBox, 16> tri_aabbs;
-	//AABBox* tri_aabbs; // Triangle AABBs, used only during build process.
-
-	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
-	//js::Vector<INTERSECT_TRI_TYPE, 16> intersect_tris;
+	js::Vector<TRI_INDEX, 64> leafgeom; // Indices into the intersect_tris array.
 	std::vector<INTERSECT_TRI_TYPE> intersect_tris;
 	
-	//std::vector<TRI_INDEX> original_tri_index;
-	//std::vector<TRI_INDEX> new_tri_index;
-
-	std::vector<TRI_INDEX> leafgeom; // Indices into the intersect_tris array.
-
-	js::Vector<float, 4> tri_max; // Used only during build process.
-
-	//std::vector<Vec3f> tri_centers;
-	//std::vector<float> centers;
-
-	Real tree_specific_min_t;
-
-	/// build stats ///
-	int num_maxdepth_leaves;
-	int num_under_thresh_leaves;
-	int num_cheaper_nosplit_leaves;
-	int num_could_not_split_leaves;
-	int num_leaves;
-	int max_num_tris_per_leaf;
-	int leaf_depth_sum;
-	int max_leaf_depth;
+	js::Vector<js::AABBox, 64> tri_aabbs; // Triangle AABBs, used only during build process.
+	const RayMesh* const raymesh;
 };
 
 
 } //end namespace js
-
-
-#endif //__BVH_H_666_

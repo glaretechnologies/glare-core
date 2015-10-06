@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHObjectTree.cpp
 -------------------
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2015 -
 Generated at 2012-11-10 19:47:32 +0000
 =====================================================================*/
 #include "BVHObjectTree.h"
@@ -22,6 +22,7 @@ Generated at 2012-11-10 19:47:32 +0000
 BVHObjectTree::BVHObjectTree()
 :	root_node_index(0)
 {
+	static_assert(sizeof(BVHObjectTreeNode) == 64, "sizeof(BVHObjectTreeNode) == 64");
 }
 
 
@@ -217,99 +218,117 @@ stack_pop:
 }
 
 
-
-class BVHObjectTreeCallBack : public BVHBuilderCallBacks
-{
-public:
-	virtual uint32 createNode()
-	{
-		// Don't actually create the node until it is marked as an interior node.
-		return 0;
-	}
-
-	virtual int markAsInteriorNode(int node_index, int left_child_index, int right_child_index, const js::AABBox& left_aabb, const js::AABBox& right_aabb, int parent_index, bool is_left_child)
-	{
-		// Push back new node
-		int index = (int)bvh->nodes.size();
-		bvh->nodes.push_back(BVHObjectTreeNode());
-
-		//conPrint("Marking node " + toString(index) + " as interior node.");
-
-		BVHObjectTreeNode& node = bvh->nodes.back();
-
-		node.x = Vec4f(left_aabb.min_.x[0], right_aabb.min_.x[0], left_aabb.max_.x[0], right_aabb.max_.x[0]);
-		node.y = Vec4f(left_aabb.min_.x[1], right_aabb.min_.x[1], left_aabb.max_.x[1], right_aabb.max_.x[1]);
-		node.z = Vec4f(left_aabb.min_.x[2], right_aabb.min_.x[2], left_aabb.max_.x[2], right_aabb.max_.x[2]);
-
-		node.child[0] = left_child_index;
-		node.child[1] = right_child_index;
-
-		// Now that we have properly created this node, fix up child link in parent.  Don't do this if this is the root node!
-		if(index > 0) // If not root node
-			bvh->nodes[parent_index].child[is_left_child ? 0 : 1] = index;
-
-		return index;
-	}
-
-
-	virtual void markAsLeafNode(int node_index, const std::vector<uint32>& objects, int begin, int end, int parent_index, bool is_left_child)
-	{
-		//conPrint("Marking node as leaf node. (parent_index: " + toString(parent_index) + ", left child: " + boolToString(is_left_child) + ")");
-
-		int offset = (int)bvh->leaf_objects.size();
-		int num = end - begin;
-
-		// Number of objects is in lower 5 bits.  Set sign bit to 1.
-		assert(num < 32);
-		int c = 0x80000000 | num | (offset << 5);
-
-		if(bvh->nodes.empty())
-			bvh->root_node_index = c;
-		else
-		{
-			BVHObjectTreeNode& parent = bvh->nodes[parent_index];
-
-			parent.child[is_left_child ? 0 : 1] = c;
-		}
-
-		// Copy objects in leaf to leaf_objects
-		for(size_t i=begin; i!=end; ++i)
-			bvh->leaf_objects.push_back(bvh->objects[objects[i]]);
-	}
-
-	BVHObjectTree* bvh;
-};
-
-
 void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose)
 {
 	// conPrint("BVHObjectTree::build");
 	Timer timer;
 
-	leaf_objects.reserve(objects.size());
-
-	js::Vector<js::AABBox, 32> aabbs(objects.size());
-
-	for(size_t i=0; i<objects.size(); ++i)
+	// Build object AABBs
+	const size_t objects_size = objects.size();
+	js::Vector<js::AABBox, 32> aabbs(objects_size);
+	for(size_t i=0; i<objects_size; ++i)
 		aabbs[i] = objects[i]->getAABBoxWS();
 
 	BVHBuilder builder(
 		1, // leaf_num_object_threshold
 		31, // max_num_objects_per_leaf (2^5 - 1)
-		100 // intersection_cost
+		100 // intersection_cost.  Set this quite high, since intersecting objects is probably quite expensive.
 	);
 
-	BVHObjectTreeCallBack callback;
-	callback.bvh = this;
-
+	js::Vector<ResultNode, 64> result_nodes;
 	builder.build(
 		task_manager,
 		aabbs.data(),
 		(int)objects.size(),
 		print_output,
 		verbose,
-		callback
+		result_nodes
 	);
+	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder.getResultObjectIndices();
+
+	//builder.printResultNodes(result_nodes);//TEMP
+
+	// Make leaf_objects from leaf object indices.
+	const size_t result_ob_ind_size = result_ob_indices.size();
+	leaf_objects.resizeUninitialised(result_ob_ind_size);
+	for(size_t i=0; i<result_ob_ind_size; ++i)
+		leaf_objects[i] = objects[result_ob_indices[i]];
+
+	if(result_nodes.size() == 1)
+	{
+		// Special case where the root node is a leaf.  
+		const int num = result_nodes[0].right - result_nodes[0].left;
+		const int offset = result_nodes[0].left;
+		assert(num < 32);
+		int c = 0x80000000 | num | (offset << 5);
+		this->root_node_index = c;
+	}
+	else
+	{
+		//Timer timer2;
+
+		// Convert result_nodes to BVHObjectTreeNodes.
+		// Indices will change, since we will not explicitly store leaf nodes in the BVH object tree.  Rather leaf geometry references are put into the child references of the node above.
+		const size_t result_nodes_size = result_nodes.size();
+		js::Vector<int, 16> new_node_indices(result_nodes_size); // For each old node, store the new index.
+		int new_index = 0;
+		for(size_t i=0; i<result_nodes_size; ++i)
+			if(result_nodes[i].interior)
+				new_node_indices[i] = new_index++;
+
+		const int new_num_nodes = new_index;
+		this->nodes.resizeUninitialised(new_num_nodes);
+
+		new_index = 0;
+		for(size_t i=0; i<result_nodes_size; ++i)
+		{
+			const ResultNode& result_node = result_nodes[i];
+			if(result_node.interior)
+			{
+				BVHObjectTreeNode& node = this->nodes[new_index++];
+
+				node.x = Vec4f(result_node.left_aabb.min_.x[0], result_node.right_aabb.min_.x[0], result_node.left_aabb.max_.x[0], result_node.right_aabb.max_.x[0]);
+				node.y = Vec4f(result_node.left_aabb.min_.x[1], result_node.right_aabb.min_.x[1], result_node.left_aabb.max_.x[1], result_node.right_aabb.max_.x[1]);
+				node.z = Vec4f(result_node.left_aabb.min_.x[2], result_node.right_aabb.min_.x[2], result_node.left_aabb.max_.x[2], result_node.right_aabb.max_.x[2]);
+
+				const ResultNode& result_left_child  = result_nodes[result_node.left];
+				const ResultNode& result_right_child = result_nodes[result_node.right];
+
+				// Set node.child[0] and node.child[1]
+				if(result_left_child.interior)
+				{
+					node.child[0] = new_node_indices[result_node.left];
+					assert(node.child[0] >= 0 && node.child[0] < new_num_nodes);
+				}
+				else
+				{
+					// Number of objects is in lower 5 bits.  Set sign bit to 1.
+					const int num = result_left_child.right - result_left_child.left;
+					const int offset = result_left_child.left;
+					assert(num < 32);
+					int c = 0x80000000 | num | (offset << 5);
+					node.child[0] = c;
+				}
+
+				if(result_right_child.interior)
+				{
+					node.child[1] = new_node_indices[result_node.right];
+					assert(node.child[1] >= 0 && node.child[1] < new_num_nodes);
+				}
+				else
+				{
+					// Number of objects is in lower 5 bits.  Set sign bit to 1.
+					const int num = result_right_child.right - result_right_child.left;
+					const int offset = result_right_child.left;
+					assert(num < 32);
+					int c = 0x80000000 | num | (offset << 5);
+					node.child[1] = c;
+				}
+			}
+		}
+	}
+
+	//conPrint("\tBVHObjectTree conversion done  (Elapsed: " + timer2.elapsedStringNPlaces(4) + ")");
 
 	/*printVar(builder.num_maxdepth_leaves);
 	printVar(builder.num_under_thresh_leaves);
