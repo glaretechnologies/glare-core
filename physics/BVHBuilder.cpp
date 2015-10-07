@@ -299,7 +299,29 @@ void BVHBuilder::build(
 		}
 	}
 
-	result_chunks.resizeUninitialised((int)((float)num_objects / new_task_num_ob_threshold + 16));
+	/*
+	Consider the tree of chunk splits.
+	Each leaf (apart from if the root is a leaf) will have >= c objects, where c is the split threshold (as each child of a split must have >= c objects).
+	Each interior node will have >= m*c objects, where m is the number of child leaves.
+	Therefore the root node will have >= t*c objects, where t is the total number of leaves.
+
+	    num objects at each node (of the split tree:)
+	                        
+	                    * >= 3c
+	                   / \
+	                  /   \
+	            >= c *     * >= 2c
+	                      / \
+	                     /   \
+	               >= c *     * >= c
+	e.g.
+	n >= t * c
+	n/c >= t
+	t <= n/c
+	e.g. num interior nodes <= num objects / split threshold
+
+	*/
+	result_chunks.resizeUninitialised(myMax(1, num_objects / new_task_num_ob_threshold));
 
 
 
@@ -948,7 +970,7 @@ void BVHBuilder::doBuild(
 	{
 		// Add to chunk list
 		chunk_nodes[node_index].right_child_chunk_index = (int)next_result_chunk++;
-		assert((int)next_result_chunk < (int)result_chunks.size()); // NOTE TODO: we need to prove this assertion will hold.
+		assert((int)chunk_nodes[node_index].right_child_chunk_index < (int)result_chunks.size());
 		
 		// Put this subtree into a task
 		//conPrint("Making new task...");

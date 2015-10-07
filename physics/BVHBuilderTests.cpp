@@ -396,6 +396,11 @@ void test()
 		testBVHBuilderWithNRandomObjects(rng, task_manager, num_objects);
 	}
 
+	for(int num_objects=64; num_objects<=4096; num_objects *= 2)
+	{
+		testBVHBuilderWithNRandomObjects(rng, task_manager, num_objects);
+	}
+
 
 	//==================== Do a stress test with a reasonably large amount of objects ====================
 	{
