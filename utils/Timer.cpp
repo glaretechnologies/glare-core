@@ -19,3 +19,9 @@ const std::string Timer::elapsedStringNPlaces(int n) const // Print with n decim
 {
 	return ::doubleToStringNDecimalPlaces(this->elapsed(), n) + " s";
 }
+
+
+const std::string Timer::elapsedStringNSigFigs(int n) const // Print with n decimal places.
+{
+	return ::doubleToStringNSigFigs(this->elapsed(), n) + " s";
+}
