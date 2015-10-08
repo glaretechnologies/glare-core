@@ -13,7 +13,13 @@ Code By Nicholas Chapman.
 const std::string Vec4f::toString() const
 {
 	//return "(" + ::toString(x[0]) + "," + ::toString(x[1]) + "," + ::toString(x[2]) + "," + ::toString(x[3]) + ")";
-	return "(" + ::doubleToStringScientific(x[0], 7) + "," + ::doubleToStringScientific(x[1], 7) + "," + ::doubleToStringScientific(x[2], 7) + "," + ::toString(x[3]) + ")";
+	return "(" + ::doubleToStringScientific(x[0], 7) + ", " + ::doubleToStringScientific(x[1], 7) + ", " + ::doubleToStringScientific(x[2], 7) + ", " + ::toString(x[3]) + ")";
+}
+
+
+const std::string Vec4f::toStringNSigFigs(int n) const
+{
+	return "(" + ::floatToStringNSigFigs(x[0], n) + ", " + ::floatToStringNSigFigs(x[1], n) + ", " + ::floatToStringNSigFigs(x[2], n) + ", " + ::floatToStringNSigFigs(x[3], n) + ")";
 }
 
 

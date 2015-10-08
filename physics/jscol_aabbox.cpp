@@ -31,6 +31,18 @@ bool AABBox::invariant() const
 }
 
 
+const std::string AABBox::toString() const
+{
+	return "min=" + min_.toString() + ", max=" + max_.toString();
+}
+
+
+const std::string AABBox::toStringNSigFigs(int n) const
+{
+	return "min=" + min_.toStringNSigFigs(n) + ", max=" + max_.toStringNSigFigs(n);
+}
+
+
 } // End namespace namespace js
 
 
@@ -127,8 +139,8 @@ void js::AABBox::test()
 			elapsed = ::myMin(elapsed, timer.elapsed());
 		}
 		const double cycles = elapsed / (double)N;
-		conPrint("\tcycles: " + toString(cycles));
-		conPrint("\tsum: " + toString(sum));
+		conPrint("\tcycles: " + ::toString(cycles));
+		conPrint("\tsum: " + ::toString(sum));
 	}
 }
 

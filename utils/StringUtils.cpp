@@ -371,6 +371,34 @@ const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 }
 
 
+const std::string floatToStringNSigFigs(float f, int num_sig_figs)
+{
+	// Due to fast maths optimisations with VS that treat -0 like 0, a float value of -0.0 will sometimes get passed in to this function instead of 0.0.
+	// We want to print "0" for this, so handle this case explicitly here.
+	if(f == 0 && !isNAN(f))
+		return "0";
+
+	// Convert double to string with Google's code
+	double_conversion::DoubleToStringConverter converter(
+		double_conversion::DoubleToStringConverter::NO_FLAGS,
+		"Inf", // Infinity symbol
+		"NaN", // NaN symbol
+		'e',
+		-6, // decimal_in_shortest_low
+		21, // decimal_in_shortest_high
+		3, // max_leading_padding_zeroes_in_precision_mode
+		3 // max_trailing_padding_zeroes_in_precision_mode
+	);
+
+	char buffer[64];
+	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
+
+	converter.ToPrecision(f, num_sig_figs, &builder);
+
+	return std::string(builder.Finalize());
+}
+
+
 // Returns in form x.f or x.yf, e.g instead of returning 2 it returns 2.f
 const std::string floatLiteralString(float x)
 {

@@ -730,7 +730,7 @@ void BVHBuilder::doBuild(
 				const int N_R = right - i - 1;
 				assert(N_L + N_R == right - left);
 
-#ifndef NDEBUG
+/*#ifndef NDEBUG
 				// Check that our AABB calculations are correct:
 				float left_aabb_max = aabb.min_[axis];
 				for(int t=left; t<=i; ++t)
@@ -742,7 +742,7 @@ void BVHBuilder::doBuild(
 
 				assert(left_aabb_max == current_max);
 				assert(right_aabb_min == running_min);
-#endif
+#endif*/
 
 				// Compute SAH cost
 				const float negchild_surface_area = two_cap_area + (current_max - aabb.min_[axis]) * circum;
@@ -1109,6 +1109,8 @@ void BVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& result_nodes
 		{
 			conPrint("	left_child_index:  " + toString(result_nodes[i].left));
 			conPrint("	right_child_index: " + toString(result_nodes[i].right));
+			conPrint("	left AABB:  " + result_nodes[i].left_aabb.toStringNSigFigs(4));
+			conPrint("	right AABB: " + result_nodes[i].right_aabb.toStringNSigFigs(4));
 			//if(result_nodes[i].right_child_chunk_index == 0)
 			conPrint("	right_child_chunk_index: " + toString(result_nodes[i].right_child_chunk_index));
 		}

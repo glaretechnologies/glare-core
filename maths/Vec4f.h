@@ -56,6 +56,7 @@ public:
 	inline bool isUnitLength() const;
 
 	const std::string toString() const;
+	const std::string toStringNSigFigs(int n) const;
 
 	static void test();
 

@@ -57,6 +57,8 @@ const std::string doubleToString(double d);
 const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places);
 const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places);
 
+const std::string floatToStringNSigFigs(float f, int num_sig_figs);
+
 // Write to a string with scientific notation, e.g. 4.0e10.
 const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
 

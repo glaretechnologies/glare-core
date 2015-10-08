@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 #include "../maths/mathstypes.h"
 #include "../utils/Platform.h"
 #include <limits>
+#include <string>
 
 
 namespace js
@@ -57,6 +58,9 @@ public:
 	inline unsigned int longestAxis() const;
 
 	INDIGO_STRONG_INLINE const Vec4f centroid() const;
+
+	const std::string toString() const;
+	const std::string toStringNSigFigs(int n) const;
 
 	Vec4f min_;
 	Vec4f max_;
