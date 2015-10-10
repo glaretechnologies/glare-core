@@ -16,6 +16,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include "../utils/Timer.h"
 #include "../utils/EventFD.h"
 #include "../utils/ConPrint.h"
+#include "../utils/BitUtils.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
@@ -520,15 +521,8 @@ const std::string MySocket::readString(size_t max_string_length) // Read null-te
 
 void MySocket::writeInt32(int32 x)
 {
-	union data
-	{
-		int signed_i;
-		unsigned int unsigned_i;
-	};
-	data d;
-	d.signed_i = x;
-	const unsigned int i = htonl(d.unsigned_i);
-	write(&i, sizeof(int));
+	const uint32 i = htonl(bitCast<uint32>(x));
+	write(&i, sizeof(uint32));
 }
 
 
@@ -541,17 +535,10 @@ void MySocket::writeUInt32(uint32 x)
 
 void MySocket::writeUInt64(uint64 x)
 {
-	//NOTE: not sure if this byte ordering is correct.
-	union data
-	{
-		uint32 i32[2];
-		uint64 i64;
-	};
-
-	data d;
-	d.i64 = x;
-	writeUInt32(d.i32[0]);
-	writeUInt32(d.i32[1]);
+	uint32 i32[2];
+	std::memcpy(i32, &x, sizeof(uint64));
+	writeUInt32(i32[0]);
+	writeUInt32(i32[1]);
 }
 
 
@@ -566,15 +553,10 @@ void MySocket::writeString(const std::string& s) // Write null-terminated string
 
 int MySocket::readInt32()
 {
-	union data
-	{
-		int si;
-		uint32 i;
-	};
-	data d;
-	readTo(&d.i, sizeof(uint32));
-	d.i = ntohl(d.i);
-	return d.si;
+	uint32 i;
+	readTo(&i, sizeof(uint32));
+	i = ntohl(i);
+	return bitCast<int32>(i);
 }
 
 
@@ -588,17 +570,12 @@ uint32 MySocket::readUInt32()
 
 uint64 MySocket::readUInt64()
 {
-	//NOTE: not sure if this byte ordering is correct.
-	union data
-	{
-		uint32 i32[2];
-		uint64 i64;
-	};
-
-	data d;
-	d.i32[0] = readUInt32();
-	d.i32[1] = readUInt32();
-	return d.i64;
+	uint32 buf[2];
+	buf[0] = readUInt32();
+	buf[1] = readUInt32();
+	uint64 x;
+	std::memcpy(&x, buf, sizeof(uint64));
+	return x;
 }
 
 

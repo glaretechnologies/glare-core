@@ -41,6 +41,11 @@ void test()
 {
 	conPrint("BitUtils::test()");
 
+	//===================================== bitCast =====================================
+	testAssert(bitCast<uint32>(1.0f) == 0x3f800000);
+	testAssert(bitCast<uint32>(5) == 5u);
+	testAssert(bitCast<uint32>(-1) == 0xFFFFFFFFu); // This assumes the signed integer representation is two's complement of course.
+
 	//===================================== lowestSetBitIndex =====================================
 	testAssert(lowestSetBitIndex(0) == 0); // 0
 	testAssert(lowestSetBitIndex(1) == 0); // 1
