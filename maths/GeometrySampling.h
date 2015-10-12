@@ -73,6 +73,7 @@ namespace GeometrySampling
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
 	inline void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out);
 	template <class Real> inline void sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length, Real& theta_out, Real& phi_out);
+	inline const Vec2f sphericalCoordsForDir(const Vec4f& unit_dir);
 
 
 	////// Spherical polar angle -> Cartesian coordinates conversion //////////
@@ -196,6 +197,16 @@ const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length)
 	return Vec2f(
 		atan2(dir[1], dir[0]), // phi
 		acos(myClamp(dir[2] * recip_dir_length, -1.0f, 1.0f)) // theta
+		);
+}
+
+
+const Vec2f sphericalCoordsForDir(const Vec4f& unit_dir)
+{
+	//NOTE: the clamp is in there to avoid the spitting out of a NaN
+	return Vec2f(
+		atan2(unit_dir[1], unit_dir[0]), // phi
+		acos(myClamp(unit_dir[2], -1.0f, 1.0f)) // theta
 		);
 }
 
