@@ -273,7 +273,7 @@ public:
 	VEC3_INLINE const Vec3 operator / (Real divisor) const
 	{
 		assert(divisor != 0);
-		const Real inverse_d = 1.0 / divisor;
+		const Real inverse_d = 1 / divisor;
 
 		return Vec3(x * inverse_d, y * inverse_d, z * inverse_d);
 	}
