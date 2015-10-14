@@ -90,7 +90,7 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 	RGBEHeaderData header_data;
 
 	int linenum = 0;
-	std::string token;
+	string_view token;
 	while(!parser.eof())
 	{
 		linenum++;
@@ -134,8 +134,10 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			{
 				parser.parseSpacesAndTabs();
 			
-				if(!parser.parseNonWSToken(header_data.format))
+				string_view token;
+				if(!parser.parseNonWSToken(token))
 					throw ImFormatExcep("Failed to parse FORMAT");
+				header_data.format = token.to_string();
 
 				if(header_data.format != "32-bit_rle_rgbe")
 				{

@@ -81,7 +81,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 
 	int linenum = 0;
-	std::string token;
+	string_view token;
 	while(!parser.eof())
 	{
 		linenum++;
@@ -101,18 +101,18 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			/// Parse material name ///
 			parser.parseSpacesAndTabs();
 
-			std::string material_name;
+			string_view material_name;
 			parser.parseNonWSToken(material_name);
 
 			/// See if material has already been created, create it if it hasn't been ///
-			if(materials.isInserted(material_name))
-				current_mat_index = materials.getValue(material_name);
+			if(materials.isInserted(material_name.to_string()))
+				current_mat_index = materials.getValue(material_name.to_string());
 			else
 			{
 				//conPrint("\tFound reference to material '" + material_name + "'.");
 				current_mat_index = materials.size();
-				materials.insert(material_name, current_mat_index);
-				handler.addMaterialUsed(toIndigoString(material_name));
+				materials.insert(material_name.to_string(), current_mat_index);
+				handler.addMaterialUsed(toIndigoString(material_name.to_string()));
 			}
 		}
 		else if(token == "v") // vertex position

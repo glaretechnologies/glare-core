@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2015 -
 
 #include "../utils/StringUtils.h"
 #include "../utils/Platform.h"
+#include "../utils/string_view.h"
 #include <string>
 #include <assert.h>
 
@@ -43,14 +44,14 @@ public:
 	// Advances until current() == target, or EOF is reached.
 	// Returns true iff EOF was not reached.
 	// returns in 'result_out' a string from current to target, not including target.
-	inline bool parseToChar(char target, std::string& result_out);
-	inline bool parseToOneOfChars(char target_a, char target_b, std::string& result_out);
-	inline void parseToCharOrEOF(char target_a, std::string& result_out);
+	inline bool parseToChar(char target, string_view& result_out);
+	inline bool parseToOneOfChars(char target_a, char target_b, string_view& result_out);
+	inline void parseToCharOrEOF(char target_a, string_view& result_out);
 	inline void parseLine();
 	
-	bool parseAlphaToken(std::string& token_out);
-	bool parseIdentifier(std::string& token_out);
-	bool parseNonWSToken(std::string& token_out);
+	bool parseAlphaToken(string_view& token_out); // Parse alphabetic token
+	bool parseIdentifier(string_view& token_out);
+	bool parseNonWSToken(string_view& token_out);
 	bool parseString(const std::string& s);
 	bool parseCString(const char* const s);
 
@@ -138,16 +139,16 @@ void Parser::advancePastLine()
 // Advances until current() == target, or EOF is reached.
 // Returns true iff EOF was not reached.
 // returns in 'result_out' a string from current to target, not including target.
-bool Parser::parseToChar(char target, std::string& result_out)
+bool Parser::parseToChar(char target, string_view& result_out)
 {
-	const int initial_currentpos = currentpos;
+	const int initial_pos = currentpos;
 	while(1)
 	{
 		if(eof())
 			return false;
 		if(current() == target)
 		{
-			result_out = std::string(text + initial_currentpos, text + currentpos);
+			result_out = string_view(text + initial_pos, currentpos - initial_pos);
 			return true;
 		}
 		currentpos++;
@@ -155,16 +156,16 @@ bool Parser::parseToChar(char target, std::string& result_out)
 }
 
 
-bool Parser::parseToOneOfChars(char target_a, char target_b, std::string& result_out)
+bool Parser::parseToOneOfChars(char target_a, char target_b, string_view& result_out)
 {
-	const int initial_currentpos = currentpos;
+	const int initial_pos = currentpos;
 	while(1)
 	{
 		if(eof())
 			return false;
 		if(current() == target_a || current() == target_b)
 		{
-			result_out = std::string(text + initial_currentpos, text + currentpos);
+			result_out = string_view(text + initial_pos, currentpos - initial_pos);
 			return true;
 		}
 		currentpos++;
@@ -172,14 +173,14 @@ bool Parser::parseToOneOfChars(char target_a, char target_b, std::string& result
 }
 
 
-void Parser::parseToCharOrEOF(char target, std::string& result_out)
+void Parser::parseToCharOrEOF(char target, string_view& result_out)
 {
-	const int initial_currentpos = currentpos;
+	const int initial_pos = currentpos;
 	while(1)
 	{
 		if(eof() || current() == target)
 		{
-			result_out = std::string(text + initial_currentpos, text + currentpos);
+			result_out = string_view(text + initial_pos, currentpos - initial_pos);
 			return;
 		}
 		currentpos++;

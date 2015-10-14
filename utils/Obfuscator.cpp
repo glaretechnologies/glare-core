@@ -259,7 +259,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 
 	while(p.notEOF())
 	{
-		std::string t;
+		string_view t;
 
 		//const char debug_current_char = p.current();
 		//conPrint(std::string(1, debug_current_char));
@@ -306,14 +306,14 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 				// Parse the token
 				bool valid_token_parse = p.parseIdentifier(t);
 				if(valid_token_parse)
-					conPrint("found #define " + t);
+					conPrint("found #define " + t.to_string());
 
 				// Make sure the output has a newline at the end (defines have to be on their own line I think)
 				if(res.substr(res.size() - 1, 1) != "\n")
 					res += "\r\n";
 
 				// Output the (modified) #define
-				res += "#define " + mapToken(t);
+				res += "#define " + mapToken(t.to_string());
 
 				// Read in the the definition of the define:
 				int last_currentpos = p.currentPos();
@@ -405,7 +405,7 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		}
 		else if(p.parseIdentifier(t))
 		{
-			res += mapToken(t);
+			res += mapToken(t.to_string());
 			continue;
 		}
 		else if(p.fractionalNumberNext())

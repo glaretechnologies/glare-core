@@ -285,8 +285,10 @@ void IPAddress::parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::
 
 		parser.advance();
 
-		if(!parser.parseToChar(']', hostname_or_ip_out))
+		string_view token;
+		if(!parser.parseToChar(']', token))
 			return; // Parse error.
+		hostname_or_ip_out = token.to_string();
 
 		if(!parser.parseChar(']'))
 			return; // Parse error.
@@ -306,9 +308,9 @@ void IPAddress::parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::
 	}
 	else
 	{
-		Parser parser(s.c_str(), (unsigned int)s.size());
-
-		parser.parseToCharOrEOF(':', hostname_or_ip_out);
+		string_view token;
+		parser.parseToCharOrEOF(':', token);
+		hostname_or_ip_out = token.to_string();
 
 		if(parser.currentIsChar(':')) // If we have a port suffix:
 		{

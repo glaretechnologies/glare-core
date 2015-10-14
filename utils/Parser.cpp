@@ -490,50 +490,41 @@ bool Parser::parseDouble(double& result_out)
 }
 
 
-bool Parser::parseAlphaToken(std::string& token_out)
+bool Parser::parseAlphaToken(string_view& token_out)
 {
-	token_out = "";
-	bool found = false;
+	unsigned int startpos = currentpos;
 	for( ;notEOF() && ::isAlphabetic(text[currentpos]); ++currentpos)
-	{
-		token_out.push_back(text[currentpos]);
-		found = true;
-	}
-	return found;
+	{}
+
+	token_out = string_view(text + startpos, currentpos - startpos);
+	return currentpos != startpos;
 }
 
 
-bool Parser::parseIdentifier(std::string& token_out)
+bool Parser::parseIdentifier(string_view& token_out)
 {
-	token_out = "";
+	unsigned int startpos = currentpos;
 
-	// Read first character of identifier
-	if(notEOF() && (::isAlphabetic(text[currentpos]) || text[currentpos] == '_'))
-	{
-		token_out.push_back(text[currentpos]);
-		currentpos++;
-	}
-	else
+	if(eof() || !(::isAlphabetic(text[currentpos]) || text[currentpos] == '_'))
 		return false;
 
+	currentpos++;
+
 	for( ;notEOF() && (::isAlphabetic(text[currentpos]) || isNumeric(text[currentpos]) || text[currentpos] == '_'); ++currentpos)
-	{
-		token_out.push_back(text[currentpos]);
-	}
-	return true;
+	{}
+
+	token_out = string_view(text + startpos, currentpos - startpos);
+	return currentpos != startpos;
 }
 
 
-bool Parser::parseNonWSToken(std::string& token_out)
+bool Parser::parseNonWSToken(string_view& token_out)
 {
-	token_out = "";
-	bool found = false;
+	unsigned int startpos = currentpos;
 	for( ;notEOF() && !::isWhitespace(text[currentpos]); ++currentpos)
-	{
-		token_out.push_back(text[currentpos]);
-		found = true;
-	}
-	return found;
+	{}
+	token_out = string_view(text + startpos, currentpos - startpos);
+	return currentpos != startpos;
 }
 
 
@@ -750,6 +741,140 @@ void Parser::doUnitTests()
 			printVar(sum);
 			conPrint("parseWhiteSpace() per iter time: " + toString(1e9 * elapsed / N) + " ns");
 		}
+	}
+
+	//===================== parseAlphaToken ===============================
+
+	// Test some failure cases
+	{
+		std::string s = "";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseAlphaToken(token));
+	}
+	{
+		std::string s = "1";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseAlphaToken(token));
+	}
+
+	// Test successful cases
+	{
+		std::string s = "a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseAlphaToken(token));
+		testAssert(token == "a");
+	}
+
+	
+
+	//===================== parseIdentifier ===============================
+
+	// Test some failure cases
+	{
+		std::string s = "";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseIdentifier(token));
+	}
+	{
+		std::string s = "1";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseIdentifier(token));
+	}
+
+	// Test successful cases
+	{
+		std::string s = "a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseIdentifier(token));
+		testAssert(token == "a");
+	}
+
+	{
+		std::string s = "_a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseIdentifier(token));
+		testAssert(token == "_a");
+	}
+	
+	{
+		std::string s = "_1";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseIdentifier(token));
+		testAssert(token == "_1");
+	}
+
+	{
+		std::string s = "_1 a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseIdentifier(token));
+		testAssert(token == "_1");
+	}
+
+
+	//===================== parseNonWSToken ===============================
+
+	// Test some failure cases
+	{
+		std::string s = "";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseNonWSToken(token));
+	}
+	{
+		std::string s = " ";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(!parser.parseNonWSToken(token));
+	}
+
+	// Test successful cases
+	{
+		std::string s = "a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseNonWSToken(token));
+		testAssert(token == "a");
+	}
+
+	{
+		std::string s = "_a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseNonWSToken(token));
+		testAssert(token == "_a");
+	}
+	
+	{
+		std::string s = "1";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseNonWSToken(token));
+		testAssert(token == "1");
+	}
+
+	{
+		std::string s = "_1 a";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseNonWSToken(token));
+		testAssert(token == "_1");
+	}
+
+	{
+		std::string s = "_1\ta";
+		Parser parser(s.data(), (unsigned int)s.length());
+		string_view token;
+		testAssert(parser.parseNonWSToken(token));
+		testAssert(token == "_1");
 	}
 
 
