@@ -37,6 +37,9 @@ namespace Sort
 	template <class T, class Key>
 	inline void radixSort16(T* data, uint32 num_elements, Key key);
 
+	template <class T, class BucketChooser>
+	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
+
 
 	void test();
 
