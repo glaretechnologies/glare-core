@@ -43,12 +43,15 @@ public:
 	~TaskManager();
 
 	void addTask(const Reference<Task>& t);
+	void addTasks(Reference<Task>* tasks, size_t num_tasks);
 
 	bool areAllTasksComplete();
 
 	void waitForTasksToComplete();
 
 	size_t getNumThreads() const { return threads.size(); }
+
+	bool areAllThreadsBusy();
 
 
 	template <class Task, class TaskClosure> 

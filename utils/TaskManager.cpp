@@ -75,6 +75,17 @@ void TaskManager::addTask(const Reference<Task>& t)
 }
 
 
+void TaskManager::addTasks(Reference<Task>* t, size_t num_tasks)
+{
+	{
+		Lock lock(num_unfinished_tasks_mutex);
+		num_unfinished_tasks += (int)num_tasks;
+	}
+
+	tasks.enqueueItems(t, num_tasks);
+}
+
+
 bool TaskManager::areAllTasksComplete()
 {
 	Lock lock(num_unfinished_tasks_mutex);
@@ -84,10 +95,10 @@ bool TaskManager::areAllTasksComplete()
 
 void TaskManager::waitForTasksToComplete()
 {
+	Lock lock(num_unfinished_tasks_mutex);
+
 	while(1)
 	{
-		Lock lock(num_unfinished_tasks_mutex);
-
 		if(num_unfinished_tasks == 0)
 			return;
 		
@@ -96,10 +107,15 @@ void TaskManager::waitForTasksToComplete()
 			true, // infinite wait time
 			0 // wait time (s) (not used)
 		);
-
-		if(num_unfinished_tasks == 0)
-			return;
 	}
+}
+
+
+bool TaskManager::areAllThreadsBusy()
+{
+	Lock lock(num_unfinished_tasks_mutex);
+
+	return num_unfinished_tasks >= threads.size();
 }
 
 
@@ -116,12 +132,15 @@ void TaskManager::taskFinished() // called by Tasks
 	//conPrint("taskFinished()");
 	//conPrint("num_unfinished_tasks: " + toString(num_unfinished_tasks));
 
+	int new_num_unfinished_tasks;
 	{
 		Lock lock(num_unfinished_tasks_mutex);
 		num_unfinished_tasks--;
+		new_num_unfinished_tasks = num_unfinished_tasks;
 	}
 
-	num_unfinished_tasks_cond.notify();
+	if(new_num_unfinished_tasks == 0)
+		num_unfinished_tasks_cond.notify();
 }
 
 

@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskRunnerThread.h
 -------------------
-Copyright Glare Technologies Limited 2011 -
+Copyright Glare Technologies Limited 2015 -
 Generated at 2011-10-05 22:17:09 +0100
 =====================================================================*/
 #pragma once
@@ -15,6 +15,13 @@ namespace Indigo
 
 
 class TaskManager;
+
+
+struct TaskTimes
+{
+	double dequeue_time;
+	double finish_time;
+};
 
 
 /*=====================================================================
@@ -32,9 +39,9 @@ public:
 private:
 	TaskManager* manager;
 	size_t thread_index;
+
+	std::vector<TaskTimes>* task_times;
 };
 
 
 } // end namespace Indigo 
-
-
