@@ -510,7 +510,7 @@ namespace Sort
 	// Serial stable (binary) partition
 	// NOTE: this is actually pretty slow, std::stable_partition is faster.
 	template <class T, class Pred>
-	void stablePartition(T* in, T* out, size_t num, Pred pred)
+	size_t stablePartition(T* in, T* out, size_t num, Pred pred)
 	{
 		// Count number of items going to left
 		size_t left_count = 0;
@@ -528,6 +528,7 @@ namespace Sort
 			else
 				out[right_place_i++] = in[i];
 		}
+		return left_count;
 	}
 
 
@@ -586,8 +587,9 @@ namespace Sort
 
 
 	// Parallel stable (binary) partition
+	// Returns num items put to left of parition.
 	template <class T, class Pred>
-	void parallelStablePartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, Pred pred)
+	size_t parallelStablePartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, Pred pred)
 	{
 		const size_t max_num_tasks = 32;
 		const size_t num_tasks = 32;//myMin(max_num_tasks, task_manager.getNumThreads());
@@ -634,6 +636,8 @@ namespace Sort
 		}
 		task_manager.addTasks((Reference<Indigo::Task>*)place_tasks, num_tasks);
 		task_manager.waitForTasksToComplete();
+
+		return sum_left_before;
 	}
 
 

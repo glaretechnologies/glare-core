@@ -253,7 +253,7 @@ void BVHBuilder::build(
 
 			// Sort axis_centres
 			//timer2.reset();
-			Sort::bucketSort(*task_manager, axis_centres.begin(), working_space.begin(), num_objects, CenterItemPredicate(), CenterItemKey());
+			Sort::radixSortWithParallelPartition<CenterItem, CenterItemKey>(*task_manager, axis_centres.data(), num_objects, CenterItemKey(), working_space.data(), false);
 			//conPrint("sort: " + timer2.elapsedString());
 		}
 
@@ -580,6 +580,20 @@ public:
 };
 
 
+
+class PartitionPred
+{
+public:
+	bool operator () (const Ob& ob) const
+	{
+		return ob.centre[best_axis] <= best_div_val;
+	}
+
+	int best_axis;
+	float best_div_val;
+};
+
+
 /*
 Recursively build a subtree.
 Assumptions: root node for subtree is already created and is at node_index
@@ -822,6 +836,23 @@ void BVHBuilder::doBuild(
 		}
 
 		local_task_manager->waitForTasksToComplete();
+		
+		/*for(int axis = 0; axis < 3; ++axis)
+		{
+			js::Vector<Ob, 64>& axis_obs = objects[axis];
+
+			PartitionPred pred;
+			pred.best_axis = best_axis;
+			pred.best_div_val = best_div_val;
+
+			// puts results in temp0
+			const size_t actual_num_left = Sort::parallelStablePartition(*local_task_manager, axis_obs.data() + left, temp0.data(), right - left, pred);
+
+			// Copy back from temp0 to axis_obs
+			std::memcpy(axis_obs.data() + left, temp0.data(), (right - left)*sizeof(Ob));
+
+			split_i = left + (int)actual_num_left;
+		}*/
 
 		split_i = tasks[0]->split_i;
 		assert(tasks[0]->split_i == tasks[1]->split_i && tasks[0]->split_i == tasks[2]->split_i);
@@ -855,6 +886,17 @@ void BVHBuilder::doBuild(
 			std::memcpy(&axis_obs[left + num_left_tris], &temp1[0], sizeof(Ob) * num_right_tris);
 
 			split_i = left + num_left_tris;
+
+			/*PartitionPred pred;
+			pred.best_axis = best_axis;
+			pred.best_div_val = best_div_val;
+
+			const size_t actual_num_left = Sort::stablePartition(axis_obs.data() + left, temp0.data(), right - left, pred);
+
+			// Copy temp objects back to the object list
+			std::memcpy(&axis_obs[left], &temp0[0], sizeof(Ob) * (right - left));
+
+			split_i = left + (int)actual_num_left;*/
 		}
 
 		//if((right - left) >= axis_parallel_num_ob_threshold)

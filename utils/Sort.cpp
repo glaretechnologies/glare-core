@@ -218,7 +218,7 @@ static void testStablePartition(size_t N, size_t num_threads)
 		pred.val = partition_val;
 
 		std::vector<int> partitioned(N);
-		parallelStablePartition(task_manager, data.data(), partitioned.data(), N, pred);
+		const size_t par_num_left = parallelStablePartition(task_manager, data.data(), partitioned.data(), N, pred);
 
 		// Print partitioned
 		//for(size_t i=0; i<N; ++i)
@@ -226,12 +226,14 @@ static void testStablePartition(size_t N, size_t num_threads)
 
 		// Test against (serial) stablePartition() as well.
 		std::vector<int> serial_partitioned(N);
-		stablePartition(data.data(), serial_partitioned.data(), N, pred);
+		const size_t num_left = stablePartition(data.data(), serial_partitioned.data(), N, pred);
+		testAssert(par_num_left == num_left);
 		testAssert(partitioned == serial_partitioned);
 
 		// Test against std::stable_partition
 		std::vector<int> std_partitioned = data;
-		std::stable_partition(std_partitioned.begin(), std_partitioned.end(), pred);
+		std::vector<int>::iterator first_right = std::stable_partition(std_partitioned.begin(), std_partitioned.end(), pred);
+		testAssert(first_right - std_partitioned.begin() == num_left);
 		testAssert(partitioned == std_partitioned);
 	}
 }
