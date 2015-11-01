@@ -330,7 +330,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 	if(desired_licence_type == RT_3_X || desired_licence_type == INDIGO_RT_ICLONE)
 	{
 		error_code_out = LicenceErrorCode_IndigoRTUsedForIndigoRenderer;
-		throw LicenseExcep("The entered licence key is for Indigo RT. Please download and install Indigo RT from http://www.indigorenderer.com/download-indigo-rt");
+		return;
 	}
 #endif
 
