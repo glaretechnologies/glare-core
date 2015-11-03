@@ -51,6 +51,29 @@ public:
 };
 
 
+// Skip whitespace, including a possible line continuation character (backslash)
+static inline void skipWhitespace(Parser& parser)
+{
+	while(1)
+	{
+		if(parser.eof())
+			return;
+		else if(parser.getText()[parser.currentPos()] == ' ' || parser.getText()[parser.currentPos()] == '\t')
+			parser.advance(); // consume whitespace char
+		else if(parser.current() == '\\') // Line continuation character.  Consume next newline then continue.
+		{
+			parser.advance(); // consume backslash char.
+			parser.advancePastLine();
+		}
+		else
+		{
+			// Current char is neither whitespace nor backslash.
+			break;
+		}
+	}
+}
+
+
 void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale)
 {
 	// Timer load_timer;
@@ -99,7 +122,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 		if(token == "usemtl")  //material to use for subsequent faces
 		{
 			/// Parse material name ///
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 
 			string_view material_name;
 			parser.parseNonWSToken(material_name);
@@ -118,11 +141,11 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 		else if(token == "v") // vertex position
 		{
 			Indigo::Vec3f pos;
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r1 = parser.parseFloat(pos.x);
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r2 = parser.parseFloat(pos.y);
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r3 = parser.parseFloat(pos.z);
 
 			if(!r1 || !r2 || !r3)
@@ -135,9 +158,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 		else if(token == "vt") // vertex tex coordinate
 		{
 			Indigo::Vec2f texcoord;
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r1 = parser.parseFloat(texcoord.x);
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r2 = parser.parseFloat(texcoord.y);
 
 			if(!r1 || !r2)
@@ -159,11 +182,11 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 		else if(token == "vn") // vertex normal
 		{
 			Indigo::Vec3f normal;
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r1 = parser.parseFloat(normal.x);
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r2 = parser.parseFloat(normal.y);
-			parser.parseSpacesAndTabs();
+			skipWhitespace(parser);
 			const bool r3 = parser.parseFloat(normal.z);
 
 			if(!r1 || !r2 || !r3)
@@ -177,7 +200,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 			for(int i=0; i<(int)MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
 			{
-				parser.parseSpacesAndTabs();
+				skipWhitespace(parser);
 				if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
 					break; // end of line, we're done parsing this face.
 
@@ -326,3 +349,66 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 	handler.endOfModel();
 	// conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include "../utils/FileUtils.h"
+
+
+void FormatDecoderObj::test()
+{
+	conPrint("FormatDecoderObj::test()");
+
+	try
+	{
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj";
+		Indigo::Mesh mesh;
+		streamModel(path, mesh, 1.0);
+
+		testAssert(mesh.vert_positions.size() == 4);
+		testAssert(mesh.uv_pairs.size() == 2);
+		testAssert(mesh.num_uv_mappings == 1);
+		testAssert(mesh.vert_normals.size() == 4);
+		testAssert(mesh.triangles.size() == 0);
+		testAssert(mesh.quads.size() == 2);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Load sphere.obj, also sphere_with_backslash.obj (which has some backslashes inserted) and make sure they give the same mesh.
+	try
+	{
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
+		Indigo::Mesh sphere_mesh_ref;
+		streamModel(path, sphere_mesh_ref, 1.0);
+
+		const std::string path2 = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere_with_backslashes.obj";
+		Indigo::Mesh sphere_mesh_2;
+		streamModel(path2, sphere_mesh_2, 1.0);
+
+		testAssert(sphere_mesh_ref.checksum() == sphere_mesh_2.checksum());
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	try
+	{
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj";
+		Indigo::Mesh mesh;
+		streamModel(path, mesh, 1.0);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+#endif // BUILD_TESTS
