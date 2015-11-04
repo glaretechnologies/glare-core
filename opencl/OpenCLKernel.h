@@ -40,6 +40,7 @@ public:
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
 
 	void setNextKernelArg(cl_mem buffer);
+	void setNextKernelArgUInt(cl_uint val);
 	size_t getNextKernelIndex() const { return kernel_arg_index; }
 
 	// Returns execution time in seconds if profiling was enabled, or 0 otherwise.

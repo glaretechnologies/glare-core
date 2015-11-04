@@ -61,7 +61,7 @@ void OpenCLKernel::createKernel(cl_program program, const std::string& kernel_na
 
 	this->work_group_size = this->work_group_size_multiple;
 
-	conPrint("work group size multiple for kernel '" + kernel_name + "' = " + toString(this->work_group_size_multiple));
+	// conPrint("work group size multiple for kernel '" + kernel_name + "' = " + toString(this->work_group_size_multiple));
 }
 
 
@@ -99,6 +99,13 @@ void OpenCLKernel::setKernelArgBuffer(size_t index, cl_mem buffer)
 void OpenCLKernel::setNextKernelArg(cl_mem buffer)
 {
 	setKernelArgBuffer(kernel_arg_index, buffer);
+	kernel_arg_index++;
+}
+
+
+void OpenCLKernel::setNextKernelArgUInt(cl_uint val)
+{
+	setKernelArgUInt(kernel_arg_index, val);
 	kernel_arg_index++;
 }
 
