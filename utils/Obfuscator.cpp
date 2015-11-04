@@ -22,11 +22,8 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 :	collapse_whitespace(collapse_whitespace_),
 	remove_comments(remove_comments_),
 	change_tokens(change_tokens_),
-	cryptic_tokens(cryptic_tokens_),
-	rng(1)
+	cryptic_tokens(cryptic_tokens_)
 {
-	c = 0;
-
 	const char* keywords_[] = {
 "auto",
 "bool",
@@ -71,6 +68,14 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "float2",
 "float3",
 "float4",
+"float8",
+"float16",
+"double2",
+"double3",
+"double4",
+"double8",
+"double16",
+"int8",
 "uint",
 "uint4",
 "texture",
@@ -82,16 +87,18 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "__float_as_int",
 
 "abs",
-"acos",
-"asin",
+"acos", "acosh",
+"asin", "asinh",
+"atan", "atanh",
 "atan2",
-"cos",
+"cos", "cosh",
 "exp",
+"log",
 "fabs",
 "pow",
 "rsqrt",
-"sin",
-"tan",
+"sin", "sinh",
+"tan", "tanh",
 "sqrt",
 
 "min",
@@ -107,6 +114,17 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "y",
 "z",
 "w",
+
+// vector elements:
+"v",
+"s0",
+"s1",
+"s2",
+"s3",
+"s4",
+"s5",
+"s6",
+"s7",
 
 // swizzles:
 "xyz",
@@ -127,6 +145,7 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "__read_only", "read_only", "__write_only", "write_only", 
 "__read_write","read_write", 
  
+"isfinite",
 
 "sampler_t",
 "image2d_t",
@@ -139,9 +158,13 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "atom_add",
 "fmin",
 "fmax",
+"fmod",
+"mix",
 "as_uint4",
 "as_float",
 "as_uint",
+
+"convert_int8",
 
 "dot",
 "cross",
@@ -182,6 +205,20 @@ Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool ch
 "QMC_kernel",
 "RTK",
 
+//"ThreadData",
+//"static_float_data", "dynamic_float_data", "qrng_data", "thread_data",
+
+"lll11l11lll1", // "iter_depth",
+"l1111l11l111", // "num_iterators",
+"l11ll11l1ll1", // "pal_values",
+"ll1l111lll11", // "dyn_floats",
+"l11llllll1l1", // "initDynamicData",
+"ll11ll1l111l", // "getCameraVectors",
+"ll1lll1llll1", // "applyTransform",
+"l1llll1lllll", // "applyCameraTransform",
+"l1lll1ll1l11", // Zero kernel
+"l1lllll111l1", // QRNG kernel
+"ll1ll11l1ll1", // Main iteration kernel
 
 NULL
 	};
@@ -200,6 +237,24 @@ Obfuscator::~Obfuscator()
 }
 
 
+const std::string Obfuscator::tokenHashString(const std::string& t)
+{
+	// Use hash of token to produce obfuscated token
+	std::hash<std::string> hash_fn;
+    std::size_t str_hash = hash_fn(t);
+
+	std::string new_token = "l";
+
+	for(int i = 0; i < 32; ++i)
+	{
+		::concatWithChar(new_token, (str_hash & 1) ? 'l' : '1');
+		str_hash >>= 1;
+	}
+
+	return new_token;
+}
+
+
 const std::string Obfuscator::mapToken(const std::string& t)
 {
 	if(!change_tokens)
@@ -208,44 +263,9 @@ const std::string Obfuscator::mapToken(const std::string& t)
 	if(this->keywords.find(t) != this->keywords.end())
 		return t;
 
-	if(token_map.find(t) == token_map.end())
-	{
-		std::string new_token;
-		if(cryptic_tokens)
-		{
-			while(1)
-			{
-				new_token = "l";
-				
-				for(int i=0; i<10; ++i)
-				{
-					if(rng.unitRandom() < 0.5f)
-						::concatWithChar(new_token, '1');
-					else
-						::concatWithChar(new_token, 'l');
-				}
-				if(new_tokens.find(new_token) == new_tokens.end()) // If we haven't already randomly generated this token...
-				{
-					new_tokens.insert(new_token);
-					break;
-				}
-			}
-		}
-		else
-		{
-			new_token = "token_" + ::toString(c);
-			c++;
-		}
-
-		token_map[t] = new_token;
-	}
-	else
-	{
-		
-	}
-
-	return token_map[t];
+	return tokenHashString(t);
 }
+
 
 const std::string Obfuscator::obfuscate(const std::string& s)
 {
@@ -288,9 +308,15 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		if(p.current() == '/' && p.nextIsChar('/'))
 		{
 			int last_currentpos = p.currentPos();
-			p.parseLine();
+
+			//parseLine();
+			p.advancePastLine();
+
 			if(!remove_comments)
 				res += s.substr(last_currentpos, p.currentPos() - last_currentpos); // append comment to output
+			//else if(res.substr(res.size() - 1, 1) != "\n")
+			//	res += "\n";
+
 			continue;
 		}
 		else if(p.current() == '#') // preprocessor def
