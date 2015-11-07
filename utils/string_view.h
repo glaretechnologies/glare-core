@@ -35,8 +35,13 @@ public:
 
 	inline const char operator [] (size_t index) const;
 
+	inline string_view substr(size_t pos = 0, size_t n = std::string::npos) const;
+
 	inline const char* data() const { return data_; }
 	inline const size_t size() const { return size_; }
+	inline const size_t length() const { return size_; }
+
+	inline bool empty() const { return size_ == 0; }
 
 	inline const std::string to_string() const;
 
@@ -75,6 +80,12 @@ const char string_view::operator [] (size_t index) const
 }
 
 
+string_view string_view::substr(size_t pos, size_t n) const
+{
+    return string_view(data() + pos, std::min(n, size() - pos));
+}
+
+
 const std::string string_view::to_string() const
 {
 	return std::string(data_, data_ + size_);
@@ -98,3 +109,14 @@ inline bool operator != (string_view lhs, string_view rhs)
 	return std::memcmp(lhs.data(), rhs.data(), lhs.size()) != 0;
 }
 
+
+inline const std::string operator + (string_view lhs, string_view rhs)
+{
+	std::string res;
+	res.resize(lhs.size() + rhs.size());
+	for(size_t i=0; i<lhs.size(); ++i)
+		res[i] = lhs[i];
+	for(size_t i=0; i<rhs.size(); ++i)
+		res[lhs.size() + i] = rhs[i];
+	return res;
+}

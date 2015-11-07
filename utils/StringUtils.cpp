@@ -418,7 +418,7 @@ const std::string doubleToStringNSigFigs(double f, int num_sig_figs)
 		3 // max_trailing_padding_zeroes_in_precision_mode
 	);
 
-	char buffer[64];
+	char buffer[128];
 	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
 
 	converter.ToPrecision(f, num_sig_figs, &builder);
@@ -705,7 +705,7 @@ const std::string boolToString(bool b)
 
 const std::string stripHeadWhitespace(const std::string& text)
 {
-	for(unsigned int i=0; i<text.size(); i++)
+	for(size_t i=0; i<text.size(); i++)
 		if(!isWhitespace(text[i]))
 			return text.substr(i, text.size() - i); // Non-whitespace starts here
 
@@ -796,7 +796,7 @@ const std::string eatSuffix(const std::string& s, const std::string& suffix)
 const std::string toLowerCase(const std::string& text)
 {
 	std::string lowerstr = text;
-	for(unsigned int i=0; i<lowerstr.size(); ++i)
+	for(size_t i=0; i<lowerstr.size(); ++i)
 		if(lowerstr[i] >= 'A' && lowerstr[i] <= 'Z')
 			lowerstr[i] = lowerstr[i] - 'A' + 'a';
 
@@ -807,7 +807,7 @@ const std::string toLowerCase(const std::string& text)
 const std::string toUpperCase(const std::string& text)
 {
 	std::string upperstr = text;
-	for(unsigned int i=0; i<upperstr.size(); ++i)
+	for(size_t i=0; i<upperstr.size(); ++i)
 		if(upperstr[i] >= 'a' && upperstr[i] <= 'z')
 			upperstr[i] = upperstr[i] - 'a' + 'A';
 
@@ -872,7 +872,7 @@ bool hasPrefix(const std::string& s, const std::string& prefix)
 	if(prefix.length() > s.length())
 		return false;
 
-	for(unsigned int i=0; i<prefix.length(); i++)
+	for(size_t i=0; i<prefix.length(); i++)
 		if(prefix[i] != s[i])
 			return false;
 
@@ -901,7 +901,7 @@ int getNumMatches(const std::string& s, char target)
 {
 	int num_matches = 0;
 
-	for(unsigned int i=0; i<s.length(); i++)
+	for(size_t i=0; i<s.length(); i++)
 		if(s[i] == target)
 			num_matches++;
 
@@ -929,7 +929,7 @@ int getNumMatches(const std::string& s, char target)
 // Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest)
 {
-	for(unsigned int i=0; i<s.size(); ++i)
+	for(size_t i=0; i<s.size(); ++i)
 		if(s[i] == src)
 			s[i] = dest;
 }
@@ -939,7 +939,7 @@ void replaceChar(std::string& s, char src, char dest)
 const std::string StringUtils::replaceCharacter(const std::string& s, char src, char dest)
 {
 	std::string res = s;
-	for(unsigned int i=0; i<s.size(); ++i)
+	for(size_t i=0; i<s.size(); ++i)
 		if(res[i] == src)
 			res[i] = dest;
 	return res;
@@ -971,7 +971,7 @@ const std::string getNiceByteSize(uint64 x)
 {
 	assert(x >= 0);
 	if(x < 1024)
-		return ::toString((unsigned int)x) + " B";
+		return ::toString(x) + " B";
 	else if(x < 1048576)
 	{
 		const float kbsize = (float)x / 1024.0f;
@@ -995,15 +995,11 @@ const std::string getNiceByteSize(uint64 x)
 
 const std::string getPrefixBeforeDelim(const std::string& s, char delim)
 {
-	std::string prefix;
 	for(unsigned int i=0; i<s.size(); ++i)
-	{
 		if(s[i] == delim)
-			return prefix;
-		else
-			::concatWithChar(prefix, s[i]);
-	}
-	return prefix;
+			return s.substr(0, i);
+
+	return s;
 }
 
 
@@ -1164,14 +1160,17 @@ const std::string byteArrayToString(const std::vector<unsigned char>& bytes)
 #if defined(_WIN32)
 const std::wstring UTF8ToWString(const std::string& s)
 {
-	assert(s.size() + 1 < (size_t)std::numeric_limits<int>::max());
+	assert(s.size() < (size_t)std::numeric_limits<int>::max());
+
+	if(s.empty()) // MultiByteToWideChar can't handle zero lengths, handle explicitly.
+		return std::wstring();
 
 	// Call initially to get size of buffer to allocate.
 	const int size_required = MultiByteToWideChar(
 		CP_UTF8, // code page
 		0, // flags
-		s.c_str(),
-		(int)s.size() + 1, // Byte size of s.  Add one, because we want to include the null terminator.
+		s.data(), // lpMultiByteStr
+		(int)s.size(), // cbMultiByte - Size, in bytes, of the string indicated by the lpMultiByteStr parameter.
 		NULL, // out buffer
 		0 // buffer size
 	);
@@ -1180,14 +1179,15 @@ const std::wstring UTF8ToWString(const std::string& s)
 		return std::wstring();
 
 	// Call again, this time with the buffer.
-	std::vector<wchar_t> buffer(size_required);
+	std::wstring res_string;
+	res_string.resize(size_required);
 
 	const int result = MultiByteToWideChar(
 		CP_UTF8, // code page
 		0,
-		s.c_str(),
-		(int)s.size() + 1, // Add one, because we want to convert the null terminator.
-		&buffer[0],
+		s.data(),
+		(int)s.size(),
+		&res_string[0],
 		size_required
 	);
 
@@ -1215,40 +1215,44 @@ const std::wstring UTF8ToWString(const std::string& s)
 		return std::wstring();
 	}
 
-	return std::wstring(buffer.begin(), buffer.end() - 1);
+	return res_string;
 }
 
 
 const std::string WToUTF8String(const std::wstring& wide_string)
 {
-	assert(wide_string.size() + 1 < (size_t)std::numeric_limits<int>::max());
+	assert(wide_string.size() < (size_t)std::numeric_limits<int>::max());
+
+	if(wide_string.empty()) // WideCharToMultiByte can't handle zero lengths, handle explicitly.
+		return std::string();
 
 	// Call once to get number of bytes required for buffer.
 	const int size_required = WideCharToMultiByte(
 		CP_UTF8,
 		0,
-		wide_string.c_str(),
-		(int)wide_string.size() + 1,
+		wide_string.data(),
+		(int)wide_string.size(),
 		NULL,
 		0,
 		NULL,
 		NULL
 	);
 
-	std::vector<char> buffer(size_required);
+	std::string res_string;
+	res_string.resize(size_required);
 
 	/*const int num_bytes = */WideCharToMultiByte(
 		CP_UTF8,
 		0,
-		wide_string.c_str(),
-		(int)wide_string.size() + 1,
-		&buffer[0],
+		wide_string.data(),
+		(int)wide_string.size(),
+		&res_string[0],
 		size_required,
 		NULL,
 		NULL
 	);
 
-	return std::string(buffer.begin(), buffer.end() - 1);
+	return res_string;
 }
 #endif // defined(_WIN32)
 

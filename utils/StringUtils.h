@@ -173,12 +173,6 @@ inline void concatWithChar(std::string& s, char c)
 	s.push_back(c);
 }
 
-// NOTE: Very slow, use push_back() or concatWithChar() above instead.
-inline const std::string appendChar(const std::string& s, char c)
-{
-	return s + std::string(1, c);
-}
-
 // If first_char_index is >= s.size(), then returns ""
 const std::string getTailSubString(const std::string& s, size_t first_char_index);
 
