@@ -469,45 +469,48 @@ void writeEntireFile(const std::string& pathname, const char* data, size_t data_
 
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // throws FileUtilsExcep
 {
-	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str());
-
-	if(!infile)
-		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-
-	s_out = "";
-	std::string line;
-	while(infile)
-	{
-		std::getline(infile, line);
-
-		//if((line.size() > 0) && (line[0] == '\r'))
-		//	line = line.substr(1, line.size() - 1);
-		s_out += line + "\n"; // NOTE: use platform newline string?
-	}
+	s_out = readEntireFileTextMode(pathname);
 }
 
 
+// Reads the entire file, but does some conversion - converts CRLF to LF.
 std::string readEntireFileTextMode(const std::string& pathname) // throws FileUtilsExcep
 {
-	std::ifstream infile(convertUTF8ToFStreamPath(pathname).c_str());
-
-	if(!infile)
-		throw FileUtilsExcep("could not open '" + pathname + "' for reading.");
-
-	std::string s_out;
-	std::string line;
-	while(infile)
+	try
 	{
-		std::getline(infile, line);
+		MemMappedFile file(pathname);
 
-		//if((line.size() > 0) && (line[0] == '\r'))
-		//	line = line.substr(1, line.size() - 1);
-		s_out += line + "\n"; // NOTE: use platform newline string?
+//#if defined(_WIN32)
+		// Do text-mode processing: convert CRLF to LF
+
+		const char* const data = (const char*)file.fileData();
+		const size_t data_size = file.fileSize();
+
+		std::string res;
+		res.reserve(data_size);
+		
+		for(size_t i=0; i<data_size; ++i)
+			if((data[i] == '\r') && (i + 1 < data_size) && (data[i+1] == '\n'))
+			{
+				res.push_back('\n');
+				i++; // Skip both CR and LF
+			}
+			else
+				res.push_back(data[i]);
+
+		return res;
+/*#else
+		std::string data;
+		if(file.fileSize() > 0)
+			std::memcpy(&data[0], file.fileData(), file.fileSize());
+		return data;
+#endif*/
 	}
-
-	return s_out;
+	catch(Indigo::Exception& e)
+	{
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
+	}
 }
-
 
 
 void copyFile(const std::string& srcpath, const std::string& dstpath)
@@ -1019,6 +1022,41 @@ void doUnitTests()
 #if defined(_WIN32)
 		testAssert(getFileCreatedTime(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") > 0);
 #endif
+
+		//============ Test readEntireFile() ====================
+		{
+			// CRLF should not be converted to LF (as this is a binary read)
+			std::string s;
+			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", s);
+			testAssert(s == "a\r\nb");
+		}
+		{
+			std::string s;
+			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", s);
+			testAssert(s == "a\nb");
+		}
+		{
+			// Test with empty file
+			std::string s;
+			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", s);
+			testAssert(s == "");
+
+		}
+		//============ Test readEntireFileTextMode() ====================
+		{
+			// CRLF should be converted to LF
+			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt");
+			testAssert(s == "a\nb");
+		}
+		{
+			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt");
+			testAssert(s == "a\nb");
+		}
+		{
+			// Test with empty file
+			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file");
+			testAssert(s == "");
+		}
 	}
 	catch(FileUtilsExcep& e)
 	{
