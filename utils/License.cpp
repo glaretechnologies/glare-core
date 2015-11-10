@@ -115,14 +115,11 @@ const std::string License::decodeBase64(const std::string& data_)
 static INDIGO_STRONG_INLINE const std::string unTransmungifyPublicKey()
 {
 	std::string s;
-	const bool result = Transmungify::decrypt(
+	Transmungify::decrypt(
 		encrypted_public_key,
 		encrypted_public_key_size,
 		s
 	);
-
-	assertOrDeclareUsed(result);
-
 	return s;
 }
 

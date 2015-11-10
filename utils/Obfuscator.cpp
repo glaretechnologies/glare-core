@@ -915,30 +915,57 @@ const std::string Obfuscator::encryptedFilename(const std::string& plaintext_fil
 }
 
 
+const std::string Obfuscator::readAndDecryptFile(const std::string& path)
+{
+	try
+	{
+		std::string cyphertext;
+		FileUtils::readEntireFile(path, cyphertext);
+
+		if(cyphertext.size() % 4 != 0)
+			throw Indigo::Exception("invalid file length for file '" + path + "'");
+
+		std::string plaintext;
+		Transmungify::decrypt((const uint32*)cyphertext.data(), cyphertext.size() / 4, plaintext);
+		return plaintext;
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw Indigo::Exception(e.what());
+	}
+}
+
+
 const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_dir, const std::string& plain_text_path)
 {
-	const bool encrypted = true;
-
-	if(encrypted)
+	try
 	{
-		const std::string filename = FileUtils::getFilename(plain_text_path);
+		const bool encrypted = true;
 
-		// Read from indigo_base_dir/data/obs
-		const std::string dir = indigo_base_dir + "/data/obs";
+		if(encrypted)
+		{
+			const std::string filename = FileUtils::getFilename(plain_text_path);
 
-		const std::string encypted_filename = encryptedFilename(filename);
+			// Read from indigo_base_dir/data/obs
+			const std::string dir = indigo_base_dir + "/data/obs";
 
-		const std::string encryped_path = dir + "/" + encypted_filename;
+			const std::string encypted_filename = encryptedFilename(filename);
 
-		conPrint("reading encrypted source from '" + encryped_path + "'...");
+			const std::string encryped_path = dir + "/" + encypted_filename;
 
-		return FileUtils::readEntireFileTextMode(encryped_path);
+			conPrint("reading encrypted source from '" + encryped_path + "'...");
+
+			return readAndDecryptFile(encryped_path);
+		}
+		else
+		{
+			return FileUtils::readEntireFileTextMode(indigo_base_dir);
+		}
 	}
-	else
+	catch(FileUtils::FileUtilsExcep& e)
 	{
-		return FileUtils::readEntireFileTextMode(indigo_base_dir);
+		throw Indigo::Exception(e.what());
 	}
-
 }
 
 
@@ -1004,6 +1031,8 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 		Obfuscator::Lang_OpenCL
 	);
 
+	const bool encrypt = true;
+
 	try
 	{
 		//==================== Obfuscate material (and material related) source code ==================
@@ -1053,9 +1082,18 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 				assert(0);
 			}
 
+		
 			const std::string outpath = "data/obs/" + encryptedFilename(FileUtils::getFilename(src_path));
 
-			FileUtils::writeEntireFileTextMode(outpath, ob_src);
+			if(encrypt)
+			{
+				// Encrypt/transmungify source
+				std::vector<uint32> cyphertext;
+				Transmungify::encrypt(ob_src, cyphertext);
+				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
+			}
+			else
+				FileUtils::writeEntireFileTextMode(outpath, ob_src);
 
 			conPrint("Encrypted/obfuscated '" + src_path + "' to '" + outpath + "'");	
 		}
@@ -1091,14 +1129,22 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			}
 
 			// Obfuscate the code
-			std::string ob_s = opencl_ob.obfuscate(complete_kernel_string);
+			std::string ob_src = opencl_ob.obfuscate(complete_kernel_string);
 
-			ob_s = renameOpenCLSupportFunctions(ob_s);
+			ob_src = renameOpenCLSupportFunctions(ob_src);
 
 
 			const std::string outpath = "data/OPT";
 
-			FileUtils::writeEntireFileTextMode(outpath, ob_s);
+			if(encrypt)
+			{
+				// Encrypt/transmungify source
+				std::vector<uint32> cyphertext;
+				Transmungify::encrypt(ob_src, cyphertext);
+				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
+			}
+			else
+				FileUtils::writeEntireFileTextMode(outpath, ob_src);
 
 			conPrint("Wrote '" + outpath + "'");	
 		}
@@ -1110,11 +1156,19 @@ void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
 			FileUtils::readEntireFileTextMode(FileUtils::join(kernel_dir, "MaterialScatterMicroKernel.cl"), complete_kernel_string);
 
 			// Obfuscate the code
-			const std::string ob_s = opencl_ob.obfuscate(complete_kernel_string);
+			const std::string ob_src = opencl_ob.obfuscate(complete_kernel_string);
 
 			const std::string outpath = "data/MSMK";
 
-			FileUtils::writeEntireFileTextMode(outpath, ob_s);
+			if(encrypt)
+			{
+				// Encrypt/transmungify source
+				std::vector<uint32> cyphertext;
+				Transmungify::encrypt(ob_src, cyphertext);
+				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
+			}
+			else
+				FileUtils::writeEntireFileTextMode(outpath, ob_src);
 
 			conPrint("Wrote '" + outpath + "'");	
 		}

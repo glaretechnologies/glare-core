@@ -35,13 +35,13 @@ static inline unsigned char toUChar(uint32 x)
 }
 
 
-bool Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords)
+void Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords)
 {
-	return encrypt(src_string.c_str(), (uint32)src_string.size(), dst_dwords);
+	encrypt(src_string.c_str(), (uint32)src_string.size(), dst_dwords);
 }
 
 
-bool Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::vector<uint32>& dst_dwords)
+void Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::vector<uint32>& dst_dwords)
 {
 	uint32 i;
 	const uint32 string_len = src_string_size; // (uint32)src_string.size();
@@ -81,18 +81,16 @@ bool Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::
 
 		dst_dwords[i] = dword_value;
 	}
-
-	return true;
 }
 
 
-bool Transmungify::decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string)
+void Transmungify::decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string)
 {
-	return decrypt(&src_dwords[0], (uint32)src_dwords.size(), dst_string);
+	decrypt(&src_dwords[0], (uint32)src_dwords.size(), dst_string);
 }
 
 
-bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string)
+void Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string)
 {
 	const uint32 string_len = (src_dwords[src_dwords_count - 1] - magic1) ^ magic0;
 
@@ -117,12 +115,10 @@ bool Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 		dst_string[i * 4 + 3] = toUChar(chars[permute[2]] - char_offsets[0]);
 	}
 	dst_string.erase(string_len, dst_string.size() - string_len);
-
-	return true;
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"
@@ -137,10 +133,7 @@ void Transmungify::test()
 	encrypt(program_string, munged_program_string);
 
 	std::string unmunged_program_string;
-	if(!decrypt(munged_program_string, unmunged_program_string))
-	{
-		failTest("error decrypting string");
-	}
+	decrypt(munged_program_string, unmunged_program_string);
 
 	if(unmunged_program_string != program_string)
 	{
@@ -166,4 +159,5 @@ void Transmungify::test()
 	}
 }
 
-#endif
+
+#endif // BUILD_TESTS
