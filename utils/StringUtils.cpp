@@ -1003,6 +1003,21 @@ const std::string getPrefixBeforeDelim(const std::string& s, char delim)
 }
 
 
+const std::string getSuffixAfterDelim(const std::string& s, char delim)
+{
+	for(unsigned int i=0; i<s.size(); ++i)
+		if(s[i] == delim)
+		{
+			if(i == s.size() - 1) // If the delimiter is the last character in the string:
+				return "";
+			else
+				return s.substr(i + 1, s.size() - (i + 1));
+		}
+
+	return "";
+}
+
+
 const std::vector<std::string> split(const std::string& s, char delim)
 {
 	std::vector<std::string> parts;
@@ -2169,6 +2184,18 @@ void StringUtils::test()
 	testAssert(getPrefixBeforeDelim("meh666", '6') == "meh");
 	testAssert(getPrefixBeforeDelim("meh666", '3') == "meh666");
 	testAssert(getPrefixBeforeDelim("meh666", 'm') == "");
+
+	testAssert(getSuffixAfterDelim("a_b", '_') == "b");
+	testAssert(getSuffixAfterDelim("a_bc", '_') == "bc");
+	testAssert(getSuffixAfterDelim("a_", '_') == "");
+	testAssert(getSuffixAfterDelim("a", '_') == "");
+	testAssert(getSuffixAfterDelim("", '_') == "");
+	testAssert(getSuffixAfterDelim("_b", '_') == "b");
+	testAssert(getSuffixAfterDelim("_", '_') == "");
+	testAssert(getSuffixAfterDelim("_bc", '_') == "bc");
+	testAssert(getSuffixAfterDelim("_bc_de", '_') == "bc_de");
+	testAssert(getSuffixAfterDelim("__de", '_') == "_de");
+	testAssert(getSuffixAfterDelim("abc_", '_') == "");
 
 	testAssert(::toHexString(0x34bc8106) == "34BC8106");
 	testAssert(::toHexString(0x0) == "0");

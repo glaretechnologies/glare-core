@@ -182,6 +182,7 @@ const std::string forceCopyString(const std::string& s);
 const std::string getNiceByteSize(uint64 x);
 
 const std::string getPrefixBeforeDelim(const std::string& s, char delim);
+const std::string getSuffixAfterDelim(const std::string& s, char delim);
 
 const std::vector<std::string> split(const std::string& s, char delim);
 

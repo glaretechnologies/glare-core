@@ -29,6 +29,7 @@ class Distribution2;
 class Aperture;
 class MTwister;
 class FFTPlan;
+struct EmitWinterCodeArgs;
 
 
 class CameraExcep
@@ -155,7 +156,7 @@ public:
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const { return 0; }
 
-	virtual const std::string emitWinterCode() const { assert(0); return ""; }
+	virtual const std::string emitWinterCode(EmitWinterCodeArgs& args) const { assert(0); return ""; }
 
 
 
