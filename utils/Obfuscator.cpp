@@ -17,12 +17,13 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "Transmungify.h"
 #include "TestUtils.h"
 #include <stdlib.h>
-#include <map>
 #include <wnt_LangParser.h>
 #include <wnt_Lexer.h>
 #include <wnt_Variable.h>
 #include <wnt_FunctionExpression.h>
 #include <xxhash.h>
+#include <map>
+#include <algorithm>
 
 
 Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool change_tokens_, /*bool cryptic_tokens_, */Lang lang_)
