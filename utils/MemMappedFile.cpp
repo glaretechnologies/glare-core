@@ -44,7 +44,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw Indigo::Exception("CreateFile failed for path '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw Indigo::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;

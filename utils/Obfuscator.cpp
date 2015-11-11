@@ -926,7 +926,7 @@ const std::string Obfuscator::readAndDecryptFile(const std::string& path)
 			throw Indigo::Exception("invalid file length for file '" + path + "'");
 
 		std::string plaintext;
-		Transmungify::decrypt((const uint32*)cyphertext.data(), cyphertext.size() / 4, plaintext);
+		Transmungify::decrypt((const uint32*)cyphertext.data(), (uint32)cyphertext.size() / 4, plaintext);
 		return plaintext;
 	}
 	catch(FileUtils::FileUtilsExcep& e)
@@ -940,9 +940,7 @@ const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_di
 {
 	try
 	{
-		const bool encrypted = true;
-
-		if(encrypted)
+		if(useObfuscatedSource())
 		{
 			const std::string filename = FileUtils::getFilename(plain_text_path);
 
@@ -959,7 +957,10 @@ const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_di
 		}
 		else
 		{
-			return FileUtils::readEntireFileTextMode(indigo_base_dir);
+			// Assume that all plain-text files we are trying to read are in INDIGO_TRUNK/lang if not specified otherwise
+			const std::string full_path = FileUtils::join(TestUtils::getIndigoTestReposDir() + "/lang", plain_text_path);
+
+			return FileUtils::readEntireFileTextMode(full_path);
 		}
 	}
 	catch(FileUtils::FileUtilsExcep& e)
