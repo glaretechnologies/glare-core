@@ -952,7 +952,7 @@ const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_di
 
 			const std::string encryped_path = dir + "/" + encypted_filename;
 
-			conPrint("reading encrypted source from '" + encryped_path + "'...");
+			// conPrint("reading encrypted source from '" + encryped_path + "'...");
 
 			return readAndDecryptFile(encryped_path);
 		}
