@@ -639,28 +639,54 @@ const std::vector<gpuDeviceInfo>& OpenCL::getDeviceInfo() const { return device_
 
 
 cl_program OpenCL::buildProgram(
-	const std::vector<std::string>& program_lines,
+	const std::string& program_source,
 	cl_context opencl_context,
 	cl_device_id opencl_device,
 	const std::string& compile_options
 )
 {
-	std::vector<const char*> strings(program_lines.size());
-	for(size_t i = 0; i < program_lines.size(); ++i)
-		strings[i] = program_lines[i].c_str();
+	// Build string pointer and length arrays
+	std::vector<const char*> strings;
+	std::vector<size_t> lengths; // Length of each line, including possible \n at end of line.
+	size_t last_line_start_i = 0;
+	for(size_t i=0; i<program_source.size(); ++i)
+	{
+		if(program_source[i] == '\n')
+		{
+			strings.push_back(program_source.data() + last_line_start_i);
+			const size_t line_len = i - last_line_start_i + 1; // Plus one to include this newline character.
+			assert(line_len >= 1);
+			lengths.push_back(line_len);
+			// const std::string line(program_source.data() + last_line_start_i, line_len);
+			last_line_start_i = i + 1; // Next line starts after this newline char.
+		}
+	}
+
+	// Add last line (that may not be terminated by a newline character) if there is one.
+	assert(last_line_start_i <= program_source.size());
+	if(program_source.size() - last_line_start_i >= 1)
+	{
+		const size_t line_len = program_source.size() - last_line_start_i;
+		assert(line_len >= 1);
+		strings.push_back(program_source.data() + last_line_start_i);
+		lengths.push_back(line_len);
+		// const std::string line(program_source.data() + last_line_start_i, line_len);
+	}
+	assert(strings.size() == lengths.size());
 
 	cl_int result;
 	cl_program program = this->clCreateProgramWithSource(
 		opencl_context,
-		(cl_uint)program_lines.size(),
-		&strings[0],
-		NULL, // lengths, can be NULL because all strings are null-terminated.
+		(cl_uint)strings.size(), // count
+		strings.data(),
+		lengths.data(),
 		&result
-		);
+	);
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clCreateProgramWithSource failed: " + errorString(result));
 
 	// Build program
+	//Timer timer;
 	result = this->clBuildProgram(
 		program,
 		1, // num devices
@@ -669,6 +695,7 @@ cl_program OpenCL::buildProgram(
 		NULL, // pfn_notify
 		NULL // user data
 	);
+	//std::cout << "clBuildProgram took " + timer.elapsedStringNSigFigs(4) << std::endl; 
 
 	bool build_success = (result == CL_SUCCESS);
 	if(!build_success)

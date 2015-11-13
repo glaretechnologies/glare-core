@@ -181,7 +181,7 @@ public:
 	static const std::string errorString(cl_int result);
 
 	cl_program buildProgram(
-		const std::vector<std::string>& program_lines,
+		const std::string& program_source,
 		cl_context opencl_context,
 		cl_device_id opencl_device,
 		const std::string& compile_options

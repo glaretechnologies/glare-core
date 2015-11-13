@@ -52,12 +52,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		// Read test kernel from disk
 		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/OpenCLPathTracingTestKernel.cl";
-		std::string contents;
-		FileUtils::readEntireFileTextMode(kernel_path, contents);
-		std::vector<std::string> program_lines = ::split(contents, '\n');
-		for(size_t i=0; i<program_lines.size(); ++i)
-			program_lines[i].push_back('\n'); // Make each line have a newline char at end.
-		
+		std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
 		std::string options =	std::string(" -cl-fast-relaxed-math") +
 								std::string(" -cl-mad-enable") + 
@@ -65,7 +60,7 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 
 		// Compile and build program.
 		cl_program program = opencl->buildProgram(
-			program_lines,
+			contents,
 			context,
 			opencl_device.opencl_device,
 			options
@@ -174,10 +169,113 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 }
 
 
+static void miscompilationTest()
+{
+	conPrint("miscompilationTest()");
+	try
+	{
+		OpenCL* opencl = getGlobalOpenCL();
+		testAssert(opencl != NULL);
+
+		const gpuDeviceInfo& opencl_device = opencl->getDeviceInfo()[0];
+
+
+		// Initialise OpenCL context and command queue for this device
+		cl_context context;
+		cl_command_queue command_queue;
+		opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
+
+
+		// Read test kernel from disk
+		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl";
+		const std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
+
+		std::string options =	std::string(" -cl-fast-relaxed-math") +
+								std::string(" -cl-mad-enable") + 
+								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
+
+		// Compile and build program.
+		cl_program program = opencl->buildProgram(
+			contents,
+			context,
+			opencl_device.opencl_device,
+			options
+		);
+
+		conPrint("Program built.");
+
+		opencl->dumpBuildLog(program, opencl_device.opencl_device); 
+
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
+
+
+		//============== Test-specific buffers ====================
+		js::Vector<float, 64> input(4);
+
+		input[0] = 0;
+		input[1] = 0;
+		input[2] = 1;
+		input[3] = 0;
+
+		OpenCLBuffer input_cl_buffer;
+		input_cl_buffer.allocFrom(context, input, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+
+
+		js::Vector<float, 64> output(4);
+
+		OpenCLBuffer output_cl_buffer;
+		output_cl_buffer.allocFrom(context, output, CL_MEM_READ_WRITE);
+
+		// Launch the kernel:
+		testKernel->setNextKernelArg(input_cl_buffer.getDevicePtr());
+		testKernel->setNextKernelArg(output_cl_buffer.getDevicePtr());
+
+
+		testKernel->launchKernel(command_queue, 1);
+		
+		// Read back result
+		cl_int result = opencl->clEnqueueReadBuffer(
+			command_queue,
+			output_cl_buffer.getDevicePtr(), // buffer
+			CL_TRUE, // blocking read
+			0, // offset
+			output.dataSizeBytes(), // size in bytes
+			output.data(), // host buffer pointer
+			0, // num events in wait list
+			NULL, // wait list
+			NULL // event
+		);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
+
+		Vec4f res(output[0], output[1], output[2], output[3]);
+		conPrint("Res: " + res.toString());
+		/*if(test_result != 0)
+		{
+			conPrint("Error: An OpenCL unit test failed.");
+			exit(10);
+		}*/
+
+		// Free the context and command queue for this device.
+		opencl->deviceFree(context, command_queue);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
 void OpenCLTests::test()
 {
 	conPrint("OpenCLTests::test()");
 
+	//miscompilationTest();
+	
 	try
 	{
 		OpenCL* opencl = getGlobalOpenCL();
