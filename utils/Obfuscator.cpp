@@ -289,6 +289,7 @@ void Obfuscator::addOpenCLKeywords()
 		"voronoi_vec2__float_",
 		"voronoi3d_vec3__float_",
 		"mod_int__int_",
+		"mod_float__float_",
 		"print_vec4_",
 
 		/*
@@ -418,6 +419,7 @@ const std::string Obfuscator::tokenHashString(const std::string& t)
 	);
 
 	//const std::string new_token = t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
+	//const std::string new_token = "ident_" + toHexString(str_hash).substr(0, 6); // Appends hash code to end of token, use this for debugging.
 	
 	std::string new_token;
 	new_token.resize(33);
