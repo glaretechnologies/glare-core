@@ -78,9 +78,12 @@ public:
 	inline void setUVEdgeDiscontinuityFalse(int edge) { bitfield.setBitToZero(edge); }
 	inline void setUVEdgeDiscontinuityTrue(int edge)  { bitfield.setBitToOne(edge); }
 
-
+	// Does the adjacent polygon over the given edge have a different winding order?  E.g. is its edge orientation the same?  In that case it needs to be reversed.
 	inline uint32 isOrienReversed(int edge) const { return bitfield.getBitMasked(4 + edge); } // Returns non-zero if orientation is reversed.
 	inline void setOrienReversedTrue(int edge) { bitfield.setBitToOne(4 + edge); }
+
+	inline void setAdjacentQuadEdgeIndex(int this_edge, uint32 other_edge) { bitfield.setBitPair(8 + this_edge*2, other_edge); }
+	inline uint32 getAdjacentQuadEdgeIndex(int this_edge) const { return bitfield.getBitPair(8 + this_edge*2); }
 
 
 	uint32_t vertex_indices[4]; // Indices of the corner vertices.  If vertex_indices[3] == std::numeric_limits<uint32>::max(), then this is a triangle.
@@ -97,6 +100,7 @@ public:
 	/*
 	bits 0-3: edge_uv_discontinuity for edge 0-3
 	bits 4-7: adjacent quad over edge has reversed orientation relative to this quad.
+	bits 8-15: index (0-3) of edge of adjacent quad over edge, for each edge.
 	*/
 	BitField<uint32> bitfield;
 	
@@ -193,7 +197,7 @@ public:
 	
 
 
-	static void test();
+	static void test(const std::string& indigo_base_dir_path, const std::string& appdata_path);
 
 private:
 
@@ -222,6 +226,18 @@ private:
 		bool subdivision_smoothing, // TODO: put in DUOptions.
 		const DUOptions& options,
 		DUScratchInfo& scratch_info,
+		Polygons& polygons_out,
+		VertsAndUVs& verts_and_uvs_out
+	);
+
+
+	static void splineSubdiv(
+		Indigo::TaskManager& task_manager,
+		PrintOutput& print_output,
+		ThreadContext& context,
+		Polygons& polygons_in,
+		const VertsAndUVs& verts_and_uvs_in,
+		unsigned int num_uv_sets,
 		Polygons& polygons_out,
 		VertsAndUVs& verts_and_uvs_out
 	);
