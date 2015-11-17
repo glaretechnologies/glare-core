@@ -3477,9 +3477,11 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 #include "../dll/RendererTests.h"
 
 
-void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std::string& appdata_path)
+void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std::string& appdata_path, bool run_comprehensive_tests)
 {
-	if(false)
+	conPrint("DisplacementUtils::test()");
+
+	if(run_comprehensive_tests)
 	{
 		// Build and (briefly) render all/most of the displacement + subdiv test scenes.
 		const char* scenes[] = {
