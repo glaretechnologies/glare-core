@@ -3517,7 +3517,6 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 			"tri_uv_discontinuity_test.igs",
 			"subdivision_tri_quad_test.igs",
 			"bend_test.igs",
-			"simple_uv_test.igs",
 			//"adaptive_quad_fbm_shader_displacement_test.igs", // hi poly
 			//"adaptive_quad_shader_displacement_test.igs", // hi poly
 			"quad_displacement_test.igs",
