@@ -3556,7 +3556,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 			"subdivision_quad_test.igs",
 			"zomb_head.igs",
 			"subdiv_three_tris_adjacent_to_edge_test.igs",
-			"subdiv_three_quads_adjacent_to_edge_test"
+			"subdiv_three_quads_adjacent_to_edge_test.igs"
 		};
 
 		try
