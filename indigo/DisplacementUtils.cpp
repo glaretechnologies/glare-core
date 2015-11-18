@@ -390,6 +390,7 @@ struct EdgeInfo
 	//int adjacent_quad_b;
 	int adj_a_side_i;
 	//int adj_b_side_i;
+	int num_quads_adjacent_to_edge;
 	bool quad_a_flipped;
 };
 
@@ -409,7 +410,7 @@ struct QuadInfo
 };
 
 
-void DisplacementUtils::subdivideAndDisplace(
+bool DisplacementUtils::subdivideAndDisplace(
 	const std::string& mesh_name,
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
@@ -516,6 +517,7 @@ void DisplacementUtils::subdivideAndDisplace(
 					assert(edge_info.adjacent_quad_a == -1);
 					edge_info.adjacent_quad_a = (int)t; // Since this edge is just created, it won't have any adjacent quads marked yet.
 					edge_info.adj_a_side_i = i;
+					edge_info.num_quads_adjacent_to_edge = 1;
 
 					edges.insert(std::make_pair(edge_key, edge_info)); // Add edge
 
@@ -524,6 +526,13 @@ void DisplacementUtils::subdivideAndDisplace(
 				else
 				{
 					EdgeInfo& edge_info = result->second;
+
+					if(edge_info.num_quads_adjacent_to_edge > 1)
+					{
+						print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
+						return false;
+					}
+
 					/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
 					{
 						// Get edges sorted by vertex position, compare normals at the ends of the edges.
@@ -574,6 +583,8 @@ void DisplacementUtils::subdivideAndDisplace(
 						temp_quads[t].setOrienReversedTrue(i);
 						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
 					}
+
+					edge_info.num_quads_adjacent_to_edge++;
 				}
 			}
 
@@ -639,6 +650,7 @@ void DisplacementUtils::subdivideAndDisplace(
 					assert(edge_info.adjacent_quad_a == -1);
 					edge_info.adjacent_quad_a = (int)new_quad_index; // Since this edge is just created, it won't have any adjacent quads marked yet.
 					edge_info.adj_a_side_i = i;
+					edge_info.num_quads_adjacent_to_edge = 1;
 
 					edges.insert(std::make_pair(edge_key, edge_info)); // Add edge
 
@@ -647,6 +659,13 @@ void DisplacementUtils::subdivideAndDisplace(
 				else
 				{
 					EdgeInfo& edge_info = result->second;
+
+					if(edge_info.num_quads_adjacent_to_edge > 1)
+					{
+						print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
+						return false;
+					}
+
 					/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
 					{
 						// Get edges sorted by vertex position, compare normals at the ends of the edges.
@@ -697,6 +716,8 @@ void DisplacementUtils::subdivideAndDisplace(
 						quad_out.setOrienReversedTrue(i);
 						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
 					}
+
+					edge_info.num_quads_adjacent_to_edge++;
 				}
 			}
 
@@ -929,6 +950,7 @@ done:	1;
 					}
 					else // else if adjacent poly is a quad, edges 0 and 2 swap:
 					{
+						assert(adj_quad_edge_i >= 0 && adj_quad_edge_i < 4);
 						if(adj_quad_edge_i == 0)
 							new_adj_quad_edge_i = 2;
 						else if(adj_quad_edge_i == 2)
@@ -949,16 +971,19 @@ done:	1;
 		{
 			const DUQuad& quad = temp_quads[q];
 			for(int v=0; v<4; ++v)
-				if(quad.adjacent_quad_index[v] != -1)
+			{
+				const int adjacent_quad_i = quad.adjacent_quad_index[v];
+				if(adjacent_quad_i != -1)
 				{
-					assert(quad.adjacent_quad_index[v] >= 0 && quad.adjacent_quad_index[v] < temp_quads.size());
-					const DUQuad& adj_quad = temp_quads[quad.adjacent_quad_index[v]];
+					assert(adjacent_quad_i >= 0 && adjacent_quad_i < temp_quads.size());
+					const DUQuad& adj_quad = temp_quads[adjacent_quad_i];
 					
 					// Check that the adjacent quad does indeed have this quad as its adjacent quad along the given edge.
 					const int adjacent_quads_edge = quad.getAdjacentQuadEdgeIndex(v);
 					assert(adjacent_quads_edge >= 0 && adjacent_quads_edge < adj_quad.numSides());
 					assert(adj_quad.adjacent_quad_index[adjacent_quads_edge] == q);
 				}
+			}
 		}
 #endif
 
@@ -1537,6 +1562,7 @@ done:	1;
 
 	print_output.print("Subdivision and displacement took " + total_timer.elapsedStringNPlaces(5));
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Total time elapsed: " + total_timer.elapsedString()));
+	return true;
 }
 
 
@@ -3527,7 +3553,10 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 			"adaptive_quad_displacement_test.igs",
 			"adaptive_tri_displacement_test.igs",
 			"blend_material_root_displacement_test.igs",
-			"subdivision_quad_test.igs"
+			"subdivision_quad_test.igs",
+			"zomb_head.igs",
+			"subdiv_three_tris_adjacent_to_edge_test.igs",
+			"subdiv_three_quads_adjacent_to_edge_test"
 		};
 
 		try

@@ -264,7 +264,7 @@ uint64 getFileSize(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw FileUtilsExcep("CreateFile failed: " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("CreateFile failed for file '" + path + "': " + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;

@@ -164,7 +164,8 @@ public:
 
 	// Subdivide and displace the mesh.
 	// All quads will be converted to triangles.
-	static void subdivideAndDisplace(
+	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
+	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,

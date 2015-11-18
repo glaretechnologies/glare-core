@@ -596,7 +596,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				options.num_smoothings = num_smoothings;
 				options.camera_clip_planes_os = camera_clip_planes_os;
 
-				DisplacementUtils::subdivideAndDisplace(
+				const bool subdivided = DisplacementUtils::subdivideAndDisplace(
 					this->getName(),
 					task_manager,
 					print_output,
@@ -612,23 +612,26 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					this->enable_normal_smoothing
 				);
 				
-				// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
-				this->quads.clearAndFreeMem();
+				if(subdivided)
+				{
+					// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
+					this->quads.clearAndFreeMem();
 
-				assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
+					assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
 
-				// Check data
+					// Check data
 #ifndef NDEBUG
-				for(unsigned int i = 0; i < triangles.size(); ++i)
-					for(unsigned int c = 0; c < 3; ++c)
-					{
-						assert(triangles[i].vertex_indices[c] < vertices.size());
-						if(this->num_uv_sets > 0)
+					for(unsigned int i = 0; i < triangles.size(); ++i)
+						for(unsigned int c = 0; c < 3; ++c)
 						{
-							assert(triangles[i].uv_indices[c] < uvs.size());
+							assert(triangles[i].vertex_indices[c] < vertices.size());
+							if(this->num_uv_sets > 0)
+							{
+								assert(triangles[i].uv_indices[c] < uvs.size());
+							}
 						}
-					}
 #endif	
+				}
 				if(verbose) print_output.print("\tDone.");
 			}
 
