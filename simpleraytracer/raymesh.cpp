@@ -1750,14 +1750,26 @@ public:
 					const float dv_dbeta =  v2tex.y - v0tex.y;
 
 					Matrix2f A(du_dalpha, du_dbeta, dv_dalpha, dv_dbeta);
-					Matrix2f A_inv = A.inverse();
+					if(A.determinant() != 0.f)
+					{
+						Matrix2f A_inv = A.inverse();
 
-					// Compute dp/du and dp/dv
-					// dp/du = dp/dalpha dalpha/du + dp/dbeta dbeta/du
-					// dp/dv = dp/dalpha dalpha/dv + dp/dbeta dbeta/dv
+						// Compute dp/du and dp/dv
+						// dp/du = dp/dalpha dalpha/du + dp/dbeta dbeta/du
+						// dp/dv = dp/dalpha dalpha/dv + dp/dbeta dbeta/dv
 
-					dp_du = dp_dalpha*A_inv.elem(0, 0) + dp_dbeta*A_inv.elem(1, 0);
-					dp_dv = dp_dalpha*A_inv.elem(0, 1) + dp_dbeta*A_inv.elem(1, 1); 
+						dp_du = dp_dalpha*A_inv.elem(0, 0) + dp_dbeta*A_inv.elem(1, 0);
+						dp_dv = dp_dalpha*A_inv.elem(0, 1) + dp_dbeta*A_inv.elem(1, 1); 
+
+						assert(isFinite(dp_du.x));
+					}
+					else 
+					{
+						// Else matrix was not invertible - dp/du and dp/dv are not well defined.  Just use dp/dalpha and dp/dbeta for now,
+						// which will at least stop material from rendering black.  See https://bugs.glaretechnologies.com/issues/300.
+						dp_du = dp_dalpha;
+						dp_dv = dp_dbeta;
+					}
 				}
 
 				poly_info[t].normal = tri_normal;
