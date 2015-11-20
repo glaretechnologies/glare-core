@@ -967,7 +967,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 	bounding_radius = std::sqrt(max_r2);
 
 	bool have_sse3 = false;
-	bool try_spatial = false;
+	//bool try_spatial = false;
 	bool embree_os_ok = EmbreeInstance::isNonNull();
 	bool embree_mem_ok = false;
 	bool embree_spatial = false;
