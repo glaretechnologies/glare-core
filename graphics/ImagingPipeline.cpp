@@ -66,6 +66,8 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
+		const bool have_alpha_channel = closure.render_channels.hasAlpha();
+
 		if(closure.render_channels.hasSpectral())
 		{
 			for(int i = begin; i < end; ++i)
@@ -100,7 +102,7 @@ public:
 				}
 
 				// Get alpha from alpha channel if it exists
-				if(closure.render_channels.hasAlpha())
+				if(have_alpha_channel)
 					sum.x[3] = closure.render_channels.alpha.getData()[i] * closure.image_scale;
 				else
 					sum.x[3] = 1.0f;
@@ -498,6 +500,8 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
+		const bool have_alpha_channel = closure.render_channels->hasAlpha();
+
 		//const ptrdiff_t x_tiles = closure.x_tiles;
 		const ptrdiff_t final_xres = closure.final_xres;
 		//const ptrdiff_t final_yres = closure.final_yres;
@@ -565,7 +569,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					if(closure.render_channels->hasAlpha())
+					if(have_alpha_channel)
 					{
 						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
 						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
@@ -668,7 +672,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					if(closure.render_channels->hasAlpha()) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
+					if(have_alpha_channel) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
 					{
 						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
 						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
