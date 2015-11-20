@@ -925,12 +925,18 @@ const std::string Obfuscator::readAndDecryptFile(const std::string& path)
 		std::string cyphertext;
 		FileUtils::readEntireFile(path, cyphertext);
 
-		if(cyphertext.size() % 4 != 0)
-			throw Indigo::Exception("invalid file length for file '" + path + "'");
+		const bool using_encryption = true; // Should be true for production/release build, can be set to false for debugging.
+		if(using_encryption)
+		{
+			if(cyphertext.size() % 4 != 0)
+				throw Indigo::Exception("invalid file length for file '" + path + "'");
 
-		std::string plaintext;
-		Transmungify::decrypt((const uint32*)cyphertext.data(), (uint32)cyphertext.size() / 4, plaintext);
-		return plaintext;
+			std::string plaintext;
+			Transmungify::decrypt((const uint32*)cyphertext.data(), (uint32)cyphertext.size() / 4, plaintext);
+			return plaintext;
+		}
+		else
+			return cyphertext;
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
