@@ -985,7 +985,12 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		{
 		}
 
-		if(try_spatial)
+		// Disabled this mem allocation checking code, for now, for a few reasons - it's slow (OS may automatically zero allocated memory etc..)
+		// It may cause fragmentation, It will probably always succeed on Linux anyway, 
+		// Embree may use <= the amount of mem Indigo uses for BVH building now, people have more RAM now that when this code was first added, etc.. etc..
+		embree_mem_ok = true;
+
+		/*if(try_spatial)
 		{
 			// Estimate memory usage for the embree accelerator and try to allocate it
 			size_t embree_spatial_mem = EmbreeAccel::estimateSpatialBuildMemoryUsage(triangles.size());
@@ -1020,7 +1025,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 			{
 				print_output.print("Warning: insufficient memory for fast BVH");
 			}
-		}
+		}*/
 	}
 
 	try
@@ -1041,6 +1046,10 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 	catch(js::TreeExcep& e)
 	{
 		throw GeometryExcep("Exception while creating tree: " + e.what());
+	}
+	catch(std::bad_alloc&)
+	{
+		throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
 	}
 
 	//------------------------------------------------------------------------
@@ -1096,7 +1105,6 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 			{
 				if(verbose) print_output.print("\tCouldn't find matching cached tree file, rebuilding tree...");
 			}
-
 		}
 
 		if(!built_from_cache)
@@ -1107,7 +1115,11 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 			}
 			catch(js::TreeExcep& e)
 			{
-				throw GeometryExcep("Exception while building tree: " + e.what());
+				throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
+			}
+			catch(std::bad_alloc&)
+			{
+				throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
 			}
 		
 			if(tritree->diskCachable())
@@ -1144,7 +1156,11 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		}
 		catch(js::TreeExcep& e)
 		{
-			throw GeometryExcep("Exception while building tree: " + e.what());
+			throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
+		}
+		catch(std::bad_alloc&)
+		{
+			throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
 		}
 	}
 
