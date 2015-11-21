@@ -131,13 +131,18 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 
 	const int ret = ::getaddrinfo(
 		hostname.c_str(), // node name
-		"0", // service name
+		NULL, // service name.
 		&hints, // hints
 		&result
 	);
 
 	if(ret != 0)
+#if defined(_WIN32)
 		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "': " + PlatformUtils::getErrorStringForReturnCode(ret));
+#else
+		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "': " + ::gai_strerror(ret)); 
+		// The gai_strerror() function returns an error message string corresponding to the error code returned by getaddrinfo(3)
+#endif
 
 	std::vector<IPAddress> host_ip_list;
 	for(addrinfo* info = result; info != NULL; info = info->ai_next)
