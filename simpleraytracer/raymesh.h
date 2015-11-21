@@ -306,7 +306,6 @@ private:
 	unsigned int num_uv_sets;
 	std::vector<Vec2f> uvs;
 public:
-	// TODO: should pack vertex dp_du and dp_dv together for cache reasons, since they are accessed at the same time.
 	struct VertDerivs
 	{
 		VertDerivs() {}
