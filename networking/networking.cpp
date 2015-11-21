@@ -131,7 +131,7 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 
 	const int ret = ::getaddrinfo(
 		hostname.c_str(), // node name
-		NULL, // service name.
+		NULL, // service name. From http://linux.die.net/man/3/getaddrinfo: "If service is NULL, then the port number of the returned socket addresses will be left uninitialized."
 		&hints, // hints
 		&result
 	);
