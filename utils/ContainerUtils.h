@@ -54,18 +54,15 @@ bool contains(const std::set<T, Compare, Alloc>& s, const T& elem)
 }
 
 
-template <typename T, typename Compare, typename Alloc>
-std::vector<T> setToVector(const std::set<T, Compare, Alloc>& s)
-{
-	std::vector<T> v;
-	v.reserve(s.size());
-	for(std::set<T, Compare, Alloc>::iterator i=s.begin(); i != s.end(); ++i)
-		v.push_back(*i);
-	return v;
-}
-
-
-
+//template <typename T, typename Compare, typename Alloc>
+//std::vector<T> setToVector(const std::set<T, Compare, Alloc>& s)
+//{
+//	std::vector<T> v;
+//	v.reserve(s.size());
+//	for(std::set<T, Compare, Alloc>::iterator i=s.begin(); i != s.end(); ++i)
+//		v.push_back(*i);
+//	return v;
+//}
 
 
 } // End namespace ContainerUtils
