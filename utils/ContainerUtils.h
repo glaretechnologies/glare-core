@@ -37,12 +37,35 @@ bool contains(const std::vector<T>& v, T target)
 }
 
 
+// Get the tail elements (every element apart from the first) from a vector.  Requires vector to be non-empty.
+template <typename T>
+std::vector<T> tail(const std::vector<T>& v)
+{
+	assert(!v.empty());
+	return std::vector<T>(v.begin() + 1, v.end());
+}
+
+
 // Does the set 's' contain element 'elem'?
 template <typename T, typename Compare, typename Alloc>
 bool contains(const std::set<T, Compare, Alloc>& s, const T& elem)
 {
 	return s.find(elem) != s.end();
 }
+
+
+template <typename T, typename Compare, typename Alloc>
+std::vector<T> setToVector(const std::set<T, Compare, Alloc>& s)
+{
+	std::vector<T> v;
+	v.reserve(s.size());
+	for(std::set<T, Compare, Alloc>::iterator i=s.begin(); i != s.end(); ++i)
+		v.push_back(*i);
+	return v;
+}
+
+
+
 
 
 } // End namespace ContainerUtils
