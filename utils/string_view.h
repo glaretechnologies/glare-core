@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2015 -
 #include <string>
 #include <cassert>
 #include <cstring>
+#include <algorithm>
 
 
 /*
