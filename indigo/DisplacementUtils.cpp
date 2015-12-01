@@ -529,62 +529,65 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 					if(edge_info.num_quads_adjacent_to_edge > 1)
 					{
-						print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
-						return false;
+						//print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
+						//return false;
+						temp_quads[t].adjacent_quad_index[i] = -1;
 					}
-
-					/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
+					else
 					{
-						// Get edges sorted by vertex position, compare normals at the ends of the edges.
-						const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-						const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-						const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-						const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-						const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-						if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
+						/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
 						{
-							//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-							// TODO Work this out temp_edges.back().adjacent_quad_index = //
+							// Get edges sorted by vertex position, compare normals at the ends of the edges.
+							const DUVertIndexPair& old_edge2 = result->second.old_edge;
+
+							const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
+							const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
+
+							const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
+							const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
+
+							if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
+							{
+								//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
+								// TODO Work this out temp_edges.back().adjacent_quad_index = //
+							}
+						}*/
+
+						// We know another poly is adjacent to this edge already.
+						assert(result->second.adjacent_quad_a != -1);
+						DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
+
+						// Check for uv discontinuity:
+						if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
+						{
+							//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
+							temp_quads[t].setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
+							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
-					}*/
 
-					// We know another poly is adjacent to this edge already.
-					assert(result->second.adjacent_quad_a != -1);
-					DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
+						//edge_info.num_adjacent_polys++;
 
-					// Check for uv discontinuity:
-					if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
-					{
-						//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-						temp_quads[t].setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
-						adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
-					}
+						// Mark this quad as the 'b' adjacent quad.
+						//edge_info.adjacent_quad_b = (int)t;
+						//edge_info.adj_b_side_i = i;
 
-					//edge_info.num_adjacent_polys++;
-
-					// Mark this quad as the 'b' adjacent quad.
-					//edge_info.adjacent_quad_b = (int)t;
-					//edge_info.adj_b_side_i = i;
-
-					temp_quads[t].adjacent_quad_index[i] = edge_info.adjacent_quad_a;
-					temp_quads[t].setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
+						temp_quads[t].adjacent_quad_index[i] = edge_info.adjacent_quad_a;
+						temp_quads[t].setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
 					
-					// Mark this quad as adjacent to the other quad.
-					adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = (int)t;
-					adj_quad.setAdjacentQuadEdgeIndex(edge_info.adj_a_side_i, i);
+						// Mark this quad as adjacent to the other quad.
+						adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = (int)t;
+						adj_quad.setAdjacentQuadEdgeIndex(edge_info.adj_a_side_i, i);
 
-					if(edge_info.quad_a_flipped == flipped)
-					{
-						// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
-						//conPrint("================!!!!!!!!!Surface orientation differs!");
-						temp_quads[t].setOrienReversedTrue(i);
-						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+						if(edge_info.quad_a_flipped == flipped)
+						{
+							// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
+							//conPrint("================!!!!!!!!!Surface orientation differs!");
+							temp_quads[t].setOrienReversedTrue(i);
+							adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+						}
+
+						edge_info.num_quads_adjacent_to_edge++;
 					}
-
-					edge_info.num_quads_adjacent_to_edge++;
 				}
 			}
 
@@ -662,62 +665,65 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 					if(edge_info.num_quads_adjacent_to_edge > 1)
 					{
-						print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
-						return false;
+						//print_output.print("Can't subdivide mesh '" + mesh_name + "': More than 2 polygons share a single edge.");
+						//return false;
+						quad_out.adjacent_quad_index[i] = -1;
 					}
-
-					/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
+					else
 					{
-						// Get edges sorted by vertex position, compare normals at the ends of the edges.
-						const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-						const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-						const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-						const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-						const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-						if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
+						/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
 						{
-							//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-							// TODO Work this out temp_edges.back().adjacent_quad_index = //
+							// Get edges sorted by vertex position, compare normals at the ends of the edges.
+							const DUVertIndexPair& old_edge2 = result->second.old_edge;
+
+							const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
+							const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
+
+							const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
+							const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
+
+							if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
+							{
+								//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
+								// TODO Work this out temp_edges.back().adjacent_quad_index = //
+							}
+						}*/
+
+						// We know another poly is adjacent to this edge already.
+						assert(result->second.adjacent_quad_a != -1);
+						DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
+
+						// Check for uv discontinuity:
+						if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
+						{
+							//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
+							quad_out.setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
+							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
-					}*/
 
-					// We know another poly is adjacent to this edge already.
-					assert(result->second.adjacent_quad_a != -1);
-					DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
+						//edge_info.num_adjacent_polys++;
 
-					// Check for uv discontinuity:
-					if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
-					{
-						//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-						quad_out.setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
-						adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
-					}
+						// Mark this quad as the 'b' adjacent quad.
+						//edge_info.adjacent_quad_b = new_quad_index;
+						//edge_info.adj_b_side_i = i;
 
-					//edge_info.num_adjacent_polys++;
-
-					// Mark this quad as the 'b' adjacent quad.
-					//edge_info.adjacent_quad_b = new_quad_index;
-					//edge_info.adj_b_side_i = i;
-
-					quad_out.adjacent_quad_index[i] = edge_info.adjacent_quad_a;
-					quad_out.setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
+						quad_out.adjacent_quad_index[i] = edge_info.adjacent_quad_a;
+						quad_out.setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
 					
-					// Mark this quad as adjacent to the other quad.
-					adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = new_quad_index;
-					adj_quad.setAdjacentQuadEdgeIndex(edge_info.adj_a_side_i, i);
+						// Mark this quad as adjacent to the other quad.
+						adj_quad.adjacent_quad_index[edge_info.adj_a_side_i] = new_quad_index;
+						adj_quad.setAdjacentQuadEdgeIndex(edge_info.adj_a_side_i, i);
 
-					if(edge_info.quad_a_flipped == flipped)
-					{
-						// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
-						// conPrint("================!!!!!!!!!Surface orientation differs!");
-						quad_out.setOrienReversedTrue(i);
-						adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+						if(edge_info.quad_a_flipped == flipped)
+						{
+							// Both quads have same orientation along edge.  THis means the surface is not orientable.  we need to flip this quad.
+							// conPrint("================!!!!!!!!!Surface orientation differs!");
+							quad_out.setOrienReversedTrue(i);
+							adj_quad.setOrienReversedTrue(edge_info.adj_a_side_i);
+						}
+
+						edge_info.num_quads_adjacent_to_edge++;
 					}
-
-					edge_info.num_quads_adjacent_to_edge++;
 				}
 			}
 
