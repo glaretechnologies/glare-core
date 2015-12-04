@@ -33,8 +33,6 @@ public:
 
 	const std::string obfuscate(const std::string& s);
 
-	static void obfuscateKernels(const std::string& kernel_dir);
-
 	const std::string obfuscateWinterSource(const std::string& src);
 	const std::string obfuscateWinterSourceIfObfuscating(const std::string& src) { return useObfuscatedSource() ? obfuscateWinterSource(src) : src; }
 

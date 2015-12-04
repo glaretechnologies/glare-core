@@ -8,20 +8,20 @@ Generated at Tue May 25 18:32:39 +1200 2010
 
 
 #include "Parser.h"
-#include <string>
+#include "Transmungify.h"
+#include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/FileUtils.h"
-#include <fstream>
-#include "Transmungify.h"
-#include "../indigo/TestUtils.h"
-#include <stdlib.h>
 #include <wnt_LangParser.h>
 #include <wnt_Lexer.h>
 #include <wnt_Variable.h>
 #include <wnt_FunctionExpression.h>
 #include <xxhash.h>
+#include <string>
+#include <fstream>
+#include <stdlib.h>
 #include <map>
 #include <algorithm>
 
@@ -1022,177 +1022,6 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 	}
 
 	return code;
-}
-
-
-void Obfuscator::obfuscateKernels(const std::string& kernel_dir)
-{
-	Obfuscator win_ob(
-		true, // collapse_whitespace
-		true, // remove_comments
-		true, // change tokens
-		Obfuscator::Lang_Winter
-	);
-
-	Obfuscator opencl_ob(
-		true, // collapse_whitespace
-		true, // remove_comments
-		true, // change tokens
-		Obfuscator::Lang_OpenCL
-	);
-
-	const bool encrypt = true;
-
-	try
-	{
-		//==================== Obfuscate material (and material related) source code ==================
-		std::set<std::string> files;
-
-		files.insert("ISL_stdlib.txt");
-		files.insert("material.win");
-
-		files.insert("winter_opencl_support_code_declarations.cl");
-		files.insert("winter_opencl_support_code.cl");
-
-		files.insert("compute_shading_normal.win");
-
-		files.insert("basic_diffuse.win");
-		files.insert("basic_phong.win");
-		files.insert("basic_specular.win");
-
-		files.insert("blend.win");
-		files.insert("coating.win");
-		files.insert("diffuse.win");
-		files.insert("phong.win");
-		files.insert("specular.win");
-		files.insert("null_material.win");
-		files.insert("sky_material.win");
-
-		for(auto i = files.begin(); i != files.end(); ++i)
-		{
-			const std::string WINTER_SRC_READ_DIR = TestUtils::getIndigoTestReposDir() + "/lang";
-
-			const std::string src_path = WINTER_SRC_READ_DIR + "/" + *i;
-
-			std::string src;
-			FileUtils::readEntireFileTextMode(src_path, src);
-
-			std::string ob_src;
-			if(::hasExtension(src_path, "win") || ::hasExtension(src_path, "txt"))
-			{
-				// Obfuscate the code
-				ob_src = win_ob.obfuscateWinterSource(src);
-			}
-			else if(::hasExtension(src_path, "cl"))
-			{
-				ob_src = opencl_ob.obfuscate(src);
-			}
-			else
-			{
-				assert(0);
-			}
-
-		
-			const std::string outpath = "data/obs/" + encryptedFilename(FileUtils::getFilename(src_path));
-
-			if(encrypt)
-			{
-				// Encrypt/transmungify source
-				std::vector<uint32> cyphertext;
-				Transmungify::encrypt(ob_src, cyphertext);
-				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
-			}
-			else
-				FileUtils::writeEntireFileTextMode(outpath, ob_src);
-
-			conPrint("Encrypted/obfuscated '" + src_path + "' to '" + outpath + "'");	
-		}
-		
-
-		//==================== Obfuscate OpenCL path tracer kernels ==================
-		{
-			const int num_files = 10;
-			std::string files[num_files] =
-			{
-				// Include files. Note that the order here matters, because we can't use #include statements and #pragma once etc
-				"OpenCLPathTracingKernel.h",
-				"ptkernel_spectral.h",
-				"ptkernel_bvh.h",
-				"ptkernel_maths.h",
-				"ptkernel_samplingutils.h",
-				"ptkernel_samplingutils_winter.h",
-				"ptkernel_textures.h",
-				"ptkernel_textures_winter.h",
-				"ptkernel_imaging.h",
-
-				// Main kernel file
-				"OpenCLPathTracingMicroKernels.cl"
-			};
-
-			std::string complete_kernel_string;
-			for(int z = 0; z < num_files; ++z)
-			{
-				std::string s;
-				FileUtils::readEntireFileTextMode(FileUtils::join(kernel_dir, files[z]), s);
-
-				complete_kernel_string += s + "\n";
-			}
-
-			// Obfuscate the code
-			std::string ob_src = opencl_ob.obfuscate(complete_kernel_string);
-
-			ob_src = renameOpenCLSupportFunctions(ob_src);
-
-
-			const std::string outpath = "data/OPT";
-
-			if(encrypt)
-			{
-				// Encrypt/transmungify source
-				std::vector<uint32> cyphertext;
-				Transmungify::encrypt(ob_src, cyphertext);
-				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
-			}
-			else
-				FileUtils::writeEntireFileTextMode(outpath, ob_src);
-
-			conPrint("Wrote '" + outpath + "'");	
-		}
-
-
-		// Obfuscate MaterialScatterMicroKernel.cl to data/MSMK
-		{
-			std::string complete_kernel_string;
-			FileUtils::readEntireFileTextMode(FileUtils::join(kernel_dir, "MaterialScatterMicroKernel.cl"), complete_kernel_string);
-
-			// Obfuscate the code
-			const std::string ob_src = opencl_ob.obfuscate(complete_kernel_string);
-
-			const std::string outpath = "data/MSMK";
-
-			if(encrypt)
-			{
-				// Encrypt/transmungify source
-				std::vector<uint32> cyphertext;
-				Transmungify::encrypt(ob_src, cyphertext);
-				FileUtils::writeEntireFile(outpath, (const char*)cyphertext.data(), cyphertext.size()*sizeof(uint32));
-			}
-			else
-				FileUtils::writeEntireFileTextMode(outpath, ob_src);
-
-			conPrint("Wrote '" + outpath + "'");	
-		}
-	}
-	catch(Indigo::Exception& e)
-	{
-		conPrint("Error: " + e.what());
-		exit(1);
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		conPrint("Error: " + e.what());
-		exit(1);
-	}
 }
 
 
