@@ -15,7 +15,7 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "../utils/FileUtils.h"
 #include <fstream>
 #include "Transmungify.h"
-#include "TestUtils.h"
+#include "../indigo/TestUtils.h"
 #include <stdlib.h>
 #include <wnt_LangParser.h>
 #include <wnt_Lexer.h>
