@@ -700,11 +700,11 @@ cl_program OpenCL::buildProgram(
 	bool build_success = (result == CL_SUCCESS);
 	if(!build_success)
 	{
-#if defined(_DEBUG) || defined(BUILD_TESTS)
+//#if defined(_DEBUG) || defined(BUILD_TESTS)
 		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
 			dumpBuildLog(program, opencl_device);
 		//else
-#endif
+//#endif
 			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
 	}
 
