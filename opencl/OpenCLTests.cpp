@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/Obfuscator.h"
 
 
 #if BUILD_TESTS
@@ -59,16 +60,18 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
+		std::string build_log;
 		cl_program program = opencl->buildProgram(
 			contents,
 			context,
 			opencl_device.opencl_device,
-			options
+			options,
+			build_log
 		);
 
 		conPrint("Program built.");
 
-		opencl->dumpBuildLog(program, opencl_device.opencl_device); 
+		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device)); 
 
 		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
 
@@ -172,6 +175,23 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 static void miscompilationTest()
 {
 	conPrint("miscompilationTest()");
+
+	if(false)
+	{
+		Obfuscator opencl_ob(
+			false, // collapse_whitespace
+			true, // remove_comments
+			true, // change tokens
+			Obfuscator::Lang_OpenCL
+		);
+
+		const std::string obf_src = opencl_ob.obfuscate(FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl"));
+
+		FileUtils::writeEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl", obf_src);
+	}
+
+
+
 	try
 	{
 		OpenCL* opencl = getGlobalOpenCL();
@@ -187,30 +207,33 @@ static void miscompilationTest()
 
 
 		// Read test kernel from disk
-		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl";
+		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl";
 		const std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
-		std::string options =	std::string(" -cl-fast-relaxed-math") +
+		std::string options = "";//"-cl-opt-disable";
+		/*std::string options =	std::string(" -cl-fast-relaxed-math") +
 								std::string(" -cl-mad-enable") + 
-								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
+								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";*/
 
 		// Compile and build program.
+		std::string build_log;
 		cl_program program = opencl->buildProgram(
 			contents,
 			context,
 			opencl_device.opencl_device,
-			options
+			options,
+			build_log
 		);
 
 		conPrint("Program built.");
 
-		opencl->dumpBuildLog(program, opencl_device.opencl_device); 
+		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device)); 
 
 		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
 
 
 		//============== Test-specific buffers ====================
-		js::Vector<float, 64> input(4);
+		/*js::Vector<float, 64> input(4);
 
 		input[0] = 0;
 		input[1] = 0;
@@ -219,7 +242,7 @@ static void miscompilationTest()
 
 		OpenCLBuffer input_cl_buffer;
 		input_cl_buffer.allocFrom(context, input, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
-
+		*/
 
 		js::Vector<float, 64> output(4);
 
@@ -227,7 +250,7 @@ static void miscompilationTest()
 		output_cl_buffer.allocFrom(context, output, CL_MEM_READ_WRITE);
 
 		// Launch the kernel:
-		testKernel->setNextKernelArg(input_cl_buffer.getDevicePtr());
+		//testKernel->setNextKernelArg(input_cl_buffer.getDevicePtr());
 		testKernel->setNextKernelArg(output_cl_buffer.getDevicePtr());
 
 
@@ -276,7 +299,7 @@ void OpenCLTests::test()
 
 	//miscompilationTest();
 	
-	try
+	/*try
 	{
 		OpenCL* opencl = getGlobalOpenCL();
 
@@ -296,7 +319,7 @@ void OpenCLTests::test()
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
-	}
+	}*/
 }
 
 

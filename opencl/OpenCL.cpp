@@ -642,7 +642,8 @@ cl_program OpenCL::buildProgram(
 	const std::string& program_source,
 	cl_context opencl_context,
 	cl_device_id opencl_device,
-	const std::string& compile_options
+	const std::string& compile_options,
+	std::string& build_log_out // Will be set to a non-empty string on build failure.
 )
 {
 	// Build string pointer and length arrays
@@ -697,15 +698,16 @@ cl_program OpenCL::buildProgram(
 	);
 	//std::cout << "clBuildProgram took " + timer.elapsedStringNSigFigs(4) << std::endl; 
 
-	bool build_success = (result == CL_SUCCESS);
-	if(!build_success)
+	if(result != CL_SUCCESS)
 	{
-//#if defined(_DEBUG) || defined(BUILD_TESTS)
-		//if(result == CL_BUILD_PROGRAM_FAILURE) // If a compile error, don't throw exception yet, print out build log first.
-			dumpBuildLog(program, opencl_device);
-		//else
-//#endif
-			throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
+		try
+		{
+			build_log_out = getBuildLog(program, opencl_device);
+		}
+		catch(Indigo::Exception&)
+		{}
+
+		throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
 	}
 
 
@@ -791,7 +793,7 @@ cl_program OpenCL::buildProgram(
 }
 
 
-void OpenCL::dumpBuildLog(cl_program program, cl_device_id device)
+const std::string OpenCL::getBuildLog(cl_program program, cl_device_id device)
 {
 	cl_int result;
 
@@ -804,6 +806,12 @@ void OpenCL::dumpBuildLog(cl_program program, cl_device_id device)
 		0, // param value size
 		NULL, // param value
 		&param_value_size_ret);
+	
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clGetProgramBuildInfo failed: " + errorString(result));
+
+	if(param_value_size_ret == 0)
+		return std::string();
 
 	std::vector<char> buf(param_value_size_ret);
 
@@ -814,18 +822,9 @@ void OpenCL::dumpBuildLog(cl_program program, cl_device_id device)
 		buf.size(),
 		&buf[0],
 		NULL);
+
 	if(result == CL_SUCCESS)
-	{
-		const std::string log(&buf[0], param_value_size_ret);
-		//print_output.print("OpenCL build log: " + log);
-
-		{
-			std::ofstream build_log("build_log.txt");
-			build_log << log;
-
-			std::cout << log;
-		}
-	}
+		return std::string(&buf[0], param_value_size_ret);
 	else
 		throw Indigo::Exception("clGetProgramBuildInfo failed: " + errorString(result));
 }

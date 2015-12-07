@@ -184,10 +184,11 @@ public:
 		const std::string& program_source,
 		cl_context opencl_context,
 		cl_device_id opencl_device,
-		const std::string& compile_options
+		const std::string& compile_options,
+		std::string& build_log_out // Will be set to a non-empty string on build failure.
 	);
 
-	void dumpBuildLog(cl_program program, cl_device_id device);
+	const std::string getBuildLog(cl_program program, cl_device_id device);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
