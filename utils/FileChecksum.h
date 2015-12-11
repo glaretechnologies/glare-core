@@ -20,7 +20,7 @@ namespace FileChecksum
 {
 
 
-uint64 fileChecksum(const std::string& p); // throws Indigo::Exception
+uint64 fileChecksum(const std::string& path); // throws Indigo::Exception
 
 
 };

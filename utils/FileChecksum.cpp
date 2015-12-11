@@ -16,12 +16,12 @@ namespace FileChecksum
 {
 
 
-uint64 fileChecksum(const std::string& p) // throws Indigo::Exception if file not found.
+uint64 fileChecksum(const std::string& path) // throws Indigo::Exception if file not found.
 {
-	MemMappedFile file(p);
+	MemMappedFile file(path);
 
 	if(file.fileSize() == 0)
-		throw Indigo::Exception("Failed to compute checksum over file '" + p + ", file is empty.");
+		throw Indigo::Exception("Failed to compute checksum over file '" + path + ", file is empty.");
 
 	return XXH64(file.fileData(), file.fileSize(), 1);
 }
