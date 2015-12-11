@@ -889,6 +889,7 @@ struct PerlinBasisNoise
 {
 	inline float eval(const Vec4f& p)
 	{
+		assert(p.x[3] == 1.f);
 		return PerlinNoise::noise(p);
 	}
 };
@@ -898,6 +899,7 @@ struct RidgedBasisNoise01
 {
 	inline float eval(const Vec4f& p)
 	{
+		assert(p.x[3] == 1.f);
 		return 1 - std::fabs(PerlinNoise::noise(p));
 	}
 };
@@ -907,6 +909,7 @@ struct RidgedBasisNoise
 {
 	inline float eval(const Vec4f& p)
 	{
+		assert(p.x[3] == 1.f);
 		return 0.5f - std::fabs(PerlinNoise::noise(p));
 	}
 };
@@ -916,9 +919,9 @@ struct VoronoiBasisNoise01
 {
 	inline float eval(const Vec4f& p)
 	{
-		Vec2f closest_p;
+		Vec4f closest_p;
 		float dist;
-		Voronoi::evaluate(Vec2f(p.x[0], p.x[1]), 1.0f, closest_p, dist);
+		Voronoi::evaluate3d(p, 1.0f, closest_p, dist);
 		return dist;
 	}
 };
@@ -951,9 +954,11 @@ Real genericFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves, BasisFunc
 	Real weight = 1;
 	Real w_factor = std::pow(lacunarity, -H);
 
+	const Vec4f v = p - Vec4f(0,0,0,1);
+
 	for(int i=0; i<(int)octaves; ++i)
 	{
-		sum += weight * basis_func.eval(p * freq);
+		sum += weight * basis_func.eval(Vec4f(0,0,0,1) + v * freq);
 		freq *= lacunarity;
 		weight *= w_factor;
 	}
@@ -961,7 +966,7 @@ Real genericFBM(const Vec4f& p, Real H, Real lacunarity, Real octaves, BasisFunc
 	// Do remaining octaves
 	Real d = octaves - (int)octaves;
 	if(d > 0)
-		sum += d * weight * basis_func.eval(p * freq);
+		sum += d * weight * basis_func.eval(Vec4f(0,0,0,1) + v * freq);
 	
 	return sum;
 }
