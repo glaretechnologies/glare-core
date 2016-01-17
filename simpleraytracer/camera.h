@@ -171,6 +171,11 @@ public:
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
 		unsigned int& mat_index_out, Vec2f& uv0_out) const;
 
+	// Returns true if possibly clipped by section planes, false otherwise.
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const std::vector<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
+		); // throws GeometryExcep
+
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 
