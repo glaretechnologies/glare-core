@@ -1732,6 +1732,7 @@ void ImageFilter::convolveImageFFT(const Image4f& in, const Image& filter, Image
 }
 
 
+#if 0
 void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan)
 {
 #ifdef DEBUG
@@ -1981,6 +1982,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 }
 
 
+
 void ImageFilter::FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& out)
 {
 	Timer t;
@@ -2064,6 +2066,7 @@ void ImageFilter::FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& 
 	fftss_free(in);
 	fftss_free(outbuf);
 }
+#endif
 
 
 Reference<Image> ImageFilter::convertDebevecMappingToLatLong(const Reference<Image>& in)
@@ -2139,7 +2142,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 	conPrint("convolveImageFFT: elapsed:          " + t.elapsedString());
 
 	// FFTSS Fast FT convolution
-	Image fftss_ft_out;
+	/*Image fftss_ft_out;
 	FFTPlan plan;
 	// Compute once to get plan
 	t.reset();
@@ -2150,7 +2153,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 	t.reset();
 	ImageFilter::convolveImageFFTSS(in, filter, fftss_ft_out, plan);
 	conPrint("convolveImageFFTSS execute: elapsed: " + t.elapsedString());
-
+	*/
 
 	// Spatial convolution
 	Image spatial_convolution_out;
@@ -2159,7 +2162,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 
 
 	testAssert(fast_ft_out.getWidth() == in.getWidth() && fast_ft_out.getHeight() == in.getHeight());
-	testAssert(fftss_ft_out.getWidth() == in.getWidth() && fftss_ft_out.getHeight() == in.getHeight());
+	//testAssert(fftss_ft_out.getWidth() == in.getWidth() && fftss_ft_out.getHeight() == in.getHeight());
 
 	if(in_w < 32)
 	{
@@ -2175,25 +2178,25 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 				const float ref = ref_ft_out.getPixel(i)[comp];
 				const float a = fast_ft_out.getPixel(i)[comp];
 				//const float b = spatial_convolution_out.getPixel(i)[comp];
-				const float c = fftss_ft_out.getPixel(i)[comp];
+				//const float c = fftss_ft_out.getPixel(i)[comp];
 
-				if(!epsEqual(ref, c, 0.0001f))
-				{
-					printVar(ref);
-					printVar(c);
-				}
+				//if(!epsEqual(ref, c, 0.0001f))
+				//{
+				//	printVar(ref);
+				//	printVar(c);
+				//}
 				testAssert(epsEqual(ref, a, 0.0001f));
 				
 				// NOTE: correspondence between spatial_convolution_out FFT convolution has been broken due to offsetting the filter by one in FFT convolution
 				// TEMP testAssert(epsEqual(ref, b, 0.0001f));
-				testAssert(epsEqual(ref, c, 0.0001f));
+				//testAssert(epsEqual(ref, c, 0.0001f));
 			}
 			else
 			{
-				const float a = fast_ft_out.getPixel(i)[comp];
-				const float c = fftss_ft_out.getPixel(i)[comp];
+				//const float a = fast_ft_out.getPixel(i)[comp];
+				//const float c = fftss_ft_out.getPixel(i)[comp];
 
-				testAssert(Maths::approxEq(a, c));
+				//testAssert(Maths::approxEq(a, c));
 			}
 		}
 }

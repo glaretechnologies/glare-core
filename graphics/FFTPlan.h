@@ -39,11 +39,11 @@ public:
 	double* buffer_b;
 	double* product;
 
-
+	/*
 	fftss_plan in_plan;
 	fftss_plan filter_plan;
 	fftss_plan ift_plan;
-
+	*/
 	bool failed_to_allocate_buffers;
 };
 

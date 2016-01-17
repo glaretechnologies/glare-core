@@ -4,9 +4,10 @@ raymesh.cpp
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 Code By Nicholas Chapman.
 =====================================================================*/
+#ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
 #include "../indigo/EmbreeInstance.h"
-
+#endif
 
 #include "raymesh.h"
 
@@ -20,7 +21,8 @@ Code By Nicholas Chapman.
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
-#include "../indigo/object.h"
+#include "../indigo/material.h"
+//#include "../indigo/object.h"
 #include "../indigo/RendererSettings.h"
 #include "../physics/jscol_BIHTree.h"
 #include "../physics/KDTree.h"
@@ -428,7 +430,10 @@ public:
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
 
 
-bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const Object& object, const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
+								   const std::vector<Reference<Material> >& materials,
+								   //const Object& object, 
+								   const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
 	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
 	)
@@ -438,7 +443,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		// Throw exception if we are supposed to do a view-dependent subdivision
 		//if(subdivide_pixel_threshold > 0.0)
 		if(view_dependent_subdivision && max_num_subdivisions > 0)
-			throw GeometryExcep("Tried to do a view-dependent subdivision on instanced mesh '" + object.getGeometry().getName() + "'.");
+			throw GeometryExcep("Tried to do a view-dependent subdivision on instanced mesh '" + this->getName() + "'.");
 
 		// else not an error, but we don't need to subdivide again.
 	}
@@ -601,7 +606,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					task_manager,
 					print_output,
 					context,
-					object.getMaterials(),
+					materials, // object.getMaterials(),
 					subdivision_smoothing,
 					triangles, // triangles_in_out
 					quads,
@@ -641,14 +646,20 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		else // else if max_num_subdivisions = 0
 		{
 			assert(max_num_subdivisions == 0);
-			if(object.hasDisplacingMaterial())
+
+			bool has_displacing_mat = false;
+			for(size_t i = 0; i < materials.size(); ++i)
+				if(materials[i]->displacing())
+					has_displacing_mat = true;
+
+			if(has_displacing_mat) // object.hasDisplacingMaterial())
 			{
 				DisplacementUtils::doDisplacementOnly(
 					this->getName(),
 					task_manager,
 					print_output,
 					context,
-					object.getMaterials(),
+					materials, // object.getMaterials(),
 					triangles,
 					quads,
 					vertices,
@@ -968,6 +979,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 
 	bool have_sse3 = false;
 	//bool try_spatial = false;
+#ifndef NO_EMBREE
 	bool embree_os_ok = EmbreeInstance::isNonNull();
 	bool embree_mem_ok = false;
 	bool embree_spatial = false;
@@ -1027,15 +1039,18 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 			}
 		}*/
 	}
+#endif
 
 	try
 	{
+#ifndef NO_EMBREE
 		if(embree_os_ok && renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
 		{
 			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;
 		}
 		else
+#endif
 		{
 			if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
 				tritree = new js::BVH(this);

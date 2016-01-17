@@ -20,6 +20,8 @@ Coded by Nick Chapman in the year 2000-
 
 #include "mathstypes.h"
 #include "Vec4f.h" // For toVec3d()
+#include <OutStream.h>
+#include <InStream.h>
 #include <assert.h>
 #include <string>
 #include "../utils/Platform.h"
@@ -704,6 +706,21 @@ VEC3_INLINE const Vec3<float> toVec3f(const Vec4f& v)
 	return Vec3<float>((float)v.x[0], (float)v.x[1], (float)v.x[2]);
 }
 
+
+template <class Real>
+inline void writeToStream(const Vec3<Real>& v, OutStream& stream)
+{
+	stream.writeData(&v.x, sizeof(Real) * 3);
+}
+
+
+template <class Real>
+inline Vec3<Real> readVec3FromStream(InStream& stream)
+{
+	Vec3<Real> v;
+	stream.readData(&v.x, sizeof(Real) * 3);
+	return v;
+}
 
 
 typedef Vec3<float> Vec3f;
