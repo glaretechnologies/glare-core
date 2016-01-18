@@ -1004,11 +1004,13 @@ Real genericMultifractal(const Vec4f& p, Real H, Real lacunarity, Real octaves, 
 	Real weight = 1;
 	Real w_factor = std::pow(lacunarity, -H);
 
-	value += weight * (basis_func.eval(p * freq) + offset);
+	const Vec4f v = p - Vec4f(0,0,0,1);
+
+	value += weight * (basis_func.eval(Vec4f(0,0,0,1) + v * freq) + offset);
 
 	for(int i=1; i<(int)octaves; ++i)
 	{
-		value += myMax<Real>(0, value) * weight * (basis_func.eval(p * freq) + offset);
+		value += myMax<Real>(0, value) * weight * (basis_func.eval(Vec4f(0,0,0,1) + v * freq) + offset);
 		
 		freq *= lacunarity;
 		weight *= w_factor;
