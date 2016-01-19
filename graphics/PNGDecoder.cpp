@@ -42,13 +42,13 @@ PNGDecoder::~PNGDecoder()
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
 
-void pngdecoder_error_func(png_structp png, const char* msg)
+static void pngdecoder_error_func(png_structp png, const char* msg)
 {
 	throw ImFormatExcep("LibPNG error: " + std::string(msg));
 }
 
 
-void pngdecoder_warning_func(png_structp png, const char* msg)
+static void pngdecoder_warning_func(png_structp png, const char* msg)
 {
 	//const std::string* path = (const std::string*)png->error_ptr;
 	//conPrint("PNG Warning while loading file '" + *path + "': " + std::string(msg));
@@ -258,18 +258,6 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 }
 
 
-static void error_func(png_structp png, const char* msg)
-{
-	throw ImFormatExcep("LibPNG error: " + std::string(msg));
-
-}
-
-static void warning_func(png_structp png, const char* msg)
-{
-	throw ImFormatExcep("LibPNG warning: " + std::string(msg));
-}
-
-
 void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& pathname)
 {
 	try
@@ -288,13 +276,13 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		// Open the file
 		FileHandle fp(pathname, "wb");
 		
-		//Create and initialize the png_struct with the desired error handler functions.
+		// Create and initialize the png_struct with the desired error handler functions.
 		png_struct* png = png_create_write_struct(
 			PNG_LIBPNG_VER_STRING,
-			NULL, //const_cast<Image*>(this), // error user pointer
-			error_func, // error func
-			warning_func // warning func
-			);
+			NULL, // error user pointer
+			pngdecoder_error_func, // error func
+			pngdecoder_warning_func // warning func
+		);
 
 		if(!png)
 			throw ImFormatExcep("Failed to create PNG object.");
@@ -426,13 +414,13 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		// Open the file
 		FileHandle fp(pathname, "wb");
 		
-		//Create and initialize the png_struct with the desired error handler functions.
+		// Create and initialize the png_struct with the desired error handler functions.
 		png_struct* png = png_create_write_struct(
 			PNG_LIBPNG_VER_STRING,
 			NULL, //const_cast<Image*>(this), // error user pointer
-			error_func, // error func
-			warning_func // warning func
-			);
+			pngdecoder_error_func, // error func
+			pngdecoder_warning_func // warning func
+		);
 
 		if(!png)
 			throw ImFormatExcep("Failed to create PNG object.");
@@ -513,7 +501,6 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 	{
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	}
-
 }
 
 
@@ -527,6 +514,9 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 void PNGDecoder::test()
 {
 	conPrint("PNGDecoder::test()");
+
+
+	// TODO: add some tests for writing PNGs.
 
 	/*{
 		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
