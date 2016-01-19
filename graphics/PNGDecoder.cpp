@@ -175,13 +175,15 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 	catch(ImFormatExcep& e)
 	{
 		// Free any allocated libPNG structures, then re-throw the exception.
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		if(png_ptr && info_ptr)
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 		throw e;
 	}
 	catch(Indigo::Exception& e)
 	{
 		// Free any allocated libPNG structures.
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		if(png_ptr && info_ptr)
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
 		throw ImFormatExcep("Failed to open file '" + path + "' for reading: " + e.what());
 	}
@@ -260,6 +262,9 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 
 void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& pathname)
 {
+	png_structp png = NULL;
+	png_infop info = NULL;
+
 	try
 	{
 		int colour_type;
@@ -277,24 +282,18 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		FileHandle fp(pathname, "wb");
 		
 		// Create and initialize the png_struct with the desired error handler functions.
-		png_struct* png = png_create_write_struct(
+		png = png_create_write_struct(
 			PNG_LIBPNG_VER_STRING,
 			NULL, // error user pointer
 			pngdecoder_error_func, // error func
 			pngdecoder_warning_func // warning func
 		);
-
 		if(!png)
 			throw ImFormatExcep("Failed to create PNG object.");
 
-		png_info* info = png_create_info_struct(png);
-
+		info = png_create_info_struct(png);
 		if(!info)
-		{
-			png_destroy_write_struct(&png, (png_infop*)NULL);//free png struct
-
 			throw ImFormatExcep("Failed to create PNG info object.");
-		}
 		
 		// set up the output control if you are using standard C stream
 		png_init_io(png, fp.getFile());
@@ -308,7 +307,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		   PNG_INTERLACE_NONE, // interlace type
 		   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
 		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
-		   );
+		);
 
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
@@ -380,8 +379,17 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		//------------------------------------------------------------------------
 		png_destroy_write_struct(&png, &info);
 	}
+	catch(ImFormatExcep& e)
+	{
+		// Free any allocated libPNG structures, then re-throw the exception.
+		if(png && info)
+			png_destroy_write_struct(&png, &info);
+		throw e;
+	}
 	catch(Indigo::Exception& )
 	{
+		if(png && info)
+			png_destroy_write_struct(&png, &info);
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	}
 }
@@ -396,6 +404,9 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 
 void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagemap, const std::string& pathname) // Write with no metadata
 {
+	png_struct* png = NULL;
+	png_info* info = NULL;
+
 	try
 	{
 		int colour_type;
@@ -415,24 +426,18 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		FileHandle fp(pathname, "wb");
 		
 		// Create and initialize the png_struct with the desired error handler functions.
-		png_struct* png = png_create_write_struct(
+		png = png_create_write_struct(
 			PNG_LIBPNG_VER_STRING,
-			NULL, //const_cast<Image*>(this), // error user pointer
+			NULL, // error user pointer
 			pngdecoder_error_func, // error func
 			pngdecoder_warning_func // warning func
 		);
-
 		if(!png)
 			throw ImFormatExcep("Failed to create PNG object.");
 
-		png_info* info = png_create_info_struct(png);
-
+		info = png_create_info_struct(png);
 		if(!info)
-		{
-			png_destroy_write_struct(&png, (png_infop*)NULL);//free png struct
-
 			throw ImFormatExcep("Failed to create PNG info object.");
-		}
 		
 		// set up the output control if you are using standard C stream
 		png_init_io(png, fp.getFile());
@@ -446,7 +451,7 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		   PNG_INTERLACE_NONE, // interlace type
 		   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
 		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
-		   );
+		);
 
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
@@ -497,8 +502,17 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		//------------------------------------------------------------------------
 		png_destroy_write_struct(&png, &info);
 	}
+	catch(ImFormatExcep& e)
+	{
+		// Free any allocated libPNG structures, then re-throw the exception.
+		if(png && info)
+			png_destroy_write_struct(&png, &info);
+		throw e;
+	}
 	catch(Indigo::Exception& )
 	{
+		if(png && info)
+			png_destroy_write_struct(&png, &info);
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	}
 }
@@ -795,6 +809,27 @@ void PNGDecoder::test()
 	{
 		failTest(e.what());
 	}
+
+
+
+	// Try testing write failure - write to an invalid location
+	try
+	{
+		ImageMapUInt8 imagemap(20, 10, 3);
+		imagemap.set(125);
+
+#if defined(_WIN32)
+		const std::string path = "abc:/def.png";
+#else
+		const std::string path = "/abc/def.png";
+#endif
+		write(imagemap, path);
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
 
 	conPrint("PNGDecoder::test() done.");
 }
