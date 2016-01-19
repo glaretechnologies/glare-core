@@ -244,9 +244,9 @@ bool Colour4f::operator == (const Colour4f& a) const
 }
 
 
-void Colour4f::addMult(const Colour4f& a, float x)
+void Colour4f::addMult(const Colour4f& a, float factor)
 {
-	v = _mm_add_ps(v, _mm_mul_ps(a.v, _mm_set1_ps(x)));
+	v = _mm_add_ps(v, _mm_mul_ps(a.v, _mm_set1_ps(factor)));
 }
 
 
