@@ -509,14 +509,13 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"
+#include "../utils/PlatformUtils.h"
+#include "bitmap.h"
 
 
 void PNGDecoder::test()
 {
 	conPrint("PNGDecoder::test()");
-
-
-	// TODO: add some tests for writing PNGs.
 
 	/*{
 		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
@@ -746,6 +745,56 @@ void PNGDecoder::test()
 	catch(ImFormatExcep&)
 	{}
 
+
+	// Try writing a bitmap object to a PNG file
+	try
+	{
+		Bitmap bitmap(20, 10, 3, NULL);
+		bitmap.zero();
+
+		const std::string path = PlatformUtils::getTempDirPath() + "/indigo_png_write_test.png";
+		write(bitmap, path);
+
+		// Now read it to make sure it's a valid PNG
+		Reference<Map2D> im = decode(path);
+		testAssert(im->getMapWidth() == 20);
+		testAssert(im->getMapHeight() == 10);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try writing an ImageMap object to a PNG file
+	try
+	{
+		ImageMapUInt8 imagemap(20, 10, 3);
+		imagemap.set(125);
+
+		const std::string path = PlatformUtils::getTempDirPath() + "/indigo_png_write_test2.png";
+		write(imagemap, path);
+
+		// Now read it to make sure it's a valid PNG
+		Reference<Map2D> im = decode(path);
+		testAssert(im->getMapWidth() == 20);
+		testAssert(im->getMapHeight() == 10);
+		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer()) != NULL);
+		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer())->getPixel(5, 5)[0] == 125);
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
 
 	conPrint("PNGDecoder::test() done.");
 }
