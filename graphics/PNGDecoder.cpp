@@ -57,29 +57,26 @@ void pngdecoder_warning_func(png_structp png, const char* msg)
 
 Reference<Map2D> PNGDecoder::decode(const std::string& path)
 {
+	png_structp png_ptr = NULL;
+	png_infop info_ptr = NULL;
+
 	try
 	{
-		png_structp png_ptr = png_create_read_struct(
+		png_ptr = png_create_read_struct(
 			PNG_LIBPNG_VER_STRING, 
 			(png_voidp)&path, // Pass a pointer to the path string as our user-data, so we can use it when printing a warning.
 			pngdecoder_error_func, 
 			pngdecoder_warning_func
 		);
-
-		if (!png_ptr)
+		if(!png_ptr)
 			throw ImFormatExcep("Failed to create PNG struct.");
 
 		// Make CRC errors into warnings.
 		png_set_crc_action(png_ptr, PNG_CRC_WARN_USE, PNG_CRC_WARN_USE);
 
-		png_infop info_ptr = png_create_info_struct(png_ptr);
-		if (!info_ptr)
-		{
-			png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
-
+		info_ptr = png_create_info_struct(png_ptr);
+		if(!info_ptr)
 			throw ImFormatExcep("Failed to create PNG info struct.");
-		}
-
 
 		// Open file and start reading from it.
 		FileHandle fp(path, "rb");
@@ -125,27 +122,15 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 		const unsigned int num_channels = png_get_channels(png_ptr, info_ptr);
 
 		if(width >= 1000000)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("invalid width: " + toString(width));
-		}
 		if(height >= 1000000)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("invalid height: " + toString(height));
-		}
 
 		if(num_channels > 4)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("Invalid num channels: " + toString(num_channels));
-		}
 
 		if(bit_depth != 8 && bit_depth != 16)
-		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 			throw ImFormatExcep("Invalid bit depth found: " + toString(bit_depth));
-		}
 
 		Reference<Map2D> map_2d;
 		if(bit_depth == 8)
@@ -187,9 +172,18 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 
 		return map_2d;
 	}
-	catch(Indigo::Exception& )
+	catch(ImFormatExcep& e)
 	{
-		throw ImFormatExcep("Failed to open file '" + path + "' for reading.");
+		// Free any allocated libPNG structures, then re-throw the exception.
+		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		throw e;
+	}
+	catch(Indigo::Exception& e)
+	{
+		// Free any allocated libPNG structures.
+		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+
+		throw ImFormatExcep("Failed to open file '" + path + "' for reading: " + e.what());
 	}
 }
 
@@ -737,6 +731,31 @@ void PNGDecoder::test()
 	{
 		failTest(e.what());
 	}
+
+
+
+	// Test that failure to load an image is handled gracefully.
+
+	// Try with an invalid path
+	try
+	{
+		decode(TestUtils::getIndigoTestReposDir() + "/testfiles/NO_SUCH_FILE.png");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// Try with a JPG file
+	try
+	{
+		decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
 
 	conPrint("PNGDecoder::test() done.");
 }
