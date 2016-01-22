@@ -993,6 +993,7 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 
 	const char* replacements[] = {
 		"sampleTexDummy_int__vec2__FullHitInfo_",
+		"sampleTexDummyForUV_int__vec2__FullHitInfo_",
 		"sampleTexScalarDummy_int__vec2__FullHitInfo_",
 		"evalTexDerivsForST_int__vec2__FullHitInfo_",
 		"getTexCoords_int__FullHitInfo_",
