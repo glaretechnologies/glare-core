@@ -111,7 +111,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 
 		if(use_pixel_type == Imf::FLOAT)
 		{
-			ImageMap<float, FloatComponentValueTraits>* new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, use_num_channels);
+			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, use_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
 			const size_t x_stride = sizeof(float) * use_num_channels;
@@ -149,11 +149,11 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
 
-			return Reference<Map2D>(new_image);
+			return new_image;
 		}
 		else if(use_pixel_type == Imf::HALF)
 		{
-			ImageMap<half, HalfComponentValueTraits>* new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, use_num_channels);
+			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, use_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
 			const size_t x_stride = sizeof(half) * use_num_channels;
@@ -191,7 +191,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
 
-			return Reference<Map2D>(new_image);
+			return new_image;
 		}
 		else
 		{
