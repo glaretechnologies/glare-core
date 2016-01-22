@@ -601,7 +601,7 @@ const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 }
 
 
-Image::Value Image::scalarSampleTiled(Coord x, Coord y) const
+Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const
 {
 	const Colour3<Value> col = vec3SampleTiled(x, y);
 	return (col.r + col.g + col.b) * static_cast<Image::Value>(1.0 / 3.0);

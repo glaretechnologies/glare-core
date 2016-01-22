@@ -94,7 +94,8 @@ public:
 	inline virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
 	// X and Y are normalised image coordinates.
-	inline virtual Value scalarSampleTiled(Coord x, Coord y) const;
+	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const;
+	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
@@ -294,8 +295,10 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 
 
 template <class V, class VTraits>
-Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
+Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, unsigned int channel) const
 {
+	assert(channel < N);
+
 	// Get fractional normalised image coordinates
 	const Coord u_frac_part = Maths::fract(u);
 	const Coord v_frac_part = Maths::fract(-v);
@@ -320,10 +323,10 @@ Map2D::Value ImageMap<V, VTraits>::scalarSampleTiled(Coord u, Coord v) const
 
 	const V* const use_data = &data[0];
 
-	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N;
-	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N;
-	const V* const bot_left_pixel  = use_data + (ut   + width * vt_1) * N;
-	const V* const bot_right_pixel = use_data + (ut_1 + width * vt_1) * N;
+	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N + channel;
+	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N + channel;
+	const V* const bot_left_pixel  = use_data + (ut   + width * vt_1) * N + channel;
+	const V* const bot_right_pixel = use_data + (ut_1 + width * vt_1) * N + channel;
 
 	const Value a = oneufrac * onevfrac; // Top left pixel weight
 	const Value b = ufrac * onevfrac; // Top right pixel weight

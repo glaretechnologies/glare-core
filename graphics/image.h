@@ -114,7 +114,7 @@ public:
 
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 
-	virtual Value scalarSampleTiled(Coord x, Coord y) const;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const;
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 

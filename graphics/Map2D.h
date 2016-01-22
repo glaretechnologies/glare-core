@@ -43,7 +43,7 @@ public:
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const = 0;
 
 	// X and Y are normalised image coordinates.
-	virtual Value scalarSampleTiled(Coord x, Coord y) const = 0;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const = 0;
 
 	// s and t are normalised image coordinates.
 	// Returns texture value (v) at (s, t)
