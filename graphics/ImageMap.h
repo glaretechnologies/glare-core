@@ -136,6 +136,7 @@ public:
 	const V* getData() const { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
+	inline size_t getDataSize() const { return data.size(); }
 
 private:
 #if IMAGE_MAP_TILED
