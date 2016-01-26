@@ -59,6 +59,7 @@ public:
 
 	virtual bool hasAlphaChannel() const { return false; }
 	virtual Reference<Map2D> extractAlphaChannel() const { return Reference<Map2D>(); }
+	virtual bool isAlphaChannelAllWhite() const { return false; }
 
 	virtual Reference<Map2D> extractChannelZero() const = 0;
 

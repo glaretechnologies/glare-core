@@ -37,6 +37,8 @@ public:
 
 	// Scales to [0, 1), then applies gamma correction
 	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return std::pow(scaleValue(x), gamma); }
+
+	static inline uint32 maxValue() { return 255u; }
 };
 
 
@@ -50,6 +52,8 @@ public:
 
 	// Scales to [0, 1), then applies gamma correction
 	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return std::pow(scaleValue(x), gamma); }
+
+	static inline uint32 maxValue() { return 65535u; }
 };
 
 
@@ -61,6 +65,8 @@ public:
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
 
 	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
+
+	static inline uint32 maxValue() { return 1; } // NOTE: not really correct, shouldn't be used tho.
 };
 
 
@@ -72,6 +78,8 @@ public:
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
 
 	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
+
+	static inline uint32 maxValue() { return 1; } // NOTE: not really correct, shouldn't be used tho.
 };
 
 
@@ -111,6 +119,7 @@ public:
 
 	inline virtual bool hasAlphaChannel() const { return N == 2 || N == 4; }
 	inline virtual Reference<Map2D> extractAlphaChannel() const;
+	inline virtual bool isAlphaChannelAllWhite() const;
 
 	inline virtual Reference<Image> convertToImage() const;
 
@@ -489,6 +498,21 @@ Reference<Map2D> ImageMap<V, VTraits>::extractAlphaChannel() const
 		}
 
 	return Reference<Map2D>(alpha_map);
+}
+
+
+template <class V, class VTraits>
+bool ImageMap<V, VTraits>::isAlphaChannelAllWhite() const
+{
+	if(!hasAlphaChannel())
+		return true;
+
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+			if(getPixel(x, y)[N-1] != VTraits::maxValue())
+				return false;
+
+	return true;
 }
 
 

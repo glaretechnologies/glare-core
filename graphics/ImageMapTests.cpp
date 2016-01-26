@@ -260,6 +260,37 @@ void ImageMapTests::test()
 	}
 
 
+	// Test hasAlphaChannel(), isAlphaChannelAllWhite()
+	{
+		const int W = 10;
+		const int H = 20;
+		ImageMapUInt8 map(W, H, 4);
+		for(int y=0; y<H; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			map.getPixel(x, y)[0] = 1;
+			map.getPixel(x, y)[1] = 2;
+			map.getPixel(x, y)[2] = 3;
+			map.getPixel(x, y)[3] = 4;
+		}
+
+		testAssert(map.hasAlphaChannel());
+		testAssert(!map.isAlphaChannelAllWhite());
+
+		for(int y=0; y<H; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			map.getPixel(x, y)[0] = 1;
+			map.getPixel(x, y)[1] = 2;
+			map.getPixel(x, y)[2] = 3;
+			map.getPixel(x, y)[3] = 255;
+		}
+
+		testAssert(map.isAlphaChannelAllWhite());
+	}
+
+
+
 
 	
 	// Do perf tests
