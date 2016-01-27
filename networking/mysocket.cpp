@@ -299,25 +299,35 @@ void MySocket::bindAndListen(int port)
 	hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
 	hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
 	hints.ai_protocol = 0;
-	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; // "Setting the AI_PASSIVE flag indicates the caller intends to use the returned socket address structure in a call to the bind function": https://msdn.microsoft.com/en-gb/library/windows/desktop/ms738520(v=vs.85).aspx
+	hints.ai_flags = AI_PASSIVE; // "Setting the AI_PASSIVE flag indicates the caller intends to use the returned socket address structure in a call to the bind function": https://msdn.microsoft.com/en-gb/library/windows/desktop/ms738520(v=vs.85).aspx
 
-	struct addrinfo* res = NULL;
+	struct addrinfo* results = NULL;
 
 	const char* nodename = NULL;
 	const std::string portname = toString(port);
-	const int errval = getaddrinfo(nodename, portname.c_str(), &hints, &res);
+	const int errval = getaddrinfo(nodename, portname.c_str(), &hints, &results);
 	if(errval != 0)
 		throw MySocketExcep("getaddrinfo failed: " + Networking::getError());
 
-	if(!res)
+	if(!results)
 		throw MySocketExcep("getaddrinfo did not return a result.");
-
+		
+	// We want to use the first IPv6 address, if there is one, otherwise the first address overall.
+	struct addrinfo* first_ipv6_addr = NULL;
+	for(struct addrinfo* cur = results; cur != NULL ; cur = cur->ai_next)
+	{
+		// conPrint("address: " + IPAddress(*cur->ai_addr).toString() + "...");
+		if(cur->ai_family == AF_INET6 && first_ipv6_addr == NULL)
+				first_ipv6_addr = cur;
+	}
+	
+	struct addrinfo* addr_to_use = (first_ipv6_addr != NULL) ? first_ipv6_addr : results;
 
 	// Create socket, now that we know the correct address family to use.
 	if(isSockHandleValid(sockethandle))
 		closeSocket(sockethandle);
 
-	sockethandle = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	sockethandle = socket(addr_to_use->ai_family, addr_to_use->ai_socktype, addr_to_use->ai_protocol);
 	if(!isSockHandleValid(sockethandle))
 		throw MySocketExcep("Could not create a socket: " + Networking::getError());
 
@@ -326,26 +336,27 @@ void MySocket::bindAndListen(int port)
 	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
 	{
 		assert(0);
-		//conPrint("Warning: setsockopt failed.");
+		//conPrint("!!!!!!!!!!!! Warning: setsockopt IPV6_V6ONLY failed.");
 	}
 
+	// conPrint("binding to " + IPAddress(*addr_to_use->ai_addr).toString() + "...");
 
-	// Listen on the first result.  On my Windows 8.1 machine this is the IPv6 zero address, '::', as opposed to the IPv4 zero address, '0.0.0.0'.
-	if(::bind(sockethandle, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR)
+	if(::bind(sockethandle, addr_to_use->ai_addr, (int)addr_to_use->ai_addrlen) == SOCKET_ERROR)
 	{
-		freeaddrinfo(res); // free the linked list
-		throw MySocketExcep("Failed to bind to address " + IPAddress(*res->ai_addr).toString() + ", port " + toString(port) + ": " + Networking::getError());
+		const std::string msg = "Failed to bind to address " + IPAddress(*addr_to_use->ai_addr).toString() + ", port " + toString(port) + ": " + Networking::getError();
+		freeaddrinfo(results); // free the linked list
+		throw MySocketExcep(msg);
 	}
 
 	const int backlog = 10;
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
 	{
-		freeaddrinfo(res); // free the linked list
+		freeaddrinfo(results); // free the linked list
 		throw MySocketExcep("listen failed: " + Networking::getError());
 	}
 
-	freeaddrinfo(res); // free the linked list
+	freeaddrinfo(results); // free the linked list
 
 
 	/*
