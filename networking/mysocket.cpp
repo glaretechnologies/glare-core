@@ -288,6 +288,47 @@ void MySocket::bindAndListen(int port)
 
 	assert(Networking::isInited());
 
+	// Get the local IP address on which to listen.  This should allow supporting both IPv4 only and IPv4+IPv6 systems.
+	// See http://www.microhowto.info/howto/listen_for_and_accept_tcp_connections_in_c.html
+	addrinfo hints;
+	std::memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
+	hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
+	hints.ai_protocol = 0;
+	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; // "Setting the AI_PASSIVE flag indicates the caller intends to use the returned socket address structure in a call to the bind function": https://msdn.microsoft.com/en-gb/library/windows/desktop/ms738520(v=vs.85).aspx
+
+	struct addrinfo* res = NULL;
+
+	const char* nodename = NULL;
+	const std::string portname = toString(port);
+	const int errval = getaddrinfo(nodename, portname.c_str(), &hints, &res);
+	if(errval != 0)
+		throw MySocketExcep("getaddrinfo failed: " + Networking::getError());
+
+	if(!res)
+		throw MySocketExcep("getaddrinfo did not return a result.");
+
+	// Listen on the first result.  On my Windows 8.1 machine this is the IPv6 zero address, '::', as opposed to the IPv4 zero address, '0.0.0.0'.
+	if(::bind(sockethandle, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR)
+	{
+		freeaddrinfo(res); // free the linked list
+		throw MySocketExcep("Failed to bind to address " + IPAddress(*res->ai_addr).toString() + ", port " + toString(port) + ": " + Networking::getError());
+	}
+
+	const int backlog = 10;
+
+	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
+	{
+		freeaddrinfo(res); // free the linked list
+		throw MySocketExcep("listen failed: " + Networking::getError());
+	}
+
+	freeaddrinfo(res); // free the linked list
+
+
+	/*
+	Old code that doesn't use getaddrinfo():
+
 	//-----------------------------------------------------------------
 	//Set up address struct for this host, the server.
 	//-----------------------------------------------------------------
@@ -308,7 +349,7 @@ void MySocket::bindAndListen(int port)
 	const int backlog = 10;
 
 	if(::listen(sockethandle, backlog) == SOCKET_ERROR)
-		throw MySocketExcep("listen failed: " + Networking::getError());
+		throw MySocketExcep("listen failed: " + Networking::getError());*/
 }
 
 
