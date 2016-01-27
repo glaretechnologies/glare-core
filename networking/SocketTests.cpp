@@ -575,6 +575,20 @@ void SocketTests::test()
 	// Test with IPv6 address
 	doTestWithHostname("localhost", port);
 
+	
+	//===================== Test handling of bindAndListen() failure - bind to an invalid port ==========================
+	// NOTE: how to test this? binding to ports like -1 and 100000 seems to work fine on Windows.  WTF?
+	/*try
+	{
+		MySocketRef socket = new MySocket();
+		socket->bindAndListen(100000);
+
+		failTest("Shouldn't get here.");
+	}
+	catch(MySocketExcep&)
+	{}*/
+	
+	
 	conPrint("SocketTests::test(): done.");
 }
 

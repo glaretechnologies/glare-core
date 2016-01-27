@@ -152,6 +152,7 @@ private:
 
 	void shutdown();
 	void init();
+	void createClientSideSocket();
 	SOCKETHANDLE_TYPE nullSocketHandle() const;
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);

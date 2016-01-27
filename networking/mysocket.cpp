@@ -114,15 +114,9 @@ MySocket::MySocket(SOCKETHANDLE_TYPE sockethandle_)
 {
 	assert(Networking::isInited());
 
+	init();
+
 	sockethandle = sockethandle_;
-
-	otherend_port = -1;
-	connected = false;
-	do_graceful_disconnect = true;
-
-	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
-	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
 }
 
 
@@ -142,6 +136,20 @@ void MySocket::init()
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
 	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
+}
+
+
+MySocket::~MySocket()
+{
+	shutdown();
+
+	closeSocket(sockethandle);
+}
+
+
+void MySocket::createClientSideSocket()
+{
+	assert(!isSockHandleValid(sockethandle));
 
 	// Create socket
 	sockethandle = socket(
@@ -244,6 +252,9 @@ void MySocket::connect(const IPAddress& ipaddress,
 
 	assert(port >= 0 && port <= 65536);
 
+	if(sockethandle == nullSocketHandle())
+		createClientSideSocket();
+
 	//-----------------------------------------------------------------
 	//Fill out server address structure
 	//-----------------------------------------------------------------
@@ -275,14 +286,6 @@ void MySocket::connect(const IPAddress& ipaddress,
 }
 
 
-MySocket::~MySocket()
-{
-	shutdown();
-
-	closeSocket(sockethandle);
-}
-
-
 void MySocket::bindAndListen(int port)
 {
 	Timer timer;
@@ -308,6 +311,24 @@ void MySocket::bindAndListen(int port)
 
 	if(!res)
 		throw MySocketExcep("getaddrinfo did not return a result.");
+
+
+	// Create socket, now that we know the correct address family to use.
+	if(isSockHandleValid(sockethandle))
+		closeSocket(sockethandle);
+
+	sockethandle = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	if(!isSockHandleValid(sockethandle))
+		throw MySocketExcep("Could not create a socket: " + Networking::getError());
+
+	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
+	int no = 0;     
+	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	{
+		assert(0);
+		//conPrint("Warning: setsockopt failed.");
+	}
+
 
 	// Listen on the first result.  On my Windows 8.1 machine this is the IPv6 zero address, '::', as opposed to the IPv4 zero address, '0.0.0.0'.
 	if(::bind(sockethandle, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR)
