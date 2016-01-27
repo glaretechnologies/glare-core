@@ -16,7 +16,7 @@ File created by ClassTemplate on Thu Apr 18 15:19:22 2002
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
-#include <netdb.h> // gethostbyname
+#include <netdb.h> // getaddrinfo
 #include <string.h> // strerror_r
 #include <errno.h>
 #include <unistd.h> // gethostname
