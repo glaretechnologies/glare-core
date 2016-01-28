@@ -318,7 +318,7 @@ void MySocket::bindAndListen(int port)
 	{
 		// conPrint("address: " + IPAddress(*cur->ai_addr).toString() + "...");
 		if(cur->ai_family == AF_INET6 && first_ipv6_addr == NULL)
-				first_ipv6_addr = cur;
+			first_ipv6_addr = cur;
 	}
 	
 	struct addrinfo* addr_to_use = (first_ipv6_addr != NULL) ? first_ipv6_addr : results;
