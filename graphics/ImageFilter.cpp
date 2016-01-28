@@ -13,6 +13,7 @@ Code By Nicholas Chapman.
 #include "EXRDecoder.h"
 #include "GaussianImageFilter.h"
 #include "image.h"
+#include "Image4f.h"
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "../utils/Array2D.h"
@@ -2547,9 +2548,71 @@ static void plotImageProfileAlongScanline(const std::string& path, float y)
 #endif
 
 
+#include "../indigo/IndigoImage.h"
+#include "../indigo/RenderChannels.h"
+
+
+/*static float toneMap(float v)
+{
+	const float scale = 0.0004f;
+	const float y = myClamp(v * scale, 0.0f, 1.0f);
+	return y;
+	//return pow(y, 2.2f);
+}*/
+
+
 void ImageFilter::test()
 {
 	conPrint("ImageFilter::test()");
+
+
+
+
+	/*{
+		//Map2DRef map = ImFormatDecoder::decodeImage(".", "D:\\art\\more gpu pt\\teapot_interior_light_test.igi");
+
+		RenderChannels render_channels;
+		IndigoImage::IndigoImageHeaderData header;
+		IndigoImage::read("D:\\art\\more gpu pt\\teapot_interior_light_test2.igi", render_channels, header);
+
+		Image& im = render_channels.layers[0].image;
+
+		Image resized(im.getWidth() * 2, im.getWidth() * 2);
+
+		Indigo::TaskManager task_manager;
+		ImageFilter::resizeImage(im, resized, 2.f,
+			0.6f, // mn b
+			0.2f, // mn c
+			task_manager
+		);
+
+		EXRDecoder::saveImageTo32BitEXR(resized, "D:\\art\\more gpu pt\\teapot_interior_light_test_2x.exr");
+
+		//tone-map resized image
+		Image tonemapped_resized = resized;
+		for(size_t h=0; h<tonemapped_resized.getHeight(); ++h)
+		for(size_t w=0; w<tonemapped_resized.getWidth(); ++w)
+		{
+			
+			tonemapped_resized.getPixel(w, h).r = toneMap(tonemapped_resized.getPixel(w, h).r);
+			tonemapped_resized.getPixel(w, h).g = toneMap(tonemapped_resized.getPixel(w, h).g);
+			tonemapped_resized.getPixel(w, h).b = toneMap(tonemapped_resized.getPixel(w, h).b);
+		}
+
+		EXRDecoder::saveImageTo32BitEXR(tonemapped_resized, "D:\\art\\more gpu pt\\tonemapped_resized_2x.exr");
+
+
+		Image downsized(im.getWidth(), im.getWidth());
+		ImageFilter::resizeImage(tonemapped_resized, downsized, 0.5f,
+			0.6f, // mn b
+			0.2f, // mn c
+			task_manager
+		);
+
+		EXRDecoder::saveImageTo32BitEXR(downsized, "D:\\art\\more gpu pt\\downsized.exr");
+
+	}*/
+	//return;
 
 	//plotImageProfileAlongScanline("C:\\programming\\models\\SGR bump problem\\MS_G1W3.exr", 0.25f);
 	//return;

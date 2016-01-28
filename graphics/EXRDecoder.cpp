@@ -9,6 +9,7 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 
 #include "imformatdecoder.h"
 #include "../graphics/image.h"
+#include "../graphics/Image4f.h"
 #include "../graphics/ImageMap.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"

@@ -8,11 +8,11 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 
 
 #include "ImageMap.h"
-#include "Image4f.h"
 #include "../utils/Reference.h"
 #include <string>
 class Map2D;
 class Image;
+class Image4f;
 
 
 /*=====================================================================
@@ -52,6 +52,7 @@ public:
 	{
 		SaveOptions() : compression_method(CompressionMethod_PIZ), bit_depth(BitDepth_32) {}
 		SaveOptions(CompressionMethod compression_method_, BitDepth bit_depth_) : compression_method(compression_method_), bit_depth(bit_depth_) {}
+
 		CompressionMethod compression_method;
 		BitDepth bit_depth;
 	};
