@@ -111,6 +111,7 @@ public:
 	virtual unsigned int numChannels() const { return 3; }
 
 	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return pixels.elem(x, y); }
+	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const { return pixels.elem(x, y)[c]; }
 
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
 

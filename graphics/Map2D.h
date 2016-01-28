@@ -38,6 +38,7 @@ public:
 	typedef float Coord;
 
 	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const = 0;
+	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const = 0;
 
 	// X and Y are normalised image coordinates.
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const = 0;
