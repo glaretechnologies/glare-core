@@ -15,9 +15,10 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "Timer.h"
 #include "Checksum.h"
 #include "../indigo/globals.h"
-#include "../utils/MyThread.h"
+#include "MyThread.h"
 #include "Transmungify.h"
 #include "X509Certificate.h"
+#include "Mutex.h"
 
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
@@ -26,6 +27,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include <openssl/x509.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
+#include <openssl/crypto.h>
 
 #include <fstream>
 #include <sstream>
@@ -865,9 +867,59 @@ const std::string License::networkFloatingHash(const std::string& input)
 }
 
 
+static std::vector<Mutex*> mutexes;
+
+
+static void locking_callback(int mode, int type, const char* file, int line)
+{
+	if(mode & CRYPTO_LOCK)
+		mutexes[type]->acquire();
+	else
+		mutexes[type]->release();
+}
+
+
+unsigned long threadid_func_callback()
+{
+#ifdef _WIN32
+	return ::GetCurrentThreadId();
+#else
+	return (unsigned long)pthread_self(); // pthread_self - obtain ID of the calling thread - http://man7.org/linux/man-pages/man3/pthread_self.3.html
+#endif
+}
+
+
+/*
+"OpenSSL can safely be used in multi-threaded applications provided that at least two callback functions are set, locking_function and threadid_func." - 
+https://www.openssl.org/docs/manmaster/crypto/threads.html
+
+*/
+void License::init()
+{
+	if(!mutexes.empty()) // If init has already been called:
+		return;
+
+	mutexes.resize(CRYPTO_num_locks());
+	//for(size_t i=0; i<mutexes.size(); ++i)
+	//	new (&mutexes[i]) Mutex(); // Construct it
+	for(size_t i=0; i<mutexes.size(); ++i)
+		mutexes[i] = new Mutex();
+
+	CRYPTO_set_locking_callback(locking_callback);
+
+	CRYPTO_set_id_callback(threadid_func_callback);
+}
+
+
 void License::cleanup() // Cleans up / frees OpenSSL global state.
 {
 	CRYPTO_cleanup_all_ex_data();
+
+	CRYPTO_set_locking_callback(NULL);
+
+	for(size_t i=0; i<mutexes.size(); ++i)
+		delete mutexes[i];
+	mutexes.clear();
 }
 
 

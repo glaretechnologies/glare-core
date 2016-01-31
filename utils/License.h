@@ -108,6 +108,8 @@ public:
 
 	static bool verifyKey(const std::string& key, const std::string& hash);
 
+	static void init(); // Initialise OpenSSL stuff.
+
 	static void cleanup(); // Cleans up / frees OpenSSL global state.
 
 	static void test();
