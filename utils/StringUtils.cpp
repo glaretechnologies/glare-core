@@ -228,10 +228,14 @@ uint64 hexStringTo64UInt(const std::string& s)
 
 const char intToHexChar(int i)
 {
-	if(i <= 9)
-		return '0' + i;
+	if(i < 0)
+		throw StringUtilsExcep("value out of range.");
+	else if(i <= 9)
+		return '0' + (char)i;
+	else if(i < 16)
+		return 'A' + (char)(i - 10);
 	else
-		return 'A' + (i - 10);
+		throw StringUtilsExcep("value out of range.");
 }
 
 
@@ -616,14 +620,14 @@ const std::string int32ToString(int32 i)
 			uint32 x = (uint32)(-i);
 			const int num_digits = numDigitsUInt32(x);
 			char buffer[16];
-			int i = num_digits;
+			int d_i = num_digits;
 
-			while(i >= 1)
+			while(d_i >= 1)
 			{
 				const uint32 x_div_10 = x / 10u;
 				const uint32 last_digit = x - x_div_10*10;
-				buffer[i] = '0' + (char)last_digit;
-				i--;
+				buffer[d_i] = '0' + (char)last_digit;
+				d_i--;
 				x = x_div_10;
 			}
 
@@ -667,14 +671,14 @@ const std::string int64ToString(int64 i)
 			uint64 x = (uint64)(-i);
 			const int num_digits = numDigitsUInt64(x);
 			char buffer[32];
-			int i = num_digits;
+			int d_i = num_digits;
 
-			while(i >= 1)
+			while(d_i >= 1)
 			{
 				const uint64 x_div_10 = x / 10u;
 				const uint64 last_digit = x - x_div_10*10;
-				buffer[i] = '0' + (char)last_digit;
-				i--;
+				buffer[d_i] = '0' + (char)last_digit;
+				d_i--;
 				x = x_div_10;
 			}
 
@@ -1367,6 +1371,8 @@ const std::string removeNonPrintableChars(const std::string& s)
 
 void StringUtils::test()
 {
+	conPrint("StringUtils::test()");
+
 	//==================================== Test stripHeadWhitespace ====================================
 	testAssert(stripHeadWhitespace("a") == "a");
 	testAssert(stripHeadWhitespace("a ") == "a ");
@@ -2211,6 +2217,33 @@ void StringUtils::test()
 	//testAssert(::hexStringToUInt32("skjhsdg") == 0);//parse error
 
 
+	//======================== intToHexChar() ==========================
+	testAssert(intToHexChar(0) == '0');
+	testAssert(intToHexChar(1) == '1');
+	testAssert(intToHexChar(8) == '8');
+	testAssert(intToHexChar(9) == '9');
+	testAssert(intToHexChar(10) == 'A');
+	testAssert(intToHexChar(11) == 'B');
+	testAssert(intToHexChar(12) == 'C');
+	testAssert(intToHexChar(13) == 'D');
+	testAssert(intToHexChar(14) == 'E');
+	testAssert(intToHexChar(15) == 'F');
+	try
+	{
+		intToHexChar(-1);
+		failTest("Should have thrown exception.");
+	}
+	catch(StringUtilsExcep&)
+	{}
+	try
+	{
+		intToHexChar(16);
+		failTest("Should have thrown exception.");
+	}
+	catch(StringUtilsExcep&)
+	{
+	}
+
 	testAssert(::charToString('a') == std::string("a"));
 	testAssert(::charToString(' ') == std::string(" "));
 
@@ -2282,6 +2315,8 @@ void StringUtils::test()
 	/*assert(::concatWithChar("abc", 'd') == "abcd");
 	assert(::concatWithChar("", 'a') == "a");
 	assert(::concatWithChar("aa", '_') == "aa_");*/
+
+	conPrint("StringUtils::test() done");
 }
 
 

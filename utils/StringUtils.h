@@ -40,7 +40,7 @@ uint64 hexStringTo64UInt(const std::string& s);
 //====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
 
-const char intToHexChar(int i);
+const char intToHexChar(int i); // throws StringUtilsExcep
 
 const std::string toHexString(uint64 i);//for 64 bit integers
 
