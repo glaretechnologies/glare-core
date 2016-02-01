@@ -19,6 +19,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 #include "Transmungify.h"
 #include "X509Certificate.h"
 #include "Mutex.h"
+#include "OpenSSL.h"
 
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
@@ -132,6 +133,8 @@ Verify that the hash is a public signature of key.
 */
 bool License::verifyKey(const std::string& key, const std::string& hash)
 {
+	assert(OpenSSL::isInitialised());
+
 	if(hash.size() > std::numeric_limits<unsigned int>::max())
 		throw License::LicenseExcep("Data too big");
 
@@ -186,6 +189,8 @@ Also checks for the presence of the Green Button certificate, as well as a netwo
 void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out,
 							LicenceErrorCode& local_err_code_out, LicenceErrorCode& network_lic_err_code_out)
 {
+	assert(OpenSSL::isInitialised());
+
 	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
 	local_err_code_out = LicenceErrorCode_NoError;
@@ -253,6 +258,8 @@ Verifies that the licence key is correctly signed with Glare's private key.  Als
 */
 void License::verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out)
 {
+	assert(OpenSSL::isInitialised());
+
 	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
 	user_id_out = "";
 	error_code_out = LicenceErrorCode_NoError;
@@ -430,6 +437,8 @@ There wil be a hardware ID for each different MAC address.
 */
 const std::vector<std::string> License::getHardwareIdentifiers()
 {
+	assert(OpenSSL::isInitialised());
+
 	try
 	{	
 		std::vector<std::string> MAC_addresses;
@@ -460,6 +469,8 @@ const std::vector<std::string> License::getHardwareIdentifiers()
 
 const std::string License::getPrimaryHardwareIdentifier()
 {
+	assert(OpenSSL::isInitialised());
+
 	const std::vector<std::string> ids = getHardwareIdentifiers();
 	if(ids.empty())
 		throw LicenseExcep("ids.empty()");
@@ -864,62 +875,6 @@ const std::string License::networkFloatingHash(const std::string& input)
 	const uint32 crc = Checksum::checksum((void*)x.c_str(), x.size());
 
 	return ::toHexString(crc);
-}
-
-
-static std::vector<Mutex*> mutexes;
-
-
-static void locking_callback(int mode, int type, const char* file, int line)
-{
-	if(mode & CRYPTO_LOCK)
-		mutexes[type]->acquire();
-	else
-		mutexes[type]->release();
-}
-
-
-unsigned long threadid_func_callback()
-{
-#ifdef _WIN32
-	return ::GetCurrentThreadId();
-#else
-	return (unsigned long)pthread_self(); // pthread_self - obtain ID of the calling thread - http://man7.org/linux/man-pages/man3/pthread_self.3.html
-#endif
-}
-
-
-/*
-"OpenSSL can safely be used in multi-threaded applications provided that at least two callback functions are set, locking_function and threadid_func." - 
-https://www.openssl.org/docs/manmaster/crypto/threads.html
-
-*/
-void License::init()
-{
-	if(!mutexes.empty()) // If init has already been called:
-		return;
-
-	mutexes.resize(CRYPTO_num_locks());
-	//for(size_t i=0; i<mutexes.size(); ++i)
-	//	new (&mutexes[i]) Mutex(); // Construct it
-	for(size_t i=0; i<mutexes.size(); ++i)
-		mutexes[i] = new Mutex();
-
-	CRYPTO_set_locking_callback(locking_callback);
-
-	CRYPTO_set_id_callback(threadid_func_callback);
-}
-
-
-void License::cleanup() // Cleans up / frees OpenSSL global state.
-{
-	CRYPTO_cleanup_all_ex_data();
-
-	CRYPTO_set_locking_callback(NULL);
-
-	for(size_t i=0; i<mutexes.size(); ++i)
-		delete mutexes[i];
-	mutexes.clear();
 }
 
 
