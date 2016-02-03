@@ -185,7 +185,7 @@ static void miscompilationTest()
 			Obfuscator::Lang_OpenCL
 		);
 
-		const std::string obf_src = opencl_ob.obfuscate(FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl"));
+		const std::string obf_src = opencl_ob.obfuscateOpenCLC(FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl"));
 
 		FileUtils::writeEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl", obf_src);
 	}

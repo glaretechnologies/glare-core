@@ -70,6 +70,8 @@ void Obfuscator::addOpenCLKeywords()
 "pragma",
 "once",
 "include",
+"__FILE__",
+"__LINE__",
 
 // OpenCL C keywords
 "auto",
@@ -169,6 +171,8 @@ void Obfuscator::addOpenCLKeywords()
 "barrier",
 "CLK_LOCAL_MEM_FENCE",
 "isnan",
+"isinf",
+"isfinite",
 
 
 // float4 elements:
@@ -474,7 +478,7 @@ const std::string Obfuscator::mapToken(const std::string& t)
 }
 
 
-const std::string Obfuscator::obfuscate(const std::string& s)
+const std::string Obfuscator::obfuscateOpenCLC(const std::string& s)
 {
 	Parser p(s.c_str(), (unsigned int)s.length());
 
@@ -535,11 +539,19 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 		}
 		else if(p.current() == '#') // preprocessor def
 		{
-			parsing_preprocessor_line = true;
-			p.advance();
-			if(collapse_whitespace) // If we are collapsing whitespace, the newline before this line may have been removed.  So add a newline in.
-				res.push_back('\n');
-			res.push_back('#');
+			if(parsing_preprocessor_line) // If we are currently parsing a preprocessor def, this is the 'stringising' operator.
+			{
+				p.advance();
+				res.push_back('#');
+			}
+			else
+			{
+				parsing_preprocessor_line = true;
+				p.advance();
+				if(collapse_whitespace) // If we are collapsing whitespace, the newline before this line may have been removed.  So add a newline in.
+					res.push_back('\n');
+				res.push_back('#');
+			}
 			continue;
 		}
 		/*else if(p.current() == '#') // preprocessor def
@@ -630,7 +642,8 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 				parsing_preprocessor_line = false;
 
 			// Break lines after a while even if we are collapsing whitespace.  Otherwise stuff like OpenCL warnings get extremely long.
-			if(collapse_whitespace && parsed_newline && (res.size() - last_line_start_res_len) > MAX_LINE_LEN)
+			// Don't break lines in a preprocessor definition.
+			if(collapse_whitespace && !parsing_preprocessor_line && parsed_newline && (res.size() - last_line_start_res_len) > MAX_LINE_LEN)
 			{
 				res += "\n";
 				last_line_start_res_len = res.size();
@@ -700,6 +713,14 @@ const std::string Obfuscator::obfuscate(const std::string& s)
 			}
 
 			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
+
+			// Parse any integer suffices like 'u'
+			if(p.currentIsChar('u') || p.currentIsChar('l') || p.currentIsChar('L'))
+			{
+				res += p.current();
+				p.advance();
+			}
+
 			continue;
 		}
 
@@ -1044,6 +1065,13 @@ void Obfuscator::test()
 			Obfuscator::Lang_OpenCL
 		);
 
+		// Test integer 'u' suffix is parsed and not obfuscated.
+		{
+			const std::string s = "123u";
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
+			testAssert(ob_s == s);
+		}
+
 		// Make sure newlines are removed if no preprocessor defs are around
 		{
 			const std::string s = 
@@ -1051,7 +1079,7 @@ void Obfuscator::test()
 	int b = 1;			\n\
 	int c = 2;			\n\
 ";
-			const std::string ob_s = ob.obfuscate(s);
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
 			conPrint("--------------");
 			conPrint(ob_s);
 			conPrint("--------------");
@@ -1066,7 +1094,7 @@ void Obfuscator::test()
 	int b = 1;			\n\
 	int c = 2;			\n\
 ";
-			const std::string ob_s = ob.obfuscate(s);
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
 			conPrint("--------------");
 			conPrint(ob_s);
 			conPrint("--------------");
@@ -1081,14 +1109,14 @@ void Obfuscator::test()
 #endif\n\
 	int b = 1;";
 	
-			const std::string ob_s = ob.obfuscate(s);
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
 			conPrint("--------------");
 			conPrint(ob_s);
 			conPrint("--------------");
 			testAssert(std::count(ob_s.begin(), ob_s.end(), '\n') == 3 || std::count(ob_s.begin(), ob_s.end(), '\n') == 4);
 		}
 
-// Make sure newlines at the end of preprocessor definitions (with comments after them) are not removed.
+		// Make sure newlines at the end of preprocessor definitions (with comments after them) are not removed.
 		{
 			const std::string s = 
 "#if 0//(BLOCK_SIZE <= 32)		\n\
@@ -1097,7 +1125,7 @@ void Obfuscator::test()
 	return decodeMortonBlock16bit(morton);		\n\
 #endif		\n\
 ";
-			const std::string ob_s = ob.obfuscate(s);
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
 			conPrint("--------------");
 			conPrint(ob_s);
 			conPrint("--------------");
@@ -1107,6 +1135,22 @@ void Obfuscator::test()
 			int i = 0;
 			testAssert(lines[i++] == "");
 			testAssert(lines[i++] == "#if 0");
+		}
+
+
+		// Make sure newlines are not inserted inside preprocessor defs
+		{
+			const std::string s = "#define assert(expr) do_assert(expr, #expr, __FILE__, __LINE__)";
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
+			conPrint("--------------");
+			conPrint(ob_s);
+			conPrint("--------------");
+			const size_t newline_count = std::count(ob_s.begin(), ob_s.end(), '\n');
+			testAssert(newline_count == 1);
+
+			const std::vector<std::string> lines = ::split(ob_s, '\n');
+			testAssert(lines[0] == "");
+			testAssert(hasPrefix(lines[1], "#define "));
 		}
 
 	}
