@@ -48,6 +48,7 @@ public:
 	template<typename T>
 	void copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, cl_bool blocking_write);
 
+	size_t getSize() const { return size; }
 
 	void free();
 
