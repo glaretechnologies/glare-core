@@ -29,9 +29,9 @@ public:
 	~Obfuscator();
 
 	static const std::string tokenHashString(const std::string& t);
-	const std::string mapToken(const std::string& t);
+	const std::string mapToken(const std::string& t) const;
 
-	const std::string obfuscateOpenCLC(const std::string& s);
+	const std::string obfuscateOpenCLC(const std::string& s) const;
 
 	const std::string obfuscateWinterSource(const std::string& src);
 	const std::string obfuscateWinterSourceIfObfuscating(const std::string& src) { return useObfuscatedSource() ? obfuscateWinterSource(src) : src; }

@@ -456,7 +456,7 @@ static bool isENFunctionName(const std::string& name)
 }
 
 
-const std::string Obfuscator::mapToken(const std::string& t)
+const std::string Obfuscator::mapToken(const std::string& t) const
 {
 	if(!change_tokens)
 		return t;
@@ -478,7 +478,7 @@ const std::string Obfuscator::mapToken(const std::string& t)
 }
 
 
-const std::string Obfuscator::obfuscateOpenCLC(const std::string& s)
+const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 {
 	Parser p(s.c_str(), (unsigned int)s.length());
 
