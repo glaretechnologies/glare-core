@@ -146,11 +146,15 @@ public:
 	virtual void writeData(const void* data, size_t num_bytes);
 	//------------------------------------------------------------------
 
+	SOCKETHANDLE_TYPE getSocketHandle() { return sockethandle; }
+
+	void shutdown();
+
 private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
-	void shutdown();
+	
 	void init();
 	void createClientSideSocket();
 	SOCKETHANDLE_TYPE nullSocketHandle() const;
@@ -166,10 +170,6 @@ private:
 	size_t max_buffersize;
 
 	bool connected;
-
-	// We will do a graceful disconnection when closing the socket, unless we have interrupted a read or write operation with an abort callback.
-	// In that case we don't want to receive all the pending data on the socket, or the aborting won't have any affect.
-	bool do_graceful_disconnect;
 };
 
 

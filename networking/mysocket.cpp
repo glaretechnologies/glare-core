@@ -131,7 +131,6 @@ void MySocket::init()
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	connected = false;
-	do_graceful_disconnect = true;
 
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
@@ -417,53 +416,35 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 
 void MySocket::shutdown()
 {
-	// conPrint("---MySocket::close()---");
 	if(isSockHandleValid(sockethandle))
 	{
-		//------------------------------------------------------------------------
-		//try shutting down the socket
-		//------------------------------------------------------------------------
-		//int result = shutdown(sockethandle, 2); // 2 == SD_BOTH
-		//conPrint("Shutdown result: " + toString(result));
-		//result = closeSocket(sockethandle);
-		//conPrint("closeSocket result: " + toString(result));
-		// printVar(connected);
-
-		// printVar(connected);
-
 		if(connected)
 		{
-			// Initiate graceful shutdown.
-			::shutdown(sockethandle,  1); // 1 == SD_SEND
+			// Initiate graceful shutdown. 
+			// See 'Graceful Shutdown, Linger Options, and Socket Closure' - https://msdn.microsoft.com/en-us/library/ms738547
+			::shutdown(sockethandle,  1); // Shutdown send operations.  1 == SD_SEND.
 
 			// Wait for graceful shutdown
-			if(do_graceful_disconnect)
+			while(1)
 			{
-				while(1)
-				{
-					// conPrint("Waiting for graceful shutdown...");
+				// conPrint("Waiting for graceful shutdown...");
 
-					char buf[1024];
-					const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
-					if(numbytesread == 0)
-					{
-						// Socket has been closed gracefully
-						// conPrint("numbytesread == 0, socket closed gracefully.");
-						break;
-					}
-					else if(numbytesread == SOCKET_ERROR)
-					{
-						// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
-						break;
-					}
+				char buf[1024];
+				const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
+				if(numbytesread == 0)
+				{
+					// Socket has been closed gracefully
+					// conPrint("numbytesread == 0, socket closed gracefully.");
+					break;
+				}
+				else if(numbytesread == SOCKET_ERROR)
+				{
+					// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
+					break;
 				}
 			}
 		}
-
-		//closeSocket(sockethandle);
 	}
-
-	//sockethandle = nullSocketHandle();
 }
 
 
