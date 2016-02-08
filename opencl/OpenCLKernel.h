@@ -34,13 +34,14 @@ public:
 	size_t getWorkGroupSize() const { return work_group_size; }
 	void setWorkGroupSize(size_t work_group_size_);
 
-
 	void setKernelArgInt(size_t index, cl_int val);
 	void setKernelArgUInt(size_t index, cl_uint val);
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
 
 	void setNextKernelArg(cl_mem buffer);
 	void setNextKernelArgUInt(cl_uint val);
+
+	void resetKernelArgIndex() { kernel_arg_index = 0; }
 	size_t getNextKernelIndex() const { return kernel_arg_index; }
 
 	// Returns execution time in seconds if profiling was enabled, or 0 otherwise.
