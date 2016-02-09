@@ -149,6 +149,8 @@ double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t 
 
 		const double elapsed_ns = (double)time_end - (double)time_start;
 		const double elapsed_s = elapsed_ns * 1.0e-9;
+
+		// conPrint("Kernel " + kernel_name + " exec took " + toString(elapsed_s) + " s");
 		total_exec_time_s += elapsed_s;
 		return elapsed_s;
 	}
