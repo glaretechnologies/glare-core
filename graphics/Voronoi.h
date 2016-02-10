@@ -1,7 +1,7 @@
 /*=====================================================================
 Voronoi.h
 -------------------
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2013-01-04 17:14:42 +0000
 =====================================================================*/
 #pragma once
@@ -18,7 +18,7 @@ Voronoi
 =====================================================================*/
 namespace Voronoi
 {
-
+	
 	void evaluate(
 		const Vec2f& uv, // input point
 		float irregularity, // irregularity: Should be in [0, 1] for best results.  default is 1.
@@ -34,6 +34,4 @@ namespace Voronoi
 		float& dist_out // Distance to closest point.
 	);
 
-
 } // namespace Voronoi
-

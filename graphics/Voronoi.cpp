@@ -44,7 +44,7 @@ void evaluate(const Vec2f& uv, float irregularity, Vec2f& coords_ret_out, float&
 	points[8] = getPoint(fx+1, fy+1, irregularity);
 
 	Vec2f best_point(0, 0);
-	float least_d2 = 100000000000.0f;
+	float least_d2 = std::numeric_limits<float>::max();
 	for(int i=0; i<9; ++i)
 	{
 		float d2 = uv.getDist2(points[i]);
@@ -86,12 +86,6 @@ void evaluate3d(
 	const int fx = (int)floor(p.x[0]);
 	const int fy = (int)floor(p.x[1]);
 	const int fz = (int)floor(p.x[2]);
-
-	/*Vec4f points[27];
-	for(int x=-1; x<2; ++x)
-	for(int y=-1; y<2; ++y)
-	for(int z=-1; z<2; ++z)
-		points[x*9 + y*3 + z] = getPoint3d(fx + x, fy + y, fz + z, irregularity);*/
 
 	Vec4f best_point;
 	float least_d2 = std::numeric_limits<float>::max();
