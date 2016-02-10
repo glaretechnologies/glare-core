@@ -1,7 +1,7 @@
 /*=====================================================================
 GridNoise.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2011-06-22 22:23:03 +0100
 =====================================================================*/
 #pragma once
