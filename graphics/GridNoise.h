@@ -14,7 +14,7 @@ GridNoise
 =====================================================================*/
 namespace GridNoise
 {
-	void init();
+	void generateData();
 
 	float eval(float x, float y, float z);
 	float eval(float x, float y, float z, float w);

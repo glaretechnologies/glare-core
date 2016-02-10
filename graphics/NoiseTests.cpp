@@ -24,7 +24,6 @@ void NoiseTests::test()
 {
 	conPrint("NoiseTests::test()");
 
-	GridNoise::init();
 	PerlinNoise::init();
 
 
