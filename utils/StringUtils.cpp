@@ -1347,6 +1347,12 @@ bool containsChar(const std::string& s, char c)
 }
 
 
+bool containsString(const std::string& s, const std::string& target)
+{
+	return s.find(target) != std::string::npos;
+}
+
+
 // Replace non-printable chars with '?'
 const std::string removeNonPrintableChars(const std::string& s)
 {

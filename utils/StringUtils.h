@@ -248,6 +248,7 @@ const std::string replaceAll(const std::string& s, const std::string& target, co
 void appendTabbed(std::string& s, const std::string& addition, int num_tabs);
 
 bool containsChar(const std::string& s, char c);
+bool containsString(const std::string& s, const std::string& target);
 
 // Replace non-printable chars with '?'
 const std::string removeNonPrintableChars(const std::string& s);

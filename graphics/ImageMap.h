@@ -572,7 +572,7 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 	// Convert this low-bit-depth texture to a 32 bit floating point image.
 
 	// We don't want to include the alpha channel in our blurred greyscale image.
-	unsigned int use_N = 1;
+	unsigned int use_N = 1; // Number of components to average over when computing the greyscale value.
 	if(N == 1)
 		use_N = 1;
 	else if(N == 2)
