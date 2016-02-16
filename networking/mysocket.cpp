@@ -519,9 +519,6 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		//------------------------------------------------------------------------
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
-		//printVar(numbytesread);
-		//printVar(readlen);
-
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + Networking::getError());
 		else if(numbytesread == 0) // Connection was closed gracefully
@@ -794,6 +791,7 @@ void MySocket::setNoDelayEnabled(bool enabled_)
 }
 
 
+// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 void MySocket::enableTCPKeepAlive(float period)
 {
 #if defined(_WIN32)

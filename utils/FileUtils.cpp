@@ -546,6 +546,7 @@ void deleteEmptyDirectory(const std::string& path)
 
 
 // Throws FileUtilsExcep
+// TODO: Probably shouldn't follow symlinks in this traversal.
 void deleteDirectoryRecursive(const std::string& path)
 {
 	if(!isDirectory(path)) return;
