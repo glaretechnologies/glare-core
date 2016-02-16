@@ -370,6 +370,10 @@ void Obfuscator::addWinterKeywords()
 
 		"v",
 
+
+		"getTexCoords", // This function is called in ISL_stdlib.txt, but we don't do re-writing of arguments (env->FullHitInfo) for ISL_stdlib.  
+		// By not obfuscating, it will bind to the old external function, which isn't needed, as tex() calls etc.. are rewritten in user shader code anyway.
+
 		/*"sampleTexDummy",
 		"sampleTexScalarDummy",
 		"evalTexDerivsForST",
