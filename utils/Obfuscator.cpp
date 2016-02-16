@@ -283,6 +283,8 @@ void Obfuscator::addOpenCLKeywords()
 
 		// Functions from lang\winter_opencl_support_code_declarations.cl
 		// TODO: remove from ignore list - obfuscate this stuff
+
+		"sample2DTextureVec3_int__vec2__FullHitInfo_",
 		"noise_float__float_",
 		"noise_float__float__float_",
 		"noise4Valued_float__float_",
@@ -294,6 +296,7 @@ void Obfuscator::addOpenCLKeywords()
 		"gridNoise_float__float__float__float_",
 		"voronoi_vec2__float_",
 		"voronoi3d_vec3__float_",
+		"posOS_FullHitInfo_",
 		"mod_int__int_",
 		"mod_float__float_",
 		"print_vec4_",
@@ -371,9 +374,6 @@ void Obfuscator::addWinterKeywords()
 		"v",
 
 
-		"getTexCoords", // This function is called in ISL_stdlib.txt, but we don't do re-writing of arguments (env->FullHitInfo) for ISL_stdlib.  
-		// By not obfuscating, it will bind to the old external function, which isn't needed, as tex() calls etc.. are rewritten in user shader code anyway.
-
 		/*"sampleTexDummy",
 		"sampleTexScalarDummy",
 		"evalTexDerivsForST",
@@ -383,6 +383,7 @@ void Obfuscator::addWinterKeywords()
 		"getSample",
 		//"getSamplePair",*/
 
+		"sample2DTextureVec3",
 		"noise",
 		"noise4Valued",
 		"fbm",
@@ -390,6 +391,7 @@ void Obfuscator::addWinterKeywords()
 		"gridNoise",
 		"voronoi",
 		"voronoi3d",
+		"posOS",
 		"mod",
 		"print",
 
