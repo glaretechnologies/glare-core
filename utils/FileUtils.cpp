@@ -251,51 +251,28 @@ bool fileExists(const std::string& pathname)
 
 uint64 getFileSize(const std::string& path)
 {
-	// NOTE: This code is from MemMappedFile.  Could use GetFileAttributesEx instead (see http://msdn.microsoft.com/en-us/library/windows/desktop/aa364946(v=vs.85).aspx )
 #if defined(_WIN32)
-	HANDLE file_handle = CreateFile(
+	WIN32_FILE_ATTRIBUTE_DATA info;
+
+	BOOL res = GetFileAttributesEx(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
-		GENERIC_READ,
-		FILE_SHARE_READ, // share mode - Use FILE_SHARE_READ so that other processes can read the file as well.
-		NULL, // security attributes
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL,
-		NULL
-	);
-
-	if(file_handle == INVALID_HANDLE_VALUE)
-		throw FileUtilsExcep("CreateFile failed for file '" + path + "': " + PlatformUtils::getLastErrorString());
-
-	// Get size of file
-	LARGE_INTEGER file_size_li;
-	BOOL res = GetFileSizeEx(
-		file_handle,
-		&file_size_li
+		GetFileExInfoStandard,
+		&info
 	);
 	if(!res)
-		throw FileUtilsExcep("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("Failed to get size of file '" + path + "': " + PlatformUtils::getLastErrorString());
 
-	// Close the file
-	res = CloseHandle(file_handle);
-	assert(res);
+	// This seems to be the standard way of converting the high and low parts to a 64-bit value
+	ULARGE_INTEGER ul;
+	ul.HighPart = info.nFileSizeHigh;
+	ul.LowPart = info.nFileSizeLow;
+	return ul.QuadPart;
 
-	return file_size_li.QuadPart;
 #else
-	//NOTE: could change to use stat(), see http://stackoverflow.com/questions/5793030/how-to-get-file-size-on-disk-on-linux
-
-	int linux_file_handle = ::open(
-		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
-		O_RDONLY);
-
-	if(linux_file_handle <= 0)
-		throw FileUtilsExcep("File open failed: " + PlatformUtils::getLastErrorString());
-
-	off_t file_size = lseek(linux_file_handle, 0, SEEK_END);
-
-	// Close the file
-	::close(linux_file_handle);
-
-	return file_size;
+	struct stat info;
+	if(stat(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), &info) != 0)
+		throw FileUtilsExcep("Failed to get size of file: '" + path + "': " + PlatformUtils::getLastErrorString());
+	return info.st_size;
 #endif
 }
 
