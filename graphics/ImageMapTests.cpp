@@ -186,6 +186,38 @@ void ImageMapTests::test()
 		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
 	}
 
+	// Test a 1x1 pixel image.  This can expose bugs with wrapping.
+	{
+		const int W = 1;
+		ImageMapUInt8 map(W, W, 1);
+		map.set(128);
+		testEpsEqual(map.scalarSampleTiled(0.f, 0.f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(0.5f, 0.5f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(0.9999f, 0.9999f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(1.0001f, 1.00001), (128.f / 255.f));
+
+		float dv_ds, dv_dt;
+		testEpsEqual(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt), (128.f / 255.f));
+		testAssert(dv_ds == 0);
+		testAssert(dv_dt == 0);
+	}
+
+	// Test a 2x2 pixel image.  This can expose bugs with wrapping.
+	{
+		const int W = 2;
+		ImageMapUInt8 map(W, W, 1);
+		map.set(128);
+		testEpsEqual(map.scalarSampleTiled(0.f, 0.f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(0.5f, 0.5f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(0.9999f, 0.9999f), (128.f / 255.f));
+		testEpsEqual(map.scalarSampleTiled(1.0001f, 1.00001), (128.f / 255.f));
+
+		float dv_ds, dv_dt;
+		testEpsEqual(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt), (128.f / 255.f));
+		testAssert(dv_ds == 0);
+		testAssert(dv_dt == 0);
+	}
+
 
 	// Test that all interpolated reads from a UInt8 map with zero values return zero.
 	{

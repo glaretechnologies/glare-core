@@ -379,8 +379,9 @@ Map2D::Value ImageMap<V, VTraits>::getDerivs(Coord s, Coord t, Value& dv_ds_out,
 
 	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
 	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
-	const unsigned int ut_2 = (ut + 2) >= width  ? ((ut + 2) - width ) : ut + 2;
-	const unsigned int vt_2 = (vt + 2) >= height ? ((vt + 2) - height) : vt + 2;
+	const unsigned int ut_2 = (ut_1 + 1) >= width  ? 0 : ut_1 + 1;
+	const unsigned int vt_2 = (vt_1 + 1) >= height ? 0 : vt_1 + 1;
+	assert(ut_1 < width && vt_1 < height && ut_2 < width && vt_2 < height);
 
 	const V* const use_data = &data[0];
 
