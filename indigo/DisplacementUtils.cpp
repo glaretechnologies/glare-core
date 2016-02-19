@@ -45,8 +45,8 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include <unordered_map>
 
 
-static const bool PROFILE = true;
-#define DISPLACEMENT_UTILS_STATS 1
+static const bool PROFILE = false;
+//#define DISPLACEMENT_UTILS_STATS 1
 #if DISPLACEMENT_UTILS_STATS
 #define DISPLACEMENT_CREATE_TIMER(timer) Timer (timer)
 #define DISPLACEMENT_RESET_TIMER(timer) ((timer).reset())
@@ -3184,8 +3184,8 @@ void DisplacementUtils::linearSubdivision(
 	const size_t quad_mem = quads_out.size() * sizeof(DUQuad);
 	const size_t vert_mem = verts_out.size() * sizeof(DUVertex);
 
-	conPrint("quad mem: " + toString(quads_out.size()) + " * " + toString(sizeof(DUQuad)  ) + " B = " + toString(quad_mem) + " B");
-	conPrint("vert mem: " + toString(verts_out.size()) + " * " + toString(sizeof(DUVertex)) + " B = " + toString(vert_mem) + " B");
+	//conPrint("quad mem: " + toString(quads_out.size()) + " * " + toString(sizeof(DUQuad)  ) + " B = " + toString(quad_mem) + " B");
+	//conPrint("vert mem: " + toString(verts_out.size()) + " * " + toString(sizeof(DUVertex)) + " B = " + toString(vert_mem) + " B");
 }
 
 
