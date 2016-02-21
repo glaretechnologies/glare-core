@@ -97,7 +97,7 @@ static int face_callback(p_ply_argument argument)
 }
 
 
-void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& handler, float scale)// throw (ModelFormatDecoderExcep)
+void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& handler, float scale)
 {
 	ply_scale = scale;
 

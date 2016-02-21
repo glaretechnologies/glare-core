@@ -53,7 +53,7 @@ public:
 	bool parseIdentifier(string_view& token_out);
 	bool parseNonWSToken(string_view& token_out);
 	bool parseString(const std::string& s);
-	bool parseCString(const char* const s);
+	bool parseCString(const char* const s); // Parse target string.  Returns true if string was succesfully parsed, false otherwise.
 
 	bool fractionalNumberNext();
 

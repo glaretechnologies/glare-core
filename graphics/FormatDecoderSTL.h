@@ -1,8 +1,7 @@
 /*=====================================================================
-FormatDecoderPLY.h
+FormatDecoderSTL.h
 ------------------
-File created by ClassTemplate on Sat Dec 02 04:33:29 2006
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
 #pragma once
 
@@ -12,12 +11,16 @@ namespace Indigo { class Mesh; }
 
 
 /*=====================================================================
-FormatDecoderPLY
+FormatDecoderSTL
 ----------------
-
+Loads STL files, can handle both ASCII and binary STL files.
+See https://en.wikipedia.org/wiki/STL_(file_format),
+http://www.fabbers.com/tech/STL_Format
 =====================================================================*/
-class FormatDecoderPLY
+class FormatDecoderSTL
 {
 public:
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws Indigo::Exception on failure.
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // throws Indigo::Exception on failure
+
+	static void test();
 };
