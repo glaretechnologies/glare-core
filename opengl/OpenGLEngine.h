@@ -8,8 +8,8 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "../graphics/colour3.h"
-#include "../graphics/OpenGLTexture.h"
 #include "../physics/jscol_aabbox.h"
+#include "../opengl/OpenGLTexture.h"
 #include "../opengl/VBO.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
