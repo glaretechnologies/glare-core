@@ -185,6 +185,9 @@ public:
 	bool polarDecomposition(Matrix3& rot_out, Matrix3& rest_out) const;
 
 
+	void rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& angle_out);
+
+
 	static void test();
 
 
