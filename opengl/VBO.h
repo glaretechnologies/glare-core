@@ -10,6 +10,7 @@ Generated at 2014-02-13 22:44:00 +0000
 #include <QtOpenGL/QGLWidget>
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/Platform.h"
 
 
 /*=====================================================================
@@ -27,6 +28,8 @@ public:
 	void unbind();
 
 private:
+	INDIGO_DISABLE_COPY(VBO)
+
 	GLuint buffer_name;
 };
 

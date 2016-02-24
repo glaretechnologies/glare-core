@@ -33,6 +33,8 @@ public:
 	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 
 	inline void setToTranslationMatrix(float x, float y, float z);
+	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
+	void setToUniformScaleMatrix(float scale);
 
 	inline const Vec4f mul3Vector(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;
@@ -57,11 +59,14 @@ public:
 
 	// Get column (col_index is a zero-based index)
 	inline const Vec4f getColumn(unsigned int col_index) const;
+	inline const Vec4f getRow(unsigned int row_index) const;
 
 
 	// Is A the inverse of B?
 	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
 
+	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
+	bool getInverseForRandTMatrix(Matrix4f& inverse_out) const;
 
 	static const Matrix4f identity();
 
@@ -393,6 +398,13 @@ const Vec4f Matrix4f::getColumn(unsigned int col_index) const
 {
 	assert(col_index < 4);
 	return Vec4f(_mm_load_ps(e + 4*col_index));
+}
+
+
+const Vec4f Matrix4f::getRow(unsigned int row_index) const
+{
+	assert(row_index < 4);
+	return Vec4f(e[row_index], e[row_index + 4], e[row_index + 8], e[row_index + 12]);
 }
 
 

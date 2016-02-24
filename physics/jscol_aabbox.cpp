@@ -57,6 +57,28 @@ const std::string AABBox::toStringNSigFigs(int n) const
 
 void js::AABBox::test()
 {
+	// Test intersectsAABB
+	{
+		//AABBox box1(Vec4f(1,2,3,1.0f), Vec4f(4,5,6,1.0f));
+		AABBox box1(Vec4f(0.01f,0.01f,0.01f,1), Vec4f(0.99f,0.99f,0.99f,1));
+
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(0,   0,   0,   1)))); // Separate on all axes
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(0.1f,0.1f,0,   1)))); // Separate on z axis
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(0.1f,0,   0.1f,1)))); // Separate on y axis
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(0,   0.1f,0.1f,1)))); // Separate on x axis
+		testAssert( box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(0.1f,0.1f,0.1f,1)))); // intersecting
+
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(1,   1,   1,   1), Vec4f(2,2,2,1))));
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(0.9f,0.9f,1,   1), Vec4f(2,2,2,1))));
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(0.9f,1,   0.9f,1), Vec4f(2,2,2,1))));
+		testAssert(!box1.intersectsAABB(AABBox(Vec4f(1,   0.9f,0.9f,1), Vec4f(2,2,2,1))));
+		testAssert( box1.intersectsAABB(AABBox(Vec4f(0.9f,0.9f,0.9f,1), Vec4f(2,2,2,1))));
+
+		// Test one box completely in the other
+		testAssert(box1.intersectsAABB(AABBox(Vec4f(0.5f,0.5f,0.5f,1), Vec4f(0.6f,0.6f,0.6f,1))));
+		testAssert(box1.intersectsAABB(AABBox(Vec4f(-1,-1,-1,1), Vec4f(2,2,2,1))));
+	}
+
 	{
 		AABBox box(Vec4f(0,0,0,1.0f), Vec4f(1,2,3,1.0f));
 

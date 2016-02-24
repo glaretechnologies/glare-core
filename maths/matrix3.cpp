@@ -6,7 +6,7 @@
   _______    ______      _______
  /______/\  |______|    /\______\  
 |       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
+|        \| |      |  |/         |  
 |_____    \ |      |_ /    ______|       
  ____|    | |      |_||    |_____          
      |____| |________||____|                
@@ -102,6 +102,20 @@ bool Matrix3<Real>::polarDecomposition(Matrix3<Real>& rot_out, Matrix3<Real>& re
 	// Q^T M = S			[Q^-1 = Q^T as Q is a rotation matrix]
 	rest_out = Q.getTranspose() * *this;
 	return true;
+}
+
+
+template <class Real>
+void Matrix3<Real>::rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& angle_out)
+{
+	//TEMP: http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToAngle/
+	angle_out = acos((elem(0, 0) + elem(1, 1) + elem(2, 2) - 1) / 2);
+
+	Real x = (elem(2, 1) - elem(1, 2));
+	Real y = (elem(0, 2) - elem(2, 0));
+	Real z = (elem(1, 0) - elem(0, 1));
+
+	unit_axis_out = normalise(Vec3<Real>(x, y, z));
 }
 
 
@@ -350,6 +364,19 @@ void Matrix3<float>::test()
 	testAssert(invertible);
 	testAssert(epsMatrixEqual(identity(), identity_inverse, (float)NICKMATHS_EPSILON));
 
+
+	//=================== rotationMatrixToAxisAngle() ======================
+	{
+		Vec3f axis(0,0,1);
+		float angle = 0.5f;
+		Matrix3f m = Matrix3f::rotationMatrix(axis, angle);
+
+		Vec3f new_axis;
+		float new_angle;
+		m.rotationMatrixToAxisAngle(new_axis, new_angle);
+		testAssert(epsEqual(axis, new_axis));
+		testAssert(epsEqual(angle, new_angle));
+	}
 
 	//=================== polarDecomposition() ======================
 

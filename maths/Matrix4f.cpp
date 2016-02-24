@@ -109,6 +109,92 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 }
 
 
+bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const 
+{
+	/*
+	We are assuming the matrix is a concatenation of a translation and rotation matrix.  In other words we are assuming the bottom row is (0,0,0,1).
+	M = T R
+	M^-1 = (T R)^-1 = R^-1 T^-1
+	*/
+	assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f);
+	
+	// Get inverse of upper left matrix (R).
+	Matrix3f upper_left;
+	getUpperLeftMatrix(upper_left);
+	Matrix3f upper_left_inverse;
+	if(!upper_left.inverse(upper_left_inverse))
+		return false;
+
+	Matrix4f R_inv(upper_left_inverse, Vec3f(0,0,0));
+	Matrix4f T_inv;
+	T_inv.setToTranslationMatrix(-e[12], -e[13], -e[14]);
+	mul(R_inv, T_inv, inverse_out);
+	assert(Matrix4f::isInverse(*this, inverse_out));
+	return true;
+}
+
+
+void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
+{
+	assert(unit_axis.isUnitLength());
+
+	//-----------------------------------------------------------------
+	//build the rotation matrix
+	//see http://mathworld.wolfram.com/RodriguesRotationFormula.html
+	//-----------------------------------------------------------------
+	const float a = unit_axis[0];
+	const float b = unit_axis[1];
+	const float c = unit_axis[2];
+
+	const float cost = std::cos(angle);
+	const float sint = std::sin(angle);
+
+	const float asint = a*sint;
+	const float bsint = b*sint;
+	const float csint = c*sint;
+
+	const float one_minus_cost = 1 - cost;
+
+	e[ 0] = a*a*one_minus_cost + cost;
+	e[ 1] = a*b*one_minus_cost + csint;
+	e[ 2] = a*c*one_minus_cost - bsint;
+	e[ 3] = 0;
+	e[ 4] = a*b*one_minus_cost - csint;
+	e[ 5] = b*b*one_minus_cost + cost;
+	e[ 6] = b*c*one_minus_cost + asint;
+	e[ 7] = 0;
+	e[ 8] = a*c*one_minus_cost + bsint;
+	e[ 9] = b*c*one_minus_cost - asint;
+	e[10] = c*c*one_minus_cost + cost;
+	e[11] = 0;
+	e[12] = 0;
+	e[13] = 0;
+	e[14] = 0;
+	e[15] = 1;
+}
+
+
+void Matrix4f::setToUniformScaleMatrix(float scale)
+{
+	e[ 0] = scale;
+	e[ 1] = 0;
+	e[ 2] = 0;
+	e[ 3] = 0;
+	e[ 4] = 0;
+	e[ 5] = scale;
+	e[ 6] = 0;
+	e[ 7] = 0;
+	e[ 8] = 0;
+	e[ 9] = 0;
+	e[10] = scale;
+	e[11] = 0;
+	e[12] = 0;
+	e[13] = 0;
+	e[14] = 0;
+	e[15] = 1;
+}
+
+
 const std::string Matrix4f::rowString(int row_index) const
 {
 	return ::toString(e[row_index + 0]) + " " + ::toString(e[row_index + 4]) + " " + ::toString(e[row_index + 8]) + " " + ::toString(e[row_index + 12]);
@@ -126,12 +212,55 @@ const std::string Matrix4f::toString() const
 
 #include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
 
 
 void Matrix4f::test()
 {
+	conPrint("Matrix4f::test()");
+
+	// Test getInverseForRandTMatrix
+	{
+		Matrix4f m;
+		m.setToRotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
+		m.e[12] = 1.f;
+		m.e[13] = 2.f;
+		m.e[14] = 3.f;
+
+		Matrix4f inv;
+		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(isInverse(m, inv));
+	}
+	{
+		Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
+		Matrix4f inv;
+		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(isInverse(m, inv));
+	}
+
+	// Test setToRotationMatrix
+	{
+		Matrix4f m;
+		m.setToRotationMatrix(normalise(Vec4f(0,0,1,0)), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(1,0,0,0), Vec4f(0,1,0,0)));
+		testAssert(epsEqual(m * Vec4f(0,1,0,0), Vec4f(-1,0,0,0)));
+	}
+	{
+		Matrix4f m;
+		m.setToRotationMatrix(normalise(Vec4f(1,0,0,0)), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(0,1,0,0), Vec4f(0,0,1,0)));
+		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(0,-1,0,0)));
+	}
+	{
+		Matrix4f m;
+		m.setToRotationMatrix(normalise(Vec4f(0,1,0,0)), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(1,0,0,0), Vec4f(0,0,-1,0)));
+		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(1,0,0,0)));
+	}
+
+
 	// Perf test //
 	if(false)
 	{
