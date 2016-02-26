@@ -10,19 +10,21 @@ Generated at 2014-02-13 22:44:00 +0000
 #include "VBO.h"
 
 
-VBO::VBO(const float* data, size_t data_num_floats)
+VBO::VBO(const void* data, size_t size_, GLenum buffer_type_)
+:	buffer_type(buffer_type_),
+	size(size_)
 {
 	// Create new VBO
 	glGenBuffers(1, &buffer_name);
 
 	// Make buffer active
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_name);
+	glBindBuffer(buffer_type, buffer_name);
 
 	// Upload vertex data to the video device
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * data_num_floats, data, GL_STATIC_DRAW);
+	glBufferData(buffer_type, size, data, GL_STATIC_DRAW);
 
 	// Unbind buffer
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(buffer_type, 0);
 }
 
 
@@ -35,12 +37,12 @@ VBO::~VBO()
 void VBO::bind()
 {
 	// Make buffer active
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_name);
+	glBindBuffer(buffer_type, buffer_name);
 }
 
 
 void VBO::unbind()
 {
 	// Unbind buffer
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(buffer_type, 0);
 }

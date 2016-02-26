@@ -21,16 +21,19 @@ VBO
 class VBO : public RefCounted
 {
 public:
-	VBO(const float* data, size_t data_num_floats);
+	VBO(const void* data, size_t size, GLenum buffer_type = GL_ARRAY_BUFFER);
 	~VBO();
 
 	void bind();
 	void unbind();
 
+	const size_t getSize() const{ return size; }
 private:
 	INDIGO_DISABLE_COPY(VBO)
 
 	GLuint buffer_name;
+	GLenum buffer_type;
+	size_t size; // in bytes
 };
 
 

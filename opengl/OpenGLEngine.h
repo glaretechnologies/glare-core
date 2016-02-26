@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../graphics/colour3.h"
 #include "../physics/jscol_aabbox.h"
 #include "../opengl/OpenGLTexture.h"
+#include "../opengl/OpenGLProgram.h"
 #include "../opengl/VBO.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
@@ -25,15 +26,13 @@ namespace Indigo { class Mesh; }
 
 
 // Data for a bunch of primitives from a given mesh, that all share the same material.
-class OpenGLPassData
+class OpenGLBatch
 {
 public:
 	uint32 material_index;
-	uint32 num_prims; // Number of triangles or quads.
-
-	VBORef vertices_vbo;
-	VBORef normals_vbo;
-	VBORef uvs_vbo;
+	uint32 prim_start_offset;
+	uint32 num_indices;//num_prims; // Number of triangles or quads.
+	uint32 num_verts_per_prim; // 3 or 4.
 };
 
 
@@ -43,39 +42,51 @@ class OpenGLMeshRenderData : public RefCounted
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	std::vector<OpenGLPassData> tri_pass_data;
-	std::vector<OpenGLPassData> quad_pass_data;
-
-	js::AABBox aabb_os;
+	js::AABBox aabb_os; // Should go first as is aligned.
+	VBORef vert_vbo;
+	size_t normal_offset;
+	size_t uv_offset;
+	VBORef vert_indices_buf;
+	std::vector<OpenGLBatch> batches;
+	bool has_uvs;
+	bool has_shading_normals;
 };
 
 
 class OpenGLMaterial
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	OpenGLMaterial()
 	:	transparent(false),
 		albedo_rgb(0.85f, 0.25f, 0.85f),
 		specular_rgb(0.f),
-		shininess(100.f),
+		alpha(1.f),
+		phong_exponent(100.f),
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
-		userdata(0)
+		userdata(0),
+		fresnel_scale(0.5f)
 	{}
 
 	std::string albedo_tex_path;
 
 	Colour3f albedo_rgb; // First approximation to material colour
 	Colour3f specular_rgb; // Used for OpenGL specular colour
+	float alpha; // Used for transparent mats.
 
 	bool transparent;
 
 	Reference<OpenGLTexture> albedo_texture;
 
+	Reference<OpenGLProgram> shader_prog;
+
 	Matrix2f tex_matrix;
 	Vec2f tex_translation;
 
-	float shininess;
+	float phong_exponent;
+	float fresnel_scale;
 
 	uint64 userdata;
 };
@@ -108,11 +119,15 @@ public:
 	OpenGLEngine();
 	~OpenGLEngine();
 
-	void initialise();
+	void initialise(const std::string& shader_dir);
 
 	void unloadAllData();
 
 	void addObject(const Reference<GLObject>& object);
+
+	void newMaterialUsed(OpenGLMaterial& mat);
+
+	void objectMaterialsUpdated(const Reference<GLObject>& object);
 
 	void draw();
 
@@ -139,8 +154,8 @@ public:
 
 private:
 	void buildMaterial(OpenGLMaterial& mat);
-	void drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGLPassData& pass_data, int num_verts_per_primitive);
-	void drawPrimitivesWireframe(const OpenGLPassData& pass_data, int num_verts_per_primitive);
+	void drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
+	void drawPrimitivesWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 
 
 	bool init_succeeded;
@@ -150,9 +165,10 @@ private:
 	Matrix3f env_mat_transform;
 
 	Vec4f sun_dir;
+	Vec4f sun_dir_cam_space;
 
-	OpenGLPassData aabb_passdata;
-	OpenGLPassData sphere_passdata;
+	//OpenGLMeshRenderData aabb_meshdata;
+	OpenGLMeshRenderData sphere_meshdata;
 
 	float sensor_width;
 	float viewport_aspect_ratio;
@@ -162,6 +178,7 @@ private:
 	Matrix4f world_to_camera_space_matrix;
 public:
 	std::vector<Reference<GLObject> > objects;
+	std::vector<Reference<GLObject> > transparent_objects;
 private:
 	float max_draw_dist;
 
@@ -176,6 +193,32 @@ private:
 	Vec4f frustum_verts[5];
 	js::AABBox frustum_aabb;
 
+	Reference<OpenGLProgram> phong_untextured_prog;
+	int diffuse_colour_location;
+	int have_shading_normals_location;
+	int have_texture_location;
+	int diffuse_tex_location;
+	int texture_matrix_location;
+	int sundir_location;
+	int exponent_location;
+	int fresnel_scale_location;
+
+	Reference<OpenGLProgram> transparent_prog;
+	int transparent_colour_location;
+	int transparent_have_shading_normals_location;
+
+	Reference<OpenGLProgram> env_prog;
+	int env_diffuse_colour_location;
+	int env_have_texture_location;
+	int env_diffuse_tex_location;
+	int env_texture_matrix_location;
+
+	bool support_geom_normal_shader;
+
+	//size_t vert_mem_used; // B
+	//size_t index_mem_used; // B
+
+	std::string shader_dir;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
