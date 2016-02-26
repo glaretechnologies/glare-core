@@ -256,6 +256,7 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 
 	meshdata.vert_vbo = new VBO(&combined_data[0], combined_data.dataSizeBytes());
 	meshdata.vert_indices_buf = new VBO(&indices[0], indices.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+	meshdata.index_type = GL_UNSIGNED_INT;
 }
 
 
@@ -1267,22 +1268,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		opengl_render_data->batches.push_back(batch);
 	}
 
-#ifndef NDEBUG
-	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
-	{
-		const OpenGLBatch& batch = opengl_render_data->batches[i];
-		assert(batch.material_index < mesh->num_materials_referenced);
-		assert(batch.num_indices > 0);
-		assert(batch.prim_start_offset < vert_index_buffer.size()*sizeof(uint32));
-		assert(batch.prim_start_offset + batch.num_indices*sizeof(uint32) <= vert_index_buffer.size()*sizeof(uint32));
-	}
-
-	// Check indices
-	for(size_t i=0; i<vert_index_buffer.size(); ++i)
-		assert(vert_index_buffer[i] < merged_positions.size());
-#endif
-
-
 	assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
 
 	// Merge all vert data together and load into a VBO.
@@ -1302,8 +1287,58 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	opengl_render_data->has_uvs				= !merged_uvs.empty();
 	opengl_render_data->has_shading_normals = !merged_normals.empty();
 
-	if(!vert_index_buffer.empty())
+	assert(!vert_index_buffer.empty());
+	const size_t vert_index_buffer_size = vert_index_buffer.size();
+
+	if(merged_positions.size() < 256)
+	{
+		js::Vector<uint8, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+		for(size_t i=0; i<vert_index_buffer_size; ++i)
+		{
+			assert(vert_index_buffer[i] < 256);
+			index_buf[i] = (uint8)vert_index_buffer[i];
+		}
+		opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
+		// Go through the batches and adjust the start offset to take into account we're using uint8s.
+		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+			opengl_render_data->batches[i].prim_start_offset /= 4;
+	}
+	else if(merged_positions.size() < 65536)
+	{
+		js::Vector<uint16, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+		for(size_t i=0; i<vert_index_buffer_size; ++i)
+		{
+			assert(vert_index_buffer[i] < 65536);
+			index_buf[i] = (uint16)vert_index_buffer[i];
+		}
+		opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
+		// Go through the batches and adjust the start offset to take into account we're using uint16s.
+		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+			opengl_render_data->batches[i].prim_start_offset /= 2;
+	}
+	else
+	{
 		opengl_render_data->vert_indices_buf = new VBO(&vert_index_buffer[0], vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		opengl_render_data->index_type = GL_UNSIGNED_INT;
+	}
+
+#ifndef NDEBUG
+	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+	{
+		const OpenGLBatch& batch = opengl_render_data->batches[i];
+		assert(batch.material_index < mesh->num_materials_referenced);
+		assert(batch.num_indices > 0);
+		assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
+		const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
+		assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
+	}
+
+	// Check indices
+	for(size_t i=0; i<vert_index_buffer.size(); ++i)
+		assert(vert_index_buffer[i] < merged_positions.size());
+#endif
 
 	if(MEM_PROFILE)
 	{
@@ -1312,7 +1347,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		conPrint("merged_positions:  " + rightPad(toString(merged_positions.size()),  ' ', pad_w) + "(" + getNiceByteSize(merged_positions.dataSizeBytes()) + ")");
 		conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
 		conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
-		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(vert_index_buffer.dataSizeBytes()) + ")");
+		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
 	if(PROFILE)
 	{
@@ -1383,9 +1418,9 @@ void OpenGLEngine::drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGL
 		
 
 		if(batch.num_verts_per_prim == 3)
-			glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, GL_UNSIGNED_INT, (void*)batch.prim_start_offset);
+			glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
 		else
-			glDrawElements(GL_QUADS,     (GLsizei)batch.num_indices, GL_UNSIGNED_INT, (void*)batch.prim_start_offset);
+			glDrawElements(GL_QUADS,     (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
 
 		opengl_mat.shader_prog->useNoPrograms();
 	}

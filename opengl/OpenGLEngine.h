@@ -30,7 +30,7 @@ class OpenGLBatch
 {
 public:
 	uint32 material_index;
-	uint32 prim_start_offset;
+	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices;//num_prims; // Number of triangles or quads.
 	uint32 num_verts_per_prim; // 3 or 4.
 };
@@ -50,6 +50,7 @@ public:
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
 	bool has_shading_normals;
+	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
 };
 
 
