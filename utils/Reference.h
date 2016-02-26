@@ -89,6 +89,34 @@ public:
 	}
 
 
+	// An assignment operator from a raw pointer.
+	// We have this method so that the code 
+	//
+	// Reference<T> ref;
+	// ref = new T();
+	//
+	// will work without a temporary reference object being created and then assigned to ref.
+	Reference& operator = (T* new_ob)
+	{
+		T* old_ob = ob;
+
+		ob = new_ob;
+		// NOTE: if a reference is getting assigned to itself, old_ob == ob.  So make sure we increment before we decrement, to avoid deletion.
+		if(ob)
+			ob->incRefCount();
+
+		// Decrement reference count for the object that this reference used to refer to.
+		if(old_ob)
+		{
+			int64 ref_count = old_ob->decRefCount();
+			if(ref_count == 0)
+				delete old_ob;
+		}
+
+		return *this;
+	}
+
+
 	// Compares the pointer values.
 	bool operator < (const Reference& other) const
 	{

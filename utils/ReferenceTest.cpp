@@ -207,11 +207,22 @@ void run()
 		testAssert(i == 0);
 
 		{
+			Reference<ThreadSafeTestClass> t = new ThreadSafeTestClass();
+		}
+
+		{
 			Reference<TestClass> t;
 			t = new TestClass(&i);
 		}
 		testAssert(i == 0);
 
+/*	
+		{
+			std::shared_ptr<TestClass> t;
+			t = std::shared_ptr<TestClass>(new TestClass(&i));
+		}
+		testAssert(i == 0);
+*/
 
 		// Test automatic conversion from derived to base class.
 		{
@@ -277,6 +288,14 @@ void run()
 			Reference<TestClass> t(new TestClass(&i));
 		
 			t = t;
+		}
+		testAssert(i == 0);
+
+		// Test assigning reference to itself by pointer
+		{
+			Reference<TestClass> t(new TestClass(&i));
+		
+			t = t.getPointer();
 		}
 		testAssert(i == 0);
 
