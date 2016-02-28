@@ -134,15 +134,8 @@ bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const
 }
 
 
-bool Matrix4f::getInverseTransposeForRandTMatrix(Matrix4f& inverse_trans_out) const 
+bool Matrix4f::getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const 
 {
-	/*
-	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
-	M = T R
-	M^-1 = (T R)^-1 = R^-1 T^-1
-	*/
-	assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f);
-	
 	// Get inverse of upper left matrix (R).
 	Matrix3f upper_left;
 	getUpperLeftMatrix(upper_left);
@@ -150,13 +143,9 @@ bool Matrix4f::getInverseTransposeForRandTMatrix(Matrix4f& inverse_trans_out) co
 	if(!upper_left.inverse(upper_left_inverse))
 		return false;
 
-	Matrix4f R_inv(upper_left_inverse, Vec3f(0,0,0));
-	Matrix4f T_inv;
-	T_inv.setToTranslationMatrix(-e[12], -e[13], -e[14]);
-	Matrix4f inverse;
-	mul(R_inv, T_inv, inverse);
-	//assert(Matrix4f::isInverse(*this, inverse_out));
-	inverse.getTranspose(inverse_trans_out);
+	upper_left_inverse.transpose();
+	inverse_trans_out = Matrix4f(upper_left_inverse, Vec3f(0.f));
+
 	return true;
 }
 

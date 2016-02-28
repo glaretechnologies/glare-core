@@ -69,7 +69,7 @@ public:
 
 	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
 	bool getInverseForRandTMatrix(Matrix4f& inverse_out) const;
-	bool getInverseTransposeForRandTMatrix(Matrix4f& inverse_trans_out) const;
+	bool getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const;
 
 	static const Matrix4f identity();
 

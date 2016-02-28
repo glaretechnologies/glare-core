@@ -181,7 +181,7 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
 	this->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
-	this->env_ob->ob_to_world_matrix.getInverseTransposeForRandTMatrix(this->env_ob->ob_to_world_inv_tranpose_matrix);
+	this->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->env_ob->ob_to_world_inv_tranpose_matrix);
 }
 
 
@@ -510,7 +510,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	const Vec4f max_os = object->mesh_data->aabb_os.max_;
 	const Matrix4f& to_world = object->ob_to_world_matrix;
 
-	to_world.getInverseTransposeForRandTMatrix(object->ob_to_world_inv_tranpose_matrix);
+	to_world.getUpperLeftInverseTranspose(object->ob_to_world_inv_tranpose_matrix);
 
 	js::AABBox bbox_ws = js::AABBox::emptyAABBox();
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
@@ -642,10 +642,10 @@ static const Matrix4f frustumMatrix(GLdouble left,
 	float D = - (2 * zFar * zNear) / (zFar - zNear);
 
 	float e[16] = {
-		2*zNear / (right - left), 0, A, 0,
-		0, 2*zNear / (top - bottom), B, 0,
+		(float)(2*zNear / (right - left)), 0, A, 0,
+		0, (float)(2*zNear / (top - bottom)), B, 0,
 		0, 0, C, D,
-		0, 0, -1, 0 };
+		0, 0, -1.f, 0 };
 	Matrix4f t;
 	Matrix4f(e).getTranspose(t);
 	return t;
