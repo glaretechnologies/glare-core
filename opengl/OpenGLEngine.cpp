@@ -26,6 +26,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/BitUtils.h"
 #include "../utils/Vector.h"
+#include <half.h> // From OpenEXR
 #include <unordered_map>
 #include <algorithm>
 
@@ -44,7 +45,10 @@ OpenGLEngine::OpenGLEngine()
 	render_aspect_ratio = 1;
 
 	sun_dir = normalise(Vec4f(0.2,0.2,1,0));
-	env_mat_transform = Matrix3f::identity();
+	env_ob = new GLObject();
+	env_ob->ob_to_world_matrix = Matrix4f::identity();
+	env_ob->ob_to_world_inv_tranpose_matrix = Matrix4f::identity();
+	env_ob->materials.resize(1);
 }
 
 
@@ -176,14 +180,15 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
-	this->env_mat_transform = transform;
+	this->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
+	this->env_ob->ob_to_world_matrix.getInverseTransposeForRandTMatrix(this->env_ob->ob_to_world_inv_tranpose_matrix);
 }
 
 
 void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
-	this->env_mat = env_mat_;
-	this->env_mat.shader_prog = env_prog;//TEMP
+	this->env_ob->materials[0] = env_mat_;
+	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
 }
 
 
@@ -240,23 +245,62 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 {
 	meshdata.has_uvs = !uvs.empty();
 	meshdata.has_shading_normals = !normals.empty();
-	meshdata.normal_offset = vertices.dataSizeBytes();
-	meshdata.uv_offset     = vertices.dataSizeBytes() + normals.dataSizeBytes();
 	meshdata.batches.resize(1);
 	meshdata.batches[0].material_index = 0;
 	meshdata.batches[0].num_indices = (uint32)indices.size();// / 4;
 	meshdata.batches[0].num_verts_per_prim = 4;
 	meshdata.batches[0].prim_start_offset = 0;
 
-	js::Vector<uint8, 16> combined_data;
-	combined_data.resize(vertices.dataSizeBytes() + normals.dataSizeBytes() + uvs.dataSizeBytes());
-	std::memcpy(&combined_data[0                     ], &vertices[0], vertices.dataSizeBytes());
-	std::memcpy(&combined_data[meshdata.normal_offset], &normals[0],  normals.dataSizeBytes());
-	std::memcpy(&combined_data[meshdata.uv_offset    ], &uvs[0],      uvs.dataSizeBytes());
+	js::Vector<float, 16> combined_data;
+	const int NUM_COMPONENTS = 8;
+	combined_data.resizeUninitialised(NUM_COMPONENTS * vertices.size());
+	for(size_t i=0; i<vertices.size(); ++i)
+	{
+		combined_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
+		combined_data[i*NUM_COMPONENTS + 1] = vertices[i].y;
+		combined_data[i*NUM_COMPONENTS + 2] = vertices[i].z;
+		combined_data[i*NUM_COMPONENTS + 3] = normals[i].x;
+		combined_data[i*NUM_COMPONENTS + 4] = normals[i].y;
+		combined_data[i*NUM_COMPONENTS + 5] = normals[i].z;
+		combined_data[i*NUM_COMPONENTS + 6] = uvs[i].x;
+		combined_data[i*NUM_COMPONENTS + 7] = uvs[i].y;
+	}
 
 	meshdata.vert_vbo = new VBO(&combined_data[0], combined_data.dataSizeBytes());
 	meshdata.vert_indices_buf = new VBO(&indices[0], indices.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 	meshdata.index_type = GL_UNSIGNED_INT;
+
+	VertexSpec spec;
+	const uint32 vert_stride = (uint32)(sizeof(float) * 3 + (sizeof(float) * 3) + (sizeof(float) * 2)); // also vertex size.
+	
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = vert_stride;
+	pos_attrib.offset = 0;
+	spec.attributes.push_back(pos_attrib);
+
+	VertexAttrib normal_attrib;
+	normal_attrib.enabled = true;
+	normal_attrib.num_comps = 3;
+	normal_attrib.type = GL_FLOAT;
+	normal_attrib.normalised = false;
+	normal_attrib.stride = vert_stride;
+	normal_attrib.offset = sizeof(float) * 3; // goes after position
+	spec.attributes.push_back(normal_attrib);
+
+	VertexAttrib uv_attrib;
+	uv_attrib.enabled = true;
+	uv_attrib.num_comps = 2;
+	uv_attrib.type = GL_FLOAT;
+	uv_attrib.normalised = false;
+	uv_attrib.stride = vert_stride;
+	uv_attrib.offset = (uint32)(sizeof(float) * 3 + sizeof(float) * 3); // after position and possibly normal.
+	spec.attributes.push_back(uv_attrib);
+
+	meshdata.vert_vao = new VAO(meshdata.vert_vbo, spec);
 }
 
 
@@ -367,10 +411,11 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			i += 4;
 		}
 
-		buildMeshRenderData(sphere_meshdata, verts, normals, uvs, indices);
+		sphere_meshdata = new OpenGLMeshRenderData();
+		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
 	}
 
-
+	this->env_ob->mesh_data = sphere_meshdata;
 
 
 	// Create VBO for unit AABB.
@@ -453,7 +498,7 @@ void OpenGLEngine::unloadAllData()
 	this->objects.resize(0);
 	this->transparent_objects.resize(0);
 
-	this->env_mat = OpenGLMaterial();
+	this->env_ob->materials[0] = OpenGLMaterial();
 }
 
 
@@ -464,6 +509,8 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	const Vec4f min_os = object->mesh_data->aabb_os.min_;
 	const Vec4f max_os = object->mesh_data->aabb_os.max_;
 	const Matrix4f& to_world = object->ob_to_world_matrix;
+
+	to_world.getInverseTransposeForRandTMatrix(object->ob_to_world_inv_tranpose_matrix);
 
 	js::AABBox bbox_ws = js::AABBox::emptyAABBox();
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
@@ -569,26 +616,7 @@ static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, const
 
 static void bindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
-	mesh_data.vert_vbo->bind();
-
-	// Bind vertices
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(3, GL_FLOAT, 0, NULL);
-
-	// Bind normals
-	if(mesh_data.has_shading_normals)
-	{
-		glEnableClientState(GL_NORMAL_ARRAY);
-		glNormalPointer(GL_FLOAT, 0, (void*)mesh_data.normal_offset);
-	}
-
-	if(mesh_data.has_uvs)
-	{
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);							
-		glTexCoordPointer(2, GL_FLOAT, 0, (void*)mesh_data.uv_offset);
-	}
-			
-	// Bind triangle index buffer
+	mesh_data.vert_vao->bind();
 	mesh_data.vert_indices_buf->bind();
 }
 
@@ -596,14 +624,31 @@ static void bindMeshData(const OpenGLMeshRenderData& mesh_data)
 static void unbindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
 	mesh_data.vert_indices_buf->unbind();
-	mesh_data.vert_vbo->unbind();
+	mesh_data.vert_vao->unbind();
+}
 
-	// Disable everything
-	glDisableClientState(GL_VERTEX_ARRAY);
-	if(mesh_data.has_shading_normals)
-		glDisableClientState(GL_NORMAL_ARRAY);
-	if(mesh_data.has_uvs)
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+// http://www.manpagez.com/man/3/glFrustum/
+static const Matrix4f frustumMatrix(GLdouble left,
+                       GLdouble right,
+                       GLdouble bottom,
+                       GLdouble top,
+                       GLdouble zNear,
+                       GLdouble zFar)
+{
+	float A = (right + left) / (right - left);
+	float B = (top + bottom) / (top - bottom);
+	float C = - (zFar + zNear) / (zFar - zNear);
+	float D = - (2 * zFar * zNear) / (zFar - zNear);
+
+	float e[16] = {
+		2*zNear / (right - left), 0, A, 0,
+		0, 2*zNear / (top - bottom), B, 0,
+		0, 0, C, D,
+		0, 0, -1, 0 };
+	Matrix4f t;
+	Matrix4f(e).getTranspose(t);
+	return t;
 }
 
 
@@ -616,28 +661,20 @@ void OpenGLEngine::draw()
 	this->num_faces_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
-
 	Timer profile_timer;
-
 	
-
-	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
-	const Matrix4f indigo_to_opengl_cam_matrix(e);
-
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glLineWidth(1);
 
+	Matrix4f proj_matrix;
+	
 	// Initialise projection matrix from Indigo camera settings
 	{
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-
 		const double z_far  = max_draw_dist;
 		const double z_near = max_draw_dist * 2e-5;
-
 		
 		double w, h;
 		if(viewport_aspect_ratio > render_aspect_ratio)
@@ -653,128 +690,64 @@ void OpenGLEngine::draw()
 
 		const double x_min = z_near * (-w);
 		const double x_max = z_near * ( w);
-
 		const double y_min = z_near * (-h);
 		const double y_max = z_near * ( h);
-
-		glFrustum(x_min, x_max, y_min, y_max, z_near, z_far);
-
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-
-		// Translate from Indigo to OpenGL camera view basis
-		glMultMatrixf(indigo_to_opengl_cam_matrix.e);
+		proj_matrix = frustumMatrix(x_min, x_max, y_min, y_max, z_near, z_far);
 	}
 
-	glPushMatrix(); // Push camera transformation matrix
+	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
+	const Matrix4f indigo_to_opengl_cam_matrix(e);
 
-	// Do camera transformation
-	glMultMatrixf(world_to_camera_space_matrix.e);
-	//conPrint("world_to_camera_space_matrix: \n" + world_to_camera_space_matrix.toString());
+	Matrix4f view_matrix;
+	mul(indigo_to_opengl_cam_matrix, world_to_camera_space_matrix, view_matrix);
 
 	this->sun_dir_cam_space = indigo_to_opengl_cam_matrix * (world_to_camera_space_matrix * sun_dir);
 
-	// Draw background env map if there is one.
-	{
-		if(env_mat.albedo_texture.nonNull())
-		{
-			glPushMatrix();
-			glLoadIdentity();
-			// Translate from Indigo to OpenGL camera view basis
-			glMultMatrixf(indigo_to_opengl_cam_matrix.e);
-
-			Matrix4f world_to_camera_space_no_translation = world_to_camera_space_matrix;
-			world_to_camera_space_no_translation.e[12] = 0;
-			world_to_camera_space_no_translation.e[13] = 0;
-			world_to_camera_space_no_translation.e[14] = 0;
-			glMultMatrixf(world_to_camera_space_no_translation.e);
-
-			// Apply any rotation, mirroring etc. of the environment map.
-			const float e[16]	= { (float)env_mat_transform.e[0], (float)env_mat_transform.e[3], (float)env_mat_transform.e[6], 0,
-									(float)env_mat_transform.e[1], (float)env_mat_transform.e[4], (float)env_mat_transform.e[7], 0,
-									(float)env_mat_transform.e[2], (float)env_mat_transform.e[5], (float)env_mat_transform.e[8], 0,	
-									0, 0, 0, 1.f };
-			glMultMatrixf(e);
-
-
-			glDepthMask(GL_FALSE); // Disable writing to depth buffer.
-
-			glDisable(GL_LIGHTING);
-			glColor3f(1, 1, 1);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-			bindMeshData(sphere_meshdata);
-			drawPrimitives(env_mat, sphere_meshdata, sphere_meshdata.batches[0]);
-			unbindMeshData(sphere_meshdata);
-			
-			glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
-
-			glPopMatrix();
-		}
-	}
-
-
-	// Set up lights
-	/*{
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0); 
-
-		const float ambient_amount = 0.5f;
-		const float directional_amount = 0.5f;
-		GLfloat light_ambient[]  = { ambient_amount, ambient_amount, ambient_amount, 1.0f };
-		GLfloat light_diffuse[]  = { directional_amount, directional_amount, directional_amount, 1.0f };
-		GLfloat light_specular[] = { directional_amount, directional_amount, directional_amount, 1.0f };
-
-		glLightfv(GL_LIGHT0, GL_AMBIENT,  light_ambient);
-		glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
-		glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-		glLightfv(GL_LIGHT0, GL_POSITION, sun_dir.x);
-		glLightfv(GL_LIGHT0, GL_SPOT_DIRECTION, (-sun_dir).x);
-	}*/
-
-
-	
-	
 	// Draw solid polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	// Draw background env map if there is one.
+	if(this->env_ob->materials[0].albedo_texture.nonNull())
+	{
+		Matrix4f world_to_camera_space_no_translation = view_matrix;
+		world_to_camera_space_no_translation.e[12] = 0;
+		world_to_camera_space_no_translation.e[13] = 0;
+		world_to_camera_space_no_translation.e[14] = 0;
+
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+		bindMeshData(*env_ob->mesh_data);
+		drawBatch(*env_ob, world_to_camera_space_no_translation, proj_matrix, env_ob->materials[0], *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
+		unbindMeshData(*env_ob->mesh_data);
+			
+		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+	}
+	
 
 	// Draw non-transparent batches from objects.
 	uint64 num_frustum_culled = 0;
 	for(size_t i=0; i<objects.size(); ++i)
 	{
 		const GLObject* const ob = objects[i].getPointer();
-
-		// Do Frustum culling
-		if(!AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+		if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 		{
+			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+			{
+				const uint32 mat_index = mesh_data.batches[z].material_index;
+				// Draw primitives for the given material
+				if(!ob->materials[mat_index].transparent)
+					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+			}
+			unbindMeshData(mesh_data);
+		}
+		else
 			num_frustum_culled++;
-			continue;
-		}
-
-		const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-		glPushMatrix();
-		glMultMatrixf(ob->ob_to_world_matrix.e);
-
-		// Bind the mesh data, which is the same for all batches.
-		bindMeshData(mesh_data);
-
-		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-		{
-			const uint32 mat_index = mesh_data.batches[z].material_index;
-
-			// Draw primitives for the given material
-			if(!ob->materials[mat_index].transparent)
-				drawPrimitives(ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
-		}
-
-		unbindMeshData(mesh_data);
-
-		glPopMatrix();
 	}
 
-	// Draw transparent batches
 
+	// Draw transparent batches
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
@@ -782,22 +755,19 @@ void OpenGLEngine::draw()
 	for(size_t i=0; i<transparent_objects.size(); ++i)
 	{
 		const GLObject* const ob = transparent_objects[i].getPointer();
-		if(!AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws)) 
-			continue;
-		const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-		glPushMatrix();
-		glMultMatrixf(ob->ob_to_world_matrix.e);
-		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+		if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws)) 
 		{
-			const uint32 mat_index = mesh_data.batches[z].material_index;
-			// Draw primitives for the given material
-			if(ob->materials[mat_index].transparent)
-				drawPrimitives(ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+			{
+				const uint32 mat_index = mesh_data.batches[z].material_index;
+				// Draw primitives for the given material
+				if(ob->materials[mat_index].transparent)
+					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+			}
+			unbindMeshData(mesh_data);
 		}
-		unbindMeshData(mesh_data);
-		glPopMatrix();
 	}
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	glDisable(GL_BLEND);
@@ -840,10 +810,9 @@ void OpenGLEngine::draw()
 	}
 
 
+	// Draw alpha-blended grey quads on the outside of 'render viewport'.
+	// Also draw some blue lines on the edge of the quads.
 	{
-		// Draw alpha-blended grey quads on the outside of 'render viewport'.
-		// Also draw some blue lines on the edge of the quads.
-
 		// Reset transformations
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
@@ -938,15 +907,10 @@ void OpenGLEngine::draw()
 		glEnable(GL_DEPTH_TEST);
 	}
 
-
-	glPopMatrix(); // Pop camera transformation matrix
-
 	if(PROFILE)
 	{
 		const double cpu_time = profile_timer.elapsed();
-
 		glEndQuery(GL_TIME_ELAPSED);
-
 		uint64 elapsed_ns;
 		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
 
@@ -1089,13 +1053,23 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	std::unordered_map<UniqueVertKey, uint32, UniqueVertKeyHash> index_for_vert;
 
-	js::Vector<Vec3f, 16> merged_positions; 
-	js::Vector<Vec3f, 16> merged_normals;
-	js::Vector<Vec2f, 16> merged_uvs;
+	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
+	// If the magnitude is too high we can get articacts if we just use half precision.
+	const float max_use_half_range = 10.f;
+	bool use_half_uvs = true;
+	for(size_t i=0; i<mesh->uv_pairs.size(); ++i)
+		if(std::fabs(mesh->uv_pairs[i].x) > max_use_half_range || std::fabs(mesh->uv_pairs[i].y) > max_use_half_range)
+			use_half_uvs = false;
+
+	js::Vector<uint8, 16> vert_data;
+	const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
+	const size_t packed_uv_size = use_half_uvs ? sizeof(half)*2 : sizeof(float)*2;
+	const size_t num_bytes_per_vert = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0) + (mesh_has_uvs ? packed_uv_size : 0);
+	const size_t normal_offset      = sizeof(float)*3;
+	const size_t uv_offset          = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0);
+	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
+	size_t next_merged_vert_i = 0;
 	
-	merged_positions.reserve(mesh->vert_positions.size());
-	if(mesh_has_shading_normals) merged_normals.reserve(mesh->vert_positions.size());
-	if(mesh_has_uvs) merged_uvs.reserve(mesh->vert_positions.size());
 
 	js::Vector<uint32, 16> vert_index_buffer;
 	vert_index_buffer.resizeUninitialised(mesh->triangles.size()*3 + mesh->quads.size()*4);
@@ -1161,12 +1135,36 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				uint32 merged_v_index;
 				if(res == index_for_vert.end()) // Not created yet:
 				{
-					merged_v_index = (uint32)merged_positions.size();
+					merged_v_index = (uint32)next_merged_vert_i++;
 					index_for_vert.insert(std::make_pair(key, merged_v_index));
 
-					merged_positions.push_back(Vec3f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z));
-					if(mesh_has_shading_normals) merged_normals.push_back(Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z));
-					if(mesh_has_uvs) merged_uvs.push_back(Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y));
+					const size_t cur_size = vert_data.size();
+					vert_data.resize(cur_size + num_bytes_per_vert);
+					std::memcpy(&vert_data[cur_size], &mesh->vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
+					if(mesh_has_shading_normals)
+					{
+						//std::memcpy(&vert_data[cur_size + normal_offset], &mesh->vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
+						// Pack normal into GL_INT_2_10_10_10_REV format.
+						int x = (int)((mesh->vert_normals[pos_i].x) * 511.f);
+						int y = (int)((mesh->vert_normals[pos_i].y) * 511.f);
+						int z = (int)((mesh->vert_normals[pos_i].z) * 511.f);
+						// ANDing with 1023 isolates the bottom 10 bits.
+						uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+					}
+
+					if(mesh_has_uvs)
+					{
+						if(use_half_uvs)
+						{
+							half uv[2];
+							uv[0] = half(mesh->uv_pairs[uv_i].x);
+							uv[1] = half(mesh->uv_pairs[uv_i].y);
+							std::memcpy(&vert_data[cur_size + uv_offset], uv, 4);
+						}
+						else
+							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+					}
 
 					aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
 				}
@@ -1243,12 +1241,35 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				uint32 merged_v_index;
 				if(res == index_for_vert.end()) // Not created yet:
 				{
-					merged_v_index = (uint32)merged_positions.size();
+					merged_v_index = (uint32)next_merged_vert_i++;
 					index_for_vert.insert(std::make_pair(key, merged_v_index));
 
-					merged_positions.push_back(Vec3f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z));
-					if(mesh_has_shading_normals) merged_normals.push_back(Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z));
-					if(mesh_has_uvs) merged_uvs.push_back(Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y));
+					const size_t cur_size = vert_data.size();
+					vert_data.resize(cur_size + num_bytes_per_vert);
+					std::memcpy(&vert_data[cur_size], &mesh->vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
+					if(mesh_has_shading_normals)
+					{
+						//std::memcpy(&vert_data[cur_size + normal_offset], &mesh->vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
+						// Pack normal into GL_INT_2_10_10_10_REV format.
+						int x = (int)((mesh->vert_normals[pos_i].x) * 511.f);
+						int y = (int)((mesh->vert_normals[pos_i].y) * 511.f);
+						int z = (int)((mesh->vert_normals[pos_i].z) * 511.f);
+						// ANDing with 1023 isolates the bottom 10 bits.
+						uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+					}
+					if(mesh_has_uvs)
+					{
+						if(use_half_uvs)
+						{
+							half uv[2];
+							uv[0] = half(mesh->uv_pairs[uv_i].x);
+							uv[1] = half(mesh->uv_pairs[uv_i].y);
+							std::memcpy(&vert_data[cur_size + uv_offset], uv, 4);
+						}
+						else
+							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+					}
 
 					aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
 				}
@@ -1270,27 +1291,51 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
 
-	// Merge all vert data together and load into a VBO.
-	opengl_render_data->normal_offset = merged_positions.dataSizeBytes();
-	opengl_render_data->uv_offset     = merged_positions.dataSizeBytes() + merged_normals.dataSizeBytes();
 
-	js::Vector<uint8, 16> combined_data;
-	combined_data.resize(merged_positions.dataSizeBytes() + merged_normals.dataSizeBytes() + merged_uvs.dataSizeBytes());
-	std::memcpy(&combined_data[0                                    ], &merged_positions[0], merged_positions.dataSizeBytes());
-	if(!merged_normals.empty())
-		std::memcpy(&combined_data[opengl_render_data->normal_offset], &merged_normals[0],   merged_normals.dataSizeBytes());
-	if(!merged_uvs.empty())
-		std::memcpy(&combined_data[opengl_render_data->uv_offset    ], &merged_uvs[0],       merged_uvs.dataSizeBytes());
 
-	opengl_render_data->vert_vbo = new VBO(&combined_data[0], combined_data.dataSizeBytes());
+	opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
 
-	opengl_render_data->has_uvs				= !merged_uvs.empty();
-	opengl_render_data->has_shading_normals = !merged_normals.empty();
+	const size_t num_merged_verts = next_merged_vert_i;
 
+	VertexSpec spec;
+
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = (uint32)num_bytes_per_vert;
+	pos_attrib.offset = 0;
+	spec.attributes.push_back(pos_attrib);
+
+	VertexAttrib normal_attrib;
+	normal_attrib.enabled = mesh_has_shading_normals;
+	normal_attrib.num_comps = 4;
+	normal_attrib.type = GL_INT_2_10_10_10_REV;
+	normal_attrib.normalised = true;
+	normal_attrib.stride = (uint32)num_bytes_per_vert;
+	normal_attrib.offset = (uint32)normal_offset;
+	spec.attributes.push_back(normal_attrib);
+
+	VertexAttrib uv_attrib;
+	uv_attrib.enabled = mesh_has_uvs;
+	uv_attrib.num_comps = 2;
+	uv_attrib.type = use_half_uvs ? GL_HALF_FLOAT : GL_FLOAT;
+	uv_attrib.normalised = false;
+	uv_attrib.stride = (uint32)num_bytes_per_vert;
+	uv_attrib.offset = (uint32)uv_offset;
+	spec.attributes.push_back(uv_attrib);
+
+	opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
+
+
+	opengl_render_data->has_uvs				= mesh_has_uvs;
+	opengl_render_data->has_shading_normals = mesh_has_shading_normals;
+	
 	assert(!vert_index_buffer.empty());
 	const size_t vert_index_buffer_size = vert_index_buffer.size();
 
-	if(merged_positions.size() < 256)
+	if(num_merged_verts < 256)
 	{
 		js::Vector<uint8, 16> index_buf; index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
@@ -1304,7 +1349,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 			opengl_render_data->batches[i].prim_start_offset /= 4;
 	}
-	else if(merged_positions.size() < 65536)
+	else if(num_merged_verts < 65536)
 	{
 		js::Vector<uint16, 16> index_buf; index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
@@ -1337,16 +1382,18 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	// Check indices
 	for(size_t i=0; i<vert_index_buffer.size(); ++i)
-		assert(vert_index_buffer[i] < merged_positions.size());
+		assert(vert_index_buffer[i] < num_merged_verts);
 #endif
 
 	if(MEM_PROFILE)
 	{
 		const int pad_w = 8;
 		conPrint("Src num verts:     " + toString(mesh->vert_positions.size()) + ", num tris: " + toString(mesh->triangles.size()) + ", num quads: " + toString(mesh->quads.size()));
-		conPrint("merged_positions:  " + rightPad(toString(merged_positions.size()),  ' ', pad_w) + "(" + getNiceByteSize(merged_positions.dataSizeBytes()) + ")");
-		conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
-		conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
+		if(use_half_uvs) conPrint("Using half UVs.");
+		conPrint("verts:             " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(vert_data.dataSizeBytes()) + ")");
+		//conPrint("merged_positions:  " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(merged_positions.dataSizeBytes()) + ")");
+		//conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
+		//conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
 		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
 	if(PROFILE)
@@ -1359,13 +1406,18 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 }
 
 
-void OpenGLEngine::drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
+void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
 	assert(batch.num_verts_per_prim == 3 || batch.num_verts_per_prim == 4);
 
 	if(opengl_mat.shader_prog.nonNull())
 	{
 		opengl_mat.shader_prog->useProgram();
+
+		glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+		glUniformMatrix4fv(opengl_mat.shader_prog->view_matrix_loc, 1, false, view_mat.e);
+		glUniformMatrix4fv(opengl_mat.shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+		glUniformMatrix4fv(opengl_mat.shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
 
 		// Set uniforms.  NOTE: Setting the uniforms manually in this way is obviously quite hacky.  Improve.
 		if(opengl_mat.shader_prog.getPointer() == this->phong_untextured_prog.getPointer())
@@ -1479,7 +1531,7 @@ void OpenGLEngine::drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGL
 
 
 // glEnableClientState(GL_VERTEX_ARRAY); should be called before this function is called.
-void OpenGLEngine::drawPrimitivesWireframe(const OpenGLBatch& batch, int num_verts_per_primitive)
+void OpenGLEngine::drawBatchWireframe(const OpenGLBatch& batch, int num_verts_per_primitive)
 {
 	//assert(glIsEnabled(GL_VERTEX_ARRAY));
 

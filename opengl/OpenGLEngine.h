@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../opengl/OpenGLTexture.h"
 #include "../opengl/OpenGLProgram.h"
 #include "../opengl/VBO.h"
+#include "../opengl/VAO.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
@@ -44,13 +45,12 @@ public:
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	VBORef vert_vbo;
-	size_t normal_offset;
-	size_t uv_offset;
 	VBORef vert_indices_buf;
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
 	bool has_shading_normals;
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
+	VAORef vert_vao;
 };
 
 
@@ -98,6 +98,7 @@ struct GLObject : public RefCounted
 	INDIGO_ALIGNED_NEW_DELETE
 
 	Matrix4f ob_to_world_matrix;
+	Matrix4f ob_to_world_inv_tranpose_matrix;
 
 	js::AABBox aabb_ws;
 
@@ -139,7 +140,7 @@ public:
 	void setEnvMapTransform(const Matrix3f& transform);
 
 	void setEnvMat(const OpenGLMaterial& env_mat);
-	const OpenGLMaterial& getEnvMat() const { return env_mat; }
+	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
 
 	void setViewportAspectRatio(float r) { viewport_aspect_ratio = r; }
 
@@ -155,21 +156,19 @@ public:
 
 private:
 	void buildMaterial(OpenGLMaterial& mat);
-	void drawPrimitives(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
-	void drawPrimitivesWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
+	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
+	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	
-	OpenGLMaterial env_mat;
-	Matrix3f env_mat_transform;
-
 	Vec4f sun_dir;
 	Vec4f sun_dir_cam_space;
 
 	//OpenGLMeshRenderData aabb_meshdata;
-	OpenGLMeshRenderData sphere_meshdata;
+	Reference<OpenGLMeshRenderData> sphere_meshdata;
+	GLObjectRef env_ob;
 
 	float sensor_width;
 	float viewport_aspect_ratio;

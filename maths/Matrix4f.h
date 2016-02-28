@@ -61,12 +61,15 @@ public:
 	inline const Vec4f getColumn(unsigned int col_index) const;
 	inline const Vec4f getRow(unsigned int row_index) const;
 
+	inline void setColumn(unsigned int col_index, const Vec4f& v);
+
 
 	// Is A the inverse of B?
 	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
 
 	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
 	bool getInverseForRandTMatrix(Matrix4f& inverse_out) const;
+	bool getInverseTransposeForRandTMatrix(Matrix4f& inverse_trans_out) const;
 
 	static const Matrix4f identity();
 
@@ -408,10 +411,26 @@ const Vec4f Matrix4f::getRow(unsigned int row_index) const
 }
 
 
+void Matrix4f::setColumn(unsigned int col_index, const Vec4f& v)
+{
+	assert(col_index < 4);
+	_mm_store_ps(e + 4*col_index, v.v);
+}
+
+
 inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON)
 {
 	for(unsigned int i=0; i<16; ++i)
 		if(!epsEqual(a.e[i], b.e[i], eps))
+			return false;
+	return true;
+}
+
+
+inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON)
+{
+	for(unsigned int i=0; i<16; ++i)
+		if(!Maths::approxEq(a.e[i], b.e[i], eps))
 			return false;
 	return true;
 }

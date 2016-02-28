@@ -1,15 +1,26 @@
-varying vec3 normal;
-varying vec3 pos_cs;
-varying vec4 texture_coords;
+#version 330
+
+layout (location = 0) in vec3 position_in;
+layout (location = 1) in vec3 normal_in;
+layout (location = 2) in vec2 texture_coords_0_in;
+
+out vec3 normal; // cam (view) space
+out vec3 pos_cs;
+out vec2 texture_coords;
+
+uniform mat4 proj_matrix;
+uniform mat4 model_matrix;
+uniform mat4 view_matrix;
+uniform mat4 normal_matrix;
 
 
 void main()
 {
-	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
 
-	pos_cs = (gl_ModelViewMatrix  * gl_Vertex).xyz;
+	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
  
-	normal = gl_NormalMatrix * gl_Normal;
+	normal = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
 
-	texture_coords = gl_MultiTexCoord0;
+	texture_coords = texture_coords_0_in;
 }

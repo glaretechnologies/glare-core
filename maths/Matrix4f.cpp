@@ -105,14 +105,14 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 	Matrix4f AB, BA;
 	mul(A, B, AB);
 	mul(B, A, BA);
-	return epsEqual(AB, identity()) && epsEqual(BA, identity());
+	return (epsEqual(AB, identity()) || approxEq(AB, identity())) && (epsEqual(BA, identity()) || approxEq(BA, identity()));
 }
 
 
 bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const 
 {
 	/*
-	We are assuming the matrix is a concatenation of a translation and rotation matrix.  In other words we are assuming the bottom row is (0,0,0,1).
+	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
 	M = T R
 	M^-1 = (T R)^-1 = R^-1 T^-1
 	*/
@@ -129,7 +129,34 @@ bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const
 	Matrix4f T_inv;
 	T_inv.setToTranslationMatrix(-e[12], -e[13], -e[14]);
 	mul(R_inv, T_inv, inverse_out);
-	assert(Matrix4f::isInverse(*this, inverse_out));
+	//assert(Matrix4f::isInverse(*this, inverse_out)); // This can fail due to imprecision for large translations.
+	return true;
+}
+
+
+bool Matrix4f::getInverseTransposeForRandTMatrix(Matrix4f& inverse_trans_out) const 
+{
+	/*
+	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
+	M = T R
+	M^-1 = (T R)^-1 = R^-1 T^-1
+	*/
+	assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f);
+	
+	// Get inverse of upper left matrix (R).
+	Matrix3f upper_left;
+	getUpperLeftMatrix(upper_left);
+	Matrix3f upper_left_inverse;
+	if(!upper_left.inverse(upper_left_inverse))
+		return false;
+
+	Matrix4f R_inv(upper_left_inverse, Vec3f(0,0,0));
+	Matrix4f T_inv;
+	T_inv.setToTranslationMatrix(-e[12], -e[13], -e[14]);
+	Matrix4f inverse;
+	mul(R_inv, T_inv, inverse);
+	//assert(Matrix4f::isInverse(*this, inverse_out));
+	inverse.getTranspose(inverse_trans_out);
 	return true;
 }
 
@@ -239,6 +266,37 @@ void Matrix4f::test()
 		testAssert(m.getInverseForRandTMatrix(inv));
 		testAssert(isInverse(m, inv));
 	}
+	{
+		Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
+		m.e[12] = 1.f;
+		m.e[13] = 2.f;
+		m.e[14] = 3.f;
+		Matrix4f inv;
+		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(isInverse(m, inv));
+	}
+	{
+		Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(-0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
+		m.e[12] = 100.f;
+		m.e[13] = 200.f;
+		m.e[14] = 300.f;
+		Matrix4f inv;
+		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(isInverse(m, inv));
+	}
+	//{
+	//	const float e[16] = {
+	//		0.949394524f, 0.31114384f, 0.0428893045f, 0.000000000f, 
+	//		-0.314085960f, 0.940527320f, 0.129453972f, 0.000000000f,
+	//		-5.97569488e-005f, -0.136373818f, 0.990657449f, 0.000000000f,
+	//		//0, 0, 0, 1.00000000f};
+	//		-18.0982876f, -109.567505f, -111.967888f, 1.00000000f};
+
+	//	Matrix4f m(e);
+	//	Matrix4f inv;
+	//	testAssert(m.getInverseForRandTMatrix(inv));
+	//	testAssert(isInverse(m, inv));
+	//}
 
 	// Test setToRotationMatrix
 	{

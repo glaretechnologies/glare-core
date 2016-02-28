@@ -295,7 +295,14 @@ void Maths::test()
 
 	testAssert(approxEq(1.0, 1.0));
 	testAssert(approxEq(1.0, 1.0000001));
+	testAssert(approxEq(1.0, 0.9999999));
 	testAssert(!approxEq(1.0, 1.0001));
+	testAssert(!approxEq(1.0, 0.9999));
+	testAssert(!approxEq(1.0, -1.0));
+
+	testAssert(approxEq(1.0e15, 1.0000001e15));
+	testAssert(approxEq(1.0e15, 0.9999999e15));
+
 
 	testAssert(roundToInt(0.0) == 0);
 	testAssert(roundToInt(0.1) == 0);

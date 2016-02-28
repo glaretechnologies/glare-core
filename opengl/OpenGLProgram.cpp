@@ -19,6 +19,15 @@ OpenGLProgram::OpenGLProgram(const Reference<OpenGLShader>& vert_shader, const R
 	program = glCreateProgram();
     glAttachShader(program, vert_shader->shader);
     glAttachShader(program, frag_shader->shader);
+
+
+	glBindAttribLocation(program, 0, "position_in");
+	glBindAttribLocation(program, 1, "normal_in");
+	glBindAttribLocation(program, 2, "texture_coords_0_in");
+
+	
+
+
     glLinkProgram(program);
 
 	GLint program_ok;
@@ -35,6 +44,11 @@ OpenGLProgram::OpenGLProgram(const Reference<OpenGLShader>& vert_shader, const R
         conPrint("Failed to link shader program: \n" + log);
 		throw Indigo::Exception("Failed to link shader program: " + log);
     }
+
+	model_matrix_loc  = glGetUniformLocation(program, "model_matrix");
+	view_matrix_loc   = glGetUniformLocation(program, "view_matrix");
+	proj_matrix_loc   = glGetUniformLocation(program, "proj_matrix");
+	normal_matrix_loc = glGetUniformLocation(program, "normal_matrix");
 }
 
 

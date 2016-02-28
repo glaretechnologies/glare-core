@@ -756,7 +756,7 @@ bool Matrix3<Real>::inverse(Matrix3& inverse_out) const
 		return false; // Singular matrix
 
 	inverse_out = adjoint();
-	inverse_out.scale((Real)1.0 / d);
+	inverse_out.scale(1 / d);
 
 #ifdef DEBUG
 	// Check our inverse is correct.
