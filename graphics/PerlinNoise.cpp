@@ -254,7 +254,7 @@ Real PerlinNoise::noiseRef(Real x, Real y, Real z)
 float PerlinNoise::noise(const Vec4f& point)
 {
 	// Switch implementations based on the results of the SSE4 query
-	if(PerlinNoise::have_sse4)
+	if(true) // PerlinNoise::have_sse4)
 		return noiseImpl<true>(point); // Use SSE 4
 	else
 		return noiseImpl<false>(point); // Don't use SSE 4
@@ -265,7 +265,7 @@ float PerlinNoise::noise(const Vec4f& point)
 float PerlinNoise::noise(float x, float y)
 {
 	// Switch implementations based on the results of the SSE4 query
-	if(PerlinNoise::have_sse4)
+	if(true) // if(PerlinNoise::have_sse4)
 		return noiseImpl<true>(x, y); // Use SSE 4
 	else
 		return noiseImpl<false>(x, y); // Don't use SSE 4
@@ -274,7 +274,7 @@ float PerlinNoise::noise(float x, float y)
 
 const Vec4f PerlinNoise::noise4Valued(const Vec4f& point)
 {
-	if(PerlinNoise::have_sse4)
+	if(true) // if(PerlinNoise::have_sse4)
 		return noise4ValuedImpl<true>(point); // Use SSE 4
 	else
 		return noise4ValuedImpl<false>(point); // Don't use SSE 4
@@ -283,7 +283,7 @@ const Vec4f PerlinNoise::noise4Valued(const Vec4f& point)
 
 const Vec4f PerlinNoise::noise4Valued(float x, float y)
 {
-	if(PerlinNoise::have_sse4)
+	if(true) // if(PerlinNoise::have_sse4)
 		return noise4ValuedImpl<true>(x, y); // Use SSE 4
 	else
 		return noise4ValuedImpl<false>(x, y); // Don't use SSE 4
@@ -769,7 +769,7 @@ float PerlinNoise::FBM(const Vec4f& p, unsigned int num_octaves)
 	float sum = 0;
 	float scale = 1;
 	float weight = 1;
-	if(PerlinNoise::have_sse4)
+	if(true) // PerlinNoise::have_sse4)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
@@ -797,7 +797,7 @@ float PerlinNoise::FBM(float x, float y, unsigned int num_octaves)
 	float sum = 0;
 	float scale = 1;
 	float weight = 1;
-	if(PerlinNoise::have_sse4)
+	if(true) // PerlinNoise::have_sse4)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
@@ -825,7 +825,7 @@ const Vec4f PerlinNoise::FBM4Valued(const Vec4f& p, unsigned int num_octaves)
 	Vec4f sum(0);
 	float scale = 1;
 	float weight = 1;
-	if(PerlinNoise::have_sse4)
+	if(true) // PerlinNoise::have_sse4)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
@@ -853,7 +853,7 @@ const Vec4f PerlinNoise::FBM4Valued(float x, float y, unsigned int num_octaves)
 	Vec4f sum(0);
 	float scale = 1;
 	float weight = 1;
-	if(PerlinNoise::have_sse4)
+	if(true) // PerlinNoise::have_sse4)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{

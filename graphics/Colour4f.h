@@ -106,10 +106,9 @@ INDIGO_STRONG_INLINE Colour4f operator * (const Colour4f& a, const Colour4f& b)
 }
 
 
-
 INDIGO_STRONG_INLINE float dot(const Colour4f& a, const Colour4f& b)
 {
-#if USE_SSE4 
+#if 1 // USE_SSE4 
 	Colour4f res;
 	res.v = _mm_dp_ps(a.v, b.v, 255);
 	return res.x[0];

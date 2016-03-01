@@ -97,7 +97,7 @@ INDIGO_STRONG_INLINE const Vec4f operator / (const Vec4f& a, float f)
 
 INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 {
-#if USE_SSE4 
+#if 1 // USE_SSE4 
 	Vec4f res;
 	res.v = _mm_dp_ps(a.v, b.v, 255);
 	return res.x[0];
