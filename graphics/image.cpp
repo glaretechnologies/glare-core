@@ -146,7 +146,7 @@ void Image::copyToBitmap(Bitmap& bmp_out) const
 
 void Image::zero()
 {
-	set(ColourType(0));
+	std::memset(pixels.getData(), 0, pixels.getWidth() * pixels.getHeight() * sizeof(ColourType));
 }
 
 
@@ -280,10 +280,12 @@ void Image::addImage(const Image& other)
 	if(other.getWidth() != getWidth() || other.getHeight() != getHeight())
 		throw Indigo::Exception("Dimensions not the same");
 
-	const size_t N = numPixels();
+	const float* const src = &other.getPixel(0).r;
+	      float* const dst = &getPixel(0).r;
 	
-	for(size_t i=0; i<N;  ++i)
-		getPixel(i) += other.getPixel(i);
+	const int64 num_floats = (int64)numPixels() * 3;
+	for(int64 i=0; i<num_floats; ++i)
+		dst[i] += src[i];
 }
 
 

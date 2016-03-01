@@ -1040,7 +1040,8 @@ void test()
 			(int)image_layers,
 			image_final_xres,
 			image_final_yres,
-			layer_names
+			layer_names,
+			false // need back buffer
 		);
 		master_buffer.setNumSamples(1);
 
