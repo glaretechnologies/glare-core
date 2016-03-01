@@ -60,7 +60,9 @@ void printMessageAndFail(const std::string& msg);
 // Prints error message and exits on failure.
 const std::string getIndigoTestReposDir();
 
-
+// Doesn't really print the message, but the compiler can't tell that, So the compiler won't optimise the call away.  
+// This can be used to make sure a loop isn't optimised away in a benchmark.
+void silentPrint(const std::string& s);
 
 
 

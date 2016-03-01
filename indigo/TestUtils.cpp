@@ -50,4 +50,11 @@ const std::string getIndigoTestReposDir()
 }
 
 
+void silentPrint(const std::string& s)
+{
+	if(PlatformUtils::getProcessID() == 0)
+		conPrint(s);
+}
+
+
 } // end namespace TestUtils

@@ -40,7 +40,7 @@ public:
 	inline const Vec4f transposeMult(const Vec4f& v) const;
 
 	// Ignores W component of vector, returns vector with W component of 0.
-	inline const Vec4f transposeMultVector(const Vec4f& v) const;
+	inline const Vec4f transposeMult3Vector(const Vec4f& v) const;
 
 	inline void getTranspose(Matrix4f& transpose_out) const;
 
@@ -79,7 +79,7 @@ public:
 	static void test();
 
 	/*
-	Elements are laid out in the following way.
+	Elements are laid out in the following way. (column-major)
 	This layout is for fast matrix-vector SSE multiplication.
 
 	0	4	8	12
@@ -90,60 +90,6 @@ public:
 	float e[16];
 };
 
-
-/*
-transpose mult:
-r.x = (e[0], e[1], e[2], e[3])(v.x
-                              v.y
-                              v.z
-                              v.w)
-
-r.x = e[0]*v.x +  e[1]*v.y +  e[2]*v.z +  e[3]*v.w
-r.y = e[4]*v.x +  e[5]*v.y +  e[6]*v.z +  e[7]*v.w
-r.z = e[8]*v.x +  e[9]*v.y +  e[10]*v.z + e[11]*v.w
-r.w = e[12]*v.x + e[13]*v.y + e[14]*v.z + e[15]*v.w
-
-
-  x		y	z	w
-+ x		x	z	z	[shuffle]
-= 2x	x+y	2z	w+z	[add]
-+ x+y	x+y	w+z	w+z	[shuffle]
-= x+y+z+w			[add]
-
-initially:
-e[0]	e[1]	e[2]	e[3]
-e[4]	e[5]	e[6]	e[7]
-e[8]	e[9]	e[10]	e[11]
-e[12]	e[13]	e[14]	e[15]
-
-shuffle:
-e[0]	e[0]	e[8]	e[8]
-e[1]	e[1]	e[9]	e[9]
-e[2]	e[2]	e[10]	e[10]
-e[3]	e[3]	e[14]	e[14]
-
-shuffle:
-e[4]	e[4]	e[12]	e[12]
-e[5]	e[5]	e[13]	e[13]
-e[6]	e[6]	e[14]	e[14]
-e[7]	e[7]	e[14]	e[14]
-
-shuffle:
-e[0]	e[4]	e[8]	e[12]
-e[1]	e[5]	e[9]	e[13]
-e[2]	e[6]	e[10]	e[14]
-e[3]	e[7]	e[11]	e[15]
-
-x	y	z	w
-x	y	z	w
-
-
-r.x = e[0]*v.x +	e[4]*v.y +  e[8]*v.z +  e[12]*v.w
-r.y = e[1]*v.x +	e[5]*v.y +  e[9]*v.z +  e[13]*v.w
-r.z = e[2]*v.x +	e[6]*v.y +	e[10]*v.z + e[14]*v.w
-r.w = e[3]*v.x +	e[7]*v.y +	e[11]*v.z + e[15]*v.w
-
-*/
 
 void Matrix4f::setToTranslationMatrix(float x, float y, float z)
 {
@@ -188,34 +134,39 @@ const Vec4f Matrix4f::transposeMult(const Vec4f& v) const
 	8	9	10	11
 	12	13	14	15
 	*/
-	
-	// NOTE: it's currently faster to use scalar ops (~11ns vs ~14ns, Core i7 920)
-	// This is not surprising considering Vec4f dot is most efficiently done with scalar ops. (assuming not using SSE 4)
-	return Vec4f(
+
+	/*return Vec4f(
 		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2] + e[3] *v.x[3],
 		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2] + e[7] *v.x[3],
 		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2] + e[11]*v.x[3],
 		e[12]*v.x[0] + e[13]*v.x[1] + e[14]*v.x[2] + e[15]*v.x[3]
-	);
-
-	/*return Vec4f(
-		dot(Vec4f(_mm_load_ps(e)), v),
-		dot(Vec4f(_mm_load_ps(e+4)), v),
-		dot(Vec4f(_mm_load_ps(e+8)), v),
-		dot(Vec4f(_mm_load_ps(e+12)), v)
 	);*/
+	
+	// A nice way of doing transpose multiplications, given here: http://www.virtualdub.org/blog/pivot/entry.php?id=150
+	__m128 x = _mm_dp_ps(_mm_load_ps(e +  0), v.v, 0xF1); // Compute dot product with all 4 components, write result to x, set others to zero.
+	__m128 y = _mm_dp_ps(_mm_load_ps(e +  4), v.v, 0xF2); // Compute dot product with all 4 components, write result to y, set others to zero.
+	__m128 z = _mm_dp_ps(_mm_load_ps(e +  8), v.v, 0xF4); // Compute dot product with all 4 components, write result to z, set others to zero.
+	__m128 w = _mm_dp_ps(_mm_load_ps(e + 12), v.v, 0xF8); // Compute dot product with all 4 components, write result to w, set others to zero.
+
+	return _mm_or_ps(_mm_or_ps(x, y), _mm_or_ps(z, w));
 }
 
 
 // Ignores W component of vector, returns vector with W component of 0.
-const Vec4f Matrix4f::transposeMultVector(const Vec4f& v) const
+const Vec4f Matrix4f::transposeMult3Vector(const Vec4f& v) const
 {
-	return Vec4f(
+	/*return Vec4f(
 		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2],
 		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2],
 		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2],
 		0
-	);
+	);*/
+
+	__m128 x = _mm_dp_ps(_mm_load_ps(e +  0), v.v, 0x71); // Compute dot product with x, y, z components, write result to x, set others to zero.
+	__m128 y = _mm_dp_ps(_mm_load_ps(e +  4), v.v, 0x72); // Compute dot product with x, y, z components, write result to y, set others to zero.
+	__m128 z = _mm_dp_ps(_mm_load_ps(e +  8), v.v, 0x74); // Compute dot product with x, y, z components, write result to z, set others to zero.
+
+	return _mm_or_ps(_mm_or_ps(x, y), z);
 }
 
 

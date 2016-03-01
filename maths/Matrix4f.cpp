@@ -334,7 +334,7 @@ void Matrix4f::test()
 			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 
 			conPrint("constructFromVector time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			printVar(scalarsum);
+			TestUtils::silentPrint(::toString(scalarsum));
 		}
 
 
@@ -360,8 +360,9 @@ void Matrix4f::test()
 			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 
 			conPrint("transposeMult time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			printVar(scalarsum);
+			TestUtils::silentPrint(::toString(scalarsum));
 		}
+
 
 		// Test speed of matrix / vec mul
 		{
@@ -384,7 +385,7 @@ void Matrix4f::test()
 			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 
 			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			printVar(scalarsum);
+			TestUtils::silentPrint(::toString(scalarsum));
 		}
 	}
 
@@ -413,6 +414,7 @@ void Matrix4f::test()
 		3	7	11	15
 		*/
 
+		//------------- test operator * (const Matrix4f& m, const Vec4f& v) ----------------
 		{
 			const Vec4f v(1, 0, 0, 0);
 			const Vec4f res(m * v);
@@ -434,7 +436,16 @@ void Matrix4f::test()
 			testAssert(epsEqual(res, Vec4f(12,13,14,15)));
 		}
 
-		// test tranpose mult
+		//------------- test mul3Vector -------------
+		testAssert(epsEqual(m.mul3Vector(Vec4f(1,0,0,0)), Vec4f(0,1,2,3)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(1,0,0,1)), Vec4f(0,1,2,3)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(0,1,0,0)), Vec4f(4,5,6,7)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(0,1,0,1)), Vec4f(4,5,6,7)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(0,0,1,0)), Vec4f(8,9,10,11)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(0,0,1,1)), Vec4f(8,9,10,11)));
+		testAssert(epsEqual(m.mul3Vector(Vec4f(0,0,0,1)), Vec4f(0,0,0,0)));
+
+		//------------- test tranpose mult ----------------
 		{
 			const Vec4f v(1, 0, 0, 0);
 			const Vec4f res(m.transposeMult(v));
@@ -460,6 +471,23 @@ void Matrix4f::test()
 			const Vec4f res(m.transposeMult(v));
 			testAssert(epsEqual(res, Vec4f(transpose * v)));
 		}
+
+		//------------- test transposeMult3Vector -------------
+		/*
+		m =
+		0	4	8	12
+		1	5	9	13
+		2	6	10	14
+		3	7	11	15
+		*/
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(1,0,0,0)), Vec4f(0,4,8,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(1,0,0,1)), Vec4f(0,4,8,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(0,1,0,0)), Vec4f(1,5,9,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(0,1,0,1)), Vec4f(1,5,9,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(0,0,1,0)), Vec4f(2,6,10,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(0,0,1,1)), Vec4f(2,6,10,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(0,0,0,1)), Vec4f(0,0,0,0)));
+		testAssert(epsEqual(m.transposeMult3Vector(Vec4f(1,1,1,1)), Vec4f(3,15,27,0)));
 	}
 	{
 		// Test affine transformation

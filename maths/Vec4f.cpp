@@ -33,14 +33,30 @@ const std::string Vec4f::toStringNSigFigs(int n) const
 
 // This dot product does the horizontal add in SSE with horizontalAdd()
 // It takes about 15 cycles as opposed to the 6 for not using SSE shuffles etc..
-INDIGO_STRONG_INLINE float horizontalAddDotProduct(const Vec4f& a, const Vec4f& b)
+static INDIGO_STRONG_INLINE float horizontalAddDotProduct(const Vec4f& a, const Vec4f& b)
 {
 	return horizontalAdd(_mm_mul_ps(a.v, b.v));
 }
 
 
+static INDIGO_STRONG_INLINE float dot3Vec(const Vec4f& a, const Vec4f& b)
+{
+	Vec4f res;
+	res.v = _mm_dp_ps(a.v, b.v, 0x71);
+	return res.x[0];
+}
+
+
+static INDIGO_STRONG_INLINE float scalarDotProduct(const Vec4f& a, const Vec4f& b)
+{
+	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
+}
+
+
 void Vec4f::test()
 {
+	conPrint("Vec4f::test()");
+
 	// Test 4-float constructor
 	{
 		Vec4f v(1, 2, 3, 4);
@@ -125,7 +141,6 @@ void Vec4f::test()
 		Vec4f a(10, 20, 30, 40);
 		Vec4f b(5, 6, 7, 8);
 		a -= b;
-		conPrint(a.toString());
 		testAssert(epsEqual(a, Vec4f(5, 14, 23, 32)));
 	}
 
@@ -227,7 +242,7 @@ void Vec4f::test()
 
 
 
-	conPrint("\n====================Test dot() ================");
+	conPrint("================ Perf test dot() ================");
 
 	{
 		CycleTimer cycle_timer;
@@ -245,9 +260,46 @@ void Vec4f::test()
 
 		const uint64 cycles = cycle_timer.elapsed();
 		conPrint("dot(): " + ::toString((float)cycles / N) + " cycles");
-		printVar(sum);
+		TestUtils::silentPrint(::toString(sum));
 	}
 
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 1000000;
+		float sum = 0.f;
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			const Vec4f a(_mm_load_ps1(&f));
+
+			sum += dot3Vec(a, a);
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		conPrint("dot3Vec(): " + ::toString((float)cycles / N) + " cycles");
+		TestUtils::silentPrint(::toString(sum));
+	}
+
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 1000000;
+		float sum = 0.f;
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			const Vec4f a(_mm_load_ps1(&f));
+
+			sum += scalarDotProduct(a, a);
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		conPrint("scalarDotProduct(): " + ::toString((float)cycles / N) + " cycles");
+		TestUtils::silentPrint(::toString(sum));
+	}
 
 	{
 		CycleTimer cycle_timer;
@@ -265,8 +317,9 @@ void Vec4f::test()
 
 		const uint64 cycles = cycle_timer.elapsed();
 		conPrint("horizontalAddDotProduct(): " + ::toString((float)cycles / N) + " cycles");
-		printVar(sum);
+		TestUtils::silentPrint(::toString(sum));
 	}
-
 }
-#endif
+
+
+#endif // BUILD_TESTS
