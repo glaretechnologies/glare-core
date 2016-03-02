@@ -6,9 +6,9 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include <QtOpenGL/QGLWidget>
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
-#include <GL/gl.h>
 #include <string>
 class OpenGLShader;
 

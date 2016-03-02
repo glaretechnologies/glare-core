@@ -6,10 +6,10 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include <QtOpenGL/QGLWidget>
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
-#include <GL/gl.h>
 
 
 class OpenGLEngine;
