@@ -322,9 +322,9 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
 	if(!GLEW_VERSION_3_0)
 	{
-		conPrint("OpenGL version is too old (< v3.0))");
 		init_succeeded = false;
-		initialisation_error_msg = "OpenGL version is too old (< v3.0))";
+		initialisation_error_msg = "OpenGL version is too old (< v3.0), version is " + std::string((const char*)glGetString(GL_VERSION));
+		conPrint(initialisation_error_msg);
 		return;
 	}
 
