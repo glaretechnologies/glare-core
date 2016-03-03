@@ -317,7 +317,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		return;
 	}
 
-	// conPrint("OpenGL version: " + std::string((const char*)glGetString(GL_VERSION)));
+	conPrint("OpenGL version: " + std::string((const char*)glGetString(GL_VERSION)));
 
 	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
 	if(!GLEW_VERSION_3_0)
