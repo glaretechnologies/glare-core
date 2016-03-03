@@ -11,7 +11,8 @@ Generated at 2014-02-13 22:44:00 +0000
 
 
 VBO::VBO(const void* data, size_t size_, GLenum buffer_type_)
-:	buffer_type(buffer_type_),
+:	buffer_name(0),
+	buffer_type(buffer_type_),
 	size(size_)
 {
 	// Create new VBO

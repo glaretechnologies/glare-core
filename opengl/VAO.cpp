@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
+:	handle(0)
 {
 	// Create new VAO
 	glGenVertexArrays(1, &handle);
