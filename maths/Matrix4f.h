@@ -45,6 +45,7 @@ public:
 	inline void getTranspose(Matrix4f& transpose_out) const;
 
 	void getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const;
+	void setUpperLeftMatrix(const Matrix3<float>& upper_left_mat);
 
 
 	inline void constructFromVector(const Vec4f& vec);

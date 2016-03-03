@@ -142,6 +142,12 @@ public:
 	void setEnvMat(const OpenGLMaterial& env_mat);
 	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
 
+
+	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
+
+	void updateObjectTransformData(GLObject& object);
+
+
 	void setViewportAspectRatio(float r) { viewport_aspect_ratio = r; }
 
 	void setMaxDrawDistance(float d) { max_draw_dist = d; }

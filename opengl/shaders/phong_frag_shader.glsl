@@ -21,14 +21,14 @@ float alpha2ForExponent(float exponent)
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
 {
-	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1) + 1));
+	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
 }
 
 // https://en.wikipedia.org/wiki/Schlick%27s_approximation
 float fresnellApprox(float cos_theta, float ior)
 {
 	float r_0 = square((1.0 - ior) / (1.0 + ior));
-	return r_0 + (1 - r_0)*pow5(1 - cos_theta);
+	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta);
 }
 
 void main()
@@ -55,7 +55,7 @@ void main()
 
 	float h_cos_theta = max(0.0, dot(h, unit_normal));
 	float specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForExponent(exponent)) * 
-		fresnellApprox(h_cos_theta, 1.5f) * fresnel_scale;
+		fresnellApprox(h_cos_theta, 1.5) * fresnel_scale;
  
 	vec4 col;
 	if(have_texture != 0)

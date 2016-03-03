@@ -319,12 +319,12 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 	// conPrint("OpenGL version: " + std::string((const char*)glGetString(GL_VERSION)));
 
-	// Check to see if OpenGL 2.0 is supported, which is required for our VBO usage.  (See https://www.opengl.org/sdk/docs/man/html/glGenBuffers.xhtml etc..)
-	if(!GLEW_VERSION_2_0)
+	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
+	if(!GLEW_VERSION_3_0)
 	{
-		conPrint("OpenGL version is too old (< v2.0))");
+		conPrint("OpenGL version is too old (< v3.0))");
 		init_succeeded = false;
-		initialisation_error_msg = "OpenGL version is too old (< v2.0))";
+		initialisation_error_msg = "OpenGL version is too old (< v3.0))";
 		return;
 	}
 
@@ -413,6 +413,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 		sphere_meshdata = new OpenGLMeshRenderData();
 		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
+		sphere_meshdata->aabb_os = js::AABBox(Vec4f(-1.f, -1.f, -1.f, 1.f), Vec4f(1.f, 1.f, 1.f, 1.f));
 	}
 
 	this->env_ob->mesh_data = sphere_meshdata;
@@ -487,6 +488,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	}
 	catch(Indigo::Exception& e)
 	{
+		conPrint(e.what());
 		this->initialisation_error_msg = e.what();
 		init_succeeded = false;
 	}
@@ -502,15 +504,13 @@ void OpenGLEngine::unloadAllData()
 }
 
 
-void OpenGLEngine::addObject(const Reference<GLObject>& object)
+void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
-	// Compute world space AABB of object
-	
-	const Vec4f min_os = object->mesh_data->aabb_os.min_;
-	const Vec4f max_os = object->mesh_data->aabb_os.max_;
-	const Matrix4f& to_world = object->ob_to_world_matrix;
+	const Vec4f min_os = object.mesh_data->aabb_os.min_;
+	const Vec4f max_os = object.mesh_data->aabb_os.max_;
+	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	to_world.getUpperLeftInverseTranspose(object->ob_to_world_inv_tranpose_matrix);
+	to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix);
 
 	js::AABBox bbox_ws = js::AABBox::emptyAABBox();
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
@@ -521,8 +521,15 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], min_os.x[1], max_os.x[2], 1.0f));
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], max_os.x[1], min_os.x[2], 1.0f));
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], max_os.x[1], max_os.x[2], 1.0f));
-	object->aabb_ws = bbox_ws;
+	object.aabb_ws = bbox_ws;
+}
 
+
+void OpenGLEngine::addObject(const Reference<GLObject>& object)
+{
+	// Compute world space AABB of object
+	updateObjectTransformData(*object.getPointer());
+	
 	this->objects.push_back(object);
 
 	// Build the mesh used by the object if it's not built already.

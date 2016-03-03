@@ -37,5 +37,5 @@ void main()
 
 	vec4 transmission_col = vec4(colour.x, colour.y, colour.z, 0.1);
 	vec4 refl_col = vec4(1.0, 1.0, 1.0, 0.5);
-	gl_FragColor = transmission_col * (1 - r) + refl_col * r;
+	gl_FragColor = transmission_col * (1.0 - r) + refl_col * r;
 }

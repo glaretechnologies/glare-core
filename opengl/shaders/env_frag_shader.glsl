@@ -9,7 +9,7 @@ void main()
 {
 	vec4 col;
 	if(have_texture != 0)
-		col = texture2D(diffuse_tex, texture_matrix * texture_coords);
+		col = texture2D(diffuse_tex, (texture_matrix * texture_coords).xy);
 	else
 		col = diffuse_colour;
 

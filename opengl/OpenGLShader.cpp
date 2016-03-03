@@ -9,12 +9,28 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
+#include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
+
+
+static const std::string getLog(GLuint shader)
+{
+	GLint log_length = 0;
+	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
+		
+	std::string log;
+	log.resize(log_length);
+	glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
+	return log;
+}
 
 
 OpenGLShader::OpenGLShader(const std::string& path, GLenum shader_type)
 :	shader(0)
 {
 	shader = glCreateShader(shader_type);
+	if(shader == 0)
+		throw Indigo::Exception("Failed to create OpenGL shader.");
 
 	try
 	{
@@ -41,6 +57,15 @@ OpenGLShader::OpenGLShader(const std::string& path, GLenum shader_type)
 
 		glCompileShader(shader);
 
+		const std::string log = getLog(shader);
+
+		if(!isAllWhitespace(log))
+			conPrint("shader log for " + FileUtils::getFilename(path) + ":\n" + log);
+
+		GLint shader_ok;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
+		if(!shader_ok)
+			throw Indigo::Exception("Failed to compile shader " + FileUtils::getFilename(path) + ": " + log);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{

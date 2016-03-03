@@ -100,6 +100,23 @@ void Matrix4f::getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const
 }
 
 
+void Matrix4f::setUpperLeftMatrix(const Matrix3<float>& upper_left_mat)
+{
+	e[0] = upper_left_mat.e[0];
+	e[4] = upper_left_mat.e[1];
+	e[8] = upper_left_mat.e[2];
+
+	e[1] = upper_left_mat.e[3];
+	e[5] = upper_left_mat.e[4];
+	e[9] = upper_left_mat.e[5];
+
+	e[2] = upper_left_mat.e[6];
+	e[6] = upper_left_mat.e[7];
+	e[10] = upper_left_mat.e[8];
+}
+
+
+
 bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 {
 	Matrix4f AB, BA;
