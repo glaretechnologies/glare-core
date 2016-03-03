@@ -247,8 +247,7 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 	meshdata.has_shading_normals = !normals.empty();
 	meshdata.batches.resize(1);
 	meshdata.batches[0].material_index = 0;
-	meshdata.batches[0].num_indices = (uint32)indices.size();// / 4;
-	meshdata.batches[0].num_verts_per_prim = 4;
+	meshdata.batches[0].num_indices = (uint32)indices.size();
 	meshdata.batches[0].prim_start_offset = 0;
 
 	js::Vector<float, 16> combined_data;
@@ -372,9 +371,10 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		js::Vector<Vec2f, 16> uvs;
 		uvs.resize(phi_res * theta_res * 4);
 		js::Vector<uint32, 16> indices;
-		indices.resize(phi_res * theta_res * 4);
+		indices.resize(phi_res * theta_res * 6); // two tris per quad
 
 		int i = 0;
+		int quad_i = 0;
 		for(int phi_i=0; phi_i<phi_res; ++phi_i)
 		for(int theta_i=0; theta_i<theta_res; ++theta_i)
 		{
@@ -403,12 +403,15 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			uvs[i + 2] = Vec2f(phi_2, theta_2); 
 			uvs[i + 3] = Vec2f(phi_1, theta_2);
 
-			indices[i    ] = i    ; 
-			indices[i + 1] = i + 1; 
-			indices[i + 2] = i + 2; 
-			indices[i + 3] = i + 3;
+			indices[quad_i + 0] = i + 0; 
+			indices[quad_i + 1] = i + 1; 
+			indices[quad_i + 2] = i + 2; 
+			indices[quad_i + 3] = i + 0;
+			indices[quad_i + 4] = i + 2;
+			indices[quad_i + 5] = i + 3;
 
 			i += 4;
+			quad_i += 6;
 		}
 
 		sphere_meshdata = new OpenGLMeshRenderData();
@@ -665,7 +668,7 @@ void OpenGLEngine::draw()
 		return;
 
 	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
-	this->num_faces_submitted = 0;
+	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
 	Timer profile_timer;
@@ -783,6 +786,7 @@ void OpenGLEngine::draw()
 	// Draw camera frustum for debugging purposes.
 	if(false)
 	{
+#if 0
 		glDisable(GL_LIGHTING);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glColor3f(1.f, 0.f, 0.f);
@@ -814,12 +818,15 @@ void OpenGLEngine::draw()
 		glVertex3fv(frustum_verts[4].x);
 		glVertex3fv(frustum_verts[1].x);
 		glEnd();
+#endif
 	}
 
 
 	// Draw alpha-blended grey quads on the outside of 'render viewport'.
 	// Also draw some blue lines on the edge of the quads.
+	if(false) // Disable for now until we get rid of the fixed-function pipeline usage
 	{
+#if 0
 		// Reset transformations
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
@@ -912,6 +919,7 @@ void OpenGLEngine::draw()
 		}
 	
 		glEnable(GL_DEPTH_TEST);
+#endif
 	}
 
 	if(PROFILE)
@@ -922,7 +930,7 @@ void OpenGLEngine::draw()
 		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
 
 		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + " ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
-		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_faces_submitted) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
+		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
 			toString(objects.size() - num_frustum_culled) + "/" + toString(objects.size()) + " obs");
 	}
 }
@@ -1079,7 +1087,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	
 
 	js::Vector<uint32, 16> vert_index_buffer;
-	vert_index_buffer.resizeUninitialised(mesh->triangles.size()*3 + mesh->quads.size()*4);
+	vert_index_buffer.resizeUninitialised(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
 	uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
 
 
@@ -1113,7 +1121,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 					batch.material_index = current_mat_index;
 					batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
 					batch.num_indices = (t - last_pass_start_tri_i)*3;
-					batch.num_verts_per_prim = 3;
 					opengl_render_data->batches.push_back(batch);
 				}
 
@@ -1188,7 +1195,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			batch.material_index = current_mat_index;
 			batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
 			batch.num_indices = ((uint32)tri_indices.size() - last_pass_start_tri_i)*3;
-			batch.num_verts_per_prim = 3;
 			opengl_render_data->batches.push_back(batch);
 		}
 	}
@@ -1217,9 +1223,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				{
 					OpenGLBatch batch;
 					batch.material_index = current_mat_index;
-					batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*4;
-					batch.num_indices = (q - last_pass_start_quad_i)*4;
-					batch.num_verts_per_prim = 4;
+					batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
+					batch.num_indices = (q - last_pass_start_quad_i)*6;
 					opengl_render_data->batches.push_back(batch);
 				}
 
@@ -1228,6 +1233,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			}
 			
 			const Indigo::Quad& quad = mesh->quads[quad_indices[q].second];
+			uint32 vert_merged_index[4];
 			for(uint32 i = 0; i < 4; ++i) // For each vert in quad:
 			{
 				const uint32 pos_i  = quad.vertex_indices[i];
@@ -1283,16 +1289,26 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				else
 					merged_v_index = res->second;
 
-				vert_index_buffer[vert_index_buffer_i++] = merged_v_index;
-			}
+				vert_merged_index[i] = merged_v_index;
+			} // End for each vert in quad:
+
+			// Tri 1 of quad
+			vert_index_buffer[vert_index_buffer_i + 0] = vert_merged_index[0];
+			vert_index_buffer[vert_index_buffer_i + 1] = vert_merged_index[1];
+			vert_index_buffer[vert_index_buffer_i + 2] = vert_merged_index[2];
+			// Tri 2 of quad
+			vert_index_buffer[vert_index_buffer_i + 3] = vert_merged_index[0];
+			vert_index_buffer[vert_index_buffer_i + 4] = vert_merged_index[2];
+			vert_index_buffer[vert_index_buffer_i + 5] = vert_merged_index[3];
+
+			vert_index_buffer_i += 6;
 		}
 
 		// Build last pass data that won't have been built yet.
 		OpenGLBatch batch;
 		batch.material_index = current_mat_index;
-		batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*4;
-		batch.num_indices = ((uint32)quad_indices.size() - last_pass_start_quad_i)*4;
-		batch.num_verts_per_prim = 4;
+		batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
+		batch.num_indices = ((uint32)quad_indices.size() - last_pass_start_quad_i)*6;
 		opengl_render_data->batches.push_back(batch);
 	}
 
@@ -1415,8 +1431,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
-	assert(batch.num_verts_per_prim == 3 || batch.num_verts_per_prim == 4);
-
 	if(opengl_mat.shader_prog.nonNull())
 	{
 		opengl_mat.shader_prog->useProgram();
@@ -1476,10 +1490,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 		
 
-		if(batch.num_verts_per_prim == 3)
-			glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
-		else
-			glDrawElements(GL_QUADS,     (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
+		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
 
 		opengl_mat.shader_prog->useNoPrograms();
 	}
@@ -1532,7 +1543,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 #endif
 	}
 
-	this->num_faces_submitted += batch.num_indices / batch.num_verts_per_prim;
+	this->num_indices_submitted += batch.num_indices;
 	this->num_face_groups_submitted++;
 }
 

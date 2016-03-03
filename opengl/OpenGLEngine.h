@@ -26,14 +26,13 @@ Copyright Glare Technologies Limited 2016 -
 namespace Indigo { class Mesh; }
 
 
-// Data for a bunch of primitives from a given mesh, that all share the same material.
+// Data for a bunch of triangles from a given mesh, that all share the same material.
 class OpenGLBatch
 {
 public:
 	uint32 material_index;
 	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
-	uint32 num_indices;//num_prims; // Number of triangles or quads.
-	uint32 num_verts_per_prim; // 3 or 4.
+	uint32 num_indices; // Number of vertex indices (= num triangles/3).
 };
 
 
@@ -192,7 +191,7 @@ private:
 
 
 	uint64 num_face_groups_submitted;
-	uint64 num_faces_submitted;
+	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
 	Plane<float> frustum_clip_planes[5];
