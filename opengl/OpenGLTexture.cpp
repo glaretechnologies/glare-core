@@ -1,5 +1,4 @@
-#include "IncludeWindows.h"
-#include <GL/gl3w.h>
+#include "IncludeOpenGL.h"
 #include "OpenGLTexture.h"
 
 

@@ -3,8 +3,7 @@ OpenGLEngine.cpp
 ----------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeWindows.h"
-#include <GL/gl3w.h>
+#include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 
 
@@ -303,6 +302,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 {
 	shader_dir = shader_dir_;
 
+#if !defined(OSX)
 	if(gl3wInit() != 0)
 	{
 		conPrint("gl3wInit failed.");
@@ -310,9 +310,11 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		initialisation_error_msg = "gl3wInit failed.";
 		return;
 	}
+#endif
 
 	conPrint("OpenGL version: " + std::string((const char*)glGetString(GL_VERSION)));
 
+#if !defined(OSX)
 	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
 	if(!gl3wIsSupported(3, 0))
 	{
@@ -321,6 +323,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		conPrint(initialisation_error_msg);
 		return;
 	}
+#endif
 
 #if BUILD_TESTS
 	//if(GLEW_ARB_debug_output)

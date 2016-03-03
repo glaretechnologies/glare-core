@@ -4,10 +4,7 @@ VBO.cpp
 Copyright Glare Technologies Limited 2014 -
 Generated at 2014-02-13 22:44:00 +0000
 =====================================================================*/
-#include "IncludeWindows.h"
-#include <GL/gl3w.h>
-
-
+#include "IncludeOpenGL.h"
 #include "VBO.h"
 
 
