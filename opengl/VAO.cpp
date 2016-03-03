@@ -3,10 +3,11 @@ VAO.cpp
 -------------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include <GL/glew.h>
-
-
+#include "IncludeWindows.h"
+#include <GL/gl3w.h>
 #include "VAO.h"
+
+
 #include "VBO.h"
 
 

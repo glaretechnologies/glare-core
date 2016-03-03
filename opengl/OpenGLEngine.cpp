@@ -3,7 +3,8 @@ OpenGLEngine.cpp
 ----------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include <GL/glew.h>
+#include "IncludeWindows.h"
+#include <GL/gl3w.h>
 #include "OpenGLEngine.h"
 
 
@@ -191,51 +192,46 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
 }
 
-
 static void 
 #ifdef _WIN32
 	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
 	APIENTRY 
 #endif
-myMessageCallback(
-	GLenum _source, 
-	GLenum _type, GLuint _id, GLenum _severity, 
-	GLsizei _length, const char* _message, 
-	void* _userParam) 
+myMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) 
 {
 	// See https://www.opengl.org/sdk/docs/man/html/glDebugMessageControl.xhtml
 
-	std::string type;
-	switch(_type)
+	std::string typestr;
+	switch(type)
 	{
-	case GL_DEBUG_TYPE_ERROR: type = "Error"; break;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: type = "Deprecated Behaviour"; break;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: type = "Undefined Behaviour"; break;
-	case GL_DEBUG_TYPE_PORTABILITY: type = "Portability"; break;
-	case GL_DEBUG_TYPE_PERFORMANCE: type = "Performance"; break;
-	case GL_DEBUG_TYPE_MARKER: type = "Marker"; break;
-	case GL_DEBUG_TYPE_PUSH_GROUP: type = "Push group"; break;
-	case GL_DEBUG_TYPE_POP_GROUP: type = "Pop group"; break;
-	case GL_DEBUG_TYPE_OTHER: type = "Other"; break;
-	default: type = "Unknown"; break;
+	case GL_DEBUG_TYPE_ERROR: typestr = "Error"; break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "Deprecated Behaviour"; break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "Undefined Behaviour"; break;
+	case GL_DEBUG_TYPE_PORTABILITY: typestr = "Portability"; break;
+	case GL_DEBUG_TYPE_PERFORMANCE: typestr = "Performance"; break;
+	case GL_DEBUG_TYPE_MARKER: typestr = "Marker"; break;
+	case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "Push group"; break;
+	case GL_DEBUG_TYPE_POP_GROUP: typestr = "Pop group"; break;
+	case GL_DEBUG_TYPE_OTHER: typestr = "Other"; break;
+	default: typestr = "Unknown"; break;
 	}
 
-	std::string severity;
-	switch(_severity)
+	std::string severitystr;
+	switch(severity)
 	{
-	case GL_DEBUG_SEVERITY_LOW: severity = "low"; break;
-	case GL_DEBUG_SEVERITY_MEDIUM: severity = "medium"; break;
-	case GL_DEBUG_SEVERITY_HIGH : severity = "high"; break;
-	case GL_DEBUG_SEVERITY_NOTIFICATION : severity = "notification"; break;
-	case GL_DONT_CARE: severity = "Don't care"; break;
-	default: severity = "Unknown"; break;
+	case GL_DEBUG_SEVERITY_LOW: severitystr = "low"; break;
+	case GL_DEBUG_SEVERITY_MEDIUM: severitystr = "medium"; break;
+	case GL_DEBUG_SEVERITY_HIGH : severitystr = "high"; break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION : severitystr = "notification"; break;
+	case GL_DONT_CARE: severitystr = "Don't care"; break;
+	default: severitystr = "Unknown"; break;
 	}
 
-	if(_severity != GL_DEBUG_SEVERITY_NOTIFICATION) // Don't print out notifications by default.
+	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION) // Don't print out notifications by default.
 	{
 		conPrint("==============================================================");
-		conPrint("OpenGL msg, severity: " + severity + ", type: " + type + ":");
-		conPrint(std::string(_message));
+		conPrint("OpenGL msg, severity: " + severitystr + ", type: " + typestr + ":");
+		conPrint(std::string(message));
 		conPrint("==============================================================");
 	}
 }
@@ -307,19 +303,18 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 {
 	shader_dir = shader_dir_;
 
-	GLenum err = glewInit();
-	if(GLEW_OK != err)
+	if(gl3wInit() != 0)
 	{
-		conPrint("glewInit failed: " + std::string((const char*)glewGetErrorString(err)));
+		conPrint("gl3wInit failed.");
 		init_succeeded = false;
-		initialisation_error_msg = std::string((const char*)glewGetErrorString(err));
+		initialisation_error_msg = "gl3wInit failed.";
 		return;
 	}
 
 	conPrint("OpenGL version: " + std::string((const char*)glGetString(GL_VERSION)));
 
 	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
-	if(!GLEW_VERSION_3_0)
+	if(!gl3wIsSupported(3, 0))
 	{
 		init_succeeded = false;
 		initialisation_error_msg = "OpenGL version is too old (< v3.0), version is " + std::string((const char*)glGetString(GL_VERSION));
@@ -328,20 +323,20 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	}
 
 #if BUILD_TESTS
-	if(GLEW_ARB_debug_output)
+	//if(GLEW_ARB_debug_output)
 	{
 		// Enable error message handling,.
 		// See "Porting Source to Linux: Valve’s Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
-		glDebugMessageCallbackARB(myMessageCallback, NULL); 
+		glDebugMessageCallback(myMessageCallback, NULL); 
 		glEnable(GL_DEBUG_OUTPUT);
 	}
-	else
-		conPrint("GLEW_ARB_debug_output OpenGL extension not available.");
+	//else
+	//	conPrint("GLEW_ARB_debug_output OpenGL extension not available.");
 #endif
 
 	// Check if anisotropic texture filtering is available, and get max anisotropy if so.  
 	// See 'Texture Mapping in OpenGL: Beyond the Basics' - http://www.informit.com/articles/article.aspx?p=770639&seqNum=2
-	if(GLEW_EXT_texture_filter_anisotropic)
+	//if(GLEW_EXT_texture_filter_anisotropic)
 	{
 		anisotropic_filtering_supported = true;
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
@@ -351,7 +346,6 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	// Set up the rendering context, define display lists etc.:
 	glClearColor(32.f / 255.f, 32.f / 255.f, 32.f / 255.f, 1.f);
 
-	glEnable(GL_NORMALIZE);		// Enable normalisation of normals
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
