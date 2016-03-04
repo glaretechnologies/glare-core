@@ -1,8 +1,14 @@
-varying vec3 normal;
-varying vec3 pos_cs;
+#version 150
+
+in vec3 normal;
+in vec3 pos_cs;
 
 uniform vec4 colour;
 uniform int have_shading_normals;
+
+out vec4 colour_out;
+
+
 
 float square(float x) { return x*x; }
 float pow5(float x) { return x*x*x*x*x; }
@@ -37,5 +43,5 @@ void main()
 
 	vec4 transmission_col = vec4(colour.x, colour.y, colour.z, 0.1);
 	vec4 refl_col = vec4(1.0, 1.0, 1.0, 0.5);
-	gl_FragColor = transmission_col * (1.0 - r) + refl_col * r;
+	colour_out = transmission_col * (1.0 - r) + refl_col * r;
 }

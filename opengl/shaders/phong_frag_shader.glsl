@@ -1,6 +1,8 @@
-varying vec3 normal;
-varying vec3 pos_cs;
-varying vec4 texture_coords;
+#version 150
+
+in vec3 normal;
+in vec3 pos_cs;
+in vec4 texture_coords;
 
 uniform vec4 sundir;
 uniform vec4 diffuse_colour;
@@ -10,6 +12,9 @@ uniform sampler2D diffuse_tex;
 uniform mat4 texture_matrix;
 uniform float exponent;
 uniform float fresnel_scale;
+
+out vec4 colour_out;
+
 
 float square(float x) { return x*x; }
 float pow5(float x) { return x*x*x*x*x; }
@@ -63,5 +68,5 @@ void main()
 	else
 		col = diffuse_colour;
 
-	gl_FragColor = col * (0.5 + light_cos_theta * 0.5) + vec4(specular);
+	colour_out = col * (0.5 + light_cos_theta * 0.5) + vec4(specular);
 }
