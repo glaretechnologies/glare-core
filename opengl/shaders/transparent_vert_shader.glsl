@@ -6,7 +6,7 @@ in vec2 texture_coords_0_in;
 
 out vec3 normal; // cam (view) space
 out vec3 pos_cs;
-out vec2 texture_coords;
+//out vec2 texture_coords;
 
 uniform mat4 proj_matrix;
 uniform mat4 model_matrix;
@@ -22,5 +22,5 @@ void main()
  
 	normal = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
 
-	texture_coords = texture_coords_0_in;
+	//texture_coords = texture_coords_0_in;
 }

@@ -2,7 +2,7 @@
 
 in vec3 normal;
 in vec3 pos_cs;
-in vec4 texture_coords;
+in vec2 texture_coords;
 
 uniform vec4 sundir;
 uniform vec4 diffuse_colour;
@@ -64,7 +64,7 @@ void main()
  
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * texture_coords).xy);
+		col = texture(diffuse_tex, (texture_matrix * vec4(texture_coords.x, texture_coords.y, 0.0, 1.0)).xy);
 	else
 		col = diffuse_colour;
 
