@@ -191,6 +191,8 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
 }
 
+
+#if !defined(OSX)
 static void 
 #ifdef _WIN32
 	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
@@ -234,6 +236,7 @@ myMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
 		conPrint("==============================================================");
 	}
 }
+#endif
 
 
 static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
@@ -325,7 +328,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	}
 #endif
 
-#if BUILD_TESTS
+#if BUILD_TESTS && !defined(OSX)
 	//if(GLEW_ARB_debug_output)
 	{
 		// Enable error message handling,.
@@ -352,9 +355,10 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
-
+#if !defined(OSX)
 	if(PROFILE)
 		glGenQueries(1, &timer_query_id);
+#endif
 
 	// Create VBOs for sphere
 	{
@@ -663,8 +667,9 @@ void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
 		return;
-
+#if !defined(OSX)
 	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+#endif
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
@@ -922,9 +927,11 @@ void OpenGLEngine::draw()
 	if(PROFILE)
 	{
 		const double cpu_time = profile_timer.elapsed();
+		uint64 elapsed_ns = 0;
+#if !defined(OSX)
 		glEndQuery(GL_TIME_ELAPSED);
-		uint64 elapsed_ns;
 		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
+#endif
 
 		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + " ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
 		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
