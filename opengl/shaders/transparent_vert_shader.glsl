@@ -2,7 +2,7 @@
 
 in vec3 position_in;
 in vec3 normal_in;
-in vec2 texture_coords_0_in;
+//in vec2 texture_coords_0_in;
 
 out vec3 normal; // cam (view) space
 out vec3 pos_cs;

@@ -460,6 +460,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		const std::string use_shader_dir = shader_dir;
 
 		phong_untextured_prog = new OpenGLProgram(
+			"phong",
 			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", GL_FRAGMENT_SHADER)
 		);
@@ -473,6 +474,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		fresnel_scale_location			= phong_untextured_prog->getUniformLocation("fresnel_scale");
 
 		transparent_prog = new OpenGLProgram(
+			"transparent",
 			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", GL_FRAGMENT_SHADER)
 		);
@@ -480,6 +482,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		transparent_have_shading_normals_location = transparent_prog->getUniformLocation("have_shading_normals");
 
 		env_prog = new OpenGLProgram(
+			"env",
 			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", GL_FRAGMENT_SHADER)
 		);
