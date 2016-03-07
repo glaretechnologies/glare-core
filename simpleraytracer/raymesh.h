@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "geometry.h"
+#include "../physics/jscol_triangle.h"
 #include "../physics/jscol_Tree.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
@@ -19,7 +20,6 @@ Code By Nicholas Chapman.
 #include <vector>
 #include <limits>
 class Material;
-class RendererSettings;
 class PrintOutput;
 namespace Indigo{ class Mesh; }
 
@@ -205,7 +205,7 @@ public:
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
-	virtual const js::AABBox getAABBoxWS() const;
+	virtual const js::AABBox getAABBox() const;
 	
 	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const;
@@ -225,7 +225,8 @@ public:
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
 		const std::vector<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose);
-	virtual void build(const std::string& cache_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
+
+	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual Vec3RealType getBoundingRadius() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
@@ -235,6 +236,9 @@ public:
 
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
+
+	void buildTrisFromQuads();
+	void buildJSTris();
 
 	///// These functions are used by various tests which construct RayMeshes directly. //////
 	// They are also used by World::mergeObjectsToIdentityObject().
@@ -281,6 +285,8 @@ public:
 	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
 
 	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
+
+	size_t getTotalMemUsage() const;
 
 private:
 	void computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose);
@@ -330,6 +336,9 @@ private:
 	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
+
+public:
+	js::Vector<js::Triangle, 32> js_tris; // Not used in Indigo, used for player physics.
 };
 
 #ifdef _WIN32

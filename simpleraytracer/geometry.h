@@ -22,7 +22,6 @@ class HitInfo;
 class FullHitInfo;
 class DistanceHitInfo;
 class Object;
-class RendererSettings;
 class ThreadContext;
 class PrintOutput;
 class Matrix4f;
@@ -63,7 +62,7 @@ public:
 
 	virtual const std::string getName() const = 0;
 
-	virtual const js::AABBox getAABBoxWS() const = 0;
+	virtual const js::AABBox getAABBox() const = 0;
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 	
@@ -109,7 +108,14 @@ public:
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
 		) = 0; // throws GeometryExcep
 
-	virtual void build(const std::string& cache_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
+	struct BuildOptions
+	{
+		BuildOptions() : use_embree(true), cache_trees(true), bih_tri_threshold(1100000) {}
+		bool use_embree;
+		bool cache_trees;
+		int bih_tri_threshold;
+	};
+	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 
 	virtual Vec3RealType getBoundingRadius() const = 0;
 

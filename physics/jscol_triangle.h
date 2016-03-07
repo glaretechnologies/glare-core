@@ -1,5 +1,5 @@
-#ifndef __JS_TRIANGLE
-#define __JS_TRIANGLE
+#pragma once
+
 
 #include "../maths/vec3.h"
 #include "../maths/plane.h"
@@ -56,11 +56,11 @@ public:
 //	inline const Plane& getTriPlane() const { return triplane; }
 
 	//TEMP SLOW
-	//inline const Plane getTriPlane() const;
+	inline const Planef getTriPlane() const;
 
 private:
 
-	//const Plane getEdgePlane(int index) const;
+	const Planef getEdgePlane(int index) const;
 
 	//each Vec3f is 12 bytes.. so 36 bytes all up for the verts.
 	Vec3f v[3];
@@ -274,11 +274,10 @@ bool Triangle::pointInTri(const Vec3& point) const
 }*/
 
 
-/*const Plane Triangle::getTriPlane() const
+const Planef Triangle::getTriPlane() const
 {
-	return Plane(v0(), Vec3dgetNormal());
+	return Planef(v0(), getNormal());
 }
-*/
+
 
 }//end namespace js
-#endif //__JS_TRIANGLE

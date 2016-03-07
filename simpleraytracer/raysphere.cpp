@@ -164,7 +164,7 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 }
 
 
-const js::AABBox RaySphere::getAABBoxWS() const { return aabbox; }
+const js::AABBox RaySphere::getAABBox() const { return aabbox; }
 
 
 void RaySphere::getSubElementSurfaceAreas(const Matrix4f& to_parent, std::vector<float>& surface_areas_out) const
@@ -208,7 +208,7 @@ bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCo
 }
 
 
-void RaySphere::build(const std::string& indigo_base_dir_path, const RendererSettings& settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
+void RaySphere::build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

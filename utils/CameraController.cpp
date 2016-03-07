@@ -130,6 +130,22 @@ void CameraController::getAngles(Vec3d& angles_out)
 }
 
 
+Vec3d CameraController::getForwardsVec() const
+{
+	return Vec3d(
+		sin(rotation.y) * cos(rotation.x),
+		sin(rotation.y) * sin(rotation.x),
+		cos(rotation.y)
+	);
+}
+
+
+Vec3d CameraController::getRightVec() const
+{
+	return normalise(crossProduct(getForwardsVec(), Vec3d(0,0,1)));
+}
+
+
 void CameraController::setAllowPitching(bool allow_pitching_)
 {
 	allow_pitching = allow_pitching_;

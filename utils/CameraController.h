@@ -35,6 +35,9 @@ public:
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	void getAngles(Vec3d& angles_out); // Specified as (heading, pitch, roll).
 
+	Vec3d getForwardsVec() const;
+	Vec3d getRightVec() const;
+
 	void setAllowPitching(bool allow_pitching);
 
 	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);

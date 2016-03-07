@@ -94,12 +94,12 @@ void TreeTest::testBuildCorrect()
 	raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	raymesh.build(
 		".",
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager
@@ -175,11 +175,11 @@ void TreeTest::testBuildCorrect()
 	}
 
 	StandardPrintOutput print_output;
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	raymesh.build(
 		".",
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager
@@ -190,7 +190,7 @@ void TreeTest::testBuildCorrect()
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
 	//testAssert(kdtree != NULL);
 
-	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
+	const js::AABBox bbox_ws = raymesh.getAABBox();
 
 	testAssert(bbox_ws.min_ == Vec4f(0, 0, 0, 1.0f));
 	testAssert(bbox_ws.max_ == Vec4f(10.f, 1.0f, 1.0f, 1.0f));
@@ -254,11 +254,11 @@ void TreeTest::testBuildCorrect()
 	}
 
 	StandardPrintOutput print_output;
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	raymesh.build(
 		".",
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager
@@ -267,7 +267,7 @@ void TreeTest::testBuildCorrect()
 	//const js::TriTree* kdtree = dynamic_cast<const js::TriTree*>(raymesh.getTreeDebug());
 	//testAssert(kdtree != NULL);
 
-	const js::AABBox bbox_ws = raymesh.getAABBoxWS();
+	const js::AABBox bbox_ws = raymesh.getAABBox();
 
 	testAssert(bbox_ws.min_ == Vec4f(0, 0, 0, 1.0f));
 	testAssert(bbox_ws.max_ == Vec4f(10.f, 1, 1, 1.0f));
@@ -695,8 +695,8 @@ void TreeTest::doTests(const std::string& appdata_path)
 
 	conPrint("TreeTest::doTests()");
 
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 	MTwister rng(1);
@@ -733,7 +733,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		MeshLoader::loadMesh(MODEL_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 
-		raymesh.build(appdata_path, settings, print_output, false, task_manager);
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
 	}
 	catch(Indigo::Exception&)
 	{
@@ -767,7 +767,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	raymesh.build(appdata_path, settings, print_output, false, task_manager);
+	raymesh.build(appdata_path, options, print_output, false, task_manager);
 
 	testTree(rng, raymesh);
 	}
@@ -805,7 +805,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 	}
 
-	raymesh.build(appdata_path, settings, print_output, false, task_manager);
+	raymesh.build(appdata_path, options, print_output, false, task_manager);
 
 	testTree(rng, raymesh);
 	}
@@ -842,12 +842,13 @@ void TreeTest::doVaryingNumtrisBuildTests()
 
 		Timer timer;
 		StandardPrintOutput print_output;
-		RendererSettings settings;
-		settings.bih_tri_threshold = 10000000;
-		settings.cache_trees = false;
+		Geometry::BuildOptions options;
+		options.cache_trees = false;
+		options.bih_tri_threshold = 10000000;
+
 		raymesh.build(
 			".", // appdata path
-			settings,
+			options,
 			print_output,
 			false, // verbose
 			task_manager
@@ -887,17 +888,17 @@ void TreeTest::doSpeedTest(int treetype)
 
 	Timer buildtimer;
 
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	if(treetype == 0)
-		settings.bih_tri_threshold = 100000000;
+		options.bih_tri_threshold = 100000000;
 	else
-		settings.bih_tri_threshold = 0;
+		options.bih_tri_threshold = 0;
 
 	
 	raymesh.build(
 		".", // base indigo dir path
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager
@@ -1026,12 +1027,12 @@ void TreeTest::buildSpeedTest()
 	}
 
 	Timer timer;
-	RendererSettings settings;
-	settings.cache_trees = false;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	raymesh.build(
 		".", // base indigo dir path
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager

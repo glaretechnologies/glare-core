@@ -61,3 +61,6 @@ bool Camera::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadConte
 {
 	return false; // camera can't be clipped
 }
+
+
+void Camera::build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep

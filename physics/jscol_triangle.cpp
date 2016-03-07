@@ -1,7 +1,7 @@
 #include "jscol_triangle.h"
 
 
-#if 0
+#if 1
 /*void js::Triangle::calcNormal()
 {
 	//Vec3 edge0 = v0() - v1();
@@ -134,6 +134,8 @@ inline void sub(const Vec3f& v1, const Vec3f& v2, Vec3f& vout)
 	vout.z = v1.z - v2.z;
 }
 
+#if 0
+
 //http://www.acm.org/jgt/papers/MollerTrumbore97/
 
 //#define EPSILON 0.000001
@@ -224,49 +226,50 @@ float js::Triangle::traceRayMolTrum(const Ray& ray/*, double *t, double *u, doub
    //return 1;
 	return t;
 }
+#endif
 
-/*const Plane js::Triangle::getEdgePlane(int index) const
+const Planef js::Triangle::getEdgePlane(int index) const
 {
 	if(index == 0)
-		return Plane(v[0], normalise(crossProduct(v[1]-v[0], getNormal())));
+		return Planef(v[0], normalise(crossProduct(v[1]-v[0], getNormal())));
 	else if(index == 1)
-		return Plane(v[1], normalise(crossProduct(v[2]-v[1], getNormal())));
+		return Planef(v[1], normalise(crossProduct(v[2]-v[1], getNormal())));
 	else if(index == 2)
-		return Plane(v[2], normalise(crossProduct(v[0]-v[2], getNormal())));
+		return Planef(v[2], normalise(crossProduct(v[0]-v[2], getNormal())));
 	else
 	{
 		assert(0);
-		return Plane(Vec3f(0,0,1), 0);
+		return Planef(Vec3f(0,0,1), 0);
 	}
 
-}*/
+}
 
 //point must be in plane
-/*
+
 bool js::Triangle::pointInTri(const Vec3f& point) const
 {
 	//-----------------------------------------------------------------
 	//check inside edge 0 (v0 to v1)
 	//-----------------------------------------------------------------
-	if(getEdgePlane(0).pointOnFrontSide(point))
+	if(getEdgePlane(0).pointTouchingFrontHalfSpace(point))
 		return false;
 
 	//-----------------------------------------------------------------
 	//check inside edge 1 (v1 to v2)
 	//-----------------------------------------------------------------
-	if(getEdgePlane(1).pointOnFrontSide(point))
+	if(getEdgePlane(1).pointTouchingFrontHalfSpace(point))
 		return false;
 
 	//-----------------------------------------------------------------
 	//check inside edge 2 (v2 to v0)
 	//-----------------------------------------------------------------
-	if(getEdgePlane(2).pointOnFrontSide(point))
+	if(getEdgePlane(2).pointTouchingFrontHalfSpace(point))
 		return false;
 
 	//-----------------------------------------------------------------
 	//check inside edge 0 (v0 to v1)
 	//-----------------------------------------------------------------
-*/	/*if(edgeplanes[0].pointOnFrontSide(point))
+	/*if(edgeplanes[0].pointOnFrontSide(point))
 		return false;
 
 	//-----------------------------------------------------------------
@@ -280,9 +283,9 @@ bool js::Triangle::pointInTri(const Vec3f& point) const
 	//-----------------------------------------------------------------
 	if(edgeplanes[2].pointOnFrontSide(point))
 		return false;*/
-/*
+
 	return true;
-}*/
+}
 
 
 #endif

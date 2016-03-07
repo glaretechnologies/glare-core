@@ -606,12 +606,15 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//------------------------------------------------------------------------
 	//insert random instances
 	//------------------------------------------------------------------------
-	StandardPrintOutput print_output;
 	RendererSettings settings;
-	settings.cache_trees = true;
+	settings.cache_trees = false;
+
+	StandardPrintOutput print_output;
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
 	raymesh->build(
 		cache_dir_path,
-		settings,
+		options,
 		print_output,
 		true,
 		task_manager
@@ -640,8 +643,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			std::vector<EmitterScale>(),
 			std::vector<const IESDatum*>()
 			);
-		//RendererSettings settings;
-		settings.cache_trees = false;
+		
 		object->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
 
 		ob_tree.insertObject(object);

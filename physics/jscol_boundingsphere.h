@@ -1,7 +1,8 @@
-#ifndef __JSCOL_BOUNDINGSPHERE_H__
-#define __JSCOL_BOUNDINGSPHERE_H__
+#pragma once
+
 
 #include "../maths/maths.h"
+
 
 namespace js
 {
@@ -13,9 +14,12 @@ class BoundingSphere
 public:
 	BoundingSphere()
 	{
-		center.zero();
-		setRadius(10000);
+		//center.zero();
+		//setRadius(10000);
 	}
+
+	typedef Vec4f Vec3;
+
 
 	BoundingSphere(const Vec3 center_, float radius_)
 	{
@@ -64,12 +68,12 @@ private:
 float BoundingSphere::rayIntersect(const Vec3& raystart_os, const Vec3& rayunitdir) const
 {
 	Vec3 raystarttosphere = center;
-	raystarttosphere.sub(raystart_os);
+	raystarttosphere -= raystart_os;
 
 	if(raystarttosphere.length2() <= radius2)
 		return 0;//ray origin inside sphere
 
-	const float dist_to_rayclosest = dotProduct(raystarttosphere, rayunitdir);
+	const float dist_to_rayclosest = dot(raystarttosphere, rayunitdir);
 
 
 	//-----------------------------------------------------------------
@@ -110,4 +114,3 @@ bool BoundingSphere::lineStabsShape(const Vec3& raystart_os, const Vec3& rayunit
 
 
 }//end namespace js
-#endif //__JSCOL_BOUNDINGSPHERE_H__

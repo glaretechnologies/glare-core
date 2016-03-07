@@ -3181,8 +3181,8 @@ void DisplacementUtils::linearSubdivision(
 #endif
 	
 	//TEMP:
-	const size_t quad_mem = quads_out.size() * sizeof(DUQuad);
-	const size_t vert_mem = verts_out.size() * sizeof(DUVertex);
+	//const size_t quad_mem = quads_out.size() * sizeof(DUQuad);
+	//const size_t vert_mem = verts_out.size() * sizeof(DUVertex);
 
 	//conPrint("quad mem: " + toString(quads_out.size()) + " * " + toString(sizeof(DUQuad)  ) + " B = " + toString(quad_mem) + " B");
 	//conPrint("vert mem: " + toString(verts_out.size()) + " * " + toString(sizeof(DUVertex)) + " B = " + toString(vert_mem) + " B");

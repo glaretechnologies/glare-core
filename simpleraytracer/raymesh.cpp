@@ -110,7 +110,7 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadConte
 }
 
 
-const js::AABBox RayMesh::getAABBoxWS() const
+const js::AABBox RayMesh::getAABBox() const
 {
 	if(tritree)
 		return tritree->getAABBoxWS();
@@ -758,6 +758,66 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 }
 
 
+//TEMP
+void RayMesh::buildTrisFromQuads()
+{
+	// Convert any quads to tris.
+	const size_t num_quads = this->quads.size();
+	if(num_quads > 0)
+	{
+		const size_t initial_num_tris = this->triangles.size();
+		this->triangles.resizeUninitialised(initial_num_tris + num_quads * 2);
+
+		for(size_t i=0; i<num_quads; ++i)
+		{
+			const RayMeshQuad& q = this->quads[i];
+			const RayMeshVertex& v0(vertices[q.vertex_indices[0]]);
+			const RayMeshVertex& v1(vertices[q.vertex_indices[1]]);
+			const RayMeshVertex& v2(vertices[q.vertex_indices[2]]);
+			const RayMeshVertex& v3(vertices[q.vertex_indices[3]]);
+
+			RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
+			RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
+
+			tri_1.vertex_indices[0] = q.vertex_indices[0];
+			tri_1.vertex_indices[1] = q.vertex_indices[1];
+			tri_1.vertex_indices[2] = q.vertex_indices[2];
+			tri_1.uv_indices[0] = q.uv_indices[0];
+			tri_1.uv_indices[1] = q.uv_indices[1];
+			tri_1.uv_indices[2] = q.uv_indices[2];
+			tri_1.setRawTriMatIndex(q.getRawMatIndex());
+			tri_1.inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+
+			tri_2.vertex_indices[0] = q.vertex_indices[0];
+			tri_2.vertex_indices[1] = q.vertex_indices[2];
+			tri_2.vertex_indices[2] = q.vertex_indices[3];
+			tri_2.uv_indices[0] = q.uv_indices[0];
+			tri_2.uv_indices[1] = q.uv_indices[2];
+			tri_2.uv_indices[2] = q.uv_indices[3];
+			tri_2.setRawTriMatIndex(q.getRawMatIndex());
+			tri_2.inv_cross_magnitude = 1.f / ::crossProduct(v2.pos - v0.pos, v3.pos - v0.pos).length();
+		}
+
+		this->quads.clearAndFreeMem();
+	}
+}
+
+
+void RayMesh::buildJSTris()
+{
+	this->js_tris.resize(this->triangles.size());
+
+	for(size_t i=0; i<triangles.size(); ++i)
+	{
+		this->js_tris[i] = js::Triangle(
+			vertices[triangles[i].vertex_indices[0]].pos,
+			vertices[triangles[i].vertex_indices[1]].pos,
+			vertices[triangles[i].vertex_indices[2]].pos
+		);
+	}
+}
+
+
 Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
 {
 	Reference<RayMesh> new_mesh(new RayMesh(
@@ -959,7 +1019,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 }
 
 
-void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& renderer_settings, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -977,14 +1037,15 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
 	bounding_radius = std::sqrt(max_r2);
 
+	
+#ifndef NO_EMBREE
 	bool have_sse3 = false;
 	//bool try_spatial = false;
-#ifndef NO_EMBREE
 	bool embree_os_ok = EmbreeInstance::isNonNull();
 	bool embree_mem_ok = false;
 	bool embree_spatial = false;
 
-	if(embree_os_ok && renderer_settings.use_embree) // Do some extra checks if embree accelerator desired
+	if(embree_os_ok && options.use_embree) // Do some extra checks if embree accelerator desired
 	{
 		try
 		{
@@ -1044,7 +1105,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 	try
 	{
 #ifndef NO_EMBREE
-		if(embree_os_ok && renderer_settings.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
+		if(embree_os_ok && options.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
 		{
 			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;
@@ -1052,7 +1113,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		else
 #endif
 		{
-			if((int)triangles.size() >= renderer_settings.bih_tri_threshold)
+			if((int)triangles.size() >= options.bih_tri_threshold)
 				tritree = new js::BVH(this);
 			else
 				tritree = new js::KDTree(this);
@@ -1080,7 +1141,7 @@ void RayMesh::build(const std::string& cache_dir_path, const RendererSettings& r
 		print_output.print("\t" + toString((unsigned int)uvs.size()) + " UVs (" + ::getNiceByteSize(uvs.size()*sizeof(Vec2f)) + ")");
 	}
 
-	if(renderer_settings.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
+	if(options.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
 	{
 		bool built_from_cache = false;
 
@@ -2011,4 +2072,26 @@ float RayMesh::meanCurvature(const HitInfo& hitinfo) const
 	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
 
 	return v0.H * w + v1.H * u + v2.H * v;
+}
+
+
+size_t RayMesh::getTotalMemUsage() const
+{
+	const size_t vert_mem = vertices.dataSizeBytes();
+	const size_t tri_mem = triangles.dataSizeBytes();
+	const size_t quad_mem = quads.dataSizeBytes();
+	const size_t uv_mem = uvs.size()*sizeof(Vec2f);
+	const size_t vertderiv_mem = vert_derivs.size()*sizeof(VertDerivs);
+	const size_t accel_mem = tritree->getTotalMemUsage();
+
+	conPrint("---- RayMesh " + name + " ----");
+	const int w = 7;
+	conPrint("verts:          " + rightSpacePad(toString(vertices.size()), w)    + "(" + getNiceByteSize(vert_mem) + ")");
+	conPrint("tri_mem:        " + rightSpacePad(toString(triangles.size()), w)   + "(" + getNiceByteSize(tri_mem) + ")");
+	conPrint("quad_mem:       " + rightSpacePad(toString(quads.size()), w)       + "(" + getNiceByteSize(quad_mem) + ")");
+	conPrint("uv_mem:         " + rightSpacePad(toString(uvs.size()), w)         + "(" + getNiceByteSize(uv_mem) + ")");
+	conPrint("vertderiv_mem:  " + rightSpacePad(toString(vert_derivs.size()), w) + "(" + getNiceByteSize(vertderiv_mem) + ")");
+	conPrint("accel_mem:      " + rightSpacePad(toString(1), w)                  + "(" + getNiceByteSize(accel_mem) + ")");
+
+	return vert_mem + tri_mem + quad_mem + uv_mem + vertderiv_mem + accel_mem;
 }
