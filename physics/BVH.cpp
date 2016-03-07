@@ -432,6 +432,12 @@ const js::AABBox& BVH::getAABBoxWS() const
 }
 
 
+size_t BVH::getTotalMemUsage() const
+{
+	return leafgeom.dataSizeBytes() + intersect_tris.size()*sizeof(INTERSECT_TRI_TYPE);
+}
+
+
 /*const Vec3f BVH::triGeometricNormal(unsigned int tri_index) const //slow
 {
 	//return intersect_tris[new_tri_index[tri_index]].getNormal();

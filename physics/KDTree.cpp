@@ -1115,4 +1115,13 @@ void TreeStats::print()
 }
 
 
+size_t KDTree::getTotalMemUsage() const
+{
+	size_t total_node_mem = (int)nodes.size() * sizeof(KDTreeNode);
+	size_t leafgeom_indices_mem = leafgeom.size() * sizeof(TRI_INDEX);
+	size_t tri_mem = num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
+	return total_node_mem + leafgeom_indices_mem + tri_mem;
+}
+
+
 } //end namespace jscol

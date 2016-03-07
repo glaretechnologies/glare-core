@@ -52,6 +52,7 @@ public:
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
+	virtual size_t getTotalMemUsage() const;
 
 	friend class BVHImpl;
 	friend class TraceRayFunctions;

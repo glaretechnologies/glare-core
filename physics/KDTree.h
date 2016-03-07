@@ -125,6 +125,8 @@ public:
 	typedef js::Vector<TRI_INDEX, 8> LEAF_GEOM_ARRAY_TYPE;
 
 	TRI_INDEX numTris() const;
+
+	virtual size_t getTotalMemUsage() const;
 private:
 	//-----------------typedefs------------------------
 	//typedef uint32 TRI_INDEX;

@@ -1059,6 +1059,12 @@ const std::string rightPad(const std::string& s, char c, unsigned int minwidth)
 }
 
 
+const std::string rightSpacePad(const std::string& s, unsigned int minwidth)
+{
+	return rightPad(s, ' ', minwidth);
+}
+
+
 namespace StringUtils
 {
 
