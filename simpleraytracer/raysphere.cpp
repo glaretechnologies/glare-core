@@ -151,6 +151,15 @@ const RaySphere::UVCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, uns
 }
 
 
+const RaySphere::UVCoordsType RaySphere::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& duv_dalphabeta_out) const
+{
+	// (alpha, beta) -> (u, v) is the identity mapping
+	duv_dalphabeta_out = Matrix2f::identity();
+
+	return hitinfo.sub_elem_coords;
+}
+
+
 void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const
 {
 	const Vec3RealType phi = hitinfo.sub_elem_coords.x;
@@ -161,6 +170,19 @@ void RaySphere::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Ve
 
 	//(dx/dv, dy/dv, dz/dv)
 	dp_dv_out = Vec3Type(cos(phi)*cos(theta), sin(phi)*cos(theta), -sin(theta), 0.0f) * radius;
+}
+
+
+void RaySphere::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out) const
+{
+	const Vec3RealType phi = hitinfo.sub_elem_coords.x;
+	const Vec3RealType theta = hitinfo.sub_elem_coords.y;
+
+	//(dx/du, dy/du, dz/du)
+	dp_dalpha_out = Vec3Type(-sin(phi)*sin(theta), cos(phi)*sin(theta), 0.0f, 0.0f) * radius;
+
+	//(dx/dv, dy/dv, dz/dv)
+	dp_dbeta_out = Vec3Type(cos(phi)*cos(theta), sin(phi)*cos(theta), -sin(theta), 0.0f) * radius;
 }
 
 

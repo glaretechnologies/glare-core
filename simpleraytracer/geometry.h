@@ -74,6 +74,7 @@ public:
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
 	virtual const UVCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
+	virtual const UVCoordsType getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoord_set, Matrix2f& duv_dalphabeta_out) const = 0;
 	virtual unsigned int getNumUVCoordSets() const = 0;
 	
 
@@ -82,6 +83,8 @@ public:
 	
 	// Get the partial derivatives of the surface position relative to u and v: dp/du and dp/dv
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const = 0;
+
+	virtual void getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out/*, Vec3Type& dNs_dalpha_out, Vec3Type& dNs_dbeta_out*/) const = 0;
 	
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 

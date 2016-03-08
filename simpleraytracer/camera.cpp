@@ -50,6 +50,21 @@ void Camera::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3T
 }
 
 
+void Camera::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out) const
+{
+	assert(0);
+}
+
+
+const Camera::UVCoordsType Camera::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, 
+										Matrix2f& duv_dalphabeta_out
+									   ) const
+{
+	assert(0);
+	return UVCoordsType(0.f);
+}
+
+
 unsigned int Camera::getNumUVCoordSets() const { return 0; }
 
 

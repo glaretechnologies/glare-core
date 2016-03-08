@@ -842,7 +842,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 	new_mesh->uvs = uvs;
 
 	// Copy dp/du, dp/dv
-	new_mesh->vert_derivs = vert_derivs;
+	//new_mesh->vert_derivs = vert_derivs;
 
 	// Should be no quads
 	assert(quads.empty());
@@ -911,12 +911,12 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 					));
 
 				// Add new dp_du etc.. for new vert
-				{
+				/*{
 					VertDerivs d;
 					d.dp_du = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_du, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i1]].dp_du, t_1);
 					d.dp_dv = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_dv, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i1]].dp_dv, t_1);
 					new_mesh->vert_derivs.push_back(d);
-				}
+				}*/
 
 				// Make a new vertex along the edge (v_i, v_{i+2})
 				float t_2 = std::fabs(d[v_i] / (d[v_i] - d[v_i2]));
@@ -942,12 +942,12 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 					));
 
 				// Add new dp_du etc.. for new vert
-				{
+				/*{
 					VertDerivs d;
 					d.dp_du = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_du, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i2]].dp_du, t_1);
 					d.dp_dv = Maths::uncheckedLerp(new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i]].dp_dv, new_mesh->vert_derivs[current_triangles[t].vertex_indices[v_i2]].dp_dv, t_1);
 					new_mesh->vert_derivs.push_back(d);
-				}
+				}*/
 
 				// Make the triangle (v_i, v_new1, vnew2)
 				if(d[v_i] > 0) // If v_i is on front side of plane
@@ -1280,31 +1280,78 @@ const RayMesh::UVCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigne
 }
 
 
+const RayMesh::UVCoordsType RayMesh::getUVCoordsAndPartialDerivs(const HitInfo& hitinfo, unsigned int texcoords_set, Matrix2f& duv_dalphabeta_out) const
+{
+	if(texcoords_set >= num_uv_sets)
+	{
+		duv_dalphabeta_out = Matrix2f::identity();
+		return RayMesh::UVCoordsType(0, 0);
+	}
+	assert(texcoords_set < num_uv_sets);
+
+	unsigned int v0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
+	unsigned int v1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
+	unsigned int v2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
+
+	const Vec2f& v0tex = this->uvs[v0idx];
+	const Vec2f& v1tex = this->uvs[v1idx];
+	const Vec2f& v2tex = this->uvs[v2idx];
+
+	duv_dalphabeta_out.e[0] = v1tex.x - v0tex.x; // du/dalpha
+	duv_dalphabeta_out.e[1] = v2tex.x - v0tex.x; // du/dbeta
+	duv_dalphabeta_out.e[2] = v1tex.y - v0tex.y; // dv/dalpha
+	duv_dalphabeta_out.e[3] = v2tex.y - v0tex.y; // dv/dbeta
+
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	return RayMesh::UVCoordsType(
+		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
+		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
+	);
+}
+
+
 void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const
 {
-	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	const float alpha = hitinfo.sub_elem_coords.x;
-	const float beta  = hitinfo.sub_elem_coords.y;
+	assert(0);
 
-	const unsigned int v0 = triangles[hitinfo.sub_elem_index].vertex_indices[0];
-	const unsigned int v1 = triangles[hitinfo.sub_elem_index].vertex_indices[1];
-	const unsigned int v2 = triangles[hitinfo.sub_elem_index].vertex_indices[2];
 
-	Vec3f use_dp_du, use_dp_dv;
-	/*if(this->num_uv_sets == 0)
-	{
-		// If there is no UV mapping, then we can't return dp/du and dp/dv.  So just return dp/dalpha and dp/dbeta.
-		use_dp_du = this->vertices[v1].pos - this->vertices[v0].pos;
-		use_dp_dv = this->vertices[v2].pos - this->vertices[v0].pos;
-	}
-	else*/
-	{
-		use_dp_du = vert_derivs[v0].dp_du*w + vert_derivs[v1].dp_du*alpha + vert_derivs[v2].dp_du*beta;
-		use_dp_dv = vert_derivs[v0].dp_dv*w + vert_derivs[v1].dp_dv*alpha + vert_derivs[v2].dp_dv*beta;
-	}
+	//const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
+	//const float alpha = hitinfo.sub_elem_coords.x;
+	//const float beta  = hitinfo.sub_elem_coords.y;
 
-	dp_du_out = use_dp_du.toVec4fVector();
-	dp_dv_out = use_dp_dv.toVec4fVector();
+	//const unsigned int v0 = triangles[hitinfo.sub_elem_index].vertex_indices[0];
+	//const unsigned int v1 = triangles[hitinfo.sub_elem_index].vertex_indices[1];
+	//const unsigned int v2 = triangles[hitinfo.sub_elem_index].vertex_indices[2];
+
+	//Vec3f use_dp_du, use_dp_dv;
+	///*if(this->num_uv_sets == 0)
+	//{
+	//	// If there is no UV mapping, then we can't return dp/du and dp/dv.  So just return dp/dalpha and dp/dbeta.
+	//	use_dp_du = this->vertices[v1].pos - this->vertices[v0].pos;
+	//	use_dp_dv = this->vertices[v2].pos - this->vertices[v0].pos;
+	//}
+	//else*/
+	//{
+	//	use_dp_du = vert_derivs[v0].dp_du*w + vert_derivs[v1].dp_du*alpha + vert_derivs[v2].dp_du*beta;
+	//	use_dp_dv = vert_derivs[v0].dp_dv*w + vert_derivs[v1].dp_dv*alpha + vert_derivs[v2].dp_dv*beta;
+	//}
+
+	//dp_du_out = use_dp_du.toVec4fVector();
+	//dp_dv_out = use_dp_dv.toVec4fVector();
+}
+
+
+void RayMesh::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out) const
+{
+	Vec4f v0pos;
+	Vec4f v1pos;
+	Vec4f v2pos;
+	triVertPos(hitinfo.sub_elem_index, 0).pointToVec4f(v0pos);
+	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
+	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
+
+	dp_dalpha_out = v1pos - v0pos;
+	dp_dbeta_out  = v2pos - v0pos;
 }
 
 
@@ -1769,7 +1816,7 @@ struct ComputePolyInfoTaskClosure
 	RayMesh::QuadVectorType* quads;
 	std::vector<Vec2f>* uvs;
 	int num_uv_sets;
-	std::vector<RayMesh::VertDerivs>* vert_derivs;
+	//std::vector<RayMesh::VertDerivs>* vert_derivs;
 	bool update_shading_normals;
 	std::vector<int>* vert_num_polys;
 	js::Vector<int, 16>* vert_polys;
@@ -1888,7 +1935,7 @@ public:
 		RayMesh::VertexVectorType& vertices = *closure.vertices;
 		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
 		const int num_uv_sets = closure.num_uv_sets;
-		std::vector<RayMesh::VertDerivs>& vert_derivs = *closure.vert_derivs;
+		//std::vector<RayMesh::VertDerivs>& vert_derivs = *closure.vert_derivs;
 		const int update_shading_normals = closure.update_shading_normals;
 		const std::vector<int>& vert_num_polys = *closure.vert_num_polys;
 		const js::Vector<int, 16>& vert_polys = *closure.vert_polys;
@@ -1947,13 +1994,13 @@ public:
 			float A_p_len = (1.0f / 6.0f) * A.length();
 			vertices[v].H = H_p_len_dot_N / A_p_len;
 
-			if(num_polys > 0)
+			/*if(num_polys > 0)
 			{
 				dp_du /= (float)num_polys;
 				dp_dv /= (float)num_polys;
 			}
 			vert_derivs[v].dp_du = dp_du;
-			vert_derivs[v].dp_dv = dp_dv;
+			vert_derivs[v].dp_dv = dp_dv;*/
 		}
 	}
 
@@ -2024,7 +2071,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 		}
 	//conPrint("timer 2 elapsed: " + timer2.elapsedString());
 
-	vert_derivs.resize(vertices_size);
+	//vert_derivs.resize(vertices_size);
 
 	js::Vector<PolyTempInfo, 64> poly_info(triangles_size + quads_size);
 
@@ -2035,7 +2082,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 	closure.quads = &quads;
 	closure.uvs = &uvs;
 	closure.num_uv_sets = num_uv_sets;
-	closure.vert_derivs = &vert_derivs;
+	//closure.vert_derivs = &vert_derivs;
 	closure.update_shading_normals = update_shading_normals;
 	closure.vert_num_polys = &vert_num_polys;
 	closure.vert_polys = &vert_polys;
@@ -2081,7 +2128,7 @@ size_t RayMesh::getTotalMemUsage() const
 	const size_t tri_mem = triangles.dataSizeBytes();
 	const size_t quad_mem = quads.dataSizeBytes();
 	const size_t uv_mem = uvs.size()*sizeof(Vec2f);
-	const size_t vertderiv_mem = vert_derivs.size()*sizeof(VertDerivs);
+	//const size_t vertderiv_mem = vert_derivs.size()*sizeof(VertDerivs);
 	const size_t accel_mem = tritree->getTotalMemUsage();
 
 	conPrint("---- RayMesh " + name + " ----");
@@ -2090,8 +2137,8 @@ size_t RayMesh::getTotalMemUsage() const
 	conPrint("tri_mem:        " + rightSpacePad(toString(triangles.size()), w)   + "(" + getNiceByteSize(tri_mem) + ")");
 	conPrint("quad_mem:       " + rightSpacePad(toString(quads.size()), w)       + "(" + getNiceByteSize(quad_mem) + ")");
 	conPrint("uv_mem:         " + rightSpacePad(toString(uvs.size()), w)         + "(" + getNiceByteSize(uv_mem) + ")");
-	conPrint("vertderiv_mem:  " + rightSpacePad(toString(vert_derivs.size()), w) + "(" + getNiceByteSize(vertderiv_mem) + ")");
+	//conPrint("vertderiv_mem:  " + rightSpacePad(toString(vert_derivs.size()), w) + "(" + getNiceByteSize(vertderiv_mem) + ")");
 	conPrint("accel_mem:      " + rightSpacePad(toString(1), w)                  + "(" + getNiceByteSize(accel_mem) + ")");
 
-	return vert_mem + tri_mem + quad_mem + uv_mem + vertderiv_mem + accel_mem;
+	return vert_mem + tri_mem + quad_mem + uv_mem + /*vertderiv_mem +*/ accel_mem;
 }
