@@ -368,6 +368,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/PlatformUtils.h"
 
 
 void JPEGDecoder::test(const std::string& indigo_base_dir)
@@ -376,7 +377,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 	try
 	{
-		const std::string tempdir = "jpeg_temp_testing_dir";
+		const std::string tempdir = PlatformUtils::getTempDirPath() + "/jpeg_temp_testing_dir";
 		if(FileUtils::fileExists(tempdir))
 			FileUtils::deleteDirectoryRecursive(tempdir);
 		FileUtils::createDirIfDoesNotExist(tempdir);
