@@ -938,6 +938,8 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 
 void test()
 {
+	conPrint("ImagingPipeline::test()");
+
 	// Constant colour of (1,1,1), no alpha, ssf1
 	{
 		const int W = 1000;
@@ -1151,7 +1153,7 @@ void test()
 			const double integral = pixel_sum / (double)temp_ldr_buffer.numPixels();
 
 			const double expected_sum = 0.78539816339744830961566084581988; // pi / 4
-			const double allowable_error = 1200.0 / temp_ldr_buffer.numPixels();
+			const double allowable_error = 1600.0 / temp_ldr_buffer.numPixels();
 
 			const double abs_error = fabs(expected_sum - integral);
 			
