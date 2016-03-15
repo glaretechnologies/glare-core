@@ -25,20 +25,59 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include <algorithm>
-
-
 #if BUILD_TESTS
-
-
 #include "../utils/PlatformUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/CameraToneMapper.h"
-
-
 #endif
 
+
+/*
+A comparison of downsize-then-apply-gamma vs apply-gamma-then-downsize:
+=======================================================================
+Suppose a = 1/gamma
+
+High contrast edges
+====================
+Suppose we have a black pixel (value 0) besides a white pixel (value 1):
+
+Gamma correct then average(downsize):
+------------------------------------
+   ( 0.0^a + 1.0^a ) * 0.5
+=  ( 0.0   + 1.0   ) * 0.5
+=  0.5
+
+Average then gamma correct:
+----------------------------
+=  ((0.0 + 1.0) * 0.5) ^ a
+
+= (1.0 * 0.5) ^ a
+= 0.5 ^ a
+
+
+If we want the resulting pixel to be perceptually half-grey, then 'Average then gamma correct' is the correct option.
+
+
+No contrast (flat colour)
+========================
+
+Gamma correct then average(downsize):
+------------------------------------
+   ( 0.6^a + 0.6^a ) * 0.5
+=  ( 2*0.6^a ) * 0.5
+=  0.6^a
+
+Average then gamma correct:
+----------------------------
+=  ((0.6 + 0.6) * 0.5) ^ a
+
+= 0.6 ^ a
+
+In this case the result is the same either way.
+
+*/
 
 namespace ImagingPipeline
 {
@@ -444,10 +483,14 @@ void doTonemapFullBuffer(
 
 
 	const bool dithering = renderer_settings.dithering;
+	const Colour4f recip_gamma_v(1.0f / gamma);
 	
 	for(size_t z=0; z<ldr_buffer_out.numPixels(); ++z)
 	{
 		Colour4f col = ldr_buffer_out.getPixel(z);
+
+		/////// Gamma correct ///////
+		col = Colour4f(powf4(col.v, recip_gamma_v.v));
 
 		////// Dither ///////
 		if(dithering)
@@ -488,6 +531,7 @@ struct ImagePipelineTaskClosure
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
+	float gamma;
 
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 };
@@ -515,6 +559,8 @@ public:
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const bool      dithering   = closure.renderer_settings->dithering; // Compute outside loop.
+
+		const Colour4f recip_gamma_v(1.0f / closure.gamma);
 
 		for(int tile = begin; tile < end; ++tile)
 		{
@@ -618,6 +664,9 @@ public:
 
 					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
+					/////// Gamma correct ///////
+					weighted_sum = Colour4f(powf4(weighted_sum.v, recip_gamma_v.v));
+
 					////// Dither ///////
 					if(dithering)
 						weighted_sum = ditherPixel(weighted_sum, y*xres + x); 
@@ -712,6 +761,9 @@ public:
 				for(ptrdiff_t x = x_min; x < x_max; ++x)
 				{
 					Colour4f col = tile_buffer.getPixel(addr++);
+
+					/////// Gamma correct ///////
+					col = Colour4f(powf4(col.v, recip_gamma_v.v));
 
 					////// Dither ///////
 					if(dithering)
@@ -820,6 +872,7 @@ void doTonemap(
 	closure.final_yres = final_yres;
 	closure.filter_size = filter_size;
 	closure.margin_ssf1 = margin_ssf1;
+	closure.gamma = gamma;
 
 	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
 
