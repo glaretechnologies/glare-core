@@ -26,9 +26,18 @@ public:
 	~JPEGDecoder();
 
 
+	struct SaveOptions
+	{
+		SaveOptions() : quality(95) {}
+		SaveOptions(int quality_) : quality(quality_) {}
+
+		int quality;
+	};
+
+
 	static Reference<Map2D> decode(const std::string& indigo_base_dir, const std::string& path);
 
-	static void save(const Reference<ImageMapUInt8>& image, const std::string& path);
+	static void save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options);
 
 
 	static void test(const std::string& indigo_base_dir);

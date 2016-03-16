@@ -271,7 +271,7 @@ public:
 
 
 // Saves a JPEG with 95% image quality, and in the sRGB colour space. (embeds an ICC sRGB colour profile)
-void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path)
+void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options)
 {
 	try
 	{
@@ -301,7 +301,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		cinfo.in_color_space = image->getN() >= 3 ? JCS_RGB : JCS_GRAYSCALE; // colorspace of input image
 
 		jpeg_set_defaults(&cinfo); // Set default parameters for compression.
-		jpeg_set_quality(&cinfo, 95, TRUE);
+		jpeg_set_quality(&cinfo, options.quality, TRUE);
 
 		// Build array of scanline pointers
 		const unsigned int H = (unsigned int)image->getHeight();
@@ -397,7 +397,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 			// Try saving it.
 		
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
@@ -422,7 +422,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
@@ -446,7 +446,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
@@ -487,7 +487,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			failTest("Expected failure.");
 		}
@@ -503,7 +503,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
-			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path);
+			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			failTest("Expected failure.");
 		}
