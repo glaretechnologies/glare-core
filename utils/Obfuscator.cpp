@@ -536,11 +536,14 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 			if(remove_comments)
 			{
 				// We need a newline at the end of lines like    #if 0//(BLOCK_SIZE <= 32)
-				if(parsing_preprocessor_line)
+				if(parsing_preprocessor_line || !collapse_whitespace)
 					res.push_back('\n');
 			}
 			else
 				res += s.substr(initial_pos, p.currentPos() - initial_pos); // append comment to output
+
+			parsing_preprocessor_line = false; // C++-style comment runs until the end of the line. Therefore once we have parsed it we are not in a proprocessor def any more.
+
 			//else if(res.substr(res.size() - 1, 1) != "\n")
 			//	res += "\n";
 			continue;
@@ -1161,6 +1164,43 @@ void Obfuscator::test()
 			testAssert(hasPrefix(lines[1], "#define "));
 		}
 
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest("Error: " + e.what());
+	}
+
+
+	// Test without collapsing whitespace
+	try
+	{
+		Obfuscator ob(
+			false, // collapse_whitespace
+			true, // remove_comments
+			true, // change tokens
+			Obfuscator::Lang_OpenCL
+		);
+
+		// Make sure newlines at the end of preprocessor definitions (with comments after them) are not removed.
+		{
+			const std::string s = 
+"#if 0//(BLOCK_SIZE <= 32)		\n\
+	return f(morton);//comment\n\
+#else\n\
+	return g(morton);//comment2\n\
+#endif\n\
+";
+			const std::string ob_s = ob.obfuscateOpenCLC(s);
+			conPrint("--------------");
+			conPrint(ob_s);
+			conPrint("--------------");
+			testAssert(std::count(ob_s.begin(), ob_s.end(), '\n') >= 5);
+
+			const std::vector<std::string> lines = ::split(ob_s, '\n');
+			testAssert(lines[0] == "#if 0");
+			testAssert(lines[2] == "#else");
+			testAssert(lines[4] == "#endif");
+		}
 	}
 	catch(Indigo::Exception& e)
 	{
