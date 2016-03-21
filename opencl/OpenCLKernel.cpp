@@ -147,10 +147,14 @@ double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t 
 		if(result != CL_SUCCESS)
 			throw Indigo::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
+		result = getGlobalOpenCL()->clReleaseEvent(profile_event);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clReleaseEvent failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+
 		const double elapsed_ns = (double)time_end - (double)time_start;
 		const double elapsed_s = elapsed_ns * 1.0e-9;
 
-		// conPrint("Kernel " + kernel_name + " exec took " + toString(elapsed_s) + " s");
+		//conPrint(rightSpacePad("Kernel " + kernel_name + " exec took ", 50) + doubleToStringNSigFigs(elapsed_s * 1.0e3, 5) + " ms");
 		total_exec_time_s += elapsed_s;
 		return elapsed_s;
 	}
