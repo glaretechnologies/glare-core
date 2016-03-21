@@ -124,9 +124,9 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 }
 
 
-void CameraController::getAngles(Vec3d& angles_out)
+Vec3d CameraController::getAngles() const
 {
-	angles_out = rotation;
+	return rotation;
 }
 
 
@@ -188,10 +188,42 @@ void CameraController::getBasisForAngles(const Vec3d& angles_in, const Vec3d& si
 }
 
 
+void CameraController::getAxisAngleForAngles(const Vec3d& euler_angles_in, Vec3d& axis_out, double& angle_out)
+{
+	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToAngle/
+
+	const double heading = euler_angles_in.x;
+	const double attitude = 0; // TEMP HACK Maths::pi_2<float>() - euler_angles_in.y;
+	const double bank = euler_angles_in.z;
+
+	const double c1 = cos(heading * 0.5);
+	const double c2 = cos(attitude * 0.5);
+	const double c3 = cos(bank * 0.5);
+	const double s1 = sin(heading * 0.5);
+	const double s2 = sin(attitude * 0.5);
+	const double s3 = sin(bank * 0.5);
+
+	angle_out = 2 * std::acos(c1*c2*c3 - s1*s2*s3);
+
+	const Vec3d axis(
+		s1 * s2 * c3 + c1 * c2 * s3,
+		s1 * c2 * c3 + c1 * s2 * s3,
+		c1 * s2 * c3 - s1 * c2 * s3
+	);
+	
+	const double len = axis.length();
+	if(len == 0)
+		axis_out = Vec3d(1,0,0);
+	else
+		axis_out = axis / len;
+}
+
+
 #if BUILD_TESTS
 
 #include "../maths/mathstypes.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
 
 void CameraController::test()
 {
@@ -217,14 +249,20 @@ void CameraController::test()
 
 	// Initialise canonical viewing system and test that the viewing angles are correct
 	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0));
-	cc.getAngles(angles);
+	angles = cc.getAngles();
 	testAssert(::epsEqual(angles.x, 0.0)); testAssert(::epsEqual(angles.y, NICKMATHS_PI)); testAssert(::epsEqual(angles.z,  0.0));
 
 	// Apply a rotation along z (roll) of 90 degrees, or pi/4 radians
 	angles.z = -NICKMATHS_PI_2;
 	CameraController::getBasisForAngles(angles, Vec3d(0, 1, 0), r, u, f);
 
-	//sdfgdfghd
+	{
+		Vec3d axis;
+		double angle;
+		CameraController::getAxisAngleForAngles(Vec3d(0.0), axis, angle);
+		conPrint(axis.toString());
+		conPrint(toString(angle));
+	}
 }
 
 #endif // BUILD_TESTS

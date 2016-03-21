@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "../graphics/colour3.h"
+#include "../graphics/Colour4f.h"
 #include "../physics/jscol_aabbox.h"
 #include "../opengl/OpenGLTexture.h"
 #include "../opengl/OpenGLProgram.h"
@@ -125,6 +126,7 @@ public:
 	void unloadAllData();
 
 	void addObject(const Reference<GLObject>& object);
+	void removeObject(const Reference<GLObject>& object);
 
 	void newMaterialUsed(OpenGLMaterial& mat);
 
@@ -155,15 +157,19 @@ public:
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 
 
+	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
+
+
 	// Built OpenGLMeshRenderData from an Indigo::Mesh.
 	// Throws Indigo::Exception on failure
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_);
+
 
 private:
 	void buildMaterial(OpenGLMaterial& mat);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
-
+	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -173,6 +179,7 @@ private:
 
 	//OpenGLMeshRenderData aabb_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
+	Reference<OpenGLMeshRenderData> arrow_meshdata;
 	GLObjectRef env_ob;
 
 	float sensor_width;

@@ -33,7 +33,7 @@ public:
 	void setMoveScale(double move_scale);
 
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
-	void getAngles(Vec3d& angles_out); // Specified as (heading, pitch, roll).
+	Vec3d getAngles() const; // Specified as (heading, pitch, roll).
 
 	Vec3d getForwardsVec() const;
 	Vec3d getRightVec() const;
@@ -43,6 +43,8 @@ public:
 	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);
 	static void getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
 
+	static void getAxisAngleForAngles(const Vec3d& euler_angles_in, Vec3d& axis_out, double& angle_out);
+
 	bool invert_mouse;
 
 	static void test();
@@ -51,6 +53,7 @@ private:
 
 	Vec3d position;
 	Vec3d rotation; // Specified as (heading, pitch, roll).
+	// pitch is theta. 0 = looking straight up, pi = looking straight down.
 
 	Vec3d initialised_up;
 

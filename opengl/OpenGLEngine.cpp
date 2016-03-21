@@ -248,6 +248,8 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 	meshdata.batches[0].num_indices = (uint32)indices.size();
 	meshdata.batches[0].prim_start_offset = 0;
 
+	meshdata.aabb_os = js::AABBox::emptyAABBox();
+
 	js::Vector<float, 16> combined_data;
 	const int NUM_COMPONENTS = 8;
 	combined_data.resizeUninitialised(NUM_COMPONENTS * vertices.size());
@@ -261,6 +263,8 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 		combined_data[i*NUM_COMPONENTS + 5] = normals[i].z;
 		combined_data[i*NUM_COMPONENTS + 6] = uvs[i].x;
 		combined_data[i*NUM_COMPONENTS + 7] = uvs[i].y;
+
+		meshdata.aabb_os.enlargeToHoldPoint(Vec4f(vertices[i].x, vertices[i].y, vertices[i].z, 1.f));
 	}
 
 	meshdata.vert_vbo = new VBO(&combined_data[0], combined_data.dataSizeBytes());
@@ -417,7 +421,6 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 		sphere_meshdata = new OpenGLMeshRenderData();
 		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
-		sphere_meshdata->aabb_os = js::AABBox(Vec4f(-1.f, -1.f, -1.f, 1.f), Vec4f(1.f, 1.f, 1.f, 1.f));
 	}
 
 	this->env_ob->mesh_data = sphere_meshdata;
@@ -559,6 +562,26 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(have_transparent_mat)
 		transparent_objects.push_back(object);
+}
+
+
+void OpenGLEngine::removeObject(const Reference<GLObject>& object)
+{
+	// NOTE: linear time
+
+	for(size_t i=0; i<objects.size(); ++i)
+		if(objects[i].getPointer() == object.getPointer())
+		{
+			objects.erase(objects.begin() + i);
+			break;
+		}
+
+	for(size_t i=0; i<transparent_objects.size(); ++i)
+		if(transparent_objects[i].getPointer() == object.getPointer())
+		{
+			transparent_objects.erase(transparent_objects.begin() + i);
+			break;
+		}
 }
 
 
@@ -1586,4 +1609,151 @@ void OpenGLEngine::drawBatchWireframe(const OpenGLBatch& batch, int num_verts_pe
 	//	glDrawArrays(GL_TRIANGLES, 0, (GLsizei)pass_data.num_prims * 3);
 	//else
 	//	glDrawArrays(GL_QUADS, 0, (GLsizei)pass_data.num_prims * 4);
+}
+
+
+GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale)
+{
+	GLObjectRef ob = new GLObject();
+
+	// We want to map the vector (1,0,0) to endpos-startpos.
+	// We want to map the point (0,0,0) to startpos.
+
+	const Vec4f dir = endpos - startpos;
+	const Vec4f col1 = normalise(std::fabs(dir[2]) > 0.5f ? crossProduct(dir, Vec4f(1,0,0,0)) : crossProduct(dir, Vec4f(0,0,1,0))) * radius_scale;
+	const Vec4f col2 = normalise(crossProduct(dir, col1)) * radius_scale;
+	//ob->ob_to_world_matrix = Matrix4f::identity();
+	ob->ob_to_world_matrix.setColumn(0, dir);
+	ob->ob_to_world_matrix.setColumn(1, col1);
+	ob->ob_to_world_matrix.setColumn(2, col2);
+	ob->ob_to_world_matrix.setColumn(3, startpos);
+
+	if(arrow_meshdata.isNull())
+		arrow_meshdata = make3DArrowMesh();
+	ob->mesh_data = arrow_meshdata;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	return ob;
+}
+
+
+// Base will be at origin, tip will lie at (1, 0, 0)
+Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+	
+	const int res = 20;
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(res * 4 * 2);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(res * 4 * 2);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(res * 4 * 2);
+	js::Vector<uint32, 16> indices;
+	indices.resize(res * 6 * 2); // two tris per quad
+
+	const Vec3f dir(1,0,0);
+	const Vec3f basis_i(0,1,0);
+	const Vec3f basis_j(0,0,1);
+
+	const float length = 1;
+	const float shaft_r = length * 0.02f;
+	const float shaft_len = length * 0.8f;
+	const float head_r = length * 0.04f;
+
+	// Draw cylinder for shaft of arrow
+	for(int i=0; i<res; ++i)
+	{
+		const float angle      = i       * Maths::get2Pi<float>() / res;
+		const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
+
+		// Define quad
+		{
+		Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+		Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+
+		normals[i*8 + 0] = normal1;
+		normals[i*8 + 1] = normal2;
+		normals[i*8 + 2] = normal2;
+		normals[i*8 + 3] = normal1;
+
+		Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r);
+		Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r);
+		Vec3f v2((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r + dir * shaft_len);
+		Vec3f v3((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r + dir * shaft_len);
+
+		verts[i*8 + 0] = v0;
+		verts[i*8 + 1] = v1;
+		verts[i*8 + 2] = v2;
+		verts[i*8 + 3] = v3;
+
+		uvs[i*8 + 0] = Vec2f(0.f);
+		uvs[i*8 + 1] = Vec2f(0.f);
+		uvs[i*8 + 2] = Vec2f(0.f);
+		uvs[i*8 + 3] = Vec2f(0.f);
+
+		indices[i*12 + 0] = i*8 + 0; 
+		indices[i*12 + 1] = i*8 + 1; 
+		indices[i*12 + 2] = i*8 + 2; 
+		indices[i*12 + 3] = i*8 + 0;
+		indices[i*12 + 4] = i*8 + 2;
+		indices[i*12 + 5] = i*8 + 3;
+		}
+
+		// Define arrow head
+		{
+		//Vec3f normal(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+		// NOTE: this normal is somewhat wrong.
+		Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+		Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+
+		normals[i*8 + 4] = normal1;
+		normals[i*8 + 5] = normal2;
+		normals[i*8 + 6] = normal2;
+		normals[i*8 + 7] = normal1;
+
+		Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * head_r + dir * shaft_len);
+		Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len);
+		Vec3f v2(dir * length);
+		Vec3f v3(dir * length);
+
+		verts[i*8 + 4] = v0;
+		verts[i*8 + 5] = v1;
+		verts[i*8 + 6] = v2;
+		verts[i*8 + 7] = v3;
+
+		uvs[i*8 + 4] = Vec2f(0.f);
+		uvs[i*8 + 5] = Vec2f(0.f);
+		uvs[i*8 + 6] = Vec2f(0.f);
+		uvs[i*8 + 7] = Vec2f(0.f);
+
+		indices[i*12 +  6] = i*8 + 4; 
+		indices[i*12 +  7] = i*8 + 5; 
+		indices[i*12 +  8] = i*8 + 6; 
+		indices[i*12 +  9] = i*8 + 4;
+		indices[i*12 + 10] = i*8 + 6;
+		indices[i*12 + 11] = i*8 + 7;
+		}
+	}
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+
+	
+
+	//
+
+	//for(int i=0; i<res; ++i)
+	//{
+	//	const float angle      = i       * Maths::get2Pi<float>() / res;
+	//	const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
+
+	//	// Draw quad
+	//	glNormal3fv((basis_i * cos(angle     ) + basis_j * sin(angle     )).x);
+	//	glVertex4fv((startpos + (basis_i * cos(angle     ) + basis_j * sin(angle     )) * head_r + dir * shaft_len).x);
+	//	glVertex4fv((startpos + (basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len).x);
+	//	glVertex4fv((startpos + (dir * length)).x);
+	//	glVertex4fv((startpos + (dir * length)).x);
+	//}
 }
