@@ -158,6 +158,7 @@ public:
 
 
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
+	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 
 
 	// Built OpenGLMeshRenderData from an Indigo::Mesh.
@@ -170,6 +171,7 @@ private:
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
+	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -180,6 +182,7 @@ private:
 	//OpenGLMeshRenderData aabb_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
 	Reference<OpenGLMeshRenderData> arrow_meshdata;
+	Reference<OpenGLMeshRenderData> cube_meshdata;
 	GLObjectRef env_ob;
 
 	float sensor_width;

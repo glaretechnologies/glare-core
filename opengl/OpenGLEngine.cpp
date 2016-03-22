@@ -1637,6 +1637,28 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 }
 
 
+GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col)
+{
+	GLObjectRef ob = new GLObject();
+
+	const Vec4f span = max_ - min_;
+
+	ob->ob_to_world_matrix.setColumn(0, Vec4f(span[0], 0, 0, 0));
+	ob->ob_to_world_matrix.setColumn(1, Vec4f(0, span[1], 0, 0));
+	ob->ob_to_world_matrix.setColumn(2, Vec4f(0, 0, span[2], 0));
+	ob->ob_to_world_matrix.setColumn(3, min_); // set origin
+
+	if(cube_meshdata.isNull())
+		cube_meshdata = makeCubeMesh();
+	ob->mesh_data = cube_meshdata;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	return ob;
+}
+
+
 // Base will be at origin, tip will lie at (1, 0, 0)
 Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
 {
@@ -1739,21 +1761,142 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
+}
 
+
+// Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 	
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(24); // 6 faces * 4 verts/face
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(24);
+	js::Vector<Vec2f, 16> uvs(24, Vec2f(0.f));
+	js::Vector<uint32, 16> indices;
+	indices.resize(6 * 6); // two tris per face, 6 faces
 
-	//
+	for(int face = 0; face < 6; ++face)
+	{
+		indices[face*6 + 0] = face*4 + 0; 
+		indices[face*6 + 1] = face*4 + 1; 
+		indices[face*6 + 2] = face*4 + 2; 
+		indices[face*6 + 3] = face*4 + 0;
+		indices[face*6 + 4] = face*4 + 2;
+		indices[face*6 + 5] = face*4 + 3;
+	}
+	
+	int face = 0;
 
-	//for(int i=0; i<res; ++i)
-	//{
-	//	const float angle      = i       * Maths::get2Pi<float>() / res;
-	//	const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
+	// x = 0 face
+	{
+		Vec3f v0(0, 0, 0);
+		Vec3f v1(0, 0, 1);
+		Vec3f v2(0, 1, 1);
+		Vec3f v3(0, 1, 0);
+		
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
 
-	//	// Draw quad
-	//	glNormal3fv((basis_i * cos(angle     ) + basis_j * sin(angle     )).x);
-	//	glVertex4fv((startpos + (basis_i * cos(angle     ) + basis_j * sin(angle     )) * head_r + dir * shaft_len).x);
-	//	glVertex4fv((startpos + (basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len).x);
-	//	glVertex4fv((startpos + (dir * length)).x);
-	//	glVertex4fv((startpos + (dir * length)).x);
-	//}
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(-1, 0, 0);
+		
+		face++;
+	}
+
+	// x = 1 face
+	{
+		Vec3f v0(1, 0, 0);
+		Vec3f v1(1, 1, 0);
+		Vec3f v2(1, 1, 1);
+		Vec3f v3(1, 0, 1);
+		
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
+
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(1, 0, 0);
+		
+		face++;
+	}
+
+	// y = 0 face
+	{
+		Vec3f v0(0, 0, 0);
+		Vec3f v1(1, 0, 0);
+		Vec3f v2(1, 0, 1);
+		Vec3f v3(0, 0, 1);
+		
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
+
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(0, -1, 0);
+		
+		face++;
+	}
+
+	// y = 1 face
+	{
+		Vec3f v0(0, 1, 0);
+		Vec3f v1(0, 1, 1);
+		Vec3f v2(1, 1, 1);
+		Vec3f v3(1, 1, 0);
+		
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
+
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(0, 1, 0);
+		
+		face++;
+	}
+
+	// z = 0 face
+	{
+		Vec3f v0(0, 0, 0);
+		Vec3f v1(1, 0, 0);
+		Vec3f v2(1, 1, 0);
+		Vec3f v3(0, 1, 0);
+		
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
+
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(0, 0, -1);
+		
+		face++;
+	}
+
+	// z = 1 face
+	{
+		Vec3f v0(0, 0, 1);
+		Vec3f v1(1, 0, 1);
+		Vec3f v2(1, 1, 1);
+		Vec3f v3(0, 1, 1);
+
+		verts[face*4 + 0] = v0;
+		verts[face*4 + 1] = v1;
+		verts[face*4 + 2] = v2;
+		verts[face*4 + 3] = v3;
+
+		for(int i=0; i<4; ++i)
+			normals[face*4 + i] = Vec3f(0, 0, 1);
+		
+		face++;
+	}
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
 }
