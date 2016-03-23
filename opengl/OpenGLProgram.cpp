@@ -48,12 +48,22 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenG
 		glBindAttribLocation(program, 0, "position_in");
 		glBindAttribLocation(program, 1, "normal_in");
 	}
-	else
+	else if(prog_name == "phong")
 	{
 		glBindAttribLocation(program, 0, "position_in");
 		glBindAttribLocation(program, 1, "normal_in");
 		glBindAttribLocation(program, 2, "texture_coords_0_in");
 	}
+	else if(prog_name == "overlay")
+	{
+		glBindAttribLocation(program, 0, "position_in");
+	}
+	else
+	{
+		assert(0);
+	}
+
+
 
 
     glLinkProgram(program);

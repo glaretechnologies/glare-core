@@ -109,6 +109,19 @@ struct GLObject : public RefCounted
 typedef Reference<GLObject> GLObjectRef;
 
 
+struct OverlayObject : public RefCounted
+{
+	INDIGO_ALIGNED_NEW_DELETE
+
+	Matrix4f ob_to_world_matrix;
+
+	Reference<OpenGLMeshRenderData> mesh_data;
+	
+	OpenGLMaterial material;
+};
+typedef Reference<OverlayObject> OverlayObjectRef;
+
+
 #ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
@@ -127,6 +140,9 @@ public:
 
 	void addObject(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
+
+	void addOverlayObject(const Reference<OverlayObject>& object);
+
 
 	void newMaterialUsed(OpenGLMaterial& mat);
 
@@ -166,6 +182,7 @@ public:
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_);
 
 
+	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
 private:
 	void buildMaterial(OpenGLMaterial& mat);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
@@ -194,6 +211,7 @@ private:
 public:
 	std::vector<Reference<GLObject> > objects;
 	std::vector<Reference<GLObject> > transparent_objects;
+	std::vector<Reference<OverlayObject> > overlay_objects; // UI overlays
 private:
 	float max_draw_dist;
 
@@ -228,7 +246,8 @@ private:
 	int env_diffuse_tex_location;
 	int env_texture_matrix_location;
 
-	bool support_geom_normal_shader;
+	Reference<OpenGLProgram> overlay_prog;
+	int overlay_diffuse_colour_location;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B

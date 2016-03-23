@@ -35,6 +35,7 @@ public:
 	inline void setToTranslationMatrix(float x, float y, float z);
 	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
 	void setToUniformScaleMatrix(float scale);
+	void setToScaleMatrix(float xscale, float yscale, float zscale);
 
 	inline const Vec4f mul3Vector(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;

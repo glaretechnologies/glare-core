@@ -228,6 +228,27 @@ void Matrix4f::setToUniformScaleMatrix(float scale)
 }
 
 
+void Matrix4f::setToScaleMatrix(float xscale, float yscale, float zscale)
+{
+	e[ 0] = xscale;
+	e[ 1] = 0;
+	e[ 2] = 0;
+	e[ 3] = 0;
+	e[ 4] = 0;
+	e[ 5] = yscale;
+	e[ 6] = 0;
+	e[ 7] = 0;
+	e[ 8] = 0;
+	e[ 9] = 0;
+	e[10] = zscale;
+	e[11] = 0;
+	e[12] = 0;
+	e[13] = 0;
+	e[14] = 0;
+	e[15] = 1;
+}
+
+
 const std::string Matrix4f::rowString(int row_index) const
 {
 	return ::toString(e[row_index + 0]) + " " + ::toString(e[row_index + 4]) + " " + ::toString(e[row_index + 8]) + " " + ::toString(e[row_index + 12]);

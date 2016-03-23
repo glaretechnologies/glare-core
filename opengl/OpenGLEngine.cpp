@@ -37,8 +37,7 @@ static const bool MEM_PROFILE = false;
 
 OpenGLEngine::OpenGLEngine()
 :	init_succeeded(false),
-	anisotropic_filtering_supported(false),
-	support_geom_normal_shader(false)
+	anisotropic_filtering_supported(false)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -426,37 +425,6 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	this->env_ob->mesh_data = sphere_meshdata;
 
 
-	// Create VBO for unit AABB.
-	/*{
-		std::vector<Vec3f> corners;
-		corners.push_back(Vec3f(0,0,0));
-		corners.push_back(Vec3f(1,0,0));
-		corners.push_back(Vec3f(0,1,0));
-		corners.push_back(Vec3f(1,1,0));
-		corners.push_back(Vec3f(0,0,1));
-		corners.push_back(Vec3f(1,0,1));
-		corners.push_back(Vec3f(0,1,1));
-		corners.push_back(Vec3f(1,1,1));
-
-		std::vector<Vec3f> verts;
-		verts.push_back(corners[0]); verts.push_back(corners[1]); verts.push_back(corners[5]); verts.push_back(corners[4]); // front face
-		verts.push_back(corners[4]); verts.push_back(corners[5]); verts.push_back(corners[7]); verts.push_back(corners[6]); // top face
-		verts.push_back(corners[7]); verts.push_back(corners[5]); verts.push_back(corners[1]); verts.push_back(corners[3]); // right face
-		verts.push_back(corners[6]); verts.push_back(corners[7]); verts.push_back(corners[3]); verts.push_back(corners[2]); // back face
-		verts.push_back(corners[4]); verts.push_back(corners[6]); verts.push_back(corners[2]); verts.push_back(corners[0]); // left face
-		verts.push_back(corners[0]); verts.push_back(corners[2]); verts.push_back(corners[3]); verts.push_back(corners[1]); // bottom face
-
-		std::vector<Vec3f> normals;
-		std::vector<Vec2f> uvs;
-
-		aabb_passdata.num_prims = 6;
-		aabb_passdata.material_index = 0;
-		buildPassData(aabb_passdata, verts, normals, uvs);
-	}*/
-
-	support_geom_normal_shader = true;
-
-
 	try
 	{
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
@@ -493,6 +461,13 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
 		env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 		env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
+
+		overlay_prog = new OpenGLProgram(
+			"overlay",
+			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", GL_FRAGMENT_SHADER)
+		);
+		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
 
 		init_succeeded = true;
 	}
@@ -562,6 +537,13 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(have_transparent_mat)
 		transparent_objects.push_back(object);
+}
+
+
+void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
+{
+	this->overlay_objects.push_back(object);
+	object->material.shader_prog = overlay_prog;
 }
 
 
@@ -850,105 +832,35 @@ void OpenGLEngine::draw()
 	}
 
 
-	// Draw alpha-blended grey quads on the outside of 'render viewport'.
-	// Also draw some blue lines on the edge of the quads.
-	if(false) // Disable for now until we get rid of the fixed-function pipeline usage
+	//================= Draw UI overlay objects =================
 	{
-#if 0
-		// Reset transformations
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		glDisable(GL_DEPTH_TEST); // Disable depth test, so the viewport lines are always drawn over existing fragments.
-		glDisable(GL_LIGHTING);
-
-		// Set quad colour
-		const float grey = 0.5f;
-		glColor4d(grey, grey, grey, 0.5f);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-		const Vec3d line_colour(0.094, 0.41960784313725490196078431372549, 0.54901960784313725490196078431373);
-
-		const float z = 0.02f;
-
-		if(viewport_aspect_ratio > render_aspect_ratio)
+		for(size_t i=0; i<overlay_objects.size(); ++i)
 		{
-			const float x = render_aspect_ratio / viewport_aspect_ratio;
+			const OverlayObject* const ob = overlay_objects[i].getPointer();
+			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+			{
+				assert(ob->material.shader_prog.getPointer() == this->overlay_prog.getPointer());
 
-			// Draw quads
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glBegin(GL_QUADS);
+				ob->material.shader_prog->useProgram();
 
-			// Left quad
-			glVertex3f(-1, -1, z);
-			glVertex3f(-x, -1, z);
-			glVertex3f(-x, 1, z);
-			glVertex3f(-1, 1, z);
+				glUniform4f(this->overlay_diffuse_colour_location, ob->material.albedo_rgb.r, ob->material.albedo_rgb.g, ob->material.albedo_rgb.b, ob->material.alpha);
+				glUniformMatrix4fv(ob->material.shader_prog->model_matrix_loc, 1, false, ob->ob_to_world_matrix.e);
+				
+				glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)mesh_data.batches[0].prim_start_offset);
 
-			// Right quad
-			glVertex3f(x, -1, z);
-			glVertex3f(1, -1, z);
-			glVertex3f(1, 1, z);
-			glVertex3f(x, 1, z);
-
-			glEnd(); // GL_QUADS
-			glDisable(GL_BLEND);
-
-			// Draw vertical lines
-			glColor3dv(&line_colour.x);
-			glBegin(GL_LINES);
-
-			glVertex3f(x, -1, z); // origin of the line
-			glVertex3f(x, 1, z); // ending point of the line
-
-			glVertex3f(-x, -1, z); // origin of the line
-			glVertex3f(-x, 1, z); // ending point of the line
-
-			glEnd(); // GL_LINES
+				ob->material.shader_prog->useNoPrograms();
+			}
+			unbindMeshData(mesh_data);
 		}
-		else
-		{
-			const float y = viewport_aspect_ratio / render_aspect_ratio;
 
-			// Draw quads
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glBegin(GL_QUADS);
-
-			// Bottom quad
-			glVertex3f(-1, -1, z);
-			glVertex3f(1, -1, z);
-			glVertex3f(1, -y, z);
-			glVertex3f(-1,-y, z);
-
-			// Top quad
-			glVertex3f(-1, y, z);
-			glVertex3f(1, y, z);
-			glVertex3f(1, 1, z);
-			glVertex3f(-1,1, z);
-
-			glEnd(); // GL_QUADS
-			glDisable(GL_BLEND);
-
-			// Draw vertical lines
-			glColor3dv(&line_colour.x);
-			glBegin(GL_LINES);
-
-			glVertex3f(-1, y, z); // origin of the line
-			glVertex3f( 1, y, z); // ending point of the line
-
-			glVertex3f(-1, -y, z); // origin of the line
-			glVertex3f( 1, -y, z); // ending point of the line
-
-			glEnd(); // GL_LINES
-		}
-	
-		glEnable(GL_DEPTH_TEST);
-#endif
+		glDisable(GL_BLEND);
 	}
+
 
 	if(PROFILE)
 	{
@@ -1515,7 +1427,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 		}
-		else
+		else if(opengl_mat.shader_prog.getPointer() == this->env_prog.getPointer())
 		{
 			glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 			glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
@@ -1534,59 +1446,14 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glUniform1i(this->env_diffuse_tex_location, 0);
 			}
 		}
+		else
+		{
+			assert(0);
+		}
 		
-
 		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
 
 		opengl_mat.shader_prog->useNoPrograms();
-	}
-	else
-	{
-#if 0
-		if(opengl_mat.transparent)
-			return; // Don't render transparent materials in the solid pass
-
-		// Set OpenGL material state
-		if(opengl_mat.albedo_texture.nonNull())// && mesh_data.uvs_vbo.nonNull())
-		{
-			GLfloat mat_amb_diff[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-			glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, mat_amb_diff);
-
-			glEnable(GL_TEXTURE_2D);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
-			// Set texture matrix
-			glMatrixMode(GL_TEXTURE); // Enter texture matrix mode
-			const GLfloat tex_elems[16] = {
-				opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-				opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-				0, 0, 1, 0,
-				opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
-			};
-			glLoadMatrixf(tex_elems);
-			glMatrixMode(GL_MODELVIEW); // Back to modelview mode
-		}
-		else
-		{
-			GLfloat mat_amb_diff[] = { opengl_mat.albedo_rgb[0], opengl_mat.albedo_rgb[1], opengl_mat.albedo_rgb[2], 1.0f };
-			glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, mat_amb_diff);
-		}
-
-		GLfloat mat_spec[] = { opengl_mat.specular_rgb[0], opengl_mat.specular_rgb[1], opengl_mat.specular_rgb[2], 1.0f };
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_spec);
-		GLfloat shininess[] = { opengl_mat.shininess };
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
-
-
-		if(batch.num_verts_per_prim == 3)
-			glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_prims*3, GL_UNSIGNED_INT, (void*)batch.prim_start_offset);
-		else
-			glDrawElements(GL_QUADS,     (GLsizei)batch.num_prims*4, GL_UNSIGNED_INT, (void*)batch.prim_start_offset);
-
-
-		if(opengl_mat.albedo_texture.nonNull())
-			glDisable(GL_TEXTURE_2D);
-#endif
 	}
 
 	this->num_indices_submitted += batch.num_indices;
@@ -1896,6 +1763,44 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		
 		face++;
 	}
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+}
+
+
+// Makes a quad with xspan = 1, yspan = 1, lying on the z = 0 plane.
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+	
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(4);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(4);
+	js::Vector<Vec2f, 16> uvs(4, Vec2f(0.f));
+	js::Vector<uint32, 16> indices;
+	indices.resize(6); // two tris per face
+
+	indices[0] = 0; 
+	indices[1] = 1; 
+	indices[2] = 2; 
+	indices[3] = 0;
+	indices[4] = 2;
+	indices[5] = 3;
+	
+	Vec3f v0(0, 0, 0);
+	Vec3f v1(1, 0, 0);
+	Vec3f v2(1, 1, 0);
+	Vec3f v3(0, 1, 0);
+		
+	verts[0] = v0;
+	verts[1] = v1;
+	verts[2] = v2;
+	verts[3] = v3;
+
+	for(int i=0; i<4; ++i)
+		normals[i] = Vec3f(0, 0, -1);
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
