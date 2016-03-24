@@ -38,7 +38,7 @@ void Camera::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sam
 }
 
 
-void Camera::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const
+void Camera::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_abs_error_out, Vec2f& uv0_out) const
 {
 	assert(0);
 }

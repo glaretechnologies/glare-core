@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "../indigo/ThreadContext.h"
 #include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
+#include "../utils/Numeric.h"
 
 
 RaySphere::RaySphere(const Vec4f& centre_, double radius_)
@@ -83,21 +84,21 @@ const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) 
 }
 
 
-void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_os_out) const
+void RaySphere::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_abs_error_out, Vec3Type& N_g_os_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	pos_os_out = centre + N_g_os_out * this->radius;
-	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon() * 5;
+	pos_os_abs_error_out = std::numeric_limits<Real>::epsilon() * 5 * Numeric::L1Norm(pos_os_out);
 }
 
 
-void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const
+void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_abs_error_out, Vec2f& uv0_out) const
 {
 	N_g_os_out = GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y);
 	N_s_os_out = N_g_os_out;
 	mat_index_out = 0;
 	pos_os_out = centre + N_g_os_out * this->radius;
-	pos_os_rel_error_out = std::numeric_limits<Real>::epsilon() * 5;
+	pos_os_abs_error_out = std::numeric_limits<Real>::epsilon() * 5 * Numeric::L1Norm(pos_os_out);
 	uv0_out = hitinfo.sub_elem_coords;
 }
 

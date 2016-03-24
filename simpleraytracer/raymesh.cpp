@@ -208,7 +208,7 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 }
 
 
-void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_rel_error_out, Vec3Type& N_g_out) const
+void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_abs_error_out, Vec3Type& N_g_out) const
 {
 	assert(built());
 
@@ -225,7 +225,7 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 
 	assert(N_g_out.isUnitLength());
 
-	// Compute pos_os_out and pos_os_rel_error_out
+	// Compute pos_os_out and pos_os_abs_error_out
 	const Vec3RealType w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 	pos_os_out = Vec3Type(
 		v0.pos.x * w + v1.pos.x * hitinfo.sub_elem_coords.x + v2.pos.x * hitinfo.sub_elem_coords.y,
@@ -245,8 +245,6 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 	float v1_norm = Numeric::L1Norm(v1.pos);
 	float v2_norm = Numeric::L1Norm(v2.pos);
 
-	float pos_os_norm = Numeric::L1Norm(pos_os_out); // pos_os_out.getDist(Vec4f(0,0,0,1));
-
 	// Do the absolute error computation
 	float a = v0_norm;
 	float b = v1_norm;
@@ -256,12 +254,11 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 	// Assuming |del_u| = |del_v| = del_m:
 	float eps = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
 
-	// Convert to relative error.
-	pos_os_rel_error_out = eps / pos_os_norm;
+	pos_os_abs_error_out = eps;
 }
 
 
-void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_rel_error_out, Vec2f& uv0_out) const
+void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_abs_error_out, Vec2f& uv0_out) const
 {
 	assert(built());
 
@@ -289,7 +286,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	assert(N_g_os_out.isUnitLength());
 
 
-	// Compute pos_os_out and pos_os_rel_error_out
+	// Compute pos_os_out and pos_os_abs_error_out
 	pos_os_out = Vec3Type(
 		v0.pos.x * w + v1.pos.x * u + v2.pos.x * v,
 		v0.pos.y * w + v1.pos.y * u + v2.pos.y * v,
@@ -307,8 +304,6 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	float v1_norm = Numeric::L1Norm(v1.pos);
 	float v2_norm = Numeric::L1Norm(v2.pos);
 
-	float pos_os_norm = Numeric::L1Norm(pos_os_out); // pos_os_out.getDist(Vec4f(0,0,0,1));
-
 	// Do the absolute error computation
 	float a = v0_norm;
 	float b = v1_norm;
@@ -318,8 +313,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	// Assuming |del_u| = |del_v| = del_m:
 	float eps = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
 
-	// Convert to relative error.
-	pos_os_rel_error_out = eps / pos_os_norm;
+	pos_os_abs_error_out = eps;
 
 
 	mat_index_out = tri.getTriMatIndex();
