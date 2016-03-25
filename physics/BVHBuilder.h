@@ -102,7 +102,7 @@ public:
 	typedef js::Vector<uint32, 16> ResultObIndicesVec;
 	const ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
 
-	int getMaxLeafDepth() const { return max_leaf_depth; }
+	int getMaxLeafDepth() const { return max_leaf_depth; } // Root node is considered to have depth 0.
 
 	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
 
