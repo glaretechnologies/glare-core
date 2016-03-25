@@ -229,6 +229,7 @@ void Obfuscator::addOpenCLKeywords()
 "fmod",
 "mix",
 "as_uint4",
+"as_int4",
 "as_float",
 "as_uint",
 
