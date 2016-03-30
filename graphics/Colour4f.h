@@ -295,3 +295,10 @@ bool Colour4f::isFinite() const
 {
 	return ::isFinite(x[0]) && ::isFinite(x[1]) && ::isFinite(x[2]) && ::isFinite(x[3]);
 }
+
+
+// If mask element has higher bit set, return a element, else return b element.
+INDIGO_STRONG_INLINE Colour4f select(const Colour4f& a, const Colour4f& b, const Colour4f& mask)
+{
+	return Colour4f(_mm_blendv_ps(b.v, a.v, mask.v));
+}

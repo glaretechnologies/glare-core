@@ -873,7 +873,7 @@ void toNonLinearSpace(
 		const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
 		const Colour4f linear = Colour4f(12.92f) * col;
 		const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
-		const Colour4f sRGBcol = Colour4f(select(linear.v, nonlinear.v, _mm_cmple_ps(col.v, cutoff.v)).v);
+		const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
 
 		assert(epsEqual(sRGBcol, refLinearsRGBtosRGB(col), 1.0e-4f)); // Check against our scalar reference implementation above.
 		col = sRGBcol;
