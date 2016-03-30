@@ -248,7 +248,6 @@ void doTonemapFullBuffer(
 	Image4f& ldr_buffer_out,
 	bool image_buffer_in_XYZ,
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	float gamma,
 	Indigo::TaskManager& task_manager)
 {
 	//Timer t;
@@ -269,7 +268,7 @@ void doTonemapFullBuffer(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi, gamma);
+	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 
 	//if(PROFILE) t.reset();
@@ -481,36 +480,6 @@ void doTonemapFullBuffer(
 		for(size_t i=0; i<ldr_buffer_out.numPixels(); ++i)
 			ldr_buffer_out.getPixel(i).x[3] = 1; 
 
-
-	const bool dithering = renderer_settings.dithering;
-	const Colour4f recip_gamma_v(1.0f / gamma);
-	
-	for(size_t z=0; z<ldr_buffer_out.numPixels(); ++z)
-	{
-		Colour4f col = ldr_buffer_out.getPixel(z);
-
-		/////// Gamma correct ///////
-		col = Colour4f(powf4(col.v, recip_gamma_v.v));
-
-		////// Dither ///////
-		if(dithering)
-			col = ditherPixel(col, z); 
-
-		////// Do alpha divide //////
-		col = max(Colour4f(0.0f), col); // Make sure alpha > 0
-
-		const float recip_alpha = 1 / col.x[3];
-		col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-		
-		col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
-
-		ldr_buffer_out.getPixel(z) = col;
-	}
-
-	// Components should be in range [0, 1]
-	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
-	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
-
 	// Zero out pixels not in the render region
 	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
@@ -531,7 +500,6 @@ struct ImagePipelineTaskClosure
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
-	float gamma;
 
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 };
@@ -558,9 +526,6 @@ public:
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
-		const bool      dithering   = closure.renderer_settings->dithering; // Compute outside loop.
-
-		const Colour4f recip_gamma_v(1.0f / closure.gamma);
 
 		for(int tile = begin; tile < end; ++tile)
 		{
@@ -664,18 +629,6 @@ public:
 
 					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
-					/////// Gamma correct ///////
-					weighted_sum = Colour4f(powf4(weighted_sum.v, recip_gamma_v.v));
-
-					////// Dither ///////
-					if(dithering)
-						weighted_sum = ditherPixel(weighted_sum, y*xres + x); 
-
-					////// Do alpha divide //////
-					const float recip_alpha = 1 / weighted_sum.x[3];
-					weighted_sum *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-
-					weighted_sum.clampInPlace(0, 1); // Ensure result is in [0, 1]
 					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = weighted_sum;
 				}
 			}
@@ -762,19 +715,6 @@ public:
 				{
 					Colour4f col = tile_buffer.getPixel(addr++);
 
-					/////// Gamma correct ///////
-					col = Colour4f(powf4(col.v, recip_gamma_v.v));
-
-					////// Dither ///////
-					if(dithering)
-						col = ditherPixel(col, y*xres + x); 
-
-					////// Do alpha divide //////
-					const float recip_alpha = 1 / col.x[3];
-					col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-					
-					col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
-
 					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = col;
 				}
 			}
@@ -799,7 +739,6 @@ void doTonemap(
 	Image4f& ldr_buffer_out,
 	bool XYZ_colourspace,
 	int margin_ssf1,
-	float gamma,
 	Indigo::TaskManager& task_manager
 	)
 {
@@ -809,7 +748,7 @@ void doTonemap(
 	{
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, margin_ssf1, gamma, task_manager);
+							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager);
 		return;
 	}
 
@@ -856,7 +795,7 @@ void doTonemap(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi, gamma);
+	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 	ImagePipelineTaskClosure closure;
 	closure.per_thread_tile_buffers = &per_thread_tile_buffers;
@@ -872,7 +811,6 @@ void doTonemap(
 	closure.final_yres = final_yres;
 	closure.filter_size = filter_size;
 	closure.margin_ssf1 = margin_ssf1;
-	closure.gamma = gamma;
 
 	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
 
@@ -891,6 +829,43 @@ void doTonemap(
 			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
 				y < renderer_settings.render_region_y1 || y >= renderer_settings.render_region_y2)
 				ldr_buffer_out.setPixel(x, y, Colour4f(0.0f));
+}
+
+
+void toNonLinearZeroOneSpace(
+	const RendererSettings& renderer_settings,
+	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	const float gamma
+	)
+{
+	const bool dithering = renderer_settings.dithering;
+	const Colour4f recip_gamma_v(1.0f / gamma);
+
+	for(size_t z = 0; z<ldr_buffer_out.numPixels(); ++z)
+	{
+		Colour4f col = ldr_buffer_out.getPixel(z);
+
+		/////// Gamma correct ///////
+		col = Colour4f(powf4(col.v, recip_gamma_v.v));
+
+		////// Dither ///////
+		if(dithering)
+			col = ditherPixel(col, z);
+
+		////// Do alpha divide //////
+		col = max(Colour4f(0.0f), col); // Make sure alpha > 0
+
+		const float recip_alpha = 1 / col.x[3];
+		col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
+
+		col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
+
+		ldr_buffer_out.getPixel(z) = col;
+	}
+
+	// Components should be in range [0, 1]
+	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
+	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 }
 
 
@@ -930,9 +905,10 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		ldr_image_out,
 		false, // XYZ_colourspace
 		renderer_settings.getMargin(), // margin at ssf1
-		2.2f, // gamma
 		task_manager
 	);
+
+	ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, ldr_image_out, 2.2f);
 }
 
 
@@ -1136,9 +1112,9 @@ void test()
 			temp_ldr_buffer,
 			false,
 			renderer_settings.getMargin(), // margin at ssf1
-			2.2f, // gamma
 			task_manager);
 
+		ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, temp_ldr_buffer, 2.2f);
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());

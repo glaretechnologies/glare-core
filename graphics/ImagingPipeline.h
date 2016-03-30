@@ -51,8 +51,14 @@ void doTonemap(
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
 	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	float gamma,
 	Indigo::TaskManager& task_manager
+);
+
+
+void toNonLinearZeroOneSpace(
+	const RendererSettings& renderer_settings,
+	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	const float gamma
 );
 
 
