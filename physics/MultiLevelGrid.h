@@ -76,12 +76,6 @@ MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
 }
 
 
-// SSE2
-inline Vec4f toVec4f(const Vec4i& v)
-{
-	return Vec4f(_mm_cvtepi32_ps(v.v));
-}
-
 
 #if COMPILE_SSE4_CODE
 // Modified from Embree embree\common\simd\ssef.h
@@ -89,14 +83,12 @@ inline Vec4f toVec4f(const Vec4i& v)
  /*! workaround for compiler bug in VS2008 */
 #if defined(_MSC_VER) && (_MSC_VER < 1600)
 // mask[i] ? a : b
-INDIGO_STRONG_INLINE const Vec4f select( const __m128& mask, const Vec4f& a, const Vec4f& b ) { return _mm_or_ps(_mm_and_ps(mask, a.v), _mm_andnot_ps(mask, b.v)); }
 INDIGO_STRONG_INLINE const ssei select( const sseb& mask, const ssei& a, const ssei& b )
 { 
 	return _mm_castps_si128(_mm_or_ps(_mm_and_ps(mask, _mm_castsi128_ps(a)), _mm_andnot_ps(mask, _mm_castsi128_ps(b)))); 
 }
 #else
 // mask[i] ? a : b
-INDIGO_STRONG_INLINE const Vec4f select( const __m128& mask, const Vec4f& t, const Vec4f& f ) { return _mm_blendv_ps(f.v, t.v, mask); }
 INDIGO_STRONG_INLINE const Vec4i select( const __m128& mask, const Vec4i& a, const Vec4i& b )
 { 
 	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask)); 
@@ -243,7 +235,7 @@ void MultiLevelGrid<CellTest, Result, NodeData>::trace(const Ray& ray, float ray
 	// Compute the indices of the cell that we will traverse to when we step out of the grid bounds.
 	const Vec4i out = select(mask, Vec4i(MLG_RES), Vec4i(-1));
 
-	const Vec4f cell_w_factor = select(mask, Vec4f(1.f), Vec4f(0.f));
+	const Vec4f cell_w_factor = select(Vec4f(1.f), Vec4f(0.f), mask);
 
 	const Vec4f recip_dir = ray.getRecipRayDirF();
 	const Vec4f abs_recip_dir = abs(recip_dir);
