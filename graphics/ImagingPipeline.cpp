@@ -19,6 +19,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
 #include "../maths/mathstypes.h"
+#include "../maths/Vec4f.h"
 #include "../utils/Platform.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
