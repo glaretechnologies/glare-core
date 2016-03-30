@@ -833,23 +833,24 @@ void doTonemap(
 }
 
 
-#ifndef NDEBUG
 // Convert from linear sRGB to non-linear (compressed) sRGB.
 // From https://en.wikipedia.org/wiki/SRGB
+static float refLinearsRGBtosRGB(float x)
+{
+	if(x <= 0.0031308f)
+		return 12.92f * x;
+	else
+		return (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
+}
+
+
 static const Colour4f refLinearsRGBtosRGB(const Colour4f& col)
 {
 	Colour4f res;
 	for(int i=0; i<4; ++i)
-	{
-		const float x = col[i];
-		if(x <= 0.0031308f)
-			res[i] = 12.92f * x;
-		else
-			res[i] = (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
-	}
+		res[i] = refLinearsRGBtosRGB(col[i]);
 	return res;
 }
-#endif
 
 
 void toNonLinearSpace(
@@ -1022,19 +1023,14 @@ void test()
 		for(int y=0; y<W; ++y)
 		for(int x=0; x<W; ++x)
 		{
-			/*
-			gamma-corrected alpha is 0.5^(1/2.2) = 0.7297400528407231
-			gamma-corrected red = 0.2^(1/2.2) = 0.4811565050522864
-
-			so final red = 0.2^(1/2.2) / 0.5^(1/2.2) = (0.2/0.5)^(1/2.2) = 0.6593532905028939
-
-			final green = (0.4/0.5)^(1/2.2) = 0.9035454309190944
-
-			final blue = 1 as is clamped to 1.
-			*/
+			const float expected_alpha = refLinearsRGBtosRGB(0.5f);
+			const float expected_red = refLinearsRGBtosRGB(0.2f) / expected_alpha;
+			const float expected_green = refLinearsRGBtosRGB(0.4f) / expected_alpha;
+			const float expected_blue = 1.f; // Should be clamped to 1.
 
 			//printVar(ldr_buffer.getPixel(x, y));
-			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(0.6593532905028939f, 0.9035454309190944f, 1.0f, 0.7297400528407231f), 1.0e-4f));
+			//printVar(Colour4f(expected_red, expected_green, 1.0f, expected_alpha));
+			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(expected_red, expected_green, expected_blue, expected_alpha), 2.0e-4f));
 		}
 	}
 
