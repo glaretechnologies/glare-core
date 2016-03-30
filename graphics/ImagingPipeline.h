@@ -72,7 +72,7 @@ such as dithering and gamma correction.
 Input colour space is linear sRGB
 Output colour space is non-linear sRGB with the supplied gamma.
 */
-void toNonLinearZeroOneSpace(
+void toNonLinearSpace(
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 );
