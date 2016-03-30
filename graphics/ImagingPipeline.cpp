@@ -1,7 +1,7 @@
 /*=====================================================================
 ImagingPipeline.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2016 -
 Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #include "ImagingPipeline.h"
@@ -834,16 +834,18 @@ void doTonemap(
 
 void toNonLinearZeroOneSpace(
 	const RendererSettings& renderer_settings,
-	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
 	const float gamma
 	)
 {
 	const bool dithering = renderer_settings.dithering;
 	const Colour4f recip_gamma_v(1.0f / gamma);
 
-	for(size_t z = 0; z<ldr_buffer_out.numPixels(); ++z)
+	const size_t num_pixels = ldr_buffer_in_out.numPixels();
+	Colour4f* const pixel_data = &ldr_buffer_in_out.getPixel(0);
+	for(size_t z = 0; z<num_pixels; ++z)
 	{
-		Colour4f col = ldr_buffer_out.getPixel(z);
+		Colour4f col = pixel_data[z];
 
 		/////// Gamma correct ///////
 		col = Colour4f(powf4(col.v, recip_gamma_v.v));
@@ -860,12 +862,12 @@ void toNonLinearZeroOneSpace(
 
 		col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
 
-		ldr_buffer_out.getPixel(z) = col;
+		pixel_data[z] = col;
 	}
 
 	// Components should be in range [0, 1]
-	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
-	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
+	assert(ldr_buffer_in_out.minPixelComponent() >= 0.0f);
+	assert(ldr_buffer_in_out.maxPixelComponent() <= 1.0f);
 }
 
 

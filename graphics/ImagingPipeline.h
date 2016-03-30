@@ -1,7 +1,7 @@
 /*=====================================================================
 ImagingPipeline.h
 -----------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2016 -
 Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #pragma once
@@ -38,6 +38,16 @@ void sumLightLayers(
 );
 
 
+/*
+Tonemaps some input image data, stored in render_channels, to some output image data, stored in ldr_buffer_out.
+Also does downsizing of the supersampled internal buffer to the output image resolution.
+
+The input data may be in XYZ colour space (as is the case for the usual rendering), or linear sRGB space (the case for some loaded images).
+
+The output data will be stored as floating point data in ldr_buffer_out.
+The output data will be in linear sRGB colour space.
+The output data components will be in the range [0, 1].
+*/
 void doTonemap(
 	std::vector<Image4f>& per_thread_tile_buffers, // Working memory
 	const RenderChannels& render_channels, // Input image data
@@ -55,9 +65,16 @@ void doTonemap(
 );
 
 
+/*
+Converts some tonemapped image data to non-linear sRGB space.
+Does a few things in preperation for conversion to an 8-bit output image format, 
+such as dithering and gamma correction.
+Input colour space is linear sRGB
+Output colour space is non-linear sRGB with the supplied gamma.
+*/
 void toNonLinearZeroOneSpace(
 	const RendererSettings& renderer_settings,
-	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
 	const float gamma
 );
 
