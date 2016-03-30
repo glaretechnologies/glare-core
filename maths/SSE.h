@@ -148,11 +148,6 @@ const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define sub4Vec(a, b) (_mm_sub_ps((a), (b)))
 //Subtracts the four single-precision, floating-point values of a and b. (r0 := a0 - b0 etc..)
 
-inline const SSE4Vec subLowWord(const SSE4Vec& a, const SSE4Vec& b)
-{
-	return _mm_sub_ss(a, b);
-}
-
 #define mult4Vec(a, b) (_mm_mul_ps((a), (b)))
 //Multiplies the four single-precision, floating-point values of a and b.
 
@@ -415,20 +410,6 @@ inline float horizontalMin(const __m128& v)
 	const __m128 v3 = _mm_min_ps(v, v2);                                // [m(c, d), m(c, d), m(a, b), m(a, b)]
 	const __m128 v4 = _mm_shuffle_ps(v3, v3, _MM_SHUFFLE(0, 1, 2, 3));  // [m(a, b), m(a, b), [m(c, d), [m(c, d)]
 	const __m128 v5 = _mm_min_ps(v4, v3);                               // [m(a, b, c, d), m(a, b, c, d), m(a, b, c, d), m(a, b, c, d)]
-
-	SSE_ALIGN float x[4];
-	_mm_store_ps(x, v5);
-	return x[0];
-}
-
-
-inline float horizontalAdd(const __m128& v)
-{
-	// v =																   [d, c, b, a]
-	const __m128 v2 = _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1));    // [c, d, a, b]
-	const __m128 v3 = _mm_add_ps(v, v2);                                // [m(c, d), m(c, d), m(a, b), m(a, b)]
-	const __m128 v4 = _mm_shuffle_ps(v3, v3, _MM_SHUFFLE(0, 1, 2, 3));  // [m(a, b), m(a, b), [m(c, d), [m(c, d)]
-	const __m128 v5 = _mm_add_ps(v4, v3);                               // [m(a, b, c, d), m(a, b, c, d), m(a, b, c, d), m(a, b, c, d)]
 
 	SSE_ALIGN float x[4];
 	_mm_store_ps(x, v5);

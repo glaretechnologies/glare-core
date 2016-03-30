@@ -372,3 +372,41 @@ INDIGO_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
 {
 	return Vec4f(_mm_mul_ps(a.v, b.v));
 }
+
+
+INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
+{
+	// suppose a = (a3, a2, a1, a0)
+	// 
+	// hadd(a, a) = 
+	// (a3 + a2, a1 + a0, a3 + a2, a1 + a0)
+	// 
+	// hadd(hadd(a, a), hadd(a, a)) = 
+	// ((a3 + a2) + (a1 + a0), (a3 + a2) + (a1 + a0), (a3 + a2) + (a1 + a0), (a3 + a2) + (a1 + a0))
+
+	const Vec4f temp(_mm_hadd_ps(a.v, a.v));
+	const Vec4f res(_mm_hadd_ps(temp.v, temp.v));
+	return res.x[0];
+}
+
+
+// If mask element has higher bit set, return a element, else return b element.
+// Note that _mm_blendv_ps returns its second arg if mask is true, so we'll swap the order of the args.
+INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4f& mask)
+{
+	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask.v)); 
+}
+
+
+// If mask element has higher bit set, return a element, else return b element.
+INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& mask)
+{
+	return Vec4f(_mm_blendv_ps(b.v, a.v, mask.v));
+}
+
+
+// SSE2
+INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
+{
+	return Vec4f(_mm_cvtepi32_ps(v.v));
+}
