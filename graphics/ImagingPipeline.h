@@ -74,8 +74,7 @@ Output colour space is non-linear sRGB with the supplied gamma.
 */
 void toNonLinearZeroOneSpace(
 	const RendererSettings& renderer_settings,
-	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
-	const float gamma
+	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 );
 
 

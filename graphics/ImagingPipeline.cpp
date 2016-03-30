@@ -832,14 +832,35 @@ void doTonemap(
 }
 
 
+#ifndef NDEBUG
+// Convert from linear sRGB to non-linear (compressed) sRGB.
+// From https://en.wikipedia.org/wiki/SRGB
+static const Colour4f refLinearsRGBtosRGB(const Colour4f& col)
+{
+	Colour4f res;
+	for(int i=0; i<4; ++i)
+	{
+		const float x = col[i];
+		if(x <= 0.0031308f)
+			res[i] = 12.92f * x;
+		else
+			res[i] = (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
+	}
+	return res;
+}
+#endif
+
+
 void toNonLinearZeroOneSpace(
 	const RendererSettings& renderer_settings,
-	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
-	const float gamma
+	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 	)
 {
 	const bool dithering = renderer_settings.dithering;
-	const Colour4f recip_gamma_v(1.0f / gamma);
+
+	// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff.
+	const Colour4f recip_gamma_v(1.0f / 2.4f);
+	const Colour4f cutoff(0.0031308f);
 
 	const size_t num_pixels = ldr_buffer_in_out.numPixels();
 	Colour4f* const pixel_data = &ldr_buffer_in_out.getPixel(0);
@@ -847,8 +868,14 @@ void toNonLinearZeroOneSpace(
 	{
 		Colour4f col = pixel_data[z];
 
-		/////// Gamma correct ///////
-		col = Colour4f(powf4(col.v, recip_gamma_v.v));
+		/////// Gamma correct (convert from linear sRGB to non-linear sRGB space) ///////
+		const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
+		const Colour4f linear = Colour4f(12.92f) * col;
+		const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
+		const Colour4f sRGBcol = Colour4f(select(linear.v, nonlinear.v, _mm_cmple_ps(col.v, cutoff.v)).v);
+
+		assert(epsEqual(sRGBcol, refLinearsRGBtosRGB(col), 1.0e-4f)); // Check against our scalar reference implementation above.
+		col = sRGBcol;
 
 		////// Dither ///////
 		if(dithering)
@@ -910,7 +937,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		task_manager
 	);
 
-	ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, ldr_image_out, 2.2f);
+	ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, ldr_image_out);
 }
 
 
@@ -1116,7 +1143,7 @@ void test()
 			renderer_settings.getMargin(), // margin at ssf1
 			task_manager);
 
-		ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, temp_ldr_buffer, 2.2f);
+		ImagingPipeline::toNonLinearZeroOneSpace(renderer_settings, temp_ldr_buffer);
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());
