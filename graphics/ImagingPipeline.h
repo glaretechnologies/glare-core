@@ -78,7 +78,4 @@ void toNonLinearSpace(
 );
 
 
-void test();
-
-
 }; // namespace ImagingPipeline
