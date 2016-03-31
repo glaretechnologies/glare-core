@@ -833,26 +833,6 @@ void doTonemap(
 }
 
 
-// Convert from linear sRGB to non-linear (compressed) sRGB.
-// From https://en.wikipedia.org/wiki/SRGB
-static float refLinearsRGBtosRGB(float x)
-{
-	if(x <= 0.0031308f)
-		return 12.92f * x;
-	else
-		return (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
-}
-
-
-static const Colour4f refLinearsRGBtosRGB(const Colour4f& col)
-{
-	Colour4f res;
-	for(int i=0; i<4; ++i)
-		res[i] = refLinearsRGBtosRGB(col[i]);
-	return res;
-}
-
-
 void toNonLinearSpace(
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
@@ -875,8 +855,6 @@ void toNonLinearSpace(
 		const Colour4f linear = Colour4f(12.92f) * col;
 		const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
 		const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
-
-		assert(epsEqual(sRGBcol, refLinearsRGBtosRGB(col), 1.0e-4f)); // Check against our scalar reference implementation above.
 		col = sRGBcol;
 
 		////// Dither ///////
@@ -940,6 +918,17 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	);
 
 	ImagingPipeline::toNonLinearSpace(renderer_settings, ldr_image_out);
+}
+
+
+// Convert from linear sRGB to non-linear (compressed) sRGB.
+// From https://en.wikipedia.org/wiki/SRGB
+static float refLinearsRGBtosRGB(float x)
+{
+	if(x <= 0.0031308f)
+		return 12.92f * x;
+	else
+		return (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
 }
 
 
