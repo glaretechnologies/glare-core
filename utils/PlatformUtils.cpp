@@ -595,56 +595,41 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 }
 
 
-const std::string PlatformUtils::getErrorStringForReturnCode(unsigned long return_code)
+#if defined(_WIN32)
+
+// Windows implementation of getErrorStringForCode()
+const std::string PlatformUtils::getErrorStringForCode(unsigned long error_code)
 {
-#if defined(_WIN32) || defined(_WIN64)
 	std::vector<wchar_t> buf(2048);
 
 	const DWORD result = FormatMessage(
 		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, // See http://blogs.msdn.com/oldnewthing/archive/2007/11/28/6564257.aspx on why FORMAT_MESSAGE_IGNORE_INSERTS should be used.
 		NULL, // source
-		return_code,
+		error_code,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		&buf[0],
 		(DWORD)buf.size(),
 		NULL // arguments
 	);
 	if(result == 0)
-		return "[Unknown (error code=" + toString((unsigned int)return_code) + ")]";
+		return "[Unknown (error code=" + toString((int)error_code) + ")]";
 	else
-		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((unsigned int)return_code) + ")";
-#else
-	return "[Unknown (error code=" + ::toString((unsigned int)return_code) + ")]";
-#endif
+		// The formatted message contains a trailing newline (\r\n) for some stupid reason, remove it.
+		return ::stripTailWhitespace(StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0]))) + " (code " + toString((int)error_code) + ")";
 }
 
-const std::string PlatformUtils::getLastErrorString()
+#else
+
+// OS X and Linux implementation of getErrorStringForCode()
+const std::string PlatformUtils::getErrorStringForCode(int error_code)
 {
-#if defined(_WIN32) || defined(_WIN64)
-
-	std::vector<wchar_t> buf(2048);
-
-	const DWORD result = FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, // See http://blogs.msdn.com/oldnewthing/archive/2007/11/28/6564257.aspx on why FORMAT_MESSAGE_IGNORE_INSERTS should be used.
-		NULL, // source
-		GetLastError(),
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		&buf[0],
-		(DWORD)buf.size(),
-		NULL // arguments
-	);
-	if(result == 0)
-		return "[Unknown (error code=" + toString((int)GetLastError()) + ")]";
-	else
-		return StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0])) + " (error code=" + toString((int)GetLastError()) + ")";
-		
-#elif defined(OSX)
+#if defined(OSX)
 	
 	char buf[4096];
-	if(strerror_r(errno, buf, sizeof(buf)) == 0) // returns 0 upon success: https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/strerror.3.html
+	if(strerror_r(error_code, buf, sizeof(buf)) == 0) // returns 0 upon success: https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/strerror.3.html
 		return std::string(buf);
 	else
-		return "[Unknown (error code=" + toString(errno) + ")]";
+		return "[Unknown (error code=" + toString(error_code) + ")]";
 		
 #else
 
@@ -652,15 +637,28 @@ const std::string PlatformUtils::getLastErrorString()
 	char buf[4096];
 #if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && ! _GNU_SOURCE
 	// XSI-compliant version of strerror_r(), returns zero on success.  See http://linux.die.net/man/3/strerror_r
-	if(strerror_r(errno, buf, sizeof(buf)) == 0)
+	if(strerror_r(error_code, buf, sizeof(buf)) == 0)
 		return std::string(buf);
 	else
-		return "[Unknown (error code=" + toString(errno) + ")]";
+		return "[Unknown (error code=" + toString(error_code) + ")]";
 #else
-	const char* msg = strerror_r(errno, buf, sizeof(buf));
+	const char* msg = strerror_r(error_code, buf, sizeof(buf));
 	return std::string(msg);
 #endif
 
+#endif
+}
+
+#endif
+
+
+// Gets the error string for the last error code, using GetLastError() on Windows and errno on OS X / Linux.
+const std::string PlatformUtils::getLastErrorString()
+{
+#if defined(_WIN32)
+	return getErrorStringForCode(GetLastError());
+#else
+	return getErrorStringForCode(errno);
 #endif
 }
 

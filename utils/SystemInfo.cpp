@@ -166,12 +166,12 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 			PlatformUtils::Sleep(50);
 
 			if(num_calls_done >= MAX_NUM_CALLS)
-				throw Indigo::Exception("GetAdaptersInfo Failed (after " + toString(num_calls_done) + " attempts): " + PlatformUtils::getErrorStringForReturnCode(dwStatus));
+				throw Indigo::Exception("GetAdaptersInfo Failed (after " + toString(num_calls_done) + " attempts): " + PlatformUtils::getErrorStringForCode(dwStatus));
 		}
 		else
 		{
 			// Some other error occurred.
-			throw Indigo::Exception("GetAdaptersInfo Failed: " + PlatformUtils::getErrorStringForReturnCode(dwStatus));
+			throw Indigo::Exception("GetAdaptersInfo Failed: " + PlatformUtils::getErrorStringForCode(dwStatus));
 		}
 	}
 

@@ -65,11 +65,10 @@ int Networking::getPortFromSockAddr(const sockaddr& sock_addr)
 
 const std::string Networking::getError()
 {
-#if defined(_WIN32)
-	const int error = WSAGetLastError();
+	// Note that in practice, WSAGetLastError seems to be just an alias for GetLastError: http://stackoverflow.com/questions/15586224/is-wsagetlasterror-just-an-alias-for-getlasterror
+	return PlatformUtils::getLastErrorString();
 
-	return PlatformUtils::getErrorStringForReturnCode(error);
-#else
+	/*
 	if(errno == EADDRINUSE)
 		return "Address in use";
 	else if(errno == EADDRNOTAVAIL)
@@ -109,13 +108,7 @@ const std::string Networking::getError()
 	else if(errno == EWOULDBLOCK)
 		return "Operation would block";
 	else
-		return "[unknown: errno=" + ::toString(errno) + "]";
-	/*char buf[2000];
-	//int strerror_r(int errnum, char *buf, size_t n);
-	strerror_r(errno, buf, sizeof(buf));
-
-	return std::string(buf);*/
-#endif
+		return "[unknown: errno=" + ::toString(errno) + "]";*/
 }
 
 
@@ -138,7 +131,7 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 
 	if(ret != 0)
 #if defined(_WIN32)
-		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "': " + PlatformUtils::getErrorStringForReturnCode(ret));
+		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "': " + PlatformUtils::getErrorStringForCode(ret));
 #else
 		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "': " + ::gai_strerror(ret)); 
 		// The gai_strerror() function returns an error message string corresponding to the error code returned by getaddrinfo(3)

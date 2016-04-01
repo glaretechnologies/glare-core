@@ -385,6 +385,32 @@ void MySocket::bindAndListen(int port)
 }
 
 
+static MySocketExcep makeExceptionFromLastErrorCode(const std::string& msg)
+{
+	// Get error code, depending on platform:
+	// Note that in practice, WSAGetLastError seems to be just an alias for GetLastError: http://stackoverflow.com/questions/15586224/is-wsagetlasterror-just-an-alias-for-getlasterror
+#if defined(_WIN32) 
+	const DWORD error_code = GetLastError();
+#else
+	const int error_code = errno;
+#endif
+
+	// Translate to human-readable message
+	const std::string error_code_msg = PlatformUtils::getErrorStringForCode(error_code);
+
+	// Determine correct ExcepType:
+	MySocketExcep::ExcepType excep_type = MySocketExcep::ExcepType_Other;
+#if defined(_WIN32) 
+	if(error_code == WSAEINTR) // A blocking operation was interrupted by a call to WSACancelBlockingCall.
+		excep_type = MySocketExcep::ExcepType_BlockingCallCancelled;
+	else if(error_code == WSAENOTSOCK) // Socket operation on nonsocket.  (Will be caused by killing the socket from another thread)
+		excep_type = MySocketExcep::ExcepType_NotASocket;
+#endif
+
+	return MySocketExcep(msg + ": " + error_code_msg, excep_type);
+}
+
+
 MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 {
 	assert(Networking::isInited());
@@ -395,7 +421,7 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
 	if(!isSockHandleValid(newsockethandle))
-		throw MySocketExcep("accept failed: " + PlatformUtils::getLastErrorString());
+		throw makeExceptionFromLastErrorCode("accept failed");
 
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
@@ -477,7 +503,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac)
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
 
 		if(numbyteswritten == SOCKET_ERROR)
-			throw MySocketExcep("write failed.  Error code == " + Networking::getError());
+			throw makeExceptionFromLastErrorCode("write failed");
 
 		datalen -= numbyteswritten;
 		data = (void*)((char*)data + numbyteswritten); // Advance data pointer
@@ -493,7 +519,7 @@ size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 	const int numbytesread = recv(sockethandle, (char*)buffer, (int)max_num_bytes, 0);
 
 	if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-		throw MySocketExcep("Read failed, error: " + Networking::getError());
+		throw makeExceptionFromLastErrorCode("Read failed");
 
 	return (size_t)numbytesread;
 }
@@ -520,7 +546,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-			throw MySocketExcep("Read failed, error: " + Networking::getError());
+			throw makeExceptionFromLastErrorCode("Read failed");
 		else if(numbytesread == 0) // Connection was closed gracefully
 			throw MySocketExcep("Connection Closed.");
 
@@ -542,7 +568,7 @@ void MySocket::waitForGracefulDisconnect()
 		const int numbytesread = recv(sockethandle, buf, sizeof(buf), 0);
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-			throw MySocketExcep("Read failed, error: " + Networking::getError());
+			throw makeExceptionFromLastErrorCode("Read failed");
 		else if(numbytesread == 0) // Connection was closed gracefully
 		{
 			// conPrint("\tConnection was closed gracefully.");

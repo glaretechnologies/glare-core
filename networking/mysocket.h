@@ -32,10 +32,20 @@ class EventFD;
 class MySocketExcep
 {
 public:
-	MySocketExcep(const std::string& message_) : message(message_) {}
+	enum ExcepType
+	{
+		ExcepType_BlockingCallCancelled,
+		ExcepType_NotASocket,
+		ExcepType_Other
+	};
+
+	MySocketExcep(const std::string& message_, ExcepType excep_type_ = ExcepType_Other) : message(message_), excep_type(excep_type_) {}
+
 	const std::string& what() const { return message; }
+	ExcepType excepType() const { return excep_type; }
 private:
 	std::string message;
+	ExcepType excep_type;
 };
 
 

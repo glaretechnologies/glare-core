@@ -97,8 +97,13 @@ NOTE: be vary careful to only path in valid paths here, or there will be massive
 void openFileBrowserWindowAtLocation(const std::string& select_path);
 
 
-const std::string getErrorStringForReturnCode(unsigned long return_code);
+#if defined(_WIN32)
+const std::string getErrorStringForCode(unsigned long error_code);
+#else
+const std::string getErrorStringForCode(int error_code);
+#endif
 
+// Gets the error string for the last error code, using GetLastError() on Windows and errno on OS X / Linux.
 const std::string getLastErrorString();
 
 
