@@ -273,9 +273,9 @@ void MySocket::connect(const IPAddress& ipaddress,
 		{
 			const std::string error_str = Networking::getError(); // Get error before we call anything else, which may overwrite it.
 			if(hostname.empty())
-				throw MySocketExcep("Could not make a TCP connection to server " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ", Error code: " + error_str);
+				throw MySocketExcep("Could not connect to " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ": " + error_str);
 			else
-				throw MySocketExcep("Could not make a TCP connection to server '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "), Error code: " + error_str);
+				throw MySocketExcep("Could not connect to '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "): " + error_str);
 		}
 	}
 
