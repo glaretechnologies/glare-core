@@ -1,7 +1,7 @@
 /*=====================================================================
 PNGDecoder.h
 ------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2016 -
 File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 =====================================================================*/
 #pragma once

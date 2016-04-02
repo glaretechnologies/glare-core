@@ -1,7 +1,7 @@
 /*=====================================================================
 PNGDecoder.cpp
 --------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2016 -
 File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 =====================================================================*/
 #include "PNGDecoder.h"
@@ -28,13 +28,11 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 
 
 PNGDecoder::PNGDecoder()
-{
-}
+{}
 
 
 PNGDecoder::~PNGDecoder()
-{
-}
+{}
 
 // TRY:
 // png_set_keep_unknown_chunks(png_ptr, 0, NULL, 0);
@@ -305,8 +303,8 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		   8, // bit depth of each channel
 		   colour_type, // colour type
 		   PNG_INTERLACE_NONE, // interlace type
-		   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
-		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
+		   PNG_COMPRESSION_TYPE_DEFAULT, // compression type
+		   PNG_FILTER_TYPE_DEFAULT // filter method
 		);
 
 		// Write an ICC sRGB colour profile.
@@ -355,19 +353,15 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 			delete[] txt;
 		}
 
-		//png_set_gAMA(png_ptr, info_ptr, 2.3);
-
 		// Write info
 		png_write_info(png, info);
 
 
 		for(unsigned int y=0; y<bitmap.getHeight(); ++y)
-		{
 			png_write_row(
 				png, 
 				(png_bytep)bitmap.getPixel(0, y) // Pointer to row data
-				);
-		}
+			);
 
 		//------------------------------------------------------------------------
 		//finish writing file
@@ -449,8 +443,8 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		   8, // bit depth of each channel
 		   colour_type, // colour type
 		   PNG_INTERLACE_NONE, // interlace type
-		   PNG_COMPRESSION_TYPE_BASE,// PNG_COMPRESSION_TYPE_DEFAULT, //compression type
-		   PNG_FILTER_TYPE_BASE // PNG_FILTER_TYPE_DEFAULT);//filter method
+		   PNG_COMPRESSION_TYPE_DEFAULT, // compression type
+		   PNG_FILTER_TYPE_DEFAULT // filter method
 		);
 
 		// Write an ICC sRGB colour profile.
@@ -477,20 +471,15 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
 		}
 #endif
-		
-		//png_set_gAMA(png_ptr, info_ptr, 2.3);
 
 		// Write info
 		png_write_info(png, info);
 
-
 		for(unsigned int y=0; y<imagemap.getHeight(); ++y)
-		{
 			png_write_row(
-				png, 
+				png,
 				(png_bytep)imagemap.getPixel(0, y) // Pointer to row data
-				);
-		}
+			);
 
 		//------------------------------------------------------------------------
 		//finish writing file
