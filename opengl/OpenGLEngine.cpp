@@ -756,9 +756,12 @@ void OpenGLEngine::draw()
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
-				// Draw primitives for the given material
-				if(!ob->materials[mat_index].transparent)
-					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+				if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+				{
+					// Draw primitives for the given material
+					if(!ob->materials[mat_index].transparent)
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+				}
 			}
 			unbindMeshData(mesh_data);
 		}
@@ -782,9 +785,12 @@ void OpenGLEngine::draw()
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
-				// Draw primitives for the given material
-				if(ob->materials[mat_index].transparent)
-					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+				if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+				{
+					// Draw primitives for the given material
+					if(ob->materials[mat_index].transparent)
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+				}
 			}
 			unbindMeshData(mesh_data);
 		}
