@@ -1797,8 +1797,8 @@ inline static uint32 mod3(uint32 x)
 struct PolyTempInfo
 {
 	Vec3f normal;
-	Vec3f dp_du;
-	Vec3f dp_dv;
+	//Vec3f dp_du;
+	//Vec3f dp_dv;
 };
 
 
@@ -1854,7 +1854,7 @@ public:
 					triangles[t].vertex_indices[1], 
 					triangles[t].vertex_indices[2]
 				);
-
+				/*
 				Vec3f dp_du(0.f);
 				Vec3f dp_dv(0.f);
 				if(num_uv_sets > 0)
@@ -1903,11 +1903,11 @@ public:
 						dp_du = dp_dalpha;
 						dp_dv = dp_dbeta;
 					}
-				}
+				}*/
 
 				poly_info[t].normal = tri_normal;
-				poly_info[t].dp_du = dp_du;
-				poly_info[t].dp_dv = dp_dv;
+				//poly_info[t].dp_du = dp_du;
+				//poly_info[t].dp_dv = dp_dv;
 			}
 		}
 	}
@@ -1943,8 +1943,8 @@ public:
 			
 			Vec3f H(0.f);
 			Vec3f A(0.f);
-			Vec3f dp_du(0.f);
-			Vec3f dp_dv(0.f);
+			//Vec3f dp_du(0.f);
+			//Vec3f dp_dv(0.f);
 			Vec3f n(0.f);
 			for(int i=0; i<num_polys; ++i)
 			{
@@ -1971,11 +1971,11 @@ public:
 					H += crossProduct(poly_info[t].normal, e2);
 					A += crossProduct(v_i_1, v_i_2);
 
-					if(num_uv_sets > 0)
+					/*if(num_uv_sets > 0)
 					{
 						dp_du += poly_info[t].dp_du;
 						dp_dv += poly_info[t].dp_dv;
-					}
+					}*/
 				}
 
 				n += poly_info[t].normal;
