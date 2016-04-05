@@ -1967,7 +1967,7 @@ public:
 					const Vec3f e2 = v_i_2 - v_i_1;
 
 					// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
-					assert(poly_info[t].normal.isUnitLength()); 
+					//assert(poly_info[t].normal.isUnitLength()); 
 					H += crossProduct(poly_info[t].normal, e2);
 					A += crossProduct(v_i_1, v_i_2);
 
