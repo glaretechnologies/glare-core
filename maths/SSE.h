@@ -26,7 +26,7 @@ Copyright Glare Technologies Limited 2012 -
 
 
 #include <assert.h>
-#ifdef COMPILER_GCC
+#ifndef _MSC_VER
 #include <stdlib.h>
 #include <inttypes.h>
 #endif
