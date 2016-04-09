@@ -191,6 +191,8 @@ public:
 
 	const std::string getBuildLog(cl_program program, cl_device_id device);
 
+	void dumpProgramBinaryToDisk(cl_program program);
+
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
 	clGetPlatformInfo_TYPE clGetPlatformInfo;

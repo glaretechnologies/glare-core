@@ -36,6 +36,7 @@ public:
 
 	void setKernelArgInt(size_t index, cl_int val);
 	void setKernelArgUInt(size_t index, cl_uint val);
+	void setKernelArgFloat(size_t index, cl_float val);
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
 
 	void setNextKernelArg(cl_mem buffer);

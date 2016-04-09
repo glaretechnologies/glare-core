@@ -724,72 +724,71 @@ cl_program OpenCL::buildProgram(
 	if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
 		throw Indigo::Exception("Kernel build failed.");
 
-	//================= TEMP: get program 'binary' ====================
+	return program;
+}
 
-	if(false)
+
+void OpenCL::dumpProgramBinaryToDisk(cl_program program)
+{
+	// Get number of devices program has been built for
+	cl_uint program_num_devices = 0;
+	size_t param_value_size_ret = 0;
+	this->clGetProgramInfo(
+		program,
+		CL_PROGRAM_NUM_DEVICES,
+		sizeof(program_num_devices),
+		&program_num_devices,
+		&param_value_size_ret
+		);
+
+	std::cout << "program_num_devices: " << program_num_devices << std::endl;
+
+	// Get sizes of the binaries on the devices
+	std::vector<size_t> program_binary_sizes(program_num_devices);
+	this->clGetProgramInfo(
+		program,
+		CL_PROGRAM_BINARY_SIZES,
+		sizeof(size_t) * program_binary_sizes.size(), // size
+		&program_binary_sizes[0],
+		&param_value_size_ret
+		);
+
+	for(size_t i=0; i<program_binary_sizes.size(); ++i)
 	{
-		// Get number of devices program has been built for
-		cl_uint program_num_devices = 0;
-		size_t param_value_size_ret = 0;
-		this->clGetProgramInfo(
-			program,
-			CL_PROGRAM_NUM_DEVICES,
-			sizeof(program_num_devices),
-			&program_num_devices,
-			&param_value_size_ret
-			);
-
-		std::cout << "program_num_devices: " << program_num_devices << std::endl;
-
-		// Get sizes of the binaries on the devices
-		std::vector<size_t> program_binary_sizes(program_num_devices);
-		this->clGetProgramInfo(
-			program,
-			CL_PROGRAM_BINARY_SIZES,
-			sizeof(size_t) * program_binary_sizes.size(), // size
-			&program_binary_sizes[0],
-			&param_value_size_ret
-			);
-
-		for(size_t i=0; i<program_binary_sizes.size(); ++i)
-		{
-			std::cout << "\tprogram " << i << " binary size: " << program_binary_sizes[i] << " B" << std::endl;
-		}
-
-		std::vector<std::string> program_binaries(program_num_devices);
-		for(size_t i=0; i<program_binary_sizes.size(); ++i)
-		{
-			program_binaries[i].resize(program_binary_sizes[i]);
-		}
-
-		std::vector<unsigned char*> program_binaries_ptrs(program_num_devices);
-		for(size_t i=0; i<program_binary_sizes.size(); ++i)
-		{
-			program_binaries_ptrs[i] = (unsigned char*)&(*program_binaries[i].begin());
-		}
-
-		this->clGetProgramInfo(
-			program,
-			CL_PROGRAM_BINARIES,
-			sizeof(unsigned char*) * program_binaries_ptrs.size(), // size
-			&program_binaries_ptrs[0],
-			&param_value_size_ret
-			);
-
-		for(size_t i=0; i<program_binary_sizes.size(); ++i)
-		{
-			std::cout << "Writing Program " << i << " binary to disk." << std::endl;
-
-			std::ofstream binfile("binary.txt");
-			binfile.write(program_binaries[i].c_str(), program_binaries[i].size());
-
-			std::cout << "\tDone." << std::endl;
-
-			//std::cout << program_binaries[i] << std::endl;
-		}
+		std::cout << "\tprogram " << i << " binary size: " << program_binary_sizes[i] << " B" << std::endl;
 	}
 
-	return program;
+	std::vector<std::string> program_binaries(program_num_devices);
+	for(size_t i=0; i<program_binary_sizes.size(); ++i)
+	{
+		program_binaries[i].resize(program_binary_sizes[i]);
+	}
+
+	std::vector<unsigned char*> program_binaries_ptrs(program_num_devices);
+	for(size_t i=0; i<program_binary_sizes.size(); ++i)
+	{
+		program_binaries_ptrs[i] = (unsigned char*)&(*program_binaries[i].begin());
+	}
+
+	this->clGetProgramInfo(
+		program,
+		CL_PROGRAM_BINARIES,
+		sizeof(unsigned char*) * program_binaries_ptrs.size(), // size
+		&program_binaries_ptrs[0],
+		&param_value_size_ret
+		);
+
+	for(size_t i=0; i<program_binary_sizes.size(); ++i)
+	{
+		std::cout << "Writing Program " << i << " binary to disk." << std::endl;
+
+		std::ofstream binfile("binary.txt");
+		binfile.write(program_binaries[i].c_str(), program_binaries[i].size());
+
+		std::cout << "\tDone." << std::endl;
+
+		//std::cout << program_binaries[i] << std::endl;
+	}
 }
 
 
