@@ -72,6 +72,7 @@ void Obfuscator::addOpenCLKeywords()
 "pragma",
 "once",
 "include",
+"error",
 "__FILE__",
 "__LINE__",
 
