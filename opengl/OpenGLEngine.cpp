@@ -1009,6 +1009,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	const Indigo::Mesh* const mesh = mesh_.getPointer();
 	const bool mesh_has_shading_normals = !mesh->vert_normals.empty();
 	const bool mesh_has_uvs = mesh->num_uv_mappings > 0;
+	const uint32 num_uv_sets = mesh->num_uv_mappings;
 
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
 
@@ -1083,8 +1084,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			const Indigo::Triangle& tri = mesh->triangles[tri_indices[t].second];
 			for(uint32 i = 0; i < 3; ++i) // For each vert in tri:
 			{
-				const uint32 pos_i  = tri.vertex_indices[i];
-				const uint32 uv_i   = tri.uv_indices[i];
+				const uint32 pos_i		= tri.vertex_indices[i];
+				const uint32 base_uv_i	= tri.uv_indices[i];
+				const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
 				if(pos_i >= vert_positions_size)
 					throw Indigo::Exception("vert index out of bounds");
 				if(mesh_has_uvs && uv_i >= uvs_size)
