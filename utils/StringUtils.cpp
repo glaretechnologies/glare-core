@@ -1298,6 +1298,8 @@ const std::string replaceFirst(const std::string& s, const std::string& target, 
 
 const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement)
 {
+	assert(!target.empty()); // Target must not be the empty string or the loop below will loop forever.
+
 	size_t searchpos = 0;
 	std::string newstring;
 	while(1)
@@ -1971,6 +1973,26 @@ void StringUtils::test()
 	testAssert(replaceFirst("", "ef", "0123456") == "");
 	testAssert(replaceFirst("abcd", "ef", "0123456") == "abcd");
 	testAssert(replaceFirst("abcd", "abcde", "0123456") == "abcd");
+
+	//===================================== test replaceAll() =======================================
+	// const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement);
+
+	// Test single occurrence of target.
+	testAssert(replaceAll("abcd", "ab", "01") == "01cd");
+	
+	// Test multiple occurrences of target.
+	testAssert(replaceAll("abab", "ab", "01") == "0101");
+
+	testAssert(replaceAll("abcdab", "ab", "01") == "01cd01");
+
+	// Test long replacement string
+	testAssert(replaceAll("abcd", "ab", "0123456") == "0123456cd");
+	testAssert(replaceAll("abcd", "cd", "0123456") == "ab0123456");
+
+	// Test no match
+	testAssert(replaceAll("", "ef", "0123456") == "");
+	testAssert(replaceAll("abcd", "ef", "0123456") == "abcd");
+	testAssert(replaceAll("abcd", "abcde", "0123456") == "abcd");
 
 	//===================================== test floatLiteralString() ==================================
 	testAssert(floatLiteralString(1.2f) == "1.2f");
