@@ -223,7 +223,6 @@ public:
 	clGetKernelWorkGroupInfo_TYPE clGetKernelWorkGroupInfo;
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
 	clGetEventInfo_TYPE clGetEventInfo;
-	clEnqueueMarker_TYPE clEnqueueMarker;
 	clWaitForEvents_TYPE clWaitForEvents;
 
 	clFinish_TYPE clFinish;

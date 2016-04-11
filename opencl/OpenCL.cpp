@@ -135,7 +135,6 @@ void OpenCL::libraryInit()
 			//clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
 			clGetEventProfilingInfo = opencl_lib.getFuncPointer<clGetEventProfilingInfo_TYPE>("clGetEventProfilingInfo");
 			clGetEventInfo = opencl_lib.getFuncPointer<clGetEventInfo_TYPE>("clGetEventInfo");
-			clEnqueueMarker = opencl_lib.getFuncPointer<clEnqueueMarker_TYPE>("clEnqueueMarker");
 			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
 
 			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
@@ -197,7 +196,6 @@ void OpenCL::libraryInit()
 	//this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
 	this->clGetEventInfo = ::clGetEventInfo;
-	this->clEnqueueMarker = ::clEnqueueMarker;
 	this->clWaitForEvents = ::clWaitForEvents;
 
 	this->clFinish = ::clFinish;
