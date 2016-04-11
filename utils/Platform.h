@@ -29,7 +29,11 @@ Copyright Glare Technologies Limited 2014 -
 // This is like the usual assert() macro, except in NDEBUG mode ('release' mode) it marks the variable as used by writing the expression as a statement.
 // NOTE: Use with care as the expression may have side effects.
 #ifdef NDEBUG
-#define assertOrDeclareUsed(expr) (expr)
+	#ifdef _MSC_VER
+	#define assertOrDeclareUsed(expr) (expr)
+	#else
+	#define assertOrDeclareUsed(expr) (void)(expr)
+	#endif
 #else
 #define assertOrDeclareUsed(expr) assert(expr)
 #endif
