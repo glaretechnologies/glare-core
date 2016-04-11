@@ -436,7 +436,6 @@ void OpenCL::queryDevices()
 				di.total_memory_size = (size_t)device_global_mem_size;
 				di.core_count = device_max_compute_units;
 				di.core_clock = device_max_clock_frequency; // in MHz
-				di.subsystem = Indigo::GPUDeviceSettings::SUBSYSTEM_OPENCL;
 				di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
 
 				di.opencl_platform = platform_ids[i];
