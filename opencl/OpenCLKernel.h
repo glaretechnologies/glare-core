@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/ThreadSafeRefCounted.h"
+#include "../utils/Reference.h"
 #include "OpenCL.h"
 
 
