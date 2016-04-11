@@ -20,7 +20,11 @@ Copyright Glare Technologies Limited 2014 -
 
 
 // Declare a variable as used.  This can be used to avoid the Visual Studio 'local variable is initialized but not referenced' warning.
+#ifdef _MSC_VER
 #define GLARE_DECLARE_USED(x) (x)
+#else
+#define GLARE_DECLARE_USED(x) (void)(x);
+#endif
 
 // This is like the usual assert() macro, except in NDEBUG mode ('release' mode) it marks the variable as used by writing the expression as a statement.
 // NOTE: Use with care as the expression may have side effects.
