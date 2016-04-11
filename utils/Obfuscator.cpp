@@ -836,6 +836,8 @@ public:
 
 				break;
 			}
+		default:
+			break;
 		};
 	}
 
@@ -894,6 +896,8 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 
 				break;
 				}
+			default:
+				break;
 			};
 		}
 
@@ -910,6 +914,8 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 			case Winter::Type::StructureTypeType:
 				output += named_type.downcastToPtr<Winter::StructureType>()->definitionString();
 				output += "\n";
+				break;
+			default:
 				break;
 			};
 		}
