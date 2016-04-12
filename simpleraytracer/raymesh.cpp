@@ -1349,18 +1349,6 @@ void RayMesh::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& 
 }
 
 
-inline static const ::Vec3f toVec3(const Indigo::Vec3f& v)
-{
-	return ::Vec3f(v.x, v.y, v.z);
-}
-
-
-inline static const ::Vec2f toVec2(const Indigo::Vec2f& v)
-{
-	return ::Vec2f(v.x, v.y);
-}
-
-
 // This can be optimised quite a bit...
 inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, const Matrix4f& to_parent)
 {
@@ -1379,10 +1367,10 @@ inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, cons
 }
 
 
-inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
-{
-	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
-}
+//inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
+//{
+//	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
+//}
 
 
 void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
@@ -1831,8 +1819,8 @@ public:
 		const RayMesh::VertexVectorType& vertices = *closure.vertices;
 		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
 		const RayMesh::QuadVectorType& quads = *closure.quads;
-		const std::vector<Vec2f>& uvs = *closure.uvs;
-		const int num_uv_sets = closure.num_uv_sets;
+		//const std::vector<Vec2f>& uvs = *closure.uvs;
+		//const int num_uv_sets = closure.num_uv_sets;
 		const size_t total_num_tris = closure.total_num_tris;
 		
 		for(size_t t = begin; t < end; ++t)
@@ -1928,7 +1916,7 @@ public:
 		const js::Vector<PolyTempInfo, 64>& poly_info = *closure.poly_info;
 		RayMesh::VertexVectorType& vertices = *closure.vertices;
 		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
-		const int num_uv_sets = closure.num_uv_sets;
+		//const int num_uv_sets = closure.num_uv_sets;
 		//std::vector<RayMesh::VertDerivs>& vert_derivs = *closure.vert_derivs;
 		const int update_shading_normals = closure.update_shading_normals;
 		const std::vector<int>& vert_num_polys = *closure.vert_num_polys;
