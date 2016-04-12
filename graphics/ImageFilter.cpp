@@ -1285,10 +1285,11 @@ static inline double& a(Array2D<double>& data, int k1, int k2)
 {
 	return data.elem(k2, k1);
 }
-static inline double a(const Array2D<double>& data, int k1, int k2)
-{
-	return data.elem(k2, k1);
-}
+
+//static inline double a(const Array2D<double>& data, int k1, int k2)
+//{
+//	return data.elem(k2, k1);
+//}
 
 static inline Complexd& R(Array2D<Complexd>& data, int k1, int k2)
 {
