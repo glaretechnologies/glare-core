@@ -74,6 +74,10 @@ static void functionWithByRefRefParam(const Reference<TestClass>& ref)
 }
 
 
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
+#endif
 SSE_CLASS_ALIGN AlignedTestClass : public RefCounted
 {
 public:
@@ -93,9 +97,10 @@ public:
 
 private:
 	int* i;
-	int* padding;
 };
-
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
 
 ///////////////////////////////////////////////////////////////////////
 

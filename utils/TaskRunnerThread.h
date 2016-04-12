@@ -40,7 +40,7 @@ private:
 	TaskManager* manager;
 	size_t thread_index;
 
-	std::vector<TaskTimes>* task_times;
+	// std::vector<TaskTimes>* task_times;
 };
 
 

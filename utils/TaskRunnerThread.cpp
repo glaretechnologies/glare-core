@@ -29,8 +29,8 @@ namespace Indigo
 
 TaskRunnerThread::TaskRunnerThread(TaskManager* manager_, size_t thread_index_)
 :	manager(manager_),
-	thread_index(thread_index_),
-	task_times(NULL)
+	thread_index(thread_index_)
+//	task_times(NULL)
 {
 #if TASK_STATS
 	task_times = new std::vector<TaskTimes>();
