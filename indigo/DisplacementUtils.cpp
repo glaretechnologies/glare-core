@@ -274,10 +274,10 @@ static inline const Vec2f& getUVs(const UVVector& uvs, uint32_t num_uv_sets, uin
 }
 
 
-static inline uint32_t uvIndex(uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
-{
-	return uv_index * num_uv_sets + set_index;
-}
+//static inline uint32_t uvIndex(uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
+//{
+//	return uv_index * num_uv_sets + set_index;
+//}
 
 
 static inline Vec2f& getUVs(UVVector& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
