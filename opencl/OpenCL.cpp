@@ -701,8 +701,10 @@ cl_program OpenCL::buildProgram(
 		{
 			build_log_out = getBuildLog(program, opencl_device);
 		}
-		catch(Indigo::Exception&)
-		{}
+		catch(Indigo::Exception& e)
+		{
+			build_log_out = "[Failed to get build log: " + e.what() + "]";
+		}
 
 		throw Indigo::Exception("clBuildProgram failed: " + errorString(result));
 	}
