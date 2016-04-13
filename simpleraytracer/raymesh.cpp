@@ -24,7 +24,6 @@ Code By Nicholas Chapman.
 #include "../indigo/material.h"
 //#include "../indigo/object.h"
 #include "../indigo/RendererSettings.h"
-#include "../physics/jscol_BIHTree.h"
 #include "../physics/KDTree.h"
 #include "../physics/BVH.h"
 #include "../physics/SimpleBVH.h"

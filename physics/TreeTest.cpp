@@ -11,7 +11,6 @@ Code By Nicholas Chapman.
 #include "../indigo/EmbreeInstance.h"
 #endif
 #include "KDTree.h"
-#include "jscol_BIHTree.h"
 #include "BVH.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/MTwister.h"

@@ -8,8 +8,8 @@ Code By Nicholas Chapman.
 
 
 #include "KDTree.h"
-#include "jscol_BIHTree.h"
 #include "BVH.h"
+#include "jscol_BadouelTri.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/MTwister.h"
 #include "../raytracing/hitinfo.h"

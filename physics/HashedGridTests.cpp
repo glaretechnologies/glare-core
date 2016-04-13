@@ -66,7 +66,6 @@ static void perfTests()
 	{
 		// Do a lookup for the query box around some random points
 		Vec3f p = Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * grid_w;
-		const Vec4f p_vec4f = p.toVec4fPoint();
 		js::AABBox query_box(p.toVec4fPoint() - Vec4f(1,1,1,0), p.toVec4fPoint() + Vec4f(1,1,1,0));
 
 		const Vec4i begin = grid.getGridMinBound(query_box.min_);
