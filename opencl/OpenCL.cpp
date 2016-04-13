@@ -381,6 +381,10 @@ void OpenCL::queryDevices()
 			if(clGetDeviceInfo(device_ids[d], CL_DRIVER_VERSION, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 			const std::string driver_version(&char_buff[0]);
+			
+			cl_ulong device_max_constant_buffer_size = 0;
+			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(device_max_constant_buffer_size), &device_max_constant_buffer_size, NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetDeviceInfo failed");
 
 #if OPENCL_OPENGL_INTEROP
 			bool device_OpenGL_interop = false;
@@ -409,6 +413,7 @@ void OpenCL::queryDevices()
 				size_t device_image2d_max_width = 0;
 				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(device_image2d_max_width), &device_image2d_max_width, NULL) != CL_SUCCESS)
 					throw Indigo::Exception("clGetDeviceInfo failed");
+				 
 
 				std::cout << "device_name: " << device_name_ << std::endl;
 				std::cout << "driver_version: " << driver_version << std::endl;
@@ -418,6 +423,7 @@ void OpenCL::queryDevices()
 				std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
 				std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
 				std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
+				std::cout << "device_max_constant_buffer_size: " << device_max_constant_buffer_size << std::endl;
 
 				for(size_t z = 0; z < device_max_num_work_items.size(); ++z)
 					std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
@@ -435,6 +441,7 @@ void OpenCL::queryDevices()
 				di.core_count = device_max_compute_units;
 				di.core_clock = device_max_clock_frequency; // in MHz
 				di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
+				di.max_constant_buffer_size = device_max_constant_buffer_size;
 
 				di.opencl_platform = platform_ids[i];
 				di.opencl_device = device_ids[d];
