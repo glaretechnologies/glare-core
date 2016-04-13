@@ -18,6 +18,9 @@
 #if BUILD_TESTS
 
 
+#if !defined(OSX) // Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+
+
 inline static float fastPosFract(float x)
 {
 	return x - (int)x;
@@ -54,6 +57,9 @@ inline static float modfFract(float x)
 }
 
 
+#endif // !defined(OSX) // Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+
+
 template <class T>
 inline T pow4Fast(T x)
 {
@@ -86,6 +92,11 @@ inline T powOneOverEight(T x)
 	return std::sqrt(xOneOver4);
 }
 
+
+static INDIGO_STRONG_INLINE float sqrtSSE(float x)
+{
+	return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
+}
 
 void Maths::test()
 {
@@ -819,7 +830,115 @@ void Maths::test()
 	conPrint("\tsum: " + toString(sum));
 	}
 
+	conPrint("--------");
+	conPrint("Vec4f(x).length()");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += Vec4f(x).length();
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("sqrtSSE Vec4f(x) length()");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sqrtSSE(dot(Vec4f(x), Vec4f(x)));
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("sqrtf Vec4f(x) length()");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sqrtf(dot(Vec4f(x), Vec4f(x)));
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("_mm_sqrt_ss Vec4f(x) length()");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += _mm_cvtss_f32(_mm_sqrt_ss(_mm_dp_ps(Vec4f(x).v, Vec4f(x).v, 255)));
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("_mm_sqrt_ps Vec4f(x) length()");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += _mm_cvtss_f32(_mm_sqrt_ps(_mm_dp_ps(Vec4f(x).v, Vec4f(x).v, 255)));
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+
+	conPrint("--------");
+	conPrint("sqrtf() [float]");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sqrtf(x);
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
 	conPrint("sqrt() [float]");
+	{
+	CycleTimer timer;
+	float sum = 0.0;
+	for(int i=0; i<N; ++i)
+	{
+		const float x = (float)i * 0.001f;
+		sum += sqrt(x);
+	}
+	const CycleTimer::CYCLETIME_TYPE elapsed = timer.elapsed();
+	const double cycles = elapsed / (double)N;
+	conPrint("\tcycles: " + toString(cycles));
+	conPrint("\tsum: " + toString(sum));
+	}
+
+	conPrint("std::sqrt() [float]");
 	{
 	CycleTimer timer;
 	float sum = 0.0;
@@ -848,6 +967,10 @@ void Maths::test()
 	conPrint("\tcycles: " + toString(cycles));
 	conPrint("\tsum: " + toString(sum));
 	}
+	conPrint("--------");
+
+
+
 
 	conPrint("exp() [float]");
 	{
