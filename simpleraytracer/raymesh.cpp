@@ -26,7 +26,6 @@ Code By Nicholas Chapman.
 #include "../indigo/RendererSettings.h"
 #include "../physics/KDTree.h"
 #include "../physics/BVH.h"
-#include "../physics/SimpleBVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Timer.h"

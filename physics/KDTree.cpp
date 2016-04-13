@@ -20,7 +20,6 @@ Code By Nicholas Chapman.
 #include "../utils/Checksum.h"
 #include "../simpleraytracer/raymesh.h"
 #include "TreeUtils.h"
-#include "OldKDTreeBuilder.h"
 #include "NLogNKDTreeBuilder.h"
 #include <limits>
 #include <algorithm>
@@ -593,7 +592,6 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 		//	+ ::getNiceByteSize(leafgeommem) + ")");
 
 		{
-		//OldKDTreeBuilder tree_builder;
 		NLogNKDTreeBuilder tree_builder;
 		tree_builder.build(print_output, verbose, *this, root_aabb, nodes, leafgeom);
 		}
