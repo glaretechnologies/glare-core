@@ -710,18 +710,19 @@ cl_program OpenCL::buildProgram(
 	}
 
 
-	// Get build status
-	cl_build_status build_status;
-	this->clGetProgramBuildInfo(
-		program,
-		opencl_device,
-		CL_PROGRAM_BUILD_STATUS,
-		sizeof(build_status), // param value size
-		&build_status, // param value
-		NULL
-		);
-	if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
-		throw Indigo::Exception("Kernel build failed.");
+	// NOTE: not sure why we were calling this..
+	// Get build status.  
+	//cl_build_status build_status;
+	//this->clGetProgramBuildInfo(
+	//	program,
+	//	opencl_device,
+	//	CL_PROGRAM_BUILD_STATUS,
+	//	sizeof(build_status), // param value size
+	//	&build_status, // param value
+	//	NULL
+	//	);
+	//if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
+	//	throw Indigo::Exception("Kernel build failed.");
 
 	return program;
 }
@@ -800,8 +801,8 @@ const std::string OpenCL::getBuildLog(cl_program program, cl_device_id device)
 	result = this->clGetProgramBuildInfo(
 		program,
 		device,
-		CL_PROGRAM_BUILD_LOG,
-		0, // param value size
+		CL_PROGRAM_BUILD_LOG, // param_name
+		0, // param value size.  Ignored as param value is NULL.
 		NULL, // param value
 		&param_value_size_ret);
 	
