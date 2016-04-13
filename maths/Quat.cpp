@@ -202,7 +202,7 @@ void quaternionTests()
 		{
 			const Matrix3f rot_matrix = Matrix3f::rotationMatrix(Vec3f(0,0,1), Maths::pi<float>());
 
-			Quatf q = Quatf::fromAxisAndAngle(Vec3f(0,0,1), Maths::pi<float>());
+			//Quatf q = Quatf::fromAxisAndAngle(Vec3f(0,0,1), Maths::pi<float>());
 
 			// Convert rotation matrix back to quaternion
 			Quatf q2 = Quatf::fromMatrix(rot_matrix);

@@ -75,16 +75,16 @@ VectorTest::~VectorTest()
 }
 
 
-NOTHROW
-static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
-{
-	return TestVec3(a.x * f, a.y * f, a.z * f);
-	/*TestVec3 res;
-	res.x = a.x * f;
-	res.y = a.y * f;
-	res.z = a.z * f;
-	return res;*/
-}
+//NOTHROW
+//static VEC3_INLINE const TestVec3 testVMul(const TestVec3& a, TVReal f) throw ()
+//{
+//	return TestVec3(a.x * f, a.y * f, a.z * f);
+//	/*TestVec3 res;
+//	res.x = a.x * f;
+//	res.y = a.y * f;
+//	res.z = a.z * f;
+//	return res;*/
+//}
 
 
 INDIGO_STRONG_INLINE const Vec4f testMulLoad(const Vec4f& a, float f)

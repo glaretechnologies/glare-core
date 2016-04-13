@@ -99,17 +99,10 @@ public:
 
 private:
 
-
-	//UDPPacketHandler* handler;
-	//SOCKET insocket_handle;
-	//SOCKET outsocket_handle;
-
 #if defined(_WIN32) || defined(_WIN64)
 	typedef SOCKET SOCKETHANDLE_TYPE;
-	SOCKETHANDLE_TYPE sockethandle;
 #else
 	typedef int SOCKETHANDLE_TYPE;
-	SOCKETHANDLE_TYPE sockethandle;
 #endif
 	SOCKETHANDLE_TYPE socket_handle;
 
