@@ -39,7 +39,7 @@ MyThread::~MyThread()
 	{
 		
 		const int result = pthread_detach(thread_handle);
-		assert(result == 0);
+		assertOrDeclareUsed(result == 0);
 	}
 #endif
 }
@@ -118,7 +118,7 @@ void MyThread::join() // Wait for thread termination
 	/*const DWORD result =*/ ::WaitForSingleObject(thread_handle, INFINITE);
 #else
 	const int result = pthread_join(thread_handle, NULL);
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
 
