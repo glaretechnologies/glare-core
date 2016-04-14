@@ -639,22 +639,6 @@ const std::string int32ToString(int32 i)
 }
 
 
-static const std::string referenceInt64ToString(int64 x)
-{
-	char buffer[32];
-
-	// i = signed decimal
-#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
-	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
-	sprintf(buffer, "%I64i", x);
-#else
-	sprintf(buffer, "%lli", x);
-#endif
-
-	return std::string(buffer);
-}
-
-
 const std::string int64ToString(int64 i)
 {
 	if(i >= 0)
@@ -1876,28 +1860,21 @@ void StringUtils::test()
 	testAssert(int32ToString(-1234567) == "-1234567");
 	testAssert(int32ToString(0) == "0");
 
+
 	//===================================== int64ToString() ============================================
-
-	// Test numbers near to int64 min.
-	for(int64 i=std::numeric_limits<int64>::min(); i != std::numeric_limits<int64>::min() + 1000; ++i)
-		testAssert(int64ToString(i) == referenceInt64ToString(i));
-
-	// Test numbers near to int32 max
-	for(int64 i=std::numeric_limits<int32>::max() - 1000; i != std::numeric_limits<int32>::max(); ++i)
-		testAssert(int64ToString(i) == referenceInt64ToString(i));
-
-	// Test numbers around zero.
-	for(int64 i=-1000; i != 1000; ++i)
-		testAssert(int64ToString(i) == referenceInt64ToString(i));
-
-
+	
+	testAssert(int64ToString(-1) == "-1");
+	testAssert(int64ToString(0) == "0");
+	testAssert(int64ToString(1) == "1");
 	testAssert(int64ToString(1234567) == "1234567");
 	testAssert(int64ToString(-1234567) == "-1234567");
-	testAssert(int64ToString(0) == "0");
+	testAssert(int64ToString(-1234567) == "-1234567");
 
+	testAssert(std::numeric_limits<int64>::min() == -9223372036854775807LL - 1LL);
+	testAssert(int64ToString(-9223372036854775807LL - 1LL) == "-9223372036854775808");
 
-
-
+	testAssert(std::numeric_limits<int64>::max() == 9223372036854775807LL);
+	testAssert(int64ToString(9223372036854775807LL) == "9223372036854775807");
 
 
 
