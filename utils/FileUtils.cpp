@@ -65,20 +65,6 @@ const std::string toPlatformSlashes(const std::string& pathname)
 }
 
 
-int getNumDirs(const std::string& dirname)
-{
-	int count = 0;
-
-	for(unsigned int i=0; i<dirname.size(); ++i)
-	{
-		if(dirname[i] == '\\' || dirname[i] == '/')
-			count++;
-	}
-
-	return count + 1;
-}
-
-
 void createDir(const std::string& dirname)
 {
 #if defined(_WIN32)
@@ -134,42 +120,43 @@ void createDirIfDoesNotExist(const std::string& dirname)
 }
 
 
-const std::string getDirectory(const std::string& pathname_)
+// Gets the directory of a file from the pathname.
+// If the pathname is just the filename, returns ""
+// Path will *not* have a trailing slash
+const std::string getDirectory(const std::string& pathname)
 {
-	const std::string path = toPlatformSlashes(pathname_);
-
-	const std::string::size_type lastslashpos = path.find_last_of(PLATFORM_DIR_SEPARATOR_CHAR);
-
-	if(lastslashpos == std::string::npos)
+	const int pathname_size = (int)pathname.size();
+	if(pathname_size == 0)
 		return "";
 
-	return path.substr(0, lastslashpos);
+	// Walk backwards from end of string until we hit a slash.
+	for(int i=pathname_size-1; i >= 0; --i)
+		if(pathname[i] == '/' || pathname[i] == '\\')
+			return pathname.substr(0, i);
+
+	return "";
+
+	//const std::string path = toPlatformSlashes(pathname_);
+	//const std::string::size_type lastslashpos = path.find_last_of(PLATFORM_DIR_SEPARATOR_CHAR);
+	//if(lastslashpos == std::string::npos)
+	//	return "";
+	//return path.substr(0, lastslashpos);
 }
 
 
 const std::string getFilename(const std::string& pathname)
 {
-	//-----------------------------------------------------------------
-	//replace all \'s with /'s.
-	//-----------------------------------------------------------------
-	std::string pathname_copy = pathname;
-	replaceChar(pathname_copy, '\\', '/');
+	const int pathname_size = (int)pathname.size();
+	if(pathname_size == 0)
+		return "";
 
-	const size_t lastslashpos = pathname_copy.find_last_of('/');
+	// Walk backwards from end of string until we hit a slash.
+	for(int i=pathname_size-1; i >= 0; --i)
+		if(pathname[i] == '/' || pathname[i] == '\\')
+			return pathname.substr(i + 1);
 
-	if(lastslashpos == std::string::npos)//if no slashes
-	{
-		return pathname;
-	}
-	else
-	{
-		const size_t filenamepos = lastslashpos + 1;
-
-		if(filenamepos < pathname.size())
-			return pathname.substr(filenamepos, (int)pathname.size() - filenamepos);
-		else
-			return "";
-	}
+	// If there were no slashes, just return whole path.
+	return pathname;
 }
 
 
@@ -231,16 +218,11 @@ const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_pat
 bool fileExists(const std::string& pathname)
 {
 #if defined(_WIN32)
-
-	WIN32_FIND_DATA find_data;
-	HANDLE search_handle = FindFirstFile(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), &find_data);
-
-	const bool foundit = search_handle != INVALID_HANDLE_VALUE;
-
-	if(foundit)
-		FindClose(search_handle);
-
-	return foundit;
+	// Apparently GetFileAttributes is faster than using FindFirstFile() etc..:
+	// https://blogs.msdn.microsoft.com/oldnewthing/20071023-00/?p=24713/
+	// NOTE: could also use PathFileExists().
+	const DWORD res = GetFileAttributes(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str());
+	return res != INVALID_FILE_ATTRIBUTES;
 #else
 	struct stat buffer;
 	const int status = stat(pathname.c_str(), &buffer);
@@ -312,12 +294,11 @@ bool isDirectory(const std::string& pathname)
 {
 #if defined(_WIN32)
 	WIN32_FILE_ATTRIBUTE_DATA file_data;
-	GetFileAttributesEx(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), GetFileExInfoStandard, &file_data);
+	const BOOL res = GetFileAttributesEx(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), GetFileExInfoStandard, &file_data);
+	if(!res)
+		return false;
 
-	if(file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-		return true;
-
-	return false;
+	return (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
 	struct stat buffer;
 	const int status = stat(pathname.c_str(), &buffer);
@@ -390,7 +371,7 @@ void writeEntireFile(const std::string& pathname,
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
 
 	if(filecontents.size() > 0)
-		file.write((const char*)&(*filecontents.begin()), filecontents.size());
+		file.write((const char*)filecontents.data(), filecontents.size());
 
 	if(file.bad())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
@@ -406,7 +387,7 @@ void writeEntireFile(const std::string& pathname,
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
 
 	if(filecontents.size() > 0)
-		file.write(filecontents.c_str(), filecontents.size());
+		file.write(filecontents.data(), filecontents.size());
 
 	if(file.bad())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
@@ -422,7 +403,7 @@ void writeEntireFileTextMode(const std::string& pathname,
 		throw FileUtilsExcep("Could not open '" + pathname + "' for writing.");
 
 	if(filecontents.size() > 0)
-		file.write(filecontents.c_str(), filecontents.size());
+		file.write(filecontents.data(), filecontents.size());
 
 	if(file.bad())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
@@ -595,9 +576,9 @@ bool isPathAbsolute(const std::string& p)
 	// Note that this is maybe not the ideal way to solve the problem.
 
 	return 
-		(p.length() > 1 && hasPrefix(p.substr(1, p.length()-1), ":")) || // e.g. C:/programming/
-		hasPrefix(p, "\\") || // Windows network share, e.g. \\Avarice
-		hasPrefix(p, "/"); // Unix root
+		(p.length() >= 2 && p[1] == ':')  || // e.g. C:/programming/
+		(p.length() >= 1 && p[0] == '\\') || // Windows network share, e.g. \\Avarice
+		(p.length() >= 1 && p[0] == '/'); // Unix root
 }
 
 
@@ -773,14 +754,93 @@ void doUnitTests()
 	conPrint("FileUtils::doUnitTests()");
 
 
-
+	//========================= Test getDirectory() ================================
+	// Gets the directory of a file from the pathname.
+	// If the pathname is just the filename, returns ""
+	// Path will *not* have a trailing slash
 	try
 	{
+		testAssert(getDirectory("testfiles/teapot.obj") == "testfiles");
+		testAssert(getDirectory("testfiles\\teapot.obj") == "testfiles");
 
-		//TEMP:
-		const std::vector<std::string> files = getFilesInDir(TestUtils::getIndigoTestReposDir() + "/testfiles");
-		for(size_t i=0; i<files.size(); ++i)
-			conPrint("file: " + files[i]);
+		testAssert(getDirectory("a/b/c") == "a/b");
+		testAssert(getDirectory("a\\b\\c") == "a\\b");
+
+		testAssert(getDirectory("a\\b/c") == "a\\b");
+		testAssert(getDirectory("a/b\\c") == "a/b");
+
+		testAssert(getDirectory("teapot.obj") == "");
+		testAssert(getDirectory("") == "");
+		testAssert(getDirectory("testfiles/") == "testfiles");
+		testAssert(getDirectory("testfiles\\") == "testfiles");
+		testAssert(getDirectory("/") == "");
+		testAssert(getDirectory("\\") == "");
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	//========================= Test getFilename() ================================
+	try
+	{
+		testAssert(getFilename("testfiles/teapot.obj") == "teapot.obj");
+		testAssert(getFilename("testfiles\\teapot.obj") == "teapot.obj");
+
+		testAssert(getFilename("teapot.obj") == "teapot.obj");
+		testAssert(getFilename("") == "");
+		testAssert(getFilename("testfiles/") == "");
+		testAssert(getFilename("testfiles\\") == "");
+		testAssert(getFilename("/") == "");
+		testAssert(getFilename("\\") == "");
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	//========================= Test fileExists() ================================
+	try
+	{
+		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj"));
+		testAssert(!fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
+
+		// fileExists should return true for directories as well.
+		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles"));
+		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/"));
+		testAssert(!fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	
+	//========================= Test isDirectory() ================================
+	try
+	{
+		// Should return false for files that exist and that do not exist
+		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj"));
+		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
+
+		testAssert(isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles"));
+		testAssert(isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/"));
+		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	//========================= Test getActualOSPath() ================================
+	try
+	{
+		//const std::vector<std::string> files = getFilesInDir(TestUtils::getIndigoTestReposDir() + "/testfiles");
+		//for(size_t i=0; i<files.size(); ++i)
+		///	conPrint("file: " + files[i]);
 
 #if defined(_WIN32)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
@@ -798,25 +858,20 @@ void doUnitTests()
 	}
 
 
-
-
-
-
+	//========================= Test handling of Unicode pathnames ============================
+	
 	const std::string euro_txt_pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
 
 	try
 	{
 		testAssert(fileExists(euro_txt_pathname)); // Euro sign.txt
 
-
 		std::string contents;
 		FileUtils::readEntireFile(euro_txt_pathname, contents);
 
-		const std::string target_contents = "\xE2\x82\xAC";
+		const std::string target_contents = "\xE2\x82\xAC\n";
 
-		conPrint("'" + contents + "'");
-
-	//	testAssert(contents == target_contents);
+		testAssert(contents == target_contents);
 	}
 	catch(FileUtilsExcep& e)
 	{
@@ -845,7 +900,7 @@ void doUnitTests()
 	}
 
 
-	////////////// Test getFileSize() ////////////
+	//============================ Test getFileSize() ============================
 	try
 	{
 		testAssert(getFileSize(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") == 231);
@@ -870,11 +925,11 @@ void doUnitTests()
 		failTest("Wrong type of exception thrown by getFileSize()");
 	}
 
-	/////////////////////////////////////////////
 
 
+	//============================ Test isPathAbsolute() ============================
 
-#if defined(_WIN32)
+//#if defined(_WIN32)
 	testAssert(isPathAbsolute("C:/windows"));
 	testAssert(isPathAbsolute("a:/dsfsdf/sdfsdf/sdf/"));
 	testAssert(isPathAbsolute("a:\\dsfsdf"));
@@ -904,11 +959,11 @@ void doUnitTests()
 	testAssert(isPathSafe("a\\b\\something.txt"));
 	testAssert(isPathSafe("a\\b\\something"));
 	testAssert(isPathSafe("a\\.\\something"));
-#else
+//#else
 	testAssert(isPathAbsolute("/etc/"));
 	testAssert(!isPathAbsolute("dfgfdgdf/etc/"));
 
-#endif
+//#endif
 
 
 	try
@@ -971,7 +1026,7 @@ void doUnitTests()
 				found_a = true;
 			if(files[i] == "b")
 				found_b = true;
-			conPrint("file[" + ::toString((int) i) + "]: '" + files[i] + "'");
+			//conPrint("file[" + ::toString((int) i) + "]: '" + files[i] + "'");
 		}
 		testAssert(found_a);
 		testAssert(found_b);
