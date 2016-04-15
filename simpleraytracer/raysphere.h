@@ -42,7 +42,6 @@ public:
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose);
 	virtual void build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
-	virtual Vec3RealType getBoundingRadius() const;
 	virtual Real meanCurvature(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 

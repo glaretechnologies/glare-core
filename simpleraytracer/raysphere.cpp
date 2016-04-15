@@ -240,12 +240,6 @@ unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { r
 unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 
 
-RaySphere::Vec3RealType RaySphere::getBoundingRadius() const
-{
-	return radius;
-}
-
-
 RaySphere::Real RaySphere::meanCurvature(const HitInfo& hitinfo) const
 {
 	return -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.

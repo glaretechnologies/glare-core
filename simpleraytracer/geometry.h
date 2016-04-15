@@ -120,8 +120,6 @@ public:
 	};
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 
-	virtual Vec3RealType getBoundingRadius() const = 0;
-
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 
 	void incrementObjectUsageCount() { object_usage_count++; }

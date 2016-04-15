@@ -230,7 +230,6 @@ public:
 
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
-	virtual Vec3RealType getBoundingRadius() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
 	//////////////////////////////////////////////////////////
 

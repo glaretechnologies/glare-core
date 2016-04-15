@@ -2078,12 +2078,6 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 }
 
 
-RayMesh::Vec3RealType RayMesh::getBoundingRadius() const
-{
-	return bounding_radius;
-}
-
-
 float RayMesh::meanCurvature(const HitInfo& hitinfo) const
 {
 	assert(built());
