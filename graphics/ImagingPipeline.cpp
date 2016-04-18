@@ -67,7 +67,77 @@ Average then gamma correct:
 
 In this case the result is the same either way.
 
+
+
+
+
+Notes on alpha blending in non-linear colour spaces (e.g. sRGB)
+===============================================================
+Let background colour = B
+
+Foreground colour = A_linear
+foreground alpha = alpha_linear
+
+Let
+A_final = toSRGB(A_linear) / alpha_linear
+alpha_final = alpha_linear
+
+Blending with background
+
+C = A_final * alpha_final  +  B_sRGB * (1 - alpha_final)
+
+C = [toSRGB(A_linear) / alpha_linear] * alpha_linear + B_sRGB * (1 - alpha_linear)
+
+C = toSRGB(A_linear)  +  B_sRGB * (1 - alpha_linear)										[1]
+
+
+
+White foreground, black background (as in alpha_motion_blur_test3.igs)
+--------------------------------------------------------
+A_linear = 0.5, alpha_linear = 0.5
+B_sRGB = 0
+Desired C: toSRGB(0.5)
+
+
+C = A_final * alpha_final  +  B_sRGB * (1 - alpha_final)
+C = toSRGB(A_linear)  +  B_sRGB * (1 - alpha_linear)						[1]
+C = toSRGB(0.5)       +  0
+  = toSRGB(0.5)										[correct, want resulting blended colour to be same as for gradient]
+
+
+Black foreground, white background (as in alpha_motion_blur_test3.igs)
+--------------------------------------------------------
+A_linear = 0.0, alpha_linear = 0.5
+B_linear = 1
+Desired C: toSRGB(0.5)
+
+
+C = A_final * alpha_final  +  B_sRGB * (1 - alpha_final)
+C = toSRGB(A_linear)  +  B_sRGB * (1 - alpha_linear)						[1]
+  = 0                 +  toSRGB(1) * (1 - 0.5)
+  =                      1 * 0.5
+  = 0.5										[Wrong, probably want toSRGB(0.5)]
+
+
+
+
+-----------------------------------------
+
+For a white foreground, no alpha, A_linear = 0.5, we will have A_sRGB ~= 0.5^(1/2.2) ~= 0.75.
+This is the case for half-way along a linear intensity ramp.
+
+Take white background (B_sRGB = 1), and black foreground object, with some alpha value (alpha_final).
+Blended colour C will be
+C = B_sRGB * (1 - alpha_final)
+C = (1 - alpha_final)
+In the case where alpha = 0.5 (half way along linear transparency 'ramp')
+C = 0.5.
+This is not what we want, it should be ~0.75 as for the non-alpha case.
+
+To acheive this however, the alpha value would somehow need to take into account the background colour, which won't be known when storing the foreground colour + alpha.
+Basically it makes no sense to alpha blend with non-linear values, as if they were linear.
 */
+
 
 namespace ImagingPipeline
 {
@@ -822,6 +892,14 @@ void doTonemap(
 }
 
 
+/*
+Converts some tonemapped image data to non-linear sRGB space.
+Does a few things in preperation for conversion to an 8-bit output image format, 
+such as dithering and gamma correction.
+Input colour space is linear sRGB
+Output colour space is non-linear sRGB with the supplied gamma.
+We also assume the output values are not premultiplied alpha.
+*/
 void toNonLinearSpace(
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
@@ -850,7 +928,7 @@ void toNonLinearSpace(
 		if(dithering)
 			col = ditherPixel(col, z);
 
-		////// Do alpha divide //////
+		////// Do alpha divide. Needed to compensate for alpha multiplication during blending //////
 		col = max(Colour4f(0.0f), col); // Make sure alpha > 0
 
 		const float recip_alpha = 1 / col.x[3];

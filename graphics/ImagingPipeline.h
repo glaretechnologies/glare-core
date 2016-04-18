@@ -71,6 +71,7 @@ Does a few things in preperation for conversion to an 8-bit output image format,
 such as dithering and gamma correction.
 Input colour space is linear sRGB
 Output colour space is non-linear sRGB with the supplied gamma.
+We also assume the output values are not premultiplied alpha.
 */
 void toNonLinearSpace(
 	const RendererSettings& renderer_settings,
