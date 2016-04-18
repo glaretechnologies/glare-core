@@ -69,6 +69,11 @@ In this case the result is the same either way.
 
 
 
+Notes on alpha output pre-multiplied vs non-premultiplied
+=========================================================
+"PNG uses "unassociated" or "non-premultiplied" alpha so that images with separate transparency masks can be stored losslessly" - https://www.w3.org/TR/PNG-Rationale.html
+"by convention, OpenEXR images are "premultiplied" - the color channel values are already matted against black using the alpha channel" - http://www.openexr.com/photoshop_plugin.html
+
 
 
 Notes on alpha blending in non-linear colour spaces (e.g. sRGB)
