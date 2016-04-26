@@ -221,7 +221,7 @@ template <class Real> Real schlickFresnelReflectance(Real R_0, Real cos_theta)
 {
 	assert(Maths::inUnitInterval(cos_theta));
 
-	return R_0 + ((Real)1.0 - R_0) * MatUtils::pow5<Real>((Real)1.0 - cos_theta);
+	return R_0 + (1 - R_0) * MatUtils::pow5<Real>(1 - cos_theta);
 }
 
 

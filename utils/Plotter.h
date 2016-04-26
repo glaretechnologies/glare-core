@@ -42,17 +42,28 @@ public:
 
 	struct PlotOptions
 	{
-		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30), explicit_x_range(false) {}
+		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30), explicit_x_range(false), explicit_y_range(false), explicit_z_range(false) {}
 		int w, h;
 		bool x_axis_log;
 		bool y_axis_log;
 		bool r_log;
 		bool polar;
-		float z_rot;
+		double z_rot;
 
 		bool explicit_x_range;
-		float x_start;
-		float x_end;
+		double x_start;
+		double x_end;
+
+		bool explicit_y_range;
+		double y_start;
+		double y_end;
+
+		bool explicit_z_range;
+		double z_start;
+		double z_end;
+
+		std::vector<float> vertical_lines;
+		std::vector<float> horizontal_lines;
 	};
 
 	static void plot(

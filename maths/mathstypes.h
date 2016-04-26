@@ -487,6 +487,14 @@ INDIGO_STRONG_INLINE T pow4(T x)
 
 
 template <class T>
+INDIGO_STRONG_INLINE T pow6(T x)
+{
+	const T x2 = x*x;
+	return x2 * x2 * x2;
+}
+
+
+template <class T>
 INDIGO_STRONG_INLINE T pow8(T x)
 {
 	const T x2 = x*x;
