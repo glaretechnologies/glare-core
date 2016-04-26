@@ -105,6 +105,7 @@ void Obfuscator::addOpenCLKeywords()
 "register",
 "return",
 "short",
+"ushort",
 "signed",
 "sizeof",
 "static",
@@ -1042,6 +1043,10 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"getSample_int__int__int____global_array_float__28__",
 		"getSamplePair_int__int__int____global_array_float__28__",
 		"spectralReflectanceForWinter_Colour3__SpectralVector_",
+
+		"evalG_float__float_",
+		"evalAvSpecAlbedo_float__float_",
+		"evalSpecularAlbedo_float__float__float_",
 
 		/*"noise_float__float_",
 		"noise_float__float__float_",
