@@ -29,7 +29,7 @@ ChebyshevApprox::~ChebyshevApprox()
 
 
 template <class Func>
-void testOnFunction(Func func, const std::string& func_name)
+static void plotApproximation(Func func, const std::string& func_name)
 {
 	std::vector<Plotter::DataSet> data;
 	data.resize(2);
@@ -80,9 +80,9 @@ struct constant
 
 void ChebyshevApprox::test()
 {
-	testOnFunction(constant(), "constant");
-	testOnFunction(linear(), "linear");
-	testOnFunction(x_sqrd(), "x_sqrd");
+	//plotApproximation(constant(), "constant");
+	//plotApproximation(linear(), "linear");
+	//plotApproximation(x_sqrd(), "x_sqrd");
 }
 
 
