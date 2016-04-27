@@ -825,6 +825,8 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
     }
 #pragma warning(pop)
 
+#elif defined(OSX)
+	pthread_setname_np(name.c_str());
 #else
 	pthread_setname_np(pthread_self(), name.c_str());
 #endif

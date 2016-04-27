@@ -467,7 +467,6 @@ float PerlinNoise::noiseImpl(float x, float y)
 	
 	const Vec4f fractional = point - floored;
 	const Vec4f uvw = fade(fractional);
-	const Vec4f one_uvw = Vec4f(1) - uvw;
 
 	const Vec4f fractional_x(fractional.x[0]);
 	const Vec4f fractional_y(fractional.x[1]);
@@ -684,7 +683,6 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 
 	const Vec4f fractional = point - floored;
 	const Vec4f uvw = fade(fractional);
-	const Vec4f one_uvw = Vec4f(1) - uvw;
 
 	const Vec4f fractional_x(fractional.x[0]);
 	const Vec4f fractional_y(fractional.x[1]);
