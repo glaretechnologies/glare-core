@@ -775,24 +775,6 @@ bool PlatformUtils::isWindowsXPOrEarlier()
 }
 
 
-#if defined(OSX)
-void PlatformUtils::getOSXVersion(int32& majorVersion, int32& minorVersion, int32& bugFixVersion)
-{
-	SInt32 major, minor,bugFix;
-	
-	Gestalt(gestaltSystemVersionMajor, &major);
-    Gestalt(gestaltSystemVersionMinor, &minor);
-    Gestalt(gestaltSystemVersionBugFix, &bugFix);
-	
-	majorVersion = (int32)major;
-	minorVersion = (int32)minor;
-	bugFixVersion = (int32)bugFix;
-	
-	//printf("mjor: %d\nminor: %d\nbugfix: %d\n", majorVersion, minorVersion, bugFixVersion);
-}
-#endif
-
-
 // See 'How to: Set a Thread Name in Native Code', https://msdn.microsoft.com/en-gb/library/xcb2z8hs.aspx
 #if defined(_WIN32)
 const DWORD MS_VC_EXCEPTION = 0x406D1388;
