@@ -195,7 +195,7 @@ void BVHBuilder::build(
 	if(num_objects >= axis_parallel_num_ob_threshold)
 	{
 		delete local_task_manager;
-		local_task_manager = new Indigo::TaskManager(3);
+		local_task_manager = new Indigo::TaskManager("BVHBuilder local task manager", 3);
 	}
 
 

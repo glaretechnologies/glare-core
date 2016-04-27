@@ -136,6 +136,10 @@ void getOSXVersion(int32& majorVersion, int32& minorVersion, int32& bugFixVersio
 #endif
 
 
+void setCurrentThreadName(const std::string& name); // Sets the thread name as seen in the debugger
+void setCurrentThreadNameIfTestsEnabled(const std::string& name); // Sets the thread name as seen in the debugger, if BUILD_TESTS is enabled.
+
+
 void testPlatformUtils();
 
 

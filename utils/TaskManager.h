@@ -39,6 +39,7 @@ public:
 	} NumThreadsChoice;*/
 
 	TaskManager(size_t num_threads = std::numeric_limits<size_t>::max());
+	TaskManager(const std::string& name, size_t num_threads = std::numeric_limits<size_t>::max());
 
 	~TaskManager();
 
@@ -71,10 +72,15 @@ public:
 	Reference<Task> dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
 	// void threadDead(); // called by TestRunnerThread
+	const std::string& getName(); // called by TestRunnerThread
 private:
+	void init(size_t num_threads);
+
 	Condition num_unfinished_tasks_cond;
 	::Mutex num_unfinished_tasks_mutex;
 	int num_unfinished_tasks;
+	
+	std::string name;
 
 	//Condition num_threads_cond;
 	//Mutex num_threads_mutex;

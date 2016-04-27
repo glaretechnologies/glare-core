@@ -18,8 +18,23 @@ namespace Indigo
 
 
 TaskManager::TaskManager(size_t num_threads)
-:	num_unfinished_tasks(0)
+:	num_unfinished_tasks(0),
+	name("task manager")
 	///num_threads(0)
+{
+	init(num_threads);
+}
+
+
+TaskManager::TaskManager(const std::string& name_, size_t num_threads)
+:	num_unfinished_tasks(0),
+	name(name_)
+{
+	init(num_threads);
+}
+
+
+void TaskManager::init(size_t num_threads)
 {
 	if(num_threads == std::numeric_limits<size_t>::max()) // If auto-choosing num threads
 		threads.resize(PlatformUtils::getNumLogicalProcessors());
@@ -141,6 +156,12 @@ void TaskManager::taskFinished() // called by Tasks
 
 	if(new_num_unfinished_tasks == 0)
 		num_unfinished_tasks_cond.notify();
+}
+
+
+const std::string& TaskManager::getName() // called by TestRunnerThread
+{
+	return name;
 }
 
 

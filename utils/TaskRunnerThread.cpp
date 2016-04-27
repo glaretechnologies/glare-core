@@ -13,6 +13,7 @@ Generated at 2011-10-05 22:17:09 +0100
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Clock.h"
+#include "../utils/PlatformUtils.h"
 
 
 //#define TASK_STATS 1
@@ -57,6 +58,8 @@ TaskRunnerThread::~TaskRunnerThread()
 
 void TaskRunnerThread::run()
 {
+	PlatformUtils::setCurrentThreadNameIfTestsEnabled(manager->getName() + " thread " + toString(thread_index));
+
 	while(1)
 	{
 		Reference<Task> task = manager->dequeueTask();
