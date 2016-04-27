@@ -57,6 +57,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 	#include <netinet/in.h>
 	#include <arpa/inet.h>
 	#include <mach-o/dyld.h>
+	#include <pthread.h>
 	//#include <signal.h>
 #endif
 
