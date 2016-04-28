@@ -284,12 +284,17 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 #ifdef INDIGO_RT
 	if(components[1] == "indigo-rt-3.x")
 		desired_licence_type = RT_3_X;
-	else if(components[1] == "indigo-full-3.x")
+	else if(components[1] == "indigo-full-3.x") // The user may run Indigo RT with an Indigo Full licence, without restrictions.
 		desired_licence_type = FULL_3_X;
 	else if(components[1] == "indigo-full-lifetime")
 		desired_licence_type = FULL_LIFETIME;
 	else if(components[1] == "indigo-rt-iclone")
 		desired_licence_type = INDIGO_RT_ICLONE;
+
+	else if(components[1] == "indigo-rt-4.x")
+		desired_licence_type = RT_4_X;
+	else if(components[1] == "indigo-full-4.x")
+		desired_licence_type = FULL_4_X;
 #else
 	if(components[1] == "indigo-full-2.x")
 		desired_licence_type = FULL_2_X;
@@ -333,7 +338,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 	// The user may run Indigo RT with an Indigo Full licence, without restrictions.
 #else
 	// If this is Indigo full, and the user only has an Indigo RT licence, show them an appropriate error message:
-	if(desired_licence_type == RT_3_X || desired_licence_type == INDIGO_RT_ICLONE)
+	if(desired_licence_type == RT_3_X || desired_licence_type == INDIGO_RT_ICLONE || desired_licence_type == RT_4_X)
 	{
 		error_code_out = LicenceErrorCode_IndigoRTUsedForIndigoRenderer;
 		return;
@@ -543,7 +548,7 @@ const std::string License::licenseTypeToString(LicenceType t)
 	else if(t == REVIT_3_X)
 		return "Indigo for Revit 3.x Full";
 	else if(t == RT_3_X)
-		return "Indigo RT";
+		return "Indigo RT 3.x";
 
 	else if(t == FULL_4_X)
 		return "Indigo 4.x Full";
@@ -552,7 +557,7 @@ const std::string License::licenseTypeToString(LicenceType t)
 	else if(t == REVIT_4_X)
 		return "Indigo for Revit 4.x Full";
 	else if(t == RT_4_X)
-		return "Indigo RT";
+		return "Indigo RT 4.x";
 
 	else if(t == NETWORK_FLOATING_FULL)
 		return "Network Floating Full";
