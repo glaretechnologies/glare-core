@@ -489,7 +489,7 @@ std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo
 	// For every selected device i.
 	for(size_t i = 0; i < selected_devices.size(); ++i)
 	{
-		// Find the matching device j and add it's index to the list of indices.
+		// Find the matching device j and add its index to the list of indices.
 		for(size_t j = 0; j < devices.size(); ++j)
 		{
 			// Is it the device we are looking for? I.e. name, vendor and id match.
