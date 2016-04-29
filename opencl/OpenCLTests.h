@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2015 -
 #pragma once
 
 
-class gpuDeviceInfo;
+class OpenCLDevice;
 
 
 /*=====================================================================
@@ -24,5 +24,5 @@ public:
 	static void test();
 
 private:
-	static void runTestsOnDevice(const gpuDeviceInfo& opencl_device);
+	static void runTestsOnDevice(const OpenCLDevice& opencl_device);
 };

@@ -11,7 +11,6 @@ OpenCLCommandQueue.h
 #include "../utils/Platform.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/DynamicLib.h"
-#include "../indigo/gpuDeviceInfo.h"
 
 
 #if USE_OPENCL

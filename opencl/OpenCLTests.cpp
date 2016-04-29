@@ -36,7 +36,7 @@ OpenCLTests::~OpenCLTests()
 }
 
 
-void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
+void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 {
 	conPrint("\nOpenCLTests::runTestsOnDevice(), device: " + opencl_device.description());
 
@@ -64,16 +64,16 @@ void OpenCLTests::runTestsOnDevice(const gpuDeviceInfo& opencl_device)
 		cl_program program = opencl->buildProgram(
 			contents,
 			context,
-			opencl_device.opencl_device,
+			opencl_device.opencl_device_id,
 			options,
 			build_log
 		);
 
 		conPrint("Program built.");
 
-		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device)); 
+		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device_id)); 
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device_id, /*profile=*/true);
 
 
 		//============== Test-specific buffers ====================
@@ -197,7 +197,7 @@ static void miscompilationTest()
 		OpenCL* opencl = getGlobalOpenCL();
 		testAssert(opencl != NULL);
 
-		const gpuDeviceInfo& opencl_device = opencl->getDeviceInfo()[0];
+		const OpenCLDevice& opencl_device = opencl->getOpenCLDevices()[0];
 
 
 		// Initialise OpenCL context and command queue for this device
@@ -220,16 +220,16 @@ static void miscompilationTest()
 		cl_program program = opencl->buildProgram(
 			contents,
 			context,
-			opencl_device.opencl_device,
+			opencl_device.opencl_device_id,
 			options,
 			build_log
 		);
 
 		conPrint("Program built.");
 
-		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device)); 
+		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device_id));
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device, /*profile=*/true);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device_id, /*profile=*/true);
 
 
 		//============== Test-specific buffers ====================

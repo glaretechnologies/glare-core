@@ -9,10 +9,10 @@ Code By Nicholas Chapman.
 
 #include <string>
 #include <vector>
+#include "../dll/include/GPUInfo.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
-#include "../indigo/gpuDeviceInfo.h"
 
 
 //#if defined(_WIN32)
@@ -105,12 +105,17 @@ typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue c
 class OpenCLDevice
 {
 public:
+	const std::string description() const;
+
 #if USE_OPENCL
-	cl_device_id device_id;
-	cl_device_type device_type;
+	cl_device_id opencl_device_id;
+	cl_platform_id opencl_platform_id;
+	cl_device_type opencl_device_type;
 #endif
 
 	std::string name;
+	std::string vendor_name;
+	int64 id;
 
 	size_t global_mem_size;
 	size_t max_mem_alloc_size;
@@ -121,34 +126,15 @@ public:
 };
 
 
-class OpenCLPlatform
+struct OpenCLDeviceLessThanName
 {
-public:
-#if USE_OPENCL
-	cl_platform_id platform_id;
-#endif
-
-	std::string vendor_name;
-
-	std::vector<OpenCLDevice> devices;
-
-	// Comparison operator for sorting by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
-	bool operator<(const OpenCLPlatform& rhs) const { return vendor_name < rhs.vendor_name; }
+	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.name < rhs.name; }
 };
 
 
-class OpenCLInfo
+struct OpenCLDeviceLessThanVendor
 {
-public:
-	size_t getTotalNumDevices() const
-	{
-		size_t total_num_devices = 0;
-		for(size_t i = 0; i < platforms.size(); ++i)
-			total_num_devices += platforms[i].devices.size();
-		return total_num_devices;
-	}
-
-	std::vector<OpenCLPlatform> platforms;
+	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.vendor_name < rhs.vendor_name; }
 };
 
 
@@ -174,9 +160,9 @@ public:
 
 #if USE_OPENCL
 	void queryDevices();
-	const std::vector<gpuDeviceInfo>& getDeviceInfo() const;
+	const std::vector<OpenCLDevice>& getOpenCLDevices() const;
 
-	void deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out);
+	void deviceInit(const OpenCLDevice& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out);
 	void deviceFree(cl_context& context, cl_command_queue& command_queue);
 
 	static const std::string errorString(cl_int result);
@@ -192,6 +178,8 @@ public:
 	const std::string getBuildLog(cl_program program, cl_device_id device);
 
 	void dumpProgramBinaryToDisk(cl_program program);
+
+	std::vector<int> selectedDevicesSettingsToIndex(const std::vector<Indigo::GPUInfo>& selected_devices);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
@@ -248,8 +236,7 @@ public:
 	bool initialised;
 	bool verbose;
 
-	std::vector<gpuDeviceInfo> device_info;
-	OpenCLInfo info;
+	std::vector<OpenCLDevice> devices;
 };
 
 

@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#include "../indigo/gpuDeviceInfo.h"
+#include "../dll/IndigoStringUtils.h"
 #include "../maths/mathstypes.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/PlatformUtils.h"
@@ -24,6 +24,16 @@ Code By Nicholas Chapman.
 #if defined(__linux__)
 #include <dlfcn.h>
 #endif
+
+
+const std::string OpenCLDevice::description() const
+{
+	return "CPU: " + boolToString(opencl_device_type == CL_DEVICE_TYPE_CPU) +
+		", device_name: " + name + ", OpenCL platform vendor: " + vendor_name +
+		//", driver info: " + OpenCL_driver_info + ", driver version: " + OpenCL_version +
+		", global_mem_size: " + getNiceByteSize(global_mem_size) +
+		", max_mem_alloc_size: " + toString(max_mem_alloc_size) + " B";
+}
 
 
 OpenCL::OpenCL(bool verbose_)
@@ -214,14 +224,6 @@ void OpenCL::libraryInit()
 
 
 #if USE_OPENCL
-// Comparison operator for sorting by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
-bool devicePlatformSort(const gpuDeviceInfo& lhs, const gpuDeviceInfo& rhs)
-{
-	//return lhs.opencl_platform_vendor < rhs.opencl_platform_vendor;
-	return lhs.opencl_platform >= rhs.opencl_platform;
-}
-
-
 void OpenCL::queryDevices()
 {
 	if(!initialised)
@@ -252,8 +254,7 @@ void OpenCL::queryDevices()
 
 	if(verbose) conPrint("Num platforms: " + toString(num_platforms));
 
-	device_info.clear();
-	info.platforms.clear();
+	devices.clear();
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
@@ -322,10 +323,6 @@ void OpenCL::queryDevices()
 			conPrint("platform_num_GL_devices: " + platform_num_GL_devices);
 #endif
 		}
-
-		OpenCLPlatform opencl_platform;
-		opencl_platform.platform_id = platform_ids[i];
-		opencl_platform.vendor_name = platform_vendor;
 
 		std::vector<cl_device_id> device_ids(64);
 		cl_uint num_devices = 0;
@@ -434,38 +431,15 @@ void OpenCL::queryDevices()
 				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
 			}
 
-			// Add device info structure to the vector.
-			{
-				gpuDeviceInfo di;
-				di.device_number = current_device_number;
-				di.device_name = device_name_;
-				di.total_memory_size = (size_t)device_global_mem_size;
-				di.core_count = device_max_compute_units;
-				di.core_clock = device_max_clock_frequency; // in MHz
-				di.CPU = (device_type & CL_DEVICE_TYPE_CPU) != 0;
-				di.max_constant_buffer_size = device_max_constant_buffer_size;
-
-				di.opencl_platform = platform_ids[i];
-				di.opencl_device = device_ids[d];
-				di.opencl_platform_vendor = platform_vendor;
-				di.OpenCL_version = device_version;
-				di.OpenCL_driver_info = driver_version;
-
-#if OPENCL_OPENGL_INTEROP
-				di.supports_OpenGL_interop = device_OpenGL_interop;
-#else
-				di.supports_OpenGL_interop = false;
-#endif
-				device_info.push_back(di);
-			}
-
-			// NEW
+			// Add device info to devices vector.
 			{
 				OpenCLDevice opencl_device;
-				opencl_device.device_id = device_ids[d];
-				opencl_device.device_type = device_type;
+				opencl_device.opencl_device_id = device_ids[d];
+				opencl_device.opencl_platform_id = platform_ids[i];
+				opencl_device.opencl_device_type = device_type;
 
 				opencl_device.name = device_name_;
+				opencl_device.vendor_name = platform_vendor;
 
 				opencl_device.global_mem_size = device_global_mem_size;
 				opencl_device.max_mem_alloc_size = device_max_mem_alloc_size;
@@ -478,23 +452,62 @@ void OpenCL::queryDevices()
 				opencl_device.supports_GL_interop = false;
 #endif
 
-				opencl_platform.devices.push_back(opencl_device);
+				devices.push_back(opencl_device);
 			}
 
 			++current_device_number;
 		}
-
-		// Add this platform and all its devices to the platforms list
-		info.platforms.push_back(opencl_platform);
 	}
 
-	// Sort by platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
-	std::stable_sort(device_info.begin(), device_info.end());
-	std::stable_sort(info.platforms.begin(), info.platforms.end());
+	// Sort by device name, then platform vendor name, so that device listing is stable even if OpenCL reports platforms in a different order.
+	std::stable_sort(devices.begin(), devices.end(), OpenCLDeviceLessThanName());
+	std::stable_sort(devices.begin(), devices.end(), OpenCLDeviceLessThanVendor());
+
+	// After sorting, assign unique id to identical devices.
+	std::string prev_dev;
+	std::string prev_vendor;
+	int64 prev_id = 0;
+	for(size_t i = 0; i < devices.size(); ++i)
+	{
+		// Assign unique id for devices of same vendor and name.
+		if(devices[i].name == prev_dev && devices[i].vendor_name == prev_vendor)
+			devices[i].id = prev_id + 1;
+		else
+			devices[i].id = 0;
+
+		prev_dev = devices[i].name;
+		prev_vendor = devices[i].vendor_name;
+		prev_id = devices[i].id;
+	}
 }
 
 
-void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out)
+std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo::GPUInfo>& selected_devices)
+{
+	std::vector<int> core_selected_devices;
+
+	// For every selected device i.
+	for(size_t i = 0; i < selected_devices.size(); ++i)
+	{
+		// Find the matching device j and add it's index to the list of indices.
+		for(size_t j = 0; j < devices.size(); ++j)
+		{
+			// Is it the device we are looking for? I.e. name, vendor and id match.
+			if(toStdString(selected_devices[i].device_name) == devices[j].name
+				&& toStdString(selected_devices[i].vendor_name) == devices[j].vendor_name
+				&& selected_devices[i].id == devices[j].id)
+			{
+				core_selected_devices.push_back((int)j);
+				break;
+			}
+		}
+	}
+
+	return core_selected_devices;
+}
+
+
+void OpenCL::deviceInit(const OpenCLDevice& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out)
 {
 	if(!initialised)
 		throw Indigo::Exception("OpenCL library not initialised");
@@ -502,7 +515,7 @@ void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profilin
 	cl_context_properties cps[3] =
     {
         CL_CONTEXT_PLATFORM,
-		(cl_context_properties)chosen_device.opencl_platform,
+		(cl_context_properties)chosen_device.opencl_platform_id,
         0
     };
 
@@ -521,7 +534,7 @@ void OpenCL::deviceInit(const gpuDeviceInfo& chosen_device, bool enable_profilin
 	// Create command queue
 	cl_command_queue new_command_queue = this->clCreateCommandQueue(
 		new_context,
-		chosen_device.opencl_device,
+		chosen_device.opencl_device_id,
 		enable_profiling ? CL_QUEUE_PROFILING_ENABLE : 0, // queue properties
 		&error_code);
 	if(new_command_queue == 0)
@@ -641,7 +654,7 @@ const std::string OpenCL::errorString(cl_int result)
 
 
 // Accessor method for device data queried in the constructor.
-const std::vector<gpuDeviceInfo>& OpenCL::getDeviceInfo() const { return device_info; }
+const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const { return devices; };
 
 
 cl_program OpenCL::buildProgram(
