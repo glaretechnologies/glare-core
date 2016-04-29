@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include <string>
 #include <vector>
-#include "../dll/include/GPUInfo.h"
+#include "../dll/include/OpenCLDevice.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
@@ -113,8 +113,9 @@ public:
 	cl_device_type opencl_device_type;
 #endif
 
-	std::string name;
+	std::string device_name;
 	std::string vendor_name;
+	// id is a unique identifier given to identical devices (devices with same name and vendor).
 	int64 id;
 
 	size_t global_mem_size;
@@ -128,7 +129,7 @@ public:
 
 struct OpenCLDeviceLessThanName
 {
-	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.name < rhs.name; }
+	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.device_name < rhs.device_name; }
 };
 
 
@@ -179,7 +180,7 @@ public:
 
 	void dumpProgramBinaryToDisk(cl_program program);
 
-	std::vector<int> selectedDevicesSettingsToIndex(const std::vector<Indigo::GPUInfo>& selected_devices);
+	std::vector<int> selectedDevicesSettingsToIndex(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

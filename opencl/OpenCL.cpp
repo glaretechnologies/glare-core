@@ -29,7 +29,7 @@ Code By Nicholas Chapman.
 const std::string OpenCLDevice::description() const
 {
 	return "CPU: " + boolToString(opencl_device_type == CL_DEVICE_TYPE_CPU) +
-		", device_name: " + name + ", OpenCL platform vendor: " + vendor_name +
+		", device_name: " + device_name + ", OpenCL platform vendor: " + vendor_name +
 		//", driver info: " + OpenCL_driver_info + ", driver version: " + OpenCL_version +
 		", global_mem_size: " + getNiceByteSize(global_mem_size) +
 		", max_mem_alloc_size: " + toString(max_mem_alloc_size) + " B";
@@ -438,7 +438,7 @@ void OpenCL::queryDevices()
 				opencl_device.opencl_platform_id = platform_ids[i];
 				opencl_device.opencl_device_type = device_type;
 
-				opencl_device.name = device_name_;
+				opencl_device.device_name = device_name_;
 				opencl_device.vendor_name = platform_vendor;
 
 				opencl_device.global_mem_size = device_global_mem_size;
@@ -470,19 +470,19 @@ void OpenCL::queryDevices()
 	for(size_t i = 0; i < devices.size(); ++i)
 	{
 		// Assign unique id for devices of same vendor and name.
-		if(devices[i].name == prev_dev && devices[i].vendor_name == prev_vendor)
+		if(devices[i].device_name == prev_dev && devices[i].vendor_name == prev_vendor)
 			devices[i].id = prev_id + 1;
 		else
 			devices[i].id = 0;
 
-		prev_dev = devices[i].name;
+		prev_dev = devices[i].device_name;
 		prev_vendor = devices[i].vendor_name;
 		prev_id = devices[i].id;
 	}
 }
 
 
-std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo::GPUInfo>& selected_devices)
+std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo::OpenCLDevice>& selected_devices)
 {
 	std::vector<int> core_selected_devices;
 
@@ -493,7 +493,7 @@ std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo
 		for(size_t j = 0; j < devices.size(); ++j)
 		{
 			// Is it the device we are looking for? I.e. name, vendor and id match.
-			if(toStdString(selected_devices[i].device_name) == devices[j].name
+			if(toStdString(selected_devices[i].device_name) == devices[j].device_name
 				&& toStdString(selected_devices[i].vendor_name) == devices[j].vendor_name
 				&& selected_devices[i].id == devices[j].id)
 			{
