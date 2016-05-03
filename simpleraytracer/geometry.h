@@ -49,7 +49,7 @@ Interface that represents the shape of an object
 SSE_CLASS_ALIGN Geometry : public RefCounted, public UVCoordEvaluator
 {
 public:
-	Geometry(bool sub_elements_curved_) : object_usage_count(0), sub_elements_curved(sub_elements_curved_) {}
+	Geometry(bool sub_elements_curved_, bool is_camera_) : object_usage_count(0), sub_elements_curved(sub_elements_curved_), is_camera(is_camera_) {}
 	virtual ~Geometry(){}
 
 
@@ -127,9 +127,12 @@ public:
 
 	inline bool areSubElementsCurved() const { return sub_elements_curved; } // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
 
+	inline bool isCamera() const { return is_camera; }
+
 private:
 	unsigned int object_usage_count; // Number of objects that use this geometry.
 	bool sub_elements_curved;
+	bool is_camera;
 };
 
 
