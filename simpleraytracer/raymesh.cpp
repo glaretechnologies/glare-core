@@ -63,7 +63,8 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 				double displacement_error_threshold_
 				 )
 :	Geometry(
-		false // sub-elements curved
+		false, // sub-elements curved
+		false // is camera
 	),
 	name(name_),
 	tritree(NULL),
