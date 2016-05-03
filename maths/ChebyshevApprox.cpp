@@ -23,7 +23,7 @@ ChebyshevApprox::~ChebyshevApprox()
 #if BUILD_TESTS
 
 
-#include "TestUtils.h"
+#include "../indigo/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Plotter.h"
 
