@@ -235,9 +235,17 @@ void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitin
 
 void testScatters(const Reference<Material>& material, float epsilon);
 
+
+// See code_documentation/Visible normal sampling.pdf
 template <class Real> Real trowbridgeReitzPDF(Real cos_theta, Real alpha2)
 {
 	return cos_theta * alpha2 / (Maths::pi<Real>() * Maths::square(Maths::square(cos_theta) * (alpha2 - 1) + 1));
+}
+
+
+template <class Real> Real trowbridgeReitzD(Real cos_theta, Real alpha2)
+{
+	return alpha2 / (Maths::pi<Real>() * Maths::square(Maths::square(cos_theta) * (alpha2 - 1) + 1));
 }
 
 
