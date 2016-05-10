@@ -438,7 +438,6 @@ const std::string Obfuscator::tokenHashString(const std::string& t)
 	);
 
 	//const std::string new_token = t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
-	//const std::string new_token = "ident_" + toHexString(str_hash).substr(0, 6); // Appends hash code to end of token, use this for debugging.
 	
 	std::string new_token;
 	new_token.resize(33);
