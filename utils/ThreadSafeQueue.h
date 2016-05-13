@@ -76,7 +76,7 @@ public:
 
 	//threadsafe
 	inline bool empty() const;
-	inline int size() const;
+	inline size_t size() const;
 	//void clear();
 
 	inline bool unlockedEmpty() const;
@@ -213,7 +213,7 @@ bool ThreadSafeQueue<T>::empty() const
 
 
 template <class T>
-int ThreadSafeQueue<T>::size() const
+size_t ThreadSafeQueue<T>::size() const
 {
 	Lock lock(mutex);
 
