@@ -21,8 +21,11 @@ VBO
 class VBO : public RefCounted
 {
 public:
-	VBO(const void* data, size_t size, GLenum buffer_type = GL_ARRAY_BUFFER);
+	VBO(const void* data, size_t size, GLenum buffer_type = GL_ARRAY_BUFFER, GLenum usage = GL_STATIC_DRAW);
 	~VBO();
+
+
+	void updateData(const void* data, size_t size);
 
 	void bind();
 	void unbind();

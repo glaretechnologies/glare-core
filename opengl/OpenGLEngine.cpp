@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
+#include "ShadowMapping.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
@@ -35,13 +36,15 @@ static const bool PROFILE = false;
 static const bool MEM_PROFILE = false;
 
 
-OpenGLEngine::OpenGLEngine()
+OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
-	anisotropic_filtering_supported(false)
+	anisotropic_filtering_supported(false),
+	settings(settings_)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
 	render_aspect_ratio = 1;
+	viewport_w = viewport_h = 100;
 
 	sun_dir = normalise(Vec4f(0.2,0.2,1,0));
 	env_ob = new GLObject();
@@ -427,35 +430,42 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 	try
 	{
+		std::string preprocessor_defines;
+		if(settings.shadow_mapping)
+			preprocessor_defines += "#define SHADOW_MAPPING 1\n";
+
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;
 
 		phong_untextured_prog = new OpenGLProgram(
 			"phong",
-			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		diffuse_colour_location			= phong_untextured_prog->getUniformLocation("diffuse_colour");
 		have_shading_normals_location	= phong_untextured_prog->getUniformLocation("have_shading_normals");
 		have_texture_location			= phong_untextured_prog->getUniformLocation("have_texture");
 		diffuse_tex_location			= phong_untextured_prog->getUniformLocation("diffuse_tex");
+		phong_have_depth_texture_location	= phong_untextured_prog->getUniformLocation("have_depth_texture");
+		phong_depth_tex_location			= phong_untextured_prog->getUniformLocation("depth_tex");
 		texture_matrix_location			= phong_untextured_prog->getUniformLocation("texture_matrix");
 		sundir_location					= phong_untextured_prog->getUniformLocation("sundir");
 		exponent_location				= phong_untextured_prog->getUniformLocation("exponent");
 		fresnel_scale_location			= phong_untextured_prog->getUniformLocation("fresnel_scale");
+		phong_shadow_texture_matrix_location	= phong_untextured_prog->getUniformLocation("shadow_texture_matrix");
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
-			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		transparent_colour_location		= transparent_prog->getUniformLocation("colour");
 		transparent_have_shading_normals_location = transparent_prog->getUniformLocation("have_shading_normals");
 
 		env_prog = new OpenGLProgram(
 			"env",
-			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		env_diffuse_colour_location		= env_prog->getUniformLocation("diffuse_colour");
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
@@ -464,10 +474,45 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
-			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
+		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
+		overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
+		overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
+
+
+		if(settings.shadow_mapping)
+		{
+			depth_draw_mat.shader_prog = new OpenGLProgram(
+				"depth",
+				new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			);
+
+			shadow_mapping = new ShadowMapping();
+			shadow_mapping->init(2048, 2048);
+
+			if(false)
+			{
+				// Add overlay quad to preview depth map
+
+				tex_preview_overlay_ob =  new OverlayObject();
+
+				tex_preview_overlay_ob->ob_to_world_matrix.setToUniformScaleMatrix(0.95f);
+
+				tex_preview_overlay_ob->material.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
+				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+
+				tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex;// shadow_mapping->col_tex;
+
+				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+
+				addOverlayObject(tex_preview_overlay_ob);
+			}
+		}
+
 
 		init_succeeded = true;
 	}
@@ -671,6 +716,29 @@ static const Matrix4f frustumMatrix(GLdouble left,
 }
 
 
+// https://msdn.microsoft.com/en-us/library/windows/desktop/dd373965(v=vs.85).aspx
+static const Matrix4f orthoMatrix(GLdouble left,
+                       GLdouble right,
+                       GLdouble bottom,
+                       GLdouble top,
+                       GLdouble zNear,
+                       GLdouble zFar)
+{
+	const float t_x = (float)(-(right + left) / (right - left));
+	const float t_y = (float)(-(top + bottom) / (top - bottom));
+	const float t_z = (float)(-(zFar + zNear) / (zFar - zNear));
+
+	float e[16] = {
+		(float)(2 / (right - left)),  0, 0, t_x,
+		0, (float)(2 / (top - bottom)),  0, t_y,
+		0, 0, (float)(-2 / (zFar - zNear)), t_z,
+		0, 0, 0, 1 };
+	Matrix4f t;
+	Matrix4f(e).getTranspose(t);
+	return t;
+}
+
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
@@ -682,6 +750,87 @@ void OpenGLEngine::draw()
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
 	Timer profile_timer;
+
+
+	//=============== Render to shadow map depth buffer if needed ===========
+	if(shadow_mapping.nonNull())
+	{
+		shadow_mapping->bindDepthTexAsTarget();
+
+		glViewport(0, 0, shadow_mapping->w, shadow_mapping->h); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+
+		glClearColor(1.f, 1.f, 1.f, 1.f);
+		glClear(/*GL_COLOR_BUFFER_BIT | */GL_DEPTH_BUFFER_BIT);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+
+
+		Matrix4f proj_matrix = orthoMatrix(
+			-20, 20, // left, right
+			-20, 20, // bottom, top
+			-35, 35 // near, far
+		);
+
+		const Vec4f up(0,0,1,0);
+		const Vec4f k = sun_dir;
+		const Vec4f i = normalise(crossProduct(up, sun_dir));
+		const Vec4f j = crossProduct(k, i);
+		Matrix4f view_matrix;
+		view_matrix.setColumn(0, i);
+		view_matrix.setColumn(1, j);
+		view_matrix.setColumn(2, k);
+		view_matrix.setColumn(3, Vec4f(0,0,0,1));
+
+		Matrix4f m;
+		view_matrix.getTranspose(m);
+		view_matrix = m;
+
+		// NEW:
+		Matrix4f cam_to_world;
+		world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world); // NOTE: this prob not needed.
+		const Vec4f campos_ws = cam_to_world * Vec4f(0,0,0,1);
+
+
+		view_matrix.setColumn(3, Vec4f(campos_ws[0],campos_ws[1],0,1));
+
+		
+		// Set shadow tex matrix while we're at it
+		mul(proj_matrix, view_matrix, shadow_mapping->shadow_tex_matrix);
+
+		// Draw non-transparent batches from objects.  TODO: cull objects outside shadow 'frustum'.
+		//uint64 num_frustum_culled = 0;
+		for(size_t i=0; i<objects.size(); ++i)
+		{
+			const GLObject* const ob = objects[i].getPointer();
+			//if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			//{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+				{
+					const uint32 mat_index = mesh_data.batches[z].material_index;
+					// Draw primitives for the given material
+					if(!ob->materials[mat_index].transparent)
+						drawBatch(*ob, view_matrix, proj_matrix, depth_draw_mat, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+				}
+				unbindMeshData(mesh_data);
+			//}
+			//else
+			//	num_frustum_culled++;
+		}
+
+		shadow_mapping->unbindDepthTex();
+
+		// Restore viewport
+		glViewport(0, 0, viewport_w, viewport_h);
+
+		glDisable(GL_CULL_FACE);
+	}
+
+
+
+
 	
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
@@ -850,16 +999,34 @@ void OpenGLEngine::draw()
 			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
-				assert(ob->material.shader_prog.getPointer() == this->overlay_prog.getPointer());
+				const OpenGLMaterial& opengl_mat = ob->material;
 
-				ob->material.shader_prog->useProgram();
+				assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
 
-				glUniform4f(this->overlay_diffuse_colour_location, ob->material.albedo_rgb.r, ob->material.albedo_rgb.g, ob->material.albedo_rgb.b, ob->material.alpha);
-				glUniformMatrix4fv(ob->material.shader_prog->model_matrix_loc, 1, false, ob->ob_to_world_matrix.e);
+				opengl_mat.shader_prog->useProgram();
+
+				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob->ob_to_world_matrix.e);
+				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+
+				if(opengl_mat.albedo_texture.nonNull())
+				{
+					glActiveTexture(GL_TEXTURE0 + 0);
+					glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+
+					const GLfloat tex_elems[16] = {
+						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
+						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
+						0, 0, 1, 0,
+						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+					};
+					glUniformMatrix4fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+					glUniform1i(overlay_diffuse_tex_location, 0);
+				}
 				
 				glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)mesh_data.batches[0].prim_start_offset);
 
-				ob->material.shader_prog->useNoPrograms();
+				opengl_mat.shader_prog->useNoPrograms();
 			}
 			unbindMeshData(mesh_data);
 		}
@@ -1418,6 +1585,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 
 			if(opengl_mat.albedo_texture.nonNull())
 			{
+				glActiveTexture(GL_TEXTURE0 + 0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
 				const GLfloat tex_elems[16] = {
@@ -1429,6 +1597,21 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glUniformMatrix4fv(this->texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 				glUniform1i(this->diffuse_tex_location, 0);
 			}
+
+			// Set shadow mapping uniforms
+			if(shadow_mapping.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE0 + 1);
+				glUniform1i(phong_have_depth_texture_location, 1);
+
+				glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex/*col_tex*/->texture_handle);
+				glUniform1i(this->phong_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+
+				glUniformMatrix4fv(this->phong_shadow_texture_matrix_location, 1, false, shadow_mapping->shadow_tex_matrix.e); // inverse transpose model matrix
+			}
+			else
+				glUniform1i(phong_have_depth_texture_location, 0);
+
 		}
 		else if(opengl_mat.shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
@@ -1442,6 +1625,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			
 			if(opengl_mat.albedo_texture.nonNull())
 			{
+				glActiveTexture(GL_TEXTURE0 + 0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
 				const GLfloat tex_elems[16] = {
@@ -1453,6 +1637,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glUniformMatrix4fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 				glUniform1i(this->env_diffuse_tex_location, 0);
 			}
+		}
+		else if(opengl_mat.shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
+		{
+
 		}
 		else
 		{
@@ -1639,6 +1827,131 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
 }
 
 
+// Base will be at origin, tip will lie at (1, 0, 0)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans)
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+	
+	const int phi_res = 20;
+//	const int theta_res = 10;
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(phi_res * 2 * 2);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(phi_res * 2 * 2);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(phi_res * 2 * 2);
+	js::Vector<uint32, 16> indices;
+	indices.resize(phi_res * 3 * 2); // two tris per quad * 3 indices per tri
+
+#if 0
+	const Vec4f dir(0,0,1,0);
+	const Vec4f bot_basis_i(bottom_spans[0],0,0,0);
+	const Vec4f bot_basis_j(0,bottom_spans[1],0,0);
+	const Vec4f top_basis_i(top_spans[0],0,0,0);
+	const Vec4f top_basis_j(0,top_spans[1],0,0);
+
+	// Create cylinder
+	for(int i=0; i<phi_res; ++i)
+	{
+		const float angle      = i       * Maths::get2Pi<float>() / phi_res;
+		const float next_angle = (i + 1) * Maths::get2Pi<float>() / phi_res;
+
+		Vec3f normal1(bot_basis_i * cos(angle     ) + bot_basis_j * sin(angle     ));
+		Vec3f normal2(bot_basis_i * cos(next_angle) + bot_basis_j * sin(next_angle));
+
+		normals[i*4 + 0] = normal1;
+		normals[i*4 + 1] = normal2;
+		normals[i*4 + 2] = normal2;
+		normals[i*4 + 3] = normal1;
+
+		Vec3f v0((bot_basis_i * cos(angle     ) + bot_basis_j * sin(angle     )));
+		Vec3f v1((bot_basis_i * cos(next_angle) + bot_basis_j * sin(next_angle)));
+
+		Vec3f v2((top_basis_i * cos(next_angle) + top_basis_j * sin(next_angle)) + dir);
+		Vec3f v3((top_basis_i * cos(angle     ) + top_basis_j * sin(angle     )) + dir);
+
+		verts[i*4 + 0] = v0;
+		verts[i*4 + 1] = v1;
+		verts[i*4 + 2] = v2;
+		verts[i*4 + 3] = v3;
+
+		uvs[i*4 + 0] = Vec2f(0.f);
+		uvs[i*4 + 1] = Vec2f(0.f);
+		uvs[i*4 + 2] = Vec2f(0.f);
+		uvs[i*4 + 3] = Vec2f(0.f);
+
+		indices[i*6 + 0] = i*4 + 0; 
+		indices[i*6 + 1] = i*4 + 1; 
+		indices[i*6 + 2] = i*4 + 2; 
+		indices[i*6 + 3] = i*4 + 0;
+		indices[i*6 + 4] = i*4 + 2;
+		indices[i*6 + 5] = i*4 + 3;
+	}
+
+	int normals_offset = phi_res * 4;
+	int uvs_offset = phi_res * 4;
+	int verts_offset = phi_res * 4;
+	int indices_offset = phi_res * 6;
+
+	//Matrix4f to_basis(Vec4f(0,0,0,1), 
+
+	// Create top hemisphere cap
+	/*for(int theta_i=0; theta_i<theta_res; ++theta_i)
+	{
+		for(int phi_i=0; phi_i<phi_res; ++phi_i)
+		{
+			const float phi_1 = Maths::get2Pi<float>() * phi_i / phi_res;
+			const float phi_2 = Maths::get2Pi<float>() * (phi_i + 1) / phi_res;
+			const float theta_1 = Maths::pi<float>() * theta_i / theta_res;
+			const float theta_2 = Maths::pi<float>() * (theta_i + 1) / theta_res;
+
+			const Vec4f p1 = GeometrySampling::dirForSphericalCoords(phi_1, theta_1);
+			const Vec4f p2 = GeometrySampling::dirForSphericalCoords(phi_2, theta_1);
+			const Vec4f p3 = GeometrySampling::dirForSphericalCoords(phi_2, theta_2);
+			const Vec4f p4 = GeometrySampling::dirForSphericalCoords(phi_1, theta_2);
+
+
+			//Vec3f normal1(bot_basis_i * cos(phi     ) + bot_basis_j * sin(phi     ));
+			//Vec3f normal2(bot_basis_i * cos(next_phi) + bot_basis_j * sin(next_phi));
+
+			normals[i*4 + 0] = p1;
+			normals[i*4 + 1] = p2;
+			normals[i*4 + 2] = p3;
+			normals[i*4 + 3] = p4;
+
+			Vec3f v0((bot_basis_i * cos(angle     ) + bot_basis_j * sin(angle     )));
+			Vec3f v1((bot_basis_i * cos(next_angle) + bot_basis_j * sin(next_angle)));
+
+			Vec3f v2((top_basis_i * cos(next_angle) + top_basis_j * sin(next_angle)) + dir);
+			Vec3f v3((top_basis_i * cos(angle     ) + top_basis_j * sin(angle     )) + dir);
+
+			verts[i*4 + 0] = v0;
+			verts[i*4 + 1] = v1;
+			verts[i*4 + 2] = v2;
+			verts[i*4 + 3] = v3;
+
+			uvs[i*4 + 0] = Vec2f(0.f);
+			uvs[i*4 + 1] = Vec2f(0.f);
+			uvs[i*4 + 2] = Vec2f(0.f);
+			uvs[i*4 + 3] = Vec2f(0.f);
+
+			indices[i*6 + 0] = i*4 + 0; 
+			indices[i*6 + 1] = i*4 + 1; 
+			indices[i*6 + 2] = i*4 + 2; 
+			indices[i*6 + 3] = i*4 + 0;
+			indices[i*6 + 4] = i*4 + 2;
+			indices[i*6 + 5] = i*4 + 3;
+		}
+	}*/
+
+
+#endif
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+}
+
+
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
 Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 {
@@ -1786,7 +2099,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 	verts.resize(4);
 	js::Vector<Vec3f, 16> normals;
 	normals.resize(4);
-	js::Vector<Vec2f, 16> uvs(4, Vec2f(0.f));
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(4);
 	js::Vector<uint32, 16> indices;
 	indices.resize(6); // two tris per face
 
@@ -1797,15 +2111,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 	indices[4] = 2;
 	indices[5] = 3;
 	
-	Vec3f v0(0, 0, 0);
-	Vec3f v1(1, 0, 0);
-	Vec3f v2(1, 1, 0);
-	Vec3f v3(0, 1, 0);
+	Vec3f v0(0, 0, 0); // bottom left
+	Vec3f v1(1, 0, 0); // bottom right
+	Vec3f v2(1, 1, 0); // top right
+	Vec3f v3(0, 1, 0); // top left
 		
 	verts[0] = v0;
 	verts[1] = v1;
 	verts[2] = v2;
 	verts[3] = v3;
+
+	Vec2f uv0(0, 0);
+	Vec2f uv1(1, 0);
+	Vec2f uv2(1, 1);
+	Vec2f uv3(0, 1);
+		
+	uvs[0] = uv0;
+	uvs[1] = uv1;
+	uvs[2] = uv2;
+	uvs[3] = uv3;
 
 	for(int i=0; i<4; ++i)
 		normals[i] = Vec3f(0, 0, -1);

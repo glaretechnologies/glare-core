@@ -57,6 +57,11 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenG
 	else if(prog_name == "overlay")
 	{
 		glBindAttribLocation(program, 0, "position_in");
+		glBindAttribLocation(program, 2, "texture_coords_0_in");
+	}
+	else if(prog_name == "depth")
+	{
+		glBindAttribLocation(program, 0, "position_in");
 	}
 	else
 	{

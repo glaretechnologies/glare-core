@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../physics/jscol_aabbox.h"
 #include "../opengl/OpenGLTexture.h"
 #include "../opengl/OpenGLProgram.h"
+#include "../opengl/ShadowMapping.h"
 #include "../opengl/VBO.h"
 #include "../opengl/VAO.h"
 #include "../maths/vec2.h"
@@ -122,6 +123,17 @@ struct OverlayObject : public RefCounted
 typedef Reference<OverlayObject> OverlayObjectRef;
 
 
+
+class OpenGLEngineSettings
+{
+public:
+	OpenGLEngineSettings() : shadow_mapping(false) {}
+
+	bool shadow_mapping;
+};
+
+
+
 #ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
@@ -131,7 +143,7 @@ class OpenGLEngine : public ThreadSafeRefCounted
 public:
 	INDIGO_ALIGNED_NEW_DELETE
 
-	OpenGLEngine();
+	OpenGLEngine(const OpenGLEngineSettings& settings);
 	~OpenGLEngine();
 
 	void initialise(const std::string& shader_dir);
@@ -165,7 +177,7 @@ public:
 	void updateObjectTransformData(GLObject& object);
 
 
-	void setViewportAspectRatio(float r) { viewport_aspect_ratio = r; }
+	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
 
 	void setMaxDrawDistance(float d) { max_draw_dist = d; }
 
@@ -176,6 +188,7 @@ public:
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 
+	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans);
 
 	// Built OpenGLMeshRenderData from an Indigo::Mesh.
 	// Throws Indigo::Exception on failure
@@ -189,11 +202,12 @@ private:
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
+	
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	
-	Vec4f sun_dir;
+	Vec4f sun_dir; // Dir to sun.
 	Vec4f sun_dir_cam_space;
 
 	//OpenGLMeshRenderData aabb_meshdata;
@@ -206,6 +220,7 @@ private:
 	float viewport_aspect_ratio;
 	float lens_sensor_dist;
 	float render_aspect_ratio;
+	int viewport_w, viewport_h;
 
 	Matrix4f world_to_camera_space_matrix;
 public:
@@ -231,10 +246,13 @@ private:
 	int have_shading_normals_location;
 	int have_texture_location;
 	int diffuse_tex_location;
+	int phong_have_depth_texture_location;
+	int phong_depth_tex_location;
 	int texture_matrix_location;
 	int sundir_location;
 	int exponent_location;
 	int fresnel_scale_location;
+	int phong_shadow_texture_matrix_location;
 
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
@@ -248,12 +266,22 @@ private:
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;
+	int overlay_have_texture_location;
+	int overlay_diffuse_tex_location;
+	int overlay_texture_matrix_location;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
 
 	std::string shader_dir;
+
+	Reference<ShadowMapping> shadow_mapping;
+	OpenGLMaterial depth_draw_mat;
+
+	OverlayObjectRef tex_preview_overlay_ob;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
+
+	OpenGLEngineSettings settings;
 };

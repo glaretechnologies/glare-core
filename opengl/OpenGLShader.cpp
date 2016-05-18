@@ -25,7 +25,7 @@ static const std::string getLog(GLuint shader)
 }
 
 
-OpenGLShader::OpenGLShader(const std::string& path, GLenum shader_type)
+OpenGLShader::OpenGLShader(const std::string& path, const std::string& preprocessor_defines, GLenum shader_type)
 :	shader(0)
 {
 	shader = glCreateShader(shader_type);
@@ -36,15 +36,28 @@ OpenGLShader::OpenGLShader(const std::string& path, GLenum shader_type)
 	{
 		const std::string shader_src = FileUtils::readEntireFileTextMode(path);
 
+		// Insert the preprocessor defines into the source code, after the first line, which should contain the version string.
+
+		const size_t first_newline_index = shader_src.find('\n');
+		if(first_newline_index == std::string::npos)
+			throw Indigo::Exception("Shader source must have at least one newline.");
+
+		const std::string first_line = shader_src.substr(0, first_newline_index + 1); // First line including newline char
+
+		std::string processed_src = first_line;
+		processed_src += preprocessor_defines;
+		processed_src += shader_src.substr(first_newline_index + 1); // The tail part of the src.
+
+
 		// Build string pointer and length arrays
 		std::vector<const char*> strings;
 		std::vector<GLint> lengths; // Length of each line, including possible \n at end of line.
 		size_t last_line_start_i = 0;
-		for(size_t i=0; i<shader_src.size(); ++i)
+		for(size_t i=0; i<processed_src.size(); ++i)
 		{
-			if(shader_src[i] == '\n')
+			if(processed_src[i] == '\n')
 			{
-				strings.push_back(shader_src.data() + last_line_start_i);
+				strings.push_back(processed_src.data() + last_line_start_i);
 				const size_t line_len = i - last_line_start_i + 1; // Plus one to include this newline character.
 				assert(line_len >= 1);
 				lengths.push_back((GLint)line_len);

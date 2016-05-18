@@ -1,6 +1,6 @@
 /*=====================================================================
-OpenGLShader.h
---------------
+FrameBuffer.h
+-------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
 #pragma once
@@ -8,21 +8,28 @@ Copyright Glare Technologies Limited 2016 -
 
 #include <QtOpenGL/QGLWidget>
 #include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 #include <string>
+class OpenGLShader;
 
 
 /*=====================================================================
-OpenGLShader
-----------
+FrameBuffer
+---------
 
 =====================================================================*/
-class OpenGLShader : public RefCounted
+class FrameBuffer : public RefCounted
 {
 public:
-	OpenGLShader(const std::string& path, const std::string& preprocessor_defines, GLenum shader_type);
-	~OpenGLShader();
+	FrameBuffer();
+	~FrameBuffer();
 
-	GLuint shader;
+	void bind();
+	void unbind();
+
 private:
-	INDIGO_DISABLE_COPY(OpenGLShader);
+	INDIGO_DISABLE_COPY(FrameBuffer);
+public:
+	
+	GLuint buffer_name;
 };

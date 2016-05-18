@@ -21,7 +21,12 @@ public:
 	OpenGLTexture();
 	~OpenGLTexture();
 
-	void load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, Reference<OpenGLEngine>& opengl_engine/*bool anisotropic_filtering_supported, float max_anisotropy*/);
+	void load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine,
+		GLint internal_format,
+		GLenum format,
+		GLenum type,
+		bool nearest_filtering
+	);
 
 	GLuint texture_handle;
 
