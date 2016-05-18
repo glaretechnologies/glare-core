@@ -34,7 +34,7 @@ VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
 			vertex_spec.attributes[i].type, // type
 			vertex_spec.attributes[i].normalised, // normalised
 			vertex_spec.attributes[i].stride, // stride
-			(void*)vertex_spec.attributes[i].offset // pointer (offset)
+			(void*)(uint64)vertex_spec.attributes[i].offset // pointer (offset)
 		);
 
 		if(vertex_spec.attributes[i].enabled)
