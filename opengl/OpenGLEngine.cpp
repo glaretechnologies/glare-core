@@ -1024,7 +1024,7 @@ void OpenGLEngine::draw()
 					glUniform1i(overlay_diffuse_tex_location, 0);
 				}
 				
-				glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)mesh_data.batches[0].prim_start_offset);
+				glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
 
 				opengl_mat.shader_prog->useNoPrograms();
 			}
@@ -1647,7 +1647,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			assert(0);
 		}
 		
-		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)batch.prim_start_offset);
+		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
 
 		opengl_mat.shader_prog->useNoPrograms();
 	}

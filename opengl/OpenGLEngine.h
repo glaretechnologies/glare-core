@@ -230,7 +230,9 @@ public:
 private:
 	float max_draw_dist;
 
+#if !defined(OSX)
 	GLuint timer_query_id;
+#endif
 
 
 	uint64 num_face_groups_submitted;
