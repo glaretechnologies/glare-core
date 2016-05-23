@@ -26,6 +26,12 @@ Code By Nicholas Chapman.
 #endif
 
 
+// for cl_amd_device_attribute_query extension. 
+#ifndef CL_DEVICE_BOARD_NAME_AMD
+#define CL_DEVICE_BOARD_NAME_AMD 0x4038
+#endif
+
+
 const std::string OpenCLDevice::description() const
 {
 	return "CPU: " + boolToString(opencl_device_type == CL_DEVICE_TYPE_CPU) +
@@ -353,8 +359,22 @@ void OpenCL::queryDevices()
 					std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
 			}
 
-			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+			// Get device extensions.
+			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_EXTENSIONS, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
+			const std::string device_extensions(&char_buff[0]);
+
+			// If cl_amd_device_attribute_query extension is supported by the device, use that extension to get the device name.
+			if(StringUtils::containsString(device_extensions, "cl_amd_device_attribute_query"))
+			{
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_BOARD_NAME_AMD, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+			}
+			else
+			{
+				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+					throw Indigo::Exception("clGetDeviceInfo failed");
+			}
 			const std::string device_name_(&char_buff[0]);
 
 			cl_ulong device_global_mem_size = 0;
