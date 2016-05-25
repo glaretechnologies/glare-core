@@ -2,7 +2,6 @@
 
 in vec3 normal;
 in vec3 pos_cs;
-in vec3 pos_ws;
 in vec2 texture_coords;
 in vec3 shadow_tex_coords;
 

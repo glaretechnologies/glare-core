@@ -431,8 +431,8 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 	try
 	{
 		std::string preprocessor_defines;
-		if(settings.shadow_mapping)
-			preprocessor_defines += "#define SHADOW_MAPPING 1\n";
+		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
+		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
 
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;

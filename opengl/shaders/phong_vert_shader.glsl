@@ -6,7 +6,6 @@ in vec2 texture_coords_0_in;
 
 out vec3 normal; // cam (view) space
 out vec3 pos_cs;
-out vec3 pos_ws;
 out vec2 texture_coords;
 out vec3 shadow_tex_coords;
 
@@ -23,8 +22,6 @@ void main()
 
 	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
 
-	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
- 
 	normal = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
 
 	texture_coords = texture_coords_0_in;
