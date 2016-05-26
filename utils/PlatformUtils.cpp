@@ -22,6 +22,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 
 	#include <shlobj.h>
 	#include <tlhelp32.h>
+	#include <Psapi.h>
 #else
 	#include <errno.h>
 	#include <time.h>
@@ -819,6 +820,23 @@ void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& name)
 {
 #if BUILD_TESTS
 	setCurrentThreadName(name);
+#endif
+}
+
+
+size_t PlatformUtils::getMemoryUsage()
+{
+#if defined(_WIN32)
+	PROCESS_MEMORY_COUNTERS counters;
+	GetProcessMemoryInfo(
+		GetCurrentProcess(),
+		&counters,
+		sizeof(PROCESS_MEMORY_COUNTERS)
+	);
+	return counters.WorkingSetSize;
+#else
+	// TODO
+	return 0;
 #endif
 }
 

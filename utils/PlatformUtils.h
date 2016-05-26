@@ -134,6 +134,7 @@ bool isWindowsXPOrEarlier();
 void setCurrentThreadName(const std::string& name); // Sets the thread name as seen in the debugger
 void setCurrentThreadNameIfTestsEnabled(const std::string& name); // Sets the thread name as seen in the debugger, if BUILD_TESTS is enabled.
 
+size_t getMemoryUsage();
 
 void testPlatformUtils();
 
