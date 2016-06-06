@@ -46,6 +46,15 @@ Matrix4f::Matrix4f(const Matrix3f& upper_left_mat, const Vec3f& translation)
 }
 
 
+Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3)
+{
+	_mm_store_ps(e + 0,  col0.v);
+	_mm_store_ps(e + 4,  col1.v);
+	_mm_store_ps(e + 8,  col2.v);
+	_mm_store_ps(e + 12, col3.v);
+}
+
+
 const Matrix4f Matrix4f::identity()
 {
 	const float data[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
@@ -71,6 +80,14 @@ void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 		
 			result_out.elem(outrow, outcol) = x;
 		}
+}
+
+
+const Matrix4f Matrix4f::operator * (const Matrix4f& rhs) const
+{
+	Matrix4f res;
+	mul(*this, rhs, res);
+	return res;
 }
 
 
@@ -204,6 +221,14 @@ void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
 	e[13] = 0;
 	e[14] = 0;
 	e[15] = 1;
+}
+
+
+const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
+{
+	Matrix4f m;
+	m.setToRotationMatrix(unit_axis, angle);
+	return m;
 }
 
 

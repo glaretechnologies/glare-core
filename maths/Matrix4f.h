@@ -29,13 +29,21 @@ public:
 	Matrix4f(const float* data);
 
 	Matrix4f(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
+	Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3);
 
 	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 
 	inline void setToTranslationMatrix(float x, float y, float z);
+	inline static const Matrix4f translationMatrix(float x, float y, float z);
+	
 	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
+	static const Matrix4f rotationMatrix(const Vec4f& unit_axis, float angle);
+
 	void setToUniformScaleMatrix(float scale);
 	void setToScaleMatrix(float xscale, float yscale, float zscale);
+
+	
+
 
 	inline const Vec4f mul3Vector(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;
@@ -53,6 +61,8 @@ public:
 	static inline const Vec4f constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v);
 
 	inline bool operator == (const Matrix4f& a) const;
+
+	const Matrix4f operator * (const Matrix4f& rhs) const;
 
 
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
@@ -118,6 +128,14 @@ void Matrix4f::setToTranslationMatrix(float x, float y, float z)
 	e[13] = y;
 	e[14] = z;
 	e[15] = 1.f;
+}
+
+
+const Matrix4f Matrix4f::translationMatrix(float x, float y, float z)
+{
+	Matrix4f m;
+	m.setToTranslationMatrix(x, y, z);
+	return m;
 }
 
 
