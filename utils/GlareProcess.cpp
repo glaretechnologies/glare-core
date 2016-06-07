@@ -111,6 +111,8 @@ const std::string Process::readStdOut()
 		return ""; 
 
 	return std::string(buf, dwRead);
+#else
+	return "";//TEMP
 #endif
 }
 
@@ -125,6 +127,8 @@ const std::string Process::readStdErr()
 		return ""; 
 
 	return std::string(buf, dwRead);
+#else
+	return "";//TEMP
 #endif
 }
 
@@ -136,6 +140,8 @@ int Process::getExitCode() // Throws exception if process not terminated.
 	if(!GetExitCodeProcess(this->process_handle, &exit_code))
 		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code;
+#else
+	return 0;//TEMP
 #endif
 }
 
