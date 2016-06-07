@@ -60,7 +60,7 @@ vec2 samples[16] = vec2[](
 );
 
 
-uint h(uint x)
+uint ha(uint x)
 {
 	x  = (x ^ 12345391u) * 2654435769u;
 	x ^= (x << 6) ^ (x >> 26);
@@ -118,7 +118,7 @@ void main()
 		sun_vis_factor = 0;
 		int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 
-		float theta = h(pixel_index) * (6.283185307179586 / 4294967296.0);
+		float theta = ha(pixel_index) * (6.283185307179586 / 4294967296.0);
 		mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
 
 		for(int i=0; i<16; ++i)
