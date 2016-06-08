@@ -3513,6 +3513,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 {
 	conPrint("DisplacementUtils::test()");
 
+#if IS_INDIGO
 	if(run_comprehensive_tests)
 	{
 		// Build and (briefly) render all/most of the displacement + subdiv test scenes.
@@ -3578,6 +3579,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 			failTest(e.what());
 		}
 	}
+#endif
 
 	/////////////////////	
 	//{
