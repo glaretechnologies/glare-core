@@ -118,7 +118,7 @@ void main()
 		sun_vis_factor = 0;
 		int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 
-		float theta = ha(pixel_index) * (6.283185307179586 / 4294967296.0);
+		float theta = float(ha(uint(pixel_index)) * (6.283185307179586 / 4294967296.0));
 		mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
 
 		for(int i=0; i<16; ++i)
