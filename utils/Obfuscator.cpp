@@ -1047,6 +1047,8 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalAvSpecAlbedo_float__float_",
 		"evalSpecularAlbedo_float__float__float_",
 
+		"sampleVisMicrofacetNormal_float__vec4__vec4__vec2__float_"
+
 		/*"noise_float__float_",
 		"noise_float__float__float_",
 		"noise4Valued_float__float_",
