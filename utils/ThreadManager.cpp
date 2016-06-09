@@ -24,15 +24,12 @@ ThreadManager::~ThreadManager()
 }
 
 
-void ThreadManager::enqueueMessage(const ThreadMessage& m)
+void ThreadManager::enqueueMessage(const Reference<ThreadMessage>& m)
 {
 	Lock lock(mutex);
 
 	for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
-	{
-		ThreadMessage* cloned_message = m.clone();
-		(*i)->getMessageQueue().enqueue(cloned_message);
-	}
+		(*i)->getMessageQueue().enqueue(m);
 }
 
 

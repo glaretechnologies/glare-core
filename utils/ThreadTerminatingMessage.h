@@ -28,12 +28,7 @@ public:
 
 	virtual ~ThreadTerminatingMessage();
 
-
-
-	virtual ThreadMessage* clone() const { return new ThreadTerminatingMessage(); }
-
 	virtual const std::string debugName() const { return "ThreadTerminatingMessage"; }
-
 };
 
 

@@ -28,7 +28,7 @@ public:
 	void addThread(const Reference<MessageableThread>& t);
 	
 	// Enqueue a message for all the managed threads.
-	void enqueueMessage(const ThreadMessage& m);
+	void enqueueMessage(const Reference<ThreadMessage>& m);
 
 	// Send a kill message to all the managed threads, then blocks until all the threads have completed.
 	void killThreadsBlocking();

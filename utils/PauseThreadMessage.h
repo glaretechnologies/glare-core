@@ -28,8 +28,6 @@ public:
 
 	virtual ~PauseThreadMessage() {}
 
-	virtual ThreadMessage* clone() const { return new PauseThreadMessage(); } // num_paused_threads_mutex, num_paused_threads, all_threads_paused); }
-
 	virtual const std::string debugName() const { return "PauseThreadMessage"; }
 
 //private:
