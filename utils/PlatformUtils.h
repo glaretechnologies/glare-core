@@ -134,7 +134,8 @@ bool isWindowsXPOrEarlier();
 void setCurrentThreadName(const std::string& name); // Sets the thread name as seen in the debugger
 void setCurrentThreadNameIfTestsEnabled(const std::string& name); // Sets the thread name as seen in the debugger, if BUILD_TESTS is enabled.
 
-size_t getMemoryUsage();
+// Disabled for now, since it requires linking to Psapi.lib, which is tricky to do with CMake and the SDK Lib.
+//size_t getMemoryUsage();
 
 void testPlatformUtils();
 

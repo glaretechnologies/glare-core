@@ -824,7 +824,7 @@ void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& name)
 }
 
 
-size_t PlatformUtils::getMemoryUsage()
+/*size_t PlatformUtils::getMemoryUsage()
 {
 #if defined(_WIN32)
 	PROCESS_MEMORY_COUNTERS counters;
@@ -838,7 +838,7 @@ size_t PlatformUtils::getMemoryUsage()
 	// TODO
 	return 0;
 #endif
-}
+}*/
 
 
 #if BUILD_TESTS
