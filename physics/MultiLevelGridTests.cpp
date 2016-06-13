@@ -32,7 +32,7 @@ public:
 class RecordCellResults
 {
 public:
-	std::vector<NodeCell> cells;
+	js::Vector<NodeCell, 16> cells;
 };
 
 

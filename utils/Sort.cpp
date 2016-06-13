@@ -174,7 +174,7 @@ static void checkSorted(const std::vector<Item>& original, const std::vector<Ite
 		item_count[item]--;
 	}
 
-	for(std::map<Item, int>::iterator i = item_count.begin(); i != item_count.end(); ++i)
+	for(std::map<Item, int, ItemPredicate>::iterator i = item_count.begin(); i != item_count.end(); ++i)
 		testAssert(i->second == 0);
 }
 
