@@ -365,7 +365,8 @@ void OpenCL::queryDevices()
 			const std::string device_extensions(&char_buff[0]);
 
 			// If cl_amd_device_attribute_query extension is supported by the device, use that extension to get the device name.
-			if(StringUtils::containsString(device_extensions, "cl_amd_device_attribute_query"))
+			// But don't do for CPU devices, as the query just returns an empty string in that case.
+			if(StringUtils::containsString(device_extensions, "cl_amd_device_attribute_query") && !(device_type & CL_DEVICE_TYPE_CPU))
 			{
 				if(clGetDeviceInfo(device_ids[d], CL_DEVICE_BOARD_NAME_AMD, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 					throw Indigo::Exception("clGetDeviceInfo failed");
