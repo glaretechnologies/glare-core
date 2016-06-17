@@ -198,6 +198,9 @@ void Obfuscator::addOpenCLKeywords()
 
 // swizzles:
 "xyz",
+"s0123",
+"s4567",
+"s2323",
 
 // OpenCL: see '6.1.9 Keywords' in OpenCL 1.1 spec.
 "__global",
