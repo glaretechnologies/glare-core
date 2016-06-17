@@ -901,7 +901,8 @@ OpenCL* getGlobalOpenCL()
 		}
 		catch(Indigo::Exception&)
 		{
-			assert(global_opencl == NULL);
+			delete global_opencl; // global_opencl may be non-null if it failed in queryDevices().
+			global_opencl = NULL;
 			open_cl_load_failed = true;
 		}
 	}
