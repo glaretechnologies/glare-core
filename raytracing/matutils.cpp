@@ -802,8 +802,6 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 					testEqual(scatter_res_a.dir, scatter_res_b.dir);
 					testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
 					testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
-					testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
-					testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
 					testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
 				}
 			}
@@ -842,8 +840,6 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 					testEqual(scatter_res_a.dir, scatter_res_b.dir);
 					testEqual(scatter_res_a.p_out_given_in, scatter_res_b.p_out_given_in);
 					testEqual(scatter_res_a.p_in_given_out, scatter_res_b.p_in_given_out);
-					testEqual(scatter_res_a.rr_live_prob, scatter_res_b.rr_live_prob);
-					testEqual(scatter_res_a.backwards_rr_live_prob, scatter_res_b.backwards_rr_live_prob);
 					testEqual(scatter_res_a.sampled_delta, scatter_res_b.sampled_delta);
 				}
 			}
@@ -923,8 +919,6 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_a_given_b, epsilon));
 			testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_b_given_a, epsilon));
-			testAssert(Maths::approxEq(scatter_res.rr_live_prob, bsdf_res.rr_live_prob, epsilon));
-			testAssert(Maths::approxEq(scatter_res.backwards_rr_live_prob, bsdf_res.backwards_rr_live_prob, epsilon));
 		}
 
 		// Test adjoint scatters
@@ -963,8 +957,6 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_b_given_a, epsilon));
 			testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_a_given_b, epsilon));
-			testAssert(Maths::approxEq(scatter_res.rr_live_prob, bsdf_res.backwards_rr_live_prob, epsilon));
-			testAssert(Maths::approxEq(scatter_res.backwards_rr_live_prob, bsdf_res.rr_live_prob, epsilon));
 		}
 
 	}
