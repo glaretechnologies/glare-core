@@ -64,7 +64,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		temp_AD_buffer,
 		ldr_image_out,
 		false, // XYZ_colourspace
-		renderer_settings.getMargin(), // margin at ssf1
+		RendererSettings::defaultMargin(), // margin at ssf1
 		task_manager
 	);
 
@@ -279,7 +279,7 @@ void test()
 			temp_AD_buffer,
 			temp_ldr_buffer,
 			false,
-			renderer_settings.getMargin(), // margin at ssf1
+			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
 		ImagingPipeline::toNonLinearSpace(renderer_settings, temp_ldr_buffer);
