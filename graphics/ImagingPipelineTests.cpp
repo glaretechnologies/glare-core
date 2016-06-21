@@ -237,6 +237,8 @@ void test()
 			(int)image_layers,
 			image_final_xres,
 			image_final_yres,
+			RendererSettings::defaultMargin(), // margin width
+			image_ss_factor,
 			layer_names,
 			false // need back buffer
 		);

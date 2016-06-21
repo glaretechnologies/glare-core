@@ -13,6 +13,11 @@ File created by ClassTemplate on Fri May 02 16:51:32 2008
 #include <tiffio.h>
 
 
+// Explicit template instantiation
+template void TIFFDecoder::write(const ImageMap<uint8,  UInt8ComponentValueTraits> & bitmap, const std::string& path);
+template void TIFFDecoder::write(const ImageMap<uint16, UInt16ComponentValueTraits>& bitmap, const std::string& path);
+
+
 Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 {
 	// Stop LibTiff writing to stderr by setting NULL handlers.
@@ -28,14 +33,13 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 #endif
     if(tif)
 	{
-		uint32 w, h, image_depth;
+		uint32 w, h;
 
 		uint16 bits_per_sample, samples_per_pixel;
 
 		TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
 		TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
 		TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
-		TIFFGetField(tif, TIFFTAG_IMAGEDEPTH, &image_depth);
 		TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &samples_per_pixel);
 	
 		if(samples_per_pixel < 1 || samples_per_pixel > 4)
@@ -123,6 +127,60 @@ Reference<Map2D> TIFFDecoder::decode(const std::string& path)
 }
 
 
+template <class T, class Traits>
+void TIFFDecoder::write(const ImageMap<T, Traits>& bitmap, const std::string& path)
+{
+	// Stop LibTiff writing to stderr by setting NULL handlers.
+	// NOTE: restore old handlers at end of method?
+	// NOTE: threadsafe?
+	TIFFSetWarningHandler(NULL);
+	TIFFSetErrorHandler(NULL);
+
+#if defined(_WIN32)
+	TIFF* tif = TIFFOpenW(StringUtils::UTF8ToWString(path).c_str(), "w");
+#else
+	TIFF* tif = TIFFOpen(path.c_str(), "w");
+#endif
+    if(tif)
+	{
+		const uint32 w = bitmap.getWidth();
+		const uint32 h = bitmap.getHeight();
+		const uint16 bits_per_sample = (uint16)(sizeof(T) * 8);
+		const uint16 samples_per_pixel = (uint16)bitmap.getN();
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
+		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel);
+
+		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT); // Set the origin of the image.
+		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW); // NOTE: is this a suitable compression method to use?  Accept compression method as option?
+	
+		const tsize_t linebytes = sizeof(T) * samples_per_pixel * w;
+		std::vector<unsigned char> scanline(linebytes);
+
+		// We set the strip size of the file to be size of one row of pixels
+		TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize(tif, linebytes));
+	
+		for(uint32 y=0; y<h; ++y)
+		{
+			std::memcpy(&scanline[0], bitmap.getPixel(0, y), linebytes);
+			const tsize_t num_bytes = TIFFWriteScanline(tif, &scanline[0], y);
+			if(num_bytes == -1)
+				throw ImFormatExcep("TIFFReadEncodedStrip failed.");
+		}
+
+		TIFFClose(tif);
+	}
+	else // else if !tif
+	{
+		throw ImFormatExcep("Failed to open file '" + path + "' for writing.");
+	}
+}
+
+
 bool TIFFDecoder::isTiffCompressed(const std::string& path)
 {
 #if defined(_WIN32)
@@ -151,10 +209,108 @@ bool TIFFDecoder::isTiffCompressed(const std::string& path)
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/PlatformUtils.h"
+#include "../utils/ConPrint.h"
 
 
 void TIFFDecoder::test()
 {
+	conPrint("TIFFDecoder::test()");
+
+	const std::string tempdir = PlatformUtils::getTempDirPath();
+
+	// Try writing a 8-bit ImageMap object to a TIFF file
+	try
+	{
+		const int W = 50; const int H = 40;
+		ImageMapUInt8 imagemap(W, H, 3);
+		for(int y=0; y<H; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			imagemap.getPixel(x, y)[0] = (uint8)(255 * (float)x/W);
+			imagemap.getPixel(x, y)[1] = (uint8)(255 * (float)x/W);
+			imagemap.getPixel(x, y)[2] = (uint8)(255 * (float)x/W);
+		}
+
+		const std::string path = tempdir + "/indigo_tiff_write_test.tiff";
+		write(imagemap, path);
+
+		// Now read it to make sure it's a valid TIFF file.
+		Reference<Map2D> im = decode(path);
+		testAssert(im->getMapWidth() == W);
+		testAssert(im->getMapHeight() == H);
+		testAssert(im->getBytesPerPixel() == 3);
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try writing a 16-bit ImageMap object to a TIFF file
+	try
+	{
+		const int W = 50; const int H = 40;
+		ImageMap<uint16, UInt16ComponentValueTraits> imagemap(W, H, 3);
+		for(int y=0; y<H; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			imagemap.getPixel(x, y)[0] = (uint16)(65535 * (float)x/W);
+			imagemap.getPixel(x, y)[1] = (uint16)(65535 * (float)x/W);
+			imagemap.getPixel(x, y)[2] = (uint16)(65535 * (float)x/W);
+		}
+
+		const std::string path = tempdir + "/indigo_tiff_write_test_16bit.tiff";
+		write(imagemap, path);
+
+		// Now read it to make sure it's a valid TIFF file.
+		Reference<Map2D> im = decode(path);
+		testAssert(im->getMapWidth() == W);
+		testAssert(im->getMapHeight() == H);
+		testAssert(im->getBytesPerPixel() == 3 * 2);
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+
+
+	try
+	{
+		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
+		testAssert(im->getMapWidth() == 1080);
+		testAssert(im->getMapHeight() == 768);
+		testAssert(im->getBytesPerPixel() == 3);
+
+		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer()) != NULL);
+		const std::string path = tempdir + "/temp.tiff";
+		write(*dynamic_cast<ImageMapUInt8*>(im.getPointer()), path);
+
+		// Now read it to make sure it's a valid TIFF file.
+		Reference<Map2D> im2 = decode(path);
+		testAssert(im2->getMapWidth() == im->getMapWidth());
+		testAssert(im2->getMapHeight() == im2->getMapHeight());
+		testAssert(im2->getBytesPerPixel() == im2->getBytesPerPixel());
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
 	try
 	{
 		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
