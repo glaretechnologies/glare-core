@@ -400,6 +400,7 @@ void Obfuscator::addWinterKeywords()
 		"posOS",
 		"mod",
 		"print",
+		"isFinite",
 
 		// Don't obfuscate these types.  Otherwise we have to obfuscate the signatures of all the external functions (noise() etc..).  Which could be done but is a hassle.
 		"vec2",
