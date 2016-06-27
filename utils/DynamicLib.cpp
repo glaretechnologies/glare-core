@@ -78,6 +78,26 @@ void DynamicLib::close()
 }
 
 
+const std::string DynamicLib::getFullPathToLib() const
+{
+#if defined(_WIN32)
+	TCHAR buf[2048];
+	const DWORD result = GetModuleFileName(
+		lib_handle, // hModule
+		buf,
+		2048
+	);
+
+	if(result == 0)
+		throw Indigo::Exception("GetModuleFileName failed.");
+	else
+		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
+#else
+	throw Indigo::Exception("getFullPathToLib not implemented on this platform.");
+#endif
+}
+
+
 #if BUILD_TESTS
 
 

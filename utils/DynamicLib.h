@@ -37,6 +37,7 @@ public:
 	void open(const std::string& lib_path); // throws Indigo::Exception on failure
 	void close();
 
+	const std::string getFullPathToLib() const;
 
 	// Warning: the C99 standard leaves casting from void* to a function pointer undefined.
 	// Nevertheless, this seems to work..

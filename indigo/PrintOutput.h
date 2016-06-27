@@ -18,9 +18,9 @@ PrintOutput
 class PrintOutput
 {
 public:
-	PrintOutput() { }
-	virtual ~PrintOutput() { }
+	PrintOutput() {}
+	virtual ~PrintOutput() {}
 
-	virtual void print(const std::string& s) = 0;
-	virtual void printStr(const std::string& s) = 0;
+	virtual void print(const std::string& s) = 0; // Print a message and a newline character.
+	virtual void printStr(const std::string& s) = 0; // Print a message without a newline character.
 };

@@ -17,9 +17,10 @@ Code By Nicholas Chapman.
 #include "../utils/ConPrint.h"
 #include "../utils/Mutex.h"
 #include "../utils/Lock.h"
+#include "../indigo/StandardPrintOutput.h"
+#include "../indigo/FilePrintOutput.h"
 #include <cmath>
 #include <fstream>
-#include <iostream>
 #include <algorithm>
 #if defined(__linux__)
 #include <dlfcn.h>
@@ -258,7 +259,12 @@ void OpenCL::queryDevices()
 #endif
 #endif
 
-	if(verbose) conPrint("Num platforms: " + toString(num_platforms));
+	StandardPrintOutput print_output;
+	//FilePrintOutput print_output("d:/opencl_query_log.txt");
+#if defined(_WIN32) // getFullPathToLib() is only implemented for Windows currently.
+	if(verbose) print_output.print("OpenCL dynamic lib path: " + opencl_lib.getFullPathToLib());
+#endif
+	if(verbose) print_output.print("Num platforms: " + toString(num_platforms));
 
 	devices.clear();
 
@@ -318,15 +324,15 @@ void OpenCL::queryDevices()
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_name(&char_buff[0]);
 
-			conPrint("\n============================Platform ============================");
-			conPrint("platform_id: " + toString((uint64)platform_ids[i]));
-			conPrint("platform_profile: " + platform_profile);
-			conPrint("platform_version: " + platform_version);
-			conPrint("platform_name: " + platform_name);
-			conPrint("platform_vendor: " + platform_vendor);
-			conPrint("platform_extensions: " + platform_extensions_string);
+			print_output.print("\n============================Platform ============================");
+			print_output.print("platform_id: " + toString((uint64)platform_ids[i]));
+			print_output.print("platform_profile: " + platform_profile);
+			print_output.print("platform_version: " + platform_version);
+			print_output.print("platform_name: " + platform_name);
+			print_output.print("platform_vendor: " + platform_vendor);
+			print_output.print("platform_extensions: " + platform_extensions_string);
 #if OPENCL_OPENGL_INTEROP
-			conPrint("platform_num_GL_devices: " + platform_num_GL_devices);
+			print_output.print("platform_num_GL_devices: " + toString(platform_num_GL_devices));
 #endif
 		}
 
@@ -335,13 +341,13 @@ void OpenCL::queryDevices()
 		if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_ALL, (cl_uint)device_ids.size(), &device_ids[0], &num_devices) != CL_SUCCESS)
 			throw Indigo::Exception("clGetDeviceIDs failed");
 
-		if(verbose) conPrint(toString(num_devices) + " device(s) found.");
+		if(verbose) print_output.print(toString(num_devices) + " device(s) found.");
 
 		for(cl_uint d = 0; d < num_devices; ++d)
 		{
-			if(verbose) conPrint("----------- Device " + toString(current_device_number) + " -----------");
+			if(verbose) print_output.print("----------- Device " + toString(current_device_number) + " -----------");
 
-			if(verbose) conPrint("Device id: " + toString((uint64)device_ids[d]));
+			if(verbose) print_output.print("Device id: " + toString((uint64)device_ids[d]));
 
 			cl_device_type device_type;
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL) != CL_SUCCESS)
@@ -350,13 +356,13 @@ void OpenCL::queryDevices()
 			if(verbose)
 			{
 				if(device_type & CL_DEVICE_TYPE_CPU)
-					std::cout << "device_type: CL_DEVICE_TYPE_CPU" << std::endl;
+					print_output.print("device_type: CL_DEVICE_TYPE_CPU");
 				if(device_type & CL_DEVICE_TYPE_GPU)
-					std::cout << "device_type: CL_DEVICE_TYPE_GPU" << std::endl;
+					print_output.print("device_type: CL_DEVICE_TYPE_GPU");
 				if(device_type & CL_DEVICE_TYPE_ACCELERATOR)
-					std::cout << "device_type: CL_DEVICE_TYPE_ACCELERATOR" << std::endl;
+					print_output.print("device_type: CL_DEVICE_TYPE_ACCELERATOR");
 				if(device_type & CL_DEVICE_TYPE_DEFAULT)
-					std::cout << "device_type: CL_DEVICE_TYPE_DEFAULT" << std::endl;
+					print_output.print("device_type: CL_DEVICE_TYPE_DEFAULT");
 			}
 
 			// Get device extensions.
@@ -435,21 +441,21 @@ void OpenCL::queryDevices()
 					throw Indigo::Exception("clGetDeviceInfo failed");
 				 
 
-				std::cout << "device_name: " << device_name_ << std::endl;
-				std::cout << "driver_version: " << driver_version << std::endl;
-				std::cout << "device_profile: " << device_profile << std::endl;
-				std::cout << "device_version: " << device_version << std::endl;
-				std::cout << "device_max_compute_units: " << device_max_compute_units << std::endl;
-				std::cout << "device_max_work_group_size: " << device_max_work_group_size << std::endl;
-				std::cout << "device_max_work_item_dimensions: " << device_max_work_item_dimensions << std::endl;
-				std::cout << "device_image2d_max_width: " << device_image2d_max_width << std::endl;
-				std::cout << "device_max_constant_buffer_size: " << device_max_constant_buffer_size << std::endl;
+				print_output.print("device_name: " + device_name_);
+				print_output.print("driver_version: " + driver_version);
+				print_output.print("device_profile: " + device_profile);
+				print_output.print("device_version: " + device_version);
+				print_output.print("device_max_compute_units: " + toString(device_max_compute_units));
+				print_output.print("device_max_work_group_size: " + toString(device_max_work_group_size));
+				print_output.print("device_max_work_item_dimensions: " + toString(device_max_work_item_dimensions));
+				print_output.print("device_image2d_max_width: " + toString(device_image2d_max_width));
+				print_output.print("device_max_constant_buffer_size: " + toString(device_max_constant_buffer_size));
 
 				for(size_t z = 0; z < device_max_num_work_items.size(); ++z)
-					std::cout << "Dim " << z << " device_max_num_work_items: " << device_max_num_work_items[z] << std::endl;
+					print_output.print("Dim " + toString(z) + " device_max_num_work_items: " + toString(device_max_num_work_items[z]));
 
-				std::cout << "device_max_clock_frequency: " << device_max_clock_frequency << " MHz" << std::endl;
-				std::cout << "device_global_mem_size: " << device_global_mem_size << " B" << std::endl;
+				print_output.print("device_max_clock_frequency: " + toString(device_max_clock_frequency) + " MHz");
+				print_output.print("device_global_mem_size: " + toString(device_global_mem_size) + " B");
 			}
 
 			// Add device info to devices vector.
@@ -736,7 +742,7 @@ cl_program OpenCL::buildProgram(
 		NULL, // pfn_notify
 		NULL // user data
 	);
-	//std::cout << "clBuildProgram took " + timer.elapsedStringNSigFigs(4) << std::endl; 
+	// conPrint("clBuildProgram took " + timer.elapsedStringNSigFigs(4));
 
 	if(result != CL_SUCCESS)
 	{
@@ -784,7 +790,7 @@ void OpenCL::dumpProgramBinaryToDisk(cl_program program)
 		&param_value_size_ret
 		);
 
-	std::cout << "program_num_devices: " << program_num_devices << std::endl;
+	conPrint("program_num_devices: " + toString(program_num_devices));
 
 	// Get sizes of the binaries on the devices
 	std::vector<size_t> program_binary_sizes(program_num_devices);
@@ -798,7 +804,7 @@ void OpenCL::dumpProgramBinaryToDisk(cl_program program)
 
 	for(size_t i=0; i<program_binary_sizes.size(); ++i)
 	{
-		std::cout << "\tprogram " << i << " binary size: " << program_binary_sizes[i] << " B" << std::endl;
+		conPrint("\tprogram " + toString(i) + " binary size: " + toString(program_binary_sizes[i]) + " B");
 	}
 
 	std::vector<std::string> program_binaries(program_num_devices);
@@ -823,14 +829,12 @@ void OpenCL::dumpProgramBinaryToDisk(cl_program program)
 
 	for(size_t i=0; i<program_binary_sizes.size(); ++i)
 	{
-		std::cout << "Writing Program " << i << " binary to disk." << std::endl;
+		conPrint("Writing Program " + toString(i) + " binary to disk.");
 
 		std::ofstream binfile("binary.txt");
 		binfile.write(program_binaries[i].c_str(), program_binaries[i].size());
 
-		std::cout << "\tDone." << std::endl;
-
-		//std::cout << program_binaries[i] << std::endl;
+		conPrint("\tDone.");
 	}
 }
 
