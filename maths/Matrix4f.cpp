@@ -301,9 +301,9 @@ static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 	const Vec4f M_i = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
 	const Vec4f M_j = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,1,0,0));
 	const Vec4f M_k = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,0,1,0));
-	testAssert(epsEqual(dot(M_i, M_j), 0.f));
-	testAssert(epsEqual(dot(M_j, M_k), 0.f));
-	testAssert(epsEqual(dot(M_i, M_k), 0.f));
+	testEpsEqual(dot(M_i, M_j), 0.f);
+	testEpsEqual(dot(M_j, M_k), 0.f);
+	testEpsEqual(dot(M_i, M_k), 0.f);
 }
 
 
@@ -645,6 +645,17 @@ void Matrix4f::test()
 		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.999999f,0));
 		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.9999991f,0));
 		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.9999998f,0));
+
+		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.9998f,0)));
+		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.99998f,0)));
+		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.999998f,0)));
+		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.9999998f,0)));
+
+		for(float theta = Maths::pi<float>() - 0.01f; theta <= Maths::pi<float>(); theta += 0.00001f)
+		{
+			const Vec4f v =  Vec4f(sin(theta), 0.f, cos(theta), 0.0f);
+			testConstructFromVectorAndMulForVec(v);
+		}
 	}
 }
 

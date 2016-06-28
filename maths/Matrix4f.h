@@ -294,9 +294,9 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	assert(SSE::isSSEAligned(&vec));
 	assert(vec.isUnitLength());
 
-	// From "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
+	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
 	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.999999f)
+	if(vec[2] > -0.999f)
 	{
 		const float a = 1 / (1 + vec[2]);
 		const float b = -vec[0] * vec[1] * a;
@@ -306,8 +306,12 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	}
 	else
 	{
-		x_axis = Vec4f(0, -1.f, 0, 0);
-		y_axis = Vec4f(-1.f, 0, 0, 0);
+		// Negate vec, form basis, then negate basis.
+		const float a = 1 / (1 - vec[2]);
+		const float b = -vec[0] * vec[1] * a;
+
+		x_axis = -Vec4f(1 - vec[0] * vec[0] * a, b, vec[0], 0.f);
+		y_axis = -Vec4f(b, 1 - vec[1] * vec[1] * a, vec[1], 0.f);
 	}
 
 	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
@@ -329,9 +333,9 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 
 inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v)
 {
-	// From "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
+	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
 	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.999999f)
+	if(vec[2] > -0.999f)
 	{
 		const float a = 1 / (1 + vec[2]);
 		const float b = -vec[0] * vec[1] * a;
@@ -341,8 +345,12 @@ inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const V
 	}
 	else
 	{
-		x_axis = Vec4f(0, -1.f, 0, 0);
-		y_axis = Vec4f(-1.f, 0, 0, 0);
+		// Negate vec, form basis, then negate basis.
+		const float a = 1 / (1 - vec[2]);
+		const float b = -vec[0] * vec[1] * a;
+
+		x_axis = -Vec4f(1 - vec[0] * vec[0] * a, b, vec[0], 0.f);
+		y_axis = -Vec4f(b, 1 - vec[1] * vec[1] * a, vec[1], 0.f);
 	}
 
 	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
