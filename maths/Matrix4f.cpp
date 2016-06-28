@@ -296,6 +296,17 @@ const std::string Matrix4f::toString() const
 #include "../indigo/globals.h"
 
 
+static void testConstructFromVectorAndMulForVec(const Vec4f& v)
+{
+	const Vec4f M_i = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
+	const Vec4f M_j = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,1,0,0));
+	const Vec4f M_k = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,0,1,0));
+	testAssert(epsEqual(dot(M_i, M_j), 0.f));
+	testAssert(epsEqual(dot(M_j, M_k), 0.f));
+	testAssert(epsEqual(dot(M_i, M_k), 0.f));
+}
+
+
 void Matrix4f::test()
 {
 	conPrint("Matrix4f::test()");
@@ -619,6 +630,21 @@ void Matrix4f::test()
 		
 		testAssert(epsEqual(res, Vec4f(10, 20, 30, 0.0f)));
 		}
+	}
+
+	//-------------------------- Test constructFromVectorAndMul() ----------------------
+	{
+		testConstructFromVectorAndMulForVec(Vec4f(1,0,0,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,1,0,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,0,1,0));
+		testConstructFromVectorAndMulForVec(Vec4f(-1,0,0,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,-1,0,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,0,-1,0));// This should trigger the special case in constructFromVectorAndMul().
+
+		// More vectors around special case threshold (if(vec[2] > -0.999999f)):
+		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.999999f,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.9999991f,0));
+		testConstructFromVectorAndMulForVec(Vec4f(0,0,-0.9999998f,0));
 	}
 }
 

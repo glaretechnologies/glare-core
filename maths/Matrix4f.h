@@ -35,6 +35,7 @@ public:
 
 	inline void setToTranslationMatrix(float x, float y, float z);
 	inline static const Matrix4f translationMatrix(float x, float y, float z);
+	inline static const Matrix4f translationMatrix(const Vec4f& v);
 	
 	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
 	static const Matrix4f rotationMatrix(const Vec4f& unit_axis, float angle);
@@ -135,6 +136,14 @@ const Matrix4f Matrix4f::translationMatrix(float x, float y, float z)
 {
 	Matrix4f m;
 	m.setToTranslationMatrix(x, y, z);
+	return m;
+}
+
+
+const Matrix4f Matrix4f::translationMatrix(const Vec4f& v)
+{
+	Matrix4f m;
+	m.setToTranslationMatrix(v[0], v[1], v[2]);
 	return m;
 }
 
@@ -285,38 +294,30 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	assert(SSE::isSSEAligned(&vec));
 	assert(vec.isUnitLength());
 
-	Vec4f v2; // x axis
-
-	// From PBR
-	if(std::fabs(vec[0]) > std::fabs(vec[1]))
+	// From "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
+	Vec4f x_axis, y_axis;
+	if(vec[2] > -0.999999f)
 	{
-		const float recip_len = 1 / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
+		const float a = 1 / (1 + vec[2]);
+		const float b = -vec[0] * vec[1] * a;
 
-		v2 = Vec4f(-vec[2] * recip_len, 0, vec[0] * recip_len, 0);
+		x_axis = Vec4f(1 - vec[0] * vec[0] * a, b, -vec[0], 0.f);
+		y_axis = Vec4f(b, 1 - vec[1] * vec[1] * a, -vec[1], 0.f);
 	}
 	else
 	{
-		const float recip_len = 1 / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
-
-		v2 = Vec4f(0, vec[2] * recip_len, -vec[1] * recip_len, 0);
+		x_axis = Vec4f(0, -1.f, 0, 0);
+		y_axis = Vec4f(-1.f, 0, 0, 0);
 	}
 
-	assert(v2.isUnitLength());
-
-	/*
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
-	*/
-
-	const Vec4f v1 = crossProduct(vec, v2);
+	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
+	assert(epsEqual(dot(x_axis, vec), 0.f) && epsEqual(dot(y_axis, vec), 0.f) && epsEqual(dot(x_axis, y_axis), 0.f));
 
 	// elems 0...3 = v2
-	_mm_store_ps(e, v2.v);
+	_mm_store_ps(e, x_axis.v);
 
 	// elems 4...7 = v1
-	_mm_store_ps(e + 4, v1.v);
+	_mm_store_ps(e + 4, y_axis.v);
 
 	// elems 8...11 = vec
 	_mm_store_ps(e + 8, vec.v);
@@ -328,34 +329,26 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 
 inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v)
 {
-	Vec4f v2; // x axis
-
-	// From PBR
-	if(std::fabs(vec[0]) > std::fabs(vec[1]))
+	// From "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
+	Vec4f x_axis, y_axis;
+	if(vec[2] > -0.999999f)
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
+		const float a = 1 / (1 + vec[2]);
+		const float b = -vec[0] * vec[1] * a;
 
-		v2.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
+		x_axis = Vec4f(1 - vec[0] * vec[0] * a, b, -vec[0], 0.f);
+		y_axis = Vec4f(b, 1 - vec[1] * vec[1] * a, -vec[1], 0.f);
 	}
 	else
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
-
-		v2.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
+		x_axis = Vec4f(0, -1.f, 0, 0);
+		y_axis = Vec4f(-1.f, 0, 0, 0);
 	}
 
-	assert(v2.isUnitLength());
+	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
+	assert(epsEqual(dot(x_axis, vec), 0.f) && epsEqual(dot(y_axis, vec), 0.f) && epsEqual(dot(x_axis, y_axis), 0.f));
 
-	/*
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
-	*/
-
-	const Vec4f v1 = crossProduct(vec, v2);
-
-	return v2 * other_v.x[0] + v1 * other_v.x[1] + vec * other_v.x[2];
+	return x_axis * other_v.x[0] + y_axis * other_v.x[1] + vec * other_v.x[2];
 }
 
 
