@@ -296,7 +296,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 
 	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
 	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.999f)
+	if(vec[2] > -0.95f)
 	{
 		const float a = 1 / (1 + vec[2]);
 		const float b = -vec[0] * vec[1] * a;
@@ -335,7 +335,7 @@ inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const V
 {
 	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
 	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.999f)
+	if(vec[2] > -0.95f)
 	{
 		const float a = 1 / (1 + vec[2]);
 		const float b = -vec[0] * vec[1] * a;
