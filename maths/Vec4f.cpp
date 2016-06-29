@@ -355,4 +355,14 @@ void Vec4f::test()
 }
 
 
+void doAssertIsUnitLength(const Vec4f& v)
+{
+	if(!v.isUnitLength())
+	{
+		conPrint("Assert failure: vector was not unit length. v=" + v.toString() + ", v.length()=" + ::toString(v.length()));
+		assert(!"Assert failure: vector was not unit length");
+	}
+}
+
+
 #endif // BUILD_TESTS

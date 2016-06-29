@@ -410,3 +410,12 @@ INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_cvtepi32_ps(v.v));
 }
+
+
+void doAssertIsUnitLength(const Vec4f& v);
+
+#ifdef NDEBUG
+#define assertIsUnitLength(v) ((void)0)
+#else
+#define assertIsUnitLength(v) doAssertIsUnitLength(v)
+#endif

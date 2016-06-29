@@ -634,6 +634,13 @@ void Matrix4f::test()
 
 	//-------------------------- Test constructFromVectorAndMul() ----------------------
 	{
+		{
+			const Vec4f v = Vec4f(0.482021928f, -0.00631375983f, -0.876137257f, 0.000000000);
+			printVar(v.length());
+			testConstructFromVectorAndMulForVec(v);
+		}
+		//testConstructFromVectorAndMulForVec(normalise(Vec4f(0.482021928f, -0.00631375983f, -0.876137257f, 0.000000000)));
+
 		testConstructFromVectorAndMulForVec(Vec4f(1,0,0,0));
 		testConstructFromVectorAndMulForVec(Vec4f(0,1,0,0));
 		testConstructFromVectorAndMulForVec(Vec4f(0,0,1,0));

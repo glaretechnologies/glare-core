@@ -292,30 +292,36 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 {
 	assert(SSE::isSSEAligned(this));
 	assert(SSE::isSSEAligned(&vec));
-	assert(vec.isUnitLength());
+	assertIsUnitLength(vec);
 
-	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
-	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.95f)
+	Vec4f x_axis;
+
+	// From PBR
+	if(std::fabs(vec[0]) > std::fabs(vec[1]))
 	{
-		const float a = 1 / (1 + vec[2]);
-		const float b = -vec[0] * vec[1] * a;
+		const float recip_len = 1 / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
 
-		x_axis = Vec4f(1 - vec[0] * vec[0] * a, b, -vec[0], 0.f);
-		y_axis = Vec4f(b, 1 - vec[1] * vec[1] * a, -vec[1], 0.f);
+		x_axis = Vec4f(-vec[2] * recip_len, 0, vec[0] * recip_len, 0);
 	}
 	else
 	{
-		// Negate vec, form basis, then negate basis.
-		const float a = 1 / (1 - vec[2]);
-		const float b = -vec[0] * vec[1] * a;
+		const float recip_len = 1 / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
 
-		x_axis = -Vec4f(1 - vec[0] * vec[0] * a, b, vec[0], 0.f);
-		y_axis = -Vec4f(b, 1 - vec[1] * vec[1] * a, vec[1], 0.f);
+		x_axis = Vec4f(0, vec[2] * recip_len, -vec[1] * recip_len, 0);
 	}
 
-	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
+	const Vec4f y_axis = crossProduct(vec, x_axis);
+
+	assertIsUnitLength(x_axis);
+	assertIsUnitLength(y_axis);
 	assert(epsEqual(dot(x_axis, vec), 0.f) && epsEqual(dot(y_axis, vec), 0.f) && epsEqual(dot(x_axis, y_axis), 0.f));
+	
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
 
 	// elems 0...3 = v2
 	_mm_store_ps(e, x_axis.v);
@@ -333,27 +339,37 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 
 inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v)
 {
-	// Adapted from "Building an orthonormal basis from a 3d unit vector without normalization", Frisvad, JGT 2012
-	Vec4f x_axis, y_axis;
-	if(vec[2] > -0.95f)
-	{
-		const float a = 1 / (1 + vec[2]);
-		const float b = -vec[0] * vec[1] * a;
+	assertIsUnitLength(vec);
 
-		x_axis = Vec4f(1 - vec[0] * vec[0] * a, b, -vec[0], 0.f);
-		y_axis = Vec4f(b, 1 - vec[1] * vec[1] * a, -vec[1], 0.f);
+	Vec4f x_axis;
+
+	// From PBR
+	if(std::fabs(vec[0]) > std::fabs(vec[1]))
+	{
+		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
+
+		x_axis.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
 	}
 	else
 	{
-		// Negate vec, form basis, then negate basis.
-		const float a = 1 / (1 - vec[2]);
-		const float b = -vec[0] * vec[1] * a;
+		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
 
-		x_axis = -Vec4f(1 - vec[0] * vec[0] * a, b, vec[0], 0.f);
-		y_axis = -Vec4f(b, 1 - vec[1] * vec[1] * a, vec[1], 0.f);
+		x_axis.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
 	}
 
-	assert(x_axis.isUnitLength() && y_axis.isUnitLength());
+	assert(x_axis.isUnitLength());
+
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
+
+	const Vec4f y_axis = crossProduct(vec, x_axis);
+
+	assertIsUnitLength(x_axis);
+	assertIsUnitLength(y_axis);
 	assert(epsEqual(dot(x_axis, vec), 0.f) && epsEqual(dot(y_axis, vec), 0.f) && epsEqual(dot(x_axis, y_axis), 0.f));
 
 	return x_axis * other_v.x[0] + y_axis * other_v.x[1] + vec * other_v.x[2];
