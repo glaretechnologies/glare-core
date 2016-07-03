@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+  
+	<medium>
+		<name>specular_medium</name>
+		<precedence>2</precedence>
+		<basic>
+			<ior>1.33</ior>
+			<cauchy_b_coeff>0.0</cauchy_b_coeff>
+			<absorption_coefficient_spectrum>
+				<rgb>
+					<rgb>
+						14.3777 27.0097 9.16971
+					</rgb>
+					<gamma>1</gamma>
+				</rgb>
+			</absorption_coefficient_spectrum>
+		</basic>
+	</medium>
+  
+	<material>
+		<name>specular</name>
+    
+		<specular>
+			<internal_medium_name>specular_medium</internal_medium_name>
+			<transparent>true</transparent>
+
+    
+      <normal_map>
+        <texture>
+          <uv_set_index>0</uv_set_index>
+          <path>../../testscenes/brickwork_normal-map.jpg</path>
+          <exponent>1</exponent>
+        </texture>
+      </normal_map>
+		</specular>
+	</material>
+
+</scenedata>
