@@ -565,8 +565,26 @@ struct ImagePipelineTaskClosure
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
-
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
+
+	bool skip_curves;
+
+	const static int table_vals = 64;
+	float colour_curve_data[(table_vals + 3) * 4]; // 32 table values plus min, max, scale for 5 (overall+RGB) curves
+
+	static float curveTableEval(const float t, const float t_min, const float t_max, const float t_scl, float const* const table)
+	{
+		if(t <= t_min) return table[0];
+		if(t >= t_max) return table[table_vals - 1];
+
+		const float table_x = (t - t_min) * t_scl;
+		const int table_i = (int)table_x;
+		const float f = table_x - table_i;
+
+		const float v0 = table[table_i + 0];
+		const float v1 = table[table_i + 1];
+		return v0 + (v1 - v0) * f;
+	}
 };
 
 
@@ -578,14 +596,13 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		const bool have_alpha_channel = closure.render_channels->hasAlpha();
+		const bool apply_curves = !closure.skip_curves;
 
-		//const ptrdiff_t x_tiles = closure.x_tiles;
 		const ptrdiff_t final_xres = closure.final_xres;
-		//const ptrdiff_t final_yres = closure.final_yres;
 		const ptrdiff_t filter_size = closure.filter_size;
 
 		const ptrdiff_t xres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getWidth();
-		#ifndef  NDEBUG
+		#ifndef NDEBUG
 		const ptrdiff_t yres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getHeight();
 		#endif
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
@@ -659,13 +676,14 @@ public:
 				// Either tonemap, or do equivalent operation for non-colour passes.
 				if(closure.renderer_settings->shadow_pass)
 				{
-					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+					const size_t tile_buffer_pixels = tile_buffer.numPixels();
+					for(size_t i = 0; i < tile_buffer_pixels; ++i)
 					{
 						float occluded_luminance   = tile_buffer.getPixel(i).x[0];
 						float unoccluded_luminance = tile_buffer.getPixel(i).x[1];
 						float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
 						// Set to a black colour, with alpha value equal to the 'shadow fraction'.
-						tile_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
+						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
 				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
@@ -676,6 +694,27 @@ public:
 				}
 				else
 					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+
+				if(apply_curves) // Apply colour curves
+				{
+					const size_t tile_buffer_pixels = tile_buffer.numPixels();
+					for(size_t i = 0; i < tile_buffer_pixels; ++i)
+					{
+						const float* const data = closure.colour_curve_data;
+						const int n = ImagePipelineTaskClosure::table_vals;
+						const Colour4f col = tile_buffer.getPixel(i);
+
+						const float pre_r = ImagePipelineTaskClosure::curveTableEval(col.x[0], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+						const float pre_g = ImagePipelineTaskClosure::curveTableEval(col.x[1], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+						const float pre_b = ImagePipelineTaskClosure::curveTableEval(col.x[2], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+
+						const float curve_r = ImagePipelineTaskClosure::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+						const float curve_g = ImagePipelineTaskClosure::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+						const float curve_b = ImagePipelineTaskClosure::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+
+						tile_buffer.getPixel(i).set(curve_r, curve_g, curve_b, col.x[3]);
+					}
+				}
 
 				// Filter processed pixels into the final image
 				for(ptrdiff_t y = y_min; y < y_max; ++y)
@@ -742,7 +781,7 @@ public:
 					if(have_alpha_channel) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
 					{
 						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
-						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
+						sum.x[3] = ((raw_alpha > 0) ? (1 + raw_alpha) : 0.0f) * closure.image_scale;
 					}
 					else
 						sum.x[3] = 1.0f;
@@ -759,7 +798,7 @@ public:
 						float unoccluded_luminance = tile_buffer.getPixel(i).x[1];
 						float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
 						// Set to a black colour, with alpha value equal to the 'shadow fraction'.
-						tile_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
+						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
 				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
@@ -771,16 +810,33 @@ public:
 				{
 					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
 				}
-			
 
-				// Copy processed pixels into the final image
 				addr = 0;
-				for(ptrdiff_t y = y_min; y < y_max; ++y)
-				for(ptrdiff_t x = x_min; x < x_max; ++x)
+				if(apply_curves) // Copy processed pixels into the final image, with colour curve adjustment
 				{
-					Colour4f col = tile_buffer.getPixel(addr++);
+					for(ptrdiff_t y = y_min; y < y_max; ++y)
+					for(ptrdiff_t x = x_min; x < x_max; ++x)
+					{
+						const float* const data = closure.colour_curve_data;
+						const int n = ImagePipelineTaskClosure::table_vals;
+						const Colour4f col = tile_buffer.getPixel(addr++);
 
-					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = col;
+						const float pre_r = ImagePipelineTaskClosure::curveTableEval(col.x[0], data[0], data[1], data[2], &data[12]);
+						const float pre_g = ImagePipelineTaskClosure::curveTableEval(col.x[1], data[0], data[1], data[2], &data[12]);
+						const float pre_b = ImagePipelineTaskClosure::curveTableEval(col.x[2], data[0], data[1], data[2], &data[12]);
+
+						const float curve_r = ImagePipelineTaskClosure::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+						const float curve_g = ImagePipelineTaskClosure::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+						const float curve_b = ImagePipelineTaskClosure::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+
+						(*closure.ldr_buffer_out).getPixel(y * final_xres + x).set(curve_r, curve_g, curve_b, col.x[3]);
+					}
+				}
+				else // Copy processed pixels into the final image, without colour curve processing
+				{
+					for(ptrdiff_t y = y_min; y < y_max; ++y)
+					for(ptrdiff_t x = x_min; x < x_max; ++x)
+						(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
 				}
 			}
 		}
@@ -860,6 +916,18 @@ void doTonemap(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
+	const bool no_curves =
+		renderer_settings.overall_curve.isNull() &&
+		renderer_settings.rgb_curves[0].isNull() &&
+		renderer_settings.rgb_curves[1].isNull() &&
+		renderer_settings.rgb_curves[2].isNull();
+	const bool identity_curves =
+		renderer_settings.overall_curve.nonNull() && renderer_settings.overall_curve->isIdentity() &&
+		renderer_settings.rgb_curves[0].nonNull() && renderer_settings.rgb_curves[0]->isIdentity() &&
+		renderer_settings.rgb_curves[1].nonNull() && renderer_settings.rgb_curves[1]->isIdentity() &&
+		renderer_settings.rgb_curves[2].nonNull() && renderer_settings.rgb_curves[2]->isIdentity();
+	const bool skip_curves = no_curves || identity_curves; // Only do curves processing if we have curve data and if it's not identity
+
 	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 	ImagePipelineTaskClosure closure;
@@ -871,11 +939,40 @@ void doTonemap(
 	closure.renderer_settings = &renderer_settings;
 	closure.resize_filter = resize_filter;
 	closure.tonemap_params = &tonemap_params;
+
 	closure.x_tiles = x_tiles;
 	closure.final_xres = final_xres;
 	closure.final_yres = final_yres;
 	closure.filter_size = filter_size;
 	closure.margin_ssf1 = margin_ssf1;
+
+	closure.skip_curves = skip_curves;
+	if(!skip_curves) // Evaluate the overall and RGBA curves into tables
+	{
+		const int n = ImagePipelineTaskClosure::table_vals;
+		const float o_min = renderer_settings.overall_curve->knots[0], o_max = renderer_settings.overall_curve->knots[renderer_settings.overall_curve->knots.size() - 1];
+		const float r_min = renderer_settings.rgb_curves[0]->knots[0], r_max = renderer_settings.rgb_curves[0]->knots[renderer_settings.rgb_curves[0]->knots.size() - 1];
+		const float g_min = renderer_settings.rgb_curves[1]->knots[0], g_max = renderer_settings.rgb_curves[1]->knots[renderer_settings.rgb_curves[1]->knots.size() - 1];
+		const float b_min = renderer_settings.rgb_curves[2]->knots[0], b_max = renderer_settings.rgb_curves[2]->knots[renderer_settings.rgb_curves[2]->knots.size() - 1];
+		const float o_scl = (n - 1) / (o_max - o_min);
+		const float r_scl = (n - 1) / (r_max - r_min);
+		const float g_scl = (n - 1) / (g_max - g_min);
+		const float b_scl = (n - 1) / (b_max - b_min);
+
+		closure.colour_curve_data[0 * 3 + 0] = o_min; closure.colour_curve_data[0 * 3 + 1] = o_max; closure.colour_curve_data[0 * 3 + 2] = o_scl;
+		closure.colour_curve_data[1 * 3 + 0] = r_min; closure.colour_curve_data[1 * 3 + 1] = r_max; closure.colour_curve_data[1 * 3 + 2] = r_scl;
+		closure.colour_curve_data[2 * 3 + 0] = g_min; closure.colour_curve_data[2 * 3 + 1] = g_max; closure.colour_curve_data[2 * 3 + 2] = g_scl;
+		closure.colour_curve_data[3 * 3 + 0] = b_min; closure.colour_curve_data[3 * 3 + 1] = b_max; closure.colour_curve_data[3 * 3 + 2] = b_scl;
+
+		for(int z = 0; z < n; ++z)
+		{
+			const float u = z * (1.0f / n);
+			closure.colour_curve_data[12 + 0 * n + z] = renderer_settings.overall_curve->evaluate(o_min + u * (o_max - o_min));
+			closure.colour_curve_data[12 + 1 * n + z] = renderer_settings.rgb_curves[0]->evaluate(r_min + u * (r_max - r_min));
+			closure.colour_curve_data[12 + 2 * n + z] = renderer_settings.rgb_curves[1]->evaluate(g_min + u * (g_max - g_min));
+			closure.colour_curve_data[12 + 3 * n + z] = renderer_settings.rgb_curves[2]->evaluate(b_min + u * (b_max - b_min));
+		}
+	}
 
 	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
 
@@ -899,9 +996,8 @@ void doTonemap(
 
 /*
 Converts some tonemapped image data to non-linear sRGB space.
-Does a few things in preperation for conversion to an 8-bit output image format, 
-such as dithering and gamma correction.
-Input colour space is linear sRGB
+Does a few things in preparation for conversion to an 8-bit output image format, such as dithering and gamma correction.
+Input colour space is linear sRGB.
 Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
 */

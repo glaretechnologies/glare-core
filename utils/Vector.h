@@ -83,6 +83,8 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 
+	void erase(size_t index);
+
 private:
 	T* e; // Elements
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
@@ -585,6 +587,23 @@ template <class T, size_t alignment>
 typename Vector<T, alignment>::const_iterator Vector<T, alignment>::end() const
 {
 	return e + size_;
+}
+
+
+template <class T, size_t alignment>
+void Vector<T, alignment>::erase(size_t index)
+{
+	const size_t curr_size = size();
+	assert(index < curr_size);
+
+	// Copy all elements one index down after the deletion index.
+	// This is probably slow (not very nice for the cache).
+	for(size_t i = index + 1; i < curr_size; ++i)
+		e[i - 1] = e[i];
+
+	// NB. We allow for deletion from zero sized vectors (simply do nothing).
+	if(curr_size > 0)
+		resize(curr_size - 1);
 }
 
 

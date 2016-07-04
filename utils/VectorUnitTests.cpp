@@ -594,7 +594,68 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 	}
 
+	//========================= erase =========================
 
+	// With int type
+	{
+		// Initialise vector to (1, 2, 3, 4)
+		Vector<int, 4> v(4);
+		for(int i = 0; i < 4; ++i)
+			v[i] = i + 1;
+
+		v.erase(3); // Erase from the back, result is (1, 2, 3)
+		testAssert(v.size() == 3);
+		testAssert(v.back() == 3);
+
+		v.erase(1); // Erase from the middle, result is (1, 3)
+		testAssert(v.size() == 2);
+		testAssert(v[1] == 3);
+
+		v.erase(0); // Erase from the beginning, result is (3)
+		testAssert(v.size() == 1);
+		testAssert(v[0] == 3);
+
+		v.erase(0); // Erase from the beginning, result is ()
+		testAssert(v.size() == 0);
+
+		v.erase(0); // Erase from the beginning, does nothing (empty Vector erase is a null op)
+		testAssert(v.size() == 0);
+	}
+
+
+
+	// With TestCounterClass
+	//{
+	//	int ob_count = 0;
+	//	TestCounterClass dummy(ob_count);
+	//	testAssert(ob_count == 1);
+
+	//	{
+	//		Vector<TestCounterClass, 4> v;
+	//		v.push_back(dummy);
+	//		v.push_back(dummy);
+	//		v.push_back(dummy);
+	//		v.push_back(dummy);
+
+	//		v.erase(3); // Erase from the back
+	//		testAssert(v.size() == 3);
+	//		testAssert(ob_count == 4);
+
+	//		v.erase(1); // Erase from the middle
+	//		testAssert(v.size() == 2);
+	//		testAssert(ob_count == 3);
+
+	//		v.erase(0); // Erase from the beginning
+	//		testAssert(v.size() == 1);
+	//		testAssert(ob_count == 2);
+
+	//		v.erase(0); // Erase from the beginning
+	//		testAssert(v.size() == 0);
+	//		testAssert(ob_count == 1);
+	//	}
+
+	//	testAssert(ob_count == 1);
+	//}
 
 	//========================= operator ==, operator != =========================
 
@@ -694,7 +755,6 @@ void VectorUnitTests::test()
 		testAssert(v.empty());
 		testAssert(v.size() == 0);
 	}
-
 
 	//========================= Performance test vs std::vector =========================
 #if 0 // Commented out due to annoying GCC requiring operator = for TestCounterClass with std::vector
