@@ -215,6 +215,21 @@ const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_pat
 }
 
 
+const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::string& dir_path, const std::string& extension)
+{
+	const std::vector<std::string> paths = getFilesInDir(dir_path);
+
+	std::vector<std::string> fullpaths;
+	fullpaths.reserve(paths.size());
+	
+	for(size_t i=0; i<paths.size(); ++i)
+		if(hasExtension(paths[i], extension) && paths[i] != "." && paths[i] != "..")
+			fullpaths.push_back(join(dir_path, paths[i]));
+	
+	return fullpaths;
+}
+
+
 bool fileExists(const std::string& pathname)
 {
 #if defined(_WIN32)

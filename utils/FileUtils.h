@@ -50,6 +50,9 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path); // th
 // Returns the full filenames.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_path); // throws FileUtilsExcep
 
+// Returns file paths in given dir, for files that have the given extension.  Returns the full filenames.  Ignores the pseudo-files '.' and '..'.
+const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::string& dir_path, const std::string& extension); // throws FileUtilsExcep
+
 // Returns true if file exists, false otherwise.  Returns true for directories as well.
 bool fileExists(const std::string& pathname); // Does not throw any exceptions.
 
