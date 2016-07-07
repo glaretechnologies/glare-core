@@ -7,9 +7,6 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #include "OpenCLBuffer.h"
 
 
-#if USE_OPENCL
-
-
 #include "OpenCL.h"
 #include "../indigo/globals.h"
 #include "../utils/Platform.h"
@@ -141,6 +138,3 @@ cl_mem& OpenCLBuffer::getDevicePtr()
 {
 	return opencl_mem;
 }
-
-
-#endif // USE_OPENCL

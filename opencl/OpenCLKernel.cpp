@@ -6,9 +6,6 @@ Copyright Glare Technologies Limited 2015 -
 #include "OpenCLKernel.h"
 
 
-#if USE_OPENCL
-
-
 #include "OpenCL.h"
 #include "../indigo/globals.h"
 #include "../utils/Platform.h"
@@ -169,6 +166,3 @@ double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t 
 	else
 		return 0;
 }
-
-
-#endif // USE_OPENCL

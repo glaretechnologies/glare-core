@@ -22,8 +22,6 @@ Code By Nicholas Chapman.
 //#endif
 
 
-#if USE_OPENCL
-
 #define OPENCL_OPENGL_INTEROP 0
 
 
@@ -99,19 +97,15 @@ typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue c
 
 }
 
-#endif
-
 
 class OpenCLDevice
 {
 public:
 	const std::string description() const;
 
-#if USE_OPENCL
 	cl_device_id opencl_device_id;
 	cl_platform_id opencl_platform_id;
 	cl_device_type opencl_device_type;
-#endif
 
 	std::string device_name;
 	std::string vendor_name;
@@ -159,7 +153,6 @@ public:
 	void libraryInit();
 
 
-#if USE_OPENCL
 	void queryDevices();
 	const std::vector<OpenCLDevice>& getOpenCLDevices() const;
 
@@ -225,9 +218,6 @@ public:
 	clCreateFromGLTexture2D_TYPE clCreateFromGLTexture2D;
 	clEnqueueAcquireGLObjects_TYPE clEnqueueAcquireGLObjects;
 	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
-#endif
-
-
 #endif
 
 #if defined(_WIN32) || defined(__linux__)

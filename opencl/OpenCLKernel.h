@@ -6,9 +6,6 @@ Copyright Glare Technologies Limited 2015 -
 #pragma once
 
 
-#if USE_OPENCL
-
-
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/ThreadSafeRefCounted.h"
@@ -69,6 +66,3 @@ private:
 
 
 typedef Reference<OpenCLKernel> OpenCLKernelRef;
-
-
-#endif // USE_OPENCL

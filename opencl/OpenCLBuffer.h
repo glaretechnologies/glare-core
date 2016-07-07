@@ -7,9 +7,6 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #pragma once
 
 
-#if USE_OPENCL
-
-
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "OpenCL.h"
@@ -90,6 +87,3 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const std::vector<T>
 {
 	copyFrom(command_queue, &src_vec[0], src_vec.size() * sizeof(T), blocking_write);
 }
-
-
-#endif // USE_OPENCL

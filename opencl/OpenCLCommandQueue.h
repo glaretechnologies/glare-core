@@ -13,9 +13,6 @@ OpenCLCommandQueue.h
 #include "../utils/DynamicLib.h"
 
 
-#if USE_OPENCL
-
-
 #ifdef OSX
 #include <OpenCL/cl.h>
 #include <OpenCL/cl_platform.h>
@@ -48,7 +45,4 @@ private:
 	cl_device_id device_id;
 	cl_command_queue command_queue;
 };
-
-
-#endif // USE_OPENCL
 

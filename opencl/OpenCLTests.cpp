@@ -23,9 +23,6 @@ Copyright Glare Technologies Limited 2015 -
 #if BUILD_TESTS
 
 
-#if USE_OPENCL
-
-
 OpenCLTests::OpenCLTests()
 {
 }
@@ -321,28 +318,6 @@ void OpenCLTests::test()
 		failTest(e.what());
 	}*/
 }
-
-
-#else // USE_OPENCL
-
-
-OpenCLTests::OpenCLTests()
-{
-}
-
-
-OpenCLTests::~OpenCLTests()
-{
-}
-
-
-void OpenCLTests::test()
-{
-	conPrint("OpenCLTests::test(): Skipping as USE_OPENCL is not defined.");
-}
-
-
-#endif // USE_OPENCL
 
 
 #endif // BUILD_TESTS

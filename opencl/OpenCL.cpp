@@ -47,14 +47,8 @@ OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
 	verbose(verbose_)
 {
-#if USE_OPENCL
-
 	// Initialise the OpenCL library, importing the function pointers etc.
 	libraryInit();
-
-#else
-	throw Indigo::Exception("OpenCL disabled.");
-#endif
 }
 
 
@@ -65,8 +59,6 @@ OpenCL::~OpenCL()
 
 void OpenCL::libraryInit()
 {
-#if USE_OPENCL
-
 	std::vector<std::string> opencl_paths;
 
 #if defined(_WIN32)
@@ -223,14 +215,9 @@ void OpenCL::libraryInit()
 #endif
 
 	initialised = true;
-
-#else
-	throw Indigo::Exception("OpenCL disabled.");
-#endif
 }
 
 
-#if USE_OPENCL
 void OpenCL::queryDevices()
 {
 	if(!initialised)
@@ -594,12 +581,6 @@ void OpenCL::deviceFree(cl_context& context, cl_command_queue& command_queue)
 }
 
 
-#endif
-
-
-#if USE_OPENCL
-
-
 // From http://stackoverflow.com/a/24336429
 const std::string OpenCL::errorString(cl_int result)
 {
@@ -876,12 +857,6 @@ const std::string OpenCL::getBuildLog(cl_program program, cl_device_id device)
 }
 
 
-#endif // USE_OPENCL
-
-
-#if USE_OPENCL
-
-
 static Mutex global_opencl_mutex;
 static OpenCL* global_opencl = NULL;
 static bool open_cl_load_failed = false;
@@ -922,13 +897,3 @@ void destroyGlobalOpenCL()
 	global_opencl = NULL;
 	open_cl_load_failed = false;
 }
-
-
-#else // USE_OPENCL
-
-
-OpenCL* getGlobalOpenCL() { return NULL; }
-void destroyGlobalOpenCL() {}
-
-
-#endif // USE_OPENCL
