@@ -10,10 +10,10 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 #include "BVHImpl.h"
 #include "BVHBuilder.h"
 #include "jscol_aabbox.h"
-#include "../indigo/PrintOutput.h"
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
+#include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"
 
 

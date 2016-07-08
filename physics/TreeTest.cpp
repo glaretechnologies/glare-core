@@ -33,7 +33,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"
-#include "../indigo/StandardPrintOutput.h"
+#include "../utils/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 
 

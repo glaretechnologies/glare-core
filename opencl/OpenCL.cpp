@@ -17,8 +17,8 @@ Code By Nicholas Chapman.
 #include "../utils/ConPrint.h"
 #include "../utils/Mutex.h"
 #include "../utils/Lock.h"
-#include "../indigo/StandardPrintOutput.h"
-#include "../indigo/FilePrintOutput.h"
+#include "../utils/StandardPrintOutput.h"
+#include "../utils/FilePrintOutput.h"
 #include <cmath>
 #include <fstream>
 #include <algorithm>

@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
-#include "../indigo/StandardPrintOutput.h"
+#include "../utils/StandardPrintOutput.h"
 
 
 namespace js

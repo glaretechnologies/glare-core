@@ -7,7 +7,7 @@ OpenCLCommandQueue.h
 
 #include <string>
 #include <vector>
-#include "../indigo/PrintOutput.h"
+#include "../utils/PrintOutput.h"
 #include "../utils/Platform.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/DynamicLib.h"

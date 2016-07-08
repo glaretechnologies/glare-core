@@ -24,13 +24,13 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
-#include "../indigo/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../indigo/Diffuse.h"
 #include "../indigo/DisplaceMatParameter.h"
 #include "../indigo/SpectrumMatParameter.h"
 #include "../indigo/MeshLoader.h"
 #include "../graphics/Map2D.h"
+#include "../utils/StandardPrintOutput.h"
 
 
 

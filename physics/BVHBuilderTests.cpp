@@ -10,7 +10,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "BVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/StandardPrintOutput.h"
+#include "../utils/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Vector.h"

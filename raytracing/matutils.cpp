@@ -20,11 +20,11 @@ Code By Nicholas Chapman.
 #include "../indigo/ThreadContext.h"
 #include "../indigo/object.h"
 #include "../indigo/world.h"
-#include "../indigo/StandardPrintOutput.h"
 #include "../indigo/DataManagers.h"
 #include "../indigo/SampleServerWrapper.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/TaskManager.h"
+#include "../utils/StandardPrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/SobolSequence.h"
 #include <fstream>

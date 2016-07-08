@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../simpleraytracer/raymesh.h"
-#include "../indigo/PrintOutput.h"
+#include "../utils/PrintOutput.h"
 
 
 namespace js

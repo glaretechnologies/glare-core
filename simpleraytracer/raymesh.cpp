@@ -37,7 +37,7 @@ Code By Nicholas Chapman.
 #include "../utils/Numeric.h"
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"
-#include "../indigo/PrintOutput.h"
+#include "../utils/PrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 #include <fstream>
