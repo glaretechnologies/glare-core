@@ -7,6 +7,9 @@ Code By Nicholas Chapman.
 #include "ThreadTests.h"
 
 
+#if BUILD_TESTS
+
+
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
@@ -16,18 +19,6 @@ Code By Nicholas Chapman.
 #include "MyThread.h"
 #include "ParallelFor.h"
 #include <cmath>
-
-
-ThreadTests::ThreadTests()
-{
-	
-}
-
-
-ThreadTests::~ThreadTests()
-{
-	
-}
 
 
 static const int TERMINATING_INTEGER = 10000;
@@ -137,7 +128,6 @@ private:
 };
 
 
-
 /*class OpenMPUsingThread : public MyThread
 {
 public:
@@ -157,9 +147,6 @@ public:
 };*/
 
 
-#if BUILD_TESTS
-
-
 struct TestComputation
 {
 	TestComputation(std::vector<double>& v_) : v(v_) {}
@@ -171,9 +158,78 @@ struct TestComputation
 };
 
 
+
+static GLARE_THREAD_LOCAL int test_thread_local_int = 0;
+
+
+class ThreadLocalTestThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		testAssert(test_thread_local_int == 0);
+
+		for(int z=0; z<1000; ++z)
+			test_thread_local_int++;
+
+		testAssert(test_thread_local_int == 1000);
+	}
+};
+
+
+class ThreadLocalPerfTestThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		testAssert(test_thread_local_int == 0);
+
+		Timer timer;
+
+		const int N = 10000;
+		for(int z=0; z<N; ++z)
+			test_thread_local_int++;
+
+		conPrint("ThreadLocalPerfTestThread elapsed per op: " + doubleToStringNSigFigs(1.0e9 * timer.elapsed() / N, 5) + " ns");
+
+		testAssert(test_thread_local_int == N);
+	}
+};
+
+
 void ThreadTests::test()
 {
 	conPrint("ThreadTests::test()");
+
+
+	// Test thread-local storage
+	{
+		testAssert(test_thread_local_int == 0);
+
+		Reference<ThreadLocalTestThread> t1 = new ThreadLocalTestThread(); 
+		Reference<ThreadLocalTestThread> t2 = new ThreadLocalTestThread(); 
+		t1->launch();
+		t2->launch();
+		t1->join();
+		t2->join();
+
+		testAssert(test_thread_local_int == 0);
+	}
+
+	// Do thread-local storage performance test.
+	// NOTE: What's a good way of doing a meaningful performance test of thread local storage?
+	{
+		testAssert(test_thread_local_int == 0);
+
+		Reference<ThreadLocalPerfTestThread> t1 = new ThreadLocalPerfTestThread(); 
+		Reference<ThreadLocalPerfTestThread> t2 = new ThreadLocalPerfTestThread(); 
+		t1->launch();
+		t2->launch();
+		t1->join();
+		t2->join();
+
+		testAssert(test_thread_local_int == 0);
+	}
 
 	// Test OpenMP from another thread:
 	/*{

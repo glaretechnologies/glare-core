@@ -42,6 +42,13 @@ Copyright Glare Technologies Limited 2014 -
 #define staticArrayNumElems(a) sizeof((a)) / sizeof((a[0]))
 
 
+#ifdef _WIN32
+#define GLARE_THREAD_LOCAL __declspec(thread)
+#else
+#define GLARE_THREAD_LOCAL __thread
+#endif
+
+
 //Compiler Definitiosn
 //#define COMPILER_GCC
 //#define COMPILER_MSVC 1
