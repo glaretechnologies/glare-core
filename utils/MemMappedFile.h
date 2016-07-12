@@ -24,7 +24,7 @@ public:
 	~MemMappedFile();
 
 	size_t fileSize() const { return file_size; } // Returns file size in bytes.
-	const void* fileData() const { return file_data; }
+	const void* fileData() const { return file_data; } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
 
 	static void test();
 
