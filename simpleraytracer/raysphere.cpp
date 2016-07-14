@@ -79,8 +79,9 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 }
 
 
-const RaySphere::Vec3Type RaySphere::getGeometricNormal(const HitInfo& hitinfo) const
+const RaySphere::Vec3Type RaySphere::getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const
 {
+	mat_index_out = 0;
 	return GeometrySampling::dirForSphericalCoords(hitinfo.sub_elem_coords.x, hitinfo.sub_elem_coords.y) * area;
 }
 
@@ -260,13 +261,15 @@ void RaySphere::test()
 
 	ThreadContext thread_context;
 
-	// Test getGeometricNormal()
+	// Test getGeometricNormalAndMatIndex()
 	{
 		const float radius = 0.5f;
 		RaySphere sphere(Vec4f(0,0,0,1), radius);
-		testEpsEqual(sphere.getGeometricNormal(HitInfo(0, Vec2f(0, 0))), Vec4f(0,0,4*Maths::pi<float>()*radius*radius,0)); // phi=0, theta=0 => straight up
+		unsigned int mat_index;
+		testEpsEqual(sphere.getGeometricNormalAndMatIndex(HitInfo(0, Vec2f(0, 0)), mat_index), Vec4f(0,0,4*Maths::pi<float>()*radius*radius,0)); // phi=0, theta=0 => straight up
 
-		testEpsEqual(sphere.getGeometricNormal(HitInfo(0, Vec2f(0, Maths::pi_2<float>()))), Vec4f(4*Maths::pi<float>()*radius*radius,0,0,0)); // phi=0, theta=pi/2
+		testEpsEqual(sphere.getGeometricNormalAndMatIndex(HitInfo(0, Vec2f(0, Maths::pi_2<float>())), mat_index), Vec4f(4*Maths::pi<float>()*radius*radius,0,0,0)); // phi=0, theta=pi/2
+		testAssert(mat_index == 0);
 	}
 
 

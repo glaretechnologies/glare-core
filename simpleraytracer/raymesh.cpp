@@ -179,7 +179,7 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vec
 }*/
 
 
-const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) const
+const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const
 {
 	assert(built());
 
@@ -202,6 +202,9 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormal(const HitInfo& hitinfo) cons
 	const RayMesh::Vec3Type N_g((e0.y * e1.z - e0.z * e1.y) * 0.5f,
 								(e0.z * e1.x - e0.x * e1.z) * 0.5f,
 								(e0.x * e1.y - e0.y * e1.x) * 0.5f, 0);
+
+	mat_index_out = tri.getTriMatIndex();
+
 	return N_g;
 }
 

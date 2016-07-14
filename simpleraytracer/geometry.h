@@ -70,7 +70,7 @@ public:
 
 	// Returns a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
 	// This is equal to the area in object space of the surface sub-element for uniformly sampled sub-elements (e.g. triangles).
-	virtual const Vec3Type getGeometricNormal(const HitInfo& hitinfo) const = 0;
+	virtual const Vec3Type getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const = 0;
 
 	// Returns the coordinates (u, v) for the given uv-set, given the intrinsic coordinates (alpha, beta) in hitinfo.
 	virtual const UVCoordsType getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const = 0;
