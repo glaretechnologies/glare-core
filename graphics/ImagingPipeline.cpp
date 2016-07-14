@@ -1012,6 +1012,10 @@ void toNonLinearSpace(
 	const Colour4f recip_gamma_v(1.0f / 2.4f);
 	const Colour4f cutoff(0.0031308f);
 
+	// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
+	const Colour4f gamma_mask = renderer_settings.shadow_pass ? Colour4f(toVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(toVec4f(Vec4i(0, 0, 0, 0)).v);
+
+	// TODO: Parallelise?
 	const size_t num_pixels = ldr_buffer_in_out.numPixels();
 	Colour4f* const pixel_data = &ldr_buffer_in_out.getPixel(0);
 	for(size_t z = 0; z<num_pixels; ++z)
@@ -1023,7 +1027,7 @@ void toNonLinearSpace(
 		const Colour4f linear = Colour4f(12.92f) * col;
 		const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
 		const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
-		col = sRGBcol;
+		col = select(col, sRGBcol, gamma_mask);
 
 		////// Dither ///////
 		if(dithering)
