@@ -300,6 +300,27 @@ inline Colour4f ditherPixel(const Colour4f& c, ptrdiff_t pixel_i)
 }
 
 
+struct CurveData
+{
+	const static int table_vals = 64;
+	float colour_curve_data[(table_vals + 3) * 4]; // 32 table values plus min, max, scale for 5 (overall+RGB) curves
+
+	static float curveTableEval(const float t, const float t_min, const float t_max, const float t_scl, float const* const table)
+	{
+		if(t <= t_min) return table[0];
+		if(t >= t_max) return table[table_vals - 1];
+
+		const float table_x = (t - t_min) * t_scl;
+		const int table_i = (int)table_x;
+		const float f = table_x - table_i;
+
+		const float v0 = table[table_i + 0];
+		const float v1 = table[table_i + 1];
+		return v0 + (v1 - v0) * f;
+	}
+};
+
+
 // Tonemap HDR image to LDR image
 void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
@@ -313,7 +334,9 @@ void doTonemapFullBuffer(
 	Image4f& ldr_buffer_out,
 	bool image_buffer_in_XYZ,
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	Indigo::TaskManager& task_manager)
+	Indigo::TaskManager& task_manager,
+	const CurveData& curve_data,
+	bool apply_curves)
 {
 	//Timer t;
 	//const bool PROFILE = false;
@@ -530,6 +553,27 @@ void doTonemapFullBuffer(
 		temp_summed_buffer.blitToImage(b, b, (int)temp_summed_buffer.getWidth() - b, (int)temp_summed_buffer.getHeight() - b, ldr_buffer_out, 0, 0);
 	}
 
+	if(apply_curves) // Apply colour curves
+	{
+		const size_t tile_buffer_pixels = ldr_buffer_out.numPixels();
+		for(size_t i = 0; i < tile_buffer_pixels; ++i)
+		{
+			const float* const data = curve_data.colour_curve_data;
+			const int n = CurveData::table_vals;
+			const Colour4f col = ldr_buffer_out.getPixel(i);
+
+			const float pre_r = CurveData::curveTableEval(col.x[0], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+			const float pre_g = CurveData::curveTableEval(col.x[1], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+			const float pre_b = CurveData::curveTableEval(col.x[2], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+
+			const float curve_r = CurveData::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+			const float curve_g = CurveData::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+			const float curve_b = CurveData::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+
+			ldr_buffer_out.getPixel(i).set(curve_r, curve_g, curve_b, col.x[3]);
+		}
+	}
+
 	//conPrint("ldr_buffer_out.maxPixelComponent(): " + toString(ldr_buffer_out.maxPixelComponent()));
 	
 	assert(ldr_buffer_out.getWidth()  == final_xres); // renderer_settings.getWidth());
@@ -569,22 +613,7 @@ struct ImagePipelineTaskClosure
 
 	bool skip_curves;
 
-	const static int table_vals = 64;
-	float colour_curve_data[(table_vals + 3) * 4]; // 32 table values plus min, max, scale for 5 (overall+RGB) curves
-
-	static float curveTableEval(const float t, const float t_min, const float t_max, const float t_scl, float const* const table)
-	{
-		if(t <= t_min) return table[0];
-		if(t >= t_max) return table[table_vals - 1];
-
-		const float table_x = (t - t_min) * t_scl;
-		const int table_i = (int)table_x;
-		const float f = table_x - table_i;
-
-		const float v0 = table[table_i + 0];
-		const float v1 = table[table_i + 1];
-		return v0 + (v1 - v0) * f;
-	}
+	CurveData curve_data;
 };
 
 
@@ -700,17 +729,17 @@ public:
 					const size_t tile_buffer_pixels = tile_buffer.numPixels();
 					for(size_t i = 0; i < tile_buffer_pixels; ++i)
 					{
-						const float* const data = closure.colour_curve_data;
-						const int n = ImagePipelineTaskClosure::table_vals;
+						const float* const data = closure.curve_data.colour_curve_data;
+						const int n = CurveData::table_vals;
 						const Colour4f col = tile_buffer.getPixel(i);
 
-						const float pre_r = ImagePipelineTaskClosure::curveTableEval(col.x[0], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
-						const float pre_g = ImagePipelineTaskClosure::curveTableEval(col.x[1], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
-						const float pre_b = ImagePipelineTaskClosure::curveTableEval(col.x[2], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+						const float pre_r = CurveData::curveTableEval(col.x[0], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+						const float pre_g = CurveData::curveTableEval(col.x[1], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
+						const float pre_b = CurveData::curveTableEval(col.x[2], data[0*3+0], data[0*3+1], data[0*3+2], &data[12]);
 
-						const float curve_r = ImagePipelineTaskClosure::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
-						const float curve_g = ImagePipelineTaskClosure::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
-						const float curve_b = ImagePipelineTaskClosure::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+						const float curve_r = CurveData::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+						const float curve_g = CurveData::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+						const float curve_b = CurveData::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
 
 						tile_buffer.getPixel(i).set(curve_r, curve_g, curve_b, col.x[3]);
 					}
@@ -817,17 +846,17 @@ public:
 					for(ptrdiff_t y = y_min; y < y_max; ++y)
 					for(ptrdiff_t x = x_min; x < x_max; ++x)
 					{
-						const float* const data = closure.colour_curve_data;
-						const int n = ImagePipelineTaskClosure::table_vals;
+						const float* const data = closure.curve_data.colour_curve_data;
+						const int n = CurveData::table_vals;
 						const Colour4f col = tile_buffer.getPixel(addr++);
 
-						const float pre_r = ImagePipelineTaskClosure::curveTableEval(col.x[0], data[0], data[1], data[2], &data[12]);
-						const float pre_g = ImagePipelineTaskClosure::curveTableEval(col.x[1], data[0], data[1], data[2], &data[12]);
-						const float pre_b = ImagePipelineTaskClosure::curveTableEval(col.x[2], data[0], data[1], data[2], &data[12]);
+						const float pre_r = CurveData::curveTableEval(col.x[0], data[0], data[1], data[2], &data[12]);
+						const float pre_g = CurveData::curveTableEval(col.x[1], data[0], data[1], data[2], &data[12]);
+						const float pre_b = CurveData::curveTableEval(col.x[2], data[0], data[1], data[2], &data[12]);
 
-						const float curve_r = ImagePipelineTaskClosure::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
-						const float curve_g = ImagePipelineTaskClosure::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
-						const float curve_b = ImagePipelineTaskClosure::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+						const float curve_r = CurveData::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+						const float curve_g = CurveData::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+						const float curve_b = CurveData::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
 
 						(*closure.ldr_buffer_out).getPixel(y * final_xres + x).set(curve_r, curve_g, curve_b, col.x[3]);
 					}
@@ -863,13 +892,56 @@ void doTonemap(
 	Indigo::TaskManager& task_manager
 	)
 {
+	const bool no_curves =
+		renderer_settings.overall_curve.isNull() &&
+		renderer_settings.rgb_curves[0].isNull() &&
+		renderer_settings.rgb_curves[1].isNull() &&
+		renderer_settings.rgb_curves[2].isNull();
+	const bool identity_curves =
+		renderer_settings.overall_curve.nonNull() && renderer_settings.overall_curve->isIdentity() &&
+		renderer_settings.rgb_curves[0].nonNull() && renderer_settings.rgb_curves[0]->isIdentity() &&
+		renderer_settings.rgb_curves[1].nonNull() && renderer_settings.rgb_curves[1]->isIdentity() &&
+		renderer_settings.rgb_curves[2].nonNull() && renderer_settings.rgb_curves[2]->isIdentity();
+	const bool skip_curves = no_curves || identity_curves; // Only do curves processing if we have curve data and if it's not identity
+
+	CurveData curve_data;
+	if(!skip_curves) // Evaluate the overall and RGBA curves into tables
+	{
+		const int n = CurveData::table_vals;
+		const float o_min = renderer_settings.overall_curve->knots[0], o_max = renderer_settings.overall_curve->knots[renderer_settings.overall_curve->knots.size() - 1];
+		const float r_min = renderer_settings.rgb_curves[0]->knots[0], r_max = renderer_settings.rgb_curves[0]->knots[renderer_settings.rgb_curves[0]->knots.size() - 1];
+		const float g_min = renderer_settings.rgb_curves[1]->knots[0], g_max = renderer_settings.rgb_curves[1]->knots[renderer_settings.rgb_curves[1]->knots.size() - 1];
+		const float b_min = renderer_settings.rgb_curves[2]->knots[0], b_max = renderer_settings.rgb_curves[2]->knots[renderer_settings.rgb_curves[2]->knots.size() - 1];
+		const float o_scl = (n - 1) / (o_max - o_min);
+		const float r_scl = (n - 1) / (r_max - r_min);
+		const float g_scl = (n - 1) / (g_max - g_min);
+		const float b_scl = (n - 1) / (b_max - b_min);
+
+		curve_data.colour_curve_data[0 * 3 + 0] = o_min; curve_data.colour_curve_data[0 * 3 + 1] = o_max; curve_data.colour_curve_data[0 * 3 + 2] = o_scl;
+		curve_data.colour_curve_data[1 * 3 + 0] = r_min; curve_data.colour_curve_data[1 * 3 + 1] = r_max; curve_data.colour_curve_data[1 * 3 + 2] = r_scl;
+		curve_data.colour_curve_data[2 * 3 + 0] = g_min; curve_data.colour_curve_data[2 * 3 + 1] = g_max; curve_data.colour_curve_data[2 * 3 + 2] = g_scl;
+		curve_data.colour_curve_data[3 * 3 + 0] = b_min; curve_data.colour_curve_data[3 * 3 + 1] = b_max; curve_data.colour_curve_data[3 * 3 + 2] = b_scl;
+
+		for(int z = 0; z < n; ++z)
+		{
+			const float u = z * (1.0f / n);
+			curve_data.colour_curve_data[12 + 0 * n + z] = renderer_settings.overall_curve->evaluate(o_min + u * (o_max - o_min));
+			curve_data.colour_curve_data[12 + 1 * n + z] = renderer_settings.rgb_curves[0]->evaluate(r_min + u * (r_max - r_min));
+			curve_data.colour_curve_data[12 + 2 * n + z] = renderer_settings.rgb_curves[1]->evaluate(g_min + u * (g_max - g_min));
+			curve_data.colour_curve_data[12 + 3 * n + z] = renderer_settings.rgb_curves[2]->evaluate(b_min + u * (b_max - b_min));
+		}
+	}
+	else
+		std::memset(curve_data.colour_curve_data, 0, sizeof(curve_data.colour_curve_data)); // Stop the compiler complaining about potentially uninitialised data.
+
+
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	if((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager);
+							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 		return;
 	}
 
@@ -916,18 +988,6 @@ void doTonemap(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	const bool no_curves =
-		renderer_settings.overall_curve.isNull() &&
-		renderer_settings.rgb_curves[0].isNull() &&
-		renderer_settings.rgb_curves[1].isNull() &&
-		renderer_settings.rgb_curves[2].isNull();
-	const bool identity_curves =
-		renderer_settings.overall_curve.nonNull() && renderer_settings.overall_curve->isIdentity() &&
-		renderer_settings.rgb_curves[0].nonNull() && renderer_settings.rgb_curves[0]->isIdentity() &&
-		renderer_settings.rgb_curves[1].nonNull() && renderer_settings.rgb_curves[1]->isIdentity() &&
-		renderer_settings.rgb_curves[2].nonNull() && renderer_settings.rgb_curves[2]->isIdentity();
-	const bool skip_curves = no_curves || identity_curves; // Only do curves processing if we have curve data and if it's not identity
-
 	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 	ImagePipelineTaskClosure closure;
@@ -947,32 +1007,7 @@ void doTonemap(
 	closure.margin_ssf1 = margin_ssf1;
 
 	closure.skip_curves = skip_curves;
-	if(!skip_curves) // Evaluate the overall and RGBA curves into tables
-	{
-		const int n = ImagePipelineTaskClosure::table_vals;
-		const float o_min = renderer_settings.overall_curve->knots[0], o_max = renderer_settings.overall_curve->knots[renderer_settings.overall_curve->knots.size() - 1];
-		const float r_min = renderer_settings.rgb_curves[0]->knots[0], r_max = renderer_settings.rgb_curves[0]->knots[renderer_settings.rgb_curves[0]->knots.size() - 1];
-		const float g_min = renderer_settings.rgb_curves[1]->knots[0], g_max = renderer_settings.rgb_curves[1]->knots[renderer_settings.rgb_curves[1]->knots.size() - 1];
-		const float b_min = renderer_settings.rgb_curves[2]->knots[0], b_max = renderer_settings.rgb_curves[2]->knots[renderer_settings.rgb_curves[2]->knots.size() - 1];
-		const float o_scl = (n - 1) / (o_max - o_min);
-		const float r_scl = (n - 1) / (r_max - r_min);
-		const float g_scl = (n - 1) / (g_max - g_min);
-		const float b_scl = (n - 1) / (b_max - b_min);
-
-		closure.colour_curve_data[0 * 3 + 0] = o_min; closure.colour_curve_data[0 * 3 + 1] = o_max; closure.colour_curve_data[0 * 3 + 2] = o_scl;
-		closure.colour_curve_data[1 * 3 + 0] = r_min; closure.colour_curve_data[1 * 3 + 1] = r_max; closure.colour_curve_data[1 * 3 + 2] = r_scl;
-		closure.colour_curve_data[2 * 3 + 0] = g_min; closure.colour_curve_data[2 * 3 + 1] = g_max; closure.colour_curve_data[2 * 3 + 2] = g_scl;
-		closure.colour_curve_data[3 * 3 + 0] = b_min; closure.colour_curve_data[3 * 3 + 1] = b_max; closure.colour_curve_data[3 * 3 + 2] = b_scl;
-
-		for(int z = 0; z < n; ++z)
-		{
-			const float u = z * (1.0f / n);
-			closure.colour_curve_data[12 + 0 * n + z] = renderer_settings.overall_curve->evaluate(o_min + u * (o_max - o_min));
-			closure.colour_curve_data[12 + 1 * n + z] = renderer_settings.rgb_curves[0]->evaluate(r_min + u * (r_max - r_min));
-			closure.colour_curve_data[12 + 2 * n + z] = renderer_settings.rgb_curves[1]->evaluate(g_min + u * (g_max - g_min));
-			closure.colour_curve_data[12 + 3 * n + z] = renderer_settings.rgb_curves[2]->evaluate(b_min + u * (b_max - b_min));
-		}
-	}
+	if(!skip_curves) closure.curve_data = curve_data;
 
 	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
 
