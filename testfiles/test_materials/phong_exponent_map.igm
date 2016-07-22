@@ -4,18 +4,16 @@
 		<name>phong a</name>
 		<phong>
 			
-      
-      
-			<diffuse_albedo>
-				<constant>
-					<rgb>
-						<rgb>
-							0.4 0.5 0.4
-						</rgb>
-						<gamma>2.2</gamma>
-					</rgb>
-				</constant>
-			</diffuse_albedo>
+      <specular_reflectivity>
+        <constant>
+          <rgb>
+            <rgb>
+              0.4 0.5 0.4
+            </rgb>
+            <gamma>2.2</gamma>
+          </rgb>
+        </constant>
+      </specular_reflectivity>
       
 			<exponent>
         <texture>
