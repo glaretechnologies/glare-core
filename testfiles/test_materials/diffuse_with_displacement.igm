@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>mat1</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>
+							0.7891 0.1758 0.3203
+						</rgb>
+						<gamma>1</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+
+      <displacement>
+        <shader>
+          <shader>
+            <![CDATA[
+						def eval() real :
+               0.01
+						]]>
+          </shader>
+        </shader>
+      </displacement>
+      
+		</diffuse>
+	</material>
+
+</scenedata>

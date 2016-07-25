@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Material</name>
+		<diffuse>
+			<texture>
+				<path>N:/indigo/trunk/testscenes/blackrose_pattern.jpg</path>
+				<a>0</a>
+				<b>0.1</b>
+				<c>0</c>
+				<uv_set_index>0</uv_set_index>
+				<exponent>2.2</exponent>
+				<tex_coord_generation>
+					<uv>
+						<matrix>5 0 0 5</matrix>
+						<translation>0 0</translation>
+					</uv>
+				</tex_coord_generation>
+				<smooth>false</smooth>
+			</texture>
+			<texture>
+				<path>N:/indigo/trunk/testscenes/brickwork_normal-map.jpg</path>
+				<a>0</a>
+				<b>1</b>
+				<c>0</c>
+				<uv_set_index>0</uv_set_index>
+				<exponent>1</exponent>
+				<tex_coord_generation>
+					<uv>
+						<matrix>0.2 0 0 0.2</matrix>
+						<translation>0 0</translation>
+					</uv>
+				</tex_coord_generation>
+				<smooth>false</smooth>
+			</texture>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.8 0.8 0.8</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<bump>
+				<texture>
+					<texture_index>0</texture_index>
+				</texture>
+			</bump>
+			<normal_map>
+				<texture>
+					<texture_index>1</texture_index>
+				</texture>
+			</normal_map>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+</scenedata>
