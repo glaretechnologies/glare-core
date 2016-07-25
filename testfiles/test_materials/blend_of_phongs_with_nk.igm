@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+  
+  <material>
+    <name>a</name>
+    <phong>
+      <exponent>
+        <constant>
+          2000
+        </constant>
+      </exponent>
+      <ior>1.5</ior>
+      <nk_data>nkdata/Au.nk</nk_data>
+    </phong>
+  </material>
+
+  <material>
+    <name>b</name>
+    <phong>
+      <exponent>
+        <constant>
+          2000
+        </constant>
+      </exponent>
+      <ior>1.5</ior>
+      <nk_data>nkdata/Ag.nk</nk_data>
+    </phong>
+  </material>
+  
+	<material>
+		<name>Material</name>
+		<blend>
+			<a_name>a</a_name>
+			<b_name>b</b_name>
+			<blend>
+				<constant>
+					0.5
+				</constant>
+			</blend>
+			<step_blend>false</step_blend>
+		</blend>
+	</material>
+  
+</scenedata>
