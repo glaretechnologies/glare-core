@@ -299,6 +299,7 @@ void Obfuscator::addOpenCLKeywords()
 		"fbm_float__float__float__int_",
 		"fbm4Valued_float__float__int_",
 		"fbm4Valued_float__float__float__int_",
+		"fbm_int__vec3__float__float__float_",
 		"gridNoise_float__float__float__float_",
 		"voronoi_vec2__float_",
 		"voronoi3d_vec3__float_",
