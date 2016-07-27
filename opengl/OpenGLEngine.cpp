@@ -437,22 +437,22 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;
 
-		phong_untextured_prog = new OpenGLProgram(
+		phong_prog = new OpenGLProgram(
 			"phong",
 			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
-		diffuse_colour_location			= phong_untextured_prog->getUniformLocation("diffuse_colour");
-		have_shading_normals_location	= phong_untextured_prog->getUniformLocation("have_shading_normals");
-		have_texture_location			= phong_untextured_prog->getUniformLocation("have_texture");
-		diffuse_tex_location			= phong_untextured_prog->getUniformLocation("diffuse_tex");
-		phong_have_depth_texture_location	= phong_untextured_prog->getUniformLocation("have_depth_texture");
-		phong_depth_tex_location			= phong_untextured_prog->getUniformLocation("depth_tex");
-		texture_matrix_location			= phong_untextured_prog->getUniformLocation("texture_matrix");
-		sundir_location					= phong_untextured_prog->getUniformLocation("sundir");
-		exponent_location				= phong_untextured_prog->getUniformLocation("exponent");
-		fresnel_scale_location			= phong_untextured_prog->getUniformLocation("fresnel_scale");
-		phong_shadow_texture_matrix_location	= phong_untextured_prog->getUniformLocation("shadow_texture_matrix");
+		diffuse_colour_location			= phong_prog->getUniformLocation("diffuse_colour");
+		have_shading_normals_location	= phong_prog->getUniformLocation("have_shading_normals");
+		have_texture_location			= phong_prog->getUniformLocation("have_texture");
+		diffuse_tex_location			= phong_prog->getUniformLocation("diffuse_tex");
+		phong_have_depth_texture_location	= phong_prog->getUniformLocation("have_depth_texture");
+		phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
+		texture_matrix_location			= phong_prog->getUniformLocation("texture_matrix");
+		sundir_location					= phong_prog->getUniformLocation("sundir");
+		exponent_location				= phong_prog->getUniformLocation("exponent");
+		fresnel_scale_location			= phong_prog->getUniformLocation("fresnel_scale");
+		phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -576,7 +576,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 			have_transparent_mat = true;
 		}
 		else
-			object->materials[i].shader_prog = phong_untextured_prog;//TEMP
+			object->materials[i].shader_prog = phong_prog;//TEMP
 	//	buildMaterial(object->materials[i]);
 	}
 
@@ -617,7 +617,7 @@ void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat)
 	if(mat.transparent)
 		mat.shader_prog = this->transparent_prog;
 	else
-		mat.shader_prog = this->phong_untextured_prog;
+		mat.shader_prog = this->phong_prog;
 }
 
 
@@ -751,6 +751,7 @@ void OpenGLEngine::draw()
 	this->num_aabbs_submitted = 0;
 	Timer profile_timer;
 
+	this->draw_time = Clock::getCurTimeRealSec();
 
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
@@ -767,9 +768,9 @@ void OpenGLEngine::draw()
 
 
 		Matrix4f proj_matrix = orthoMatrix(
-			-20, 20, // left, right
-			-20, 20, // bottom, top
-			-35, 35 // near, far
+			-settings.shadow_map_scene_half_width, settings.shadow_map_scene_half_width, // left, right
+			-settings.shadow_map_scene_half_width, settings.shadow_map_scene_half_width, // bottom, top
+			-settings.shadow_map_scene_half_depth, settings.shadow_map_scene_half_depth // near, far
 		);
 
 		const Vec4f up(0,0,1,0);
@@ -1574,12 +1575,22 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		glUniformMatrix4fv(opengl_mat.shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
 
 		// Set uniforms.  NOTE: Setting the uniforms manually in this way is obviously quite hacky.  Improve.
-		if(opengl_mat.shader_prog.getPointer() == this->phong_untextured_prog.getPointer())
+		if(opengl_mat.shader_prog.getPointer() == this->phong_prog.getPointer())
 		{
 			glUniform4fv(this->sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
-			glUniform4f(this->diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+			
+			// If this is a 'selected' material, show a pulsing colour
+			if(opengl_mat.selected)
+			{
+				const float pulse = 0.3f * (float)Maths::pow4(std::sin(2.f * draw_time));
+				const Colour3f col(0.2f + pulse, 0.7f + pulse, 0.2f + pulse);
+				glUniform4f(this->diffuse_colour_location, col.r, col.g, col.b, 1.f);
+			}
+			else
+				glUniform4f(this->diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+
 			glUniform1i(this->have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-			glUniform1i(this->have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+			glUniform1i(this->have_texture_location, (opengl_mat.albedo_texture.nonNull() && !opengl_mat.selected) ? 1 : 0);
 			glUniform1f(this->exponent_location, opengl_mat.phong_exponent);
 			glUniform1f(this->fresnel_scale_location, opengl_mat.fresnel_scale);
 
@@ -2136,4 +2147,22 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
+}
+
+
+float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
+{
+	float depth;
+	glReadPixels(pixel_x, pixel_y, 
+		1, 1,  // width, height
+		GL_DEPTH_COMPONENT, GL_FLOAT, 
+		&depth);
+
+	const double z_far  = max_draw_dist;
+	const double z_near = max_draw_dist * 2e-5;
+
+	// From http://learnopengl.com/#!Advanced-OpenGL/Depth-testing
+	float z = depth * 2.0 - 1.0; 
+	float linear_depth = (2.0 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
+	return linear_depth;
 }

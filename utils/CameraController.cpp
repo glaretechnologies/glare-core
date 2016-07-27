@@ -9,11 +9,19 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 #include <math.h>
 
 #include "../maths/mathstypes.h"
+#include "../maths/GeometrySampling.h"
 #include <algorithm>
+#include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
+
+
+static const double cap = 1.0e-4;
 
 
 CameraController::CameraController()
 {
+	target_pos = Vec3d(0.0);
+
 	base_move_speed   = 0.035;
 	base_rotate_speed = 0.005;
 
@@ -73,8 +81,7 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 		rotation.x += rot_delta.y * -rotate_speed;
 		rotation.y += rot_delta.x * -rotate_speed * (invert_mouse ? -1 : 1);
 
-		const double pi = 3.1415926535897932384626433832795, cap = 1e-4;
-		rotation.y = std::max(cap, std::min(pi - cap, rotation.y));
+		rotation.y = std::max(cap, std::min(Maths::pi<double>() - cap, rotation.y));
 
 		if(!allow_pitching)
 			rotation.y = Maths::pi_2<double>();
@@ -90,6 +97,87 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 	position += right		* pos_delta.x * move_speed +
 				forwards	* pos_delta.y * move_speed +
 				up			* pos_delta.z * move_speed;
+}
+
+
+// http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
+static Vec3d rotatePointAroundAxis(const Vec3d& p, const Vec3d& axis, double angle)
+{
+	const double d = dot(p, axis);
+	const double cos_theta = cos(angle);
+	const double sin_theta = sin(angle);
+	double u = axis.x, v = axis.y, w = axis.z;
+	double x = p.x, y = p.y, z = p.z;
+	return Vec3d(
+		u*d*(1 - cos_theta) + x*cos_theta + (-w*y + v*z)*sin_theta,
+		v*d*(1 - cos_theta) + y*cos_theta + ( w*x - u*z)*sin_theta,
+		w*d*(1 - cos_theta) + z*cos_theta + (-v*x + u*y)*sin_theta
+	);
+}
+
+
+static Vec3d rotatePointAroundLine(const Vec3d& p, const Vec3d& axis_point, const Vec3d& axis_dir, double angle)
+{
+	const Vec3d p_line_space = p - axis_point;
+	double u = axis_dir.x, v = axis_dir.y, w = axis_dir.z;
+	double x = p_line_space.x, y = p_line_space.y, z = p_line_space.z;
+	const double d = dot(p_line_space, axis_dir);
+	const double cos_theta = cos(angle);
+	const double sin_theta = sin(angle);
+	Vec3d rotated_p_line_space(
+		u*d*(1 - cos_theta) + x*cos_theta + (-w*y + v*z)*sin_theta,
+		v*d*(1 - cos_theta) + y*cos_theta + ( w*x - u*z)*sin_theta,
+		w*d*(1 - cos_theta) + z*cos_theta + (-v*x + u*y)*sin_theta
+	);
+
+	return rotated_p_line_space + axis_point;
+}
+
+
+void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_delta)
+{
+	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
+	const double move_speed   = 3.0 * base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+
+	// conPrint("target_pos: " + target_pos.toString());
+
+	// Construct camera basis.
+	const Vec3d forwards(sin(rotation.y) * cos(rotation.x),
+						 sin(rotation.y) * sin(rotation.x),
+						 cos(rotation.y));
+	const Vec3d up = getUpForForwards(forwards, initialised_up);
+	const Vec3d right = normalise(::crossProduct(forwards, up));
+
+	if(rot_delta.x != 0 || rot_delta.y != 0)
+	{
+		// Rotate camera around target point
+		const double dphi = rot_delta.y * -rotate_speed;
+		const double unclamped_dtheta = rot_delta.x * rotate_speed * (invert_mouse ? -1 : 1);
+
+		const double previous_rotation_y = rotation.y;
+		const double new_rotation_y = myClamp(rotation.y - unclamped_dtheta, cap, Maths::pi<double>() - cap);
+		const double dtheta = -(new_rotation_y - previous_rotation_y);
+
+		const Vec3d newpos = rotatePointAroundLine(position, target_pos, Vec3d(0,0,1), dphi);
+		const Vec3d newpos2 = rotatePointAroundLine(newpos, target_pos, right, dtheta);
+		this->position = newpos2;
+	}
+
+	// Zoom in/out towards target point
+	const Vec3d target_to_pos = position - target_pos;
+	const Vec3d scaled_target_to_pos = target_to_pos * (1.0 - pos_delta.y * move_speed);
+	position = target_pos + scaled_target_to_pos;
+
+	// Allow panning of camera position and target point with CTRL+middle mouse button + mouse move
+	const Vec3d dpos = right * pos_delta.x * move_speed + up * pos_delta.z * move_speed;
+	target_pos += dpos;
+	position += dpos;
+
+	// Make camera look at target point:
+	double theta, phi;
+	GeometrySampling::sphericalCoordsForDir(-normalise(scaled_target_to_pos), 1.0, theta, phi);
+	rotation.x = phi;
+	rotation.y = theta;
 }
 
 
@@ -143,6 +231,12 @@ Vec3d CameraController::getForwardsVec() const
 Vec3d CameraController::getRightVec() const
 {
 	return normalise(crossProduct(getForwardsVec(), Vec3d(0,0,1)));
+}
+
+
+Vec3d CameraController::getUpVec() const
+{
+	return crossProduct(getRightVec(), getForwardsVec());
 }
 
 

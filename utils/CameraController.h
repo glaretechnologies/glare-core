@@ -25,6 +25,8 @@ public:
 	void initialise(const Vec3d& cam_pos, const Vec3d& cam_forwards, const Vec3d& cam_up);
 
 	void update(const Vec3d& pos_delta, const Vec2d& rot_delta);
+	
+	void updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_delta);
 
 	Vec3d getPosition() const;
 	void setPosition(const Vec3d& pos);
@@ -37,6 +39,7 @@ public:
 
 	Vec3d getForwardsVec() const;
 	Vec3d getRightVec() const;
+	Vec3d getUpVec() const;
 
 	void setAllowPitching(bool allow_pitching);
 
@@ -44,6 +47,8 @@ public:
 	static void getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);
 
 	static void getAxisAngleForAngles(const Vec3d& euler_angles_in, Vec3d& axis_out, double& angle_out);
+
+	void setTargetPos(const Vec3d& p) { target_pos = p; }
 
 	bool invert_mouse;
 
@@ -56,6 +61,8 @@ private:
 	// pitch is theta. 0 = looking straight up, pi = looking straight down.
 
 	Vec3d initialised_up;
+
+	Vec3d target_pos; // Target point for trackball-style navigation
 
 	double base_move_speed, base_rotate_speed;
 	double move_speed_scale, mouse_sensitivity_scale;

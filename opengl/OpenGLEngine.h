@@ -69,7 +69,8 @@ public:
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
 		userdata(0),
-		fresnel_scale(0.5f)
+		fresnel_scale(0.5f),
+		selected(false)
 	{}
 
 	std::string albedo_tex_path;
@@ -79,6 +80,7 @@ public:
 	float alpha; // Used for transparent mats.
 
 	bool transparent;
+	bool selected;
 
 	Reference<OpenGLTexture> albedo_texture;
 
@@ -89,7 +91,7 @@ public:
 
 	float phong_exponent;
 	float fresnel_scale;
-
+	
 	uint64 userdata;
 };
 
@@ -127,9 +129,12 @@ typedef Reference<OverlayObject> OverlayObjectRef;
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : shadow_mapping(false) {}
+	OpenGLEngineSettings() : shadow_mapping(false), shadow_map_scene_half_width(20.f), shadow_map_scene_half_depth(35.f) {}
 
 	bool shadow_mapping;
+
+	float shadow_map_scene_half_width; // scene half width
+	float shadow_map_scene_half_depth; // scene half depth
 };
 
 
@@ -195,6 +200,9 @@ public:
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_);
 
 
+	float getPixelDepth(int pixel_x, int pixel_y);
+
+
 	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
 private:
 	void buildMaterial(OpenGLMaterial& mat);
@@ -243,7 +251,7 @@ private:
 	Vec4f frustum_verts[5];
 	js::AABBox frustum_aabb;
 
-	Reference<OpenGLProgram> phong_untextured_prog;
+	Reference<OpenGLProgram> phong_prog;
 	int diffuse_colour_location;
 	int have_shading_normals_location;
 	int have_texture_location;
@@ -281,6 +289,8 @@ private:
 	OpenGLMaterial depth_draw_mat;
 
 	OverlayObjectRef tex_preview_overlay_ob;
+
+	double draw_time;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
