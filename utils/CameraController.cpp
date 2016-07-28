@@ -100,22 +100,6 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 }
 
 
-// http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
-static Vec3d rotatePointAroundAxis(const Vec3d& p, const Vec3d& axis, double angle)
-{
-	const double d = dot(p, axis);
-	const double cos_theta = cos(angle);
-	const double sin_theta = sin(angle);
-	double u = axis.x, v = axis.y, w = axis.z;
-	double x = p.x, y = p.y, z = p.z;
-	return Vec3d(
-		u*d*(1 - cos_theta) + x*cos_theta + (-w*y + v*z)*sin_theta,
-		v*d*(1 - cos_theta) + y*cos_theta + ( w*x - u*z)*sin_theta,
-		w*d*(1 - cos_theta) + z*cos_theta + (-v*x + u*y)*sin_theta
-	);
-}
-
-
 static Vec3d rotatePointAroundLine(const Vec3d& p, const Vec3d& axis_point, const Vec3d& axis_dir, double angle)
 {
 	const Vec3d p_line_space = p - axis_point;
