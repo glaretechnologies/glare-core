@@ -297,6 +297,12 @@ void CameraController::getAxisAngleForAngles(const Vec3d& euler_angles_in, Vec3d
 }
 
 
+void CameraController::setTargetPos(const Vec3d& p)
+{ 
+	target_pos = p;
+}
+
+
 #if BUILD_TESTS
 
 #include "../maths/mathstypes.h"

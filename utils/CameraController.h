@@ -48,7 +48,7 @@ public:
 
 	static void getAxisAngleForAngles(const Vec3d& euler_angles_in, Vec3d& axis_out, double& angle_out);
 
-	void setTargetPos(const Vec3d& p) { target_pos = p; }
+	void setTargetPos(const Vec3d& p);
 
 	bool invert_mouse;
 
