@@ -32,7 +32,7 @@ public:
 	void setPosition(const Vec3d& pos);
 
 	void setMouseSensitivity(double sensitivity);
-	void setMoveScale(double move_scale);
+	void setMoveScale(double move_scale); // Adjust camera movement speed based on world scale
 
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	Vec3d getAngles() const; // Specified as (heading, pitch, roll).

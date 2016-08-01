@@ -121,7 +121,9 @@ static Vec3d rotatePointAroundLine(const Vec3d& p, const Vec3d& axis_point, cons
 void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_delta)
 {
 	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
-	const double move_speed   = 3.0 * base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+	const double move_speed   = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+	const double zoom_speed   = 0.15 * base_move_speed * mouse_sensitivity_scale; // Doesn't need move_speed_scale since this is a change relative to the current zoom distance.
+
 
 	// conPrint("target_pos: " + target_pos.toString());
 
@@ -149,7 +151,7 @@ void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_
 
 	// Zoom in/out towards target point
 	const Vec3d target_to_pos = position - target_pos;
-	const Vec3d scaled_target_to_pos = target_to_pos * (1.0 - pos_delta.y * move_speed);
+	const Vec3d scaled_target_to_pos = target_to_pos * (1.0 - pos_delta.y * zoom_speed);
 	position = target_pos + scaled_target_to_pos;
 
 	// Allow panning of camera position and target point with CTRL+middle mouse button + mouse move
