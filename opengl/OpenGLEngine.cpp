@@ -992,6 +992,7 @@ void OpenGLEngine::draw()
 	{
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDepthMask(GL_FALSE); // Don't write to z-buffer
 
 		for(size_t i=0; i<overlay_objects.size(); ++i)
 		{
@@ -1032,6 +1033,7 @@ void OpenGLEngine::draw()
 			unbindMeshData(mesh_data);
 		}
 
+		glDepthMask(GL_TRUE); // Restore
 		glDisable(GL_BLEND);
 	}
 
