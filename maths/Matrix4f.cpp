@@ -62,6 +62,27 @@ const Matrix4f Matrix4f::identity()
 }
 
 
+void Matrix4f::setToIdentity()
+{
+	e[0] = 1.f;
+	e[1] = 0.f;
+	e[2] = 0.f;
+	e[3] = 0.f;
+	e[4] = 0.f;
+	e[5] = 1.f;
+	e[6] = 0.f;
+	e[7] = 0.f;
+	e[8] = 0.f;
+	e[9] = 0.f;
+	e[10] = 1.f;
+	e[11] = 0.f;
+	e[12] = 0.f;
+	e[13] = 0.f;
+	e[14] = 0.f;
+	e[15] = 1.f;
+}
+
+
 void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 {
 	/*
@@ -232,6 +253,17 @@ const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
 }
 
 
+void Matrix4f::applyUniformScale(float scale)
+{
+	const Vec4f scalev(scale);
+
+	_mm_store_ps(e + 0,  mul(Vec4f(_mm_load_ps(e + 0)), scalev).v);
+	_mm_store_ps(e + 4,  mul(Vec4f(_mm_load_ps(e + 4)), scalev).v);
+	_mm_store_ps(e + 8,  mul(Vec4f(_mm_load_ps(e + 8)), scalev).v);
+	// Last column is not scaled.
+}
+
+
 void Matrix4f::setToUniformScaleMatrix(float scale)
 {
 	e[ 0] = scale;
@@ -301,6 +333,9 @@ static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 	const Vec4f M_i = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
 	const Vec4f M_j = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,1,0,0));
 	const Vec4f M_k = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,0,1,0));
+	testEpsEqual(M_i.length(), 1.0f);
+	testEpsEqual(M_j.length(), 1.0f);
+	testEpsEqual(M_k.length(), 1.0f);
 	testEpsEqual(dot(M_i, M_j), 0.f);
 	testEpsEqual(dot(M_j, M_k), 0.f);
 	testEpsEqual(dot(M_i, M_k), 0.f);
@@ -464,15 +499,56 @@ void Matrix4f::test()
 	}
 
 
+	//------------- Matrix4f::identity() ----------------
 	{
 		const Matrix4f m = Matrix4f::identity();
 
 		const Vec4f v(1, 2, 3, 4);
-
-		const Vec4f res(m * v);
-
+		const Vec4f res = m * v;
 		testAssert(epsEqual(v, res));
 	}
+
+
+	//------------- Matrix4f::setToIdentity() ----------------
+	{
+		Matrix4f m;
+		m.setToIdentity();
+		testAssert(epsEqual(m, Matrix4f::identity()));
+
+		const Vec4f v(1, 2, 3, 4);
+		const Vec4f res = m * v;
+		testAssert(epsEqual(v, res));
+	}
+
+	
+
+	//-------------------------- Test setToUniformScaleMatrix() ----------------------
+	{
+		Matrix4f m;
+		m.setToUniformScaleMatrix(2.0f);
+
+		const Vec4f res = m * Vec4f(1, 2, 3, 4);
+		testAssert(epsEqual(res, Vec4f(2, 4, 6, 4)));
+	}
+
+	//-------------------------- Test applyUniformScale() ----------------------
+	{
+		Matrix4f m = Matrix4f::identity();
+		m.applyUniformScale(2.0f);
+
+		const Vec4f res = m * Vec4f(1, 2, 3, 4);
+		testAssert(epsEqual(res, Vec4f(2, 4, 6, 4)));
+	}
+	{
+		Matrix4f m = Matrix4f::identity();
+		m.applyUniformScale(2.0f);
+		m.applyUniformScale(3.0f);
+
+		const Vec4f res = m * Vec4f(1, 2, 3, 4);
+		testAssert(epsEqual(res, Vec4f(6, 12, 18, 4)));
+	}
+
+
 	{
 		const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -632,11 +708,13 @@ void Matrix4f::test()
 		}
 	}
 
+
+
 	//-------------------------- Test constructFromVectorAndMul() ----------------------
 	{
 		{
 			const Vec4f v = Vec4f(0.482021928f, -0.00631375983f, -0.876137257f, 0.000000000);
-			printVar(v.length());
+			//printVar(v.length());
 			testConstructFromVectorAndMulForVec(v);
 		}
 		//testConstructFromVectorAndMulForVec(normalise(Vec4f(0.482021928f, -0.00631375983f, -0.876137257f, 0.000000000)));
@@ -658,9 +736,14 @@ void Matrix4f::test()
 		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.999998f,0)));
 		testConstructFromVectorAndMulForVec(normalise(Vec4f(0.00001f,0,-0.9999998f,0)));
 
+		// Test around v.z = 0.999f
+		testConstructFromVectorAndMulForVec(Vec4f((float)std::sin(std::acos(0.9989)), 0.f, 0.9989f, 0.f));
+		testConstructFromVectorAndMulForVec(Vec4f((float)std::sin(std::acos(0.999)), 0.f, 0.999f, 0.f));
+		testConstructFromVectorAndMulForVec(Vec4f((float)std::sin(std::acos(0.9991)), 0.f, 0.9991f, 0.f));
+
 		for(float theta = Maths::pi<float>() - 0.01f; theta <= Maths::pi<float>(); theta += 0.00001f)
 		{
-			const Vec4f v =  Vec4f(sin(theta), 0.f, cos(theta), 0.0f);
+			const Vec4f v = Vec4f(sin(theta), 0.f, cos(theta), 0.0f);
 			testConstructFromVectorAndMulForVec(v);
 		}
 	}

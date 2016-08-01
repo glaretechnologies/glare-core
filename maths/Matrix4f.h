@@ -40,7 +40,8 @@ public:
 	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
 	static const Matrix4f rotationMatrix(const Vec4f& unit_axis, float angle);
 
-	void setToUniformScaleMatrix(float scale);
+	void applyUniformScale(float scale); // right multiply the matrix by a uniform scale matrix.
+	void setToUniformScaleMatrix(float scale); // Make the upper-left 3x3 matrix a uniform scaling matrix.
 	void setToScaleMatrix(float xscale, float yscale, float zscale);
 
 	
@@ -84,6 +85,7 @@ public:
 	bool getInverseForRandTMatrix(Matrix4f& inverse_out) const;
 	bool getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const;
 
+	void setToIdentity();
 	static const Matrix4f identity();
 
 	const std::string rowString(int row_index) const;
@@ -347,25 +349,29 @@ inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const V
 	if(std::fabs(vec[0]) > std::fabs(vec[1]))
 	{
 		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
-
 		x_axis.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
 	}
 	else
 	{
 		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
-
 		x_axis.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
 	}
 
-	assert(x_axis.isUnitLength());
-
 	/*
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
+	// Experimental new code:
+	if(std::fabs(vec[2]) < 0.999f)
+	{
+		// x_axis = normalise(cross(vec, k))
+		const float len = std::sqrt(vec[0]*vec[0] + vec[1]*vec[1]);
+		x_axis = Vec4f(vec[1], -vec[0], 0, 0) / len;
+	}
+	else
+	{
+		// x_axis = normalise(cross(vec, i))
+		const float len = std::sqrt(vec[1]*vec[1] + vec[2]*vec[2]);
+		x_axis = Vec4f(0, vec[2], -vec[1], 0) / len;
+	}
 	*/
-
 	const Vec4f y_axis = crossProduct(vec, x_axis);
 
 	assertIsUnitLength(x_axis);
