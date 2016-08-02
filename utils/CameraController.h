@@ -6,7 +6,9 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 =====================================================================*/
 #pragma once
 
+
 #include "../maths/vec3.h"
+#include "../maths/vec2.h"
 #include "../maths/matrix3.h"
 #include "../maths/Quat.h"
 
