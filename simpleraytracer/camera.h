@@ -72,7 +72,8 @@ public:
 	typedef float PDType;
 
 	virtual void init(
-		const Vec3d& cam_pos, const Vec3d& ws_updir, const Vec3d& forwards, 
+		const js::Vector<TransformKeyFrame, 16>& frames,
+		const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist,
 		double exposure_duration,
 		Reference<Aperture>& aperture,
