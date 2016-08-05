@@ -283,7 +283,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 
-		conPrint("HashMapInsertOnly insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly insert took   " + timer.elapsedString() + ", final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -296,7 +296,7 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 
-		conPrint("HashMapInsertOnly lookups took " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("HashMapInsertOnly lookups took  " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
 	{
 		Timer timer;
@@ -308,7 +308,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 
-		conPrint("HashMapInsertOnly2 insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly2 insert took  " + timer.elapsedString() + ", final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -326,14 +326,13 @@ void testHashMapInsertOnly2()
 	{
 		Timer timer;
 		std::unordered_map<int, int> m;
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = sparse_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
 
-		conPrint("std::unordered_map insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		conPrint("std::unordered_map insert took  " + timer.elapsedString() + ", final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -353,7 +352,6 @@ void testHashMapInsertOnly2()
 		Timer timer;
 		google::dense_hash_map<int, int> m;
 		m.set_empty_key(std::numeric_limits<int>::max());
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = sparse_testdata[i];
@@ -384,14 +382,13 @@ void testHashMapInsertOnly2()
 	{
 		Timer timer;
 		HashMapInsertOnly<int, int> m;
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = dense_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
 
-		conPrint("HashMapInsertOnly insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly insert took   " + timer.elapsedString() + ", final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -404,20 +401,19 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 
-		conPrint("HashMapInsertOnly lookups took " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("HashMapInsertOnly lookups took  " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
 
 	{
 		Timer timer;
 		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = dense_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
 
-		conPrint("HashMapInsertOnly2 insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly2 insert took  " + timer.elapsedString() + ", final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -435,14 +431,13 @@ void testHashMapInsertOnly2()
 	{
 		Timer timer;
 		std::unordered_map<int, int> m;
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = dense_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
-
-		conPrint("std::unordered_map insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		double elapsed = timer.elapsed();
+		conPrint("std::unordered_map insert took  " + ::doubleToStringNSigFigs(elapsed, 5) + " s, final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -454,15 +449,14 @@ void testHashMapInsertOnly2()
 			if(it != m.end())
 				num_present++;
 		}
-
-		conPrint("std::unordered_map lookups took " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		elapsed = timer.elapsed();
+		conPrint("std::unordered_map lookups took " + ::doubleToStringNSigFigs(elapsed, 5) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
 
 	/*{
 		Timer timer;
 		google::dense_hash_map<int, int> m;
 		m.set_empty_key(std::numeric_limits<int>::max());
-		MTwister rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = dense_testdata[i];
