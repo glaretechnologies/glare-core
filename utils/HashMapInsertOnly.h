@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "HashMapInsertOnlyIterators.h"
 #include "Vector.h"
 #include "BitVector.h"
+#include <functional>
 
 
 /*=====================================================================
