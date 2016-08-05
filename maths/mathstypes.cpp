@@ -103,6 +103,28 @@ void Maths::test()
 {
 	conPrint("Maths::test()");
 
+	//=============================== roundToNextHighestPowerOf2() =========================================
+	testAssert(roundToNextHighestPowerOf2(0) == 0); // This is expected.
+	testAssert(roundToNextHighestPowerOf2(1) == 1);
+	testAssert(roundToNextHighestPowerOf2(2) == 2);
+	testAssert(roundToNextHighestPowerOf2(3) == 4);
+	testAssert(roundToNextHighestPowerOf2(4) == 4);
+	testAssert(roundToNextHighestPowerOf2(5) == 8);
+	testAssert(roundToNextHighestPowerOf2(6) == 8);
+	testAssert(roundToNextHighestPowerOf2(7) == 8);
+	testAssert(roundToNextHighestPowerOf2(8) == 8);
+	testAssert(roundToNextHighestPowerOf2(9) == 16);
+	testAssert(roundToNextHighestPowerOf2(10) == 16);
+
+	// Test around 2^32 = 4294967296
+	testAssert(roundToNextHighestPowerOf2(4294967295ull) == 4294967296ull);
+	testAssert(roundToNextHighestPowerOf2(4294967296ull) == 4294967296ull); 
+	testAssert(roundToNextHighestPowerOf2(4294967297ull) == 8589934592ull);
+
+	// Test around 2^63 = 9223372036854775808
+	testAssert(roundToNextHighestPowerOf2(9223372036854775807ull) == 9223372036854775808ull);
+	testAssert(roundToNextHighestPowerOf2(9223372036854775808ull) == 9223372036854775808ull);
+
 	//======================================= epsEqual() ==============================================
 	testAssert(epsEqual(1.f, 1.000001f));
 	testAssert(!epsEqual(1.f, 2.f));

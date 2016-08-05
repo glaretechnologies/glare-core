@@ -532,6 +532,21 @@ INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
 }
 
 
+// Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+// Not correct for 0 input: returns 0 in this case.
+inline uint64 roundToNextHighestPowerOf2(uint64 v)
+{
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v |= v >> 32;
+	return v + 1;
+}
+
+
 template <class T, class Real>
 INDIGO_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 {
