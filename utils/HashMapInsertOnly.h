@@ -34,7 +34,7 @@ public:
 	HashMapInsertOnly(size_t expected_num_items)
 	:	num_items(0)
 	{
-		const size_t num_buckets = myMax(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
+		const size_t num_buckets = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
 		buckets.resizeUninitialised(num_buckets);
 		mask.resize(num_buckets);
 		hash_mask = num_buckets - 1;
