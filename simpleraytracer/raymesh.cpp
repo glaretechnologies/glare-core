@@ -42,7 +42,6 @@ Code By Nicholas Chapman.
 #include "../dll/IndigoStringUtils.h"
 #include <fstream>
 #include <algorithm>
-#include <unordered_map>
 
 
 // #define INDIGO_OPENSUBDIV_SUPPORT 1

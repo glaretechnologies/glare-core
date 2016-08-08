@@ -508,7 +508,7 @@ bool Matrix3<Real>::inverse(Matrix3& inverse_out) const
 	//inverse_out = adjoint();
 	//inverse_out.scale(1 / d);
 	// See http://mathworld.wolfram.com/MatrixInverse.html, figure 6.
-	const float recip_det = 1 / d;
+	const Real recip_det = 1 / d;
 	inverse_out.e[0] = (e[4]*e[8] - e[5]*e[7])*recip_det;
 	inverse_out.e[1] = (e[2]*e[7] - e[1]*e[8])*recip_det;
 	inverse_out.e[2] = (e[1]*e[5] - e[2]*e[4])*recip_det;
