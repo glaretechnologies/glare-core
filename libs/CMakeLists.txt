@@ -111,7 +111,7 @@ FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
 FILE(GLOB xxhash "../xxHash-r39/*.c"  "../xxHash-r39/*.h")
 
 
-SOURCE_GROUP(fftss FILES ${fftss})
+#SOURCE_GROUP(fftss FILES ${fftss})
 SOURCE_GROUP(ilmbase FILES ${ilmbase})
 SOURCE_GROUP(ilmthread FILES ${ilmthread})
 SOURCE_GROUP(openexr FILES ${openexr})
@@ -144,7 +144,7 @@ endif()
 
 
 add_library(indigo_libs
-${fftss}
+#${fftss}
 ${ilmbase}
 ${ilmthread}
 ${openexr}

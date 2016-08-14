@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
-#include "fftss.h"
+//#include "fftss.h"
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"
 #ifdef _OPENMP

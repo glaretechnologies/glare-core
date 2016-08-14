@@ -61,7 +61,7 @@ public:
 	static void convolveImageFFTBySections(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFT(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFT(const Image4f& in, const Image& filter, Image4f& out);
-	static void convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan);
+	//static void convolveImageFFTSS(const Image& in, const Image& filter, Image& out, FFTPlan& plan);
 	static void convolveImageRobinDaviesFFT(const Image& in, const Image& filter, Image& out);
 	static void slowConvolveImageFFT(const Image& in, const Image& filter, Image& out);
 
