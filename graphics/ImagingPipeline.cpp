@@ -8,7 +8,6 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 
 #include "../indigo/ColourSpaceConverter.h"
-#include "../indigo/BufferedPrintOutput.h"
 #include "../indigo/ToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/LinearToneMapper.h"
@@ -21,6 +20,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
 #include "../utils/Timer.h"
+#include "../utils/BufferedPrintOutput.h"
 #include <algorithm>
 
 
