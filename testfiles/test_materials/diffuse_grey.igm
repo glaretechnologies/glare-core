@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>mat1</name>
+		<diffuse>
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>
+							0.6 0.6 0.6
+						</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+			<random_triangle_colours>false</random_triangle_colours>
+			<layer>0</layer>
+		</diffuse>
+	</material>
+
+</scenedata>
