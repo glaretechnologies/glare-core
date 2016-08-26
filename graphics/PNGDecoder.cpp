@@ -450,6 +450,7 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
 #if !defined NO_LCMS_SUPPORT
+		if(imagemap.getN() > 1) // It's not allowed to have a colour profile in a greyscale image.
 		{
 			cmsHPROFILE profile = cmsCreate_sRGBProfile();
 			if(profile == NULL)
