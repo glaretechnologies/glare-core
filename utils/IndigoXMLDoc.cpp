@@ -75,6 +75,9 @@ IndigoXMLDoc::IndigoXMLDoc(const std::string& path_)
 // From memory buffer
 IndigoXMLDoc::IndigoXMLDoc(const char* mem_buf, size_t len) // throws IndigoXMLDocExcep
 {
+	if(len == 0)
+		throw IndigoXMLDocExcep("XML buffer was empty.");
+
 	pugi::xml_parse_result result = doc.load_buffer(mem_buf, len, pugi::parse_default, pugi::encoding_utf8);
 
 	if(!result)
@@ -82,7 +85,7 @@ IndigoXMLDoc::IndigoXMLDoc(const char* mem_buf, size_t len) // throws IndigoXMLD
 		const std::string buffer_str(mem_buf, len);
 		std::string line_desc = getErrorPositionDesc(buffer_str, result.offset);
 
-		throw IndigoXMLDocExcep("Failed to open XML doc from path '" + path + "': " + result.description() + ": " + line_desc);
+		throw IndigoXMLDocExcep(std::string("Failed to open XML doc from buffer: ") + result.description() + ": " + line_desc);
 	}
 }
 
