@@ -16,12 +16,9 @@ Code By Nicholas Chapman.
 #include <fstream>
 
 
-const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_str, ptrdiff_t offset_)
+const std::string IndigoXMLDoc::getErrorPositionDesc(const std::string& buffer_str, ptrdiff_t offset)
 {
-	// NOTE: PugiXML result offset seems to be one-based.
-
-	assert(offset_ > 0);
-	const ptrdiff_t offset = offset_ - 1; // Get zero based index.
+	assert(offset >= 0);
 	std::string line_desc;
 	if(offset >= 0 && offset < (ptrdiff_t)buffer_str.size())
 	{
@@ -228,7 +225,7 @@ void IndigoXMLDoc::test()
 
 
 	//============ Testing parsing of malformed XML - empty file ============
-	/*try
+	try
 	{
 		const std::string xml = "";
 
@@ -240,7 +237,7 @@ void IndigoXMLDoc::test()
 	{
 		// Expected
 		conPrint(e.what());
-	}*/
+	}
 
 	//============ Testing parsing of malformed XML with a single line ============
 	try
@@ -261,6 +258,34 @@ void IndigoXMLDoc::test()
 	try
 	{
 		const std::string xml = "<a></MEH>";
+
+		IndigoXMLDoc doc(xml.c_str(), xml.size());
+
+		failTest("Exception expected.");
+	}
+	catch(IndigoXMLDocExcep& e)
+	{
+		// Expected
+		conPrint(e.what());
+	}
+
+	try
+	{
+		const std::string xml = "<a></b>";
+
+		IndigoXMLDoc doc(xml.c_str(), xml.size());
+
+		failTest("Exception expected.");
+	}
+	catch(IndigoXMLDocExcep& e)
+	{
+		// Expected
+		conPrint(e.what());
+	}
+
+	try
+	{
+		const std::string xml = "<aaaaaaaaaa></aaaaaaaaab>";
 
 		IndigoXMLDoc doc(xml.c_str(), xml.size());
 
