@@ -798,7 +798,22 @@ const std::string PlatformUtils::getOSVersionString()
 	else
 		return "Unknown Windows version";
 #elif OSX
-	return "";
+	SInt32 majorVersion, minorVersion, bugFixVersion;
+	
+	// Stop Clang complaining about Gestalt being deprecated, since it is the only half-decent way of getting the OS version.
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+	
+	Gestalt(gestaltSystemVersionMajor, &majorVersion);
+	Gestalt(gestaltSystemVersionMinor, &minorVersion);
+	Gestalt(gestaltSystemVersionBugFix, &bugFixVersion);
+	
+	#pragma clang diagnostic pop
+
+	const std::string version_string = toString(majorVersion) + "." + toString(minorVersion) + "." + toString(bugFixVersion);
+	
+	// Since 10.12 (Sierra), OS X is known as macOS.
+	return ((majorVersion >= 10 && minorVersion >= 12) ? std::string("macOS") : std::string("OS X")) + " " + version_string;
 #else
 	struct utsname name_info;
 	if(uname(&name_info) != 0)
