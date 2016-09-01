@@ -129,6 +129,9 @@ bool isWindows();
 
 
 bool isWindowsXPOrEarlier();
+
+
+const std::string getOSVersionString();
 	
 
 void setCurrentThreadName(const std::string& name); // Sets the thread name as seen in the debugger

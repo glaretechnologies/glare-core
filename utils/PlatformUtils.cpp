@@ -760,7 +760,7 @@ bool PlatformUtils::isWindows()
 
 bool PlatformUtils::isWindowsXPOrEarlier()
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	// See http://msdn.microsoft.com/en-us/library/ms724834.aspx for OSVERSIONINFO details.
 
 	OSVERSIONINFO info;
@@ -772,6 +772,32 @@ bool PlatformUtils::isWindowsXPOrEarlier()
 	return info.dwMajorVersion < 6;
 #else
 	return false;
+#endif
+}
+
+
+const std::string PlatformUtils::getOSVersionString()
+{
+#if defined(_WIN32)
+	OSVERSIONINFO info;
+	info.dwOSVersionInfoSize = sizeof(info);
+
+	GetVersionEx(&info);
+
+	if(info.dwMajorVersion == 5 && info.dwMinorVersion == 1)
+		return "Windows XP";
+	else if(info.dwMajorVersion == 5 && info.dwMinorVersion == 2)
+		return "Windows XP 64-Bit Edition or Windows Server 2003";
+	else if(info.dwMajorVersion == 6 && info.dwMinorVersion == 0)
+		return "Windows Vista or Windows Server 2008";
+	else if(info.dwMajorVersion == 6 && info.dwMinorVersion == 1)
+		return "Windows 7 or Windows Server 2008 R2";
+	else if(info.dwMajorVersion == 6 && info.dwMinorVersion == 2)
+		return "Windows 8 +";
+	else
+		return "Unknown Windows version";
+#else
+	return "";
 #endif
 }
 
@@ -853,6 +879,7 @@ void PlatformUtils::testPlatformUtils()
 
 	try
 	{
+		conPrint("PlatformUtils::getOSVersionString(): " + PlatformUtils::getOSVersionString());
 		conPrint("PlatformUtils::getFullPathToCurrentExecutable(): " + PlatformUtils::getFullPathToCurrentExecutable());
 		conPrint("PlatformUtils::getCurrentWorkingDirPath(): " + PlatformUtils::getCurrentWorkingDirPath());
 
