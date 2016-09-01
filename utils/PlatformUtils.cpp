@@ -31,6 +31,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 
 	#ifndef OSX
 		#include <sys/sysinfo.h>
+		#include <sys/utsname.h>
 	#endif
 
 	#include <sys/types.h>
@@ -796,8 +797,14 @@ const std::string PlatformUtils::getOSVersionString()
 		return "Windows 8 +";
 	else
 		return "Unknown Windows version";
-#else
+#elif OSX
 	return "";
+#else
+	struct utsname name_info;
+	if(uname(&name_info) != 0)
+		throw PlatformUtilsExcep("uname failed.");
+	
+	return std::string(name_info.sysname) + " " + std::string(name_info.release);
 #endif
 }
 
