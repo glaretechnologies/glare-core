@@ -10,6 +10,9 @@ Copyright Glare Technologies Limited 2015 -
 #include "OpenCLBuffer.h"
 #include "OpenCLPathTracingKernel.h"
 #include "../indigo/TestUtils.h"
+#include "../opencl/OpenCLContext.h"
+#include "../opencl/OpenCLCommandQueue.h"
+#include "../opencl/OpenCLProgram.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Exception.h"
@@ -43,9 +46,8 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 		testAssert(opencl != NULL);
 
 		// Initialise OpenCL context and command queue for this device
-		cl_context context;
-		cl_command_queue command_queue;
-		//opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
+		OpenCLContextRef context = new OpenCLContext(opencl_device.opencl_platform_id);
+		OpenCLCommandQueueRef command_queue = new OpenCLCommandQueue(context, opencl_device.opencl_device_id);
 
 
 		// Read test kernel from disk
@@ -57,21 +59,22 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
+		std::vector<OpenCLDevice> devices(1, opencl_device);
 		std::string build_log;
-		cl_program program;/* = opencl->buildProgram(
+		OpenCLProgramRef program = opencl->buildProgram(
 			contents,
-			context,
-			opencl_device.opencl_device_id,
+			context->getContext(),
+			devices,
 			options,
 			build_log
-		);*/
-		assert(0);
+		);
+
 
 		conPrint("Program built.");
 
-		conPrint("Build log:\n" + opencl->getBuildLog(program, opencl_device.opencl_device_id)); 
+		conPrint("Build log:\n" + opencl->getBuildLog(program->getProgram(), opencl_device.opencl_device_id)); 
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device.opencl_device_id, /*profile=*/true);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program->getProgram(), "testKernel", opencl_device.opencl_device_id, /*profile=*/true);
 
 
 		//============== Test-specific buffers ====================
@@ -91,7 +94,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 		//tex_descriptors[0].texmatrix_offset		 = scene_builder->used_textures[i].first.texmatrix_offset;
 
 		OpenCLBuffer cl_texture_desc;
-		cl_texture_desc.allocFrom(context, tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+		cl_texture_desc.allocFrom(context->getContext(), tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 
 		js::Vector<uint8, 64> texture_data(48);
@@ -109,13 +112,13 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 
 		OpenCLBuffer cl_texture_data;
-		cl_texture_data.allocFrom(context, texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+		cl_texture_data.allocFrom(context->getContext(), texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 		//============== End test-specific buffers ====================
 
 
 
-		OpenCLBuffer result_buffer(context, sizeof(int32), CL_MEM_READ_WRITE);
+		OpenCLBuffer result_buffer(context->getContext(), sizeof(int32), CL_MEM_READ_WRITE);
 
 		// Launch the kernel:
 		testKernel->setNextKernelArg(result_buffer.getDevicePtr());
@@ -127,13 +130,13 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 		for(int i=0; i<N; ++i)
 		{
 			Timer timer;
-			const double exec_time_s = testKernel->launchKernel(command_queue, 1); 
+			const double exec_time_s = testKernel->launchKernel(command_queue->getCommandQueue(), 1); 
 			const double timer_elapsed_s = timer.elapsed();
 
 			// Read back result
 			SSE_ALIGN int32 test_result;
 			cl_int result = opencl->clEnqueueReadBuffer(
-				command_queue,
+				command_queue->getCommandQueue(),
 				result_buffer.getDevicePtr(), // buffer
 				CL_TRUE, // blocking read
 				0, // offset
@@ -154,10 +157,6 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 			conPrint("Kernel profiled exec time: " + doubleToStringNDecimalPlaces(exec_time_s, 8) + " s, timer elapsed: " + doubleToStringNDecimalPlaces(timer_elapsed_s, 8) + " s");
 		}
-
-
-		// Free the context and command queue for this device.
-		//opencl->deviceFree(context, command_queue);
 	}
 	catch(Indigo::Exception& e)
 	{
