@@ -10,13 +10,13 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-OpenCLCommandQueue::OpenCLCommandQueue(OpenCL& open_cl_, cl_context context, cl_device_id device_id_)
-	:	open_cl(open_cl_), device_id(device_id_)
+OpenCLCommandQueue::OpenCLCommandQueue(OpenCLContextRef context_, cl_device_id device_id_)
+:	context(context_), device_id(device_id_)
 {
 	// Create command queue
 	cl_int error_code;
-	this->command_queue = open_cl.clCreateCommandQueue(
-		context,
+	this->command_queue = ::getGlobalOpenCL()->clCreateCommandQueue(
+		context->getContext(),
 		device_id,
 		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
 		&error_code);
@@ -31,7 +31,7 @@ OpenCLCommandQueue::~OpenCLCommandQueue()
 	// Free command queue
 	if(this->command_queue)
 	{
-		if(open_cl.clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
+		if(::getGlobalOpenCL()->clReleaseCommandQueue(this->command_queue) != CL_SUCCESS)
 		{
 			// It's illegal to throw in a destructor.
 			assert(0);

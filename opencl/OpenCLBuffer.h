@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenCLBuffer.h
 --------------
-Copyright Glare Technologies Limited 2011 -
+Copyright Glare Technologies Limited 2016 -
 Generated at Tue May 15 13:27:16 +0100 2012
 =====================================================================*/
 #pragma once

@@ -7,12 +7,13 @@ Code By Nicholas Chapman.
 #pragma once
 
 
-#include <string>
-#include <vector>
+#include "OpenCLProgram.h"
 #include "../dll/include/OpenCLDevice.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
+#include <string>
+#include <vector>
 
 
 //#if defined(_WIN32)
@@ -156,15 +157,13 @@ public:
 	void queryDevices();
 	const std::vector<OpenCLDevice>& getOpenCLDevices() const;
 
-	void deviceInit(const OpenCLDevice& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out);
-	void deviceFree(cl_context& context, cl_command_queue& command_queue);
-
+	
 	static const std::string errorString(cl_int result);
 
-	cl_program buildProgram(
+	OpenCLProgramRef buildProgram(
 		const std::string& program_source,
 		cl_context opencl_context,
-		cl_device_id opencl_device,
+		const std::vector<OpenCLDevice>& devices,
 		const std::string& compile_options,
 		std::string& build_log_out // Will be set to a non-empty string on build failure.
 	);
@@ -173,7 +172,7 @@ public:
 
 	void dumpProgramBinaryToDisk(cl_program program);
 
-	std::vector<int> selectedDevicesSettingsToIndex(const std::vector<Indigo::OpenCLDevice>& selected_devices);
+	std::vector<::OpenCLDevice> getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
 //private:
 	clGetPlatformIDs_TYPE clGetPlatformIDs;

@@ -1,16 +1,14 @@
 /*=====================================================================
 OpenCLCommandQueue.h
---------
+--------------------
+Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
 #pragma once
 
 
-#include <string>
-#include <vector>
-#include "../utils/PrintOutput.h"
-#include "../utils/Platform.h"
+#include "OpenCLContext.h"
 #include "../utils/ThreadSafeRefCounted.h"
-#include "../utils/DynamicLib.h"
+#include "../utils/Reference.h"
 
 
 #ifdef OSX
@@ -22,9 +20,6 @@ OpenCLCommandQueue.h
 #endif
 
 
-class OpenCL;
-
-
 /*=====================================================================
 OpenCLCommandQueue
 ------------------
@@ -33,7 +28,7 @@ A command queue for a device.
 class OpenCLCommandQueue : public ThreadSafeRefCounted
 {
 public:
-	OpenCLCommandQueue(OpenCL& open_cl, cl_context context, cl_device_id device_id);
+	OpenCLCommandQueue(OpenCLContextRef context, cl_device_id device_id);
 	~OpenCLCommandQueue();
 
 
@@ -41,8 +36,10 @@ public:
 	cl_device_id getDeviceID() { return device_id; }
 
 private:
-	OpenCL& open_cl;
 	cl_device_id device_id;
 	cl_command_queue command_queue;
+	OpenCLContextRef context; // Hang on to context, so the context will be destroyed after this object.
 };
 
+
+typedef Reference<OpenCLCommandQueue> OpenCLCommandQueueRef;

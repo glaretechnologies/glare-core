@@ -45,7 +45,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 		// Initialise OpenCL context and command queue for this device
 		cl_context context;
 		cl_command_queue command_queue;
-		opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
+		//opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
 
 
 		// Read test kernel from disk
@@ -58,13 +58,14 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 		// Compile and build program.
 		std::string build_log;
-		cl_program program = opencl->buildProgram(
+		cl_program program;/* = opencl->buildProgram(
 			contents,
 			context,
 			opencl_device.opencl_device_id,
 			options,
 			build_log
-		);
+		);*/
+		assert(0);
 
 		conPrint("Program built.");
 
@@ -156,7 +157,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 
 		// Free the context and command queue for this device.
-		opencl->deviceFree(context, command_queue);
+		//opencl->deviceFree(context, command_queue);
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -200,7 +201,7 @@ static void miscompilationTest()
 		// Initialise OpenCL context and command queue for this device
 		cl_context context;
 		cl_command_queue command_queue;
-		opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
+		//opencl->deviceInit(opencl_device, /*enable_profiling=*/true, context, command_queue);
 
 
 		// Read test kernel from disk
@@ -214,13 +215,14 @@ static void miscompilationTest()
 
 		// Compile and build program.
 		std::string build_log;
-		cl_program program = opencl->buildProgram(
+		cl_program program; /*= opencl->buildProgram(
 			contents,
 			context,
 			opencl_device.opencl_device_id,
 			options,
 			build_log
-		);
+		);*/
+		assert(0);
 
 		conPrint("Program built.");
 
@@ -277,7 +279,7 @@ static void miscompilationTest()
 		}*/
 
 		// Free the context and command queue for this device.
-		opencl->deviceFree(context, command_queue);
+		//opencl->deviceFree(context, command_queue);
 	}
 	catch(Indigo::Exception& e)
 	{

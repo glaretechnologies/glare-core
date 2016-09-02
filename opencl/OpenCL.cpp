@@ -496,9 +496,9 @@ void OpenCL::queryDevices()
 }
 
 
-std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo::OpenCLDevice>& selected_devices)
+std::vector<::OpenCLDevice> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
 {
-	std::vector<int> core_selected_devices;
+	std::vector<::OpenCLDevice> core_selected_devices;
 
 	// For every selected device i.
 	for(size_t i = 0; i < selected_devices.size(); ++i)
@@ -511,73 +511,13 @@ std::vector<int> OpenCL::selectedDevicesSettingsToIndex(const std::vector<Indigo
 				&& toStdString(selected_devices[i].vendor_name) == devices[j].vendor_name
 				&& selected_devices[i].id == devices[j].id)
 			{
-				core_selected_devices.push_back((int)j);
+				core_selected_devices.push_back(devices[j]);
 				break;
 			}
 		}
 	}
 
 	return core_selected_devices;
-}
-
-
-void OpenCL::deviceInit(const OpenCLDevice& chosen_device, bool enable_profiling, cl_context& context_out, cl_command_queue& command_queue_out)
-{
-	if(!initialised)
-		throw Indigo::Exception("OpenCL library not initialised");
-
-	cl_context_properties cps[3] =
-    {
-        CL_CONTEXT_PLATFORM,
-		(cl_context_properties)chosen_device.opencl_platform_id,
-        0
-    };
-
-	cl_int error_code;
-
-	cl_context new_context = clCreateContextFromType(
-		cps, // properties
-		CL_DEVICE_TYPE_ALL, // CL_DEVICE_TYPE_CPU, // TEMP CL_DEVICE_TYPE_GPU, // device type
-		NULL, // pfn notify
-		NULL, // user data
-		&error_code
-	);
-	if(new_context == 0)
-		throw Indigo::Exception("clCreateContextFromType failed: " + errorString(error_code));
-
-	// Create command queue
-	cl_command_queue new_command_queue = this->clCreateCommandQueue(
-		new_context,
-		chosen_device.opencl_device_id,
-		enable_profiling ? CL_QUEUE_PROFILING_ENABLE : 0, // queue properties
-		&error_code);
-	if(new_command_queue == 0)
-		throw Indigo::Exception("clCreateCommandQueue failed"); // XXX BUG If this exception is thrown, context gets leaked. Need to use wrapper classes.
-
-	context_out = new_context;
-	command_queue_out = new_command_queue;
-}
-
-
-void OpenCL::deviceFree(cl_context& context, cl_command_queue& command_queue)
-{
-	// Free command queue
-	if(command_queue)
-	{
-		if(clReleaseCommandQueue(command_queue) != CL_SUCCESS)
-		{
-			assert(0);
-		}
-	}
-
-	// Cleanup
-	if(context)
-	{
-		if(clReleaseContext(context) != CL_SUCCESS)
-		{
-			assert(0);
-		}
-	}
 }
 
 
@@ -665,10 +605,10 @@ const std::string OpenCL::errorString(cl_int result)
 const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const { return devices; };
 
 
-cl_program OpenCL::buildProgram(
+OpenCLProgramRef OpenCL::buildProgram(
 	const std::string& program_source,
 	cl_context opencl_context,
-	cl_device_id opencl_device,
+	const std::vector<OpenCLDevice>& devices,
 	const std::string& compile_options,
 	std::string& build_log_out // Will be set to a non-empty string on build failure.
 )
@@ -715,10 +655,14 @@ cl_program OpenCL::buildProgram(
 
 	// Build program
 	//Timer timer;
+	std::vector<cl_device_id> device_ids(devices.size());
+	for(size_t i=0; i<devices.size(); ++i)
+		device_ids[i] = devices[i].opencl_device_id;
+
 	result = this->clBuildProgram(
 		program,
-		1, // num devices
-		&opencl_device, // device ids
+		(cl_uint)device_ids.size(), // num devices
+		device_ids.data(), // device ids
 		compile_options.c_str(), // options
 		NULL, // pfn_notify
 		NULL // user data
@@ -729,7 +673,9 @@ cl_program OpenCL::buildProgram(
 	{
 		try
 		{
-			build_log_out = getBuildLog(program, opencl_device);
+			build_log_out = "";
+			for(size_t i=0; i<devices.size(); ++i)
+				build_log_out += getBuildLog(program, device_ids[i]);
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -754,7 +700,7 @@ cl_program OpenCL::buildProgram(
 	//if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
 	//	throw Indigo::Exception("Kernel build failed.");
 
-	return program;
+	return new OpenCLProgram(program);
 }
 
 
