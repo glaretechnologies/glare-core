@@ -45,7 +45,8 @@ const std::string OpenCLDevice::description() const
 
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
-	verbose(verbose_)
+	verbose(verbose_),
+	num_platforms(0)
 {
 	// Initialise the OpenCL library, importing the function pointers etc.
 	libraryInit();
@@ -229,7 +230,7 @@ void OpenCL::queryDevices()
 	int current_device_number = 0;
 
 	std::vector<cl_platform_id> platform_ids(128);
-	cl_uint num_platforms = 0;
+	this->num_platforms = 0;
 	cl_int result = this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms);
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clGetPlatformIDs failed: " + errorString(result));
@@ -602,7 +603,17 @@ const std::string OpenCL::errorString(cl_int result)
 
 
 // Accessor method for device data queried in the constructor.
-const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const { return devices; };
+const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const
+{ 
+	return devices;
+};
+
+
+// Only returns correct number of platforms if queryDevices() has been called.
+unsigned int OpenCL::getNumPlatforms() const
+{
+	return num_platforms;
+} 
 
 
 OpenCLProgramRef OpenCL::buildProgram(
@@ -674,7 +685,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 		try
 		{
 			build_log_out = "";
-			for(size_t i=0; i<devices.size(); ++i)
+			for(size_t i=0; i<device_ids.size(); ++i)
 				build_log_out += getBuildLog(program, device_ids[i]);
 		}
 		catch(Indigo::Exception& e)

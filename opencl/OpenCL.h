@@ -142,20 +142,13 @@ OpenCL
 class OpenCL
 {
 public:
-	/*=====================================================================
-	OpenCL
-	------
-	
-	=====================================================================*/
 	OpenCL(bool verbose);
-
 	~OpenCL();
-
-	void libraryInit();
 
 
 	void queryDevices();
 	const std::vector<OpenCLDevice>& getOpenCLDevices() const;
+	unsigned int getNumPlatforms() const;
 
 	
 	static const std::string errorString(cl_int result);
@@ -174,7 +167,7 @@ public:
 
 	std::vector<::OpenCLDevice> getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
-//private:
+
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
 	clGetPlatformInfo_TYPE clGetPlatformInfo;
 	clGetDeviceIDs_TYPE clGetDeviceIDs;
@@ -219,6 +212,9 @@ public:
 	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
 #endif
 
+private:
+	void libraryInit();
+
 #if defined(_WIN32) || defined(__linux__)
 	Indigo::DynamicLib opencl_lib;
 #endif
@@ -227,6 +223,7 @@ public:
 	bool verbose;
 
 	std::vector<OpenCLDevice> devices;
+	cl_uint num_platforms;
 };
 
 
