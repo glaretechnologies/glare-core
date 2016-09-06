@@ -973,6 +973,7 @@ void PlatformUtils::testPlatformUtils()
 		testAssert(!"test Failed.");
 	}
 
+#if defined(_WIN32)
 	// Test existing key/value.
 	try
 	{
@@ -1004,6 +1005,7 @@ void PlatformUtils::testPlatformUtils()
 	catch(PlatformUtilsExcep& e)
 	{
 	}
+#endif
 }
 
 
