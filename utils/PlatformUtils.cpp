@@ -749,6 +749,46 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 }
 
 
+#ifdef _WIN32
+std::wstring PlatformUtils::GetStringRegKey(RegHKey key, const std::wstring &regkey, const std::wstring &regvalue)
+{
+	HKEY hKey;
+
+	switch(key)
+	{
+	default:
+	case RegHKey_CurrentUser:
+		hKey = HKEY_CURRENT_USER;
+		break;
+
+	case RegHKey_LocalMachine:
+		hKey = HKEY_LOCAL_MACHINE;
+		break;
+	}
+
+	WCHAR lszValue[1024];
+	LONG returnStatus;
+	DWORD dwType = REG_SZ;
+	DWORD dwSize = 1024;
+	HKEY rKey;
+
+	returnStatus = RegOpenKeyExW(hKey, regkey.c_str(), NULL, KEY_QUERY_VALUE, &rKey);
+	if(returnStatus != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to open registry key: error code " + toString(returnStatus));
+
+	returnStatus = RegQueryValueExW(rKey, regvalue.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+
+	// Close key.
+	RegCloseKey(rKey);
+
+	if(returnStatus != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to query registry key: error code " + toString(returnStatus));
+
+	return lszValue;
+}
+#endif
+
+
 bool PlatformUtils::isWindows()
 {
 #ifdef _WIN32
@@ -780,7 +820,21 @@ bool PlatformUtils::isWindowsXPOrEarlier()
 const std::string PlatformUtils::getOSVersionString()
 {
 #if defined(_WIN32)
-	OSVERSIONINFO info;
+
+	std::string osname;
+
+	try
+	{
+		osname = StringUtils::PlatformToUTF8UnicodeEncoding(GetStringRegKey(RegHKey::RegHKey_LocalMachine, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"ProductName"));
+	}
+	catch(PlatformUtilsExcep& e)
+	{
+		osname = e.what();// "Unknown Windows version";
+	}
+
+	return osname;
+
+	/*OSVERSIONINFO info;
 	info.dwOSVersionInfoSize = sizeof(info);
 
 	GetVersionEx(&info);
@@ -796,7 +850,7 @@ const std::string PlatformUtils::getOSVersionString()
 	else if(info.dwMajorVersion == 6 && info.dwMinorVersion == 2)
 		return "Windows 8 +";
 	else
-		return "Unknown Windows version";
+		return "Unknown Windows version";*/
 #elif OSX
 	SInt32 majorVersion, minorVersion, bugFixVersion;
 	
