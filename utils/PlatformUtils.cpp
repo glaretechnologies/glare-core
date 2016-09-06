@@ -829,7 +829,7 @@ const std::string PlatformUtils::getOSVersionString()
 	}
 	catch(PlatformUtilsExcep& e)
 	{
-		osname = e.what();// "Unknown Windows version";
+		osname = "Unknown Windows version";
 	}
 
 	return osname;
