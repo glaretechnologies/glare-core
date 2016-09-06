@@ -125,14 +125,14 @@ void ignoreUnixSignals();
 const std::string getEnvironmentVariable(const std::string& varname);
 
 
-#ifdef _WIN32
+#if defined(_WIN32)
 enum RegHKey
 {
 	RegHKey_CurrentUser,
 	RegHKey_LocalMachine,
 };
 
-std::wstring GetStringRegKey(RegHKey key, const std::wstring &regkey, const std::wstring &regvalue);
+std::string getStringRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_);
 #endif
 
 

@@ -749,10 +749,12 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 }
 
 
-#ifdef _WIN32
-std::wstring PlatformUtils::GetStringRegKey(RegHKey key, const std::wstring &regkey, const std::wstring &regvalue)
+#if defined(_WIN32)
+std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_)
 {
 	HKEY hKey;
+	const std::wstring regkey = StringUtils::UTF8ToPlatformUnicodeEncoding(regkey_);
+	const std::wstring regvalue = StringUtils::UTF8ToPlatformUnicodeEncoding(regvalue_);
 
 	switch(key)
 	{
@@ -774,7 +776,7 @@ std::wstring PlatformUtils::GetStringRegKey(RegHKey key, const std::wstring &reg
 
 	returnStatus = RegOpenKeyExW(hKey, regkey.c_str(), NULL, KEY_QUERY_VALUE, &rKey);
 	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: error code " + toString(returnStatus));
+		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(returnStatus));
 
 	returnStatus = RegQueryValueExW(rKey, regvalue.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
 
@@ -782,9 +784,9 @@ std::wstring PlatformUtils::GetStringRegKey(RegHKey key, const std::wstring &reg
 	RegCloseKey(rKey);
 
 	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to query registry key: error code " + toString(returnStatus));
+		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(returnStatus));
 
-	return lszValue;
+	return StringUtils::PlatformToUTF8UnicodeEncoding(lszValue);
 }
 #endif
 
@@ -825,7 +827,7 @@ const std::string PlatformUtils::getOSVersionString()
 
 	try
 	{
-		osname = StringUtils::PlatformToUTF8UnicodeEncoding(GetStringRegKey(RegHKey::RegHKey_LocalMachine, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"ProductName"));
+		osname = getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
 	}
 	catch(PlatformUtilsExcep& e)
 	{
@@ -969,6 +971,38 @@ void PlatformUtils::testPlatformUtils()
 		conPrint(e.what());
 
 		testAssert(!"test Failed.");
+	}
+
+	// Test existing key/value.
+	try
+	{
+		PlatformUtils::getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
+	}
+	catch(PlatformUtilsExcep& e)
+	{
+		conPrint(e.what());
+
+		testAssert(!"test Failed.");
+	}
+
+	// Key does not exist.
+	try
+	{
+		PlatformUtils::getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersionDoesNotExist", "ProductName");
+		testAssert(!"test Failed.");
+	}
+	catch(PlatformUtilsExcep& e)
+	{
+	}
+
+	// Value does not exist.
+	try
+	{
+		PlatformUtils::getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductNameDoesNotExist");
+		testAssert(!"test Failed.");
+	}
+	catch(PlatformUtilsExcep& e)
+	{
 	}
 }
 
