@@ -992,7 +992,7 @@ void PlatformUtils::testPlatformUtils()
 		PlatformUtils::getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersionDoesNotExist", "ProductName");
 		failTest("Non-existent registry key found");
 	}
-	catch(PlatformUtilsExcep& e)
+	catch(PlatformUtilsExcep&)
 	{
 	}
 
@@ -1002,7 +1002,7 @@ void PlatformUtils::testPlatformUtils()
 		PlatformUtils::getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductNameDoesNotExist");
 		failTest("Non-existent registry value found");
 	}
-	catch(PlatformUtilsExcep& e)
+	catch(PlatformUtilsExcep&)
 	{
 	}
 #endif
