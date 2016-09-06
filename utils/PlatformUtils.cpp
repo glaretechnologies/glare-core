@@ -829,7 +829,7 @@ const std::string PlatformUtils::getOSVersionString()
 	{
 		osname = getStringRegKey(RegHKey::RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
 	}
-	catch(PlatformUtilsExcep& e)
+	catch(PlatformUtilsExcep&)
 	{
 		osname = "Unknown Windows version";
 	}
