@@ -93,6 +93,14 @@ void OpenCLKernel::setKernelArgFloat(size_t index, cl_float val)
 }
 
 
+void OpenCLKernel::setKernelArgDouble(size_t index, cl_double val)
+{
+	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_double), &val);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+}
+
+
 void OpenCLKernel::setKernelArgBuffer(size_t index, cl_mem buffer)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_mem), &buffer);
