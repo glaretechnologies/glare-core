@@ -207,11 +207,11 @@ public:
 	{
 #ifdef _WIN32
 #ifdef _CPPRTTI 
-		assert(dynamic_cast<T2*>(ob));
+		assert(dynamic_cast<const T2*>(ob));
 #endif
 #else
 #ifdef __GXX_RTTI
-		assert(dynamic_cast<T2*>(ob));
+		assert(dynamic_cast<const T2*>(ob));
 #endif
 #endif
 		return static_cast<const T2*>(ob);
