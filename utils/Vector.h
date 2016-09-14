@@ -98,7 +98,11 @@ Vector<T, alignment>::Vector()
 	size_(0),
 	capacity_(0)
 {
-	//assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+#ifdef _WIN32
+	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient"); // alignof doesn't work in VS2012.
+#else
+	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
+#endif
 }
 
 
@@ -108,7 +112,11 @@ Vector<T, alignment>::Vector(size_t count)
 	size_(count),
 	capacity_(count)
 {
-	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+#ifdef _WIN32
+	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient");
+#else
+	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
+#endif
 
 	if(count > 0)
 	{
@@ -133,7 +141,11 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 	size_(count),
 	capacity_(count)
 {
-	assert(alignment > sizeof(T) || sizeof(T) % alignment == 0); // sizeof(T) needs to be a multiple of alignment, otherwise e[1] will be unaligned.
+#ifdef _WIN32
+	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient");
+#else
+	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
+#endif
 
 	if(count > 0)
 	{

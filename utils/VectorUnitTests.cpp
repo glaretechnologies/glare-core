@@ -51,10 +51,61 @@ private:
 };
 
 
+#ifdef COMPILER_MSVC
+#define DO_ALIGNMENT(x) _CRT_ALIGN(x)
+#else
+#define DO_ALIGNMENT(x) __attribute__ ((aligned (x)))
+#endif
+
+
+
+
+DO_ALIGNMENT(16) struct align_16
+{
+	uint8 x[16];
+};
+
+DO_ALIGNMENT(32) struct align_32
+{
+	uint8 x[32];
+};
+
+DO_ALIGNMENT(64) struct align_64
+{
+	uint8 x[64];
+};
+
+
 void VectorUnitTests::test()
 {
 	conPrint("VectorUnitTests::test()");
 
+	//========================= Test alignment =========================
+	{
+		js::Vector<align_16, 16> v;
+	}
+	{
+		// js::Vector<align_32, 16> v; // should fail at compile time
+	}
+	{
+		js::Vector<align_16, 32> v;
+	}
+	{
+		js::Vector<align_16, 64> v;
+	}
+
+	{
+		js::Vector<align_32, 32> v;
+	}
+	{
+		// js::Vector<align_64, 32> v; // should fail at compile time
+	}
+	{
+		js::Vector<align_32, 64> v;
+	}
+	{
+		js::Vector<align_32, 128> v;
+	}
 
 	//========================= No-arg constructor =========================
 	{
@@ -111,7 +162,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			const Vector<TestCounterClass, 4> v(
+			const Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -147,7 +198,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			const Vector<TestCounterClass, 4> v(
+			const Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -155,7 +206,7 @@ void VectorUnitTests::test()
 			testAssert(ob_count == 11);
 			
 			// Copy construct v2 from v
-			const Vector<TestCounterClass, 4> v2(v);
+			const Vector<TestCounterClass, 16> v2(v);
 
 			testAssert(v2.size() == 10);
 			testAssert(ob_count == 21);
@@ -216,14 +267,14 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			const Vector<TestCounterClass, 4> v(
+			const Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
 			testAssert(v.size() == 10);
 			testAssert(ob_count == 11);
 			
-			Vector<TestCounterClass, 4> v2;
+			Vector<TestCounterClass, 16> v2;
 			v2 = v;
 
 			testAssert(v2.size() == 10);
@@ -240,14 +291,14 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			const Vector<TestCounterClass, 4> v(
+			const Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
 			testAssert(v.size() == 10);
 			testAssert(ob_count == 11);
 			
-			Vector<TestCounterClass, 4> v2;
+			Vector<TestCounterClass, 16> v2;
 			v2.resize(100, dummy);
 			testAssert(v2.capacity() > 10);
 			v2 = v;
@@ -287,7 +338,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v(
+			Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -345,7 +396,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v(
+			Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -423,7 +474,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v(
+			Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -470,7 +521,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v(
+			Vector<TestCounterClass, 16> v(
 				10, // count
 				dummy
 			);
@@ -520,7 +571,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v;
+			Vector<TestCounterClass, 16> v;
 
 			v.push_back(dummy);
 
@@ -568,7 +619,7 @@ void VectorUnitTests::test()
 		testAssert(ob_count == 1);
 
 		{
-			Vector<TestCounterClass, 4> v;
+			Vector<TestCounterClass, 16> v;
 			v.push_back(dummy);
 			v.push_back(dummy);
 			v.push_back(dummy);
