@@ -1,7 +1,7 @@
 /*=====================================================================
 DisplacementUtils.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2016 -
 File created by ClassTemplate on Thu May 15 20:31:26 2008
 =====================================================================*/
 #pragma once
@@ -201,9 +201,6 @@ public:
 	static void test(const std::string& indigo_base_dir_path, const std::string& appdata_path, bool run_comprehensive_tests);
 
 private:
-
-	
-
 	static void displace(
 		Indigo::TaskManager& task_manager,
 		ThreadContext& context,
@@ -226,7 +223,6 @@ private:
 		unsigned int num_subdivs_done,
 		bool subdivision_smoothing, // TODO: put in DUOptions.
 		const DUOptions& options,
-		DUScratchInfo& scratch_info,
 		Polygons& polygons_out,
 		VertsAndUVs& verts_and_uvs_out
 	);

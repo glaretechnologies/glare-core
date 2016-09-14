@@ -1,7 +1,7 @@
 /*=====================================================================
 DisplacementUtils.cpp
 ---------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2016 -
 File created by ClassTemplate on Thu May 15 20:31:26 2008
 =====================================================================*/
 #include "DisplacementUtils.h"
@@ -18,16 +18,12 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 */
 
 
-#include "ScalarMatParameter.h"
-#include "Vec3MatParameter.h"
-#include "VoidMedium.h"
 #include "TestUtils.h"
 #include "PrintOutput.h"
 #include "StandardPrintOutput.h"
 #include "ThreadContext.h"
-#include "Diffuse.h"
-#include "SpectrumMatParameter.h"
 #include "DisplaceMatParameter.h"
+#include "material.h"
 #include "../maths/Rect2.h"
 #include "../maths/mathstypes.h"
 #include "../graphics/TriBoxIntersection.h"
@@ -35,7 +31,6 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "../utils/StringUtils.h"
 #include "../utils/Task.h"
 #include "../utils/ConPrint.h"
-#include "../dll/include/IndigoMap.h"
 #include "../utils/TaskManager.h"
 #include "../utils/IndigoAtomic.h"
 #include "../graphics/Drawing.h"
@@ -123,17 +118,6 @@ public:
 };
 
 
-/*static inline uint32_t pixelHash(uint32_t x)
-{
-	x  = (x ^ 12345391u) * 2654435769u;
-	x ^= (x << 6) ^ (x >> 26);
-	x *= 2654435769u;
-	x += (x << 5) ^ (x >> 12);
-
-	return x;
-}*/
-
-
 // Total subdiv and displace times on terrain_test.igs:
 // Using just key.v_a:
 // Time with identity hash: ~9.0s
@@ -156,8 +140,6 @@ public:
 
 // Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
 // I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
-//#if defined(_WIN32)
-
 static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
 {	// FNV-1a hash function for bytes in [_First, _First+_Count)
 	
@@ -193,69 +175,19 @@ static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
 }
 
 
-/*
-static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
-{	// FNV-1a hash function for bytes in [_First, _First+_Count)
-	#ifdef _M_X64
-	//static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
-	const size_t _FNV_offset_basis = 14695981039346656037ULL;
-	const size_t _FNV_prime = 1099511628211ULL;
-
-	#else // _M_X64
-	//static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
-	const size_t _FNV_offset_basis = 2166136261U;
-	const size_t _FNV_prime = 16777619U;
-	#endif // _M_X64
-
-	size_t _Val = _FNV_offset_basis;
-	for (size_t _Next = 0; _Next < _Count; ++_Next)
-		{	// fold in another byte
-		_Val ^= (size_t)_First[_Next];
-		_Val *= _FNV_prime;
-		}
-
-	#ifdef _M_X64
-	//static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
-	_Val ^= _Val >> 32;
-
-	#else // _M_X64
-	//static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
-	#endif // _M_X64
-
-	return (_Val);
-}*/
-
-
 template <class T>
 static inline size_t useHash(const T& t)
 {
 	return use_Hash_seq((const unsigned char*)&t, sizeof(T));
 }
 
-//#endif // _WIN32
-
 
 class DUVertIndexPairHash
-{	// hash functor
+{
 public:
 	inline size_t operator()(const DUVertIndexPair& key) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
-		
-		//return (size_t)(key.v_a ^ key.v_b);
-		//return (size_t)(pixelHash(key.v_a);
-
-		/*const uint64 crc = 0x000011115555AAAA;
-
-		unsigned __int64 res = _mm_crc32_u64(crc, key.v_a);
-		res =  _mm_crc32_u64(res, key.v_b);
-		return res;*/
-
-//#if defined(_WIN32)
+	{
 		return useHash(key.v_a) ^ useHash(key.v_b);
-//#else
-//		std::tr1::hash<unsigned int> h;
-//		return h(key.v_a) ^ h(key.v_b);
-//#endif
 	}
 };
 
@@ -274,12 +206,6 @@ static inline const Vec2f& getUVs(const UVVector& uvs, uint32_t num_uv_sets, uin
 	assert(set_index < num_uv_sets);
 	return uvs[uv_index * num_uv_sets + set_index];
 }
-
-
-//static inline uint32_t uvIndex(uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
-//{
-//	return uv_index * num_uv_sets + set_index;
-//}
 
 
 static inline Vec2f& getUVs(UVVector& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
@@ -311,23 +237,7 @@ static void computeVertexNormals(const DUQuadVector& quads,
 }
 
 
-// Hash function for RayMeshVertex
-class RayMeshVertexHash
-{
-public:
-	inline size_t operator()(const RayMeshVertex& v) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
-		const float sum = v.pos.x + v.pos.y + v.pos.z;
-		uint32 i;
-		std::memcpy(&i, &sum, 4);
-		return i;
-	}
-};
-
-
 // Hash table from RayMeshVertex to new vertex index pair
-//typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
-
 struct VertKey
 {
 	Vec3f pos;
@@ -337,12 +247,11 @@ struct VertKey
 	inline bool operator == (const VertKey& other) const { return pos == other.pos && uv == other.uv && normal == other.normal; }
 };
 
-
 class VertKeyHash
 {
 public:
 	inline size_t operator()(const VertKey& v) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
+	{
 		const float sum = v.pos.x + v.pos.y + v.pos.z;
 		uint32 i;
 		std::memcpy(&i, &sum, 4);
@@ -350,8 +259,6 @@ public:
 	}
 };
 
-
-//typedef std::unordered_map<RayMeshVertex, unsigned int, RayMeshVertexHash> VertToIndexMap;
 typedef std::unordered_map<VertKey, unsigned int, VertKeyHash> VertToIndexMap;
 
 
@@ -368,7 +275,7 @@ class EdgeKeyHash
 {
 public:
 	inline size_t operator()(const EdgeKey& v) const
-	{	// hash _Keyval to size_t value by pseudorandomizing transform
+	{
 		const float sum = v.start.x + v.start.y + v.start.z;
 		uint32 i;
 		std::memcpy(&i, &sum, 4);
@@ -379,31 +286,18 @@ public:
 
 struct EdgeInfo
 {
-	EdgeInfo() : /*num_adjacent_polys(0), *//*uv_discontinuity(false), */adjacent_quad_a(-1)/*, adjacent_quad_b(-1)*/ {}
-	//EdgeInfo(/*const DUVertIndexPair& old_edge_, */int num_adjacent_polys_) : /*old_edge(old_edge_), num_adjacent_polys(num_adjacent_polys_), uv_discontinuity(false), */adjacent_quad_a(-1), adjacent_quad_b(-1) {}
-
-	//DUVertIndexPair old_edge;
-	//int num_adjacent_polys;
+	EdgeInfo() : adjacent_quad_a(-1) {}
 
 	Vec2f start_uv;
 	Vec2f end_uv;
-	//bool uv_discontinuity;
 
 	Vec3f start_normal;
 	Vec3f end_normal;
 
 	int adjacent_quad_a;
-	//int adjacent_quad_b;
 	int adj_a_side_i;
-	//int adj_b_side_i;
 	int num_quads_adjacent_to_edge;
 	bool quad_a_flipped;
-};
-
-
-struct DUScratchInfo
-{
-	//EdgeInfoMapType edge_info_map;
 };
 
 
@@ -451,9 +345,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 	VertsAndUVs temp_verts_uvs_2;
 	
 
-	// Map from DUVertex to index in temp_verts
-	//std::map<DUVertex, int> du_vert_indices;
-
 	// Copying incoming data to temp_polygons_1, temp_verts_uvs_1.
 	{ 
 		js::Vector<DUQuad, 64>& temp_quads = temp_polygons_1.quads;
@@ -469,11 +360,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 		temp_uvs.reserve(uvs_in.size());
 
 		// Build adjacency info.
-		// OLD: Two polygons will be considered adjacent if they share a common edge, where an edge is defined as an ordered pair of vertex indices.
 		// Two polygons will be considered adjacent if they share a common edge, where an edge is defined as an ordered pair of vertex positions
 
 		//============== Process tris ===============
-
 		const size_t triangles_in_size = triangles_in.size();
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
@@ -512,7 +401,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 						{ start_normal = normal_i1; end_normal = normal_i; }
 				}
 				
-				//DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
 				bool flipped;
 				EdgeKey edge_key;
 				const Vec3f vi_pos  = vertices_in[vi].pos;
@@ -526,7 +414,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
-					//edge_info.num_adjacent_polys = 1;
 					edge_info.start_uv = start_uv;
 					edge_info.end_uv = end_uv;
 					edge_info.start_normal = start_normal;
@@ -554,24 +441,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 					}
 					else
 					{
-						/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
-						{
-							// Get edges sorted by vertex position, compare normals at the ends of the edges.
-							const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-							const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-							const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-							const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-							const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-							if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
-							{
-								//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-								// TODO Work this out temp_edges.back().adjacent_quad_index = //
-							}
-						}*/
-
 						// We know another poly is adjacent to this edge already.
 						assert(result->second.adjacent_quad_a != -1);
 						DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
@@ -579,7 +448,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 						// Check for uv discontinuity:
 						if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
 						{
-							//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
 							temp_quads[t].setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
 							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
@@ -591,12 +459,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
 						
-
-						//edge_info.num_adjacent_polys++;
-
-						// Mark this quad as the 'b' adjacent quad.
-						//edge_info.adjacent_quad_b = (int)t;
-						//edge_info.adj_b_side_i = i;
 
 						temp_quads[t].adjacent_quad_index[i] = edge_info.adjacent_quad_a;
 						temp_quads[t].setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
@@ -624,12 +486,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 				temp_quads[t].edge_midpoint_vert_index[v] = -1;
 		}
 
-		
-
-
 		//============== Process quads ===============
-
-		// Build adjacency info
 		const size_t quads_in_size = quads_in.size();
 		for(size_t q = 0; q < quads_in_size; ++q)
 		{
@@ -669,7 +526,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 						{ start_normal = normal_i1; end_normal = normal_i; }
 				}
 				
-				//DUVertIndexPair edge_key(myMin(vi, vi1), myMax(vi, vi1));
 				bool flipped;
 				EdgeKey edge_key;
 				const Vec3f vi_pos  = vertices_in[vi].pos;
@@ -683,7 +539,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
-					//edge_info.num_adjacent_polys = 1;
 					edge_info.start_uv = start_uv;
 					edge_info.end_uv = end_uv;
 					edge_info.start_normal = start_normal;
@@ -711,24 +566,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 					}
 					else
 					{
-						/*if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
-						{
-							// Get edges sorted by vertex position, compare normals at the ends of the edges.
-							const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-							const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-							const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-							const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-							const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-							if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
-							{
-								//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-								// TODO Work this out temp_edges.back().adjacent_quad_index = //
-							}
-						}*/
-
 						// We know another poly is adjacent to this edge already.
 						assert(result->second.adjacent_quad_a != -1);
 						DUQuad& adj_quad = temp_quads[edge_info.adjacent_quad_a];
@@ -736,11 +573,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 						// Check for uv discontinuity:
 						if((num_uv_sets > 0) && ((start_uv.getDist2(edge_info.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(edge_info.end_uv) > UV_DIST2_THRESHOLD)))
 						{
-							//result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
 							quad_out.setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
 							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
-
 
 						// Check for shading normal discontinuity.
 						if(start_normal != edge_info.start_normal || end_normal != edge_info.end_normal)
@@ -748,13 +583,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 							quad_out.setUVEdgeDiscontinuityTrue(i); // Mark edge of polygon
 							adj_quad.setUVEdgeDiscontinuityTrue(edge_info.adj_a_side_i); // Mark edge of adjacent polygon
 						}
-
-
-						//edge_info.num_adjacent_polys++;
-
-						// Mark this quad as the 'b' adjacent quad.
-						//edge_info.adjacent_quad_b = new_quad_index;
-						//edge_info.adj_b_side_i = i;
 
 						quad_out.adjacent_quad_index[i] = edge_info.adjacent_quad_a;
 						quad_out.setAdjacentQuadEdgeIndex(i, edge_info.adj_a_side_i);
@@ -781,7 +609,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 			for(int v=0; v<4; ++v)
 				quad_out.edge_midpoint_vert_index[v] = -1;
 		}
-
 
 
 		// Do a traversal over the mesh to work out any quads we should reverse.
@@ -836,12 +663,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 				}
 			}
 		}
-done:	1;
 
-
-
-
-		// Create vertices for each input triangle.  Each vertex should have a unique (position, uv).
+done:	
+		// Create vertices for each input triangle.  Each vertex should have a unique (position, uv, shading normal).
 		VertToIndexMap new_vert_indices;
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
@@ -856,7 +680,7 @@ done:	1;
 
 				VertKey key;  key.pos = pos;  key.uv = uv0;  key.normal = vertices_in[tri_in.vertex_indices[src_i]].normal;
 				VertToIndexMap::iterator res = new_vert_indices.find(key);
-				unsigned int new_vert_index;;
+				unsigned int new_vert_index;
 				if(res == new_vert_indices.end())
 				{
 					new_vert_index = (unsigned int)temp_verts.size();
@@ -878,7 +702,10 @@ done:	1;
 
 			temp_quads[t].vertex_indices[3] = std::numeric_limits<uint32>::max();
 
+			
 			/*
+			If we have reversed the vertex order, have to swap edge info as well.  Edge 0 and 1 swap, edge 2 stays the same.
+			
 			v2____e1_____v1             v0____e0_____v1
 			|            /              |            /
 			|          /                |          /
@@ -888,8 +715,6 @@ done:	1;
 			|  /                        |  /
 			v0                          v2
 			*/
-
-			// if we have reversed the vertex order, have to swap edge info as well.  Edge 0 and 1 swap, edge 2 stays the same.
 			if(reverse)
 			{
 				mySwap(temp_quads[t].adjacent_quad_index[0], temp_quads[t].adjacent_quad_index[1]); // Swap adjacent_quad_index
@@ -1042,405 +867,14 @@ done:	1;
 		}
 #endif
 
-
-		// Build adjacent_quad_index
-		//for(size_t q = 0; q < temp_quads.size(); ++q) // For each quad
-		//{
-		//	DUQuad& quad = temp_quads[q];
-		//	const int num_sides = quad.isTri() ? 3 : 4;
-		//	const unsigned int vert_i[4] = { quad.vertex_indices[0], quad.vertex_indices[1], quad.vertex_indices[2], quad.vertex_indices[3] };
-
-		//	quad.adjacent_quad_index[3] = -1;
-
-		//	for(int i = 0; i < num_sides; ++i) // For each edge
-		//	{
-		//		const unsigned int i1 = num_sides == 3 ? mod3(i + 1) : mod4(i + 1); // Next vert
-		//		const DUVertIndexPair edge_key(myMin(vert_i[i], vert_i[i1]), myMax(vert_i[i], vert_i[i1]));
-
-		//		const std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = edges.find(edge_key);
-		//		assert(result != edges.end());
-		//		const EdgeInfo& edge_info = result->second;
-
-		//		quad.edge_uv_discontinuity[i] = result->second.uv_discontinuity;
-
-		//		// At this point the edge should have recorded the two quads adjacent to it.
-		//		if(edge_info.adjacent_quad_a == q) // If this quad is quad 'a'.
-		//			quad.adjacent_quad_index[i] = edge_info.adjacent_quad_b; // Then this quad is adjacent to quad 'b'.
-		//		else if(edge_info.adjacent_quad_b == q) // If this quad is quad 'b'.
-		//			quad.adjacent_quad_index[i] = edge_info.adjacent_quad_a; // Then this quad is adjacent to quad 'a'.
-		//		else
-		//		{
-		//			assert(false);
-		//		}
-		//	}
-		//}
-#if 0
-		//temp_uvs.resize((temp_polygons_1.tris.size() * 3 + temp_polygons_1.quads.size() * 4) * num_uv_sets);
-		//uint32 temp_uvs_next_i = 0; // Next index in temp_uvs to write to.
-		//uint32 new_uv_index = 0; // = temp_uvs_next_i / num_uv_sets
-
-
-		
-
-		// Map from new edge (smaller new vert index, larger new vert index) to first old edge: (smaller old vert index, larger old vert index).
-		// If there are different old edges, then this edge is a discontinuity.
-
-		std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash> new_edge_info;
-
-
-		VertToIndexMap new_vert_indices;
-
-
-		const size_t triangles_in_size = triangles_in.size();
-		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
-		{
-			const RayMeshTriangle& tri = triangles_in[t];
-
-			// Explode UVs
-			/*for(unsigned int i = 0; i < 3; ++i)
-			{
-				// Create new UV
-				for(unsigned int z = 0; z < num_uv_sets; ++z)
-					temp_uvs[temp_uvs_next_i++] = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], z);
-			
-				// Set new tri UV index
-				temp_tris[t].uv_indices[i] = new_uv_index;
-				new_uv_index++;
-			}*/
-
-			unsigned int tri_new_vert_indices[3];
-
-			for(unsigned int i = 0; i < 3; ++i)
-			{
-				const unsigned int old_vert_index = tri.vertex_indices[i];
-				const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
-
-				const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
-
-				unsigned int new_vert_index;
-				if(result == new_vert_indices.end()) // If not found:
-				{
-					// Add new vertex index to map with old vertex as key.
-					new_vert_index = (unsigned int)temp_verts.size();
-					temp_verts.push_back(DUVertex(old_vert.pos, old_vert.normal));
-					temp_verts.back().uv = uvs_in[tri.uv_indices[i]];//NEW
-					
-					new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
-				}
-				else
-					new_vert_index = (*result).second; // Use existing vertex index.
-
-				temp_quads[t].vertex_indices[i] = new_vert_index;
-				tri_new_vert_indices[i] = new_vert_index;
-			}
-
-			temp_quads[t].vertex_indices[3] = std::numeric_limits<uint32>::max();
-
-
-			for(unsigned int i = 0; i < 3; ++i) // For each edge
-			{
-				const unsigned int i1 = mod3(i + 1); // Next vert
-			
-				// Get UVs at start and end of this edge, for this tri.
-				Vec2f start_uv(0.f);
-				Vec2f end_uv(0.f);
-				if(num_uv_sets > 0)
-				{
-					const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i], /*uv_set=*/0);
-					const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, tri.uv_indices[i1], /*uv_set=*/0);
-					if(tri_new_vert_indices[i] < tri_new_vert_indices[i1])
-					{
-						start_uv = uv_i;
-						end_uv = uv_i1;
-					}
-					else
-					{
-						start_uv = uv_i1;
-						end_uv = uv_i;
-					}
-				}
-
-				DUVertIndexPair edge_key(myMin(tri_new_vert_indices[i], tri_new_vert_indices[i1]), myMax(tri_new_vert_indices[i], tri_new_vert_indices[i1]));
-				DUVertIndexPair old_edge(myMin(tri.vertex_indices[i], tri.vertex_indices[i1]), myMax(tri.vertex_indices[i], tri.vertex_indices[i1]));
-
-				std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key); // Lookup edge
-				if(result == new_edge_info.end()) // If edge not added yet:
-				{
-					EdgeInfo edge_info(old_edge, /*num_adjacent_polys=*/1);
-					edge_info.start_uv = start_uv;
-					edge_info.end_uv = end_uv;
-
-					assert(edge_info.adjacent_quad_a == -1);
-					edge_info.adjacent_quad_a = (int)t; // Since this edge is just created, it won't have any adjacent quads marked yet.
-
-					new_edge_info.insert(std::make_pair(edge_key, edge_info)); // Add edge
-				}
-				else
-				{
-					if(result->second.old_edge != old_edge) // If adjacent triangle used different edge vertices then there is a discontinuity, unless the vert shading normals are the same.
-					{
-						// Get edges sorted by vertex position, compare normals at the ends of the edges.
-						const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-						const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-						const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-						const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-						const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-						if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
-						{
-							//TEMP temp_edges.push_back(DUEdge(tri_new_vert_indices[i], tri_new_vert_indices[i1], temp_tris[t].uv_indices[i], temp_tris[t].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-							// TODO Work this out temp_edges.back().adjacent_quad_index = //
-						}
-					}
-
-					// Check for uv discontinuity:
-					if((num_uv_sets > 0) && ((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD)))
-						result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-
-					result->second.num_adjacent_polys++;
-
-					assert(result->second.adjacent_quad_a != -1);
-					result->second.adjacent_quad_b = (int)t;
-				}
-			}
-
-			temp_quads[t].mat_index = tri.getTriMatIndex();
-			temp_quads[t].dead = false;
-
-			for(int v=0; v<4; ++v)
-				temp_quads[t].edge_midpoint_vert_index[v] = -1;
-		}
-
-
-		const size_t quads_in_size = quads_in.size();
-		for(size_t q = 0; q < quads_in_size; ++q) // For each quad
-		{
-			const RayMeshQuad& quad = quads_in[q];
-			const int new_quad_index = (int)(q + triangles_in_size);
-			DUQuad& quad_out = temp_quads[new_quad_index];
-
-			// Explode UVs
-			/*for(unsigned int i = 0; i < 4; ++i)
-			{
-				// Create new UV
-				for(unsigned int z = 0; z < num_uv_sets; ++z)
-					temp_uvs[temp_uvs_next_i++] = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], z);
-			
-				// Set new quad UV index
-			//	temp_quads[q].uv_indices[i] = new_uv_index;
-				new_uv_index++;
-			}*/
-
-			unsigned int quad_new_vert_indices[4];
-
-			for(unsigned int i = 0; i < 4; ++i)
-			{
-				const unsigned int old_vert_index = quad.vertex_indices[i];
-				const RayMeshVertex& old_vert = vertices_in[old_vert_index]; // Get old vertex
-
-				const VertToIndexMap::const_iterator result = new_vert_indices.find(old_vert); // See if it has already been added to map
-
-				unsigned int new_vert_index;
-				if(result == new_vert_indices.end()) // If not found:
-				{
-					// Add new vertex index to map with old vertex as key.
-					new_vert_index = (unsigned int)temp_verts.size();
-					temp_verts.push_back(DUVertex(old_vert.pos, old_vert.normal));
-					temp_verts.back().uv = uvs_in[quad.uv_indices[i]];//NEW
-					new_vert_indices.insert(std::make_pair(old_vert, new_vert_index));
-				}
-				else
-					new_vert_index = (*result).second; // Use existing vertex index.
-
-				quad_out.vertex_indices[i] = new_vert_index;
-				quad_new_vert_indices[i] = new_vert_index;
-			}
-
-			for(unsigned int i = 0; i < 4; ++i) // For each edge
-			{
-				const unsigned int i1 = mod4(i + 1); // Next vert
-
-				// Get UVs at start and end of this edge, for this quad.
-				Vec2f start_uv(0.f);
-				Vec2f end_uv(0.f);
-				if(num_uv_sets > 0)
-				{
-					const Vec2f uv_i = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i], /*uv_set=*/0);
-					const Vec2f uv_i1 = getUVs(uvs_in, num_uv_sets, quad.uv_indices[i1], /*uv_set=*/0);
-					if(quad_new_vert_indices[i] < quad_new_vert_indices[i1])
-					{
-						start_uv = uv_i;
-						end_uv = uv_i1;
-					}
-					else
-					{
-						start_uv = uv_i1;
-						end_uv = uv_i;
-					}
-				}
-
-				DUVertIndexPair edge_key(myMin(quad_new_vert_indices[i], quad_new_vert_indices[i1]), myMax(quad_new_vert_indices[i], quad_new_vert_indices[i1]));
-				DUVertIndexPair old_edge(myMin(quad.vertex_indices[i], quad.vertex_indices[i1]), myMax(quad.vertex_indices[i], quad.vertex_indices[i1]));
-
-				std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
-				if(result == new_edge_info.end()) // If edge not added yet:
-				{
-					EdgeInfo edge_info(old_edge, /*num_adjacent_polys=*/1);
-					edge_info.start_uv = start_uv;
-					edge_info.end_uv = end_uv;
-
-					//TEMP NEW:
-					// Record in the edge that this quad is adjacent to it.
-					assert(edge_info.adjacent_quad_a == -1);
-					edge_info.adjacent_quad_a = (int)new_quad_index; // Since this edge is just created, it won't have any adjacent quads marked yet.
-
-					new_edge_info.insert(std::make_pair(edge_key, edge_info));
-				}
-				else
-				{
-					if(result->second.old_edge != old_edge) // If adjacent polygon used different edge vertices then there is a discontinuity.
-					{
-						// Get edges sorted by vertex position, compare normals at the ends of the edges.
-						const DUVertIndexPair& old_edge2 = result->second.old_edge;
-
-						const Vec3f edge_1_smaller_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_a].normal : vertices_in[old_edge.v_b].normal;
-						const Vec3f edge_1_greater_n = vertices_in[old_edge.v_a].pos < vertices_in[old_edge.v_b].pos ? vertices_in[old_edge.v_b].normal : vertices_in[old_edge.v_a].normal;
-
-						const Vec3f edge_2_smaller_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_a].normal : vertices_in[old_edge2.v_b].normal;
-						const Vec3f edge_2_greater_n = vertices_in[old_edge2.v_a].pos < vertices_in[old_edge2.v_b].pos ? vertices_in[old_edge2.v_b].normal : vertices_in[old_edge2.v_a].normal;
-
-						//if((edge_1_smaller_n != edge_2_smaller_n) || (edge_1_greater_n != edge_2_greater_n)) // If shading normals are different on the old edge vertices:
-						//	temp_edges.push_back(DUEdge(quad_new_vert_indices[i], quad_new_vert_indices[i1], temp_quads[q].uv_indices[i], temp_quads[q].uv_indices[i1])); // Add crease edge.  Using new vert and UV indices here.
-					}
-
-					// Check for uv discontinuity:
-					if((num_uv_sets > 0) && ((start_uv.getDist2(result->second.start_uv) > UV_DIST2_THRESHOLD) || (end_uv.getDist2(result->second.end_uv) > UV_DIST2_THRESHOLD)))
-						result->second.uv_discontinuity = true; // Mark edge as having a UV discontinuity
-
-					result->second.num_adjacent_polys++;
-
-					assert(result->second.adjacent_quad_a != -1);
-					result->second.adjacent_quad_b = (int)new_quad_index;
-				}
-			}
-
-			quad_out.mat_index = quad.getMatIndex();
-			quad_out.dead = false;
-
-			for(int v=0; v<4; ++v)
-				quad_out.edge_midpoint_vert_index[v] = -1;
-		}
-
-		DISPLACEMENT_PRINT_RESULTS(conPrint("Creating temp verts/tris/quads: " + timer.elapsedStringNPlaces(5)));
-		DISPLACEMENT_RESET_TIMER(timer);
-
-		//========================== Create Boundary edge polygons, mark UV discontinuities ==========================
-		// Now that we have marked all edges that have UV discontinuities, do a pass over the (temp) primitives to put that information in the primitives themselves.
-		// Create boundary edge polygons while we are doing this as well.
-
-		for(size_t q = 0; q < temp_quads.size(); ++q) // For each quad
-		{
-			DUQuad& quad = temp_quads[q];
-			const int num_sides = quad.isTri() ? 3 : 4;
-			const unsigned int vert_i[4] = { quad.vertex_indices[0], quad.vertex_indices[1], quad.vertex_indices[2], quad.vertex_indices[3] };
-
-			quad.adjacent_quad_index[3] = -1;
-
-			for(int i = 0; i < num_sides; ++i) // For each edge
-			{
-				const unsigned int i1 = num_sides == 3 ? mod3(i + 1) : mod4(i + 1); // Next vert
-				const DUVertIndexPair edge_key(myMin(vert_i[i], vert_i[i1]), myMax(vert_i[i], vert_i[i1]));
-
-				const std::unordered_map<DUVertIndexPair, EdgeInfo, DUVertIndexPairHash>::iterator result = new_edge_info.find(edge_key);
-				assert(result != new_edge_info.end());
-
-				const EdgeInfo& edge_info = result->second;
-				if(result->second.uv_discontinuity)
-				{
-					//conPrint("!!! Quad " + toString(q) + " has UV disc. on edge " + toString(i));
-
-					// Add new vertices, that have the correct vert pos and UVs for this quad on this edge.
-					DUVertex& current_v_i = temp_verts[vert_i[i]];
-					temp_verts.push_back(current_v_i);
-					if(q < triangles_in_size)
-						temp_verts.back().uv = uvs_in[triangles_in[q].uv_indices[i]];// get correct UV
-					else
-						temp_verts.back().uv = uvs_in[quads_in[q - triangles_in_size].uv_indices[i]];// get correct UV
-
-					// Update vert index for this quad
-					quad.vertex_indices[i] = (uint32)temp_verts.size() - 1;
-
-					// Copy next vert around quad as well
-					DUVertex& current_v_i1 = temp_verts[vert_i[i1]];
-					temp_verts.push_back(current_v_i1);
-					if(q < triangles_in_size)
-						temp_verts.back().uv = uvs_in[triangles_in[q].uv_indices[i1]];// get correct UV
-					else
-						temp_verts.back().uv = uvs_in[quads_in[q - triangles_in_size].uv_indices[i1]];// get correct UV
-
-					// Update vert index for this quad
-					quad.vertex_indices[i1] = (uint32)temp_verts.size() - 1;
-				}
-
-				quad.edge_uv_discontinuity[i] = result->second.uv_discontinuity;
-
-				if(edge_info.num_adjacent_polys == 1) // If this is a boundary edge (has only 1 adjacent poly):
-				{
-					//temp_edges.push_back(DUEdge(quad.vertex_indices[i], quad.vertex_indices[i1], quad.uv_indices[i], quad.uv_indices[i1]));
-					//temp_edges.back().adjacent_quad_index = (int)q;
-				}
-
-				// At this point the edge should have recorded the two quads adjacent to it.
-				if(edge_info.adjacent_quad_a == q) // If this quad is quad 'a'.
-					quad.adjacent_quad_index[i] = edge_info.adjacent_quad_b; // Then this quad is adjacent to quad 'b'.
-				else if(edge_info.adjacent_quad_b == q) // If this quad is quad 'b'.
-					quad.adjacent_quad_index[i] = edge_info.adjacent_quad_a; // Then this quad is adjacent to quad 'a'.
-				else
-				{
-					assert(false);
-				}
-			}
-		}
-#endif
-		//assert(temp_uvs_next_i == (uint32)temp_uvs.size());
-
-		DISPLACEMENT_PRINT_RESULTS(conPrint("Create Boundary edge polygons, mark UV discontinuities: " + timer.elapsedStringNPlaces(5)));
-		DISPLACEMENT_RESET_TIMER(timer);
-
-
-		// Count number of edges adjacent to each vertex.
-		// If the number of edges adjacent to the vertex is > 2, then make this a fixed vertex.
-		// TEMP TODO
-		/*std::vector<unsigned int> num_edges_adjacent(temp_verts.size(), 0);
-
-		for(size_t i=0; i<temp_edges.size(); ++i)
-		{
-			num_edges_adjacent[temp_edges[i].vertex_indices[0]]++;
-			num_edges_adjacent[temp_edges[i].vertex_indices[1]]++;
-		}
-
-		for(size_t i=0; i<num_edges_adjacent.size(); ++i)
-		{
-			if(num_edges_adjacent[i] > 2)
-			{
-				temp_vert_polygons.push_back(DUVertexPolygon());
-				temp_vert_polygons.back().vertex_index = (uint32)i;
-				temp_vert_polygons.back().uv_index = (uint32)i;
-			}
-		}*/
-
+		DISPLACEMENT_PRINT_RESULTS(conPrint("Building adjacency info:    " + timer.elapsedStringNPlaces(5)));
 	} // End init
 
 	//conPrint("num fixed verts created: " + toString(temp_vert_polygons.size()));
 
 	if(DRAW_SUBDIVISION_STEPS) draw(temp_polygons_1, temp_verts_uvs_1, num_uv_sets, "initial_mesh.png");
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Adding vertex polygons: " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
-
-	DUScratchInfo scratch_info;
 
 	if(PROFILE)
 	{
@@ -1500,7 +934,6 @@ done:	1;
 			i, // num subdivs done
 			subdivision_smoothing && (i < options.num_smoothings), // do subdivision smoothing
 			options,
-			scratch_info,
 			*next_polygons, // polygons_out
 			*next_verts_and_uvs // verts_and_uvs_out
 		);
@@ -1634,6 +1067,7 @@ struct RayMeshDisplaceTaskClosure
 };
 
 
+// Compute displacement for each vertex.  Writes displacement values to closure.displacements_out
 class RayMeshTriDisplaceTask : public Indigo::Task
 {
 public:
@@ -1689,6 +1123,7 @@ public:
 };
 
 
+// Compute displacement for each vertex.  Writes displacement values to closure.displacements_out
 class RayMeshQuadDisplaceTask : public Indigo::Task
 {
 public:
@@ -1978,8 +1413,6 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 	closure.num_uv_sets = num_uv_sets;
 	closure.verts_in = &verts_in;
 	closure.verts_out = &verts_out;
-
-	//Indigo::TaskManager dummy_task_manager(1);//TEMP
 
 	// Evaluate the displacement at each vertex.  Sets verts_out displacement and verts_out pos.
 	task_manager.runParallelForTasks<EvalVertDisplaceMentTask, EvalVertDisplaceMentTaskClosure>(closure, 0, quads.size());
@@ -2724,7 +2157,6 @@ void DisplacementUtils::linearSubdivision(
 	unsigned int num_subdivs_done,
 	bool subdivision_smoothing,
 	const DUOptions& options,
-	DUScratchInfo& scratch_info,
 	Polygons& polygons_out,
 	VertsAndUVs& verts_and_uvs_out
 	)
@@ -2773,7 +2205,6 @@ void DisplacementUtils::linearSubdivision(
 	const unsigned int min_num_subdivisions = options.view_dependent_subdivision ? options.max_num_subdivisions / 2 : 0;
 
 	//========================== Work out if we are subdividing each triangle ==========================
-	//DISPLACEMENT_RESET_TIMER(timer);
 	const size_t quads_in_size = quads_in.size();
 
 	js::Vector<int, 16> subdividing_quad(quads_in_size); // Store the number of new quads in each element.  1 = not subdividing.
@@ -3826,306 +3257,6 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 		{
 			failTest(e.what());
 		}
-	}
-#endif
-
-	/////////////////////	
-	//{
-	//	std::vector<RayMeshVertex> vertices(4);
-	//	std::vector<Vec2f> uvs(4);
-	//	js::Vector<RayMeshTriangle, 16> triangles;
-	//	js::Vector<RayMeshQuad, 16> quads(1);
-
-	//	js::Vector<RayMeshTriangle, 16> triangles_out;
-	//	std::vector<RayMeshVertex> verts_out;
-	//	std::vector<Vec2f> uvs_out;
-
-
-	//	// Quad vertices in CCW order from top right, facing up
-	//	vertices[0] = RayMeshVertex(Vec3f( 1,  1, 0), Vec3f(0, 0, 1));
-	//	vertices[1] = RayMeshVertex(Vec3f(-1,  1, 0), Vec3f(0, 0, 1));
-	//	vertices[2] = RayMeshVertex(Vec3f(-1, -1, 0), Vec3f(0, 0, 1));
-	//	vertices[3] = RayMeshVertex(Vec3f( 1, -1, 0), Vec3f(0, 0, 1));
-
-	//	uvs[0] = Vec2f(1, 1);
-	//	uvs[1] = Vec2f(0, 1);
-	//	uvs[2] = Vec2f(0, 0);
-	//	uvs[3] = Vec2f(1, 0);
-
-
-	//	quads[0] = RayMeshQuad(0, 1, 2, 3, 0);
-	//	quads[0].uv_indices[0] = 0;
-	//	quads[0].uv_indices[1] = 1;
-	//	quads[0].uv_indices[2] = 2;
-	//	quads[0].uv_indices[3] = 3;
-
-	//	StandardPrintOutput print_output;
-	//	ThreadContext context;
-
-	//	std::vector<Reference<MaterialBinding> > materials;
-	//	materials.push_back(Reference<MaterialBinding>(new MaterialBinding(Reference<Material>(new Diffuse(
-	//		std::vector<TextureUnit*>(),
-	//		Reference<SpectrumMatParameter>(NULL),
-	//		Reference<DisplaceMatParameter>(NULL),
-	//		Reference<DisplaceMatParameter>(NULL),
-	//		Reference<SpectrumMatParameter>(NULL),
-	//		Reference<SpectrumMatParameter>(NULL),
-	//		0, // layer_index
-	//		false // random_triangle_colours
-	//	)))));
-
-	//	materials[0]->uv_set_indices.push_back(0);
-
-	//	DUOptions options;
-	//	options.object_to_camera = Matrix4f::identity();
-	//	options.wrap_u = false;
-	//	options.wrap_v = false;
-	//	options.view_dependent_subdivision = false;
-	//	options.pixel_height_at_dist_one = 1;
-	//	options.subdivide_pixel_threshold = 0;
-	//	options.subdivide_curvature_threshold = 0;
-	//	options.displacement_error_threshold = 0;
-	//	options.max_num_subdivisions = 1;
-
-	//	DisplacementUtils::subdivideAndDisplace(
-	//		print_output,
-	//		context,
-	//		materials,
-	//		true, // smooth
-	//		triangles,
-	//		quads,
-	//		vertices,
-	//		uvs,
-	//		1, // num uv sets
-	//		options,
-	//		triangles_out,
-	//		verts_out,
-	//		uvs_out
-	//	);
-
-	//	for(size_t i=0; i<verts_out.size(); ++i)
-	//	{
-	//		conPrint(toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
-	//	}
-
-	//	for(size_t i=0; i<triangles_out.size(); ++i)
-	//	{
-	//		conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
-
-	//		for(int v=0; v<3; ++v)
-	//		{
-	//			conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
-	//		}
-	//	}
-	//}
-	Indigo::TaskManager task_manager(1);
-
-#if 0
-	//=========================== Test subdivision of quads ==========================
-	{
-		RayMesh::VertexVectorType vertices(6);
-		std::vector<Vec2f> uvs(8);
-		RayMesh::TriangleVectorType triangles;
-		RayMesh::QuadVectorType quads(2);
-
-		RayMesh::TriangleVectorType triangles_out;
-		RayMesh::VertexVectorType verts_out;
-		std::vector<Vec2f> uvs_out;
-
-
-		// Quad vertices in CCW order from top right, facing up
-		vertices[0] = RayMeshVertex(Vec3f(0.9f,  1, 0), Vec3f(0, 0, 1), 0);
-		vertices[1] = RayMeshVertex(Vec3f(1,  1, 0), Vec3f(0, 0, 1), 0);
-		vertices[2] = RayMeshVertex(Vec3f(1.1f, 1, 0), Vec3f(0, 0, 1), 0);
-		vertices[3] = RayMeshVertex(Vec3f(0.9f,  0, 0), Vec3f(0, 0, 1), 0);
-		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1), 0);
-		vertices[5] = RayMeshVertex(Vec3f(1.1f, 0, 0), Vec3f(0, 0, 1), 0);
-
-		uvs[0] = Vec2f(0.9f, 0.6f);
-		uvs[1] = Vec2f(1.0f, 0.6f);
-		uvs[2] = Vec2f(0, 0.6f);
-		uvs[3] = Vec2f(0.1f, 0.6f);
-		uvs[4] = Vec2f(0.9f, 0.4f);
-		uvs[5] = Vec2f(1.0f, 0.4f);
-		uvs[6] = Vec2f(0, 0.4f);
-		uvs[7] = Vec2f(0.1f, 0.4f);
-
-
-		quads[0] = RayMeshQuad(0, 3, 4, 1, 0, RayMesh_NoShadingNormals);
-		quads[0].uv_indices[0] = 0;
-		quads[0].uv_indices[1] = 4;
-		quads[0].uv_indices[2] = 5;
-		quads[0].uv_indices[3] = 1;
-
-		quads[1] = RayMeshQuad(1, 4, 5, 2, 0, RayMesh_NoShadingNormals);
-		quads[1].uv_indices[0] = 2;
-		quads[1].uv_indices[1] = 6;
-		quads[1].uv_indices[2] = 7;
-		quads[1].uv_indices[3] = 3;
-
-		StandardPrintOutput print_output;
-		ThreadContext context;
-
-		std::vector<Reference<Material> > materials;
-		materials.push_back(Reference<Material>(new Diffuse(
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<DisplaceMatParameter>(NULL),
-			Reference<DisplaceMatParameter>(NULL),
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<Vec3MatParameter>(),
-			0, // layer_index
-			false, // random_triangle_colours
-			false // backface_emit
-		)));
-
-		//materials[0]->uv_set_indices.push_back(0);
-
-		DUOptions options;
-		options.object_to_camera = Matrix4f::identity();
-		options.view_dependent_subdivision = false;
-		options.pixel_height_at_dist_one = 1;
-		options.subdivide_pixel_threshold = 0;
-		options.subdivide_curvature_threshold = 0;
-		options.displacement_error_threshold = 0;
-		options.max_num_subdivisions = 1;
-
-		DisplacementUtils::subdivideAndDisplace(
-			"test mesh",
-			task_manager,
-			print_output,
-			context,
-			materials,
-			true, // smooth
-			triangles,
-			quads,
-			vertices,
-			uvs,
-			1, // num uv sets
-			options,
-			false, // use_shading_normals
-			triangles_out,
-			verts_out,
-			uvs_out
-		);
-
-		conPrint("Vertex positions");
-		for(size_t i = 0; i < verts_out.size(); ++i)
-		{
-			conPrint("vert " + toString((uint64)i) + ": " + toString(verts_out[i].pos.x) + ", " + toString(verts_out[i].pos.y) + ", " + toString(verts_out[i].pos.z));
-		}
-
-		conPrint("UVs");
-		for(size_t i = 0; i < uvs_out.size(); ++i)
-		{
-			conPrint("UV " + toString((uint64)i) + ": " + toString(uvs_out[i].x) + ", " + toString(uvs_out[i].y));
-		}
-
-		for(size_t i = 0; i < triangles_out.size(); ++i)
-		{
-			conPrint(toString(triangles_out[i].vertex_indices[0]) + ", " + toString(triangles_out[i].vertex_indices[1]) + ", " + toString(triangles_out[i].vertex_indices[2]));
-
-			for(size_t v = 0; v < 3; ++v)
-			{
-				conPrint("uv " + toString(uvs_out[triangles_out[i].uv_indices[v]].x) + ", " + toString(uvs_out[triangles_out[i].uv_indices[v]].y));
-			}
-		}
-	}
-
-	//=========================== Test subdivision of a mesh composed of both tris and quads ==========================
-	{
-		RayMesh::VertexVectorType vertices(6);
-		std::vector<Vec2f> uvs(8);
-		RayMesh::TriangleVectorType triangles(2);
-		RayMesh::QuadVectorType quads(1);
-
-		RayMesh::TriangleVectorType triangles_out;
-		RayMesh::VertexVectorType verts_out;
-		std::vector<Vec2f> uvs_out;
-
-
-		// Quad vertices in CCW order from top right, facing up
-		vertices[0] = RayMeshVertex(Vec3f(0.9f,  1, 0), Vec3f(0, 0, 1), 0);
-		vertices[1] = RayMeshVertex(Vec3f(1,  1, 0), Vec3f(0, 0, 1), 0);
-		vertices[2] = RayMeshVertex(Vec3f(1.1f, 1, 0), Vec3f(0, 0, 1), 0);
-		vertices[3] = RayMeshVertex(Vec3f(0.9f,  0, 0), Vec3f(0, 0, 1), 0);
-		vertices[4] = RayMeshVertex(Vec3f(1,  0, 0), Vec3f(0, 0, 1), 0);
-		vertices[5] = RayMeshVertex(Vec3f(1.1f, 0, 0), Vec3f(0, 0, 1), 0);
-
-		uvs[0] = Vec2f(0.9f, 0.6f);
-		uvs[1] = Vec2f(1.0f, 0.6f);
-		uvs[2] = Vec2f(0, 0.6f);
-		uvs[3] = Vec2f(0.1f, 0.6f);
-		uvs[4] = Vec2f(0.9f, 0.4f);
-		uvs[5] = Vec2f(1.0f, 0.4f);
-		uvs[6] = Vec2f(0, 0.4f);
-		uvs[7] = Vec2f(0.1f, 0.4f);
-
-
-		quads[0] = RayMeshQuad(0, 3, 4, 1, 0, RayMesh_NoShadingNormals);
-		quads[0].uv_indices[0] = 0;
-		quads[0].uv_indices[1] = 4;
-		quads[0].uv_indices[2] = 5;
-		quads[0].uv_indices[3] = 1;
-
-		// NOTE: not sure if these indices make sense.
-		triangles[0] = RayMeshTriangle(1, 4, 5, 0, RayMesh_NoShadingNormals);
-		triangles[0].uv_indices[0] = 2;
-		triangles[0].uv_indices[1] = 6;
-		triangles[0].uv_indices[2] = 7;
-
-		triangles[1] = RayMeshTriangle(2, 4, 5, 0, RayMesh_NoShadingNormals);
-		triangles[1].uv_indices[0] = 2;
-		triangles[1].uv_indices[1] = 6;
-		triangles[1].uv_indices[2] = 7;
-
-		StandardPrintOutput print_output;
-		ThreadContext context;
-
-		std::vector<Reference<Material> > materials;
-		materials.push_back(Reference<Material>(new Diffuse(
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<DisplaceMatParameter>(NULL),
-			Reference<DisplaceMatParameter>(NULL),
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<SpectrumMatParameter>(NULL),
-			Reference<Vec3MatParameter>(),
-			0, // layer_index
-			false, // random_triangle_colours
-			false // backface_emit
-		)));
-
-		DUOptions options;
-		options.object_to_camera = Matrix4f::identity();
-		options.view_dependent_subdivision = false;
-		options.pixel_height_at_dist_one = 1;
-		options.subdivide_pixel_threshold = 0;
-		options.subdivide_curvature_threshold = 0;
-		options.displacement_error_threshold = 0;
-		options.max_num_subdivisions = 1;
-
-		DisplacementUtils::subdivideAndDisplace(
-			"test mesh",
-			task_manager,
-			print_output,
-			context,
-			materials,
-			true, // smooth
-			triangles,
-			quads,
-			vertices,
-			uvs,
-			1, // num uv sets
-			options,
-			false, // use_shading_normals
-			triangles_out,
-			verts_out,
-			uvs_out
-		);
-
-		// Each tri gets subdivided into 3 quads, for a total of 2*3 = 6 quads = 12 tris
-		// Plus 4 quads * 2 tris/quad for the subdivided quad gives 12 + 8 = 20 tris.
-		testAssert(triangles_out.size() == 20);
 	}
 #endif
 }
