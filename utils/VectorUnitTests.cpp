@@ -58,19 +58,17 @@ private:
 #endif
 
 
-
-
-DO_ALIGNMENT(16) struct align_16
+struct DO_ALIGNMENT(16) align_16
 {
 	uint8 x[16];
 };
 
-DO_ALIGNMENT(32) struct align_32
+struct DO_ALIGNMENT(32) align_32
 {
 	uint8 x[32];
 };
 
-DO_ALIGNMENT(64) struct align_64
+struct DO_ALIGNMENT(64) align_64
 {
 	uint8 x[64];
 };
@@ -79,8 +77,12 @@ DO_ALIGNMENT(64) struct align_64
 void VectorUnitTests::test()
 {
 	conPrint("VectorUnitTests::test()");
-
+	
 	//========================= Test alignment =========================
+	static_assert(GLARE_ALIGNMENT(align_16) == 16, "GLARE_ALIGNMENT(align_16) == 16");
+	static_assert(GLARE_ALIGNMENT(align_32) == 32, "GLARE_ALIGNMENT(align_32) == 32");
+	static_assert(GLARE_ALIGNMENT(align_64) == 64, "GLARE_ALIGNMENT(align_64) == 64");
+
 	{
 		js::Vector<align_16, 16> v;
 	}

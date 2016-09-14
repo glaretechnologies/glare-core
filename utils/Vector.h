@@ -98,11 +98,7 @@ Vector<T, alignment>::Vector()
 	size_(0),
 	capacity_(0)
 {
-#ifdef _WIN32
-	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient"); // alignof doesn't work in VS2012.
-#else
-	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
-#endif
+	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
 }
 
 
@@ -112,11 +108,7 @@ Vector<T, alignment>::Vector(size_t count)
 	size_(count),
 	capacity_(count)
 {
-#ifdef _WIN32
-	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient");
-#else
-	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
-#endif
+	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
 
 	if(count > 0)
 	{
@@ -141,11 +133,7 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 	size_(count),
 	capacity_(count)
 {
-#ifdef _WIN32
-	static_assert(alignment % __alignof(T) == 0, "alignment template argument insuffcient");
-#else
-	static_assert(alignment %   alignof(T) == 0, "alignment template argument insuffcient");
-#endif
+	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
 
 	if(count > 0)
 	{

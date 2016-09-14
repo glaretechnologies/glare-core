@@ -118,6 +118,13 @@ namespace SSE
 	void operator delete(void* ptr) { SSE::alignedFree(ptr); }
 
 
+// GLARE_ALIGNMENT - get alignment of type
+#ifdef _MSC_VER
+// alignof doesn't work in VS2012.
+#define GLARE_ALIGNMENT(x) __alignof(x) 
+#else
+#define GLARE_ALIGNMENT(x) alignof(x)
+#endif
 
 #define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
 
