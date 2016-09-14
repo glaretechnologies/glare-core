@@ -57,7 +57,6 @@ Code By Nicholas Chapman.
 
 RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
-				 bool merge_vertices_with_same_pos_and_normal_,
 				bool view_dependent_subdivision_,
 				double displacement_error_threshold_
 				 )
@@ -72,7 +71,6 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
-	merge_vertices_with_same_pos_and_normal(merge_vertices_with_same_pos_and_normal_),
 	view_dependent_subdivision(view_dependent_subdivision_),
 	displacement_error_threshold(displacement_error_threshold_)
 {
@@ -821,7 +819,6 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		subdivide_pixel_threshold, 
 		subdivision_smoothing, 
 		subdivide_curvature_threshold,
-		merge_vertices_with_same_pos_and_normal,
 		view_dependent_subdivision,
 		displacement_error_threshold
 	));

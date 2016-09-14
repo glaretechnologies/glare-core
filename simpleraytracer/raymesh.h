@@ -194,7 +194,6 @@ public:
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
-		bool merge_vertices_with_same_pos_and_normal = false, // Not used any more.
 		bool view_dependent_subdivision = false,
 		double displacement_error_threshold = 0.0
 		);
@@ -334,7 +333,6 @@ private:
 	bool subdivide_and_displace_done;
 	bool vertex_shading_normals_provided;
 
-	bool merge_vertices_with_same_pos_and_normal;
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
 
