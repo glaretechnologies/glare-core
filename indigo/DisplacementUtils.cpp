@@ -2503,7 +2503,6 @@ public:
 						// 'Q = The average of the new face points for all faces adjacent to the old vertex point'.
 						Vec3f Q_sum = centroid_pos;
 						Vec3f Q_sum_n = centroid_normal;
-						Vec2f Q_sum_uvs[MAX_NUM_UV_SETS];
 						for(int z=0; z<num_uv_sets; ++z)
 							Q_sum_uvs[z] = centroid_uvs[z];
 
