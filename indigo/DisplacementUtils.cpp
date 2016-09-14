@@ -39,7 +39,6 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "../graphics/imformatdecoder.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/BitUtils.h"
-#include <unordered_map>
 
 
 static const bool PROFILE = false;
@@ -245,6 +244,7 @@ struct VertKey
 	Vec3f normal;
 
 	inline bool operator == (const VertKey& other) const { return pos == other.pos && uv == other.uv && normal == other.normal; }
+	inline bool operator != (const VertKey& other) const { return pos != other.pos || uv != other.uv || normal != other.normal; }
 };
 
 class VertKeyHash
@@ -252,22 +252,23 @@ class VertKeyHash
 public:
 	inline size_t operator()(const VertKey& v) const
 	{
-		const float sum = v.pos.x + v.pos.y + v.pos.z;
-		uint32 i;
-		std::memcpy(&i, &sum, 4);
-		return i;
+		return useHash(v.pos);
 	}
 };
 
-typedef std::unordered_map<VertKey, unsigned int, VertKeyHash> VertToIndexMap;
+typedef HashMapInsertOnly2<VertKey, unsigned int, VertKeyHash> VertToIndexMap;
 
 
 struct EdgeKey
 {
+	EdgeKey(){}
+	EdgeKey(const Vec3f& a, const Vec3f& b) : start(a), end(b) {}
+
 	Vec3f start;
 	Vec3f end;
 
 	inline bool operator == (const EdgeKey& other) const { return start == other.start && end == other.end; }
+	inline bool operator != (const EdgeKey& other) const { return start != other.start || end != other.end; }
 };
 
 
@@ -276,10 +277,7 @@ class EdgeKeyHash
 public:
 	inline size_t operator()(const EdgeKey& v) const
 	{
-		const float sum = v.start.x + v.start.y + v.start.z;
-		uint32 i;
-		std::memcpy(&i, &sum, 4);
-		return i;
+		return useHash(v.start);
 	}
 };
 
@@ -353,7 +351,10 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 		const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
-		std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
+		const Vec3f infv(std::numeric_limits<float>::infinity());
+		HashMapInsertOnly2<EdgeKey, EdgeInfo, EdgeKeyHash> edges(EdgeKey(infv, infv),
+			(triangles_in.size() + quads_in.size()) * 2
+		);
 
 		temp_quads.resize(triangles_in.size() + quads_in.size());
 		temp_verts.reserve(vertices_in.size());
@@ -410,7 +411,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 				else
 					{ edge_key.start = vi1_pos; edge_key.end = vi_pos;  flipped = true; }
 
-				std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash>::iterator result = edges.find(edge_key); // Lookup edge
+				auto result = edges.find(edge_key); // Lookup edge
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
@@ -535,7 +536,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 				else
 					{ edge_key.start = vi1_pos; edge_key.end = vi_pos;  flipped = true; }
 
-				std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash>::iterator result = edges.find(edge_key); // Lookup edge
+				auto result = edges.find(edge_key); // Lookup edge
 				if(result == edges.end()) // If edge not added yet:
 				{
 					EdgeInfo edge_info;
@@ -610,6 +611,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 				quad_out.edge_midpoint_vert_index[v] = -1;
 		}
 
+		DISPLACEMENT_PRINT_RESULTS(conPrint("Copied polys, built adjacency info:    " + timer.elapsedStringNPlaces(5)));
+		DISPLACEMENT_RESET_TIMER(timer);
+
 
 		// Do a traversal over the mesh to work out any quads we should reverse.
 		// We will do this by doing a traversal over each connected component of the mesh.
@@ -664,9 +668,20 @@ bool DisplacementUtils::subdivideAndDisplace(
 			}
 		}
 
+
 done:	
+		DISPLACEMENT_PRINT_RESULTS(conPrint("Reversed quads:                        " + timer.elapsedStringNPlaces(5)));
+		DISPLACEMENT_RESET_TIMER(timer);
+
 		// Create vertices for each input triangle.  Each vertex should have a unique (position, uv, shading normal).
-		VertToIndexMap new_vert_indices;
+		VertKey empty_key;
+		empty_key.pos    = Vec3f(std::numeric_limits<float>::infinity());
+		empty_key.uv     = Vec2f(std::numeric_limits<float>::infinity());
+		empty_key.normal = Vec3f(std::numeric_limits<float>::infinity());
+
+		VertToIndexMap new_vert_indices(empty_key, 
+			temp_quads.size() // expected num items (verts)
+		);
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
 			const RayMeshTriangle& tri_in = triangles_in[t];
@@ -867,7 +882,7 @@ done:
 		}
 #endif
 
-		DISPLACEMENT_PRINT_RESULTS(conPrint("Building adjacency info:    " + timer.elapsedStringNPlaces(5)));
+		DISPLACEMENT_PRINT_RESULTS(conPrint("Created vertices:                      " + timer.elapsedStringNPlaces(5)));
 	} // End init
 
 	//conPrint("num fixed verts created: " + toString(temp_vert_polygons.size()));
@@ -3190,6 +3205,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 		const char* scenes[] = {
 
 			"grid_mesh_displacement_test.igs",
+			"grid_mesh_with_subdiv_and_displacement_test.igs",
 			"no_subdivision_cube_gap_test_constant_displacement.igs",
 
 			"subdivision_cube_gap_test.igs",
