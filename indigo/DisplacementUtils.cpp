@@ -1655,7 +1655,7 @@ public:
 		{
 			const RayMeshTriangle& tri = tris[t_i];
 			const Material* const material = (*closure.materials)[tri.getTriMatIndex()].getPointer();
-			for(int i=0; i<4; ++i)
+			for(int i=0; i<3; ++i)
 			{
 				const uint32 v_i = tri.vertex_indices[i];
 				if(verts_processed[v_i].increment() == 0) // If this vert has not been processed yet:
