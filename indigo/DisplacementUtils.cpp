@@ -1324,7 +1324,8 @@ void DisplacementUtils::doDisplacementOnly(
 
 
 /*
-Apply displacement to the given vertices, storing the displaced vertices in verts_out
+Apply displacement to the given vertices, storing the displaced vertices in verts_out.
+updates verts_out displacement and pos.
 */
 struct EvalVertDisplaceMentTaskClosure
 {
@@ -1403,6 +1404,126 @@ public:
 };
 
 
+struct EvalQuadNormalsTaskClosure
+{
+	const DUQuadVector* quads;
+	const DUVertexVector* verts_in;
+	js::Vector<Vec3f, 16>* quad_normals;
+};
+
+
+class EvalQuadNormalsTask : public Indigo::Task
+{
+public:
+	EvalQuadNormalsTask(const EvalQuadNormalsTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const DUQuadVector& quads = *closure.quads;
+		const DUVertexVector& verts_in = *closure.verts_in;
+		js::Vector<Vec3f, 16>& quad_normals = *closure.quad_normals;
+
+		for(int q_i = begin; q_i < end; ++q_i)
+		{
+			const DUQuad& quad = quads[q_i];
+			quad_normals[q_i] = normalise(crossProduct(verts_in[quad.vertex_indices[1]].pos - verts_in[quad.vertex_indices[0]].pos, verts_in[quad.vertex_indices[2]].pos - verts_in[quad.vertex_indices[0]].pos));
+		}
+	}
+
+	const EvalQuadNormalsTaskClosure& closure;
+	int begin, end;
+};
+
+
+struct EvalTopologicalVertNormalsAndDisplacementTaskClosure
+{
+	const DUQuadVector* quads;
+	DUVertexVector* verts_out;
+	js::Vector<Vec3f, 16>* quad_normals;
+	std::vector<float>* result_vert_displacements;
+	std::vector<IndigoAtomic>* verts_processed;
+};
+
+
+// Updates verts_out normal, closure.result_vert_displacements
+class EvalTopologicalVertNormalsAndDisplacementTask : public Indigo::Task
+{
+public:
+	EvalTopologicalVertNormalsAndDisplacementTask(const EvalTopologicalVertNormalsAndDisplacementTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		const DUQuadVector& quads = *closure.quads;
+		DUVertexVector& verts_out = *closure.verts_out;
+		js::Vector<Vec3f, 16>& quad_normals = *closure.quad_normals;
+		std::vector<float>& result_vert_displacements = *closure.result_vert_displacements;
+		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
+
+		for(int q = begin; q < end; ++q)
+		{
+			const DUQuad& quad = (*closure.quads)[q];
+			const int num_sides = quad.numSides();
+			for(int v=0; v<num_sides; ++v)
+			{
+				const uint32 v_i = quad.vertex_indices[v];
+				if(verts_processed[v_i].increment() == 0)
+				{
+					Vec3f sum_normal = quad_normals[q];
+					float min_displacement = std::numeric_limits<float>::infinity();
+
+					// We will traverse clockwise around all quads adjacent to this vertex.
+					int cur_quad_i = quad.adjacent_quad_index[v]; // Start at adjacent quad
+					int cur_quad_edge_i = quad.getAdjacentQuadEdgeIndex(v); // Edge that cur_quad shares with prev_quad (quad)
+					while(cur_quad_i != -1 && cur_quad_i != q) // Keep traversing around the vert until we get to a border, or we get back to quad q.  NOTE: this does not stricly bound this loop.  May get caught in a cycle for a weird mesh.
+					{
+						const DUQuad& cur_quad = quads[cur_quad_i];
+						const int next_edge_i = cur_quad.numSides() == 4 ? mod4(cur_quad_edge_i + 1) : mod3(cur_quad_edge_i + 1); // Edge of current quad that is shared with next quad.
+
+						sum_normal += quad_normals[cur_quad_i];
+						const int cur_v_i = cur_quad.vertex_indices[next_edge_i]; // Vertex index that this quad has at the shared vertex position
+						min_displacement = myMin(min_displacement, verts_out[cur_v_i].displacement);
+					
+						cur_quad_i = cur_quad.adjacent_quad_index[next_edge_i]; // Go to next quad around the vertex.
+						cur_quad_edge_i = cur_quad.getAdjacentQuadEdgeIndex(next_edge_i); // Edge that cur_quad shares with prev_quad
+					}
+					assert(cur_quad_i == -1 || cur_quad_i == q); // We either traversed to a border edge, or back to the original quad.
+					// if we traversed to a border edge, we need to traverse the other way (counter-clockwise) to get the other border edge.
+					if(cur_quad_i == -1) // cur_quad_i == -1  =>   we traversed to a border edge, this is a border vert.
+					{
+						cur_quad_i      = quad.adjacent_quad_index     [num_sides == 4 ? mod4(v + 3) : mod3(v + 2)]; // Start at prev adjacent quad
+						cur_quad_edge_i = quad.getAdjacentQuadEdgeIndex(num_sides == 4 ? mod4(v + 3) : mod3(v + 2)); // Edge that cur_quad shares with prev_quad NEW
+						while(cur_quad_i != -1 && cur_quad_i != q) // Keep traversing around the vert until we get to a border, or back to quad q (shouldn't happen)
+						{
+							const DUQuad& cur_quad = quads[cur_quad_i];
+
+							sum_normal += quad_normals[cur_quad_i];
+							const int cur_v_i = cur_quad.vertex_indices[cur_quad_edge_i]; // Vertex index that this quad has at the shared vertex position
+							min_displacement = myMin(min_displacement, verts_out[cur_v_i].displacement);
+
+							const int next_edge_i = cur_quad.numSides() == 4 ? mod4(cur_quad_edge_i + 3) : mod3(cur_quad_edge_i + 2); // Edge of current quad that is shared with next quad.
+							cur_quad_i = cur_quad.adjacent_quad_index[next_edge_i]; // Go to next quad around the vertex.
+							cur_quad_edge_i = cur_quad.getAdjacentQuadEdgeIndex(next_edge_i); // Edge that cur_quad shares with prev_quad
+						}
+					}
+
+					verts_out[v_i].normal = normalise(sum_normal);
+					result_vert_displacements[quad.vertex_indices[v]] = min_displacement;
+				}
+			}
+		}
+	}
+
+	const EvalTopologicalVertNormalsAndDisplacementTaskClosure& closure;
+	int begin, end;
+};
+
+
+// We will sometimes have multiple vertices at the same position, in the case of shading normal edges or UV dicontinuities.
+// To avoid breaks in the displaced meshes, we want to to use the same displacement vector for all vertices at the same position.
+// So we will compute the displacement vector by taking the average normal of all quads topologically adjacent to the vertex.
+// The displacement vector magnitude we will take as the minimum of all displacement magnitudes of vertices at that position.
+//
+// See for example subdivision_with_smoothing_cube_gap_test_constant_displacement.igs, subdivision_cube_gap_spike_displacement_test.igs
 void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 								 ThreadContext& context,
 								 const std::vector<Reference<Material> >& materials,
@@ -1420,6 +1541,9 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 
 	std::vector<IndigoAtomic> verts_processed(verts_out.size());
 
+	//================================================================
+	// Evaluate the displacement at each vertex.  Sets verts_out displacement and verts_out pos.
+	//================================================================
 	EvalVertDisplaceMentTaskClosure closure;
 	closure.uvs = &uvs;
 	closure.verts_processed = &verts_processed;
@@ -1428,70 +1552,55 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 	closure.num_uv_sets = num_uv_sets;
 	closure.verts_in = &verts_in;
 	closure.verts_out = &verts_out;
-
-	// Evaluate the displacement at each vertex.  Sets verts_out displacement and verts_out pos.
 	task_manager.runParallelForTasks<EvalVertDisplaceMentTask, EvalVertDisplaceMentTaskClosure>(closure, 0, quads.size());
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Running EvalVertDisplaceMentTask:            " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	// Special processing for vertices on shading or uv discontinuities.
-	// To avoid breaks in meshes, we want to set the displacement of such vertices to the average displacement of all vertices at the same posiiton.
-	const Vec3f inf_v = Vec3f(std::numeric_limits<float>::infinity());
-	HashMapInsertOnly2<Vec3f, VertDisplacement, Vec3fHash> vert_displacements(inf_v);
+	//================================================================
+	// Eval quad normals.
+	// Store normals in quad_normals.
+	//================================================================
+	js::Vector<Vec3f, 16> quad_normals(quads.size());
+	EvalQuadNormalsTaskClosure closure2;
+	closure2.quads = &quads;
+	closure2.verts_in = &verts_in;
+	closure2.quad_normals = &quad_normals;
+	task_manager.runParallelForTasks<EvalQuadNormalsTask, EvalQuadNormalsTaskClosure>(closure2, 0, quads.size());
 
-	DUUVCoordEvaluator du_texcoord_evaluator;
-	du_texcoord_evaluator.num_uvs = num_uv_sets;
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Evaluating quad normals:                     " + timer.elapsedStringNPlaces(5)));
+	DISPLACEMENT_RESET_TIMER(timer);
 
-	for(size_t q = 0; q < quads.size(); ++q)
-	{
-		const DUQuad& quad = quads[q];
-		if(materials[quad.mat_index]->displacing())
-		{
-			const int num_sides = quad.numSides();
-			for(int i = 0; i < num_sides; ++i)
-			{
-				const uint32 v_i = quads[q].vertex_indices[i];
-				if(verts_in[v_i].uv_discontinuity)
-				{
-					const Vec3f displacement_vec = verts_out[v_i].pos - verts_in[v_i].pos;
-					auto it = vert_displacements.find(verts_in[v_i].pos);
-					if(it == vert_displacements.end())
-					{
-						VertDisplacement d;
-						d.sum_displacement = displacement_vec;
-						d.num = 1;
-						vert_displacements.insert(std::make_pair(verts_in[v_i].pos, d));
-					}
-					else
-					{
-						it->second.sum_displacement += displacement_vec;
-						it->second.num++;
-					}
-				}
-			}
-		}
-	}
+	//================================================================
+	// Compute 'topological' vertex normals, and topological displacement magnitude.
+	//  Updates verts_out normal, av_vert_displacements
+	//================================================================
+	std::vector<float> result_vert_displacements(verts_in.size(), 0.f);
+	for(size_t z=0; z<verts_out.size(); ++z)
+		verts_processed[z] = 0;
+	EvalTopologicalVertNormalsAndDisplacementTaskClosure closure3;
+	closure3.quads = &quads;
+	closure3.verts_out = &verts_out;
+	closure3.quad_normals = &quad_normals;
+	closure3.result_vert_displacements = &result_vert_displacements;
+	closure3.verts_processed = &verts_processed;
+	task_manager.runParallelForTasks<EvalTopologicalVertNormalsAndDisplacementTask, EvalTopologicalVertNormalsAndDisplacementTaskClosure>(closure3, 0, quads.size());
+
+	DISPLACEMENT_PRINT_RESULTS(conPrint("Computing topological normals:               " + timer.elapsedStringNPlaces(5)));
+	DISPLACEMENT_RESET_TIMER(timer);
+
+	//================================================================
+	// Iterate over vertices and apply computed topological displacement.
+	//================================================================
 	for(size_t v = 0; v < verts_out.size(); ++v)
 	{
-		if(verts_in[v].uv_discontinuity)
-		{
-			auto it = vert_displacements.find(verts_in[v].pos);
-			if(it != vert_displacements.end())
-			{
-				const Vec3f av_displacement_vec = it->second.sum_displacement / (float)it->second.num;
-				verts_out[v].pos = verts_in[v].pos + av_displacement_vec;
-				verts_out[v].displacement = av_displacement_vec.length();
-			}
-			else
-				verts_out[v].displacement = 0;
-		}
+		verts_out[v].pos = verts_in[v].pos + verts_out[v].normal * result_vert_displacements[v];
+		verts_out[v].displacement = result_vert_displacements[v];
 
 		// If any vertex is anchored, then set its position to the average of its 'parent' vertices
 		if(verts_out[v].anchored)
 			verts_out[v].pos = (verts_out[verts_out[v].adjacent_vert_0].pos + verts_out[verts_out[v].adjacent_vert_1].pos) * 0.5f;
 	}
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Special vert processing:                     " + timer.elapsedStringNPlaces(5)));
 }
 
 
@@ -3204,6 +3313,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 		// Build and (briefly) render all/most of the displacement + subdiv test scenes.
 		const char* scenes[] = {
 
+			"subdivision_with_smoothing_cube_gap_test_constant_displacement.igs",
 			"grid_mesh_displacement_test.igs",
 			"grid_mesh_with_subdiv_and_displacement_test.igs",
 			"no_subdivision_cube_gap_test_constant_displacement.igs",
