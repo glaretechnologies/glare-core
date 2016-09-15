@@ -1469,7 +1469,7 @@ public:
 				if(verts_processed[v_i].increment() == 0)
 				{
 					Vec3f sum_normal = quad_normals[q];
-					float min_displacement = std::numeric_limits<float>::infinity();
+					float min_displacement = verts_out[v_i].displacement;
 
 					// We will traverse clockwise around all quads adjacent to this vertex.
 					int cur_quad_i = quad.adjacent_quad_index[v]; // Start at adjacent quad
