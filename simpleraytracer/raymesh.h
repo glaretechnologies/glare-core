@@ -84,6 +84,11 @@ public:
 	inline uint32 getRawTriMatIndex() const { return tri_mat_index; }
 	inline void setRawTriMatIndex(uint32 i) { tri_mat_index = i; }
 
+	inline void setTriMatIndexAndUseShadingNormals(uint32 i, RayMesh_ShadingNormals use_shading_normals)
+	{
+		tri_mat_index = (i << 1) | (uint32)use_shading_normals;
+	}
+
 public:
 	uint32 vertex_indices[3];
 	uint32 uv_indices[3];
@@ -237,8 +242,8 @@ public:
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
 
-	void buildTrisFromQuads();
-	void buildJSTris();
+	void buildTrisFromQuads(); // Used in cyberspace code
+	void buildJSTris(); // Used in cyberspace code
 
 	///// These functions are used by various tests which construct RayMeshes directly. //////
 	// They are also used by World::mergeObjectsToIdentityObject().

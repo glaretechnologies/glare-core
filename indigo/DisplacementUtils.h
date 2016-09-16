@@ -158,12 +158,9 @@ DisplacementUtils
 class DisplacementUtils
 {
 public:
-	DisplacementUtils();
-	~DisplacementUtils();
-
-
 	// Subdivide and displace the mesh.
 	// All quads will be converted to triangles.
+	// Sets verts_in_out positions.  verts_in_out normals and H are not set.
 	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
 	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
@@ -201,6 +198,26 @@ public:
 	static void test(const std::string& indigo_base_dir_path, const std::string& appdata_path, bool run_comprehensive_tests);
 
 private:
+	static void init(
+		const std::string& mesh_name,
+		Indigo::TaskManager& task_manager,
+		PrintOutput& print_output,
+		ThreadContext& context,
+		const std::vector<Reference<Material> >& materials,
+		bool subdivision_smoothing,
+		RayMesh::TriangleVectorType& triangles_in_out, 
+		const RayMesh::QuadVectorType& quads_in,
+		RayMesh::VertexVectorType& vertices_in_out,
+		std::vector<Vec2f>& uvs_in_out,
+		unsigned int num_uv_sets,
+		const DUOptions& options,
+		bool use_shading_normals,
+		Polygons& temp_polygons_1,
+		Polygons& temp_polygons_2,
+		VertsAndUVs& temp_verts_uvs_1,
+		VertsAndUVs& temp_verts_uvs_2
+	);
+
 	static void displace(
 		Indigo::TaskManager& task_manager,
 		ThreadContext& context,

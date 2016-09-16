@@ -722,7 +722,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		{
 			computeShadingNormalsAndMeanCurvature(
 				task_manager,
-				false, // update shading normals - these should have been computed already.
+				true, // update shading normals
 				print_output, verbose
 			);
 		}
@@ -750,7 +750,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 }
 
 
-//TEMP
+// Used in cyberspace code
 void RayMesh::buildTrisFromQuads()
 {
 	// Convert any quads to tris.
@@ -795,6 +795,7 @@ void RayMesh::buildTrisFromQuads()
 }
 
 
+// Used in cyberspace code
 void RayMesh::buildJSTris()
 {
 	this->js_tris.resize(this->triangles.size());
