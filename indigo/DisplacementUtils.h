@@ -43,7 +43,7 @@ class DUQuad
 public:
 	DUQuad(){}
 	DUQuad(	uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_,
-			uint32_t mat_index_) : mat_index(mat_index_)
+			uint32_t mat_index_)
 	{
 		vertex_indices[0] = v0_;
 		vertex_indices[1] = v1_;
@@ -60,9 +60,9 @@ public:
 		edge_midpoint_vert_index[2] = -1;
 		edge_midpoint_vert_index[3] = -1;
 
-		bitfield = BitField<uint32>(0);
+		mat_index = mat_index_;
 
-		dead = false;
+		bitfield = BitField<uint32>(0);
 	}
 
 	inline bool isTri()   const { return vertex_indices[3] == std::numeric_limits<uint32>::max(); }
@@ -85,6 +85,8 @@ public:
 	inline void setAdjacentQuadEdgeIndex(int this_edge, uint32 other_edge) { bitfield.setBitPair(8 + this_edge*2, other_edge); }
 	inline uint32 getAdjacentQuadEdgeIndex(int this_edge) const { return bitfield.getBitPair(8 + this_edge*2); }
 
+	inline uint32 isDead() const { return bitfield.getBitMasked(16); } // Returns non-zero value if quad is dead.
+	inline void setDeadTrue() { bitfield.setBitToOne(16); }
 
 	uint32_t vertex_indices[4]; // Indices of the corner vertices.  If vertex_indices[3] == std::numeric_limits<uint32>::max(), then this is a triangle.
 	//16 bytes
@@ -93,18 +95,19 @@ public:
 	int edge_midpoint_vert_index[4]; // Indices of the new vertices at the midpoint of each edge.
 	// 48 bytes
 
+	int centroid_vert_index;
+
 	uint32_t mat_index; // material index
 
 	int child_quads_index; // Index of the first child (result of subdivision) quad of this quad.
 
 	/*
-	bits 0-3: edge_uv_discontinuity for edge 0-3
-	bits 4-7: adjacent quad over edge has reversed orientation relative to this quad.
+	bits 0-3:  edge_uv_discontinuity for edge 0-3
+	bits 4-7:  adjacent quad over edge has reversed orientation relative to this quad.
 	bits 8-15: index (0-3) of edge of adjacent quad over edge, for each edge.
+	bit 16:    quad is dead. A dead quad is a quad that does not need to be subdivided any more.
 	*/
 	BitField<uint32> bitfield;
-	
-	bool dead; // A dead quad is a quad that does not need to be subdivided any more.
 };
 
 
@@ -126,7 +129,7 @@ struct VertsAndUVs
 };
 
 
-SSE_CLASS_ALIGN DUOptions
+struct DUOptions
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

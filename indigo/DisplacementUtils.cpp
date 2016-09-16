@@ -54,6 +54,8 @@ static const bool PROFILE = false;
 #endif
 
 
+static_assert(sizeof(DUQuad) == 64, "sizeof(DUQuad) == 64");
+
 static const bool DRAW_SUBDIVISION_STEPS = false;
 
 
@@ -462,7 +464,7 @@ void DisplacementUtils::init(const std::string& mesh_name,
 		}
 
 		temp_quads[t].mat_index = tri_in.getTriMatIndex();
-		temp_quads[t].dead = false;
+		assert(!temp_quads[t].isDead());
 		for(int v=0; v<4; ++v)
 			temp_quads[t].edge_midpoint_vert_index[v] = -1;
 	}
@@ -586,7 +588,7 @@ void DisplacementUtils::init(const std::string& mesh_name,
 		}
 
 		quad_out.mat_index = quad_in.getMatIndex();
-		quad_out.dead = false;
+		assert(!quad_out.isDead());
 		for(int v=0; v<4; ++v)
 			quad_out.edge_midpoint_vert_index[v] = -1;
 	}
@@ -1020,6 +1022,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 		const uint32 v0 = temp_quad.vertex_indices[0];
 		const uint32 v1 = temp_quad.vertex_indices[1];
 		const uint32 v2 = temp_quad.vertex_indices[2];
+		const uint32 v3 = temp_quad.vertex_indices[3];
 
 		// Split the quad into two triangles
 		RayMeshTriangle& tri_a = triangles_in_out[tri_write_i];
@@ -1033,11 +1036,11 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 		RayMeshTriangle& tri_b = triangles_in_out[tri_write_i + 1];
 		tri_b.vertex_indices[0] = v0;
-		tri_b.vertex_indices[1] = v1;
-		tri_b.vertex_indices[2] = v2;
+		tri_b.vertex_indices[1] = v2;
+		tri_b.vertex_indices[2] = v3;
 		tri_b.uv_indices[0] = v0;
-		tri_b.uv_indices[1] = v1;
-		tri_b.uv_indices[2] = v2;
+		tri_b.uv_indices[1] = v2;
+		tri_b.uv_indices[2] = v3;
 		tri_b.setTriMatIndexAndUseShadingNormals(temp_quad.mat_index, use_s_n);
 
 		tri_write_i += 2;
@@ -1757,7 +1760,7 @@ public:
 			// Decide if we are going to subdivide the quad
 			bool subdivide_quad = false;
 
-			if(quad.dead)
+			if(quad.isDead())
 			{
 				subdivide_quad = false;
 			}
@@ -1937,7 +1940,7 @@ public:
 
 			if(subdividing_quad[q] > 1)
 			{
-				// Create the quad's centroid vertex and UVs
+				// Set the quad's centroid vertex position, normal, and UVs
 				const int num_sides = quad_in.numSides();
 
 				Vec3f centroid_pos;
@@ -1959,6 +1962,12 @@ public:
 							getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[2], z)) * (1.f / 3.f);
 				}
 
+				verts_out[quad_in.centroid_vert_index].pos = centroid_pos;
+				verts_out[quad_in.centroid_vert_index].normal = centroid_normal;
+
+				const uint32 centroid_uv_offset = quad_in.centroid_vert_index * num_uv_sets;
+				for(int z = 0; z < num_uv_sets; ++z)
+					uvs_out[centroid_uv_offset + z] = centroid_uvs[z];
 
 				for(int v = 0; v < num_sides; ++v)
 				{
@@ -2370,6 +2379,7 @@ void DisplacementUtils::linearSubdivision(
 
 
 	//========================== Subdivide quads ==========================
+	// This code runs in serial, so it needs to do as little work as possible.
 	DISPLACEMENT_RESET_TIMER(timer);
 
 	quads_out.resizeUninitialised(total_new_quads);
@@ -2395,35 +2405,14 @@ void DisplacementUtils::linearSubdivision(
 			const uint32_t centroid_vert_index = (uint32_t)verts_out.size();
 			assert(uvs_out.size() == verts_out.size() * num_uv_sets);
 
-			Vec3f centroid_pos;
-			Vec3f centroid_normal;
-			Vec2f centroid_uvs[MAX_NUM_UV_SETS];
-			if(num_sides == 4)
-			{
-				centroid_pos = (verts_in[quad_in.vertex_indices[0]].pos + verts_in[quad_in.vertex_indices[1]].pos + verts_in[quad_in.vertex_indices[2]].pos + verts_in[quad_in.vertex_indices[3]].pos) * 0.25f;
-				centroid_normal = (verts_in[quad_in.vertex_indices[0]].normal + verts_in[quad_in.vertex_indices[1]].normal + verts_in[quad_in.vertex_indices[2]].normal + verts_in[quad_in.vertex_indices[3]].normal);// * 0.25f
-				for(uint32 z = 0; z < num_uv_sets; ++z)
-					centroid_uvs[z] = (getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[0], z) + getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[1], z) +
-						getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[2], z) + getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[3], z)) * 0.25f;
-			}
-			else
-			{
-				centroid_pos = (verts_in[quad_in.vertex_indices[0]].pos + verts_in[quad_in.vertex_indices[1]].pos + verts_in[quad_in.vertex_indices[2]].pos) * (1.f / 3.f);
-				centroid_normal = (verts_in[quad_in.vertex_indices[0]].normal + verts_in[quad_in.vertex_indices[1]].normal + verts_in[quad_in.vertex_indices[2]].normal);// * 0.25f
-				for(uint32 z = 0; z < num_uv_sets; ++z)
-					centroid_uvs[z] = (getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[0], z) + getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[1], z) +
-						getUVs(uvs_in, num_uv_sets, quad_in.vertex_indices[2], z)) * (1.f / 3.f);
-			}
-			verts_out.push_back(DUVertex(
-				centroid_pos,
-				centroid_normal
-				));
+			quad_in.centroid_vert_index = centroid_vert_index;
+			verts_out.resize(centroid_vert_index + 1); // Reserve space for centroid vertex
+			verts_out[centroid_vert_index].anchored = false;
+			verts_out[centroid_vert_index].uv_discontinuity = false;
 			
 			const uint32 centroid_uv_offset = centroid_vert_index * num_uv_sets;
-			uvs_out.resize(centroid_uv_offset + num_uv_sets);
-			for(uint32_t z = 0; z < num_uv_sets; ++z)
-				uvs_out[centroid_uv_offset + z] = centroid_uvs[z];
-
+			uvs_out.resize(centroid_uv_offset + num_uv_sets); // Reserve space for centroid UVs
+	
 			// Create the quad's corner vertices, store indices of new vertices in new_corner_vert_i.
 			uint32 new_corner_vert_i[4];
 			for(int v = 0; v < num_sides; ++v)
@@ -2494,10 +2483,11 @@ void DisplacementUtils::linearSubdivision(
 					const uint32_t new_vert_index = (uint32)verts_out.size();
 					
 					verts_out.resize(new_vert_index + 1);
-					verts_out[new_vert_index].adjacent_vert_0 = vi;
-					verts_out[new_vert_index].adjacent_vert_1 = vi1;
-					verts_out[new_vert_index].anchored = false;
-					verts_out[new_vert_index].uv_discontinuity = quad_in.isUVEdgeDiscontinuity(v) != 0; // Mark the vertex as having a UV discontinuity if it lies on an edge with a UV discontinuity.
+					DUVertex& new_vert = verts_out[new_vert_index];
+					new_vert.adjacent_vert_0 = vi;
+					new_vert.adjacent_vert_1 = vi1;
+					new_vert.anchored = false;
+					new_vert.uv_discontinuity = quad_in.isUVEdgeDiscontinuity(v) != 0; // Mark the vertex as having a UV discontinuity if it lies on an edge with a UV discontinuity.
 
 					quad_in.edge_midpoint_vert_index[v] = new_vert_index;
 
@@ -2632,9 +2622,9 @@ void DisplacementUtils::linearSubdivision(
 				quads_out[write_index].vertex_indices[v] = new_corner_vert_index;
 			}
 
-			quad_in.dead = true;
+			quad_in.setDeadTrue();
 			quad_in.child_quads_index = (int)write_index;
-			quads_out[write_index].dead = true;
+			quads_out[write_index].setDeadTrue();
 			for(int v=0; v<4; ++v)
 				quads_out[write_index].adjacent_quad_index[v] = -1;
 		}
@@ -2681,7 +2671,6 @@ void DisplacementUtils::linearSubdivision(
 	process_quad_task_closure.existing_vert_new_index = &existing_vert_new_index;
 	process_quad_task_closure.averaging = subdivision_smoothing;
 
-	//Indigo::TaskManager temp_task_manager(1);
 	task_manager.runParallelForTasks<ProcessQuadsTask, ProcessQuadsTaskClosure>(process_quad_task_closure, 0, quads_in.size());
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("   ProcessQuadsTask:            " + timer.elapsedStringNPlaces(5)));
@@ -2720,7 +2709,7 @@ void DisplacementUtils::linearSubdivision(
 				if(adj_quad_0 != -1) // If there is an adjacent quad along edge 0:
 				{
 					DUQuad& adj_quad = quads_in[adj_quad_0]; // Adjacent quad along edge 0.
-					if(adj_quad.dead)
+					if(adj_quad.isDead())
 						quads_out[write_index + 0].adjacent_quad_index[0] = adj_quad.child_quads_index;
 					else
 					{
@@ -2732,7 +2721,7 @@ void DisplacementUtils::linearSubdivision(
 				quads_out[write_index + 0].adjacent_quad_index[1] = (int)write_index + 1;
 				quads_out[write_index + 0].adjacent_quad_index[2] = (int)write_index + 2;
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_2].dead ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + c[2]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
+					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_2].isDead() ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + c[2]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
 				quads_out[write_index + 0].setAdjacentQuadEdgeIndex(0, quad_in.getAdjacentQuadEdgeIndex(0));
 				quads_out[write_index + 0].setAdjacentQuadEdgeIndex(1, 3); // edge internal to old polygon
 				quads_out[write_index + 0].setAdjacentQuadEdgeIndex(2, 3); // edge internal to old polygon
@@ -2740,15 +2729,15 @@ void DisplacementUtils::linearSubdivision(
 				// If the polygon adjacent to this poly along edge 0 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
 				// This is the only case where an adjacent polygons' edge index changes after subdivision.
 				// We only need to check this on the first subdivision, since after the first division all polygons will be quads, so there will be no triangles.
-				if(num_subdivs_done == 0 && adj_quad_0 != -1 && !quads_in[adj_quad_0].dead && quads_in[adj_quad_0].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(0) == 2)
+				if(num_subdivs_done == 0 && adj_quad_0 != -1 && !quads_in[adj_quad_0].isDead() && quads_in[adj_quad_0].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(0) == 2)
 					quads_out[write_index + 0].setAdjacentQuadEdgeIndex(0, 3);
 
 
 				//--------------- bottom right tri ---------------
 				if(adj_quad_0 != -1) // If adjacent quad along edge 0:
-					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].dead ? quads_in[adj_quad_0].child_quads_index : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
+					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].isDead() ? quads_in[adj_quad_0].child_quads_index : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
+					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].isDead() ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
 				quads_out[write_index + 1].adjacent_quad_index[2] = (int)write_index + 2;
 				quads_out[write_index + 1].adjacent_quad_index[3] = (int)write_index + 0;
 				quads_out[write_index + 1].setAdjacentQuadEdgeIndex(0, quad_in.getAdjacentQuadEdgeIndex(0));
@@ -2756,7 +2745,7 @@ void DisplacementUtils::linearSubdivision(
 				quads_out[write_index + 1].setAdjacentQuadEdgeIndex(2, 0); // edge internal to old polygon
 				quads_out[write_index + 1].setAdjacentQuadEdgeIndex(3, 1); // edge internal to old polygon
 				// If the polygon adjacent to this poly along edge 1 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_1 != -1 && !quads_in[adj_quad_1].dead && quads_in[adj_quad_1].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(1) == 2)
+				if(num_subdivs_done == 0 && adj_quad_1 != -1 && !quads_in[adj_quad_1].isDead() && quads_in[adj_quad_1].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(1) == 2)
 					quads_out[write_index + 1].setAdjacentQuadEdgeIndex(1, 3);
 
 
@@ -2764,24 +2753,24 @@ void DisplacementUtils::linearSubdivision(
 				//--------------- top tri ---------------
 				quads_out[write_index + 2].adjacent_quad_index[0] = (int)write_index + 1;
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
+					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].isDead() ? quads_in[adj_quad_1].child_quads_index : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
+					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].isDead() ? quads_in[adj_quad_2].child_quads_index : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
 				quads_out[write_index + 2].adjacent_quad_index[3] = (int)write_index + 0;
 				quads_out[write_index + 2].setAdjacentQuadEdgeIndex(0, 2); // edge internal to old polygon
 				quads_out[write_index + 2].setAdjacentQuadEdgeIndex(1, quad_in.getAdjacentQuadEdgeIndex(1));
 				quads_out[write_index + 2].setAdjacentQuadEdgeIndex(2, quad_in.getAdjacentQuadEdgeIndex(2));
 				quads_out[write_index + 2].setAdjacentQuadEdgeIndex(3, 2); // edge internal to old polygon
 				// If the polygon adjacent to this poly along edge 2 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_2 != -1 && !quads_in[adj_quad_2].dead && quads_in[adj_quad_2].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(2) == 2)
+				if(num_subdivs_done == 0 && adj_quad_2 != -1 && !quads_in[adj_quad_2].isDead() && quads_in[adj_quad_2].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(2) == 2)
 					quads_out[write_index + 2].setAdjacentQuadEdgeIndex(2, 3);
 
 			
-				if(adj_quad_0 != -1 && quads_in[adj_quad_0].dead)
+				if(adj_quad_0 != -1 && quads_in[adj_quad_0].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[0]].anchored = true; // Mark the edge midpoint vert along edge 0 as anchored.
-				if(adj_quad_1 != -1 && quads_in[adj_quad_1].dead)
+				if(adj_quad_1 != -1 && quads_in[adj_quad_1].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[1]].anchored = true;
-				if(adj_quad_2 != -1 && quads_in[adj_quad_2].dead)
+				if(adj_quad_2 != -1 && quads_in[adj_quad_2].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[2]].anchored = true;
 				//if(adj_quad_3 != -1 && quads_in[adj_quad_3].dead)
 				//	verts_out[quads_in[q].edge_midpoint_vert_index[3]].anchored = true;
@@ -2823,7 +2812,7 @@ void DisplacementUtils::linearSubdivision(
 				if(adj_quad_0 != -1) // If there is an adjacent quad along edge 0:
 				{
 					DUQuad& adj_quad = quads_in[adj_quad_0]; // Adjacent quad along edge 0.
-					if(adj_quad.dead)
+					if(adj_quad.isDead())
 						quads_out[write_index + 0].adjacent_quad_index[0] = -1;//adj_quad.child_quads_index;
 					else
 					{
@@ -2835,7 +2824,7 @@ void DisplacementUtils::linearSubdivision(
 				quads_out[write_index + 0].adjacent_quad_index[1] = (int)write_index + 1;
 				quads_out[write_index + 0].adjacent_quad_index[2] = (int)write_index + 3;
 				if(adj_quad_3 != -1) // If adjacent quad along edge 3:
-					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + c[3]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
+					quads_out[write_index + 0].adjacent_quad_index[3] = quads_in[adj_quad_3].isDead() ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + c[3]; // quads_in[adj_quad_3].child_quads[mod4(c[3] + 0)]; // We need to set adjacent_quad_index for this new quad
 				/*quads_out[write_index + 0].setAdjacentQuadEdgeIndex(0, quad_in.getAdjacentQuadEdgeIndex(0));
 				quads_out[write_index + 0].setAdjacentQuadEdgeIndex(1, 3); // edge internal to old polygon
 				quads_out[write_index + 0].setAdjacentQuadEdgeIndex(2, 0); // edge internal to old polygon
@@ -2853,14 +2842,14 @@ void DisplacementUtils::linearSubdivision(
 				assert(quads_out[write_index + 0].getAdjacentQuadEdgeIndex(3) == quad_in.getAdjacentQuadEdgeIndex(3));
 
 				// If the polygon adjacent to this poly along edge 0 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_0 != -1 && !quads_in[adj_quad_0].dead && quads_in[adj_quad_0].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(0) == 2)
+				if(num_subdivs_done == 0 && adj_quad_0 != -1 && !quads_in[adj_quad_0].isDead() && quads_in[adj_quad_0].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(0) == 2)
 					quads_out[write_index + 0].setAdjacentQuadEdgeIndex(0, 3);
 
 				//--------------- bottom right quad ---------------
 				if(adj_quad_0 != -1) // If adjacent quad along edge 0:
-					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].dead ? -1/*quads_in[adj_quad_0].child_quads_index*/ : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
+					quads_out[write_index + 1].adjacent_quad_index[0] = quads_in[adj_quad_0].isDead() ? -1/*quads_in[adj_quad_0].child_quads_index*/ : quads_in[adj_quad_0].child_quads_index + c[0]; // child_quads[mod4(c[0] + 0)];
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
+					quads_out[write_index + 1].adjacent_quad_index[1] = quads_in[adj_quad_1].isDead() ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + (quads_in[adj_quad_1].isTri() ? mod3(c[1] + 1) : mod4(c[1] + 1)); // child_quads[mod4(c[1] + 1)];
 				quads_out[write_index + 1].adjacent_quad_index[2] = (int)write_index + 2;
 				quads_out[write_index + 1].adjacent_quad_index[3] = (int)write_index + 0;
 				/*quads_out[write_index + 1].setAdjacentQuadEdgeIndex(0, quad_in.getAdjacentQuadEdgeIndex(0));
@@ -2879,16 +2868,16 @@ void DisplacementUtils::linearSubdivision(
 				assert(quads_out[write_index + 1].getAdjacentQuadEdgeIndex(3) == 1);
 
 				// If the polygon adjacent to this poly along edge 1 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_1 != -1 && !quads_in[adj_quad_1].dead && quads_in[adj_quad_1].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(1) == 2)
+				if(num_subdivs_done == 0 && adj_quad_1 != -1 && !quads_in[adj_quad_1].isDead() && quads_in[adj_quad_1].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(1) == 2)
 					quads_out[write_index + 1].setAdjacentQuadEdgeIndex(1, 3);
 
 
 				//--------------- top right quad ---------------
 				quads_out[write_index + 2].adjacent_quad_index[0] = (int)write_index + 1;
 				if(adj_quad_1 != -1) // If adjacent quad along edge 1:
-					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].dead ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
+					quads_out[write_index + 2].adjacent_quad_index[1] = quads_in[adj_quad_1].isDead() ? -1/*quads_in[adj_quad_1].child_quads_index*/ : quads_in[adj_quad_1].child_quads_index + c[1]; //child_quads[mod4(c[1] + 0)];
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
+					quads_out[write_index + 2].adjacent_quad_index[2] = quads_in[adj_quad_2].isDead() ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + (quads_in[adj_quad_2].isTri() ? mod3(c[2] + 1) : mod4(c[2] + 1)); // child_quads[mod4(c[2] + 1)];
 				quads_out[write_index + 2].adjacent_quad_index[3] = (int)write_index + 3;
 				/*quads_out[write_index + 2].setAdjacentQuadEdgeIndex(0, 2); // edge internal to old polygon
 				quads_out[write_index + 2].setAdjacentQuadEdgeIndex(1, quad_in.getAdjacentQuadEdgeIndex(1));
@@ -2906,16 +2895,16 @@ void DisplacementUtils::linearSubdivision(
 				assert(quads_out[write_index + 2].getAdjacentQuadEdgeIndex(3) == 1);
 
 				// If the polygon adjacent to this poly along edge 2 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_2 != -1 && !quads_in[adj_quad_2].dead && quads_in[adj_quad_2].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(2) == 2)
+				if(num_subdivs_done == 0 && adj_quad_2 != -1 && !quads_in[adj_quad_2].isDead() && quads_in[adj_quad_2].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(2) == 2)
 					quads_out[write_index + 2].setAdjacentQuadEdgeIndex(2, 3);
 
 				//--------------- top left quad ---------------
 				quads_out[write_index + 3].adjacent_quad_index[0] = (int)write_index + 0;
 				quads_out[write_index + 3].adjacent_quad_index[1] = (int)write_index + 2;
 				if(adj_quad_2 != -1) // If adjacent quad along edge 2:
-					quads_out[write_index + 3].adjacent_quad_index[2] = quads_in[adj_quad_2].dead ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + c[2]; // child_quads[mod4(c[2] + 0)];
+					quads_out[write_index + 3].adjacent_quad_index[2] = quads_in[adj_quad_2].isDead() ? -1/*quads_in[adj_quad_2].child_quads_index*/ : quads_in[adj_quad_2].child_quads_index + c[2]; // child_quads[mod4(c[2] + 0)];
 				if(adj_quad_3 != -1) // If adjacent quad along edge 3:
-					quads_out[write_index + 3].adjacent_quad_index[3] = quads_in[adj_quad_3].dead ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + (quads_in[adj_quad_3].isTri() ? mod3(c[3] + 1) : mod4(c[3] + 1)); // child_quads[mod4(c[3] + 1)];
+					quads_out[write_index + 3].adjacent_quad_index[3] = quads_in[adj_quad_3].isDead() ? -1/*quads_in[adj_quad_3].child_quads_index*/ : quads_in[adj_quad_3].child_quads_index + (quads_in[adj_quad_3].isTri() ? mod3(c[3] + 1) : mod4(c[3] + 1)); // child_quads[mod4(c[3] + 1)];
 				/*quads_out[write_index + 3].setAdjacentQuadEdgeIndex(0, 2); // edge internal to old polygon
 				quads_out[write_index + 3].setAdjacentQuadEdgeIndex(1, 3); // edge internal to old polygon
 				quads_out[write_index + 3].setAdjacentQuadEdgeIndex(2, quad_in.getAdjacentQuadEdgeIndex(2));
@@ -2932,17 +2921,17 @@ void DisplacementUtils::linearSubdivision(
 				assert(quads_out[write_index + 3].getAdjacentQuadEdgeIndex(3) == quad_in.getAdjacentQuadEdgeIndex(3));
 
 				// If the polygon adjacent to this poly along edge 3 is a triangle, and it is being subdivided, and the adjacent triangles edge was 2, then the new adjacent triangle edge should be 3.
-				if(num_subdivs_done == 0 && adj_quad_3 != -1 && !quads_in[adj_quad_3].dead && quads_in[adj_quad_3].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(3) == 2)
+				if(num_subdivs_done == 0 && adj_quad_3 != -1 && !quads_in[adj_quad_3].isDead() && quads_in[adj_quad_3].numSides() == 3 && quad_in.getAdjacentQuadEdgeIndex(3) == 2)
 					quads_out[write_index + 3].setAdjacentQuadEdgeIndex(3, 3);
 
 			
-				if(adj_quad_0 != -1 && quads_in[adj_quad_0].dead)
+				if(adj_quad_0 != -1 && quads_in[adj_quad_0].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[0]].anchored = true; // Mark the edge midpoint vert along edge 0 as anchored.
-				if(adj_quad_1 != -1 && quads_in[adj_quad_1].dead)
+				if(adj_quad_1 != -1 && quads_in[adj_quad_1].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[1]].anchored = true;
-				if(adj_quad_2 != -1 && quads_in[adj_quad_2].dead)
+				if(adj_quad_2 != -1 && quads_in[adj_quad_2].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[2]].anchored = true;
-				if(adj_quad_3 != -1 && quads_in[adj_quad_3].dead)
+				if(adj_quad_3 != -1 && quads_in[adj_quad_3].isDead())
 					verts_out[quads_in[q].edge_midpoint_vert_index[3]].anchored = true;
 			}
 		}
