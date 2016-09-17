@@ -34,6 +34,7 @@ public:
 	// Return the value of the bit pair at bits (index + 1, index).
 	// Returns a value in [0, 4).
 	inline uint32 getBitPair(uint32 index) const;
+	inline uint32 getBitPairICEWorkaround(uint32 index) const; // Workaround for internal compiler error in VS2015.
 
 	inline void setBitToZero(uint32 index);
 	inline void setBitToOne(uint32 index);
@@ -52,7 +53,7 @@ inline uint32 BitField<T>::getBit(uint32 index) const
 {
 	assert(index >= 0 && index < sizeof(T) * 8);
 
-	return (v & (1u << index)) >> index;
+	return (v >> index) & 1u;
 }
 
 
@@ -70,7 +71,16 @@ inline uint32 BitField<T>::getBitPair(uint32 index) const
 {
 	assert(index >= 0 && index < sizeof(T) * 8);
 
-	return (v & (3u << index)) >> index;
+	return (v >> index) & 3u;
+}
+
+
+template <class T>
+inline uint32 BitField<T>::getBitPairICEWorkaround(uint32 index) const
+{
+	assert(index >= 0 && index < sizeof(T) * 8);
+
+	return ((int)v >> index) & 3u; // The cast to int here prevents the ICE.
 }
 
 

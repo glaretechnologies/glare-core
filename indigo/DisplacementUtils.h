@@ -83,7 +83,12 @@ public:
 	inline void setOrienReversedTrue(int edge) { bitfield.setBitToOne(4 + edge); }
 
 	inline void setAdjacentQuadEdgeIndex(int this_edge, uint32 other_edge) { bitfield.setBitPair(8 + this_edge*2, other_edge); }
-	inline uint32 getAdjacentQuadEdgeIndex(int this_edge) const { return bitfield.getBitPair(8 + this_edge*2); }
+	inline uint32 getAdjacentQuadEdgeIndex(int this_edge) const
+	{
+		// Workaround for internal compiler error in VS2015.
+		assert(bitfield.getBitPairICEWorkaround(8 + this_edge*2) == bitfield.getBitPair(8 + this_edge*2));
+		return bitfield.getBitPairICEWorkaround(8 + this_edge*2);
+	}
 
 	inline uint32 isDead() const { return bitfield.getBitMasked(16); } // Returns non-zero value if quad is dead.
 	inline void setDeadTrue() { bitfield.setBitToOne(16); }
