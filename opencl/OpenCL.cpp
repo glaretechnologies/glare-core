@@ -619,7 +619,7 @@ unsigned int OpenCL::getNumPlatforms() const
 OpenCLProgramRef OpenCL::buildProgram(
 	const std::string& program_source,
 	cl_context opencl_context,
-	const std::vector<OpenCLDevice>& devices,
+	const std::vector<OpenCLDevice>& use_devices,
 	const std::string& compile_options,
 	std::string& build_log_out // Will be set to a non-empty string on build failure.
 )
@@ -666,9 +666,9 @@ OpenCLProgramRef OpenCL::buildProgram(
 
 	// Build program
 	//Timer timer;
-	std::vector<cl_device_id> device_ids(devices.size());
-	for(size_t i=0; i<devices.size(); ++i)
-		device_ids[i] = devices[i].opencl_device_id;
+	std::vector<cl_device_id> device_ids(use_devices.size());
+	for(size_t i=0; i<use_devices.size(); ++i)
+		device_ids[i] = use_devices[i].opencl_device_id;
 
 	result = this->clBuildProgram(
 		program,

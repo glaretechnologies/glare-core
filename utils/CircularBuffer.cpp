@@ -275,8 +275,8 @@ void circularBufferTest()
 
 		// Make a queue (0, 1, 2, ... n-2, n-1)
 		const size_t N = 1000;
-		for(size_t i=0; i<N; ++i)
-			buf.push_back((int)i);
+		for(size_t z=0; z<N; ++z)
+			buf.push_back((int)z);
 
 		i = 0;
 		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)

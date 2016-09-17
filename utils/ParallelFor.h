@@ -107,8 +107,8 @@ public:
 
 		// Build array of thread handles
 		std::vector<HANDLE> thread_handles(num_threads);
-		for(int i=0; i<num_threads; ++i)
-			thread_handles[i] = threads[i]->getHandle();
+		for(int z=0; z<num_threads; ++z)
+			thread_handles[z] = threads[z]->getHandle();
 
 		const DWORD result = ::WaitForMultipleObjects(
 			num_threads, // num handles
