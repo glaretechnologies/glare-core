@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 #include <limits>
 class Material;
 class PrintOutput;
+class ShouldCancelCallback;
 namespace Indigo{ class Mesh; }
 
 
@@ -230,7 +231,8 @@ public:
 
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
 		const std::vector<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose);
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
+		ShouldCancelCallback* should_cancel_callback);
 
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;

@@ -427,7 +427,8 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 								   //const Object& object, 
 								   const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 
-	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose
+	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
+	ShouldCancelCallback* should_cancel_callback
 	)
 {
 	if(subdivide_and_displace_done)
@@ -582,54 +583,62 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			{
 #endif // #if INDIGO_OPENSUBDIV_SUPPORT
 
-				DUOptions options;
-				options.object_to_camera = object_to_camera;
-				options.view_dependent_subdivision = view_dependent_subdivision;
-				options.pixel_height_at_dist_one = pixel_height_at_dist_one;
-				options.subdivide_pixel_threshold = subdivide_pixel_threshold;
-				options.subdivide_curvature_threshold = subdivide_curvature_threshold;
-				options.displacement_error_threshold = displacement_error_threshold;
-				options.max_num_subdivisions = max_num_subdivisions;
-				options.num_smoothings = num_smoothings;
-				options.camera_clip_planes_os = camera_clip_planes_os;
-
-				const bool subdivided = DisplacementUtils::subdivideAndDisplace(
-					this->getName(),
-					task_manager,
-					print_output,
-					context,
-					materials, // object.getMaterials(),
-					subdivision_smoothing,
-					triangles, // triangles_in_out
-					quads,
-					vertices, // vertices_in_out
-					uvs, // uvs_in_out
-					this->num_uv_sets,
-					options,
-					this->enable_normal_smoothing
-				);
-				
-				if(subdivided)
+				try
 				{
-					// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
-					this->quads.clearAndFreeMem();
+					DUOptions options;
+					options.object_to_camera = object_to_camera;
+					options.view_dependent_subdivision = view_dependent_subdivision;
+					options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+					options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+					options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+					options.displacement_error_threshold = displacement_error_threshold;
+					options.max_num_subdivisions = max_num_subdivisions;
+					options.num_smoothings = num_smoothings;
+					options.camera_clip_planes_os = camera_clip_planes_os;
 
-					assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
+					const bool subdivided = DisplacementUtils::subdivideAndDisplace(
+						this->getName(),
+						task_manager,
+						print_output,
+						context,
+						materials, // object.getMaterials(),
+						subdivision_smoothing,
+						triangles, // triangles_in_out
+						quads,
+						vertices, // vertices_in_out
+						uvs, // uvs_in_out
+						this->num_uv_sets,
+						options,
+						this->enable_normal_smoothing,
+						should_cancel_callback
+					);
 
-					// Check data
+					if(subdivided)
+					{
+						// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
+						this->quads.clearAndFreeMem();
+
+						assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
+
+						// Check data
 #ifndef NDEBUG
-					for(unsigned int i = 0; i < triangles.size(); ++i)
-						for(unsigned int c = 0; c < 3; ++c)
-						{
-							assert(triangles[i].vertex_indices[c] < vertices.size());
-							if(this->num_uv_sets > 0)
+						for(unsigned int i = 0; i < triangles.size(); ++i)
+							for(unsigned int c = 0; c < 3; ++c)
 							{
-								assert(triangles[i].uv_indices[c] < uvs.size());
+								assert(triangles[i].vertex_indices[c] < vertices.size());
+								if(this->num_uv_sets > 0)
+								{
+									assert(triangles[i].uv_indices[c] < uvs.size());
+								}
 							}
-						}
 #endif	
+					}
+					if(verbose) print_output.print("\tDone.");
 				}
-				if(verbose) print_output.print("\tDone.");
+				catch(Indigo::Exception& e)
+				{
+					throw GeometryExcep(e.what());
+				}
 			}
 
 #if INDIGO_OPENSUBDIV_SUPPORT

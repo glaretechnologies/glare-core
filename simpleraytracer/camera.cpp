@@ -73,7 +73,8 @@ unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { retu
 
 
 bool Camera::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const std::vector<Reference<Material> >& materials, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose)
+		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
+		ShouldCancelCallback* should_cancel_callback)
 {
 	return false; // camera can't be clipped
 }

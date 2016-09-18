@@ -24,6 +24,7 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "ThreadContext.h"
 #include "DisplaceMatParameter.h"
 #include "material.h"
+#include "ShouldCancelCallback.h"
 #include "../maths/Rect2.h"
 #include "../maths/mathstypes.h"
 #include "../graphics/TriBoxIntersection.h"
@@ -881,7 +882,8 @@ bool DisplacementUtils::subdivideAndDisplace(
 	std::vector<Vec2f>& uvs_in_out,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
-	bool use_shading_normals
+	bool use_shading_normals,
+	ShouldCancelCallback* should_cancel_callback
 	)
 {
 	if(PROFILE) conPrint("\n-----------subdivideAndDisplace-----------");
@@ -983,6 +985,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 		mySwap(next_verts_and_uvs, current_verts_and_uvs);
 
 		// The most recently updated information is now in current_polygons, current_verts_and_uvs
+
+		if(should_cancel_callback && should_cancel_callback->shouldCancel())
+			throw Indigo::Exception("Cancelled");
 	}
 
 	}

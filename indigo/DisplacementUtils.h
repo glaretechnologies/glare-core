@@ -170,6 +170,7 @@ public:
 	// All quads will be converted to triangles.
 	// Sets verts_in_out positions.  verts_in_out normals and H are not set.
 	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
+	// Throws Indigo::Exception if cancelled.
 	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
@@ -183,7 +184,8 @@ public:
 		std::vector<Vec2f>& uvs_in_out,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
-		bool use_shading_normals
+		bool use_shading_normals,
+		ShouldCancelCallback* should_cancel_callback
 	);
 
 
