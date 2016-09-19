@@ -11,10 +11,17 @@ Generated at 2013-01-27 17:57:00 +0000
 #include <cstring> // For std::memcpy
 
 
+BufferInStream::BufferInStream()
+:	read_index(0)
+{}
+
+
 BufferInStream::BufferInStream(const std::vector<unsigned char>& buf_)
-:	buf(buf_),
-	read_index(0)
+:	read_index(0)
 {
+	buf.resizeUninitialised(buf_.size());
+	for(size_t i=0; i<buf_.size(); ++i)
+		buf[i] = buf_[i];
 }
 
 
@@ -49,11 +56,14 @@ uint32 BufferInStream::readUInt32()
 
 void BufferInStream::readData(void* target_buf, size_t num_bytes)
 {
-	if(read_index + num_bytes > buf.size())
-		throw Indigo::Exception("Read past end of buffer.");
+	if(num_bytes > 0)
+	{
+		if(read_index + num_bytes > buf.size())
+			throw Indigo::Exception("Read past end of buffer.");
 
-	std::memcpy(target_buf, &buf[read_index], num_bytes);
-	read_index += num_bytes;
+		std::memcpy(target_buf, &buf[read_index], num_bytes);
+		read_index += num_bytes;
+	}
 }
 
 

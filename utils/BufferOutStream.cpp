@@ -53,14 +53,17 @@ void BufferOutStream::writeUInt32(uint32 x)
 
 void BufferOutStream::writeData(const void* data, size_t num_bytes)
 {
-	try
+	if(num_bytes > 0)
 	{
-		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
-		buf.resize(pos + num_bytes); // Resize buffer to make room for new data
-		std::memcpy(&buf[pos], data, num_bytes); // Copy data to buffer.
-	}
-	catch(std::bad_alloc&)
-	{
-		throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+		try
+		{
+			const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
+			buf.resize(pos + num_bytes); // Resize buffer to make room for new data
+			std::memcpy(&buf[pos], data, num_bytes); // Copy data to buffer.
+		}
+		catch(std::bad_alloc&)
+		{
+			throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+		}
 	}
 }

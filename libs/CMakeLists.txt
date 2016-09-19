@@ -108,8 +108,10 @@ ${pugixmldir}/pugiconfig.hpp
 
 FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
-FILE(GLOB xxhash "../xxHash-r39/*.c"  "../xxHash-r39/*.h")
-
+FILE(GLOB zstandard "../zstd-1.0.0/lib/*.h"  "../zstd-1.0.0/lib/common/*.c" "../zstd-1.0.0/lib/common/*.h"
+"../zstd-1.0.0/lib/compress/*.c" "../zstd-1.0.0/lib/compress/*.h"
+"../zstd-1.0.0/lib/decompress/*.c" "../zstd-1.0.0/lib/decompress/*.h"
+)
 
 #SOURCE_GROUP(fftss FILES ${fftss})
 SOURCE_GROUP(ilmbase FILES ${ilmbase})
@@ -125,7 +127,7 @@ SOURCE_GROUP(zlib\\minizip FILES ${minizip})
 SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
-SOURCE_GROUP(xxhash FILES ${xxhash})
+SOURCE_GROUP(zstandard FILES ${zstandard})
 
 include(../indigo_console/shared_cxx_settings.cmake)
 
@@ -158,7 +160,7 @@ ${minizip}
 ${pugixml}
 ${giflib}
 ${little_cms}
-${xxhash}
+${zstandard}
 )
 
 

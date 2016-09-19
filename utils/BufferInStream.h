@@ -8,6 +8,7 @@ Generated at 2013-01-27 17:57:00 +0000
 
 
 #include "InStream.h"
+#include "Vector.h"
 #include <vector>
 
 
@@ -19,6 +20,7 @@ BufferInStream
 class BufferInStream : public InStream
 {
 public:
+	BufferInStream();
 	BufferInStream(const std::vector<unsigned char>& buf);
 	virtual ~BufferInStream();
 
@@ -27,7 +29,6 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
-private:
-	std::vector<unsigned char> buf;
+	js::Vector<unsigned char, 16> buf;
 	size_t read_index;
 };
