@@ -7,8 +7,43 @@ Code By Nicholas Chapman.
 #pragma once
 
 
+#include "../graphics/colour3.h"
 #include <string>
+#include <vector>
 namespace Indigo { class Mesh; }
+
+
+// See http://www.fileformat.info/format/material/
+struct MTLTexMap
+{
+	MTLTexMap();
+
+	std::string path;
+	Vec3f origin; // -o
+	Vec3f size; // -s
+};
+
+
+struct MTLMaterial
+{
+	MTLMaterial();
+
+	std::string name;
+	Colour3f Kd; // diffuse col
+	Colour3f Ks; // specular col
+	Colour3f Tf; // transmission col
+	float Ns_exponent;
+	float Ni_ior;
+	float d_opacity;
+
+	MTLTexMap map_Kd;
+};
+
+
+struct MLTLibMaterials
+{
+	std::vector<MTLMaterial> materials;
+};
 
 
 /*=====================================================================
@@ -19,7 +54,9 @@ FormatDecoderObj
 class FormatDecoderObj
 {
 public:
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws Indigo::Exception on failure.
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out); // Throws Indigo::Exception on failure.
+
+	static void parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out);
 
 	static void test();
 };

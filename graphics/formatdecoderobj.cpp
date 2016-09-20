@@ -13,10 +13,27 @@ Code By Nicholas Chapman.
 #include "../utils/NameMap.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
+#include "../utils/FileUtils.h"
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
 #include <unordered_map>
+
+
+MTLTexMap::MTLTexMap()
+:	origin(0.f),
+	size(1.f)
+{}
+
+
+MTLMaterial::MTLMaterial()
+:	Kd(0.5f), // Set some reasonable defaults.
+	Ks(0.33333f),
+	Tf(1.0f),
+	Ns_exponent(500.f),
+	Ni_ior(1.5f),
+	d_opacity(1.f)
+{}
 
 
 struct Vert
@@ -74,7 +91,7 @@ static inline void skipWhitespace(Parser& parser)
 }
 
 
-void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale)
+void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out)
 {
 	// Timer load_timer;
 
@@ -111,7 +128,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 		parser.parseSpacesAndTabs();
 		
-		if(parser.current() == '#')
+		if(parser.current() == '#') // Skip comments
 		{
 			parser.advancePastLine();
 			continue;
@@ -119,26 +136,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 		parser.parseAlphaToken(token);
 
-		if(token == "usemtl")  //material to use for subsequent faces
-		{
-			/// Parse material name ///
-			skipWhitespace(parser);
-
-			string_view material_name;
-			parser.parseNonWSToken(material_name);
-
-			/// See if material has already been created, create it if it hasn't been ///
-			if(materials.isInserted(material_name.to_string()))
-				current_mat_index = materials.getValue(material_name.to_string());
-			else
-			{
-				//conPrint("\tFound reference to material '" + material_name + "'.");
-				current_mat_index = materials.size();
-				materials.insert(material_name.to_string(), current_mat_index);
-				handler.addMaterialUsed(toIndigoString(material_name.to_string()));
-			}
-		}
-		else if(token == "v") // vertex position
+		if(token == "v") // vertex position
 		{
 			Indigo::Vec3f pos;
 			skipWhitespace(parser);
@@ -342,12 +340,169 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 
 			// Finished handling face.
 		}
+		else if(token == "mtllib")
+		{
+			skipWhitespace(parser);
+
+			string_view mtllib_path;
+			parser.parseNonWSToken(mtllib_path);
+
+			if(parse_mtllib)
+			{
+				// If .mtl file does not exist, just skip trying to parse it instead of throwing an exception.
+				if(FileUtils::fileExists(mtllib_path.to_string()))
+					parseMTLLib(mtllib_path.to_string(), mtllib_mats_out);
+			}
+		}
+		else if(token == "usemtl")  //material to use for subsequent faces
+		{
+			/// Parse material name ///
+			skipWhitespace(parser);
+
+			string_view material_name;
+			parser.parseNonWSToken(material_name);
+
+			/// See if material has already been created, create it if it hasn't been ///
+			if(materials.isInserted(material_name.to_string()))
+				current_mat_index = materials.getValue(material_name.to_string());
+			else
+			{
+				//conPrint("\tFound reference to material '" + material_name + "'.");
+				current_mat_index = materials.size();
+				materials.insert(material_name.to_string(), current_mat_index);
+				handler.addMaterialUsed(toIndigoString(material_name.to_string()));
+			}
+		}
+
 
 		parser.advancePastLine();
 	}
 
 	handler.endOfModel();
 	// conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
+}
+
+
+static Colour3f parseCol3(Parser& parser, int& linenum)
+{
+	Colour3f col;
+	skipWhitespace(parser);
+	if(!parser.parseFloat(col.r))
+		throw Indigo::Exception("Parse error while reading colour on line " + toString(linenum));
+	skipWhitespace(parser);
+	if(!parser.parseFloat(col.g))
+		throw Indigo::Exception("Parse error while reading colouur on line " + toString(linenum));
+	skipWhitespace(parser);
+	if(!parser.parseFloat(col.b))
+		throw Indigo::Exception("Parse error while reading colour on line " + toString(linenum));
+	return col;
+}
+
+
+void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out)
+{
+	mtllib_mats_out.materials.resize(0);
+
+	MemMappedFile file(filename);
+	
+	Parser parser((const char*)file.fileData(), (unsigned int)file.fileSize());
+
+	int linenum = 0;
+	string_view token;
+	while(!parser.eof())
+	{
+		linenum++;
+
+		parser.parseSpacesAndTabs();
+		
+		if(parser.current() == '#') // Skip comments
+		{
+			parser.advancePastLine();
+			continue;
+		}
+
+		if(parser.parseIdentifier(token))
+		{
+			// conPrint(token.to_string());
+
+			if(token == "newmtl") // new material definition
+			{
+				skipWhitespace(parser);
+
+				string_view material_name;
+				parser.parseNonWSToken(material_name);
+
+				mtllib_mats_out.materials.push_back(MTLMaterial());
+				mtllib_mats_out.materials.back().name = material_name.to_string();
+			}
+			else if(token == "Kd")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				mtllib_mats_out.materials.back().Kd = parseCol3(parser, linenum);
+			}
+			else if(token == "Ks")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				mtllib_mats_out.materials.back().Ks = parseCol3(parser, linenum);
+			}
+			else if(token == "Tf")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				mtllib_mats_out.materials.back().Tf = parseCol3(parser, linenum);
+			}
+			else if(token == "Ns")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				skipWhitespace(parser);
+				if(!parser.parseFloat(mtllib_mats_out.materials.back().Ns_exponent))
+					throw Indigo::Exception("Parse error while reading Ns on line " + toString(linenum));
+			}
+			else if(token == "Ni")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				skipWhitespace(parser);
+				if(!parser.parseFloat(mtllib_mats_out.materials.back().Ni_ior))
+					throw Indigo::Exception("Parse error while reading Ni on line " + toString(linenum));
+			}
+			else if(token == "d")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				skipWhitespace(parser);
+				if(!parser.parseFloat(mtllib_mats_out.materials.back().d_opacity))
+					throw Indigo::Exception("Parse error while reading d on line " + toString(linenum));
+			}
+			else if(token == "map_Kd")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				skipWhitespace(parser);
+
+				std::string texpath;
+				while(!parser.eof() && !isWhitespace(parser.current()))
+				{
+					texpath += parser.current();
+					parser.advance();
+				}
+
+				mtllib_mats_out.materials.back().map_Kd.path = texpath;
+			}
+		}
+
+		parser.advancePastLine();
+	}
 }
 
 
@@ -362,11 +517,13 @@ void FormatDecoderObj::test()
 {
 	conPrint("FormatDecoderObj::test()");
 
+	MLTLibMaterials mats;
+
 	try
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj";
 		Indigo::Mesh mesh;
-		streamModel(path, mesh, 1.0);
+		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
 
 		testAssert(mesh.vert_positions.size() == 4);
 		testAssert(mesh.uv_pairs.size() == 2);
@@ -385,11 +542,11 @@ void FormatDecoderObj::test()
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
 		Indigo::Mesh sphere_mesh_ref;
-		streamModel(path, sphere_mesh_ref, 1.0);
+		streamModel(path, sphere_mesh_ref, 1.0, /*parse mtllib=*/false, mats);
 
 		const std::string path2 = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere_with_backslashes.obj";
 		Indigo::Mesh sphere_mesh_2;
-		streamModel(path2, sphere_mesh_2, 1.0);
+		streamModel(path2, sphere_mesh_2, 1.0, /*parse mtllib=*/false, mats);
 
 		testAssert(sphere_mesh_ref.checksum() == sphere_mesh_2.checksum());
 	}
@@ -402,12 +559,121 @@ void FormatDecoderObj::test()
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj";
 		Indigo::Mesh mesh;
-		streamModel(path, mesh, 1.0);
+		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
 	}
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
 	}
+
+	//=================================== Test parsing of .mtl files =====================================
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/eames_elephant.mtl", mats);
+		
+		testAssert(mats.materials.size() == 2);
+
+		testAssert(mats.materials[0].name == "Plastic_red");
+		testAssert(mats.materials[0].Kd == Colour3f(0.874510f, 0.000000f, 0.000000f));
+		testAssert(mats.materials[0].Ks == Colour3f(0.330000f, 0.330000f, 0.330000f));
+		testAssert(mats.materials[0].Tf == Colour3f(1,1,1));
+		testAssert(mats.materials[0].d_opacity == 1.f);
+		testAssert(mats.materials[0].Ni_ior == 1.5f);
+
+		testAssert(mats.materials[1].name == "chrome_shiny");
+		testAssert(mats.materials[1].Kd == Colour3f(0.109804f, 0.109804f, 0.109804f));
+		testAssert(mats.materials[1].Ks == Colour3f(0.330000f, 0.330000f, 0.330000f));
+		testAssert(mats.materials[1].Tf == Colour3f(1,1,1));
+		testAssert(mats.materials[1].d_opacity == 1.f);
+		testAssert(mats.materials[1].Ni_ior == 1.5f);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/elephant.mtl", mats);
+		
+		testAssert(mats.materials.size() == 4);
+
+		testAssert(mats.materials[0].name == "ElphSkin");
+		testAssert(mats.materials[0].Kd == Colour3f(0.0000f, 0.0000f, 0.0000f));
+		testAssert(mats.materials[0].Ks == Colour3f(0.3700f, 0.3700, 0.3700f));
+		testAssert(mats.materials[0].Tf == Colour3f(1,1,1));
+		testAssert(mats.materials[0].Ns_exponent == 48.0000f);
+		testAssert(mats.materials[0].Ni_ior == 1.5f);
+		testAssert(mats.materials[0].d_opacity == 1.f);
+		testAssert(mats.materials[0].map_Kd.path == "maps\\ElphSkin.jpg");
+
+		testAssert(mats.materials[1].name == "Ele_Tuskh");
+		testAssert(mats.materials[1].Kd == Colour3f(0.9608f, 0.9294f, 0.8431f));
+		testAssert(mats.materials[1].Ks == Colour3f(0.3900f, 0.3900f, 0.3900f));
+		testAssert(mats.materials[1].Tf == Colour3f(1,1,1));
+		testAssert(mats.materials[1].Ns_exponent == 40.0000f);
+		testAssert(mats.materials[1].Ni_ior == 1.5f);
+		testAssert(mats.materials[1].d_opacity == 1.f);
+		testAssert(mats.materials[1].map_Kd.path == "maps\\EleTusk.jpg");
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+	
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/EU22y.mtl", mats);
+		
+		testAssert(mats.materials.size() == 3);
+		testAssert(mats.materials[0].name == "Bark");
+		testAssert(mats.materials[1].name == "Branch");
+		testAssert(mats.materials[2].name == "Needle");
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+	
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/Infinite-Level_02.mtl", mats);
+		
+		testAssert(mats.materials.size() == 1);
+		testAssert(mats.materials[0].name == "defaultMat");
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test invalid path
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/NOT_A_FILE", mats);
+		failTest("Shouldn't get here.");
+	}
+	catch(Indigo::Exception&)
+	{
+	}
+
+	// Test empty file
+	try
+	{
+		MLTLibMaterials mats;
+		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", mats);
+		testAssert(mats.materials.size() == 0);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
 }
 
 
