@@ -40,6 +40,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 {
 	conPrint("\nOpenCLTests::runTestsOnDevice(), device: " + opencl_device.description());
 
+	std::string build_log;
 	try
 	{
 		OpenCL* opencl = getGlobalOpenCL();
@@ -47,7 +48,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 		// Initialise OpenCL context and command queue for this device
 		OpenCLContextRef context = new OpenCLContext(opencl_device.opencl_platform_id);
-		OpenCLCommandQueueRef command_queue = new OpenCLCommandQueue(context, opencl_device.opencl_device_id);
+		OpenCLCommandQueueRef command_queue = new OpenCLCommandQueue(context, opencl_device.opencl_device_id, /*enable profiling=*/false);
 
 
 		// Read test kernel from disk
@@ -59,8 +60,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
-		std::vector<OpenCLDevice> devices(1, opencl_device);
-		std::string build_log;
+		std::vector<OpenCLDevice> devices(1, opencl_device);		
 		OpenCLProgramRef program = opencl->buildProgram(
 			contents,
 			context->getContext(),
@@ -74,7 +74,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 		conPrint("Build log:\n" + opencl->getBuildLog(program->getProgram(), opencl_device.opencl_device_id)); 
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program->getProgram(), "testKernel", opencl_device.opencl_device_id, /*profile=*/true);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program->getProgram(), "testKernel", opencl_device.opencl_device_id, /*profile=*/false);
 
 
 		//============== Test-specific buffers ====================
@@ -118,12 +118,13 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 
 
 
-		OpenCLBuffer result_buffer(context->getContext(), sizeof(int32), CL_MEM_READ_WRITE);
+		OpenCLBuffer result_buffer(context->getContext(), sizeof(int32) * 1000000, CL_MEM_READ_WRITE);
 
 		// Launch the kernel:
-		testKernel->setNextKernelArg(result_buffer.getDevicePtr());
-		testKernel->setNextKernelArg(cl_texture_desc.getDevicePtr());
-		testKernel->setNextKernelArg(cl_texture_data.getDevicePtr());
+		for(int i=0; i<1; ++i)
+			testKernel->setNextKernelArg(result_buffer.getDevicePtr());
+		//testKernel->setNextKernelArg(cl_texture_desc.getDevicePtr());
+		//testKernel->setNextKernelArg(cl_texture_data.getDevicePtr());
 
 		// Run the kernel a few times
 		const int N = 5;
@@ -160,7 +161,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 	}
 	catch(Indigo::Exception& e)
 	{
-		failTest(e.what());
+		failTest(e.what() + " build_log: " + build_log);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
@@ -169,6 +170,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDevice& opencl_device)
 }
 
 
+#if 0
 static void miscompilationTest()
 {
 	conPrint("miscompilationTest()");
@@ -289,6 +291,7 @@ static void miscompilationTest()
 		failTest(e.what());
 	}
 }
+#endif
 
 
 void OpenCLTests::test()
@@ -297,7 +300,7 @@ void OpenCLTests::test()
 
 	//miscompilationTest();
 	
-	/*try
+	try
 	{
 		OpenCL* opencl = getGlobalOpenCL();
 
@@ -305,10 +308,10 @@ void OpenCLTests::test()
 
 		opencl->queryDevices();
 
-		for(size_t i=0; i<opencl->getDeviceInfo().size(); ++i)
+		for(size_t i=0; i<opencl->getOpenCLDevices().size(); ++i)
 		{
-			const gpuDeviceInfo& device_info = opencl->getDeviceInfo()[i];
-			// if(device_info.CPU) // If this is a CPU device:
+			const OpenCLDevice& device_info = opencl->getOpenCLDevices()[i];
+			if(device_info.opencl_device_type != CL_DEVICE_TYPE_CPU)
 			{
 				runTestsOnDevice(device_info);
 			}
@@ -317,7 +320,7 @@ void OpenCLTests::test()
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
-	}*/
+	}
 }
 
 
