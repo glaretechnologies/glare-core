@@ -13,12 +13,9 @@ Generated at 2013-01-28 15:26:30 +0000
 
 
 FileInStream::FileInStream(const std::string& path)
-{
-	file.open(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ios::binary);
-
-	if(file.fail())
-		throw Indigo::Exception("Failed to open file '" + path + "' for reading.");
-}
+:	file(path),
+	read_index(0)
+{}
 
 
 FileInStream::~FileInStream()
@@ -28,57 +25,42 @@ FileInStream::~FileInStream()
 
 int32 FileInStream::readInt32()
 {
+	if(read_index + sizeof(int32) > file.fileSize())
+		throw Indigo::Exception("Read past end of file.");
+
 	int32 x;
-	file.read((char*)&x, sizeof(int32));
-
-	if(file.fail())
-		throw Indigo::Exception("Read from file failed.");
-
+	std::memcpy(&x, (const uint8*)file.fileData() + read_index, sizeof(x));
+	read_index += sizeof(x);
 	return x;
 }
 
 
 uint32 FileInStream::readUInt32()
 {
+	if(read_index + sizeof(uint32) > file.fileSize())
+		throw Indigo::Exception("Read past end of file.");
+
 	uint32 x;
-	file.read((char*)&x, sizeof(uint32));
-
-	if(file.fail())
-		throw Indigo::Exception("Read from file failed.");
-
+	std::memcpy(&x, (const uint8*)file.fileData() + read_index, sizeof(x));
+	read_index += sizeof(x);
 	return x;
 }
 
 
 void FileInStream::readData(void* buf, size_t num_bytes)
 {
-	// There's a bug on OS X that causes reads to fail when num_bytes >= 2^31 or so.
-	// Work around it by breaking the read into chunks.
-#ifdef OSX
-	char* tempbuf = (char*)buf;
-
-	while(num_bytes > 0)
+	if(num_bytes > 0)
 	{
-		const size_t num_to_read = myMin((size_t)1000000000u, num_bytes);
-		
-		file.read((char*)tempbuf, num_to_read); // Read chunk
+		if(read_index + num_bytes > file.fileSize())
+			throw Indigo::Exception("Read past end of file.");
 
-		if(file.fail())
-			throw Indigo::Exception("Read from file failed.");
-
-		tempbuf += num_to_read;
-		num_bytes -= num_to_read;
+		std::memcpy(buf, (const uint8*)file.fileData() + read_index, num_bytes);
+		read_index += num_bytes;
 	}
-#else
-	file.read((char*)buf, num_bytes);
-
-	if(file.fail())
-		throw Indigo::Exception("Read from file failed.");
-#endif
 }
 
 
 bool FileInStream::endOfStream()
 {
-	 return file.eof();
+	return read_index >= file.fileSize();
 }
