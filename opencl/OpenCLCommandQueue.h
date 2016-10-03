@@ -28,7 +28,7 @@ A command queue for a device.
 class OpenCLCommandQueue : public ThreadSafeRefCounted
 {
 public:
-	OpenCLCommandQueue(OpenCLContextRef context, cl_device_id device_id);
+	OpenCLCommandQueue(OpenCLContextRef context, cl_device_id device_id, bool enable_profiling);
 	~OpenCLCommandQueue();
 
 

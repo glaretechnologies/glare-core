@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-OpenCLCommandQueue::OpenCLCommandQueue(OpenCLContextRef context_, cl_device_id device_id_)
+OpenCLCommandQueue::OpenCLCommandQueue(OpenCLContextRef context_, cl_device_id device_id_, bool enable_profiling)
 :	context(context_), device_id(device_id_)
 {
 	// Create command queue
@@ -18,7 +18,7 @@ OpenCLCommandQueue::OpenCLCommandQueue(OpenCLContextRef context_, cl_device_id d
 	this->command_queue = ::getGlobalOpenCL()->clCreateCommandQueue(
 		context->getContext(),
 		device_id,
-		0, // CL_QUEUE_PROFILING_ENABLE, // queue properties
+		enable_profiling ? CL_QUEUE_PROFILING_ENABLE : 0, // queue properties
 		&error_code);
 
 	if(command_queue == 0)
