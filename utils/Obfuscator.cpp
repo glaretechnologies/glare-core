@@ -444,7 +444,7 @@ const std::string Obfuscator::tokenHashString(const std::string& t)
 		3835675695284957659ULL // seed - just a somewhat random value.
 	);
 
-	//const std::string new_token = t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
+	// return t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
 	
 	std::string new_token;
 	new_token.resize(33);
@@ -1056,7 +1056,7 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalSpecularAlbedo_float__float__float_",
 
 		"sampleVisMicrofacetNormal_float__vec4__vec4__vec2__float_",
-		"getNAndKForWavelength_int__float_"
+		"getNAndKForWavelength_int__float_",
 
 		"evalBasicScalarMatParameter_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__SpectralVector__BasicMaterialData__int_",
