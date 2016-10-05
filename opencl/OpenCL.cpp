@@ -497,9 +497,9 @@ void OpenCL::queryDevices()
 }
 
 
-std::vector<::OpenCLDevice> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
+std::vector< ::OpenCLDevice> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
 {
-	std::vector<::OpenCLDevice> core_selected_devices;
+	std::vector< ::OpenCLDevice> core_selected_devices;
 
 	// For every selected device i.
 	for(size_t i = 0; i < selected_devices.size(); ++i)

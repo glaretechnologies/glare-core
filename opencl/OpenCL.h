@@ -165,7 +165,7 @@ public:
 
 	void dumpProgramBinaryToDisk(cl_program program);
 
-	std::vector<::OpenCLDevice> getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
+	std::vector< ::OpenCLDevice > getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
