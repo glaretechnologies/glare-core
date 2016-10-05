@@ -377,6 +377,31 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 	try
 	{
+		// Perf test
+		if(true)
+		{
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
+				testAssert(im->getMapWidth() == 5400 && im->getMapHeight() == 2700);
+				conPrint("Elapsed time for 'world.200401.3x5400x2700.jpg': " + timer.elapsedStringNSigFigs(5));
+			}
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
+				testAssert(im->getMapWidth() == 512 && im->getMapHeight() == 512);
+				conPrint("Elapsed time for 'brickwork_normal-map.jpg':   " + timer.elapsedStringNSigFigs(5));
+			}
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/preview_squaretile.jpg");
+				testAssert(im->getMapWidth() == 400 && im->getMapHeight() == 400);
+				conPrint("Elapsed time for 'preview_squaretile.jpg':     " + timer.elapsedStringNSigFigs(5));
+			}
+		}
+
+
+
 		const std::string tempdir = PlatformUtils::getTempDirPath() + "/jpeg_temp_testing_dir";
 		if(FileUtils::fileExists(tempdir))
 			FileUtils::deleteDirectoryRecursive(tempdir);

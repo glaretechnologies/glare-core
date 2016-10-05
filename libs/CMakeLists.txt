@@ -41,14 +41,6 @@ FILE(GLOB openexr "${openexrdir}/IlmImf/*.cpp")
 # FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 
 
-FILE(GLOB libjpg "${jpegdir}/ja*.c" "${jpegdir}/jc*.c" "${jpegdir}/jd*.c" "${jpegdir}/jf*.c" "${jpegdir}/ji*.c" "${jpegdir}/jq*.c"
-"${jpegdir}/jutils.c"
-"${jpegdir}/jmemmgr.c"
-"${jpegdir}/jmemnobs.c"
-"${jpegdir}/jerror.c"
-)
-
-
 if(WIN32 OR APPLE)
 	set(libpng
 	${pngdir}/png.c ${pngdir}/pngerror.c ${pngdir}/pngget.c ${pngdir}/pngmem.c ${pngdir}/pngpread.c ${pngdir}/pngread.c ${pngdir}/pngrio.c ${pngdir}/pngrtran.c
@@ -118,7 +110,6 @@ SOURCE_GROUP(ilmbase FILES ${ilmbase})
 SOURCE_GROUP(ilmthread FILES ${ilmthread})
 SOURCE_GROUP(openexr FILES ${openexr})
 #SOURCE_GROUP(lib3ds FILES ${lib3ds})
-SOURCE_GROUP(libjpg FILES ${libjpg})
 SOURCE_GROUP(libpng FILES ${libpng})
 SOURCE_GROUP(libtiff FILES ${libtiff})
 #SOURCE_GROUP(lua FILES ${lua})
