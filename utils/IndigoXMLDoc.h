@@ -39,7 +39,7 @@ public:
 
 	~IndigoXMLDoc();
 
-
+	pugi::xml_document& getDocument() { return doc; }
 	pugi::xml_node getRootElement();  // throws IndigoXMLDocExcep if no such root element
 	pugi::xml_node getRootElement(const std::string& name);  // throws IndigoXMLDocExcep if no such root element
 
