@@ -56,7 +56,7 @@ void test(const std::string& indigo_base_dir)
 {
 	//--------------------- Do perf tests ----------------------------
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/green velvet test_meshes/mesh_1401557802_33447.igmesh"); // ~32 KB mesh
+	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
