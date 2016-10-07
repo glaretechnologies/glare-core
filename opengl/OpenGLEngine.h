@@ -197,7 +197,7 @@ public:
 
 	// Built OpenGLMeshRenderData from an Indigo::Mesh.
 	// Throws Indigo::Exception on failure
-	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_);
+	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
 
 	float getPixelDepth(int pixel_x, int pixel_y);

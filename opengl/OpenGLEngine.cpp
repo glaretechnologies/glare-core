@@ -27,8 +27,8 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/BitUtils.h"
 #include "../utils/Vector.h"
+#include "../utils/HashMapInsertOnly2.h"
 #include <half.h> // From OpenEXR
-#include <unordered_map>
 #include <algorithm>
 
 
@@ -1153,13 +1153,53 @@ struct UniqueVertKey
 	{
 		return pos_i == b.pos_i && uv == b.uv; // uv_i == b.uv_i;
 	}
+	inline bool operator != (const UniqueVertKey& b) const
+	{
+		return pos_i != b.pos_i || uv != b.uv;
+	}
 };
 
+
+// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
+static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+	
+	if(sizeof(size_t) == 8)
+	{
+		const size_t _FNV_offset_basis = 14695981039346656037ULL;
+		const size_t _FNV_prime = 1099511628211ULL;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		_Val ^= _Val >> 32;
+		return _Val;
+	}
+	else
+	{
+		const size_t _FNV_offset_basis = 2166136261U;
+		const size_t _FNV_prime = 16777619U;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		return _Val;
+	}
+}
 
 // Hash function for UniqueVert
 struct UniqueVertKeyHash
 {
-	inline size_t operator()(const UniqueVertKey& v) const { return (size_t)v.pos_i; }
+	inline size_t operator()(const UniqueVertKey& v) const { return use_Hash_seq((const unsigned char*)&v, sizeof(unsigned int)); }  //return (size_t)v.pos_i; }
 };
 
 
@@ -1172,7 +1212,8 @@ struct UniqueVertKeyHash
 //};
 
 
-Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_)
+
+Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
 	Timer timer;
 
@@ -1185,7 +1226,10 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	js::AABBox aabb_os = js::AABBox::emptyAABBox();
 
-	std::unordered_map<UniqueVertKey, uint32, UniqueVertKeyHash> index_for_vert;
+	UniqueVertKey empty_key;
+	empty_key.pos_i = std::numeric_limits<unsigned int>::max();
+	empty_key.uv = Vec2f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity());
+	HashMapInsertOnly2<UniqueVertKey, uint32, UniqueVertKeyHash> index_for_vert(empty_key, mesh->vert_normals.size());
 
 	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
 	// If the magnitude is too high we can get articacts if we just use half precision.
@@ -1269,7 +1313,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				//key.n = mesh_has_shading_normals ? Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z) : Vec3f(0.f);
 				//key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f);
 
-				std::unordered_map<UniqueVertKey, uint32, UniqueVertKeyHash>::iterator res = index_for_vert.find(key); // Have we created this unique vert yet?
+				auto res = index_for_vert.find(key); // Have we created this unique vert yet?
 				uint32 merged_v_index;
 				if(res == index_for_vert.end()) // Not created yet:
 				{
@@ -1377,7 +1421,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				//key.n = mesh_has_shading_normals ? Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z) : Vec3f(0.f);
 				//key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f);
 
-				std::unordered_map<UniqueVertKey, uint32, UniqueVertKeyHash>::iterator res = index_for_vert.find(key); // Have we created this unique vert yet?
+				auto res = index_for_vert.find(key); // Have we created this unique vert yet?
 				uint32 merged_v_index;
 				if(res == index_for_vert.end()) // Not created yet:
 				{
@@ -1444,7 +1488,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
 
-
+	if(skip_opengl_calls)
+		return opengl_render_data;
 
 	opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
 
