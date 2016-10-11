@@ -153,6 +153,7 @@ public:
 	
 	static const std::string errorString(cl_int result);
 
+	// Build an OpenCL program from source, for a set of devices on a particular platform.
 	OpenCLProgramRef buildProgram(
 		const std::string& program_source,
 		cl_context opencl_context,

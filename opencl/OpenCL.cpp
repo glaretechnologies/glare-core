@@ -654,13 +654,13 @@ OpenCLProgramRef OpenCL::buildProgram(
 	assert(strings.size() == lengths.size());
 
 	cl_int result;
-	cl_program program = this->clCreateProgramWithSource(
+	OpenCLProgramRef program = new OpenCLProgram(this->clCreateProgramWithSource(
 		opencl_context,
 		(cl_uint)strings.size(), // count
 		strings.data(),
 		lengths.data(),
 		&result
-	);
+	));
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clCreateProgramWithSource failed: " + errorString(result));
 
@@ -671,7 +671,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 		device_ids[i] = use_devices[i].opencl_device_id;
 
 	result = this->clBuildProgram(
-		program,
+		program->getProgram(),
 		(cl_uint)device_ids.size(), // num devices
 		device_ids.data(), // device ids
 		compile_options.c_str(), // options
@@ -686,7 +686,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 		{
 			build_log_out = "";
 			for(size_t i=0; i<device_ids.size(); ++i)
-				build_log_out += getBuildLog(program, device_ids[i]);
+				build_log_out += getBuildLog(program->getProgram(), device_ids[i]);
 		}
 		catch(Indigo::Exception& e)
 		{
@@ -711,7 +711,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 	//if(build_status != CL_BUILD_SUCCESS) // This will happen on compilation error.
 	//	throw Indigo::Exception("Kernel build failed.");
 
-	return new OpenCLProgram(program);
+	return program;
 }
 
 
