@@ -65,6 +65,7 @@ typedef cl_mem (CL_API_CALL *clCreateImage2D_TYPE) (cl_context context, cl_mem_f
 typedef cl_int (CL_API_CALL *clReleaseMemObject_TYPE) (cl_mem memobj);
 typedef cl_int (CL_API_CALL *clRetainEvent_TYPE) (cl_event event);
 typedef cl_program (CL_API_CALL *clCreateProgramWithSource_TYPE) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
+typedef cl_program (CL_API_CALL *clCreateProgramWithBinary_TYPE) (cl_context context, cl_uint num_devices, const cl_device_id * device_list, const size_t* lengths, const unsigned char**, cl_int* binary_status, cl_int* errcode_ret);
 typedef cl_int (CL_API_CALL *clBuildProgram_TYPE) (cl_program program, cl_uint num_devices, const cl_device_id *device_list, const char *options, void (*pfn_notify)(cl_program, void *user_data), void *user_data);
 typedef cl_int (CL_API_CALL *clGetProgramBuildInfo_TYPE) (cl_program program, cl_device_id device, cl_program_build_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_kernel (CL_API_CALL *clCreateKernel_TYPE) (cl_program program, const char *kernel_name, cl_int *errcode_ret);
@@ -182,6 +183,7 @@ public:
 	clReleaseMemObject_TYPE clReleaseMemObject;
 	clRetainEvent_TYPE clRetainEvent;
 	clCreateProgramWithSource_TYPE clCreateProgramWithSource;
+	clCreateProgramWithBinary_TYPE clCreateProgramWithBinary;
 	clBuildProgram_TYPE clBuildProgram;
 	clGetProgramBuildInfo_TYPE clGetProgramBuildInfo;
 	clCreateKernel_TYPE clCreateKernel;

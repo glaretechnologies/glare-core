@@ -126,6 +126,7 @@ void OpenCL::libraryInit()
 			clReleaseMemObject = opencl_lib.getFuncPointer<clReleaseMemObject_TYPE>("clReleaseMemObject");
 			clRetainEvent = opencl_lib.getFuncPointer<clRetainEvent_TYPE>("clRetainEvent");
 			clCreateProgramWithSource = opencl_lib.getFuncPointer<clCreateProgramWithSource_TYPE>("clCreateProgramWithSource");
+			clCreateProgramWithBinary = opencl_lib.getFuncPointer<clCreateProgramWithBinary_TYPE>("clCreateProgramWithBinary");
 			clBuildProgram = opencl_lib.getFuncPointer<clBuildProgram_TYPE>("clBuildProgram");
 			clGetProgramBuildInfo = opencl_lib.getFuncPointer<clGetProgramBuildInfo_TYPE>("clGetProgramBuildInfo");
 			clCreateKernel = opencl_lib.getFuncPointer<clCreateKernel_TYPE>("clCreateKernel");
@@ -187,6 +188,7 @@ void OpenCL::libraryInit()
 	this->clReleaseMemObject = ::clReleaseMemObject;
 	this->clRetainEvent = ::clRetainEvent;
 	this->clCreateProgramWithSource = ::clCreateProgramWithSource;
+	this->clCreateProgramWithBinary = ::clCreateProgramWithBinary;
 	this->clBuildProgram = ::clBuildProgram;
 	this->clGetProgramBuildInfo = ::clGetProgramBuildInfo;
 	this->clCreateKernel = ::clCreateKernel;
