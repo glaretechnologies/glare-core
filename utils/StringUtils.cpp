@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2014 -
 
 
 #include "IncludeWindows.h"
+#include "BitUtils.h"
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"
 #include <cmath>
@@ -189,43 +190,6 @@ uint64 hexStringTo64UInt(const std::string& s)
 }
 
 
-/*const std::string toHexString(unsigned int i)
-{
-
-	//------------------------------------------------------------------------
-	//build the hex string in reverse order
-	//------------------------------------------------------------------------
-	std::string reverse_s;
-	unsigned int nibble;
-
-	while(i != 0)
-	{
-		nibble = i & 0x0000000F;//get last 4 bits
-		if(nibble <= 9)
-			concatWithChar(reverse_s, '0' + nibble - 0);
-		else
-			concatWithChar(reverse_s, 'a' + nibble - 10);
-
-		i >>= 4;//shift right 4 bits
-	}
-
-	if(reverse_s.empty())
-	{
-		//hex constants must have at least one digit :)
-		return "0x0";
-	}
-	else
-	{
-		std::string s;
-		s.resize(reverse_s.size());
-		for(unsigned int z=0; z<s.size(); ++z)
-			s[z] = reverse_s[reverse_s.size() - z - 1];
-
-		return "0x" + s;
-	}
-}*/
-
-
 const char intToHexChar(int i)
 {
 	if(i < 0)
@@ -239,42 +203,30 @@ const char intToHexChar(int i)
 }
 
 
-//for 64 bit integers
-//NOTE: this function is unchanged from the 32 bit version... so turn into template?
-//or could cast 32 bit ints into 64 bit ints and always use this version.
-const std::string toHexString(uint64 i)
+static const char hextable[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+// Returns a string like "F4B350".  The returned string will not have leading zeros.
+const std::string toHexString(uint64 x)
 {
-	//------------------------------------------------------------------------
-	//build the hex string in reverse order
-	//------------------------------------------------------------------------
-	std::string reverse_s;
+	char buf[16];
 
-	while(i != 0)
-	{
-		const unsigned long long nibble = i & 0x000000000000000F; // Get last 4 bits
-
-		if(nibble <= 9)
-			concatWithChar(reverse_s, '0' + (char)nibble - 0);
-		else
-			concatWithChar(reverse_s, 'A' + (char)nibble - 10);
-
-		i >>= 4; // Shift right 4 bits
-	}
-
-	if(reverse_s.empty())
-	{
-		// Hex constants must have at least one digit :)
-		return "0";
-	}
+	int leftmost_nonzero_digit_i;
+	if(x == 0)
+		leftmost_nonzero_digit_i = 15;
 	else
 	{
-		std::string s;
-		s.resize(reverse_s.size());
-		for(unsigned int z=0; z<s.size(); ++z)
-			s[z] = reverse_s[reverse_s.size() - z - 1];
-
-		return s;
+		const int bitindex = BitUtils::highestSetBitIndex(x);
+		const int nibble_index = bitindex >> 2;
+		leftmost_nonzero_digit_i = 15 - nibble_index;
 	}
+	assert(leftmost_nonzero_digit_i >= 0 && leftmost_nonzero_digit_i < 16);
+
+	for(int i=leftmost_nonzero_digit_i; i<16; ++i)
+	{
+		const uint64 nibble = (x >> (60 - (i*4))) & 0xFull; // Get 4 bits at offset i*4 from left.
+		buf[i] = hextable[nibble];
+	}
+	return std::string(buf + leftmost_nonzero_digit_i, buf + 16);
 }
 
 
@@ -2214,13 +2166,47 @@ void StringUtils::test()
 	testAssert(getSuffixAfterDelim("__de", '_') == "_de");
 	testAssert(getSuffixAfterDelim("abc_", '_') == "");
 
-	testAssert(::toHexString(0x34bc8106) == "34BC8106");
 	testAssert(::toHexString(0x0) == "0");
 	testAssert(::toHexString(0x00000) == "0");
 	testAssert(::toHexString(0x1) == "1");
 	testAssert(::toHexString(0x00000001) == "1");
-	testAssert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
+	testAssert(::toHexString(0x2) == "2");
+	testAssert(::toHexString(0x3) == "3");
+	testAssert(::toHexString(0x4) == "4");
+	testAssert(::toHexString(0x8) == "8");
+	testAssert(::toHexString(0xF) == "F");
+	testAssert(::toHexString(0x10) == "10");
+	testAssert(::toHexString(0x11) == "11");
 	testAssert(::toHexString(0xA4) == "A4");
+	testAssert(::toHexString(0xFF) == "FF");
+	testAssert(::toHexString(0x34bc8106) == "34BC8106");
+	testAssert(::toHexString(0xA4) == "A4");
+	testAssert(::toHexString(0xFF) == "FF");
+	testAssert(::toHexString(0xFFFFFFFF) == "FFFFFFFF");
+	testAssert(::toHexString(0xFFFFFFFFFFFFFFFFull) == "FFFFFFFFFFFFFFFF");
+	testAssert(::toHexString(0xFF00000000000000ull) == "FF00000000000000");
+	testAssert(::toHexString(0x123456789ABCDEF0ull) == "123456789ABCDEF0");
+	testAssert(::toHexString(0xFFFFFFFFFFFFFFFull) == "FFFFFFFFFFFFFFF");
+
+	//=========================== toHexString perf tests ========================
+	if(false)
+	{
+		{
+			const int N = 100000;
+			Timer timer;
+			int sum = 0;
+			for(int i=0; i<N; ++i)
+			{
+				const std::string s = toHexString((uint64)i);
+				sum += (int)s[0];
+			}
+
+			double elapsed = timer.elapsed();
+			printVar(sum);
+			conPrint("toHexString() time: " + toString(1.0e9 * elapsed / N) + " ns");
+		}
+	}
+
 
 	testAssert(::hexStringToUInt32("34bc8106") == 0x34bc8106);
 	testAssert(::hexStringToUInt32("0005F") == 0x0005F);

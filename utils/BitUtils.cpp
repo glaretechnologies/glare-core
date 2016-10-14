@@ -1,25 +1,10 @@
 /*=====================================================================
 BitUtils.cpp
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2013-05-27 18:54:17 +0100
 =====================================================================*/
 #include "BitUtils.h"
-
-
-
-
-namespace BitUtils
-{
-
-
-
-
-
-
-
-
-} // end namespace BitUtils
 
 
 #if BUILD_TESTS
@@ -76,6 +61,19 @@ void test()
 	testAssert(lowestZeroBitIndex(0x80000000u) == 0); // Most significant bit set only.
 	testAssert(lowestZeroBitIndex(0x7FFFFFFFu) == 31); // Only most significant bit set set to zero.
 	testAssert(lowestZeroBitIndex(0xFFFFFFFFu) == 0); // All bits set
+
+	//===================================== HighestSetBitIndex =====================================
+	testAssert(highestSetBitIndex(1) == 0); // 1
+	testAssert(highestSetBitIndex(2) == 1); // 10
+	testAssert(highestSetBitIndex(3) == 1); // 11
+	testAssert(highestSetBitIndex(4) == 2); // 100
+	testAssert(highestSetBitIndex(5) == 2); // 101
+	testAssert(highestSetBitIndex(6) == 2); // 110
+	testAssert(highestSetBitIndex(7) == 2); // 111
+	testAssert(highestSetBitIndex(8) == 3); // 1000
+
+	testAssert(highestSetBitIndex(0xFFFFFFFFull) == 31);
+	testAssert(highestSetBitIndex(0xFFFFFFFFFFFFFFFFull) == 63); // All bits set
 
 	// Do a performance test of lowestSetBitIndex():
 	// On Nick's Ivy Bridge i7:

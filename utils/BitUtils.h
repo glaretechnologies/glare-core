@@ -1,7 +1,7 @@
 /*=====================================================================
 BitUtils.h
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2013-05-27 18:54:17 +0100
 =====================================================================*/
 #pragma once
@@ -9,6 +9,7 @@ Generated at 2013-05-27 18:54:17 +0100
 
 #include "Platform.h"
 #include <cstring>
+#include <assert.h>
 #ifdef _WIN32
 #include <intrin.h>
 #endif
@@ -41,6 +42,8 @@ namespace BitUtils
 	inline uint32 lowestZeroBitIndex(uint32 x);
 
 
+	inline uint32 highestSetBitIndex(uint64 x);
+
 	void test();
 
 
@@ -69,6 +72,21 @@ namespace BitUtils
 	uint32 lowestZeroBitIndex(uint32 x)
 	{
 		return lowestSetBitIndex(~x); // Negate bits of x.
+	}
+
+
+	// Undefined if x == 0.  Index is from right (least significant bit)
+	inline uint32 highestSetBitIndex(uint64 x)
+	{
+		assert(x != 0);
+#ifdef _WIN32
+		// _BitScanReverse64: Search the mask data from most significant bit (MSB) to least significant bit (LSB) for a set bit (1).
+		unsigned long pos;
+		_BitScanReverse64(&pos, x);
+		return pos;
+#else
+		return __builtin_clz(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
+#endif
 	}
 
 
