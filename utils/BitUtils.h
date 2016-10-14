@@ -85,7 +85,7 @@ namespace BitUtils
 		_BitScanReverse64(&pos, x);
 		return pos;
 #else
-		return __builtin_clz(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
+		return 63 - __builtin_clzl(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
 #endif
 	}
 
