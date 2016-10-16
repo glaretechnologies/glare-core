@@ -511,22 +511,6 @@ const std::string uInt32ToString(uint32 x)
 }
 
 
-/*const std::string oldUInt64ToString(uint64 x)
-{
-	char buffer[32];
-
-	// u = unsigned decimal
-#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
-	// See http://msdn.microsoft.com/en-us/library/tcxf1dw6%28VS.80%29.aspx
-	sprintf(buffer, "%I64u", x);
-#else
-	sprintf(buffer, "%llu", x);
-#endif
-
-	return std::string(buffer);
-}*/
-
-
 const std::string uInt64ToString(uint64 x)
 {
 	const int num_digits = numDigitsUInt64(x);
@@ -847,23 +831,6 @@ int getNumMatches(const std::string& s, char target)
 
 	return num_matches;
 }
-
-
-/*bool containsString(const std::string& text, const std::string& target_string)
-{
-	const int lengthdif = (int)text.length() - (int)target_string.length();
-
-	if(lengthdif < 0)
-		return false;
-
-	for(int i=0; i<lengthdif; i++)
-	{
-		if(text.substr(i, target_string.length()) == target_string)
-			return true;
-	}
-
-	return false;
-}*/
 
 
 // Replaces all occurences of src with dest in string s.
