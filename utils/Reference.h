@@ -9,7 +9,6 @@ Copyright Glare Technologies Limited 2015 -
 #include "RefCounted.h"
 #include "Platform.h"
 #include <cassert>
-#include <stdlib.h> // for NULL
 
 
 /*=====================================================================
@@ -236,7 +235,7 @@ public:
 	template <class T2>
 	inline bool isType() const
 	{
-		return dynamic_cast<const T2*>(ob) != NULL;
+		return dynamic_cast<const T2*>(ob) != 0;
 	}
 	
 private:
