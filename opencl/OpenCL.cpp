@@ -655,7 +655,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 	}
 	assert(strings.size() == lengths.size());
 
-	cl_int result;
+	cl_int result = CL_SUCCESS;
 	OpenCLProgramRef program = new OpenCLProgram(this->clCreateProgramWithSource(
 		opencl_context,
 		(cl_uint)strings.size(), // count
