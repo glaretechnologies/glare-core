@@ -12,6 +12,7 @@ Code By Nicholas Chapman.
 
 #include "Reference.h"
 #include "Maybe.h"
+#include "VRef.h"
 #include "RefCounted.h"
 #include "ThreadSafeRefCounted.h"
 #include "../indigo/TestUtils.h"
@@ -396,6 +397,65 @@ void run()
 		x = const_vec[0].downcast<DerivedClass>()->derived_x;
 
 	}
+
+
+	/////////////////// Test conversion from non-const to const reference ///////////////////////////////////
+	{
+
+		// Test auto-conversion to Reference 
+		int i = 0;
+		{
+			Reference<TestClass> a(new TestClass(&i));
+
+			Reference<const TestClass> b = a;
+		}
+		testAssert(i == 0);
+
+		// Test with operator =  
+		i = 0;
+		{
+			Reference<TestClass> a(new TestClass(&i));
+
+			Reference<const TestClass> b;
+			b = a;
+		}
+		testAssert(i == 0);
+	}
+
+
+
+	/////////////////// Test VRef ///////////////////////////////////
+	{
+		int i = 0;
+
+		// Test auto-conversion from VRef to Reference 
+		{
+			VRef<TestClass> vref(new TestClass(&i));
+
+			Reference<TestClass> ref = vref;
+		}
+		testAssert(i == 0);
+
+		// Test auto-conversion from VRef<const T> to Reference<const T>
+		{
+			VRef<const TestClass> vref(new TestClass(&i));
+
+			Reference<const TestClass> ref = vref;
+		}
+		testAssert(i == 0);
+	}
+
+	/////////////////// Test conversion from non-const VRef to const Reference ///////////////////////////////////
+	{
+		int i = 0;
+		{
+			VRef<TestClass> a(new TestClass(&i));
+
+			Reference<const TestClass> b = a;
+		}
+		testAssert(i == 0);
+	}
+
 
 
 	/////////////////// Test Maybe ///////////////////////////////////

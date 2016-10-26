@@ -67,7 +67,15 @@ public:
 		}
 	}
 
+
+	// Implicit conversion to Reference<T2>
+	// We will allow T2 to be a generic type here.
+	// This allows e.g. conversion from VRef<T> to Reference<const T>.
+	// (Note that 'T' and 'const T' are actually different types)
+	template<class T2>
+	operator Reference<T2> () { return Reference<T2>(ob); }
 	
+
 	VRef& operator = (const VRef& other)
 	{
 		T* old_ob = ob;
