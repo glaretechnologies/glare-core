@@ -15,9 +15,6 @@ Generated at 2016-10-14 15:08:16 +0100
 #include <xxhash.h>
 
 
-static const bool VERBOSE = false;
-
-
 OpenCLProgramRef ProgramCache::getOrBuildProgram(
 		const std::string appdata_path,
 		const std::string& program_source,
@@ -38,6 +35,8 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 	);
 
 #else // else if not OS X
+
+	const bool VERBOSE = false;
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	XXH64_state_t hash_state;
