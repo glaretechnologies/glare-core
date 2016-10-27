@@ -192,12 +192,30 @@ public:
 	template <class T2>
 	inline const Reference<T2> downcast() const
 	{
+#ifdef _WIN32
+#ifdef _CPPRTTI 
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#else
+#ifdef __GXX_RTTI
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#endif
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 
 	template <class T2>
 	inline Reference<T2> downcast()
 	{
+#ifdef _WIN32
+#ifdef _CPPRTTI 
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#else
+#ifdef __GXX_RTTI
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#endif
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 

@@ -74,7 +74,10 @@ public:
 	// (Note that 'T' and 'const T' are actually different types)
 	template<class T2>
 	operator Reference<T2> () { return Reference<T2>(ob); }
-	
+
+	template<class T2>
+	operator Reference<T2> () const { return Reference<T2>(ob); }
+
 
 	VRef& operator = (const VRef& other)
 	{
@@ -179,6 +182,37 @@ public:
 #endif
 #endif
 		return VRef<T2>(static_cast<T2*>(ob));
+	}
+
+
+	template <class T2>
+	inline const T2* downcastToPtr() const
+	{
+#ifdef _WIN32
+#ifdef _CPPRTTI 
+		assert(dynamic_cast<const T2*>(ob));
+#endif
+#else
+#ifdef __GXX_RTTI
+		assert(dynamic_cast<const T2*>(ob));
+#endif
+#endif
+		return static_cast<const T2*>(ob);
+	}
+
+	template <class T2>
+	inline T2* downcastToPtr()
+	{
+#ifdef _WIN32
+#ifdef _CPPRTTI 
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#else
+#ifdef __GXX_RTTI
+		assert(dynamic_cast<T2*>(ob));
+#endif
+#endif
+		return static_cast<T2*>(ob);
 	}
 	
 private:

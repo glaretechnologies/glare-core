@@ -865,8 +865,8 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 			false // real_is_double
 		);
 
-		std::map<std::string, Winter::TypeRef> named_types;
-		std::vector<Winter::TypeRef> named_types_ordered;
+		std::map<std::string, Winter::TypeVRef> named_types;
+		std::vector<Winter::TypeVRef> named_types_ordered;
 		int function_order_num = 0;
 
 		Reference<Winter::BufferRoot> buffer_root = lang_parser.parseBuffer(tokens,
@@ -889,7 +889,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 		// Obfuscate structure definitions (structure and field names)
 		for(size_t i=0; i<named_types_ordered.size(); ++i)
 		{
-			Winter::TypeRef named_type = named_types_ordered[i];
+			Winter::TypeVRef named_type = named_types_ordered[i];
 			switch(named_type->getType())
 			{
 			case Winter::Type::StructureTypeType:
