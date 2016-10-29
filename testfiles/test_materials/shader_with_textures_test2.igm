@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <scenedata>
 	<material>
 		<name>mat1</name>
@@ -11,49 +12,31 @@
             <exponent>2.2</exponent>
           </texture>
 
-          <texture>
-            <uv_set_index>0</uv_set_index>
-            <path>../italy_bolsena_flag_flowers_stairs_01.jpg</path>
-            <exponent>2.2</exponent>
-          </texture>
-          
           <shader>
             <![CDATA[  
 def eval(vec3 pos) vec3 :
-    if(x(posOS()) > 0.0,
-      sample2DTextureVec3(0, getTexCoords(0) * 10.0),
-      sample2DTextureVec3(1, getTexCoords(0) * 10.0)
-    )
+    sample2DTextureVec3(0, getTexCoords(0) * 3.0)
 						]]>
           </shader>
         </shader>
 			</albedo>
 
-      <displacement>
+      <bump>
         <shader>
           <texture>
             <uv_set_index>0</uv_set_index>
-            <path>../checker.jpg</path>
-            <exponent>2.2</exponent>
-          </texture>
-
-          <texture>
-            <uv_set_index>0</uv_set_index>
-            <path>../italy_bolsena_flag_flowers_stairs_01.jpg</path>
+            <path>../../testscenes/spherebump2.png</path>
             <exponent>2.2</exponent>
           </texture>
 
           <shader>
             <![CDATA[  
 def eval() real :
-    if(x(posOS()) > 0.0,
-      x(sample2DTextureVec3(0, getTexCoords(0) * 10.0)) * 0.001,
-      x(sample2DTextureVec3(1, getTexCoords(0) * 10.0)) * 0.001
-    )
+    x(sample2DTextureVec3(0, getTexCoords(0) * 3.0)) * 0.01
 						]]>
           </shader>
         </shader>
-      </displacement>
+      </bump>
       
       
 			<random_triangle_colours>false</random_triangle_colours>
