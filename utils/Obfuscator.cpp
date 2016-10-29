@@ -290,7 +290,7 @@ void Obfuscator::addOpenCLKeywords()
 		// Functions from lang\winter_opencl_support_code_declarations.cl
 		// TODO: remove from ignore list - obfuscate this stuff
 
-		"sample2DTextureVec3_int__vec2__FullHitInfo_",
+		"sample2DTextureVec3_int__vec2__FullHitInfo__BasicMaterialData__int_",
 		"noise_float__float_",
 		"noise_float__float__float_",
 		"noise4Valued_float__float_",
