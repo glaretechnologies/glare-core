@@ -785,7 +785,7 @@ const std::string eatExtension(const std::string& filename)
 }
 
 
-const std::string eatDotAndExtension(const std::string& filename)
+const std::string removeDotAndExtension(const std::string& filename)
 {
 	return ::eatSuffix(eatExtension(filename), ".");
 }
@@ -818,6 +818,16 @@ bool hasSuffix(const std::string& s, const std::string& postfix)
 			return false;
 
 	return true;
+}
+
+
+bool hasLastChar(const std::string& s, char c)
+{
+	const size_t sz = s.size();
+	if(sz == 0)
+		return false;
+	else
+		return s[sz - 1] == c;
 }
 
 
@@ -2216,6 +2226,13 @@ void StringUtils::test()
 	testAssert(::hasSuffix("test", "est"));
 	testAssert(::hasSuffix("test", "test"));
 	testAssert(::hasSuffix("test", ""));
+
+	testAssert(::hasLastChar("t", 't'));
+	testAssert(!::hasLastChar("t", 'a'));
+	testAssert(::hasLastChar("test", 't'));
+	testAssert(!::hasLastChar("test", 'a'));
+	testAssert(!::hasLastChar("", 't'));
+	testAssert(!::hasLastChar("", '\0'));
 
 	testAssert(::isWhitespace(' '));
 	testAssert(::isWhitespace('\t'));

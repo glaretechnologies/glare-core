@@ -152,13 +152,14 @@ bool hasFileTypeExtension(const std::string& filename);
 const std::string getExtension(const std::string& filename); // Returns everything after the last dot.
 
 const std::string eatExtension(const std::string& filename);
-const std::string eatDotAndExtension(const std::string& filename);
+const std::string removeDotAndExtension(const std::string& filename);
 
 // Without the dot
 bool hasExtension(const std::string& filename, const std::string& extension);
 
 bool hasPrefix(const std::string& s, const std::string& prefix);
 bool hasSuffix(const std::string& s, const std::string& suffix);
+bool hasLastChar(const std::string& s, char c);
 
 const std::string eatPrefix(const std::string& s, const std::string& prefix);
 const std::string eatSuffix(const std::string& s, const std::string& suffix);
