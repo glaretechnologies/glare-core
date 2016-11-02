@@ -74,6 +74,7 @@ Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
 */
 void toNonLinearSpace(
+	Indigo::TaskManager& task_manager,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 );

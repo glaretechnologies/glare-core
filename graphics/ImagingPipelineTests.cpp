@@ -68,7 +68,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		task_manager
 	);
 
-	ImagingPipeline::toNonLinearSpace(renderer_settings, ldr_image_out);
+	ImagingPipeline::toNonLinearSpace(task_manager, renderer_settings, ldr_image_out);
 }
 
 
@@ -282,7 +282,7 @@ void test()
 			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
-		ImagingPipeline::toNonLinearSpace(renderer_settings, temp_ldr_buffer);
+		ImagingPipeline::toNonLinearSpace(task_manager, renderer_settings, temp_ldr_buffer);
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());

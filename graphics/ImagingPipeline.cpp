@@ -21,6 +21,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/Task.h"
 #include "../utils/Timer.h"
 #include "../utils/BufferedPrintOutput.h"
+#include "../utils/ProfilerStore.h"
 #include <algorithm>
 
 
@@ -892,6 +893,8 @@ void doTonemap(
 	Indigo::TaskManager& task_manager
 	)
 {
+	ScopeProfiler _scope("ImagingPipeline::doTonemap", 1);
+
 	const bool no_curves =
 		renderer_settings.overall_curve.isNull() &&
 		renderer_settings.rgb_curves[0].isNull() &&
@@ -1036,48 +1039,76 @@ Input colour space is linear sRGB.
 Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
 */
+class ToNonLinearSpaceTask : public Indigo::Task
+{
+public:
+	virtual void run(size_t thread_index)
+	{
+		const bool dithering = renderer_settings->dithering;
+
+		// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff.
+		const Colour4f recip_gamma_v(1.0f / 2.4f);
+		const Colour4f cutoff(0.0031308f);
+
+		// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
+		const Colour4f gamma_mask = renderer_settings->shadow_pass ? Colour4f(toVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(toVec4f(Vec4i(0, 0, 0, 0)).v);
+
+		// TODO: Parallelise?
+		//const size_t num_pixels = ldr_buffer_in_out->numPixels();
+		Colour4f* const pixel_data = &ldr_buffer_in_out->getPixel(0);
+		for(size_t z = begin; z<end; ++z)
+		{
+			Colour4f col = pixel_data[z];
+
+			/////// Gamma correct (convert from linear sRGB to non-linear sRGB space) ///////
+			const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
+			const Colour4f linear = Colour4f(12.92f) * col;
+			const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
+			const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
+			col = select(col, sRGBcol, gamma_mask);
+
+			////// Dither ///////
+			if(dithering)
+				col = ditherPixel(col, z);
+
+			////// Do alpha divide. Needed to compensate for alpha multiplication during blending //////
+			col = max(Colour4f(0.0f), col); // Make sure alpha > 0
+
+			const float recip_alpha = 1 / col.x[3];
+			col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
+
+			col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
+
+			pixel_data[z] = col;
+		}
+	}
+
+	const RendererSettings* renderer_settings;
+	Image4f* ldr_buffer_in_out;
+	size_t begin, end;
+};
+
+
 void toNonLinearSpace(
+	Indigo::TaskManager& task_manager,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 	)
 {
-	const bool dithering = renderer_settings.dithering;
+	ScopeProfiler _scope("ImagingPipeline::toNonLinearSpace", 1);
 
-	// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff.
-	const Colour4f recip_gamma_v(1.0f / 2.4f);
-	const Colour4f cutoff(0.0031308f);
-
-	// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
-	const Colour4f gamma_mask = renderer_settings.shadow_pass ? Colour4f(toVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(toVec4f(Vec4i(0, 0, 0, 0)).v);
-
-	// TODO: Parallelise?
-	const size_t num_pixels = ldr_buffer_in_out.numPixels();
-	Colour4f* const pixel_data = &ldr_buffer_in_out.getPixel(0);
-	for(size_t z = 0; z<num_pixels; ++z)
+	const size_t num_tasks = task_manager.getNumThreads();
+	const size_t num_pixels_per_task = Maths::roundedUpDivide(ldr_buffer_in_out.numPixels(), num_tasks);
+	for(size_t i=0; i<num_tasks; ++i)
 	{
-		Colour4f col = pixel_data[z];
-
-		/////// Gamma correct (convert from linear sRGB to non-linear sRGB space) ///////
-		const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
-		const Colour4f linear = Colour4f(12.92f) * col;
-		const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
-		const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
-		col = select(col, sRGBcol, gamma_mask);
-
-		////// Dither ///////
-		if(dithering)
-			col = ditherPixel(col, z);
-
-		////// Do alpha divide. Needed to compensate for alpha multiplication during blending //////
-		col = max(Colour4f(0.0f), col); // Make sure alpha > 0
-
-		const float recip_alpha = 1 / col.x[3];
-		col *= Colour4f(recip_alpha, recip_alpha, recip_alpha, 1.0f);
-
-		col = clamp(col, Colour4f(0.0f), Colour4f(1.0f));
-
-		pixel_data[z] = col;
+		Reference<ToNonLinearSpaceTask> task = new ToNonLinearSpaceTask();
+		task->renderer_settings = &renderer_settings;
+		task->ldr_buffer_in_out = &ldr_buffer_in_out;
+		task->begin = myMin(num_pixels_per_task * i      , ldr_buffer_in_out.numPixels());
+		task->end   = myMin(num_pixels_per_task * (i + 1), ldr_buffer_in_out.numPixels());
+		task_manager.addTask(task);
 	}
+	task_manager.waitForTasksToComplete();
 
 	// Components should be in range [0, 1]
 	assert(ldr_buffer_in_out.minPixelComponent() >= 0.0f);

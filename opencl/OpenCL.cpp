@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #include "../utils/Lock.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/FilePrintOutput.h"
+#include "../utils/ProfilerStore.h"
 #include <cmath>
 #include <fstream>
 #include <algorithm>
@@ -233,10 +234,12 @@ void OpenCL::queryDevices()
 
 	std::vector<cl_platform_id> platform_ids(128);
 	this->num_platforms = 0;
-	cl_int result = this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms);
-	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clGetPlatformIDs failed: " + errorString(result));
-
+	{
+		ScopeProfiler _scope("clGetPlatformIDs", 1);
+		cl_int result = this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clGetPlatformIDs failed: " + errorString(result));
+	}
 
 #if OPENCL_OPENGL_INTEROP
 #if defined(_WIN32)
