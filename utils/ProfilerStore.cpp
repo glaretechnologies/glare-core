@@ -39,14 +39,16 @@ ProfilerStore* ProfilerStore::getInstance()
 void ProfilerStore::addEvent(const ProfileEvent& ev)
 {
 	Lock lock(mutex);
-	events.push_back(ev);
+	if(events.size() < 10000) // Put a limit on the number of events for now
+		events.push_back(ev);
 }
 
 
 void ProfilerStore::addInterval(const ProfileInterval& interval)
 {
 	Lock lock(mutex);
-	intervals.push_back(interval);
+	if(intervals.size() < 10000) // Put a limit on the number of intervals for now
+		intervals.push_back(interval);
 }
 
 
