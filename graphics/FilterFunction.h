@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include <vector>
 #include <string>
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 
 
 /*=====================================================================
@@ -16,7 +16,7 @@ FilterFunction
 --------------
 Radially-symmetric filter function interface
 =====================================================================*/
-class FilterFunction : public RefCounted
+class FilterFunction : public ThreadSafeRefCounted
 {
 public:
 	FilterFunction();
