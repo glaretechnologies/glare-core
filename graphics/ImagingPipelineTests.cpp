@@ -52,13 +52,16 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
 	renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
 
+	std::vector<float> filter_data;
+	renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
 	ImagingPipeline::doTonemap(
 		temp_tile_buffers,
 		render_channels,
 		layer_weights,
 		layer_normalise, // image scale
 		renderer_settings,
-		renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(ssf),
+		filter_data.data(),
 		Reference<PostProDiffraction>(),
 		temp_summed_buffer,
 		temp_AD_buffer,
@@ -267,13 +270,16 @@ void test()
 		::Image4f temp_summed_buffer, temp_AD_buffer, temp_ldr_buffer;
 		std::vector< ::Image4f> temp_tile_buffers;
 
+		std::vector<float> filter_data;
+		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
 		ImagingPipeline::doTonemap(
 			temp_tile_buffers,
 			master_buffer.getRenderChannels(),
 			layer_weights,
 			1.0f, // image scale
 			renderer_settings,
-			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(image_ss_factor),
+			filter_data.data(),
 			post_pro_diffraction,
 			temp_summed_buffer,
 			temp_AD_buffer,

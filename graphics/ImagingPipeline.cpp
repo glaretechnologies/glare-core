@@ -537,8 +537,8 @@ void doTonemapFullBuffer(
 		Image4f::downsampleImage(
 			supersample_factor, // factor
 			border_width,
-			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterSpan(renderer_settings.super_sample_factor),
-			renderer_settings.getDownsizeFilterFuncNonConst()->getFilterData(renderer_settings.super_sample_factor),
+			renderer_settings.getDownsizeFilterFunc().getFilterSpan(renderer_settings.super_sample_factor),
+			resize_filter,
 			1.0f, // max component value
 			temp_summed_buffer, // in
 			ldr_buffer_out, // out
@@ -952,7 +952,7 @@ void doTonemap(
 	const ptrdiff_t xres		= (ptrdiff_t)render_channels.layers[0].image.getWidth();
 	const ptrdiff_t yres		= (ptrdiff_t)render_channels.layers[0].image.getHeight();
 	const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
-	const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFuncNonConst()->getFilterSpan((int)ss_factor);
+	const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFunc().getFilterSpan((int)ss_factor);
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
