@@ -40,6 +40,7 @@ public:
 
 	void setNextKernelArg(cl_mem buffer);
 	void setNextKernelArgUInt(cl_uint val);
+	void setNextKernelArgFloat(cl_float val);
 
 	void resetKernelArgIndex() { kernel_arg_index = 0; }
 	size_t getNextKernelIndex() const { return kernel_arg_index; }

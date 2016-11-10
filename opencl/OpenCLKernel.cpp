@@ -123,6 +123,13 @@ void OpenCLKernel::setNextKernelArgUInt(cl_uint val)
 }
 
 
+void OpenCLKernel::setNextKernelArgFloat(cl_float val)
+{
+	setKernelArgFloat(kernel_arg_index, val);
+	kernel_arg_index++;
+}
+
+
 double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
 {
 	// Make sure the work group size we use is <= the global work size.
