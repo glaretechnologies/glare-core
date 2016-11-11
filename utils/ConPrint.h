@@ -22,3 +22,5 @@ void conPrintStr(const std::string& s);
 void fatalError(const std::string& s);
 
 void logPrint(const std::string& s);
+
+void stdErrPrint(const std::string& s);

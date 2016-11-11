@@ -60,3 +60,9 @@ void logPrint(const std::string& s)
 
 	(*logfile) << (toString(Clock::getCurTimeRealSec()) + ": " + s + "\n");
 }
+
+
+void stdErrPrint(const std::string& s)
+{
+	std::cerr << s << std::endl;
+}

@@ -24,7 +24,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
-#if 0 // def OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do caching for now on Mac.
+#ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do caching for now on Mac.
 
 	return ::getGlobalOpenCL()->buildProgram(
 		program_source,
