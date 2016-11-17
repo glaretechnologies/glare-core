@@ -10,6 +10,9 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/BitUtils.h"
 #include "../utils/Exception.h"
 #include "mysocket.h"
+#if !defined(_WIN32)
+#include <netinet/in.h>
+#endif
 
 
 TestSocket::TestSocket()
