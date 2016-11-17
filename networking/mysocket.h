@@ -19,6 +19,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #endif
 
 #include "ipaddress.h"
+#include "SocketInterface.h"
 #include "../utils/Platform.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
@@ -56,7 +57,7 @@ TCP socket class.
 Blocking.
 Does both client and server sockets.
 =====================================================================*/
-class MySocket : public InStream, public OutStream, public ThreadSafeRefCounted
+class MySocket : public SocketInterface
 {
 public:
 #if defined(_WIN32)

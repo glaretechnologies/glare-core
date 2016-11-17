@@ -42,6 +42,7 @@ public:
 	uint64 readUInt64();
 
 	// Are we at the end of the stream?  If the stream has no natural end (e.g. a socket connection) then returns false.
+	// TODO: Remove
 	virtual bool endOfStream() = 0;
 
 
