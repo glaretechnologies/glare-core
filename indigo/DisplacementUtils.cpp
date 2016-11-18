@@ -1430,7 +1430,9 @@ public:
 		for(int q_i = begin; q_i < end; ++q_i)
 		{
 			const DUQuad& quad = quads[q_i];
-			quad_normals[q_i] = normalise(crossProduct(verts_in[quad.vertex_indices[1]].pos - verts_in[quad.vertex_indices[0]].pos, verts_in[quad.vertex_indices[2]].pos - verts_in[quad.vertex_indices[0]].pos));
+			const Vec3f crossval = crossProduct(verts_in[quad.vertex_indices[1]].pos - verts_in[quad.vertex_indices[0]].pos, verts_in[quad.vertex_indices[2]].pos - verts_in[quad.vertex_indices[0]].pos);
+			quad_normals[q_i] = (crossval == Vec3f(0.f)) ? crossval : normalise(crossval);
+			assert(isFinite(quad_normals[q_i].length()));
 		}
 	}
 
@@ -1510,7 +1512,8 @@ public:
 						}
 					}
 
-					verts_out[v_i].normal = normalise(sum_normal);
+					verts_out[v_i].normal = (sum_normal == Vec3f(0.f)) ? sum_normal : normalise(sum_normal);
+					assert(isFinite(verts_out[v_i].normal.x));
 					result_vert_displacements[quad.vertex_indices[v]] = min_displacement;
 				}
 			}
