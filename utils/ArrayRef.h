@@ -26,15 +26,15 @@ class ArrayRef
 public:
 	inline ArrayRef(const T* data, size_t len);
 
-	template <class T, int N>
+	template <int N>
 	inline ArrayRef(const SmallVector<T, N>& v) : data_(v.data()), len(v.size()) {}
 
-	template <class T, int N>
+	template <int N>
 	inline ArrayRef(const SmallArray<T, N>& a)  : data_(a.data()), len(a.size()) {}
 
 	inline ArrayRef(const std::vector<T>& v)    : data_(v.data()), len(v.size()) {}
 
-	template <class T, int A>
+	template <int A>
 	inline ArrayRef(const js::Vector<T, A>& a)  : data_(a.data()), len(a.size()) {}
 
 	inline T& operator[] (size_t index);
@@ -64,7 +64,7 @@ private:
 
 
 template <class T>
-ArrayRef<T>::ArrayRef(const T* newdata, size_t len)
+ArrayRef<T>::ArrayRef(const T* newdata, size_t len_)
 :	data_(newdata), len(len_)
 {}
 
