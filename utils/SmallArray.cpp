@@ -54,39 +54,28 @@ void test()
 		static_assert(AlignOf<int>::Alignment == 4, "alignment");
 		static_assert(AlignOf<double>::Alignment == 8, "alignment");
 		static_assert(AlignOf<char*>::Alignment == 8, "alignment");
+		static_assert(AlignOf<TestAligned16>::Alignment == 16, "alignment");
 	}
-
-	{
-		AlignedCharArray<AlignOf<int>::Alignment, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) >= 4, "alignment");
-		testAssert((uint64)&test.buf % 4 == 0);
-	}
-	{
-		AlignedCharArray<AlignOf<char*>::Alignment, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) == 8, "alignment");
-		testAssert((uint64)&test.buf % 4 == 0);
-	}
-
 
 	//========================= Test AlignedCharArray =========================
 	{
+		static_assert(GLARE_ALIGNMENT(AlignedCharArray<4, 1>) == 4, "alignment");
 		AlignedCharArray<4, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) == 4, "alignment");
 		testAssert((uint64)&test.buf % 4 == 0);
 	}
 	{
+		static_assert(GLARE_ALIGNMENT(AlignedCharArray<8, 1>) == 8, "alignment");
 		AlignedCharArray<8, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) == 8, "alignment");
 		testAssert((uint64)&test.buf % 8 == 0);
 	}
 	{
+		static_assert(GLARE_ALIGNMENT(AlignedCharArray<16, 1>) == 16, "alignment");
 		AlignedCharArray<16, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) == 16, "alignment");
 		testAssert((uint64)&test.buf % 16 == 0);
 	}
 	{
+		static_assert(GLARE_ALIGNMENT(AlignedCharArray<32, 1>) == 32, "alignment");
 		AlignedCharArray<32, 1> test;
-		static_assert(GLARE_ALIGNMENT(test) == 32, "alignment");
 		testAssert((uint64)&test.buf % 32 == 0);
 	}
 
