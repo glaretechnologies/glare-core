@@ -82,8 +82,8 @@ void test()
 
 	//========================= Check alignment when the value type has large alignment =========================
 	{
+		static_assert(GLARE_ALIGNMENT(SmallArray<TestAligned16, 4>) == 16, "alignment");
 		const SmallArray<TestAligned16, 4> v;
-		static_assert(GLARE_ALIGNMENT(v) == 16, "alignment");
 		testAssert((uint64)v.data() % 16 == 0);
 	}
 
