@@ -1,8 +1,7 @@
 /*=====================================================================
-SmallVector.h
+SmallArray.h
 -------------------
 Copyright Glare Technologies Limited 2016 -
-Generated at 2013-03-07 14:27:12 +0000
 =====================================================================*/
 #pragma once
 
@@ -16,35 +15,35 @@ Generated at 2013-03-07 14:27:12 +0000
 
 
 /*=====================================================================
-SmallVector
--------------------
-Like js::Vector but does the small vector optimisation - 
+SmallArray
+----------
+Like SmallVector, but not optimised for changing length at runtime.
+The main difference is it doesn't have a capacity field.
 if the number of elements stored is small (<= N), then store them directly in the object
 as opposed to somewhere else in the heap.
 =====================================================================*/
 template <class T, int N>
-class SmallVector
+class SmallArray
 {
 public:
-	inline SmallVector(); // Initialise as an empty vector.
-	inline SmallVector(size_t count, const T& val = T()); // Initialise with count copies of val.
-	inline SmallVector(const SmallVector& other); // Initialise as a copy of other
-	inline ~SmallVector();
+	inline SmallArray(); // Initialise as an empty vector.
+	//inline SmallArray(const ArrayRef<T> array_ref);
+	inline SmallArray(size_t count, const T& val = T()); // Initialise with count copies of val.
+	inline SmallArray(const T* begin, const T* end); // Range constructor
+	inline SmallArray(const SmallArray& other); // Initialise as a copy of other
+	inline ~SmallArray();
 
-	inline SmallVector& operator=(const SmallVector& other);
+	inline SmallArray& operator=(const SmallArray& other);
 
-	inline void reserve(size_t M); // Make sure capacity is at least M.
 	inline void resize(size_t new_size); // Resize to size N, using default constructor if N > size().
 	inline void resize(size_t new_size, const T& val); // Resize to size new_size, using copies of val if new_size > size().
-	inline size_t capacity() const;
+
 	inline size_t size() const;
 	inline bool empty() const;
 
 	inline T* data() { return e; }
 	inline const T* data() const { return e; }
 
-	inline void push_back(const T& t);
-	inline void pop_back();
 	inline const T& back() const;
 	inline T& back();
 	inline T& operator[](size_t index);
@@ -59,59 +58,73 @@ public:
 	inline const_iterator end() const;
 	
 private:
-	inline bool storingOnHeap() const { return capacity_ > N; }
+	inline bool storingOnHeap() const { return e != reinterpret_cast<const T*>(direct.buf); }
 
 	T* e;
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
-	size_t capacity_;
 	// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
 	AlignedCharArray<AlignOf<T>::Alignment, sizeof(T) * N> direct;
 };
 
 
-namespace SmallVectorTest
+namespace SmallArrayTest
 {
 void test();
 }
 
 
 template <class T, int N>
-SmallVector<T, N>::SmallVector()
-:	size_(0), e(reinterpret_cast<T*>(direct.buf)), capacity_(N)
+SmallArray<T, N>::SmallArray()
+:	e(reinterpret_cast<T*>(direct.buf)), size_(0)
 {}
+
+//
+//template <class T, int N>
+//SmallArray<T, N>::SmallArray(const ArrayRef<T> array_ref)
+//:	size_(array_ref.size())
+//{
+//	if(count <= N)
+//		e = reinterpret_cast<T*>(direct); // Store directly
+//	else
+//		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
+//
+//	std::uninitialized_copy(array_ref.data_, array_ref.data_ + other.size_, /*dest=*/e);
+//}
 
 
 template <class T, int N>
-SmallVector<T, N>::SmallVector(size_t count, const T& val)
+SmallArray<T, N>::SmallArray(size_t count, const T& val)
 :	size_(count)
 {
 	if(count <= N)
-	{
 		e = reinterpret_cast<T*>(direct.buf); // Store directly
-		capacity_ = N;
-	}
 	else
-	{
 		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
-		capacity_ = count;
-	}
+
 	std::uninitialized_fill(e, e + count, val); // Construct elems
 }
 
 
 template <class T, int N>
-SmallVector<T, N>::SmallVector(const SmallVector<T, N>& other)
+SmallArray<T, N>::SmallArray(const T* begin_, const T* end_) // Range constructor
+:	size_(end_ - begin_)
+{
+	if(size_ <= N)
+		e = reinterpret_cast<T*>(direct.buf); // Store directly
+	else
+		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * size_)); // Allocate new memory on heap
+
+	std::uninitialized_copy(begin_, end_, /*dest=*/e);
+}
+
+
+template <class T, int N>
+SmallArray<T, N>::SmallArray(const SmallArray<T, N>& other)
 {
 	if(other.size_ <= N)
-	{
 		e = reinterpret_cast<T*>(direct.buf); // Store directly
-		capacity_ = N;
-	}
 	else
-	{
 		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * other.size_)); // Allocate new memory on heap
-		capacity_ = other.size_;
-	}
 
 	// Copy-construct new objects from existing objects in 'other'.
 	std::uninitialized_copy(other.e, other.e + other.size_, /*dest=*/e);
@@ -120,7 +133,7 @@ SmallVector<T, N>::SmallVector(const SmallVector<T, N>& other)
 
 
 template <class T, int N>
-SmallVector<T, N>::~SmallVector()
+SmallArray<T, N>::~SmallArray()
 {
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
@@ -131,7 +144,7 @@ SmallVector<T, N>::~SmallVector()
 
 
 template <class T, int N>
-SmallVector<T, N>& SmallVector<T, N>::operator=(const SmallVector& other)
+SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 {
 	if(this == &other)
 		return *this;
@@ -140,17 +153,20 @@ SmallVector<T, N>& SmallVector<T, N>::operator=(const SmallVector& other)
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	if(other.size_ <= capacity_)
+	if(other.size_ <= N)
 	{
+		if(storingOnHeap())
+			SSE::alignedFree(e); // Free existing mem
+
+		e = reinterpret_cast<T*>(direct.buf); // Store directly
+
 		// Copy elements over from other
 		if(other.size_ > 0) 
 			std::uninitialized_copy(other.e, other.e + other.size_, e);
-
-		size_ = other.size_;
 	}
-	else // Else we don't have the capacity to store (and will need to store new elements on the heap):
+	else // Else we need to store new elements on the heap):
 	{
-		assert(other.size_ > N); // other.size must be > N, otherwise we would have had capacity for it (as capacity is always >= N).
+		assert(other.size_ > N);
 
 		if(storingOnHeap())
 			SSE::alignedFree(e); // Free existing mem
@@ -160,26 +176,37 @@ SmallVector<T, N>& SmallVector<T, N>::operator=(const SmallVector& other)
 
 		// Copy elements over from other
 		std::uninitialized_copy(other.e, other.e + other.size_, e);
-
-		size_ = other.size_;
-		capacity_ = other.size_;
 	}
+
+	size_ = other.size_;
 
 	return *this;
 }
 
 
 template <class T, int N>
-void SmallVector<T, N>::reserve(size_t n)
+void SmallArray<T, N>::resize(size_t new_size)
 {
-	if(n > capacity_) // If need to expand capacity
+	if(new_size <= size_)
+	{
+		// Destroy elements e[new_size] to e[size-1]
+		for(size_t i=new_size; i<size_; ++i)
+			(e + i)->~T();
+	}
+	else
 	{
 		// Allocate new memory
-		T* new_e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * n));
+		T* new_e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * new_size));
 
 		// Copy-construct new objects from existing objects.
 		// e[0] to e[size_-1] will now be proper initialised objects.
 		std::uninitialized_copy(e, e + size_, new_e);
+
+		// Initialise elements e[size_] to e[new_size-1]
+		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+		// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+		for(T* elem=e + size_; elem<e + new_size; ++elem)
+			::new (elem) T;
 		
 		// Destroy old objects
 		for(size_t i=0; i<size_; ++i)
@@ -189,15 +216,16 @@ void SmallVector<T, N>::reserve(size_t n)
 			SSE::alignedFree(e); // Free old buffer.
 
 		e = new_e;
-		capacity_ = n;
 	}
+	
+	size_ = new_size;
 }
 
 
 template <class T, int N>
-void SmallVector<T, N>::resize(size_t new_size)
+void SmallArray<T, N>::resize(size_t new_size, const T& val)
 {
-	if(new_size <= capacity_)
+	if(new_size <= size_)
 	{
 		// Destroy elements e[new_size] to e[size-1]
 		for(size_t i=new_size; i<size_; ++i)
@@ -205,83 +233,47 @@ void SmallVector<T, N>::resize(size_t new_size)
 	}
 	else
 	{
-		// else new_size > capacity_.  Since capacity_ >= size_, therefore new_size > size_.  So we don't have to delete any objects.
-		reserve(new_size);
+		// Allocate new memory
+		T* new_e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * new_size));
+
+		// Copy-construct new objects from existing objects.
+		// e[0] to e[size_-1] will now be proper initialised objects.
+		std::uninitialized_copy(e, e + size_, new_e);
+
+		// Construct any new elems
+		assert(new_size > size_);
+		std::uninitialized_fill(new_e + size_, new_e + new_size, val);
+		
+		// Destroy old objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+
+		if(storingOnHeap())
+			SSE::alignedFree(e); // Free old buffer.
+
+		e = new_e;
 	}
-
-	// Initialise elements e[size_] to e[new_size-1]
-	// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
-	// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
-	for(T* elem=e + size_; elem<e + new_size; ++elem)
-		::new (elem) T;
-
+	
 	size_ = new_size;
 }
 
 
 template <class T, int N>
-void SmallVector<T, N>::resize(size_t new_size, const T& val)
-{
-	if(new_size <= capacity_)
-	{
-		// Destroy elements e[new_size] to e[size-1]
-		for(size_t i=new_size; i<size_; ++i)
-			(e + i)->~T();
-	}
-	else
-	{
-		// else new_size > capacity_.  Since capacity_ >= size_, therefore new_size > size_.  So we don't have to delete any objects.
-		reserve(new_size);
-	}
-
-	// Construct any new elems
-	if(new_size > size_)
-		std::uninitialized_fill(e + size_, e + new_size, val);
-
-	size_ = new_size;
-}
-
-
-template <class T, int N>
-size_t SmallVector<T, N>::capacity() const
-{
-	return capacity_;
-}
-
-
-template <class T, int N>
-size_t SmallVector<T, N>::size() const
+size_t SmallArray<T, N>::size() const
 {
 	return size_;
 }
 
 
 template <class T, int N>
-bool SmallVector<T, N>::empty() const
+bool SmallArray<T, N>::empty() const
 {
 	return size_ == 0;
 }
 
 
 template <class T, int N>
-void SmallVector<T, N>::push_back(const T& t)
-{
-	resize(size_ + 1, t); // TODO: write explicit code here?
-}
-
-
-template <class T, int N>
-void SmallVector<T, N>::pop_back()
-{
-	assert(size_ >= 1);
-
-	(e + size_ - 1)->~T(); // Destroy last element
-	size_--;
-}
-
-
-template <class T, int N>
-const T& SmallVector<T, N>::back() const
+const T& SmallArray<T, N>::back() const
 {
 	assert(size_ >= 1);
 	return e[size_ - 1];
@@ -289,7 +281,7 @@ const T& SmallVector<T, N>::back() const
 
 
 template <class T, int N>
-T& SmallVector<T, N>::back()
+T& SmallArray<T, N>::back()
 {
 	assert(size_ >= 1);
 	return e[size_ - 1];
@@ -297,7 +289,7 @@ T& SmallVector<T, N>::back()
 
 
 template <class T, int N>
-T& SmallVector<T, N>::operator[](size_t index)
+T& SmallArray<T, N>::operator[](size_t index)
 {
 	assert(index < size_);
 	return e[index];
@@ -305,7 +297,7 @@ T& SmallVector<T, N>::operator[](size_t index)
 
 
 template <class T, int N>
-const T& SmallVector<T, N>::operator[](size_t index) const
+const T& SmallArray<T, N>::operator[](size_t index) const
 {
 	assert(index < size_);
 	return e[index];
@@ -313,28 +305,28 @@ const T& SmallVector<T, N>::operator[](size_t index) const
 
 
 template <class T, int N>
-typename SmallVector<T, N>::iterator SmallVector<T, N>::begin()
+typename SmallArray<T, N>::iterator SmallArray<T, N>::begin()
 {
 	return e;
 }
 
 
 template <class T, int N>
-typename SmallVector<T, N>::iterator SmallVector<T, N>::end()
+typename SmallArray<T, N>::iterator SmallArray<T, N>::end()
 {
 	return e + size_;
 }
 
 
 template <class T, int N>
-typename SmallVector<T, N>::const_iterator SmallVector<T, N>::begin() const
+typename SmallArray<T, N>::const_iterator SmallArray<T, N>::begin() const
 {
 	return e;
 }
 
 
 template <class T, int N>
-typename SmallVector<T, N>::const_iterator SmallVector<T, N>::end() const
+typename SmallArray<T, N>::const_iterator SmallArray<T, N>::end() const
 {
 	return e + size_;
 }

@@ -423,7 +423,7 @@ public:
 
 
 bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
-								   const std::vector<Reference<Material> >& materials,
+								   const ArrayRef<Reference<Material> >& materials,
 								   //const Object& object, 
 								   const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 								   //const std::vector<Reference<Material> >& materials, 

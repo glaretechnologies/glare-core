@@ -306,7 +306,7 @@ void DisplacementUtils::init(const std::string& mesh_name,
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const std::vector<Reference<Material> >& materials,
+	const ArrayRef<Reference<Material> >& materials,
 	bool subdivision_smoothing,
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
@@ -874,7 +874,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const std::vector<Reference<Material> >& materials,
+	const ArrayRef<Reference<Material> >& materials,
 	bool subdivision_smoothing,
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
@@ -1080,7 +1080,7 @@ struct RayMeshDisplaceTaskClosure
 	unsigned int num_uv_sets;
 	const std::vector<Vec2f>* uvs_in;
 	RayMesh::VertexVectorType* verts;
-	const std::vector<Reference<Material> >* materials;
+	const ArrayRef<Reference<Material> >* materials;
 	std::vector<IndigoAtomic>* verts_processed;
 	js::Vector<float, 16>* displacements_out;
 };
@@ -1222,7 +1222,7 @@ void DisplacementUtils::doDisplacementOnly(
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
 		ThreadContext& context,
-		const std::vector<Reference<Material> >& materials,
+		const ArrayRef<Reference<Material> >& materials,
 		const RayMesh::TriangleVectorType& tris_in,
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
@@ -1338,7 +1338,7 @@ struct EvalVertDisplaceMentTaskClosure
 	const UVVector* uvs;
 	const DUVertexVector* verts_in;
 	DUVertexVector* verts_out;
-	const std::vector<Reference<Material> >* materials;
+	const ArrayRef<Reference<Material> >* materials;
 	std::vector<IndigoAtomic>* verts_processed;
 };
 
@@ -1533,7 +1533,7 @@ public:
 // See for example subdivision_with_smoothing_cube_gap_test_constant_displacement.igs, subdivision_cube_gap_spike_displacement_test.igs
 void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 								 ThreadContext& context,
-								 const std::vector<Reference<Material> >& materials,
+								 const ArrayRef<Reference<Material> >& materials,
 								 const DUQuadVector& quads,
 								 const DUVertexVector& verts_in,
 								 const UVVector& uvs,
@@ -1689,7 +1689,7 @@ struct BuildSubdividingPrimitiveTaskClosure
 	const DUVertexVector* displaced_in_verts;
 	const DUQuadVector* quads_in;
 	const UVVector* uvs_in;
-	const std::vector<Reference<Material> >* materials;
+	const ArrayRef<Reference<Material> >* materials;
 };
 
 
@@ -2287,7 +2287,7 @@ void DisplacementUtils::linearSubdivision(
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
 	ThreadContext& context,
-	const std::vector<Reference<Material> >& materials,
+	const ArrayRef<Reference<Material> >& materials,
 	Polygons& polygons_in,
 	const VertsAndUVs& verts_and_uvs_in,
 	unsigned int num_uv_sets,

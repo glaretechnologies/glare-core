@@ -51,6 +51,13 @@ typedef __m128i SSE4Int; // A vector of 4 32 bit integers.  16 byte aligned by d
 #endif
 
 
+#ifdef COMPILER_MSVC
+#define GLARE_ALIGN(x) _CRT_ALIGN(x)
+#else
+#define GLARE_ALIGN(x) __attribute__ ((aligned (x)))
+#endif
+
+
 namespace SSE
 {
 	template <class T>

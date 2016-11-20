@@ -15,6 +15,7 @@ File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 #include "../maths/plane.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/ArrayRef.h"
 #include <vector>
 class Ray;
 class World;
@@ -108,7 +109,7 @@ public:
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const { assert(0); }
 
 	// Returns true if possibly clipped by section planes, false otherwise.
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const std::vector<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
 		) = 0; // throws GeometryExcep

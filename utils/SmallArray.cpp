@@ -1,14 +1,12 @@
 /*=====================================================================
-SmallSmallVector.cpp
+SmallArray.cpp
 -------------------
 Copyright Glare Technologies Limited 2016 -
-Generated at 2013-03-07 14:27:12 +0000
 =====================================================================*/
-#include "SmallVector.h"
+#include "SmallArray.h"
 
 
 #if BUILD_TESTS
-
 
 
 #include "StringUtils.h"
@@ -19,7 +17,7 @@ Generated at 2013-03-07 14:27:12 +0000
 #include <assert.h>
 
 
-namespace SmallVectorTest
+namespace SmallArrayTest
 {
 
 
@@ -41,15 +39,70 @@ private:
 };
 
 
+struct TestAligned16
+{
+	GLARE_ALIGN(16) char data;
+};
+
+
 void test()
 {
-	conPrint("SmallVectorTest()");
+	conPrint("SmallArrayTest()");
+
+	//========================= Test AlignOf =========================
+	{
+		static_assert(AlignOf<int>::Alignment == 4, "alignment");
+		static_assert(AlignOf<double>::Alignment == 8, "alignment");
+		static_assert(AlignOf<char*>::Alignment == 8, "alignment");
+	}
+
+	{
+		AlignedCharArray<AlignOf<int>::Alignment, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) >= 4, "alignment");
+		testAssert((uint64)&test.buf % 4 == 0);
+	}
+	{
+		AlignedCharArray<AlignOf<char*>::Alignment, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) == 8, "alignment");
+		testAssert((uint64)&test.buf % 4 == 0);
+	}
+
+
+	//========================= Test AlignedCharArray =========================
+	{
+		AlignedCharArray<4, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) == 4, "alignment");
+		testAssert((uint64)&test.buf % 4 == 0);
+	}
+	{
+		AlignedCharArray<8, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) == 8, "alignment");
+		testAssert((uint64)&test.buf % 8 == 0);
+	}
+	{
+		AlignedCharArray<16, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) == 16, "alignment");
+		testAssert((uint64)&test.buf % 16 == 0);
+	}
+	{
+		AlignedCharArray<32, 1> test;
+		static_assert(GLARE_ALIGNMENT(test) == 32, "alignment");
+		testAssert((uint64)&test.buf % 32 == 0);
+	}
+
+
+	//========================= Check alignment when the value type has large alignment =========================
+	{
+		const SmallArray<TestAligned16, 4> v;
+		static_assert(GLARE_ALIGNMENT(v) == 16, "alignment");
+		testAssert((uint64)v.data() % 16 == 0);
+	}
 
 	//========================= No-arg constructor =========================
-	
+
 	// int type
 	{
-		const SmallVector<int, 4> v;
+		const SmallArray<int, 4> v;
 		testAssert(v.size() == 0);
 	}
 
@@ -58,7 +111,7 @@ void test()
 
 	// Count constructor with int type, with zero elems
 	{
-		const SmallVector<int, 4> v(
+		const SmallArray<int, 4> v(
 			0, // count
 			123 // val
 		);
@@ -67,9 +120,9 @@ void test()
 
 	// Count constructor with int type, for various counts
 	{
-		for(size_t i=0; i<100; ++i)
+		for(size_t i=0; i<4; ++i)
 		{
-			const SmallVector<int, 4> v(
+			const SmallArray<int, 4> v(
 				i, // count
 				123 // val
 			);
@@ -81,7 +134,7 @@ void test()
 
 	// Count constructor with int type
 	{
-		const SmallVector<int, 4> v(
+		const SmallArray<int, 4> v(
 			10, // count
 			123 // val
 		);
@@ -92,7 +145,7 @@ void test()
 
 	// Count constructor with TestClass
 	{
-		const SmallVector<TestClass, 4> v(
+		const SmallArray<TestClass, 4> v(
 			10 // count
 		);
 		testAssert(v.size() == 10);
@@ -105,7 +158,7 @@ void test()
 		testAssert(ob_count == 1);
 
 		{
-			const SmallVector<TestCounterClass, 4> v(
+			const SmallArray<TestCounterClass, 4> v(
 				10, // count
 				dummy
 			);
@@ -124,13 +177,13 @@ void test()
 	{
 		for(size_t count=0; count < 100; ++count)
 		{
-			const SmallVector<int, 4> v(
+			const SmallArray<int, 4> v(
 				count, // count
 				123 // val
 			);
 
 			// Copy construct v2 from v
-			const SmallVector<int, 4> v2(v);
+			const SmallArray<int, 4> v2(v);
 
 			testAssert(v2.size() == v.size());
 			for(size_t i=0; i<v2.size(); ++i)
@@ -147,7 +200,7 @@ void test()
 			testAssert(ob_count == 1);
 
 			{
-				const SmallVector<TestCounterClass, 4> v(
+				const SmallArray<TestCounterClass, 4> v(
 					count, // count
 					dummy
 				);
@@ -155,7 +208,7 @@ void test()
 				testAssert(ob_count == count + 1);
 			
 				// Copy construct v2 from v
-				const SmallVector<TestCounterClass, 4> v2(v);
+				const SmallArray<TestCounterClass, 4> v2(v);
 
 				testAssert(v2.size() == v.size());
 				testAssert(ob_count == 2*count + 1);
@@ -171,7 +224,7 @@ void test()
 
 	// Test assigning to self
 	{
-		SmallVector<int, 4> v(
+		SmallArray<int, 4> v(
 			10, // count
 			123 // val
 		);
@@ -186,8 +239,8 @@ void test()
 
 	// Test assigning from empty vector to empty vector
 	{
-		const SmallVector<int, 4> v;
-		SmallVector<int, 4> v2;
+		const SmallArray<int, 4> v;
+		SmallArray<int, 4> v2;
 		v2 = v;
 
 		testAssert(v.size() == 0);
@@ -197,12 +250,12 @@ void test()
 
 	// With int type
 	{
-		const SmallVector<int, 4> v(
+		const SmallArray<int, 4> v(
 			10, // count
 			123 // val
 		);
 
-		SmallVector<int, 4> v2;
+		SmallArray<int, 4> v2;
 		v2 = v;
 
 		testAssert(v2.size() == 10);
@@ -217,14 +270,14 @@ void test()
 		testAssert(ob_count == 1);
 
 		{
-			const SmallVector<TestCounterClass, 4> v(
+			const SmallArray<TestCounterClass, 4> v(
 				10, // count
 				dummy
 			);
 			testAssert(v.size() == 10);
 			testAssert(ob_count == 11);
 			
-			SmallVector<TestCounterClass, 4> v2;
+			SmallArray<TestCounterClass, 4> v2;
 			v2 = v;
 
 			testAssert(v2.size() == 10);
@@ -241,16 +294,16 @@ void test()
 		testAssert(ob_count == 1);
 
 		{
-			const SmallVector<TestCounterClass, 4> v(
+			const SmallArray<TestCounterClass, 4> v(
 				10, // count
 				dummy
 			);
 			testAssert(v.size() == 10);
 			testAssert(ob_count == 11);
 			
-			SmallVector<TestCounterClass, 4> v2;
+			SmallArray<TestCounterClass, 4> v2;
 			v2.resize(100, dummy);
-			testAssert(v2.capacity() > 10);
+			//testAssert(v2.capacity() > 10);
 			v2 = v;
 
 			testAssert(v2.size() == 10);
@@ -261,62 +314,11 @@ void test()
 	}
 
 
-	//========================= reserve =========================
-	/*
-	
-	// With int type
-	{
-		SmallVector<int, 4> v(
-			10, // count
-			123 // val
-		);
-
-		testAssert(v.size() == 10);
-		testAssert(v.capacity() == 10);
-
-		v.reserve(100);
-
-		testAssert(v.size() == 10);
-		testAssert(v.capacity() == 100);
-	}
-
-
-	// With TestCounterClass
-	{
-		int ob_count = 0;
-		TestCounterClass dummy(ob_count);
-		testAssert(ob_count == 1);
-
-		{
-			SmallVector<TestCounterClass, 4> v(
-				10, // count
-				dummy
-			);
-			testAssert(v.size() == 10);
-			testAssert(ob_count == 11);
-			
-			v.reserve(100);
-
-			testAssert(v.size() == 10);
-			testAssert(v.capacity() == 100);
-			testAssert(ob_count == 11);
-
-			v.reserve(50);
-
-			testAssert(v.size() == 10);
-			testAssert(v.capacity() == 100);
-			testAssert(ob_count == 11);
-		}
-
-		testAssert(ob_count == 1);
-	}
-
-	*/
 	//========================= resize =========================
 
 	// With int type, zero size
 	{
-		SmallVector<int, 4> v;
+		SmallArray<int, 4> v;
 		v.resize(0);
 		testAssert(v.size() == 0);
 	}
@@ -324,18 +326,16 @@ void test()
 
 	// With int type
 	{
-		SmallVector<int, 4> v(
+		SmallArray<int, 4> v(
 			10, // count
 			123 // val
 		);
 
 		testAssert(v.size() == 10);
-		testAssert(v.capacity() == 10);
 
 		v.resize(100);
 
 		testAssert(v.size() == 100);
-		testAssert(v.capacity() >= 100);
 	}
 
 
@@ -346,7 +346,7 @@ void test()
 		testAssert(ob_count == 1);
 
 		{
-			SmallVector<TestCounterClass, 4> v(
+			SmallArray<TestCounterClass, 4> v(
 				10, // count
 				dummy
 			);
@@ -357,7 +357,7 @@ void test()
 			v.resize(100, dummy);
 
 			testAssert(v.size() == 100);
-			testAssert(v.capacity() >= 100);
+			//testAssert(v.capacity() >= 100);
 			testAssert(ob_count == 101);
 
 			// Resize just a little bit larger to avoid capacity expansion
@@ -365,20 +365,20 @@ void test()
 			v.resize(101, dummy);
 
 			testAssert(v.size() == 101);
-			testAssert(v.capacity() >= 101);
+			//testAssert(v.capacity() >= 101);
 			testAssert(ob_count == 102);
 
 			v.resize(20, dummy);
 
 			testAssert(v.size() == 20);
-			testAssert(v.capacity() >= 100);
+			//testAssert(v.capacity() >= 100);
 			testAssert(ob_count == 21);
 
 			// Try resizing to same size
 			v.resize(20, dummy);
 
 			testAssert(v.size() == 20);
-			testAssert(v.capacity() >= 100);
+			//testAssert(v.capacity() >= 100);
 			testAssert(ob_count == 21);
 
 			// Try resizing to zero.
@@ -402,7 +402,7 @@ void test()
 			testAssert(ob_count == 1);
 
 			{
-				SmallVector<TestCounterClass, 4> v(
+				SmallArray<TestCounterClass, 4> v(
 					start_size, // count
 					dummy
 				);
@@ -423,83 +423,20 @@ void test()
 	}
 
 
-	//========================= push_back =========================
-
-	// With int type
-	{
-		SmallVector<int, 4> v;
-		v.push_back(1);
-		testAssert(v.size() == 1);
-		testAssert(v[0] == 1);
-
-		v.push_back(2);
-		v.push_back(3);
-		v.push_back(4);
-
-		testAssert(v.size() == 4);
-
-		for(int i=0; i<4; ++i)
-			testAssert(v[i] == i + 1);
-	}
-
-	// With int type, lots of push backs
-	{
-		SmallVector<int, 4> v;
-		const size_t N = 10000;
-		for(size_t i=0; i<N; ++i)
-		{
-			v.push_back((int)i);
-			testAssert(v.size() == i + 1);
-			testAssert(v.capacity() >= i + 1);
-		}
-
-		testAssert(v.size() == N);
-		testAssert(v.capacity() >= N);
-
-		for(int i=0; i<N; ++i)
-			testAssert(v[i] == (int)i);
-	}
-
-
-
-	// With TestCounterClass
-	{
-		int ob_count = 0;
-		TestCounterClass dummy(ob_count);
-		testAssert(ob_count == 1);
-
-		{
-			SmallVector<TestCounterClass, 4> v;
-
-			const size_t N = 10000;
-			for(size_t i=0; i<N; ++i)
-			{
-				v.push_back(dummy);
-
-				testAssert(v.size() == i + 1);
-				testAssert(ob_count == v.size() + 1);
-			}
-		}
-
-		testAssert(ob_count == 1);
-	}
-
 	//========================= back =========================
 
 
 	// With int type, lots of push backs
 	{
-		SmallVector<int, 4> v;
-		size_t N = 10000;
+		size_t N = 10;
+		SmallArray<int, 4> v(N);
 		for(size_t i=0; i<N; ++i)
-		{
-			v.push_back((int)i);
+			v[i] = (int)i;
 
-			testAssert(v.back() == (int)i);
-		}
+		testAssert(v.back() == (int)N-1);
 
 		testAssert(v.size() == N);
-		testAssert(v.capacity() >= N);
+		//testAssert(v.capacity() >= N);
 
 		for(int i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
@@ -510,86 +447,25 @@ void test()
 
 	// With int type, lots of push backs
 	{
-		SmallVector<int, 4> v;
 		size_t N = 100;
+		SmallArray<int, 4> v(N);
+		
 		for(size_t i=0; i<N; ++i)
-		{
-			v.push_back((int)i);
+			v[i] = (int)i;
 
-			testAssert(v.back() == (int)i);
-
-			for(size_t q=0; q<v.size(); ++q)
-				testAssert(v[q] == (int)q);
-		}
+		for(size_t q=0; q<v.size(); ++q)
+			testAssert(v[q] == (int)q);
 
 		testAssert(v.size() == N);
-		testAssert(v.capacity() >= N);
+		//testAssert(v.capacity() >= N);
 
 		for(int i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
-
-
-
-
-	//========================= pop_back =========================
-
-	// With int type
-	{
-		SmallVector<int, 4> v;
-		const size_t N = 100;
-		for(size_t i=0; i<N; ++i)
-			v.push_back((int)i);
-
-		for(size_t i=0; i<N; ++i)
-		{
-			v.pop_back();
-
-			testAssert(v.size() == N - (i + 1));
-
-			// Check vector elements
-			for(size_t q=0; q<v.size(); ++q)
-			{
-				testAssert(v[q] == (int)q);
-			}
-		}
-	}
-
-
-
-	// With TestCounterClass
-	{
-		const size_t N = 100;
-
-		int ob_count = 0;
-		TestCounterClass dummy(ob_count);
-		testAssert(ob_count == 1);
-
-		{
-			SmallVector<TestCounterClass, 4> v;
-			
-			// Push back N times
-			for(size_t i=0; i<N; ++i)
-				v.push_back(dummy);
-
-			testAssert(ob_count == 1 + v.size());
-			
-			// Pop back N times
-			for(size_t i=0; i<N; ++i)
-			{
-				v.pop_back();
-
-				testAssert(v.size() == N - (i + 1));
-				testAssert(ob_count == 1 + v.size());
-			}
-		}
-
-		testAssert(ob_count == 1);
-	}
 }
 
 
-} // end namespace SmallVectorTest
+} // end namespace SmallArrayTest
 
 
 #endif // BUILD_TESTS

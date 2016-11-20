@@ -44,6 +44,7 @@ public:
 	inline Vector(); // Initialise as an empty vector.
 	inline Vector(size_t count); // Initialise with default initialisation.
 	inline Vector(size_t count, const T& val); // Initialise with count copies of val.
+	inline Vector(const T* begin, const T* end); // Range constructor
 	inline Vector(const Vector& other); // Initialise as a copy of other
 	inline ~Vector();
 
@@ -147,6 +148,20 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
+Vector<T, alignment>::Vector(const T* begin_, const T* end_) // Range constructor
+:	size_(end_ - begin_), capacity_(end_ - begin_)
+{
+	// Allocate new memory
+	e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * size_, alignment));
+
+	// Copy-construct new objects from existing objects in 'other'.
+	std::uninitialized_copy(begin_, end_, 
+		e // dest
+	);
 }
 
 

@@ -72,7 +72,7 @@ public:
 	typedef float PDType;
 
 	virtual void init(
-		const js::Vector<TransformKeyFrame, 16>& frames,
+		const ArrayRef<TransformKeyFrame>& frames,
 		const Vec3d& ws_updir, const Vec3d& forwards, 
 		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist,
 		double exposure_duration,
@@ -177,7 +177,7 @@ public:
 		unsigned int& mat_index_out, Vec2f& uv0_out) const;
 
 	// Returns true if possibly clipped by section planes, false otherwise.
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const std::vector<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
 		); // throws GeometryExcep
