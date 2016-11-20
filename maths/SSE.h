@@ -126,7 +126,7 @@ namespace SSE
 // alignof doesn't work in VS2012, so we have to use __alignof.
 #define GLARE_ALIGNMENT __alignof
 #else
-#define GLARE_ALIGNMENT(x) alignof(x)
+#define GLARE_ALIGNMENT alignof
 #endif
 
 #define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
