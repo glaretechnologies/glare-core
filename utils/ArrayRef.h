@@ -34,7 +34,7 @@ public:
 
 	inline ArrayRef(const std::vector<T>& v)    : data_(v.data()), len(v.size()) {}
 
-	template <int A>
+	template <size_t A>
 	inline ArrayRef(const js::Vector<T, A>& a)  : data_(a.data()), len(a.size()) {}
 
 	inline T& operator[] (size_t index);
