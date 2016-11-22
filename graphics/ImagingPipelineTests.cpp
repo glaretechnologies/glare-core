@@ -41,7 +41,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	std::vector< ::Image4f> temp_tile_buffers;
 
 	const float layer_normalise = image_scale;
-	std::vector<Vec3f> layer_weights(1, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain	
+	std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
 
 	RendererSettings renderer_settings;
 	renderer_settings.logging = false;
