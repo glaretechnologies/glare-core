@@ -590,14 +590,6 @@ void doTonemapFullBuffer(
 	if(render_channels.hasSpectral())
 		for(size_t i=0; i<ldr_buffer_out.numPixels(); ++i)
 			ldr_buffer_out.getPixel(i).x[3] = 1; 
-
-	// Zero out pixels not in the render region
-	/*TEMP if(renderer_settings.renderRegionsEnabled())
-		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
-		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
-			if( x < renderer_settings.render_region.x1 || x >= renderer_settings.render_region.x2 ||
-				y < renderer_settings.render_region.y1 || y >= renderer_settings.render_region.y2)
-				ldr_buffer_out.setPixel(x, y, Colour4f(0));*/
 }
 
 
@@ -1009,77 +1001,79 @@ void doTonemap(
 		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
-		return;
 	}
-
-	// Grab some unsigned constants for convenience
-	const ptrdiff_t xres		= (ptrdiff_t)render_channels.layers[0].image.getWidth();
-	const ptrdiff_t yres		= (ptrdiff_t)render_channels.layers[0].image.getHeight();
-	const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
-	const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFunc().getFilterSpan((int)ss_factor);
-
-	// Compute final dimensions of LDR image.
-	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const ptrdiff_t final_xres = RendererSettings::computeFinalWidth((int)xres, (int)ss_factor, margin_ssf1);
-	const ptrdiff_t final_yres = RendererSettings::computeFinalWidth((int)yres, (int)ss_factor, margin_ssf1);
-	assert(final_xres == renderer_settings.getWidth());
-	assert(final_yres == renderer_settings.getHeight());
-	ldr_buffer_out.resize(final_xres, final_yres);
-
-	const ptrdiff_t x_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_xres, (ptrdiff_t)image_tile_size - 1);
-	const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size - 1);
-	const ptrdiff_t num_tiles = x_tiles * y_tiles;
-	const ptrdiff_t tile_buffer_size = (image_tile_size * ss_factor) + filter_size;
-
-
-	// Ensure that we have sufficiently many buffers of sufficient size for as many threads as the task manager uses.
-	per_thread_tile_buffers.resize(task_manager.getNumThreads());
-	for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
-	{
-		per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
-		per_thread_tile_buffers[tile_buffer].zero(); // NEW
-	}
-
-	// Get float XYZ->sRGB matrix
-	Matrix3f XYZ_to_sRGB;
-	if(XYZ_colourspace)
-		for(int i = 0; i < 9; ++i)
-			XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
 	else
-		XYZ_to_sRGB = Matrix3f::identity();
+	{
+		// Grab some unsigned constants for convenience
+		const ptrdiff_t xres		= (ptrdiff_t)render_channels.layers[0].image.getWidth();
+		const ptrdiff_t yres		= (ptrdiff_t)render_channels.layers[0].image.getHeight();
+		const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
+		const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFunc().getFilterSpan((int)ss_factor);
 
-	// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
-	// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
-	float avg_lumi = 0, max_lumi = 0;
-	const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
-	if(reinhard != NULL)
-		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
+		// Compute final dimensions of LDR image.
+		// This is the size after the margins have been trimmed off, and the image has been downsampled.
+		const ptrdiff_t final_xres = RendererSettings::computeFinalWidth((int)xres, (int)ss_factor, margin_ssf1);
+		const ptrdiff_t final_yres = RendererSettings::computeFinalWidth((int)yres, (int)ss_factor, margin_ssf1);
+		assert(final_xres == renderer_settings.getWidth());
+		assert(final_yres == renderer_settings.getHeight());
+		ldr_buffer_out.resize(final_xres, final_yres);
 
-	ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+		const ptrdiff_t x_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_xres, (ptrdiff_t)image_tile_size - 1);
+		const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size - 1);
+		const ptrdiff_t num_tiles = x_tiles * y_tiles;
+		const ptrdiff_t tile_buffer_size = (image_tile_size * ss_factor) + filter_size;
 
-	ImagePipelineTaskClosure closure;
-	closure.per_thread_tile_buffers = &per_thread_tile_buffers;
-	closure.render_channels = &render_channels;
-	closure.layer_weights = &layer_weights;
-	closure.image_scale = image_scale;
-	closure.region_image_scale = region_image_scale;
-	closure.ldr_buffer_out = &ldr_buffer_out;
-	closure.renderer_settings = &renderer_settings;
-	closure.resize_filter = resize_filter;
-	closure.tonemap_params = &tonemap_params;
 
-	closure.x_tiles = x_tiles;
-	closure.final_xres = final_xres;
-	closure.final_yres = final_yres;
-	closure.filter_size = filter_size;
-	closure.margin_ssf1 = margin_ssf1;
+		// Ensure that we have sufficiently many buffers of sufficient size for as many threads as the task manager uses.
+		per_thread_tile_buffers.resize(task_manager.getNumThreads());
+		for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
+		{
+			per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
+			per_thread_tile_buffers[tile_buffer].zero(); // NEW
+		}
 
-	closure.skip_curves = skip_curves;
-	if(!skip_curves) closure.curve_data = curve_data;
+		// Get float XYZ->sRGB matrix
+		Matrix3f XYZ_to_sRGB;
+		if(XYZ_colourspace)
+			for(int i = 0; i < 9; ++i)
+				XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
+		else
+			XYZ_to_sRGB = Matrix3f::identity();
 
-	task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
+		// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
+		// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
+		float avg_lumi = 0, max_lumi = 0;
+		const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
+		if(reinhard != NULL)
+			reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
 
-	//conPrint("Image pipeline parallel loop took " + timer.elapsedString());
+		ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+
+		ImagePipelineTaskClosure closure;
+		closure.per_thread_tile_buffers = &per_thread_tile_buffers;
+		closure.render_channels = &render_channels;
+		closure.layer_weights = &layer_weights;
+		closure.image_scale = image_scale;
+		closure.region_image_scale = region_image_scale;
+		closure.ldr_buffer_out = &ldr_buffer_out;
+		closure.renderer_settings = &renderer_settings;
+		closure.resize_filter = resize_filter;
+		closure.tonemap_params = &tonemap_params;
+
+		closure.x_tiles = x_tiles;
+		closure.final_xres = final_xres;
+		closure.final_yres = final_yres;
+		closure.filter_size = filter_size;
+		closure.margin_ssf1 = margin_ssf1;
+
+		closure.skip_curves = skip_curves;
+		if(!skip_curves) closure.curve_data = curve_data;
+
+		task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
+
+		//conPrint("Image pipeline parallel loop took " + timer.elapsedString());
+	}
+	
 
 	// TEMP HACK: Chromatic abberation
 	/*Image temp;
@@ -1088,15 +1082,23 @@ void doTonemap(
 	ldr_buffer_out.clampInPlace(0, 1);*/
 
 	// Zero out pixels not in the render region, if there are no samples on the main layers.
-	/*TEMP if(renderer_settings.render_region_enabled && renderer_settings.renderRegionIsValid() && image_scale == 0.0)
+	if(renderer_settings.renderRegionsEnabled() && image_scale == 0.0)
 	{
-		const int rr_margin = 1;
+		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+
+		SmallArray<Rect2i, 8> regions(renderer_settings.render_regions.size()); // Render regions bounds in intermediate pixel coords
+		for(size_t i=0; i<renderer_settings.render_regions.size(); ++i)
+			regions[i] = Rect2i(Vec2i(	renderer_settings.render_regions[i].x1 + rr_margin,
+										renderer_settings.render_regions[i].y1 + rr_margin),
+								Vec2i(	renderer_settings.render_regions[i].x2 - rr_margin,
+										renderer_settings.render_regions[i].y2 - rr_margin));
+
+		
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
 		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
-			if( x < (renderer_settings.render_region.x1 + rr_margin) || x >= (renderer_settings.render_region.x2 - rr_margin) ||
-				y < (renderer_settings.render_region.y1 + rr_margin) || y >= (renderer_settings.render_region.y2 - rr_margin))
+			if(!pixelIsInARegion(x, y, regions))
 				ldr_buffer_out.setPixel(x, y, Colour4f(0.0f));
-	}*/
+	}
 }
 
 
