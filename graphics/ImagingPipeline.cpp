@@ -22,6 +22,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/Timer.h"
 #include "../utils/BufferedPrintOutput.h"
 #include "../utils/ProfilerStore.h"
+#include "../utils/SmallArray.h"
 #include <algorithm>
 
 
@@ -591,12 +592,12 @@ void doTonemapFullBuffer(
 			ldr_buffer_out.getPixel(i).x[3] = 1; 
 
 	// Zero out pixels not in the render region
-	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
+	/*TEMP if(renderer_settings.renderRegionsEnabled())
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
 		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
-			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
-				y < renderer_settings.render_region_y1 || y >= renderer_settings.render_region_y2)
-				ldr_buffer_out.setPixel(x, y, Colour4f(0));
+			if( x < renderer_settings.render_region.x1 || x >= renderer_settings.render_region.x2 ||
+				y < renderer_settings.render_region.y1 || y >= renderer_settings.render_region.y2)
+				ldr_buffer_out.setPixel(x, y, Colour4f(0));*/
 }
 
 
@@ -606,6 +607,7 @@ struct ImagePipelineTaskClosure
 	const RenderChannels* render_channels;
 	const std::vector<Vec3f>* layer_weights;
 	float image_scale;
+	float region_image_scale;
 	Image4f* ldr_buffer_out;
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
@@ -618,6 +620,15 @@ struct ImagePipelineTaskClosure
 };
 
 
+inline static bool pixelIsInARegion(int x, int y, const SmallArray<Rect2i, 8>& regions)
+{
+	for(size_t i=0; i<regions.size(); ++i)
+		if(regions[i].inHalfClosedRectangle(Vec2i(x, y)))
+			return true;
+	return false;
+}
+
+
 class ImagePipelineTask : public Indigo::Task
 {
 public:
@@ -625,8 +636,19 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
+		// Build layer weights.  Layer weight = light layer value * image_scale.
+		SmallArray<Vec3f, 32> layer_weights       (closure.render_channels->layers.size());
+		SmallArray<Vec3f, 32> region_layer_weights(closure.render_channels->layers.size());
+		
+		for(size_t i=0; i<closure.render_channels->layers.size(); ++i)
+		{
+			layer_weights[i]        = (*closure.layer_weights)[i] * closure.image_scale;
+			region_layer_weights[i] = (*closure.layer_weights)[i] * closure.region_image_scale;
+		}
+
 		const bool have_alpha_channel = closure.render_channels->hasAlpha();
 		const bool apply_curves = !closure.skip_curves;
+		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
@@ -638,6 +660,17 @@ public:
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
+		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
+
+		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+
+		SmallArray<Rect2i, 8> regions(closure.renderer_settings->render_regions.size()); // Render regions bounds in intermediate pixel coords
+		for(size_t i=0; i<closure.renderer_settings->render_regions.size(); ++i)
+			regions[i] = Rect2i(Vec2i(	(closure.renderer_settings->render_regions[i].x1 + gutter_pix) * ss_factor + rr_margin,
+										(closure.renderer_settings->render_regions[i].y1 + gutter_pix) * ss_factor + rr_margin),
+								Vec2i(	(closure.renderer_settings->render_regions[i].x2 + gutter_pix) * ss_factor - rr_margin,
+										(closure.renderer_settings->render_regions[i].y2 + gutter_pix) * ss_factor - rr_margin));
+
 
 		for(int tile = begin; tile < end; ++tile)
 		{
@@ -680,14 +713,29 @@ public:
 					}
 					else*/
 					{
-						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->layers.size(); ++z)
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
 							const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
-							const Vec3f& s = (*closure.layer_weights)[z];
+							const Vec3f& s = layer_weights[z];
 
 							sum.x[0] += c.r * s.x;
 							sum.x[1] += c.g * s.y;
 							sum.x[2] += c.b * s.z;
+						}
+					}
+
+					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+					{
+						sum = Colour4f(0.f, 0.f, 0.f, 0.f);
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						{
+							const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+							const Vec3f& scale = region_layer_weights[z];
+
+							sum.x[0] += c.r * scale.x;
+							sum.x[1] += c.g * scale.y;
+							sum.x[2] += c.b * scale.z;
 						}
 					}
 
@@ -796,10 +844,25 @@ public:
 					}
 					else
 					{
-						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->layers.size(); ++z)
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
 							const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
-							const Vec3f& scale = (*closure.layer_weights)[z];
+							const Vec3f& scale = layer_weights[z];
+
+							sum.x[0] += c.r * scale.x;
+							sum.x[1] += c.g * scale.y;
+							sum.x[2] += c.b * scale.z;
+						}
+					}
+
+					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // if(render_region_enabled && (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+					{
+						sum = Colour4f(0.f, 0.f, 0.f, 0.f);
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						{
+							const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+							const Vec3f& scale = region_layer_weights[z];
 
 							sum.x[0] += c.r * scale.x;
 							sum.x[1] += c.g * scale.y;
@@ -882,6 +945,7 @@ void doTonemap(
 	const RenderChannels& render_channels,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
+	float region_image_scale,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
@@ -998,6 +1062,7 @@ void doTonemap(
 	closure.render_channels = &render_channels;
 	closure.layer_weights = &layer_weights;
 	closure.image_scale = image_scale;
+	closure.region_image_scale = region_image_scale;
 	closure.ldr_buffer_out = &ldr_buffer_out;
 	closure.renderer_settings = &renderer_settings;
 	closure.resize_filter = resize_filter;
@@ -1022,13 +1087,16 @@ void doTonemap(
 	ldr_buffer_out = temp;
 	ldr_buffer_out.clampInPlace(0, 1);*/
 
-	// Zero out pixels not in the render region
-	if(renderer_settings.render_region && renderer_settings.renderRegionIsValid())
+	// Zero out pixels not in the render region, if there are no samples on the main layers.
+	/*TEMP if(renderer_settings.render_region_enabled && renderer_settings.renderRegionIsValid() && image_scale == 0.0)
+	{
+		const int rr_margin = 1;
 		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
 		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
-			if( x < renderer_settings.render_region_x1 || x >= renderer_settings.render_region_x2 ||
-				y < renderer_settings.render_region_y1 || y >= renderer_settings.render_region_y2)
+			if( x < (renderer_settings.render_region.x1 + rr_margin) || x >= (renderer_settings.render_region.x2 - rr_margin) ||
+				y < (renderer_settings.render_region.y1 + rr_margin) || y >= (renderer_settings.render_region.y2 - rr_margin))
 				ldr_buffer_out.setPixel(x, y, Colour4f(0.0f));
+	}*/
 }
 
 

@@ -4,12 +4,12 @@ Rect2.h
 File created by ClassTemplate on Sun Jan 13 17:00:14 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __RECT2_H_666_
-#define __RECT2_H_666_
+#pragma once
 
 
 #include "vec2.h"
 #include <assert.h>
+
 
 /*=====================================================================
 Rect2
@@ -90,11 +90,4 @@ void Rect2<Real>::enlargeToHoldPoint(const Vec2<Real>& p)
 
 typedef Rect2<float> Rect2f;
 typedef Rect2<double> Rect2d;
-
-
-
-#endif //__RECT2_H_666_
-
-
-
-
+typedef Rect2<int> Rect2i;

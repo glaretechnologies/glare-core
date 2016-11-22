@@ -101,7 +101,7 @@ public:
 
 
 	virtual SampleLensResults sampleLens(
-		const Vec2d& imagepos,
+		const Vec2f& imagepos,
 		const SamplePair& samples,
 		double time,
 		bool vignetting,
@@ -120,8 +120,8 @@ public:
 	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in old code.
 	virtual void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const = 0;
 
-	virtual const Vec2d imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const = 0;
-	virtual void sensorPosForImCoords(const Vec2d& imcoords, Vec3Type& pos_os_out) const = 0;
+	virtual const Vec2f imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const = 0;
+	virtual void sensorPosForImCoords(const Vec2f& imcoords, Vec3Type& pos_os_out) const = 0;
 
 
 	virtual const Vec4f getForwardsDirF(double time) const = 0;
@@ -152,7 +152,7 @@ public:
 	virtual double imageHeightAtDistanceOne() const = 0;
 
 	// Used in IndigoDriver::traceRay() for picking.
-	virtual void getRayForImagePos(const Vec2d& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
+	virtual void getRayForImagePos(const Vec2f& image_coordinates, double time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const { return 0; }

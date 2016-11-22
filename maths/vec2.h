@@ -405,6 +405,7 @@ inline const Vec2<double> toVec2d(const Vec2<float>& v)
 
 typedef Vec2<float> Vec2f;
 typedef Vec2<double> Vec2d;
+typedef Vec2<int> Vec2i;
 
 
 #endif //__Vec2_H__

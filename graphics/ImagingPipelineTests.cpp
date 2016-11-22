@@ -60,6 +60,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		render_channels,
 		layer_weights,
 		layer_normalise, // image scale
+		layer_normalise, // region image scale
 		renderer_settings,
 		filter_data.data(),
 		Reference<PostProDiffraction>(),
@@ -278,6 +279,7 @@ void test()
 			master_buffer.getRenderChannels(),
 			layer_weights,
 			1.0f, // image scale
+			1.0f, // region image scale
 			renderer_settings,
 			filter_data.data(),
 			post_pro_diffraction,
