@@ -356,7 +356,7 @@ void doTonemapFullBuffer(
 	float avg_lumi = 0, max_lumi = 0;
 	const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
 	if(reinhard != NULL)
-		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
+		reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, image_scale, avg_lumi, max_lumi);
 
 	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
@@ -1045,7 +1045,7 @@ void doTonemap(
 		float avg_lumi = 0, max_lumi = 0;
 		const ReinhardToneMapper* reinhard = dynamic_cast<const ReinhardToneMapper*>(renderer_settings.tone_mapper.getPointer());
 		if(reinhard != NULL)
-			reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, avg_lumi, max_lumi);
+			reinhard->computeLumiScales(XYZ_to_sRGB, render_channels, layer_weights, image_scale, avg_lumi, max_lumi);
 
 		ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
