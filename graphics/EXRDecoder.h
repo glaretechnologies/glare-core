@@ -59,6 +59,7 @@ public:
 
 
 	// throws Indigo::Exception
+	static void saveImageToEXR(const float* pixel_data, size_t width, size_t height, size_t num_channels_in_buffer, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options);
 	static void saveImageToEXR(const Image& image, const std::string& pathname, const SaveOptions& options);
 	static void saveImageToEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options);
 	static void saveImageToEXR(const ImageMapFloat& image, const std::string& pathname, const SaveOptions& options);

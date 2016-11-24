@@ -278,20 +278,19 @@ static Imf::Compression EXRCompressionMethod(EXRDecoder::CompressionMethod m)
 }
 
 
-void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname, const SaveOptions& options)
+//NOTE: This function assumes that the pixel data is densely packed, so that x-stride is sizeof(float) * num_channel and y-stride = x_stride * width.
+void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t height, size_t num_channels, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options)
 {
 	setEXRThreadPoolSize();
 
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
 	try
 	{
-		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
-
 		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
 
 		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
 
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
+		Imf::Header header((int)width, (int)height,
 			1.f, // pixel aspect ratio
 			Imath::V2f(0,0), // screenWindowCenter
 			1.f, // screenWindowWidth
@@ -300,17 +299,24 @@ void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname,
 		);
 
 		header.channels().insert("R", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		header.channels().insert("G", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		header.channels().insert("B", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		Imf::OutputFile file(exr_ofstream, header);                               
+		if(num_channels >= 3)
+		{
+			header.channels().insert("G", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
+			header.channels().insert("B", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
+			if(save_alpha_channel)
+				header.channels().insert("A", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
+		}
+		Imf::OutputFile file(exr_ofstream, header);
 		Imf::FrameBuffer frameBuffer;
+
+		const size_t N = num_channels;
 
 		if(options.bit_depth == BitDepth_16)
 		{
 			// Convert our float data to halfs.
-			const size_t num_values = image.getWidth() * image.getHeight() * 3;
+			const size_t num_values = width * height * N;
 			js::Vector<half, 64> half_data(num_values);
-			const float* const src_float_data = &image.getPixel(0).r;
+			const float* const src_float_data = pixel_data;
 			
 			for(size_t i=0; i<num_values; ++i)
 				half_data[i] = half(src_float_data[i]);
@@ -318,264 +324,110 @@ void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname,
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::HALF,			// type
 				(char*)half_data.data(),		// base
-				sizeof(half) * 3,				// xStride
-				sizeof(half) * 3 * image.getWidth())// yStride
+				sizeof(half) * N,				// xStride
+				sizeof(half) * N * width)		// yStride
+			);
+			if(num_channels >= 3)
+			{
+				frameBuffer.insert("G",				// name
+					Imf::Slice(Imf::HALF,			// type
+					(char*)(half_data.data() + 1),	// base
+					sizeof(half) * N,				// xStride
+					sizeof(half) * N * width)		// yStride
 				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(half_data.data() + 1),	// base
-				sizeof(half) * 3,				// xStride
-				sizeof(half) * 3 * image.getWidth())// yStride
+				frameBuffer.insert("B",				// name
+					Imf::Slice(Imf::HALF,			// type
+					(char*)(half_data.data() + 2),	// base
+					sizeof(half) * N,				// xStride
+					sizeof(half) * N * width)		// yStride
 				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(half_data.data() + 2),	// base
-				sizeof(half) * 3,				// xStride
-				sizeof(half) * 3 * image.getWidth())// yStride
-				);
-
+				if(save_alpha_channel)
+					frameBuffer.insert("A",				// name
+						Imf::Slice(Imf::HALF,			// type
+						(char*)(half_data.data() + 3),	// base
+						sizeof(half) * N,				// xStride
+						sizeof(half) * N * width)		// yStride
+					);
+			}
 			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
+			file.writePixels((int)height);
 		}
 		else
 		{
+			assert(options.bit_depth == BitDepth_32);
+
 			frameBuffer.insert("R",				// name
 				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).r,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * image.getWidth())// yStride
+				(char*)pixel_data,				// base
+				sizeof(float) * N,				// xStride
+				sizeof(float) * N * width)		// yStride
+			);
+			if(num_channels >= 3)
+			{
+				frameBuffer.insert("G",				// name
+					Imf::Slice(Imf::FLOAT,			// type
+					(char*)(pixel_data + 1),		// base
+					sizeof(float) * N,				// xStride
+					sizeof(float) * N * width)		// yStride
 				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).g,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * image.getWidth())// yStride
+				frameBuffer.insert("B",				// name
+					Imf::Slice(Imf::FLOAT,			// type
+					(char*)(pixel_data + 2),		// base
+					sizeof(float) * N,				// xStride
+					sizeof(float) * N * width)		// yStride
 				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).b,			// base
-				sizeof(Image::ColourType),				// xStride
-				sizeof(Image::ColourType) * image.getWidth())// yStride
-				);
-
+				if(save_alpha_channel)
+					frameBuffer.insert("A",			// name
+						Imf::Slice(Imf::FLOAT,		// type
+						(char*)(pixel_data + 3),	// base
+						sizeof(float) * N,			// xStride
+						sizeof(float) * N * width)	// yStride
+					);
+			}
 			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
+			file.writePixels((int)height);
 		}
 	}
 	catch(const std::exception& e)
 	{
 		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
 	}
+}
+
+
+void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname, const SaveOptions& options)
+{
+	saveImageToEXR(&image.getPixel(0).r, image.getWidth(), image.getHeight(), 
+		3, // num channels
+		false, // save alpha channel
+		pathname,
+		options
+	);
 }
 
 
 void EXRDecoder::saveImageToEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options)
 {
-	setEXRThreadPoolSize();
-
-	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
-	try
-	{
-		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
-
-		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
-
-		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
-
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
-			1.f, // pixel aspect ratio
-			Imath::V2f(0,0), // screenWindowCenter
-			1.f, // screenWindowWidth
-			Imf::INCREASING_Y, // lineOrder
-			EXRCompressionMethod(options.compression_method) // compression method
-		);
-
-		header.channels().insert("R", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		header.channels().insert("G", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		header.channels().insert("B", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		if(save_alpha_channel)
-			header.channels().insert("A", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		Imf::OutputFile file(exr_ofstream, header);                               
-		Imf::FrameBuffer frameBuffer;
-
-		if(options.bit_depth == BitDepth_16)
-		{
-			// Convert our float data to halfs.
-			const size_t num_values = image.getWidth() * image.getHeight() * 4;
-			js::Vector<half, 64> half_data(num_values);
-			const float* const src_float_data = &image.getPixel(0)[0];
-			
-			for(size_t i=0; i<num_values; ++i)
-				half_data[i] = half(src_float_data[i]);
-
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)half_data.data(),		// base
-				sizeof(half) * 4,				// xStride
-				sizeof(half) * 4 * image.getWidth())// yStride
-				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(half_data.data() + 1),	// base
-				sizeof(half) * 4,				// xStride
-				sizeof(half) * 4 * image.getWidth())// yStride
-				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(half_data.data() + 2),	// base
-				sizeof(half) * 4,				// xStride
-				sizeof(half) * 4 * image.getWidth())// yStride
-				);
-			if(save_alpha_channel)
-				frameBuffer.insert("A",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(half_data.data() + 3),	// base
-					sizeof(half) * 4,				// xStride
-					sizeof(half) * 4 * image.getWidth())// yStride
-					);
-			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
-		}
-		else
-		{
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).x[0],			// base
-				sizeof(Image4f::ColourType),				// xStride
-				sizeof(Image4f::ColourType) * image.getWidth())// yStride
-				);
-			frameBuffer.insert("G",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).x[1],			// base
-				sizeof(Image4f::ColourType),				// xStride
-				sizeof(Image4f::ColourType) * image.getWidth())// yStride
-				);
-			frameBuffer.insert("B",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0).x[2],			// base
-				sizeof(Image4f::ColourType),				// xStride
-				sizeof(Image4f::ColourType) * image.getWidth())// yStride
-				);
-			if(save_alpha_channel)
-				frameBuffer.insert("A",				// name
-					Imf::Slice(Imf::FLOAT,			// type
-					(char*)&image.getPixel(0).x[3],			// base
-					sizeof(Image4f::ColourType),				// xStride
-					sizeof(Image4f::ColourType) * image.getWidth())// yStride
-					);
-			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
-		}
-	}
-	catch(const std::exception& e)
-	{
-		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
-	}
+	saveImageToEXR(&image.getPixel(0).x[0], image.getWidth(), image.getHeight(), 
+		4, // num channels
+		save_alpha_channel, // save alpha channel
+		pathname,
+		options
+	);
 }
 
 
 void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& pathname, const SaveOptions& options)
 {
-	setEXRThreadPoolSize();
+	if(!(image.getN() == 1 || image.getN() == 3))
+		throw Indigo::Exception("Require 1 or 3 components.");
 
-	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
-	try
-	{
-		//NOTE: I'm assuming that the pixel data is densely packed, so that y-stride is sizeof(ColourType) * getWidth())
-
-		std::ofstream outfile_stream(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
-
-		Imf::StdOFStream exr_ofstream(outfile_stream, pathname.c_str());
-
-		Imf::Header header((int)image.getWidth(), (int)image.getHeight(),
-			1.f, // pixel aspect ratio
-			Imath::V2f(0,0), // screenWindowCenter
-			1.f, // screenWindowWidth
-			Imf::INCREASING_Y, // lineOrder
-			EXRCompressionMethod(options.compression_method) // compression method
-		);
-
-
-		header.channels().insert("R", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-
-		if(!(image.getN() == 1 || image.getN() == 3))
-			throw Indigo::Exception("Require 1 or 3 components.");
-
-		if(image.getN() == 3)
-		{
-			header.channels().insert("G", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-			header.channels().insert("B", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		}
-		Imf::OutputFile file(exr_ofstream, header);                               
-		Imf::FrameBuffer frameBuffer;
-
-		if(options.bit_depth == BitDepth_16)
-		{
-			// Convert our float data to halfs.
-			const size_t num_values = image.getWidth() * image.getHeight() * image.getN();
-			js::Vector<half, 64> half_data(num_values);
-			const float* const src_float_data = &image.getPixel(0, 0)[0];
-			
-			for(size_t i=0; i<num_values; ++i)
-				half_data[i] = half(src_float_data[i]);
-
-			frameBuffer.insert("R",					// name
-				Imf::Slice(Imf::HALF,				// type
-				(char*)(half_data.data() + 0),		// base
-				sizeof(half) * image.getN(),		// xStride
-				sizeof(half) * image.getN() * image.getWidth())// yStride
-				);
-
-			if(image.getN() == 3)
-			{
-				frameBuffer.insert("G",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(half_data.data() + 1),	// base
-					sizeof(half) * image.getN(),	// xStride
-					sizeof(half) * image.getN() * image.getWidth())// yStride
-					);
-				frameBuffer.insert("B",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(half_data.data() + 2),	// base
-					sizeof(half) * image.getN(),	// xStride
-					sizeof(half) * image.getN() * image.getWidth())// yStride
-					);
-			}
-			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
-		}
-		else
-		{
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)&image.getPixel(0, 0)[0],			// base
-				image.getBytesPerPixel(),				// xStride
-				image.getBytesPerPixel() * image.getWidth())// yStride
-				);
-
-			if(image.getN() == 3)
-			{
-				frameBuffer.insert("G",				// name
-					Imf::Slice(Imf::FLOAT,			// type
-					(char*)&image.getPixel(0, 0)[1],			// base
-					image.getBytesPerPixel(),				// xStride
-					image.getBytesPerPixel() * image.getWidth())// yStride
-					);
-				frameBuffer.insert("B",				// name
-					Imf::Slice(Imf::FLOAT,			// type
-					(char*)&image.getPixel(0, 0)[2],			// base
-					image.getBytesPerPixel(),				// xStride
-					image.getBytesPerPixel() * image.getWidth())// yStride
-					);
-			}
-			file.setFrameBuffer(frameBuffer);
-			file.writePixels((int)image.getHeight());
-		}
-	}
-	catch(const std::exception& e)
-	{
-		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
-	}
+	saveImageToEXR(&image.getPixel(0, 0)[0], image.getWidth(), image.getHeight(), 
+		image.getN(), // num channels
+		false, // save alpha channel
+		pathname,
+		options
+	);
 }
 
 
