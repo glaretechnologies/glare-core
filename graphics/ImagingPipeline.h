@@ -25,14 +25,19 @@ namespace ImagingPipeline
 /*
 Adds together the weighted pixel values from each light layer.
 Each layer is weighted by layer_scales.
+Then overwrites with any render region data.
 Takes the alpha value from render_channels.alpha (and scales it by image_scale) if it is valid, otherwise uses alpha 1.
 Writes the output to summed_buffer_out.
 Multithreaded using task manager.
 */
 void sumLightLayers(
-	const std::vector<Vec3f>& layer_scales, 
+	const std::vector<Vec3f>& layer_weights, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
+	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
+	const std::vector<RenderRegion>& render_regions,
+	int margin_ssf1,
+	int ssf,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 );

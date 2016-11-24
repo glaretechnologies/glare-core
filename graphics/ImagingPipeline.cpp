@@ -153,30 +153,79 @@ namespace ImagingPipeline
 const uint32 image_tile_size = 64;
 
 
+// Does the pixel at (x, y) in lie in one or more of the given render regions?
+inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<Rect2i, 8>& regions)
+{
+	const Vec2i v((int)x, (int)y);
+	for(size_t i=0; i<regions.size(); ++i)
+		if(regions[i].inHalfClosedRectangle(v))
+			return true;
+	return false;
+}
+
+
+/*
+sumLightLayers
+--------------
+Adds together the weighted pixel values from each light layer.
+Each layer is weighted by layer_scales.
+Then overwrites with any render region data.
+Takes the alpha value from render_channels.alpha (and scales it by image_scale) if it is valid, otherwise uses alpha 1.
+Writes the output to summed_buffer_out.
+Multithreaded using task manager.
+*/
 struct SumBuffersTaskClosure
 {
-	SumBuffersTaskClosure(const std::vector<Vec3f>& layer_scales_, float image_scale_, const RenderChannels& render_channels_, Image4f& buffer_out_) 
-		: layer_scales(layer_scales_), image_scale(image_scale_), render_channels(render_channels_), buffer_out(buffer_out_) {}
+	SumBuffersTaskClosure(const std::vector<Vec3f>& layer_scales_, float image_scale_, float region_image_scale_, const RenderChannels& render_channels_, Image4f& buffer_out_) 
+		: layer_scales(layer_scales_), image_scale(image_scale_), region_image_scale(region_image_scale_), render_channels(render_channels_), buffer_out(buffer_out_) {}
 
 	const std::vector<Vec3f>& layer_scales;
 	float image_scale;
+	float region_image_scale;
 	const RenderChannels& render_channels; // Input image data
 	Image4f& buffer_out;
+	int margin_ssf1;
+	int ssf;
+	const std::vector<RenderRegion>* render_regions;
 };
 
 
 class SumBuffersTask : public Indigo::Task
 {
 public:
-	SumBuffersTask(const SumBuffersTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+	SumBuffersTask(const SumBuffersTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin(begin_), end(end_) {}
 
 	virtual void run(size_t thread_index)
 	{
+		// Build layer weights.  Layer weight = light layer value * image_scale.
+		SmallArray<Vec3f, 32> layer_weights       (closure.render_channels.layers.size());
+		SmallArray<Vec3f, 32> region_layer_weights(closure.render_channels.layers.size());
+		
+		for(size_t i=0; i<closure.render_channels.layers.size(); ++i)
+		{
+			layer_weights[i]        = closure.layer_scales[i] * closure.image_scale;
+			region_layer_weights[i] = closure.layer_scales[i] * closure.region_image_scale;
+		}
+
+		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+
+		const std::vector<RenderRegion>& render_regions = *closure.render_regions;
+		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
+		for(size_t i=0; i<render_regions.size(); ++i)
+			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + closure.margin_ssf1) * closure.ssf + rr_margin,
+										(render_regions[i].y1 + closure.margin_ssf1) * closure.ssf + rr_margin),
+								Vec2i(	(render_regions[i].x2 + closure.margin_ssf1) * closure.ssf - rr_margin,
+										(render_regions[i].y2 + closure.margin_ssf1) * closure.ssf - rr_margin));
+
 		const bool have_alpha_channel = closure.render_channels.hasAlpha();
+		const int num_layers = (int)closure.render_channels.layers.size();
+		const bool render_region_enabled = closure.render_channels.target_region_layers;
+		const Indigo::Vector<Layer>& layers = closure.render_channels.layers;
+		const Indigo::Vector<Layer>& region_layers = closure.render_channels.region_layers;
 
 		if(closure.render_channels.hasSpectral())
 		{
-			for(int i = begin; i < end; ++i)
+			for(size_t i = begin; i < end; ++i)
 			{
 				Colour4f sum(0.0f);
 				for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels.spectral.getN(); ++z) // For each wavelength bin:
@@ -194,17 +243,32 @@ public:
 		}
 		else
 		{
-			const int num_layers = (int)closure.render_channels.layers.size();
-
-			for(int i = begin; i < end; ++i)
+			for(size_t i = begin; i < end; ++i)
 			{
 				Colour4f sum(0.0f);
 				for(int z = 0; z < num_layers; ++z)
 				{
-					const Vec3f& scale = closure.layer_scales[z];
-					sum.x[0] += closure.render_channels.layers[z].image.getPixel(i).r * scale.x;
-					sum.x[1] += closure.render_channels.layers[z].image.getPixel(i).g * scale.y;
-					sum.x[2] += closure.render_channels.layers[z].image.getPixel(i).b * scale.z;
+					const Vec3f& scale = layer_weights[z];
+					sum.x[0] += layers[z].image.getPixel(i).r * scale.x;
+					sum.x[1] += layers[z].image.getPixel(i).g * scale.y;
+					sum.x[2] += layers[z].image.getPixel(i).b * scale.z;
+				}
+
+				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+				const size_t x = i % layers[0].image.getWidth();
+				const size_t y = i / layers[0].image.getWidth();
+
+				if(render_region_enabled && pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
+				{
+					sum = Colour4f(0.f, 0.f, 0.f, 0.f);
+					for(ptrdiff_t z = 0; z < num_layers; ++z)
+					{
+						const Image::ColourType& c = region_layers[z].image.getPixel(i);
+						const Vec3f& scale = region_layer_weights[z];
+						sum.x[0] += c.r * scale.x;
+						sum.x[1] += c.g * scale.y;
+						sum.x[2] += c.b * scale.z;
+					}
 				}
 
 				// Get alpha from alpha channel if it exists
@@ -219,28 +283,31 @@ public:
 	}
 
 	const SumBuffersTaskClosure& closure;
-	int begin, end;
+	size_t begin, end;
 };
 
 
 void sumLightLayers(
-	const std::vector<Vec3f>& layer_scales, 
+	const std::vector<Vec3f>& layer_scales, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
+	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
+	const std::vector<RenderRegion>& render_regions,
+	int margin_ssf1,
+	int ssf,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
-)
+) 
 {
-	//Timer t;
 	summed_buffer_out.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
 
-	const int num_pixels = (int)render_channels.layers[0].image.numPixels();
+	SumBuffersTaskClosure closure(layer_scales, image_scale, region_image_scale, render_channels, summed_buffer_out);
+	closure.render_regions = &render_regions;
+	closure.margin_ssf1 = margin_ssf1;
+	closure.ssf = ssf;
 
-	SumBuffersTaskClosure closure(layer_scales, image_scale, render_channels, summed_buffer_out);
-
+	const size_t num_pixels = (int)render_channels.layers[0].image.numPixels();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
-
-	//std::cout << "sumBuffers: " << t.elapsedString() << std::endl;
 }
 
 
@@ -328,6 +395,7 @@ void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
+	float region_image_scale,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
@@ -363,7 +431,7 @@ void doTonemapFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
-	sumLightLayers(layer_weights, image_scale, render_channels, temp_summed_buffer, task_manager);
+	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, renderer_settings.render_regions, margin_ssf1, renderer_settings.super_sample_factor, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
@@ -612,15 +680,6 @@ struct ImagePipelineTaskClosure
 };
 
 
-inline static bool pixelIsInARegion(int x, int y, const SmallArray<Rect2i, 8>& regions)
-{
-	for(size_t i=0; i<regions.size(); ++i)
-		if(regions[i].inHalfClosedRectangle(Vec2i(x, y)))
-			return true;
-	return false;
-}
-
-
 class ImagePipelineTask : public Indigo::Task
 {
 public:
@@ -654,14 +713,14 @@ public:
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
 
-		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+		const int rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
 
 		SmallArray<Rect2i, 8> regions(closure.renderer_settings->render_regions.size()); // Render regions bounds in intermediate pixel coords
 		for(size_t i=0; i<closure.renderer_settings->render_regions.size(); ++i)
-			regions[i] = Rect2i(Vec2i(	(closure.renderer_settings->render_regions[i].x1 + gutter_pix) * ss_factor + rr_margin,
-										(closure.renderer_settings->render_regions[i].y1 + gutter_pix) * ss_factor + rr_margin),
-								Vec2i(	(closure.renderer_settings->render_regions[i].x2 + gutter_pix) * ss_factor - rr_margin,
-										(closure.renderer_settings->render_regions[i].y2 + gutter_pix) * ss_factor - rr_margin));
+			regions[i] = Rect2i(Vec2i(	(closure.renderer_settings->render_regions[i].x1 + (int)gutter_pix) * (int)ss_factor + rr_margin,
+										(closure.renderer_settings->render_regions[i].y1 + (int)gutter_pix) * (int)ss_factor + rr_margin),
+								Vec2i(	(closure.renderer_settings->render_regions[i].x2 + (int)gutter_pix) * (int)ss_factor - rr_margin,
+										(closure.renderer_settings->render_regions[i].y2 + (int)gutter_pix) * (int)ss_factor - rr_margin));
 
 
 		for(int tile = begin; tile < end; ++tile)
@@ -998,7 +1057,7 @@ void doTonemap(
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	if((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
-		doTonemapFullBuffer(render_channels, layer_weights, image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		doTonemapFullBuffer(render_channels, layer_weights, image_scale, region_image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
