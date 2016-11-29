@@ -53,7 +53,7 @@ void test()
 	{
 		static_assert(AlignOf<int>::Alignment == 4, "alignment");
 		static_assert(AlignOf<double>::Alignment == 8, "alignment");
-		static_assert(AlignOf<char*>::Alignment == 8, "alignment");
+		static_assert(AlignOf<char*>::Alignment == sizeof(char*), "alignment");
 		static_assert(AlignOf<TestAligned16>::Alignment == 16, "alignment");
 	}
 

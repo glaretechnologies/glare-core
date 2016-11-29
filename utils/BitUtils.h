@@ -80,10 +80,25 @@ namespace BitUtils
 	{
 		assert(x != 0);
 #ifdef _WIN32
-		// _BitScanReverse64: Search the mask data from most significant bit (MSB) to least significant bit (LSB) for a set bit (1).
 		unsigned long pos;
+#ifdef _WIN64
+		// _BitScanReverse64: Search the mask data from most significant bit (MSB) to least significant bit (LSB) for a set bit (1).
 		_BitScanReverse64(&pos, x);
 		return pos;
+#else
+		uint32 parts[2];
+		std::memcpy(parts, &x, sizeof(uint64));
+		if(parts[1] != 0) // If there is a bit set in the most signficant 4 bytes (NOTE: this is only correct for little-endian systems)
+		{
+			_BitScanReverse(&pos, parts[1]);
+			return pos + 32;
+		}
+		else
+		{
+			_BitScanReverse(&pos, parts[0]);
+			return pos;
+		}
+#endif // _WIN64
 #else
 		return 63 - __builtin_clzl(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
 #endif

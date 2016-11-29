@@ -75,6 +75,9 @@ void test()
 	testAssert(highestSetBitIndex(0xFFFFFFFFull) == 31);
 	testAssert(highestSetBitIndex(0xFFFFFFFFFFFFFFFFull) == 63); // All bits set
 
+	for(uint32 z=0; z<63; ++z)
+		testAssert(highestSetBitIndex((uint64)1 << (uint64)z) == z);
+
 	// Do a performance test of lowestSetBitIndex():
 	// On Nick's Ivy Bridge i7:
 	// sum: 9999985
