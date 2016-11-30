@@ -1046,7 +1046,7 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 	bool embree_mem_ok = false;
 	bool embree_spatial = false;
 
-	if(embree_os_ok && options.use_embree) // Do some extra checks if embree accelerator desired
+	if(embree_os_ok) // Do some extra checks if embree accelerator desired
 	{
 		try
 		{
@@ -1106,7 +1106,7 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 	try
 	{
 #ifndef NO_EMBREE
-		if(embree_os_ok && options.use_embree && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
+		if(embree_os_ok && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
 		{
 			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;

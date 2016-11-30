@@ -116,8 +116,7 @@ public:
 
 	struct BuildOptions
 	{
-		BuildOptions() : use_embree(true), cache_trees(true), bih_tri_threshold(1100000) {}
-		bool use_embree;
+		BuildOptions() : cache_trees(true), bih_tri_threshold(1100000) {}
 		bool cache_trees;
 		int bih_tri_threshold;
 	};
