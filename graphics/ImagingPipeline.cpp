@@ -164,6 +164,13 @@ inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<R
 }
 
 
+// Artificially bump up the alpha value a little (if it is non-zero), so that monte-carlo noise doesn't make a totally opaque object partially transparent.
+inline static float useAlphaForRawAlpha(float raw_alpha)
+{
+	 return (raw_alpha > 0) ? (1 + raw_alpha) : 0.f;
+}
+
+
 /*
 sumLightLayers
 --------------
@@ -254,6 +261,9 @@ public:
 					sum.x[2] += layers[z].image.getPixel(i).b * scale.z;
 				}
 
+				// Get alpha from alpha channel if it exists
+				sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.alpha.getData()[i]) * closure.image_scale) : 1.f;
+
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % layers[0].image.getWidth();
 				const size_t y = i / layers[0].image.getWidth();
@@ -269,13 +279,10 @@ public:
 						sum.x[1] += c.g * scale.y;
 						sum.x[2] += c.b * scale.z;
 					}
-				}
 
-				// Get alpha from alpha channel if it exists
-				if(have_alpha_channel)
-					sum.x[3] = closure.render_channels.alpha.getData()[i] * closure.image_scale;
-				else
-					sum.x[3] = 1.0f;
+					// Get alpha from (region) alpha channel if it exists
+					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i]) * closure.region_image_scale) : 1.f;
+				}
 
 				closure.buffer_out.getPixel(i) = sum;
 			}
@@ -775,6 +782,9 @@ public:
 						}
 					}
 
+					// Get alpha from alpha channel if it exists
+					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
+
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
 					{
@@ -788,16 +798,9 @@ public:
 							sum.x[1] += c.g * scale.y;
 							sum.x[2] += c.b * scale.z;
 						}
-					}
 
-					// Get alpha from alpha channel if it exists
-					if(have_alpha_channel)
-					{
-						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
-						sum.x[3] = ( (raw_alpha > 0) ? (1 + raw_alpha) : 0.f ) * closure.image_scale;
+						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
 					}
-					else
-						sum.x[3] = 1.0f;
 
 					tile_buffer.getPixel(dst_addr++) = sum;
 				}
@@ -906,6 +909,9 @@ public:
 						}
 					}
 
+					// Get alpha from alpha channel if it exists
+					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
+					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // if(render_region_enabled && (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
 					{
@@ -919,16 +925,9 @@ public:
 							sum.x[1] += c.g * scale.y;
 							sum.x[2] += c.b * scale.z;
 						}
-					}
 
-					// Get alpha from alpha channel if it exists
-					if(have_alpha_channel) // closure.renderer_settings->render_foreground_alpha)//closure.render_channels->alpha.getWidth() > 0)
-					{
-						const float raw_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0];
-						sum.x[3] = ((raw_alpha > 0) ? (1 + raw_alpha) : 0.0f) * closure.image_scale;
+						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
 					}
-					else
-						sum.x[3] = 1.0f;
 
 					tile_buffer.getPixel(addr++) = sum;
 				}
