@@ -38,6 +38,7 @@ void sumLightLayers(
 	const std::vector<RenderRegion>& render_regions,
 	int margin_ssf1,
 	int ssf,
+	bool zero_alpha_outside_region,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 );

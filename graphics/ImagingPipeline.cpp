@@ -193,6 +193,7 @@ struct SumBuffersTaskClosure
 	Image4f& buffer_out;
 	int margin_ssf1;
 	int ssf;
+	bool zero_alpha_outside_region;
 	const std::vector<RenderRegion>* render_regions;
 };
 
@@ -268,20 +269,28 @@ public:
 				const size_t x = i % layers[0].image.getWidth();
 				const size_t y = i / layers[0].image.getWidth();
 
-				if(render_region_enabled && pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
+				if(render_region_enabled)
 				{
-					sum = Colour4f(0.f, 0.f, 0.f, 0.f);
-					for(ptrdiff_t z = 0; z < num_layers; ++z)
+					if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
 					{
-						const Image::ColourType& c = region_layers[z].image.getPixel(i);
-						const Vec3f& scale = region_layer_weights[z];
-						sum.x[0] += c.r * scale.x;
-						sum.x[1] += c.g * scale.y;
-						sum.x[2] += c.b * scale.z;
-					}
+						sum = Colour4f(0.f);
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						{
+							const Image::ColourType& c = region_layers[z].image.getPixel(i);
+							const Vec3f& scale = region_layer_weights[z];
+							sum.x[0] += c.r * scale.x;
+							sum.x[1] += c.g * scale.y;
+							sum.x[2] += c.b * scale.z;
+						}
 
-					// Get alpha from (region) alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i]) * closure.region_image_scale) : 1.f;
+						// Get alpha from (region) alpha channel if it exists
+						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i]) * closure.region_image_scale) : 1.f;
+					}
+					else
+					{
+						if(closure.zero_alpha_outside_region)
+							sum = Colour4f(0.f);
+					}
 				}
 
 				closure.buffer_out.getPixel(i) = sum;
@@ -302,6 +311,7 @@ void sumLightLayers(
 	const std::vector<RenderRegion>& render_regions,
 	int margin_ssf1,
 	int ssf,
+	bool zero_alpha_outside_region,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 ) 
@@ -312,6 +322,7 @@ void sumLightLayers(
 	closure.render_regions = &render_regions;
 	closure.margin_ssf1 = margin_ssf1;
 	closure.ssf = ssf;
+	closure.zero_alpha_outside_region = zero_alpha_outside_region;
 
 	const size_t num_pixels = (int)render_channels.layers[0].image.numPixels();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
@@ -438,7 +449,8 @@ void doTonemapFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
-	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, renderer_settings.render_regions, margin_ssf1, renderer_settings.super_sample_factor, temp_summed_buffer, task_manager);
+	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, renderer_settings.render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
+		renderer_settings.zero_alpha_outside_region, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
@@ -786,20 +798,28 @@ public:
 					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+					if(render_region_enabled)
 					{
-						sum = Colour4f(0.f, 0.f, 0.f, 0.f);
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						if(pixelIsInARegion(x, y, regions)) // (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
 						{
-							const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
-							const Vec3f& scale = region_layer_weights[z];
+							sum = Colour4f(0.f);
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							{
+								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+								const Vec3f& scale = region_layer_weights[z];
 
-							sum.x[0] += c.r * scale.x;
-							sum.x[1] += c.g * scale.y;
-							sum.x[2] += c.b * scale.z;
+								sum.x[0] += c.r * scale.x;
+								sum.x[1] += c.g * scale.y;
+								sum.x[2] += c.b * scale.z;
+							}
+
+							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
 						}
-
-						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
+						else
+						{
+							if(closure.renderer_settings->zero_alpha_outside_region)
+								sum = Colour4f(0.f);
+						}
 					}
 
 					tile_buffer.getPixel(dst_addr++) = sum;
@@ -913,20 +933,28 @@ public:
 					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-					if(render_region_enabled && pixelIsInARegion(x, y, regions)) // if(render_region_enabled && (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+					if(render_region_enabled)
 					{
-						sum = Colour4f(0.f, 0.f, 0.f, 0.f);
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						if(pixelIsInARegion(x, y, regions)) // if(render_region_enabled && (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
 						{
-							const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
-							const Vec3f& scale = region_layer_weights[z];
+							sum = Colour4f(0.f);
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							{
+								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+								const Vec3f& scale = region_layer_weights[z];
 
-							sum.x[0] += c.r * scale.x;
-							sum.x[1] += c.g * scale.y;
-							sum.x[2] += c.b * scale.z;
+								sum.x[0] += c.r * scale.x;
+								sum.x[1] += c.g * scale.y;
+								sum.x[2] += c.b * scale.z;
+							}
+
+							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
 						}
-
-						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
+						else
+						{
+							if(closure.renderer_settings->zero_alpha_outside_region)
+								sum = Colour4f(0.f);
+						}
 					}
 
 					tile_buffer.getPixel(addr++) = sum;
