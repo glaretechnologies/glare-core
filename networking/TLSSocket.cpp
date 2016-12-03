@@ -54,7 +54,6 @@ static const int SOCKET_ERROR = -1;
 
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
-
 	init();
 
 	plain_socket = plain_socket_;
@@ -164,6 +163,12 @@ size_t TLSSocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 
 		return (size_t)numbytesread;
 	}
+}
+
+
+void TLSSocket::setNoDelayEnabled(bool enabled) // NoDelay option is off by default.
+{
+	plain_socket->setNoDelayEnabled(enabled);
 }
 
 
@@ -385,26 +390,6 @@ void TLSSocket::writeData(const void* data, size_t num_bytes)
 	write(data, num_bytes, 
 		NULL // fraction listener
 	);
-}
-
-
-MySocket::SOCKETHANDLE_TYPE TLSSocket::nullSocketHandle() const
-{
-#if defined(_WIN32)
-	return INVALID_SOCKET;
-#else
-	return -1;
-#endif
-}
-
-
-bool TLSSocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
-{
-#if defined(_WIN32)
-	return handle != INVALID_SOCKET;
-#else
-	return handle >= 0;
-#endif
 }
 
 

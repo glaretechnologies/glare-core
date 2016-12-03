@@ -78,6 +78,7 @@ public:
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
+	void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
 
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
@@ -107,8 +108,6 @@ private:
 	TLSSocket& operator = (const TLSSocket& other);
 
 	void init();
-	SOCKETHANDLE_TYPE nullSocketHandle() const;
-	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
 
