@@ -7,6 +7,10 @@ Generated at 2013-01-27 17:47:46 +0000
 #include "InStream.h"
 
 
+#include "Exception.h"
+#include "StringUtils.h"
+
+
 float InStream::readFloat()
 {
 	float x;
@@ -32,10 +36,12 @@ uint64 InStream::readUInt64()
 }
 
 
-const std::string InStream::readStringLengthFirst()
+const std::string InStream::readStringLengthFirst(size_t max_string_length)
 {
 	// Read string byte size
 	const uint32 size = readUInt32();
+	if((size_t)size > max_string_length)
+		throw Indigo::Exception("String length too long (length=" + toString(size) + ")");
 
 	std::string s(size, '\0'); // Use fill constructor
 

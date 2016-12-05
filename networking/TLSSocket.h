@@ -103,6 +103,8 @@ public:
 	virtual void writeData(const void* data, size_t num_bytes);
 	//------------------------------------------------------------------
 
+	struct tls* getTLSContext() { return tls_context; }
+
 private:
 	TLSSocket(const TLSSocket& other);
 	TLSSocket& operator = (const TLSSocket& other);

@@ -15,6 +15,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/SocketBufferOutStream.h"
+#include <cstring>
 
 
 #if BUILD_TESTS
@@ -59,8 +60,8 @@ public:
 			testAssert(socket->readUInt64() == 0x1234567800112233ULL);
 
 			// Read strings
-			testAssert(socket->readStringLengthFirst() == "hello");
-			testAssert(socket->readStringLengthFirst() == "world");
+			testAssert(socket->readStringLengthFirst(/*max string length=*/10000) == "hello");
+			testAssert(socket->readStringLengthFirst(/*max string length=*/10000) == "world");
 
 			// Read double
 			testAssert(socket->readDouble() == 0.0);
@@ -85,8 +86,8 @@ public:
 			testAssert(socket->readUInt64() == 0x1234567800112233ULL);
 
 			// Read strings
-			testAssert(socket->readStringLengthFirst() == "hello");
-			testAssert(socket->readStringLengthFirst() == "world");
+			testAssert(socket->readStringLengthFirst(/*max string length=*/10000) == "hello");
+			testAssert(socket->readStringLengthFirst(/*max string length=*/10000) == "world");
 
 			// Read double
 			testAssert(socket->readDouble() == 0.0);
