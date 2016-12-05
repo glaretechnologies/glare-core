@@ -39,6 +39,7 @@ void sumLightLayers(
 	int margin_ssf1,
 	int ssf,
 	bool zero_alpha_outside_region,
+	float region_alpha_bias,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 );

@@ -23,6 +23,8 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/BufferedPrintOutput.h"
 #include "../utils/ProfilerStore.h"
 #include "../utils/SmallArray.h"
+#include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
 #include <algorithm>
 
 
@@ -165,9 +167,11 @@ inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<R
 
 
 // Artificially bump up the alpha value a little (if it is non-zero), so that monte-carlo noise doesn't make a totally opaque object partially transparent.
-inline static float useAlphaForRawAlpha(float raw_alpha)
+// For region renders, the alpha value will be lower than normal, since region samples are weighted by the normed_image_rect_area.  So in this case the alpha_bias should be smaller.
+// (we will use alpha_bias = normed_image_rect_area)
+inline static float useAlphaForRawAlpha(float raw_alpha, float alpha_bias)
 {
-	 return (raw_alpha > 0) ? (1 + raw_alpha) : 0.f;
+	 return (raw_alpha > 0) ? (raw_alpha + alpha_bias) : 0.f;
 }
 
 
@@ -195,6 +199,7 @@ struct SumBuffersTaskClosure
 	int ssf;
 	bool zero_alpha_outside_region;
 	const std::vector<RenderRegion>* render_regions;
+	float region_alpha_bias;
 };
 
 
@@ -230,6 +235,7 @@ public:
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
 		const Indigo::Vector<Layer>& layers = closure.render_channels.layers;
 		const Indigo::Vector<Layer>& region_layers = closure.render_channels.region_layers;
+		const float region_alpha_bias = closure.region_alpha_bias;
 
 		if(closure.render_channels.hasSpectral())
 		{
@@ -263,7 +269,7 @@ public:
 				}
 
 				// Get alpha from alpha channel if it exists
-				sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.alpha.getData()[i]) * closure.image_scale) : 1.f;
+				sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.alpha.getData()[i], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % layers[0].image.getWidth();
@@ -284,7 +290,7 @@ public:
 						}
 
 						// Get alpha from (region) alpha channel if it exists
-						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i]) * closure.region_image_scale) : 1.f;
+						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i], region_alpha_bias) * closure.region_image_scale) : 1.f;
 					}
 					else
 					{
@@ -313,6 +319,7 @@ void sumLightLayers(
 	int margin_ssf1,
 	int ssf,
 	bool zero_alpha_outside_region,
+	float region_alpha_bias,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 ) 
@@ -324,7 +331,8 @@ void sumLightLayers(
 	closure.margin_ssf1 = margin_ssf1;
 	closure.ssf = ssf;
 	closure.zero_alpha_outside_region = zero_alpha_outside_region;
-
+	closure.region_alpha_bias = region_alpha_bias;
+	
 	const size_t num_pixels = (int)render_channels.layers[0].image.numPixels();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
 }
@@ -416,6 +424,7 @@ static void doTonemapFullBuffer(
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
+	float region_alpha_bias,
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
@@ -452,7 +461,7 @@ static void doTonemapFullBuffer(
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
 	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
-		renderer_settings.zero_alpha_outside_region, temp_summed_buffer, task_manager);
+		renderer_settings.zero_alpha_outside_region, region_alpha_bias, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
@@ -695,6 +704,7 @@ struct ImagePipelineTaskClosure
 	const ToneMapperParams* tonemap_params;
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 	const std::vector<RenderRegion>* render_regions;
+	float region_alpha_bias;
 
 	bool skip_curves;
 
@@ -735,6 +745,7 @@ public:
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
 		const std::vector<RenderRegion>& render_regions = *closure.render_regions;
+		const float region_alpha_bias = closure.region_alpha_bias;
 
 		const int rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
 
@@ -799,7 +810,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -817,7 +828,7 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
+							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0], region_alpha_bias) * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -935,7 +946,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -953,7 +964,7 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0]) * closure.region_image_scale) : 1.f;
+							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0], region_alpha_bias) * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -1086,12 +1097,20 @@ void doTonemap(
 	else
 		std::memset(curve_data.colour_curve_data, 0, sizeof(curve_data.colour_curve_data)); // Stop the compiler complaining about potentially uninitialised data.
 
+	// Compute region_alpha_bias
+	float region_alpha_bias = 1.f;
+	if(!render_regions.empty())
+	{
+		const std::vector<Rect2f> normed_rrs = RendererSettings::computeNormedRenderRegions(render_regions, renderer_settings.getWidth(), renderer_settings.getHeight(), margin_ssf1);
+		region_alpha_bias = RendererSettings::getSumNormedRectArea(normed_rrs);
+	}
+
 
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	if((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
-		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
@@ -1159,6 +1178,7 @@ void doTonemap(
 		closure.final_yres = final_yres;
 		closure.filter_size = filter_size;
 		closure.margin_ssf1 = margin_ssf1;
+		closure.region_alpha_bias = region_alpha_bias;
 
 		closure.skip_curves = skip_curves;
 		if(!skip_curves) closure.curve_data = curve_data;
