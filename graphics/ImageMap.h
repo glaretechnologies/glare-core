@@ -139,6 +139,8 @@ public:
 
 	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int destx, int desty) const;
 
+	inline void addImage(const ImageMap<V, ComponentValueTraits>& other);
+
 	// Get num components per pixel.
 	inline unsigned int getN() const { return N; }
 
@@ -696,4 +698,17 @@ void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int destx, in
 			for(unsigned int c=0; c<N; ++c)
 				dest.getPixel(x, y)[c] = getPixel(x, y)[c];
 	}
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::addImage(const ImageMap<V, VTraits>& other)
+{
+	assert(width == other.width && height == other.height && N == other.N);
+	const size_t sz = data.size();
+	if(sz != other.data.size())
+		return;
+
+	for(size_t i=0; i<sz; ++i)
+		data[i] += other.data[i];
 }
