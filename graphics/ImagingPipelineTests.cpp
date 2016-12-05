@@ -55,9 +55,12 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	std::vector<float> filter_data;
 	renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
 
+	std::vector<RenderRegion> render_regions;
+
 	ImagingPipeline::doTonemap(
 		temp_tile_buffers,
 		render_channels,
+		render_regions,
 		layer_weights,
 		layer_normalise, // image scale
 		layer_normalise, // region image scale
@@ -277,6 +280,7 @@ void test()
 		ImagingPipeline::doTonemap(
 			temp_tile_buffers,
 			master_buffer.getRenderChannels(),
+			std::vector<RenderRegion>(),
 			layer_weights,
 			1.0f, // image scale
 			1.0f, // region image scale

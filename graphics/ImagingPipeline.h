@@ -57,6 +57,7 @@ The output data components will be in the range [0, 1].
 void doTonemap(
 	std::vector<Image4f>& per_thread_tile_buffers, // Working memory
 	const RenderChannels& render_channels, // Input image data
+	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,

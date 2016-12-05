@@ -288,7 +288,8 @@ public:
 					}
 					else
 					{
-						if(closure.zero_alpha_outside_region)
+						// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+						if(closure.zero_alpha_outside_region || (closure.image_scale == 0.0))
 							sum = Colour4f(0.f);
 					}
 				}
@@ -409,8 +410,9 @@ struct CurveData
 
 
 // Tonemap HDR image to LDR image
-void doTonemapFullBuffer(
+static void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
+	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
@@ -449,7 +451,7 @@ void doTonemapFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resize(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
-	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, renderer_settings.render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
+	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
 		renderer_settings.zero_alpha_outside_region, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
@@ -692,6 +694,7 @@ struct ImagePipelineTaskClosure
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
+	const std::vector<RenderRegion>* render_regions;
 
 	bool skip_curves;
 
@@ -731,15 +734,16 @@ public:
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
+		const std::vector<RenderRegion>& render_regions = *closure.render_regions;
 
 		const int rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
 
-		SmallArray<Rect2i, 8> regions(closure.renderer_settings->render_regions.size()); // Render regions bounds in intermediate pixel coords
-		for(size_t i=0; i<closure.renderer_settings->render_regions.size(); ++i)
-			regions[i] = Rect2i(Vec2i(	(closure.renderer_settings->render_regions[i].x1 + (int)gutter_pix) * (int)ss_factor + rr_margin,
-										(closure.renderer_settings->render_regions[i].y1 + (int)gutter_pix) * (int)ss_factor + rr_margin),
-								Vec2i(	(closure.renderer_settings->render_regions[i].x2 + (int)gutter_pix) * (int)ss_factor - rr_margin,
-										(closure.renderer_settings->render_regions[i].y2 + (int)gutter_pix) * (int)ss_factor - rr_margin));
+		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
+		for(size_t i=0; i<render_regions.size(); ++i)
+			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + (int)gutter_pix) * (int)ss_factor + rr_margin,
+										(render_regions[i].y1 + (int)gutter_pix) * (int)ss_factor + rr_margin),
+								Vec2i(	(render_regions[i].x2 + (int)gutter_pix) * (int)ss_factor - rr_margin,
+										(render_regions[i].y2 + (int)gutter_pix) * (int)ss_factor - rr_margin));
 
 
 		for(int tile = begin; tile < end; ++tile)
@@ -817,7 +821,8 @@ public:
 						}
 						else
 						{
-							if(closure.renderer_settings->zero_alpha_outside_region)
+							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+							if(closure.renderer_settings->zero_alpha_outside_region || (closure.image_scale == 0.0))
 								sum = Colour4f(0.f);
 						}
 					}
@@ -952,7 +957,8 @@ public:
 						}
 						else
 						{
-							if(closure.renderer_settings->zero_alpha_outside_region)
+							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+							if(closure.renderer_settings->zero_alpha_outside_region || (closure.image_scale == 0.0))
 								sum = Colour4f(0.f);
 						}
 					}
@@ -1021,6 +1027,7 @@ public:
 void doTonemap(	
 	std::vector<Image4f>& per_thread_tile_buffers,
 	const RenderChannels& render_channels,
+	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
 	float region_image_scale,
@@ -1084,7 +1091,7 @@ void doTonemap(
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	if((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
-		doTonemapFullBuffer(render_channels, layer_weights, image_scale, region_image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							temp_summed_buffer, temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
@@ -1144,6 +1151,7 @@ void doTonemap(
 		closure.ldr_buffer_out = &ldr_buffer_out;
 		closure.renderer_settings = &renderer_settings;
 		closure.resize_filter = resize_filter;
+		closure.render_regions = &render_regions;
 		closure.tonemap_params = &tonemap_params;
 
 		closure.x_tiles = x_tiles;
@@ -1166,25 +1174,6 @@ void doTonemap(
 	ImageFilter::chromaticAberration(ldr_buffer_out, temp, 0.002f);
 	ldr_buffer_out = temp;
 	ldr_buffer_out.clampInPlace(0, 1);*/
-
-	// Zero out pixels not in the render region, if there are no samples on the main layers.
-	if(renderer_settings.renderRegionsEnabled() && image_scale == 0.0)
-	{
-		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
-
-		SmallArray<Rect2i, 8> regions(renderer_settings.render_regions.size()); // Render regions bounds in intermediate pixel coords
-		for(size_t i=0; i<renderer_settings.render_regions.size(); ++i)
-			regions[i] = Rect2i(Vec2i(	renderer_settings.render_regions[i].x1 + rr_margin,
-										renderer_settings.render_regions[i].y1 + rr_margin),
-								Vec2i(	renderer_settings.render_regions[i].x2 - rr_margin,
-										renderer_settings.render_regions[i].y2 - rr_margin));
-
-		
-		for(ptrdiff_t y = 0; y < (ptrdiff_t)ldr_buffer_out.getHeight(); ++y)
-		for(ptrdiff_t x = 0; x < (ptrdiff_t)ldr_buffer_out.getWidth();  ++x)
-			if(!pixelIsInARegion(x, y, regions))
-				ldr_buffer_out.setPixel(x, y, Colour4f(0.0f));
-	}
 }
 
 
