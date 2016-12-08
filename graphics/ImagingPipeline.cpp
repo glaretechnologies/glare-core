@@ -266,8 +266,7 @@ public:
 				}
 
 				// Get alpha from alpha channel if it exists
-				const float use_alpha = closure.render_channels.alpha.getData()[i] * alpha_bias_factor;
-				sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
+				sum.x[3] = have_alpha_channel ? (closure.render_channels.alpha.getData()[i] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % layers[0].image.getWidth();
@@ -288,8 +287,7 @@ public:
 						}
 
 						// Get alpha from (region) alpha channel if it exists
-						const float region_use_alpha = closure.render_channels.region_alpha.getData()[i] * region_alpha_bias_factor;
-						sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
+						sum.x[3] = have_alpha_channel ? (closure.render_channels.region_alpha.getData()[i] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 					}
 					else
 					{
@@ -812,8 +810,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					const float use_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor;
-					sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -831,8 +828,7 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							const float region_use_alpha = closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor;
-							sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
+							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -950,8 +946,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					const float use_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor;
-					sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -969,8 +964,7 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							const float region_use_alpha = closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor;
-							sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
+							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
