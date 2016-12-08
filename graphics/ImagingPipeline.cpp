@@ -166,15 +166,6 @@ inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<R
 }
 
 
-// Artificially bump up the alpha value a little (if it is non-zero), so that monte-carlo noise doesn't make a totally opaque object partially transparent.
-// For region renders, the alpha value will be lower than normal, since region samples are weighted by the normed_image_rect_area.  So in this case the alpha_bias should be smaller.
-// (we will use alpha_bias = normed_image_rect_area)
-inline static float useAlphaForRawAlpha(float raw_alpha, float alpha_bias)
-{
-	 return (raw_alpha > 0) ? (raw_alpha + alpha_bias) : 0.f;
-}
-
-
 /*
 sumLightLayers
 --------------
@@ -235,7 +226,13 @@ public:
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
 		const Indigo::Vector<Layer>& layers = closure.render_channels.layers;
 		const Indigo::Vector<Layer>& region_layers = closure.render_channels.region_layers;
-		const float region_alpha_bias = closure.region_alpha_bias;
+
+		// Artificially bump up the alpha value a little, so that monte-carlo noise doesn't make a totally opaque object partially transparent.
+		// we will use image_scale for this, as it naturally reduces to near zero as the render converges.
+		// For region renders, the alpha value will be lower than normal, since region samples are weighted by the normed_image_rect_area.  So in this case the alpha_bias should be smaller.
+		// (we will use alpha_bias = normed_image_rect_area)
+		const float alpha_bias_factor        = 1.f + closure.image_scale;
+		const float region_alpha_bias_factor = 1.f + closure.region_alpha_bias;
 
 		if(closure.render_channels.hasSpectral())
 		{
@@ -269,7 +266,8 @@ public:
 				}
 
 				// Get alpha from alpha channel if it exists
-				sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.alpha.getData()[i], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
+				const float use_alpha = closure.render_channels.alpha.getData()[i] * alpha_bias_factor;
+				sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % layers[0].image.getWidth();
@@ -290,7 +288,8 @@ public:
 						}
 
 						// Get alpha from (region) alpha channel if it exists
-						sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels.region_alpha.getData()[i], region_alpha_bias) * closure.region_image_scale) : 1.f;
+						const float region_use_alpha = closure.render_channels.region_alpha.getData()[i] * region_alpha_bias_factor;
+						sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
 					}
 					else
 					{
@@ -757,6 +756,9 @@ public:
 										(render_regions[i].y2 + (int)gutter_pix) * (int)ss_factor - rr_margin));
 
 
+		const float alpha_bias_factor        = 1.f + closure.image_scale;
+		const float region_alpha_bias_factor = 1.f + region_alpha_bias;
+
 		for(int tile = begin; tile < end; ++tile)
 		{
 			Image4f& tile_buffer = (*closure.per_thread_tile_buffers)[thread_index];
@@ -810,12 +812,13 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
+					const float use_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor;
+					sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
 					{
-						if(pixelIsInARegion(x, y, regions)) // (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
@@ -828,7 +831,8 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0], region_alpha_bias) * closure.region_image_scale) : 1.f;
+							const float region_use_alpha = closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor;
+							sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -946,12 +950,13 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0], /*alpha bias=*/1.f) * closure.image_scale) : 1.f;
+					const float use_alpha = closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor;
+					sum.x[3] = have_alpha_channel ? (use_alpha * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
 					{
-						if(pixelIsInARegion(x, y, regions)) // if(render_region_enabled && (x >= rr_x1) && (x < rr_x2) && (y >= rr_y1) && (y < rr_y2)) // If in RR:
+						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
@@ -964,7 +969,8 @@ public:
 								sum.x[2] += c.b * scale.z;
 							}
 
-							sum.x[3] = have_alpha_channel ? (useAlphaForRawAlpha(closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0], region_alpha_bias) * closure.region_image_scale) : 1.f;
+							const float region_use_alpha = closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor;
+							sum.x[3] = have_alpha_channel ? (region_use_alpha * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
