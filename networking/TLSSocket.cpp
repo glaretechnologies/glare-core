@@ -208,6 +208,12 @@ void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 }
 
 
+void TLSSocket::ungracefulShutdown()
+{
+	plain_socket->ungracefulShutdown();
+}
+
+
 void TLSSocket::waitForGracefulDisconnect()
 {
 	// conPrint("---------waitForGracefulDisconnect-------");

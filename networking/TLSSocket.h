@@ -60,6 +60,10 @@ public:
 	static void initTLS();
 
 
+	// Calls shutdown on the socket, then closes the socket handle.
+	// This will cause the socket to return from any blocking calls.
+	virtual void ungracefulShutdown();
+
 	// Wait for the other end to 'gracefully disconnect'
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
 	// This is good because it allows the server to rebind to the same port without a long 30s wait on e.g. OS X.

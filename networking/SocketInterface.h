@@ -23,6 +23,10 @@ class SocketInterface : public InStream, public OutStream, public ThreadSafeRefC
 {
 public:
 	virtual ~SocketInterface();
+
+	// Calls shutdown on the socket, then closes the socket handle.
+	// This will cause the socket to return from any blocking calls.
+	virtual void ungracefulShutdown() = 0;
 	
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
 	// Returns zero if connection was closed gracefully.

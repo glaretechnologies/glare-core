@@ -94,7 +94,7 @@ public:
 
 	// Calls shutdown on the socket, then closes the socket handle.
 	// This will cause the socket to return from any blocking calls.
-	void ungracefulShutdown();
+	virtual void ungracefulShutdown();
 
 	// Wait for the other end to 'gracefully disconnect'
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
