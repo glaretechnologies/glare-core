@@ -27,6 +27,8 @@ public:
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
+	virtual void ungracefulShutdown() {}
+
 
 	void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
 
