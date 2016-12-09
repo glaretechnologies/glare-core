@@ -1117,7 +1117,7 @@ public:
 					{
 						HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 						for(int z = 0; z < num_uv_sets; ++z)
-							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, tri.vertex_indices[i], z);
+							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, tri.uv_indices[i], z);
 						du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
 
 						EvalDisplaceArgs args(
@@ -1174,7 +1174,7 @@ public:
 					{
 						HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 						for(int z = 0; z < num_uv_sets; ++z)
-							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, quad.vertex_indices[i], z);
+							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, quad.uv_indices[i], z);
 						du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
 
 						EvalDisplaceArgs args(
@@ -1254,7 +1254,7 @@ void DisplacementUtils::doDisplacementOnly(
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Computing vertex displacments took   " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	// To avoid breaks in meshes, we want to set the displacement of vertices to the average displacement of all vertices at the same posiiton.
+	// To avoid breaks in meshes, we want to set the displacement of vertices to the average displacement of all vertices at the same position.
 	// NOTE: this is a bit slow (e.g. 0.3 s for 1M quads)
 	// Not sure the slowness is a big issue though, as usually high poly counts will come from subdivision, which we handle displacement for differently.
 	const Vec3f inf_v = Vec3f(std::numeric_limits<float>::infinity());
