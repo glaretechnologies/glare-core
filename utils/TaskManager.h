@@ -100,8 +100,8 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 		return;
 
 	const size_t total = end - begin;
-	const size_t num_tasks = myMin(total, getNumThreads());
-
+	const size_t num_tasks = myMax<size_t>(1, myMin(total, getNumThreads()));
+	
 	size_t num_indices_per_task = 0;
 	if(total % num_tasks == 0)
 	{
@@ -145,8 +145,8 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 		return;
 
 	const size_t total = end - begin;
-	const size_t num_tasks = myMin(total, getNumThreads());
-
+	const size_t num_tasks = myMax<size_t>(1, myMin(total, getNumThreads()));
+	
 	for(size_t t=0; t<num_tasks; ++t)
 	{
 		const size_t task_begin = begin + t;

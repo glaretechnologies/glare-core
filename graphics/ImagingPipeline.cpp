@@ -1263,8 +1263,8 @@ void toNonLinearSpace(
 	ScopeProfiler _scope("ImagingPipeline::toNonLinearSpace", 1);
 
 	const size_t num_tasks = task_manager.getNumThreads();
-	const size_t num_pixels_per_task = Maths::roundedUpDivide(ldr_buffer_in_out.numPixels(), num_tasks);
-	for(size_t i=0; i<num_tasks; ++i)
+	const size_t num_pixels_per_task = Maths::roundedUpDivide(ldr_buffer_in_out.numPixels(), myMax<size_t>(1, num_tasks));
+	for(size_t i=0; i<myMax<size_t>(1, num_tasks); ++i)
 	{
 		Reference<ToNonLinearSpaceTask> task = new ToNonLinearSpaceTask();
 		task->renderer_settings = &renderer_settings;

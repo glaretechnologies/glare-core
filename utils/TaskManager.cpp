@@ -112,16 +112,30 @@ void TaskManager::waitForTasksToComplete()
 {
 	Lock lock(num_unfinished_tasks_mutex);
 
-	while(1)
+	if(threads.empty())
 	{
-		if(num_unfinished_tasks == 0)
-			return;
+		// Do the work in this thread!
+		while(!tasks.empty())
+		{
+			Reference<Task> task;
+			tasks.dequeue(task);
+			task->run(0);
+			num_unfinished_tasks--;
+		}
+	}
+	else
+	{
+		while(1)
+		{
+			if(num_unfinished_tasks == 0)
+				return;
 		
-		num_unfinished_tasks_cond.wait(
-			num_unfinished_tasks_mutex, 
-			true, // infinite wait time
-			0 // wait time (s) (not used)
-		);
+			num_unfinished_tasks_cond.wait(
+				num_unfinished_tasks_mutex, 
+				true, // infinite wait time
+				0 // wait time (s) (not used)
+			);
+		}
 	}
 }
 

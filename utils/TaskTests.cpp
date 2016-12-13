@@ -181,11 +181,20 @@ void TaskTests::test()
 	}
 
 	{
+		TaskManager m(0);
+	}
+
+	{
 		TaskManager m(1);
 	}
 
 	{
 		TaskManager m;
+		m.waitForTasksToComplete();
+	}
+
+	{
+		TaskManager m(0);
 		m.waitForTasksToComplete();
 	}
 
@@ -236,6 +245,21 @@ void TaskTests::test()
 		m.waitForTasksToComplete();
 	}
 
+	// Test with zero worker threads
+	{
+		TaskManager m(0);
+
+		for(int i=0; i<1000; ++i)
+			m.addTask(new TestTask(i));
+
+		m.waitForTasksToComplete();
+
+		for(int i=0; i<1000; ++i)
+			m.addTask(new TestTask(i));
+
+		m.waitForTasksToComplete();
+	}
+
 	// Test mem allocator
 	/*{
 		::FixedSizeAllocator allocator(sizeof(TestTask), 16, 8);
@@ -251,6 +275,21 @@ void TaskTests::test()
 	// Test for loop stuff
 	{
 		TaskManager m(1);
+
+		testForLoopTaskRun(m, 0);
+		testForLoopTaskRun(m, 1);
+		testForLoopTaskRun(m, 2);
+		testForLoopTaskRun(m, 3);
+		testForLoopTaskRun(m, 4);
+		testForLoopTaskRun(m, 7);
+		testForLoopTaskRun(m, 8);
+		testForLoopTaskRun(m, 9);
+		testForLoopTaskRun(m, 16);
+		testForLoopTaskRun(m, 1000000);
+	}
+
+	{
+		TaskManager m(0); // zero threads
 
 		testForLoopTaskRun(m, 0);
 		testForLoopTaskRun(m, 1);
