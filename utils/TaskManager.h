@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskManager.h
 -------------------
-Copyright Glare Technologies Limited 2011 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2011-10-05 21:56:22 +0100
 =====================================================================*/
 #pragma once
@@ -40,7 +40,7 @@ public:
 	} NumThreadsChoice;*/
 
 	TaskManager(size_t num_threads = std::numeric_limits<size_t>::max());
-	TaskManager(const std::string& name, size_t num_threads = std::numeric_limits<size_t>::max());
+	TaskManager(const std::string& name, size_t num_threads = std::numeric_limits<size_t>::max()); // Name is used to name TaskRunnerThreads in the debugger.
 
 	~TaskManager();
 
@@ -72,7 +72,6 @@ public:
 
 	Reference<Task> dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
-	// void threadDead(); // called by TestRunnerThread
 	const std::string& getName(); // called by TestRunnerThread
 private:
 	void init(size_t num_threads);
@@ -82,10 +81,6 @@ private:
 	int num_unfinished_tasks;
 	
 	std::string name;
-
-	//Condition num_threads_cond;
-	//Mutex num_threads_mutex;
-	//int num_threads;
 
 	ThreadSafeQueue<Reference<Task> > tasks;
 
@@ -166,5 +161,3 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 
 
 } // end namespace Indigo 
-
-

@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskManager.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2016 -
 Generated at 2011-10-05 21:56:22 +0100
 =====================================================================*/
 #include "TaskManager.h"
@@ -20,7 +20,6 @@ namespace Indigo
 TaskManager::TaskManager(size_t num_threads)
 :	num_unfinished_tasks(0),
 	name("task manager")
-	///num_threads(0)
 {
 	init(num_threads);
 }
@@ -41,12 +40,10 @@ void TaskManager::init(size_t num_threads)
 	else
 		threads.resize(num_threads);
 
-	//num_threads = threads.size();
-
 	for(size_t i=0; i<threads.size(); ++i)
 	{
 		threads[i] = new TaskRunnerThread(this, i);
-		threads[i]->launch(/*false*/); // Don't autodelete, as we will be joining with the threads and then deleting them manually.
+		threads[i]->launch();
 	}
 }
 
@@ -60,22 +57,6 @@ TaskManager::~TaskManager()
 	// Wait for threads to quit.
 	for(size_t i=0; i<threads.size(); ++i)
 		threads[i]->join();
-
-	// Delete the threads.
-	//for(size_t i=0; i<threads.size(); ++i)
-	//	delete threads[i];
-
-	/*while(1)
-	{
-		Lock lock(num_threads_mutex);
-		if(num_threads == 0)
-			break;
-
-		num_threads_cond.wait(num_threads_mutex, true, 0);
-
-		if(num_threads == 0)
-			break;
-	}*/
 }
 
 
@@ -112,7 +93,7 @@ void TaskManager::waitForTasksToComplete()
 {
 	Lock lock(num_unfinished_tasks_mutex);
 
-	if(threads.empty())
+	if(threads.empty()) // If there are zero worker threads:
 	{
 		// Do the work in this thread!
 		while(!tasks.empty())
@@ -179,22 +160,4 @@ const std::string& TaskManager::getName() // called by TestRunnerThread
 }
 
 
-/*void TaskManager::threadDead() // called by Tasks
-{
-	conPrint("threadDead()");
-	
-
-	{
-		Lock lock(num_threads_mutex);
-		conPrint("num_threads: " + toString(num_threads));
-		assert(num_threads >= 1);
-		num_threads--;
-	}
-
-	num_threads_cond.notify();
-}*/
-
-
 } // end namespace Indigo 
-
-
