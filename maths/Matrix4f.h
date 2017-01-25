@@ -42,10 +42,12 @@ public:
 
 	void applyUniformScale(float scale); // right multiply the matrix by a uniform scale matrix.
 	void setToUniformScaleMatrix(float scale); // Make the upper-left 3x3 matrix a uniform scaling matrix.
+	static const Matrix4f uniformScaleMatrix(float scale);
+
 	void setToScaleMatrix(float xscale, float yscale, float zscale);
-
+	static const Matrix4f scaleMatrix(float xscale, float yscale, float zscale);
 	
-
+	
 
 	inline const Vec4f mul3Vector(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;

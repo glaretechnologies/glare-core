@@ -285,6 +285,14 @@ void Matrix4f::setToUniformScaleMatrix(float scale)
 }
 
 
+const Matrix4f Matrix4f::uniformScaleMatrix(float scale)
+{
+	Matrix4f m;
+	m.uniformScaleMatrix(scale);
+	return m;
+}
+
+
 void Matrix4f::setToScaleMatrix(float xscale, float yscale, float zscale)
 {
 	e[ 0] = xscale;
@@ -303,6 +311,14 @@ void Matrix4f::setToScaleMatrix(float xscale, float yscale, float zscale)
 	e[13] = 0;
 	e[14] = 0;
 	e[15] = 1;
+}
+
+
+const Matrix4f Matrix4f::scaleMatrix(float x, float y, float z)
+{
+	Matrix4f m;
+	m.setToScaleMatrix(x, y, z);
+	return m;
 }
 
 
