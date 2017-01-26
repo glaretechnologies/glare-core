@@ -17,6 +17,7 @@ FrameBuffer::FrameBuffer()
 
 FrameBuffer::~FrameBuffer()
 {
+	glDeleteFramebuffers(1, &buffer_name);
 }
 
 

@@ -21,11 +21,25 @@ public:
 	OpenGLTexture();
 	~OpenGLTexture();
 
+	enum Filtering
+	{
+		Filtering_Nearest,
+		Filtering_Bilinear,
+		Filtering_Fancy // Trilinear + anisotropic filtering if available
+	};
+
+	enum Wrapping
+	{
+		Wrapping_Repeat,
+		Wrapping_Clamp
+	};
+
 	void load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine,
 		GLint internal_format,
 		GLenum format,
 		GLenum type,
-		bool nearest_filtering
+		Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat
 	);
 
 	GLuint texture_handle;

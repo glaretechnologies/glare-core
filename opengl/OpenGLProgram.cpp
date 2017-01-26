@@ -16,19 +16,26 @@ Copyright Glare Technologies Limited 2016 -
 
 static const std::string getLog(GLuint program)
 {
+	// Get log length including null terminator
 	GLint log_length = 0;
 	glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
 		
 	std::string log;
-	log.resize(log_length);
-	glGetProgramInfoLog(program, log_length, NULL, &log[0]);
+	if(log_length > 0)
+	{
+		log.resize(log_length - 1);
+		glGetProgramInfoLog(program, log_length, NULL, &log[0]);
+	}
 	return log;
 }
 
 
-OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader)
+OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_)
 :	program(0)
 {
+	vert_shader = vert_shader_;
+	frag_shader = frag_shader_;
+
 	program = glCreateProgram();
 	if(program == 0)
 		throw Indigo::Exception("Failed to create OpenGL program '" + prog_name + "'.");
@@ -62,6 +69,16 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenG
 	else if(prog_name == "depth")
 	{
 		glBindAttribLocation(program, 0, "position_in");
+	}
+	else if(prog_name == "outline")
+	{
+		glBindAttribLocation(program, 0, "position_in");
+		glBindAttribLocation(program, 1, "normal_in");
+	}
+	else if(prog_name == "edge_extract")
+	{
+		glBindAttribLocation(program, 0, "position_in");
+		glBindAttribLocation(program, 2, "texture_coords_0_in");
 	}
 	else
 	{

@@ -14,9 +14,8 @@ class OpenGLShader;
 
 
 /*=====================================================================
-OpenGLShader
-----------
-
+OpenGLProgram
+-------------
 =====================================================================*/
 class OpenGLProgram : public RefCounted
 {
@@ -38,4 +37,7 @@ public:
 	int view_matrix_loc;
 	int proj_matrix_loc;
 	int normal_matrix_loc;
+
+	Reference<OpenGLShader> vert_shader;
+	Reference<OpenGLShader> frag_shader;
 };

@@ -13,7 +13,7 @@ uniform sampler2D diffuse_tex;
 uniform int have_depth_texture;
 uniform sampler2D depth_tex;
 uniform mat4 texture_matrix;
-uniform float exponent;
+uniform float roughness;
 uniform float fresnel_scale;
 
 out vec4 colour_out;
@@ -21,10 +21,11 @@ out vec4 colour_out;
 
 float square(float x) { return x*x; }
 float pow5(float x) { return x*x*x*x*x; }
+float pow6(float x) { return x*x*x*x*x*x; }
 
-float alpha2ForExponent(float exponent)
+float alpha2ForRoughness(float r)
 {
-	return 2.0 / (exponent + 2.0);
+	return pow6(r);
 }
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
@@ -94,7 +95,7 @@ void main()
 	vec3 h = normalize(frag_to_cam + sundir.xyz);
 
 	float h_cos_theta = max(0.0, dot(h, unit_normal));
-	float specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForExponent(exponent)) * 
+	float specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
 		fresnellApprox(h_cos_theta, 1.5) * fresnel_scale;
  
 	vec4 col;

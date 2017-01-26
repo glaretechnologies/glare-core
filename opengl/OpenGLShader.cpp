@@ -15,12 +15,16 @@ Copyright Glare Technologies Limited 2016 -
 
 static const std::string getLog(GLuint shader)
 {
+	// Get log length including null terminator
 	GLint log_length = 0;
 	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
 		
 	std::string log;
-	log.resize(log_length);
-	glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
+	if(log_length > 0)
+	{
+		log.resize(log_length - 1);
+		glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
+	}
 	return log;
 }
 

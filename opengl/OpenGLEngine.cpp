@@ -11,7 +11,9 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../graphics/ImageMap.h"
 #include "../indigo/globals.h"
+#include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/vec3.h"
 #include "../maths/GeometrySampling.h"
@@ -450,7 +452,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
 		texture_matrix_location			= phong_prog->getUniformLocation("texture_matrix");
 		sundir_location					= phong_prog->getUniformLocation("sundir");
-		exponent_location				= phong_prog->getUniformLocation("exponent");
+		roughness_location				= phong_prog->getUniformLocation("roughness");
 		fresnel_scale_location			= phong_prog->getUniformLocation("fresnel_scale");
 		phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
 
@@ -481,7 +483,20 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
 		overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 		overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
+		
+		outline_prog = new OpenGLProgram(
+			"outline",
+			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+		);
 
+		edge_extract_prog = new OpenGLProgram(
+			"edge_extract",
+			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+		);
+		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
+		
 
 		if(settings.shadow_mapping)
 		{
@@ -513,6 +528,37 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			}
 		}
 
+		// Outline stuff
+		{
+			outline_solid_fb = new FrameBuffer();
+			outline_edge_fb = new FrameBuffer();
+	
+			outline_solid_mat.shader_prog = outline_prog;
+
+			outline_edge_mat.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
+			outline_edge_mat.shader_prog = this->overlay_prog;
+
+			outline_quad_meshdata = OpenGLEngine::makeOverlayQuadMesh();
+
+			if(false)
+			{
+				// TEMP: Add overlay quad to preview texture
+				Reference<OverlayObject> tex_preview_overlay_ob = new OverlayObject();
+				tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
+				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+				tex_preview_overlay_ob->material.albedo_texture = outline_solid_tex;
+				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+				addOverlayObject(tex_preview_overlay_ob);
+
+				tex_preview_overlay_ob = new OverlayObject();
+				tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
+				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+				tex_preview_overlay_ob->material.albedo_texture = outline_edge_tex;
+				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+				addOverlayObject(tex_preview_overlay_ob);
+			}
+		}
+
 
 		init_succeeded = true;
 	}
@@ -522,6 +568,43 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		this->initialisation_error_msg = e.what();
 		init_succeeded = false;
 	}
+}
+
+
+// We want the outline textures to have the same resolution as the viewport.
+void OpenGLEngine::buildOutlineTexturesForViewport()
+{
+	outline_tex_w = myMax(16, viewport_w);
+	outline_tex_h = myMax(16, viewport_h);
+
+	outline_solid_tex = new OpenGLTexture();
+	outline_solid_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
+		GL_RGB, // internal format
+		GL_RGB, // format
+		GL_UNSIGNED_BYTE, // type
+		OpenGLTexture::Filtering_Bilinear,
+		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+	);
+
+	outline_edge_tex = new OpenGLTexture();
+	outline_edge_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
+		GL_RGBA, // internal format
+		GL_RGBA, // format
+		GL_UNSIGNED_BYTE, // type
+		OpenGLTexture::Filtering_Bilinear
+	);
+
+	outline_edge_mat.albedo_texture = outline_edge_tex;
+}
+
+
+void OpenGLEngine::viewportChanged(int viewport_w_, int viewport_h_)
+{
+	viewport_w = viewport_w_;
+	viewport_h = viewport_h_;
+	viewport_aspect_ratio = (double)viewport_w_ / (double)viewport_h_;
+
+	buildOutlineTexturesForViewport();
 }
 
 
@@ -540,7 +623,8 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 	const Vec4f max_os = object.mesh_data->aabb_os.max_;
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix);
+	const bool invertible = to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix);
+	assert(invertible);
 
 	js::AABBox bbox_ws = js::AABBox::emptyAABBox();
 	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
@@ -592,6 +676,18 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 }
 
 
+void OpenGLEngine::selectObject(const Reference<GLObject>& object)
+{
+	this->selected_objects.insert(object.getPointer());
+}
+
+
+void OpenGLEngine::deselectObject(const Reference<GLObject>& object)
+{
+	this->selected_objects.erase(object.getPointer());
+}
+
+
 void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	// NOTE: linear time
@@ -621,14 +717,37 @@ void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat)
 }
 
 
-void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
+void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, TextureServer& texture_server)
 {
 	// Add this object to transparent_objects list if it has a transparent material and is not already in the list.
 
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
+	{
 		if(object->materials[i].transparent)
+		{
 			have_transparent_mat = true;
+			object->materials[i].shader_prog = transparent_prog;
+		}
+		else
+			object->materials[i].shader_prog = phong_prog;
+
+
+		if(object->materials[i].albedo_tex_path.empty())
+			object->materials[i].albedo_texture = NULL;// Delete OpenGL texture
+		else
+		{
+			try
+			{
+				Reference<Map2D> map = texture_server.getTexForPath(".", object->materials[i].albedo_tex_path);
+				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map);
+			}
+			catch(TextureServerExcep& e)
+			{
+				conPrint("Warning: failed to load texture: " + e.what());
+			}
+		}
+	}
 
 	if(have_transparent_mat)
 	{
@@ -640,6 +759,16 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 
 		if(!in_transparent_objects)
 			transparent_objects.push_back(object);
+	}
+	else
+	{
+		// Remove from transparent material list if it is currently in there.  NOTE: SLOW linear time
+		for(size_t i=0; i<transparent_objects.size(); ++i)
+			if(transparent_objects[i].getPointer() == object.getPointer())
+			{
+				transparent_objects.erase(transparent_objects.begin() + i);
+				break;
+			}
 	}
 }
 
@@ -751,7 +880,7 @@ void OpenGLEngine::draw()
 	this->num_aabbs_submitted = 0;
 	Timer profile_timer;
 
-	this->draw_time = Clock::getCurTimeRealSec();
+	this->draw_time = draw_timer.elapsed();
 
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
@@ -876,6 +1005,72 @@ void OpenGLEngine::draw()
 	// Draw solid polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+
+	
+	// Draw outlines around selected object(s).
+	// * Draw object with flat uniform shading to a render frame buffer.
+	// * Make render buffer a texture
+	// * Draw a quad over the main viewport, using a shader that does a Sobel filter, to detect the edges.  write to another frame buffer.
+	// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
+
+	//================= Generate outline texture =================
+	if(!selected_objects.empty())
+	{
+		// -------------------------- Stage 1: draw flat selected objects. --------------------
+		outline_solid_fb->bind();
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_solid_tex->texture_handle, 0);
+		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
+		{
+			const GLObject* const ob = *i;
+			if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+				unbindMeshData(mesh_data);
+			}
+		}
+
+		outline_solid_fb->unbind();
+	
+		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
+		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
+	
+		outline_edge_fb->bind();
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_edge_tex->texture_handle, 0);
+		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+
+		edge_extract_prog->useProgram();
+
+		// Position quad to cover viewport
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, 0, 0));
+
+		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
+		for(uint32 z = 0; z < outline_quad_meshdata->batches.size(); ++z)
+		{
+			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
+
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, outline_solid_tex->texture_handle);
+			glUniform1i(edge_extract_tex_location, 0);
+				
+			glDrawElements(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->index_type, (void*)(uint64)outline_quad_meshdata->batches[0].prim_start_offset);
+		}
+		unbindMeshData(*outline_quad_meshdata);
+
+		edge_extract_prog->useNoPrograms();
+
+		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+		outline_edge_fb->unbind();
+
+		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+	}
+
+
 	// Draw background env map if there is one.
 	if(this->env_ob->materials[0].albedo_texture.nonNull())
 	{
@@ -987,6 +1182,47 @@ void OpenGLEngine::draw()
 #endif
 	}
 
+	//================= Draw outlines around selected objects =================
+	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.
+	if(!selected_objects.empty())
+	{
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDepthMask(GL_FALSE); // Don't write to z-buffer
+
+		// Position quad to cover viewport
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, 0, 0));
+
+		const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
+		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+		{
+			const OpenGLMaterial& opengl_mat = outline_edge_mat;
+
+			assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
+
+			opengl_mat.shader_prog->useProgram();
+
+			glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
+			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+
+			const Matrix4f identity = Matrix4f::identity();
+			glUniformMatrix4fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
+			glUniform1i(overlay_diffuse_tex_location, 0);
+				
+			glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
+
+			opengl_mat.shader_prog->useNoPrograms();
+		}
+		unbindMeshData(mesh_data);
+
+		glDepthMask(GL_TRUE); // Restore
+		glDisable(GL_BLEND);
+	}
 
 	//================= Draw UI overlay objects =================
 	{
@@ -1625,20 +1861,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		if(opengl_mat.shader_prog.getPointer() == this->phong_prog.getPointer())
 		{
 			glUniform4fv(this->sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
-			
-			// If this is a 'selected' material, show a pulsing colour
-			if(opengl_mat.selected)
-			{
-				const float pulse = 0.3f * (float)Maths::pow4(std::sin(2.f * draw_time));
-				const Colour3f col(0.2f + pulse, 0.7f + pulse, 0.2f + pulse);
-				glUniform4f(this->diffuse_colour_location, col.r, col.g, col.b, 1.f);
-			}
-			else
-				glUniform4f(this->diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-
+			glUniform4f(this->diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 			glUniform1i(this->have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-			glUniform1i(this->have_texture_location, (opengl_mat.albedo_texture.nonNull() && !opengl_mat.selected) ? 1 : 0);
-			glUniform1f(this->exponent_location, opengl_mat.phong_exponent);
+			glUniform1i(this->have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+			glUniform1f(this->roughness_location, opengl_mat.roughness);
 			glUniform1f(this->fresnel_scale_location, opengl_mat.fresnel_scale);
 
 			if(opengl_mat.albedo_texture.nonNull())
@@ -1697,6 +1923,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			}
 		}
 		else if(opengl_mat.shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
+		{
+
+		}
+		else if(opengl_mat.shader_prog.getPointer() == this->outline_prog.getPointer())
 		{
 
 		}
@@ -2194,6 +2424,45 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
+}
+
+
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d)
+{
+	auto res = this->opengl_textures.find(&map2d);
+	if(res == this->opengl_textures.end())
+	{
+		// Load texture
+		unsigned int tex_xres = map2d.getMapWidth();
+		unsigned int tex_yres = map2d.getMapHeight();
+
+		if(dynamic_cast<const ImageMapUInt8*>(&map2d))
+		{
+			const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
+
+			if(imagemap->getN() == 3)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, 
+					OpenGLTexture::Filtering_Fancy
+				);
+
+				this->opengl_textures.insert(std::make_pair(&map2d, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else
+				throw Indigo::Exception("Unhandled number of components.");
+		}
+		else
+		{
+			throw Indigo::Exception("Unhandled texture type.");
+		}
+	}
+	else // Else if this map has already been loaded into an OpenGL Texture:
+	{
+		return res->second;
+	}
 }
 
 

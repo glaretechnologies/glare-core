@@ -3,6 +3,7 @@
 
 
 #include "OpenGLEngine.h"
+#include "../utils/ConPrint.h"
 
 
 OpenGLTexture::OpenGLTexture()
@@ -22,7 +23,8 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data
 	GLint internal_format,
 	GLenum format,
 	GLenum type,
-	bool nearest_filtering
+	Filtering filtering,
+	Wrapping wrapping
 	)
 {
 	if(texture_handle)
@@ -52,12 +54,24 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data
 		type, // type
 		tex_data); // Upload texture to OpenGL
 
-	if(nearest_filtering)
+	if(wrapping == Wrapping_Clamp)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+
+	if(filtering == Filtering_Nearest)
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
-	else
+	else if(filtering == Filtering_Bilinear)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else if(filtering == Filtering_Fancy)
 	{
 		// Enable anisotropic texture filtering if supported.
 		if(opengl_engine.nonNull() && opengl_engine->anisotropic_filtering_supported)
@@ -67,5 +81,9 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else
+	{
+		assert(0);
 	}
 }

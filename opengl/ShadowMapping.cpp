@@ -44,7 +44,7 @@ void ShadowMapping::init(const int w_, const int h_)
 		GL_DEPTH_COMPONENT, // internal format
 		GL_DEPTH_COMPONENT, // format
 		GL_FLOAT, // type
-		true // nearest filtering
+		OpenGLTexture::Filtering_Nearest // nearest filtering
 	);
 
 	//col_tex = new OpenGLTexture();

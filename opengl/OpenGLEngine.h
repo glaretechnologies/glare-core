@@ -25,7 +25,10 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Reference.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
+#include <unordered_set>
 namespace Indigo { class Mesh; }
+class Map2D;
+class TextureServer;
 
 
 // Data for a bunch of triangles from a given mesh, that all share the same material.
@@ -65,12 +68,11 @@ public:
 		albedo_rgb(0.85f, 0.25f, 0.85f),
 		specular_rgb(0.f),
 		alpha(1.f),
-		phong_exponent(100.f),
+		roughness(0.5f),
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
 		userdata(0),
-		fresnel_scale(0.5f),
-		selected(false)
+		fresnel_scale(0.5f)
 	{}
 
 	std::string albedo_tex_path;
@@ -80,7 +82,6 @@ public:
 	float alpha; // Used for transparent mats.
 
 	bool transparent;
-	bool selected;
 
 	Reference<OpenGLTexture> albedo_texture;
 
@@ -89,7 +90,7 @@ public:
 	Matrix2f tex_matrix;
 	Vec2f tex_translation;
 
-	float phong_exponent;
+	float roughness;
 	float fresnel_scale;
 	
 	uint64 userdata;
@@ -159,11 +160,16 @@ public:
 	void removeObject(const Reference<GLObject>& object);
 
 	void addOverlayObject(const Reference<OverlayObject>& object);
+	void removeOverlayObject(const Reference<OverlayObject>& object);
+
+
+	void selectObject(const Reference<GLObject>& object);
+	void deselectObject(const Reference<GLObject>& object);
 
 
 	void newMaterialUsed(OpenGLMaterial& mat);
 
-	void objectMaterialsUpdated(const Reference<GLObject>& object);
+	void objectMaterialsUpdated(const Reference<GLObject>& object, TextureServer& texture_server);
 
 	void draw();
 
@@ -181,7 +187,7 @@ public:
 
 	void updateObjectTransformData(GLObject& object);
 
-
+	void viewportChanged(int viewport_w_, int viewport_h_);
 	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
 
 	void setMaxDrawDistance(float d) { max_draw_dist = d; }
@@ -199,6 +205,7 @@ public:
 	// Throws Indigo::Exception on failure
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
+	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d);
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 
@@ -208,6 +215,7 @@ private:
 	void buildMaterial(OpenGLMaterial& mat);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
+	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 	
@@ -260,7 +268,7 @@ private:
 	int phong_depth_tex_location;
 	int texture_matrix_location;
 	int sundir_location;
-	int exponent_location;
+	int roughness_location;
 	int fresnel_scale_location;
 	int phong_shadow_texture_matrix_location;
 
@@ -280,6 +288,11 @@ private:
 	int overlay_diffuse_tex_location;
 	int overlay_texture_matrix_location;
 
+	Reference<OpenGLProgram> outline_prog; // Used for drawing constant flat shaded pixels currently.
+
+	Reference<OpenGLProgram> edge_extract_prog;
+	int edge_extract_tex_location;
+
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
 
@@ -291,6 +304,21 @@ private:
 	OverlayObjectRef tex_preview_overlay_ob;
 
 	double draw_time;
+	Timer draw_timer;
+
+	std::map<const Map2D*, Reference<OpenGLTexture> > opengl_textures;
+
+	size_t outline_tex_w, outline_tex_h;
+	Reference<FrameBuffer> outline_solid_fb;
+	Reference<FrameBuffer> outline_edge_fb;
+	Reference<OpenGLTexture> outline_solid_tex;
+	Reference<OpenGLTexture> outline_edge_tex;
+	OpenGLMaterial outline_solid_mat; // Material for drawing selected objects with a flat, unshaded colour.
+	Reference<OpenGLMeshRenderData> outline_quad_meshdata;
+	OpenGLMaterial outline_edge_mat; // Material for drawing the actual edge overlay.
+
+	std::unordered_set<GLObject*> selected_objects;
+
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;

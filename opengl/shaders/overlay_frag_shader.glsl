@@ -14,7 +14,7 @@ void main()
 	if(have_texture != 0)
 	{
 		vec4 texcol = texture(diffuse_tex, (texture_matrix * vec4(texture_coords.x, texture_coords.y, 0.0, 1.0)).xy) * 1.5;
-		colour_out = vec4(texcol.x, texcol.y, texcol.z, 1);
+		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w);
 	}
 	else
 		colour_out = diffuse_colour;
