@@ -539,24 +539,6 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
 			outline_quad_meshdata = OpenGLEngine::makeOverlayQuadMesh();
-
-			if(false)
-			{
-				// TEMP: Add overlay quad to preview texture
-				Reference<OverlayObject> tex_preview_overlay_ob = new OverlayObject();
-				tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
-				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-				tex_preview_overlay_ob->material.albedo_texture = outline_solid_tex;
-				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
-				addOverlayObject(tex_preview_overlay_ob);
-
-				tex_preview_overlay_ob = new OverlayObject();
-				tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
-				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-				tex_preview_overlay_ob->material.albedo_texture = outline_edge_tex;
-				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
-				addOverlayObject(tex_preview_overlay_ob);
-			}
 		}
 
 
@@ -595,6 +577,27 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 	);
 
 	outline_edge_mat.albedo_texture = outline_edge_tex;
+
+	if(false)
+	{
+		this->overlay_objects.clear();
+
+		// TEMP: Add overlay quad to preview texture
+		Reference<OverlayObject> tex_preview_overlay_ob = new OverlayObject();
+		tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
+		tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+		tex_preview_overlay_ob->material.albedo_texture = outline_solid_tex;
+		tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		addOverlayObject(tex_preview_overlay_ob);
+
+		tex_preview_overlay_ob = new OverlayObject();
+		tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
+		tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+		tex_preview_overlay_ob->material.albedo_texture = outline_edge_tex;
+		tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		addOverlayObject(tex_preview_overlay_ob);
+	}
+
 }
 
 
@@ -1020,6 +1023,7 @@ void OpenGLEngine::draw()
 		outline_solid_fb->bind();
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_solid_tex->texture_handle, 0);
 		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
+		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
