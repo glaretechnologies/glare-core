@@ -87,8 +87,8 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 	tls_context = tls_context_;
 
 	//Timer timer;
-	if(tls_handshake(tls_context) != 0) //TEMP NEW
-		throw MySocketExcep("tls_handshake failed: " + std::string(tls_error(tls_context)));
+	//if(tls_handshake(tls_context) != 0) //TEMP NEW
+	//	throw MySocketExcep("tls_handshake failed: " + std::string(tls_error(tls_context)));
 	//conPrint("Server TLS handshake took " + timer.elapsedStringNSigFigs(4));
 }
 
@@ -115,7 +115,8 @@ TLSSocket::~TLSSocket()
 
 void TLSSocket::initTLS()
 {
-	tls_init();
+	if(tls_init() != 0)
+		throw MySocketExcep("tls_init failed.");
 }
 
 

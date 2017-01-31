@@ -57,7 +57,7 @@ public:
 	~TLSSocket();
 
 
-	static void initTLS();
+	static void initTLS(); // Throws MySocketExcep on failure.
 
 
 	// Calls shutdown on the socket, then closes the socket handle.
