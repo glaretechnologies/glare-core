@@ -11,7 +11,7 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "MyThread.h"
 #include "networking.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/SocketBufferOutStream.h"
