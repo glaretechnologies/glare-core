@@ -31,7 +31,7 @@ void* alignedMalloc(size_t amount, size_t alignment)
 	// original_addr & (alignment - 1) = 0x01234567 & 0xF = 0x00000007
 	// original_addr - (original_addr & (alignment - 1)) = 0x01234567 - 0x00000007 = 0x01234560
 
-	const size_t padding = myMax(alignment, sizeof(unsigned int)) * 2;
+	const size_t padding = myMax(alignment, sizeof(unsigned int));
 
 	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
 
@@ -74,8 +74,8 @@ void alignedFree(void* addr)
 #if BUILD_TESTS
 
 
-#include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/CycleTimer.h"
@@ -87,11 +87,15 @@ void SSETest()
 	
 
 	// Test myAlignedMalloc, myAlignedFree
-	for(int i=0; i<1000; ++i)
+	for(int i=0; i<1000; ++i) // allocation length
 	{
-		for(int a=0; a<10; ++a)
+		for(size_t a=0; a<10; ++a)
 		{
-			void* m = SSE::alignedMalloc(i, 4 << a);
+			const size_t alignment = 1uLL << a;
+			
+			void* m = SSE::alignedMalloc(i, alignment);
+
+			testAssert((size_t)(unsigned char*)m % alignment == 0); // Check result aligned
 
 			// Write to the memory
 			for(int z=0; z<i; ++z)
@@ -103,7 +107,107 @@ void SSETest()
 		}
 	}
 
+	//TEMP: Perf test
+#if 0
+	std::vector<Plotter::DataSet> datasets;
+	datasets.push_back(Plotter::DataSet("SSE::alignedMalloc time"));
+	datasets.push_back(Plotter::DataSet("_mm_malloc time"));
+	datasets.push_back(Plotter::DataSet("malloc time"));
 
+	const int N = 10000;
+	const int NUM_TRIALS = 15;
+
+	const size_t alignment = 8;
+
+	for(int alloc_size = 4; alloc_size <= (1 << 18); alloc_size += 1024)
+	//int alloc_size = 1 << 16;
+	{
+		printVar(alloc_size);
+		{
+			double best_time = 10000000;
+			for(int z=0; z<NUM_TRIALS; ++z)
+			{
+				Timer timer;
+
+				for(int i=1; i<N; ++i)
+				{
+					//for(int a=0; a<8; ++a)
+					//{
+					//const size_t size = 1 << 16;
+					//const size_t alignment = 1uLL << a;
+					void* m = _mm_malloc(alloc_size, alignment);
+					//void* m2 = _aligned_malloc(alloc_size, alignment);
+
+					// Write to the memory
+					/*for(int z=0; z<i; ++z)
+					{
+					((unsigned char*)m)[z] = 0;
+					}*/
+
+					_mm_free(m);
+					//}
+				}
+				best_time = myMin(best_time, timer.elapsed());
+			}
+			double each_time_ns = 1.0e9 * best_time/N;
+			conPrint("_mm_malloc:         " + toString(each_time_ns) + " ns");
+			datasets[1].points.push_back(Vec2f(alloc_size, each_time_ns));
+		}
+
+		{
+			double best_time = 10000000;
+			for(int z=0; z<NUM_TRIALS; ++z)
+			{
+				Timer timer;
+
+				for(int i=1; i<N; ++i)
+				{
+					//for(int a=0; a<8; ++a)
+					//{
+						//const size_t size = 1 << 16;
+						//const size_t alignment = 1uLL << a;
+					void* m = SSE::alignedMalloc(alloc_size, alignment);
+
+					// Write to the memory
+					/*for(int z=0; z<i; ++z)
+					{
+						((unsigned char*)m)[z] = 0;
+					}*/
+
+					SSE::alignedFree(m);
+					//}
+				}
+				best_time = myMin(best_time, timer.elapsed());
+			}
+			double each_time_ns = 1.0e9 * best_time/N;
+			conPrint("SSE::alignedMalloc: " + toString(each_time_ns) + " ns");
+			datasets[0].points.push_back(Vec2f(alloc_size, each_time_ns));
+		}
+
+		// Test plain-old malloc
+		{
+			double best_time = 10000000;
+			for(int z=0; z<NUM_TRIALS; ++z)
+			{
+				Timer timer;
+				for(int i=1; i<N; ++i)
+				{
+					void* m = malloc(alloc_size);
+					free(m);
+				}
+				best_time = myMin(best_time, timer.elapsed());
+			}
+			double each_time_ns = 1.0e9 * best_time/N;
+			conPrint("malloc:             " + toString(each_time_ns) + " ns");
+			datasets[2].points.push_back(Vec2f(alloc_size, each_time_ns));
+		}
+
+	}
+
+	Plotter::PlotOptions options;
+	options.x_axis_log = true;
+	Plotter::plot("aligned_malloc_perf.png", "Aligned mem allocation perf, alignment = 8", "allocation size (B)", "elapsed (ns)", datasets, options);
+#endif
 
 	/*conPrint("\n====================Scalar max ===============");
 	{
@@ -127,6 +231,7 @@ void SSETest()
 		printVar((float)cycles / N);
 		printVar(sum);
 	}*/
+
 
 #if !defined(OSX)
 
@@ -195,29 +300,29 @@ void SSETest()
 	}*/
 
 	conPrint("\n====================Test SSE horizontal max ===============");
-	{
-		CycleTimer cycle_timer;
+	//{
+	//	CycleTimer cycle_timer;
 
-		const float N = 100000;
-		float sum = 0.f;
+	//	const float N = 100000;
+	//	float sum = 0.f;
 
-		//SSE_ALIGN float fv[4] = { 1.f, 0, 20000.f, 0 };
+	//	//SSE_ALIGN float fv[4] = { 1.f, 0, 20000.f, 0 };
 
-		float f;
-		for( f=0; f<N; f += 1.f)
-		{
-			//fv[3] = f;
-			//SSE_ALIGN float fv[4] = { f + 1.f, f, f + 2.f, f };
+	//	float f;
+	//	for( f=0; f<N; f += 1.f)
+	//	{
+	//		//fv[3] = f;
+	//		//SSE_ALIGN float fv[4] = { f + 1.f, f, f + 2.f, f };
 
-			//sum += sseGetMax(_mm_load_ps(fv));
-			sum += horizontalMax(_mm_load_ps1(&f));
-		}
+	//		//sum += sseGetMax(_mm_load_ps(fv));
+	//		sum += horizontalMax(_mm_load_ps1(&f));
+	//	}
 
-		const uint64 cycles = cycle_timer.elapsed();
-		printVar((float)cycles);
-		printVar((float)cycles / N);
-		printVar(sum);
-	}
+	//	const uint64 cycles = cycle_timer.elapsed();
+	//	printVar((float)cycles);
+	//	printVar((float)cycles / N);
+	//	printVar(sum);
+	//}
 #endif // !defined(OSX)
 
 	{
