@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2015 -
 
 
 #include "Platform.h"
+#include "string_view.h"
 #include <string>
 #include <vector>
 #include <string.h> // for strcmp()
@@ -157,8 +158,8 @@ const std::string removeDotAndExtension(const std::string& filename);
 // Without the dot
 bool hasExtension(const std::string& filename, const std::string& extension);
 
-bool hasPrefix(const std::string& s, const std::string& prefix);
-bool hasSuffix(const std::string& s, const std::string& suffix);
+bool hasPrefix(const std::string& s, const string_view& prefix);
+bool hasSuffix(const std::string& s, const string_view& suffix);
 bool hasLastChar(const std::string& s, char c);
 
 const std::string eatPrefix(const std::string& s, const std::string& prefix);

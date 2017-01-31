@@ -791,7 +791,7 @@ const std::string removeDotAndExtension(const std::string& filename)
 }
 
 
-bool hasPrefix(const std::string& s, const std::string& prefix)
+bool hasPrefix(const std::string& s, const string_view& prefix)
 {
 	if(prefix.length() > s.length())
 		return false;
@@ -804,17 +804,17 @@ bool hasPrefix(const std::string& s, const std::string& prefix)
 }
 
 
-bool hasSuffix(const std::string& s, const std::string& postfix)
+bool hasSuffix(const std::string& s, const string_view& suffix)
 {
-	if(postfix.length() > s.length())
+	if(suffix.length() > s.length())
 		return false;
 
-	assert(s.length() >= postfix.length());
+	assert(s.length() >= suffix.length());
 
-	const size_t s_offset = s.length() - postfix.length();
+	const size_t s_offset = s.length() - suffix.length();
 
-	for(size_t i=0; i<postfix.length(); ++i)
-		if(s[s_offset + i] != postfix[i])
+	for(size_t i=0; i<suffix.length(); ++i)
+		if(s[s_offset + i] != suffix[i])
 			return false;
 
 	return true;
@@ -1349,6 +1349,19 @@ void StringUtils::test()
 	testAssert(collapseWhitespace(" ") == " ");
 	testAssert(collapseWhitespace("  ") == " ");
 	testAssert(collapseWhitespace("a b  c   d    e") == "a b c d e");
+
+	//==================================== Test hasPrefix ====================================
+	testAssert(hasPrefix("a", "a"));
+	testAssert(!hasPrefix("a", "b"));
+	testAssert(hasPrefix("a", ""));
+	testAssert(hasPrefix("", ""));
+	testAssert(hasPrefix("ab", "a"));
+	testAssert(hasPrefix("ab", "ab"));
+	testAssert(!hasPrefix("", "a"));
+	testAssert(!hasPrefix("a", "ab"));
+	testAssert(!hasPrefix("ab", "abc"));
+
+	testAssert(hasPrefix("ab", std::string("a")));
 
 
 	//==================================== floatToString ====================================
@@ -2226,6 +2239,10 @@ void StringUtils::test()
 	testAssert(::hasSuffix("test", "est"));
 	testAssert(::hasSuffix("test", "test"));
 	testAssert(::hasSuffix("test", ""));
+	testAssert(!::hasSuffix("test", "a"));
+	testAssert(!::hasSuffix("test", "atest"));
+	testAssert(!::hasSuffix("test", "aest"));
+	testAssert(!::hasSuffix("test", "ast"));
 
 	testAssert(::hasLastChar("t", 't'));
 	testAssert(!::hasLastChar("t", 'a'));
