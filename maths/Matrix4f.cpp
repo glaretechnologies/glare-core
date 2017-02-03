@@ -288,7 +288,7 @@ void Matrix4f::setToUniformScaleMatrix(float scale)
 const Matrix4f Matrix4f::uniformScaleMatrix(float scale)
 {
 	Matrix4f m;
-	m.uniformScaleMatrix(scale);
+	m.setToUniformScaleMatrix(scale);
 	return m;
 }
 
