@@ -30,7 +30,8 @@ public:
 	virtual void ungracefulShutdown() {}
 
 
-	void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
+	virtual void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
+	virtual void enableTCPKeepAlive(float period) {}
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	//void enableTCPKeepAlive(float period);

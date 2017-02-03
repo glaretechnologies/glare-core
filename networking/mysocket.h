@@ -133,10 +133,10 @@ public:
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
 
-	void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
+	virtual void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
-	void enableTCPKeepAlive(float period);
+	virtual void enableTCPKeepAlive(float period);
 
 	bool readable(double timeout_s);
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  

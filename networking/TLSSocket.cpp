@@ -173,6 +173,12 @@ void TLSSocket::setNoDelayEnabled(bool enabled) // NoDelay option is off by defa
 }
 
 
+void TLSSocket::enableTCPKeepAlive(float period)
+{
+	plain_socket->enableTCPKeepAlive(period);
+}
+
+
 void TLSSocket::readTo(void* buffer, size_t readlen)
 {
 	readTo(buffer, readlen, NULL);

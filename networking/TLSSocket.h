@@ -82,7 +82,9 @@ public:
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
-	void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
+	virtual void setNoDelayEnabled(bool enabled); // NoDelay option is off by default.
+
+	virtual void enableTCPKeepAlive(float period);
 
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
