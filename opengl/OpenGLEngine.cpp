@@ -708,6 +708,8 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 			transparent_objects.erase(transparent_objects.begin() + i);
 			break;
 		}
+
+	selected_objects.erase(object.getPointer());
 }
 
 
