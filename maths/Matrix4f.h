@@ -78,6 +78,7 @@ public:
 	inline const Vec4f getRow(unsigned int row_index) const;
 
 	inline void setColumn(unsigned int col_index, const Vec4f& v);
+	inline void setRow(unsigned int row_index, const Vec4f& v);
 
 
 	// Is A the inverse of B?
@@ -411,6 +412,22 @@ void Matrix4f::setColumn(unsigned int col_index, const Vec4f& v)
 {
 	assert(col_index < 4);
 	_mm_store_ps(e + 4*col_index, v.v);
+}
+
+
+void Matrix4f::setRow(unsigned int row_index, const Vec4f& v)
+{
+	assert(row_index < 4);
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
+	e[row_index +  0] = v[0];
+	e[row_index +  4] = v[1];
+	e[row_index +  8] = v[2];
+	e[row_index + 12] = v[3];
 }
 
 

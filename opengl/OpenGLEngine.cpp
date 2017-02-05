@@ -909,27 +909,25 @@ void OpenGLEngine::draw()
 		const Vec4f k = sun_dir;
 		const Vec4f i = normalise(crossProduct(up, sun_dir));
 		const Vec4f j = crossProduct(k, i);
+
 		Matrix4f view_matrix;
-		view_matrix.setColumn(0, i);
-		view_matrix.setColumn(1, j);
-		view_matrix.setColumn(2, k);
-		view_matrix.setColumn(3, Vec4f(0,0,0,1));
+		view_matrix.setRow(0, i);
+		view_matrix.setRow(1, j);
+		view_matrix.setRow(2, k);
+		view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
 
-		Matrix4f m;
-		view_matrix.getTranspose(m);
-		view_matrix = m;
-
-		// NEW:
+		// Compute camera position
 		Matrix4f cam_to_world;
-		world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world); // NOTE: this prob not needed.
+		world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world); // NOTE: Full inversion of matrix probably not needed just for getting the cam position.
 		const Vec4f campos_ws = cam_to_world * Vec4f(0,0,0,1);
 
+		Matrix4f back_to_origin = Matrix4f::translationMatrix(-campos_ws);
 
-		view_matrix.setColumn(3, Vec4f(campos_ws[0],campos_ws[1],0,1));
-
+		Matrix4f overall_view_matrix;
+		mul(view_matrix, back_to_origin, overall_view_matrix);
 		
 		// Set shadow tex matrix while we're at it
-		mul(proj_matrix, view_matrix, shadow_mapping->shadow_tex_matrix);
+		mul(proj_matrix, overall_view_matrix, shadow_mapping->shadow_tex_matrix);
 
 		// Draw non-transparent batches from objects.  TODO: cull objects outside shadow 'frustum'.
 		//uint64 num_frustum_culled = 0;
@@ -945,7 +943,7 @@ void OpenGLEngine::draw()
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					// Draw primitives for the given material
 					if(!ob->materials[mat_index].transparent)
-						drawBatch(*ob, view_matrix, proj_matrix, depth_draw_mat, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+						drawBatch(*ob, overall_view_matrix, proj_matrix, depth_draw_mat, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
 				}
 				unbindMeshData(mesh_data);
 			//}
@@ -2407,6 +2405,54 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 	Vec3f v1(1, 0, 0); // bottom right
 	Vec3f v2(1, 1, 0); // top right
 	Vec3f v3(0, 1, 0); // top left
+		
+	verts[0] = v0;
+	verts[1] = v1;
+	verts[2] = v2;
+	verts[3] = v3;
+
+	Vec2f uv0(0, 0);
+	Vec2f uv1(1, 0);
+	Vec2f uv2(1, 1);
+	Vec2f uv3(0, 1);
+		
+	uvs[0] = uv0;
+	uvs[1] = uv1;
+	uvs[2] = uv2;
+	uvs[3] = uv3;
+
+	for(int i=0; i<4; ++i)
+		normals[i] = Vec3f(0, 0, -1);
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+}
+
+
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeNameTagQuadMesh(float w, float h)
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+	
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(4);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(4);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(4);
+	js::Vector<uint32, 16> indices;
+	indices.resize(6); // two tris per face
+
+	indices[0] = 0; 
+	indices[1] = 1; 
+	indices[2] = 2; 
+	indices[3] = 0;
+	indices[4] = 2;
+	indices[5] = 3;
+	
+	Vec3f v0(-w/2, 0, -h/2); // bottom left
+	Vec3f v1( w/2, 0, -h/2); // bottom right
+	Vec3f v2( w/2, 0,  h/2); // top right
+	Vec3f v3(-w/2, 0,  h/2); // top left
 		
 	verts[0] = v0;
 	verts[1] = v1;

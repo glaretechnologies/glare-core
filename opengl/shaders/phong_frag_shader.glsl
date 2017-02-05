@@ -109,6 +109,7 @@ void main()
 #if SHADOW_MAPPING
 	vec2 depth_texcoords = shadow_tex_coords.xy * 0.5 + vec2(0.5, 0.5);
 	float actual_depth = shadow_tex_coords.z * 0.5 + 0.5;
+	actual_depth = min(actual_depth, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
 	if(depth_texcoords.x < 0.0 || depth_texcoords.x >= 1.0 || depth_texcoords.y <= 0.0 || depth_texcoords.y >= 1.0)
 		sun_vis_factor = 1.0;

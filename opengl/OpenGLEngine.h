@@ -211,6 +211,7 @@ public:
 
 
 	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
+	static Reference<OpenGLMeshRenderData> makeNameTagQuadMesh(float w, float h);
 private:
 	void buildMaterial(OpenGLMaterial& mat);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
