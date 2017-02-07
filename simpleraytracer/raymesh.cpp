@@ -1241,7 +1241,7 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 		}
 	}
 
-	if(verbose) print_output.print("Done Building Mesh '" + name + "'. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
+	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
 }
 
 

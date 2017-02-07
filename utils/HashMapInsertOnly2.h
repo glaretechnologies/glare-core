@@ -11,13 +11,51 @@ Copyright Glare Technologies Limited 2016 -
 #include <functional>
 
 
+
+// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
+inline size_t hashBytes(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+
+	if(sizeof(size_t) == 8)
+	{
+		const size_t _FNV_offset_basis = 14695981039346656037ULL;
+		const size_t _FNV_prime = 1099511628211ULL;
+
+		size_t _Val = _FNV_offset_basis;
+		for(size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+		}
+
+		_Val ^= _Val >> 32;
+		return _Val;
+	}
+	else
+	{
+		const size_t _FNV_offset_basis = 2166136261U;
+		const size_t _FNV_prime = 16777619U;
+
+		size_t _Val = _FNV_offset_basis;
+		for(size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+		}
+
+		return _Val;
+	}
+}
+
+
 /*=====================================================================
 HashMapInsertOnly2
 ------------------
 A map class using a hash table.
 Only insertion and lookup is supported, not removal of individual elements.
 This class requires passing an 'empty key' to the constructor.
-This is sentinel value that is never inserted in the map, and marks empty buckets.
+This is a sentinel value that is never inserted in the map, and marks empty buckets.
 =====================================================================*/
 template <typename Key, typename Value, typename HashFunc = std::hash<Key>>
 class HashMapInsertOnly2
@@ -39,7 +77,7 @@ public:
 	:	num_items(0), empty_key(empty_key_)
 	{
 		const size_t num_buckets = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
-		buckets.resizeUninitialised(num_buckets);
+		buckets.resize(num_buckets);
 		hash_mask = num_buckets - 1;
 
 		for(size_t i=0; i<buckets.size(); ++i)
@@ -106,6 +144,12 @@ public:
 			bucket_i = (bucket_i + 1) & hash_mask; // (bucket_i + 1) % buckets.size();
 		}
 		return end();
+	}
+
+
+	size_t count(const Key& k) const
+	{
+		return (find(k) == end()) ? 0 : 1;
 	}
 
 
@@ -211,7 +255,7 @@ private:
 		const js::Vector<std::pair<Key, Value>, 64> old_buckets = buckets;
 
 		const size_t new_num_buckets = buckets.size()*2;
-		buckets.resizeUninitialised(new_num_buckets);
+		buckets.resize(new_num_buckets);
 		for(size_t i=0; i<buckets.size(); ++i)
 			buckets[i].first = empty_key;
 

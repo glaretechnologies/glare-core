@@ -16,8 +16,10 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 #include "../utils/Timer.h"
 #include "../utils/MTwister.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Plotter.h"
 #include <unordered_map>
 //#include "D:\programming\sparsehash-2.0.2\src\sparsehash\dense_hash_map"
+//#include "D:\programming\sparsepp\sparsepp.h"
 
 
 template <class K, class V, class H>
@@ -42,6 +44,60 @@ struct IdentityHash
 
 void testHashMapInsertOnly2()
 {
+	// Test inserting some non-trivial structures
+	{
+		HashMapInsertOnly2<std::string, std::string> m("");
+
+		m.insert(std::make_pair("a", "1"));
+		testAssert(m.find("a") != m.end());
+		testAssert(m.find("a")->second == "1");
+
+		// Add lots of items, to force an expand.
+		for(int i=0; i<100; ++i)
+			m.insert(std::make_pair(toString(i), toString(i)));
+
+		for(int i=0; i<100; ++i)
+		{
+			testAssert(m.find(toString(i)) != m.end());
+			testAssert(m.find(toString(i))->second == toString(i));
+		}
+	}
+
+
+
+	// Test inserting a (key, value) pair with same key.  Should not change the value in the map.
+	{
+		std::unordered_map<int, int> m;
+
+		std::pair<std::unordered_map<int, int>::iterator, bool> res = m.insert(std::make_pair(1, 2));
+		testAssert(res.second);
+		testAssert(m.find(1) != m.end());
+		testAssert(m.find(1)->second == 2);
+
+		// Insert another (key, value) pair with same key.  Should not change the value in the map.
+		res = m.insert(std::make_pair(1, 3));
+		testAssert(!res.second);
+		testAssert(m.find(1) != m.end());
+		testAssert(m.find(1)->second == 2);
+	}
+
+	{
+		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
+
+		std::pair<HashMapInsertOnly2<int, int>::iterator, bool> res = m.insert(std::make_pair(1, 2));
+		testAssert(res.second);
+		testAssert(m.find(1) != m.end());
+		testAssert(m.find(1)->second == 2);
+
+		// Insert another (key, value) pair with same key.  Should not change the value in the map.
+		res = m.insert(std::make_pair(1, 3));
+		testAssert(!res.second);
+		testAssert(m.find(1) != m.end());
+		testAssert(m.find(1)->second == 2);
+	}
+
+
+
 	{
 		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
 
@@ -284,7 +340,7 @@ void testHashMapInsertOnly2()
 		}
 
 		double elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly insert took   " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly insert took       " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -298,33 +354,98 @@ void testHashMapInsertOnly2()
 		}
 
 		elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly lookups took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("HashMapInsertOnly lookups took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
+
+#if 0 // Tests with variable load factor
+	if(false)
 	{
-		Timer timer;
-		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
-		
-		for(int i=0; i<N; ++i)
+		std::vector<Plotter::DataSet> datasets;
+		datasets.push_back(Plotter::DataSet("insertion time"));
+		datasets.push_back(Plotter::DataSet("insertion time with reserve"));
+		datasets.push_back(Plotter::DataSet("lookup time"));
+
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
 		{
-			const int x = sparse_testdata[i];
-			m.insert(std::make_pair(x, x));
-		}
-		double elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly2 insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
+			m.max_load_factor = max_load_factor;
 		
-		// Test lookup performance
-		timer.reset();
-		int num_present = 0;
-		for(int i=0; i<NUM_LOOKUPS; ++i)
-		{
-			const int x = sparse_testdata[i];
-			HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
-			if(it != m.end())
-				num_present++;
+			for(int i=0; i<N; ++i)
+			{
+				const int x = sparse_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+			double elapsed = timer.elapsed();
+			//conPrint("HashMapInsertOnly2 (insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()) + ", expns: " + toString(m.num_expansions) + ", bkts: " + toString(m.buckets.size()));
+			datasets[0].points.push_back(Vec2f(max_load_factor, elapsed));
+
+			// Test lookup performance
+			/*timer.reset();
+			int num_present = 0;
+			for(int i=0; i<NUM_LOOKUPS; ++i)
+			{
+				const int x = sparse_testdata[i];
+				HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
+				if(it != m.end())
+					num_present++;
+			}
+			elapsed = timer.elapsed();*/
+			//conPrint("HashMapInsertOnly2 lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+			//conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 		}
-		elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly2 lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+
+		// Measure insertion perf With reserve
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
+		{
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max(), N, max_load_factor);
+		
+			for(int i=0; i<N; ++i)
+			{
+				const int x = sparse_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+			double elapsed = timer.elapsed();
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()) + ", expns: " + toString(m.num_expansions) + ", bkts: " + toString(m.buckets.size()));
+			datasets[1].points.push_back(Vec2f(max_load_factor, elapsed));
+		}
+
+		// Measure lookup perf (should be same regardless of if reserve was used)
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
+		{
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
+			m.max_load_factor = max_load_factor;
+		
+			for(int i=0; i<N; ++i)
+			{
+				const int x = sparse_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+
+			// Test lookup performance
+			timer.reset();
+			int num_present = 0;
+			for(int i=0; i<NUM_LOOKUPS; ++i)
+			{
+				const int x = sparse_testdata[i];
+				HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
+				if(it != m.end())
+					num_present++;
+			}
+			double elapsed = timer.elapsed();
+			//conPrint("HashMapInsertOnly2 lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present, expns: " + toString(m.num_expansions));
+			datasets[2].points.push_back(Vec2f(max_load_factor, elapsed));
+		}
+
+
+		Plotter::plot("HashMapInsertOnly2_perf.png", "HashMapInsertOnly2 perf for various max load factors", "max load factor", "elapsed (s)", datasets);
 	}
+#endif
+	/*
 	{
 		Timer timer;
 		std::unordered_map<int, int> m;
@@ -334,7 +455,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 		double elapsed = timer.elapsed();
-		conPrint("std::unordered_map insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+		conPrint("std::unordered_map insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -347,9 +468,9 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 		elapsed = timer.elapsed();
-		conPrint("std::unordered_map lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("std::unordered_map lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
-
+	*/
 	/*{
 		Timer timer;
 		google::dense_hash_map<int, int> m;
@@ -359,8 +480,8 @@ void testHashMapInsertOnly2()
 			const int x = sparse_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
-
-		conPrint("google::dense_hash_map insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		double elapsed = timer.elapsed();
+		conPrint("google::dense_hash_map insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -372,9 +493,35 @@ void testHashMapInsertOnly2()
 			if(it != m.end())
 				num_present++;
 		}
+		elapsed = timer.elapsed();
+		conPrint("google::dense_hash_map lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+	}
+	
+	{
+		Timer timer;
+		spp::sparse_hash_map<int, int> m;
+		for(int i=0; i<N; ++i)
+		{
+			const int x = sparse_testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+		double elapsed = timer.elapsed();
+		conPrint("spp::sparse_hash_map insert took    " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
-		conPrint("google::dense_hash_map lookups took " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = sparse_testdata[i];
+			spp::sparse_hash_map<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+		elapsed = timer.elapsed();
+		conPrint("spp::sparse_hash_map lookups took   " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}*/
+
 
 
 	// Test insertion performance
@@ -390,7 +537,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 		double elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly insert took   " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly insert took       " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -403,7 +550,7 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 		elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly lookups took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("HashMapInsertOnly lookups took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
 
 	{
@@ -415,7 +562,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 		double elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly2 insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+		conPrint("HashMapInsertOnly2 insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 		
 		// Test lookup performance
 		timer.reset();
@@ -428,10 +575,100 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 		elapsed = timer.elapsed();
-		conPrint("HashMapInsertOnly2 lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		conPrint("HashMapInsertOnly2 lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}
+
+#if 0
+	if(false)
 	{
-		Timer timer;
+		std::vector<Plotter::DataSet> dense_datasets;
+		dense_datasets.push_back(Plotter::DataSet("insertion time"));
+		dense_datasets.push_back(Plotter::DataSet("insertion time with reserve"));
+		dense_datasets.push_back(Plotter::DataSet("lookup time"));
+
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
+		{
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
+			m.max_load_factor = max_load_factor;
+		
+			for(int i=0; i<N; ++i)
+			{
+				const int x = dense_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+			double elapsed = timer.elapsed();
+			//conPrint("HashMapInsertOnly2 (insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()) + ", expns: " + toString(m.num_expansions) + ", bkts: " + toString(m.buckets.size()));
+			dense_datasets[0].points.push_back(Vec2f(max_load_factor, elapsed));
+
+			// Test lookup performance
+			/*timer.reset();
+			int num_present = 0;
+			for(int i=0; i<NUM_LOOKUPS; ++i)
+			{
+				const int x = sparse_testdata[i];
+				HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
+				if(it != m.end())
+					num_present++;
+			}
+			elapsed = timer.elapsed();*/
+			//conPrint("HashMapInsertOnly2 lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+			//conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		}
+
+		// Measure insertion perf With reserve
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
+		{
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max(), N, max_load_factor);
+		
+			for(int i=0; i<N; ++i)
+			{
+				const int x = dense_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+			double elapsed = timer.elapsed();
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()) + ", expns: " + toString(m.num_expansions) + ", bkts: " + toString(m.buckets.size()));
+			dense_datasets[1].points.push_back(Vec2f(max_load_factor, elapsed));
+		}
+
+		// Measure lookup perf (should be same regardless of if reserve was used)
+		for(float max_load_factor = 0.2f; max_load_factor < 0.99f; max_load_factor += 0.01f)
+		{
+			Timer timer;
+			HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
+			m.max_load_factor = max_load_factor;
+		
+			for(int i=0; i<N; ++i)
+			{
+				const int x = dense_testdata[i];
+				m.insert(std::make_pair(x, x));
+			}
+
+			// Test lookup performance
+			timer.reset();
+			int num_present = 0;
+			for(int i=0; i<NUM_LOOKUPS; ++i)
+			{
+				const int x = dense_testdata[i];
+				HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
+				if(it != m.end())
+					num_present++;
+			}
+			double elapsed = timer.elapsed();
+			//conPrint("HashMapInsertOnly2 lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+			conPrint("HashMapInsertOnly2 (max_load_factor " + doubleToStringNSigFigs(max_load_factor, 4) + ") lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present, expns: " + toString(m.num_expansions));
+			dense_datasets[2].points.push_back(Vec2f(max_load_factor, elapsed));
+		}
+
+
+		Plotter::plot("HashMapInsertOnly2_dense_perf.png", "HashMapInsertOnly2 perf for various max load factors, dense keys", "max load factor", "elapsed (s)", dense_datasets);
+	}
+#endif
+
+	/*{
+		Timer timer;w
 		std::unordered_map<int, int> m;
 		for(int i=0; i<N; ++i)
 		{
@@ -439,7 +676,7 @@ void testHashMapInsertOnly2()
 			m.insert(std::make_pair(x, x));
 		}
 		double elapsed = timer.elapsed();
-		conPrint("std::unordered_map insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
+		conPrint("std::unordered_map insert took      " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -452,8 +689,8 @@ void testHashMapInsertOnly2()
 				num_present++;
 		}
 		elapsed = timer.elapsed();
-		conPrint("std::unordered_map lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
-	}
+		conPrint("std::unordered_map lookups took     " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+	}*/
 
 	/*{
 		Timer timer;
@@ -464,8 +701,8 @@ void testHashMapInsertOnly2()
 			const int x = dense_testdata[i];
 			m.insert(std::make_pair(x, x));
 		}
-
-		conPrint("google::dense_hash_map insert took " + timer.elapsedString() + ", final size: " + toString(m.size()));
+		double elapsed = timer.elapsed();
+		conPrint("google::dense_hash_map insert took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
 		// Test lookup performance
 		timer.reset();
@@ -477,8 +714,33 @@ void testHashMapInsertOnly2()
 			if(it != m.end())
 				num_present++;
 		}
+		elapsed = timer.elapsed();
+		conPrint("google::dense_hash_map lookups took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+	}
+	
+	{
+		Timer timer;
+		spp::sparse_hash_map<int, int> m;
+		for(int i=0; i<N; ++i)
+		{
+			const int x = dense_testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+		double elapsed = timer.elapsed();
+		conPrint("spp::sparse_hash_map insert took    " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s, final size: " + toString(m.size()));
 
-		conPrint("google::dense_hash_map lookups took " + timer.elapsedString() + " for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = dense_testdata[i];
+			spp::sparse_hash_map<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+		elapsed = timer.elapsed();
+		conPrint("spp::sparse_hash_map lookups took   " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups, " + toString(num_present) + " present.");
 	}*/
 }
 
