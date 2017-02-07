@@ -113,9 +113,11 @@ static bool isSpecialOrthogonal(const Matrix3<Real>& m)
 template <>
 void Matrix3<float>::test()
 {
-	const float e[9] = {1,2,3,-4,5,6,7,-8,9};
-	Matrix3<float> m(e);
-	testAssert(epsEqual((float)m.determinant(), 240.f));
+	{
+		const float e[9] ={ 1,2,3,-4,5,6,7,-8,9 };
+		Matrix3<float> m(e);
+		testAssert(epsEqual((float)m.determinant(), 240.f));
+	}
 
 	const float a_e[9] = {3,1,-4,2,5,6,1,4,8};
 	Matrix3<float> a(a_e);
