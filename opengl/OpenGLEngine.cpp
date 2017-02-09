@@ -583,19 +583,19 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 		this->overlay_objects.clear();
 
 		// TEMP: Add overlay quad to preview texture
-		Reference<OverlayObject> tex_preview_overlay_ob = new OverlayObject();
-		tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
-		tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-		tex_preview_overlay_ob->material.albedo_texture = outline_solid_tex;
-		tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
-		addOverlayObject(tex_preview_overlay_ob);
+		Reference<OverlayObject> preview_overlay_ob = new OverlayObject();
+		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
+		preview_overlay_ob->material.shader_prog = this->overlay_prog;
+		preview_overlay_ob->material.albedo_texture = outline_solid_tex;
+		preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		addOverlayObject(preview_overlay_ob);
 
-		tex_preview_overlay_ob = new OverlayObject();
-		tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
-		tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-		tex_preview_overlay_ob->material.albedo_texture = outline_edge_tex;
-		tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
-		addOverlayObject(tex_preview_overlay_ob);
+		preview_overlay_ob = new OverlayObject();
+		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
+		preview_overlay_ob->material.shader_prog = this->overlay_prog;
+		preview_overlay_ob->material.albedo_texture = outline_edge_tex;
+		preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		addOverlayObject(preview_overlay_ob);
 	}
 
 }
@@ -933,9 +933,9 @@ void OpenGLEngine::draw()
 
 		// Draw non-transparent batches from objects.  TODO: cull objects outside shadow 'frustum'.
 		//uint64 num_frustum_culled = 0;
-		for(size_t i=0; i<objects.size(); ++i)
+		for(size_t q=0; q<objects.size(); ++q)
 		{
-			const GLObject* const ob = objects[i].getPointer();
+			const GLObject* const ob = objects[q].getPointer();
 			//if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 			//{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
@@ -2011,6 +2011,76 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
 	return ob;
+}
+
+
+// Base will be at origin, other end will lie at (0, 0, length)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius)
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+
+	const int res = 20;
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(res * 4);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(res * 4);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(res * 4);
+	js::Vector<uint32, 16> indices;
+	indices.resize(res * 6); // two tris per quad
+
+	const Vec3f dir(normalise(endpoint_b - endpoint_a));
+	Matrix4f basis;
+	basis.constructFromVector(normalise(endpoint_b - endpoint_a));
+	const Vec3f basis_i(basis.getRow(0));//(1, 0, 0);
+	const Vec3f basis_j(basis.getRow(1));// 0, 1, 0);
+
+	const float shaft_r = radius;
+	const float shaft_len = endpoint_a.getDist(endpoint_b);
+
+	// Draw cylinder for shaft of arrow
+	for(int i=0; i<res; ++i)
+	{
+		const float angle      = i       * Maths::get2Pi<float>() / res;
+		const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
+
+		// Define quad
+		{
+			Vec3f normal1(basis_i * cos(angle) + basis_j * sin(angle));
+			Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+
+			normals[i*4 + 0] = normal1;
+			normals[i*4 + 1] = normal2;
+			normals[i*4 + 2] = normal2;
+			normals[i*4 + 3] = normal1;
+
+			Vec3f v0 = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r);
+			Vec3f v1 = Vec3f(endpoint_a) +  ((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r);
+			Vec3f v2 = Vec3f(endpoint_a) +  ((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r + dir * shaft_len);
+			Vec3f v3 = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r + dir * shaft_len);
+
+			verts[i*4 + 0] = v0;
+			verts[i*4 + 1] = v1;
+			verts[i*4 + 2] = v2;
+			verts[i*4 + 3] = v3;
+
+			uvs[i*4 + 0] = Vec2f(0.f);
+			uvs[i*4 + 1] = Vec2f(0.f);
+			uvs[i*4 + 2] = Vec2f(0.f);
+			uvs[i*4 + 3] = Vec2f(0.f);
+
+			indices[i*6 + 0] = i*4 + 0;
+			indices[i*6 + 1] = i*4 + 1;
+			indices[i*6 + 2] = i*4 + 2;
+			indices[i*6 + 3] = i*4 + 0;
+			indices[i*6 + 4] = i*4 + 2;
+			indices[i*6 + 5] = i*4 + 3;
+		}
+	}
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
 }
 
 
