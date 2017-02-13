@@ -39,6 +39,9 @@ public:
 	
 	void setToRotationMatrix(const Vec4f& unit_axis, float angle);
 	static const Matrix4f rotationMatrix(const Vec4f& unit_axis, float angle);
+	static const Matrix4f rotationAroundXAxis(float angle);
+	static const Matrix4f rotationAroundYAxis(float angle);
+	static const Matrix4f rotationAroundZAxis(float angle);
 
 	void applyUniformScale(float scale); // right multiply the matrix by a uniform scale matrix.
 	void setToUniformScaleMatrix(float scale); // Make the upper-left 3x3 matrix a uniform scaling matrix.

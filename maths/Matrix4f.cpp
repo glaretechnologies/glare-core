@@ -253,6 +253,81 @@ const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
 }
 
 
+const Matrix4f Matrix4f::rotationAroundXAxis(float angle)
+{
+	const float cos_theta = std::cos(angle);
+	const float sin_theta = std::sin(angle);
+	Matrix4f m;
+	m.e[0] = 1;
+	m.e[1] = 0;
+	m.e[2] = 0;
+	m.e[3] = 0;
+	m.e[4] = 0;
+	m.e[5] = cos_theta;
+	m.e[6] = sin_theta;
+	m.e[7] = 0;
+	m.e[8] = 0;
+	m.e[9] = -sin_theta;
+	m.e[10] = cos_theta;
+	m.e[11] = 0;
+	m.e[12] = 0;
+	m.e[13] = 0;
+	m.e[14] = 0;
+	m.e[15] = 1;
+	return m;
+}
+
+
+const Matrix4f Matrix4f::rotationAroundYAxis(float angle)
+{
+	const float cos_theta = std::cos(angle);
+	const float sin_theta = std::sin(angle);
+	Matrix4f m;
+	m.e[0] = cos_theta;
+	m.e[1] = 0;
+	m.e[2] = -sin_theta;
+	m.e[3] = 0;
+	m.e[4] = 0;
+	m.e[5] = 1;
+	m.e[6] = 0;
+	m.e[7] = 0;
+	m.e[8] = sin_theta;
+	m.e[9] = 0;
+	m.e[10] = cos_theta;
+	m.e[11] = 0;
+	m.e[12] = 0;
+	m.e[13] = 0;
+	m.e[14] = 0;
+	m.e[15] = 1;
+	return m;
+}
+
+
+const Matrix4f Matrix4f::rotationAroundZAxis(float angle)
+{
+	const float cos_theta = std::cos(angle);
+	const float sin_theta = std::sin(angle);
+	Matrix4f m;
+	m.e[0] = cos_theta;
+	m.e[1] = sin_theta;
+	m.e[2] = 0;
+	m.e[3] = 0;
+	m.e[4] = -sin_theta;
+	m.e[5] = cos_theta;
+	m.e[6] = 0;
+	m.e[7] = 0;
+	m.e[8] = 0;
+	m.e[9] = 0;
+	m.e[10] = 1;
+	m.e[11] = 0;
+	m.e[12] = 0;
+	m.e[13] = 0;
+	m.e[14] = 0;
+	m.e[15] = 1;
+	return m;
+}
+
+
 void Matrix4f::applyUniformScale(float scale)
 {
 	const Vec4f scalev(scale);
@@ -432,6 +507,21 @@ void Matrix4f::test()
 		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(1,0,0,0)));
 	}
 
+	// Test rotationAroundXAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsEqual(Matrix4f::rotationAroundXAxis(theta), Matrix4f::rotationMatrix(Vec4f(1, 0, 0, 0), theta)));
+	}
+	// Test rotationAroundYAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsEqual(Matrix4f::rotationAroundYAxis(theta), Matrix4f::rotationMatrix(Vec4f(0, 1, 0, 0), theta)));
+	}
+	// Test rotationAroundZAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsEqual(Matrix4f::rotationAroundZAxis(theta), Matrix4f::rotationMatrix(Vec4f(0, 0, 1, 0), theta)));
+	}
 
 	// Perf test //
 	if(false)
@@ -442,7 +532,7 @@ void Matrix4f::test()
 
 			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
-			const Matrix4f m(e);
+			//const Matrix4f m(e);
 
 			int N = 1000000;
 			Vec4f sum(0.0f);
