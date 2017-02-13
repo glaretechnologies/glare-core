@@ -7,11 +7,11 @@ Code By Nicholas Chapman.
 #include "FloatDecoder.h"
 
 
-#include "../utils/FileUtils.h"
-#include <vector>
-#include "../maths/mathstypes.h"
 #include "imformatdecoder.h"
-#include "image.h"
+#include "ImageMap.h"
+#include "../utils/FileUtils.h"
+#include "../utils/MemMappedFile.h"
+#include "../maths/mathstypes.h"
 
 
 FloatDecoder::FloatDecoder()
@@ -30,42 +30,25 @@ Reference<Map2D> FloatDecoder::decode(const std::string& pathname)
 {
 	try
 	{
-		std::vector<unsigned char> data;
-		FileUtils::readEntireFile(pathname, data);
+		MemMappedFile file(pathname);
 
 		// Since there is no header, and assuming the image is square, we can work out the size
-		const unsigned int pixel_size = sizeof(float) * 3;
-		const unsigned int num_pixels = (unsigned int)data.size() / pixel_size;
+		const size_t pixel_size = sizeof(float) * 3;
+		const size_t num_pixels = file.fileSize() / pixel_size;
 		
-		const unsigned int width = (unsigned int)sqrt((double)num_pixels);
+		const size_t width = (size_t)sqrt((double)num_pixels);
 
-		if(width * width != num_pixels)
+		if((width == 0) || (width * width != num_pixels))
 			throw ImFormatExcep("Image has invalid size");
 
-		Image* image = new Image(width, width);
+		ImageMapFloatRef image = new ImageMapFloat(width, width, 3);
 
-		for(unsigned int y=0; y<width; ++y)
-			for(unsigned int x=0; x<width; ++x)
-			{
-				//const unsigned int srcy = width - 1 - y; // invert the image at load time
-				const unsigned int src = (x + y*width) * 3;
+		std::memcpy(image->getPixel(0, 0), file.fileData(), width * width * pixel_size);
 
-				image->setPixel(x, y, Colour3f(
-					((float*)(&data[0]))[src],
-					((float*)(&data[0]))[src + 1],
-					((float*)(&data[0]))[src + 2]
-				));
-			}
-
-		return Reference<Map2D>(image);
+		return image;
 	}
-	catch(FileUtils::FileUtilsExcep& e)
+	catch(Indigo::Exception& e)
 	{
 		throw ImFormatExcep("Error reading .float file: " + std::string(e.what()));
 	}
 }
-
-
-
-
-
