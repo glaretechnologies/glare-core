@@ -125,6 +125,7 @@ void Obfuscator::addOpenCLKeywords()
 
 // CUDA and OpenCL keywords
 
+"half",
 "as_int",
 "float2",
 "float3",
@@ -237,6 +238,8 @@ void Obfuscator::addOpenCLKeywords()
 "as_int4",
 "as_float",
 "as_uint",
+"vload_half3",
+"vload_half4",
 
 "convert_int8",
 
