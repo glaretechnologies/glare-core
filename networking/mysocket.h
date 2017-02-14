@@ -35,6 +35,7 @@ class MySocketExcep
 public:
 	enum ExcepType
 	{
+		ExcepType_ConnectionFailed, // Failed to connect to a host.
 		ExcepType_BlockingCallCancelled,
 		ExcepType_NotASocket,
 		ExcepType_Other
