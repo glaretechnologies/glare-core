@@ -151,6 +151,9 @@ void setCurrentThreadNameIfTestsEnabled(const std::string& name); // Sets the th
 // Disabled for now, since it requires linking to Psapi.lib, which is tricky to do with CMake and the SDK Lib.
 //size_t getMemoryUsage();
 
+void beginKeepSystemAwake(); // Stop the system from going to sleep.
+void endKeepSystemAwake(); // Allow the system to go to sleep.
+
 void testPlatformUtils();
 
 

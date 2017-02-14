@@ -945,6 +945,25 @@ void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& name)
 }*/
 
 
+void PlatformUtils::beginKeepSystemAwake()
+{
+#if defined(_WIN32)
+	// ES_CONTINUOUS = "Informs the system that the state being set should remain in effect until the next call that uses ES_CONTINUOUS and one of the other state flags is cleared."
+	// ES_SYSTEM_REQUIRED = "Forces the system to be in the working state by resetting the system idle timer."
+	SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+#endif
+}
+
+
+void PlatformUtils::endKeepSystemAwake()
+{
+#if defined(_WIN32)
+	SetThreadExecutionState(ES_CONTINUOUS); // Clear flags to allow sleep.
+#endif
+}
+
+
+
 #if BUILD_TESTS
 
 
