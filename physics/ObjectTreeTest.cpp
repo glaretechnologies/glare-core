@@ -64,7 +64,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		Reference<Vec3MatParameter>(), // normal map param
 		0,
 		false,
-		false // backface_emit
+		Material::MaterialArgs()
 	));
 
 
@@ -222,7 +222,7 @@ void ObjectTreeTest::doTests()
 		Reference<Vec3MatParameter>(), // normal map param
 		0,
 		false,
-		false // backface_emit
+		Material::MaterialArgs()
 	));
 
 	std::vector<Object*> objects;
