@@ -173,9 +173,10 @@ INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& dir)
+INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& unit_dir)
 {
-	return v - dir * dot(v, dir);
+	assert(unit_dir.isUnitLength());
+	return v - unit_dir * dot(v, unit_dir);
 }
 
 
