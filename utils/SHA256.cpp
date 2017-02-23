@@ -100,6 +100,7 @@ static std::vector<unsigned char> hexToByteArray(const std::string& s)
 
 void SHA256::test()
 {
+	//==================================== Test SHA-256 =======================================
 	// Test against example hashes on wikipedia (http://en.wikipedia.org/wiki/SHA-2)
 
 	// Test empty message
@@ -146,6 +147,28 @@ void SHA256::test()
 		testAssert(digest != target);
 	}
 
+	//==================================== Test SHA-1 =======================================
+	// Test empty message
+	{
+		const std::vector<unsigned char> message;
+		std::vector<unsigned char> digest;
+		SHA1Hash(message.data(), message.data() + message.size(), digest);
+
+		const std::string target_hex = "da39a3ee5e6b4b0d3255bfef95601890afd80709"; // From https://en.wikipedia.org/wiki/SHA-1
+		const std::vector<unsigned char> target = hexToByteArray(target_hex);
+		testAssert(digest == target);
+	}
+
+	// Test "The quick brown fox jumps over the lazy dog."
+	{
+		const std::vector<unsigned char> message = stringToByteArray("The quick brown fox jumps over the lazy dog");
+		std::vector<unsigned char> digest;
+		SHA1Hash(message.data(), message.data() + message.size(), digest);
+
+		const std::string target_hex = "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"; // From https://en.wikipedia.org/wiki/SHA-1
+		const std::vector<unsigned char> target = hexToByteArray(target_hex);
+		testAssert(digest == target);
+	}
 }
 
 
