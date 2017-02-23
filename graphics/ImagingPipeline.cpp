@@ -1,7 +1,7 @@
 /*=====================================================================
 ImagingPipeline.cpp
 -------------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #include "ImagingPipeline.h"
@@ -702,6 +702,8 @@ struct ImagePipelineTaskClosure
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 	const std::vector<RenderRegion>* render_regions;
 	float region_alpha_bias;
+	int subres_factor;
+	int subres_buffer_index;
 
 	bool skip_curves;
 
@@ -709,13 +711,17 @@ struct ImagePipelineTaskClosure
 };
 
 
+// Tonemap and downsizes (if downsizing is needed) a single image tile.
 class ImagePipelineTask : public Indigo::Task
 {
 public:
-	ImagePipelineTask(const ImagePipelineTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+	ImagePipelineTask() : closure_(0) {}
 
 	virtual void run(size_t thread_index)
 	{
+		assert(this->closure_);
+		const ImagePipelineTaskClosure& closure = *this->closure_;
+
 		// Build layer weights.  Layer weight = light layer value * image_scale.
 		SmallArray<Vec3f, 32> layer_weights       (closure.render_channels->layers.size());
 		SmallArray<Vec3f, 32> region_layer_weights(closure.render_channels->layers.size());
@@ -733,9 +739,14 @@ public:
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
 
-		const ptrdiff_t xres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getWidth();
+
+		const Indigo::Vector<Layer>& source_render_layers = (closure.subres_factor == 1) ? closure.render_channels->layers : closure.render_channels->subres_layers       [closure.subres_buffer_index];
+		const ImageMapFloat& source_alpha_buf             = (closure.subres_factor == 1) ? closure.render_channels->alpha  : closure.render_channels->subres_alpha_buffers[closure.subres_buffer_index];
+
+
+		const ptrdiff_t xres		= (ptrdiff_t)(source_render_layers)[0].image.getWidth(); // in intermediate pixels
 		#ifndef NDEBUG
-		const ptrdiff_t yres		= (ptrdiff_t)(closure.render_channels->layers)[0].image.getHeight();
+		const ptrdiff_t yres		= (ptrdiff_t)(source_render_layers)[0].image.getHeight();// in intermediate pixels
 		#endif
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1; //closure.renderer_settings->getMargin();
@@ -757,6 +768,8 @@ public:
 		const float alpha_bias_factor        = 1.f + closure.image_scale;
 		const float region_alpha_bias_factor = 1.f + region_alpha_bias;
 
+		Image4f* const ldr_buffer_out = closure.ldr_buffer_out;
+
 		for(int tile = begin; tile < end; ++tile)
 		{
 			Image4f& tile_buffer = (*closure.per_thread_tile_buffers)[thread_index];
@@ -764,11 +777,121 @@ public:
 			// Get the final image tile bounds for the tile index
 			const ptrdiff_t tile_x = (ptrdiff_t)tile % closure.x_tiles;
 			const ptrdiff_t tile_y = (ptrdiff_t)tile / closure.x_tiles;
-			const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(closure.final_xres, (tile_x + 1) * image_tile_size);
-			const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(closure.final_yres, (tile_y + 1) * image_tile_size);
+			const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(closure.final_xres, (tile_x + 1) * image_tile_size); // in final px coords
+			const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(closure.final_yres, (tile_y + 1) * image_tile_size); // in final px coords
 
-			// Perform downsampling if needed
-			if(ss_factor > 1)
+			const bool upsizing_needed = closure.subres_factor > ss_factor;
+			if(upsizing_needed)
+			{
+				const ptrdiff_t upsize_factor = closure.subres_factor / ss_factor;
+
+				// Since the pixels are 1:1 with the bucket bounds, simply offset the bucket rect by the left image margin / gutter pixels
+				const ptrdiff_t bucket_min_x = x_min + gutter_pix;
+				const ptrdiff_t bucket_min_y = y_min + gutter_pix;
+				const ptrdiff_t bucket_max_x = x_max + gutter_pix; //assert(bucket_max_x <= xres);
+				const ptrdiff_t bucket_max_y = y_max + gutter_pix; //assert(bucket_max_y <= yres);
+
+				size_t addr = 0;
+				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+				{
+					const ptrdiff_t src_x = (x + upsize_factor/2) / upsize_factor;
+					const ptrdiff_t src_y = (y + upsize_factor/2) / upsize_factor;
+					const ptrdiff_t src_addr = src_y * xres + src_x;
+					
+					Colour4f sum(0.0f);
+					for(ptrdiff_t z = 0; z < num_layers; ++z)
+					{
+						const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+						const Vec3f& scale = layer_weights[z];
+						sum.x[0] += c.r * scale.x;
+						sum.x[1] += c.g * scale.y;
+						sum.x[2] += c.b * scale.z;
+					}
+
+					// Get alpha from alpha channel if it exists
+					sum.x[3] = have_alpha_channel ? (source_alpha_buf.getPixel((unsigned int)src_x, (unsigned int)src_y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+
+					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+					if(render_region_enabled)
+					{
+						if(pixelIsInARegion(x, y, regions))
+						{
+							sum = Colour4f(0.f);
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							{
+								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+								const Vec3f& scale = region_layer_weights[z];
+
+								sum.x[0] += c.r * scale.x;
+								sum.x[1] += c.g * scale.y;
+								sum.x[2] += c.b * scale.z;
+							}
+
+							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+						}
+						else
+						{
+							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+							if(closure.renderer_settings->zero_alpha_outside_region || (closure.image_scale == 0.0))
+								sum = Colour4f(0.f);
+						}
+					}
+
+					tile_buffer.getPixel(addr++) = sum;
+				}
+
+				// Either tonemap, or do equivalent operation for non-colour passes.
+				if(closure.renderer_settings->shadow_pass)
+				{
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+					{
+						float occluded_luminance   = tile_buffer.getPixel(i).x[0];
+						float unoccluded_luminance = tile_buffer.getPixel(i).x[1];
+						float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
+						// Set to a black colour, with alpha value equal to the 'shadow fraction'.
+						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
+					}
+				}
+				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
+				{
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
+				}
+				else
+				{
+					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+				}
+
+				addr = 0;
+				if(apply_curves) // Copy processed pixels into the final image, with colour curve adjustment
+				{
+					for(ptrdiff_t y = y_min; y < y_max; ++y)
+						for(ptrdiff_t x = x_min; x < x_max; ++x)
+						{
+							const float* const data = closure.curve_data.colour_curve_data;
+							const int n = CurveData::table_vals;
+							const Colour4f col = tile_buffer.getPixel(addr++);
+
+							const float pre_r = CurveData::curveTableEval(col.x[0], data[0], data[1], data[2], &data[12]);
+							const float pre_g = CurveData::curveTableEval(col.x[1], data[0], data[1], data[2], &data[12]);
+							const float pre_b = CurveData::curveTableEval(col.x[2], data[0], data[1], data[2], &data[12]);
+
+							const float curve_r = CurveData::curveTableEval(pre_r, data[1*3+0], data[1*3+1], data[1*3+2], &data[12+1*n]);
+							const float curve_g = CurveData::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
+							const float curve_b = CurveData::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
+
+							ldr_buffer_out->getPixel(y * final_xres + x).set(curve_r, curve_g, curve_b, col.x[3]);
+						}
+				}
+				else // Copy processed pixels into the final image, without colour curve processing
+				{
+					for(ptrdiff_t y = y_min; y < y_max; ++y)
+						for(ptrdiff_t x = x_min; x < x_max; ++x)
+							ldr_buffer_out->getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
+				}
+			}
+			else if(ss_factor > closure.subres_factor) // Perform downsampling if needed
 			{
 				const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_x >= 0);
 				const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_y >= 0);
@@ -800,7 +923,7 @@ public:
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
+							const Image::ColourType& c = (source_render_layers)[z].image.getPixel(src_addr);
 							const Vec3f& s = layer_weights[z];
 
 							sum.x[0] += c.r * s.x;
@@ -810,7 +933,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -901,7 +1024,7 @@ public:
 
 					assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
-					(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = weighted_sum;
+					ldr_buffer_out->getPixel(y * final_xres + x) = weighted_sum;
 				}
 			}
 			else // No downsampling needed
@@ -936,7 +1059,7 @@ public:
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = (closure.render_channels->layers)[z].image.getPixel(src_addr);
+							const Image::ColourType& c = (source_render_layers)[z].image.getPixel(src_addr);
 							const Vec3f& scale = layer_weights[z];
 
 							sum.x[0] += c.r * scale.x;
@@ -946,7 +1069,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (closure.render_channels->alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = have_alpha_channel ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -1017,26 +1140,34 @@ public:
 						const float curve_g = CurveData::curveTableEval(pre_g, data[2*3+0], data[2*3+1], data[2*3+2], &data[12+2*n]);
 						const float curve_b = CurveData::curveTableEval(pre_b, data[3*3+0], data[3*3+1], data[3*3+2], &data[12+3*n]);
 
-						(*closure.ldr_buffer_out).getPixel(y * final_xres + x).set(curve_r, curve_g, curve_b, col.x[3]);
+						ldr_buffer_out->getPixel(y * final_xres + x).set(curve_r, curve_g, curve_b, col.x[3]);
 					}
 				}
 				else // Copy processed pixels into the final image, without colour curve processing
 				{
 					for(ptrdiff_t y = y_min; y < y_max; ++y)
 					for(ptrdiff_t x = x_min; x < x_max; ++x)
-						(*closure.ldr_buffer_out).getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
+						ldr_buffer_out->getPixel(y * final_xres + x) = tile_buffer.getPixel(addr++);
 				}
 			}
 		}
 	}
 
-	const ImagePipelineTaskClosure& closure;
+	const ImagePipelineTaskClosure* closure_;
 	int begin, end;
 };
 
 
+DoTonemapScratchState::DoTonemapScratchState()
+{}
+
+
+DoTonemapScratchState::~DoTonemapScratchState()
+{}
+
+
 void doTonemap(	
-	std::vector<Image4f>& per_thread_tile_buffers,
+	DoTonemapScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
@@ -1045,12 +1176,12 @@ void doTonemap(
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
-	Image4f& temp_summed_buffer,
-	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
 	bool XYZ_colourspace,
 	int margin_ssf1,
-	Indigo::TaskManager& task_manager
+	Indigo::TaskManager& task_manager,
+	int subres_factor,
+	int subres_buffer_index
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::doTonemap", 1);
@@ -1111,7 +1242,7 @@ void doTonemap(
 	if((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))
 	{
 		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
-							temp_summed_buffer, temp_AD_buffer,
+							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
 	else
@@ -1130,18 +1261,21 @@ void doTonemap(
 		assert(final_yres == renderer_settings.getHeight());
 		ldr_buffer_out.resize(final_xres, final_yres);
 
-		const ptrdiff_t x_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_xres, (ptrdiff_t)image_tile_size - 1);
-		const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size - 1);
+		const ptrdiff_t x_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_xres, (ptrdiff_t)image_tile_size);
+		const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size);
 		const ptrdiff_t num_tiles = x_tiles * y_tiles;
-		const ptrdiff_t tile_buffer_size = (image_tile_size * ss_factor) + filter_size;
-
+		ptrdiff_t tile_buffer_size;
+		if(ss_factor == 1 || subres_factor > 1)
+			tile_buffer_size = image_tile_size; // We won't be doing downsampling.  Therefore we don't need a margin for the downsample filter.
+		else
+			tile_buffer_size = image_tile_size * ss_factor + filter_size;
 
 		// Ensure that we have sufficiently many buffers of sufficient size for as many threads as the task manager uses.
-		per_thread_tile_buffers.resize(task_manager.getNumThreads());
-		for(size_t tile_buffer = 0; tile_buffer < per_thread_tile_buffers.size(); ++tile_buffer)
+		scratch_state.per_thread_tile_buffers.resize(task_manager.getNumThreads());
+		for(size_t tile_buffer = 0; tile_buffer < scratch_state.per_thread_tile_buffers.size(); ++tile_buffer)
 		{
-			per_thread_tile_buffers[tile_buffer].resize(tile_buffer_size, tile_buffer_size);
-			per_thread_tile_buffers[tile_buffer].zero(); // NEW
+			scratch_state.per_thread_tile_buffers[tile_buffer].resizeUninitialised(tile_buffer_size, tile_buffer_size);
+			scratch_state.per_thread_tile_buffers[tile_buffer].zero(); // NEW
 		}
 
 		// Get float XYZ->sRGB matrix
@@ -1162,7 +1296,7 @@ void doTonemap(
 		ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
 
 		ImagePipelineTaskClosure closure;
-		closure.per_thread_tile_buffers = &per_thread_tile_buffers;
+		closure.per_thread_tile_buffers = &scratch_state.per_thread_tile_buffers;
 		closure.render_channels = &render_channels;
 		closure.layer_weights = &layer_weights;
 		closure.image_scale = image_scale;
@@ -1179,13 +1313,33 @@ void doTonemap(
 		closure.filter_size = filter_size;
 		closure.margin_ssf1 = margin_ssf1;
 		closure.region_alpha_bias = region_alpha_bias;
+		closure.subres_factor = subres_factor;
+		closure.subres_buffer_index = subres_buffer_index;
 
 		closure.skip_curves = skip_curves;
 		if(!skip_curves) closure.curve_data = curve_data;
 
-		task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(closure, 0, num_tiles);
+		// Timer timer;
 
-		//conPrint("Image pipeline parallel loop took " + timer.elapsedString());
+		// Allocate (or check are already allocated) ImagePipelineTasks
+		const size_t num_tasks = myMax<size_t>(1, task_manager.getNumThreads()); // Task manager may have zero threads, in which case use one task.
+		scratch_state.tasks.resize(num_tasks);
+		for(size_t i=0; i<num_tasks; ++i)
+			if(scratch_state.tasks[i].isNull())
+				scratch_state.tasks[i] = new ImagePipelineTask();
+
+		const size_t num_tiles_per_task = Maths::roundedUpDivide(num_tiles, (ptrdiff_t)num_tasks);
+		for(size_t i=0; i<num_tasks; ++i)
+		{
+			ImagePipelineTask* task = scratch_state.tasks[i].downcastToPtr<ImagePipelineTask>();
+			task->closure_ = &closure;
+			task->begin = myMin<int>((int)(num_tiles_per_task * i      ), (int)num_tiles);
+			task->end   = myMin<int>((int)(num_tiles_per_task * (i + 1)), (int)num_tiles);
+		}
+
+		task_manager.runTasks(scratch_state.tasks);
+		
+		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}
 	
 
@@ -1195,6 +1349,14 @@ void doTonemap(
 	ldr_buffer_out = temp;
 	ldr_buffer_out.clampInPlace(0, 1);*/
 }
+
+
+ToNonLinearSpaceScratchState::ToNonLinearSpaceScratchState()
+{}
+
+
+ToNonLinearSpaceScratchState::~ToNonLinearSpaceScratchState()
+{}
 
 
 /*
@@ -1256,24 +1418,32 @@ public:
 
 void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
+	ToNonLinearSpaceScratchState& scratch_state,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::toNonLinearSpace", 1);
 
-	const size_t num_tasks = task_manager.getNumThreads();
-	const size_t num_pixels_per_task = Maths::roundedUpDivide(ldr_buffer_in_out.numPixels(), myMax<size_t>(1, num_tasks));
-	for(size_t i=0; i<myMax<size_t>(1, num_tasks); ++i)
+	const size_t num_tasks = myMax<size_t>(1, task_manager.getNumThreads()); // Task manager may have zero threads, in which case use one task.
+
+	// Allocate (or check are already allocated) ToNonLinearSpaceTasks
+	scratch_state.tasks.resize(num_tasks);
+	for(size_t i=0; i<num_tasks; ++i)
+		if(scratch_state.tasks[i].isNull())
+			scratch_state.tasks[i] = new ToNonLinearSpaceTask();
+
+	const size_t num_pixels_per_task = Maths::roundedUpDivide(ldr_buffer_in_out.numPixels(), num_tasks);
+	for(size_t i=0; i<num_tasks; ++i)
 	{
-		Reference<ToNonLinearSpaceTask> task = new ToNonLinearSpaceTask();
+		ToNonLinearSpaceTask* task = scratch_state.tasks[i].downcastToPtr<ToNonLinearSpaceTask>();
 		task->renderer_settings = &renderer_settings;
 		task->ldr_buffer_in_out = &ldr_buffer_in_out;
 		task->begin = myMin(num_pixels_per_task * i      , ldr_buffer_in_out.numPixels());
 		task->end   = myMin(num_pixels_per_task * (i + 1), ldr_buffer_in_out.numPixels());
-		task_manager.addTask(task);
 	}
-	task_manager.waitForTasksToComplete();
+
+	task_manager.runTasks(scratch_state.tasks);
 
 	// Components should be in range [0, 1]
 	assert(ldr_buffer_in_out.minPixelComponent() >= 0.0f);

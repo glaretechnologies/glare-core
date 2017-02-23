@@ -128,10 +128,12 @@ void ThreadSafeQueue<T>::enqueueItems(const T* items, size_t num_items)
 {
 	Lock lock(mutex); // Lock the queue
 
+	const bool queue_intially_empty = queue.empty();
+
 	for(size_t i=0; i<num_items; ++i)
 		queue.push_back(items[i]); // Add item to queue
 
-	if(queue.size() == num_items) // If the queue was empty
+	if(queue_intially_empty) // If the queue was empty
 		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
 }
 

@@ -82,6 +82,13 @@ void TaskManager::addTasks(Reference<Task>* t, size_t num_tasks)
 }
 
 
+void TaskManager::runTasks(Reference<Task>* new_tasks, size_t num_tasks) // Add tasks, then wait for tasks to complete.
+{
+	addTasks(new_tasks, num_tasks);
+	waitForTasksToComplete();
+}
+
+
 bool TaskManager::areAllTasksComplete()
 {
 	Lock lock(num_unfinished_tasks_mutex);

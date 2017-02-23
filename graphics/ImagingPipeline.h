@@ -1,7 +1,7 @@
 /*=====================================================================
 ImagingPipeline.h
 -----------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #pragma once
@@ -10,12 +10,14 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #include "../indigo/RendererSettings.h"
 #include "../indigo/RenderChannels.h"
+#include "Image4f.h"
 #include <vector>
 
 
 class PostProDiffraction;
 class Image4f;
 namespace Indigo { class TaskManager; }
+namespace Indigo { class Task; }
 
 
 namespace ImagingPipeline
@@ -45,6 +47,18 @@ void sumLightLayers(
 );
 
 
+// To avoid repeated allocations and deallocations, keep some data around in this structure, that can be passed in to successive doTonemap() calls.
+struct DoTonemapScratchState
+{
+	DoTonemapScratchState();
+	~DoTonemapScratchState();
+	std::vector<Reference<Indigo::Task> > tasks; // These should only actually have type ImagePipelineTask.
+	std::vector<Image4f> per_thread_tile_buffers;
+	Image4f temp_summed_buffer;
+	Image4f temp_AD_buffer;
+};
+
+
 /*
 Tonemaps some input image data, stored in render_channels, to some output image data, stored in ldr_buffer_out.
 Also does downsizing of the supersampled internal buffer to the output image resolution.
@@ -56,7 +70,7 @@ The output data will be in linear sRGB colour space.
 The output data components will be in the range [0, 1].
 */
 void doTonemap(
-	std::vector<Image4f>& per_thread_tile_buffers, // Working memory
+	DoTonemapScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
 	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights, // Light layer weights.
@@ -65,18 +79,27 @@ void doTonemap(
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
-	Image4f& temp_summed_buffer, // Working memory
-	Image4f& temp_AD_buffer, // Working memory
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
 	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	Indigo::TaskManager& task_manager
+	Indigo::TaskManager& task_manager,
+	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
+	int subres_buffer_index = 0
 );
+
+
+// To avoid repeated allocations and deallocations, keep some tasks around in this structure.
+struct ToNonLinearSpaceScratchState
+{
+	ToNonLinearSpaceScratchState();
+	~ToNonLinearSpaceScratchState();
+	std::vector<Reference<Indigo::Task> > tasks; // These should only actually have type ToNonLinearSpaceTask.
+};
 
 
 /*
 Converts some tonemapped image data to non-linear sRGB space.
-Does a few things in preperation for conversion to an 8-bit output image format, 
+Does a few things in preperation for conversion to an 8-bit output image format,
 such as dithering and gamma correction.
 Input colour space is linear sRGB
 Output colour space is non-linear sRGB with the supplied gamma.
@@ -84,6 +107,7 @@ We also assume the output values are not premultiplied alpha.
 */
 void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
+	ToNonLinearSpaceScratchState& scratch_state,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
 );

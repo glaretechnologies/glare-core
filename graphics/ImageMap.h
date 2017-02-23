@@ -91,6 +91,8 @@ public:
 	inline ImageMap(unsigned int width, unsigned int height, unsigned int N); // throws Indigo::Exception
 	inline virtual ~ImageMap();
 
+	inline ImageMap& operator = (const ImageMap& other);
+
 	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
 	virtual float getGamma() const { return gamma; }
@@ -204,6 +206,23 @@ ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsign
 
 template <class V, class VTraits>
 ImageMap<V, VTraits>::~ImageMap() {}
+
+
+template <class V, class VTraits>
+ImageMap<V, VTraits>& ImageMap<V, VTraits>::operator = (const ImageMap<V, VTraits>& other)
+{
+	if(this == &other)
+		return *this;
+	
+	width = other.width;
+	height = other.height;
+	N = other.N;
+	data = other.data;
+	gamma = other.gamma;
+	ds_over_2 = other.ds_over_2;
+	dt_over_2 = other.dt_over_2;
+	return *this;
+}
 
 
 template <class V, class VTraits>

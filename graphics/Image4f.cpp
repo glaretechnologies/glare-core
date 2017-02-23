@@ -29,7 +29,7 @@ Image4f::Image4f(size_t width, size_t height)
 {
 	try
 	{
-		pixels.resize(width, height);
+		pixels.resizeUninitialised(width, height);
 	}
 	catch(std::bad_alloc& )
 	{
@@ -198,6 +198,23 @@ void Image4f::resize(size_t newwidth, size_t newheight)
 		pixels.resize(newwidth, newheight);
 	}
 	catch(std::bad_alloc& )
+	{
+		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
+		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+	}
+}
+
+
+void Image4f::resizeUninitialised(size_t newwidth, size_t newheight) // Resize without copying existing data, or intialising pixels.
+{
+	if(getWidth() == newwidth && getHeight() == newheight)
+		return;
+
+	try
+	{
+		pixels.resizeUninitialised(newwidth, newheight);
+	}
+	catch(std::bad_alloc&)
 	{
 		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
 		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");

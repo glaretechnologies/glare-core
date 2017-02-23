@@ -38,7 +38,7 @@ Image::Image(size_t width, size_t height)
 {
 	try
 	{
-		pixels.resize(width, height);
+		pixels.resizeUninitialised(width, height);
 	}
 	catch(std::bad_alloc& )
 	{
@@ -165,7 +165,7 @@ void Image::resize(size_t newwidth, size_t newheight)
 
 	try
 	{
-		pixels.resize(newwidth, newheight);
+		pixels.resizeUninitialised(newwidth, newheight);
 	}
 	catch(std::bad_alloc& )
 	{

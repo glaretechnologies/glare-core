@@ -36,10 +36,6 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 {
 	Indigo::TaskManager task_manager(1);
 
-	// Temp buffers
-	::Image4f temp_summed_buffer, temp_AD_buffer;
-	std::vector< ::Image4f> temp_tile_buffers;
-
 	const float layer_normalise = image_scale;
 	std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
 
@@ -57,8 +53,9 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 
 	std::vector<RenderRegion> render_regions;
 
+	ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
 	ImagingPipeline::doTonemap(
-		temp_tile_buffers,
+		tonemap_scratch_state,
 		render_channels,
 		render_regions,
 		layer_weights,
@@ -67,15 +64,14 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		renderer_settings,
 		filter_data.data(),
 		Reference<PostProDiffraction>(),
-		temp_summed_buffer,
-		temp_AD_buffer,
 		ldr_image_out,
 		false, // XYZ_colourspace
 		RendererSettings::defaultMargin(), // margin at ssf1
 		task_manager
 	);
 
-	ImagingPipeline::toNonLinearSpace(task_manager, renderer_settings, ldr_image_out);
+	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
+	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out);
 }
 
 
@@ -215,6 +211,8 @@ void test()
 
 	Reference<PostProDiffraction> post_pro_diffraction(NULL); // Don't test post_pro_diffraction currently
 
+	ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 
 	for(int res = 0; res < test_res_num; ++res)
 	for(int ss  = 0; ss  < test_ss_num; ++ss)
@@ -271,14 +269,13 @@ void test()
 		// Fill alpha channel to alpha 1
 		master_buffer.getRenderChannels().alpha.set(1.0f);
 
-		::Image4f temp_summed_buffer, temp_AD_buffer, temp_ldr_buffer;
-		std::vector< ::Image4f> temp_tile_buffers;
+		::Image4f temp_ldr_buffer;
 
 		std::vector<float> filter_data;
 		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
 
 		ImagingPipeline::doTonemap(
-			temp_tile_buffers,
+			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
 			std::vector<RenderRegion>(),
 			layer_weights,
@@ -287,14 +284,12 @@ void test()
 			renderer_settings,
 			filter_data.data(),
 			post_pro_diffraction,
-			temp_summed_buffer,
-			temp_AD_buffer,
 			temp_ldr_buffer,
 			false,
 			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
-		ImagingPipeline::toNonLinearSpace(task_manager, renderer_settings, temp_ldr_buffer);
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, temp_ldr_buffer);
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());

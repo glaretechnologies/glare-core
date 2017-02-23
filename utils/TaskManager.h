@@ -46,6 +46,10 @@ public:
 
 	void addTask(const Reference<Task>& t);
 	void addTasks(Reference<Task>* tasks, size_t num_tasks);
+	void runTasks(Reference<Task>* tasks, size_t num_tasks); // Add tasks, then wait for tasks to complete.
+	
+	template <class TaskSubType> 
+	void runTasks(std::vector<TaskSubType>& task_vector); // Add tasks, then wait for tasks to complete.
 
 	bool areAllTasksComplete();
 
@@ -157,6 +161,13 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 
 	// The tasks should be running.  Wait for them to complete.  This blocks.
 	waitForTasksToComplete();
+}
+
+
+template <class TaskSubType>
+void TaskManager::runTasks(std::vector<TaskSubType>& task_vector)
+{
+	runTasks(task_vector.data(), task_vector.size());
 }
 
 
