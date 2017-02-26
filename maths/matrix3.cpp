@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 
 // Do explicit template instantiation
 template bool Matrix3<float>::polarDecomposition(Matrix3<float>&, Matrix3<float>&) const;
+template void Matrix3<float>::rotationMatrixToAxisAngle(Vec3<float>& unit_axis_out, float& angle_out) const;
 
 
 template <>
