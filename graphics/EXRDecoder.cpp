@@ -419,12 +419,12 @@ void EXRDecoder::saveImageToEXR(const Image4f& image, bool save_alpha_channel, c
 
 void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& pathname, const SaveOptions& options)
 {
-	if(!(image.getN() == 1 || image.getN() == 3))
-		throw Indigo::Exception("Require 1 or 3 components.");
+	if(!(image.getN() == 1 || image.getN() == 3 || image.getN() == 4))
+		throw Indigo::Exception("Require 1, 3 or 4 components.");
 
 	saveImageToEXR(&image.getPixel(0, 0)[0], image.getWidth(), image.getHeight(), 
 		image.getN(), // num channels
-		false, // save alpha channel
+		image.getN() == 4, // save alpha channel
 		pathname,
 		options
 	);
