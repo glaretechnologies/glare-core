@@ -530,8 +530,7 @@ void Matrix4f::test()
 		{
 			Timer timer;
 
-			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
+			//const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 			//const Matrix4f m(e);
 
 			int N = 1000000;
