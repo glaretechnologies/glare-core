@@ -134,7 +134,6 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			{
 				parser.parseSpacesAndTabs();
 			
-				string_view token;
 				if(!parser.parseNonWSToken(token))
 					throw ImFormatExcep("Failed to parse FORMAT");
 				header_data.format = token.to_string();
