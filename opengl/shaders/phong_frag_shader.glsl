@@ -34,7 +34,7 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 }
 
 // https://en.wikipedia.org/wiki/Schlick%27s_approximation
-float fresnellApprox(float cos_theta, float ior)
+float fresnelApprox(float cos_theta, float ior)
 {
 	float r_0 = square((1.0 - ior) / (1.0 + ior));
 	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta);
@@ -96,7 +96,7 @@ void main()
 
 	float h_cos_theta = max(0.0, dot(h, unit_normal));
 	float specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
-		fresnellApprox(h_cos_theta, 1.5) * fresnel_scale;
+		fresnelApprox(h_cos_theta, 1.5) * fresnel_scale;
  
 	vec4 col;
 	if(have_texture != 0)
@@ -120,7 +120,7 @@ void main()
 		sun_vis_factor = 0;
 		int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 
-		float theta = float(ha(uint(pixel_index)) * (6.283185307179586 / 4294967296.0));
+		float theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
 		mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
 
 		for(int i=0; i<16; ++i)
