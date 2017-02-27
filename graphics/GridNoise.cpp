@@ -27,45 +27,45 @@ void GridNoise::generateData()
 
 	const int N = 256;
 
-	float data[256];
-	uint8 p_x[256];
-	uint8 p_y[256];
-	uint8 p_z[256];
-	uint8 p_w[256];
+	float data_[256];
+	uint8 p_x_[256];
+	uint8 p_y_[256];
+	uint8 p_z_[256];
+	uint8 p_w_[256];
 
 	// Generate some random floating point values stratified over the unit interval.
 	for(int i=0; i<N; ++i)
-		data[i] = (i + rng.unitRandom()) * (1.0f / N);
+		data_[i] = (i + rng.unitRandom()) * (1.0f / N);
 
 	// Permute
 	for(int t=N-1; t>=0; --t)
 	{
 		int k = (int)(rng.unitRandom() * t);
-		mySwap(data[t], data[k]);
+		mySwap(data_[t], data_[k]);
 	}
 
 
 	for(int i=0; i<N; ++i)
-		p_x[i] = p_y[i] = p_z[i] = p_w[i] = (uint8)i;
+		p_x_[i] = p_y_[i] = p_z_[i] = p_w_[i] = (uint8)i;
 
 	// Permute
 	for(int t=N-1; t>=0; --t)
 	{
 		{
 			int k = (int)(rng.unitRandom() * t);
-			mySwap(p_x[t], p_x[k]);
+			mySwap(p_x_[t], p_x_[k]);
 		}
 		{
 			int k = (int)(rng.unitRandom() * t);
-			mySwap(p_y[t], p_y[k]);
+			mySwap(p_y_[t], p_y_[k]);
 		}
 		{
 			int k = (int)(rng.unitRandom() * t);
-			mySwap(p_z[t], p_z[k]);
+			mySwap(p_z_[t], p_z_[k]);
 		}
 		{
 			int k = (int)(rng.unitRandom() * t);
-			mySwap(p_w[t], p_w[k]);
+			mySwap(p_w_[t], p_w_[k]);
 		}
 	}
 
@@ -76,23 +76,23 @@ void GridNoise::generateData()
 
 		file << "\np_x = ";
 		for(int i=0; i<N; ++i)
-			file << toString(p_x[i]) + ", ";
+			file << toString(p_x_[i]) + ", ";
 
 		file << "\np_y = ";
 		for(int i=0; i<N; ++i)
-			file << toString(p_y[i]) + ", ";
+			file << toString(p_y_[i]) + ", ";
 
 		file << "\np_z = ";
 		for(int i=0; i<N; ++i)
-			file << toString(p_z[i]) + ", ";
+			file << toString(p_z_[i]) + ", ";
 
 		file << "\np_w = ";
 		for(int i=0; i<N; ++i)
-			file << toString(p_w[i]) + ", ";
+			file << toString(p_w_[i]) + ", ";
 
 		file << "\ndata = ";
 		for(int i=0; i<N; ++i)
-			file << floatLiteralString(data[i]) + ", ";
+			file << floatLiteralString(data_[i]) + ", ";
 	}
 }
 

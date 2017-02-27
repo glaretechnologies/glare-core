@@ -41,7 +41,7 @@ Reference<Map2D> FloatDecoder::decode(const std::string& pathname)
 		if((width == 0) || (width * width != num_pixels))
 			throw ImFormatExcep("Image has invalid size");
 
-		ImageMapFloatRef image = new ImageMapFloat(width, width, 3);
+		ImageMapFloatRef image = new ImageMapFloat((unsigned int)width, (unsigned int)width, 3);
 
 		std::memcpy(image->getPixel(0, 0), file.fileData(), width * width * pixel_size);
 

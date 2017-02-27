@@ -66,13 +66,13 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 				const float f_d = mn.eval(d);
 
 				// Update pixel
-				for(int c=0; c<bitmap.getBytesPP(); ++c)
+				for(int z=0; z<bitmap.getBytesPP(); ++z)
 				{
-					const uint8 val_i = bitmap.getPixel(xi, yi)[c];
+					const uint8 val_i = bitmap.getPixel(xi, yi)[z];
 					const float val = (float)val_i;
-					const float newval = f_d * 255.f * colour[c] + val * (1 - f_d);
+					const float newval = f_d * 255.f * colour[z] + val * (1 - f_d);
 					const uint8 newval_i = (uint8)myClamp(newval, 0.f, 255.9f);
-					bitmap.getPixelNonConst(xi, yi)[c] = newval_i;
+					bitmap.getPixelNonConst(xi, yi)[z] = newval_i;
 				}
 			}
 		}
@@ -115,13 +115,13 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 				const float f_d = mn.eval(d);
 
 				// Update pixel
-				for(int c=0; c<bitmap.getBytesPP(); ++c)
+				for(int z=0; z<bitmap.getBytesPP(); ++z)
 				{
-					const uint8 val_i = bitmap.getPixel(xi, yi)[c];
+					const uint8 val_i = bitmap.getPixel(xi, yi)[z];
 					const float val = (float)val_i;
-					const float newval = f_d * 255.f * colour[c] + val * (1 - f_d);
+					const float newval = f_d * 255.f * colour[z] + val * (1 - f_d);
 					const uint8 newval_i = (uint8)myClamp(newval, 0.f, 255.9f);
-					bitmap.getPixelNonConst(xi, yi)[c] = newval_i;
+					bitmap.getPixelNonConst(xi, yi)[z] = newval_i;
 				}
 			}
 		}
