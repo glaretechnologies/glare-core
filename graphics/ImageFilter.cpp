@@ -108,11 +108,11 @@ public:
 				float destx = x - out_w_2;
 				float desty = y - out_h_2;
 
-				float sx = destx * pixel_scale;
-				float sy = desty * pixel_scale;
+				float sxf = destx * pixel_scale;
+				float syf = desty * pixel_scale;
 
-				float sx_p = sx + in_w_2;
-				float sy_p = sy + in_h_2;
+				float sx_p = sxf + in_w_2;
+				float sy_p = syf + in_h_2;
 
 				// floor to integer pixel indices
 				int sx_pi = (int)std::floor(sx_p);
@@ -392,11 +392,11 @@ public:
 				float destx = x - out_w_2;
 				float desty = y - out_h_2;
 
-				float sx = destx * pixel_scale;
-				float sy = desty * pixel_scale;
+				float sxf = destx * pixel_scale;
+				float syf = desty * pixel_scale;
 
-				float sx_p = sx + in_w_2;
-				float sy_p = sy + in_h_2;
+				float sx_p = sxf + in_w_2;
+				float sy_p = syf + in_h_2;
 
 				// floor to integer pixel indices
 				int sx_pi = (int)std::floor(sx_p);
