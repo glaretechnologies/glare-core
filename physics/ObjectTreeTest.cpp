@@ -43,8 +43,6 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 {
 	conPrint("ObjectTreeTest::doSelfIntersectionAvoidanceTest()");
 
-	double start_time = 0.0;
-	double end_time = 0.0;
 	MTwister rng(1);
 
 	ObjectTree ob_tree;
@@ -103,7 +101,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			);
 
 		
-		ob1->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
+		ob1->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob1->setObjectIndex(0);
 		ob_tree.insertObject(ob1);
 	}
@@ -118,7 +116,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
-		ob2->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
+		ob2->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob2->setObjectIndex(1);
 		ob_tree.insertObject(ob2);
 	}
@@ -202,8 +200,6 @@ void ObjectTreeTest::doTests()
 	doSelfIntersectionAvoidanceTest();
 
 	conPrint("ObjectTreeTest::doTests()");
-	double start_time = 0.0;
-	double end_time = 0.0;
 	MTwister rng(1);
 
 	ObjectTree ob_tree;
@@ -245,7 +241,7 @@ void ObjectTreeTest::doTests()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
+		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob->setObjectIndex(i);
 		ob_tree.insertObject(ob);
 
@@ -476,9 +472,6 @@ void ObjectTreeTest::doSpeedTest()
 
 	ObjectTree ob_tree;
 
-	double start_time = 0.0;
-	double end_time = 0.0;
-
 	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
@@ -503,7 +496,7 @@ void ObjectTreeTest::doSpeedTest()
 			);
 		RendererSettings settings;
 		settings.cache_trees = false;
-		ob->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
+		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(task_manager, print_output,
@@ -543,7 +536,7 @@ void ObjectTreeTest::doSpeedTest()
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
 		/*const double t = */ob_tree.traceRay(ray, std::numeric_limits<float>::infinity(), // ray length
-			thread_context, start_time, hitob, hitinfo);
+			thread_context, /*time=*/0.0, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -584,9 +577,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	const std::string cache_dir_path = ".";
 
 	MTwister rng(1);
-
-	double start_time = 0.0;
-	double end_time = 0.0;
 
 	//------------------------------------------------------------------------
 	//load bunny mesh
@@ -644,7 +634,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		
-		object->buildGeometry(thread_context, "", settings, print_output, true, start_time, end_time, task_manager);
+		object->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 
 		ob_tree.insertObject(object);
 	}
