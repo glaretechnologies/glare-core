@@ -42,6 +42,7 @@ struct MTLMaterial
 
 struct MLTLibMaterials
 {
+	std::string mtl_file_path;
 	std::vector<MTLMaterial> materials;
 };
 

@@ -17,6 +17,7 @@ Code By Nicholas Chapman.
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
+#include "../utils/HashMapInsertOnly2.h"
 #include <unordered_map>
 
 
@@ -52,7 +53,48 @@ struct Vert
 	{
 		return vert_i == b.vert_i && norm_i == b.norm_i;
 	}
+	inline bool operator != (const Vert& b) const
+	{
+		return vert_i != b.vert_i || norm_i != b.norm_i;
+	}
 };
+
+
+// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
+static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+	
+	if(sizeof(size_t) == 8)
+	{
+		const size_t _FNV_offset_basis = 14695981039346656037ULL;
+		const size_t _FNV_prime = 1099511628211ULL;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		_Val ^= _Val >> 32;
+		return _Val;
+	}
+	else
+	{
+		const size_t _FNV_offset_basis = 2166136261U;
+		const size_t _FNV_prime = 16777619U;
+
+		size_t _Val = _FNV_offset_basis;
+		for (size_t _Next = 0; _Next < _Count; ++_Next)
+			{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+			}
+
+		return _Val;
+	}
+}
 
 
 // Hash function for Vert
@@ -63,7 +105,7 @@ public:
 	{	
 		// hash _Keyval to size_t value by pseudorandomizing transform.
 		// Since there shouldn't be a lot of vertices with the same position but different normals, this should hopefully be adequate as a hash function.
-		return (size_t)v.vert_i;
+		return use_Hash_seq((const unsigned char*)&v, sizeof(Vert));
 	}
 };
 
@@ -115,7 +157,15 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 	std::vector<Indigo::Vec3f> vert_normals;
 	std::vector<Indigo::Vec2f> uvs;
 
-	std::unordered_map<Vert, unsigned int, VertHash> added_verts; // Hash map from Vertex to index of where the vertex was added to the Indigo Mesh.
+	//std::unordered_map<Vert, unsigned int, VertHash> added_verts; // Hash map from Vertex to index of where the vertex was added to the Indigo Mesh.
+	Vert empty_key;
+	empty_key.vert_i = std::numeric_limits<unsigned int>::max();
+	empty_key.norm_i = std::numeric_limits<unsigned int>::max();
+
+	HashMapInsertOnly2<Vert, unsigned int, VertHash> added_verts(empty_key,
+		45000
+	);
+
 	unsigned int num_verts_added = 0;
 	std::vector<unsigned int> face_added_vert_indices(MAX_NUM_FACE_VERTICES);
 
@@ -267,10 +317,10 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					if(zero_based_normal_index >= (int)vert_normals.size())
 						throw Indigo::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
-					Vert v;
+					/*Vert v;
 					v.vert_i = zero_based_vert_index;
 					v.norm_i = zero_based_normal_index;
-					const std::unordered_map<Vert, unsigned int, VertHash>::iterator res = added_verts.find(v);
+					const auto res = added_verts.find(v);
 					if(res == added_verts.end())
 					{
 						// Not added yet, add:
@@ -281,13 +331,32 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					}
 					else
 						face_added_vert_indices[i] = res->second;
+					*/
+					Vert v;
+					v.vert_i = zero_based_vert_index;
+					v.norm_i = zero_based_normal_index;
+
+					const auto insert_res = added_verts.insert(std::make_pair(v, num_verts_added)); // Try and added to map
+					if(insert_res.second)
+					{
+						// Vert was not in map, but is added now.
+						handler.addVertex(vert_positions[zero_based_vert_index], vert_normals[zero_based_normal_index]);
+						face_added_vert_indices[i] = num_verts_added;
+						num_verts_added++;
+					}
+					else
+					{
+						// Vert was in map already, and insert_res.first is an iterator referring to the existing item.
+						face_added_vert_indices[i] = insert_res.first->second;
+					}
+					
 				}
 				else
 				{
 					Vert v;
 					v.vert_i = zero_based_vert_index;
 					v.norm_i = 0;
-					const std::unordered_map<Vert, unsigned int, VertHash>::iterator res = added_verts.find(v);
+					const auto res = added_verts.find(v);
 					if(res == added_verts.end())
 					{
 						// Not added yet, add:
@@ -350,8 +419,9 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			if(parse_mtllib)
 			{
 				// If .mtl file does not exist, just skip trying to parse it instead of throwing an exception.
-				if(FileUtils::fileExists(mtllib_path.to_string()))
-					parseMTLLib(mtllib_path.to_string(), mtllib_mats_out);
+				const std::string mtl_fullpath = FileUtils::join(FileUtils::getDirectory(filename), mtllib_path.to_string());
+				if(FileUtils::fileExists(mtl_fullpath))
+					parseMTLLib(mtl_fullpath, mtllib_mats_out);
 			}
 		}
 		else if(token == "usemtl")  //material to use for subsequent faces
@@ -401,6 +471,7 @@ static Colour3f parseCol3(Parser& parser, int& linenum)
 
 void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out)
 {
+	mtllib_mats_out.mtl_file_path = filename;
 	mtllib_mats_out.materials.resize(0);
 
 	MemMappedFile file(filename);
@@ -517,12 +588,53 @@ void FormatDecoderObj::test()
 {
 	conPrint("FormatDecoderObj::test()");
 
-	MLTLibMaterials mats;
+
+	if(false)
+	{
+		MLTLibMaterials mats;
+
+		//{
+		//	// Perf test
+
+		//	const int N = 100;
+
+		//	const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/infinite_head/Infinite-Level_02.OBJ";
+
+		//	Timer timer;
+		//	for(int i=0; i<N; ++i)
+		//	{
+		//		Indigo::Mesh mesh;
+		//		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
+		//	}
+		//	const double elapsed = timer.elapsed();
+		//	const double time_each = elapsed / N;
+		//	conPrint("infinte head av elapsed: " + doubleToStringNSigFigs(time_each, 5) + " s");
+		//}
+		{
+			// Perf test
+
+			const int N = 100;
+
+			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/elephant.obj";
+
+			Timer timer;
+			for(int i=0; i<N; ++i)
+			{
+				Indigo::Mesh mesh;
+				streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
+			}
+			const double elapsed = timer.elapsed();
+			const double time_each = elapsed / N;
+			conPrint("elephant av elapsed: " + doubleToStringNSigFigs(time_each, 5) + " s");
+		}
+	}
+	//return;
 
 	try
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj";
 		Indigo::Mesh mesh;
+		MLTLibMaterials mats;
 		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
 
 		testAssert(mesh.vert_positions.size() == 4);
@@ -540,6 +652,7 @@ void FormatDecoderObj::test()
 	// Load sphere.obj, also sphere_with_backslash.obj (which has some backslashes inserted) and make sure they give the same mesh.
 	try
 	{
+		MLTLibMaterials mats;
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
 		Indigo::Mesh sphere_mesh_ref;
 		streamModel(path, sphere_mesh_ref, 1.0, /*parse mtllib=*/false, mats);
@@ -559,6 +672,7 @@ void FormatDecoderObj::test()
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj";
 		Indigo::Mesh mesh;
+		MLTLibMaterials mats;
 		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
 	}
 	catch(Indigo::Exception& e)
