@@ -103,6 +103,13 @@ void Maths::test()
 {
 	conPrint("Maths::test()");
 
+	//=============================== intLogBase2 ================================
+	testAssert(intLogBase2(1) == 0);
+	testAssert(intLogBase2(2) == 1);
+	testAssert(intLogBase2(4) == 2);
+	for(uint32 i=0; i<63; ++i)
+		testAssert(intLogBase2(1ULL << i) == i);
+
 	//=============================== roundToNextHighestPowerOf2() =========================================
 	testAssert(roundToNextHighestPowerOf2(0) == 0); // This is expected.
 	testAssert(roundToNextHighestPowerOf2(1) == 1);
@@ -622,7 +629,7 @@ void Maths::test()
 	
 #if !defined(OSX)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
-
+	{
 	const int N = 1000000;
 	const int trials = 4;
 
@@ -1213,7 +1220,7 @@ void Maths::test()
 		conPrint("\tcycles: " + toString(cycles));
 		conPrint("\tsum: " + sum.toString());
 	}
-
+	}
 
 
 	{

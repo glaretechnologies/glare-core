@@ -27,6 +27,7 @@ You may not use this code for any commercial project.
 
 
 #include "../utils/Platform.h"
+#include "../utils/BitUtils.h"
 #include <cstring> // For std::memcpy()
 #include <cmath>
 #include <cassert>
@@ -192,6 +193,14 @@ INDIGO_STRONG_INLINE Real logBase2(Real x)
 {
 	return log(x) * (Real)1.4426950408889634073599246810019;
 	// 1.4426950408889634073599246810019 = 1 / ln(2)
+}
+
+
+// Undefined if x == 0
+INDIGO_STRONG_INLINE uint32 intLogBase2(uint64 x)
+{
+	assert(x != 0);
+	return BitUtils::highestSetBitIndex(x);
 }
 
 
