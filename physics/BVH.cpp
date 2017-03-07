@@ -355,9 +355,6 @@ BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& t
 }
 
 
-#ifndef IS_INDIGO
-
-
 BVH::DistType BVH::traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const
 {
 	const Vec3f sourcePoint3(ray.startPos());
@@ -845,9 +842,6 @@ stack_pop:
 		}
 	}
 }
-
-
-#endif // ifndef IS_INDIGO
 
 
 inline static void recordHit(float t, float u, float v, unsigned int tri_index, std::vector<DistanceHitInfo>& hitinfos_out)
