@@ -1,7 +1,7 @@
 /*=====================================================================
 CircularBuffer.cpp
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2017 -
 Generated at 2013-05-16 16:42:23 +0100
 =====================================================================*/
 #include "CircularBuffer.h"
@@ -15,6 +15,13 @@ Generated at 2013-05-16 16:42:23 +0100
 #include "../utils/MTwister.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
+
+
+struct TestCircBufferStruct : public RefCounted
+{
+};
 
 
 void circularBufferTest()
@@ -67,13 +74,87 @@ void circularBufferTest()
 		}
 	}
 
+	// Test with non-trivial construtor and destructor
+	{
+		CircularBuffer<Reference<TestCircBufferStruct> > buf;
+		Reference<TestCircBufferStruct> t = new TestCircBufferStruct();
+		Reference<TestCircBufferStruct> t2 = new TestCircBufferStruct();
+		Reference<TestCircBufferStruct> t3 = new TestCircBufferStruct();
+		Reference<TestCircBufferStruct> t4 = new TestCircBufferStruct();
+		Reference<TestCircBufferStruct> t5 = new TestCircBufferStruct();
+		buf.push_back(t);
+
+		testAssert(buf.begin == 0);
+		testAssert(buf.size() == 1);
+		testAssert(buf.front().getPointer() == t.getPointer());
+		testAssert(buf.back().getPointer() == t.getPointer());
+		testAssert(!buf.empty());
+		testAssert(t->getRefCount() == 2);
+
+		buf.push_back(t2);
+
+		testAssert(buf.begin == 0);
+		testAssert(buf.size() == 2);
+		testAssert(buf.front().getPointer() == t.getPointer());
+		testAssert(buf.back().getPointer() == t2.getPointer());
+		testAssert(t2->getRefCount() == 2);
+
+		buf.push_back(t3);
+
+		testAssert(buf.begin == 0);
+		testAssert(buf.size() == 3);
+		testAssert(buf.front().getPointer() == t.getPointer());
+		testAssert(buf.back().getPointer() == t3.getPointer());
+		testAssert(t3->getRefCount() == 2);
+
+		buf.push_back(t4);
+
+		testAssert(buf.begin == 0);
+		testAssert(buf.size() == 4);
+		testAssert(buf.front().getPointer() == t.getPointer());
+		testAssert(buf.back().getPointer() == t4.getPointer());
+		testAssert(t4->getRefCount() == 2);
+
+		buf.push_back(t5);
+
+		testAssert(buf.begin == 0);
+		testAssert(buf.size() == 5);
+		testAssert(buf.front().getPointer() == t.getPointer());
+		testAssert(buf.back().getPointer() == t5.getPointer());
+		testAssert(t5->getRefCount() == 2);
+
+		testAssert(t ->getRefCount() == 2);
+		testAssert(t2->getRefCount() == 2);
+		testAssert(t3->getRefCount() == 2);
+		testAssert(t4->getRefCount() == 2);
+		testAssert(t5->getRefCount() == 2);
+
+		buf.clear();
+
+		testAssert(t ->getRefCount() == 1);
+		testAssert(t2->getRefCount() == 1);
+		testAssert(t3->getRefCount() == 1);
+		testAssert(t4->getRefCount() == 1);
+		testAssert(t5->getRefCount() == 1);
+	}
+
+	
+	{
+		Reference<TestCircBufferStruct> t = new TestCircBufferStruct();
+		{
+			CircularBuffer<Reference<TestCircBufferStruct> > buf;
+			buf.push_back(t);
+			testAssert(t->getRefCount() == 2);
+		}
+		testAssert(t->getRefCount() == 1);
+	}
 
 	//======================== Test push_front ========================
 	{
 		CircularBuffer<int> buf;
 		buf.push_front(100);
 
-		testAssert(buf.begin == 1);
+		testAssert(buf.begin == 3);
 		testAssert(buf.end == 0);
 		testAssert(buf.size() == 1);
 		testAssert(buf.front() == 100);
@@ -81,7 +162,7 @@ void circularBufferTest()
 
 		buf.push_front(99);
 
-		testAssert(buf.begin == 0);
+		testAssert(buf.begin == 2);
 		testAssert(buf.end == 0);
 		testAssert(buf.size() == 2);
 		testAssert(buf.front() == 99);
@@ -89,24 +170,24 @@ void circularBufferTest()
 
 		buf.push_front(98);
 
-		testAssert(buf.begin == 3);
-		testAssert(buf.end == 2);
+		testAssert(buf.begin == 1);
+		testAssert(buf.end == 0);
 		testAssert(buf.size() == 3);
 		testAssert(buf.front() == 98);
 		testAssert(buf.back() == 100);
 
 		buf.push_front(97);
-
-		testAssert(buf.begin == 2);
-		testAssert(buf.end == 2);
+/*
+		testAssert(buf.begin == 0);
+		testAssert(buf.end == 0);
 		testAssert(buf.size() == 4);
 		testAssert(buf.front() == 97);
 		testAssert(buf.back() == 100);
 
 		buf.push_front(96);
 
-		testAssert(buf.begin == 1);
-		testAssert(buf.end == 6);
+		testAssert(buf.begin == 7);
+		testAssert(buf.end == 0);
 		testAssert(buf.size() == 5);
 		testAssert(buf.front() == 96);
 		testAssert(buf.back() == 100);
@@ -133,7 +214,7 @@ void circularBufferTest()
 		testAssert(buf.end == 6);
 		testAssert(buf.size() == 8);
 		testAssert(buf.front() == 93);
-		testAssert(buf.back() == 100);
+		testAssert(buf.back() == 100);*/
 	}
 
 	{
@@ -308,45 +389,77 @@ void circularBufferTest()
 
 	//======================== Try stress testing with random operations ========================
 	{
+		int64 sum = 0;
 		for(int t=0; t<1000; ++t)
 		{
 			MTwister rng(t);
+			if(t % 10000 == 0)
+				printVar(t);
 
-			CircularBuffer<int> buf;
-
-			for(int i=0; i<1000; ++i)
+			Reference<TestCircBufferStruct> test_struct = new TestCircBufferStruct();
+			
 			{
-				const float r = rng.unitRandom();
-				if(r < 0.25f)
+				CircularBuffer<Reference<TestCircBufferStruct> > buf;
+				
+				for(int i=0; i<1000; ++i)
 				{
-					buf.push_back(123);
-				}
-				else if(r < 0.5f)
-				{
-					buf.push_front(124);
-				}
-				else if(r < 0.75f)
-				{
-					if(!buf.empty())
-						buf.pop_back();
-				}
-				else
-				{
-					if(!buf.empty())
-						buf.pop_front();
-				}
+					const float r = rng.unitRandom();
+					if(r < 0.2f)
+					{
+						buf.push_back(test_struct);
+					}
+					else if(r < 0.4f)
+					{
+						buf.push_front(test_struct);
+					}
+					else if(r < 0.6f)
+					{
+						if(!buf.empty())
+							buf.pop_back();
+					}
+					else if(r < 0.8f)
+					{
+						if(!buf.empty())
+							buf.pop_front();
+					}
+					else if(r < 0.85f)
+					{
+						if(!buf.empty())
+							sum += buf.front()->getRefCount();
+					}
+					else if(r < 0.9f)
+					{
+						if(!buf.empty())
+							sum += buf.back()->getRefCount();
+					}
+					else if(r < 0.95f)
+					{
+						sum += buf.size();
+					}
+					else
+					{
+						buf.clear();
+					}
 
-				// Test iterating over resulting buffer
-				size_t c = 0;
-				for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
-					c++;
-				testAssert(c == buf.size());
+					testAssert(test_struct->getRefCount() == 1 + buf.size());
+
+					// Test iterating over resulting buffer
+					size_t c = 0;
+					for(CircularBuffer<Reference<TestCircBufferStruct> >::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
+						c++;
+					testAssert(c == buf.size());
+				}
 			}
 
+			testAssert(test_struct->getRefCount() == 1);
 			
 		}
+
+		conPrint("sum: " + toString(sum));
 	}
+
+	conPrint("circularBufferTest() done.");
 }
 
 
-#endif
+#endif // BUILD_TESTS

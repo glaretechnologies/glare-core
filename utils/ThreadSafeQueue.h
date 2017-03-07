@@ -10,8 +10,8 @@ Code By Nicholas Chapman.
 #include "Mutex.h"
 #include "Lock.h"
 #include "Condition.h"
-#include <list>
-#include <vector>
+#include "CircularBuffer.h"
+//#include <vector>
 #include <cassert>
 
 
@@ -77,19 +77,19 @@ public:
 	//threadsafe
 	inline bool empty() const;
 	inline size_t size() const;
-	//void clear();
+	inline void clear();
 
 	inline bool unlockedEmpty() const;
 
 	//const std::list<T>& getQueueDebug() const { return queue; }
 
-	typedef typename std::list<T>::iterator iterator;
+	typedef typename CircularBuffer<T>::iterator iterator;
 	// Not threadsafe, caller needs to have the mutex first.
-	iterator begin() { return queue.begin(); }
-	iterator end() { return queue.end(); }
+	iterator begin() { return queue.beginIt(); }
+	iterator end() { return queue.endIt(); }
 
 private:
-	std::list<T> queue;
+	CircularBuffer<T> queue;
 
 	mutable Mutex mutex;
 
@@ -230,13 +230,13 @@ bool ThreadSafeQueue<T>::unlockedEmpty() const
 }
 
 
-/*template <class T>
+template <class T>
 void ThreadSafeQueue<T>::clear()
 {
 	Lock lock(mutex);
 
 	queue.clear();
-}*/
+}
 
 
 template <class T>

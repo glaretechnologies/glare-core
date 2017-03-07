@@ -1,14 +1,15 @@
 /*=====================================================================
 CircularBuffer.h
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2017 -
 Generated at 2013-05-16 16:42:23 +0100
 =====================================================================*/
 #pragma once
 
 
+#include "AlignedCharArray.h"
 #include "../maths/mathstypes.h"
-#include <vector>
+#include "../maths/SSE.h"
 #include <assert.h>
 #include <stddef.h>
 
@@ -28,8 +29,8 @@ template <class T>
 class CircularBuffer
 {
 public:
-	inline CircularBuffer() : begin(0), end(0), num_items(0) { invariant(); }
-	inline ~CircularBuffer() { invariant(); }
+	inline CircularBuffer();
+	inline ~CircularBuffer();
 
 	inline void push_back(const T& t);
 	
@@ -44,10 +45,12 @@ public:
 	inline T& front();
 
 	inline T& back();
+
+	inline void clear();
 	
 	inline size_t size() const;
 
-	inline bool empty() const { return size() == 0; }
+	inline bool empty() const { return num_items == 0; }
 
 
 	typedef CircularBufferIterator<T> iterator;
@@ -61,6 +64,7 @@ public:
 	friend class CircularBufferIterator<T>;
 
 private:
+	INDIGO_DISABLE_COPY(CircularBuffer)
 	inline void increaseSize();
 	inline void invariant();
 	
@@ -68,7 +72,8 @@ private:
 	size_t begin; // Index of first item in buffer
 	size_t end; // Index one past last item in buffer.
 	size_t num_items; // Number of items in buffer
-	std::vector<T> data; // Underlying linear buffer.  Size will be >= num_items.
+	T* data; // Storage
+	size_t data_size; // Size/capacity in number of elements of data.
 };
 
 
@@ -100,7 +105,7 @@ public:
 	void operator ++ ()
 	{
 		i++;
-		if(i >= buffer->data.size())
+		if(i >= buffer->data_size)
 		{
 			i = 0;
 			wrapped = true;
@@ -134,20 +139,48 @@ public:
 
 
 template <class T>
+CircularBuffer<T>::CircularBuffer()
+:	begin(0), end(0), num_items(0), data(0), data_size(0)
+{
+	invariant(); 
+}
+
+
+template <class T>
+CircularBuffer<T>::~CircularBuffer()
+{
+	invariant();
+
+	// Destroy first segment.
+	const bool wrapped = ((end <= begin) && (num_items > 0));
+	const size_t first_segment_end = wrapped ? data_size : end;
+	for(size_t i=begin; i<first_segment_end; ++i)
+		data[i].~T();
+	// Destroy wrapped-around segment, if any.
+	if(wrapped)
+		for(size_t i=0; i<end; ++i)
+			data[i].~T();
+
+	SSE::alignedFree(data);
+}
+
+
+template <class T>
 void CircularBuffer<T>::push_back(const T& t)
 {
 	invariant();
 
 	// If there is no free space
-	if(num_items == data.size())
+	if(num_items == data_size)
 		increaseSize();
 
-	data[end] = t;
+	// Construct data[end] from t
+	::new ((data + end)) T(t);
 	end++;
 
 	// Wrap end
-	if(end >= data.size())
-		end -= data.size();
+	if(end >= data_size)
+		end -= data_size;
 
 	num_items++;
 
@@ -161,15 +194,17 @@ void CircularBuffer<T>::push_front(const T& t)
 	invariant();
 
 	// If there is no free space
-	if(num_items == data.size())
+	if(num_items == data_size)
 		increaseSize();
 
+	// Decrement and wrap begin
 	if(begin == 0)
-		begin = data.size() - 1;
+		begin = data_size - 1;
 	else
 		begin--;
 
-	data[begin] = t;
+	// Construct data[begin] from t
+	::new ((data + begin)) T(t);
 
 	num_items++;
 
@@ -183,10 +218,14 @@ void CircularBuffer<T>::pop_back()
 	invariant();
 	assert(num_items > 0);
 
+	// Decrement and wrap end
 	if(end == 0)
-		end = data.size() - 1;
+		end = data_size - 1;
 	else
 		end--;
+
+	// Destroy object
+	data[end].~T();
 
 	num_items--;
 
@@ -200,12 +239,40 @@ void CircularBuffer<T>::pop_front()
 	invariant();
 	assert(num_items > 0);
 
-	if(begin == data.size() - 1)
+	// Destroy object
+	data[begin].~T();
+
+	// Increment and wrap begin
+	if(begin == data_size - 1)
 		begin = 0;
 	else 
 		begin++;
 
 	num_items--;
+
+	invariant();
+}
+
+
+template <class T>
+void CircularBuffer<T>::clear()
+{
+	invariant();
+
+	// Destroy objects
+	// Destroy first segment.
+	const bool wrapped = ((end <= begin) && (num_items > 0));
+	const size_t first_segment_end = wrapped ? data_size : end;
+	for(size_t i=begin; i<first_segment_end; ++i)
+		data[i].~T();
+	// Destroy wrapped-around segment, if any.
+	if(wrapped)
+		for(size_t i=0; i<end; ++i)
+			data[i].~T();
+	
+	begin = 0;
+	end = 0;
+	num_items = 0;
 
 	invariant();
 }
@@ -228,7 +295,7 @@ T& CircularBuffer<T>::back()
 	assert(num_items > 0);
 
 	if(end == 0)
-		return data.back();
+		return data[data_size - 1];
 	else
 		return data[end - 1];
 }
@@ -242,31 +309,34 @@ template <class T>
 void CircularBuffer<T>::invariant()
 {
 #ifndef NDEBUG // If in debug mode:
-	assert(num_items <= data.size());
+	assert(num_items <= data_size);
 
-	if(data.size() == 0)
+	if(data_size == 0)
 	{
 		assert(begin == 0 && end == 0);
 	}
 	else
 	{
-		assert(begin < data.size());
-		assert(end < data.size());
+		assert(begin < data_size);
+		assert(end < data_size);
+		assert(data);
 	}
 
 	if(begin < end)
 	{
+		// Unwrapped case:
 		assert(num_items == end - begin);
 	}
 	else if(begin == end)
 	{
-		assert(num_items == 0 || num_items == data.size());
+		// Possibly wrapped case:
+		assert(num_items == 0 || num_items == data_size);
 	}
 	else
 	{
 		// Data wrapped around case.
 		assert(begin > end);
-		assert((data.size() - begin) + end == num_items);
+		assert((data_size - begin) + end == num_items);
 	}
 #endif
 }
@@ -276,20 +346,41 @@ void CircularBuffer<T>::invariant()
 template <class T>
 void CircularBuffer<T>::increaseSize()
 {
-	const size_t old_size = data.size();
+	const size_t new_data_size = myMax<size_t>(4, data_size * 2);
+	T* new_data = (T*)SSE::alignedMalloc(sizeof(T) * new_data_size, AlignOf<T>::Alignment);
 
-	data.resize(myMax<size_t>(1, old_size) * 2);
-
-	if(end <= begin) // If the data was wrapping before the resize:
+	// Copy-construct new objects from existing objects:
+	// Copy data[begin] to data[first_segment_end], to new_data[begin] to new_data[first_segment_end]
+	const bool wrapped = ((end <= begin) && (num_items > 0));
+	const size_t first_segment_end = wrapped ? data_size : end;
+	std::uninitialized_copy(data + begin, data + first_segment_end, new_data + begin);
+	size_t new_end = end;
+	if(wrapped) // If the data was wrapping before the resize:
 	{
-		// Copy data from [0, end) to [old_size, old_size + end)
-		for(size_t i=0; i<end; ++i)
-			data[old_size + i] = data[i];
+		// Copy data from [0, end) to [data_size, data_size + end)
+		std::uninitialized_copy(data, data + end, new_data + data_size);
 
 		// Update end since data is no longer wrapping.
-		end = begin + num_items;
+		new_end = begin + num_items;
 	}
 
+	if(data)
+	{
+		// Destroy old objects:
+		// Destroy first segment
+		for(size_t i=begin; i<first_segment_end; ++i)
+			data[i].~T();
+		// Destroy wrapped-around segment, if any.
+		if(wrapped)
+			for(size_t i=0; i<end; ++i)
+				data[i].~T();
+
+		SSE::alignedFree(data);
+	}
+	data = new_data;
+	end = new_end;
+	data_size = new_data_size;
+
 	assert(end == begin + num_items);
-	assert(end < data.size());
+	assert(end < data_size);
 }
