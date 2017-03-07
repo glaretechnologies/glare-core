@@ -25,7 +25,7 @@ public:
 	~VBO();
 
 
-	void updateData(const void* data, size_t size);
+	void updateData(const void* data, size_t new_size);
 
 	void bind();
 	void unbind();
