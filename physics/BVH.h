@@ -22,6 +22,9 @@ namespace js
 {
 
 
+class BoundingSphere;
+
+
 /*=====================================================================
 BVH
 ----
@@ -43,6 +46,8 @@ public:
 
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
+	virtual DistType traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const;
+	virtual void appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual const std::string debugName() const { return "BVH"; }
 
@@ -60,6 +65,9 @@ public:
 
 	typedef uint32 TRI_INDEX;
 private:
+	inline void intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray& ray,
+		int num_geom, int geom_index, float& closest_dist, Vec4f& hit_normal_out) const;
+
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 

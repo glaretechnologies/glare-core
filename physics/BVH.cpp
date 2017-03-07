@@ -13,6 +13,7 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
+#include "../physics/jscol_boundingsphere.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"
 
@@ -352,6 +353,501 @@ BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& t
 		hitinfo_out
 	);
 }
+
+
+#ifndef IS_INDIGO
+
+
+BVH::DistType BVH::traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const
+{
+	const Vec3f sourcePoint3(ray.startPos());
+	const Vec3f unitdir3(ray.unitDir());
+	const js::BoundingSphere sphere_os(ray.startPos(), radius);
+
+	// Build AABB of sphere path in object space.  NOTE: Assuming ray.minT() == 0.
+	Vec4f endpos = ray.startPos() + ray.unitDir() * (float)max_t;
+	js::AABBox spherepath_aabb(min(ray.startPos(), endpos) - Vec4f(radius, radius, radius, 0), max(ray.startPos(), endpos) + Vec4f(radius, radius, radius, 0));
+
+	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+	const __m128 maskWToZero = _mm_load_ps((const float*)mask);
+
+	float closest_dist = (float)max_t; // This is the distance along the ray to the minimum of the closest hit so far and the maximum length of the ray
+
+	std::vector<uint32>& bvh_stack = thread_context.getTreeContext().bvh_stack;
+	bvh_stack[0] = 0;
+	int stacktop = 0; // Index of node on top of stack
+stack_pop:
+	while(stacktop >= 0)
+	{
+		// Pop node off stack
+		int current = bvh_stack[stacktop];
+		stacktop--;
+
+		// While current is indexing a suitable internal node...
+		while(current >= 0)
+		{
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getRightChildIndex()), _MM_HINT_T0);
+
+			const __m128 a = _mm_load_ps(nodes[current].box);
+			const __m128 b = _mm_load_ps(nodes[current].box + 4);
+			const __m128 c = _mm_load_ps(nodes[current].box + 8);
+
+			// Test ray against left child
+			int left_disjoint;
+			{
+				// a = [rmax.x, rmin.x, lmax.x, lmin.x]
+				// b = [rmax.y, rmin.y, lmax.y, lmin.y]
+				// c = [rmax.z, rmin.z, lmax.z, lmin.z]
+				__m128
+					box_min = _mm_shuffle_ps(a, b, _MM_SHUFFLE(0, 0, 0, 0)); // box_min = [lmin.y, lmin.y, lmin.x, lmin.x]
+					box_min = _mm_shuffle_ps(box_min, c, _MM_SHUFFLE(0, 0, 2, 0)); // box_min = [lmin.z, lmin.z, lmin.y, lmin.x]
+				__m128
+					box_max = _mm_shuffle_ps(a, b, _MM_SHUFFLE(1, 1, 1, 1)); // box_max = [lmax.y, lmax.y, lmax.x, lmax.x]
+					box_max = _mm_shuffle_ps(box_max, c, _MM_SHUFFLE(1, 1, 2, 0)); // box_max = [lmax.z, lmax.z, lmax.y, lmax.x]
+
+				// Test if sphere path AABB is disjoint with this child:
+				__m128 lower_separation = _mm_cmplt_ps(spherepath_aabb.max_.v, box_min); // [spherepath.max.x < leftchild.min.x, spherepath.max.y < leftchild.min.y, ...]
+				__m128 upper_separation = _mm_cmplt_ps(box_max, spherepath_aabb.min_.v);// [leftchild.max.x < spherepath.min.x, leftchild.max.y < spherepath.min.y, ...]
+				__m128 either = _mm_and_ps(_mm_or_ps(lower_separation, upper_separation), maskWToZero); // Will have a bit set if there is a separation on any axis
+				left_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+			}
+
+			// Test against right child
+			int right_disjoint;
+			{
+				__m128
+					box_min = _mm_shuffle_ps(a, b, _MM_SHUFFLE(2, 2, 2, 2)); // box_min = [rmin.y, rmin.y, rmin.x, rmin.x]
+					box_min = _mm_shuffle_ps(box_min, c, _MM_SHUFFLE(2, 2, 2, 0)); // box_min = [rmin.z, rmin.z, rmin.x, rmin.x]
+				__m128
+					box_max = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 3, 3)); // box_max = [rmax.y, rmax.y, rmax.x, rmax.x]
+					box_max = _mm_shuffle_ps(box_max, c, _MM_SHUFFLE(3, 3, 2, 0)); // box_max = [rmax.z, rmax.z, rmax.y, rmax.x]
+
+				// Test if sphere path AABB is disjoint with this child:
+				__m128 lower_separation = _mm_cmplt_ps(spherepath_aabb.max_.v, box_min); 
+				__m128 upper_separation = _mm_cmplt_ps(box_max, spherepath_aabb.min_.v);
+				__m128 either = _mm_and_ps(_mm_or_ps(lower_separation, upper_separation), maskWToZero); // Will have a bit set if there is a separation on any axis
+				right_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+			}
+
+			int left_geom_index;
+			int left_num_geom = 0;
+			int right_geom_index;
+			int right_num_geom = 0;
+			if(left_disjoint == 0) // If hit left child:
+			{
+				if(right_disjoint == 0) // If hit right child also:
+				{
+					// TODO: push further object on stack instead of just right child.
+					
+					if(nodes[current].isRightLeaf()) // If right 'child' is a leaf:
+					{
+						// Intersect with tris in right leaf.
+						right_geom_index = nodes[current].getRightGeomIndex();
+						right_num_geom = nodes[current].getRightNumGeom();
+					}
+					else
+					{
+						stacktop++;
+						assert(stacktop < (int)bvh_stack.size());
+						bvh_stack[stacktop] = nodes[current].getRightChildIndex(); // Push right child onto stack.
+					}
+
+					if(nodes[current].isLeftLeaf()) // If left 'child' is a leaf:
+					{
+						// Intersect with tris in left leaf.
+						left_geom_index = nodes[current].getLeftGeomIndex();
+						left_num_geom = nodes[current].getLeftNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getLeftChildIndex(); // Traverse to left child
+					}
+				}
+				else // Else not hit right, so just hit left.  Traverse to left child.
+				{
+					if(nodes[current].isLeftLeaf())
+					{
+						// Intersect with tris in left leaf.
+						left_geom_index = nodes[current].getLeftGeomIndex();
+						left_num_geom = nodes[current].getLeftNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getLeftChildIndex(); // Traverse to left child						
+					}
+				}
+			}
+			else // Else if not hit left:
+			{
+				if(right_disjoint == 0) // If hit right child:
+				{
+					if(nodes[current].isRightLeaf())
+					{
+						// Intersect with tris in right leaf.
+						right_geom_index = nodes[current].getRightGeomIndex();
+						right_num_geom = nodes[current].getRightNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getRightChildIndex(); // Traverse to right child.
+					}
+				}
+				else
+					goto stack_pop; // Hit zero children, pop node off stack
+			}
+
+			intersectSphereAgainstLeafTris(sphere_os, ray, left_num_geom,  left_geom_index,  closest_dist, hit_normal_out);
+			intersectSphereAgainstLeafTris(sphere_os, ray, right_num_geom, right_geom_index, closest_dist, hit_normal_out);
+
+			// We may have hit a triangle, which will have decreased closest_dist.  So recompute the sphere path AABB.
+			endpos = ray.startPos() + ray.unitDir() * closest_dist;
+			spherepath_aabb = js::AABBox(min(ray.startPos(), endpos) - Vec4f(radius, radius, radius, 0), max(ray.startPos(), endpos) + Vec4f(radius, radius, radius, 0));
+		}
+	}
+
+
+	if(closest_dist < (float)max_t)
+		return closest_dist;
+	else
+		return -1.0f; // Missed all tris
+}
+
+
+void BVH::intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray& ray, int num_geom, int geom_index, float& closest_dist, Vec4f& hit_normal_out) const
+{
+	const Vec3f sourcePoint3(ray.startPos());
+	const Vec3f unitdir3(ray.unitDir());
+
+	for(int i=0; i<num_geom; ++i)
+	{
+		for(int z=0; z<4; ++z)
+		{
+			const MollerTrumboreTri& tri = intersect_tris[leafgeom[geom_index + z]];
+
+			const Vec3f v0(tri.data);
+			const Vec3f e1(tri.data + 3);
+			const Vec3f e2(tri.data + 6);
+
+			js::Triangle js_tri(v0, v0 + e1, v0 + e2);
+
+			const Vec3f normal = normalise(crossProduct(e1, e2));
+
+			Planef tri_plane(v0, normal);
+
+			// Determine the distance from the plane to the sphere center
+			float pDist = tri_plane.signedDistToPoint(sourcePoint3);
+
+			//-----------------------------------------------------------------
+			//Invert normal if doing backface collision, so 'usenormal' is always facing
+			//towards sphere center.
+			//-----------------------------------------------------------------
+			Vec3f usenormal = normal;
+			if(pDist < 0)
+			{
+				usenormal *= -1;
+				pDist *= -1;
+			}
+
+			assert(pDist >= 0);
+
+			//-----------------------------------------------------------------
+			//check if sphere is heading away from tri
+			//-----------------------------------------------------------------
+			const float approach_rate = -usenormal.dot(unitdir3);
+			if(approach_rate <= 0)
+				continue;
+
+			assert(approach_rate > 0);
+
+			// trans_len_needed = dist to approach / dist approached per unit translation len
+			const float trans_len_needed = (pDist - sphere_os.getRadius()) / approach_rate;
+
+			if(closest_dist < trans_len_needed)
+				continue; // then sphere will never get to plane
+
+						  //-----------------------------------------------------------------
+						  //calc the point where the sphere intersects with the triangle plane (planeIntersectionPoint)
+						  //-----------------------------------------------------------------
+			Vec3f planeIntersectionPoint;
+
+			// Is the plane embedded in the sphere?
+			if(trans_len_needed <= 0)//pDist <= sphere.getRadius())//make == trans_len_needed < 0
+			{
+				// Calculate the plane intersection point
+				planeIntersectionPoint = tri_plane.closestPointOnPlane(sourcePoint3);
+
+			}
+			else
+			{
+				assert(trans_len_needed >= 0);
+
+				planeIntersectionPoint = sourcePoint3 + (unitdir3 * trans_len_needed) - (sphere_os.getRadius() * usenormal);
+
+				//assert point is actually on plane
+				//			assert(epsEqual(tri.getTriPlane().signedDistToPoint(planeIntersectionPoint), 0.0f, 0.0001f));
+			}
+
+			//-----------------------------------------------------------------
+			//now restrict collision point on tri plane to inside tri if neccessary.
+			//-----------------------------------------------------------------
+			Vec3f triIntersectionPoint = planeIntersectionPoint;
+
+			const bool point_in_tri = js_tri.pointInTri(triIntersectionPoint);
+			if(!point_in_tri)
+			{
+				//-----------------------------------------------------------------
+				//restrict to inside tri
+				//-----------------------------------------------------------------
+				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
+			}
+
+			//-----------------------------------------------------------------
+			//Using the triIntersectionPoint, we need to reverse-intersect
+			//with the sphere
+			//-----------------------------------------------------------------
+
+			//returns dist till hit sphere or -1 if missed
+			//inline float rayIntersect(const Vec3& raystart_os, const Vec3& rayunitdir) const;
+			const float dist = sphere_os.rayIntersect(triIntersectionPoint.toVec4fPoint(), -ray.unitDir());
+
+			if(dist >= 0 && dist < closest_dist)
+			{
+				closest_dist = dist;
+
+				//-----------------------------------------------------------------
+				//calc hit normal
+				//-----------------------------------------------------------------
+				if(point_in_tri)
+					hit_normal_out = usenormal.toVec4fVector();
+				else
+				{
+					//-----------------------------------------------------------------
+					//calc point sphere will be when it hits edge of tri
+					//-----------------------------------------------------------------
+					const Vec3f hit_spherecenter = sourcePoint3 + unitdir3 * dist;
+
+					hit_normal_out = ((hit_spherecenter - triIntersectionPoint) / sphere_os.getRadius()).toVec4fVector();
+				}
+			}
+		}
+
+		geom_index += 4;
+	}
+}
+
+
+void BVH::appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const
+{
+	const float radius2 = radius*radius;
+	const Vec3f sphere_pos3(sphere_pos);
+	const js::AABBox sphere_aabb(sphere_pos - Vec4f(radius, radius, radius, 0), sphere_pos + Vec4f(radius, radius, radius, 0));
+
+	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+	const __m128 maskWToZero = _mm_load_ps((const float*)mask);
+
+	std::vector<uint32>& bvh_stack = thread_context.getTreeContext().bvh_stack;
+
+	bvh_stack[0] = 0;
+	int stacktop = 0; // Index of node on top of stack
+stack_pop:
+	while(stacktop >= 0)
+	{
+		// Pop node off stack
+		int current = bvh_stack[stacktop];
+		stacktop--;
+
+		// While current is indexing a suitable internal node...
+		while(current >= 0)
+		{
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getLeftChildIndex()), _MM_HINT_T0);
+			_mm_prefetch((const char*)(&nodes[0] + nodes[current].getRightChildIndex()), _MM_HINT_T0);
+
+			const __m128 a = _mm_load_ps(nodes[current].box);
+			const __m128 b = _mm_load_ps(nodes[current].box + 4);
+			const __m128 c = _mm_load_ps(nodes[current].box + 8);
+
+			// Test ray against left child
+			int left_disjoint;
+			{
+				// a = [rmax.x, rmin.x, lmax.x, lmin.x]
+				// b = [rmax.y, rmin.y, lmax.y, lmin.y]
+				// c = [rmax.z, rmin.z, lmax.z, lmin.z]
+				__m128
+					box_min = _mm_shuffle_ps(a, b, _MM_SHUFFLE(0, 0, 0, 0)); // box_min = [lmin.y, lmin.y, lmin.x, lmin.x]
+					box_min = _mm_shuffle_ps(box_min, c, _MM_SHUFFLE(0, 0, 2, 0)); // box_min = [lmin.z, lmin.z, lmin.y, lmin.x]
+				__m128
+					box_max = _mm_shuffle_ps(a, b, _MM_SHUFFLE(1, 1, 1, 1)); // box_max = [lmax.y, lmax.y, lmax.x, lmax.x]
+					box_max = _mm_shuffle_ps(box_max, c, _MM_SHUFFLE(1, 1, 2, 0)); // box_max = [lmax.z, lmax.z, lmax.y, lmax.x]
+
+				// Test if sphere path AABB is disjoint with this child:
+				__m128 lower_separation = _mm_cmplt_ps(sphere_aabb.max_.v, box_min); // [spherepath.max.x < leftchild.min.x, spherepath.max.y < leftchild.min.y, ...]
+				__m128 upper_separation = _mm_cmplt_ps(box_max, sphere_aabb.min_.v);// [leftchild.max.x < spherepath.min.x, leftchild.max.y < spherepath.min.y, ...]
+				__m128 either = _mm_and_ps(_mm_or_ps(lower_separation, upper_separation), maskWToZero); // Will have a bit set if there is a separation on any axis
+				left_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+			}
+
+			// Test against right child
+			int right_disjoint;
+			{
+				__m128
+					box_min = _mm_shuffle_ps(a, b, _MM_SHUFFLE(2, 2, 2, 2)); // box_min = [rmin.y, rmin.y, rmin.x, rmin.x]
+					box_min = _mm_shuffle_ps(box_min, c, _MM_SHUFFLE(2, 2, 2, 0)); // box_min = [rmin.z, rmin.z, rmin.x, rmin.x]
+				__m128
+					box_max = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 3, 3)); // box_max = [rmax.y, rmax.y, rmax.x, rmax.x]
+					box_max = _mm_shuffle_ps(box_max, c, _MM_SHUFFLE(3, 3, 2, 0)); // box_max = [rmax.z, rmax.z, rmax.y, rmax.x]
+
+				 // Test if sphere path AABB is disjoint with this child:
+				__m128 lower_separation = _mm_cmplt_ps(sphere_aabb.max_.v, box_min);
+				__m128 upper_separation = _mm_cmplt_ps(box_max, sphere_aabb.min_.v);
+				__m128 either = _mm_and_ps(_mm_or_ps(lower_separation, upper_separation), maskWToZero); // Will have a bit set if there is a separation on any axis
+				right_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+			}
+
+			int left_geom_index;
+			int left_num_geom = 0;
+			int right_geom_index;
+			int right_num_geom = 0;
+			if(left_disjoint == 0) // If hit left child:
+			{
+				if(right_disjoint == 0) // If hit right child also:
+				{
+					// TODO: push further object on stack instead of just right child.
+
+					if(nodes[current].isRightLeaf()) // If right 'child' is a leaf:
+					{
+						// Intersect with tris in right leaf.
+						right_geom_index = nodes[current].getRightGeomIndex();
+						right_num_geom = nodes[current].getRightNumGeom();
+					}
+					else
+					{
+						stacktop++;
+						assert(stacktop < (int)bvh_stack.size());
+						bvh_stack[stacktop] = nodes[current].getRightChildIndex(); // Push right child onto stack.
+					}
+
+					if(nodes[current].isLeftLeaf()) // If left 'child' is a leaf:
+					{
+						// Intersect with tris in left leaf.
+						left_geom_index = nodes[current].getLeftGeomIndex();
+						left_num_geom = nodes[current].getLeftNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getLeftChildIndex(); // Traverse to left child
+					}
+				}
+				else // Else not hit right, so just hit left.  Traverse to left child.
+				{
+					if(nodes[current].isLeftLeaf())
+					{
+						// Intersect with tris in left leaf.
+						left_geom_index = nodes[current].getLeftGeomIndex();
+						left_num_geom = nodes[current].getLeftNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getLeftChildIndex(); // Traverse to left child						
+					}
+				}
+			}
+			else // Else if not hit left:
+			{
+				if(right_disjoint == 0) // If hit right child:
+				{
+					if(nodes[current].isRightLeaf())
+					{
+						// Intersect with tris in right leaf.
+						right_geom_index = nodes[current].getRightGeomIndex();
+						right_num_geom = nodes[current].getRightNumGeom();
+						current = -1; // intersect tris then pop node
+					}
+					else
+					{
+						current = nodes[current].getRightChildIndex(); // Traverse to right child.
+					}
+				}
+				else
+					goto stack_pop; // Hit zero children, pop node off stack
+			}
+
+			// Intersect against leaf geometry
+			for(int i=0; i<left_num_geom; ++i)
+			{
+				for(int z=0; z<4; ++z)
+				{
+					const MollerTrumboreTri& moller_tri = intersect_tris[leafgeom[left_geom_index + z]];
+					const Vec3f v0(moller_tri.data);
+					const Vec3f e1(moller_tri.data + 3);
+					const Vec3f e2(moller_tri.data + 6);
+					js::Triangle tri(v0, v0 + e1, v0 + e2);
+
+					// See if sphere is touching plane
+					const Planef tri_plane = tri.getTriPlane();
+					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3);
+					if(fabs(disttoplane) > radius)
+						continue;
+
+					// Get closest point on plane to sphere center
+					Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3);
+
+					// Restrict point to inside tri
+					if(!tri.pointInTri(planepoint))
+						planepoint = tri.closestPointOnTriangle(planepoint);
+
+					if(planepoint.getDist2(sphere_pos3) <= radius2)
+					{
+						if(points_ws_in_out.empty() || (planepoint.toVec4fPoint() != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+							points_ws_in_out.push_back(planepoint.toVec4fPoint());
+					}
+				}
+
+				left_geom_index += 4;
+			}
+			for(int i=0; i<right_num_geom; ++i)
+			{
+				for(int z=0; z<4; ++z)
+				{
+					const MollerTrumboreTri& moller_tri = intersect_tris[leafgeom[right_geom_index + z]];
+					const Vec3f v0(moller_tri.data);
+					const Vec3f e1(moller_tri.data + 3);
+					const Vec3f e2(moller_tri.data + 6);
+					const js::Triangle tri(v0, v0 + e1, v0 + e2);
+
+					// See if sphere is touching plane
+					const Planef tri_plane = tri.getTriPlane();
+					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3);
+					if(fabs(disttoplane) > radius)
+						continue;
+
+					// Get closest point on plane to sphere center
+					Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3);
+
+					// Restrict point to inside tri
+					if(!tri.pointInTri(planepoint))
+						planepoint = tri.closestPointOnTriangle(planepoint);
+
+					if(planepoint.getDist2(sphere_pos3) <= radius2)
+					{
+						if(points_ws_in_out.empty() || (planepoint.toVec4fPoint() != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+							points_ws_in_out.push_back(planepoint.toVec4fPoint());
+					}
+				}
+
+				right_geom_index += 4;
+			}
+		}
+	}
+}
+
+
+#endif // ifndef IS_INDIGO
 
 
 inline static void recordHit(float t, float u, float v, unsigned int tri_index, std::vector<DistanceHitInfo>& hitinfos_out)
