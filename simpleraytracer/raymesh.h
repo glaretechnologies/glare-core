@@ -209,6 +209,8 @@ public:
 
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
+	DistType traceSphere(const Ray& ray, float radius, float max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const;
+	void appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox getAABBox() const;
 	

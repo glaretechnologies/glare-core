@@ -105,6 +105,24 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, DistType max_t, ThreadConte
 }
 
 
+RayMesh::DistType RayMesh::traceSphere(const Ray& ray, float radius, float max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const
+{
+	return tritree->traceSphere(
+		ray,
+		radius,
+		max_t,
+		thread_context,
+		hit_normal_out
+	);
+}
+
+
+void RayMesh::appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const
+{
+	tritree->appendCollPoints(sphere_pos, radius, thread_context, points_in_out);
+}
+
+
 const js::AABBox RayMesh::getAABBox() const
 {
 	if(tritree)

@@ -18,6 +18,7 @@ class Object;
 class ThreadContext;
 class PrintOutput;
 class Ray;
+class Vec4f;
 namespace js { class TriTreePerThreadData; };
 namespace js { class AABBox; };
 namespace Indigo { class TaskManager; }
@@ -62,6 +63,10 @@ public:
 	virtual uint32 checksum() = 0;
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
+
+	virtual DistType traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const;
+
+	virtual void appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const;
 	
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
