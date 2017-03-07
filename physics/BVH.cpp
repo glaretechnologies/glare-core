@@ -427,9 +427,9 @@ stack_pop:
 				right_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
 			}
 
-			int left_geom_index;
+			int left_geom_index = 0;
 			int left_num_geom = 0;
-			int right_geom_index;
+			int right_geom_index = 0;
 			int right_num_geom = 0;
 			if(left_disjoint == 0) // If hit left child:
 			{
@@ -594,22 +594,19 @@ void BVH::intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray
 			Vec3f triIntersectionPoint = planeIntersectionPoint;
 
 			const bool point_in_tri = js_tri.pointInTri(triIntersectionPoint);
-			if(!point_in_tri)
+			float dist; // Distance until sphere hits triangle
+			if(point_in_tri)
 			{
-				//-----------------------------------------------------------------
-				//restrict to inside tri
-				//-----------------------------------------------------------------
-				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
+				dist = trans_len_needed;
 			}
+			else
+			{
+				// Restrict to inside tri
+				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
 
-			//-----------------------------------------------------------------
-			//Using the triIntersectionPoint, we need to reverse-intersect
-			//with the sphere
-			//-----------------------------------------------------------------
-
-			//returns dist till hit sphere or -1 if missed
-			//inline float rayIntersect(const Vec3& raystart_os, const Vec3& rayunitdir) const;
-			const float dist = sphere_os.rayIntersect(triIntersectionPoint.toVec4fPoint(), -ray.unitDir());
+				// Using the triIntersectionPoint, we need to reverse-intersect with the sphere
+				dist = sphere_os.rayIntersect(triIntersectionPoint.toVec4fPoint(), -ray.unitDir()); // returns dist till hit sphere or -1 if missed
+			}
 
 			if(dist >= 0 && dist < closest_dist)
 			{
