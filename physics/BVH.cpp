@@ -597,7 +597,7 @@ void BVH::intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray
 			float dist; // Distance until sphere hits triangle
 			if(point_in_tri)
 			{
-				dist = trans_len_needed;
+				dist = myMax(0.f, trans_len_needed);
 			}
 			else
 			{
@@ -624,7 +624,7 @@ void BVH::intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray
 					//-----------------------------------------------------------------
 					const Vec3f hit_spherecenter = sourcePoint3 + unitdir3 * dist;
 
-					hit_normal_out = ((hit_spherecenter - triIntersectionPoint) / sphere_os.getRadius()).toVec4fVector();
+					hit_normal_out = normalise((hit_spherecenter - triIntersectionPoint).toVec4fVector());
 				}
 			}
 		}
