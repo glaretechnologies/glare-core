@@ -889,6 +889,21 @@ public:
 };
 
 
+void License::warmup()
+{
+	{
+		const std::string encoded_hash =
+			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
+
+		const std::string hash = License::decodeBase64(encoded_hash);
+
+		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
+
+		testAssert(License::verifyKey(key, hash));
+	}
+}
+
+
 void License::test()
 {
 	conPrint("License::test()");

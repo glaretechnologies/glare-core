@@ -108,6 +108,8 @@ public:
 
 	static bool verifyKey(const std::string& key, const std::string& hash);
 
+	// License allocs some mem in globals when called (due to OpenSSL), so call before capturing start mem state in test suite.
+	static void warmup();
 	static void test();
 private:
 	
