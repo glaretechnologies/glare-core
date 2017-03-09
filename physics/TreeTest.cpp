@@ -6,20 +6,22 @@ Code By Nicholas Chapman.
 =====================================================================*/
 #include "TreeTest.h"
 
+
 #ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
 #include "../indigo/EmbreeInstance.h"
 #endif
 #include "KDTree.h"
 #include "BVH.h"
+#include "MollerTrumboreTri.h"
+#include "jscol_TriTreePerThreadData.h"
+#include "jscol_boundingsphere.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/MTwister.h"
 #include "../raytracing/hitinfo.h"
-#include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
-#include <algorithm>
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
@@ -29,13 +31,13 @@ Code By Nicholas Chapman.
 #include "../utils/PlatformUtils.h"
 #include "../indigo/ThreadContext.h"
 #include "../maths/SSE.h"
-#include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../dll/include/IndigoMesh.h"
-
+#include "../dll/IndigoStringUtils.h"
+#include <algorithm>
 
 
 namespace js
@@ -289,7 +291,7 @@ void TreeTest::testBuildCorrect()
 }
 
 
-
+#if 0
 static void testSelfIntersectionAvoidance()
 {
 	// We will construct a scene with two quads coplanar to the y-z plane, one at x=0, and the other at x=1.
@@ -399,6 +401,7 @@ static void testSelfIntersectionAvoidance()
 	for(size_t i = 0; i < trees.size(); ++i)
 		delete trees[i];
 }
+#endif
 
 
 static void testTree(MTwister& rng, RayMesh& raymesh)
@@ -684,133 +687,7 @@ static void doEdgeCaseTests()
 }
 
 
-void TreeTest::doTests(const std::string& appdata_path)
-{
-//	doVaryingNumtrisBuildTests();
 
-	//testSelfIntersectionAvoidance();
-
-	doEdgeCaseTests();
-
-	conPrint("TreeTest::doTests()");
-
-	Geometry::BuildOptions options;
-	options.cache_trees = false;
-	StandardPrintOutput print_output;
-	Indigo::TaskManager task_manager;
-	MTwister rng(1);
-
-	///////////////////////////////////////
-	/*
-	This mesh is too big to use in this way during the normal course of testing :(
-
-	{
-	// Load tricky mesh from disk
-	const std::string MODEL_PATH = "../testfiles/ring_kdbug_scene/models.ringe/ringe-2.igmesh";
-	CSModelLoader model_loader;
-	RayMesh raymesh("ring", false);
-	try
-	{
-		model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
-	}
-	catch(CSModelLoaderExcep&)
-	{
-		testAssert(false);
-	}
-	testTree(rng, raymesh);
-	}*/
-	/////////////////////////////////////////////
-
-	///////////////////////////////////////
-	{
-	// Load tricky mesh from disk
-	const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
-	RayMesh raymesh("tricky", false);
-	Indigo::Mesh indigoMesh;
-	try
-	{
-		MeshLoader::loadMesh(MODEL_PATH, indigoMesh, 1.0);
-		raymesh.fromIndigoMesh(indigoMesh);
-
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
-	}
-	catch(Indigo::Exception&)
-	{
-		testAssert(false);
-	}
-	testTree(rng, raymesh);
-	}
-	/////////////////////////////////////////////
-
-
-
-
-
-	//------------------------------------------------------------------------
-	//try building up a random set of triangles and inserting into a tree
-	//------------------------------------------------------------------------
-	{
-	RayMesh raymesh("raymesh", false);
-
-	const unsigned int NUM_TRIS = 1000;
-	const std::vector<Vec2f> texcoord_sets;
-	for(unsigned int i=0; i<NUM_TRIS; ++i)
-	{
-		const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
-
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
-		raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
-		const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
-		const unsigned int uv_indices[] = {0, 0, 0};
-		raymesh.addTriangle(vertex_indices, uv_indices, 0);
-	}
-
-	raymesh.build(appdata_path, options, print_output, false, task_manager);
-
-	testTree(rng, raymesh);
-	}
-
-	//------------------------------------------------------------------------
-	//build a tree with lots of axis-aligned triangles - a trickier case
-	//------------------------------------------------------------------------
-	{
-	RayMesh raymesh("raymesh", false);
-
-	const unsigned int NUM_TRIS = 1000;
-	const std::vector<Vec2f> texcoord_sets;
-	for(unsigned int i=0; i<NUM_TRIS; ++i)
-	{
-		const unsigned int axis = rng.genrand_int32() % 3;
-		const float axis_val = rng.unitRandom();
-
-		const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
-
-		Vec3f v;
-		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
-		v[axis] = axis_val;
-		raymesh.addVertex(v);//, Vec3f(0,0,1));
-
-		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
-		v[axis] = axis_val;
-		raymesh.addVertex(v);//, Vec3f(0,0,1));
-
-		v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
-		v[axis] = axis_val;
-		raymesh.addVertex(v);//, Vec3f(0,0,1));
-
-		const unsigned int vertex_indices[] = {i*3, i*3+1, i*3+2};
-		const unsigned int uv_indices[] = {0, 0, 0};
-		raymesh.addTriangle(vertex_indices, uv_indices, 0);
-	}
-
-	raymesh.build(appdata_path, options, print_output, false, task_manager);
-
-	testTree(rng, raymesh);
-	}
-
-	conPrint("TreeTest::doTests(): Done.");
-}
 
 
 void TreeTest::doVaryingNumtrisBuildTests()
@@ -865,6 +742,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 
 
 // Aka. the 'Bunnybench' :)
+#if IS_INDIGO
 void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
@@ -1003,9 +881,10 @@ void TreeTest::doSpeedTest(int treetype)
 	}
 	*/
 }
+#endif // IS_INDIGO
 
 
-
+#if IS_INDIGO
 void TreeTest::buildSpeedTest()
 {
 	conPrint("TreeTest::buildSpeedTest()");
@@ -1039,10 +918,491 @@ void TreeTest::buildSpeedTest()
 
 	printVar(timer.getSecondsElapsed());
 }
+#endif
+
+
+
+static void testSphereTracingOnMesh(RayMesh& raymesh)
+{
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+	MTwister rng(1);
+	ThreadContext thread_context;
+
+	BVH bvh(&raymesh);
+	bvh.build(print_output, /*verbose=*/true, task_manager);
+
+	//------------------------------------------------------------------------
+	//compare tests against all tris with tests against the trees
+	//------------------------------------------------------------------------
+	const int NUM_RAYS = 10000;
+	for(int i=0; i<NUM_RAYS; ++i)
+	{
+		//------------------------------------------------------------------------
+		//test first hit traces
+		//------------------------------------------------------------------------
+		const Ray ray(
+			Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
+			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0)),
+			1.0e-5f // min_t
+		);
+		const float radius = rng.unitRandom() * 0.2f;
+		const double max_t = rng.unitRandom() * 2.0f;
+		Vec4f hit_normal;
+		const double d = bvh.traceSphere(ray, radius, max_t, thread_context, hit_normal);
+
+		// Do reference trace against all triangles
+		const Vec3f sourcePoint3(ray.startPos());
+		const Vec3f unitdir3(ray.unitDir());
+		const js::BoundingSphere sphere_os(ray.startPos(), radius);
+		float closest_dist = (float)max_t;
+		Vec4f ref_hit_normal;
+		for(unsigned int t=0; t<raymesh.getNumTris(); ++t)
+		{
+			const Vec3f orig_v0 = raymesh.triVertPos(t, 0);
+			const Vec3f orig_v1 = raymesh.triVertPos(t, 1);
+			const Vec3f orig_v2 = raymesh.triVertPos(t, 2);
+
+			MollerTrumboreTri tri;
+			tri.set(orig_v0, orig_v1, orig_v2);
+
+			const Vec3f v0(tri.data);
+			const Vec3f e1(tri.data + 3);
+			const Vec3f e2(tri.data + 6);
+
+			
+			js::Triangle js_tri(v0, v0 + e1, v0 + e2);
+
+			testEpsEqual(js_tri.v0(), orig_v0);
+			testEpsEqual(js_tri.v1(), orig_v1);
+			testEpsEqual(js_tri.v2(), orig_v2);
+
+			const Vec3f normal = normalise(crossProduct(e1, e2));
+
+			Planef tri_plane(v0, normal);
+
+			// Determine the distance from the plane to the sphere center
+			float pDist = tri_plane.signedDistToPoint(sourcePoint3);
+
+			//-----------------------------------------------------------------
+			//Invert normal if doing backface collision, so 'usenormal' is always facing
+			//towards sphere center.
+			//-----------------------------------------------------------------
+			Vec3f usenormal = normal;
+			if(pDist < 0)
+			{
+				usenormal *= -1;
+				pDist *= -1;
+			}
+
+			assert(pDist >= 0);
+
+			//-----------------------------------------------------------------
+			//check if sphere is heading away from tri
+			//-----------------------------------------------------------------
+			const float approach_rate = -usenormal.dot(unitdir3);
+			if(approach_rate <= 0)
+				continue;
+
+			assert(approach_rate > 0);
+
+			// trans_len_needed = dist to approach / dist approached per unit translation len
+			const float trans_len_needed = (pDist - sphere_os.getRadius()) / approach_rate;
+
+			if(closest_dist < trans_len_needed)
+				continue; // then sphere will never get to plane
+
+			//-----------------------------------------------------------------
+			//calc the point where the sphere intersects with the triangle plane (planeIntersectionPoint)
+			//-----------------------------------------------------------------
+			Vec3f planeIntersectionPoint;
+
+			// Is the plane embedded in the sphere?
+			if(trans_len_needed <= 0)//pDist <= sphere.getRadius())//make == trans_len_needed < 0
+			{
+				// Calculate the plane intersection point
+				planeIntersectionPoint = tri_plane.closestPointOnPlane(sourcePoint3);
+
+			}
+			else
+			{
+				assert(trans_len_needed >= 0);
+
+				planeIntersectionPoint = sourcePoint3 + (unitdir3 * trans_len_needed) - (sphere_os.getRadius() * usenormal);
+
+				//assert point is actually on plane
+				//			assert(epsEqual(tri.getTriPlane().signedDistToPoint(planeIntersectionPoint), 0.0f, 0.0001f));
+			}
+
+			//-----------------------------------------------------------------
+			//now restrict collision point on tri plane to inside tri if neccessary.
+			//-----------------------------------------------------------------
+			Vec3f triIntersectionPoint = planeIntersectionPoint;
+
+			const bool point_in_tri = js_tri.pointInTri(triIntersectionPoint);
+			float dist; // Distance until sphere hits triangle
+			if(point_in_tri)
+			{
+				dist = myMax(0.f, trans_len_needed);
+			}
+			else
+			{
+				// Restrict to inside tri
+				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
+
+				// Using the triIntersectionPoint, we need to reverse-intersect with the sphere
+				dist = sphere_os.rayIntersect(triIntersectionPoint.toVec4fPoint(), -ray.unitDir()); // returns dist till hit sphere or -1 if missed
+			}
+
+			if(dist >= 0 && dist < closest_dist)
+			{
+				closest_dist = dist;
+
+				//-----------------------------------------------------------------
+				//calc hit normal
+				//-----------------------------------------------------------------
+				if(point_in_tri)
+					ref_hit_normal = usenormal.toVec4fVector();
+				else
+				{
+					//-----------------------------------------------------------------
+					//calc point sphere will be when it hits edge of tri
+					//-----------------------------------------------------------------
+					const Vec3f hit_spherecenter = sourcePoint3 + unitdir3 * dist;
+
+					ref_hit_normal = normalise((hit_spherecenter - triIntersectionPoint).toVec4fVector());
+				}
+			}
+		}
+
+		const bool bvh_hit = d >= 0;
+		const bool ref_hit = closest_dist < max_t;
+		testAssert(bvh_hit == ref_hit);
+
+		if(bvh_hit)
+		{
+			testAssert(d <= max_t);
+			testEpsEqual(hit_normal.length(), 1.0f);
+
+			testEpsEqual((float)d, closest_dist);
+
+			if(d > 0) // In the d==0 case, this means one or more triangles were embedded in the sphere.  Therefore we may not get the closest tri, so normals may differ.
+				testEpsEqual(hit_normal, ref_hit_normal);
+			
+			testEpsEqual(ref_hit_normal.length(), 1.0f);
+		}
+	}
+}
+
+
+void TreeTest::doSphereTracingTests(const std::string& appdata_path)
+{
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+	MTwister rng(1);
+
+	//------------------------------------------------------------------------
+	//try building up a random set of triangles and inserting into a tree
+	//------------------------------------------------------------------------
+	{
+		RayMesh raymesh("raymesh", false);
+
+		const unsigned int NUM_TRIS = 20;
+		const std::vector<Vec2f> texcoord_sets;
+		for(unsigned int i=0; i<NUM_TRIS; ++i)
+		{
+			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
+
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			const unsigned int vertex_indices[] ={ i*3, i*3+1, i*3+2 };
+			const unsigned int uv_indices[] ={ 0, 0, 0 };
+			raymesh.addTriangle(vertex_indices, uv_indices, 0);
+		}
+
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
+
+		testSphereTracingOnMesh(raymesh);
+	}
+}
+
+
+//for sorting Vec3's
+struct Vec4fLessThan
+{
+	bool operator () (const Vec4f& a, const Vec4f& b)
+	{
+		if(a[0] < b[0])
+			return true;
+		else if(a[0] > b[0])
+			return false;
+		else	//else x == rhs.x
+		{
+			if(a[1] < b[1])
+				return true;
+			else if(a[1] > b[1])
+				return false;
+			else
+			{
+				return a[2] < b[2];
+			}
+		}
+	}
+};
+
+
+static void testAppendCollPoints(RayMesh& raymesh)
+{
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+	MTwister rng(1);
+	ThreadContext thread_context;
+
+	BVH bvh(&raymesh);
+	bvh.build(print_output, /*verbose=*/true, task_manager);
+
+	std::vector<Vec4f> points_ws;
+	std::vector<Vec4f> ref_points_ws;
+
+	//------------------------------------------------------------------------
+	//compare tests against all tris with tests against the trees
+	//------------------------------------------------------------------------
+	const int NUM_RAYS = 10000;
+	for(int i=0; i<NUM_RAYS; ++i)
+	{
+		points_ws.resize(0);
+		ref_points_ws.resize(0);
+
+		if(i == 1197)
+			int a = 9;
+		//------------------------------------------------------------------------
+		//test first hit traces
+		//------------------------------------------------------------------------
+		const Vec4f sphere_pos = Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f;
+		const float radius = rng.unitRandom() * 0.6f;
+		bvh.appendCollPoints(sphere_pos, radius, thread_context, points_ws);
+
+		// Do reference test against all triangles
+		const float radius2 = radius*radius;
+		const Vec3f sphere_pos3(sphere_pos);
+
+		for(unsigned int t=0; t<raymesh.getNumTris(); ++t)
+		{
+			const Vec3f orig_v0 = raymesh.triVertPos(t, 0);
+			const Vec3f orig_v1 = raymesh.triVertPos(t, 1);
+			const Vec3f orig_v2 = raymesh.triVertPos(t, 2);
+
+			MollerTrumboreTri moller_tri;
+			moller_tri.set(orig_v0, orig_v1, orig_v2);
+
+			const Vec3f v0(moller_tri.data);
+			const Vec3f e1(moller_tri.data + 3);
+			const Vec3f e2(moller_tri.data + 6);
+			js::Triangle tri(v0, v0 + e1, v0 + e2);
+
+			// See if sphere is touching plane
+			const Planef tri_plane = tri.getTriPlane();
+			const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3);
+			if(fabs(disttoplane) > radius)
+				continue;
+
+			// Get closest point on plane to sphere center
+			Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3);
+
+			// Restrict point to inside tri
+			if(!tri.pointInTri(planepoint))
+				planepoint = tri.closestPointOnTriangle(planepoint);
+
+			if(planepoint.getDist2(sphere_pos3) <= radius2)
+			{
+				if(ref_points_ws.empty() || (planepoint.toVec4fPoint() != ref_points_ws.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+					ref_points_ws.push_back(planepoint.toVec4fPoint());
+			}
+		}
+
+		std::sort(points_ws.begin(), points_ws.end(), Vec4fLessThan());
+		std::sort(ref_points_ws.begin(), ref_points_ws.end(), Vec4fLessThan());
+		testAssert(points_ws == ref_points_ws);
+	}
+}
+
+
+void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
+{
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+	MTwister rng(1);
+
+	//------------------------------------------------------------------------
+	//try building up a random set of triangles and inserting into a tree
+	//------------------------------------------------------------------------
+	{
+		RayMesh raymesh("raymesh", false);
+
+		const unsigned int NUM_TRIS = 20;
+		const std::vector<Vec2f> texcoord_sets;
+		for(unsigned int i=0; i<NUM_TRIS; ++i)
+		{
+			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
+
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);
+			const unsigned int vertex_indices[] ={ i*3, i*3+1, i*3+2 };
+			const unsigned int uv_indices[] ={ 0, 0, 0 };
+			raymesh.addTriangle(vertex_indices, uv_indices, 0);
+		}
+
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
+
+		testAppendCollPoints(raymesh);
+	}
+}
+
+
+void TreeTest::doTests(const std::string& appdata_path)
+{
+	conPrint("TreeTest::doTests()");
+
+	//	doVaryingNumtrisBuildTests();
+
+	//testSelfIntersectionAvoidance();
+
+	doAppendCollPointsTests(appdata_path);
+
+	doSphereTracingTests(appdata_path);
+
+	doEdgeCaseTests();
+
+	
+
+	Geometry::BuildOptions options;
+	options.cache_trees = false;
+	StandardPrintOutput print_output;
+	Indigo::TaskManager task_manager;
+	MTwister rng(1);
+
+	///////////////////////////////////////
+	/*
+	This mesh is too big to use in this way during the normal course of testing :(
+
+	{
+	// Load tricky mesh from disk
+	const std::string MODEL_PATH = "../testfiles/ring_kdbug_scene/models.ringe/ringe-2.igmesh";
+	CSModelLoader model_loader;
+	RayMesh raymesh("ring", false);
+	try
+	{
+	model_loader.streamModel(MODEL_PATH, raymesh, 1.0);
+	}
+	catch(CSModelLoaderExcep&)
+	{
+	testAssert(false);
+	}
+	testTree(rng, raymesh);
+	}*/
+	/////////////////////////////////////////////
+
+	///////////////////////////////////////
+	{
+		// Load tricky mesh from disk
+		const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
+		RayMesh raymesh("tricky", false);
+		Indigo::Mesh indigoMesh;
+		try
+		{
+			//MeshLoader::loadMesh(MODEL_PATH, indigoMesh, 1.0);
+			Indigo::Mesh::readFromFile(toIndigoString(MODEL_PATH), indigoMesh);
+			raymesh.fromIndigoMesh(indigoMesh);
+
+			raymesh.build(appdata_path, options, print_output, false, task_manager);
+		}
+		catch(Indigo::Exception&)
+		{
+			testAssert(false);
+		}
+		catch(Indigo::IndigoException&)
+		{
+			testAssert(false);
+		}
+		testTree(rng, raymesh);
+	}
+	/////////////////////////////////////////////
 
 
 
 
+
+	//------------------------------------------------------------------------
+	//try building up a random set of triangles and inserting into a tree
+	//------------------------------------------------------------------------
+	{
+		RayMesh raymesh("raymesh", false);
+
+		const unsigned int NUM_TRIS = 1000;
+		const std::vector<Vec2f> texcoord_sets;
+		for(unsigned int i=0; i<NUM_TRIS; ++i)
+		{
+			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
+
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			raymesh.addVertex(pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f);//, Vec3f(0,0,1));
+			const unsigned int vertex_indices[] ={ i*3, i*3+1, i*3+2 };
+			const unsigned int uv_indices[] ={ 0, 0, 0 };
+			raymesh.addTriangle(vertex_indices, uv_indices, 0);
+		}
+
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
+
+		testTree(rng, raymesh);
+	}
+
+	//------------------------------------------------------------------------
+	//build a tree with lots of axis-aligned triangles - a trickier case
+	//------------------------------------------------------------------------
+	{
+		RayMesh raymesh("raymesh", false);
+
+		const unsigned int NUM_TRIS = 1000;
+		const std::vector<Vec2f> texcoord_sets;
+		for(unsigned int i=0; i<NUM_TRIS; ++i)
+		{
+			const unsigned int axis = rng.genrand_int32() % 3;
+			const float axis_val = rng.unitRandom();
+
+			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
+
+			Vec3f v;
+			v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
+			v[axis] = axis_val;
+			raymesh.addVertex(v);//, Vec3f(0,0,1));
+
+			v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
+			v[axis] = axis_val;
+			raymesh.addVertex(v);//, Vec3f(0,0,1));
+
+			v = pos + Vec3f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f)*0.1f;
+			v[axis] = axis_val;
+			raymesh.addVertex(v);//, Vec3f(0,0,1));
+
+			const unsigned int vertex_indices[] ={ i*3, i*3+1, i*3+2 };
+			const unsigned int uv_indices[] ={ 0, 0, 0 };
+			raymesh.addTriangle(vertex_indices, uv_indices, 0);
+		}
+
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
+
+		testTree(rng, raymesh);
+	}
+
+	conPrint("TreeTest::doTests(): Done.");
+}
 
 
 
@@ -1057,8 +1417,10 @@ void TreeTest::doRayTests()
 	testAssert(!isInf(ray.getRecipRayDirF().z));*/
 
 }
-#endif
-	
+
+
+#endif // BUILD_TESTS
+
 
 } //end namespace js
 
