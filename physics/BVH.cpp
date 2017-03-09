@@ -160,7 +160,7 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 				new_node_indices[i] = new_index++;
 
 		const int new_num_nodes = new_index;
-		this->nodes.resizeUninitialised(new_num_nodes);
+		this->nodes.resizeNoCopy(new_num_nodes);
 
 		new_index = 0;
 		for(size_t i=0; i<result_nodes_size; ++i)

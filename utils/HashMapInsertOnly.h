@@ -211,7 +211,7 @@ private:
 		const BitVector old_mask = mask;
 
 		const size_t new_num_buckets = buckets.size()*2;
-		buckets.resizeUninitialised(new_num_buckets);
+		buckets.resizeNoCopy(new_num_buckets);
 		mask.resize(new_num_buckets);
 		mask.setAllBits(0);
 

@@ -225,7 +225,7 @@ void BVHBuilder::build(
 	for(int c=0; c<3; ++c)
 	{
 		js::Vector<Ob, 64>& axis_obs = this->objects[c];
-		axis_obs.resizeUninitialised(num_objects);
+		axis_obs.resizeNoCopy(num_objects);
 	}
 	//conPrint("building this->objects elapsed: " + timer.elapsedString());
 
@@ -241,7 +241,7 @@ void BVHBuilder::build(
 		for(int axis=0; axis<3; ++axis)
 		{
 			js::Vector<CenterItem, 16>& axis_centres = all_axis_centres[axis];
-			axis_centres.resizeUninitialised(num_objects);
+			axis_centres.resizeNoCopy(num_objects);
 
 			//Timer timer2;
 			for(int i=0; i<num_objects; ++i)
@@ -281,9 +281,9 @@ void BVHBuilder::build(
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 	{
-		per_thread_temp_info[i].temp[0].resizeUninitialised(num_objects);
-		per_thread_temp_info[i].temp[1].resizeUninitialised(num_objects);
-		per_thread_temp_info[i].object_max.resizeUninitialised(num_objects);
+		per_thread_temp_info[i].temp[0].resizeNoCopy(num_objects);
+		per_thread_temp_info[i].temp[1].resizeNoCopy(num_objects);
+		per_thread_temp_info[i].object_max.resizeNoCopy(num_objects);
 		per_thread_temp_info[i].result_buf.reserve(initial_result_buf_reserve_cap);
 	}
 
@@ -293,9 +293,9 @@ void BVHBuilder::build(
 		per_axis_thread_temp_info.resize(task_manager->getNumThreads());//NEW!
 		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
 		{
-			per_axis_thread_temp_info[i].temp[0].resizeUninitialised(num_objects);
-			per_axis_thread_temp_info[i].temp[1].resizeUninitialised(num_objects);
-			per_axis_thread_temp_info[i].object_max.resizeUninitialised(num_objects);
+			per_axis_thread_temp_info[i].temp[0].resizeNoCopy(num_objects);
+			per_axis_thread_temp_info[i].temp[1].resizeNoCopy(num_objects);
+			per_axis_thread_temp_info[i].object_max.resizeNoCopy(num_objects);
 		}
 	}
 
@@ -321,7 +321,7 @@ void BVHBuilder::build(
 	e.g. num interior nodes <= num objects / split threshold
 
 	*/
-	result_chunks.resizeUninitialised(myMax(1, num_objects / new_task_num_ob_threshold));
+	result_chunks.resizeNoCopy(myMax(1, num_objects / new_task_num_ob_threshold));
 
 
 
@@ -366,7 +366,7 @@ void BVHBuilder::build(
 		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
 	}
 
-	result_nodes_out.resizeUninitialised(total_num_nodes);
+	result_nodes_out.resizeNoCopy(total_num_nodes);
 	int write_index = 0;
 
 	for(size_t c=0; c<num_result_chunks; ++c)

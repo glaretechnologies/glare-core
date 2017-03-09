@@ -256,7 +256,7 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 
 	js::Vector<float, 16> combined_data;
 	const int NUM_COMPONENTS = 8;
-	combined_data.resizeUninitialised(NUM_COMPONENTS * vertices.size());
+	combined_data.resizeNoCopy(NUM_COMPONENTS * vertices.size());
 	for(size_t i=0; i<vertices.size(); ++i)
 	{
 		combined_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
@@ -1494,7 +1494,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	
 
 	js::Vector<uint32, 16> vert_index_buffer;
-	vert_index_buffer.resizeUninitialised(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
+	vert_index_buffer.resizeNoCopy(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
 	uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
 
 

@@ -94,6 +94,7 @@ public:
 	inline ImageMap& operator = (const ImageMap& other);
 
 	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
+	void resizeNoCopy(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
 	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
@@ -193,8 +194,7 @@ ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsign
 		h_blocks = height / 8 + 1;
 		data.resize(w_blocks * h_blocks * 64 * N);
 #else
-		//data.resize(width * height * N);
-		data.resizeUninitialised(width * height * N);
+		data.resizeNoCopy(width * height * N);
 #endif
 	}
 	catch(std::bad_alloc&)
@@ -236,8 +236,27 @@ void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, uns
 
 	try
 	{
-		//data.resize(width * height * N);
-		data.resizeUninitialised(width * height * N);
+		data.resize(width * height * N);
+	}
+	catch(std::bad_alloc&)
+	{
+		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+	}
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::resizeNoCopy(unsigned int width_, unsigned int height_, unsigned int N_)
+{
+	width = width_;
+	height = height_;
+	N = N_;
+	ds_over_2 = 0.5f / width_;
+	dt_over_2 = 0.5f / height_;
+
+	try
+	{
+		data.resizeNoCopy(width * height * N);
 	}
 	catch(std::bad_alloc&)
 	{

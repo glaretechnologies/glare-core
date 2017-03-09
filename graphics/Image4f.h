@@ -60,7 +60,7 @@ public:
 	void set(float s);
 
 	void resize(size_t newwidth, size_t newheight); // throws Indigo::Exception
-	void resizeUninitialised(size_t newwidth, size_t newheight); // Resize without copying existing data, or intialising pixels.
+	void resizeNoCopy(size_t newwidth, size_t newheight); // Resize without copying existing data.
 
 	void posClamp();
 	void clampInPlace(float min, float max);

@@ -1014,7 +1014,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 	// Build triangles_in_out from temp_quads
 	const size_t temp_quads_size = temp_quads.size();
-	triangles_in_out.resizeUninitialised(temp_quads_size * 2); // Pre-allocate space
+	triangles_in_out.resizeNoCopy(temp_quads_size * 2); // Pre-allocate space
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("tris_out alloc took               " + timer.elapsedStringNPlaces(5)));
 	DISPLACEMENT_RESET_TIMER(timer);
@@ -1057,7 +1057,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	// Convert DUVertex's back into RayMeshVertex and store in vertices_in_out.
 	DISPLACEMENT_RESET_TIMER(timer);
 	const size_t temp_verts_size = temp_verts.size();
-	vertices_in_out.resizeUninitialised(temp_verts_size);
+	vertices_in_out.resizeNoCopy(temp_verts_size);
 	for(size_t i = 0; i < temp_verts_size; ++i)
 		vertices_in_out[i].pos = temp_verts[i].pos;
 
@@ -2390,7 +2390,7 @@ void DisplacementUtils::linearSubdivision(
 	// This code runs in serial, so it needs to do as little work as possible.
 	DISPLACEMENT_RESET_TIMER(timer);
 
-	quads_out.resizeUninitialised(total_new_quads);
+	quads_out.resizeNoCopy(total_new_quads);
 	
 	verts_out.resize(0);
 	uvs_out.resize(0);

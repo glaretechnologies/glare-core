@@ -29,7 +29,7 @@ public:
 	inline void setAllElems(const Field& newval);
 
 	void resize(size_t newdim1, size_t newdim2); // Resize, copying any existing data to new data array.
-	void resizeUninitialised(size_t newdim1, size_t newdim2); // Resize without copying exising data or intialising new data.
+	void resizeNoCopy(size_t newdim1, size_t newdim2); // Resize without copying exising data.
 
 	inline size_t getWidth()  const { return dim1; }
 	inline size_t getHeight() const { return dim2; }
@@ -168,9 +168,9 @@ void Array2D<Field>::resize(size_t newdim1, size_t newdim2)
 
 
 template <class Field>
-void Array2D<Field>::resizeUninitialised(size_t newdim1, size_t newdim2) // Resize without copying exising data or intialising new data.
+void Array2D<Field>::resizeNoCopy(size_t newdim1, size_t newdim2) // Resize without copying exising data
 {
-	data.resizeUninitialised(newdim1 * newdim2);
+	data.resizeNoCopy(newdim1 * newdim2);
 	dim1 = newdim1;
 	dim2 = newdim2;
 }

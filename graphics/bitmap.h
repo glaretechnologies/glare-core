@@ -35,6 +35,7 @@ public:
 	~Bitmap();
 
 	void resize(size_t newwidth, size_t newheight, size_t new_bytes_pp); // Throws Indigo::Exception
+	void resizeNoCopy(size_t newwidth, size_t newheight, size_t new_bytes_pp); // Throws Indigo::Exception
 
 	size_t getWidth()   const { return width;   }
 	size_t getHeight()  const { return height;  }

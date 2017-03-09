@@ -51,9 +51,10 @@ public:
 	inline Vector& operator=(const Vector& other);
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
+	inline void reserveNoCopy(size_t N); // Make sure capacity is at least N.  Don't copy existing objects.
 	inline void resize(size_t N); // Resize to size N, using default constructor if N > size().
 	inline void resize(size_t N, const T& val); // Resize to size N, using copies of val if N > size().
-	inline void resizeUninitialised(size_t N); // Resize to size N, but don't destroy or construct objects.
+	inline void resizeNoCopy(size_t N); // Resize to size N, but don't copy existing objects.
 	inline size_t capacity() const { return capacity_; }
 	inline size_t size() const;
 	inline size_t dataSizeBytes() const; // Return the number of bytes needed to hold size elements, e.g. sizeof(T) * size().  Ignores excess capacity and Vector member overhead.
@@ -291,6 +292,39 @@ void Vector<T, alignment>::reserve(size_t n)
 
 
 template <class T, size_t alignment>
+void Vector<T, alignment>::reserveNoCopy(size_t n)
+{
+	assert(capacity_ >= size_);
+
+	if(n > capacity_) // If need to expand capacity
+	{
+#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+#endif
+		// Allocate new memory
+		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
+		
+		// Since we are not copying existing elements to new_e, just leave them uninitialised.
+
+#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+#endif
+		// Destroy old objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+
+		SSE::alignedFree(e); // Free old buffer.
+
+		e = new_e;
+		capacity_ = n;
+	}
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
 void Vector<T, alignment>::resize(size_t n, const T& val)
 {
 	assert(capacity_ >= size_);
@@ -360,14 +394,14 @@ void Vector<T, alignment>::resize(size_t n)
 
 
 template <class T, size_t alignment>
-void Vector<T, alignment>::resizeUninitialised(size_t n)
+void Vector<T, alignment>::resizeNoCopy(size_t n)
 {
 	assert(capacity_ >= size_);
 
 	if(n > capacity_)
 	{
 		const size_t newcapacity = myMax(n, 2 * capacity_);
-		reserve(newcapacity);
+		reserveNoCopy(newcapacity);
 	}
 
 	size_ = n;

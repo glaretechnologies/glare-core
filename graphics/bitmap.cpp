@@ -70,6 +70,26 @@ void Bitmap::resize(size_t newwidth, size_t newheight, size_t new_bytes_pp)
 }
 
 
+void Bitmap::resizeNoCopy(size_t newwidth, size_t newheight, size_t new_bytes_pp)
+{
+	if(width != newwidth || height != newheight || bytespp != new_bytes_pp)
+	{
+		width = newwidth;
+		height = newheight;
+		bytespp = new_bytes_pp;
+
+		try
+		{
+			data.resizeNoCopy(newwidth * newheight * new_bytes_pp);
+		}
+		catch(std::bad_alloc&)
+		{
+			throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+		}
+	}
+}
+
+
 unsigned int Bitmap::checksum() const
 {
 	return Checksum::checksum((void*)&data[0], width * height * bytespp);

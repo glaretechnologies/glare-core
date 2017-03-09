@@ -29,7 +29,7 @@ Image4f::Image4f(size_t width, size_t height)
 {
 	try
 	{
-		pixels.resizeUninitialised(width, height);
+		pixels.resizeNoCopy(width, height);
 	}
 	catch(std::bad_alloc& )
 	{
@@ -169,6 +169,25 @@ void Image4f::copyToBitmap(Bitmap& bmp_out) const
 		pixel[2] = floatToUInt8(p.x[2]);
 		pixel[3] = floatToUInt8(p.x[3]);
 	}
+
+	// TODO: optimise:
+	/*bmp_out.resize(getWidth(), getHeight(), 4);
+
+	unsigned char* dst = bmp_out.getPixelNonConst(0, 0);
+	const float* const src = &getPixel(0).x[0];
+
+	const float N = getWidth() * getHeight() * N;
+	for(size_t y = 0; y < getHeight(); ++y)
+		for(size_t x = 0; x < getWidth(); ++x)
+		{
+			const ColourType& p = getPixel(x, y);
+
+			unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
+			pixel[0] = floatToUInt8(p.x[0]);
+			pixel[1] = floatToUInt8(p.x[1]);
+			pixel[2] = floatToUInt8(p.x[2]);
+			pixel[3] = floatToUInt8(p.x[3]);
+		}*/
 }
 
 
@@ -205,14 +224,14 @@ void Image4f::resize(size_t newwidth, size_t newheight)
 }
 
 
-void Image4f::resizeUninitialised(size_t newwidth, size_t newheight) // Resize without copying existing data, or intialising pixels.
+void Image4f::resizeNoCopy(size_t newwidth, size_t newheight) // Resize without copying existing data, or intialising pixels.
 {
 	if(getWidth() == newwidth && getHeight() == newheight)
 		return;
 
 	try
 	{
-		pixels.resizeUninitialised(newwidth, newheight);
+		pixels.resizeNoCopy(newwidth, newheight);
 	}
 	catch(std::bad_alloc&)
 	{
@@ -629,6 +648,12 @@ float Image4f::maxPixelComponent() const
 #include "../graphics/MitchellNetravaliFilterFunction.h"
 
 
+//static void test()
+//{
+//	//=========== Perf test Image4f::copyToBitmap() =============
+//	//copyToBitmap
+//
+//}
 
 
 #endif // BUILD_TESTS

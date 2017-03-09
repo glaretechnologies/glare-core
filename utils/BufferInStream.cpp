@@ -19,7 +19,7 @@ BufferInStream::BufferInStream()
 BufferInStream::BufferInStream(const std::vector<unsigned char>& buf_)
 :	read_index(0)
 {
-	buf.resizeUninitialised(buf_.size());
+	buf.resizeNoCopy(buf_.size());
 	for(size_t i=0; i<buf_.size(); ++i)
 		buf[i] = buf_[i];
 }

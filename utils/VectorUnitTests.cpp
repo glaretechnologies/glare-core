@@ -446,6 +446,83 @@ void VectorUnitTests::test()
 
 
 
+	// With int type, zero size
+	{
+		Vector<int, 4> v;
+		v.push_back(1);
+		v.push_back(2);
+		v.push_back(3);
+		v.resizeNoCopy(100);
+
+		testAssert(v.size() == 100);
+	}
+
+
+	// Test performance of resize() vs resizeNoCopy().
+	// Neither resize() nor resizeNoCopy() should zero out the integer data.
+	// std::vector will however, so should be significantly slower.
+
+	// Warmup
+	{
+		Timer timer;
+		Vector<int, 4> v;
+		v.resize(1000000);
+		testAssert(v.size() == 1000000);
+	}
+
+	const int N = 1000000;
+	conPrint("\nResizing from zero size to size=" + toString(1000000) + ":\n");
+	{
+		Timer timer;
+		Vector<int, 4> v;
+		v.resizeNoCopy(N);
+		testAssert(v.size() == N);
+		conPrint("\tjs::Vector resizeNoCopy(): " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		Vector<int, 4> v;
+		v.resize(N);
+		testAssert(v.size() == N);
+		conPrint("\tjs::Vector resize():       " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		std::vector<int> v;
+		v.resize(N);
+		testAssert(v.size() == N);
+		conPrint("\tstd::vector resize():      " + timer.elapsedString());
+	}
+
+
+	// Test resize performance vs resizeNoCopy
+	conPrint("\nResizing from zero size to size=" + toString(1000000) + " in powers of 10:\n");
+	{
+		Timer timer;
+		Vector<int, 4> v;
+		for(int i=1; i<=1000000; i*=10)
+			v.resizeNoCopy(i);
+		testAssert(v.size() == 1000000);
+		conPrint("\tjs::Vector resizeNoCopy(): " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		Vector<int, 4> v;
+		for(int i=1; i<=1000000; i*=10)
+			v.resize(i);
+		testAssert(v.size() == 1000000);
+		conPrint("\tjs::Vector resize():       " + timer.elapsedString());
+	}
+	{
+		Timer timer;
+		std::vector<int> v;
+		for(int i=1; i<=1000000; i*=10)
+			v.resize(i);
+		testAssert(v.size() == 1000000);
+		conPrint("\tstd::vector resize():      " + timer.elapsedString());
+	}
+
+
 	//========================= clear =========================
 
 

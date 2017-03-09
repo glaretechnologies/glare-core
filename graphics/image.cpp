@@ -38,7 +38,7 @@ Image::Image(size_t width, size_t height)
 {
 	try
 	{
-		pixels.resizeUninitialised(width, height);
+		pixels.resizeNoCopy(width, height);
 	}
 	catch(std::bad_alloc& )
 	{
@@ -160,12 +160,18 @@ void Image::set(const ColourType& c)
 
 void Image::resize(size_t newwidth, size_t newheight)
 {
+	resizeNoCopy(newwidth, newheight);
+}
+
+
+void Image::resizeNoCopy(size_t newwidth, size_t newheight)
+{
 	if(getWidth() == newwidth && getHeight() == newheight)
 		return;
 
 	try
 	{
-		pixels.resizeUninitialised(newwidth, newheight);
+		pixels.resizeNoCopy(newwidth, newheight);
 	}
 	catch(std::bad_alloc& )
 	{

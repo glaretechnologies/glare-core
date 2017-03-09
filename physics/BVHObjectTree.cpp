@@ -250,7 +250,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 
 	// Make leaf_objects from leaf object indices.
 	const size_t result_ob_ind_size = result_ob_indices.size();
-	leaf_objects.resizeUninitialised(result_ob_ind_size);
+	leaf_objects.resizeNoCopy(result_ob_ind_size);
 	for(size_t i=0; i<result_ob_ind_size; ++i)
 		leaf_objects[i] = objects[result_ob_indices[i]];
 
@@ -277,7 +277,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 				new_node_indices[i] = new_index++;
 
 		const int new_num_nodes = new_index;
-		this->nodes.resizeUninitialised(new_num_nodes);
+		this->nodes.resizeNoCopy(new_num_nodes);
 
 		new_index = 0;
 		for(size_t i=0; i<result_nodes_size; ++i)
@@ -346,5 +346,8 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 	objects.clearAndFreeMem();
 
 	//conPrint("BVHObjectTree::build done  (Elapsed: " + timer.elapsedStringNPlaces(4) + ")");
+	if(verbose)
+		print_output.print("\tNum objects: " + toString(objects_size));
+		
 	print_output.print("Object tree build done. (Time Taken: " + timer.elapsedStringNPlaces(3) + ")");
 }

@@ -707,7 +707,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		if(num_quads > 0)
 		{
 			const size_t initial_num_tris = this->triangles.size();
-			this->triangles.resizeUninitialised(initial_num_tris + num_quads * 2);
+			this->triangles.resize(initial_num_tris + num_quads * 2);
 
 			for(size_t i=0; i<num_quads; ++i)
 			{
@@ -785,7 +785,7 @@ void RayMesh::buildTrisFromQuads()
 	if(num_quads > 0)
 	{
 		const size_t initial_num_tris = this->triangles.size();
-		this->triangles.resizeUninitialised(initial_num_tris + num_quads * 2);
+		this->triangles.resize(initial_num_tris + num_quads * 2);
 
 		for(size_t i=0; i<num_quads; ++i)
 		{

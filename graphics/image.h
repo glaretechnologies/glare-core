@@ -58,6 +58,7 @@ public:
 	void set(const ColourType& c);
 
 	void resize(size_t newwidth, size_t newheight);
+	void resizeNoCopy(size_t newwidth, size_t newheight);
 
 	void posClamp();
 	void clampInPlace(float min, float max);
