@@ -14,6 +14,7 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../utils/ConPrint.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/TaskManager.h"
+#include "../graphics/bitmap.h"
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
@@ -71,7 +72,8 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	);
 
 	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
-	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out);
+	Bitmap bitmap;
+	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out, &bitmap);
 }
 
 
@@ -89,6 +91,86 @@ static float refLinearsRGBtosRGB(float x)
 void test()
 {
 	conPrint("ImagingPipeline::test()");
+
+	//================ Perf test =================
+	{
+		const int W = 1000;
+		const int ssf = 1;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+
+		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
+		const float value_factor = 10000.f;
+
+		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
+		const float alpha = 0.5f;
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
+
+		render_channels.alpha.resize(full_W, full_W, 1);
+		render_channels.alpha.set(alpha * value_factor);
+
+		//const int W = 1000;
+		//const int ssf = 1;
+		Indigo::TaskManager task_manager;
+
+		const float layer_normalise = 0.1f;
+		std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
+
+		RendererSettings renderer_settings;
+		renderer_settings.logging = false;
+		renderer_settings.setWidth(W);
+		renderer_settings.setHeight(W);
+		renderer_settings.super_sample_factor = ssf;
+		renderer_settings.tone_mapper = new LinearToneMapper(1);
+		renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+		renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
+
+		std::vector<float> filter_data;
+		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
+		std::vector<RenderRegion> render_regions;
+
+		::Image4f ldr_buffer;
+
+
+
+		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+		ImagingPipeline::doTonemap(
+			tonemap_scratch_state,
+			render_channels,
+			render_regions,
+			layer_weights,
+			layer_normalise, // image scale
+			layer_normalise, // region image scale
+			renderer_settings,
+			filter_data.data(),
+			Reference<PostProDiffraction>(),
+			ldr_buffer,
+			false, // XYZ_colourspace
+			RendererSettings::defaultMargin(), // margin at ssf1
+			task_manager
+		);
+
+		ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
+		Bitmap bitmap(ldr_buffer.getWidth(), ldr_buffer.getHeight(), 4, NULL);
+
+		
+
+		Timer timer;
+		const int N = 100;
+		for(int i=0; i<N; ++i)
+		{
+			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
+
+			//::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
+			ldr_buffer.copyToBitmap(bitmap);
+		}
+		const double elapsed = timer.elapsed() / N;
+		conPrint("ImagingPipeline::toNonLinearSpace took " + toString(elapsed) + " s");
+	}
+
 
 	// Constant colour of (1,1,1), no alpha, ssf1
 	{
@@ -289,7 +371,8 @@ void test()
 			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
-		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, temp_ldr_buffer);
+		Bitmap bitmap;
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, temp_ldr_buffer, &bitmap);
 
 		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());

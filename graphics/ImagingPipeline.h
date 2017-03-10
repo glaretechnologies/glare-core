@@ -63,6 +63,8 @@ struct DoTonemapScratchState
 Tonemaps some input image data, stored in render_channels, to some output image data, stored in ldr_buffer_out.
 Also does downsizing of the supersampled internal buffer to the output image resolution.
 
+ldr_buffer_out should have the correct size - e.g. final width and height, or ceil(final_width / subres_factor) etc..
+
 The input data may be in XYZ colour space (as is the case for the usual rendering), or linear sRGB space (the case for some loaded images).
 
 The output data will be stored as floating point data in ldr_buffer_out.
@@ -83,8 +85,7 @@ void doTonemap(
 	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
-	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
-	int subres_buffer_index = 0
+	int subres_factor = 1 // Number of times smaller resolution we will do the realtime rendering at.
 );
 
 
@@ -109,7 +110,8 @@ void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
 	ToNonLinearSpaceScratchState& scratch_state,
 	const RendererSettings& renderer_settings,
-	Image4f& ldr_buffer_in_out // Input and output image, has alpha channel.
+	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
+	Bitmap* uint8_buffer_out = NULL // May be NULL
 );
 
 

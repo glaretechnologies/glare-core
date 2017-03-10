@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "../maths/SSE.h"
+#include "../maths/Vec4i.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Platform.h"
 #include <assert.h>
@@ -301,4 +302,10 @@ bool Colour4f::isFinite() const
 INDIGO_STRONG_INLINE Colour4f select(const Colour4f& a, const Colour4f& b, const Colour4f& mask)
 {
 	return Colour4f(_mm_blendv_ps(b.v, a.v, mask.v));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4i toVec4i(const Colour4f& v)
+{
+	return Vec4i(_mm_cvttps_epi32(v.v)); // _mm_cvttps_epi32 (CVTTPS2DQ) is SSE 2
 }
