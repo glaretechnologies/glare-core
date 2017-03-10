@@ -123,6 +123,13 @@ public:
 	}
 
 
+	// Compares the pointer values.
+	bool operator == (const Reference& other) const
+	{
+		return ob == other.ob;
+	}
+
+
 	inline T& operator * ()
 	{
 		assert(ob);
