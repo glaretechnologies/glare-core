@@ -105,6 +105,8 @@ such as dithering and gamma correction.
 Input colour space is linear sRGB
 Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
+
+A lock on uint8_buffer_out is expected to be held by the calling thread if uint8_buffer_out is non-null.
 */
 void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
