@@ -7,8 +7,9 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "ImagingPipelineTests.h"
 
 
-
 #if BUILD_TESTS
+
+
 #include "ImagingPipeline.h"
 #include "Image4f.h"
 #include "../utils/ConPrint.h"
@@ -22,15 +23,10 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
-#endif
-
 
 
 namespace ImagingPipelineTests
 {
-
-
-#ifdef BUILD_TESTS
 
 
 static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale)
@@ -93,6 +89,7 @@ void test()
 	conPrint("ImagingPipeline::test()");
 
 	//================ Perf test =================
+	if(false)
 	{
 		const int W = 1000;
 		const int ssf = 1;
@@ -133,7 +130,7 @@ void test()
 		std::vector<RenderRegion> render_regions;
 
 		::Image4f ldr_buffer;
-
+		ldr_buffer.resize(W, W);
 
 
 		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
@@ -183,7 +180,7 @@ void test()
 		render_channels.layers.back().image.resize(full_W, full_W);
 		render_channels.layers.back().image.set(Colour3f(1.0f));
 
-		Image4f ldr_buffer;
+		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
 		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
@@ -208,7 +205,7 @@ void test()
 		render_channels.layers.back().image.resize(full_W, full_W);
 		render_channels.layers.back().image.set(Colour3f(1.0f));
 
-		Image4f ldr_buffer;
+		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
 		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
@@ -240,7 +237,7 @@ void test()
 		render_channels.alpha.resize(full_W, full_W, 1);
 		render_channels.alpha.set(alpha * value_factor);
 
-		Image4f ldr_buffer;
+		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f / value_factor;
 		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
@@ -351,7 +348,7 @@ void test()
 		// Fill alpha channel to alpha 1
 		master_buffer.getRenderChannels().alpha.set(1.0f);
 
-		::Image4f temp_ldr_buffer;
+		::Image4f ldr_buffer(image_final_xres, image_final_yres);
 
 		std::vector<float> filter_data;
 		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
@@ -366,28 +363,28 @@ void test()
 			renderer_settings,
 			filter_data.data(),
 			post_pro_diffraction,
-			temp_ldr_buffer,
+			ldr_buffer,
 			false,
 			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
 		Bitmap bitmap;
-		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, temp_ldr_buffer, &bitmap);
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
 
-		testAssert(image_final_xres == (int)temp_ldr_buffer.getWidth());
-		testAssert(image_final_yres == (int)temp_ldr_buffer.getHeight());
+		testAssert(image_final_xres == (int)ldr_buffer.getWidth());
+		testAssert(image_final_yres == (int)ldr_buffer.getHeight());
 
 		// On the biggest image report a quantitative difference
 		if(res == test_res_num - 1)
 		{
 			// Get the integral of all pixels in the image
 			double pixel_sum = 0;
-			for(size_t i = 0; i < temp_ldr_buffer.numPixels(); ++i)
-				pixel_sum += temp_ldr_buffer.getPixel(i).x[0];
-			const double integral = pixel_sum / (double)temp_ldr_buffer.numPixels();
+			for(size_t i = 0; i < ldr_buffer.numPixels(); ++i)
+				pixel_sum += ldr_buffer.getPixel(i).x[0];
+			const double integral = pixel_sum / (double)ldr_buffer.numPixels();
 
 			const double expected_sum = 0.78539816339744830961566084581988; // pi / 4
-			const double allowable_error = 1600.0 / temp_ldr_buffer.numPixels();
+			const double allowable_error = 1600.0 / ldr_buffer.numPixels();
 
 			const double abs_error = fabs(expected_sum - integral);
 			
@@ -401,9 +398,7 @@ void test()
 }
 
 
-#endif // BUILD_TESTS
-
-
 } // end namespace ImagingPipelineTests 
 
 
+#endif // BUILD_TESTS
