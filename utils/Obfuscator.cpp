@@ -14,13 +14,13 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/FileUtils.h"
+#include "../utils/IncludeXXHash.h"
 #include <wnt_LangParser.h>
 #include <wnt_Lexer.h>
 #include <wnt_Variable.h>
 #include <wnt_LetASTNode.h>
 #include <wnt_LetBlock.h>
 #include <wnt_FunctionExpression.h>
-#include <xxhash.h>
 #include <string>
 #include <fstream>
 #include <stdlib.h>

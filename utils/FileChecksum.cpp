@@ -9,7 +9,7 @@ Generated at Tue Mar 02 14:36:09 +1300 2010
 
 #include "Exception.h"
 #include "MemMappedFile.h"
-#include <xxhash.h>
+#include "IncludeXXHash.h"
 
 
 namespace FileChecksum

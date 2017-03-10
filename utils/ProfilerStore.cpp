@@ -8,7 +8,7 @@ Generated at 2016-11-01 23:24:09 +0000
 
 
 #include "Lock.h"
-#include <xxhash.h>
+#include "IncludeXXHash.h"
 
 
 ProfilerStore::ProfilerStore()

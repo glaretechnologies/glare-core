@@ -12,7 +12,7 @@ Generated at 2016-10-14 15:08:16 +0100
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
-#include <xxhash.h>
+#include "../utils/IncludeXXHash.h"
 
 
 OpenCLProgramRef ProgramCache::getOrBuildProgram(
