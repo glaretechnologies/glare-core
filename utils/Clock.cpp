@@ -22,6 +22,7 @@ namespace Clock
 
 static bool clock_initialised = false;
 static double clock_period = 0;
+static double init_time = 0;
 
 
 void init()
@@ -37,6 +38,8 @@ void init()
 #endif
 
 	clock_initialised = true;
+
+	init_time = getCurTimeRealSec();
 }
 
 
@@ -61,6 +64,12 @@ double getCurTimeRealSec()
 	gettimeofday(&t, NULL);
 	return ((double)t.tv_sec + (double)t.tv_usec * 0.000001);
 #endif
+}
+
+
+double getTimeSinceInit()
+{
+	return getCurTimeRealSec() - init_time;
 }
 
 

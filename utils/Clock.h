@@ -22,6 +22,8 @@ void init();
 // IMPORTANT NOTE: must call Clock::init() first.
 double getCurTimeRealSec();
 
+double getTimeSinceInit(); // In seconds, since init() was called.
+
 
 time_t getSecsSince1970();
 
