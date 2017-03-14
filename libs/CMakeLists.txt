@@ -212,8 +212,8 @@ ${openexrdir}/IlmImf/ImfWav.h
 ${openexrdir}/IlmImf/ImfXdr.h
 ${openexrdir}/IlmImf/ImfZipCompressor.cpp
 ${openexrdir}/IlmImf/ImfZipCompressor.h
-${openexrdir}/IlmImf/OpenEXRConfig.h
 )
+
 
 # FILE(GLOB lib3ds "../../../lib3ds-1.2.0/lib3ds/*.c")
 
