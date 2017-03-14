@@ -1176,8 +1176,6 @@ static void testAppendCollPoints(RayMesh& raymesh)
 		points_ws.resize(0);
 		ref_points_ws.resize(0);
 
-		if(i == 1197)
-			int a = 9;
 		//------------------------------------------------------------------------
 		//test first hit traces
 		//------------------------------------------------------------------------
