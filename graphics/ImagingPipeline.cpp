@@ -735,6 +735,7 @@ public:
 		const bool have_alpha_channel = closure.render_channels->hasAlpha();
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
+		const bool has_spectral_channel = closure.render_channels->hasSpectral();
 
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
@@ -796,7 +797,7 @@ public:
 					const ptrdiff_t src_addr = y * xres + x;
 					Colour4f sum(0.0f);
 
-					/*if(closure.render_channels->hasSpectral())
+					/*if(has_spectral_channel)
 					{
 						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
 						{
@@ -812,7 +813,7 @@ public:
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = (source_render_layers)[z].image.getPixel(src_addr);
+							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
 							const Vec3f& s = layer_weights[z];
 
 							sum.x[0] += c.r * s.x;
@@ -932,7 +933,7 @@ public:
 					const ptrdiff_t src_addr = y * xres + x;
 					Colour4f sum(0.0f);
 
-					if(closure.render_channels->hasSpectral())
+					if(has_spectral_channel)
 					{
 						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
 						{
@@ -948,7 +949,7 @@ public:
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = (source_render_layers)[z].image.getPixel(src_addr);
+							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
 							const Vec3f& scale = layer_weights[z];
 
 							sum.x[0] += c.r * scale.x;
