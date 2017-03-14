@@ -86,7 +86,7 @@ static float refLinearsRGBtosRGB(float x)
 
 void test()
 {
-	conPrint("ImagingPipeline::test()");
+	conPrint("ImagingPipelineTests::test()");
 
 	//================ Perf test =================
 	if(false)
@@ -134,29 +134,37 @@ void test()
 
 
 		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
-		ImagingPipeline::doTonemap(
-			tonemap_scratch_state,
-			render_channels,
-			render_regions,
-			layer_weights,
-			layer_normalise, // image scale
-			layer_normalise, // region image scale
-			renderer_settings,
-			filter_data.data(),
-			Reference<PostProDiffraction>(),
-			ldr_buffer,
-			false, // XYZ_colourspace
-			RendererSettings::defaultMargin(), // margin at ssf1
-			task_manager
-		);
+
+		Timer timer;
+		const int N = 100;
+		double mintime = 10000000.0;
+		for(int i=0; i<N; ++i)
+		{
+			Timer iter_timer;
+			ImagingPipeline::doTonemap(
+				tonemap_scratch_state,
+				render_channels,
+				render_regions,
+				layer_weights,
+				layer_normalise, // image scale
+				layer_normalise, // region image scale
+				renderer_settings,
+				filter_data.data(),
+				Reference<PostProDiffraction>(),
+				ldr_buffer,
+				false, // XYZ_colourspace
+				RendererSettings::defaultMargin(), // margin at ssf1
+				task_manager
+			);
+			mintime = myMin(mintime, iter_timer.elapsed());
+		}
+		const double elapsed = mintime; //  timer.elapsed() / N;
+		conPrint("ImagingPipeline::doTonemap took " + toString(elapsed) + " s");
 
 		ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 		Bitmap bitmap(ldr_buffer.getWidth(), ldr_buffer.getHeight(), 4, NULL);
 
-		
-
-		Timer timer;
-		const int N = 100;
+		timer.reset();
 		for(int i=0; i<N; ++i)
 		{
 			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
@@ -164,8 +172,8 @@ void test()
 			//::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
 			ldr_buffer.copyToBitmap(bitmap);
 		}
-		const double elapsed = timer.elapsed() / N;
-		conPrint("ImagingPipeline::toNonLinearSpace took " + toString(elapsed) + " s");
+		const double elapsed2 = timer.elapsed() / N;
+		conPrint("ImagingPipeline::toNonLinearSpace took " + toString(elapsed2) + " s");
 	}
 
 

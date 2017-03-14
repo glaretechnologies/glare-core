@@ -711,6 +711,12 @@ struct ImagePipelineTaskClosure
 };
 
 
+inline static Colour4f toColour4f(const Vec3f& v)
+{
+	return Colour4f(v.x, v.y, v.z, 0.f);
+}
+
+
 // Tonemap and downsizes (if downsizing is needed) a single image tile.
 class ImagePipelineTask : public Indigo::Task
 {
@@ -723,13 +729,13 @@ public:
 		const ImagePipelineTaskClosure& closure = *this->closure_;
 
 		// Build layer weights.  Layer weight = light layer value * image_scale.
-		SmallArray<Vec3f, 32> layer_weights       (closure.render_channels->layers.size());
-		SmallArray<Vec3f, 32> region_layer_weights(closure.render_channels->layers.size());
+		SmallArray<Colour4f, 32> layer_weights(closure.render_channels->layers.size());
+		SmallArray<Colour4f, 32> region_layer_weights(closure.render_channels->layers.size());
 		
 		for(size_t i=0; i<closure.render_channels->layers.size(); ++i)
 		{
-			layer_weights[i]        = (*closure.layer_weights)[i] * closure.image_scale;
-			region_layer_weights[i] = (*closure.layer_weights)[i] * closure.region_image_scale;
+			layer_weights[i]        = toColour4f((*closure.layer_weights)[i]) * closure.image_scale;
+			region_layer_weights[i] = toColour4f((*closure.layer_weights)[i]) * closure.region_image_scale;
 		}
 
 		const bool have_alpha_channel = closure.render_channels->hasAlpha();
@@ -797,29 +803,12 @@ public:
 					const ptrdiff_t src_addr = y * xres + x;
 					Colour4f sum(0.0f);
 
-					/*if(has_spectral_channel)
+					assert(!has_spectral_channel);
+					
+					for(ptrdiff_t z = 0; z < num_layers; ++z)
 					{
-						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
-						{
-							const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels->spectral.getN();
-							const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
-							const float pixel_comp_val = closure.render_channels->spectral.getPixel((unsigned int)x, (unsigned int)y)[z] * closure.image_scale;
-							sum[0] += xyz.x * pixel_comp_val;
-							sum[1] += xyz.y * pixel_comp_val;
-							sum[2] += xyz.z * pixel_comp_val;
-						}
-					}
-					else*/
-					{
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
-						{
-							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
-							const Vec3f& s = layer_weights[z];
-
-							sum.x[0] += c.r * s.x;
-							sum.x[1] += c.g * s.y;
-							sum.x[2] += c.b * s.z;
-						}
+						const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+						sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
 					}
 
 					// Get alpha from alpha channel if it exists
@@ -834,11 +823,7 @@ public:
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
 								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
-								const Vec3f& scale = region_layer_weights[z];
-
-								sum.x[0] += c.r * scale.x;
-								sum.x[1] += c.g * scale.y;
-								sum.x[2] += c.b * scale.z;
+								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
 							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
@@ -950,11 +935,7 @@ public:
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
 							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
-							const Vec3f& scale = layer_weights[z];
-
-							sum.x[0] += c.r * scale.x;
-							sum.x[1] += c.g * scale.y;
-							sum.x[2] += c.b * scale.z;
+							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
 						}
 					}
 
@@ -970,11 +951,7 @@ public:
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
 								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
-								const Vec3f& scale = region_layer_weights[z];
-
-								sum.x[0] += c.r * scale.x;
-								sum.x[1] += c.g * scale.y;
-								sum.x[2] += c.b * scale.z;
+								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
 							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
