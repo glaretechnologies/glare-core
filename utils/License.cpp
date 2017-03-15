@@ -40,6 +40,7 @@ File created by ClassTemplate on Thu Mar 19 14:06:32 2009
 
 // We encrypt the public key instead of storing it in plain text, so that it's harder to locate in the executable,
 //  so that it's not so easy to overwrite with an attacker's public key.
+// Code for encryption is to be found in the tests.
 static uint32 encrypted_public_key_size = 69;
 static uint32 encrypted_public_key[] = {
 	2830347586u,	2159265384u,	2778190321u,	2307638886u,	2325586010u,	2827464002u,	1270066530u,	3751267170u,
@@ -52,6 +53,27 @@ static uint32 encrypted_public_key[] = {
 	2272975627u,	3784299601u,	2089473541u,	3698897944u,	2224538606u,	1268762178u,	2830347586u,	2174472769u,
 	2207438181u,	2778187620u,	2828785986u,	2830347687u,	3854933760u
 };
+
+
+static uint32 encrypted_online_public_key_size = 114;
+static uint32 encrypted_online_public_key[] = {
+	2830347586u,	2159265384u,	2778190321u,	2307638886u,	2325586010u,	2827464002u,	1270066530u,	2207762790u,
+	2272837983u,	3564760841u,	2121656662u,	2204741726u,	2140128606u,	2191512414u,	2224011362u,	2207762780u,
+	2189021022u,	2224014614u,	3935823877u,	3531518819u,	2307586553u,	2190735435u,	2292906919u,	2493433956u,
+	3699244546u,	3749762039u,	3581335130u,	3902074703u,	3568031478u,	2863461389u,	2375071228u,	1869871615u,
+	3498099728u,	3765220191u,	2627269894u,	3986473199u,	3985094751u,	2138435578u,	3800616715u,	1893250812u,
+	3501177335u,	2192952400u,	3530548972u,	2121132812u,	3501583885u,	3483294448u,	2073881066u,	1890448997u,
+	2157248004u,	2324948729u,	3967612185u,	1937372772u,	3463099920u,	2256458757u,	1888999449u,	3532230138u,
+	2140663823u,	3920292336u,	2440095324u,	2225982798u,	2427513871u,	3482891773u,	1957481213u,	3481919754u,
+	2507927628u,	2475744080u,	3865564767u,	1873262669u,	2309017366u,	3531397469u,	2207627274u,	1265810011u,
+	2226304592u,	2628713290u,	1853940741u,	3748318223u,	3802658307u,	3868182270u,	1872214250u,	3467759369u,
+	3581929978u,	2171323643u,	3583227407u,	2125583112u,	3701198105u,	3514356061u,	2393370092u,	3969175207u,
+	3734226198u,	2125313638u,	3816745572u,	2323116299u,	3698249725u,	2307577079u,	2273901145u,	3549153003u,
+	2205538907u,	3798914832u,	2624172795u,	2074916086u,	2226174544u,	3767388406u,	2645537801u,	3934976511u,
+	3470324326u,	1956561246u,	2829160002u,	2830347610u,	2777990129u,	2307638886u,	2325586010u,	2827464002u,
+	1270066498u,	3854933807u
+};
+
 
 /*
 Believe it or not, OpenSSL requires newline characters after every 64 characters, or at the end of the input if the total input len is < 64 chars.
@@ -125,18 +147,30 @@ static INDIGO_STRONG_INLINE const std::string unTransmungifyPublicKey()
 }
 
 
+// throws Indigo::Exception on failure
+static INDIGO_STRONG_INLINE const std::string unTransmungifyOnlinePublicKey()
+{
+	std::string s;
+	Transmungify::decrypt(
+		encrypted_online_public_key,
+		encrypted_online_public_key_size,
+		s
+	);
+	return s;
+}
+
+
 /*
 Verify that the hash is a public signature of key.
 
+https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying#Public_Key
 */
-bool License::verifyKey(const std::string& key, const std::string& hash)
+bool License::verifyKey(const std::string& key, std::string& hash, const std::string& public_key_str)
 {
 	assert(OpenSSL::isInitialised());
 
 	if(hash.size() > std::numeric_limits<unsigned int>::max())
 		throw License::LicenseExcep("Data too big");
-
-	const std::string public_key_str = unTransmungifyPublicKey();
 
 	// Load the public key
 	BIO* public_key_mbio = BIO_new_mem_buf((void*)public_key_str.c_str(), (int)public_key_str.size()); //(void *)PUBLIC_CERTIFICATE_DATA.c_str(), (int)PUBLIC_CERTIFICATE_DATA.size());
@@ -145,23 +179,29 @@ bool License::verifyKey(const std::string& key, const std::string& hash)
 	assert(public_key);
 
 	// Initialize OpenSSL and pass in the data
-	EVP_MD_CTX ctx;
-    if(EVP_VerifyInit(&ctx, EVP_sha1()) != 1)
-		throw LicenseExcep("Internal Verification failure 1.");
+	// Create the Message Digest Context
+	EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
 
-    if(EVP_VerifyUpdate(&ctx, key.data(), key.size()) != 1)
-		throw LicenseExcep("Internal Verification failure 2.");
+	if(!mdctx)
+		throw LicenseExcep("Internal Verification failure 3.");
+
+	if(EVP_DigestVerifyInit(mdctx, NULL, EVP_sha1(), NULL, public_key) != 1)
+		throw LicenseExcep("Internal Verification failure 4.");
+
+	if(EVP_DigestVerifyUpdate(mdctx, key.data(), key.size()) != 1)
+		throw LicenseExcep("Internal Verification failure 5.");
 
 	// Call the actual verify function and get result
-	const int result = EVP_VerifyFinal(&ctx, (const unsigned char*)hash.data(), (unsigned int)hash.size(), public_key);
+	const int result = EVP_DigestVerifyFinal(mdctx, (unsigned char*)hash.data(), hash.size());
 
-	EVP_MD_CTX_cleanup(&ctx);
-	
+	// Free context
+	EVP_MD_CTX_destroy(mdctx);
+
 	// Free the public key
 	EVP_PKEY_free(public_key);
 	BIO_free_all(public_key_mbio);
 
-//	ERR_clear_error();
+	//	ERR_clear_error();
 	ERR_remove_state(0);
 
 	if(result == 1) // Correct signature
@@ -196,7 +236,8 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 
 	// Try and verifiy network licence first.
 	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
-	if(have_net_floating_licence)
+	const bool have_online_licence = tryVerifyOnlineLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
+	if(have_net_floating_licence || have_online_licence)
 		return;
 	else
 	{
@@ -325,13 +366,14 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 	}
 #endif
 
-	const std::string hash = decodeBase64(components[2]);
-
+	std::string hash = decodeBase64(components[2]);
 	if(hash.empty())
 	{
 		error_code_out = LicenceErrorCode_EmptyHash;
 		return;
 	}
+
+	const std::string public_key_str = unTransmungifyPublicKey();
 
 	// Go through each hardware id, and see if it can be verified against the signature.
 	for(size_t i=0; i<hardware_ids.size(); ++i)
@@ -340,7 +382,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		{
 			const std::string hardware_id = hardware_ids[i];
 			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
-			if(verifyKey(constructed_key, hash))
+			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
@@ -358,8 +400,8 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		// Try with the hardware ID with the leading whitespace stripped off
 		{
 			const std::string hardware_id = ::stripHeadWhitespace(hardware_ids[i]);
-			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
-			if(verifyKey(constructed_key, hash))
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
+			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
@@ -377,7 +419,7 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		{
 			const std::string hardware_id = getLowerCaseMACAddrHardwareID(hardware_ids[i]);
 			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
-			if(verifyKey(constructed_key, hash))
+			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
@@ -395,8 +437,8 @@ void License::verifyLicenceString(const std::string& licence_string, const std::
 		// Try with the hardware ID with the leading whitespace stripped off, and with lower-cased MAC address
 		{
 			const std::string hardware_id = ::stripHeadWhitespace(getLowerCaseMACAddrHardwareID(hardware_ids[i]));
-			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id;
-			if(verifyKey(constructed_key, hash))
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + hardware_id; // = "User ID;Licence Type;Hardware Key"
+			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Key verified!
 				user_id_out = components[0]; // The user id is the first component.
@@ -848,6 +890,134 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 }
 
 
+bool License::tryVerifyOnlineLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out)
+{
+	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
+
+
+	try
+	{
+		// Load the signature from disk.
+		const std::string licence_sig_filename = "online_licence.sig";
+
+		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_filename);
+		if(!FileUtils::fileExists(licence_sig_full_path))
+		{
+			error_code_out = LicenceErrorCode_OnlineLicenceFileNotFound;
+			return false;
+		}
+
+		std::string sigfile_contents;
+		// NOTE: if we fail to read the file here (e.g. if it is opened in another thread), then we don't want to throw an exception (which can terminate the render),
+		// but just return false, which allows for the licence to be re-checked in a couple of seconds.
+		try
+		{
+			FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
+		}
+		catch(FileUtils::FileUtilsExcep&)
+		{
+			error_code_out = LicenceErrorCode_FileReadFailed;
+			return false;
+		}
+
+		if(sigfile_contents.empty())
+		{
+			error_code_out = LicenceErrorCode_FileEmpty;
+			return false;
+		}
+
+		// Split the license key up into (user_id, type, end_time, sig)
+		const std::vector<std::string> components = ::split(sigfile_contents, ';');
+
+		if(components.size() != 5)
+		{
+			error_code_out = LicenceErrorCode_WrongNumComponents;
+			return false;
+		}
+
+		user_id_out = components[0];
+
+		LicenceType desired_licence_type = UNLICENSED;
+
+#ifdef INDIGO_RT
+		if(components[1] == "indigo-full-lifetime")
+			desired_licence_type = FULL_LIFETIME;
+		else if(components[1] == "indigo-rt-4.x")
+			desired_licence_type = RT_4_X;
+		else if(components[1] == "indigo-full-4.x")
+			desired_licence_type = FULL_4_X;
+#else
+		if(components[1] == "indigo-full-lifetime")
+			desired_licence_type = FULL_LIFETIME;
+		else if(components[1] == "indigo-full-4.x")
+			desired_licence_type = FULL_4_X;
+		else if(components[1] == "indigo-node-4.x")
+			desired_licence_type = NODE_4_X;
+		else if(components[1] == "indigo-revit-4.x")
+			desired_licence_type = REVIT_4_X;
+		else if(components[1] == "indigo-rt-4.x")
+			desired_licence_type = RT_4_X;
+#endif
+		else
+		{
+			error_code_out = LicenceErrorCode_BadLicenceType;
+			return false;
+		}
+
+		const uint64 start_time = ::stringToUInt64(components[2]);
+		const uint64 end_time = ::stringToUInt64(components[3]);
+
+		std::string hash = decodeBase64(components[4]);
+		if(hash.empty())
+		{
+			error_code_out = LicenceErrorCode_EmptyHash;
+			return false;
+		}
+
+		const std::string public_key_str = unTransmungifyOnlinePublicKey();
+
+		// Go through each hardware id, and see if it can be verified against the signature.
+		for(size_t i = 0; i<hardware_ids.size(); ++i)
+		{
+			const std::string hardware_id = stripHeadAndTailWhitespace(hardware_ids[i]);
+			const std::string constructed_key = components[0] + ";" + components[1] + ";" + components[2] + ";" + components[3] + ";" + hardware_id;
+			if(verifyKey(constructed_key, hash, public_key_str))
+			{
+				// Are we in the licence period?
+				if((uint64)Clock::getSecsSince1970() < end_time)
+				{
+					// Key verified!
+					license_type_out = desired_licence_type;
+					//TEMP:
+					//std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
+					//std::cout << "end_time:" << end_time << std::endl;
+					//std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
+					error_code_out = LicenceErrorCode_NoError;
+					return true; // We're done here, return
+				}
+				else
+				{
+					error_code_out = LicenceErrorCode_LicenceExpired;
+					return false; // Licence has expired
+				}
+			}
+			else
+			{
+				assert(license_type_out == UNLICENSED);
+			}
+		}
+
+		error_code_out = LicenceErrorCode_NoHashMatch;
+		return false;
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		error_code_out = LicenceErrorCode_MiscFileExcep;
+		throw LicenseExcep(e.what());
+	}
+}
+
+
 const std::string License::networkFloatingHash(const std::string& input)
 {
 	/*std::string out(input.size(), 0);
@@ -873,17 +1043,19 @@ public:
 
 	void run()
 	{
+		const std::string public_key_str = unTransmungifyPublicKey();
+
 		const int N = 1000;
 		for(unsigned int i=0; i<N; ++i)
 		{
 			const std::string encoded_hash = 
 				"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
 
-			const std::string hash = License::decodeBase64(encoded_hash);
+			std::string hash = License::decodeBase64(encoded_hash);
 
 			const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
 
-			testAssert(License::verifyKey(key, hash));	
+			testAssert(License::verifyKey(key, hash, public_key_str));
 		}
 	}
 };
@@ -895,13 +1067,18 @@ void License::warmup()
 		const std::string encoded_hash =
 			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
 
-		const std::string hash = License::decodeBase64(encoded_hash);
+		std::string hash = License::decodeBase64(encoded_hash);
 
 		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
 
-		testAssert(License::verifyKey(key, hash));
+		const std::string public_key_str = unTransmungifyPublicKey();
+
+		testAssert(License::verifyKey(key, hash, public_key_str));
 	}
 }
+
+
+#include <iostream>
 
 
 void License::test()
@@ -925,8 +1102,7 @@ void License::test()
 
 
 	const std::string PUBLIC_CERTIFICATE_DATA = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg6Xnvoa8vsGURrDzW9stKxi9U\nuKXf4aUqFFrcxO6So9XKpygV4oN3nwBip3rGhIg4jbNbQrhAeicQhfyvATYenj6W\nBLh4X3GbUD/LTYqLNY4qQGsdt/BpO0smp4DPIVpvAPSOeY6424+en4RRnUrsNPJu\nuShWNvQTd0XRYlj4ywIDAQAB\n-----END PUBLIC KEY-----\n";
-	/*
-	const bool print_encrypted_public_key = false;
+	/*const bool print_encrypted_public_key = false;
 	if(print_encrypted_public_key)
 	{
 		std::vector<uint32> dst_dwords;
@@ -947,8 +1123,33 @@ void License::test()
 
 
 	// Make sure our un-transmungified public key is correct.
-	const std::string decoded_pubkey = unTransmungifyPublicKey();
-	testAssert(decoded_pubkey == PUBLIC_CERTIFICATE_DATA);
+	const std::string public_key_str = unTransmungifyPublicKey();
+	testAssert(public_key_str == PUBLIC_CERTIFICATE_DATA);
+
+
+	const std::string PUBLIC_KEY_ONLINE = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyIhkld/sNXvLXMxC68wM\nDH1KczymbTfZlRpENkm25SqY6t+tR2HcmvVbbDuov/eBJu9iFAhRY8hBkpFeZKcv\n3Uc16uZ+LC/qcsSsgGs+jutDWvOFfZU3rULNzEkMcKXfuixgrRKx2wodTOlIXUxZ\nseIpFr8flOrb4C3MA12l5rJ2vd6GQdWavuep03RW2/yRoB98V4BKLyfYsDK8Bup6\nF02A/4w95bdWlxLfr9rcnQCoaI9VU/KwhafpeuEDfM2pr/OGgEMyxjQtD9j7SNJi\nMEgy32GIdfbKiqKvtPydXULZZvN8UCrVkVBFtScow/9f65ZY26A/SIeY148hXvkb\nnwIDAQAB\n-----END PUBLIC KEY-----\n";
+	/*const bool print_encrypted_public_key = false;
+	if(print_encrypted_public_key)
+	{
+		std::vector<uint32> dst_dwords;
+		Transmungify::encrypt(PUBLIC_KEY_ONLINE, dst_dwords);
+
+		std::cout << "static uint32 encrypted_online_public_key_size = " + toString((uint64)dst_dwords.size()) + ";\n";
+		std::cout << "static uint32 encrypted_online_public_key[] = {\n";
+		for(size_t i = 0; i < dst_dwords.size(); ++i)
+		{
+			std::cout << toString(dst_dwords[i]) << "u";
+			if(i + 1 < dst_dwords.size())
+				std::cout << ",";
+			std::cout << "\n";
+		}
+		std::cout << "};\n";
+	}*/
+
+
+	// Make sure our un-transmungified public key is correct.
+	const std::string decoded_online_pubkey = unTransmungifyOnlinePublicKey();
+	testAssert(decoded_online_pubkey == PUBLIC_KEY_ONLINE);
 
 
 	// Test long base-64 encoded block, with no embedded newlines
@@ -977,11 +1178,11 @@ void License::test()
 		const std::string encoded_hash = 
 			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
 
-		const std::string hash = License::decodeBase64(encoded_hash);
+		std::string hash = License::decodeBase64(encoded_hash);
 
 		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
 		
-		testAssert(License::verifyKey(key, hash));	
+		testAssert(License::verifyKey(key, hash, public_key_str));
 	}
 
 	conPrint("License::verifyKey() verification took on average " + toString(timer.elapsed() / N) + " s");
@@ -992,11 +1193,11 @@ void License::test()
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
 
-		const std::string hash = License::decodeBase64(encoded_hash);
+		std::string hash = License::decodeBase64(encoded_hash);
 
 		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
 
-		testAssert(License::verifyKey(key, hash));	
+		testAssert(License::verifyKey(key, hash, public_key_str));
 	}
 
 	// Test verifyKey returns false on invalid signature.
@@ -1006,12 +1207,12 @@ void License::test()
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
 
-		const std::string hash = License::decodeBase64(encoded_hash);
+		std::string hash = License::decodeBase64(encoded_hash);
 
 		const std::string key = "Ranch Computing, contact@ranchcomputing.com;indigo-full-2.x;Intel(R) Core(TM)2 Quad CPU    Q6600  @ 2.40GHz:00-1D-60-D8-D2-95";
 
 		// NOTE: the line below still leaks memory due to stupid OpenSSL.  (at least with OpenSSL 0.9.8.x)
-		testAssert(License::verifyKey(key, hash) == false);	
+		testAssert(License::verifyKey(key, hash, public_key_str) == false);
 	}
 
 

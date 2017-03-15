@@ -74,7 +74,8 @@ public:
 		LicenceErrorCode_NoHashMatch = 8,
 		LicenceErrorCode_LicenceExpired = 9,
 		LicenceErrorCode_MiscFileExcep = 10,
-		LicenceErrorCode_IndigoRTUsedForIndigoRenderer = 11
+		LicenceErrorCode_IndigoRTUsedForIndigoRenderer = 11,
+		LicenceErrorCode_OnlineLicenceFileNotFound = 12
 	};
 
 
@@ -106,7 +107,7 @@ public:
 
 	static const std::string currentLicenseSummaryString(const std::string& appdata_path);
 
-	static bool verifyKey(const std::string& key, const std::string& hash);
+	static bool verifyKey(const std::string& key, std::string& hash, const std::string& public_key);
 
 	// License allocs some mem in globals when called (due to OpenSSL), so call before capturing start mem state in test suite.
 	static void warmup();
@@ -122,5 +123,6 @@ private:
 	static const std::string ensureNewLinesPresent(const std::string& data);
 
 	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
+	static bool tryVerifyOnlineLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
 
 };
