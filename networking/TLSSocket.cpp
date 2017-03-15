@@ -95,9 +95,6 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 
 void TLSSocket::init()
 {
-	connected = false;
-	do_graceful_disconnect = true;
-
 	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
 	// See http://support.microsoft.com/kb/201213 for more details on the bug.
 	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);

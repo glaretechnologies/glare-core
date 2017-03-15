@@ -123,13 +123,6 @@ private:
 
 	size_t max_buffersize;
 
-	bool connected;
-
-	// We will do a graceful disconnection when closing the socket, unless we have interrupted a read or write operation with an abort callback.
-	// In that case we don't want to receive all the pending data on the socket, or the aborting won't have any affect.
-	bool do_graceful_disconnect;
-
-
 	struct tls* tls_context;
 };
 
