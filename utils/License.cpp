@@ -161,6 +161,16 @@ static INDIGO_STRONG_INLINE const std::string unTransmungifyOnlinePublicKey()
 
 
 /*
+Calls verifyKey with the public key for fixed licenses. Needed because unTransmungifyPublicKey() is only available
+in License.cpp and NetworkManagers LicenseChecker.cpp needs this fuction to check network floating licenses.
+*/
+bool License::verifyKey(const std::string& key, std::string& hash)
+{
+	return verifyKey(key, hash, unTransmungifyPublicKey());
+}
+
+
+/*
 Verify that the hash is a public signature of key.
 
 https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying#Public_Key

@@ -107,7 +107,7 @@ public:
 
 	static const std::string currentLicenseSummaryString(const std::string& appdata_path);
 
-	static bool verifyKey(const std::string& key, std::string& hash, const std::string& public_key);
+	static bool verifyKey(const std::string& key, std::string& hash);
 
 	// License allocs some mem in globals when called (due to OpenSSL), so call before capturing start mem state in test suite.
 	static void warmup();
@@ -124,5 +124,7 @@ private:
 
 	static bool tryVerifyNetworkLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
 	static bool tryVerifyOnlineLicence(const std::string& appdata_path, LicenceType& license_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
+
+	static bool verifyKey(const std::string& key, std::string& hash, const std::string& public_key);
 
 };
