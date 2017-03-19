@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #include "Matrix4f.h"
 
@@ -83,31 +83,67 @@ void Matrix4f::setToIdentity()
 }
 
 
-void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
+// See also https://gist.github.com/rygorous/4172889
+void mul(const Matrix4f& b, const Matrix4f& c, Matrix4f& result_out)
 {
 	/*
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
-	*/
-	for(unsigned int outcol=0; outcol<4; ++outcol)
-		for(unsigned int outrow=0; outrow<4; ++outrow)
-		{
-			float x = 0.0f;
+	a_11 = b_11*c_11 + b_12*c_21 + b_13*c_32 + b_14*c_41
+	a_21 = b_21*c_11 + b_22*c_21 + b_23*c_32 + b_24*c_41
+	a_31 = b_31*c_11 + b_32*c_21 + b_33*c_32 + b_34*c_41
+	a_41 = b_41*c_11 + b_42*c_21 + b_43*c_32 + b_44*c_41
 
-			for(unsigned int i=0; i<4; ++i)
-				x += a.elem(outrow, i) * b.elem(i, outcol);
-		
-			result_out.elem(outrow, outcol) = x;
-		}
+	so
+	a_col_1 = b_col_1*c_11 + b_col_2*c_21 + b_col_3*c_31 + b_col_4*c_41
+	etc..
+	*/
+	
+	const Vec4f bcol0 = Vec4f(_mm_load_ps(b.e + 0));
+	const Vec4f bcol1 = Vec4f(_mm_load_ps(b.e + 4));
+	const Vec4f bcol2 = Vec4f(_mm_load_ps(b.e + 8));
+	const Vec4f bcol3 = Vec4f(_mm_load_ps(b.e + 12));
+
+	const Vec4f ccol0 = Vec4f(_mm_load_ps(c.e + 0));
+	const Vec4f ccol1 = Vec4f(_mm_load_ps(c.e + 4));
+	const Vec4f ccol2 = Vec4f(_mm_load_ps(c.e + 8));
+	const Vec4f ccol3 = Vec4f(_mm_load_ps(c.e + 12));
+
+	const Vec4f a_col0 = mul(bcol0, Vec4f(indigoCopyToAll(ccol0.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol0.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol0.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol0.v, 3)));
+	const Vec4f a_col1 = mul(bcol0, Vec4f(indigoCopyToAll(ccol1.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol1.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol1.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol1.v, 3)));
+	const Vec4f a_col2 = mul(bcol0, Vec4f(indigoCopyToAll(ccol2.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol2.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol2.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol2.v, 3)));
+	const Vec4f a_col3 = mul(bcol0, Vec4f(indigoCopyToAll(ccol3.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol3.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol3.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol3.v, 3)));
+
+	_mm_store_ps(result_out.e + 0, a_col0.v);
+	_mm_store_ps(result_out.e + 4, a_col1.v);
+	_mm_store_ps(result_out.e + 8, a_col2.v);
+	_mm_store_ps(result_out.e + 12, a_col3.v);
 }
 
 
-const Matrix4f Matrix4f::operator * (const Matrix4f& rhs) const
+// See comments in mul() above.
+const Matrix4f Matrix4f::operator * (const Matrix4f& c) const
 {
 	Matrix4f res;
-	mul(*this, rhs, res);
+
+	// b = this matrix.  Result = a.
+	const Vec4f bcol0 = Vec4f(_mm_load_ps(e + 0));
+	const Vec4f bcol1 = Vec4f(_mm_load_ps(e + 4));
+	const Vec4f bcol2 = Vec4f(_mm_load_ps(e + 8));
+	const Vec4f bcol3 = Vec4f(_mm_load_ps(e + 12));
+
+	const Vec4f ccol0 = Vec4f(_mm_load_ps(c.e + 0));
+	const Vec4f ccol1 = Vec4f(_mm_load_ps(c.e + 4));
+	const Vec4f ccol2 = Vec4f(_mm_load_ps(c.e + 8));
+	const Vec4f ccol3 = Vec4f(_mm_load_ps(c.e + 12));
+
+	const Vec4f a_col0 = mul(bcol0, Vec4f(indigoCopyToAll(ccol0.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol0.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol0.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol0.v, 3)));
+	const Vec4f a_col1 = mul(bcol0, Vec4f(indigoCopyToAll(ccol1.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol1.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol1.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol1.v, 3)));
+	const Vec4f a_col2 = mul(bcol0, Vec4f(indigoCopyToAll(ccol2.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol2.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol2.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol2.v, 3)));
+	const Vec4f a_col3 = mul(bcol0, Vec4f(indigoCopyToAll(ccol3.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol3.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol3.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol3.v, 3)));
+
+	_mm_store_ps(res.e + 0, a_col0.v);
+	_mm_store_ps(res.e + 4, a_col1.v);
+	_mm_store_ps(res.e + 8, a_col2.v);
+	_mm_store_ps(res.e + 12, a_col3.v);
 	return res;
 }
 
@@ -152,7 +188,6 @@ void Matrix4f::setUpperLeftMatrix(const Matrix3<float>& upper_left_mat)
 	e[6] = upper_left_mat.e[7];
 	e[10] = upper_left_mat.e[8];
 }
-
 
 
 bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
@@ -419,6 +454,21 @@ const std::string Matrix4f::toString() const
 #include "../indigo/globals.h"
 
 
+static void refMul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
+{
+	for(unsigned int outcol=0; outcol<4; ++outcol)
+		for(unsigned int outrow=0; outrow<4; ++outrow)
+		{
+			float x = 0.0f;
+
+			for(unsigned int i=0; i<4; ++i)
+				x += a.elem(outrow, i) * b.elem(i, outcol);
+
+			result_out.elem(outrow, outcol) = x;
+		}
+}
+
+
 static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 {
 	const Vec4f M_i = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
@@ -524,84 +574,7 @@ void Matrix4f::test()
 	}
 
 	// Perf test //
-	if(false)
-	{
-		// Test speed of constructFromVector()
-		{
-			Timer timer;
-
-			//const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-			//const Matrix4f m(e);
-
-			int N = 1000000;
-			Vec4f sum(0.0f);
-			for(int i=0; i<N; ++i)
-			{
-				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
-				
-				Matrix4f m;
-				m.constructFromVector(v);
-				sum += m * Vec4f(1,0,0,0);
-			}
-
-			double elapsed = timer.elapsed();
-			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
-
-			conPrint("constructFromVector time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			TestUtils::silentPrint(::toString(scalarsum));
-		}
-
-
-
-		// Test speed of transposeMult()
-		{
-			Timer timer;
-
-			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
-			const Matrix4f m(e);
-
-			int N = 1000000;
-			Vec4f sum(0.0f);
-			for(int i=0; i<N; ++i)
-			{
-				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
-				const Vec4f res = m.transposeMult(v);
-				sum += res;
-			}
-
-			double elapsed = timer.elapsed();
-			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
-
-			conPrint("transposeMult time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			TestUtils::silentPrint(::toString(scalarsum));
-		}
-
-
-		// Test speed of matrix / vec mul
-		{
-			Timer timer;
-
-			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
-			const Matrix4f m(e);
-
-			int N = 1000000;
-			Vec4f sum(0.0f);
-			for(int i=0; i<N; ++i)
-			{
-				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
-				const Vec4f res = m * v;
-				sum += res;
-			}
-
-			double elapsed = timer.elapsed();
-			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
-
-			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			TestUtils::silentPrint(::toString(scalarsum));
-		}
-	}
+	
 
 
 	//------------- Matrix4f::identity() ----------------
@@ -791,6 +764,32 @@ void Matrix4f::test()
 			const Vec4f res2(product * v);
 
 			testAssert(epsEqual(res, res2));
+
+			// Compute m * m2
+			Matrix4f m_m2;
+			mul(m, m2, m_m2);
+			Matrix4f ref_m_m2;
+			refMul(m, m2, ref_m_m2);
+
+			testAssert(epsEqual(m_m2, ref_m_m2));
+
+			Matrix4f m_m2_op_mul;
+			m_m2_op_mul = m * m2;
+
+			testAssert(epsEqual(m_m2_op_mul, ref_m_m2));
+
+			// Compute m2 * m
+			Matrix4f m2_m;
+			mul(m2, m, m2_m);
+			Matrix4f ref_m2_m;
+			refMul(m2, m, ref_m2_m);
+
+			testAssert(epsEqual(m2_m, ref_m2_m));
+
+			Matrix4f m2_m_op_mul;
+			m2_m_op_mul = m2 * m;
+
+			testAssert(epsEqual(m2_m_op_mul, ref_m2_m));
 		}
 	}
 
@@ -850,6 +849,136 @@ void Matrix4f::test()
 		{
 			const Vec4f v = Vec4f(sin(theta), 0.f, cos(theta), 0.0f);
 			testConstructFromVectorAndMulForVec(v);
+		}
+	}
+
+
+	//=================================== Perf tests =====================================
+	if(false)
+	{
+		// Test speed of matrix-matrix mult
+		{
+			Timer timer;
+
+			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+			const Matrix4f m(e);
+			const float e2[16] ={ 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+			const Matrix4f m2(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				mul(m, m2, res);
+				sum += res.e[i % 16];
+			}
+
+			double elapsed = timer.elapsed();
+
+			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+		// Test speed of reference matrix-matrix mult
+		{
+			Timer timer;
+
+			const float e[16] ={ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+			const Matrix4f m(e);
+			const float e2[16] ={ 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+			const Matrix4f m2(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				refMul(m, m2, res);
+				sum += res.e[i % 16];
+			}
+
+			double elapsed = timer.elapsed();
+
+			conPrint("ref mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+
+		// Test speed of constructFromVector()
+		{
+			Timer timer;
+
+			//const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+			//const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+
+				Matrix4f m;
+				m.constructFromVector(v);
+				sum += m * Vec4f(1, 0, 0, 0);
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("constructFromVector time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(scalarsum));
+		}
+
+
+
+		// Test speed of transposeMult()
+		{
+			Timer timer;
+
+			const float e[16] ={ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f res = m.transposeMult(v);
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("transposeMult time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(scalarsum));
+		}
+
+
+		// Test speed of matrix / vec mul
+		{
+			Timer timer;
+
+			const float e[16] ={ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f res = m * v;
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(scalarsum));
 		}
 	}
 }

@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #pragma once
 
@@ -172,13 +172,6 @@ const Vec4f Matrix4f::transposeMult(const Vec4f& v) const
 	12	13	14	15
 	*/
 
-	/*return Vec4f(
-		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2] + e[3] *v.x[3],
-		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2] + e[7] *v.x[3],
-		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2] + e[11]*v.x[3],
-		e[12]*v.x[0] + e[13]*v.x[1] + e[14]*v.x[2] + e[15]*v.x[3]
-	);*/
-	
 	// A nice way of doing transpose multiplications, given here: http://www.virtualdub.org/blog/pivot/entry.php?id=150
 	__m128 x = _mm_dp_ps(_mm_load_ps(e +  0), v.v, 0xF1); // Compute dot product with all 4 components, write result to x, set others to zero.
 	__m128 y = _mm_dp_ps(_mm_load_ps(e +  4), v.v, 0xF2); // Compute dot product with all 4 components, write result to y, set others to zero.
@@ -192,13 +185,6 @@ const Vec4f Matrix4f::transposeMult(const Vec4f& v) const
 // Ignores W component of vector, returns vector with W component of 0.
 const Vec4f Matrix4f::transposeMult3Vector(const Vec4f& v) const
 {
-	/*return Vec4f(
-		e[0] *v.x[0] + e[1] *v.x[1] + e[2] *v.x[2],
-		e[4] *v.x[0] + e[5] *v.x[1] + e[6] *v.x[2],
-		e[8] *v.x[0] + e[9] *v.x[1] + e[10]*v.x[2],
-		0
-	);*/
-
 	__m128 x = _mm_dp_ps(_mm_load_ps(e +  0), v.v, 0x71); // Compute dot product with x, y, z components, write result to x, set others to zero.
 	__m128 y = _mm_dp_ps(_mm_load_ps(e +  4), v.v, 0x72); // Compute dot product with x, y, z components, write result to y, set others to zero.
 	__m128 z = _mm_dp_ps(_mm_load_ps(e +  8), v.v, 0x74); // Compute dot product with x, y, z components, write result to z, set others to zero.
