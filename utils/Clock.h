@@ -1,7 +1,7 @@
 /*=====================================================================
-clock.h
--------------------
-Copyright Glare Technologies Limited 2013 -
+Clock.h
+-------
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #pragma once
 
@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2013 -
 
 namespace Clock
 {
-	
+
 
 // This needs to be called before getCurTimeRealSec() is used.
 void init();
@@ -21,6 +21,7 @@ void init();
 // This is time in seconds since commencement of program.
 // IMPORTANT NOTE: must call Clock::init() first.
 double getCurTimeRealSec();
+
 
 double getTimeSinceInit(); // In seconds, since init() was called.
 

@@ -1,19 +1,18 @@
 /*=====================================================================
-clock.cpp
--------------------
-Copyright Glare Technologies Limited 2013 -
+Clock.cpp
+---------
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #include "Clock.h"
-	
 
-#include "../utils/IncludeWindows.h"
+
+#include "IncludeWindows.h"
+#include "StringUtils.h"
+#include "Platform.h"
+#include <assert.h>
 #if !defined(_WIN32)
 #include <sys/time.h>
 #endif
-
-#include <assert.h>
-#include "StringUtils.h"
-#include "Platform.h"
 
 
 namespace Clock
@@ -32,9 +31,7 @@ void init()
 	const BOOL b = QueryPerformanceFrequency(&freq);
 	assertOrDeclareUsed(b);
 
-	clock_period = 1.0 / (double)(freq.QuadPart);
-#else
-	clock_period = 0.0;
+	clock_period = 1.0 / (double)freq.QuadPart;
 #endif
 
 	clock_initialised = true;
@@ -52,17 +49,17 @@ double getCurTimeRealSec()
 	const BOOL b = QueryPerformanceCounter(&count); 
 	assertOrDeclareUsed(b);
 
-	return (double)(count.QuadPart) * clock_period;
+	return (double)count.QuadPart * clock_period;
 #else
 
 	/* struct timeval {
                time_t         tv_sec;    // seconds
                suseconds_t    tv_usec;  // microseconds
        };
-*/
+	*/
 	struct timeval t;
 	gettimeofday(&t, NULL);
-	return ((double)t.tv_sec + (double)t.tv_usec * 0.000001);
+	return (double)t.tv_sec + (double)t.tv_usec * 0.000001;
 #endif
 }
 
@@ -157,9 +154,6 @@ const std::string humanReadableDuration(int seconds)
 
 	return s;
 }
-
-
-
 
 
 /*
