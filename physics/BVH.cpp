@@ -112,7 +112,7 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 		const int end   = result_nodes[0].right;
 		const int num_tris = end - begin;
 		assert(num_tris >= 0);
-		const int num_4tris = ((num_tris % 4) == 0) ? (num_tris / 4) : (num_tris / 4) + 1;
+		const int num_4tris = Maths::roundedUpDivide(num_tris, 4);
 		const int num_tris_rounded_up = num_4tris * 4;
 		const int num_padding = num_tris_rounded_up - num_tris;
 
@@ -125,10 +125,7 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 		nodes[0].setLeftNumGeom(num_4tris);
 
 		for(int i=begin; i<end; ++i)
-		{
-			const uint32 source_tri_i = result_ob_indices[i];
-			leafgeom.push_back(source_tri_i);
-		}
+			leafgeom.push_back(result_ob_indices[i]);
 
 		// Add padding if needed
 		for(int i=0; i<num_padding; ++i)
@@ -193,31 +190,25 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 					const int begin = left_child.left;
 					const int end   = left_child.right;
 					const int num_tris = end - begin;
-					assert(num_tris >= 0);
-					const int num_4tris = ((num_tris % 4) == 0) ? (num_tris / 4) : (num_tris / 4) + 1;
+					assert(num_tris > 0);
+					const int num_4tris = Maths::roundedUpDivide(num_tris, 4);
 					const int num_tris_rounded_up = num_4tris * 4;
-					const int num_padding = num_tris_rounded_up - num_tris;
-
-					assert(num_tris + num_padding == num_tris_rounded_up);
-					assert(num_tris_rounded_up % 4 == 0);
 					assert(num_4tris <= (int)BVHNode::maxNumGeom());
 
+					const size_t leaf_geom_size = leafgeom.size();
+
 					node.setLeftToLeaf();
-					node.setLeftGeomIndex((unsigned int)leafgeom.size());
+					node.setLeftGeomIndex((unsigned int)leaf_geom_size);
 					node.setLeftNumGeom(num_4tris);
 
-					for(int i=begin; i<end; ++i)
-					{
-						const uint32 source_tri_i = result_ob_indices[i];
-						leafgeom.push_back(source_tri_i);
-					}
+					leafgeom.resize(leaf_geom_size + num_tris_rounded_up);
 
-					// Add padding if needed
-					for(int i=0; i<num_padding; ++i)
-					{
-						const uint32 back_tri_i = leafgeom.back();
-						leafgeom.push_back(back_tri_i);
-					}
+					for(int z=0; z<num_tris; ++z)
+						leafgeom[leaf_geom_size + z] = result_ob_indices[begin + z];
+
+					// Pad with repeated copies of last actual tri index.
+					for(int z=num_tris; z<num_tris_rounded_up; ++z)
+						leafgeom[leaf_geom_size + z] = result_ob_indices[end-1];
 				}
 
 				if(right_child.interior)
@@ -230,31 +221,25 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 					const int begin = right_child.left;
 					const int end   = right_child.right;
 					const int num_tris = end - begin;
-					assert(num_tris >= 0);
-					const int num_4tris = ((num_tris % 4) == 0) ? (num_tris / 4) : (num_tris / 4) + 1;
+					assert(num_tris > 0);
+					const int num_4tris = Maths::roundedUpDivide(num_tris, 4);
 					const int num_tris_rounded_up = num_4tris * 4;
-					const int num_padding = num_tris_rounded_up - num_tris;
-
-					assert(num_tris + num_padding == num_tris_rounded_up);
-					assert(num_tris_rounded_up % 4 == 0);
 					assert(num_4tris <= (int)BVHNode::maxNumGeom());
+
+					const size_t leaf_geom_size = leafgeom.size();
 
 					node.setRightToLeaf();
 					node.setRightGeomIndex((unsigned int)leafgeom.size());
 					node.setRightNumGeom(num_4tris);
 
-					for(int i=begin; i<end; ++i)
-					{
-						const uint32 source_tri_i = result_ob_indices[i];
-						leafgeom.push_back(source_tri_i);
-					}
+					leafgeom.resize(leaf_geom_size + num_tris_rounded_up);
 
-					// Add padding if needed
-					for(int i=0; i<num_padding; ++i)
-					{
-						const uint32 back_tri_i = leafgeom.back();
-						leafgeom.push_back(back_tri_i);
-					}
+					for(int z=0; z<num_tris; ++z)
+						leafgeom[leaf_geom_size + z] = result_ob_indices[begin + z];
+
+					// Pad with repeated copies of last actual tri index.
+					for(int z=num_tris; z<num_tris_rounded_up; ++z)
+						leafgeom[leaf_geom_size + z] = result_ob_indices[end-1];
 				}
 			}
 		}
