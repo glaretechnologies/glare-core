@@ -29,6 +29,7 @@ public:
 	inline void setAllBits(uint32 newval);
 
 	inline void resize(size_t new_num_bits);
+	inline size_t size() const { return num_bits; }
 	
 	// Return the value of the bit at the given index.  Returns 0 or 1.
 	inline uint32 getBit(size_t index) const;
