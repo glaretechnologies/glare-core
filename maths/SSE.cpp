@@ -26,26 +26,36 @@ namespace SSE
 void* alignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
+
+	// The general idea here is to call original_addr = malloc(), then round the result down to largest multiple of alignment <= original_addr.
+	// We then add alignment bytes, to get an address > original_addr, that is also aligned.
+	// Assuming malloc returns a 4-byte aligned address, then the rounding down then adding alignemnt process should give
+	// A resulting address that is aligned, but also >= 4 bytes from original address.  
+	// We then store the offset from this aligned address to the original address in the 4 bytes preceding the aligned address, then return the aligned address.
+	// When freeing the mem, we can look in the 4 bytes preceding the pointed to address, to recover the offset and hence the original address.
+	//
+	// The maximum amount the returned address can be above original_address is alignment bytes, therefore malloc'ing alignment extra bytes should suffice.
 	
 	// Suppose alignment is 16 = 0x10, so alignment - 1 = 15 = 0xF, also suppose original_addr = 0x01234567 
 	// original_addr & (alignment - 1) = 0x01234567 & 0xF = 0x00000007
-	// original_addr - (original_addr & (alignment - 1)) = 0x01234567 - 0x00000007 = 0x01234560
+	// rounded_down_addr = original_addr - (original_addr & (alignment - 1)) = 0x01234567 - 0x00000007 = 0x01234560
+	// Then 
+	// returned_addr = rounded_down_addr + alignment = 0x01234560 + 0x10 = 0x01234570
 
-	const size_t padding = myMax(alignment, sizeof(unsigned int));
+	alignment = myMax(sizeof(unsigned int), alignment);
 
-	void* original_addr = malloc(amount + padding); // e.g. m = 0x01234567
-
+	void* original_addr = malloc(amount + alignment);
 	if(!original_addr)
 		throw std::bad_alloc();
+	assert((uintptr_t)original_addr % 4 == 0);
 
 	// Snap the address down to the largest multiple of alignment <= original_addr
-	const uintptr_t snapped_addr = (uintptr_t)original_addr - ((uintptr_t)original_addr & (alignment - 1));
+	const uintptr_t rounded_down_addr = (uintptr_t)original_addr - ((uintptr_t)original_addr & (alignment - 1));
 
-	assert(snapped_addr % alignment == 0); // Check aligned
-	assert(snapped_addr <= (uintptr_t)original_addr);
-	assert((uintptr_t)original_addr - snapped_addr < alignment);
+	assert(rounded_down_addr % alignment == 0); // Check aligned
+	assert((rounded_down_addr <= (uintptr_t)original_addr) && ((uintptr_t)original_addr - rounded_down_addr < alignment));
 
-	void* returned_addr = (void*)(snapped_addr + padding); // e.g. 0x01234560 + 0x10 =  + 0xF = 0x01234570
+	void* returned_addr = (void*)(rounded_down_addr + alignment);
 
 	assert((uintptr_t)returned_addr - (uintptr_t)original_addr >= sizeof(unsigned int));
 
