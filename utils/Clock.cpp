@@ -20,7 +20,9 @@ namespace Clock
 
 
 static bool clock_initialised = false;
+#if defined(_WIN32)
 static double clock_period = 0;
+#endif
 static double init_time = 0;
 
 
