@@ -789,10 +789,10 @@ public:
 
 			if(ss_factor > closure.subres_factor) // Perform downsampling if needed
 			{
-				const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_x >= 0);
-				const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor + ss_factor / 2 - filter_span; assert(bucket_min_y >= 0);
-				const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_x <= xres);
-				const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + ss_factor / 2 + filter_span + 1; assert(bucket_max_y <= yres);
+				const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor - filter_span; assert(bucket_min_x >= 0); // coordinates in source intermediate buffer
+				const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor - filter_span; assert(bucket_min_y >= 0); // coordinates in source intermediate buffer
+				const ptrdiff_t bucket_max_x = ((x_max - 1) + gutter_pix) * ss_factor + filter_span + 1; assert(bucket_max_x <= xres);
+				const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + filter_span + 1; assert(bucket_max_y <= yres);
 				const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
 
 				// First we get the weighted sum of all pixels in the layers
@@ -883,13 +883,13 @@ public:
 				}
 
 				// Filter processed pixels into the final image
-				for(ptrdiff_t y = y_min; y < y_max; ++y)
-				for(ptrdiff_t x = x_min; x < x_max; ++x)
+				for(ptrdiff_t y = y_min; y < y_max; ++y) // y is in final px coords
+				for(ptrdiff_t x = x_min; x < x_max; ++x) // x is in final px coords
 				{
-					const ptrdiff_t pixel_min_x = (x + gutter_pix) * ss_factor + ss_factor / 2 - filter_span - bucket_min_x;
-					const ptrdiff_t pixel_min_y = (y + gutter_pix) * ss_factor + ss_factor / 2 - filter_span - bucket_min_y;
-					const ptrdiff_t pixel_max_x = (x + gutter_pix) * ss_factor + ss_factor / 2 + filter_span - bucket_min_x + 1;
-					const ptrdiff_t pixel_max_y = (y + gutter_pix) * ss_factor + ss_factor / 2 + filter_span - bucket_min_y + 1;
+					const ptrdiff_t pixel_min_x = (x + gutter_pix) * ss_factor - filter_span - bucket_min_x; // Coordinates in bucket pixels
+					const ptrdiff_t pixel_min_y = (y + gutter_pix) * ss_factor - filter_span - bucket_min_y; // Coordinates in bucket pixels
+					const ptrdiff_t pixel_max_x = (x + gutter_pix) * ss_factor + filter_span - bucket_min_x + 1;
+					const ptrdiff_t pixel_max_y = (y + gutter_pix) * ss_factor + filter_span - bucket_min_y + 1;
 
 					uint32 filter_addr = 0;
 					Colour4f weighted_sum(0);
@@ -1130,7 +1130,7 @@ void doTonemap(
 		ptrdiff_t tile_buffer_size;
 		int effective_margin = margin_ssf1;
 		if(subres_factor > 1)
-			effective_margin = Maths::roundedUpDivide(margin_ssf1, subres_factor);
+			effective_margin = Maths::roundedUpDivide(margin_ssf1*(int)ss_factor, subres_factor); // This margin will be used directly. (won't be multiplied by ssf)
 
 		if(ss_factor == 1 || subres_factor > 1)
 			tile_buffer_size = image_tile_size; // We won't be doing downsampling.  Therefore we don't need a margin for the downsample filter.
