@@ -863,7 +863,7 @@ void Matrix4f::test()
 			const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 			const Matrix4f m(e);
 			const float e2[16] ={ 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-			const Matrix4f m2(e);
+			const Matrix4f m2(e2);
 
 			int N = 1000000;
 			float sum = 0.0f;
@@ -887,7 +887,7 @@ void Matrix4f::test()
 			const float e[16] ={ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 			const Matrix4f m(e);
 			const float e2[16] ={ 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-			const Matrix4f m2(e);
+			const Matrix4f m2(e2);
 
 			int N = 1000000;
 			float sum = 0.0f;
