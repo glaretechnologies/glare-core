@@ -1114,8 +1114,6 @@ void doTonemap(
 	else
 	{
 		// Grab some unsigned constants for convenience
-		const ptrdiff_t xres		= (ptrdiff_t)render_channels.layers[0].image.getWidth();
-		const ptrdiff_t yres		= (ptrdiff_t)render_channels.layers[0].image.getHeight();
 		const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
 		const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFunc().getFilterSpan((int)ss_factor);
 
