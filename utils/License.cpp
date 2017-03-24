@@ -994,7 +994,7 @@ bool License::tryVerifyOnlineLicence(const std::string& appdata_path, LicenceTyp
 			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Are we in the licence period?
-				if((uint64)Clock::getSecsSince1970() < end_time)
+				if((uint64)Clock::getSecsSince1970() > start_time && (uint64)Clock::getSecsSince1970() < end_time)
 				{
 					// Key verified!
 					license_type_out = desired_licence_type;
