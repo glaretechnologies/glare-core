@@ -8,7 +8,7 @@ File created by ClassTemplate on Sun Nov 07 02:10:07 2004
 
 
 #include "Platform.h"
-#include <map>
+#include <unordered_map>
 #include <string>
 
 
@@ -28,17 +28,12 @@ private:
 /*=====================================================================
 NameMap
 -------
-
+Map from string to some value type.
 =====================================================================*/
 template <class T>
 class NameMap
 {
 public:
-	/*=====================================================================
-	NameMap
-	-------
-	
-	=====================================================================*/
 	inline NameMap();
 
 	inline ~NameMap();
@@ -51,14 +46,13 @@ public:
 
 	bool isInserted(const std::string& key) const;
 
-	unsigned int size() const { return (unsigned int)namemap.size(); }
+	size_t size() const { return namemap.size(); }
 
-	//throws NameMapExcep if not in map
-	//OLDreturns NULL if no such key inserted.
+	// throws NameMapExcep if not in map
 	const T& getValue(const std::string& key);
 
-	typedef typename std::map<std::string, T>::const_iterator const_iterator;
-	typedef typename std::map<std::string, T>::iterator iterator;
+	typedef typename std::unordered_map<std::string, T>::const_iterator const_iterator;
+	typedef typename std::unordered_map<std::string, T>::iterator iterator;
 
 	inline const_iterator begin() const { return namemap.begin(); }
 	inline const_iterator end() const { return namemap.end(); }
@@ -68,7 +62,7 @@ public:
 	inline void erase(iterator& i);
 
 private:
-	std::map<std::string, T> namemap;
+	std::unordered_map<std::string, T> namemap;
 };
 
 
@@ -85,7 +79,7 @@ NameMap<T>::~NameMap()
 template <class T>
 void NameMap<T>::removeAndDeleteAll()
 {
-	for(typename std::map<std::string, T>::iterator i = namemap.begin(); i != namemap.end(); ++i)
+	for(typename std::unordered_map<std::string, T>::iterator i = namemap.begin(); i != namemap.end(); ++i)
 		delete (*i).second;
 
 	namemap.clear();
@@ -110,19 +104,14 @@ bool NameMap<T>::isInserted(const std::string& key) const
 	return namemap.find(key) != namemap.end();
 }
 
-	//returns NULL if no such key inserted.
+
 template <class T>
 const T& NameMap<T>::getValue(const std::string& key)
 {
-	typename std::map<std::string, T>::iterator result = namemap.find(key);
+	typename std::unordered_map<std::string, T>::iterator result = namemap.find(key);
 
 	if(result == namemap.end())
-	{
-		//assert(0);
-		//return (const T)NULL;
-		//return (*result).second;
 		throw NameMapExcep("key '" + key + "' not found");
-	}
 	else
 		return (*result).second;
 }
