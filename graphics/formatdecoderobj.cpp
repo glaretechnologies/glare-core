@@ -438,7 +438,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			else
 			{
 				//conPrint("\tFound reference to material '" + material_name + "'.");
-				current_mat_index = materials.size();
+				current_mat_index = (int)materials.size();
 				materials.insert(material_name.to_string(), current_mat_index);
 				handler.addMaterialUsed(toIndigoString(material_name.to_string()));
 			}
