@@ -189,6 +189,15 @@ INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
 }
 
 
+inline bool isZero(const Vec4f& v)
+{
+	__m128 zero = _mm_setzero_ps(); // Latency 1
+	__m128 mask = _mm_cmpneq_ps(zero, v.v); // latency 3
+	int res = _mm_movemask_ps(mask);
+	return res == 0;
+}
+
+
 Vec4f& Vec4f::operator = (const Vec4f& a)
 {
 	v = a.v;
