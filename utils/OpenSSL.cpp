@@ -51,7 +51,7 @@ void OpenSSL::init()
 
 	num_mutexes = CRYPTO_num_locks();
 	mutexes = (Mutex*)malloc(sizeof(Mutex) * num_mutexes);
-	for(size_t i=0; i<num_mutexes; ++i)
+	for(int i=0; i<num_mutexes; ++i)
 		new (&mutexes[i]) Mutex(); // Construct it
 
 	CRYPTO_set_locking_callback(locking_callback);
@@ -66,7 +66,7 @@ void OpenSSL::shutdown()
 
 	CRYPTO_set_locking_callback(NULL);
 
-	for(size_t i=0; i<num_mutexes; ++i)
+	for(int i=0; i<num_mutexes; ++i)
 		mutexes[i].~Mutex();
 
 	free(mutexes);
