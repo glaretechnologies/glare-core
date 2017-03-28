@@ -22,10 +22,8 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 	decrypt_context = new EVP_CIPHER_CTX;
 
 	const int num_rounds = 5;
-	unsigned char key[32], iv[32];
-
 	
-	// Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
+	// Generate key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
 	// num_rounds is the number of times the we hash the material. More rounds are more secure but
 	// slower.
 	int i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, num_rounds, key, iv);
@@ -39,11 +37,11 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 	}
 
 	EVP_CIPHER_CTX_init(encrypt_context); // void return
-	if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
-		throw Indigo::Exception("EVP_EncryptInit_ex failed.");
+	//if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
+	//	throw Indigo::Exception("EVP_EncryptInit_ex failed.");
 	EVP_CIPHER_CTX_init(decrypt_context); // void return
-	if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
-		throw Indigo::Exception("EVP_DecryptInit_ex failed.");
+	//if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
+	//	throw Indigo::Exception("EVP_DecryptInit_ex failed.");
 }
 
 
@@ -67,7 +65,7 @@ std::vector<unsigned char> AESEncryption::encrypt(const std::vector<unsigned cha
 
 	std::vector<unsigned char> ciphertext(ciphertext_len);
 
-	if(!EVP_EncryptInit_ex(encrypt_context, NULL, NULL, NULL, NULL))
+	if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv)) // Needed to reset state for CBC mode
 		throw Indigo::Exception("EVP_EncryptInit_ex failed.");
 
 	// Update ciphertext, ciphertext_len is filled with the length of ciphertext generated,
@@ -95,7 +93,7 @@ std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned cha
 	int plaintext_len = (int)ciphertext.size() + AES_BLOCK_SIZE;
 	std::vector<unsigned char> plaintext(plaintext_len);
 
-	if(!EVP_DecryptInit_ex(decrypt_context, NULL, NULL, NULL, NULL))
+	if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv)) // Needed to reset state for CBC mode
 		throw Indigo::Exception("EVP_DecryptInit_ex failed.");
 
 	if(!EVP_DecryptUpdate(decrypt_context, &plaintext[0], &plaintext_len, &ciphertext[0], (int)ciphertext.size()))
@@ -164,6 +162,11 @@ static void testWithPlaintextLength(int N)
 
 	// Check encryption and decryption process preserved the data.
 	testAssert(decrypted_plaintext == plaintext);
+
+	// Execute again, check we get same results
+	std::vector<unsigned char> cyphertext2 = aes.encrypt(plaintext);
+	std::vector<unsigned char> decrypted_plaintext2 = aes.decrypt(cyphertext2);
+	testAssert(decrypted_plaintext2 == plaintext);
 }
 
 
@@ -179,4 +182,3 @@ void AESEncryption::test()
 
 
 #endif
-

@@ -36,4 +36,6 @@ private:
 	// struct evp_cipher_ctx_st = EVP_CIPHER_CTX
 	struct evp_cipher_ctx_st *encrypt_context;
 	struct evp_cipher_ctx_st *decrypt_context;
+
+	unsigned char key[32], iv[32];
 };
