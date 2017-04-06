@@ -68,7 +68,10 @@ ldr_buffer_out should have the correct size - e.g. final width and height, or ce
 The input data may be in XYZ colour space (as is the case for the usual rendering), or linear sRGB space (the case for some loaded images).
 
 The output data will be stored as floating point data in ldr_buffer_out.
-The output data will be in linear sRGB colour space.
+
+The output data will be in linear or non-linear sRGB colour space.
+output_is_nonlinear will be set based on the output colour space.
+
 The output data components will be in the range [0, 1].
 */
 void doTonemap(
@@ -82,6 +85,7 @@ void doTonemap(
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
 	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
@@ -102,7 +106,7 @@ struct ToNonLinearSpaceScratchState
 Converts some tonemapped image data to non-linear sRGB space.
 Does a few things in preperation for conversion to an 8-bit output image format,
 such as dithering and gamma correction.
-Input colour space is linear sRGB
+Input colour space is linear or non-linear sRGB
 Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
 
@@ -114,6 +118,7 @@ void toNonLinearSpace(
 	ToNonLinearSpaceScratchState& scratch_state,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
+	bool input_is_nonlinear, // Is ldr_buffer_in_out in a non-linear colour space?
 	Bitmap* uint8_buffer_out = NULL // May be NULL
 );
 

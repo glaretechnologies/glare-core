@@ -15,6 +15,7 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../utils/ConPrint.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/TaskManager.h"
+#include "../utils/StandardPrintOutput.h"
 #include "../graphics/bitmap.h"
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/TestUtils.h"
@@ -22,14 +23,16 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../indigo/CameraToneMapper.h"
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/ReinhardToneMapper.h"
+#include "../indigo/FilmicToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
+#include "../dll/include/SceneNodeCamera.h"
 
 
 namespace ImagingPipelineTests
 {
 
 
-static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale)
+static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
 {
 	Indigo::TaskManager task_manager(1);
 
@@ -41,7 +44,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	renderer_settings.setWidth(W);
 	renderer_settings.setHeight(W);
 	renderer_settings.super_sample_factor = ssf;
-	renderer_settings.tone_mapper = new LinearToneMapper(1);
+	renderer_settings.tone_mapper = tone_mapper;
 	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
 	renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
 
@@ -51,6 +54,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	std::vector<RenderRegion> render_regions;
 
 	ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+	bool ldr_buffer_is_nonlinear;
 	ImagingPipeline::doTonemap(
 		tonemap_scratch_state,
 		render_channels,
@@ -62,6 +66,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		filter_data.data(),
 		Reference<PostProDiffraction>(),
 		ldr_image_out,
+		ldr_buffer_is_nonlinear,
 		false, // XYZ_colourspace
 		RendererSettings::defaultMargin(), // margin at ssf1
 		task_manager
@@ -69,7 +74,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 
 	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 	Bitmap bitmap;
-	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out, &bitmap);
+	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out, ldr_buffer_is_nonlinear, &bitmap);
 }
 
 
@@ -134,6 +139,7 @@ void test()
 
 
 		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+		bool ldr_buffer_is_nonlinear;
 
 		Timer timer;
 		const int N = 100;
@@ -152,6 +158,7 @@ void test()
 				filter_data.data(),
 				Reference<PostProDiffraction>(),
 				ldr_buffer,
+				ldr_buffer_is_nonlinear,
 				false, // XYZ_colourspace
 				RendererSettings::defaultMargin(), // margin at ssf1
 				task_manager
@@ -167,17 +174,104 @@ void test()
 		timer.reset();
 		for(int i=0; i<N; ++i)
 		{
-			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
+			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
 
 			//::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
 			ldr_buffer.copyToBitmap(bitmap);
 		}
 		const double elapsed2 = timer.elapsed() / N;
 		conPrint("ImagingPipeline::toNonLinearSpace took " + toString(elapsed2) + " s");
+	} 
+	//================ End Perf test =================
+
+	// Test with aperture diffraction
+	if(false)
+	{
+		const int W = 100;
+		const int ssf = 1;
+		const int margin_ssf1 = 4;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
+
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(1.0f));
+
+		Image4f ldr_buffer(W, W);
+		const float image_scale = 1.f;
+		Indigo::TaskManager task_manager(1);
+		StandardPrintOutput print_output;
+
+		const float layer_normalise = image_scale;
+		std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
+
+		RendererSettings renderer_settings;
+		renderer_settings.aperture_diffraction = true;
+		renderer_settings.post_process_diffraction = true;
+
+		renderer_settings.logging = false;
+		renderer_settings.setWidth(W);
+		renderer_settings.setHeight(W);
+		renderer_settings.super_sample_factor = ssf;
+		renderer_settings.tone_mapper = new LinearToneMapper(1);
+		renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+		renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
+
+		std::vector<float> filter_data;
+		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
+		std::vector<RenderRegion> render_regions;
+
+		//ApertureRef aperture = new CircularAperture();
+		Reference<Indigo::ApertureShape> aperture_shape = new Indigo::ApertureCircular();
+
+		Reference<PostProDiffraction> post_pro_diffraction = new PostProDiffraction();
+		post_pro_diffraction->build(
+			"", // obstacle_map_path
+			*aperture_shape,
+			0.01f, // lens_radius,
+			0.03f,
+			0.03f, // lens_sensor_dist,
+			".", // toStdString(base_indigo_path),
+			".", // toStdString(appdata_path),
+			".", // toStdString(cache_dir_path),
+			false, // write_aperture_preview,
+			W, // width,
+			W, // height,
+			ssf,
+			margin_ssf1,
+			print_output,
+			task_manager
+		);
+
+
+		Image4f ldr_image;
+		bool ldr_buffer_is_nonlinear;
+		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+		ImagingPipeline::doTonemap(
+			tonemap_scratch_state,
+			render_channels,
+			render_regions,
+			layer_weights,
+			layer_normalise, // image scale
+			layer_normalise, // region image scale
+			renderer_settings,
+			filter_data.data(),
+			post_pro_diffraction,
+			ldr_image,
+			ldr_buffer_is_nonlinear,
+			false, // XYZ_colourspace
+			RendererSettings::defaultMargin(), // margin at ssf1
+			task_manager
+		);
+
+		ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
+		Bitmap bitmap;
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image, ldr_buffer_is_nonlinear, &bitmap);
 	}
 
 
-	// Constant colour of (1,1,1), no alpha, ssf1
+	// Constant colour of (1,1,1), no alpha, ssf1, linear tone mapping
 	{
 		const int W = 1000;
 		const int ssf = 1;
@@ -190,7 +284,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -201,6 +295,28 @@ void test()
 		}
 	}
 
+	// Constant colour of (1,1,1), no alpha, ssf1, filmic tone mapping
+	{
+		const int W = 1000;
+		const int ssf = 1;
+		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+
+		RenderChannels render_channels;
+		render_channels.layers.push_back(Layer());
+		render_channels.layers.back().image.resize(full_W, full_W);
+		render_channels.layers.back().image.set(Colour3f(1.0f));
+
+		Image4f ldr_buffer(W, W);
+		const float image_scale = 1.f;
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new FilmicToneMapper(1));
+		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
+
+		for(int y=0; y<W; ++y)
+			for(int x=0; x<W; ++x)
+			{
+				testEpsEqualWithEps(ldr_buffer.getPixel(x, y)[3], 1.0f, 1.0e-4f); // Check alpha is 1.
+			}
+	}
 
 	// Constant colour of (1,1,1), no alpha, ssf2
 	{
@@ -215,7 +331,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -247,7 +363,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f / value_factor;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale);
+		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -357,6 +473,7 @@ void test()
 		master_buffer.getRenderChannels().alpha.set(1.0f);
 
 		::Image4f ldr_buffer(image_final_xres, image_final_yres);
+		bool ldr_buffer_is_nonlinear;
 
 		std::vector<float> filter_data;
 		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
@@ -372,12 +489,13 @@ void test()
 			filter_data.data(),
 			post_pro_diffraction,
 			ldr_buffer,
+			ldr_buffer_is_nonlinear,
 			false,
 			RendererSettings::defaultMargin(), // margin at ssf1
 			task_manager);
 
 		Bitmap bitmap;
-		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
 
 		testAssert(image_final_xres == (int)ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)ldr_buffer.getHeight());

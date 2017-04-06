@@ -30,6 +30,15 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 
 /*
+
+We tonemap before downsizing to get rid of aliasing along high contrast edges.
+Just clamping before downsizing also works quite well, seems not quite as good as tonemapping though.
+Very similar for linear, looks a bit more aliased for camera tone mapping.
+This is maybe due to the shape of the camera curve (slowly approaches max value).
+
+
+
+
 A comparison of downsize-then-apply-gamma vs apply-gamma-then-downsize:
 =======================================================================
 Suppose a = 1/gamma
@@ -1044,6 +1053,7 @@ void doTonemap(
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& ldr_buffer_out,
+	bool& output_is_nonlinear,
 	bool XYZ_colourspace,
 	int margin_ssf1,
 	Indigo::TaskManager& task_manager,
@@ -1207,6 +1217,7 @@ void doTonemap(
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}
 	
+	output_is_nonlinear = renderer_settings.tone_mapper->outputIsNonLinear();
 
 	// TEMP HACK: Chromatic abberation
 	/*Image temp;
@@ -1251,13 +1262,27 @@ public:
 		for(size_t z = begin; z<end; ++z)
 		{
 			Colour4f col = pixel_data[z];
+			Colour4f original_col = col;
 
 			/////// Gamma correct (convert from linear sRGB to non-linear sRGB space) ///////
-			const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
-			const Colour4f linear = Colour4f(12.92f) * col;
-			const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
-			const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
-			col = select(col, sRGBcol, gamma_mask);
+			if(input_is_nonlinear)
+			{
+				col.v = _mm_sqrt_ps(col.v); // data was in non-linear sRGB space, but raised to the power of 2.  Apply inverse.
+			}
+			else
+			{
+				const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
+				const Colour4f linear = Colour4f(12.92f) * col;
+				const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
+				const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
+				col = select(col, sRGBcol, gamma_mask);
+			}
+
+			//if(input_is_nonlinear)
+			//{
+			//	const Colour4f sRGBcol(_mm_sqrt_ps(original_col.v)); // sRGB apart from alpha, which is garbarge
+			//	col = select(sRGBcol, col, toColour4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0))); // col[0] = sRGBcol[0], col[1] = sRGBcol[1], col[2] = sRGBcol[2], col[3] = col[3]
+			//}
 
 			////// Dither ///////
 			if(dithering)
@@ -1288,6 +1313,7 @@ public:
 	Image4f* ldr_buffer_in_out;
 	Bitmap* uint8_buffer_out;
 	size_t begin, end;
+	bool input_is_nonlinear;
 };
 
 
@@ -1296,6 +1322,7 @@ void toNonLinearSpace(
 	ToNonLinearSpaceScratchState& scratch_state,
 	const RendererSettings& renderer_settings,
 	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
+	bool input_is_nonlinear,
 	Bitmap* uint8_buffer_out // May be NULL
 	)
 {
@@ -1319,6 +1346,7 @@ void toNonLinearSpace(
 		task->renderer_settings = &renderer_settings;
 		task->ldr_buffer_in_out = &ldr_buffer_in_out;
 		task->uint8_buffer_out = uint8_buffer_out;
+		task->input_is_nonlinear = input_is_nonlinear;
 		task->begin = myMin(num_pixels_per_task * i      , ldr_buffer_in_out.numPixels());
 		task->end   = myMin(num_pixels_per_task * (i + 1), ldr_buffer_in_out.numPixels());
 	}

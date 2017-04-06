@@ -107,6 +107,12 @@ INDIGO_STRONG_INLINE Colour4f operator * (const Colour4f& a, const Colour4f& b)
 }
 
 
+INDIGO_STRONG_INLINE Colour4f operator / (const Colour4f& a, const Colour4f& b)
+{
+	return Colour4f(_mm_div_ps(a.v, b.v));
+}
+
+
 INDIGO_STRONG_INLINE float dot(const Colour4f& a, const Colour4f& b)
 {
 #if 1 // USE_SSE4 
@@ -308,4 +314,11 @@ INDIGO_STRONG_INLINE Colour4f select(const Colour4f& a, const Colour4f& b, const
 INDIGO_STRONG_INLINE const Vec4i toVec4i(const Colour4f& v)
 {
 	return Vec4i(_mm_cvttps_epi32(v.v)); // _mm_cvttps_epi32 (CVTTPS2DQ) is SSE 2
+}
+
+
+// SSE2
+INDIGO_STRONG_INLINE Colour4f toColour4f(const Vec4i& v)
+{
+	return Colour4f(_mm_cvtepi32_ps(v.v));
 }
