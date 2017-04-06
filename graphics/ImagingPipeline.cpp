@@ -38,6 +38,10 @@ This is maybe due to the shape of the camera curve (slowly approaches max value)
 
 
 
+For the tonemapping methods that naturally map to a non-linear space (camera and filmic), don't transform to linear then back to non-linear in ImagingPipeline::toNonLinearSpace().
+Instead, transform to a 'near-linear' space by raising to the power of 2.  A near linear space is needed for best downsizing results.  This can be undone later with a sqrt call.
+This is good because it removes some very expensive pow() calls.
+
 
 A comparison of downsize-then-apply-gamma vs apply-gamma-then-downsize:
 =======================================================================
