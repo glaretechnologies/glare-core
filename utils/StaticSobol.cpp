@@ -192,14 +192,13 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 
 		// Test that we get the desired Sobol sequence
 		{
-			const uint32 max_num_samples = 4294967295UL;
 			const uint32 max_dims = 32;
 			const uint32 test_samples = 32;
-			SobolSequence sobol_ref(max_num_samples, max_dims);
+			SobolSequence sobol_ref(max_dims);
 
 			for(uint32 s = 0; s < test_samples; ++s)
 			{
-				uint32 ref_sample[max_dims];
+				SSE_ALIGN uint32 ref_sample[max_dims];
 				sobol_ref.evalPoints(ref_sample); // Evaluate the reference Sobol sequence sample (in greycode order)
 
 				const uint32 greycode_sample_idx = s ^ (s / 2); // Get greycode sample index to match orig Sobol order

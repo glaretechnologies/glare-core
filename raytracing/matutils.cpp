@@ -754,13 +754,13 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 		);
 
 		
-		SobolSequence seq(4294967295u, 32);
+		SobolSequence seq(32);
 		MTwister rng(1);
 
 		const int N = 1000;
 		for(int i=0; i<N; ++i)
 		{
-			float samples[32];
+			SSE_ALIGN float samples[32];
 			seq.evalPoints(samples);
 
 			//if(i == 21)
