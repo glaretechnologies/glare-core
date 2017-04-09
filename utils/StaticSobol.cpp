@@ -7,6 +7,7 @@ Generated at Mon Jul 30 23:42:17 +0100 2012
 #include "StaticSobol.h"
 
 
+#include "../indigo/SobolData.h"
 #include "Exception.h"
 #include "FileUtils.h"
 #include "BitUtils.h"
@@ -25,16 +26,7 @@ inline static float floatCast(const uint32 x)
 
 StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
 {
-	std::vector<uint32> direction_nums(418214);
-	{
-		const std::string dir_data_path = FileUtils::join(indigo_base_dir_path, "data/dirdata.bin");
-		std::ifstream dir_file(FileUtils::convertUTF8ToFStreamPath(dir_data_path).c_str(), std::ios::in | std::ios::binary);
-		if(!dir_file)
-			throw Indigo::Exception("Could not open dirdata.bin data file");
-
-		dir_file.read((char *)&direction_nums[0], 418214 * sizeof(uint32));
-	}
-	std::vector<uint32>::const_iterator dir_iter = direction_nums.begin();
+	std::vector<uint32>::const_iterator dir_iter = ::getGlobalSobolData()->direction_nums.begin();
 
 
 	// Allocate temporary memory used during direction number computation
@@ -129,7 +121,7 @@ void StaticSobol::evalSampleBlock(const uint32 base_sample_idx, const uint32 sam
 		const uint32 sample_idx = base_sample_idx + i;
 		const uint32 bit_index = BitUtils::lowestZeroBitIndex(sample_idx);
 
-		float const * const dir_nums = (float const * const)&transposed_dir_nums[bit_index * StaticSobol::num_dims];
+		float const * const dir_nums_ = (float const * const)&transposed_dir_nums[bit_index * StaticSobol::num_dims];
 
 		for (uint32 d = 0; d < sample_depth; d += 16)
 		{
@@ -138,10 +130,10 @@ void StaticSobol::evalSampleBlock(const uint32 base_sample_idx, const uint32 sam
 			const __m128 s2 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d +  8]);
 			const __m128 s3 = _mm_load_ps((const float *)&samples_out[(i-1) * sample_depth + d + 12]);
 
-			const __m128 v0 = _mm_load_ps((const float *)&dir_nums[d +  0]);
-			const __m128 v1 = _mm_load_ps((const float *)&dir_nums[d +  4]);
-			const __m128 v2 = _mm_load_ps((const float *)&dir_nums[d +  8]);
-			const __m128 v3 = _mm_load_ps((const float *)&dir_nums[d + 12]);
+			const __m128 v0 = _mm_load_ps((const float *)&dir_nums_[d +  0]);
+			const __m128 v1 = _mm_load_ps((const float *)&dir_nums_[d +  4]);
+			const __m128 v2 = _mm_load_ps((const float *)&dir_nums_[d +  8]);
+			const __m128 v3 = _mm_load_ps((const float *)&dir_nums_[d + 12]);
 
 			_mm_store_ps((float *)&samples_out[i * sample_depth + d +  0], _mm_xor_ps(s0, v0));
 			_mm_store_ps((float *)&samples_out[i * sample_depth + d +  4], _mm_xor_ps(s1, v1));
