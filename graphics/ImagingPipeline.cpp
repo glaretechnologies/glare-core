@@ -1266,7 +1266,7 @@ public:
 		for(size_t z = begin; z<end; ++z)
 		{
 			Colour4f col = pixel_data[z];
-			Colour4f original_col = col;
+			//Colour4f original_col = col;
 
 			/////// Gamma correct (convert from linear sRGB to non-linear sRGB space) ///////
 			if(input_is_nonlinear)
