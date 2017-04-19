@@ -756,7 +756,7 @@ bool License::shouldApplyResolutionLimits(LicenceType t)
 
 uint32 License::maxUnlicensedResolution()
 {
-	return 700000; // 0.7 MP
+	return 1000000; // 1.0 MP
 }
 	
 
