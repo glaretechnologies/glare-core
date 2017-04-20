@@ -53,6 +53,7 @@ public:
 	void setTargetPos(const Vec3d& p);
 
 	bool invert_mouse;
+	bool invert_sideways_movement;
 
 	static void test();
 

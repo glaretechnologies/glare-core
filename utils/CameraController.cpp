@@ -29,6 +29,7 @@ CameraController::CameraController()
 	mouse_sensitivity_scale = 1;
 
 	invert_mouse = false;
+	invert_sideways_movement = false;
 	allow_pitching = true;
 
 	// NOTE: Call initialise after the member variables above have been initialised.
@@ -72,8 +73,9 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 
 void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 {
-	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
-	const double move_speed   = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+	const double rotate_speed        = base_rotate_speed * mouse_sensitivity_scale;
+	const double move_speed          = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+	const double sideways_dir_factor = invert_sideways_movement ? -1.0 : 1.0;
 
 	if(rot_delta.x != 0 || rot_delta.y != 0)
 	{
@@ -94,9 +96,9 @@ void CameraController::update(const Vec3d& pos_delta, const Vec2d& rot_delta)
 	const Vec3d up = getUpForForwards(forwards, initialised_up);
 	const Vec3d right = ::crossProduct(forwards, up);
 
-	position += right		* pos_delta.x * move_speed +
+	position += right		* pos_delta.x * move_speed * sideways_dir_factor +
 				forwards	* pos_delta.y * move_speed +
-				up			* pos_delta.z * move_speed;
+				up			* pos_delta.z * move_speed * sideways_dir_factor;
 }
 
 
@@ -120,10 +122,10 @@ static Vec3d rotatePointAroundLine(const Vec3d& p, const Vec3d& axis_point, cons
 
 void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_delta)
 {
-	const double rotate_speed = base_rotate_speed * mouse_sensitivity_scale;
-	const double move_speed   = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
-	const double zoom_speed   = 0.15 * base_move_speed * mouse_sensitivity_scale; // Doesn't need move_speed_scale since this is a change relative to the current zoom distance.
-
+	const double rotate_speed        = base_rotate_speed * mouse_sensitivity_scale;
+	const double move_speed          = base_move_speed * mouse_sensitivity_scale * move_speed_scale;
+	const double zoom_speed          = 0.15 * base_move_speed * mouse_sensitivity_scale; // Doesn't need move_speed_scale since this is a change relative to the current zoom distance.
+	const double sideways_dir_factor = invert_sideways_movement ? -1.0 : 1.0;
 
 	// conPrint("target_pos: " + target_pos.toString());
 
@@ -155,7 +157,7 @@ void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_
 	position = target_pos + scaled_target_to_pos;
 
 	// Allow panning of camera position and target point with CTRL+middle mouse button + mouse move
-	const Vec3d dpos = right * pos_delta.x * move_speed + up * pos_delta.z * move_speed;
+	const Vec3d dpos = right * pos_delta.x * move_speed * sideways_dir_factor + up * pos_delta.z * move_speed * sideways_dir_factor;
 	target_pos += dpos;
 	position += dpos;
 
