@@ -498,13 +498,13 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 #else
 	//-------------------- Write data to a unique temporary file first -----------------------
 	// Create temp file
-	const std::string template_str = pathname + "_XXXXXX";
-	int file = mkstemp(template_str.c_str());
+	std::string temp_pathname = pathname + "_XXXXXX";
+	const int file = mkstemp(&temp_pathname[0]);
 	if(file == -1)
 		throw FileUtilsExcep("Failed to create temp file: " + PlatformUtils::getLastErrorString());
 
 	// Write the data to it
-	ssize_t remaining_size = (ssize_t)data_size;
+	size_t remaining_size = data_size;
 	while(remaining_size > 0)
 	{
 		const ssize_t bytes_written = write(file, data, remaining_size);
@@ -514,11 +514,11 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 		remaining_size -= bytes_written;
 	}
 
-	fclose(file);
+	close(file);
 
 	//-------------------- Replace target file contents with temporary file contents -----------------------
 	if(rename(temp_pathname.c_str(), pathname.c_str()) != 0)
-		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("Failed to move file '" + temp_pathname + "' to '" + pathname + "': " + PlatformUtils::getLastErrorString());
 #endif
 }
 
