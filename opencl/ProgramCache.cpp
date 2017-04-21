@@ -93,7 +93,6 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 			binary_pointers[i] = (const unsigned char*)binaries[i].data();
 		}
 
-		cl_int binary_status;
 		cl_int result = CL_SUCCESS;
 		OpenCLProgramRef program = new OpenCLProgram(open_cl->clCreateProgramWithBinary(
 			opencl_context->getContext(),
@@ -101,7 +100,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 			device_ids.data(), // device list
 			binary_lengths.data(), // lengths
 			binary_pointers.data(), // binaries
-			&binary_status, // binary status
+			NULL, // binary status - Individual statuses for each binary.  We won't use this.
 			&result
 		));
 		if(result != CL_SUCCESS)
