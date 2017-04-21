@@ -440,6 +440,89 @@ void writeEntireFile(const std::string& pathname, const char* data, size_t data_
 }
 
 
+void writeEntireFileAtomically(const std::string& pathname, const char* data, size_t data_size) // throws FileUtilsExcep
+{
+#ifdef WIN32
+	//-------------------- Write data to a unique temporary file first -----------------------
+	//
+	const std::string dir = FileUtils::getDirectory(pathname);
+	TCHAR temp_file_name[MAX_PATH];
+	GetTempFileName(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), // dir path
+		TEXT("glare"), // lpPrefixString
+		0, // uUnique
+		temp_file_name
+	);
+
+	const std::string temp_pathname = StringUtils::PlatformToUTF8UnicodeEncoding(temp_file_name);// pathname + "_tmp";
+
+	writeEntireFile(temp_pathname, data, data_size);
+
+
+	//-------------------- Replace target file contents with temporary file contents -----------------------
+
+	// A single iteration of the loop suffers from a possible race condition, if another process creates a file or deletes a file between the fileExists() call
+	// and the MoveFileEx() or ReplaceFile() call.
+	// So loop a few times until we are successful, or give up.
+
+	bool succeeded = false;
+	for(int i=0; i<10 && !succeeded; ++i)
+	{
+		if(!fileExists(pathname)) // ReplaceFile doesn't work when the target file doesn't exist
+		{
+			// If file doesn't exist, we should be able to move to it (unless some other process just created it)
+			if(MoveFileEx(
+				StringUtils::UTF8ToPlatformUnicodeEncoding(temp_pathname).c_str(), // existing file name
+				StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), // new file name
+				0 // flags.  Don't MOVEFILE_REPLACE_EXISTING
+			))
+				succeeded = true;
+		}
+		else // Else if file exists:
+		{
+			if(ReplaceFile(
+				StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), // lpReplacedFileName
+				StringUtils::UTF8ToPlatformUnicodeEncoding(temp_pathname).c_str(), // lpReplacementFileName
+				NULL, // lpBackupFileName 
+				0, // dwReplaceFlags 
+				0, // lpExclude (reserved)
+				0 // dwReplaceFlags (reserved)
+			))
+				succeeded = true;
+		}
+	}
+
+	if(!succeeded)
+		throw FileUtilsExcep("Failed to replace file '" + pathname + "' with '" + temp_pathname + "': " + PlatformUtils::getLastErrorString());
+
+#else
+	//-------------------- Write data to a unique temporary file first -----------------------
+	// Create temp file
+	const std::string template_str = pathname + "_XXXXXX";
+	int file = mkstemp(template_str.c_str());
+	if(file == -1)
+		throw FileUtilsExcep("Failed to create temp file: " + PlatformUtils::getLastErrorString());
+
+	// Write the data to it
+	ssize_t remaining_size = (ssize_t)data_size;
+	while(remaining_size > 0)
+	{
+		const ssize_t bytes_written = write(file, data, remaining_size);
+		if(bytes_written == -1)
+			throw FileUtilsExcep("Error while writing to temp file: " + PlatformUtils::getLastErrorString());
+		data += bytes_written;
+		remaining_size -= bytes_written;
+	}
+
+	fclose(file);
+
+	//-------------------- Replace target file contents with temporary file contents -----------------------
+	if(rename(temp_pathname.c_str(), pathname.c_str()) != 0)
+		throw FileUtilsExcep("Failed to move file '" + srcpath + "' to '" + dstpath + "': " + PlatformUtils::getLastErrorString());
+#endif
+}
+
+
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // throws FileUtilsExcep
 {
 	s_out = readEntireFileTextMode(pathname);
@@ -563,6 +646,25 @@ void deleteDirectoryRecursive(const std::string& path)
 	}
 
 	deleteEmptyDirectory(path);
+}
+
+
+void deleteFilesInDir(const std::string& path)
+{
+	if(!isDirectory(path)) return;
+
+	const std::vector<std::string> files = getFilesInDir(path);
+
+	for(size_t i = 0; i < files.size(); ++i)
+	{
+		if(files[i] != "." && files[i] != "..")
+		{
+			std::string file_path = join(path, files[i]);
+
+			if(!isDirectory(file_path))
+				deleteFile(file_path);
+		}
+	}
 }
 
 
@@ -767,6 +869,39 @@ namespace FileUtils
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
+
+
+
+	//========================= Test writeEntireFileAtomically() ================================
+	try
+	{
+		const std::string testdir = PlatformUtils::getTempDirPath() + "/fileutils_tests";
+		//const std::string testdir = "D:/tempfiles/fileutils_tests";
+		createDirIfDoesNotExist(testdir);
+		deleteFilesInDir(testdir);
+
+		testAssert(getFilesInDirFullPaths(testdir).empty());
+
+		std::string data = "hello";
+		writeEntireFileAtomically(testdir + "/a", data.data(), data.size());
+
+		testAssert(fileExists(testdir + "/a") && readEntireFileTextMode(testdir + "/a") == "hello");
+		testAssert(!fileExists(testdir + "/a_tmp"));
+
+		// Now overwrite with new data
+		data = "world";
+		writeEntireFileAtomically(testdir + "/a", data.data(), data.size());
+
+		testAssert(fileExists(testdir + "/a") && readEntireFileTextMode(testdir + "/a") == "world");
+		testAssert(!fileExists(testdir + "/a_tmp"));
+
+		//const std::vector<std::string> files = getFilesInDir(testdir);
+		//testAssert(files.size() == 1 && files[0] == "a");
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
 
 
 	//========================= Test getDirectory() ================================

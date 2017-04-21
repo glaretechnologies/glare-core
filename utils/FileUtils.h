@@ -73,6 +73,7 @@ void writeEntireFile(const std::string& pathname, const std::vector<unsigned cha
 void writeEntireFile(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep
 void writeEntireFileTextMode(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep
 void writeEntireFile(const std::string& pathname, const char* data, size_t data_size); // throws FileUtilsExcep
+void writeEntireFileAtomically(const std::string& pathname, const char* data, size_t data_size); // throws FileUtilsExcep
 
 // Reads the entire file, but does some conversion - converts CRLF to LF.
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out); // throws FileUtilsExcep
@@ -88,6 +89,7 @@ void deleteFile(const std::string& path);
 
 void deleteEmptyDirectory(const std::string& path);
 void deleteDirectoryRecursive(const std::string& path);
+void deleteFilesInDir(const std::string& path); // Delete just the files, not directories, in the given dir.
 
 
 uint64 getFileCreatedTime(const std::string& filename);
