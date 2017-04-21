@@ -860,19 +860,99 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 #include "PlatformUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/MyThread.h"
 
 
 namespace FileUtils
 {
 
 
+class FileUtilsTestThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		const std::string testdir = PlatformUtils::getTempDirPath() + "/fileutils_tests";
+		for(int it=0; it<1000; ++it)
+		{
+			std::string data(1 << 16, fill_char);
+			try
+			{
+				writeEntireFileAtomically(testdir + "/a", (const char*)data.data(), data.size());
+
+				// Open and read the file, and make sure the data is consistent (all bytes the same), and that the file has the correct size.
+				MemMappedFile file(testdir + "/a");
+				testAssert(file.fileSize() == 1 << 16);
+				testAssert(((const char*)file.fileData())[0] == '\0' || ((const char*)file.fileData())[0] == '\1');
+				for(size_t i=1; i<file.fileSize(); ++i)
+					testAssert(((const char*)file.fileData())[i] == ((const char*)file.fileData())[0]);
+			}
+			catch(FileUtils::FileUtilsExcep&)
+			{}
+			catch(Indigo::Exception&)
+			{}
+		}
+		conPrint("FileUtilsTestThread done.");
+	}
+	char fill_char;
+};
+
+
+// This thread just reads.
+class FileUtilsReadTestThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		const std::string testdir = PlatformUtils::getTempDirPath() + "/fileutils_tests";
+		for(int it=0; it<1000; ++it)
+		{
+			try
+			{
+				MemMappedFile file(testdir + "/a");
+				testAssert(file.fileSize() == 1 << 16);
+				testAssert(((const char*)file.fileData())[0] == '\0' || ((const char*)file.fileData())[0] == '\1');
+				for(size_t i=1; i<file.fileSize(); ++i)
+					testAssert(((const char*)file.fileData())[i] == ((const char*)file.fileData())[0]);
+			}
+			catch(Indigo::Exception&)
+			{}
+		}
+		conPrint("FileUtilsReadTestThread done.");
+	}
+};
+
+
+
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
 
-
-
 	//========================= Test writeEntireFileAtomically() ================================
+
+	// Stress test with multiple threads reading and writing to the same file.
+	//if(true) // Takes a bit long to run in normal test suite execution.
+	{
+		conPrint("Doing writeEntireFileAtomically stress test...");
+
+		const std::string testdir = PlatformUtils::getTempDirPath() + "/fileutils_tests";
+		createDirIfDoesNotExist(testdir);
+		deleteFilesInDir(testdir);
+
+		Reference<FileUtilsTestThread> thread_a = new FileUtilsTestThread();
+		thread_a->fill_char = '\0';
+		thread_a->launch();
+		Reference<FileUtilsTestThread> thread_b = new FileUtilsTestThread();
+		thread_b->fill_char = '\1';
+		thread_b->launch();
+		Reference<FileUtilsReadTestThread> read_thread = new FileUtilsReadTestThread();
+		read_thread->launch();
+		
+		thread_a->join();
+		thread_b->join();
+		read_thread->join();
+	}
+
 	try
 	{
 		const std::string testdir = PlatformUtils::getTempDirPath() + "/fileutils_tests";
