@@ -188,7 +188,7 @@ build_program:
 			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache");
 			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache/program_cache");
 			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache/program_cache/" + dir);
-			FileUtils::writeEntireFile(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
+			FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
 		}
 	}
 	catch(FileUtils::FileUtilsExcep& e)
