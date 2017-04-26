@@ -187,6 +187,8 @@ public:
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 
+	virtual const Aperture* getAperture() const = 0; // May return a NULL pointer.
+
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }
 
