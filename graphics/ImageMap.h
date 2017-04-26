@@ -129,6 +129,8 @@ public:
 
 	inline virtual Reference<Map2D> extractChannelZero() const;
 
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
+
 	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
 	inline virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
@@ -578,6 +580,20 @@ Reference<Map2D> ImageMap<V, VTraits>::extractChannelZero() const
 		}
 
 	return Reference<Map2D>(new_map);
+}
+
+
+template <class V, class VTraits>
+Reference<ImageMapFloat> ImageMap<V, VTraits>::extractChannelZeroLinear() const
+{
+	ImageMapFloat* new_map = new ImageMap<float, FloatComponentValueTraits>(width, height, 1);
+	for(unsigned int y=0; y<height; ++y)
+		for(unsigned int x=0; x<width; ++x)
+		{
+			new_map->getPixel(x, y)[0] = VTraits::toLinear(this->getPixel(x, y)[0], this->gamma);
+		}
+
+	return Reference<ImageMapFloat>(new_map);
 }
 
 

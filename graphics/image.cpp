@@ -642,6 +642,16 @@ Reference<Map2D> Image::extractChannelZero() const
 }
 
 
+Reference<ImageMap<float, FloatComponentValueTraits> > Image::extractChannelZeroLinear() const
+{
+	Reference<ImageMapFloat> m = new ImageMapFloat((unsigned int)getWidth(), (unsigned int)getHeight(), 1);
+	for(size_t y=0; y<getHeight(); ++y)
+		for(size_t x=0; x<getWidth(); ++x)
+			m->getPixel((unsigned int)x, (unsigned int)y)[0] = getPixel(x, y).r;
+	return m;
+}
+
+
 Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
 {
 	// Blur the image

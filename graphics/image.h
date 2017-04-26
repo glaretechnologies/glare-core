@@ -124,6 +124,8 @@ public:
 
 	virtual Reference<Map2D> extractChannelZero() const;
 
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
+
 	virtual Reference<Image> convertToImage() const;
 
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;

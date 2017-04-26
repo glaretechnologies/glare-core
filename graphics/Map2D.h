@@ -4,14 +4,15 @@ Map2D.h
 File created by ClassTemplate on Sun May 18 20:59:34 2008
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MAP2D_H_666_
-#define __MAP2D_H_666_
+#pragma once
 
 
 #include "colour3.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 class Image;
+class FloatComponentValueTraits;
+template<class T, class TTraits> class ImageMap;
 namespace Indigo { class TaskManager; }
 
 
@@ -64,6 +65,8 @@ public:
 
 	virtual Reference<Map2D> extractChannelZero() const = 0;
 
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const = 0;
+
 	virtual Reference<Image> convertToImage() const = 0;
 
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const = 0;
@@ -80,9 +83,6 @@ private:
 
 
 typedef Reference<Map2D> Map2DRef;
-
-
-#endif //__MAP2D_H_666_
 
 
 
