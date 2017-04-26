@@ -541,6 +541,16 @@ INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
 }
 
 
+// See https://fgiesen.wordpress.com/2016/10/26/rounding-up-to-the-nearest-int-k-mod-n/
+template <class T>
+INDIGO_STRONG_INLINE T roundUpToMultipleOfPowerOf2(T x, T N)
+{
+	assert(x >= 0);
+	assert(N > 0 && isPowerOfTwo(N));
+	return (x + N - 1) & ~(N - 1);
+}
+
+
 // Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 // Not correct for 0 input: returns 0 in this case.
 inline uint64 roundToNextHighestPowerOf2(uint64 v)

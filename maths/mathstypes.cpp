@@ -414,6 +414,26 @@ void Maths::test()
 	testAssert(!isPowerOfTwo((unsigned int)3));
 	testAssert(!isPowerOfTwo((unsigned int)9));
 
+
+	//=============================== roundUpToMultipleOfPowerOf2() =========================================
+	testAssert(roundUpToMultipleOfPowerOf2(0, 4) == 0);
+	testAssert(roundUpToMultipleOfPowerOf2(1, 4) == 4);
+	testAssert(roundUpToMultipleOfPowerOf2(2, 4) == 4);
+	testAssert(roundUpToMultipleOfPowerOf2(3, 4) == 4);
+	testAssert(roundUpToMultipleOfPowerOf2(4, 4) == 4);
+	testAssert(roundUpToMultipleOfPowerOf2(5, 4) == 8);
+	testAssert(roundUpToMultipleOfPowerOf2(6, 4) == 8);
+	testAssert(roundUpToMultipleOfPowerOf2(7, 4) == 8);
+	testAssert(roundUpToMultipleOfPowerOf2(8, 4) == 8);
+	testAssert(roundUpToMultipleOfPowerOf2(9, 4) == 12);
+
+	testAssert(roundUpToMultipleOfPowerOf2(0, 128) == 0);
+	testAssert(roundUpToMultipleOfPowerOf2(1, 128) == 128);
+	testAssert(roundUpToMultipleOfPowerOf2(127, 128) == 128);
+	testAssert(roundUpToMultipleOfPowerOf2(128, 128) == 128);
+	testAssert(roundUpToMultipleOfPowerOf2(129, 128) == 256);
+
+
 	{
 	const Matrix2d m(1, 2, 3, 4);
 	// determinant = 1 / (ad - bc) = 1 / (4 - 6) = -1/2
