@@ -130,7 +130,7 @@ public:
 
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
-	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
 
 	virtual unsigned int getBytesPerPixel() const;
 
@@ -142,6 +142,9 @@ public:
 private:
 	Array2D<ColourType> pixels;
 };
+
+
+typedef Reference<Image> ImageRef;
 
 
 void writeToStream(const Image& im, OutStream& stream);

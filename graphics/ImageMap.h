@@ -8,6 +8,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 
 
 #include "Map2D.h"
+#include "Colour4f.h"
 #include "image.h"
 #include "GaussianImageFilter.h"
 #include "../utils/Vector.h"
@@ -133,7 +134,7 @@ public:
 
 	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
-	inline virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
+	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
 
 	inline virtual unsigned int getBytesPerPixel() const;
 
@@ -145,6 +146,8 @@ public:
 	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int destx, int desty) const;
 
 	inline void addImage(const ImageMap<V, ComponentValueTraits>& other);
+
+	inline void copyToImageMapUInt8(ImageMap<uint8, UInt8ComponentValueTraits>& image_out) const;
 
 	// Get num components per pixel.
 	inline unsigned int getN() const { return N; }
@@ -665,39 +668,120 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 
 
 template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::resizeToImage(const int target, bool& is_linear) const
+Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::resizeToImageMapFloat(const int target, bool& is_linear_out) const
 {
 	// ImageMap can be both, so check if its a floating point image
-	is_linear = VTraits::isFloatingPoint();
+	is_linear_out = VTraits::isFloatingPoint();
 
-	size_t tex_xres, tex_yres;
-	
+	int tex_xres, tex_yres; // New tex xres, yres
+
 	if(this->getMapHeight() > this->getMapWidth())
 	{
-		tex_xres = (size_t)((float)this->getMapWidth() * (float)target / (float)this->getMapHeight());
-		tex_yres = (size_t)target;
+		tex_xres = (int)((float)this->getMapWidth() * (float)target / (float)this->getMapHeight());
+		tex_yres = (int)target;
 	}
 	else
 	{
-		tex_xres = (size_t)target;
-		tex_yres = (size_t)((float)this->getMapHeight() * (float)target / (float)this->getMapWidth());
+		tex_xres = (int)target;
+		tex_yres = (int)((float)this->getMapHeight() * (float)target / (float)this->getMapWidth());
 	}
 
-	const float inv_tex_xres = 1.0f / tex_xres;
-	const float inv_tex_yres = 1.0f / tex_yres;
+	const float scale_factor = (float)this->getMapWidth() / tex_xres;
+	const float filter_r = scale_factor;
+	const float filter_r2 = filter_r*filter_r;
+	const float recip_filter_r = 1 / filter_r;
 
-	Image* image = new Image(tex_xres, tex_yres);
-	Reference<Map2D> map_2d = Reference<Map2D>(image);
+	const float filter_volume = Maths::pi<float>() * filter_r2 / 3.0f;
 
-	for(size_t y = 0; y < tex_yres; ++y)
-	for(size_t x = 0; x < tex_xres; ++x)
+	const float normalise_factor = 1.f / (VTraits::maxValue() * filter_volume); // Normalises filtering, and applies 8-bit -> unit float scale.
+
+	const float filter_r_plus_1  = filter_r + 1.f;
+	const float filter_r_minus_1 = filter_r - 1.f;
+
+	const int src_w = this->getMapWidth();
+	const int src_h = this->getMapHeight();
+
+	ImageMapFloat* image;
+
+	if(this->getN() >= 3)
 	{
-		const Colour3<float> texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
+		image = new ImageMapFloat(tex_xres, tex_yres, 3);
 
-		image->setPixel(x, y, texel);
+		for(int y = 0; y < tex_yres; ++y)
+			for(int x = 0; x < tex_xres; ++x)
+			{
+				const float src_x = x * scale_factor;
+				const float src_y = y * scale_factor;
+
+				const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1));
+				const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1));
+				const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1));
+				const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1));
+
+				Colour4f sum(0.f);
+				for(int sy = src_begin_y; sy < src_end_y; ++sy)
+					for(int sx = src_begin_x; sx < src_end_x; ++sx)
+					{
+						const float dx = (float)sx - src_x;
+						const float dy = (float)sy - src_y;
+						const float r2 = dx*dx + dy*dy;
+						if(r2 < filter_r2)
+						{
+							const float filter_val = 1.f - std::sqrt(r2) * recip_filter_r;
+
+							Colour4f px_col(
+								(float)this->getPixel(sx, sy)[0],
+								(float)this->getPixel(sx, sy)[1],
+								(float)this->getPixel(sx, sy)[2],
+								0
+							);
+							sum += px_col * filter_val;
+						}
+					}
+
+				Colour4f col = sum * normalise_factor;
+				image->getPixel(x, y)[0] = col[0];
+				image->getPixel(x, y)[1] = col[1];
+				image->getPixel(x, y)[2] = col[2];
+			}
+	}
+	else
+	{
+		image = new ImageMapFloat(tex_xres, tex_yres, 1);
+
+		for(int y = 0; y < tex_yres; ++y)
+			for(int x = 0; x < tex_xres; ++x)
+			{
+				const float src_x = x * scale_factor;
+				const float src_y = y * scale_factor;
+
+				const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1));
+				const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1));
+				const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1));
+				const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1));
+
+				float sum(0.f);
+				for(int sy = src_begin_y; sy < src_end_y; ++sy)
+					for(int sx = src_begin_x; sx < src_end_x; ++sx)
+					{
+						const float dx = (float)sx - src_x;
+						const float dy = (float)sy - src_y;
+						const float r2 = dx*dx + dy*dy;
+						if(r2 < filter_r2)
+						{
+							const float filter_val = 1.f - std::sqrt(r2) * recip_filter_r;
+
+							const float px_col((float)this->getPixel(sx, sy)[0]);
+							sum += px_col * filter_val;
+						}
+					}
+
+				float col = sum * normalise_factor;
+				image->getPixel(x, y)[0] = col;
+			}
 	}
 
-	return map_2d;
+	return Reference<ImageMapFloat>(image);
 }
 
 
@@ -765,4 +849,17 @@ void ImageMap<V, VTraits>::addImage(const ImageMap<V, VTraits>& other)
 
 	for(size_t i=0; i<sz; ++i)
 		data[i] += other.data[i];
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::copyToImageMapUInt8(ImageMapUInt8& image_out) const
+{
+	image_out.resize(getWidth(), getHeight(), getN());
+
+	const float scale = (float)UInt8ComponentValueTraits::maxValue() / VTraits::maxValue();
+
+	const size_t sz = getDataSize();
+	for(size_t i=0; i<sz; ++i)
+		image_out.getData()[i] = (unsigned char)(getData()[i] * scale);
 }

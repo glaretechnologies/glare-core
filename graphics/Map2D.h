@@ -71,7 +71,13 @@ public:
 
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const = 0;
 
-	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const = 0;
+
+	// Return a new, resized version of this image.
+	// Should have maximum dimensions of 'width', while maintaining aspect ratio.
+	// Doesn't convert from non-linear to linear space.  (e.g. no gamma is applied)
+	// Resizing is medium quality, as it needs to be fast for generating thumbnails for large images.
+	// May change number of channels (reduce 4 to 3, or 2 to 1, etc..)
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const = 0;
 
 	virtual unsigned int getBytesPerPixel() const = 0;
 

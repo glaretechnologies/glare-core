@@ -673,7 +673,7 @@ Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task
 }
 
 
-Reference<Map2D> Image::resizeToImage(const int target, bool& is_linear) const
+Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is_linear) const
 {
 	// Image class always loads fp data, so should always be in linear space
 	is_linear = true;
@@ -694,18 +694,19 @@ Reference<Map2D> Image::resizeToImage(const int target, bool& is_linear) const
 	const float inv_tex_xres = 1.0f / tex_xres;
 	const float inv_tex_yres = 1.0f / tex_yres;
 
-	Image* image = new Image(tex_xres, tex_yres);
-	Reference<Map2D> map_2d = Reference<Map2D>(image);
+	ImageMapFloat* image = new ImageMapFloat((unsigned int)tex_xres, (unsigned int)tex_yres, 3);
 
 	for(size_t y = 0; y < tex_yres; ++y)
 	for(size_t x = 0; x < tex_xres; ++x)
 	{
 		const ColourType texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
 
-		image->setPixel(x, y, texel);
+		image->getPixel((unsigned int)x, (unsigned int)y)[0] = texel.r;
+		image->getPixel((unsigned int)x, (unsigned int)y)[1] = texel.g;
+		image->getPixel((unsigned int)x, (unsigned int)y)[2] = texel.g;
 	}
 
-	return map_2d;
+	return ImageMapFloatRef(image);
 }
 
 
