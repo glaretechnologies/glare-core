@@ -11,6 +11,13 @@ Generated at 2011-05-22 19:51:52 +0100
 
 
 #include "ImageMap.h"
+#include "Image.h"
+#include "PNGDecoder.h"
+#include "jpegdecoder.h"
+#include "imformatdecoder.h"
+#include "Bitmap.h"
+#include "MitchellNetravali.h"
+#include "Colour4f.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/globals.h"
@@ -322,7 +329,118 @@ void ImageMapTests::test()
 	}
 
 
+	
 
+	//======================================== Test resizeToImageMapFloat() =======================================
+	// Test resizing of a uniform, uint8, 3 component image
+	{
+		ImageMapUInt8 map(100, 100, 3);
+		map.set(123);
+		//PNGDecoder::write(map, "flat_image.png");
+
+		bool is_linear;
+		const int new_w = 90;
+		ImageMapFloatRef resized_map = map.resizeToImageMapFloat(new_w, is_linear);
+		testAssert(!is_linear);
+		testAssert(resized_map->getWidth() == new_w && resized_map->getHeight() == new_w && resized_map->getN() == 3);
+
+		for(int x=0; x<new_w; ++x)
+		for(int y=0; y<new_w; ++y)
+		for(int c=0; c<3; ++c)
+			testEpsEqual(resized_map->getPixel(x, y)[c], 123.f / 255.f);
+
+		//ImageMapUInt8 bmp;
+		//resized_map->copyToImageMapUInt8(bmp);
+		//PNGDecoder::write(bmp, "scaled_flat_image.png");
+	}
+
+	// Test resizing of a uniform, uint8, 1 component image
+	{
+		ImageMapUInt8 map(100, 100, 1);
+		map.set(123);
+
+		bool is_linear;
+		const int new_w = 90;
+		ImageMapFloatRef resized_map = map.resizeToImageMapFloat(new_w, is_linear);
+		testAssert(!is_linear);
+		testAssert(resized_map->getWidth() == new_w && resized_map->getHeight() == new_w && resized_map->getN() == 1);
+
+		for(int x=0; x<new_w; ++x)
+			for(int y=0; y<new_w; ++y)
+				for(int c=0; c<1; ++c)
+					testEpsEqual(resized_map->getPixel(x, y)[c], 123.f / 255.f);
+	}
+
+	// Test resizing of a uniform, uint16, 3 component image
+	{
+		ImageMap<uint16, UInt16ComponentValueTraits> map(100, 100, 3);
+		map.set(12345);
+
+		bool is_linear;
+		const int new_w = 90;
+		ImageMapFloatRef resized_map = map.resizeToImageMapFloat(new_w, is_linear);
+		testAssert(!is_linear);
+		testAssert(resized_map->getWidth() == new_w && resized_map->getHeight() == new_w && resized_map->getN() == 3);
+
+		for(int x=0; x<new_w; ++x)
+			for(int y=0; y<new_w; ++y)
+				for(int c=0; c<3; ++c)
+					testEpsEqual(resized_map->getPixel(x, y)[c], 12345.f / 65535.f);
+	}
+
+	// Test resizing of a uniform, float32, 3 component image
+	{
+		ImageMapFloat map(100, 100, 3);
+		map.set(0.12345f);
+
+		bool is_linear;
+		const int new_w = 90;
+		ImageMapFloatRef resized_map = map.resizeToImageMapFloat(new_w, is_linear);
+		testAssert(is_linear);
+		testAssert(resized_map->getWidth() == new_w && resized_map->getHeight() == new_w && resized_map->getN() == 3);
+
+		for(int x=0; x<new_w; ++x)
+			for(int y=0; y<new_w; ++y)
+				for(int c=0; c<3; ++c)
+					testEpsEqual(resized_map->getPixel(x, y)[c], 0.12345f);
+	}
+
+	// Test resizing of an image loaded from disk
+	if(false)
+	{
+		try
+		{
+			//Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testfiles/antialias_test3.png");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testscenes/pentagonal_aperture.png");
+
+			testAssert(map.isType<ImageMapUInt8>());
+			ImageMapUInt8Ref map_uint8 = map.downcast<ImageMapUInt8>();
+
+			const int target_res = 100;
+
+			Timer timer;
+
+			bool is_linear;
+			ImageMapFloatRef resized_map = map_uint8->resizeToImageMapFloat(target_res, is_linear);
+			conPrint("resizeToImageMapFloat() took " + timer.elapsedStringNPlaces(4));
+
+			/*timer.reset();
+			ImageMapFloatRef resized_map2 = testResizeToImage(*map_uint8, target_res, is_linear);
+			conPrint("testResizeToImage() took     " + timer.elapsedStringNPlaces(4));*/
+
+			ImageMapUInt8 bmp_out;
+			resized_map->copyToImageMapUInt8(bmp_out);
+			PNGDecoder::write(bmp_out, "scaled_image_old_" + toString(target_res) + ".png");
+
+			//resized_map2->copyToImageMapUInt8(bmp_out);
+			//PNGDecoder::write(bmp_out, "scaled_image_test_" + toString(target_res) + ".png");
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
 
 	
 	// Do perf tests

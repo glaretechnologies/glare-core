@@ -670,6 +670,12 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 template <class V, class VTraits>
 Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::resizeToImageMapFloat(const int target, bool& is_linear_out) const
 {
+	// For this implementation we will use a tent (bilinear) filter, with normalisation.
+	// Tent filter gives reasonable resulting image quality, is separable (and therefore fast), and has a small support.
+	// We need to do normalisation however, to avoid banding/spotting artifacts when resizing uniform images with the tent filter.
+	// Note that if we use a higher quality filter like Mitchell Netravali, we can avoid the renormalisation.
+	// But M.N. has a support radius twice as large (2 px), so we'll stick with the fast tent filter.
+
 	// ImageMap can be both, so check if its a floating point image
 	is_linear_out = VTraits::isFloatingPoint();
 
@@ -688,13 +694,8 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 
 	const float scale_factor = (float)this->getMapWidth() / tex_xres;
 	const float filter_r = scale_factor;
-	const float filter_r2 = filter_r*filter_r;
 	const float recip_filter_r = 1 / filter_r;
-
-	const float filter_volume = Maths::pi<float>() * filter_r2 / 3.0f;
-
-	const float normalise_factor = 1.f / (VTraits::maxValue() * filter_volume); // Normalises filtering, and applies 8-bit -> unit float scale.
-
+	const float max_val_scale = 1.f / VTraits::maxValue();
 	const float filter_r_plus_1  = filter_r + 1.f;
 	const float filter_r_minus_1 = filter_r - 1.f;
 
@@ -724,22 +725,19 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 					{
 						const float dx = (float)sx - src_x;
 						const float dy = (float)sy - src_y;
-						const float r2 = dx*dx + dy*dy;
-						if(r2 < filter_r2)
-						{
-							const float filter_val = 1.f - std::sqrt(r2) * recip_filter_r;
-
-							Colour4f px_col(
-								(float)this->getPixel(sx, sy)[0],
-								(float)this->getPixel(sx, sy)[1],
-								(float)this->getPixel(sx, sy)[2],
-								0
-							);
-							sum += px_col * filter_val;
-						}
+						const float fabs_dx = std::fabs(dx);
+						const float fabs_dy = std::fabs(dy);
+						const float filter_val = myMax(1 - fabs_dx * recip_filter_r, 0.f) * myMax(1 - fabs_dy * recip_filter_r, 0.f);
+						Colour4f px_col(
+							(float)this->getPixel(sx, sy)[0],
+							(float)this->getPixel(sx, sy)[1],
+							(float)this->getPixel(sx, sy)[2],
+							1.f
+						);
+						sum += px_col * filter_val;
 					}
 
-				Colour4f col = sum * normalise_factor;
+				const Colour4f col = sum * (max_val_scale / sum[3]); // Normalise and apply max_val_scale.
 				image->getPixel(x, y)[0] = col[0];
 				image->getPixel(x, y)[1] = col[1];
 				image->getPixel(x, y)[2] = col[2];
@@ -760,24 +758,26 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 				const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1));
 				const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1));
 
-				float sum(0.f);
+				Colour4f sum(0.f);
 				for(int sy = src_begin_y; sy < src_end_y; ++sy)
 					for(int sx = src_begin_x; sx < src_end_x; ++sx)
 					{
 						const float dx = (float)sx - src_x;
 						const float dy = (float)sy - src_y;
-						const float r2 = dx*dx + dy*dy;
-						if(r2 < filter_r2)
-						{
-							const float filter_val = 1.f - std::sqrt(r2) * recip_filter_r;
-
-							const float px_col((float)this->getPixel(sx, sy)[0]);
-							sum += px_col * filter_val;
-						}
+						const float fabs_dx = std::fabs(dx);
+						const float fabs_dy = std::fabs(dy);
+						const float filter_val = myMax(1 - fabs_dx * recip_filter_r, 0.f) * myMax(1 - fabs_dy * recip_filter_r, 0.f);
+						Colour4f px_col(
+							(float)this->getPixel(sx, sy)[0],
+							1.f,
+							1.f,
+							1.f
+						);
+						sum += px_col * filter_val;
 					}
 
-				float col = sum * normalise_factor;
-				image->getPixel(x, y)[0] = col;
+				const Colour4f col = sum * (max_val_scale / sum[3]); // Normalise and apply max_val_scale.
+				image->getPixel(x, y)[0] = col[0];
 			}
 	}
 
@@ -861,5 +861,5 @@ void ImageMap<V, VTraits>::copyToImageMapUInt8(ImageMapUInt8& image_out) const
 
 	const size_t sz = getDataSize();
 	for(size_t i=0; i<sz; ++i)
-		image_out.getData()[i] = (unsigned char)(getData()[i] * scale);
+		image_out.getData()[i] = (unsigned char)(myClamp<float>(getData()[i] * scale, 0.f, 255.1f));
 }
