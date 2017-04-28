@@ -11,12 +11,10 @@ Generated at 2011-05-22 19:51:52 +0100
 
 
 #include "ImageMap.h"
-#include "Image.h"
+#include "image.h"
 #include "PNGDecoder.h"
 #include "jpegdecoder.h"
 #include "imformatdecoder.h"
-#include "Bitmap.h"
-#include "MitchellNetravali.h"
 #include "Colour4f.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
