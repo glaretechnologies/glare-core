@@ -134,6 +134,26 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const sr
 }
 
 
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, cl_bool blocking_write)
+{
+	assert(size_ <= size);
+
+	cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
+		command_queue, // command queue
+		opencl_mem, // buffer
+		blocking_write, // blocking write
+		dest_offset, // offset
+		size_, // size in bytes
+		(void*)src_ptr, // host buffer pointer
+		0, // num events in wait list
+		NULL, // wait list
+		NULL // event
+	);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clEnqueueWriteBuffer failed: " + OpenCL::errorString(result));
+}
+
+
 cl_mem& OpenCLBuffer::getDevicePtr()
 {
 	return opencl_mem;

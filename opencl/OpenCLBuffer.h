@@ -39,6 +39,8 @@ public:
 
 	void copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, cl_bool blocking_write);
 
+	void copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, cl_bool blocking_write);
+
 	template<typename T, size_t align>
 	void copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_bool blocking_write);
 
