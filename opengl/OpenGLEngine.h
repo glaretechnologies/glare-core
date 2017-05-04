@@ -173,7 +173,8 @@ public:
 
 	void draw();
 
-	void setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio);
+	void setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
+							float lens_shift_right_distance);
 
 	void setSunDir(const Vec4f& d);
 
@@ -238,6 +239,8 @@ private:
 	float viewport_aspect_ratio;
 	float lens_sensor_dist;
 	float render_aspect_ratio;
+	float lens_shift_up_distance;
+	float lens_shift_right_distance;
 	int viewport_w, viewport_h;
 
 	Matrix4f world_to_camera_space_matrix;

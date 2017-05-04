@@ -46,6 +46,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
 	render_aspect_ratio = 1;
+	lens_shift_up_distance = 0;
+	lens_shift_right_distance = 0;
 	viewport_w = viewport_h = 100;
 
 	sun_dir = normalise(Vec4f(0.2,0.2,1,0));
@@ -66,12 +68,15 @@ static const Vec4f UP_OS(0.0f, 0.0f, 1.0f, 0.0f);
 static const Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
 
 
-void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_)
+void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
+	float lens_shift_right_distance_)
 {
 	this->sensor_width = sensor_width_;
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
 	this->lens_sensor_dist = lens_sensor_dist_;
 	this->render_aspect_ratio = render_aspect_ratio_;
+	this->lens_shift_up_distance = lens_shift_up_distance_;
+	this->lens_shift_right_distance = lens_shift_right_distance_;
 
 	float use_sensor_width;
 	float use_sensor_height;
@@ -88,8 +93,8 @@ void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matr
 
 
 	// Make clipping planes
-	const Vec4f lens_center(0,0,0,1);//TEMP
-	const Vec4f sensor_center(0,-lens_sensor_dist,0,1);//TEMP
+	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
+	const Vec4f sensor_center(0, -lens_sensor_dist, 0, 1);
 
 	const Vec4f sensor_bottom = (sensor_center - UP_OS    * (use_sensor_height * 0.5f));
 	const Vec4f sensor_top    = (sensor_center + UP_OS    * (use_sensor_height * 0.5f));
@@ -155,14 +160,17 @@ void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matr
 
 	// Calculate frustum verts
 	Vec4f verts_cs[5];
+	const float shift_up_d    = lens_shift_up_distance    * (max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
+	const float shift_right_d = lens_shift_right_distance * (max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
+
 	const float d_w = use_sensor_width  * max_draw_dist / (2 * lens_sensor_dist);
 	const float d_h = use_sensor_height * max_draw_dist / (2 * lens_sensor_dist);
+
 	verts_cs[0] = lens_center;
-	// NOTE: probably wrong for shift lens
-	verts_cs[1] = lens_center + FORWARDS_OS * max_draw_dist - RIGHT_OS * d_w - UP_OS * d_h; // bottom left
-	verts_cs[2] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * d_w - UP_OS * d_h; // bottom right
-	verts_cs[3] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * d_w + UP_OS * d_h; // top right
-	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist - RIGHT_OS * d_w + UP_OS * d_h; // top left
+	verts_cs[1] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * (-d_w + shift_right_d) + UP_OS * (-d_h + shift_up_d); // bottom left
+	verts_cs[2] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * ( d_w + shift_right_d) + UP_OS * (-d_h + shift_up_d); // bottom right
+	verts_cs[3] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * ( d_w + shift_right_d) + UP_OS * ( d_h + shift_up_d); // top right
+	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * (-d_w + shift_right_d) + UP_OS * ( d_h + shift_up_d); // top left
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<5; ++i)
@@ -971,6 +979,9 @@ void OpenGLEngine::draw()
 	
 	glLineWidth(1);
 
+	const double unit_shift_up    = this->lens_shift_up_distance    / this->lens_sensor_dist;
+	const double unit_shift_right = this->lens_shift_right_distance / this->lens_sensor_dist;
+
 	Matrix4f proj_matrix;
 	
 	// Initialise projection matrix from Indigo camera settings
@@ -990,10 +1001,10 @@ void OpenGLEngine::draw()
 			h = w / viewport_aspect_ratio;
 		}
 
-		const double x_min = z_near * (-w);
-		const double x_max = z_near * ( w);
-		const double y_min = z_near * (-h);
-		const double y_max = z_near * ( h);
+		const double x_min = z_near * (-w + unit_shift_right);
+		const double x_max = z_near * ( w + unit_shift_right);
+		const double y_min = z_near * (-h + unit_shift_up);
+		const double y_max = z_near * ( h + unit_shift_up);
 		proj_matrix = frustumMatrix(x_min, x_max, y_min, y_max, z_near, z_far);
 	}
 
@@ -1376,6 +1387,7 @@ struct UniqueVertKeyHash
 	inline size_t operator()(const UniqueVertKey& v) const { return (uint64)bitCast<uint32>(v.p.x); }
 };*/
 
+
 struct UniqueVertKey
 {
 	unsigned int pos_i; // Index for position and normal for vert
@@ -1400,46 +1412,24 @@ struct UniqueVertKey
 };
 
 
-// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
-// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
-static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
-{	// FNV-1a hash function for bytes in [_First, _First+_Count)
-	
-	if(sizeof(size_t) == 8)
-	{
-		const size_t _FNV_offset_basis = 14695981039346656037ULL;
-		const size_t _FNV_prime = 1099511628211ULL;
-
-		size_t _Val = _FNV_offset_basis;
-		for (size_t _Next = 0; _Next < _Count; ++_Next)
-			{	// fold in another byte
-			_Val ^= (size_t)_First[_Next];
-			_Val *= _FNV_prime;
-			}
-
-		_Val ^= _Val >> 32;
-		return _Val;
-	}
-	else
-	{
-		const size_t _FNV_offset_basis = 2166136261U;
-		const size_t _FNV_prime = 16777619U;
-
-		size_t _Val = _FNV_offset_basis;
-		for (size_t _Next = 0; _Next < _Count; ++_Next)
-			{	// fold in another byte
-			_Val ^= (size_t)_First[_Next];
-			_Val *= _FNV_prime;
-			}
-
-		return _Val;
-	}
+// From http://burtleburtle.net/bob/hash/integer.html
+static inline uint32_t uint32Hash(uint32_t a)
+{
+	a = (a ^ 61) ^ (a >> 16);
+	a = a + (a << 3);
+	a = a ^ (a >> 4);
+	a = a * 0x27d4eb2d;
+	a = a ^ (a >> 15);
+	return a;
 }
 
 // Hash function for UniqueVert
 struct UniqueVertKeyHash
 {
-	inline size_t operator()(const UniqueVertKey& v) const { return use_Hash_seq((const unsigned char*)&v, sizeof(unsigned int)); }  //return (size_t)v.pos_i; }
+	inline size_t operator()(const UniqueVertKey& v) const
+	{
+		return uint32Hash(v.pos_i);
+	}
 };
 
 
@@ -2574,7 +2564,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 				return opengl_tex;
 			}
 			else
-				throw Indigo::Exception("Unhandled number of components.");
+				throw Indigo::Exception("Texture has unhandled number of components.");
 		}
 		else
 		{
