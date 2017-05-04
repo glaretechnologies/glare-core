@@ -33,7 +33,7 @@ CameraController::CameraController()
 	allow_pitching = true;
 
 	// NOTE: Call initialise after the member variables above have been initialised.
-	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
+	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1), 0.03, 0, 0);
 }
 
 
@@ -43,11 +43,15 @@ CameraController::~CameraController()
 }
 
 
-void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward, const Vec3d& cam_up)
+void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward, const Vec3d& cam_up, double lens_sensor_dist_, double lens_shift_up_, double lens_shift_right_)
 {
 	// Copy camera position and provided camera up vector
 	position = cam_pos;
 	initialised_up = cam_up;
+
+	lens_sensor_dist = lens_sensor_dist_;
+	lens_shift_up = lens_shift_up_;
+	lens_shift_right = lens_shift_right_;
 
 	// Construct basis
 	Vec3d camera_up, camera_forward, camera_right;
@@ -161,9 +165,16 @@ void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_
 	target_pos += dpos;
 	position += dpos;
 
+
+	// We want to set the camera forwards vector, such that the resulting view vector, as influenced by the lens shift amounts, points at the target.
+	// This is not an exact solution that we're computing below, but it will do.  TODO: solve exactly.
+	const double shift_up_ratio    = lens_shift_up    / lens_sensor_dist;
+	const double shift_right_ratio = lens_shift_right / lens_sensor_dist;
+	const Vec3d shifted_target = target_pos - up * shift_up_ratio * scaled_target_to_pos.length() - right * shift_right_ratio * scaled_target_to_pos.length();
+
 	// Make camera look at target point:
 	double theta, phi;
-	GeometrySampling::sphericalCoordsForDir(-normalise(scaled_target_to_pos), 1.0, theta, phi);
+	GeometrySampling::sphericalCoordsForDir(normalise(shifted_target - position), 1.0, theta, phi);
 	rotation.x = phi;
 	rotation.y = theta;
 }
@@ -320,7 +331,7 @@ void CameraController::test()
 
 
 	// Initialise canonical viewing system - camera at origin, looking along y+ with z+ up
-	cc.initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1));
+	cc.initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1), 0.03, 0, 0);
 	cc.getBasis(r, u, f);
 	testAssert(::epsEqual(r.x, 1.0)); testAssert(::epsEqual(r.y, 0.0)); testAssert(::epsEqual(r.z, 0.0));
 	testAssert(::epsEqual(f.x, 0.0)); testAssert(::epsEqual(f.y, 1.0)); testAssert(::epsEqual(f.z, 0.0));
@@ -328,7 +339,7 @@ void CameraController::test()
 
 
 	// Initialise camera to look down along z-, with y+ up
-	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0));
+	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0), 0.03, 0, 0);
 	cc.getBasis(r, u, f);
 	testAssert(::epsEqual(r.x, 1.0)); testAssert(::epsEqual(r.y, 0.0)); testAssert(::epsEqual(r.z,  0.0));
 	testAssert(::epsEqual(f.x, 0.0)); testAssert(::epsEqual(f.y, 0.0)); testAssert(::epsEqual(f.z, -1.0));
@@ -336,7 +347,7 @@ void CameraController::test()
 
 
 	// Initialise canonical viewing system and test that the viewing angles are correct
-	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0));
+	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0), 0.03, 0, 0);
 	angles = cc.getAngles();
 	testAssert(::epsEqual(angles.x, 0.0)); testAssert(::epsEqual(angles.y, NICKMATHS_PI)); testAssert(::epsEqual(angles.z,  0.0));
 

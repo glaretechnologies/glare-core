@@ -24,7 +24,7 @@ public:
 	CameraController();
 	~CameraController();
 
-	void initialise(const Vec3d& cam_pos, const Vec3d& cam_forwards, const Vec3d& cam_up);
+	void initialise(const Vec3d& cam_pos, const Vec3d& cam_forwards, const Vec3d& cam_up, double lens_sensor_dist, double lens_shift_up, double lens_shift_right);
 
 	void update(const Vec3d& pos_delta, const Vec2d& rot_delta);
 	
@@ -69,6 +69,7 @@ private:
 
 	double base_move_speed, base_rotate_speed;
 	double move_speed_scale, mouse_sensitivity_scale;
+	double lens_sensor_dist, lens_shift_up, lens_shift_right;
 
 	// Spherical camera doesn't allow looking up or down. So for spherical camera, allow_pitching should be set to false.
 	bool allow_pitching;
