@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<medium>
+		<name>Unnamed</name>
+		<precedence>2</precedence>
+		<basic>
+			<ior>1.4</ior>
+			<cauchy_b_coeff>0</cauchy_b_coeff>
+			<absorption_coefficient_spectrum>
+				<rgb>
+					<rgb>
+						0 0 0
+					</rgb>
+					<gamma>1</gamma>
+				</rgb>
+			</absorption_coefficient_spectrum>	
+		</basic>
+	</medium>
+	
+  <material>
+		<name>Unnamed</name>
+		<glossy_transparent>
+			<roughness>
+				<constant>
+					0.5
+				</constant>
+			</roughness>
+
+      <absorption_layer_transmittance>
+        <constant>
+          <rgb>
+            <rgb>
+              0.6 0.4 0.2
+            </rgb>
+            <gamma>1</gamma>
+          </rgb>
+        </constant>
+      </absorption_layer_transmittance>
+      
+			<internal_medium_name>Unnamed</internal_medium_name>
+			<layer>0</layer>
+		</glossy_transparent>
+	</material>
+
+</scenedata>
