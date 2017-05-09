@@ -462,206 +462,74 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 	{
 		computeShadingNormalsAndMeanCurvature(
 			task_manager,
-			!vertex_shading_normals_provided, // update shading normals
+			!vertex_shading_normals_provided, // update shading normals - we only want to compute shading normals if they were not provided in the mesh file.
 			print_output, verbose
 		);
-		bool recompute_H = false; // This will be set to true if we need to recompute H (mean curvature) later.  This will be the case for subdiv and displacement or if there are any quads in the mesh.
+		bool recompute_shading_normals = false; // This will be set to true if we need to recompute shading normals and mean curvature later.  This will be the case for subdiv and displacement.
 
 		if(max_num_subdivisions > 0)
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
-			recompute_H = true;
+			recompute_shading_normals = true;
 			
-#if INDIGO_OPENSUBDIV_SUPPORT
-			const bool USE_OSD = true;
-			if(USE_OSD)
+			try
 			{
-				// Register Osd compute kernels
-				OpenSubdiv::OsdCpuKernelDispatcher::Register();
+				DUOptions options;
+				options.object_to_camera = object_to_camera;
+				options.view_dependent_subdivision = view_dependent_subdivision;
+				options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+				options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+				options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+				options.displacement_error_threshold = displacement_error_threshold;
+				options.max_num_subdivisions = max_num_subdivisions;
+				options.num_smoothings = num_smoothings;
+				options.camera_clip_planes_os = camera_clip_planes_os;
 
-				//OpenSubdiv::OsdCudaKernelDispatcher::Register();
-
-				// TEMP HACK: remove tris
-				this->triangles.resize(0);
-
-				Timer timer;
-
-				// Make uv indices
-				std::vector<int> fvar_indices(this->quads.size() * 4);
-				for(size_t i=0; i<this->quads.size(); ++i)
-				{
-					fvar_indices[i * 4 + 0] = this->quads[i].uv_indices[0];
-					fvar_indices[i * 4 + 1] = this->quads[i].uv_indices[1];
-					fvar_indices[i * 4 + 2] = this->quads[i].uv_indices[2];
-					fvar_indices[i * 4 + 3] = this->quads[i].uv_indices[3];
-				}
-
-				// printVar(fvar_indices.size());
-
-				int fvar_widths[1] = { (int)fvar_indices.size() };
-
-				OpenSubdiv::v1_1::HbrMesh<RayMeshOsdVertex> hbr_mesh(
-					new OpenSubdiv::v1_1::HbrCatmarkSubdivision<RayMeshOsdVertex>(),
-					1, // fvarcount
-					&fvar_indices[0],
-					fvar_widths
+				const bool subdivided = DisplacementUtils::subdivideAndDisplace(
+					this->getName(),
+					task_manager,
+					print_output,
+					context,
+					materials, // object.getMaterials(),
+					subdivision_smoothing,
+					triangles, // triangles_in_out
+					quads,
+					vertices, // vertices_in_out
+					uvs, // uvs_in_out
+					this->num_uv_sets,
+					options,
+					this->enable_normal_smoothing,
+					should_cancel_callback
 				);
 
-
-				/// Hack for one quad ///
-				/*hbr_mesh.NewVertex(0, RayMeshOsdVertex(Vec3f(0,0,0)));
-				hbr_mesh.NewVertex(1, RayMeshOsdVertex(Vec3f(1,0,0)));
-				hbr_mesh.NewVertex(2, RayMeshOsdVertex(Vec3f(1,1,0)));
-				hbr_mesh.NewVertex(3, RayMeshOsdVertex(Vec3f(0,1,0)));
-
-				int verts[4] = {0, 1, 2, 3};
-
-				hbr_mesh.NewFace(
-					4,
-					verts,
-					0 // index
-				);*/
-				/////////////////////////
-
-				// Add vertices to HBR mesh
-				for(size_t i=0; i<vertices.size(); ++i)
-					hbr_mesh.NewVertex((int)i, RayMeshOsdVertex(vertices[i].pos));
-
-				// Add quads
-				for(size_t i=0; i<quads.size(); ++i)
+				if(subdivided)
 				{
-					int verts[4] = {quads[i].vertex_indices[0], quads[i].vertex_indices[1], quads[i].vertex_indices[2], quads[i].vertex_indices[3]};
-					hbr_mesh.NewFace(
-						4,
-						verts,
-						(int)i // index
-					);
-				}
+					// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
+					this->quads.clearAndFreeMem();
 
+					assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
 
-				hbr_mesh.SetInterpolateBoundaryMethod( OpenSubdiv::v1_1::HbrMesh<RayMeshOsdVertex>::k_InterpolateBoundaryEdgeOnly );
-
-				hbr_mesh.Finish();
-
-				const int subdiv_level = max_num_subdivisions + 1;
-
-				OpenSubdiv::v1_1::FarMeshFactory<RayMeshOsdVertex> factory(&hbr_mesh, subdiv_level);
-
-				OpenSubdiv::v1_1::FarMesh<RayMeshOsdVertex>* far_mesh = factory.Create(
-					/*new OpenSubdiv::v1_1::CpuKernelDispatcher(
-						subdiv_level, // levels
-						8 // num openmp threads
-					)*/
-				);
-
-				far_mesh->Subdivide(subdiv_level);
-
-				int firstvert = far_mesh->GetSubdivision()->GetFirstVertexOffset(max_num_subdivisions);
-				int numverts = far_mesh->GetSubdivision()->GetNumVertices(max_num_subdivisions);
-
-				// Read vertices
-				this->vertices.resize(numverts);
-
-				for(int i=0; i<numverts; ++i)
-				{
-					RayMeshOsdVertex& v = far_mesh->GetVertex(firstvert + i);
-
-					this->vertices[i].pos = v.pos;
-				}
-
-
-				// Read off faces
-				const std::vector<int>& face_vertices = far_mesh->GetFaceVertices(max_num_subdivisions);
-
-				this->quads.resize(face_vertices.size() / 4);
-
-				printVar(this->quads.size());
-				//printVar(hbr_mesh.GetFVarWidths()[0]);
-
-				for(size_t i=0; i<this->quads.size(); ++i)
-				{
-					this->quads[i].vertex_indices[0] = face_vertices[(i * 4) + 3] - firstvert;
-					this->quads[i].vertex_indices[1] = face_vertices[(i * 4) + 2] - firstvert;
-					this->quads[i].vertex_indices[2] = face_vertices[(i * 4) + 1] - firstvert;
-					this->quads[i].vertex_indices[3] = face_vertices[(i * 4) + 0] - firstvert;
-					this->quads[i].setMatIndex(0); // TEMP HACK
-					this->quads[i].setUseShadingNormals(false); // TEMP HACK
-
-					for(int z=0; z<4; ++z)
-						this->quads[i].uv_indices[z] = 0; // TEMP HACK
-				}
-
-				conPrint("OpenSubdiv took " + timer.elapsedStringNPlaces(4));
-
-				// TEMP NEW:
-				computeShadingNormals(print_output, verbose);
-			}
-			else
-			{
-#endif // #if INDIGO_OPENSUBDIV_SUPPORT
-
-				try
-				{
-					DUOptions options;
-					options.object_to_camera = object_to_camera;
-					options.view_dependent_subdivision = view_dependent_subdivision;
-					options.pixel_height_at_dist_one = pixel_height_at_dist_one;
-					options.subdivide_pixel_threshold = subdivide_pixel_threshold;
-					options.subdivide_curvature_threshold = subdivide_curvature_threshold;
-					options.displacement_error_threshold = displacement_error_threshold;
-					options.max_num_subdivisions = max_num_subdivisions;
-					options.num_smoothings = num_smoothings;
-					options.camera_clip_planes_os = camera_clip_planes_os;
-
-					const bool subdivided = DisplacementUtils::subdivideAndDisplace(
-						this->getName(),
-						task_manager,
-						print_output,
-						context,
-						materials, // object.getMaterials(),
-						subdivision_smoothing,
-						triangles, // triangles_in_out
-						quads,
-						vertices, // vertices_in_out
-						uvs, // uvs_in_out
-						this->num_uv_sets,
-						options,
-						this->enable_normal_smoothing,
-						should_cancel_callback
-					);
-
-					if(subdivided)
-					{
-						// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
-						this->quads.clearAndFreeMem();
-
-						assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
-
-						// Check data
+					// Check data
 #ifndef NDEBUG
-						for(unsigned int i = 0; i < triangles.size(); ++i)
-							for(unsigned int c = 0; c < 3; ++c)
+					for(unsigned int i = 0; i < triangles.size(); ++i)
+						for(unsigned int c = 0; c < 3; ++c)
+						{
+							assert(triangles[i].vertex_indices[c] < vertices.size());
+							if(this->num_uv_sets > 0)
 							{
-								assert(triangles[i].vertex_indices[c] < vertices.size());
-								if(this->num_uv_sets > 0)
-								{
-									assert(triangles[i].uv_indices[c] < uvs.size());
-								}
+								assert(triangles[i].uv_indices[c] < uvs.size());
 							}
+						}
 #endif	
-					}
-					if(verbose) print_output.print("\tDone.");
 				}
-				catch(Indigo::Exception& e)
-				{
-					throw GeometryExcep(e.what());
-				}
+				if(verbose) print_output.print("\tDone.");
 			}
-
-#if INDIGO_OPENSUBDIV_SUPPORT
+			catch(Indigo::Exception& e)
+			{
+				throw GeometryExcep(e.what());
+			}
 		}
-#endif // #if INDIGO_OPENSUBDIV_SUPPORT
 		else // else if max_num_subdivisions = 0
 		{
 			assert(max_num_subdivisions == 0);
@@ -673,7 +541,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 
 			if(has_displacing_mat) // object.hasDisplacingMaterial())
 			{
-				DisplacementUtils::doDisplacementOnly(
+				DisplacementUtils::doDisplacementOnly( // updates vertices.pos
 					this->getName(),
 					task_manager,
 					print_output,
@@ -685,9 +553,21 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					uvs,
 					this->num_uv_sets
 				);
+
+				recompute_shading_normals = true; // Since we have done displacement, shading normals need to be recomputed.
 			}
 		}
 
+
+		// Recompute shading normals and mean curvature if required.
+		if(recompute_shading_normals)
+		{
+			computeShadingNormalsAndMeanCurvature(
+				task_manager,
+				true, // update shading normals
+				print_output, verbose
+			);
+		}
 
 		// Build inv_cross_magnitude for triangles
 		{
@@ -740,18 +620,6 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			}
 
 			this->quads.clearAndFreeMem();
-
-			recompute_H = true;
-		}
-
-		// Recompute surface curvature if required.
-		if(recompute_H)
-		{
-			computeShadingNormalsAndMeanCurvature(
-				task_manager,
-				true, // update shading normals
-				print_output, verbose
-			);
 		}
 
 		subdivide_and_displace_done = true;
@@ -1806,6 +1674,12 @@ inline static uint32 mod3(uint32 x)
 }
 
 
+inline static uint32 mod4(uint32 x)
+{
+	return x & 0x3;
+}
+
+
 // Per-tri and quad information computed by ComputePolyInfoTask.
 struct PolyTempInfo
 {
@@ -1941,13 +1815,14 @@ public:
 		const js::Vector<PolyTempInfo, 64>& poly_info = *closure.poly_info;
 		RayMesh::VertexVectorType& vertices = *closure.vertices;
 		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
+		const RayMesh::QuadVectorType& quads = *closure.quads;
 		//const int num_uv_sets = closure.num_uv_sets;
 		//std::vector<RayMesh::VertDerivs>& vert_derivs = *closure.vert_derivs;
 		const int update_shading_normals = closure.update_shading_normals;
 		const std::vector<int>& vert_num_polys = *closure.vert_num_polys;
 		const js::Vector<int, 16>& vert_polys = *closure.vert_polys;
 		const js::Vector<int, 16>& vert_polys_offset = *closure.vert_polys_offset;
-		const size_t total_num_tris = closure.total_num_tris;
+		const int total_num_tris = (int)closure.total_num_tris;
 
 		for(size_t v = begin; v < end; ++v)
 		{
@@ -1961,27 +1836,29 @@ public:
 			Vec3f n(0.f);
 			for(int i=0; i<num_polys; ++i)
 			{
-				const int t = vert_polys[offset + i];
-				if(t < total_num_tris) // Only compute dp/du for tris, not quads
+				const int p = vert_polys[offset + i];
+				if(p < total_num_tris) // Only compute dp/du for tris, not quads
 				{
+					const RayMeshTriangle& tri = triangles[p];
+
 					int c;
-					if(triangles[t].vertex_indices[0] == v)
+					if(tri.vertex_indices[0] == v)
 						c = 0;
-					else if(triangles[t].vertex_indices[1] == v)
+					else if(tri.vertex_indices[1] == v)
 						c = 1;
 					else
 						c = 2;
-					assert(triangles[t].vertex_indices[c] == v);
+					assert(tri.vertex_indices[c] == v);
 
-					// Get positions of vertices in triangle
-					const Vec3f& v_i_1 = vertices[triangles[t].vertex_indices[mod3(c + 1)]].pos;
-					const Vec3f& v_i_2 = vertices[triangles[t].vertex_indices[mod3(c + 2)]].pos;
+					// Get positions of adjacent vertices in triangle
+					const Vec3f& v_i_1 = vertices[tri.vertex_indices[mod3(c + 1)]].pos;
+					const Vec3f& v_i_2 = vertices[tri.vertex_indices[mod3(c + 2)]].pos;
 
 					const Vec3f e2 = v_i_2 - v_i_1;
 
 					// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
 					//assert(poly_info[t].normal.isUnitLength()); 
-					H += crossProduct(poly_info[t].normal, e2);
+					H += crossProduct(poly_info[p].normal, e2);
 					A += crossProduct(v_i_1, v_i_2);
 
 					/*if(num_uv_sets > 0)
@@ -1990,8 +1867,36 @@ public:
 						dp_dv += poly_info[t].dp_dv;
 					}*/
 				}
+				else
+				{
+					const int q = p - total_num_tris;
+					assert(q >= 0 && q < (int)quads.size());
+					const RayMeshQuad& quad = quads[q];
 
-				n += poly_info[t].normal;
+					int c;
+					if(quad.vertex_indices[0] == v)
+						c = 0;
+					else if(quad.vertex_indices[1] == v)
+						c = 1;
+					else if(quad.vertex_indices[2] == v)
+						c = 2;
+					else
+						c = 3;
+					assert(quad.vertex_indices[c] == v);
+
+					// Get positions of adjacent vertices in quad
+					const Vec3f& v_i_1 = vertices[quad.vertex_indices[mod4(c + 1)]].pos;
+					const Vec3f& v_i_2 = vertices[quad.vertex_indices[mod4(c + 3)]].pos;
+
+					const Vec3f e2 = v_i_2 - v_i_1;
+
+					// If tri normal is normalised, then rotation of e2 by 90 degrees in the triangle plane is just n x e2.
+					//assert(poly_info[t].normal.isUnitLength()); 
+					H += crossProduct(poly_info[p].normal, e2);
+					A += crossProduct(v_i_1, v_i_2);
+				}
+
+				n += poly_info[p].normal;
 			}
 
 			if(update_shading_normals)
@@ -2066,15 +1971,15 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 		for(int i = 0; i < 3; ++i)
 		{
 			const int vi = triangles[t].vertex_indices[i];
-			const int offset = vert_polys_offset_temp[vi]++;
-			vert_polys[offset] = (int)t;
+			const int v_offset = vert_polys_offset_temp[vi]++;
+			vert_polys[v_offset] = (int)t;
 		}
 	for(size_t q=0; q<quads_size; ++q)
 		for(int i = 0; i < 4; ++i)
 		{
 			const int vi = quads[q].vertex_indices[i];
-			const int offset = vert_polys_offset_temp[vi]++;
-			vert_polys[offset] = (int)(q + triangles_size);
+			const int v_offset = vert_polys_offset_temp[vi]++;
+			vert_polys[v_offset] = (int)(q + triangles_size);
 		}
 	//conPrint("timer 2 elapsed: " + timer2.elapsedString());
 
