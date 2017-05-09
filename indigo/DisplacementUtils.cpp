@@ -1037,7 +1037,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 		tri_a.uv_indices[0] = v0;
 		tri_a.uv_indices[1] = v1;
 		tri_a.uv_indices[2] = v2;
-		tri_a.setTriMatIndexAndUseShadingNormals(temp_quad.mat_index, use_s_n);
+		tri_a.setMatIndexAndUseShadingNormals(temp_quad.mat_index, use_s_n);
 
 		RayMeshTriangle& tri_b = triangles_in_out[tri_write_i + 1];
 		tri_b.vertex_indices[0] = v0;
@@ -1046,7 +1046,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 		tri_b.uv_indices[0] = v0;
 		tri_b.uv_indices[1] = v2;
 		tri_b.uv_indices[2] = v3;
-		tri_b.setTriMatIndexAndUseShadingNormals(temp_quad.mat_index, use_s_n);
+		tri_b.setMatIndexAndUseShadingNormals(temp_quad.mat_index, use_s_n);
 
 		tri_write_i += 2;
 	}

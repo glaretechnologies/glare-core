@@ -1,8 +1,8 @@
 /*=====================================================================
 raymesh.h
 ---------
+Copyright Glare Technologies Limited 2017 -
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
-Code By Nicholas Chapman.
 =====================================================================*/
 #pragma once
 
@@ -45,7 +45,7 @@ const int MAX_NUM_UV_SETS = 8;
 SSE_CLASS_ALIGN RayMeshTriangle
 {
 public:
-	RayMeshTriangle() : tri_mat_index(0)
+	RayMeshTriangle()
 	{
 #ifndef NDEBUG
 		inv_cross_magnitude = std::numeric_limits<float>::quiet_NaN();
@@ -63,39 +63,29 @@ public:
 		inv_cross_magnitude = std::numeric_limits<float>::quiet_NaN();
 #endif
 	}
-	
-	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
-	{
-		tri_mat_index &= 0xFFFFFFFE; // Clear lower bit
-		tri_mat_index |= (uint32)use_shading_normals;
-	}
 
+	inline void setMatIndexAndUseShadingNormals(uint32 new_mat_index, RayMesh_ShadingNormals use_shading_normals)
+	{
+		tri_mat_index = (new_mat_index << 1) | (uint32)use_shading_normals;
+	}
+	
 	inline RayMesh_ShadingNormals getUseShadingNormals() const
 	{
 		return (RayMesh_ShadingNormals)(tri_mat_index & 0x1);
 	}
 
-	inline void setTriMatIndex(uint32 i)
-	{ 
-		// Clear upper 31 bits, and OR with new index.
-		tri_mat_index = (tri_mat_index & 0x1) | (i << 1); 
-	}
 	inline uint32 getTriMatIndex() const { return tri_mat_index >> 1; }
 
 	inline uint32 getRawTriMatIndex() const { return tri_mat_index; }
-	inline void setRawTriMatIndex(uint32 i) { tri_mat_index = i; }
 
-	inline void setTriMatIndexAndUseShadingNormals(uint32 i, RayMesh_ShadingNormals use_shading_normals)
-	{
-		tri_mat_index = (i << 1) | (uint32)use_shading_normals;
-	}
+	inline void setRawTriMatIndex(uint32 i) { tri_mat_index = i; }
 
 public:
 	uint32 vertex_indices[3];
 	uint32 uv_indices[3];
 	float inv_cross_magnitude;
 private:
-	uint32 tri_mat_index; // least significant bit is normal smoothing flag.
+	uint32 tri_mat_index; // Actual mat index is shifted one bit to the left.  Least significant bit is normal smoothing flag.
 };
 
 
@@ -116,10 +106,9 @@ public:
 		vertex_indices[3] = v3_;
 	}
 
-	inline void setUseShadingNormals(RayMesh_ShadingNormals use_shading_normals)
+	inline void setMatIndexAndUseShadingNormals(uint32 new_mat_index, RayMesh_ShadingNormals use_shading_normals)
 	{
-		mat_index &= 0xFFFFFFFE; // Clear lower bit
-		mat_index |= (uint32)use_shading_normals;
+		mat_index = (new_mat_index << 1) | (uint32)use_shading_normals;
 	}
 
 	inline RayMesh_ShadingNormals getUseShadingNormals() const
@@ -127,11 +116,6 @@ public:
 		return (RayMesh_ShadingNormals)(mat_index & 0x1);
 	}
 
-	inline void setMatIndex(uint32_t i)
-	{ 
-		// Clear upper 31 bits, and OR with new index.
-		mat_index = (mat_index & 0x1) | (i << 1); 
-	}
 	inline uint32 getMatIndex() const { return mat_index >> 1; }
 
 	inline uint32 getRawMatIndex() const { return mat_index; }
@@ -195,14 +179,14 @@ public:
 	INDIGO_ALIGNED_NEW_DELETE
 
 
-	RayMesh(const std::string& name, bool enable_normal_smoothing, 
+	RayMesh(const std::string& name, bool enable_shading_normals, 
 		unsigned int max_num_subdivisions = 0, 
 		double subdivide_pixel_threshold = 0.0, 
 		bool subdivision_smoothing = true, 
 		double subdivide_curvature_threshold = 0.0,
 		bool view_dependent_subdivision = false,
 		double displacement_error_threshold = 0.0
-		);
+	);
 
 	virtual ~RayMesh();
 
@@ -232,7 +216,7 @@ public:
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const;
 
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
-		const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
+		const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback);
 
@@ -291,7 +275,7 @@ public:
 	
 	const unsigned int numUVSets() const { return num_uv_sets; }
 
-	bool isUsingShadingNormals() const { return enable_normal_smoothing; }
+	bool isUsingShadingNormals() const { return enable_shading_normals; }
 
 	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
 
@@ -310,7 +294,7 @@ private:
 
 	js::Tree* tritree;
 
-	bool enable_normal_smoothing;
+	bool enable_shading_normals;
 
 
 	VertexVectorType vertices;

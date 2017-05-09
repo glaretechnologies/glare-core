@@ -1,8 +1,8 @@
 /*=====================================================================
 raymesh.cpp
 -----------
+Copyright Glare Technologies Limited 2017 -
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
-Code By Nicholas Chapman.
 =====================================================================*/
 #ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
@@ -22,7 +22,6 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../indigo/material.h"
-//#include "../indigo/object.h"
 #include "../indigo/RendererSettings.h"
 #include "../physics/KDTree.h"
 #include "../physics/BVH.h"
@@ -44,18 +43,7 @@ Code By Nicholas Chapman.
 #include <algorithm>
 
 
-// #define INDIGO_OPENSUBDIV_SUPPORT 1
-#if INDIGO_OPENSUBDIV_SUPPORT
-#include <opensubdiv/hbr/mesh.h>
-#include <opensubdiv/hbr/subdivision.h>
-#include <opensubdiv/hbr/catmark.h>
-#include <opensubdiv/far/meshFactory.h>
-#include <opensubdiv/osd/cpuDispatcher.h>
-#include <opensubdiv/osd/cudaDispatcher.h>
-#endif
-
-
-RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsigned int max_num_subdivisions_, 
+RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigned int max_num_subdivisions_,
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				bool view_dependent_subdivision_,
 				double displacement_error_threshold_
@@ -66,7 +54,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_normal_smoothing_, unsign
 	),
 	name(name_),
 	tritree(NULL),
-	enable_normal_smoothing(enable_normal_smoothing_),
+	enable_shading_normals(enable_shading_normals_),
 	max_num_subdivisions(max_num_subdivisions_),
 	subdivide_pixel_threshold(subdivide_pixel_threshold_),
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
@@ -148,50 +136,6 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vec
 		hitinfos_out
 		);
 }
-
-
-/*const RayMesh::Vec3Type RayMesh::getShadingNormal(const HitInfo& hitinfo) const
-{
-	//if(!this->enable_normal_smoothing)
-	if(this->triangles[hitinfo.sub_elem_index].getUseShadingNormals() == 0)
-	{
-		//Vec4f n;
-		////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
-		//this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
-		//return n;
-
-		const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
-		const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-		const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-		const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-		const Vec3f e0(v1.pos - v0.pos);
-		const Vec3f e1(v2.pos - v0.pos);
-		return RayMesh::Vec3Type((e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-								 (e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-								 (e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
-	}
-
-	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
-
-	const Vec3f& v0norm = vertNormal( tri.vertex_indices[0] );
-	const Vec3f& v1norm = vertNormal( tri.vertex_indices[1] );
-	const Vec3f& v2norm = vertNormal( tri.vertex_indices[2] );
-
-	//NOTE: not normalising, because a raymesh is always contained by a InstancedGeom geometry,
-	//which will normalise the normal.
-	//return toVec3d(v0norm * (1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + 
-	//	(v1norm)*(float)hitinfo.tri_coords.x + 
-	//	(v2norm)*(float)hitinfo.tri_coords.y);
-
-	// Gratuitous removal of function calls
-	const Vec3RealType w = (Vec3RealType)1.0 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return Vec3Type(
-		v0norm.x * w + v1norm.x * hitinfo.sub_elem_coords.x + v2norm.x * hitinfo.sub_elem_coords.y,
-		v0norm.y * w + v1norm.y * hitinfo.sub_elem_coords.x + v2norm.y * hitinfo.sub_elem_coords.y,
-		v0norm.z * w + v1norm.z * hitinfo.sub_elem_coords.x + v2norm.z * hitinfo.sub_elem_coords.y,
-		0.f
-		);
-}*/
 
 
 const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const
@@ -385,66 +329,9 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 }*/
 
 
-#if INDIGO_OPENSUBDIV_SUPPORT
-
-
-class RayMeshOsdVertex {
-public:
-    RayMeshOsdVertex() : pos(0,0,0) {}
-    RayMeshOsdVertex(int index) : pos(0,0,0) {}
-    RayMeshOsdVertex(const RayMeshOsdVertex &src) : pos(src.pos) {}
-
-	explicit RayMeshOsdVertex(const Vec3f& p) : pos(p) {}
-
-    void AddWithWeight(const RayMeshOsdVertex & i, float weight, void * = 0)
-	{
-		pos += i.pos * weight;
-		//uvs += i.uvs * weight;
-	}
-    void AddVaryingWithWeight(const RayMeshOsdVertex & i, float weight, void * = 0)
-	{
-		// pos += i.pos * weight;
-	}
-    void Clear(void * = 0)
-	{
-		pos.set(0, 0, 0);
-		//uvs.set(0, 0);
-	}
-    void ApplyVertexEdit(const OpenSubdiv::HbrVertexEdit<RayMeshOsdVertex> & edit)
-	{
-		const float *src = edit.GetEdit();
-        switch(edit.GetOperation()) {
-        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Set:
-            pos.x = src[0];
-            pos.y = src[1];
-            pos.z = src[2];
-            break;
-        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Add:
-            pos.x += src[0];
-            pos.y += src[1];
-            pos.z += src[2];
-            break;
-        case OpenSubdiv::HbrHierarchicalEdit<RayMeshOsdVertex>::Subtract:
-            pos.x -= src[0];
-            pos.y -= src[1];
-            pos.z -= src[2];
-            break;
-        }
-	}
-    void ApplyMovingVertexEdit(const OpenSubdiv::HbrMovingVertexEdit<RayMeshOsdVertex> &) { }
-
-	Vec3f pos;
-};
-
-
-#endif // #if INDIGO_OPENSUBDIV_SUPPORT
-
-
 bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
-								   const ArrayRef<Reference<Material> >& materials,
-								   //const Object& object, 
-								   const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
-								   //const std::vector<Reference<Material> >& materials, 
+	const ArrayRef<Reference<Material> >& materials,
+	const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
 	ShouldCancelCallback* should_cancel_callback
 	)
@@ -499,7 +386,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					uvs, // uvs_in_out
 					this->num_uv_sets,
 					options,
-					this->enable_normal_smoothing,
+					this->enable_shading_normals,
 					should_cancel_callback
 				);
 
@@ -710,7 +597,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 {
 	Reference<RayMesh> new_mesh(new RayMesh(
 		name,
-		enable_normal_smoothing,
+		enable_shading_normals,
 		max_num_subdivisions,
 		subdivide_pixel_threshold, 
 		subdivision_smoothing, 
@@ -1340,7 +1227,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 	const unsigned int num_uv_groups = this->getNumUVsPerSet(); // Compute out of loop below.
 
-	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
+	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
 	// Copy Triangles
 	this->triangles.reserve(mesh.triangles.size());
@@ -1393,9 +1280,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 			dest_tri.uv_indices[1] = src_tri.uv_indices[1];
 			dest_tri.uv_indices[2] = src_tri.uv_indices[2];
 		
-			dest_tri.setTriMatIndex(src_tri.tri_mat_index);
-			dest_tri.setUseShadingNormals(use_shading_normals_enum);
-			dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
+			dest_tri.inv_cross_magnitude = 1.f / cross_prod_len; 
+			dest_tri.setMatIndexAndUseShadingNormals(src_tri.tri_mat_index, use_shading_normals_enum);
 
 			dest_i++;
 		}
@@ -1431,8 +1317,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		this->quads[i].uv_indices[2] = mesh.quads[i].uv_indices[2];
 		this->quads[i].uv_indices[3] = mesh.quads[i].uv_indices[3];
 
-		this->quads[i].setMatIndex(mesh.quads[i].mat_index);
-		this->quads[i].setUseShadingNormals(use_shading_normals_enum);
+		this->quads[i].setMatIndexAndUseShadingNormals(mesh.quads[i].mat_index, use_shading_normals_enum);
 	}
 }
 
@@ -1496,8 +1381,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 		new_tri.uv_indices[i]     = uv_indices[i];
 	}
 
-	new_tri.setTriMatIndex(material_index);
-	new_tri.setUseShadingNormals(this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
+	new_tri.setMatIndexAndUseShadingNormals(material_index, this->enable_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 	new_tri.inv_cross_magnitude = 1.0f / cross_prod_len;
 }
 
@@ -1512,8 +1396,7 @@ void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv
 		new_quad.uv_indices[i]     = uv_indices[i];
 	}
 
-	new_quad.setMatIndex(material_index);
-	new_quad.setUseShadingNormals(this->enable_normal_smoothing ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
+	new_quad.setMatIndexAndUseShadingNormals(material_index, this->enable_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 }
 
 
@@ -1543,8 +1426,7 @@ void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int
 		new_tri.uv_indices[i]     = uv_indices[i];
 	}
 
-	new_tri.setTriMatIndex(material_index);
-	new_tri.setUseShadingNormals(use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
+	new_tri.setMatIndexAndUseShadingNormals(material_index, use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
 	new_tri.inv_cross_magnitude = 1.0f / cross_prod_len;
 }
 
