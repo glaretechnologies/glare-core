@@ -94,7 +94,7 @@ void RayMeshTests::test()
 		const uint32 uv[3] = { 0, 0, 0 };
 		const uint32 tri_0_v[3] = { 0, 1, 2 };
 		indigo_mesh.addTriangle(tri_0_v, uv, 0);
-		const uint32 tri_1_v[3] = { 0, 1, 2 };
+		const uint32 tri_1_v[3] = { 0, 2, 3 };
 		indigo_mesh.addTriangle(tri_1_v, uv, 0);
 		indigo_mesh.endOfModel();
 
@@ -129,7 +129,7 @@ void RayMeshTests::test()
 		const uint32 uv[3] = { 0, 0, 0 };
 		const uint32 tri_0_v[3] = { 0, 1, 2 };
 		indigo_mesh.addTriangle(tri_0_v, uv, 0);
-		const uint32 tri_1_v[3] = { 0, 1, 2 };
+		const uint32 tri_1_v[3] = { 0, 2, 3 };
 		indigo_mesh.addTriangle(tri_1_v, uv, 0);
 		indigo_mesh.endOfModel();
 
