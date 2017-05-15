@@ -972,6 +972,9 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 		// Updated information is now in *next_polygons, *next_verts_and_uvs
 
+		// Were any polygons subdivided during this subdivision step:
+		const bool any_subdiv_done = current_polygons->quads.size() != next_polygons->quads.size();
+
 		if(DRAW_SUBDIVISION_STEPS) draw(*next_polygons, *next_verts_and_uvs, num_uv_sets, "after_linear_subd_" + toString(i) + ".png");
 
 		DISPLACEMENT_PRINT_RESULTS(conPrint("linearSubdivision took            " + linear_timer.elapsedStringNPlaces(5) + "\n"));
@@ -988,6 +991,13 @@ bool DisplacementUtils::subdivideAndDisplace(
 
 		if(should_cancel_callback && should_cancel_callback->shouldCancel())
 			throw Indigo::Exception("Cancelled");
+
+		if(!any_subdiv_done)
+		{
+			// No subdivision was done.  Early exit.
+			print_output.print("\tNo quads were subdivided, subdivision is finished!");
+			break;
+		}
 	}
 
 	}
