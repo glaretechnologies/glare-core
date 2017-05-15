@@ -24,7 +24,7 @@ class ProgramCache
 public:
 	// Caches based on a key made from program_source and compile_options.
 	static OpenCLProgramRef getOrBuildProgram(
-		const std::string appdata_path,
+		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
 		const std::vector<OpenCLDevice>& devices, // all devices must share the same platform

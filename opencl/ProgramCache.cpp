@@ -16,7 +16,7 @@ Generated at 2016-10-14 15:08:16 +0100
 
 
 OpenCLProgramRef ProgramCache::getOrBuildProgram(
-		const std::string appdata_path,
+		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
 		const std::vector<OpenCLDevice>& devices, // all devices must share the same platform
@@ -65,7 +65,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
 			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
 			const std::string dir = ::toHexString(dir_bits);
-			const std::string cachefile_path = appdata_path + "/cache/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+			const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
 
 			// If the binary is not present in the cache, don't throw an exception then print a warning message.
 			if(!FileUtils::fileExists(cachefile_path))
@@ -183,11 +183,10 @@ build_program:
 			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
 			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
 			const std::string dir = ::toHexString(dir_bits);
-			const std::string cachefile_path = appdata_path + "/cache/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+			const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
 
-			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache");
-			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache/program_cache");
-			FileUtils::createDirIfDoesNotExist(appdata_path + "/cache/program_cache/" + dir);
+			FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
+			FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
 			FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
 		}
 	}
