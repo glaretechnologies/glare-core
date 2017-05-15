@@ -29,6 +29,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/BitUtils.h"
 #include "../utils/Vector.h"
+#include "../utils/IncludeXXHash.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include <half.h> // From OpenEXR
 #include <algorithm>
@@ -2539,41 +2540,98 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeNameTagQuadMesh(float w, float
 }
 
 
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeQuadMesh(const Vec4f& i, const Vec4f& j)
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(4);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(4);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(4);
+	js::Vector<uint32, 16> indices;
+	indices.resize(6); // two tris per face
+
+	indices[0] = 0;
+	indices[1] = 1;
+	indices[2] = 2;
+	indices[3] = 0;
+	indices[4] = 2;
+	indices[5] = 3;
+
+	Vec3f v0(0.f); // bottom left
+	Vec3f v1 = toVec3f(i); // bottom right
+	Vec3f v2 = toVec3f(i) + toVec3f(j); // top right
+	Vec3f v3 = toVec3f(j); // top left
+
+	verts[0] = v0;
+	verts[1] = v1;
+	verts[2] = v2;
+	verts[3] = v3;
+
+	Vec2f uv0(0, 0);
+	Vec2f uv1(1, 0);
+	Vec2f uv2(1, 1);
+	Vec2f uv3(0, 1);
+
+	uvs[0] = uv0;
+	uvs[1] = uv1;
+	uvs[2] = uv2;
+	uvs[3] = uv3;
+
+	for(int z=0; z<4; ++z)
+		normals[z] = toVec3f(crossProduct(i, j));// Vec3f(0, 0, -1);
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+}
+
+
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d)
 {
-	auto res = this->opengl_textures.find(&map2d);
-	if(res == this->opengl_textures.end())
+	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
-		// Load texture
-		unsigned int tex_xres = map2d.getMapWidth();
-		unsigned int tex_yres = map2d.getMapHeight();
+		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
 
-		if(dynamic_cast<const ImageMapUInt8*>(&map2d))
+		// Compute hash of map
+		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize(), 1);
+
+		//conPrint("key: " + toString(key));
+		//conPrint("&map2d: " + toString((uint64)&map2d));
+		auto res = this->opengl_textures.find(key);
+		if(res == this->opengl_textures.end())
 		{
-			const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
+			// conPrint("Creating new OpenGL texture.");
+
+			// Load texture
+			unsigned int tex_xres = map2d.getMapWidth();
+			unsigned int tex_yres = map2d.getMapHeight();
 
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, 
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE,
 					OpenGLTexture::Filtering_Fancy
 				);
 
-				this->opengl_textures.insert(std::make_pair(&map2d, opengl_tex)); // Store
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 
 				return opengl_tex;
 			}
 			else
 				throw Indigo::Exception("Texture has unhandled number of components.");
+
 		}
-		else
+		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
-			throw Indigo::Exception("Unhandled texture type.");
+			// conPrint("texture already loaded.");
+			return res->second;
 		}
 	}
-	else // Else if this map has already been loaded into an OpenGL Texture:
+	else
 	{
-		return res->second;
+		throw Indigo::Exception("Unhandled texture type.");
 	}
 }
 

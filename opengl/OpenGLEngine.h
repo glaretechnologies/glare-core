@@ -213,6 +213,7 @@ public:
 
 	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
 	static Reference<OpenGLMeshRenderData> makeNameTagQuadMesh(float w, float h);
+	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius);
 private:
 	void buildMaterial(OpenGLMaterial& mat);
@@ -311,7 +312,7 @@ private:
 	double draw_time;
 	Timer draw_timer;
 
-	std::map<const Map2D*, Reference<OpenGLTexture> > opengl_textures;
+	std::map<uint64, Reference<OpenGLTexture> > opengl_textures; // Used for cyberspace
 
 	size_t outline_tex_w, outline_tex_h;
 	Reference<FrameBuffer> outline_solid_fb;
