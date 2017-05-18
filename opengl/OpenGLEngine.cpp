@@ -56,6 +56,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
 	env_ob->ob_to_world_inv_tranpose_matrix = Matrix4f::identity();
 	env_ob->materials.resize(1);
+
+	camera_type = CameraType_Perspective;
 }
 
 
@@ -69,9 +71,11 @@ static const Vec4f UP_OS(0.0f, 0.0f, 1.0f, 0.0f);
 static const Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
 
 
-void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
+void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
 	float lens_shift_right_distance_)
 {
+	camera_type = CameraType_Perspective;
+
 	this->sensor_width = sensor_width_;
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
 	this->lens_sensor_dist = lens_sensor_dist_;
@@ -158,6 +162,8 @@ void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matr
 		);
 	}
 
+	this->num_frustum_clip_planes = 5;
+
 
 	// Calculate frustum verts
 	Vec4f verts_cs[5];
@@ -175,6 +181,124 @@ void OpenGLEngine::setCameraTransform(const Matrix4f& world_to_camera_space_matr
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<5; ++i)
+	{
+		assert(verts_cs[i][3] == 1.f);
+		frustum_verts[i] = cam_to_world * verts_cs[i];
+		const Vec4f frustum_vert_ws = cam_to_world * verts_cs[i];
+		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
+		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
+	}
+}
+
+
+void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
+	float lens_shift_right_distance_)
+{
+	camera_type = CameraType_Orthographic;
+
+	this->sensor_width = sensor_width_;
+	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
+	this->render_aspect_ratio = render_aspect_ratio_;
+	this->lens_shift_up_distance = lens_shift_up_distance_;
+	this->lens_shift_right_distance = lens_shift_right_distance_;
+
+	float use_sensor_width;
+	float use_sensor_height;
+	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
+	{
+		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
+		use_sensor_width = use_sensor_height * viewport_aspect_ratio; // enlarge horizontal field of view as needed
+	}
+	else
+	{
+		use_sensor_width = sensor_width; // Keep horizontal field of view the same
+		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
+	}
+
+
+	// Make camera view volume clipping planes
+	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
+
+	Planef planes_cs[6]; // Clipping planes in camera space
+
+	planes_cs[0] = Planef(
+		toVec3f(Vec4f(0.f)), // pos.
+		toVec3f(-FORWARDS_OS) // normal
+	); // near clip plane of frustum
+
+	planes_cs[1] = Planef(
+		toVec3f(FORWARDS_OS * this->max_draw_dist), // pos.
+		toVec3f(FORWARDS_OS) // normal
+	); // far clip plane of frustum
+
+	const Vec4f left_normal = -RIGHT_OS;
+	planes_cs[2] = Planef(
+		toVec3f(lens_center + left_normal * use_sensor_width/2),
+		toVec3f(left_normal)
+	); // left
+
+	const Vec4f right_normal = RIGHT_OS;
+	planes_cs[3] = Planef(
+		toVec3f(lens_center + right_normal * use_sensor_width/2),
+		toVec3f(right_normal)
+	); // right
+
+	const Vec4f bottom_normal = -UP_OS;
+	planes_cs[4] = Planef(
+		toVec3f(lens_center + bottom_normal * use_sensor_height/2),
+		toVec3f(bottom_normal)
+	); // bottom
+
+	const Vec4f top_normal = UP_OS;
+	planes_cs[5] = Planef(
+		toVec3f(lens_center + top_normal * use_sensor_height/2),
+		toVec3f(top_normal)
+	); // top
+	
+	// Transform clipping planes to world space
+	Matrix4f cam_to_world;
+	world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world);
+	
+	for(int i=0; i<6; ++i)
+	{
+		// Get point on plane and plane normal in Camera space.
+		Vec4f plane_point_cs;
+		planes_cs[i].getPointOnPlane().pointToVec4f(plane_point_cs);
+
+		Vec4f plane_normal_cs;
+		planes_cs[i].getNormal().vectorToVec4f(plane_normal_cs);
+
+		// Transform from camera space -> world space, then world space -> object space.
+		const Vec4f plane_point_ws = cam_to_world * plane_point_cs;
+		const Vec4f normal_ws = normalise(cam_to_world * plane_normal_cs);
+
+		frustum_clip_planes[i] = Plane<float>(
+			toVec3f(plane_point_ws),
+			toVec3f(normal_ws)
+			);
+	}
+
+	this->num_frustum_clip_planes = 6;
+
+	// Calculate frustum verts
+	Vec4f verts_cs[8];
+	const float shift_up_d    = lens_shift_up_distance;// *(max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
+	const float shift_right_d = lens_shift_right_distance;// *(max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
+
+	const float d_w = use_sensor_width;//  *max_draw_dist / (2 * lens_sensor_dist);
+	const float d_h = use_sensor_height;// *max_draw_dist / (2 * lens_sensor_dist);
+
+	verts_cs[0] = lens_center                               + RIGHT_OS * -d_w + UP_OS * -d_h; // bottom left
+	verts_cs[1] = lens_center                               + RIGHT_OS *  d_w + UP_OS * -d_h; // bottom right
+	verts_cs[2] = lens_center                               + RIGHT_OS *  d_w + UP_OS *  d_h; // top right
+	verts_cs[3] = lens_center                               + RIGHT_OS * -d_w + UP_OS *  d_h; // top left
+	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -d_w + UP_OS * -d_h; // bottom left
+	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  d_w + UP_OS * -d_h; // bottom right
+	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  d_w + UP_OS *  d_h; // top right
+	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -d_w + UP_OS *  d_h; // top left
+
+	frustum_aabb = js::AABBox::emptyAABBox();
+	for(int i=0; i<8; ++i)
 	{
 		assert(verts_cs[i][3] == 1.f);
 		frustum_verts[i] = cam_to_world * verts_cs[i];
@@ -793,12 +917,12 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 
 
 // http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm
-static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
+static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
 {
 	const Vec4f min_ws = aabb_ws.min_;
 	const Vec4f max_ws = aabb_ws.max_;
 
-	for(int z=0; z<5; ++z) // For each frustum plane:
+	for(int z=0; z<num_frustum_clip_planes; ++z) // For each frustum plane:
 	{
 		const Vec3f normal = frustum_clip_planes[z].getNormal();
 		float dist = std::numeric_limits<float>::infinity();
@@ -986,10 +1110,11 @@ void OpenGLEngine::draw()
 	Matrix4f proj_matrix;
 	
 	// Initialise projection matrix from Indigo camera settings
+	const double z_far  = max_draw_dist;
+	const double z_near = max_draw_dist * 2e-5;
+
+	if(camera_type == CameraType_Perspective)
 	{
-		const double z_far  = max_draw_dist;
-		const double z_near = max_draw_dist * 2e-5;
-		
 		double w, h;
 		if(viewport_aspect_ratio > render_aspect_ratio)
 		{
@@ -1007,6 +1132,35 @@ void OpenGLEngine::draw()
 		const double y_min = z_near * (-h + unit_shift_up);
 		const double y_max = z_near * ( h + unit_shift_up);
 		proj_matrix = frustumMatrix(x_min, x_max, y_min, y_max, z_near, z_far);
+	}
+	else if(camera_type == CameraType_Orthographic)
+	{
+		const double sensor_height = this->sensor_width / render_aspect_ratio;
+
+		if(viewport_aspect_ratio > render_aspect_ratio)
+		{
+			// Match on the vertical clip planes.
+			proj_matrix = orthoMatrix(
+				-sensor_height * 0.5 * viewport_aspect_ratio, // left
+				sensor_height * 0.5 * viewport_aspect_ratio, // right
+				-sensor_height * 0.5, // bottom
+				sensor_height * 0.5, // top
+				z_near,
+				z_far
+			);
+		}
+		else
+		{
+			// Match on the horizontal clip planes.
+			proj_matrix = orthoMatrix(
+				-this->sensor_width * 0.5, // left
+				this->sensor_width * 0.5, // right
+				-this->sensor_width * 0.5 / viewport_aspect_ratio, // bottom
+				this->sensor_width * 0.5 / viewport_aspect_ratio, // top
+				z_near,
+				z_far
+			);
+		}
 	}
 
 	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
@@ -1041,7 +1195,7 @@ void OpenGLEngine::draw()
 		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
 		{
 			const GLObject* const ob = *i;
-			if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
@@ -1097,8 +1251,18 @@ void OpenGLEngine::draw()
 
 		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
+		Matrix4f use_proj_mat;
+		if(camera_type == CameraType_Orthographic)
+		{
+			// Use a perpective transformation for rendering the env sphere, with a few narrow field of view, to provide just a hint of texture detail.
+			const float w = 0.01;
+			use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
+		}
+		else
+			use_proj_mat = proj_matrix;
+
 		bindMeshData(*env_ob->mesh_data);
-		drawBatch(*env_ob, world_to_camera_space_no_translation, proj_matrix, env_ob->materials[0], *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
+		drawBatch(*env_ob, world_to_camera_space_no_translation, use_proj_mat, env_ob->materials[0], *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
 		unbindMeshData(*env_ob->mesh_data);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -1110,7 +1274,7 @@ void OpenGLEngine::draw()
 	for(size_t i=0; i<objects.size(); ++i)
 	{
 		const GLObject* const ob = objects[i].getPointer();
-		if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+		if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
@@ -1139,7 +1303,7 @@ void OpenGLEngine::draw()
 	for(size_t i=0; i<transparent_objects.size(); ++i)
 	{
 		const GLObject* const ob = transparent_objects[i].getPointer();
-		if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws)) 
+		if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.

@@ -173,8 +173,11 @@ public:
 
 	void draw();
 
-	void setCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
-							float lens_shift_right_distance);
+	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
+		float lens_shift_right_distance);
+
+	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
+		float lens_shift_right_distance);
 
 	void setSunDir(const Vec4f& d);
 
@@ -243,6 +246,12 @@ private:
 	float lens_shift_up_distance;
 	float lens_shift_right_distance;
 	int viewport_w, viewport_h;
+	enum CameraType
+	{
+		CameraType_Perspective,
+		CameraType_Orthographic
+	};
+	CameraType camera_type;
 
 	Matrix4f world_to_camera_space_matrix;
 public:
@@ -261,8 +270,9 @@ private:
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
-	Plane<float> frustum_clip_planes[5];
-	Vec4f frustum_verts[5];
+	Plane<float> frustum_clip_planes[6];
+	int num_frustum_clip_planes;
+	Vec4f frustum_verts[8];
 	js::AABBox frustum_aabb;
 
 	Reference<OpenGLProgram> phong_prog;
