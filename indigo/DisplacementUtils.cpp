@@ -3379,7 +3379,7 @@ void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std:
 			for(size_t i = 0; i<sizeof(scenes) / sizeof(const char*); ++i)
 			{
 				const std::string fullpath = TestUtils::getIndigoTestReposDir() + "/testscenes/" + scenes[i];
-				Indigo::RendererTests::renderTestScene(indigo_base_dir_path, appdata_path, fullpath, /*save_render=*/true);
+				Indigo::RendererTests::renderTestScene(indigo_base_dir_path, appdata_path, fullpath, /*save_render=*/true, /*bidir=*/false);
 			}
 		}
 		catch(Indigo::Exception& e)
