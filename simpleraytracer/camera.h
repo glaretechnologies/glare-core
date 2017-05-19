@@ -118,7 +118,6 @@ public:
 	virtual void sampleLensPos(const SamplePair& samples, double time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
 
 	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, double time) const = 0; // only used in old code.
-	virtual void sensorPosForLensIncidentRay(const Vec3Type& lenspos_ws, const Vec3Type& raydir, double time, bool& hitsensor_out, Vec3Type& sensorpos_os_out, Vec3Type& sensorpos_ws_out) const = 0;
 
 	virtual const Vec2f imCoordsForSensorPos(const Vec3Type& sensorpos_os, double time) const = 0;
 	virtual void sensorPosForImCoords(const Vec2f& imcoords, Vec3Type& pos_os_out) const = 0;
@@ -142,10 +141,6 @@ public:
 	virtual const std::vector<Plane<Vec3RealType> >& getViewVolumeClippingPlanesCameraSpace() const = 0;
 
 	
-
-	virtual const TransformPath& getTransformPath() const = 0;
-
-
 	virtual bool isAutoFocus() const = 0;
 	virtual void setFocusDistance(double fd) = 0; // NOTE: non-const
 
@@ -195,10 +190,18 @@ public:
 	void setContainingMedia(const std::vector<const Medium*>& media);
 	inline const std::vector<const Medium*>& getContainingMedia() const { return containing_media; }
 
+	inline const TransformPath& getTransformPath() const { return transform_path; }
+
+
 protected:
-	std::vector<const Medium*> containing_media;
+	TransformPath transform_path; // SSE Aligned
+	js::AABBox bbox_ws; // SSE Aligned
+
 private:
 	CameraType camera_type;
+
+protected:
+	std::vector<const Medium*> containing_media;
 };
 
 #ifdef _WIN32
