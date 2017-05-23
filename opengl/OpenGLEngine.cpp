@@ -282,20 +282,14 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 
 	// Calculate frustum verts
 	Vec4f verts_cs[8];
-	const float shift_up_d    = lens_shift_up_distance;// *(max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
-	const float shift_right_d = lens_shift_right_distance;// *(max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
-
-	const float d_w = use_sensor_width;//  *max_draw_dist / (2 * lens_sensor_dist);
-	const float d_h = use_sensor_height;// *max_draw_dist / (2 * lens_sensor_dist);
-
-	verts_cs[0] = lens_center                               + RIGHT_OS * -d_w + UP_OS * -d_h; // bottom left
-	verts_cs[1] = lens_center                               + RIGHT_OS *  d_w + UP_OS * -d_h; // bottom right
-	verts_cs[2] = lens_center                               + RIGHT_OS *  d_w + UP_OS *  d_h; // top right
-	verts_cs[3] = lens_center                               + RIGHT_OS * -d_w + UP_OS *  d_h; // top left
-	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -d_w + UP_OS * -d_h; // bottom left
-	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  d_w + UP_OS * -d_h; // bottom right
-	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  d_w + UP_OS *  d_h; // top right
-	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -d_w + UP_OS *  d_h; // top left
+	verts_cs[0] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
+	verts_cs[1] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
+	verts_cs[2] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
+	verts_cs[3] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
+	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
+	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
+	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
+	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<8; ++i)
@@ -749,6 +743,8 @@ void OpenGLEngine::unloadAllData()
 	this->objects.resize(0);
 	this->transparent_objects.resize(0);
 
+	this->selected_objects.clear();
+
 	this->env_ob->materials[0] = OpenGLMaterial();
 }
 
@@ -881,6 +877,10 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, Tex
 				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map);
 			}
 			catch(TextureServerExcep& e)
+			{
+				conPrint("Warning: failed to load texture: " + e.what());
+			}
+			catch(Indigo::Exception& e)
 			{
 				conPrint("Warning: failed to load texture: " + e.what());
 			}
@@ -2784,7 +2784,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 				return opengl_tex;
 			}
 			else
-				throw Indigo::Exception("Texture has unhandled number of components.");
+				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
