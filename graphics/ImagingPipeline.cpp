@@ -1141,10 +1141,7 @@ void doTonemap(
 		const ptrdiff_t y_tiles = Maths::roundedUpDivide<ptrdiff_t>(final_yres, (ptrdiff_t)image_tile_size);
 		const ptrdiff_t num_tiles = x_tiles * y_tiles;
 		ptrdiff_t tile_buffer_size;
-		int effective_margin = margin_ssf1;
-		if(subres_factor > 1)
-			effective_margin = Maths::roundedUpDivide(margin_ssf1*(int)ss_factor, subres_factor); // This margin will be used directly. (won't be multiplied by ssf)
-
+		
 		if(ss_factor == 1 || subres_factor > 1)
 			tile_buffer_size = image_tile_size; // We won't be doing downsampling.  Therefore we don't need a margin for the downsample filter.
 		else
@@ -1191,7 +1188,7 @@ void doTonemap(
 		closure.final_xres = final_xres;
 		closure.final_yres = final_yres;
 		closure.filter_size = filter_size;
-		closure.margin_ssf1 = effective_margin;
+		closure.margin_ssf1 = margin_ssf1;
 		closure.region_alpha_bias = region_alpha_bias;
 		closure.subres_factor = subres_factor;
 

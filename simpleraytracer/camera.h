@@ -74,7 +74,10 @@ public:
 	virtual void init(
 		const ArrayRef<TransformKeyFrame>& frames,
 		const Vec3d& ws_updir, const Vec3d& forwards, 
-		double lens_radius, double focus_distance, double sensor_width, double sensor_height, double lens_sensor_dist,
+		double lens_radius, double focus_distance, 
+		double original_sensor_width, double original_sensor_height, 
+		double sensor_width, double sensor_height, 
+		double lens_sensor_dist,
 		double exposure_duration,
 		Reference<Aperture>& aperture,
 		double lens_shift_up_distance,
