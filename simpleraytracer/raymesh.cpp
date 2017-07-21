@@ -352,14 +352,11 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			!vertex_shading_normals_provided, // update shading normals - we only want to compute shading normals if they were not provided in the mesh file.
 			print_output, verbose
 		);
-		bool recompute_shading_normals = false; // This will be set to true if we need to recompute shading normals and mean curvature later.  This will be the case for subdiv and displacement.
 
 		if(max_num_subdivisions > 0)
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
-			recompute_shading_normals = true;
-			
 			try
 			{
 				DUOptions options;
@@ -441,19 +438,13 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					this->num_uv_sets
 				);
 
-				recompute_shading_normals = true; // Since we have done displacement, shading normals need to be recomputed.
+				// Since we have done displacement, shading normals need to be recomputed.
+				computeShadingNormalsAndMeanCurvature(
+					task_manager,
+					true, // update shading normals
+					print_output, verbose
+				);
 			}
-		}
-
-
-		// Recompute shading normals and mean curvature if required.
-		if(recompute_shading_normals)
-		{
-			computeShadingNormalsAndMeanCurvature(
-				task_manager,
-				true, // update shading normals
-				print_output, verbose
-			);
 		}
 
 		// Build inv_cross_magnitude for triangles

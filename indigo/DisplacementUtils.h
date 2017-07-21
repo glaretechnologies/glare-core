@@ -30,6 +30,7 @@ public:
 
 	Vec3f pos;
 	Vec3f normal;
+	float H;
 	int adjacent_vert_0, adjacent_vert_1; // Used when anchored = true.
 	float displacement; // will be set after displace() is called.
 	bool anchored; // If this vertex lies on a T-junction, it is 'anchored', and will be given a position which is the average of adjacent_vert_0 and adjacent_vert_0, in order to prevent gaps.
@@ -168,7 +169,7 @@ class DisplacementUtils
 public:
 	// Subdivide and displace the mesh.
 	// All quads will be converted to triangles.
-	// Sets verts_in_out positions.  verts_in_out normals and H are not set.
+	// Sets verts_in_out.pos, .normal and .H.
 	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
 	// Throws Indigo::Exception if cancelled.
 	static bool subdivideAndDisplace(
@@ -236,6 +237,7 @@ private:
 		const DUVertexVector& verts_in,
 		const UVVector& uvs,
 		unsigned int num_uv_sets,
+		bool compute_H,
 		DUVertexVector& verts_out
 	);
 
