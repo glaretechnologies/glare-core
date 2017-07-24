@@ -18,9 +18,7 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 */
 
 
-#include "TestUtils.h"
 #include "PrintOutput.h"
-#include "StandardPrintOutput.h"
 #include "ThreadContext.h"
 #include "DisplaceMatParameter.h"
 #include "material.h"
@@ -1067,24 +1065,51 @@ bool DisplacementUtils::subdivideAndDisplace(
 }
 
 
+struct VertDisplacementTaskKey
+{
+	uint32 mat_i; // Material index
+	uint32 vert_i; // Index into verts_in_out
+
+	inline bool operator == (const VertDisplacementTaskKey& other) const { return mat_i == other.mat_i && vert_i == other.vert_i; }
+	inline bool operator != (const VertDisplacementTaskKey& other) const { return mat_i != other.mat_i || vert_i != other.vert_i; }
+};
+
+
+class VertDisplacementTaskKeyHash
+{
+public:
+	inline size_t operator()(const VertDisplacementTaskKey& v) const
+	{
+		return useHash(v);
+	}
+};
+
+
+struct VertDisplacementTaskValue
+{
+	uint32 poly_i; // triangle index if poly_i < num_tries, otherwise it's a quad index with quad_index = poly_i - num_tris.
+	int in_vert_i; // Index of vert inside the polygon (0-3)
+	float displacement; // Resulting displacement at this vertex
+};
+
+
 struct RayMeshDisplaceTaskClosure
 {
+	HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash>* displacement_tasks;
 	const RayMesh::TriangleVectorType* tris_in;
 	const RayMesh::QuadVectorType* quads_in;
 	unsigned int num_uv_sets;
 	const std::vector<Vec2f>* uvs_in;
 	RayMesh::VertexVectorType* verts;
 	const ArrayRef<Reference<Material> >* materials;
-	std::vector<IndigoAtomic>* verts_processed;
-	js::Vector<float, 16>* displacements_out;
 };
 
 
 // Compute displacement for each vertex.  Writes displacement values to closure.displacements_out
-class RayMeshTriDisplaceTask : public Indigo::Task
+class ComputeDisplaceTask : public Indigo::Task
 {
 public:
-	RayMeshTriDisplaceTask(const RayMeshDisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+	ComputeDisplaceTask(const RayMeshDisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
 
 	virtual void run(size_t thread_index)
 	{
@@ -1092,104 +1117,64 @@ public:
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const RayMesh::TriangleVectorType& tris = *closure.tris_in;
-		const int num_uv_sets = closure.num_uv_sets;
-		const std::vector<Vec2f>& uvs = *closure.uvs_in;
-		RayMesh::VertexVectorType& verts = *closure.verts;
-		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
-		js::Vector<float, 16>& displacements_out = *closure.displacements_out;
-
-		for(int t_i = begin; t_i < end; ++t_i)
-		{
-			const RayMeshTriangle& tri = tris[t_i];
-			const Material* const material = (*closure.materials)[tri.getTriMatIndex()].getPointer();
-			for(int i=0; i<3; ++i)
-			{
-				const uint32 v_i = tri.vertex_indices[i];
-				if(verts_processed[v_i].increment() == 0) // If this vert has not been processed yet:
-				{
-					if(material->displacing())
-					{
-						HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-						for(int z = 0; z < num_uv_sets; ++z)
-							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, tri.uv_indices[i], z);
-						du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
-
-						EvalDisplaceArgs args(
-							context,
-							hitinfo,
-							du_texcoord_evaluator,
-							Vec4f(0), // dp_dalpha  TEMP HACK
-							Vec4f(0), // dp_dbeta  TEMP HACK
-							Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
-						);
-
-						const float displacement = material->evaluateDisplacement(args);
-						displacements_out[v_i] = displacement;
-					}
-				}
-			}
-		}
-	}
-
-	const RayMeshDisplaceTaskClosure& closure;
-	int begin, end;
-};
-
-
-// Compute displacement for each vertex.  Writes displacement values to closure.displacements_out
-class RayMeshQuadDisplaceTask : public Indigo::Task
-{
-public:
-	RayMeshQuadDisplaceTask(const RayMeshDisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
-
-	virtual void run(size_t thread_index)
-	{
-		ThreadContext context;
-		DUUVCoordEvaluator du_texcoord_evaluator;
-		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const RayMesh::QuadVectorType& quads = *closure.quads_in;
 		const int num_uv_sets = closure.num_uv_sets;
 		const std::vector<Vec2f>& uvs = *closure.uvs_in;
 		RayMesh::VertexVectorType& verts = *closure.verts;
-		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
-		js::Vector<float, 16>& displacements_out = *closure.displacements_out;
+		HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash>* displacement_tasks = closure.displacement_tasks;
+		HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash>::KeyValuePair* buckets = closure.displacement_tasks->buckets;
+		HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
 
-		for(int q_i = begin; q_i < end; ++q_i)
+		for(size_t bucket_i = begin; bucket_i < end; ++bucket_i)
 		{
-			const RayMeshQuad& quad = quads[q_i];
-			const Material* const material = (*closure.materials)[quad.getMatIndex()].getPointer();
-			for(int i=0; i<4; ++i)
+			const VertDisplacementTaskKey& key = buckets[bucket_i].first;
+			VertDisplacementTaskValue&  value = buckets[bucket_i].second;
+
+			if(key != displacement_tasks->empty_key)
 			{
-				const uint32 v_i = quad.vertex_indices[i];
-				
-				if(verts_processed[v_i].increment() == 0) // If this vert has not been processed yet:
+				const uint32 v_i = key.vert_i;
+				const uint32 in_vert_i = value.in_vert_i;
+				const Material* const material = (*closure.materials)[key.mat_i].getPointer();
+				assert(material->displacing());
+
+				if(value.poly_i < tris.size()) // If this polygon is a triangle:
 				{
-					if(material->displacing())
-					{
-						HitInfo hitinfo(std::numeric_limits<unsigned int>::max(), HitInfo::SubElemCoordsType(-666, -666));
-						for(int z = 0; z < num_uv_sets; ++z)
-							du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, quad.uv_indices[i], z);
-						du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
-
-						EvalDisplaceArgs args(
-							context,
-							hitinfo,
-							du_texcoord_evaluator,
-							Vec4f(0), // dp_dalpha  TEMP HACK
-							Vec4f(0), // dp_dbeta  TEMP HACK
-							Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
-						);
-
-						const float displacement = material->evaluateDisplacement(args);
-						displacements_out[v_i] = displacement;
-					}
+					const RayMeshTriangle& tri = tris[value.poly_i];
+					assert(tri.getTriMatIndex() == key.mat_i);
+					assert(tri.vertex_indices[in_vert_i] == v_i);
+					
+					for(int z = 0; z < num_uv_sets; ++z)
+						du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, tri.uv_indices[in_vert_i], z);
 				}
+				else
+				{
+					const RayMeshQuad& quad = quads[value.poly_i - tris.size()];
+					assert(quad.getMatIndex() == key.mat_i);
+					assert(quad.vertex_indices[in_vert_i] == v_i);
+
+					for(int z = 0; z < num_uv_sets; ++z)
+						du_texcoord_evaluator.uvs[z] = getUVs(uvs, num_uv_sets, quad.uv_indices[in_vert_i], z);
+				}
+				
+				du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
+
+				EvalDisplaceArgs args(
+					context,
+					hitinfo,
+					du_texcoord_evaluator,
+					Vec4f(0), // dp_dalpha  TEMP HACK
+					Vec4f(0), // dp_dbeta  TEMP HACK
+					Vec4f(0, 0, 1, 0) // pre-bump N_s_ws TEMP HACK
+				);
+
+				const float displacement = material->evaluateDisplacement(args);
+				value.displacement = displacement;
 			}
 		}
 	}
 
 	const RayMeshDisplaceTaskClosure& closure;
-	int begin, end;
+	size_t begin, end;
 };
 
 
@@ -1228,34 +1213,24 @@ void DisplacementUtils::doDisplacementOnly(
 	if(PROFILE) conPrint("mesh: " + mesh_name);
 	DISPLACEMENT_CREATE_TIMER(timer);
 
-	// Do a pass over the mesh to compute the displacement for each RayMeshVertex
 
-	std::vector<IndigoAtomic> verts_processed(verts_in_out.size());
-	js::Vector<float, 16> displacements(verts_in_out.size());
+	// We want want to be able to compute vertex displacement in parallel, as it can be quite computationally intensive (think ISL displacement shaders etc..)
+	// However we need to handle the case where a vertex is adjacent to two or more polygons, one that has a displacing material, and one that doesn't.
+	// So we have to be careful when computing the displacement at such vertices.
+	// What we will do is compute displacement for each (vertex_index, material_index) pair.
+	// Later we will apply an average process for different vertices at the same position (see below).
+	// See displacement_no_displacement_mix.igs, displacement_no_displacement_mix_shared_edge_verts.igs etc..
 
-	RayMeshDisplaceTaskClosure closure;
-	closure.tris_in = &tris_in;
-	closure.quads_in = &quads_in;
-	closure.num_uv_sets = num_uv_sets;
-	closure.uvs_in = &uvs_in;
-	closure.verts = &verts_in_out;
-	closure.materials = &materials;
-	closure.displacements_out = &displacements;
-	closure.verts_processed = &verts_processed;
-	task_manager.runParallelForTasks<RayMeshTriDisplaceTask,  RayMeshDisplaceTaskClosure>(closure, 0, tris_in.size());
-	task_manager.runParallelForTasks<RayMeshQuadDisplaceTask, RayMeshDisplaceTaskClosure>(closure, 0, quads_in.size());
 
-	DISPLACEMENT_PRINT_RESULTS(conPrint("Computing vertex displacments took   " + timer.elapsedStringNPlaces(5)));
-	DISPLACEMENT_RESET_TIMER(timer);
-
-	// To avoid breaks in meshes, we want to set the displacement of vertices to the average displacement of all vertices at the same position.
-	// NOTE: this is a bit slow (e.g. 0.3 s for 1M quads)
-	// Not sure the slowness is a big issue though, as usually high poly counts will come from subdivision, which we handle displacement for differently.
-	const Vec3f inf_v = Vec3f(std::numeric_limits<float>::infinity());
-	HashMapInsertOnly2<Vec3f, VertDisplacement, Vec3fHash> vert_displacements(inf_v, 
-		verts_in_out.size() // expected num items
+	VertDisplacementTaskKey empty_key; empty_key.mat_i = std::numeric_limits<int>::max(); empty_key.vert_i = std::numeric_limits<int>::max();
+	HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash> displacement_tasks(empty_key,
+		(size_t)(verts_in_out.size() * 1.1) // expected num items
 	);
 
+	// For each tri
+		// For each vert
+			// get (mat_i, vert_i)
+			// Add to hash table (if displacement is non-zero)
 	for(size_t t = 0; t < tris_in.size(); ++t)
 	{
 		const RayMeshTriangle& tri = tris_in[t];
@@ -1264,7 +1239,70 @@ void DisplacementUtils::doDisplacementOnly(
 			for(int i = 0; i < 3; ++i)
 			{
 				const uint32 v_i = tri.vertex_indices[i];
-				const Vec3f displacement_vec = verts_in_out[v_i].normal * displacements[v_i];
+				VertDisplacementTaskKey key; key.mat_i = tri.getTriMatIndex(); key.vert_i = v_i;
+				VertDisplacementTaskValue value;
+				value.poly_i = (uint32)t;
+				value.in_vert_i = i;
+				displacement_tasks.insert(std::make_pair(key, value));
+			}
+		}
+	}
+	for(size_t q = 0; q < quads_in.size(); ++q)
+	{
+		const RayMeshQuad& quad = quads_in[q];
+		if(materials[quad.getMatIndex()]->displacing())
+		{
+			for(int i = 0; i < 4; ++i)
+			{
+				const uint32 v_i = quad.vertex_indices[i];
+				VertDisplacementTaskKey key; key.mat_i = quad.getMatIndex(); key.vert_i = v_i;
+				VertDisplacementTaskValue value; 
+				value.poly_i = (uint32)(tris_in.size() + q);
+				value.in_vert_i = i;
+				displacement_tasks.insert(std::make_pair(key, value));
+			}
+		}
+	}
+
+	// In parallel, compute displacement values for each (mat_i, vert_i) task
+	// We will work directly on the hash table buckets.
+	RayMeshDisplaceTaskClosure closure;
+	closure.tris_in = &tris_in;
+	closure.quads_in = &quads_in;
+	closure.num_uv_sets = num_uv_sets;
+	closure.uvs_in = &uvs_in;
+	closure.verts = &verts_in_out;
+	closure.materials = &materials;
+	closure.displacement_tasks = &displacement_tasks;
+	task_manager.runParallelForTasks<ComputeDisplaceTask, RayMeshDisplaceTaskClosure>(closure, 0, displacement_tasks.buckets_size);
+	
+
+	// To avoid breaks in meshes, we want to set the displacement of vertices to the average displacement of all vertices at the same position.
+	// (Imagine a cube with each face having different shading normals, and hence vertices.  Constant displacement done naively would leave gaps along the edges)
+	// Since each vertex at the common position may have a different shading normal, and hence displacement vector, taking the max doesn't really work, so use an average.
+	// NOTE: this is a bit slow (e.g. 0.3 s for 1M quads)
+	// Not sure the slowness is a big issue though, as usually high poly counts will come from subdivision, which we handle displacement for differently.
+	const Vec3f inf_v = Vec3f(std::numeric_limits<float>::infinity());
+	HashMapInsertOnly2<Vec3f, VertDisplacement, Vec3fHash> vert_displacements(inf_v,
+		verts_in_out.size() // expected num items
+	);
+
+	// Iterate over all verts
+		// Set max displacement at vert v position
+	for(size_t t = 0; t < tris_in.size(); ++t)
+	{
+		const RayMeshTriangle& tri = tris_in[t];
+		if(materials[tri.getTriMatIndex()]->displacing())
+		{
+			for(int i = 0; i < 3; ++i)
+			{
+				const uint32 v_i = tri.vertex_indices[i];
+
+				VertDisplacementTaskKey key; key.mat_i = tri.getTriMatIndex(); key.vert_i = v_i;
+				const float displacement = displacement_tasks[key].displacement;
+
+				const Vec3f displacement_vec = verts_in_out[v_i].normal * displacement;
+
 				auto it = vert_displacements.find(verts_in_out[v_i].pos);
 				if(it == vert_displacements.end())
 				{
@@ -1289,7 +1327,12 @@ void DisplacementUtils::doDisplacementOnly(
 			for(int i = 0; i < 4; ++i)
 			{
 				const uint32 v_i = quad.vertex_indices[i];
-				const Vec3f displacement_vec = verts_in_out[v_i].normal * displacements[v_i];
+
+				VertDisplacementTaskKey key; key.mat_i = quad.getMatIndex(); key.vert_i = v_i;
+				const float displacement = displacement_tasks[key].displacement;
+
+				const Vec3f displacement_vec = verts_in_out[v_i].normal * displacement;
+
 				auto it = vert_displacements.find(verts_in_out[v_i].pos);
 				if(it == vert_displacements.end())
 				{
@@ -1307,6 +1350,7 @@ void DisplacementUtils::doDisplacementOnly(
 		}
 	}
 
+	// Iterate over all verts, set displacement to average displacement at vert v position
 	for(size_t v = 0; v < verts_in_out.size(); ++v)
 	{
 		auto it = vert_displacements.find(verts_in_out[v].pos);
@@ -1675,7 +1719,7 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 	for(size_t v = 0; v < verts_size; ++v)
 	{
 		if(verts_out[v].anchored)
-			verts_out[v].pos = getAnchoredVertPosition(v, verts_in, verts_out, result_vert_displacements); // If any vertex is anchored, then set its position to the average of its 'parent' vertices
+			verts_out[v].pos = getAnchoredVertPosition((int)v, verts_in, verts_out, result_vert_displacements); // If any vertex is anchored, then set its position to the average of its 'parent' vertices
 		else
 			verts_out[v].pos = verts_in[v].pos + verts_out[v].normal * result_vert_displacements[v];
 
@@ -3395,98 +3439,3 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 
 
 //===================================================== End drawing code ========================================================
-
-
-#if BUILD_TESTS
-
-
-#include "../graphics/Map2D.h"
-#include "../dll/RendererTests.h"
-
-
-void DisplacementUtils::test(const std::string& indigo_base_dir_path, const std::string& appdata_path, bool run_comprehensive_tests)
-{
-	conPrint("DisplacementUtils::test()");
-
-#if IS_INDIGO
-	if(run_comprehensive_tests)
-	{
-		// Build and (briefly) render all/most of the displacement + subdiv test scenes.
-		const char* scenes[] = {
-
-			"subdivision_with_smoothing_cube_gap_test_constant_displacement.igs",
-			"grid_mesh_displacement_test.igs",
-			"grid_mesh_with_subdiv_and_displacement_test.igs",
-			"no_subdivision_cube_gap_test_constant_displacement.igs",
-
-			"subdivision_cube_gap_test.igs",
-			"subdivision_cube_gap_test_constant_displacement.igs",
-			"subdivision_cube_gap_spike_displacement_test.igs",
-			"shading_edge_displacement_test.igs",
-
-			"subdivision_tri_and_quad_test.igs",
-			"subdivision_tri_and_quad_test2.igs",
-			"subdivision_tri_and_quad_test3.igs",
-			"subdivision_tri_and_quad_test4.igs",
-			"subdivision_tri_and_quad_test5.igs",
-			"subdivision_quad_test2.igs",
-			//"adaptive_displacement_shader_test.igs", // hi poly
-			"adaptive_quad_shader_displacement_test4.igs",
-			"inconsistent_winding_tri_test_consistent_ref.igs",
-			"inconsistent_winding_tri_test.igs",
-			"inconsistent_winding_tri_and_quad_test.igs",
-			"inconsistent_winding_test2.igs",
-			"inconsistent_winding_test.igs",
-			"subdivision_edge_diff_vert_test2.igs",
-			"subdivision_edge_diff_vert_test.igs",
-			//"subdivision_curvature_test.igs", // hi poly
-			"uv_discontinuity_test.igs",
-			"uv_discontinuity_test2.igs",
-			"uv_discontinuity_test3.igs",
-			"uv_discontinuity_test4.igs",
-			"uv_discontinuity_test5.igs",
-			//"adaptive_quad_shader_displacement_test.igs",// hi poly
-			"adaptive_quad_shader_displacement_test2.igs",
-			"adaptive_quad_shader_displacement_test3.igs",
-			"adaptive_quad_shader_displacement_test4.igs",
-			"adaptive_quad_shader_displacement_test5.igs",
-			"adaptive_quad_shader_displacement_test6.igs",
-			"adaptive_quad_shader_displacement_test7.igs",
-			"adaptive_quad_shader_displacement_test8.igs",
-			"tri_uv_discontinuity_test.igs",
-			"subdivision_tri_quad_test.igs",
-			"bend_test.igs",
-			//"adaptive_quad_fbm_shader_displacement_test.igs", // hi poly
-			//"adaptive_quad_shader_displacement_test.igs", // hi poly
-			"quad_displacement_test.igs",
-			"adaptive_tri_blend_displacement_test.igs",
-			"adaptive_quad_blend_displacement_test.igs",
-			"adaptive_tri_tex_shader_displacement_test.igs",
-			"adaptive_quad_tex_shader_displacement_test.igs",
-			"adaptive_quad_displacement_test.igs",
-			"adaptive_tri_displacement_test.igs",
-			"blend_material_root_displacement_test.igs",
-			"subdivision_quad_test.igs",
-			"zomb_head.igs",
-			"subdiv_three_tris_adjacent_to_edge_test.igs",
-			"subdiv_three_quads_adjacent_to_edge_test.igs"
-		};
-
-		try
-		{
-			for(size_t i = 0; i<sizeof(scenes) / sizeof(const char*); ++i)
-			{
-				const std::string fullpath = TestUtils::getIndigoTestReposDir() + "/testscenes/" + scenes[i];
-				Indigo::RendererTests::renderTestScene(indigo_base_dir_path, appdata_path, fullpath, /*save_render=*/true, /*bidir=*/false);
-			}
-		}
-		catch(Indigo::Exception& e)
-		{
-			failTest(e.what());
-		}
-	}
-#endif
-}
-
-
-#endif // BUILD_TESTS

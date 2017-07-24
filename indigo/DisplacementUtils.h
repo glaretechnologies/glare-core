@@ -205,9 +205,6 @@ public:
 	);
 	
 
-
-	static void test(const std::string& indigo_base_dir_path, const std::string& appdata_path, bool run_comprehensive_tests);
-
 private:
 	static void init(
 		const std::string& mesh_name,
