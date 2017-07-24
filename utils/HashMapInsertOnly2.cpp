@@ -224,7 +224,7 @@ static void testHashMap(const KeyType& unused_key, const std::vector<KeyType>& t
 		for(int i=0; i<NUM_LOOKUPS; ++i)
 		{
 			const KeyType x = testdata[i];
-			HashMapType::const_iterator it = m.find(x);
+			typename HashMapType::const_iterator it = m.find(x);
 			if(it != m.end())
 				num_present++;
 		}
@@ -268,7 +268,7 @@ static void testHashMap(const std::vector<KeyType>& testdata, const std::string&
 		for(int i=0; i<NUM_LOOKUPS; ++i)
 		{
 			const KeyType x = testdata[i];
-			HashMapType::const_iterator it = m.find(x);
+			typename HashMapType::const_iterator it = m.find(x);
 			if(it != m.end())
 				num_present++;
 		}
@@ -600,7 +600,6 @@ void testHashMapInsertOnly2()
 	if(false)
 	{
 		const int N = 1000000;
-		const int NUM_LOOKUPS = 1000000;
 
 		std::vector<TestKey> increasing_testdata(N);
 		std::vector<TestKey> dense_testdata(N);
