@@ -14,14 +14,17 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 
 
 #include "HashMapInsertOnly.h"
+#include "RefCounted.h"
+#include "Reference.h"
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/Timer.h"
-#include "../utils/MTwister.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Plotter.h"
+#include "Timer.h"
+#include "MTwister.h"
+#include "StringUtils.h"
+#include "Plotter.h"
 #include <unordered_map>
 #include <map>
+#include "IncludeXXHash.h"
 #if TEST_OTHER_HASH_MAPS
 #define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS
 #include "D:\programming\sparsehash-2.0.2\src\sparsehash\dense_hash_map"
@@ -50,6 +53,242 @@ struct IdentityHash
 };
 
 
+// See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+static inline uint64 FNVHash(const uint8* data, size_t len)
+{
+	uint64 hash = 14695981039346656037ULL;
+	for(size_t i=0; i<len; ++i)
+		hash = (hash ^ data[i]) * 1099511628211ULL;
+	return hash;
+}
+
+
+static inline uint64 myHash(const uint8* data, size_t len)
+{
+	uint64 hash = 14695981039346656037ULL;
+	const size_t rounded_len = (len / 4);
+	for(size_t i=0; i<rounded_len; ++i)
+	{
+		const uint32 x = ((const uint32*)data)[i];
+		hash = (hash ^ (x & 0xFF))       * 1099511628211ULL;
+		hash = (hash ^ (x & 0xFF00))     * 1099511628211ULL;
+		hash = (hash ^ (x & 0xFF0000))   * 1099511628211ULL;
+		hash = (hash ^ (x & 0xFF000000)) * 1099511628211ULL;
+	}
+
+	for(size_t i=rounded_len; i<len; ++i)
+		hash = (hash ^ data[i]) * 1099511628211ULL;
+
+	return hash;
+}
+
+
+static inline uint32_t uint32Hash(uint32_t a)
+{
+	a = (a ^ 61) ^ (a >> 16);
+	a = a + (a << 3);
+	a = a ^ (a >> 4);
+	a = a * 0x27d4eb2d;
+	a = a ^ (a >> 15);
+	return a;
+}
+
+
+// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
+static inline size_t microsoftHash(const unsigned char *_First, size_t _Count)
+{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+
+	if(sizeof(size_t) == 8)
+	{
+		const size_t _FNV_offset_basis = 14695981039346656037ULL;
+		const size_t _FNV_prime = 1099511628211ULL;
+
+		size_t _Val = _FNV_offset_basis;
+		for(size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+		}
+
+		_Val ^= _Val >> 32;
+		return _Val;
+	}
+	else
+	{
+		const size_t _FNV_offset_basis = 2166136261U;
+		const size_t _FNV_prime = 16777619U;
+
+		size_t _Val = _FNV_offset_basis;
+		for(size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+			_Val ^= (size_t)_First[_Next];
+			_Val *= _FNV_prime;
+		}
+
+		return _Val;
+	}
+}
+
+
+struct TestKey
+{
+	inline bool operator == (const TestKey& other) const { return data == other.data; }
+	inline bool operator != (const TestKey& other) const { return data != other.data; }
+	inline bool operator < (const TestKey& other) const { return data < other.data; }
+	uint64 data;
+};
+
+
+struct TestKeyIdentityHash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		return key.data;
+	}
+};
+
+struct TestKeyFNVHash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		return FNVHash((const uint8*)&key.data, sizeof(key.data));
+	}
+};
+
+
+struct TestKeyMicrosoftHash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		return microsoftHash((const uint8*)&key.data, sizeof(key.data));
+	}
+};
+
+
+struct TestKeyXXHash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		return XXH64((const uint8*)&key.data, sizeof(key.data), /*seed=*/0);
+	}
+};
+
+
+struct TestKeyMyHash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		return myHash((const uint8*)&key.data, sizeof(key.data));
+	}
+};
+
+
+struct TestKeyUInt32Hash
+{
+	size_t operator () (const TestKey& key) const
+	{
+		uint32 v = (uint32)key.data;
+		return uint32Hash(v);
+	}
+};
+
+
+
+// Assumes key type == value type.
+template <class HashMapType, class KeyType>
+static void testHashMap(const KeyType& unused_key, const std::vector<KeyType>& testdata, const std::string& hashmap_type_name)
+{
+	const int NUM_LOOKUPS = 1000000;
+	const int N = (int)testdata.size();
+	const int NUM_TRIALS = 10;
+
+	double min_insert_time = 10000000;
+	double min_lookup_time = 10000000;
+	int num_present = 0;
+	for(int t=0; t<NUM_TRIALS; ++t)
+	{
+		Timer timer;
+		HashMapType m(unused_key);
+
+		for(int i=0; i<N; ++i)
+		{
+			const KeyType x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		min_insert_time = myMin(min_insert_time, timer.elapsed());
+
+		// Test lookup performance
+		timer.reset();
+		//int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const KeyType x = testdata[i];
+			HashMapType::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		min_lookup_time = myMin(min_lookup_time, timer.elapsed());
+	}
+
+	//conPrint(::rightPad(hashmap_type_name, ' ', 50) + " insert took  " + ::doubleToStringNDecimalPlaces(min_insert_time, 6) + " s");
+	//conPrint(::rightPad(hashmap_type_name, ' ', 50) + " lookups took " + ::doubleToStringNDecimalPlaces(min_lookup_time, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups.");
+	conPrint(::rightPad(hashmap_type_name, ' ', 50) + " insert took  " + ::doubleToStringNDecimalPlaces(min_insert_time, 6) + " s, lookups took " + ::doubleToStringNDecimalPlaces(min_lookup_time, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups.");
+	TestUtils::silentPrint("num_present: " + toString(num_present));
+}
+
+
+template <class HashMapType, class KeyType>
+static void testHashMap(const std::vector<KeyType>& testdata, const std::string& hashmap_type_name)
+{
+	const int NUM_LOOKUPS = 1000000;
+	const int N = (int)testdata.size();
+	const int NUM_TRIALS = 10;
+
+	double min_insert_time = 10000000;
+	double min_lookup_time = 10000000;
+	int num_present = 0;
+	for(int t=0; t<NUM_TRIALS; ++t)
+	{
+		Timer timer;
+		HashMapType m;
+
+		for(int i=0; i<N; ++i)
+		{
+			const KeyType x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		min_insert_time = myMin(min_insert_time, timer.elapsed());
+
+		// Test lookup performance
+		timer.reset();
+		//int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const KeyType x = testdata[i];
+			HashMapType::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		min_lookup_time = myMin(min_lookup_time, timer.elapsed());
+	}
+
+	//conPrint(::rightPad(hashmap_type_name, ' ', 50) + " insert took  " + ::doubleToStringNDecimalPlaces(min_insert_time, 6) + " s");
+	//conPrint(::rightPad(hashmap_type_name, ' ', 50) + " lookups took " + ::doubleToStringNDecimalPlaces(min_lookup_time, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups.");
+	conPrint(::rightPad(hashmap_type_name, ' ', 50) + " insert took  " + ::doubleToStringNDecimalPlaces(min_insert_time, 6) + " s, lookups took " + ::doubleToStringNDecimalPlaces(min_lookup_time, 6) + " s for " + toString(NUM_LOOKUPS) + " lookups.");
+	TestUtils::silentPrint("num_present: " + toString(num_present));
+}
+
+
+class HashMapTestClass : public RefCounted
+{
+public:
+};
+
+
 void testHashMapInsertOnly2()
 {
 	// Test inserting some non-trivial structures
@@ -71,6 +310,33 @@ void testHashMapInsertOnly2()
 		}
 	}
 
+	// Test with storing references, so we can check we create and destroy all elements properly.
+	{
+		Reference<HashMapTestClass> test_ob = new HashMapTestClass();
+		testAssert(test_ob->getRefCount() == 1);
+
+		{
+			HashMapInsertOnly2<int, Reference<HashMapTestClass> > m(std::numeric_limits<int>::max());
+
+
+			m.insert(std::make_pair(1, test_ob));
+			testAssert(m.find(1) != m.end());
+			testAssert(m.find(1)->second.getPointer() == test_ob.getPointer());
+
+			// Add lots of items, to force an expand.
+			for(int i=0; i<100; ++i)
+				m.insert(std::make_pair(i, test_ob));
+
+			for(int i=0; i<100; ++i)
+			{
+				testAssert(m.find(i) != m.end());
+				testAssert(m.find(i)->second.getPointer() == test_ob.getPointer());
+			}
+
+		}
+
+		testAssert(test_ob->getRefCount() == 1);
+	}
 
 
 	// Test inserting a (key, value) pair with same key.  Should not change the value in the map.
@@ -104,7 +370,15 @@ void testHashMapInsertOnly2()
 		testAssert(m.find(1)->second == 2);
 	}
 
+	// Test constructor with num elems expected
+	{
+		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max(), /*expected num elems=*/1000);
+		testAssert(m.empty());
 
+		m.insert(std::make_pair(1, 2));
+		testAssert(m.find(1) != m.end());
+		testAssert(m.find(1)->second == 2);
+	}
 
 	{
 		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
@@ -322,7 +596,57 @@ void testHashMapInsertOnly2()
 	//return;
 
 
-	// Test performance
+	//======================= Test performance ===========================
+	if(false)
+	{
+		const int N = 1000000;
+		const int NUM_LOOKUPS = 1000000;
+
+		std::vector<TestKey> increasing_testdata(N);
+		std::vector<TestKey> dense_testdata(N);
+		std::vector<TestKey> sparse_testdata(N);
+		MTwister rng(1);
+		for(int i=0; i<N; ++i)
+			increasing_testdata[i].data = i;
+		for(int i=0; i<N; ++i)
+			sparse_testdata[i].data = (int)(rng.unitRandom() * 1.0e8f);
+		for(int i=0; i<N; ++i)
+			dense_testdata[i].data = (int)(rng.unitRandom() * 1000.f);
+
+		TestKey unused_key;
+		unused_key.data = std::numeric_limits<uint64>::max();
+
+		conPrint("\nperf for mostly unique keys");
+		conPrint("-------------------------------------");
+		//testHashMap<std::map<TestKey, TestKey>,                                 TestKey>(            sparse_testdata, "std::map (TestKeyIdentityHash)");
+		//testHashMap<std::unordered_map<TestKey, TestKey, TestKeyIdentityHash>,  TestKey>(            sparse_testdata, "std::unordered_map (TestKeyIdentityHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyIdentityHash>,  TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyIdentityHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyFNVHash>,       TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyFNVHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMicrosoftHash>, TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyMicrosoftHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyXXHash>,        TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyXXHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMyHash>,        TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyMyHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyUInt32Hash>,    TestKey>(unused_key, sparse_testdata, "HashMapInsertOnly2 (TestKeyUInt32Hash)");
+
+		conPrint("\nperf for mostly duplicate keys");
+		conPrint("-------------------------------------");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyIdentityHash>,  TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (TestKeyIdentityHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyFNVHash>,       TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (TestKeyFNVHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMicrosoftHash>, TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (TestKeyMicrosoftHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyXXHash>,        TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (TestKeyXXHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMyHash>,        TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (MyHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyUInt32Hash>,    TestKey>(unused_key, dense_testdata, "HashMapInsertOnly2 (TestKeyUInt32Hash)");
+
+		conPrint("\nperf for increasing keys");
+		conPrint("-------------------------------------");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyIdentityHash>,  TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyIdentityHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyFNVHash>,       TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyFNVHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMicrosoftHash>, TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyMicrosoftHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyXXHash>,        TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyXXHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyMyHash>,        TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyMyHash)");
+		testHashMap<HashMapInsertOnly2<TestKey, TestKey, TestKeyUInt32Hash>,    TestKey>(unused_key, increasing_testdata, "HashMapInsertOnly2 (TestKeyUInt32Hash)");
+
+	}
+
 
 	const int N = 1000000;
 	const int NUM_LOOKUPS = 1000000;
@@ -335,7 +659,7 @@ void testHashMapInsertOnly2()
 	for(int i=0; i<N; ++i)
 		dense_testdata[i] = (int)(rng.unitRandom() * 1000.f);
 
-	conPrint("perf for mostly unique keys");
+	conPrint("\nperf for mostly unique keys");
 	conPrint("-------------------------------------");
 	{
 		Timer timer;
@@ -592,7 +916,7 @@ void testHashMapInsertOnly2()
 
 	// Test insertion performance
 	conPrint("");
-	conPrint("perf for mostly duplicate keys");
+	conPrint("\nperf for mostly duplicate keys");
 	conPrint("-------------------------------------");
 	{
 		Timer timer;

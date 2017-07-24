@@ -1,7 +1,7 @@
 /*=====================================================================
 HashMapInsertOnly2Iterator.h
 ----------------------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #pragma once
 
@@ -37,7 +37,7 @@ public:
 		{
 			bucket++;
 		}
-		while((bucket < map->buckets.end()) && (bucket->first == map->empty_key));
+		while((bucket < (map->buckets + map->buckets_size)) && (bucket->first == map->empty_key));
 	}
 
 	std::pair<Key, Value>& operator * ()
@@ -91,7 +91,7 @@ public:
 		{
 			bucket++;
 		}
-		while((bucket < map->buckets.end()) && (bucket->first == map->empty_key));
+		while((bucket < (map->buckets + map->buckets_size)) && (bucket->first == map->empty_key));
 	}
 
 	const std::pair<Key, Value>& operator * () const
