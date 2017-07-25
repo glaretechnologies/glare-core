@@ -148,6 +148,7 @@ public:
 	double subdivide_curvature_threshold;
 	double displacement_error_threshold;
 	unsigned int max_num_subdivisions;
+	bool subdivision_smoothing;
 
 	// This is the max number of smoothing/averaging passes. 
 	// While smoothing/averaging passes are being done, all quads are subdivided, e.g. adaptive subdivision is not done.
@@ -178,7 +179,6 @@ public:
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
-		bool subdivision_smoothing,
 		RayMesh::TriangleVectorType& tris_in_out,
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
@@ -212,7 +212,6 @@ private:
 		PrintOutput& print_output,
 		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
-		bool subdivision_smoothing,
 		RayMesh::TriangleVectorType& triangles_in_out, 
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& vertices_in_out,
@@ -247,7 +246,7 @@ private:
 		const VertsAndUVs& verts_and_uvs_in,
 		unsigned int num_uv_sets,
 		unsigned int num_subdivs_done,
-		bool subdivision_smoothing, // TODO: put in DUOptions.
+		bool do_subdivision_smoothing,
 		const DUOptions& options,
 		Polygons& polygons_out,
 		VertsAndUVs& verts_and_uvs_out

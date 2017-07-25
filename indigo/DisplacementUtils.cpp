@@ -284,7 +284,6 @@ void DisplacementUtils::init(const std::string& mesh_name,
 	PrintOutput& print_output,
 	ThreadContext& context,
 	const ArrayRef<Reference<Material> >& materials,
-	bool subdivision_smoothing,
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
 	RayMesh::VertexVectorType& vertices_in_out,
@@ -852,7 +851,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 	PrintOutput& print_output,
 	ThreadContext& context,
 	const ArrayRef<Reference<Material> >& materials,
-	bool subdivision_smoothing,
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
 	RayMesh::VertexVectorType& vertices_in_out,
@@ -877,7 +875,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	VertsAndUVs temp_verts_uvs_2;
 	
 
-	init(mesh_name, task_manager, print_output, context, materials, subdivision_smoothing, triangles_in_out, quads_in, vertices_in_out, uvs_in_out, num_uv_sets, options, use_shading_normals, 
+	init(mesh_name, task_manager, print_output, context, materials, triangles_in_out, quads_in, vertices_in_out, uvs_in_out, num_uv_sets, options, use_shading_normals, 
 		temp_polygons_1, temp_polygons_2, temp_verts_uvs_1, temp_verts_uvs_2);
 	
 
@@ -888,7 +886,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	if(PROFILE)
 	{
 		conPrint("---Subdiv options---");
-		printVar(subdivision_smoothing);
+		printVar(options.subdivision_smoothing);
 		printVar(options.displacement_error_threshold);
 		printVar(options.max_num_subdivisions);
 		printVar(options.num_smoothings);
@@ -941,7 +939,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 			*current_verts_and_uvs, // verts_and_uvs_in
 			num_uv_sets,
 			i, // num subdivs done
-			subdivision_smoothing && (i < options.num_smoothings), // do subdivision smoothing
+			options.subdivision_smoothing && (i < options.num_smoothings), // do subdivision smoothing
 			options,
 			*next_polygons, // polygons_out
 			*next_verts_and_uvs // verts_and_uvs_out

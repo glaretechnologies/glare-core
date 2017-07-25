@@ -369,14 +369,14 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				options.max_num_subdivisions = max_num_subdivisions;
 				options.num_smoothings = num_smoothings;
 				options.camera_clip_planes_os = camera_clip_planes_os;
+				options.subdivision_smoothing = subdivision_smoothing;
 
 				const bool subdivided = DisplacementUtils::subdivideAndDisplace(
 					this->getName(),
 					task_manager,
 					print_output,
 					context,
-					materials, // object.getMaterials(),
-					subdivision_smoothing,
+					materials,
 					triangles, // triangles_in_out
 					quads,
 					vertices, // vertices_in_out
