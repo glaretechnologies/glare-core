@@ -70,13 +70,6 @@ inline static uint32 mod4(uint32 x)
 	return x & 0x3;
 }
 
-
-static inline const Vec3f triGeometricNormal(const DUVertexVector& verts, uint32_t v0, uint32_t v1, uint32_t v2)
-{
-	return normalise(crossProduct(verts[v1].pos - verts[v0].pos, verts[v2].pos - verts[v0].pos));
-}
-
-
 class DUVertIndexPair
 {
 public:
