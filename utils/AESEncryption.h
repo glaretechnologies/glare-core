@@ -9,6 +9,7 @@ Generated at 2011-09-08 13:18:33 +0100
 
 #include "Platform.h"
 #include <vector>
+#include <string>
 struct evp_cipher_ctx_st;
 
 
