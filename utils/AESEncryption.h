@@ -20,10 +20,9 @@ Based off the code at http://saju.net.in/code/misc/openssl_aes.c.txt
 class AESEncryption
 {
 public:
-	// 'key_data' points to the password, which can be any binary buffer.
-	// 'key_data_len' is the size of the key_data buffer in bytes.
-	// 'salt' must point to an 8 byte buffer.
-	AESEncryption(const unsigned char *key_data, int key_data_len, const unsigned char *salt);
+	// 'key_data' is the password, which can be any binary buffer.
+	// 'salt' must be a string with at least 8 chars (bytes).
+	AESEncryption(const std::string& key_data, const std::string& salt);
 	~AESEncryption();
 
 	std::vector<unsigned char> encrypt(const std::vector<unsigned char>& plaintext);

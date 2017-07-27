@@ -14,10 +14,13 @@ Generated at 2011-09-08 13:18:33 +0100
 
 
 // Create an 256 bit key and IV using the supplied key_data. salt can be added for taste.
-AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, const unsigned char* salt)
+AESEncryption::AESEncryption(const std::string& key_data, const std::string& salt)
 :	encrypt_context(NULL),
 	decrypt_context(NULL)
 {
+	if(salt.size() < 8)
+		throw Indigo::Exception("Invalid salt size");
+
 	encrypt_context = new EVP_CIPHER_CTX;
 	decrypt_context = new EVP_CIPHER_CTX;
 
@@ -26,7 +29,7 @@ AESEncryption::AESEncryption(const unsigned char* key_data, int key_data_len, co
 	// Generate key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
 	// num_rounds is the number of times the we hash the material. More rounds are more secure but
 	// slower.
-	int i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, num_rounds, key, iv);
+	int i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), (const unsigned char*)salt.c_str(), (const unsigned char*)key_data.c_str(), (int)key_data.size(), num_rounds, this->key, this->iv);
 	if(i != 32)
 	{
 		EVP_CIPHER_CTX_cleanup(encrypt_context);
@@ -126,8 +129,9 @@ static void testWithPlaintextLength(int N)
 	const std::string key = "BLEH";
 	const std::string salt = "bh6ibytu";
 	Timer timer;
-	AESEncryption aes((const unsigned char*)key.c_str(), (int)key.size(), (const unsigned char*)salt.c_str());
+	AESEncryption aes(key, salt);
 
+	conPrint("Testing with plaintext of length " + toString(N) + "...");
 	conPrint("AESEncryption construction took " + timer.elapsedString());
 
 	std::vector<unsigned char> plaintext(N);
@@ -144,13 +148,14 @@ static void testWithPlaintextLength(int N)
 	conPrint("encrypt took " + toString(elapsed) + " s, speed: " + toString(speed * 1.0e-6) + " MB/s");
 	conPrint("cyphertext len: " + toString((int64)cyphertext.size()));
 	conPrint("cyphertext extract: ");
+	conPrint("-----------------");
 	for(int i=0; i<myMin(64, (int)cyphertext.size()); ++i)
 	{
 		conPrintStr(int32ToString(cyphertext[i]) + " ");
 		if(i % 16 == 15)
 			conPrint("");
 	}
-	conPrint("");
+	conPrint("-----------------");
 
 
 	// Decrypt
@@ -159,6 +164,7 @@ static void testWithPlaintextLength(int N)
 	std::vector<unsigned char> decrypted_plaintext = aes.decrypt(cyphertext);
 
 	conPrint("decrypt took " + timer.elapsedString());
+	conPrint("");
 
 	// Check encryption and decryption process preserved the data.
 	testAssert(decrypted_plaintext == plaintext);
