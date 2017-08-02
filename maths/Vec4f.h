@@ -384,6 +384,18 @@ INDIGO_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
 }
 
 
+INDIGO_STRONG_INLINE const Vec4f div(const Vec4f& a, const Vec4f& b)
+{
+	return Vec4f(_mm_div_ps(a.v, b.v));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f sqrt(const Vec4f& a)
+{
+	return Vec4f(_mm_sqrt_ps(a.v));
+}
+
+
 INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
 {
 	// suppose a = (a3, a2, a1, a0)
