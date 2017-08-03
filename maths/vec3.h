@@ -20,8 +20,8 @@ Coded by Nick Chapman in the year 2000-
 
 #include "mathstypes.h"
 #include "Vec4f.h" // For toVec3d()
-#include <OutStream.h>
-#include <InStream.h>
+#include <../utils/OutStream.h>
+#include <../utils/InStream.h>
 #include <assert.h>
 #include <string>
 #include "../utils/Platform.h"

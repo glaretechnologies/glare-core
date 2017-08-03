@@ -102,6 +102,7 @@ void Obfuscator::addOpenCLKeywords()
 "int4",
 "int8",
 "long",
+"popcount",
 "register",
 "return",
 "short",
@@ -168,6 +169,7 @@ void Obfuscator::addOpenCLKeywords()
 "floor",
 "ceil",
 "clamp",
+"sign",
 
 "printf",
 
@@ -253,17 +255,20 @@ void Obfuscator::addOpenCLKeywords()
 //"ThreadData",
 //"static_float_data", "dynamic_float_data", "qrng_data", "thread_data",
 
-"lll11l11lll1", // "iter_depth",
-"l1111l11l111", // "num_iterators",
-"l11ll11l1ll1", // "pal_values",
-"ll1l111lll11", // "dyn_floats",
-"l11llllll1l1", // "initDynamicData",
-"ll11ll1l111l", // "getCameraVectors",
-"ll1lll1llll1", // "applyTransform",
-"l1llll1lllll", // "applyCameraTransform",
+"l1111l1lllll", // max_parallel_samples
+"lll11l11lll1", // iter_depth
+"l1111l11l111", // num_iterators
+"l11ll11l1ll1", // pal_values
+"ll1l111lll11", // dyn_floats
+"l11llllll1l1", // initDynamicData
+"ll11ll1l111l", // getCameraVectors
+"ll1lll1llll1", // applyTransform
+"l1llll1lllll", // applyCameraTransform
 "l1lll1ll1l11", // Zero kernel
 "l1lllll111l1", // QRNG kernel
 "ll1ll11l1ll1", // Main iteration kernel
+"l111111llll1", // Init state kernel
+"l11ll11l1l1l", // Imaging kernel
 
 
 		// Winter tuple field names
@@ -367,6 +372,7 @@ void Obfuscator::addWinterKeywords()
 		"truncateToInt",
 		"sign",
 		"toFloat",
+		"toDouble",
 		"toInt",
 		"length",
 		"map",
@@ -447,7 +453,7 @@ const std::string Obfuscator::tokenHashString(const std::string& t)
 		3835675695284957659ULL // seed - just a somewhat random value.
 	);
 
-	// return t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
+	//return t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
 	
 	std::string new_token;
 	new_token.resize(33);
@@ -505,7 +511,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 	std::string res;
 
 
-	const std::string ignore_tokens = "f[](){}<>/*-+=;,.^&!|?:%";
+	const std::string ignore_tokens = "f[](){}<>/*~-+=;,.^&!|?:%";
 
 	bool parsing_preprocessor_line = false; // Keep track of if we are parsing a preprocessor line, so we can put a newline after it.
 	const int MAX_LINE_LEN = 200;

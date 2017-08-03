@@ -49,7 +49,8 @@ public:
 	enum Priority
 	{
 		Priority_Normal,
-		Priority_BelowNormal
+		Priority_BelowNormal,
+		Priority_Lowest
 	};
 	// Set the priority of this thread
 	void setPriority(Priority p); // throws MyThreadExcep

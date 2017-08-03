@@ -12,7 +12,7 @@ Generated at Sun May 30 21:03:25 +1200 2010
 
 // Some magic numbers...
 const static int permute[4] = { 3, 1, 0, 2 };
-const static uint32 char_offsets[4] = { 177, 230, 229, 160 }; //{ -79, 230, -27, 160 };
+const static uint32 char_offsets[4] = { 177, 230, 229, 160 };
 const static uint32 magic0 = 0xB77E0246; // random, nothing special
 const static uint32 magic1 = 0x2E479BAA; // random, nothing special
 
@@ -44,9 +44,9 @@ void Transmungify::encrypt(const std::string& src_string, std::vector<uint32>& d
 void Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::vector<uint32>& dst_dwords)
 {
 	uint32 i;
-	const uint32 string_len = src_string_size; // (uint32)src_string.size();
+	const uint32 string_len = src_string_size;
 	const uint32 encrypted_int32s = (string_len + 3) / 4;
-	const char* src_str = src_string; // src_string.c_str();
+	const char* src_str = src_string;
 
 	dst_dwords.resize(encrypted_int32s + 1);
 	dst_dwords[encrypted_int32s] = (string_len ^ magic0) + magic1;
@@ -58,10 +58,10 @@ void Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::
 	for(; i < encrypted_int32s * 4; ++i)	
 		padded_string[i] = src_str[(((i + 1) * string_len / 4) + string_len) % string_len]; // Use text from start (wrap around)
 
-	// create encrypted data
+	// Create encrypted data
 	for(i = 0; i < encrypted_int32s; ++i)
 	{
-		// permute order, offset with wraparound
+		// Permute order, offset with wraparound
 		unsigned char chars[4] =
 		{
 			toUChar(padded_string[i * 4 + permute[0]] + char_offsets[0]),
@@ -70,13 +70,11 @@ void Transmungify::encrypt(const char* src_string, uint32 src_string_size, std::
 			toUChar(padded_string[i * 4 + permute[3]] + char_offsets[3])
 		};
 
-		// pack chars into single dword
+		// Pack chars into single dword
 		uint32 dword_value = (chars[0] << 0) + (chars[1] << 8) + (chars[2] << 16) + (chars[3] << 24);
 
-		// xor with 0xDEADBEEF
+		// Xor and offset for some mild scrambling
 		dword_value ^= magic0;
-
-		// offset by 0xC0FFEE with wraparound
 		dword_value += magic1;
 
 		dst_dwords[i] = dword_value;

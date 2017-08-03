@@ -696,6 +696,18 @@ inline float floatMod(float x, float y)
 }
 
 
+inline double doubleMod(double x, double y)
+{
+	if(x < 0)
+	{
+		const double z = y - std::fmod(-x, y); // This will return a number in [0, y]
+		return z == y ? 0.0 : z;
+	}
+	else
+		return std::fmod(x, y);
+}
+
+
 // Euclidean modulo: result will be in {0, 1, ...y-1} for positive y.
 // e.g.
 // intMod(-3, 4) = 1

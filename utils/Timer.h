@@ -17,6 +17,7 @@ public:
 	inline Timer();
 	inline ~Timer();
 
+	inline void setSecondsElapsed(double elapsed_seconds) { timesofar = elapsed_seconds; }
 	inline double getSecondsElapsed() const;
 	inline double elapsed() const { return getSecondsElapsed(); }
 	const std::string elapsedString() const; // e.g "30.4 s"
@@ -44,8 +45,10 @@ Timer::Timer()
 	timesofar = 0;
 }
 
+
 Timer::~Timer()
 {}
+
 
 double Timer::getSecondsElapsed() const
 {
@@ -57,6 +60,7 @@ double Timer::getSecondsElapsed() const
 
 	//return GetCurTimeRealSec() - time_started;
 }
+
 
 void Timer::reset()
 {
