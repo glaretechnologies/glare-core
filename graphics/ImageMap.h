@@ -810,7 +810,6 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 
 	const int src_w = this->getMapWidth();
 	const int src_h = this->getMapHeight();
-	const int src_N = this->getN();
 
 	ImageMap<V, VTraits>* image;
 
