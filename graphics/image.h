@@ -132,6 +132,8 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
 
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height) const;
+
 	virtual unsigned int getBytesPerPixel() const;
 
 	virtual float getGamma() const { return 1.0f; }

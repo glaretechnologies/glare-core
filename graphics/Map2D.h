@@ -79,6 +79,11 @@ public:
 	// May change number of channels (reduce 4 to 3, or 2 to 1, etc..)
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const = 0;
 
+	// Return a new, resized version of this image.
+	// Scaling is assumed to be mostly the same in each dimension.
+	// Resizing is medium quality, as it needs to be fast for large images (env maps)
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height) const = 0;
+
 	virtual unsigned int getBytesPerPixel() const = 0;
 
 	virtual float getGamma() const = 0;

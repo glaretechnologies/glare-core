@@ -710,6 +710,13 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 }
 
 
+Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height) const
+{
+	assert(0);
+	return NULL;
+}
+
+
 unsigned int Image::getBytesPerPixel() const
 {
 	return sizeof(ColourType);

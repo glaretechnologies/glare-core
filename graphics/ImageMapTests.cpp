@@ -440,6 +440,44 @@ void ImageMapTests::test()
 		}
 	}
 
+
+	// Test resizing of an image with resizeMidQuality() loaded from disk
+	if(false)
+	{
+		try
+		{
+			Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testfiles/antialias_test3.png");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testscenes/pentagonal_aperture.png");
+
+			testAssert(map.isType<ImageMapUInt8>());
+			ImageMapUInt8Ref map_uint8 = map.downcast<ImageMapUInt8>();
+
+			const int target_res = 100;
+
+			Timer timer;
+
+			bool is_linear;
+			ImageMapFloatRef resized_map = map_uint8->resizeToImageMapFloat(target_res, is_linear);
+			conPrint("resizeToImageMapFloat() took " + timer.elapsedStringNPlaces(4));
+
+			/*timer.reset();
+			ImageMapFloatRef resized_map2 = testResizeToImage(*map_uint8, target_res, is_linear);
+			conPrint("testResizeToImage() took     " + timer.elapsedStringNPlaces(4));*/
+
+			ImageMapUInt8 bmp_out;
+			resized_map->copyToImageMapUInt8(bmp_out);
+			PNGDecoder::write(bmp_out, "scaled_image_old_" + toString(target_res) + ".png");
+
+			//resized_map2->copyToImageMapUInt8(bmp_out);
+			//PNGDecoder::write(bmp_out, "scaled_image_test_" + toString(target_res) + ".png");
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
+
 	
 	// Do perf tests
 	/*perfTestWithTextureWidth(10);
