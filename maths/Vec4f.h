@@ -431,10 +431,16 @@ INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& m
 }
 #endif
 
-// SSE2
+// Cast each element to float
 INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_cvtepi32_ps(v.v));
+}
+
+
+INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
+{
+	return Vec4f(_mm_castsi128_ps(v.v));
 }
 
 
