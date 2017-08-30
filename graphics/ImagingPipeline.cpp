@@ -1256,7 +1256,7 @@ public:
 		const Colour4f cutoff(0.0031308f);
 
 		// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
-		const Colour4f gamma_mask = renderer_settings->shadow_pass ? Colour4f(toVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(toVec4f(Vec4i(0, 0, 0, 0)).v);
+		const Colour4f gamma_mask = renderer_settings->shadow_pass ? Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0)).v);
 
 		//const size_t num_pixels = ldr_buffer_in_out->numPixels();
 		Colour4f* const pixel_data = &ldr_buffer_in_out->getPixel(0);
