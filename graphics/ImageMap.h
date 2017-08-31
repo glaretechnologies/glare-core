@@ -799,32 +799,32 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 
 	assert(this->getN() == 3 || this->getN() == 4);
 
-	const int tex_xres = new_width;
-	const int tex_yres = new_height; // New tex xres, yres
-
-	const float scale_factor = (float)this->getMapWidth() / tex_xres;
-	const float filter_r = myMax(1.f, scale_factor);
-	const float recip_filter_r = 1 / filter_r;
-	const float filter_r_plus_1  = filter_r + 1.f;
-	const float filter_r_minus_1 = filter_r - 1.f;
-
 	const int src_w = this->getMapWidth();
 	const int src_h = this->getMapHeight();
 
-	ImageMap<V, VTraits>* image;
+	const float scale_factor_x = (float)src_w / new_width;
+	const float scale_factor_y = (float)src_h / new_height;
+	const float filter_r_x = myMax(1.f, scale_factor_x);
+	const float filter_r_y = myMax(1.f, scale_factor_y);
+	const float recip_filter_r_x = 1 / filter_r_x;
+	const float recip_filter_r_y = 1 / filter_r_y;
+	const float filter_r_plus_1_x  = filter_r_x + 1.f;
+	const float filter_r_plus_1_y  = filter_r_y + 1.f;
+	const float filter_r_minus_1_x = filter_r_x - 1.f;
+	const float filter_r_minus_1_y = filter_r_y - 1.f;
 
-	image = new ImageMap<V, VTraits>(tex_xres, tex_yres, 3);
+	ImageMap<V, VTraits>* const image = new ImageMap<V, VTraits>(new_width, new_height, 3);
 
-	for(int y = 0; y < tex_yres; ++y)
-		for(int x = 0; x < tex_xres; ++x)
+	for(int y = 0; y < new_height; ++y)
+		for(int x = 0; x < new_width; ++x)
 		{
-			const float src_x = x * scale_factor;
-			const float src_y = y * scale_factor;
+			const float src_x = x * scale_factor_x;
+			const float src_y = y * scale_factor_y;
 
-			const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1));
-			const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1));
-			const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1));
-			const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1));
+			const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1_x));
+			const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1_x));
+			const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1_y));
+			const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1_y));
 
 			Colour4f sum(0.f);
 			for(int sy = src_begin_y; sy < src_end_y; ++sy)
@@ -834,7 +834,7 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 					const float dy = (float)sy - src_y;
 					const float fabs_dx = std::fabs(dx);
 					const float fabs_dy = std::fabs(dy);
-					const float filter_val = myMax(1 - fabs_dx * recip_filter_r, 0.f) * myMax(1 - fabs_dy * recip_filter_r, 0.f);
+					const float filter_val = myMax(1 - fabs_dx * recip_filter_r_x, 0.f) * myMax(1 - fabs_dy * recip_filter_r_y, 0.f);
 					Colour4f px_col(
 						(float)this->getPixel(sx, sy)[0],
 						(float)this->getPixel(sx, sy)[1],
