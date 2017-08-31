@@ -99,7 +99,7 @@ pugi::xml_node IndigoXMLDoc::getRootElement()  // throws IndigoXMLDocExcep if no
 {
 	pugi::xml_node root_element = doc.first_child();
 	if(!root_element)
-		throw IndigoXMLDocExcep("Could not root element in file '" + path + "'.");
+		throw IndigoXMLDocExcep("Could not find root element in file '" + path + "'.");
 
 	return root_element;
 }
