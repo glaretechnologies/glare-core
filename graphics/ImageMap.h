@@ -1,7 +1,7 @@
 /*=====================================================================
 ImageMap.h
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Fri Mar 11 13:14:38 +0000 2011
 =====================================================================*/
 #pragma once
@@ -136,7 +136,7 @@ public:
 
 	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
 
-	inline virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
 	inline virtual unsigned int getBytesPerPixel() const;
 
@@ -784,74 +784,6 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 	}
 
 	return Reference<ImageMapFloat>(image);
-}
-
-template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height) const
-{
-	// For this implementation we will use a tent (bilinear) filter, with normalisation.
-	// Tent filter gives reasonable resulting image quality, is separable (and therefore fast), and has a small support.
-	// We need to do normalisation however, to avoid banding/spotting artifacts when resizing uniform images with the tent filter.
-	// Note that if we use a higher quality filter like Mitchell Netravali, we can avoid the renormalisation.
-	// But M.N. has a support radius twice as large (2 px), so we'll stick with the fast tent filter.
-
-	// TODO: test, esp for magnification etc..
-
-	assert(this->getN() == 3 || this->getN() == 4);
-
-	const int src_w = this->getMapWidth();
-	const int src_h = this->getMapHeight();
-
-	const float scale_factor_x = (float)src_w / new_width;
-	const float scale_factor_y = (float)src_h / new_height;
-	const float filter_r_x = myMax(1.f, scale_factor_x);
-	const float filter_r_y = myMax(1.f, scale_factor_y);
-	const float recip_filter_r_x = 1 / filter_r_x;
-	const float recip_filter_r_y = 1 / filter_r_y;
-	const float filter_r_plus_1_x  = filter_r_x + 1.f;
-	const float filter_r_plus_1_y  = filter_r_y + 1.f;
-	const float filter_r_minus_1_x = filter_r_x - 1.f;
-	const float filter_r_minus_1_y = filter_r_y - 1.f;
-
-	ImageMap<V, VTraits>* const image = new ImageMap<V, VTraits>(new_width, new_height, 3);
-
-	for(int y = 0; y < new_height; ++y)
-		for(int x = 0; x < new_width; ++x)
-		{
-			const float src_x = x * scale_factor_x;
-			const float src_y = y * scale_factor_y;
-
-			const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1_x));
-			const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1_x));
-			const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1_y));
-			const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1_y));
-
-			Colour4f sum(0.f);
-			for(int sy = src_begin_y; sy < src_end_y; ++sy)
-				for(int sx = src_begin_x; sx < src_end_x; ++sx)
-				{
-					const float dx = (float)sx - src_x;
-					const float dy = (float)sy - src_y;
-					const float fabs_dx = std::fabs(dx);
-					const float fabs_dy = std::fabs(dy);
-					const float filter_val = myMax(1 - fabs_dx * recip_filter_r_x, 0.f) * myMax(1 - fabs_dy * recip_filter_r_y, 0.f);
-					Colour4f px_col(
-						(float)this->getPixel(sx, sy)[0],
-						(float)this->getPixel(sx, sy)[1],
-						(float)this->getPixel(sx, sy)[2],
-						1.f
-					);
-
-					sum += px_col * filter_val;
-				}
-
-			const Colour4f col = sum * (1.f / sum[3]); // Normalise
-			image->getPixel(x, y)[0] = (V)col[0];
-			image->getPixel(x, y)[1] = (V)col[1];
-			image->getPixel(x, y)[2] = (V)col[2];
-		}
-
-	return Reference<ImageMap<V, VTraits> >(image);
 }
 
 

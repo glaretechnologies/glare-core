@@ -710,7 +710,7 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 }
 
 
-Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height) const
+Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const
 {
 	assert(0);
 	return NULL;

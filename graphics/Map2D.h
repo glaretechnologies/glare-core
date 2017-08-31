@@ -82,7 +82,7 @@ public:
 	// Return a new, resized version of this image.
 	// Scaling is assumed to be mostly the same in each dimension.
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height) const = 0;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const = 0;
 
 	virtual unsigned int getBytesPerPixel() const = 0;
 

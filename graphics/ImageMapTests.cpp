@@ -21,6 +21,7 @@ Generated at 2011-05-22 19:51:52 +0100
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/Plotter.h"
+#include "../utils/TaskManager.h"
 
 
 #if 0 // If do perf tests
@@ -100,6 +101,28 @@ static void perfTestWithTextureWidth(int width)
 
 
 #endif // End if do perf tests
+
+
+static void testResizeMidQuality(int new_w, int new_h)
+{
+	ImageMapFloat map(100, 100, 3);
+	map.set(0.12345f);
+
+	Indigo::TaskManager task_manager;
+
+	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
+
+	testAssert(resized_map->getMapWidth() == (unsigned int)new_w && resized_map->getMapHeight() == (unsigned int)new_h);
+	testAssert(resized_map.isType<ImageMapFloat>());
+
+	const ImageMapFloatRef resized_map_f = resized_map.downcast<ImageMapFloat>();
+	testAssert(resized_map_f->getN() == 3);
+
+	for(int x=0; x<new_w; ++x)
+		for(int y=0; y<new_h; ++y)
+			for(int c=0; c<3; ++c)
+				testEpsEqual(resized_map_f->getPixel(x, y)[c], 0.12345f);
+}
 
 
 void ImageMapTests::test()
@@ -401,6 +424,32 @@ void ImageMapTests::test()
 			for(int y=0; y<new_w; ++y)
 				for(int c=0; c<3; ++c)
 					testEpsEqual(resized_map->getPixel(x, y)[c], 0.12345f);
+	}
+
+
+	//======================================== Test resizeMidQuality() =======================================
+	// Test resizing of a uniform, float32, 3 component image
+	{
+		ImageMapFloat map(100, 100, 3);
+		map.set(0.12345f);
+
+		// Test downsize in 2 dims
+		testResizeMidQuality(90, 90);
+
+		// Test downsize in 1 dim
+		testResizeMidQuality(100, 90);
+		testResizeMidQuality(90, 100);
+
+		// Test upsize in 2 dims
+		testResizeMidQuality(110, 110);
+
+		// Test upsize in 1 dim
+		testResizeMidQuality(110, 100);
+		testResizeMidQuality(100, 110);
+
+		// Test upsize in 1 dim, downsize in another
+		testResizeMidQuality(90, 110);
+		testResizeMidQuality(110, 90);
 	}
 
 	// Test resizing of an image loaded from disk
