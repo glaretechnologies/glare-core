@@ -9,7 +9,6 @@ Code By Nicholas Chapman.
 
 #include "KDTree.h"
 #include "BVH.h"
-#include "jscol_BadouelTri.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/MTwister.h"
 #include "../raytracing/hitinfo.h"
@@ -127,7 +126,7 @@ static void testTriangleIntersection()
 }
 
 
-static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const Ray& ray)
+/*static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const Ray& ray)
 {
 	const float ray_t_max = 1.0e9f;
 	float ref_dist, ref_u, ref_v;
@@ -143,9 +142,9 @@ static void testIndividualBadouelIntersection(const js::BadouelTri& tri, const R
 		testAssert(::epsEqual(u, ref_u, 0.00005f));
 		testAssert(::epsEqual(v, ref_v, 0.00005f));
 	}
-}
+}*/
 
-
+/*
 void testBadouelTriIntersection()
 {
 	conPrint("testBadouelTriIntersection()");
@@ -179,7 +178,7 @@ void testBadouelTriIntersection()
 
 	conPrint("testBadouelTriIntersection() Done");
 }
-
+*/
 
 
 void TriangleTest::doTests()
@@ -238,7 +237,7 @@ void TriangleTest::doTests()
 #endif
 
 	testTriangleIntersection();
-	testBadouelTriIntersection();
+	//testBadouelTriIntersection();
 
 }
 #endif
