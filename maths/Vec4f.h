@@ -315,15 +315,12 @@ INDIGO_STRONG_INLINE const Vec4f max(const Vec4f& a, const Vec4f& b)
 }
 
 
+#if COMPILE_SSE4_CODE
 INDIGO_STRONG_INLINE const Vec4f floor(const Vec4f& v)
 {
-#if _MSC_VER && (_MSC_VER >= 1600) // If on Visual Studio 2010 or later (which _mm_floor_ps requires) 
 	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
-#else
-	// Since we're not using SSE4 on GCC/Clang yet, just use std::floor().
-	return Vec4f(std::floor(v.x[0]), std::floor(v.x[1]), std::floor(v.x[2]), std::floor(v.x[3]));
-#endif
 }
+#endif
 
 
 INDIGO_STRONG_INLINE const Vec4i toVec4i(const Vec4f& v)
