@@ -154,7 +154,7 @@ inline bool approxEq(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSIL
 
 INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a)
 {
-	return a * (1.0f / a.length());
+	return a / a.length();
 }
 
 
@@ -162,7 +162,7 @@ INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
 {
 	length_out = a.length();
 
-	return a * (1.0f / length_out);
+	return a / length_out;
 }
 
 
