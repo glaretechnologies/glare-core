@@ -236,7 +236,6 @@ void Vec4f::test()
 		testAssert(epsEqual(removeComponentInDir(b, a), Vec4f(0, 2, 3, 4)));
 	}
 
-
 	// Test unary operator -
 	{
 		const Vec4f a(1, 2, 3, 4);
@@ -244,12 +243,34 @@ void Vec4f::test()
 		testAssert(epsEqual(Vec4f(-1, -2, -3, -4), -a));
 	}
 
-
 	// Test horizontalSum
 	{
 		const Vec4f a(1, 2, 3, 4);
 
 		testAssert(epsEqual(horizontalSum(a), 10.f));
+	}
+
+	// Test copyToAll
+	{
+		const Vec4f a(1, 2, 3, 4);
+
+		testAssert(copyToAll<0>(a) == Vec4f(1));
+		testAssert(copyToAll<1>(a) == Vec4f(2));
+		testAssert(copyToAll<2>(a) == Vec4f(3));
+		testAssert(copyToAll<3>(a) == Vec4f(4));
+	}
+
+	// Test swizzle
+	{
+		const Vec4f a(1, 2, 3, 4);
+
+		testAssert((swizzle<0, 0, 0, 0>(a) == Vec4f(1)));
+		testAssert((swizzle<1, 1, 1, 1>(a) == Vec4f(2)));
+		testAssert((swizzle<2, 2, 2, 2>(a) == Vec4f(3)));
+		testAssert((swizzle<3, 3, 3, 3>(a) == Vec4f(4)));
+
+		testAssert((swizzle<0, 1, 2, 3>(a) == a));
+		testAssert((swizzle<3, 2, 1, 0>(a) == Vec4f(4, 3, 2, 1)));
 	}
 
 

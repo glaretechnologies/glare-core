@@ -68,7 +68,7 @@ namespace GeometrySampling
 	////// Cartesian -> Spherical polar angle conversion //////////
 
 	// Dir need not be normalised.
-	// Returns (phi, theta)
+	// Returns (phi, theta).  phi will be in [-pi, pi], theta will be in [0, pi]
 	template <class Real> inline const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length);
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
 	inline void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out);
@@ -203,6 +203,8 @@ const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length)
 
 const Vec2f sphericalCoordsForDir(const Vec4f& unit_dir)
 {
+	assert(unit_dir.isUnitLength());
+
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	return Vec2f(
 		atan2(unit_dir[1], unit_dir[0]), // phi
