@@ -29,9 +29,6 @@ File created by ClassTemplate on Sat Jun 25 08:01:25 2005
 
 
 typedef __m128 SSE4Vec; // A vector of 4 single precision floats.  16 byte aligned by default.
-#ifdef USE_SSE2
-typedef __m128i SSE4Int; // A vector of 4 32 bit integers.  16 byte aligned by default.
-#endif
 
 
 #ifdef COMPILER_MSVC

@@ -205,13 +205,6 @@ Vec4f& Vec4f::operator = (const Vec4f& a)
 }
 
 
-// Disable a bogus VS 2010 Code analysis warning: 'warning C6385: Invalid data: accessing 'x', the readable size is '16' bytes, but '20' bytes might be read'
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:6385)
-#endif
-
-
 float& Vec4f::operator [] (unsigned int index)
 {
 	assert(index < 4);
@@ -224,11 +217,6 @@ const float& Vec4f::operator [] (unsigned int index) const
 	assert(index < 4);
 	return x[index];
 }
-
-
-#ifdef _WIN32
-#pragma warning(pop)
-#endif
 
 
 void Vec4f::operator += (const Vec4f& a)
@@ -287,13 +275,13 @@ float Vec4f::length2() const
 
 float Vec4f::getDist(const Vec4f& a) const
 {
-	return Vec4f(a - *this).length();
+	return (a - *this).length();
 }
 
 
 float Vec4f::getDist2(const Vec4f& a) const
 {
-	return Vec4f(a - *this).length2();
+	return (a - *this).length2();
 }
 
 
@@ -333,7 +321,7 @@ template <int index>
 INDIGO_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index, index, index, index)); } // SSE 1
 
 
-// Copy the elments of a vector to other elements.
+// Copy the elements of a vector to other elements.
 // For example, to reverse the elements: v = swizzle<3, 2, 1, 0>(v);
 // Note that the _MM_SHUFFLE macro takes indices in reverse order than usual.
 template <int index0, int index1, int index2, int index3>
@@ -435,6 +423,7 @@ INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& m
 	return Vec4f(_mm_blendv_ps(b.v, a.v, mask.v));
 }
 #endif
+
 
 // Cast each element to float
 INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
