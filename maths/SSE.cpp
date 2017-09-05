@@ -1,8 +1,8 @@
 /*=====================================================================
 SSE.cpp
 -------
+Copyright Glare Technologies Limited 2017 -
 File created by ClassTemplate on Sat Jun 25 08:01:25 2005
-Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
 #include "SSE.h"
 

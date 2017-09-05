@@ -1,8 +1,8 @@
 /*=====================================================================
 SSE.h
 -----
+Copyright Glare Technologies Limited 2017 -
 File created by ClassTemplate on Sat Jun 25 08:01:25 2005
-Copyright Glare Technologies Limited 2012 -
 =====================================================================*/
 #pragma once
 
@@ -132,7 +132,6 @@ namespace SSE
 #define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
 
 
-const SSE_ALIGN float zero_4vec[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 
@@ -161,19 +160,11 @@ const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define mult4Vec(a, b) (_mm_mul_ps((a), (b)))
 //Multiplies the four single-precision, floating-point values of a and b.
 
-#define multByScalar(a, b) ( mult4Vec( (a), loadScalarCopy((b)) ) )
-
 #define div4Vec(a, b) (_mm_div_ps((a), (b)))
 //Divides the four single-precision, floating-point values of a and b. (result = a/b)
 
-#define recip4Vec(a) (_mm_rcp_ps(a))
-//Computes the approximations of reciprocals of the four single-precision, floating-point values of a.
-
 #define lessThan4Vec(a, b) (_mm_cmplt_ps((a), (b)))
 //Compares for less than. (all components).  Sets to 0xffffffff if true, 0x0 otherwise
-
-#define lessThanLowWord(a, b) (_mm_cmple_ss((a), (b)))
-//Compares for less than. (low word only)
 
 #define MSBMask(a) (_mm_movemask_ps(a))
 //Creates a 4-bit mask from the most significant bits of the four single-precision, floating-point values.
@@ -182,13 +173,6 @@ const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 //is true IFF the four bits are set
 
 #define noneTrue(a) (MSBMask(a) == 0x00000000)
-
-/*
-#define and4Vec(a) (MSBMask(a) == 0x0000000F)
-//is true IFF the four bits are set
-
-#define or4Vec(a) (MSBMask(a) != 0x00000000)
-//is true IFF the four bits are set*/
 
 #define and4Vec(a, b) (_mm_and_ps((a), (b)))
 //Computes the bitwise AND of the four single-precision, floating-point values of a and b.
@@ -211,22 +195,9 @@ inline const SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 #define max4Vec(a, b) (_mm_max_ps((a), (b)))
 //Computes the maximums of the four single-precision, floating-point values of a and b.
 
-
-#define SHUF_X 0
-#define SHUF_Y 1
-#define SHUF_Z 2
-#define SHUF_W 3
-
-//#define shuffle4Vec(a, b, x, y, z, w) (_mm_shuffle_ps(a, b, _MM_SHUFFLE(w, z, y, x)))
-#define shuffle4Vec(a, b, x, y, z, w) (_mm_shuffle_ps(a, b, _MM_SHUFFLE(z, y, x, w)))
-//Selects four specific single-precision, floating-point values from a and b, based on the mask i. The mask must be an immediate
-
 #define indigoCopyToAll(a, index) (_mm_shuffle_ps(a, a, _MM_SHUFFLE(index, index, index, index)))
 
-
 #define shiftLeftOneWord(a) (_mm_slli_si128((a)), 32)
-
-//#define setToZero(a) (_mm_setzero_ps()
 
 inline const SSE4Vec zeroVec()
 {
@@ -237,115 +208,6 @@ inline const SSE4Vec zeroVec()
 inline const SSE4Vec oneVec()
 {
 	return _mm_load_ps(one_4vec);
-}
-
-
-//sets each float in result to a if the mask is 1'd, or b if the mask is zeroed
-/*inline void setMasked(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& mask, SSE4Vec& result)
-{
-	result = or4Vec( and4Vec(a, mask), andNot(b, mask) );
-}*/
-
-inline const SSE4Vec setMasked(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& mask)
-{
-	//const SSE4Vec masked_a = and4Vec(a, mask);
-	//const SSE4Vec masked_b = andNot(b, mask);
-
-	//return or4Vec(masked_a, masked_b);
-	return or4Vec( and4Vec(mask, a), andNot4Vec(mask, b) );
-}
-
-/*inline void setIfALessThanB4Vec(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& newvals, SSE4Vec& result)
-{
-	setMasked(newvals, result, lessThan4Vec(a, b), result);
-}*/
-
-inline const SSE4Vec setIfALessThanB4Vec(const SSE4Vec& a, const SSE4Vec& b, const SSE4Vec& newvals,
-										 const SSE4Vec& oldvals)
-{
-	return setMasked(newvals, oldvals, lessThan4Vec(a, b));
-}
-
-//------------------------------------------------------------------------
-//Integer stuff
-//------------------------------------------------------------------------
-
-#ifdef USE_SSE2
-//------------------------------------------------------------------------
-//initialisation
-//------------------------------------------------------------------------
-inline const SSE4Int set4Int(int x0, int x1, int x2, int x3)
-{
-	return _mm_set_epi32(x3, x2, x1, x0);
-}
-
-//Sets the 4 signed 32-bit integer values to i.
-inline const SSE4Int setScalarCopy(int x)
-{
-	return _mm_set1_epi32(x);
-}
-
-//------------------------------------------------------------------------
-//storing
-//------------------------------------------------------------------------
-
-inline void store4Int(const SSE4Int& v, int* dest)
-{
-	_mm_store_si128((SSE4Int*)dest, v);
-}
-
-//------------------------------------------------------------------------
-//conversion
-//------------------------------------------------------------------------
-inline const SSE4Int toSSE4Int(const SSE4Vec& v)
-{
-	SSE_ALIGN int temp[4];
-	store4Vec(v, (float*)temp);
-	return set4Int(temp[0], temp[1], temp[2], temp[3]);
-}
-
-/*inline const SSE4Int load4Int(int* x)
-{
-	return _mm_load_si128(x);
-}*/
-
-//------------------------------------------------------------------------
-//logical operators
-//------------------------------------------------------------------------
-#define and4Int(a, b) (_mm_and_si128((a), (b)))
-//Computes the bitwise AND of the 128-bit value in a and the 128-bit value in b.
-
-//Computes the bitwise AND of the 128-bit value in b and the bitwise NOT of the 128-bit value in a.
-inline const SSE4Int andNot(const SSE4Int& a, const SSE4Int& b)
-{
-	return _mm_andnot_si128(a, b);
-}
-
-#define or4Int(a, b) (_mm_or_si128((a), (b)))
-//Computes the bitwise OR of the 128-bit value in a and the 128-bit value in b.
-
-
-inline const SSE4Int setMasked(const SSE4Int& a, const SSE4Int& b, const SSE4Int& mask)
-{
-	return or4Int( and4Int(mask, a), andNot(mask, b) );
-}
-
-#endif
-
-
-//the returned SSE4Vec will have the value of the dot product in each of the components
-inline const SSE4Vec dotSSEIn4Vec(const SSE4Vec& v1, const SSE4Vec& v2)
-{
-	SSE4Vec prod = mult4Vec(v1, v2);
-	SSE4Vec result = shuffle4Vec(prod, prod, SHUF_X, SHUF_X, SHUF_X, SHUF_X);
-
-	//SSE4Vec shuffled = shuffle4Vec(prod, prod, SHUF_Y, 0, 0, 0);
-	//shuffled.x = prod.y
-	//shuffled.y = prod.z
-	result = add4Vec(result, shuffle4Vec(prod, prod, SHUF_Y, SHUF_Y, SHUF_Y, SHUF_Y));
-	result = add4Vec(result, shuffle4Vec(prod, prod, SHUF_Z, SHUF_Z, SHUF_Z, SHUF_Z));
-
-	return result;
 }
 
 
