@@ -2,7 +2,7 @@
 GeometrySampling.cpp
 --------------------
 File created by ClassTemplate on Fri May 22 13:23:14 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
 #include "GeometrySampling.h"
 
@@ -130,7 +130,7 @@ void doTests()
 			Matrix4f m;
 			m.constructFromVector(n);
 			float p;
-			const Vec4f dir = sampleHemisphereCosineWeighted<Vec4f>(m, u, p);
+			const Vec4f dir = m * sampleHemisphereCosineWeighted<Vec4f>(u, p);
 
 			testAssert(dir.isUnitLength());
 			testAssert(dot(dir, n) > 0);

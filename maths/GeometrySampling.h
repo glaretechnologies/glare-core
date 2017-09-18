@@ -2,10 +2,9 @@
 GeometrySampling.h
 ------------------
 File created by ClassTemplate on Fri May 22 13:23:14 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2017 -
 =====================================================================*/
-#ifndef __GEOMETRYSAMPLING_H_666_
-#define __GEOMETRYSAMPLING_H_666_
+#pragma once
 
 
 #include "../maths/vec2.h"
@@ -39,13 +38,10 @@ namespace GeometrySampling
 	///// Hemisphere  /////
 
 	template <class Real> const Vec3<Real> sampleHemisphereUniformly(const SamplePair& unit_samples);
-	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
-	template <class VecType> const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
 	template <class VecType> const VecType sampleHemisphereCosineWeighted(const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 	///// Both hemispheres with cosine weighting ////
-	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples);
 	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType bothHemispheresCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
@@ -85,8 +81,8 @@ namespace GeometrySampling
 
 	////// Sample aperture disc //////
 	// Assumes aperture is a disc with normal facing along j axis.
-	inline const Vec4f sampleApertureDisc(const SamplePair& unit_samples, const Vec4f& sensor_pos, const Vec4f& aperture_pos,
-		float aperture_radius);
+	//inline const Vec4f sampleApertureDisc(const SamplePair& unit_samples, const Vec4f& sensor_pos, const Vec4f& aperture_pos,
+	//	float aperture_radius);
 
 	void doTests();
 
@@ -446,78 +442,34 @@ const Vec2<Real> sampleUnitDisc(const SamplePair& unitsamples)
 
 
 template <class VecType>
-const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples)
-{
-	// Sample unit disc
-	Vec2<typename VecType::RealType> disc = shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples);
-
-	const VecType dir(
-		disc.x, 
-		disc.y, 
-		std::sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y))), 
-		0.0
-		);
-	assert(dir.isUnitLength());
-
-	return VecType(to_world * dir);
-}
-
-
-template <class VecType>
-const VecType sampleHemisphereCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out)
-{
-	// Sample unit disc
-	Vec2<typename VecType::RealType> disc = shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples);
-
-	const float z = std::sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y)));
-
-	const VecType dir(
-		disc.x, 
-		disc.y, 
-		z, 
-		0
-	);
-	assert(dir.isUnitLength());
-
-	p_out = z * Maths::recipPi<float>();
-
-	return VecType(to_world * dir);
-}
-
-
-template <class VecType>
 const VecType sampleHemisphereCosineWeighted(const SamplePair& unitsamples, float& p_out)
 {
-	// Sample unit disc
-	Vec2<typename VecType::RealType> disc = shirleyUnitSquareToDisk<typename VecType::RealType>(unitsamples);
-
-	const float z = std::sqrt(myMax((typename VecType::RealType)0.0, (typename VecType::RealType)1.0 - (disc.x*disc.x + disc.y*disc.y)));
-
-	const VecType dir(
-		disc.x, 
-		disc.y, 
-		z, 
-		0
-	);
-	assert(dir.isUnitLength());
-
-	p_out = z * Maths::recipPi<float>();
-
-	return dir;
-}
-
-
-template <class VecType>
-const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples)
-{
-	if(unitsamples.x <= 0.5f)
+	// Sample unit disc, then project up onto hemisphere.
+	
+	// Manually inlining shirleyUnitSquareToDisk() here, so that we can use r directly when computing z.
+	typename VecType::RealType phi, r;
+	typename VecType::RealType a = 2*unitsamples.x - 1;
+	typename VecType::RealType b = 2*unitsamples.y - 1;
+	if(std::fabs(a) > std::fabs(b)) // It's faster to compare abs values than squares.
 	{
-		return sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair(unitsamples.x * 2, unitsamples.y));
+		r = a;
+		phi = Maths::pi_4<typename VecType::RealType>()*(b/a);
 	}
 	else
 	{
-		return sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y)) * -1.f;
+		r = b;
+		if(b != 0)
+			phi = Maths::pi_2<typename VecType::RealType>() - Maths::pi_4<typename VecType::RealType>()*(a/b);
+		else
+			phi = 0;
 	}
+
+	const typename VecType::RealType z = std::sqrt(myMax<typename VecType::RealType>(0, 1 - r*r));
+	p_out = z * Maths::recipPi<typename VecType::RealType>();
+	
+	assert(VecType(r*std::cos(phi), r*std::sin(phi), z, 0).isUnitLength());
+
+	return VecType(r*std::cos(phi), r*std::sin(phi), z, 0);
 }
 
 
@@ -527,14 +479,14 @@ const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, cons
 	if(unitsamples.x <= 0.5f)
 	{
 		float p;
-		const VecType d = sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair(unitsamples.x * 2, unitsamples.y), p);
+		const VecType d = to_world * sampleHemisphereCosineWeighted<VecType>(SamplePair(unitsamples.x * 2, unitsamples.y), p);
 		p_out = p * 0.5f;
 		return d;
 	}
 	else
 	{
 		float p;
-		const VecType d = -sampleHemisphereCosineWeighted<VecType>(to_world, SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y), p);
+		const VecType d = to_world * -sampleHemisphereCosineWeighted<VecType>(SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y), p);
 		p_out = p * 0.5f;
 		return d;
 	}
@@ -634,6 +586,3 @@ template <class Real> const Vec2<Real> sphereToUnitSquare(const Vec3<Real>& on_u
 
 
 } // End namespace GeometrySampling
-
-
-#endif //__GEOMETRYSAMPLING_H_666_
