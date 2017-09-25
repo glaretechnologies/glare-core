@@ -87,9 +87,17 @@ void PlatformUtils::Sleep(int x)
 unsigned int PlatformUtils::getNumLogicalProcessors()
 {
 #if defined(_WIN32) || defined(_WIN64)
-	SYSTEM_INFO system_info;
+
+	DWORD processorCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+
+	if(processorCount == 0)
+		return 1;//throw PlatformUtilsExcep("GetActiveProcessorCount failed: error code: " + toString((unsigned int)GetLastError()));
+
+	return processorCount;
+
+	/*SYSTEM_INFO system_info;
 	GetSystemInfo(&system_info);
-	return system_info.dwNumberOfProcessors;
+	return system_info.dwNumberOfProcessors;*/
 #else
 	return sysconf(_SC_NPROCESSORS_CONF);
 #endif

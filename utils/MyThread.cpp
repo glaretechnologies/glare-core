@@ -161,3 +161,17 @@ void MyThread::setPriority(Priority p)
 		throw MyThreadExcep("pthread_setschedparam failed: " + toString(res));*/
 #endif
 }
+
+
+#if defined(_WIN32)
+void MyThread::setAffinity(int32 group)
+{
+	GROUP_AFFINITY affinity;
+	ZeroMemory(&affinity, sizeof(GROUP_AFFINITY));
+	affinity.Group = (WORD)group;
+	//affinity.Mask = 0;
+
+	if (SetThreadGroupAffinity(thread_handle, &affinity, NULL) == 0)
+		throw MyThreadExcep("SetThreadGroupAffinity failed: error code: " + toString((unsigned int)GetLastError()));
+}
+#endif

@@ -57,6 +57,8 @@ public:
 
 #if defined(_WIN32)
 	HANDLE getHandle() { return thread_handle; }
+
+	void setAffinity(int32 group); // throws MyThreadExcep
 #endif
 
 	// bool autoDelete() const { return autodelete; }
