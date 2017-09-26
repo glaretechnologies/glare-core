@@ -104,6 +104,58 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 }
 
 
+#if defined(_WIN32)
+// Tries to get the number of processor packages (sockets).
+unsigned int PlatformUtils::getNumberOfProcessorPackages()
+{
+	DWORD returnedLength;
+
+	// Get required length of buffer.
+	if(GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP::RelationProcessorPackage, NULL, &returnedLength))
+	{
+		assert(0);
+		return 1;
+	}
+
+	if(GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+	{
+		assert(0);
+		return 1;
+	}
+
+	SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *procInfo = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)malloc(returnedLength);
+
+	if(!GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP::RelationProcessorPackage, procInfo, &returnedLength))
+	{
+		assert(0);
+		return 1;
+	}
+
+	SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *current = procInfo;
+	DWORD remaining = returnedLength;
+	unsigned int processorPackageCount = 0;
+
+	while(current != nullptr)
+	{
+		processorPackageCount++;
+
+		// proceed to next info.
+		remaining -= current->Size;
+		if (remaining) {
+			current = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)((uint8*)current + current->Size);
+		}
+		else {
+			current = nullptr;
+		}
+	}
+
+	free(procInfo);
+
+	return processorPackageCount;
+}
+#endif
+
+
 uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 {
 #if defined(_WIN32) || defined(_WIN64)
