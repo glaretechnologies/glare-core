@@ -124,6 +124,8 @@ public:
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 
+	virtual bool isPlanar(Vec4f& normal_out) const = 0; // Does the whole geometry lie on a single plane?
+
 	void incrementObjectUsageCount() { object_usage_count++; }
 	unsigned int getObjectUsageCount() const { return object_usage_count; }
 

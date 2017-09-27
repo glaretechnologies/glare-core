@@ -784,6 +784,24 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 }
 
 
+static inline const Vec3f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
+{
+	const Vec3f& p0 = verts[v0].pos, p1 = verts[v1].pos, p2 = verts[v2].pos;
+	const Vec3f e0 = p1 - p0;
+	const Vec3f e1 = p2 - p0;
+	const Vec3f n  = crossProduct(e0, e1);
+
+	return normalise(n);
+}
+
+
+bool RayMesh::isPlanar(Vec4f& normal_out) const
+{
+	normal_out = this->planar_normal;
+	return this->planar;
+}
+
+
 void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
@@ -801,6 +819,22 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 	for(size_t i = 0; i < this->vertices.size(); ++i)
 		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
 	bounding_radius = std::sqrt(max_r2);
+
+
+	// Compute if this geometry is planar
+	this->planar = true;
+	const Vec3f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
+	this->planar_normal = normal_0.toVec4fVector();
+	for(size_t i=1; i<triangles.size(); ++i)
+	{
+		const Vec3f n = triGeometricNormal(vertices, triangles[i].vertex_indices[0], triangles[i].vertex_indices[1], triangles[i].vertex_indices[2]);
+		if(!epsEqual(n, normal_0, 1.0e-5f))
+		{
+			this->planar = false;
+			break;
+		}
+	}
+	// conPrint("RayMesh::build, name=" + name + ", planar: " + boolToString(planar));
 
 	
 #ifndef NO_EMBREE
@@ -1525,17 +1559,6 @@ void RayMesh::printTreeStats()
 void RayMesh::printTraceStats()
 {
 	tritree->printTraceStats();
-}
-
-
-static inline const Vec3f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
-{
-	const Vec3f& p0 = verts[v0].pos, p1 = verts[v1].pos, p2 = verts[v2].pos;
-	const Vec3f e0 = p1 - p0;
-	const Vec3f e1 = p2 - p0;
-	const Vec3f n  = crossProduct(e0, e1);
-
-	return normalise(n);
 }
 
 

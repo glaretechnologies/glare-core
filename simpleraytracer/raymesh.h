@@ -223,6 +223,7 @@ public:
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
+	virtual bool isPlanar(Vec4f& normal_out) const;
 	//////////////////////////////////////////////////////////
 
 	Reference<RayMesh> getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const;
@@ -329,6 +330,8 @@ private:
 	bool view_dependent_subdivision;
 	double displacement_error_threshold;
 
+	bool planar;
+	Vec4f planar_normal;
 public:
 	js::Vector<js::Triangle, 32> js_tris; // Not used in Indigo, used for player physics.
 };

@@ -186,6 +186,7 @@ public:
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
 
 	virtual Aperture* getAperture() const = 0; // May return a NULL pointer.
+	virtual bool isPlanar(Vec4f& normal_out) const { return true; }
 
 	/////////////// Non-virtual methods //////////////
 	inline CameraType getCameraType() const { return camera_type; }

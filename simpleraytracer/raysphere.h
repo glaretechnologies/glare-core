@@ -43,6 +43,7 @@ public:
 	virtual void build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 	virtual const std::string getName() const;
 	virtual Real meanCurvature(const HitInfo& hitinfo) const;
+	virtual bool isPlanar(Vec4f& normal_out) const { return false; }
 	//////////////////////////////////////////////////////////
 
 	static Real rayMinT(Real radius) { return 0.0001f/*0.0003f*//*0.00005f*/ * radius; }
