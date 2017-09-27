@@ -108,10 +108,10 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 // Tries to get the number of processor packages (sockets).
 unsigned int PlatformUtils::getNumberOfProcessorPackages()
 {
-	DWORD returnedLength;
+	DWORD returnedLength = 0;
 
 	// Get required length of buffer.
-	if(GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP::RelationProcessorPackage, NULL, &returnedLength))
+	if(GetLogicalProcessorInformation(NULL, &returnedLength))
 	{
 		assert(0);
 		return 1;
@@ -123,31 +123,102 @@ unsigned int PlatformUtils::getNumberOfProcessorPackages()
 		return 1;
 	}
 
-	SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *procInfo = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)malloc(returnedLength);
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION procInfo = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(returnedLength);
 
-	if(!GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP::RelationProcessorPackage, procInfo, &returnedLength))
+	if(!GetLogicalProcessorInformation(procInfo, &returnedLength))
 	{
 		assert(0);
 		return 1;
 	}
 
-	SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *current = procInfo;
-	DWORD remaining = returnedLength;
-	unsigned int processorPackageCount = 0;
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = procInfo;
+	DWORD byteOffset = 0;
+	DWORD logicalProcessorCount = 0;
+	DWORD numaNodeCount = 0;
+	DWORD processorCoreCount = 0;
+	DWORD processorL1CacheCount = 0;
+	DWORD processorL2CacheCount = 0;
+	DWORD processorL3CacheCount = 0;
+	DWORD processorPackageCount = 0;
+	PCACHE_DESCRIPTOR Cache;
 
-	while(current != nullptr)
+	// Helper function to count set bits in the processor mask.
+	auto countSetBits = [](ULONG_PTR bitMask)
 	{
-		processorPackageCount++;
+		DWORD LSHIFT = sizeof(ULONG_PTR) * 8 - 1;
+		DWORD bitSetCount = 0;
+		ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT;
+		DWORD i;
 
-		// proceed to next info.
-		remaining -= current->Size;
-		if (remaining) {
-			current = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)((uint8*)current + current->Size);
+		for(i = 0; i <= LSHIFT; ++i)
+		{
+			bitSetCount += ((bitMask & bitTest) ? 1 : 0);
+			bitTest /= 2;
 		}
-		else {
-			current = nullptr;
+
+		return bitSetCount;
+	};
+
+	while(byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnedLength)
+	{
+		switch(ptr->Relationship)
+		{
+		case RelationNumaNode:
+			// Non-NUMA systems report a single record of this type.
+			numaNodeCount++;
+			break;
+
+		case RelationProcessorCore:
+			processorCoreCount++;
+
+			// A hyperthreaded core supplies more than one logical processor.
+			logicalProcessorCount += countSetBits(ptr->ProcessorMask);
+
+			break;
+
+		case RelationCache:
+			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
+			Cache = &ptr->Cache;
+			if(Cache->Level == 1)
+			{
+				processorL1CacheCount++;
+			}
+			else if(Cache->Level == 2)
+			{
+				processorL2CacheCount++;
+			}
+			else if(Cache->Level == 3)
+			{
+				processorL3CacheCount++;
+			}
+			break;
+
+		case RelationProcessorPackage:
+			// Logical processors share a physical package.
+			processorPackageCount++;
+			break;
+
+		default:
+			//conPrint("Error: Unsupported LOGICAL_PROCESSOR_RELATIONSHIP value.");
+			break;
 		}
+		byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+		ptr++;
 	}
+
+	/*conPrint("\nGetLogicalProcessorInformation:");
+	conPrint("Number of NUMA nodes: "
+		+ uInt32ToString(numaNodeCount));
+	conPrint("Number of physical processor sockets: "
+		+ uInt32ToString(processorPackageCount));
+	conPrint("Number of processor cores:  "
+		+ uInt32ToString(processorCoreCount));
+	conPrint("Number of logical processors:  "
+		+ uInt32ToString(logicalProcessorCount));
+	conPrint("Number of processor L1/L2/L3 caches:  "
+		+ uInt32ToString(processorL1CacheCount) + "/"
+		+ uInt32ToString(processorL2CacheCount) + "/"
+		+ uInt32ToString(processorL3CacheCount));*/
 
 	free(procInfo);
 
