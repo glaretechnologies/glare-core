@@ -42,7 +42,7 @@ namespace GeometrySampling
 	template <class VecType> inline typename VecType::RealType hemisphereCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 	///// Both hemispheres with cosine weighting ////
-	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out);
+	template <class VecType> const VecType sampleBothHemispheresCosineWeighted(const SamplePair& unitsamples, float& p_out);
 	template <class VecType> inline typename VecType::RealType bothHemispheresCosineWeightedPDF(const VecType& normal, const VecType& unitdir);
 
 
@@ -474,19 +474,19 @@ const VecType sampleHemisphereCosineWeighted(const SamplePair& unitsamples, floa
 
 
 template <class VecType>
-const VecType sampleBothHemispheresCosineWeighted(const Matrix4f& to_world, const SamplePair& unitsamples, float& p_out)
+const VecType sampleBothHemispheresCosineWeighted(const SamplePair& unitsamples, float& p_out)
 {
 	if(unitsamples.x <= 0.5f)
 	{
 		float p;
-		const VecType d = to_world * sampleHemisphereCosineWeighted<VecType>(SamplePair(unitsamples.x * 2, unitsamples.y), p);
+		const VecType d = sampleHemisphereCosineWeighted<VecType>(SamplePair(unitsamples.x * 2, unitsamples.y), p);
 		p_out = p * 0.5f;
 		return d;
 	}
 	else
 	{
 		float p;
-		const VecType d = to_world * -sampleHemisphereCosineWeighted<VecType>(SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y), p);
+		const VecType d = -sampleHemisphereCosineWeighted<VecType>(SamplePair((unitsamples.x - 0.5f) * 2, unitsamples.y), p);
 		p_out = p * 0.5f;
 		return d;
 	}

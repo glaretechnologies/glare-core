@@ -151,7 +151,7 @@ void doTests()
 			Matrix4f m;
 			m.constructFromVector(n);
 			float p;
-			const Vec4f dir = sampleBothHemispheresCosineWeighted<Vec4f>(m, u, p);
+			const Vec4f dir = m * sampleBothHemispheresCosineWeighted<Vec4f>(u, p);
 
 			testAssert(dir.isUnitLength());
 			testAssert(epsEqual(p, bothHemispheresCosineWeightedPDF(n, dir)));
