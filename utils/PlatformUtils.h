@@ -36,10 +36,6 @@ void Sleep(int x); // Make current thread sleep for x milliseconds
 
 unsigned int getNumLogicalProcessors();
 
-#if defined(_WIN32)
-unsigned int getNumberOfProcessorPackages();
-#endif
-
 uint64 getPhysicalRAMSize(); // Number of bytes of physical RAM
 
 const std::string getLoggedInUserName();
