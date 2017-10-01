@@ -35,6 +35,17 @@ const std::string Matrix3<double>::toString() const
 }
 
 
+template <>
+const std::string Matrix3<float>::toStringPlain() const
+{
+	std::string s;
+	for(int i=0; i<8; ++i)
+		s += floatToString(e[i]) + " ";
+	s += floatToString(e[8]);
+	return s;
+}
+
+
 template <class Real>
 inline static bool isSignificantDiff(const Matrix3<Real>& a, const Matrix3<Real>& b)
 {

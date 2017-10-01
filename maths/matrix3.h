@@ -88,6 +88,7 @@ public:
 	inline Real elem(unsigned int i, unsigned int j) const;
 
 	const std::string toString() const;
+	const std::string toStringPlain() const;
 
 	inline void constructFromVector(const Vec3<Real>& vec);
 
