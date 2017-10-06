@@ -32,6 +32,9 @@ public:
 
 	cl_program getProgram() { return program; }
 
+
+	void getProgramInfo(cl_program_info param_name, size_t param_value_size, void* param_value);
+
 private:
 	cl_program program;
 };

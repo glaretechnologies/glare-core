@@ -149,27 +149,18 @@ build_program:
 	{
 		// Get device list for program.  Note that this can differ in order from the device list we supplied when building the program!
 		std::vector<cl_device_id> queried_device_ids(devices.size());
-		cl_int result = open_cl->clGetProgramInfo(
-			program->getProgram(),
-			CL_PROGRAM_DEVICES,
+
+		program->getProgramInfo(CL_PROGRAM_DEVICES, 
 			queried_device_ids.size() * sizeof(cl_device_id), // param value size
-			queried_device_ids.data(), // param value
-			NULL // param_value_size_ret
+			queried_device_ids.data() // param value
 		);
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
 
 		// Get binary sizes
 		std::vector<size_t> binary_sizes(devices.size());
-		result = open_cl->clGetProgramInfo(
-			program->getProgram(),
-			CL_PROGRAM_BINARY_SIZES,
+		program->getProgramInfo(CL_PROGRAM_BINARY_SIZES,
 			binary_sizes.size() * sizeof(size_t), // param value size
-			binary_sizes.data(), // param value
-			NULL // param_value_size_ret
+			binary_sizes.data() // param value
 		);
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
 
 		// Allocate space for binaries
 		for(size_t i=0; i<binaries.size(); ++i)
@@ -180,15 +171,10 @@ build_program:
 			binary_pointers[i] = (unsigned char*)binaries[i].data();
 
 		// Get actual binaries
-		result = open_cl->clGetProgramInfo(
-			program->getProgram(),
-			CL_PROGRAM_BINARIES,
+		program->getProgramInfo(CL_PROGRAM_BINARIES,
 			binary_pointers.size() * sizeof(unsigned char*), // param value size
-			binary_pointers.data(), // param value
-			NULL // param_value_size_ret
+			binary_pointers.data() // param value
 		);
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clGetProgramInfo 2 failed: " + OpenCL::errorString(result));
 
 		// Save binaries to disk
 		for(size_t i=0; i<queried_device_ids.size(); ++i)

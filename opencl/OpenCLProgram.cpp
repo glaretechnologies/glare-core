@@ -28,3 +28,17 @@ OpenCLProgram::~OpenCLProgram()
 		}
 	}
 }
+
+
+void OpenCLProgram::getProgramInfo(cl_program_info param_name, size_t param_value_size, void* param_value)
+{
+	cl_int result = ::getGlobalOpenCL()->clGetProgramInfo(
+		program,
+		param_name,
+		param_value_size, // param value size
+		param_value, // param value
+		NULL // param_value_size_ret
+	);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
+}
