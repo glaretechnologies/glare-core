@@ -38,11 +38,14 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 
 	const bool VERBOSE = false;
 
+	const int CACHE_EPOCH = 2; // This can be incremented to effectively invalidate the cache, since keys will change.
+
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	XXH64_state_t hash_state;
 	XXH64_reset(&hash_state, 1);
 	XXH64_update(&hash_state, (void*)program_source.data(), program_source.size());
 	XXH64_update(&hash_state, (void*)compile_options.data(), compile_options.size());
+	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
 	const uint64 hashcode = XXH64_digest(&hash_state);
 
 
@@ -144,9 +147,21 @@ build_program:
 	// Get the program binaries and write to cache
 	try
 	{
+		// Get device list for program.  Note that this can differ in order from the device list we supplied when building the program!
+		std::vector<cl_device_id> queried_device_ids(devices.size());
+		cl_int result = open_cl->clGetProgramInfo(
+			program->getProgram(),
+			CL_PROGRAM_DEVICES,
+			queried_device_ids.size() * sizeof(cl_device_id), // param value size
+			queried_device_ids.data(), // param value
+			NULL // param_value_size_ret
+		);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
+
 		// Get binary sizes
 		std::vector<size_t> binary_sizes(devices.size());
-		cl_int result = open_cl->clGetProgramInfo(
+		result = open_cl->clGetProgramInfo(
 			program->getProgram(),
 			CL_PROGRAM_BINARY_SIZES,
 			binary_sizes.size() * sizeof(size_t), // param value size
@@ -176,9 +191,18 @@ build_program:
 			throw Indigo::Exception("clGetProgramInfo 2 failed: " + OpenCL::errorString(result));
 
 		// Save binaries to disk
-		for(size_t i=0; i<devices.size(); ++i)
+		for(size_t i=0; i<queried_device_ids.size(); ++i)
 		{
-			const OpenCLDevice& device = devices[i];
+			// Find the device in our device list that this corresponds to
+			size_t device_index = std::numeric_limits<size_t>::max();
+			for(size_t z=0; z<devices.size(); ++z)
+				if(devices[z].opencl_device_id == queried_device_ids[i])
+					device_index = z;
+
+			if(device_index == std::numeric_limits<size_t>::max())
+				throw Indigo::Exception("Failed to find device.");
+
+			const OpenCLDevice& device = devices[device_index];
 			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
 			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
 			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
