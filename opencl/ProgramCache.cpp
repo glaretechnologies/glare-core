@@ -26,7 +26,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 {
 	const bool VERBOSE = false;
 
-	const int CACHE_EPOCH = 2; // This can be incremented to effectively invalidate the cache, since keys will change.
+	const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	XXH64_state_t hash_state;
@@ -36,12 +36,12 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
 	const uint64 hashcode = XXH64_digest(&hash_state);
 
-	std::vector<OpenCLDeviceRef> devices; // Devices to build program for
+	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
 	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
 #ifdef OSX
 	devices = ::getGlobalOpenCL()->getPlatformForPlatformID(selected_devices_on_plat[0]->opencl_platform_id)->devices;
-else
+#else
 	devices = selected_devices_on_plat;
 #endif
 
