@@ -27,7 +27,7 @@ public:
 		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
-		const std::vector<OpenCLDevice>& devices, // all devices must share the same platform
+		const std::vector<OpenCLDeviceRef>& devices, // all devices must share the same platform
 		const std::string& compile_options,
 		std::string& build_log_out
 	);

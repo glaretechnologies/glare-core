@@ -46,8 +46,7 @@ const std::string OpenCLDevice::description() const
 
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
-	verbose(verbose_),
-	num_platforms(0)
+	verbose(verbose_)
 {
 	// Initialise the OpenCL library, importing the function pointers etc.
 	libraryInit();
@@ -233,7 +232,7 @@ void OpenCL::queryDevices()
 	int current_device_number = 0;
 
 	std::vector<cl_platform_id> platform_ids(128);
-	this->num_platforms = 0;
+	cl_uint num_platforms = 0;
 	{
 		ScopeProfiler _scope("clGetPlatformIDs", 1);
 		cl_int result = this->clGetPlatformIDs(128, &platform_ids[0], &num_platforms);
@@ -263,6 +262,8 @@ void OpenCL::queryDevices()
 
 	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
+		platforms.push_back(new OpenCLPlatform(platform_ids[i]));
+
 		std::string platform_vendor;
 		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VENDOR, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 			throw Indigo::Exception("clGetPlatformInfo failed");
@@ -453,25 +454,26 @@ void OpenCL::queryDevices()
 
 			// Add device info to devices vector.
 			{
-				OpenCLDevice opencl_device;
-				opencl_device.opencl_device_id = device_ids[d];
-				opencl_device.opencl_platform_id = platform_ids[i];
-				opencl_device.opencl_device_type = device_type;
+				OpenCLDeviceRef opencl_device = new OpenCLDevice();
+				opencl_device->opencl_device_id = device_ids[d];
+				opencl_device->opencl_platform_id = platform_ids[i];
+				opencl_device->opencl_device_type = device_type;
 
-				opencl_device.device_name = device_name_;
-				opencl_device.vendor_name = platform_vendor;
+				opencl_device->device_name = device_name_;
+				opencl_device->vendor_name = platform_vendor;
 
-				opencl_device.global_mem_size = device_global_mem_size;
-				opencl_device.max_mem_alloc_size = device_max_mem_alloc_size;
-				opencl_device.compute_units = device_max_compute_units;
-				opencl_device.clock_speed = device_max_clock_frequency;
+				opencl_device->global_mem_size = device_global_mem_size;
+				opencl_device->max_mem_alloc_size = device_max_mem_alloc_size;
+				opencl_device->compute_units = device_max_compute_units;
+				opencl_device->clock_speed = device_max_clock_frequency;
 
 #if OPENCL_OPENGL_INTEROP
-				opencl_device.supports_GL_interop = device_OpenGL_interop;
+				opencl_device->supports_GL_interop = device_OpenGL_interop;
 #else
-				opencl_device.supports_GL_interop = false;
+				opencl_device->supports_GL_interop = false;
 #endif
 
+				platforms.back()->devices.push_back(opencl_device);
 				devices.push_back(opencl_device);
 			}
 
@@ -490,21 +492,21 @@ void OpenCL::queryDevices()
 	for(size_t i = 0; i < devices.size(); ++i)
 	{
 		// Assign unique id for devices of same vendor and name.
-		if(devices[i].device_name == prev_dev && devices[i].vendor_name == prev_vendor)
-			devices[i].id = prev_id + 1;
+		if(devices[i]->device_name == prev_dev && devices[i]->vendor_name == prev_vendor)
+			devices[i]->id = prev_id + 1;
 		else
-			devices[i].id = 0;
+			devices[i]->id = 0;
 
-		prev_dev = devices[i].device_name;
-		prev_vendor = devices[i].vendor_name;
-		prev_id = devices[i].id;
+		prev_dev = devices[i]->device_name;
+		prev_vendor = devices[i]->vendor_name;
+		prev_id = devices[i]->id;
 	}
 }
 
 
-std::vector< ::OpenCLDevice> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
+std::vector< ::OpenCLDeviceRef> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
 {
-	std::vector< ::OpenCLDevice> core_selected_devices;
+	std::vector< ::OpenCLDeviceRef> core_selected_devices;
 
 	// For every selected device i.
 	for(size_t i = 0; i < selected_devices.size(); ++i)
@@ -513,9 +515,9 @@ std::vector< ::OpenCLDevice> OpenCL::getSelectedDevices(const std::vector<Indigo
 		for(size_t j = 0; j < devices.size(); ++j)
 		{
 			// Is it the device we are looking for? I.e. name, vendor and id match.
-			if(toStdString(selected_devices[i].device_name) == devices[j].device_name
-				&& toStdString(selected_devices[i].vendor_name) == devices[j].vendor_name
-				&& selected_devices[i].id == devices[j].id)
+			if(toStdString(selected_devices[i].device_name) == devices[j]->device_name
+				&& toStdString(selected_devices[i].vendor_name) == devices[j]->vendor_name
+				&& selected_devices[i].id == devices[j]->id)
 			{
 				core_selected_devices.push_back(devices[j]);
 				break;
@@ -608,7 +610,7 @@ const std::string OpenCL::errorString(cl_int result)
 
 
 // Accessor method for device data queried in the constructor.
-const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const
+const std::vector<OpenCLDeviceRef>& OpenCL::getOpenCLDevices() const
 { 
 	return devices;
 };
@@ -617,14 +619,23 @@ const std::vector<OpenCLDevice>& OpenCL::getOpenCLDevices() const
 // Only returns correct number of platforms if queryDevices() has been called.
 unsigned int OpenCL::getNumPlatforms() const
 {
-	return num_platforms;
-} 
+	return (unsigned int)platforms.size();
+}
+
+
+OpenCLPlatformRef OpenCL::getPlatformForPlatformID(cl_platform_id platform_id) const
+{
+	for(size_t i=0; i<platforms.size(); ++i)
+		if(platforms[i]->getPlatformID() == platform_id)
+			return platforms[i];
+	return NULL;
+}
 
 
 OpenCLProgramRef OpenCL::buildProgram(
 	const std::string& program_source,
 	cl_context opencl_context,
-	const std::vector<OpenCLDevice>& use_devices,
+	const std::vector<OpenCLDeviceRef>& use_devices,
 	const std::string& compile_options,
 	std::string& build_log_out // Will be set to a non-empty string on build failure.
 )
@@ -673,7 +684,7 @@ OpenCLProgramRef OpenCL::buildProgram(
 	//Timer timer;
 	std::vector<cl_device_id> device_ids(use_devices.size());
 	for(size_t i=0; i<use_devices.size(); ++i)
-		device_ids[i] = use_devices[i].opencl_device_id;
+		device_ids[i] = use_devices[i]->opencl_device_id;
 
 	result = this->clBuildProgram(
 		program->getProgram(),

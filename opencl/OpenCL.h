@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "OpenCLProgram.h"
+#include "OpenCLPlatform.h"
 #include "../dll/include/OpenCLDevice.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
@@ -100,39 +101,6 @@ typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue c
 }
 
 
-class OpenCLDevice
-{
-public:
-	const std::string description() const;
-
-	cl_device_id opencl_device_id;
-	cl_platform_id opencl_platform_id;
-	cl_device_type opencl_device_type;
-
-	std::string device_name;
-	std::string vendor_name;
-	// id is a unique identifier given to identical devices (devices with same name and vendor).
-	int64 id;
-
-	size_t global_mem_size;
-	size_t max_mem_alloc_size;
-	size_t compute_units;
-	size_t clock_speed;
-
-	bool supports_GL_interop;
-};
-
-
-struct OpenCLDeviceLessThanName
-{
-	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.device_name < rhs.device_name; }
-};
-
-
-struct OpenCLDeviceLessThanVendor
-{
-	inline bool operator() (const OpenCLDevice& lhs, const OpenCLDevice& rhs) const { return lhs.vendor_name < rhs.vendor_name; }
-};
 
 
 /*=====================================================================
@@ -148,8 +116,9 @@ public:
 
 
 	void queryDevices();
-	const std::vector<OpenCLDevice>& getOpenCLDevices() const;
+	const std::vector<OpenCLDeviceRef>& getOpenCLDevices() const;
 	unsigned int getNumPlatforms() const;
+	OpenCLPlatformRef getPlatformForPlatformID(cl_platform_id platform_id) const;
 
 	
 	static const std::string errorString(cl_int result);
@@ -158,7 +127,7 @@ public:
 	OpenCLProgramRef buildProgram(
 		const std::string& program_source,
 		cl_context opencl_context,
-		const std::vector<OpenCLDevice>& devices,
+		const std::vector<OpenCLDeviceRef>& devices,
 		const std::string& compile_options,
 		std::string& build_log_out // Will be set to a non-empty string on build failure.
 	);
@@ -167,7 +136,7 @@ public:
 
 	void dumpProgramBinaryToDisk(cl_program program);
 
-	std::vector< ::OpenCLDevice > getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
+	std::vector< ::OpenCLDeviceRef > getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
@@ -225,8 +194,9 @@ private:
 	bool initialised;
 	bool verbose;
 
-	std::vector<OpenCLDevice> devices;
-	cl_uint num_platforms;
+	// Queried platforms and devices
+	std::vector<OpenCLPlatformRef> platforms;
+	std::vector<OpenCLDeviceRef> devices;
 };
 
 

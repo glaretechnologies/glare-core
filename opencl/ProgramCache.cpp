@@ -19,23 +19,11 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
-		const std::vector<OpenCLDevice>& devices, // all devices must share the same platform
+		const std::vector<OpenCLDeviceRef>& selected_devices_on_plat, // all devices must share the same platform
 		const std::string& compile_options,
 		std::string& build_log_out
 	)
 {
-#ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do caching for now on Mac.
-
-	return ::getGlobalOpenCL()->buildProgram(
-		program_source,
-		opencl_context->getContext(),
-		devices,
-		compile_options,
-		build_log_out
-	);
-
-#else // else if not OS X
-
 	const bool VERBOSE = false;
 
 	const int CACHE_EPOCH = 2; // This can be incremented to effectively invalidate the cache, since keys will change.
@@ -48,10 +36,18 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
 	const uint64 hashcode = XXH64_digest(&hash_state);
 
+	std::vector<OpenCLDeviceRef> devices; // Devices to build program for
+
+	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
+#ifdef OSX
+	devices = ::getGlobalOpenCL()->getPlatformForPlatformID(selected_devices_on_plat[0]->opencl_platform_id)->devices;
+else
+	devices = selected_devices_on_plat;
+#endif
 
 	std::vector<cl_device_id> device_ids(devices.size()); // Get device ids in a packed array
 	for(size_t i=0; i<devices.size(); ++i)
-		device_ids[i] = devices[i].opencl_device_id;
+		device_ids[i] = devices[i]->opencl_device_id;
 
 	std::vector<std::vector<uint8> > binaries;
 	binaries.resize(devices.size());
@@ -63,7 +59,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 		// Load binaries from disk
 		for(size_t i=0; i<devices.size(); ++i)
 		{
-			const OpenCLDevice& device = devices[i];
+			const OpenCLDevice& device = *devices[i];
 			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
 			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
 			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
@@ -182,13 +178,13 @@ build_program:
 			// Find the device in our device list that this corresponds to
 			size_t device_index = std::numeric_limits<size_t>::max();
 			for(size_t z=0; z<devices.size(); ++z)
-				if(devices[z].opencl_device_id == queried_device_ids[i])
+				if(devices[z]->opencl_device_id == queried_device_ids[i])
 					device_index = z;
 
 			if(device_index == std::numeric_limits<size_t>::max())
 				throw Indigo::Exception("Failed to find device.");
 
-			const OpenCLDevice& device = devices[device_index];
+			const OpenCLDevice& device = *devices[device_index];
 			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
 			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
 			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
@@ -210,6 +206,4 @@ build_program:
 	}
 
 	return program;
-
-#endif // End else if not OS X
 }

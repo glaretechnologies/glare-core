@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2015 -
 #pragma once
 
 
-class OpenCLDevice;
+#include "OpenCLPlatform.h"
 
 
 /*=====================================================================
@@ -24,5 +24,5 @@ public:
 	static void test();
 
 private:
-	static void runTestsOnDevice(const OpenCLDevice& opencl_device);
+	static void runTestsOnDevice(const OpenCLDeviceRef& opencl_device);
 };
