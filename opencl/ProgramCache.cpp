@@ -78,11 +78,13 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 			if(file.fileSize() == 0)
 				throw Indigo::Exception("cached binary had size 0.");
 
+			if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in cache.");
+
 			binaries[i].resize(file.fileSize());
 			std::memcpy(binaries[i].data(), file.fileData(), file.fileSize());
 		}
 
-		if(VERBOSE) conPrint("Cache hit!");
+		if(VERBOSE) conPrint("Cache hit for all devices!");
 
 		std::vector<size_t> binary_lengths(binaries.size());
 		std::vector<const unsigned char*> binary_pointers(binaries.size());
