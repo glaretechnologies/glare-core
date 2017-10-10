@@ -82,7 +82,7 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
-	const bool VERBOSE = true;
+	const bool VERBOSE = false;
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	XXH64_state_t hash_state;
