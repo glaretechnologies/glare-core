@@ -23,7 +23,20 @@ class ProgramCache
 {
 public:
 	// Caches based on a key made from program_source and compile_options.
-	static OpenCLProgramRef getOrBuildProgram(
+	struct Results
+	{
+		OpenCLProgramRef program;
+		bool cache_hit;
+	};
+
+	static bool isProgramInCache(
+		const std::string cachedir_path,
+		const std::string& program_source,
+		const std::vector<OpenCLDeviceRef>& devices, // all devices must share the same platform
+		const std::string& compile_options
+	);
+
+	static Results getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,

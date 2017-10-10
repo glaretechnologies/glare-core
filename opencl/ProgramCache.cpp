@@ -15,7 +15,65 @@ Generated at 2016-10-14 15:08:16 +0100
 #include "../utils/IncludeXXHash.h"
 
 
-OpenCLProgramRef ProgramCache::getOrBuildProgram(
+static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
+
+
+bool ProgramCache::isProgramInCache(
+		const std::string cachedir_path,
+		const std::string& program_source,
+		const std::vector<OpenCLDeviceRef>& selected_devices_on_plat, // all devices must share the same platform
+		const std::string& compile_options
+)
+{
+	// Compute hash over program source and compilation options, which we will use as the cache key.
+	XXH64_state_t hash_state;
+	XXH64_reset(&hash_state, 1);
+	XXH64_update(&hash_state, (void*)program_source.data(), program_source.size());
+	XXH64_update(&hash_state, (void*)compile_options.data(), compile_options.size());
+	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
+	const uint64 hashcode = XXH64_digest(&hash_state);
+
+	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
+
+	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
+#ifdef OSX
+	devices = ::getGlobalOpenCL()->getPlatformForPlatformID(selected_devices_on_plat[0]->opencl_platform_id)->devices;
+#else
+	devices = selected_devices_on_plat;
+#endif
+
+	try
+	{
+		// Load binaries from disk
+		for(size_t i=0; i<devices.size(); ++i)
+		{
+			const OpenCLDevice& device = *devices[i];
+			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
+			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
+			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
+			const std::string dir = ::toHexString(dir_bits);
+			const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+
+			// If the binary is not present in the cache, don't throw an exception then print a warning message.
+			if(!FileUtils::fileExists(cachefile_path))
+				return false;
+
+			// try and load it
+			MemMappedFile file(cachefile_path);
+			if(file.fileSize() == 0)
+				throw Indigo::Exception("cached binary had size 0.");
+		}
+
+		return true;
+	}
+	catch(Indigo::Exception&)
+	{
+		return false;
+	}
+}
+
+
+ProgramCache::Results ProgramCache::getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
@@ -24,9 +82,7 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
-	const bool VERBOSE = false;
-
-	const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
+	const bool VERBOSE = true;
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	XXH64_state_t hash_state;
@@ -122,7 +178,10 @@ OpenCLProgramRef ProgramCache::getOrBuildProgram(
 			throw Indigo::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
 
 		// Program was successfully loaded and built from cache, so return it
-		return program;
+		ProgramCache::Results results;
+		results.program = program;
+		results.cache_hit = true;
+		return results;
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -207,5 +266,8 @@ build_program:
 		conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
 	}
 
-	return program;
+	ProgramCache::Results results;
+	results.program = program;
+	results.cache_hit = false;
+	return results;
 }

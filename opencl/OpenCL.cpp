@@ -274,6 +274,11 @@ void OpenCL::queryDevices()
 		const std::string platform_extensions_string(&char_buff[0]);
 		const std::vector<std::string> platform_extensions = split(platform_extensions_string, ' ');
 
+		if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
+			throw Indigo::Exception("clGetPlatformInfo failed");
+		const std::string platform_name(&char_buff[0]);
+		platforms.back()->name = platform_name;
+
 #if OPENCL_OPENGL_INTEROP
 		// Check extensions for OpenGL interop
 		bool platform_OpenGL_interop = false;
@@ -314,9 +319,7 @@ void OpenCL::queryDevices()
 			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_VERSION, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetPlatformInfo failed");
 			const std::string platform_version(&char_buff[0]);
-			if(clGetPlatformInfo(platform_ids[i], CL_PLATFORM_NAME, char_buff.size(), &char_buff[0], NULL) != CL_SUCCESS)
-				throw Indigo::Exception("clGetPlatformInfo failed");
-			const std::string platform_name(&char_buff[0]);
+			
 
 			print_output.print("\n============================Platform ============================");
 			print_output.print("platform_id: " + toString((uint64)platform_ids[i]));
@@ -472,6 +475,7 @@ void OpenCL::queryDevices()
 #else
 				opencl_device->supports_GL_interop = false;
 #endif
+				opencl_device->platform = platforms.back().getPointer();
 
 				platforms.back()->devices.push_back(opencl_device);
 				devices.push_back(opencl_device);

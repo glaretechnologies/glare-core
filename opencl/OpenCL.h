@@ -118,6 +118,7 @@ public:
 	void queryDevices();
 	const std::vector<OpenCLDeviceRef>& getOpenCLDevices() const;
 	unsigned int getNumPlatforms() const;
+	const std::vector<OpenCLPlatformRef>& getPlatforms() const { return platforms; }
 	OpenCLPlatformRef getPlatformForPlatformID(cl_platform_id platform_id) const;
 
 	

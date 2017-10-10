@@ -523,6 +523,61 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 }
 
 
+std::string writeEntireFileToTempFile(const char* data, size_t data_size)
+{
+#ifdef WIN32
+	std::string temp_dir;
+	try
+	{
+		temp_dir = PlatformUtils::getTempDirPath();
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& e)
+	{
+		throw FileUtilsExcep(e.what());
+	}
+
+	//-------------------- Write data to a unique temporary file first -----------------------
+	//
+	const std::string dir = FileUtils::getDirectory(temp_dir); // TODO: pick a better dir?
+	TCHAR temp_file_name[MAX_PATH];
+	GetTempFileName(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), // dir path
+		TEXT("glare"), // lpPrefixString
+		0, // uUnique
+		temp_file_name
+	);
+
+	const std::string temp_pathname = StringUtils::PlatformToUTF8UnicodeEncoding(temp_file_name);// pathname + "_tmp";
+
+	writeEntireFile(temp_pathname, data, data_size);
+
+	return temp_pathname;
+#else
+	//-------------------- Write data to a unique temporary file first -----------------------
+	// Create temp file
+	std::string temp_pathname = pathname + "_XXXXXX";
+	const int file = mkstemp(&temp_pathname[0]);
+	if(file == -1)
+		throw FileUtilsExcep("Failed to create temp file: " + PlatformUtils::getLastErrorString());
+
+	// Write the data to it
+	size_t remaining_size = data_size;
+	while(remaining_size > 0)
+	{
+		const ssize_t bytes_written = write(file, data, remaining_size);
+		if(bytes_written == -1)
+			throw FileUtilsExcep("Error while writing to temp file: " + PlatformUtils::getLastErrorString());
+		data += bytes_written;
+		remaining_size -= bytes_written;
+	}
+
+	close(file);
+
+	return temp_pathname;
+#endif
+}
+
+
 void readEntireFileTextMode(const std::string& pathname, std::string& s_out) // throws FileUtilsExcep
 {
 	s_out = readEntireFileTextMode(pathname);

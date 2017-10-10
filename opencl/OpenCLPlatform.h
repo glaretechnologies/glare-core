@@ -20,10 +20,15 @@ Copyright Glare Technologies Limited 2017 -
 #endif
 
 
+class OpenCLPlatform;
+
+
 class OpenCLDevice : public ThreadSafeRefCounted
 {
 public:
 	const std::string description() const;
+
+	OpenCLPlatform* platform;
 
 	cl_device_id opencl_device_id;
 	cl_platform_id opencl_platform_id;
@@ -71,7 +76,7 @@ public:
 
 	cl_platform_id getPlatformID() { return platform_id; }
 
-
+	std::string name;
 	std::vector<OpenCLDeviceRef> devices;
 private:
 	cl_platform_id platform_id;
