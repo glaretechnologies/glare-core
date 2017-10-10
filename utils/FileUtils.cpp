@@ -525,7 +525,6 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 
 std::string writeEntireFileToTempFile(const char* data, size_t data_size)
 {
-#ifdef WIN32
 	std::string temp_dir;
 	try
 	{
@@ -535,7 +534,8 @@ std::string writeEntireFileToTempFile(const char* data, size_t data_size)
 	{
 		throw FileUtilsExcep(e.what());
 	}
-
+	
+#ifdef WIN32
 	//-------------------- Write data to a unique temporary file first -----------------------
 	//
 	const std::string dir = FileUtils::getDirectory(temp_dir); // TODO: pick a better dir?
@@ -555,7 +555,7 @@ std::string writeEntireFileToTempFile(const char* data, size_t data_size)
 #else
 	//-------------------- Write data to a unique temporary file first -----------------------
 	// Create temp file
-	std::string temp_pathname = pathname + "_XXXXXX";
+	std::string temp_pathname = temp_dir + "/glare_XXXXXX";
 	const int file = mkstemp(&temp_pathname[0]);
 	if(file == -1)
 		throw FileUtilsExcep("Failed to create temp file: " + PlatformUtils::getLastErrorString());

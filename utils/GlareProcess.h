@@ -8,6 +8,7 @@ Generated at 2016-05-08 19:24:12 +0100
 
 
 #include <string>
+#include <stdio.h>
 #include "IncludeWindows.h"
 
 
@@ -47,5 +48,8 @@ private:
 #if defined(_WIN32)
 	HANDLE process_handle;
 	HANDLE child_stdout_read_handle, child_stderr_read_handle;
+#else
+	FILE* fp;
+	int exit_code;
 #endif
 };

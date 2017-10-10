@@ -91,13 +91,23 @@ Process::Process(const std::string& program_path, const std::string& command_lin
 	CloseHandle(child_stderr_write_handle);
     CloseHandle(child_stdout_write_handle);
 #else
-	throw Indigo::Exception("Process only implemented for Windows.");
+	this->exit_code = 0;
+	
+	this->fp = popen((program_path + " " + command_line_args).c_str(), "r");
+	if(fp == NULL)
+		throw Indigo::Exception("popen failed: " + PlatformUtils::getLastErrorString());
 #endif
 }
 
 
 Process::~Process()
 {
+#if defined(_WIN32)
+	 // TODO: close process handle etc..?
+#else
+	if(fp)
+		pclose(fp);
+#endif
 }
 
 
@@ -112,7 +122,16 @@ const std::string Process::readStdOut()
 
 	return std::string(buf, dwRead);
 #else
-	return "";//TEMP
+	if(fp)
+	{
+		char buf[2048];
+		if(fgets(buf, 2048, fp) == NULL)
+			return "";
+		else
+			return std::string(buf);
+	}
+	else
+		return "";
 #endif
 }
 
@@ -128,7 +147,8 @@ const std::string Process::readStdErr()
 
 	return std::string(buf, dwRead);
 #else
-	return "";//TEMP
+	// We can't read from stderr with popen(), so just return "".
+	return "";
 #endif
 }
 
@@ -141,7 +161,15 @@ int Process::getExitCode() // Throws exception if process not terminated.
 		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code;
 #else
-	return 0;//TEMP
+	if(fp)
+	{
+		const int status = pclose(fp);
+		if(status == -1)
+			throw Indigo::Exception("pclose failed: " + PlatformUtils::getLastErrorString());
+		this->exit_code = status; // NOTE: this is the exit value of the command interpreter, not our actual process.
+		fp = NULL;
+	}
+	return this->exit_code;
 #endif
 }
 
@@ -201,6 +229,24 @@ void Process::test()
 		}
 		testAssert(p.getExitCode() == 0);
 		//conPrint("Exit code: " + toString(p.getExitCode()));
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+#else
+	try
+	{
+		Process p("ls", "-l");
+		while(1)
+		{
+			const std::string output = p.readStdOut();
+			conPrint(output);
+			if(output.empty())
+				break;
+		}
+		conPrint("Exit code: " + toString(p.getExitCode()));
+		testAssert(p.getExitCode() == 0);
 	}
 	catch(Indigo::Exception& e)
 	{
