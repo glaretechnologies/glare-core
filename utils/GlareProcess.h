@@ -8,6 +8,7 @@ Generated at 2016-05-08 19:24:12 +0100
 
 
 #include <string>
+#include <vector>
 #include <stdio.h>
 #include "IncludeWindows.h"
 
@@ -29,7 +30,7 @@ public:
 
 	Throws Indigo::Exception on failure.
 	*/
-	Process(const std::string& program_path, const std::string& command_line_args);
+	Process(const std::string& program_path, const std::vector<std::string>& command_line_args);
 	~Process();
 
 	// Returns empty string if no more output (process is dead)

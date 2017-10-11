@@ -16,8 +16,38 @@ Generated at 2016-05-08 19:24:12 +0100
 
 
 
-Process::Process(const std::string& program_path, const std::string& command_line_args)
+Process::Process(const std::string& program_path, const std::vector<std::string>& command_line_args)
 {
+	// Convert the command_line_args vector to a string.  We also want to escape double-quotes in each argument.
+	// See https://msdn.microsoft.com/en-us/library/windows/desktop/17w5ykft.aspx ("Parsing C++ Command-Line Arguments")
+	// This could could be tested to see if it is the inverse of CommandLineToArgvW (See https://msdn.microsoft.com/en-us/library/windows/desktop/bb776391(v=vs.85).aspx)
+	std::string combined_args_string;
+	for(size_t i=0; i<command_line_args.size(); ++i)
+	{
+		const std::string arg = command_line_args[i];
+		std::string escaped;
+		for(size_t z=0; z<arg.size(); ++z)
+		{
+			if(arg[z] == '"')
+				escaped += "\\\""; // Replace double-quote with backslash,double-quote.
+			else if(arg[z] == '\\')
+			{
+				if(z + 1 < arg.size() && arg[z + 1] == '"') // If next char is double-quote:
+					// The arg contains backslash,double-quote.  We will replace this with backslash,backslash,backslash,double-quote.
+					escaped += "\\\\\\\"";
+				else
+					// "Backslashes are interpreted literally, unless they immediately precede a double quotation mark." - so just append a backslash.
+					escaped.push_back('\\');
+			}
+			else
+				escaped.push_back(arg[z]);
+		}
+
+		combined_args_string += "\"" + escaped + "\"";
+		if(i + 1 < command_line_args.size())
+			combined_args_string += " ";
+	}
+
 #if defined(_WIN32)
 	// See http://stackoverflow.com/questions/14147138/capture-output-of-spawned-process-to-string
 	// also https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
@@ -68,7 +98,7 @@ Process::Process(const std::string& program_path, const std::string& command_lin
 	PROCESS_INFORMATION procInfo;
 	ZeroMemory(&procInfo, sizeof(procInfo));
 
-	std::wstring w_command_line = StringUtils::UTF8ToPlatformUnicodeEncoding(command_line_args);
+	std::wstring w_command_line = StringUtils::UTF8ToPlatformUnicodeEncoding(combined_args_string);
 	if(CreateProcess(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(program_path).c_str(),		// application name
 		&(w_command_line[0]), // command line
@@ -219,7 +249,11 @@ void Process::test()
 		wchar_t buf[2048];
 		testAssert(GetWindowsDirectory(buf, 2048) != 0);
 		const std::string cmd_exe_path = StringUtils::PlatformToUTF8UnicodeEncoding(buf) + "\\system32\\cmd.exe";
-		Process p(cmd_exe_path, cmd_exe_path + " /C ls");
+		std::vector<std::string> command_line_args;
+		command_line_args.push_back(cmd_exe_path);
+		command_line_args.push_back("/C");
+		command_line_args.push_back("ls");
+		Process p(cmd_exe_path, command_line_args);
 		while(1)
 		{
 			const std::string output = p.readStdOut();
@@ -237,7 +271,9 @@ void Process::test()
 #else
 	try
 	{
-		Process p("ls", "-l");
+		std::vector<std::string> command_line_args;
+		command_line_args.push_back("-l");
+		Process p("ls", command_line_args);
 		while(1)
 		{
 			const std::string output = p.readStdOut();
