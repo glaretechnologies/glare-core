@@ -21,6 +21,9 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 	// Convert the command_line_args vector to a string.  We also want to escape double-quotes in each argument.
 	// See https://msdn.microsoft.com/en-us/library/windows/desktop/17w5ykft.aspx ("Parsing C++ Command-Line Arguments")
 	// This could could be tested to see if it is the inverse of CommandLineToArgvW (See https://msdn.microsoft.com/en-us/library/windows/desktop/bb776391(v=vs.85).aspx)
+
+	// TODO: This escaping is probably wrong for Mac/Linux.
+
 	std::string combined_args_string;
 	for(size_t i=0; i<command_line_args.size(); ++i)
 	{
@@ -123,7 +126,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 #else
 	this->exit_code = 0;
 	
-	this->fp = popen((program_path + " " + command_line_args).c_str(), "r");
+	this->fp = popen((program_path + " " + combined_args_string).c_str(), "r");
 	if(fp == NULL)
 		throw Indigo::Exception("popen failed: " + PlatformUtils::getLastErrorString());
 #endif
