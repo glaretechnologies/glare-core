@@ -43,6 +43,8 @@ public:
 	inline size_t size() const { return len; }
 	inline T* data() { return data_; }
 
+	inline bool empty() const { return len == 0; }
+
 	inline const T& back() const { assert(len >= 1); return data_[len - 1]; }
 
 	//-----------------------------------------------------------------

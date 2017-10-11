@@ -58,7 +58,7 @@ AESEncryption::~AESEncryption()
 
 
 // Encrypt plaintext.
-std::vector<unsigned char> AESEncryption::encrypt(const std::vector<unsigned char>& plaintext)
+std::vector<unsigned char> AESEncryption::encrypt(const ArrayRef<unsigned char>& plaintext)
 {
 	if(plaintext.empty())
 		throw Indigo::Exception("plaintext cannot be empty.");
@@ -88,7 +88,7 @@ std::vector<unsigned char> AESEncryption::encrypt(const std::vector<unsigned cha
 
 
 // Decrypt ciphertext
-std::vector<unsigned char> AESEncryption::decrypt(const std::vector<unsigned char>& ciphertext)
+std::vector<unsigned char> AESEncryption::decrypt(const ArrayRef<unsigned char>& ciphertext)
 {
 	if(ciphertext.empty())
 		throw Indigo::Exception("ciphertext cannot be empty.");

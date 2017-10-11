@@ -8,6 +8,7 @@ Generated at 2011-09-08 13:18:33 +0100
 
 
 #include "Platform.h"
+#include "ArrayRef.h"
 #include <vector>
 #include <string>
 struct evp_cipher_ctx_st;
@@ -26,8 +27,8 @@ public:
 	AESEncryption(const std::string& key_data, const std::string& salt);
 	~AESEncryption();
 
-	std::vector<unsigned char> encrypt(const std::vector<unsigned char>& plaintext);
-	std::vector<unsigned char> decrypt(const std::vector<unsigned char>& ciphertext);
+	std::vector<unsigned char> encrypt(const ArrayRef<unsigned char>& plaintext);
+	std::vector<unsigned char> decrypt(const ArrayRef<unsigned char>& ciphertext);
 
 	static void test();
 private:
