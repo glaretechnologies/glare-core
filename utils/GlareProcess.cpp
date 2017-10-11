@@ -185,6 +185,7 @@ const std::string Process::readStdErr()
 
 void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 {
+#if defined(_WIN32)
 	size_t bytes_written_total = 0;
 	while(bytes_written_total < data.size())
 	{
@@ -201,6 +202,9 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 				throw Indigo::Exception("WriteFile failed: " + PlatformUtils::getLastErrorString());
 		}
 	}
+#else
+	throw Indigo::Exception("Not implemented.");
+#endif
 }
 
 
