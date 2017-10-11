@@ -69,6 +69,10 @@ bool isPathSafe(const std::string& pathname);
 void readEntireFile(const std::string& pathname, std::string& filecontents_out); // throws FileUtilsExcep
 void readEntireFile(const std::string& pathname, std::vector<unsigned char>& filecontents_out); // throws FileUtilsExcep
 
+// Read the contents of a file.  If the file was unable to be opened or read from, retry until it succeeds.
+// Will keep trying until success or total_retry_period has elapsed, in which case an exception is thrown.
+void readEntireFileWithRetries(const std::string& pathname, double total_retry_period, std::vector<unsigned char>& filecontents_out); // throws FileUtilsExcep
+
 void writeEntireFile(const std::string& pathname, const std::vector<unsigned char>& filecontents); // throws FileUtilsExcep
 void writeEntireFile(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep
 void writeEntireFileTextMode(const std::string& pathname, const std::string& filecontents); // throws FileUtilsExcep

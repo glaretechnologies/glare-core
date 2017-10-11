@@ -24,6 +24,7 @@ Code By Nicholas Chapman.
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
+#include "Timer.h"
 #include <cstring>
 #include <stdlib.h>
 #include <assert.h>
@@ -374,6 +375,33 @@ void readEntireFile(const std::string& pathname,
 	{
 		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
+}
+
+
+// Read the contents of a file.  If the file was unable to be opened or read from, retry until it succeeds.
+// Will keep trying until success or total_retry_period has elapsed, in which case an exception is thrown.
+void readEntireFileWithRetries(const std::string& pathname,
+					double total_retry_period,
+					std::vector<unsigned char>& filecontents_out)
+{
+	Timer timer;
+	do
+	{
+		try
+		{
+			MemMappedFile file(pathname);
+			filecontents_out.resize(file.fileSize());
+			if(file.fileSize() > 0)
+				std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
+			return;
+		}
+		catch(Indigo::Exception&)
+		{
+			PlatformUtils::Sleep(50); // Sleep briefly then try again.
+		}
+	} while(timer.elapsed() < total_retry_period);
+
+	throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
 }
 
 
@@ -1358,8 +1386,27 @@ void doUnitTests()
 			std::string s;
 			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", s);
 			testAssert(s == "");
-
 		}
+
+		//============ Test readEntireFileWithRetries() ====================
+		{
+			// CRLF should not be converted to LF (as this is a binary read)
+			std::vector<unsigned char> s;
+			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", /*max retry period=*/1.0, s);
+			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "a\r\nb");
+		}
+		{
+			std::vector<unsigned char> s;
+			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", /*max retry period=*/1.0, s);
+			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "a\nb");
+		}
+		{
+			// Test with empty file
+			std::vector<unsigned char> s;
+			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", /*max retry period=*/1.0, s);
+			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "");
+		}
+
 		//============ Test readEntireFileTextMode() ====================
 		{
 			// CRLF should be converted to LF
