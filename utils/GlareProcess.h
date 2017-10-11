@@ -11,6 +11,7 @@ Generated at 2016-05-08 19:24:12 +0100
 #include <vector>
 #include <stdio.h>
 #include "IncludeWindows.h"
+#include "ArrayRef.h"
 
 
 /*=====================================================================
@@ -39,6 +40,8 @@ public:
 	// Returns empty string if no more output (process is dead)
 	const std::string readStdErr();
 
+	void writeToProcessStdIn(const ArrayRef<unsigned char>& data);
+
 	int getExitCode(); // Throws exception if process not terminated.
 
 	void readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::string& stderr_out);
@@ -48,7 +51,7 @@ private:
 
 #if defined(_WIN32)
 	HANDLE process_handle;
-	HANDLE child_stdout_read_handle, child_stderr_read_handle;
+	HANDLE child_stdout_read_handle, child_stderr_read_handle, child_stdin_write_handle;
 #else
 	FILE* fp;
 	int exit_code;

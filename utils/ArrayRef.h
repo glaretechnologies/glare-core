@@ -42,6 +42,7 @@ public:
 
 	inline size_t size() const { return len; }
 	inline T* data() { return data_; }
+	inline const T* data() const { return data_; }
 
 	inline bool empty() const { return len == 0; }
 

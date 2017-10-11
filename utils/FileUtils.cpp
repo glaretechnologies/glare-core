@@ -385,6 +385,7 @@ void readEntireFileWithRetries(const std::string& pathname,
 					std::vector<unsigned char>& filecontents_out)
 {
 	Timer timer;
+	std::string last_excep_msg;
 	do
 	{
 		try
@@ -395,13 +396,14 @@ void readEntireFileWithRetries(const std::string& pathname,
 				std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 			return;
 		}
-		catch(Indigo::Exception&)
+		catch(Indigo::Exception& e)
 		{
+			last_excep_msg = e.what();
 			PlatformUtils::Sleep(50); // Sleep briefly then try again.
 		}
 	} while(timer.elapsed() < total_retry_period);
 
-	throw FileUtilsExcep("Could not open '" + pathname + "' for reading.");
+	throw FileUtilsExcep("Could not open '" + pathname + "' for reading (last error: " + last_excep_msg + ").");
 }
 
 

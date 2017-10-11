@@ -78,7 +78,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 
 
 	// Create a pipe for the child process's STDIN. 
-	HANDLE child_stdin_write_handle, child_stdin_read_handle;
+	HANDLE child_stdin_read_handle;
 	if(!CreatePipe(&child_stdin_read_handle, &child_stdin_write_handle, &sa, 0))
 		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
 
@@ -180,6 +180,27 @@ const std::string Process::readStdErr()
 	// We can't read from stderr with popen(), so just return "".
 	return "";
 #endif
+}
+
+
+void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
+{
+	size_t bytes_written_total = 0;
+	while(bytes_written_total < data.size())
+	{
+		DWORD write_size = 0;
+		const BOOL res = WriteFile(child_stdin_write_handle, data.data() + bytes_written_total, data.size() - bytes_written_total, &write_size, /*lpOverlapped=*/NULL);
+		bytes_written_total += write_size;
+
+		if(res == FALSE)
+		{
+			if(GetLastError() == ERROR_IO_PENDING)
+			{
+			}
+			else
+				throw Indigo::Exception("WriteFile failed: " + PlatformUtils::getLastErrorString());
+		}
+	}
 }
 
 
