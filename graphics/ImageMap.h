@@ -827,7 +827,6 @@ void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int destx, in
 	const int d_w = (int)dest.getWidth();
 
 	// NOTE: this can be optimised to remove the destination pixel valid check.
-		
 	for(int y = 0; y < s_h; ++y)
 	for(int x = 0; x < s_w; ++x)
 	{

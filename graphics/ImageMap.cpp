@@ -16,7 +16,9 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #ifdef _MSC_VER
 #pragma warning(push, 0) // Disable warnings
 #endif
+#if OPENEXR_SUPPORT
 #include <half.h>
+#endif
 #ifdef _MSC_VER
 #pragma warning(pop) // Re-enable warnings
 #endif
@@ -26,7 +28,9 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 template void writeToStream(const ImageMap<float, FloatComponentValueTraits>& im, OutStream& stream);
 template void readFromStream(InStream& stream, ImageMap<float, FloatComponentValueTraits>& image);
 
+#if OPENEXR_SUPPORT
 template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+#endif
 template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
