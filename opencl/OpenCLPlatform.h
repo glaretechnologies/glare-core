@@ -77,6 +77,7 @@ public:
 	cl_platform_id getPlatformID() { return platform_id; }
 
 	std::string name;
+	std::string version;
 	std::vector<OpenCLDeviceRef> devices;
 private:
 	cl_platform_id platform_id;

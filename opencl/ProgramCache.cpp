@@ -18,6 +18,20 @@ Generated at 2016-10-14 15:08:16 +0100
 static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
 
 
+// Computes hash over program source and compilation options, which we will use as the cache key.
+// Hash over platform version so that a new driver version will effectively invalidate existing cached programs.
+static uint64 computeProgramHashCode(const std::string& program_source, const std::string& compile_options, const std::string& platform_version)
+{
+	XXH64_state_t hash_state;
+	XXH64_reset(&hash_state, 1);
+	XXH64_update(&hash_state, (void*)program_source.data(), program_source.size());
+	XXH64_update(&hash_state, (void*)compile_options.data(), compile_options.size());
+	XXH64_update(&hash_state, (void*)platform_version.data(), platform_version.size());
+	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
+	return XXH64_digest(&hash_state);
+}
+
+
 bool ProgramCache::isProgramInCache(
 		const std::string cachedir_path,
 		const std::string& program_source,
@@ -25,19 +39,15 @@ bool ProgramCache::isProgramInCache(
 		const std::string& compile_options
 )
 {
-	// Compute hash over program source and compilation options, which we will use as the cache key.
-	XXH64_state_t hash_state;
-	XXH64_reset(&hash_state, 1);
-	XXH64_update(&hash_state, (void*)program_source.data(), program_source.size());
-	XXH64_update(&hash_state, (void*)compile_options.data(), compile_options.size());
-	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
-	const uint64 hashcode = XXH64_digest(&hash_state);
+	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
+
+	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
 	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
 #ifdef OSX
-	devices = ::getGlobalOpenCL()->getPlatformForPlatformID(selected_devices_on_plat[0]->opencl_platform_id)->devices;
+	devices = platform->devices;
 #else
 	devices = selected_devices_on_plat;
 #endif
@@ -85,18 +95,15 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 	const bool VERBOSE = false;
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
-	XXH64_state_t hash_state;
-	XXH64_reset(&hash_state, 1);
-	XXH64_update(&hash_state, (void*)program_source.data(), program_source.size());
-	XXH64_update(&hash_state, (void*)compile_options.data(), compile_options.size());
-	XXH64_update(&hash_state, (void*)&CACHE_EPOCH, sizeof(CACHE_EPOCH));
-	const uint64 hashcode = XXH64_digest(&hash_state);
+	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
+
+	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
 	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
 #ifdef OSX
-	devices = ::getGlobalOpenCL()->getPlatformForPlatformID(selected_devices_on_plat[0]->opencl_platform_id)->devices;
+	devices = platform->devices;
 #else
 	devices = selected_devices_on_plat;
 #endif
