@@ -158,10 +158,11 @@ const std::string Process::readStdOut()
 	if(fp)
 	{
 		char buf[2048];
-		if(fgets(buf, 2048, fp) == NULL)
+		const ssize_t bytes_read = read(fp, buf, sizeof(buf));
+		if(bytes_read == 0) // If EOF:
 			return "";
 		else
-			return std::string(buf);
+			return std::string(buf, bytes_read);
 	}
 	else
 		return "";
