@@ -282,7 +282,7 @@ void Process::test()
 		std::vector<std::string> command_line_args;
 		command_line_args.push_back(cmd_exe_path);
 		command_line_args.push_back("/C");
-		command_line_args.push_back("ls");
+		command_line_args.push_back("dir");
 		Process p(cmd_exe_path, command_line_args);
 		while(1)
 		{
