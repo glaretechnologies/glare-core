@@ -109,7 +109,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 		NULL,		// process security attributes
 		NULL,		// primary thread security attributes 
 		TRUE,		// handles are inherited 
-		0,			// creation flags 
+		CREATE_NO_WINDOW, // creation flags - use CREATE_NO_WINDOW to prevent console window popping up.
 		NULL,
 		NULL,
 		&startupInfo,
