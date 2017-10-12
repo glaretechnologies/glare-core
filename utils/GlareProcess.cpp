@@ -159,7 +159,7 @@ const std::string Process::readStdOut()
 	if(fp)
 	{
 		char buf[2048];
-		const ssize_t bytes_read = read(fp, buf, sizeof(buf));
+		const ssize_t bytes_read = fread(buf, sizeof(buf), 1, fp);
 		if(bytes_read == 0) // If EOF:
 			return "";
 		else
