@@ -12,8 +12,9 @@ Generated at 2016-05-08 19:24:12 +0100
 #include "FileUtils.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
-
-
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
 
 
 Process::Process(const std::string& program_path, const std::vector<std::string>& command_line_args)
@@ -194,7 +195,7 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 	while(bytes_written_total < data.size())
 	{
 		DWORD write_size = 0;
-		const BOOL res = WriteFile(child_stdin_write_handle, data.data() + bytes_written_total, data.size() - bytes_written_total, &write_size, /*lpOverlapped=*/NULL);
+		const BOOL res = WriteFile(child_stdin_write_handle, data.data() + bytes_written_total, (DWORD)(data.size() - bytes_written_total), &write_size, /*lpOverlapped=*/NULL);
 		bytes_written_total += write_size;
 
 		if(res == FALSE)
