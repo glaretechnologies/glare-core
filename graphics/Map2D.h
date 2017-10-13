@@ -42,6 +42,7 @@ public:
 	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const = 0;
 
 	// X and Y are normalised image coordinates.
+	// (X, Y) = (0, 0) is at the bottom left of the image.
 	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const = 0;
 
 	// X and Y are normalised image coordinates.
