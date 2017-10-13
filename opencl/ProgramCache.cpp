@@ -193,7 +193,7 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 	catch(Indigo::Exception& e)
 	{
 		// Cache failed.
-		if(VERBOSE) conPrint("Warning: failed building OpenCL program from cache: " + e.what());
+		conPrint("Warning: failed building OpenCL program from cache: " + e.what());
 	}
 
 
