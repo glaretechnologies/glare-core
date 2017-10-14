@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHBuilder.cpp
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #include "BVHBuilder.h"
@@ -112,7 +112,7 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		const js::Vector<CenterItem, 16>& centres = *axis_centres; // Sorted CenterItems
-		js::Vector<Ob, 64>& axis_obs = builder.objects[axis]; // Array we will be writing to.
+		js::Vector<Ob, 64>& axis_obs = builder.objects_a[axis]; // Array we will be writing to.
 		const js::AABBox* const aabbs = builder.aabbs; // Unsorted AABBs
 
 		//Timer timer2;
@@ -159,6 +159,8 @@ public:
 			node_aabb, 
 			root_node_index, // node index
 			begin, end, depth,
+			cur_objects,
+			other_objects,
 			*result_chunk
 		);
 
@@ -168,6 +170,8 @@ public:
 	}
 
 	BVHBuilder& builder;
+	js::Vector<Ob, 64>* cur_objects;
+	js::Vector<Ob, 64>* other_objects;
 	ResultChunk* result_chunk;
 	js::AABBox node_aabb;
 	int depth;
@@ -187,6 +191,8 @@ void BVHBuilder::build(
 		   )
 {
 	//Timer timer;
+	split_search_time = 0;
+	partition_time = 0;
 
 	this->task_manager = &task_manager_;
 	this->aabbs = aabbs_;
@@ -222,10 +228,10 @@ void BVHBuilder::build(
 
 	// Alloc space for objects for each axis
 	//timer.reset();
-	for(int c=0; c<3; ++c)
+	for(int axis=0; axis<3; ++axis)
 	{
-		js::Vector<Ob, 64>& axis_obs = this->objects[c];
-		axis_obs.resizeNoCopy(num_objects);
+		this->objects_a[axis].resizeNoCopy(num_objects);
+		this->objects_b[axis].resizeNoCopy(num_objects);
 	}
 	//conPrint("building this->objects elapsed: " + timer.elapsedString());
 
@@ -268,33 +274,29 @@ void BVHBuilder::build(
 	for(int axis=0; axis<3; ++axis)
 		for(int i=1; i<num_objects; ++i)
 		{
-			const Ob& ob   = objects[axis][i];
-			const Ob& prev = objects[axis][i-1];
+			const Ob& ob   = objects_a[axis][i];
+			const Ob& prev = objects_a[axis][i-1];
 			assert(ob.centre[axis] >= prev.centre[axis]);
 		}
 #endif
 
 
+	object_max.resizeNoCopy(num_objects);
 
 	// Reserve working space for each thread.
 	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getNumThreads();
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 	{
-		per_thread_temp_info[i].temp[0].resizeNoCopy(num_objects);
-		per_thread_temp_info[i].temp[1].resizeNoCopy(num_objects);
-		per_thread_temp_info[i].object_max.resizeNoCopy(num_objects);
 		per_thread_temp_info[i].result_buf.reserve(initial_result_buf_reserve_cap);
 	}
 
 	// Alloc per_local_thread_temp_info.  This is used for per-axis computations, so there will be a max of 3 threads.
 	if(num_objects >= axis_parallel_num_ob_threshold)
 	{
-		per_axis_thread_temp_info.resize(task_manager->getNumThreads());//NEW!
+		per_axis_thread_temp_info.resize(3);
 		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
 		{
-			per_axis_thread_temp_info[i].temp[0].resizeNoCopy(num_objects);
-			per_axis_thread_temp_info[i].temp[1].resizeNoCopy(num_objects);
 			per_axis_thread_temp_info[i].object_max.resizeNoCopy(num_objects);
 		}
 	}
@@ -335,6 +337,8 @@ void BVHBuilder::build(
 	task->depth = 0;
 	task->node_aabb = root_aabb;
 	task->result_chunk = &result_chunks[0];
+	task->cur_objects = objects_a;
+	task->other_objects = objects_b;
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
@@ -411,7 +415,31 @@ void BVHBuilder::build(
 
 	result_indices.resize(num_objects);
 	for(int i=0; i<num_objects; ++i)
-		result_indices[i] = objects[0][i].index;
+		result_indices[i] = objects_a[0][i].index;
+
+
+	// Dump some mem usage stats
+	if(false)
+	{
+		conPrint("objects:                   " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
+		size_t sz = 0;
+		for(size_t i=0; i<per_thread_temp_info.size(); ++i)
+			sz += per_thread_temp_info[i].dataSizeBytes();
+		conPrint("per_thread_temp_info:      " + getNiceByteSize(sz));
+
+		sz = 0;
+		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
+			sz += per_axis_thread_temp_info[i].dataSizeBytes();
+		conPrint("per_axis_thread_temp_info: " + getNiceByteSize(sz));
+		conPrint("result_chunks:             " + getNiceByteSize(result_chunks.dataSizeBytes()));
+		//conPrint("temp:                      " + getNiceByteSize(temp[0].dataSizeBytes() + temp[1].dataSizeBytes()));
+		conPrint("object_max:                " + getNiceByteSize(object_max.dataSizeBytes()));
+		conPrint("------");
+		conPrint("result_nodes_out:          " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
+		conPrint("");
+		conPrint("split_search_time: " + toString(split_search_time) + " s");
+		conPrint("partition_time:    " + toString(partition_time) + " s");
+	}
 }
 
 
@@ -424,7 +452,7 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		const js::AABBox aabb = *node_aabb; // Put on stack to avoid potential repeated dereferencing.
-		const js::Vector<Ob, 64>& axis_tris = builder.objects[axis];
+		const js::Vector<Ob, 64>& axis_tris = cur_objects[axis];
 		float* const use_object_max = builder.per_axis_thread_temp_info[thread_index].object_max.data();
 		const float traversal_cost = 1.0f;
 		const float aabb_surface_area = aabb.getSurfaceArea();
@@ -497,6 +525,7 @@ public:
 	}
 
 	BVHBuilder& builder;
+	js::Vector<Ob, 64>* cur_objects;
 	int axis; // Axis to search along.
 	const js::AABBox* node_aabb;
 	int left;
@@ -518,55 +547,50 @@ public:
 	
 	virtual void run(size_t thread_index)
 	{
-		js::Vector<Ob, 64>& axis_obs = builder.objects[axis];
-		js::Vector<Ob, 64>& temp_0 = builder.per_axis_thread_temp_info[thread_index].temp[0];
-		js::Vector<Ob, 64>& temp_1 = builder.per_axis_thread_temp_info[thread_index].temp[1];
+		const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
+		js::Vector<Ob, 64>& axis_other_obs = other_objects[axis];
 
+		// Do a pass to get number of objects going left:
 		int num_left_tris = 0;
-		int num_right_tris = 0;
+		for(int i=left; i<right; ++i)
+			if(axis_obs[i].centre[best_axis] <= best_div_val) // If on Left side
+				num_left_tris++;
+
+		int left_write_pos = left;
+		int right_write_pos = left + num_left_tris;
 
 		for(int i=left; i<right; ++i)
 		{
 			if(axis_obs[i].centre[best_axis] <= best_div_val) // If on Left side
-				temp_0[num_left_tris++] = axis_obs[i];
+				axis_other_obs[left_write_pos++] = axis_obs[i];
 			else // else if on Right side
-				temp_1[num_right_tris++] = axis_obs[i];
+				axis_other_obs[right_write_pos++] = axis_obs[i];
 		}
 
-		// Copy temp back to the tri list
-
-		/*for(int z=0; z<num_left_tris; ++z)
-			axis_obs[left + z] = temp_0[z];
-
-		for(int z=0; z<num_right_tris; ++z)
-			axis_obs[left + num_left_tris + z] = temp_1[z];*/
-		std::memcpy(&axis_obs[left], &temp_0[0], sizeof(Ob) * num_left_tris);
-		std::memcpy(&axis_obs[left + num_left_tris], &temp_1[0], sizeof(Ob) * num_right_tris);
-
 		split_i = left + num_left_tris;
-		assert(split_i >= left && split_i <= right);
-
 
 		// Compute AABBs as well.  Task for axis 0 will compute left AABB, task for axis 1 will compute right AABB
 		if(axis == 0)
 		{
 			js::AABBox aabb = js::AABBox::emptyAABBox();
-			for(int z=0; z<num_left_tris; ++z)
-				aabb.enlargeToHoldAABBox(temp_0[z].aabb);
+			for(int z=left; z<left + num_left_tris; ++z)
+				aabb.enlargeToHoldAABBox(axis_other_obs[z].aabb);
 
 			*left_aabb = aabb;
 		}
 		else if(axis == 1)
 		{
 			js::AABBox aabb = js::AABBox::emptyAABBox();
-			for(int z=0; z<num_right_tris; ++z)
-				aabb.enlargeToHoldAABBox(temp_1[z].aabb);
+			for(int z=split_i; z<right; ++z)
+				aabb.enlargeToHoldAABBox(axis_other_obs[z].aabb);
 
 			*right_aabb = aabb;
 		}
 	}
 
 	BVHBuilder& builder;
+	js::Vector<Ob, 64>* cur_objects;
+	js::Vector<Ob, 64>* other_objects;
 	int axis;
 	int best_axis;
 	float best_div_val;
@@ -599,18 +623,20 @@ Recursively build a subtree.
 Assumptions: root node for subtree is already created and is at node_index
 */
 void BVHBuilder::doBuild(
-			PerThreadTempInfo& per_thread_temp_info,
+			PerThreadTempInfo& thread_temp_info,
 			const js::AABBox& aabb,
-			 uint32 node_index, 
-			 int left, 
-			 int right, 
-			 int depth,
-			 ResultChunk& result_chunk
-			 )
+			uint32 node_index, 
+			int left, 
+			int right, 
+			int depth,
+			js::Vector<Ob, 64>* cur_objects,
+			js::Vector<Ob, 64>* other_objects,
+			ResultChunk& result_chunk
+			)
 {
 	const int MAX_DEPTH = 60;
 
-	js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info.result_buf;
+	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
 
 	if(right - left <= leaf_num_object_threshold || depth >= MAX_DEPTH)
 	{
@@ -620,6 +646,11 @@ void BVHBuilder::doBuild(
 		chunk_nodes[node_index].interior = false;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
+
+		// if cur_objects is objects_b, we need to copy back into objects_a
+		if(cur_objects == objects_b)
+			for(int axis=0; axis<3; ++axis)
+				std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -634,7 +665,7 @@ void BVHBuilder::doBuild(
 	}
 
 	// Compute best split plane
-	js::Vector<Vec4f, 16>& use_object_max = per_thread_temp_info.object_max;
+	js::Vector<Vec4f, 16>& use_object_max = object_max;
 	const float traversal_cost = 1.0f;
 	const float aabb_surface_area = aabb.getSurfaceArea();
 	const float recip_aabb_surf_area = 1.0f / aabb_surface_area;
@@ -654,12 +685,15 @@ void BVHBuilder::doBuild(
 	//Timer timer;
 
 	// If there are enough objects to process, do in parallel, one task for each axis
-	if((right - left) >= axis_parallel_num_ob_threshold)
+	if((right - left) >= axis_parallel_num_ob_threshold/* && !task_manager->areAllThreadsBusy()*/)
 	{
+		// conPrint("doing BestSplitSearchTask in parallel with " + toString(right - left) + " objects");
+
 		Reference<BestSplitSearchTask> tasks[3];
 		for(int axis = 0; axis < 3; ++axis)
 		{
 			tasks[axis] = new BestSplitSearchTask(*this);
+			tasks[axis]->cur_objects = cur_objects;
 			tasks[axis]->node_aabb = &aabb;
 			tasks[axis]->axis = axis;
 			tasks[axis]->left = left;
@@ -684,25 +718,27 @@ void BVHBuilder::doBuild(
 	{
 		// Sweep over all the objects for this subtree, computing the max of the AABBs along each axis
 		Vec4f running_max(-std::numeric_limits<float>::infinity());
-		const js::Vector<Ob, 64>& axis_0_obs = objects[0];
-		const js::Vector<Ob, 64>& axis_1_obs = objects[1];
-		const js::Vector<Ob, 64>& axis_2_obs = objects[2];
+		const js::Vector<Ob, 64>& axis_0_obs = cur_objects[0];
+		const js::Vector<Ob, 64>& axis_1_obs = cur_objects[1];
+		const js::Vector<Ob, 64>& axis_2_obs = cur_objects[2];
 		for(int i=left; i<right; ++i)
 		{
 			Vec4f m(axis_0_obs[i].aabb.max_[0], axis_1_obs[i].aabb.max_[1], axis_2_obs[i].aabb.max_[2], 0.f);
 			running_max = max(running_max, m);
-			use_object_max[i-left] = running_max;
+			use_object_max[i] = running_max;
 		}
 
 		for(unsigned int axis=0; axis<3; ++axis)
 		{
-			const js::Vector<Ob, 64>& axis_tris = objects[axis];
+			const js::Vector<Ob, 64>& axis_tris = cur_objects[axis];
 
 			// SAH stuff
 			const unsigned int axis1 = nonsplit_axes[axis][0];
 			const unsigned int axis2 = nonsplit_axes[axis][1];
 			const float two_cap_area = (aabb.axisLength(axis1) * aabb.axisLength(axis2)) * 2.0f;
 			const float circum = (aabb.axisLength(axis1) + aabb.axisLength(axis2)) * 2.0f;
+			const float aabb_axis_min = aabb.min_[axis];
+			const float aabb_axis_max = aabb.max_[axis];
 
 			/*
 
@@ -736,7 +772,7 @@ void BVHBuilder::doBuild(
 			for(int i=right-2; i>=left; --i) // Start with 1 object assigned to right child node, go down to 1 child assigned to left child node.
 			{
 				const float splitval = axis_tris[i].centre[axis];
-				const float current_max = use_object_max[i-left].x[axis]; // Max value along axis of all AABBs assigned to left child node.
+				const float current_max = use_object_max[i].x[axis]; // Max value along axis of all AABBs assigned to left child node.
 
 				// Compute the SAH cost at the centroid position
 				const int N_L = (i - left) + 1;
@@ -759,8 +795,8 @@ void BVHBuilder::doBuild(
 #endif*/
 
 				// Compute SAH cost
-				const float negchild_surface_area = two_cap_area + (current_max - aabb.min_[axis]) * circum;
-				const float poschild_surface_area = two_cap_area + (aabb.max_[axis] - running_min) * circum;
+				const float negchild_surface_area = two_cap_area + (current_max - aabb_axis_min) * circum;
+				const float poschild_surface_area = two_cap_area + (aabb_axis_max - running_min) * circum;
 
 				const float cost = traversal_cost + ((float)N_L * negchild_surface_area + (float)N_R * poschild_surface_area) * 
 					recip_aabb_surf_area * intersection_cost;
@@ -780,10 +816,11 @@ void BVHBuilder::doBuild(
 	}
 
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
+	//split_search_time += timer.elapsed();
 
 	if(best_axis == -1) // This can happen when all object centres coorindates along the axis are the same.
 	{
-		doArbitrarySplits(per_thread_temp_info, aabb, node_index, left, right, depth, result_chunk);
+		doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, cur_objects, other_objects, result_chunk);
 		return;
 	}
 
@@ -795,6 +832,11 @@ void BVHBuilder::doBuild(
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
 
+		// if cur_objects is objects_b, we need to copy back into objects_a
+		if(cur_objects == objects_b)
+			for(int axis=0; axis<3; ++axis)
+				std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
+
 		// Update build stats
 		num_cheaper_nosplit_leaves++;
 		leaf_depth_sum += depth;
@@ -803,11 +845,8 @@ void BVHBuilder::doBuild(
 		num_leaves++;
 		return;
 	}
-		
-	js::Vector<Ob, 64>& temp0 = per_thread_temp_info.temp[0];
-	js::Vector<Ob, 64>& temp1 = per_thread_temp_info.temp[1];
-
 	
+
 	//Timer timer;
 	//timer.reset();
 
@@ -825,6 +864,8 @@ void BVHBuilder::doBuild(
 		for(int axis = 0; axis < 3; ++axis)
 		{
 			tasks[axis] = new PartitionTask(*this);
+			tasks[axis]->cur_objects = cur_objects;
+			tasks[axis]->other_objects = other_objects;
 			tasks[axis]->axis = axis;
 			tasks[axis]->best_axis = best_axis;
 			tasks[axis]->best_div_val = best_div_val;
@@ -866,24 +907,24 @@ void BVHBuilder::doBuild(
 
 		for(int axis=0; axis<3; ++axis)
 		{
-			js::Vector<Ob, 64>& axis_obs = objects[axis];
+			const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
+			js::Vector<Ob, 64>& axis_other_obs = other_objects[axis];
 
-			int num_left_tris  = 0;
-			int num_right_tris = 0;
+			// Do a pass to get number of objects going left:
+			int num_left_tris = 0;
+			for(int i=left; i<right; ++i)
+				if(axis_obs[i].centre[best_axis] <= best_div_val) // If on Left side
+					num_left_tris++;
+
+			// Do a pass, copying all objects other', at the correct position
+			int left_write_pos = left;
+			int right_write_pos = left + num_left_tris;
 
 			for(int i=left; i<right; ++i)
-			{
 				if(axis_obs[i].centre[best_axis] <= best_div_val) // If on Left side
-					temp0[num_left_tris++] = axis_obs[i];
+					axis_other_obs[left_write_pos++] = axis_obs[i];
 				else // else if on Right side
-					temp1[num_right_tris++] = axis_obs[i];
-			}
-
-			assert(num_left_tris == best_N_L);
-
-			// Copy temp objects back to the object list
-			std::memcpy(&axis_obs[left], &temp0[0], sizeof(Ob) * num_left_tris);
-			std::memcpy(&axis_obs[left + num_left_tris], &temp1[0], sizeof(Ob) * num_right_tris);
+					axis_other_obs[right_write_pos++] = axis_obs[i];
 
 			split_i = left + num_left_tris;
 
@@ -903,8 +944,9 @@ void BVHBuilder::doBuild(
 		//	conPrint("   Partitioning done.  elapsed: " + timer.elapsedString());
 
 		// Compute AABBs for children
+		// TODO: combine this with code above?
 		//Timer timer;
-		const js::Vector<Ob, 64>& axis0_obs = objects[0];
+		const js::Vector<Ob, 64>& axis0_obs = other_objects[0];
 		
 		// Spell out the min/maxing code here so that VS 2012 will generate optimal code, which it doesn't with enlargeToHoldAABBox.
 		Vec4f box_min = left_aabb.min_;
@@ -943,6 +985,11 @@ void BVHBuilder::doBuild(
 			chunk_nodes[node_index].left = left;
 			chunk_nodes[node_index].right = right;
 
+			// if other_objects is objects_b, we need to copy back into objects_a
+			if(other_objects == objects_b)
+				for(int axis=0; axis<3; ++axis)
+					std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
+
 			num_could_not_split_leaves++;
 			leaf_depth_sum += depth;
 			max_leaf_depth = myMax(max_leaf_depth, depth);
@@ -953,7 +1000,7 @@ void BVHBuilder::doBuild(
 		else
 		{
 			// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
-			doArbitrarySplits(per_thread_temp_info, aabb, node_index, left, right, depth, result_chunk);
+			doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, cur_objects, other_objects, result_chunk);
 			return;
 		}
 	}
@@ -961,6 +1008,7 @@ void BVHBuilder::doBuild(
 
 	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
 	//timer.reset();
+	//partition_time += timer.elapsed();
 
 
 	// Create child nodes
@@ -968,7 +1016,7 @@ void BVHBuilder::doBuild(
 	chunk_nodes.push_back_uninitialised();
 
 	
-	const bool do_right_child_in_new_task = ((split_i - left) >= new_task_num_ob_threshold) && ((right - split_i) >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
+	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && ((right - split_i) >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
 
 	//if(do_right_child_in_new_task)
 	//	conPrint("Splitting task: num left=" + toString(split_i - left) + ", num right=" + toString(right - split_i));
@@ -999,12 +1047,14 @@ void BVHBuilder::doBuild(
 
 	// Build left child
 	doBuild(
-		per_thread_temp_info,
+		thread_temp_info,
 		left_aabb, // aabb
 		left_child, // node index
 		left, // left
 		split_i, // right
 		depth + 1, // depth
+		other_objects, // cur_objects - we are swapping
+		cur_objects, // other objects - we are swapping
 		result_chunk
 	);
 
@@ -1022,18 +1072,22 @@ void BVHBuilder::doBuild(
 		subtree_task->depth = depth + 1;
 		subtree_task->begin = split_i;
 		subtree_task->end = right;
+		subtree_task->cur_objects = other_objects; //  we are swapping
+		subtree_task->other_objects = cur_objects; //  we are swapping
 		task_manager->addTask(subtree_task);
 	}
 	else
 	{
 		// Build right child
 		doBuild(
-			per_thread_temp_info,
+			thread_temp_info,
 			right_aabb, // aabb
 			right_child, // node index
 			split_i, // left
 			right, // right
 			depth + 1, // depth
+			other_objects, // cur_objects - we are swapping
+			cur_objects, // other objects - we are swapping
 			result_chunk
 		);
 	}
@@ -1045,12 +1099,14 @@ void BVHBuilder::doBuild(
 // Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
 // In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
 void BVHBuilder::doArbitrarySplits(
-		PerThreadTempInfo& per_thread_temp_info,
+		PerThreadTempInfo& thread_temp_info,
 		const js::AABBox& aabb,
 		uint32 node_index, 
 		int left, 
 		int right, 
 		int depth,
+		js::Vector<Ob, 64>* cur_objects,
+		js::Vector<Ob, 64>* other_objects,
 		ResultChunk& result_chunk
 	)
 {
@@ -1064,7 +1120,7 @@ void BVHBuilder::doArbitrarySplits(
 		conPrint("");
 	}*/
 
-	js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info.result_buf;
+	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
 
 	if(right - left <= max_num_objects_per_leaf)
 	{
@@ -1072,6 +1128,11 @@ void BVHBuilder::doArbitrarySplits(
 		chunk_nodes[node_index].interior = false;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
+
+		// if cur_objects is objects_b, we need to copy back into objects_a
+		if(cur_objects == objects_b)
+			for(int axis=0; axis<3; ++axis)
+				std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
 		
 		// Update build stats
 		num_arbitrary_split_leaves++;
@@ -1090,10 +1151,10 @@ void BVHBuilder::doArbitrarySplits(
 	js::AABBox right_aabb = js::AABBox::emptyAABBox();
 
 	for(int i=left; i<split_i; ++i)
-		left_aabb.enlargeToHoldAABBox(objects[0][i].aabb);
+		left_aabb.enlargeToHoldAABBox(cur_objects[0][i].aabb);
 
 	for(int i=split_i; i<right; ++i)
-		right_aabb.enlargeToHoldAABBox(objects[0][i].aabb);
+		right_aabb.enlargeToHoldAABBox(cur_objects[0][i].aabb);
 
 	// Create child nodes
 	const uint32 left_child  = (uint32)chunk_nodes.size();
@@ -1115,23 +1176,27 @@ void BVHBuilder::doArbitrarySplits(
 
 	// Build left child
 	doArbitrarySplits(
-		per_thread_temp_info,
+		thread_temp_info,
 		left_aabb, // aabb
 		left_child, // node index
 		left, // left
 		split_i, // right
 		depth + 1, // depth
+		cur_objects, // Don't swap, objects are still in cur_objects
+		other_objects,
 		result_chunk
 	);
 
 	// Build right child
 	doArbitrarySplits(
-		per_thread_temp_info,
+		thread_temp_info,
 		right_aabb, // aabb
 		right_child, // node index
 		split_i, // left
 		right, // right
 		depth + 1, // depth
+		cur_objects, // Don't swap, objects are still in cur_objects
+		other_objects,
 		result_chunk
 	);
 }

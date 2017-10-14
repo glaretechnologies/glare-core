@@ -1,7 +1,7 @@
 /*=====================================================================
 BVHBuilder.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #pragma once
@@ -55,16 +55,17 @@ struct Ob
 
 struct PerThreadTempInfo
 {
-	js::Vector<Ob, 64> temp[2];
-	js::Vector<Vec4f, 16> object_max;
 	js::Vector<ResultNode, 64> result_buf;
+
+	size_t dataSizeBytes() const { return result_buf.dataSizeBytes(); }
 };
 
 
 struct PerAxisThreadTempInfo
 {
-	js::Vector<Ob, 64> temp[2];
 	js::Vector<float, 16> object_max;
+
+	size_t dataSizeBytes() const { return object_max.dataSizeBytes(); }
 };
 
 
@@ -115,12 +116,14 @@ public:
 private:
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
-		PerThreadTempInfo& per_thread_temp_info,
+		PerThreadTempInfo& thread_temp_info,
 		const js::AABBox& aabb,
-		uint32 node_index, 
-		int left, 
-		int right, 
+		uint32 node_index,
+		int left,
+		int right,
 		int depth,
+		js::Vector<Ob, 64>* cur_objects,
+		js::Vector<Ob, 64>* other_objects,
 		ResultChunk& result_chunk
 	);
 
@@ -129,21 +132,26 @@ private:
 	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
 	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
 	void doArbitrarySplits(
-		PerThreadTempInfo& per_thread_temp_info,
+		PerThreadTempInfo& thread_temp_info,
 		const js::AABBox& aabb,
 		uint32 node_index,
 		int left, 
 		int right, 
 		int depth,
+		js::Vector<Ob, 64>* cur_objects,
+		js::Vector<Ob, 64>* other_objects,
 		ResultChunk& result_chunk
 	);
 
 
 
 	const js::AABBox* aabbs;
-	js::Vector<Ob, 64> objects[3];
+	js::Vector<Ob, 64> objects_a[3];
+	js::Vector<Ob, 64> objects_b[3];
 	std::vector<PerThreadTempInfo> per_thread_temp_info;
 	std::vector<PerAxisThreadTempInfo> per_axis_thread_temp_info;
+
+	js::Vector<Vec4f, 16> object_max;
 
 	IndigoAtomic next_result_chunk; // Index of next free result chunk
 	js::Vector<ResultChunk, 16> result_chunks;
@@ -171,4 +179,7 @@ public:
 	int max_leaf_depth;
 	int num_interior_nodes;
 	int num_arbitrary_split_leaves;
+
+	double split_search_time;
+	double partition_time;
 };
