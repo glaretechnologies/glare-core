@@ -66,7 +66,6 @@ void RayMeshTests::test()
 
 
 	Geometry::BuildOptions build_options;
-	build_options.cache_trees = false;
 
 	Indigo::TaskManager task_manager;
 	StandardPrintOutput print_output;

@@ -87,7 +87,6 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	Reference<Geometry> raymeshref(raymesh);
 
 	RendererSettings settings;
-	settings.cache_trees = false;
 	Object* ob1;
 	Object* ob2;
 	{
@@ -240,7 +239,6 @@ void ObjectTreeTest::doTests()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 		RendererSettings settings;
-		settings.cache_trees = false;
 		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob->setObjectIndex(i);
 		ob_tree.insertObject(ob);
@@ -495,7 +493,6 @@ void ObjectTreeTest::doSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
-		settings.cache_trees = false;
 		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
 		ob_tree.insertObject(ob);
 	}
@@ -597,11 +594,9 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	//insert random instances
 	//------------------------------------------------------------------------
 	RendererSettings settings;
-	settings.cache_trees = false;
 
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	raymesh->build(
 		cache_dir_path,
 		options,

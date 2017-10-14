@@ -57,10 +57,6 @@ public:
 	static const unsigned int MAX_TREE_DEPTH = 63;
 
 	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws TreeExcep
-	virtual bool diskCachable() = 0;
-	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose) = 0; // throws TreeExcep
-	virtual void saveTree(std::ostream& stream) = 0;
-	virtual uint32 checksum() = 0;
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 

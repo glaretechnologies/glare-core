@@ -33,10 +33,6 @@ Code By Nicholas Chapman.
 #define DO_PREFETCHING 1
 
 
-static const uint32 TREE_CACHE_MAGIC_NUMBER = 0xE727B363;
-static const uint32 TREE_CACHE_VERSION = 1;
-
-
 namespace js
 {
 
@@ -536,14 +532,6 @@ unsigned int KDTree::numTris() const
 }*/
 
 
-bool KDTree::diskCachable()
-{
-	const unsigned int NUM_TRIS_CACHING_THRESHOLD = 1000;
-	return this->raymesh->getNumTris() >= NUM_TRIS_CACHING_THRESHOLD;
-	//return true;
-}
-
-
 const js::AABBox& KDTree::getAABBoxWS() const
 {
 	return root_aabb;
@@ -631,117 +619,6 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 	catch(std::bad_alloc& )
 	{
 		throw TreeExcep("Memory allocation failed while building kd-tree");
-	}
-}
-
-
-void KDTree::buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose)
-{
-	if(numTris() == 0)
-		throw TreeExcep("Error, tried to build tree with zero triangles.");
-
-	try
-	{
-		if(verbose) print_output.print("\tLoading kd-tree from cache...");
-
-		// Read magic number
-		uint32 magic_number;
-		stream.read((char*)&magic_number, sizeof(magic_number));
-		if(magic_number != TREE_CACHE_MAGIC_NUMBER)
-			throw TreeExcep("Invalid file magic number.");
-
-		// Read file version
-		uint32 version;
-		stream.read((char*)&version, sizeof(version));
-		if(version != TREE_CACHE_VERSION)
-			throw TreeExcep("Cached tree file is wrong version.");
-
-		// Read checksum
-		uint32 checksum_from_file;
-		stream.read((char*)&checksum_from_file, sizeof(checksum_from_file));
-		if(checksum_from_file != this->checksum())
-			throw TreeExcep("Checksum mismatch");
-
-
-		//------------------------------------------------------------------------
-		//alloc intersect tri array
-		//------------------------------------------------------------------------
-		num_intersect_tris = numTris();
-		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
-		if(!intersect_tris)
-			throw TreeExcep("Memory allocation failed while building kd-tree");
-
-		// Build intersect tris
-		for(unsigned int i=0; i<num_intersect_tris; ++i)
-			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
-
-		if(verbose)
-			print_output.print("\tintersect_tris mem usage: " + ::getNiceByteSize(num_intersect_tris * sizeof(INTERSECT_TRI_TYPE)));
-
-		//------------------------------------------------------------------------
-		//calc root node's aabbox
-		//------------------------------------------------------------------------
-		if(verbose) print_output.print("\tcalcing root AABB.");
-		{
-		root_aabb.min_ = Vec4f(triVertPos(0, 0).x, triVertPos(0, 0).y, triVertPos(0, 0).z, 1.0f);
-		root_aabb.max_ = root_aabb.min_;
-		for(unsigned int i=0; i<num_intersect_tris; ++i)
-			for(unsigned int v=0; v<3; ++v)
-			{
-				const Vec3f& vertpos = triVertPos(i, v);
-				const Vec4f vert(vertpos.x, vertpos.y, vertpos.z, 1.0f);
-				root_aabb.enlargeToHoldPoint(vert);
-			}
-
-		}
-
-		if(verbose) print_output.print("\tAABB: (" + ::toString(root_aabb.min_.x[0]) + ", " + ::toString(root_aabb.min_.x[1]) + ", " + ::toString(root_aabb.min_.x[2]) + "), " +
-							"(" + ::toString(root_aabb.max_.x[0]) + ", " + ::toString(root_aabb.max_.x[1]) + ", " + ::toString(root_aabb.max_.x[2]) + ")");
-
-		assert(root_aabb.invariant());
-
-		// Compute max allowable depth
-		const unsigned int max_depth = calcMaxDepth();
-
-		if(verbose) print_output.print("\tmax tree depth: " + ::toString(max_depth));
-
-		//------------------------------------------------------------------------
-		// Read nodes
-		//------------------------------------------------------------------------
-		// Read num nodes
-		unsigned int num_nodes;
-		stream.read((char*)&num_nodes, sizeof(unsigned int));
-
-		// Read actual node data
-		nodes.resize(num_nodes);
-		stream.read((char*)&nodes[0], sizeof(js::KDTreeNode) * num_nodes);
-
-		//------------------------------------------------------------------------
-		// Read leafgeom
-		//------------------------------------------------------------------------
-		// Read num leaf geom
-		unsigned int leaf_geom_count;
-		stream.read((char*)&leaf_geom_count, sizeof(unsigned int));
-
-		// Read actual leaf geom data
-		leafgeom.resize(leaf_geom_count);
-		stream.read((char*)&leafgeom[0], sizeof(TRI_INDEX) * leaf_geom_count);
-
-
-		if(verbose) print_output.print("\ttotal nodes used: " + ::toString(num_nodes) + " (" +
-			::getNiceByteSize(num_nodes * sizeof(js::KDTreeNode)) + ")");
-
-		if(verbose) print_output.print("\ttotal leafgeom size: " + ::toString(leaf_geom_count) + " (" +
-			::getNiceByteSize(leaf_geom_count * sizeof(TRI_INDEX)) + ")");
-
-		const unsigned int total_tree_mem_usage = num_nodes * sizeof(js::KDTreeNode) + leaf_geom_count * sizeof(TRI_INDEX) + num_intersect_tris * sizeof(INTERSECT_TRI_TYPE);
-		if(verbose) print_output.print("\tTotal tree mem usage: " + ::getNiceByteSize(total_tree_mem_usage));
-
-		postBuild();
-	}
-	catch(std::bad_alloc& )
-	{
-		throw TreeExcep("Memory allocation failed while loading kd-tree from disk");
 	}
 }
 
@@ -943,61 +820,6 @@ void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hit
 js::TriTreePerThreadData* allocPerThreadData()
 {
 	return new js::TriTreePerThreadData();
-}
-
-
-void KDTree::saveTree(std::ostream& stream)
-{
-	// Write file format magic number
-	stream.write((const char*)&TREE_CACHE_MAGIC_NUMBER, sizeof(TREE_CACHE_MAGIC_NUMBER));
-
-	// Write file format version
-	stream.write((const char*)&TREE_CACHE_VERSION, sizeof(TREE_CACHE_VERSION));
-
-	// Write checksum
-	const unsigned int the_checksum = checksum();
-	stream.write((const char*)&the_checksum, sizeof(unsigned int));
-
-	//------------------------------------------------------------------------
-	//write nodes
-	//------------------------------------------------------------------------
-	// Write number of nodes
-	unsigned int temp = (unsigned int)nodes.size();
-	stream.write((const char*)&temp, sizeof(unsigned int));
-
-	// Write actual node data
-	stream.write((const char*)&nodes[0], sizeof(js::KDTreeNode)*(unsigned int)nodes.size());
-
-	//------------------------------------------------------------------------
-	//write leafgeom
-	//------------------------------------------------------------------------
-	// Write number of leafgeom
-	temp = (unsigned int)leafgeom.size();
-	stream.write((const char*)&temp, sizeof(unsigned int));
-
-	// Write actual leafgeom data
-	stream.write((const char*)&leafgeom[0], sizeof(TRI_INDEX)*leafgeom.size());
-
-}
-
-
-// Checksum over triangle vertex positions
-unsigned int KDTree::checksum()
-{
-	if(calced_checksum)
-		return checksum_;
-
-	std::vector<Vec3f> buf(numTris() * 3);
-	for(unsigned int t=0; t<numTris(); ++t)
-		for(unsigned int v=0; v<3; ++v)
-		{
-			buf[t * 3 + v] = triVertPos(t, v);
-		}
-
-	checksum_ = Checksum::checksum((void*)&buf[0], sizeof(Vec3f) * buf.size());
-
-	calced_checksum = true;
-	return checksum_;
 }
 
 

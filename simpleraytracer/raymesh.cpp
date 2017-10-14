@@ -14,7 +14,6 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
-#include "../physics/KDTree.h"
 #include "../graphics/image.h"
 #include "../graphics/TriBoxIntersection.h"
 #include "../raytracing/hitinfo.h"
@@ -23,7 +22,6 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../indigo/globals.h"
 #include "../indigo/material.h"
 #include "../indigo/RendererSettings.h"
-#include "../physics/KDTree.h"
 #include "../physics/BVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../utils/FileUtils.h"
@@ -912,10 +910,7 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 		else
 #endif
 		{
-			if((int)triangles.size() >= options.bih_tri_threshold)
-				tritree = new js::BVH(this);
-			else
-				tritree = new js::KDTree(this);
+			tritree = new js::BVH(this);
 		}
 	}
 	catch(js::TreeExcep& e)
@@ -940,103 +935,17 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 		print_output.print("\t" + toString((unsigned int)uvs.size()) + " UVs (" + ::getNiceByteSize(uvs.size()*sizeof(Vec2f)) + ")");
 	}
 
-	if(options.cache_trees) //RendererSettings::getInstance().cache_trees && use_cached_trees)
+	try
 	{
-		bool built_from_cache = false;
-
-		if(tritree->diskCachable())
-		{
-			//------------------------------------------------------------------------
-			//Load from disk
-			//------------------------------------------------------------------------
-			const unsigned int tree_checksum = tritree->checksum();
-			const std::string path = FileUtils::join(
-				cache_dir_path, 
-				FileUtils::join("tree_cache", toString(tree_checksum) + ".tre")
-				);
-
-			std::ifstream file(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ifstream::binary);
-
-			if(file)
-			{
-				//unsigned int file_checksum;
-				//file.read((char*)&file_checksum, sizeof(unsigned int));
-
-				//assert(file_checksum == tree_checksum);
-
-				//conPrint("\tLoading tree from disk cache...");
-				try
-				{
-					tritree->buildFromStream(file, print_output, verbose);
-					built_from_cache = true;
-				}
-				catch(js::TreeExcep& e)
-				{
-					print_output.print("\tError while loading cached tree: " + e.what());
-				}
-				//conPrint("\tDone.");
-			}
-			else
-			{
-				if(verbose) print_output.print("\tCouldn't find matching cached tree file, rebuilding tree...");
-			}
-		}
-
-		if(!built_from_cache)
-		{
-			try
-			{
-				tritree->build(print_output, verbose, task_manager);
-			}
-			catch(js::TreeExcep& e)
-			{
-				throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
-			}
-			catch(std::bad_alloc&)
-			{
-				throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
-			}
-		
-			if(tritree->diskCachable())
-			{
-				//------------------------------------------------------------------------
-				//Save to disk
-				//------------------------------------------------------------------------
-				const std::string path = FileUtils::join(
-					cache_dir_path, 
-					FileUtils::join("tree_cache", toString(tritree->checksum()) + ".tre")
-					);
-
-				if(verbose) print_output.print("\tSaving tree to '" + path + "'...");
-
-				std::ofstream cachefile(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ofstream::binary);
-
-				if(cachefile)
-				{
-					tritree->saveTree(cachefile);
-					if(verbose) print_output.print("\tDone.");
-				}
-				else
-				{
-					print_output.print("\tFailed to open file '" + path + "' for writing.");
-				}
-			}
-		}
+		tritree->build(print_output, verbose, task_manager);
 	}
-	else
+	catch(js::TreeExcep& e)
 	{
-		try
-		{
-			tritree->build(print_output, verbose, task_manager);
-		}
-		catch(js::TreeExcep& e)
-		{
-			throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
-		}
-		catch(std::bad_alloc&)
-		{
-			throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
-		}
+		throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
+	}
+	catch(std::bad_alloc&)
+	{
+		throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
 	}
 
 	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");

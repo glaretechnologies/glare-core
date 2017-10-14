@@ -39,10 +39,6 @@ public:
 	virtual ~BVH();
 
 	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
-	virtual bool diskCachable() { return false; }
-	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose) {} // throws TreeExcep
-	virtual void saveTree(std::ostream& stream) {}
-	virtual uint32 checksum() { return 0; }
 
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;

@@ -96,7 +96,6 @@ void TreeTest::testBuildCorrect()
 	}
 
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	raymesh.build(
 		".",
@@ -177,7 +176,6 @@ void TreeTest::testBuildCorrect()
 
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	raymesh.build(
 		".",
 		options,
@@ -256,7 +254,6 @@ void TreeTest::testBuildCorrect()
 
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	raymesh.build(
 		".",
 		options,
@@ -719,8 +716,6 @@ void TreeTest::doVaryingNumtrisBuildTests()
 		Timer timer;
 		StandardPrintOutput print_output;
 		Geometry::BuildOptions options;
-		options.cache_trees = false;
-		options.bih_tri_threshold = 10000000;
 
 		raymesh.build(
 			".", // appdata path
@@ -766,12 +761,6 @@ void TreeTest::doSpeedTest(int treetype)
 	Timer buildtimer;
 
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
-	if(treetype == 0)
-		options.bih_tri_threshold = 100000000;
-	else
-		options.bih_tri_threshold = 0;
-
 	
 	raymesh.build(
 		".", // base indigo dir path
@@ -906,7 +895,6 @@ void TreeTest::buildSpeedTest()
 
 	Timer timer;
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	raymesh.build(
 		".", // base indigo dir path
@@ -1098,7 +1086,6 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 {
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 	MTwister rng(1);
@@ -1231,7 +1218,6 @@ static void testAppendCollPoints(RayMesh& raymesh)
 void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 {
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 	MTwister rng(1);
@@ -1280,7 +1266,6 @@ void TreeTest::doTests(const std::string& appdata_path)
 	
 
 	Geometry::BuildOptions options;
-	options.cache_trees = false;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 	MTwister rng(1);

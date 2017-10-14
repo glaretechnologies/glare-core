@@ -116,9 +116,7 @@ public:
 
 	struct BuildOptions
 	{
-		BuildOptions() : cache_trees(true), bih_tri_threshold(1100000) {}
-		bool cache_trees;
-		int bih_tri_threshold;
+		BuildOptions() {}
 	};
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 

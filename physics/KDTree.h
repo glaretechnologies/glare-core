@@ -66,10 +66,6 @@ public:
 	virtual ~KDTree();
 
 	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
-	virtual bool diskCachable();
-	virtual void buildFromStream(std::istream& stream, PrintOutput& print_output, bool verbose); // throws TreeExcep
-	virtual void saveTree(std::ostream& stream);
-	virtual uint32 checksum();
 
 	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
