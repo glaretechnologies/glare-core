@@ -92,6 +92,24 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
+#ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do caching for now on Mac.
+	// The workaround to build all devices has the drawback of making build times too long in some cases, so don't do that for now either.
+
+	OpenCLProgramRef program = ::getGlobalOpenCL()->buildProgram(
+		program_source,
+		opencl_context->getContext(),
+		selected_devices_on_plat,
+		compile_options,
+		build_log_out
+	);
+
+	ProgramCache::Results results;
+	results.program = program;
+	results.cache_hit = false;
+	return results;
+
+#else // else if not OS X
+
 	const bool VERBOSE = false;
 
 	// Compute hash over program source and compilation options, which we will use as the cache key.
@@ -277,4 +295,6 @@ build_program:
 	results.program = program;
 	results.cache_hit = false;
 	return results;
+
+#endif // End else if not OS X
 }
