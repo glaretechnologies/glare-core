@@ -13,6 +13,8 @@ Generated at 2016-10-14 15:08:16 +0100
 #include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/IncludeXXHash.h"
+#include "../utils/Lock.h"
+#include "../utils/Mutex.h"
 
 
 static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
@@ -42,6 +44,12 @@ bool ProgramCache::isProgramInCache(
 	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
 
 	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
+
+	{
+		Lock lock(mem_cache_mutex);
+		if(mem_cache.count(hashcode) != 0)
+			return true;
+	}
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
@@ -92,7 +100,22 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
-#ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do caching for now on Mac.
+	const bool VERBOSE = false;
+
+	// Compute hash over program source and compilation options, which we will use as the cache key.
+	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
+
+	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
+
+	// Check in-memory cache to see we have this program in mem:
+	{
+		Lock lock(mem_cache_mutex);
+		auto it = mem_cache.find(hashcode);
+		if(it != mem_cache.end())
+			return ProgramCache::Results(it->second, /*cache_hit=*/true);
+	}
+
+#ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do on-disk caching for now on Mac.
 	// The workaround to build all devices has the drawback of making build times too long in some cases, so don't do that for now either.
 
 	OpenCLProgramRef program = ::getGlobalOpenCL()->buildProgram(
@@ -103,19 +126,13 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		build_log_out
 	);
 
-	ProgramCache::Results results;
-	results.program = program;
-	results.cache_hit = false;
-	return results;
+	// Add to mem-cache
+	Lock lock(mem_cache_mutex);
+	mem_cache[hashcode] = program;
+
+	return ProgramCache::Results(program, /*cache_hit=*/false);
 
 #else // else if not OS X
-
-	const bool VERBOSE = false;
-
-	// Compute hash over program source and compilation options, which we will use as the cache key.
-	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
-
-	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
@@ -202,11 +219,12 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		if(result != CL_SUCCESS)
 			throw Indigo::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
 
+		// Add to mem-cache
+		Lock lock(mem_cache_mutex);
+		mem_cache[hashcode] = program;
+
 		// Program was successfully loaded and built from cache, so return it
-		ProgramCache::Results results;
-		results.program = program;
-		results.cache_hit = true;
-		return results;
+		return ProgramCache::Results(program, /*cache_hit=*/true);
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -291,10 +309,11 @@ build_program:
 		conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
 	}
 
-	ProgramCache::Results results;
-	results.program = program;
-	results.cache_hit = false;
-	return results;
+	// Add to mem-cache
+	Lock lock(mem_cache_mutex);
+	mem_cache[hashcode] = program;
+
+	return ProgramCache::Results(program, /*cache_hit=*/false);
 
 #endif // End else if not OS X
 }
