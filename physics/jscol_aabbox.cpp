@@ -84,6 +84,7 @@ void js::AABBox::test()
 
 		testAssert(box == AABBox(Vec4f(0,0,0,1.0f), Vec4f(1,2,3,1.0f)));
 		testAssert(::epsEqual(box.getSurfaceArea(), 22.f));
+		testAssert(::epsEqual(box.getHalfSurfaceArea(), 11.f));
 		testAssert(::epsEqual(box.axisLength(0), 1.f));
 		testAssert(::epsEqual(box.axisLength(1), 2.f));
 		testAssert(::epsEqual(box.axisLength(2), 3.f));

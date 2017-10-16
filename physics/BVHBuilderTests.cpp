@@ -17,6 +17,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "../utils/MTwister.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
+#include "../utils/Plotter.h"
 
 
 #if BUILD_TESTS
@@ -443,11 +444,8 @@ void test()
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)
 	{
-		conPrint("------------- perf test --------------");
+		const int num_objects = 2000000;
 
-		//==================== Test building speed with lots of objects ====================
-		const int num_objects = 5000000;
-		
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
 		for(int z=0; z<num_objects; ++z)
 		{
@@ -455,24 +453,82 @@ void test()
 			aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
 		}
 
+		for(int q=0; q<20; ++q)
+		{
+			//conPrint("------------- perf test --------------");
+			Timer timer;
 
-		Timer timer;
+			const int max_num_leaf_objects = 16;
+			const float intersection_cost = 10.f;
+			BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				aabbs.data(), // aabbs
+				num_objects, // num objects
+				print_output,
+				false, // verbose
+				result_nodes
+			);
 
-		const int max_num_leaf_objects = 16;
-		const float intersection_cost = 10.f;
-		BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
-		js::Vector<ResultNode, 64> result_nodes;
-		builder.build(task_manager,
-			aabbs.data(), // aabbs
-			num_objects, // num objects
-			print_output, 
-			false, // verbose
-			result_nodes
-		);
+			conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
 
-		conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
+			testResultsValid(builder, result_nodes, num_objects);
+		}
+	}
 
-		testResultsValid(builder, result_nodes, num_objects);
+	//==================== Test varying a build parameter and plotting the resulting speeds ====================
+	if(false)
+	{
+		Plotter plotter;
+		Plotter::DataSet dataset;
+
+		const int num_objects = 100000;
+
+		js::Vector<js::AABBox, 16> aabbs(num_objects);
+		for(int z=0; z<num_objects; ++z)
+		{
+			const Vec4f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1);
+			aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
+		}
+
+		double largest_time = 0;
+		for(int axis_parallel_num_ob_threshold = 1 << 10; axis_parallel_num_ob_threshold < (1 << 25); axis_parallel_num_ob_threshold *= 2)
+		{
+			double min_time = 1.0e30;
+			for(int q=0; q<20; ++q)
+			{
+				//conPrint("------------- perf test --------------");
+				Timer timer;
+
+				const int max_num_leaf_objects = 16;
+				const float intersection_cost = 10.f;
+				BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+				builder.axis_parallel_num_ob_threshold = axis_parallel_num_ob_threshold;
+				js::Vector<ResultNode, 64> result_nodes;
+				builder.build(task_manager,
+					aabbs.data(), // aabbs
+					num_objects, // num objects
+					print_output,
+					false, // verbose
+					result_nodes
+				);
+
+				conPrint("axis_parallel_num_ob_threshold: " + toString(axis_parallel_num_ob_threshold) + ": BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
+
+				//testResultsValid(builder, result_nodes, num_objects);
+				min_time = myMin(min_time, timer.elapsed());
+			}
+			dataset.points.push_back(Vec2f((float)axis_parallel_num_ob_threshold, (float)min_time));
+			largest_time = myMax(largest_time, min_time);
+		}
+
+		Plotter::PlotOptions options;
+		options.x_axis_log = true;
+		options.explicit_y_range = true;
+		options.y_start = 0;
+		options.y_end = largest_time * 1.2f;
+		Plotter::plot("bvh_builder_speed_vs_axis_parallel_num_ob_threshold_" + toString(num_objects) + "_objects.png",
+			"BVH construction time for " + toString(num_objects) + " objects", "axis_parallel_num_ob_threshold", "elapsed (s)", std::vector<Plotter::DataSet>(1, dataset), options);
 	}
 }
 

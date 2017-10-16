@@ -54,6 +54,7 @@ public:
 
 	inline float volume() const;
 	inline float getSurfaceArea() const;
+	inline float getHalfSurfaceArea() const;
 	bool invariant() const;
 	static void test();
 
@@ -283,8 +284,16 @@ float AABBox::volume() const
 float AABBox::getSurfaceArea() const
 {
 	const Vec4f diff(max_ - min_);
+	const Vec4f res = mul(swizzle<0, 0, 1, 3>(diff), swizzle<1, 2, 2, 3>(diff)); // = diff.x[0]*diff.x[1] + diff.x[0]*diff.x[2] + diff.x[1]*diff.x[2]
+	return 2 * (res[0] + res[1] + res[2]);
+}
 
-	return 2.0f * (diff.x[0]*diff.x[1] + diff.x[0]*diff.x[2] + diff.x[1]*diff.x[2]);
+
+float AABBox::getHalfSurfaceArea() const
+{
+	const Vec4f diff(max_ - min_);
+	const Vec4f res = mul(swizzle<0, 0, 1, 3>(diff), swizzle<1, 2, 2, 3>(diff));
+	return res[0] + res[1] + res[2];
 }
 
 
