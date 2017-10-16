@@ -18,6 +18,9 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"
+#include "../utils/FileUtils.h"
+#include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 
 
 #if BUILD_TESTS
@@ -440,6 +443,54 @@ void test()
 		testResultsValid(builder, result_nodes, num_objects);
 	}
 
+
+	//==================== Test building on every igmesh we can find ====================
+	if(false)
+	{
+		const std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+		for(size_t i=0; i<files.size(); ++i)
+		{
+			conPrint("Building '" + files[i] + "'...");
+
+			Indigo::Mesh mesh;
+			Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
+			js::Vector<js::AABBox, 16> aabbs(mesh.triangles.size() + mesh.quads.size());
+			for(size_t t=0; t<mesh.triangles.size(); ++t)
+			{
+				Vec4f v0(mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].z, 1.);
+				Vec4f v1(mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].z, 1.);
+				Vec4f v2(mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].z, 1.);
+				
+				aabbs[t] = js::AABBox(v0, v0);
+				aabbs[t].enlargeToHoldPoint(v1);
+				aabbs[t].enlargeToHoldPoint(v2);
+			}
+			for(size_t q=0; q<mesh.quads.size(); ++q)
+			{
+				Vec4f v0(mesh.vert_positions[mesh.quads[q].vertex_indices[0]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].z, 1.);
+				Vec4f v1(mesh.vert_positions[mesh.quads[q].vertex_indices[1]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].z, 1.);
+				Vec4f v2(mesh.vert_positions[mesh.quads[q].vertex_indices[2]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].z, 1.);
+				Vec4f v3(mesh.vert_positions[mesh.quads[q].vertex_indices[3]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].z, 1.);
+
+				aabbs[mesh.triangles.size() + q] = js::AABBox(v0, v0);
+				aabbs[mesh.triangles.size() + q].enlargeToHoldPoint(v1);
+				aabbs[mesh.triangles.size() + q].enlargeToHoldPoint(v2);
+				aabbs[mesh.triangles.size() + q].enlargeToHoldPoint(v3);
+			}
+
+			const int max_num_leaf_objects = 16;
+			const float intersection_cost = 10.f;
+			BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				aabbs.data(), // aabbs
+				(int)aabbs.size(), // num objects
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+		}
+	}
 	
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)

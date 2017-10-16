@@ -231,6 +231,33 @@ const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::st
 }
 
 
+static void doGetFilesInDirWithExtensionFullPathsRecursive(const std::string& dir_path, const std::string& extension, std::vector<std::string>& fullpaths_out)
+{
+	const std::vector<std::string> paths = getFilesInDir(dir_path);
+
+	for(size_t i=0; i<paths.size(); ++i)
+	{
+		const std::string full_path = join(dir_path, paths[i]);
+
+		if((paths[i] != ".") && (paths[i] != ".."))
+		{
+			if(isDirectory(full_path))
+				doGetFilesInDirWithExtensionFullPathsRecursive(full_path, extension, fullpaths_out); // Recurse
+			else if(hasExtension(paths[i], extension))
+				fullpaths_out.push_back(full_path);
+		}
+	}
+}
+
+
+const std::vector<std::string> getFilesInDirWithExtensionFullPathsRecursive(const std::string& dir_path, const std::string& extension)
+{
+	std::vector<std::string> fullpaths;
+	doGetFilesInDirWithExtensionFullPathsRecursive(dir_path, extension, fullpaths);
+	return fullpaths;
+}
+
+
 bool fileExists(const std::string& pathname)
 {
 #if defined(_WIN32)

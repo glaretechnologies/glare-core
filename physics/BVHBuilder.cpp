@@ -427,23 +427,29 @@ void BVHBuilder::build(
 	if(false)
 	{
 		conPrint("objects:                   " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
-		size_t sz = 0;
-		for(size_t i=0; i<per_thread_temp_info.size(); ++i)
-			sz += per_thread_temp_info[i].dataSizeBytes();
-		conPrint("per_thread_temp_info:      " + getNiceByteSize(sz));
 
-		sz = 0;
+		size_t total_per_thread_size = 0;
+		for(size_t i=0; i<per_thread_temp_info.size(); ++i)
+			total_per_thread_size += per_thread_temp_info[i].dataSizeBytes();
+		conPrint("per_thread_temp_info:      " + getNiceByteSize(total_per_thread_size));
+
+		size_t total_per_axis_size = 0;
 		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
-			sz += per_axis_thread_temp_info[i].dataSizeBytes();
-		conPrint("per_axis_thread_temp_info: " + getNiceByteSize(sz));
+			total_per_axis_size += per_axis_thread_temp_info[i].dataSizeBytes();
+		conPrint("per_axis_thread_temp_info: " + getNiceByteSize(total_per_axis_size));
+
 		conPrint("result_chunks:             " + getNiceByteSize(result_chunks.dataSizeBytes()));
-		//conPrint("temp:                      " + getNiceByteSize(temp[0].dataSizeBytes() + temp[1].dataSizeBytes()));
-		conPrint("split_left_aabb:                " + getNiceByteSize(split_left_aabb.dataSizeBytes()));
-		conPrint("------");
+		conPrint("split_left_aabb:           " + getNiceByteSize(split_left_aabb.dataSizeBytes()));
 		conPrint("result_nodes_out:          " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
-		conPrint("");
-		conPrint("split_search_time: " + toString(split_search_time) + " s");
-		conPrint("partition_time:    " + toString(partition_time) + " s");
+		
+		const size_t total_size = objects_a[0].dataSizeBytes() * 6 + total_per_thread_size + total_per_axis_size + result_chunks.dataSizeBytes() + split_left_aabb.dataSizeBytes() +
+			result_nodes_out.dataSizeBytes();
+		
+		conPrint("total:                     " + getNiceByteSize(total_size));
+
+		//conPrint("");
+		//conPrint("split_search_time: " + toString(split_search_time) + " s");
+		//conPrint("partition_time:    " + toString(partition_time) + " s");
 	}
 }
 
@@ -486,7 +492,7 @@ public:
 
 #ifndef NDEBUG
 			// Check that our AABB calculations are correct:
-			js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
+			/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
 			for(int t=left; t<=i; ++t)
 				ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
@@ -495,7 +501,7 @@ public:
 				ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
 			assert(ref_left_aabb == left_aabb);
-			assert(ref_right_aabb == right_aabb);
+			assert(ref_right_aabb == right_aabb);*/
 #endif
 
 			assert(N_L == (i - left) + 1 && N_R == (right - left) - N_L);
@@ -771,7 +777,8 @@ void BVHBuilder::doBuild(
 
 #ifndef NDEBUG
 				// Check that our AABB calculations are correct:
-				js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
+				// NOTE: disabled for now since this check is quite slow.
+				/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
 				for(int t=left; t<=i; ++t)
 					ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
@@ -780,7 +787,7 @@ void BVHBuilder::doBuild(
 					ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
 				assert(ref_left_aabb == left_aabb);
-				assert(ref_right_aabb == right_aabb);
+				assert(ref_right_aabb == right_aabb);*/
 #endif
 
 				assert(N_L + N_R == right - left);
