@@ -44,7 +44,7 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_l
 	axis_parallel_num_ob_threshold = 1 << 20;
 	new_task_num_ob_threshold = 1 << 9;
 
-	static_assert(sizeof(Ob) == 48, "sizeof(Ob) == 48");
+	static_assert(sizeof(Ob) == 32, "sizeof(Ob) == 32");
 }
 
 
@@ -106,10 +106,10 @@ public:
 
 
 // Construct builder.objects[axis], along the given axis
-class SortAxisTask : public Indigo::Task
+class ConstructAxisObjectsTask : public Indigo::Task
 {
 public:
-	SortAxisTask(BVHBuilder& builder_, int num_objects_, int axis_, js::Vector<CenterItem, 16>* axis_centres_) : builder(builder_), num_objects(num_objects_), axis(axis_), axis_centres(axis_centres_) {}
+	ConstructAxisObjectsTask(BVHBuilder& builder_, int num_objects_, int axis_, js::Vector<CenterItem, 16>* axis_centres_) : builder(builder_), num_objects(num_objects_), axis(axis_), axis_centres(axis_centres_) {}
 	
 	virtual void run(size_t thread_index)
 	{
@@ -122,8 +122,12 @@ public:
 		{
 			const int src_i = centres[i].i;
 			axis_obs[i].aabb = aabbs[src_i];
-			axis_obs[i].centre = toVec3f(aabbs[src_i].centroid());
-			axis_obs[i].index = src_i;
+			axis_obs[i].setIndex(src_i);
+
+			assert(axis_obs[i].getIndex() == src_i);
+
+			//axis_obs[i].centre = toVec3f(aabbs[src_i].centroid());
+			//axis_obs[i].index = src_i;
 		}
 		//conPrint("post-sort ob copy: " + timer2.elapsedString());
 	}
@@ -273,7 +277,7 @@ void BVHBuilder::build(
 		}
 
 		for(int axis=0; axis<3; ++axis)
-			task_manager->addTask(new SortAxisTask(*this, num_objects, axis, &all_axis_centres[axis]));
+			task_manager->addTask(new ConstructAxisObjectsTask(*this, num_objects, axis, &all_axis_centres[axis]));
 		task_manager->waitForTasksToComplete();
 	}
 	//conPrint("SortAxisTasks : " + timer.elapsedString());
@@ -285,7 +289,7 @@ void BVHBuilder::build(
 		{
 			const Ob& ob   = objects_a[axis][i];
 			const Ob& prev = objects_a[axis][i-1];
-			assert(ob.centre[axis] >= prev.centre[axis]);
+			assert(ob.aabb.centroid()[axis] >= prev.aabb.centroid()[axis]);
 		}
 #endif
 
@@ -417,11 +421,10 @@ void BVHBuilder::build(
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
-
-	result_indices.resize(num_objects);
+	result_indices.resizeNoCopy(num_objects);
+	const js::Vector<Ob, 64>& objects_a_0 = objects_a[0];
 	for(int i=0; i<num_objects; ++i)
-		result_indices[i] = objects_a[0][i].index;
-
+		result_indices[i] = objects_a_0[i].getIndex();
 
 	// Dump some mem usage stats
 	if(false)
@@ -454,6 +457,119 @@ void BVHBuilder::build(
 }
 
 
+// Search along a given axis for the best coordinate at which to split. (according to the SAH).
+static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Vector<js::AABBox, 16>& split_left_aabb, int axis, int left, int right,
+	float& smallest_split_cost_factor_in_out, int& best_N_L_in_out, int& best_axis_in_out, float& best_div_val_in_out, js::AABBox& best_left_aabb_in_out, js::AABBox& best_right_aabb_in_out)
+{
+	const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
+	js::AABBox* const use_split_left_aabb = split_left_aabb.data();
+
+	// Do a forwards sweep over all the objects for this subtree, computing the union AABB for the prefix along this axis
+	Vec4f prefix_min(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
+	Vec4f prefix_max(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
+	for(int i=left; i<right; ++i)
+	{
+		prefix_min = min(prefix_min, axis_obs[i].aabb.min_);
+		prefix_max = max(prefix_max, axis_obs[i].aabb.max_);
+		use_split_left_aabb[i].min_ = prefix_min;
+		use_split_left_aabb[i].max_ = prefix_max;
+	}
+
+	/*
+	  |---------0--------|
+	|-----------1----------|
+	                   |---------------2---------------|
+	                           |-------3-------|
+	                                                 |----4----| 
+
+	left prefix aabbs:
+	  |------------------|                                          0
+	|----------------------|                                        1
+	|--------------------------------------------------|            2
+	|--------------------------------------------------|            3
+	|----------------------------------------------------------|    4
+
+
+	If we split at the midpoint coordinate of objects 0 and 1, then 0 and 1 are assigned to the left child node, and 2, 3, 4 are assigned to the right.
+	The left aabb therefore is union(aabb_0, aabb_1) = use_split_left_aabb[1], and the right aabb is union(aabb_2, aabb_3, aabb_4).
+	This means that for objects with identical centre coordinates, it's the largest union prefix we should use (e.g. use_split_left_aabb[1] not use_split_left_aabb[0]).
+	We can achieve this by checking split coordinates, and only considering the split coordinate if the previous split coordinate was different.
+	This means that the use_split_left_aabb with largest index is used.
+	*/
+
+	float smallest_split_cost_factor = smallest_split_cost_factor_in_out;
+	int best_N_L = best_N_L_in_out;
+	int best_axis = best_axis_in_out;
+	float best_div_val = best_div_val_in_out;
+	js::AABBox best_left_aabb = best_left_aabb_in_out;
+	js::AABBox best_right_aabb = best_right_aabb_in_out;
+
+	// For Each object centroid:
+	js::AABBox right_aabb = axis_obs[right-1].aabb;
+	float last_split_val = axis_obs[right-1].aabb.centroid()[axis];//centre[axis];
+	int N_L = right - left - 1;
+	int N_R = 1;
+	for(int i=right-2; i>=left; --i) // i = index of last object assigned to the left.  Start with 1 object assigned to right child node, go down to 1 object assigned to left child node.
+	{
+		const js::AABBox left_aabb = use_split_left_aabb[i];
+		const float splitval = axis_obs[i].aabb.centroid()[axis]; // centre[axis];
+
+#ifndef NDEBUG
+		// Check that our AABB calculations are correct:
+		// NOTE: this check is disabled because it is quite slow.
+		/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
+		for(int t=left; t<=i; ++t)
+		ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
+
+		js::AABBox ref_right_aabb = js::AABBox::emptyAABBox();
+		for(int t=i+1; t<right; ++t)
+		ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
+
+		assert(ref_left_aabb == left_aabb);
+		assert(ref_right_aabb == right_aabb);*/
+#endif
+
+		assert(N_L == (i - left) + 1 && N_R == (right - left) - N_L);
+
+		const float cost_factor = N_L * left_aabb.getHalfSurfaceArea() + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
+
+		if(cost_factor < smallest_split_cost_factor && splitval != last_split_val) // If this is the smallest cost so far, and this is the first such split position seen:
+		{
+			best_N_L = N_L;
+			best_axis = axis;
+			smallest_split_cost_factor = cost_factor;
+			best_div_val = splitval;
+			best_left_aabb = left_aabb;
+			best_right_aabb = right_aabb;
+		}
+
+		last_split_val = splitval;
+		right_aabb.enlargeToHoldAABBox(axis_obs[i].aabb);
+		N_L--;
+		N_R++;
+	}
+
+#ifndef NDEBUG
+	// Check that we computed the number of objects assigned to the left child correctly.
+	if(best_axis == axis && best_N_L != -1)
+	{
+		int ref_N_L = 0;
+		for(int i=left; i<right; ++i)
+			if(axis_obs[i].aabb.centroid()[best_axis]/*centre[best_axis]*/ <= best_div_val)
+				ref_N_L++;
+		assert(ref_N_L == best_N_L);
+	}
+#endif
+
+	best_N_L_in_out = best_N_L;
+	best_axis_in_out = best_axis;
+	smallest_split_cost_factor_in_out = smallest_split_cost_factor;
+	best_div_val_in_out = best_div_val;
+	best_left_aabb_in_out  = best_left_aabb;
+	best_right_aabb_in_out = best_right_aabb;
+}
+
+
 // Search along a given axis for the best split location, according to the SAH.
 class BestSplitSearchTask : public Indigo::Task
 {
@@ -462,66 +578,13 @@ public:
 	
 	virtual void run(size_t thread_index)
 	{
-		const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
-		js::AABBox* const use_split_left_aabb = builder.per_axis_thread_temp_info[thread_index].split_left_aabb.data();
-
-		// Do a forwards sweep over all the objects for this subtree, computing the union AABB for the prefix along this axis
-		Vec4f prefix_min(std::numeric_limits<float>::infinity(),   std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f);
-		Vec4f prefix_max(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
-		for(int i=left; i<right; ++i)
-		{
-			prefix_min = min(prefix_min, axis_obs[i].aabb.min_);
-			prefix_max = max(prefix_max, axis_obs[i].aabb.max_);
-			use_split_left_aabb[i].min_ = prefix_min;
-			use_split_left_aabb[i].max_ = prefix_max;
-		}
-
 		smallest_split_cost_factor = std::numeric_limits<float>::infinity();
 		best_N_L = -1;
 		best_div_val = 0;
+		int best_axis = 0; // not used
 
-		// For Each object centroid:
-		js::AABBox right_aabb = axis_obs[right-1].aabb;
-		float last_split_val = axis_obs[right-1].centre[axis];
-		int N_L = right - left - 1;
-		int N_R = 1;
-		for(int i=right-2; i>=left; --i)
-		{
-			const js::AABBox left_aabb = use_split_left_aabb[i];
-			const float splitval = axis_obs[i].centre[axis];
-
-#ifndef NDEBUG
-			// Check that our AABB calculations are correct:
-			/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
-			for(int t=left; t<=i; ++t)
-				ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
-
-			js::AABBox ref_right_aabb = js::AABBox::emptyAABBox();
-			for(int t=i+1; t<right; ++t)
-				ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
-
-			assert(ref_left_aabb == left_aabb);
-			assert(ref_right_aabb == right_aabb);*/
-#endif
-
-			assert(N_L == (i - left) + 1 && N_R == (right - left) - N_L);
-
-			const float cost_factor = N_L * left_aabb.getHalfSurfaceArea() + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
-
-			if(cost_factor < smallest_split_cost_factor && splitval != last_split_val) // If this is the smallest cost so far, and this is the first such split position seen:
-			{
-				best_N_L = N_L;
-				smallest_split_cost_factor = cost_factor;
-				best_div_val = splitval;
-				best_left_aabb = left_aabb;
-				best_right_aabb = right_aabb;
-			}
-
-			last_split_val = splitval;
-			right_aabb.enlargeToHoldAABBox(axis_obs[i].aabb);
-			N_L--;
-			N_R++;
-		}
+		searchAxisForBestSplit(cur_objects, builder.per_axis_thread_temp_info[thread_index].split_left_aabb, axis, left, right, 
+			smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_left_aabb, best_right_aabb);
 	}
 
 	BVHBuilder& builder;
@@ -553,19 +616,19 @@ static inline void partitionAxis(const js::Vector<Ob, 64>* cur_objects, js::Vect
 	{
 		const Vec4f min = axis_obs[i].aabb.min_;
 		const Vec4f max = axis_obs[i].aabb.max_;
-		const Vec4f centre = _mm_load_ps((const float*)&axis_obs[i].centre);
-		if(centre[best_axis] <= best_div_val) // If on Left side:
+		//const Vec4f centre = _mm_load_ps((const float*)&axis_obs[i].centre);
+		if(((min + max)*0.5f)[best_axis]/*centre[best_axis]*/ <= best_div_val) // If on Left side:
 		{
 			axis_other_obs[left_write_pos].aabb.min_ = min;
 			axis_other_obs[left_write_pos].aabb.max_ = max;
-			_mm_store_ps((float*)&axis_other_obs[left_write_pos].centre, centre.v);
+			//_mm_store_ps((float*)&axis_other_obs[left_write_pos].centre, centre.v);
 			left_write_pos++;
 		}
 		else // else if on Right side:
 		{
 			axis_other_obs[right_write_pos].aabb.min_ = min;
 			axis_other_obs[right_write_pos].aabb.max_ = max;
-			_mm_store_ps((float*)&axis_other_obs[right_write_pos].centre, centre.v);
+			//_mm_store_ps((float*)&axis_other_obs[right_write_pos].centre, centre.v);
 			right_write_pos++;
 		}
 	}
@@ -612,7 +675,7 @@ public:
 };
 
 
-class PartitionPred
+/*class PartitionPred
 {
 public:
 	bool operator () (const Ob& ob) const
@@ -622,13 +685,7 @@ public:
 
 	int best_axis;
 	float best_div_val;
-};
-
-
-inline static js::AABBox boxUnion(const js::AABBox& a, const js::AABBox& b)
-{
-	return js::AABBox(min(a.min_, b.min_), max(a.max_, b.max_));
-}
+};*/
 
 
 /*
@@ -724,103 +781,21 @@ void BVHBuilder::doBuild(
 	{
 		for(unsigned int axis=0; axis<3; ++axis)
 		{
-			const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
-
-			// Do a forwards sweep over all the objects for this subtree, computing the union AABB for the prefix along this axis
-			Vec4f prefix_min(std::numeric_limits<float>::infinity(),   std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f);
-			Vec4f prefix_max(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
-			js::AABBox* const split_left_aabb_ptr = split_left_aabb.data();
-			for(int i=left; i<right; ++i)
-			{
-				prefix_min = min(prefix_min, axis_obs[i].aabb.min_);
-				prefix_max = max(prefix_max, axis_obs[i].aabb.max_);
-				split_left_aabb_ptr[i].min_ = prefix_min;
-				split_left_aabb_ptr[i].max_ = prefix_max;
-			}
-
-			/*
-
-
-			  |---------0--------|
-			|-----------1----------|
-			                   |---------------2---------------|
-			                           |-------3-------|
-			                                                 |----4----|   
-
-			If we split at the midpoint of objects 0 and 1, then 0 and 1 are assigned to the left child node, and 2 is assigned to the right.
-			The left aabb therefore has right bound max(aabb_max_0, aabb_max_1), and the right aabb has left bound min(aabb_min_2, aabb_min_3).
-			Note here that running_max[0] = aabb_max_0, running_max[1] = max(aabb_max_0, aabb_max_1) = aabb_max_1.
-			This means that for identical centres, it's the largest/rightmost running_max we should use (e.g. running_max[1] not running_max[0]).
-			
-
-			  |---------0--------|
-			|-----------1----------|
-			                           |-----2-----|
-			                   |-------------3-------------|
-			                 |--------------------4------------------|   
-
-
-			*/
-
-			
-			float last_split_val = axis_obs[right-1].centre[axis];
-			js::AABBox right_aabb = axis_obs[right-1].aabb;
-
-			// For Each triangle centroid:
-			// i = index of last object assigned to the left.
-			int N_L = right - left - 1;
-			int N_R = 1;
-			for(int i=right-2; i>=left; --i) // Start with 1 object assigned to right child node, go down to 1 child assigned to left child node.
-			{
-				const float splitval = axis_obs[i].centre[axis];
-				const js::AABBox& left_aabb = split_left_aabb[i];
-
-#ifndef NDEBUG
-				// Check that our AABB calculations are correct:
-				// NOTE: disabled for now since this check is quite slow.
-				/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
-				for(int t=left; t<=i; ++t)
-					ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
-
-				js::AABBox ref_right_aabb = js::AABBox::emptyAABBox();
-				for(int t=i+1; t<right; ++t)
-					ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
-
-				assert(ref_left_aabb == left_aabb);
-				assert(ref_right_aabb == right_aabb);*/
-#endif
-
-				assert(N_L + N_R == right - left);
-				assert(N_L == (i - left) + 1 && N_R == right - i - 1);
-
-				const float cost_factor = N_L * left_aabb.getHalfSurfaceArea() + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
-				
-				if(cost_factor < smallest_split_cost_factor && splitval != last_split_val) // If this is the smallest cost so far, and this is the first such split position seen:
-				{
-					best_N_L = N_L;
-					smallest_split_cost_factor = cost_factor;
-					best_axis = axis;
-					best_div_val = splitval;
-					best_left_aabb = left_aabb;
-					best_right_aabb = right_aabb;
-				}
-
-				last_split_val = splitval;
-				right_aabb.enlargeToHoldAABBox(axis_obs[i].aabb);
-				N_L--;
-				N_R++;
-			}
+			searchAxisForBestSplit(cur_objects, split_left_aabb, axis, left, right,
+				smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_left_aabb, best_right_aabb);
 		}
 	}
 
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
 
-	if(best_axis == -1) // This can happen when all object centres coorindates along the axis are the same.
+	if(best_axis == -1) // This can happen when all object centres coordinates along the axis are the same.
 	{
 		doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, cur_objects, other_objects, result_chunk);
 		return;
 	}
+
+	assert(aabb.containsAABBox(best_left_aabb) && aabb.containsAABBox(best_right_aabb));
 
 	// NOTE: the factor of 2 compensates for the surface areas vars being half the areas.
 	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost;
@@ -921,30 +896,9 @@ void BVHBuilder::doBuild(
 
 	if(num_left_tris == 0 || num_left_tris == right - left)
 	{
-		if((right - left) <= max_num_objects_per_leaf)
-		{
-			chunk_nodes[node_index].interior = false;
-			chunk_nodes[node_index].left = left;
-			chunk_nodes[node_index].right = right;
-
-			// if other_objects is objects_b, we need to copy back into objects_a
-			if(other_objects == objects_b)
-				for(int axis=0; axis<3; ++axis)
-					std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
-
-			num_could_not_split_leaves++;
-			leaf_depth_sum += depth;
-			max_leaf_depth = myMax(max_leaf_depth, depth);
-			max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
-			num_leaves++;
-			return;
-		}
-		else
-		{
-			// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
-			doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, cur_objects, other_objects, result_chunk);
-			return;
-		}
+		// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
+		doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, cur_objects, other_objects, result_chunk);
+		return;
 	}
 
 

@@ -438,6 +438,12 @@ INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
 }
 
 
+INDIGO_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
+{
+	return Vec4i(_mm_castps_si128(v.v));
+}
+
+
 void doAssertIsUnitLength(const Vec4f& v);
 
 #ifdef NDEBUG

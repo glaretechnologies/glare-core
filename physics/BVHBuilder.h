@@ -41,14 +41,25 @@ struct ResultNode
 
 struct Ob
 {
+	// Index of the source object/aabb is stored in aabb.min_[3].
 	js::AABBox aabb;
-	Vec3f centre;
-	int index;
+	//Vec3f centre;
+	//int index;
+
+	int getIndex() const
+	{
+		return bitcastToVec4i(aabb.min_)[3];
+	}
+
+	void setIndex(int index)
+	{
+		std::memcpy(&aabb.min_.x[3], &index, 4);
+	}
 
 	inline void operator = (const Ob& other)
 	{
 		aabb = other.aabb;
-		_mm_store_ps((float*)this + 8, _mm_load_ps((float*)&other + 8));
+		//_mm_store_ps((float*)this + 8, _mm_load_ps((float*)&other + 8));
 	}
 };
 
@@ -111,7 +122,7 @@ public:
 	friend class BuildSubtreeTask;
 	friend class BestSplitSearchTask;
 	friend class PartitionTask;
-	friend class SortAxisTask;
+	friend class ConstructAxisObjectsTask;
 
 private:
 	// Assumptions: root node for subtree is already created and is at node_index
