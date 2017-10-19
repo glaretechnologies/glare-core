@@ -168,11 +168,11 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 				BVHNode& node = this->nodes[new_index++];
 				node.setToInterior();
 
-				node.setLeftAABB(result_node.left_aabb);
-				node.setRightAABB(result_node.right_aabb);
-
 				const ResultNode& left_child  = result_nodes[result_node.left];
 				const ResultNode& right_child = result_nodes[result_node.right];
+
+				node.setLeftAABB(left_child.aabb);
+				node.setRightAABB(right_child.aabb);
 
 				// Set node.child[0] and node.child[1]
 				if(left_child.interior)

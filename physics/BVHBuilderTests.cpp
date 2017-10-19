@@ -19,6 +19,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"
 #include "../utils/FileUtils.h"
+#include "../utils/IncludeXXHash.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 
@@ -30,19 +31,54 @@ namespace BVHBuilderTests
 {
 
 
-static void testResultsValid(BVHBuilder& builder, const js::Vector<ResultNode, 64>& result_nodes, int num_objects)
+// Recursively walk down tree, making sure that node AABBs are correct.
+// Returns reference node AABB
+static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int node_index, const BVHBuilder::ResultObIndicesVec& result_indices, const js::Vector<js::AABBox, 16>& aabbs)
 {
+	testAssert(node_index >= 0 && node_index < (int)result_nodes.size());
+	const ResultNode& node = result_nodes[node_index];
+	if(node.interior)
+	{
+		const js::AABBox left_aabb  = checkNode(result_nodes, node.left,  result_indices, aabbs);
+		const js::AABBox right_aabb = checkNode(result_nodes, node.right, result_indices, aabbs);
+
+		js::AABBox combined_aabb = left_aabb;
+		combined_aabb.enlargeToHoldAABBox(right_aabb);
+
+		testAssert(combined_aabb == node.aabb);
+
+		return combined_aabb;
+	}
+	else // Else if leaf:
+	{
+		// Compute AABB of leaf from leaf object AABBs
+		js::AABBox aabb = js::AABBox::emptyAABBox();
+		for(int i=node.left; i<node.right; ++i)
+			aabb.enlargeToHoldAABBox(aabbs[result_indices[i]]);
+
+		testAssert(aabb == node.aabb);
+
+		return aabb;
+	}
+}
+
+
+static void testResultsValid(BVHBuilder& builder, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs)
+{
+	checkNode(result_nodes, /*node_index=*/0, builder.getResultObjectIndices(), aabbs);
+
 	// Test that the resulting object indices are a permutation of the original indices.
-	std::vector<bool> seen(num_objects, false);
-	for(int z=0; z<num_objects; ++z)
+	std::vector<bool> seen(aabbs.size(), false);
+	for(int z=0; z<(int)aabbs.size(); ++z)
 	{
 		const uint32 ob_i = builder.getResultObjectIndices()[z];
+		testAssert(ob_i < (uint32)aabbs.size());
 		testAssert(!seen[ob_i]);
 		seen[ob_i] = true;
 	}
 	
 	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
-	std::vector<bool> ob_in_leaf(num_objects, false);
+	std::vector<bool> ob_in_leaf(aabbs.size(), false);
 	for(int n=0; n<(int)result_nodes.size(); ++n)
 	{
 		const ResultNode& node = result_nodes[n];
@@ -56,7 +92,7 @@ static void testResultsValid(BVHBuilder& builder, const js::Vector<ResultNode, 6
 		{
 			testAssert(node.left >= 0);
 			testAssert(node.left <= node.right);
-			testAssert(node.right <= num_objects);
+			testAssert(node.right <= (int)aabbs.size());
 
 			for(int z = node.left; z < node.right; ++z)
 			{
@@ -66,13 +102,29 @@ static void testResultsValid(BVHBuilder& builder, const js::Vector<ResultNode, 6
 		}
 	}
 
-	for(int z=0; z<num_objects; ++z)
+	for(int z=0; z<(int)aabbs.size(); ++z)
 		testAssert(ob_in_leaf[z]);
 }
 
 
-static void testBVHBuilderWithNRandomObjects(MTwister& rng, Indigo::TaskManager& task_manager, int num_objects)
+static uint64 resultNodesHash(const js::Vector<ResultNode, 64>& result_nodes)
 {
+	XXH64_state_t hash_state;
+	XXH64_reset(&hash_state, 1);
+	for(size_t i=0; i<result_nodes.size(); ++i)
+	{
+		XXH64_update(&hash_state, (void*)&result_nodes[i].aabb, sizeof(result_nodes[i].aabb));
+		XXH64_update(&hash_state, (void*)&result_nodes[i].left, sizeof(result_nodes[i].left));
+		XXH64_update(&hash_state, (void*)&result_nodes[i].right, sizeof(result_nodes[i].right));
+		XXH64_update(&hash_state, (void*)&result_nodes[i].right, sizeof(result_nodes[i].interior));
+	}
+	return XXH64_digest(&hash_state);
+}
+
+
+static void testBVHBuilderWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
+{
+	MTwister rng(1);
 	StandardPrintOutput print_output;
 
 	js::Vector<js::AABBox, 16> aabbs(num_objects);
@@ -99,9 +151,42 @@ static void testBVHBuilderWithNRandomObjects(MTwister& rng, Indigo::TaskManager&
 		result_nodes
 	);
 
-	testResultsValid(builder, result_nodes, num_objects);
+	testResultsValid(builder, result_nodes, aabbs);
 }
 
+
+
+
+static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task_manager, int num_objects, js::Vector<ResultNode, 64>& result_nodes_out)
+{
+	MTwister rng(1);
+	StandardPrintOutput print_output;
+
+	js::Vector<js::AABBox, 16> aabbs(num_objects);
+	for(int z=0; z<num_objects; ++z)
+	{
+		const Vec4f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1);
+		aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
+	}
+
+	const int max_num_leaf_objects = 16;
+	BVHBuilder builder(1, max_num_leaf_objects, 4.0f);
+
+	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
+	builder.axis_parallel_num_ob_threshold = 32;
+	builder.new_task_num_ob_threshold = 32;
+
+	//js::Vector<ResultNode, 64> result_nodes;
+	builder.build(task_manager,
+		aabbs.data(), // aabbs
+		num_objects, // num objects
+		print_output,
+		false, // verbose
+		result_nodes_out
+	);
+
+	testResultsValid(builder, result_nodes_out, aabbs);
+}
 
 void test()
 {
@@ -110,6 +195,44 @@ void test()
 	MTwister rng(1);
 	Indigo::TaskManager task_manager(8);
 	StandardPrintOutput print_output;
+
+	if(false)
+	{
+		js::Vector<ResultNode, 64> ref_result_nodes;
+		testBVHBuilderWithNRandomObjectsGetResults(task_manager, 400, ref_result_nodes);
+
+		const uint64 ref_hash = resultNodesHash(ref_result_nodes);
+		printVar(ref_hash);
+
+		for(int i=0; i<2; ++i)
+		{
+			js::Vector<ResultNode, 64> result_nodes;
+			testBVHBuilderWithNRandomObjectsGetResults(task_manager, 400, result_nodes);
+
+			const uint64 hash = resultNodesHash(result_nodes);
+			if(hash != ref_hash)
+			{
+				conPrint("hashes differ.");
+				for(size_t z=0; z<result_nodes.size(); ++z)
+				{
+					if(!(
+						result_nodes[z].aabb == ref_result_nodes[z].aabb &&
+						result_nodes[z].left == ref_result_nodes[z].left &&
+						result_nodes[z].right == ref_result_nodes[z].right &&
+						result_nodes[z].interior == ref_result_nodes[z].interior
+						))
+					{
+						conPrint("node[" + toString(z) + "] differs:");
+						BVHBuilder::printResultNode(result_nodes[z]);
+						conPrint("-------------------");
+						BVHBuilder::printResultNode(ref_result_nodes[z]);
+						conPrint("");
+					}
+				}
+			}
+		}
+	}
+	
 
 	
 	/*{
@@ -195,7 +318,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -223,7 +346,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -252,7 +375,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -354,7 +477,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 	}
 
 	//====================================================================
@@ -388,7 +511,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 	}
 
 
@@ -397,19 +520,19 @@ void test()
 	//==================== Test building a BVH with varying numbers of objects (including zero objects) ====================
 	for(int num_objects=0; num_objects<64; ++num_objects)
 	{
-		testBVHBuilderWithNRandomObjects(rng, task_manager, num_objects);
+		testBVHBuilderWithNRandomObjects(task_manager, num_objects);
 	}
 
 	for(int num_objects=64; num_objects<=4096; num_objects *= 2)
 	{
-		testBVHBuilderWithNRandomObjects(rng, task_manager, num_objects);
+		testBVHBuilderWithNRandomObjects(task_manager, num_objects);
 	}
 
 
 	//==================== Do a stress test with a reasonably large amount of objects ====================
 	{
 		conPrint("StressTest...");
-		testBVHBuilderWithNRandomObjects(rng, task_manager, 
+		testBVHBuilderWithNRandomObjects(task_manager, 
 			10000
 		);
 		conPrint("Done.");
@@ -440,7 +563,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		testResultsValid(builder, result_nodes, aabbs);
 	}
 
 
@@ -523,7 +646,7 @@ void test()
 
 			conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
 
-			testResultsValid(builder, result_nodes, num_objects);
+			testResultsValid(builder, result_nodes, aabbs);
 		}
 	}
 

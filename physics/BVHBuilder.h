@@ -21,20 +21,18 @@ class PrintOutput;
 
 struct ResultNode
 {
-	js::AABBox left_aabb;  // if interior
-	js::AABBox right_aabb;  // if interior
+	js::AABBox aabb;
 	int left;  // if interior, this is the index of the left child node.  Will be zero if this is the root node of a different chunk.  If Leaf, this is the object begin index.
 	int right; // if interior, this is the index of the right child node.  Will be zero if this is the root node of a different chunk.  If Leaf, this is the object end index.
 	
-	int right_child_chunk_index; // if interior: -1 if right child is in the same chunk as this node.
+	int right_child_chunk_index; // valid if interior: -1 if right child is in the same chunk as this node, otherwise set to the index of the chunk the right child node is in.  For internal builder use.
 	bool interior;
 
 
 	inline void operator = (const ResultNode& other)
 	{
-		left_aabb = other.left_aabb;
-		right_aabb = other.right_aabb;
-		_mm_store_ps((float*)this + 16, _mm_load_ps((float*)&other + 16));
+		aabb = other.aabb;
+		_mm_store_ps((float*)this + 8, _mm_load_ps((float*)&other + 8)); // Copy remaining data members with an SSE load and store for efficiency.
 	}
 };
 
@@ -85,6 +83,9 @@ struct ResultChunk
 	int thread_index; // The index of the thread that computed this chunk.
 	int offset; // Offset in thread's result_buf
 	int size; // num nodes created by the task in thread's result_buf;
+	int original_index; // Index of this chunk in result_chunks, before sorting.
+
+	uint64 sort_key;
 };
 
 
@@ -116,6 +117,7 @@ public:
 
 	int getMaxLeafDepth() const { return max_leaf_depth; } // Root node is considered to have depth 0.
 
+	static void printResultNode(const ResultNode& result_node);
 	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
 
 	friend class CentroidTask;
@@ -133,6 +135,7 @@ private:
 		int left,
 		int right,
 		int depth,
+		uint64 sort_key,
 		js::Vector<Ob, 64>* cur_objects,
 		js::Vector<Ob, 64>* other_objects,
 		ResultChunk& result_chunk

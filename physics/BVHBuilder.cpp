@@ -45,6 +45,7 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_l
 	new_task_num_ob_threshold = 1 << 9;
 
 	static_assert(sizeof(Ob) == 32, "sizeof(Ob) == 32");
+	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
 }
 
 
@@ -166,7 +167,7 @@ public:
 			builder.per_thread_temp_info[thread_index],
 			node_aabb, 
 			root_node_index, // node index
-			begin, end, depth,
+			begin, end, depth, sort_key,
 			cur_objects,
 			other_objects,
 			*result_chunk
@@ -175,6 +176,7 @@ public:
 		result_chunk->thread_index = (int)thread_index;
 		result_chunk->offset = root_node_index;
 		result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
+		result_chunk->sort_key = this->sort_key;
 	}
 
 	BVHBuilder& builder;
@@ -185,6 +187,16 @@ public:
 	int depth;
 	int begin;
 	int end;
+	uint64 sort_key;
+};
+
+
+struct ResultChunkPred
+{
+	bool operator () (const ResultChunk& a, const ResultChunk& b)
+	{
+		return a.sort_key < b.sort_key;
+	}
 };
 
 
@@ -222,6 +234,7 @@ void BVHBuilder::build(
 	{
 		// Create root node, and mark it as a leaf.
 		result_nodes_out.push_back_uninitialised();
+		result_nodes_out[0].aabb = js::AABBox::emptyAABBox();
 		result_nodes_out[0].interior = false;
 		result_nodes_out[0].left = 0;
 		result_nodes_out[0].right = 0;
@@ -338,12 +351,14 @@ void BVHBuilder::build(
 	} // End scope for initial init
 
 
+	result_chunks[0].original_index = 0;
 	next_result_chunk++;
 
 	Reference<BuildSubtreeTask> task = new BuildSubtreeTask(*this);
 	task->begin = 0;
 	task->end = num_objects;
 	task->depth = 0;
+	task->sort_key = 1;
 	task->node_aabb = root_aabb;
 	task->result_chunk = &result_chunks[0];
 	task->cur_objects = objects_a;
@@ -365,15 +380,23 @@ void BVHBuilder::build(
 	// Now we need to combine all the result chunks into a single array.
 
 	//timer.reset();
+	//Timer timer;
+
 	// Do a pass over the chunks to build chunk_root_node_indices and get the total number of nodes.
 	const int num_result_chunks = (int)next_result_chunk;
 	js::Vector<int, 16> final_chunk_offset(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each chunk.
+	js::Vector<int, 16> final_chunk_offset_original(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each original (pre-sorted) chunk index.
 	size_t total_num_nodes = 0;
+
+	// Sort chunks by sort_key.  TODO: work out the best ordering first
+	//std::sort(result_chunks.begin(), result_chunks.begin() + num_result_chunks, ResultChunkPred());
 
 	for(size_t c=0; c<num_result_chunks; ++c)
 	{
-		//conPrint("Chunk " + toString(c) + ": offset=" + toString(result_chunks[c]->offset) + ", size=" + toString(result_chunks[c]->size) + ", thread_index=" + toString(result_chunks[c]->thread_index));
+		//conPrint("Chunk " + toString(c) + ": sort_key=" + toString(result_chunks[c].sort_key) + ", offset=" + toString(result_chunks[c].offset) + 
+		//	", size=" + toString(result_chunks[c].size) + ", thread_index=" + toString(result_chunks[c].thread_index));
 		final_chunk_offset[c] = (int)total_num_nodes;
+		final_chunk_offset_original[result_chunks[c].original_index] = (int)total_num_nodes;
 		total_num_nodes += result_chunks[c].size;
 		//conPrint("-------pre-merge Chunk " + toString(c) + "--------");
 		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
@@ -385,36 +408,36 @@ void BVHBuilder::build(
 	for(size_t c=0; c<num_result_chunks; ++c)
 	{
 		const ResultChunk& chunk = result_chunks[c];
-		const int chunk_node_offset = final_chunk_offset[c] - chunk.offset;
+		const int chunk_node_offset = final_chunk_offset[c] - chunk.offset; // delta for references internal to chunk.
 
-		const js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info[chunk.thread_index].result_buf;
+		const js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info[chunk.thread_index].result_buf; // Get the per-thread result node buffer that this chunk is in.
 
 		for(size_t i=0; i<chunk.size; ++i)
 		{
-			const ResultNode& chunk_node = chunk_nodes[chunk.offset + i];
-			result_nodes_out[write_index] = chunk_node; // Copy node to final array
+			ResultNode chunk_node = chunk_nodes[chunk.offset + i];
 
 			// If this is an interior node, we need to fix up some links.
-			if(result_nodes_out[write_index].interior)
+			if(chunk_node.interior)
 			{
 				// Offset the child node indices by the offset of this chunk
-				result_nodes_out[write_index].left += chunk_node_offset;
+				chunk_node.left += chunk_node_offset;
 
-				const int chunk_index = result_nodes_out[write_index].right_child_chunk_index;
+				const int chunk_index = chunk_node.right_child_chunk_index;
 
 				assert(chunk_index == -1 || (chunk_index >= 0 && chunk_index < num_result_chunks));
 
-				if(result_nodes_out[write_index].right_child_chunk_index != -1) // If the right child index refers to another chunk:
+				if(chunk_node.right_child_chunk_index != -1) // If the right child index refers to another chunk:
 				{
-					result_nodes_out[write_index].right = final_chunk_offset[chunk_index]; // Update it with the final node index.
+					chunk_node.right = final_chunk_offset_original[chunk_index]; // Update it with the final node index.
 				}
 				else
-					result_nodes_out[write_index].right += chunk_node_offset;
+					chunk_node.right += chunk_node_offset;
 
-				assert(result_nodes_out[write_index].left < total_num_nodes);
-				assert(result_nodes_out[write_index].right < total_num_nodes);
+				assert(chunk_node.left < total_num_nodes);
+				assert(chunk_node.right < total_num_nodes);
 			}
-			
+
+			result_nodes_out[write_index] = chunk_node; // Copy node to final array
 			write_index++;
 		}
 	}
@@ -675,6 +698,14 @@ public:
 };
 
 
+// Since we store the object index in the AABB.min_.w, we want to restore this value to 1 before we return it to the client code.
+static inline void setAABBWToOne(js::AABBox& aabb)
+{
+	aabb.min_ = select(Vec4f(1.f), aabb.min_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
+	aabb.max_ = select(Vec4f(1.f), aabb.max_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
+}
+
+
 /*class PartitionPred
 {
 public:
@@ -699,6 +730,7 @@ void BVHBuilder::doBuild(
 			int left, 
 			int right, 
 			int depth,
+			uint64 sort_key,
 			js::Vector<Ob, 64>* cur_objects,
 			js::Vector<Ob, 64>* other_objects,
 			ResultChunk& result_chunk
@@ -714,6 +746,7 @@ void BVHBuilder::doBuild(
 
 		// Make this a leaf node
 		chunk_nodes[node_index].interior = false;
+		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
 
@@ -805,6 +838,7 @@ void BVHBuilder::doBuild(
 	{
 		// If the least cost is to not split the node, then make this node a leaf node
 		chunk_nodes[node_index].interior = false;
+		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
 
@@ -932,9 +966,10 @@ void BVHBuilder::doBuild(
 
 
 	// Mark this node as an interior node.
+	setAABBWToOne(best_left_aabb);
+	setAABBWToOne(best_right_aabb);
 	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].left_aabb = best_left_aabb;
-	chunk_nodes[node_index].right_aabb = best_right_aabb;
+	chunk_nodes[node_index].aabb = aabb;
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
@@ -949,6 +984,7 @@ void BVHBuilder::doBuild(
 		left, // left
 		split_i, // right
 		depth + 1, // depth
+		sort_key << 1, // sort key
 		other_objects, // cur_objects - we are swapping
 		cur_objects, // other objects - we are swapping
 		result_chunk
@@ -957,15 +993,18 @@ void BVHBuilder::doBuild(
 	if(do_right_child_in_new_task)
 	{
 		// Add to chunk list
-		chunk_nodes[node_index].right_child_chunk_index = (int)next_result_chunk++;
-		assert((int)chunk_nodes[node_index].right_child_chunk_index < (int)result_chunks.size());
-		
+		const int chunk_index = (int)next_result_chunk++;
+		chunk_nodes[node_index].right_child_chunk_index = chunk_index;
+		assert((int)chunk_index < (int)result_chunks.size());
+		result_chunks[chunk_index].original_index = chunk_index;
+
 		// Put this subtree into a task
 		//conPrint("Making new task...");
 		Reference<BuildSubtreeTask> subtree_task = new BuildSubtreeTask(*this);
-		subtree_task->result_chunk = &result_chunks[chunk_nodes[node_index].right_child_chunk_index];
+		subtree_task->result_chunk = &result_chunks[chunk_index];
 		subtree_task->node_aabb = best_right_aabb;
 		subtree_task->depth = depth + 1;
+		subtree_task->sort_key = (sort_key << 1) | 1;
 		subtree_task->begin = split_i;
 		subtree_task->end = right;
 		subtree_task->cur_objects = other_objects; //  we are swapping
@@ -982,6 +1021,7 @@ void BVHBuilder::doBuild(
 			split_i, // left
 			right, // right
 			depth + 1, // depth
+			(sort_key << 1) | 1,
 			other_objects, // cur_objects - we are swapping
 			cur_objects, // other objects - we are swapping
 			result_chunk
@@ -1022,6 +1062,7 @@ void BVHBuilder::doArbitrarySplits(
 	{
 		// Make this a leaf node
 		chunk_nodes[node_index].interior = false;
+		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
 
@@ -1059,9 +1100,10 @@ void BVHBuilder::doArbitrarySplits(
 	chunk_nodes.push_back_uninitialised();
 
 	// Create interior node
+	setAABBWToOne(left_aabb);
+	setAABBWToOne(right_aabb);
 	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].left_aabb = left_aabb;
-	chunk_nodes[node_index].right_aabb = right_aabb;
+	chunk_nodes[node_index].aabb = aabb;
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
@@ -1098,29 +1140,32 @@ void BVHBuilder::doArbitrarySplits(
 }
 
 
+void BVHBuilder::printResultNode(const ResultNode& result_node)
+{
+	if(result_node.interior)
+		conPrint(" Interior");
+	else
+		conPrint(" Leaf");
+
+	conPrint("	AABB:  " + result_node.aabb.toStringNSigFigs(4));
+	if(result_node.interior)
+	{
+		conPrint("	left_child_index:  " + toString(result_node.left));
+		conPrint("	right_child_index: " + toString(result_node.right));
+		conPrint("	right_child_chunk_index: " + toString(result_node.right_child_chunk_index));
+	}
+	else
+	{
+		conPrint("	objects_begin: " + toString(result_node.left));
+		conPrint("	objects_end:   " + toString(result_node.right));
+	}
+}
+
 void BVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& result_nodes)
 {
 	for(size_t i=0; i<result_nodes.size(); ++i)
 	{
 		conPrintStr("node " + toString(i) + ": ");
-		if(result_nodes[i].interior)
-			conPrint(" Interior");
-		else
-			conPrint(" Leaf");
-
-		if(result_nodes[i].interior)
-		{
-			conPrint("	left_child_index:  " + toString(result_nodes[i].left));
-			conPrint("	right_child_index: " + toString(result_nodes[i].right));
-			conPrint("	left AABB:  " + result_nodes[i].left_aabb.toStringNSigFigs(4));
-			conPrint("	right AABB: " + result_nodes[i].right_aabb.toStringNSigFigs(4));
-			//if(result_nodes[i].right_child_chunk_index == 0)
-			conPrint("	right_child_chunk_index: " + toString(result_nodes[i].right_child_chunk_index));
-		}
-		else
-		{
-			conPrint("	objects_begin: " + toString(result_nodes[i].left));
-			conPrint("	objects_end:   " + toString(result_nodes[i].right));
-		}
+		printResultNode(result_nodes[i]);
 	}
 }

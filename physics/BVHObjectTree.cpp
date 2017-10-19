@@ -287,12 +287,12 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 			{
 				BVHObjectTreeNode& node = this->nodes[new_index++];
 
-				node.x = Vec4f(result_node.left_aabb.min_.x[0], result_node.right_aabb.min_.x[0], result_node.left_aabb.max_.x[0], result_node.right_aabb.max_.x[0]);
-				node.y = Vec4f(result_node.left_aabb.min_.x[1], result_node.right_aabb.min_.x[1], result_node.left_aabb.max_.x[1], result_node.right_aabb.max_.x[1]);
-				node.z = Vec4f(result_node.left_aabb.min_.x[2], result_node.right_aabb.min_.x[2], result_node.left_aabb.max_.x[2], result_node.right_aabb.max_.x[2]);
-
 				const ResultNode& result_left_child  = result_nodes[result_node.left];
 				const ResultNode& result_right_child = result_nodes[result_node.right];
+
+				node.x = Vec4f(result_left_child.aabb.min_.x[0], result_right_child.aabb.min_.x[0], result_left_child.aabb.max_.x[0], result_right_child.aabb.max_.x[0]);
+				node.y = Vec4f(result_left_child.aabb.min_.x[1], result_right_child.aabb.min_.x[1], result_left_child.aabb.max_.x[1], result_right_child.aabb.max_.x[1]);
+				node.z = Vec4f(result_left_child.aabb.min_.x[2], result_right_child.aabb.min_.x[2], result_left_child.aabb.max_.x[2], result_right_child.aabb.max_.x[2]);
 
 				// Set node.child[0] and node.child[1]
 				if(result_left_child.interior)

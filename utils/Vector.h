@@ -42,7 +42,7 @@ class Vector
 {
 public:
 	inline Vector(); // Initialise as an empty vector.
-	inline Vector(size_t count); // Initialise with default initialisation.
+	explicit inline Vector(size_t count); // Initialise with default initialisation.
 	inline Vector(size_t count, const T& val); // Initialise with count copies of val.
 	inline Vector(const T* begin, const T* end); // Range constructor
 	inline Vector(const Vector& other); // Initialise as a copy of other
