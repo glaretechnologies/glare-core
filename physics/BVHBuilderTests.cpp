@@ -135,8 +135,8 @@ static void testBVHBuilderWithNRandomObjects(Indigo::TaskManager& task_manager, 
 		aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
 	}
 
-	const int max_num_leaf_objects = 16;
-	BVHBuilder builder(1, max_num_leaf_objects, 4.0f);
+	const int max_num_objects_per_leaf = 16;
+	BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
 
 	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
 	builder.axis_parallel_num_ob_threshold = 32;
@@ -169,8 +169,8 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 		aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
 	}
 
-	const int max_num_leaf_objects = 16;
-	BVHBuilder builder(1, max_num_leaf_objects, 4.0f);
+	const int max_num_objects_per_leaf = 16;
+	BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
 
 	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
 	builder.axis_parallel_num_ob_threshold = 32;
@@ -243,9 +243,9 @@ void test()
 
 		js::Vector<ResultNode, 64> result_nodes;
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 1.0f);
-		BVHBuilderTestsCallBack callback(max_num_leaf_objects);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 1.0f);
+		BVHBuilderTestsCallBack callback(max_num_objects_per_leaf);
 		builder.build(task_manager,
 			aabbs.data(), // aabbs
 			num_objects, // num objects
@@ -273,8 +273,8 @@ void test()
 
 		aabbs[0] = js::AABBox(Vec4f(0,0,0, 1), Vec4f(1,1,1, 1));
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 100.0f);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 100.0f);
 
 		// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
 		builder.axis_parallel_num_ob_threshold = 30002;
@@ -393,8 +393,8 @@ void test()
 		aabbs[0] = js::AABBox(Vec4f(0.0f,0,0,1), Vec4f(1.f,0,0.1f,1));
 		aabbs[1] = js::AABBox(Vec4f(0.8f,0,0,1), Vec4f(2.f,0,0.1f,1));
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 100.0f);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 100.0f);
 
 		// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
 		builder.axis_parallel_num_ob_threshold = 32;
@@ -426,8 +426,8 @@ void test()
 		aabbs[1] = js::AABBox(Vec4f(0.3f,0,0,1), Vec4f(0.4f,0,0.1f,1));
 		aabbs[2] = js::AABBox(Vec4f(0.05f,0,0,1), Vec4f(2.f,0,0.1f,1));
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 100.0f);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 100.0f);
 
 		// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
 		builder.axis_parallel_num_ob_threshold = 32;
@@ -465,8 +465,8 @@ void test()
 		aabbs[3] = js::AABBox(Vec4f(1.1f,0,0,1), Vec4f(1.5f,0,0.1f,1));
 		aabbs[4] = js::AABBox(Vec4f(1.8f,0,0,1), Vec4f(2.0f,0,0.1f,1));
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 100.0f);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 100.0f);
 
 		js::Vector<ResultNode, 64> result_nodes;
 		builder.build(task_manager,
@@ -499,8 +499,8 @@ void test()
 		aabbs[3] = js::AABBox(Vec4f(0.8f,0,0,1), Vec4f(1.8f,0,0.1f,1));
 		aabbs[4] = js::AABBox(Vec4f(1.8f,0,0,1), Vec4f(2.0f,0,0.1f,1));
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 100.0f);
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, 100.0f);
 
 		js::Vector<ResultNode, 64> result_nodes;
 		builder.build(task_manager,
@@ -514,7 +514,122 @@ void test()
 		testResultsValid(builder, result_nodes, aabbs);
 	}
 
+	//====================================================================
+	/*
+	|-----0-----|
+	            |------1-----|
+	                                       |------2------|
+	           0.5            1           1.5            2
+													
+		
+	Resulting tree:
+	            0
+	           / \
+	         1     2
+	       /  \
+	      3    4
+													*/
 
+	{
+		const int num_objects = 3;
+		js::Vector<js::AABBox, 16> aabbs(num_objects);
+		aabbs[0] = js::AABBox(Vec4f(0.0f,0,0,1), Vec4f(0.5f,0,0.1f,1));
+		aabbs[1] = js::AABBox(Vec4f(0.5f,0,0,1), Vec4f(1.0f,0,0.1f,1));
+		aabbs[2] = js::AABBox(Vec4f(1.5f,0,0,1), Vec4f(2.0f,0,0.1f,1));
+
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, /*intersection_cost=*/100.0f);
+
+		js::Vector<ResultNode, 64> result_nodes;
+		builder.build(task_manager,
+			aabbs.data(), // aabbs
+			num_objects, // num objects
+			print_output, 
+			false, // verbose
+			result_nodes
+		);
+
+		testResultsValid(builder, result_nodes, aabbs);
+		testAssert(result_nodes.size() == 5);
+		testAssert(result_nodes[0].left == 1);
+		testAssert(result_nodes[0].right == 2);
+		testAssert(result_nodes[1].interior);
+		testAssert(result_nodes[1].left == 3);
+		testAssert(result_nodes[1].right == 4);
+
+		// Test that node 3 is a leaf containing object 0
+		testAssert(!result_nodes[3].interior);
+		testAssert(result_nodes[3].right - result_nodes[3].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[3].left] == 0);
+
+		testAssert(!result_nodes[4].interior);
+		testAssert(result_nodes[4].right - result_nodes[4].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[4].left] == 1);
+
+		testAssert(!result_nodes[2].interior);
+		testAssert(result_nodes[2].right - result_nodes[2].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[2].left] == 2);
+	}
+
+	//====================================================================
+	/*
+	Test with object 1 off to the right.  Tree should be the same as previously,
+	but node 2 should have object 1 in it.
+
+	|-----0-----|
+	                                       |------1-----|
+	            |------2------|
+	           0.5            1           1.5            2
+													
+		
+	Resulting tree:
+	            0
+	           / \
+	         1     2
+	       /  \
+	      3    4
+													*/
+
+	{
+		const int num_objects = 3;
+		js::Vector<js::AABBox, 16> aabbs(num_objects);
+		aabbs[0] = js::AABBox(Vec4f(0.0f,0,0,1), Vec4f(0.5f,0,0.1f,1));
+		aabbs[1] = js::AABBox(Vec4f(1.5f,0,0,1), Vec4f(2.0f,0,0.1f,1));
+		aabbs[2] = js::AABBox(Vec4f(0.5f,0,0,1), Vec4f(1.0f,0,0.1f,1));
+
+		const int max_num_objects_per_leaf = 16;
+		BVHBuilder builder(1, max_num_objects_per_leaf, /*intersection_cost=*/100.0f);
+
+		js::Vector<ResultNode, 64> result_nodes;
+		builder.build(task_manager,
+			aabbs.data(), // aabbs
+			num_objects, // num objects
+			print_output, 
+			false, // verbose
+			result_nodes
+		);
+
+		testResultsValid(builder, result_nodes, aabbs);
+		testAssert(result_nodes.size() == 5);
+		testAssert(result_nodes[0].left == 1);
+		testAssert(result_nodes[0].right == 2);
+		testAssert(result_nodes[1].interior);
+		testAssert(result_nodes[1].left == 3);
+		testAssert(result_nodes[1].right == 4);
+
+		// Test that node 3 is a leaf containing object 0
+		testAssert(!result_nodes[3].interior);
+		testAssert(result_nodes[3].right - result_nodes[3].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[3].left] == 0);
+
+		testAssert(!result_nodes[4].interior);
+		testAssert(result_nodes[4].right - result_nodes[4].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[4].left] == 2);
+
+		testAssert(!result_nodes[2].interior);
+		testAssert(result_nodes[2].right - result_nodes[2].left == 1);
+		testAssert(builder.getResultObjectIndices()[result_nodes[2].left] == 1);
+	}
 
 	
 	//==================== Test building a BVH with varying numbers of objects (including zero objects) ====================
@@ -540,30 +655,40 @@ void test()
 
 	
 	//==================== Test building a BVH with lots of objects with the same BVH ====================
-	// This means that they can't get split as normal, but must still be split up to enforce the max_num_leaf_objects limit.
-	for(int num_objects=1; num_objects<64; ++num_objects)
+	// This means that they can't get split as normal, but must still be split up to enforce the max_num_objects_per_leaf limit.
 	{
-		js::Vector<js::AABBox, 16> aabbs(num_objects);
-		for(int z=0; z<num_objects; ++z)
-			aabbs[z] = js::AABBox(Vec4f(0, 0, 0, 1), Vec4f(1, 1, 1, 1)); // Use the same AABB for each object.
+		std::vector<int> test_sizes;
+		for(int num_objects=1; num_objects<64; ++num_objects)
+			test_sizes.push_back(num_objects);
 
-		const int max_num_leaf_objects = 16;
-		BVHBuilder builder(1, max_num_leaf_objects, 4.0f);
+		test_sizes.push_back(1000);
+		test_sizes.push_back(10000);
 
-		// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
-		builder.axis_parallel_num_ob_threshold = 32;
-		builder.new_task_num_ob_threshold = 32; 
+		for(size_t i=0; i<test_sizes.size(); ++i)
+		{
+			const int num_objects = test_sizes[i];
+			js::Vector<js::AABBox, 16> aabbs(num_objects);
+			for(int z=0; z<num_objects; ++z)
+				aabbs[z] = js::AABBox(Vec4f(0, 0, 0, 1), Vec4f(1, 1, 1, 1)); // Use the same AABB for each object.
 
-		js::Vector<ResultNode, 64> result_nodes;
-		builder.build(task_manager,
-			aabbs.data(), // aabbs
-			num_objects, // num objects
-			print_output, 
-			false, // verbose
-			result_nodes
-		);
+			const int max_num_objects_per_leaf = 16;
+			BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
 
-		testResultsValid(builder, result_nodes, aabbs);
+			// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
+			builder.axis_parallel_num_ob_threshold = 32;
+			builder.new_task_num_ob_threshold = 32;
+
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				aabbs.data(), // aabbs
+				num_objects, // num objects
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			testResultsValid(builder, result_nodes, aabbs);
+		}
 	}
 
 
@@ -601,9 +726,9 @@ void test()
 				aabbs[mesh.triangles.size() + q].enlargeToHoldPoint(v3);
 			}
 
-			const int max_num_leaf_objects = 16;
+			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 10.f;
-			BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+			BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
 				aabbs.data(), // aabbs
@@ -632,9 +757,9 @@ void test()
 			//conPrint("------------- perf test --------------");
 			Timer timer;
 
-			const int max_num_leaf_objects = 16;
+			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 10.f;
-			BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+			BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
 				aabbs.data(), // aabbs
@@ -674,9 +799,9 @@ void test()
 				//conPrint("------------- perf test --------------");
 				Timer timer;
 
-				const int max_num_leaf_objects = 16;
+				const int max_num_objects_per_leaf = 16;
 				const float intersection_cost = 10.f;
-				BVHBuilder builder(1, max_num_leaf_objects, intersection_cost);
+				BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
 				builder.axis_parallel_num_ob_threshold = axis_parallel_num_ob_threshold;
 				js::Vector<ResultNode, 64> result_nodes;
 				builder.build(task_manager,

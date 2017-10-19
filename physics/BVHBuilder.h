@@ -98,8 +98,8 @@ class BVHBuilder
 {
 public:
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
-	// max_num_objects_per_leaf - maximum num objects per leaf node.
-	// intersection_cost - cost of ray-object intersection for SAH computation.
+	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
+	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
 	BVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost);
 	~BVHBuilder();
 

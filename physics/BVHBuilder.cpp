@@ -480,7 +480,29 @@ void BVHBuilder::build(
 }
 
 
-// Search along a given axis for the best coordinate at which to split. (according to the SAH).
+/*
+Search along a given axis for the best coordinate at which to split.
+We use the standard SAH estimates for the costs:
+
+Cost estimate for traversing a split node and its children:
+
+C_split = N_l * C_inter * P_left   +   N_r * C_inter * P_right   +   C_trav
+
+where 
+P_left  = A_left  / A
+P_right = A_right / A
+
+so
+C_split = (N_l * P_left   +   N_r * P_right) * C_inter   + C_trav
+= (N_l * A_left   +   N_r * A_right) * C_inter / A   + C_trav                           (1)
+
+Note that only the expression in the parentheses varies with split position, so that's what we will compute in the inner loop.
+Actully we will compute half that value.  (due to using getHalfSurfaceArea())
+
+Cost estimate for intersecting a ray against an unsplit node:
+
+C_nosplit = N * C_inter                                                                 (2)
+*/
 static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Vector<js::AABBox, 16>& split_left_aabb, int axis, int left, int right,
 	float& smallest_split_cost_factor_in_out, int& best_N_L_in_out, int& best_axis_in_out, float& best_div_val_in_out, js::AABBox& best_left_aabb_in_out, js::AABBox& best_right_aabb_in_out)
 {
@@ -768,7 +790,7 @@ void BVHBuilder::doBuild(
 	}
 
 	const float traversal_cost = 1.0f;
-	const float non_split_cost = (right - left) * intersection_cost;
+	const float non_split_cost = (right - left) * intersection_cost; // Eqn 2.
 	float smallest_split_cost_factor = std::numeric_limits<float>::infinity(); // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
 	int best_N_L = -1;
 	int best_axis = -1;
@@ -830,13 +852,12 @@ void BVHBuilder::doBuild(
 
 	assert(aabb.containsAABBox(best_left_aabb) && aabb.containsAABBox(best_right_aabb));
 
-	// NOTE: the factor of 2 compensates for the surface areas vars being half the areas.
-	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost;
+	// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
+	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
 
 	// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
 	if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
 	{
-		// If the least cost is to not split the node, then make this node a leaf node
 		chunk_nodes[node_index].interior = false;
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
