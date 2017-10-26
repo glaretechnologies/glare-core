@@ -98,6 +98,8 @@ void OpenCL::libraryInit()
 
 
 #if defined(_WIN32) || defined(__linux__)
+	opencl_paths.push_back("libOpenCL.so.1");
+
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
 	{
