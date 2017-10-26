@@ -229,6 +229,7 @@ void BVHBuilder::build(
 		   js::Vector<ResultNode, 64>& result_nodes_out
 		   )
 {
+	Timer build_timer;
 	ScopeProfiler _scope("BVHBuilder::build");
 	js::AABBox root_aabb;
 	{
@@ -476,6 +477,8 @@ void BVHBuilder::build(
 	// Dump some mem usage stats
 	if(false)
 	{
+		const double build_time = build_timer.elapsed();
+
 		conPrint("objects:                   " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
 
 		size_t total_per_thread_size = 0;
@@ -513,6 +516,8 @@ void BVHBuilder::build(
 		printVar(stats.num_arbitrary_split_leaves);
 
 		conPrint("av leaf depth: " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
+
+		conPrint("Build took " + doubleToStringNDecimalPlaces(build_time, 4) + " s");
 	}
 }
 

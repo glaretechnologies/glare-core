@@ -96,6 +96,19 @@ void js::AABBox::test()
 		box.enlargeToHoldPoint(Vec4f(-10, -20, 0, 1.0f));
 		testAssert(box == AABBox(Vec4f(-10,-20,0, 1.0f), Vec4f(10,20,3, 1.0f)));
 
+		// Test getSurfaceArea()
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 10, 1)).getSurfaceArea(), 200.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 10, 20, 1)).getSurfaceArea(), 200.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 20, 20, 1)).getSurfaceArea(), 200.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 10, 10, 1)).getSurfaceArea(), 0.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 20, 1)).getSurfaceArea(), 600.f));
+
+		// Test getHalfSurfaceArea()
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 10, 1)).getHalfSurfaceArea(), 100.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 10, 20, 1)).getHalfSurfaceArea(), 100.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 20, 20, 1)).getHalfSurfaceArea(), 100.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 10, 10, 1)).getHalfSurfaceArea(), 0.f));
+		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 20, 1)).getHalfSurfaceArea(), 300.f));
 	}
 
 	{
