@@ -29,17 +29,6 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_l
 
 	aabbs = NULL;
 
-	num_maxdepth_leaves = 0;
-	num_under_thresh_leaves = 0;
-	num_cheaper_nosplit_leaves = 0;
-	num_could_not_split_leaves = 0;
-	num_leaves = 0;
-	max_num_tris_per_leaf = 0;
-	leaf_depth_sum = 0;
-	max_leaf_depth = 0;
-	num_interior_nodes = 0;
-	num_arbitrary_split_leaves = 0;
-
 	// See /wiki/index.php?title=BVH_Building for results on varying these settings.
 	axis_parallel_num_ob_threshold = 1 << 20;
 	new_task_num_ob_threshold = 1 << 9;
@@ -52,6 +41,36 @@ BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_l
 BVHBuilder::~BVHBuilder()
 {
 	delete local_task_manager;
+}
+
+
+BVHBuildStats::BVHBuildStats()
+{
+	num_maxdepth_leaves = 0;
+	num_under_thresh_leaves = 0;
+	num_cheaper_nosplit_leaves = 0;
+	num_could_not_split_leaves = 0;
+	num_leaves = 0;
+	max_num_tris_per_leaf = 0;
+	leaf_depth_sum = 0;
+	max_leaf_depth = 0;
+	num_interior_nodes = 0;
+	num_arbitrary_split_leaves = 0;
+}
+
+
+void BVHBuildStats::accumStats(const BVHBuildStats& other)
+{
+	num_maxdepth_leaves				+= other.num_maxdepth_leaves;
+	num_under_thresh_leaves			+= other.num_under_thresh_leaves;
+	num_cheaper_nosplit_leaves		+= other.num_cheaper_nosplit_leaves;
+	num_could_not_split_leaves		+= other.num_could_not_split_leaves;
+	num_leaves						+= other.num_leaves;
+	max_num_tris_per_leaf			= myMax(max_num_tris_per_leaf, other.max_num_tris_per_leaf);
+	leaf_depth_sum					+= other.leaf_depth_sum;
+	max_leaf_depth					= myMax(max_leaf_depth, other.max_leaf_depth);
+	num_interior_nodes				+= other.num_interior_nodes;
+	num_arbitrary_split_leaves		+= other.num_arbitrary_split_leaves;
 }
 
 
@@ -240,10 +259,10 @@ void BVHBuilder::build(
 		result_nodes_out[0].right = 0;
 
 
-		num_under_thresh_leaves = 1;
+		stats.num_under_thresh_leaves = 1;
 		//leaf_depth_sum += 0;
-		max_leaf_depth = 0;
-		num_leaves = 1;
+		stats.max_leaf_depth = 0;
+		stats.num_leaves = 1;
 		return;
 	}
 
@@ -449,6 +468,11 @@ void BVHBuilder::build(
 	for(int i=0; i<num_objects; ++i)
 		result_indices[i] = objects_a_0[i].getIndex();
 
+
+	// Combine stats from each thread
+	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
+		this->stats.accumStats(per_thread_temp_info[i].stats);
+
 	// Dump some mem usage stats
 	if(false)
 	{
@@ -476,6 +500,19 @@ void BVHBuilder::build(
 		//conPrint("");
 		//conPrint("split_search_time: " + toString(split_search_time) + " s");
 		//conPrint("partition_time:    " + toString(partition_time) + " s");
+
+		printVar(stats.num_maxdepth_leaves);
+		printVar(stats.num_under_thresh_leaves);
+		printVar(stats.num_cheaper_nosplit_leaves);
+		printVar(stats.num_could_not_split_leaves);
+		printVar(stats.num_leaves);
+		printVar(stats.max_num_tris_per_leaf);
+		printVar(stats.leaf_depth_sum);
+		printVar(stats.max_leaf_depth);
+		printVar(stats.num_interior_nodes);
+		printVar(stats.num_arbitrary_split_leaves);
+
+		conPrint("av leaf depth: " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
 	}
 }
 
@@ -779,13 +816,13 @@ void BVHBuilder::doBuild(
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
-			num_maxdepth_leaves++;
+			thread_temp_info.stats.num_maxdepth_leaves++;
 		else
-			num_under_thresh_leaves++;
-		leaf_depth_sum += depth;
-		max_leaf_depth = myMax(max_leaf_depth, depth);
-		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
-		num_leaves++;
+			thread_temp_info.stats.num_under_thresh_leaves++;
+		thread_temp_info.stats.leaf_depth_sum += depth;
+		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
+		thread_temp_info.stats.num_leaves++;
 		return;
 	}
 
@@ -869,11 +906,11 @@ void BVHBuilder::doBuild(
 				std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
 
 		// Update build stats
-		num_cheaper_nosplit_leaves++;
-		leaf_depth_sum += depth;
-		max_leaf_depth = myMax(max_leaf_depth, depth);
-		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
-		num_leaves++;
+		thread_temp_info.stats.num_cheaper_nosplit_leaves++;
+		thread_temp_info.stats.leaf_depth_sum += depth;
+		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
+		thread_temp_info.stats.num_leaves++;
 		return;
 	}
 	
@@ -995,7 +1032,7 @@ void BVHBuilder::doBuild(
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
 
-	num_interior_nodes++;
+	thread_temp_info.stats.num_interior_nodes++;
 
 	// Build left child
 	doBuild(
@@ -1093,11 +1130,11 @@ void BVHBuilder::doArbitrarySplits(
 				std::memcpy(&(objects_a[axis])[left], &(objects_b[axis])[left], sizeof(Ob) * (right - left));
 		
 		// Update build stats
-		num_arbitrary_split_leaves++;
-		leaf_depth_sum += depth;
-		max_leaf_depth = myMax(max_leaf_depth, depth);
-		max_num_tris_per_leaf = myMax(max_num_tris_per_leaf, right - left);
-		num_leaves++;
+		thread_temp_info.stats.num_arbitrary_split_leaves++;
+		thread_temp_info.stats.leaf_depth_sum += depth;
+		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
+		thread_temp_info.stats.num_leaves++;
 		return;
 	}
 
@@ -1129,7 +1166,7 @@ void BVHBuilder::doArbitrarySplits(
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
 
-	num_interior_nodes++;
+	thread_temp_info.stats.num_interior_nodes++;
 
 	// TODO: Task splitting here as well?
 

@@ -62,9 +62,29 @@ struct Ob
 };
 
 
+struct BVHBuildStats
+{
+	BVHBuildStats();
+	void accumStats(const BVHBuildStats& other);
+
+	int num_maxdepth_leaves;
+	int num_under_thresh_leaves;
+	int num_cheaper_nosplit_leaves;
+	int num_could_not_split_leaves;
+	int num_leaves;
+	int max_num_tris_per_leaf;
+	int leaf_depth_sum;
+	int max_leaf_depth;
+	int num_interior_nodes;
+	int num_arbitrary_split_leaves;
+};
+	
+
 struct PerThreadTempInfo
 {
 	js::Vector<ResultNode, 64> result_buf;
+
+	BVHBuildStats stats;
 
 	size_t dataSizeBytes() const { return result_buf.dataSizeBytes(); }
 };
@@ -115,7 +135,7 @@ public:
 	typedef js::Vector<uint32, 16> ResultObIndicesVec;
 	const ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
 
-	int getMaxLeafDepth() const { return max_leaf_depth; } // Root node is considered to have depth 0.
+	int getMaxLeafDepth() const { return stats.max_leaf_depth; } // Root node is considered to have depth 0.
 
 	static void printResultNode(const ResultNode& result_node);
 	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
@@ -182,17 +202,7 @@ public:
 	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;
 
-	/// build stats ///
-	int num_maxdepth_leaves;
-	int num_under_thresh_leaves;
-	int num_cheaper_nosplit_leaves;
-	int num_could_not_split_leaves;
-	int num_leaves;
-	int max_num_tris_per_leaf;
-	int leaf_depth_sum;
-	int max_leaf_depth;
-	int num_interior_nodes;
-	int num_arbitrary_split_leaves;
+	BVHBuildStats stats;
 
 	double split_search_time;
 	double partition_time;

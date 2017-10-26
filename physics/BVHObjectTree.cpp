@@ -330,17 +330,6 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 
 	//conPrint("\tBVHObjectTree conversion done  (Elapsed: " + timer2.elapsedStringNPlaces(4) + ")");
 
-	/*printVar(builder.num_maxdepth_leaves);
-	printVar(builder.num_under_thresh_leaves);
-	printVar(builder.num_cheaper_nosplit_leaves);
-	printVar(builder.num_could_not_split_leaves);
-	printVar(builder.num_leaves);
-	printVar(builder.max_num_tris_per_leaf);
-	printVar(builder.leaf_depth_sum);
-	printVar(builder.max_leaf_depth);
-	printVar(builder.num_interior_nodes);
-	printVar(builder.num_arbitrary_split_leaves);
-	conPrint("av leaf depth: " + toString((float)builder.leaf_depth_sum / builder.num_leaves));*/
 
 	// Don't need objects array any more.
 	objects.clearAndFreeMem();
