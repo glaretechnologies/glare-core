@@ -92,9 +92,9 @@ struct PerThreadTempInfo
 
 struct PerAxisThreadTempInfo
 {
-	js::Vector<js::AABBox, 16> split_left_aabb;
+	js::Vector<float, 16> split_left_half_area;
 
-	size_t dataSizeBytes() const { return split_left_aabb.dataSizeBytes(); }
+	size_t dataSizeBytes() const { return split_left_half_area.dataSizeBytes(); }
 };
 
 
@@ -185,7 +185,7 @@ private:
 	std::vector<PerThreadTempInfo> per_thread_temp_info;
 	std::vector<PerAxisThreadTempInfo> per_axis_thread_temp_info;
 
-	js::Vector<js::AABBox, 16> split_left_aabb;
+	js::Vector<float, 16> split_left_half_area;
 
 	IndigoAtomic next_result_chunk; // Index of next free result chunk
 	js::Vector<ResultChunk, 16> result_chunks;

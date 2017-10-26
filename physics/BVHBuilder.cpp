@@ -327,7 +327,7 @@ void BVHBuilder::build(
 #endif
 
 
-	split_left_aabb.resizeNoCopy(num_objects);
+	split_left_half_area.resizeNoCopy(num_objects);
 
 	// Reserve working space for each thread.
 	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getNumThreads();
@@ -340,7 +340,7 @@ void BVHBuilder::build(
 	{
 		per_axis_thread_temp_info.resize(3);
 		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
-			per_axis_thread_temp_info[i].split_left_aabb.resizeNoCopy(num_objects);
+			per_axis_thread_temp_info[i].split_left_half_area.resizeNoCopy(num_objects);
 	}
 
 	/*
@@ -492,10 +492,10 @@ void BVHBuilder::build(
 		conPrint("per_axis_thread_temp_info: " + getNiceByteSize(total_per_axis_size));
 
 		conPrint("result_chunks:             " + getNiceByteSize(result_chunks.dataSizeBytes()));
-		conPrint("split_left_aabb:           " + getNiceByteSize(split_left_aabb.dataSizeBytes()));
+		conPrint("split_left_half_area:      " + getNiceByteSize(split_left_half_area.dataSizeBytes()));
 		conPrint("result_nodes_out:          " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
 		
-		const size_t total_size = objects_a[0].dataSizeBytes() * 6 + total_per_thread_size + total_per_axis_size + result_chunks.dataSizeBytes() + split_left_aabb.dataSizeBytes() +
+		const size_t total_size = objects_a[0].dataSizeBytes() * 6 + total_per_thread_size + total_per_axis_size + result_chunks.dataSizeBytes() + split_left_half_area.dataSizeBytes() +
 			result_nodes_out.dataSizeBytes();
 		
 		conPrint("total:                     " + getNiceByteSize(total_size));
@@ -545,21 +545,26 @@ Cost estimate for intersecting a ray against an unsplit node:
 
 C_nosplit = N * C_inter                                                                 (2)
 */
-static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Vector<js::AABBox, 16>& split_left_aabb, int axis, int left, int right,
-	float& smallest_split_cost_factor_in_out, int& best_N_L_in_out, int& best_axis_in_out, float& best_div_val_in_out, js::AABBox& best_left_aabb_in_out, js::AABBox& best_right_aabb_in_out)
+static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Vector<float, 16>& split_left_half_area, int axis, int left, int right,
+	float& smallest_split_cost_factor_in_out, int& best_N_L_in_out, int& best_axis_in_out, float& best_div_val_in_out, js::AABBox& best_right_aabb_in_out)
 {
 	const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
-	js::AABBox* const use_split_left_aabb = split_left_aabb.data();
+	float* const use_split_left_half_area = split_left_half_area.data();
 
-	// Do a forwards sweep over all the objects for this subtree, computing the union AABB for the prefix along this axis
+	// Do a forwards sweep over all the objects for this subtree, computing half surface area for the union AABB for the prefix along this axis
 	Vec4f prefix_min(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
 	Vec4f prefix_max(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
 	for(int i=left; i<right; ++i)
 	{
 		prefix_min = min(prefix_min, axis_obs[i].aabb.min_);
 		prefix_max = max(prefix_max, axis_obs[i].aabb.max_);
-		use_split_left_aabb[i].min_ = prefix_min;
-		use_split_left_aabb[i].max_ = prefix_max;
+
+		// Compute half surface area (see AABBox::getHalfSurfaceArea())
+		const Vec4f diff(prefix_max - prefix_min);
+		const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = diff.x[0]*diff.x[2] + diff.x[1]*diff.x[0] + diff.x[2]*diff.x[1]
+		const float half_area = res[0] + res[1] + res[2];
+
+		use_split_left_half_area[i] = half_area;
 	}
 
 	/*
@@ -588,7 +593,6 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 	int best_N_L = best_N_L_in_out;
 	int best_axis = best_axis_in_out;
 	float best_div_val = best_div_val_in_out;
-	js::AABBox best_left_aabb = best_left_aabb_in_out;
 	js::AABBox best_right_aabb = best_right_aabb_in_out;
 
 	// For Each object centroid:
@@ -598,27 +602,27 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 	int N_R = 1;
 	for(int i=right-2; i>=left; --i) // i = index of last object assigned to the left.  Start with 1 object assigned to right child node, go down to 1 object assigned to left child node.
 	{
-		const js::AABBox left_aabb = use_split_left_aabb[i];
+		const float left_aabb_half_area = use_split_left_half_area[i];
 		const float splitval = axis_obs[i].aabb.centroid()[axis]; // centre[axis];
 
 #ifndef NDEBUG
 		// Check that our AABB calculations are correct:
 		// NOTE: this check is disabled because it is quite slow.
-		/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
+		js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
 		for(int t=left; t<=i; ++t)
-		ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
+			ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
 		js::AABBox ref_right_aabb = js::AABBox::emptyAABBox();
 		for(int t=i+1; t<right; ++t)
-		ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
+			ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
-		assert(ref_left_aabb == left_aabb);
-		assert(ref_right_aabb == right_aabb);*/
+		assert(ref_left_aabb.getHalfSurfaceArea() == left_aabb_half_area);
+		assert(ref_right_aabb == right_aabb);
 #endif
 
 		assert(N_L == (i - left) + 1 && N_R == (right - left) - N_L);
 
-		const float cost_factor = N_L * left_aabb.getHalfSurfaceArea() + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
+		const float cost_factor = N_L * left_aabb_half_area + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
 
 		if(cost_factor < smallest_split_cost_factor && splitval != last_split_val) // If this is the smallest cost so far, and this is the first such split position seen:
 		{
@@ -626,7 +630,6 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 			best_axis = axis;
 			smallest_split_cost_factor = cost_factor;
 			best_div_val = splitval;
-			best_left_aabb = left_aabb;
 			best_right_aabb = right_aabb;
 		}
 
@@ -652,7 +655,6 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 	best_axis_in_out = best_axis;
 	smallest_split_cost_factor_in_out = smallest_split_cost_factor;
 	best_div_val_in_out = best_div_val;
-	best_left_aabb_in_out  = best_left_aabb;
 	best_right_aabb_in_out = best_right_aabb;
 }
 
@@ -670,8 +672,8 @@ public:
 		best_div_val = 0;
 		int best_axis = 0; // not used
 
-		searchAxisForBestSplit(cur_objects, builder.per_axis_thread_temp_info[thread_index].split_left_aabb, axis, left, right, 
-			smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_left_aabb, best_right_aabb);
+		searchAxisForBestSplit(cur_objects, builder.per_axis_thread_temp_info[thread_index].split_left_half_area, axis, left, right,
+			smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_right_aabb);
 	}
 
 	BVHBuilder& builder;
@@ -684,7 +686,6 @@ public:
 	float smallest_split_cost_factor;
 	int best_N_L;
 	float best_div_val;
-	js::AABBox best_left_aabb;
 	js::AABBox best_right_aabb;
 };
 
@@ -837,7 +838,6 @@ void BVHBuilder::doBuild(
 	int best_N_L = -1;
 	int best_axis = -1;
 	float best_div_val = 0;
-	js::AABBox best_left_aabb;
 	js::AABBox best_right_aabb;
 
 	//conPrint("Looking for best split...");
@@ -869,7 +869,6 @@ void BVHBuilder::doBuild(
 				smallest_split_cost_factor = tasks[axis]->smallest_split_cost_factor;
 				best_axis = tasks[axis]->axis;
 				best_div_val = tasks[axis]->best_div_val;
-				best_left_aabb = tasks[axis]->best_left_aabb;
 				best_right_aabb = tasks[axis]->best_right_aabb;
 			}
 		}
@@ -878,8 +877,8 @@ void BVHBuilder::doBuild(
 	{
 		for(unsigned int axis=0; axis<3; ++axis)
 		{
-			searchAxisForBestSplit(cur_objects, split_left_aabb, axis, left, right,
-				smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_left_aabb, best_right_aabb);
+			searchAxisForBestSplit(cur_objects, this->split_left_half_area, axis, left, right,
+				smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_right_aabb);
 		}
 	}
 
@@ -892,7 +891,7 @@ void BVHBuilder::doBuild(
 		return;
 	}
 
-	assert(aabb.containsAABBox(best_left_aabb) && aabb.containsAABBox(best_right_aabb));
+	assert(aabb.containsAABBox(best_right_aabb));
 
 	// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
 	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
@@ -998,6 +997,18 @@ void BVHBuilder::doBuild(
 		return;
 	}
 
+	// Compute left child AABB
+	Vec4f left_min( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f);
+	Vec4f left_max(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f);
+	for(int i=left; i<left + best_N_L; ++i)
+	{
+		left_min = min(left_min, other_objects[0][i].aabb.min_);
+		left_max = max(left_max, other_objects[0][i].aabb.max_);
+	}
+	js::AABBox left_aabb(left_min, left_max);
+	setAABBWToOne(left_aabb);
+
+	assert(aabb.containsAABBox(left_aabb));
 
 	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
 	//timer.reset();
@@ -1029,7 +1040,6 @@ void BVHBuilder::doBuild(
 
 
 	// Mark this node as an interior node.
-	setAABBWToOne(best_left_aabb);
 	setAABBWToOne(best_right_aabb);
 	chunk_nodes[node_index].interior = true;
 	chunk_nodes[node_index].aabb = aabb;
@@ -1042,7 +1052,7 @@ void BVHBuilder::doBuild(
 	// Build left child
 	doBuild(
 		thread_temp_info,
-		best_left_aabb, // aabb
+		left_aabb, // aabb
 		left_child, // node index
 		left, // left
 		split_i, // right
