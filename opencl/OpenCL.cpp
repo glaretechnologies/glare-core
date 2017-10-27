@@ -68,7 +68,10 @@ void OpenCL::libraryInit()
 	opencl_paths.push_back("OpenCL.dll");
 #elif defined(__linux__)
 	opencl_paths.push_back("libOpenCL.so");
+	// The following names are the names the nvidia provides libOpenCL as on Ubuntu Linux
 	opencl_paths.push_back("libOpenCL.so.1");
+	opencl_paths.push_back("libOpenCL.so.1.0");
+	opencl_paths.push_back("libOpenCL.so.1.0.0");
 #endif
 
 	size_t searched_paths = 0;
