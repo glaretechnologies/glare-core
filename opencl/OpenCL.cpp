@@ -60,45 +60,16 @@ OpenCL::~OpenCL()
 
 void OpenCL::libraryInit()
 {
+#if defined(_WIN32) || defined(__linux__)
+
 	std::vector<std::string> opencl_paths;
 
 #if defined(_WIN32)
 	opencl_paths.push_back("OpenCL.dll");
-/*
-	try // ATI/AMD OpenCL
-	{
-		std::string ati_sdk_root = PlatformUtils::getEnvironmentVariable("ATISTREAMSDKROOT");
-	#if defined(_WIN64)
-		if(verbose) conPrint("Detected ATI 64 bit OpenCL SDK at " + ati_sdk_root);
-		opencl_paths.push_back(ati_sdk_root + "bin\\x86_64\\atiocl64.dll");
-	#else
-		if(verbose) conPrint("Detected ATI 32 bit OpenCL SDK at " + ati_sdk_root);
-		opencl_paths.push_back(ati_sdk_root + "bin\\x86\\atiocl.dll");
-	#endif
-	}
-	catch(PlatformUtils::PlatformUtilsExcep&) { } // No ATI/AMD OpenCL found
-
-	try // Intel OpenCL
-	{
-		std::string intel_sdk_root = PlatformUtils::getEnvironmentVariable("INTELOCLSDKROOT");
-
-	#if defined(_WIN64)
-		if(verbose) conPrint("Detected Intel 64 bit OpenCL SDK at " + intel_sdk_root);
-		opencl_paths.push_back(intel_sdk_root + "bin\\x64\\intelocl.dll");
-	#else
-		if(verbose) conPrint("Detected Intel 64 bit OpenCL SDK at " + intel_sdk_root);
-		opencl_paths.push_back(intel_sdk_root + "bin\\x86\\intelocl.dll");
-	#endif
-	}
-	catch(PlatformUtils::PlatformUtilsExcep&) { } // No Intel OpenCL found
-*/
-#else
+#elif defined(__linux__)
 	opencl_paths.push_back("libOpenCL.so");
-#endif
-
-
-#if defined(_WIN32) || defined(__linux__)
 	opencl_paths.push_back("libOpenCL.so.1");
+#endif
 
 	size_t searched_paths = 0;
 	for( ; searched_paths < opencl_paths.size(); ++searched_paths)
