@@ -19,6 +19,11 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/ProfilerStore.h"
 
 
+// For some reason, using incorrect SAH (not tight bounds on each child, but just using splitting plane to compute bounds) results in better trees.
+// So leave this code for 4.0.x until we figure this out.
+#define USE_INCORRECT_SAH 1
+
+
 BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
@@ -545,11 +550,31 @@ Cost estimate for intersecting a ray against an unsplit node:
 
 C_nosplit = N * C_inter                                                                 (2)
 */
-static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Vector<float, 16>& split_left_half_area, int axis, int left, int right,
+static void searchAxisForBestSplit(const js::AABBox& aabb, const js::Vector<Ob, 64>* cur_objects, js::Vector<float, 16>& split_left_half_area, int axis, int left, int right,
 	float& smallest_split_cost_factor_in_out, int& best_N_L_in_out, int& best_axis_in_out, float& best_div_val_in_out, js::AABBox& best_right_aabb_in_out)
 {
 	const js::Vector<Ob, 64>& axis_obs = cur_objects[axis];
 	float* const use_split_left_half_area = split_left_half_area.data();
+
+#if USE_INCORRECT_SAH
+	float cap_area, cap_half_circum;
+	Vec4f aabb_diff(aabb.max_ - aabb.min_);
+	if(axis == 0)
+	{
+		cap_area        = aabb_diff[1] * aabb_diff[2];
+		cap_half_circum = aabb_diff[1] + aabb_diff[2];
+	}
+	else if(axis == 1)
+	{
+		cap_area        = aabb_diff[0] * aabb_diff[2];
+		cap_half_circum = aabb_diff[0] + aabb_diff[2];
+	}
+	else
+	{
+		cap_area        = aabb_diff[0] * aabb_diff[1];
+		cap_half_circum = aabb_diff[0] + aabb_diff[1];
+	}
+#endif
 
 	// Do a forwards sweep over all the objects for this subtree, computing half surface area for the union AABB for the prefix along this axis
 	Vec4f prefix_min(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), 1.0f);
@@ -560,10 +585,14 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 		prefix_max = max(prefix_max, axis_obs[i].aabb.max_);
 
 		// Compute half surface area (see AABBox::getHalfSurfaceArea())
+#if USE_INCORRECT_SAH
+		const Vec4f diff(prefix_max - aabb.min_);
+		const float half_area = cap_area + cap_half_circum * diff[axis];
+#else
 		const Vec4f diff(prefix_max - prefix_min);
 		const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = diff.x[0]*diff.x[2] + diff.x[1]*diff.x[0] + diff.x[2]*diff.x[1]
 		const float half_area = res[0] + res[1] + res[2];
-
+#endif
 		use_split_left_half_area[i] = half_area;
 	}
 
@@ -608,7 +637,7 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 #ifndef NDEBUG
 		// Check that our AABB calculations are correct:
 		// NOTE: this check is disabled because it is quite slow.
-		js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
+		/*js::AABBox ref_left_aabb = js::AABBox::emptyAABBox();
 		for(int t=left; t<=i; ++t)
 			ref_left_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
@@ -617,12 +646,19 @@ static void searchAxisForBestSplit(const js::Vector<Ob, 64>* cur_objects, js::Ve
 			ref_right_aabb.enlargeToHoldAABBox(axis_obs[t].aabb);
 
 		assert(ref_left_aabb.getHalfSurfaceArea() == left_aabb_half_area);
-		assert(ref_right_aabb == right_aabb);
+		assert(ref_right_aabb == right_aabb);*/
 #endif
 
 		assert(N_L == (i - left) + 1 && N_R == (right - left) - N_L);
 
-		const float cost_factor = N_L * left_aabb_half_area + N_R * right_aabb.getHalfSurfaceArea(); // Compute SAH cost factor
+		float right_half_area;
+#if USE_INCORRECT_SAH
+		const Vec4f diff(aabb.max_ - right_aabb.min_);
+		right_half_area = cap_area + cap_half_circum * diff[axis];
+#else
+		right_half_area = right_aabb.getHalfSurfaceArea();
+#endif
+		const float cost_factor = N_L * left_aabb_half_area + N_R * right_half_area; // Compute SAH cost factor
 
 		if(cost_factor < smallest_split_cost_factor && splitval != last_split_val) // If this is the smallest cost so far, and this is the first such split position seen:
 		{
@@ -672,10 +708,11 @@ public:
 		best_div_val = 0;
 		int best_axis = 0; // not used
 
-		searchAxisForBestSplit(cur_objects, builder.per_axis_thread_temp_info[thread_index].split_left_half_area, axis, left, right,
+		searchAxisForBestSplit(aabb, cur_objects, builder.per_axis_thread_temp_info[thread_index].split_left_half_area, axis, left, right,
 			smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_right_aabb);
 	}
 
+	js::AABBox aabb;
 	BVHBuilder& builder;
 	js::Vector<Ob, 64>* cur_objects;
 	int axis; // Axis to search along.
@@ -856,6 +893,7 @@ void BVHBuilder::doBuild(
 			tasks[axis]->axis = axis;
 			tasks[axis]->left = left;
 			tasks[axis]->right = right;
+			tasks[axis]->aabb = aabb;
 			local_task_manager->addTask(tasks[axis]);
 		}
 
@@ -877,7 +915,7 @@ void BVHBuilder::doBuild(
 	{
 		for(unsigned int axis=0; axis<3; ++axis)
 		{
-			searchAxisForBestSplit(cur_objects, this->split_left_half_area, axis, left, right,
+			searchAxisForBestSplit(aabb, cur_objects, this->split_left_half_area, axis, left, right,
 				smallest_split_cost_factor, best_N_L, best_axis, best_div_val, best_right_aabb);
 		}
 	}
