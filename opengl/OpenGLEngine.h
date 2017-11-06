@@ -186,6 +186,8 @@ public:
 	void setEnvMat(const OpenGLMaterial& env_mat);
 	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
 
+	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
+
 
 	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
 
@@ -334,6 +336,8 @@ private:
 	OpenGLMaterial outline_edge_mat; // Material for drawing the actual edge overlay.
 
 	std::unordered_set<GLObject*> selected_objects;
+
+	bool draw_wireframes;
 
 public:
 	bool anisotropic_filtering_supported;

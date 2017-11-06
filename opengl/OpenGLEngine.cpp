@@ -42,7 +42,8 @@ static const bool MEM_PROFILE = false;
 OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
 	anisotropic_filtering_supported(false),
-	settings(settings_)
+	settings(settings_),
+	draw_wireframes(false)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -1269,6 +1270,9 @@ void OpenGLEngine::draw()
 	}
 	
 
+	if(draw_wireframes)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 	// Draw non-transparent batches from objects.
 	uint64 num_frustum_culled = 0;
 	for(size_t i=0; i<objects.size(); ++i)
@@ -1322,6 +1326,8 @@ void OpenGLEngine::draw()
 	}
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	glDisable(GL_BLEND);
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 
 	// Draw camera frustum for debugging purposes.
