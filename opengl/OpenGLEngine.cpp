@@ -1270,9 +1270,6 @@ void OpenGLEngine::draw()
 	}
 	
 
-	if(draw_wireframes)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
 	// Draw non-transparent batches from objects.
 	uint64 num_frustum_culled = 0;
 	for(size_t i=0; i<objects.size(); ++i)
@@ -1298,6 +1295,35 @@ void OpenGLEngine::draw()
 			num_frustum_culled++;
 	}
 
+	// Draw wireframes if required.
+	if(draw_wireframes)
+	{
+		// Use outline shaders for now as they just generate white fragments, which is what we want.
+		OpenGLMaterial wire_mat;
+		wire_mat.shader_prog = outline_prog;
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+		// Offset the lines so they draw in front of the filled polygons.
+		glEnable(GL_POLYGON_OFFSET_LINE);
+		glPolygonOffset(0.f, -1.0f);
+
+		for(size_t i=0; i<objects.size(); ++i)
+		{
+			const GLObject* const ob = objects[i].getPointer();
+			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, mesh_data, mesh_data.batches[z]);
+				unbindMeshData(mesh_data);
+			}
+		}
+
+		glDisable(GL_POLYGON_OFFSET_LINE);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
 
 	// Draw transparent batches
 	glEnable(GL_BLEND);
