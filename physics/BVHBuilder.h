@@ -27,6 +27,7 @@ struct ResultNode
 	
 	int right_child_chunk_index; // valid if interior: -1 if right child is in the same chunk as this node, otherwise set to the index of the chunk the right child node is in.  For internal builder use.
 	bool interior;
+	uint8 depth;
 
 
 	inline void operator = (const ResultNode& other)

@@ -21,7 +21,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 
 // For some reason, using incorrect SAH (not tight bounds on each child, but just using splitting plane to compute bounds) results in better trees.
 // So leave this code for 4.0.x until we figure this out.
-#define USE_INCORRECT_SAH 1
+//#define USE_INCORRECT_SAH 1
 
 
 BVHBuilder::BVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
@@ -263,6 +263,7 @@ void BVHBuilder::build(
 		result_nodes_out[0].interior = false;
 		result_nodes_out[0].left = 0;
 		result_nodes_out[0].right = 0;
+		result_nodes_out[0].depth = 0;
 
 
 		stats.num_under_thresh_leaves = 1;
@@ -851,6 +852,7 @@ void BVHBuilder::doBuild(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
+		chunk_nodes[node_index].depth = depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -941,6 +943,7 @@ void BVHBuilder::doBuild(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
+		chunk_nodes[node_index].depth = depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -1084,6 +1087,7 @@ void BVHBuilder::doBuild(
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
+	chunk_nodes[node_index].depth = depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
@@ -1176,6 +1180,7 @@ void BVHBuilder::doArbitrarySplits(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
+		chunk_nodes[node_index].depth = depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -1218,6 +1223,7 @@ void BVHBuilder::doArbitrarySplits(
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
+	chunk_nodes[node_index].depth = depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
