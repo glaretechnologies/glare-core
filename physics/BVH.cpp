@@ -8,7 +8,7 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 
 
 #include "BVHImpl.h"
-#include "BVHBuilder.h"
+#include "BinningBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
@@ -75,7 +75,7 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 		root_aabb.enlargeToHoldAABBox(tri_aabbs[i]);
 	}
 
-	BVHBuilder builder(
+	BinningBVHBuilder builder(
 		4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
 		BVHNode::maxNumGeom(), // max_num_objects_per_leaf
 		4.f // intersection_cost.
