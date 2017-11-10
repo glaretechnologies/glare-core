@@ -70,6 +70,8 @@ void OpenSSL::shutdown()
 		mutexes[i].~Mutex();
 
 	free(mutexes);
+
+	mutexes = NULL;
 }
 
 
