@@ -485,45 +485,47 @@ void BVHBuilder::build(
 	{
 		const double build_time = build_timer.elapsed();
 
-		conPrint("objects:                   " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
+		conPrint("---------------------");
+		conPrint("Mem usage:");
+		conPrint("objects:                    " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
 
 		size_t total_per_thread_size = 0;
 		for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 			total_per_thread_size += per_thread_temp_info[i].dataSizeBytes();
-		conPrint("per_thread_temp_info:      " + getNiceByteSize(total_per_thread_size));
+		conPrint("per_thread_temp_info:       " + getNiceByteSize(total_per_thread_size));
 
 		size_t total_per_axis_size = 0;
 		for(size_t i=0; i<per_axis_thread_temp_info.size(); ++i)
 			total_per_axis_size += per_axis_thread_temp_info[i].dataSizeBytes();
-		conPrint("per_axis_thread_temp_info: " + getNiceByteSize(total_per_axis_size));
+		conPrint("per_axis_thread_temp_info:  " + getNiceByteSize(total_per_axis_size));
 
-		conPrint("result_chunks:             " + getNiceByteSize(result_chunks.dataSizeBytes()));
-		conPrint("split_left_half_area:      " + getNiceByteSize(split_left_half_area.dataSizeBytes()));
-		conPrint("result_nodes_out:          " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
+		conPrint("result_chunks:              " + getNiceByteSize(result_chunks.dataSizeBytes()));
+		conPrint("split_left_half_area:       " + getNiceByteSize(split_left_half_area.dataSizeBytes()));
+		conPrint("result_nodes_out:           " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
 		
 		const size_t total_size = objects_a[0].dataSizeBytes() * 6 + total_per_thread_size + total_per_axis_size + result_chunks.dataSizeBytes() + split_left_half_area.dataSizeBytes() +
 			result_nodes_out.dataSizeBytes();
 		
-		conPrint("total:                     " + getNiceByteSize(total_size));
+		conPrint("total:                      " + getNiceByteSize(total_size));
+		conPrint("");
 
-		//conPrint("");
 		//conPrint("split_search_time: " + toString(split_search_time) + " s");
 		//conPrint("partition_time:    " + toString(partition_time) + " s");
 
-		printVar(stats.num_maxdepth_leaves);
-		printVar(stats.num_under_thresh_leaves);
-		printVar(stats.num_cheaper_nosplit_leaves);
-		printVar(stats.num_could_not_split_leaves);
-		printVar(stats.num_leaves);
-		printVar(stats.max_num_tris_per_leaf);
-		printVar(stats.leaf_depth_sum);
-		printVar(stats.max_leaf_depth);
-		printVar(stats.num_interior_nodes);
-		printVar(stats.num_arbitrary_split_leaves);
-
-		conPrint("av leaf depth: " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
-
+		conPrint("Num triangles:              " + toString(objects_a[0].size()));
+		conPrint("num interior nodes:         " + toString(stats.num_interior_nodes));
+		conPrint("num leaves:                 " + toString(stats.num_leaves));
+		conPrint("num maxdepth leaves:        " + toString(stats.num_maxdepth_leaves));
+		conPrint("num under_thresh leaves:    " + toString(stats.num_under_thresh_leaves));
+		conPrint("num cheaper nosplit leaves: " + toString(stats.num_cheaper_nosplit_leaves));
+		conPrint("num could not split leaves: " + toString(stats.num_could_not_split_leaves));
+		conPrint("num arbitrary split leaves: " + toString(stats.num_arbitrary_split_leaves));
+		conPrint("av num tris per leaf:       " + toString((float)objects_a[0].size() / stats.num_leaves));
+		conPrint("max num tris per leaf:      " + toString(stats.max_num_tris_per_leaf));
+		conPrint("av leaf depth:              " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
+		conPrint("max leaf depth:             " + toString(stats.max_leaf_depth));
 		conPrint("Build took " + doubleToStringNDecimalPlaces(build_time, 4) + " s");
+		conPrint("---------------------");
 	}
 }
 

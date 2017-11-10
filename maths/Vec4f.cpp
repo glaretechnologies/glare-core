@@ -259,6 +259,16 @@ void Vec4f::test()
 		testAssert(copyToAll<2>(a) == Vec4f(3));
 		testAssert(copyToAll<3>(a) == Vec4f(4));
 	}
+	
+	// Test elem
+	{
+		const Vec4f a(1, 2, 3, 4);
+
+		testAssert(elem<0>(a) == 1);
+		testAssert(elem<1>(a) == 2);
+		testAssert(elem<2>(a) == 3);
+		testAssert(elem<3>(a) == 4);
+	}
 
 	// Test swizzle
 	{
@@ -271,6 +281,27 @@ void Vec4f::test()
 
 		testAssert((swizzle<0, 1, 2, 3>(a) == a));
 		testAssert((swizzle<3, 2, 1, 0>(a) == Vec4f(4, 3, 2, 1)));
+	}
+
+	// Test floorToVec4i
+	{
+#if COMPILE_SSE4_CODE
+		testAssert(floorToVec4i(Vec4f(0.1f, 0.9f, 1.1f, 1.9f)) == Vec4i(0, 0, 1, 1));
+		testAssert(floorToVec4i(Vec4f(-0.1f, -0.9f, -1.1f, -1.9f)) == Vec4i(-1, -1, -2, -2));
+#endif
+	}
+	
+	// Test truncateToVec4i
+	{
+		testAssert(truncateToVec4i(Vec4f(0.1f, 0.9f, 1.1f, 1.9f)) == Vec4i(0, 0, 1, 1));
+		testAssert(truncateToVec4i(Vec4f(-0.1f, -0.9f, -1.1f, -1.9f)) == Vec4i(0, 0, -1, -1));
+	}
+
+	// Test abs
+	{
+		testAssert(abs(Vec4f(1.0f, -2.0f, 3.0f, -4.0)) == Vec4f(1.0f, 2.0f, 3.0f, 4.0f));
+		testAssert(abs(Vec4f(0,0,0,0)) == Vec4f(0,0,0,0));
+		testAssert(abs(Vec4f(std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())) == Vec4f(std::numeric_limits<float>::infinity()));
 	}
 
 

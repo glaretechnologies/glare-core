@@ -34,6 +34,7 @@ public:
 	INDIGO_STRONG_INLINE AABBox();
 	INDIGO_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);
 
+	INDIGO_STRONG_INLINE AABBox& operator = (const AABBox& rhs) { min_ = rhs.min_; max_ = rhs.max_; return *this; }
 	inline bool operator == (const AABBox& rhs) const;
 
 	inline bool contains(const Vec4f& p) const;

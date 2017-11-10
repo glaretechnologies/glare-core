@@ -321,6 +321,10 @@ template <int index>
 INDIGO_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index, index, index, index)); } // SSE 1
 
 
+template<int index> 
+INDIGO_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1
+
+
 // Copy the elements of a vector to other elements.
 // For example, to reverse the elements: v = swizzle<3, 2, 1, 0>(v);
 // Note that the _MM_SHUFFLE macro takes indices in reverse order than usual.
@@ -351,6 +355,12 @@ INDIGO_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v)
 	return Vec4i(_mm_cvtps_epi32(_mm_round_ps(v.v, _MM_FROUND_FLOOR)));
 }
 #endif
+
+
+INDIGO_STRONG_INLINE Vec4i truncateToVec4i(const Vec4f& v)
+{
+	return Vec4i(_mm_cvttps_epi32(v.v));
+}
 
 
 INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)

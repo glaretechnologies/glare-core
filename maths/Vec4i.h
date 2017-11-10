@@ -30,6 +30,8 @@ public:
 	INDIGO_STRONG_INLINE int32& operator [] (unsigned int index) { return x[index]; }
 	INDIGO_STRONG_INLINE const int32& operator [] (unsigned int index) const { return x[index]; }
 
+	static void test();
+
 	union
 	{
 		int32 x[4];
@@ -47,6 +49,9 @@ inline bool operator == (const Vec4i& a, const Vec4i& b)
 
 template <int index>
 INDIGO_STRONG_INLINE const Vec4i copyToAll(const Vec4i& a) { return _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(a.v), _mm_castsi128_ps(a.v), _MM_SHUFFLE(index, index, index, index))); } // SSE 1
+
+template<int index>
+INDIGO_STRONG_INLINE int elem(const Vec4i& v) { return _mm_extract_epi32(v.v, index); } // SSE 4: pextrd
 
 
 //INDIGO_STRONG_INLINE const Vec4i operator * (const Vec4i& a, const Vec4i& b) { return _mm_mullo_epi32(a.v, b.v); } // SSE 4

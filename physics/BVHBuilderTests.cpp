@@ -8,6 +8,7 @@ Generated at 2015-09-28 16:25:21 +0100
 
 
 #include "BVHBuilder.h"
+#include "BinningBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/StandardPrintOutput.h"
@@ -63,15 +64,15 @@ static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int 
 }
 
 
-static void testResultsValid(BVHBuilder& builder, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs)
+static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs)
 {
-	checkNode(result_nodes, /*node_index=*/0, builder.getResultObjectIndices(), aabbs);
+	checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
 
 	// Test that the resulting object indices are a permutation of the original indices.
 	std::vector<bool> seen(aabbs.size(), false);
 	for(int z=0; z<(int)aabbs.size(); ++z)
 	{
-		const uint32 ob_i = builder.getResultObjectIndices()[z];
+		const uint32 ob_i = result_ob_indices[z];
 		testAssert(ob_i < (uint32)aabbs.size());
 		testAssert(!seen[ob_i]);
 		seen[ob_i] = true;
@@ -151,7 +152,7 @@ static void testBVHBuilderWithNRandomObjects(Indigo::TaskManager& task_manager, 
 		result_nodes
 	);
 
-	testResultsValid(builder, result_nodes, aabbs);
+	testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 }
 
 
@@ -185,7 +186,7 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 		result_nodes_out
 	);
 
-	testResultsValid(builder, result_nodes_out, aabbs);
+	testResultsValid(builder.getResultObjectIndices(), result_nodes_out, aabbs);
 }
 
 void test()
@@ -318,7 +319,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -346,7 +347,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -375,7 +376,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -477,7 +478,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 	}
 
 	//====================================================================
@@ -511,7 +512,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 	}
 
 	//====================================================================
@@ -549,7 +550,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 5);
 		testAssert(result_nodes[0].left == 1);
 		testAssert(result_nodes[0].right == 2);
@@ -609,7 +610,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, aabbs);
+		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 5);
 		testAssert(result_nodes[0].left == 1);
 		testAssert(result_nodes[0].right == 2);
@@ -687,7 +688,7 @@ void test()
 				result_nodes
 			);
 
-			testResultsValid(builder, result_nodes, aabbs);
+			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		}
 	}
 
@@ -739,20 +740,20 @@ void test()
 			);
 		}
 	}
-	
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)
 	{
 		const int num_objects = 2000000;
 
+		MTwister rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
 		for(int z=0; z<num_objects; ++z)
 		{
-			const Vec4f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1);
+			const Vec4f p(rng_.unitRandom(), rng_.unitRandom(), rng_.unitRandom(), 1);
 			aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
 		}
 
-		for(int q=0; q<20; ++q)
+		for(int q=0; q<200; ++q)
 		{
 			//conPrint("------------- perf test --------------");
 			Timer timer;
@@ -771,7 +772,7 @@ void test()
 
 			conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
 
-			testResultsValid(builder, result_nodes, aabbs);
+			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		}
 	}
 
