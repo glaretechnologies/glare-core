@@ -6,7 +6,6 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 =====================================================================*/
 #ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
-#include "../indigo/EmbreeInstance.h"
 #endif
 
 #include "raymesh.h"
@@ -836,73 +835,51 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 
 	
 #ifndef NO_EMBREE
-	bool have_sse3 = false;
 	//bool try_spatial = false;
-	bool embree_os_ok = EmbreeInstance::isNonNull();
-	bool embree_mem_ok = false;
 	bool embree_spatial = false;
 
-	if(embree_os_ok) // Do some extra checks if embree accelerator desired
+	/*if(try_spatial)
 	{
+		// Estimate memory usage for the embree accelerator and try to allocate it
+		size_t embree_spatial_mem = EmbreeAccel::estimateSpatialBuildMemoryUsage(triangles.size());
+		//std::cout << "Estimated embree spatial build memory usage: " << (embree_spatial_mem / 1024) << " kb" << std::endl;
 		try
 		{
-			PlatformUtils::CPUInfo cpu_info;
-			PlatformUtils::getCPUInfo(cpu_info);
-
-			have_sse3 = cpu_info.sse3;
-		}
-		catch(PlatformUtils::PlatformUtilsExcep&)
-		{
-		}
-
-		// Disabled this mem allocation checking code, for now, for a few reasons - it's slow (OS may automatically zero allocated memory etc..)
-		// It may cause fragmentation, It will probably always succeed on Linux anyway, 
-		// Embree may use <= the amount of mem Indigo uses for BVH building now, people have more RAM now that when this code was first added, etc.. etc..
-		embree_mem_ok = true;
-
-		/*if(try_spatial)
-		{
-			// Estimate memory usage for the embree accelerator and try to allocate it
-			size_t embree_spatial_mem = EmbreeAccel::estimateSpatialBuildMemoryUsage(triangles.size());
-			//std::cout << "Estimated embree spatial build memory usage: " << (embree_spatial_mem / 1024) << " kb" << std::endl;
-			try
+			char *big_mem = new char[embree_spatial_mem];
+			if(big_mem != NULL)
 			{
-				char *big_mem = new char[embree_spatial_mem];
-				if(big_mem != NULL)
-				{
-					delete [] big_mem;
-					embree_mem_ok = true; // Flag that we can allocate enough memory,
-					embree_spatial = true; //  for the spatial BVH builder
-				}
-			}
-			catch(std::bad_alloc&)
-			{
-			}
-		}
-
-		if(!embree_spatial) // If we failed to allocate enough memory for the spatial BVH, try non-spatial
-		{
-			size_t embree_mem = EmbreeAccel::estimateBuildMemoryUsage(triangles.size());
-			//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
-			try
-			{
-				char* big_mem = new char[embree_mem];
-				delete[] big_mem;
+				delete [] big_mem;
 				embree_mem_ok = true; // Flag that we can allocate enough memory,
-				embree_spatial = false; // but not for the spatial BVH builder
+				embree_spatial = true; //  for the spatial BVH builder
 			}
-			catch(std::bad_alloc&)
-			{
-				print_output.print("Warning: insufficient memory for fast BVH");
-			}
-		}*/
+		}
+		catch(std::bad_alloc&)
+		{
+		}
 	}
+
+	if(!embree_spatial) // If we failed to allocate enough memory for the spatial BVH, try non-spatial
+	{
+		size_t embree_mem = EmbreeAccel::estimateBuildMemoryUsage(triangles.size());
+		//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
+		try
+		{
+			char* big_mem = new char[embree_mem];
+			delete[] big_mem;
+			embree_mem_ok = true; // Flag that we can allocate enough memory,
+			embree_spatial = false; // but not for the spatial BVH builder
+		}
+		catch(std::bad_alloc&)
+		{
+			print_output.print("Warning: insufficient memory for fast BVH");
+		}
+	}*/
 #endif
 
 	try
 	{
 #ifndef NO_EMBREE
-		if(embree_os_ok && have_sse3 && embree_mem_ok && triangles.size() < (1 << 26))
+		if(triangles.size() < (1 << 26))
 		{
 			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
 			tritree = embree_accel;

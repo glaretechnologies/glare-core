@@ -9,7 +9,6 @@ Code By Nicholas Chapman.
 
 #ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
-#include "../indigo/EmbreeInstance.h"
 #endif
 #include "KDTree.h"
 #include "BVH.h"
@@ -417,9 +416,6 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, true, task_manager);
 #ifndef NO_EMBREE
-	// We want to test Embree, so let's require that the Embree DLL has been successfully loaded.
-	testAssert(EmbreeInstance::isNonNull());
-
 	trees.push_back(new EmbreeAccel(&raymesh, true));
 	trees.back()->build(print_output, true, task_manager);
 #endif
