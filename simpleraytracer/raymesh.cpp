@@ -881,8 +881,7 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 #ifndef NO_EMBREE
 		if(triangles.size() < (1 << 26))
 		{
-			EmbreeAccel *embree_accel = new EmbreeAccel(this, embree_spatial);
-			tritree = embree_accel;
+			tritree = new EmbreeAccel(this, embree_spatial);;
 		}
 		else
 #endif
