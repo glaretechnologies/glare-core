@@ -485,7 +485,7 @@ void BVHBuilder::build(
 	{
 		const double build_time = build_timer.elapsed();
 
-		conPrint("---------------------");
+		conPrint("----------- BVHBuilder Build Stats ----------");
 		conPrint("Mem usage:");
 		conPrint("objects:                    " + getNiceByteSize(objects_a[0].dataSizeBytes() * 6));
 

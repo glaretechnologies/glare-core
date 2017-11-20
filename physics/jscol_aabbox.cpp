@@ -144,6 +144,16 @@ void js::AABBox::test()
 		testAssert(::epsEqual(far, 2.0f));
 	}
 
+	//----------------- Test isEmpty() -------------------
+	{
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).isEmpty());
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 1, 1, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 0, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 0, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 1, 0, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 1, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 1, 1)).isEmpty());
+	}
 
 	// Performance test
 	conPrint("rayAABBTrace() [float]");

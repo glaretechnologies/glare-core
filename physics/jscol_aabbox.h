@@ -46,6 +46,8 @@ public:
 	inline int disjoint(const AABBox& other) const; // Returns a non-zero value if AABBs are disjoint.
 	inline bool intersectsAABB(const AABBox& other) const;
 
+	INDIGO_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
+
 
 	INDIGO_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
@@ -122,10 +124,17 @@ bool AABBox::containsAABBox(const AABBox& other) const
 int AABBox::disjoint(const AABBox& other) const // Returns a non-zero value if AABBs are disjoint.
 {
 	// Compare the AABB bounds along each axis in parallel.
-	__m128 lower_separation = _mm_cmplt_ps(max_.v, other.min_.v); // [min.x < other.min.x, min.y < other.min.y, ...]
+	__m128 lower_separation = _mm_cmplt_ps(max_.v, other.min_.v); // [max.x < other.min.x, max.y < other.min.y, ...]
 	__m128 upper_separation = _mm_cmplt_ps(other.max_.v, min_.v) ;// [other.max.x < min.x, other.max.y < min.y, ...]
 	__m128 either = _mm_or_ps(lower_separation, upper_separation); // Will have a bit set if there is a separation on any axis
 	return _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+}
+
+
+int AABBox::isEmpty() const
+{
+	__m128 separation = _mm_cmplt_ps(max_.v, min_.v); // [max.x < min.x, max.y < min.y, ...]
+	return _mm_movemask_ps(separation); // Creates a 4-bit mask from the most significant bits
 }
 
 
@@ -271,6 +280,18 @@ bool AABBox::operator == (const AABBox& rhs) const
 inline bool epsEqual(const AABBox& a, const AABBox& b, float eps = (float)NICKMATHS_EPSILON)
 {
 	return epsEqual(a.min_, b.min_) && epsEqual(a.max_, b.max_);
+}
+
+
+INDIGO_STRONG_INLINE js::AABBox intersection(const js::AABBox& a, const js::AABBox& b)
+{
+	return js::AABBox(max(a.min_, b.min_), min(a.max_, b.max_));
+}
+
+
+INDIGO_STRONG_INLINE js::AABBox AABBUnion(const js::AABBox& a, const js::AABBox& b)
+{
+	return js::AABBox(min(a.min_, b.min_), max(a.max_, b.max_));
 }
 
 
