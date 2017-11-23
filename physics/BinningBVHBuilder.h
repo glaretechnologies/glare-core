@@ -57,22 +57,20 @@ struct BinningOb
 
 struct BinningPerThreadTempInfo
 {
-	js::Vector<ResultNode, 64> result_buf;
-
 	BinningBVHBuildStats stats;
-
-	size_t dataSizeBytes() const { return result_buf.dataSizeBytes(); }
 };
 
 
 struct BinningResultChunk
 {
-	int thread_index; // The index of the thread that computed this chunk.
-	int offset; // Offset in thread's result_buf
-	int size; // num nodes created by the task in thread's result_buf;
-	int original_index; // Index of this chunk in result_chunks, before sorting.
+	INDIGO_ALIGNED_NEW_DELETE
 
-	uint64 sort_key;
+	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
+	
+	ResultNode nodes[MAX_RESULT_CHUNK_SIZE];
+
+	size_t size;
+	size_t chunk_offset;
 };
 
 
@@ -81,26 +79,26 @@ BinningBVHBuilder
 -------------------
 Multi-threaded SAH BVH builder.
 =====================================================================*/
-class BinningBVHBuilder
+class BinningBVHBuilder : public BVHBuilder
 {
 public:
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
-	BinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost);
+	BinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost,
+		const js::AABBox* aabbs,
+		const int num_objects
+	);
 	~BinningBVHBuilder();
 
-	void build(
+	virtual void build(
 		Indigo::TaskManager& task_manager,
-		const js::AABBox* aabbs,
-		const int num_objects,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 	);
 
-	//typedef js::Vector<uint32, 16> ResultObIndicesVec;
-	const BVHBuilder::ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
+	const BVHBuilder::ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }
 
 	int getMaxLeafDepth() const { return stats.max_leaf_depth; } // Root node is considered to have depth 0.
 
@@ -110,6 +108,8 @@ public:
 	friend class BinningBuildSubtreeTask;
 
 private:
+	BinningResultChunk* allocNewResultChunk();
+
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
 		BinningPerThreadTempInfo& thread_temp_info,
@@ -120,30 +120,16 @@ private:
 		int right,
 		int depth,
 		uint64 sort_key,
-		BinningResultChunk& result_chunk
+		BinningResultChunk* result_chunk
 	);
-
-	// We may get multiple objects with the same bounding box.
-	// These objects can't be split in the usual way.
-	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
-	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
-	void doArbitrarySplits(
-		BinningPerThreadTempInfo& thread_temp_info,
-		const js::AABBox& aabb,
-		uint32 node_index,
-		int left, 
-		int right, 
-		int depth,
-		BinningResultChunk& result_chunk
-	);
-
 
 	const js::AABBox* aabbs;
 	js::Vector<BinningOb, 64> objects;
+	int m_num_objects;
 	std::vector<BinningPerThreadTempInfo> per_thread_temp_info;
 
-	IndigoAtomic next_result_chunk; // Index of next free result chunk
-	js::Vector<BinningResultChunk, 16> result_chunks;
+	std::vector<BinningResultChunk*> result_chunks;
+	Mutex result_chunks_mutex;
 
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
@@ -152,7 +138,6 @@ private:
 
 	js::Vector<uint32, 16> result_indices;
 public:
-	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;
 
 	BinningBVHBuildStats stats;

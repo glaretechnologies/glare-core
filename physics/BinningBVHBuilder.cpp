@@ -22,17 +22,19 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
 
-BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
+BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
+	const js::AABBox* aabbs_,
+	const int num_objects_
+)
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
-	intersection_cost(intersection_cost_)
+	intersection_cost(intersection_cost_),
+	aabbs(aabbs_),
+	m_num_objects(num_objects_)
 {
 	assert(intersection_cost > 0.f);
 
-	aabbs = NULL;
-
 	// See /wiki/index.php?title=BVH_Building for results on varying these settings.
-	axis_parallel_num_ob_threshold = 1 << 20;
 	new_task_num_ob_threshold = 1 << 9;
 
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
@@ -93,9 +95,8 @@ public:
 		ScopeProfiler _scope("BinningBuildSubtreeTask", (int)thread_index);
 
 		// Create subtree root node
-		const int root_node_index = (int)builder.per_thread_temp_info[thread_index].result_buf.size();
-		builder.per_thread_temp_info[thread_index].result_buf.push_back_uninitialised();
-		builder.per_thread_temp_info[thread_index].result_buf[root_node_index].right_child_chunk_index = -666;
+		const int root_node_index = 0;
+		result_chunk->size = 1;
 
 		builder.doBuild(
 			builder.per_thread_temp_info[thread_index],
@@ -103,13 +104,8 @@ public:
 			centroid_aabb,
 			root_node_index, // node index
 			begin, end, depth, sort_key,
-			*result_chunk
+			result_chunk
 		);
-
-		result_chunk->thread_index = (int)thread_index;
-		result_chunk->offset = root_node_index;
-		result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
-		result_chunk->sort_key = this->sort_key;
 	}
 
 	BinningBVHBuilder& builder;
@@ -123,20 +119,30 @@ public:
 };
 
 
-struct BinningResultChunkPred
+//struct BinningResultChunkPred
+//{
+//	bool operator () (const BinningResultChunk& a, const BinningResultChunk& b)
+//	{
+//		return a.sort_key < b.sort_key;
+//	}
+//};
+
+
+BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 {
-	bool operator () (const BinningResultChunk& a, const BinningResultChunk& b)
-	{
-		return a.sort_key < b.sort_key;
-	}
-};
+	BinningResultChunk* chunk = new BinningResultChunk();
+	chunk->size = 0;
+
+	Lock lock(result_chunks_mutex);
+	chunk->chunk_offset = result_chunks.size() * BinningResultChunk::MAX_RESULT_CHUNK_SIZE;
+	result_chunks.push_back(chunk);
+	return chunk;
+}
 
 
 // top-level build method
 void BinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
-		   const js::AABBox* aabbs_,
-		   const int num_objects,
 		   PrintOutput& print_output, 
 		   bool verbose, 
 		   js::Vector<ResultNode, 64>& result_nodes_out
@@ -154,7 +160,7 @@ void BinningBVHBuilder::build(
 	partition_time = 0;
 
 	this->task_manager = &task_manager_;
-	this->aabbs = aabbs_;
+	const int num_objects = this->m_num_objects;
 
 	if(num_objects <= 0)
 	{
@@ -193,64 +199,24 @@ void BinningBVHBuilder::build(
 	}
 	
 	
-	// Reserve working space for each thread.
-	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getNumThreads();
 	per_thread_temp_info.resize(task_manager->getNumThreads());
-	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
-		per_thread_temp_info[i].result_buf.reserve(initial_result_buf_reserve_cap);
-
-
-	/*
-	Consider the tree of chunk splits.
-	Each leaf (apart from if the root is a leaf) will have >= c objects, where c is the split threshold (as each child of a split must have >= c objects).
-	Each interior node will have >= m*c objects, where m is the number of child leaves.
-	Therefore the root node will have >= t*c objects, where t is the total number of leaves.
-
-	    num objects at each node (of the split tree:)
-	                        
-	                    * >= 3c
-	                   / \
-	                  /   \
-	            >= c *     * >= 2c
-	                      / \
-	                     /   \
-	               >= c *     * >= c
-	e.g.
-	n >= t * c
-	n/c >= t
-	t <= n/c
-	e.g. num interior nodes <= num objects / split threshold
-
-	*/
-	result_chunks.resizeNoCopy(myMax(1, num_objects / new_task_num_ob_threshold));
-
 
 	} // End scope for initial init
 
 
-	result_chunks[0].original_index = 0;
-	next_result_chunk++;
+	BinningResultChunk* root_chunk = allocNewResultChunk();
 
 	Reference<BinningBuildSubtreeTask> task = new BinningBuildSubtreeTask(*this);
 	task->begin = 0;
-	task->end = num_objects;
+	task->end = m_num_objects;
 	task->depth = 0;
 	task->sort_key = 1;
 	task->node_aabb = root_aabb;
 	task->centroid_aabb = centroid_aabb;
-	task->result_chunk = &result_chunks[0];
+	task->result_chunk = root_chunk;
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
-
-
-	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
-	for(int i=0; i<(int)per_thread_temp_info.size(); ++i)
-	{
-		conPrint("thread " + toString(i));
-		conPrint("	result_buf.size(): " + toString(per_thread_temp_info[i].result_buf.size()));
-		conPrint("	result_buf.capacity(): " + toString(per_thread_temp_info[i].result_buf.capacity()));
-	}*/
 
 
 	// Now we need to combine all the result chunks into a single array.
@@ -258,70 +224,51 @@ void BinningBVHBuilder::build(
 	//timer.reset();
 	//Timer timer;
 
-	// Do a pass over the chunks to build chunk_root_node_indices and get the total number of nodes.
-	const int num_result_chunks = (int)next_result_chunk;
-	js::Vector<int, 16> final_chunk_offset(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each chunk.
-	js::Vector<int, 16> final_chunk_offset_original(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each original (pre-sorted) chunk index.
-	size_t total_num_nodes = 0;
-
-	// Sort chunks by sort_key.  TODO: work out the best ordering first
-	//std::sort(result_chunks.begin(), result_chunks.begin() + num_result_chunks, ResultChunkPred());
-
-	for(size_t c=0; c<num_result_chunks; ++c)
+	js::Vector<uint32, 16> final_node_indices(result_chunks.size() * BinningResultChunk::MAX_RESULT_CHUNK_SIZE);
+	uint32 write_i = 0;
+	for(size_t c=0; c<result_chunks.size(); ++c)
 	{
-		//conPrint("Chunk " + toString(c) + ": sort_key=" + toString(result_chunks[c].sort_key) + ", offset=" + toString(result_chunks[c].offset) + 
-		//	", size=" + toString(result_chunks[c].size) + ", thread_index=" + toString(result_chunks[c].thread_index));
-		final_chunk_offset[c] = (int)total_num_nodes;
-		final_chunk_offset_original[result_chunks[c].original_index] = (int)total_num_nodes;
-		total_num_nodes += result_chunks[c].size;
-		//conPrint("-------pre-merge Chunk " + toString(c) + "--------");
-		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
+		for(size_t i=0; i<result_chunks[c]->size; ++i)
+		{
+			final_node_indices[c * BinningResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
+		}
 	}
 
-	result_nodes_out.resizeNoCopy(total_num_nodes);
-	int write_index = 0;
+	const int total_num_nodes = write_i;
+	result_nodes_out.resizeNoCopy(write_i);
 
-	for(size_t c=0; c<num_result_chunks; ++c)
+	for(size_t c=0; c<result_chunks.size(); ++c)
 	{
-		const BinningResultChunk& chunk = result_chunks[c];
-		const int chunk_node_offset = final_chunk_offset[c] - chunk.offset; // delta for references internal to chunk.
-
-		const js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info[chunk.thread_index].result_buf; // Get the per-thread result node buffer that this chunk is in.
+		const BinningResultChunk& chunk = *result_chunks[c];
+		size_t src_node_i = c * BinningResultChunk::MAX_RESULT_CHUNK_SIZE;
 
 		for(size_t i=0; i<chunk.size; ++i)
 		{
-			ResultNode chunk_node = chunk_nodes[chunk.offset + i];
+			ResultNode chunk_node = chunk.nodes[i];
 
 			// If this is an interior node, we need to fix up some links.
 			if(chunk_node.interior)
 			{
-				// Offset the child node indices by the offset of this chunk
-				chunk_node.left += chunk_node_offset;
+				chunk_node.left  = final_node_indices[chunk_node.left];
+				chunk_node.right = final_node_indices[chunk_node.right];
 
-				const int chunk_index = chunk_node.right_child_chunk_index;
-
-				assert(chunk_index == -1 || (chunk_index >= 0 && chunk_index < num_result_chunks));
-
-				if(chunk_node.right_child_chunk_index != -1) // If the right child index refers to another chunk:
-				{
-					chunk_node.right = final_chunk_offset_original[chunk_index]; // Update it with the final node index.
-				}
-				else
-					chunk_node.right += chunk_node_offset;
-
-				assert(chunk_node.left < total_num_nodes);
-				assert(chunk_node.right < total_num_nodes);
+				assert(chunk_node.left  >= 0 && chunk_node.left  < total_num_nodes);
+				assert(chunk_node.right >= 0 && chunk_node.right < total_num_nodes);
 			}
 
-			result_nodes_out[write_index] = chunk_node; // Copy node to final array
-			write_index++;
+			const uint32 final_pos = final_node_indices[src_node_i];
+			result_nodes_out[final_pos] = chunk_node; // Copy node to final array
+			src_node_i++;
 		}
+
+		delete result_chunks[c];
 	}
+
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
-	result_indices.resizeNoCopy(num_objects);
-	for(int i=0; i<num_objects; ++i)
+	result_indices.resizeNoCopy(m_num_objects);
+	for(int i=0; i<m_num_objects; ++i)
 		result_indices[i] = objects[i].getIndex();
 
 
@@ -338,15 +285,10 @@ void BinningBVHBuilder::build(
 		conPrint("Mem usage:");
 		conPrint("objects:                    " + getNiceByteSize(objects.dataSizeBytes()));
 
-		size_t total_per_thread_size = 0;
-		for(size_t i=0; i<per_thread_temp_info.size(); ++i)
-			total_per_thread_size += per_thread_temp_info[i].dataSizeBytes();
-		conPrint("per_thread_temp_info:       " + getNiceByteSize(total_per_thread_size));
-
-		conPrint("result_chunks:              " + getNiceByteSize(result_chunks.dataSizeBytes()));
+		conPrint("result_chunks:              " + getNiceByteSize(result_chunks.size() * sizeof(BinningResultChunk)));
 		conPrint("result_nodes_out:           " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
 		
-		const size_t total_size = objects.dataSizeBytes() + total_per_thread_size + result_chunks.dataSizeBytes() + result_nodes_out.dataSizeBytes();
+		const size_t total_size = objects.dataSizeBytes() + (result_chunks.size() * sizeof(BinningResultChunk)) + result_nodes_out.dataSizeBytes();
 		
 		conPrint("total:                      " + getNiceByteSize(total_size));
 		conPrint("");
@@ -409,7 +351,6 @@ c               o
 
 // Parition objects in cur_objects for the given axis, based on best_div_val of best_axis.
 // Places the paritioned objects in other_objects.
-//template <int best_axis>
 struct PartitionRes
 {
 	js::AABBox left_aabb, left_centroid_aabb;
@@ -463,6 +404,42 @@ static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, 
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
 	res_out.cur = cur;
+}
+
+
+// Partition half the list left and half right.
+static void arbitraryPartition(js::Vector<BinningOb, 64>& objects_, int left, int right, PartitionRes& res_out)
+{
+	BinningOb* const objects = objects_.data();
+
+	js::AABBox left_aabb = empty_aabb;
+	js::AABBox left_centroid_aabb = empty_aabb;
+	js::AABBox right_aabb = empty_aabb;
+	js::AABBox right_centroid_aabb = empty_aabb;
+
+	const int split_i = left + (right - left)/2;
+
+	for(int i=left; i<split_i; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		left_aabb.enlargeToHoldAABBox(aabb);
+		left_centroid_aabb.enlargeToHoldPoint(centroid);
+	}
+	
+	for(int i=split_i; i<right; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		right_aabb.enlargeToHoldAABBox(aabb);
+		right_centroid_aabb.enlargeToHoldPoint(centroid);
+	}
+
+	res_out.left_aabb = left_aabb;
+	res_out.left_centroid_aabb = left_centroid_aabb;
+	res_out.right_aabb = right_aabb;
+	res_out.right_centroid_aabb = right_centroid_aabb;
+	res_out.cur = split_i;
 }
 
 
@@ -611,31 +588,28 @@ void BinningBVHBuilder::doBuild(
 			BinningPerThreadTempInfo& thread_temp_info,
 			const js::AABBox& aabb,
 			const js::AABBox& centroid_aabb,
-			uint32 node_index, 
+			uint32 node_index, // index in chunk nodes
 			int left, 
 			int right, 
 			int depth,
 			uint64 sort_key,
-			BinningResultChunk& result_chunk
+			BinningResultChunk* result_chunk
 			)
 {
 	const int MAX_DEPTH = 60;
 
-	//if(left == 180155 && right == 180157)
-	//	int a = 9;
-
-	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
+	assert(node_index < BinningResultChunk::MAX_RESULT_CHUNK_SIZE);
 
 	if(right - left <= leaf_num_object_threshold || depth >= MAX_DEPTH)
 	{
 		assert(right - left <= max_num_objects_per_leaf);
 
 		// Make this a leaf node
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].left = left;
-		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = (uint8)depth;
+		result_chunk->nodes[node_index].interior = false;
+		result_chunk->nodes[node_index].aabb = aabb;
+		result_chunk->nodes[node_index].left = left;
+		result_chunk->nodes[node_index].right = right;
+		result_chunk->nodes[node_index].depth = (uint8)depth;
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -665,42 +639,49 @@ void BinningBVHBuilder::doBuild(
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
 
+	PartitionRes res;
 	if(best_axis == -1) // This can happen when all object centres coordinates along the axis are the same.
 	{
-		doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, result_chunk);
-		return;
+		arbitraryPartition(objects, left, right, res);
 	}
-
-	//setAABBWToOne(best_left_aabb);
-	//assert(aabb.containsAABBox(best_left_aabb));
-
-	// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
-	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
-
-	// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
-	if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
+	else
 	{
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].left = left;
-		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = (uint8)depth;
+		// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
+		const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
 
-		// Update build stats
-		thread_temp_info.stats.num_cheaper_nosplit_leaves++;
-		thread_temp_info.stats.leaf_depth_sum += depth;
-		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
-		thread_temp_info.stats.num_leaves++;
-		return;
+		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
+		if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
+		{
+			result_chunk->nodes[node_index].interior = false;
+			result_chunk->nodes[node_index].aabb = aabb;
+			result_chunk->nodes[node_index].left = left;
+			result_chunk->nodes[node_index].right = right;
+			result_chunk->nodes[node_index].depth = (uint8)depth;
+
+			// Update build stats
+			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
+			thread_temp_info.stats.leaf_depth_sum += depth;
+			thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+			thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
+			thread_temp_info.stats.num_leaves++;
+			return;
+		}
+
+		//timer.reset();
+		//PartitionRes res;
+		partition(objects, left, right, best_div_val, best_axis, res);
+		//conPrint("Partition done.  elapsed: " + timer.elapsedString());
+
+		// Check partitioning
+#ifndef NDEBUG
+		const int num_left_tris = res.cur - left;
+		for(int i=left; i<left + num_left_tris; ++i)
+			assert(objects[i].aabb.centroid()[best_axis] <= best_div_val);
+
+		for(int i=left + num_left_tris; i<right; ++i)
+			assert(objects[i].aabb.centroid()[best_axis] > best_div_val);
+#endif
 	}
-	
-	//timer.reset();
-	PartitionRes res;
-	partition(objects, left, right, best_div_val, best_axis, res);
-	//conPrint("Partition done.  elapsed: " + timer.elapsedString());
-
-	const int num_left_tris = res.cur - left;
 
 	setAABBWToOne(res.left_aabb);
 	setAABBWToOne(res.left_centroid_aabb);
@@ -714,20 +695,12 @@ void BinningBVHBuilder::doBuild(
 	assert(res.right_aabb.containsAABBox(res.right_centroid_aabb));
 	assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
-	// Check partitioning
-#ifndef NDEBUG
-	for(int i=left; i<left + num_left_tris; ++i)
-		assert(objects[i].aabb.centroid()[best_axis] <= best_div_val);
-	
-	for(int i=left + num_left_tris; i<right; ++i)
-		assert(objects[i].aabb.centroid()[best_axis] > best_div_val);
-#endif
+	int num_left_tris = res.cur - left;
 
 	if(num_left_tris == 0 || num_left_tris == right - left)
 	{
-		// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
-		doArbitrarySplits(thread_temp_info, aabb, node_index, left, right, depth, result_chunk);
-		return;
+		arbitraryPartition(objects, left, right, res);
+		num_left_tris = res.cur - left;
 	}
 
 	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
@@ -735,9 +708,19 @@ void BinningBVHBuilder::doBuild(
 	//partition_time += timer.elapsed();
 
 
+	BinningResultChunk* initial_chunk = result_chunk;
+
 	// Create child nodes
-	const uint32 left_child = (uint32)chunk_nodes.size();
-	chunk_nodes.push_back_uninitialised();
+	uint32 left_child; // index in result_chunk
+	if(result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE - 1) // If there is not room for both left and right nodes:
+	{
+		// Alloc a new node
+		result_chunk = allocNewResultChunk();
+		left_child = 0;
+		result_chunk->size = 1;
+	}
+	else
+		left_child = (uint32)(result_chunk->size++);
 
 	const int split_i = left + num_left_tris;
 	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && ((right - split_i) >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
@@ -747,26 +730,27 @@ void BinningBVHBuilder::doBuild(
 	//else
 	//	conPrint("not splitting.");
 
-	uint32 right_child;
+	BinningResultChunk* right_child_chunk;
+	uint32 right_child; // index in right_child_chunk
 	if(!do_right_child_in_new_task)
 	{
-		right_child = (uint32)chunk_nodes.size();
-		chunk_nodes.push_back_uninitialised();
+		right_child_chunk = result_chunk;
+		right_child = (uint32)(result_chunk->size++);
 	}
 	else
 	{
-		right_child = 0; // Root node of new task subtree chunk.
+		right_child_chunk = allocNewResultChunk();
+		right_child = 0;
 	}
-
 
 	// Mark this node as an interior node.
 	//setAABBWToOne(best_right_aabb);
-	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].aabb = aabb;
-	chunk_nodes[node_index].left = left_child;
-	chunk_nodes[node_index].right = right_child;
-	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = (uint8)depth;
+	initial_chunk->nodes[node_index].interior = true;
+	initial_chunk->nodes[node_index].aabb = aabb;
+	initial_chunk->nodes[node_index].left  = (int)(left_child  + result_chunk->chunk_offset);
+	initial_chunk->nodes[node_index].right = (int)(right_child + right_child_chunk->chunk_offset);
+	initial_chunk->nodes[node_index].right_child_chunk_index = -1;
+	initial_chunk->nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
@@ -785,16 +769,9 @@ void BinningBVHBuilder::doBuild(
 
 	if(do_right_child_in_new_task)
 	{
-		// Add to chunk list
-		const int chunk_index = (int)next_result_chunk++;
-		chunk_nodes[node_index].right_child_chunk_index = chunk_index;
-		assert((int)chunk_index < (int)result_chunks.size());
-		result_chunks[chunk_index].original_index = chunk_index;
-
 		// Put this subtree into a task
-		//conPrint("Making new task...");
 		Reference<BinningBuildSubtreeTask> subtree_task = new BinningBuildSubtreeTask(*this);
-		subtree_task->result_chunk = &result_chunks[chunk_index];
+		subtree_task->result_chunk = right_child_chunk;
 		subtree_task->node_aabb = res.right_aabb;
 		subtree_task->centroid_aabb = res.right_centroid_aabb;
 		subtree_task->depth = depth + 1;
@@ -818,107 +795,6 @@ void BinningBVHBuilder::doBuild(
 			result_chunk
 		);
 	}
-}
-
-
-// We may get multiple objects with the same bounding box.
-// These objects can't be split in the usual way.
-// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
-// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
-void BinningBVHBuilder::doArbitrarySplits(
-		BinningPerThreadTempInfo& thread_temp_info,
-		const js::AABBox& aabb,
-		uint32 node_index, 
-		int left, 
-		int right, 
-		int depth,
-		BinningResultChunk& result_chunk
-	)
-{
-	/*conPrint("------------doArbitrarySplits()------------");
-	for(int i=left; i<right; ++i)
-	{
-		const int aabb_index = objects[0][i];
-		const js::AABBox ob_aabb = aabbs[aabb_index];
-		conPrint("ob " + toString(aabb_index) + " min: " + ob_aabb.min_.toString());
-		conPrint("ob " + toString(aabb_index) + " max: " + ob_aabb.max_.toString());
-		conPrint("");
-	}*/
-
-	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
-
-	if(right - left <= max_num_objects_per_leaf)
-	{
-		// Make this a leaf node
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].left = left;
-		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = (uint8)depth;
-
-		// Update build stats
-		thread_temp_info.stats.num_arbitrary_split_leaves++;
-		thread_temp_info.stats.leaf_depth_sum += depth;
-		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, right - left);
-		thread_temp_info.stats.num_leaves++;
-		return;
-	}
-
-	const int split_i = left + (right - left)/2;
-
-
-	// Compute AABBs for children
-	js::AABBox left_aabb  = empty_aabb;
-	js::AABBox right_aabb = empty_aabb;
-
-	for(int i=left; i<split_i; ++i)
-		left_aabb.enlargeToHoldAABBox(objects[i].aabb);
-
-	for(int i=split_i; i<right; ++i)
-		right_aabb.enlargeToHoldAABBox(objects[i].aabb);
-
-	// Create child nodes
-	const uint32 left_child  = (uint32)chunk_nodes.size();
-	const uint32 right_child = (uint32)chunk_nodes.size() + 1;
-	chunk_nodes.push_back_uninitialised();
-	chunk_nodes.push_back_uninitialised();
-
-	// Create interior node
-	setAABBWToOne(left_aabb);
-	setAABBWToOne(right_aabb);
-	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].aabb = aabb;
-	chunk_nodes[node_index].left = left_child;
-	chunk_nodes[node_index].right = right_child;
-	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = (uint8)depth;
-
-	thread_temp_info.stats.num_interior_nodes++;
-
-	// TODO: Task splitting here as well?
-
-	// Build left child
-	doArbitrarySplits(
-		thread_temp_info,
-		left_aabb, // aabb
-		left_child, // node index
-		left, // left
-		split_i, // right
-		depth + 1, // depth
-		result_chunk
-	);
-
-	// Build right child
-	doArbitrarySplits(
-		thread_temp_info,
-		right_aabb, // aabb
-		right_child, // node index
-		split_i, // left
-		right, // right
-		depth + 1, // depth
-		result_chunk
-	);
 }
 
 
