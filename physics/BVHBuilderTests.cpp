@@ -7,8 +7,9 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "BVHBuilderTests.h"
 
 
-#include "BVHBuilder.h"
+#include "NonBinningBVHBuilder.h"
 #include "BinningBVHBuilder.h"
+#include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/StandardPrintOutput.h"
@@ -53,33 +54,37 @@ static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int 
 	else // Else if leaf:
 	{
 		// Compute AABB of leaf from leaf object AABBs
-		js::AABBox aabb = js::AABBox::emptyAABBox();
+		js::AABBox leaf_geom_aabb = js::AABBox::emptyAABBox();
 		for(int i=node.left; i<node.right; ++i)
-			aabb.enlargeToHoldAABBox(aabbs[result_indices[i]]);
+			leaf_geom_aabb.enlargeToHoldAABBox(aabbs[result_indices[i]]);
 
-		testAssert(aabb == node.aabb);
+		//testAssert(aabb == node.aabb);
+		testAssert(leaf_geom_aabb.containsAABBox(node.aabb));
 
-		return aabb;
+		return leaf_geom_aabb;
 	}
 }
 
 
 static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs)
 {
-	checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
+	//checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
 
 	// Test that the resulting object indices are a permutation of the original indices.
 	std::vector<bool> seen(aabbs.size(), false);
-	for(int z=0; z<(int)aabbs.size(); ++z)
+	for(int z=0; z<(int)result_ob_indices.size(); ++z)
 	{
 		const uint32 ob_i = result_ob_indices[z];
 		testAssert(ob_i < (uint32)aabbs.size());
-		testAssert(!seen[ob_i]);
+		//testAssert(!seen[ob_i]);
 		seen[ob_i] = true;
 	}
+
+	for(int z=0; z<(int)aabbs.size(); ++z)
+		testAssert(seen[z]);
 	
 	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
-	std::vector<bool> ob_in_leaf(aabbs.size(), false);
+	std::vector<bool> ob_in_leaf(result_ob_indices.size(), false);
 	for(int n=0; n<(int)result_nodes.size(); ++n)
 	{
 		const ResultNode& node = result_nodes[n];
@@ -93,17 +98,17 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 		{
 			testAssert(node.left >= 0);
 			testAssert(node.left <= node.right);
-			testAssert(node.right <= (int)aabbs.size());
+			testAssert(node.right <= (int)result_ob_indices.size());
 
 			for(int z = node.left; z < node.right; ++z)
 			{
-				testAssert(!ob_in_leaf[z]);
+				//testAssert(!ob_in_leaf[z]);
 				ob_in_leaf[z] = true;
 			}
 		}
 	}
 
-	for(int z=0; z<(int)aabbs.size(); ++z)
+	for(int z=0; z<(int)result_ob_indices.size(); ++z)
 		testAssert(ob_in_leaf[z]);
 }
 
@@ -137,22 +142,23 @@ static void testBVHBuilderWithNRandomObjects(Indigo::TaskManager& task_manager, 
 	}
 
 	const int max_num_objects_per_leaf = 16;
-	BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
+	Reference<NonBinningBVHBuilder> builder = new NonBinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+		aabbs.data(), // aabbs
+		num_objects // num objects
+	);
 
 	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
-	builder.axis_parallel_num_ob_threshold = 32;
-	builder.new_task_num_ob_threshold = 32; 
+	builder->axis_parallel_num_ob_threshold = 32;
+	builder->new_task_num_ob_threshold = 32; 
 
 	js::Vector<ResultNode, 64> result_nodes;
-	builder.build(task_manager,
-		aabbs.data(), // aabbs
-		num_objects, // num objects
+	builder->build(task_manager,
 		print_output, 
 		false, // verbose
 		result_nodes
 	);
 
-	testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+	testResultsValid(builder->getResultObjectIndices(), result_nodes, aabbs);
 }
 
 
@@ -171,22 +177,23 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 	}
 
 	const int max_num_objects_per_leaf = 16;
-	BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
+	Reference<NonBinningBVHBuilder> builder = new NonBinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+		aabbs.data(), // aabbs
+		num_objects // num objects
+	);
 
 	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
-	builder.axis_parallel_num_ob_threshold = 32;
-	builder.new_task_num_ob_threshold = 32;
+	builder->axis_parallel_num_ob_threshold = 32;
+	builder->new_task_num_ob_threshold = 32;
 
 	//js::Vector<ResultNode, 64> result_nodes;
-	builder.build(task_manager,
-		aabbs.data(), // aabbs
-		num_objects, // num objects
+	builder->build(task_manager,
 		print_output,
 		false, // verbose
 		result_nodes_out
 	);
 
-	testResultsValid(builder.getResultObjectIndices(), result_nodes_out, aabbs);
+	testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs);
 }
 
 void test()
@@ -197,6 +204,7 @@ void test()
 	Indigo::TaskManager task_manager(8);
 	StandardPrintOutput print_output;
 
+#if 0
 	if(false)
 	{
 		js::Vector<ResultNode, 64> ref_result_nodes;
@@ -740,18 +748,214 @@ void test()
 			);
 		}
 	}
+
+#endif
+	{
+		MTwister rng_(1);
+		js::Vector<js::AABBox, 16> aabbs(3);
+		js::Vector<SBVHTri, 16> tris(3);
+
+		// Tris in rect like in paper
+		{
+			tris[0].v[0] = Vec4f(0.2, 0, 0.000000000, 1.00000000);
+			tris[0].v[1] = Vec4f(1, 0.8, 0.000000000, 1.00000000);
+			tris[0].v[2] = Vec4f(0.8, 1, 0.000000000, 1.00000000);
+			aabbs[0] = js::AABBox::emptyAABBox();
+			aabbs[0].enlargeToHoldPoint(tris[0].v[0]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[1]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[2]);
+		}
+
+		{
+			tris[1].v[0] = Vec4f(0.2, 0, 0.000000000, 1.00000000);
+			tris[1].v[1] = Vec4f(0.8, 1, 0.000000000, 1.00000000);
+			tris[1].v[2] = Vec4f(0, 0.2, 0.000000000, 1.00000000);
+			aabbs[1] = js::AABBox::emptyAABBox();
+			aabbs[1].enlargeToHoldPoint(tris[1].v[0]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[1]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[2]);
+		}
+
+		{
+			tris[2].v[0] = Vec4f(0.45, 0.45, 0.000000000, 1.00000000);
+			tris[2].v[1] = Vec4f(0.55, 0.45, 0.000000000, 1.00000000);
+			tris[2].v[2] = Vec4f(0.55, 0.55, 0.000000000, 1.00000000);
+			aabbs[2] = js::AABBox::emptyAABBox();
+			aabbs[2].enlargeToHoldPoint(tris[2].v[0]);
+			aabbs[2].enlargeToHoldPoint(tris[2].v[1]);
+			aabbs[2].enlargeToHoldPoint(tris[2].v[2]);
+		}
+
+		/*{
+			tris[0].v[0] = Vec4f(0.0, 0,   0.000000000, 1.00000000);
+			tris[0].v[1] = Vec4f(0.6, 0.1, 0.000000000, 1.00000000);
+			tris[0].v[2] = Vec4f(0.3, 0.1, 0.000000000, 1.00000000);
+			aabbs[0] = js::AABBox::emptyAABBox();
+			aabbs[0].enlargeToHoldPoint(tris[0].v[0]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[1]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[2]);
+		}
+
+		{
+			tris[1].v[0] = Vec4f(0.4, 0, 0.000000000, 1.00000000);
+			tris[1].v[1] = Vec4f(1.0, 0.1, 0.000000000, 1.00000000);
+			tris[1].v[2] = Vec4f(0.6, 0.1, 0.000000000, 1.00000000);
+			aabbs[1] = js::AABBox::emptyAABBox();
+			aabbs[1].enlargeToHoldPoint(tris[1].v[0]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[1]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[2]);
+		}*/
+		
+		/*
+tri	{v=0x000000000810edc0 {{x=0x000000000810edc0 {0.0500073023, 0.0621716492, 0.000000000, 1.00000000} v=...}, ...} }	const SBVHTri &
+	v	0x000000000810edc0 {{x=0x000000000810edc0 {0.0500073023, 0.0621716492, 0.000000000, 1.00000000} v={m128_f32=...} }, ...}	Vec4f[3]
++		[0]	{x=0x000000000810edc0 {0.0500073023, 0.0621716492, 0.000000000, 1.00000000} v={m128_f32=0x000000000810edc0 {...} ...} }	Vec4f
++		[1]	{x=0x000000000810edd0 {0.137831196, 0.126597553, 0.000000000, 1.00000000} v={m128_f32=0x000000000810edd0 {...} ...} }	Vec4f
++		[2]	{x=0x000000000810ede0 {0.222000197, 0.251402110, 0.000000000, 1.00000000} v={m128_f32=0x000000000810ede0 {...} ...} }	Vec4f
+
+tri	{v=0x000000000810f600 {{x=0x000000000810f600 {0.0811252221, 0.0860071033, 0.000000000, 1.00000000} v=...}, ...} }	const SBVHTri &
+	v	0x000000000810f600 {{x=0x000000000810f600 {0.0811252221, 0.0860071033, 0.000000000, 1.00000000} v={m128_f32=...} }, ...}	Vec4f[3]
++		[0]	{x=0x000000000810f600 {0.0811252221, 0.0860071033, 0.000000000, 1.00000000} v={m128_f32=0x000000000810f600 {...} ...} }	Vec4f
++		[1]	{x=0x000000000810f610 {0.198112756, 0.210741162, 0.000000000, 1.00000000} v={m128_f32=0x000000000810f610 {...} ...} }	Vec4f
++		[2]	{x=0x000000000810f620 {0.262631893, 0.0956056118, 0.000000000, 1.00000000} v={m128_f32=0x000000000810f620 {...} ...} }	Vec4f
+
+tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.000000000, 1.00000000} v=...}, ...} }	const SBVHTri &
+	v	0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.000000000, 1.00000000} v={m128_f32=...} }, ...}	Vec4f[3]
++		[0]	{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.000000000, 1.00000000} v={m128_f32=0x000000000810fff0 {...} ...} }	Vec4f
++		[1]	{x=0x0000000008110000 {0.142836809, 0.135006323, 0.000000000, 1.00000000} v={m128_f32=0x0000000008110000 {...} ...} }	Vec4f
++		[2]	{x=0x0000000008110010 {0.109402373, 0.223440573, 0.000000000, 1.00000000} v={m128_f32=0x0000000008110010 {...} ...} }	Vec4f
+
+*/
+		/*{
+			tris[0].v[0] = Vec4f(0.0500073023, 0.0621716492, 0.000000000, 1.00000000);
+			tris[0].v[1] = Vec4f(0.137831196, 0.126597553, 0.000000000, 1.00000000);
+			tris[0].v[2] = Vec4f(0.222000197, 0.251402110, 0.000000000, 1.00000000);
+			aabbs[0] = js::AABBox::emptyAABBox();
+			aabbs[0].enlargeToHoldPoint(tris[0].v[0]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[1]);
+			aabbs[0].enlargeToHoldPoint(tris[0].v[2]);
+		}
+
+		{
+			tris[1].v[0] = Vec4f(0.0811252221, 0.0860071033, 0.000000000, 1.00000000);
+			tris[1].v[1] = Vec4f(0.198112756, 0.210741162, 0.000000000, 1.00000000);
+			tris[1].v[2] = Vec4f(0.262631893, 0.0956056118, 0.000000000, 1.00000000);
+			aabbs[1] = js::AABBox::emptyAABBox();
+			aabbs[1].enlargeToHoldPoint(tris[1].v[0]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[1]);
+			aabbs[1].enlargeToHoldPoint(tris[1].v[2]);
+		}
+
+		{
+			tris[2].v[0] = Vec4f(0.0515251160, 0.0506747477, 0.000000000, 1.00000000);
+			tris[2].v[1] = Vec4f(0.142836809, 0.135006323, 0.000000000, 1.00000000);
+			tris[2].v[2] = Vec4f(0.109402373, 0.223440573, 0.000000000, 1.00000000);
+			aabbs[2] = js::AABBox::emptyAABBox();
+			aabbs[2].enlargeToHoldPoint(tris[2].v[0]);
+			aabbs[2].enlargeToHoldPoint(tris[2].v[1]);
+			aabbs[2].enlargeToHoldPoint(tris[2].v[2]);
+		}*/
+
+		
+		// Triangles with one edge on the splitting plane (x=0.5)
+		/*{
+			const Vec4f v0(0.5f, 0.1f, 0.f, 1);
+			const Vec4f v1(0.9f, 0.3f, 0.f, 1);
+			const Vec4f v2(0.5f, 0.4f, 0.f, 1);
+			tris[0].v[0] = v0;
+			tris[0].v[1] = v1;
+			tris[0].v[2] = v2;
+			aabbs[0] = js::AABBox::emptyAABBox();
+			aabbs[0].enlargeToHoldPoint(v0);
+			aabbs[0].enlargeToHoldPoint(v1);
+			aabbs[0].enlargeToHoldPoint(v2);
+		}
+
+		{
+			const Vec4f v0(0.5f, 0.4f, 0.f, 1);
+			const Vec4f v1(0.1f, 0.5f, 0.f, 1);
+			const Vec4f v2(0.5f, 0.6f, 0.f, 1);
+			tris[1].v[0] = v0;
+			tris[1].v[1] = v1;
+			tris[1].v[2] = v2;
+			aabbs[1] = js::AABBox::emptyAABBox();
+			aabbs[1].enlargeToHoldPoint(v0);
+			aabbs[1].enlargeToHoldPoint(v1);
+			aabbs[1].enlargeToHoldPoint(v2);
+		}*/
+		/*{
+			const Vec4f v0(0.3f, 0.45f, 0.f, 1);
+			const Vec4f v1(0.5f, 0.3f, 0.f, 1);
+			const Vec4f v2(0.6f, 0.55f, 0.f, 1);
+			tris[0].v[0] = v0;
+			tris[0].v[1] = v1;
+			tris[0].v[2] = v2;
+			aabbs[0] = js::AABBox::emptyAABBox();
+			aabbs[0].enlargeToHoldPoint(v0);
+			aabbs[0].enlargeToHoldPoint(v1);
+			aabbs[0].enlargeToHoldPoint(v2);
+		}
+		{
+			const Vec4f v0(0.2f, 0.65f, 0.f, 1);
+			const Vec4f v1(0.9f, 0.9f, 0.f, 1);
+			const Vec4f v2(0.1f, 0.8f, 0.f, 1);
+			tris[1].v[0] = v0;
+			tris[1].v[1] = v1;
+			tris[1].v[2] = v2;
+			aabbs[1] = js::AABBox::emptyAABBox();
+			aabbs[1].enlargeToHoldPoint(v0);
+			aabbs[1].enlargeToHoldPoint(v1);
+			aabbs[1].enlargeToHoldPoint(v2);
+		}*/
+
+
+		
+		{
+			//conPrint("------------- perf test --------------");
+			Timer timer;
+
+			const int max_num_objects_per_leaf = 16;
+			const float intersection_cost = 1.f;
+			SBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost, aabbs.data(), // aabbs
+				tris.data(),
+				(int)aabbs.size() // num objects
+			);
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			conPrint("BVH building for " + toString((int)aabbs.size()) + " objects took " + timer.elapsedString());
+
+			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		}
+	}
+
+
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)
 	{
-		const int num_objects = 2000000;
+		const int num_objects = 20000;
 
 		MTwister rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
+		js::Vector<SBVHTri, 16> tris(num_objects);
 		for(int z=0; z<num_objects; ++z)
 		{
-			const Vec4f p(rng_.unitRandom(), rng_.unitRandom(), rng_.unitRandom(), 1);
-			aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
+			const Vec4f v0(rng_.unitRandom() * 0.8f, rng_.unitRandom() * 0.8f, 0/*rng_.unitRandom()*/ * 0.8f, 1);
+			const Vec4f v1 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), /*rng_.unitRandom()*/0, 0) * 0.02f;
+			const Vec4f v2 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), /*rng_.unitRandom()*/0, 0) * 0.02f;
+			tris[z].v[0] = v0;
+			tris[z].v[1] = v1;
+			tris[z].v[2] = v2;
+			aabbs[z] = js::AABBox::emptyAABBox();
+			aabbs[z].enlargeToHoldPoint(v0);
+			aabbs[z].enlargeToHoldPoint(v1);
+			aabbs[z].enlargeToHoldPoint(v2);
 		}
+
 
 		for(int q=0; q<200; ++q)
 		{
@@ -759,12 +963,14 @@ void test()
 			Timer timer;
 
 			const int max_num_objects_per_leaf = 16;
-			const float intersection_cost = 10.f;
-			BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
+			const float intersection_cost = 1.f;
+			SBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
+				aabbs.data(),
+				tris.data(),
+				num_objects
+			);
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
-				aabbs.data(), // aabbs
-				num_objects, // num objects
 				print_output,
 				false, // verbose
 				result_nodes
@@ -802,12 +1008,13 @@ void test()
 
 				const int max_num_objects_per_leaf = 16;
 				const float intersection_cost = 10.f;
-				BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
-				builder.axis_parallel_num_ob_threshold = axis_parallel_num_ob_threshold;
-				js::Vector<ResultNode, 64> result_nodes;
-				builder.build(task_manager,
+				Reference<NonBinningBVHBuilder> builder = new NonBinningBVHBuilder(1, max_num_objects_per_leaf, intersection_cost, 
 					aabbs.data(), // aabbs
-					num_objects, // num objects
+					num_objects // num objects
+				);
+				builder->axis_parallel_num_ob_threshold = axis_parallel_num_ob_threshold;
+				js::Vector<ResultNode, 64> result_nodes;
+				builder->build(task_manager,
 					print_output,
 					false, // verbose
 					result_nodes

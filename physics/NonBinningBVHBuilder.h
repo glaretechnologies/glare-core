@@ -1,13 +1,13 @@
 /*=====================================================================
-SBVHBuilder.h
--------------
+NonBinningBVHBuilder.h
+----------------------
 Copyright Glare Technologies Limited 2017 -
+Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #pragma once
 
 
 #include "BVHBuilder.h"
-#include "jscol_aabbox.h"
 #include "../maths/vec3.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
@@ -17,13 +17,37 @@ Copyright Glare Technologies Limited 2017 -
 namespace js { class AABBox; }
 namespace Indigo { class TaskManager; }
 class PrintOutput;
-class RayMeshTriangle;
 
 
-struct SBVHBuildStats
+struct Ob
 {
-	SBVHBuildStats();
-	void accumStats(const SBVHBuildStats& other);
+	// Index of the source object/aabb is stored in aabb.min_[3].
+	js::AABBox aabb;
+	//Vec3f centre;
+	//int index;
+
+	int getIndex() const
+	{
+		return bitcastToVec4i(aabb.min_)[3];
+	}
+
+	void setIndex(int index)
+	{
+		std::memcpy(&aabb.min_.x[3], &index, 4);
+	}
+
+	inline void operator = (const Ob& other)
+	{
+		aabb = other.aabb;
+		//_mm_store_ps((float*)this + 8, _mm_load_ps((float*)&other + 8));
+	}
+};
+
+
+struct NonBinningBVHBuildStats
+{
+	NonBinningBVHBuildStats();
+	void accumStats(const NonBinningBVHBuildStats& other);
 
 	int num_maxdepth_leaves;
 	int num_under_thresh_leaves;
@@ -35,46 +59,28 @@ struct SBVHBuildStats
 	int max_leaf_depth;
 	int num_interior_nodes;
 	int num_arbitrary_split_leaves;
-	int num_object_splits;
-	int num_spatial_splits;
 };
+	
 
-
-struct SBVHOb
-{
-	// Index of the source object/aabb is stored in aabb.min_[3].
-	js::AABBox aabb;
-
-	int getIndex() const
-	{
-		return bitcastToVec4i(aabb.min_)[3];
-	}
-
-	void setIndex(int index)
-	{
-		std::memcpy(&aabb.min_.x[3], &index, 4);
-	}
-};
-
-
-struct SBVHPerThreadTempInfo
+struct PerThreadTempInfo
 {
 	js::Vector<ResultNode, 64> result_buf;
-	std::vector<int> leaf_obs;
 
-	SBVHBuildStats stats;
+	NonBinningBVHBuildStats stats;
 
 	size_t dataSizeBytes() const { return result_buf.dataSizeBytes(); }
-
-	std::vector<std::vector<SBVHOb> > left_obs;
-	std::vector<std::vector<SBVHOb> > right_obs;
-
-	std::vector<int> unsplit;
-
 };
 
 
-struct SBVHResultChunk
+struct PerAxisThreadTempInfo
+{
+	js::Vector<float, 16> split_left_half_area;
+
+	size_t dataSizeBytes() const { return split_left_half_area.dataSizeBytes(); }
+};
+
+
+struct ResultChunk
 {
 	int thread_index; // The index of the thread that computed this chunk.
 	int offset; // Offset in thread's result_buf
@@ -85,62 +91,56 @@ struct SBVHResultChunk
 };
 
 
-struct SBVHTri
-{
-	Vec4f v[3];
-};
-
-
 /*=====================================================================
-SBVHBuilder
+NonBinningBVHBuilder
 -------------------
-See "Spatial Splits in Bounding Volume Hierarchies"
-http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.550.6560&rep=rep1&type=pdf
+Multi-threaded SAH non-binning BVH builder.
 =====================================================================*/
-class SBVHBuilder : public BVHBuilder
+class NonBinningBVHBuilder : public BVHBuilder
 {
 public:
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
-	SBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost, 
+	NonBinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost,
 		const js::AABBox* aabbs,
-		const SBVHTri* triangles,
-		const int num_objects
-	);
-	~SBVHBuilder();
+		const int num_objects);
+	~NonBinningBVHBuilder();
 
-	virtual void build(
+	void build(
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 	);
 
-	virtual const BVHBuilder::ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }
+	typedef js::Vector<uint32, 16> ResultObIndicesVec;
+	const ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
 
 	int getMaxLeafDepth() const { return stats.max_leaf_depth; } // Root node is considered to have depth 0.
 
 	static void printResultNode(const ResultNode& result_node);
 	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
 
-	friend class SBVHBuildSubtreeTask;
+	friend class CentroidTask;
+	friend class BuildSubtreeTask;
+	friend class BestSplitSearchTask;
+	friend class PartitionTask;
+	friend class ConstructAxisObjectsTask;
 
-
-	static void test();
-
-	typedef std::vector<SBVHOb> ObjectVecType;
 private:
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
-		SBVHPerThreadTempInfo& thread_temp_info,
+		PerThreadTempInfo& thread_temp_info,
 		const js::AABBox& aabb,
-		const js::AABBox& centroid_aabb,
 		uint32 node_index,
-		const ObjectVecType& obs,
+		int left,
+		int right,
 		int depth,
 		uint64 sort_key,
-		SBVHResultChunk& result_chunk
+		js::Vector<Ob, 64>* cur_objects,
+		js::Vector<Ob, 64>* other_objects,
+		ResultChunk& result_chunk
 	);
 
 	// We may get multiple objects with the same bounding box.
@@ -148,37 +148,46 @@ private:
 	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
 	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
 	void doArbitrarySplits(
-		SBVHPerThreadTempInfo& thread_temp_info,
+		PerThreadTempInfo& thread_temp_info,
 		const js::AABBox& aabb,
 		uint32 node_index,
-		const ObjectVecType& obs,
+		int left, 
+		int right, 
 		int depth,
-		SBVHResultChunk& result_chunk
+		js::Vector<Ob, 64>* cur_objects,
+		js::Vector<Ob, 64>* other_objects,
+		ResultChunk& result_chunk
 	);
 
 
+
 	const js::AABBox* aabbs;
-	const SBVHTri* triangles;
-	int m_num_objects;
-	ObjectVecType top_level_objects;
-	std::vector<SBVHPerThreadTempInfo> per_thread_temp_info;
+	js::Vector<Ob, 64> objects_a[3];
+	js::Vector<Ob, 64> objects_b[3];
+	std::vector<PerThreadTempInfo> per_thread_temp_info;
+	std::vector<PerAxisThreadTempInfo> per_axis_thread_temp_info;
+
+	js::Vector<float, 16> split_left_half_area;
 
 	IndigoAtomic next_result_chunk; // Index of next free result chunk
-	js::Vector<SBVHResultChunk, 16> result_chunks;
+	js::Vector<ResultChunk, 16> result_chunks;
 
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	float intersection_cost; // Relative to BVH node traversal cost.
-	float recip_root_node_aabb_area;
+
+	Indigo::TaskManager* local_task_manager;
 
 	js::Vector<uint32, 16> result_indices;
 public:
 	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;
 
-	SBVHBuildStats stats;
+	NonBinningBVHBuildStats stats;
 
 	double split_search_time;
 	double partition_time;
+
+	int num_objects;
 };

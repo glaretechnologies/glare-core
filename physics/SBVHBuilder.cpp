@@ -79,14 +79,20 @@ static void drawPartitionLine(Bitmap& map, const js::AABBox& aabb, int best_axis
 #endif
 
 
-SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_)
+SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
+	const js::AABBox* aabbs_,
+	const SBVHTri* triangles_,
+	const int num_objects_
+)
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
 	intersection_cost(intersection_cost_)
 {
 	assert(intersection_cost > 0.f);
 
-	aabbs = NULL;
+	aabbs = aabbs_;
+	triangles = triangles_;
+	m_num_objects = num_objects_;
 
 	// See /wiki/index.php?title=BVH_Building for results on varying these settings.
 	axis_parallel_num_ob_threshold = 1 << 20;
@@ -196,9 +202,6 @@ struct SBVHResultChunkPred
 // Top-level build method
 void SBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,
-		const js::AABBox* aabbs_,
-		const SBVHTri* triangles_,
-		const int num_objects,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -216,8 +219,7 @@ void SBVHBuilder::build(
 	partition_time = 0;
 
 	this->task_manager = &task_manager_;
-	this->aabbs = aabbs_;
-	this->triangles = triangles_;
+	const int num_objects = m_num_objects;
 
 #if ALLOW_DEBUG_DRAWING
 	if(DEBUG_DRAW)
@@ -362,7 +364,7 @@ void SBVHBuilder::build(
 		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
 	}
 
-	result_indices.reserve(num_objects);
+	result_indices.reserve(m_num_objects);
 
 	result_nodes_out.resizeNoCopy(total_num_nodes);
 	int write_index = 0;
@@ -408,7 +410,7 @@ void SBVHBuilder::build(
 				for(int z=chunk_node.left; z<chunk_node.right; ++z)
 				{
 					const int ob_i = leaf_geom[z];
-					assert(ob_i >= 0 && ob_i < num_objects);
+					assert(ob_i >= 0 && ob_i < m_num_objects);
 					result_indices.push_back(ob_i);
 				}
 

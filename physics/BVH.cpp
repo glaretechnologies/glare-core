@@ -9,6 +9,7 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 
 #include "BVHImpl.h"
 #include "BinningBVHBuilder.h"
+#include "NonBinningBVHBuilder.h"
 #include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/ThreadContext.h"
@@ -48,61 +49,77 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 
 	// Build tri AABBs, root_aabb
 
-#if USE_SBVH
-	js::Vector<SBVHTri, 64> sbvh_tris;
-	sbvh_tris.resize(raymesh_tris_size);
-#endif
-
 	root_aabb = js::AABBox::emptyAABBox();
 	tri_aabbs.resize(raymesh_tris_size);
-	for(size_t i=0; i<raymesh_tris_size; ++i)
+
+	BVHBuilderRef builder;
+
+	const bool USE_SBVH = false;
+	if(USE_SBVH)
 	{
-		const RayMeshTriangle& tri = raymesh_tris[i];
-		const Vec4f v0 = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
-		const Vec4f v1 = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
-		const Vec4f v2 = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();
-		js::AABBox tri_aabb(v0, v0);
-		tri_aabb.enlargeToHoldPoint(v1);
-		tri_aabb.enlargeToHoldPoint(v2);
-		tri_aabbs[i] = tri_aabb;
-		root_aabb.enlargeToHoldAABBox(tri_aabb);
+		js::Vector<SBVHTri, 64> sbvh_tris;
+		sbvh_tris.resize(raymesh_tris_size);
 
-#if USE_SBVH
-		SBVHTri t;
-		t.v[0] = v0;
-		t.v[1] = v1;
-		t.v[2] = v2;
-		sbvh_tris[i] = t;
-#endif
+		for(size_t i=0; i<raymesh_tris_size; ++i)
+		{
+			const RayMeshTriangle& tri = raymesh_tris[i];
+			const Vec4f v0 = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
+			const Vec4f v1 = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
+			const Vec4f v2 = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();
+			js::AABBox tri_aabb(v0, v0);
+			tri_aabb.enlargeToHoldPoint(v1);
+			tri_aabb.enlargeToHoldPoint(v2);
+			tri_aabbs[i] = tri_aabb;
+			root_aabb.enlargeToHoldAABBox(tri_aabb);
+
+			SBVHTri t;
+			t.v[0] = v0;
+			t.v[1] = v1;
+			t.v[2] = v2;
+			sbvh_tris[i] = t;
+		}
+
+		builder = new SBVHBuilder(
+			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
+			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+			1.f, // intersection_cost
+			tri_aabbs.data(),
+			sbvh_tris.data(),
+			(int)tri_aabbs.size()
+		);
 	}
+	else
+	{
+		for(size_t i=0; i<raymesh_tris_size; ++i)
+		{
+			const RayMeshTriangle& tri = raymesh_tris[i];
+			const Vec4f v0 = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
+			const Vec4f v1 = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
+			const Vec4f v2 = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();
+			js::AABBox tri_aabb(v0, v0);
+			tri_aabb.enlargeToHoldPoint(v1);
+			tri_aabb.enlargeToHoldPoint(v2);
+			tri_aabbs[i] = tri_aabb;
+			root_aabb.enlargeToHoldAABBox(tri_aabb);
+		}
 
-#if USE_SBVH
-	SBVHBuilder builder(
-		4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
-		BVHNode::maxNumGeom(), // max_num_objects_per_leaf
-		1.f // intersection_cost.
-	);
-#else
-	BVHBuilder builder(
-		4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
-		BVHNode::maxNumGeom(), // max_num_objects_per_leaf
-		4.f // intersection_cost.
-	);
-#endif
-
+		builder = new NonBinningBVHBuilder(
+			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
+			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+			4.f, // intersection_cost
+			tri_aabbs.data(),
+			(int)tri_aabbs.size()
+		);
+	}
+	
 	js::Vector<ResultNode, 64> result_nodes;
-	builder.build(
+	builder->build(
 		task_manager,
-		tri_aabbs.data(),
-#if USE_SBVH
-		sbvh_tris.data(),
-#endif
-		(int)tri_aabbs.size(),
 		print_output,
 		verbose,
 		result_nodes
 	);
-	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder.getResultObjectIndices();
+	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
 
 	// Make leafgeom from leaf object indices.
 	leafgeom.reserve(result_ob_indices.size());

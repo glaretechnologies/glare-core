@@ -7,7 +7,7 @@ Generated at 2012-11-10 19:47:32 +0000
 #include "BVHObjectTree.h"
 
 
-#include "BVHBuilder.h"
+#include "NonBinningBVHBuilder.h"
 #include "../indigo/object.h"
 #include "../simpleraytracer/ray.h"
 #include "../maths/Vec4i.h"
@@ -229,22 +229,22 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 	for(size_t i=0; i<objects_size; ++i)
 		aabbs[i] = objects[i]->getAABBoxWS();
 
-	BVHBuilder builder(
+	BVHBuilderRef builder = new NonBinningBVHBuilder(
 		1, // leaf_num_object_threshold
 		31, // max_num_objects_per_leaf (2^5 - 1)
-		100 // intersection_cost.  Set this quite high, since intersecting objects is probably quite expensive.
+		100, // intersection_cost.  Set this quite high, since intersecting objects is probably quite expensive.
+		aabbs.data(),
+		(int)objects.size()
 	);
 
 	js::Vector<ResultNode, 64> result_nodes;
-	builder.build(
+	builder->build(
 		task_manager,
-		aabbs.data(),
-		(int)objects.size(),
 		print_output,
 		verbose,
 		result_nodes
 	);
-	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder.getResultObjectIndices();
+	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
 
 	//builder.printResultNodes(result_nodes);//TEMP
 
