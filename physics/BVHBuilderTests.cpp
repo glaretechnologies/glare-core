@@ -128,37 +128,88 @@ static uint64 resultNodesHash(const js::Vector<ResultNode, 64>& result_nodes)
 }
 
 
-static void testBVHBuilderWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
+static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
 {
-	MTwister rng(1);
-	StandardPrintOutput print_output;
+	const int num_objects = (int)tris.size();
 
-	js::Vector<js::AABBox, 16> aabbs(num_objects);
-	for(int z=0; z<num_objects; ++z)
+	js::Vector<js::AABBox, 16> aabbs(tris.size());
+	for(size_t z=0; z<tris.size(); ++z)
 	{
-		//aabbs[z] = js::AABBox(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1), Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1));
-		const Vec4f p(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1);
-		aabbs[z] = js::AABBox(p, p + Vec4f(0.01f, 0.01f, 0.01f, 0));
+		aabbs[z] = js::AABBox::emptyAABBox();
+		aabbs[z].enlargeToHoldPoint(tris[z].v[0]);
+		aabbs[z].enlargeToHoldPoint(tris[z].v[1]);
+		aabbs[z].enlargeToHoldPoint(tris[z].v[2]);
 	}
 
+	StandardPrintOutput print_output;
+
+	std::vector<BVHBuilderRef> builders;
+
 	const int max_num_objects_per_leaf = 16;
-	Reference<NonBinningBVHBuilder> builder = new NonBinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
-		aabbs.data(), // aabbs
-		num_objects // num objects
-	);
 
-	// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
-	builder->axis_parallel_num_ob_threshold = 32;
-	builder->new_task_num_ob_threshold = 32; 
+	{
+		Reference<NonBinningBVHBuilder> builder = new NonBinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+			aabbs.data(), // aabbs
+			num_objects // num objects
+		);
 
-	js::Vector<ResultNode, 64> result_nodes;
-	builder->build(task_manager,
-		print_output, 
-		false, // verbose
-		result_nodes
-	);
+		// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
+		builder->axis_parallel_num_ob_threshold = 32;
+		builder->new_task_num_ob_threshold = 32;
+		builders.push_back(builder);
+	}
 
-	testResultsValid(builder->getResultObjectIndices(), result_nodes, aabbs);
+	{
+		Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+			aabbs.data(), // aabbs
+			num_objects // num objects
+		);
+
+		builder->new_task_num_ob_threshold = 32;
+		builders.push_back(builder);
+	}
+
+	{
+		Reference<SBVHBuilder> builder = new SBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+			aabbs.data(), // aabbs
+			tris.data(),
+			num_objects // num objects
+		);
+
+		builder->new_task_num_ob_threshold = 32;
+		builders.push_back(builder);
+	}
+
+
+	for(size_t i=0; i<builders.size(); ++i)
+	{
+		js::Vector<ResultNode, 64> result_nodes;
+		builders[i]->build(task_manager,
+			print_output,
+			false, // verbose
+			result_nodes
+		);
+
+		testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs);
+	}
+}
+
+
+static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
+{
+	MTwister rng(1);
+	js::Vector<SBVHTri, 16> tris(num_objects);
+	for(int z=0; z<num_objects; ++z)
+	{
+		const Vec4f v0(rng.unitRandom() * 0.8f, rng.unitRandom() * 0.8f, rng.unitRandom() * 0.8f, 1);
+		const Vec4f v1 = v0 + Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) * 0.02f;
+		const Vec4f v2 = v0 + Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) * 0.02f;
+		tris[z].v[0] = v0;
+		tris[z].v[1] = v1;
+		tris[z].v[2] = v2;
+	}
+
+	testBVHBuildersWithTriangles(task_manager, tris);
 }
 
 
@@ -204,8 +255,7 @@ void test()
 	Indigo::TaskManager task_manager(8);
 	StandardPrintOutput print_output;
 
-#if 0
-	if(false)
+	/*if(false)
 	{
 		js::Vector<ResultNode, 64> ref_result_nodes;
 		testBVHBuilderWithNRandomObjectsGetResults(task_manager, 400, ref_result_nodes);
@@ -240,7 +290,7 @@ void test()
 				}
 			}
 		}
-	}
+	}*/
 	
 
 	
@@ -302,7 +352,7 @@ void test()
 	}*/
 
 
-
+#if 0
 	//==========================================
 	/*
 	|----------0----------|
@@ -639,24 +689,24 @@ void test()
 		testAssert(result_nodes[2].right - result_nodes[2].left == 1);
 		testAssert(builder.getResultObjectIndices()[result_nodes[2].left] == 1);
 	}
-
+#endif
 	
 	//==================== Test building a BVH with varying numbers of objects (including zero objects) ====================
 	for(int num_objects=0; num_objects<64; ++num_objects)
 	{
-		testBVHBuilderWithNRandomObjects(task_manager, num_objects);
+		testBVHBuildersWithNRandomObjects(task_manager, num_objects);
 	}
 
 	for(int num_objects=64; num_objects<=4096; num_objects *= 2)
 	{
-		testBVHBuilderWithNRandomObjects(task_manager, num_objects);
+		testBVHBuildersWithNRandomObjects(task_manager, num_objects);
 	}
 
 
 	//==================== Do a stress test with a reasonably large amount of objects ====================
 	{
 		conPrint("StressTest...");
-		testBVHBuilderWithNRandomObjects(task_manager, 
+		testBVHBuildersWithNRandomObjects(task_manager,
 			10000
 		);
 		conPrint("Done.");
@@ -676,27 +726,16 @@ void test()
 		for(size_t i=0; i<test_sizes.size(); ++i)
 		{
 			const int num_objects = test_sizes[i];
-			js::Vector<js::AABBox, 16> aabbs(num_objects);
+			js::Vector<SBVHTri, 16> tris(num_objects);
 			for(int z=0; z<num_objects; ++z)
-				aabbs[z] = js::AABBox(Vec4f(0, 0, 0, 1), Vec4f(1, 1, 1, 1)); // Use the same AABB for each object.
+			{
+				// Use the same tri / AABB for each object.
+				tris[z].v[0] = Vec4f(0, 0, 0, 1);
+				tris[z].v[1] = Vec4f(1, 0, 0, 1);
+				tris[z].v[2] = Vec4f(1, 1, 0, 1);
+			}
 
-			const int max_num_objects_per_leaf = 16;
-			BVHBuilder builder(1, max_num_objects_per_leaf, 4.0f);
-
-			// Set these multi-threading thresholds lower than normal, in order to flush out any multi-threading bugs.
-			builder.axis_parallel_num_ob_threshold = 32;
-			builder.new_task_num_ob_threshold = 32;
-
-			js::Vector<ResultNode, 64> result_nodes;
-			builder.build(task_manager,
-				aabbs.data(), // aabbs
-				num_objects, // num objects
-				print_output,
-				false, // verbose
-				result_nodes
-			);
-
-			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+			testBVHBuildersWithTriangles(task_manager, tris);
 		}
 	}
 
@@ -737,11 +776,11 @@ void test()
 
 			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 10.f;
-			BVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost);
+			NonBinningBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost, aabbs.data(), // aabbs
+				(int)aabbs.size() // num objects
+			);
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
-				aabbs.data(), // aabbs
-				(int)aabbs.size(), // num objects
 				print_output,
 				false, // verbose
 				result_nodes
@@ -749,10 +788,9 @@ void test()
 		}
 	}
 
-#endif
+
 	{
 		MTwister rng_(1);
-		js::Vector<js::AABBox, 16> aabbs(3);
 		js::Vector<SBVHTri, 16> tris(3);
 
 		// Tris in rect like in paper
@@ -760,30 +798,18 @@ void test()
 			tris[0].v[0] = Vec4f(0.2, 0, 0.000000000, 1.00000000);
 			tris[0].v[1] = Vec4f(1, 0.8, 0.000000000, 1.00000000);
 			tris[0].v[2] = Vec4f(0.8, 1, 0.000000000, 1.00000000);
-			aabbs[0] = js::AABBox::emptyAABBox();
-			aabbs[0].enlargeToHoldPoint(tris[0].v[0]);
-			aabbs[0].enlargeToHoldPoint(tris[0].v[1]);
-			aabbs[0].enlargeToHoldPoint(tris[0].v[2]);
 		}
 
 		{
 			tris[1].v[0] = Vec4f(0.2, 0, 0.000000000, 1.00000000);
 			tris[1].v[1] = Vec4f(0.8, 1, 0.000000000, 1.00000000);
 			tris[1].v[2] = Vec4f(0, 0.2, 0.000000000, 1.00000000);
-			aabbs[1] = js::AABBox::emptyAABBox();
-			aabbs[1].enlargeToHoldPoint(tris[1].v[0]);
-			aabbs[1].enlargeToHoldPoint(tris[1].v[1]);
-			aabbs[1].enlargeToHoldPoint(tris[1].v[2]);
 		}
 
 		{
 			tris[2].v[0] = Vec4f(0.45, 0.45, 0.000000000, 1.00000000);
 			tris[2].v[1] = Vec4f(0.55, 0.45, 0.000000000, 1.00000000);
 			tris[2].v[2] = Vec4f(0.55, 0.55, 0.000000000, 1.00000000);
-			aabbs[2] = js::AABBox::emptyAABBox();
-			aabbs[2].enlargeToHoldPoint(tris[2].v[0]);
-			aabbs[2].enlargeToHoldPoint(tris[2].v[1]);
-			aabbs[2].enlargeToHoldPoint(tris[2].v[2]);
 		}
 
 		/*{
@@ -908,36 +934,14 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			aabbs[1].enlargeToHoldPoint(v2);
 		}*/
 
-
-		
-		{
-			//conPrint("------------- perf test --------------");
-			Timer timer;
-
-			const int max_num_objects_per_leaf = 16;
-			const float intersection_cost = 1.f;
-			SBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost, aabbs.data(), // aabbs
-				tris.data(),
-				(int)aabbs.size() // num objects
-			);
-			js::Vector<ResultNode, 64> result_nodes;
-			builder.build(task_manager,
-				print_output,
-				false, // verbose
-				result_nodes
-			);
-
-			conPrint("BVH building for " + toString((int)aabbs.size()) + " objects took " + timer.elapsedString());
-
-			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
-		}
+		testBVHBuildersWithTriangles(task_manager, tris);
 	}
 
 
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)
 	{
-		const int num_objects = 20000;
+		const int num_objects = 2000000;
 
 		MTwister rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
@@ -964,9 +968,9 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 
 			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 1.f;
-			SBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
+			BinningBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
 				aabbs.data(),
-				tris.data(),
+				//tris.data(),
 				num_objects
 			);
 			js::Vector<ResultNode, 64> result_nodes;

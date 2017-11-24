@@ -625,6 +625,48 @@ static void partition(const std::vector<SBVHOb>& objects_, const SBVHTri* triang
 }
 
 
+// Partition half the list left and half right.
+static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int left, int right, PartitionRes& res_out, 
+	std::vector<SBVHOb>& left_obs_out,
+	std::vector<SBVHOb>& right_obs_out)
+{
+	const SBVHOb* const objects = objects_.data();
+
+	left_obs_out.resize(0);
+	right_obs_out.resize(0);
+
+	js::AABBox left_aabb = empty_aabb;
+	js::AABBox left_centroid_aabb = empty_aabb;
+	js::AABBox right_aabb = empty_aabb;
+	js::AABBox right_centroid_aabb = empty_aabb;
+
+	const int split_i = left + (right - left)/2;
+
+	for(int i=left; i<split_i; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		left_aabb.enlargeToHoldAABBox(aabb);
+		left_centroid_aabb.enlargeToHoldPoint(centroid);
+		left_obs_out.push_back(objects[i]);
+	}
+
+	for(int i=split_i; i<right; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		right_aabb.enlargeToHoldAABBox(aabb);
+		right_centroid_aabb.enlargeToHoldPoint(centroid);
+		right_obs_out.push_back(objects[i]);
+	}
+
+	res_out.left_aabb = left_aabb;
+	res_out.left_centroid_aabb = left_centroid_aabb;
+	res_out.right_aabb = right_aabb;
+	res_out.right_centroid_aabb = right_centroid_aabb;
+}
+
+
 static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const SBVHTri* triangles, const js::AABBox& parent_aabb, int left, int right, 
 	float best_div_val, int best_axis, const std::vector<int>* unsplits,  PartitionRes& res_out, int& num_left_out, int& num_right_out)
 {
@@ -1135,7 +1177,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			// Do another pass to get the final cost given our unsplitting decisions
 			tentativeSpatialPartition(objects_, triangles, aabb, left, right, spatial_best_div_val, spatial_best_axis, &unsplit_out, res, num_left, num_right);
 			const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * num_left + res.right_aabb.getHalfSurfaceArea() * num_right;
-			assert(unsplit_cost <= spatial_smallest_split_cost_factor);
+			assert(unsplit_cost <= spatial_smallest_split_cost_factor + 1.0e-4f); // TODO: investigate the need for this eps
 
 			//if(unsplit_cost < spatial_smallest_split_cost_factor)
 			//	conPrint("unsplit " + toString(num_unsplit) + " / " + toString(right - left) + " tris: unsplit_cost: " + toString(unsplit_cost) + ", old cost: " + toString(spatial_smallest_split_cost_factor));
@@ -1232,56 +1274,57 @@ void SBVHBuilder::doBuild(
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
 
+	PartitionRes res;
 	if(best_axis == -1) // This can happen when all object centres coordinates along the axis are the same.
 	{
-		doArbitrarySplits(thread_temp_info, aabb, node_index, obs, /*left, right, */depth, result_chunk);
-		return;
+		arbitraryPartition(obs, 0, num_objects, res, thread_temp_info.left_obs[depth + 1], thread_temp_info.right_obs[depth + 1]);
 	}
-
-	if(best_split_was_spatial)
-		thread_temp_info.stats.num_spatial_splits++;
 	else
-		thread_temp_info.stats.num_object_splits++;
-
-	// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
-	const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
-
-	// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
-	if((smallest_split_cost >= non_split_cost) && (num_objects <= max_num_objects_per_leaf))
 	{
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].depth = (uint8)depth;
-		chunk_nodes[node_index].left  = (int)thread_temp_info.leaf_obs.size();
-		chunk_nodes[node_index].right = (int)thread_temp_info.leaf_obs.size() + num_objects;
-		for(int i=0; i<num_objects; ++i)
-			thread_temp_info.leaf_obs.push_back(obs[i].getIndex());
+		if(best_split_was_spatial)
+			thread_temp_info.stats.num_spatial_splits++;
+		else
+			thread_temp_info.stats.num_object_splits++;
 
-		// Update build stats
-		thread_temp_info.stats.num_cheaper_nosplit_leaves++;
-		thread_temp_info.stats.leaf_depth_sum += depth;
-		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
-		thread_temp_info.stats.num_leaves++;
-		return;
-	}
+		// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
+		const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
 
-	// draw partition
+		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
+		if((smallest_split_cost >= non_split_cost) && (num_objects <= max_num_objects_per_leaf))
+		{
+			chunk_nodes[node_index].interior = false;
+			chunk_nodes[node_index].aabb = aabb;
+			chunk_nodes[node_index].depth = (uint8)depth;
+			chunk_nodes[node_index].left  = (int)thread_temp_info.leaf_obs.size();
+			chunk_nodes[node_index].right = (int)thread_temp_info.leaf_obs.size() + num_objects;
+			for(int i=0; i<num_objects; ++i)
+				thread_temp_info.leaf_obs.push_back(obs[i].getIndex());
+
+			// Update build stats
+			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
+			thread_temp_info.stats.leaf_depth_sum += depth;
+			thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+			thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
+			thread_temp_info.stats.num_leaves++;
+			return;
+		}
+
+		// draw partition
 #if ALLOW_DEBUG_DRAWING
-	if(DEBUG_DRAW)
-	{
-		drawAABB(main_map, Colour3f(0.5f, 0.2f, 0.2f), aabb);
-		drawPartitionLine(main_map, aabb, best_axis, best_div_val, best_split_was_spatial);
-	}
+		if(DEBUG_DRAW)
+		{
+			drawAABB(main_map, Colour3f(0.5f, 0.2f, 0.2f), aabb);
+			drawPartitionLine(main_map, aabb, best_axis, best_div_val, best_split_was_spatial);
+		}
 #endif
 
-	//timer.reset();
-	PartitionRes res;
-	partition(obs, triangles, aabb, best_div_val, best_axis, best_split_was_spatial, thread_temp_info.unsplit, res, thread_temp_info.left_obs[depth + 1], thread_temp_info.right_obs[depth + 1]);
-	//conPrint("Partition done.  elapsed: " + timer.elapsedString());
+		//timer.reset();
+		
+		partition(obs, triangles, aabb, best_div_val, best_axis, best_split_was_spatial, thread_temp_info.unsplit, res, thread_temp_info.left_obs[depth + 1], thread_temp_info.right_obs[depth + 1]);
+		//conPrint("Partition done.  elapsed: " + timer.elapsedString());
+	}
 
-	const int num_left_tris  = (int)thread_temp_info.left_obs[depth + 1].size();
-	const int num_right_tris = (int)thread_temp_info.right_obs[depth + 1].size();
+	
 
 	setAABBWToOne(res.left_aabb);
 	setAABBWToOne(res.left_centroid_aabb);
@@ -1295,12 +1338,16 @@ void SBVHBuilder::doBuild(
 	assert(res.right_aabb.containsAABBox(res.right_centroid_aabb));
 	//assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
+	int num_left_tris  = (int)thread_temp_info.left_obs[depth + 1].size();
+	int num_right_tris = (int)thread_temp_info.right_obs[depth + 1].size();
 
 	if(num_left_tris == 0 || num_right_tris == 0)
 	{
 		// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
-		doArbitrarySplits(thread_temp_info, aabb, node_index, obs, depth, result_chunk);
-		return;
+		arbitraryPartition(obs, 0, num_objects, res, thread_temp_info.left_obs[depth + 1], thread_temp_info.right_obs[depth + 1]);
+
+		num_left_tris  = (int)thread_temp_info.left_obs[depth + 1].size();
+		num_right_tris = (int)thread_temp_info.right_obs[depth + 1].size();
 	}
 
 	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
@@ -1379,109 +1426,6 @@ void SBVHBuilder::doBuild(
 			result_chunk
 		);
 	}
-}
-
-
-// We may get multiple objects with the same bounding box.
-// These objects can't be split in the usual way.
-// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
-// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
-void SBVHBuilder::doArbitrarySplits(
-		SBVHPerThreadTempInfo& thread_temp_info,
-		const js::AABBox& aabb,
-		uint32 node_index, 
-		const ObjectVecType& obs,
-		int depth,
-		SBVHResultChunk& result_chunk
-	)
-{
-	const int num_objects = (int)obs.size();
-
-	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
-
-	if(num_objects <= max_num_objects_per_leaf)
-	{
-		// Make this a leaf node
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].depth = (uint8)depth;
-
-		chunk_nodes[node_index].left  = (int)thread_temp_info.leaf_obs.size(); // left;
-		chunk_nodes[node_index].right = (int)thread_temp_info.leaf_obs.size() + num_objects; //right;
-		for(int i=0; i<num_objects; ++i)
-			thread_temp_info.leaf_obs.push_back(obs[i].getIndex());
-
-		// Update build stats
-		thread_temp_info.stats.num_arbitrary_split_leaves++;
-		thread_temp_info.stats.leaf_depth_sum += depth;
-		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
-		thread_temp_info.stats.num_leaves++;
-		return;
-	}
-
-	const int split_i = num_objects/2;
-
-
-	// Compute AABBs for children (partition as well)
-	js::AABBox left_aabb  = empty_aabb;
-	js::AABBox right_aabb = empty_aabb;
-
-	thread_temp_info.left_obs[depth + 1].resize(0);
-	thread_temp_info.right_obs[depth + 1].resize(0);
-
-	for(int i=0; i<split_i; ++i)
-	{
-		left_aabb.enlargeToHoldAABBox(obs[i].aabb);
-		thread_temp_info.left_obs[depth + 1].push_back(obs[i]);
-	}
-
-	for(int i=split_i; i<num_objects; ++i)
-	{
-		right_aabb.enlargeToHoldAABBox(obs[i].aabb);
-		thread_temp_info.right_obs[depth + 1].push_back(obs[i]);
-	}
-
-	// Partition into left and right child lists
-
-
-	// Create child nodes
-	const uint32 left_child  = (uint32)chunk_nodes.size();
-	const uint32 right_child = (uint32)chunk_nodes.size() + 1;
-	chunk_nodes.push_back_uninitialised();
-	chunk_nodes.push_back_uninitialised();
-
-	// Create interior node
-	setAABBWToOne(left_aabb);
-	setAABBWToOne(right_aabb);
-	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].aabb = aabb;
-	chunk_nodes[node_index].left = left_child;
-	chunk_nodes[node_index].right = right_child;
-	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = (uint8)depth;
-
-	thread_temp_info.stats.num_interior_nodes++;
-
-	// Build left child
-	doArbitrarySplits(
-		thread_temp_info,
-		left_aabb, // aabb
-		left_child, // node index
-		obs,
-		depth + 1, // depth
-		result_chunk
-	);
-
-	// Build right child
-	doArbitrarySplits(
-		thread_temp_info,
-		right_aabb, // aabb
-		right_child, // node index
-		obs,
-		depth + 1, // depth
-		result_chunk
-	);
 }
 
 

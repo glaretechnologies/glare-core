@@ -143,19 +143,6 @@ private:
 		SBVHResultChunk& result_chunk
 	);
 
-	// We may get multiple objects with the same bounding box.
-	// These objects can't be split in the usual way.
-	// Also the number of such objects assigned to a subtree may be > max_num_objects_per_leaf.
-	// In this case we will just divide the object list into two until the num per subtree is <= max_num_objects_per_leaf.
-	void doArbitrarySplits(
-		SBVHPerThreadTempInfo& thread_temp_info,
-		const js::AABBox& aabb,
-		uint32 node_index,
-		const ObjectVecType& obs,
-		int depth,
-		SBVHResultChunk& result_chunk
-	);
-
 
 	const js::AABBox* aabbs;
 	const SBVHTri* triangles;
