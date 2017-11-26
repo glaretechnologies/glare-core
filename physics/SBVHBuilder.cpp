@@ -159,29 +159,26 @@ public:
 	{
 		ScopeProfiler _scope("SBVHBuildSubtreeTask", (int)thread_index);
 
-		// Create subtree root node
-		const int root_node_index = (int)builder.per_thread_temp_info[thread_index].result_buf.size();
-		builder.per_thread_temp_info[thread_index].result_buf.push_back_uninitialised();
-		builder.per_thread_temp_info[thread_index].result_buf[root_node_index].right_child_chunk_index = -666;
+		builder.per_thread_temp_info[thread_index].result_chunk = result_chunk;
+		builder.per_thread_temp_info[thread_index].leaf_result_chunk = leaf_result_chunk;
+
+		result_chunk->size = 1;
 
 		builder.doBuild(
 			builder.per_thread_temp_info[thread_index],
 			node_aabb,
 			centroid_aabb,
-			root_node_index, // node index
+			0, // node index
 			objects,
-			depth, sort_key,
-			*result_chunk
+			depth, 
+			sort_key,
+			result_chunk
 		);
-
-		result_chunk->thread_index = (int)thread_index;
-		result_chunk->offset = root_node_index;
-		result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
-		result_chunk->sort_key = this->sort_key;
 	}
 
 	SBVHBuilder& builder;
 	SBVHResultChunk* result_chunk;
+	SBVHLeafResultChunk* leaf_result_chunk;
 	std::vector<SBVHOb> objects;
 	js::AABBox node_aabb;
 	js::AABBox centroid_aabb;
@@ -190,13 +187,37 @@ public:
 };
 
 
-struct SBVHResultChunkPred
+//struct SBVHResultChunkPred
+//{
+//	bool operator () (const SBVHResultChunk& a, const SBVHResultChunk& b)
+//	{
+//		return a.sort_key < b.sort_key;
+//	}
+//};
+
+
+SBVHResultChunk* SBVHBuilder::allocNewResultChunk()
 {
-	bool operator () (const SBVHResultChunk& a, const SBVHResultChunk& b)
-	{
-		return a.sort_key < b.sort_key;
-	}
-};
+	SBVHResultChunk* chunk = new SBVHResultChunk();
+	chunk->size = 0;
+
+	Lock lock(result_chunks_mutex);
+	chunk->chunk_offset = result_chunks.size() * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE;
+	result_chunks.push_back(chunk);
+	return chunk;
+}
+
+
+SBVHLeafResultChunk* SBVHBuilder::allocNewLeafResultChunk()
+{
+	SBVHLeafResultChunk* chunk = new SBVHLeafResultChunk();
+	chunk->size = 0;
+
+	Lock lock(leaf_result_chunks_mutex);
+	chunk->chunk_offset = leaf_result_chunks.size() * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE;
+	leaf_result_chunks.push_back(chunk);
+	return chunk;
+}
 
 
 // Top-level build method
@@ -282,41 +303,13 @@ void SBVHBuilder::build(
 	{
 		per_thread_temp_info[i].left_obs.resize(62);
 		per_thread_temp_info[i].right_obs.resize(62);
-
-		per_thread_temp_info[i].result_buf.reserve(initial_result_buf_reserve_cap);
 	}
-
-
-	/*
-	Consider the tree of chunk splits.
-	Each leaf (apart from if the root is a leaf) will have >= c objects, where c is the split threshold (as each child of a split must have >= c objects).
-	Each interior node will have >= m*c objects, where m is the number of child leaves.
-	Therefore the root node will have >= t*c objects, where t is the total number of leaves.
-
-	    num objects at each node (of the split tree:)
-	                        
-	                    * >= 3c
-	                   / \
-	                  /   \
-	            >= c *     * >= 2c
-	                      / \
-	                     /   \
-	               >= c *     * >= c
-	e.g.
-	n >= t * c
-	n/c >= t
-	t <= n/c
-	e.g. num interior nodes <= num objects / split threshold
-
-	*/
-	result_chunks.resizeNoCopy(myMax(1, num_objects / new_task_num_ob_threshold));
-
 
 	} // End scope for initial init
 
 
-	result_chunks[0].original_index = 0;
-	next_result_chunk++;
+	SBVHResultChunk* root_chunk = allocNewResultChunk();
+	SBVHLeafResultChunk* root_leaf_chunk = allocNewLeafResultChunk();
 
 	Reference<SBVHBuildSubtreeTask> task = new SBVHBuildSubtreeTask(*this);
 	task->objects = this->top_level_objects;
@@ -324,7 +317,8 @@ void SBVHBuilder::build(
 	task->sort_key = 1;
 	task->node_aabb = root_aabb;
 	task->centroid_aabb = centroid_aabb;
-	task->result_chunk = &result_chunks[0];
+	task->result_chunk = root_chunk;
+	task->leaf_result_chunk = root_leaf_chunk;
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
@@ -341,89 +335,88 @@ void SBVHBuilder::build(
 
 	// Now we need to combine all the result chunks into a single array.
 
-	//timer.reset();
-	//Timer timer;
 
-	// Do a pass over the chunks to build chunk_root_node_indices and get the total number of nodes.
-	const int num_result_chunks = (int)next_result_chunk;
-	js::Vector<int, 16> final_chunk_offset(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each chunk.
-	js::Vector<int, 16> final_chunk_offset_original(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each original (pre-sorted) chunk index.
-	size_t total_num_nodes = 0;
+	// First combine leaf geom
+	js::Vector<uint32, 16> final_leaf_geom_indices(leaf_result_chunks.size() * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE);
+	uint32 write_i = 0;
+	for(size_t c=0; c<leaf_result_chunks.size(); ++c)
+		for(size_t i=0; i<leaf_result_chunks[c]->size; ++i)
+			final_leaf_geom_indices[c * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
 
-	// Sort chunks by sort_key.  TODO: work out the best ordering first
-	//std::sort(result_chunks.begin(), result_chunks.begin() + num_result_chunks, ResultChunkPred());
 
-	for(size_t c=0; c<num_result_chunks; ++c)
+	const int total_num_leaf_geom = write_i;
+	result_indices.resizeNoCopy(write_i);
+
+	for(size_t c=0; c<leaf_result_chunks.size(); ++c)
 	{
-		//conPrint("Chunk " + toString(c) + ": sort_key=" + toString(result_chunks[c].sort_key) + ", offset=" + toString(result_chunks[c].offset) + 
-		//	", size=" + toString(result_chunks[c].size) + ", thread_index=" + toString(result_chunks[c].thread_index));
-		final_chunk_offset[c] = (int)total_num_nodes;
-		final_chunk_offset_original[result_chunks[c].original_index] = (int)total_num_nodes;
-		total_num_nodes += result_chunks[c].size;
-		//conPrint("-------pre-merge Chunk " + toString(c) + "--------");
-		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
-	}
-
-	result_indices.reserve(m_num_objects);
-
-	result_nodes_out.resizeNoCopy(total_num_nodes);
-	int write_index = 0;
-
-	for(size_t c=0; c<num_result_chunks; ++c)
-	{
-		const SBVHResultChunk& chunk = result_chunks[c];
-		const int chunk_node_offset = final_chunk_offset[c] - chunk.offset; // delta for references internal to chunk.
-		const int chunk_leaf_geom_offset = (int)result_indices.size();
-
-		const js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info[chunk.thread_index].result_buf; // Get the per-thread result node buffer that this chunk is in.
-		const std::vector<int>& leaf_geom             = per_thread_temp_info[chunk.thread_index].leaf_obs; // Get the per-thread leaf geometry
+		const SBVHLeafResultChunk& chunk = *leaf_result_chunks[c];
+		size_t src_i = c * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE;
 
 		for(size_t i=0; i<chunk.size; ++i)
 		{
-			ResultNode chunk_node = chunk_nodes[chunk.offset + i];
+			int leaf_geom = chunk.leaf_obs[i];
+
+			const uint32 final_pos = final_leaf_geom_indices[src_i];
+			result_indices[final_pos] = leaf_geom; // Copy leaf geom index to final array
+			src_i++;
+		}
+
+		delete leaf_result_chunks[c];
+	}
+
+
+
+
+	js::Vector<uint32, 16> final_node_indices(result_chunks.size() * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE);
+	write_i = 0;
+	for(size_t c=0; c<result_chunks.size(); ++c)
+	{
+		for(size_t i=0; i<result_chunks[c]->size; ++i)
+		{
+			final_node_indices[c * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
+		}
+	}
+
+	const int total_num_nodes = write_i;
+	result_nodes_out.resizeNoCopy(write_i);
+
+	for(size_t c=0; c<result_chunks.size(); ++c)
+	{
+		const SBVHResultChunk& chunk = *result_chunks[c];
+		size_t src_node_i = c * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE;
+
+		for(size_t i=0; i<chunk.size; ++i)
+		{
+			ResultNode chunk_node = chunk.nodes[i];
 
 			// If this is an interior node, we need to fix up some links.
 			if(chunk_node.interior)
 			{
-				// Offset the child node indices by the offset of this chunk
-				chunk_node.left += chunk_node_offset;
+				chunk_node.left  = final_node_indices[chunk_node.left];
+				chunk_node.right = final_node_indices[chunk_node.right];
 
-				const int chunk_index = chunk_node.right_child_chunk_index;
-
-				assert(chunk_index == -1 || (chunk_index >= 0 && chunk_index < num_result_chunks));
-
-				if(chunk_node.right_child_chunk_index != -1) // If the right child index refers to another chunk:
-				{
-					chunk_node.right = final_chunk_offset_original[chunk_index]; // Update it with the final node index.
-				}
-				else
-					chunk_node.right += chunk_node_offset;
-
-				assert(chunk_node.left < total_num_nodes);
-				assert(chunk_node.right < total_num_nodes);
+				assert(chunk_node.left  >= 0 && chunk_node.left  < total_num_nodes);
+				assert(chunk_node.right >= 0 && chunk_node.right < total_num_nodes);
 			}
-			else // Else if chunk is leaf:
+			else
 			{
-				const int new_left = (int)result_indices.size();
-				const int new_right = new_left + (chunk_node.right - chunk_node.left);
-				// Append leaf primitive indices to result_indices
-				for(int z=chunk_node.left; z<chunk_node.right; ++z)
-				{
-					const int ob_i = leaf_geom[z];
-					assert(ob_i >= 0 && ob_i < m_num_objects);
-					result_indices.push_back(ob_i);
-				}
+				const int old_left = chunk_node.left;
+				const int old_right = chunk_node.right;
 
-				// Update leaf node left and right
-				chunk_node.left = new_left;
-				chunk_node.right = new_right;
+				chunk_node.left  = final_leaf_geom_indices[chunk_node.left];
+				chunk_node.right = chunk_node.left + (old_right - old_left);
+
+				assert(chunk_node.left  >= 0 && chunk_node.left  < total_num_leaf_geom);
+				assert(chunk_node.right >= 0 && chunk_node.right <= total_num_leaf_geom);
 			}
 
-			result_nodes_out[write_index] = chunk_node; // Copy node to final array
-			write_index++;
+			const uint32 final_pos = final_node_indices[src_node_i];
+			result_nodes_out[final_pos] = chunk_node; // Copy node to final array
+			src_node_i++;
 		}
-	}
 
+		delete result_chunks[c];
+	}
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
 	// Combine stats from each thread
@@ -1139,7 +1132,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			const float left_half_area  = res.left_aabb. getHalfSurfaceArea();
 			const float right_half_area = res.right_aabb.getHalfSurfaceArea();
 			const float C_split = left_half_area * num_left + right_half_area * num_right;
-			assert(epsEqual(C_split, spatial_smallest_split_cost_factor));
+		//TEMP	assert(epsEqual(C_split, spatial_smallest_split_cost_factor));
 
 			const float left_reduced_cost  = res.left_aabb.getHalfSurfaceArea()  * (num_left - 1);
 			const float right_reduced_cost = res.right_aabb.getHalfSurfaceArea() * (num_right - 1);
@@ -1215,6 +1208,47 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 }
 
 
+const static int MAX_DEPTH = 60;
+
+
+void SBVHBuilder::markNodeAsLeaf(SBVHPerThreadTempInfo& thread_temp_info, const js::AABBox& aabb, uint32 node_index, const std::vector<SBVHOb>& obs, int depth, SBVHResultChunk* node_result_chunk)
+{
+	const int num_objects = (int)obs.size();
+	assert(num_objects <= max_num_objects_per_leaf);
+
+	SBVHLeafResultChunk* leaf_result_chunk = thread_temp_info.leaf_result_chunk;
+
+	// Make sure we have space for leaf geom
+	// Supose MAX_RESULT_CHUNK_SIZE = 4, num_objects=2.
+	// Then if size >= 3 (or size > 2) then we don't have enough room for num_objects.
+	if(leaf_result_chunk->size > SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE - num_objects) // If there is not room for leaf geom:
+		leaf_result_chunk = thread_temp_info.leaf_result_chunk = allocNewLeafResultChunk();
+
+	// Make this a leaf node
+	node_result_chunk->nodes[node_index].interior = false;
+	node_result_chunk->nodes[node_index].aabb = aabb;
+	node_result_chunk->nodes[node_index].depth = (uint8)depth;
+	node_result_chunk->nodes[node_index].left  = (int)(leaf_result_chunk->chunk_offset + leaf_result_chunk->size);
+	node_result_chunk->nodes[node_index].right = (int)(leaf_result_chunk->chunk_offset + leaf_result_chunk->size + num_objects);
+
+	for(int i=0; i<num_objects; ++i)
+		leaf_result_chunk->leaf_obs[leaf_result_chunk->size + i] = obs[i].getIndex();
+	leaf_result_chunk->size += num_objects;
+
+	assert(leaf_result_chunk->size <= SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE);
+
+	// Update build stats
+	if(depth >= MAX_DEPTH)
+		thread_temp_info.stats.num_maxdepth_leaves++;
+	else
+		thread_temp_info.stats.num_under_thresh_leaves++;
+	thread_temp_info.stats.leaf_depth_sum += depth;
+	thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+	thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
+	thread_temp_info.stats.num_leaves++;
+}
+
+
 /*
 Recursively build a subtree.
 Assumptions: root node for subtree is already created and is at node_index
@@ -1227,37 +1261,16 @@ void SBVHBuilder::doBuild(
 			const std::vector<SBVHOb>& obs,
 			int depth,
 			uint64 sort_key,
-			SBVHResultChunk& result_chunk
+			SBVHResultChunk* node_result_chunk
 			)
 {
-	const int MAX_DEPTH = 60;
-
 	const int num_objects = (int)obs.size();
 
-	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
+	SBVHLeafResultChunk* leaf_result_chunk = thread_temp_info.leaf_result_chunk;
 
 	if(num_objects <= leaf_num_object_threshold || depth >= MAX_DEPTH)
 	{
-		assert(num_objects <= max_num_objects_per_leaf);
-
-		// Make this a leaf node
-		chunk_nodes[node_index].interior = false;
-		chunk_nodes[node_index].aabb = aabb;
-		chunk_nodes[node_index].depth = (uint8)depth;
-		chunk_nodes[node_index].left  = (int)thread_temp_info.leaf_obs.size();
-		chunk_nodes[node_index].right = (int)thread_temp_info.leaf_obs.size() + num_objects;
-		for(int i=0; i<num_objects; ++i)
-			thread_temp_info.leaf_obs.push_back(obs[i].getIndex());
-
-		// Update build stats
-		if(depth >= MAX_DEPTH)
-			thread_temp_info.stats.num_maxdepth_leaves++;
-		else
-			thread_temp_info.stats.num_under_thresh_leaves++;
-		thread_temp_info.stats.leaf_depth_sum += depth;
-		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
-		thread_temp_info.stats.num_leaves++;
+		markNodeAsLeaf(thread_temp_info, aabb, node_index, obs, depth, node_result_chunk);
 		return;
 	}
 
@@ -1292,20 +1305,7 @@ void SBVHBuilder::doBuild(
 		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
 		if((smallest_split_cost >= non_split_cost) && (num_objects <= max_num_objects_per_leaf))
 		{
-			chunk_nodes[node_index].interior = false;
-			chunk_nodes[node_index].aabb = aabb;
-			chunk_nodes[node_index].depth = (uint8)depth;
-			chunk_nodes[node_index].left  = (int)thread_temp_info.leaf_obs.size();
-			chunk_nodes[node_index].right = (int)thread_temp_info.leaf_obs.size() + num_objects;
-			for(int i=0; i<num_objects; ++i)
-				thread_temp_info.leaf_obs.push_back(obs[i].getIndex());
-
-			// Update build stats
-			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
-			thread_temp_info.stats.leaf_depth_sum += depth;
-			thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-			thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
-			thread_temp_info.stats.num_leaves++;
+			markNodeAsLeaf(thread_temp_info, aabb, node_index, obs, depth, node_result_chunk);
 			return;
 		}
 
@@ -1350,35 +1350,43 @@ void SBVHBuilder::doBuild(
 		num_right_tris = (int)thread_temp_info.right_obs[depth + 1].size();
 	}
 
-	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
-	//timer.reset();
-	//partition_time += timer.elapsed();
-
-	// Create child nodes
-	const uint32 left_child = (uint32)chunk_nodes.size();
-	chunk_nodes.push_back_uninitialised();
+	// Allocate left child from the thread's current result chunk
+	if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+		thread_temp_info.result_chunk = allocNewResultChunk();
+	
+	const size_t left_child = thread_temp_info.result_chunk->size++;
+	SBVHResultChunk* left_child_chunk = thread_temp_info.result_chunk;
 
 	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && (num_right_tris >= new_task_num_ob_threshold);
 
+	// Allocate right child
+	SBVHResultChunk* right_child_chunk;
+	SBVHLeafResultChunk* right_child_leaf_chunk;
 	uint32 right_child;
 	if(!do_right_child_in_new_task)
 	{
-		right_child = (uint32)chunk_nodes.size();
-		chunk_nodes.push_back_uninitialised();
+		if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+			thread_temp_info.result_chunk = allocNewResultChunk();
+
+		right_child = (uint32)(thread_temp_info.result_chunk->size++);
+		right_child_chunk = thread_temp_info.result_chunk;
+		right_child_leaf_chunk = leaf_result_chunk;
 	}
 	else
 	{
+		right_child_chunk = allocNewResultChunk(); // This child subtree will be built in a new task, so probably in a different thread.  So use a new chunk for it.
+		right_child_leaf_chunk = allocNewLeafResultChunk();
 		right_child = 0; // Root node of new task subtree chunk.
 	}
 
 
 	// Mark this node as an interior node.
-	chunk_nodes[node_index].interior = true;
-	chunk_nodes[node_index].aabb = aabb;
-	chunk_nodes[node_index].left = left_child;
-	chunk_nodes[node_index].right = right_child;
-	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = (uint8)depth;
+	node_result_chunk->nodes[node_index].interior = true;
+	node_result_chunk->nodes[node_index].aabb = aabb;
+	node_result_chunk->nodes[node_index].left  = (int)(left_child  + left_child_chunk->chunk_offset);
+	node_result_chunk->nodes[node_index].right = (int)(right_child + right_child_chunk->chunk_offset);
+	node_result_chunk->nodes[node_index].right_child_chunk_index = -1;
+	node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
@@ -1391,20 +1399,15 @@ void SBVHBuilder::doBuild(
 		thread_temp_info.left_obs[depth + 1], // objects
 		depth + 1, // depth
 		sort_key << 1, // sort key
-		result_chunk
+		left_child_chunk
 	);
 
 	if(do_right_child_in_new_task)
 	{
-		// Add to chunk list
-		const int chunk_index = (int)next_result_chunk++;
-		chunk_nodes[node_index].right_child_chunk_index = chunk_index;
-		assert((int)chunk_index < (int)result_chunks.size());
-		result_chunks[chunk_index].original_index = chunk_index;
-
 		// Put this subtree into a task
 		Reference<SBVHBuildSubtreeTask> subtree_task = new SBVHBuildSubtreeTask(*this);
-		subtree_task->result_chunk = &result_chunks[chunk_index];
+		subtree_task->result_chunk = right_child_chunk;
+		subtree_task->leaf_result_chunk = right_child_leaf_chunk;
 		subtree_task->node_aabb = res.right_aabb;
 		subtree_task->centroid_aabb = res.right_centroid_aabb;
 		subtree_task->depth = depth + 1;
@@ -1423,7 +1426,7 @@ void SBVHBuilder::doBuild(
 			thread_temp_info.right_obs[depth + 1],
 			depth + 1, // depth
 			(sort_key << 1) | 1,
-			result_chunk
+			right_child_chunk
 		);
 	}
 }

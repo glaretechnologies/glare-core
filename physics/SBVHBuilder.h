@@ -57,31 +57,52 @@ struct SBVHOb
 };
 
 
+struct SBVHResultChunk
+{
+	INDIGO_ALIGNED_NEW_DELETE
+
+	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
+
+	ResultNode nodes[MAX_RESULT_CHUNK_SIZE];
+
+	size_t size;
+	size_t chunk_offset;
+};
+
+
+struct SBVHLeafResultChunk
+{
+	//int thread_index; // The index of the thread that computed this chunk.
+	//int offset; // Offset in thread's result_buf
+	//int size; // num nodes created by the task in thread's result_buf;
+	//int original_index; // Index of this chunk in result_chunks, before sorting.
+
+	//uint64 sort_key;
+
+	INDIGO_ALIGNED_NEW_DELETE
+
+	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
+
+	int leaf_obs[MAX_RESULT_CHUNK_SIZE];
+
+	size_t size;
+	size_t chunk_offset;
+};
+
+
 struct SBVHPerThreadTempInfo
 {
-	js::Vector<ResultNode, 64> result_buf;
-	std::vector<int> leaf_obs;
-
 	SBVHBuildStats stats;
 
-	size_t dataSizeBytes() const { return result_buf.dataSizeBytes(); }
+	size_t dataSizeBytes() const { return 0; }// result_buf.dataSizeBytes();
 
 	std::vector<std::vector<SBVHOb> > left_obs;
 	std::vector<std::vector<SBVHOb> > right_obs;
 
 	std::vector<int> unsplit;
 
-};
-
-
-struct SBVHResultChunk
-{
-	int thread_index; // The index of the thread that computed this chunk.
-	int offset; // Offset in thread's result_buf
-	int size; // num nodes created by the task in thread's result_buf;
-	int original_index; // Index of this chunk in result_chunks, before sorting.
-
-	uint64 sort_key;
+	SBVHResultChunk* result_chunk;
+	SBVHLeafResultChunk* leaf_result_chunk;
 };
 
 
@@ -131,6 +152,9 @@ public:
 
 	typedef std::vector<SBVHOb> ObjectVecType;
 private:
+	SBVHResultChunk* allocNewResultChunk();
+	SBVHLeafResultChunk* allocNewLeafResultChunk();
+
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(
 		SBVHPerThreadTempInfo& thread_temp_info,
@@ -140,8 +164,10 @@ private:
 		const ObjectVecType& obs,
 		int depth,
 		uint64 sort_key,
-		SBVHResultChunk& result_chunk
+		SBVHResultChunk* result_chunk
 	);
+
+	inline void markNodeAsLeaf(SBVHPerThreadTempInfo& thread_temp_info, const js::AABBox& aabb, uint32 node_index, const std::vector<SBVHOb>& obs, int depth, SBVHResultChunk* node_result_chunk);
 
 
 	const js::AABBox* aabbs;
@@ -150,8 +176,11 @@ private:
 	ObjectVecType top_level_objects;
 	std::vector<SBVHPerThreadTempInfo> per_thread_temp_info;
 
-	IndigoAtomic next_result_chunk; // Index of next free result chunk
-	js::Vector<SBVHResultChunk, 16> result_chunks;
+	js::Vector<SBVHResultChunk*, 16> result_chunks;
+	Mutex result_chunks_mutex;
+
+	js::Vector<SBVHLeafResultChunk*, 16> leaf_result_chunks;
+	Mutex leaf_result_chunks_mutex;
 
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 

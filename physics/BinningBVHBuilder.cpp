@@ -94,15 +94,15 @@ public:
 	{
 		ScopeProfiler _scope("BinningBuildSubtreeTask", (int)thread_index);
 
-		// Create subtree root node
-		const int root_node_index = 0;
+		builder.per_thread_temp_info[thread_index].result_chunk = result_chunk;
+
 		result_chunk->size = 1;
 
 		builder.doBuild(
 			builder.per_thread_temp_info[thread_index],
 			node_aabb,
 			centroid_aabb,
-			root_node_index, // node index
+			0, // node index
 			begin, end, depth, sort_key,
 			result_chunk
 		);
@@ -593,7 +593,7 @@ void BinningBVHBuilder::doBuild(
 			int right, 
 			int depth,
 			uint64 sort_key,
-			BinningResultChunk* result_chunk
+			BinningResultChunk* node_result_chunk
 			)
 {
 	const int MAX_DEPTH = 60;
@@ -605,11 +605,11 @@ void BinningBVHBuilder::doBuild(
 		assert(right - left <= max_num_objects_per_leaf);
 
 		// Make this a leaf node
-		result_chunk->nodes[node_index].interior = false;
-		result_chunk->nodes[node_index].aabb = aabb;
-		result_chunk->nodes[node_index].left = left;
-		result_chunk->nodes[node_index].right = right;
-		result_chunk->nodes[node_index].depth = (uint8)depth;
+		node_result_chunk->nodes[node_index].interior = false;
+		node_result_chunk->nodes[node_index].aabb = aabb;
+		node_result_chunk->nodes[node_index].left = left;
+		node_result_chunk->nodes[node_index].right = right;
+		node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -652,11 +652,11 @@ void BinningBVHBuilder::doBuild(
 		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
 		if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
 		{
-			result_chunk->nodes[node_index].interior = false;
-			result_chunk->nodes[node_index].aabb = aabb;
-			result_chunk->nodes[node_index].left = left;
-			result_chunk->nodes[node_index].right = right;
-			result_chunk->nodes[node_index].depth = (uint8)depth;
+			node_result_chunk->nodes[node_index].interior = false;
+			node_result_chunk->nodes[node_index].aabb = aabb;
+			node_result_chunk->nodes[node_index].left = left;
+			node_result_chunk->nodes[node_index].right = right;
+			node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 			// Update build stats
 			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
@@ -667,10 +667,7 @@ void BinningBVHBuilder::doBuild(
 			return;
 		}
 
-		//timer.reset();
-		//PartitionRes res;
 		partition(objects, left, right, best_div_val, best_axis, res);
-		//conPrint("Partition done.  elapsed: " + timer.elapsedString());
 
 		// Check partitioning
 #ifndef NDEBUG
@@ -703,24 +700,17 @@ void BinningBVHBuilder::doBuild(
 		num_left_tris = res.cur - left;
 	}
 
-	//conPrint("Partitioning done.  elapsed: " + timer.elapsedString());
 	//timer.reset();
 	//partition_time += timer.elapsed();
 
 
-	BinningResultChunk* initial_chunk = result_chunk;
+	// Allocate left child from the thread's current result chunk
+	if(thread_temp_info.result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+		thread_temp_info.result_chunk = allocNewResultChunk();
 
-	// Create child nodes
-	uint32 left_child; // index in result_chunk
-	if(result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE - 1) // If there is not room for both left and right nodes:
-	{
-		// Alloc a new node
-		result_chunk = allocNewResultChunk();
-		left_child = 0;
-		result_chunk->size = 1;
-	}
-	else
-		left_child = (uint32)(result_chunk->size++);
+	const size_t left_child = thread_temp_info.result_chunk->size++;
+	BinningResultChunk* left_child_chunk = thread_temp_info.result_chunk;
+
 
 	const int split_i = left + num_left_tris;
 	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && ((right - split_i) >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
@@ -730,27 +720,31 @@ void BinningBVHBuilder::doBuild(
 	//else
 	//	conPrint("not splitting.");
 
+	// Allocate right child
 	BinningResultChunk* right_child_chunk;
-	uint32 right_child; // index in right_child_chunk
+	uint32 right_child;
 	if(!do_right_child_in_new_task)
 	{
-		right_child_chunk = result_chunk;
-		right_child = (uint32)(result_chunk->size++);
+		if(thread_temp_info.result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+			thread_temp_info.result_chunk = allocNewResultChunk();
+
+		right_child = (uint32)(thread_temp_info.result_chunk->size++);
+		right_child_chunk = thread_temp_info.result_chunk;
 	}
 	else
 	{
-		right_child_chunk = allocNewResultChunk();
-		right_child = 0;
+		right_child_chunk = allocNewResultChunk(); // This child subtree will be built in a new task, so probably in a different thread.  So use a new chunk for it.
+		right_child = 0; // Root node of new task subtree chunk.
 	}
 
 	// Mark this node as an interior node.
 	//setAABBWToOne(best_right_aabb);
-	initial_chunk->nodes[node_index].interior = true;
-	initial_chunk->nodes[node_index].aabb = aabb;
-	initial_chunk->nodes[node_index].left  = (int)(left_child  + result_chunk->chunk_offset);
-	initial_chunk->nodes[node_index].right = (int)(right_child + right_child_chunk->chunk_offset);
-	initial_chunk->nodes[node_index].right_child_chunk_index = -1;
-	initial_chunk->nodes[node_index].depth = (uint8)depth;
+	node_result_chunk->nodes[node_index].interior = true;
+	node_result_chunk->nodes[node_index].aabb = aabb;
+	node_result_chunk->nodes[node_index].left  = (int)(left_child  + left_child_chunk->chunk_offset);
+	node_result_chunk->nodes[node_index].right = (int)(right_child + right_child_chunk->chunk_offset);
+	node_result_chunk->nodes[node_index].right_child_chunk_index = -1;
+	node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
@@ -759,12 +753,12 @@ void BinningBVHBuilder::doBuild(
 		thread_temp_info,
 		res.left_aabb, // aabb
 		res.left_centroid_aabb,
-		left_child, // node index
+		(int)left_child, // node index
 		left, // left
 		split_i, // right
 		depth + 1, // depth
 		sort_key << 1, // sort key
-		result_chunk
+		left_child_chunk
 	);
 
 	if(do_right_child_in_new_task)
@@ -792,7 +786,7 @@ void BinningBVHBuilder::doBuild(
 			right, // right
 			depth + 1, // depth
 			(sort_key << 1) | 1,
-			result_chunk
+			right_child_chunk
 		);
 	}
 }

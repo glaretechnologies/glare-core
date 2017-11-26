@@ -55,12 +55,6 @@ struct BinningOb
 };
 
 
-struct BinningPerThreadTempInfo
-{
-	BinningBVHBuildStats stats;
-};
-
-
 struct BinningResultChunk
 {
 	INDIGO_ALIGNED_NEW_DELETE
@@ -71,6 +65,14 @@ struct BinningResultChunk
 
 	size_t size;
 	size_t chunk_offset;
+};
+
+
+struct BinningPerThreadTempInfo
+{
+	BinningBVHBuildStats stats;
+
+	BinningResultChunk* result_chunk;
 };
 
 
