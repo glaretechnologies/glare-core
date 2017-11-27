@@ -66,7 +66,7 @@ static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int 
 }
 
 
-static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs)
+static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
 {
 	//checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
 
@@ -76,7 +76,8 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 	{
 		const uint32 ob_i = result_ob_indices[z];
 		testAssert(ob_i < (uint32)aabbs.size());
-		//testAssert(!seen[ob_i]);
+		if(!duplicate_prims_allowed)
+			testAssert(!seen[ob_i]);
 		seen[ob_i] = true;
 	}
 
@@ -102,7 +103,8 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 
 			for(int z = node.left; z < node.right; ++z)
 			{
-				//testAssert(!ob_in_leaf[z]);
+				if(!duplicate_prims_allowed)
+					testAssert(!ob_in_leaf[z]);
 				ob_in_leaf[z] = true;
 			}
 		}
@@ -190,7 +192,8 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 			result_nodes
 		);
 
-		testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs);
+		const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
+		testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs, duplicate_prims_allowed);
 	}
 }
 
@@ -244,7 +247,7 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 		result_nodes_out
 	);
 
-	testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs);
+	testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs, /*duplicate_prims_allowed=*/false);
 }
 
 void test()
@@ -982,7 +985,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 
 			conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
 
-			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/false);
 		}
 	}
 

@@ -94,38 +94,46 @@ public:
 	{
 		ScopeProfiler _scope("BinningBuildSubtreeTask", (int)thread_index);
 
-		builder.per_thread_temp_info[thread_index].result_chunk = result_chunk;
+		// Alloc space for node in already existing chunk, or allocate a new chunk if needed.
+		int node_index;
+		if(builder.per_thread_temp_info[thread_index].result_chunk == NULL)
+		{
+			builder.per_thread_temp_info[thread_index].result_chunk = builder.allocNewResultChunk();
+			builder.per_thread_temp_info[thread_index].result_chunk->size = 1;
+			node_index = 0;
+		}
+		else
+		{
+			if(builder.per_thread_temp_info[thread_index].result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+				builder.per_thread_temp_info[thread_index].result_chunk = builder.allocNewResultChunk();
 
-		result_chunk->size = 1;
+			node_index = (int)(builder.per_thread_temp_info[thread_index].result_chunk->size++);
+		}
+
+		// Fix up reference from parent node to this node.
+		if(parent_node_index != -1)
+			parent_chunk->nodes[parent_node_index].right = (int)(node_index + builder.per_thread_temp_info[thread_index].result_chunk->chunk_offset);
 
 		builder.doBuild(
 			builder.per_thread_temp_info[thread_index],
 			node_aabb,
 			centroid_aabb,
-			0, // node index
-			begin, end, depth, sort_key,
-			result_chunk
+			node_index,
+			begin, end, depth,
+			builder.per_thread_temp_info[thread_index].result_chunk
 		);
 	}
 
+	
 	BinningBVHBuilder& builder;
-	BinningResultChunk* result_chunk;
 	js::AABBox node_aabb;
 	js::AABBox centroid_aabb;
 	int depth;
 	int begin;
 	int end;
-	uint64 sort_key;
+	BinningResultChunk* parent_chunk;
+	int parent_node_index;
 };
-
-
-//struct BinningResultChunkPred
-//{
-//	bool operator () (const BinningResultChunk& a, const BinningResultChunk& b)
-//	{
-//		return a.sort_key < b.sort_key;
-//	}
-//};
 
 
 BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
@@ -200,20 +208,19 @@ void BinningBVHBuilder::build(
 	
 	
 	per_thread_temp_info.resize(task_manager->getNumThreads());
+	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
+		per_thread_temp_info[i].result_chunk = NULL;
 
 	} // End scope for initial init
 
-
-	BinningResultChunk* root_chunk = allocNewResultChunk();
 
 	Reference<BinningBuildSubtreeTask> task = new BinningBuildSubtreeTask(*this);
 	task->begin = 0;
 	task->end = m_num_objects;
 	task->depth = 0;
-	task->sort_key = 1;
 	task->node_aabb = root_aabb;
 	task->centroid_aabb = centroid_aabb;
-	task->result_chunk = root_chunk;
+	task->parent_node_index = -1;
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
@@ -592,7 +599,6 @@ void BinningBVHBuilder::doBuild(
 			int left, 
 			int right, 
 			int depth,
-			uint64 sort_key,
 			BinningResultChunk* node_result_chunk
 			)
 {
@@ -733,8 +739,8 @@ void BinningBVHBuilder::doBuild(
 	}
 	else
 	{
-		right_child_chunk = allocNewResultChunk(); // This child subtree will be built in a new task, so probably in a different thread.  So use a new chunk for it.
-		right_child = 0; // Root node of new task subtree chunk.
+		right_child_chunk = NULL; // not used
+		right_child = 0; // not used
 	}
 
 	// Mark this node as an interior node.
@@ -742,7 +748,7 @@ void BinningBVHBuilder::doBuild(
 	node_result_chunk->nodes[node_index].interior = true;
 	node_result_chunk->nodes[node_index].aabb = aabb;
 	node_result_chunk->nodes[node_index].left  = (int)(left_child  + left_child_chunk->chunk_offset);
-	node_result_chunk->nodes[node_index].right = (int)(right_child + right_child_chunk->chunk_offset);
+	node_result_chunk->nodes[node_index].right = do_right_child_in_new_task ? -1 : (int)(right_child + right_child_chunk->chunk_offset); // will be fixed-up later
 	node_result_chunk->nodes[node_index].right_child_chunk_index = -1;
 	node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
@@ -757,7 +763,6 @@ void BinningBVHBuilder::doBuild(
 		left, // left
 		split_i, // right
 		depth + 1, // depth
-		sort_key << 1, // sort key
 		left_child_chunk
 	);
 
@@ -765,13 +770,14 @@ void BinningBVHBuilder::doBuild(
 	{
 		// Put this subtree into a task
 		Reference<BinningBuildSubtreeTask> subtree_task = new BinningBuildSubtreeTask(*this);
-		subtree_task->result_chunk = right_child_chunk;
 		subtree_task->node_aabb = res.right_aabb;
 		subtree_task->centroid_aabb = res.right_centroid_aabb;
 		subtree_task->depth = depth + 1;
-		subtree_task->sort_key = (sort_key << 1) | 1;
 		subtree_task->begin = split_i;
 		subtree_task->end = right;
+		subtree_task->parent_node_index = (int)(node_index);
+		subtree_task->parent_chunk = node_result_chunk;
+
 		task_manager->addTask(subtree_task);
 	}
 	else
@@ -785,7 +791,6 @@ void BinningBVHBuilder::doBuild(
 			split_i, // left
 			right, // right
 			depth + 1, // depth
-			(sort_key << 1) | 1,
 			right_child_chunk
 		);
 	}

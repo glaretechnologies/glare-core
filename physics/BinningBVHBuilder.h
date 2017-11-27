@@ -59,7 +59,7 @@ struct BinningResultChunk
 {
 	INDIGO_ALIGNED_NEW_DELETE
 
-	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
+	const static size_t MAX_RESULT_CHUNK_SIZE = ((1 << 16) / sizeof(ResultNode)) - 1; // We want the size of BinningResultChunk to be just under 1 << 16.  (Set nodes size to leave room other member vars)
 	
 	ResultNode nodes[MAX_RESULT_CHUNK_SIZE];
 
@@ -121,7 +121,6 @@ private:
 		int left,
 		int right,
 		int depth,
-		uint64 sort_key,
 		BinningResultChunk* result_chunk
 	);
 
