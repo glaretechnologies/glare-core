@@ -117,6 +117,8 @@ SBVHBuilder
 -------------------
 See "Spatial Splits in Bounding Volume Hierarchies"
 http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.550.6560&rep=rep1&type=pdf
+Also
+https://github.com/embree/embree/blob/master/kernels/builders/heuristic_spatial.h
 =====================================================================*/
 class SBVHBuilder : public BVHBuilder
 {

@@ -757,73 +757,69 @@ static inline void setAABBWToOne(js::AABBox& aabb)
 }
 
 
-static void getTriClippedtoBucket(const js::AABBox& ob_aabb, const SBVHTri& tri, int axis, float left, float right, js::AABBox& clipped_aabb_out)
+static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const SBVHTri& tri, int axis, float split_coord, js::AABBox& left_clipped_aabb_out, js::AABBox& right_clipped_aabb_out)
 {
-	clipped_aabb_out = empty_aabb;
+	js::AABBox left_aabb  = empty_aabb;
+	js::AABBox right_aabb = empty_aabb;
 
 	const Vec4f v0 = tri.v[0];
 	const Vec4f v1 = tri.v[1];
 	const Vec4f v2 = tri.v[2];
 
-	// For each vertex, if it lies between the clip planes, enlarge bounding box to contain it.
-	if(v0[axis] >= left && v0[axis] <= right)
-		clipped_aabb_out.enlargeToHoldPoint(v0);
+	const float v0d = v0[axis];
+	const float v1d = v1[axis];
+	const float v2d = v2[axis];
 
-	if(v1[axis] >= left && v1[axis] <= right)
-		clipped_aabb_out.enlargeToHoldPoint(v1);
+	if(v0d <= split_coord)
+		left_aabb.enlargeToHoldPoint(v0);
+	if(v1d <= split_coord)
+		left_aabb.enlargeToHoldPoint(v1);
+	if(v2d <= split_coord)
+		left_aabb.enlargeToHoldPoint(v2);
 
-	if(v2[axis] >= left && v2[axis] <= right)
-		clipped_aabb_out.enlargeToHoldPoint(v2);
+	if(v0d >= split_coord)
+		right_aabb.enlargeToHoldPoint(v0);
+	if(v1d >= split_coord)
+		right_aabb.enlargeToHoldPoint(v1);
+	if(v2d >= split_coord)
+		right_aabb.enlargeToHoldPoint(v2);
 
 	// Clip against left plane
-	if((v0[axis] < left && v1[axis] > left) || (v0[axis] > left && v1[axis] < left)) // If edge 0-1 straddles left clip plane:
+	if((v0d < split_coord && v1d > split_coord) || (v0d > split_coord && v1d < split_coord)) // If edge 0-1 straddles left clip plane:
 	{
-		const float t = (left - v0[axis]) / (v1[axis] - v0[axis]); // Solve for fraction along edge of position on split plane.
+		const float t = (split_coord - v0d) / (v1d - v0d); // Solve for fraction along edge of position on split plane.
 		const Vec4f p = v0 * (1 - t) + v1 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
+		left_aabb.enlargeToHoldPoint(p);
+		right_aabb.enlargeToHoldPoint(p);
 	}
 
-	if((v1[axis] < left && v2[axis] > left) || (v1[axis] > left && v2[axis] < left)) // If edge 1-2 straddles left clip plane:
+	if((v1d < split_coord && v2d > split_coord) || (v1d > split_coord && v2d < split_coord)) // If edge 1-2 straddles left clip plane:
 	{
-		const float t = (left - v1[axis]) / (v2[axis] - v1[axis]); // Solve for fraction along edge of position on split plane.
+		const float t = (split_coord - v1d) / (v2d - v1d); // Solve for fraction along edge of position on split plane.
 		const Vec4f p = v1 * (1 - t) + v2 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
+		left_aabb.enlargeToHoldPoint(p);
+		right_aabb.enlargeToHoldPoint(p);
 	}
 
-	if((v2[axis] < left && v0[axis] > left) || (v2[axis] > left && v0[axis] < left)) // If edge 2-0 straddles left clip plane:
+	if((v2d < split_coord && v0d > split_coord) || (v2d > split_coord && v0d < split_coord)) // If edge 2-0 straddles left clip plane:
 	{
-		const float t = (left - v2[axis]) / (v0[axis] - v2[axis]); // Solve for fraction along edge of position on split plane.
+		const float t = (split_coord - v2d) / (v0d - v2d); // Solve for fraction along edge of position on split plane.
 		const Vec4f p = v2 * (1 - t) + v0 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
+		left_aabb.enlargeToHoldPoint(p);
+		right_aabb.enlargeToHoldPoint(p);
 	}
 
-	// Clip against right plane
-	if((v0[axis] < right && v1[axis] > right) || (v0[axis] > right && v1[axis] < right)) // If edge 0-1 straddles right clip plane:
-	{
-		const float t = (right - v0[axis]) / (v1[axis] - v0[axis]); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v0 * (1 - t) + v1 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
-	}
+	
+	left_aabb  = intersection(ob_aabb, left_aabb);
+	right_aabb = intersection(ob_aabb, right_aabb);
 
-	if((v1[axis] < right && v2[axis] > right) || (v1[axis] > right && v2[axis] < right)) // If edge 1-2 straddles right clip plane:
-	{
-		const float t = (right - v1[axis]) / (v2[axis] - v1[axis]); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v1 * (1 - t) + v2 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
-	}
+	assert(ob_aabb.containsAABBox(left_aabb));
+	assert(ob_aabb.containsAABBox(right_aabb));
+	assert(left_aabb .max_[axis] <= split_coord + 1.0e-5f);
+	assert(right_aabb.min_[axis] >= split_coord - 1.0e-5f);
 
-	if((v2[axis] < right && v0[axis] > right) || (v2[axis] > right && v0[axis] < right)) // If edge 2-0 straddles right clip plane:
-	{
-		const float t = (right - v2[axis]) / (v0[axis] - v2[axis]); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v2 * (1 - t) + v0 * t;
-		clipped_aabb_out.enlargeToHoldPoint(p);
-	}
-
-	clipped_aabb_out = intersection(ob_aabb, clipped_aabb_out);
-
-	assert(ob_aabb.containsAABBox(clipped_aabb_out));
-	assert(clipped_aabb_out.min_[axis] >= left  - 1.0e-5f);
-	assert(clipped_aabb_out.max_[axis] <= right + 1.0e-5f);
+	left_clipped_aabb_out  = left_aabb;
+	right_clipped_aabb_out = right_aabb;
 }
 
 
@@ -992,7 +988,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	const float alpha = 1.0e-5f;
 	if(lambda_over_sa_root_bound > alpha)
 	{
-		const int num_spatial_buckets = 32;
+		const int num_spatial_buckets = 16;
 		assert(num_spatial_buckets <= max_B);
 		
 		Vec4i entry_counts[max_B];
@@ -1036,12 +1032,19 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 						bucket_aabbs[entry_b + axis*max_B].enlargeToHoldAABBox(ob_aabb);
 					else
 					{
-						for(int b=entry_b; b<=exit_b; ++b)
+						js::AABBox last_to_right_aabb = ob_aabb; // bounds of triangle to the right of last clip plane.  Starts with the full bounds of the triangle (as clipped to current node AABB)
+						for(int b=entry_b; b<exit_b; ++b)
 						{
-							js::AABBox clipped_aabb;
-							getTriClippedtoBucket(ob_aabb, tri, axis, aabb.min_[axis] + spatial_axis_len_over_num_buckets[axis] * b, aabb.min_[axis] + spatial_axis_len_over_num_buckets[axis] * (b + 1), clipped_aabb);
-							bucket_aabbs[b + axis*max_B].enlargeToHoldAABBox(clipped_aabb);
+							// Clip triangle against current clip plane, taking the intersection of the results with last_to_right_aabb as well.
+							js::AABBox to_left_aabb;
+							js::AABBox to_right_aabb;
+							clipTri(last_to_right_aabb, tri, axis, aabb.min_[axis] + spatial_axis_len_over_num_buckets[axis] * (b + 1), to_left_aabb, to_right_aabb);
+							last_to_right_aabb = to_right_aabb;
+
+							bucket_aabbs[b + axis*max_B].enlargeToHoldAABBox(to_left_aabb);
 						}
+
+						bucket_aabbs[exit_b + axis*max_B].enlargeToHoldAABBox(last_to_right_aabb);
 					}
 
 					(entry_counts[entry_b])[axis]++;
@@ -1395,7 +1398,7 @@ void SBVHBuilder::doBuild(
 		thread_temp_info,
 		res.left_aabb, // aabb
 		res.left_centroid_aabb,
-		left_child, // node index
+		(uint32)left_child, // node index
 		thread_temp_info.left_obs[depth + 1], // objects
 		depth + 1, // depth
 		sort_key << 1, // sort key
@@ -1461,10 +1464,10 @@ void SBVHBuilder::test()
 	conPrint("SBVHBuilder::test()");
 
 
-	//---------------------- Test getTriClippedtoBucket(const SBVHTri& tri, int axis, float left, float right, js::AABBox& clipped_aabb_out) -------------------------
+	//---------------------- Test clipTri() -------------------------
 	{
 		/*
-		tri with one vertex on left side of left plane, two between left and right
+		tri with one vertex on left side of left plane, two on right
 		*/
 		SBVHTri tri;
 		tri.v[0] = Vec4f(0.5f, 1.f,  0, 1);
@@ -1474,10 +1477,13 @@ void SBVHBuilder::test()
 
 		for(int i=0; i<3; ++i)
 		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.f, 1.25f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(1.5f, 2.f, 0, 1));
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(0.5, 1.f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 1.5f, 0, 1));
+			
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.f, 1.25f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.5f, 2.0f, 0, 1));
 		
 			rotateVerts(tri);
 		}
@@ -1485,83 +1491,22 @@ void SBVHBuilder::test()
 
 	{
 		/*
-		tri with two vertices on left side of left plane, one between left and right
+		tri with all vertices to left
 		*/
 		SBVHTri tri;
-		tri.v[0] = Vec4f(0.5f, 1.5f, 0, 1);
-		tri.v[1] = Vec4f(0.5f, 2.0f, 0, 1);
-		tri.v[2] = Vec4f(1.5f, 1.f, 0, 1);
-		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
-
-		for(int i=0; i<3; ++i)
-		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.0f, 1.0f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(1.5f, 1.5f, 0, 1));
-
-			rotateVerts(tri);
-		}
-	}
-
-	{
-		/*
-		tri with one vertex on right side of right plane, two between left and right
-		*/
-		SBVHTri tri;
-		tri.v[0] = Vec4f(1.5f, 1.5f, 0, 1);
-		tri.v[1] = Vec4f(1.5f, 2.0f, 0, 1);
-		tri.v[2] = Vec4f(2.5f, 1.0f, 0, 1);
-		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
-
-		for(int i=0; i<3; ++i)
-		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.5f, 1.25f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(2.0f, 2.0f, 0, 1));
-
-			rotateVerts(tri);
-		}
-	}
-
-	{
-		/*
-		tri with two vertices on right side of right plane, one between left and right
-		*/
-		SBVHTri tri;
-		tri.v[0] = Vec4f(1.5f, 1.f, 0, 1);
-		tri.v[1] = Vec4f(2.5f, 1.5f, 0, 1);
-		tri.v[2] = Vec4f(2.5f, 2.f, 0, 1);
-		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
-
-		for(int i=0; i<3; ++i)
-		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.5f, 1.0f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(2.0f, 1.5f, 0, 1));
-
-			rotateVerts(tri);
-		}
-	}
-
-	{
-		/*
-		tri with all vertices between left and right
-		*/
-		SBVHTri tri;
-		tri.v[0] = Vec4f(1.1f, 1.f, 0, 1);
+		tri.v[0] = Vec4f(0.5f, 1.f, 0, 1);
 		tri.v[1] = Vec4f(1.5f, 1.5f, 0, 1);
 		tri.v[2] = Vec4f(1.5f, 2.f, 0, 1);
 		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
 
 		for(int i=0; i<3; ++i)
 		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.1f, 1.0f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(1.5f, 2.f, 0, 1));
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/10.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(0.5, 1.f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.5f, 2.0f, 0, 1));
+
+			testAssert(right_clipped_aabb == empty_aabb);
 
 			rotateVerts(tri);
 		}
@@ -1569,41 +1514,21 @@ void SBVHBuilder::test()
 
 	{
 		/*
-		tri with one vertex on left side of left plane, two on right side of right plane
+		tri with all vertices to right
 		*/
 		SBVHTri tri;
 		tri.v[0] = Vec4f(0.5f, 1.f, 0, 1);
-		tri.v[1] = Vec4f(2.5f, 1.5f, 0, 1);
-		tri.v[2] = Vec4f(2.5f, 2.f, 0, 1);
+		tri.v[1] = Vec4f(1.5f, 1.5f, 0, 1);
+		tri.v[2] = Vec4f(1.5f, 2.f, 0, 1);
 		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
 
 		for(int i=0; i<3; ++i)
 		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.f, 1.125f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(2.f, 1.75f, 0, 1));
-
-			rotateVerts(tri);
-		}
-	}
-
-	{
-		/*
-		tri with one vertex on left side of left plane, one between planes, one on right side of plane
-		*/
-		SBVHTri tri;
-		tri.v[0] = Vec4f(0.5f, 1.f, 0, 1);
-		tri.v[1] = Vec4f(1.5f, 1.25f, 0, 1);
-		tri.v[2] = Vec4f(2.5f, 2.f, 0, 1);
-		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
-
-		for(int i=0; i<3; ++i)
-		{
-			js::AABBox clipped_aabb;
-			getTriClippedtoBucket(aabb, tri, 0, /*left=*/1.0f, /*right=*/2.0f, clipped_aabb);
-			testEpsEqual(clipped_aabb.min_, Vec4f(1.f, 1.125f, 0, 1));
-			testEpsEqual(clipped_aabb.max_, Vec4f(2.f, 1.75f, 0, 1));
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/0.2f, left_clipped_aabb, right_clipped_aabb);
+			testAssert(left_clipped_aabb == empty_aabb);
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(0.5, 1.f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.5f, 2.0f, 0, 1));
 
 			rotateVerts(tri);
 		}
