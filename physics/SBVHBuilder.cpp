@@ -171,7 +171,6 @@ public:
 			0, // node index
 			objects,
 			depth, 
-			sort_key,
 			result_chunk
 		);
 	}
@@ -183,17 +182,7 @@ public:
 	js::AABBox node_aabb;
 	js::AABBox centroid_aabb;
 	int depth;
-	uint64 sort_key;
 };
-
-
-//struct SBVHResultChunkPred
-//{
-//	bool operator () (const SBVHResultChunk& a, const SBVHResultChunk& b)
-//	{
-//		return a.sort_key < b.sort_key;
-//	}
-//};
 
 
 SBVHResultChunk* SBVHBuilder::allocNewResultChunk()
@@ -314,7 +303,6 @@ void SBVHBuilder::build(
 	Reference<SBVHBuildSubtreeTask> task = new SBVHBuildSubtreeTask(*this);
 	task->objects = this->top_level_objects;
 	task->depth = 0;
-	task->sort_key = 1;
 	task->node_aabb = root_aabb;
 	task->centroid_aabb = centroid_aabb;
 	task->result_chunk = root_chunk;
@@ -1263,7 +1251,6 @@ void SBVHBuilder::doBuild(
 			uint32 node_index, 
 			const std::vector<SBVHOb>& obs,
 			int depth,
-			uint64 sort_key,
 			SBVHResultChunk* node_result_chunk
 			)
 {
@@ -1401,7 +1388,6 @@ void SBVHBuilder::doBuild(
 		(uint32)left_child, // node index
 		thread_temp_info.left_obs[depth + 1], // objects
 		depth + 1, // depth
-		sort_key << 1, // sort key
 		left_child_chunk
 	);
 
@@ -1414,7 +1400,6 @@ void SBVHBuilder::doBuild(
 		subtree_task->node_aabb = res.right_aabb;
 		subtree_task->centroid_aabb = res.right_centroid_aabb;
 		subtree_task->depth = depth + 1;
-		subtree_task->sort_key = (sort_key << 1) | 1;
 		subtree_task->objects = thread_temp_info.right_obs[depth + 1];
 		task_manager->addTask(subtree_task);
 	}
@@ -1428,7 +1413,6 @@ void SBVHBuilder::doBuild(
 			right_child, // node index
 			thread_temp_info.right_obs[depth + 1],
 			depth + 1, // depth
-			(sort_key << 1) | 1,
 			right_child_chunk
 		);
 	}
