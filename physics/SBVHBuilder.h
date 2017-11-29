@@ -165,7 +165,6 @@ private:
 		uint32 node_index,
 		const ObjectVecType& obs,
 		int depth,
-		uint64 sort_key,
 		SBVHResultChunk* result_chunk
 	);
 
