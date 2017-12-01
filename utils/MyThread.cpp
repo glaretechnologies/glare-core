@@ -133,6 +133,8 @@ void MyThread::setPriority(Priority p)
 		pri = THREAD_PRIORITY_BELOW_NORMAL;
 	else if(p == Priority_Lowest)
 		pri = THREAD_PRIORITY_LOWEST;
+	else if(p == Priority_Idle)
+		pri = THREAD_PRIORITY_IDLE;
 	else
 	{
 		assert(0);

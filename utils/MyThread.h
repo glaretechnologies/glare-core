@@ -50,7 +50,8 @@ public:
 	{
 		Priority_Normal,
 		Priority_BelowNormal,
-		Priority_Lowest
+		Priority_Lowest,
+		Priority_Idle
 	};
 	// Set the priority of this thread
 	void setPriority(Priority p); // throws MyThreadExcep
