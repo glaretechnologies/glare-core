@@ -1433,7 +1433,7 @@ void doUnitTests()
 			// Test with empty file
 			std::vector<unsigned char> s;
 			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", /*max retry period=*/1.0, s);
-			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "");
+			testAssert(s.empty());
 		}
 
 		//============ Test readEntireFileTextMode() ====================
