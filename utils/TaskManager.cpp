@@ -157,7 +157,7 @@ void TaskManager::taskFinished() // called by Tasks
 	}
 
 	if(new_num_unfinished_tasks == 0)
-		num_unfinished_tasks_cond.notify();
+		num_unfinished_tasks_cond.notifyAll(); // There could be multiple threads waiting on this condition, so use notifyAll().
 }
 
 
