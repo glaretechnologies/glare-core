@@ -23,32 +23,16 @@ Code By Nicholas Chapman.
 Condition::Condition()
 {
 #if defined(_WIN32)
-	condition = CreateEvent(
-        NULL,         // no security attributes
-        TRUE,         // manual-reset event
-        FALSE,//TRUE, // is initial state signaled?
-        NULL          // object name
-        );
-
-	assert(condition != NULL);
+	InitializeConditionVariable(&condition);
 #else
 	pthread_cond_init(&condition, NULL);
-
 #endif
 }
 
 
 Condition::~Condition()
 {
-#if defined(_WIN32)
-	const BOOL result = CloseHandle(condition);
-	if(result == 0)
-	{
-		//Function failed.
-		assert(false);
-		//const DWORD e = GetLastError();
-	}
-#else
+#if !defined(_WIN32)
 	pthread_cond_destroy(&condition);
 #endif
 }
@@ -58,37 +42,20 @@ Condition::~Condition()
 bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_seconds)
 {
 #if defined(_WIN32)
-
-	///Release mutex///
-	mutex.release();
-
-	bool signalled = false;
-
-	///wait on the condition event///
-	if(infinite_wait_time)
-	{
-		::WaitForSingleObject(condition, INFINITE);
-		signalled = true;
-	}
+	const BOOL result = ::SleepConditionVariableCS(&condition, &mutex.mutex, infinite_wait_time ? INFINITE : (DWORD)(wait_time_seconds * 1000.0));
+	if(result) // if function succeeded:
+		return true;
 	else
 	{
-		const DWORD result = ::WaitForSingleObject(condition, (DWORD)(wait_time_seconds * 1000.0));
-		if(result == WAIT_OBJECT_0) // Object was signalled.
-			signalled = true;
-		else if(result == WAIT_TIMEOUT)
-			signalled = false;
+		const DWORD last_error = GetLastError();
+		if(last_error == ERROR_TIMEOUT)
+			return false;
 		else
 		{
-			// Uh oh, some crazy shit happened (WAIT_ABANDONED)
 			assert(0);
-			signalled = false;
+			return false;
 		}
 	}
-
-	///Get the mutex again///
-	mutex.acquire();
-
-	return signalled;
 #else
 	// This automatically release the associated mutex in pthreads.
 	// Re-locks mutex on return.
@@ -137,31 +104,22 @@ bool Condition::wait(Mutex& mutex, bool infinite_wait_time, double wait_time_sec
 }
 
 
-///Condition has been met: wake up one suspended thread.
+// Condition has been met: wake up one suspended thread.
 void Condition::notify()
 {
 #if defined(_WIN32)
-	///set event to signalled state
-	SetEvent(condition);
+	WakeConditionVariable(&condition);
 #else
-	///wake up a single suspended thread.
-	//pthread_cond_signal(&condition);
-	
-	// NOTE: TaskManager destructor only seems to work with pthread_cond_broadcast
-	// instead of pthread_cond_signal.
+	pthread_cond_signal(&condition);
+#endif
+}
+
+
+void Condition::notifyAll()
+{
+#if defined(_WIN32)
+	WakeAllConditionVariable(&condition);
+#else
 	pthread_cond_broadcast(&condition);
 #endif
 }
-
-
-void Condition::resetToFalse()
-{
-#if defined(_WIN32)
-	///set event to non-signalled state
-	const BOOL result = ResetEvent(condition);
-	assertOrDeclareUsed(result != FALSE);
-#else
-
-#endif
-}
-

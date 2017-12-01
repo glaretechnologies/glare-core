@@ -32,6 +32,7 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		//std::cout << "x: " << x << std::endl;
+		// conPrint("executing task x in thread: " + toString(thread_index));
 	}
 
 	int x;
@@ -317,6 +318,20 @@ void TaskTests::test()
 		testForLoopTaskRun(m, 16);
 		testForLoopTaskRun(m, 1000000);
 	}
+
+	// Test runTasks()
+	{
+		TaskManager m; // auto-pick num threads
+
+		// Sleep(1000);
+
+		std::vector<Reference<Indigo::Task> > tasks;
+		for(int i=0; i<10; ++i)
+			tasks.push_back(new TestTask(i));
+
+		m.runTasks(tasks);
+	}
+
 
 
 

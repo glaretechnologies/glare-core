@@ -45,14 +45,14 @@ public:
 	// Returns true if condition was signalled, or false if a timeout occurred.
 	bool wait(Mutex& mutex, bool infinite_wait_time, double wait_time_seconds);
 
-	///Condition has been met: wake up one or more suspended threads.
+	// Condition has been met: wake up one or more suspended threads.
 	void notify();
 
-	///Resets condition so that threads will block on wait() again.
-	void resetToFalse();
+	// Wake up all suspended threads.
+	void notifyAll();
 
 #if defined(_WIN32)
-	HANDLE condition;
+	CONDITION_VARIABLE condition;
 #else
 	pthread_cond_t condition;
 #endif

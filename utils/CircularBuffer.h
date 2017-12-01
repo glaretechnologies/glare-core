@@ -48,6 +48,7 @@ public:
 	inline T& back();
 
 	inline void clear();
+	inline void clearAndFreeMem();
 	
 	inline size_t size() const;
 
@@ -274,6 +275,21 @@ void CircularBuffer<T>::clear()
 	begin = 0;
 	end = 0;
 	num_items = 0;
+
+	invariant();
+}
+
+
+template <class T>
+void CircularBuffer<T>::clearAndFreeMem()
+{
+	invariant();
+
+	clear();
+
+	SSE::alignedFree(data);
+	data = 0;
+	data_size = 0;
 
 	invariant();
 }

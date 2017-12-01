@@ -78,6 +78,7 @@ public:
 	inline bool empty() const;
 	inline size_t size() const;
 	inline void clear();
+	inline void clearAndFreeMem();
 
 	inline bool unlockedEmpty() const;
 
@@ -116,10 +117,7 @@ void ThreadSafeQueue<T>::enqueue(const T& t)
 
 	queue.push_back(t); // Add item to queue
 
-	if(queue.size() == 1) // If the queue was empty
-		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
-
-	//unlockedEnqueue(t);
+	nonempty.notify(); // Notify suspended threads that there is an item in the queue.
 }
 
 
@@ -128,13 +126,10 @@ void ThreadSafeQueue<T>::enqueueItems(const T* items, size_t num_items)
 {
 	Lock lock(mutex); // Lock the queue
 
-	const bool queue_intially_empty = queue.empty();
-
 	for(size_t i=0; i<num_items; ++i)
 		queue.push_back(items[i]); // Add item to queue
 
-	if(queue_intially_empty) // If the queue was empty
-		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
+	nonempty.notifyAll(); // Notify suspended threads that there are items in the queue.
 }
 
 
@@ -190,7 +185,7 @@ void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 {
 	if(queue.empty())
 	{
-		// Uhoh, tryed to dequeue when the queue was empty...
+		// Uhoh, tried to dequeue when the queue was empty...
 		// t_out will be undefined.
 		assert(0);
 		return;
@@ -198,10 +193,6 @@ void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 
 	t_out = queue.front();
 	queue.pop_front();
-
-	// Reset the nonempty condition if neccessary
-	if(queue.empty())
-		nonempty.resetToFalse();
 }
 
 
@@ -236,6 +227,15 @@ void ThreadSafeQueue<T>::clear()
 	Lock lock(mutex);
 
 	queue.clear();
+}
+
+
+template <class T>
+void ThreadSafeQueue<T>::clearAndFreeMem()
+{
+	Lock lock(mutex);
+
+	queue.clearAndFreeMem();
 }
 
 
