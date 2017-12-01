@@ -79,6 +79,18 @@ static void drawPartitionLine(Bitmap& map, const js::AABBox& aabb, int best_axis
 #endif
 
 
+size_t SBVHPerThreadTempInfo::dataSizeBytes() const
+{
+	size_t s = 0;
+	for(size_t i=0; i<left_obs.size(); ++i)
+		s += left_obs[i].capacity() * sizeof(SBVHOb);
+	for(size_t i=0; i<right_obs.size(); ++i)
+		s += right_obs[i].capacity() * sizeof(SBVHOb);
+	s += unsplit.capacity() * sizeof(int);
+	return s;
+}
+
+
 SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
 	const js::AABBox* aabbs_,
 	const SBVHTri* triangles_,
@@ -472,7 +484,7 @@ struct PartitionRes
 
 
 static void partition(const std::vector<SBVHOb>& objects_, const SBVHTri* triangles, const js::AABBox& parent_aabb, float best_div_val, int best_axis, bool best_split_was_spatial, 
-	const std::vector<int>& unsplit,
+	const js::Vector<int, 16>& unsplit,
 	PartitionRes& res_out,
 	std::vector<SBVHOb>& left_obs_out,
 	std::vector<SBVHOb>& right_obs_out
@@ -649,7 +661,7 @@ static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int left, in
 
 
 static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const SBVHTri* triangles, const js::AABBox& parent_aabb, int left, int right, 
-	float best_div_val, int best_axis, const std::vector<int>* unsplits,  PartitionRes& res_out, int& num_left_out, int& num_right_out)
+	float best_div_val, int best_axis, const js::Vector<int, 16>* unsplits,  PartitionRes& res_out, int& num_left_out, int& num_right_out)
 {
 	num_left_out = num_right_out = 0;
 
@@ -745,6 +757,14 @@ static inline void setAABBWToOne(js::AABBox& aabb)
 }
 
 
+static INDIGO_STRONG_INLINE void addIntersectedEdgeVert(const Vec4f& v_a, const Vec4f& v_b, const float d_a, const float d_b, float split_coord, js::AABBox& left_aabb, js::AABBox& right_aabb)
+{
+	const float t = (split_coord - d_a) / (d_b - d_a); // Solve for fraction along edge of position on split plane.
+	const Vec4f p = v_a * (1 - t) + v_b * t;
+	left_aabb.enlargeToHoldPoint(p);
+	right_aabb.enlargeToHoldPoint(p);
+}
+
 static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const SBVHTri& tri, int axis, float split_coord, js::AABBox& left_clipped_aabb_out, js::AABBox& right_clipped_aabb_out)
 {
 	js::AABBox left_aabb  = empty_aabb;
@@ -758,46 +778,106 @@ static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const SBVHTr
 	const float v1d = v1[axis];
 	const float v2d = v2[axis];
 
-	if(v0d <= split_coord)
+	if(v0d < split_coord)
+	{
 		left_aabb.enlargeToHoldPoint(v0);
-	if(v1d <= split_coord)
-		left_aabb.enlargeToHoldPoint(v1);
-	if(v2d <= split_coord)
-		left_aabb.enlargeToHoldPoint(v2);
+		if(v1d >= split_coord)
+		{
+			right_aabb.enlargeToHoldPoint(v1);
+			// Edge v0-v1 intersects clip plane
+			addIntersectedEdgeVert(v0, v1, v0d, v1d, split_coord, left_aabb, right_aabb); // Edge v0-v1
 
-	if(v0d >= split_coord)
+			if(v2d >= split_coord)
+			{
+				right_aabb.enlargeToHoldPoint(v2);
+				// v0 to left, v1 and v2 to right.  Edge v2-v0 intersects clip plane
+				addIntersectedEdgeVert(v2, v0, v2d, v0d, split_coord, left_aabb, right_aabb); // Edge v2-v0
+			}
+			else
+			{
+				left_aabb.enlargeToHoldPoint(v2);
+				// v2 is on left of clip plane, so v1-v2 intersects clip plane.
+				addIntersectedEdgeVert(v1, v2, v1d, v2d, split_coord, left_aabb, right_aabb); // Edge v1-v2
+			}
+		}
+		else // Else v1d < split_coord:
+		{
+			left_aabb.enlargeToHoldPoint(v1);
+
+			//assert(v2d >= split_coord); // At least one vertex should be to right, or on split plane
+			if(v2d >= split_coord)
+			{
+				right_aabb.enlargeToHoldPoint(v2);
+				// edges v2-v0 and v1-v2 intersect clip plane
+				addIntersectedEdgeVert(v2, v0, v2d, v0d, split_coord, left_aabb, right_aabb); // Edge v2-v0
+				addIntersectedEdgeVert(v1, v2, v1d, v2d, split_coord, left_aabb, right_aabb); // Edge v1-v2
+			}
+			else
+			{
+				// v0d, v1d, v2d are all < split coord
+				left_aabb.enlargeToHoldPoint(v2);
+			}
+		}
+	}
+	else if(v0d > split_coord)
+	{
 		right_aabb.enlargeToHoldPoint(v0);
-	if(v1d >= split_coord)
-		right_aabb.enlargeToHoldPoint(v1);
-	if(v2d >= split_coord)
-		right_aabb.enlargeToHoldPoint(v2);
+		if(v1d <= split_coord)
+		{
+			left_aabb.enlargeToHoldPoint(v1);
+			// Edge v0-v1 intersects clip plane
+			addIntersectedEdgeVert(v0, v1, v0d, v1d, split_coord, left_aabb, right_aabb); // Edge v0-v1
 
-	// Clip against left plane
-	if((v0d < split_coord && v1d > split_coord) || (v0d > split_coord && v1d < split_coord)) // If edge 0-1 straddles left clip plane:
+			if(v2d <= split_coord)
+			{
+				left_aabb.enlargeToHoldPoint(v2);
+				// v1, v2 are on left, v0 on right, so Edge v2-v0 intersects clip plane
+				addIntersectedEdgeVert(v2, v0, v2d, v0d, split_coord, left_aabb, right_aabb); // Edge v2-v0
+			}
+			else
+			{
+				right_aabb.enlargeToHoldPoint(v2);
+				// v0, v2 are on right, v1 on left of clip plane, so v1-v2 intersects clip plane.
+				addIntersectedEdgeVert(v1, v2, v1d, v2d, split_coord, left_aabb, right_aabb); // Edge v1-v2
+			}
+		}
+		else // Else v1d > split_coord:
+		{
+			right_aabb.enlargeToHoldPoint(v1);
+			//assert(v2d <= split_coord); // At least one vertex should be to left, or on split plane
+			if(v2d <= split_coord)
+			{
+				left_aabb.enlargeToHoldPoint(v2);
+				// edges v2-v0 and v1-v2 intersect clip plane
+				addIntersectedEdgeVert(v2, v0, v2d, v0d, split_coord, left_aabb, right_aabb); // Edge v2-v0
+				addIntersectedEdgeVert(v1, v2, v1d, v2d, split_coord, left_aabb, right_aabb); // Edge v1-v2
+			}
+			else
+			{
+				// v0d, v1d and v2d are all > split_coord
+				right_aabb.enlargeToHoldPoint(v2);
+			}
+		}
+	}
+	else if(v0d == split_coord)
 	{
-		const float t = (split_coord - v0d) / (v1d - v0d); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v0 * (1 - t) + v1 * t;
-		left_aabb.enlargeToHoldPoint(p);
-		right_aabb.enlargeToHoldPoint(p);
+		left_aabb.enlargeToHoldPoint(v0);
+		right_aabb.enlargeToHoldPoint(v0);
+
+		if(v1d <= split_coord) 
+			left_aabb.enlargeToHoldPoint(v1);
+		if(v1d >= split_coord) 
+			right_aabb.enlargeToHoldPoint(v1);
+		if(v2d <= split_coord) 
+			left_aabb.enlargeToHoldPoint(v2);
+		if(v2d >= split_coord) 
+			right_aabb.enlargeToHoldPoint(v2);
+
+		if((v1d < split_coord && v2d > split_coord) || (v1d > split_coord && v2d < split_coord)) // If edge 1-2 straddles left clip plane:
+			addIntersectedEdgeVert(v1, v2, v1d, v2d, split_coord, left_aabb, right_aabb); // Edge v1-v2
 	}
 
-	if((v1d < split_coord && v2d > split_coord) || (v1d > split_coord && v2d < split_coord)) // If edge 1-2 straddles left clip plane:
-	{
-		const float t = (split_coord - v1d) / (v2d - v1d); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v1 * (1 - t) + v2 * t;
-		left_aabb.enlargeToHoldPoint(p);
-		right_aabb.enlargeToHoldPoint(p);
-	}
 
-	if((v2d < split_coord && v0d > split_coord) || (v2d > split_coord && v0d < split_coord)) // If edge 2-0 straddles left clip plane:
-	{
-		const float t = (split_coord - v2d) / (v0d - v2d); // Solve for fraction along edge of position on split plane.
-		const Vec4f p = v2 * (1 - t) + v0 * t;
-		left_aabb.enlargeToHoldPoint(p);
-		right_aabb.enlargeToHoldPoint(p);
-	}
-
-	
 	left_aabb  = intersection(ob_aabb, left_aabb);
 	right_aabb = intersection(ob_aabb, right_aabb);
 
@@ -813,7 +893,7 @@ static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const SBVHTr
 
 static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, const std::vector<SBVHOb>& objects_, const SBVHTri* triangles, int left, int right, float recip_root_node_aabb_area, 
 	int& best_axis_out, float& best_div_val_out,
-	float& smallest_split_cost_factor_out, bool& best_split_is_spatial_out, std::vector<int>& unsplit_out)
+	float& smallest_split_cost_factor_out, bool& best_split_is_spatial_out, js::Vector<int, 16>& unsplit_out)
 {
 	const js::AABBox& centroid_aabb = centroid_aabb_;
 	const SBVHOb* const objects = objects_.data();
@@ -998,7 +1078,12 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			const js::AABBox ob_aabb = objects[i].aabb;
 			assert(aabb.containsAABBox(ob_aabb));
 			const SBVHTri& tri = triangles[ob_i];
-
+			
+			// Pre-fetch a triangle.  This helps because it's an indirect memory access to get the triangle.
+			const int PREFETCH_DIST = 8;
+			if(i + PREFETCH_DIST < right)
+				_mm_prefetch((const char*)(triangles + (objects[i + PREFETCH_DIST].getIndex())), _MM_HINT_T0);
+		   
 			const Vec4i entry_bucket_i = clamp(truncateToVec4i(mul((ob_aabb.min_ - aabb.min_), spatial_scale)), Vec4i(0), Vec4i(num_spatial_buckets-1));
 			const Vec4i exit_bucket_i  = clamp(truncateToVec4i(mul((ob_aabb.max_ - aabb.min_), spatial_scale)), Vec4i(0), Vec4i(num_spatial_buckets-1));
 
@@ -1114,7 +1199,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	{
 		if(spatial_smallest_split_cost_factor < std::numeric_limits<float>::infinity())
 		{
-			unsplit_out.resize(right - left);
+			unsplit_out.resizeNoCopy(right - left);
 
 			PartitionRes res;
 			int num_left, num_right;
@@ -1123,7 +1208,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			const float left_half_area  = res.left_aabb. getHalfSurfaceArea();
 			const float right_half_area = res.right_aabb.getHalfSurfaceArea();
 			const float C_split = left_half_area * num_left + right_half_area * num_right;
-		//TEMP	assert(epsEqual(C_split, spatial_smallest_split_cost_factor));
+			//assert(epsEqual(C_split, spatial_smallest_split_cost_factor));
 
 			const float left_reduced_cost  = res.left_aabb.getHalfSurfaceArea()  * (num_left - 1);
 			const float right_reduced_cost = res.right_aabb.getHalfSurfaceArea() * (num_right - 1);
@@ -1161,7 +1246,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			// Do another pass to get the final cost given our unsplitting decisions
 			tentativeSpatialPartition(objects_, triangles, aabb, left, right, spatial_best_div_val, spatial_best_axis, &unsplit_out, res, num_left, num_right);
 			const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * num_left + res.right_aabb.getHalfSurfaceArea() * num_right;
-			assert(unsplit_cost <= spatial_smallest_split_cost_factor + 1.0e-4f); // TODO: investigate the need for this eps
+			assert(unsplit_cost <= spatial_smallest_split_cost_factor/* + 1.0e-4f*/); // TODO: investigate the need for this eps
 
 			//if(unsplit_cost < spatial_smallest_split_cost_factor)
 			//	conPrint("unsplit " + toString(num_unsplit) + " / " + toString(right - left) + " tris: unsplit_cost: " + toString(unsplit_cost) + ", old cost: " + toString(spatial_smallest_split_cost_factor));
@@ -1177,7 +1262,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	}
 	else // Else if !DO_UNSPLITTING:
 	{
-		unsplit_out.resize(right - left);
+		unsplit_out.resizeNoCopy(right - left);
 		for(int i=0; i<right-left; ++i)
 			unsplit_out[i] = 0;
 
@@ -1309,7 +1394,9 @@ void SBVHBuilder::doBuild(
 #endif
 
 		//timer.reset();
-		
+		thread_temp_info.left_obs[depth + 1].reserve(obs.size()/2);
+		thread_temp_info.right_obs[depth + 1].reserve(obs.size()/2);
+
 		partition(obs, triangles, aabb, best_div_val, best_axis, best_split_was_spatial, thread_temp_info.unsplit, res, thread_temp_info.left_obs[depth + 1], thread_temp_info.right_obs[depth + 1]);
 		//conPrint("Partition done.  elapsed: " + timer.elapsedString());
 	}
@@ -1469,6 +1556,120 @@ void SBVHBuilder::test()
 			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.f, 1.25f, 0, 1));
 			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.5f, 2.0f, 0, 1));
 		
+			rotateVerts(tri);
+		}
+	}
+
+	{
+		/*
+		tri with one vertex on clip plane, two on right
+		*/
+		SBVHTri tri;
+		tri.v[0] = Vec4f(1.0f, 1.f, 0, 1);
+		tri.v[1] = Vec4f(1.5f, 1.5f, 0, 1);
+		tri.v[2] = Vec4f(1.5f, 2.f, 0, 1);
+		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
+		for(int i=0; i<3; ++i)
+		{
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(1.f, 1.f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 1.f, 0, 1));
+
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.f, 1.0f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.5f, 2.0f, 0, 1));
+
+			rotateVerts(tri);
+		}
+	}
+	{
+		/*
+		tri with one vertex on clip plane, two on left
+		*/
+		SBVHTri tri;
+		tri.v[0] = Vec4f(1.0f, 1.f, 0, 1);
+		tri.v[1] = Vec4f(0.5f, 1.5f, 0, 1);
+		tri.v[2] = Vec4f(0.5f, 2.f, 0, 1);
+		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
+		for(int i=0; i<3; ++i)
+		{
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(0.5f, 1.f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 2.f, 0, 1));
+
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.f, 1.0f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.0f, 1.0f, 0, 1));
+
+			rotateVerts(tri);
+		}
+	}
+
+	{
+		/*
+		tri with one vertex on clip plane, one on left, one on right
+		*/
+		SBVHTri tri;
+		tri.v[0] = Vec4f(0.0f, 1.0f, 0, 1);
+		tri.v[1] = Vec4f(1.0f, 0.5f, 0, 1);
+		tri.v[2] = Vec4f(2.0f, 2.0f, 0, 1);
+		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
+		for(int i=0; i<3; ++i)
+		{
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(0.0f, 0.5f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 1.5f, 0, 1));
+
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.0f, 0.5f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(2.0f, 2.0f, 0, 1));
+
+			rotateVerts(tri);
+		}
+	}
+
+	{
+		/*
+		tri with two vertices on clip plane, one to right.
+		*/
+		SBVHTri tri;
+		tri.v[0] = Vec4f(1.0f, 0.5f, 0, 1);
+		tri.v[1] = Vec4f(1.0f, 2.0f, 0, 1);
+		tri.v[2] = Vec4f(2.0f, 1.0f, 0, 1);
+		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
+		for(int i=0; i<3; ++i)
+		{
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(1.0f, 0.5f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 2.0f, 0, 1));
+
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.0f, 0.5f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(2.0f, 2.0f, 0, 1));
+
+			rotateVerts(tri);
+		}
+	}
+
+	{
+		/*
+		tri with three vertices on clip plane.
+		*/
+		SBVHTri tri;
+		tri.v[0] = Vec4f(1.0f, 0.5f, 0, 1);
+		tri.v[1] = Vec4f(1.0f, 2.0f, 0, 1);
+		tri.v[2] = Vec4f(1.0f, 1.0f, 0, 1);
+		const js::AABBox aabb(Vec4f(0, 0, 0, 1), Vec4f(3, 3, 3, 1));
+		for(int i=0; i<3; ++i)
+		{
+			js::AABBox left_clipped_aabb, right_clipped_aabb;
+			clipTri(aabb, tri, 0, /*clip coord=*/1.0f, left_clipped_aabb, right_clipped_aabb);
+			testEpsEqual(left_clipped_aabb.min_, Vec4f(1.0f, 0.5f, 0, 1));
+			testEpsEqual(left_clipped_aabb.max_, Vec4f(1.0f, 2.0f, 0, 1));
+
+			testEpsEqual(right_clipped_aabb.min_, Vec4f(1.0f, 0.5f, 0, 1));
+			testEpsEqual(right_clipped_aabb.max_, Vec4f(1.0f, 2.0f, 0, 1));
+
 			rotateVerts(tri);
 		}
 	}

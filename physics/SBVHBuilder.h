@@ -72,13 +72,6 @@ struct SBVHResultChunk
 
 struct SBVHLeafResultChunk
 {
-	//int thread_index; // The index of the thread that computed this chunk.
-	//int offset; // Offset in thread's result_buf
-	//int size; // num nodes created by the task in thread's result_buf;
-	//int original_index; // Index of this chunk in result_chunks, before sorting.
-
-	//uint64 sort_key;
-
 	INDIGO_ALIGNED_NEW_DELETE
 
 	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
@@ -94,12 +87,12 @@ struct SBVHPerThreadTempInfo
 {
 	SBVHBuildStats stats;
 
-	size_t dataSizeBytes() const { return 0; }// result_buf.dataSizeBytes();
+	size_t dataSizeBytes() const;
 
 	std::vector<std::vector<SBVHOb> > left_obs;
 	std::vector<std::vector<SBVHOb> > right_obs;
 
-	std::vector<int> unsplit;
+	js::Vector<int, 16> unsplit;
 
 	SBVHResultChunk* result_chunk;
 	SBVHLeafResultChunk* leaf_result_chunk;
