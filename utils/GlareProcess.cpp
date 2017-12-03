@@ -278,11 +278,10 @@ void Process::test()
 	{
 		wchar_t buf[2048];
 		testAssert(GetWindowsDirectory(buf, 2048) != 0);
-		const std::string cmd_exe_path = StringUtils::PlatformToUTF8UnicodeEncoding(buf) + "\\system32\\cmd.exe";
+		const std::string cmd_exe_path = StringUtils::PlatformToUTF8UnicodeEncoding(buf) + "\\system32\\ipconfig.exe";
 		std::vector<std::string> command_line_args;
 		command_line_args.push_back(cmd_exe_path);
-		command_line_args.push_back("/C");
-		command_line_args.push_back("dir");
+		command_line_args.push_back("/all");
 		Process p(cmd_exe_path, command_line_args);
 		while(1)
 		{
