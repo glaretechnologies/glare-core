@@ -427,8 +427,22 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 		throw PlatformUtilsExcep(e.what());
 	}
 	return appdatapath;
-#else
-	return app_base_path;
+#else // Else on Linux:
+	const std::string home_dir = getEnvironmentVariable("HOME");
+	const std::string company_dir = home_dir + "/.glare_technologies";
+	const std::string appdatapath = company_dir + "/" + app_name;
+
+	// Create the dir if it doesn't exist
+	try
+	{
+		FileUtils::createDirIfDoesNotExist(company_dir);
+		FileUtils::createDirIfDoesNotExist(appdatapath);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw PlatformUtilsExcep(e.what());
+	}
+	return appdatapath;
 #endif
 }
 
