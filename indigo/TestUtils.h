@@ -18,6 +18,7 @@ Code By Nicholas Chapman.
 
 
 #define testEqual(a, b) (TestUtils::doTestEqual((a), (b), (#a), (#b), (__LINE__), (__FILE__)))
+#define testStringsEqual(a, b) (TestUtils::doTestStringsEqual((a), (b), (#a), (#b), (__LINE__), (__FILE__)))
 
 #define testEpsEqual(a, b) (TestUtils::doTestEpsEqual((a), (b), (#a), (#b), (__LINE__), (__FILE__)))
 #define testEpsEqualWithEps(a, b, eps) (TestUtils::doTestEpsEqualWithEps((a), (b), (eps), (#a), (#b), (#eps), (__LINE__), (__FILE__)))
@@ -39,6 +40,8 @@ void doTestAssert(bool expr, const char* test, long line, const char* file);
 
 template <class T>
 inline void doTestEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file);
+
+void doTestStringsEqual(const std::string& a, const std::string& b, const char* a_str, const char* b_str, long line, const char* file);
 
 template <class T>
 inline void doTestEpsEqual(const T& a, const T& b, const char* a_str, const char* b_str, long line, const char* file);

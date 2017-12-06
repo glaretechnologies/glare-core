@@ -20,6 +20,16 @@ namespace TestUtils
 {
 
 
+void doTestStringsEqual(const std::string& a, const std::string& b, const char* a_str, const char* b_str, long line, const char* file)
+{
+	if(a != b)
+	{
+		printMessageAndFail("Test equal failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" +
+			a_str + "='" + a + "' was not equal to " + b_str + "='" + b + "'");
+	}
+}
+
+
 void doTestAssert(bool expr, const char* test, long line, const char* file)
 {
 	if(!expr)

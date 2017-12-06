@@ -44,6 +44,17 @@ const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
 
 
+#if defined(_WIN32)
+// RAII wrapper for HANDLE
+struct HandleWrapper
+{
+	HandleWrapper(HANDLE handle_) : handle(handle_) {}
+	~HandleWrapper() { CloseHandle(handle); }
+	HANDLE handle;
+};
+#endif
+
+
 const std::string join(const std::string& dirpath, const std::string& filename)
 {
 	if(dirpath == "")
@@ -844,8 +855,37 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 
 static const std::string getCanonicalPath(const std::string& p)
 {
-	// NOTE: When we can assume Vista support, use GetFinalPathNameByHandle().
-	return p;
+	HandleWrapper file = CreateFile(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(p).c_str(),
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL, // lpSecurityAttributes 
+		OPEN_EXISTING, // OPEN_EXISTING = Opens a file or device, only if it exists.
+		FILE_ATTRIBUTE_NORMAL, // dwFlagsAndAttributes
+		NULL // hTemplateFile
+	);
+
+	if(file.handle == INVALID_HANDLE_VALUE)
+		throw FileUtilsExcep("Failed to open file while getting canonical name for file: '" + p + "': " + PlatformUtils::getLastErrorString());
+
+	const DWORD BUF_SIZE = 1024;
+	const DWORD FLAGS = VOLUME_NAME_DOS; // VOLUME_NAME_DOS is the default.
+	TCHAR buf[BUF_SIZE];
+	const DWORD ret = GetFinalPathNameByHandle(file.handle, buf, BUF_SIZE, FLAGS);
+	if(ret == 0)
+		throw FileUtilsExcep("Failed to get canonical name for file '" + p + "': " + PlatformUtils::getLastErrorString());
+	else if(ret < BUF_SIZE)
+		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
+	else
+	{
+		// buffer was not big enough.  Alloc a buffer on heap and try again.
+		std::vector<TCHAR> bigbuf(ret + 1);
+		const DWORD ret2 = GetFinalPathNameByHandle(file.handle, bigbuf.data(), (DWORD)bigbuf.size(), FLAGS);
+		if(ret2 == 0)
+			throw FileUtilsExcep("Failed to get canonical name for file '" + p + "': " + PlatformUtils::getLastErrorString());
+		else
+			return StringUtils::PlatformToUTF8UnicodeEncoding(bigbuf.data());
+	}
 }
 
 #else
@@ -893,20 +933,14 @@ const std::string getActualOSPath(const std::string& path_)
 
 const std::string getPathKey(const std::string& pathname)
 {
-	const std::string use_path = FileUtils::getActualOSPath(pathname);
-
-#if defined(_WIN32)
-	return ::toLowerCase(use_path);
-#else
-	return use_path;
-#endif
+	return FileUtils::getActualOSPath(pathname);
 }
 
 
 uint64 getFileCreatedTime(const std::string& filename)
 {
 #if defined(_WIN32)
-	HANDLE file = CreateFile(
+	HandleWrapper file = CreateFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(filename).c_str(), 
 		GENERIC_READ, 
 		FILE_SHARE_READ,
@@ -916,12 +950,12 @@ uint64 getFileCreatedTime(const std::string& filename)
 		NULL // hTemplateFile
 	);
 
-	if(file == INVALID_HANDLE_VALUE)
+	if(file.handle == INVALID_HANDLE_VALUE)
 		throw FileUtilsExcep("Failed to open file '" + filename + "': " + PlatformUtils::getLastErrorString());
 
 	FILETIME creation_time;
 	BOOL res = GetFileTime(
-		file,
+		file.handle,
 		&creation_time,
 		nullptr,
 		nullptr
@@ -931,6 +965,7 @@ uint64 getFileCreatedTime(const std::string& filename)
 		throw FileUtilsExcep("Failed to get created time for file '" + filename + "': " + PlatformUtils::getLastErrorString());
 
 	const uint64 time_uint64 = ((uint64)creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime;
+
 	return time_uint64;
 #else
 	throw FileUtilsExcep("getFileCreatedTime() not implemented on non-Windows.");
@@ -1185,8 +1220,11 @@ void doUnitTests()
 		///	conPrint("file: " + files[i]);
 
 #if defined(_WIN32)
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "\\testfiles\\SpHerE.ObJ");
+		const std::string canonical_path = getCanonicalPath(TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
+		conPrint("canonical_path: '" + canonical_path + "'");
+		testAssert(getFilename(canonical_path) == "sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == canonical_path);
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == canonical_path);
 #else
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
