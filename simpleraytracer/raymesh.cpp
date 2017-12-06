@@ -794,6 +794,7 @@ static inline const Vec3f triGeometricNormal(const RayMesh::VertexVectorType& ve
 
 bool RayMesh::isPlanar(Vec4f& normal_out) const
 {
+	assert(tritree); // Assert that build() has been called.
 	normal_out = this->planar_normal;
 	return this->planar;
 }
