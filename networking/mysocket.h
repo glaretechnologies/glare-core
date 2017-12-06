@@ -179,8 +179,6 @@ private:
 	IPAddress otherend_ipaddr;
 	int otherend_port;
 
-	size_t max_buffersize;
-
 	bool connected;
 };
 

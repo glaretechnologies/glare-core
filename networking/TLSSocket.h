@@ -121,8 +121,6 @@ private:
 
 	MySocketRef plain_socket;
 
-	size_t max_buffersize;
-
 	struct tls* tls_context;
 };
 

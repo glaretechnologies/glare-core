@@ -52,6 +52,9 @@ static const int SOCKET_ERROR = -1;
 #endif
 
 
+static size_t MAX_READ_OR_WRITE_SIZE = 1024 * 1024 * 8;
+
+
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
 	init();
@@ -94,11 +97,7 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 
 
 void TLSSocket::init()
-{
-	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
-	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
-}
+{}
 
 
 TLSSocket::~TLSSocket()
@@ -129,7 +128,7 @@ void TLSSocket::write(const void* data, size_t datalen, FractionListener* frac)
 
 	while(datalen > 0) // while still bytes to write
 	{
-		const int numbytestowrite = (int)std::min(this->max_buffersize, datalen);
+		const int numbytestowrite = (int)std::min(MAX_READ_OR_WRITE_SIZE, datalen);
 		assert(numbytestowrite > 0);
 
 		const int numbyteswritten = (int)tls_write(tls_context, (const void*)data, numbytestowrite);
@@ -188,7 +187,7 @@ void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = (int)std::min(this->max_buffersize, readlen);
+		const int numbytestoread = (int)std::min(MAX_READ_OR_WRITE_SIZE, readlen);
 		assert(numbytestoread > 0);
 
 		//------------------------------------------------------------------------

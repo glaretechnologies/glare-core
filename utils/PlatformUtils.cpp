@@ -823,24 +823,6 @@ bool PlatformUtils::isWindows()
 }
 
 
-bool PlatformUtils::isWindowsXPOrEarlier()
-{
-#if defined(_WIN32)
-	// See http://msdn.microsoft.com/en-us/library/ms724834.aspx for OSVERSIONINFO details.
-
-	OSVERSIONINFO info;
-	info.dwOSVersionInfoSize = sizeof(info);
-
-	GetVersionEx(&info);
-
-	// Vista is the first Windows with major version 6.
-	return info.dwMajorVersion < 6;
-#else
-	return false;
-#endif
-}
-
-
 const std::string PlatformUtils::getOSVersionString()
 {
 #if defined(_WIN32)

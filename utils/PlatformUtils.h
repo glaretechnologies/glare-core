@@ -139,9 +139,6 @@ std::string getStringRegKey(RegHKey key, const std::string &regkey_, const std::
 bool isWindows();
 
 
-bool isWindowsXPOrEarlier();
-
-
 const std::string getOSVersionString();
 	
 

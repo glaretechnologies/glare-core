@@ -48,6 +48,9 @@ static const int SOCKET_ERROR = -1;
 #endif
 
 
+static size_t MAX_READ_OR_WRITE_SIZE = 1024 * 1024 * 8;
+
+
 static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 {
 #if defined(_WIN32)
@@ -131,10 +134,6 @@ void MySocket::init()
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	connected = false;
-
-	// Due to a bug with Windows XP, we can't use a large buffer size for reading to and writing from the socket.
-	// See http://support.microsoft.com/kb/201213 for more details on the bug.
-	this->max_buffersize = PlatformUtils::isWindowsXPOrEarlier() ? 1024 : (1024 * 1024 * 8);
 }
 
 
@@ -497,7 +496,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac)
 
 	while(datalen > 0)//while still bytes to write
 	{
-		const int numbytestowrite = (int)std::min(this->max_buffersize, datalen);
+		const int numbytestowrite = (int)std::min(MAX_READ_OR_WRITE_SIZE, datalen);
 		assert(numbytestowrite > 0);
 
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
@@ -537,7 +536,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = (int)std::min(this->max_buffersize, readlen);
+		const int numbytestoread = (int)std::min(MAX_READ_OR_WRITE_SIZE, readlen);
 		assert(numbytestoread > 0);
 
 		//------------------------------------------------------------------------
