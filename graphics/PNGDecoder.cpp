@@ -328,7 +328,11 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 
 			cmsCloseProfile(profile); 
 
+#if PNG_LIBPNG_VER >= 10634
 			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
+#else
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+#endif
 		}
 #endif
 		
@@ -469,7 +473,11 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 
 			cmsCloseProfile(profile); 
 
+#if PNG_LIBPNG_VER >= 10634
 			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
+#else
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+#endif
 		}
 #endif
 
