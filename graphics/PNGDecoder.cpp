@@ -328,7 +328,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 
 			cmsCloseProfile(profile); 
 
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
 		}
 #endif
 		
@@ -469,7 +469,7 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 
 			cmsCloseProfile(profile); 
 
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
 		}
 #endif
 
@@ -533,6 +533,8 @@ void PNGDecoder::test()
 
 	try
 	{
+		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/basn0g08_badcrc.png");
+
 		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/pino.png");
 		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
 	}
