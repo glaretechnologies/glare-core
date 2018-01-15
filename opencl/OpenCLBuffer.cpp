@@ -94,16 +94,19 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 	if(opencl_mem)
 		free();
 
-	cl_int result;
-	opencl_mem = getGlobalOpenCL()->clCreateBuffer(
-		context,
-		flags | CL_MEM_COPY_HOST_PTR,
-		size_, // size
-		(void*)src_ptr, // host ptr
-		&result
-		);
-	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
+	if(size_ > 0)
+	{
+		cl_int result;
+		opencl_mem = getGlobalOpenCL()->clCreateBuffer(
+			context,
+			flags | CL_MEM_COPY_HOST_PTR,
+			size_, // size
+			(void*)src_ptr, // host ptr
+			&result
+			);
+		if(result != CL_SUCCESS)
+			throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
+	}
 
 	size = size_;
 

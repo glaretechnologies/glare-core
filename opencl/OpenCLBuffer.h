@@ -66,26 +66,26 @@ private:
 template<typename T, size_t align>
 void OpenCLBuffer::allocFrom(cl_context context, const js::Vector<T, align>& src_vec, cl_mem_flags flags_)
 {
-	allocFrom(context, &src_vec[0], src_vec.size() * sizeof(T), flags_);
+	allocFrom(context, src_vec.data(), src_vec.size() * sizeof(T), flags_);
 }
 
 
 template<typename T>
 void OpenCLBuffer::allocFrom(cl_context context, const std::vector<T>& src_vec, cl_mem_flags flags_)
 {
-	allocFrom(context, &src_vec[0], src_vec.size() * sizeof(T), flags_);
+	allocFrom(context, src_vec.data(), src_vec.size() * sizeof(T), flags_);
 }
 
 
 template<typename T, size_t align>
 void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_bool blocking_write)
 {
-	copyFrom(command_queue, &src_vec[0], src_vec.size() * sizeof(T), blocking_write);
+	copyFrom(command_queue, src_vec.data(), src_vec.size() * sizeof(T), blocking_write);
 }
 
 
 template<typename T>
 void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, cl_bool blocking_write)
 {
-	copyFrom(command_queue, &src_vec[0], src_vec.size() * sizeof(T), blocking_write);
+	copyFrom(command_queue, src_vec.data(), src_vec.size() * sizeof(T), blocking_write);
 }

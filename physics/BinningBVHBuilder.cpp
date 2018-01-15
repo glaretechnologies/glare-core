@@ -288,7 +288,7 @@ void BinningBVHBuilder::build(
 	{
 		const double build_time = build_timer.elapsed();
 
-		conPrint("---------------------");
+		conPrint("----------- BinningBVHBuilder Build Stats ----------");
 		conPrint("Mem usage:");
 		conPrint("objects:                    " + getNiceByteSize(objects.dataSizeBytes()));
 
