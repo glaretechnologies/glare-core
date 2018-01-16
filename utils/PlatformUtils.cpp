@@ -253,6 +253,15 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.model = (CPUInfo[0] >> 4) & 0xF;
 	info_out.family = (CPUInfo[0] >> 8) & 0xF;
 
+	// See https://en.wikipedia.org/wiki/CPUID, also Intel 64 and IA-32 Architectures Software Developer’s Manual, Volume 2A, "INPUT EAX = 01H: Returns Model, Family, Stepping Information"
+	if(info_out.family == 6 || info_out.family == 15)
+	{
+		if(info_out.family == 15)
+			info_out.family += (CPUInfo[0] >> 20) & 0xFF;
+
+		info_out.model += ((CPUInfo[0] >> 16) & 0xF) << 4;
+	}
+
 	doCPUID(0x80000000, CPUInfo);
 
 	const unsigned int highest_extended_param = CPUInfo[0];
