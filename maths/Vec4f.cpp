@@ -162,9 +162,25 @@ void Vec4f::test()
 	// Test operator ==
 	{
 		testAssert(Vec4f(1, 2, 3, 4) == Vec4f(1, 2, 3, 4));
+
 		testAssert(!(Vec4f(1, 2, 3, 4) == Vec4f(-1, 2, 3, 4)));
+		testAssert(!(Vec4f(1, 2, 3, 4) == Vec4f(1, -2, 3, 4)));
+		testAssert(!(Vec4f(1, 2, 3, 4) == Vec4f(1, 2, -3, 4)));
+		testAssert(!(Vec4f(1, 2, 3, 4) == Vec4f(1, 2, 3, -4)));
+		testAssert(!(Vec4f(1, 2, 3, 4) == Vec4f(-1, -2, -3, -4)));
 
 		testAssert(Vec4f(1, 2, 3, 0) == maskWToZero(Vec4f(1, 2, 3, 4)));
+	}
+
+	// Test operator !=
+	{
+		testAssert(!(Vec4f(1, 2, 3, 4) != Vec4f(1, 2, 3, 4)));
+
+		testAssert(Vec4f(1, 2, 3, 4) != Vec4f(-1, 2, 3, 4));
+		testAssert(Vec4f(1, 2, 3, 4) != Vec4f(1, -2, 3, 4));
+		testAssert(Vec4f(1, 2, 3, 4) != Vec4f(1, 2, -3, 4));
+		testAssert(Vec4f(1, 2, 3, 4) != Vec4f(1, 2, 3, -4));
+		testAssert(Vec4f(1, 2, 3, 4) != Vec4f(-1, -2, -3, -4));
 	}
 
 	// Test length(), length2(), normalise(), isUnitLength()

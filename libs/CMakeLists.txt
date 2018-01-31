@@ -286,6 +286,8 @@ FILE(GLOB zstandard "../zstd-1.0.0/lib/*.h"  "../zstd-1.0.0/lib/common/*.c" "../
 FILE(GLOB embreecommonsys "../embree/common/sys/*.cpp")# "common/sys/*.h")
 FILE(GLOB embreecommonsysstl "../embree/common/sys/stl/*.cpp")# "common/sys/stl/*.h")
 FILE(GLOB embreecommonsyssync "../embree/common/sys/sync/*.cpp")# "common/sys/sync/*.h")
+FILE(GLOB embreecommonmath "../embree/common/math/*.h")
+FILE(GLOB embreecommonsimd "../embree/common/simd/*.h")
 
 FILE(GLOB embreertcore "../embree/rtcore/*.cpp")# "rtcore/*.h")
 FILE(GLOB embreertcorebvh2 "../embree/rtcore/bvh2/*.cpp")# "rtcore/bvh2/*.h")
@@ -314,6 +316,8 @@ SOURCE_GROUP(embree\\common\\image FILES ${embreecommonimage})
 SOURCE_GROUP(embree\\common\\sys FILES ${embreecommonsys})
 SOURCE_GROUP(embree\\common\\sys\\stl FILES ${embreecommonsysstl})
 SOURCE_GROUP(embree\\common\\sys\\sync FILES ${embreecommonsyssync})
+SOURCE_GROUP(embree\\common\\math FILES ${embreecommonmath})
+SOURCE_GROUP(embree\\common\\simd FILES ${embreecommonsimd})
 
 SOURCE_GROUP(embree\\rtcore FILES ${embreertcore})
 SOURCE_GROUP(embree\\rtcore\\bvh2 FILES ${embreertcorebvh2})
@@ -356,6 +360,8 @@ ${embreecommonimage}
 ${embreecommonsys}
 ${embreecommonsysstl}
 ${embreecommonsyssync}
+${embreecommonmath}
+${embreecommonsimd}
 ${embreertcore}
 ${embreertcorebvh2}
 ${embreertcorebvh4}

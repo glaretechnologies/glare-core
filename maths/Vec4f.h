@@ -98,9 +98,7 @@ INDIGO_STRONG_INLINE const Vec4f operator / (const Vec4f& a, float f)
 INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 {
 #if COMPILE_SSE4_CODE
-	Vec4f res;
-	res.v = _mm_dp_ps(a.v, b.v, 255);
-	return res.x[0];
+	return _mm_cvtss_f32(_mm_dp_ps(a.v, b.v, 255));
 #else
 	// Do the dot product horizontal add with scalar ops.
 	// It's much faster this way.  This is the way the Embree dudes do it when SSE4 is not available.
@@ -239,25 +237,13 @@ void Vec4f::operator *= (float f)
 
 bool Vec4f::operator == (const Vec4f& a) const
 {
-	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
-	// Exact floating point comparison should be rare.
-	return
-		x[0] == a.x[0] &&
-		x[1] == a.x[1] &&
-		x[2] == a.x[2] &&
-		x[3] == a.x[3];
+	return _mm_movemask_ps(_mm_cmpeq_ps(v, a.v)) == 0xF;
 }
 
 
 bool Vec4f::operator != (const Vec4f& a) const
 {
-	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
-	// Exact floating point comparison should be rare.
-	return
-		x[0] != a.x[0] ||
-		x[1] != a.x[1] ||
-		x[2] != a.x[2] ||
-		x[3] != a.x[3];
+	return _mm_movemask_ps(_mm_cmpneq_ps(v, a.v)) != 0;
 }
 
 
