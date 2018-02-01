@@ -248,21 +248,29 @@ build_program:
 	try
 	{
 		// Get device list for program.  Note that this can differ in order from the device list we supplied when building the program!
-		std::vector<cl_device_id> queried_device_ids(devices.size());
 
+		// Get num devices associated with program first.  Note that this can be more than the number of devices we requested the binary be built for.
+		cl_uint num_devices;
+		program->getProgramInfo(CL_PROGRAM_NUM_DEVICES,
+			sizeof(num_devices), // param value size
+			&num_devices // param value
+		);
+
+		std::vector<cl_device_id> queried_device_ids(num_devices);
 		program->getProgramInfo(CL_PROGRAM_DEVICES, 
 			queried_device_ids.size() * sizeof(cl_device_id), // param value size
 			queried_device_ids.data() // param value
 		);
 
 		// Get binary sizes
-		std::vector<size_t> binary_sizes(devices.size());
+		std::vector<size_t> binary_sizes(num_devices);
 		program->getProgramInfo(CL_PROGRAM_BINARY_SIZES,
 			binary_sizes.size() * sizeof(size_t), // param value size
 			binary_sizes.data() // param value
 		);
 
 		// Allocate space for binaries
+		binaries.resize(binary_sizes.size());
 		for(size_t i=0; i<binaries.size(); ++i)
 			binaries[i].resize(binary_sizes[i]);
 
@@ -279,25 +287,28 @@ build_program:
 		// Save binaries to disk
 		for(size_t i=0; i<queried_device_ids.size(); ++i)
 		{
-			// Find the device in our device list that this corresponds to
-			size_t device_index = std::numeric_limits<size_t>::max();
-			for(size_t z=0; z<devices.size(); ++z)
-				if(devices[z]->opencl_device_id == queried_device_ids[i])
-					device_index = z;
+			if(binary_sizes[i] > 0) // If a binary is available for the device:
+			{
+				// Find the device in our device list that this corresponds to
+				size_t device_index = std::numeric_limits<size_t>::max();
+				for(size_t z=0; z<devices.size(); ++z)
+					if(devices[z]->opencl_device_id == queried_device_ids[i])
+						device_index = z;
 
-			if(device_index == std::numeric_limits<size_t>::max())
-				throw Indigo::Exception("Failed to find device.");
+				if(device_index == std::numeric_limits<size_t>::max())
+					throw Indigo::Exception("Failed to find device.");
 
-			const OpenCLDevice& device = *devices[device_index];
-			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
-			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
-			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
-			const std::string dir = ::toHexString(dir_bits);
-			const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+				const OpenCLDevice& device = *devices[device_index];
+				const std::string device_string_id = device.vendor_name + "_" + device.device_name;
+				const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
+				const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
+				const std::string dir = ::toHexString(dir_bits);
+				const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
 
-			FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
-			FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
-			FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
+				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
+				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
+				FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
+			}
 		}
 	}
 	catch(FileUtils::FileUtilsExcep& e)
