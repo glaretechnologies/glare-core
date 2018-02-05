@@ -174,6 +174,115 @@ void getCurrentDay(int& day, int& month, int& year)
 }
 
 
+//-------------------------------------------------------------------------------------------
+
+
+// day_of_week = days since Sunday - [0,6]
+const std::string dayAsString(int day_of_week)
+{
+	switch(day_of_week)
+	{
+	case 0:
+		return "Sun";
+	case 1:
+		return "Mon";
+	case 2:
+		return "Tue";
+	case 3:
+		return "Wed";
+	case 4:
+		return "Thu";
+	case 5:
+		return "Fri";
+	case 6:
+		return "Sat";
+	default:
+		assert(0);
+		return "";
+	};
+}
+
+
+const std::string monthString(int month)
+{
+	std::string monthstr;
+	switch(month)
+	{
+	case 0:
+		monthstr = "Jan";
+		break;
+	case 1:
+		monthstr = "Feb";
+		break;
+	case 2:
+		monthstr = "Mar";
+		break;
+	case 3:
+		monthstr = "Apr";
+		break;
+	case 4:
+		monthstr = "May";
+		break;
+	case 5:
+		monthstr = "Jun";
+		break;
+	case 6:
+		monthstr = "Jul";
+		break;
+	case 7:
+		monthstr = "Aug";
+		break;
+	case 8:
+		monthstr = "Sep";
+		break;
+	case 9:
+		monthstr = "Oct";
+		break;
+	case 10:
+		monthstr = "Nov";
+		break;
+	case 11:
+		monthstr = "Dec";
+		break;
+	default:
+		assert(0);
+		break;
+	};
+	return monthstr;
+}
+
+
+const std::string twoDigitString(int x)
+{
+	return ::leftPad(::toString(x), '0', 2);
+}
+
+
+const std::string RFC822FormatedString() // http://www.faqs.org/rfcs/rfc822.html
+{
+	return RFC822FormatedString(time(NULL));
+}
+
+const std::string RFC822FormatedString(time_t t) // http://www.faqs.org/rfcs/rfc822.html
+{
+	tm thetime;
+	// Get calender time in UTC.  Use threadsafe versions of gmtime.
+#ifdef _WIN32
+	gmtime_s(&thetime, &t);
+#else
+	gmtime_r(&t, &thetime);
+#endif
+
+	const int day_of_week = thetime.tm_wday; // days since Sunday - [0,6]
+	const int day = thetime.tm_mday; // Day of month (1 – 31).
+	const int month = thetime.tm_mon; // Month (0 – 11; January = 0).
+	const int year = thetime.tm_year + 1900; // tm_year = Year (current year minus 1900).
+
+	return dayAsString(day_of_week) + ", " + toString(day) + " " + monthString(month) + " " + toString(year) + " " +
+		twoDigitString(thetime.tm_hour) + ":" + twoDigitString(thetime.tm_min) + ":" + twoDigitString(thetime.tm_sec) + " GMT";
+}
+
+
 } // end namespace Clock
 
 
