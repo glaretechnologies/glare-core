@@ -36,6 +36,19 @@ typedef SSIZE_T ssize_t;
 #endif
 
 
+// Wrapper class for tls_config
+class TLSConfig
+{
+public:
+	TLSConfig(); // Allocates new tls_config.  Throws MySocketExcep on failure to alloc config.
+	~TLSConfig(); // Frees tls_config.
+
+	tls_config* config;
+private:
+	INDIGO_DISABLE_COPY(TLSConfig);
+};
+
+
 /*=====================================================================
 TLSSocket
 ---------

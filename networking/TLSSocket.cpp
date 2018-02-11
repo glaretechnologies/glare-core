@@ -55,6 +55,21 @@ static const int SOCKET_ERROR = -1;
 static size_t MAX_READ_OR_WRITE_SIZE = 1024 * 1024 * 8;
 
 
+TLSConfig::TLSConfig()
+{
+	this->config = tls_config_new();
+	if(!this->config)
+		throw MySocketExcep("Failed to allocate tls_config.");
+}
+
+
+TLSConfig::~TLSConfig()
+{
+	if(this->config)
+		tls_config_free(this->config);
+}
+
+
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
 	init();
