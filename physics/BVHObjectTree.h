@@ -49,8 +49,8 @@ public:
 
 	//void insertObject(const Object* object);
 	
-
-	Real traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
+	// hitob_out will be set to a non-null value if the ray hit somethig in the interval, and null otherwise.
+	Real traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	void build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose);

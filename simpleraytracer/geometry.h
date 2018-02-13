@@ -131,6 +131,9 @@ public:
 
 	inline bool isCamera() const { return is_camera; }
 
+
+	std::vector<bool> mat_group_opaque; // For each material group of the mesh, are all materials from all instances fully opaque (not delta transmission)?
+
 private:
 	unsigned int object_usage_count; // Number of objects that use this geometry.
 	bool sub_elements_curved;

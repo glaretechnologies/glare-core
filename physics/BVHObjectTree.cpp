@@ -69,6 +69,8 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, Thr
 	const Vec4i y_shuffle = ray.getRecipRayDirF().x[1] > 0 ? identity : swap;
 	const Vec4i z_shuffle = ray.getRecipRayDirF().x[2] > 0 ? identity : swap;
 
+	const bool shadow_trace = ray.shadow_trace;
+
 stack_pop:
 	while(stack_top >= 0) // While still one or more nodes on the stack:
 	{
@@ -191,7 +193,7 @@ stack_pop:
         const size_t num = size_t(cur) & 0x1F;
         for (size_t i=ofs; i<ofs+num; i++)
 		{
-			const Object* ob = leaf_objects[i];
+			const Object* const ob = leaf_objects[i];
 
 			const Real dist = ob->traceRay(
 				ray,
@@ -201,11 +203,19 @@ stack_pop:
 				ob_hit_info
 			);
 
-			if(dist >= 0 && dist < closest_dist)
+			if(dist >= 0)
 			{
+				assert(dist <= closest_dist);
 				closest_dist = dist;
 				hitob_out = ob;
 				hitinfo_out = ob_hit_info;
+
+				// If we are doing a shadow trace, and hit an opaque object, then we can early out as we know there is zero transmittance along this edge.
+				if(shadow_trace && ob_hit_info.hit_opaque_ob)
+				{
+					assert(hitinfo_out.hit_opaque_ob);
+					return closest_dist;
+				}
 
 				// Update far to min(dist, far)
 				const Vec4f new_neg_far = Vec4f(_mm_max_ps(Vec4f(-dist).v, near_far.v)); // (., ., -min(far, dist), -min(far, dist))
@@ -214,7 +224,7 @@ stack_pop:
 		}
 	}
 
-	return hitob_out != NULL ? closest_dist : -1;
+	return closest_dist;
 }
 
 
