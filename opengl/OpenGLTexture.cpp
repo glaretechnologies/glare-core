@@ -46,7 +46,8 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data
 	//	GL_RGB, // format
 	//	GL_UNSIGNED_BYTE, // type
 	//	tex_data); // Upload texture to OpenGL
-	glTexImage2D(GL_TEXTURE_2D, 0, 
+	glTexImage2D(GL_TEXTURE_2D, 
+		0, // LOD level
 		internal_format, // internal format
 		(GLsizei)tex_xres, (GLsizei)tex_yres, 
 		0, // border
