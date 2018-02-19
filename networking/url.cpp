@@ -1,284 +1,169 @@
+/*=====================================================================
+url.cpp
+-------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
 #include "url.h"
 
 
 #include "../utils/StringUtils.h"
-#include <assert.h>
+#include "../utils/Parser.h"
+#include "../utils/Exception.h"
 
 
-URL::URL(const std::string& url_)
+URL URL::parseURL(const std::string& url) // throws Indigo::Exception
 {
-	std::string url = url_;
+	URL result;
+	result.port = -1;
 
-	//-----------------------------------------------------------------
-	//strip off any leading http:// (shouldn't strictly be in url anyway?)
-	//-----------------------------------------------------------------
-	if(url.size() >= 7 && url.substr(0, 7) == "http://")
-		url = url.substr(7, url.length() - 7);
+	Parser parser(url.data(), (unsigned int)url.size());
 
-	//-----------------------------------------------------------------
-	//find first '/' or '\'.
-	//-----------------------------------------------------------------
-	const int first_slashpos = getFirstSlashPos(url);
-
-	if(first_slashpos == -1)
+	//---------------- Parse scheme ----------------
+	const size_t scheme_terminator_pos = url.find("://");
+	if(scheme_terminator_pos != std::string::npos)
 	{
-		host = url;
-		file = "/";
+		result.scheme = url.substr(0, scheme_terminator_pos);
+		parser.setCurrentPos((unsigned int)scheme_terminator_pos + 3);
+	}
+
+	//---------------- Parse host ----------------
+	const size_t host_start = parser.currentPos();
+
+	// Parse host until we come to ':', '/', '?' or '#'
+	for(; !(parser.eof() || parser.current() == '/' || parser.current() == '?' || parser.current() == '#' || parser.current() == ':'); parser.advance())
+	{}
+
+	result.host = url.substr(host_start, parser.currentPos() - host_start);
+
+	//---------------- Parse port ----------------
+	if(parser.currentIsChar(':'))
+	{
+		parser.consume(':');
+		if(!parser.parseInt(result.port))
+			throw Indigo::Exception("Failed to parse port.");
+	}
+
+	//---------------- Parse path ----------------
+	if(parser.currentIsChar('/'))
+	{
+		const size_t path_start = parser.currentPos();
+
+		// Parse path until we get to '?' or '#'
+		for(; !(parser.eof() || parser.current() == '?' || parser.current() == '#'); parser.advance())
+		{}
+
+		result.path = url.substr(path_start, parser.currentPos() - path_start);
+	}
+
+	//---------------- Parse query ----------------
+	if(parser.currentIsChar('?'))
+	{
+		parser.consume('?');
+		const size_t query_start = parser.currentPos();
+
+		for(; !(parser.eof() || parser.current() == '#'); parser.advance())
+		{}
+
+		result.query = url.substr(query_start, parser.currentPos() - query_start);
+	}
+
+	//---------------- Parse fragment ----------------
+	if(parser.currentIsChar('#'))
+	{
+		parser.consume('#');
+		// Fragment is remaining part of string.
+		result.fragment = url.substr(parser.currentPos(), url.size() - parser.currentPos());
+	}
+
+	return result;
+}
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+
+
+void URL::test()
+{
+	// Test URL with all components
+	{
+		URL url = parseURL("schemez://a.b.c:80/d/e/f?g=h&i=k#lmn");
+		testStringsEqual(url.scheme, "schemez");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, 80);
+		testStringsEqual(url.path, "/d/e/f");
+		testStringsEqual(url.query, "g=h&i=k");
+		testStringsEqual(url.fragment, "lmn");
+	}
+
+	// Test without scheme
+	{
+		URL url = parseURL("a.b.c:80/d/e/f?g=h&i=k#lmn");
+		testStringsEqual(url.scheme, "");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, 80);
+		testStringsEqual(url.path, "/d/e/f");
+		testStringsEqual(url.query, "g=h&i=k");
+		testStringsEqual(url.fragment, "lmn");
+	}
+
+	// Test without port
+	{
+		URL url = parseURL("schemez://a.b.c/d/e/f?g=h&i=k#lmn");
+		testStringsEqual(url.scheme, "schemez");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, -1);
+		testStringsEqual(url.path, "/d/e/f");
+		testStringsEqual(url.query, "g=h&i=k");
+		testStringsEqual(url.fragment, "lmn");
+	}
 	
-	}
-	else
+	// Test without query and fragment
 	{
-
-		//-----------------------------------------------------------------
-		//split up into host and file at host
-		//-----------------------------------------------------------------
-		host = url.substr(0, first_slashpos);
-		
-		file = url.substr(first_slashpos, url.length() - first_slashpos);
+		URL url = parseURL("schemez://a.b.c/d/e/f");
+		testStringsEqual(url.scheme, "schemez");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, -1);
+		testStringsEqual(url.path, "/d/e/f");
+		testStringsEqual(url.query, "");
+		testStringsEqual(url.fragment, "");
 	}
 
-}
-
-URL::URL(const std::string& host_, const std::string& file_)
-:	host(host_), file(file_)
-{
-	//if(file.length() >= 0)
-	//	if(file[file.length() - 1] == '/' || file[file.length() - 1] == '\\')
-	//		file = file.substr(0, file.length() - 1);//lop off last slash
-
-	//-----------------------------------------------------------------
-	//add a slash to the start of file if it does not already have one
-	//-----------------------------------------------------------------
-	if(!(hasPrefix(file, "\\") || hasPrefix(file, "/")))
-		file = "/" + file;
-}
-
-URL::URL(const URL& rhs)
-:	host(rhs.host), file(rhs.file)
-{
-
-}
-
-URL::~URL()
-{
-	
-}
-
-const URL& URL::operator = (const URL& rhs)
-{
-	host = rhs.host;
-	file = rhs.file;
-
-	return *this;
-}
-
-bool URL::operator == (const URL& rhs) const
-{
-	return host == rhs.host && file == rhs.file;
-}
-
-bool URL::operator < (const URL& rhs) const
-{
-	return getURL() < rhs.getURL();
-}
-
-
-const std::string URL::getURL() const
-{
-	//if(file.length() == 0)
-	//	return host;
-
-	/*if(file[0] == '\\' || file[0] == '/')
-		return host + file;
-	else
-		return host + '/' + file;*/
-	return host + file;
-}
-
-const std::string URL::getHost() const
-{
-	return host;
-}
-const std::string URL::getFile() const
-{
-	assert(file.length() >= 1);
-	assert(file[0] == '/' || file[0] == '\\');
-
-	return file;
-}
-
-
-
-const std::string URL::getNoDirFilename() const
-{
-	for(int i=(int)file.length() - 1; i>= 0; i--)
+	// Test without query but with fragment
 	{
-		if(file[i] == '/' || file[i] == '\\')
-		{
-			return file.substr(i + 1, file.length() - (i - 1));
-		}
+		URL url = parseURL("schemez://a.b.c/d/e/f#lmn");
+		testStringsEqual(url.scheme, "schemez");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, -1);
+		testStringsEqual(url.path, "/d/e/f");
+		testStringsEqual(url.query, "");
+		testStringsEqual(url.fragment, "lmn");
 	}
 
-	//-----------------------------------------------------------------
-	//no slash, just return whole file
-	//-----------------------------------------------------------------
-	return file;
-}
-		
-
-const URL URL::getDir() const//get everthing except the file at the end
-{
-	for(int i=(int)file.length() - 1; i>= 0; i--)
+	// Test just domain and no path etc..
 	{
-		if(file[i] == '/' || file[i] == '\\')
-		{
-			assert(i+1 <= (int)file.length());
-
-			return URL(host, file.substr(0, i+1));
-		}
+		URL url = parseURL("schemez://a.b.c");
+		testStringsEqual(url.scheme, "schemez");
+		testStringsEqual(url.host, "a.b.c");
+		testEqual(url.port, -1);
+		testStringsEqual(url.path, "");
+		testStringsEqual(url.query, "");
+		testStringsEqual(url.fragment, "");
 	}
 
-	//-----------------------------------------------------------------
-	//no slash, just return whole url
-	//-----------------------------------------------------------------
-	return *this;
-}
-
-const URL URL::getOneDirUp() const
-{
-	//-----------------------------------------------------------------
-	//get the current directory
-	//-----------------------------------------------------------------
-	URL curdir = getDir(); 
-
-	if(curdir.getFile().length() == 1)
+	// Test empty string
 	{
-		//already at root dir.. so can't go up one.
-		return curdir;//just return current dir.
-		//NOTE: might be better to signal error here
+		URL url = parseURL("");
+		testStringsEqual(url.scheme, "");
+		testStringsEqual(url.host, "");
+		testEqual(url.port, -1);
+		testStringsEqual(url.path, "");
+		testStringsEqual(url.query, "");
+		testStringsEqual(url.fragment, "");
 	}
-
-	//-----------------------------------------------------------------
-	//strip the rightmost slash off the current dir URL
-	//-----------------------------------------------------------------
-	curdir = URL(curdir.getURL().substr(0, curdir.getURL().length() - 1));
-
-	//-----------------------------------------------------------------
-	//find the rightmost slash
-	//-----------------------------------------------------------------
-	for(int i=(int)curdir.getFile().length() - 1; i>= 0; i--)
-	{
-		if(curdir.getFile()[i] == '/' || curdir.getFile()[i] == '\\')
-		{
-			assert(i+1 <= (int)curdir.getFile().length());
-
-			return URL(curdir.getHost(), curdir.getFile().substr(0, i+1));
-		}
-	}
-
-	assert(0);
-	return getDir();
-
-
 }
 
 
-/*const URL URL::getAbsURL(const URL& pageurl, const URL& abs_or_rel_url)
-{
-	if(isRelative(abs_or_rel_url))
-	{
-		if(beginsWithSlash(abs_or_rel_url.getURL()))
-		{
-			return URL(pageurl.getDir() + abs_or_rel_url.getURL());
-		}
-		else
-		{
-			return URL(pageurl.getDir() + '/' + abs_or_rel_url.getURL());
-		}
-	}
-
-	//-----------------------------------------------------------------
-	//else is absolute
-	//-----------------------------------------------------------------
-	return abs_or_rel_url;
-}*/
-
-
-/*bool URL::isRelative(const URL& abs_or_rel_url)
-{
-	const int first_slashpos = getFirstSlashPos(abs_or_rel_url.getURL());
-
-	if(first_slashpos == -1)
-	{
-		//no slash, must be relative
-		return true;
-	}
-
-	const std::string hostordir = abs_or_rel_url.getURL().substr(0, first_slashpos-1);
-
-	for(int i=0; i<hostordir.length(); i++)
-	{
-		if(hostordir[i] == '.')
-		{
-			//must be a host name if it has a dot in it
-			return false;
-		}
-	}
-
-	//-----------------------------------------------------------------
-	//no dot in left bit == not hostname == relative URL
-	//-----------------------------------------------------------------
-	return true;
-
-}*/
-
-int URL::getFirstSlashPos(const std::string& urlstring)//returns -1 if no slash
-{
-
-	if(urlstring.length() == 0)
-		return -1;
-
-
-	int first_slashpos = (int)urlstring.length();
-
-	for(int i=(int)urlstring.length() - 1; i>= 0; i--)
-	{
-		if(urlstring[i] == '/' || urlstring[i] == '\\')
-		{
-			first_slashpos = i;
-		}
-	}
-
-	if(first_slashpos == (int)urlstring.length())
-	{
-		//no slash found
-		return -1;
-	}
-	else
-		return first_slashpos;
-}
-
-
-bool URL::beginsWithSlash(const std::string s)
-{
-	if(s.length() == 0)
-		return false;
-
-	if(s[0] == '\\' || s[0] == '/')
-		return true;
-	else
-		return false;
-}
-
-
-
-
-bool URL::hasAnyFileTypeExtension()
-{
-	//has a file extension iff there is a dot in the file bit
-
-	if(getFile().find_first_of(".") == std::string::npos)
-		return false;
-	else
-		return true;
-}
+#endif

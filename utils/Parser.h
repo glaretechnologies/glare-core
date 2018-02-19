@@ -60,6 +60,7 @@ public:
 	// Only defined if eof() is not true.
 	inline char current() const;
 	inline unsigned int currentPos() const { return currentpos; }
+	inline void setCurrentPos(unsigned int c) { currentpos = c; }
 
 	inline bool eof() const;
 	inline bool notEOF() const;
@@ -74,6 +75,9 @@ public:
 	inline bool nextIsChar(char c) const { return nextIsNotEOF() && next() == c; }
 
 	inline char prev() const { assert(currentpos >= 1); return text[currentpos - 1]; }
+
+	// Check the current character is c, then advance past it.
+	inline void consume(char c) { assert(currentIsChar(c)); advance(); }
 
 	inline const char* getText() const { return text; }
 	inline unsigned int getTextSize() const { return textsize; }
