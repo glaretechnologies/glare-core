@@ -24,7 +24,8 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 	writeUInt32((uint32)s.length());
 
 	// Write string content
-	writeData(s.c_str(), s.length());
+	if(!s.empty())
+		writeData(s.c_str(), s.length());
 }
 
 
