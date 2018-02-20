@@ -132,11 +132,10 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		Ray ray(
 			Vec4f(0.0f, 0.25f, 0.1f, 1.0f), // start position
 			Vec4f(1.0f, 0.0f, 0.0f, 0.0f), // dir
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 		{
 			HitInfo hitinfo;
@@ -266,11 +265,10 @@ void ObjectTreeTest::doTests()
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0) - Vec4f(0.2f, 0.2f, 0.2f, 0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 		double time = 0.0;
 
@@ -519,11 +517,10 @@ void ObjectTreeTest::doSpeedTest()
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 		//ray.buildRecipRayDir();
 
@@ -551,11 +548,10 @@ void ObjectTreeTest::doSpeedTest()
 		const Ray ray(
 			Vec4f(0,0,0,1) + Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.2f, 0.2f, 0.2f,0)) * 1.4f,
 			normalise(Vec4f(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(),0) - Vec4f(0.5f, 0.5f, 0.5f,0))),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 	}
 
@@ -667,11 +663,10 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		const Ray ray(
 			start,
 			normalise(end - start),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 		//ray.buildRecipRayDir();
 

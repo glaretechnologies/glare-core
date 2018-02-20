@@ -113,10 +113,9 @@ static void testTriangleIntersection()
 		const Ray ray(
 			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
 			normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f)),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, normalise(Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 0.f))
-#endif
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(),
+			false // shadow ray
 			);
 
 		testIntersection(ray, tris);

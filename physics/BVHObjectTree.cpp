@@ -37,12 +37,12 @@ static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b )
 
 
 // Uses some code and ideas from embree\rtcore\bvh2\bvh2_traverser.cpp
-BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, ThreadContext& thread_context, double time, 
+BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, ThreadContext& thread_context, double time, 
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
 {
+	Ray ray = ray_;
 	hitob_out = NULL;
 	HitInfo ob_hit_info;
-	float closest_dist = ray_length;
 
 	int stack[64];
 	float dist_stack[64];
@@ -60,7 +60,7 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray, Real ray_length, Thr
 	const Vec4f rdir_z = vec4XOR(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
-	Vec4f near_far(ray.minT(), ray.minT(), -ray_length, -ray_length);
+	Vec4f near_far(ray.minT(), ray.minT(), -ray.maxT(), -ray.maxT());
 
 	const Vec4i identity(	_mm_set_epi8(15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 0));
 	const Vec4i swap(		_mm_set_epi8( 7,  6,  5,  4,  3,  2,  1,  0, 15, 14, 13, 12, 11, 10,  9, 8));
@@ -197,7 +197,6 @@ stack_pop:
 
 			const Real dist = ob->traceRay(
 				ray,
-				closest_dist,
 				time,
 				thread_context,
 				ob_hit_info
@@ -205,8 +204,8 @@ stack_pop:
 
 			if(dist >= 0)
 			{
-				assert(dist <= closest_dist);
-				closest_dist = dist;
+				assert(dist <= ray.maxT());
+				ray.setMaxT(dist);
 				hitob_out = ob;
 				hitinfo_out = ob_hit_info;
 
@@ -214,7 +213,7 @@ stack_pop:
 				if(shadow_trace && ob_hit_info.hit_opaque_ob)
 				{
 					assert(hitinfo_out.hit_opaque_ob);
-					return closest_dist;
+					return dist;
 				}
 
 				// Update far to min(dist, far)
@@ -224,7 +223,7 @@ stack_pop:
 		}
 	}
 
-	return closest_dist;
+	return ray.maxT(); // return closest hit dist
 }
 
 

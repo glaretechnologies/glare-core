@@ -164,13 +164,15 @@ public:
 
 
 // Returns distance till hit triangle, negative number if missed.
-KDTree::DistType KDTree::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+KDTree::DistType KDTree::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
 	//return KDTreeImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, thread_context, context, object, hitinfo_out);
 
 	assertSSEAligned(&ray);
 	//assert(ray.unitDir().isUnitLength()); // NOTE: taken out because rays are not necessarily normalised anymore
 	//assert(ray.minT() >= 0.0f);
+
+	DistType ray_max_t = ray.maxT();
 	assert(ray_max_t >= 0.0f);
 
 	const DistType epsilon = ray.minT();

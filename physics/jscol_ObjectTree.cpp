@@ -227,7 +227,6 @@ ObjectTree::Real ObjectTree::traceRay(const Ray& ray,
 			{
 				const Real dist = ob->traceRay(
 					ray,
-					closest_dist,
 					time,
 					thread_context,
 					ob_hit_info
@@ -1175,7 +1174,7 @@ ObjectTree::Real ObjectTree::traceRayAgainstAllObjects(const Ray& ray,
 	for(unsigned int i=0; i<objects.size(); ++i)
 	{
 		HitInfo hitinfo;
-		const Real dist = objects[i]->traceRay(ray, 1e9f, time, thread_context, hitinfo);
+		const Real dist = objects[i]->traceRay(ray, time, thread_context, hitinfo);
 		if(dist >= 0.0 && dist < closest_dist)
 		{
 			hitinfo_out = hitinfo;
@@ -1257,3 +1256,4 @@ ObjectTreeStats::~ObjectTreeStats()
 
 
 } //end namespace js
+

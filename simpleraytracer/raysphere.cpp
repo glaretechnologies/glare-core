@@ -39,7 +39,7 @@ RaySphere::~RaySphere()
 }
 
 
-Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
 	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
 
@@ -58,7 +58,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	const Real use_min_t = this->radius * std::numeric_limits<float>::epsilon() * 50; //ray.minT(); // rayMinT(radius);
 
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
-	if(t_0 >= use_min_t && t_0 <= max_t)
+	if(t_0 >= use_min_t && t_0 <= ray.maxT())
 	{
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
@@ -67,7 +67,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, DistType max_t, ThreadCon
 	}
 
 	const Real t_1 = u_dot_del_p + sqrt_discriminant;
-	if(t_1 >= use_min_t && t_1 <= max_t)
+	if(t_1 >= use_min_t && t_1 <= ray.maxT())
 	{
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
@@ -332,11 +332,12 @@ void RaySphere::test()
 		const Ray ray(
 			Vec4f(-1,0,0,1),
 			Vec4f(1,0,0,0),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::infinity() // max_t
 		);
 		
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray, 1000.0, thread_context, 
+		double d = sphere.traceRay(ray, thread_context, 
 			hitinfo);
 
 		testAssert(::epsEqual(d, 0.5));
@@ -347,19 +348,21 @@ void RaySphere::test()
 	{
 		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
-		const Ray ray2(
+		Ray ray2(
 			Vec4f(1,0,0,1),
 			Vec4f(-1,0,0,0),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::infinity() // max_t
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray2, 1000.0, thread_context, hitinfo);
+		double d = sphere.traceRay(ray2, thread_context, hitinfo);
 		testAssert(::epsEqual(d, 0.5));
 		testAssert(hitinfo.sub_elem_index == 0);
 
 		// Test with max dist = 0.1
-		d = sphere.traceRay(ray2, 0.1, thread_context, hitinfo);
+		ray2.setMaxT(0.1);
+		d = sphere.traceRay(ray2, thread_context, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -371,7 +374,8 @@ void RaySphere::test()
 		const Ray ray(
 			Vec4f(-1,0,0,1),
 			Vec4f(1,0,0,0),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::infinity() // max_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
 		sphere.getAllHits(ray, thread_context, hitinfos);
@@ -400,17 +404,19 @@ void RaySphere::test()
 	{
 		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
 
-		const Ray ray3(
+		Ray ray3(
 			Vec4f(0.25f,0,0,1),
 			Vec4f(1,0,0,0),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::infinity() // max_t
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray3, 1000.0, thread_context, hitinfo);
+		double d = sphere.traceRay(ray3, thread_context, hitinfo);
 		testAssert(::epsEqual(d, 0.25));
 
-		d = sphere.traceRay(ray3, 0.24, thread_context, hitinfo);
+		ray3.setMaxT(0.24f);
+		d = sphere.traceRay(ray3, thread_context, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -421,7 +427,8 @@ void RaySphere::test()
 		const Ray ray3(
 			Vec4f(0.25f,0,0,1),
 			Vec4f(1,0,0,0),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::infinity() // max_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
 		sphere.getAllHits(ray3, thread_context, hitinfos);

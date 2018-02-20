@@ -67,7 +67,7 @@ public:
 
 	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
 
-	virtual DistType traceRay(const Ray& ray, DistType max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
+	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_contex, std::vector<DistanceHitInfo>& hitinfos_out) const;
 

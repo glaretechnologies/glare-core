@@ -106,26 +106,24 @@ void TreeTest::testBuildCorrect()
 
 	{
 	const Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0),
-		1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-		, Vec4f(0,1,0,0)
-#endif
-		);
+		1.0e-5f, // min_t
+		std::numeric_limits<float>::max(), // max_t
+		false // shadow ray
+	);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.sub_elem_index == 0);
 	}
 
 	{
 	const Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0),
-		1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-		, Vec4f(0,1,0,0)
-#endif
+		1.0e-5f, // min_t
+		std::numeric_limits<float>::max(), // max_t
+		false // shadow ray
 	);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.sub_elem_index == 3);
 	}
@@ -440,11 +438,10 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		const Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0)),
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, Vec4f(1.0f, 0.0f, 0.0f, 0.0f)
-#endif
-			);
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
+		);
 
 		// Trace against all tris individually
 		HitInfo all_tris_hitinfo;
@@ -454,7 +451,7 @@ static void testTree(MTwister& rng, RayMesh& raymesh)
 		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, thread_context, hitinfo);
 
 			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
@@ -814,15 +811,14 @@ void TreeTest::doSpeedTest(int treetype)
 		normalise(rayend - rayorigin).vectorToVec4f(dir_f);
 
 		const Ray ray(rayorigin_f, dir_f,
-			1.0e-5f // min_t
-#if USE_LAUNCH_NORMAL
-			, dir_f
-#endif
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
 		);
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, 1.0e20f, thread_context, hitinfo);
+		const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.
@@ -928,7 +924,9 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 		const Ray ray(
 			Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0)),
-			1.0e-5f // min_t
+			1.0e-5f, // min_t
+			std::numeric_limits<float>::max(), // max_t
+			false // shadow ray
 		);
 		const float radius = rng.unitRandom() * 0.2f;
 		const double max_t = rng.unitRandom() * 2.0f;

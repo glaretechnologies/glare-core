@@ -359,9 +359,9 @@ public:
 };
 
 
-BVH::DistType BVH::traceRay(const Ray& ray, DistType ray_max_t, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+BVH::DistType BVH::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
-	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray, ray_max_t, 
+	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray,
 		thread_context, 
 		thread_context.getTreeContext(),
 		hitinfo_out
@@ -920,7 +920,7 @@ void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<
 {
 	hitinfos_out.resize(0);
 
-	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, std::numeric_limits<float>::max(), thread_context, 
+	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, thread_context, 
 		thread_context.getTreeContext(), // context, 
 		hitinfos_out
 	);

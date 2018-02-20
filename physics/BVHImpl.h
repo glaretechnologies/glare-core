@@ -29,12 +29,12 @@ class BVHImpl
 public:
 
 	template <class T, class HitInfoType>
-	inline static BVH::Real traceRay(const BVH& bvh, const Ray& ray, BVH::Real ray_max_t, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
+	inline static BVH::Real traceRay(const BVH& bvh, const Ray& ray, ThreadContext& thread_context, js::TriTreePerThreadData& context, 
 		HitInfoType& hitinfo_out)
 	{
 		assertSSEAligned(&ray);
 		//assert(ray.unitDir().isUnitLength());
-		assert(ray_max_t >= 0.0);
+		assert(ray.maxT() >= 0.0);
 
 		const __m128 raystartpos = ray.startPosF().v;
 		const __m128 inv_dir = ray.getRecipRayDirF().v;
@@ -58,7 +58,7 @@ public:
 		context.bvh_stack[0] = 0;
 
 		// This is the distance along the ray to the minimum of the closest hit so far and the maximum length of the ray
-		float closest_dist = (float)ray_max_t;
+		float closest_dist = (float)ray.maxT();
 
 		int stacktop = 0; // Index of node on top of stack
 		while(stacktop >= 0)
@@ -255,7 +255,7 @@ public:
 			}
 		}
 
-		if(closest_dist < (float)ray_max_t)
+		if(closest_dist < (float)ray.maxT())
 			return closest_dist;
 		else
 			return -1.0f; // Missed all tris
