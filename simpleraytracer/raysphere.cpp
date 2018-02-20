@@ -23,6 +23,9 @@ RaySphere::RaySphere(const Vec4f& centre_, double radius_)
 	),
 	centre(centre_)
 {
+	mat_group_opaque.resize(1);
+	mat_group_opaque[0] = false;
+
 	radius = (Real)radius_;
 	radius_squared = (Real)(radius_ * radius_);
 	recip_radius = (Real)(1 / radius_);
@@ -63,6 +66,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, ThreadContext& thread_con
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
+		hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
 		return t_0;
 	}
 
@@ -72,6 +76,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, ThreadContext& thread_con
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
+		hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
 		return t_1;
 	}
 
