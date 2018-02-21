@@ -1285,6 +1285,36 @@ const std::string removeNonPrintableChars(const std::string& s)
 }
 
 
+const std::vector<std::string> splitIntoLines(const std::string& s)
+{
+	std::vector<std::string> lines;
+
+	std::string::size_type start = 0; // Char index of start of current line
+
+	const size_t sz = s.size();
+	for(size_t i=0; i<sz;)
+	{
+		if(s[i] == '\r' && (i + 1) < sz && (s[i + 1] == '\n')) // If we encountered a \r\n:
+		{
+			lines.push_back(s.substr(start, i - start));
+			i += 2;
+			start = i;
+		}
+		else if(s[i] == '\n')
+		{
+			lines.push_back(s.substr(start, i - start));
+			i++;
+			start = i;
+		}
+		else
+			i++;
+	}
+
+	lines.push_back(s.substr(start, sz - start));
+	return lines;
+}
+
+
 } // end namespace StringUtils
 
 
@@ -2015,7 +2045,7 @@ void StringUtils::test()
 	}
 #endif
 
-	// Test split()
+	//===================================== test split() ==================================
 	std::vector<std::string> parts;
 
 	parts = split("", ':');
@@ -2060,6 +2090,7 @@ void StringUtils::test()
 	testAssert(parts[0] == "");
 	testAssert(parts[1] == "a");
 	testAssert(parts[2] == "b");
+	
 
 	// Test rightPad()
 	testAssert(rightPad("123", 'a', 5) == "123aa");
@@ -2074,6 +2105,62 @@ void StringUtils::test()
 
 	parts = split("", ':');
 	testAssert(StringUtils::join(parts, ":") == "");
+	
+
+	//===================================== test splitIntoLines() ==================================
+	{
+		parts = splitIntoLines("");
+		testAssert(parts.size() == 1 && parts[0] == "");
+		testAssert(StringUtils::join(parts, ":") == "");
+
+		parts = splitIntoLines("\n");
+		testAssert(parts.size() == 2 && parts[0] == "" && parts[1] == "");
+
+		parts = splitIntoLines("\n\n");
+		testAssert(parts.size() == 3 && parts[0] == "" && parts[1] == "" && parts[2] == "");
+
+
+		parts = splitIntoLines("a\n\nb");
+		testAssert(parts.size() == 3 && parts[0] == "a" && parts[1] == "" && parts[2] == "b");
+
+		parts = splitIntoLines("a\nb\nc");
+		testAssert(parts.size() == 3);
+		testAssert(parts[0] == "a");
+		testAssert(parts[1] == "b");
+		testAssert(parts[2] == "c");
+
+		parts = splitIntoLines("a\nb\n");
+		testAssert(parts.size() == 3);
+		testAssert(parts[0] == "a");
+		testAssert(parts[1] == "b");
+		testAssert(parts[2] == "");
+
+		parts = splitIntoLines("\na\nb\n");
+		testAssert(parts.size() == 4);
+		testAssert(parts[0] == "");
+		testAssert(parts[1] == "a");
+		testAssert(parts[2] == "b");
+		testAssert(parts[3] == "");
+
+		parts = splitIntoLines("\na\nb");
+		testAssert(parts.size() == 3);
+		testAssert(parts[0] == "");
+		testAssert(parts[1] == "a");
+		testAssert(parts[2] == "b");
+
+		// Test with \r also
+		parts = splitIntoLines("a\r\nb\nc");
+		testAssert(parts.size() == 3);
+		testAssert(parts[0] == "a");
+		testAssert(parts[1] == "b");
+		testAssert(parts[2] == "c");
+
+		parts = splitIntoLines("\r\n");
+		testAssert(parts.size() == 2 && parts[0] == "" && parts[1] == "");
+
+		parts = splitIntoLines("\r");
+		testAssert(parts.size() == 1 && parts[0] == "\r");
+	}
 
 
 	

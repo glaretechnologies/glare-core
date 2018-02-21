@@ -256,6 +256,8 @@ bool containsString(const std::string& s, const std::string& target);
 // Replace non-printable chars with '?'
 const std::string removeNonPrintableChars(const std::string& s);
 
+const std::vector<std::string> splitIntoLines(const std::string& s);
+
 void test();
 
 
