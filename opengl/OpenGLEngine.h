@@ -65,14 +65,15 @@ public:
 
 	OpenGLMaterial()
 	:	transparent(false),
-		albedo_rgb(0.85f, 0.25f, 0.85f),
+		albedo_rgb(0.85f, 0.5f, 0.85f),
 		specular_rgb(0.f),
 		alpha(1.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
 		userdata(0),
-		fresnel_scale(0.5f)
+		fresnel_scale(0.5f),
+		metallic_frac(0.f)
 	{}
 
 	std::string albedo_tex_path;
@@ -92,6 +93,7 @@ public:
 
 	float roughness;
 	float fresnel_scale;
+	float metallic_frac;
 	
 	uint64 userdata;
 };
@@ -211,7 +213,7 @@ public:
 	// Throws Indigo::Exception on failure
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
-	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d);
+	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d, OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 
@@ -256,6 +258,7 @@ private:
 	CameraType camera_type;
 
 	Matrix4f world_to_camera_space_matrix;
+	Matrix4f cam_to_world;
 public:
 	std::vector<Reference<GLObject> > objects;
 	std::vector<Reference<GLObject> > transparent_objects;

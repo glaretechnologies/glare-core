@@ -141,8 +141,7 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 	); // top
 
 	// Transform clipping planes to world space
-	Matrix4f cam_to_world;
-	world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world);
+	world_to_camera_space_matrix.getInverseForRandTMatrix(this->cam_to_world);
 
 	for(int i=0; i<5; ++i)
 	{
@@ -257,8 +256,7 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	); // top
 	
 	// Transform clipping planes to world space
-	Matrix4f cam_to_world;
-	world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world);
+	world_to_camera_space_matrix.getInverseForRandTMatrix(this->cam_to_world);
 	
 	for(int i=0; i<6; ++i)
 	{
@@ -875,7 +873,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, Tex
 			try
 			{
 				Reference<Map2D> map = texture_server.getTexForPath(".", object->materials[i].albedo_tex_path);
-				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map);
+				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 			}
 			catch(TextureServerExcep& e)
 			{
@@ -1053,8 +1051,6 @@ void OpenGLEngine::draw()
 		view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
 
 		// Compute camera position
-		Matrix4f cam_to_world;
-		world_to_camera_space_matrix.getInverseForRandTMatrix(cam_to_world); // NOTE: Full inversion of matrix probably not needed just for getting the cam position.
 		const Vec4f campos_ws = cam_to_world * Vec4f(0,0,0,1);
 
 		Matrix4f back_to_origin = Matrix4f::translationMatrix(-campos_ws);
@@ -2784,7 +2780,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeQuadMesh(const Vec4f& i, const
 }
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d)
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d, OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
@@ -2803,12 +2799,34 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			// Load texture
 			unsigned int tex_xres = map2d.getMapWidth();
 			unsigned int tex_yres = map2d.getMapHeight();
+			if(imagemap->getN() == 1)
+			{
+				// NOTE: this sux, image turns out red.  Improve by converting texture here.
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RED, GL_UNSIGNED_BYTE,
+					filtering, wrapping
+				);
 
-			if(imagemap->getN() == 3)
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE,
-					OpenGLTexture::Filtering_Fancy
+					filtering, wrapping
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else if(imagemap->getN() == 4)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGBA, GL_UNSIGNED_BYTE,
+					filtering, wrapping
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
@@ -2822,6 +2840,74 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
 			// conPrint("texture already loaded.");
+			return res->second;
+		}
+	}
+	else if(dynamic_cast<const ImageMapFloat*>(&map2d))
+	{
+		const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(&map2d);
+
+		// Compute hash of map
+		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize() * sizeof(float), 1);
+
+		auto res = this->opengl_textures.find(key);
+		if(res == this->opengl_textures.end())
+		{
+			// Load texture
+			unsigned int tex_xres = map2d.getMapWidth();
+			unsigned int tex_yres = map2d.getMapHeight();
+
+			if(imagemap->getN() == 3)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, GL_RGBA32F, GL_RGB, GL_FLOAT,
+					filtering, wrapping
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else
+				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+		}
+		else // Else if this map has already been loaded into an OpenGL Texture:
+		{
+			return res->second;
+		}
+	}
+	else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d))
+	{
+		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
+
+		// Compute hash of map
+		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize() * sizeof(half), 1);
+
+		auto res = this->opengl_textures.find(key);
+		if(res == this->opengl_textures.end())
+		{
+			// Load texture
+			unsigned int tex_xres = map2d.getMapWidth();
+			unsigned int tex_yres = map2d.getMapHeight();
+
+			if(imagemap->getN() == 3)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, GL_RGB, GL_RGB, GL_HALF_FLOAT,
+					OpenGLTexture::Filtering_Fancy
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else
+				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+		}
+		else // Else if this map has already been loaded into an OpenGL Texture:
+		{
 			return res->second;
 		}
 	}
