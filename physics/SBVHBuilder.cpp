@@ -424,7 +424,7 @@ void SBVHBuilder::build(
 		this->stats.accumStats(per_thread_temp_info[i].stats);
 
 	// Dump some mem usage stats
-	if(true)
+	if(false)
 	{
 		const double build_time = build_timer.elapsed();
 
