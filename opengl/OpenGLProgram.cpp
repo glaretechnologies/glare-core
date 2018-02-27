@@ -30,8 +30,9 @@ static const std::string getLog(GLuint program)
 }
 
 
-OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_)
-:	program(0)
+OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_)
+:	program(0),
+	prog_name(prog_name_)
 {
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
@@ -43,50 +44,11 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name, const Reference<OpenG
     glAttachShader(program, vert_shader->shader);
     glAttachShader(program, frag_shader->shader);
 
-	// NOTE: the switching on shader name is a hack, improve:
 	// Bind shader input variables.
-	if(prog_name == "env")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 2, "texture_coords_0_in");
-	}
-	else if(prog_name == "transparent")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 1, "normal_in");
-	}
-	else if(prog_name == "phong")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 1, "normal_in");
-		glBindAttribLocation(program, 2, "texture_coords_0_in");
-	}
-	else if(prog_name == "overlay")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 2, "texture_coords_0_in");
-	}
-	else if(prog_name == "depth")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-	}
-	else if(prog_name == "outline")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 1, "normal_in");
-	}
-	else if(prog_name == "edge_extract")
-	{
-		glBindAttribLocation(program, 0, "position_in");
-		glBindAttribLocation(program, 2, "texture_coords_0_in");
-	}
-	else
-	{
-		assert(0);
-	}
-
-
-
+	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
+	glBindAttribLocation(program, 0, "position_in");
+	glBindAttribLocation(program, 1, "normal_in");
+	glBindAttribLocation(program, 2, "texture_coords_0_in");
 
     glLinkProgram(program);
 

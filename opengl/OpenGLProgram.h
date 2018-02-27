@@ -40,4 +40,6 @@ public:
 
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;
+
+	std::string prog_name;
 };
