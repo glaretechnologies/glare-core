@@ -41,8 +41,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	if(program == 0)
 		throw Indigo::Exception("Failed to create OpenGL program '" + prog_name + "'.");
 
-    glAttachShader(program, vert_shader->shader);
-    glAttachShader(program, frag_shader->shader);
+	glAttachShader(program, vert_shader->shader);
+	glAttachShader(program, frag_shader->shader);
 
 	// Bind shader input variables.
 	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
@@ -50,7 +50,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 1, "normal_in");
 	glBindAttribLocation(program, 2, "texture_coords_0_in");
 
-    glLinkProgram(program);
+	glLinkProgram(program);
 
 	const std::string log = getLog(program);
 
@@ -59,7 +59,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 
 	GLint program_ok;
 	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
-    if(!program_ok)
+	if(!program_ok)
 		throw Indigo::Exception("Failed to link shader program '" + prog_name + "': " + log);
 
 	model_matrix_loc  = glGetUniformLocation(program, "model_matrix");
