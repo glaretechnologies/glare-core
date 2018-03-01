@@ -345,13 +345,10 @@ template <bool use_sse4>
 float PerlinNoise::noiseImpl(const Vec4f& point)
 {
 	Vec4f floored;
-#ifdef __SSE4_1__
 	if(use_sse4)
 		floored = floor(point); // SSE 4 floor.
 	else
-#else
 		floored = Vec4f(std::floor(point.x[0]), std::floor(point.x[1]), std::floor(point.x[2]), 0);
-#endif
 
 	// Get lowest 8 bits of integer lattice coordinates
 	const Vec4i floored_i = toVec4i(floored) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
@@ -451,13 +448,11 @@ float PerlinNoise::noiseImpl(float x, float y)
 {
 	const Vec4f point(x, y, 0, 0);
 	Vec4f floored;
-#ifdef __SSE4_1__
 	if(use_sse4)
 		floored = floor(point); // SSE 4 floor.
 	else
-#else
 		floored = Vec4f(std::floor(point.x[0]), std::floor(point.x[1]), 0, 0);
-#endif
+
 	// Get lowest 8 bits of integer lattice coordinates
 	const Vec4i floored_i = toVec4i(floored) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
 
@@ -524,13 +519,11 @@ template <bool use_sse4>
 const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 {
 	Vec4f floored;
-#ifdef __SSE4_1__
 	if(use_sse4)
 		floored = floor(point); // SSE 4 floor.
 	else
-#else
 		floored = Vec4f(std::floor(point.x[0]), std::floor(point.x[1]), std::floor(point.x[2]), 0);
-#endif
+
 	// Get lowest 8 bits of integer lattice coordinates
 	const Vec4i floored_i = toVec4i(floored) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
 
@@ -672,13 +665,11 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 {
 	const Vec4f point(x, y, 0, 0);
 	Vec4f floored;
-#ifdef __SSE4_1__
 	if(use_sse4)
 		floored = floor(point); // SSE 4 floor.
 	else
-#else
 		floored = Vec4f(std::floor(point.x[0]), std::floor(point.x[1]), 0, 0);
-#endif
+
 	// Get lowest 8 bits of integer lattice coordinates
 	const Vec4i floored_i = toVec4i(floored) & Vec4i(0xFF, 0xFF, 0xFF, 0xFF);
 
