@@ -1,22 +1,12 @@
 /*=====================================================================
-Copyright Glare Technologies Limited 2013 -
+ray.h
+-----
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
 
 #include "../maths/Vec4f.h"
-#include "../maths/mathstypes.h"
-#include "../maths/SSE.h"
-
-
-// Modified from o:\indigo\trunk\embree\common\simd\smmintrin_emu.h
-INDIGO_STRONG_INLINE __m128 glare_mm_blendv_ps(__m128 value, __m128 input, __m128 mask) { 
-    return _mm_or_ps(_mm_and_ps(mask, input), _mm_andnot_ps(mask, value)); 
-}
-
-INDIGO_STRONG_INLINE __m128 glare_set_if_zero(const Vec4f& a, const Vec4f& b) {
-    return glare_mm_blendv_ps(a.v, b.v, _mm_cmpeq_ps (a.v, _mm_setzero_ps()));
-}
 
 
 /*=====================================================================
@@ -43,11 +33,16 @@ public:
 		assert(SSE::isSSEAligned(this));
 		assert(max_t_ >= min_t_);
 
-		// Compute reciprocal ray direction, but avoid infinities.  Code modified from Embree Ray class.
-		recip_unitdir_f = Vec4f(_mm_div_ps(
-			_mm_load_ps(one_4vec),
-			glare_set_if_zero(unitdir_, Vec4f(std::numeric_limits<float>::min())) // if unitdir is zero, use std::numeric_limits<float>::min() instead.
-		));
+		// Compute reciprocal ray direction, but avoid infinities. 
+		// If any of the components of the reciprocal direction are -INF or +INF, replace with numeric_limits<float>::max().
+		// This code handles denormalised values properly.
+		const Vec4f raw_recip_dir = div(Vec4f(1.f), unitdir_);
+		this->recip_unitdir_f = select(Vec4f(std::numeric_limits<float>::max()), raw_recip_dir,
+			parallelOr(
+				parallelEq(raw_recip_dir, Vec4f(std::numeric_limits<float>::infinity())),
+				parallelEq(raw_recip_dir, Vec4f(-std::numeric_limits<float>::infinity()))
+			)
+		);
 	}
 
 	INDIGO_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
@@ -72,6 +67,8 @@ public:
 	INDIGO_STRONG_INLINE void setStartPos(const Vec4f& s) { startpos_f = s; }
 	INDIGO_STRONG_INLINE void setMinT(float min_t_) { min_t = min_t_; }
 	INDIGO_STRONG_INLINE void setMaxT(float max_t_) { max_t = max_t_; }
+
+	static void test();
 
 private:
 	Vec4f startpos_f;
