@@ -356,7 +356,7 @@ uint32 JSONParser::parseNumber(Parser& p)
 
 uint32 JSONParser::parseArray(Parser& p)
 {
-	uint32 node_index = (uint32)nodes.size();
+	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
 	nodes[node_index].type = JSONNode::Type_Array;
 
@@ -366,7 +366,8 @@ uint32 JSONParser::parseArray(Parser& p)
 	while(!p.currentIsChar(']'))
 	{
 		// Parse name string
-		nodes[node_index].child_indices.push_back(parseNode(p));
+		const uint32 child_index = parseNode(p);
+		nodes[node_index].child_indices.push_back(child_index);
 
 		p.parseWhiteSpace();
 
@@ -380,7 +381,7 @@ uint32 JSONParser::parseArray(Parser& p)
 	}
 
 	if(!p.parseChar(']'))
-		throw Indigo::Exception("Expected }" + errorContext(p));
+		throw Indigo::Exception("Expected ]" + errorContext(p));
 
 	return node_index;
 }
@@ -388,7 +389,7 @@ uint32 JSONParser::parseArray(Parser& p)
 
 uint32 JSONParser::parseObject(Parser& p)
 {
-	uint32 node_index = (uint32)nodes.size();
+	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
 	nodes[node_index].type = JSONNode::Type_Object;
 
@@ -406,7 +407,8 @@ uint32 JSONParser::parseObject(Parser& p)
 			throw Indigo::Exception("Expected :" + errorContext(p));
 		p.parseWhiteSpace();
 
-		nodes[node_index].name_val_pairs.back().value_node_index = parseNode(p);
+		const uint32 child_index = parseNode(p);
+		nodes[node_index].name_val_pairs.back().value_node_index = child_index;
 
 		p.parseWhiteSpace();
 		if(p.currentIsChar(','))
