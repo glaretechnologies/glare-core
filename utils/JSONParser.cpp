@@ -11,6 +11,7 @@ Generated at 2018-03-05 01:34:58 +1300
 #include "Parser.h"
 #include "Exception.h"
 #include "UTF8Utils.h"
+#include "ConPrint.h"
 
 
 const std::string JSONNode::typeString(const Type type)
@@ -30,6 +31,7 @@ const std::string JSONNode::typeString(const Type type)
 	case Type_Null:
 		return "Null";
 	}
+	return "";
 }
 
 
@@ -504,6 +506,8 @@ static void testInvalidStringEscapeSequence(const std::string& encoded_string)
 
 void JSONParser::test()
 {
+	conPrint("JSONParser::test()");
+
 	try
 	{
 		JSONParser p;
@@ -511,7 +515,7 @@ void JSONParser::test()
 
 		JSONNode root_ob = p.nodes[0];
 		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 8);
+		testEqual(root_ob.name_val_pairs.size(), (size_t)8);
 
 		testAssert(root_ob.name_val_pairs[0].name == "firstName");
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
@@ -615,7 +619,7 @@ void JSONParser::test()
 
 		JSONNode& array_node = p.nodes[root_ob.name_val_pairs[0].value_node_index];
 		testAssert(array_node.type == JSONNode::Type_Array);
-		testAssert(array_node.child_indices.size() == 7);
+		testEqual(array_node.child_indices.size(), (size_t)7);
 
 		testAssert(p.nodes[array_node.child_indices[0]].type == JSONNode::Type_Number);
 		testAssert(p.nodes[array_node.child_indices[0]].value.double_v == 1.0);
@@ -669,6 +673,8 @@ void JSONParser::test()
 	testInvalidStringEscapeSequence("\\u0z");
 	testInvalidStringEscapeSequence("\\u00z");
 	testInvalidStringEscapeSequence("\\u000z");
+
+	conPrint("JSONParser::test() done.");
 }
 
 
