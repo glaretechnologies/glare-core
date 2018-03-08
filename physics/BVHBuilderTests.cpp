@@ -115,21 +115,6 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 }
 
 
-static uint64 resultNodesHash(const js::Vector<ResultNode, 64>& result_nodes)
-{
-	XXH64_state_t hash_state;
-	XXH64_reset(&hash_state, 1);
-	for(size_t i=0; i<result_nodes.size(); ++i)
-	{
-		XXH64_update(&hash_state, (void*)&result_nodes[i].aabb, sizeof(result_nodes[i].aabb));
-		XXH64_update(&hash_state, (void*)&result_nodes[i].left, sizeof(result_nodes[i].left));
-		XXH64_update(&hash_state, (void*)&result_nodes[i].right, sizeof(result_nodes[i].right));
-		XXH64_update(&hash_state, (void*)&result_nodes[i].right, sizeof(result_nodes[i].interior));
-	}
-	return XXH64_digest(&hash_state);
-}
-
-
 static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
 {
 	const int num_objects = (int)tris.size();
@@ -216,8 +201,7 @@ static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager,
 }
 
 
-
-
+#if 0
 static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task_manager, int num_objects, js::Vector<ResultNode, 64>& result_nodes_out)
 {
 	MTwister rng(1);
@@ -249,6 +233,8 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 
 	testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs, /*duplicate_prims_allowed=*/false);
 }
+#endif
+
 
 void test()
 {
@@ -257,44 +243,6 @@ void test()
 	MTwister rng(1);
 	Indigo::TaskManager task_manager(8);
 	StandardPrintOutput print_output;
-
-	/*if(false)
-	{
-		js::Vector<ResultNode, 64> ref_result_nodes;
-		testBVHBuilderWithNRandomObjectsGetResults(task_manager, 400, ref_result_nodes);
-
-		const uint64 ref_hash = resultNodesHash(ref_result_nodes);
-		printVar(ref_hash);
-
-		for(int i=0; i<2; ++i)
-		{
-			js::Vector<ResultNode, 64> result_nodes;
-			testBVHBuilderWithNRandomObjectsGetResults(task_manager, 400, result_nodes);
-
-			const uint64 hash = resultNodesHash(result_nodes);
-			if(hash != ref_hash)
-			{
-				conPrint("hashes differ.");
-				for(size_t z=0; z<result_nodes.size(); ++z)
-				{
-					if(!(
-						result_nodes[z].aabb == ref_result_nodes[z].aabb &&
-						result_nodes[z].left == ref_result_nodes[z].left &&
-						result_nodes[z].right == ref_result_nodes[z].right &&
-						result_nodes[z].interior == ref_result_nodes[z].interior
-						))
-					{
-						conPrint("node[" + toString(z) + "] differs:");
-						BVHBuilder::printResultNode(result_nodes[z]);
-						conPrint("-------------------");
-						BVHBuilder::printResultNode(ref_result_nodes[z]);
-						conPrint("");
-					}
-				}
-			}
-		}
-	}*/
-	
 
 	
 	/*{

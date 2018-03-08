@@ -21,15 +21,15 @@ Copyright Glare Technologies Limited 2017 -
 #include <algorithm>
 
 
-//#define ALLOW_DEBUG_DRAWING 1
-const bool DEBUG_DRAW = false;
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
 
+//#define ALLOW_DEBUG_DRAWING 1
+#if ALLOW_DEBUG_DRAWING
+static const bool DEBUG_DRAW = false;
 static const Vec2f lower(0, 0);
 static const float draw_scale = 1;
 static const int map_res = 1000;
-#if ALLOW_DEBUG_DRAWING
 static Bitmap main_map(map_res, map_res, 3, NULL);
 #endif
 
@@ -298,7 +298,6 @@ void SBVHBuilder::build(
 	
 	
 	// Reserve working space for each thread.
-	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getNumThreads();
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 	{
@@ -343,8 +342,9 @@ void SBVHBuilder::build(
 		for(size_t i=0; i<leaf_result_chunks[c]->size; ++i)
 			final_leaf_geom_indices[c * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
 
-
+#ifndef NDEBUG
 	const int total_num_leaf_geom = write_i;
+#endif
 	result_indices.resizeNoCopy(write_i);
 
 	for(size_t c=0; c<leaf_result_chunks.size(); ++c)
@@ -377,7 +377,9 @@ void SBVHBuilder::build(
 		}
 	}
 
+#ifndef NDEBUG
 	const int total_num_nodes = write_i;
+#endif
 	result_nodes_out.resizeNoCopy(write_i);
 
 	for(size_t c=0; c<result_chunks.size(); ++c)
@@ -1215,7 +1217,6 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			int num_unsplit = 0;
 			for(int i=left; i<right; ++i)
 			{
-				const int ob_i = objects[i].getIndex();
 				const js::AABBox ob_aabb = objects[i].aabb;
 				assert(aabb.containsAABBox(ob_aabb));
 
