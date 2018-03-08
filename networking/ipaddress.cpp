@@ -10,6 +10,7 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 #include "networking.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Parser.h"
+#include "../utils/PlatformUtils.h"
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
