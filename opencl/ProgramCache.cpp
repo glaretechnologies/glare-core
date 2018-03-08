@@ -100,8 +100,6 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		std::string& build_log_out
 	)
 {
-	const bool VERBOSE = false;
-
 	// Compute hash over program source and compilation options, which we will use as the cache key.
 	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
 
@@ -133,6 +131,8 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 	return ProgramCache::Results(program, /*cache_hit=*/false);
 
 #else // else if not OS X
+
+	const bool VERBOSE = false;
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
