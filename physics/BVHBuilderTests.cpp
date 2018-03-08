@@ -35,6 +35,7 @@ namespace BVHBuilderTests
 
 // Recursively walk down tree, making sure that node AABBs are correct.
 // Returns reference node AABB
+#if 0
 static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int node_index, const BVHBuilder::ResultObIndicesVec& result_indices, const js::Vector<js::AABBox, 16>& aabbs)
 {
 	testAssert(node_index >= 0 && node_index < (int)result_nodes.size());
@@ -64,6 +65,7 @@ static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int 
 		return leaf_geom_aabb;
 	}
 }
+#endif
 
 
 static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
