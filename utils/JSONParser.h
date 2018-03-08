@@ -8,9 +8,11 @@ Generated at 2018-03-05 01:34:58 +1300
 
 
 #include "Platform.h"
+#include "string_view.h"
 #include <vector>
 #include <string>
 class Parser;
+class JSONParser;
 
 
 struct JSONNameValuePair
@@ -23,6 +25,21 @@ struct JSONNameValuePair
 
 struct JSONNode
 {
+	// Returns ref to string_v if this node has type Type_String, throws Indigo::Exception otherwise.
+	const std::string& getStringValue() const;
+	
+	size_t getUIntValue() const;
+	double getDoubleValue() const;
+
+	// For objects:
+	bool hasChild(JSONParser& parser, const string_view& name) const;
+	size_t getChildUIntValue(JSONParser& parser, const string_view& name) const;
+	size_t getChildUIntValueWithDefaultVal(JSONParser& parser, const string_view& name, size_t default_val) const;
+	const std::string& getChildStringValue(JSONParser& parser, const string_view& name) const;
+	const std::string getChildStringValueWithDefaultVal(JSONParser& parser, const string_view& name, const string_view& default_val) const;
+	const JSONNode& getChildObject(JSONParser& parser, const string_view& name) const;
+	const JSONNode& getChildArray(JSONParser& parser, const string_view& name) const;
+
 	enum Type
 	{
 		Type_Number,

@@ -118,7 +118,7 @@ unsigned int hexCharToUInt(char c)
 	else if(c >= 'A' && c <= 'F')
 		return c - 'A' + 10;
 	else
-		return 0;
+		throw StringUtilsExcep("Character " + std::string(1, c) + " is not a valid hex character.");
 }
 
 

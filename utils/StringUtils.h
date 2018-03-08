@@ -34,7 +34,7 @@ double stringToDouble(const std::string& s); // throws StringUtilsExcep
 int stringToInt(const std::string& s); // throws StringUtilsExcep
 uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
-unsigned int hexCharToUInt(char c);
+unsigned int hexCharToUInt(char c); // throws StringUtilsExcep
 uint32 hexStringToUInt32(const std::string& s); // Input: something like "AABBCCDD"
 uint64 hexStringTo64UInt(const std::string& s);
 
