@@ -49,13 +49,7 @@ Copyright Glare Technologies Limited 2014 -
 #endif
 
 
-//Compiler Definitiosn
-//#define COMPILER_GCC
-//#define COMPILER_MSVC 1
-//#define COMPILER_MSVC_6
-//#define COMPILER_MSVC_2003 1
-
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #define COMPILER_MSVC 1
 #endif
 
