@@ -17,7 +17,6 @@ class JSONParser;
 
 struct JSONNameValuePair
 {
-	//string_view name;
 	std::string name;
 	uint32 value_node_index;
 };
@@ -25,6 +24,17 @@ struct JSONNameValuePair
 
 struct JSONNode
 {
+	enum Type
+	{
+		Type_Number,
+		Type_String,
+		Type_Boolean,
+		Type_Array,
+		Type_Object,
+		Type_Null
+	};
+	Type type;
+
 	// Returns ref to string_v if this node has type Type_String, throws Indigo::Exception otherwise.
 	const std::string& getStringValue() const;
 	
@@ -40,22 +50,12 @@ struct JSONNode
 	const JSONNode& getChildObject(JSONParser& parser, const string_view& name) const;
 	const JSONNode& getChildArray(JSONParser& parser, const string_view& name) const;
 
-	enum Type
-	{
-		Type_Number,
-		Type_String,
-		Type_Boolean,
-		Type_Array,
-		Type_Object,
-		Type_Null
-	};
-	Type type;
+	static const std::string typeString(const Type type);
 
 	union Value
 	{
 		double double_v; // For Type_Number
 		bool bool_v; // For Type_Boolean
-		//string_view string_v;
 	};
 	Value value;
 

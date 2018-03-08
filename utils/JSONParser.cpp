@@ -13,6 +13,26 @@ Generated at 2018-03-05 01:34:58 +1300
 #include "UTF8Utils.h"
 
 
+const std::string JSONNode::typeString(const Type type)
+{
+	switch(type)
+	{
+	case Type_Number:
+		return "Number";
+	case Type_String:
+		return "String";
+	case Type_Boolean:
+		return "Boolean";
+	case Type_Array:
+		return "Array";
+	case Type_Object:
+		return "Object";
+	case Type_Null:
+		return "Null";
+	}
+}
+
+
 const std::string& JSONNode::getStringValue() const
 {
 	if(type == JSONNode::Type_String)
