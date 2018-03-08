@@ -241,7 +241,9 @@ void BinningBVHBuilder::build(
 		}
 	}
 
+#ifndef NDEBUG
 	const int total_num_nodes = write_i;
+#endif
 	result_nodes_out.resizeNoCopy(write_i);
 
 	for(size_t c=0; c<result_chunks.size(); ++c)
