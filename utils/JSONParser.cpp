@@ -625,7 +625,7 @@ void JSONParser::test()
 	}
 
 	testStringEscapeSequence("\\\"", "\""); //		\" should decode to "
-	testStringEscapeSequence("\\\\", "\\"); //		\\ should decode to \ 
+	testStringEscapeSequence("\\\\", "\\"); //		backslash backslash should decode to backslash. 
 	testStringEscapeSequence("\\/", "/");
 	testStringEscapeSequence("\\b", "\b");
 	testStringEscapeSequence("\\f", "\f");
