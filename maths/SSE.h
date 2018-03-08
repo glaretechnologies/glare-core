@@ -174,7 +174,7 @@ const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define and4Vec(a, b) (_mm_and_ps((a), (b)))
 //Computes the bitwise AND of the four single-precision, floating-point values of a and b.
 
-inline const SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
+inline SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 {
 	return _mm_andnot_ps(a, b);
 }
@@ -196,13 +196,13 @@ inline const SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 
 #define shiftLeftOneWord(a) (_mm_slli_si128((a)), 32)
 
-inline const SSE4Vec zeroVec()
+inline SSE4Vec zeroVec()
 {
 	return _mm_setzero_ps();
 }
 
 
-inline const SSE4Vec oneVec()
+inline SSE4Vec oneVec()
 {
 	return _mm_load_ps(one_4vec);
 }

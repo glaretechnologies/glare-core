@@ -465,8 +465,8 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 3);
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*3 : sizeof(half)*3));
-			for(int y=0; y<image.getHeight(); ++y)
-			for(int x=0; x<image.getWidth(); ++x)
+			for(size_t y=0; y<image.getHeight(); ++y)
+			for(size_t x=0; x<image.getWidth(); ++x)
 			for(int c=0; c<3; ++c)
 			{
 				float a = im->pixelComponent(x, y, c);
@@ -507,8 +507,8 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 		//================================= Test with Image4f saving, with save_alpha_channel = false =================================
 		{
 			Image4f image(W, H);
-			for(int y=0; y<image.getHeight(); ++y)
-			for(int x=0; x<image.getWidth(); ++x)
+			for(size_t y=0; y<image.getHeight(); ++y)
+			for(size_t x=0; x<image.getWidth(); ++x)
 				image.setPixel(x, y, Colour4f((float)x, (float)y, 0.3f, (float)x + (float)y));
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_c" + toString(i) + ".exr";

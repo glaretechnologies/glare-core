@@ -769,8 +769,8 @@ void Image::test()
 		size_t w = 100;
 		size_t h = 120;
 		Image im(w, h);
-		for(int y=0; y<h; ++y)
-		for(int x=0; x<w; ++x)
+		for(size_t y=0; y<h; ++y)
+		for(size_t x=0; x<w; ++x)
 			im.setPixel(x, y, Colour3f((float)x, (float)y, (float)x));
 
 		// Write to stream
@@ -786,8 +786,8 @@ void Image::test()
 		testAssert(image2.getWidth() == w);
 		testAssert(image2.getHeight() == h);
 
-		for(int y=0; y<h; ++y)
-		for(int x=0; x<w; ++x)
+		for(size_t y=0; y<h; ++y)
+		for(size_t x=0; x<w; ++x)
 		{
 			testAssert(image2.getPixel(x, y) == Colour3f((float)x, (float)y, (float)x));
 		}

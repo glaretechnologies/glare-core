@@ -34,13 +34,13 @@ public:
 	inline string_view(const char* c);
 	inline string_view(const char* c, size_t sz);
 
-	inline const char operator [] (size_t index) const;
+	inline char operator [] (size_t index) const;
 
 	inline string_view substr(size_t pos = 0, size_t n = std::string::npos) const;
 
 	inline const char* data() const { return data_; }
-	inline const size_t size() const { return size_; }
-	inline const size_t length() const { return size_; }
+	inline size_t size() const { return size_; }
+	inline size_t length() const { return size_; }
 
 	inline bool empty() const { return size_ == 0; }
 
@@ -74,7 +74,7 @@ string_view::string_view(const char* c, size_t sz)
 }
 
 
-const char string_view::operator [] (size_t index) const
+char string_view::operator [] (size_t index) const
 {
 	assert(index < size_);
 	return data_[index];

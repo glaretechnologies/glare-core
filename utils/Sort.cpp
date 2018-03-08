@@ -233,7 +233,7 @@ static void testStablePartition(size_t N, size_t num_threads)
 		// Test against std::stable_partition
 		std::vector<int> std_partitioned = data;
 		std::vector<int>::iterator first_right = std::stable_partition(std_partitioned.begin(), std_partitioned.end(), pred);
-		testAssert(first_right - std_partitioned.begin() == num_left);
+		testAssert((size_t)(first_right - std_partitioned.begin()) == num_left);
 		testAssert(partitioned == std_partitioned);
 	}
 }

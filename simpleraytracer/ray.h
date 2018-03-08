@@ -60,8 +60,8 @@ public:
 		return 4 * origin_error * myMin(20.0f, 1 / cos_theta);
 	}
 
-	INDIGO_STRONG_INLINE const float minT() const { return min_t; }
-	INDIGO_STRONG_INLINE const float maxT() const { return max_t; }
+	INDIGO_STRONG_INLINE float minT() const { return min_t; }
+	INDIGO_STRONG_INLINE float maxT() const { return max_t; }
 
 
 	INDIGO_STRONG_INLINE void setStartPos(const Vec4f& s) { startpos_f = s; }

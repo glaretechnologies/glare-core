@@ -41,7 +41,7 @@ uint64 hexStringTo64UInt(const std::string& s);
 //====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers
 
-const char intToHexChar(int i); // throws StringUtilsExcep
+char intToHexChar(int i); // throws StringUtilsExcep
 
 const std::string toHexString(uint64 i); // Returns a string like "F4B350".  The returned string will not have leading zeros.
 

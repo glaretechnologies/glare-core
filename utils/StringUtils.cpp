@@ -190,7 +190,7 @@ uint64 hexStringTo64UInt(const std::string& s)
 }
 
 
-const char intToHexChar(int i)
+char intToHexChar(int i)
 {
 	if(i < 0)
 		throw StringUtilsExcep("value out of range.");

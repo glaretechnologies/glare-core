@@ -762,7 +762,7 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 }
 
 
-float PerlinNoise::FBM(const Vec4f& p, unsigned int num_octaves)
+float PerlinNoise::FBM(const Vec4f& point, unsigned int num_octaves)
 {
 	float sum = 0;
 	float scale = 1;
@@ -771,7 +771,7 @@ float PerlinNoise::FBM(const Vec4f& p, unsigned int num_octaves)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
-			sum += weight * PerlinNoise::noiseImpl<true>(p * scale); // Use SSE 4 in PerlinNoise::noiseImpl()
+			sum += weight * PerlinNoise::noiseImpl<true>(point * scale); // Use SSE 4 in PerlinNoise::noiseImpl()
 			scale *= (float)1.99;
 			weight *= (float)0.5;
 		}
@@ -780,7 +780,7 @@ float PerlinNoise::FBM(const Vec4f& p, unsigned int num_octaves)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
-			sum += weight * PerlinNoise::noiseImpl<false>(p * scale);
+			sum += weight * PerlinNoise::noiseImpl<false>(point * scale);
 			scale *= (float)1.99;
 			weight *= (float)0.5;
 		}
@@ -818,7 +818,7 @@ float PerlinNoise::FBM(float x, float y, unsigned int num_octaves)
 }
 
 
-const Vec4f PerlinNoise::FBM4Valued(const Vec4f& p, unsigned int num_octaves)
+const Vec4f PerlinNoise::FBM4Valued(const Vec4f& point, unsigned int num_octaves)
 {
 	Vec4f sum(0);
 	float scale = 1;
@@ -827,7 +827,7 @@ const Vec4f PerlinNoise::FBM4Valued(const Vec4f& p, unsigned int num_octaves)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
-			sum += PerlinNoise::noise4ValuedImpl<true>(p * scale) * weight; // Use SSE 4 in PerlinNoise::noiseImpl()
+			sum += PerlinNoise::noise4ValuedImpl<true>(point * scale) * weight; // Use SSE 4 in PerlinNoise::noiseImpl()
 			scale *= (float)1.99;
 			weight *= (float)0.5;
 		}
@@ -836,7 +836,7 @@ const Vec4f PerlinNoise::FBM4Valued(const Vec4f& p, unsigned int num_octaves)
 	{
 		for(unsigned int i=0; i<num_octaves; ++i)
 		{
-			sum += PerlinNoise::noise4ValuedImpl<false>(p * scale) * weight;
+			sum += PerlinNoise::noise4ValuedImpl<false>(point * scale) * weight;
 			scale *= (float)1.99;
 			weight *= (float)0.5;
 		}
