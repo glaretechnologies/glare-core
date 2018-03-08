@@ -1,12 +1,13 @@
 /*=====================================================================
 ipaddress.cpp
 -------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 =====================================================================*/
 #include "ipaddress.h"
 
 
+#include "networking.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Parser.h"
 #if defined(_WIN32)
@@ -92,154 +93,74 @@ void IPAddress::fillOutIPV6SockAddr(sockaddr_storage& sock_addr, int port) const
 }
 
 
-// Since XP doesn't support inet_pton, we'll provide our own implementation here, based on WSAStringToAddress, which is defined in Windows 2000 Professional onwards.
-// TODO: Take out when we don't support Windows XP any more.
-static int glare_inet_pton(int family, const char *src, void *dst)
-{
-#if defined(_WIN32)
-
-    struct sockaddr_storage addr;
-    addr.ss_family = (ADDRESS_FAMILY)family;
-
-	int addr_len = sizeof(addr);
-
-    const int result = WSAStringToAddressA(
-		(char*)src,
-		family,
-		NULL, // lpProtocolInfo
-        (struct sockaddr*)&addr,
-		&addr_len
-	);
-    if(result != 0)
-		return 0;
-
-    if(family == AF_INET)
-	{
-		std::memcpy(dst, &((struct sockaddr_in *) &addr)->sin_addr, sizeof(struct in_addr));
-    }
-	else if(family == AF_INET6)
-	{
-		std::memcpy(dst, &((struct sockaddr_in6 *)&addr)->sin6_addr, sizeof(struct in6_addr));
-    }
-
-    return 1; // inet_pton() returns 1 on success
-
-#else // #else if !defined(_WIN32):
-	
-	return inet_pton(
-		family,
-		src,
-		dst
-	);
-
-#endif
-}
-
-
-// Since XP doesn't support inet_ntop, we'll provide our own implementation here
-// inet_ntop - convert IPv4 and IPv6 addresses from binary to text form
-static const char* glare_inet_ntop(int family, const void* src, char* dst, socklen_t size)
-{
-#if defined(_WIN32)
-	struct sockaddr_storage addr;
-	memset(&addr, 0, sizeof(struct sockaddr_storage));
-	
-	addr.ss_family = (ADDRESS_FAMILY)family;
-	if(family == AF_INET)
-	{
-		std::memcpy(&((struct sockaddr_in *)&addr)->sin_addr , src, sizeof(struct in_addr));
-    }
-	else if(family == AF_INET6)
-	{
-		std::memcpy(&((struct sockaddr_in6*)&addr)->sin6_addr, src, sizeof(struct in6_addr));
-    }
-
-	const int addr_len = sizeof(addr);
-
-
-	wchar_t buf[INET6_ADDRSTRLEN];
-	DWORD buflen = INET6_ADDRSTRLEN;
-
-	if(WSAAddressToString(
-		(struct sockaddr*)&addr,
-		addr_len,
-		NULL, // lpProtocolInfo
-		buf, // lpszAddressString
-		&buflen // lpdwAddressStringLength
-	) != 0)
-		return NULL;
-
-	// Convert to UTF-8
-	const std::string s = StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(buf));
-
-	// Copy to output buffer (dst).  Copy null terminator as well.
-	if(s.length() + 1 <= size)
-		std::memcpy(dst, s.c_str(), s.length() + 1);
-	else
-		return NULL;
-
-    return dst;
-
-#else // #else if !defined(_WIN32):
-	
-	return inet_ntop(
-		family,
-		src,
-		dst,
-		size
-	);
-
-#endif
-}
-
-
 IPAddress::IPAddress(const std::string& addr_string)
 {
-	if(addr_string.find(':') == std::string::npos)
+	// If the string contains at least one ':', assume it is an IPv6 address.
+	this->version = (addr_string.find(':') == std::string::npos) ? Version_4 : Version_6;
+
+	const int family = (this->version == Version_4) ? AF_INET : AF_INET6;
+
+#if defined(_WIN32)
+	// We'll use the ASCII form of inet_pton (as opposed to the wide-string InetPton), 
+	// since IP addresses shouldn't have unicode chars in them.
+	const int result = inet_pton(
+		family,
+		addr_string.c_str(),
+		this->address
+	);
+	if(result != 1)
 	{
-		// String does not contain any ':'.  Therefore assume it is an IPv4 address.
-
-		this->version = Version_4;
-
-		const int result = glare_inet_pton(
-			AF_INET, // Family: IPv4
-			addr_string.c_str(),
-			this->address
-		);
-
-		if(result != 1)
-			throw MalformedIPStringExcep("Failed to parse IP address string '" + addr_string + "'");
+		if(result == 0)
+			throw NetworkingExcep("Invalid IP address string '" + addr_string + "'");
+		else
+			throw NetworkingExcep("inet_pton failed: " + Networking::getError());
 	}
-	else
-	{
-		// String contains at least one ':'.  Therefore assume it is an IPv6 address.
+#else
+	const int result = inet_pton(
+		family,
+		addr_string.c_str(),
+		this->address
+	);
 
-		this->version = Version_6;
-
-		const int result = glare_inet_pton(
-			AF_INET6, // Family: IPv6
-			addr_string.c_str(),
-			this->address
-		);
-
-		if(result != 1)
-			throw MalformedIPStringExcep("Failed to parse IP address string '" + addr_string + "'");
-	}
+	if(result != 1)
+		throw NetworkingExcep("Failed to parse IP address string '" + addr_string + "'");
+#endif
 }
 
 
 const std::string IPAddress::toString() const
 {
+	const int family = (version == Version_4) ? AF_INET : AF_INET6;
+	
+#if defined(_WIN32)
+	char buf[INET6_ADDRSTRLEN];
+
+	// We'll use the ASCII form of inet_ntop (as opposed to the wide-string InetNtop), 
+	// since IP addresses shouldn't have unicode chars in them.
+	const PCSTR res = inet_ntop(
+		family,
+		(void*)address,
+		buf,
+		INET6_ADDRSTRLEN
+	);
+	if(res == NULL)
+		throw NetworkingExcep("inet_ntop failed: " + Networking::getError());
+	return std::string(buf);
+#else
 	char ipstr[INET6_ADDRSTRLEN];
-	
-	const int family = version == Version_4 ? AF_INET : AF_INET6;
-	
-	const char* result = glare_inet_ntop(family, (void*)address, ipstr, sizeof(ipstr));
+
+	const char* result = inet_ntop(
+		family,
+		(void*)address,
+		ipstr,
+		INET6_ADDRSTRLEN
+	);
 
 	if(result != NULL)
 		return std::string(result);
 	else
-		return "[Error]";
+		throw NetworkingExcep("inet_ntop failed: " + PlatformUtils::getLastErrorString());
+#endif
 }
 
 
@@ -335,7 +256,6 @@ void IPAddress::parseIPAddrOrHostnameWithDefaultPort(const std::string& s, int d
 }
 
 
-
 // Append the port to he IP Address or hostname string, if a port is not already present.
 const std::string IPAddress::appendPortToAddrOrHostname(const std::string& s, int port)
 {
@@ -355,7 +275,6 @@ const std::string IPAddress::appendPortToAddrOrHostname(const std::string& s, in
 }
 
 
-
 #if BUILD_TESTS
 
 
@@ -369,7 +288,7 @@ static void testMalformedIPAddress(const std::string& s)
 		IPAddress a(s);
 		failTest("");
 	}
-	catch(MalformedIPStringExcep&)
+	catch(NetworkingExcep&)
 	{
 	}
 }
@@ -384,7 +303,7 @@ void IPAddress::test()
 		testAssert(a.getVersion() == IPAddress::Version_4);
 		testAssert(a.toString() == "127.0.0.1");
 	}
-	catch(MalformedIPStringExcep& e)
+	catch(NetworkingExcep& e)
 	{
 		failTest(e.what());
 	}
@@ -422,7 +341,7 @@ void IPAddress::test()
 		testAssert(a.toString() == "2001:1db8:85a3:1234:5678:8a2e:1370:7334");
 		}
 	}
-	catch(MalformedIPStringExcep& e)
+	catch(NetworkingExcep& e)
 	{
 		failTest(e.what());
 	}

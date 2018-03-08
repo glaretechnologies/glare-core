@@ -1,7 +1,7 @@
 /*=====================================================================
 ipaddress.h
 -----------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 =====================================================================*/
 #pragma once
@@ -11,16 +11,6 @@ File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 #include <string>
 struct sockaddr;
 struct sockaddr_storage;
-
-
-class MalformedIPStringExcep
-{
-public:
-	MalformedIPStringExcep(const std::string& message_) : message(message_) {}
-	const std::string& what() const { return message; }
-private:
-	std::string message;
-};
 
 
 /*=====================================================================
@@ -44,7 +34,7 @@ public:
 
 	// Construct from a string
 	// Can be an IPv4 string like "127.0.0.1", or an IPv6 string like "::1".
-	explicit IPAddress(const std::string& address); // throws MalformedIPStringExcep on failure
+	explicit IPAddress(const std::string& address); // throws NetworkingExcep on failure
 
 	// Is this an IPv4 or IPv6 address?
 	Version getVersion() const { return version; }
