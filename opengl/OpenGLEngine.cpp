@@ -921,19 +921,50 @@ static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, int n
 	const Vec4f min_ws = aabb_ws.min_;
 	const Vec4f max_ws = aabb_ws.max_;
 
-	for(int z=0; z<num_frustum_clip_planes; ++z) // For each frustum plane:
+	// For each frustum plane, check if AABB is completely on front side of plane, if so, then the AABB
+	// does not intersect the frustum.
+	// We'll do this by checking each vertex of the AABB against the plane (in parallel with SSE).
+	for(int z=0; z<num_frustum_clip_planes; ++z) 
 	{
-		const Vec3f normal = frustum_clip_planes[z].getNormal();
-		float dist = std::numeric_limits<float>::infinity();
-		dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], min_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], max_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], min_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], max_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], min_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], max_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], min_ws[2])));
-		dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], max_ws[2])));
-		if(dist >= frustum_clip_planes[z].getD())
+#ifndef NDEBUG
+		float refdist;
+		{
+			const Vec3f normal = frustum_clip_planes[z].getNormal();
+			float dist = std::numeric_limits<float>::infinity();
+			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], min_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], max_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], min_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], max_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], min_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], max_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], min_ws[2])));
+			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], max_ws[2])));
+			//if(dist >= frustum_clip_planes[z].getD())
+			//	return false;
+			refdist = dist;
+		}
+		const float refD = frustum_clip_planes[z].getD();
+#endif
+		
+		const Vec4f normal_x(frustum_clip_planes[z].getNormal().x);
+		const Vec4f normal_y(frustum_clip_planes[z].getNormal().y);
+		const Vec4f normal_z(frustum_clip_planes[z].getNormal().z);
+
+		const Vec4f min_x(copyToAll<0>(min_ws)); // [min_ws[0], min_ws[0], min_ws[0], min_ws[0]]
+		const Vec4f max_x(copyToAll<0>(max_ws)); // [max_ws[0], max_ws[0], max_ws[0], max_ws[0]]
+
+		const Vec4f py(_mm_shuffle_ps(min_ws.v, max_ws.v, _MM_SHUFFLE(1, 1, 1, 1))); // [min_ws[1], min_ws[1], max_ws[1], max_ws[1]]
+		const Vec4f pz_(_mm_shuffle_ps(min_ws.v, max_ws.v, _MM_SHUFFLE(2, 2, 2, 2))); // [min_ws[2], min_ws[2], max_ws[2], max_ws[2]]
+		const Vec4f pz(_mm_shuffle_ps(pz_.v, pz_.v, _MM_SHUFFLE(2, 0, 2, 0))); // [min_ws[2], max_ws[2], min_ws[2], max_ws[2]]
+
+		const Vec4f dot1 = mul(normal_x, min_x) + (mul(normal_y, py) + mul(normal_z, pz));
+		const Vec4f dot2 = mul(normal_x, max_x) + (mul(normal_y, py) + mul(normal_z, pz));
+
+		const Vec4f dist = min(dot1, dot2); // smallest distances
+		const Vec4f greaterv = _mm_cmpge_ps(dist.v, Vec4f(frustum_clip_planes[z].getD()).v); // distances >= plane.D ?
+		const int greater = _mm_movemask_ps(greaterv.v);
+		assert((refdist >= refD) == (greater == 15));
+		if(greater == 15) // if all distances >= plane.D:
 			return false;
 	}
 
@@ -1005,6 +1036,58 @@ static const Matrix4f orthoMatrix(GLdouble left,
 }
 
 
+void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, 
+	const Matrix4f& view_matrix, const Matrix4f& proj_matrix, float plane_draw_half_width)
+{
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+	Matrix4f rot;
+	rot.constructFromVector(plane_normal.toVec4fVector());
+
+	// Draw a quad on the plane
+	{
+		outline_edge_mat.albedo_rgb = Colour3f(0.8f, 0.2f, 0.2f);
+		outline_edge_mat.alpha = 0.5f;
+		outline_edge_mat.shader_prog = this->transparent_prog;
+
+		Matrix4f quad_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
+			Matrix4f::uniformScaleMatrix(2*plane_draw_half_width) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0.f, 1.f));
+
+		GLObject ob;
+		ob.ob_to_world_matrix = quad_to_world;
+
+		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
+		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
+		unbindMeshData(*outline_quad_meshdata);
+	}
+
+	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+	glDisable(GL_BLEND);
+
+	// Draw an arrow to show the plane normal
+	if(debug_arrow_ob.isNull())
+	{
+		debug_arrow_ob = new GLObject();
+		if(arrow_meshdata.isNull())
+			arrow_meshdata = make3DArrowMesh(); // tip lies at (1,0,0).
+		debug_arrow_ob->mesh_data = arrow_meshdata;
+		debug_arrow_ob->materials.resize(1);
+		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
+		debug_arrow_ob->materials[0].shader_prog = phong_prog;
+	}
+
+	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
+		Matrix4f::scaleMatrix(2, 2, 2) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
+	
+	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
+	bindMeshData(*debug_arrow_ob->mesh_data); // Bind the mesh data, which is the same for all batches.
+	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
+	unbindMeshData(*debug_arrow_ob->mesh_data);
+}
+
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
@@ -1033,10 +1116,12 @@ void OpenGLEngine::draw()
 		glCullFace(GL_FRONT);
 
 
+		const float h = settings.shadow_map_scene_half_width;
+
 		Matrix4f proj_matrix = orthoMatrix(
-			-settings.shadow_map_scene_half_width, settings.shadow_map_scene_half_width, // left, right
-			-settings.shadow_map_scene_half_width, settings.shadow_map_scene_half_width, // bottom, top
-			-settings.shadow_map_scene_half_depth, settings.shadow_map_scene_half_depth // near, far
+			-h, h, // left, right
+			-h, h, // bottom, top
+			-h, h // near, far
 		);
 
 		const Vec4f up(0,0,1,0);
@@ -1051,7 +1136,25 @@ void OpenGLEngine::draw()
 		view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
 
 		// Compute camera position
-		const Vec4f campos_ws = cam_to_world * Vec4f(0,0,0,1);
+		const Vec4f campos_ws = cam_to_world * Vec4f(0, 0, 0, 1);
+
+		// Compute clipping planes for shadow mapping
+		shadow_clip_planes[0] = Planef(toVec3f(campos_ws + i*h), toVec3f(i));
+		shadow_clip_planes[1] = Planef(toVec3f(campos_ws - i*h), toVec3f(-i));
+		shadow_clip_planes[2] = Planef(toVec3f(campos_ws + j*h), toVec3f(j));
+		shadow_clip_planes[3] = Planef(toVec3f(campos_ws - j*h), toVec3f(-j));
+		shadow_clip_planes[4] = Planef(toVec3f(campos_ws + k*h), toVec3f(k));
+		shadow_clip_planes[5] = Planef(toVec3f(campos_ws - k*h), toVec3f(-k));
+
+		js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB if shadow rendering volume.
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h + j*h + k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h + j*h + k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h - j*h + k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h - j*h + k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h + j*h - k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h + j*h - k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h - j*h - k*h);
+		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h - j*h - k*h);
 
 		Matrix4f back_to_origin = Matrix4f::translationMatrix(-campos_ws);
 
@@ -1061,13 +1164,13 @@ void OpenGLEngine::draw()
 		// Set shadow tex matrix while we're at it
 		mul(proj_matrix, overall_view_matrix, shadow_mapping->shadow_tex_matrix);
 
-		// Draw non-transparent batches from objects.  TODO: cull objects outside shadow 'frustum'.
+		// Draw non-transparent batches from objects.
 		//uint64 num_frustum_culled = 0;
 		for(size_t q=0; q<objects.size(); ++q)
 		{
 			const GLObject* const ob = objects[q].getPointer();
-			//if(AABBIntersectsFrustum(frustum_clip_planes, frustum_aabb, ob->aabb_ws))
-			//{
+			if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
@@ -1078,10 +1181,11 @@ void OpenGLEngine::draw()
 						drawBatch(*ob, overall_view_matrix, proj_matrix, depth_draw_mat, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
 				}
 				unbindMeshData(mesh_data);
-			//}
+			}
 			//else
 			//	num_frustum_culled++;
 		}
+		// conPrint(toString(objects.size() - num_frustum_culled) + " obs drawn for shadow map.");
 
 		shadow_mapping->unbindDepthTex();
 
@@ -1352,42 +1456,20 @@ void OpenGLEngine::draw()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 
-	// Draw camera frustum for debugging purposes.
+	// Draw some debugging visualisations
 	if(false)
 	{
-#if 0
-		glDisable(GL_LIGHTING);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glColor3f(1.f, 0.f, 0.f);
-		glLineWidth(2.0f);
-		glBegin(GL_LINES);
-		
-		glVertex3fv(frustum_verts[0].x);
-		glVertex3fv(frustum_verts[1].x);
+		if(settings.shadow_mapping)
+		{
+			// Compute camera position
+			const Vec4f campos_ws = cam_to_world * Vec4f(0, 0, 0, 1);
 
-		glVertex3fv(frustum_verts[0].x);
-		glVertex3fv(frustum_verts[2].x);
-
-		glVertex3fv(frustum_verts[0].x);
-		glVertex3fv(frustum_verts[3].x);
-
-		glVertex3fv(frustum_verts[0].x);
-		glVertex3fv(frustum_verts[4].x);
-
-
-		glVertex3fv(frustum_verts[1].x);
-		glVertex3fv(frustum_verts[2].x);
-
-		glVertex3fv(frustum_verts[2].x);
-		glVertex3fv(frustum_verts[3].x);
-
-		glVertex3fv(frustum_verts[3].x);
-		glVertex3fv(frustum_verts[4].x);
-
-		glVertex3fv(frustum_verts[4].x);
-		glVertex3fv(frustum_verts[1].x);
-		glEnd();
-#endif
+			for(int i=0; i<6; ++i)
+				drawDebugPlane(
+					shadow_clip_planes[i].closestPointOnPlane(toVec3f(campos_ws)),
+					shadow_clip_planes[i].getNormal(),
+					view_matrix, proj_matrix, settings.shadow_map_scene_half_width);
+		}
 	}
 
 	//================= Draw outlines around selected objects =================

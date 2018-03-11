@@ -229,6 +229,8 @@ private:
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
+	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
+		float plane_draw_half_width);
 	
 
 	bool init_succeeded;
@@ -279,6 +281,8 @@ private:
 	int num_frustum_clip_planes;
 	Vec4f frustum_verts[8];
 	js::AABBox frustum_aabb;
+
+	Plane<float> shadow_clip_planes[6];
 
 	Reference<OpenGLProgram> phong_prog;
 	int diffuse_colour_location;
@@ -342,6 +346,7 @@ private:
 
 	bool draw_wireframes;
 
+	GLObjectRef debug_arrow_ob;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
