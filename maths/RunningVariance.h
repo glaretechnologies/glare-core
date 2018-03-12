@@ -4,8 +4,7 @@ RunningVariance.h
 File created by ClassTemplate on Thu Jun 04 15:54:34 2009
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __RUNNINGVARIANCE_H_666_
-#define __RUNNINGVARIANCE_H_666_
+#pragma once
 
 
 #include <cmath>
@@ -109,13 +108,5 @@ private:
 
 };
 
+
 void testRunningVariance();
-
-
-
-
-#endif //__RUNNINGVARIANCE_H_666_
-
-
-
-

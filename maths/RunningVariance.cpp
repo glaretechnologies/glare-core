@@ -7,23 +7,14 @@ Code By Nicholas Chapman.
 #include "RunningVariance.h"
 
 
-#include "../indigo/TestUtils.h"
+#if BUILD_TESTS
+
+
 #include "mathstypes.h"
-#include <vector>
+#include "../indigo/TestUtils.h"
 #include "../utils/MTwister.h"
+#include <vector>
 
-/*
-RunningVariance::RunningVariance()
-{
-	
-}
-
-
-RunningVariance::~RunningVariance()
-{
-	
-}
-*/
 
 static double mean(const std::vector<double>& d)
 {
@@ -51,7 +42,6 @@ static double stdDev(const std::vector<double>& d)
 }
 
 
-#if (BUILD_TESTS)
 void testRunningVariance()
 {
 	{
@@ -108,8 +98,6 @@ void testRunningVariance()
 	}
 
 }
-#endif
 
 
-
-
+#endif // BUILD_TESTS
