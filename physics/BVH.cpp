@@ -362,6 +362,8 @@ public:
 
 BVH::DistType BVH::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
 {
+	hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
+
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray,
 		thread_context, 
 		thread_context.getTreeContext(),
