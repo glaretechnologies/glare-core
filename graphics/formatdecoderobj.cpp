@@ -336,7 +336,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					v.vert_i = zero_based_vert_index;
 					v.norm_i = zero_based_normal_index;
 
-					const auto insert_res = added_verts.insert(std::make_pair(v, num_verts_added)); // Try and added to map
+					const auto insert_res = added_verts.insert(std::make_pair(v, num_verts_added)); // Try and add to map
 					if(insert_res.second)
 					{
 						// Vert was not in map, but is added now.
