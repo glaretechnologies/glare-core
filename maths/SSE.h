@@ -196,6 +196,7 @@ inline SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 
 #define shiftLeftOneWord(a) (_mm_slli_si128((a)), 32)
 
+
 inline SSE4Vec zeroVec()
 {
 	return _mm_setzero_ps();
@@ -221,6 +222,7 @@ inline void reciprocalSSE(const float* vec_in, float* reciprocal_out)
 			)
 		);
 }
+
 
 inline void addScaledVec4SSE(const float* a, const float* b, float scale, float* vec_out)
 {
@@ -249,25 +251,7 @@ inline float horizontalMax(const __m128& v)
 	const __m128 v3 = _mm_max_ps(v, v2);                                // [m(c, d), m(c, d), m(a, b), m(a, b)]
 	const __m128 v4 = _mm_shuffle_ps(v3, v3, _MM_SHUFFLE(0, 1, 2, 3));  // [m(a, b), m(a, b), [m(c, d), [m(c, d)]
 	const __m128 v5 = _mm_max_ps(v4, v3);                               // [m(a, b, c, d), m(a, b, c, d), m(a, b, c, d), m(a, b, c, d)]
-
-	SSE_ALIGN float x[4];
-	_mm_store_ps(x, v5);
-	return x[0];
-
-	// Although the code below looks faster, it seems to run slower (~11.5 vs 9.5 cycles on an I7 920)
-
-	// v = [d, c, b, a]
-	/*__m128 v_1 = _mm_movehl_ps(v, v); // [d, c, d, c]
-
-	__m128 v_2 = _mm_max_ps(v, v_1); // [., ., m(b, d), m(a, c)]
-
-	__m128 v_3 = _mm_shuffle_ps(v_2, v_2, _MM_SHUFFLE(1, 1, 1, 1)); // [., ., m(b, d), m(b, d)]
-
-	__m128 v_4 = _mm_max_ps(v_2, v_3); // [., ., ., m(a, b, c, d)]
-
-	SSE_ALIGN float x[4];
-	_mm_store_ps(x, v_4);
-	return x[0];*/
+	return _mm_cvtss_f32(v5);
 }
 
 
@@ -279,10 +263,7 @@ inline float horizontalMin(const __m128& v)
 	const __m128 v3 = _mm_min_ps(v, v2);                                // [m(c, d), m(c, d), m(a, b), m(a, b)]
 	const __m128 v4 = _mm_shuffle_ps(v3, v3, _MM_SHUFFLE(0, 1, 2, 3));  // [m(a, b), m(a, b), [m(c, d), [m(c, d)]
 	const __m128 v5 = _mm_min_ps(v4, v3);                               // [m(a, b, c, d), m(a, b, c, d), m(a, b, c, d), m(a, b, c, d)]
-
-	SSE_ALIGN float x[4];
-	_mm_store_ps(x, v5);
-	return x[0];
+	return _mm_cvtss_f32(v5);
 }
 
 
