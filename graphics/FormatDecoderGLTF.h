@@ -23,11 +23,14 @@ struct GLTFResultMap
 
 struct GLTFResultMaterial
 {
-	Colour3f diffuse; // diffuse col
+	GLTFResultMaterial() : roughness(0.5f), metallic(0.f), alpha(1.f) {}
+
+	Colour3f diffuse; // diffuse col.
+	float alpha;
 	GLTFResultMap diffuse_map;
 
-	//float roughness;
-	//GLTFMap roughness_map;
+	float roughness;
+	float metallic;
 };
 
 
