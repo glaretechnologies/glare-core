@@ -62,7 +62,7 @@ double JSONNode::getDoubleValue() const
 }
 
 
-bool JSONNode::hasChild(JSONParser& parser, const string_view& name) const
+bool JSONNode::hasChild(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -75,7 +75,7 @@ bool JSONNode::hasChild(JSONParser& parser, const string_view& name) const
 }
 
 
-size_t JSONNode::getChildUIntValue(JSONParser& parser, const string_view& name) const
+size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -88,7 +88,7 @@ size_t JSONNode::getChildUIntValue(JSONParser& parser, const string_view& name) 
 }
 
 
-size_t JSONNode::getChildUIntValueWithDefaultVal(JSONParser& parser, const string_view& name, size_t default_val) const
+size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, size_t default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -101,7 +101,20 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(JSONParser& parser, const strin
 }
 
 
-const std::string& JSONNode::getChildStringValue(JSONParser& parser, const string_view& name) const
+double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const
+{
+	if(type != JSONNode::Type_Object)
+		throw Indigo::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index].getDoubleValue();
+
+	return default_val;
+}
+
+
+const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -114,7 +127,7 @@ const std::string& JSONNode::getChildStringValue(JSONParser& parser, const strin
 }
 
 
-const std::string JSONNode::getChildStringValueWithDefaultVal(JSONParser& parser, const string_view& name, const string_view& default_val) const
+const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view& name, const string_view& default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -127,7 +140,7 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(JSONParser& parser
 }
 
 
-const JSONNode& JSONNode::getChildObject(JSONParser& parser, const string_view& name) const
+const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -145,7 +158,7 @@ const JSONNode& JSONNode::getChildObject(JSONParser& parser, const string_view& 
 }
 
 
-const JSONNode& JSONNode::getChildArray(JSONParser& parser, const string_view& name) const
+const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
