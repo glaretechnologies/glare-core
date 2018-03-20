@@ -255,7 +255,7 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	// NOTE: assume delta_u = delta_v = delta_m.
 	//float del_u = std::numeric_limits<float>::epsilon(); // abs value of Relative error in u
 	//float del_v = std::numeric_limits<float>::epsilon(); // abs value of Relative error in v
-	float del_m = std::numeric_limits<float>::epsilon(); // Machine epsilon
+	float del_m = 0.5f * std::numeric_limits<float>::epsilon(); // Machine epsilon
 	float v0_norm = Numeric::L1Norm(v0.pos);
 	float v1_norm = Numeric::L1Norm(v1.pos);
 	float v2_norm = Numeric::L1Norm(v2.pos);
