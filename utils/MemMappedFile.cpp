@@ -133,10 +133,13 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		O_RDONLY);
 
 	if(this->linux_file_handle <= 0)
-		throw Indigo::Exception("Failed to open file '" + path + "'");
+		throw Indigo::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
 
-	this->file_size = lseek(this->linux_file_handle, 0, SEEK_END);
-	lseek(this->linux_file_handle, 0, SEEK_SET);
+	// Get file size.
+	struct stat file_stats;
+	if(fstat(this->linux_file_handle, &file_stats) == -1)
+		throw Indigo::Exception("fstat failed for file with path '" + path + "': " + PlatformUtils::getLastErrorString());
+	this->file_size = file_stats.st_size;
 
 	// Don't try and map the file if it has size zero, since it will fail.
 	if(this->file_size > 0)
@@ -145,7 +148,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		if(this->file_data == MAP_FAILED)
 		{
 			// TODO: Close file handle.
-			throw Indigo::Exception("File mmap failed for path '" + path +"'");
+			throw Indigo::Exception("File mmap failed for path '" + path + "': " + PlatformUtils::getLastErrorString());
 		}
 	}
 }
