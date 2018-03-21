@@ -23,7 +23,7 @@ public:
 	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader);
 	~OpenGLProgram();
 
-	void useProgram();
+	void useProgram() const;
 
 	static void useNoPrograms();
 

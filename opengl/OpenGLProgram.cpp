@@ -75,7 +75,7 @@ OpenGLProgram::~OpenGLProgram()
 }
 
 
-void OpenGLProgram::useProgram()
+void OpenGLProgram::useProgram() const
 {
 	glUseProgram(program);
 }

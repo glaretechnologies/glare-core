@@ -435,6 +435,22 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 }
 
 
+void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, PhongUniformLocations& phong_locations_out)
+{
+	phong_locations_out.diffuse_colour_location				= phong_prog->getUniformLocation("diffuse_colour");
+	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
+	phong_locations_out.have_texture_location				= phong_prog->getUniformLocation("have_texture");
+	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
+	phong_locations_out.phong_have_depth_texture_location	= phong_prog->getUniformLocation("have_depth_texture");
+	phong_locations_out.phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
+	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
+	phong_locations_out.sundir_location						= phong_prog->getUniformLocation("sundir");
+	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
+	phong_locations_out.fresnel_scale_location				= phong_prog->getUniformLocation("fresnel_scale");
+	phong_locations_out.phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+}
+
+
 void OpenGLEngine::initialise(const std::string& shader_dir_)
 {
 	shader_dir = shader_dir_;
@@ -565,22 +581,27 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;
 
-		phong_prog = new OpenGLProgram(
-			"phong",
-			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-		);
-		diffuse_colour_location			= phong_prog->getUniformLocation("diffuse_colour");
-		have_shading_normals_location	= phong_prog->getUniformLocation("have_shading_normals");
-		have_texture_location			= phong_prog->getUniformLocation("have_texture");
-		diffuse_tex_location			= phong_prog->getUniformLocation("diffuse_tex");
-		phong_have_depth_texture_location	= phong_prog->getUniformLocation("have_depth_texture");
-		phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
-		texture_matrix_location			= phong_prog->getUniformLocation("texture_matrix");
-		sundir_location					= phong_prog->getUniformLocation("sundir");
-		roughness_location				= phong_prog->getUniformLocation("roughness");
-		fresnel_scale_location			= phong_prog->getUniformLocation("fresnel_scale");
-		phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+		{
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n";
+
+			phong_prog = new OpenGLProgram(
+				"phong",
+				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			);
+		}
+		getPhongUniformLocations(phong_prog, phong_locations);
+
+		{
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
+
+			phong_with_alpha_test_prog = new OpenGLProgram(
+				"phong",
+				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			);
+		}
+		getPhongUniformLocations(phong_with_alpha_test_prog, phong_with_alpha_test_locations);
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -626,11 +647,24 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 		if(settings.shadow_mapping)
 		{
-			depth_draw_mat.shader_prog = new OpenGLProgram(
-				"depth",
-				new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-			);
+			{
+				const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n";
+				depth_draw_mat.shader_prog = new OpenGLProgram(
+					"depth",
+					new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+					new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+				);
+			}
+			{
+				const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
+				depth_draw_with_alpha_test_mat.shader_prog = new OpenGLProgram(
+					"depth with alpha test",
+					new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+					new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+				);
+				depth_diffuse_tex_location		= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("diffuse_tex");
+				depth_texture_matrix_location	= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("texture_matrix");
+			}
 
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init(2048, 2048);
@@ -770,6 +804,22 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 }
 
 
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
+{
+	if(material.transparent)
+	{
+		material.shader_prog = transparent_prog;
+	}
+	else
+	{
+		if(material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha())
+			material.shader_prog = phong_with_alpha_test_prog;
+		else
+			material.shader_prog = phong_prog;
+	}
+}
+
+
 void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
 	// Compute world space AABB of object
@@ -785,13 +835,8 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		if(object->materials[i].transparent)
-		{
-			object->materials[i].shader_prog = transparent_prog;
-			have_transparent_mat = true;
-		}
-		else
-			object->materials[i].shader_prog = phong_prog;//TEMP
+		assignShaderProgToMaterial(object->materials[i]);
+		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	//	buildMaterial(object->materials[i]);
 	}
 
@@ -843,10 +888,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 
 void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat)
 {
-	if(mat.transparent)
-		mat.shader_prog = this->transparent_prog;
-	else
-		mat.shader_prog = this->phong_prog;
+	assignShaderProgToMaterial(mat);
 }
 
 
@@ -857,17 +899,11 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, Tex
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		if(object->materials[i].transparent)
-		{
-			have_transparent_mat = true;
-			object->materials[i].shader_prog = transparent_prog;
-		}
-		else
-			object->materials[i].shader_prog = phong_prog;
-
+		assignShaderProgToMaterial(object->materials[i]);
+		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 
 		if(object->materials[i].albedo_tex_path.empty())
-			object->materials[i].albedo_texture = NULL;// Delete OpenGL texture
+			object->materials[i].albedo_texture = NULL; // Delete OpenGL texture
 		else
 		{
 			try
@@ -1059,7 +1095,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		ob.ob_to_world_matrix = quad_to_world;
 
 		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
-		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
+		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
 		unbindMeshData(*outline_quad_meshdata);
 	}
 
@@ -1083,7 +1119,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	
 	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
 	bindMeshData(*debug_arrow_ob->mesh_data); // Bind the mesh data, which is the same for all batches.
-	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
+	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
 	unbindMeshData(*debug_arrow_ob->mesh_data);
 }
 
@@ -1178,7 +1214,14 @@ void OpenGLEngine::draw()
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					// Draw primitives for the given material
 					if(!ob->materials[mat_index].transparent)
-						drawBatch(*ob, overall_view_matrix, proj_matrix, depth_draw_mat, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+					{
+						const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+						OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+
+						drawBatch(*ob, overall_view_matrix, proj_matrix, 
+							ob->materials[mat_index], // Use tex matrix etc.. from original material
+							use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+					}
 				}
 				unbindMeshData(mesh_data);
 			}
@@ -1301,7 +1344,7 @@ void OpenGLEngine::draw()
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
 				unbindMeshData(mesh_data);
 			}
 		}
@@ -1363,7 +1406,7 @@ void OpenGLEngine::draw()
 			use_proj_mat = proj_matrix;
 
 		bindMeshData(*env_ob->mesh_data);
-		drawBatch(*env_ob, world_to_camera_space_no_translation, use_proj_mat, env_ob->materials[0], *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
+		drawBatch(*env_ob, world_to_camera_space_no_translation, use_proj_mat, env_ob->materials[0], env_ob->materials[0].shader_prog, *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
 		unbindMeshData(*env_ob->mesh_data);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -1386,7 +1429,7 @@ void OpenGLEngine::draw()
 				{
 					// Draw primitives for the given material
 					if(!ob->materials[mat_index].transparent)
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
 				}
 			}
 			unbindMeshData(mesh_data);
@@ -1416,7 +1459,7 @@ void OpenGLEngine::draw()
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, mesh_data, mesh_data.batches[z]);
+					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, wire_mat.shader_prog, mesh_data, mesh_data.batches[z]);
 				unbindMeshData(mesh_data);
 			}
 		}
@@ -1444,7 +1487,7 @@ void OpenGLEngine::draw()
 				{
 					// Draw primitives for the given material
 					if(ob->materials[mat_index].transparent)
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], mesh_data, mesh_data.batches[z]);
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
 				}
 			}
 			unbindMeshData(mesh_data);
@@ -1720,6 +1763,228 @@ struct UniqueVertKeyHash
 
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
+	//-------------------------------------------------------------------------------------------------------
+#if USE_INDIGO_MESH_INDICES
+	if(!mesh_->indices.empty())
+	{
+		Timer timer;
+		const Indigo::Mesh* const mesh = mesh_.getPointer();
+		const bool mesh_has_shading_normals = !mesh->vert_normals.empty();
+		const bool mesh_has_uvs = mesh->num_uv_mappings > 0;
+		const uint32 num_uv_sets = mesh->num_uv_mappings;
+
+		Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
+
+		//js::AABBox aabb_os = js::AABBox::emptyAABBox();
+		//aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
+		//mesh_->aabb_os.bound[0].x, 
+
+		// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
+		// If the magnitude is too high we can get articacts if we just use half precision.
+		const float max_use_half_range = 10.f;
+		bool use_half_uvs = true;
+		for(size_t i=0; i<mesh->uv_pairs.size(); ++i)
+			if(std::fabs(mesh->uv_pairs[i].x) > max_use_half_range || std::fabs(mesh->uv_pairs[i].y) > max_use_half_range)
+				use_half_uvs = false;
+
+		js::Vector<uint8, 16> vert_data;
+#ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
+		const size_t packed_normal_size = sizeof(float)*3;
+#else
+		const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
+#endif
+		const size_t packed_uv_size = use_half_uvs ? sizeof(half)*2 : sizeof(float)*2;
+		const size_t num_bytes_per_vert = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0) + (mesh_has_uvs ? packed_uv_size : 0);
+		const size_t normal_offset      = sizeof(float)*3;
+		const size_t uv_offset          = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0);
+		vert_data.resizeNoCopy(mesh->vert_positions.size() * num_bytes_per_vert);
+
+
+		const size_t vert_positions_size = mesh->vert_positions.size();
+		const size_t uvs_size = mesh->uv_pairs.size();
+
+		for(size_t i=0; i<vert_positions_size; ++i)
+		{
+			const size_t offset = num_bytes_per_vert * i;
+
+			std::memcpy(&vert_data[offset], &mesh->vert_positions[i].x, sizeof(Indigo::Vec3f));
+
+			// Copy vertex data
+			if(mesh_has_shading_normals)
+			{
+#ifdef OSX
+				std::memcpy(&vert_data[offset + normal_offset], &mesh->vert_normals[i].x, sizeof(Indigo::Vec3f));
+#else
+				// Pack normal into GL_INT_2_10_10_10_REV format.
+				int x = (int)((mesh->vert_normals[i].x) * 511.f);
+				int y = (int)((mesh->vert_normals[i].y) * 511.f);
+				int z = (int)((mesh->vert_normals[i].z) * 511.f);
+				// ANDing with 1023 isolates the bottom 10 bits.
+				uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+				std::memcpy(&vert_data[offset + normal_offset], &n, 4);
+#endif
+			}
+
+			if(mesh_has_uvs)
+			{
+				if(use_half_uvs)
+				{
+					half uv[2];
+					uv[0] = half(mesh->uv_pairs[i].x);
+					uv[1] = half(mesh->uv_pairs[i].y);
+					std::memcpy(&vert_data[offset + uv_offset], uv, 4);
+				}
+				else
+					std::memcpy(&vert_data[offset + uv_offset], &mesh->uv_pairs[i].x, sizeof(Indigo::Vec2f));
+			}
+		}
+
+
+		// Build batches
+		for(size_t i=0; i<mesh->chunks.size(); ++i)
+		{
+			opengl_render_data->batches.push_back(OpenGLBatch());
+			OpenGLBatch& batch = opengl_render_data->batches.back();
+			batch.material_index = mesh->chunks[i].mat_index;
+			batch.prim_start_offset = mesh->chunks[i].indices_start * sizeof(uint32);
+			batch.num_indices = mesh->chunks[i].num_indices;
+			
+
+			// If subsequent batches use the same material, combine them
+			for(size_t z=i + 1; z<mesh->chunks.size(); ++z)
+			{
+				if(mesh->chunks[z].mat_index == batch.material_index)
+				{
+					// Combine:
+					batch.num_indices += mesh->chunks[z].num_indices;
+					i++;
+				}
+				else
+					break;
+			}
+		}
+
+
+		if(skip_opengl_calls)
+			return opengl_render_data;
+
+		opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
+
+		VertexSpec spec;
+
+		VertexAttrib pos_attrib;
+		pos_attrib.enabled = true;
+		pos_attrib.num_comps = 3;
+		pos_attrib.type = GL_FLOAT;
+		pos_attrib.normalised = false;
+		pos_attrib.stride = (uint32)num_bytes_per_vert;
+		pos_attrib.offset = 0;
+		spec.attributes.push_back(pos_attrib);
+
+		VertexAttrib normal_attrib;
+		normal_attrib.enabled = mesh_has_shading_normals;
+#ifdef OSX
+		normal_attrib.num_comps = 3;
+		normal_attrib.type = GL_FLOAT;
+		normal_attrib.normalised = false;
+#else
+		normal_attrib.num_comps = 4;
+		normal_attrib.type = GL_INT_2_10_10_10_REV;
+		normal_attrib.normalised = true;
+#endif
+		normal_attrib.stride = (uint32)num_bytes_per_vert;
+		normal_attrib.offset = (uint32)normal_offset;
+		spec.attributes.push_back(normal_attrib);
+
+		VertexAttrib uv_attrib;
+		uv_attrib.enabled = mesh_has_uvs;
+		uv_attrib.num_comps = 2;
+		uv_attrib.type = use_half_uvs ? GL_HALF_FLOAT : GL_FLOAT;
+		uv_attrib.normalised = false;
+		uv_attrib.stride = (uint32)num_bytes_per_vert;
+		uv_attrib.offset = (uint32)uv_offset;
+		spec.attributes.push_back(uv_attrib);
+
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
+
+
+		opengl_render_data->has_uvs				= mesh_has_uvs;
+		opengl_render_data->has_shading_normals = mesh_has_shading_normals;
+
+		//assert(!vert_index_buffer.empty());
+		//const size_t vert_index_buffer_size = vert_index_buffer.size();
+		const size_t vert_index_buffer_size = mesh->indices.size();
+
+		if(mesh->vert_positions.size() < 256)
+		{
+			js::Vector<uint8, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+			for(size_t i=0; i<vert_index_buffer_size; ++i)
+			{
+				assert(mesh->indices[i] < 256);
+				index_buf[i] = (uint8)mesh->indices[i];
+			}
+			opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->index_type = GL_UNSIGNED_BYTE;
+			// Go through the batches and adjust the start offset to take into account we're using uint8s.
+			for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+				opengl_render_data->batches[i].prim_start_offset /= 4;
+		}
+		else if(mesh->vert_positions.size() < 65536)
+		{
+			js::Vector<uint16, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+			for(size_t i=0; i<vert_index_buffer_size; ++i)
+			{
+				assert(mesh->indices[i] < 65536);
+				index_buf[i] = (uint16)mesh->indices[i];
+			}
+			opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->index_type = GL_UNSIGNED_SHORT;
+			// Go through the batches and adjust the start offset to take into account we're using uint16s.
+			for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+				opengl_render_data->batches[i].prim_start_offset /= 2;
+		}
+		else
+		{
+			opengl_render_data->vert_indices_buf = new VBO(mesh->indices.data(), mesh->indices.size() * sizeof(uint32), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->index_type = GL_UNSIGNED_INT;
+		}
+
+#ifndef NDEBUG
+		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
+		{
+			const OpenGLBatch& batch = opengl_render_data->batches[i];
+			assert(batch.material_index < mesh->num_materials_referenced);
+			assert(batch.num_indices > 0);
+			assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
+			const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
+			assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
+		}
+#endif
+
+		if(MEM_PROFILE)
+		{
+			const int pad_w = 8;
+			conPrint("Src num verts:     " + toString(mesh->vert_positions.size()) + ", num tris: " + toString(mesh->triangles.size()) + ", num quads: " + toString(mesh->quads.size()));
+			if(use_half_uvs) conPrint("Using half UVs.");
+			conPrint("verts:             " + rightPad(toString(mesh->vert_positions.size()), ' ', pad_w) + "(" + getNiceByteSize(vert_data.dataSizeBytes()) + ")");
+			//conPrint("merged_positions:  " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(merged_positions.dataSizeBytes()) + ")");
+			//conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
+			//conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
+			conPrint("vert_index_buffer: " + rightPad(toString(mesh->indices.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
+		}
+		if(PROFILE)
+		{
+			conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
+		}
+
+		opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
+		opengl_render_data->aabb_os.max_ = Vec4f(mesh_->aabb_os.bound[1].x, mesh_->aabb_os.bound[1].y, mesh_->aabb_os.bound[1].z, 1.f);
+		//opengl_render_data->aabb_os = aabb_os;
+		return opengl_render_data;
+	}
+#endif
+	//-------------------------------------------------------------------------------------------------------
+
 	Timer timer;
 
 	const Indigo::Mesh* const mesh = mesh_.getPointer();
@@ -2115,63 +2380,74 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 }
 
 
-void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, 
+	const PhongUniformLocations& use_phong_locations)
 {
-	if(opengl_mat.shader_prog.nonNull())
-	{
-		opengl_mat.shader_prog->useProgram();
+	glUniform4fv(use_phong_locations.sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
+	glUniform4f(use_phong_locations.diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+	glUniform1i(use_phong_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
+	glUniform1i(use_phong_locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+	glUniform1f(use_phong_locations.roughness_location, opengl_mat.roughness);
+	glUniform1f(use_phong_locations.fresnel_scale_location, opengl_mat.fresnel_scale);
 
-		glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-		glUniformMatrix4fv(opengl_mat.shader_prog->view_matrix_loc, 1, false, view_mat.e);
-		glUniformMatrix4fv(opengl_mat.shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-		glUniformMatrix4fv(opengl_mat.shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
+	if(opengl_mat.albedo_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 0);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+
+		const GLfloat tex_elems[16] ={
+			opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
+			opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
+			0, 0, 1, 0,
+			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+		};
+		glUniformMatrix4fv(use_phong_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+		glUniform1i(use_phong_locations.diffuse_tex_location, 0);
+	}
+
+	// Set shadow mapping uniforms
+	if(shadow_mapping.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 1);
+		glUniform1i(use_phong_locations.phong_have_depth_texture_location, 1);
+
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex/*col_tex*/->texture_handle);
+		glUniform1i(use_phong_locations.phong_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+
+		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, 1, false, shadow_mapping->shadow_tex_matrix.e); // inverse transpose model matrix
+	}
+	else
+		glUniform1i(use_phong_locations.phong_have_depth_texture_location, 0);
+}
+
+
+void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
+	const OpenGLMaterial& opengl_mat, const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
+{
+	if(shader_prog.nonNull())
+	{
+		shader_prog->useProgram();
+
+		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+		glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
+		glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
 
 		// Set uniforms.  NOTE: Setting the uniforms manually in this way is obviously quite hacky.  Improve.
-		if(opengl_mat.shader_prog.getPointer() == this->phong_prog.getPointer())
+		if(shader_prog.getPointer() == this->phong_prog.getPointer())
 		{
-			glUniform4fv(this->sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
-			glUniform4f(this->diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-			glUniform1i(this->have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-			glUniform1i(this->have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-			glUniform1f(this->roughness_location, opengl_mat.roughness);
-			glUniform1f(this->fresnel_scale_location, opengl_mat.fresnel_scale);
-
-			if(opengl_mat.albedo_texture.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
-				const GLfloat tex_elems[16] = {
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-					0, 0, 1, 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
-				};
-				glUniformMatrix4fv(this->texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-				glUniform1i(this->diffuse_tex_location, 0);
-			}
-
-			// Set shadow mapping uniforms
-			if(shadow_mapping.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0 + 1);
-				glUniform1i(phong_have_depth_texture_location, 1);
-
-				glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex/*col_tex*/->texture_handle);
-				glUniform1i(this->phong_depth_tex_location, 1); // Texture unit 1 is for shadow maps
-
-				glUniformMatrix4fv(this->phong_shadow_texture_matrix_location, 1, false, shadow_mapping->shadow_tex_matrix.e); // inverse transpose model matrix
-			}
-			else
-				glUniform1i(phong_have_depth_texture_location, 0);
-
+			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
 		}
-		else if(opengl_mat.shader_prog.getPointer() == this->transparent_prog.getPointer())
+		else if(shader_prog.getPointer() == this->phong_with_alpha_test_prog.getPointer())
+		{
+			setUniformsForPhongProg(opengl_mat, mesh_data, phong_with_alpha_test_locations);
+		}
+		else if(shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
 			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 		}
-		else if(opengl_mat.shader_prog.getPointer() == this->env_prog.getPointer())
+		else if(shader_prog.getPointer() == this->env_prog.getPointer())
 		{
 			glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 			glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
@@ -2191,11 +2467,29 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glUniform1i(this->env_diffuse_tex_location, 0);
 			}
 		}
-		else if(opengl_mat.shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
+		else if(shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
 		{
 
 		}
-		else if(opengl_mat.shader_prog.getPointer() == this->outline_prog.getPointer())
+		else if(shader_prog.getPointer() == this->depth_draw_with_alpha_test_mat.shader_prog.getPointer())
+		{
+			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
+			if(opengl_mat.albedo_texture.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE0 + 0);
+				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+
+				const GLfloat tex_elems[16] ={
+					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
+					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
+					0, 0, 1, 0,
+					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+				};
+				glUniformMatrix4fv(this->depth_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				glUniform1i(this->depth_diffuse_tex_location, 0);
+			}
+		}
+		else if(shader_prog.getPointer() == this->outline_prog.getPointer())
 		{
 
 		}
@@ -2206,7 +2500,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		
 		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
 
-		opengl_mat.shader_prog->useNoPrograms();
+		shader_prog->useNoPrograms();
 	}
 
 	this->num_indices_submitted += batch.num_indices;
@@ -2907,7 +3201,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			else if(imagemap->getN() == 4)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGBA, GL_UNSIGNED_BYTE,
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
 					filtering, wrapping
 				);
 

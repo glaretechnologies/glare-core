@@ -19,14 +19,23 @@ OpenGLTexture::~OpenGLTexture()
 }
 
 
+bool OpenGLTexture::hasAlpha() const
+{
+	assert(texture_handle != 0);
+	return format == GL_RGBA;
+}
+
+
 void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine, // bool anisotropic_filtering_supported, float max_anisotropy)
 	GLint internal_format,
-	GLenum format,
+	GLenum format_,
 	GLenum type,
 	Filtering filtering,
 	Wrapping wrapping
 	)
 {
+	this->format = format_;
+
 	if(texture_handle)
 	{
 		glDeleteTextures(1, &texture_handle);

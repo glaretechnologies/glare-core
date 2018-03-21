@@ -21,6 +21,8 @@ public:
 	OpenGLTexture();
 	~OpenGLTexture();
 
+	bool hasAlpha() const;
+
 	enum Filtering
 	{
 		Filtering_Nearest,
@@ -46,4 +48,6 @@ public:
 
 private:
 	INDIGO_DISABLE_COPY(OpenGLTexture);
+
+	GLenum format;
 };

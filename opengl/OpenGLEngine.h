@@ -223,15 +223,34 @@ public:
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius);
 private:
+	struct PhongUniformLocations
+	{
+		int diffuse_colour_location;
+		int have_shading_normals_location;
+		int have_texture_location;
+		int diffuse_tex_location;
+		int phong_have_depth_texture_location;
+		int phong_depth_tex_location;
+		int texture_matrix_location;
+		int sundir_location;
+		int roughness_location;
+		int fresnel_scale_location;
+		int phong_shadow_texture_matrix_location;
+	};
+
+	void assignShaderProgToMaterial(OpenGLMaterial& material);
 	void buildMaterial(OpenGLMaterial& mat);
-	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch/*, int num_verts_per_primitive*/);
+	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
+		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
-	
+	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, PhongUniformLocations& phong_locations_out);
+	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data,
+		const PhongUniformLocations& phong_locations);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -285,17 +304,10 @@ private:
 	Plane<float> shadow_clip_planes[6];
 
 	Reference<OpenGLProgram> phong_prog;
-	int diffuse_colour_location;
-	int have_shading_normals_location;
-	int have_texture_location;
-	int diffuse_tex_location;
-	int phong_have_depth_texture_location;
-	int phong_depth_tex_location;
-	int texture_matrix_location;
-	int sundir_location;
-	int roughness_location;
-	int fresnel_scale_location;
-	int phong_shadow_texture_matrix_location;
+	Reference<OpenGLProgram> phong_with_alpha_test_prog;
+
+	PhongUniformLocations phong_locations;
+	PhongUniformLocations phong_with_alpha_test_locations;
 
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
@@ -325,6 +337,9 @@ private:
 
 	Reference<ShadowMapping> shadow_mapping;
 	OpenGLMaterial depth_draw_mat;
+	OpenGLMaterial depth_draw_with_alpha_test_mat;
+	int depth_diffuse_tex_location;
+	int depth_texture_matrix_location;
 
 	OverlayObjectRef tex_preview_overlay_ob;
 

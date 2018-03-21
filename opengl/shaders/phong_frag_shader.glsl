@@ -86,7 +86,7 @@ void main()
 		vec3 N_g = normalize(cross(dp_dx, dp_dy)); 
 		use_normal = N_g;
 	}
-    vec3 unit_normal = normalize(use_normal);
+	vec3 unit_normal = normalize(use_normal);
 
 	float light_cos_theta = max(dot(unit_normal, sundir.xyz), 0.0);
 
@@ -100,7 +100,7 @@ void main()
  
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec4(texture_coords.x, texture_coords.y, 0.0, 1.0)).xy);
+		col = texture(diffuse_tex, (texture_matrix * vec4(texture_coords.x, texture_coords.y, 0.0, 1.0)).xy) * diffuse_colour;
 	else
 		col = diffuse_colour;
 
@@ -139,4 +139,8 @@ void main()
 		sun_vis_factor * (
 			col * light_cos_theta * 0.5 + 
 			specular);
+#if ALPHA_TEST
+	if(col.a < 0.5f)
+		discard;
+#endif
 }
