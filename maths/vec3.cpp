@@ -1,31 +1,12 @@
-/*===================================================================
-
-  
-  digital liberation front 2001
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
-
-
-
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
+/*=====================================================================
+vec3.h
+------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
 #include "vec3.h"
 
 
-#include "../maths/mathstypes.h"
+#include "mathstypes.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
@@ -102,7 +83,9 @@ inline void vadd(const Vec3f& a, const Vec3f& b, Vec3f& out)
 }
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
+
+
 template <>
 void Vec3<float>::test()
 {
@@ -366,5 +349,5 @@ const Vec3 Vec3::randomVec(float component_lowbound, float component_highbound)
 }
 
 
-#endif
+#endif // BUILD_TESTS
 

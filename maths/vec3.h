@@ -1,30 +1,18 @@
-/*===================================================================
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __VEC3_H__
-#define __VEC3_H__
-
-
-/*=================================================================
-3 component vector class
-------------------------
-Coded by Nick Chapman in the year 2000-
-=================================================================*/
+/*=====================================================================
+vec3.h
+------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
+#pragma once
 
 
 #include "mathstypes.h"
-#include "Vec4f.h" // For toVec3d()
-#include <../utils/OutStream.h>
-#include <../utils/InStream.h>
+#include "Vec4f.h"
+#include "../utils/OutStream.h"
+#include "../utils/InStream.h"
+#include "../utils/Platform.h"
 #include <assert.h>
 #include <string>
-#include "../utils/Platform.h"
 
 
 #define VEC3_INLINE INDIGO_STRONG_INLINE
@@ -725,6 +713,3 @@ inline Vec3<Real> readVec3FromStream(InStream& stream)
 
 typedef Vec3<float> Vec3f;
 typedef Vec3<double> Vec3d;
-
-
-#endif //__VEC3_H__
