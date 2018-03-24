@@ -312,6 +312,7 @@ private:
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
 	int transparent_have_shading_normals_location;
+	int transparent_sundir_location;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;

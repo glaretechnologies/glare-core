@@ -610,6 +610,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		);
 		transparent_colour_location		= transparent_prog->getUniformLocation("colour");
 		transparent_have_shading_normals_location = transparent_prog->getUniformLocation("have_shading_normals");
+		transparent_sundir_location =	transparent_prog->getUniformLocation("sundir");
 
 		env_prog = new OpenGLProgram(
 			"env",
@@ -2444,6 +2445,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 		else if(shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
+			glUniform4fv(this->transparent_sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
 			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 		}
