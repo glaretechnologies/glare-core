@@ -52,6 +52,7 @@ const std::string Vec3<Real>::toStringFullPrecision() const
 
 #if BUILD_TESTS
 
+
 //__declspec(nothrow)
 static INDIGO_STRONG_INLINE Vec3f vmul(const Vec3f& a, float f)
 {
