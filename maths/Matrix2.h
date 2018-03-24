@@ -4,11 +4,12 @@ Matrix2.h
 File created by ClassTemplate on Sun Mar 05 17:55:13 2006
 Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __MATRIX2_H_666_
-#define __MATRIX2_H_666_
+#pragma once
 
 
-#include "../maths/vec2.h"
+#include "vec2.h"
+#include "../utils/OutStream.h"
+#include "../utils/InStream.h"
 
 
 /*=====================================================================
@@ -189,15 +190,24 @@ inline const std::string toString(const Matrix2<Real>& x)
 }
 
 
+template <class Real>
+inline void writeToStream(const Matrix2<Real>& m, OutStream& stream)
+{
+	stream.writeData(m.e, sizeof(Real) * 4);
+}
+
+
+template <class Real>
+inline Matrix2<Real> readMatrix2FromStream(InStream& stream)
+{
+	Matrix2<Real> m;
+	stream.readData(m.e, sizeof(Real) * 4);
+	return m;
+}
+
+
 typedef Matrix2<float> Matrix2f;
 typedef Matrix2<double> Matrix2d;
-
-
-#endif //__MATRIX2_H_666_
-
-
-
-
 
 
 
