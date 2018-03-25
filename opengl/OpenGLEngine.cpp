@@ -1776,10 +1776,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 		Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
 
-		//js::AABBox aabb_os = js::AABBox::emptyAABBox();
-		//aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
-		//mesh_->aabb_os.bound[0].x, 
-
 		// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
 		// If the magnitude is too high we can get articacts if we just use half precision.
 		const float max_use_half_range = 10.f;
@@ -1980,7 +1976,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 		opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
 		opengl_render_data->aabb_os.max_ = Vec4f(mesh_->aabb_os.bound[1].x, mesh_->aabb_os.bound[1].y, mesh_->aabb_os.bound[1].z, 1.f);
-		//opengl_render_data->aabb_os = aabb_os;
 		return opengl_render_data;
 	}
 #endif
@@ -1994,8 +1989,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	const uint32 num_uv_sets = mesh->num_uv_mappings;
 
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
-
-	js::AABBox aabb_os = js::AABBox::emptyAABBox();
 
 	UniqueVertKey empty_key;
 	empty_key.pos_i = std::numeric_limits<unsigned int>::max();
@@ -2121,8 +2114,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 						else
 							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
 					}
-
-					aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
 				}
 				else
 					merged_v_index = res->second;
@@ -2228,8 +2219,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 						else
 							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
 					}
-
-					aabb_os.enlargeToHoldPoint(Vec4f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z, 1.f));
 				}
 				else
 					merged_v_index = res->second;
@@ -2376,7 +2365,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
 	}
 
-	opengl_render_data->aabb_os = aabb_os;
+	opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
+	opengl_render_data->aabb_os.max_ = Vec4f(mesh_->aabb_os.bound[1].x, mesh_->aabb_os.bound[1].y, mesh_->aabb_os.bound[1].z, 1.f);
 	return opengl_render_data;
 }
 
