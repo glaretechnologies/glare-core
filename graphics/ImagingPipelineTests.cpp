@@ -47,6 +47,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	renderer_settings.tone_mapper = tone_mapper;
 	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
 	renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
+	renderer_settings.render_foreground_alpha = render_channels.hasAlpha();
 
 	std::vector<float> filter_data;
 	renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
