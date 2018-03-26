@@ -350,6 +350,37 @@ void ImageMapTests::test()
 	}
 
 
+	// Test blitToImage()
+	{
+		ImageMapUInt8 a(5, 5, 3);
+		a.set(128);
+
+		ImageMapUInt8 b(10, 10, 3);
+		b.set(0);
+
+		a.blitToImage(b, 0, 0);
+
+		for(int y=0; y<10; ++y)
+			for(int x=0; x<10; ++x)
+				for(int c=0; c<3; ++c)
+					testAssert(b.getPixel(x, y)[c] == ((x < 5 && y < 5) ? 128 : 0));
+
+		// Try blitting partially out of bounds of b.
+		a.blitToImage(b, 1, 1);
+		a.blitToImage(b, -1, -1);
+
+		a.blitToImage(b, 6, 6);
+		a.blitToImage(b, -6, -6);
+
+		// Test in bounds blitToImage() with src coords
+		a.blitToImage(2, 2, 5, 5, b, 0, 0);
+
+		// Test bounds blitToImage() with out-of-bounds src coords
+		a.blitToImage(-2, -2, 5, 5, b, 0, 0);
+		a.blitToImage(2, 2, 10, 10, b, 0, 0);
+	}
+
+
 	
 
 	//======================================== Test resizeToImageMapFloat() =======================================

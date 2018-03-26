@@ -145,7 +145,8 @@ public:
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.
 
-	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int destx, int desty) const;
+	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
+	inline void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
 
 	inline void addImage(const ImageMap<V, ComponentValueTraits>& other);
 
@@ -817,25 +818,41 @@ void ImageMap<V, VTraits>::zero()
 
 
 template <class V, class VTraits>
-void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int destx, int desty) const
+void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int dest_start_x, int dest_start_y) const
+{
+	blitToImage(0, 0, getWidth(), getHeight(), dest, dest_start_x, dest_start_y);
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, ImageMap<V, VTraits>& dest, int dest_start_x, int dest_start_y) const
 {
 	assert(N == dest.N);
 
-	const int s_h = (int)getHeight();
-	const int s_w = (int)getWidth();
-	const int d_h = (int)dest.getHeight();
-	const int d_w = (int)dest.getWidth();
+	const int x_offset = dest_start_x - src_start_x; // Offset to go from src pixel coords to dest pixel coords
+	const int y_offset = dest_start_y - src_start_y;
 
-	// NOTE: this can be optimised to remove the destination pixel valid check.
-	for(int y = 0; y < s_h; ++y)
-	for(int x = 0; x < s_w; ++x)
+	// Clip area to blit from src image so that it lies in the bounds of dest image.
+	// When dx = 0, sx = dx - offset = 0 - offset
+	// Also clip so that it lies in src image, e.g. so that sx >= 0.
+	const int clipped_src_start_x = myMax(src_start_x, 0, -x_offset);
+	const int clipped_src_start_y = myMax(src_start_y, 0, -y_offset);
+
+	const int clipped_src_end_x = myMin(src_end_x, (int)getWidth(),  (int)dest.getWidth()  - x_offset);
+	const int clipped_src_end_y = myMin(src_end_y, (int)getHeight(), (int)dest.getHeight() - y_offset);
+
+	// If clipped region is empty, return.
+	if(clipped_src_start_x >= clipped_src_end_x || clipped_src_start_y >= clipped_src_end_y)
+		return;
+
+	for(int sy = clipped_src_start_y; sy < clipped_src_end_y; ++sy)
+	for(int sx = clipped_src_start_x; sx < clipped_src_end_x; ++sx)
 	{
-		const int dx = x + destx;
-		const int dy = y + desty;
+		const int dx = sx + x_offset;
+		const int dy = sy + y_offset;
 
-		if(dx >= 0 && dx < d_w && dy >= 0 && dy < d_h)
-			for(unsigned int c=0; c<N; ++c)
-				dest.getPixel(x, y)[c] = getPixel(x, y)[c];
+		for(unsigned int c=0; c<N; ++c)
+			dest.getPixel(dx, dy)[c] = getPixel(sx, sy)[c];
 	}
 }
 

@@ -717,6 +717,7 @@ struct ImagePipelineTaskClosure
 	const std::vector<RenderRegion>* render_regions;
 	float region_alpha_bias;
 	int subres_factor;
+	bool render_foreground_alpha;
 
 	bool skip_curves;
 
@@ -751,7 +752,7 @@ public:
 			region_layer_weights[i] = toColour4f((*closure.layer_weights)[i]) * closure.region_image_scale;
 		}
 
-		const bool have_alpha_channel = closure.render_channels->hasAlpha();
+		const bool render_foreground_alpha = closure.render_foreground_alpha;
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool has_spectral_channel = closure.render_channels->hasSpectral();
@@ -824,8 +825,8 @@ public:
 						sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
 					}
 
-					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					// Get alpha from alpha channel if we are doing a foreground-alpha render
+					sum.x[3] = render_foreground_alpha ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -839,7 +840,7 @@ public:
 								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
-							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -953,7 +954,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = have_alpha_channel ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -967,7 +968,7 @@ public:
 								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
-							sum.x[3] = have_alpha_channel ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -1183,6 +1184,7 @@ void doTonemap(
 		closure.resize_filter = resize_filter;
 		closure.render_regions = &render_regions;
 		closure.tonemap_params = &tonemap_params;
+		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
 
 		closure.x_tiles = x_tiles;
 		closure.final_xres = final_xres;
