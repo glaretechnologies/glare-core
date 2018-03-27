@@ -243,8 +243,9 @@ public:
 	void addVertex(const Vec3f& pos, const Vec3f& normal);
 	void addUVs(const std::vector<Vec2f>& uvs);
 	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
-	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals);
 	void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
+
+	void buildTriangleInvCrossMagnitudes(Indigo::TaskManager& task_manager);
 	////////////////////////////////////////////////////////////////
 
 
@@ -271,7 +272,11 @@ public:
 
 	VertexVectorType& getVertices() { return vertices; }
 	const VertexVectorType& getVertices() const { return vertices; }
+
+	TriangleVectorType& getTriangles() { return triangles; }
 	const TriangleVectorType& getTriangles() const { return triangles; }
+
+	std::vector<Vec2f>& getUVs() { return uvs; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
 	const unsigned int numUVSets() const { return num_uv_sets; }

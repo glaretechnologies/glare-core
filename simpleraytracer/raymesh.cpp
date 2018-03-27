@@ -1310,34 +1310,37 @@ void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv
 }
 
 
-void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index, bool use_shading_normals)
+void RayMesh::buildTriangleInvCrossMagnitudes(Indigo::TaskManager& task_manager)
 {
-	// Check the area of the triangle
-	const float MIN_TRIANGLE_AREA = 1.0e-20f;
+	// Timer timer;
 
-	const RayMeshVertex& v0(vertices[vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[vertex_indices[2]]);
+	// NOTE: I tried multithreading and SIMD'ing this code up, but it made little difference, 
+	// as this code appears to run at memory speed, doing about 100M inv_cross_magnitude computations per second. --nick
 
-	const float cross_prod_len = ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
-
-	if((cross_prod_len * 0.5f) < MIN_TRIANGLE_AREA)
+	const size_t num_tris = triangles.size();
+	RayMeshTriangle* const tris = getTriangles().data();
+	const RayMeshVertex* const verts = getVertices().data();
+	for(size_t i=0; i<num_tris; ++i)
 	{
-		//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
-		return;
+		// prefetch verts, helps a little.
+		const size_t prefetch_i = i + 32;
+		if(prefetch_i < num_tris)
+		{
+			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[0]].pos, _MM_HINT_T0);
+			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[1]].pos, _MM_HINT_T0);
+			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[2]].pos, _MM_HINT_T0);
+		}
+
+		RayMeshTriangle& tri = tris[i];
+
+		const Vec4f v0pos = verts[tri.vertex_indices[0]].pos.toVec4fVector();
+		const Vec4f v1pos = verts[tri.vertex_indices[1]].pos.toVec4fVector();
+		const Vec4f v2pos = verts[tri.vertex_indices[2]].pos.toVec4fVector();
+
+		tri.inv_cross_magnitude = 1.f / ::crossProduct(v1pos - v0pos, v2pos - v0pos).length();
 	}
 
-	// Push the triangle onto tri array.
-	triangles.push_back(RayMeshTriangle());
-	RayMeshTriangle& new_tri = triangles.back();
-	for(unsigned int i = 0; i < 3; ++i)
-	{
-		new_tri.vertex_indices[i] = vertex_indices[i];
-		new_tri.uv_indices[i]     = uv_indices[i];
-	}
-
-	new_tri.setMatIndexAndUseShadingNormals(material_index, use_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals);
-	new_tri.inv_cross_magnitude = 1.0f / cross_prod_len;
+	// conPrint("RayMesh::buildTriangleInvCrossMagnitudes took " + timer.elapsedString());
 }
 
 

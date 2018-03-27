@@ -322,12 +322,13 @@ INDIGO_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<i
 INDIGO_STRONG_INLINE Vec4f unpacklo( const Vec4f& a, const Vec4f& b ) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
 INDIGO_STRONG_INLINE Vec4f unpackhi( const Vec4f& a, const Vec4f& b ) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
 
-INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3) {
-	Vec4f l02 = unpacklo(r0,r2);
-	Vec4f h02 = unpackhi(r0,r2);
-	Vec4f l13 = unpacklo(r1,r3);
-	Vec4f h13 = unpackhi(r1,r3);
-	c0 = unpacklo(l02,l13);
+INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3)
+{
+	Vec4f l02 = unpacklo(r0,r2); // (r0x, r2x, r0y, r2y)
+	Vec4f h02 = unpackhi(r0,r2); // (r0z, r2z, r0w, r2w)
+	Vec4f l13 = unpacklo(r1,r3); // (r1x, r3x, r1y, r3y)
+	Vec4f h13 = unpackhi(r1,r3); // (r1z, r3z, r1w, r3w)
+	c0 = unpacklo(l02,l13); // (l02.x, l13.x, l02.y, l13.y) = (r0x, r1x, r2x, r3x)
 	c1 = unpackhi(l02,l13);
 	c2 = unpacklo(h02,h13);
 	c3 = unpackhi(h02,h13);
