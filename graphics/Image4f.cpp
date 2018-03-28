@@ -191,6 +191,24 @@ void Image4f::copyToBitmap(Bitmap& bmp_out) const
 }
 
 
+void Image4f::copyToBitmapSetAlphaTo255(Bitmap& bmp_out) const
+{
+	bmp_out.resize(getWidth(), getHeight(), 4);
+
+	for(size_t y = 0; y < getHeight(); ++y)
+	for(size_t x = 0; x < getWidth();  ++x)
+	{
+		const ColourType& p = getPixel(x, y);
+
+		unsigned char* pixel = bmp_out.getPixelNonConst(x, y);
+		pixel[0] = floatToUInt8(p.x[0]);
+		pixel[1] = floatToUInt8(p.x[1]);
+		pixel[2] = floatToUInt8(p.x[2]);
+		pixel[3] = 255;
+	}
+}
+
+
 void Image4f::zero()
 {
 	set(0);

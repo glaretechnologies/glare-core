@@ -38,6 +38,7 @@ public:
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
 	void copyToBitmap(Bitmap& bmp_out) const;
+	void copyToBitmapSetAlphaTo255(Bitmap& bmp_out) const;
 
 	inline size_t getHeight() const { return pixels.getHeight(); }
 	inline size_t getWidth()  const { return pixels.getWidth(); }
@@ -61,11 +62,6 @@ public:
 
 	void resize(size_t newwidth, size_t newheight); // throws Indigo::Exception
 	void resizeNoCopy(size_t newwidth, size_t newheight); // Resize without copying existing data.
-
-	void posClamp();
-	void clampInPlace(float min, float max);
-
-	void gammaCorrect(float exponent);
 
 	void blitToImage(Image4f& dest, int destx, int desty) const;
 	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Image4f& dest, int destx, int desty) const;
