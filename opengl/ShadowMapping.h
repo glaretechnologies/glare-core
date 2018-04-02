@@ -31,18 +31,20 @@ public:
 
 	void init(const int w, const int h);
 
+	int numDepthTextures() { return 3; }
+
 	void bindDepthTexAsTarget();
 	void unbindDepthTex();
 
 private:
 	INDIGO_DISABLE_COPY(ShadowMapping);
 public:
-	Matrix4f shadow_tex_matrix;
+	Matrix4f shadow_tex_matrix[8];
 	
 	int w, h;
 	Reference<FrameBuffer> frame_buffer;
 	Reference<OpenGLTexture> depth_tex;
 	//Reference<OpenGLTexture> col_tex;
 
-	Reference<FrameBuffer> blur_fb;
+	//Reference<FrameBuffer> blur_fb;
 };

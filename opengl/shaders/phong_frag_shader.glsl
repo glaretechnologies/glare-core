@@ -3,14 +3,13 @@
 in vec3 normal;
 in vec3 pos_cs;
 in vec2 texture_coords;
-in vec3 shadow_tex_coords;
+in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 
 uniform vec4 sundir;
 uniform vec4 diffuse_colour;
 uniform int have_shading_normals;
 uniform int have_texture;
 uniform sampler2D diffuse_tex;
-uniform int have_depth_texture;
 uniform sampler2D depth_tex;
 uniform mat4 texture_matrix;
 uniform float roughness;
@@ -107,17 +106,34 @@ void main()
 	// Shadow mapping
 	float sun_vis_factor;
 #if SHADOW_MAPPING
-	vec2 depth_texcoords = shadow_tex_coords.xy * 0.5 + vec2(0.5, 0.5);
-	float actual_depth = shadow_tex_coords.z * 0.5 + 0.5;
-	actual_depth = min(actual_depth, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+	int num_depths = NUM_DEPTH_TEXTURES;
 
-	if(depth_texcoords.x < 0.0 || depth_texcoords.x >= 1.0 || depth_texcoords.y <= 0.0 || depth_texcoords.y >= 1.0)
-		sun_vis_factor = 1.0;
+	// Select correct depth map
+	float dist = -pos_cs.z;
+	int depth_tex_index;
+	if(dist < 4)
+		depth_tex_index = 0;
+	else if(dist < 16)
+		depth_tex_index = 1;
 	else
+		depth_tex_index = 2;
+
+	vec3 shadow_cds = shadow_tex_coords[depth_tex_index];
+	
+	sun_vis_factor = 0.0;
+	
+	vec2 depth_texcoords = shadow_cds.xy;
+
+	if(dist < 64)
 	{
-		float bias = 0.0001;// / abs(light_cos_theta);
-		
-		sun_vis_factor = 0;
+		float actual_depth = min(shadow_cds.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+		// Compute coords in cascaded map
+		depth_texcoords.y = (float(depth_tex_index) + depth_texcoords.y) * (1.0 / float(num_depths));
+
+		//float bias = 0.00001;// / abs(light_cos_theta);
+
+		float this_sun_vis_factor = 0;
 		int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 
 		float theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
@@ -128,9 +144,11 @@ void main()
 			vec2 st = depth_texcoords + R * ((samples[i] * 0.001) - vec2(0.5, 0.5)) * (4.0 / 2048.0);
 			float light_depth = texture(depth_tex, st).x;
 
-			sun_vis_factor += (light_depth + bias) > actual_depth ? (1.0 / 16.0) : 0.0; 
+			sun_vis_factor += (light_depth/* + bias*/) > actual_depth ? (1.0 / 16.0) : 0.0;
 		}
 	}
+	else
+		sun_vis_factor = 1.0;
 #else
 	sun_vis_factor = 1.0;
 #endif
@@ -139,6 +157,9 @@ void main()
 		sun_vis_factor * (
 			col * light_cos_theta * 0.5 + 
 			specular);
+
+	//colour_out.r = float(depth_tex_index) / NUM_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
+
 #if ALPHA_TEST
 	if(col.a < 0.5f)
 		discard;

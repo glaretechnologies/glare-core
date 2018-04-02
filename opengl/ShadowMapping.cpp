@@ -28,7 +28,7 @@ void ShadowMapping::init(const int w_, const int h_)
 	// Create frame buffer
 	frame_buffer = new FrameBuffer();
 
-	blur_fb = new FrameBuffer();
+	//blur_fb = new FrameBuffer();
 	
 	// Create depth tex
 	//depth_tex = new OpenGLTexture();
@@ -40,7 +40,7 @@ void ShadowMapping::init(const int w_, const int h_)
 	//);
 
 	depth_tex = new OpenGLTexture();
-	depth_tex->load(w, h, NULL, NULL, 
+	depth_tex->load(w, h, NULL, NULL,
 		GL_DEPTH_COMPONENT, // internal format
 		GL_DEPTH_COMPONENT, // format
 		GL_FLOAT, // type
@@ -70,5 +70,5 @@ void ShadowMapping::bindDepthTexAsTarget()
 
 void ShadowMapping::unbindDepthTex()
 {
-	frame_buffer->unbind();
+	FrameBuffer::unbind();
 }

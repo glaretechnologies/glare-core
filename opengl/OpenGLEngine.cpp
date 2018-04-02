@@ -84,8 +84,6 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 	this->lens_shift_up_distance = lens_shift_up_distance_;
 	this->lens_shift_right_distance = lens_shift_right_distance_;
 
-	float use_sensor_width;
-	float use_sensor_height;
 	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
 	{
 		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
@@ -191,6 +189,36 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 }
 
 
+void OpenGLEngine::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out)
+{
+	// Calculate frustum verts
+	const float shift_up_d    = lens_shift_up_distance    / lens_sensor_dist; // distance verts at far end of frustum are shifted up
+	const float shift_right_d = lens_shift_right_distance / lens_sensor_dist; // distance verts at far end of frustum are shifted up
+
+	const float d_w = use_sensor_width  / (2 * lens_sensor_dist);
+	const float d_h = use_sensor_height / (2 * lens_sensor_dist);
+
+	const Vec4f lens_center_cs(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
+	const Vec4f lens_center_ws = cam_to_world * lens_center_cs;
+
+	const Vec4f forwards_ws = cam_to_world * FORWARDS_OS;
+	const Vec4f up_ws = cam_to_world * UP_OS;
+	const Vec4f right_ws = cam_to_world * RIGHT_OS;
+
+	// Verts on near plane
+	verts_out[0] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom left
+	verts_out[1] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom right
+	verts_out[2] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top right
+	verts_out[3] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top left
+
+	// Verts on far plane
+	verts_out[4] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom left
+	verts_out[5] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom right
+	verts_out[6] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top right
+	verts_out[7] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top left
+}
+
+
 void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
 	float lens_shift_right_distance_)
 {
@@ -202,8 +230,6 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	this->lens_shift_up_distance = lens_shift_up_distance_;
 	this->lens_shift_right_distance = lens_shift_right_distance_;
 
-	float use_sensor_width;
-	float use_sensor_height;
 	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
 	{
 		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
@@ -441,13 +467,12 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
 	phong_locations_out.have_texture_location				= phong_prog->getUniformLocation("have_texture");
 	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
-	phong_locations_out.phong_have_depth_texture_location	= phong_prog->getUniformLocation("have_depth_texture");
 	phong_locations_out.phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
 	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
 	phong_locations_out.sundir_location						= phong_prog->getUniformLocation("sundir");
 	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
 	phong_locations_out.fresnel_scale_location				= phong_prog->getUniformLocation("fresnel_scale");
-	phong_locations_out.phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+	phong_locations_out.phong_shadow_texture_matrix_location = phong_prog->getUniformLocation("shadow_texture_matrix");
 }
 
 
@@ -577,6 +602,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		std::string preprocessor_defines;
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? toString(shadow_mapping->numDepthTextures()) : std::string("0")) + "\n";
 
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;
@@ -668,7 +694,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			}
 
 			shadow_mapping = new ShadowMapping();
-			shadow_mapping->init(2048, 2048);
+			shadow_mapping->init(1024, 1024 * shadow_mapping->numDepthTextures());
 
 			if(false)
 			{
@@ -1142,94 +1168,141 @@ void OpenGLEngine::draw()
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
 	{
-		shadow_mapping->bindDepthTexAsTarget();
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
 
-		glViewport(0, 0, shadow_mapping->w, shadow_mapping->h); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+		shadow_mapping->bindDepthTexAsTarget();
 
 		glClearColor(1.f, 1.f, 1.f, 1.f);
 		glClear(/*GL_COLOR_BUFFER_BIT | */GL_DEPTH_BUFFER_BIT);
 
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_FRONT);
-
-
-		const float h = settings.shadow_map_scene_half_width;
-
-		Matrix4f proj_matrix = orthoMatrix(
-			-h, h, // left, right
-			-h, h, // bottom, top
-			-h, h // near, far
-		);
-
-		const Vec4f up(0,0,1,0);
-		const Vec4f k = sun_dir;
-		const Vec4f i = normalise(crossProduct(up, sun_dir));
-		const Vec4f j = crossProduct(k, i);
-
-		Matrix4f view_matrix;
-		view_matrix.setRow(0, i);
-		view_matrix.setRow(1, j);
-		view_matrix.setRow(2, k);
-		view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
-
-		// Compute camera position
-		const Vec4f campos_ws = cam_to_world * Vec4f(0, 0, 0, 1);
-
-		// Compute clipping planes for shadow mapping
-		shadow_clip_planes[0] = Planef(toVec3f(campos_ws + i*h), toVec3f(i));
-		shadow_clip_planes[1] = Planef(toVec3f(campos_ws - i*h), toVec3f(-i));
-		shadow_clip_planes[2] = Planef(toVec3f(campos_ws + j*h), toVec3f(j));
-		shadow_clip_planes[3] = Planef(toVec3f(campos_ws - j*h), toVec3f(-j));
-		shadow_clip_planes[4] = Planef(toVec3f(campos_ws + k*h), toVec3f(k));
-		shadow_clip_planes[5] = Planef(toVec3f(campos_ws - k*h), toVec3f(-k));
-
-		js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB if shadow rendering volume.
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h + j*h + k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h + j*h + k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h - j*h + k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h - j*h + k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h + j*h - k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h + j*h - k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws + i*h - j*h - k*h);
-		shadow_vol_aabb.enlargeToHoldPoint(campos_ws - i*h - j*h - k*h);
-
-		Matrix4f back_to_origin = Matrix4f::translationMatrix(-campos_ws);
-
-		Matrix4f overall_view_matrix;
-		mul(view_matrix, back_to_origin, overall_view_matrix);
-		
-		// Set shadow tex matrix while we're at it
-		mul(proj_matrix, overall_view_matrix, shadow_mapping->shadow_tex_matrix);
-
-		// Draw non-transparent batches from objects.
-		//uint64 num_frustum_culled = 0;
-		for(size_t q=0; q<objects.size(); ++q)
+		const int num = shadow_mapping->numDepthTextures();
+		const int per_map_h = shadow_mapping->h / num;
+		for(int ti=0; ti<num; ++ti)
 		{
-			const GLObject* const ob = objects[q].getPointer();
-			if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
-			{
-				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-				{
-					const uint32 mat_index = mesh_data.batches[z].material_index;
-					// Draw primitives for the given material
-					if(!ob->materials[mat_index].transparent)
-					{
-						const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-						OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+			glViewport(0, ti*per_map_h, shadow_mapping->w, per_map_h);
 
-						drawBatch(*ob, overall_view_matrix, proj_matrix, 
-							ob->materials[mat_index], // Use tex matrix etc.. from original material
-							use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
-					}
-				}
-				unbindMeshData(mesh_data);
+			// Compute the 8 points making up this slice of the view frustum
+			float near_dist = pow(4.0, ti);
+			float far_dist = near_dist * 4;
+			if(ti == 0)
+				near_dist = 0.01;
+
+			Vec4f frustum_verts_ws[8];
+			calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws);
+
+			const Vec4f up(0, 0, 1, 0);
+			const Vec4f k = sun_dir;
+			const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
+			const Vec4f j = crossProduct(k, i); // up
+
+			assert(k.isUnitLength());
+
+			// Get bounds along i, j, k vectors
+			float min_i = std::numeric_limits<float>::max();
+			float min_j = std::numeric_limits<float>::max();
+			float min_k = std::numeric_limits<float>::max();
+			float max_i = -std::numeric_limits<float>::max();
+			float max_j = -std::numeric_limits<float>::max();
+			float max_k = -std::numeric_limits<float>::max();
+			
+			for(int z=0; z<8; ++z)
+			{
+				float dot_i = dot(i, maskWToZero(frustum_verts_ws[z]));
+				float dot_j = dot(j, maskWToZero(frustum_verts_ws[z]));
+				float dot_k = dot(k, maskWToZero(frustum_verts_ws[z]));
+				min_i = myMin(min_i, dot_i);
+				min_j = myMin(min_j, dot_j);
+				min_k = myMin(min_k, dot_k);
+				max_i = myMax(max_i, dot_i);
+				max_j = myMax(max_j, dot_j);
+				max_k = myMax(max_k, dot_k);
 			}
-			//else
-			//	num_frustum_culled++;
+
+			const float max_shadowing_dist = 300.0f;
+
+			float use_max_k = min_k + max_shadowing_dist;
+
+			float near_signed_dist = -use_max_k;
+			float far_signed_dist = -min_k;
+
+			Matrix4f proj_matrix = orthoMatrix(
+				min_i, max_i, // left, right
+				min_j, max_j, // bottom, top
+				near_signed_dist, far_signed_dist // near, far
+			);
+
+			
+			// TEMP: compute verts of shadow volume
+			Vec4f shadow_vol_verts[8];
+			shadow_vol_verts[0] = Vec4f(0,0,0,1) + i*min_i + j*max_j + k*use_max_k;
+			shadow_vol_verts[1] = Vec4f(0,0,0,1) + i*max_i + j*max_j + k*use_max_k;
+			shadow_vol_verts[2] = Vec4f(0,0,0,1) + i*max_i + j*min_j + k*use_max_k;
+			shadow_vol_verts[3] = Vec4f(0,0,0,1) + i*min_i + j*min_j + k*use_max_k;
+			shadow_vol_verts[4] = Vec4f(0,0,0,1) + i*min_i + j*max_j + k*min_k;
+			shadow_vol_verts[5] = Vec4f(0,0,0,1) + i*max_i + j*max_j + k*min_k;
+			shadow_vol_verts[6] = Vec4f(0,0,0,1) + i*max_i + j*min_j + k*min_k;
+			shadow_vol_verts[7] = Vec4f(0,0,0,1) + i*min_i + j*min_j + k*min_k;
+
+			Matrix4f view_matrix;
+			view_matrix.setRow(0, i);
+			view_matrix.setRow(1, j);
+			view_matrix.setRow(2, k);
+			view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
+
+			// Compute clipping planes for shadow mapping
+			shadow_clip_planes[0] = Planef(toVec3f( i), max_i);
+			shadow_clip_planes[1] = Planef(toVec3f(-i), -min_i);
+			shadow_clip_planes[2] = Planef(toVec3f( j), max_j);
+			shadow_clip_planes[3] = Planef(toVec3f(-j), -min_j);
+			shadow_clip_planes[4] = Planef(toVec3f( k), use_max_k);
+			shadow_clip_planes[5] = Planef(toVec3f(-k), -min_k);
+
+			js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
+			for(int z=0; z<8; ++z)
+				shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
+
+			
+			// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
+			const Matrix4f texcoord_bias(
+				Vec4f(0.5f, 0, 0, 0), // col 0
+				Vec4f(0, 0.5f, 0, 0), // col 1
+				Vec4f(0, 0, 0.5f, 0), // col 2
+				Vec4f(0.5f, 0.5f, 0.5f, 1) // col 2
+			);
+			// Save shadow_tex_matrix that the shaders like phong will use.
+			shadow_mapping->shadow_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
+
+			// Draw non-transparent batches from objects.
+			//uint64 num_frustum_culled = 0;
+			for(size_t q=0; q<objects.size(); ++q)
+			{
+				const GLObject* const ob = objects[q].getPointer();
+				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+				{
+					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+					bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+					{
+						const uint32 mat_index = mesh_data.batches[z].material_index;
+						// Draw primitives for the given material
+						if(!ob->materials[mat_index].transparent)
+						{
+							const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+							OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+
+							drawBatch(*ob, view_matrix, proj_matrix,
+								ob->materials[mat_index], // Use tex matrix etc.. from original material
+								use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+						}
+					}
+					unbindMeshData(mesh_data);
+				}
+				//else
+				//	num_frustum_culled++;
+			}
+			// conPrint(toString(objects.size() - num_frustum_culled) + " obs drawn for shadow map.");
 		}
-		// conPrint(toString(objects.size() - num_frustum_culled) + " obs drawn for shadow map.");
 
 		shadow_mapping->unbindDepthTex();
 
@@ -2400,15 +2473,13 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	if(shadow_mapping.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 1);
-		glUniform1i(use_phong_locations.phong_have_depth_texture_location, 1);
 
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex/*col_tex*/->texture_handle);
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
 		glUniform1i(use_phong_locations.phong_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 
-		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, 1, false, shadow_mapping->shadow_tex_matrix.e); // inverse transpose model matrix
+		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, /*count=*/shadow_mapping->numDepthTextures(), 
+			/*transpose=*/false, shadow_mapping->shadow_tex_matrix[0].e);
 	}
-	else
-		glUniform1i(use_phong_locations.phong_have_depth_texture_location, 0);
 }
 
 
@@ -3000,6 +3071,100 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
+}
+
+
+void OpenGLEngine::addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col)
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+	
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(24); // 6 faces * 4 verts/face
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(24);
+	js::Vector<Vec2f, 16> uvs(24, Vec2f(0.f));
+	js::Vector<uint32, 16> indices;
+	indices.resize(6 * 6); // two tris per face, 6 faces
+
+	for(int face = 0; face < 6; ++face)
+	{
+		indices[face*6 + 0] = face*4 + 0; 
+		indices[face*6 + 1] = face*4 + 1; 
+		indices[face*6 + 2] = face*4 + 2; 
+		indices[face*6 + 3] = face*4 + 0;
+		indices[face*6 + 4] = face*4 + 2;
+		indices[face*6 + 5] = face*4 + 3;
+	}
+	
+	int face = 0;
+
+	// x = 0 face
+	verts[face*4 + 0] = toVec3f(verts_ws[0]);
+	verts[face*4 + 1] = toVec3f(verts_ws[4]);
+	verts[face*4 + 2] = toVec3f(verts_ws[7]);
+	verts[face*4 + 3] = toVec3f(verts_ws[3]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	// x = 1 face
+	verts[face*4 + 0] = toVec3f(verts_ws[1]);
+	verts[face*4 + 1] = toVec3f(verts_ws[2]);
+	verts[face*4 + 2] = toVec3f(verts_ws[6]);
+	verts[face*4 + 3] = toVec3f(verts_ws[5]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	// y = 0 face
+	verts[face*4 + 0] = toVec3f(verts_ws[0]);
+	verts[face*4 + 1] = toVec3f(verts_ws[1]);
+	verts[face*4 + 2] = toVec3f(verts_ws[5]);
+	verts[face*4 + 3] = toVec3f(verts_ws[4]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	// y = 1 face
+	verts[face*4 + 0] = toVec3f(verts_ws[2]);
+	verts[face*4 + 1] = toVec3f(verts_ws[3]);
+	verts[face*4 + 2] = toVec3f(verts_ws[7]);
+	verts[face*4 + 3] = toVec3f(verts_ws[6]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	// z = 0 face
+	verts[face*4 + 0] = toVec3f(verts_ws[0]);
+	verts[face*4 + 1] = toVec3f(verts_ws[3]);
+	verts[face*4 + 2] = toVec3f(verts_ws[2]);
+	verts[face*4 + 3] = toVec3f(verts_ws[1]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	// z = 1 face
+	verts[face*4 + 0] = toVec3f(verts_ws[4]);
+	verts[face*4 + 1] = toVec3f(verts_ws[5]);
+	verts[face*4 + 2] = toVec3f(verts_ws[6]);
+	verts[face*4 + 3] = toVec3f(verts_ws[7]);
+	for(int i=0; i<4; ++i)
+		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
+	face++;
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+
+
+	// Make the object
+	GLObjectRef ob = new GLObject();
+	ob->ob_to_world_matrix = Matrix4f::identity();
+	ob->mesh_data = mesh_data;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	
+	this->addObject(ob);
 }
 
 

@@ -89,5 +89,10 @@ void OpenGLProgram::useNoPrograms()
 
 int OpenGLProgram::getUniformLocation(const std::string& name)
 {
-	return glGetUniformLocation(program, name.c_str());
+	const int res = glGetUniformLocation(program, name.c_str());
+#if BUILD_TESTS
+	if(res < 0)
+		conPrint("Warning: for program '" + prog_name + "': failed to get uniform '" + name + "'.");
+#endif
+	return res;
 }

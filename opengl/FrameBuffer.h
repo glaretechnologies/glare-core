@@ -25,7 +25,7 @@ public:
 	~FrameBuffer();
 
 	void bind();
-	void unbind();
+	static void unbind();
 
 private:
 	INDIGO_DISABLE_COPY(FrameBuffer);

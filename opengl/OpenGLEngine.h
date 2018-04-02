@@ -229,7 +229,6 @@ private:
 		int have_shading_normals_location;
 		int have_texture_location;
 		int diffuse_tex_location;
-		int phong_have_depth_texture_location;
 		int phong_depth_tex_location;
 		int texture_matrix_location;
 		int sundir_location;
@@ -238,6 +237,7 @@ private:
 		int phong_shadow_texture_matrix_location;
 	};
 
+	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
 	void buildMaterial(OpenGLMaterial& mat);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
@@ -252,6 +252,8 @@ private:
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data,
 		const PhongUniformLocations& phong_locations);
 
+	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
+
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	
@@ -264,6 +266,8 @@ private:
 	Reference<OpenGLMeshRenderData> cube_meshdata;
 	GLObjectRef env_ob;
 
+	float use_sensor_width;
+	float use_sensor_height;
 	float sensor_width;
 	float viewport_aspect_ratio;
 	float lens_sensor_dist;
