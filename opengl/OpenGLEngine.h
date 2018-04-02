@@ -345,6 +345,8 @@ private:
 	OpenGLMaterial depth_draw_with_alpha_test_mat;
 	int depth_diffuse_tex_location;
 	int depth_texture_matrix_location;
+	int depth_proj_view_model_matrix_location;
+	int depth_with_alpha_proj_view_model_matrix_location;
 
 	OverlayObjectRef tex_preview_overlay_ob;
 

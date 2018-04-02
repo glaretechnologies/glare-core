@@ -681,6 +681,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 					new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
 					new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 				);
+				this->depth_proj_view_model_matrix_location = depth_draw_mat.shader_prog->getUniformLocation("proj_view_model_matrix");
 			}
 			{
 				const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
@@ -691,6 +692,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 				);
 				depth_diffuse_tex_location		= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("diffuse_tex");
 				depth_texture_matrix_location	= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("texture_matrix");
+				this->depth_with_alpha_proj_view_model_matrix_location = depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("proj_view_model_matrix");
 			}
 
 			shadow_mapping = new ShadowMapping();
@@ -2490,10 +2492,23 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 	{
 		shader_prog->useProgram();
 
-		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-		glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
-		glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
+		if(shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
+		{
+			const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+			glUniformMatrix4fv(this->depth_proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+		}
+		else if(shader_prog.getPointer() == this->depth_draw_with_alpha_test_mat.shader_prog.getPointer())
+		{
+			const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+			glUniformMatrix4fv(this->depth_with_alpha_proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+		}
+		else
+		{
+			glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+			glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
+			glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
+		}
 
 		// Set uniforms.  NOTE: Setting the uniforms manually in this way is obviously quite hacky.  Improve.
 		if(shader_prog.getPointer() == this->phong_prog.getPointer())
