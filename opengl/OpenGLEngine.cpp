@@ -1619,8 +1619,8 @@ void OpenGLEngine::draw()
 			glActiveTexture(GL_TEXTURE0 + 0);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-			const Matrix4f identity = Matrix4f::identity();
-			glUniformMatrix4fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
+			const Matrix3f identity = Matrix3f::identity();
+			glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
 			glUniform1i(overlay_diffuse_tex_location, 0);
 				
 			glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
@@ -1661,13 +1661,12 @@ void OpenGLEngine::draw()
 					glActiveTexture(GL_TEXTURE0 + 0);
 					glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-					const GLfloat tex_elems[16] = {
-						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-						0, 0, 1, 0,
-						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+					const GLfloat tex_elems[9] = {
+						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 					};
-					glUniformMatrix4fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+					glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 					glUniform1i(overlay_diffuse_tex_location, 0);
 				}
 				
@@ -2461,13 +2460,12 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 0);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-		const GLfloat tex_elems[16] ={
-			opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-			opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-			0, 0, 1, 0,
-			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+		const GLfloat tex_elems[9] ={
+			opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+			opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 		};
-		glUniformMatrix4fv(use_phong_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+		glUniformMatrix3fv(use_phong_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 		glUniform1i(use_phong_locations.diffuse_tex_location, 0);
 	}
 
@@ -2535,13 +2533,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glActiveTexture(GL_TEXTURE0 + 0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-				const GLfloat tex_elems[16] = {
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-					0, 0, 1, 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+				const GLfloat tex_elems[9] = {
+					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 				};
-				glUniformMatrix4fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 				glUniform1i(this->env_diffuse_tex_location, 0);
 			}
 		}
@@ -2557,13 +2554,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glActiveTexture(GL_TEXTURE0 + 0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-				const GLfloat tex_elems[16] ={
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-					0, 0, 1, 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 0, 1
+				const GLfloat tex_elems[9] ={
+					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 				};
-				glUniformMatrix4fv(this->depth_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				glUniformMatrix3fv(this->depth_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 				glUniform1i(this->depth_diffuse_tex_location, 0);
 			}
 		}

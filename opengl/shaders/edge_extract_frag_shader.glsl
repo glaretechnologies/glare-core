@@ -12,15 +12,15 @@ void main()
 	float delta_x = 1.0 / float(tex_size.x);
 	float delta_y = 1.0 / float(tex_size.y);
 	
-	float a = texture(tex, (vec4(texture_coords.x - delta_x, texture_coords.y - delta_y, 0.0, 1.0)).xy).x;
-	float b = texture(tex, (vec4(texture_coords.x          , texture_coords.y - delta_y, 0.0, 1.0)).xy).x;
-	float c = texture(tex, (vec4(texture_coords.x + delta_x, texture_coords.y - delta_y, 0.0, 1.0)).xy).x;
-	float d = texture(tex, (vec4(texture_coords.x - delta_x, texture_coords.y          , 0.0, 1.0)).xy).x;
-	//        texture(tex, (vec4(texture_coords.x          , texture_coords.y          , 0.0, 1.0)).xy).x;
-	float f = texture(tex, (vec4(texture_coords.x + delta_x, texture_coords.y          , 0.0, 1.0)).xy).x;
-	float g = texture(tex, (vec4(texture_coords.x - delta_x, texture_coords.y + delta_y, 0.0, 1.0)).xy).x;
-	float h = texture(tex, (vec4(texture_coords.x          , texture_coords.y + delta_y, 0.0, 1.0)).xy).x;
-	float i = texture(tex, (vec4(texture_coords.x + delta_x, texture_coords.y + delta_y, 0.0, 1.0)).xy).x;
+	float a = texture(tex, (vec3(texture_coords.x - delta_x, texture_coords.y - delta_y, 1.0)).xy).x;
+	float b = texture(tex, (vec3(texture_coords.x          , texture_coords.y - delta_y, 1.0)).xy).x;
+	float c = texture(tex, (vec3(texture_coords.x + delta_x, texture_coords.y - delta_y, 1.0)).xy).x;
+	float d = texture(tex, (vec3(texture_coords.x - delta_x, texture_coords.y          , 1.0)).xy).x;
+	//        texture(tex, (vec3(texture_coords.x          , texture_coords.y          , 1.0)).xy).x;
+	float f = texture(tex, (vec3(texture_coords.x + delta_x, texture_coords.y          , 1.0)).xy).x;
+	float g = texture(tex, (vec3(texture_coords.x - delta_x, texture_coords.y + delta_y, 1.0)).xy).x;
+	float h = texture(tex, (vec3(texture_coords.x          , texture_coords.y + delta_y, 1.0)).xy).x;
+	float i = texture(tex, (vec3(texture_coords.x + delta_x, texture_coords.y + delta_y, 1.0)).xy).x;
 
 	float G_x = -a + c - 2*d + 2*f - g + i;
 	float G_y =  a + 2*b + c - g - 2*h - i;
