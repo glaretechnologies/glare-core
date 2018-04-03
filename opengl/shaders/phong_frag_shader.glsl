@@ -3,7 +3,9 @@
 in vec3 normal;
 in vec3 pos_cs;
 in vec2 texture_coords;
+#if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
+#endif
 
 uniform vec4 sundir;
 uniform vec4 diffuse_colour;

@@ -461,18 +461,22 @@ static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector
 }
 
 
-void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, PhongUniformLocations& phong_locations_out)
+void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, PhongUniformLocations& phong_locations_out)
 {
 	phong_locations_out.diffuse_colour_location				= phong_prog->getUniformLocation("diffuse_colour");
 	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
 	phong_locations_out.have_texture_location				= phong_prog->getUniformLocation("have_texture");
 	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
-	phong_locations_out.phong_depth_tex_location			= phong_prog->getUniformLocation("depth_tex");
 	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
 	phong_locations_out.sundir_location						= phong_prog->getUniformLocation("sundir");
 	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
 	phong_locations_out.fresnel_scale_location				= phong_prog->getUniformLocation("fresnel_scale");
-	phong_locations_out.phong_shadow_texture_matrix_location = phong_prog->getUniformLocation("shadow_texture_matrix");
+	
+	if(shadow_mapping_enabled)
+	{
+		phong_locations_out.phong_depth_tex_location				= phong_prog->getUniformLocation("depth_tex");
+		phong_locations_out.phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+	}
 }
 
 
@@ -616,7 +620,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
 		}
-		getPhongUniformLocations(phong_prog, phong_locations);
+		getPhongUniformLocations(phong_prog, shadow_mapping.nonNull(), phong_locations);
 
 		{
 			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
@@ -627,7 +631,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
 		}
-		getPhongUniformLocations(phong_with_alpha_test_prog, phong_with_alpha_test_locations);
+		getPhongUniformLocations(phong_with_alpha_test_prog, shadow_mapping.nonNull(), phong_with_alpha_test_locations);
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
