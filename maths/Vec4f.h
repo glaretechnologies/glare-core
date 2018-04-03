@@ -164,13 +164,6 @@ INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
-{
-	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
-	return _mm_and_ps(a.v, _mm_load_ps((const float*)mask));
-}
-
-
 INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& unit_dir)
 {
 	assert(unit_dir.isUnitLength());
@@ -450,6 +443,12 @@ INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
 INDIGO_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_castps_si128(v.v));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
+{
+	return _mm_and_ps(a.v, bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v);
 }
 
 

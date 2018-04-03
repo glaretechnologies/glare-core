@@ -282,6 +282,61 @@ void RayMeshTests::test()
 		conPrint("min_time: " + ::doubleToStringNSigFigs(min_time, 5) + " s");
 	}
 
+	//==================== Perf test getInfoForHit() ========================
+	if(false)
+	{
+		Indigo::Mesh indigo_mesh;
+		indigo_mesh.addVertex(Indigo::Vec3f(0, 0, 0));
+		indigo_mesh.addVertex(Indigo::Vec3f(1, 0, 0));
+		indigo_mesh.addVertex(Indigo::Vec3f(1, 1, 0));
+		indigo_mesh.addVertex(Indigo::Vec3f(0, 1, 0));
+		const uint32 uv[3] = { 0, 0, 0 };
+		const uint32 tri_0_v[3] = { 0, 1, 2 };
+		indigo_mesh.addTriangle(tri_0_v, uv, 0);
+		const uint32 tri_1_v[3] = { 0, 2, 3 };
+		indigo_mesh.addTriangle(tri_1_v, uv, 0);
+		indigo_mesh.endOfModel();
+
+		RayMesh mesh("mesh", /*use shading normals=*/true);
+		mesh.fromIndigoMesh(indigo_mesh);
+		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
+			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+
+		HitInfo hitinfo;
+		hitinfo.sub_elem_index = 0;
+		hitinfo.sub_elem_coords.set(0.3f, 0.6f);
+
+		Timer timer;
+		int N = 1000000;
+		Vec4f sum(0.0f);
+		for(int i=0; i<N; ++i)
+		{
+			Vec4f N_g_os;
+			Vec4f pre_bump_N_s_os_unnormed;
+			Vec4f pos_os;
+			float pos_os_abs_error;
+			unsigned int mat_index;
+			
+			Vec2f uv0;
+			mesh.getInfoForHit(hitinfo,
+				N_g_os,
+				pre_bump_N_s_os_unnormed,
+				mat_index,
+				pos_os,
+				pos_os_abs_error,
+				uv0);
+
+			sum += N_g_os;
+		}
+			
+		double elapsed = timer.elapsed();
+		double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+		conPrint("getInfoForHit() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+		TestUtils::silentPrint(::toString(scalarsum));
+	}
+
 
 	conPrint("RayMeshTests::test() done.");
 }

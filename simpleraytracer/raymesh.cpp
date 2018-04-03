@@ -134,29 +134,26 @@ void RayMesh::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vec
 }
 
 
+// Length of returned normal vector should be set to the area of triangle.
 const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const
 {
 	assert(built());
 
-	//Vec4f n;
-	////triNormal(hitinfo.sub_elem_index).vectorToVec4f(n);
-	////this->triangle_geom_normals[hitinfo.sub_elem_index].vectorToVec4f(n);
-	//this->triangles[hitinfo.sub_elem_index].geom_normal.vectorToVec4f(n);
-	//return n;
-	////return triNormal(hitinfo.sub_elem_index).toVec4fVector(); // This is slower :(
+	const RayMeshTriangle& tri = this->triangles[hitinfo.sub_elem_index];
+	const RayMeshVertex& v0 = vertices[tri.vertex_indices[0]];
+	const RayMeshVertex& v1 = vertices[tri.vertex_indices[1]];
+	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
 
-	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
-	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-	const Vec3f e0(v1.pos - v0.pos);
-	const Vec3f e1(v2.pos - v0.pos);
-	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
+	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
+	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
 
-	// Length should be equal to area of triangle.
-	const RayMesh::Vec3Type N_g((e0.y * e1.z - e0.z * e1.y) * 0.5f,
-								(e0.z * e1.x - e0.x * e1.z) * 0.5f,
-								(e0.x * e1.y - e0.y * e1.x) * 0.5f, 0);
+	// Compute N_g_os_out
+	const Vec4f e0 = maskWToZero(v1pos - v0pos);
+	const Vec4f e1 = maskWToZero(v2pos - v0pos);
+	const Vec4f N_g = crossProduct(e0, e1) * 0.5f; // Length should be equal to area of triangle.
+	assert(N_g[3] == 0);
 
 	mat_index_out = tri.getTriMatIndex();
 
@@ -164,53 +161,45 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hi
 }
 
 
-void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_abs_error_out, Vec3Type& N_g_out) const
+void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, Vec3RealType& pos_os_abs_error_out, 
+	Vec3Type& N_g_os_out) const
 {
 	assert(built());
 
-	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
-	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-	const Vec3f e0(v1.pos - v0.pos);
-	const Vec3f e1(v2.pos - v0.pos);
-	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
-	N_g_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
+	const float u = hitinfo.sub_elem_coords.x;
+	const float v = hitinfo.sub_elem_coords.y;
+	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 
-	assert(N_g_out.isUnitLength());
+	const RayMeshTriangle& tri = this->triangles[hitinfo.sub_elem_index];
+	const RayMeshVertex& v0 = vertices[tri.vertex_indices[0]];
+	const RayMeshVertex& v1 = vertices[tri.vertex_indices[1]];
+	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
+
+	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
+	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
+
+	// Compute N_g_os_out
+	const Vec4f e0 = maskWToZero(v1pos - v0pos);
+	const Vec4f e1 = maskWToZero(v2pos - v0pos);
+	N_g_os_out = crossProduct(e0, e1) * tri.inv_cross_magnitude;
+	assert(N_g_os_out.isUnitLength() && N_g_os_out[3] == 0);
 
 	// Compute pos_os_out and pos_os_abs_error_out
-	const Vec3RealType w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	pos_os_out = Vec3Type(
-		v0.pos.x * w + v1.pos.x * hitinfo.sub_elem_coords.x + v2.pos.x * hitinfo.sub_elem_coords.y,
-		v0.pos.y * w + v1.pos.y * hitinfo.sub_elem_coords.x + v2.pos.y * hitinfo.sub_elem_coords.y,
-		v0.pos.z * w + v1.pos.z * hitinfo.sub_elem_coords.x + v2.pos.z * hitinfo.sub_elem_coords.y,
-		1.f
-	);
+	pos_os_out = v0pos * w + v1pos * u + v2pos * v;
+	pos_os_out[3] = 1.f;
 
 	// Compute absolute error in pos_os.
-	float u = hitinfo.sub_elem_coords.x;
-	float v = hitinfo.sub_elem_coords.y;
+	
 	// NOTE: assume delta_u = delta_v = delta_m.
-	//float del_u = std::numeric_limits<float>::epsilon(); // abs value of Relative error in u
-	//float del_v = std::numeric_limits<float>::epsilon(); // abs value of Relative error in v
-	float del_m = std::numeric_limits<float>::epsilon(); // Machine epsilon
-	float v0_norm = Numeric::L1Norm(v0.pos);
-	float v1_norm = Numeric::L1Norm(v1.pos);
-	float v2_norm = Numeric::L1Norm(v2.pos);
+	const float del_m = 0.5f * std::numeric_limits<float>::epsilon(); // Machine epsilon
+	const float a = Numeric::L1Norm(v0pos);
+	const float b = Numeric::L1Norm(v1pos);
+	const float c = Numeric::L1Norm(v2pos);
 
 	// Do the absolute error computation
-	float a = v0_norm;
-	float b = v1_norm;
-	float c = v2_norm;
-	//float eps = ((3*a + 4*c)*v + (3*a + 4*b)*u + 4*a)*del_m;  // Sage version
-	//float eps = (u*(del_u + 4*del_m) + v*(del_v + 4*del_m) + 3*del_m)*a + (del_u + 3*del_m)*u*b + (del_v + 3*del_m)*v*c; // Version if del_u, del_v != del_m
-	// Assuming |del_u| = |del_v| = del_m:
-	float eps = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
-
-	pos_os_abs_error_out = eps;
+	pos_os_abs_error_out = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
 }
 
 
@@ -219,84 +208,66 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	assert(built());
 
 	// NOTE: We'll manually inline the body of getPosAndGeomNormal() here in order to avoid the overhead of the virtual method call, and so we can reuse some variables.
-
-
+	
 	const float u = hitinfo.sub_elem_coords.x;
 	const float v = hitinfo.sub_elem_coords.y;
 	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 
+	const RayMeshTriangle& tri = this->triangles[hitinfo.sub_elem_index];
+	const RayMeshVertex& v0 = vertices[tri.vertex_indices[0]];
+	const RayMeshVertex& v1 = vertices[tri.vertex_indices[1]];
+	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
 
-	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
-	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
+	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
 
 	// Compute N_g_os_out
-	const Vec3f e0(v1.pos - v0.pos);
-	const Vec3f e1(v2.pos - v0.pos);
-	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
-	N_g_os_out.set(			(e0.y * e1.z - e0.z * e1.y) * tri.inv_cross_magnitude,
-							(e0.z * e1.x - e0.x * e1.z) * tri.inv_cross_magnitude,
-							(e0.x * e1.y - e0.y * e1.x) * tri.inv_cross_magnitude, 0);
-
-	assert(N_g_os_out.isUnitLength());
-
+	const Vec4f e0 = maskWToZero(v1pos - v0pos);
+	const Vec4f e1 = maskWToZero(v2pos - v0pos);
+	N_g_os_out = crossProduct(e0, e1) * tri.inv_cross_magnitude;
+	assert(N_g_os_out.isUnitLength() && N_g_os_out[3] == 0);
 
 	// Compute pos_os_out and pos_os_abs_error_out
-	pos_os_out = Vec3Type(
-		v0.pos.x * w + v1.pos.x * u + v2.pos.x * v,
-		v0.pos.y * w + v1.pos.y * u + v2.pos.y * v,
-		v0.pos.z * w + v1.pos.z * u + v2.pos.z * v,
-		1.f
-	);
+	pos_os_out = v0pos * w + v1pos * u + v2pos * v;
+	pos_os_out[3] = 1.f;
 
 	// Compute absolute error in pos_os.
 	
 	// NOTE: assume delta_u = delta_v = delta_m.
 	//float del_u = std::numeric_limits<float>::epsilon(); // abs value of Relative error in u
 	//float del_v = std::numeric_limits<float>::epsilon(); // abs value of Relative error in v
-	float del_m = 0.5f * std::numeric_limits<float>::epsilon(); // Machine epsilon
-	float v0_norm = Numeric::L1Norm(v0.pos);
-	float v1_norm = Numeric::L1Norm(v1.pos);
-	float v2_norm = Numeric::L1Norm(v2.pos);
+	const float del_m = 0.5f * std::numeric_limits<float>::epsilon(); // Machine epsilon
+	const float a = Numeric::L1Norm(v0pos);
+	const float b = Numeric::L1Norm(v1pos);
+	const float c = Numeric::L1Norm(v2pos);
 
 	// Do the absolute error computation
-	float a = v0_norm;
-	float b = v1_norm;
-	float c = v2_norm;
 	//float eps = ((3*a + 4*c)*v + (3*a + 4*b)*u + 4*a)*del_m;  // Sage version
 	//float eps = (u*(del_u + 4*del_m) + v*(del_v + 4*del_m) + 3*del_m)*a + (del_u + 3*del_m)*u*b + (del_v + 3*del_m)*v*c; // Version if del_u, del_v != del_m
 	// Assuming |del_u| = |del_v| = del_m:
-	float eps = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
-
-	pos_os_abs_error_out = eps;
+	pos_os_abs_error_out = ((5*(u + v) + 3)*a + 4*(u*b + v*c)) * del_m;
 
 
 	mat_index_out = tri.getTriMatIndex();
 
 	// Compute shading normal - set N_s_os_out.
 	if(tri.getUseShadingNormals() == 0)
-	{
 		N_s_os_out = N_g_os_out;
-	}
 	else
 	{
-		const Vec3f& v0norm = v0.normal;
-		const Vec3f& v1norm = v1.normal;
-		const Vec3f& v2norm = v2.normal;
+		static_assert(offsetof(RayMeshVertex, normal) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
+		const Vec4f v0norm = _mm_loadu_ps(&v0.normal.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+		const Vec4f v1norm = _mm_loadu_ps(&v1.normal.x);
+		const Vec4f v2norm = _mm_loadu_ps(&v2.normal.x);
 
-		N_s_os_out = Vec3Type(
-			v0norm.x * w + v1norm.x * u + v2norm.x * v,
-			v0norm.y * w + v1norm.y * u + v2norm.y * v,
-			v0norm.z * w + v1norm.z * u + v2norm.z * v,
-			0.f
-		);
+		N_s_os_out = maskWToZero(v0norm * w + v1norm * u + v2norm * v);
 	}
 
+	// Compute uv0
 	if(num_uv_sets == 0)
-	{
 		uv0_out.set(0, 0);
-	}
 	else
 	{
 		unsigned int v0idx = tri.uv_indices[0] * num_uv_sets;
@@ -1027,33 +998,27 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 
 void RayMesh::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out) const
 {
-	Vec4f v0pos;
-	Vec4f v1pos;
-	Vec4f v2pos;
-	triVertPos(hitinfo.sub_elem_index, 0).pointToVec4f(v0pos);
-	triVertPos(hitinfo.sub_elem_index, 1).pointToVec4f(v1pos);
-	triVertPos(hitinfo.sub_elem_index, 2).pointToVec4f(v2pos);
-
-	dp_dalpha_out = v1pos - v0pos;
-	dp_dbeta_out  = v2pos - v0pos;
+	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
+	const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x);
+	const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+	dp_dalpha_out = maskWToZero(v1pos - v0pos); // Mask off garbage W values.
+	dp_dbeta_out  = maskWToZero(v2pos - v0pos);
 }
 
 
 // This can be optimised quite a bit...
 inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, const Matrix4f& to_parent)
 {
-	/*const Vec3f& v0 = mesh.triVertPos(tri_index, 0);
-	const Vec3f& v1 = mesh.triVertPos(tri_index, 1);
-	const Vec3f& v2 = mesh.triVertPos(tri_index, 2);*/
-	Vec4f v0, v1, v2;
-	mesh.triVertPos(tri_index, 0).vectorToVec4f(v0);
-	mesh.triVertPos(tri_index, 1).vectorToVec4f(v1);
-	mesh.triVertPos(tri_index, 2).vectorToVec4f(v2);
+	const RayMeshTriangle& tri = mesh.getTriangles()[tri_index];
+	const Vec4f v0 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[0]].pos.x);
+	const Vec4f v1 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[2]].pos.x);
 
-	const Vec4f e0(to_parent * (v1 - v0));
-	const Vec4f e1(to_parent * (v2 - v0));
+	const Vec4f e0(to_parent * maskWToZero(v1 - v0)); // Mask off garbage W values.
+	const Vec4f e1(to_parent * maskWToZero(v2 - v0));
 
-	return Vec4f(crossProduct(e0, e1)).length() * 0.5f;
+	return crossProduct(e0, e1).length() * 0.5f;
 }
 
 
@@ -1333,11 +1298,11 @@ void RayMesh::buildTriangleInvCrossMagnitudes(Indigo::TaskManager& task_manager)
 
 		RayMeshTriangle& tri = tris[i];
 
-		const Vec4f v0pos = verts[tri.vertex_indices[0]].pos.toVec4fVector();
-		const Vec4f v1pos = verts[tri.vertex_indices[1]].pos.toVec4fVector();
-		const Vec4f v2pos = verts[tri.vertex_indices[2]].pos.toVec4fVector();
+		const Vec4f v0pos = _mm_loadu_ps(&verts[tri.vertex_indices[0]].pos.x);
+		const Vec4f v1pos = _mm_loadu_ps(&verts[tri.vertex_indices[1]].pos.x);
+		const Vec4f v2pos = _mm_loadu_ps(&verts[tri.vertex_indices[2]].pos.x);
 
-		tri.inv_cross_magnitude = 1.f / ::crossProduct(v1pos - v0pos, v2pos - v0pos).length();
+		tri.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 	}
 
 	// conPrint("RayMesh::buildTriangleInvCrossMagnitudes took " + timer.elapsedString());
