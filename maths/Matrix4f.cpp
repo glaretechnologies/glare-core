@@ -11,13 +11,6 @@ Copyright Glare Technologies Limited 2017 -
 #include "../utils/StringUtils.h"
 
 
-Matrix4f::Matrix4f(const float* data)
-{
-	for(unsigned int i=0; i<16; ++i)
-		e[i] = data[i];
-}
-
-
 Matrix4f::Matrix4f(const Matrix3f& upper_left_mat, const Vec3f& translation)
 {
 	/*
@@ -43,15 +36,6 @@ Matrix4f::Matrix4f(const Matrix3f& upper_left_mat, const Vec3f& translation)
 
 	e[3] = e[7] = e[11] = 0.0f;
 	e[15] = 1.0f;
-}
-
-
-Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3)
-{
-	_mm_store_ps(e + 0,  col0.v);
-	_mm_store_ps(e + 4,  col1.v);
-	_mm_store_ps(e + 8,  col2.v);
-	_mm_store_ps(e + 12, col3.v);
 }
 
 
@@ -631,16 +615,19 @@ void Matrix4f::test()
 		const float e[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
 		const Matrix4f m(e);
-
-		Matrix4f transpose;
-		m.getTranspose(transpose);
-
 		/*
 		0	4	8	12
 		1	5	9	13
 		2	6	10	14
 		3	7	11	15
 		*/
+
+		//------------- test getTranspose() ----------------
+		Matrix4f transpose;
+		m.getTranspose(transpose);
+
+		const float transposed_e[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+		testAssert(transpose == Matrix4f(transposed_e));
 
 		//------------- test operator * (const Matrix4f& m, const Vec4f& v) ----------------
 		{

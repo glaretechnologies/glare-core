@@ -26,10 +26,10 @@ public:
 	INDIGO_ALIGNED_NEW_DELETE
 
 	inline Matrix4f() {}
-	Matrix4f(const float* data);
+	inline Matrix4f(const float* data);
 
 	Matrix4f(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
-	Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3);
+	inline Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3);
 
 	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 
@@ -110,6 +110,24 @@ public:
 	*/
 	float e[16];
 };
+
+
+Matrix4f::Matrix4f(const float* data)
+{
+	_mm_store_ps(e +  0, _mm_loadu_ps(data +  0));
+	_mm_store_ps(e +  4, _mm_loadu_ps(data +  4));
+	_mm_store_ps(e +  8, _mm_loadu_ps(data +  8));
+	_mm_store_ps(e + 12, _mm_loadu_ps(data + 12));
+}
+
+
+Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3)
+{
+	_mm_store_ps(e + 0,  col0.v);
+	_mm_store_ps(e + 4,  col1.v);
+	_mm_store_ps(e + 8,  col2.v);
+	_mm_store_ps(e + 12, col3.v);
+}
 
 
 void Matrix4f::setToTranslationMatrix(float x, float y, float z)
@@ -195,22 +213,13 @@ const Vec4f Matrix4f::transposeMult3Vector(const Vec4f& v) const
 
 void Matrix4f::getTranspose(Matrix4f& transpose_out) const
 {
-	transpose_out.e[0] = e[0];
-	transpose_out.e[1] = e[4];
-	transpose_out.e[2] = e[8];
-	transpose_out.e[3] = e[12];
-	transpose_out.e[4] = e[1];
-	transpose_out.e[5] = e[5];
-	transpose_out.e[6] = e[9];
-	transpose_out.e[7] = e[13];
-	transpose_out.e[8] = e[2];
-	transpose_out.e[9] = e[6];
-	transpose_out.e[10] = e[10];
-	transpose_out.e[11] = e[14];
-	transpose_out.e[12] = e[3];
-	transpose_out.e[13] = e[7];
-	transpose_out.e[14] = e[11];
-	transpose_out.e[15] = e[15];
+	Vec4f c0, c1, c2, c3;
+	transpose(getColumn(0), getColumn(1), getColumn(2), getColumn(3), c0, c1, c2, c3);
+
+	transpose_out.setColumn(0, c0);
+	transpose_out.setColumn(1, c1);
+	transpose_out.setColumn(2, c2);
+	transpose_out.setColumn(3, c3);
 }
 
 
