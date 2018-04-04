@@ -420,10 +420,10 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			for(size_t i=0; i<num_tris; ++i)
 			{
 				const RayMeshTriangle& tri = this->triangles[i];
-				const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-				const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-				const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-				triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+				const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x);
+				const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
+				const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+				triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 			}
 		}
 	
@@ -437,10 +437,10 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			for(size_t i=0; i<num_quads; ++i)
 			{
 				const RayMeshQuad& q = this->quads[i];
-				const RayMeshVertex& v0(vertices[q.vertex_indices[0]]);
-				const RayMeshVertex& v1(vertices[q.vertex_indices[1]]);
-				const RayMeshVertex& v2(vertices[q.vertex_indices[2]]);
-				const RayMeshVertex& v3(vertices[q.vertex_indices[3]]);
+				const Vec4f v0pos = _mm_loadu_ps(&vertices[q.vertex_indices[0]].pos.x);
+				const Vec4f v1pos = _mm_loadu_ps(&vertices[q.vertex_indices[1]].pos.x);
+				const Vec4f v2pos = _mm_loadu_ps(&vertices[q.vertex_indices[2]].pos.x);
+				const Vec4f v3pos = _mm_loadu_ps(&vertices[q.vertex_indices[3]].pos.x);
 
 				RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
 				RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
@@ -452,7 +452,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				tri_1.uv_indices[1] = q.uv_indices[1];
 				tri_1.uv_indices[2] = q.uv_indices[2];
 				tri_1.setRawTriMatIndex(q.getRawMatIndex());
-				tri_1.inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+				tri_1.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
 				tri_2.vertex_indices[0] = q.vertex_indices[0];
 				tri_2.vertex_indices[1] = q.vertex_indices[2];
@@ -461,7 +461,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 				tri_2.uv_indices[1] = q.uv_indices[2];
 				tri_2.uv_indices[2] = q.uv_indices[3];
 				tri_2.setRawTriMatIndex(q.getRawMatIndex());
-				tri_2.inv_cross_magnitude = 1.f / ::crossProduct(v2.pos - v0.pos, v3.pos - v0.pos).length();
+				tri_2.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v2pos - v0pos), maskWToZero(v3pos - v0pos)).length();
 			}
 
 			this->quads.clearAndFreeMem();
@@ -503,10 +503,10 @@ void RayMesh::buildTrisFromQuads()
 		for(size_t i=0; i<num_quads; ++i)
 		{
 			const RayMeshQuad& q = this->quads[i];
-			const RayMeshVertex& v0(vertices[q.vertex_indices[0]]);
-			const RayMeshVertex& v1(vertices[q.vertex_indices[1]]);
-			const RayMeshVertex& v2(vertices[q.vertex_indices[2]]);
-			const RayMeshVertex& v3(vertices[q.vertex_indices[3]]);
+			const Vec4f v0pos = _mm_loadu_ps(&vertices[q.vertex_indices[0]].pos.x);
+			const Vec4f v1pos = _mm_loadu_ps(&vertices[q.vertex_indices[1]].pos.x);
+			const Vec4f v2pos = _mm_loadu_ps(&vertices[q.vertex_indices[2]].pos.x);
+			const Vec4f v3pos = _mm_loadu_ps(&vertices[q.vertex_indices[3]].pos.x);
 
 			RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
 			RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
@@ -518,7 +518,7 @@ void RayMesh::buildTrisFromQuads()
 			tri_1.uv_indices[1] = q.uv_indices[1];
 			tri_1.uv_indices[2] = q.uv_indices[2];
 			tri_1.setRawTriMatIndex(q.getRawMatIndex());
-			tri_1.inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+			tri_1.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
 			tri_2.vertex_indices[0] = q.vertex_indices[0];
 			tri_2.vertex_indices[1] = q.vertex_indices[2];
@@ -527,7 +527,7 @@ void RayMesh::buildTrisFromQuads()
 			tri_2.uv_indices[1] = q.uv_indices[2];
 			tri_2.uv_indices[2] = q.uv_indices[3];
 			tri_2.setRawTriMatIndex(q.getRawMatIndex());
-			tri_2.inv_cross_magnitude = 1.f / ::crossProduct(v2.pos - v0.pos, v3.pos - v0.pos).length();
+			tri_2.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v2pos - v0pos), maskWToZero(v3pos - v0pos)).length();
 		}
 
 		this->quads.clearAndFreeMem();
@@ -740,10 +740,10 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		for(size_t i=0; i<num_tris; ++i)
 		{
 			const RayMeshTriangle& tri = new_mesh->triangles[i];
-			const RayMeshVertex& v0(new_mesh->vertices[tri.vertex_indices[0]]);
-			const RayMeshVertex& v1(new_mesh->vertices[tri.vertex_indices[1]]);
-			const RayMeshVertex& v2(new_mesh->vertices[tri.vertex_indices[2]]);
-			new_mesh->triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
+			const Vec4f v0pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[0]].pos.x);
+			const Vec4f v1pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[1]].pos.x);
+			const Vec4f v2pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[2]].pos.x);
+			new_mesh->triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 		}
 	}
 
@@ -751,14 +751,17 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 }
 
 
-static inline const Vec3f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
+static inline const Vec4f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
-	const Vec3f& p0 = verts[v0].pos, p1 = verts[v1].pos, p2 = verts[v2].pos;
-	const Vec3f e0 = p1 - p0;
-	const Vec3f e1 = p2 - p0;
-	const Vec3f n  = crossProduct(e0, e1);
+	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
 
-	return normalise(n);
+	const Vec4f v0pos = _mm_loadu_ps(&verts[v0].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&verts[v1].pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&verts[v2].pos.x);
+
+	const Vec4f e0 = maskWToZero(v1pos - v0pos); // Mask off garbage
+	const Vec4f e1 = maskWToZero(v2pos - v0pos);
+	return normalise(crossProduct(e0, e1));
 }
 
 
@@ -791,11 +794,11 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 
 	// Compute if this geometry is planar
 	this->planar = true;
-	const Vec3f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
-	this->planar_normal = normal_0.toVec4fVector();
+	const Vec4f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
+	this->planar_normal = normal_0;
 	for(size_t i=1; i<triangles.size(); ++i)
 	{
-		const Vec3f n = triGeometricNormal(vertices, triangles[i].vertex_indices[0], triangles[i].vertex_indices[1], triangles[i].vertex_indices[2]);
+		const Vec4f n = triGeometricNormal(vertices, triangles[i].vertex_indices[0], triangles[i].vertex_indices[1], triangles[i].vertex_indices[2]);
 		if(!epsEqual(n, normal_0, 1.0e-5f))
 		{
 			this->planar = false;
@@ -1022,10 +1025,7 @@ inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, cons
 }
 
 
-//inline static float getTriArea(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2)
-//{
-//	return ::crossProduct(v1 - v0, v2 - v0).length() * 0.5f;
-//}
+static const float MIN_TRIANGLE_AREA_TIMES_TWO = 2.0e-20f;
 
 
 void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
@@ -1128,17 +1128,14 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 		// Check the area of the triangle.
 		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
-		const float MIN_TRIANGLE_AREA = 1.0e-20f;
+		const Vec4f v0pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+		const Vec4f v1pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[1]].pos.x);
+		const Vec4f v2pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[2]].pos.x);
+		const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
-		const RayMeshVertex& v0(vertices[src_tri.vertex_indices[0]]);
-		const RayMeshVertex& v1(vertices[src_tri.vertex_indices[1]]);
-		const RayMeshVertex& v2(vertices[src_tri.vertex_indices[2]]);
-		const float cross_prod_len = ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
-
-		if((cross_prod_len * 0.5f) < MIN_TRIANGLE_AREA)
+		if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
 		{
-			//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
-			//return;
+			// conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
 		}
 		else
 		{
@@ -1234,17 +1231,14 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
 	// Check the area of the triangle
-	const float MIN_TRIANGLE_AREA = 1.0e-20f;
+	const Vec4f v0pos = _mm_loadu_ps(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&vertices[vertex_indices[1]].pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&vertices[vertex_indices[2]].pos.x);
+	const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
-	const RayMeshVertex& v0(vertices[vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[vertex_indices[2]]);
-
-	const float cross_prod_len = ::crossProduct(v1.pos - v0.pos, v2.pos - v0.pos).length();
-
-	if((cross_prod_len * 0.5f) < MIN_TRIANGLE_AREA)
+	if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
 	{
-		//TEMP: conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+		// conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
 		return;
 	}
 
@@ -1344,21 +1338,17 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	hitinfo_out.sub_elem_coords.set(u, v);
 
 	const RayMeshTriangle& tri(this->triangles[sub_elem_index]);
-	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
-	const Vec3f e0(v1.pos - v0.pos);
-	const Vec3f e1(v2.pos - v0.pos);
-	assert(epsEqual(tri.inv_cross_magnitude, 1.f / ::crossProduct(e1, e0).length()));
+	const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+	const Vec4f normal = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos));
+	assert(normal[3] == 0 && epsEqual(tri.inv_cross_magnitude, 1.f / normal.length()));
 
-	// length should be equal to area of triangle.
-	normal_out.set((e0.y * e1.z - e0.z * e1.y) * 0.5f,
-				   (e0.z * e1.x - e0.x * e1.z) * 0.5f,
-				   (e0.x * e1.y - e0.y * e1.x) * 0.5f, 0);
+	// length of returned normal vector should be equal to area of triangle.
+	normal_out = normal * 0.5f;
 
-	pos_out.set(v0.pos.x * (1 - s) + v1.pos.x * u + v2.pos.x * v,
-				v0.pos.y * (1 - s) + v1.pos.y * u + v2.pos.y * v,
-				v0.pos.z * (1 - s) + v1.pos.z * u + v2.pos.z * v, 1);
+	pos_out = v0pos * (1 - s) + v1pos * u + v2pos * v;
+	pos_out[3] = 1; // W coord will be garbage, so set it.
 
 	mat_index_out = tri.getTriMatIndex();
 
@@ -1475,21 +1465,21 @@ public:
 		{
 			if(t >= total_num_tris) // If this refers to a quad, not a tri:
 			{
-				poly_info[t].normal = triGeometricNormal(
+				poly_info[t].normal = toVec3f(triGeometricNormal(
 					vertices, 
 					quads[t - total_num_tris].vertex_indices[0], 
 					quads[t - total_num_tris].vertex_indices[1], 
 					quads[t - total_num_tris].vertex_indices[2]
-				);
+				));
 			}
 			else
 			{
-				const Vec3f tri_normal = triGeometricNormal(
+				const Vec3f tri_normal = toVec3f(triGeometricNormal(
 					vertices, 
 					triangles[t].vertex_indices[0], 
 					triangles[t].vertex_indices[1], 
 					triangles[t].vertex_indices[2]
-				);
+				));
 				/*
 				Vec3f dp_du(0.f);
 				Vec3f dp_dv(0.f);
