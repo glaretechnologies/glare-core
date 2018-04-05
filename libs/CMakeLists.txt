@@ -75,16 +75,21 @@ ${ilmbasedir}/Imath/ImathVecAlgo.h
 )
 
 
-SET(ilmthread "${ilmbasedir}/IlmThread/IlmThread.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadMutex.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadPool.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadPosix.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp"
-"${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp")
+SET(ilmthread
+${ilmbasedir}/IlmThread/IlmThread.cpp
+${ilmbasedir}/IlmThread/IlmThreadMutex.cpp
+${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp
+${ilmbasedir}/IlmThread/IlmThreadPool.cpp
+${ilmbasedir}/IlmThread/IlmThreadPosix.cpp
+${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp
+${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp
+${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp)
 if(WIN32)
-	SET(ilmthread ${ilmthread} "${ilmbasedir}/IlmThread/IlmThreadMutexWin32.cpp" "${ilmbasedir}/IlmThread/IlmThreadWin32.cpp" "${ilmbasedir}/IlmThread/IlmThreadSemaphoreWin32.cpp")
+	SET(ilmthread
+	${ilmthread}
+	${ilmbasedir}/IlmThread/IlmThreadMutexWin32.cpp
+	${ilmbasedir}/IlmThread/IlmThreadWin32.cpp
+	${ilmbasedir}/IlmThread/IlmThreadSemaphoreWin32.cpp)
 endif()
 
 SET(openexr
