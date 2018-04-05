@@ -722,6 +722,8 @@ struct ImagePipelineTaskClosure
 	bool skip_curves;
 
 	CurveData curve_data;
+
+	const Image* source_render_channel; // non-null if the source is a non-beauty render channel.
 };
 
 
@@ -756,6 +758,7 @@ public:
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool has_spectral_channel = closure.render_channels->hasSpectral();
+		const Image* const source_render_channel = closure.source_render_channel;
 
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
@@ -819,10 +822,18 @@ public:
 
 					assert(!has_spectral_channel);
 					
-					for(ptrdiff_t z = 0; z < num_layers; ++z)
+					if(source_render_channel)
 					{
-						const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
-						sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+						const Image::ColourType& c = source_render_channel->getPixel(src_addr);
+						sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[0];
+					}
+					else
+					{
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						{
+							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+						}
 					}
 
 					// Get alpha from alpha channel if we are doing a foreground-alpha render
@@ -946,10 +957,18 @@ public:
 					}
 					else
 					{
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						if(source_render_channel)
 						{
-							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
-							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+							const Image::ColourType& c = source_render_channel->getPixel(src_addr);
+							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[0];
+						}
+						else
+						{
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							{
+								const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+								sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+							}
 						}
 					}
 
@@ -1050,6 +1069,7 @@ DoTonemapScratchState::~DoTonemapScratchState()
 void doTonemap(	
 	DoTonemapScratchState& scratch_state,
 	const RenderChannels& render_channels,
+	const std::string& source_channel_name,
 	const std::vector<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
@@ -1185,6 +1205,21 @@ void doTonemap(
 		closure.render_regions = &render_regions;
 		closure.tonemap_params = &tonemap_params;
 		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
+
+		if(source_channel_name == "direct_lighting")
+			closure.source_render_channel = &render_channels.direct_lighting;
+		else if(source_channel_name == "indirect_lighting")
+			closure.source_render_channel = &render_channels.indirect_lighting;
+		else if(source_channel_name == "specular_reflection_lighting")
+			closure.source_render_channel = &render_channels.specular_reflection_lighting;
+		else if(source_channel_name == "refraction_lighting")
+			closure.source_render_channel = &render_channels.refraction_lighting;
+		else if(source_channel_name == "transmission_lighting")
+			closure.source_render_channel = &render_channels.transmission_lighting;
+		else if(source_channel_name == "emission_lighting")
+			closure.source_render_channel = &render_channels.emission_lighting;
+		else
+			closure.source_render_channel = NULL;
 
 		closure.x_tiles = x_tiles;
 		closure.final_xres = final_xres;
