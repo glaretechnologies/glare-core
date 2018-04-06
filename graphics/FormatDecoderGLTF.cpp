@@ -327,13 +327,13 @@ static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT = 5125;
 static const int GLTF_COMPONENT_TYPE_FLOAT = 5126;
 
 
-static const int GLTF_MODE_POINTS			= 0;
-static const int GLTF_MODE_LINES			= 1;
-static const int GLTF_MODE_LINE_LOOP		= 2;
-static const int GLTF_MODE_LINE_STRIP		= 3;
+//static const int GLTF_MODE_POINTS			= 0;
+//static const int GLTF_MODE_LINES			= 1;
+//static const int GLTF_MODE_LINE_LOOP		= 2;
+//static const int GLTF_MODE_LINE_STRIP		= 3;
 static const int GLTF_MODE_TRIANGLES		= 4;
-static const int GLTF_MODE_TRIANGLE_STRIP	= 5;
-static const int GLTF_MODE_TRIANGLE_FAN		= 6;
+//static const int GLTF_MODE_TRIANGLE_STRIP	= 5;
+//static const int GLTF_MODE_TRIANGLE_FAN		= 6;
 
 
 void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
