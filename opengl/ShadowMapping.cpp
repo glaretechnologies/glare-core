@@ -20,13 +20,17 @@ ShadowMapping::~ShadowMapping()
 }
 
 
-void ShadowMapping::init(const int w_, const int h_)
+void ShadowMapping::init()
 {
-	w = w_;
-	h = h_;
+	dynamic_w = 2048;
+	dynamic_h = 2048 * numDynamicDepthTextures();
+
+	static_w = 2048;
+	static_h = 2048 * numStaticDepthTextures();
 
 	// Create frame buffer
 	frame_buffer = new FrameBuffer();
+	static_frame_buffer = new FrameBuffer();
 
 	//blur_fb = new FrameBuffer();
 	
@@ -40,7 +44,15 @@ void ShadowMapping::init(const int w_, const int h_)
 	//);
 
 	depth_tex = new OpenGLTexture();
-	depth_tex->load(w, h, NULL, NULL,
+	depth_tex->load(dynamic_w, dynamic_h, NULL, NULL,
+		GL_DEPTH_COMPONENT, // internal format
+		GL_DEPTH_COMPONENT, // format
+		GL_FLOAT, // type
+		OpenGLTexture::Filtering_Nearest // nearest filtering
+	);
+
+	static_depth_tex = new OpenGLTexture();
+	static_depth_tex->load(static_w, static_h, NULL, NULL,
 		GL_DEPTH_COMPONENT, // internal format
 		GL_DEPTH_COMPONENT, // format
 		GL_FLOAT, // type
@@ -63,6 +75,16 @@ void ShadowMapping::bindDepthTexAsTarget()
 
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex->texture_handle, 0);
 	//glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, col_tex->texture_handle, 0);
+
+	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+}
+
+
+void ShadowMapping::bindStaticDepthTexAsTarget()
+{
+	static_frame_buffer->bind();
+
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, static_depth_tex->texture_handle, 0);
 
 	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
 }

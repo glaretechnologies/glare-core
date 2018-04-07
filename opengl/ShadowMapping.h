@@ -29,11 +29,16 @@ public:
 	ShadowMapping();
 	~ShadowMapping();
 
-	void init(const int w, const int h);
+	void init();
 
-	int numDepthTextures() { return 3; }
+	int numDynamicDepthTextures() { return 2; }
+	float getDynamicDepthTextureScaleMultiplier() { return 6.0; }
+
+	int numStaticDepthTextures() { return 3; }
+	float getStaticDepthTextureScaleMultiplier() { return 6.0; }
 
 	void bindDepthTexAsTarget();
+	void bindStaticDepthTexAsTarget();
 	void unbindDepthTex();
 
 private:
@@ -41,9 +46,14 @@ private:
 public:
 	Matrix4f shadow_tex_matrix[8];
 	
-	int w, h;
+	int dynamic_w, dynamic_h;
+	int static_w, static_h;
 	Reference<FrameBuffer> frame_buffer;
 	Reference<OpenGLTexture> depth_tex;
+	
+	Reference<FrameBuffer> static_frame_buffer;
+	Reference<OpenGLTexture> static_depth_tex;
+
 	//Reference<OpenGLTexture> col_tex;
 
 	//Reference<FrameBuffer> blur_fb;

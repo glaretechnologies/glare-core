@@ -43,7 +43,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
 	anisotropic_filtering_supported(false),
 	settings(settings_),
-	draw_wireframes(false)
+	draw_wireframes(false),
+	frame_num(0)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -474,7 +475,8 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 	
 	if(shadow_mapping_enabled)
 	{
-		phong_locations_out.phong_depth_tex_location				= phong_prog->getUniformLocation("depth_tex");
+		phong_locations_out.phong_dynamic_depth_tex_location		= phong_prog->getUniformLocation("dynamic_depth_tex");
+		phong_locations_out.phong_static_depth_tex_location			= phong_prog->getUniformLocation("static_depth_tex");
 		phong_locations_out.phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
 	}
 }
@@ -606,7 +608,16 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		std::string preprocessor_defines;
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
-		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? toString(shadow_mapping->numDepthTextures()) : std::string("0")) + "\n";
+		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
+			toString(shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures()) : std::string("0")) + "\n";
+		
+		preprocessor_defines += "#define NUM_DYNAMIC_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
+			toString(shadow_mapping->numDynamicDepthTextures()) : std::string("0")) + "\n";
+		
+		preprocessor_defines += "#define NUM_STATIC_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
+			toString(shadow_mapping->numStaticDepthTextures()) : std::string("0")) + "\n";
+
+		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
 		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
 		const std::string use_shader_dir = shader_dir;
@@ -700,7 +711,15 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			}
 
 			shadow_mapping = new ShadowMapping();
-			shadow_mapping->init(1024, 1024 * shadow_mapping->numDepthTextures());
+			shadow_mapping->init();
+
+			{
+				clear_buf_overlay_ob =  new OverlayObject();
+				clear_buf_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, -0.9999f);
+				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.5f, 0.2f);
+				clear_buf_overlay_ob->material.shader_prog = this->overlay_prog;
+				clear_buf_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+			}
 
 			if(false)
 			{
@@ -713,7 +732,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 				tex_preview_overlay_ob->material.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
 				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
-				tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex;// shadow_mapping->col_tex;
+				tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex;
 
 				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
 
@@ -1157,40 +1176,72 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 }
 
 
+static inline float largestDim(const js::AABBox& aabb)
+{
+	return horizontalMax((aabb.max_ - aabb.min_).v);
+}
+
+
+// Draws a quad, with z value at far clip plane.
+void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
+{
+	clear_buf_overlay_ob->ob_to_world_matrix =
+		Matrix4f::translationMatrix(-1 + begin.x, -1 + begin.y, 1.f) * Matrix4f::scaleMatrix(2 * (end.x - begin.x), 2 * (end.y - begin.y), 1.f);
+
+	glDepthFunc(GL_ALWAYS); // Do this to effectively enable z-test, but still have z writes.
+
+	const OpenGLMeshRenderData& mesh_data = *clear_buf_overlay_ob->mesh_data;
+	bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+	const OpenGLMaterial& opengl_mat = clear_buf_overlay_ob->material;
+	assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
+	opengl_mat.shader_prog->useProgram();
+	glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+	glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, clear_buf_overlay_ob->ob_to_world_matrix.e);
+	glUniform1i(this->overlay_have_texture_location, 0);
+	glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
+	opengl_mat.shader_prog->useNoPrograms();
+	unbindMeshData(mesh_data);
+
+	glDepthFunc(GL_LESS); // restore
+}
+
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
 		return;
-#if !defined(OSX)
-	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
-#endif
+
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
 	Timer profile_timer;
 
 	this->draw_time = draw_timer.elapsed();
+	uint64 shadow_depth_drawing_elapsed_ns = 0;
 
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
 	{
+#if !defined(OSX)
+		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+#endif
+		//-------------------- Draw dynamic depth textures ----------------
+		shadow_mapping->bindDepthTexAsTarget();
+
+		glClear(GL_DEPTH_BUFFER_BIT);
+
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_FRONT);
 
-		shadow_mapping->bindDepthTexAsTarget();
+		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
-		glClearColor(1.f, 1.f, 1.f, 1.f);
-		glClear(/*GL_COLOR_BUFFER_BIT | */GL_DEPTH_BUFFER_BIT);
-
-		const int num = shadow_mapping->numDepthTextures();
-		const int per_map_h = shadow_mapping->h / num;
-		for(int ti=0; ti<num; ++ti)
+		for(int ti=0; ti<shadow_mapping->numDynamicDepthTextures(); ++ti)
 		{
-			glViewport(0, ti*per_map_h, shadow_mapping->w, per_map_h);
+			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
 			// Compute the 8 points making up this slice of the view frustum
-			float near_dist = pow(4.0, ti);
-			float far_dist = near_dist * 4;
+			float near_dist = pow(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
+			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
 			if(ti == 0)
 				near_dist = 0.01;
 
@@ -1227,7 +1278,7 @@ void OpenGLEngine::draw()
 
 			const float max_shadowing_dist = 300.0f;
 
-			float use_max_k = min_k + max_shadowing_dist;
+			float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
 
 			float near_signed_dist = -use_max_k;
 			float far_signed_dist = -min_k;
@@ -1274,18 +1325,25 @@ void OpenGLEngine::draw()
 				Vec4f(0.5f, 0, 0, 0), // col 0
 				Vec4f(0, 0.5f, 0, 0), // col 1
 				Vec4f(0, 0, 0.5f, 0), // col 2
-				Vec4f(0.5f, 0.5f, 0.5f, 1) // col 2
+				Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
 			);
 			// Save shadow_tex_matrix that the shaders like phong will use.
 			shadow_mapping->shadow_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
 
 			// Draw non-transparent batches from objects.
-			//uint64 num_frustum_culled = 0;
+			//uint64 num_drawn = 0;
+			//uint64 num_in_frustum = 0;
 			for(size_t q=0; q<objects.size(); ++q)
 			{
 				const GLObject* const ob = objects[q].getPointer();
+
 				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 				{
+					//num_in_frustum++;
+
+					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
+						continue;
+
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 					bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
@@ -1303,22 +1361,199 @@ void OpenGLEngine::draw()
 						}
 					}
 					unbindMeshData(mesh_data);
+
+					//num_drawn++;
 				}
-				//else
-				//	num_frustum_culled++;
 			}
-			// conPrint(toString(objects.size() - num_frustum_culled) + " obs drawn for shadow map.");
+			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(num_in_frustum) + " drawn.");
 		}
 
 		shadow_mapping->unbindDepthTex();
+		//-------------------- End draw dynamic depth textures ----------------
+
+		//-------------------- Draw static depth textures ----------------
+		// We will update the different static cascades only every N frames, and in a staggered fashion.
+		if(frame_num % 4 == 0)
+		{
+			shadow_mapping->bindStaticDepthTexAsTarget();
+
+			for(int ti=0; ti<shadow_mapping->numStaticDepthTextures(); ++ti)
+			{
+				const int frame_offset = ti * 4;
+				if(frame_num % 16 == frame_offset)
+				{
+					//conPrint("At frame " + toString(frame_num) + ", drawing static cascade " + toString(ti));
+
+					const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
+					glViewport(0, ti*static_per_map_h, shadow_mapping->static_w, static_per_map_h);
+
+					glDisable(GL_CULL_FACE);
+					partiallyClearBuffer(Vec2f(0, 0), Vec2f(1, 1));
+					glEnable(GL_CULL_FACE);
+
+					float w;
+					if(ti == 0)
+						w = 64;
+					else if(ti == 1)
+						w = 256;
+					else
+						w = 1024;
+
+					const float h = 256;
+
+					// Get a bounding AABB centered on camera
+					Vec4f campos_ws = cam_to_world * Vec4f(0, 0, 0, 1);
+					Vec4f frustum_verts_ws[8];
+					frustum_verts_ws[0] = campos_ws + Vec4f(-w, -w, -h, 0);
+					frustum_verts_ws[1] = campos_ws + Vec4f( w, -w, -h, 0);
+					frustum_verts_ws[2] = campos_ws + Vec4f(-w,  w, -h, 0);
+					frustum_verts_ws[3] = campos_ws + Vec4f( w,  w, -h, 0);
+					frustum_verts_ws[4] = campos_ws + Vec4f(-w, -w,  h, 0);
+					frustum_verts_ws[5] = campos_ws + Vec4f( w, -w,  h, 0);
+					frustum_verts_ws[6] = campos_ws + Vec4f(-w,  w,  h, 0);
+					frustum_verts_ws[7] = campos_ws + Vec4f( w,  w,  h, 0);
+
+					const Vec4f up(0, 0, 1, 0);
+					const Vec4f k = sun_dir;
+					const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
+					const Vec4f j = crossProduct(k, i); // up
+
+					assert(k.isUnitLength());
+
+					// Get bounds along i, j, k vectors
+					float min_i = std::numeric_limits<float>::max();
+					float min_j = std::numeric_limits<float>::max();
+					float min_k = std::numeric_limits<float>::max();
+					float max_i = -std::numeric_limits<float>::max();
+					float max_j = -std::numeric_limits<float>::max();
+					float max_k = -std::numeric_limits<float>::max();
+
+					for(int z=0; z<8; ++z)
+					{
+						float dot_i = dot(i, maskWToZero(frustum_verts_ws[z]));
+						float dot_j = dot(j, maskWToZero(frustum_verts_ws[z]));
+						float dot_k = dot(k, maskWToZero(frustum_verts_ws[z]));
+						min_i = myMin(min_i, dot_i);
+						min_j = myMin(min_j, dot_j);
+						min_k = myMin(min_k, dot_k);
+						max_i = myMax(max_i, dot_i);
+						max_j = myMax(max_j, dot_j);
+						max_k = myMax(max_k, dot_k);
+					}
+
+					const float max_shadowing_dist = 300.0f;
+
+					float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
+
+					float near_signed_dist = -use_max_k;
+					float far_signed_dist = -min_k;
+
+					Matrix4f proj_matrix = orthoMatrix(
+						min_i, max_i, // left, right
+						min_j, max_j, // bottom, top
+						near_signed_dist, far_signed_dist // near, far
+					);
+
+
+					// TEMP: compute verts of shadow volume
+					Vec4f shadow_vol_verts[8];
+					shadow_vol_verts[0] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*use_max_k;
+					shadow_vol_verts[1] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*use_max_k;
+					shadow_vol_verts[2] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*use_max_k;
+					shadow_vol_verts[3] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*use_max_k;
+					shadow_vol_verts[4] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*min_k;
+					shadow_vol_verts[5] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*min_k;
+					shadow_vol_verts[6] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*min_k;
+					shadow_vol_verts[7] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*min_k;
+
+					Matrix4f view_matrix;
+					view_matrix.setRow(0, i);
+					view_matrix.setRow(1, j);
+					view_matrix.setRow(2, k);
+					view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
+
+					// Compute clipping planes for shadow mapping
+					shadow_clip_planes[0] = Planef(toVec3f(i), max_i);
+					shadow_clip_planes[1] = Planef(toVec3f(-i), -min_i);
+					shadow_clip_planes[2] = Planef(toVec3f(j), max_j);
+					shadow_clip_planes[3] = Planef(toVec3f(-j), -min_j);
+					shadow_clip_planes[4] = Planef(toVec3f(k), use_max_k);
+					shadow_clip_planes[5] = Planef(toVec3f(-k), -min_k);
+
+					js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
+					for(int z=0; z<8; ++z)
+						shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
+
+					// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
+					const Matrix4f texcoord_bias(
+						Vec4f(0.5f, 0, 0, 0), // col 0
+						Vec4f(0, 0.5f, 0, 0), // col 1
+						Vec4f(0, 0, 0.5f, 0), // col 2
+						Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
+					);
+					// Save shadow_tex_matrix that the shaders like phong will use.
+					shadow_mapping->shadow_tex_matrix[shadow_mapping->numDynamicDepthTextures() + ti] = texcoord_bias * proj_matrix * view_matrix;
+
+					// Draw non-transparent batches from objects.
+					//uint64 num_drawn = 0;
+					//uint64 num_in_frustum = 0;
+					for(size_t q=0; q<objects.size(); ++q)
+					{
+						const GLObject* const ob = objects[q].getPointer();
+
+						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+						{
+							//num_in_frustum++;
+
+							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
+								continue;
+
+							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+							bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+							{
+								const uint32 mat_index = mesh_data.batches[z].material_index;
+								// Draw primitives for the given material
+								if(!ob->materials[mat_index].transparent)
+								{
+									const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+									OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+
+									drawBatch(*ob, view_matrix, proj_matrix,
+										ob->materials[mat_index], // Use tex matrix etc.. from original material
+										use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+								}
+							}
+							unbindMeshData(mesh_data);
+
+							//num_drawn++;
+						}
+					}
+					//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(num_in_frustum) + " drawn.");
+				}
+			}
+
+			shadow_mapping->unbindDepthTex();
+		}
+		//-------------------- End draw static depth textures ----------------
 
 		// Restore viewport
 		glViewport(0, 0, viewport_w, viewport_h);
 
 		glDisable(GL_CULL_FACE);
+
+#if !defined(OSX)
+		if(PROFILE)
+		{
+			glEndQuery(GL_TIME_ELAPSED);
+			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns); // Blocks
+		}
+#endif
 	}
 
-
+#if !defined(OSX)
+	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+#endif
 
 
 	
@@ -1695,10 +1930,14 @@ void OpenGLEngine::draw()
 		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
 #endif
 
-		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + " ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
+		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + 
+			" ms, depth map gen on GPU: " + doubleToStringNDecimalPlaces(shadow_depth_drawing_elapsed_ns * 1.0e-6, 4) + 
+			" ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
 		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
 			toString(objects.size() - num_frustum_culled) + "/" + toString(objects.size()) + " obs");
 	}
+
+	frame_num++;
 }
 
 
@@ -2479,9 +2718,16 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 1);
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-		glUniform1i(use_phong_locations.phong_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+		glUniform1i(use_phong_locations.phong_dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 
-		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, /*count=*/shadow_mapping->numDepthTextures(), 
+		glActiveTexture(GL_TEXTURE0 + 2);
+
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex->texture_handle);
+		glUniform1i(use_phong_locations.phong_static_depth_tex_location, 2);
+
+
+		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, 
+			/*count=*/shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures(), 
 			/*transpose=*/false, shadow_mapping->shadow_tex_matrix[0].e);
 	}
 }

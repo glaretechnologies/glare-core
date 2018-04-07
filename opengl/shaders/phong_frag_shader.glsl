@@ -12,7 +12,8 @@ uniform vec4 diffuse_colour;
 uniform int have_shading_normals;
 uniform int have_texture;
 uniform sampler2D diffuse_tex;
-uniform sampler2D depth_tex;
+uniform sampler2D dynamic_depth_tex;
+uniform sampler2D static_depth_tex;
 uniform mat3 texture_matrix;
 uniform float roughness;
 uniform float fresnel_scale;
@@ -108,49 +109,78 @@ void main()
 	// Shadow mapping
 	float sun_vis_factor;
 #if SHADOW_MAPPING
-	int num_depths = NUM_DEPTH_TEXTURES;
-
-	// Select correct depth map
-	float dist = -pos_cs.z;
-	int depth_tex_index;
-	if(dist < 4)
-		depth_tex_index = 0;
-	else if(dist < 16)
-		depth_tex_index = 1;
-	else
-		depth_tex_index = 2;
-
-	vec3 shadow_cds = shadow_tex_coords[depth_tex_index];
 	
+	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
+	float theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
+	mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
+
 	sun_vis_factor = 0.0;
-	
-	vec2 depth_texcoords = shadow_cds.xy;
 
-	if(dist < 64)
+	float dist = -pos_cs.z;
+	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
 	{
+		// Select correct depth map
+		int dynamic_depth_tex_index;
+		if(dist < DEPTH_TEXTURE_SCALE_MULT)
+			dynamic_depth_tex_index = 0;
+		else
+			dynamic_depth_tex_index = 1;
+
+		vec3 shadow_cds = shadow_tex_coords[dynamic_depth_tex_index];
+		vec2 depth_texcoords = shadow_cds.xy;
+
 		float actual_depth = min(shadow_cds.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
 		// Compute coords in cascaded map
-		depth_texcoords.y = (float(depth_tex_index) + depth_texcoords.y) * (1.0 / float(num_depths));
-
-		//float bias = 0.00001;// / abs(light_cos_theta);
-
-		float this_sun_vis_factor = 0;
-		int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
-
-		float theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
-		mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
+		depth_texcoords.y = (float(dynamic_depth_tex_index) + depth_texcoords.y) * (1.0 / float(NUM_DYNAMIC_DEPTH_TEXTURES));
 
 		for(int i=0; i<16; ++i)
 		{
 			vec2 st = depth_texcoords + R * ((samples[i] * 0.001) - vec2(0.5, 0.5)) * (4.0 / 2048.0);
-			float light_depth = texture(depth_tex, st).x;
+			float light_depth = texture(dynamic_depth_tex, st).x;
 
-			sun_vis_factor += (light_depth/* + bias*/) > actual_depth ? (1.0 / 16.0) : 0.0;
+			sun_vis_factor += (light_depth > actual_depth) ? (1.0 / 16.0) : 0.0;
 		}
+
+		//col.r = float(dynamic_depth_tex_index) / NUM_DYNAMIC_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
 	}
 	else
-		sun_vis_factor = 1.0;
+	{
+		float l1dist = dist;
+	
+		if(l1dist < 1024)
+		{
+			int static_depth_tex_index;
+			if(l1dist < 64)
+				static_depth_tex_index = 0;
+			else if(l1dist < 256)
+				static_depth_tex_index = 1;
+			else
+				static_depth_tex_index = 2;
+
+			//col.g = float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
+
+			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
+			vec2 depth_texcoords = shadow_cds.xy;
+
+			float bias = 0.0005;// / abs(light_cos_theta);
+			float actual_depth = min(shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+			// Compute coords in cascaded map
+			depth_texcoords.y = (float(static_depth_tex_index) + depth_texcoords.y) * (1.0 / float(NUM_STATIC_DEPTH_TEXTURES));
+
+			for(int i=0; i<16; ++i)
+			{
+				vec2 st = depth_texcoords + R * ((samples[i] * 0.001) - vec2(0.5, 0.5)) * (4.0 / 2048.0);
+				float light_depth = texture(static_depth_tex, st).x;
+
+				sun_vis_factor += (light_depth > actual_depth) ? (1.0 / 16.0) : 0.0;
+			}
+		}
+		else
+			sun_vis_factor = 1.0;
+	}
+
 #else
 	sun_vis_factor = 1.0;
 #endif
@@ -159,8 +189,6 @@ void main()
 		sun_vis_factor * (
 			col * light_cos_theta * 0.5 + 
 			specular);
-
-	//colour_out.r = float(depth_tex_index) / NUM_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
 
 #if ALPHA_TEST
 	if(col.a < 0.5f)

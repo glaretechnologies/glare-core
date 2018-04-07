@@ -229,7 +229,8 @@ private:
 		int have_shading_normals_location;
 		int have_texture_location;
 		int diffuse_tex_location;
-		int phong_depth_tex_location;
+		int phong_dynamic_depth_tex_location;
+		int phong_static_depth_tex_location;
 		int texture_matrix_location;
 		int sundir_location;
 		int roughness_location;
@@ -251,6 +252,7 @@ private:
 	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, PhongUniformLocations& phong_locations_out);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data,
 		const PhongUniformLocations& phong_locations);
+	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 
@@ -350,6 +352,8 @@ private:
 
 	OverlayObjectRef tex_preview_overlay_ob;
 
+	OverlayObjectRef clear_buf_overlay_ob;
+
 	double draw_time;
 	Timer draw_timer;
 
@@ -374,4 +378,6 @@ public:
 	float max_anisotropy;
 
 	OpenGLEngineSettings settings;
+
+	uint64 frame_num;
 };
