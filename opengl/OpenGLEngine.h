@@ -132,12 +132,9 @@ typedef Reference<OverlayObject> OverlayObjectRef;
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : shadow_mapping(false), shadow_map_scene_half_width(20.f), shadow_map_scene_half_depth(35.f) {}
+	OpenGLEngineSettings() : shadow_mapping(false) {}
 
 	bool shadow_mapping;
-
-	float shadow_map_scene_half_width; // scene half width
-	float shadow_map_scene_half_depth; // scene half depth
 };
 
 

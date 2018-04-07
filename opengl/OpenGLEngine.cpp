@@ -1814,22 +1814,6 @@ void OpenGLEngine::draw()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 
-	// Draw some debugging visualisations
-	if(false)
-	{
-		if(settings.shadow_mapping)
-		{
-			// Compute camera position
-			const Vec4f campos_ws = cam_to_world * Vec4f(0, 0, 0, 1);
-
-			for(int i=0; i<6; ++i)
-				drawDebugPlane(
-					shadow_clip_planes[i].closestPointOnPlane(toVec3f(campos_ws)),
-					shadow_clip_planes[i].getNormal(),
-					view_matrix, proj_matrix, settings.shadow_map_scene_half_width);
-		}
-	}
-
 	//================= Draw outlines around selected objects =================
 	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.
 	if(!selected_objects.empty())
