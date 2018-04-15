@@ -151,7 +151,7 @@ public:
 	OpenGLEngine(const OpenGLEngineSettings& settings);
 	~OpenGLEngine();
 
-	void initialise(const std::string& shader_dir);
+	void initialise(const std::string& data_dir); // data_dir should have 'shaders' and 'gl_data' in it.
 
 	void unloadAllData();
 
@@ -210,7 +210,12 @@ public:
 	// Throws Indigo::Exception on failure
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
-	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d, OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
+	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
+		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
+
+
+	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d,
+		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 
@@ -226,13 +231,18 @@ private:
 		int have_shading_normals_location;
 		int have_texture_location;
 		int diffuse_tex_location;
-		int phong_dynamic_depth_tex_location;
-		int phong_static_depth_tex_location;
+		int cosine_env_tex_location;
+		int specular_env_tex_location;
 		int texture_matrix_location;
-		int sundir_location;
+		int sundir_cs_location;
 		int roughness_location;
 		int fresnel_scale_location;
-		int phong_shadow_texture_matrix_location;
+		int metallic_frac_location;
+		int campos_ws_location;
+
+		int dynamic_depth_tex_location;
+		int static_depth_tex_location;
+		int shadow_texture_matrix_location;
 	};
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
@@ -315,13 +325,14 @@ private:
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
 	int transparent_have_shading_normals_location;
-	int transparent_sundir_location;
+	int transparent_sundir_cs_location;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;
 	int env_have_texture_location;
 	int env_diffuse_tex_location;
 	int env_texture_matrix_location;
+	int env_sundir_cs_location;
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;
@@ -337,7 +348,7 @@ private:
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
 
-	std::string shader_dir;
+	std::string data_dir;
 
 	Reference<ShadowMapping> shadow_mapping;
 	OpenGLMaterial depth_draw_mat;
@@ -370,6 +381,9 @@ private:
 	bool draw_wireframes;
 
 	GLObjectRef debug_arrow_ob;
+
+	Reference<OpenGLTexture> cosine_env_tex;
+	Reference<OpenGLTexture> specular_env_tex;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;

@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "ShadowMapping.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
+#include "../graphics/imformatdecoder.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -468,23 +469,27 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
 	phong_locations_out.have_texture_location				= phong_prog->getUniformLocation("have_texture");
 	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
+	phong_locations_out.cosine_env_tex_location				= phong_prog->getUniformLocation("cosine_env_tex");
+	phong_locations_out.specular_env_tex_location			= phong_prog->getUniformLocation("specular_env_tex");
 	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
-	phong_locations_out.sundir_location						= phong_prog->getUniformLocation("sundir");
+	phong_locations_out.sundir_cs_location					= phong_prog->getUniformLocation("sundir_cs");
 	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
 	phong_locations_out.fresnel_scale_location				= phong_prog->getUniformLocation("fresnel_scale");
+	phong_locations_out.campos_ws_location					= phong_prog->getUniformLocation("campos_ws");
+	phong_locations_out.metallic_frac_location				= phong_prog->getUniformLocation("metallic_frac");
 	
 	if(shadow_mapping_enabled)
 	{
-		phong_locations_out.phong_dynamic_depth_tex_location		= phong_prog->getUniformLocation("dynamic_depth_tex");
-		phong_locations_out.phong_static_depth_tex_location			= phong_prog->getUniformLocation("static_depth_tex");
-		phong_locations_out.phong_shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+		phong_locations_out.dynamic_depth_tex_location		= phong_prog->getUniformLocation("dynamic_depth_tex");
+		phong_locations_out.static_depth_tex_location			= phong_prog->getUniformLocation("static_depth_tex");
+		phong_locations_out.shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
 	}
 }
 
 
-void OpenGLEngine::initialise(const std::string& shader_dir_)
+void OpenGLEngine::initialise(const std::string& data_dir_)
 {
-	shader_dir = shader_dir_;
+	data_dir = data_dir_;
 
 #if !defined(OSX)
 	if(gl3wInit() != 0)
@@ -619,8 +624,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 
 		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
-		//const std::string use_shader_dir = TestUtils::getIndigoTestReposDir() + "/opengl/shaders"; // For local dev
-		const std::string use_shader_dir = shader_dir;
+		const std::string use_shader_dir = data_dir + "/shaders";
 
 		{
 			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n";
@@ -651,7 +655,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		);
 		transparent_colour_location		= transparent_prog->getUniformLocation("colour");
 		transparent_have_shading_normals_location = transparent_prog->getUniformLocation("have_shading_normals");
-		transparent_sundir_location =	transparent_prog->getUniformLocation("sundir");
+		transparent_sundir_cs_location	= transparent_prog->getUniformLocation("sundir_cs");
 
 		env_prog = new OpenGLProgram(
 			"env",
@@ -662,6 +666,7 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
 		env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 		env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
+		env_sundir_cs_location			= env_prog->getUniformLocation("sundir_cs");
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
@@ -751,6 +756,42 @@ void OpenGLEngine::initialise(const std::string& shader_dir_)
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
 			outline_quad_meshdata = OpenGLEngine::makeOverlayQuadMesh();
+		}
+
+
+		// Load diffuse irradiance maps
+		const std::string processed_envmap_dir = data_dir + "/gl_data";
+		try
+		{
+			std::vector<Map2DRef> face_maps(6);
+			for(int i=0; i<6; ++i)
+			{
+				face_maps[i] = ImFormatDecoder::decodeImage(".", processed_envmap_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
+
+				if(!face_maps[i].isType<ImageMapFloat>())
+					throw Indigo::Exception("cosine env map Must be ImageMapFloat");
+			}
+
+			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
+		}
+		catch(ImFormatExcep& e)
+		{
+			throw Indigo::Exception(e.what());
+		}
+
+		// Load specular-reflection env tex
+		try
+		{
+			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", processed_envmap_dir + "/specular_refl_sky_no_sun_combined.exr");
+
+			if(!specular_env.isType<ImageMapFloat>())
+				throw Indigo::Exception("specular env map Must be ImageMapFloat");
+
+			this->specular_env_tex = getOrLoadOpenGLTexture(*specular_env, OpenGLTexture::Filtering_Bilinear);
+		}
+		catch(ImFormatExcep& e)
+		{
+			throw Indigo::Exception(e.what());
 		}
 
 
@@ -2675,12 +2716,27 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, 
 	const PhongUniformLocations& use_phong_locations)
 {
-	glUniform4fv(use_phong_locations.sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
+	glUniform4fv(use_phong_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 	glUniform4f(use_phong_locations.diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	glUniform1i(use_phong_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 	glUniform1i(use_phong_locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 	glUniform1f(use_phong_locations.roughness_location, opengl_mat.roughness);
 	glUniform1f(use_phong_locations.fresnel_scale_location, opengl_mat.fresnel_scale);
+	glUniform1f(use_phong_locations.metallic_frac_location, opengl_mat.metallic_frac);
+
+	if(this->cosine_env_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 3);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
+		glUniform1i(use_phong_locations.cosine_env_tex_location, 3);
+	}
+			
+	if(this->specular_env_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 4);
+		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+		glUniform1i(use_phong_locations.specular_env_tex_location, 4);
+	}
 
 	if(opengl_mat.albedo_texture.nonNull())
 	{
@@ -2702,18 +2758,21 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 1);
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-		glUniform1i(use_phong_locations.phong_dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+		glUniform1i(use_phong_locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 
 		glActiveTexture(GL_TEXTURE0 + 2);
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex->texture_handle);
-		glUniform1i(use_phong_locations.phong_static_depth_tex_location, 2);
+		glUniform1i(use_phong_locations.static_depth_tex_location, 2);
 
 
-		glUniformMatrix4fv(use_phong_locations.phong_shadow_texture_matrix_location, 
+		glUniformMatrix4fv(use_phong_locations.shadow_texture_matrix_location, 
 			/*count=*/shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures(), 
 			/*transpose=*/false, shadow_mapping->shadow_tex_matrix[0].e);
 	}
+
+	const Vec4f campos_ws = cam_to_world.getColumn(3);
+	glUniform3fv(use_phong_locations.campos_ws_location, 1, campos_ws.x);
 }
 
 
@@ -2753,12 +2812,13 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 		else if(shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
-			glUniform4fv(this->transparent_sundir_location, /*count=*/1, this->sun_dir_cam_space.x);
+			glUniform4fv(this->transparent_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 		}
 		else if(shader_prog.getPointer() == this->env_prog.getPointer())
 		{
+			glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 			glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 			glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 			
@@ -3558,7 +3618,77 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeQuadMesh(const Vec4f& i, const
 }
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d, OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+{
+	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+
+	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
+	{
+		std::vector<const uint8*> tex_data(6);
+		for(int i=0; i<6; ++i)
+		{
+			const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(face_maps[i].getPointer());
+
+			if(imagemap->getN() != 3)
+				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+			tex_data[i] = (const uint8*)imagemap->getData();
+		}
+
+		unsigned int tex_xres = face_maps[0]->getMapWidth();
+		unsigned int tex_yres = face_maps[0]->getMapHeight();
+		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, GL_RGBA32F, GL_RGB, GL_FLOAT,
+			filtering, wrapping
+		);
+
+		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+		return opengl_tex;
+	}
+	/*else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d))
+	{
+		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
+
+		// Compute hash of map
+		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize() * sizeof(half), 1);
+
+		auto res = this->opengl_textures.find(key);
+		if(res == this->opengl_textures.end())
+		{
+			// Load texture
+			unsigned int tex_xres = map2d.getMapWidth();
+			unsigned int tex_yres = map2d.getMapHeight();
+
+			if(imagemap->getN() == 3)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, target, GL_RGB, GL_RGB, GL_HALF_FLOAT,
+					OpenGLTexture::Filtering_Fancy
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				return opengl_tex;
+			}
+			else
+				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+		}
+		else // Else if this map has already been loaded into an OpenGL Texture:
+		{
+			return res->second;
+		}
+	}*/
+	else
+	{
+		throw Indigo::Exception("Unhandled texture type.");
+	}
+}
+
+
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d,
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
@@ -3592,7 +3722,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			else if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE,
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_SRGB8, GL_RGB, GL_UNSIGNED_BYTE,
 					filtering, wrapping
 				);
 
@@ -3603,7 +3733,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			else if(imagemap->getN() == 4)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE,
 					filtering, wrapping
 				);
 

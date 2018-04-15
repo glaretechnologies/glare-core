@@ -3,7 +3,7 @@
 in vec3 normal;
 in vec3 pos_cs;
 
-uniform vec4 sundir;
+uniform vec4 sundir_cs;
 uniform vec4 colour;
 uniform int have_shading_normals;
 
@@ -54,7 +54,7 @@ void main()
 
 	float r = fresnellApprox(cos_theta, 2.5);
 
-	vec3 h = normalize(frag_to_cam + sundir.xyz);
+	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
 	float h_cos_theta = max(0.0, dot(h, unit_normal));
 	float roughness = 0.2;
 	float fresnel_scale = 1.0;

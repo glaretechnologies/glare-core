@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include <vector>
 
 
 class OpenGLEngine;
@@ -35,6 +36,14 @@ public:
 		Wrapping_Repeat,
 		Wrapping_Clamp
 	};
+
+	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const uint8*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
+		GLint internal_format,
+		GLenum format,
+		GLenum type,
+		Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat
+	);
 
 	void load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine,
 		GLint internal_format,

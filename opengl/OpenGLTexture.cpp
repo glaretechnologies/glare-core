@@ -26,7 +26,54 @@ bool OpenGLTexture::hasAlpha() const
 }
 
 
-void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine, // bool anisotropic_filtering_supported, float max_anisotropy)
+void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const uint8*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
+	GLint internal_format,
+	GLenum format_,
+	GLenum type,
+	Filtering filtering,
+	Wrapping wrapping
+)
+{
+	assert(tex_data.size() == 6);
+
+	this->format = format_;
+
+	if(texture_handle)
+	{
+		glDeleteTextures(1, &texture_handle);
+		texture_handle = 0;
+	}
+
+	glGenTextures(1, &texture_handle);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texture_handle);
+
+	if(((tex_xres * 3) % 4) != 0)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // Tell OpenGL if our texture memory is unaligned
+
+	for(int i=0; i<6; ++i)
+	{
+		glTexImage2D(
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, // target
+			0, // LOD level
+			internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			format, // format
+			type, // type
+			tex_data[i]
+		); // Upload texture to OpenGL
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+}
+
+
+void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine,
 	GLint internal_format,
 	GLenum format_,
 	GLenum type,
@@ -48,14 +95,8 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const uint8* tex_data
 	if(((tex_xres * 3) % 4) != 0)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // Tell OpenGL if our texture memory is unaligned
 
-	//glTexImage2D(GL_TEXTURE_2D, 0, 
-	//	GL_RGB, // internal format
-	//	(GLsizei)tex_xres, (GLsizei)tex_yres, 
-	//	0, // border
-	//	GL_RGB, // format
-	//	GL_UNSIGNED_BYTE, // type
-	//	tex_data); // Upload texture to OpenGL
-	glTexImage2D(GL_TEXTURE_2D, 
+	glTexImage2D(
+		GL_TEXTURE_2D, 
 		0, // LOD level
 		internal_format, // internal format
 		(GLsizei)tex_xres, (GLsizei)tex_yres, 

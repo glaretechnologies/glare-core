@@ -1,22 +1,27 @@
 #version 150
 
-in vec3 normal;
+in vec3 normal_cs;
+in vec3 normal_ws;
 in vec3 pos_cs;
 in vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
+in vec3 cam_to_pos_ws;
 
-uniform vec4 sundir;
+uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
 uniform int have_shading_normals;
 uniform int have_texture;
 uniform sampler2D diffuse_tex;
 uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
+uniform samplerCube cosine_env_tex;
+uniform sampler2D specular_env_tex;
 uniform mat3 texture_matrix;
 uniform float roughness;
 uniform float fresnel_scale;
+uniform float metallic_frac;
 
 out vec4 colour_out;
 
@@ -36,9 +41,28 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 }
 
 // https://en.wikipedia.org/wiki/Schlick%27s_approximation
-float fresnelApprox(float cos_theta, float ior)
+float fresnelApprox(float cos_theta_i, float n2)
 {
-	float r_0 = square((1.0 - ior) / (1.0 + ior));
+	//float r_0 = square((1.0 - n2) / (1.0 + n2));
+	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i);
+
+	float sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
+
+	float costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
+
+	float a2 = square(cos_theta_i - n2*costheta_t);
+	float b2 = square(cos_theta_i + n2*costheta_t);
+
+	float c2 = square(n2*cos_theta_i - costheta_t);
+	float d2 = square(costheta_t + n2*cos_theta_i);
+
+	return 0.5 * (a2*d2 + b2*c2) / (b2*d2);
+}
+
+
+float metallicFresnelApprox(float cos_theta, float r_0)
+{
 	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta);
 }
 
@@ -76,43 +100,62 @@ uint ha(uint x)
 
 void main()
 {
-	vec3 use_normal;
+	vec3 use_normal_cs;
 	if(have_shading_normals != 0)
 	{
-		use_normal = normal;
+		use_normal_cs = normal_cs;
 	}
 	else
 	{
 		vec3 dp_dx = dFdx(pos_cs);    
 		vec3 dp_dy = dFdy(pos_cs);  
 		vec3 N_g = normalize(cross(dp_dx, dp_dy)); 
-		use_normal = N_g;
+		use_normal_cs = N_g;
 	}
-	vec3 unit_normal = normalize(use_normal);
+	vec3 unit_normal_cs = normalize(use_normal_cs);
 
-	float light_cos_theta = max(dot(unit_normal, sundir.xyz), 0.0);
+	float light_cos_theta = max(dot(unit_normal_cs, sundir_cs.xyz), 0.0);
 
 	vec3 frag_to_cam = normalize(pos_cs * -1.0);
 
-	vec3 h = normalize(frag_to_cam + sundir.xyz);
+	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
 
-	float h_cos_theta = max(0.0, dot(h, unit_normal));
-	float specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
-		fresnelApprox(h_cos_theta, 1.5) * fresnel_scale;
- 
-	vec4 col;
+	vec4 diffuse_col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * diffuse_colour;
+		diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * diffuse_colour;
 	else
-		col = diffuse_colour;
+		diffuse_col = diffuse_colour;
+
+#if ALPHA_TEST
+	if(diffuse_col.a < 0.5f)
+		discard;
+#endif
+
+	//------------- Compute specular microfacet terms --------------
+	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
+	float h_cos_theta = abs(dot(h, unit_normal_cs));
+	vec4 specular_fresnel;
+	{
+		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * fresnel_scale;
+		vec4 metal_fresnel = vec4(
+			metallicFresnelApprox(h_cos_theta, diffuse_col.r),
+			metallicFresnelApprox(h_cos_theta, diffuse_col.g),
+			metallicFresnelApprox(h_cos_theta, diffuse_col.b),
+			1);
+
+		// Blend between metal_fresnel and dielectric_fresnel based on mettalic_frac.
+		specular_fresnel = metal_fresnel * metallic_frac + dielectric_fresnel * (1.0 - metallic_frac);
+	}
+	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
+		specular_fresnel;
 
 	// Shadow mapping
 	float sun_vis_factor;
 #if SHADOW_MAPPING
 	
 	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
-	float theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
-	mat2 R = mat2(cos(theta), sin(theta), -sin(theta), cos(theta));
+	float pattern_theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
+	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
 
 	sun_vis_factor = 0.0;
 
@@ -185,13 +228,51 @@ void main()
 	sun_vis_factor = 1.0;
 #endif
 
-	colour_out = 0.5 * col + // ambient
-		sun_vis_factor * (
-			col * light_cos_theta * 0.5 + 
-			specular);
+	vec3 unit_normal_ws = normalize(normal_ws);
+	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
+		unit_normal_ws = -unit_normal_ws;
 
-#if ALPHA_TEST
-	if(col.a < 0.5f)
-		discard;
-#endif
+	vec4 cosine_sky_light = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
+
+
+	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
+	// Reflect cam-to-fragment vector in ws normal
+	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
+
+	//========================= Look up env map for reflected dir ============================
+	
+	int map_lower = int(roughness * 6.9999);
+	int map_higher = map_lower + 1;
+	float map_t = roughness * 6.9999 - float(map_lower);
+
+	float refl_theta = acos(reflected_dir_ws.z);
+	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
+	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
+
+	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8)));
+	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
+
+
+	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
+	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * fresnel_scale);
+	vec4 metallic_refl_fresnel = vec4(
+		metallicFresnelApprox(fresnel_cos_theta, diffuse_col.r),
+		metallicFresnelApprox(fresnel_cos_theta, diffuse_col.g),
+		metallicFresnelApprox(fresnel_cos_theta, diffuse_col.b),
+		1)/* * fresnel_scale*/;
+
+	vec4 refl_fresnel = metallic_refl_fresnel * metallic_frac + dielectric_refl_fresnel * (1.0f - metallic_frac);
+
+	vec4 sun_light = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1) * sun_vis_factor;
+
+	vec4 col =
+		cosine_sky_light * (1.0 / 3.141592653589793) * diffuse_col * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		refl_fresnel * spec_refl_light + // Specular reflection of sky
+		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * diffuse_col * (1.0 / 3.141592653589793) * light_cos_theta + //  Diffuse substrate part of BRDF * sun light
+		sun_light * specular; // sun light * specular microfacet terms
+		
+	col *= 0.0000000004; // tone-map
+	float gamma = 0.45;
+	colour_out = vec4(pow(col.x, gamma), pow(col.y, gamma), pow(col.z, gamma), 1);
 }
