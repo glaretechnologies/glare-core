@@ -37,18 +37,26 @@ public:
 		Wrapping_Clamp
 	};
 
-	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const uint8*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
-		GLint internal_format,
-		GLenum format,
-		GLenum type,
+	enum Format
+	{
+		Format_Greyscale_Uint8,
+		Format_SRGB_Uint8,
+		Format_SRGBA_Uint8,
+		Format_RGB_LINEAR_Uint8,
+		Format_RGBA_LINEAR_Uint8,
+		Format_RGB_Linear_Float,
+		Format_RGB_Linear_Half,
+		Format_Depth_Float
+	};
+
+	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
+		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
-	void load(size_t tex_xres, size_t tex_yres, const uint8* tex_data, const Reference<OpenGLEngine>& opengl_engine,
-		GLint internal_format,
-		GLenum format,
-		GLenum type,
+	void load(size_t tex_xres, size_t tex_yres, const void* tex_data, const Reference<OpenGLEngine>& opengl_engine,
+		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
 	);
@@ -57,6 +65,7 @@ public:
 
 private:
 	INDIGO_DISABLE_COPY(OpenGLTexture);
+	void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
-	GLenum format;
+	Format format;
 };

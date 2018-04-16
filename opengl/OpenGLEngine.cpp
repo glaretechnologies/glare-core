@@ -814,18 +814,14 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 
 	outline_solid_tex = new OpenGLTexture();
 	outline_solid_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
-		GL_RGB, // internal format
-		GL_RGB, // format
-		GL_UNSIGNED_BYTE, // type
+		OpenGLTexture::Format_RGB_LINEAR_Uint8,
 		OpenGLTexture::Filtering_Bilinear,
 		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 	);
 
 	outline_edge_tex = new OpenGLTexture();
 	outline_edge_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
-		GL_RGBA, // internal format
-		GL_RGBA, // format
-		GL_UNSIGNED_BYTE, // type
+		OpenGLTexture::Format_RGBA_LINEAR_Uint8,
 		OpenGLTexture::Filtering_Bilinear
 	);
 
@@ -3625,7 +3621,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
 	{
-		std::vector<const uint8*> tex_data(6);
+		std::vector<const void*> tex_data(6);
 		for(int i=0; i<6; ++i)
 		{
 			const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(face_maps[i].getPointer());
@@ -3633,12 +3629,12 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 			if(imagemap->getN() != 3)
 				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
-			tex_data[i] = (const uint8*)imagemap->getData();
+			tex_data[i] = imagemap->getData();
 		}
 
 		unsigned int tex_xres = face_maps[0]->getMapWidth();
 		unsigned int tex_yres = face_maps[0]->getMapHeight();
-		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, GL_RGBA32F, GL_RGB, GL_FLOAT,
+		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, OpenGLTexture::Format_RGB_Linear_Float,
 			filtering, wrapping
 		);
 
@@ -3705,45 +3701,23 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			// conPrint("Creating new OpenGL texture.");
 
 			// Load texture
-			unsigned int tex_xres = map2d.getMapWidth();
-			unsigned int tex_yres = map2d.getMapHeight();
+			OpenGLTexture::Format format;
 			if(imagemap->getN() == 1)
-			{
-				// NOTE: this sux, image turns out red.  Improve by converting texture here.
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_RGB, GL_RED, GL_UNSIGNED_BYTE,
-					filtering, wrapping
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				return opengl_tex;
-			}
+				format = OpenGLTexture::Format_Greyscale_Uint8;
 			else if(imagemap->getN() == 3)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_SRGB8, GL_RGB, GL_UNSIGNED_BYTE,
-					filtering, wrapping
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				return opengl_tex;
-			}
+				format = OpenGLTexture::Format_SRGB_Uint8;
 			else if(imagemap->getN() == 4)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, imagemap->getData(), this, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE,
-					filtering, wrapping
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				return opengl_tex;
-			}
+				format = OpenGLTexture::Format_SRGBA_Uint8;
 			else
 				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
+			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+			opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), imagemap->getData(), this, 
+				format, filtering, wrapping
+			);
+
+			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+			return opengl_tex;
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
@@ -3768,7 +3742,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, GL_RGBA32F, GL_RGB, GL_FLOAT,
+				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, OpenGLTexture::Format_RGB_Linear_Float,
 					filtering, wrapping
 				);
 
@@ -3802,7 +3776,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, GL_RGB, GL_RGB, GL_HALF_FLOAT,
+				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, OpenGLTexture::Format_RGB_Linear_Half,
 					OpenGLTexture::Filtering_Fancy
 				);
 
