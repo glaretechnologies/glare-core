@@ -28,6 +28,7 @@ public:
 	void alloc(cl_context context, size_t size_, cl_mem_flags flags);
 
 
+	// CL_MEM_COPY_HOST_PTR will be added to flags in all allocFrom() definitions.
 	void allocFrom(cl_context context, const void* const src_ptr, size_t size_, cl_mem_flags flags);
 
 	template<typename T, size_t align>
