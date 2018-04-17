@@ -1077,7 +1077,8 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalBasicIntData_BasicMaterialData__int_",
 		"evalBasicBoolData_BasicMaterialData__int_",
 		"evalBasicFloatData_BasicMaterialData__int_",
-		"evalBasicNormalMappedNormal_FullHitInfo__vec4__BasicMaterialData__int_"
+		"evalBasicNormalMappedNormal_FullHitInfo__vec4__BasicMaterialData__int_",
+		"getMatSceneNodeUID_BasicMaterialData__int_"
 
 
 		/*"noise_float__float_",
