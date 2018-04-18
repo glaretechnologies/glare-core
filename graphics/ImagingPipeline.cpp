@@ -598,11 +598,6 @@ static void doTonemapFullBuffer(
 			temp_summed_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
 		}
 	}
-	else if(renderer_settings.material_id_tracer || renderer_settings.depth_pass)
-	{
-		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
-			temp_summed_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
-	}
 	else
 	{
 		//if(PROFILE) t.reset();
@@ -877,12 +872,6 @@ public:
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
-				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
-				{
-					const ptrdiff_t tile_buffer_pixels = tile_buffer.numPixels();
-					for(ptrdiff_t i = 0; i < tile_buffer_pixels; ++i)
-						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
-				}
 				else
 					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
 
@@ -1011,11 +1000,6 @@ public:
 						// Set to a black colour, with alpha value equal to the 'shadow fraction'.
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
-				}
-				else if(closure.renderer_settings->material_id_tracer || closure.renderer_settings->depth_pass)
-				{
-					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
-						tile_buffer.getPixel(i).clampInPlace(0.0f, 1.0f);
 				}
 				else
 				{
