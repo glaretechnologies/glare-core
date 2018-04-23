@@ -228,8 +228,15 @@ void Obfuscator::addOpenCLKeywords()
 "read_imagef",
 "write_imagef",
 "int2",
-"get_local_id",
+
+"get_work_dim",
+"get_global_size",
 "get_global_id",
+"get_local_size",
+"get_local_id",
+"get_num_groups",
+"get_group_id",
+
 "inline",
 "atom_add",
 "fmin",
