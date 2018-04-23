@@ -1056,8 +1056,8 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"getTexCoords_int__FullHitInfo_",
 		"getWorldToObMatrix_FullHitInfo_",
 		"getObToWorldMatrixRows_FullHitInfo_",
-		"getSample_int__int__int____global_array_float__28__",
-		"getSamplePair_int__int__int____global_array_float__28__",
+		"getSample_int__int__int____global_array_uint__28__",
+		"getSamplePair_int__int__int____global_array_uint__28__",
 		"spectralReflectanceForWinter_Colour3__SpectralVector_",
 
 		"evalG_float__float_",
