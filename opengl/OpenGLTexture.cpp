@@ -22,7 +22,7 @@ OpenGLTexture::~OpenGLTexture()
 bool OpenGLTexture::hasAlpha() const
 {
 	assert(texture_handle != 0);
-	return format == GL_RGBA;
+	return format == Format_SRGBA_Uint8 || format == Format_RGBA_LINEAR_Uint8;
 }
 
 
