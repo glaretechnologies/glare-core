@@ -34,16 +34,6 @@ Code By Nicholas Chapman.
 #endif
 
 
-const std::string OpenCLDevice::description() const
-{
-	return "CPU: " + boolToString(opencl_device_type == CL_DEVICE_TYPE_CPU) +
-		", device_name: " + device_name + ", OpenCL platform vendor: " + vendor_name +
-		//", driver info: " + OpenCL_driver_info + ", driver version: " + OpenCL_version +
-		", global_mem_size: " + getNiceByteSize(global_mem_size) +
-		", max_mem_alloc_size: " + toString(max_mem_alloc_size) + " B";
-}
-
-
 OpenCL::OpenCL(bool verbose_)
 :	initialised(false),
 	verbose(verbose_)
@@ -98,7 +88,6 @@ void OpenCL::libraryInit()
 			clCreateCommandQueue = opencl_lib.getFuncPointer<clCreateCommandQueue_TYPE>("clCreateCommandQueue");
 			clReleaseCommandQueue = opencl_lib.getFuncPointer<clReleaseCommandQueue_TYPE>("clReleaseCommandQueue");
 			clCreateBuffer = opencl_lib.getFuncPointer<clCreateBuffer_TYPE>("clCreateBuffer");
-			//clCreateImage2D = opencl_lib.getFuncPointer<clCreateImage2D_TYPE>("clCreateImage2D");
 			clReleaseMemObject = opencl_lib.getFuncPointer<clReleaseMemObject_TYPE>("clReleaseMemObject");
 			clRetainEvent = opencl_lib.getFuncPointer<clRetainEvent_TYPE>("clRetainEvent");
 			clCreateProgramWithSource = opencl_lib.getFuncPointer<clCreateProgramWithSource_TYPE>("clCreateProgramWithSource");
@@ -117,15 +106,14 @@ void OpenCL::libraryInit()
 			clReleaseEvent = opencl_lib.getFuncPointer<clReleaseEvent_TYPE>("clReleaseEvent");
 			clGetProgramInfo = opencl_lib.getFuncPointer<clGetProgramInfo_TYPE>("clGetProgramInfo");
 			clGetKernelWorkGroupInfo = opencl_lib.getFuncPointer<clGetKernelWorkGroupInfo_TYPE>("clGetKernelWorkGroupInfo");
-
-			// OpenCL 1.0 function deprecated in 1.1.
-			//clSetCommandQueueProperty = opencl_lib.getFuncPointer<clSetCommandQueueProperty_TYPE>("clSetCommandQueueProperty");
 			clGetEventProfilingInfo = opencl_lib.getFuncPointer<clGetEventProfilingInfo_TYPE>("clGetEventProfilingInfo");
 			clGetEventInfo = opencl_lib.getFuncPointer<clGetEventInfo_TYPE>("clGetEventInfo");
 			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
-
 			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
 			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
+
+			// OpenCL 1.2 function:
+			clEnqueueFillBuffer = opencl_lib.tryGetFuncPointer<clEnqueueFillBuffer_TYPE>("clEnqueueFillBuffer");
 
 #if OPENCL_OPENGL_INTEROP
 			clGetExtensionFunctionAddress = opencl_lib.getFuncPointer<clGetExtensionFunctionAddress_TYPE>("clGetExtensionFunctionAddress");
@@ -160,7 +148,6 @@ void OpenCL::libraryInit()
 	this->clCreateCommandQueue = ::clCreateCommandQueue;
 	this->clReleaseCommandQueue = ::clReleaseCommandQueue;
 	this->clCreateBuffer = ::clCreateBuffer;
-	//this->clCreateImage2D = ::clCreateImage2D;
 	this->clReleaseMemObject = ::clReleaseMemObject;
 	this->clRetainEvent = ::clRetainEvent;
 	this->clCreateProgramWithSource = ::clCreateProgramWithSource;
@@ -179,15 +166,14 @@ void OpenCL::libraryInit()
 	this->clReleaseEvent = ::clReleaseEvent;
 	this->clGetProgramInfo = ::clGetProgramInfo;
 	this->clGetKernelWorkGroupInfo = ::clGetKernelWorkGroupInfo;
-
-	// OpenCL 1.0 function deprecated in 1.1.
-	//this->clSetCommandQueueProperty = ::clSetCommandQueueProperty;
 	this->clGetEventProfilingInfo = ::clGetEventProfilingInfo;
 	this->clGetEventInfo = ::clGetEventInfo;
 	this->clWaitForEvents = ::clWaitForEvents;
-
 	this->clFinish = ::clFinish;
 	this->clFlush = ::clFlush;
+
+	// OpenCL 1.2 function:
+	this->clEnqueueFillBuffer = ::clEnqueueFillBuffer;
 	
 	if(this->clGetPlatformIDs == NULL)
 		throw Indigo::Exception("OpenCL is not available in this version of OSX.");

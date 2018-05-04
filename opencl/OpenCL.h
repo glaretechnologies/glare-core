@@ -62,7 +62,6 @@ typedef cl_int (CL_API_CALL *clReleaseContext_TYPE) (cl_context context);
 typedef cl_command_queue (CL_API_CALL *clCreateCommandQueue_TYPE) (cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseCommandQueue_TYPE) (cl_command_queue command_queue);
 typedef cl_mem (CL_API_CALL *clCreateBuffer_TYPE) (cl_context context, cl_mem_flags flags, size_t size, void *host_ptr, cl_int *errcode_ret);
-//typedef cl_mem (CL_API_CALL *clCreateImage2D_TYPE) (cl_context context, cl_mem_flags flags, const cl_image_format *image_format, size_t image_width, size_t image_height, size_t image_row_pitch, void *host_ptr, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseMemObject_TYPE) (cl_mem memobj);
 typedef cl_int (CL_API_CALL *clRetainEvent_TYPE) (cl_event event);
 typedef cl_program (CL_API_CALL *clCreateProgramWithSource_TYPE) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
@@ -88,6 +87,8 @@ typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl
 
 typedef cl_int (CL_API_CALL *clFinish_TYPE) (cl_command_queue command_queue);
 typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
+
+typedef cl_int (CL_API_CALL *clEnqueueFillBuffer_TYPE)(cl_command_queue, cl_mem buffer, const void * pattern, size_t pattern_size, size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event * event_wait_list, cl_event * event);
 
 #if OPENCL_OPENGL_INTEROP
 typedef void * (CL_API_CALL *clGetExtensionFunctionAddress_TYPE) (const char *funcname);
@@ -149,7 +150,6 @@ public:
 	clCreateCommandQueue_TYPE clCreateCommandQueue;
 	clReleaseCommandQueue_TYPE clReleaseCommandQueue;
 	clCreateBuffer_TYPE clCreateBuffer;
-	//clCreateImage2D_TYPE clCreateImage2D;
 	clReleaseMemObject_TYPE clReleaseMemObject;
 	clRetainEvent_TYPE clRetainEvent;
 	clCreateProgramWithSource_TYPE clCreateProgramWithSource;
@@ -171,9 +171,9 @@ public:
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
 	clGetEventInfo_TYPE clGetEventInfo;
 	clWaitForEvents_TYPE clWaitForEvents;
-
 	clFinish_TYPE clFinish;
 	clFlush_TYPE clFlush;
+	clEnqueueFillBuffer_TYPE clEnqueueFillBuffer; // May be NULL if the OpenCL version is < 1.2.
 
 #if OPENCL_OPENGL_INTEROP
 	// Extensions

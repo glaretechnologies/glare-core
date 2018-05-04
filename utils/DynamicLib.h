@@ -39,39 +39,31 @@ public:
 
 	const std::string getFullPathToLib() const;
 
-	// Warning: the C99 standard leaves casting from void* to a function pointer undefined.
-	// Nevertheless, this seems to work..
+
+	// Return the func pointer if it exists in the lib, or NULL otherwise.
+	template <class FuncPointerType>
+	FuncPointerType tryGetFuncPointer(const std::string& name)
+	{
+		if(!lib_handle)
+			throw Indigo::Exception("No library open.");
+
 #ifdef _WIN32
-
-	template <class FuncPointerType>
-	FuncPointerType getFuncPointer(const std::string& name)
-	{
-		if(!lib_handle)
-			throw Indigo::Exception("No library open.");
-
-		FuncPointerType f = (FuncPointerType)::GetProcAddress(lib_handle, name.c_str());
-		if(!f)
-			throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-
-		return f;
-	}
-
-#elif defined(__linux__) || defined(OSX)
-
-	template <class FuncPointerType>
-	FuncPointerType getFuncPointer(const std::string& name)
-	{
-		if(!lib_handle)
-			throw Indigo::Exception("No library open.");
-
-		FuncPointerType f = (FuncPointerType)dlsym(lib_handle, name.c_str());
-		if(!f)
-			throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
-
-		return f;
-	}
-
+		return (FuncPointerType)::GetProcAddress(lib_handle, name.c_str());
+#else
+		return (FuncPointerType)::dlsym(lib_handle, name.c_str());
 #endif
+	}
+
+
+	// Try and get the function pointer from the lib, throw Indigo::Exception on failure.
+	template <class FuncPointerType>
+	FuncPointerType getFuncPointer(const std::string& name)
+	{
+		FuncPointerType f = tryGetFuncPointer<FuncPointerType>(name);
+		if(!f)
+			throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+		return f;
+	}
 
 
 #if BUILD_TESTS
