@@ -224,7 +224,7 @@ void SmallVector<T, N>::resize(size_t new_size, const T& val)
 {
 	if(new_size <= capacity_)
 	{
-		// Destroy elements e[new_size] to e[size-1]
+		// Destroy elements e[new_size] to e[size-1] (if any)
 		for(size_t i=new_size; i<size_; ++i)
 			(e + i)->~T();
 	}

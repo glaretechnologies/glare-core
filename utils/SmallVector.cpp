@@ -152,13 +152,13 @@ void test()
 					dummy
 				);
 				testAssert(v.size() == count);
-				testAssert(ob_count == count + 1);
+				testAssert(ob_count == (int)count + 1);
 			
 				// Copy construct v2 from v
 				const SmallVector<TestCounterClass, 4> v2(v);
 
 				testAssert(v2.size() == v.size());
-				testAssert(ob_count == 2*count + 1);
+				testAssert(ob_count == 2*(int)count + 1);
 			}
 
 			testAssert(ob_count == 1);
@@ -368,6 +368,20 @@ void test()
 			testAssert(v.capacity() >= 101);
 			testAssert(ob_count == 102);
 
+			// Resize down just a little
+			v.resize(90, dummy);
+
+			testAssert(v.size() == 90);
+			testAssert(v.capacity() >= 101);
+			testAssert(ob_count == 91);
+
+			// Resize up just a little
+			v.resize(95, dummy);
+
+			testAssert(v.size() == 95);
+			testAssert(v.capacity() >= 101);
+			testAssert(ob_count == 96);
+
 			v.resize(20, dummy);
 
 			testAssert(v.size() == 20);
@@ -407,14 +421,14 @@ void test()
 					dummy
 				);
 				testAssert(v.size() == start_size);
-				testAssert(ob_count == start_size + 1);
+				testAssert(ob_count == (int)start_size + 1);
 			
 				// Resize to end_size
 				v.resize(end_size, dummy);
 
 				testAssert(v.size() == end_size);
 				//testAssert(v.capacity() >= 100);
-				testAssert(ob_count == end_size + 1);
+				testAssert(ob_count == (int)end_size + 1);
 
 			}
 
@@ -456,7 +470,7 @@ void test()
 		testAssert(v.size() == N);
 		testAssert(v.capacity() >= N);
 
-		for(int i=0; i<N; ++i)
+		for(size_t i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
 
@@ -477,7 +491,7 @@ void test()
 				v.push_back(dummy);
 
 				testAssert(v.size() == i + 1);
-				testAssert(ob_count == v.size() + 1);
+				testAssert(ob_count == (int)v.size() + 1);
 			}
 		}
 
@@ -501,7 +515,7 @@ void test()
 		testAssert(v.size() == N);
 		testAssert(v.capacity() >= N);
 
-		for(int i=0; i<N; ++i)
+		for(size_t i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
 
@@ -525,7 +539,7 @@ void test()
 		testAssert(v.size() == N);
 		testAssert(v.capacity() >= N);
 
-		for(int i=0; i<N; ++i)
+		for(size_t i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
 
@@ -572,7 +586,7 @@ void test()
 			for(size_t i=0; i<N; ++i)
 				v.push_back(dummy);
 
-			testAssert(ob_count == 1 + v.size());
+			testAssert(ob_count == 1 + (int)v.size());
 			
 			// Pop back N times
 			for(size_t i=0; i<N; ++i)
@@ -580,7 +594,7 @@ void test()
 				v.pop_back();
 
 				testAssert(v.size() == N - (i + 1));
-				testAssert(ob_count == 1 + v.size());
+				testAssert(ob_count == 1 + (int)v.size());
 			}
 		}
 
