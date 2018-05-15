@@ -719,6 +719,52 @@ inline int intMod(int x, int y)
 }
 
 
+// Return x with the sign of y.
+// NOTE: these copySign functions are available in cmath as copysignf etc..,
+// but we will define our own ones so they can be inlined.
+inline float copySign(float x, float y)
+{
+	// Isolate sign bit of y
+	uint32 signbit = bitCast<uint32>(y) & 0x80000000;
+
+	// Zero sign bit of x and then set it to signbit.
+	return bitCast<float>((bitCast<uint32>(x) & 0x7FFFFFFF) | signbit);
+}
+
+
+// Return x with the sign of y.
+inline double copySign(double x, double y)
+{
+	// Isolate sign bit of y
+	uint64 signbit = bitCast<uint64>(y) & 0x8000000000000000ULL;
+
+	// Zero sign bit of x and then set it to signbit.
+	return bitCast<double>((bitCast<uint64>(x) & 0x7FFFFFFFFFFFFFFFULL) | signbit);
+}
+
+
+// If x < 0, then return -1.f
+// If x > 0, then return 1.f
+// If x == +0, then return +0.0f
+// If x == -0, then return -0.0f
+inline float sign(float x)
+{
+	const float mag = (x == 0.f) ? 0.f : 1.f;
+	return copySign(mag, x);
+}
+
+
+// If x < 0, then return -1.0
+// If x > 0, then return 1.0
+// If x == +0, then return +0.0
+// If x == -0, then return -0.0
+inline double sign(double x)
+{
+	const double mag = (x == 0.0) ? 0.0 : 1.0;
+	return copySign(mag, x);
+}
+
+
 void test();
 
 

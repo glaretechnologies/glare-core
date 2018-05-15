@@ -99,6 +99,18 @@ inline T powOneOverEight(T x)
 }
 
 
+static inline bool isNegativeZero(float x)
+{
+	return x == 0.f && ((bitCast<uint32>(x) & 0x80000000) != 0);
+}
+
+
+static inline bool isNegativeZero(double x)
+{
+	return x == 0.0 && ((bitCast<uint64>(x) & 0x8000000000000000ULL) != 0);
+}
+
+
 void Maths::test()
 {
 	conPrint("Maths::test()");
@@ -329,7 +341,65 @@ void Maths::test()
 	testAssert(floatMod(6, 4)  == 2.f);
 
 
+	//======================================= copySign() ==============================================
 
+	// Test for floats
+	testAssert(copySign(2.0f,  10.f) ==  2.0f);
+	testAssert(copySign(2.0f, -10.f) == -2.0f);
+	testAssert(copySign(3.0f,  10.f) ==  3.0f);
+	testAssert(copySign(3.0f, -10.f) == -3.0f);
+	testAssert(copySign(std::numeric_limits<float>::max(),  10.f) ==  std::numeric_limits<float>::max());
+	testAssert(copySign(std::numeric_limits<float>::max(), -10.f) == -std::numeric_limits<float>::max());
+	testAssert(copySign(std::numeric_limits<float>::infinity(),  10.f) ==  std::numeric_limits<float>::infinity());
+	testAssert(copySign(std::numeric_limits<float>::infinity(), -10.f) == -std::numeric_limits<float>::infinity());
+
+	testAssert(copySign(2.0f,  0.f) ==  2.0f);
+	testAssert(copySign(2.0f, -0.f) == -2.0f);
+
+	testAssert(copySign(0.0f,  10.f) ==  0.0f);
+	testAssert(isNegativeZero(copySign(0.0f, -10.f)));
+
+	// Test for doubles
+	testAssert(copySign(2.0,  10.0) ==  2.0);
+	testAssert(copySign(2.0, -10.0) == -2.0);
+	testAssert(copySign(3.0,  10.0) ==  3.0);
+	testAssert(copySign(3.0, -10.0) == -3.0);
+	testAssert(copySign(std::numeric_limits<double>::max(),  10.0) ==  std::numeric_limits<double>::max());
+	testAssert(copySign(std::numeric_limits<double>::max(), -10.0) == -std::numeric_limits<double>::max());
+	testAssert(copySign(std::numeric_limits<double>::infinity(),  10.0) ==  std::numeric_limits<double>::infinity());
+	testAssert(copySign(std::numeric_limits<double>::infinity(), -10.0) == -std::numeric_limits<double>::infinity());
+
+	testAssert(copySign(2.0,  0.0) ==  2.0);
+	testAssert(copySign(2.0, -0.0) == -2.0);
+
+	testAssert(copySign(0.0,  10.0) ==  0.0);
+	testAssert(isNegativeZero(copySign(0.0, -10.0)));
+
+	//======================================= sign() ==============================================
+	testAssert(sign( 1.f) ==  1.0f);
+	testAssert(sign(-1.f) == -1.0f);
+	testAssert(sign( 10.f) ==  1.0f);
+	testAssert(sign(-10.f) == -1.0f);
+	testAssert( sign(std::numeric_limits<float>::max()) ==  1.0f);
+	testAssert(-sign(std::numeric_limits<float>::max()) == -1.0f);
+	testAssert( sign(std::numeric_limits<float>::infinity()) ==  1.0f);
+	testAssert(-sign(std::numeric_limits<float>::infinity()) == -1.0f);
+
+	testAssert(sign(0.0f) == 0.0f);
+	testAssert(isNegativeZero(sign(-0.0f)));
+
+	// Test for doubles
+	testAssert(sign( 1.0) ==  1.0);
+	testAssert(sign(-1.0) == -1.0);
+	testAssert(sign( 10.) ==  1.0);
+	testAssert(sign(-10.) == -1.0);
+	testAssert( sign(std::numeric_limits<double>::max()) ==  1.0);
+	testAssert(-sign(std::numeric_limits<double>::max()) == -1.0);
+	testAssert( sign(std::numeric_limits<double>::infinity()) ==  1.0);
+	testAssert(-sign(std::numeric_limits<double>::infinity()) == -1.0);
+
+	testAssert(sign(0.0) == 0.0);
+	testAssert(isNegativeZero(sign(-0.0)));
 
 
 
