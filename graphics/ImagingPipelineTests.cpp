@@ -108,9 +108,8 @@ void test()
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
 
 		render_channels.alpha.resize(full_W, full_W, 1);
 		render_channels.alpha.set(alpha * value_factor);
@@ -196,9 +195,8 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(1.0f));
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -282,9 +280,8 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 		
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(1.0f));
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -306,9 +303,8 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(1.0f));
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -329,9 +325,8 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(1.0f));
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -358,9 +353,8 @@ void test()
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Layer());
-		render_channels.layers.back().image.resize(full_W, full_W);
-		render_channels.layers.back().image.set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
+		render_channels.layers.push_back(Image(full_W, full_W));
+		render_channels.layers.back().set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
 
 		render_channels.alpha.resize(full_W, full_W, 1);
 		render_channels.alpha.set(alpha * value_factor);
@@ -456,7 +450,7 @@ void test()
 		);
 		master_buffer.setNumSamples(1);
 
-		Indigo::Vector< ::Layer>& layers = master_buffer.getRenderChannels().layers;
+		Indigo::Vector< ::Image>& layers = master_buffer.getRenderChannels().layers;
 		assert(layers.size() == image_layers);
 
 		const float layer_normalise = 1.0f / image_layers;
@@ -470,7 +464,7 @@ void test()
 		{
 			const int dx = x - r_max, dy = y - r_max;
 
-			layers[i].image.getPixel(y * image_ss_xres + x) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
+			layers[i].getPixel(y * image_ss_xres + x) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
 		}
 
 		// Fill alpha channel to alpha 1

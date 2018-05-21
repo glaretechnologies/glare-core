@@ -203,7 +203,7 @@ struct SumBuffersTaskClosure
 	int margin_ssf1;
 	int ssf;
 	bool zero_alpha_outside_region;
-	const std::vector<RenderRegion>* render_regions;
+	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
 };
 
@@ -227,7 +227,7 @@ public:
 
 		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
 
-		const std::vector<RenderRegion>& render_regions = *closure.render_regions;
+		const ArrayRef<RenderRegion>& render_regions = *closure.render_regions;
 		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
 		for(size_t i=0; i<render_regions.size(); ++i)
 			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + closure.margin_ssf1) * closure.ssf + rr_margin,
@@ -238,8 +238,8 @@ public:
 		const bool have_alpha_channel = closure.render_channels.hasAlpha();
 		const int num_layers = (int)closure.render_channels.layers.size();
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
-		const Indigo::Vector<Layer>& layers = closure.render_channels.layers;
-		const Indigo::Vector<Layer>& region_layers = closure.render_channels.region_layers;
+		const Indigo::Vector<Image>& layers = closure.render_channels.layers;
+		const Indigo::Vector<Image>& region_layers = closure.render_channels.region_layers;
 
 		// Artificially bump up the alpha value a little, so that monte-carlo noise doesn't make a totally opaque object partially transparent.
 		// we will use image_scale for this, as it naturally reduces to near zero as the render converges.
@@ -274,17 +274,17 @@ public:
 				for(int z = 0; z < num_layers; ++z)
 				{
 					const Vec3f& scale = layer_weights[z];
-					sum.x[0] += layers[z].image.getPixel(i).r * scale.x;
-					sum.x[1] += layers[z].image.getPixel(i).g * scale.y;
-					sum.x[2] += layers[z].image.getPixel(i).b * scale.z;
+					sum.x[0] += layers[z].getPixel(i).r * scale.x;
+					sum.x[1] += layers[z].getPixel(i).g * scale.y;
+					sum.x[2] += layers[z].getPixel(i).b * scale.z;
 				}
 
 				// Get alpha from alpha channel if it exists
 				sum.x[3] = have_alpha_channel ? (closure.render_channels.alpha.getData()[i] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-				const size_t x = i % layers[0].image.getWidth();
-				const size_t y = i / layers[0].image.getWidth();
+				const size_t x = i % layers[0].getWidth();
+				const size_t y = i / layers[0].getWidth();
 
 				if(render_region_enabled)
 				{
@@ -293,7 +293,7 @@ public:
 						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = region_layers[z].image.getPixel(i);
+							const Image::ColourType& c = region_layers[z].getPixel(i);
 							const Vec3f& scale = region_layer_weights[z];
 							sum.x[0] += c.r * scale.x;
 							sum.x[1] += c.g * scale.y;
@@ -326,7 +326,7 @@ void sumLightLayers(
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
-	const std::vector<RenderRegion>& render_regions,
+	const ArrayRef<RenderRegion>& render_regions,
 	int margin_ssf1,
 	int ssf,
 	bool zero_alpha_outside_region,
@@ -335,7 +335,7 @@ void sumLightLayers(
 	Indigo::TaskManager& task_manager
 ) 
 {
-	summed_buffer_out.resizeNoCopy(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
+	summed_buffer_out.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
 
 	SumBuffersTaskClosure closure(layer_scales, image_scale, region_image_scale, render_channels, summed_buffer_out);
 	closure.render_regions = &render_regions;
@@ -344,7 +344,7 @@ void sumLightLayers(
 	closure.zero_alpha_outside_region = zero_alpha_outside_region;
 	closure.region_alpha_bias = region_alpha_bias;
 	
-	const size_t num_pixels = (int)render_channels.layers[0].image.numPixels();
+	const size_t num_pixels = (int)render_channels.layers[0].numPixels();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
 }
 
@@ -431,7 +431,7 @@ struct CurveData
 // Tonemap HDR image to LDR image
 static void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
-	const std::vector<RenderRegion>& render_regions,
+	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
@@ -470,7 +470,7 @@ static void doTonemapFullBuffer(
 
 
 	//if(PROFILE) t.reset();
-	temp_summed_buffer.resizeNoCopy(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
+	temp_summed_buffer.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
 	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
@@ -479,7 +479,7 @@ static void doTonemapFullBuffer(
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && post_pro_diffraction.nonNull())
 	{
 		BufferedPrintOutput bpo;
-		temp_AD_buffer.resizeNoCopy(render_channels.layers[0].image.getWidth(), render_channels.layers[0].image.getHeight());
+		temp_AD_buffer.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
 		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
 		
 		// Do 'overbright' pixel spreading.
@@ -630,8 +630,8 @@ static void doTonemapFullBuffer(
 	const size_t supersample_factor = (size_t)renderer_settings.super_sample_factor;
 	const size_t border_width = (size_t)margin_ssf1;
 
-	const size_t final_xres = render_channels.layers[0].image.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
-	const size_t final_yres = render_channels.layers[0].image.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
+	const size_t final_xres = render_channels.layers[0].getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
+	const size_t final_yres = render_channels.layers[0].getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
 	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
 
 	// Collapse super-sampled image down to final image size
@@ -709,7 +709,7 @@ struct ImagePipelineTaskClosure
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
-	const std::vector<RenderRegion>* render_regions;
+	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
 	int subres_factor;
 	bool render_foreground_alpha;
@@ -759,19 +759,19 @@ public:
 		const ptrdiff_t filter_size = closure.filter_size;
 
 
-		const Indigo::Vector<Layer>& source_render_layers = closure.render_channels->layers;
+		const Indigo::Vector<Image>& source_render_layers = closure.render_channels->layers;
 		const ImageMapFloat& source_alpha_buf             = closure.render_channels->alpha;
 
 
-		const ptrdiff_t xres		= (ptrdiff_t)(source_render_layers)[0].image.getWidth(); // in intermediate pixels
+		const ptrdiff_t xres		= (ptrdiff_t)(source_render_layers)[0].getWidth(); // in intermediate pixels
 		//#ifndef NDEBUG
-		const ptrdiff_t yres		= (ptrdiff_t)(source_render_layers)[0].image.getHeight();// in intermediate pixels
+		const ptrdiff_t yres		= (ptrdiff_t)(source_render_layers)[0].getHeight();// in intermediate pixels
 		//#endif
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1;
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
-		const std::vector<RenderRegion>& render_regions = *closure.render_regions;
+		const ArrayRef<RenderRegion>& render_regions = *closure.render_regions;
 		const float region_alpha_bias = closure.region_alpha_bias;
 
 		const int rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
@@ -826,7 +826,7 @@ public:
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+							const Image::ColourType& c = source_render_layers[z].getPixel(src_addr);
 							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
 						}
 					}
@@ -842,7 +842,7 @@ public:
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+								const Image::ColourType& c = (closure.render_channels->region_layers)[z].getPixel(src_addr);
 								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
@@ -955,7 +955,7 @@ public:
 						{
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = source_render_layers[z].image.getPixel(src_addr);
+								const Image::ColourType& c = source_render_layers[z].getPixel(src_addr);
 								sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
 							}
 						}
@@ -972,7 +972,7 @@ public:
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = (closure.render_channels->region_layers)[z].image.getPixel(src_addr);
+								const Image::ColourType& c = (closure.render_channels->region_layers)[z].getPixel(src_addr);
 								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
 							}
 
@@ -1054,7 +1054,7 @@ void doTonemap(
 	DoTonemapScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	const std::string& source_channel_name,
-	const std::vector<RenderRegion>& render_regions,
+	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
 	float region_image_scale,

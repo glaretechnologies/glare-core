@@ -10,6 +10,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #include "../indigo/RendererSettings.h"
 #include "../indigo/RenderChannels.h"
+#include "../utils/ArrayRef.h"
 #include "Image4f.h"
 #include <vector>
 
@@ -37,7 +38,7 @@ void sumLightLayers(
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
-	const std::vector<RenderRegion>& render_regions,
+	const ArrayRef<RenderRegion>& render_regions,
 	int margin_ssf1,
 	int ssf,
 	bool zero_alpha_outside_region,
@@ -78,7 +79,7 @@ void doTonemap(
 	DoTonemapScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
 	const std::string& source_channel_name,
-	const std::vector<RenderRegion>& render_regions,
+	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
