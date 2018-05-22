@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2018 -
 
 
 #include "ThreadSafeRefCounted.h"
+#include <cstring> // for size_t
 
 
 namespace glare
