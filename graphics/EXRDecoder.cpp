@@ -15,6 +15,7 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/Vector.h"
 #include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #include <fstream>

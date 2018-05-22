@@ -435,7 +435,7 @@ void test()
 		renderer_settings.super_sample_factor = image_ss_factor;
 		renderer_settings.tone_mapper = tone_mappers[tm];
 
-		std::vector<std::string> layer_names(image_layers, "");
+		Indigo::Vector<Indigo::String> layer_names(image_layers, "");
 
 		MasterBuffer master_buffer(
 			(uint32)image_ss_xres, 

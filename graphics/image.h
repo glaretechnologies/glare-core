@@ -106,6 +106,9 @@ public:
 	float minPixelComponent() const;
 	float maxPixelComponent() const;
 
+	void setAllocator(const Reference<glare::Allocator>& al) { pixels.setAllocator(al); }
+	Reference<glare::Allocator>& getAllocator() { return pixels.getAllocator(); }
+
 	////// Map2D interface //////////
 	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
 	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }

@@ -11,7 +11,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "Colour4f.h"
 #include "image.h"
 #include "GaussianImageFilter.h"
-#include "../utils/Vector.h"
+#include "../utils/AllocatorVector.h"
 #include "../utils/Exception.h"
 namespace Indigo { class TaskManager; }
 class OutStream;
@@ -161,12 +161,15 @@ public:
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
 	inline size_t getDataSize() const { return data.size(); }
 
+	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
+	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
+
 private:
 #if IMAGE_MAP_TILED
 	unsigned int w_blocks, h_blocks;
 #endif
 	unsigned int width, height, N;
-	js::Vector<V, 16> data;
+	glare::AllocatorVector<V, 16> data;
 	float gamma, ds_over_2, dt_over_2;
 };
 

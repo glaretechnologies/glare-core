@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2017 -
 #pragma once
 
 
-#include "Vector.h"
+#include "AllocatorVector.h"
 #include <assert.h>
 #include <stdlib.h> // for NULL
 
@@ -45,8 +45,11 @@ public:
 
 	void getTranspose(Array2D<Field>& transpose_out) const;
 
+	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
+	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
+
 private:
-	js::Vector<Field, 64> data;
+	glare::AllocatorVector<Field, 64> data;
 	size_t dim1;
 	size_t dim2;
 };
@@ -150,7 +153,8 @@ void Array2D<Field>::resize(size_t newdim1, size_t newdim2)
 	}
 	else
 	{
-		js::Vector<Field, 64> newdata;
+		glare::AllocatorVector<Field, 64> newdata;
+		newdata.setAllocator(getAllocator());
 		newdata.resize(newdim1 * newdim2);
 
 		const size_t minx = myMin(newdim1, dim1);
