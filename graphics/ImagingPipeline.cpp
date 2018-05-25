@@ -1202,6 +1202,8 @@ void doTonemap(
 			closure.source_render_channel = &render_channels.transmission_lighting;
 		else if(source_channel_name == "emission_lighting")
 			closure.source_render_channel = &render_channels.emission_lighting;
+		else if(source_channel_name == "participating_media_lighting")
+			closure.source_render_channel = &render_channels.participating_media_lighting;
 		else if(source_channel_name == "sss_lighting")
 			closure.source_render_channel = &render_channels.sss_lighting;
 		else
