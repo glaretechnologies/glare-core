@@ -13,6 +13,13 @@ Copyright Glare Technologies Limited 2014 -
 #endif
 
 
+#if defined(_WIN32)
+#define GLARE_NO_INLINE __declspec(noinline)
+#else
+#define GLARE_NO_INLINE __attribute__ ((noinline))
+#endif
+
+
 // To disallow copy-construction and assignment operators, put this in the private part of a class:
 #define INDIGO_DISABLE_COPY(TypeName) \
 	TypeName(const TypeName &); \
