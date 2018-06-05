@@ -238,8 +238,11 @@ public:
 		const bool have_alpha_channel = closure.render_channels.hasAlpha();
 		const int num_layers = (int)closure.render_channels.layers.size();
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
-		const Indigo::Vector<Image>& layers = closure.render_channels.layers;
-		const Indigo::Vector<Image>& region_layers = closure.render_channels.region_layers;
+
+		const glare::AllocatorVector<float, 16>& front_data = closure.render_channels.front_data;
+		const glare::AllocatorVector<float, 16>& region_data = closure.render_channels.region_data;
+		const size_t stride = closure.render_channels.stride;
+		const size_t alpha_offset = (size_t)closure.render_channels.alpha.offset;
 
 		// Artificially bump up the alpha value a little, so that monte-carlo noise doesn't make a totally opaque object partially transparent.
 		// we will use image_scale for this, as it naturally reduces to near zero as the render converges.
@@ -247,17 +250,18 @@ public:
 		// (we will use alpha_bias = normed_image_rect_area)
 		const float alpha_bias_factor        = 1.f + closure.image_scale;
 		const float region_alpha_bias_factor = 1.f + closure.region_alpha_bias;
+		const ptrdiff_t main_layer_num_components = closure.render_channels.layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
 		if(closure.render_channels.hasSpectral())
 		{
 			for(size_t i = begin; i < end; ++i)
 			{
 				Colour4f sum(0.0f);
-				for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels.spectral.getN(); ++z) // For each wavelength bin:
+				for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels.spectral.num_components; ++z) // For each wavelength bin:
 				{
-					const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels.spectral.getN();
+					const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels.spectral.num_components;
 					const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
-					const float pixel_comp_val = closure.render_channels.spectral.getData()[i * closure.render_channels.spectral.getN() + z] * closure.image_scale;
+					const float pixel_comp_val = closure.render_channels.front_data[i * stride + closure.render_channels.spectral.offset + z] * closure.image_scale;
 					sum[0] += xyz.x * pixel_comp_val;
 					sum[1] += xyz.y * pixel_comp_val;
 					sum[2] += xyz.z * pixel_comp_val;
@@ -274,17 +278,17 @@ public:
 				for(int z = 0; z < num_layers; ++z)
 				{
 					const Vec3f& scale = layer_weights[z];
-					sum.x[0] += layers[z].getPixel(i).r * scale.x;
-					sum.x[1] += layers[z].getPixel(i).g * scale.y;
-					sum.x[2] += layers[z].getPixel(i).b * scale.z;
+					sum[0] += front_data[i * stride + z * main_layer_num_components + 0] * scale.x;
+					sum[1] += front_data[i * stride + z * main_layer_num_components + 1] * scale.y;
+					sum[2] += front_data[i * stride + z * main_layer_num_components + 2] * scale.z;
 				}
 
 				// Get alpha from alpha channel if it exists
-				sum.x[3] = have_alpha_channel ? (closure.render_channels.alpha.getData()[i] * alpha_bias_factor * closure.image_scale) : 1.f;
+				sum.x[3] = have_alpha_channel ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-				const size_t x = i % layers[0].getWidth();
-				const size_t y = i / layers[0].getWidth();
+				const size_t x = i % closure.render_channels.getWidth();
+				const size_t y = i / closure.render_channels.getWidth();
 
 				if(render_region_enabled)
 				{
@@ -293,15 +297,14 @@ public:
 						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = region_layers[z].getPixel(i);
 							const Vec3f& scale = region_layer_weights[z];
-							sum.x[0] += c.r * scale.x;
-							sum.x[1] += c.g * scale.y;
-							sum.x[2] += c.b * scale.z;
+							sum[0] += region_data[i * stride + z * main_layer_num_components + 0] * scale.x;
+							sum[1] += region_data[i * stride + z * main_layer_num_components + 1] * scale.y;
+							sum[2] += region_data[i * stride + z * main_layer_num_components + 2] * scale.z;
 						}
 
 						// Get alpha from (region) alpha channel if it exists
-						sum.x[3] = have_alpha_channel ? (closure.render_channels.region_alpha.getData()[i] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+						sum.x[3] = have_alpha_channel ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 					}
 					else
 					{
@@ -335,7 +338,7 @@ void sumLightLayers(
 	Indigo::TaskManager& task_manager
 ) 
 {
-	summed_buffer_out.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
+	summed_buffer_out.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 
 	SumBuffersTaskClosure closure(layer_scales, image_scale, region_image_scale, render_channels, summed_buffer_out);
 	closure.render_regions = &render_regions;
@@ -344,7 +347,7 @@ void sumLightLayers(
 	closure.zero_alpha_outside_region = zero_alpha_outside_region;
 	closure.region_alpha_bias = region_alpha_bias;
 	
-	const size_t num_pixels = (int)render_channels.layers[0].numPixels();
+	const size_t num_pixels = render_channels.getWidth() * render_channels.getHeight();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
 }
 
@@ -470,7 +473,7 @@ static void doTonemapFullBuffer(
 
 
 	//if(PROFILE) t.reset();
-	temp_summed_buffer.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
+	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
@@ -479,7 +482,7 @@ static void doTonemapFullBuffer(
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && post_pro_diffraction.nonNull())
 	{
 		BufferedPrintOutput bpo;
-		temp_AD_buffer.resizeNoCopy(render_channels.layers[0].getWidth(), render_channels.layers[0].getHeight());
+		temp_AD_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
 		
 		// Do 'overbright' pixel spreading.
@@ -630,8 +633,8 @@ static void doTonemapFullBuffer(
 	const size_t supersample_factor = (size_t)renderer_settings.super_sample_factor;
 	const size_t border_width = (size_t)margin_ssf1;
 
-	const size_t final_xres = render_channels.layers[0].getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
-	const size_t final_yres = render_channels.layers[0].getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
+	const size_t final_xres = render_channels.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
+	const size_t final_yres = render_channels.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
 	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
 
 	// Collapse super-sampled image down to final image size
@@ -718,7 +721,7 @@ struct ImagePipelineTaskClosure
 
 	CurveData curve_data;
 
-	const Image* source_render_channel; // non-null if the source is a non-beauty render channel.
+	int source_render_channel_offset; // >= 0 if the source is a non-beauty render channel.
 };
 
 
@@ -753,19 +756,22 @@ public:
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool has_spectral_channel = closure.render_channels->hasSpectral();
-		const Image* const source_render_channel = closure.source_render_channel;
+		const int source_render_channel_offset = closure.source_render_channel_offset;
 
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
 
 
-		const Indigo::Vector<Image>& source_render_layers = closure.render_channels->layers;
-		const ImageMapFloat& source_alpha_buf             = closure.render_channels->alpha;
+		const glare::AllocatorVector<float, 16>& front_data = closure.render_channels->front_data;
+		const glare::AllocatorVector<float, 16>& region_data = closure.render_channels->region_data;
+		const ptrdiff_t stride = closure.render_channels->stride;
+		const ptrdiff_t alpha_offset = (size_t)closure.render_channels->alpha.offset;
+		const ptrdiff_t main_layer_num_components = closure.render_channels->layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
 
-		const ptrdiff_t xres		= (ptrdiff_t)(source_render_layers)[0].getWidth(); // in intermediate pixels
+		const ptrdiff_t xres		= (ptrdiff_t)closure.render_channels->getWidth(); // in intermediate pixels
 		//#ifndef NDEBUG
-		const ptrdiff_t yres		= (ptrdiff_t)(source_render_layers)[0].getHeight();// in intermediate pixels
+		const ptrdiff_t yres		= (ptrdiff_t)closure.render_channels->getHeight(); // in intermediate pixels
 		//#endif
 		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1;
@@ -812,27 +818,31 @@ public:
 				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
 				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 				{
-					const ptrdiff_t src_addr = y * xres + x;
+					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
 					Colour4f sum(0.0f);
 
 					assert(!has_spectral_channel);
 					
-					if(source_render_channel)
+					if(source_render_channel_offset >= 0)
 					{
-						const Image::ColourType& c = source_render_channel->getPixel(src_addr);
-						sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[0];
+						float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+						float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+						float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+						sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
 					}
 					else
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const Image::ColourType& c = source_render_layers[z].getPixel(src_addr);
-							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+							float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
+							float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
+							float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
+							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
 						}
 					}
 
 					// Get alpha from alpha channel if we are doing a foreground-alpha render
-					sum.x[3] = render_foreground_alpha ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -842,11 +852,13 @@ public:
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = (closure.render_channels->region_layers)[z].getPixel(src_addr);
-								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
+								float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
+								float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
+								float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
+								sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
 							}
 
-							sum.x[3] = render_foreground_alpha ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -929,16 +941,16 @@ public:
 				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
 				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 				{
-					const ptrdiff_t src_addr = y * xres + x;
+					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
 					Colour4f sum(0.0f);
 
 					if(has_spectral_channel)
 					{
-						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.getN(); ++z) // For each wavelength bin:
+						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.num_components; ++z) // For each wavelength bin:
 						{
-							const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels->spectral.getN();
+							const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels->spectral.num_components;
 							const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
-							const float pixel_comp_val = closure.render_channels->spectral.getPixel((unsigned int)x, (unsigned int)y)[z] * closure.image_scale;
+							const float pixel_comp_val = closure.render_channels->front_data[src_pixel_offset + closure.render_channels->spectral.offset + z] * closure.image_scale;
 							sum[0] += xyz.x * pixel_comp_val;
 							sum[1] += xyz.y * pixel_comp_val;
 							sum[2] += xyz.z * pixel_comp_val;
@@ -946,23 +958,27 @@ public:
 					}
 					else
 					{
-						if(source_render_channel)
+						if(source_render_channel_offset >= 0)
 						{
-							const Image::ColourType& c = source_render_channel->getPixel(src_addr);
-							sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[0];
+							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+							sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
 						}
 						else
 						{
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = source_render_layers[z].getPixel(src_addr);
-								sum += Colour4f(c.r, c.g, c.b, 0.f) * layer_weights[z];
+								float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
+								float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
+								float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
+								sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
 							}
 						}
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (source_alpha_buf.getPixel((unsigned int)x, (unsigned int)y)[0] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -972,11 +988,13 @@ public:
 							sum = Colour4f(0.f);
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
-								const Image::ColourType& c = (closure.render_channels->region_layers)[z].getPixel(src_addr);
-								sum += Colour4f(c.r, c.g, c.b, 0.f) * region_layer_weights[z];
+								float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
+								float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
+								float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
+								sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
 							}
 
-							sum.x[3] = render_foreground_alpha ? (closure.render_channels->region_alpha.getPixel((unsigned int)x, (unsigned int)y)[0] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 						}
 						else
 						{
@@ -1053,7 +1071,7 @@ DoTonemapScratchState::~DoTonemapScratchState()
 void doTonemap(	
 	DoTonemapScratchState& scratch_state,
 	const RenderChannels& render_channels,
-	const std::string& source_channel_name,
+	int source_channel_offset, // or -1 which means blend together main light layers (usual rendering).
 	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
@@ -1189,25 +1207,7 @@ void doTonemap(
 		closure.render_regions = &render_regions;
 		closure.tonemap_params = &tonemap_params;
 		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
-
-		if(source_channel_name == "direct_lighting")
-			closure.source_render_channel = &render_channels.direct_lighting;
-		else if(source_channel_name == "indirect_lighting")
-			closure.source_render_channel = &render_channels.indirect_lighting;
-		else if(source_channel_name == "specular_reflection_lighting")
-			closure.source_render_channel = &render_channels.specular_reflection_lighting;
-		else if(source_channel_name == "refraction_lighting")
-			closure.source_render_channel = &render_channels.refraction_lighting;
-		else if(source_channel_name == "transmission_lighting")
-			closure.source_render_channel = &render_channels.transmission_lighting;
-		else if(source_channel_name == "emission_lighting")
-			closure.source_render_channel = &render_channels.emission_lighting;
-		else if(source_channel_name == "participating_media_lighting")
-			closure.source_render_channel = &render_channels.participating_media_lighting;
-		else if(source_channel_name == "sss_lighting")
-			closure.source_render_channel = &render_channels.sss_lighting;
-		else
-			closure.source_render_channel = NULL;
+		closure.source_render_channel_offset = source_channel_offset;
 
 		closure.x_tiles = x_tiles;
 		closure.final_xres = final_xres;

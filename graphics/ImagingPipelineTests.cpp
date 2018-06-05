@@ -59,7 +59,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	ImagingPipeline::doTonemap(
 		tonemap_scratch_state,
 		render_channels,
-		"beauty",
+		-1, // source channel offset
 		render_regions,
 		layer_weights,
 		layer_normalise, // image scale
@@ -108,11 +108,12 @@ void test()
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
 
-		render_channels.alpha.resize(full_W, full_W, 1);
-		render_channels.alpha.set(alpha * value_factor);
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().name = "layer 0";
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
 
 		//const int W = 1000;
 		//const int ssf = 1;
@@ -151,7 +152,7 @@ void test()
 			ImagingPipeline::doTonemap(
 				tonemap_scratch_state,
 				render_channels,
-				"beauty",
+				-1, // source channel offset
 				render_regions,
 				layer_weights,
 				layer_normalise, // image scale
@@ -195,8 +196,12 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(1.0f));
+
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().name = "layer 0";
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -252,7 +257,7 @@ void test()
 		ImagingPipeline::doTonemap(
 			tonemap_scratch_state,
 			render_channels,
-			"beauty",
+			-1,
 			render_regions,
 			layer_weights,
 			layer_normalise, // image scale
@@ -280,8 +285,19 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 		
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(1.0f));
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 3;
+
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().name = "layer 0";
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
+
+		render_channels.front_data.resize(full_W * full_W * 3);
+		for(size_t i=0; i<render_channels.front_data.size(); ++i)
+			render_channels.front_data[i] = 1.0f;
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -303,8 +319,21 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(1.0f));
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 3;
+
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
+
+		render_channels.front_data.resize(full_W * full_W * 3);
+		for(size_t i=0; i<render_channels.front_data.size(); ++i)
+			render_channels.front_data[i] = 1.0f;
+
+		//render_channels.layers.push_back(Image(full_W, full_W));
+		//render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -325,8 +354,21 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(1.0f));
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 3;
+
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
+
+		render_channels.front_data.resize(full_W * full_W * 3);
+		for(size_t i=0; i<render_channels.front_data.size(); ++i)
+			render_channels.front_data[i] = 1.0f;
+
+		//render_channels.layers.push_back(Image(full_W, full_W));
+		//render_channels.layers.back().set(Colour3f(1.0f));
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
@@ -353,11 +395,27 @@ void test()
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
-		render_channels.layers.push_back(Image(full_W, full_W));
-		render_channels.layers.back().set(Colour3f(0.2f, 0.4f, 0.6f) * value_factor);
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 4;
 
-		render_channels.alpha.resize(full_W, full_W, 1);
-		render_channels.alpha.set(alpha * value_factor);
+		render_channels.layers.push_back(ChannelInfo());
+		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
+		render_channels.layers.back().offset = 0;
+		render_channels.layers.back().num_components = 3;
+
+		render_channels.alpha.type = ChannelInfo::ChannelType_Alpha;
+		render_channels.alpha.offset = 3;
+		render_channels.alpha.num_components = 1;
+
+		render_channels.front_data.resize(full_W * full_W * render_channels.stride);
+		for(size_t i=0; i<full_W * full_W; ++i)
+		{
+			render_channels.front_data[i * render_channels.stride + 0] = 0.2f * value_factor;
+			render_channels.front_data[i * render_channels.stride + 1] = 0.4f * value_factor;
+			render_channels.front_data[i * render_channels.stride + 2] = 0.6f * value_factor;
+			render_channels.front_data[i * render_channels.stride + 3] = alpha * value_factor; // alpha
+		}
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f / value_factor;
@@ -437,6 +495,9 @@ void test()
 
 		Indigo::Vector<Indigo::String> layer_names(image_layers, "");
 
+		MasterBuffer::MasterBufferExtendedArgs args;
+		args.use_alpha_channel = true;
+
 		MasterBuffer master_buffer(
 			(uint32)image_ss_xres, 
 			(uint32)image_ss_yres, 
@@ -446,12 +507,12 @@ void test()
 			RendererSettings::defaultMargin(), // margin width
 			image_ss_factor,
 			layer_names,
-			false // need back buffer
+			false, // need back buffer
+			args
 		);
 		master_buffer.setNumSamples(1);
-
-		Indigo::Vector< ::Image>& layers = master_buffer.getRenderChannels().layers;
-		assert(layers.size() == image_layers);
+		
+		RenderChannels& channels = master_buffer.getRenderChannels();
 
 		const float layer_normalise = 1.0f / image_layers;
 		std::vector<Vec3f> layer_weights(image_layers, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
@@ -464,11 +525,19 @@ void test()
 		{
 			const int dx = x - r_max, dy = y - r_max;
 
-			layers[i].getPixel(y * image_ss_xres + x) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
+			const float v = (dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f;
+			channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 0] = v;
+			channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 1] = v;
+			channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 2] = v;
+			//layers[i].getPixel(y * image_ss_xres + x) = Colour3f((dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f);
 		}
 
 		// Fill alpha channel to alpha 1
-		master_buffer.getRenderChannels().alpha.set(1.0f);
+		for(int y = 0; y < image_ss_yres; ++y)
+		for(int x = 0; x < image_ss_xres; ++x)
+			channels.front_data[channels.pixelOffset(x, y) + channels.alpha.offset] = 1.0f;
+
+		//master_buffer.getRenderChannels().alpha.set(1.0f);
 
 		::Image4f ldr_buffer(image_final_xres, image_final_yres);
 		bool ldr_buffer_is_nonlinear;
@@ -479,7 +548,7 @@ void test()
 		ImagingPipeline::doTonemap(
 			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
-			"beauty",
+			-1, // source channel offset
 			std::vector<RenderRegion>(),
 			layer_weights,
 			1.0f, // image scale
