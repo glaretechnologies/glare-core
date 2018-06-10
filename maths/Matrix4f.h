@@ -53,6 +53,7 @@ public:
 	
 
 	inline const Vec4f mul3Vector(const Vec4f& v) const;
+	inline const Vec4f mulPoint(const Vec4f& v) const;
 	inline const Vec4f transposeMult(const Vec4f& v) const;
 
 	// Ignores W component of vector, returns vector with W component of 0.
@@ -284,6 +285,28 @@ INDIGO_STRONG_INLINE const Vec4f Matrix4f::mul3Vector(const Vec4f& v) const
 			_mm_mul_ps(
 				vz,
 				_mm_load_ps(e + 8) // e[8]-e[11]
+			)
+		)
+	);
+}
+
+
+// Treats v.w as 1
+INDIGO_STRONG_INLINE const Vec4f Matrix4f::mulPoint(const Vec4f& v) const
+{
+	const __m128 vx = indigoCopyToAll(v.v, 0);
+	const __m128 vy = indigoCopyToAll(v.v, 1);
+	const __m128 vz = indigoCopyToAll(v.v, 2);
+
+	return Vec4f(
+		_mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(vx, _mm_load_ps(e)),
+				_mm_mul_ps(vy, _mm_load_ps(e + 4))
+				),
+			_mm_add_ps(
+				_mm_mul_ps(vz, _mm_load_ps(e + 8)),
+				 _mm_load_ps(e + 12) // Just add column 3.
 			)
 		)
 	);

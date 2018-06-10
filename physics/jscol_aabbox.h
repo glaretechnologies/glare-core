@@ -9,6 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../maths/Vec4f.h"
 #include "../maths/SSE.h"
+#include "../maths/Matrix4f.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Platform.h"
 #include <limits>
@@ -65,6 +66,10 @@ public:
 	inline unsigned int longestAxis() const;
 
 	INDIGO_STRONG_INLINE const Vec4f centroid() const;
+
+	inline AABBox transformedAABB(const Matrix4f& matrix) const;
+	inline AABBox transformedAABBFast(const Matrix4f& matrix) const; // Faster, but with possible precision issues.
+
 
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
@@ -316,6 +321,62 @@ float AABBox::getHalfSurfaceArea() const
 	const Vec4f diff(max_ - min_);
 	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = diff.x[0]*diff.x[2] + diff.x[1]*diff.x[0] + diff.x[2]*diff.x[1]
 	return res[0] + res[1] + res[2];
+}
+
+
+AABBox AABBox::transformedAABB(const Matrix4f& M) const
+{
+	// Factor out repeated multiplications of the columns of M with the components of min and max:
+	const Vec4f c0 = M.getColumn(0);
+	const Vec4f c1 = M.getColumn(1);
+	const Vec4f c2 = M.getColumn(2);
+	const Vec4f c3 = M.getColumn(3);
+	const Vec4f c0_min_x = mul(c0, copyToAll<0>(min_));
+	const Vec4f c0_max_x = mul(c0, copyToAll<0>(max_));
+	const Vec4f c1_min_y = mul(c1, copyToAll<1>(min_));
+	const Vec4f c1_max_y = mul(c1, copyToAll<1>(max_));
+	const Vec4f c2_min_z = mul(c2, copyToAll<2>(min_));
+	const Vec4f c2_max_z = mul(c2, copyToAll<2>(max_));
+
+	// Note that c3 could just be added to the resulting bounds, however
+	// due to rounding differences that would result in differences with the reference code,
+	// and differences to the transforms of points on the bounds.
+	// Basically we want to be consistent with what Matrix4f * vec4f multiplication does.
+	const Vec4f M_min       = (c0_min_x + c1_min_y) + (c2_min_z + c3);
+	js::AABBox M_bbox(M_min, M_min);
+	M_bbox.enlargeToHoldPoint((c0_min_x + c1_min_y) + (c2_max_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_min_x + c1_max_y) + (c2_min_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_min_x + c1_max_y) + (c2_max_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_max_x + c1_min_y) + (c2_min_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_max_x + c1_min_y) + (c2_max_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_max_x + c1_max_y) + (c2_min_z + c3));
+	M_bbox.enlargeToHoldPoint((c0_max_x + c1_max_y) + (c2_max_z + c3));
+	return M_bbox;
+}
+
+
+// Faster, but with possible precision issues due to subtraction to compute 'diff'.
+AABBox AABBox::transformedAABBFast(const Matrix4f& M) const 
+{
+	const Vec4f M_min = M.mulPoint(min_);
+	const Vec4f diff = max_ - min_;
+
+	// Transform edge vectors by M.  Because the edge vectors are axis-aligned, they only have one non-zero component, 
+	// so they just pick out a single column of M.  
+	// Therefore we can just do a single 4-vector multiply instead of a full matrix mult.
+	const Vec4f M_e0 = mul(M.getColumn(0), copyToAll<0>(diff)); // e0 = (max_x - min_x, 0, 0)
+	const Vec4f M_e1 = mul(M.getColumn(1), copyToAll<1>(diff)); // e1 = (0, max_y - min_y, 0)
+	const Vec4f M_e2 = mul(M.getColumn(2), copyToAll<2>(diff)); // e2 = (0, 0, max_z - min_z)
+
+	js::AABBox M_bbox(M_min, M_min);
+	M_bbox.enlargeToHoldPoint(M_min               + M_e2);
+	M_bbox.enlargeToHoldPoint(M_min        + M_e1       );
+	M_bbox.enlargeToHoldPoint(M_min        + M_e1 + M_e2);
+	M_bbox.enlargeToHoldPoint(M_min + M_e0              );
+	M_bbox.enlargeToHoldPoint(M_min + M_e0        + M_e2);
+	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1       );
+	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1 + M_e2);
+	return M_bbox;
 }
 
 

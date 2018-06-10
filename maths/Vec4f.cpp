@@ -299,6 +299,22 @@ void Vec4f::test()
 		testAssert((swizzle<3, 2, 1, 0>(a) == Vec4f(4, 3, 2, 1)));
 	}
 
+	// Test shuffle
+	{
+		const Vec4f a(1, 2, 3, 4);
+		const Vec4f b(5, 6, 7, 8);
+
+		testAssert((shuffle<0, 0, 0, 0>(a, b) == Vec4f(1, 1, 5, 5)));
+		testAssert((shuffle<1, 1, 1, 1>(a, b) == Vec4f(2, 2, 6, 6)));
+		testAssert((shuffle<2, 2, 2, 2>(a, b) == Vec4f(3, 3, 7, 7)));
+		testAssert((shuffle<3, 3, 3, 3>(a, b) == Vec4f(4, 4, 8, 8)));
+
+		testAssert((shuffle<0, 1, 2, 3>(a, b) == Vec4f(1, 2, 7, 8)));
+		testAssert((shuffle<3, 2, 1, 0>(a, b) == Vec4f(4, 3, 6, 5)));
+
+		testAssert((shuffle<0, 1, 2, 3>(a, a) == Vec4f(1, 2, 3, 4)));
+	}
+
 	// Test floorToVec4i
 	{
 #if COMPILE_SSE4_CODE

@@ -306,6 +306,8 @@ INDIGO_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_
 template <int index0, int index1, int index2, int index3>
 INDIGO_STRONG_INLINE const Vec4f swizzle(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
 
+template <int index0, int index1, int index2, int index3>
+INDIGO_STRONG_INLINE const Vec4f shuffle(const Vec4f& a, const Vec4f& b) { return _mm_shuffle_ps(a.v, b.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
 
 template<int index>
 INDIGO_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1

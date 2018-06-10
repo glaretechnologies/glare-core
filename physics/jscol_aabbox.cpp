@@ -53,6 +53,23 @@ const std::string AABBox::toStringNSigFigs(int n) const
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/CycleTimer.h"
+#include "../utils/Timer.h"
+#include "../utils/MTwister.h"
+
+
+inline static js::AABBox refTransformedAABB(const js::AABBox& aabb, const Matrix4f& M)
+{
+	js::AABBox res = js::AABBox::emptyAABBox();
+	res.enlargeToHoldPoint(M * Vec4f(aabb.min_.x[0], aabb.min_.x[1], aabb.min_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.min_.x[0], aabb.min_.x[1], aabb.max_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.min_.x[0], aabb.max_.x[1], aabb.min_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.min_.x[0], aabb.max_.x[1], aabb.max_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.max_.x[0], aabb.min_.x[1], aabb.min_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.max_.x[0], aabb.min_.x[1], aabb.max_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.max_.x[0], aabb.max_.x[1], aabb.min_.x[2], 1.0f));
+	res.enlargeToHoldPoint(M * Vec4f(aabb.max_.x[0], aabb.max_.x[1], aabb.max_.x[2], 1.0f));
+	return res;
+}
 
 
 void js::AABBox::test()
@@ -148,11 +165,102 @@ void js::AABBox::test()
 	{
 		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).isEmpty());
 		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 1, 1, 1)).isEmpty());
-		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 0, 1)).isEmpty());
-		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 0, 1)).isEmpty());
-		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 1, 0, 1)).isEmpty());
-		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 1, 1)).isEmpty());
-		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 1, 1)).isEmpty());
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 0, 1)).isEmpty() != 0);
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 0, 1)).isEmpty() != 0);
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 1, 0, 1)).isEmpty() != 0);
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(0, 0, 1, 1)).isEmpty() != 0);
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(1, 0, 1, 1)).isEmpty() != 0);
+	}
+
+	//----------------- Test transformedAABB() and transformedAABBFast() -------------------
+	{
+		MTwister rng(1);
+		for(int i=0; i<1000; ++i)
+		{
+			// Make a random matrix
+			SSE_ALIGN float e[16];
+			for(int z=0; z<16; ++z)
+				e[z] = (-1.f + 2.f * rng.unitRandom());
+
+			e[3] = e[7] = e[11] = 0;
+			e[15] = 1;
+			const Matrix4f M(e);
+
+			const js::AABBox aabb(
+				Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
+				Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f)
+			);
+
+			const js::AABBox ref_M_aabb = refTransformedAABB(aabb, M);
+
+			const js::AABBox M_aabb = aabb.transformedAABB(M);
+			testAssert(M_aabb == ref_M_aabb);
+			
+			const js::AABBox fast_M_aabb = aabb.transformedAABBFast(M);
+			testAssert(epsEqual(fast_M_aabb.min_, ref_M_aabb.min_));
+			testAssert(epsEqual(fast_M_aabb.max_, ref_M_aabb.max_));
+		}
+	}
+
+	// perf-test transformedAABB() and transformedAABBFast()
+	{
+		MTwister rng(1);
+
+		// Make a random matrix
+		SSE_ALIGN float e[16];
+		for(int z=0; z<16; ++z)
+			e[z] = (-1.f + 2.f * rng.unitRandom());
+
+		e[3] = e[7] = e[11] = 0;
+		e[15] = 1;
+		const Matrix4f M(e);
+
+		const js::AABBox aabb(
+			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f),
+			Vec4f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom(), 1.f)
+		);
+	
+		const int N = 100000;
+
+		{
+			Timer timer;
+			Vec4f sum(0);
+			for(int i=0; i<N; ++i)
+			{
+				const js::AABBox M_aabb = refTransformedAABB(aabb, M);
+				sum += M_aabb.min_ + M_aabb.max_;
+			}
+
+			const double elapsed = timer.elapsed();
+			conPrint("refTransformedAABB() elapsed: " + ::toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(sum.toString());
+		}
+		{
+			Timer timer;
+			Vec4f sum(0);
+			for(int i=0; i<N; ++i)
+			{
+				const js::AABBox M_aabb = aabb.transformedAABB(M);
+				sum += M_aabb.min_ + M_aabb.max_;
+			}
+
+			const double elapsed = timer.elapsed();
+			conPrint("transformedAABB() elapsed: " + ::toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(sum.toString());
+		}
+		{
+			Timer timer;
+			Vec4f sum(0);
+			for(int i=0; i<N; ++i)
+			{
+				const js::AABBox M_aabb = aabb.transformedAABBFast(M);
+				sum += M_aabb.min_ + M_aabb.max_;
+			}
+
+			const double elapsed = timer.elapsed();
+			conPrint("transformedAABBFast() elapsed: " + ::toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(sum.toString());
+		}
 	}
 
 	// Performance test

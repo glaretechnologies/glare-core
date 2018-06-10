@@ -967,6 +967,30 @@ void Matrix4f::test()
 			conPrint("mul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
 			TestUtils::silentPrint(::toString(scalarsum));
 		}
+
+		// Test speed of mulPoint()
+		{
+			Timer timer;
+
+			const float e[16] ={ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f res = m.mulPoint(v);
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("mulPoint() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(scalarsum));
+		}
 	}
 }
 

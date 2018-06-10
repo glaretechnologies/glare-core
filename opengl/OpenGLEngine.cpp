@@ -871,25 +871,20 @@ void OpenGLEngine::unloadAllData()
 }
 
 
+const js::AABBox OpenGLEngine::getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world)
+{
+	return object.mesh_data->aabb_os.transformedAABB(to_world);
+}
+
+
 void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
-	const Vec4f min_os = object.mesh_data->aabb_os.min_;
-	const Vec4f max_os = object.mesh_data->aabb_os.max_;
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	const bool invertible = to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix);
+	const bool invertible = to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix); // Compute inverse matrix
 	assert(invertible);
 
-	js::AABBox bbox_ws = js::AABBox::emptyAABBox();
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], min_os.x[1], max_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], max_os.x[1], min_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(min_os.x[0], max_os.x[1], max_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], min_os.x[1], min_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], min_os.x[1], max_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], max_os.x[1], min_os.x[2], 1.0f));
-	bbox_ws.enlargeToHoldPoint(to_world * Vec4f(max_os.x[0], max_os.x[1], max_os.x[2], 1.0f));
-	object.aabb_ws = bbox_ws;
+	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
 }
 
 
