@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
@@ -319,10 +319,25 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	assert(SSE::isSSEAligned(this));
 	assert(SSE::isSSEAligned(&vec));
 	assertIsUnitLength(vec);
+	assert(v[3] == 0.f);
 
 	Vec4f x_axis;
 
 	// From PBR
+	const Vec4f abs_vec = abs(vec);
+	const Vec4f neg_v = -vec;
+	if(abs_vec[0] > abs_vec[1])
+	{
+		
+		const Vec4f len = sqrt(_mm_dp_ps(vec.v, vec.v, 0x5F));// Compute dot product with x,z components, write result to all components.
+		x_axis = div(shuffle<2, 3, 0, 3>(neg_v, vec), len); // = (neg_v[2], neg_v[3], vec[0], vec[3]) / len = (neg_v[2], 0, vec[0], 0) / len
+	}
+	else
+	{
+		const Vec4f len = sqrt(_mm_dp_ps(vec.v, vec.v, 0x6F)); // Compute dot product with y,z components, write result to all components.
+		x_axis = div(shuffle<3, 2, 1, 3>(vec, neg_v), len); // = (vec[3], vec[2], neg_v[1], neg_v[3]) / len = = (0, vec[2], neg_v[1], 0) / len
+	}
+	/* Reference code:
 	if(std::fabs(vec[0]) > std::fabs(vec[1]))
 	{
 		const float recip_len = 1 / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
@@ -334,7 +349,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 		const float recip_len = 1 / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
 
 		x_axis = Vec4f(0, vec[2] * recip_len, -vec[1] * recip_len, 0);
-	}
+	}*/
 
 	const Vec4f y_axis = crossProduct(vec, x_axis);
 
@@ -370,39 +385,27 @@ inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const V
 	Vec4f x_axis;
 
 	// From PBR
-	if(std::fabs(vec[0]) > std::fabs(vec[1]))
+	const Vec4f abs_vec = abs(vec);
+	const Vec4f neg_v = -vec;
+	if(abs_vec[0] > abs_vec[1])
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[0] * vec[0] + vec[2] * vec[2]);
-		x_axis.set(-vec[2] * recip_len, 0.0f, vec[0] * recip_len, 0.0f);
+		
+		const Vec4f len = sqrt(_mm_dp_ps(vec.v, vec.v, 0x5F));// Compute dot product with x,z components, write result to all components.
+		x_axis = div(shuffle<2, 3, 0, 3>(neg_v, vec), len); // = (neg_v[2], neg_v[3], vec[0], vec[3]) / len = (neg_v[2], 0, vec[0], 0) / len
 	}
 	else
 	{
-		const float recip_len = 1.0f / std::sqrt(vec[1] * vec[1] + vec[2] * vec[2]);
-		x_axis.set(0.0f, vec[2] * recip_len, -vec[1] * recip_len, 0.0f);
+		const Vec4f len = sqrt(_mm_dp_ps(vec.v, vec.v, 0x6F)); // Compute dot product with y,z components, write result to all components.
+		x_axis = div(shuffle<3, 2, 1, 3>(vec, neg_v), len); // = (vec[3], vec[2], neg_v[1], neg_v[3]) / len = = (0, vec[2], neg_v[1], 0) / len
 	}
-
-	/*
-	// Experimental new code:
-	if(std::fabs(vec[2]) < 0.999f)
-	{
-		// x_axis = normalise(cross(vec, k))
-		const float len = std::sqrt(vec[0]*vec[0] + vec[1]*vec[1]);
-		x_axis = Vec4f(vec[1], -vec[0], 0, 0) / len;
-	}
-	else
-	{
-		// x_axis = normalise(cross(vec, i))
-		const float len = std::sqrt(vec[1]*vec[1] + vec[2]*vec[2]);
-		x_axis = Vec4f(0, vec[2], -vec[1], 0) / len;
-	}
-	*/
+	
 	const Vec4f y_axis = crossProduct(vec, x_axis);
 
 	assertIsUnitLength(x_axis);
 	assertIsUnitLength(y_axis);
 	assert(epsEqual(dot(x_axis, vec), 0.f) && epsEqual(dot(y_axis, vec), 0.f) && epsEqual(dot(x_axis, y_axis), 0.f));
 
-	return x_axis * other_v.x[0] + y_axis * other_v.x[1] + vec * other_v.x[2];
+	return mul(x_axis, copyToAll<0>(other_v)) + mul(y_axis, copyToAll<1>(other_v)) + mul(vec, copyToAll<2>(other_v));
 }
 
 

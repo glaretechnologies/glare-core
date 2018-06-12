@@ -453,17 +453,34 @@ static void refMul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
 }
 
 
+static void testIsOrthogonal(const Matrix4f& m)
+{
+	testEpsEqual(m.getColumn(0).length(), 1.0f);
+	testEpsEqual(m.getColumn(1).length(), 1.0f);
+	testEpsEqual(m.getColumn(2).length(), 1.0f);
+	testEpsEqual(dot(m.getColumn(0), m.getColumn(1)), 0.f);
+	testEpsEqual(dot(m.getColumn(0), m.getColumn(2)), 0.f);
+	testEpsEqual(dot(m.getColumn(1), m.getColumn(2)), 0.f);
+}
+
+
+static void testVectorsFormOrthonormalBasis(const Vec4f& a, const Vec4f& b, const Vec4f& c)
+{
+	testEpsEqual(a.length(), 1.0f);
+	testEpsEqual(b.length(), 1.0f);
+	testEpsEqual(c.length(), 1.0f);
+	testEpsEqual(dot(a, b), 0.f);
+	testEpsEqual(dot(a, c), 0.f);
+	testEpsEqual(dot(b, c), 0.f);
+}
+
+
 static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 {
 	const Vec4f M_i = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
 	const Vec4f M_j = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,1,0,0));
 	const Vec4f M_k = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,0,1,0));
-	testEpsEqual(M_i.length(), 1.0f);
-	testEpsEqual(M_j.length(), 1.0f);
-	testEpsEqual(M_k.length(), 1.0f);
-	testEpsEqual(dot(M_i, M_j), 0.f);
-	testEpsEqual(dot(M_j, M_k), 0.f);
-	testEpsEqual(dot(M_i, M_k), 0.f);
+	testVectorsFormOrthonormalBasis(M_i, M_j, M_k);
 }
 
 
@@ -799,6 +816,38 @@ void Matrix4f::test()
 		}
 	}
 
+	//-------------------------- Test constructFromVector() ----------------------
+	{
+		{
+			const Vec4f vec(0,0,1,0);
+			Matrix4f m;
+			m.constructFromVector(vec);
+			testIsOrthogonal(m);
+
+			const Vec4f M_k = m * Vec4f(0,0,1,0);
+			testEpsEqual(M_k, vec);
+		}
+
+		{
+			const Vec4f vec = normalise(Vec4f(0.2,1,1,0));
+			Matrix4f m;
+			m.constructFromVector(vec);
+			testIsOrthogonal(m);
+
+			const Vec4f M_k = m * Vec4f(0,0,1,0);
+			testEpsEqual(M_k, vec);
+		}
+
+		{
+			const Vec4f vec = normalise(Vec4f(1, 0.2, 1,0));
+			Matrix4f m;
+			m.constructFromVector(vec);
+			testIsOrthogonal(m);
+
+			const Vec4f M_k = m * Vec4f(0,0,1,0);
+			testEpsEqual(M_k, vec);
+		}
+	}
 
 
 	//-------------------------- Test constructFromVectorAndMul() ----------------------
@@ -917,6 +966,26 @@ void Matrix4f::test()
 			TestUtils::silentPrint(::toString(scalarsum));
 		}
 
+		// Test speed of constructFromVectorAndMul()
+		{
+			Timer timer;
+
+			int N = 1000000;
+			Vec4f sum(0.0f);
+			for(int i=0; i<N; ++i)
+			{
+				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+
+				const Vec4f res = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
+				sum += res;
+			}
+
+			double elapsed = timer.elapsed();
+			double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
+
+			conPrint("constructFromVectorAndMul time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(scalarsum));
+		}
 
 
 		// Test speed of transposeMult()
