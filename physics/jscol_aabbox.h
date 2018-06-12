@@ -359,7 +359,7 @@ AABBox AABBox::transformedAABB(const Matrix4f& M) const
 // Faster, but with possible precision issues due to subtraction to compute 'diff'.
 AABBox AABBox::transformedAABBFast(const Matrix4f& M) const 
 {
-	const Vec4f M_min = M.mulPoint(min_);
+	const Vec4f M_min = M.mul3Point(min_);
 	const Vec4f diff = max_ - min_;
 
 	// Transform edge vectors by M.  Because the edge vectors are axis-aligned, they only have one non-zero component, 
