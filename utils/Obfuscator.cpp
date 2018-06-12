@@ -319,6 +319,7 @@ void Obfuscator::addOpenCLKeywords()
 		"voronoi_vec2__float_",
 		"voronoi3d_vec3__float_",
 		"posOS_FullHitInfo_",
+		"normalOS_FullHitInfo_",
 		"meanCurvature_FullHitInfo_",
 		"mod_int__int_",
 		"mod_float__float_",
