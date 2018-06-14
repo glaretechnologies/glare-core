@@ -677,10 +677,6 @@ void Matrix4f::test()
 			testAssert(epsEqual(Matrix4f::rotationAroundZAxis(theta), Matrix4f::rotationMatrix(Vec4f(0, 0, 1, 0), theta)));
 	}
 
-	// Perf test //
-	
-
-
 	//------------- Matrix4f::identity() ----------------
 	{
 		const Matrix4f m = Matrix4f::identity();
