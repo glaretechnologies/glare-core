@@ -132,85 +132,12 @@ const Matrix4f Matrix4f::operator * (const Matrix4f& c) const
 }
 
 
-/*
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
-
-	0 1 2
-	3 4 5
-	6 7 8
-*/
-void Matrix4f::getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const
-{
-	upper_left_mat_out.e[0] = e[0];
-	upper_left_mat_out.e[1] = e[4];
-	upper_left_mat_out.e[2] = e[8];
-
-	upper_left_mat_out.e[3] = e[1];
-	upper_left_mat_out.e[4] = e[5];
-	upper_left_mat_out.e[5] = e[9];
-
-	upper_left_mat_out.e[6] = e[2];
-	upper_left_mat_out.e[7] = e[6];
-	upper_left_mat_out.e[8] = e[10];
-}
-
-
-void Matrix4f::setUpperLeftMatrix(const Matrix3<float>& upper_left_mat)
-{
-	e[0] = upper_left_mat.e[0];
-	e[4] = upper_left_mat.e[1];
-	e[8] = upper_left_mat.e[2];
-
-	e[1] = upper_left_mat.e[3];
-	e[5] = upper_left_mat.e[4];
-	e[9] = upper_left_mat.e[5];
-
-	e[2] = upper_left_mat.e[6];
-	e[6] = upper_left_mat.e[7];
-	e[10] = upper_left_mat.e[8];
-}
-
-
 bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 {
 	Matrix4f AB, BA;
 	mul(A, B, AB);
 	mul(B, A, BA);
 	return (epsEqual(AB, identity()) || approxEq(AB, identity())) && (epsEqual(BA, identity()) || approxEq(BA, identity()));
-}
-
-
-float Matrix4f::upperLeftDeterminant() const
-{
-	const Vec4f c0 = getColumn(0);
-	const Vec4f c1 = getColumn(1);
-	const Vec4f c2 = getColumn(2);
-	/*
-	det = m_11.m_22.m_33 + m_12.m_23.m_31 + m_13.m_21.m_32 -
-		  m_31.m_22.m_31 - m_11.m_23.m_32 - m_12.m_21.m_33
-
-	c0 = (m_11, m_21, m_31, 0)
-	c1 = (m_12, m_22, m_32, 0)
-	c2 = (m_13, m_23, m_33, 0)
-	
-	so shuffle columns to
-	c0' = (m_11, m_31, m_21, 0)
-	c1' = (m_22, m_12, m_32, 0)
-	c2' = (m_33, m_23, m_13, 0)
-
-	Then if do component-wise multiplication between of c0', c1', c2' we get
-
-	(m_11.m_22.m_33, m_31.m_12.m_23, m_21.m_32.m_13, 0)
-
-	If we do a horizontal add on this we get the upper part of the determinant.
-	To do this component-wise multiplication and horizontal add, we can use a mulps, then a dot-product.
-	Likewise for the lower part of the determinant.
-	*/
-	return	dot(mul(swizzle<0, 2, 1, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<2, 1, 0, 3>(c2)) - 
-			dot(mul(swizzle<2, 1, 0, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<0, 2, 1, 3>(c2));
 }
 
 
@@ -615,34 +542,6 @@ static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 	const Vec4f M_j = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,1,0,0));
 	const Vec4f M_k = Matrix4f::constructFromVectorAndMul(v, Vec4f(0,0,1,0));
 	testVectorsFormOrthonormalBasis(M_i, M_j, M_k);
-}
-
-
-static bool refGetInverseForAffine3Matrix(const Matrix4f& m, Matrix4f& inverse_out)
-{
-	/*
-	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
-	M = T R
-	M^-1 = (T R)^-1 = R^-1 T^-1
-	*/
-	//assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f); // Check bottom row has zeroes.
-	
-	// Get inverse of upper left matrix (R).
-	Matrix3f upper_left;
-	m.getUpperLeftMatrix(upper_left);
-	const float ref_det = upper_left.determinant();
-
-	Matrix3f upper_left_inverse_ref;
-	if(!upper_left.inverse(upper_left_inverse_ref))
-		return false;
-
-	Matrix4f R_inv(upper_left_inverse_ref, Vec3f(0,0,0));
-	Matrix4f T_inv;
-	T_inv.setToTranslationMatrix(-m.e[12], -m.e[13], -m.e[14]);
-	Matrix4f inverse_ref;
-	mul(R_inv, T_inv, inverse_out);
-	
-	return true;
 }
 
 
@@ -1096,27 +995,6 @@ void Matrix4f::test()
 	//=================================== Perf tests =====================================
 	if(false)
 	{
-		// Test speed of refGetInverseForAffine3Matrix()
-		{
-			Timer timer;
-
-			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
-			const Matrix4f m(e);
-
-			int N = 1000000;
-			float sum = 0.0f;
-			for(int i=0; i<N; ++i)
-			{
-				Matrix4f res;
-				refGetInverseForAffine3Matrix(m, res);
-				sum += res.e[i % 16];
-			}
-			double elapsed = timer.elapsed();
-
-			conPrint("refGetInverseForAffine3Matrix() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
-			TestUtils::silentPrint(::toString(sum));
-		}
-
 		// Test speed of getInverseForAffine3Matrix()
 		{
 			Timer timer;

@@ -34,8 +34,6 @@ public:
 
 	inline Matrix4f& operator = (const Matrix4f& other);
 
-	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
-
 	inline void setToTranslationMatrix(float x, float y, float z);
 	inline static const Matrix4f translationMatrix(float x, float y, float z);
 	inline static const Matrix4f translationMatrix(const Vec4f& v);
@@ -63,10 +61,6 @@ public:
 	inline const Vec4f transposeMult3Vector(const Vec4f& v) const;
 
 	inline void getTranspose(Matrix4f& transpose_out) const;
-
-	void getUpperLeftMatrix(Matrix3<float>& upper_left_mat_out) const;
-	void setUpperLeftMatrix(const Matrix3<float>& upper_left_mat);
-
 
 	inline void constructFromVector(const Vec4f& vec);
 	static inline const Vec4f constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v);
@@ -496,4 +490,35 @@ inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS
 		if(!Maths::approxEq(a.e[i], b.e[i], eps))
 			return false;
 	return true;
+}
+
+
+float Matrix4f::upperLeftDeterminant() const
+{
+	const Vec4f c0 = getColumn(0);
+	const Vec4f c1 = getColumn(1);
+	const Vec4f c2 = getColumn(2);
+	/*
+	det = m_11.m_22.m_33 + m_12.m_23.m_31 + m_13.m_21.m_32 -
+		  m_31.m_22.m_31 - m_11.m_23.m_32 - m_12.m_21.m_33
+
+	c0 = (m_11, m_21, m_31, 0)
+	c1 = (m_12, m_22, m_32, 0)
+	c2 = (m_13, m_23, m_33, 0)
+	
+	so shuffle columns to
+	c0' = (m_11, m_31, m_21, 0)
+	c1' = (m_22, m_12, m_32, 0)
+	c2' = (m_33, m_23, m_13, 0)
+
+	Then if do component-wise multiplication between of c0', c1', c2' we get
+
+	(m_11.m_22.m_33, m_31.m_12.m_23, m_21.m_32.m_13, 0)
+
+	If we do a horizontal add on this we get the upper part of the determinant.
+	To do this component-wise multiplication and horizontal add, we can use a mulps, then a dot-product.
+	Likewise for the lower part of the determinant.
+	*/
+	return	dot(mul(swizzle<0, 2, 1, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<2, 1, 0, 3>(c2)) - 
+			dot(mul(swizzle<2, 1, 0, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<0, 2, 1, 3>(c2));
 }
