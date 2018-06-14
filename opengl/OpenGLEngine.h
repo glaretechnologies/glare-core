@@ -104,7 +104,7 @@ struct GLObject : public RefCounted
 	INDIGO_ALIGNED_NEW_DELETE
 
 	Matrix4f ob_to_world_matrix;
-	Matrix4f ob_to_world_inv_tranpose_matrix;
+	Matrix4f ob_to_world_inv_tranpose_matrix; // inverse tranpose of upper-left part of to-world matrix.
 
 	js::AABBox aabb_ws;
 

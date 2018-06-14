@@ -141,7 +141,7 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 	); // top
 
 	// Transform clipping planes to world space
-	world_to_camera_space_matrix.getInverseForRandTMatrix(this->cam_to_world);
+	world_to_camera_space_matrix.getInverseForAffine3Matrix(this->cam_to_world);
 
 	for(int i=0; i<5; ++i)
 	{
@@ -284,7 +284,7 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	); // top
 	
 	// Transform clipping planes to world space
-	world_to_camera_space_matrix.getInverseForRandTMatrix(this->cam_to_world);
+	world_to_camera_space_matrix.getInverseForAffine3Matrix(this->cam_to_world);
 	
 	for(int i=0; i<6; ++i)
 	{

@@ -27,9 +27,12 @@ public:
 
 	inline Matrix4f() {}
 	inline Matrix4f(const float* data);
+	inline Matrix4f(const Matrix4f& other);
 
 	Matrix4f(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 	inline Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3);
+
+	inline Matrix4f& operator = (const Matrix4f& other);
 
 	//void setToUpperLeftAndTranslation(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 
@@ -89,8 +92,10 @@ public:
 	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
 
 	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
-	bool getInverseForRandTMatrix(Matrix4f& inverse_out) const;
+	bool getInverseForAffine3Matrix(Matrix4f& inverse_out) const;
 	bool getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const;
+
+	inline float upperLeftDeterminant() const;
 
 	void setToIdentity();
 	static const Matrix4f identity();
@@ -122,12 +127,31 @@ Matrix4f::Matrix4f(const float* data)
 }
 
 
+Matrix4f::Matrix4f(const Matrix4f& other)
+{
+	_mm_store_ps(e +  0, _mm_load_ps(other.e +  0));
+	_mm_store_ps(e +  4, _mm_load_ps(other.e +  4));
+	_mm_store_ps(e +  8, _mm_load_ps(other.e +  8));
+	_mm_store_ps(e + 12, _mm_load_ps(other.e + 12));
+}
+
+
 Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3)
 {
 	_mm_store_ps(e + 0,  col0.v);
 	_mm_store_ps(e + 4,  col1.v);
 	_mm_store_ps(e + 8,  col2.v);
 	_mm_store_ps(e + 12, col3.v);
+}
+
+
+Matrix4f& Matrix4f::operator = (const Matrix4f& other)
+{
+	_mm_store_ps(e +  0, _mm_load_ps(other.e +  0));
+	_mm_store_ps(e +  4, _mm_load_ps(other.e +  4));
+	_mm_store_ps(e +  8, _mm_load_ps(other.e +  8));
+	_mm_store_ps(e + 12, _mm_load_ps(other.e + 12));
+	return *this;
 }
 
 
@@ -319,7 +343,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 	assert(SSE::isSSEAligned(this));
 	assert(SSE::isSSEAligned(&vec));
 	assertIsUnitLength(vec);
-	assert(v[3] == 0.f);
+	assert(vec[3] == 0.f);
 
 	Vec4f x_axis;
 
@@ -381,6 +405,7 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v)
 {
 	assertIsUnitLength(vec);
+	assert(vec[3] == 0.f);
 
 	Vec4f x_axis;
 
@@ -411,10 +436,11 @@ inline const Vec4f Matrix4f::constructFromVectorAndMul(const Vec4f& vec, const V
 
 bool Matrix4f::operator == (const Matrix4f& a) const
 {
-	for(unsigned int i=0; i<16; ++i)
-		if(e[i] != a.e[i])
-			return false;
-	return true;
+	return 
+		getColumn(0) == a.getColumn(0) &&
+		getColumn(1) == a.getColumn(1) &&
+		getColumn(2) == a.getColumn(2) &&
+		getColumn(3) == a.getColumn(3);
 }
 
 

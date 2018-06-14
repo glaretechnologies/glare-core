@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #include "Matrix4f.h"
 
@@ -183,26 +183,112 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 }
 
 
-bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const 
+float Matrix4f::upperLeftDeterminant() const
+{
+	const Vec4f c0 = getColumn(0);
+	const Vec4f c1 = getColumn(1);
+	const Vec4f c2 = getColumn(2);
+	/*
+	det = m_11.m_22.m_33 + m_12.m_23.m_31 + m_13.m_21.m_32 -
+		  m_31.m_22.m_31 - m_11.m_23.m_32 - m_12.m_21.m_33
+
+	c0 = (m_11, m_21, m_31, 0)
+	c1 = (m_12, m_22, m_32, 0)
+	c2 = (m_13, m_23, m_33, 0)
+	
+	so shuffle columns to
+	c0' = (m_11, m_31, m_21, 0)
+	c1' = (m_22, m_12, m_32, 0)
+	c2' = (m_33, m_23, m_13, 0)
+
+	Then if do component-wise multiplication between of c0', c1', c2' we get
+
+	(m_11.m_22.m_33, m_31.m_12.m_23, m_21.m_32.m_13, 0)
+
+	If we do a horizontal add on this we get the upper part of the determinant.
+	To do this component-wise multiplication and horizontal add, we can use a mulps, then a dot-product.
+	Likewise for the lower part of the determinant.
+	*/
+	return	dot(mul(swizzle<0, 2, 1, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<2, 1, 0, 3>(c2)) - 
+			dot(mul(swizzle<2, 1, 0, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<0, 2, 1, 3>(c2));
+}
+
+
+bool Matrix4f::getInverseForAffine3Matrix(Matrix4f& inverse_out) const 
 {
 	/*
 	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
 	M = T R
 	M^-1 = (T R)^-1 = R^-1 T^-1
 	*/
-	assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f);
+	assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f); // Check bottom row has zeroes.
 	
-	// Get inverse of upper left matrix (R).
-	Matrix3f upper_left;
-	getUpperLeftMatrix(upper_left);
-	Matrix3f upper_left_inverse;
-	if(!upper_left.inverse(upper_left_inverse))
-		return false;
+	Vec4f c0 = getColumn(0);
+	Vec4f c1 = getColumn(1);
+	Vec4f c2 = getColumn(2);
+	Vec4f c3 = getColumn(3);
 
-	Matrix4f R_inv(upper_left_inverse, Vec3f(0,0,0));
-	Matrix4f T_inv;
-	T_inv.setToTranslationMatrix(-e[12], -e[13], -e[14]);
-	mul(R_inv, T_inv, inverse_out);
+	// Get inverse of upper left matrix (R).
+	const float d = upperLeftDeterminant();
+	if(d == 0.0f)
+		return false; // Singular matrix
+
+	/*
+	inverse of upper-left matrix, without 1/det factor is  (See http://mathworld.wolfram.com/MatrixInverse.html, figure 6)
+	m_22.m_33 - m_23.m_32    m_13.m_32 - m_12.m_33   m_12.m_23 - m_13.m_22   0
+	m_23.m_31 - m_21.m_33    m_11.m_33 - m_13.m_31   m_13.m_21 - m_11.m_23   0
+	m_21.m_32 - m_22.m_31    m_12.m_31 - m_11.m_32   m_11.m_22 - m_12.m_21   0
+	0                        0                       0                       1
+
+	using 0-based columns and indices:
+	=
+	c1[1].c2[2] - c2[1].c1[2]    c2[0].c1[2] - c1[0].c2[2]    c1[0].c2[1] - c2[0].c1[1]  0
+	c2[1].c0[2] - c0[1].c2[2]    c0[0].c2[2] - c2[0].c0[2]    c2[0].c0[1] - c0[0].c2[1]  0
+	c0[1].c1[2] - c1[1].c0[2]    c1[0].c0[2] - c0[0].c1[2]    c0[0].c1[1] - c1[0].c0[1]  0
+	0                            0                            0                          1
+	*/
+	const Vec4f lo_c1_c2 = unpacklo(c1, c2); // (c1[0], c2[0], c1[1], c2[1])
+	const Vec4f lo_c0_c2 = unpacklo(c0, c2); // (c0[0], c2[0], c0[1], c2[1])
+	const Vec4f hi_c0_c2 = unpackhi(c0, c2); // (c0[2], c2[2], c0[3], c2[3])
+	const Vec4f hi_c1_c2 = unpackhi(c1, c2); // (c1[2], c2[2], c1[3], c2[3])
+
+	const Vec4f c11_c21_c01 = shuffle<2, 3, 1, 3>(lo_c1_c2, c0); // (c1[1], c2[1], c0[1], c0[3])
+	const Vec4f c22_c02_c12 = shuffle<1, 0, 2, 3>(hi_c0_c2, c1); // (c2[2], c0[2], c1[2], c1[3])
+	const Vec4f c21_c01_c11 = shuffle<3, 2, 1, 3>(lo_c0_c2, c1);
+	const Vec4f c12_c22_c02 = shuffle<0, 1, 2, 3>(hi_c1_c2, c0);
+	const Vec4f c20_c00_c10 = shuffle<1, 0, 0, 3>(lo_c0_c2, c1);
+	const Vec4f c10_c20_c00 = shuffle<0, 1, 0, 3>(lo_c1_c2, c0);
+
+	c0 = mul(c11_c21_c01, c22_c02_c12) - mul(c21_c01_c11, c12_c22_c02);
+	c1 = mul(c20_c00_c10, c12_c22_c02) - mul(c10_c20_c00, c22_c02_c12);
+	c2 = mul(c10_c20_c00, c21_c01_c11) - mul(c20_c00_c10, c11_c21_c01);
+
+	assert(c0[3] == 0.0f && c1[3] == 0.0f && c2[3] == 0.0f);
+
+	const Vec4f recip_det = Vec4f(1 / d);
+
+	c0 = mul(c0, recip_det);
+	c1 = mul(c1, recip_det);
+	c2 = mul(c2, recip_det);
+
+	inverse_out.setColumn(0, c0);
+	inverse_out.setColumn(1, c1);
+	inverse_out.setColumn(2, c2);
+
+	/*
+	(m_11   m_12   m_13   0)  (1  0  0  t_x) = (m_11   m_12   m_13   m_11.t_x + m_12.t_y + m_13.t_z)
+	(m_21   m_22   m_23   0)  (0  1  0  t_y)   (m_21   m_22   m_23   m_21.t_x + m_22.t_y + m_23.t_z)
+	(m_31   m_32   m_33   0)  (0  0  1  t_z)   (m_31   m_32   m_33   m_31.t_x + m_32.t_y + m_33.t_z)
+	(0      0      0      1)  (0  0  0    1)   (0      0      0                                   1)
+	*/
+	const Vec4f t = -c3; // Last column of T^-1
+	inverse_out.setColumn(3, 
+		mul(c0, copyToAll<0>(t)) + 
+		mul(c1, copyToAll<1>(t)) + 
+		mul(c2, copyToAll<2>(t))
+	);
+	inverse_out.e[15] = 1.f;
+
 	//assert(Matrix4f::isInverse(*this, inverse_out)); // This can fail due to imprecision for large translations.
 	return true;
 }
@@ -210,16 +296,64 @@ bool Matrix4f::getInverseForRandTMatrix(Matrix4f& inverse_out) const
 
 bool Matrix4f::getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const 
 {
-	// Get inverse of upper left matrix (R).
-	Matrix3f upper_left;
-	getUpperLeftMatrix(upper_left);
-	Matrix3f upper_left_inverse;
-	if(!upper_left.inverse(upper_left_inverse))
-		return false;
+	const float d = upperLeftDeterminant();
+	if(d == 0.0f)
+		return false; // Singular matrix
 
-	upper_left_inverse.transpose();
-	inverse_trans_out = Matrix4f(upper_left_inverse, Vec3f(0.f));
+	/*
+	inverse of upper-left matrix, without 1/det factor is  (See http://mathworld.wolfram.com/MatrixInverse.html, figure 6)
+	m_22.m_33 - m_23.m_32    m_13.m_32 - m_12.m_33   m_12.m_23 - m_13.m_22   0
+	m_23.m_31 - m_21.m_33    m_11.m_33 - m_13.m_31   m_13.m_21 - m_11.m_23   0
+	m_21.m_32 - m_22.m_31    m_12.m_31 - m_11.m_32   m_11.m_22 - m_12.m_21   0
+	0                        0                       0                       1
 
+	So transpose inverse without 1/det factor is
+	m_22.m_33 - m_23.m_32    m_23.m_31 - m_21.m_33   m_21.m_32 - m_22.m_31   0
+	m_13.m_32 - m_12.m_33    m_11.m_33 - m_13.m_31   m_12.m_31 - m_11.m_32   0
+	m_12.m_23 - m_13.m_22    m_13.m_21 - m_11.m_23   m_11.m_22 - m_12.m_21   0
+	0                        0                       0                       1
+
+	using 0-based columns and indices:
+	= 
+	c1[1].c2[2] - c2[1].c1[2]    c2[1].c0[2] - c0[1].c2[2]   c0[1].c1[2] - c1[1].c0[2]   0
+	c2[0].c1[2] - c1[0].c2[2]    c0[0].c2[2] - c2[0].c0[2]   c1[0].c0[2] - c0[0].c1[2]   0
+	c1[0].c2[1] - c2[0].c1[1]    c2[0].c0[1] - c0[0].c2[1]   c0[0].c1[1] - c1[0].c0[1]   0
+	0                             0                           0                          1
+
+	=
+	c1[1].c2[2] - c2[1].c1[2]    c2[1].c0[2] - c0[1].c2[2]   c0[1].c1[2] - c1[1].c0[2]   0
+	c1[2].c2[0] - c2[2].c1[0]    c2[2].c0[0] - c0[2].c2[0]   c0[2].c1[0] - c1[2].c0[0]   0
+	c1[0].c2[1] - c2[0].c1[1]    c2[0].c0[1] - c0[0].c2[1]   c0[0].c1[1] - c1[0].c0[1]   0
+	0                             0                           0                          1
+	*/
+
+	Vec4f c0 = getColumn(0);
+	Vec4f c1 = getColumn(1);
+	Vec4f c2 = getColumn(2);
+
+	const Vec4f c0_201 = swizzle<2, 0, 1, 3>(c0);
+	const Vec4f c0_120 = swizzle<1, 2, 0, 3>(c0);
+	const Vec4f c1_201 = swizzle<2, 0, 1, 3>(c1);
+	const Vec4f c1_120 = swizzle<1, 2, 0, 3>(c1);
+	const Vec4f c2_201 = swizzle<2, 0, 1, 3>(c2);
+	const Vec4f c2_120 = swizzle<1, 2, 0, 3>(c2);
+	
+	c0 = mul(c1_120, c2_201) - mul(c2_120, c1_201);
+	c1 = mul(c2_120, c0_201) - mul(c0_120, c2_201);
+	c2 = mul(c0_120, c1_201) - mul(c1_120, c0_201);
+
+	assert(c0[3] == 0.0f && c1[3] == 0.0f && c2[3] == 0.0f);
+
+	const Vec4f recip_det = Vec4f(1 / d);
+
+	c0 = mul(c0, recip_det);
+	c1 = mul(c1, recip_det);
+	c2 = mul(c2, recip_det);
+	
+	inverse_trans_out.setColumn(0, c0);
+	inverse_trans_out.setColumn(1, c1);
+	inverse_trans_out.setColumn(2, c2);
+	inverse_trans_out.setColumn(3, Vec4f(0,0,0,1));
 	return true;
 }
 
@@ -484,11 +618,63 @@ static void testConstructFromVectorAndMulForVec(const Vec4f& v)
 }
 
 
+static bool refGetInverseForAffine3Matrix(const Matrix4f& m, Matrix4f& inverse_out)
+{
+	/*
+	We are assuming the matrix is a concatenation of a translation and rotation/scale/shear matrix.  In other words we are assuming the bottom row is (0,0,0,1).
+	M = T R
+	M^-1 = (T R)^-1 = R^-1 T^-1
+	*/
+	//assert(e[3] == 0.f && e[7] == 0.f && e[11] == 0.f); // Check bottom row has zeroes.
+	
+	// Get inverse of upper left matrix (R).
+	Matrix3f upper_left;
+	m.getUpperLeftMatrix(upper_left);
+	const float ref_det = upper_left.determinant();
+
+	Matrix3f upper_left_inverse_ref;
+	if(!upper_left.inverse(upper_left_inverse_ref))
+		return false;
+
+	Matrix4f R_inv(upper_left_inverse_ref, Vec3f(0,0,0));
+	Matrix4f T_inv;
+	T_inv.setToTranslationMatrix(-m.e[12], -m.e[13], -m.e[14]);
+	Matrix4f inverse_ref;
+	mul(R_inv, T_inv, inverse_out);
+	
+	return true;
+}
+
+
 void Matrix4f::test()
 {
 	conPrint("Matrix4f::test()");
 
-	// Test getInverseForRandTMatrix
+	//-------------------------- Test Copy constructor ----------------------------
+	{
+		const Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f) * Matrix4f::translationMatrix(1.f, 2.f, 3.f);
+		Matrix4f m2(m);
+		testAssert(m == m2);
+	}
+
+	//-------------------------- Test operator = ----------------------------
+	{
+		const Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f) * Matrix4f::translationMatrix(1.f, 2.f, 3.f);
+		Matrix4f m2;
+		m2 = m;
+		testAssert(m == m2);
+	}
+
+	//-------------------------- Test operator == ----------------------------
+	{
+		const Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f) * Matrix4f::translationMatrix(1.f, 2.f, 3.f);
+		Matrix4f m2 = m;
+		testAssert(m == m2);
+		m2.e[0] = 0.1f;
+		testAssert(!(m == m2));
+	}
+
+	//-------------------------- Test getInverseForAffine3Matrix ----------------------------
 	{
 		Matrix4f m;
 		m.setToRotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
@@ -497,13 +683,13 @@ void Matrix4f::test()
 		m.e[14] = 3.f;
 
 		Matrix4f inv;
-		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(m.getInverseForAffine3Matrix(inv));
 		testAssert(isInverse(m, inv));
 	}
 	{
 		Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
 		Matrix4f inv;
-		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(m.getInverseForAffine3Matrix(inv));
 		testAssert(isInverse(m, inv));
 	}
 	{
@@ -512,7 +698,7 @@ void Matrix4f::test()
 		m.e[13] = 2.f;
 		m.e[14] = 3.f;
 		Matrix4f inv;
-		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(m.getInverseForAffine3Matrix(inv));
 		testAssert(isInverse(m, inv));
 	}
 	{
@@ -521,9 +707,27 @@ void Matrix4f::test()
 		m.e[13] = 200.f;
 		m.e[14] = 300.f;
 		Matrix4f inv;
-		testAssert(m.getInverseForRandTMatrix(inv));
+		testAssert(m.getInverseForAffine3Matrix(inv));
 		testAssert(isInverse(m, inv));
 	}
+
+	//-------------------------- Test getUpperLeftInverseTranspose ----------------------------
+	{
+		const Matrix4f R = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
+		Matrix4f m = R;
+		m.e[12] = 1.f; // Give translation as well
+		m.e[13] = 2.f;
+		m.e[14] = 3.f;
+
+		Matrix4f upper_left_inv_T;
+		testAssert(m.getUpperLeftInverseTranspose(upper_left_inv_T));
+
+		Matrix4f upper_left_inv;
+		upper_left_inv_T.getTranspose(upper_left_inv);
+
+		testAssert(isInverse(R, upper_left_inv));
+	}
+
 	//{
 	//	const float e[16] = {
 	//		0.949394524f, 0.31114384f, 0.0428893045f, 0.000000000f, 
@@ -534,7 +738,7 @@ void Matrix4f::test()
 
 	//	Matrix4f m(e);
 	//	Matrix4f inv;
-	//	testAssert(m.getInverseForRandTMatrix(inv));
+	//	testAssert(m.getInverseForAffine3Matrix(inv));
 	//	testAssert(isInverse(m, inv));
 	//}
 
@@ -892,6 +1096,91 @@ void Matrix4f::test()
 	//=================================== Perf tests =====================================
 	if(false)
 	{
+		// Test speed of refGetInverseForAffine3Matrix()
+		{
+			Timer timer;
+
+			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				refGetInverseForAffine3Matrix(m, res);
+				sum += res.e[i % 16];
+			}
+			double elapsed = timer.elapsed();
+
+			conPrint("refGetInverseForAffine3Matrix() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+		// Test speed of getInverseForAffine3Matrix()
+		{
+			Timer timer;
+
+			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				m.getInverseForAffine3Matrix(res);
+				sum += res.e[i % 16];
+			}
+			double elapsed = timer.elapsed();
+
+			conPrint("getInverseForAffine3Matrix() time:    " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+		// Test speed of getUpperLeftInverseTranspose()
+		{
+			Timer timer;
+
+			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				m.getUpperLeftInverseTranspose(res);
+				sum += res.e[i % 16];
+			}
+			double elapsed = timer.elapsed();
+
+			conPrint("getUpperLeftInverseTranspose() time:    " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+		// Test speed of getTranspose()
+		{
+			Timer timer;
+
+			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			float sum = 0.0f;
+			for(int i=0; i<N; ++i)
+			{
+				Matrix4f res;
+				m.getTranspose(res);
+				sum += res.e[i % 16];
+			}
+			double elapsed = timer.elapsed();
+
+			conPrint("getTranspose() time:    " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
+
 		// Test speed of matrix-matrix mult
 		{
 			Timer timer;
