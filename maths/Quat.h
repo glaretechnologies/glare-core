@@ -55,6 +55,7 @@ public:
 	inline void toMatrix(Matrix4f& mat_out) const;
 
 	static inline Quat fromMatrix(const Matrix3<Real>& mat);
+	static inline Quat fromMatrix(const Matrix4f& mat);
 
 	// Assumes norm() = 1
 	const Vec4f rotateVector(const Vec4f& v) const;
@@ -227,6 +228,61 @@ template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
 // From Quaternions - Ken Shoemake ( http://www.cs.ucr.edu/~vbz/resources/quatut.pdf )
 // And http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
 template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix3<Real>& mat)
+{
+	const float m00 = mat.elem(0, 0);
+	const float m11 = mat.elem(1, 1);
+	const float m22 = mat.elem(2, 2);
+	const float tr = m00 + m11 + m22; // Trace
+	if(tr >= 0.0)
+	{
+		float s = std::sqrt(tr + 1);
+		float recip_2s = 0.5f / s;
+		return Quat<Real>(Vec4f(
+			(mat.elem(2, 1) - mat.elem(1, 2)) * recip_2s,
+			(mat.elem(0, 2) - mat.elem(2, 0)) * recip_2s,
+			(mat.elem(1, 0) - mat.elem(0, 1)) * recip_2s,
+			s * 0.5f
+		));
+	}
+	else if(m00 > m11 && m00 > m22)
+	{
+		float s = std::sqrt(1 + m00 - m11 - m22);
+		float recip_2s = 0.5f / s;
+		return Quat<Real>(Vec4f(
+			s * 0.5f,
+			(mat.elem(0, 1) + mat.elem(1, 0)) * recip_2s,
+			(mat.elem(0, 2) + mat.elem(2, 0)) * recip_2s,
+			(mat.elem(2, 1) - mat.elem(1, 2)) * recip_2s
+		));
+	}
+	else if(m11 > m22)
+	{
+		float s = std::sqrt(1 + m11 - m00 - m22);
+		float recip_2s = 0.5f / s;
+		return Quat<Real>(Vec4f(
+			(mat.elem(0, 1) + mat.elem(1, 0)) * recip_2s,
+			s * 0.5f,
+			(mat.elem(1, 2) + mat.elem(2, 1)) * recip_2s,
+			(mat.elem(0, 2) - mat.elem(2, 0)) * recip_2s
+		));
+	}
+	else
+	{
+		// m22 > m00 > m11
+		float s = std::sqrt(1 + m22 - m00 - m11);
+		float recip_2s = 0.5f / s;
+		return Quat<Real>(Vec4f(
+			(mat.elem(0, 2) + mat.elem(2, 0)) * recip_2s,
+			(mat.elem(1, 2) + mat.elem(2, 1)) * recip_2s,
+			s*0.5f,
+			(mat.elem(1, 0) - mat.elem(0, 1)) * recip_2s
+		));
+	}
+}
+
+
+// Similar to above, but takes Matrix4f.
+template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix4f& mat)
 {
 	const float m00 = mat.elem(0, 0);
 	const float m11 = mat.elem(1, 1);

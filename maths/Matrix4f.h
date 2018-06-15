@@ -61,12 +61,14 @@ public:
 	inline const Vec4f transposeMult3Vector(const Vec4f& v) const;
 
 	inline void getTranspose(Matrix4f& transpose_out) const;
+	inline Matrix4f getTranspose() const;
 
 	inline void constructFromVector(const Vec4f& vec);
 	static inline const Vec4f constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v);
 
 	inline bool operator == (const Matrix4f& a) const;
 
+	inline const Matrix4f operator + (const Matrix4f& rhs) const;
 	const Matrix4f operator * (const Matrix4f& rhs) const;
 
 
@@ -85,11 +87,19 @@ public:
 	// Is A the inverse of B?
 	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
 
+	bool getUpperLeftInverse(Matrix4f& inverse_out, float& det_out) const;
+
 	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
 	bool getInverseForAffine3Matrix(Matrix4f& inverse_out) const;
 	bool getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const;
 
 	inline float upperLeftDeterminant() const;
+
+	// Returns *this * translation_matrix
+	inline void rightMultiplyAffine3WithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const;
+
+	// Assumes only the top-left 3x3 matrix is non-zero, apart from the bottom-right elem (which equals 1)
+	bool polarDecomposition(Matrix4f& rot_out, Matrix4f& rest_out) const;
 
 	void setToIdentity();
 	static const Matrix4f identity();
@@ -239,6 +249,32 @@ void Matrix4f::getTranspose(Matrix4f& transpose_out) const
 	transpose_out.setColumn(1, c1);
 	transpose_out.setColumn(2, c2);
 	transpose_out.setColumn(3, c3);
+}
+
+
+Matrix4f Matrix4f::getTranspose() const
+{
+	Matrix4f ret;
+
+	Vec4f c0, c1, c2, c3;
+	transpose(getColumn(0), getColumn(1), getColumn(2), getColumn(3), c0, c1, c2, c3);
+
+	ret.setColumn(0, c0);
+	ret.setColumn(1, c1);
+	ret.setColumn(2, c2);
+	ret.setColumn(3, c3);
+	return ret;
+}
+
+
+const Matrix4f Matrix4f::operator + (const Matrix4f& other) const
+{
+	Matrix4f res;
+	res.setColumn(0, getColumn(0) + other.getColumn(0));
+	res.setColumn(1, getColumn(1) + other.getColumn(1));
+	res.setColumn(2, getColumn(2) + other.getColumn(2));
+	res.setColumn(3, getColumn(3) + other.getColumn(3));
+	return res;
 }
 
 
@@ -521,4 +557,29 @@ float Matrix4f::upperLeftDeterminant() const
 	*/
 	return	dot(mul(swizzle<0, 2, 1, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<2, 1, 0, 3>(c2)) - 
 			dot(mul(swizzle<2, 1, 0, 3>(c0), swizzle<1, 0, 2, 3>(c1)), swizzle<0, 2, 1, 3>(c2));
+}
+
+
+void Matrix4f::rightMultiplyAffine3WithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const
+{
+	assert(getRow(3) == Vec4f(0,0,0,1));
+	/*
+	(m_11   m_12   m_13   m_14)  (1  0  0  t_x) = (m_11   m_12   m_13   m_11.t_x + m_12.t_y + m_13.t_z + m_14)
+	(m_21   m_22   m_23   m_24)  (0  1  0  t_y)   (m_21   m_22   m_23   m_21.t_x + m_22.t_y + m_23.t_z + m_24)
+	(m_31   m_32   m_33   m_34)  (0  0  1  t_z)   (m_31   m_32   m_33   m_31.t_x + m_32.t_y + m_33.t_z + m_34)
+	(0      0      0      1   )  (0  0  0    1)   (0      0      0                                          1)
+	*/
+	const Vec4f c0 = getColumn(0);
+	const Vec4f c1 = getColumn(1);
+	const Vec4f c2 = getColumn(2);
+	const Vec4f c3 = getColumn(3);
+	result_out.setColumn(0, c0);
+	result_out.setColumn(1, c1);
+	result_out.setColumn(2, c2);
+	result_out.setColumn(3, 
+		(mul(c0, copyToAll<0>(translation_vec)) + 
+		 mul(c1, copyToAll<1>(translation_vec))) + 
+		(mul(c2, copyToAll<2>(translation_vec)) + 
+		 c3)
+	);
 }

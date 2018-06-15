@@ -1,7 +1,7 @@
 /*=====================================================================
 matrix3.h
 ---------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 /*=====================================================================
 Matrix3
 -------
+Matrix4f should be preferred to this class.  Matrix4f is faster.
 3x3 matrix class.
 =====================================================================*/
 template <class Real>
@@ -92,8 +93,7 @@ public:
 
 	inline void constructFromVector(const Vec3<Real>& vec);
 
-	bool polarDecomposition(Matrix3& rot_out, Matrix3& rest_out) const;
-
+	// Used in cyberspace.
 	void rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& angle_out) const;
 
 	static void test();

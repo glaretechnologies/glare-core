@@ -141,6 +141,64 @@ bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
 }
 
 
+bool Matrix4f::getUpperLeftInverse(Matrix4f& inverse_out, float& det_out) const
+{
+	Vec4f c0 = getColumn(0);
+	Vec4f c1 = getColumn(1);
+	Vec4f c2 = getColumn(2);
+
+	// Get inverse of upper left matrix (R).
+	const float d = upperLeftDeterminant();
+	det_out = d;
+	if(d == 0.0f)
+		return false; // Singular matrix
+
+	/*
+	inverse of upper-left matrix, without 1/det factor is  (See http://mathworld.wolfram.com/MatrixInverse.html, figure 6)
+	m_22.m_33 - m_23.m_32    m_13.m_32 - m_12.m_33   m_12.m_23 - m_13.m_22   0
+	m_23.m_31 - m_21.m_33    m_11.m_33 - m_13.m_31   m_13.m_21 - m_11.m_23   0
+	m_21.m_32 - m_22.m_31    m_12.m_31 - m_11.m_32   m_11.m_22 - m_12.m_21   0
+	0                        0                       0                       1
+
+	using 0-based columns and indices:
+	=
+	c1[1].c2[2] - c2[1].c1[2]    c2[0].c1[2] - c1[0].c2[2]    c1[0].c2[1] - c2[0].c1[1]  0
+	c2[1].c0[2] - c0[1].c2[2]    c0[0].c2[2] - c2[0].c0[2]    c2[0].c0[1] - c0[0].c2[1]  0
+	c0[1].c1[2] - c1[1].c0[2]    c1[0].c0[2] - c0[0].c1[2]    c0[0].c1[1] - c1[0].c0[1]  0
+	0                            0                            0                          1
+	*/
+	const Vec4f lo_c1_c2 = unpacklo(c1, c2); // (c1[0], c2[0], c1[1], c2[1])
+	const Vec4f lo_c0_c2 = unpacklo(c0, c2); // (c0[0], c2[0], c0[1], c2[1])
+	const Vec4f hi_c0_c2 = unpackhi(c0, c2); // (c0[2], c2[2], c0[3], c2[3])
+	const Vec4f hi_c1_c2 = unpackhi(c1, c2); // (c1[2], c2[2], c1[3], c2[3])
+
+	const Vec4f c11_c21_c01 = shuffle<2, 3, 1, 3>(lo_c1_c2, c0); // (c1[1], c2[1], c0[1], c0[3])
+	const Vec4f c22_c02_c12 = shuffle<1, 0, 2, 3>(hi_c0_c2, c1); // (c2[2], c0[2], c1[2], c1[3])
+	const Vec4f c21_c01_c11 = shuffle<3, 2, 1, 3>(lo_c0_c2, c1);
+	const Vec4f c12_c22_c02 = shuffle<0, 1, 2, 3>(hi_c1_c2, c0);
+	const Vec4f c20_c00_c10 = shuffle<1, 0, 0, 3>(lo_c0_c2, c1);
+	const Vec4f c10_c20_c00 = shuffle<0, 1, 0, 3>(lo_c1_c2, c0);
+
+	c0 = mul(c11_c21_c01, c22_c02_c12) - mul(c21_c01_c11, c12_c22_c02);
+	c1 = mul(c20_c00_c10, c12_c22_c02) - mul(c10_c20_c00, c22_c02_c12);
+	c2 = mul(c10_c20_c00, c21_c01_c11) - mul(c20_c00_c10, c11_c21_c01);
+
+	assert(c0[3] == 0.0f && c1[3] == 0.0f && c2[3] == 0.0f);
+
+	const Vec4f recip_det = Vec4f(1 / d);
+
+	c0 = mul(c0, recip_det);
+	c1 = mul(c1, recip_det);
+	c2 = mul(c2, recip_det);
+
+	inverse_out.setColumn(0, c0);
+	inverse_out.setColumn(1, c1);
+	inverse_out.setColumn(2, c2);
+	inverse_out.setColumn(3, Vec4f(0,0,0,1));
+	return true;
+}
+
+
 bool Matrix4f::getInverseForAffine3Matrix(Matrix4f& inverse_out) const 
 {
 	/*
@@ -489,6 +547,65 @@ const std::string Matrix4f::toString() const
 }
 
 
+inline static bool isSignificantDiff(const Matrix4f& a, const Matrix4f& b)
+{
+	Vec4f max_diff_v = 
+		max(max(abs(a.getColumn(0) - b.getColumn(0)), 
+				abs(a.getColumn(1) - b.getColumn(1))),
+			max(abs(a.getColumn(2) - b.getColumn(2)), 
+				abs(a.getColumn(3) - b.getColumn(3)))
+		);
+
+	const float max_diff = horizontalMax(max_diff_v.v);
+	return max_diff > 2.0e-7f;
+}
+
+
+// See 'Matrix Animation and Polar Decomposition' by Ken Shoemake & Tom Duff
+// http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
+// Assumes only the top-left 3x3 matrix is non-zero, apart from the bottom-right elem (which equals 1)
+bool Matrix4f::polarDecomposition(Matrix4f& rot_out, Matrix4f& rest_out) const
+{
+	assert(getRow(3) == Vec4f(0,0,0,1) && getColumn(3) == Vec4f(0,0,0,1));
+
+	Matrix4f Q = *this;
+
+	while(1)
+	{
+		// Compute inverse transpose of Q
+		const Matrix4f T = Q.getTranspose();
+		Matrix4f T_inv;
+		float dummy_det;
+		const bool invertible = T.getUpperLeftInverse(T_inv, dummy_det);
+		if(!invertible)
+			return false;
+
+		Matrix4f new_Q = (Q + T_inv);
+		new_Q.e[15] = 1.f;
+		new_Q.applyUniformScale(0.5f);
+		
+		if(!isSignificantDiff(new_Q, Q))
+		{
+			Q = new_Q;
+			break;
+		}
+
+		Q = new_Q;
+	}
+
+	if(Q.upperLeftDeterminant() < 0)
+		Q.applyUniformScale(-1);
+
+	rot_out = Q;
+
+	// M = QS
+	// Q^-1 M = Q^-1 Q S
+	// Q^T M = S			[Q^-1 = Q^T as Q is a rotation matrix]
+	rest_out = Q.getTranspose() * *this;
+	return true;
+}
+
+
 #if BUILD_TESTS
 
 
@@ -497,6 +614,13 @@ const std::string Matrix4f::toString() const
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
+
+
+// Is the matrix orthogonal and does it have determinant 1?
+static bool isSpecialOrthogonal(const Matrix4f& m)
+{
+	return epsEqual(m * m.getTranspose(), Matrix4f::identity()) && epsEqual(m.upperLeftDeterminant(), 1.0f);
+}
 
 
 static void refMul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out)
@@ -564,6 +688,22 @@ void Matrix4f::test()
 		testAssert(m == m2);
 	}
 
+	//-------------------------- Test operator + ----------------------------
+	{
+		float ea[16];
+		float eb[16];
+		for(int i=0; i<16; ++i)
+		{
+			ea[i] = (float)i;
+			eb[i] = (float)(10 + i);
+		}
+		const Matrix4f m1(ea);
+		const Matrix4f m2(eb);
+		const Matrix4f sum = m1 + m2;
+		for(int i=0; i<16; ++i)
+			testAssert(sum.e[i] == ea[i] + eb[i]);
+	}
+
 	//-------------------------- Test operator == ----------------------------
 	{
 		const Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f) * Matrix4f::translationMatrix(1.f, 2.f, 3.f);
@@ -571,6 +711,31 @@ void Matrix4f::test()
 		testAssert(m == m2);
 		m2.e[0] = 0.1f;
 		testAssert(!(m == m2));
+	}
+
+	//-------------------------- Test getUpperLeftInverse ----------------------------
+	{
+		// Test with non-zero values in translation column, that should have no effect.
+		Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
+		m.e[12] = 1.f;
+		m.e[13] = 2.f;
+		m.e[14] = 3.f;
+
+		Matrix4f inv;
+		float det;
+		testAssert(m.getUpperLeftInverse(inv, det));
+		testAssert(det == m.upperLeftDeterminant());
+		m.setColumn(3, Vec4f(0,0,0,1)); // Clear translation
+		testAssert(isInverse(m, inv));
+	}
+	{
+		Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
+		Matrix4f inv;
+		float det;
+		testAssert(m.getUpperLeftInverse(inv, det));
+		testAssert(det == m.upperLeftDeterminant());
+		m.setColumn(3, Vec4f(0,0,0,1)); // Clear translation
+		testAssert(isInverse(m, inv));
 	}
 
 	//-------------------------- Test getInverseForAffine3Matrix ----------------------------
@@ -739,11 +904,19 @@ void Matrix4f::test()
 		*/
 
 		//------------- test getTranspose() ----------------
-		Matrix4f transpose;
-		m.getTranspose(transpose);
+		{
+			Matrix4f transpose;
+			m.getTranspose(transpose);
 
-		const float transposed_e[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
-		testAssert(transpose == Matrix4f(transposed_e));
+			const float transposed_e[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+			testAssert(transpose == Matrix4f(transposed_e));
+		}
+		{
+			const Matrix4f transpose = m.getTranspose();
+
+			const float transposed_e[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+			testAssert(transpose == Matrix4f(transposed_e));
+		}
 
 		//------------- test operator * (const Matrix4f& m, const Vec4f& v) ----------------
 		{
@@ -800,6 +973,7 @@ void Matrix4f::test()
 		{
 			const Vec4f v(1, 2, 3, 4);
 			const Vec4f res(m.transposeMult(v));
+			const Matrix4f transpose = m.getTranspose();
 			testAssert(epsEqual(res, Vec4f(transpose * v)));
 		}
 
@@ -985,6 +1159,86 @@ void Matrix4f::test()
 			const Vec4f v = Vec4f(sin(theta), 0.f, cos(theta), 0.0f);
 			testConstructFromVectorAndMulForVec(v);
 		}
+	}
+
+
+	//-------------------------- Test polarDecomposition() ----------------------
+
+	// Decompose a matrix with negative scale
+	{
+		Matrix4f m(Vec4f(-1, 0, 0, 0), Vec4f(0, 1, 0, 0), Vec4f(0, 0, 1, 0), Vec4f(0, 0, 0, 1));
+
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		
+		testAssert(isSpecialOrthogonal(rot));
+		testAssert(epsEqual(rot * rest, m, 1.0e-6f));
+	}
+
+	// Decompose the identity matrix
+	{
+		Matrix4f m = Matrix4f::identity();
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		testAssert(epsEqual(rot, Matrix4f::identity()));
+		testAssert(epsEqual(rest, Matrix4f::identity()));
+	}
+
+	// Decompose a pure rotation matrix
+	{
+		Matrix4f m = Matrix4f::rotationMatrix(Vec4f(0, 0, 1, 0), 0.6f);
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		testAssert(epsEqual(rot, m));
+		testAssert(epsEqual(rest, Matrix4f::identity()));
+	}
+
+	// Decompose a more complicated pure rotation matrix
+	{
+		Matrix4f m = Matrix4f::rotationMatrix(normalise(Vec4f(-0.5, 0.6, 1, 0)), 0.6f);
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		testAssert(epsEqual(rot, m));
+		testAssert(epsEqual(rest, Matrix4f::identity()));
+	}
+
+	// Decompose a rotation combined with a uniform scale
+	{
+		Matrix4f rot_matrix = Matrix4f::rotationMatrix(normalise(Vec4f(-0.5, 0.6, 1, 0)), 0.6f);
+		Matrix4f scale_matrix = Matrix4f::identity();
+		scale_matrix.applyUniformScale(0.3f);
+
+		{
+		Matrix4f m = rot_matrix * scale_matrix;
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		testAssert(epsEqual(rot, rot_matrix));
+		testAssert(epsEqual(rest, scale_matrix));
+
+		testAssert(isSpecialOrthogonal(rot));
+		testAssert(epsEqual(rot * rest, m, 1.0e-6f));
+		}
+
+		// Try with the rot and scale concatenated in reverse order
+		{
+		Matrix4f m = scale_matrix * rot_matrix;
+		Matrix4f rot, rest;
+		testAssert(m.polarDecomposition(rot, rest));
+		testAssert(epsEqual(rot, rot_matrix));
+		testAssert(epsEqual(rest, scale_matrix));
+
+		testAssert(isSpecialOrthogonal(rot));
+		testAssert(epsEqual(rot * rest, m, 1.0e-6f));
+		}
+	}
+
+	//---------------------------------- Test rightMultiplyAffine3WithTranslationMatrix() ---------------------
+	{
+		const Matrix4f m(Matrix3f(Vec3f(1.f, 0.2f, 0.1f), Vec3f(-0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f)), Vec3f(1.f, 4.f, 5.f));
+		const Vec4f translation(30.f, -2.f, 5.f, 0);
+		Matrix4f res;
+		m.rightMultiplyAffine3WithTranslationMatrix(translation, res);
+		testAssert(res == m * Matrix4f::translationMatrix(translation));
 	}
 
 
