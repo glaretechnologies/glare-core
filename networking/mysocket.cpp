@@ -1,7 +1,7 @@
 /*=====================================================================
 mysocket.cpp
 ------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 =====================================================================*/
 #include "mysocket.h"
@@ -134,6 +134,7 @@ void MySocket::init()
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	connected = false;
+	use_network_byte_order = true;
 }
 
 
@@ -598,24 +599,33 @@ const std::string MySocket::readString(size_t max_string_length) // Read null-te
 
 void MySocket::writeInt32(int32 x)
 {
-	const uint32 i = htonl(bitCast<uint32>(x));
-	write(&i, sizeof(uint32));
+	if(use_network_byte_order)
+		x = bitCast<int32>(htonl(bitCast<uint32>(x)));
+
+	write(&x, sizeof(int32));
 }
 
 
 void MySocket::writeUInt32(uint32 x)
 {
-	const uint32 i = htonl(x); // Convert to network byte ordering.
-	write(&i, sizeof(uint32));
+	if(use_network_byte_order)
+		x = htonl(x); // Convert to network byte ordering.
+
+	write(&x, sizeof(uint32));
 }
 
 
 void MySocket::writeUInt64(uint64 x)
 {
-	uint32 i32[2];
-	std::memcpy(i32, &x, sizeof(uint64));
-	writeUInt32(i32[0]);
-	writeUInt32(i32[1]);
+	if(use_network_byte_order)
+	{
+		uint32 i32[2];
+		std::memcpy(i32, &x, sizeof(uint64));
+		writeUInt32(i32[0]);
+		writeUInt32(i32[1]);
+	}
+	else
+		write(&x, sizeof(uint64));
 }
 
 
@@ -630,10 +640,13 @@ void MySocket::writeString(const std::string& s) // Write null-terminated string
 
 int MySocket::readInt32()
 {
-	uint32 i;
-	readTo(&i, sizeof(uint32));
-	i = ntohl(i);
-	return bitCast<int32>(i);
+	int32 i;
+	readTo(&i, sizeof(int32));
+
+	if(use_network_byte_order)
+		i = bitCast<int32>(ntohl(bitCast<uint32>(i)));
+
+	return i;
 }
 
 
@@ -641,18 +654,31 @@ uint32 MySocket::readUInt32()
 {
 	uint32 x;
 	readTo(&x, sizeof(uint32));
-	return ntohl(x);
+
+	if(use_network_byte_order)
+		x = ntohl(x);
+
+	return x;
 }
 
 
 uint64 MySocket::readUInt64()
 {
-	uint32 buf[2];
-	buf[0] = readUInt32();
-	buf[1] = readUInt32();
-	uint64 x;
-	std::memcpy(&x, buf, sizeof(uint64));
-	return x;
+	if(use_network_byte_order)
+	{
+		uint32 buf[2];
+		buf[0] = readUInt32();
+		buf[1] = readUInt32();
+		uint64 x;
+		std::memcpy(&x, buf, sizeof(uint64));
+		return x;
+	}
+	else
+	{
+		uint64 x;
+		readTo(&x, sizeof(uint64));
+		return x;
+	}
 }
 
 

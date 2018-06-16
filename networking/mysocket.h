@@ -1,7 +1,7 @@
 /*=====================================================================
 mysocket.h
 ----------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 =====================================================================*/
 #pragma once
@@ -143,6 +143,9 @@ public:
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
 	// Returns true if the socket was readable, false if the event_fd was signalled.
 	
+	// Determines if bytes are reordered into network byte order in readInt32(), writeInt32() etc..
+	// Network byte order is enabled by default.
+	void setUseNetworkByteOrder(bool use_network_byte_order_) { use_network_byte_order = use_network_byte_order_; }
 
 
 	//------------------------ InStream ---------------------------------
@@ -180,6 +183,7 @@ private:
 	int otherend_port;
 
 	bool connected;
+	bool use_network_byte_order;
 };
 
 

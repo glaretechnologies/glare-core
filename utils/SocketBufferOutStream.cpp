@@ -8,6 +8,7 @@ Generated at 2013-01-27 17:56:55 +0000
 
 
 #include "Exception.h"
+#include "BitUtils.h"
 #include <cstring> // For std::memcpy
 
 // For htonl:
@@ -23,7 +24,8 @@ Generated at 2013-01-27 17:56:55 +0000
 #endif
 
 
-SocketBufferOutStream::SocketBufferOutStream()
+SocketBufferOutStream::SocketBufferOutStream(bool use_network_byte_order_)
+:	use_network_byte_order(use_network_byte_order_)
 {
 }
 
@@ -53,10 +55,10 @@ void SocketBufferOutStream::writeInt32(int32 x_)
 {
 	try
 	{
-		uint32 ux_;
-		std::memcpy(&ux_, &x_, sizeof(int32));
+		uint32 ux = bitCast<uint32>(x_);
 
-		const uint32 ux = htonl(ux_);
+		if(use_network_byte_order)
+			ux = htonl(ux);
 
 		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
 		buf.resize(pos + sizeof(ux)); // Resize buffer to make room for new uint32
@@ -69,11 +71,12 @@ void SocketBufferOutStream::writeInt32(int32 x_)
 }
 
 
-void SocketBufferOutStream::writeUInt32(uint32 x_)
+void SocketBufferOutStream::writeUInt32(uint32 x)
 {
 	try
 	{
-		const uint32 x = htonl(x_);
+		if(use_network_byte_order)
+			x = htonl(x);
 
 		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
 		buf.resize(pos + sizeof(x)); // Resize buffer to make room for new uint32
@@ -88,10 +91,19 @@ void SocketBufferOutStream::writeUInt32(uint32 x_)
 
 void SocketBufferOutStream::writeUInt64(uint64 x)
 {
-	uint32 a, b;
-	std::memcpy(&a, (uint8*)&x + 0, sizeof(uint32));
-	std::memcpy(&b, (uint8*)&x + 4, sizeof(uint32));
+	if(use_network_byte_order)
+	{
+		uint32 a, b;
+		std::memcpy(&a, (uint8*)&x + 0, sizeof(uint32));
+		std::memcpy(&b, (uint8*)&x + 4, sizeof(uint32));
 
-	writeUInt32(a);
-	writeUInt32(b);
+		writeUInt32(a);
+		writeUInt32(b);
+	}
+	else
+	{
+		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
+		buf.resize(pos + sizeof(uint64)); // Resize buffer to make room for new uint64
+		std::memcpy(&buf[pos], &x, sizeof(uint64)); // Copy x to buffer.
+	}
 }

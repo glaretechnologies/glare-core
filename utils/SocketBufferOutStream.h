@@ -19,7 +19,7 @@ Like BufferOutStream, but does any htonl conversion that MySocket does.
 class SocketBufferOutStream : public OutStream
 {
 public:
-	SocketBufferOutStream();
+	SocketBufferOutStream(bool use_network_byte_order);
 	virtual ~SocketBufferOutStream();
 
 	virtual void writeData(const void* data, size_t num_bytes);
@@ -29,4 +29,5 @@ public:
 	virtual void writeUInt64(uint64 x);
 
 	std::vector<unsigned char> buf;
+	bool use_network_byte_order;
 };
