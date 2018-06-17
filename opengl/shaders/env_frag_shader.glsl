@@ -11,6 +11,14 @@ uniform mat3 texture_matrix;
 
 out vec4 colour_out;
 
+
+vec3 toNonLinear(vec3 x)
+{
+	// Approximation to pow(x, 0.4545).  Max error of ~0.004 over [0, 1].
+	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
+}
+
+
 void main()
 {
 	vec4 col;
@@ -25,6 +33,5 @@ void main()
 	col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 
 	col *= 0.0000000004;
-	float gamma = 0.45;
-	colour_out = vec4(pow(col.x, gamma), pow(col.y, gamma), pow(col.z, gamma), 1);
+	colour_out = vec4(toNonLinear(col.xyz), 1);
 }

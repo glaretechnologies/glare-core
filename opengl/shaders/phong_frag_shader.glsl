@@ -98,6 +98,13 @@ uint ha(uint x)
 }
 
 
+vec3 toNonLinear(vec3 x)
+{
+	// Approximation to pow(x, 0.4545).  Max error of ~0.004 over [0, 1].
+	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
+}
+
+
 void main()
 {
 	vec3 use_normal_cs;
@@ -143,7 +150,7 @@ void main()
 			metallicFresnelApprox(h_cos_theta, diffuse_col.b),
 			1);
 
-		// Blend between metal_fresnel and dielectric_fresnel based on mettalic_frac.
+		// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
 		specular_fresnel = metal_fresnel * metallic_frac + dielectric_fresnel * (1.0 - metallic_frac);
 	}
 	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
@@ -273,6 +280,6 @@ void main()
 		sun_light * specular; // sun light * specular microfacet terms
 		
 	col *= 0.0000000004; // tone-map
-	float gamma = 0.45;
-	colour_out = vec4(pow(col.x, gamma), pow(col.y, gamma), pow(col.z, gamma), 1);
+	
+	colour_out = vec4(toNonLinear(col.xyz), 1);
 }

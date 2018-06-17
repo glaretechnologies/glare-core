@@ -653,9 +653,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_)
 			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
-		transparent_colour_location		= transparent_prog->getUniformLocation("colour");
-		transparent_have_shading_normals_location = transparent_prog->getUniformLocation("have_shading_normals");
-		transparent_sundir_cs_location	= transparent_prog->getUniformLocation("sundir_cs");
+		transparent_colour_location					= transparent_prog->getUniformLocation("colour");
+		transparent_have_shading_normals_location	= transparent_prog->getUniformLocation("have_shading_normals");
+		transparent_sundir_cs_location				= transparent_prog->getUniformLocation("sundir_cs");
+		transparent_specular_env_tex_location		= transparent_prog->getUniformLocation("specular_env_tex");
+		transparent_campos_ws_location				= transparent_prog->getUniformLocation("campos_ws");
 
 		env_prog = new OpenGLProgram(
 			"env",
@@ -2806,6 +2808,14 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glUniform4fv(this->transparent_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
+			if(this->specular_env_tex.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE0 + 4);
+				glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+				glUniform1i(transparent_specular_env_tex_location, 4);
+			}
+			const Vec4f campos_ws = cam_to_world.getColumn(3);
+			glUniform3fv(this->transparent_campos_ws_location, 1, campos_ws.x);
 		}
 		else if(shader_prog.getPointer() == this->env_prog.getPointer())
 		{
