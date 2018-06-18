@@ -2706,11 +2706,22 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 }
 
 
+// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
+static inline Colour4f fastApproxSRGBToLinearSRGB(const Colour4f& c)
+{
+	Colour4f c2 = c * c;
+	return c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+}
+
+
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, 
 	const PhongUniformLocations& use_phong_locations)
 {
+	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+
 	glUniform4fv(use_phong_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-	glUniform4f(use_phong_locations.diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+	glUniform4f(use_phong_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], 1.f);
 	glUniform1i(use_phong_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 	glUniform1i(use_phong_locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 	glUniform1f(use_phong_locations.roughness_location, opengl_mat.roughness);
@@ -2805,8 +2816,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 		else if(shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
+			const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+			const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+
 			glUniform4fv(this->transparent_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-			glUniform4f(this->transparent_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+			glUniform4f(this->transparent_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
 			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
 			if(this->specular_env_tex.nonNull())
 			{
