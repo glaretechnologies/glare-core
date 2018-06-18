@@ -105,11 +105,8 @@ void testSRGBUtils()
 
 
 
-
-
-
 	//----------------------------- Perf testing -------------------------------
-	if(true)
+	if(false)
 	{
 		const int trials = 10000;
 		const int N = 100000;
