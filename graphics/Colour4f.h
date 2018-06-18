@@ -322,3 +322,18 @@ INDIGO_STRONG_INLINE Colour4f toColour4f(const Vec4i& v)
 {
 	return Colour4f(_mm_cvtepi32_ps(v.v));
 }
+
+
+INDIGO_STRONG_INLINE const Colour4f sqrt(const Colour4f& a)
+{
+	return Colour4f(_mm_sqrt_ps(a.v));
+}
+
+
+INDIGO_STRONG_INLINE const Colour4f abs(const Colour4f& a)
+{
+	// Zero the sign bits.
+	// _mm_castsi128_ps, _mm_set1_epi32 are SSE2.
+	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
+	return Colour4f(_mm_and_ps(a.v, mask));
+}

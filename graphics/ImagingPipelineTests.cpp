@@ -17,6 +17,7 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../utils/TaskManager.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../graphics/bitmap.h"
+#include "../graphics/SRGBUtils.h"
 #include "../indigo/ColourSpaceConverter.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
@@ -80,17 +81,6 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 }
 
 
-// Convert from linear sRGB to non-linear (compressed) sRGB.
-// From https://en.wikipedia.org/wiki/SRGB
-static float refLinearsRGBtosRGB(float x)
-{
-	if(x <= 0.0031308f)
-		return 12.92f * x;
-	else
-		return (1 + 0.055f) * pow(x, 1 / 2.4f) - 0.055f;
-}
-
-
 void test()
 {
 	conPrint("ImagingPipelineTests::test()");
@@ -108,12 +98,19 @@ void test()
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
 		const float alpha = 0.5f;
 		RenderChannels render_channels;
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 3;
 
 		render_channels.layers.push_back(ChannelInfo());
 		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
 		render_channels.layers.back().name = "layer 0";
 		render_channels.layers.back().offset = 0;
 		render_channels.layers.back().num_components = 3;
+
+		render_channels.front_data.resize(full_W * full_W * 3);
+		for(size_t i=0; i<render_channels.front_data.size(); ++i)
+			render_channels.front_data[i] = 0.2345435f;
 
 		//const int W = 1000;
 		//const int ssf = 1;
@@ -141,7 +138,7 @@ void test()
 
 
 		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
-		bool ldr_buffer_is_nonlinear;
+		bool ldr_buffer_is_nonlinear = false;
 
 		Timer timer;
 		const int N = 100;
@@ -180,7 +177,7 @@ void test()
 			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
 
 			//::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
-			ldr_buffer.copyToBitmap(bitmap);
+			// ldr_buffer.copyToBitmap(bitmap);
 		}
 		const double elapsed2 = timer.elapsed() / N;
 		conPrint("ImagingPipeline::toNonLinearSpace took " + toString(elapsed2) + " s");
@@ -425,14 +422,16 @@ void test()
 		for(int y=0; y<W; ++y)
 		for(int x=0; x<W; ++x)
 		{
-			const float expected_alpha = refLinearsRGBtosRGB(0.5f);
-			const float expected_red = refLinearsRGBtosRGB(0.2f) / expected_alpha;
-			const float expected_green = refLinearsRGBtosRGB(0.4f) / expected_alpha;
-			const float expected_blue = 1.f; // Should be clamped to 1.
+			const float expected_alpha	= referenceLinearSRGBToNonLinearSRGB(0.5f);
+			const float expected_red	= referenceLinearSRGBToNonLinearSRGB(0.2f) / expected_alpha;
+			const float expected_green	= referenceLinearSRGBToNonLinearSRGB(0.4f) / expected_alpha;
+			const float expected_blue	= 1.f; // Should be clamped to 1.
 
 			//printVar(ldr_buffer.getPixel(x, y));
 			//printVar(Colour4f(expected_red, expected_green, 1.0f, expected_alpha));
-			testAssert(epsEqual(ldr_buffer.getPixel(x, y), Colour4f(expected_red, expected_green, expected_blue, expected_alpha), 2.0e-4f));
+			testAssert(epsEqual(ldr_buffer.getPixel(x, y), 
+				Colour4f(expected_red, expected_green, expected_blue, expected_alpha), 
+				2.0e-3f)); // epsilon
 		}
 	}
 

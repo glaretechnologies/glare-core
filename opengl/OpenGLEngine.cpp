@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
+#include "../graphics/SRGBUtils.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -2703,14 +2704,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
 	opengl_render_data->aabb_os.max_ = Vec4f(mesh_->aabb_os.bound[1].x, mesh_->aabb_os.bound[1].y, mesh_->aabb_os.bound[1].z, 1.f);
 	return opengl_render_data;
-}
-
-
-// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
-static inline Colour4f fastApproxSRGBToLinearSRGB(const Colour4f& c)
-{
-	Colour4f c2 = c * c;
-	return c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
 }
 
 

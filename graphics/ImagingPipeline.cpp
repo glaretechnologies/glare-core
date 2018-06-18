@@ -16,6 +16,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
 #include "../graphics/bitmap.h"
+#include "../graphics/SRGBUtils.h"
 #include "../maths/mathstypes.h"
 #include "../maths/Vec4f.h"
 #include "../utils/TaskManager.h"
@@ -1276,14 +1277,9 @@ public:
 		const bool dithering = renderer_settings->dithering;
 		uint8* const uint8_buf_out = uint8_buffer_out ? uint8_buffer_out->getPixelNonConst(0, 0) : NULL;
 
-		// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff.
-		const Colour4f recip_gamma_v(1.0f / 2.4f);
-		const Colour4f cutoff(0.0031308f);
-
 		// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
 		const Colour4f gamma_mask = renderer_settings->shadow_pass ? Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0)).v);
 
-		//const size_t num_pixels = ldr_buffer_in_out->numPixels();
 		Colour4f* const pixel_data = &ldr_buffer_in_out->getPixel(0);
 		for(size_t z = begin; z<end; ++z)
 		{
@@ -1297,10 +1293,7 @@ public:
 			}
 			else
 			{
-				const Colour4f col_2_4 = Colour4f(powf4(col.v, recip_gamma_v.v)); // linear values raised to 1/2.4.
-				const Colour4f linear = Colour4f(12.92f) * col;
-				const Colour4f nonlinear = Colour4f(1 + 0.055f) * col_2_4 - Colour4f(0.055f);
-				const Colour4f sRGBcol = select(linear, nonlinear, Colour4f(_mm_cmple_ps(col.v, cutoff.v)));
+				const Colour4f sRGBcol = fastApproxLinearSRGBToNonLinearSRGB(col);
 				col = select(col, sRGBcol, gamma_mask);
 			}
 

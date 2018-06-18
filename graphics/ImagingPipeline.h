@@ -106,10 +106,10 @@ struct ToNonLinearSpaceScratchState
 
 /*
 Converts some tonemapped image data to non-linear sRGB space.
-Does a few things in preperation for conversion to an 8-bit output image format,
+Does a few things in preparation for conversion to an 8-bit output image format,
 such as dithering and gamma correction.
 Input colour space is linear or non-linear sRGB
-Output colour space is non-linear sRGB with the supplied gamma.
+Output colour space is non-linear sRGB.
 We also assume the output values are not premultiplied alpha.
 
 A lock on uint8_buffer_out is expected to be held by the calling thread if uint8_buffer_out is non-null.
