@@ -104,7 +104,7 @@ public:
 	inline virtual const Value pixelComponent(size_t x, size_t y, size_t c) const;
 
 	// X and Y are normalised image coordinates.
-	inline virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
+	inline virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
 
 	// X and Y are normalised image coordinates.
 	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const;
@@ -305,9 +305,9 @@ const Map2D::Value ImageMap<V, VTraits>::pixelComponent(size_t x_, size_t y_, si
 
 
 template <class V, class VTraits>
-const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 {
-	Colour3<Value> colour_out;
+	Colour4f colour_out;
 
 	// Get fractional normalised image coordinates
 	const Coord u_frac_part = Maths::fract(u);
@@ -348,17 +348,16 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord
 		// This is either grey, alpha or grey with alpha.
 		// Either way just use the zeroth channel.
 		const float val = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
-		colour_out.r = val;
-		colour_out.g = val;
-		colour_out.b = val;
+		colour_out = Colour4f(val);
 	}
 	else // else if(N >= 3)
 	{
 		// This map is either RGB or RGB with alpha
 		// Ignore alpha and just return the interpolated RGB colour.
-		colour_out.r = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
-		colour_out.g = VTraits::scaleValue(a * top_left_pixel[1] + b * top_right_pixel[1] + c * bot_left_pixel[1] + d * bot_right_pixel[1]);
-		colour_out.b = VTraits::scaleValue(a * top_left_pixel[2] + b * top_right_pixel[2] + c * bot_left_pixel[2] + d * bot_right_pixel[2]);
+		colour_out[0] = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
+		colour_out[1] = VTraits::scaleValue(a * top_left_pixel[1] + b * top_right_pixel[1] + c * bot_left_pixel[1] + d * bot_right_pixel[1]);
+		colour_out[2] = VTraits::scaleValue(a * top_left_pixel[2] + b * top_right_pixel[2] + c * bot_left_pixel[2] + d * bot_right_pixel[2]);
+		colour_out[3] = 0.f;
 	}
 	
 	return colour_out;

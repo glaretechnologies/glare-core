@@ -139,15 +139,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
 		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
 
 		map.set(255);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,1));
 
 		float dv_ds, dv_dt;
 		testAssert(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt) == 1.0f);
@@ -165,15 +165,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
 		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
 
 		map.set(255);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,0));
 	}
 
 	// Test float map with single channel
@@ -184,15 +184,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
 
 		map.set(1.f);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,1));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,1));
 	}
 		
 	// Test float map with 3 channels
@@ -203,15 +203,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(0,0,0));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
 
 		map.set(1.f);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour3f(1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour3f(1,1,1));
+		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,0));
+		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,0));
 	}
 
 	// Test a 1x1 pixel image.  This can expose bugs with wrapping.

@@ -24,10 +24,6 @@ public:
 	inline Matrix3(const Vec3<Real>& column0, const Vec3<Real>& column1, const Vec3<Real>& column2);
 	inline Matrix3(const Real* entries);
 
-	static const Matrix3 buildMatrixFromRows(const Vec3<Real>& row0, 
-							const Vec3<Real>& row1, const Vec3<Real>& row2);
-
-
 	inline void set(const Matrix3& rhs);
 	inline void set(const Vec3<Real>& column0, const Vec3<Real>& column1, const Vec3<Real>& column2);
 	inline void set(const Real* newentries);
@@ -75,8 +71,6 @@ public:
 	inline Vec3<Real> getRow0() const;
 	inline Vec3<Real> getRow1() const;
 	inline Vec3<Real> getRow2() const;
-
-	void print() const;
 
 	inline const static Matrix3<Real> identity();
 	inline bool isIdentity() const;

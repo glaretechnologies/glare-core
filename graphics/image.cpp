@@ -533,11 +533,11 @@ float Image::maxPixelComponent() const
 }
 
 
-const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
 {
 	//return sampleTiled((float)x, (float)y).toColour3d();
 
-	Colour3<Value> colour_out;
+	Colour4f colour_out;
 
 	Coord intpart; // not used
 	Coord u_frac_part = std::modf(u, &intpart);
@@ -573,36 +573,36 @@ const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 	{
 		const float* pixel = getPixel(ut, vt).data();
 		const Value factor = oneufrac * onevfrac;
-		colour_out.r = pixel[0] * factor;
-		colour_out.g = pixel[1] * factor;
-		colour_out.b = pixel[2] * factor;
+		colour_out[0] = pixel[0] * factor;
+		colour_out[1] = pixel[1] * factor;
+		colour_out[2] = pixel[2] * factor;
 	}
 
 	// Top right pixel
 	{
 		const float* pixel = getPixel(ut_1, vt).data();
 		const Value factor = ufrac * onevfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
+		colour_out[0] += pixel[0] * factor;
+		colour_out[1] += pixel[1] * factor;
+		colour_out[2] += pixel[2] * factor;
 	}
 
 	// Bottom left pixel
 	{
 		const float* pixel = getPixel(ut, vt_1).data();
 		const Value factor = oneufrac * vfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
+		colour_out[0] += pixel[0] * factor;
+		colour_out[1] += pixel[1] * factor;
+		colour_out[2] += pixel[2] * factor;
 	}
 
 	// Bottom right pixel
 	{
 		const float* pixel = getPixel(ut_1, vt_1).data();
 		const Value factor = ufrac * vfrac;
-		colour_out.r += pixel[0] * factor;
-		colour_out.g += pixel[1] * factor;
-		colour_out.b += pixel[2] * factor;
+		colour_out[0] += pixel[0] * factor;
+		colour_out[1] += pixel[1] * factor;
+		colour_out[2] += pixel[2] * factor;
 	}
 
 	return colour_out;
@@ -611,8 +611,8 @@ const Colour3<Image::Value> Image::vec3SampleTiled(Coord u, Coord v) const
 
 Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const
 {
-	const Colour3<Value> col = vec3SampleTiled(x, y);
-	return (col.r + col.g + col.b) * static_cast<Image::Value>(1.0 / 3.0);
+	const Colour4f col = vec3SampleTiled(x, y);
+	return (col[0] + col[1] + col[2]) * static_cast<Image::Value>(1.0 / 3.0);
 }
 
 
@@ -699,11 +699,11 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 	for(size_t y = 0; y < tex_yres; ++y)
 	for(size_t x = 0; x < tex_xres; ++x)
 	{
-		const ColourType texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
+		const Colour4f texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
 
-		image->getPixel((unsigned int)x, (unsigned int)y)[0] = texel.r;
-		image->getPixel((unsigned int)x, (unsigned int)y)[1] = texel.g;
-		image->getPixel((unsigned int)x, (unsigned int)y)[2] = texel.g;
+		image->getPixel((unsigned int)x, (unsigned int)y)[0] = texel[0];
+		image->getPixel((unsigned int)x, (unsigned int)y)[1] = texel[1];
+		image->getPixel((unsigned int)x, (unsigned int)y)[2] = texel[2];
 	}
 
 	return ImageMapFloatRef(image);

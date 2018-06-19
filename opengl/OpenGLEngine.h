@@ -66,7 +66,6 @@ public:
 	OpenGLMaterial()
 	:	transparent(false),
 		albedo_rgb(0.85f, 0.5f, 0.85f),
-		specular_rgb(0.f),
 		alpha(1.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
@@ -78,8 +77,7 @@ public:
 
 	std::string albedo_tex_path;
 
-	Colour3f albedo_rgb; // First approximation to material colour
-	Colour3f specular_rgb; // Used for OpenGL specular colour
+	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
 
 	bool transparent;
