@@ -38,6 +38,9 @@ public:
 	int proj_matrix_loc;
 	int normal_matrix_loc;
 
+	int campos_ws_loc;
+	int time_loc;
+
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;
 

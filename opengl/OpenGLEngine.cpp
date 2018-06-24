@@ -46,7 +46,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	anisotropic_filtering_supported(false),
 	settings(settings_),
 	draw_wireframes(false),
-	frame_num(0)
+	frame_num(0),
+	current_time(0.f)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -328,6 +329,12 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
 		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
 	}
+}
+
+
+void OpenGLEngine::setCurrentTime(float time)
+{
+	this->current_time = time;
 }
 
 
@@ -693,7 +700,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_)
 			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
-		
+
 
 		if(settings.shadow_mapping)
 		{
@@ -893,6 +900,9 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 
 void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 {
+	if(material.shader_prog.nonNull())
+		return;
+
 	if(material.transparent)
 	{
 		material.shader_prog = transparent_prog;
@@ -2869,9 +2879,15 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		{
 
 		}
-		else
+		else // Else shader created by user code:
 		{
-			assert(0);
+			if(shader_prog->campos_ws_loc >= 0)
+			{
+				const Vec4f campos_ws = cam_to_world.getColumn(3);
+				glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
+			}
+			if(shader_prog->time_loc >= 0)
+				glUniform1f(shader_prog->time_loc, this->current_time);
 		}
 		
 		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
@@ -3258,7 +3274,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 	verts.resize(24); // 6 faces * 4 verts/face
 	js::Vector<Vec3f, 16> normals;
 	normals.resize(24);
-	js::Vector<Vec2f, 16> uvs(24, Vec2f(0.f));
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(24);
 	js::Vector<uint32, 16> indices;
 	indices.resize(6 * 6); // two tris per face, 6 faces
 
@@ -3286,6 +3303,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
 
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(0, 1);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(1, 0);
+
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(-1, 0, 0);
 		
@@ -3303,6 +3325,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 1] = v1;
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
+
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(1, 0);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(0, 1);
 
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(1, 0, 0);
@@ -3322,6 +3349,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
 
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(1, 0);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(0, 1);
+
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(0, -1, 0);
 		
@@ -3339,6 +3371,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 1] = v1;
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
+
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(0, 1);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(1, 0);
 
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(0, 1, 0);
@@ -3358,6 +3395,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
 
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(1, 0);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(0, 1);
+
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(0, 0, -1);
 		
@@ -3375,6 +3417,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 1] = v1;
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
+
+		uvs[face*4 + 0] = Vec2f(0, 0);
+		uvs[face*4 + 1] = Vec2f(1, 0);
+		uvs[face*4 + 2] = Vec2f(1, 1);
+		uvs[face*4 + 3] = Vec2f(0, 1);
 
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(0, 0, 1);

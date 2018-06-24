@@ -176,6 +176,8 @@ public:
 	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
 		float lens_shift_right_distance);
 
+	void setCurrentTime(float time);
+
 	void setSunDir(const Vec4f& d);
 
 	void setEnvMapTransform(const Matrix3f& transform);
@@ -385,6 +387,8 @@ private:
 
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
+
+	float current_time;
 public:
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
