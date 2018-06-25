@@ -170,7 +170,7 @@ namespace ImagingPipeline
 const uint32 image_tile_size = 64;
 
 
-// Does the pixel at (x, y) in lie in one or more of the given render regions?
+// Does the pixel at (x, y) lie in one or more of the given render regions?
 inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<Rect2i, 8>& regions)
 {
 	const Vec2i v((int)x, (int)y);
@@ -722,7 +722,9 @@ struct ImagePipelineTaskClosure
 
 	CurveData curve_data;
 
-	int source_render_channel_offset; // >= 0 if the source is a non-beauty render channel.
+	bool non_beauty_render_channel;
+	bool colour3_channel;
+	int source_render_channel_offset; // >= 0 if the source is a non-beauty render channel.   -1 means blend together main light layers (usual rendering).
 };
 
 
@@ -824,14 +826,7 @@ public:
 
 					assert(!has_spectral_channel);
 					
-					if(source_render_channel_offset >= 0)
-					{
-						float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-						float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-						float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-						sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
-					}
-					else
+					if(source_render_channel_offset == -1) // source_render_channel_offset == -1 means blend together main light layers (usual rendering).
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
@@ -839,6 +834,21 @@ public:
 							float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
 							float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
 							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
+						}
+					}
+					else // source_render_channel_offset >= means read from one of the non-main layers.
+					{
+						if(closure.colour3_channel)
+						{
+							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+							sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
+						}
+						else // Else if scalar channel:
+						{
+							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
+							sum += Colour4f(v, v, v, 0.f) * layer_weights[0];
 						}
 					}
 
@@ -851,12 +861,30 @@ public:
 						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
-							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							if(source_render_channel_offset == -1)
 							{
-								float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
-								float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
-								float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
-								sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
+								for(ptrdiff_t z = 0; z < num_layers; ++z)
+								{
+									float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
+									float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
+									float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
+									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
+								}
+							}
+							else
+							{
+								if(closure.colour3_channel)
+								{
+									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
+									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
+									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
+									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[0];
+								}
+								else // Else if scalar channel:
+								{
+									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
+									sum += Colour4f(v, v, v, 0.f) * region_layer_weights[0];
+								}
 							}
 
 							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
@@ -885,7 +913,7 @@ public:
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
-				else
+				else if(!closure.non_beauty_render_channel) // Don't tonemap render passes like depth etc..
 					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
 
 				if(apply_curves) // Apply colour curves
@@ -959,14 +987,7 @@ public:
 					}
 					else
 					{
-						if(source_render_channel_offset >= 0)
-						{
-							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-							sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
-						}
-						else
+						if(source_render_channel_offset == -1) // source_render_channel_offset == -1 means blend together main light layers (usual rendering).
 						{
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
@@ -974,6 +995,21 @@ public:
 								float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
 								float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
 								sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
+							}
+						}
+						else // source_render_channel_offset >= means read from one of the non-main layers.
+						{
+							if(closure.colour3_channel)
+							{
+								float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+								float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+								float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+								sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
+							}
+							else
+							{
+								float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
+								sum += Colour4f(v, v, v, 0.f) * layer_weights[0];
 							}
 						}
 					}
@@ -987,12 +1023,30 @@ public:
 						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
-							for(ptrdiff_t z = 0; z < num_layers; ++z)
+							if(source_render_channel_offset == -1)
 							{
-								float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
-								float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
-								float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
-								sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
+								for(ptrdiff_t z = 0; z < num_layers; ++z)
+								{
+									float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
+									float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
+									float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
+									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
+								}
+							}
+							else
+							{
+								if(closure.colour3_channel)
+								{
+									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
+									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
+									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
+									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[0];
+								}
+								else // Else if scalar channel:
+								{
+									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
+									sum += Colour4f(v, v, v, 0.f) * region_layer_weights[0];
+								}
 							}
 
 							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
@@ -1020,7 +1074,7 @@ public:
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
-				else
+				else if(!closure.non_beauty_render_channel)
 				{
 					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
 				}
@@ -1073,6 +1127,8 @@ void doTonemap(
 	DoTonemapScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	int source_channel_offset, // or -1 which means blend together main light layers (usual rendering).
+	bool non_beauty_render_channel,
+	bool colour3_channel,
 	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights,
 	float image_scale,
@@ -1209,6 +1265,8 @@ void doTonemap(
 		closure.tonemap_params = &tonemap_params;
 		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
 		closure.source_render_channel_offset = source_channel_offset;
+		closure.non_beauty_render_channel = non_beauty_render_channel;
+		closure.colour3_channel = colour3_channel;
 
 		closure.x_tiles = x_tiles;
 		closure.final_xres = final_xres;

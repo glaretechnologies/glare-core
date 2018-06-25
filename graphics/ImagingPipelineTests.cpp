@@ -61,6 +61,8 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		tonemap_scratch_state,
 		render_channels,
 		-1, // source channel offset
+		false, // non-beauty render cahnnel,
+		true, // colour3 channel.
 		render_regions,
 		layer_weights,
 		layer_normalise, // image scale
@@ -150,6 +152,8 @@ void test()
 				tonemap_scratch_state,
 				render_channels,
 				-1, // source channel offset
+				false, // non-beauty render cahnnel,
+				true, // colour3 channel.
 				render_regions,
 				layer_weights,
 				layer_normalise, // image scale
@@ -255,6 +259,8 @@ void test()
 			tonemap_scratch_state,
 			render_channels,
 			-1,
+			false, // non-beauty render cahnnel,
+			true, // colour3 channel.
 			render_regions,
 			layer_weights,
 			layer_normalise, // image scale
@@ -548,6 +554,8 @@ void test()
 			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
 			-1, // source channel offset
+			false, // non-beauty render cahnnel,
+			true, // colour3 channel.
 			std::vector<RenderRegion>(),
 			layer_weights,
 			1.0f, // image scale
