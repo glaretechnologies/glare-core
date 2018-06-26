@@ -147,13 +147,14 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 	for(size_t i=0; i<devices.size(); ++i)
 		device_ids[i] = devices[i]->opencl_device_id;
 
-	std::vector<std::vector<uint8> > binaries;
-	binaries.resize(devices.size());
-
+	
 	OpenCL* open_cl = ::getGlobalOpenCL();
 
 	try
 	{
+		std::vector<std::vector<uint8> > binaries;
+		binaries.resize(devices.size());
+
 		// Load binaries from disk
 		for(size_t i=0; i<devices.size(); ++i)
 		{
@@ -244,55 +245,22 @@ build_program:
 	);
 
 
-	// Get the program binaries and write to cache
+	// Get the program binaries and write them to cache
 	try
 	{
-		// Get device list for program.  Note that this can differ in order from the device list we supplied when building the program!
-
-		// Get num devices associated with program first.  Note that this can be more than the number of devices we requested the binary be built for.
-		cl_uint num_devices;
-		program->getProgramInfo(CL_PROGRAM_NUM_DEVICES,
-			sizeof(num_devices), // param value size
-			&num_devices // param value
-		);
-
-		std::vector<cl_device_id> queried_device_ids(num_devices);
-		program->getProgramInfo(CL_PROGRAM_DEVICES, 
-			queried_device_ids.size() * sizeof(cl_device_id), // param value size
-			queried_device_ids.data() // param value
-		);
-
-		// Get binary sizes
-		std::vector<size_t> binary_sizes(num_devices);
-		program->getProgramInfo(CL_PROGRAM_BINARY_SIZES,
-			binary_sizes.size() * sizeof(size_t), // param value size
-			binary_sizes.data() // param value
-		);
-
-		// Allocate space for binaries
-		binaries.resize(binary_sizes.size());
-		for(size_t i=0; i<binaries.size(); ++i)
-			binaries[i].resize(binary_sizes[i]);
-
-		std::vector<unsigned char*> binary_pointers(binaries.size());
-		for(size_t i=0; i<binary_pointers.size(); ++i)
-			binary_pointers[i] = (unsigned char*)binaries[i].data();
-
-		// Get actual binaries
-		program->getProgramInfo(CL_PROGRAM_BINARIES,
-			binary_pointers.size() * sizeof(unsigned char*), // param value size
-			binary_pointers.data() // param value
-		);
+		// Get binaries for program.  Note that the associated devices can differ in order from the device list we supplied when building the program!
+		std::vector<OpenCLProgram::Binary> binaries;
+		program->getProgramBinaries(binaries);
 
 		// Save binaries to disk
-		for(size_t i=0; i<queried_device_ids.size(); ++i)
+		for(size_t i=0; i<binaries.size(); ++i)
 		{
-			if(binary_sizes[i] > 0) // If a binary is available for the device:
+			if(binaries[i].data.size() > 0) // If a binary is available for the device:
 			{
 				// Find the device in our device list that this corresponds to
 				size_t device_index = std::numeric_limits<size_t>::max();
 				for(size_t z=0; z<devices.size(); ++z)
-					if(devices[z]->opencl_device_id == queried_device_ids[i])
+					if(devices[z]->opencl_device_id == binaries[i].device_id)
 						device_index = z;
 
 				if(device_index == std::numeric_limits<size_t>::max())
@@ -307,7 +275,7 @@ build_program:
 
 				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
 				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
-				FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data(), binaries[i].size());
+				FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data.data(), binaries[i].data.size());
 			}
 		}
 	}

@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
+#include <vector>
 
 
 #ifdef OSX
@@ -34,6 +35,16 @@ public:
 
 
 	void getProgramInfo(cl_program_info param_name, size_t param_value_size, void* param_value);
+
+	
+	struct Binary
+	{
+		cl_device_id device_id; // Device the program binary is for.
+		std::vector<uint8> data; // Binary data
+	};
+
+	// Get binaries for devices associated with this program.
+	void getProgramBinaries(std::vector<Binary>& binaries_out);
 
 private:
 	cl_program program;
