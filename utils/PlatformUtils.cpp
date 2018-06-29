@@ -773,9 +773,48 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 	return StringUtils::WToUTF8String(buffer);
 
 #else
-	if(!getenv(varname.c_str()))
+	const char* env_val = getenv(varname.c_str());
+	if(env_val == NULL)
 		throw PlatformUtilsExcep("getEnvironmentVariable failed.");
-	return getenv(varname.c_str());
+	return std::string(env_val);
+#endif
+}
+
+
+bool PlatformUtils::isEnvironmentVariableDefined(const std::string& varname)
+{
+#if defined(_WIN32) || defined(_WIN64)
+	const std::wstring varname_w = StringUtils::UTF8ToWString(varname);
+	TCHAR buffer[2048];
+	const DWORD size = 2048;
+
+	if(GetEnvironmentVariable(varname_w.c_str(), buffer, size) == 0)
+	{
+		// If Failed to get env var value:
+		if(GetLastError() == ERROR_ENVVAR_NOT_FOUND)
+			return false;
+		else
+			throw PlatformUtilsExcep("GetEnvironmentVariable failed: " + getLastErrorString());
+	}
+	else
+		return true;
+#else
+	return getenv(varname.c_str()) != NULL;
+#endif
+}
+
+
+void PlatformUtils::setEnvironmentVariable(const std::string& varname, const std::string& new_value)
+{
+#if defined(_WIN32) || defined(_WIN64)
+	const std::wstring varname_w   = StringUtils::UTF8ToWString(varname);
+	const std::wstring new_value_w = StringUtils::UTF8ToWString(new_value);
+
+	if(SetEnvironmentVariable(varname_w.c_str(), new_value_w.c_str()) == 0)
+		throw PlatformUtilsExcep("SetEnvironmentVariable failed: " + getLastErrorString());
+#else
+	if(setenv(varname.c_str(), new_value.c_str(), /*overwrite=*/1) != 0)
+		throw PlatformUtilsExcep("setenv failed: " + getLastErrorString());
 #endif
 }
 
@@ -997,12 +1036,23 @@ void PlatformUtils::testPlatformUtils()
 		//openFileBrowserWindowAtLocation("C:\\testscenes\\sun_glare_test.igs");
 
 		conPrint("PlatformUtils::getLoggedInUserName(): " + PlatformUtils::getLoggedInUserName());
+
+
+		//--------------------- Test getEnvironmentVariable() -------------------
+		testAssert(getEnvironmentVariable("PATH") != "");
+
+		//--------------------- Test isEnvironmentVariableDefined() -------------------
+		testAssert(isEnvironmentVariableDefined("PATH"));
+		testAssert(!isEnvironmentVariableDefined("PATHKJHDFKDSYFJHG"));
+
+		//--------------------- Test setEnvironmentVariable() -------------------
+		testAssert(!isEnvironmentVariableDefined("TEST_ENV_VAR_34545"));
+		setEnvironmentVariable("TEST_ENV_VAR_34545", "ABC12345");
+		testAssert(getEnvironmentVariable("TEST_ENV_VAR_34545") == "ABC12345");
 	}
 	catch(PlatformUtilsExcep& e)
 	{
-		conPrint(e.what());
-
-		testAssert(!"test Failed.");
+		failTest(e.what());
 	}
 
 #if defined(_WIN32)

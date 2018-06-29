@@ -123,6 +123,8 @@ void ignoreUnixSignals();
 
 
 const std::string getEnvironmentVariable(const std::string& varname);
+bool isEnvironmentVariableDefined(const std::string& varname);
+void setEnvironmentVariable(const std::string& varname, const std::string& new_value);
 
 
 #if defined(_WIN32)
