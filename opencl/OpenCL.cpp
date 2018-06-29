@@ -88,6 +88,7 @@ void OpenCL::libraryInit()
 			clCreateCommandQueue = opencl_lib.getFuncPointer<clCreateCommandQueue_TYPE>("clCreateCommandQueue");
 			clReleaseCommandQueue = opencl_lib.getFuncPointer<clReleaseCommandQueue_TYPE>("clReleaseCommandQueue");
 			clCreateBuffer = opencl_lib.getFuncPointer<clCreateBuffer_TYPE>("clCreateBuffer");
+			clCreateImage = opencl_lib.getFuncPointer<clCreateImage_TYPE>("clCreateImage");
 			clReleaseMemObject = opencl_lib.getFuncPointer<clReleaseMemObject_TYPE>("clReleaseMemObject");
 			clRetainEvent = opencl_lib.getFuncPointer<clRetainEvent_TYPE>("clRetainEvent");
 			clCreateProgramWithSource = opencl_lib.getFuncPointer<clCreateProgramWithSource_TYPE>("clCreateProgramWithSource");
@@ -148,6 +149,7 @@ void OpenCL::libraryInit()
 	this->clCreateCommandQueue = ::clCreateCommandQueue;
 	this->clReleaseCommandQueue = ::clReleaseCommandQueue;
 	this->clCreateBuffer = ::clCreateBuffer;
+	this->clCreateImage = ::clCreateImage;
 	this->clReleaseMemObject = ::clReleaseMemObject;
 	this->clRetainEvent = ::clRetainEvent;
 	this->clCreateProgramWithSource = ::clCreateProgramWithSource;

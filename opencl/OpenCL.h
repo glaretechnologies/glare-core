@@ -62,6 +62,7 @@ typedef cl_int (CL_API_CALL *clReleaseContext_TYPE) (cl_context context);
 typedef cl_command_queue (CL_API_CALL *clCreateCommandQueue_TYPE) (cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseCommandQueue_TYPE) (cl_command_queue command_queue);
 typedef cl_mem (CL_API_CALL *clCreateBuffer_TYPE) (cl_context context, cl_mem_flags flags, size_t size, void *host_ptr, cl_int *errcode_ret);
+typedef cl_mem (CL_API_CALL *clCreateImage_TYPE) (cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clReleaseMemObject_TYPE) (cl_mem memobj);
 typedef cl_int (CL_API_CALL *clRetainEvent_TYPE) (cl_event event);
 typedef cl_program (CL_API_CALL *clCreateProgramWithSource_TYPE) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
@@ -150,6 +151,7 @@ public:
 	clCreateCommandQueue_TYPE clCreateCommandQueue;
 	clReleaseCommandQueue_TYPE clReleaseCommandQueue;
 	clCreateBuffer_TYPE clCreateBuffer;
+	clCreateImage_TYPE clCreateImage;
 	clReleaseMemObject_TYPE clReleaseMemObject;
 	clRetainEvent_TYPE clRetainEvent;
 	clCreateProgramWithSource_TYPE clCreateProgramWithSource;
