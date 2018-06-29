@@ -27,7 +27,7 @@ OpenCLContext
 -------------
 An OpenCL context
 =====================================================================*/
-class OpenCLContext: public ThreadSafeRefCounted
+class OpenCLContext : public ThreadSafeRefCounted
 {
 public:
 	OpenCLContext(cl_platform_id platform_id);
