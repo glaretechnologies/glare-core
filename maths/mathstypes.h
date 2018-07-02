@@ -235,7 +235,7 @@ INDIGO_STRONG_INLINE bool isFinite(float x)
 	// Compile should be able to 'see through' the memcpy and generate efficient code (confirmed in VS2012 x64 target)
 	uint32 i;
 	std::memcpy(&i, &x, 4);
-	return (i & 0x7fffffff) < 0x7f800000;
+	return (i & 0x7f800000) < 0x7f800000;
 
 	// Comparing use of _finite() with the code above:
 	//

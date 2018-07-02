@@ -22,6 +22,8 @@ const std::string Colour4f::toString() const
 
 void Colour4f::test()
 {
+	conPrint("Colour4f::test()");
+
 	testAssert(Colour4f(1.23f).isFinite());
 	testAssert(Colour4f(0.f).isFinite());
 	testAssert(Colour4f(0.f, 1.f, 2.f, 3.f).isFinite());

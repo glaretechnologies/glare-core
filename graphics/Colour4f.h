@@ -295,9 +295,9 @@ bool Colour4f::isUnitLength() const
 // This is bascically the vectorised form of isFinite() from mathstypes.h
 bool Colour4f::isFinite() const
 {
-	Vec4f anded = _mm_and_ps(v, bitcastToVec4f(Vec4i(0x7fffffff)).v); // c & 0x7fffffff
+	Vec4f anded = _mm_and_ps(v, bitcastToVec4f(Vec4i(0x7f800000)).v); // c & 0x7f800000
 
-	Vec4i res = _mm_cmplt_epi32(bitcastToVec4i(anded).v, Vec4i(0x7f800000).v); // (c & 0x7fffffff) < 0x7f800000
+	Vec4i res = _mm_cmplt_epi32(bitcastToVec4i(anded).v, Vec4i(0x7f800000).v); // (c & 0x7f800000) < 0x7f800000
 
 	return _mm_movemask_ps(bitcastToVec4f(res).v) == 0xF; // Return true if the less-than is true for all components.
 }
