@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2013 -
 
 #include "../maths/SSE.h"
 #include "../maths/Vec4i.h"
+#include "../maths/Vec4f.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Platform.h"
 #include <assert.h>
@@ -173,8 +174,7 @@ INDIGO_STRONG_INLINE Colour4f normalise(const Colour4f& a, float& length_out)
 
 INDIGO_STRONG_INLINE Colour4f maskWToZero(const Colour4f& a)
 {
-	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
-	return Colour4f(_mm_and_ps(a.v, _mm_load_ps((const float*)mask)));
+	return Colour4f(_mm_and_ps(a.v, bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v));
 }
 
 
@@ -189,7 +189,7 @@ INDIGO_STRONG_INLINE const Colour4f operator - (const Colour4f& v)
 {
 	// Flip sign bits
 	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-    return Colour4f(_mm_xor_ps(v.v, mask));
+	return Colour4f(_mm_xor_ps(v.v, mask));
 }
 
 
@@ -240,13 +240,7 @@ void Colour4f::operator *= (float f)
 
 bool Colour4f::operator == (const Colour4f& a) const
 {
-	// NOTE: could speed this up with an SSE instruction, but does it need to be fast?
-	// Exact floating point comparison should be rare.
-	return
-		x[0] == a.x[0] &&
-		x[1] == a.x[1] &&
-		x[2] == a.x[2] &&
-		x[3] == a.x[3];
+	return _mm_movemask_ps(_mm_cmpeq_ps(v, a.v)) == 0xF;
 }
 
 
@@ -298,9 +292,14 @@ bool Colour4f::isUnitLength() const
 }
 
 
+// This is bascically the vectorised form of isFinite() from mathstypes.h
 bool Colour4f::isFinite() const
 {
-	return ::isFinite(x[0]) && ::isFinite(x[1]) && ::isFinite(x[2]) && ::isFinite(x[3]);
+	Vec4f anded = _mm_and_ps(v, bitcastToVec4f(Vec4i(0x7fffffff)).v); // c & 0x7fffffff
+
+	Vec4i res = _mm_cmplt_epi32(bitcastToVec4i(anded).v, Vec4i(0x7f800000).v); // (c & 0x7fffffff) < 0x7f800000
+
+	return _mm_movemask_ps(bitcastToVec4f(res).v) == 0xF; // Return true if the less-than is true for all components.
 }
 
 
@@ -321,6 +320,12 @@ INDIGO_STRONG_INLINE const Vec4i toVec4i(const Colour4f& v)
 INDIGO_STRONG_INLINE Colour4f toColour4f(const Vec4i& v)
 {
 	return Colour4f(_mm_cvtepi32_ps(v.v));
+}
+
+
+INDIGO_STRONG_INLINE Colour4f bitcastToColour4f(const Vec4i& v)
+{
+	return Colour4f(_mm_castsi128_ps(v.v));
 }
 
 
