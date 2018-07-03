@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<medium>
+		<name>MedCr</name>
+			<precedence>10</precedence>
+			<basic>
+				<ior>1.6</ior>
+				<cauchy_b_coeff>0</cauchy_b_coeff>
+				<max_extinction_coeff>1</max_extinction_coeff>
+				<fast_sss>false</fast_sss>
+				<absorption_coefficient>
+					<constant>
+						<rgb>
+							<rgb>0 0 0</rgb>
+							<gamma>1</gamma>
+						</rgb>
+					</constant>
+				</absorption_coefficient>
+			</basic>
+	</medium>
+	<material>
+		<name>Cr</name>
+		<specular>
+			<internal_medium_name>MedCr</internal_medium_name>
+			<transparent>true</transparent>
+			<arch_glass>true</arch_glass>
+			<single_face>false</single_face>
+		</specular>
+	</material>
+</scenedata>
