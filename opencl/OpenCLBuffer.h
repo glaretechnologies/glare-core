@@ -54,6 +54,7 @@ public:
 
 	cl_mem& getDevicePtr();
 
+	cl_uint getRefCount();
 
 private:
 	INDIGO_DISABLE_COPY(OpenCLBuffer)

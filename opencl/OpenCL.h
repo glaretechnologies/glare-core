@@ -85,6 +85,8 @@ typedef cl_int (CL_API_CALL *clGetEventProfilingInfo_TYPE) (cl_event event, cl_p
 typedef cl_int (CL_API_CALL *clGetEventInfo_TYPE)  (cl_event event, cl_event_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_int (CL_API_CALL *clEnqueueMarker_TYPE) (cl_command_queue command_queue, cl_event *event);
 typedef cl_int (CL_API_CALL *clWaitForEvents_TYPE) (cl_uint num_events, const cl_event *event_list);
+typedef cl_int (CL_API_CALL *clGetMemObjectInfo_TYPE) (cl_mem memobj, cl_mem_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
 
 typedef cl_int (CL_API_CALL *clFinish_TYPE) (cl_command_queue command_queue);
 typedef cl_int (CL_API_CALL *clFlush_TYPE) (cl_command_queue command_queue);
@@ -173,6 +175,7 @@ public:
 	clGetEventProfilingInfo_TYPE clGetEventProfilingInfo;
 	clGetEventInfo_TYPE clGetEventInfo;
 	clWaitForEvents_TYPE clWaitForEvents;
+	clGetMemObjectInfo_TYPE clGetMemObjectInfo;
 	clFinish_TYPE clFinish;
 	clFlush_TYPE clFlush;
 	clEnqueueFillBuffer_TYPE clEnqueueFillBuffer; // May be NULL if the OpenCL version is < 1.2.

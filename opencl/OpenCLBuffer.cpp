@@ -164,3 +164,18 @@ cl_mem& OpenCLBuffer::getDevicePtr()
 {
 	return opencl_mem;
 }
+
+
+cl_uint OpenCLBuffer::getRefCount()
+{
+	cl_uint count = 0;
+	const cl_int result = getGlobalOpenCL()->clGetMemObjectInfo(opencl_mem, 
+		CL_MEM_REFERENCE_COUNT,
+		sizeof(cl_uint),
+		&count,
+		NULL
+	);
+	if(result != CL_SUCCESS)
+		throw Indigo::Exception("clGetMemObjectInfo failed: " + OpenCL::errorString(result));
+	return count;
+}

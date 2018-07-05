@@ -112,6 +112,7 @@ void OpenCL::libraryInit()
 			clWaitForEvents = opencl_lib.getFuncPointer<clWaitForEvents_TYPE>("clWaitForEvents");
 			clFinish = opencl_lib.getFuncPointer<clFinish_TYPE>("clFinish");
 			clFlush = opencl_lib.getFuncPointer<clFlush_TYPE>("clFlush");
+			clGetMemObjectInfo = opencl_lib.getFuncPointer<clGetMemObjectInfo_TYPE>("clGetMemObjectInfo");
 
 			// OpenCL 1.2 function:
 			clEnqueueFillBuffer = opencl_lib.tryGetFuncPointer<clEnqueueFillBuffer_TYPE>("clEnqueueFillBuffer");
@@ -173,6 +174,7 @@ void OpenCL::libraryInit()
 	this->clWaitForEvents = ::clWaitForEvents;
 	this->clFinish = ::clFinish;
 	this->clFlush = ::clFlush;
+	this->clGetMemObjectInfo = ::clGetMemObjectInfo;
 
 	// OpenCL 1.2 function:
 	this->clEnqueueFillBuffer = ::clEnqueueFillBuffer;
