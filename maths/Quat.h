@@ -1,16 +1,14 @@
 /*=====================================================================
 Quat.h
 ------
-Copyright Glare Technologies Limited 2014 - 
+Copyright Glare Technologies Limited 2018 - 
 File created by ClassTemplate on Thu Mar 12 16:27:07 2009
 =====================================================================*/
 #pragma once
 
 
-#include "SSE.h"
 #include "Vec4f.h"
 #include "vec3.h"
-#include "matrix3.h"
 #include "Matrix4f.h"
 #include <string>
 
@@ -32,13 +30,13 @@ public:
 	inline Quat(const Vec3<Real>& v, Real w);
 	explicit inline Quat(const Vec4f& v_) : v(v_) {}
 
-	static inline const Quat identity() { return Quat(Vec3<Real>(0.0), (Real)1.0); }
+	static inline const Quat identity() { return Quat(Vec4f(0,0,0,1)); }
 
 	static inline const Quat fromAxisAndAngle(const Vec3<Real>& unit_axis, Real angle);
 
 	inline const Quat operator + (const Quat& other) const;
 	inline const Quat operator - (const Quat& other) const;
-	//inline const Quat operator * (const Quat& other) const;
+	inline const Quat operator * (const Quat& other) const;
 	inline const Quat operator * (Real factor) const;
 	
 	inline bool operator == (const Quat& other) const;
@@ -51,16 +49,14 @@ public:
 
 	inline const Quat conjugate() const;
 
-	inline void toMatrix(Matrix3<Real>& mat_out) const;
-	inline void toMatrix(Matrix4f& mat_out) const;
+	inline void toMatrix(Matrix4f& mat_out) const; // Assumes norm() = 1
 
-	static inline Quat fromMatrix(const Matrix3<Real>& mat);
 	static inline Quat fromMatrix(const Matrix4f& mat);
 
 	// Assumes norm() = 1
-	const Vec4f rotateVector(const Vec4f& v) const;
+	inline const Vec4f rotateVector(const Vec4f& v) const;
 	// Assumes norm() = 1
-	const Vec4f inverseRotateVector(const Vec4f& v) const;
+	inline const Vec4f inverseRotateVector(const Vec4f& v) const;
 
 	static const Quat slerp(const Quat& a, const Quat& b, Real t);
 	static const Quat nlerp(const Quat& a, const Quat& b, Real t);
@@ -92,6 +88,13 @@ template <class Real> inline bool epsEqual(const Quat<Real>& a, const Quat<Real>
 }
 
 
+// Unary -
+template <class Real> inline const Quat<Real> operator - (const Quat<Real>& q)
+{
+	return Quat<Real>(-q.v);
+}
+
+
 template <class Real> Quat<Real>::Quat(const Vec3<Real>& v_, Real w_)
 :	v(v_.x, v_.y, v_.z, w_)
 {}
@@ -118,13 +121,22 @@ template <class Real> const Quat<Real> Quat<Real>::operator - (const Quat<Real>&
 }
 
 
-//template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
-//{
-//	return Quat(
-//		::crossProduct(v, other.v) + other.v * w + v * other.w, 
-//		w * other.w - ::dot(v, other.v)
-//		);
-//}
+template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
+{
+	// NOTE: this could be optimised, but is not even used currently (and does not have unit tests either).
+	const Vec4f a_v = maskWToZero(this->v);
+	const Vec4f b_v = maskWToZero(other.v);
+	const float a_w = this->v[3];
+	const float b_w = other.v[3];
+
+	const Vec4f prod_v = ::crossProduct(a_v, b_v) + b_v * a_w + a_v * b_w;
+	const float prod_w = a_w * b_w - ::dot(a_v, b_v);
+
+	Vec4f res = prod_v;
+	res[3] = prod_w;
+
+	return Quat(res);
+}
 
 
 template <class Real> const Quat<Real> Quat<Real>::operator * (Real factor) const
@@ -165,61 +177,42 @@ template <class Real> const Quat<Real> Quat<Real>::inverse() const
 
 template <class Real> const Quat<Real> Quat<Real>::conjugate() const
 {
-	return Quat(Vec4f(-v.x[0], -v.x[1], -v.x[2], v.x[3]));
+	// Flip sign bits for v.
+	const Vec4f mask = bitcastToVec4f(Vec4i(0x80000000, 0x80000000, 0x80000000, 0x0));
+	return Quat(_mm_xor_ps(v.v, mask.v));
 }
 
 
-// From Quaternions - Ken Shoemake
-// http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
-template <class Real> void Quat<Real>::toMatrix(Matrix3<Real>& mat) const
+inline Vec4f negateX(const Vec4f& v)
 {
-	const Real Nq = norm();
-	const Real s = (Nq > (Real)0.0) ? ((Real)2.0 / Nq) : (Real)0.0;
-	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
-	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
-	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
-	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
-
-	mat.e[0] = (Real)1.0 - (yy + zz);
-	mat.e[1] = xy - wz;
-	mat.e[2] = xz + wy;
-	mat.e[3] = xy + wz;
-	mat.e[4] = (Real)1.0 - (xx + zz);
-	mat.e[5] = yz - wx;
-	mat.e[6] = xz - wy;
-	mat.e[7] = yz + wx;
-	mat.e[8] = (Real)1.0 - (xx + yy);
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0x80000000, 0, 0, 0)).v)); // Flip sign bit
+}
+inline Vec4f negateY(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0x80000000, 0, 0)).v));
+}
+inline Vec4f negateZ(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0x80000000, 0)).v));
 }
 
 
+// Adapted from Quaternions - Ken Shoemake
+// http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
+// Assumes norm() = 1
 template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
 {
-	const Real Nq = norm();
-	const Real s = (Nq > (Real)0.0) ? ((Real)2.0 / Nq) : (Real)0.0;
-	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
-	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
-	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
-	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
+	assert(epsEqual(norm(), (Real)1));
 
-	/*
-	Matrix4f layout:
-	0	4	8	12
-	1	5	9	13
-	2	6	10	14
-	3	7	11	15
-	*/
-	mat.e[0] = (Real)1.0 - (yy + zz);
-	mat.e[4] = xy - wz;
-	mat.e[8] = xz + wy;
-	mat.e[1] = xy + wz;
-	mat.e[5] = (Real)1.0 - (xx + zz);
-	mat.e[9] = yz - wx;
-	mat.e[2] = xz - wy;
-	mat.e[6] = yz + wx;
-	mat.e[10] = (Real)1.0 - (xx + yy);
+	const Vec4f scale(2.f, 2.f, 2.f, 0.f);
+	const Vec4f c0 = mul(negateX(mul(swizzle<1,0,0,0>(v), swizzle<1,1,2,0>(v)) + negateZ(mul(swizzle<2,3,3,0>(v), swizzle<2,2,1,0>(v)))), scale);
+	const Vec4f c1 = mul(negateY(mul(swizzle<0,0,1,0>(v), swizzle<1,0,2,0>(v)) + negateX(mul(swizzle<3,2,3,0>(v), swizzle<2,2,0,0>(v)))), scale);
+	const Vec4f c2 = mul(negateZ(mul(swizzle<0,1,0,0>(v), swizzle<2,2,0,0>(v)) + negateY(mul(swizzle<3,3,1,0>(v), swizzle<1,0,1,0>(v)))), scale);
 
-	mat.e[3] = mat.e[7] = mat.e[11] = mat.e[12] = mat.e[13] = mat.e[14] = 0.0f;
-	mat.e[15] = 1.0f;
+	mat.setColumn(0, Vec4f(1,0,0,0) + c0);
+	mat.setColumn(1, Vec4f(0,1,0,0) + c1);
+	mat.setColumn(2, Vec4f(0,0,1,0) + c2);
+	mat.setColumn(3, Vec4f(0,0,0,1));
 }
 
 
@@ -227,61 +220,6 @@ template <class Real> void Quat<Real>::toMatrix(Matrix4f& mat) const
 // Input matrix must be a rotation matrix.
 // From Quaternions - Ken Shoemake ( http://www.cs.ucr.edu/~vbz/resources/quatut.pdf )
 // And http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
-template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix3<Real>& mat)
-{
-	const float m00 = mat.elem(0, 0);
-	const float m11 = mat.elem(1, 1);
-	const float m22 = mat.elem(2, 2);
-	const float tr = m00 + m11 + m22; // Trace
-	if(tr >= 0.0)
-	{
-		float s = std::sqrt(tr + 1);
-		float recip_2s = 0.5f / s;
-		return Quat<Real>(Vec4f(
-			(mat.elem(2, 1) - mat.elem(1, 2)) * recip_2s,
-			(mat.elem(0, 2) - mat.elem(2, 0)) * recip_2s,
-			(mat.elem(1, 0) - mat.elem(0, 1)) * recip_2s,
-			s * 0.5f
-		));
-	}
-	else if(m00 > m11 && m00 > m22)
-	{
-		float s = std::sqrt(1 + m00 - m11 - m22);
-		float recip_2s = 0.5f / s;
-		return Quat<Real>(Vec4f(
-			s * 0.5f,
-			(mat.elem(0, 1) + mat.elem(1, 0)) * recip_2s,
-			(mat.elem(0, 2) + mat.elem(2, 0)) * recip_2s,
-			(mat.elem(2, 1) - mat.elem(1, 2)) * recip_2s
-		));
-	}
-	else if(m11 > m22)
-	{
-		float s = std::sqrt(1 + m11 - m00 - m22);
-		float recip_2s = 0.5f / s;
-		return Quat<Real>(Vec4f(
-			(mat.elem(0, 1) + mat.elem(1, 0)) * recip_2s,
-			s * 0.5f,
-			(mat.elem(1, 2) + mat.elem(2, 1)) * recip_2s,
-			(mat.elem(0, 2) - mat.elem(2, 0)) * recip_2s
-		));
-	}
-	else
-	{
-		// m22 > m00 > m11
-		float s = std::sqrt(1 + m22 - m00 - m11);
-		float recip_2s = 0.5f / s;
-		return Quat<Real>(Vec4f(
-			(mat.elem(0, 2) + mat.elem(2, 0)) * recip_2s,
-			(mat.elem(1, 2) + mat.elem(2, 1)) * recip_2s,
-			s*0.5f,
-			(mat.elem(1, 0) - mat.elem(0, 1)) * recip_2s
-		));
-	}
-}
-
-
-// Similar to above, but takes Matrix4f.
 template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix4f& mat)
 {
 	const float m00 = mat.elem(0, 0);
@@ -340,24 +278,11 @@ template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix4f& mat)
 template <class Real> const Vec4f Quat<Real>::rotateVector(const Vec4f& vec) const
 {
 	assert(epsEqual(norm(), (Real)1));
-	const Real s = 2;
-	const Real xs = v.x[0]*s, ys = v.x[1]*s, zs = v.x[2]*s;
-	const Real wx = v.x[3]*xs, wy = v.x[3]*ys, wz = v.x[3]*zs;
-	const Real xx = v.x[0]*xs, xy = v.x[0]*ys, xz = v.x[0]*zs;
-	const Real yy = v.x[1]*ys, yz = v.x[1]*zs, zz = v.x[2]*zs;
 
-	return Vec4f(
-		(1 - (yy + zz))*vec.x[0] + (xy - wz)      *vec.x[1] + (xz + wy)      *vec.x[2],
-		(xy + wz)      *vec.x[0] + (1 - (xx + zz))*vec.x[1] + (yz - wx)      *vec.x[2],
-		(xz - wy)      *vec.x[0] + (yz + wx)      *vec.x[1] + (1 - (xx + yy))*vec.x[2],
-		vec.x[3]
-	);
-
-	// This code below was slower:
-	//const Vec4f& p = vec;
-	/*const float w = v[3];
-	const Vec4f v3 = maskWToZero(v);
-	return vec + crossProduct(v3, vec)*2*w + crossProduct(v3, crossProduct(v3, vec))*2;*/
+	// Note that crossProduct returns a vector with 0 w component, even if its arguments have non-zero w component.
+	const Vec4f v_cross_vec = crossProduct(v, vec);
+	const Vec4f sum = mul(v_cross_vec, copyToAll<3>(v)) + crossProduct(v, v_cross_vec);
+	return vec + (sum + sum);
 }
 
 
@@ -371,52 +296,60 @@ template <class Real> const Vec4f Quat<Real>::inverseRotateVector(const Vec4f& v
 
 
 // Adapted from http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
-template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, const Quat<Real>& q1, Real t)
+template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, const Quat<Real>& q1_, Real t)
 {
+	Quat<Real> q1 = q1_;
+	
 	// q0 and q1 should be unit length or else
-    // something broken will happen.
+	// something broken will happen.
 	assert(epsEqual(q0.norm(), (Real)1.0));
 	assert(epsEqual(q1.norm(), (Real)1.0));
 
-    // Compute the cosine of the angle between the two vectors.
-    const Real dot = dotProduct(q0, q1);
+	// Compute the cosine of the angle between the two vectors.
+	Real dot = dotProduct(q0, q1);
+
+	// If the quaternions have a negative dot product, the angle between them is > pi/2, which means
+	// the angle between the corresponding rotations is > pi.  This means that it's shorter to interpolate the other
+	// way around the space of rotations. So replace q1 with -q1, which is the antipodal quaternion that still corresponds
+	// to the same rotation.
+	if(dot < 0)
+	{
+		q1 = -q1;
+		dot = -dot;
+		assert(epsEqual(dot, dotProduct(q0, q1)));
+	}
 
 	const Real DOT_THRESHOLD = (Real)0.9995;
-    if(dot > DOT_THRESHOLD)
+	if(dot > DOT_THRESHOLD)
 	{
-        // If the inputs are too close for comfort, linearly interpolate
-        // and normalize the result.
+		// If the inputs are too close for comfort, linearly interpolate
+		// and normalize the result.
 		return normalise(Maths::lerp(q0, q1, t));
-    }
+	}
 
-	// Robustness: Stay within domain of acos()
-	const Real theta_0 = std::acos(myClamp(dot, (Real)-1.0, (Real)1.0));  // theta_0 = angle between input vectors
-    const Real theta = theta_0 * t;    // theta = angle between v0 and result 
+	assert(dot >= 0 && dot <= DOT_THRESHOLD); // dot should be in domain of acos() now.
 
-    const Quat<Real> q2(normalise(q1 - q0*dot)); // { q0, q2 } is now an orthonormal basis
+	const Real theta_0 = std::acos(dot);  // theta_0 = angle between input vectors
+	const Real theta = theta_0 * t; // theta = angle between v0 and result 
+
+	const Quat<Real> q2(normalise(q1 - q0*dot)); // { q0, q2 } is now an orthonormal basis
 
 	return q0*std::cos(theta) + q2*std::sin(theta);
 }
 
 
 // Adapted from http://number-none.com/product/Hacking%20Quaternions/index.html
-template <class Real> const Quat<Real> Quat<Real>::nlerp(const Quat<Real>& q0, const Quat<Real>& q1, Real t)
+template <class Real> const Quat<Real> Quat<Real>::nlerp(const Quat<Real>& q0, const Quat<Real>& q1_, Real t)
 {
-	//const Real attenuation = 0.7878088;
-	//const Real k = 0.5069269;
-	//const Real b =  2 * k;
-	//const Real c = -3 * k;
-	//const Real d =  1 + k;
+	Quat<Real> q1 = q1_;
+	const Real dot = dotProduct(q0, q1);
 
-	//// Compute the cosine of the angle between the two vectors.
-	//const Real dot = dotProduct(q0, q1);
-
-	//Real factor = 1 - attenuation * dot;
-	//factor *= factor;
-	//k *= factor;
-
-	//double tprime_divided_by_t = t * (b * t + c) + d;
-	//return tprime_divided_by_t;
+	// If the quaternions have a negative dot product, the angle between them is > pi/2, which means
+	// the angle between the corresponding rotations is > pi.  This means that it's shorter to interpolate the other
+	// way around the space of rotations. So replace q1 with -q1, which is the antipodal quaternion that still corresponds
+	// to the same rotation.
+	if(dot < 0.f)
+		q1 = -q1;
 
 	return normalise(Maths::lerp(q0, q1, t));
 }

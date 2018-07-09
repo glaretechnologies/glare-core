@@ -110,28 +110,6 @@ INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
-{
-	/*
-		want (aybz - azby, azbx - axbz, axby - aybx, 0.0f)
-
-		= [0, axby - aybx, azbx - axbz, aybz - azby]
-	*/
-	return
-		_mm_sub_ps(
-			_mm_mul_ps(
-				_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(3, 0, 2, 1)), // [0, ax, az, ay]
-				_mm_shuffle_ps(b.v, b.v, _MM_SHUFFLE(3, 1, 0, 2)) // [0, by, bx, bz]
-				), // [0, axby, azbx, aybz]
-			_mm_mul_ps(
-				_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(3, 1, 0, 2)), // [0, ay, ax, az]
-				_mm_shuffle_ps(b.v, b.v, _MM_SHUFFLE(3, 0, 2, 1)) // [0, bx, bz, by]
-				) // [0, aybx, axbz, azby]
-			)
-		;
-}
-
-
 inline bool epsEqual(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSILON)
 {
 	return ::epsEqual(a.x[0], b.x[0], eps) &&
@@ -176,7 +154,7 @@ INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
 {
 	// Flip sign bits
 	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-    return _mm_xor_ps(v.v, mask);
+	return _mm_xor_ps(v.v, mask);
 }
 
 
@@ -311,6 +289,9 @@ INDIGO_STRONG_INLINE const Vec4f shuffle(const Vec4f& a, const Vec4f& b) { retur
 
 template<int index>
 INDIGO_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1
+
+template<>
+INDIGO_STRONG_INLINE float elem<0>(const Vec4f& v) { return _mm_cvtss_f32(v.v); } // Specialise for getting the zeroth element.
 
 
 // From Embree
@@ -451,6 +432,13 @@ INDIGO_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
 INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 {
 	return _mm_and_ps(a.v, bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v);
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
+{
+	// w component of result = a.w*b.w - a.w*b.w = 0
+	return mul(swizzle<1, 2, 0, 3>(a), swizzle<2, 0, 1, 3>(b)) - mul(swizzle<2, 0, 1, 3>(a), swizzle<1, 2, 0, 3>(b));
 }
 
 

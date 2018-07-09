@@ -239,8 +239,18 @@ void Vec4f::test()
 		const Vec4f a(1, 0, 0, 0);
 		const Vec4f b(0, 1, 0, 0);
 
-		const Vec4f res(crossProduct(a, b));
+		const Vec4f res = crossProduct(a, b);
 		testAssert(epsEqual(res, Vec4f(0, 0, 1, 0)));
+	}
+	{
+		const Vec4f a(1, 2, 3, 4);
+		const Vec4f b(5, 6, 7, 8);
+
+		const Vec4f res = crossProduct(a, b);
+		testAssert(epsEqual(res, Vec4f(2*7 - 3*6, 3*5 - 1*7, 1*6 - 2*5, 0)));
+		testAssert(res[3] == 0.f); // w component should be exactly 0
+		testAssert(epsEqual(dot(res, a), 0.f));
+		testAssert(epsEqual(dot(res, b), 0.f));
 	}
 
 	// Test removeComponentInDir
