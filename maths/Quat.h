@@ -123,19 +123,30 @@ template <class Real> const Quat<Real> Quat<Real>::operator - (const Quat<Real>&
 
 template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
 {
-	// NOTE: this could be optimised, but is not even used currently (and does not have unit tests either).
-	const Vec4f a_v = maskWToZero(this->v);
-	const Vec4f b_v = maskWToZero(other.v);
-	const float a_w = this->v[3];
-	const float b_w = other.v[3];
+	/*
+	From Quaternions by Shoemake, http://www.cs.ucr.edu/~vbz/resources/quatut.pdf, Qt_Mul definition on page 7:
+	qq.x = qL.w*qR.x + qL.x*qR.w + qL.y*qR.z - qL.z*qR.y;
+	qq.y = qL.w*qR.y + qL.y*qR.w + qL.z*qR.x - qL.x*qR.z;
+	qq.z = qL.w*qR.z + qL.z*qR.w + qL.x*qR.y - qL.y*qR.x;
+	qq.w = qL.w*qR.w - qL.x*qR.x - qL.y*qR.y - qL.z*qR.z;
 
-	const Vec4f prod_v = ::crossProduct(a_v, b_v) + b_v * a_w + a_v * b_w;
-	const float prod_w = a_w * b_w - ::dot(a_v, b_v);
+	qq.x = (+ qL.x*qR.w + qL.y*qR.z) + (qL.w*qR.x - qL.z*qR.y);    // moving first col to col 3
+	qq.y = (+ qL.y*qR.w + qL.z*qR.x) + (qL.w*qR.y - qL.x*qR.z);
+	qq.z = (+ qL.z*qR.w + qL.x*qR.y) + (qL.w*qR.z - qL.y*qR.x);
+	qq.w = (- qL.x*qR.x - qL.y*qR.y) + (qL.w*qR.w - qL.z*qR.z);
 
-	Vec4f res = prod_v;
-	res[3] = prod_w;
-
-	return Quat(res);
+	qq.x =  (qL.x*qR.w + qL.y*qR.z) + (qL.w*qR.x - qL.z*qR.y);
+	qq.y =  (qL.y*qR.w + qL.z*qR.x) + (qL.w*qR.y - qL.x*qR.z);
+	qq.z =  (qL.z*qR.w + qL.x*qR.y) + (qL.w*qR.z - qL.y*qR.x);
+	qq.w = -(qL.x*qR.x + qL.y*qR.y) + (qL.w*qR.w - qL.z*qR.z);
+	*/
+	return Quat<Real>(negateW(
+			mul(swizzle<0,1,2,0>(v), swizzle<3,3,3,0>(other.v)) + 
+			mul(swizzle<1,2,0,1>(v), swizzle<2,0,1,1>(other.v))
+		) +
+		(mul(swizzle<3,3,3,3>(v), other.v) - 
+		 mul(swizzle<2,0,1,2>(v), swizzle<1,2,0,2>(other.v))
+	));
 }
 
 
@@ -195,7 +206,10 @@ inline Vec4f negateZ(const Vec4f& v)
 {
 	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0x80000000, 0)).v));
 }
-
+inline Vec4f negateW(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0, 0x80000000)).v));
+}
 
 // Adapted from Quaternions - Ken Shoemake
 // http://www.cs.ucr.edu/~vbz/resources/quatut.pdf

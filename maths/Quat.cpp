@@ -39,7 +39,7 @@ const std::string Quat<double>::toString() const
 // Reference non-SSE code for toMatrix().
 // Adapted from Quaternions - Ken Shoemake
 // http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
-template <class Real> void toMatrixRef(const Quatf& quat, Matrix4f& mat)
+template <class Real> static void toMatrixRef(const Quatf& quat, Matrix4f& mat)
 {
 	const Vec4f v = quat.v;
 
@@ -69,6 +69,20 @@ template <class Real> void toMatrixRef(const Quatf& quat, Matrix4f& mat)
 
 	mat.e[3] = mat.e[7] = mat.e[11] = mat.e[12] = mat.e[13] = mat.e[14] = 0.0f;
 	mat.e[15] = 1.0f;
+}
+
+
+template <class Real> static const Quat<Real> refQuatMul(const Quat<Real>& a, const Quat<Real>& b)
+{
+	const Vec4f a_v = maskWToZero(a.v);
+	const Vec4f b_v = maskWToZero(b.v);
+	const float a_w = a.v[3];
+	const float b_w = b.v[3];
+
+	const Vec4f prod_v = ::crossProduct(a_v, b_v) + b_v * a_w + a_v * b_w;
+	const float prod_w = a_w * b_w - ::dot(a_v, b_v);
+
+	return Quat<Real>(Vec4f(prod_v[0], prod_v[1], prod_v[2], prod_w));
 }
 
 
@@ -109,7 +123,20 @@ void quaternionTests()
 
 	//================== operator * (Quat) ====================
 	{
-		//TODO
+		Quatf a(Vec3f(1, 2, 3), 4);
+		Quatf b(Vec3f(5, 6, 7), 8);
+
+		Quatf ref_prod = refQuatMul(a, b);
+		Quatf prod = a * b;
+		testAssert(epsEqual(ref_prod, prod));
+	}
+	{
+		Quatf a(Vec3f(-10, 20, -30), -40);
+		Quatf b(Vec3f(50, -60, 70), 80);
+
+		Quatf ref_prod = refQuatMul(a, b);
+		Quatf prod = a * b;
+		testAssert(epsEqual(ref_prod, prod));
 	}
 
 	//================== operator == ====================
@@ -139,7 +166,8 @@ void quaternionTests()
 
 	//================== inverse() ====================
 	{
-		//TODO
+		Quatf a(Vec4f(1, 2, 3, 4));
+		testAssert(epsEqual(a.inverse(), Quatf(Vec4f(-1, -2, -3, 4) / 30.f)));
 	}
 
 	//================== conjugate() ====================
@@ -465,6 +493,45 @@ void quaternionTests()
 
 			conPrint("rotateVector() Elapsed:         " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
 			printVar(sum);
+		}
+
+
+		// Time refQuatMul
+		{
+			Timer timer;
+			//const int num = 1 << 16;
+			Quatf sum(Vec4f(0));
+			for(int i=0; i<num; ++i)
+			{
+				float x = (float)i;
+				Quatf a(Vec3f(x, x, x + 1), x + 2);
+				Quatf b(Vec3f(x + 1, x + 2, x + 3), x + 4);
+
+				Quatf prod = refQuatMul(a, b);
+				sum = sum + prod;
+			}
+
+			conPrint("refQuatMul() Elapsed: " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
+			conPrint(sum.toString());
+		}
+
+		// Time testQuatMul
+		{
+			Timer timer;
+			//const int num = 1 << 16;
+			Quatf sum(Vec4f(0));
+			for(int i=0; i<num; ++i)
+			{
+				float x = (float)i;
+				Quatf a(Vec3f(x, x, x + 1), x + 2);
+				Quatf b(Vec3f(x + 1, x + 2, x + 3), x + 4);
+
+				Quatf prod = a * b;
+				sum = sum + prod;
+			}
+
+			conPrint("quat mul Elapsed:     " + doubleToStringNDecimalPlaces(1.0e9 * timer.elapsed() / num, 4) + " ns");
+			conPrint(sum.toString());
 		}
 	}
 }
