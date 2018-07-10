@@ -27,6 +27,7 @@ public:
 	INDIGO_ALIGNED_NEW_DELETE
 
 	inline Quat() {}
+	inline Quat(Real x, Real y, Real z, Real w);
 	inline Quat(const Vec3<Real>& v, Real w);
 	explicit inline Quat(const Vec4f& v_) : v(v_) {}
 
@@ -93,6 +94,11 @@ template <class Real> inline const Quat<Real> operator - (const Quat<Real>& q)
 {
 	return Quat<Real>(-q.v);
 }
+
+
+template <class Real> Quat<Real>::Quat(Real x, Real y, Real z, Real w)
+:	v(x, y, z, w)
+{}
 
 
 template <class Real> Quat<Real>::Quat(const Vec3<Real>& v_, Real w_)

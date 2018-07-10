@@ -85,7 +85,7 @@ public:
 
 
 	// Is A the inverse of B?
-	static bool isInverse(const Matrix4f& A, const Matrix4f& B);
+	static bool isInverse(const Matrix4f& A, const Matrix4f& B, float eps = NICKMATHS_EPSILON);
 
 	bool getUpperLeftInverse(Matrix4f& inverse_out, float& det_out) const;
 

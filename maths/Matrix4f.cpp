@@ -132,12 +132,13 @@ const Matrix4f Matrix4f::operator * (const Matrix4f& c) const
 }
 
 
-bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B)
+bool Matrix4f::isInverse(const Matrix4f& A, const Matrix4f& B, float eps)
 {
 	Matrix4f AB, BA;
 	mul(A, B, AB);
 	mul(B, A, BA);
-	return (epsEqual(AB, identity()) || approxEq(AB, identity())) && (epsEqual(BA, identity()) || approxEq(BA, identity()));
+	const Matrix4f I = identity();
+	return (epsEqual(AB, I, eps) || approxEq(AB, I, eps)) && (epsEqual(BA, I, eps) || approxEq(BA, I, eps));
 }
 
 
