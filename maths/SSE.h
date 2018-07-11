@@ -166,9 +166,6 @@ const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define MSBMask(a) (_mm_movemask_ps(a))
 //Creates a 4-bit mask from the most significant bits of the four single-precision, floating-point values.
 
-#define allTrue(a) (MSBMask(a) == 0x0000000F)
-//is true IFF the four bits are set
-
 #define noneTrue(a) (MSBMask(a) == 0x00000000)
 
 #define and4Vec(a, b) (_mm_and_ps((a), (b)))
@@ -181,10 +178,6 @@ inline SSE4Vec andNot4Vec(const SSE4Vec& a, const SSE4Vec& b)
 
 #define or4Vec(a, b) (_mm_or_ps((a), (b)))
 //Computes the bitwise OR of the four single-precision, floating-point values of a and b.
-
-//#define allLessThan(a, b) (and4Vec(lessThan4Vec(a, b)))
-#define allLessThan(a, b) (allTrue(lessThan4Vec(a, b)))
-//are all the values in a less than the corresponding values in b
 
 #define min4Vec(a, b) (_mm_min_ps((a), (b)))
 //Computes the minima of the four single-precision, floating-point values of a and b.

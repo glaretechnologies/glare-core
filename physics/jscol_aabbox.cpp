@@ -161,6 +161,27 @@ void js::AABBox::test()
 		testAssert(::epsEqual(far, 2.0f));
 	}
 
+	//----------------- Test contains(const Vec4f& p) -------------------
+	{
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(0.9f, 0.9f, 0.9f, 1.f)));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(0.9f, 1.9f, 1.9f, 1.f)));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(1.9f, 1.9f, 2.9f, 1.f)));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(2.9f, 2.9f, 2.9f, 1.f)));
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(1.9f, 1.9f, 1.9f, 1.f)));
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(1,1,1, 1.f)));
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).contains(Vec4f(2,2,2, 1.f)));
+	}
+
+	//----------------- Test containsAABBox() -------------------
+	{
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(0.5f, 0.5f, 0.5f, 1), Vec4f(2, 2, 2, 1))));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(0.5f, 1, 1, 1), Vec4f(2, 2, 2, 1))));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2.5, 2, 2, 1))));
+		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2.5, 2.5, 2.5, 1))));
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(1.5, 1.5, 1.5, 1), Vec4f(1.5, 1.5, 1.5, 1))));
+		testAssert(js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).containsAABBox(js::AABBox(Vec4f(1.0, 1.0, 1.0, 1), Vec4f(2, 2, 2, 1))));
+	}
+
 	//----------------- Test isEmpty() -------------------
 	{
 		testAssert(!js::AABBox(Vec4f(1, 1, 1, 1), Vec4f(2, 2, 2, 1)).isEmpty());

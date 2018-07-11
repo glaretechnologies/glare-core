@@ -374,6 +374,30 @@ INDIGO_STRONG_INLINE Vec4f parallelOr(const Vec4f& a, const Vec4f& b)
 }
 
 
+INDIGO_STRONG_INLINE Vec4f parallelAnd(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_and_ps(a.v, b.v);
+}
+
+
+INDIGO_STRONG_INLINE Vec4f parallelLessEqual(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_cmple_ps(a.v, b.v);
+}
+
+
+INDIGO_STRONG_INLINE Vec4f parallelGreaterEqual(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_cmpge_ps(a.v, b.v);
+}
+
+
+INDIGO_STRONG_INLINE bool allTrue(const Vec4f& vec)
+{
+	return _mm_movemask_ps(vec.v) == 0xF; // All elements are true (e.g. 0xFFFFFFFF) iff the four lower bits of the result mask are set.
+}
+
+
 INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
 {
 	// suppose a = (a3, a2, a1, a0)

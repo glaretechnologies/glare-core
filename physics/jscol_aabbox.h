@@ -109,21 +109,13 @@ void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 
 bool AABBox::contains(const Vec4f& p) const
 {
-	return	(p.x[0] >= min_.x[0]) && (p.x[0] <= max_.x[0]) &&
-			(p.x[1] >= min_.x[1]) && (p.x[1] <= max_.x[1]) &&
-			(p.x[2] >= min_.x[2]) && (p.x[2] <= max_.x[2]);
+	return allTrue(parallelAnd(parallelGreaterEqual(p, min_), parallelLessEqual(p, max_)));
 }
 
 
 bool AABBox::containsAABBox(const AABBox& other) const
 {
-	return 
-		max_.x[0] >= other.max_.x[0] && 
-		max_.x[1] >= other.max_.x[1] && 
-		max_.x[2] >= other.max_.x[2] && 
-		min_.x[0] <= other.min_.x[0] && 
-		min_.x[1] <= other.min_.x[1] && 
-		min_.x[2] <= other.min_.x[2];
+	return allTrue(parallelAnd(parallelGreaterEqual(max_, other.max_), parallelLessEqual(min_, other.min_)));
 }
 
 
