@@ -28,6 +28,8 @@ You may not use this code for any commercial project.
 
 #include "../utils/Platform.h"
 #include "../utils/BitUtils.h"
+#include <xmmintrin.h> // SSE header file
+#include <emmintrin.h> // SSE 2 header file
 #include <cstring> // For std::memcpy()
 #include <cmath>
 #include <cassert>
