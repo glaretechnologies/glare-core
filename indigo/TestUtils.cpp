@@ -47,8 +47,10 @@ void doFailTest(const std::string& msg, long line, const char* file)
 
 void printMessageAndFail(const std::string& msg)
 {
-	conPrint(msg);
-	assert(0);
+	stdErrPrint(msg);
+#if defined(_WIN32)
+	__debugbreak();
+#endif
 	exit(1);
 }
 
