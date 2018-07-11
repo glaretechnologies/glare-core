@@ -335,7 +335,7 @@ void Maths::test()
 			conPrint("isFinite() took: " + toString(elapsed * 1.0e9 / N) + " ns");
 			TestUtils::silentPrint(toString(sum));
 		}
-		{
+		/*{
 			Timer timer;
 			float sum = 0.0;
 			double elapsed = 1.0e10;
@@ -350,7 +350,7 @@ void Maths::test()
 			}
 			conPrint("_finite() took: " + toString(elapsed * 1.0e9 / N) + " ns");
 			TestUtils::silentPrint(toString(sum));
-		}
+		}*/
 	}
 
 
