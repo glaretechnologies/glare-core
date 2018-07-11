@@ -144,19 +144,6 @@ void Maths::test()
 	testAssert(roundToNextHighestPowerOf2(9223372036854775807ull) == 9223372036854775808ull);
 	testAssert(roundToNextHighestPowerOf2(9223372036854775808ull) == 9223372036854775808ull);
 
-	//======================================= epsEqual() ==============================================
-	testAssert(epsEqual(1.f, 1.000001f));
-	testAssert(!epsEqual(1.f, 2.f));
-	testAssert(!epsEqual(1.f, std::numeric_limits<float>::quiet_NaN()));
-	testAssert(!epsEqual(std::numeric_limits<float>::quiet_NaN(), 1.f));
-	testAssert(!epsEqual(1.f, std::numeric_limits<float>::infinity()));
-	testAssert(!epsEqual(std::numeric_limits<float>::infinity(), 1.f));
-
-	testAssert(epsEqual(1.0, 1.000001));
-	testAssert(!epsEqual(1.0, 2.0));
-	testAssert(!epsEqual(1.0, std::numeric_limits<double>::quiet_NaN()));
-	testAssert(!epsEqual(std::numeric_limits<double>::quiet_NaN(), 1.0));
-
 	//======================================= uInt32ToUnitFloatScale() ========================================
 	{
 		const float x = 4294967295u * Maths::uInt32ToUnitFloatScale();
@@ -259,6 +246,26 @@ void Maths::test()
 	}
 
 
+	//======================================== isNAN () ========================================
+	// isNAN(float)
+	testAssert(!isNAN(0.0f));
+	testAssert(!isNAN(1.234f));
+	testAssert(!isNAN(std::numeric_limits<float>::infinity()));
+	testAssert(!isNAN(-std::numeric_limits<float>::infinity()));
+
+	testAssert(isNAN(-std::numeric_limits<float>::quiet_NaN()));
+	testAssert(isNAN(std::numeric_limits<float>::quiet_NaN()));
+
+	// isNAN(double)
+	testAssert(!isNAN(0.0));
+	testAssert(!isNAN(1.234));
+	testAssert(!isNAN(std::numeric_limits<double>::infinity()));
+	testAssert(!isNAN(-std::numeric_limits<double>::infinity()));
+
+	testAssert(isNAN(-std::numeric_limits<double>::quiet_NaN()));
+	testAssert(isNAN(std::numeric_limits<double>::quiet_NaN()));
+
+
 	//======================================== isInf () ========================================
 	testAssert(!isInf(0.0f));
 	testAssert(!isInf(-std::numeric_limits<float>::quiet_NaN()));
@@ -276,22 +283,75 @@ void Maths::test()
 	testAssert(isInf(-std::numeric_limits<double>::infinity()));
 
 
-	//======================================== isNAN () ========================================
-	testAssert(!isNAN(0.0f));
-	testAssert(!isNAN(std::numeric_limits<float>::infinity()));
-	testAssert(!isNAN(-std::numeric_limits<float>::infinity()));
+	//======================================= epsEqual() ==============================================
+	testAssert(epsEqual(1.f, 1.000001f));
+	testAssert(!epsEqual(1.f, 2.f));
+	testAssert(!epsEqual(1.f, std::numeric_limits<float>::quiet_NaN()));
+	testAssert(!epsEqual(std::numeric_limits<float>::quiet_NaN(), 1.f));
+	testAssert(!epsEqual(1.f, std::numeric_limits<float>::infinity()));
+	testAssert(!epsEqual(std::numeric_limits<float>::infinity(), 1.f));
 
-	testAssert(isNAN(-std::numeric_limits<float>::quiet_NaN()));
-	testAssert(isNAN(std::numeric_limits<float>::quiet_NaN()));
+	testAssert(epsEqual(1.0, 1.000001));
+	testAssert(!epsEqual(1.0, 2.0));
+	testAssert(!epsEqual(1.0, std::numeric_limits<double>::quiet_NaN()));
+	testAssert(!epsEqual(std::numeric_limits<double>::quiet_NaN(), 1.0));
 
-	
 
-	testAssert(!isNAN(0.0));
-	testAssert(!isNAN(std::numeric_limits<double>::infinity()));
-	testAssert(!isNAN(-std::numeric_limits<double>::infinity()));
-
-	testAssert(isNAN(-std::numeric_limits<double>::quiet_NaN()));
-	testAssert(isNAN(std::numeric_limits<double>::quiet_NaN()));
+	// Some perf tests
+	if(false)
+	{
+		const int N = 100000;
+		const int trials = 10;
+		
+		{
+			Timer timer;
+			float sum = 0.0;
+			double elapsed = 1.0e10;
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i;
+					sum += isNAN(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			conPrint("isNAN() took:     " + toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(toString(sum));
+		}
+		{
+			Timer timer;
+			float sum = 0.0;
+			double elapsed = 1.0e10;
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i;
+					sum += isFinite(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			conPrint("isFinite() took: " + toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(toString(sum));
+		}
+		{
+			Timer timer;
+			float sum = 0.0;
+			double elapsed = 1.0e10;
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i;
+					sum += _finite(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			conPrint("_finite() took: " + toString(elapsed * 1.0e9 / N) + " ns");
+			TestUtils::silentPrint(toString(sum));
+		}
+	}
 
 
 	//======================================= intMod() ==============================================

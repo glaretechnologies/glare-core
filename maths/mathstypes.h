@@ -206,21 +206,17 @@ INDIGO_STRONG_INLINE uint32 intLogBase2(uint64 x)
 
 INDIGO_STRONG_INLINE bool isNAN(float x)
 {
-#if defined(_WIN32)
-	return _isnan(x) != 0;
-#else
-	return std::isnan(x) != 0;
-#endif
+	// _mm_cmpord_ss will set elem 0 to 0 if x is NaN, and 0xFFFFFFFF otherwise.
+	__m128 vx = _mm_set_ss(x);
+	return _mm_movemask_ps(_mm_cmpord_ss(vx, vx)) == 0x0;
 }
 
 
 INDIGO_STRONG_INLINE bool isNAN(double x)
 {
-#if defined(_WIN32)
-	return _isnan(x) != 0;
-#else
-	return std::isnan(x) != 0;
-#endif
+	// _mm_cmpord_sd will set elem 0 to 0 if x is NaN, and 0xFFFFFFFFFFFFFFFF otherwise.
+	__m128d vx = _mm_set_sd(x);
+	return _mm_movemask_pd(_mm_cmpord_sd(vx, vx)) == 0x0;
 }
 
 
