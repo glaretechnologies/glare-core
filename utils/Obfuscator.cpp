@@ -1077,7 +1077,7 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalSpecularAlbedo_float__float__float_",
 
 		"sampleVisMicrofacetNormal_float__vec4__vec4__vec2__float_",
-		"getNAndKForWavelength_BasicMaterialData__int__float_",
+		"conductorFresnelReflectance_BasicMaterialData__int__SpectralVector__float_",
 
 		"evalBasicScalarMatParameter_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicScalarMatParameterConstOnly_FullHitInfo__BasicMaterialData__int_",
