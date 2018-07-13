@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Triplanar</name>
+		<phong>
+
+
+			<diffuse_albedo>
+				<constant>
+					<rgb>
+						<rgb>0.7 0.2 0.2</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</diffuse_albedo>
+
+			<ior>1.5
+			</ior>
+
+			<roughness>
+				<shader>
+					<param>
+						<real>
+							<name>scale</name>
+							<description></description>
+							<min>0</min>
+							<max>1000</max>
+							<value>10</value>
+						</real>
+					</param>
+					<param>
+						<real>
+							<name>gamma</name>
+							<description></description>
+							<min>0</min>
+							<max>10</max>
+							<value>2.2</value>
+						</real>
+					</param>
+					<texture>
+						<path>../../testscenes/castanea_sativa_leaf_alpha.png</path>
+					</texture>
+					<shader>
+						<![CDATA[def eval(vec3 pos) real :
+(sample2DTextureVec3(0, vec2(pos.x,pos.y)*paramscale())*pow(abs(normalOS().z), paramgamma())
++
+sample2DTextureVec3(0, vec2(pos.x,pos.z)*paramscale())*pow(abs(normalOS().y), paramgamma())
++
+sample2DTextureVec3(0, vec2(pos.y,pos.z)*paramscale())*pow(abs(normalOS().x), paramgamma())).x]]>
+					</shader>
+				</shader>
+			</roughness>
+			
+		
+	</phong>
+	</material>
+</scenedata>

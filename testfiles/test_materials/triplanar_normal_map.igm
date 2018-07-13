@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Triplanar</name>
+		<diffuse>
+
+			<albedo>
+				<constant>
+					<rgb>
+						<rgb>0.6 0.6 0.6</rgb>
+						<gamma>2.2</gamma>
+					</rgb>
+				</constant>
+			</albedo>
+
+			<normal_map>
+				<shader>
+					<param>
+						<real>
+							<name>scale</name>
+							<description></description>
+							<min>0</min>
+							<max>1000</max>
+							<value>10</value>
+						</real>
+					</param>
+					<param>
+						<real>
+							<name>gamma</name>
+							<description></description>
+							<min>0</min>
+							<max>10</max>
+							<value>2.2</value>
+						</real>
+					</param>
+					<texture>
+						<path>../../testscenes/brickwork_normal-map.jpg</path>
+					</texture>
+					<shader>
+						<![CDATA[def eval(vec3 pos) vec3 :
+sample2DTextureVec3(0, vec2(pos.x,pos.y)*paramscale())*pow(abs(normalOS().z), paramgamma())
++
+sample2DTextureVec3(0, vec2(pos.x,pos.z)*paramscale())*pow(abs(normalOS().y), paramgamma())
++
+sample2DTextureVec3(0, vec2(pos.y,pos.z)*paramscale())*pow(abs(normalOS().x), paramgamma())]]>
+					</shader>
+				</shader>
+			</normal_map>
+			
+		</diffuse>
+	</material>
+</scenedata>
