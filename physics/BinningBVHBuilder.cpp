@@ -487,7 +487,7 @@ static void search(const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& 
 	{
 		const js::AABBox ob_aabb = objects[i].aabb;
 		const Vec4f centroid = ob_aabb.centroid();
-		assert(centroid_aabb.contains(centroid));
+		assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
 		const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
 
 		assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);

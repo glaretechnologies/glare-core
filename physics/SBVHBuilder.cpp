@@ -24,6 +24,18 @@ Copyright Glare Technologies Limited 2017 -
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
 
+// Since we store the object index in the AABB.min_.w, we want to restore this value to 1 before we return it to the client code.
+static inline void setAABBWToOneInPlace(js::AABBox& aabb)
+{
+	aabb.min_ = select(Vec4f(1.f), aabb.min_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
+	aabb.max_ = select(Vec4f(1.f), aabb.max_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
+}
+
+
+static inline const Vec4f setWToOne(const Vec4f& v) { return Vec4f(v[0], v[1], v[2], 1.f); }
+static inline const js::AABBox setWCoordsToOne(const js::AABBox& box) { return js::AABBox(setWToOne(box.min_), setWToOne(box.max_)); }
+
+
 //#define ALLOW_DEBUG_DRAWING 1
 #if ALLOW_DEBUG_DRAWING
 static const bool DEBUG_DRAW = false;
@@ -510,7 +522,7 @@ static void partition(const std::vector<SBVHOb>& objects_, const SBVHTri* triang
 			const int ob_i = objects[cur].getIndex();
 			const SBVHTri& tri = triangles[ob_i];
 			const js::AABBox aabb = objects[cur].aabb;
-			assert(parent_aabb.containsAABBox(aabb));
+			assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
 			if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
 			{
 				if(unsplit[cur] == 1)
@@ -677,7 +689,7 @@ static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const
 		const int ob_i = objects[cur].getIndex();
 		const SBVHTri& tri = triangles[ob_i];
 		const js::AABBox aabb = objects[cur].aabb;
-		assert(parent_aabb.containsAABBox(aabb));
+		assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
 		if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
 		{
 			const int unsplit_tri = unsplits ? ((*unsplits)[cur]) : 0;
@@ -748,14 +760,6 @@ static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const
 
 	res_out.left_aabb  = left_aabb;
 	res_out.right_aabb = right_aabb;
-}
-
-
-// Since we store the object index in the AABB.min_.w, we want to restore this value to 1 before we return it to the client code.
-static inline void setAABBWToOne(js::AABBox& aabb)
-{
-	aabb.min_ = select(Vec4f(1.f), aabb.min_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
-	aabb.max_ = select(Vec4f(1.f), aabb.max_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
 }
 
 
@@ -924,7 +928,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	{
 		const js::AABBox ob_aabb = objects[i].aabb;
 		const Vec4f centroid = ob_aabb.centroid();
-		assert(centroid_aabb.contains(centroid));
+		assert(centroid_aabb.contains(setWToOne(centroid)));
 		const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
 
 		assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
@@ -969,7 +973,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 		right_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
 		right_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
 
-		assert(aabb.containsAABBox(right_aabb[0]));
+		assert(aabb.containsAABBox(setWCoordsToOne(right_aabb[0])));
 	}
 
 	// Sweep left to right, computing inclusive left prefix surface area and counts, and computing overall cost factor
@@ -988,7 +992,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 		left_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
 		left_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
 
-		assert(aabb.containsAABBox(left_aabb[0]));
+		assert(aabb.containsAABBox(setWCoordsToOne(left_aabb[0])));
 
 		float A0 = left_aabb[0].getHalfSurfaceArea();
 		float A1 = left_aabb[1].getHalfSurfaceArea();
@@ -1044,8 +1048,8 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			best_right_aabb.enlargeToHoldAABBox(ob_aabb);
 	}
 
-	setAABBWToOne(best_left_aabb);
-	setAABBWToOne(best_right_aabb);
+	setAABBWToOneInPlace(best_left_aabb);
+	setAABBWToOneInPlace(best_right_aabb);
 
 	int spatial_best_axis = -1;
 	float spatial_best_div_val = -666;
@@ -1078,7 +1082,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 		{
 			const int ob_i = objects[i].getIndex();
 			const js::AABBox ob_aabb = objects[i].aabb;
-			assert(aabb.containsAABBox(ob_aabb));
+			assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
 			const SBVHTri& tri = triangles[ob_i];
 			
 			// Pre-fetch a triangle.  This helps because it's an indirect memory access to get the triangle.
@@ -1148,7 +1152,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			right_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
 			right_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
 
-			assert(aabb.containsAABBox(right_aabb[0]));
+			assert(aabb.containsAABBox(setWCoordsToOne(right_aabb[0])));
 		}
 
 		// Sweep left to right, computing inclusive left prefix surface area and counts, and computing overall cost factor
@@ -1164,7 +1168,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			left_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
 			left_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
 
-			assert(aabb.containsAABBox(left_aabb[0]));
+			assert(aabb.containsAABBox(setWCoordsToOne(left_aabb[0])));
 
 			float A0 = left_aabb[0].getHalfSurfaceArea();
 			float A1 = left_aabb[1].getHalfSurfaceArea();
@@ -1218,7 +1222,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			for(int i=left; i<right; ++i)
 			{
 				const js::AABBox ob_aabb = objects[i].aabb;
-				assert(aabb.containsAABBox(ob_aabb));
+				assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
 
 				if(ob_aabb.min_[best_axis] < best_div_val && ob_aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
 				{
@@ -1404,10 +1408,10 @@ void SBVHBuilder::doBuild(
 
 	
 
-	setAABBWToOne(res.left_aabb);
-	setAABBWToOne(res.left_centroid_aabb);
-	setAABBWToOne(res.right_aabb);
-	setAABBWToOne(res.right_centroid_aabb);
+	setAABBWToOneInPlace(res.left_aabb);
+	setAABBWToOneInPlace(res.left_centroid_aabb);
+	setAABBWToOneInPlace(res.right_aabb);
+	setAABBWToOneInPlace(res.right_centroid_aabb);
 
 	assert(aabb.containsAABBox(res.left_aabb));
 	assert(res.left_aabb.containsAABBox(res.left_centroid_aabb));
