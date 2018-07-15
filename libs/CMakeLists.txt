@@ -253,18 +253,33 @@ ${zlibdir}/adler32.c
 ${zlibdir}/compress.c
 ${zlibdir}/crc32.c
 ${zlibdir}/deflate.c
-${zlibdir}/infback.c
 ${zlibdir}/inffast.c
 ${zlibdir}/inflate.c
 ${zlibdir}/inftrees.c
 ${zlibdir}/trees.c
 ${zlibdir}/uncompr.c
 ${zlibdir}/zutil.c
+${zlibdir}/crc32.h
+${zlibdir}/deflate.h
+${zlibdir}/inffast.h
+${zlibdir}/inffixed.h
+${zlibdir}/inflate.h
+${zlibdir}/inftrees.h
+${zlibdir}/trees.h
+${zlibdir}/zconf.h
+${zlibdir}/zlib.h
+${zlibdir}/zutil.h
 )
 
-SET(minizip "${zlibdir}/contrib/minizip/ioapi.c"
-"${zlibdir}/contrib/minizip/unzip.c"
-"${zlibdir}/contrib/minizip/zip.c")
+SET(minizip 
+${zlibdir}/contrib/minizip/ioapi.c
+${zlibdir}/contrib/minizip/unzip.c
+${zlibdir}/contrib/minizip/zip.c
+${zlibdir}/contrib/minizip/crypt.h
+${zlibdir}/contrib/minizip/ioapi.h
+${zlibdir}/contrib/minizip/unzip.h
+${zlibdir}/contrib/minizip/zip.h
+)
 
 #set(zlib
 #${zlibdir}/adler32.c ${zlibdir}/compress.c ${zlibdir}/crc32.c ${zlibdir}/deflate.c ${zlibdir}/gzclose.c ${zlibdir}/gzlib.c ${zlibdir}/gzread.c ${zlibdir}/gzwrite.c
