@@ -422,6 +422,7 @@ void Obfuscator::addWinterKeywords()
 		"voronoi",
 		"voronoi3d",
 		"posOS",
+		"normalOS",
 		"mod",
 		"print",
 		"isFinite",
