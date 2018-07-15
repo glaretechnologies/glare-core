@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <scenedata>
 
+	<!--
 	<metadata>
 		<note>
 			This material is a weird one.
@@ -13,6 +14,7 @@
 			This material is based on the Snowy Rock material: https://www.indigorenderer.com/materials/materials/1132
 		</note>
 	</metadata>
+	-->
 	
     <material>
         <uid>30</uid>
