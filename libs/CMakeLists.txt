@@ -95,7 +95,6 @@ ${ilmbasedir}/IlmThread/IlmThreadForward.h
 ${ilmbasedir}/IlmThread/IlmThreadMutex.cpp
 ${ilmbasedir}/IlmThread/IlmThreadMutex.h
 ${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp
-${ilmbasedir}/IlmThread/IlmThreadMutexWin32.cpp
 ${ilmbasedir}/IlmThread/IlmThreadNamespace.h
 ${ilmbasedir}/IlmThread/IlmThreadPool.cpp
 ${ilmbasedir}/IlmThread/IlmThreadPool.h
@@ -104,8 +103,6 @@ ${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp
 ${ilmbasedir}/IlmThread/IlmThreadSemaphore.h
 ${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp
 ${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp
-${ilmbasedir}/IlmThread/IlmThreadSemaphoreWin32.cpp
-${ilmbasedir}/IlmThread/IlmThreadWin32.cpp
 )
 if(WIN32)
 	SET(ilmthread
