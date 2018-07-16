@@ -32,8 +32,10 @@ static inline void setAABBWToOneInPlace(js::AABBox& aabb)
 }
 
 
+#ifndef NDEBUG
 static inline const Vec4f setWToOne(const Vec4f& v) { return Vec4f(v[0], v[1], v[2], 1.f); }
 static inline const js::AABBox setWCoordsToOne(const js::AABBox& box) { return js::AABBox(setWToOne(box.min_), setWToOne(box.max_)); }
+#endif
 
 
 //#define ALLOW_DEBUG_DRAWING 1
