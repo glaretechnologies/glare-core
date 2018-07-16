@@ -846,6 +846,8 @@ void NonBinningBVHBuilder::doBuild(
 {
 	const int MAX_DEPTH = 60;
 
+	assert(aabb.min_[3] == 1.f && aabb.max_[3] == 1.f);
+
 	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
 
 	if(right - left <= leaf_num_object_threshold || depth >= MAX_DEPTH)
@@ -936,6 +938,7 @@ void NonBinningBVHBuilder::doBuild(
 		return;
 	}
 
+	setAABBWToOne(best_right_aabb);
 	assert(aabb.containsAABBox(best_right_aabb));
 
 	// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
@@ -1086,7 +1089,6 @@ void NonBinningBVHBuilder::doBuild(
 
 
 	// Mark this node as an interior node.
-	setAABBWToOne(best_right_aabb);
 	chunk_nodes[node_index].interior = true;
 	chunk_nodes[node_index].aabb = aabb;
 	chunk_nodes[node_index].left = left_child;
