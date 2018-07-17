@@ -115,7 +115,6 @@ endif()
 SET(openexr
 ${openexrdir}/IlmImf/b44ExpLogTable.cpp
 ${openexrdir}/IlmImf/b44ExpLogTable.h
-${openexrdir}/IlmImf/dwaLookups.cpp
 ${openexrdir}/IlmImf/ImfAcesFile.cpp
 ${openexrdir}/IlmImf/ImfAcesFile.h
 ${openexrdir}/IlmImf/ImfArray.h

@@ -46,8 +46,9 @@
 //----------------------------------------------------------------------------
 
 #include "ImfImageChannel.h"
+#include "ImfUtilExport.h"
+
 #include <ImfDeepFrameBuffer.h>
-#include "ImfExport.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
@@ -81,23 +82,29 @@ class DeepImageChannel: public ImageChannel
     // Access to the image level to which this channel belongs.
     //
 
-	IMF_EXPORT DeepImageLevel &            deepLevel();
-	IMF_EXPORT const DeepImageLevel &      deepLevel() const;
+	IMFUTIL_EXPORT 
+    DeepImageLevel &            deepLevel();
+	IMFUTIL_EXPORT
+    const DeepImageLevel &      deepLevel() const;
 
 
     //
     // Access to the sample count channel for this deep channel.
     //
 
-	IMF_EXPORT SampleCountChannel &        sampleCounts();
-	IMF_EXPORT const SampleCountChannel &  sampleCounts() const;
+	IMFUTIL_EXPORT 
+    SampleCountChannel &        sampleCounts();
+	IMFUTIL_EXPORT
+    const SampleCountChannel &  sampleCounts() const;
 
 
   protected:
 
     friend class DeepImageLevel;
 
+    IMF_EXPORT
     DeepImageChannel (DeepImageLevel &level, bool pLinear);
+    IMF_EXPORT
     virtual ~DeepImageChannel();
 
     virtual void setSamplesToZero
@@ -118,6 +125,7 @@ class DeepImageChannel: public ImageChannel
 
     virtual void initializeSampleLists () = 0;
 
+    IMF_EXPORT
     virtual void resize ();
 
     virtual void resetBasePointer () = 0;
@@ -363,7 +371,7 @@ TypedDeepImageChannel<T>::setSamplesToZero
     // newNumSamples    New number of samples in the sample list.
     //
 
-    for (int j = oldNumSamples; j < newNumSamples; ++j)
+    for (unsigned int j = oldNumSamples; j < newNumSamples; ++j)
         _sampleListPointers[i][j] = 0;
 }
 
@@ -403,15 +411,15 @@ TypedDeepImageChannel<T>::moveSampleList
 
     if (oldNumSamples > newNumSamples)
     {
-        for (int j = 0; j < newNumSamples; ++j)
+        for (unsigned int j = 0; j < newNumSamples; ++j)
             newSampleList[j] = oldSampleList[j];
     }
     else
     {
-        for (int j = 0; j < oldNumSamples; ++j)
+        for (unsigned int j = 0; j < oldNumSamples; ++j)
             newSampleList[j] = oldSampleList[j];
 
-        for (int j = oldNumSamples; j < newNumSamples; ++j)
+        for (unsigned int j = oldNumSamples; j < newNumSamples; ++j)
             newSampleList[j] = 0;
     }
 
@@ -457,15 +465,15 @@ TypedDeepImageChannel<T>::moveSamplesToNewBuffer
 
         if (oldNumSamples[i] > newNumSamples[i])
         {
-            for (int j = 0; j < newNumSamples[i]; ++j)
+            for (unsigned int j = 0; j < newNumSamples[i]; ++j)
                 newSampleList[j] = oldSampleList[j];
         }
         else
         {
-            for (int j = 0; j < oldNumSamples[i]; ++j)
+            for (unsigned int j = 0; j < oldNumSamples[i]; ++j)
                 newSampleList[j] = oldSampleList[j];
 
-            for (int j = oldNumSamples[i]; j < newNumSamples[i]; ++j)
+            for (unsigned int j = oldNumSamples[i]; j < newNumSamples[i]; ++j)
                 newSampleList[j] = 0;
         }
 
