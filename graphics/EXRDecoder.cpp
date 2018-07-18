@@ -449,6 +449,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 	{
 		const int W = 20;
 		const int H = 10;
+		const float allowable_diff = (options.compression_method == EXRDecoder::CompressionMethod_DWAB) ? 5.0e-2f : 1.0e-4f;
 
 		//================================= Test with Image saving =================================
 
@@ -474,7 +475,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			{
 				float a = im->pixelComponent(x, y, c);
 				float b = image.pixelComponent(x, y, c);
-				if(!epsEqual(a, b, 0.0001f))
+				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
 					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
 			}
 		}
@@ -502,7 +503,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			{
 				float a = im->pixelComponent(x, y, c);
 				float b = image.getPixel(x, y)[c];
-				if(!epsEqual(a, b, 0.0001f))
+				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
 					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
 			}
 		}
@@ -530,7 +531,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			{
 				float a = im->pixelComponent(x, y, c);
 				float b = image.getPixel(x, y)[c];
-				if(!epsEqual(a, b, 0.0001f))
+				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
 					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
 			}
 		}
@@ -559,7 +560,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			{
 				float a = im->pixelComponent(x, y, c);
 				float b = image.getPixel(x, y)[c];
-				if(!epsEqual(a, b, 0.0001f))
+				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
 					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
 			}
 		}
@@ -589,7 +590,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			{
 				float a = im->pixelComponent(x, y, c);
 				float b = image.getPixel(x, y)[c];
-				if(!epsEqual(a, b, 0.0001f))
+				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
 					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
 			}
 		}
