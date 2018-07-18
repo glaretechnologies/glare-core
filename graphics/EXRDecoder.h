@@ -32,6 +32,9 @@ public:
 
 
 	// Options for saving
+
+	// Since the OpenEXR headers say DWAB is 'More efficient space wise and faster to decode full frames than DWAA_COMPRESSION',
+	// we will skip support for saving with DWAA.
 	enum CompressionMethod
 	{
 		CompressionMethod_None,
@@ -39,7 +42,8 @@ public:
 		CompressionMethod_ZIP,
 		CompressionMethod_PIZ,
 		CompressionMethod_PXR24,
-		CompressionMethod_B44A
+		CompressionMethod_B44A,
+		CompressionMethod_DWAB
 	};
 
 	enum BitDepth

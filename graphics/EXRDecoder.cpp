@@ -272,6 +272,8 @@ static Imf::Compression EXRCompressionMethod(EXRDecoder::CompressionMethod m)
 		return Imf::PXR24_COMPRESSION;
 	case EXRDecoder::CompressionMethod_B44A:
 		return Imf::B44A_COMPRESSION;
+	case EXRDecoder::CompressionMethod_DWAB:
+		return Imf::DWAB_COMPRESSION;
 	};
 
 	assert(0);
@@ -656,6 +658,7 @@ void EXRDecoder::test()
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_ZIP,   EXRDecoder::BitDepth_16), i++);
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_PIZ,   EXRDecoder::BitDepth_16), i++);
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_PXR24, EXRDecoder::BitDepth_16), i++);
+	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_DWAB,  EXRDecoder::BitDepth_16), i++);
 
 	// TEMP: disabled due to failing tests.  EXR bug?
 	//testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_B44A,  EXRDecoder::BitDepth_16), i++);
@@ -665,6 +668,7 @@ void EXRDecoder::test()
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_ZIP,   EXRDecoder::BitDepth_32), i++);
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_PIZ,   EXRDecoder::BitDepth_32), i++);
 	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_PXR24, EXRDecoder::BitDepth_32), i++);
+	testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_DWAB,  EXRDecoder::BitDepth_32), i++);
 	//testSavingWithOptions(EXRDecoder::SaveOptions(EXRDecoder::CompressionMethod_B44A,  EXRDecoder::BitDepth_32), i++);
 
 
