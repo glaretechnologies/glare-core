@@ -859,7 +859,7 @@ void NonBinningBVHBuilder::doBuild(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = depth;
+		chunk_nodes[node_index].depth = (uint8)depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -951,7 +951,7 @@ void NonBinningBVHBuilder::doBuild(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = depth;
+		chunk_nodes[node_index].depth = (uint8)depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -1094,7 +1094,7 @@ void NonBinningBVHBuilder::doBuild(
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = depth;
+	chunk_nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
@@ -1187,7 +1187,7 @@ void NonBinningBVHBuilder::doArbitrarySplits(
 		chunk_nodes[node_index].aabb = aabb;
 		chunk_nodes[node_index].left = left;
 		chunk_nodes[node_index].right = right;
-		chunk_nodes[node_index].depth = depth;
+		chunk_nodes[node_index].depth = (uint8)depth;
 
 		// if cur_objects is objects_b, we need to copy back into objects_a
 		if(cur_objects == objects_b)
@@ -1230,7 +1230,7 @@ void NonBinningBVHBuilder::doArbitrarySplits(
 	chunk_nodes[node_index].left = left_child;
 	chunk_nodes[node_index].right = right_child;
 	chunk_nodes[node_index].right_child_chunk_index = -1;
-	chunk_nodes[node_index].depth = depth;
+	chunk_nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
 
