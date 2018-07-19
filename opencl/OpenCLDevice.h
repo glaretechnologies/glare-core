@@ -44,6 +44,7 @@ public:
 	size_t clock_speed;
 
 	bool supports_GL_interop;
+	bool supports_doubles; // Does this device support double-precision floating-point?
 };
 
 

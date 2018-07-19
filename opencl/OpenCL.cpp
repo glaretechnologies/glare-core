@@ -377,6 +377,10 @@ void OpenCL::queryDevices()
 			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(device_max_constant_buffer_size), &device_max_constant_buffer_size, NULL) != CL_SUCCESS)
 				throw Indigo::Exception("clGetDeviceInfo failed");
 
+			cl_device_fp_config double_fp_capabilities = 0;
+			if(clGetDeviceInfo(device_ids[d], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(double_fp_capabilities), &double_fp_capabilities, NULL) != CL_SUCCESS)
+				throw Indigo::Exception("clGetDeviceInfo failed");
+
 #if OPENCL_OPENGL_INTEROP
 			bool device_OpenGL_interop = false;
 			for(int j = 0; j < platform_num_GL_devices; ++j)
@@ -443,6 +447,8 @@ void OpenCL::queryDevices()
 #else
 				opencl_device->supports_GL_interop = false;
 #endif
+				opencl_device->supports_doubles = double_fp_capabilities != 0;
+
 				opencl_device->platform = platforms.back().getPointer();
 
 				platforms.back()->devices.push_back(opencl_device);
