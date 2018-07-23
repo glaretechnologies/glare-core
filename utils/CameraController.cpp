@@ -157,7 +157,13 @@ void CameraController::updateTrackball(const Vec3d& pos_delta, const Vec2d& rot_
 
 	// Zoom in/out towards target point
 	const Vec3d target_to_pos = position - target_pos;
-	const Vec3d scaled_target_to_pos = target_to_pos * (1.0 - pos_delta.y * zoom_speed);
+	Vec3d scaled_target_to_pos = target_to_pos * (1.0 - pos_delta.y * zoom_speed);
+	
+	// Prevent zooming in too far to an object.  This helps prevent the camera passing through objects.
+	const float MIN_DIST = 5.0e-3f;
+	if(scaled_target_to_pos.length() < MIN_DIST)
+		scaled_target_to_pos = normalise(target_to_pos) * MIN_DIST;
+
 	position = target_pos + scaled_target_to_pos;
 
 	// Allow panning of camera position and target point with CTRL+middle mouse button + mouse move
