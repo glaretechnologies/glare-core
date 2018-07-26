@@ -1269,40 +1269,6 @@ void RayMesh::addQuad(const unsigned int* vertex_indices, const unsigned int* uv
 }
 
 
-void RayMesh::buildTriangleInvCrossMagnitudes(Indigo::TaskManager& task_manager)
-{
-	// Timer timer;
-
-	// NOTE: I tried multithreading and SIMD'ing this code up, but it made little difference, 
-	// as this code appears to run at memory speed, doing about 100M inv_cross_magnitude computations per second. --nick
-
-	const size_t num_tris = triangles.size();
-	RayMeshTriangle* const tris = getTriangles().data();
-	const RayMeshVertex* const verts = getVertices().data();
-	for(size_t i=0; i<num_tris; ++i)
-	{
-		// prefetch verts, helps a little.
-		const size_t prefetch_i = i + 32;
-		if(prefetch_i < num_tris)
-		{
-			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[0]].pos, _MM_HINT_T0);
-			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[1]].pos, _MM_HINT_T0);
-			_mm_prefetch((const char*)&verts[tris[prefetch_i].vertex_indices[2]].pos, _MM_HINT_T0);
-		}
-
-		RayMeshTriangle& tri = tris[i];
-
-		const Vec4f v0pos = _mm_loadu_ps(&verts[tri.vertex_indices[0]].pos.x);
-		const Vec4f v1pos = _mm_loadu_ps(&verts[tri.vertex_indices[1]].pos.x);
-		const Vec4f v2pos = _mm_loadu_ps(&verts[tri.vertex_indices[2]].pos.x);
-
-		tri.inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
-	}
-
-	// conPrint("RayMesh::buildTriangleInvCrossMagnitudes took " + timer.elapsedString());
-}
-
-
 unsigned int RayMesh::getMaterialIndexForTri(unsigned int tri_index) const
 {
 	assert(tri_index < triangles.size());
@@ -1342,7 +1308,7 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
 	const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
 	const Vec4f normal = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos));
-	assert(normal[3] == 0 && epsEqual(tri.inv_cross_magnitude, 1.f / normal.length()));
+	assert(normal[3] == 0 && epsEqual(std::fabs(tri.inv_cross_magnitude), 1.f / normal.length()));
 
 	// length of returned normal vector should be equal to area of triangle.
 	normal_out = normal * 0.5f;

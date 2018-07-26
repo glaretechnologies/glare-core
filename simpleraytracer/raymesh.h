@@ -244,8 +244,6 @@ public:
 	void addUVs(const std::vector<Vec2f>& uvs);
 	void addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
 	void addQuad(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index);
-
-	void buildTriangleInvCrossMagnitudes(Indigo::TaskManager& task_manager);
 	////////////////////////////////////////////////////////////////
 
 
