@@ -301,6 +301,7 @@ void Obfuscator::addOpenCLKeywords()
 		"ScatterResults",
 		"EvaluateBSDFArgs",
 		"EvalBSDFResults",
+		"EvalEmissionResults",
 
 		// Functions from lang\winter_opencl_support_code_declarations.cl
 		// TODO: remove from ignore list - obfuscate this stuff
@@ -444,6 +445,7 @@ void Obfuscator::addWinterKeywords()
 		"ScatterResults",
 		"EvaluateBSDFArgs",
 		"EvalBSDFResults",
+		"EvalEmissionResults",
 
 		// tuple field names
 		"field_0",
