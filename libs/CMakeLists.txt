@@ -44,7 +44,7 @@ ${ilmbasedir}/IexMath/IexMathFpu.cpp
 ${ilmbasedir}/IexMath/IexMathFpu.h
 ${ilmbasedir}/IexMath/IexMathIeeeExc.h
 
-${ilmbasedir}/Imath/ImathBox.cpp
+#${ilmbasedir}/Imath/ImathBox.cpp
 ${ilmbasedir}/Imath/ImathBox.h
 ${ilmbasedir}/Imath/ImathBoxAlgo.h
 ${ilmbasedir}/Imath/ImathColor.h
@@ -78,7 +78,7 @@ ${ilmbasedir}/Imath/ImathQuat.h
 ${ilmbasedir}/Imath/ImathRandom.cpp
 ${ilmbasedir}/Imath/ImathRandom.h
 ${ilmbasedir}/Imath/ImathRoots.h
-${ilmbasedir}/Imath/ImathShear.cpp
+#${ilmbasedir}/Imath/ImathShear.cpp
 ${ilmbasedir}/Imath/ImathShear.h
 ${ilmbasedir}/Imath/ImathSphere.h
 ${ilmbasedir}/Imath/ImathVec.cpp
