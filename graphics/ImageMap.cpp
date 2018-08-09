@@ -35,7 +35,7 @@ template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMi
 template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
-template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width, const ptrdiff_t filter_span, 
+template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const size_t factor, const size_t border_width, const size_t filter_span,
 	const float * const resize_filter, const float pre_clamp, const ImageMap<float, FloatComponentValueTraits>& img_in, 
 	ImageMap<float, FloatComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
 
@@ -308,15 +308,15 @@ public:
 // NOTE: copied and adapted from Image4f::downsampleImage().
 // border width = margin @ ssf1
 template <class V, class VTraits>
-void ImageMap<V, VTraits>::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-	const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin_ssf1, const size_t filter_span,
+	const float * const resize_filter, const float pre_clamp,
 	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, Indigo::TaskManager& task_manager)
 {
-	assert(border_width >= 0);						// have padding pixels
-	assert((int)img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
-	assert((int)img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
-	assert(img_in.getWidth()  % factor == 0);		// padded Image4f is multiple of supersampling factor
-	assert(img_in.getHeight() % factor == 0);		// padded Image4f is multiple of supersampling factor
+	assert(margin_ssf1 >= 0);							// have padding pixels
+	assert((int)img_in.getWidth()  > margin_ssf1 * 2);	// have at least one interior pixel in x
+	assert((int)img_in.getHeight() > margin_ssf1 * 2);	// have at least one interior pixel in y
+	assert(img_in.getWidth()  % ssf == 0);				// padded img_in is multiple of supersampling factor
+	assert(img_in.getHeight() % ssf == 0);				// padded img_in is multiple of supersampling factor
 
 	assert(filter_span > 0);
 	assert(resize_filter != 0);
@@ -326,19 +326,17 @@ void ImageMap<V, VTraits>::downsampleImage(const ptrdiff_t factor, const ptrdiff
 	const ptrdiff_t N = img_in.getN();
 	const ptrdiff_t filter_bound = filter_span / 2 - 1;
 
-	const ptrdiff_t out_xres = img_in.getWidth()  / factor - border_width * 2; // (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
-	const ptrdiff_t out_yres = img_in.getHeight() / factor - border_width * 2; // (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
-	img_out.resize((unsigned int)out_xres, (unsigned int)out_yres, (unsigned int)N);
-
-	V const * const in_buffer  = img_in.getPixel(0, 0);
-	V       * const out_buffer = img_out.getPixel(0, 0);
+	// See RendererSettings::computeFinalWidth()
+	const ptrdiff_t out_xres = img_in.getWidth()  / ssf - margin_ssf1 * 2;
+	const ptrdiff_t out_yres = img_in.getHeight() / ssf - margin_ssf1 * 2;
+	img_out.resizeNoCopy((unsigned int)out_xres, (unsigned int)out_yres, (unsigned int)N);
 
 	DownsampleImageMapTaskClosure<V> closure;
-	closure.in_buffer = in_buffer;
-	closure.out_buffer = out_buffer;
+	closure.in_buffer = img_in.getPixel(0, 0);
+	closure.out_buffer = img_out.getPixel(0, 0);
 	closure.resize_filter = resize_filter;
-	closure.factor = factor;
-	closure.border_width = border_width;
+	closure.factor = ssf;
+	closure.border_width = margin_ssf1;
 	closure.in_xres = in_xres;
 	closure.in_yres = in_yres;
 	closure.N = N;
