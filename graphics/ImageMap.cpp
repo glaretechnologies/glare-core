@@ -35,6 +35,15 @@ template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMi
 template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
+template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width, const ptrdiff_t filter_span, 
+	const float * const resize_filter, const float pre_clamp, const ImageMap<float, FloatComponentValueTraits>& img_in, 
+	ImageMap<float, FloatComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
+
+template double ImageMap<float, FloatComponentValueTraits>::averageLuminance() const;
+
+template void ImageMap<float, FloatComponentValueTraits>::blendImage(const ImageMap<float, FloatComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
+
+
 
 static const uint32 IMAGEMAP_SERIALISATION_VERSION = 1;
 
@@ -205,3 +214,179 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 
 	return Reference<ImageMap<V, VTraits> >(new_image);
 }
+
+
+//--------------------------------------------------
+
+
+template <class V>
+struct DownsampleImageMapTaskClosure
+{
+	V const * in_buffer;
+	V		* out_buffer;
+	const float* resize_filter;
+	ptrdiff_t factor, border_width, in_xres, in_yres, filter_bound, out_xres, out_yres, N;
+	float pre_clamp;
+};
+
+
+template <class V>
+class DownsampleImageMapTask : public Indigo::Task
+{
+public:
+	DownsampleImageMapTask(const DownsampleImageMapTaskClosure<V>& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		// Copy to local variables for performance reasons.
+		V const* const in_buffer  = closure.in_buffer;
+		V      * const out_buffer = closure.out_buffer;
+		const float* const resize_filter = closure.resize_filter;
+		const ptrdiff_t factor = closure.factor;
+		const ptrdiff_t border_width = closure.border_width;
+		const ptrdiff_t in_xres = closure.in_xres;
+		const ptrdiff_t in_yres = closure.in_yres;
+		const ptrdiff_t N = closure.N;
+		const ptrdiff_t filter_bound = closure.filter_bound;
+		const ptrdiff_t out_xres = closure.out_xres;
+		const float pre_clamp = closure.pre_clamp;
+		assert(N <= 4);
+
+		for(int y = begin; y < end; ++y)
+			for(int x = 0; x < out_xres; ++x)
+			{
+				const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound;
+				const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound;
+				const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound;
+				const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound;
+
+				float weighted_sum[4] = { 0.f, 0.f, 0.f, 0.f };
+				if(u_min >= 0 && v_min >= 0 && u_max < in_xres && v_max < in_yres) // If filter support is completely in bounds:
+				{
+					uint32 filter_addr = 0;
+					for(ptrdiff_t v = v_min; v <= v_max; ++v)
+						for(ptrdiff_t u = u_min; u <= u_max; ++u)
+						{
+							const ptrdiff_t addr = (v * in_xres + u) * N;
+							assert(addr >= 0 && addr < (ptrdiff_t)(in_xres * in_yres * N));
+
+							for(ptrdiff_t c = 0; c<N; ++c)
+								weighted_sum[c] += in_buffer[addr + c] * resize_filter[filter_addr];
+						
+							filter_addr++;
+						}
+				}
+				else
+				{
+					uint32 filter_addr = 0;
+					for(ptrdiff_t v = v_min; v <= v_max; ++v)
+						for(ptrdiff_t u = u_min; u <= u_max; ++u)
+						{
+							const ptrdiff_t addr = (v * in_xres + u) * N;
+							if(u >= 0 && v >= 0 && u < in_xres && v < in_yres) // Check position we are reading from is in bounds
+							{
+								for(ptrdiff_t c = 0; c<N; ++c)
+									weighted_sum[c] += in_buffer[addr + c] * resize_filter[filter_addr];
+							}
+							filter_addr++;
+						}
+				}
+
+				for(ptrdiff_t c = 0; c<N; ++c)
+					weighted_sum[c] = myClamp(weighted_sum[c], 0.f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
+
+				for(ptrdiff_t c = 0; c<N; ++c)
+					out_buffer[(y * out_xres + x)*N + c] = weighted_sum[c];
+			}
+	}
+
+	const DownsampleImageMapTaskClosure<V>& closure;
+	int begin, end;
+};
+
+
+// NOTE: copied and adapted from Image4f::downsampleImage().
+// border width = margin @ ssf1
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
+	const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, Indigo::TaskManager& task_manager)
+{
+	assert(border_width >= 0);						// have padding pixels
+	assert((int)img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x
+	assert((int)img_in.getHeight() > border_width * 2);	// have at least one interior pixel in y
+	assert(img_in.getWidth()  % factor == 0);		// padded Image4f is multiple of supersampling factor
+	assert(img_in.getHeight() % factor == 0);		// padded Image4f is multiple of supersampling factor
+
+	assert(filter_span > 0);
+	assert(resize_filter != 0);
+
+	const ptrdiff_t in_xres  = (ptrdiff_t)img_in.getWidth();
+	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
+	const ptrdiff_t N = img_in.getN();
+	const ptrdiff_t filter_bound = filter_span / 2 - 1;
+
+	const ptrdiff_t out_xres = img_in.getWidth()  / factor - border_width * 2; // (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
+	const ptrdiff_t out_yres = img_in.getHeight() / factor - border_width * 2; // (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
+	img_out.resize((unsigned int)out_xres, (unsigned int)out_yres, (unsigned int)N);
+
+	V const * const in_buffer  = img_in.getPixel(0, 0);
+	V       * const out_buffer = img_out.getPixel(0, 0);
+
+	DownsampleImageMapTaskClosure<V> closure;
+	closure.in_buffer = in_buffer;
+	closure.out_buffer = out_buffer;
+	closure.resize_filter = resize_filter;
+	closure.factor = factor;
+	closure.border_width = border_width;
+	closure.in_xres = in_xres;
+	closure.in_yres = in_yres;
+	closure.N = N;
+	closure.filter_bound = filter_bound;
+	closure.out_xres = out_xres;
+	closure.out_yres = out_yres;
+	closure.pre_clamp = pre_clamp;
+
+	task_manager.runParallelForTasks<DownsampleImageMapTask<V>, DownsampleImageMapTaskClosure<V> >(closure, 0, out_yres);
+}
+
+
+template <class V, class VTraits>
+double ImageMap<V, VTraits>::averageLuminance() const
+{
+	const int lum_channel = (N >= 3) ? 1 : 0;
+	double sum = 0;
+	for(size_t i = 0; i < numPixels(); ++i)
+		sum += getPixel(i)[lum_channel];
+	return sum / numPixels();
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::blendImage(const ImageMap<V, VTraits>& img, const int destx, const int desty, const Colour4f& colour)
+{
+	assert(N <= 3);
+	const unsigned int use_N = myMin(this->N, img.N);
+
+	const int h = (int)getHeight();
+	const int w = (int)getWidth();
+
+	for(int y = 0; y < (int)img.getHeight(); ++y)
+		for(int x = 0; x < (int)img.getWidth(); ++x)
+		{
+			const int dx = x + destx;
+			const int dy = y + desty;
+
+			if(dx >= 0 && dx < w && dy >= 0 && dy < h)
+			{
+				// setPixel(dx, dy, solid_colour * img.getPixel(x, y).r * alpha + getPixel(dx, dy) * (1 - img.getPixel(x, y).r * alpha));
+
+				float use_alpha = img.getPixel(x, y)[0] * colour.x[3];
+
+				float* pixel = getPixel(dx, dy);
+				for(unsigned int c=0; c<use_N; ++c)
+					pixel[c] = colour[c] * use_alpha + pixel[c] * (1 - use_alpha);
+			}
+		}
+}
+

@@ -256,7 +256,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 }
 
 
-static Imf::Compression EXRCompressionMethod(EXRDecoder::CompressionMethod m)
+Imf::Compression EXRDecoder::EXRCompressionMethod(EXRDecoder::CompressionMethod m)
 {
 	switch(m)
 	{

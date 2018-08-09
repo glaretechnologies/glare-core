@@ -89,10 +89,6 @@ public:
 
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
 
-	//static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-	//							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
-	//							const Image& img_in, Image& img_out, Indigo::TaskManager& task_manager);
-
 	size_t getByteSize() const;
 
 	float minLuminance() const;

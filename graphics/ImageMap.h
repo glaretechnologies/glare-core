@@ -152,6 +152,14 @@ public:
 
 	inline void copyToImageMapUInt8(ImageMap<uint8, UInt8ComponentValueTraits>& image_out) const;
 
+	static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
+		const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+		const ImageMap<V, ComponentValueTraits>& img_in, ImageMap<V, ComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
+
+	double averageLuminance() const;
+
+	void blendImage(const ImageMap<V, ComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
+
 	// Get num components per pixel.
 	inline unsigned int getN() const { return N; }
 
@@ -159,7 +167,10 @@ public:
 	const V* getData() const { return &data[0]; }
 	inline V* getPixel(unsigned int x, unsigned int y);
 	inline const V* getPixel(unsigned int x, unsigned int y) const;
+	inline V* getPixel(size_t i);
+	inline const V* getPixel(size_t i) const;
 	inline size_t getDataSize() const { return data.size(); }
+	inline size_t numPixels() const { return (size_t)width * (size_t)height; }
 
 	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
@@ -545,6 +556,24 @@ inline const V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y) c
 #else
 	return &data[(x + width * y) * N];
 #endif
+}
+
+
+template <class V, class VTraits>
+inline V* ImageMap<V, VTraits>::getPixel(size_t i)
+{
+	assert(i < width * height);
+
+	return &data[i * N];
+}
+
+
+template <class V, class VTraits>
+inline const V* ImageMap<V, VTraits>::getPixel(size_t i) const
+{
+	assert(i < width * height);
+
+	return &data[i * N];
 }
 
 
