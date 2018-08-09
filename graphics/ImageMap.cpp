@@ -226,7 +226,7 @@ struct DownsampleImageMapTaskClosure
 	V		* out_buffer;
 	const float* resize_filter;
 	ptrdiff_t factor, border_width, in_xres, in_yres, filter_bound, out_xres, out_yres, N;
-	float pre_clamp;
+	float lower_clamping_bound;
 };
 
 
@@ -249,7 +249,7 @@ public:
 		const ptrdiff_t N = closure.N;
 		const ptrdiff_t filter_bound = closure.filter_bound;
 		const ptrdiff_t out_xres = closure.out_xres;
-		const float pre_clamp = closure.pre_clamp;
+		const float lower_clamping_bound = closure.lower_clamping_bound;
 		assert(N <= 4);
 
 		for(int y = begin; y < end; ++y)
@@ -293,10 +293,7 @@ public:
 				}
 
 				for(ptrdiff_t c = 0; c<N; ++c)
-					weighted_sum[c] = myClamp(weighted_sum[c], 0.f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
-
-				for(ptrdiff_t c = 0; c<N; ++c)
-					out_buffer[(y * out_xres + x)*N + c] = weighted_sum[c];
+					out_buffer[(y * out_xres + x)*N + c] = myMax(lower_clamping_bound, weighted_sum[c]);
 			}
 	}
 
@@ -309,7 +306,7 @@ public:
 // border width = margin @ ssf1
 template <class V, class VTraits>
 void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin_ssf1, const size_t filter_span,
-	const float * const resize_filter, const float pre_clamp,
+	const float * const resize_filter, const float lower_clamping_bound,
 	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, Indigo::TaskManager& task_manager)
 {
 	assert(margin_ssf1 >= 0);							// have padding pixels
@@ -343,7 +340,7 @@ void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin
 	closure.filter_bound = filter_bound;
 	closure.out_xres = out_xres;
 	closure.out_yres = out_yres;
-	closure.pre_clamp = pre_clamp;
+	closure.lower_clamping_bound = lower_clamping_bound;
 
 	task_manager.runParallelForTasks<DownsampleImageMapTask<V>, DownsampleImageMapTaskClosure<V> >(closure, 0, out_yres);
 }
