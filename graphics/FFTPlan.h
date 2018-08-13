@@ -8,7 +8,7 @@ Code By Nicholas Chapman.
 #define __FFTPLAN_H_666_
 
 
-#include "fftss.h"
+//#include "fftss.h"
 
 
 /*=====================================================================
