@@ -78,9 +78,7 @@ The output data components will be in the range [0, 1].
 void doTonemap(
 	DoTonemapScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
-	int source_channel_offset, // or -1 which means blend together main light layers (usual rendering).
-	bool non_beauty_render_channel,
-	bool colour3_channel,
+	const ChannelInfo* channel, // channel to tone-map.  if channel = layers[0], then blend together all the main layers.
 	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())

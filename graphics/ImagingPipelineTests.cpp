@@ -60,9 +60,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 	ImagingPipeline::doTonemap(
 		tonemap_scratch_state,
 		render_channels,
-		-1, // source channel offset
-		false, // non-beauty render cahnnel,
-		true, // colour3 channel.
+		&render_channels.layers[0],
 		render_regions,
 		layer_weights,
 		layer_normalise, // image scale
@@ -151,9 +149,7 @@ void test()
 			ImagingPipeline::doTonemap(
 				tonemap_scratch_state,
 				render_channels,
-				-1, // source channel offset
-				false, // non-beauty render cahnnel,
-				true, // colour3 channel.
+				&render_channels.layers[0],
 				render_regions,
 				layer_weights,
 				layer_normalise, // image scale
@@ -258,9 +254,7 @@ void test()
 		ImagingPipeline::doTonemap(
 			tonemap_scratch_state,
 			render_channels,
-			-1,
-			false, // non-beauty render cahnnel,
-			true, // colour3 channel.
+			&render_channels.layers[0],
 			render_regions,
 			layer_weights,
 			layer_normalise, // image scale
@@ -553,9 +547,7 @@ void test()
 		ImagingPipeline::doTonemap(
 			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
-			-1, // source channel offset
-			false, // non-beauty render cahnnel,
-			true, // colour3 channel.
+			&master_buffer.getRenderChannels().layers[0],
 			std::vector<RenderRegion>(),
 			layer_weights,
 			1.0f, // image scale
