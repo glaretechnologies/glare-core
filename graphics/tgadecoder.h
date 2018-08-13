@@ -1,11 +1,10 @@
 /*=====================================================================
 tgadecoder.h
 ------------
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Mon Oct 04 23:30:26 2004
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __TGADECODER_H_666_
-#define __TGADECODER_H_666_
+#pragma once
 
 
 #include "../utils/Reference.h"
@@ -18,35 +17,17 @@ class Bitmap;
 /*=====================================================================
 TGADecoder
 ----------
-
+See http://www.gamers.org/dEngine/quake3/TGA.txt
 =====================================================================*/
 class TGADecoder
 {
 public:
-	/*=====================================================================
-	TGADecoder
-	----------
-	
-	=====================================================================*/
+	TGADecoder();
 	~TGADecoder();
 
-	//these throw ImFormatExcep
+	// throws ImFormatExcep
 	static Reference<Map2D> decode(const std::string& path);
 
-
-	static void encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out);
-
 	static void test();
-
-private:
-	TGADecoder();
-
 };
-
-
-
-#endif //__TGADECODER_H_666_
-
-
-
 

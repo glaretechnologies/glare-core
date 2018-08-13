@@ -1,26 +1,24 @@
 /*=====================================================================
 tgadecoder.cpp
 --------------
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Mon Oct 04 23:30:26 2004
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "tgadecoder.h"
 
 
-//#include "bitmap.h"
 #include "imformatdecoder.h"
-#include <assert.h>
-#include <memory.h>
-#include <stdlib.h>
+#include "../graphics/ImageMap.h"
+#include "../graphics/bitmap.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
-#include "../graphics/ImageMap.h"
-#include "../graphics/bitmap.h"
-#include "../indigo/globals.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
 #include <cstring> // for std::memcpy()
+#include <assert.h>
+#include <memory.h>
+#include <stdlib.h>
 
 
 TGADecoder::TGADecoder()
@@ -32,31 +30,26 @@ TGADecoder::~TGADecoder()
 {
 }
 
-typedef unsigned char byte;
 
-
-//we need 1 byte alignment for this to work properly
+// We need 1 byte alignment for this to work properly
 #pragma pack(push, 1)
 
 typedef struct
 {
-    byte  identsize;          // size of ID field that follows 18 byte header (0 usually)
-    byte  colourmaptype;      // type of colour map 0=none, 1=has palette
-    byte  imagetype;          // type of image 0=none,1=indexed,2=rgb,3=grey,+8=rle packed
+	uint8  identsize;          // size of ID field that follows 18 byte header (0 usually)
+	uint8  colourmaptype;      // type of colour map 0=none, 1=has palette
+	uint8  imagetype;          // type of image 0=none,1=indexed,2=rgb,3=grey,+8=rle packed
 
-    short colourmapstart;     // first colour map entry in palette
-    short colourmaplength;    // number of colours in palette
-    byte  colourmapbits;      // number of bits per palette entry 15,16,24,32
+	short colourmapstart;     // first colour map entry in palette
+	short colourmaplength;    // number of colours in palette
+	uint8  colourmapbits;      // number of bits per palette entry 15,16,24,32
 
-    short xstart;             // image x origin
-    short ystart;             // image y origin
-    short width;              // image width in pixels
-    short height;             // image height in pixels
-    byte  bits;               // image bits per pixel 8,16,24,32
-    byte  descriptor;         // image descriptor bits (vh flip bits)
-    
-    // pixel data follows header
-    
+	short xstart;             // image x origin
+	short ystart;             // image y origin
+	short width;              // image width in pixels
+	short height;             // image height in pixels
+	uint8  bits;               // image bits per pixel 8,16,24,32
+	uint8  descriptor;         // image descriptor bits (vh flip bits)
 } TGA_HEADER;
 
 #pragma pack(pop)
@@ -89,8 +82,8 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 		if(height < 0)
 			throw ImFormatExcep("height < 0");
 
-		if(!(header.bits == 8 || header.bits == 24))
-			throw ImFormatExcep("Invalid TGA bit-depth; Only 8 or 24 supported.");
+		if(!(header.bits == 8 || header.bits == 24 || header.bits == 32))
+			throw ImFormatExcep("Invalid TGA bit-depth: " + toString(header.bits) + ". Only 8, 24 or 32 supported.");
 
 
 		const int bytes_pp = header.bits / 8;
@@ -151,7 +144,9 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 
 							// Write it out repeat_count times
 
-							// Check we are writing in-bounds
+							// Check we are writing in-bounds.
+							// NOTE: According to http://www.gamers.org/dEngine/quake3/TGA.txt the run should be able to continue to the next scan line.
+							// However files seen in the wild, and saved from GIMP, so far don't see to do this.
 							if(x + repeat_count > width)
 								throw ImFormatExcep("Decoding error");
 
@@ -206,7 +201,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 							if(cur + 2 >= end)
 								throw ImFormatExcep("Decoding error.");
 
-							// Read colour value
+							// Read colour value - order in TGA file is BGR
 							uint8 col[3];
 							col[0] = data[cur + 2];
 							col[1] = data[cur + 1];
@@ -253,12 +248,83 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 					}
 				}
 			}
+			else if(bytes_pp == 4)
+			{
+				for(int y=0; y<height; ++y)
+				{
+					const int dest_y = height - 1 - y;
+
+					for(int x=0; x<width; )
+					{
+						if(cur >= end)
+							throw ImFormatExcep("Decoding error.");
+
+						if(data[cur] & 0x00000080u) // If high bit is set
+						{
+							// Run-length packet:
+							const int repeat_count = (int)data[cur] - 127;
+							cur++;
+
+							// Check the read of the next 4 bytes is in-bounds.
+							if(cur + 4 >= end)
+								throw ImFormatExcep("Decoding error.");
+
+							// Read colour value - order in TGA file is BGRA
+							uint8 col[4]; // Colour in RGBA order
+							col[0] = data[cur + 2];
+							col[1] = data[cur + 1];
+							col[2] = data[cur + 0];
+							col[3] = data[cur + 3];
+							cur += 4;
+
+							// Write it out repeat_count times
+
+							// Check we are writing in-bounds
+							if(x + repeat_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<repeat_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = col[0];
+								texture->getPixel(x, dest_y)[1] = col[1];
+								texture->getPixel(x, dest_y)[2] = col[2];
+								texture->getPixel(x, dest_y)[3] = col[3];
+								x++;
+							}
+						}
+						else
+						{
+							// Raw packet:
+							const int direct_count = (int)data[cur] + 1;
+							cur++;
+
+							// Check we are writing in-bounds
+							if(x + direct_count > width)
+								throw ImFormatExcep("Decoding error");
+
+							// Check we are reading in-bounds
+							if(cur + direct_count * 4 > end)
+								throw ImFormatExcep("Decoding error");
+
+							for(int z=0; z<direct_count; ++z)
+							{
+								texture->getPixel(x, dest_y)[0] = data[cur + 2];
+								texture->getPixel(x, dest_y)[1] = data[cur + 1];
+								texture->getPixel(x, dest_y)[2] = data[cur + 0];
+								texture->getPixel(x, dest_y)[3] = data[cur + 3];
+								x++;
+								cur += 4;
+							}
+						}
+					}
+				}
+			}
 		}
 		else
 		{
 			if(bytes_pp == 1)
 			{
-				const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
+				const uint8* const srcpointer = (uint8*)file.fileData() + sizeof(TGA_HEADER);
 				for(int y=0; y<height; ++y)
 					for(int x=0; x<width; ++x)
 					{
@@ -269,7 +335,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 			}	
 			else if(bytes_pp == 3)
 			{
-				const byte* const srcpointer = (byte*)file.fileData() + sizeof(TGA_HEADER);
+				const uint8* const srcpointer = (uint8*)file.fileData() + sizeof(TGA_HEADER);
 				for(int y=0; y<height; ++y)
 				{
 					for(int x=0; x<width; ++x)
@@ -282,10 +348,22 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 					}
 				}
 			}
-			/*else if(bytes_pp == 4)
+			else if(bytes_pp == 4)
 			{
-			// TODO: Handle?
-			}*/
+				const uint8* const srcpointer = (uint8*)file.fileData() + sizeof(TGA_HEADER);
+				for(int y=0; y<height; ++y)
+				{
+					for(int x=0; x<width; ++x)
+					{
+						const int srcoffset = (x + width*(height - 1 - y))*bytes_pp;
+
+						texture->getPixel(x, y)[0] = srcpointer[srcoffset+2];
+						texture->getPixel(x, y)[1] = srcpointer[srcoffset+1];
+						texture->getPixel(x, y)[2] = srcpointer[srcoffset+0];
+						texture->getPixel(x, y)[3] = srcpointer[srcoffset+3];
+					}
+				}
+			}
 			else
 			{
 				throw ImFormatExcep("invalid bytes per pixel.");
@@ -303,46 +381,6 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 }
 
 
-void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encoded_img_out)
-{
-	TGA_HEADER header;
-	memset(&header, 0, sizeof(TGA_HEADER));
-
-	header.identsize = 0;
-	//header.colourmaptype;//no palette
-	header.imagetype = 2;//rgb
-
-	header.xstart = 0;
-	header.ystart = 0;
-	header.width = (short)bitmap.getWidth(); // TODO: throw exception on too large bitmap.
-	header.height = (short)bitmap.getHeight();
-
-	header.bits = (byte)(bitmap.getBytesPP() * 8);
-	header.descriptor = 0;
-
-	encoded_img_out.resize(sizeof(TGA_HEADER));
-	memcpy(&(*encoded_img_out.begin()), &header, sizeof(TGA_HEADER));
-
-	if(bitmap.getBytesPP() == 3)
-	{
-		for(unsigned int x=0; x<bitmap.getWidth(); ++x)
-		{
-			for(unsigned int y=0; y<bitmap.getHeight(); ++y)
-			{
-				encoded_img_out.push_back(bitmap.getPixel(x, y)[2]);
-				encoded_img_out.push_back(bitmap.getPixel(x, y)[1]);
-				encoded_img_out.push_back(bitmap.getPixel(x, y)[0]);
-			}
-		}
-	}
-	else
-	{
-		assert(0);
-	}
-
-}
-
-
 #if BUILD_TESTS
 
 
@@ -351,6 +389,33 @@ void TGADecoder::encode(const Bitmap& bitmap, std::vector<unsigned char>& encode
 
 void TGADecoder::test()
 {
+	// Try loading a TGA with an alpha channel
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A.tga");
+		testAssert(im->getMapWidth() == 128);
+		testAssert(im->getMapHeight() == 256);
+		testAssert(im->getBytesPerPixel() == 4);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Try a file with alpha but no RLE.
+	try
+	{
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A_no_RLE.tga");
+		testAssert(im->getMapWidth() == 128);
+		testAssert(im->getMapHeight() == 256);
+		testAssert(im->getBytesPerPixel() == 4);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
 	// Try loading a RGB TGA without RLE
 	try
 	{
