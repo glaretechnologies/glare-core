@@ -30,7 +30,7 @@ BVH
 ----
 Triangle mesh acceleration structure.
 =====================================================================*/
-SSE_CLASS_ALIGN BVH : public Tree
+class BVH : public Tree
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

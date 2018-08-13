@@ -32,7 +32,7 @@ ObjectTree
 ----------
 
 =====================================================================*/
-SSE_CLASS_ALIGN ObjectTree
+class ObjectTree
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

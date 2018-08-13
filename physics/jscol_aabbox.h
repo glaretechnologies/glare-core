@@ -27,7 +27,7 @@ Axis aligned bounding box.
 Single-precision floating point.
 Must be 16-byte aligned.
 =====================================================================*/
-SSE_CLASS_ALIGN AABBox
+class AABBox
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

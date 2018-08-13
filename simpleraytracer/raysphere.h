@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "../physics/jscol_aabbox.h"
 
 
-SSE_CLASS_ALIGN RaySphere : public Geometry
+class RaySphere : public Geometry
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

@@ -53,7 +53,7 @@ Camera
 #pragma warning(push)
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
 #endif
-SSE_CLASS_ALIGN Camera : public Geometry
+class Camera : public Geometry
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

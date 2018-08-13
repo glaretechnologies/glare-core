@@ -48,7 +48,7 @@ KDTree
 -------
 Kd-Tree
 =====================================================================*/
-SSE_CLASS_ALIGN KDTree : public Tree
+class KDTree : public Tree
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

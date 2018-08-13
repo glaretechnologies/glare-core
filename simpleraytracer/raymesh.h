@@ -42,7 +42,7 @@ const int MAX_NUM_UV_SETS = 8;
 
 
 // Should have a size of 32 bytes
-SSE_CLASS_ALIGN RayMeshTriangle
+class RayMeshTriangle
 {
 public:
 	RayMeshTriangle()
@@ -173,7 +173,7 @@ RayMesh
 #pragma warning(push)
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
 #endif
-SSE_CLASS_ALIGN RayMesh : public Geometry
+class RayMesh : public Geometry
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE

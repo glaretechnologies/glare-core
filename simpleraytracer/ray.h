@@ -14,7 +14,7 @@ Ray
 ---
 Need not be normalised.
 =====================================================================*/
-SSE_CLASS_ALIGN Ray
+class Ray
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE
