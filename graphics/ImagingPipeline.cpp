@@ -206,6 +206,7 @@ struct SumBuffersTaskClosure
 	bool zero_alpha_outside_region;
 	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
+	bool render_foreground_alpha;
 };
 
 
@@ -236,7 +237,7 @@ public:
 								Vec2i(	(render_regions[i].x2 + closure.margin_ssf1) * closure.ssf - rr_margin,
 										(render_regions[i].y2 + closure.margin_ssf1) * closure.ssf - rr_margin));
 
-		const bool have_alpha_channel = closure.render_channels.hasAlpha();
+		const bool render_foreground_alpha = closure.render_foreground_alpha;
 		const int num_layers = (int)closure.render_channels.layers.size();
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
 
@@ -285,7 +286,7 @@ public:
 				}
 
 				// Get alpha from alpha channel if it exists
-				sum.x[3] = have_alpha_channel ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
+				sum.x[3] = render_foreground_alpha ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
 
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % closure.render_channels.getWidth();
@@ -305,7 +306,7 @@ public:
 						}
 
 						// Get alpha from (region) alpha channel if it exists
-						sum.x[3] = have_alpha_channel ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+						sum.x[3] = render_foreground_alpha ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 					}
 					else
 					{
@@ -335,6 +336,7 @@ void sumLightLayers(
 	int ssf,
 	bool zero_alpha_outside_region,
 	float region_alpha_bias,
+	bool render_foreground_alpha,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 ) 
@@ -347,6 +349,7 @@ void sumLightLayers(
 	closure.ssf = ssf;
 	closure.zero_alpha_outside_region = zero_alpha_outside_region;
 	closure.region_alpha_bias = region_alpha_bias;
+	closure.render_foreground_alpha = render_foreground_alpha;
 	
 	const size_t num_pixels = render_channels.getWidth() * render_channels.getHeight();
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
@@ -476,7 +479,7 @@ static void doTonemapFullBuffer(
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
-		renderer_settings.zero_alpha_outside_region, region_alpha_bias, temp_summed_buffer, task_manager);
+		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
@@ -1199,7 +1202,7 @@ void doTonemap(
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as doTonemapFullBuffer() doesn't handle subres sizes, also not needed.
-	if((subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
+	if((channel == &render_channels.layers[0]) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
 	{
 		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
