@@ -93,10 +93,10 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
-		const float value_factor = 10000.f;
+		//const float value_factor = 10000.f;
 
 		// Try with constant colour of (0.2, 0.4, 0.6) and alpha 0.5
-		const float alpha = 0.5f;
+		//const float alpha = 0.5f;
 		RenderChannels render_channels;
 		render_channels.w = full_W;
 		render_channels.h = full_W;
@@ -193,6 +193,9 @@ void test()
 		const int full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
 
 		RenderChannels render_channels;
+		render_channels.w = full_W;
+		render_channels.h = full_W;
+		render_channels.stride = 3;
 
 		render_channels.layers.push_back(ChannelInfo());
 		render_channels.layers.back().type = ChannelInfo::ChannelType_MainLayers;
