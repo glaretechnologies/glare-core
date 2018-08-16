@@ -79,7 +79,7 @@ The output data components will be in the range [0, 1].
 void doTonemap(
 	DoTonemapScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
-	const ChannelInfo* channel, // channel to tone-map.  if channel = layers[0], then blend together all the main layers.
+	const ChannelInfo* channel, // channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
 	const std::vector<Vec3f>& layer_weights, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
@@ -92,7 +92,8 @@ void doTonemap(
 	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
-	int subres_factor = 1 // Number of times smaller resolution we will do the realtime rendering at.
+	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
+	bool do_tonemapping = true // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
 );
 
 

@@ -19,6 +19,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../graphics/SRGBUtils.h"
 #include "../maths/mathstypes.h"
 #include "../maths/Vec4f.h"
+#include "../maths/Matrix4f.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
 #include "../utils/Timer.h"
@@ -720,6 +721,7 @@ struct ImagePipelineTaskClosure
 	float region_alpha_bias;
 	int subres_factor;
 	bool render_foreground_alpha;
+	bool do_tonemapping;
 
 	bool skip_curves;
 
@@ -747,6 +749,8 @@ public:
 		const ImagePipelineTaskClosure& closure = *this->closure_;
 
 		// Build layer weights.  Layer weight = light layer value * image_scale.
+		const float image_scale        = closure.image_scale;
+		const float region_image_scale = closure.region_image_scale;
 		SmallArray<Colour4f, 32> layer_weights(closure.render_channels->layers.size());
 		SmallArray<Colour4f, 32> region_layer_weights(closure.render_channels->layers.size());
 		
@@ -761,9 +765,23 @@ public:
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool has_spectral_channel = closure.render_channels->hasSpectral();
 		
-		const int source_render_channel_offset = closure.channel->offset;
-		const bool colour3_channel = closure.channel->num_components >= 3;
-		const bool tonemap_channel = closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty;
+		const bool blend_main_layers = closure.channel == NULL;
+		const int source_render_channel_offset = closure.channel ? closure.channel->offset : 0;
+		const bool colour3_channel = closure.channel ? (closure.channel->num_components >= 3) : false;
+		const bool tonemap_channel = closure.do_tonemapping && (closure.channel == NULL || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
+
+		// We want to allow channels like position to take on negative values.
+		// For other channels, like beauty channels, we want values to be >= 0.
+		// These constants will only be used when we are not tonemapping.
+		const float lower_clamping_bound = closure.channel ? ((closure.channel->type == ChannelInfo::ChannelType_NonBeauty) ? -std::numeric_limits<float>::infinity() : 0.f) : 0.f;
+		const bool convert_from_XYZ_to_sRGB = closure.channel ? (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty) : true;
+
+		// Transform from XYZ to sRGB
+		Matrix4f colour_space_change;
+		if(convert_from_XYZ_to_sRGB)
+			colour_space_change = Matrix4f(closure.tonemap_params->XYZ_to_sRGB, Vec3f(0.0f)); // Bottom row should be (0,0,0,1) so that alpha value is not changed.
+		else
+			colour_space_change = Matrix4f::identity();
 
 		const ptrdiff_t final_xres = closure.final_xres;
 		const ptrdiff_t filter_size = closure.filter_size;
@@ -830,7 +848,7 @@ public:
 
 					assert(!has_spectral_channel);
 					
-					if(source_render_channel_offset == 0) // blend together main light layers (usual rendering).
+					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
@@ -840,19 +858,19 @@ public:
 							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
 						}
 					}
-					else // source_render_channel_offset > 0 means read from one of the non-main layers.
+					else // else just tonemap one layer
 					{
 						if(colour3_channel)
 						{
 							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
 							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
 							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-							sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
+							sum += Colour4f(r, g, b, 0.f) * image_scale;
 						}
 						else // Else if scalar channel:
 						{
 							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							sum += Colour4f(v, v, v, 0.f) * layer_weights[0];
+							sum += Colour4f(v, v, v, 0.f) * image_scale;
 						}
 					}
 
@@ -865,7 +883,7 @@ public:
 						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
-							if(source_render_channel_offset == 0)
+							if(blend_main_layers)
 							{
 								for(ptrdiff_t z = 0; z < num_layers; ++z)
 								{
@@ -882,12 +900,12 @@ public:
 									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
 									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
 									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[0];
+									sum += Colour4f(r, g, b, 0.f) * region_image_scale;
 								}
 								else // Else if scalar channel:
 								{
 									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									sum += Colour4f(v, v, v, 0.f) * region_layer_weights[0];
+									sum += Colour4f(v, v, v, 0.f) * region_image_scale;
 								}
 							}
 
@@ -917,8 +935,21 @@ public:
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
-				else if(tonemap_channel) // Don't tonemap render passes like depth etc..
-					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+				else
+				{
+					if(tonemap_channel) // Don't tonemap render passes like depth etc..
+						closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+					else
+					{
+						const size_t tile_buffer_pixels = tile_buffer.numPixels();
+						for(size_t i = 0; i < tile_buffer_pixels; ++i)
+						{
+							const Colour4f col = tile_buffer.getPixel(i);
+							const Vec4f sRGB = colour_space_change * Vec4f(col.v); // Standard pipeline: transform from XYZ to sRGB
+							tile_buffer.getPixel(i) = max(Colour4f(sRGB.v), Colour4f(lower_clamping_bound)); // Make sure >= lower_clamping_bound
+						}
+					}
+				}
 
 				if(apply_curves) // Apply colour curves
 				{
@@ -991,7 +1022,7 @@ public:
 					}
 					else
 					{
-						if(source_render_channel_offset == 0) //blend together main light layers (usual rendering).
+						if(blend_main_layers) // blend together main light layers (usual rendering).
 						{
 							for(ptrdiff_t z = 0; z < num_layers; ++z)
 							{
@@ -1001,19 +1032,19 @@ public:
 								sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
 							}
 						}
-						else // source_render_channel_offset > 0 means read from one of the non-main layers.
+						else // else read from one of the non-main layers.
 						{
 							if(colour3_channel)
 							{
 								float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
 								float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
 								float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-								sum += Colour4f(r, g, b, 0.f) * layer_weights[0];
+								sum += Colour4f(r, g, b, 0.f) * image_scale;
 							}
 							else
 							{
 								float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-								sum += Colour4f(v, v, v, 0.f) * layer_weights[0];
+								sum += Colour4f(v, v, v, 0.f) * image_scale;
 							}
 						}
 					}
@@ -1027,7 +1058,7 @@ public:
 						if(pixelIsInARegion(x, y, regions))
 						{
 							sum = Colour4f(0.f);
-							if(source_render_channel_offset == 0)
+							if(blend_main_layers)
 							{
 								for(ptrdiff_t z = 0; z < num_layers; ++z)
 								{
@@ -1044,12 +1075,12 @@ public:
 									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
 									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
 									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[0];
+									sum += Colour4f(r, g, b, 0.f) * region_image_scale;
 								}
 								else // Else if scalar channel:
 								{
 									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									sum += Colour4f(v, v, v, 0.f) * region_layer_weights[0];
+									sum += Colour4f(v, v, v, 0.f) * region_image_scale;
 								}
 							}
 
@@ -1078,9 +1109,20 @@ public:
 						tile_buffer.getPixel(i).set(0, 0, 0, 1 - unshadow_frac);
 					}
 				}
-				else if(tonemap_channel)
+				else
 				{
-					closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+					if(tonemap_channel)
+						closure.renderer_settings->tone_mapper->toneMapImage(*closure.tonemap_params, tile_buffer);
+					else
+					{
+						const size_t tile_buffer_pixels = tile_buffer.numPixels();
+						for(size_t i = 0; i < tile_buffer_pixels; ++i)
+						{
+							const Colour4f col = tile_buffer.getPixel(i);
+							const Vec4f sRGB = colour_space_change * Vec4f(col.v); // Standard pipeline: transform from XYZ to sRGB
+							tile_buffer.getPixel(i) = max(Colour4f(sRGB.v), Colour4f(lower_clamping_bound)); // Make sure >= lower_clamping_bound
+						}
+					}
 				}
 
 				addr = 0;
@@ -1143,7 +1185,8 @@ void doTonemap(
 	bool XYZ_colourspace,
 	int margin_ssf1,
 	Indigo::TaskManager& task_manager,
-	int subres_factor
+	int subres_factor,
+	bool do_tonemapping
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::doTonemap", 1);
@@ -1202,7 +1245,7 @@ void doTonemap(
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as doTonemapFullBuffer() doesn't handle subres sizes, also not needed.
-	if((channel == &render_channels.layers[0]) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
+	if((channel == NULL) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
 	{
 		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
@@ -1229,8 +1272,10 @@ void doTonemap(
 		else
 			tile_buffer_size = image_tile_size * ss_factor + filter_size;
 
+		const size_t num_tasks = myMax<size_t>(1, task_manager.getNumThreads()); // Task manager may have zero threads, in which case use one task.
+
 		// Ensure that we have sufficiently many buffers of sufficient size for as many threads as the task manager uses.
-		scratch_state.per_thread_tile_buffers.resize(task_manager.getNumThreads());
+		scratch_state.per_thread_tile_buffers.resize(num_tasks);
 		for(size_t tile_buffer = 0; tile_buffer < scratch_state.per_thread_tile_buffers.size(); ++tile_buffer)
 		{
 			scratch_state.per_thread_tile_buffers[tile_buffer].resizeNoCopy(tile_buffer_size, tile_buffer_size);
@@ -1267,6 +1312,7 @@ void doTonemap(
 		closure.tonemap_params = &tonemap_params;
 		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
 		closure.channel = channel;
+		closure.do_tonemapping = do_tonemapping;
 
 		closure.x_tiles = x_tiles;
 		closure.final_xres = final_xres;
@@ -1282,7 +1328,7 @@ void doTonemap(
 		// Timer timer;
 
 		// Allocate (or check are already allocated) ImagePipelineTasks
-		const size_t num_tasks = myMax<size_t>(1, task_manager.getNumThreads()); // Task manager may have zero threads, in which case use one task.
+		
 		scratch_state.tasks.resize(num_tasks);
 		for(size_t i=0; i<num_tasks; ++i)
 			if(scratch_state.tasks[i].isNull())
@@ -1302,7 +1348,7 @@ void doTonemap(
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}
 	
-	output_is_nonlinear = renderer_settings.tone_mapper->outputIsNonLinear();
+	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
 
 	// TEMP HACK: Chromatic abberation
 	/*Image temp;
