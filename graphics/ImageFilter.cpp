@@ -727,9 +727,7 @@ void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int
 
 		Timer t;
 		if(verbose) conPrint("lowResConvolve()");
-	assert(filter_low.getWidth() == 1024);
-	assert(filter_low.getHeight() == 1024);
-
+		
 		//writeImage(in, "in.exr");
 		//writeImage(filter_low, "filter.exr");
 
