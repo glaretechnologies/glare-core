@@ -87,47 +87,75 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 
 		Imf::InputFile file(exr_ifstream);
 
-		const bool has_R = file.header().channels().findChannel("r") || file.header().channels().findChannel("R");
-		const bool has_G = file.header().channels().findChannel("g") || file.header().channels().findChannel("G");
-		const bool has_B = file.header().channels().findChannel("b") || file.header().channels().findChannel("B");
-		const bool has_A = file.header().channels().findChannel("a") || file.header().channels().findChannel("A");
+		const Imf::ChannelList& channels = file.header().channels();
 
-		Imf::PixelType use_pixel_type = Imf::FLOAT;
-		int num_channels = 0;
-		for(Imf::ChannelList::ConstIterator i = file.header().channels().begin(); i != file.header().channels().end(); ++i)
-		{
-			const Imf::Channel& channel = i.channel();
-			const Imf::PixelType pixel_type = channel.type;
-			use_pixel_type = pixel_type;
-			num_channels++;
-		}
-
-		if(num_channels == 0)
+		if(channels.begin() == channels.end())
 			throw ImFormatExcep("EXR file had no channels.");
-		else if(num_channels == 1)
+
+		// Get names of all layers in the EXR
+		std::set<std::string> layer_names;
+		channels.layers(layer_names);
+
+		std::vector<std::string> channels_to_load_names;
+		if(layer_names.empty())
 		{
-			if(!has_R) throw ImFormatExcep("Expected R channel in EXR file.");
+			// Look for channels called R, G, B, or R, G, B, A, and if found, load them in RGBA order.
+			if(channels.findChannel("R"))
+			{
+				channels_to_load_names.push_back("R");
+
+				if(channels.findChannel("G"))
+					channels_to_load_names.push_back("G");
+
+				if(channels.findChannel("B"))
+					channels_to_load_names.push_back("B");
+
+				if(channels.findChannel("A"))
+					channels_to_load_names.push_back("A");
+			}
+			else
+			{
+				// Just use the first channel (in alphabetic order)
+				channels_to_load_names.push_back(channels.begin().name());
+			}
 		}
-		else if(num_channels == 2)
+		else
 		{
-			if(!has_R) throw ImFormatExcep("Expected R channel in EXR file.");
-			if(!has_A) throw ImFormatExcep("Expected A channel in EXR file.");
-		}
-		else if(num_channels == 3)
-		{
-			if(!has_R) throw ImFormatExcep("Expected R channel in EXR file.");
-			if(!has_G) throw ImFormatExcep("Expected G channel in EXR file.");
-			if(!has_B) throw ImFormatExcep("Expected B channel in EXR file.");
-		}
-		else if(num_channels >= 4)
-		{
-			if(!has_R) throw ImFormatExcep("Expected R channel in EXR file.");
-			if(!has_G) throw ImFormatExcep("Expected G channel in EXR file.");
-			if(!has_B) throw ImFormatExcep("Expected B channel in EXR file.");
-			if(!has_A) throw ImFormatExcep("Expected A channel in EXR file.");
+			// We have one or more layers.
+			// Just load channels from the first (using alphabetic order) layer.
+			const std::string layer = *layer_names.begin();
+
+			// Look for channels called R, G, B, or R, G, B, A, and if found, load them in RGBA order.
+			if(channels.findChannel(layer + ".R"))
+			{
+				channels_to_load_names.push_back(layer + ".R");
+
+				if(channels.findChannel(layer + ".G"))
+					channels_to_load_names.push_back(layer + ".G");
+
+				if(channels.findChannel(layer + ".B"))
+					channels_to_load_names.push_back(layer + ".B");
+
+				if(channels.findChannel(layer + ".A"))
+					channels_to_load_names.push_back(layer + ".A");
+			}
+			else
+			{
+				// Just use the first channel in this layer (in alphabetic order)
+				Imf::ChannelList::ConstIterator begin, end;
+				channels.channelsInLayer(layer, begin, end);
+				if(begin == end)
+					throw ImFormatExcep("layer had no channels."); // Shouldn't get here.
+
+				channels_to_load_names.push_back(begin.name());
+			}
 		}
 
-		const int use_num_channels = myMin(4, num_channels);
+		assert(!channels_to_load_names.empty() && channels.findChannel(channels_to_load_names[0]));
+
+		const Imf::PixelType use_pixel_type = channels.findChannel(channels_to_load_names[0])->type;
+
+		const unsigned int result_num_channels = (unsigned int)channels_to_load_names.size();
 
 		Imath::Box2i dw = file.header().dataWindow();
 		const int width = dw.max.x - dw.min.x + 1;
@@ -137,52 +165,21 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 
 		if(use_pixel_type == Imf::FLOAT)
 		{
-			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, use_num_channels);
+			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, result_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
-			const size_t x_stride = sizeof(float) * use_num_channels;
-			const size_t y_stride = sizeof(float) * use_num_channels * width;
+			const size_t x_stride = sizeof(float) * result_num_channels;
+			const size_t y_stride = sizeof(float) * result_num_channels * width;
 
-			frameBuffer.insert("R",						// name
-				Imf::Slice(Imf::FLOAT,					// type
-				(char*)(new_image->getData() + 0),		// base
-				x_stride,
-				y_stride)
-			);
-
-			if(use_num_channels == 2)
+			for(int i=0; i<channels_to_load_names.size(); ++i)
 			{
-				frameBuffer.insert("A",					// name
-					Imf::Slice(Imf::FLOAT,				// type
-					(char*)(new_image->getData() + 1),	// base
-					x_stride,
-					y_stride)
-				);
-			}
-			else if(use_num_channels >= 3)
-			{
-				frameBuffer.insert("G",					// name
-					Imf::Slice(Imf::FLOAT,				// type
-					(char*)(new_image->getData() + 1),	// base
-					x_stride,
-					y_stride)
-				);
-				frameBuffer.insert("B",					// name
-					Imf::Slice(Imf::FLOAT,				// type
-					(char*)(new_image->getData() + 2),	// base
-					x_stride,
-					y_stride)
-				);
-
-				if(use_num_channels == 4)
-				{
-					frameBuffer.insert("A",				// name
-						Imf::Slice(Imf::FLOAT,			// type
-						(char*)(new_image->getData() + 3),// base
+				frameBuffer.insert(channels_to_load_names[i],	// name
+					Imf::Slice(Imf::FLOAT,						// type
+						(char*)(new_image->getData() + i),		// base
 						x_stride,
-						y_stride)
-					);
-				}
+						y_stride
+					)
+				);
 			}
 
 			file.setFrameBuffer(frameBuffer);
@@ -192,53 +189,23 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		}
 		else if(use_pixel_type == Imf::HALF)
 		{
-			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, use_num_channels);
+			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, result_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
-			const size_t x_stride = sizeof(half) * use_num_channels;
-			const size_t y_stride = sizeof(half) * use_num_channels * width;
+			const size_t x_stride = sizeof(half) * result_num_channels;
+			const size_t y_stride = sizeof(half) * result_num_channels * width;
 
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)(new_image->getData() + 0),			// base
-				x_stride,
-				y_stride)
-			);
-			if(use_num_channels == 2)
+			for(int i=0; i<channels_to_load_names.size(); ++i)
 			{
-				frameBuffer.insert("A",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(new_image->getData() + 1),			// base
-					x_stride,
-					y_stride)
-				);
-			}
-			else if(use_num_channels >= 3)
-			{
-				frameBuffer.insert("G",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(new_image->getData() + 1),			// base
-					x_stride,
-					y_stride)
-				);
-				frameBuffer.insert("B",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(new_image->getData() + 2),			// base
-					x_stride,
-					y_stride)
-				);
-
-				if(use_num_channels == 4)
-				{
-					frameBuffer.insert("A",				// name
-						Imf::Slice(Imf::HALF,			// type
-						(char*)(new_image->getData() + 3),			// base
+				frameBuffer.insert(channels_to_load_names[i],	// name
+					Imf::Slice(Imf::HALF,						// type
+					(char*)(new_image->getData() + i),		// base
 						x_stride,
-						y_stride)
-					);
-				}
+						y_stride
+					)
+				);
 			}
-
+			
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
 
