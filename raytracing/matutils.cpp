@@ -717,63 +717,67 @@ void unitTest()
 }
 
 
-void doTestScatters(const Reference<Material>& material_, float epsilon, bool entering_medium)
+// Calls scatter() on the material, then checks the BSDF and pdfs from evaluateBSDF() give the same results.
+// Does this a few times, for both adjoint and non-adjoint scatters/ray directions.
+static void doTestScatters(const Reference<Material>& material_, float epsilon, bool entering_medium, const Vec4f& normal)
 {
+	const Material& material = *material_;
+	const Vec4f N_s = normal;
+	const Vec4f N_g = normal;
+
+	ThreadContext context;
+	VoidMedium void_medium;
+	World world;
+	const double time = 0.0;
+	const float wavelen = 600.0f;
+	const SpectralVector wavelengths(wavelen);
+
+	Object ob(
+		new RaySphere(Vec4f(0,0,0,1), 1.0),
+		js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1), Quatf::identity())),
+		Object::Matrix3Type::identity(), // child to world
+		std::vector<Reference<Material> >(1, material_),
+		std::vector<EmitterScale>(), // emitter scalings
+		std::vector<const IESDatum*>()
+	);
+
+	const Vec4f in = normalise(Vec4f(-1, 0, -1, 0));
+
+	const bool shading_normals_flipped = dot(in, N_s) >= 0;
+
+	FullHitInfo hitinfo(
+		&ob,
+		ob.getMaterialForHit(HitInfo(0, HitInfo::SubElemCoordsType(0,0))),
+		&void_medium,
+		FullHitInfo::Pos3Type(0,0,0,1),
+		N_g, // N_g (unflipped)
+		shading_normals_flipped ? -N_s : N_s, // shading normal (flipped) 
+		shading_normals_flipped ? -N_s : N_s, // pre-bump shading normal (flipped)
+		HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
+		Vec2f(0,0), // uv 0
+		shading_normals_flipped, // shading normals flipped
+		(float)time
+	);
+
+	// Test non-adjoint scatters
+	const int N = 1000;
+	MTwister rng(1);
+	for(int i=0; i<N; ++i)
 	{
-		const Material& material = *material_;
-		const Vec4f N_s(0,0,1,0);
-		const Vec4f N_g(0,0,1,0);
-
-		ThreadContext context;
-		VoidMedium void_medium;
-		World world;
-		const double time = 0.0;
-		const float wavelen = 600.0f;
-		const SpectralVector wavelengths(wavelen);
-
-		Object ob(
-			Reference<Geometry>(new RaySphere(Vec4f(0,0,0,1), 1.0)),
-			js::Vector<TransformKeyFrame, 16>(1, TransformKeyFrame(0.0, Vec4f(0,0,0,1), Quatf::identity())),
-			Object::Matrix3Type::identity(), // child to world
-			std::vector<Reference<Material> >(1, material_),
-			std::vector<EmitterScale>(), // emitter scalings
-			std::vector<const IESDatum*>()
+		float qmc_samples[1] = { 0.f };
+		SampleServerWrapper ssw(qmc_samples, /*num_qmc_samples=*/0, rng, 0, 1);
+			
+		Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
+		scatter_args.entering_medium = entering_medium;
+		Material::ScatterResults scatter_res;
+		const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
+			false, // adjoint
+			true, // compute adjoint info
+			scatter_res
 		);
 
-		FullHitInfo hitinfo(
-			&ob,
-			ob.getMaterialForHit(HitInfo(0, HitInfo::SubElemCoordsType(0,0))),
-			&void_medium,
-			FullHitInfo::Pos3Type(0,0,0,1),
-			N_g, // N_g
-			N_s, // shading normal
-			N_s, // pre-bump shading normal
-			HitInfo(0, HitInfo::SubElemCoordsType(0,0)),
-			Vec2f(0,0), // uv 0
-			false, // shading normals flipped
-			(float)time
-		);
-
-		// Test non-adjoint scatters
-		const int N = 1000;
-		MTwister rng(1);
-		for(int i=0; i<N; ++i)
+		if(valid)
 		{
-			float samples[1] = { 0.f };
-			SampleServerWrapper ssw(samples, 0, rng, 0, 1);
-			const Vec4f in = normalise(Vec4f(-1,0,-1,0));
-			Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
-			scatter_args.entering_medium = entering_medium;
-			Material::ScatterResults scatter_res;
-			const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
-				false, // adjoint
-				true, // compute adjoint info
-				scatter_res
-			);
-
-			//testAssert(valid);
-			if(valid)
-			{
 			testAssert(!scatter_res.sampled_delta);
 			testAssert(scatter_res.dir.isUnitLength());
 
@@ -793,31 +797,30 @@ void doTestScatters(const Reference<Material>& material_, float epsilon, bool en
 			SpectralVector C;
 			mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_a_given_b, C);
 
-			testAssert(epsEqual(C, scatter_res.C));
+			testAssert(epsEqual(C, scatter_res.C, epsilon));
 
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_a_given_b, epsilon));
 			testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_b_given_a, epsilon));
-			}
 		}
+	}
 
-		// Test adjoint scatters
-		for(int i=0; i<N; ++i)
+	// Test adjoint scatters
+	for(int i=0; i<N; ++i)
+	{
+		float samples[1] = { 0.f };
+		SampleServerWrapper ssw(samples, 0, rng, 0, 1);
+		Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
+		scatter_args.entering_medium = entering_medium;
+		Material::ScatterResults scatter_res;
+		const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
+			true, // adjoint
+			true, // compute adjoint info
+			scatter_res
+		);
+
+		if(valid)
 		{
-			float samples[1] = { 0.f };
-			SampleServerWrapper ssw(samples, 0, rng, 0, 1);
-			const Vec4f in = normalise(Vec4f(-1,0,-1,0));
-			Material::ScatterArgs scatter_args(hitinfo, in, 0.0);
-			scatter_args.entering_medium = entering_medium;
-			Material::ScatterResults scatter_res;
-			const bool valid = material.scatter(context, scatter_args, ssw, hitinfo, wavelengths, in,
-				true, // adjoint
-				true, // compute adjoint info
-				scatter_res
-			);
-
-			if(valid)
-			{
 			testAssert(!scatter_res.sampled_delta);
 			testAssert(scatter_res.dir.isUnitLength());
 
@@ -834,14 +837,12 @@ void doTestScatters(const Reference<Material>& material_, float epsilon, bool en
 			SpectralVector C_adjoint;
 			mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_b_given_a, C_adjoint); // Since we want to get the (adjoint) contribution factor, use p(b|a)
 
-			testAssert(epsEqual(C_adjoint, scatter_res.C));
+			testAssert(epsEqual(C_adjoint, scatter_res.C, epsilon));
 
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_b_given_a, epsilon));
 			testAssert(Maths::approxEq(scatter_res.p_in_given_out, bsdf_res.p_a_given_b, epsilon));
-			}
 		}
-
 	}
 }
 
@@ -850,6 +851,7 @@ void doTestScatters(const Reference<Material>& material_, float epsilon, bool en
 void testScatters(const Reference<Material>& material_, float epsilon)
 {
 	// Test scatters off a material with geometric normal pointing down, vs scatters with geometric normal pointing up.  The results should be exactly the same (apart for the Double-sided thin material case)
+	if(material_->materialType() != Material::MaterialType_DoubleSidedThin)
 	{
 		ThreadContext context;
 		VoidMedium void_medium;
@@ -893,9 +895,6 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 			SSE_ALIGN float samples[32];
 			seq.evalPoints(samples);
 
-			//if(i == 21)
-			//	int a = 9;
-			
 			const Vec4f in = normalise(Vec4f(-1,0,-1,0)); // Ray going down
 
 			{
@@ -976,8 +975,10 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 	}
 
 
-	doTestScatters(material_, epsilon, /*entering_medium=*/false);
-	doTestScatters(material_, epsilon, /*entering_medium=*/true);
+	doTestScatters(material_, epsilon, /*entering_medium=*/false, /*normal=*/Vec4f(0, 0, 1, 0));
+	doTestScatters(material_, epsilon, /*entering_medium=*/true,  /*normal=*/Vec4f(0, 0, 1, 0));
+	doTestScatters(material_, epsilon, /*entering_medium=*/false, /*normal=*/Vec4f(0, 0, -1, 0));
+	doTestScatters(material_, epsilon, /*entering_medium=*/true,  /*normal=*/Vec4f(0, 0, -1, 0));
 }
 
 
